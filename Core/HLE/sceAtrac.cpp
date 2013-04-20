@@ -32,6 +32,9 @@
 #define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
 #define ATRAC_ERROR_INCORRECT_READ_SIZE	     0x80630013
 #define ATRAC_ERROR_UNSET_PARAM              0x80630021
+#define ATRAC_ERROR_NO_ATRACID               0x80630003
+#define ATRAC_ERROR_BAD_CODECTYPE            0x80630004
+#define ATRAC_ERROR_ADD_DATA_IS_TOO_BIG      0x80630018
 
 #define AT3_MAGIC		0x0270
 #define AT3_PLUS_MAGIC		0xFFFE
@@ -463,8 +466,16 @@ void Atrac::Analyze()
 
 u32 sceAtracGetAtracID(int codecType)
 {
-	ERROR_LOG(HLE, "FAKE sceAtracGetAtracID(%i)", codecType);
-	return createAtrac(new Atrac);
+	INFO_LOG(HLE, "sceAtracGetAtracID(%i)", codecType);
+	if (codecType < 0x1000 || codecType > 0x1001)
+		return ATRAC_ERROR_BAD_CODECTYPE;
+
+	int atracID = createAtrac(new Atrac);
+	Atrac *atrac = getAtrac(atracID);
+	if (!atrac)
+		return ATRAC_ERROR_NO_ATRACID;
+	atrac->codeType = codecType;
+	return atracID;
 }
 
 u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
@@ -476,6 +487,9 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 		return 0;
 	}
 	// TODO
+	if (bytesToAdd > atrac->first.writableBytes)
+		return ATRAC_ERROR_ADD_DATA_IS_TOO_BIG;
+
 	if (atrac->data_buf && (bytesToAdd > 0)) {
 		int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
 		Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, addbytes);
@@ -1169,15 +1183,16 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 
 int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
+	DEBUG_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 	Atrac *atrac = getAtrac(atracID);
-	if (Memory::IsValidAddress(sourceBytesConsumedAddr))
+	/*if (Memory::IsValidAddress(sourceBytesConsumedAddr))
 		Memory::Write_U32(0, sourceBytesConsumedAddr);
 	if (Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr)) {
-		Memory::Write_U32(ATRAC_MAX_SAMPLES, samplesAddr);
+		Memory::Write_U32(ATRAC_MAX_SAMPLES, sampleBytesAddr);
 		int outputChannels = atrac ? atrac->atracOutputChannels : 2;
-		Memory::Memset(sampleBytesAddr, 0, ATRAC_MAX_SAMPLES * sizeof(s16) * outputChannels);
-	}
+		Memory::Memset(samplesAddr, 0, ATRAC_MAX_SAMPLES * sizeof(s16) * outputChannels);
+	}*/
+	Memory::Write_U32(0, sampleBytesAddr);
 	return 0;
 }
 
