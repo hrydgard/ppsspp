@@ -186,6 +186,7 @@ public:
 	u32 openMode;
 
 	u32 npdrm;
+	u32 pgd_offset;
 	PGD_DESC *pgdInfo;
 };
 
@@ -735,6 +736,7 @@ FileNode *__IoOpen(const char* filename, int flags, int mode) {
 	f->openMode = access;
 
 	f->npdrm = (flags & O_NPDRM)? true: false;
+	f->pgd_offset = 0;
 
 	return f;
 }
@@ -1365,32 +1367,53 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 
 	switch (cmd) {
 	// Define decryption key (amctrl.prx DRM)
-	case 0x04100001:  
+	case 0x04100001: {
+		u8 keybuf[16];
+		u8 *key_ptr;
+		u8 pgd_header[0x90];
+		u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
+
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
-			u8 keybuf[16];
-			u8 pgd_header[0x90];
-			u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
-			INFO_LOG(HLE, "Decrypting PGD DRM files");
 			memcpy(keybuf, Memory::GetPointer(indataPtr), 16);
-			pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
-			f->pgdInfo = pgd_open(pgd_header, 2, keybuf);
-			if(f->pgdInfo==NULL){
-				ERROR_LOG(HLE, "Not a valid PGD file. Open as normal file.");
-				f->npdrm = false;
-				pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
-				if(memcmp(pgd_header, pgd_magic, 4)==0){
-					// File is PGD file, but key mismatch
-					return ERROR_PGD_INVALID_HEADER;
-				}else{
-					// File is decrypted.
-					return 0;
-				}
+			key_ptr = keybuf;
+		}else{
+			key_ptr = NULL;
+		}
+
+		INFO_LOG(HLE, "Decrypting PGD DRM files");
+		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
+		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
+		f->pgdInfo = pgd_open(pgd_header, 2, key_ptr);
+		if(f->pgdInfo==NULL){
+			ERROR_LOG(HLE, "Not a valid PGD file. Open as normal file.");
+			f->npdrm = false;
+			pspFileSystem.SeekFile(f->handle, (s32)0, FILEMOVE_BEGIN);
+			if(memcmp(pgd_header, pgd_magic, 4)==0){
+				// File is PGD file, but key mismatch
+				return ERROR_PGD_INVALID_HEADER;
 			}else{
-				// Everthing OK.
-				f->npdrm = true;
+				// File is decrypted.
 				return 0;
 			}
+		}else{
+			// Everthing OK.
+			f->npdrm = true;
+			f->pgdInfo->data_offset += f->pgd_offset;
+			return 0;
 		}
+		break;
+	}
+	// Set PGD offset. Called from sceNpDrmEdataSetupKey
+	case 0x04100002:
+		f->pgd_offset = indataPtr;
+		break;
+
+	// Get PGD data size. Called from sceNpDrmEdataGetDataSize
+	case 0x04100010:
+		if(f->pgdInfo)
+			return f->pgdInfo->data_size;
+		else
+			return (int)f->info.size;
 		break;
 
 	// Get UMD sector size
@@ -1443,7 +1466,7 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 {
 	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen);
 	// Just a low estimate on timing.
-	return hleDelayResult(0, "io ctrl command", 100);
+	return hleDelayResult(result, "io ctrl command", 100);
 }
 
 u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen)

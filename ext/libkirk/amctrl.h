@@ -45,6 +45,7 @@ int sceDrmBBMacInit(MAC_KEY *mkey, int type);
 int sceDrmBBMacUpdate(MAC_KEY *mkey, u8 *buf, int size);
 int sceDrmBBMacFinal(MAC_KEY *mkey, u8 *buf, u8 *vkey);
 int sceDrmBBMacFinal2(MAC_KEY *mkey, u8 *out, u8 *vkey);
+int bbmac_getkey(MAC_KEY *mkey, u8 *bbmac, u8 *vkey);
 
 // type: 1 use fixed key
 //       2 use fuse id
