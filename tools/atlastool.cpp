@@ -569,19 +569,9 @@ inline bool operator <(const CharRange &a, const CharRange &b) {
 	return a.start < b.start;
 }
 
-void GetLocales(const char *locales, std::vector<CharRange> &ranges)
-{
-	std::set<u16> kanji;
-	for (int i = 0; i < sizeof(kanjiFilter)/sizeof(kanjiFilter[0]); i+=2)
-	{
-		// TODO: learning level check?
-		if (kanjiFilter[i+1] > 0) {
-			kanji.insert(kanjiFilter[i]);
-		}
-	}
 
-	// Also, load chinese.txt if available.
-	FILE *f = fopen("chinese.txt", "rb");
+void LearnFile(const char *filename, const char *desc, std::set<u16> &chars, int lowerLimit, int upperLimit) {
+	FILE *f = fopen(filename, "rb");
 	if (f) {
 		fseek(f, 0, SEEK_END);
 		size_t sz = ftell(f);
@@ -595,16 +585,36 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 		int learnCount = 0;
 		while (!utf.end()) {
 			uint32_t c = utf.next();
-			if (c >= 0x3400) {
-				if (kanji.find(c) == kanji.end()) {
+			if (c >= lowerLimit && c <= upperLimit) {
+				if (chars.find(c) == chars.end()) {
 					learnCount++;
-					kanji.insert(c);
+					chars.insert(c);
 				}
 			}
 		}
 		delete [] data;
-		printf("%i Chinese charactes learned.\n", learnCount);
+		printf("%i %s characters learned.\n", learnCount, desc);
 	}
+
+}
+
+void GetLocales(const char *locales, std::vector<CharRange> &ranges)
+{
+	std::set<u16> kanji;
+	std::set<u16> hangul1, hangul2, hangul3;
+	for (int i = 0; i < sizeof(kanjiFilter)/sizeof(kanjiFilter[0]); i+=2)
+	{
+		// TODO: learning level check?
+		if (kanjiFilter[i+1] > 0) {
+			kanji.insert(kanjiFilter[i]);
+		}
+	}
+
+	// Also, load chinese.txt if available.
+	LearnFile("chinese.txt", "Chinese", kanji, 0x3400, 0xFFFF);
+	LearnFile("korean.txt", "Korean", hangul1, 0x1100, 0x11FF);
+	LearnFile("korean.txt", "Korean", hangul2, 0x3130, 0x318F);
+	LearnFile("korean.txt", "Korean", hangul3, 0xAC00, 0xD7A3);
 
 	// The end point of a range is now inclusive!
 
@@ -644,11 +654,14 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			break;
 		case 'c':  // All Kanji, filtered though!
 			ranges.push_back(range(0x3000, 0x303f));  // Ideographic symbols
-			ranges.push_back(range(0x3400, 0x9FFF, kanji));
-			ranges.push_back(range(0xF900, 0xFAFF, kanji));
+			ranges.push_back(range(0x4E00, 0x9FFF, kanji));
+			// ranges.push_back(range(0xFB00, 0xFAFF, kanji));
 			break;
 		case 'T':  // Thai
 			ranges.push_back(range(0x0E00, 0x0E5B));
+			break;
+		case 'K':  // Korean (hangul)
+			ranges.push_back(range(0xAC00, 0xD7A3, hangul3));
 			break;
 		}
 	}
