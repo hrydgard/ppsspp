@@ -626,10 +626,10 @@ MIPSInstruction tableVFPU5[8] =  //110111 xxx
 const MIPSInstruction tableVFPU6[32] =  //111100 xxx
 {
 //0
-	INSTR("vmmul",&Jit::Comp_Generic, Dis_MatrixMult, Int_Vmmul, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmmul",&Jit::Comp_Generic, Dis_MatrixMult, Int_Vmmul, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmmul",&Jit::Comp_Generic, Dis_MatrixMult, Int_Vmmul, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmmul",&Jit::Comp_Generic, Dis_MatrixMult, Int_Vmmul, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmul",&Jit::Comp_Vmmul, Dis_MatrixMult, Int_Vmmul, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmul",&Jit::Comp_Vmmul, Dis_MatrixMult, Int_Vmmul, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmul",&Jit::Comp_Vmmul, Dis_MatrixMult, Int_Vmmul, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmmul",&Jit::Comp_Vmmul, Dis_MatrixMult, Int_Vmmul, IS_VFPU|OUT_EAT_PREFIX),
 
 	INSTR("v(h)tfm2",&Jit::Comp_Generic, Dis_Vtfm, Int_Vtfm, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("v(h)tfm2",&Jit::Comp_Generic, Dis_Vtfm, Int_Vtfm, IS_VFPU|OUT_EAT_PREFIX),

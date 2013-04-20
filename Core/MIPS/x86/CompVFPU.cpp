@@ -783,4 +783,52 @@ void Jit::Comp_VScl(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
+void Jit::Comp_Vmmul(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	// TODO: This probably ignores prefixes?
+	if (js.MayHavePrefix())
+		DISABLE;
+
+	MatrixSize sz = GetMtxSize(op);
+	int n = GetMatrixSide(sz);
+
+	u8 sregs[16], tregs[16], dregs[16];
+	GetMatrixRegs(sregs, sz, _VS);
+	GetMatrixRegs(tregs, sz, _VT);
+	GetMatrixRegs(dregs, sz, _VD);
+
+	// TODO: test overlap, fix non-optimal.
+	u8 tempregs[16];
+	for (int a = 0; a < n; a++)
+	{
+		for (int b = 0; b < n; b++)
+		{
+			XORPS(XMM0, R(XMM0));
+			for (int c = 0; c < n; c++)
+			{
+				MOVSS(XMM1, fpr.V(sregs[b * 4 + c]));
+				MULSS(XMM1, fpr.V(tregs[a * 4 + c]));
+				ADDSS(XMM0, R(XMM1));
+			}
+			u8 temp = (u8) fpr.GetTempV();
+			fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
+			MOVSS(fpr.VX(temp), R(XMM0));
+			fpr.StoreFromRegisterV(temp);
+			tempregs[a * 4 + b] = temp;
+		}
+	}
+	for (int a = 0; a < n; a++)
+	{
+		for (int b = 0; b < n; b++)
+		{
+			u8 temp = tempregs[a * 4 + b];
+			fpr.MapRegV(temp, 0);
+			MOVSS(fpr.V(dregs[a * 4 + b]), fpr.VX(temp));
+		}
+	}
+
+	fpr.ReleaseSpillLocks();
+}
+
 }
