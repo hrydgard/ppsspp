@@ -127,10 +127,10 @@ public:
     // broken
 #ifdef _WIN32
 		// This has to be horribly racy.
-    mtx.unlock();
+    mtx.lock();
     WaitForSingleObject(event_, INFINITE);
     ResetEvent(event_); // necessary?
-    mtx.lock();
+    mtx.unlock();
 #else
     pthread_mutex_lock(&mtx.native_handle());
     pthread_cond_wait(&event_, &mtx.native_handle());
@@ -162,6 +162,11 @@ public:
 #endif
   }
 
+  void reset() {
+#ifdef _WIN32
+    ResetEvent(event_);
+#endif
+  }
 private:
 #ifdef _WIN32
   HANDLE event_;
