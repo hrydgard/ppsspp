@@ -685,7 +685,7 @@ void SystemScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
-	VGrid vlang(530, 100, dp_yres - 50, 10, 10);
+	VGrid vlang(500, 100, dp_yres - 50, 10, 10);
 
 	for (size_t i = 0; i < langs_.size(); i++) {
 		std::string code;
@@ -697,7 +697,7 @@ void SystemScreen::render() {
 		if (!code.empty())
 			buttonTitle = code;
 
-		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
+		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 40, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;
 			g_Config.languageIni = code;
 			if (i18nrepo.LoadIni(g_Config.languageIni)) {
