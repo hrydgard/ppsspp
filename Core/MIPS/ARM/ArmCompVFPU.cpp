@@ -714,4 +714,20 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_VScl(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vmmul(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vmscl(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vtfm(u32 op) {
+		DISABLE;
+	}
+
 }

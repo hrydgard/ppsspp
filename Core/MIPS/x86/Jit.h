@@ -203,6 +203,10 @@ public:
 	void Comp_Mftv(u32 op);
 	void Comp_Vmtvc(u32 op);
 	void Comp_Vmmov(u32 op);
+	void Comp_VScl(u32 op);
+	void Comp_Vmmul(u32 op);
+	void Comp_Vmscl(u32 op);
+	void Comp_Vtfm(u32 op);
 
 	void Comp_DoNothing(u32 op);
 
