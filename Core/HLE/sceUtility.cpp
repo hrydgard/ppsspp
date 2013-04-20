@@ -367,11 +367,10 @@ int sceUtilityGamedataInstallGetStatus()
 //TODO: should save to config file
 u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
-	DEBUG_LOG(HLE,"sceUtilitySetSystemParamString(%i, %08x)", id,strPtr);
+	WARN_LOG(HLE, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
 	return 0;
 }
 
-//TODO: Should load from config file
 u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
 {
 	DEBUG_LOG(HLE,"sceUtilityGetSystemParamString(%i, %08x, %i)", id,destaddr,unknownparam);
@@ -419,8 +418,7 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		param = g_Config.bButtonPreference?PSP_SYSTEMPARAM_BUTTON_CROSS:PSP_SYSTEMPARAM_BUTTON_CIRCLE;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
-		// TODO
-		param = 0;
+		param = g_Config.iLockParentalLevel;
 		break;
 	default:
 		return PSP_SYSTEMPARAM_RETVAL_FAIL;

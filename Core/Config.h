@@ -94,7 +94,7 @@ public:
 	int iTimeZone;
 	bool bDayLightSavings;
 	bool bButtonPreference;
-	bool bLockParentalLevel;
+	int iLockParentalLevel;
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;

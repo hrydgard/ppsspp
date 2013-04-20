@@ -125,7 +125,7 @@ void Config::Load(const char *iniFileName)
 	pspConfig->Get("TimeZone", &iTimeZone, 0);
 	pspConfig->Get("DayLightSavings", &bDayLightSavings, PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD);
 	pspConfig->Get("ButtonPreference", &bButtonPreference, PSP_SYSTEMPARAM_BUTTON_CIRCLE);
-	pspConfig->Get("LockParentalLevel", &bLockParentalLevel, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
+	pspConfig->Get("LockParentalLevel", &iLockParentalLevel, 0);
 	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
 	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
 	pspConfig->Get("EncryptSave", &bEncryptSave, true);
@@ -202,7 +202,7 @@ void Config::Save()
 		pspConfig->Set("TimeZone", iTimeZone);
 		pspConfig->Set("DayLightSavings", bDayLightSavings);
 		pspConfig->Set("ButtonPreference", bButtonPreference);
-		pspConfig->Set("LockParentalLevel", bLockParentalLevel);
+		pspConfig->Set("LockParentalLevel", iLockParentalLevel);
 		pspConfig->Set("WlanAdhocChannel", iWlanAdhocChannel);
 		pspConfig->Set("WlanPowerSave", bWlanPowerSave);
 		pspConfig->Set("EncryptSave", bEncryptSave);
