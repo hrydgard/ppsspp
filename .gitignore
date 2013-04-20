@@ -27,7 +27,7 @@ Windows/ipch
 .DS_Store
 
 # For ppsspp.ini, etc.
-*.ini
+ppsspp.ini
 
 # Qt Linguist files
 *.qm
