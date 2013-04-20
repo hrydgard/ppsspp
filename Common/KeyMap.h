@@ -126,6 +126,7 @@ namespace KeyMap {
 			KEY_EXTRA9,
 			KEY_EXTRA0,
 
+			// TODO: Add second set of joysticks
 			// TODO: Add fastforward key
 			// TODO: Add any missing keys.
 			// Many can be found in the

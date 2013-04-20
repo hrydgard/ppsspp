@@ -74,7 +74,7 @@ struct KeyMap_IntStrPair {
 };
 const KeyMap_IntStrPair key_names[] = {
 	{KEY_a, "a"},
-	{KEY_b, "B"},
+	{KEY_b, "b"},
 	{KEY_c, "c"},
 	{KEY_d, "d"},
 	{KEY_e, "e"},
