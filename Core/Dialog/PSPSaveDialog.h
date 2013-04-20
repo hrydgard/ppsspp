@@ -65,14 +65,14 @@ class PSPSaveDialog: public PSPDialog {
 public:
 	PSPSaveDialog();
 	virtual ~PSPSaveDialog();
-
+    
 	virtual int Init(int paramAddr);
 	virtual int Update();
 	virtual int Shutdown();
 	virtual void DoState(PointerWrap &p);
-
-private :
-
+    
+    private :
+    
 	void DisplaySaveList(bool canMove = true);
 	void DisplaySaveIcon();
 	void DisplayTitle(std::string name);
@@ -82,40 +82,43 @@ private :
 	void DisplaySaveDataInfo2();
 	void DisplayConfirmationYesNo(std::string text);
 	void DisplayInfo(std::string text);
-
+    
 	enum DisplayState
 	{
 		DS_NONE,
-
+        
 		DS_SAVE_LIST_CHOICE,
 		DS_SAVE_CONFIRM_OVERWRITE,
 		DS_SAVE_SAVING,
 		DS_SAVE_DONE,
-
+        
 		DS_LOAD_LIST_CHOICE,
 		DS_LOAD_LOADING,
 		DS_LOAD_DONE,
 		DS_LOAD_NODATA,
-
+        
 		DS_DELETE_LIST_CHOICE,
 		DS_DELETE_CONFIRM,
 		DS_DELETE_DELETING,
 		DS_DELETE_DONE,
 		DS_DELETE_NODATA
 	};
-
+    
 	DisplayState display;
-
+    
 	SavedataParam param;
 	SceUtilitySavedataParam request;
+    
 	int requestAddr;
 	int currentSelectedSave;
-
+    
 	int yesnoChoice;
-
+    
 	int okButtonImg;
 	int cancelButtonImg;
 	int okButtonFlag;
 	int cancelButtonFlag;
+    
+    I18NCategory *m;
 };
 

@@ -160,5 +160,8 @@ private:
 
 	int selectedChar;
 	std::string inputChars;
+    
+    I18NCategory *m;
+
 };
 
