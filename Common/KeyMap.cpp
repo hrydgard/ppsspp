@@ -24,16 +24,16 @@
 
 using namespace KeyMap;
 
-/* Platform specific
- * default */
+// Platform specific
+// default
 std::map<int,int> *platform_keymap = NULL;
 
-/* Default key mapping */
-/* Ugly, yet the cleanest way
- * I could find to create a 
- * static map.
- * Still nicer than what
- * I once did in C. */
+// Default key mapping
+// Ugly, yet the cleanest way
+// I could find to create a 
+// static map.
+// Still nicer than what
+// I once did in C.
 struct DefaultKeyMap {
     static std::map<int,int> init()
 	    // TODO: Fix this indentation, spaces to tabs
@@ -67,7 +67,7 @@ struct DefaultKeyMap {
 
 std::map<int,int> DefaultKeyMap::KeyMap = DefaultKeyMap::init();
 
-/* Key & Button names */
+// Key & Button names
 struct KeyMap_IntStrPair {
 	int key;
 	std::string name;

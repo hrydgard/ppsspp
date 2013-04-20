@@ -23,24 +23,23 @@
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
 
-/* KeyMap
- * A translation layer for
- * key assignment. Provides
- * integration with Core's
- * config state.
- * 
- * Does not handle input
- * state managment.
- * 
- * Platform ports should
- * map their platform's
- * keys to KeyMap's keys.
- * Then have KeyMap transform
- * those into psp buttons.
- */
+// KeyMap
+// A translation layer for
+// key assignment. Provides
+// integration with Core's
+// config state.
+// 
+// Does not handle input
+// state managment.
+// 
+// Platform ports should
+// map their platform's
+// keys to KeyMap's keys.
+// Then have KeyMap transform
+// those into psp buttons.
 namespace KeyMap {
 		enum Key {
-			/* Lower class latin */
+			// Lower class latin
 			KEY_q = 1, // top row
 			KEY_w,
 			KEY_e,
@@ -70,7 +69,7 @@ namespace KeyMap {
 			KEY_n,
 			KEY_m,
 
-			/* Upper class latin */
+			// Upper class latin
 			KEY_Q, // top row
 			KEY_W,
 			KEY_E,
@@ -101,7 +100,7 @@ namespace KeyMap {
 			KEY_M,
 
 
-			/* Numeric */
+			// Numeric
 			KEY_1,
 			KEY_2,
 			KEY_3,
@@ -113,7 +112,7 @@ namespace KeyMap {
 			KEY_9,
 			KEY_0,
 
-			/* Special keys */
+			// Special keys
 			KEY_ARROW_LEFT,
 			KEY_ARROW_RIGHT,
 			KEY_ARROW_UP,
@@ -141,19 +140,19 @@ namespace KeyMap {
 			KEY_SUPER,
 			KEY_TAB,
 
-			/* Mobile Keys */
+			// Mobile Keys
 			KEY_VOLUME_UP,
 			KEY_VOLUME_DOWN,
 			KEY_HOME,
 			KEY_CALL_START,
 			KEY_CALL_END,
 
-			/* Special PPSSPP keys */
+			// Special PPSSPP keys
 			KEY_FASTFORWARD,
 
-			/* Extra keys
-			 * Use for platform specific keys.
-			 * Example: android's back btn */
+			// Extra keys
+			// Use for platform specific keys.
+			// Example: android's back btn
 			KEY_EXTRA1,
 			KEY_EXTRA2,
 			KEY_EXTRA3,
@@ -171,56 +170,56 @@ namespace KeyMap {
 			// files.
 		};
 
-		/* Use if you need to
-		 * display the textual
-		 * name 
-		 * These functions are not
-		 * fast, do not call them
-		 * a million times. */
+		// Use if you need to
+		// display the textual
+		// name 
+		// These functions are not
+		// fast, do not call them
+		// a million times.
 		static std::string GetKeyName(Key);
 		static std::string GetPspButtonName(int);
 
-		/* Use if to translate
-		 * KeyMap Keys to PSP
-		 * buttons.
-		 * You should have
-		 * already translated
-		 * your platform's keys
-		 * to KeyMap keys.
-		 *
-		 * Returns KEYMAP_ERROR_UNKNOWN_KEY
-		 * for any unmapped key */
+		// Use if to translate
+		// KeyMap Keys to PSP
+		// buttons.
+		// You should have
+		// already translated
+		// your platform's keys
+		// to KeyMap keys.
+		//
+		// Returns KEYMAP_ERROR_UNKNOWN_KEY
+		// for any unmapped key
 		static int KeyToPspButton(Key);
 
 		static bool IsMappedKey(Key);
 
-		/* Might be usful if you want
-		 * to provide hints to users
-		 * upon mapping conflicts */
+		// Might be usful if you want
+		// to provide hints to users
+		// upon mapping conflicts
 		static std::string NamePspButtonFromKey(Key);
 
-		/* Use for showing the existing
-		 * key mapping. */
+		// Use for showing the existing
+		// key mapping.
 		static std::string NameKeyFromPspButton(int);
 
-		/* Configure the key mapping.
-		 * Any configuration will
-		 * be saved to the Core
-		 * config.
-		 * 
-		 * Returns KEYMAP_ERROR_KEY_ALREADY_USED
-		 *  for mapping conflicts. 0 otherwise. */
+		// Configure the key mapping.
+		// Any configuration will
+		// be saved to the Core
+		// config.
+		// 
+		// Returns KEYMAP_ERROR_KEY_ALREADY_USED
+		//  for mapping conflicts. 0 otherwise.
 		static int SetKeyMapping(Key, int);
 
-		/* Platform specific keymaps
-		 * override KeyMap's defaults.
-		 * They do not override user's
-		 * configuration.
-		 * A platform default keymap
-		 * does not need to cover
-		 * all psp buttons.
-		 * Any buttons missing will
-		 * fallback to KeyMap's keymap. */
+		// Platform specific keymaps
+		// override KeyMap's defaults.
+		// They do not override user's
+		// configuration.
+		// A platform default keymap
+		// does not need to cover
+		// all psp buttons.
+		// Any buttons missing will
+		// fallback to KeyMap's keymap.
 		static int RegisterPlatformDefaultKeyMap(std::map<int,int> *);
 		static void DeregisterPlatformDefaultKeyMap(void);
 }
