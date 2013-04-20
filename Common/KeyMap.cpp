@@ -165,10 +165,10 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEY_ARROW_RIGHT, "Right"},
 	{KEY_ARROW_DOWN, "Down"},
 
-	{KEY_ANALOG_FAKE_LEFT, "Analog Left"},
-	{KEY_ANALOG_FAKE_UP, "Analog Up"},
-	{KEY_ANALOG_FAKE_RIGHT, "Analog Right"},
-	{KEY_ANALOG_FAKE_DOWN, "Analog Down"},
+	{KEY_ANALOG_LEFT, "Analog Left"},
+	{KEY_ANALOG_UP, "Analog Up"},
+	{KEY_ANALOG_RIGHT, "Analog Right"},
+	{KEY_ANALOG_DOWN, "Analog Down"},
 
 	{KEY_ANALOG_ALT_LEFT, "Alt analog Left"},
 	{KEY_ANALOG_ALT_UP, "Alt analog Up"},
