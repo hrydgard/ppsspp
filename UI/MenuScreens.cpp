@@ -685,7 +685,7 @@ void SystemScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
-	VGrid vlang(530, 100, dp_yres - 50, 10, 10);
+	VGrid vlang(500, 100, dp_yres - 50, 10, 10);
 
 	for (size_t i = 0; i < langs_.size(); i++) {
 		std::string code;
