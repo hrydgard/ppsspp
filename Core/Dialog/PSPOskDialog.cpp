@@ -112,7 +112,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
 	ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
 
-	inputChars.clear();
+	inputChars = oskIntext.substr(0, FieldMaxLength());
 
 	// Eat any keys pressed before the dialog inited.
 	__CtrlReadLatch();
@@ -121,6 +121,12 @@ int PSPOskDialog::Init(u32 oskPtr)
 	return 0;
 }
 
+u32 PSPOskDialog::FieldMaxLength()
+{
+	if (oskData.outtextlimit > oskData.outtextlength - 1 || oskData.outtextlimit == 0)
+		return oskData.outtextlength - 1;
+	return oskData.outtextlimit;
+}
 
 void PSPOskDialog::RenderKeyboard()
 {
@@ -130,9 +136,7 @@ void PSPOskDialog::RenderKeyboard()
 	char temp[2];
 	temp[1] = '\0';
 
-	u32 limit = oskData.outtextlimit;
-	if (limit > oskData.outtextlength - 1 || limit == 0)
-		limit = oskData.outtextlength - 1;
+	u32 limit = FieldMaxLength();
 
 	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
 	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
@@ -178,9 +182,7 @@ int PSPOskDialog::Update()
 	int selectedRow = selectedChar / KEYSPERROW;
 	int selectedExtra = selectedChar % KEYSPERROW;
 
-	u32 limit = oskData.outtextlimit;
-	if (limit > oskData.outtextlength - 1 || limit == 0)
-		limit = oskData.outtextlength - 1;
+	u32 limit = FieldMaxLength();
 
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{

@@ -151,6 +151,7 @@ public:
 private:
 	void ConvertUCS2ToUTF8(std::string& _string, const u32 em_address);
 	void RenderKeyboard();
+	u32 FieldMaxLength();
 
 	SceUtilityOskParams *oskParams;
 	SceUtilityOskData oskData;
