@@ -195,6 +195,7 @@ public:
 	void Comp_Vmmov(u32 op);
 	void Comp_VScl(u32 op);
 	void Comp_Vmmul(u32 op);
+	void Comp_Vmscl(u32 op);
 
 	ArmJitBlockCache *GetBlockCache() { return &blocks; }
 
