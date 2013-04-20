@@ -87,9 +87,17 @@ public:
 	int iForceInputDevice;
 
 	// SystemParam
+	std::string sNickName;
 	int ilanguage;
 	int itimeformat;
+	int iDateFormat;
+	int iTimeZone;
+	bool bDayLightSavings;
+	bool bButtonPreference;
+	bool bLockParentalLevel;
 	bool bEncryptSave;
+	int iWlanAdhocChannel;
+	bool bWlanPowerSave;
 
 	std::string currentDirectory;
 	std::string memCardDirectory;
