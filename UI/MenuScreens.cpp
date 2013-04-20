@@ -697,7 +697,7 @@ void SystemScreen::render() {
 		if (!code.empty())
 			buttonTitle = code;
 
-		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
+		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 40, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;
 			g_Config.languageIni = code;
 			if (i18nrepo.LoadIni(g_Config.languageIni)) {
