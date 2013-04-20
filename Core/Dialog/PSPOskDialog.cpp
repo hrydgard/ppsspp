@@ -15,11 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPOskDialog.h"
-#include "../Util/PPGeDraw.h"
-#include "../HLE/sceCtrl.h"
-#include "ChunkFile.h"
 #include "i18n/i18n.h"
+
+#include "Core/Dialog/PSPOskDialog.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/Reporting.h"
+#include "Common/ChunkFile.h"
 
 #ifndef _WIN32
 #include <ctype.h>
@@ -79,30 +81,38 @@ int PSPOskDialog::Init(u32 oskPtr)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	// Seems like this should crash?
 	if (!Memory::IsValidAddress(oskPtr))
+	{
+		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
 		return -1;
+	}
 
 	oskParams = Memory::GetStruct<SceUtilityOskParams>(oskPtr);
 	if (oskParams->base.size != sizeof(SceUtilityOskParams))
+	{
+		ERROR_LOG(HLE, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
-
-	status = SCE_UTILITY_STATUS_INITIALIZE;
-
-	memset(&oskData, 0, sizeof(oskData));
-	// TODO: should this be init'd to oskIntext?
-	inputChars.clear();
-	selectedChar = 0;
-
-	if (Memory::IsValidAddress(oskParams->SceUtilityOskDataPtr))
-	{
-		Memory::ReadStruct(oskParams->SceUtilityOskDataPtr, &oskData);
-		ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
-		ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
-		ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
 	}
-	else
+	// Also seems to crash.
+	if (!Memory::IsValidAddress(oskParams->fieldPtr))
 	{
+		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fieldPtr);
 		return -1;
 	}
+
+	if (oskParams->unk_60 != 0)
+		WARN_LOG_REPORT(HLE, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
+	if (oskParams->fieldCount != 1)
+		WARN_LOG_REPORT(HLE, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
+
+	status = SCE_UTILITY_STATUS_INITIALIZE;
+	selectedChar = 0;
+
+	Memory::ReadStruct(oskParams->fieldPtr, &oskData);
+	ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
+	ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
+	ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
+
+	inputChars.clear();
 
 	// Eat any keys pressed before the dialog inited.
 	__CtrlReadLatch();
@@ -121,9 +131,8 @@ void PSPOskDialog::RenderKeyboard()
 	temp[1] = '\0';
 
 	u32 limit = oskData.outtextlimit;
-	// TODO: Test more thoroughly.  Encountered a game where this was 0.
-	if (limit <= 0)
-		limit = 14;
+	if (limit > oskData.outtextlength - 1 || limit == 0)
+		limit = oskData.outtextlength - 1;
 
 	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
 	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
@@ -170,9 +179,8 @@ int PSPOskDialog::Update()
 	int selectedExtra = selectedChar % KEYSPERROW;
 
 	u32 limit = oskData.outtextlimit;
-	// TODO: Test more thoroughly.  Encountered a game where this was 0.
-	if (limit <= 0)
-		limit = 14;
+	if (limit > oskData.outtextlength - 1 || limit == 0)
+		limit = oskData.outtextlength - 1;
 
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
@@ -246,18 +254,17 @@ int PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	for (u32 i = 0; i < limit; ++i)
+	for (u32 i = 0; i < oskData.outtextlength; ++i)
 	{
 		u16 value = 0;
 		if (i < inputChars.size())
-			value = 0x0000 ^ inputChars[i];
+			value = inputChars[i];
 		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
 	}
 
-	oskData.outtextlength = (u32)inputChars.size();
 	oskParams->base.result = 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
-	Memory::WriteStruct(oskParams->SceUtilityOskDataPtr, &oskData);
+	Memory::WriteStruct(oskParams->fieldPtr, &oskData);
 
 	return 0;
 }
