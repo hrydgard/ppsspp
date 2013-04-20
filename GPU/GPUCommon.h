@@ -41,7 +41,6 @@ protected:
 	DisplayListQueue dlQueue;
 
 	bool interruptRunning;
-	u32 prev;
 	GPUState gpuState;
 	bool isbreak;
 	u64 drawCompleteTicks;
