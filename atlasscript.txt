@@ -1,5 +1,5 @@
 2048
-font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGH 30
+font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGHK 30
 font UBUNTU48 source_assets/font/zrnic.ttf UW 55
 image SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy
