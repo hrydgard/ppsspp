@@ -373,7 +373,7 @@ void PSPSaveDialog::DisplayBack()
 {
 	I18NCategory *m = GetI18NCategory("Dialog");
 	PPGeDrawImage(cancelButtonImg, 180, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText("Back", 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(m->T("Back"), 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPSaveDialog::Update()
