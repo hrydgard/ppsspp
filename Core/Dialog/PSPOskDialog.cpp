@@ -15,25 +15,38 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPOskDialog.h"
-#include "../Util/PPGeDraw.h"
-#include "../HLE/sceCtrl.h"
-#include "ChunkFile.h"
 #include "i18n/i18n.h"
+#include "math/math_util.h"
+
+#include "Core/Dialog/PSPOskDialog.h"
+#include "Core/Util/PPGeDraw.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/Reporting.h"
+#include "Common/ChunkFile.h"
+#include "GPU/GPUState.h"
 
 #ifndef _WIN32
 #include <ctype.h>
+#include <math.h>
 #endif
 
 #define NUMKEYROWS 4
 #define KEYSPERROW 12
 #define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
-const char oskKeys[NUMKEYROWS][KEYSPERROW + 1] =
+static const char oskKeys[OSK_KEYBOARD_COUNT][NUMKEYROWS][KEYSPERROW + 1] =
 {
-	{'1','2','3','4','5','6','7','8','9','0','-','+','\0'}, 
-	{'q','w','e','r','t','y','u','i','o','p','[',']','\0'},
-	{'a','s','d','f','g','h','j','k','l',';','@','~','\0'},
-	{'z','x','c','v','b','n','m',',','.','/','?','\\','\0'},
+	{
+		{'1','2','3','4','5','6','7','8','9','0','-','+','\0'},
+		{'q','w','e','r','t','y','u','i','o','p','[',']','\0'},
+		{'a','s','d','f','g','h','j','k','l',';','@','~','\0'},
+		{'z','x','c','v','b','n','m',',','.','/','?','\\','\0'},
+	},
+	{
+		{'!','@','#','$','%','^','&','*','(',')','_','+','\0'},
+		{'Q','W','E','R','T','Y','U','I','O','P','{','}','\0'},
+		{'A','S','D','F','G','H','J','K','L',':','"','`','\0'},
+		{'Z','X','C','V','B','N','M','<','>','/','?','|','\0'},
+	},
 };
 
 
@@ -76,32 +89,42 @@ int PSPOskDialog::Init(u32 oskPtr)
 {
 	// Ignore if already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
-	{
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
-	}
-	status = SCE_UTILITY_STATUS_INITIALIZE;
-
-	memset(&oskParams, 0, sizeof(oskParams));
-	memset(&oskData, 0, sizeof(oskData));
-	// TODO: should this be init'd to oskIntext?
-	inputChars.clear();
-	oskParamsAddr = oskPtr;
-	selectedChar = 0;
-
-	if (Memory::IsValidAddress(oskPtr))
+	// Seems like this should crash?
+	if (!Memory::IsValidAddress(oskPtr))
 	{
-		Memory::ReadStruct(oskPtr, &oskParams);
-		Memory::ReadStruct(oskParams.SceUtilityOskDataPtr, &oskData);
-		ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
-		ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
-		ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
-		Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
-		Memory::WriteStruct(oskPtr, &oskParams);
-	}
-	else
-	{
+		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
 		return -1;
 	}
+
+	oskParams = Memory::GetStruct<SceUtilityOskParams>(oskPtr);
+	if (oskParams->base.size != sizeof(SceUtilityOskParams))
+	{
+		ERROR_LOG(HLE, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
+	// Also seems to crash.
+	if (!Memory::IsValidAddress(oskParams->fieldPtr))
+	{
+		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fieldPtr);
+		return -1;
+	}
+
+	if (oskParams->unk_60 != 0)
+		WARN_LOG_REPORT(HLE, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
+	if (oskParams->fieldCount != 1)
+		WARN_LOG_REPORT(HLE, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
+
+	status = SCE_UTILITY_STATUS_INITIALIZE;
+	selectedChar = 0;
+	currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
+
+	Memory::ReadStruct(oskParams->fieldPtr, &oskData);
+	ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
+	ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
+	ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
+
+	inputChars = oskIntext.substr(0, FieldMaxLength());
 
 	// Eat any keys pressed before the dialog inited.
 	__CtrlReadLatch();
@@ -110,21 +133,25 @@ int PSPOskDialog::Init(u32 oskPtr)
 	return 0;
 }
 
+u32 PSPOskDialog::FieldMaxLength()
+{
+	if (oskData.outtextlimit > oskData.outtextlength - 1 || oskData.outtextlimit == 0)
+		return oskData.outtextlength - 1;
+	return oskData.outtextlimit;
+}
 
 void PSPOskDialog::RenderKeyboard()
 {
 	int selectedRow = selectedChar / KEYSPERROW;
-	int selectedExtra = selectedChar % KEYSPERROW;
+	int selectedCol = selectedChar % KEYSPERROW;
 
 	char temp[2];
 	temp[1] = '\0';
 
-	u32 limit = oskData.outtextlimit;
-	// TODO: Test more thoroughly.  Encountered a game where this was 0.
-	if (limit <= 0)
-		limit = 14;
+	u32 limit = FieldMaxLength();
 
 	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
+	const float characterWidth = 12.0f;
 	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
 	float title = (480.0f - (0.5f * limit)) / 2.0f;
 
@@ -136,30 +163,38 @@ void PSPOskDialog::RenderKeyboard()
 			temp[0] = inputChars[i];
 		else if (i == inputChars.size())
 		{
-			temp[0] = oskKeys[selectedRow][selectedExtra];
-			color = CalcFadedColor(0xFF3060FF);
+			temp[0] = oskKeys[currentKeyboard][selectedRow][selectedCol];
+			float animStep = (float)(gpuStats.numFrames % 40) / 20.0f;
+			// Fade in and out the next character so they know it's not part of the string yet.
+			u32 alpha = (0.5f - (cosf(animStep * M_PI) / 2.0f)) * 128 + 127;
+			color = CalcFadedColor((alpha << 24) | 0xFFFFFF);
+
+			PPGeDrawText(temp, previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
+
+			// Also draw the underline for the same reason.
+			color = CalcFadedColor(0xFFFFFFFF);
+			temp[0] = '_';
 		}
 		else
 			temp[0] = '_';
 
-		PPGeDrawText(temp, previewLeftSide + (i * 12.0f), 40.0f, 0, 0.5f, color);
+		PPGeDrawText(temp, previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
 	}
 	for (int row = 0; row < NUMKEYROWS; ++row)
 	{
 		for (int col = 0; col < KEYSPERROW; ++col)
 		{
 			u32 color = CalcFadedColor(0xFFFFFFFF);
-			if (selectedRow == row && col == selectedExtra)
-				color = CalcFadedColor(0xFF7f7f7f);
+			if (selectedRow == row && col == selectedCol)
+				color = CalcFadedColor(0xFF3060FF);
 
-			temp[0] = oskKeys[row][col];
-			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, color);
+			temp[0] = oskKeys[currentKeyboard][row][col];
+			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, color);
 
-			if (selectedRow == row && col == selectedExtra)
-				PPGeDrawText("_", keyboardLeftSide + (25.0f * col), 70.0f + (25.0f * row), 0, 0.6f, CalcFadedColor(0xFFFFFFFF));
+			if (selectedRow == row && col == selectedCol)
+				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		}
 	}
-
 }
 
 int PSPOskDialog::Update()
@@ -168,10 +203,7 @@ int PSPOskDialog::Update()
 	int selectedRow = selectedChar / KEYSPERROW;
 	int selectedExtra = selectedChar % KEYSPERROW;
 
-	u32 limit = oskData.outtextlimit;
-	// TODO: Test more thoroughly.  Encountered a game where this was 0.
-	if (limit <= 0)
-		limit = 14;
+	u32 limit = FieldMaxLength();
 
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
 	{
@@ -194,7 +226,8 @@ int PSPOskDialog::Update()
 		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(m->T("Finish"), 290, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(m->T("Caps"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		// TODO: Show title of next keyboard?
+		PPGeDrawText(m->T("Shift"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -222,12 +255,12 @@ int PSPOskDialog::Update()
 		if (IsButtonPressed(CTRL_CROSS))
 		{
 			if (inputChars.size() < limit)
-					inputChars += oskKeys[selectedRow][selectedExtra];
+				inputChars += oskKeys[currentKeyboard][selectedRow][selectedExtra];
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
-			if (inputChars.size() < limit)
-					inputChars += toupper(oskKeys[selectedRow][selectedExtra]);
+			// TODO: Limit by allowed keyboards...
+			currentKeyboard = (OskKeyboardDisplay)((currentKeyboard + 1) % OSK_KEYBOARD_COUNT);
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
 		{
@@ -245,32 +278,41 @@ int PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	for (u32 i = 0; i < limit; ++i)
+	for (u32 i = 0; i < oskData.outtextlength; ++i)
 	{
 		u16 value = 0;
 		if (i < inputChars.size())
-			value = 0x0000 ^ inputChars[i];
+			value = inputChars[i];
 		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
 	}
 
-	oskData.outtextlength = (u32)inputChars.size();
-	oskParams.base.result= 0;
+	oskParams->base.result = 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
-	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
-	Memory::WriteStruct(oskParamsAddr, &oskParams);
+	Memory::WriteStruct(oskParams->fieldPtr, &oskData);
 
 	return 0;
+}
+
+template <typename T>
+static void DoBasePointer(PointerWrap &p, T **ptr)
+{
+	u32 addr = *ptr == NULL ? 0 : (u8 *) *ptr - Memory::base;
+	p.Do(addr);
+	if (addr == 0)
+		*ptr = NULL;
+	else
+		*ptr = Memory::GetStruct<T>(addr);
+
 }
 
 void PSPOskDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
-	p.Do(oskParams);
+	DoBasePointer(p, &oskParams);
 	p.Do(oskData);
 	p.Do(oskDesc);
 	p.Do(oskIntext);
 	p.Do(oskOuttext);
-	p.Do(oskParamsAddr);
 	p.Do(selectedChar);
 	p.Do(inputChars);
 	p.DoMarker("PSPOskDialog");

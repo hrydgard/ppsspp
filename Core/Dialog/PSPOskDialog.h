@@ -114,29 +114,39 @@ typedef struct _SceUtilityOskData
 	u32 descPtr;
 	/** Initial text */
 	u32 intextPtr;
-	/** Length of output text */
+	// Length, in unsigned shorts, including the terminator.
 	u32 outtextlength;
 	/** Pointer to the output text */
 	u32 outtextPtr;
 	/** Result. One of ::SceUtilityOskResult */
 	int result;
-	/** The max text that can be input */
+	// Number of characters to allow, not including terminator (if less than outtextlength - 1.)
 	u32 outtextlimit;
 
 } SceUtilityOskData;
 
-/**
-* OSK parameters
-*/
-typedef struct _SceUtilityOskParams
+// Parameters to sceUtilityOskInitStart
+struct SceUtilityOskParams
 {
 	pspUtilityDialogCommon base;
-	int datacount;		/** Number of input fields */
-	u32 SceUtilityOskDataPtr; /** Pointer to the start of the data for the input fields */
-	int state;			/** The local OSK state, one of ::SceUtilityOskState */
-	int unk_60;/** Unknown. Pass 0 */
+	// Number of fields.
+	int fieldCount;
+	// Pointer to an array of fields (see SceUtilityOskData.)
+	u32 fieldPtr;
+	SceUtilityOskState state;
+	// Maybe just padding?
+	int unk_60;
 
-} SceUtilityOskParams;
+};
+
+// Internal enum, not from PSP.
+enum OskKeyboardDisplay
+{
+	OSK_KEYBOARD_LATIN_LOWERCASE,
+	OSK_KEYBOARD_LATIN_UPPERCASE,
+	// TODO: Something to do native?
+	OSK_KEYBOARD_COUNT
+};
 
 
 class PSPOskDialog: public PSPDialog {
@@ -150,15 +160,16 @@ public:
 private:
 	void ConvertUCS2ToUTF8(std::string& _string, const u32 em_address);
 	void RenderKeyboard();
+	u32 FieldMaxLength();
 
-	SceUtilityOskParams oskParams;
+	SceUtilityOskParams *oskParams;
 	SceUtilityOskData oskData;
 	std::string oskDesc;
 	std::string oskIntext;
 	std::string oskOuttext;
-	int oskParamsAddr;
 
 	int selectedChar;
 	std::string inputChars;
+	OskKeyboardDisplay currentKeyboard;
 };
 
