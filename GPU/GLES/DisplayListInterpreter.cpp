@@ -401,12 +401,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		if (diff & GE_VTYPE_THROUGH) {
-			// Throughmode changed, let's make the proj matrix dirty.
-			shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
-		}
 		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
-		// This sets through-mode or not, as well.
 		break;
 
 	case GE_CMD_REGION1:
@@ -835,7 +830,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			if (newVal != gstate.projMatrix[num]) {
 				Flush();
 				gstate.projMatrix[num] = newVal;
-				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
+				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX);
 			}
 			num++;
 			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);

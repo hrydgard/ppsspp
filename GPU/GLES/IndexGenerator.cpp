@@ -33,6 +33,7 @@ void IndexGenerator::Reset() {
 	count_ = 0;
 	index_ = 0;
 	seenPrims_ = 0;
+	pureCount_ = 0;
 	this->inds_ = indsBase_;
 }
 
@@ -101,8 +102,17 @@ void IndexGenerator::AddStrip(int numVerts) {
 	}
 	index_ += numVerts;
 	count_ += numTris * 3;
-	prim_ = GE_PRIM_TRIANGLES;
-	seenPrims_ |= 1 << GE_PRIM_TRIANGLE_STRIP;
+	// This is so we can detect one single strip by just looking at seenPrims_.
+	if (!seenPrims_) {
+		seenPrims_ = 1 << GE_PRIM_TRIANGLE_STRIP;
+		prim_ = GE_PRIM_TRIANGLE_STRIP;
+		pureCount_ = numVerts;
+	} else {
+		seenPrims_ |= 1 << GE_PRIM_TRIANGLE_STRIP;
+		seenPrims_ |= 1 << GE_PRIM_TRIANGLES;
+		prim_ = GE_PRIM_TRIANGLES;
+		pureCount_ = 0;
+	}
 }
 
 void IndexGenerator::AddFan(int numVerts) {

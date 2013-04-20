@@ -1107,7 +1107,9 @@ void TransformDrawEngine::Flush() {
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
 						useElements = !indexGen.SeenOnlyPurePrims();
-						
+						if (!useElements && indexGen.PureCount()) {
+							vai->numVerts = indexGen.PureCount();
+						}
 						glGenBuffers(1, &vai->vbo);
 						glBindBuffer(GL_ARRAY_BUFFER, vai->vbo);
 						glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STATIC_DRAW);
@@ -1174,6 +1176,9 @@ rotateVBO:
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
+			if (!useElements && indexGen.PureCount()) {
+				vertexCount = indexGen.PureCount();
+			}
 			if (g_Config.bUseVBO) {
 				// Just rotate VBO.
 				vbo = vbo_[curVbo_];

@@ -45,11 +45,12 @@ public:
 	int VertexCount() const { return count_; }
 	bool Empty() const { return index_ == 0; }
 	int SeenPrims() const { return seenPrims_; }
-
+	int PureCount() const { return pureCount_; }
 	bool SeenOnlyPurePrims() const {
 		return seenPrims_ == (1 << GE_PRIM_TRIANGLES) ||
 			seenPrims_ == (1 << GE_PRIM_LINES) ||
-			seenPrims_ == (1 << GE_PRIM_POINTS);
+			seenPrims_ == (1 << GE_PRIM_POINTS) ||
+			seenPrims_ == (1 << GE_PRIM_TRIANGLE_STRIP);
 	}
 
 private:
@@ -92,6 +93,7 @@ private:
 	u16 *inds_;
 	int index_;
 	int count_;
+	int pureCount_;
 	int prim_;
 	int seenPrims_;
 };
