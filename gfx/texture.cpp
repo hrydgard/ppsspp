@@ -11,8 +11,10 @@
 #include "gfx/gl_debug_log.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/gl_common.h"
+#include "gfx_es2/gl_state.h"
 
 Texture::Texture() : id_(0) {
+	CheckGLExtensions();
 	register_gl_resource_holder(this);
 }
 
@@ -138,7 +140,13 @@ bool Texture::LoadPNG(const char *filename) {
 	SetTextureParameters(ZIM_GEN_MIPS);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, 
 		GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-	glGenerateMipmap(GL_TEXTURE_2D);
+	if(gl_extensions.FBO_ARB){
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}else{
+#ifndef USING_GLES2
+		glGenerateMipmapEXT(GL_TEXTURE_2D);
+#endif
+	}
 	GL_CHECK();
 	free(image_data);
 	return true;
@@ -156,8 +164,15 @@ bool Texture::LoadPNG(const uint8_t *data, size_t size, bool genMips) {
 	SetTextureParameters(genMips ? ZIM_GEN_MIPS : ZIM_CLAMP);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0, 
 		GL_RGBA, GL_UNSIGNED_BYTE, image_data);
-	if (genMips) 
-		glGenerateMipmap(GL_TEXTURE_2D);
+	if (genMips) { 
+		if(gl_extensions.FBO_ARB) {
+			glGenerateMipmap(GL_TEXTURE_2D);
+		}else{
+#ifndef USING_GLES2
+			glGenerateMipmapEXT(GL_TEXTURE_2D);
+#endif
+		}
+	}
 	GL_CHECK();
 	free(image_data);
 	return true;
@@ -180,7 +195,13 @@ bool Texture::LoadXOR() {
 	SetTextureParameters(ZIM_GEN_MIPS);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width_, height_, 0,
 		GL_RGBA, GL_UNSIGNED_BYTE, buf);
-	glGenerateMipmap(GL_TEXTURE_2D);
+	if(gl_extensions.FBO_ARB){
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}else{
+#ifndef USING_GLES2
+		glGenerateMipmapEXT(GL_TEXTURE_2D);
+#endif
+	}
 	GL_CHECK();
 	delete [] buf;
 	return true;
@@ -274,7 +295,13 @@ bool Texture::LoadZIM(const char *filename) {
 				colors, data_type, image_data[l]);
 		}
 		if (num_levels == 1 && (flags & ZIM_GEN_MIPS)) {
-			glGenerateMipmap(GL_TEXTURE_2D);
+			if(gl_extensions.FBO_ARB) {
+				glGenerateMipmap(GL_TEXTURE_2D);
+			}else{
+#ifndef USING_GLES2
+				glGenerateMipmapEXT(GL_TEXTURE_2D);
+#endif
+			}
 		}
 	}
 	SetTextureParameters(flags);
