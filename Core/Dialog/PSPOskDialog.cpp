@@ -19,6 +19,7 @@
 #include "../Util/PPGeDraw.h"
 #include "../HLE/sceCtrl.h"
 #include "ChunkFile.h"
+#include "i18n/i18n.h"
 
 #ifndef _WIN32
 #include <ctype.h>
@@ -187,8 +188,7 @@ int PSPOskDialog::Update()
 		//PPGeDrawImage(I_BUTTON, 230, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		//PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
 
-        m = GetI18NCategory("Dialog");
-
+		I18NCategory *m = GetI18NCategory("Dialog");
 		PPGeDrawText(m->T("Select"), 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(m->T("Delete"), 160, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(m->T("Start"), 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));

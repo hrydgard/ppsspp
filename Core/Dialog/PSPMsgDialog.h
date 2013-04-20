@@ -94,7 +94,5 @@ private :
 	int cancelButtonImg;
 	int okButtonFlag;
 	int cancelButtonFlag;
-    
-    I18NCategory *m;
 };
 
