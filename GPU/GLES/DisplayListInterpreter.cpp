@@ -321,21 +321,25 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// This drives all drawing. All other state we just buffer up, then we apply it only
 			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
+			u32 count = data & 0xFFFF;
+			u32 type = data >> 16;
+
 			// This also make skipping drawing very effective.
 			framebufferManager_.SetRenderFrameBuffer();
 			if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB))
+			{
+				transformDraw_.SetupVertexDecoder(gstate.vertType);
+				// Rough estimate, not sure what's correct.
+				int vertexCost = transformDraw_.EstimatePerVertexCost();
+				cyclesExecuted += vertexCost * count;
 				return;
-
-			u32 count = data & 0xFFFF;
-			u32 type = data >> 16;
+			}
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 				ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 				break;
 			}
 
-			// Rough estimate, not sure what's correct.
-			cyclesExecuted += 80 * count;
 
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
 			// on platforms where draw calls are expensive like mobile and D3D
@@ -351,6 +355,10 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 			int bytesRead;
 			transformDraw_.SubmitPrim(verts, inds, type, count, gstate.vertType, -1, &bytesRead);
+
+			int vertexCost = transformDraw_.EstimatePerVertexCost();
+			cyclesExecuted += vertexCost * count;
+
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 			// Some games rely on this, they don't bother reloading VADDR and IADDR.
 			// Q: Are these changed reflected in the real registers? Needs testing.

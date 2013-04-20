@@ -44,12 +44,13 @@ bool CanUseHardwareTransform(int prim) {
 
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, int prim) {
+	const u32 vertType = gstate.vertType;
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
-	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0;
-	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0;
-	bool hasBones = (gstate.vertType & GE_VTYPE_WEIGHT_MASK) != 0;
+	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
+	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
+	bool hasBones = (vertType & GE_VTYPE_WEIGHT_MASK) != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
 
@@ -143,15 +144,16 @@ void GenerateVertexShader(int prim, char *buffer) {
 	WRITE(p, "#define lowp\n");
 	WRITE(p, "#define mediump\n");
 #endif
+	const u32 vertType = gstate.vertType;
 
 	int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 
 	bool hwXForm = CanUseHardwareTransform(prim);
-	bool hasColor = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 || !hwXForm;
-	bool hasNormal = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 && hwXForm;
+	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !hwXForm;
+	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0 && hwXForm;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
+	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
@@ -169,7 +171,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 	}
 
-	if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
+	if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
 		WRITE(p, "%s", boneWeightAttrDecl[gstate.getNumBoneWeights() - 1]);
 	}
 
@@ -215,8 +217,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 		else if (gstate.getUVGenMode() == 1)
 			WRITE(p, "uniform mat4 u_texmtx;\n");
-		if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
-			int numBones = 1 + ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
+		if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
+			int numBones = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 			for (int i = 0; i < numBones; i++) {
 				WRITE(p, "uniform mat4 u_bone%i;\n", i);
 			}
@@ -283,7 +285,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 	} else {
 		// Step 1: World Transform / Skinning
-		if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
+		if ((vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
 			// No skinning, just standard T&L.
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
@@ -292,7 +294,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			WRITE(p, "  vec3 worldpos = vec3(0.0);\n");
 			if (hasNormal)
 				WRITE(p, "  vec3 worldnormal = vec3(0.0);\n");
-			int numWeights = 1 + ((gstate.vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
+			int numWeights = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 			for (int i = 0; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue

@@ -18,17 +18,19 @@
 #include "base/timeutil.h"
 
 #include "Common/MemoryUtil.h"
-#include "../../Core/MemMap.h"
-#include "../../Core/Host.h"
-#include "../../Core/System.h"
-#include "../../Core/Reporting.h"
-#include "../../native/gfx_es2/gl_state.h"
-#include "../../native/ext/cityhash/city.h"
+#include "Core/MemMap.h"
+#include "Core/Host.h"
+#include "Core/System.h"
+#include "Core/Reporting.h"
+#include "Core/Config.h"
+#include "Core/CoreTiming.h"
 
-#include "../Math3D.h"
-#include "../GPUState.h"
-#include "../ge_constants.h"
-#include "../../Core/Config.h"
+#include "native/gfx_es2/gl_state.h"
+#include "native/ext/cityhash/city.h"
+
+#include "GPU/Math3D.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
 
 #include "StateMapping.h"
 #include "TextureCache.h"
@@ -807,6 +809,48 @@ VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 	return dec;
 }
 
+void TransformDrawEngine::SetupVertexDecoder(u32 vertType) {
+	// If vtype has changed, setup the vertex decoder.
+	// TODO: Simply cache the setup decoders instead.
+	if (vertType != lastVType_) {
+		dec_ = GetVertexDecoder(vertType);
+		lastVType_ = vertType;
+	}
+}
+
+int TransformDrawEngine::EstimatePerVertexCost() {
+	// TODO: This is transform cost, also account for rasterization cost somehow... although it probably
+	// runs in parallel with transform.
+
+	// Also, this is all pure guesswork. If we can find a way to do measurements, that would be great.
+
+	// GTA wants a low value to run smooth, GoW wants a high value (otherwise it thinks things
+	// went too fast and starts doing all the work over again).
+
+	int cost = 20;
+	if (gstate.isLightingEnabled()) {
+		cost += 10;
+	}
+
+	for (int i = 0; i < 4; i++) {
+		if (gstate.lightEnable[i] & 1)
+			cost += 20;
+	}
+	if (gstate.getUVGenMode() != 0) {
+		cost += 20;
+	}
+	if (dec_ && dec_->morphcount > 1) {
+		cost += 5 * dec_->morphcount;
+	}
+
+	if (CoreTiming::GetClockFrequencyMHz() == 333) {
+		// Just brutally double to make God of War happier.
+		// FUDGE FACTORS! Delicious fudge factors!
+		cost *= 2;
+	}
+	return cost;
+}
+
 void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
@@ -814,12 +858,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
 		Flush();
 	prevPrim_ = prim;
-	// If vtype has changed, setup the vertex decoder.
-	// TODO: Simply cache the setup decoders instead.
-	if (vertType != lastVType_) {
-		dec_ = GetVertexDecoder(vertType);
-		lastVType_ = vertType;
-	}
+	SetupVertexDecoder(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
 

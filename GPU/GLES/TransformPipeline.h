@@ -119,6 +119,11 @@ public:
 	void DecimateTrackedVertexArrays();
 	void ClearTrackedVertexArrays();
 
+	void SetupVertexDecoder(u32 vertType);
+
+	// This requires a SetupVertexDecoder call first.
+	int EstimatePerVertexCost();
+
 private:
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
