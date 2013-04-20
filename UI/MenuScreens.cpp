@@ -532,6 +532,13 @@ void ControlsScreen::update(InputState &input) {
 	}
 }
 
+void LanguageScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
 void DeveloperScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
@@ -646,10 +653,11 @@ void GraphicsScreen::render() {
 		}
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Draw Wireframe"), ALIGN_TOPLEFT, &g_Config.bDrawWireframe);
 	UIEnd();
 }
 
-SystemScreen::SystemScreen()
+LanguageScreen::LanguageScreen()
 {
 #ifdef ANDROID
 	VFSGetFileListing("assets/lang", &langs_, "ini");
@@ -658,34 +666,24 @@ SystemScreen::SystemScreen()
 #endif
 }
 
-void SystemScreen::render() {
+void LanguageScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *l = GetI18NCategory("Language");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, s->T("System Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, s->T("Language"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	int x = 30;
-	int y = 30;
-	int stride = 40;
-	int columnw = 400;
-
-	UICheckBox(GEN_ID, x, y += stride, s->T("Dynarec", "Dynarec (JIT)"), ALIGN_TOPLEFT, &g_Config.bJit);
-	if (g_Config.bJit)
-		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
-	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
-	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
-
-	VGrid vlang(500, 100, dp_yres - 50, 10, 10);
+	VGrid vlang(50, 100, dp_yres - 50, 10, 10);
 
 	for (size_t i = 0; i < langs_.size(); i++) {
 		std::string code;
@@ -706,10 +704,48 @@ void SystemScreen::render() {
 				// After this, g and s are no longer valid. Let's return, some flicker is okay.
 				g = GetI18NCategory("General");
 				s = GetI18NCategory("System");
+				l = GetI18NCategory("Language");
 			} else {
 				g_Config.languageIni = oldLang;
 			}
 		}
+	}
+	UIEnd();
+}
+
+void SystemScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *g = GetI18NCategory("General");
+
+	ui_draw2d.SetFontScale(1.5f, 1.5f);
+	ui_draw2d.DrawText(UBUNTU24, s->T("System Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	int x = 30;
+	int y = 30;
+	int stride = 40;
+	int columnw = 400;
+
+	UICheckBox(GEN_ID, x, y += stride, s->T("Dynarec", "Dynarec (JIT)"), ALIGN_TOPLEFT, &g_Config.bJit);
+	if (g_Config.bJit)
+		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
+	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
+	UICheckBox(GEN_ID, x, y += stride, s->T("Encrypt Save"), ALIGN_TOPLEFT, &g_Config.bEncryptSave);
+	bool tf = g_Config.itimeformat == 1;
+	UICheckBox(GEN_ID, x, y += stride, s->T("12HR Time Format"), ALIGN_TOPLEFT, &tf);
+	g_Config.itimeformat = tf ? 1 : 0;
+
+	if (UIButton(GEN_ID, Pos(x, y += stride * 3), LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new LanguageScreen());
 	}
 	UIEnd();
 }
@@ -726,7 +762,7 @@ void ControlsScreen::render() {
 	ui_draw2d.DrawText(UBUNTU24, c->T("Controls Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
