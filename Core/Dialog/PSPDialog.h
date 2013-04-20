@@ -19,6 +19,7 @@
 
 #include "../Globals.h"
 #include "../Config.h"
+#include "i18n/i18n.h"
 
 class PointerWrap;
 
