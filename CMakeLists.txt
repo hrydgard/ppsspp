@@ -244,6 +244,8 @@ add_library(Common STATIC
 	Common/FileUtil.h
 	Common/Hash.cpp
 	Common/Hash.h
+	Common/KeyMap.cpp
+	Common/KeyMap.h
 	Common/LogManager.cpp
 	Common/LogManager.h
 	Common/MathUtil.cpp
