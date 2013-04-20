@@ -21,7 +21,10 @@
 #include "../Core/MemMap.h"
 #include "../Config.h"
 #include "Core/Reporting.h"
+#include "i18n/i18n.h"
 #include "Core/HW/MemoryStick.h"
+
+I18NCategory *m = GetI18NCategory("SaveDialog");
 
 PSPSaveDialog::PSPSaveDialog()
 	: PSPDialog()
@@ -250,7 +253,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 {
 	if(param.GetFileInfo(currentSelectedSave).size == 0)
 	{
-		PPGeDrawText("New Save", 180, 100, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(m->T("New Save"), 180, 100, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 	else
 	{
@@ -332,12 +335,12 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 }
 
 void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
-{
+{    
 	PPGeDrawRect(180, 105, 460, 106, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(180, 160, 460, 161, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawText(text.c_str(), 220, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-	PPGeDrawText("Yes", 250, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText("No", 350, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText(m->T("Yes"), 250, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText(m->T("No"), 350, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
 		yesnoChoice = 1;
@@ -359,16 +362,16 @@ void PSPSaveDialog::DisplayTitle(std::string name)
 	PPGeDrawText(name.c_str(), 10, 10, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 void PSPSaveDialog::DisplayEnterBack()
-{
+{    
 	PPGeDrawImage(okButtonImg, 180, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawImage(cancelButtonImg, 270, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText("Enter", 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText("Back", 285, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(m->T("Enter"), 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(m->T("Back"), 285, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 void PSPSaveDialog::DisplayBack()
-{
+{    
 	PPGeDrawImage(cancelButtonImg, 180, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText("Back", 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(m->T("Back"), 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPSaveDialog::Update()
@@ -405,7 +408,7 @@ int PSPSaveDialog::Update()
 		okButtonFlag = CTRL_CROSS;
 		cancelButtonFlag = CTRL_CIRCLE;
 	}
-
+    
 	switch(display)
 	{
 		case DS_SAVE_LIST_CHOICE:
@@ -452,7 +455,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayConfirmationYesNo("Do you want to overwrite the data ?");
+			DisplayConfirmationYesNo(m->T("Do you want to overwrite the data ?"));
 
 			DisplayEnterBack();
 			if (IsButtonPressed(cancelButtonFlag))
@@ -489,7 +492,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayInfo("Saving\nPlease Wait...");
+			DisplayInfo(m->T("Saving\nPlease Wait..."));
 
 			EndDraw();
 		break;
@@ -501,7 +504,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveDataInfo2();
 			DisplayBack();
 
-			DisplayInfo("Save completed");
+			DisplayInfo(m->T("Save completed"));
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
@@ -544,7 +547,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayInfo("Loading\nPlease Wait...");
+			DisplayInfo(m->T("Loading\nPlease Wait..."));
 
 			EndDraw();
 		break;
@@ -556,7 +559,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveDataInfo2();
 			DisplayBack();
 
-			DisplayInfo("Load completed");
+			DisplayInfo(m->T("Load completed"));
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
@@ -574,7 +577,7 @@ int PSPSaveDialog::Update()
 
 			DisplayBack();
 
-			DisplayInfo("There is no data");
+			DisplayInfo(m->T("There is no data"));
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
@@ -612,7 +615,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayConfirmationYesNo("    This save data will be deleted.\nAre you sure you want to continue?");
+			DisplayConfirmationYesNo(m->T("    This save data will be deleted.\nAre you sure you want to continue?"));
 
 
 			DisplayEnterBack();
@@ -647,7 +650,7 @@ int PSPSaveDialog::Update()
 			StartDraw();
 			
 
-			DisplayInfo("Deleting\nPlease Wait...");
+			DisplayInfo(m->T("Deleting\nPlease Wait..."));
 
 			EndDraw();
 		break;
@@ -657,7 +660,7 @@ int PSPSaveDialog::Update()
 
 			DisplayBack();
 
-			DisplayInfo("Delete completed");
+			DisplayInfo(m->T("Delete completed"));
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
@@ -675,7 +678,7 @@ int PSPSaveDialog::Update()
 
 			DisplayBack();
 
-			DisplayInfo("There is no data");
+			DisplayInfo(m->T("There is no data."));
 
 			if (IsButtonPressed(cancelButtonFlag))
 			{
