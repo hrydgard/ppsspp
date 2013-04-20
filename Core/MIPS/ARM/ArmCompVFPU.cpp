@@ -726,4 +726,8 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_Vtfm(u32 op) {
+		DISABLE;
+	}
+
 }

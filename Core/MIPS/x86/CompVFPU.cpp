@@ -876,4 +876,62 @@ void Jit::Comp_Vmscl(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
+void Jit::Comp_Vtfm(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	// TODO: This probably ignores prefixes?  Or maybe uses D?
+	if (js.MayHavePrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	MatrixSize msz = GetMtxSize(op);
+	int n = GetNumVectorElements(sz);
+	int ins = (op >> 23) & 7;
+
+	bool homogenous = false;
+	if (n == ins)
+	{
+		n++;
+		sz = (VectorSize)((int)(sz) + 1);
+		msz = (MatrixSize)((int)(msz) + 1);
+		homogenous = true;
+	}
+	// Otherwise, n should already be ins + 1.
+	else if (n != ins + 1)
+		DISABLE;
+
+	u8 sregs[16], dregs[4], tregs[4];
+	GetMatrixRegs(sregs, msz, _VS);
+	GetVectorRegs(tregs, sz, _VT);
+	GetVectorRegs(dregs, sz, _VD);
+
+	// TODO: test overlap, optimize.
+	u8 tempregs[4];
+	for (int i = 0; i < n; i++)
+	{
+		XORPS(XMM0, R(XMM0));
+		for (int k = 0; k < n; k++)
+		{
+			MOVSS(XMM1, fpr.V(sregs[i * 4 + k]));
+			if (!homogenous || k != n - 1)
+				MULSS(XMM1, fpr.V(tregs[k]));
+			ADDSS(XMM0, R(XMM1));
+		}
+
+		u8 temp = (u8) fpr.GetTempV();
+		fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
+		MOVSS(fpr.VX(temp), R(XMM0));
+		fpr.StoreFromRegisterV(temp);
+		tempregs[i] = temp;
+	}
+	for (int i = 0; i < n; i++)
+	{
+		u8 temp = tempregs[i];
+		fpr.MapRegV(temp, 0);
+		MOVSS(fpr.V(dregs[i]), fpr.VX(temp));
+	}
+
+	fpr.ReleaseSpillLocks();
+}
+
 }
