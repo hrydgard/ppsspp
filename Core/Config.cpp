@@ -118,8 +118,16 @@ void Config::Load(const char *iniFileName)
 	control->Get("ForceInputDevice", &iForceInputDevice, -1);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+	pspConfig->Get("NickName", &sNickName, "shadow");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &itimeformat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
+	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
+	pspConfig->Get("TimeZone", &iTimeZone, 0);
+	pspConfig->Get("DayLightSavings", &bDayLightSavings, PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD);
+	pspConfig->Get("ButtonPreference", &bButtonPreference, PSP_SYSTEMPARAM_BUTTON_CIRCLE);
+	pspConfig->Get("LockParentalLevel", &bLockParentalLevel, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
+	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
+	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
 	pspConfig->Get("EncryptSave", &bEncryptSave, true);
 
 	CleanRecent();
@@ -187,8 +195,16 @@ void Config::Save()
 		
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
+		pspConfig->Set("NickName", sNickName.c_str());
 		pspConfig->Set("Language", ilanguage);
 		pspConfig->Set("TimeFormat", itimeformat);
+		pspConfig->Set("DateFormat", iDateFormat);
+		pspConfig->Set("TimeZone", iTimeZone);
+		pspConfig->Set("DayLightSavings", bDayLightSavings);
+		pspConfig->Set("ButtonPreference", bButtonPreference);
+		pspConfig->Set("LockParentalLevel", bLockParentalLevel);
+		pspConfig->Set("WlanAdhocChannel", iWlanAdhocChannel);
+		pspConfig->Set("WlanPowerSave", bWlanPowerSave);
 		pspConfig->Set("EncryptSave", bEncryptSave);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
