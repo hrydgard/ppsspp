@@ -609,7 +609,10 @@ void GraphicsScreen::render() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
+
+	ui_draw2d.SetFontScale(1.5f, 1.5f);
 	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
