@@ -237,6 +237,7 @@ void Core_EnableStepping(bool step)
 #if defined(_DEBUG)
 		host->SetDebugMode(true);
 #endif
+		m_hStepEvent.reset();
 		Core_UpdateState(CORE_STEPPING);
 	}
 	else
