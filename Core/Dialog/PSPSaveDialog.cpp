@@ -619,7 +619,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayConfirmationYesNo(m->T("This save data will be deleted.\nAre you sure you want to continue?"));
+			DisplayConfirmationYesNo(m->T("This save data will be deleted.\nAre you sure you want to continue?", "    This save data will be deleted.\nAre you sure you want to continue?"));
 
 
 			DisplayEnterBack();
