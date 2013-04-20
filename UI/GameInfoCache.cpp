@@ -252,8 +252,8 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 				if (info->pic0Texture->LoadPNG((const u8 *)info->pic0TextureData.data(), info->pic0TextureData.size(), false)) {
 					info->timePic0WasLoaded = time_now_d();
 				} else {
-					delete info->iconTexture;
-					info->iconTexture = 0;
+					delete info->pic0Texture;
+					info->pic0Texture = 0;
 				}
 				info->pic0TextureData.clear();
 			}
@@ -265,8 +265,8 @@ GameInfo *GameInfoCache::GetInfo(const std::string &gamePath, bool wantBG) {
 				if (info->pic1Texture->LoadPNG((const u8 *)info->pic1TextureData.data(), info->pic1TextureData.size(), false)) {
 					info->timePic1WasLoaded = time_now_d();
 				} else {
-					delete info->iconTexture;
-					info->iconTexture = 0;
+					delete info->pic1Texture;
+					info->pic1Texture = 0;
 				}
 				info->pic1TextureData.clear();
 			}
