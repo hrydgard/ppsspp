@@ -76,27 +76,28 @@ int PSPOskDialog::Init(u32 oskPtr)
 {
 	// Ignore if already running
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
-	{
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
-	}
+	// Seems like this should crash?
+	if (!Memory::IsValidAddress(oskPtr))
+		return -1;
+
+	oskParams = Memory::GetStruct<SceUtilityOskParams>(oskPtr);
+	if (oskParams->base.size != sizeof(SceUtilityOskParams))
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 
-	memset(&oskParams, 0, sizeof(oskParams));
 	memset(&oskData, 0, sizeof(oskData));
 	// TODO: should this be init'd to oskIntext?
 	inputChars.clear();
-	oskParamsAddr = oskPtr;
 	selectedChar = 0;
 
-	if (Memory::IsValidAddress(oskPtr))
+	if (Memory::IsValidAddress(oskParams->SceUtilityOskDataPtr))
 	{
-		Memory::ReadStruct(oskPtr, &oskParams);
-		Memory::ReadStruct(oskParams.SceUtilityOskDataPtr, &oskData);
+		Memory::ReadStruct(oskParams->SceUtilityOskDataPtr, &oskData);
 		ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
 		ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
 		ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
-		Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
-		Memory::WriteStruct(oskPtr, &oskParams);
 	}
 	else
 	{
@@ -254,23 +255,33 @@ int PSPOskDialog::Update()
 	}
 
 	oskData.outtextlength = (u32)inputChars.size();
-	oskParams.base.result= 0;
+	oskParams->base.result = 0;
 	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
-	Memory::WriteStruct(oskParams.SceUtilityOskDataPtr, &oskData);
-	Memory::WriteStruct(oskParamsAddr, &oskParams);
+	Memory::WriteStruct(oskParams->SceUtilityOskDataPtr, &oskData);
 
 	return 0;
+}
+
+template <typename T>
+static void DoBasePointer(PointerWrap &p, T **ptr)
+{
+	u32 addr = *ptr == NULL ? 0 : (u8 *) *ptr - Memory::base;
+	p.Do(addr);
+	if (addr == 0)
+		*ptr = NULL;
+	else
+		*ptr = Memory::GetStruct<T>(addr);
+
 }
 
 void PSPOskDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
-	p.Do(oskParams);
+	DoBasePointer(p, &oskParams);
 	p.Do(oskData);
 	p.Do(oskDesc);
 	p.Do(oskIntext);
 	p.Do(oskOuttext);
-	p.Do(oskParamsAddr);
 	p.Do(selectedChar);
 	p.Do(inputChars);
 	p.DoMarker("PSPOskDialog");

@@ -151,12 +151,11 @@ private:
 	void ConvertUCS2ToUTF8(std::string& _string, const u32 em_address);
 	void RenderKeyboard();
 
-	SceUtilityOskParams oskParams;
+	SceUtilityOskParams *oskParams;
 	SceUtilityOskData oskData;
 	std::string oskDesc;
 	std::string oskIntext;
 	std::string oskOuttext;
-	int oskParamsAddr;
 
 	int selectedChar;
 	std::string inputChars;
