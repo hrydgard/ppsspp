@@ -189,10 +189,10 @@ const KeyMap_IntStrPair key_names[] = {
 static int key_names_count = sizeof(key_names) / sizeof(key_names[0]);
 static std::string unknown_key_name = "Unknown";
 const KeyMap_IntStrPair psp_button_names[] = {
-	{PAD_BUTTON_A, "O"},
-	{PAD_BUTTON_B, "X"},
-	{PAD_BUTTON_X, "[]"}, // TODO: use proper unicode symbol
-	{PAD_BUTTON_Y, "^"},
+	{PAD_BUTTON_A, "○"},
+	{PAD_BUTTON_B, "⨯"},
+	{PAD_BUTTON_X, "□"},
+	{PAD_BUTTON_Y, "△"},
 	{PAD_BUTTON_LBUMPER, "L"},
 	{PAD_BUTTON_RBUMPER, "R"},
 	{PAD_BUTTON_START, "Start"},
