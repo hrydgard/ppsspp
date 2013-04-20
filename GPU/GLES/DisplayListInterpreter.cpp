@@ -576,11 +576,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			shaderManager_->DirtyUniform(DIRTY_AMBIENT);
 		break;
 
-	case GE_CMD_MATERIALAMBIENT:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
-		break;
-
 	case GE_CMD_MATERIALDIFFUSE:
 		if (diff)
 			shaderManager_->DirtyUniform(DIRTY_MATDIFFUSE);
@@ -591,16 +586,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			shaderManager_->DirtyUniform(DIRTY_MATEMISSIVE);
 		break;
 
-	case GE_CMD_MATERIALSPECULAR:
-		if (diff)
-			shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
-		break;
-
+	case GE_CMD_MATERIALAMBIENT:
 	case GE_CMD_MATERIALALPHA:
 		if (diff)
 			shaderManager_->DirtyUniform(DIRTY_MATAMBIENTALPHA);
 		break;
 
+	case GE_CMD_MATERIALSPECULAR:
 	case GE_CMD_MATERIALSPECULARCOEF:
 		if (diff)
 			shaderManager_->DirtyUniform(DIRTY_MATSPECULAR);
