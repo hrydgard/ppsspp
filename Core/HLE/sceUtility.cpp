@@ -371,14 +371,16 @@ u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 	return 0;
 }
 
-u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, u32 unknownparam)
+u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
 {
-	DEBUG_LOG(HLE,"sceUtilityGetSystemParamString(%i, %08x, %i)", id,destaddr,unknownparam);
+	DEBUG_LOG(HLE, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destaddr, destSize);
 	char *buf = (char *)Memory::GetPointer(destaddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
-		strncpy(buf, g_Config.sNickName.c_str(), std::min<u32>(16, g_Config.sNickName.length()));
-		buf[15] = 0;
+		// If there's not enough space for the string and null terminator, fail.
+		if (destSize <= (int)g_Config.sNickName.length())
+			return PSP_SYSTEMPARAM_RETVAL_STRING_TOO_LONG;
+		strncpy(buf, g_Config.sNickName.c_str(), destSize);
 		break;
 
 	default:
@@ -478,7 +480,7 @@ const HLEFunction sceUtility[] =
 
 	{0x41e30674, &WrapU_UU<sceUtilitySetSystemParamString>, "sceUtilitySetSystemParamString"},
 	{0x45c18506, 0, "sceUtilitySetSystemParamInt"}, 
-	{0x34b78343, &WrapU_UUU<sceUtilityGetSystemParamString>, "sceUtilityGetSystemParamString"},
+	{0x34b78343, &WrapU_UUI<sceUtilityGetSystemParamString>, "sceUtilityGetSystemParamString"},
 	{0xA5DA2406, &WrapU_UU<sceUtilityGetSystemParamInt>, "sceUtilityGetSystemParamInt"},
 
 

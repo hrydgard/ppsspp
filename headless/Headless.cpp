@@ -203,6 +203,11 @@ int main(int argc, const char* argv[])
 	g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 	g_Config.itimeformat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 	g_Config.bEncryptSave = true;
+	g_Config.sNickName = "shadow";
+	g_Config.iTimeZone = 60;
+	g_Config.iDateFormat = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
+	g_Config.bButtonPreference = true;
+	g_Config.iLockParentalLevel = 9;
 
 #if defined(ANDROID)
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__)
