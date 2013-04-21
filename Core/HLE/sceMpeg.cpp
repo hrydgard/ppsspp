@@ -61,14 +61,16 @@ static const u32 MPEG_MEMSIZE = 0x10000;          // 64k.
 static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
 static const int MPEG_AVC_DECODE_ERROR_FATAL = 0x80628002;
 
-static const int atracDecodeDelay = 3000;         // Microseconds
-static const int avcDecodeDelay = 5400;           // Microseconds
-static const int mpegDecodeErrorDelay = 100;      // Delay in Microseconds in case of decode error
-static const int mpegTimestampPerSecond = 90000; // How many MPEG Timestamp units in a second.
-//static const int videoTimestampStep = 3003;      // Value based on pmfplayer (mpegTimestampPerSecond / 29.970 (fps)).
-static const int audioTimestampStep = 4180;      // For audio play at 44100 Hz (2048 samples / 44100 * mpegTimestampPerSecond == 4180)
-//static const int audioFirstTimestamp = 89249;    // The first MPEG audio AU has always this timestamp
-static const int audioFirstTimestamp = 90000;    // The first MPEG audio AU has always this timestamp
+static const int atracDecodeDelayMs = 3000;
+static const int avcFirstDelayMs = 3600;
+static const int avcDecodeDelayMs = 5400;         // Varies between 4700 and 6000.
+static const int avcEmptyDelayMs = 320;
+static const int mpegDecodeErrorDelayMs = 100;
+static const int mpegTimestampPerSecond = 90000;  // How many MPEG Timestamp units in a second.
+//static const int videoTimestampStep = 3003;       // Value based on pmfplayer (mpegTimestampPerSecond / 29.970 (fps)).
+static const int audioTimestampStep = 4180;       // For audio play at 44100 Hz (2048 samples / 44100 * mpegTimestampPerSecond == 4180)
+//static const int audioFirstTimestamp = 89249;     // The first MPEG audio AU has always this timestamp
+static const int audioFirstTimestamp = 90000;     // The first MPEG audio AU has always this timestamp
 static const s64 UNKNOWN_TIMESTAMP = -1;
 
 // At least 2048 bytes of MPEG data is provided when analysing the MPEG header
@@ -699,7 +701,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	if (ringbuffer.packetsRead == 0) {
 		// empty!
-		return MPEG_AVC_DECODE_ERROR_FATAL;
+		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
 	u32 buffer = Memory::Read_U32(bufferAddr);
@@ -768,7 +770,10 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	DEBUG_LOG(HLE, "sceMpegAvcDecode(%08x, %08x, %i, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
 
-	return 0;
+	if (ctx->videoFrameCount <= 1)
+		return hleDelayResult(0, "mpeg decode", avcFirstDelayMs);
+	else
+		return hleDelayResult(0, "mpeg decode", avcDecodeDelayMs);
 }
 
 u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAddr)
@@ -880,7 +885,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 
 	if (ringbuffer.packetsRead == 0) {
 		// empty!
-		return MPEG_AVC_DECODE_ERROR_FATAL;
+		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
 	u32 buffer = Memory::Read_U32(bufferAddr);
@@ -942,7 +947,10 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 
 	DEBUG_LOG(HLE, "UNIMPL sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
 
-	return 0;
+	if (ctx->videoFrameCount <= 1)
+		return hleDelayResult(0, "mpeg decode", avcFirstDelayMs);
+	else
+		return hleDelayResult(0, "mpeg decode", avcDecodeDelayMs);
 }
 
 u32 sceMpegAvcDecodeFlush(u32 mpeg)
