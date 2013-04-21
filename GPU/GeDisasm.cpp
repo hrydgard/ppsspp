@@ -82,6 +82,13 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	// Handle control and drawing commands here directly. The others we delegate.
 	switch (cmd)
 	{
+	case GE_CMD_NOP:
+		if (data != 0)
+			sprintf(buffer, "NOP: %06x", data);
+		else
+			sprintf(buffer, "NOP", data);
+		break;
+
 	case GE_CMD_BASE:
 		sprintf(buffer, "BASE: %06x", data & 0xFFFFFF);
 		break;
