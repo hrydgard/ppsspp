@@ -79,8 +79,10 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 	{
 		// Open the console window and create the window handle for GetStdHandle()
 		AllocConsole();
+		HWND hConWnd = GetConsoleWindow();
+		ShowWindow(hConWnd, SW_SHOWDEFAULT);
 		// Hide
-		if (Hidden) ShowWindow(GetConsoleWindow(), SW_HIDE);
+		if (Hidden) ShowWindow(hConWnd, SW_HIDE);
 		// Save the window handle that AllocConsole() created
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 		// Set the console window title
