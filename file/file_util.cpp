@@ -167,11 +167,13 @@ bool getFileInfo(const char *path, FileInfo *fileInfo)
 	fileInfo->fullName = path;
 
 #ifdef _WIN32
-	fileInfo->size = 0;
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
-	if (GetFileAttributesExA(path, GetFileExInfoStandard, &attrs)) {
-		fileInfo->size = (uint64_t)attrs.nFileSizeLow | ((uint64_t)attrs.nFileSizeHigh << 32);
+	if (!GetFileAttributesExA(path, GetFileExInfoStandard, &attrs)) {
+		fileInfo->size = 0;
+		fileInfo->isDirectory = false;
+		return false;
 	}
+	fileInfo->size = (uint64_t)attrs.nFileSizeLow | ((uint64_t)attrs.nFileSizeHigh << 32);
 	fileInfo->isDirectory = (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
 #else
