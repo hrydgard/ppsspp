@@ -583,7 +583,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 						atrac->loopNum--;
 					numSamples = ATRAC_MAX_SAMPLES;
 				}
-				Memory::Memset(outAddr, 0, numSamples * sizeof(s16) * 2);
+				Memory::Memset(outAddr, 0, numSamples * sizeof(s16) * atrac->atracOutputChannels);
 			}
 
 			Memory::Write_U32(numSamples, numSamplesAddr);
@@ -1021,6 +1021,7 @@ u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 half
 		atrac->first.addr = halfBuffer;
 		atrac->first.size = readSize;
 		atrac->Analyze();
+		atrac->atracOutputChannels = 2;
 		ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
 	}
 	return ret;
@@ -1045,6 +1046,7 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 		atrac->first.addr = buffer;
 		atrac->first.size = bufferSize;
 		atrac->Analyze();
+		atrac->atracOutputChannels = 2;
 		ret = _AtracSetData(atracID, buffer, bufferSize);
 	}
 	return ret;
@@ -1059,6 +1061,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
 	atrac->Analyze();
+	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac);
 	int ret = _AtracSetData(atracID, buffer, bufferSize);
 	if (ret < 0)
@@ -1077,6 +1080,7 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = readSize;
 	atrac->Analyze();
+	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac);
 	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
 	if (ret < 0)
@@ -1137,14 +1141,73 @@ int sceAtracIsSecondBufferNeeded(int atracID)
 	return 0;
 }
 
-int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, int readSize, int MOutHalfBufferSize)
+int sceAtracSetMOutHalfwayBuffer(int atracID, u32 MOutHalfBuffer, u32 readSize, u32 MOutHalfBufferSize)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetMOutHalfwayBuffer(%i, %08x, %i, %i)", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
+	INFO_LOG(HLE, "sceAtracSetMOutHalfwayBuffer(%i, %08x, %08x, %08x)", atracID, MOutHalfBuffer, readSize, MOutHalfBufferSize);
+	if (readSize > MOutHalfBufferSize)
+		return ATRAC_ERROR_INCORRECT_READ_SIZE;
+
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		//return -1;
+	int ret = 0;
+	if (atrac != NULL) {
+		atrac->first.addr = MOutHalfBuffer;
+		atrac->first.size = readSize;
+		atrac->Analyze();
+		atrac->atracOutputChannels = 1;
+		ret = _AtracSetData(atracID, MOutHalfBuffer, MOutHalfBufferSize);
 	}
-	return 0;
+	return ret;
+}
+
+u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize)
+{
+	INFO_LOG(HLE, "sceAtracSetMOutData(%i, %08x, %08x)", atracID, buffer, bufferSize);
+	Atrac *atrac = getAtrac(atracID);
+	int ret = 0;
+	if (atrac != NULL) {
+		atrac->first.addr = buffer;
+		atrac->first.size = bufferSize;
+		atrac->Analyze();
+		atrac->atracOutputChannels = 1;
+		ret = _AtracSetData(atracID, buffer, bufferSize);
+	}
+	return ret;
+} 
+
+int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
+{	
+	INFO_LOG(HLE, "sceAtracSetMOutDataAndGetID(%08x, %08x)", buffer, bufferSize);
+	int codecType = getCodecType(buffer);
+
+	Atrac *atrac = new Atrac();
+	atrac->first.addr = buffer;
+	atrac->first.size = bufferSize;
+	atrac->Analyze();
+	atrac->atracOutputChannels = 1;
+	int atracID = createAtrac(atrac);
+	int ret = _AtracSetData(atracID, buffer, bufferSize);
+	if (ret < 0)
+		return ret;
+	return atracID;
+}
+
+int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
+{
+	INFO_LOG(HLE, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
+	if (readSize > halfBufferSize)
+		return ATRAC_ERROR_INCORRECT_READ_SIZE;
+	int codecType = getCodecType(halfBuffer);
+
+	Atrac *atrac = new Atrac();
+	atrac->first.addr = halfBuffer;
+	atrac->first.size = readSize;
+	atrac->Analyze();
+	atrac->atracOutputChannels = 1;
+	int atracID = createAtrac(atrac);
+	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
+	if (ret < 0)
+		return ret;
+	return atracID;
 }
 
 int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr)
@@ -1226,11 +1289,11 @@ const HLEFunction sceAtrac3plus[] =
 	{0xeca32a99,WrapI_I<sceAtracIsSecondBufferNeeded>,"sceAtracIsSecondBufferNeeded"},
 	{0x0fae370e,WrapI_UUU<sceAtracSetHalfwayBufferAndGetID>,"sceAtracSetHalfwayBufferAndGetID"},
 	{0x2DD3E298,WrapU_IIU<sceAtracGetBufferInfoForReseting>,"sceAtracGetBufferInfoForResetting"},
-	{0x5CF9D852,WrapI_IUII<sceAtracSetMOutHalfwayBuffer>,"sceAtracSetMOutHalfwayBuffer"},
+	{0x5CF9D852,WrapI_IUUU<sceAtracSetMOutHalfwayBuffer>,"sceAtracSetMOutHalfwayBuffer"},
+	{0xF6837A1A,WrapU_IUU<sceAtracSetMOutData>,"sceAtracSetMOutData"},
+	{0x472E3825,WrapI_UU<sceAtracSetMOutDataAndGetID>,"sceAtracSetMOutDataAndGetID"},
+	{0x9CD7DE03,WrapI_UUU<sceAtracSetMOutHalfwayBufferAndGetID>,"sceAtracSetMOutHalfwayBufferAndGetID"},
 	{0xB3B5D042,WrapI_IU<sceAtracGetOutputChannel>,"sceAtracGetOutputChannel"},
-	{0xF6837A1A,0,"sceAtracSetMOutData"},
-	{0x472E3825,0,"sceAtracSetMOutDataAndGetID"},
-	{0x9CD7DE03,0,"sceAtracSetMOutHalfwayBufferAndGetID"},
 	{0x5622B7C1,WrapI_UIIU<sceAtracSetAA3DataAndGetID>,"sceAtracSetAA3DataAndGetID"},
 	{0x5DD66588,0,"sceAtracSetAA3HalfwayBufferAndGetID"},
 	{0x231FC6B7,WrapI_I<_sceAtracGetContextAddress>,"_sceAtracGetContextAddress"},
