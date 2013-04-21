@@ -68,14 +68,15 @@ Effect GetEffect(const char *text) {
 }
 
 struct FontReference {
-	FontReference(string name, string file, vector<CharRange> ranges, int pixheight)
-		: name_(name), file_(file), ranges_(ranges), size_(pixheight) {
+	FontReference(string name, string file, vector<CharRange> ranges, int pixheight, float vertOffset)
+		: name_(name), file_(file), ranges_(ranges), size_(pixheight), vertOffset_(vertOffset) {
 	}
 
 	string name_;
 	string file_;
 	vector<CharRange> ranges_;
 	int size_;
+	float vertOffset_;
 };
 
 typedef vector<FontReference> FontReferenceList;
@@ -191,6 +192,7 @@ struct Data {
   int sx, sy, ex, ey;
   // offset from the origin
   float ox, oy;
+	float voffset;  // to apply at the end
   // distance to move the origin forward
   float wx;
 
@@ -377,8 +379,10 @@ void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges,
 
 			FT_Face font;
 			bool foundMatch = false;
+			float vertOffset = 0;
 			for (size_t i = 0, n = tryFonts.size(); i < n; ++i) {
 				font = tryFonts[i];
+				vertOffset = fontRefs[i].vertOffset_;
 				if (FT_Get_Char_Index(font, kar) != 0) {
 					foundMatch = true;
 					break;
@@ -455,6 +459,7 @@ void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges,
 			dat.ey = img.dat.size();
 			dat.ox = (float)font->glyph->metrics.horiBearingX / 64 / supersample - bord;
 			dat.oy = -(float)font->glyph->metrics.horiBearingY / 64 / supersample - bord;
+			dat.voffset = vertOffset;
 			dat.wx = (float)font->glyph->metrics.horiAdvance / 64 / supersample;
 			dat.charNum = kar;
 
@@ -550,7 +555,7 @@ struct FontDesc {
 					results[idx].ex / tw,
 					results[idx].ey / th,
 					results[idx].ox,
-					results[idx].oy,
+					results[idx].oy + results[idx].voffset,
 					results[idx].wx,
 					results[idx].ex - results[idx].sx, results[idx].ey - results[idx].sy,
 					results[idx].charNum);
@@ -783,14 +788,15 @@ int main(int argc, char **argv) {
 			char fontfile[256];
 			char locales[256];
 			int pixheight;
-			sscanf(rest, "%s %s %s %i", fontname, fontfile, locales, &pixheight);
+			float vertOffset;
+			sscanf(rest, "%s %s %s %i %f", fontname, fontfile, locales, &pixheight, &vertOffset);
 			printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
 
 			std::vector<CharRange> ranges;
 			GetLocales(locales, ranges);
 			printf("locales fetched.\n");
 
-			FontReference fnt(fontname, fontfile, ranges, pixheight);
+			FontReference fnt(fontname, fontfile, ranges, pixheight, vertOffset);
 			fontRefs[fontname].push_back(fnt);
     } else if (!strcmp(word, "image")) {
       char imagename[256];
