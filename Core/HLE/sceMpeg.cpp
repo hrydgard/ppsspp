@@ -59,16 +59,18 @@ static const int MPEG_AU_MODE_SKIP = 1;
 static const u32 MPEG_MEMSIZE = 0x10000;          // 64k.
 
 static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
-static const int MPEG_AVC_DECODE_ERROR_FATAL = -8;
+static const int MPEG_AVC_DECODE_ERROR_FATAL = 0x80628002;
 
-static const int atracDecodeDelay = 3000;         // Microseconds
-static const int avcDecodeDelay = 5400;           // Microseconds
-static const int mpegDecodeErrorDelay = 100;      // Delay in Microseconds in case of decode error
-static const int mpegTimestampPerSecond = 90000; // How many MPEG Timestamp units in a second.
-//static const int videoTimestampStep = 3003;      // Value based on pmfplayer (mpegTimestampPerSecond / 29.970 (fps)).
-static const int audioTimestampStep = 4180;      // For audio play at 44100 Hz (2048 samples / 44100 * mpegTimestampPerSecond == 4180)
-//static const int audioFirstTimestamp = 89249;    // The first MPEG audio AU has always this timestamp
-static const int audioFirstTimestamp = 90000;    // The first MPEG audio AU has always this timestamp
+static const int atracDecodeDelayMs = 3000;
+static const int avcFirstDelayMs = 3600;
+static const int avcDecodeDelayMs = 5400;         // Varies between 4700 and 6000.
+static const int avcEmptyDelayMs = 320;
+static const int mpegDecodeErrorDelayMs = 100;
+static const int mpegTimestampPerSecond = 90000;  // How many MPEG Timestamp units in a second.
+//static const int videoTimestampStep = 3003;       // Value based on pmfplayer (mpegTimestampPerSecond / 29.970 (fps)).
+static const int audioTimestampStep = 4180;       // For audio play at 44100 Hz (2048 samples / 44100 * mpegTimestampPerSecond == 4180)
+//static const int audioFirstTimestamp = 89249;     // The first MPEG audio AU has always this timestamp
+static const int audioFirstTimestamp = 90000;     // The first MPEG audio AU has always this timestamp
 static const s64 UNKNOWN_TIMESTAMP = -1;
 
 // At least 2048 bytes of MPEG data is provided when analysing the MPEG header
@@ -699,7 +701,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	if (ringbuffer.packetsRead == 0) {
 		// empty!
-		return MPEG_AVC_DECODE_ERROR_FATAL;
+		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
 	u32 buffer = Memory::Read_U32(bufferAddr);
@@ -768,7 +770,10 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	DEBUG_LOG(HLE, "sceMpegAvcDecode(%08x, %08x, %i, %08x, %08x)", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
 
-	return 0;
+	if (ctx->videoFrameCount <= 1)
+		return hleDelayResult(0, "mpeg decode", avcFirstDelayMs);
+	else
+		return hleDelayResult(0, "mpeg decode", avcDecodeDelayMs);
 }
 
 u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 statusAddr)
@@ -880,7 +885,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 
 	if (ringbuffer.packetsRead == 0) {
 		// empty!
-		return MPEG_AVC_DECODE_ERROR_FATAL;
+		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
 	u32 buffer = Memory::Read_U32(bufferAddr);
@@ -942,7 +947,10 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 
 	DEBUG_LOG(HLE, "UNIMPL sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
 
-	return 0;
+	if (ctx->videoFrameCount <= 1)
+		return hleDelayResult(0, "mpeg decode", avcFirstDelayMs);
+	else
+		return hleDelayResult(0, "mpeg decode", avcDecodeDelayMs);
 }
 
 u32 sceMpegAvcDecodeFlush(u32 mpeg)
@@ -1092,9 +1100,9 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	sceAu.read(auAddr);
 
 	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
-		// delayThread(mpegErrorDecodeDelay)
 		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
-		return PSP_ERROR_MPEG_NO_DATA;
+		// TODO: Does this really reschedule?
+		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
 	}
 
 	auto streamInfo = ctx->streamMap.find(streamId);
@@ -1114,7 +1122,8 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	if (ctx->atracRegistered && (sceAu.pts > sceAu.pts + getMaxAheadTimestamp(mpegRingbuffer)))
 	{
 		ERROR_LOG(HLE, "sceMpegGetAvcAu - video too much ahead");
-		return PSP_ERROR_MPEG_NO_DATA;
+		// TODO: Does this really reschedule?
+		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
 	}
 
 	int result = 0;
@@ -1146,7 +1155,9 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	DEBUG_LOG(HLE, "%x=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
-	return result;
+	// TODO: sceMpegGetAvcAu seems to modify esSize, and delay when it's > 1000 or something.
+	// There's definitely more to it, but ultimately it seems games should expect it to delay randomly.
+	return hleDelayResult(result, "mpeg get avc", 100);
 }
 
 u32 sceMpegFinish()
@@ -1187,7 +1198,8 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
 		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
-		return PSP_ERROR_MPEG_NO_DATA;
+		// TODO: Does this really delay?
+		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
 	}
 
 	//...
@@ -1209,7 +1221,8 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	DEBUG_LOG(HLE, "%x=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
-	return result;
+	// TODO: Not clear on exactly when this delays.
+	return hleDelayResult(result, "mpeg get atrac", 100);
 }
 
 int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
@@ -1331,7 +1344,7 @@ u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 	DEBUG_LOG(HLE, "UNIMPL sceMpegAtracDecode(%08x, %08x, %08x, %i)", mpeg, auAddr, bufferAddr, init);
 	if (Memory::IsValidAddress(bufferAddr))
 		Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE);
-	return 0;
+	return hleDelayResult(0, "mpeg atrac decode", atracDecodeDelayMs);
 }
 
 // YCbCr -> RGB color space conversion
