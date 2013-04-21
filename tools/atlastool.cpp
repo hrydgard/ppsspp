@@ -11,12 +11,12 @@
 // line height
 // dist-per-pixel
 
-#include <set>
-
 #include <png.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <freetype/ftbitmap.h>
+#include <set>
+#include <map>
 #include <vector>
 #include <algorithm>
 #include <string>
@@ -66,6 +66,19 @@ Effect GetEffect(const char *text) {
   }
   return FX_INVALID;
 }
+
+struct FontReference {
+	FontReference(string name, string file, vector<CharRange> ranges, int pixheight)
+		: name_(name), file_(file), ranges_(ranges), size_(pixheight) {
+	}
+
+	string name_;
+	string file_;
+	vector<CharRange> ranges_;
+	int size_;
+};
+
+typedef vector<FontReference> FontReferenceList;
 
 template<class T>
 struct Image {
@@ -296,24 +309,62 @@ struct Closest {
       return 0;
     return bmp.buffer[x + y * bmp.width];
   }
-}; 
+};
 
-void RasterizeFont(const char *fontfile, std::vector<CharRange> &ranges, int fontsize, float *metrics_height, Bucket *bucket) {
-  FT_Library freetype;
-  CHECK(FT_Init_FreeType(&freetype) == 0);
+typedef vector<FT_Face> FT_Face_List;
 
-  FT_Face font;
-  CHECK(FT_New_Face(freetype, fontfile, 0, &font) == 0);
+inline vector<CharRange> merge(const vector<CharRange> &a, const vector<CharRange> &b) {
+	vector<CharRange> result = a;
+	for (size_t i = 0, in = b.size(); i < in; ++i) {
+		bool insert = true;
+		for (size_t j = 0, jn = a.size(); j < jn; ++j) {
+			// Should never overlap, so same start is always a duplicate.
+			if (b[i].start == a[j].start) {
+				insert = false;
+				break;
+			}
+		}
 
-  printf("TTF info: %d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
+		if (insert) {
+			result.push_back(b[i]);
+		}
+	}
 
-  CHECK(FT_Set_Pixel_Sizes(font, 0, fontsize * supersample) == 0);
+	return result;
+}
 
+void RasterizeFonts(const FontReferenceList fontRefs, vector<CharRange> &ranges, float *metrics_height, Bucket *bucket) {
+	FT_Library freetype;
+	CHECK(FT_Init_FreeType(&freetype) == 0);
 
+	vector<FT_Face> fonts;
+	fonts.resize(fontRefs.size());
 
-  // Character range. TODO: Make definable. We might want unicode
-  // Convert all characters to bitmaps.
-	for (size_t r = 0; r < ranges.size(); r++) {
+	// The ranges may overlap, so build a list of fonts per range.
+	map<int, FT_Face_List> fontsByRange;
+	// TODO: Better way than average?
+	float totalHeight = 0.0f;
+
+	for (size_t i = 0, n = fontRefs.size(); i < n; ++i) {
+		FT_Face &font = fonts[i];
+		CHECK(FT_New_Face(freetype, fontRefs[i].file_.c_str(), 0, &font) == 0);
+		printf("TTF info: %d glyphs, %08x flags, %d units, %d strikes\n", (int)font->num_glyphs, (int)font->face_flags, (int)font->units_per_EM, (int)font->num_fixed_sizes);
+
+		CHECK(FT_Set_Pixel_Sizes(font, 0, fontRefs[i].size_ * supersample) == 0);
+
+		ranges = merge(ranges, fontRefs[i].ranges_);
+		for (size_t r = 0, rn = fontRefs[i].ranges_.size(); r < rn; ++r) {
+			const CharRange &range = fontRefs[i].ranges_[r];
+			fontsByRange[range.start].push_back(fonts[i]);
+		}
+
+		totalHeight += font->size->metrics.height;
+	}
+	*metrics_height = totalHeight / (float) fontRefs.size();
+
+	// Convert all characters to bitmaps.
+	for (size_t r = 0, rn = ranges.size(); r < rn; r++) {
+		FT_Face_List &tryFonts = fontsByRange[ranges[r].start];
 		ranges[r].start_index = global_id;
 		for(int kar = ranges[r].start; kar < ranges[r].end; kar++) {
 			bool filtered = false;
@@ -321,6 +372,19 @@ void RasterizeFont(const char *fontfile, std::vector<CharRange> &ranges, int fon
 				if (ranges[r].filter.find((u16)kar) == ranges[r].filter.end())
 					filtered = true;
 			}
+
+			FT_Face font;
+			bool foundMatch = false;
+			for (size_t i = 0, n = tryFonts.size(); i < n; ++i) {
+				font = tryFonts[i];
+				if (FT_Get_Char_Index(font, kar) != 0) {
+					foundMatch = true;
+					break;
+				}
+			}
+			if (!foundMatch)
+				fprintf(stderr, "WARNING: No font contains character %x.\n", kar);
+
 			Image<unsigned int> img;
 			if (filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {
 				img.resize(1, 1);
@@ -340,9 +404,6 @@ void RasterizeFont(const char *fontfile, std::vector<CharRange> &ranges, int fon
 				bucket->AddItem(img, dat);
 				continue;
 			}
-
-			if (FT_Get_Char_Index(font, kar) == 0)
-				fprintf(stderr, "WARNING: Font does not contain character %x.\n", kar);
 
 			// printf("%dx%d %p\n", font->glyph->bitmap.width, font->glyph->bitmap.rows, font->glyph->bitmap.buffer);
 			const int bord = (128 + distmult - 1) / distmult + 1;
@@ -398,10 +459,12 @@ void RasterizeFont(const char *fontfile, std::vector<CharRange> &ranges, int fon
 			dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
 			bucket->AddItem(img, dat);
 		}
-  }
+	}
 
-  *metrics_height = font->size->metrics.height;
-  FT_Done_FreeType(freetype);
+	for (size_t i = 0, n = fonts.size(); i < n; ++i) {
+		FT_Done_Face(fonts[i]);
+	}
+	FT_Done_FreeType(freetype);
 }
 
 
@@ -573,7 +636,7 @@ inline bool operator <(const CharRange &a, const CharRange &b) {
 }
 
 
-void LearnFile(const char *filename, const char *desc, std::set<u16> &chars, int lowerLimit, int upperLimit) {
+void LearnFile(const char *filename, const char *desc, std::set<u16> &chars, uint32_t lowerLimit, uint32_t upperLimit) {
 	FILE *f = fopen(filename, "rb");
 	if (f) {
 		fseek(f, 0, SEEK_END);
@@ -689,6 +752,7 @@ int main(int argc, char **argv) {
   string image_name = string(atlas_name) + "_atlas.zim";
   out_prefix = argv[2];
 
+  map<string, FontReferenceList> fontRefs;
   vector<FontDesc> fonts;
   vector<ImageDesc> images;
 
@@ -702,39 +766,30 @@ int main(int argc, char **argv) {
   int image_width;
   sscanf(line, "%i", &image_width);
   printf("Texture width: %i\n", image_width);
-  while (!feof(script)) {
-    if (!fgets(line, 511, script)) break;
-    if (!strlen(line)) break;
-    char *rest = strchr(line, ' ');
-    if (rest) {
+	while (!feof(script)) {
+		if (!fgets(line, 511, script)) break;
+		if (!strlen(line)) break;
+		char *rest = strchr(line, ' ');
+		if (rest) {
 			*rest = 0;
 			rest++;
 		}
-    char *word = line;
-    if (!strcmp(word, "font")) {
-      // Font!
-      char fontname[256];
-      char fontfile[256];
+		char *word = line;
+		if (!strcmp(word, "font")) {
+			// Font!
+			char fontname[256];
+			char fontfile[256];
 			char locales[256];
-      int pixheight;
-      sscanf(rest, "%s %s %s %i", fontname, fontfile, locales, &pixheight);
-      printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
+			int pixheight;
+			sscanf(rest, "%s %s %s %i", fontname, fontfile, locales, &pixheight);
+			printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
 
 			std::vector<CharRange> ranges;
 			GetLocales(locales, ranges);
 			printf("locales fetched.\n");
-      FontDesc fnt;
-      fnt.first_char_id = (int)bucket.items.size();
 
-      float metrics_height;
-      RasterizeFont(fontfile, ranges, pixheight, &metrics_height, &bucket);
-			printf("font rasterized.\n");
-
-			fnt.ranges = ranges;
-			fnt.name = fontname;
-      fnt.metrics_height = metrics_height;
-
-      fonts.push_back(fnt);
+			FontReference fnt(fontname, fontfile, ranges, pixheight);
+			fontRefs[fontname].push_back(fnt);
     } else if (!strcmp(word, "image")) {
       char imagename[256];
       char imagefile[256];
@@ -753,8 +808,26 @@ int main(int argc, char **argv) {
     } else {
 			fprintf(stderr, "Warning: Failed to parse line starting with %s\n", line);
 		}
-  }
-  fclose(script);
+	}
+	fclose(script);
+
+	// Script fully read, now rasterize the fonts.
+	for (auto it = fontRefs.begin(), end = fontRefs.end(); it != end; ++it) {
+		FontDesc fnt;
+		fnt.first_char_id = (int)bucket.items.size();
+
+		vector<CharRange> finalRanges;
+		float metrics_height;
+		RasterizeFonts(it->second, finalRanges, &metrics_height, &bucket);
+		printf("font rasterized.\n");
+
+		fnt.ranges = finalRanges;
+		fnt.name = it->first;
+		fnt.metrics_height = metrics_height;
+
+		fonts.push_back(fnt);
+	}
+
   // Script read, all subimages have been generated.
 
   // Place the subimages onto the main texture. Also writes to png.
