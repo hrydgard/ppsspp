@@ -367,7 +367,6 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	double start = time_now_d();
 	currentList = &list;
 	u32 op = 0;
-	prev = 0;
 	gpuState = GPUSTATE_RUNNING;
 
 	// I don't know if this is the correct place to zero this, but something
@@ -390,6 +389,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	list.state = PSP_GE_DL_STATE_RUNNING;
 	list.interrupted = false;
 
+	const bool dumpThisFrame = dumpThisFrame_;
 	while (gpuState == GPUSTATE_RUNNING)
 	{
 		if (list.pc == list.stall)
@@ -410,8 +410,9 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		u32 diff = op ^ gstate.cmdmem[cmd];
 		PreExecuteOp(op, diff);
 		// TODO: Add a compiler flag to remove stuff like this at very-final build time.
-		if (dumpThisFrame_) {
+		if (dumpThisFrame) {
 			char temp[256];
+			u32 prev = Memory::ReadUnchecked_U32(list.pc - 4);
 			GeDisassembleOp(list.pc, op, prev, temp);
 			NOTICE_LOG(HLE, "%s", temp);
 		}
@@ -420,7 +421,6 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		ExecuteOp(op, diff);
 		
 		list.pc += 4;
-		prev = op;
 	}
 
 	UpdateCycles(list.pc - 4, list.pc);
@@ -549,7 +549,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		// Processed in GE_END.
 		break;
 
-	case GE_CMD_END:
+	case GE_CMD_END: {
+		u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 		UpdateCycles(currentList->pc);
 		switch (prev >> 24) {
 		case GE_CMD_SIGNAL:
@@ -675,6 +676,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			break;
 		}
 		break;
+	}
 
 	default:
 		DEBUG_LOG(G3D,"DL Unknown: %08x @ %08x", op, currentList == NULL ? 0 : currentList->pc);
@@ -697,6 +699,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 		currentList = &dls[currentID];
 	}
 	p.Do(interruptRunning);
+	u32 prev;  // TODO: kill. just didn't want to break states right now...
 	p.Do(prev);
 	p.Do(gpuState);
 	p.Do(isbreak);

@@ -929,13 +929,14 @@ void TransformDrawEngine::DecodeVerts() {
 				}
 			}
 
+			int vertexCount = indexUpperBound - indexLowerBound + 1;
 			// 3. Decode that range of vertex data.
 			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
 				dc.verts, indexLowerBound, indexUpperBound);
-			collectedVerts += indexUpperBound - indexLowerBound + 1;
+			collectedVerts += vertexCount;
 
 			// 4. Advance indexgen vertex counter.
-			indexGen.Advance(indexUpperBound - indexLowerBound + 1);
+			indexGen.Advance(vertexCount);
 			i = lastMatch;
 		}
 	}
@@ -1215,6 +1216,9 @@ rotateVBO:
 		DecodeVerts();
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
 		prim = indexGen.Prim();
+		// Undo the strip optimization, not supported by the SW code yet.
+		if (prim == GE_PRIM_TRIANGLE_STRIP)
+			prim = GE_PRIM_TRIANGLES;
 		DEBUG_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
 		SoftwareTransformAndDraw(

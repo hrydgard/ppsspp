@@ -103,8 +103,9 @@ public:
 		ge_pending_cb.pop_front();
 		gpu->InterruptEnd(intrdata.listid);
 
+		// Seen in GoW.
 		if (subintr >= 0)
-			WARN_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
+			DEBUG_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
 		return false;
 	}
 
