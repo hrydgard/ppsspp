@@ -55,6 +55,7 @@ namespace MainWindow {
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
 #include "Core/SaveState.h"
+#include "Core/HLE/sceUtility.h"
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
@@ -702,8 +703,28 @@ void LanguageScreen::render() {
 		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 40, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;
 			g_Config.languageIni = code;
+
 			if (i18nrepo.LoadIni(g_Config.languageIni)) {
 				// Dunno what else to do here.
+				langValuesMapping["ja_JA"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
+				langValuesMapping["en_US"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+				langValuesMapping["fr_FR"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
+				langValuesMapping["es_ES"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
+				langValuesMapping["de_DE"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN; 
+				langValuesMapping["it_IT"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN; 
+				langValuesMapping["nl_NL"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
+				langValuesMapping["pt_BR"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
+				langValuesMapping["ru_RU"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
+				langValuesMapping["ko_KR"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
+				langValuesMapping["zh_TW"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
+				langValuesMapping["zh_CN"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
+
+				if(langValuesMapping.find(code) == langValuesMapping.end()) {
+					//Fallback to English
+					g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+				} else {
+					g_Config.ilanguage = langValuesMapping[code];
+				}
 
 				// After this, g and s are no longer valid. Let's return, some flicker is okay.
 				g = GetI18NCategory("General");
