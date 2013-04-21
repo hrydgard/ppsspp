@@ -718,7 +718,7 @@ void LanguageScreen::render() {
 				langValuesMapping["zh_TW"] = 10;
 				langValuesMapping["zh_CN"] = 11;
 
-				if(code != "ja_JA" && langValuesMapping[code] == 0){
+				if(langValuesMapping.find(code) == langValuesMapping.end()) {
 					//Fallback to English
 					g_Config.ilanguage = 1;
 				} else {
