@@ -419,11 +419,16 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_STOP:
-				if (memoryWindow[0])
+				if (memoryWindow[0]) {
 					SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-
+				}
+				if (disasmWindow[0]) {
+					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
+				}
+				if (Core_IsStepping()) {
+					Core_EnableStepping(false);
+				}
 				NativeMessageReceived("stop", "");
-
 				SetPlaying(0);
 				Update();
 				break;
@@ -697,7 +702,7 @@ namespace MainWindow
 			if (disasmWindow[0])
 				SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
 			if (memoryWindow[0])
-				SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0); 
+				SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
 
 			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow[0]);
