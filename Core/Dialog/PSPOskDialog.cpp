@@ -62,6 +62,12 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
 	char stringBuffer[2048];
 	char *string = stringBuffer;
 
+	if (em_address == 0)
+	{
+		_string = "";
+		return;
+	}
+
 	u16 *src = (u16 *) Memory::GetPointer(em_address);
 	int c;
 	while (c = *src++)
