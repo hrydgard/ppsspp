@@ -130,16 +130,16 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 
 void PSPMsgDialog::DisplayBack()
 {
-	I18NCategory *m = GetI18NCategory("Dialog");
+	I18NCategory *d = GetI18NCategory("Dialog");
 	PPGeDrawImage(cancelButtonImg, 290, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(m->T("Back"), 320, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Back"), 320, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPMsgDialog::DisplayYesNo()
 {
-	I18NCategory *m = GetI18NCategory("Dialog");
-	PPGeDrawText(m->T("Yes"), 200, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText(m->T("No"), 320, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	I18NCategory *d = GetI18NCategory("Dialog");
+	PPGeDrawText(d->T("Yes"), 200, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText(d->T("No"), 320, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
 
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
@@ -153,9 +153,9 @@ void PSPMsgDialog::DisplayYesNo()
 
 void PSPMsgDialog::DisplayOk()
 {
-	I18NCategory *m = GetI18NCategory("Dialog");
+	I18NCategory *d = GetI18NCategory("Dialog");
 	PPGeDrawImage(okButtonImg, 200, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(m->T("Enter"), 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Enter"), 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
