@@ -1339,7 +1339,7 @@ u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 	DEBUG_LOG(HLE, "UNIMPL sceMpegAtracDecode(%08x, %08x, %08x, %i)", mpeg, auAddr, bufferAddr, init);
 	if (Memory::IsValidAddress(bufferAddr))
 		Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE);
-	return 0;
+	return hleDelayResult(0, "mpeg atrac decode", atracDecodeDelayMs);
 }
 
 // YCbCr -> RGB color space conversion
