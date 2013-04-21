@@ -496,7 +496,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayInfo(d->T("Saving\nPlease Wait..."));
+			DisplayInfo(d->T("Saving","Saving\nPlease Wait..."));
 
 			EndDraw();
 		break;
@@ -551,7 +551,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayInfo(d->T("Loading\nPlease Wait..."));
+			DisplayInfo(d->T("Loading","Loading\nPlease Wait..."));
 
 			EndDraw();
 		break;
@@ -619,7 +619,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayConfirmationYesNo(d->T("This save data will be deleted.\nAre you sure you want to continue?", "    This save data will be deleted.\nAre you sure you want to continue?"));
+			DisplayConfirmationYesNo(d->T("DeleteConfirm", "    This save data will be deleted.\nAre you sure you want to continue?"));
 
 
 			DisplayEnterBack();
@@ -654,7 +654,7 @@ int PSPSaveDialog::Update()
 			StartDraw();
 			
 
-			DisplayInfo(d->T("Deleting\nPlease Wait..."));
+			DisplayInfo(d->T("Deleting","Deleting\nPlease Wait..."));
 
 			EndDraw();
 		break;
