@@ -341,6 +341,9 @@ void RasterizeFont(const char *fontfile, std::vector<CharRange> &ranges, int fon
 				continue;
 			}
 
+			if (FT_Get_Char_Index(font, kar) == 0)
+				fprintf(stderr, "WARNING: Font does not contain character %x.\n", kar);
+
 			// printf("%dx%d %p\n", font->glyph->bitmap.width, font->glyph->bitmap.rows, font->glyph->bitmap.buffer);
 			const int bord = (128 + distmult - 1) / distmult + 1;
 			if(font->glyph->bitmap.buffer) {
