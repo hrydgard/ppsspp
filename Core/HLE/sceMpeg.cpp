@@ -1100,9 +1100,9 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	sceAu.read(auAddr);
 
 	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
-		// delayThread(mpegErrorDecodeDelay)
 		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
-		return PSP_ERROR_MPEG_NO_DATA;
+		// TODO: Does this really reschedule?
+		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
 	}
 
 	auto streamInfo = ctx->streamMap.find(streamId);
@@ -1122,7 +1122,8 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	if (ctx->atracRegistered && (sceAu.pts > sceAu.pts + getMaxAheadTimestamp(mpegRingbuffer)))
 	{
 		ERROR_LOG(HLE, "sceMpegGetAvcAu - video too much ahead");
-		return PSP_ERROR_MPEG_NO_DATA;
+		// TODO: Does this really reschedule?
+		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
 	}
 
 	int result = 0;
@@ -1154,7 +1155,9 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	DEBUG_LOG(HLE, "%x=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
-	return result;
+	// TODO: sceMpegGetAvcAu seems to modify esSize, and delay when it's > 1000 or something.
+	// There's definitely more to it, but ultimately it seems games should expect it to delay randomly.
+	return hleDelayResult(result, "mpeg get avc", 100);
 }
 
 u32 sceMpegFinish()
@@ -1195,7 +1198,8 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
 		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
-		return PSP_ERROR_MPEG_NO_DATA;
+		// TODO: Does this really delay?
+		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
 	}
 
 	//...
@@ -1217,7 +1221,8 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	DEBUG_LOG(HLE, "%x=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
-	return result;
+	// TODO: Not clear on exactly when this delays.
+	return hleDelayResult(result, "mpeg get atrac", 100);
 }
 
 int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
