@@ -55,6 +55,7 @@ namespace MainWindow {
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
 #include "Core/SaveState.h"
+#include "Core/HLE/sceUtility.h"
 
 #include "MenuScreens.h"
 #include "EmuScreen.h"
@@ -705,22 +706,22 @@ void LanguageScreen::render() {
 
 			if (i18nrepo.LoadIni(g_Config.languageIni)) {
 				// Dunno what else to do here.
-				langValuesMapping["ja_JA"] = 0;
-				langValuesMapping["en_US"] = 1;
-				langValuesMapping["fr_FR"] = 2;
-				langValuesMapping["es_ES"] = 3;
-				langValuesMapping["de_DE"] = 4; 
-				langValuesMapping["it_IT"] = 5; 
-				langValuesMapping["nl_NL"] = 6;
-				langValuesMapping["pt_BR"] = 7;
-				langValuesMapping["ru_RU"] = 8;
-				langValuesMapping["ko_KR"] = 9;
-				langValuesMapping["zh_TW"] = 10;
-				langValuesMapping["zh_CN"] = 11;
+				langValuesMapping["ja_JA"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
+				langValuesMapping["en_US"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+				langValuesMapping["fr_FR"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
+				langValuesMapping["es_ES"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
+				langValuesMapping["de_DE"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN; 
+				langValuesMapping["it_IT"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN; 
+				langValuesMapping["nl_NL"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
+				langValuesMapping["pt_BR"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
+				langValuesMapping["ru_RU"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
+				langValuesMapping["ko_KR"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
+				langValuesMapping["zh_TW"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
+				langValuesMapping["zh_CN"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
 
 				if(langValuesMapping.find(code) == langValuesMapping.end()) {
 					//Fallback to English
-					g_Config.ilanguage = 1;
+					g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 				} else {
 					g_Config.ilanguage = langValuesMapping[code];
 				}
