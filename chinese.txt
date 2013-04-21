@@ -1,0 +1,191 @@
+﻿The font file maker will add all the characters present in this file. It will ignore all non Chinese characters as we have and know them already.
+
+
+I just took the two translation and some random stuff from our Chinese forum.
+试过几个版本的PPSSPP都这样，读取即时存档的话，战斗画面就会直接跳过，也就是A高达攻击B高达，确认开战，黑屏一秒（或卡顿一秒）就显示双方扣了多少血。
+如果游戏从头开始或通过内置存档读取来开始就不会这样，但这样就不能在战斗过程存档，必须整关过了才能再存档。
+即时存档可以保存进度，但一旦用了即时存档，以后重新进入游戏就不再显示战斗动画。
+如果第一次用了即时存档但不退出游戏，还是可以继续有战斗动画，直到下一次进入游戏为止。
+大家有遇到这种情况吗？求解决方法
+phone:LENOVO Lephone K860
+cpu:三星猎户座（1.4赫兹）4412
+game:初音未来 歌姬计划ex；初音未来 歌姬计划2
+problem:虽然其他手机玩初音未来几乎完美，但是我的手机还有一些问题：画面与音频不同步，游戏时按动按钮时画面可以立即做出反应，但声音不行。对于音乐类游戏，这​样的情况是无法进行游戏的。
+刚刚来到这个论坛，希望大神们多多包含，欢迎登陆中国社区：http://tieba.baidu.com/f?kw=ppsspp&fr=wap&ie=utf-8
+以前玩jpcsp的时候就发现，用AMP引擎制作的自制游戏比如《铃音之歌 初音之声》，这些游戏的BGM是一些MP3或者WAV文件。虽然只是MP3或者WAV，但是jpcsp就是无法播放出这些MP3或者WAV。
+也用PPSSPP试过了，玩《铃音之歌 初音之声》还是没有声音。这也许是开发者没有考虑到这些自制游戏。（其实我并不想开发者在这些游戏上浪费太多时间，因为这些游戏基本上都是从PC上移植过来的，可以用电脑​玩原版的游戏）
+
+造成没有声音的另一种原因可能是因为这些自制游戏更像是PSP的自制软件，jpcsp对PSP自制软件的支持本来就不怎样。
+事实上这些游戏的确可能会和其他PSP的自制软件冲突，并造成无声，黑屏，卡死等问题
+另外，用jpcsp可能不能直接运行这些游戏，你必须把ISO给解压，然后以载入文件的方式加载游戏的EBOOT.BIN或者EBOOT.PBP，也可以把解压出来的文件​夹SYSDIR扔到ms0\PSP\GAME里面然后以装载记忆棒的方式加载这个游戏。（如果你这样做，你会发现USRDIR里面竟然是空的，所有文件都在SYSDIR里​面。游戏用到的字体是ttf文件而不是pgf）
+还有一点，因为是自制游戏，所以这些游戏没有所谓的游戏ID，连存档都是直接保存到ms0\PSP里面，这也导致了多个自制游戏的存档不能共存。不过这些游戏的存档模拟器​和实体机共用，只要简单的改一下文件名就可以在模拟器和实体机之间相互转移存档。
+差的忘了，《铃音之歌 初音之声》可以在这里下载：
+
+
+[MainMenu]
+Credits = 开发人员
+Exit = 退出
+Load = 载入...
+Settings = 设置
+Recent = 最近
+[Developer]
+Developer Tools = 开发者工具
+Dump frame to log = 转储帧为日志
+Load language ini = 载入语言配置文件
+Run CPU tests = 运行CPU测试
+Save language ini = 儲存语言配置文件
+[General]
+Up = 向上
+Back = 返回
+[MainSettings]
+Audio = 音频
+AudioDesc = 调整音频设置
+Controls = 控制
+ControlsDesc = 触屏虚拟按钮、大按钮等
+Developer = 开发者
+DeveloperDesc = 运行CPU测试、转储帧为日志等
+Graphics = 图像
+GraphicsDesc = 更改图像选项
+Settings = 设置
+System = 系统
+SystemDesc = 开启动态重新编译 (JIT)、快速闪存等
+[System]
+Dynarec = 动态重新编译 (JIT)
+Fast Memory = 快速闪存 (不稳定)
+Show Debug Statistics = 显示除错信息
+Show FPS = 显示帧率
+System Settings = 系统设置
+Encrypt Save = 加密保存
+12HR Time Format = 12HR时间格式
+Language = 语言配置
+[Audio]
+Audio Settings = 音频设置
+Enable Sound = 开启声音
+[Controls]
+Controls Settings = 控制设置
+OnScreen = 触屏虚拟按钮
+Tilt = 重力感应替代摇杆 (水平方向)
+Large Controls = 大按钮
+Show Analog Stick = 显示摇杆
+[Graphics]
+2X = 2倍渲染分辨率
+Buffered Rendering = 缓冲渲染
+Frame Skipping = 跳帧
+Graphics Settings = 图像设置
+Hardware Transform = 硬件转换
+Linear Filtering = 线性过滤
+Media Engine = 媒体引擎
+Mipmapping = 多级纹理映射 (MipMap)
+Stream VBO =  流式顶点缓冲对象 (Stream VBO)
+Vertex Cache = 顶点缓存
+Stretch to Display = 延伸显示
+Draw Wireframe = 显示帧架
+[Pause]
+Save State = 储存状态
+Load State = 载入状态
+Continue = 继续
+Settings = 设置
+Back to Menu = 返回菜单
+[Dialog]
+New Save = 新的存档
+Yes = 是
+No = 否
+Do you want to overwrite the data? = 你想覆盖的存档吗？
+Saving = 储存中\n请稍候...
+Save completed = 储存完成
+Loading = 载入中\n请稍候...
+There is no data = 没有存档
+DeleteConfirm = 这个存档将被删除。 \n您确定要继续吗？
+Deleting = 删除中\n请稍候...
+Delete completed = 删除完成
+Load completed = 载入完成
+Enter = 决定
+Back = 返回
+Delete = 删除
+Finish = 完成
+Caps = 大写
+
+
+
+[MainMenu]
+Credits = 製作人員
+Exit = 退出
+Load = 載入...
+Settings = 設置
+Recent = 最近
+[Developer]
+Developer Tools = 開發工具
+Dump frame to log = 轉儲日誌
+Load language ini = 載入語言設定
+Run CPU tests = 運行CPU測試
+Save language ini = 儲存語言設定
+[General]
+Up = 向上
+Back = 返回
+[MainSettings]
+Audio = 音頻
+AudioDesc = 調整音頻設置
+Controls = 控制
+ControlsDesc = 觸屏控制, 大按鈕
+Developer = 開發者
+DeveloperDesc = 運行CPU測試, 轉儲日誌
+Graphics = 圖形
+GraphicsDesc = 更改圖形選項
+Settings = 設置
+System = 系統
+SystemDesc = 開啟動態重新編譯(即時編譯), 快速閃存
+[System]
+Dynarec = 動態重新編譯 (即時編譯)
+Fast Memory = 快速閃存 (不穩定)
+Show Debug Statistics = 顯示除錯信息
+Show FPS = 顯示幀數
+System Settings = 系統設置
+Encrypt Save = 加密保存
+12HR Time Format = 12HR時間格式
+Language = 語言設定
+[Audio]
+Audio Settings = 音頻設置
+Enable Sound = 開啟聲音
+[Controls]
+Controls Settings = 控制設置
+OnScreen = 觸屏控制
+Tilt = 重力感應 (水平模式)
+Large Controls = 大按鈕
+Show Analog Stick = 顯示摇杆
+[Graphics]
+2X = 2倍渲染分辨率
+Buffered Rendering = 緩衝渲染
+Frame Skipping = 跳幀
+Graphics Settings = 圖形設置
+Hardware Transform = 硬件轉換
+Linear Filtering = 線性過濾
+Media Engine = 媒體引擎
+Mipmapping = Mipmap貼圖
+Stream VBO = 頂點緩衝對像
+Vertex Cache = 頂點緩存
+Stretch to Display = 延伸顯示
+Draw Wireframe = 顯示幀架
+[Pause]
+Save State = 儲存狀態
+Load State = 載入狀態
+Continue = 繼續
+Settings = 設定
+Back to Menu = 返回菜單
+[Dialog]
+New Save = 新的存檔
+Yes = 是
+No = 否
+Do you want to overwrite the data? = 你想覆蓋的存檔嗎？
+Saving = 儲存中\n請稍候...
+Save completed = 儲存完成
+Loading = 載入中\n請稍候...
+There is no data = 沒有存檔
+DeleteConfirm = 這個存檔將被刪除。\n您確定要繼續嗎？
+Deleting = 刪除中\n請稍候...
+Delete completed = 刪除完成
+Load completed = 載入完成
+Enter = 決定
+Back = 返回
+Delete = 刪除
+Finish = 完成
+Caps = 大寫
