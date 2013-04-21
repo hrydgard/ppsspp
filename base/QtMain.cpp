@@ -56,13 +56,6 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
 	QApplication a(argc, argv);
-#ifdef __SYMBIAN32__
-	// Set RunFast hardware mode for VFPv2. Denormalised values are treated as 0. NaN used for all NaN situations.
-	User::SetFloatingPointMode(EFpModeRunFast);
-	// Disable screensaver
-	QSystemScreenSaver *ssObject = new QSystemScreenSaver(this);
-	ssObject->setScreenSaverInhibit();
-#endif
 	QSize res = QApplication::desktop()->screenGeometry().size();
 	if (res.width() < res.height())
 		res.transpose();
@@ -90,6 +83,13 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	MainUI w(dpi_scale);
 	w.resize(pixel_xres, pixel_yres);
 	w.showFullScreen();
+#endif
+#ifdef __SYMBIAN32__
+	// Set RunFast hardware mode for VFPv2.
+	User::SetFloatingPointMode(EFpModeRunFast);
+	// Disable screensaver
+	QSystemScreenSaver *ssObject = new QSystemScreenSaver(&w);
+	ssObject->setScreenSaverInhibit();
 #endif
 
 	MainAudio *audio = new MainAudio();
