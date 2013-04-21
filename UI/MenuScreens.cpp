@@ -291,11 +291,15 @@ void MenuScreen::render() {
 				color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
 			}
 			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vgrid_recent, textureButtonWidth, textureButtonHeight, ginfo->iconTexture, ALIGN_LEFT, color, I_DROP_SHADOW)) {
+				UIEnd();
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
+				return;
 			}
 		} else {
 			if (UIButton((int)GEN_ID_LOOP(i), vgrid_recent, textureButtonWidth, textureButtonHeight, filename.c_str(), ALIGN_LEFT)) {
+				UIEnd();
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
+				return;
 			}
 		}
 	}
@@ -880,8 +884,9 @@ void FileSelectScreen::render() {
 			ILOG("Selected: %i : %s", list_.selected, boot_filename.c_str());
 			list_.selected = -1;
 			g_Config.Save();
-
+			UIEnd();
 			screenManager()->switchScreen(new EmuScreen(boot_filename));
+			return;
 		}
 	}
 
