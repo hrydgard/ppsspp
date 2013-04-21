@@ -212,35 +212,36 @@ int NextPowerOf2(int x) {
 }
 
 struct Bucket {
-  vector<pair<Image<unsigned int>, Data> > items;
-  void AddItem(const Image<unsigned int> &img, const Data &dat) {
-    items.push_back(make_pair(img, dat));
-  }
-  vector<Data> Resolve(int image_width, Image<unsigned int> &dest) {
-    // Place all the little images - whatever they are.
-    // Uses greedy fill algorithm. Slow but works surprisingly well, CPUs are fast.
-    Image<unsigned char> masq;
-    masq.resize(image_width, 1);
-    dest.resize(image_width, 1);
-    sort(items.begin(), items.end());
-    for (int i = 0; i < (int)items.size(); i++) {
+	vector<pair<Image<unsigned int>, Data> > items;
+	void AddItem(const Image<unsigned int> &img, const Data &dat) {
+		items.push_back(make_pair(img, dat));
+	}
+	vector<Data> Resolve(int image_width, Image<unsigned int> &dest) {
+		// Place all the little images - whatever they are.
+		// Uses greedy fill algorithm. Slow but works surprisingly well, CPUs are fast.
+		Image<unsigned char> masq;
+		masq.resize(image_width, 1);
+		dest.resize(image_width, 1);
+		sort(items.begin(), items.end());
+		for (int i = 0; i < (int)items.size(); i++) {
 			if ((i + 1) % 200 == 0) {
 				printf("Resolving (%i / %i)\n", i, (int)items.size());
 			}
-      int idx = items[i].first.dat[0].size();
-      int idy = items[i].first.dat.size();
+			int idx = items[i].first.dat[0].size();
+			int idy = items[i].first.dat.size();
 			if (idx > 1 && idy > 1) {
 				CHECK(idx <= image_width);
-				bool found = false;
-				for (int ty = 0; ty < 2047 && !found; ty++) {
+				for (int ty = 0; ty < 2047; ty++) {
 					if(ty + idy + 1 > (int)dest.dat.size()) {
 						masq.resize(image_width, ty + idy + 16);
 						dest.resize(image_width, ty + idy + 16);
 					}
 					// Brute force packing.
 					int sz = (int)items[i].first.dat[0].size();
-					for (int tx = 0; tx < image_width - sz && !found; tx++) {
-						bool valid = !(masq.dat[ty][tx] || masq.dat[ty + idy - 1][tx] || masq.dat[ty][tx + idx - 1] || masq.dat[ty + idy - 1][tx + idx - 1]);
+					auto &masq_ty = masq.dat[ty];
+					auto &masq_idy = masq.dat[ty + idy - 1];
+					for (int tx = 0; tx < image_width - sz; tx++) {
+						bool valid = !(masq_ty[tx] || masq_idy[tx] || masq_ty[tx + idx - 1] || masq_idy[tx + idx - 1]);
 						if (valid) {
 							for(int ity = 0; ity < idy && valid; ity++) {
 								for(int itx = 0; itx < idx && valid; itx++) {
@@ -258,16 +259,17 @@ struct Bucket {
 							items[i].second.ex = tx + idx;
 							items[i].second.ey = ty + idy;
 
-							found = true;
-
 							// printf("Placed %d at %dx%d-%dx%d\n", items[i].second.id, tx, ty, tx + idx, ty + idy);
+							goto found;
 						}
 skip:
 						;
 					}
 				}
-      }
-    }
+found:
+				;
+			}
+		}
 
     if ((int)dest.dat.size() > image_width * 2) {
       printf("PACKING FAIL : height=%i", (int)dest.dat.size());
