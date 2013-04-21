@@ -740,6 +740,7 @@ void SystemScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Encrypt Save"), ALIGN_TOPLEFT, &g_Config.bEncryptSave);
+	UICheckBox(GEN_ID, x, y += stride, s->T("Button X is Enter"), ALIGN_TOPLEFT, &g_Config.bButtonPreference);
 	bool tf = g_Config.itimeformat == 1;
 	UICheckBox(GEN_ID, x, y += stride, s->T("12HR Time Format"), ALIGN_TOPLEFT, &tf);
 	g_Config.itimeformat = tf ? 1 : 0;
