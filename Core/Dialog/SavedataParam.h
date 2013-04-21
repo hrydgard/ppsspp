@@ -31,18 +31,18 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_DELETE          = 6,
 	SCE_UTILITY_SAVEDATA_TYPE_LISTDELETE      = 7,
 	SCE_UTILITY_SAVEDATA_TYPE_SIZES           = 8,
-	SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE	  = 9,
+	SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE      = 9,
 	SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE    = 10,
 	SCE_UTILITY_SAVEDATA_TYPE_LIST            = 11,
 	SCE_UTILITY_SAVEDATA_TYPE_FILES           = 12,
 	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE  = 13,
-	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA		  = 14,
+	SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA        = 14,
 	SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE  = 15,
-	SCE_UTILITY_SAVEDATA_TYPE_READDATA		  = 16,
+	SCE_UTILITY_SAVEDATA_TYPE_READDATA        = 16,
 	SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE = 17,
-	SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA		  = 18,
-	SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE 	  = 19,
-	SCE_UTILITY_SAVEDATA_TYPE_ERASE			  = 20,
+	SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA       = 18,
+	SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE     = 19,
+	SCE_UTILITY_SAVEDATA_TYPE_ERASE           = 20,
 	SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA      = 21,
 	SCE_UTILITY_SAVEDATA_TYPE_GETSIZE         = 22,
 };
@@ -197,8 +197,8 @@ public:
 	std::string GetSaveDirName(SceUtilitySavedataParam* param, int saveId = -1);
 	std::string GetSaveDir(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
-	bool Save(SceUtilitySavedataParam* param, int saveId = -1);
-	bool Load(SceUtilitySavedataParam* param, int saveId = -1);
+	bool Save(SceUtilitySavedataParam* param, int saveId = -1, bool secureMode = true);
+	bool Load(SceUtilitySavedataParam* param, int saveId = -1, bool secureMode = true);
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	bool GetFilesList(SceUtilitySavedataParam* param);
