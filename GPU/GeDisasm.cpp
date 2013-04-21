@@ -20,6 +20,61 @@
 #include "GPUState.h"
 #include "ge_constants.h"
 
+void GeDescribeVertexType(u32 op, char *buffer, int len) {
+	bool through = (op & GE_VTYPE_THROUGH_MASK) == GE_VTYPE_THROUGH;
+	int tc = (op & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT;
+	int col = (op & GE_VTYPE_COL_MASK) >> GE_VTYPE_COL_SHIFT;
+	int nrm = (op & GE_VTYPE_NRM_MASK) >> GE_VTYPE_NRM_SHIFT;
+	int pos = (op & GE_VTYPE_POS_MASK) >> GE_VTYPE_POS_SHIFT;
+	int weight = (op & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT;
+	int weightCount = (op & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT;
+	int morphCount = (op & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT;
+	int idx = (op & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+
+	static const char *colorNames[] = {
+		NULL,
+		"unsupported",
+		"unsupported",
+		"unsupported",
+		"BGR 565",
+		"ABGR 1555",
+		"ABGR 4444",
+		"ABGR 8888",
+	};
+	static const char *typeNames[] = {
+		NULL,
+		"u8",
+		"u16",
+		"float",
+	};
+
+	char *w = buffer, *end = buffer + len;
+	if (through)
+		w += snprintf(w, end - w, "through, ");
+	if (typeNames[tc])
+		w += snprintf(w, end - w, "%s UVs, ", typeNames[tc]);
+	if (colorNames[col])
+		w += snprintf(w, end - w, "%s colors, ", colorNames[col]);
+	if (typeNames[nrm])
+		w += snprintf(w, end - w, "%s normals, ", typeNames[nrm]);
+	if (typeNames[pos])
+		w += snprintf(w, end - w, "%s coords, ", typeNames[pos]);
+	if (typeNames[weight])
+		w += snprintf(w, end - w, "%s weights (%d), ", typeNames[weight], weightCount);
+	else if (weightCount > 0)
+		w += snprintf(w, end - w, "unknown weights (%d), ", weightCount);
+	if (morphCount > 0)
+		w += snprintf(w, end - w, "%d morphs, ", morphCount);
+	if (typeNames[idx])
+		w += snprintf(w, end - w, "%s indexes, ", typeNames[idx]);
+
+	if (w < buffer + 2)
+		snprintf(buffer, len, "none");
+	// Otherwise, get rid of the pesky trailing comma.
+	else
+		w[-2] = '\0';
+}
+
 void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	u32 cmd = op >> 24;
 	u32 data = op & 0xFFFFFF;
