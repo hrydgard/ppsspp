@@ -241,7 +241,7 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
 	return true;
 }
 
-bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
+bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId, bool secureMode)
 {
 	if (!param) {
 		return false;
@@ -257,7 +257,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	u8 cryptedHash[0x10];
 	memset(cryptedHash,0,0x10);
 	// Encrypt save.
-	if(param->dataBuf != 0 && g_Config.bEncryptSave)
+	// TODO: Is this the correct difference between MAKEDATA and MAKEDATASECURE?
+	if (param->dataBuf != 0 && g_Config.bEncryptSave && secureMode)
 	{
 		cryptedSize = param->dataSize;
 		if(cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize)
@@ -445,7 +446,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId)
 	return true;
 }
 
-bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
+bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId, bool secureMode)
 {
 	if (!param) {
 		return false;
@@ -499,7 +500,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, int saveId)
 	// Don't know what it is, but PSP always respond this and this unlock some game
 	param->bind = 1021;
 
-	bool isCrypted = IsSaveEncrypted(param,saveId);
+	bool isCrypted = IsSaveEncrypted(param,saveId) && secureMode;
 	bool saveDone = false;
 	if(isCrypted)// Try to decrypt
 	{
