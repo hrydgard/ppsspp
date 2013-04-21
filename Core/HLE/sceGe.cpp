@@ -202,7 +202,7 @@ bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 		if (left > future)
 			future = left;
 	}
-	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
+	CoreTiming::ScheduleEvent_Threadsafe(future, geSyncEvent, userdata);
 	return true;
 }
 
