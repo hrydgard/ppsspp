@@ -59,7 +59,7 @@ static const int MPEG_AU_MODE_SKIP = 1;
 static const u32 MPEG_MEMSIZE = 0x10000;          // 64k.
 
 static const int MPEG_AVC_DECODE_SUCCESS = 1;       // Internal value.
-static const int MPEG_AVC_DECODE_ERROR_FATAL = -8;
+static const int MPEG_AVC_DECODE_ERROR_FATAL = 0x80628002;
 
 static const int atracDecodeDelay = 3000;         // Microseconds
 static const int avcDecodeDelay = 5400;           // Microseconds
