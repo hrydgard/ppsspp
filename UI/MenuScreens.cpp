@@ -698,8 +698,28 @@ void LanguageScreen::render() {
 		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 40, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;
 			g_Config.languageIni = code;
+
 			if (i18nrepo.LoadIni(g_Config.languageIni)) {
 				// Dunno what else to do here.
+				langValuesMapping["ja_JA"] = 0;
+				langValuesMapping["en_US"] = 1;
+				langValuesMapping["fr_FR"] = 2;
+				langValuesMapping["es_ES"] = 3;
+				langValuesMapping["de_DE"] = 4; 
+				langValuesMapping["it_IT"] = 5; 
+				langValuesMapping["nl_NL"] = 6;
+				langValuesMapping["pt_BR"] = 7;
+				langValuesMapping["ru_RU"] = 8;
+				langValuesMapping["ko_KR"] = 9;
+				langValuesMapping["zh_TW"] = 10;
+				langValuesMapping["zh_CN"] = 11;
+
+				if(code != "ja_JA" && langValuesMapping[code] == 0){
+					//Fallback to English
+					g_Config.ilanguage = 1;
+				} else {
+					g_Config.ilanguage = langValuesMapping[code];
+				}
 
 				// After this, g and s are no longer valid. Let's return, some flicker is okay.
 				g = GetI18NCategory("General");
