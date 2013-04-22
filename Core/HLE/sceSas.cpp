@@ -38,6 +38,7 @@ enum {
 	ERROR_SAS_INVALID_ADSR_CURVE_MODE = 0x80420013,
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
 	ERROR_SAS_VOICE_PAUSED = 0x80420016,
+	ERROR_SAS_INVALID_VOLUME = 0x80420018,
 	ERROR_SAS_INVALID_SIZE = 0x8042001A,
 	ERROR_SAS_BUSY = 0x80420030,
 	ERROR_SAS_NOT_INIT = 0x80420100,
@@ -61,6 +62,10 @@ void __SasShutdown() {
 	sas = 0;
 }
 
+
+inline static int absVolume(int vol) {
+	return vol > 0 ? vol : -vol;
+}
 
 u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate) {
 	INFO_LOG(HLE,"sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
@@ -203,6 +208,10 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effec
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
+	bool overVolume = absVolume(leftVol) > PSP_SAS_VOL_MAX || absVolume(rightVol) > PSP_SAS_VOL_MAX;
+	overVolume = overVolume || absVolume(effectLeftVol) > PSP_SAS_VOL_MAX || absVolume(effectRightVol) > PSP_SAS_VOL_MAX;
+	if (overVolume)
+		return ERROR_SAS_INVALID_VOLUME;
 
 	SasVoice &v = sas->voices[voiceNum];
 	v.volumeLeft = leftVol;
