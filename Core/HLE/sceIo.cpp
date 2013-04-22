@@ -901,6 +901,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 		}
 		break;
+	// TODO: What does these do?  Seem to require a u32 in, no output.
 	case 0x01F100A6:
 	case 0x01F100A8:
 	case 0x01F100A9:
