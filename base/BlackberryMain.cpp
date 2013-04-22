@@ -31,7 +31,11 @@
 #include <bps/screen.h>	        // Blackberry Window Manager
 #include <bps/navigator.h>      // Invoke Service
 #include <bps/virtualkeyboard.h>// Keyboard Service
+#ifdef BLACKBERRY10
+#include <bps/sensor.h>         // Accelerometer
+#else
 #include <bps/accelerometer.h>  // Accelerometer
+#endif
 #include <sys/keycodes.h>
 #include <bps/dialog.h>         // Dialog Service (Toast=BB10)
 #ifdef BLACKBERRY10
@@ -359,7 +363,12 @@ int main(int argc, char *argv[]) {
 	//Initialise Blackberry Platform Services
 	bps_initialize();
 	// TODO: Enable/disable based on setting
+#ifdef BLACKBERRY10
+	sensor_set_rate(SENSOR_TYPE_ACCELEROMETER, 25000);
+	sensor_request_events(SENSOR_TYPE_ACCELEROMETER);
+#else
 	accelerometer_set_update_frequency(FREQ_40_HZ);
+#endif
 
 	net::Init();
 	init_GLES2(screen_cxt);
@@ -378,6 +387,7 @@ int main(int argc, char *argv[]) {
 	int dpi = (int)(diagonal_pixels / diagonal_inches + 0.5);
 #endif
 	float dpi_scale = 213.6f / dpi;
+	if (pixel_xres == 720) dpi_scale *= 1.4;
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 
 	NativeInit(argc, (const char **)argv, "/accounts/1000/shared/documents/", "data/", "BADCOFFEE");
@@ -467,13 +477,31 @@ int main(int argc, char *argv[]) {
 					running = false;
 					break;
 				}
+#ifdef BLACKBERRY10
+			} else if (domain == sensor_get_domain()) {
+				if (SENSOR_ACCELEROMETER_READING == bps_event_get_code(event)) {
+					float x, y, z;
+					sensor_event_get_xyz(event, &x, &y, &z);
+					if (pixel_xres == 1024 || pixel_xres == 720) // Q10 has this negative and reversed
+					{
+						input_state.acc.x = -y;
+						input_state.acc.y = -x;
+					} else {
+						input_state.acc.x = x;
+						input_state.acc.y = y;
+					}
+					input_state.acc.z = z;
+				}
+#endif
 			}
 		}
 		input_state.pad_buttons = pad_buttons;
+		pad_buttons = 0;
+#ifndef BLACKBERRY10
 		// Handle accelerometer
 		double x, y, z;
 		accelerometer_read_forces(&x, &y, &z);
-		if (pixel_xres == 1024) // Playbook has this reversed
+		if (pixel_xres == 1024 || pixel_xres == 720) // Playbook has this reversed
 		{
 			input_state.acc.x = y;
 			input_state.acc.y = x;
@@ -482,13 +510,12 @@ int main(int argc, char *argv[]) {
 			input_state.acc.y = y;
 		}
 		input_state.acc.z = z;
+#endif
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
 		NativeRender();
 		time_update();
-		// TODO: For gestures, clear this where it is handled
-		pad_buttons &= ~PAD_BUTTON_MENU;
 		// On Blackberry, this handles VSync for us
 		eglSwapBuffers(egl_disp, egl_surf);
 	}
