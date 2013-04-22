@@ -45,6 +45,4 @@ symbian {
 	MMP_RULES += "ARMFPU vfpv2"
 	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
 	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis/glib-2.0
-	DEFINES += __MARM_ARMV6__
-	CONFIG += 4.6.3
 }

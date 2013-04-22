@@ -150,7 +150,7 @@ You will need to add the GCCE 4.6.3 variant to Symbian\tools\sbs\lib\config\vari
 		<set name="ARMMACROS.VAR" value="__GCCE_4__ __GCCE_4_6__"/>
 		<set name="LINKER_DEFAULT_LIBS" value="-lsupc++ -lgcc -lgcc_eh"/>
 		<set name="PLATMACROS.CONFIG" value="ARMV6"/>
-		<set name="ARMMACROS.CONFIG" value="__ARMV6__"/>
+		<set name="ARMMACROS.CONFIG" value="__MARM_ARMV6__ __ARMV6__"/>
 		<set name="LINKER_GROUP_END_OPTION" value="-Wl,--end-group"/>
 		<set name="LINKER_GROUP_START_OPTION" value="-Wl,--start-group"/>
 		<set name="CC.ARMV5" value="-march=armv6"/>
