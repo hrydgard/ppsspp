@@ -964,6 +964,27 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 			break;
+		case 0x02425818:  
+			// // Get MS capacity (fatms0).
+			// Pretend we have a 2GB memory stick.
+			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
+				u32 pointer = Memory::Read_U32(argAddr);
+				u32 sectorSize = 0x200;
+				u32 memStickSectorSize = 32 * 1024;
+				u32 sectorCount = memStickSectorSize / sectorSize;
+				u64 freeSize = 1 * 1024 * 1024 * 1024;
+				DeviceSize deviceSize;
+				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
+				deviceSize.freeClusters = deviceSize.maxClusters;
+				deviceSize.maxSectors = deviceSize.maxClusters;
+				deviceSize.sectorSize = sectorSize;
+				deviceSize.sectorCount = sectorCount;
+				Memory::WriteStruct(pointer, &deviceSize);
+				return 0;
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			}
+			break;			
 		}
 	}
 
