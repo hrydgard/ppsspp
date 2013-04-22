@@ -34,8 +34,8 @@
 #define KEYSPERROW 12
 #define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
 
-const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12};
-const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 4, 4};
+const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13};
+const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5};
 
 /* static const char oskKeys[2][numKeyCols][KEYSPERROW + 1] =
 {
