@@ -269,6 +269,8 @@ bool mediaPlayer::closeMedia()
 		av_free(m_pFrameRGB);
 	if (m_pFrame)
 		av_free(m_pFrame);
+	if (m_pIOContext && ((AVIOContext*)m_pIOContext)->buffer)
+		av_free(((AVIOContext*)m_pIOContext)->buffer);
 	if (m_pIOContext)
 		av_free(m_pIOContext);
 	if (m_pCodecCtx)
@@ -402,7 +404,8 @@ bool loadPMFaudioStream(u8* audioStream, int audioSize)
 bool loadPMFStream(u8* pmf, int pmfsize)
 {
 #ifdef _USE_DSHOW_
-	MpegDemux *demux = new MpegDemux(pmf, pmfsize, 0);
+	int mpegoffset = bswap32(*(int*)(pmf + 8));
+	MpegDemux *demux = new MpegDemux(pmf, pmfsize, mpegoffset);
 	demux->demux(-1);
 	u8 *audioStream;
 	int audioSize = demux->getaudioStream(&audioStream);
