@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <set>
+
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
 #include "Core/Reporting.h"
@@ -31,6 +33,8 @@
 #include "../Dialog/PSPOskDialog.h"
 
 const int SCE_ERROR_MODULE_BAD_ID = 0x80111101;
+const int SCE_ERROR_MODULE_ALREADY_LOADED = 0x80111102;
+const int SCE_ERROR_MODULE_NOT_LOADED = 0x80111103;
 const int SCE_ERROR_AV_MODULE_BAD_ID = 0x80110F01;
 
 enum UtilityDialogType {
@@ -49,11 +53,14 @@ static PSPMsgDialog msgDialog;
 static PSPOskDialog oskDialog;
 static PSPPlaceholderDialog netDialog;
 
+static std::set<int> currentlyLoadedModules;
+
 void __UtilityInit()
 {
 	currentDialogType = UTILITY_DIALOG_NONE;
 	currentDialogActive = false;
 	SavedataParam::Init();
+	currentlyLoadedModules.clear();
 }
 
 void __UtilityDoState(PointerWrap &p)
@@ -64,6 +71,7 @@ void __UtilityDoState(PointerWrap &p)
 	msgDialog.DoState(p);
 	oskDialog.DoState(p);
 	netDialog.DoState(p);
+	p.Do(currentlyLoadedModules);
 	p.DoMarker("sceUtility");
 }
 
@@ -166,6 +174,13 @@ u32 sceUtilityLoadModule(u32 module)
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
 
+	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end())
+	{
+		DEBUG_LOG(HLE, "sceUtilityLoadModule(%i): already loaded", module);
+		return SCE_ERROR_MODULE_ALREADY_LOADED;
+	}
+	currentlyLoadedModules.insert(module);
+
 	DEBUG_LOG(HLE, "sceUtilityLoadModule(%i)", module);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: Some modules have dependencies, but they still resched.
@@ -183,6 +198,13 @@ u32 sceUtilityUnloadModule(u32 module)
 		ERROR_LOG_REPORT(HLE, "sceUtilityUnloadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
+
+	if (currentlyLoadedModules.find(module) == currentlyLoadedModules.end())
+	{
+		WARN_LOG(HLE, "sceUtilityLoadModule(%i): not yet loaded", module);
+		return SCE_ERROR_MODULE_NOT_LOADED;
+	}
+	currentlyLoadedModules.erase(module);
 
 	DEBUG_LOG(HLE, "sceUtilityUnloadModule(%i)", module);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
