@@ -189,3 +189,169 @@ Back = 返回
 Delete = 刪除
 Finish = 完成
 Caps = 大寫
+[MainMenu]
+Credits = 开发人员
+Exit = 退出
+Load = 载入...
+Settings = 设置
+Recent = 最近
+[Developer]
+Developer Tools = 开发者工具
+Dump frame to log = 转储帧为日志
+Load language ini = 载入语言配置文件
+Run CPU tests = 运行CPU测试
+Save language ini = 储存语言配置文件
+[General]
+Up = 向上
+Back = 返回
+[MainSettings]
+Audio = 音频
+AudioDesc = 调整音频设置
+Controls = 控制
+ControlsDesc = 触屏虚拟按钮、大按钮等
+Developer = 开发者
+DeveloperDesc = 运行CPU测试、转储帧为日志等
+Graphics = 图像
+GraphicsDesc = 更改图像选项
+Settings = 设置
+System = 系统
+SystemDesc = 开启动态重编译 (JIT)、快速闪存等
+[System]
+Dynarec = 动态重编译 (JIT)
+Fast Memory = 快速闪存 (不稳定)
+Show Debug Statistics = 显示调试信息
+Show FPS = 显示帧率
+System Settings = 系统设置
+Encrypt Save = 加密储存数据
+12HR Time Format = 12小时制
+Language = 界面语言
+[Audio]
+Audio Settings = 音频设置
+Enable Sound = 开启声音
+[Controls]
+Controls Settings = 控制设置
+OnScreen = 触屏虚拟按钮
+Tilt = 重力感应替代摇杆 (水平方向)
+Large Controls = 大按钮
+Show Analog Stick = 显示摇杆
+[Graphics]
+2X = 2倍渲染分辨率
+Buffered Rendering = 缓冲渲染
+Frame Skipping = 跳帧
+Graphics Settings = 图像设置
+Hardware Transform = 硬件转换
+Linear Filtering = 线性过滤
+Media Engine = 媒体引擎
+Mipmapping = 多级纹理映射 (MipMap)
+Stream VBO = 流式顶点缓冲对象 (Stream VBO)
+Vertex Cache = 顶点缓存
+Stretch to Display = 延伸显示
+Draw Wireframe = 显示线框
+[Pause]
+Save State = 储存状态
+Load State = 载入状态
+Continue = 继续
+Settings = 设置
+Back to Menu = 返回菜单
+[Dialog]
+New Save = 新建存档
+Yes = 是
+No = 否
+Do you want to overwrite the data? = 您确定要覆盖这份存档吗？
+Saving = 储存中...
+Save completed = 储存完毕
+Loading = 载入中...
+There is no data = 没有存档
+DeleteConfirm = 您确定要删除这份存档吗？
+Deleting = 删除中\n请稍候...
+Delete completed = 删除完毕
+Load completed = 载入完毕
+Enter = 决定
+Select = 选择
+Back = 返回
+Delete = 删除
+Finish = 完成
+Caps = 大写
+[MainMenu]
+Load = 載入…
+Settings = 設定
+Credits = 製作人員
+Exit = 離開
+Recent = 最近執行的遊戲
+[System]
+Language = 語言設定
+System Settings = 系統設定
+Dynarec = 動態重新編譯 (JIT)
+Fast Memory = 快速記憶體存取 (不穩定)
+Show Debug Statistics = 顯示除錯訊息
+Show FPS = 顯示每秒張數
+Encrypt Save = 加密儲存資料
+12HR Time Format = 12 小時制
+[Graphics]
+Stretch to Display = 畫面拉伸至全螢幕
+Hardware Transform = 硬體座標轉換
+Buffered Rendering = 描繪緩衝
+Frame Skipping = 跳格
+Media Engine = 媒體引擎
+Graphics Settings = 圖形設定
+Stream VBO = 流動式頂點緩衝物件 (Stream VBO)
+Linear Filtering = 線性過濾
+Mipmapping = Mipmap 貼圖
+2X = 2倍描繪解析度
+Vertex Cache = 頂點快取
+Draw Wireframe = 顯示線框
+[Pause]
+Save State = 即時存檔
+Load State = 載入存檔
+Continue = 繼續
+Settings = 設定
+Back to Menu = 返回主選單
+[MainSettings]
+Settings = 設定
+Audio = 聲音設定
+AudioDesc = 調整聲音設定
+Graphics = 圖形設定
+GraphicsDesc = 更改各式圖形選項
+System = 系統設定
+SystemDesc = 動態重新編譯 (JIT)、快速記憶體存取
+Controls = 控制器設定
+ControlsDesc = 虛擬搖桿、按鈕變大
+Developer = 開發者工具
+DeveloperDesc = 執行 CPU 測試、記錄執行流程
+[Developer]
+Developer Tools = 開發者工具
+Load language ini = 載入語言 ini
+Save language ini = 儲存語言 ini
+Run CPU tests = 執行 CPU 測試
+Dump frame to log = 記錄下一張畫面的執行流程
+[Audio]
+Audio Settings = 聲音設定
+Enable Sound = 開啟聲音
+[Controls]
+Controls Settings = 控制器設定
+OnScreen = 顯示虛擬搖桿
+Tilt = 類比左右傾斜對應
+Large Controls = 按鈕變大
+Show Analog Stick = 顯示類比搖桿
+[General]
+Back = 返回
+Up = 回上層
+[Dialog]
+Back = 返回
+Yes = 是
+No = 否
+Enter = 決定
+Select = 選擇
+Delete = 刪除
+Finish = 完成
+Shift = Shift
+New Save = 建立新的存檔
+Do you want to overwrite the data? = 您想要覆蓋這份檔案嗎？
+Saving = 儲存中\n請稍候…
+Save completed = 已儲存。
+Loading = 載入中\n請稍候…
+Load completed = 載入完成。
+There is no data = 沒有存檔
+DeleteConfirm = 這份檔案將被刪除。\n您確定要繼續嗎？
+Deleting = 刪除中\n請稍候…
+Delete completed = 已刪除。
