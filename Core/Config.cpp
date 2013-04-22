@@ -124,7 +124,7 @@ void Config::Load(const char *iniFileName)
 	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
 	pspConfig->Get("TimeZone", &iTimeZone, 0);
 	pspConfig->Get("DayLightSavings", &bDayLightSavings, PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD);
-	pspConfig->Get("ButtonPreference", &bButtonPreference, PSP_SYSTEMPARAM_BUTTON_CIRCLE);
+	pspConfig->Get("ButtonPreference", &bButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS);
 	pspConfig->Get("LockParentalLevel", &iLockParentalLevel, 0);
 	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
 	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
