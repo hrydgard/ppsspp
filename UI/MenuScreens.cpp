@@ -706,7 +706,7 @@ void LanguageScreen::render() {
 
 			if (i18nrepo.LoadIni(g_Config.languageIni)) {
 				// Dunno what else to do here.
-				langValuesMapping["ja_JA"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
+				langValuesMapping["ja_JP"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
 				langValuesMapping["en_US"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 				langValuesMapping["fr_FR"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
 				langValuesMapping["es_ES"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
