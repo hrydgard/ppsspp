@@ -30,29 +30,8 @@
 #include <math.h>
 #endif
 
-#define NUMKEYROWS 4
-#define KEYSPERROW 12
-#define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
-
 const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13};
 const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5};
-
-/* static const char oskKeys[2][numKeyCols][KEYSPERROW + 1] =
-{
-	{
-		{'1','2','3','4','5','6','7','8','9','0','-','+','\0'},
-		{'q','w','e','r','t','y','u','i','o','p','[',']','\0'},
-		{'a','s','d','f','g','h','j','k','l',';','@','~','\0'},
-		{'z','x','c','v','b','n','m',',','.','/','?','\\','\0'},
-	},
-	{
-		{'!','@','#','$','%','^','&','*','(',')','_','+','\0'},
-		{'Q','W','E','R','T','Y','U','I','O','P','{','}','\0'},
-		{'A','S','D','F','G','H','J','K','L',':','"','`','\0'},
-		{'Z','X','C','V','B','N','M','<','>','/','?','|','\0'},
-	},
-};
-*/
 
 // Japanese(Kana) diacritics
 static const wchar_t diacritics[2][103] =
@@ -72,17 +51,17 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 {
 	{
 		// Latin Lowercase
-		{L"1234567890-+\0"},
-		{L"qwertyuiop[]\0"},
-		{L"asdfghjkl;@~\0"},
-		{L"zxcvbnm,./?\\\0"},
+		{L"1234567890-+"},
+		{L"qwertyuiop[]"},
+		{L"asdfghjkl;@~"},
+		{L"zxcvbnm,./?\\"},
 	},
 	{
 		// Latin Uppercase
-		{L"!@#$%^&*()_+\0"},
-		{L"QWERTYUIOP{}\0"},
-		{L"ASDFGHJKL:\"`\0"},
-		{L"ZXCVBNM<>/?|\0"},
+		{L"!@#$%^&*()_+"},
+		{L"QWERTYUIOP{}"},
+		{L"ASDFGHJKL:\"`"},
+		{L"ZXCVBNM<>/?|"},
 	},
 	{
 		// Hiragana
