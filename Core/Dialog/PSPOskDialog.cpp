@@ -343,7 +343,7 @@ void PSPOskDialog::RenderKeyboard()
 		{
 			temp[0] = result[i];
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
+			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 		}
 		else
 		{
@@ -360,21 +360,21 @@ void PSPOskDialog::RenderKeyboard()
 
 					ConvertUCS2ToUTF8(buffer, temp);
 
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 
 					// Also draw the underline for the same reason.
 					color = CalcFadedColor(0xFFFFFFFF);
-					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
+					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 				}
 				else
 				{
 					ConvertUCS2ToUTF8(buffer, temp);
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 				}
 			}
 			else
 			{
-				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
+				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 			}
 		}
 	}
