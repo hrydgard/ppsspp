@@ -75,6 +75,10 @@ ScreenManager *screenManager;
 std::string config_filename;
 std::string game_title;
 
+#ifdef IOS
+bool isJailed;
+#endif
+
 recursive_mutex pendingMutex;
 static bool isMessagePending;
 static std::string pendingMessage;
@@ -199,6 +203,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #elif defined(IOS)
 	VFSRegister("", new DirectoryAssetReader(external_directory));
 	user_data_path += "/";
+	
+	// Detect Jailbreak(Sandboxed or not)
+	if(strlen(external_directory) > 30)
+	{
+		isJailed = true;
+	}
 #elif defined(__APPLE__)
     char program_path[4090];
     uint32_t program_path_size = sizeof(program_path);
