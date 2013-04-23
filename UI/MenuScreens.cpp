@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -702,8 +702,34 @@ void LanguageScreen::render() {
 			code = langs_[i].name.substr(0, dot);
 
 		std::string buttonTitle = langs_[i].name;
-		if (!code.empty())
-			buttonTitle = code;
+		if (!code.empty()) {
+			langStringMapping["ja_JP"] = "日本語";
+			langStringMapping["en_US"] = "English";
+			langStringMapping["fr_FR"] = "Français";
+			langStringMapping["es_ES"] = "Español";
+			langStringMapping["es_LA"] = "Español";
+			langStringMapping["de_DE"] = "Deutsch"; 
+			langStringMapping["it_IT"] = "Italiano"; 
+			langStringMapping["nl_NL"] = "Nederlands";
+			langStringMapping["pt_BR"] = "Português";
+			langStringMapping["ru_RU"] = "русский";
+			langStringMapping["ko_KR"] = "한국의";
+			langStringMapping["zh_TW"] = "繁體中文";
+			langStringMapping["zh_CN"] = "简体中文";
+			langStringMapping["gr_EL"] = "Greek";
+			langStringMapping["he_IL"] = "Hebrew";
+			langStringMapping["hu_HU"] = "Hungarian";
+			langStringMapping["pl_PL"] = "Polish";
+			langStringMapping["sv_SE"] = "Svenska";
+			langStringMapping["tr_TR"] = "Türk";
+
+			if(langStringMapping.find(code) == langStringMapping.end()) {
+				//No Title found, show locale code
+				buttonTitle = code;
+			} else {
+				buttonTitle = langStringMapping[code];
+			}
+		}
 
 		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 40, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;

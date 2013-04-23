@@ -106,6 +106,7 @@ public:
 	void render();
 private:
 	std::vector<FileInfo> langs_;
+	std::map<std::string, std::string> langStringMapping;
 	std::map<std::string, int> langValuesMapping;
 };
 
