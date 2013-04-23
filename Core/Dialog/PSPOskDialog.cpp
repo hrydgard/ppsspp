@@ -680,7 +680,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 												string += code;
 
-												u16 code = 0xAC00 + tmp2 * 0x24C + tmp * 0x1C;
+												code = 0xAC00 + tmp2 * 0x24C + tmp * 0x1C;
 
 												string += code;
 
