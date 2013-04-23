@@ -25,6 +25,10 @@ Config g_Config;
 
 #define MAX_RECENT 12
 
+#ifdef IOS
+extern bool isJailed;
+#endif
+
 Config::Config()
 {
 }
@@ -69,7 +73,14 @@ void Config::Load(const char *iniFileName)
 		recentIsos.resize(MAX_RECENT);
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
+#ifdef IOS
+	if(isJailed == true)
+		cpu->Get("Jit", &bJit, false);
+	else
+		cpu->Get("Jit", &bJit, true);
+#else
 	cpu->Get("Jit", &bJit, true);
+#endif
 	//FastMemory Default set back to True when solve UNIMPL _sceAtracGetContextAddress making game crash
 	cpu->Get("FastMemory", &bFastMemory, false);
 

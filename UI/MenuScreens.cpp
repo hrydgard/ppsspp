@@ -75,6 +75,11 @@ namespace MainWindow {
 // Ugly communication with NativeApp
 extern std::string game_title;
 
+// Detect jailbreak for iOS(Non-jailbreak iDevice doesn't support JIT)
+#ifdef IOS
+extern bool isJailed;
+#endif
+
 static const int symbols[4] = {
 	I_CROSS,
 	I_CIRCLE,
@@ -760,9 +765,20 @@ void SystemScreen::render() {
 	int stride = 40;
 	int columnw = 400;
 
+#ifdef IOS
+	if(!isJailed)
+		UICheckBox(GEN_ID, x, y += stride, s->T("Dynarec", "Dynarec (JIT)"), ALIGN_TOPLEFT, &g_Config.bJit);
+	else
+	{
+		UICheckBox(GEN_ID, x, y += stride, s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)"), ALIGN_TOPLEFT, &g_Config.bJit);
+		g_Config.bJit = false;
+	}
+#else
 	UICheckBox(GEN_ID, x, y += stride, s->T("Dynarec", "Dynarec (JIT)"), ALIGN_TOPLEFT, &g_Config.bJit);
+#endif
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
+
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Encrypt Save"), ALIGN_TOPLEFT, &g_Config.bEncryptSave);
