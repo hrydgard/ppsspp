@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -30,28 +30,76 @@
 #include <math.h>
 #endif
 
-#define NUMKEYROWS 4
-#define KEYSPERROW 12
-#define NUMBEROFVALIDCHARS (KEYSPERROW * NUMKEYROWS)
-static const char oskKeys[OSK_KEYBOARD_COUNT][NUMKEYROWS][KEYSPERROW + 1] =
+const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13};
+const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5};
+
+// Japanese(Kana) diacritics
+static const wchar_t diacritics[2][103] =
+{
+	{L"かがきぎくぐけげこごさざしじすずせぜそぞただちぢつづてでとどはばぱばひびぴびふぶぷぶへべぺべほぼぽぼウヴカガキギクグケゲコゴサザシジスズセゼソゾタダチヂツヅテデトドハバパバヒビピビフブプブヘベペベホボポボ"},
+	{L"はぱばぱひぴびぴふぷぶぷへぱべぱほぽぼぽハパバパヒピビピフプブプヘパベパホポボポ"}
+};
+
+// Korean(Hangul) consonant
+static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+
+// Korean(Hangul) bowels, Some bowels are not used, them will be spacing
+static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
+
+
+static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 {
 	{
-		{'1','2','3','4','5','6','7','8','9','0','-','+','\0'},
-		{'q','w','e','r','t','y','u','i','o','p','[',']','\0'},
-		{'a','s','d','f','g','h','j','k','l',';','@','~','\0'},
-		{'z','x','c','v','b','n','m',',','.','/','?','\\','\0'},
+		// Latin Lowercase
+		{L"1234567890-+"},
+		{L"qwertyuiop[]"},
+		{L"asdfghjkl;@~"},
+		{L"zxcvbnm,./?\\"},
 	},
 	{
-		{'!','@','#','$','%','^','&','*','(',')','_','+','\0'},
-		{'Q','W','E','R','T','Y','U','I','O','P','{','}','\0'},
-		{'A','S','D','F','G','H','J','K','L',':','"','`','\0'},
-		{'Z','X','C','V','B','N','M','<','>','/','?','|','\0'},
+		// Latin Uppercase
+		{L"!@#$%^&*()_+"},
+		{L"QWERTYUIOP{}"},
+		{L"ASDFGHJKL:\"`"},
+		{L"ZXCVBNM<>/?|"},
 	},
+	{
+		// Hiragana
+		{L"あかさたなはまやらわぁゃっ"},
+		{L"いきしちにひみ　り　ぃ　　"},
+		{L"うくすつぬふむゆるをぅゅ˝"},
+		{L"えけせてねへめ　れ　ぇ　˚"},
+		{L"おこそとのほもよるんぉょ　"},
+	},
+	{
+		// Katakana
+		{L"アカサタナハマヤラワァャッ"},
+		{L"イキシチニヒミ　リ　ィ　　"},
+		{L"ウクスツヌフムユルヲゥュ˝"},
+		{L"エケセテネヘメ　レ　ェ　˚"},
+		{L"オコソトノホモヨルンォョ　"},
+	},
+	/*
+	{
+		// Korean(Hangul) Lowercase
+		{L"1234567890-+"},
+		{L"ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ[]"},
+		{L"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ;@~"},
+		{L"ㅋㅌㅊㅍㅠㅜㅡ<>/?|"},
+	},
+	{
+		// Korean(Hangul) Uppercase
+		{L"!@#$%^&*()_+"},
+		{L"ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖ{}"},
+		{L"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ:\"`"},
+		{L"ㅋㅌㅊㅍㅠㅜㅡ<>/?|"},
+	},
+	*/
 };
 
 
 PSPOskDialog::PSPOskDialog() : PSPDialog() {
-
+	setlocale(LC_ALL, "");
 }
 
 PSPOskDialog::~PSPOskDialog() {
@@ -71,6 +119,32 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
 	u16 *src = (u16 *) Memory::GetPointer(em_address);
 	int c;
 	while (c = *src++)
+	{
+		if (c < 0x80)
+			*string++ = c;
+		else if (c < 0x800)
+		{
+			*string++ = 0xC0 | (c >> 6);
+			*string++ = 0x80 | (c & 0x3F);
+		}
+		else
+		{
+			*string++ = 0xE0 | (c >> 12);
+			*string++ = 0x80 | ((c >> 6) & 0x3F);
+			*string++ = 0x80 | (c & 0x3F);
+		}
+	}
+	*string++ = '\0';
+	_string = stringBuffer;
+}
+
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
+{
+	char stringBuffer[2048];
+	char *string = stringBuffer;
+
+	int c;
+	while (c = *input++)
 	{
 		if (c < 0x80)
 			*string++ = c;
@@ -130,13 +204,104 @@ int PSPOskDialog::Init(u32 oskPtr)
 	ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
 	ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
 
-	inputChars = oskIntext.substr(0, FieldMaxLength());
+	inputChars = L"";
+
+	u16 *src = (u16 *) Memory::GetPointer(oskData.intextPtr);
+	int c;
+	while (c = *src++)
+	{
+		inputChars += c;
+		if(c == 0x00)
+		{
+			break;
+		}
+	}
 
 	// Eat any keys pressed before the dialog inited.
 	__CtrlReadLatch();
 
 	StartFade(true);
 	return 0;
+}
+
+std::wstring PSPOskDialog::CombinationString()
+{
+	std::wstring string;
+
+	isCombinated = false;
+
+	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
+	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
+
+	if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˝')
+	{
+		for(u32 i = 0; i < inputChars.size(); i++)
+		{
+			if(i + 1 == inputChars.size())
+			{
+				for(u32 j = 0; j < wcslen(diacritics[0]); j+=2)
+				{
+					if(inputChars[i] == diacritics[0][j])
+					{
+						string += diacritics[0][j + 1];
+						isCombinated = true;
+						break;
+					}
+				}
+
+				if(isCombinated == false)
+				{
+					string += inputChars[i];
+				}
+			}
+			else
+			{
+				string += inputChars[i];
+			}
+		}
+	}
+	else if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˚')
+	{
+		for(u32 i = 0; i < inputChars.size(); i++)
+		{
+			if(i + 1 == inputChars.size())
+			{
+				for(u32 j = 0; j < wcslen(diacritics[1]); j+=2)
+				{
+					if(inputChars[i] == diacritics[1][j])
+					{
+						string += diacritics[1][j + 1];
+						isCombinated = true;
+						break;
+					}
+				}
+
+				if(isCombinated == false)
+				{
+					string += inputChars[i];
+				}
+			}
+			else
+			{
+				string += inputChars[i];
+			}
+		}
+	}
+	else
+	{
+		for(u32 i = 0; i < inputChars.size(); i++)
+		{
+			string += inputChars[i];
+		}
+
+		if (string.size() < FieldMaxLength())
+		{
+			string += oskKeys[currentKeyboard][selectedRow][selectedCol];
+		}
+		isCombinated = true;
+	}
+
+	return string;
 }
 
 u32 PSPOskDialog::FieldMaxLength()
@@ -146,56 +311,86 @@ u32 PSPOskDialog::FieldMaxLength()
 	return oskData.outtextlimit;
 }
 
+
 void PSPOskDialog::RenderKeyboard()
 {
-	int selectedRow = selectedChar / KEYSPERROW;
-	int selectedCol = selectedChar % KEYSPERROW;
+	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
+	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
 
-	char temp[2];
+	wchar_t temp[2];
 	temp[1] = '\0';
+
+	std::string buffer;
 
 	u32 limit = FieldMaxLength();
 
-	const float keyboardLeftSide = (480.0f - (24.0f * KEYSPERROW)) / 2.0f;
+	const float keyboardLeftSide = (480.0f - (24.0f * numKeyCols[currentKeyboard])) / 2.0f;
 	const float characterWidth = 12.0f;
 	float previewLeftSide = (480.0f - (12.0f * limit)) / 2.0f;
 	float title = (480.0f - (0.5f * limit)) / 2.0f;
 
+
 	PPGeDrawText(oskDesc.c_str(), title , 20, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
+
+	std::wstring result;
+
+	result = CombinationString();
+
 	for (u32 i = 0; i < limit; ++i)
 	{
 		u32 color = CalcFadedColor(0xFFFFFFFF);
-		if (i < inputChars.size())
-			temp[0] = inputChars[i];
-		else if (i == inputChars.size())
+		if (i + 1 < result.size())
 		{
-			temp[0] = oskKeys[currentKeyboard][selectedRow][selectedCol];
-			float animStep = (float)(gpuStats.numFrames % 40) / 20.0f;
-			// Fade in and out the next character so they know it's not part of the string yet.
-			u32 alpha = (0.5f - (cosf(animStep * M_PI) / 2.0f)) * 128 + 127;
-			color = CalcFadedColor((alpha << 24) | 0xFFFFFF);
-
-			PPGeDrawText(temp, previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
-
-			// Also draw the underline for the same reason.
-			color = CalcFadedColor(0xFFFFFFFF);
-			temp[0] = '_';
+			temp[0] = result[i];
+			ConvertUCS2ToUTF8(buffer, temp);
+			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 		}
 		else
-			temp[0] = '_';
+		{
+			if (i + 1 == result.size())
+			{
+				temp[0] = result[i];
 
-		PPGeDrawText(temp, previewLeftSide + (i * characterWidth), 40.0f, 0, 0.5f, color);
+				if(isCombinated == true)
+				{
+					float animStep = (float)(gpuStats.numFrames % 40) / 20.0f;
+					// Fade in and out the next character so they know it's not part of the string yet.
+					u32 alpha = (0.5f - (cosf(animStep * M_PI) / 2.0f)) * 128 + 127;
+					color = CalcFadedColor((alpha << 24) | 0xFFFFFF);
+
+					ConvertUCS2ToUTF8(buffer, temp);
+
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+
+					// Also draw the underline for the same reason.
+					color = CalcFadedColor(0xFFFFFFFF);
+					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+				}
+				else
+				{
+					ConvertUCS2ToUTF8(buffer, temp);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+				}
+			}
+			else
+			{
+				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+			}
+		}
 	}
-	for (int row = 0; row < NUMKEYROWS; ++row)
+
+	for (int row = 0; row < numKeyRows[currentKeyboard]; ++row)
 	{
-		for (int col = 0; col < KEYSPERROW; ++col)
+		for (int col = 0; col < numKeyCols[currentKeyboard]; ++col)
 		{
 			u32 color = CalcFadedColor(0xFFFFFFFF);
 			if (selectedRow == row && col == selectedCol)
 				color = CalcFadedColor(0xFF3060FF);
 
 			temp[0] = oskKeys[currentKeyboard][row][col];
-			PPGeDrawText(temp, keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, color);
+
+			ConvertUCS2ToUTF8(buffer, temp);
+			PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, color);
 
 			if (selectedRow == row && col == selectedCol)
 				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
@@ -206,8 +401,8 @@ void PSPOskDialog::RenderKeyboard()
 int PSPOskDialog::Update()
 {
 	buttons = __CtrlReadLatch();
-	int selectedRow = selectedChar / KEYSPERROW;
-	int selectedExtra = selectedChar % KEYSPERROW;
+	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
+	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
 
 	u32 limit = FieldMaxLength();
 
@@ -237,36 +432,47 @@ int PSPOskDialog::Update()
 
 		if (IsButtonPressed(CTRL_UP))
 		{
-			selectedChar -= KEYSPERROW;
+			selectedChar -= numKeyCols[currentKeyboard];
 		}
 		else if (IsButtonPressed(CTRL_DOWN))
 		{
-			selectedChar += KEYSPERROW;
+			selectedChar += numKeyCols[currentKeyboard];
 		}
 		else if (IsButtonPressed(CTRL_LEFT))
 		{
 			selectedChar--;
-			if (((selectedChar + KEYSPERROW) % KEYSPERROW) == KEYSPERROW - 1)
-				selectedChar += KEYSPERROW;
+			if (((selectedChar + numKeyCols[currentKeyboard]) % numKeyCols[currentKeyboard]) == numKeyCols[currentKeyboard] - 1)
+				selectedChar += numKeyCols[currentKeyboard];
 		}
 		else if (IsButtonPressed(CTRL_RIGHT))
 		{
 			selectedChar++;
-			if ((selectedChar % KEYSPERROW) == 0)
-				selectedChar -= KEYSPERROW;
+			if ((selectedChar % numKeyCols[currentKeyboard]) == 0)
+				selectedChar -= numKeyCols[currentKeyboard];
 		}
 
-		selectedChar = (selectedChar + NUMBEROFVALIDCHARS) % NUMBEROFVALIDCHARS;
+		selectedChar = (selectedChar + (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard])) % (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard]);
 
 		if (IsButtonPressed(CTRL_CROSS))
-		{
-			if (inputChars.size() < limit)
-				inputChars += oskKeys[currentKeyboard][selectedRow][selectedExtra];
+		{	
+			inputChars = CombinationString();
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
 			// TODO: Limit by allowed keyboards...
 			currentKeyboard = (OskKeyboardDisplay)((currentKeyboard + 1) % OSK_KEYBOARD_COUNT);
+
+			if(selectedRow >= numKeyRows[currentKeyboard])
+			{
+				selectedRow = numKeyRows[currentKeyboard] - 1;
+			}
+
+			if(selectedExtra >= numKeyCols[currentKeyboard])
+			{
+				selectedExtra = numKeyCols[currentKeyboard] - 1;
+			}
+
+			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
 		}
 		else if (IsButtonPressed(CTRL_CIRCLE))
 		{
