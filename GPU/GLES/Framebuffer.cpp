@@ -290,6 +290,12 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 }
 
 void FramebufferManager::SetRenderFrameBuffer() {
+	if (!gstate_c.framebufChanged && currentRenderVfb_) {
+		currentRenderVfb_->last_frame_used = gpuStats.numFrames;
+		return;
+	}
+	gstate_c.framebufChanged = false;
+
 	// Get parameters
 	u32 fb_address = (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8);
 	int fb_stride = gstate.fbwidth & 0x3C0;

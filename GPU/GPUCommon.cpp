@@ -4,6 +4,7 @@
 #include "GPUCommon.h"
 #include "GPUState.h"
 #include "ChunkFile.h"
+#include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Host.h"
@@ -359,12 +360,18 @@ u32 GPUCommon::Break(int mode)
 
 bool GPUCommon::InterpretList(DisplayList &list)
 {
+	// Initialized to avoid a race condition with bShowDebugStats changing.
+	double start = 0.0;
+	if (g_Config.bShowDebugStats)
+	{
+		time_update();
+		start = time_now_d();
+	}
+
 	// TODO: This has to be right... but it freezes right now?
 	//if (list.state == PSP_GE_DL_STATE_PAUSED)
 	//	return false;
 
-	time_update();
-	double start = time_now_d();
 	currentList = &list;
 	u32 op = 0;
 	gpuState = GPUSTATE_RUNNING;
@@ -425,8 +432,11 @@ bool GPUCommon::InterpretList(DisplayList &list)
 
 	UpdateCycles(list.pc - 4, list.pc);
 
-	time_update();
-	gpuStats.msProcessingDisplayLists += time_now_d() - start;
+	if (g_Config.bShowDebugStats)
+	{
+		time_update();
+		gpuStats.msProcessingDisplayLists += time_now_d() - start;
+	}
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
