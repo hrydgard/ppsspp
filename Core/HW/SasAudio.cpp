@@ -265,7 +265,7 @@ static inline s16 clamp_s16(int i) {
 	return i;
 }
 
-void SasInstance::Mix(u32 outAddr) {
+void SasInstance::Mix(u32 outAddr, u32 inAddr) {
 	int voicesPlayingCount = 0;
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
@@ -373,12 +373,17 @@ void SasInstance::Mix(u32 outAddr) {
 
 	// Alright, all voices mixed. Let's convert and clip, and at the same time, wipe mixBuffer for next time. Could also dither.
 	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
+	s16 *inp = inAddr ? (s16*)Memory::GetPointer(inAddr) : 0;
 	for (int i = 0; i < grainSize * 2; i += 2) {
 		int sampleL = mixBuffer[i] + sendBuffer[i];
+		if (inp)
+			sampleL += *inp++;
 		*outp++ = clamp_s16(sampleL);
 		if (outputMode == 0) {
 			// stereo
 			int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1];
+			if (inp)
+				sampleR += *inp++;
 			*outp++ = clamp_s16(sampleR);
 		}
 	}

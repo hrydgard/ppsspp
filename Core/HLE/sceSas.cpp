@@ -95,20 +95,19 @@ u32 _sceSasCore(u32 core, u32 outAddr) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 
-	Memory::Memset(outAddr, 0, sas->GetGrainSize() * 2 * 2);
 	sas->Mix(outAddr);
 	return 0;
 }
 
-// Another way of running the mixer, what was the difference again?
-u32 _sceSasCoreWithMix(u32 core, u32 outAddr, int leftVolume, int rightVolume) {
-	DEBUG_LOG(HLE,"sceSasCoreWithMix(%08x, %08x, %i, %i)", core , outAddr, leftVolume, rightVolume);
+// Another way of running the mixer, the inoutAddr should be both input and output
+u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume) {
+	DEBUG_LOG(HLE,"sceSasCoreWithMix(%08x, %08x, %i, %i)", core , inoutAddr, leftVolume, rightVolume);
 
-	if (!Memory::IsValidAddress(outAddr)) {
+	if (!Memory::IsValidAddress(inoutAddr)) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 
-	sas->Mix(outAddr);
+	sas->Mix(inoutAddr, inoutAddr);
 	return 0;
 }
 
