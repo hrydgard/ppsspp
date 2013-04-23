@@ -211,8 +211,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
-	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
 #endif
+	VFSRegister("", new DirectoryAssetReader(user_data_path.c_str()));
 
 	host = new NativeHost();
 
