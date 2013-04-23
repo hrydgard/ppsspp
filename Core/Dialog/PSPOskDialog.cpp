@@ -124,25 +124,21 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
 	char stringBuffer[2048];
 	char *string = stringBuffer;
 
-	if (em_address == 0)
-	{
+	if (em_address == 0) {
 		_string = "";
 		return;
 	}
 
 	u16 *src = (u16 *) Memory::GetPointer(em_address);
 	int c;
-	while (c = *src++)
-	{
+	while (c = *src++) {
 		if (c < 0x80)
 			*string++ = c;
-		else if (c < 0x800)
-		{
+		else if (c < 0x800) {
 			*string++ = 0xC0 | (c >> 6);
 			*string++ = 0x80 | (c & 0x3F);
 		}
-		else
-		{
+		else {
 			*string++ = 0xE0 | (c >> 12);
 			*string++ = 0x80 | ((c >> 6) & 0x3F);
 			*string++ = 0x80 | (c & 0x3F);
@@ -158,17 +154,14 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
 	char *string = stringBuffer;
 
 	int c;
-	while (c = *input++)
-	{
+	while (c = *input++) {
 		if (c < 0x80)
 			*string++ = c;
-		else if (c < 0x800)
-		{
+		else if (c < 0x800) {
 			*string++ = 0xC0 | (c >> 6);
 			*string++ = 0x80 | (c & 0x3F);
 		}
-		else
-		{
+		else {
 			*string++ = 0xE0 | (c >> 12);
 			*string++ = 0x80 | ((c >> 6) & 0x3F);
 			*string++ = 0x80 | (c & 0x3F);
@@ -184,21 +177,18 @@ int PSPOskDialog::Init(u32 oskPtr)
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	// Seems like this should crash?
-	if (!Memory::IsValidAddress(oskPtr))
-	{
+	if (!Memory::IsValidAddress(oskPtr)) {
 		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
 		return -1;
 	}
 
 	oskParams = Memory::GetStruct<SceUtilityOskParams>(oskPtr);
-	if (oskParams->base.size != sizeof(SceUtilityOskParams))
-	{
+	if (oskParams->base.size != sizeof(SceUtilityOskParams)) {
 		ERROR_LOG(HLE, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
-	if (!Memory::IsValidAddress(oskParams->fieldPtr))
-	{
+	if (!Memory::IsValidAddress(oskParams->fieldPtr)) {
 		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fieldPtr);
 		return -1;
 	}
@@ -223,11 +213,9 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 	u16 *src = (u16 *) Memory::GetPointer(oskData.intextPtr);
 	int c;
-	while (c = *src++)
-	{
+	while (c = *src++) {
 		inputChars += c;
-		if(c == 0x00)
-		{
+		if(c == 0x00) {
 			break;
 		}
 	}
@@ -237,6 +225,249 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 	StartFade(true);
 	return 0;
+}
+
+std::wstring PSPOskDialog::CombinationKorean(bool isInput)
+{
+	std::wstring string;
+
+	isCombinated = true;
+
+	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
+	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
+
+	if(inputChars.size() == 0) {
+		wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
+
+		if (inputChars.size() < FieldMaxLength()) {
+			string += sw;
+
+			i_value[0] = GetIndex(kor_cons, sw);
+
+			if(i_value[0] != -1 && isInput == true)
+				i_level = 1;
+		} else {
+			isCombinated = false;
+		}
+	} else {
+		for(u32 i = 0; i < inputChars.size(); i++) {
+			if(i + 1 == inputChars.size()) {
+				wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
+
+				if(i_level == 0) {
+					string += inputChars[i];
+					if (inputChars.size() < FieldMaxLength()) {
+						string += sw;
+
+						i_value[0] = GetIndex(kor_cons, sw);
+
+						if(i_value[0] != -1 && isInput == true)
+							i_level = 1;
+					} else {
+						isCombinated = false;
+					}
+				} else if(i_level == 1) {
+					i_value[1] = GetIndex(kor_vowel, sw);
+
+					if(i_value[1] == -1) {
+						string += inputChars[i];
+						if (inputChars.size() < FieldMaxLength()) {
+							string += sw;
+
+							if(isInput == true) {
+								i_value[0] = GetIndex(kor_cons, sw);
+
+								if(i_value[0] != -1)
+									i_level = 1;
+								else
+									i_level = 0;
+							}
+						} else {
+							isCombinated = false;
+						}
+					} else {
+						u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
+						string += code;
+
+						if(isInput == true) {
+							i_level = 2;
+						}
+					}
+				} else if(i_level == 2) {
+					u32 tmp = GetIndex(kor_vowel, sw);
+					if(tmp != -1) {
+						int tmp2 = -1;
+						for(int j = 0; j < sizeof(kor_vowelCom) / 4; j+=3) {
+							if(kor_vowelCom[j] == tmp && kor_vowelCom[j + 1] == i_value[1]) {
+								tmp2 = kor_vowelCom[j + 2];
+								break;
+							}
+						}
+						if(tmp2 != -1) {
+							if(isInput == true) {
+								i_value[1] = tmp2;
+							}
+
+							u16 code = 0xAC00 + i_value[0] * 0x24C + tmp2 * 0x1C;
+
+							string += code;
+						} else {
+							string += inputChars[i];
+							if (inputChars.size() < FieldMaxLength()) {
+								string += sw;
+
+								if(isInput == true) {
+									i_level = 0;
+								}
+							} else {
+								isCombinated = false;
+							}
+						}
+					} else {
+						u32 tmp = GetIndex(kor_lcons, sw);
+
+						if(tmp == -1) {
+							string += inputChars[i];
+							if (inputChars.size() < FieldMaxLength()) {
+								string += sw;
+
+								if(isInput == true) {
+									i_value[0] = GetIndex(kor_cons, sw);
+
+									if(i_value[0] != -1)
+										i_level = 1;
+									else
+										i_level = 0;
+								}
+							} else {
+								isCombinated = false;
+							}
+						} else {
+							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + tmp + 1;
+
+							string += code;
+
+							if(isInput == true) {
+								i_level = 3;
+								i_value[2] = tmp;
+							}
+						}
+					}
+				} else if(i_level == 3) {
+					u32 tmp = GetIndex(kor_lcons, sw);
+					if(tmp != -1) {
+						int tmp2 = -1;
+						for(int j = 0; j < sizeof(kor_lconsCom) / 4; j+=3) {
+							if(kor_lconsCom[j] == tmp && kor_lconsCom[j + 1] == i_value[2]) {
+								tmp2 = kor_lconsCom[j + 2];
+								break;
+							}
+						}
+						if(tmp2 != -1) {
+							if(isInput == true) {
+								i_value[2] = tmp2;
+							}
+
+							u16 code = 0xAC00 + i_value[0] * 0x24C + tmp2 * 0x1C + i_value[2] + 1;
+
+							string += code;
+						}
+						else {
+							string += inputChars[i];
+							if (inputChars.size() < FieldMaxLength()) {
+								string += sw;
+
+								if(isInput == true) {
+									i_value[0] = GetIndex(kor_cons, sw);
+
+									if(i_value[0] != -1)
+										i_level = 1;
+									else
+										i_level = 0;
+								}
+							} else {
+								isCombinated = false;
+							}
+						}
+					} else {
+						u32 tmp = GetIndex(kor_vowel, sw);
+						if(tmp == -1) {
+							string += inputChars[i];
+							if (inputChars.size() < FieldMaxLength()) {
+								string += sw;
+
+								if(isInput == true) {
+									i_value[0] = GetIndex(kor_cons, sw);
+
+									if(i_value[0] != -1)
+										i_level = 1;
+									else
+										i_level = 0;
+								}
+							} else {
+								isCombinated = false;
+							}
+						} else {
+							if (inputChars.size() < FieldMaxLength()) {
+								int tmp2 = -1;
+								for(int j = 0; j < sizeof(kor_lconsSpr) / 4; j+=3) {
+									if(kor_lconsSpr[j] == i_value[2]) {
+										tmp2 = j;
+										break;
+									}
+								}
+								if(tmp2 != -1) {
+									u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + kor_lconsSpr[tmp2 + 1];
+									string += code;
+
+									code = 0xAC00 + kor_lconsSpr[tmp2 + 2] * 0x24C + tmp * 0x1C;
+									string += code;
+
+									if(isInput == true) {
+										i_value[0] = kor_lconsSpr[tmp2 + 2];
+										i_value[1] = tmp;
+										i_level = 2;
+									}
+								} else  {
+									u32 tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
+
+									if(tmp2 != -1) {
+										u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
+
+										string += code;
+
+										code = 0xAC00 + tmp2 * 0x24C + tmp * 0x1C;
+
+										string += code;
+
+										if(isInput == true) {
+											i_value[0] = tmp2;
+											i_value[1] = tmp;
+											i_level = 2;
+										}
+									} else {
+										string += inputChars[i];
+										string += sw;
+
+										if(isInput == true) {
+											i_level = 0;
+										}
+									}
+								}
+							} else {
+								string += inputChars[i];
+								isCombinated = false;
+							}
+						}
+					}
+				}
+			} else {
+				string += inputChars[i];
+			}
+		}
+	}
+
+	return string;
 }
 
 std::wstring PSPOskDialog::CombinationString(bool isInput)
@@ -250,475 +481,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 	if(currentKeyboard == OSK_KEYBOARD_KOREAN)
 	{
-		isCombinated = true;
-
-		if(inputChars.size() == 0)
-		{
-			wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
-
-			if (inputChars.size() < FieldMaxLength())
-			{
-				string += sw;
-
-				i_value[0] = GetIndex(kor_cons, sw);
-
-				if(i_value[0] != -1 && isInput == true)
-					i_level = 1;
-			}
-			else
-			{
-				isCombinated = false;
-			}
-		}
-		else
-		{
-			for(u32 i = 0; i < inputChars.size(); i++)
-			{
-				if(i + 1 == inputChars.size())
-				{
-					wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
-
-					if(i_level == 0)
-					{
-						string += inputChars[i];
-						if (inputChars.size() < FieldMaxLength())
-						{
-							string += sw;
-
-							i_value[0] = GetIndex(kor_cons, sw);
-
-							if(i_value[0] != -1 && isInput == true)
-								i_level = 1;
-						}
-						else
-						{
-							isCombinated = false;
-						}
-					}
-					else if(i_level == 1)
-					{
-						i_value[1] = GetIndex(kor_vowel, sw);
-
-						if(i_value[1] == -1)
-						{
-							string += inputChars[i];
-							if (inputChars.size() < FieldMaxLength())
-							{
-								string += sw;
-
-								if(isInput == true)
-								{
-									i_value[0] = GetIndex(kor_cons, sw);
-									
-									if(i_value[0] != -1)
-										i_level = 1;
-									else
-										i_level = 0;
-								}
-							}
-							else
-							{
-								isCombinated = false;
-							}
-						}
-						else
-						{
-							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
-							string += code;
-
-							if(isInput == true)
-							{
-								i_level = 2;
-							}
-						}
-					}
-					else if(i_level == 2)
-					{
-						u32 tmp = GetIndex(kor_vowel, sw);
-						if(tmp != -1)
-						{
-							int tmp2 = -1;
-							for(int j = 0; j < sizeof(kor_vowelCom) / 4; j+=3)
-							{
-								if(kor_vowelCom[j] == tmp && kor_vowelCom[j + 1] == i_value[1])
-								{
-									tmp2 = kor_vowelCom[j + 2];
-									break;
-								}
-							}
-							if(tmp2 != -1)
-							{
-								if(isInput == true)
-								{
-									i_value[1] = tmp2;
-								}
-
-								u16 code = 0xAC00 + i_value[0] * 0x24C + tmp2 * 0x1C;
-
-								string += code;
-							}
-							else
-							{
-								string += inputChars[i];
-								if (inputChars.size() < FieldMaxLength())
-								{
-									string += sw;
-
-									if(isInput == true)
-									{
-										i_level = 0;
-									}
-								}
-								else
-								{
-									isCombinated = false;
-								}
-							}
-						}
-						else
-						{
-							u32 tmp = GetIndex(kor_lcons, sw);
-
-							if(tmp == -1)
-							{
-								string += inputChars[i];
-								if (inputChars.size() < FieldMaxLength())
-								{
-									string += sw;
-
-									if(isInput == true)
-									{
-										i_value[0] = GetIndex(kor_cons, sw);
-										
-										if(i_value[0] != -1)
-											i_level = 1;
-										else
-											i_level = 0;
-									}
-								}
-								else
-								{
-									isCombinated = false;
-								}
-							}
-							else
-							{
-								u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + tmp + 1;
-
-								string += code;
-
-								if(isInput == true)
-								{
-									i_level = 3;
-									i_value[2] = tmp;
-								}
-							}
-						}
-					}
-					else if(i_level == 3)
-					{
-						u32 tmp = GetIndex(kor_lcons, sw);
-						if(tmp != -1)
-						{
-							int tmp2 = -1;
-							for(int j = 0; j < sizeof(kor_lconsCom) / 4; j+=3)
-							{
-								if(kor_lconsCom[j] == tmp && kor_lconsCom[j + 1] == i_value[2])
-								{
-									tmp2 = kor_lconsCom[j + 2];
-									break;
-								}
-							}
-							if(tmp2 != -1)
-							{
-								if(isInput == true)
-								{
-									i_value[2] = tmp2;
-								}
-
-								u16 code = 0xAC00 + i_value[0] * 0x24C + tmp2 * 0x1C + i_value[2] + 1;
-
-								string += code;
-							}
-							else
-							{
-								string += inputChars[i];
-								if (inputChars.size() < FieldMaxLength())
-								{
-									string += sw;
-
-									if(isInput == true)
-									{
-										i_value[0] = GetIndex(kor_cons, sw);
-										
-										if(i_value[0] != -1)
-											i_level = 1;
-										else
-											i_level = 0;
-									}
-								}
-								else
-								{
-									isCombinated = false;
-								}
-							}
-						}
-						else
-						{
-							u32 tmp = GetIndex(kor_vowel, sw);
-							if(tmp == -1)
-							{
-								string += inputChars[i];
-								if (inputChars.size() < FieldMaxLength())
-								{
-									string += sw;
-
-									if(isInput == true)
-									{
-										i_value[0] = GetIndex(kor_cons, sw);
-										
-										if(i_value[0] != -1)
-											i_level = 1;
-										else
-											i_level = 0;
-									}
-								}
-								else
-								{
-									isCombinated = false;
-								}
-							}
-							else
-							{
-								if (inputChars.size() < FieldMaxLength())
-								{
-									switch(i_value[2])
-									{
-									case 2:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 1;
-											string += code;
-
-											code = 0xAC00 + 9 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 9;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 4:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 4;
-											string += code;
-
-											code = 0xAC00 + 12 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 12;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 5:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 4;
-											string += code;
-
-											code = 0xAC00 + 18 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 18;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 8:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
-											string += code;
-
-											code = 0xAC00 + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 0;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 9:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
-											string += code;
-
-											code = 0xAC00 + 6 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 6;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 10:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
-											string += code;
-
-											code = 0xAC00 + 7 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 7;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 11:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
-											string += code;
-
-											code = 0xAC00 + 9 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 9;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 12:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
-											string += code;
-
-											code = 0xAC00 + 16 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 16;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 13:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
-											string += code;
-
-											code = 0xAC00 + 17 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 17;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 14:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
-											string += code;
-
-											code = 0xAC00 + 18 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 18;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									case 17:
-										{
-											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 17;
-											string += code;
-
-											code = 0xAC00 + 9 * 0x24C + tmp * 0x1C;
-											string += code;
-
-											if(isInput == true)
-											{
-												i_level = 2;
-												i_value[0] = 9;
-												i_value[1] = tmp;
-											}
-											break;
-										}
-									default:
-										{
-											u32 tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
-
-											if(tmp2 != -1)
-											{
-												u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
-
-												string += code;
-
-												code = 0xAC00 + tmp2 * 0x24C + tmp * 0x1C;
-
-												string += code;
-
-												if(isInput == true)
-												{
-													i_value[0] = tmp2;
-													i_value[1] = tmp;
-													i_level = 2;
-												}
-											}
-											else
-											{
-												string += inputChars[i];
-												string += sw;
-
-												if(isInput == true)
-												{
-													i_level = 0;
-												}
-											}
-										}
-									}
-								}
-								else
-								{
-									string += inputChars[i];
-									isCombinated = false;
-								}
-							}
-						}
-					}
-				}
-				else
-				{
-					string += inputChars[i];
-				}
-			}
-		}
+		string = CombinationKorean(isInput);
 	}
 	else
 	{
