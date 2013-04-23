@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -694,7 +694,8 @@ void LanguageScreen::render() {
 	}
 
 	VGrid vlang(50, 100, dp_yres - 50, 10, 10);
-
+	std::string text;
+	
 	for (size_t i = 0; i < langs_.size(); i++) {
 		std::string code;
 		size_t dot = langs_[i].name.find('.');
@@ -702,36 +703,48 @@ void LanguageScreen::render() {
 			code = langs_[i].name.substr(0, dot);
 
 		std::string buttonTitle = langs_[i].name;
-		if (!code.empty()) {
-			langStringMapping["ja_JP"] = "日本語";
-			langStringMapping["en_US"] = "English";
-			langStringMapping["fr_FR"] = "Français";
-			langStringMapping["es_ES"] = "Español";
-			langStringMapping["es_LA"] = "Español";
-			langStringMapping["de_DE"] = "Deutsch"; 
-			langStringMapping["it_IT"] = "Italiano"; 
-			langStringMapping["nl_NL"] = "Nederlands";
-			langStringMapping["pt_BR"] = "Português";
-			langStringMapping["ru_RU"] = "русский";
-			langStringMapping["ko_KR"] = "한국의";
-			langStringMapping["zh_TW"] = "繁體中文";
-			langStringMapping["zh_CN"] = "简体中文";
-			langStringMapping["gr_EL"] = "Greek";
-			langStringMapping["he_IL"] = "Hebrew";
-			langStringMapping["hu_HU"] = "Hungarian";
-			langStringMapping["pl_PL"] = "Polish";
-			langStringMapping["sv_SE"] = "Svenska";
-			langStringMapping["tr_TR"] = "Türk";
+		if (!code.empty())
+			buttonTitle = code;
+		if (buttonTitle == "ja_JP")
+			text = "日本語" ;
+		else if (buttonTitle == "fr_FR")
+			text = "Français";
+		else if (buttonTitle == "es_ES" || buttonTitle == "es_LA")
+			text = "Español";
+		else if (buttonTitle == "de_DE")
+			text = "Deutsch";
+		else if (buttonTitle == "it_IT")
+			text = "Italiano";
+		else if (buttonTitle == "ru_RU")
+			text = "русский";
+		else if (buttonTitle == "ko_KR")
+			text = "한국의";
+		else if (buttonTitle == "pt_Br")
+			text = "Português";
+		else if (buttonTitle == "zh_TW")
+			text = "繁體中文";
+		else if (buttonTitle == "zh_CN")
+			text = "简体中文";
+		else if (buttonTitle == "en_US")
+			text = "English";
+		else if (buttonTitle == "gr_EL")
+			text = "ελληνικά";
+		else if (buttonTitle == "he_IL")
+			text = "עברית";
+		else if (buttonTitle == "hu_HU")
+			text = "Magyar";
+		else if (buttonTitle == "nl_NL")
+			text = "Nederlands";
+		else if (buttonTitle == "pl_PL")
+			text = "Polski";
+		else if (buttonTitle == "sv_SE")
+			text = "Svenska";
+		else if (buttonTitle == "tr_TR")
+			text = "Türk";
+		else
+			text = buttonTitle;
 
-			if(langStringMapping.find(code) == langStringMapping.end()) {
-				//No Title found, show locale code
-				buttonTitle = code;
-			} else {
-				buttonTitle = langStringMapping[code];
-			}
-		}
-
-		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 40, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
+		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 30, 0, text.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;
 			g_Config.languageIni = code;
 
