@@ -30,8 +30,8 @@
 #include <math.h>
 #endif
 
-const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13};
-const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5};
+const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12};
+const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4};
 
 // Japanese(Kana) diacritics
 static const wchar_t diacritics[2][103] =
@@ -46,6 +46,14 @@ static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉ�
 // Korean(Hangul) bowels, Some bowels are not used, them will be spacing
 static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
+// Korean(Hangul) bowel Combination key
+const int kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
+
+// Korean(Hangul) last consonant(diacritics)
+static const wchar_t kor_lcons[] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ";
+
+// Korean(Hangul) last consonant Combination key
+const int kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
 
 static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 {
@@ -79,22 +87,28 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		{L"エケセテネヘメ　レ　ェ　˚"},
 		{L"オコソトノホモヨルンォョ　"},
 	},
-	/*
 	{
-		// Korean(Hangul) Lowercase
+		// Korean(Hangul)
 		{L"1234567890-+"},
+		{L"ㅃㅉㄸㄲㅆ!@#$%^&"},
 		{L"ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ[]"},
 		{L"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ;@~"},
 		{L"ㅋㅌㅊㅍㅠㅜㅡ<>/?|"},
 	},
 	{
-		// Korean(Hangul) Uppercase
-		{L"!@#$%^&*()_+"},
-		{L"ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖ{}"},
-		{L"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ:\"`"},
-		{L"ㅋㅌㅊㅍㅠㅜㅡ<>/?|"},
+		// Russian Lowercase
+		{L"1234567890-+"},
+		{L"йцукенгшщзхъ"},
+		{L"фывапролджэё"},
+		{L"ячсмитьбю/?|"},
 	},
-	*/
+	{
+		// Russian Uppercase
+		{L"!@#$%^&*()_+"},
+		{L"ЙЦУКЕНГШЩЗХЪ"},
+		{L"ФЫВАПРОЛДЖЭЁ"},
+		{L"ЯЧСМИТЬБЮ/?|"},
+	},
 };
 
 
@@ -164,7 +178,6 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
 	_string = stringBuffer;
 }
 
-
 int PSPOskDialog::Init(u32 oskPtr)
 {
 	// Ignore if already running
@@ -204,6 +217,8 @@ int PSPOskDialog::Init(u32 oskPtr)
 	ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
 	ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
 
+	i_level = 0;
+
 	inputChars = L"";
 
 	u16 *src = (u16 *) Memory::GetPointer(oskData.intextPtr);
@@ -224,7 +239,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 	return 0;
 }
 
-std::wstring PSPOskDialog::CombinationString()
+std::wstring PSPOskDialog::CombinationString(bool isInput)
 {
 	std::wstring string;
 
@@ -233,75 +248,546 @@ std::wstring PSPOskDialog::CombinationString()
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
 
-	if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˝')
+	if(currentKeyboard == 4)
 	{
-		for(u32 i = 0; i < inputChars.size(); i++)
-		{
-			if(i + 1 == inputChars.size())
-			{
-				for(u32 j = 0; j < wcslen(diacritics[0]); j+=2)
-				{
-					if(inputChars[i] == diacritics[0][j])
-					{
-						string += diacritics[0][j + 1];
-						isCombinated = true;
-						break;
-					}
-				}
+		isCombinated = true;
 
-				if(isCombinated == false)
-				{
-					string += inputChars[i];
-				}
+		if(inputChars.size() == 0)
+		{
+			wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
+
+			if (inputChars.size() < FieldMaxLength())
+			{
+				string += sw;
+
+				i_value[0] = GetIndex(kor_cons, sw);
+
+				if(i_value[0] != -1 && isInput == true)
+					i_level = 1;
 			}
 			else
 			{
-				string += inputChars[i];
+				isCombinated = false;
 			}
 		}
-	}
-	else if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˚')
-	{
-		for(u32 i = 0; i < inputChars.size(); i++)
+		else
 		{
-			if(i + 1 == inputChars.size())
+			for(u32 i = 0; i < inputChars.size(); i++)
 			{
-				for(u32 j = 0; j < wcslen(diacritics[1]); j+=2)
+				if(i + 1 == inputChars.size())
 				{
-					if(inputChars[i] == diacritics[1][j])
+					wchar_t sw = oskKeys[currentKeyboard][selectedRow][selectedCol];
+
+					if(i_level == 0)
 					{
-						string += diacritics[1][j + 1];
-						isCombinated = true;
-						break;
+						string += inputChars[i];
+						if (inputChars.size() < FieldMaxLength())
+						{
+							string += sw;
+
+							i_value[0] = GetIndex(kor_cons, sw);
+
+							if(i_value[0] != -1 && isInput == true)
+								i_level = 1;
+						}
+						else
+						{
+							isCombinated = false;
+						}
+					}
+					else if(i_level == 1)
+					{
+						i_value[1] = GetIndex(kor_vowel, sw);
+
+						if(i_value[1] == -1)
+						{
+							string += inputChars[i];
+							if (inputChars.size() < FieldMaxLength())
+							{
+								string += sw;
+
+								i_value[0] = GetIndex(kor_cons, sw);
+
+								if(isInput == true)
+								{
+									if(i_value[0] != -1)
+										i_level = 1;
+									else
+										i_level = 0;
+								}
+							}
+							else
+							{
+								isCombinated = false;
+							}
+						}
+						else
+						{
+							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
+							string += code;
+
+							if(isInput == true)
+							{
+								i_level = 2;
+							}
+						}
+					}
+					else if(i_level == 2)
+					{
+						u32 tmp = GetIndex(kor_vowel, sw);
+						if(tmp != -1)
+						{
+							int tmp2 = -1;
+							for(int j = 0; j < sizeof(kor_vowelCom) / 4; j+=3)
+							{
+								if(kor_vowelCom[j] == tmp && kor_vowelCom[j + 1] == i_value[1])
+								{
+									tmp2 = kor_vowelCom[j + 2];
+									break;
+								}
+							}
+							if(tmp2 != -1)
+							{
+								if(isInput == true)
+								{
+									i_value[1] = tmp2;
+								}
+
+								u16 code = 0xAC00 + i_value[0] * 0x24C + tmp2 * 0x1C;
+
+								string += code;
+							}
+							else
+							{
+								string += inputChars[i];
+								if (inputChars.size() < FieldMaxLength())
+								{
+									string += sw;
+
+									if(isInput == true)
+									{
+										i_level = 0;
+									}
+								}
+								else
+								{
+									isCombinated = false;
+								}
+							}
+						}
+						else
+						{
+							u32 tmp = GetIndex(kor_lcons, sw);
+
+							if(tmp == -1)
+							{
+								string += inputChars[i];
+								if (inputChars.size() < FieldMaxLength())
+								{
+									string += sw;
+
+									i_value[0] = GetIndex(kor_cons, sw);
+
+									if(isInput == true)
+									{
+										if(i_value[0] != -1)
+											i_level = 1;
+										else
+											i_level = 0;
+									}
+								}
+								else
+								{
+									isCombinated = false;
+								}
+							}
+							else
+							{
+								u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + tmp + 1;
+
+								string += code;
+
+								if(isInput == true)
+								{
+									i_level = 3;
+									i_value[2] = tmp;
+								}
+							}
+						}
+					}
+					else if(i_level == 3)
+					{
+						u32 tmp = GetIndex(kor_lcons, sw);
+						if(tmp != -1)
+						{
+							int tmp2 = -1;
+							for(int j = 0; j < sizeof(kor_lconsCom) / 4; j+=3)
+							{
+								if(kor_lconsCom[j] == tmp && kor_lconsCom[j + 1] == i_value[2])
+								{
+									tmp2 = kor_lconsCom[j + 2];
+									break;
+								}
+							}
+							if(tmp2 != -1)
+							{
+								if(isInput == true)
+								{
+									i_value[2] = tmp2;
+								}
+
+								u16 code = 0xAC00 + i_value[0] * 0x24C + tmp2 * 0x1C + i_value[2] + 1;
+
+								string += code;
+							}
+							else
+							{
+								string += inputChars[i];
+								if (inputChars.size() < FieldMaxLength())
+								{
+									string += sw;
+
+									i_value[0] = GetIndex(kor_cons, sw);
+
+									if(isInput == true)
+									{
+										if(i_value[0] != -1)
+											i_level = 1;
+										else
+											i_level = 0;
+									}
+								}
+								else
+								{
+									isCombinated = false;
+								}
+							}
+						}
+						else
+						{
+							u32 tmp = GetIndex(kor_vowel, sw);
+							if(tmp == -1)
+							{
+								string += inputChars[i];
+								if (inputChars.size() < FieldMaxLength())
+								{
+									string += sw;
+
+									i_value[0] = GetIndex(kor_cons, sw);
+
+									if(isInput == true)
+									{
+										if(i_value[0] != -1)
+											i_level = 1;
+										else
+											i_level = 0;
+									}
+								}
+								else
+								{
+									isCombinated = false;
+								}
+							}
+							else
+							{
+								if (inputChars.size() < FieldMaxLength())
+								{
+									switch(i_value[2])
+									{
+									case 2:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 1;
+											string += code;
+
+											code = 0xAC00 + 9 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 9;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 4:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 4;
+											string += code;
+
+											code = 0xAC00 + 12 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 12;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 5:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 4;
+											string += code;
+
+											code = 0xAC00 + 18 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 18;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 8:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
+											string += code;
+
+											code = 0xAC00 + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 0;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 9:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
+											string += code;
+
+											code = 0xAC00 + 6 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 6;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 10:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
+											string += code;
+
+											code = 0xAC00 + 7 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 7;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 11:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
+											string += code;
+
+											code = 0xAC00 + 9 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 9;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 12:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
+											string += code;
+
+											code = 0xAC00 + 16 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 16;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 13:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
+											string += code;
+
+											code = 0xAC00 + 17 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 17;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 14:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 8;
+											string += code;
+
+											code = 0xAC00 + 18 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 18;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									case 17:
+										{
+											u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + 17;
+											string += code;
+
+											code = 0xAC00 + 9 * 0x24C + tmp * 0x1C;
+											string += code;
+
+											if(isInput == true)
+											{
+												i_level = 1;
+												i_value[0] = 9;
+												i_value[1] = tmp;
+											}
+											break;
+										}
+									default:
+										{
+											string += inputChars[i];
+											string += sw;
+
+											if(isInput == true)
+											{
+												i_level = 0;
+											}
+										}
+									}
+								}
+								else
+								{
+									string += inputChars[i];
+									isCombinated = false;
+								}
+							}
+						}
 					}
 				}
-
-				if(isCombinated == false)
+				else
 				{
 					string += inputChars[i];
 				}
-			}
-			else
-			{
-				string += inputChars[i];
 			}
 		}
 	}
 	else
 	{
-		for(u32 i = 0; i < inputChars.size(); i++)
+		if(isInput == true)
 		{
-			string += inputChars[i];
+			i_level = 0;
 		}
 
-		if (string.size() < FieldMaxLength())
+		if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˝')
 		{
-			string += oskKeys[currentKeyboard][selectedRow][selectedCol];
+			for(u32 i = 0; i < inputChars.size(); i++)
+			{
+				if(i + 1 == inputChars.size())
+				{
+					for(u32 j = 0; j < wcslen(diacritics[0]); j+=2)
+					{
+						if(inputChars[i] == diacritics[0][j])
+						{
+							string += diacritics[0][j + 1];
+							isCombinated = true;
+							break;
+						}
+					}
+
+					if(isCombinated == false)
+					{
+						string += inputChars[i];
+					}
+				}
+				else
+				{
+					string += inputChars[i];
+				}
+			}
 		}
-		isCombinated = true;
+		else if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˚')
+		{
+			for(u32 i = 0; i < inputChars.size(); i++)
+			{
+				if(i + 1 == inputChars.size())
+				{
+					for(u32 j = 0; j < wcslen(diacritics[1]); j+=2)
+					{
+						if(inputChars[i] == diacritics[1][j])
+						{
+							string += diacritics[1][j + 1];
+							isCombinated = true;
+							break;
+						}
+					}
+
+					if(isCombinated == false)
+					{
+						string += inputChars[i];
+					}
+				}
+				else
+				{
+					string += inputChars[i];
+				}
+			}
+		}
+		else
+		{
+			for(u32 i = 0; i < inputChars.size(); i++)
+			{
+				string += inputChars[i];
+			}
+
+			if (string.size() < FieldMaxLength())
+			{
+				string += oskKeys[currentKeyboard][selectedRow][selectedCol];
+			}
+			isCombinated = true;
+		}
 	}
 
 	return string;
+}
+
+u32 PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
+{
+	for(u32 i = 0; i < wcslen(src); i++)
+	{
+		if(src[i] == ch)
+		{
+			return i;
+		}
+	}
+
+	return -1;
 }
 
 u32 PSPOskDialog::FieldMaxLength()
@@ -310,7 +796,6 @@ u32 PSPOskDialog::FieldMaxLength()
 		return oskData.outtextlength - 1;
 	return oskData.outtextlimit;
 }
-
 
 void PSPOskDialog::RenderKeyboard()
 {
@@ -334,7 +819,7 @@ void PSPOskDialog::RenderKeyboard()
 
 	std::wstring result;
 
-	result = CombinationString();
+	result = CombinationString(false);
 
 	for (u32 i = 0; i < limit; ++i)
 	{
@@ -343,7 +828,7 @@ void PSPOskDialog::RenderKeyboard()
 		{
 			temp[0] = result[i];
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 		}
 		else
 		{
@@ -360,21 +845,21 @@ void PSPOskDialog::RenderKeyboard()
 
 					ConvertUCS2ToUTF8(buffer, temp);
 
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 
 					// Also draw the underline for the same reason.
 					color = CalcFadedColor(0xFFFFFFFF);
-					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 				}
 				else
 				{
 					ConvertUCS2ToUTF8(buffer, temp);
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 				}
 			}
 			else
 			{
-				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 			}
 		}
 	}
@@ -454,8 +939,8 @@ int PSPOskDialog::Update()
 		selectedChar = (selectedChar + (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard])) % (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard]);
 
 		if (IsButtonPressed(CTRL_CROSS))
-		{	
-			inputChars = CombinationString();
+		{		
+			inputChars = CombinationString(true);
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
@@ -477,7 +962,65 @@ int PSPOskDialog::Update()
 		else if (IsButtonPressed(CTRL_CIRCLE))
 		{
 			if (inputChars.size() > 0)
+			{
 				inputChars.resize(inputChars.size() - 1);
+				if(i_level != 0)
+				{
+					if(i_level == 1)
+					{
+						i_level = 0;
+					}
+					else if(i_level == 2)
+					{
+						int tmp = -1;
+						for(int i = 2; i < sizeof(kor_vowelCom) / 4; i+=3)
+						{
+							if(kor_vowelCom[i] == i_value[1])
+							{
+								tmp = kor_vowelCom[i - 1];
+								break;
+							}
+						}
+
+						if(tmp != -1)
+						{
+							i_value[1] = tmp;
+							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
+							inputChars += code;
+						}
+						else
+						{
+							i_level = 1;
+							u16 code = 0xAC00 + i_value[0] * 0x24C;
+							inputChars += code;
+						}
+					}
+					else if(i_level == 3)
+					{
+						int tmp = -1;
+						for(int i = 2; i < sizeof(kor_lconsCom) / 4; i+=3)
+						{
+							if(kor_lconsCom[i] == i_value[2])
+							{
+								tmp = kor_vowelCom[i - 1];
+								break;
+							}
+						}
+						if(tmp != -1)
+						{
+							i_value[2] = tmp;
+							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + i_value[2] + 1;
+							inputChars += code;
+						}
+						else
+						{
+							i_level = 2;
+							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
+							inputChars += code;
+						}
+					}
+				}
+			}
 		}
 		else if (IsButtonPressed(CTRL_START))
 		{
