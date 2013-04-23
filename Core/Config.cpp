@@ -74,7 +74,7 @@ void Config::Load(const char *iniFileName)
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
-	if(isJailed == false)
+	if(isJailed == true)
 		cpu->Get("Jit", &bJit, false);
 	else
 		cpu->Get("Jit", &bJit, true);
