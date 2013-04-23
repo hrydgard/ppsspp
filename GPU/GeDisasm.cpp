@@ -33,9 +33,9 @@ void GeDescribeVertexType(u32 op, char *buffer, int len) {
 
 	static const char *colorNames[] = {
 		NULL,
-		"unsupported",
-		"unsupported",
-		"unsupported",
+		"unsupported1",
+		"unsupported2",
+		"unsupported3",
 		"BGR 565",
 		"ABGR 1555",
 		"ABGR 4444",
@@ -226,7 +226,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_VERTEXTYPE:
-		sprintf(buffer, "SetVertexType: %06x", data);
+		{
+			int len = sprintf(buffer, "SetVertexType: ");
+			GeDescribeVertexType(op, buffer + len, 256 - len);
+		}
 		break;
 
 	case GE_CMD_OFFSETADDR:
