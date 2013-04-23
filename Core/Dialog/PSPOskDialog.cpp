@@ -504,7 +504,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 9;
 												i_value[1] = tmp;
 											}
@@ -520,7 +520,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 12;
 												i_value[1] = tmp;
 											}
@@ -536,7 +536,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 18;
 												i_value[1] = tmp;
 											}
@@ -552,7 +552,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 0;
 												i_value[1] = tmp;
 											}
@@ -568,7 +568,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 6;
 												i_value[1] = tmp;
 											}
@@ -584,7 +584,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 7;
 												i_value[1] = tmp;
 											}
@@ -600,7 +600,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 9;
 												i_value[1] = tmp;
 											}
@@ -616,7 +616,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 16;
 												i_value[1] = tmp;
 											}
@@ -632,7 +632,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 17;
 												i_value[1] = tmp;
 											}
@@ -648,7 +648,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 18;
 												i_value[1] = tmp;
 											}
@@ -664,7 +664,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 
 											if(isInput == true)
 											{
-												i_level = 1;
+												i_level = 2;
 												i_value[0] = 9;
 												i_value[1] = tmp;
 											}
@@ -991,8 +991,7 @@ int PSPOskDialog::Update()
 						else
 						{
 							i_level = 1;
-							u16 code = 0xAC00 + i_value[0] * 0x24C;
-							inputChars += code;
+							inputChars += kor_cons[i_value[0]];;
 						}
 					}
 					else if(i_level == 3)
