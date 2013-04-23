@@ -410,10 +410,18 @@ void PauseScreen::render() {
 		if (gpu)
 			gpu->Resized();
 	}
-	bool fs = g_Config.iFrameSkip == 1;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &fs);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &g_Config.bFrameSkip);
+	if (g_Config.bFrameSkip) {
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Skip Frames :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 250 , y + 5, 20);
+		if (UIButton(GEN_ID, hlinear1, 30, 0, "1", ALIGN_LEFT))
+			g_Config.iNumSkip = 1;
+		if (UIButton(GEN_ID, hlinear1, 30, 0, "2", ALIGN_LEFT))
+			g_Config.iNumSkip = 2;
+		if (UIButton(GEN_ID, hlinear1, 30, 0, "3", ALIGN_LEFT))
+			g_Config.iNumSkip = 3;
+	}
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
-	g_Config.iFrameSkip = fs ? 1 : 0;
 
 	I18NCategory *i = GetI18NCategory("Pause");
 
@@ -647,9 +655,7 @@ void GraphicsScreen::render() {
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
-	bool fs = g_Config.iFrameSkip == 1;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &fs);
-	g_Config.iFrameSkip = fs ? 1 : 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &g_Config.bFrameSkip);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
@@ -778,7 +784,6 @@ void SystemScreen::render() {
 #endif
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
-
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Encrypt Save"), ALIGN_TOPLEFT, &g_Config.bEncryptSave);
