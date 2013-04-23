@@ -497,6 +497,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_FRAMEBUFPTR:
 	case GE_CMD_FRAMEBUFWIDTH:
 	case GE_CMD_FRAMEBUFPIXFORMAT:
+		if (diff)
+			gstate_c.framebufChanged = true;
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -693,6 +695,10 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_VIEWPORTX1:
 	case GE_CMD_VIEWPORTY1:
+		if (diff)
+			gstate_c.framebufChanged = true;
+		break;
+
 	case GE_CMD_VIEWPORTX2:
 	case GE_CMD_VIEWPORTY2:
 	case GE_CMD_VIEWPORTZ1:
