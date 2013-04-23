@@ -694,7 +694,8 @@ void LanguageScreen::render() {
 	}
 
 	VGrid vlang(50, 100, dp_yres - 50, 10, 10);
-
+	std::string text;
+	
 	for (size_t i = 0; i < langs_.size(); i++) {
 		std::string code;
 		size_t dot = langs_[i].name.find('.');
@@ -704,8 +705,42 @@ void LanguageScreen::render() {
 		std::string buttonTitle = langs_[i].name;
 		if (!code.empty())
 			buttonTitle = code;
+		if (buttonTitle == "ja_JP")
+			text = l->T("Japanese");
+		else if (buttonTitle == "fr_FR")
+			text = l->T("French");
+		else if (buttonTitle == "es_ES" || buttonTitle == "es_LA")
+			text = l->T("Spanish");
+		else if (buttonTitle == "de_DE")
+			text = l->T("Deutsch");
+		else if (buttonTitle == "it_IT")
+			text = l->T("Italian");
+		else if (buttonTitle == "ru_RU")
+			text = l->T("Russian");
+		else if (buttonTitle == "ko_KR")
+			text = l->T("Korean");
+		else if (buttonTitle == "pt_Br")
+			text = l->T("Portuguese");
+		else if (buttonTitle == "zh_TW")
+			text = l->T("TChinese");
+		else if (buttonTitle == "zh_CN")
+			text = l->T("SChinese");
+		else if (buttonTitle == "en_US")
+			text = l->T("English");
+		else if (buttonTitle == "gr_EL")
+			text = l->T("Greek");
+		else if (buttonTitle == "he_IL")
+			text = l->T("Hebrew");
+		else if (buttonTitle == "hu_HU")
+			text = l->T("Hungarian");
+		else if (buttonTitle == "nl_NL")
+			text = l->T("Dutch");
+		else if (buttonTitle == "pl_PL")
+			text = l->T("Polish");
+		else
+			text = buttonTitle;
 
-		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 40, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
+		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 30, 0, text.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;
 			g_Config.languageIni = code;
 
