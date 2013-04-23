@@ -168,7 +168,8 @@ private:
 	void RenderKeyboard();
 
 	std::wstring CombinationString(bool isInput); // for Japanese, Korean
-
+	std::wstring CombinationKorean(bool isInput); // for Korea
+	
 	u32 FieldMaxLength();
 	u32 GetIndex(const wchar_t* src, wchar_t ch);
 
