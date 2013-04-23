@@ -704,32 +704,33 @@ void LanguageScreen::render() {
 
 		std::string buttonTitle = langs_[i].name;
 
-		if (!code.empty()) {
-			langStringMapping["ja_JP"] = "日本語";
-			langStringMapping["en_US"] = "English";
-			langStringMapping["fr_FR"] = "Français";
-			langStringMapping["es_ES"] = "Español";
-			langStringMapping["es_LA"] = "Español";
-			langStringMapping["de_DE"] = "Deutsch"; 
-			langStringMapping["it_IT"] = "Italiano"; 
-			langStringMapping["nl_NL"] = "Nederlands";
-			langStringMapping["pt_BR"] = "Português";
-			langStringMapping["ru_RU"] = "русский";
-			langStringMapping["ko_KR"] = "한국의";
-			langStringMapping["zh_TW"] = "繁體中文";
-			langStringMapping["zh_CN"] = "简体中文";
-			langStringMapping["gr_EL"] = "ελληνικά";
-			langStringMapping["he_IL"] = "עברית";
-			langStringMapping["hu_HU"] = "Hungarian";
-			langStringMapping["pl_PL"] = "Polish";
-			langStringMapping["sv_SE"] = "Svenska";
-			langStringMapping["tr_TR"] = "Türk";
+		langValuesMapping["ja_JP"] = std::make_pair("日本語", PSP_SYSTEMPARAM_LANGUAGE_JAPANESE);
+		langValuesMapping["en_US"] = std::make_pair("English",PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["fr_FR"] = std::make_pair("Français", PSP_SYSTEMPARAM_LANGUAGE_FRENCH);
+		langValuesMapping["es_ES"] = std::make_pair("Español", PSP_SYSTEMPARAM_LANGUAGE_SPANISH);
+		langValuesMapping["es_LA"] = std::make_pair("Español", PSP_SYSTEMPARAM_LANGUAGE_SPANISH);
+		langValuesMapping["de_DE"] = std::make_pair("Deutsch", PSP_SYSTEMPARAM_LANGUAGE_GERMAN);
+		langValuesMapping["it_IT"] = std::make_pair("Italiano", PSP_SYSTEMPARAM_LANGUAGE_ITALIAN); 
+		langValuesMapping["nl_NL"] = std::make_pair("Nederlands", PSP_SYSTEMPARAM_LANGUAGE_DUTCH);
+		langValuesMapping["pt_PT"] = std::make_pair("Português", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
+		langValuesMapping["pt_BR"] = std::make_pair("Português Brasileiro", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
+		langValuesMapping["ru_RU"] = std::make_pair("русский", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN);
+		langValuesMapping["ko_KR"] = std::make_pair("한국의", PSP_SYSTEMPARAM_LANGUAGE_KOREAN);
+		langValuesMapping["zh_TW"] = std::make_pair("繁體中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL);
+		langValuesMapping["zh_CN"] = std::make_pair("简体中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED);
+		langValuesMapping["gr_EL"] = std::make_pair("ελληνικά", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["he_IL"] = std::make_pair("עברית", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["hu_HU"] = std::make_pair("Hungarian", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["pl_PL"] = std::make_pair("Polish", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["sv_SE"] = std::make_pair("Svenska", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["tr_TR"] = std::make_pair("Türk", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 
-			if(langStringMapping.find(code) == langStringMapping.end()) {
+		if (!code.empty()) {
+			if(langValuesMapping.find(code) == langValuesMapping.end()) {
 				//No title found, show locale code
 				buttonTitle = code;
 			} else {
-				buttonTitle = langStringMapping[code];
+				buttonTitle = langValuesMapping[code].first;
 			}
 		}
 
@@ -739,25 +740,12 @@ void LanguageScreen::render() {
 
 			if (i18nrepo.LoadIni(g_Config.languageIni)) {
 				// Dunno what else to do here.
-				langValuesMapping["ja_JP"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
-				langValuesMapping["en_US"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-				langValuesMapping["fr_FR"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
-				langValuesMapping["es_ES"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
-				langValuesMapping["es_LA"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
-				langValuesMapping["de_DE"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN; 
-				langValuesMapping["it_IT"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN; 
-				langValuesMapping["nl_NL"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
-				langValuesMapping["pt_BR"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
-				langValuesMapping["ru_RU"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
-				langValuesMapping["ko_KR"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
-				langValuesMapping["zh_TW"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
-				langValuesMapping["zh_CN"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
 
 				if(langValuesMapping.find(code) == langValuesMapping.end()) {
 					//Fallback to English
 					g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 				} else {
-					g_Config.ilanguage = langValuesMapping[code];
+					g_Config.ilanguage = langValuesMapping[code].second;
 				}
 
 				// After this, g and s are no longer valid. Let's return, some flicker is okay.
