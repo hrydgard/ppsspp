@@ -140,8 +140,7 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
 		else if (c < 0x800) {
 			*string++ = 0xC0 | (c >> 6);
 			*string++ = 0x80 | (c & 0x3F);
-		}
-		else {
+		} else {
 			*string++ = 0xE0 | (c >> 12);
 			*string++ = 0x80 | ((c >> 6) & 0x3F);
 			*string++ = 0x80 | (c & 0x3F);
@@ -163,8 +162,7 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
 		else if (c < 0x800) {
 			*string++ = 0xC0 | (c >> 6);
 			*string++ = 0x80 | (c & 0x3F);
-		}
-		else {
+		} else {
 			*string++ = 0xE0 | (c >> 12);
 			*string++ = 0x80 | ((c >> 6) & 0x3F);
 			*string++ = 0x80 | (c & 0x3F);
@@ -374,8 +372,7 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 							u16 code = 0xAC00 + i_value[0] * 0x24C + tmp2 * 0x1C + i_value[2] + 1;
 
 							string += code;
-						}
-						else {
+						} else {
 							string += inputChars[i];
 							if (inputChars.size() < FieldMaxLength()) {
 								string += sw;
@@ -431,7 +428,7 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 										i_value[1] = tmp;
 										i_level = 2;
 									}
-								} else  {
+								} else {
 									u32 tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
 
 									if(tmp2 != -1) {
