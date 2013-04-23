@@ -703,72 +703,49 @@ void LanguageScreen::render() {
 			code = langs_[i].name.substr(0, dot);
 
 		std::string buttonTitle = langs_[i].name;
-		if (!code.empty())
-			buttonTitle = code;
-		if (buttonTitle == "ja_JP")
-			text = "日本語" ;
-		else if (buttonTitle == "fr_FR")
-			text = "Français";
-		else if (buttonTitle == "es_ES" || buttonTitle == "es_LA")
-			text = "Español";
-		else if (buttonTitle == "de_DE")
-			text = "Deutsch";
-		else if (buttonTitle == "it_IT")
-			text = "Italiano";
-		else if (buttonTitle == "ru_RU")
-			text = "русский";
-		else if (buttonTitle == "ko_KR")
-			text = "한국의";
-		else if (buttonTitle == "pt_Br")
-			text = "Português";
-		else if (buttonTitle == "zh_TW")
-			text = "繁體中文";
-		else if (buttonTitle == "zh_CN")
-			text = "简体中文";
-		else if (buttonTitle == "en_US")
-			text = "English";
-		else if (buttonTitle == "gr_EL")
-			text = "ελληνικά";
-		else if (buttonTitle == "he_IL")
-			text = "עברית";
-		else if (buttonTitle == "hu_HU")
-			text = "Magyar";
-		else if (buttonTitle == "nl_NL")
-			text = "Nederlands";
-		else if (buttonTitle == "pl_PL")
-			text = "Polski";
-		else if (buttonTitle == "sv_SE")
-			text = "Svenska";
-		else if (buttonTitle == "tr_TR")
-			text = "Türk";
-		else
-			text = buttonTitle;
 
-		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 30, 0, text.c_str(), ALIGN_TOPLEFT)) {
+		langValuesMapping["ja_JP"] = std::make_pair("日本語", PSP_SYSTEMPARAM_LANGUAGE_JAPANESE);
+		langValuesMapping["en_US"] = std::make_pair("English",PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["fr_FR"] = std::make_pair("Français", PSP_SYSTEMPARAM_LANGUAGE_FRENCH);
+		langValuesMapping["es_ES"] = std::make_pair("Español", PSP_SYSTEMPARAM_LANGUAGE_SPANISH);
+		langValuesMapping["es_LA"] = std::make_pair("Español", PSP_SYSTEMPARAM_LANGUAGE_SPANISH);
+		langValuesMapping["de_DE"] = std::make_pair("Deutsch", PSP_SYSTEMPARAM_LANGUAGE_GERMAN);
+		langValuesMapping["it_IT"] = std::make_pair("Italiano", PSP_SYSTEMPARAM_LANGUAGE_ITALIAN); 
+		langValuesMapping["nl_NL"] = std::make_pair("Nederlands", PSP_SYSTEMPARAM_LANGUAGE_DUTCH);
+		langValuesMapping["pt_PT"] = std::make_pair("Português", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
+		langValuesMapping["pt_BR"] = std::make_pair("Português Brasileiro", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
+		langValuesMapping["ru_RU"] = std::make_pair("русский", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN);
+		langValuesMapping["ko_KR"] = std::make_pair("한국의", PSP_SYSTEMPARAM_LANGUAGE_KOREAN);
+		langValuesMapping["zh_TW"] = std::make_pair("繁體中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL);
+		langValuesMapping["zh_CN"] = std::make_pair("简体中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED);
+		langValuesMapping["gr_EL"] = std::make_pair("ελληνικά", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["he_IL"] = std::make_pair("עברית", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["hu_HU"] = std::make_pair("Hungarian", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["pl_PL"] = std::make_pair("Polish", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["sv_SE"] = std::make_pair("Svenska", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["tr_TR"] = std::make_pair("Türk", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+
+		if (!code.empty()) {
+			if(langValuesMapping.find(code) == langValuesMapping.end()) {
+				//No title found, show locale code
+				buttonTitle = code;
+			} else {
+				buttonTitle = langValuesMapping[code].first;
+			}
+		}
+
+		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 30, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;
 			g_Config.languageIni = code;
 
 			if (i18nrepo.LoadIni(g_Config.languageIni)) {
 				// Dunno what else to do here.
-				langValuesMapping["ja_JP"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
-				langValuesMapping["en_US"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-				langValuesMapping["fr_FR"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
-				langValuesMapping["es_ES"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
-				langValuesMapping["es_LA"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
-				langValuesMapping["de_DE"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN; 
-				langValuesMapping["it_IT"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN; 
-				langValuesMapping["nl_NL"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
-				langValuesMapping["pt_BR"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
-				langValuesMapping["ru_RU"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
-				langValuesMapping["ko_KR"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
-				langValuesMapping["zh_TW"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
-				langValuesMapping["zh_CN"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
 
 				if(langValuesMapping.find(code) == langValuesMapping.end()) {
 					//Fallback to English
 					g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 				} else {
-					g_Config.ilanguage = langValuesMapping[code];
+					g_Config.ilanguage = langValuesMapping[code].second;
 				}
 
 				// After this, g and s are no longer valid. Let's return, some flicker is okay.
