@@ -672,12 +672,34 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 										}
 									default:
 										{
-											string += inputChars[i];
-											string += sw;
+											u32 tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
 
-											if(isInput == true)
+											if(tmp2 != -1)
 											{
-												i_level = 0;
+												u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
+
+												string += code;
+
+												u16 code = 0xAC00 + tmp2 * 0x24C + tmp * 0x1C;
+
+												string += code;
+
+												if(isInput == true)
+												{
+													i_value[0] = tmp2;
+													i_value[1] = tmp;
+													i_level = 2;
+												}
+											}
+											else
+											{
+												string += inputChars[i];
+												string += sw;
+
+												if(isInput == true)
+												{
+													i_level = 0;
+												}
 											}
 										}
 									}
