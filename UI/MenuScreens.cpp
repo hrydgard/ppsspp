@@ -769,7 +769,10 @@ void SystemScreen::render() {
 	if(!isJailed)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Dynarec", "Dynarec (JIT)"), ALIGN_TOPLEFT, &g_Config.bJit);
 	else
-		UICheckBox(GEN_ID, x, y += stride, s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)"), ALIGN_TOPLEFT, false);
+	{
+		UICheckBox(GEN_ID, x, y += stride, s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)"), ALIGN_TOPLEFT, &g_Config.bJit);
+		g_Config.bJit = false;
+	}
 #else
 	UICheckBox(GEN_ID, x, y += stride, s->T("Dynarec", "Dynarec (JIT)"), ALIGN_TOPLEFT, &g_Config.bJit);
 #endif
