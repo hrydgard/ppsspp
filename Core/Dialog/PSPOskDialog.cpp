@@ -248,7 +248,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedCol = selectedChar % numKeyCols[currentKeyboard];
 
-	if(currentKeyboard == 4)
+	if(currentKeyboard == OSK_KEYBOARD_KOREAN)
 	{
 		isCombinated = true;
 
