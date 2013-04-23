@@ -55,6 +55,9 @@ static const wchar_t kor_lcons[] = L"ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿ�
 // Korean(Hangul) last consonant Combination key
 const int kor_lconsCom[] = {18,0,2,21,3,4,26,3,5,0,7,8,15,7,9,16,7,10,18,7,11,24,7,12,25,7,13,26,7,14,18,16,17};
 
+// Korean(Hangul) last consonant Separation key
+const int kor_lconsSpr[] = {2,1,9,4,4,12,5,4,18,8,8,0,9,8,6,10,8,7,11,8,9,12,8,16,13,8,17,14,8,18,17,17,9};
+
 static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 {
 	{
