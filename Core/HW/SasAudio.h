@@ -237,7 +237,7 @@ public:
 
 	FILE *audioDump;
 
-	void Mix(u32 outAddr);
+	void Mix(u32 outAddr, u32 inAddr = 0);
 
 	void DoState(PointerWrap &p);
 
