@@ -95,7 +95,6 @@ u32 _sceSasCore(u32 core, u32 outAddr) {
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 
-	//Memory::Memset(outAddr, 0, sas->GetGrainSize() * 2 * 2);
 	sas->Mix(outAddr);
 	return 0;
 }
