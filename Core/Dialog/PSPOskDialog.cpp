@@ -386,10 +386,10 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 								{
 									string += sw;
 
-									i_value[0] = GetIndex(kor_cons, sw);
-
 									if(isInput == true)
 									{
+										i_value[0] = GetIndex(kor_cons, sw);
+										
 										if(i_value[0] != -1)
 											i_level = 1;
 										else
@@ -447,10 +447,10 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 								{
 									string += sw;
 
-									i_value[0] = GetIndex(kor_cons, sw);
-
 									if(isInput == true)
 									{
+										i_value[0] = GetIndex(kor_cons, sw);
+										
 										if(i_value[0] != -1)
 											i_level = 1;
 										else
@@ -473,10 +473,10 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 								{
 									string += sw;
 
-									i_value[0] = GetIndex(kor_cons, sw);
-
 									if(isInput == true)
 									{
+										i_value[0] = GetIndex(kor_cons, sw);
+										
 										if(i_value[0] != -1)
 											i_level = 1;
 										else
