@@ -169,6 +169,7 @@ private:
 
 	std::wstring CombinationString(bool isInput); // for Japanese, Korean
 	std::wstring CombinationKorean(bool isInput); // for Korea
+	void RemoveKorean(); // for Korean character removal
 	
 	u32 FieldMaxLength();
 	u32 GetIndex(const wchar_t* src, wchar_t ch);
