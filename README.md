@@ -140,25 +140,9 @@ To build for Symbian, you require:
 2) Symbian Qt libraries. You can find these in the final Nokia Qt SDK or online.
 
 3) Set up your SDK to use Symbian GCCE 4.6.3. See a tutorial here: http://www.summeli.fi/?p=4220
-You will need to add the GCCE 4.6.3 variant to Symbian\tools\sbs\lib\config\variants.xml as follows:
-	<var name="gcce4_6_3" extends="gcce_base">
-		<env name="SBS_GCCE463BIN" type="toolchainpath" />
-		<set name="GCCEBIN" value="$(SBS_GCCE463BIN)" />
-		<set name="GCCECC" value="$(GCCEBIN)/arm-none-symbianelf-g++$(DOTEXE)" type="tool" versionCommand="$(GCCECC) -dumpversion" versionResult="4.6.3"/>
-		<set name="RUNTIME_LIBS_LIST" value="drtaeabi.dso dfpaeabi.dso"/>
-		<set name="PLATMACROS.VAR" value="GCCE_4 GCCE_4_6"/>
-		<set name="ARMMACROS.VAR" value="__GCCE_4__ __GCCE_4_6__"/>
-		<set name="LINKER_DEFAULT_LIBS" value="-lsupc++ -lgcc -lgcc_eh"/>
-		<set name="PLATMACROS.CONFIG" value="ARMV6"/>
-		<set name="ARMMACROS.CONFIG" value="__MARM_ARMV6__ __ARMV6__"/>
-		<set name="LINKER_GROUP_END_OPTION" value="-Wl,--end-group"/>
-		<set name="LINKER_GROUP_START_OPTION" value="-Wl,--start-group"/>
-		<set name="CC.ARMV5" value="-march=armv6"/>
-		<set name="CC.SOFTVFP_MAYBE_VFPV2" value="softfp"/>
-	</var>
+You will need to add the GCCE 4.6.3 variant to Symbian\tools\sbs\lib\config\variants.xml as follows: http://pastebin.com/6jiktaYd
 
-You will also need to increase the data section of the executable in linking stage by modifying Symbian\tools\sbs\lib\config\gcce.xml as follows:
-<set name="RW_BASE" value="$(RW_BASE_OPTION)0x700000"/>
+You will also need to increase the data section of the executable in linking stage by modifying Symbian\tools\sbs\lib\config\gcce.xml as follows: http://pastebin.com/NWw64Z3Z
 
 Then simply compile the PPSSPPQt.pro with `qmake` from the SDK or the included QtCreator.
 
