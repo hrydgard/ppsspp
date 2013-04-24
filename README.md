@@ -141,6 +141,8 @@ To build for Symbian, you require:
 
 3) Set up your SDK to use Symbian GCCE 4.6.3. See a tutorial here: http://www.summeli.fi/?p=4220
 You will need to add the GCCE 4.6.3 variant to Symbian\tools\sbs\lib\config\variants.xml as follows:
+
+```
     <var name="gcce4_6_3" extends="gcce_base">
       <env name="SBS_GCCE463BIN" type="toolchainpath" />
       <set name="GCCEBIN" value="$(SBS_GCCE463BIN)" />
@@ -156,9 +158,13 @@ You will need to add the GCCE 4.6.3 variant to Symbian\tools\sbs\lib\config\vari
       <set name="CC.ARMV5" value="-march=armv6"/>
       <set name="CC.SOFTVFP_MAYBE_VFPV2" value="softfp"/>
     </var>
+```
 
 You will also need to increase the data section of the executable in linking stage by modifying Symbian\tools\sbs\lib\config\gcce.xml as follows:
+
+```
     <set name="RW_BASE" value="$(RW_BASE_OPTION)0x700000"/>
+```
 
 Then simply compile the PPSSPPQt.pro with `qmake` from the SDK or the included QtCreator.
 
