@@ -75,6 +75,11 @@ ScreenManager *screenManager;
 std::string config_filename;
 std::string game_title;
 
+#ifdef IOS
+bool isJailed;
+#endif
+
+
 recursive_mutex pendingMutex;
 static bool isMessagePending;
 static std::string pendingMessage;
