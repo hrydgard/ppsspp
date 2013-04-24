@@ -26,6 +26,10 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "Core/Config.h"
 
+#include "native/ext/cityhash/city.h"
+
+#define TEXCACHE_USE_CITYHASH 1
+
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
 // These are cache misses, kill them quicker.
@@ -670,12 +674,16 @@ static inline u32 MiniHash(const u32 *ptr) {
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
+#if TEXCACHE_USE_CITYHASH
+	return CityHash32(Memory::GetCharPointer(addr), sizeInRAM);
+#else
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
 	for (u32 i = 0; i < (sizeInRAM * 2) / 4; ++i)
 		check += *checkp++;
 
 	return check;
+#endif
 }
 
 inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2) {
