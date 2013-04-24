@@ -26,8 +26,14 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "Core/Config.h"
 
+#include "native/ext/cityhash/city.h"
+
+#define TEXCACHE_USE_CITYHASH 1
+
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
+// These are cache misses, kill them quicker.
+#define TEXTURE_SECOND_KILL_AGE 30
 
 u32 RoundUpToPowerOf2(u32 v)
 {
@@ -60,14 +66,20 @@ TextureCache::~TextureCache() {
 void TextureCache::Clear(bool delete_them) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	if (delete_them) {
+		lastBoundTexture = -1;
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
 			glDeleteTextures(1, &iter->second.texture);
 		}
+		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
+			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
+			glDeleteTextures(1, &iter->second.texture);
+		}
 	}
-	if (cache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)cache.size());
+	if (cache.size() + secondCache.size()) {
+		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
 		cache.clear();
+		secondCache.clear();
 	}
 }
 
@@ -78,6 +90,14 @@ void TextureCache::Decimate() {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
+		}
+		else
+			++iter;
+	}
+	for (TexCache::iterator iter = secondCache.begin(), end = secondCache.end(); iter != end; ) {
+		if (iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFrames) {
+			glDeleteTextures(1, &iter->second.texture);
+			secondCache.erase(iter++);
 		}
 		else
 			++iter;
@@ -654,12 +674,25 @@ static inline u32 MiniHash(const u32 *ptr) {
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
+#if TEXCACHE_USE_CITYHASH
+	return CityHash32(Memory::GetCharPointer(addr), sizeInRAM);
+#else
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
 	for (u32 i = 0; i < (sizeInRAM * 2) / 4; ++i)
 		check += *checkp++;
 
 	return check;
+#endif
+}
+
+inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2) {
+	return dim == dim2 && hash == hash2 && format == format2 && maxLevel == maxLevel2;
+}
+inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat2, u32 clutaddr2) {
+	if (!hasClut)
+		return true;
+	return clutformat == clutformat2 && clutaddr == clutaddr2 && cluthash == Memory::Read_U32(clutaddr);
 }
 
 void TextureCache::SetTexture() {
@@ -727,19 +760,10 @@ void TextureCache::SetTexture() {
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
-		bool match = true;
-		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
-		
 		//TODO: Check more texture parameters, compute real texture hash
-		if (dim != entry->dim ||
-			entry->hash != texhash ||
-			entry->format != format ||
-			entry->maxLevel != maxLevel ||
-			(hasClut &&
-			(entry->clutformat != clutformat ||
-				entry->clutaddr != clutaddr ||
-				entry->cluthash != Memory::Read_U32(entry->clutaddr)))) 
-			match = false;
+		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat, clutaddr);
+		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
+		bool doDelete = true;
 
 		if (match) {
 			if (entry->lastFrame != gpuStats.numFrames) {
@@ -752,26 +776,48 @@ void TextureCache::SetTexture() {
 			} else {
 				--entry->framesUntilNextFullHash;
 			}
-		}
 
-		// If it's not huge or has been invalidated many times, recheck the whole texture.
-		if (entry->invalidHint > 180 || (entry->invalidHint > 15 && dim <= 0x909)) {
-			entry->invalidHint = 0;
-			rehash = true;
-		}
+			// If it's not huge or has been invalidated many times, recheck the whole texture.
+			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && dim <= 0x909)) {
+				entry->invalidHint = 0;
+				rehash = true;
+			}
 
-		if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
-			int w = 1 << (gstate.texsize[0] & 0xf);
-			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-			int bufw = gstate.texbufwidth[0] & 0x3ff;
-			u32 check = QuickTexHash(texaddr, bufw, w, h, format);
-			if (check != entry->fullhash) {
-				match = false;
-				gpuStats.numTextureInvalidations++;
-				entry->status = TexCacheEntry::STATUS_UNRELIABLE;
-				entry->numFrames = 0;
-			} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-				entry->status = TexCacheEntry::STATUS_HASHING;
+			if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
+				int w = 1 << (gstate.texsize[0] & 0xf);
+				int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+				int bufw = gstate.texbufwidth[0] & 0x3ff;
+				u32 check = QuickTexHash(texaddr, bufw, w, h, format);
+				if (check != entry->fullhash) {
+					entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+					entry->numFrames = 0;
+
+					// Don't give up just yet.  Let's try the secondary cache.
+					u64 secondKey = ((u64)texaddr << 32) | (u64)(check ^ clutaddr);
+					TexCache::iterator secondIter = secondCache.find(secondKey);
+					if (secondIter != secondCache.end())
+					{
+						TexCacheEntry *secondEntry = &secondIter->second;
+						if (secondEntry->Matches(dim, texhash, format, maxLevel) && secondEntry->MatchesClut(hasClut, clutformat, clutaddr))
+							entry = secondEntry;
+						else
+						{
+							match = false;
+							gpuStats.numTextureInvalidations++;
+						}
+					}
+					else
+					{
+						match = false;
+						gpuStats.numTextureInvalidations++;
+
+						secondKey = ((u64)entry->addr << 32) | (u64)(entry->fullhash ^ entry->clutaddr);
+						secondCache[secondKey] = *entry;
+						doDelete = false;
+					}
+				} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+					entry->status = TexCacheEntry::STATUS_HASHING;
+				}
 			}
 		}
 
@@ -788,10 +834,10 @@ void TextureCache::SetTexture() {
 			return; //Done!
 		} else {
 			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
-			if (entry->texture == lastBoundTexture)
-				lastBoundTexture = -1;
 
-			glDeleteTextures(1, &entry->texture);
+			if (doDelete) {
+				glDeleteTextures(1, &entry->texture);
+			}
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
 				entry->status = TexCacheEntry::STATUS_HASHING;
 			}
