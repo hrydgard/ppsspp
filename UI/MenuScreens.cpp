@@ -414,12 +414,12 @@ void PauseScreen::render() {
 	if (g_Config.bFrameSkip) {
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Skip Frames :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250 , y + 5, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
+			g_Config.iNumSkip = 3;
 		if (UIButton(GEN_ID, hlinear1, 30, 0, "1", ALIGN_LEFT))
 			g_Config.iNumSkip = 1;
 		if (UIButton(GEN_ID, hlinear1, 30, 0, "2", ALIGN_LEFT))
 			g_Config.iNumSkip = 2;
-		if (UIButton(GEN_ID, hlinear1, 30, 0, "3", ALIGN_LEFT))
-			g_Config.iNumSkip = 3;
 	}
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 
