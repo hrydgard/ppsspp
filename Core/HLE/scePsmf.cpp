@@ -477,7 +477,8 @@ u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
 	if (Memory::IsValidAddress(offsetAddr)) {
 		Memory::Write_U32(0, offsetAddr);
 	}
-	return 0;
+	// return 0 breaks history mode in Saint Seiya Omega
+	return 1; 
 }
 
 u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
