@@ -713,7 +713,7 @@ void LanguageScreen::render() {
 		langValuesMapping["it_IT"] = std::make_pair("Italiano", PSP_SYSTEMPARAM_LANGUAGE_ITALIAN); 
 		langValuesMapping["nl_NL"] = std::make_pair("Nederlands", PSP_SYSTEMPARAM_LANGUAGE_DUTCH);
 		langValuesMapping["pt_PT"] = std::make_pair("Português", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
-		langValuesMapping["pt_BR"] = std::make_pair("Português Brasileiro", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
+		langValuesMapping["pt_BR"] = std::make_pair("Português", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
 		langValuesMapping["ru_RU"] = std::make_pair("Русский", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN);
 		langValuesMapping["ko_KR"] = std::make_pair("한국어", PSP_SYSTEMPARAM_LANGUAGE_KOREAN);
 		langValuesMapping["zh_TW"] = std::make_pair("繁體中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL);
@@ -724,6 +724,8 @@ void LanguageScreen::render() {
 		langValuesMapping["pl_PL"] = std::make_pair("Polish", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["sv_SE"] = std::make_pair("Svenska", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["tr_TR"] = std::make_pair("Türk", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["ca_ES"] = std::make_pair("Català", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["uk_UA"] = std::make_pair("українська", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 
 		if (!code.empty()) {
 			if(langValuesMapping.find(code) == langValuesMapping.end()) {
