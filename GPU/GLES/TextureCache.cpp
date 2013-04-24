@@ -28,6 +28,8 @@
 
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
+// These are cache misses, kill them quicker.
+#define TEXTURE_SECOND_KILL_AGE 30
 
 u32 RoundUpToPowerOf2(u32 v)
 {
@@ -89,7 +91,7 @@ void TextureCache::Decimate() {
 			++iter;
 	}
 	for (TexCache::iterator iter = secondCache.begin(), end = secondCache.end(); iter != end; ) {
-		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+		if (iter->second.lastFrame + TEXTURE_SECOND_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			secondCache.erase(iter++);
 		}
