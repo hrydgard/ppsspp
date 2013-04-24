@@ -146,9 +146,9 @@ enum OskKeyboardDisplay
 	OSK_KEYBOARD_LATIN_UPPERCASE,
 	OSK_KEYBOARD_HIRAGANA,
 	OSK_KEYBOARD_KATAKANA,
-/*	OSK_KEYBOARD_KOREAN_LOWERCASE,
-	OSK_KEYBOARD_KOREAN_UPPERCASE,
-*/
+	OSK_KEYBOARD_KOREAN,
+	OSK_KEYBOARD_RUSSIAN_LOWERCASE,
+	OSK_KEYBOARD_RUSSIAN_UPPERCASE,
 	// TODO: Something to do native?
 	OSK_KEYBOARD_COUNT
 };
@@ -167,9 +167,12 @@ private:
 	void ConvertUCS2ToUTF8(std::string& _string, wchar_t* input);
 	void RenderKeyboard();
 
-	std::wstring CombinationString(); // for Japanese, Korean
-
+	std::wstring CombinationString(bool isInput); // for Japanese, Korean
+	std::wstring CombinationKorean(bool isInput); // for Korea
+	void RemoveKorean(); // for Korean character removal
+	
 	u32 FieldMaxLength();
+	u32 GetIndex(const wchar_t* src, wchar_t ch);
 
 	SceUtilityOskParams *oskParams;
 	SceUtilityOskData oskData;
@@ -181,5 +184,8 @@ private:
 	std::wstring inputChars;
 	OskKeyboardDisplay currentKeyboard;
 	bool isCombinated;
+
+	int i_level; // for Korean Keyboard support
+	int i_value[3]; // for Korean Keyboard support
 };
 
