@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -127,14 +127,16 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
 	char stringBuffer[2048];
 	char *string = stringBuffer;
 
-	if (em_address == 0) {
+	if (em_address == 0)
+	{
 		_string = "";
 		return;
 	}
 
 	u16 *src = (u16 *) Memory::GetPointer(em_address);
 	int c;
-	while (c = *src++) {
+	while (c = *src++)
+	{
 		if (c < 0x80)
 			*string++ = c;
 		else if (c < 0x800) {
@@ -156,7 +158,8 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
 	char *string = stringBuffer;
 
 	int c;
-	while (c = *input++) {
+	while (c = *input++)
+	{
 		if (c < 0x80)
 			*string++ = c;
 		else if (c < 0x800) {
@@ -178,18 +181,21 @@ int PSPOskDialog::Init(u32 oskPtr)
 	if (status != SCE_UTILITY_STATUS_NONE && status != SCE_UTILITY_STATUS_SHUTDOWN)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	// Seems like this should crash?
-	if (!Memory::IsValidAddress(oskPtr)) {
+	if (!Memory::IsValidAddress(oskPtr))
+	{
 		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
 		return -1;
 	}
 
 	oskParams = Memory::GetStruct<SceUtilityOskParams>(oskPtr);
-	if (oskParams->base.size != sizeof(SceUtilityOskParams)) {
+	if (oskParams->base.size != sizeof(SceUtilityOskParams))
+	{
 		ERROR_LOG(HLE, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
-	if (!Memory::IsValidAddress(oskParams->fieldPtr)) {
+	if (!Memory::IsValidAddress(oskParams->fieldPtr))
+	{
 		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fieldPtr);
 		return -1;
 	}
@@ -214,9 +220,11 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 	u16 *src = (u16 *) Memory::GetPointer(oskData.intextPtr);
 	int c;
-	while (c = *src++) {
+	while (c = *src++)
+	{
 		inputChars += c;
-		if(c == 0x00) {
+		if(c == 0x00)
+		{
 			break;
 		}
 	}
@@ -562,6 +570,63 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 	return string;
 }
 
+void PSPOskDialog::RemoveKorean()
+{
+	if(i_level == 1)
+	{
+		i_level = 0;
+	}
+	else if(i_level == 2)
+	{
+		int tmp = -1;
+		for(int i = 2; i < sizeof(kor_vowelCom) / 4; i+=3)
+		{
+			if(kor_vowelCom[i] == i_value[1])
+			{
+				tmp = kor_vowelCom[i - 1];
+				break;
+			}
+		}
+
+		if(tmp != -1)
+		{
+			i_value[1] = tmp;
+			u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
+			inputChars += code;
+		}
+		else
+		{
+			i_level = 1;
+			inputChars += kor_cons[i_value[0]];;
+		}
+	}
+	else if(i_level == 3)
+	{
+		int tmp = -1;
+		for(int i = 2; i < sizeof(kor_lconsCom) / 4; i+=3)
+		{
+			if(kor_lconsCom[i] == i_value[2])
+			{
+				tmp = kor_vowelCom[i - 1];
+				break;
+			}
+		}
+
+		if(tmp != -1)
+		{
+			i_value[2] = tmp;
+			u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + i_value[2] + 1;
+			inputChars += code;
+		}
+		else
+		{
+			i_level = 2;
+			u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
+			inputChars += code;
+		}
+	}
+}
+
 u32 PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
 {
 	for(u32 i = 0; i < wcslen(src); i++)
@@ -613,7 +678,7 @@ void PSPOskDialog::RenderKeyboard()
 		{
 			temp[0] = result[i];
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 		}
 		else
 		{
@@ -630,21 +695,21 @@ void PSPOskDialog::RenderKeyboard()
 
 					ConvertUCS2ToUTF8(buffer, temp);
 
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 
 					// Also draw the underline for the same reason.
 					color = CalcFadedColor(0xFFFFFFFF);
-					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 				}
 				else
 				{
 					ConvertUCS2ToUTF8(buffer, temp);
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 				}
 			}
 			else
 			{
-				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
+				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
 			}
 		}
 	}
@@ -660,10 +725,10 @@ void PSPOskDialog::RenderKeyboard()
 			temp[0] = oskKeys[currentKeyboard][row][col];
 
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_CENTER, 0.6f, color);
+			PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, color);
 
 			if (selectedRow == row && col == selectedCol)
-				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_CENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		}
 	}
 }
@@ -751,58 +816,7 @@ int PSPOskDialog::Update()
 				inputChars.resize(inputChars.size() - 1);
 				if(i_level != 0)
 				{
-					if(i_level == 1)
-					{
-						i_level = 0;
-					}
-					else if(i_level == 2)
-					{
-						int tmp = -1;
-						for(int i = 2; i < sizeof(kor_vowelCom) / 4; i+=3)
-						{
-							if(kor_vowelCom[i] == i_value[1])
-							{
-								tmp = kor_vowelCom[i - 1];
-								break;
-							}
-						}
-
-						if(tmp != -1)
-						{
-							i_value[1] = tmp;
-							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
-							inputChars += code;
-						}
-						else
-						{
-							i_level = 1;
-							inputChars += kor_cons[i_value[0]];;
-						}
-					}
-					else if(i_level == 3)
-					{
-						int tmp = -1;
-						for(int i = 2; i < sizeof(kor_lconsCom) / 4; i+=3)
-						{
-							if(kor_lconsCom[i] == i_value[2])
-							{
-								tmp = kor_vowelCom[i - 1];
-								break;
-							}
-						}
-						if(tmp != -1)
-						{
-							i_value[2] = tmp;
-							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + i_value[2] + 1;
-							inputChars += code;
-						}
-						else
-						{
-							i_level = 2;
-							u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
-							inputChars += code;
-						}
-					}
+					RemoveKorean();
 				}
 			}
 		}
