@@ -43,10 +43,10 @@ static const wchar_t diacritics[2][103] =
 // Korean(Hangul) consonant
 static const wchar_t kor_cons[] = L"ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
 
-// Korean(Hangul) bowels, Some bowels are not used, them will be spacing
+// Korean(Hangul) vowels, Some bowels are not used, them will be spacing
 static const wchar_t kor_vowel[] = L"ㅏㅐㅑㅒㅓㅔㅕㅖㅗ   ㅛㅜ   ㅠㅡ ㅣ";
 
-// Korean(Hangul) bowel Combination key
+// Korean(Hangul) vowel Combination key
 const int kor_vowelCom[] = {0,8,9,1,8,10,20,8,11,4,13,14,5,13,15,20,13,16,20,18,19};
 
 // Korean(Hangul) last consonant(diacritics)
