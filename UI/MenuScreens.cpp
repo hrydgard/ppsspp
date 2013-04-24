@@ -714,7 +714,7 @@ void LanguageScreen::render() {
 		langValuesMapping["nl_NL"] = std::make_pair("Nederlands", PSP_SYSTEMPARAM_LANGUAGE_DUTCH);
 		langValuesMapping["pt_PT"] = std::make_pair("Português", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
 		langValuesMapping["pt_BR"] = std::make_pair("Português Brasileiro", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
-		langValuesMapping["ru_RU"] = std::make_pair("русский", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN);
+		langValuesMapping["ru_RU"] = std::make_pair("Русский", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN);
 		langValuesMapping["ko_KR"] = std::make_pair("한국의", PSP_SYSTEMPARAM_LANGUAGE_KOREAN);
 		langValuesMapping["zh_TW"] = std::make_pair("繁體中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL);
 		langValuesMapping["zh_CN"] = std::make_pair("简体中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED);
