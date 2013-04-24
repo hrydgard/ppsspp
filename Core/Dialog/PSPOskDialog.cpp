@@ -613,7 +613,7 @@ void PSPOskDialog::RenderKeyboard()
 		{
 			temp[0] = result[i];
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 		}
 		else
 		{
@@ -630,21 +630,21 @@ void PSPOskDialog::RenderKeyboard()
 
 					ConvertUCS2ToUTF8(buffer, temp);
 
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 
 					// Also draw the underline for the same reason.
 					color = CalcFadedColor(0xFFFFFFFF);
-					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 				}
 				else
 				{
 					ConvertUCS2ToUTF8(buffer, temp);
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 				}
 			}
 			else
 			{
-				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_CENTER, 0.5f, color);
 			}
 		}
 	}
@@ -660,10 +660,10 @@ void PSPOskDialog::RenderKeyboard()
 			temp[0] = oskKeys[currentKeyboard][row][col];
 
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, color);
+			PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_CENTER, 0.6f, color);
 
 			if (selectedRow == row && col == selectedCol)
-				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_CENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		}
 	}
 }
