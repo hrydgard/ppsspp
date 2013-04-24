@@ -803,6 +803,7 @@ void TextureCache::SetTexture() {
 						match = false;
 						gpuStats.numTextureInvalidations++;
 
+						secondKey = ((u64)entry->addr << 32) | (u64)(entry->fullhash ^ entry->clutaddr);
 						secondCache[secondKey] = *entry;
 						doDelete = false;
 					}
