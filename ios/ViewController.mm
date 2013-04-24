@@ -34,7 +34,7 @@ extern ScreenManager *screenManager;
 InputState input_state;
 
 extern std::string ram_temp_file;
-extern bool isJailed;
+bool isJailed;
 
 ViewController* sharedViewController;
 
