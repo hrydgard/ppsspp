@@ -222,13 +222,13 @@ void VertexDecoder::Step_Color565Morph() const
 	{
 		float w = gstate_c.morphWeights[n];
 		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
-		col[0] += w * (cdata & 0x1f) / 31.0f;
-		col[1] += w * ((cdata>>5) & 0x3f) / 63.0f;
-		col[2] += w * ((cdata>>11) & 0x1f) / 31.0f;
+		col[0] += w * (cdata & 0x1f) * (255.0f / 31.0f);
+		col[1] += w * ((cdata>>5) & 0x3f) * (255.0f / 63.0f);
+		col[2] += w * ((cdata>>11) & 0x1f) * (255.0f / 31.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 3; i++) {
-		c[i] = (u8)(col[i] * 255.0f);
+		c[i] = (u8)col[i];
 	}
 	c[3] = 255;
 }
@@ -240,14 +240,14 @@ void VertexDecoder::Step_Color5551Morph() const
 	{
 		float w = gstate_c.morphWeights[n];
 		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
-		col[0] += w * (cdata & 0x1f) / 31.0f;
-		col[1] += w * ((cdata>>5) & 0x1f) / 31.0f;
-		col[2] += w * ((cdata>>10) & 0x1f) / 31.0f;
-		col[3] += w * ((cdata>>15) ? 1.0f : 0.0f);
+		col[0] += w * (cdata & 0x1f) * (255.0f / 31.0f);
+		col[1] += w * ((cdata>>5) & 0x1f) * (255.0f / 31.0f);
+		col[2] += w * ((cdata>>10) & 0x1f) * (255.0f / 31.0f);
+		col[3] += w * ((cdata>>15) ? 255.0f : 0.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {
-		c[i] = (u8)(col[i] * 255.0f);
+		c[i] = (u8)col[i];
 	}
 }
 
@@ -259,11 +259,11 @@ void VertexDecoder::Step_Color4444Morph() const
 		float w = gstate_c.morphWeights[n];
 		u16 cdata = *(u16*)(ptr_ + onesize_*n + coloff);
 		for (int j = 0; j < 4; j++)
-			col[j] += w * ((cdata >> (j * 4)) & 0xF) / 15.0f;
+			col[j] += w * ((cdata >> (j * 4)) & 0xF) * (255.0f / 15.0f);
 	}
 	u8 *c = decoded_ + decFmt.c0off;
 	for (int i = 0; i < 4; i++) {
-		c[i] = (u8)(col[i] * 255.0f);
+		c[i] = (u8)col[i];
 	}
 }
 
