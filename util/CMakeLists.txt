@@ -3,6 +3,7 @@ set(SRCS
   bits/varint.cpp
   random/perlin.cpp
   hash/hash.cpp
+  text/utf8.cpp
 )
 
 set(SRCS ${SRCS})
