@@ -134,10 +134,6 @@ enum DoLightComputation {
 };
 
 void GenerateVertexShader(int prim, char *buffer) {
-	// Apparently, sprintf can output "," unless we do this, which is a disaster for this line later on:
-	// WRITE(p, "  worldpos = (u_world * vec4(worldpos * %f, 1.0)).xyz;\n", factor);
-	setlocale( LC_ALL, "C" );
-
 	char *p = buffer;
 #if defined(USING_GLES2)
 	WRITE(p, "precision highp float;\n");

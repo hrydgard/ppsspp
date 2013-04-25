@@ -27,7 +27,7 @@
 // Background worker threads should be spawned in NativeInit and joined
 // in NativeShutdown.
 
-
+#include <locale.h>
 
 #include "base/logging.h"
 #include "base/NativeApp.h"
@@ -194,6 +194,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
 {
 	EnableFZ();
+	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
 	isMessagePending = false;
 	// We want this to be FIRST.

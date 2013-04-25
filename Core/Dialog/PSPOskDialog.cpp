@@ -116,7 +116,9 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 
 
 PSPOskDialog::PSPOskDialog() : PSPDialog() {
-	setlocale(LC_ALL, "");
+	// This can break all kinds of stuff, changing the decimal point in sprintf for example.
+	// Not sure what the intended effect is so commented out for now.
+	// setlocale(LC_ALL, "");
 }
 
 PSPOskDialog::~PSPOskDialog() {
