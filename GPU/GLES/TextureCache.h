@@ -84,9 +84,6 @@ private:
 		u8 minFilt;
 		bool sClamp;
 		bool tClamp;
-
-		bool Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2);
-		bool MatchesClut(bool hasClut, u8 clutformat2, u32 clutaddr2);
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -99,7 +96,6 @@ private:
 
 	typedef std::map<u64, TexCacheEntry> TexCache;
 	TexCache cache;
-	TexCache secondCache;
 
 	template <typename T>
 	class SimpleBuf {
