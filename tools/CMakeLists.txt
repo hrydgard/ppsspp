@@ -9,6 +9,7 @@ add_definitions(-DSDL)
 add_definitions(-Wno-multichar)
 add_definitions(-fno-strict-aliasing)
 add_definitions(-fopenmp)
+add_definitions(-std=c++11)
 # add_definitions(-fstrict-aliasing)
 
 include_directories(..)
