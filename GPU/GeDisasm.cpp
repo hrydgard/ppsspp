@@ -800,7 +800,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		{
 			const char *texformats[] = {
 				"5650",
-				"5551"
+				"5551",
 				"4444",
 				"8888",
 				"CLUT4",

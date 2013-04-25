@@ -20,6 +20,7 @@
 #include "zlib.h"
 
 int sceZlibDecompress(u32 OutBuffer, int OutBufferLength, u32 InBuffer, u32 Crc32Addr) {
+	DEBUG_LOG(HLE, "sceZlibDecompress(%08x, %x, %08x, %08x)", OutBuffer, OutBufferLength, InBuffer, Crc32Addr);
 	int err;
 	uLong crc;
 	z_stream stream;
