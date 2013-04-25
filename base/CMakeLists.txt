@@ -1,7 +1,7 @@
 set(SRCS
   colorutil.cpp
   timeutil.cpp
-  threadutil.cpp
+  ../thread/threadutil.cpp
   error_context.cpp
   display.cpp
   buffer.cpp)
