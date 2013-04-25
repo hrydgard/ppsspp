@@ -39,7 +39,7 @@ add_subdirectory(../ext/stb_image stb_image)
 
 
 add_executable(atlastool atlastool.cpp)
-target_link_libraries(atlastool ${PNG_LIBRARY} freetype z image stb_image rg_etc1 etcdec file zip gomp)
+target_link_libraries(atlastool ${PNG_LIBRARY} freetype z image stb_image rg_etc1 file zip gomp)
 
 add_executable(zimtool zimtool.cpp)
-target_link_libraries(zimtool ${PNG_LIBRARY} freetype z image stb_image rg_etc1 etcdec file zip gomp)
+target_link_libraries(zimtool ${PNG_LIBRARY} freetype z image stb_image rg_etc1 file zip gomp)
