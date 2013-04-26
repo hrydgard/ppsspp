@@ -73,7 +73,7 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 #ifdef _M_X64
 	// Two statically allocated registers.
 	MOV(64, R(RBX), Imm64((u64)Memory::base));
-	MOV(64, R(R15), Imm64((u64)jit->GetBlockCache()->GetCodePointers())); //It's below 2GB so 32 bits are good enough
+	MOV(64, R(R15), Imm64((u64)jit->GetBasePtr())); //It's below 2GB so 32 bits are good enough
 #endif
 
 	outerLoop = GetCodePtr();
@@ -119,14 +119,13 @@ void AsmRoutineManager::Generate(MIPSState *mips, MIPSComp::Jit *jit)
 					ADD(32, M(&mips->debugCount), Imm8(1));
 				}
 				//grab from list and jump to it
+				AND(32, R(EAX), Imm32(MIPS_EMUHACK_VALUE_MASK));
 #ifdef _M_IX86
-				AND(32, R(EAX), Imm32(MIPS_EMUHACK_VALUE_MASK));
-				MOV(32, R(EDX), ImmPtr(jit->GetBlockCache()->GetCodePointers()));
-				JMPptr(MComplex(EDX, EAX, 4, 0));
+				ADD(32, R(EAX), ImmPtr(jit->GetBasePtr()));
 #elif _M_X64
-				AND(32, R(EAX), Imm32(MIPS_EMUHACK_VALUE_MASK));
-				JMPptr(MComplex(R15, RAX, 8, 0));
+				ADD(64, R(RAX), R(R15));
 #endif
+				JMPptr(R(EAX));
 			SetJumpTarget(notfound);
 
 			//Ok, no block, let's jit

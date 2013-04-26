@@ -50,6 +50,8 @@ using namespace ArmGen;
 #include "Common/x64Analyzer.h"
 #include "Core/MIPS/x86/Asm.h"
 using namespace Gen;
+#else
+#error "Unsupported arch!"
 #endif
 // #include "JitBase.h"
 
@@ -68,15 +70,24 @@ op_agent_t agent;
 
 #define INVALID_EXIT 0xFFFFFFFF
 
-bool JitBlock::ContainsAddress(u32 em_address)
-{
+JitBlockCache::JitBlockCache(MIPSState *mips_, CodeBlock *codeBlock) :
+	mips(mips_), codeBlock_(codeBlock), blocks(0), num_blocks(0),
+	MAX_NUM_BLOCKS(0) {
+}
+
+JitBlockCache::~JitBlockCache() {
+	Shutdown();
+}
+
+bool JitBlock::ContainsAddress(u32 em_address) {
 	// WARNING - THIS DOES NOT WORK WITH JIT INLINING ENABLED.
+	// However, that doesn't exist yet so meh.
 	return (em_address >= originalAddress && em_address < originalAddress + 4 * originalSize);
 }
 
 bool JitBlockCache::IsFull() const 
 {
-	return GetNumBlocks() >= MAX_NUM_BLOCKS - 1;
+	return num_blocks >= MAX_NUM_BLOCKS - 1;
 }
 
 void JitBlockCache::Init()
@@ -87,16 +98,13 @@ void JitBlockCache::Init()
 	agent = op_open_agent();
 #endif
 	blocks = new JitBlock[MAX_NUM_BLOCKS];
-	blockCodePointers = new const u8*[MAX_NUM_BLOCKS];
 	Clear();
 }
 
 void JitBlockCache::Shutdown()
 {
 	delete[] blocks;
-	delete[] blockCodePointers;
 	blocks = 0;
-	blockCodePointers = 0;
 	num_blocks = 0;
 #if defined USE_OPROFILE && USE_OPROFILE
 	op_close_agent(agent);
@@ -105,11 +113,6 @@ void JitBlockCache::Shutdown()
 #ifdef USE_VTUNE
 	iJIT_NotifyEvent(iJVM_EVENT_TYPE_SHUTDOWN, NULL);
 #endif
-}
-
-JitBlockCache::~JitBlockCache()
-{
-	Shutdown();
 }
 
 // This clears the JIT cache. It's called from JitCache.cpp when the JIT cache
@@ -123,7 +126,6 @@ void JitBlockCache::Clear()
 	links_to.clear();
 	block_map.clear();
 	num_blocks = 0;
-	memset(blockCodePointers, 0, sizeof(u8*)*MAX_NUM_BLOCKS);
 }
 
 /*void JitBlockCache::DestroyBlocksWithFlag(BlockFlag death_flag)
@@ -146,11 +148,6 @@ void JitBlockCache::Reset()
 JitBlock *JitBlockCache::GetBlock(int no)
 {
 	return &blocks[no];
-}
-
-int JitBlockCache::GetNumBlocks() const
-{
-	return num_blocks;
 }
 
 bool JitBlockCache::RangeIntersect(int s1, int e1, int s2, int e2) const
@@ -184,10 +181,9 @@ int JitBlockCache::AllocateBlock(u32 em_address)
 void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 {
 	JitBlock &b = blocks[block_num];
-	blockCodePointers[block_num] = b.normalEntry;
 
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
-	u32 opcode = MIPS_MAKE_EMUHACK(0, block_num);
+	u32 opcode = GetEmuHackOpForBlock(block_num);
 	Memory::Write_Opcode_JIT(b.originalAddress, opcode);
 	
 	// Convert the logical address to a physical address for the block map
@@ -229,9 +225,24 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 #endif
 }
 
-const u8 **JitBlockCache::GetCodePointers()
-{
-	return blockCodePointers;
+int JitBlockCache::GetBlockNumberFromEmuHackOp(u32 inst) const {
+	if (!num_blocks || !MIPS_IS_EMUHACK(inst)) // definitely not a JIT block
+		return -1;
+	int off = (inst & MIPS_EMUHACK_VALUE_MASK);
+
+	const u8 *baseoff = codeBlock_->GetBasePtr() + off;
+	// TODO: Needs smarter search (binary). This code is not really hot though.
+	for (int i = 0; i < num_blocks; i++) {
+		if (blocks[i].normalEntry == baseoff) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+u32 JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
+	int off = (int)(blocks[blockNum].normalEntry - codeBlock_->GetBasePtr());
+	return (MIPS_EMUHACK_OPCODE | off);
 }
 
 int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr)
@@ -239,10 +250,8 @@ int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr)
 	if (!blocks)
 		return -1;		
 	u32 inst = Memory::Read_U32(addr);
-	if (!MIPS_IS_EMUHACK(inst)) // definitely not a JIT block
-		return -1;
-	int bl = (inst & MIPS_EMUHACK_VALUE_MASK);
-	if (bl >= num_blocks)
+	int bl = GetBlockNumberFromEmuHackOp(inst);
+	if (bl < 0)
 		return -1;
 	if (blocks[bl].originalAddress != addr)
 		return -1;		
@@ -329,10 +338,6 @@ void JitBlockCache::UnlinkBlock(int i)
 				sourceBlock.linkStatus[e] = false;
 		}
 	}
-}
-
-u32 JitBlockCache::GetEmuHackOpForBlock(int blockNum) {
-	return (MIPS_EMUHACK_OPCODE | blockNum);
 }
 
 void JitBlockCache::DestroyBlock(int block_num, bool invalidate)

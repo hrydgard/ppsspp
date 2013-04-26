@@ -107,14 +107,15 @@ void Jit::GenerateFixedCode()
 	// TODO: R12 should be usable for regalloc but will get thrashed by C code.
 
 	// Fixed registers, these are always kept when in Jit context.
+	// R8 is used to hold flags during delay slots. Not always needed.
 	// R13 cannot be used as it's the stack pointer.
 	// TODO: Consider statically allocating:
-	//   * downcount
-	//   * R2-R4
+	//   * r2-r4
 	// Really starting to run low on registers already though...
+
 	MOVI2R(R11, (u32)Memory::base);
 	MOVI2R(R10, (u32)mips_);
-	MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
+	MOVI2R(R9, (u32)GetBasePtr());
 
 	MovFromPC(R0);
 	outerLoopPCInR0 = GetCodePtr();
@@ -166,10 +167,9 @@ void Jit::GenerateFixedCode()
 				// LDR(R0, R9, R0); here, replacing the next instructions.
 #ifdef IOS
 				// TODO: Fix me, I'm ugly.
-				MOVI2R(R9, (u32)GetBlockCache()->GetCodePointers());
+				MOVI2R(R9, (u32)GetBasePtr());
 #endif
-				ADD(R0, R9, Operand2(R0, ST_LSL, 2));
-				LDR(R0, R0);
+				ADD(R0, R0, R9);
 				B(R0);
 			SetCC(CC_AL);
 

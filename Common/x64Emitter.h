@@ -756,6 +756,14 @@ public:
 	{
 		return region_size - (GetCodePtr() - region);
 	}
+
+	u8 *GetBasePtr() {
+		return region;
+	}
+
+	size_t GetOffset(u8 *ptr) {
+		return ptr - region;
+	}
 };
 
 }  // namespace

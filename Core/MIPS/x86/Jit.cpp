@@ -98,13 +98,13 @@ static void JitLogMiss(u32 op)
 	func(op);
 }
 
-Jit::Jit(MIPSState *mips) : blocks(mips), mips_(mips)
+Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 {
 	blocks.Init();
-	asm_.Init(mips, this);
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);
+	asm_.Init(mips, this);
 
 	// TODO: If it becomes possible to switch from the interpreter, this should be set right.
 	js.startDefaultPrefix = true;

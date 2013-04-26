@@ -30,14 +30,11 @@
 // I've chosen 0x68000000.
 
 #define MIPS_EMUHACK_OPCODE 0x68000000
-#define MIPS_EMUHACK_MASK 0xFF000000
-#define MIPS_EMUHACK_VALUE_MASK 0x00FFFFFF
+#define MIPS_EMUHACK_MASK 0xFC000000
+#define MIPS_EMUHACK_VALUE_MASK 0x03FFFFFF
 
-#define MIPS_MAKE_EMUHACK(subop, value) (MIPS_EMUHACK_OPCODE | ((subop) << 24) | (value))
 #define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
 
-#define MIPS_EMUHACK_GET_SUBOP(op) ((op) & 0x))
-#define MIPS_EMUHACK_GET_IMM24(op) ((op) & 0x00FFFFFF)
 
 // There are 2 bits available for sub-opcodes, 0x03000000.
 #define EMUOP_RUNBLOCK 0   // Runs a JIT block

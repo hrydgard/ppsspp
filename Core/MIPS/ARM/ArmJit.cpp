@@ -56,7 +56,7 @@ void DisassembleArm(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-Jit::Jit(MIPSState *mips) : blocks(mips), gpr(mips), fpr(mips),	 mips_(mips)
+Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips), fpr(mips), mips_(mips)
 { 
 	blocks.Init();
 	gpr.SetEmitter(this);
