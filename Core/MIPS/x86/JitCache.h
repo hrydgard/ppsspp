@@ -79,20 +79,6 @@ typedef void (*CompiledCode)();
 
 class JitBlockCache
 {
-	MIPSState *mips;
-	const u8 **blockCodePointers;
-	JitBlock *blocks;
-	int num_blocks;
-	std::multimap<u32, int> links_to;
-	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
-
-	int MAX_NUM_BLOCKS;
-
-	bool RangeIntersect(int s1, int e1, int s2, int e2) const;
-	void LinkBlockExits(int i);
-	void LinkBlock(int i);
-	void UnlinkBlock(int i);
-
 public:
 	JitBlockCache(MIPSState *mips_) :
 		mips(mips_), blockCodePointers(0), blocks(0), num_blocks(0),
@@ -100,7 +86,7 @@ public:
 	~JitBlockCache();
 
 	int AllocateBlock(u32 em_address);
-	void FinalizeBlock(int block_num, bool block_link, const u8 *code_ptr);
+	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();
 	void Init();
@@ -124,12 +110,26 @@ public:
 	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers);
 
 	u32 GetOriginalFirstOp(int block_num);
-	CompiledCode GetCompiledCodeFromBlock(int block_num);
 
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
 
-	// Not currently used
-	//void DestroyBlocksWithFlag(BlockFlag death_flag);
+private:
+	bool RangeIntersect(int s1, int e1, int s2, int e2) const;
+	void LinkBlockExits(int i);
+	void LinkBlock(int i);
+	void UnlinkBlock(int i);
+
+	u32 GetEmuHackOpForBlock(int block_num);
+
+	MIPSState *mips;
+	const u8 **blockCodePointers;
+	JitBlock *blocks;
+	int num_blocks;
+	std::multimap<u32, int> links_to;
+	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
+
+	int MAX_NUM_BLOCKS;
 };
+

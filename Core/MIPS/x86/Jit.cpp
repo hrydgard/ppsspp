@@ -220,7 +220,8 @@ void Jit::Compile(u32 em_address)
 
 	int block_num = blocks.AllocateBlock(em_address);
 	JitBlock *b = blocks.GetBlock(block_num);
-	blocks.FinalizeBlock(block_num, jo.enableBlocklink, DoJit(em_address, b));
+	DoJit(em_address, b);
+	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix())

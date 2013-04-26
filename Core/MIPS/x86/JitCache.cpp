@@ -173,10 +173,10 @@ int JitBlockCache::AllocateBlock(u32 em_address)
 	return num_blocks - 1;
 }
 
-void JitBlockCache::FinalizeBlock(int block_num, bool block_link, const u8 *code_ptr)
+void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 {
-	blockCodePointers[block_num] = code_ptr;
 	JitBlock &b = blocks[block_num];
+	blockCodePointers[block_num] = b.normalEntry;
 
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
 	u32 opcode = MIPS_MAKE_EMUHACK(0, block_num);
@@ -202,9 +202,8 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link, const u8 *code
 #if defined USE_OPROFILE && USE_OPROFILE
 	char buf[100];
 	sprintf(buf, "EmuCode%x", b.originalAddress);
-	const u8* blockStart = blockCodePointers[block_num];
-	op_write_native_code(agent, buf, (uint64_t)blockStart,
-												blockStart, b.codeSize);
+	const u8* blockStart = blocks[block_num].checkedEntry;
+	op_write_native_code(agent, buf, (uint64_t)blockStart, blockStart, b.codeSize);
 #endif
 
 #ifdef USE_VTUNE
@@ -214,7 +213,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link, const u8 *code
 	jmethod.method_id = iJIT_GetNewMethodID();
 	jmethod.class_file_name = "";
 	jmethod.source_file_name = __FILE__;
-	jmethod.method_load_address = (void*)blockCodePointers[block_num];
+	jmethod.method_load_address = (void*)blocks[block_num].checkedEntry;
 	jmethod.method_size = b.codeSize;
 	jmethod.line_number_size = 0;
 	jmethod.method_name = b.blockName;
@@ -258,19 +257,6 @@ u32 JitBlockCache::GetOriginalFirstOp(int block_num)
 	}
 	return blocks[block_num].originalFirstOpcode;
 }
-
-CompiledCode JitBlockCache::GetCompiledCodeFromBlock(int block_num)
-{		
-	return (CompiledCode)blockCodePointers[block_num];
-}
-
-
-
-//Block linker
-//Make sure to have as many blocks as possible compiled before calling this
-//It's O(N), so it's fast :)
-//Can be faster by doing a queue for blocks to link up, and only process those
-//Should probably be done
 
 void JitBlockCache::LinkBlockExits(int i)
 {
@@ -330,6 +316,10 @@ void JitBlockCache::UnlinkBlock(int i)
 	}
 }
 
+u32 JitBlockCache::GetEmuHackOpForBlock(int blockNum) {
+	return (MIPS_EMUHACK_OPCODE | blockNum);
+}
+
 void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 {
 	if (block_num < 0 || block_num >= num_blocks)
@@ -345,7 +335,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 		return;
 	}
 	b.invalid = true;
-	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == (MIPS_EMUHACK_OPCODE | block_num))
+	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == GetEmuHackOpForBlock(block_num))
 		Memory::WriteUnchecked_U32(b.originalFirstOpcode, b.originalAddress);
 
 	UnlinkBlock(block_num);
@@ -356,13 +346,6 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 	XEmitter emit((u8 *)b.checkedEntry);
 	emit.MOV(32, M(&mips->pc), Imm32(b.originalAddress));
 	emit.JMP(MIPSComp::jit->Asm().dispatcher, true);
-
-	// this is not needed really
-	/*
-	emit.SetCodePtr((u8 *)blockCodePointers[blocknum]);
-	emit.MOV(32, M(&PC), Imm32(b.originalAddress));
-	emit.JMP(asm_routines.dispatcher, true);
-	*/
 }
 
 void JitBlockCache::InvalidateICache(u32 address, const u32 length)

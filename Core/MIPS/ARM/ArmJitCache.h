@@ -30,17 +30,6 @@
 // emulate CPU with unlimited instruction cache
 // the only way to invalidate a region is the "icbi" instruction
 
-#define JIT_ICACHE_SIZE 0x2000000
-#define JIT_ICACHE_MASK 0x1ffffff
-#define JIT_ICACHEEX_SIZE 0x4000000
-#define JIT_ICACHEEX_MASK 0x3ffffff
-#define JIT_ICACHE_EXRAM_BIT 0x10000000
-#define JIT_ICACHE_VMEM_BIT 0x20000000
-// this corresponds to opcode 5 which is invalid in PowerPC
-#define JIT_ICACHE_INVALID_BYTE 0x14
-#define JIT_ICACHE_INVALID_WORD 0x14141414
-
-#define JIT_OPCODE 0xFFCCCCCC	// yeah this ain't gonna work
 
 struct ArmJitBlock
 {
@@ -85,7 +74,7 @@ public:
 		MAX_NUM_BLOCKS(0) { }
 	~ArmJitBlockCache();
 	int AllocateBlock(u32 em_address);
-	void FinalizeBlock(int block_num, bool block_link, const u8 *code_ptr);
+	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();
 	void ClearSafe();
@@ -110,18 +99,18 @@ public:
 	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers);
 
 	u32 GetOriginalFirstOp(int block_num);
-	CompiledCode GetCompiledCodeFromBlock(int block_num);
 
 	// DOES NOT WORK CORRECTLY WITH INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
 
-	std::string GetCompiledDisassembly(int block_num);
-
-	// Not currently used
-	//void DestroyBlocksWithFlag(BlockFlag death_flag);
-
 private:
+	bool RangeIntersect(int s1, int e1, int s2, int e2) const;
+	void LinkBlockExits(int i);
+	void LinkBlock(int i);
+	void UnlinkBlock(int i);
+	u32 GetEmuHackOpForBlock(int blockNum) const;
+
 	MIPSState *mips;
 	const u8 **blockCodePointers;
 	ArmJitBlock *blocks;
@@ -130,9 +119,4 @@ private:
 	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
 
 	int MAX_NUM_BLOCKS;
-
-	bool RangeIntersect(int s1, int e1, int s2, int e2) const;
-	void LinkBlockExits(int i);
-	void LinkBlock(int i);
-	void UnlinkBlock(int i);
 };

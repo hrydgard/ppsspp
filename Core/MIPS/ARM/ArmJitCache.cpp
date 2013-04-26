@@ -160,10 +160,10 @@ int ArmJitBlockCache::AllocateBlock(u32 em_address)
 	return num_blocks - 1;
 }
 
-void ArmJitBlockCache::FinalizeBlock(int block_num, bool block_link, const u8 *code_ptr)
+void ArmJitBlockCache::FinalizeBlock(int block_num, bool block_link)
 {
-	blockCodePointers[block_num] = code_ptr;
 	ArmJitBlock &b = blocks[block_num];
+	blockCodePointers[block_num] = b.normalEntry;
 
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
 	u32 opcode = MIPS_MAKE_EMUHACK(0, block_num);
@@ -189,7 +189,7 @@ void ArmJitBlockCache::FinalizeBlock(int block_num, bool block_link, const u8 *c
 #if defined USE_OPROFILE && USE_OPROFILE
 	char buf[100];
 	sprintf(buf, "EmuCode%x", b.originalAddress);
-	const u8* blockStart = blockCodePointers[block_num];
+	const u8* blockStart = blocks[block_num].checkedEntry;
 	op_write_native_code(agent, buf, (uint64_t)blockStart,
 												blockStart, b.codeSize);
 #endif
@@ -201,7 +201,7 @@ void ArmJitBlockCache::FinalizeBlock(int block_num, bool block_link, const u8 *c
 	jmethod.method_id = iJIT_GetNewMethodID();
 	jmethod.class_file_name = "";
 	jmethod.source_file_name = __FILE__;
-	jmethod.method_load_address = (void*)blockCodePointers[block_num];
+	jmethod.method_load_address = (void*)blocks[block_num].checkedEntry;
 	jmethod.method_size = b.codeSize;
 	jmethod.line_number_size = 0;
 	jmethod.method_name = b.blockName;
@@ -246,29 +246,6 @@ u32 ArmJitBlockCache::GetOriginalFirstOp(int block_num)
 	return blocks[block_num].originalFirstOpcode;
 }
 
-CompiledCode ArmJitBlockCache::GetCompiledCodeFromBlock(int block_num)
-{		
-	return (CompiledCode)blockCodePointers[block_num];
-}
-
-std::string ArmJitBlockCache::GetCompiledDisassembly(int block_num)
-{
-	/*
-	std::string buf;
-	const u8 *ptr = blockCodePointers[block_num];
-
-	while (ptr < blockCodePointers[block_num] + blocks[block_num].codeSize)
-	{
-		int len;
-		buf += std::string(disasmx86((unsigned char*)ptr, 0, &len)) + "\n";
-		ptr += len;
-	}*/
-	return "No ARM disassembler";
-}
-
-
-//Make sure to have as many blocks as possible compiled before calling this
-//It's O(1), so it's fast :)
 void ArmJitBlockCache::LinkBlockExits(int i)
 {
 	ArmJitBlock &b = blocks[i];
@@ -328,6 +305,10 @@ void ArmJitBlockCache::UnlinkBlock(int i)
 	}
 }
 
+u32 ArmJitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
+	return (MIPS_EMUHACK_OPCODE | blockNum);
+}
+
 void ArmJitBlockCache::DestroyBlock(int block_num, bool invalidate)
 {
 	if (block_num < 0 || block_num >= num_blocks)
@@ -343,12 +324,14 @@ void ArmJitBlockCache::DestroyBlock(int block_num, bool invalidate)
 		return;
 	}
 	b.invalid = true;
-	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == (MIPS_EMUHACK_OPCODE | block_num))
+	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == GetEmuHackOpForBlock(block_num))
 		Memory::WriteUnchecked_U32(b.originalFirstOpcode, b.originalAddress);
 
 	UnlinkBlock(block_num);
-
+	b.normalEntry = 0;
+	// TODO: remove
 	blockCodePointers[block_num] = 0;
+
 	// Send anyone who tries to run this block back to the dispatcher.
 	// Not entirely ideal, but .. pretty good.
 	// I hope there's enough space...
