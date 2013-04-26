@@ -26,7 +26,7 @@
 #endif
 
 #include "Common/x64Emitter.h"
-#include "JitCache.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "RegCache.h"
 #include "RegCacheFPU.h"
 

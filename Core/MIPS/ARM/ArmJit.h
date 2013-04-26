@@ -19,10 +19,10 @@
 
 #include "../../../Globals.h"
 
-#include "ArmJitCache.h"
-#include "ArmRegCache.h"
-#include "ArmRegCacheFPU.h"
-#include "ArmAsm.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
+#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
+#include "Core/MIPS/ARM/ArmAsm.h"
 
 #if defined(MAEMO)
 #include "stddef.h"
@@ -57,7 +57,7 @@ struct ArmJitState
 	bool inDelaySlot;
 	int downcountAmount;
 	bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
-	ArmJitBlock *curBlock;
+	JitBlock *curBlock;
 
 	// VFPU prefix magic
 	bool startDefaultPrefix;
@@ -148,7 +148,7 @@ public:
 	void RunLoopUntil(u64 globalticks);
 
 	void Compile(u32 em_address);	// Compiles a block at current MIPS PC
-	const u8 *DoJit(u32 em_address, ArmJitBlock *b);
+	const u8 *DoJit(u32 em_address, JitBlock *b);
 
 	void CompileDelaySlot(int flags);
 	void CompileAt(u32 addr);
@@ -198,7 +198,7 @@ public:
 	void Comp_Vmscl(u32 op);
 	void Comp_Vtfm(u32 op);
 
-	ArmJitBlockCache *GetBlockCache() { return &blocks; }
+	JitBlockCache *GetBlockCache() { return &blocks; }
 
 	void ClearCache();
 	void ClearCacheAt(u32 em_address);
@@ -259,7 +259,7 @@ private:
 	void SetR0ToEffectiveAddress(int rs, s16 offset);
 	void SetCCAndR0ForSafeAddress(int rs, s16 offset, ARMReg tempReg);
 
-	ArmJitBlockCache blocks;
+	JitBlockCache blocks;
 	ArmJitOptions jo;
 	ArmJitState js;
 

@@ -14,17 +14,19 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
-#include "../../HLE/HLE.h"
 
-#include "../MIPS.h"
-#include "../MIPSCodeUtils.h"
-#include "../MIPSAnalyst.h"
-#include "../MIPSTables.h"
+#include "Core/HLE/HLE.h"
 
-#include "ArmJit.h"
-#include "ArmRegCache.h"
-#include "ArmJitCache.h"
-#include <ArmEmitter.h>
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSTables.h"
+
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
+
+#include "Common/ArmEmitter.h"
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)

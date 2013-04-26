@@ -25,7 +25,7 @@
 
 #include "Jit.h"
 #include "RegCache.h"
-#include "JitCache.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)

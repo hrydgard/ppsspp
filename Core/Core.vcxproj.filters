@@ -105,9 +105,6 @@
     <ClCompile Include="MIPS\x86\Asm.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\x86\JitCache.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\x86\RegCache.cpp">
       <Filter>MIPS\x86</Filter>
     </ClCompile>
@@ -366,9 +363,6 @@
     <ClCompile Include="MIPS\ARM\ArmJit.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmJitCache.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmRegCache.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
@@ -403,6 +397,7 @@
     <ClCompile Include="ELF\PBPReader.cpp">
       <Filter>ELF</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -445,9 +440,6 @@
       <Filter>MIPS\x86</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\x86\Asm.h">
-      <Filter>MIPS\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\x86\JitCache.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\x86\RegCache.h">
@@ -711,9 +703,6 @@
     <ClInclude Include="MIPS\ARM\ArmJit.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmJitCache.h">
-      <Filter>MIPS\ARM</Filter>
-    </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmRegCache.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
@@ -744,6 +733,7 @@
     <ClInclude Include="ELF\PBPReader.h">
       <Filter>ELF</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\JitCommon\JitBlockCache.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

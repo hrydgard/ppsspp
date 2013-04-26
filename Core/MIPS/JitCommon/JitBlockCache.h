@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project / Dolphin Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -21,17 +21,15 @@
 #include <vector>
 #include <string>
 
-#include "../MIPSAnalyst.h"
-#include "../MIPS.h"
+#include "Common/CommonTypes.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPS.h"
+
 // Define this in order to get VTune profile support for the Jit generated code.
 // Add the VTune include/lib directories to the project directories to get this to build.
 // #define USE_VTUNE
 
-// emulate CPU with unlimited instruction cache
-// the only way to invalidate a region is the "icbi" instruction
-
-
-struct ArmJitBlock
+struct JitBlock
 {
 	const u8 *checkedEntry;
 	const u8 *normalEntry;
@@ -66,18 +64,18 @@ struct ArmJitBlock
 
 typedef void (*CompiledCode)();
 
-class ArmJitBlockCache
+class JitBlockCache
 {
 public:
-	ArmJitBlockCache(MIPSState *mips_) :
+	JitBlockCache(MIPSState *mips_) :
 		mips(mips_), blockCodePointers(0), blocks(0), num_blocks(0),
 		MAX_NUM_BLOCKS(0) { }
-	~ArmJitBlockCache();
+	~JitBlockCache();
+
 	int AllocateBlock(u32 em_address);
 	void FinalizeBlock(int block_num, bool block_link);
 
 	void Clear();
-	void ClearSafe();
 	void Init();
 	void Shutdown();
 	void Reset();
@@ -85,7 +83,7 @@ public:
 	bool IsFull() const;
 
 	// Code Cache
-	ArmJitBlock *GetBlock(int block_num);
+	JitBlock *GetBlock(int block_num);
 	int GetNumBlocks() const;
 	const u8 **GetCodePointers();
 
@@ -93,14 +91,14 @@ public:
 	int GetBlockNumberFromStartAddress(u32 em_address);
 
 	// slower, but can get numbers from within blocks, not just the first instruction.
-	// WARNING! WILL NOT WORK WITH INLINING ENABLED (not yet a feature but will be soon)
+	// WARNING! WILL NOT WORK WITH JIT INLINING ENABLED (not yet a feature but will be soon)
 	// Returns a list of block numbers - only one block can start at a particular address, but they CAN overlap.
 	// This one is slow so should only be used for one-shots from the debugger UI, not for anything during runtime.
 	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers);
 
 	u32 GetOriginalFirstOp(int block_num);
 
-	// DOES NOT WORK CORRECTLY WITH INLINING
+	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void DestroyBlock(int block_num, bool invalidate);
 
@@ -109,14 +107,16 @@ private:
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);
 	void UnlinkBlock(int i);
-	u32 GetEmuHackOpForBlock(int blockNum) const;
+
+	u32 GetEmuHackOpForBlock(int block_num);
 
 	MIPSState *mips;
 	const u8 **blockCodePointers;
-	ArmJitBlock *blocks;
+	JitBlock *blocks;
 	int num_blocks;
 	std::multimap<u32, int> links_to;
 	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
 
 	int MAX_NUM_BLOCKS;
 };
+

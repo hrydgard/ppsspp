@@ -168,7 +168,7 @@ void Jit::Compile(u32 em_address)
 	}
 
 	int block_num = blocks.AllocateBlock(em_address);
-	ArmJitBlock *b = blocks.GetBlock(block_num);
+	JitBlock *b = blocks.GetBlock(block_num);
 	DoJit(em_address, b);
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 
@@ -190,9 +190,9 @@ void Jit::RunLoopUntil(u64 globalticks)
 	((void (*)())enterCode)();
 }
 static int dontLogBlocks = 20;
-int logBlocks = 40;
+static int logBlocks = 40;
 
-const u8 *Jit::DoJit(u32 em_address, ArmJitBlock *b)
+const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
@@ -331,7 +331,7 @@ void Jit::WriteExit(u32 destination, int exit_num)
 {
 	WriteDownCount(); 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
-	ArmJitBlock *b = js.curBlock;
+	JitBlock *b = js.curBlock;
 	b->exitAddress[exit_num] = destination;
 	b->exitPtrs[exit_num] = GetWritableCodePtr();
 

@@ -16,22 +16,21 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common.h"
-#include "MIPS.h"
-#include "MIPSTables.h"
-#include "MIPSDebugInterface.h"
-#include "MIPSVFPUUtils.h"
-#include "../System.h"
-#include "../HLE/sceDisplay.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/System.h"
+#include "Core/HLE/sceDisplay.h"
 
 #if defined(ARM)
-#include "ARM/ArmJitCache.h"
 #include "ARM/ArmJit.h"
 #else
-#include "x86/JitCache.h"
 #include "x86/Jit.h"
 #endif
-#include "JitCommon/JitCommon.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/CoreTiming.h"
 
 MIPSState mipsr4k;
 MIPSState *currentMIPS = &mipsr4k;

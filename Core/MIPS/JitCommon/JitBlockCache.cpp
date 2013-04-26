@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project / Dolphin Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,6 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// Enable define below to enable oprofile integration. For this to work,
+// it requires at least oprofile version 0.9.4, and changing the build
+// system to link the Dolphin executable against libopagent.	Since the
+// dependency is a little inconvenient and this is possibly a slight
+// performance hit, it's not enabled by default, but it's useful for
+// locating performance issues.
+
 #include "Common.h"
 
 #ifdef _WIN32
@@ -29,11 +36,22 @@
 #include "../MIPSTables.h"
 #include "../MIPSAnalyst.h"
 
-#include "ArmEmitter.h"
 
-#include "ArmJitCache.h"
-#include "../JitCommon/JitCommon.h"
-#include "ArmAsm.h"
+
+#include "JitBlockCache.h"
+#include "JitCommon.h"
+
+#if defined(ARM)
+#include "Common/ArmEmitter.h"
+#include "Core/MIPS/ARM/ArmAsm.h"
+using namespace ArmGen;
+#elif defined(_M_IX86) || defined(_M_X64)
+#include "Common/x64Emitter.h"
+#include "Common/x64Analyzer.h"
+#include "Core/MIPS/x86/Asm.h"
+using namespace Gen;
+#endif
+// #include "JitBase.h"
 
 #if defined USE_OPROFILE && USE_OPROFILE
 #include <opagent.h>
@@ -47,34 +65,33 @@ op_agent_t agent;
 #pragma comment(lib, "jitprofiling.lib")
 #endif
 
-using namespace ArmGen;
 
 #define INVALID_EXIT 0xFFFFFFFF
 
-bool ArmJitBlock::ContainsAddress(u32 em_address)
+bool JitBlock::ContainsAddress(u32 em_address)
 {
-	// WARNING - THIS DOES NOT WORK WITH INLINING ENABLED.
+	// WARNING - THIS DOES NOT WORK WITH JIT INLINING ENABLED.
 	return (em_address >= originalAddress && em_address < originalAddress + 4 * originalSize);
 }
 
-bool ArmJitBlockCache::IsFull() const 
+bool JitBlockCache::IsFull() const 
 {
 	return GetNumBlocks() >= MAX_NUM_BLOCKS - 1;
 }
 
-void ArmJitBlockCache::Init()
+void JitBlockCache::Init()
 {
 	MAX_NUM_BLOCKS = 65536*2;
 
 #if defined USE_OPROFILE && USE_OPROFILE
 	agent = op_open_agent();
 #endif
-	blocks = new ArmJitBlock[MAX_NUM_BLOCKS];
+	blocks = new JitBlock[MAX_NUM_BLOCKS];
 	blockCodePointers = new const u8*[MAX_NUM_BLOCKS];
 	Clear();
 }
 
-void ArmJitBlockCache::Shutdown()
+void JitBlockCache::Shutdown()
 {
 	delete[] blocks;
 	delete[] blockCodePointers;
@@ -90,14 +107,14 @@ void ArmJitBlockCache::Shutdown()
 #endif
 }
 
-ArmJitBlockCache::~ArmJitBlockCache()
+JitBlockCache::~JitBlockCache()
 {
 	Shutdown();
 }
 
-// This clears the JIT block cache. It's called from JitCache.cpp when the JIT cache
+// This clears the JIT cache. It's called from JitCache.cpp when the JIT cache
 // is full and when saving and loading states.
-void ArmJitBlockCache::Clear()
+void JitBlockCache::Clear()
 {
 	for (int i = 0; i < num_blocks; i++)
 	{
@@ -106,33 +123,37 @@ void ArmJitBlockCache::Clear()
 	links_to.clear();
 	block_map.clear();
 	num_blocks = 0;
-	memset(blockCodePointers, 0xCC, sizeof(u8*)*MAX_NUM_BLOCKS);
+	memset(blockCodePointers, 0, sizeof(u8*)*MAX_NUM_BLOCKS);
 }
 
-void ArmJitBlockCache::ClearSafe()
+/*void JitBlockCache::DestroyBlocksWithFlag(BlockFlag death_flag)
 {
-#ifdef JIT_UNLIMITED_ICACHE
-	memset(iCache, JIT_ICACHE_INVALID_BYTE, JIT_ICACHE_SIZE);
-#endif
-}
+	for (int i = 0; i < num_blocks; i++)
+	{
+		if (blocks[i].flags & death_flag)
+		{
+			DestroyBlock(i, false);
+		}
+	}
+}*/
 
-void ArmJitBlockCache::Reset()
+void JitBlockCache::Reset()
 {
 	Shutdown();
 	Init();
 }
 
-ArmJitBlock *ArmJitBlockCache::GetBlock(int no)
+JitBlock *JitBlockCache::GetBlock(int no)
 {
 	return &blocks[no];
 }
 
-int ArmJitBlockCache::GetNumBlocks() const
+int JitBlockCache::GetNumBlocks() const
 {
 	return num_blocks;
 }
 
-bool ArmJitBlockCache::RangeIntersect(int s1, int e1, int s2, int e2) const
+bool JitBlockCache::RangeIntersect(int s1, int e1, int s2, int e2) const
 {
 	// check if any endpoint is inside the other range
 	if ((s1 >= s2 && s1 <= e2) ||
@@ -144,9 +165,9 @@ bool ArmJitBlockCache::RangeIntersect(int s1, int e1, int s2, int e2) const
 		return false;
 }
 
-int ArmJitBlockCache::AllocateBlock(u32 em_address)
+int JitBlockCache::AllocateBlock(u32 em_address)
 {
-	ArmJitBlock &b = blocks[num_blocks];
+	JitBlock &b = blocks[num_blocks];
 	b.invalid = false;
 	b.originalAddress = em_address;
 	b.exitAddress[0] = INVALID_EXIT;
@@ -160,9 +181,9 @@ int ArmJitBlockCache::AllocateBlock(u32 em_address)
 	return num_blocks - 1;
 }
 
-void ArmJitBlockCache::FinalizeBlock(int block_num, bool block_link)
+void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 {
-	ArmJitBlock &b = blocks[block_num];
+	JitBlock &b = blocks[block_num];
 	blockCodePointers[block_num] = b.normalEntry;
 
 	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
@@ -190,8 +211,7 @@ void ArmJitBlockCache::FinalizeBlock(int block_num, bool block_link)
 	char buf[100];
 	sprintf(buf, "EmuCode%x", b.originalAddress);
 	const u8* blockStart = blocks[block_num].checkedEntry;
-	op_write_native_code(agent, buf, (uint64_t)blockStart,
-												blockStart, b.codeSize);
+	op_write_native_code(agent, buf, (uint64_t)blockStart, blockStart, b.codeSize);
 #endif
 
 #ifdef USE_VTUNE
@@ -209,12 +229,12 @@ void ArmJitBlockCache::FinalizeBlock(int block_num, bool block_link)
 #endif
 }
 
-const u8 **ArmJitBlockCache::GetCodePointers()
+const u8 **JitBlockCache::GetCodePointers()
 {
 	return blockCodePointers;
 }
 
-int ArmJitBlockCache::GetBlockNumberFromStartAddress(u32 addr)
+int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr)
 {
 	if (!blocks)
 		return -1;		
@@ -229,14 +249,14 @@ int ArmJitBlockCache::GetBlockNumberFromStartAddress(u32 addr)
 	return bl;
 }
 
-void ArmJitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers)
+void JitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers)
 {
 	for (int i = 0; i < num_blocks; i++)
 		if (blocks[i].ContainsAddress(em_address))
 			block_numbers->push_back(i);
 }
 
-u32 ArmJitBlockCache::GetOriginalFirstOp(int block_num)
+u32 JitBlockCache::GetOriginalFirstOp(int block_num)
 {
 	if (block_num >= num_blocks)
 	{
@@ -246,9 +266,9 @@ u32 ArmJitBlockCache::GetOriginalFirstOp(int block_num)
 	return blocks[block_num].originalFirstOpcode;
 }
 
-void ArmJitBlockCache::LinkBlockExits(int i)
+void JitBlockCache::LinkBlockExits(int i)
 {
-	ArmJitBlock &b = blocks[i];
+	JitBlock &b = blocks[i];
 	if (b.invalid)
 	{
 		// This block is dead. Don't relink it.
@@ -261,9 +281,15 @@ void ArmJitBlockCache::LinkBlockExits(int i)
 			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e]);
 			if (destinationBlock != -1)
 			{
+#if defined(ARM)
 				ARMXEmitter emit(b.exitPtrs[e]);
 				emit.B(blocks[destinationBlock].checkedEntry);
 				emit.FlushIcache();
+
+#elif defined(_M_IX86) || defined(_M_X64)
+				XEmitter emit(b.exitPtrs[e]);
+				emit.JMP(blocks[destinationBlock].checkedEntry, true);
+#endif
 				b.linkStatus[e] = true;
 			}
 		}
@@ -272,10 +298,10 @@ void ArmJitBlockCache::LinkBlockExits(int i)
 
 using namespace std;
 
-void ArmJitBlockCache::LinkBlock(int i)
+void JitBlockCache::LinkBlock(int i)
 {
 	LinkBlockExits(i);
-	ArmJitBlock &b = blocks[i];
+	JitBlock &b = blocks[i];
 	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
 	// equal_range(b) returns pair<iterator,iterator> representing the range
 	// of element with key b
@@ -283,20 +309,20 @@ void ArmJitBlockCache::LinkBlock(int i)
 	if (ppp.first == ppp.second)
 		return;
 	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
-		// PanicAlert("Linking block %i to block %i", iter2->second, i);
+		// PanicAlert("Linking block %i to block %i", iter->second, i);
 		LinkBlockExits(iter->second);
 	}
 }
 
-void ArmJitBlockCache::UnlinkBlock(int i)
+void JitBlockCache::UnlinkBlock(int i)
 {
-	ArmJitBlock &b = blocks[i];
+	JitBlock &b = blocks[i];
 	pair<multimap<u32, int>::iterator, multimap<u32, int>::iterator> ppp;
 	ppp = links_to.equal_range(b.originalAddress);
 	if (ppp.first == ppp.second)
 		return;
 	for (multimap<u32, int>::iterator iter = ppp.first; iter != ppp.second; ++iter) {
-		ArmJitBlock &sourceBlock = blocks[iter->second];
+		JitBlock &sourceBlock = blocks[iter->second];
 		for (int e = 0; e < 2; e++)
 		{
 			if (sourceBlock.exitAddress[e] == b.originalAddress)
@@ -305,18 +331,18 @@ void ArmJitBlockCache::UnlinkBlock(int i)
 	}
 }
 
-u32 ArmJitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
+u32 JitBlockCache::GetEmuHackOpForBlock(int blockNum) {
 	return (MIPS_EMUHACK_OPCODE | blockNum);
 }
 
-void ArmJitBlockCache::DestroyBlock(int block_num, bool invalidate)
+void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 {
 	if (block_num < 0 || block_num >= num_blocks)
 	{
 		ERROR_LOG(JIT, "DestroyBlock: Invalid block number %d", block_num);
 		return;
 	}
-	ArmJitBlock &b = blocks[block_num];
+	JitBlock &b = blocks[block_num];
 	if (b.invalid)
 	{
 		if (invalidate)
@@ -328,9 +354,9 @@ void ArmJitBlockCache::DestroyBlock(int block_num, bool invalidate)
 		Memory::WriteUnchecked_U32(b.originalFirstOpcode, b.originalAddress);
 
 	UnlinkBlock(block_num);
-	b.normalEntry = 0;
-	// TODO: remove
-	blockCodePointers[block_num] = 0;
+
+
+#if defined(ARM)
 
 	// Send anyone who tries to run this block back to the dispatcher.
 	// Not entirely ideal, but .. pretty good.
@@ -341,11 +367,22 @@ void ArmJitBlockCache::DestroyBlock(int block_num, bool invalidate)
 	emit.STR(R0, CTXREG, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->dispatcher);
 	emit.FlushIcache();
+
+#elif defined(_M_IX86) || defined(_M_X64)
+
+	// Send anyone who tries to run this block back to the dispatcher.
+	// Not entirely ideal, but .. pretty good.
+	// Spurious entrances from previously linked blocks can only come through checkedEntry
+	XEmitter emit((u8 *)b.checkedEntry);
+	emit.MOV(32, M(&mips->pc), Imm32(b.originalAddress));
+	emit.JMP(MIPSComp::jit->Asm().dispatcher, true);
+#endif
 }
 
-void ArmJitBlockCache::InvalidateICache(u32 address, const u32 length)
+void JitBlockCache::InvalidateICache(u32 address, const u32 length)
 {
-	u32 pAddr = address & 0x3FFFFFFF;
+	// Convert the logical address to a physical address for the block map
+	u32 pAddr = address & 0x1FFFFFFF;
 
 	// destroy JIT blocks
 	// !! this works correctly under assumption that any two overlapping blocks end at the same address

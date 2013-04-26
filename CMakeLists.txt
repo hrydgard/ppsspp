@@ -641,8 +641,6 @@ if(ARM)
 		Core/MIPS/ARM/ArmCompVFPU.cpp
 		Core/MIPS/ARM/ArmJit.cpp
 		Core/MIPS/ARM/ArmJit.h
-		Core/MIPS/ARM/ArmJitCache.cpp
-		Core/MIPS/ARM/ArmJitCache.h
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCache.h
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
@@ -659,8 +657,6 @@ elseif(X86)
 		Core/MIPS/x86/CompVFPU.cpp
 		Core/MIPS/x86/Jit.cpp
 		Core/MIPS/x86/Jit.h
-		Core/MIPS/x86/JitCache.cpp
-		Core/MIPS/x86/JitCache.h
 		Core/MIPS/x86/RegCache.cpp
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
@@ -822,6 +818,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Loaders.h
 	Core/MIPS/JitCommon/JitCommon.cpp
 	Core/MIPS/JitCommon/JitCommon.h
+	Core/MIPS/JitCommon/JitBlockCache.cpp
+	Core/MIPS/JitCommon/JitBlockCache.h
 	Core/MIPS/MIPS.cpp
 	Core/MIPS/MIPS.h
 	Core/MIPS/MIPSAnalyst.cpp

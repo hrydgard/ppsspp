@@ -55,7 +55,6 @@ ARCH_FILES := \
   $(SRC)/Common/x64Emitter.cpp \
   $(SRC)/Common/CPUDetect.cpp \
   $(SRC)/Common/Thunk.cpp \
-  $(SRC)/Core/MIPS/x86/JitCache.cpp \
   $(SRC)/Core/MIPS/x86/CompALU.cpp \
   $(SRC)/Core/MIPS/x86/CompBranch.cpp \
   $(SRC)/Core/MIPS/x86/CompFPU.cpp \
@@ -75,7 +74,6 @@ ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/ArmThunk.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
@@ -97,7 +95,6 @@ ARCH_FILES := \
   $(SRC)/Common/ArmEmitter.cpp \
   $(SRC)/Common/ArmCPUDetect.cpp \
   $(SRC)/Common/ArmThunk.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJitCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
   $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
@@ -246,6 +243,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
+  $(SRC)/Core/MIPS/JitCommon/JitBlockCache.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/ppge_atlas.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp \
