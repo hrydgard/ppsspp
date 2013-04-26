@@ -180,6 +180,14 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 	return ret;
 }
 
+static inline s16 clamp_s16(int i) {
+	if (i > 32767)
+		return 32767;
+	if (i < -32768)
+		return -32768;
+	return i;
+}
+
 // Mix samples from the various audio channels into a single sample queue.
 // This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
 // just sleep the main emulator thread a little.
@@ -207,8 +215,9 @@ void __AudioUpdate()
 			{
 				s16 sampleL = chans[i].sampleQueue.pop_front();
 				s16 sampleR = chans[i].sampleQueue.pop_front();
-				mixBuffer[s * 2 + 0] += sampleL;
-				mixBuffer[s * 2 + 1] += sampleR;
+				// The channel volume should be done here?
+				mixBuffer[s * 2 + 0] += sampleL * (s32)chans[i].leftVolume >> 14;
+				mixBuffer[s * 2 + 1] += sampleR * (s32)chans[i].rightVolume >> 14;
 			} 
 			else
 			{
@@ -234,8 +243,8 @@ void __AudioUpdate()
 		if (outAudioQueue.room() >= hwBlockSize * 2) {
 			// Push the mixed samples onto the output audio queue.
 			for (int i = 0; i < hwBlockSize; i++) {
-				s32 sampleL = mixBuffer[i * 2 + 0] >> 2;  // TODO - what factor?
-				s32 sampleR = mixBuffer[i * 2 + 1] >> 2;
+				s16 sampleL = clamp_s16(mixBuffer[i * 2 + 0]);
+				s16 sampleR = clamp_s16(mixBuffer[i * 2 + 1]);
 
 				outAudioQueue.push((s16)sampleL);
 				outAudioQueue.push((s16)sampleR);
