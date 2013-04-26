@@ -702,8 +702,10 @@ int pgd_decrypt_block(PGD_DESC *pgd, int block)
 
 int pgd_close(PGD_DESC *pgd)
 {
-	free(pgd->block_buf);
-	free(pgd);
+	if(pgd){
+		free(pgd->block_buf);
+		free(pgd);
+	}
 	return 0;
 }
 
