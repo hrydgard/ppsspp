@@ -532,7 +532,8 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			u32 numSamples = 0;
 #ifdef _USE_FFMPEG_
 			if (atrac->codeType == PSP_MODE_AT_3 && atrac->pCodecCtx) {
-				atrac->SeekToSample(0);
+				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
+				atrac->SeekToSample(forceseekSample);
 				atrac->SeekToSample(atrac->currentSample);
 				AVPacket packet;
 				int got_frame, ret;
