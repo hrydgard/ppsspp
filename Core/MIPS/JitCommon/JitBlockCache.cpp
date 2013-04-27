@@ -28,18 +28,16 @@
 #include <windows.h>
 #endif
 
-#include "../../Core.h"
-#include "../../MemMap.h"
-#include "../../CoreTiming.h"
+#include "Core/Core.h"
+#include "Core/MemMap.h"
+#include "Core/CoreTiming.h"
 
-#include "../MIPS.h"
-#include "../MIPSTables.h"
-#include "../MIPSAnalyst.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 
-
-
-#include "JitBlockCache.h"
-#include "JitCommon.h"
+#include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
 #if defined(ARM)
 #include "Common/ArmEmitter.h"
@@ -71,8 +69,7 @@ op_agent_t agent;
 #define INVALID_EXIT 0xFFFFFFFF
 
 JitBlockCache::JitBlockCache(MIPSState *mips_, CodeBlock *codeBlock) :
-	mips(mips_), codeBlock_(codeBlock), blocks(0), num_blocks(0),
-	MAX_NUM_BLOCKS(0) {
+	mips(mips_), codeBlock_(codeBlock), blocks(0), num_blocks(0) {
 }
 
 JitBlockCache::~JitBlockCache() {
@@ -92,8 +89,6 @@ bool JitBlockCache::IsFull() const
 
 void JitBlockCache::Init()
 {
-	MAX_NUM_BLOCKS = 65536*2;
-
 #if defined USE_OPROFILE && USE_OPROFILE
 	agent = op_open_agent();
 #endif
@@ -120,24 +115,11 @@ void JitBlockCache::Shutdown()
 void JitBlockCache::Clear()
 {
 	for (int i = 0; i < num_blocks; i++)
-	{
 		DestroyBlock(i, false);
-	}
 	links_to.clear();
 	block_map.clear();
 	num_blocks = 0;
 }
-
-/*void JitBlockCache::DestroyBlocksWithFlag(BlockFlag death_flag)
-{
-	for (int i = 0; i < num_blocks; i++)
-	{
-		if (blocks[i].flags & death_flag)
-		{
-			DestroyBlock(i, false);
-		}
-	}
-}*/
 
 void JitBlockCache::Reset()
 {
@@ -148,18 +130,6 @@ void JitBlockCache::Reset()
 JitBlock *JitBlockCache::GetBlock(int no)
 {
 	return &blocks[no];
-}
-
-bool JitBlockCache::RangeIntersect(int s1, int e1, int s2, int e2) const
-{
-	// check if any endpoint is inside the other range
-	if ((s1 >= s2 && s1 <= e2) ||
-		(e1 >= s2 && e1 <= e2) ||
-		(s2 >= s1 && s2 <= e1) ||
-		(e2 >= s1 && e2 <= e1)) 
-		return true;
-	else
-		return false;
 }
 
 int JitBlockCache::AllocateBlock(u32 em_address)
@@ -278,18 +248,14 @@ u32 JitBlockCache::GetOriginalFirstOp(int block_num)
 void JitBlockCache::LinkBlockExits(int i)
 {
 	JitBlock &b = blocks[i];
-	if (b.invalid)
-	{
+	if (b.invalid) {
 		// This block is dead. Don't relink it.
 		return;
 	}
-	for (int e = 0; e < 2; e++)
-	{
-		if (b.exitAddress[e] != INVALID_EXIT && !b.linkStatus[e])
-		{
+	for (int e = 0; e < 2; e++) {
+		if (b.exitAddress[e] != INVALID_EXIT && !b.linkStatus[e]) {
 			int destinationBlock = GetBlockNumberFromStartAddress(b.exitAddress[e]);
-			if (destinationBlock != -1)
-			{
+			if (destinationBlock != -1) 	{
 #if defined(ARM)
 				ARMXEmitter emit(b.exitPtrs[e]);
 				emit.B(blocks[destinationBlock].checkedEntry);
@@ -342,14 +308,12 @@ void JitBlockCache::UnlinkBlock(int i)
 
 void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 {
-	if (block_num < 0 || block_num >= num_blocks)
-	{
+	if (block_num < 0 || block_num >= num_blocks) {
 		ERROR_LOG(JIT, "DestroyBlock: Invalid block number %d", block_num);
 		return;
 	}
 	JitBlock &b = blocks[block_num];
-	if (b.invalid)
-	{
+	if (b.invalid) {
 		if (invalidate)
 			ERROR_LOG(JIT, "Invalidating invalid block %d", block_num);
 		return;
@@ -393,13 +357,10 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length)
 	// destroy JIT blocks
 	// !! this works correctly under assumption that any two overlapping blocks end at the same address
 	std::map<pair<u32,u32>, u32>::iterator it1 = block_map.lower_bound(std::make_pair(pAddr, 0)), it2 = it1;
-	while (it2 != block_map.end() && it2->first.second < pAddr + length)
-	{
+	while (it2 != block_map.end() && it2->first.second < pAddr + length) {
 		DestroyBlock(it2->second, true);
 		it2++;
 	}
 	if (it1 != it2)
-	{
 		block_map.erase(it1, it2);
-	}
 }

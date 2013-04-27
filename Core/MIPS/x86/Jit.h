@@ -207,6 +207,16 @@ public:
 	void Comp_Vmmul(u32 op);
 	void Comp_Vmscl(u32 op);
 	void Comp_Vtfm(u32 op);
+	void Comp_VHdp(u32 op);
+	void Comp_VCrs(u32 op);
+	void Comp_VDet(u32 op);
+	void Comp_VMinMax(u32 op);
+	void Comp_Vi2x(u32 op);
+	void Comp_Vx2i(u32 op);
+	void Comp_Vf2i(u32 op);
+	void Comp_Vi2f(u32 op);
+	void Comp_Vcst(u32 op);
+	void Comp_Vhoriz(u32 op);
 
 	void Comp_DoNothing(u32 op);
 

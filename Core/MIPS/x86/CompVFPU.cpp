@@ -934,4 +934,44 @@ void Jit::Comp_Vtfm(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
+void Jit::Comp_VMinMax(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_VHdp(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_VCrs(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_VDet(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vi2x(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vx2i(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vf2i(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vi2f(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vcst(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vhoriz(u32 op) {
+	DISABLE;
+}
+
 }

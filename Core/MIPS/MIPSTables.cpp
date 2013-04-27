@@ -492,9 +492,9 @@ const MIPSInstruction tableVFPU1[8] =
 	INSTR("vdot",&Jit::Comp_VDot, Dis_VectorDot, Int_VDot, IS_VFPU|OUT_EAT_PREFIX), 
 	INSTR("vscl",&Jit::Comp_VScl, Dis_VScl, Int_VScl, IS_VFPU|OUT_EAT_PREFIX),
 	{-2},
-	INSTR("vhdp",&Jit::Comp_Generic, Dis_Generic, Int_VHdp, IS_VFPU|OUT_EAT_PREFIX), 
-	INSTR("vcrs",&Jit::Comp_Generic, Dis_Vcrs, Int_Vcrs, IS_VFPU), 
-	INSTR("vdet",&Jit::Comp_Generic, Dis_Generic, Int_Vdet, IS_VFPU), 
+	INSTR("vhdp",&Jit::Comp_VHdp, Dis_Generic, Int_VHdp, IS_VFPU|OUT_EAT_PREFIX), 
+	INSTR("vcrs",&Jit::Comp_VCrs, Dis_Vcrs, Int_Vcrs, IS_VFPU), 
+	INSTR("vdet",&Jit::Comp_VDet, Dis_Generic, Int_Vdet, IS_VFPU), 
 	{-2},
 };
 
@@ -502,8 +502,8 @@ const MIPSInstruction tableVFPU3[8] = //011011 xxx
 {
 	INSTR("vcmp",&Jit::Comp_Generic, Dis_Vcmp, Int_Vcmp, IS_VFPU|OUT_EAT_PREFIX),
 	{-2},
-	INSTR("vmin",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmax",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmin",&Jit::Comp_VMinMax, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmax",&Jit::Comp_VMinMax, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
 	{-2}, 
 	INSTR("vscmp",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vscmp, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vsge",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsge, IS_VFPU|OUT_EAT_PREFIX), 
@@ -516,7 +516,7 @@ const MIPSInstruction tableVFPU4Jump[32] = //110100 xxxxx
 	{VFPU4},
 	{VFPU7},
 	{VFPU9},
-	INSTR("vcst", &Jit::Comp_Generic, Dis_Vcst, Int_Vcst, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcst", &Jit::Comp_Vcst, Dis_Vcst, Int_Vcst, IS_VFPU|OUT_EAT_PREFIX),
 	{-2},{-2},{-2},{-2},
 
 	//8
@@ -524,12 +524,12 @@ const MIPSInstruction tableVFPU4Jump[32] = //110100 xxxxx
 	{-2},{-2},{-2},{-2},
 
 	//16
-	INSTR("vf2in", &Jit::Comp_Generic, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vf2iz", &Jit::Comp_Generic, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vf2iu", &Jit::Comp_Generic, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vf2id", &Jit::Comp_Generic, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2in", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2iz", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2iu", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2id", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
 	//20
-	INSTR("vi2f", &Jit::Comp_Generic, Dis_Vf2i, Int_Vi2f, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2f", &Jit::Comp_Vi2f, Dis_Vf2i, Int_Vi2f, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vcmov", &Jit::Comp_Generic, Dis_Vcmov,Int_Vcmov,IS_VFPU|OUT_EAT_PREFIX),
 	{-2},
 	{-2},
@@ -567,15 +567,15 @@ const MIPSInstruction tableVFPU7[32] =
 	{-2},
 	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, Int_Vlgb, IS_VFPU),
 	//24
-	INSTR("vuc2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
-	INSTR("vc2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
-	INSTR("vus2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
-	INSTR("vs2i", &Jit::Comp_Generic, Dis_Vs2i, Int_Vx2i, IS_VFPU),
+	INSTR("vuc2i", &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
+	INSTR("vc2i",  &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU),
+	INSTR("vus2i", &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU),
+	INSTR("vs2i",  &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU),
 
-	INSTR("vi2uc", &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2c",  &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2us", &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vi2s",  &Jit::Comp_Generic, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2uc", &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2c",  &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2us", &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vi2s",  &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
 };
 
 // 110100 00000 10100 0000000000000000
@@ -692,8 +692,8 @@ const MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
 	//4
 	INSTR("vocp", &Jit::Comp_Generic, Dis_Vbfy, Int_Vocp, IS_VFPU|OUT_EAT_PREFIX),  // one's complement
 	INSTR("vsocp", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsocp, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vfad", &Jit::Comp_Generic, Dis_Vfad, Int_Vfad, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vavg", &Jit::Comp_Generic, Dis_Vfad, Int_Vavg, IS_VFPU),
+	INSTR("vfad", &Jit::Comp_Vhoriz, Dis_Vfad, Int_Vfad, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vavg", &Jit::Comp_Vhoriz, Dis_Vfad, Int_Vavg, IS_VFPU),
 	//8
 	INSTR("vsrt3", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt3, IS_VFPU),
 	INSTR("vsrt4", &Jit::Comp_Generic, Dis_Vbfy, Int_Vsrt4, IS_VFPU),

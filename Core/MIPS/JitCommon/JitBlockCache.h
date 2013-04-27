@@ -40,13 +40,13 @@ typedef Gen::XCodeBlock CodeBlock;
 #error "Unsupported arch!"
 #endif
 
-
 // Define this in order to get VTune profile support for the Jit generated code.
 // Add the VTune include/lib directories to the project directories to get this to build.
 // #define USE_VTUNE
 
-struct JitBlock
-{
+struct JitBlock {
+	bool ContainsAddress(u32 em_address);
+	
 	const u8 *checkedEntry;
 	const u8 *normalEntry;
 
@@ -55,23 +55,12 @@ struct JitBlock
 
 	u32 originalAddress;
 	u32 originalFirstOpcode; //to be able to restore
-	u32 codeSize; 
-	u32 originalSize;
-	int runCount;	// for profiling.
-	int blockNum;
-	int flags;
+	u16 codeSize; 
+	u16 originalSize;
+	u16 blockNum;
 
 	bool invalid;
 	bool linkStatus[2];
-	bool ContainsAddress(u32 em_address);
-
-#ifdef _WIN32
-	// we don't really need to save start and stop
-	// TODO (mb2): ticStart and ticStop -> "local var" mean "in block" ... low priority ;)
-	u64 ticStart;		// for profiling - time.
-	u64 ticStop;		// for profiling - time.
-	u64 ticCounter;	// for profiling - time.
-#endif
 
 #ifdef USE_VTUNE
 	char blockName[32];
@@ -116,7 +105,6 @@ public:
 	void DestroyBlock(int block_num, bool invalidate);
 
 private:
-	bool RangeIntersect(int s1, int e1, int s2, int e2) const;
 	void LinkBlockExits(int i);
 	void LinkBlock(int i);
 	void UnlinkBlock(int i);
@@ -131,6 +119,8 @@ private:
 	std::multimap<u32, int> links_to;
 	std::map<std::pair<u32,u32>, u32> block_map; // (end_addr, start_addr) -> number
 
-	int MAX_NUM_BLOCKS;
+	enum {
+		MAX_NUM_BLOCKS = 65536*2
+	};
 };
 
