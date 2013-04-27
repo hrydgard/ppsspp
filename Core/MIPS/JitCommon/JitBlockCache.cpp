@@ -232,8 +232,8 @@ int JitBlockCache::GetBlockNumberFromEmuHackOp(u32 inst) const {
 
 	const u8 *baseoff = codeBlock_->GetBasePtr() + off;
 	// TODO: Needs smarter search (binary). This code is not really hot though.
-	for (int i = 0; i < num_blocks; i++) {
-		if (blocks[i].normalEntry == baseoff) {
+	for (int i = num_blocks - 1; i >= 0; i--) {
+		if (blocks[i].normalEntry == baseoff && !blocks[i].invalid) {
 			return i;
 		}
 	}
@@ -355,6 +355,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 		return;
 	}
 	b.invalid = true;
+	b.normalEntry = 0;
 	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == GetEmuHackOpForBlock(block_num))
 		Memory::WriteUnchecked_U32(b.originalFirstOpcode, b.originalAddress);
 
