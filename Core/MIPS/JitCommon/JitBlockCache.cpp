@@ -195,19 +195,29 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link)
 #endif
 }
 
+int binary_search(JitBlock blocks[], const u8 *baseoff, int imin, int imax)
+{
+	while (imin < imax)
+	{
+		int imid = (imin + imax) / 2;
+		if (blocks[imid].normalEntry < baseoff)
+			imin = imid + 1;
+		else
+			imax = imid;
+	}
+	if ((imax == imin) && (blocks[imin].normalEntry == baseoff))
+		return imin;
+	else
+		return -1;
+}
+
 int JitBlockCache::GetBlockNumberFromEmuHackOp(u32 inst) const {
 	if (!num_blocks || !MIPS_IS_EMUHACK(inst)) // definitely not a JIT block
 		return -1;
 	int off = (inst & MIPS_EMUHACK_VALUE_MASK);
 
 	const u8 *baseoff = codeBlock_->GetBasePtr() + off;
-	// TODO: Needs smarter search (binary). This code is not really hot though.
-	for (int i = num_blocks - 1; i >= 0; i--) {
-		if (blocks[i].normalEntry == baseoff && !blocks[i].invalid) {
-			return i;
-		}
-	}
-	return -1;
+	return binary_search(blocks, baseoff, 0, num_blocks-1);
 }
 
 u32 JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
