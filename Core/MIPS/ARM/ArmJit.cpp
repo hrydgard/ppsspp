@@ -361,11 +361,6 @@ void Jit::WriteSyscallExit()
 	B((const void *)dispatcherCheckCoreState);
 }
 
-void Jit::LogBlockNumber()
-{
-	INFO_LOG(CPU, "Block number: %i", blocks.GetNumBlocks() - 1);
-}
-
 void Jit::Comp_DoNothing(u32 op) { }
 
 #define _RS ((op>>21) & 0x1F)

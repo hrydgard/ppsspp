@@ -232,8 +232,6 @@ private:
 	void CompShiftImm(u32 op, ArmGen::ShiftType shiftType);
 	void CompShiftVar(u32 op, ArmGen::ShiftType shiftType);
 
-	void LogBlockNumber();
-	
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
 	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
@@ -247,13 +245,6 @@ private:
 		ApplyPrefixST(regs, js.prefixT, sz);
 	}
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
-
-	/*
-	void CompImmLogic(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
-	void CompTriArith(u32 op, void (ARMXEmitter::*arith)(int, const OpArg &, const OpArg &));
-	void CompShiftImm(u32 op, void (ARMXEmitter::*shift)(int, OpArg, OpArg));
-	void CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg));
-	*/
 
 	// Utils
 	void SetR0ToEffectiveAddress(int rs, s16 offset);
