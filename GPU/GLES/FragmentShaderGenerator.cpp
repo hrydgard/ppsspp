@@ -81,10 +81,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id->d[0] = 1;
 	} else {
+		int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+		bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
 		bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 		// id->d[0] |= (gstate.clearmode & 1);
@@ -103,6 +104,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;
 		id->d[0] |= (doTextureProjection & 1) << 16;
+		id->d[0] |= (enableColorDoubling & 1) << 17;
 	}
 }
 
@@ -226,7 +228,6 @@ void GenerateFragmentShader(char *buffer) {
 		}
 		
 		if (enableColorTest) {
-			// TODO: There are some colortestmasks we could handle.
 			int colorTestFunc = gstate.colortest & 3;
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 			int colorTestMask = gstate.colormask;
