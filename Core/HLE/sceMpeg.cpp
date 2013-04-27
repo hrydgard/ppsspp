@@ -562,8 +562,14 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 		{
 			DEBUG_LOG(HLE, "package file: %s, start pos: %08x, buffer addr: %08x", cache->packagefile, cache->start_pos, bufferAddr);
 			PGD_DESC pgdinfo = cache->pgd_info;
+			if (cache->npdrm) {
+				pgdinfo.block_buf = new u8[pgdinfo.block_size];
+			}
 			loadPMFPackageFile(cache->packagefile, cache->start_pos, ctx->mpegStreamSize + ctx->mpegOffset, 
 				               Memory::GetPointer(bufferAddr), cache->npdrm ? &pgdinfo : 0);
+			if (cache->npdrm) {
+				delete [] pgdinfo.block_buf;
+			}
 		}
 	}
 #endif // _USE_FFMPEG_
