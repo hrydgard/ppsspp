@@ -269,6 +269,8 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Fast Memory (unstable)",		 ID_OPTIONS_FASTMEMORY
         MENUITEM "&Ignore illegal reads/writes", ID_OPTIONS_IGNOREILLEGALREADS
+        MENUITEM SEPARATOR
+        MENUITEM "&Repair Corrupt Save [EXPERIMENTAL]",	ID_OPTIONS_REPAIR_SAVE
     END
     POPUP "&Help"
     BEGIN
