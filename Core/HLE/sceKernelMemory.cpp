@@ -1185,6 +1185,10 @@ u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 	return 0;
 }
 
+u32 SysMemUserForUser_D8DE5C1E(){
+	ERROR_LOG(HLE,"HACKIMPL SysMemUserForUser_D8DE5C1E Returning 0");
+	return 0; //according to jpcsp always returns 0
+}
 // These aren't really in sysmem, but they are memory related?
 
 enum
@@ -1472,6 +1476,7 @@ const HLEFunction SysMemUserForUser[] = {
 	{0xDB83A952,WrapU_UU<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
 	{0x50F61D8A,WrapU_U<FreeMemoryBlock>,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock
 	{0xFE707FDF,WrapU_CUUU<AllocMemoryBlock>,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
+	{0xD8DE5C1E,WrapU_V<SysMemUserForUser_D8DE5C1E>,"SysMemUserForUser_D8DE5C1E"}
 };
 
 
