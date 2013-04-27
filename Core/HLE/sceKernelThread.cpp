@@ -336,12 +336,16 @@ public:
 			return false;
 		}
 
-		// Fill the stack.
-		Memory::Memset(stackBlock, 0xFF, stackSize);
-		context.r[MIPS_REG_SP] = stackBlock + stackSize;
-		stackEnd = context.r[MIPS_REG_SP];
 		nt.initialStack = stackBlock;
 		nt.stackSize = stackSize;
+		return true;
+	}
+
+	bool FillStack() {
+		// Fill the stack.
+		Memory::Memset(stackBlock, 0xFF, nt.stackSize);
+		context.r[MIPS_REG_SP] = stackBlock + nt.stackSize;
+		stackEnd = context.r[MIPS_REG_SP];
 		// What's this 512?
 		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 256;
 		context.r[MIPS_REG_SP] -= 512;
@@ -1682,7 +1686,7 @@ void __KernelResetThread(Thread *t)
 	t->pendingMipsCalls.clear();
 
 	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
-	t->AllocateStack(t->nt.stackSize);  // can change the stacksize!
+	t->FillStack();
 }
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr)
@@ -1721,6 +1725,8 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 
 	strncpy(t->nt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	t->nt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+
+	t->AllocateStack(t->nt.stackSize);  // can change the stacksize!
 	return t;
 }
 
