@@ -683,6 +683,11 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 	__KernelInit();
 	
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	if (!info.exists) {
+		ERROR_LOG(LOADER, "Failed to load executable %s - file doesn't exist", filename);
+		*error_string = "Could not find executable";
+		return false;
+	}
 
 	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 
@@ -694,6 +699,8 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 
 	if (!module) {
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
+		*error_string = "Failed to load executable module";
+		delete [] temp;
 		return false;
 	}
 

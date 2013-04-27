@@ -199,3 +199,21 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 	}
 	return true;
 }
+
+
+NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(std::string _filename) 
+	: filename_(_filename), pbpReader_(_filename.c_str()) {
+	std::string paramSfo;
+	pbpReader_.GetSubFileAsString(PBP_PARAM_SFO, &paramSfo);
+}
+
+NPDRMDemoBlockDevice::~NPDRMDemoBlockDevice() {
+
+}
+
+bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr) {
+	// TODO: Fill in decryption code here. Use pbpReader to read the file - might need to 
+	// extend its functionality to do it efficiently.
+
+	return false;
+}

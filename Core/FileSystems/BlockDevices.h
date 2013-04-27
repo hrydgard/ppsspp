@@ -23,8 +23,10 @@
 // The ISOFileSystemReader reads from a BlockDevice, so it automatically works
 // with CISO images.
 
-#include "../../Globals.h"
 #include <string>
+
+#include "../../Globals.h"
+#include "Core/ELF/PBPReader.h"
 
 class BlockDevice
 {
@@ -66,6 +68,26 @@ private:
 	std::string filename;
 	FILE *f;
 	size_t filesize;
+};
+
+
+// For encrypted ISOs in PBP files.
+
+class NPDRMDemoBlockDevice : public BlockDevice
+{
+public:
+	NPDRMDemoBlockDevice(std::string _filename);
+	~NPDRMDemoBlockDevice();
+
+	bool ReadBlock(int blockNumber, u8 *outPtr);
+	u32 GetNumBlocks() {return (u32)numBlocks_;}
+
+private:
+	std::string filename_;
+	PBPReader pbpReader_;
+	FILE *file_;
+	size_t size_;
+	size_t numBlocks_;
 };
 
 

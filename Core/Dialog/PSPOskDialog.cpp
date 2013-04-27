@@ -220,14 +220,16 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 	inputChars = L"";
 
-	u16 *src = (u16 *) Memory::GetPointer(oskData.intextPtr);
-	int c;
-	while (c = *src++)
-	{
-		inputChars += c;
-		if(c == 0x00)
+	if (oskData.intextPtr) {
+		u16 *src = (u16 *) Memory::GetPointer(oskData.intextPtr);
+		int c;
+		while (c = *src++)
 		{
-			break;
+			inputChars += c;
+			if(c == 0x00)
+			{
+				break;
+			}
 		}
 	}
 
