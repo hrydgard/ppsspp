@@ -156,6 +156,9 @@ namespace MIPSInt
 			break;
 		case 27:  // D-cube. Hit Writeback Invalidate.
 			break;
+		case 30:  // GTA LCS, a lot. Fill (prefetch).
+			break;
+
 		default:
 			DEBUG_LOG(CPU,"cache instruction affecting %08x : function %i", addr, func);
 		}

@@ -374,7 +374,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		//	vfb->colorDepth = FBO_8888;
 		//#endif
 
-		if (g_Config.bBufferedRendering) {
+		if (useBufferedRendering_) {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
 			fbo_bind_as_render_target(vfb->fbo);
 		} else {
@@ -407,7 +407,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		frameLastFramebufUsed = gpuStats.numFrames;
 		vfb->dirtyAfterDisplay = true;
 
-		if (g_Config.bBufferedRendering) {
+		if (useBufferedRendering_) {
 			if (vfb->fbo) {
 				fbo_bind_as_render_target(vfb->fbo);
 			} else {
@@ -546,6 +546,7 @@ void FramebufferManager::BeginFrame() {
 		// TODO: restore state?
 	}
 	currentRenderVfb_ = 0;
+	useBufferedRendering_ = g_Config.bBufferedRendering;
 }
 
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
@@ -588,9 +589,9 @@ void FramebufferManager::DecimateFBOs() {
 		}
 		int age = frameLastFramebufUsed - (*iter)->last_frame_used;
 		if (age > FBO_OLD_AGE) {
+			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			if (vfb->fbo) {
-				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 				fbo_destroy(vfb->fbo);
 				vfb->fbo = 0;
 			}

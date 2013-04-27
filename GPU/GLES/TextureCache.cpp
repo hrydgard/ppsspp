@@ -137,10 +137,18 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	}
 }
 
-void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *fbo) {
+void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *framebuffer) {
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
-	if (entry)
-		entry->framebuffer = 0;
+	if (entry && entry->framebuffer == framebuffer) {
+		// There's at least one. We're going to have to loop through all textures unfortunately to be
+		// 100% safe.
+		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
+			if (iter->second.framebuffer == framebuffer) {
+				iter->second.framebuffer = 0;
+			}
+		}
+		// entry->framebuffer = 0;
+	}
 }
 
 static u32 GetClutAddr(u32 clutEntrySize) {
@@ -709,6 +717,8 @@ void TextureCache::SetTexture() {
 		if (entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 			if (!g_Config.bBufferedRendering) {
+				if (entry->framebuffer->fbo)
+					entry->framebuffer->fbo = 0;
 				glBindTexture(GL_TEXTURE_2D, 0);
 				entry->lastFrame = gpuStats.numFrames;
 			} else {

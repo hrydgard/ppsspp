@@ -135,4 +135,5 @@ private:
 	ShaderManager *shaderManager_;
 
 	bool resized_;
+	bool useBufferedRendering_;
 };
