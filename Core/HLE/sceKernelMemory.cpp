@@ -1186,7 +1186,7 @@ u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 }
 
 u32 SysMemUserForUser_D8DE5C1E(){
-	DEBUG_LOG(HLE,"HACKIMPL SysMemUserForUser_D8DE5C1E Returning 0");
+	ERROR_LOG(HLE,"HACKIMPL SysMemUserForUser_D8DE5C1E Returning 0");
 	return 0; //according to jpcsp always returns 0
 }
 // These aren't really in sysmem, but they are memory related?
