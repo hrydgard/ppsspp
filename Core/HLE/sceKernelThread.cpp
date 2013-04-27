@@ -1132,6 +1132,9 @@ SceUID __KernelGetCurrentCallbackID(SceUID threadID, u32 &error)
 
 u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 {
+	static const u32 THREADINFO_SIZE = 104;
+	static const u32 THREADINFO_SIZE_AFTER_260 = 108;
+
 	if (threadID == 0)
 		threadID = __KernelGetCurThread();
 
@@ -1139,17 +1142,39 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (!t)
 	{
-		ERROR_LOG(HLE,"sceKernelReferThreadStatus Error %08x", error);
+		ERROR_LOG(HLE, "sceKernelReferThreadStatus Error %08x", error);
 		return error;
 	}
 
-	DEBUG_LOG(HLE,"sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
-	u32 wantedSize = Memory::Read_U32(PARAM(1));
-	u32 sz = sizeof(NativeThread);
-	if (wantedSize) {
-		t->nt.nativeSize = sz = std::min(sz, wantedSize);
+	u32 wantedSize = Memory::Read_U32(statusPtr);
+
+	if (sceKernelGetCompiledSdkVersion() > 0x2060010)
+	{
+		if (wantedSize > THREADINFO_SIZE_AFTER_260)
+		{
+			ERROR_LOG(HLE, "sceKernelReferThreadStatus Error %08x", SCE_KERNEL_ERROR_ILLEGAL_SIZE);
+			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
+		}
+
+		DEBUG_LOG(HLE, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+
+		t->nt.nativeSize = THREADINFO_SIZE_AFTER_260;
+		if (wantedSize != 0)
+			Memory::Memcpy(statusPtr, &t->nt, wantedSize);
+		// TODO: What is this value?  Basic tests show 0...
+		if (wantedSize > sizeof(t->nt))
+			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt));
 	}
-	Memory::Memcpy(statusPtr, &(t->nt), sz);
+	else
+	{
+		DEBUG_LOG(HLE, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+
+		t->nt.nativeSize = THREADINFO_SIZE;
+		u32 sz = std::min(THREADINFO_SIZE, wantedSize);
+		if (sz != 0)
+			Memory::Memcpy(statusPtr, &t->nt, sz);
+	}
+
 	return 0;
 }
 
