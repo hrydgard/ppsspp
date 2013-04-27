@@ -435,12 +435,26 @@ void Jit::Comp_VecDo3(u32 op) {
 		}
 		break;
 	case 25: //VFPU1
-		switch ((op >> 23)&7)
+		switch ((op >> 23) & 7)
 		{
 		case 0: // d[i] = s[i] * t[i]; break; //vmul
 			xmmop = &XEmitter::MULSS;
 			break;
 		}
+		break;
+	case 27: //VFPU3
+		switch ((op >> 23) & 3)
+		{
+		case 2:  // vmin
+			xmmop = &XEmitter::MINSS;
+			break;
+		case 3:  // vmax
+			xmmop = &XEmitter::MAXSS;
+			break;
+		}
+		break;
+	default:
+		_dbg_assert_msg_(CPU,0,"invalid VecDo3");
 		break;
 	}
 
@@ -484,8 +498,10 @@ void Jit::Comp_VecDo3(u32 op) {
 		if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 			MOVSS(tempxregs[i], fpr.V(sregs[i]));
 	}
+
 	for (int i = 0; i < n; ++i)
 		(this->*xmmop)(tempxregs[i], fpr.V(tregs[i]));
+
 	for (int i = 0; i < n; ++i)
 	{
 		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
@@ -934,9 +950,6 @@ void Jit::Comp_Vtfm(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VMinMax(u32 op) {
-	DISABLE;
-}
 
 void Jit::Comp_VHdp(u32 op) {
 	DISABLE;

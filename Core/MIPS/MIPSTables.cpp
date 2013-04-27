@@ -502,8 +502,8 @@ const MIPSInstruction tableVFPU3[8] = //011011 xxx
 {
 	INSTR("vcmp",&Jit::Comp_Generic, Dis_Vcmp, Int_Vcmp, IS_VFPU|OUT_EAT_PREFIX),
 	{-2},
-	INSTR("vmin",&Jit::Comp_VMinMax, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmax",&Jit::Comp_VMinMax, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmin",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmax",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
 	{-2}, 
 	INSTR("vscmp",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vscmp, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vsge",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsge, IS_VFPU|OUT_EAT_PREFIX), 

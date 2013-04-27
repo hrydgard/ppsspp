@@ -210,7 +210,6 @@ public:
 	void Comp_VHdp(u32 op);
 	void Comp_VCrs(u32 op);
 	void Comp_VDet(u32 op);
-	void Comp_VMinMax(u32 op);
 	void Comp_Vi2x(u32 op);
 	void Comp_Vx2i(u32 op);
 	void Comp_Vf2i(u32 op);

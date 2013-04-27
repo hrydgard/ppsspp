@@ -730,10 +730,6 @@ namespace MIPSComp
 		DISABLE;
 	}
 
-	void Jit::Comp_VMinMax(u32 op) {
-		DISABLE;
-	}
-
 	void Jit::Comp_VHdp(u32 op) {
 		DISABLE;
 	}
