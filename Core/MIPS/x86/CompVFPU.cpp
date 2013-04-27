@@ -513,6 +513,50 @@ void Jit::Comp_VecDo3(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
+// There are no immediates for floating point, so we need to load these
+// from RAM. Might as well have a table ready.
+static const float mulTable[32] = {
+	1.0f/(1UL<<0),1.0f/(1UL<<1),1.0f/(1UL<<2),1.0f/(1UL<<3),
+	1.0f/(1UL<<4),1.0f/(1UL<<5),1.0f/(1UL<<6),1.0f/(1UL<<7),
+	1.0f/(1UL<<8),1.0f/(1UL<<9),1.0f/(1UL<<10),1.0f/(1UL<<11),
+	1.0f/(1UL<<12),1.0f/(1UL<<13),1.0f/(1UL<<14),1.0f/(1UL<<15),
+	1.0f/(1UL<<16),1.0f/(1UL<<17),1.0f/(1UL<<18),1.0f/(1UL<<19),
+	1.0f/(1UL<<20),1.0f/(1UL<<21),1.0f/(1UL<<22),1.0f/(1UL<<23),
+	1.0f/(1UL<<24),1.0f/(1UL<<25),1.0f/(1UL<<26),1.0f/(1UL<<27),
+	1.0f/(1UL<<28),1.0f/(1UL<<29),1.0f/(1UL<<30),1.0f/(1UL<<31),
+};
+
+void Jit::Comp_Vi2f(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	int imm = (op >> 16) & 0x1f;
+	const float *mult = &mulTable[imm];
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	MOVSS(XMM1, M((void *)mult));
+	for (int i = 0; i < n; i++) {
+		if (fpr.V(sregs[i]).IsSimpleReg())
+			MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
+		else
+			MOV(32, R(EAX), fpr.V(sregs[i]));
+		CVTSI2SS(XMM0, R(EAX));
+		MULSS(XMM0, R(XMM1));
+		MOVSS(fpr.V(dregs[i]), XMM0);
+	}
+
+	ApplyPrefixD(dregs, sz);
+	fpr.ReleaseSpillLocks();
+}
+
 void Jit::Comp_VV2Op(u32 op) {
 	CONDITIONAL_DISABLE;
 
@@ -972,10 +1016,6 @@ void Jit::Comp_Vx2i(u32 op) {
 }
 
 void Jit::Comp_Vf2i(u32 op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vi2f(u32 op) {
 	DISABLE;
 }
 
