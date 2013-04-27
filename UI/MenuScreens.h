@@ -91,6 +91,13 @@ public:
 	void render();
 };
 
+class GraphicsScreenP1 : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
+
 class SystemScreen : public Screen
 {
 public:
