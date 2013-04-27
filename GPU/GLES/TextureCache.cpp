@@ -243,8 +243,14 @@ inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const
 	const bool nakedIndex = (gstate.clutformat & ~3) == 0xC500FF00;
 
 	if (nakedIndex) {
-		for (int i = 0; i < length; ++i) {
-			*dest++ = clut[*indexed++];
+		if (sizeof(IndexT) == 1) {
+			for (int i = 0; i < length; ++i) {
+				*dest++ = clut[*indexed++];
+			}
+		} else {
+			for (int i = 0; i < length; ++i) {
+				*dest++ = clut[(*indexed++) & 0xFF];
+			}
 		}
 	} else {
 		for (int i = 0; i < length; ++i) {
