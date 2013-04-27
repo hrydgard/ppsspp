@@ -37,7 +37,7 @@
 
 // TODO: Test and maybe fix: https://code.google.com/p/jpcsp/source/detail?r=3082#
 
-#include "../Core.h"
+#include "Core/Core.h"
 #include "Core/Reporting.h"
 #include "math/math_util.h"
 
