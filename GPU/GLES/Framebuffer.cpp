@@ -133,6 +133,7 @@ FramebufferManager::FramebufferManager() :
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	convBuf = new u8[480 * 272 * 4];
+	useBufferedRendering_ = g_Config.bBufferedRendering;
 }
 
 FramebufferManager::~FramebufferManager() {
