@@ -516,7 +516,7 @@ namespace MainWindow
 				break;
 
 			case ID_OPTIONS_FRAMESKIP:
-				g_Config.iFrameSkip = !g_Config.iFrameSkip;
+				g_Config.bFrameSkip = !g_Config.bFrameSkip;
 				break;
 
 			case ID_OPTIONS_USEMEDIAENGINE:
@@ -755,7 +755,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
-		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
+		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.bFrameSkip);
 		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound); 
