@@ -70,6 +70,7 @@ public:
 	int iAnisotropyLevel;
 	bool bTrueColor;
 	bool bMipMap;
+	bool bAnisotropicFiltering;
 
 	// Sound
 	bool bEnableSound;
