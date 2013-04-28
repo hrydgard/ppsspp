@@ -241,8 +241,21 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId)
 	return true;
 }
 
+std::string file_log[99]; // realistically how many saves are going to have more than 99 files?
+bool dont_inject = false;
+int saved_count = 0;
+
 bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId, bool secureMode)
 {
+	if (g_Config.bSaveCorruptRepair == false)
+	{
+		for(int i = 0; i < 99; i++)
+		{
+			file_log[i] = "";
+		}
+		saved_count = 0;
+	}
+	
 	if (!param) {
 		return false;
 	}
@@ -276,13 +289,30 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, int saveId, bool secure
 		{
 			NOTICE_LOG(HLE, "Save Corruption Repair: activated");
 			PSPFileInfo info = pspFileSystem.GetFileInfo(inj_file);
-			if (info.exists == true)
+			
+			for(int i = 0; i < 99; i++)
+			{
+				if (file_log[i] == inj_file)
+				{
+					dont_inject = true;
+					break;
+				}
+			}
+
+			// Inject only once per existing file because we will probably want to save again (continuing from wherever we left off) in the same run without having to worry about turning the option off to save the game's data again
+			if ((info.exists == true)&&(dont_inject == false))
 			{
 				NOTICE_LOG(HLE, "Save Corruption Repair: Intercepting data currently being saved...");
 				data_ = new u8[aligned_len + 0x10];
 				u32 handle = pspFileSystem.OpenFile(inj_file, (FileAccess)(FILEACCESS_READ | FILEACCESS_CREATE));
 				pspFileSystem.ReadFile(handle, data_, aligned_len + 0x10);
 				pspFileSystem.CloseFile(handle);
+				if (saved_count > 99)
+				{
+					saved_count = 99; // should never happen
+				}
+				file_log[saved_count] = inj_file;
+				saved_count++;
 			}
 			else
 			{
