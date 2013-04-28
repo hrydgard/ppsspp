@@ -1,4 +1,5 @@
 #include "input/input_state.h"
+#include "Windows/WndMainWindow.h"
 #include "KeyboardDevice.h"
 #include "../Common/CommonTypes.h"
 #include "../Core/HLE/sceCtrl.h"
@@ -28,6 +29,7 @@ unsigned short analog_ctrl_map[] = {
 };
 
 int KeyboardDevice::UpdateState(InputState &input_state) {
+	if (MainWindow::GetHWND() != GetForegroundWindow()) return -1;
 	bool alternate = GetAsyncKeyState(VK_SHIFT) != 0;
 	static u32 alternator = 0;
 	bool doAlternate = alternate && (alternator++ % 10) < 5;
