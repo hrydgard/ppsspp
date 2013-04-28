@@ -49,8 +49,8 @@ TextureCache::TextureCache() {
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
 	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
-	clutBuf32 = new u32[4096];  // 4K
-	clutBuf16 = new u16[4096];  // 4K
+	clutBuf32 = new u32[4096];  // 16KB
+	clutBuf16 = new u16[4096];  // 8KB
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 }
 
@@ -332,19 +332,19 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 				break;
 			}
 		} else {
-			const u16 *clut = clutBuf16;
+			tmpTexBuf32.resize(length);
 			UnswizzleFromMem(texaddr, bufw, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTexture(tmpTexBuf16.data(), (u8 *) tmpTexBuf32.data(), length, clut);
+				DeIndexTexture(tmpTexBuf16.data(), (u8 *) tmpTexBuf32.data(), length, clutBuf16);
 				break;
 
 			case 2:
-				DeIndexTexture(tmpTexBuf16.data(), (u16 *) tmpTexBuf32.data(), length, clut);
+				DeIndexTexture(tmpTexBuf16.data(), (u16 *) tmpTexBuf32.data(), length, clutBuf16);
 				break;
 
 			case 4:
-				DeIndexTexture(tmpTexBuf16.data(), (u32 *) tmpTexBuf32.data(), length, clut);
+				DeIndexTexture(tmpTexBuf16.data(), (u32 *) tmpTexBuf32.data(), length, clutBuf16);
 				break;
 			}
 		}
@@ -373,25 +373,24 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 			}
 			buf = tmpTexBuf32.data();
 		} else {
-			const u32 *clut = clutBuf32;
 			UnswizzleFromMem(texaddr, bufw, bytesPerIndex, level);
 			// Since we had to unswizzle to tmpTexBuf32, let's output to tmpTexBuf16.
 			tmpTexBuf16.resize(length * 2);
 			u32 *dest32 = (u32 *) tmpTexBuf16.data();
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTexture(dest32, (u8 *) tmpTexBuf32.data(), length, clut);
+				DeIndexTexture(dest32, (u8 *) tmpTexBuf32.data(), length, clutBuf32);
 				buf = dest32;
 				break;
 
 			case 2:
-				DeIndexTexture(dest32, (u16 *) tmpTexBuf32.data(), length, clut);
+				DeIndexTexture(dest32, (u16 *) tmpTexBuf32.data(), length, clutBuf32);
 				buf = dest32;
 				break;
 
 			case 4:
 				// TODO: If a game actually uses this crazy mode, check if using dest32 or tmpTexBuf32 is faster.
-				DeIndexTexture(tmpTexBuf32.data(), tmpTexBuf32.data(), length, clut);
+				DeIndexTexture(tmpTexBuf32.data(), tmpTexBuf32.data(), length, clutBuf32);
 				buf = tmpTexBuf32.data();
 				break;
 			}
@@ -983,6 +982,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			if (!(gstate.texmode & 1)) {
 				DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut + clutSharingOffset);
 			} else {
+				tmpTexBuf32.resize(bufw * h);
 				UnswizzleFromMem(texaddr, bufw, 0, level);
 				DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
 			}
@@ -1053,31 +1053,40 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 				tmpTexBuf16[i] = Memory::ReadUnchecked_U16(texaddr + i * 2);
 			finalBuf = tmpTexBuf16.data();
 		}
-		else
+		else {
+			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
+		}
 		break;
 
 	case GE_TFMT_8888:
 		dstFmt = GL_UNSIGNED_BYTE;
 		if (!(gstate.texmode & 1)) {
 			int len = bufw * h;
+			tmpTexBuf32.resize(len);
+			tmpTexBufRearrange.resize(len);
 			for (int i = 0; i < len; i++)
 				tmpTexBuf32[i] = Memory::ReadUnchecked_U32(texaddr + i * 4);
 			finalBuf = tmpTexBuf32.data();
 		}
-		else
+		else {
+			tmpTexBuf32.resize(bufw * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
+		}
 		break;
 
 	case GE_TFMT_DXT1:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
+			int minw = std::min(bufw, w);
+			tmpTexBuf32.resize(minw * h);
+			tmpTexBufRearrange.resize(minw * h);
 			u32 *dst = tmpTexBuf32.data();
 			DXT1Block *src = (DXT1Block*)texptr;
 
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4) {
+				for (int x = 0; x < minw; x += 4) {
 					decodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
@@ -1088,16 +1097,23 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		break;
 
 	case GE_TFMT_DXT3:
-		ERROR_LOG(G3D, "Warning: DXT3 textures not well supported");
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
+			static bool dxt3Reported = false;
+			if (!dxt3Reported)
+				ERROR_LOG_REPORT(G3D, "Warning: DXT3 textures not well supported");
+			dxt3Reported = true;
+
+			int minw = std::min(bufw, w);
+			tmpTexBuf32.resize(minw * h);
+			tmpTexBufRearrange.resize(minw * h);
 			u32 *dst = tmpTexBuf32.data();
 			DXT3Block *src = (DXT3Block*)texptr;
 
 			// Alpha is off
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4) {
+				for (int x = 0; x < minw; x += 4) {
 					decodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
@@ -1110,11 +1126,15 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	case GE_TFMT_DXT5:  // These work fine now
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
+			int minw = std::min(bufw, w);
+			tmpTexBuf32.resize(minw * h);
+			tmpTexBufRearrange.resize(minw * h);
 			u32 *dst = tmpTexBuf32.data();
 			DXT5Block *src = (DXT5Block*)texptr;
+
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4) {
+				for (int x = 0; x < minw; x += 4) {
 					decodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
@@ -1131,7 +1151,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	}
 
 	if (!finalBuf) {
-		ERROR_LOG(G3D, "NO finalbuf! Will crash!");
+		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
 
 	convertColors((u8*)finalBuf, dstFmt, bufw * h);
@@ -1179,6 +1199,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
 }
 
+// TODO: This probably should be merged with the above if possible.
 bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 {
 	GPUgstate oldState = gstate;
@@ -1244,6 +1265,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 		case GE_CMODE_32BIT_ABGR8888:
 			{
 			tmpTexBuf32.resize(bufw * h);
+			tmpTexBufRearrange.resize(bufw * h);
 			ReadClut32(clutBuf32);
 			const u32 *clut = clutBuf32;
 			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
@@ -1311,6 +1333,8 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 		dstFmt = GL_UNSIGNED_BYTE;
 		if (!(gstate.texmode & 1)) {
 			int len = bufw * h;
+			tmpTexBuf32.resize(len);
+			tmpTexBufRearrange.resize(len);
 			for (int i = 0; i < len; i++)
 				tmpTexBuf32[i] = Memory::ReadUnchecked_U32(texaddr + i * 4);
 			finalBuf = tmpTexBuf32.data();
@@ -1322,12 +1346,15 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	case GE_TFMT_DXT1:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
+			int minw = std::min(bufw, w);
+			tmpTexBuf32.resize(minw * h);
+			tmpTexBufRearrange.resize(minw * h);
 			u32 *dst = tmpTexBuf32.data();
 			DXT1Block *src = (DXT1Block*)texptr;
 
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4) {
+				for (int x = 0; x < minw; x += 4) {
 					decodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
@@ -1340,13 +1367,16 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	case GE_TFMT_DXT3:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
+			int minw = std::min(bufw, w);
+			tmpTexBuf32.resize(minw * h);
+			tmpTexBufRearrange.resize(minw * h);
 			u32 *dst = tmpTexBuf32.data();
 			DXT3Block *src = (DXT3Block*)texptr;
 
 			// Alpha is off
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4) {
+				for (int x = 0; x < minw; x += 4) {
 					decodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
@@ -1360,13 +1390,16 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
+			int minw = std::min(bufw, w);
+			tmpTexBuf32.resize(minw * h);
+			tmpTexBufRearrange.resize(minw * h);
 			u32 *dst = tmpTexBuf32.data();
 			DXT5Block *src = (DXT5Block*)texptr;
 
 			// Alpha is almost right
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < std::min(bufw, w); x += 4) {
+				for (int x = 0; x < minw; x += 4) {
 					decodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
 					blockIndex++;
 				}
