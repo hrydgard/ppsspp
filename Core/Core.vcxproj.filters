@@ -189,6 +189,9 @@
     <ClCompile Include="HLE\sceMpeg.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceMp4.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceP3da.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -527,6 +530,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceMpeg.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceMp4.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceP3da.h">
