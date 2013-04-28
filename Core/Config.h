@@ -97,6 +97,7 @@ public:
 	bool bButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
+	bool bSaveCorruptRepair;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 

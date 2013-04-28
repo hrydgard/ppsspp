@@ -608,6 +608,9 @@ namespace MainWindow
 			case ID_OPTIONS_FASTMEMORY:
 				g_Config.bFastMemory = !g_Config.bFastMemory;
 				break;
+			case ID_OPTIONS_REPAIR_SAVE:
+				g_Config.bSaveCorruptRepair = !g_Config.bSaveCorruptRepair;
+				break;
 			case ID_OPTIONS_USEVBO:
 				g_Config.bUseVBO = !g_Config.bUseVBO;
 				break;
@@ -748,6 +751,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
+		CHECKITEM(ID_OPTIONS_REPAIR_SAVE, g_Config.bSaveCorruptRepair);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);

@@ -224,6 +224,7 @@
 #define ID_FILE_LOAD_MEMSTICK           40143
 #define ID_EMULATION_SOUND              40144
 #define ID_OPTIONS_MIPMAP	              40145
+#define ID_OPTIONS_REPAIR_SAVE          40164
 #define IDB_IMAGE_PSP                   40146
 #define IDC_EDIT_KEY_TURBO              40147
 #define IDC_EDIT_KEY_START              40148
