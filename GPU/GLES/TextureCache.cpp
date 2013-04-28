@@ -774,7 +774,7 @@ void TextureCache::SetTexture() {
 		bool match = true;
 		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
 
-		//TODO: Check more texture parameters, compute real texture hash
+		// Verify texture parameters.
 		if (dim != entry->dim ||
 			entry->hash != texhash ||
 			entry->format != format ||
@@ -793,26 +793,26 @@ void TextureCache::SetTexture() {
 			} else {
 				--entry->framesUntilNextFullHash;
 			}
-		}
 
-		// If it's not huge or has been invalidated many times, recheck the whole texture.
-		if (entry->invalidHint > 180 || (entry->invalidHint > 15 && dim <= 0x909)) {
-			entry->invalidHint = 0;
-			rehash = true;
-		}
+			// If it's not huge or has been invalidated many times, recheck the whole texture.
+			if (entry->invalidHint > 180 || (entry->invalidHint > 15 && dim <= 0x909)) {
+				entry->invalidHint = 0;
+				rehash = true;
+			}
 
-		if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
-			int w = 1 << (gstate.texsize[0] & 0xf);
-			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-			int bufw = gstate.texbufwidth[0] & 0x3ff;
-			u32 check = QuickTexHash(texaddr, bufw, w, h, format);
-			if (check != entry->fullhash) {
-				match = false;
-				gpuStats.numTextureInvalidations++;
-				entry->status = TexCacheEntry::STATUS_UNRELIABLE;
-				entry->numFrames = 0;
-			} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-				entry->status = TexCacheEntry::STATUS_HASHING;
+			if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
+				int w = 1 << (gstate.texsize[0] & 0xf);
+				int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+				int bufw = gstate.texbufwidth[0] & 0x3ff;
+				u32 check = QuickTexHash(texaddr, bufw, w, h, format);
+				if (check != entry->fullhash) {
+					match = false;
+					gpuStats.numTextureInvalidations++;
+					entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+					entry->numFrames = 0;
+				} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+					entry->status = TexCacheEntry::STATUS_HASHING;
+				}
 			}
 		}
 
@@ -851,7 +851,7 @@ void TextureCache::SetTexture() {
 
 	int bufw = gstate.texbufwidth[0] & 0x3ff;
 
-	//we have to decode it
+	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
 	entry->hash = texhash;
 	entry->format = format;
@@ -922,7 +922,6 @@ void TextureCache::SetTexture() {
 
 	float anisotropyLevel = (float) g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : (float) g_Config.iAnisotropyLevel;
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
-	// NOTICE_LOG(G3D,"AnisotropyLevel = %0.1f , MaxAnisotropyLevel = %0.1f ", anisotropyLevel, maxAnisotropyLevel );
 
 	UpdateSamplingParams(*entry, true);
 
@@ -932,18 +931,8 @@ void TextureCache::SetTexture() {
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 }
 
-
-void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) 
-{
+void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt) {
 	void *finalBuf = NULL;
-
-	// TODO: only do this once
-	u32 texByteAlign = 1;
-
-	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
-	GLenum dstFmt = 0;
-
-	// TODO: Actually decode the mipmaps.
 
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 
@@ -956,12 +945,12 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
 	const u8 *texptr = Memory::GetPointer(texaddr);
 
-	switch (entry.format)
+	switch (format)
 	{
 	case GE_TFMT_CLUT4:
-		dstFmt = getClutDestFormat((GEPaletteFormat)(entry.clutformat));
+		dstFmt = getClutDestFormat((GEPaletteFormat)(clutformat));
 
-		switch (entry.clutformat) {
+		switch (clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
@@ -1005,7 +994,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 
 		default:
 			ERROR_LOG(G3D, "Unknown CLUT4 texture mode %d", (gstate.clutformat & 3));
-			return;
+			return NULL;
 		}
 		break;
 
@@ -1030,11 +1019,11 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
-		if (entry.format == GE_TFMT_4444)
+		if (format == GE_TFMT_4444)
 			dstFmt = GL_UNSIGNED_SHORT_4_4_4_4;
-		else if (entry.format == GE_TFMT_5551)
+		else if (format == GE_TFMT_5551)
 			dstFmt = GL_UNSIGNED_SHORT_5_5_5_1;
-		else if (entry.format == GE_TFMT_5650)
+		else if (format == GE_TFMT_5650)
 			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
 		texByteAlign = 2;
 
@@ -1138,9 +1127,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		break;
 
 	default:
-		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", entry.format);
-		finalBuf = tmpTexBuf32.data();
-		return;
+		ERROR_LOG_REPORT(G3D, "Unknown Texture Format %d!!!", format);
+		return NULL;
 	}
 
 	if (!finalBuf) {
@@ -1179,6 +1167,24 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		}
 	}
 
+	return finalBuf;
+}
+
+void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
+	// TODO: only do this once
+	u32 texByteAlign = 1;
+
+	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
+	GLenum dstFmt = 0;
+
+	void *finalBuf = DecodeTextureLevel(entry.format, entry.clutformat, level, texByteAlign, dstFmt);
+	if (finalBuf == NULL) {
+		return;
+	}
+
+	int w = 1 << (gstate.texsize[level] & 0xf);
+	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+
 	gpuStats.numTexturesDecoded++;
 	// Can restore these and remove the above fixup on some platforms.
 	//glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
@@ -1192,7 +1198,6 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, finalBuf);
 }
 
-// TODO: This probably should be merged with the above if possible.
 bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 {
 	GPUgstate oldState = gstate;
@@ -1204,218 +1209,27 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 		return false;
 	}
 
-	u8 level = 0;
+	u32 texByteAlign = 1;
+	GLenum dstFmt = 0;
+
 	u32 format = gstate.texformat & 0xF;
-	if (format >= 11) {
-		ERROR_LOG(G3D, "Unknown texture format %i", format);
-		format = 0;
-	}
-
 	u32 clutformat = gstate.clutformat & 3;
-
-	const u8 *texptr = Memory::GetPointer(texaddr);
+	u8 level = 0;
 
 	int mask = texaddr < 0x08800000 ? 0x1FFF : 0x3ff;
-	int bufw = gstate.texbufwidth[0] & mask;
+	int bufw = gstate.texbufwidth[level] & mask;
 
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0]>>8) & 0xf);
+	int w = 1 << (gstate.texsize[level] & 0xf);
+	int h = 1 << ((gstate.texsize[level]>>8) & 0xf);
 
-
-	GLenum dstFmt = 0;
-	u32 texByteAlign = 1;
-
-	void *finalBuf = NULL;
-
-	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
-
-	switch (format)
-	{
-	case GE_TFMT_CLUT4:
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
-
-		switch (clutformat) {
-		case GE_CMODE_16BIT_BGR5650:
-		case GE_CMODE_16BIT_ABGR5551:
-		case GE_CMODE_16BIT_ABGR4444:
-			{
-			tmpTexBuf16.resize(bufw * h);
-			tmpTexBufRearrange.resize(bufw * h);
-			ReadClut(clutBuf16);
-			const u16 *clut = clutBuf16;
-			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
-			texByteAlign = 2;
-			if (!(gstate.texmode & 1)) {
-				DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut + clutSharingOffset);
-			} else {
-				UnswizzleFromMem(texaddr, bufw, 0, level);
-				DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
-			}
-			finalBuf = tmpTexBuf16.data();
-			}
-			break;
-
-		case GE_CMODE_32BIT_ABGR8888:
-			{
-			tmpTexBuf32.resize(bufw * h);
-			tmpTexBufRearrange.resize(bufw * h);
-			ReadClut(clutBuf32);
-			const u32 *clut = clutBuf32;
-			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
-			if (!(gstate.texmode & 1)) {
-				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut + clutSharingOffset);
-				finalBuf = tmpTexBuf32.data();
-			} else {
-				UnswizzleFromMem(texaddr, bufw, 0, level);
-				// Let's reuse tmpTexBuf16, just need double the space.
-				tmpTexBuf16.resize(bufw * h * 2);
-				DeIndexTexture4((u32 *)tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
-				finalBuf = tmpTexBuf16.data();
-			}
-			}
-			break;
-
-		default:
-			ERROR_LOG(G3D, "Unknown CLUT4 texture mode %d", (gstate.clutformat & 3));
-			return false;
-		}
-		break;
-
-	case GE_TFMT_CLUT8:
-		finalBuf = readIndexedTex(level, texaddr, 1);
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
-		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
-		break;
-
-	case GE_TFMT_CLUT16:
-		finalBuf = readIndexedTex(level, texaddr, 2);
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
-		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
-		break;
-
-	case GE_TFMT_CLUT32:
-		finalBuf = readIndexedTex(level, texaddr, 4);
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
-		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
-		break;
-
-	case GE_TFMT_4444:
-	case GE_TFMT_5551:
-	case GE_TFMT_5650:
-		if (format == GE_TFMT_4444)
-			dstFmt = GL_UNSIGNED_SHORT_4_4_4_4;
-		else if (format == GE_TFMT_5551)
-			dstFmt = GL_UNSIGNED_SHORT_5_5_5_1;
-		else if (format == GE_TFMT_5650)
-			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
-		texByteAlign = 2;
-
-		if (!(gstate.texmode & 1)) {
-			int len = std::max(bufw, w) * h;
-			tmpTexBuf16.resize(len);
-			tmpTexBufRearrange.resize(len);
-			for (int i = 0; i < len; i++)
-				tmpTexBuf16[i] = Memory::ReadUnchecked_U16(texaddr + i * 2);
-			finalBuf = tmpTexBuf16.data();
-		}
-		else
-			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
-		break;
-
-	case GE_TFMT_8888:
-		dstFmt = GL_UNSIGNED_BYTE;
-		if (!(gstate.texmode & 1)) {
-			int len = bufw * h;
-			tmpTexBuf32.resize(len);
-			tmpTexBufRearrange.resize(len);
-			for (int i = 0; i < len; i++)
-				tmpTexBuf32[i] = Memory::ReadUnchecked_U32(texaddr + i * 4);
-			finalBuf = tmpTexBuf32.data();
-		}
-		else
-			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
-		break;
-
-	case GE_TFMT_DXT1:
-		dstFmt = GL_UNSIGNED_BYTE;
-		{
-			int minw = std::min(bufw, w);
-			tmpTexBuf32.resize(minw * h);
-			tmpTexBufRearrange.resize(minw * h);
-			u32 *dst = tmpTexBuf32.data();
-			DXT1Block *src = (DXT1Block*)texptr;
-
-			for (int y = 0; y < h; y += 4) {
-				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < minw; x += 4) {
-					decodeDXT1Block(dst + bufw * y + x, src + blockIndex, bufw);
-					blockIndex++;
-				}
-			}
-			finalBuf = tmpTexBuf32.data();
-			w = (w + 3) & ~3;
-		}
-		break;
-
-	case GE_TFMT_DXT3:
-		dstFmt = GL_UNSIGNED_BYTE;
-		{
-			int minw = std::min(bufw, w);
-			tmpTexBuf32.resize(minw * h);
-			tmpTexBufRearrange.resize(minw * h);
-			u32 *dst = tmpTexBuf32.data();
-			DXT3Block *src = (DXT3Block*)texptr;
-
-			// Alpha is off
-			for (int y = 0; y < h; y += 4) {
-				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < minw; x += 4) {
-					decodeDXT3Block(dst + bufw * y + x, src + blockIndex, bufw);
-					blockIndex++;
-				}
-			}
-			w = (w + 3) & ~3;
-			finalBuf = tmpTexBuf32.data();
-		}
-		break;
-
-	case GE_TFMT_DXT5:
-		ERROR_LOG(G3D, "Unhandled compressed texture, format %i! swizzle=%i", format, gstate.texmode & 1);
-		dstFmt = GL_UNSIGNED_BYTE;
-		{
-			int minw = std::min(bufw, w);
-			tmpTexBuf32.resize(minw * h);
-			tmpTexBufRearrange.resize(minw * h);
-			u32 *dst = tmpTexBuf32.data();
-			DXT5Block *src = (DXT5Block*)texptr;
-
-			// Alpha is almost right
-			for (int y = 0; y < h; y += 4) {
-				u32 blockIndex = (y / 4) * (bufw / 4);
-				for (int x = 0; x < minw; x += 4) {
-					decodeDXT5Block(dst + bufw * y + x, src + blockIndex, bufw);
-					blockIndex++;
-				}
-			}
-			w = (w + 3) & ~3;
-			finalBuf = tmpTexBuf32.data();
-		}
-		break;
-
-	default:
-		ERROR_LOG(G3D, "Unknown Texture Format %d!!!", format);
-		finalBuf = tmpTexBuf32.data();
+	void *finalBuf = DecodeTextureLevel(format, clutformat, level, texByteAlign, dstFmt);
+	if (finalBuf == NULL) {
 		return false;
 	}
 
-	if (!finalBuf) {
-		ERROR_LOG(G3D, "NO finalbuf! Will crash!");
-	}
-
-	convertColors((u8*)finalBuf, dstFmt, bufw * h);
-
-	if(dstFmt == GL_UNSIGNED_SHORT_4_4_4_4)
+	switch (dstFmt)
 	{
+	case GL_UNSIGNED_SHORT_4_4_4_4:
 		for(int x = 0; x < h; x++)
 			for(int y = 0; y < bufw; y++)
 			{
@@ -1426,9 +1240,9 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 				u32 b = ((val & 0xF) >> 8) * 255 / 15;
 				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
-	}
-	else if(dstFmt == GL_UNSIGNED_SHORT_5_5_5_1)
-	{
+		break;
+
+	case GL_UNSIGNED_SHORT_5_5_5_1:
 		for(int x = 0; x < h; x++)
 			for(int y = 0; y < bufw; y++)
 			{
@@ -1439,9 +1253,9 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 				u32 b = ((val & 0x1F) >> 1) * 255 / 31;
 				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
-	}
-	else if(dstFmt == GL_UNSIGNED_SHORT_5_6_5)
-	{
+		break;
+
+	case GL_UNSIGNED_SHORT_5_6_5:
 		for(int x = 0; x < h; x++)
 			for(int y = 0; y < bufw; y++)
 			{
@@ -1452,15 +1266,16 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 				u32 b = ((val & 0x1F)) * 255 / 31;
 				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
-	}
-	else
-	{
+		break;
+
+	default:
 		for(int x = 0; x < h; x++)
 			for(int y = 0; y < bufw; y++)
 			{
 				u32 val = ((u32*)finalBuf)[x*bufw + y];
 				((u32*)output)[x*w + y] = ((val & 0xFF000000)) | ((val & 0x00FF0000)>>16) | ((val & 0x0000FF00)) | ((val & 0x000000FF)<<16);
 			}
+		break;
 	}
 
 	gstate = oldState;
