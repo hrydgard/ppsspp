@@ -465,7 +465,8 @@ inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC)
 	cyclesExecuted += 2 * (currentPC - cycleLastPC) / 4;
 	cycleLastPC = newPC == 0 ? currentPC : newPC;
 
-	downcount = currentList->stall == 0 ? 0xFFFFFFF : (currentList->stall - currentList->pc) / 4;
+	// Exit the runloop and recalculate things.  This isn't common.
+	downcount = 0;
 }
 
 inline void GPUCommon::UpdateState(GPUState state)
