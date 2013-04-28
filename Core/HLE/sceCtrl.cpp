@@ -49,7 +49,8 @@ struct _ctrl_data
 	u32 frame;
 	u32 buttons;
 	u8  analog[2];
-	u8  unused[6];
+	u8  analogRight[2];  // Only present in the PSP emu on the PS3 and maybe Vita
+	u8  unused[4];
 };
 
 struct CtrlLatch {
@@ -108,6 +109,8 @@ void __CtrlUpdateLatch()
 		ctrlBufs[ctrlBuf].analog[0] = 128;
 		ctrlBufs[ctrlBuf].analog[1] = 128;
 	}
+	ctrlBufs[ctrlBuf].analogRight[0] = 128;
+	ctrlBufs[ctrlBuf].analogRight[1] = 128;
 
 	ctrlBuf = (ctrlBuf + 1) % NUM_CTRL_BUFFERS;
 
@@ -154,24 +157,16 @@ void __CtrlButtonUp(u32 buttonBit)
 	ctrlCurrent.buttons &= ~buttonBit;
 }
 
-void __CtrlSetAnalog(float x, float y)
+void __CtrlSetAnalog(float x, float y, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	/* Confine joy stick to circular radius.
-	 * We do this by normalizing our 2d
-	 * vector only when the points are
-	 * outside the circle. */
-	float length = x*x + y*y;
-	if (length > 1) {
-		/* We can do lazy evaluation
-		 * of the square root because
-		 * iff sqrt(X) > 1 then X > 1 */
-		length = sqrt(length);
-		x /= length;
-		y /= length;
+	if (stick == 0) {
+		ctrlCurrent.analog[0] = (u8)(x * 127.f + 128.f);
+		ctrlCurrent.analog[1] = (u8)(-y * 127.f + 128.f);
+	} else {
+		ctrlCurrent.analogRight[0] = (u8)(x * 127.f + 128.f);
+		ctrlCurrent.analogRight[1] = (u8)(-y * 127.f + 128.f);
 	}
-	ctrlCurrent.analog[0] = (u8)(x * 127.f + 128.f);
-	ctrlCurrent.analog[1] = (u8)(-y * 127.f + 128.f);
 }
 
 int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
@@ -287,6 +282,8 @@ void __CtrlInit()
 	memset(&ctrlCurrent, 0, sizeof(ctrlCurrent));
 	ctrlCurrent.analog[0] = 128;
 	ctrlCurrent.analog[1] = 128;
+	ctrlCurrent.analogRight[0] = 128;
+	ctrlCurrent.analogRight[1] = 128;
 
 	for (u32 i = 0; i < NUM_CTRL_BUFFERS; i++)
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));

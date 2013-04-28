@@ -43,7 +43,7 @@ void __CtrlShutdown();
 void __CtrlButtonDown(u32 buttonBit);
 void __CtrlButtonUp(u32 buttonBit);
 // -1 to 1, try to keep it in the circle
-void __CtrlSetAnalog(float x, float y);
+void __CtrlSetAnalog(float x, float y, int stick = 0);
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();

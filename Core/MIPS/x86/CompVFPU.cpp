@@ -571,7 +571,7 @@ void Jit::Comp_Vi2f(u32 op) {
 			MOV(32, R(EAX), fpr.V(sregs[i]));
 		CVTSI2SS(XMM0, R(EAX));
 		MULSS(XMM0, R(XMM1));
-		fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+		fpr.MapRegV(dregs[i], MAP_DIRTY);
 		MOVSS(fpr.V(dregs[i]), XMM0);
 	}
 

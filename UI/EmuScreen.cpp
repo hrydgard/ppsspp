@@ -201,14 +201,18 @@ void EmuScreen::update(InputState &input) {
 
 	float stick_x = input.pad_lstick_x;
 	float stick_y = input.pad_lstick_y;
-	// Apply tilt
+	float rightstick_x = input.pad_rstick_x;
+	float rightstick_y = input.pad_rstick_y;
+
+	// Apply tilt to left stick
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// TODO: Deadzone, etc.
 		stick_x += clamp1(curve1(input.acc.y) * 2.0f);
 		stick_x = clamp1(stick_x);
 	}
 
-	__CtrlSetAnalog(stick_x, stick_y);
+	__CtrlSetAnalog(stick_x, stick_y, 0);
+	__CtrlSetAnalog(rightstick_x, rightstick_x, 1);
 
 	if (input.pad_buttons & PAD_BUTTON_LEFT_THUMB) {
 		PSP_CoreParameter().unthrottle = true;
