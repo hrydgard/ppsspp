@@ -2263,6 +2263,7 @@ void sceKernelWakeupThread()
 		} else {
 			VERBOSE_LOG(HLE,"sceKernelWakeupThread(%i) - woke thread at %i", uid, t->nt.wakeupCount);
 			__KernelResumeThreadFromWait(uid);
+			hleReSchedule("thread woken up");
 		}
 	} 
 	else {
