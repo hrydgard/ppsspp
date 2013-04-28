@@ -41,14 +41,15 @@
 
 enum
 {
-	PSP_THREAD_ATTR_USER = 0x80000000,
-	PSP_THREAD_ATTR_USBWLAN = 0xa0000000,
-	PSP_THREAD_ATTR_VSH = 0xc0000000,
-	PSP_THREAD_ATTR_KERNEL = 0x00001000,
-	PSP_THREAD_ATTR_VFPU = 0x00004000,					 // TODO: Should not bother saving VFPU context except when switching between two thread that has this attribute
-	PSP_THREAD_ATTR_SCRATCH_SRAM = 0x00008000,	 // Save/restore scratch as part of context???
-	PSP_THREAD_ATTR_NO_FILLSTACK = 0x00100000,	 // TODO: No filling of 0xff
-	PSP_THREAD_ATTR_CLEAR_STACK = 0x00200000,		// TODO: Clear thread stack when deleted
+	PSP_THREAD_ATTR_KERNEL =           0x00001000,
+	PSP_THREAD_ATTR_VFPU =             0x00004000,
+	PSP_THREAD_ATTR_SCRATCH_SRAM =     0x00008000,   // Save/restore scratch as part of context???
+	PSP_THREAD_ATTR_NO_FILLSTACK =     0x00100000,   // TODO: No filling of 0xff (only with PSP_THREAD_ATTR_LOW_STACK?)
+	PSP_THREAD_ATTR_CLEAR_STACK =      0x00200000,   // TODO: Clear thread stack when deleted
+	PSP_THREAD_ATTR_LOW_STACK =        0x00400000,   // TODO: Allocate stack from bottom not top.
+	PSP_THREAD_ATTR_USER =             0x80000000,
+	PSP_THREAD_ATTR_USBWLAN =          0xa0000000,
+	PSP_THREAD_ATTR_VSH =              0xc0000000,
 };
 
 struct NativeCallback
@@ -328,15 +329,16 @@ public:
 		Memory::Memset(stackBlock, 0xFF, nt.stackSize);
 		context.r[MIPS_REG_SP] = stackBlock + nt.stackSize;
 		stackEnd = context.r[MIPS_REG_SP];
-		// What's this 512?
-		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 256;
-		context.r[MIPS_REG_SP] -= 512;
+		// The k0 section is 256 bytes at the top of the stack.
+		context.r[MIPS_REG_SP] -= 256;
+		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP];
 		u32 k0 = context.r[MIPS_REG_K0];
 		Memory::Memset(k0, 0, 0x100);
-		Memory::Write_U32(nt.initialStack, k0 + 0xc0);
-		Memory::Write_U32(GetUID(),        k0 + 0xca);
+		Memory::Write_U32(GetUID(),        k0 + 0xc0);
+		Memory::Write_U32(nt.initialStack, k0 + 0xc8);
 		Memory::Write_U32(0xffffffff,      k0 + 0xf8);
 		Memory::Write_U32(0xffffffff,      k0 + 0xfc);
+		// After k0 comes the arguments, which is done by sceKernelStartThread().
 
 		Memory::Write_U32(GetUID(), nt.initialStack);
 		return true;
@@ -1668,6 +1670,8 @@ void __KernelResetThread(Thread *t)
 	t->pendingMipsCalls.clear();
 
 	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
+	// TODO: Not sure if it's reset here, but this makes sense.
+	t->context.r[MIPS_REG_GP] = t->nt.gpreg;
 	t->FillStack();
 }
 
@@ -1825,9 +1829,11 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 
 	__KernelResetThread(startThread);
 
-	u32 sp = startThread->context.r[MIPS_REG_SP];
+	u32 &sp = startThread->context.r[MIPS_REG_SP];
 	if (argBlockPtr && argSize > 0)
 	{
+		// Make room for the arguments, always 0x10 aligned.
+		sp -= (argSize + 0xf) & ~0xf;
 		startThread->context.r[MIPS_REG_A0] = argSize;
 		startThread->context.r[MIPS_REG_A1] = sp;
 	}
@@ -1839,11 +1845,14 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 		startThread->context.r[MIPS_REG_A0] = 0;
 		startThread->context.r[MIPS_REG_A1] = 0;
 	}
-	startThread->context.r[MIPS_REG_GP] = startThread->nt.gpreg;
 
 	// Now copy argument to stack.
 	if (Memory::IsValidAddress(argBlockPtr))
 		Memory::Memcpy(sp, Memory::GetPointer(argBlockPtr), argSize);
+
+	// On the PSP, there's an extra 64 bytes of stack eaten after the args.
+	// This could be stack overflow safety, or just stack eaten by the kernel entry func.
+	sp -= 64;
 
 	Thread *cur = __GetCurrentThread();
 	// Smaller is better for priority.  Only switch if the new thread is better.
