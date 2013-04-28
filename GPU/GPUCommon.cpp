@@ -393,45 +393,32 @@ bool GPUCommon::InterpretList(DisplayList &list)
 #endif
 
 	cycleLastPC = list.pc;
+	downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
 	list.state = PSP_GE_DL_STATE_RUNNING;
 	list.interrupted = false;
 
 	const bool dumpThisFrame = dumpThisFrame_;
+	// TODO: Add check for displaylist debugger.
+	const bool useFastRunLoop = !dumpThisFrame;
 	while (gpuState == GPUSTATE_RUNNING)
 	{
 		if (list.pc == list.stall)
 		{
 			gpuState = GPUSTATE_STALL;
-			break;
+			downcount = 0;
 		}
 
-		op = Memory::ReadUnchecked_U32(list.pc); //read from memory
-		u32 cmd = op >> 24;
+		if (useFastRunLoop)
+			FastRunLoop(list);
+		else
+			SlowRunLoop(list);
 
-#if defined(USING_QT_UI)
-		if(host->GpuStep())
-		{
-			host->SendGPUWait(cmd, list.pc, &gstate);
-		}
-#endif
-		u32 diff = op ^ gstate.cmdmem[cmd];
-		PreExecuteOp(op, diff);
-		// TODO: Add a compiler flag to remove stuff like this at very-final build time.
-		if (dumpThisFrame) {
-			char temp[256];
-			u32 prev = Memory::ReadUnchecked_U32(list.pc - 4);
-			GeDisassembleOp(list.pc, op, prev, temp);
-			NOTICE_LOG(HLE, "%s", temp);
-		}
-		gstate.cmdmem[cmd] = op;
-		
-		ExecuteOp(op, diff);
-		
-		list.pc += 4;
+		downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
 	}
 
 	// We haven't run the op at list.pc, so it shouldn't count.
-	UpdatePC(list.pc - 4, list.pc);
+	if (cycleLastPC != list.pc)
+		UpdatePC(list.pc - 4, list.pc);
 
 	if (g_Config.bShowDebugStats)
 	{
@@ -441,17 +428,51 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
+void GPUCommon::SlowRunLoop(DisplayList &list)
+{
+	const bool dumpThisFrame = dumpThisFrame_;
+	while (downcount > 0)
+	{
+		u32 op = Memory::ReadUnchecked_U32(list.pc);
+		u32 cmd = op >> 24;
+
+#if defined(USING_QT_UI)
+		if (host->GpuStep())
+			host->SendGPUWait(cmd, list.pc, &gstate);
+#endif
+
+		u32 diff = op ^ gstate.cmdmem[cmd];
+		PreExecuteOp(op, diff);
+		if (dumpThisFrame) {
+			char temp[256];
+			u32 prev = Memory::ReadUnchecked_U32(list.pc - 4);
+			GeDisassembleOp(list.pc, op, prev, temp);
+			NOTICE_LOG(HLE, "%s", temp);
+		}
+		gstate.cmdmem[cmd] = op;
+
+		ExecuteOp(op, diff);
+
+		list.pc += 4;
+		--downcount;
+	}
+}
+
 // The newPC parameter is used for jumps, we don't count cycles between.
 inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC)
 {
 	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
 	cyclesExecuted += 2 * (currentPC - cycleLastPC) / 4;
 	cycleLastPC = newPC == 0 ? currentPC : newPC;
+
+	downcount = currentList->stall == 0 ? 0xFFFFFFF : (currentList->stall - currentList->pc) / 4;
 }
 
 inline void GPUCommon::UpdateState(GPUState state)
 {
 	gpuState = state;
+	if (state != GPUSTATE_RUNNING)
+		downcount = 0;
 }
 
 bool GPUCommon::ProcessDLQueue()

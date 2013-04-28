@@ -62,9 +62,13 @@ public:
 
 	std::vector<FramebufferInfo> GetFramebufferList();
 
+protected:
+	virtual void FastRunLoop(DisplayList &list);
+
 private:
 	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
+	void CheckFlushOp(u32 op, u32 diff);
 
 	// Applies states for debugging if enabled.
 	void BeginDebugDraw();
