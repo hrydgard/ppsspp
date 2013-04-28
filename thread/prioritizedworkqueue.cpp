@@ -95,7 +95,7 @@ static void threadfunc(PrioritizedWorkQueue *wq) {
 
 void ProcessWorkQueueOnThreadWhile(PrioritizedWorkQueue *wq) {
 	workThread = new std::thread(
-#if defined(__SYMBIAN32__) || defined(MAEMO) || defined(MEEGO_EDITION_HARMATTAN) || defined(BLACKBERRY)
+#if defined(__SYMBIAN32__) || defined(BLACKBERRY)
 		[wq](){threadfunc(wq);}
 #else
 		std::bind(&threadfunc, wq)
