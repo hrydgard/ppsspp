@@ -1791,75 +1791,78 @@ int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stack
 
 
 // int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
-int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
+int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 {
-	if (threadToStartID != currentThread)
+	u32 error = 0;
+	if (threadToStartID == 0)
 	{
-		u32 error;
-		Thread *startThread = kernelObjects.Get<Thread>(threadToStartID, error);
-		if (startThread == 0)
-		{
-			ERROR_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): thread does not exist!",
-				error,threadToStartID,argSize,argBlockPtr)
-			return error;
-		}
+		error = SCE_KERNEL_ERROR_ILLEGAL_THID;
+		ERROR_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): NULL thread", error, threadToStartID, argSize, argBlockPtr);
+		return error;
+	}
+	if (argSize < 0 || argBlockPtr & 0x80000000)
+	{
+		error = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		ERROR_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): bad argument pointer/length", error, threadToStartID, argSize, argBlockPtr);
+		return error;
+	}
 
-		if (startThread->nt.status != THREADSTATUS_DORMANT)
-		{
-			//Not dormant, WTF?
-			return SCE_KERNEL_ERROR_NOT_DORMANT;
-		}
+	Thread *startThread = kernelObjects.Get<Thread>(threadToStartID, error);
+	if (startThread == 0)
+	{
+		ERROR_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): thread does not exist!", error, threadToStartID, argSize, argBlockPtr);
+		return error;
+	}
 
-		INFO_LOG(HLE, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)",
-			threadToStartID,argSize,argBlockPtr);
+	if (startThread->nt.status != THREADSTATUS_DORMANT)
+	{
+		error = SCE_KERNEL_ERROR_NOT_DORMANT;
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): thread already running", error, threadToStartID, argSize, argBlockPtr);
+		return error;
+	}
 
-		__KernelResetThread(startThread);
+	INFO_LOG(HLE, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)", threadToStartID, argSize, argBlockPtr);
 
-		u32 sp = startThread->context.r[MIPS_REG_SP];
-		if (argBlockPtr && argSize > 0)
-		{
-			startThread->context.r[MIPS_REG_A0] = argSize;
-			startThread->context.r[MIPS_REG_A1] = sp;
-		}
-		else
-		{
-			startThread->context.r[MIPS_REG_A0] = 0;
-			startThread->context.r[MIPS_REG_A1] = 0;
-		}
-		startThread->context.r[MIPS_REG_GP] = startThread->nt.gpreg;
+	__KernelResetThread(startThread);
 
-		//now copy argument to stack
-		for (int i = 0; i < (int)argSize; i++)
-			Memory::Write_U8(argBlockPtr ? Memory::Read_U8(argBlockPtr + i) : 0, sp + i);
-
-		if (!argBlockPtr && argSize > 0) {
-			WARN_LOG(HLE,"sceKernelStartThread : had NULL arg");
-		}
-
-		Thread *cur = __GetCurrentThread();
-		// Smaller is better for priority.  Only switch if the new thread is better.
-		if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
-		{
-			// Starting a thread automatically resumes the dispatch thread.
-			// TODO: Maybe this happens even for worse-priority started threads?
-			dispatchEnabled = true;
-
-			if (cur && cur->isRunning())
-				cur->nt.status &= ~THREADSTATUS_RUNNING;
-			__KernelChangeReadyState(cur, currentThread, true);
-			hleReSchedule("thread started");
-		}
-		else if (!dispatchEnabled)
-			WARN_LOG_REPORT(HLE, "UNTESTED Dispatch disabled while starting worse-priority thread");
-
-		__KernelChangeReadyState(startThread, threadToStartID, true);
-		return 0;
+	u32 sp = startThread->context.r[MIPS_REG_SP];
+	if (argBlockPtr && argSize > 0)
+	{
+		startThread->context.r[MIPS_REG_A0] = argSize;
+		startThread->context.r[MIPS_REG_A1] = sp;
 	}
 	else
 	{
-		ERROR_LOG_REPORT(HLE, "thread %i trying to start itself", threadToStartID);
-		return -1;
+		if (argSize > 0)
+			WARN_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): NULL argument with size (should crash?)", error, threadToStartID, argSize, argBlockPtr);
+
+		startThread->context.r[MIPS_REG_A0] = 0;
+		startThread->context.r[MIPS_REG_A1] = 0;
 	}
+	startThread->context.r[MIPS_REG_GP] = startThread->nt.gpreg;
+
+	// Now copy argument to stack.
+	if (Memory::IsValidAddress(argBlockPtr))
+		Memory::Memcpy(sp, Memory::GetPointer(argBlockPtr), argSize);
+
+	Thread *cur = __GetCurrentThread();
+	// Smaller is better for priority.  Only switch if the new thread is better.
+	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
+	{
+		// Starting a thread automatically resumes the dispatch thread.
+		// TODO: Maybe this happens even for worse-priority started threads?
+		dispatchEnabled = true;
+
+		if (cur && cur->isRunning())
+			cur->nt.status &= ~THREADSTATUS_RUNNING;
+		__KernelChangeReadyState(cur, currentThread, true);
+		hleReSchedule("thread started");
+	}
+	else if (!dispatchEnabled)
+		WARN_LOG_REPORT(HLE, "UNTESTED Dispatch disabled while starting worse-priority thread");
+
+	__KernelChangeReadyState(startThread, threadToStartID, true);
+	return 0;
 }
 
 void sceKernelGetThreadStackFreeSize()
