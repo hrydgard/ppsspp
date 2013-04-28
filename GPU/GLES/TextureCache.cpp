@@ -26,6 +26,8 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "Core/Config.h"
 
+#include "native/ext/cityhash/city.h"
+
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
 
@@ -702,6 +704,14 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	return check;
 }
 
+static inline u32 QuickClutHash(u32 addr) {
+	const int clutTotalBytes = (gstate.loadclut & 0x3f) * 32;
+	if (Memory::IsValidAddress(addr)) {
+		return CityHash32(Memory::GetCharPointer(addr), clutTotalBytes);
+	}
+	return 0;
+}
+
 void TextureCache::SetTexture() {
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
 	if (!Memory::IsValidAddress(texaddr)) {
@@ -723,7 +733,7 @@ void TextureCache::SetTexture() {
 	if (hasClut) {
 		clutformat = gstate.clutformat & 3;
 		clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
-		cachekey |= (u64)clutaddr << 32;
+		cachekey |= (u64)QuickClutHash(clutaddr) << 32;
 	} else {
 		clutaddr = 0;
 	}
@@ -779,8 +789,7 @@ void TextureCache::SetTexture() {
 			entry->maxLevel != maxLevel ||
 			(hasClut &&
 			(entry->clutformat != clutformat ||
-				entry->clutaddr != clutaddr ||
-				entry->cluthash != Memory::Read_U32(entry->clutaddr)))) 
+				entry->cluthash != Memory::Read_U32(clutaddr)))) 
 			match = false;
 
 		if (match) {
@@ -865,7 +874,7 @@ void TextureCache::SetTexture() {
 	if (hasClut) {
 		entry->clutformat = clutformat;
 		entry->clutaddr = clutaddr;
-		entry->cluthash = Memory::Read_U32(entry->clutaddr);
+		entry->cluthash = Memory::Read_U32(clutaddr);
 	} else {
 		entry->clutaddr = 0;
 	}
