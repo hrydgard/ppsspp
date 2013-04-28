@@ -330,7 +330,7 @@ bool mediaPlayer::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 							*(imgbuf++) = b;
 							*(imgbuf++) = 0xFF;
 						}
-						imgbuf += (frameWidth - width)*4;
+						imgbuf += (frameWidth - width) * 4;
 					}
 				}
 				else
@@ -344,7 +344,7 @@ bool mediaPlayer::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 							getPixelColor(r, g, b, 0xFF, videoPixelMode, (u16*)imgbuf);
 							imgbuf += 2;
 						}
-						imgbuf += (frameWidth - width)*2;
+						imgbuf += (frameWidth - width) * 2;
 					}
 				} 
 				bGetFrame = true;
@@ -579,7 +579,7 @@ bool playPMFVideo(u8* buffer, int frameWidth, int videoPixelMode)
 			// use the orginal video size
 			g_pmfPlayer.setVideoSize(0, 0);
 		}
-		movieInfo.frameWidth = frameWidth;
+		movieInfo.frameWidth = std::max(frameWidth, g_pmfPlayer.getDesWidth());
 		movieInfo.videoPixelMode = videoPixelMode;
 
 #ifdef _USE_DSHOW_
@@ -612,12 +612,12 @@ bool writePMFVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode,
 	if (buffer)
 	{
 		int bpp = modeBpp[videoPixelMode];
-		u8* data = g_MoviePlayingbuf + (ypos * frameWidth + xpos) * bpp;
+		u8* data = g_MoviePlayingbuf + (ypos * movieInfo.frameWidth + xpos) * bpp;
 		u8* imgbuf = buffer;
 		for (int y = 0; y < height; y++){
 			memcpy(imgbuf, data, width * bpp);
 			imgbuf += frameWidth * bpp;
-			data += frameWidth * bpp;
+			data += movieInfo.frameWidth * bpp;
 		}
 	}
 	return true;
