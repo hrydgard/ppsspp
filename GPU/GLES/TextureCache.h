@@ -73,7 +73,6 @@ private:
 		u8 clutformat;
 		u16 dim;
 		u32 clutaddr;
-		u32 cluthash;
 		u32 texture;  //GLuint
 		int invalidHint;
 		u32 fullhash;
