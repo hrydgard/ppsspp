@@ -39,14 +39,6 @@
 #include "sceKernelInterrupt.h"
 
 
-enum {
-	ERROR_KERNEL_THREAD_ALREADY_DORMANT								 = 0x800201a2,
-	ERROR_KERNEL_THREAD_ALREADY_SUSPEND								 = 0x800201a3,
-	ERROR_KERNEL_THREAD_IS_NOT_DORMANT									= 0x800201a4,
-	ERROR_KERNEL_THREAD_IS_NOT_SUSPEND									= 0x800201a5,
-	ERROR_KERNEL_THREAD_IS_NOT_WAIT										 = 0x800201a6,
-};
-
 enum
 {
 	PSP_THREAD_ATTR_USER = 0x80000000,
@@ -100,7 +92,6 @@ public:
 		p.Do(savedV0);
 		p.Do(savedV1);
 		p.Do(savedIdRegister);
-		p.Do(forceDelete);
 		p.DoMarker("Callback");
 	}
 
@@ -111,15 +102,6 @@ public:
 	u32 savedV0;
 	u32 savedV1;
 	u32 savedIdRegister;
-
-	/*
-	SceUInt 	attr;
-	SceUInt 	initPattern;
-	SceUInt 	currentPattern;
-	int 		numWaitThreads;
-	*/
-
-	bool forceDelete;
 };
 
 // Real PSP struct, don't change the fields
@@ -1809,7 +1791,7 @@ int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
 		if (startThread->nt.status != THREADSTATUS_DORMANT)
 		{
 			//Not dormant, WTF?
-			return ERROR_KERNEL_THREAD_IS_NOT_DORMANT;
+			return SCE_KERNEL_ERROR_NOT_DORMANT;
 		}
 
 		INFO_LOG(HLE, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)",
@@ -2454,8 +2436,6 @@ u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 commonArg)
 	cb->nc.notifyCount = 0;
 	cb->nc.notifyArg = 0;
 
-	cb->forceDelete = false;
-
 	return id;
 }
 
@@ -3003,7 +2983,7 @@ void ActionAfterCallback::run(MipsCall &call) {
 
 			DEBUG_LOG(HLE, "Left callback %i - %s", cbId, cb->nc.name);
 			// Callbacks that don't return 0 are deleted. But should this be done here?
-			if (currentMIPS->r[MIPS_REG_V0] != 0 || cb->forceDelete)
+			if (currentMIPS->r[MIPS_REG_V0] != 0)
 			{
 				DEBUG_LOG(HLE, "ActionAfterCallback::run(): Callback returned non-zero, gets deleted!");
 				kernelObjects.Destroy<Callback>(cbId);
