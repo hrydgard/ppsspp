@@ -42,4 +42,7 @@ public:
 	virtual void DumpNextFrame() {}
 
 	virtual void Resized() {}
+
+protected:
+	virtual void FastRunLoop(DisplayList &list);
 };
