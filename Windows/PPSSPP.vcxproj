@@ -318,6 +318,7 @@
     <None Include="git-version-gen.cmd" />
     <None Include="ppsspp.ico" />
     <None Include="icon1.ico" />
+    <None Include="pspmode.png" />
     <None Include="rt_manif.bin" />
     <None Include="stop1.ico" />
   </ItemGroup>

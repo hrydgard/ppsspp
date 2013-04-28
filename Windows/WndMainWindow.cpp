@@ -913,8 +913,30 @@ namespace MainWindow
 			W32Util::CenterWindow(hDlg);
 			{
 				// TODO: connect to keyboard device instead
-				if (!hbm)
-					hbm = LoadImageFromResource(hInst, MAKEINTRESOURCE(IDB_IMAGE_PSP), "IMAGE");
+				{
+					HBITMAP hResBM = LoadImageFromResource(hInst, MAKEINTRESOURCE(IDB_IMAGE_PSP), "IMAGE");
+					HDC hDC = GetDC(hDlg);
+					RECT clientRect;
+					GetClientRect(hDlg, &clientRect);
+					HBITMAP hMemBM = CreateCompatibleBitmap(hDC, clientRect.right, clientRect.bottom);
+					HDC hResDC = CreateCompatibleDC(hDC);
+					HDC hMemDC = CreateCompatibleDC(hDC);
+					SelectObject(hResDC, hResBM);
+					SelectObject(hMemDC, hMemBM);
+
+					BITMAP bm;
+					GetObject(hResBM, sizeof(BITMAP), &bm);
+					SetStretchBltMode(hMemDC, HALFTONE);
+					StretchBlt(hMemDC, 0, 0, clientRect.right, clientRect.bottom, hResDC, 0, 0, bm.bmWidth, bm.bmHeight, SRCCOPY); 
+					if (hbm)
+						DeleteObject(hbm);
+					hbm = hMemBM;
+
+					DeleteDC(hMemDC);
+					DeleteDC(hResDC);
+					ReleaseDC(hDlg, hDC);
+					DeleteObject(hResBM);
+				}
 				int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
 				for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
 					HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_TURBO + i);
@@ -935,7 +957,7 @@ namespace MainWindow
 				{
 					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), (g_Config.iForceInputDevice + 1));
 				}
-				DWORD dwThreadID = GetWindowThreadProcessId(hDlg,NULL);
+				DWORD dwThreadID = GetWindowThreadProcessId(hDlg, NULL);
 				pKeydownHook = SetWindowsHookEx(WH_KEYBOARD,KeyboardProc, NULL, dwThreadID);
 			}
 			return TRUE;
