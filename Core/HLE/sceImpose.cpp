@@ -25,6 +25,10 @@
 const int PSP_UMD_POPUP_DISABLE = 0;
 const int PSP_UMD_POPUP_ENABLE = 1;
 
+#define	PSP_IMPOSE_BATTICON_NONE		0x80000000
+#define	PSP_IMPOSE_BATTICON_VISIBLE		0x00000000
+#define	PSP_IMPOSE_BATTICON_BLINK		0x00000001
+
 static u32 language = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 static u32 buttonValue = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
 static u32 umdPopup = PSP_UMD_POPUP_DISABLE;
@@ -51,7 +55,7 @@ u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
 	DEBUG_LOG(HLE, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
 	if (Memory::IsValidAddress(chargingPtr))
-		Memory::Write_U32(1, chargingPtr);
+		Memory::Write_U32(PSP_IMPOSE_BATTICON_NONE, chargingPtr);
 	if (Memory::IsValidAddress(iconStatusPtr))
 		Memory::Write_U32(3, iconStatusPtr);
 	return 0;
