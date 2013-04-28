@@ -807,12 +807,9 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 	}
 
 	if (Memory::IsValidAddress(currentPtsAddr)) {
-		Memory::Write_U64(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
-		Memory::Write_U32(psmfAvcStreamNum, currentPtsAddr + 4);
-		Memory::Write_U32(psmfAtracStreamNum, currentPtsAddr + 8);
-		Memory::Write_U32(psmfPcmStreamNum, currentPtsAddr + 12);
-		Memory::Write_U32(psmfPlayerVersion, currentPtsAddr + 16);
-	}
+		//Comment out until psmfPlayerAvcAu.pts start increasing correctly, Ultimate Ghosts N Goblins relies on it .
+		//Memory::Write_U64(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
+	}	
 	return 0;
 }
 
