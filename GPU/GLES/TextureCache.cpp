@@ -268,9 +268,35 @@ inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const
 }
 
 template <typename IndexT, typename ClutT>
-inline void DeIndexTextureNoSwizzle(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
+inline void DeIndexTexture(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
 	const IndexT *indexed = (const IndexT *) Memory::GetPointer(texaddr);
 	DeIndexTexture(dest, indexed, length, clut);
+}
+
+template <typename ClutT>
+inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const ClutT *clut) {
+	// Usually, there is no special offset, mask, or shift.
+	const bool nakedIndex = (gstate.clutformat & ~3) == 0xC500FF00;
+
+	if (nakedIndex) {
+		for (int i = 0; i < length; i += 2) {
+			u8 index = *indexed++;
+			dest[i + 0] = clut[(index >> 0) & 0xf];
+			dest[i + 1] = clut[(index >> 4) & 0xf];
+		}
+	} else {
+		for (int i = 0; i < length; i += 2) {
+			u8 index = *indexed++;
+			dest[i + 0] = clut[GetClutIndex((index >> 0) & 0xf)];
+			dest[i + 1] = clut[GetClutIndex((index >> 4) & 0xf)];
+		}
+	}
+}
+
+template <typename ClutT>
+inline void DeIndexTexture4(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
+	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
+	DeIndexTexture4(dest, indexed, length, clut);
 }
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
@@ -292,15 +318,15 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTextureNoSwizzle<u8>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
+				DeIndexTexture<u8>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
 				break;
 
 			case 2:
-				DeIndexTextureNoSwizzle<u16>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
+				DeIndexTexture<u16>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
 				break;
 
 			case 4:
-				DeIndexTextureNoSwizzle<u32>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
+				DeIndexTexture<u32>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
 				break;
 			}
 		} else {
@@ -332,15 +358,15 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTextureNoSwizzle<u8>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
+				DeIndexTexture<u8>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
 				break;
 
 			case 2:
-				DeIndexTextureNoSwizzle<u16>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
+				DeIndexTexture<u16>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
 				break;
 
 			case 4:
-				DeIndexTextureNoSwizzle<u32>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
+				DeIndexTexture<u32>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
 				break;
 			}
 			buf = tmpTexBuf32.data();
@@ -949,24 +975,10 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1)) {
-				const u8 *addr = Memory::GetPointer(texaddr);
-				for (int i = 0; i < bufw * h; i += 2)
-				{
-					u8 index = *addr++;
-					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOffset];
-					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOffset];
-				}
+				DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut + clutSharingOffset);
 			} else {
 				UnswizzleFromMem(texaddr, bufw, 0, level);
-				for (int i = 0, j = 0; i < bufw * h; i += 8, j++)
-				{
-					u32 n = tmpTexBuf32[j];
-					u32 k, index;
-					for (k = 0; k < 8; k++) {
-						index = (n >> (k * 4)) & 0xf;
-						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOffset];
-					}
-				}
+				DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
 			}
 			finalBuf = tmpTexBuf16.data();
 			}
@@ -975,29 +987,20 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 		case GE_CMODE_32BIT_ABGR8888:
 			{
 			tmpTexBuf32.resize(bufw * h);
+			tmpTexBufRearrange.resize(bufw * h);
 			ReadClut32(clutBuf32);
 			const u32 *clut = clutBuf32;
-			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
-				const u8 *addr = Memory::GetPointer(texaddr);
-				for (int i = 0; i < bufw * h; i += 2)
-				{
-					u8 index = *addr++;
-					tmpTexBuf32[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
-					tmpTexBuf32[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
-				}
+				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut + clutSharingOffset);
+				finalBuf = tmpTexBuf32.data();
 			} else {
-				u32 pixels = bufw * h;
 				UnswizzleFromMem(texaddr, bufw, 0, level);
-				for (int i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--) {
-					u32 n = tmpTexBuf32[j];
-					for (int k = 0; k < 8; k++) {
-						u32 index = (n >> (k * 4)) & 0xf;
-						tmpTexBuf32[i + k] = clut[GetClutIndex(index) + clutSharingOff];
-					}
-				}
+				// Let's reuse tmpTexBuf16, just need double the space.
+				tmpTexBuf16.resize(bufw * h * 2);
+				DeIndexTexture4((u32 *)tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
+				finalBuf = tmpTexBuf16.data();
 			}
-			finalBuf = tmpTexBuf32.data();
 			}
 			break;
 
@@ -1220,27 +1223,13 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			tmpTexBufRearrange.resize(bufw * h);
 			ReadClut16(clutBuf16);
 			const u16 *clut = clutBuf16;
-			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			texByteAlign = 2;
 			if (!(gstate.texmode & 1)) {
-				const u8 *addr = Memory::GetPointer(texaddr);
-				for (int i = 0; i < bufw * h; i += 2)
-				{
-					u8 index = *addr++;
-					tmpTexBuf16[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
-					tmpTexBuf16[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
-				}
+				DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut + clutSharingOffset);
 			} else {
 				UnswizzleFromMem(texaddr, bufw, 0, level);
-				for (int i = 0, j = 0; i < bufw * h; i += 8, j++)
-				{
-					u32 n = tmpTexBuf32[j];
-					u32 k, index;
-					for (k = 0; k < 8; k++) {
-						index = (n >> (k * 4)) & 0xf;
-						tmpTexBuf16[i + k] = clut[GetClutIndex(index) + clutSharingOff];
-					}
-				}
+				DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
 			}
 			finalBuf = tmpTexBuf16.data();
 			}
@@ -1248,29 +1237,20 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 
 		case GE_CMODE_32BIT_ABGR8888:
 			{
+			tmpTexBuf32.resize(bufw * h);
 			ReadClut32(clutBuf32);
 			const u32 *clut = clutBuf32;
-			u32 clutSharingOff = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
-				const u8 *addr = Memory::GetPointer(texaddr);
-				for (int i = 0; i < bufw * h; i += 2)
-				{
-					u8 index = *addr++;
-					tmpTexBuf32[i + 0] = clut[GetClutIndex((index >> 0) & 0xf) + clutSharingOff];
-					tmpTexBuf32[i + 1] = clut[GetClutIndex((index >> 4) & 0xf) + clutSharingOff];
-				}
+				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut + clutSharingOffset);
+				finalBuf = tmpTexBuf32.data();
 			} else {
-				u32 pixels = bufw * h;
 				UnswizzleFromMem(texaddr, bufw, 0, level);
-				for (int i = pixels - 8, j = (pixels / 8) - 1; i >= 0; i -= 8, j--) {
-					u32 n = tmpTexBuf32[j];
-					for (int k = 0; k < 8; k++) {
-						u32 index = (n >> (k * 4)) & 0xf;
-						tmpTexBuf32[i + k] = clut[GetClutIndex(index) + clutSharingOff];
-					}
-				}
+				// Let's reuse tmpTexBuf16, just need double the space.
+				tmpTexBuf16.resize(bufw * h * 2);
+				DeIndexTexture4((u32 *)tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
+				finalBuf = tmpTexBuf16.data();
 			}
-			finalBuf = tmpTexBuf32.data();
 			}
 			break;
 
