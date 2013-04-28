@@ -84,14 +84,14 @@ public:
 	void render();
 };
 
-class GraphicsScreen : public Screen
+class GraphicsScreenP1 : public Screen
 {
 public:
 	void update(InputState &input);
 	void render();
 };
 
-class GraphicsScreenP1 : public Screen
+class GraphicsScreenP2 : public Screen
 {
 public:
 	void update(InputState &input);
