@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -679,12 +679,10 @@ void GraphicsScreenP1::render() {
 			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
-		bool doubleRes = g_Config.iWindowZoom == 2;
-		if (UICheckBox(GEN_ID, x, y += stride, gs->T("2X", "2x Render Resolution"), ALIGN_TOPLEFT, &doubleRes)) {
+		if (UICheckBox(GEN_ID, x, y += stride, gs->T("2X", "2x Render Resolution"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
 		}
-		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
 	UIEnd();
 }
