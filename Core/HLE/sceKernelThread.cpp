@@ -39,24 +39,17 @@
 #include "sceKernelInterrupt.h"
 
 
-enum {
-	ERROR_KERNEL_THREAD_ALREADY_DORMANT								 = 0x800201a2,
-	ERROR_KERNEL_THREAD_ALREADY_SUSPEND								 = 0x800201a3,
-	ERROR_KERNEL_THREAD_IS_NOT_DORMANT									= 0x800201a4,
-	ERROR_KERNEL_THREAD_IS_NOT_SUSPEND									= 0x800201a5,
-	ERROR_KERNEL_THREAD_IS_NOT_WAIT										 = 0x800201a6,
-};
-
 enum
 {
-	PSP_THREAD_ATTR_USER = 0x80000000,
-	PSP_THREAD_ATTR_USBWLAN = 0xa0000000,
-	PSP_THREAD_ATTR_VSH = 0xc0000000,
-	PSP_THREAD_ATTR_KERNEL = 0x00001000,
-	PSP_THREAD_ATTR_VFPU = 0x00004000,					 // TODO: Should not bother saving VFPU context except when switching between two thread that has this attribute
-	PSP_THREAD_ATTR_SCRATCH_SRAM = 0x00008000,	 // Save/restore scratch as part of context???
-	PSP_THREAD_ATTR_NO_FILLSTACK = 0x00100000,	 // TODO: No filling of 0xff
-	PSP_THREAD_ATTR_CLEAR_STACK = 0x00200000,		// TODO: Clear thread stack when deleted
+	PSP_THREAD_ATTR_KERNEL =           0x00001000,
+	PSP_THREAD_ATTR_VFPU =             0x00004000,
+	PSP_THREAD_ATTR_SCRATCH_SRAM =     0x00008000,   // Save/restore scratch as part of context???
+	PSP_THREAD_ATTR_NO_FILLSTACK =     0x00100000,   // TODO: No filling of 0xff (only with PSP_THREAD_ATTR_LOW_STACK?)
+	PSP_THREAD_ATTR_CLEAR_STACK =      0x00200000,   // TODO: Clear thread stack when deleted
+	PSP_THREAD_ATTR_LOW_STACK =        0x00400000,   // TODO: Allocate stack from bottom not top.
+	PSP_THREAD_ATTR_USER =             0x80000000,
+	PSP_THREAD_ATTR_USBWLAN =          0xa0000000,
+	PSP_THREAD_ATTR_VSH =              0xc0000000,
 };
 
 struct NativeCallback
@@ -100,7 +93,6 @@ public:
 		p.Do(savedV0);
 		p.Do(savedV1);
 		p.Do(savedIdRegister);
-		p.Do(forceDelete);
 		p.DoMarker("Callback");
 	}
 
@@ -111,15 +103,6 @@ public:
 	u32 savedV0;
 	u32 savedV1;
 	u32 savedIdRegister;
-
-	/*
-	SceUInt 	attr;
-	SceUInt 	initPattern;
-	SceUInt 	currentPattern;
-	int 		numWaitThreads;
-	*/
-
-	bool forceDelete;
 };
 
 // Real PSP struct, don't change the fields
@@ -336,21 +319,26 @@ public:
 			return false;
 		}
 
-		// Fill the stack.
-		Memory::Memset(stackBlock, 0xFF, stackSize);
-		context.r[MIPS_REG_SP] = stackBlock + stackSize;
-		stackEnd = context.r[MIPS_REG_SP];
 		nt.initialStack = stackBlock;
 		nt.stackSize = stackSize;
-		// What's this 512?
-		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP] - 256;
-		context.r[MIPS_REG_SP] -= 512;
+		return true;
+	}
+
+	bool FillStack() {
+		// Fill the stack.
+		Memory::Memset(stackBlock, 0xFF, nt.stackSize);
+		context.r[MIPS_REG_SP] = stackBlock + nt.stackSize;
+		stackEnd = context.r[MIPS_REG_SP];
+		// The k0 section is 256 bytes at the top of the stack.
+		context.r[MIPS_REG_SP] -= 256;
+		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP];
 		u32 k0 = context.r[MIPS_REG_K0];
 		Memory::Memset(k0, 0, 0x100);
-		Memory::Write_U32(nt.initialStack, k0 + 0xc0);
-		Memory::Write_U32(GetUID(),        k0 + 0xca);
+		Memory::Write_U32(GetUID(),        k0 + 0xc0);
+		Memory::Write_U32(nt.initialStack, k0 + 0xc8);
 		Memory::Write_U32(0xffffffff,      k0 + 0xf8);
 		Memory::Write_U32(0xffffffff,      k0 + 0xfc);
+		// After k0 comes the arguments, which is done by sceKernelStartThread().
 
 		Memory::Write_U32(GetUID(), nt.initialStack);
 		return true;
@@ -1132,6 +1120,9 @@ SceUID __KernelGetCurrentCallbackID(SceUID threadID, u32 &error)
 
 u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 {
+	static const u32 THREADINFO_SIZE = 104;
+	static const u32 THREADINFO_SIZE_AFTER_260 = 108;
+
 	if (threadID == 0)
 		threadID = __KernelGetCurThread();
 
@@ -1139,17 +1130,39 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (!t)
 	{
-		ERROR_LOG(HLE,"sceKernelReferThreadStatus Error %08x", error);
+		ERROR_LOG(HLE, "sceKernelReferThreadStatus Error %08x", error);
 		return error;
 	}
 
-	DEBUG_LOG(HLE,"sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
-	u32 wantedSize = Memory::Read_U32(PARAM(1));
-	u32 sz = sizeof(NativeThread);
-	if (wantedSize) {
-		t->nt.nativeSize = sz = std::min(sz, wantedSize);
+	u32 wantedSize = Memory::Read_U32(statusPtr);
+
+	if (sceKernelGetCompiledSdkVersion() > 0x2060010)
+	{
+		if (wantedSize > THREADINFO_SIZE_AFTER_260)
+		{
+			ERROR_LOG(HLE, "sceKernelReferThreadStatus Error %08x", SCE_KERNEL_ERROR_ILLEGAL_SIZE);
+			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
+		}
+
+		DEBUG_LOG(HLE, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+
+		t->nt.nativeSize = THREADINFO_SIZE_AFTER_260;
+		if (wantedSize != 0)
+			Memory::Memcpy(statusPtr, &t->nt, wantedSize);
+		// TODO: What is this value?  Basic tests show 0...
+		if (wantedSize > sizeof(t->nt))
+			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt));
 	}
-	Memory::Memcpy(statusPtr, &(t->nt), sz);
+	else
+	{
+		DEBUG_LOG(HLE, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
+
+		t->nt.nativeSize = THREADINFO_SIZE;
+		u32 sz = std::min(THREADINFO_SIZE, wantedSize);
+		if (sz != 0)
+			Memory::Memcpy(statusPtr, &t->nt, sz);
+	}
+
 	return 0;
 }
 
@@ -1657,7 +1670,9 @@ void __KernelResetThread(Thread *t)
 	t->pendingMipsCalls.clear();
 
 	t->context.r[MIPS_REG_RA] = threadReturnHackAddr; //hack! TODO fix
-	t->AllocateStack(t->nt.stackSize);  // can change the stacksize!
+	// TODO: Not sure if it's reset here, but this makes sense.
+	t->context.r[MIPS_REG_GP] = t->nt.gpreg;
+	t->FillStack();
 }
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr)
@@ -1696,6 +1711,8 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 
 	strncpy(t->nt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	t->nt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+
+	t->AllocateStack(t->nt.stackSize);  // can change the stacksize!
 	return t;
 }
 
@@ -1704,6 +1721,8 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	//grab mips regs
 	SceUID id;
 	Thread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
+	if (thread->stackBlock == 0)
+		ERROR_LOG_REPORT(HLE, "Unable to allocate stack for root thread.");
 	__KernelResetThread(thread);
 
 	Thread *prevThread = __GetCurrentThread();
@@ -1739,16 +1758,30 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		stacksize = 0x4000;
 	}
 	if (prio < 0x08 || prio > 0x77)
+	{
 		WARN_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): bogus priority %08x", threadName, prio);
+		prio = prio < 0x08 ? 0x08 : 0x77;
+	}
 	if (!Memory::IsValidAddress(entry))
-		WARN_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): invalid entry %08x", threadName, entry);
+	{
+		ERROR_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): invalid entry %08x", threadName, entry);
+		// The PSP firmware seems to allow NULL...?
+		if (entry != 0)
+			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
 
 	// We're assuming all threads created are user threads.
 	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0)
 		attr |= PSP_THREAD_ATTR_USER;
 
 	SceUID id;
-	__KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
+	Thread *newThread = __KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
+	if (newThread->stackBlock == 0)
+	{
+		ERROR_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): out of memory, %08x stack requested", threadName, stacksize);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
+
 	INFO_LOG(HLE, "%i=sceKernelCreateThread(name=%s, entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
@@ -1762,75 +1795,83 @@ int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stack
 
 
 // int sceKernelStartThread(SceUID threadToStartID, SceSize argSize, void *argBlock)
-int sceKernelStartThread(SceUID threadToStartID, u32 argSize, u32 argBlockPtr)
+int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 {
-	if (threadToStartID != currentThread)
+	u32 error = 0;
+	if (threadToStartID == 0)
 	{
-		u32 error;
-		Thread *startThread = kernelObjects.Get<Thread>(threadToStartID, error);
-		if (startThread == 0)
-		{
-			ERROR_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): thread does not exist!",
-				error,threadToStartID,argSize,argBlockPtr)
-			return error;
-		}
+		error = SCE_KERNEL_ERROR_ILLEGAL_THID;
+		ERROR_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): NULL thread", error, threadToStartID, argSize, argBlockPtr);
+		return error;
+	}
+	if (argSize < 0 || argBlockPtr & 0x80000000)
+	{
+		error = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+		ERROR_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): bad argument pointer/length", error, threadToStartID, argSize, argBlockPtr);
+		return error;
+	}
 
-		if (startThread->nt.status != THREADSTATUS_DORMANT)
-		{
-			//Not dormant, WTF?
-			return ERROR_KERNEL_THREAD_IS_NOT_DORMANT;
-		}
+	Thread *startThread = kernelObjects.Get<Thread>(threadToStartID, error);
+	if (startThread == 0)
+	{
+		ERROR_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): thread does not exist!", error, threadToStartID, argSize, argBlockPtr);
+		return error;
+	}
 
-		INFO_LOG(HLE, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)",
-			threadToStartID,argSize,argBlockPtr);
+	if (startThread->nt.status != THREADSTATUS_DORMANT)
+	{
+		error = SCE_KERNEL_ERROR_NOT_DORMANT;
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): thread already running", error, threadToStartID, argSize, argBlockPtr);
+		return error;
+	}
 
-		__KernelResetThread(startThread);
+	INFO_LOG(HLE, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)", threadToStartID, argSize, argBlockPtr);
 
-		u32 sp = startThread->context.r[MIPS_REG_SP];
-		if (argBlockPtr && argSize > 0)
-		{
-			startThread->context.r[MIPS_REG_A0] = argSize;
-			startThread->context.r[MIPS_REG_A1] = sp;
-		}
-		else
-		{
-			startThread->context.r[MIPS_REG_A0] = 0;
-			startThread->context.r[MIPS_REG_A1] = 0;
-		}
-		startThread->context.r[MIPS_REG_GP] = startThread->nt.gpreg;
+	__KernelResetThread(startThread);
 
-		//now copy argument to stack
-		for (int i = 0; i < (int)argSize; i++)
-			Memory::Write_U8(argBlockPtr ? Memory::Read_U8(argBlockPtr + i) : 0, sp + i);
-
-		if (!argBlockPtr && argSize > 0) {
-			WARN_LOG(HLE,"sceKernelStartThread : had NULL arg");
-		}
-
-		Thread *cur = __GetCurrentThread();
-		// Smaller is better for priority.  Only switch if the new thread is better.
-		if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
-		{
-			// Starting a thread automatically resumes the dispatch thread.
-			// TODO: Maybe this happens even for worse-priority started threads?
-			dispatchEnabled = true;
-
-			if (cur && cur->isRunning())
-				cur->nt.status &= ~THREADSTATUS_RUNNING;
-			__KernelChangeReadyState(cur, currentThread, true);
-			hleReSchedule("thread started");
-		}
-		else if (!dispatchEnabled)
-			WARN_LOG_REPORT(HLE, "UNTESTED Dispatch disabled while starting worse-priority thread");
-
-		__KernelChangeReadyState(startThread, threadToStartID, true);
-		return 0;
+	u32 &sp = startThread->context.r[MIPS_REG_SP];
+	if (argBlockPtr && argSize > 0)
+	{
+		// Make room for the arguments, always 0x10 aligned.
+		sp -= (argSize + 0xf) & ~0xf;
+		startThread->context.r[MIPS_REG_A0] = argSize;
+		startThread->context.r[MIPS_REG_A1] = sp;
 	}
 	else
 	{
-		ERROR_LOG_REPORT(HLE, "thread %i trying to start itself", threadToStartID);
-		return -1;
+		if (argSize > 0)
+			WARN_LOG_REPORT(HLE, "%08x=sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x): NULL argument with size (should crash?)", error, threadToStartID, argSize, argBlockPtr);
+
+		startThread->context.r[MIPS_REG_A0] = 0;
+		startThread->context.r[MIPS_REG_A1] = 0;
 	}
+
+	// Now copy argument to stack.
+	if (Memory::IsValidAddress(argBlockPtr))
+		Memory::Memcpy(sp, Memory::GetPointer(argBlockPtr), argSize);
+
+	// On the PSP, there's an extra 64 bytes of stack eaten after the args.
+	// This could be stack overflow safety, or just stack eaten by the kernel entry func.
+	sp -= 64;
+
+	Thread *cur = __GetCurrentThread();
+	// Smaller is better for priority.  Only switch if the new thread is better.
+	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
+	{
+		// Starting a thread automatically resumes the dispatch thread.
+		// TODO: Maybe this happens even for worse-priority started threads?
+		dispatchEnabled = true;
+
+		if (cur && cur->isRunning())
+			cur->nt.status &= ~THREADSTATUS_RUNNING;
+		__KernelChangeReadyState(cur, currentThread, true);
+		hleReSchedule("thread started");
+	}
+	else if (!dispatchEnabled)
+		WARN_LOG_REPORT(HLE, "UNTESTED Dispatch disabled while starting worse-priority thread");
+
+	__KernelChangeReadyState(startThread, threadToStartID, true);
+	return 0;
 }
 
 void sceKernelGetThreadStackFreeSize()
@@ -2250,6 +2291,7 @@ void sceKernelWakeupThread()
 		} else {
 			VERBOSE_LOG(HLE,"sceKernelWakeupThread(%i) - woke thread at %i", uid, t->nt.wakeupCount);
 			__KernelResumeThreadFromWait(uid);
+			hleReSchedule("thread woken up");
 		}
 	} 
 	else {
@@ -2422,8 +2464,6 @@ u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 commonArg)
 	cb->nc.commonArgument = commonArg;
 	cb->nc.notifyCount = 0;
 	cb->nc.notifyArg = 0;
-
-	cb->forceDelete = false;
 
 	return id;
 }
@@ -2972,7 +3012,7 @@ void ActionAfterCallback::run(MipsCall &call) {
 
 			DEBUG_LOG(HLE, "Left callback %i - %s", cbId, cb->nc.name);
 			// Callbacks that don't return 0 are deleted. But should this be done here?
-			if (currentMIPS->r[MIPS_REG_V0] != 0 || cb->forceDelete)
+			if (currentMIPS->r[MIPS_REG_V0] != 0)
 			{
 				DEBUG_LOG(HLE, "ActionAfterCallback::run(): Callback returned non-zero, gets deleted!");
 				kernelObjects.Destroy<Callback>(cbId);
