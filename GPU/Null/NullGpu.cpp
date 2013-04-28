@@ -41,6 +41,19 @@ u32 NullGPU::DrawSync(int mode)
 	return GPUCommon::DrawSync(mode);
 }
 
+void NullGPU::FastRunLoop(DisplayList &list) {
+	for (; downcount > 0; --downcount) {
+		u32 op = Memory::ReadUnchecked_U32(list.pc);
+		u32 cmd = op >> 24;
+
+		u32 diff = op ^ gstate.cmdmem[cmd];
+		gstate.cmdmem[cmd] = op;
+		ExecuteOp(op, diff);
+
+		list.pc += 4;
+	}
+}
+
 void NullGPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;

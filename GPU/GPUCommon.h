@@ -30,7 +30,11 @@ public:
 	virtual u32  Break(int mode);
 
 protected:
-	void UpdateCycles(u32 pc, u32 newPC = 0);
+	// To avoid virtual calls to PreExecuteOp().
+	virtual void FastRunLoop(DisplayList &list) = 0;
+	void SlowRunLoop(DisplayList &list);
+	void UpdatePC(u32 currentPC, u32 newPC = 0);
+	void UpdateState(GPUState state);
 	void PopDLQueue();
 	void CheckDrawSync();
 
@@ -46,6 +50,7 @@ protected:
 	u64 drawCompleteTicks;
 	u64 busyTicks;
 
+	int downcount;
 	u64 startingTicks;
 	u32 cycleLastPC;
 	int cyclesExecuted;
