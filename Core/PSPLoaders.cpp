@@ -131,7 +131,7 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 	PBPReader reader(filename);
 
 	// Hacky check, should find something better
-	if (reader.GetSubFileSize(PBP_UNKNOWN_PSAR) > 0x100000) {
+	if (reader.IsValid() && reader.GetSubFileSize(PBP_UNKNOWN_PSAR) > 0x100000) {
 		// Yay, got a demo.
 		ISOFileSystem *umd0 = new ISOFileSystem(&pspFileSystem, new NPDRMDemoBlockDevice(filename));
 		
