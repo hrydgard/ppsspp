@@ -500,7 +500,7 @@ void SettingsScreen::render() {
 	ui_draw2d.DrawText(UBUNTU24, ms->T("AudioDesc", "Adjust Audio Settings"), s, 110, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Graphics"), ALIGN_BOTTOMLEFT)) {
-		screenManager()->push(new GraphicsScreen());
+		screenManager()->push(new GraphicsScreenP1());
 	}
 	ui_draw2d.DrawText(UBUNTU24, ms->T("GraphicsDesc", "Change graphics options"), s, 180, 0xFFFFFFFF, ALIGN_LEFT);
 
@@ -535,14 +535,14 @@ void AudioScreen::update(InputState &input) {
 	}
 }
 
-void GraphicsScreen::update(InputState &input) {
+void GraphicsScreenP1::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
 	}
 }
 
-void GraphicsScreenP1::update(InputState &input) {
+void GraphicsScreenP2::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -640,7 +640,7 @@ void AudioScreen::render() {
 	UIEnd();
 }
 
-void GraphicsScreen::render() {
+void GraphicsScreenP1::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
@@ -657,7 +657,7 @@ void GraphicsScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, Pos( 220 , dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Next Page"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
-		screenManager()->push(new GraphicsScreenP1());
+		screenManager()->push(new GraphicsScreenP2());
 	}
 
 	int x = 30;
@@ -686,11 +686,10 @@ void GraphicsScreen::render() {
 		}
 		g_Config.iWindowZoom = doubleRes ? 2 : 1;
 	}
-	//UICheckBox(GEN_ID, x, y += stride, gs->T("Draw Wireframe"), ALIGN_TOPLEFT, &g_Config.bDrawWireframe);
 	UIEnd();
 }
 
-void GraphicsScreenP1::render() {
+void GraphicsScreenP2::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
@@ -713,6 +712,22 @@ void GraphicsScreenP1::render() {
 
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Draw Wireframe"), ALIGN_TOPLEFT, &g_Config.bDrawWireframe);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("True Color"), ALIGN_TOPLEFT, &g_Config.bTrueColor);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &g_Config.bAnisotropicFiltering);
+	if (g_Config.bAnisotropicFiltering) {
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 160 , y + 5, 20);
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
+			g_Config.iAnisotropyLevel = 2;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "4x", ALIGN_LEFT))
+			g_Config.iAnisotropyLevel = 4;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "8x", ALIGN_LEFT))
+			g_Config.iAnisotropyLevel = 8;
+		if (UIButton(GEN_ID, hlinear1, 60, 0, "16x", ALIGN_LEFT))
+			g_Config.iAnisotropyLevel = 16;
+	} else
+		g_Config.iAnisotropyLevel = 0;
+
 	UIEnd();
 }
 
