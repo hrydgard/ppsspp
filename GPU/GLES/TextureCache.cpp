@@ -161,21 +161,14 @@ static u32 GetClutIndex(u32 index) {
 	return ((((gstate.clutformat >> 16) & 0x1f) + index) >> ((gstate.clutformat >> 2) & 0x1f)) & ((gstate.clutformat >> 8) & 0xff);
 }
 
-static void ReadClut16(u16 *clutBuf16) {
-	u32 clutNumEntries = (gstate.loadclut & 0x3f) * 16;
-	u32 clutAddr = GetClutAddr(2);
+template <typename T>
+static void ReadClut(T *clutBuf) {
+	u32 clutNumBytes = (gstate.loadclut & 0x3f) * 32;
+	u32 clutAddr = GetClutAddr(sizeof(T));
 	if (Memory::IsValidAddress(clutAddr)) {
-		for (u32 i = ((gstate.clutformat >> 16) & 0x1f); i < clutNumEntries; i++)
-			clutBuf16[i] = Memory::ReadUnchecked_U16(clutAddr + i * 2);
-	}
-}
-
-static void ReadClut32(u32 *clutBuf32) {
-	u32 clutNumEntries = (gstate.loadclut & 0x3f) * 8;
-	u32 clutAddr = GetClutAddr(4);
-	if (Memory::IsValidAddress(clutAddr)) {
-		for (u32 i = ((gstate.clutformat >> 16) & 0x1f); i < clutNumEntries; i++)
-			clutBuf32[i] = Memory::ReadUnchecked_U32(clutAddr + i * 4);
+		// Technically we could read the whole thing, but we only need from the offset.
+		u32 clutOffsetBytes = ((gstate.clutformat >> 16) & 0x1f) * sizeof(T);
+		Memory::Memcpy((u8 *) clutBuf + clutOffsetBytes, clutAddr + clutOffsetBytes, clutNumBytes - clutOffsetBytes);
 	}
 }
 
@@ -316,7 +309,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 		{
 		tmpTexBuf16.resize(length);
 		tmpTexBufRearrange.resize(length);
-		ReadClut16(clutBuf16);
+		ReadClut(clutBuf16);
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
@@ -356,7 +349,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 		{
 		tmpTexBuf32.resize(length);
 		tmpTexBufRearrange.resize(length);
-		ReadClut32(clutBuf32);
+		ReadClut(clutBuf32);
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
@@ -975,7 +968,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			{
 			tmpTexBuf16.resize(bufw * h);
 			tmpTexBufRearrange.resize(bufw * h);
-			ReadClut16(clutBuf16);
+			ReadClut(clutBuf16);
 			const u16 *clut = clutBuf16;
 			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
 			texByteAlign = 2;
@@ -994,7 +987,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level)
 			{
 			tmpTexBuf32.resize(bufw * h);
 			tmpTexBufRearrange.resize(bufw * h);
-			ReadClut32(clutBuf32);
+			ReadClut(clutBuf32);
 			const u32 *clut = clutBuf32;
 			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
@@ -1248,7 +1241,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			{
 			tmpTexBuf16.resize(bufw * h);
 			tmpTexBufRearrange.resize(bufw * h);
-			ReadClut16(clutBuf16);
+			ReadClut(clutBuf16);
 			const u16 *clut = clutBuf16;
 			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			texByteAlign = 2;
@@ -1266,7 +1259,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			{
 			tmpTexBuf32.resize(bufw * h);
 			tmpTexBufRearrange.resize(bufw * h);
-			ReadClut32(clutBuf32);
+			ReadClut(clutBuf32);
 			const u32 *clut = clutBuf32;
 			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
