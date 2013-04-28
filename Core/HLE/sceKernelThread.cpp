@@ -1130,7 +1130,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (!t)
 	{
-		ERROR_LOG(HLE, "sceKernelReferThreadStatus Error %08x", error);
+		ERROR_LOG(HLE, "%08x=sceKernelReferThreadStatus(%i, %08x): bad thread", error, threadID, statusPtr);
 		return error;
 	}
 
@@ -1140,7 +1140,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 	{
 		if (wantedSize > THREADINFO_SIZE_AFTER_260)
 		{
-			ERROR_LOG(HLE, "sceKernelReferThreadStatus Error %08x", SCE_KERNEL_ERROR_ILLEGAL_SIZE);
+			ERROR_LOG(HLE, "%08x=sceKernelReferThreadStatus(%i, %08x): bad size %d", SCE_KERNEL_ERROR_ILLEGAL_SIZE, threadID, statusPtr, wantedSize);
 			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
 		}
 
