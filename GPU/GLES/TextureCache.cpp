@@ -1031,8 +1031,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			int len = std::max(bufw, w) * h;
 			tmpTexBuf16.resize(len);
 			tmpTexBufRearrange.resize(len);
-			for (int i = 0; i < len; i++)
-				tmpTexBuf16[i] = Memory::ReadUnchecked_U16(texaddr + i * 2);
+			Memory::Memcpy(tmpTexBuf16.data(), texaddr, len * sizeof(u16));
 			finalBuf = tmpTexBuf16.data();
 		}
 		else {
@@ -1047,8 +1046,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			int len = bufw * h;
 			tmpTexBuf32.resize(len);
 			tmpTexBufRearrange.resize(len);
-			for (int i = 0; i < len; i++)
-				tmpTexBuf32[i] = Memory::ReadUnchecked_U32(texaddr + i * 4);
+			Memory::Memcpy(tmpTexBuf32.data(), texaddr, len * sizeof(u32));
 			finalBuf = tmpTexBuf32.data();
 		}
 		else {
