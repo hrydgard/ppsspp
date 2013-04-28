@@ -787,9 +787,7 @@ void TextureCache::SetTexture() {
 			entry->hash != texhash ||
 			entry->format != format ||
 			entry->maxLevel != maxLevel ||
-			(hasClut &&
-			(entry->clutformat != clutformat ||
-				entry->cluthash != Memory::Read_U32(clutaddr)))) 
+			(hasClut && entry->clutformat != clutformat))
 			match = false;
 
 		if (match) {
@@ -874,7 +872,6 @@ void TextureCache::SetTexture() {
 	if (hasClut) {
 		entry->clutformat = clutformat;
 		entry->clutaddr = clutaddr;
-		entry->cluthash = Memory::Read_U32(clutaddr);
 	} else {
 		entry->clutaddr = 0;
 	}
