@@ -18,6 +18,10 @@
 #include <cmath>
 #include <string>
 #include <cstdio>
+// Hack: Harmattan will not compile without this!
+#ifdef MEEGO_EDITION_HARMATTAN
+#include "StringUtil.cpp"
+#endif
 
 #ifdef _WIN32
 namespace MainWindow {
