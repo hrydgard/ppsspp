@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <limits.h>
-#include "Windows/WndMainWindow.h"
 #include "DinputDevice.h"
 #include "Core/Config.h"
 #include "input/input_state.h"
@@ -118,7 +117,6 @@ int DinputDevice::UpdateState(InputState &input_state)
 {
 	if (g_Config.iForceInputDevice == 0) return -1;
 	if (!pJoystick) return -1;
-	if (MainWindow::GetHWND() != GetForegroundWindow()) return -1;
 
 	DIJOYSTATE2 js;
 
