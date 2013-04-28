@@ -33,7 +33,8 @@ void MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelM
 
 	// fake image. To be improved.
 	if (Memory::IsValidAddress(bufferPtr))
-		Memory::Memset(bufferPtr, 0x00, frameWidth * videoHeight_ * bpp);
+		// Use Dark Grey to identify CG is running 
+		Memory::Memset(bufferPtr, 0x69, frameWidth * videoHeight_ * bpp);
 }
 
 void MediaEngine::feedPacketData(u32 addr, int size)
