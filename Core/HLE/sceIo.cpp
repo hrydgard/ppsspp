@@ -818,36 +818,93 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 
 	// UMD checks
 	switch (cmd) {
-	case 0x01F20001:  // Get Disc Type.
-		if (Memory::IsValidAddress(outPtr + 4)) {
-			Memory::Write_U32(0x10, outPtr + 4);  // Game disc
+	case 0x01F20001:  
+		// Get UMD disc type
+		if (Memory::IsValidAddress(outPtr) && outLen >= 8) {
+			Memory::Write_U32(0x10, outPtr + 4);  // Always return game disc (if present)
 			return 0;
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 		}
-		return -1;
-	case 0x01F20002:  // Get last sector number.
-	case 0x01F20003:  // Seems identical?
-		if (Memory::IsValidAddress(outPtr)) {
+		break;
+	case 0x01F20002:  
+		// Get UMD current LBA
+		if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
+			Memory::Write_U32(0x10, outPtr);  // Assume first sector
+			return 0;
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+		}
+		break;
+	case 0x01F20003:
+		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 			PSPFileInfo info = pspFileSystem.GetFileInfo("umd1:");
 			Memory::Write_U32((u32) (info.size / 2048) - 1, outPtr);
 			return 0;
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 		}
-		return -1;
-	case 0x01F100A3:  // Seek
-		// Timing is just a rough guess, probably takes longer.
-		return hleDelayResult(0, "dev seek", 100);
-	case 0x01F100A4:  // Cache
-		return 0;
-	case 0x01F300A5:  // Cache + status
-		if (Memory::IsValidAddress(outPtr)) {
-			Memory::Write_U32(1, outPtr);
+		break;
+	case 0x01F100A3:  
+		// Seek UMD disc (raw)
+		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
+			return hleDelayResult(0, "dev seek", 100);
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+		}
+		break;
+	case 0x01F100A4:  
+		// Prepare UMD data into cache.
+		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
 			return 0;
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 		}
-		return -1;
+		break;
+	case 0x01F300A5:  
+		// Prepare UMD data into cache and get status
+		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
+			Memory::Write_U32(1, outPtr); // Status (unitary index of the requested read, greater or equal to 1)
+			return 0;
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+		}
+		break;
+	case 0x01F300A7:
+		// Wait for the UMD data cache thread
+		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
+			// TODO : 
+			// Place the calling thread in wait state
+			return 0;
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+		}
+		break;
+	case 0x01F300A8:
+		// Poll the UMD data cache thread
+		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
+			// 0 - UMD data cache thread has finished
+			// 0x10 - UMD data cache thread is waiting
+			// 0x20 - UMD data cache thread is running
+			return 0; // Return finished
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+		}
+		break;
+	case 0x01F300A9:
+		// Cancel the UMD data cache thread
+		if (Memory::IsValidAddress(argAddr) && argLen >= 4) {
+			// TODO :
+			// Wake up the thread waiting for the UMD data cache handling.
+			return 0;
+		} else {
+			return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+		}
+		break;
 	// TODO: What does these do?  Seem to require a u32 in, no output.
 	case 0x01F100A6:
 	case 0x01F100A8:
 	case 0x01F100A9:
-	case 0x01F300A7:
 		ERROR_LOG_REPORT(HLE, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
 		return 0;
 	}
@@ -856,10 +913,19 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 
 	if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:"))
 	{
-		switch (cmd)
-		{
-		// does one of these set a callback as well? (see coded arms)
-		case 0x02015804:	// Register callback
+		// MemorySticks Checks
+		switch (cmd) {
+		case 0x02025801:	
+			// Check the MemoryStick's driver status (mscmhc0).
+			if (Memory::IsValidAddress(outPtr)) {
+				Memory::Write_U32(4, outPtr);  // JPSCP: The right return value is 4 for some reason
+				return 0;
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+			}
+			break;
+		case 0x02015804:	
+			// Register MemoryStick's insert/eject callback (mscmhc0)
 			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
 				u32 cbId = Memory::Read_U32(argAddr);
 				if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
@@ -867,12 +933,14 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 					__KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK, cbId, MemoryStick_State());
 					return 0;
 				} else {
-					return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
+					return ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS;
 				}
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
 			break;
-
-		case 0x02025805:	// Unregister callback
+		case 0x02025805:	
+			// Unregister MemoryStick's insert/eject callback (mscmhc0)
 			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
 				u32 cbId = Memory::Read_U32(argAddr);
 				if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
@@ -881,28 +949,25 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				} else {
 					return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 				}
-			}
-			break;
-
-		case 0x02025801:	// Memstick Driver status?
-			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
-				Memory::Write_U32(4, outPtr);  // JPSCP: The right return value is 4 for some reason
-				return 0;
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
-
-		case 0x02025806:	// Memory stick inserted?
-			if (Memory::IsValidAddress(outPtr) && outLen >= 4) {
+			break;
+		case 0x02025806:	
+			// Check if the device is inserted (mscmhc0)
+			if (Memory::IsValidAddress(outPtr)) {
+				// 0 = Not inserted.
+				// 1 = Inserted.
 				Memory::Write_U32(1, outPtr);
 				return 0;
 			} else {
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
-
-		case 0x02425818:  // Get memstick size etc
+			break;
+		case 0x02425818:  
+			// // Get MS capacity (fatms0).
 			// Pretend we have a 2GB memory stick.
-			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // "Should" be outPtr but isn't
+			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
 				u32 pointer = Memory::Read_U32(argAddr);
 				u32 sectorSize = 0x200;
 				u32 memStickSectorSize = 32 * 1024;
@@ -915,13 +980,11 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				deviceSize.sectorSize = sectorSize;
 				deviceSize.sectorCount = sectorCount;
 				Memory::WriteStruct(pointer, &deviceSize);
-				DEBUG_LOG(HLE, "Returned memstick size: maxSectors=%i", deviceSize.maxSectors);
 				return 0;
 			} else {
-				ERROR_LOG_REPORT(HLE, "memstick size query: bad params");
 				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
-
+			break;
 		case 0x02425824:  // Check if write protected
 			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
 				Memory::Write_U32(0, outPtr);
@@ -930,6 +993,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				ERROR_LOG(HLE, "Failed 0x02425824 fat");
 				return -1;
 			}
+			break;
 		}
 	}
 
@@ -948,8 +1012,9 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				}
 			}
 			break;
-		case 0x02415822: // MScmUnregisterMSInsertEjectCallback
+		case 0x02415822: 
 			{
+				// MScmUnregisterMSInsertEjectCallback
 				u32 cbId = Memory::Read_U32(argAddr);
 				if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
 					DEBUG_LOG(HLE, "sceIoDevCtl: Unregistered memstick FAT callback %i", cbId);
@@ -958,8 +1023,9 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 					return -1;
 				}
 			}
-
-		case 0x02415823:  // Set FAT as enabled
+			break;
+		case 0x02415823:  
+			// Set FAT as enabled
 			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
 				MemoryStick_SetFatState((MemStickFatState)Memory::Read_U32(argAddr));
 				return 0;
@@ -968,8 +1034,8 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				return -1;
 			}
 			break;
-
-		case 0x02425823:  // Check if FAT enabled
+		case 0x02425823:  
+			// Check if FAT enabled
 			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
 				Memory::Write_U32(MemoryStick_FatState(), outPtr);
 				return 0;
@@ -978,8 +1044,8 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				return -1;
 			}
 			break;
-
-		case 0x02425824:  // Check if write protected
+		case 0x02425824:  
+			// Check if write protected
 			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
 				Memory::Write_U32(0, outPtr);
 				return 0;
@@ -988,36 +1054,34 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 				return -1;
 			}
 			break;
-
-		case 0x02425818:  // Get memstick size etc
+		case 0x02425818:  
+			// // Get MS capacity (fatms0).
 			// Pretend we have a 2GB memory stick.
-			{
-				if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
-					u32 pointer = Memory::Read_U32(argAddr);
-					u32 sectorSize = 0x200;
-					u32 memStickSectorSize = 32 * 1024;
-					u32 sectorCount = memStickSectorSize / sectorSize;
-					u64 freeSize = 1 * 1024 * 1024 * 1024;
-					DeviceSize deviceSize;
-					deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
-					deviceSize.freeClusters = deviceSize.maxClusters;
-					deviceSize.maxSectors = deviceSize.maxClusters;
-					deviceSize.sectorSize = sectorSize;
-					deviceSize.sectorCount = sectorCount;
-					Memory::WriteStruct(pointer, &deviceSize);
-					return 0;
-				} else {
-					return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
-				}
+			if (Memory::IsValidAddress(argAddr) && argLen >= 4) {  // NOTE: not outPtr
+				u32 pointer = Memory::Read_U32(argAddr);
+				u32 sectorSize = 0x200;
+				u32 memStickSectorSize = 32 * 1024;
+				u32 sectorCount = memStickSectorSize / sectorSize;
+				u64 freeSize = 1 * 1024 * 1024 * 1024;
+				DeviceSize deviceSize;
+				deviceSize.maxClusters = (u32)((freeSize  * 95 / 100) / (sectorSize * sectorCount));
+				deviceSize.freeClusters = deviceSize.maxClusters;
+				deviceSize.maxSectors = deviceSize.maxClusters;
+				deviceSize.sectorSize = sectorSize;
+				deviceSize.sectorCount = sectorCount;
+				Memory::WriteStruct(pointer, &deviceSize);
+				return 0;
+			} else {
+				return ERROR_MEMSTICK_DEVCTL_BAD_PARAMS;
 			}
+			break;
 		}
 	}
 
 	if (!strcmp(name, "kemulator:") || !strcmp(name, "emulator:"))
 	{
 		// Emulator special tricks!
-		switch (cmd)
-		{
+		switch (cmd) {
 		case 1:	// EMULATOR_DEVCTL__GET_HAS_DISPLAY
 			if (Memory::IsValidAddress(outPtr))
 				Memory::Write_U32(0, outPtr);	 // TODO: Make a headless mode for running tests!
@@ -1064,10 +1128,7 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 	//089c6d1c weird branch
 	/*
 	089c6bdc ]: HLE: sceKernelCreateCallback(name= MemoryStick Detection ,entry= 089c7484 ) (z_un_089c6bc4)
-	089c6c18 ]: HLE: sceIoDevctl("mscmhc0:", 02015804, 09ffb9c0, 4, 00000000, 0) (z_un_089c6bc4)
 	089c6c40 ]: HLE: sceKernelCreateCallback(name= MemoryStick Assignment ,entry= 089c7534 ) (z_un_089c6bc4)
-	089c6c78 ]: HLE: sceIoDevctl("fatms0:", 02415821, 09ffb9c4, 4, 00000000, 0) (z_un_089c6bc4)
-	089c6cac ]: HLE: sceIoDevctl("mscmhc0:", 02025806, 00000000, 0, 09ffb9c8, 4) (z_un_089c6bc4)
 	*/
 	return SCE_KERNEL_ERROR_UNSUP;
 }
