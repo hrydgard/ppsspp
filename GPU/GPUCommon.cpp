@@ -373,8 +373,6 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	//	return false;
 
 	currentList = &list;
-	u32 op = 0;
-	gpuState = GPUSTATE_RUNNING;
 
 	// I don't know if this is the correct place to zero this, but something
 	// need to do it. See Sol Trigger title screen.
@@ -396,6 +394,8 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
 	list.state = PSP_GE_DL_STATE_RUNNING;
 	list.interrupted = false;
+
+	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 
 	const bool dumpThisFrame = dumpThisFrame_;
 	// TODO: Add check for displaylist debugger.
