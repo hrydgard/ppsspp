@@ -212,6 +212,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceKernelTime.cpp \
   $(SRC)/Core/HLE/sceKernelVTimer.cpp \
   $(SRC)/Core/HLE/sceMpeg.cpp \
+  $(SRC)/Core/HLE/sceMp4.cpp \
   $(SRC)/Core/HLE/sceNet.cpp \
   $(SRC)/Core/HLE/sceOpenPSID.cpp \
   $(SRC)/Core/HLE/sceP3da.cpp \
