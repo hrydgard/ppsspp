@@ -430,7 +430,8 @@ bool GPUCommon::InterpretList(DisplayList &list)
 		list.pc += 4;
 	}
 
-	UpdateCycles(list.pc - 4, list.pc);
+	// We haven't run the op at list.pc, so it shouldn't count.
+	UpdatePC(list.pc - 4, list.pc);
 
 	if (g_Config.bShowDebugStats)
 	{
@@ -440,11 +441,17 @@ bool GPUCommon::InterpretList(DisplayList &list)
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
-inline void GPUCommon::UpdateCycles(u32 pc, u32 newPC)
+// The newPC parameter is used for jumps, we don't count cycles between.
+inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC)
 {
 	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
-	cyclesExecuted += 2 * (pc - cycleLastPC) / 4;
-	cycleLastPC = newPC == 0 ? pc : newPC;
+	cyclesExecuted += 2 * (currentPC - cycleLastPC) / 4;
+	cycleLastPC = newPC == 0 ? currentPC : newPC;
+}
+
+inline void GPUCommon::UpdateState(GPUState state)
+{
+	gpuState = state;
 }
 
 bool GPUCommon::ProcessDLQueue()
@@ -509,7 +516,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		{
 			u32 target = gstate_c.getRelativeAddress(data);
 			if (Memory::IsValidAddress(target)) {
-				UpdateCycles(currentList->pc, target - 4);
+				UpdatePC(currentList->pc, target - 4);
 				currentList->pc = target - 4; // pc will be increased after we return, counteract that
 			} else {
 				ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, data);
@@ -530,7 +537,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				auto &stackEntry = currentList->stack[currentList->stackptr++];
 				stackEntry.pc = retval;
 				stackEntry.offsetAddr = gstate_c.offsetAddr;
-				UpdateCycles(currentList->pc, target - 4);
+				UpdatePC(currentList->pc, target - 4);
 				currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 			}
 		}
@@ -544,11 +551,11 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				auto &stackEntry = currentList->stack[--currentList->stackptr];
 				gstate_c.offsetAddr = stackEntry.offsetAddr;
 				u32 target = (currentList->pc & 0xF0000000) | (stackEntry.pc & 0x0FFFFFFF);
-				UpdateCycles(currentList->pc, target - 4);
+				UpdatePC(currentList->pc, target - 4);
 				currentList->pc = target - 4;
 				if (!Memory::IsValidAddress(currentList->pc)) {
 					ERROR_LOG_REPORT(G3D, "Invalid DL PC %08x on return", currentList->pc);
-					gpuState = GPUSTATE_ERROR;
+					UpdateState(GPUSTATE_ERROR);
 				}
 			}
 		}
@@ -561,7 +568,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_END: {
 		u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
-		UpdateCycles(currentList->pc);
+		UpdatePC(currentList->pc);
 		switch (prev >> 24) {
 		case GE_CMD_SIGNAL:
 			{
@@ -601,7 +608,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 						if (!Memory::IsValidAddress(target)) {
 							ERROR_LOG_REPORT(G3D, "Signal with Jump: bad address. signal/end: %04x %04x", signal, enddata);
 						} else {
-							UpdateCycles(currentList->pc, target);
+							UpdatePC(currentList->pc, target);
 							currentList->pc = target;
 							DEBUG_LOG(G3D, "Signal with Jump. signal/end: %04x %04x", signal, enddata);
 						}
@@ -622,7 +629,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 							auto &stackEntry = currentList->stack[currentList->stackptr++];
 							stackEntry.pc = currentList->pc;
 							stackEntry.offsetAddr = gstate_c.offsetAddr;
-							UpdateCycles(currentList->pc, target);
+							UpdatePC(currentList->pc, target);
 							currentList->pc = target;
 							DEBUG_LOG(G3D, "Signal with Call. signal/end: %04x %04x", signal, enddata);
 						}
@@ -638,7 +645,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 							// TODO: This might save/restore other state...
 							auto &stackEntry = currentList->stack[--currentList->stackptr];
 							gstate_c.offsetAddr = stackEntry.offsetAddr;
-							UpdateCycles(currentList->pc, stackEntry.pc);
+							UpdatePC(currentList->pc, stackEntry.pc);
 							currentList->pc = stackEntry.pc;
 							DEBUG_LOG(G3D, "Signal with Return. signal/end: %04x %04x", signal, enddata);
 						}
@@ -651,7 +658,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
 				if (interruptsEnabled_ && trigger) {
 					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted))
-						gpuState = GPUSTATE_INTERRUPT;
+						UpdateState(GPUSTATE_INTERRUPT);
 				}
 			}
 			break;
@@ -660,7 +667,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			case PSP_GE_SIGNAL_HANDLER_PAUSE:
 				if (interruptsEnabled_) {
 					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted))
-						gpuState = GPUSTATE_INTERRUPT;
+						UpdateState(GPUSTATE_INTERRUPT);
 				}
 				break;
 
@@ -672,7 +679,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			default:
 				currentList->subIntrToken = prev & 0xFFFF;
 				currentList->state = PSP_GE_DL_STATE_COMPLETED;
-				gpuState = GPUSTATE_DONE;
+				UpdateState(GPUSTATE_DONE);
 				if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
 					currentList->waitTicks = startingTicks + cyclesExecuted;
 					busyTicks = std::max(busyTicks, currentList->waitTicks);

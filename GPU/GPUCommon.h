@@ -30,7 +30,8 @@ public:
 	virtual u32  Break(int mode);
 
 protected:
-	void UpdateCycles(u32 pc, u32 newPC = 0);
+	void UpdatePC(u32 currentPC, u32 newPC = 0);
+	void UpdateState(GPUState state);
 	void PopDLQueue();
 	void CheckDrawSync();
 
