@@ -1717,6 +1717,8 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	//grab mips regs
 	SceUID id;
 	Thread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
+	if (thread->stackBlock == 0)
+		ERROR_LOG_REPORT(HLE, "Unable to allocate stack for root thread.");
 	__KernelResetThread(thread);
 
 	Thread *prevThread = __GetCurrentThread();
@@ -1752,16 +1754,30 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		stacksize = 0x4000;
 	}
 	if (prio < 0x08 || prio > 0x77)
+	{
 		WARN_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): bogus priority %08x", threadName, prio);
+		prio = prio < 0x08 ? 0x08 : 0x77;
+	}
 	if (!Memory::IsValidAddress(entry))
-		WARN_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): invalid entry %08x", threadName, entry);
+	{
+		ERROR_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): invalid entry %08x", threadName, entry);
+		// The PSP firmware seems to allow NULL...?
+		if (entry != 0)
+			return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
 
 	// We're assuming all threads created are user threads.
 	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0)
 		attr |= PSP_THREAD_ATTR_USER;
 
 	SceUID id;
-	__KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
+	Thread *newThread = __KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
+	if (newThread->stackBlock == 0)
+	{
+		ERROR_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): out of memory, %08x stack requested", threadName, stacksize);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
+
 	INFO_LOG(HLE, "%i=sceKernelCreateThread(name=%s, entry=%08x, prio=%x, stacksize=%i)", id, threadName, entry, prio, stacksize);
 	if (optionAddr != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): unsupported options parameter %08x", threadName, optionAddr);
