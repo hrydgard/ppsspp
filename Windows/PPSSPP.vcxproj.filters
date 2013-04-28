@@ -201,6 +201,7 @@
       <Filter>Windows</Filter>
     </None>
     <None Include="git-version-gen.cmd" />
+    <None Include="pspmode.png" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">
