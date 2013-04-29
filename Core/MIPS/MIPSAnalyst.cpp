@@ -317,7 +317,7 @@ namespace MIPSAnalyst
 		{
 			Function &f=*iter;
 			u32 hash = 0x1337babe;
-			for (u32 addr = f.start; addr <= f.end; addr++)
+			for (u32 addr = f.start; addr <= f.end; addr += 4)
 			{
 				u32 validbits = 0xFFFFFFFF;
 				u32 instr = Memory::Read_Instruction(addr);
