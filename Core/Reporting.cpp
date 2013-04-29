@@ -42,6 +42,60 @@ namespace Reporting
 	// Temporarily stores a reference to the hostname.
 	static std::string lastHostname;
 
+	struct UrlEncoder
+	{
+		UrlEncoder() : paramCount(0)
+		{
+			data.reserve(256);
+		};
+
+		void Add(const std::string &key, const std::string &value)
+		{
+			if (++paramCount > 1)
+				data += '&';
+			AppendEscaped(key);
+			data += '=';
+			AppendEscaped(value);
+		}
+
+		// Percent encoding, aka application/x-www-form-urlencoded.
+		void AppendEscaped(const std::string &value)
+		{
+			for (size_t lastEnd = 0; lastEnd < value.length(); )
+			{
+				size_t pos = value.find_first_not_of(unreservedChars, lastEnd);
+				if (pos == value.npos)
+				{
+					data += value.substr(lastEnd);
+					break;
+				}
+
+				if (pos != lastEnd)
+					data += value.substr(lastEnd, pos - lastEnd);
+				lastEnd = pos;
+
+				// Encode the reserved character.
+				char c = value[pos];
+				data += '%';
+				data += hexChars[(c >> 4) & 15];
+				data += hexChars[(c >> 0) & 15];
+				++lastEnd;
+			}
+		}
+
+		std::string &ToString()
+		{
+			return data;
+		}
+
+		std::string data;
+		int paramCount;
+		static const char *unreservedChars;
+		static const char *hexChars;
+	};
+	const char *UrlEncoder::unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
+	const char *UrlEncoder::hexChars = "0123456789ABCDEF";
+
 	enum RequestType
 	{
 		MESSAGE,
@@ -145,34 +199,37 @@ namespace Reporting
 		return result;
 	}
 
+	std::string StripTrailingNull(const std::string &str)
+	{
+		size_t pos = str.find_first_of('\0');
+		if (pos != str.npos)
+			return str.substr(0, pos);
+		return str;
+	}
+
 	int Process(int pos)
 	{
 		Payload &payload = payloadBuffer[pos];
 
-		const int PARAM_BUFFER_SIZE = 4096;
-		char temp[PARAM_BUFFER_SIZE];
-
 		std::string gpuInfo;
 		gpu->GetReportingInfo(gpuInfo);
 
-		// TODO: Need to escape these values, add more.
-		snprintf(temp, PARAM_BUFFER_SIZE - 1, "version=%s&game=%s_%s&game_title=%s&gpu=%s",
-			PPSSPP_GIT_VERSION,
-			g_paramSFO.GetValueString("DISC_ID").c_str(),
-			g_paramSFO.GetValueString("DISC_VERSION").c_str(),
-			g_paramSFO.GetValueString("TITLE").c_str(),
-			gpuInfo.c_str());
+		UrlEncoder postdata;
+		postdata.Add("version", PPSSPP_GIT_VERSION);
+		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
+		postdata.Add("game", StripTrailingNull(g_paramSFO.GetValueString("DISC_ID")) + "_" + StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION")));
+		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
+		postdata.Add("gpu", gpuInfo);
 
-		std::string data;
 		switch (payload.type)
 		{
 		case MESSAGE:
-			// TODO: Escape.
-			data = std::string(temp) + "&message=" + payload.string1 + "&value=" + payload.string2;
+			postdata.Add("message", payload.string1);
+			postdata.Add("value", payload.string2);
 			payload.string1.clear();
 			payload.string2.clear();
 
-			SendReportRequest("/report/message", data);
+			SendReportRequest("/report/message", postdata.ToString());
 			break;
 		}
 
