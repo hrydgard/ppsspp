@@ -389,7 +389,15 @@ void PauseScreen::render() {
 	if (ginfo && ginfo->iconTexture) {
 		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 1.5));
 		ginfo->iconTexture->Bind(0);
-		ui_draw2d.DrawTexRect(10,10,10+144, 10+80, 0,0,1,1,0xFFFFFFFF);
+
+		// Maintain the icon's aspect ratio.  Minis are square, for example.
+		float iconAspect = (float)ginfo->iconTexture->Width() / (float)ginfo->iconTexture->Height();
+		float h = 80.0f;
+		float w = 144.0f;
+		float x = 10.0f + (w - h * iconAspect) / 2.0f;
+		w = h * iconAspect;
+
+		ui_draw2d.DrawTexRect(x, 10, x + w, 10 + h, 0, 0, 1, 1, 0xFFFFFFFF);
 		ui_draw2d.Flush();
 		ctx->RebindTexture();
 	}
