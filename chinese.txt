@@ -1,279 +1,250 @@
 ﻿The font file maker will add all the characters present in this file. It will ignore all non Chinese characters as we have and know them already.
 
+《现代汉语常用字表》常用字（2500字）
 
-I just took the two translation and some random stuff from our Chinese forum.
-试过几个版本的PPSSPP都这样，读取即时存档的话，战斗画面就会直接跳过，也就是A高达攻击B高达，确认开战，黑屏一秒（或卡顿一秒）就显示双方扣了多少血。
-如果游戏从头开始或通过内置存档读取来开始就不会这样，但这样就不能在战斗过程存档，必须整关过了才能再存档。
-即时存档可以保存进度，但一旦用了即时存档，以后重新进入游戏就不再显示战斗动画。
-如果第一次用了即时存档但不退出游戏，还是可以继续有战斗动画，直到下一次进入游戏为止。
-大家有遇到这种情况吗？求解决方法
-phone:LENOVO Lephone K860
-cpu:三星猎户座（1.4赫兹）4412
-game:初音未来 歌姬计划ex；初音未来 歌姬计划2
-problem:虽然其他手机玩初音未来几乎完美，但是我的手机还有一些问题：画面与音频不同步，游戏时按动按钮时画面可以立即做出反应，但声音不行。对于音乐类游戏，这​样的情况是无法进行游戏的。
-刚刚来到这个论坛，希望大神们多多包含，欢迎登陆中国社区：http://tieba.baidu.com/f?kw=ppsspp&fr=wap&ie=utf-8
-以前玩jpcsp的时候就发现，用AMP引擎制作的自制游戏比如《铃音之歌 初音之声》，这些游戏的BGM是一些MP3或者WAV文件。虽然只是MP3或者WAV，但是jpcsp就是无法播放出这些MP3或者WAV。
-也用PPSSPP试过了，玩《铃音之歌 初音之声》还是没有声音。这也许是开发者没有考虑到这些自制游戏。（其实我并不想开发者在这些游戏上浪费太多时间，因为这些游戏基本上都是从PC上移植过来的，可以用电脑​玩原版的游戏）
+一画
+一乙
 
-造成没有声音的另一种原因可能是因为这些自制游戏更像是PSP的自制软件，jpcsp对PSP自制软件的支持本来就不怎样。
-事实上这些游戏的确可能会和其他PSP的自制软件冲突，并造成无声，黑屏，卡死等问题
-另外，用jpcsp可能不能直接运行这些游戏，你必须把ISO给解压，然后以载入文件的方式加载游戏的EBOOT.BIN或者EBOOT.PBP，也可以把解压出来的文件​夹SYSDIR扔到ms0\PSP\GAME里面然后以装载记忆棒的方式加载这个游戏。（如果你这样做，你会发现USRDIR里面竟然是空的，所有文件都在SYSDIR里​面。游戏用到的字体是ttf文件而不是pgf）
-还有一点，因为是自制游戏，所以这些游戏没有所谓的游戏ID，连存档都是直接保存到ms0\PSP里面，这也导致了多个自制游戏的存档不能共存。不过这些游戏的存档模拟器​和实体机共用，只要简单的改一下文件名就可以在模拟器和实体机之间相互转移存档。
-差的忘了，《铃音之歌 初音之声》可以在这里下载：
+二画
+二十丁厂七卜人入八九几儿了力乃刀又
 
+三画
+三于干亏士工土才寸下大丈与万上小口巾山千乞川亿个勺久凡及夕丸么广
+亡门义之尸弓己已子卫也女飞刃习叉马乡
+
+
+四画
+丰王井开夫天无元专云扎艺木五支厅不太犬区历尤友匹车巨牙屯比互切瓦
+止少日中冈贝内水见午牛手毛气升长仁什片仆化仇币仍仅斤爪反介父从今
+凶分乏公仓月氏勿欠风丹匀乌凤勾文六方火为斗忆订计户认心尺引丑巴孔
+队办以允予劝双书幻
+
+五画
+玉刊示末未击打巧正扑扒功扔去甘世古节本术可丙左厉右石布龙平灭轧东
+卡北占业旧帅归且旦目叶甲申叮电号田由史只央兄叼叫另叨叹四生失禾丘
+付仗代仙们仪白仔他斥瓜乎丛令用甩印乐句匆册犯外处冬鸟务包饥主市立
+闪兰半汁汇头汉宁穴它讨写让礼训必议讯记永司尼民出辽奶奴加召皮边发
+孕圣对台矛纠母幼丝
+
+六画
+式刑动扛寺吉扣考托老执巩圾扩扫地扬场耳共芒亚芝朽朴机权过臣再协西
+压厌在有百存而页匠夸夺灰达列死成夹轨邪划迈毕至此贞师尘尖劣光当早
+吐吓虫曲团同吊吃因吸吗屿帆岁回岂刚则肉网年朱先丢舌竹迁乔伟传乒乓
+休伍伏优伐延件任伤价份华仰仿伙伪自血向似后行舟全会杀合兆企众爷伞
+创肌朵杂危旬旨负各名多争色壮冲冰庄庆亦刘齐交次衣产决充妄闭问闯羊
+并关米灯州汗污江池汤忙兴宇守宅字安讲军许论农讽设访寻那迅尽导异孙
+阵阳收阶阴防奸如妇好她妈戏羽观欢买红纤级约纪驰巡
+
+七画
+寿弄麦形进戒吞远违运扶抚坛技坏扰拒找批扯址走抄坝贡攻赤折抓扮抢孝
+均抛投坟抗坑坊抖护壳志扭块声把报却劫芽花芹芬苍芳严芦劳克苏杆杠杜
+材村杏极李杨求更束豆两丽医辰励否还歼来连步坚旱盯呈时吴助县里呆园
+旷围呀吨足邮男困吵串员听吩吹呜吧吼别岗帐财针钉告我乱利秃秀私每兵
+估体何但伸作伯伶佣低你住位伴身皂佛近彻役返余希坐谷妥含邻岔肝肚肠
+龟免狂犹角删条卵岛迎饭饮系言冻状亩况床库疗应冷这序辛弃冶忘闲间闷
+判灶灿弟汪沙汽沃泛沟没沈沉怀忧快完宋宏牢究穷灾良证启评补初社识诉
+诊词译君灵即层尿尾迟局改张忌际陆阿陈阻附妙妖妨努忍劲鸡驱纯纱纳纲
+驳纵纷纸纹纺驴纽
+
+八画
+奉玩环武青责现表规抹拢拔拣担坦押抽拐拖拍者顶拆拥抵拘势抱垃拉拦拌
+幸招坡披拨择抬其取苦若茂苹苗英范直茄茎茅林枝杯柜析板松枪构杰述枕
+丧或画卧事刺枣雨卖矿码厕奔奇奋态欧垄妻轰顷转斩轮软到非叔肯齿些虎
+虏肾贤尚旺具果味昆国昌畅明易昂典固忠咐呼鸣咏呢岸岩帖罗帜岭凯败贩
+购图钓制知垂牧物乖刮秆和季委佳侍供使例版侄侦侧凭侨佩货依的迫质欣
+征往爬彼径所舍金命斧爸采受乳贪念贫肤肺肢肿胀朋股肥服胁周昏鱼兔狐
+忽狗备饰饱饲变京享店夜庙府底剂郊废净盲放刻育闸闹郑券卷单炒炊炕炎
+炉沫浅法泄河沾泪油泊沿泡注泻泳泥沸波泼泽治怖性怕怜怪学宝宗定宜审
+宙官空帘实试郎诗肩房诚衬衫视话诞询该详建肃录隶居届刷屈弦承孟孤陕
+降限妹姑姐姓始驾参艰线练组细驶织终驻驼绍经贯
+
+九画
+奏春帮珍玻毒型挂封持项垮挎城挠政赴赵挡挺括拴拾挑指垫挣挤拼挖按挥
+挪某甚革荐巷带草茧茶荒茫荡荣故胡南药标枯柄栋相查柏柳柱柿栏树要咸
+威歪研砖厘厚砌砍面耐耍牵残殃轻鸦皆背战点临览竖省削尝是盼眨哄显哑
+冒映星昨畏趴胃贵界虹虾蚁思蚂虽品咽骂哗咱响哈咬咳哪炭峡罚贱贴骨钞
+钟钢钥钩卸缸拜看矩怎牲选适秒香种秋科重复竿段便俩贷顺修保促侮俭俗
+俘信皇泉鬼侵追俊盾待律很须叙剑逃食盆胆胜胞胖脉勉狭狮独狡狱狠贸怨
+急饶蚀饺饼弯将奖哀亭亮度迹庭疮疯疫疤姿亲音帝施闻阀阁差养美姜叛送
+类迷前首逆总炼炸炮烂剃洁洪洒浇浊洞测洗活派洽染济洋洲浑浓津恒恢恰
+恼恨举觉宣室宫宪突穿窃客冠语扁袄祖神祝误诱说诵垦退既屋昼费陡眉孩
+除险院娃姥姨姻娇怒架贺盈勇怠柔垒绑绒结绕骄绘给络骆绝绞统
+
+十画
+耕耗艳泰珠班素蚕顽盏匪捞栽捕振载赶起盐捎捏埋捉捆捐损都哲逝捡换挽
+热恐壶挨耻耽恭莲莫荷获晋恶真框桂档桐株桥桃格校核样根索哥速逗栗配
+翅辱唇夏础破原套逐烈殊顾轿较顿毙致柴桌虑监紧党晒眠晓鸭晃晌晕蚊哨
+哭恩唤啊唉罢峰圆贼贿钱钳钻铁铃铅缺氧特牺造乘敌秤租积秧秩称秘透笔
+笑笋债借值倚倾倒倘俱倡候俯倍倦健臭射躬息徒徐舰舱般航途拿爹爱颂翁
+脆脂胸胳脏胶脑狸狼逢留皱饿恋桨浆衰高席准座脊症病疾疼疲效离唐资凉
+站剖竞部旁旅畜阅羞瓶拳粉料益兼烤烘烦烧烛烟递涛浙涝酒涉消浩海涂浴
+浮流润浪浸涨烫涌悟悄悔悦害宽家宵宴宾窄容宰案请朗诸读扇袜袖袍被祥
+课谁调冤谅谈谊剥恳展剧屑弱陵陶陷陪娱娘通能难预桑绢绣验继
+
+十一画
+球理捧堵描域掩捷排掉堆推掀授教掏掠培接控探据掘职基著勒黄萌萝菌菜
+萄菊萍菠营械梦梢梅检梳梯桶救副票戚爽聋袭盛雪辅辆虚雀堂常匙晨睁眯
+眼悬野啦晚啄距跃略蛇累唱患唯崖崭崇圈铜铲银甜梨犁移笨笼笛符第敏做
+袋悠偿偶偷您售停偏假得衔盘船斜盒鸽悉欲彩领脚脖脸脱象够猜猪猎猫猛
+馅馆凑减毫麻痒痕廊康庸鹿盗章竟商族旋望率着盖粘粗粒断剪兽清添淋淹
+渠渐混渔淘液淡深婆梁渗情惜惭悼惧惕惊惨惯寇寄宿窑密谋谎祸谜逮敢屠
+弹随蛋隆隐婚婶颈绩绪续骑绳维绵绸绿
+
+十二画
+琴斑替款堪搭塔越趁趋超提堤博揭喜插揪搜煮援裁搁搂搅握揉斯期欺联散
+惹葬葛董葡敬葱落朝辜葵棒棋植森椅椒棵棍棉棚棕惠惑逼厨厦硬确雁殖裂
+雄暂雅辈悲紫辉敞赏掌晴暑最量喷晶喇遇喊景践跌跑遗蛙蛛蜓喝喂喘喉幅
+帽赌赔黑铸铺链销锁锄锅锈锋锐短智毯鹅剩稍程稀税筐等筑策筛筒答筋筝
+傲傅牌堡集焦傍储奥街惩御循艇舒番释禽腊脾腔鲁猾猴然馋装蛮就痛童阔
+善羡普粪尊道曾焰港湖渣湿温渴滑湾渡游滋溉愤慌惰愧愉慨割寒富窜窝窗
+遍裕裤裙谢谣谦属屡强粥疏隔隙絮嫂登缎缓编骗缘
+
+十三画
+瑞魂肆摄摸填搏塌鼓摆携搬摇搞塘摊蒜勤鹊蓝墓幕蓬蓄蒙蒸献禁楚想槐榆
+楼概赖酬感碍碑碎碰碗碌雷零雾雹输督龄鉴睛睡睬鄙愚暖盟歇暗照跨跳跪
+路跟遣蛾蜂嗓置罪罩错锡锣锤锦键锯矮辞稠愁筹签简毁舅鼠催傻像躲微愈
+遥腰腥腹腾腿触解酱痰廉新韵意粮数煎塑慈煤煌满漠源滤滥滔溪溜滚滨粱
+滩慎誉塞谨福群殿辟障嫌嫁叠缝缠
+
+十四画
+静碧璃墙撇嘉摧截誓境摘摔聚蔽慕暮蔑模榴榜榨歌遭酷酿酸磁愿需弊裳颗
+嗽蜻蜡蝇蜘赚锹锻舞稳算箩管僚鼻魄貌膜膊膀鲜疑馒裹敲豪膏遮腐瘦辣竭
+端旗精歉熄熔漆漂漫滴演漏慢寨赛察蜜谱嫩翠熊凳骡缩
+
+十五画
+慧撕撒趣趟撑播撞撤增聪鞋蕉蔬横槽樱橡飘醋醉震霉瞒题暴瞎影踢踏踩踪
+蝶蝴嘱墨镇靠稻黎稿稼箱箭篇僵躺僻德艘膝膛熟摩颜毅糊遵潜潮懂额慰劈
+
+十六画
+操燕薯薪薄颠橘整融醒餐嘴蹄器赠默镜赞篮邀衡膨雕磨凝辨辩糖糕燃澡激
+懒壁避缴
+
+十七画
+戴擦鞠藏霜霞瞧蹈螺穗繁辫赢糟糠燥臂翼骤
+
+十八画
+鞭覆蹦镰翻鹰
+
+十九画
+警攀蹲颤瓣爆疆
+
+二十画
+壤耀躁嚼嚷籍魔灌
+
+二十一画
+蠢霸露
+
+二十二画
+囊
+
+
+二十三画
+罐
+
+
+《现代汉语常用字表》次常用字（1000）
+
+二画
+匕刁
+
+四画
+丐歹戈夭仑讥冗邓
+
+五画
+艾夯凸卢叭叽皿凹囚矢乍尔冯玄
+
+六画
+邦迂邢芋芍吏夷吁吕吆屹廷迄臼仲伦伊肋旭匈凫妆亥汛讳讶讹讼诀弛阱驮
+驯纫
+
+七画
+玖玛韧抠扼汞扳抡坎坞抑拟抒芙芜苇芥芯芭杖杉巫杈甫匣轩卤肖吱吠呕呐
+吟呛吻吭邑囤吮岖牡佑佃伺囱肛肘甸狈鸠彤灸刨庇吝庐闰兑灼沐沛汰沥沦
+汹沧沪忱诅诈罕屁坠妓姊妒纬
+
+八画
+玫卦坷坯拓坪坤拄拧拂拙拇拗茉昔苛苫苟苞茁苔枉枢枚枫杭郁矾奈奄殴歧
+卓昙哎咕呵咙呻咒咆咖帕账贬贮氛秉岳侠侥侣侈卑刽刹肴觅忿瓮肮肪狞庞
+疟疙疚卒氓炬沽沮泣泞泌沼怔怯宠宛衩祈诡帚屉弧弥陋陌函姆虱叁绅驹绊
+绎
+
+九画
+契贰玷玲珊拭拷拱挟垢垛拯荆茸茬荚茵茴荞荠荤荧荔栈柑栅柠枷勃柬砂泵
+砚鸥轴韭虐昧盹咧昵昭盅勋哆咪哟幽钙钝钠钦钧钮毡氢秕俏俄俐侯徊衍胚
+胧胎狰饵峦奕咨飒闺闽籽娄烁炫洼柒涎洛恃恍恬恤宦诫诬祠诲屏屎逊陨姚
+娜蚤骇
+
+十画
+耘耙秦匿埂捂捍袁捌挫挚捣捅埃耿聂荸莽莱莉莹莺梆栖桦栓桅桩贾酌砸砰
+砾殉逞哮唠哺剔蚌蚜畔蚣蚪蚓哩圃鸯唁哼唆峭唧峻赂赃钾铆氨秫笆俺赁倔
+殷耸舀豺豹颁胯胰脐脓逛卿鸵鸳馁凌凄衷郭斋疹紊瓷羔烙浦涡涣涤涧涕涩
+悍悯窍诺诽袒谆祟恕娩骏
+
+十一画
+琐麸琉琅措捺捶赦埠捻掐掂掖掷掸掺勘聊娶菱菲萎菩萤乾萧萨菇彬梗梧梭
+曹酝酗厢硅硕奢盔匾颅彪眶晤曼晦冕啡畦趾啃蛆蚯蛉蛀唬啰唾啤啥啸崎逻
+崔崩婴赊铐铛铝铡铣铭矫秸秽笙笤偎傀躯兜衅徘徙舶舷舵敛翎脯逸凰猖祭
+烹庶庵痊阎阐眷焊焕鸿涯淑淌淮淆渊淫淳淤淀涮涵惦悴惋寂窒谍谐裆袱祷
+谒谓谚尉堕隅婉颇绰绷综绽缀巢
+
+十二画
+琳琢琼揍堰揩揽揖彭揣搀搓壹搔葫募蒋蒂韩棱椰焚椎棺榔椭粟棘酣酥硝硫
+颊雳翘凿棠晰鼎喳遏晾畴跋跛蛔蜒蛤鹃喻啼喧嵌赋赎赐锉锌甥掰氮氯黍筏
+牍粤逾腌腋腕猩猬惫敦痘痢痪竣翔奠遂焙滞湘渤渺溃溅湃愕惶寓窖窘雇谤
+犀隘媒媚婿缅缆缔缕骚
+
+十三画
+瑟鹉瑰搪聘斟靴靶蓖蒿蒲蓉楔椿楷榄楞楣酪碘硼碉辐辑频睹睦瞄嗜嗦暇畸
+跷跺蜈蜗蜕蛹嗅嗡嗤署蜀幌锚锥锨锭锰稚颓筷魁衙腻腮腺鹏肄猿颖煞雏馍
+馏禀痹廓痴靖誊漓溢溯溶滓溺寞窥窟寝褂裸谬媳嫉缚缤剿
+
+十四画
+赘熬赫蔫摹蔓蔗蔼熙蔚兢榛榕酵碟碴碱碳辕辖雌墅嘁踊蝉嘀幔镀舔熏箍箕
+箫舆僧孵瘩瘟彰粹漱漩漾慷寡寥谭褐褪隧嫡缨
+
+十五画
+撵撩撮撬擒墩撰鞍蕊蕴樊樟橄敷豌醇磕磅碾憋嘶嘲嘹蝠蝎蝌蝗蝙嘿幢镊镐
+稽篓膘鲤鲫褒瘪瘤瘫凛澎潭潦澳潘澈澜澄憔懊憎翩褥谴鹤憨履嬉豫缭
+
+十六画
+撼擂擅蕾薛薇擎翰噩橱橙瓢蟥霍霎辙冀踱蹂蟆螃螟噪鹦黔穆篡篷篙篱儒膳
+鲸瘾瘸糙燎濒憾懈窿缰
+
+十七画
+壕藐檬檐檩檀礁磷瞭瞬瞳瞪曙蹋蟋蟀嚎赡镣魏簇儡徽爵朦臊鳄糜癌懦豁臀
+
+十八画
+藕藤瞻嚣鳍癞瀑襟璧戳
+
+十九画
+攒孽蘑藻鳖蹭蹬簸簿蟹靡癣羹
+
+二十画
+鬓攘蠕巍鳞糯譬
+
+二十一画
+霹躏髓
+
+二十二画
+蘸镶瓤
+
+二十四画
+矗
+
+
+中文数字与单位
+
+  ①②③④⑤⑥⑦⑧⑨⑩
+〇一二三四五六七八九十百千万亿兆京垓秭穰沟涧正载
+零壹贰叁肆伍陆柒捌玖拾
+洞弌幺么个弍两弎参刀拐杯勾什卄廿念卅卌圩圆进枯桦佰皕仟萬巨億杼尧壤
+分厘毫丝忽微纤沙尘埃渺漠
+纳皮飞阿仄
+奈
+兙兛兞兝兡兣嗧瓩糎
 
 [MainMenu]
-Credits = 开发人员
-Exit = 退出
-Load = 载入...
-Settings = 设置
-Recent = 最近
-[Developer]
-Developer Tools = 开发者工具
-Dump frame to log = 转储帧为日志
-Load language ini = 载入语言配置文件
-Run CPU tests = 运行CPU测试
-Save language ini = 儲存语言配置文件
-[General]
-Up = 向上
-Back = 返回
-[MainSettings]
-Audio = 音频
-AudioDesc = 调整音频设置
-Controls = 控制
-ControlsDesc = 触屏虚拟按钮、大按钮等
-Developer = 开发者
-DeveloperDesc = 运行CPU测试、转储帧为日志等
-Graphics = 图像
-GraphicsDesc = 更改图像选项
-Settings = 设置
-System = 系统
-SystemDesc = 开启动态重新编译 (JIT)、快速闪存等
-[System]
-Dynarec = 动态重新编译 (JIT)
-Fast Memory = 快速闪存 (不稳定)
-Show Debug Statistics = 显示除错信息
-Show FPS = 显示帧率
-System Settings = 系统设置
-Encrypt Save = 加密保存
-12HR Time Format = 12HR时间格式
-Language = 语言配置
-[Audio]
-Audio Settings = 音频设置
-Enable Sound = 开启声音
-[Controls]
-Controls Settings = 控制设置
-OnScreen = 触屏虚拟按钮
-Tilt = 重力感应替代摇杆 (水平方向)
-Large Controls = 大按钮
-Show Analog Stick = 显示摇杆
-[Graphics]
-2X = 2倍渲染分辨率
-Buffered Rendering = 缓冲渲染
-Frame Skipping = 跳帧
-Graphics Settings = 图像设置
-Hardware Transform = 硬件转换
-Linear Filtering = 线性过滤
-Media Engine = 媒体引擎
-Mipmapping = 多级纹理映射 (MipMap)
-Stream VBO =  流式顶点缓冲对象 (Stream VBO)
-Vertex Cache = 顶点缓存
-Stretch to Display = 延伸显示
-Draw Wireframe = 显示帧架
-[Pause]
-Save State = 储存状态
-Load State = 载入状态
-Continue = 继续
-Settings = 设置
-Back to Menu = 返回菜单
-[Dialog]
-New Save = 新的存档
-Yes = 是
-No = 否
-Do you want to overwrite the data? = 你想覆盖的存档吗？
-Saving = 储存中\n请稍候...
-Save completed = 储存完成
-Loading = 载入中\n请稍候...
-There is no data = 没有存档
-DeleteConfirm = 这个存档将被删除。 \n您确定要继续吗？
-Deleting = 删除中\n请稍候...
-Delete completed = 删除完成
-Load completed = 载入完成
-Enter = 决定
-Back = 返回
-Delete = 删除
-Finish = 完成
-Caps = 大写
-
-
-
-[MainMenu]
-Credits = 製作人員
-Exit = 退出
 Load = 載入...
-Settings = 設置
-Recent = 最近
-[Developer]
-Developer Tools = 開發工具
-Dump frame to log = 轉儲日誌
-Load language ini = 載入語言設定
-Run CPU tests = 運行CPU測試
-Save language ini = 儲存語言設定
-[General]
-Up = 向上
-Back = 返回
-[MainSettings]
-Audio = 音頻
-AudioDesc = 調整音頻設置
-Controls = 控制
-ControlsDesc = 觸屏控制, 大按鈕
-Developer = 開發者
-DeveloperDesc = 運行CPU測試, 轉儲日誌
-Graphics = 圖形
-GraphicsDesc = 更改圖形選項
-Settings = 設置
-System = 系統
-SystemDesc = 開啟動態重新編譯(即時編譯), 快速閃存
-[System]
-Dynarec = 動態重新編譯 (即時編譯)
-Fast Memory = 快速閃存 (不穩定)
-Show Debug Statistics = 顯示除錯信息
-Show FPS = 顯示幀數
-System Settings = 系統設置
-Encrypt Save = 加密保存
-12HR Time Format = 12HR時間格式
-Language = 語言設定
-[Audio]
-Audio Settings = 音頻設置
-Enable Sound = 開啟聲音
-[Controls]
-Controls Settings = 控制設置
-OnScreen = 觸屏控制
-Tilt = 重力感應 (水平模式)
-Large Controls = 大按鈕
-Show Analog Stick = 顯示摇杆
-[Graphics]
-2X = 2倍渲染分辨率
-Buffered Rendering = 緩衝渲染
-Frame Skipping = 跳幀
-Graphics Settings = 圖形設置
-Hardware Transform = 硬件轉換
-Linear Filtering = 線性過濾
-Media Engine = 媒體引擎
-Mipmapping = Mipmap貼圖
-Stream VBO = 頂點緩衝對像
-Vertex Cache = 頂點緩存
-Stretch to Display = 延伸顯示
-Draw Wireframe = 顯示幀架
-[Pause]
-Save State = 儲存狀態
-Load State = 載入狀態
-Continue = 繼續
-Settings = 設定
-Back to Menu = 返回菜單
-[Dialog]
-New Save = 新的存檔
-Yes = 是
-No = 否
-Do you want to overwrite the data? = 你想覆蓋的存檔嗎？
-Saving = 儲存中\n請稍候...
-Save completed = 儲存完成
-Loading = 載入中\n請稍候...
-There is no data = 沒有存檔
-DeleteConfirm = 這個存檔將被刪除。\n您確定要繼續嗎？
-Deleting = 刪除中\n請稍候...
-Delete completed = 刪除完成
-Load completed = 載入完成
-Enter = 決定
-Back = 返回
-Delete = 刪除
-Finish = 完成
-Caps = 大寫
-[MainMenu]
-Credits = 开发人员
-Exit = 退出
-Load = 载入...
-Settings = 设置
-Recent = 最近
-[Developer]
-Developer Tools = 开发者工具
-Dump frame to log = 转储帧为日志
-Load language ini = 载入语言配置文件
-Run CPU tests = 运行CPU测试
-Save language ini = 储存语言配置文件
-[General]
-Up = 向上
-Back = 返回
-[MainSettings]
-Audio = 音频
-AudioDesc = 调整音频设置
-Controls = 控制
-ControlsDesc = 触屏虚拟按钮、大按钮等
-Developer = 开发者
-DeveloperDesc = 运行CPU测试、转储帧为日志等
-Graphics = 图像
-GraphicsDesc = 更改图像选项
-Settings = 设置
-System = 系统
-SystemDesc = 开启动态重编译 (JIT)、快速闪存等
-[System]
-Dynarec = 动态重编译 (JIT)
-Fast Memory = 快速闪存 (不稳定)
-Show Debug Statistics = 显示调试信息
-Show FPS = 显示帧率
-System Settings = 系统设置
-Encrypt Save = 加密储存数据
-12HR Time Format = 12小时制
-Language = 界面语言
-[Audio]
-Audio Settings = 音频设置
-Enable Sound = 开启声音
-[Controls]
-Controls Settings = 控制设置
-OnScreen = 触屏虚拟按钮
-Tilt = 重力感应替代摇杆 (水平方向)
-Large Controls = 大按钮
-Show Analog Stick = 显示摇杆
-[Graphics]
-2X = 2倍渲染分辨率
-Buffered Rendering = 缓冲渲染
-Frame Skipping = 跳帧
-Graphics Settings = 图像设置
-Hardware Transform = 硬件转换
-Linear Filtering = 线性过滤
-Media Engine = 媒体引擎
-Mipmapping = 多级纹理映射 (MipMap)
-Stream VBO = 流式顶点缓冲对象 (Stream VBO)
-Vertex Cache = 顶点缓存
-Stretch to Display = 延伸显示
-Draw Wireframe = 显示线框
-[Pause]
-Save State = 储存状态
-Load State = 载入状态
-Continue = 继续
-Settings = 设置
-Back to Menu = 返回菜单
-[Dialog]
-New Save = 新建存档
-Yes = 是
-No = 否
-Do you want to overwrite the data? = 您确定要覆盖这份存档吗？
-Saving = 储存中...
-Save completed = 储存完毕
-Loading = 载入中...
-There is no data = 没有存档
-DeleteConfirm = 您确定要删除这份存档吗？
-Deleting = 删除中\n请稍候...
-Delete completed = 删除完毕
-Load completed = 载入完毕
-Enter = 决定
-Select = 选择
-Back = 返回
-Delete = 删除
-Finish = 完成
-Caps = 大写
-[MainMenu]
-Load = 載入…
 Settings = 設定
 Credits = 製作人員
 Exit = 離開
@@ -282,24 +253,30 @@ Recent = 最近執行的遊戲
 Language = 語言設定
 System Settings = 系統設定
 Dynarec = 動態重新編譯 (JIT)
+DynarecisJailed = 動態重新編譯 (JIT) - 尚未越獄故無法使用
 Fast Memory = 快速記憶體存取 (不穩定)
 Show Debug Statistics = 顯示除錯訊息
 Show FPS = 顯示每秒張數
 Encrypt Save = 加密儲存資料
-12HR Time Format = 12 小時制
+Use Button X to Confirm = 使用按鈕x確認
+12HR Time Format = 使用12小時制
 [Graphics]
-Stretch to Display = 畫面拉伸至全螢幕
-Hardware Transform = 硬體座標轉換
+Stretch to Display = 畫面拉伸
+Hardware Transform = 硬體幾何轉換
 Buffered Rendering = 描繪緩衝
 Frame Skipping = 跳格
 Media Engine = 媒體引擎
 Graphics Settings = 圖形設定
-Stream VBO = 流動式頂點緩衝物件 (Stream VBO)
+Stream VBO = 流動式頂點緩衝物件
 Linear Filtering = 線性過濾
 Mipmapping = Mipmap 貼圖
 2X = 2倍描繪解析度
 Vertex Cache = 頂點快取
 Draw Wireframe = 顯示線框
+True Color = 全彩顯示
+Display Raw Framebuffer = 顯示原始繪圖緩衝
+Anisotropic Filtering = 非等方性過濾
+Skip Frames : = 跳格張數 :
 [Pause]
 Save State = 即時存檔
 Load State = 載入存檔
@@ -315,13 +292,13 @@ GraphicsDesc = 更改各式圖形選項
 System = 系統設定
 SystemDesc = 動態重新編譯 (JIT)、快速記憶體存取
 Controls = 控制器設定
-ControlsDesc = 虛擬搖桿、按鈕變大
+ControlsDesc = 虛擬控制器、按鈕變大
 Developer = 開發者工具
 DeveloperDesc = 執行 CPU 測試、記錄執行流程
 [Developer]
 Developer Tools = 開發者工具
-Load language ini = 載入語言 ini
-Save language ini = 儲存語言 ini
+Load language ini = 載入語言設定
+Save language ini = 儲存語言設定
 Run CPU tests = 執行 CPU 測試
 Dump frame to log = 記錄下一張畫面的執行流程
 [Audio]
@@ -329,13 +306,14 @@ Audio Settings = 聲音設定
 Enable Sound = 開啟聲音
 [Controls]
 Controls Settings = 控制器設定
-OnScreen = 顯示虛擬搖桿
+OnScreen = 顯示虛擬控制器
 Tilt = 類比左右傾斜對應
 Large Controls = 按鈕變大
 Show Analog Stick = 顯示類比搖桿
 [General]
 Back = 返回
 Up = 回上層
+Next Page = 下一頁
 [Dialog]
 Back = 返回
 Yes = 是
@@ -343,15 +321,16 @@ No = 否
 Enter = 決定
 Select = 選擇
 Delete = 刪除
+Start = Start
 Finish = 完成
 Shift = Shift
 New Save = 建立新的存檔
-Do you want to overwrite the data? = 您想要覆蓋這份檔案嗎？
-Saving = 儲存中\n請稍候…
-Save completed = 已儲存。
-Loading = 載入中\n請稍候…
-Load completed = 載入完成。
+Do you want to overwrite the data? = 您想要覆蓋這份檔案嗎?
+Saving = 儲存中\n請稍候...
+Save completed = 已儲存
+Loading = 載入中\n請稍候...
+Load completed = 載入完成
 There is no data = 沒有存檔
-DeleteConfirm = 這份檔案將被刪除。\n您確定要繼續嗎？
-Deleting = 刪除中\n請稍候…
-Delete completed = 已刪除。
+DeleteConfirm = 這份檔案將被刪除。\n您確定要繼續嗎?
+Deleting = 刪除中\n請稍候...
+Delete completed = 已刪除
