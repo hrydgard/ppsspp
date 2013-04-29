@@ -242,15 +242,16 @@ namespace Reporting
 	{
 		Payload &payload = payloadBuffer[pos];
 
-		std::string gpuInfo;
-		gpu->GetReportingInfo(gpuInfo);
+		std::string gpuPrimary, gpuFull;
+		gpu->GetReportingInfo(gpuPrimary, gpuFull);
 
 		UrlEncoder postdata;
 		postdata.Add("version", PPSSPP_GIT_VERSION);
 		// TODO: Maybe ParamSFOData shouldn't include nulls in std::strings?  Don't work to break savedata, though...
 		postdata.Add("game", StripTrailingNull(g_paramSFO.GetValueString("DISC_ID")) + "_" + StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION")));
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
-		postdata.Add("gpu", gpuInfo);
+		postdata.Add("gpu", gpuPrimary);
+		postdata.Add("gpu_full", gpuFull);
 		postdata.Add("cpu", cpu_info.Summarize());
 		postdata.Add("platform", GetPlatformIdentifer());
 

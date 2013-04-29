@@ -223,7 +223,8 @@ void GLES_GPU::BuildReportingInfo() {
 
 	char temp[2048];
 	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
-	reportingInfo_ = temp;
+	reportingPrimaryInfo_ = glVendor;
+	reportingFullInfo_ = temp;
 }
 
 void GLES_GPU::DeviceLost() {

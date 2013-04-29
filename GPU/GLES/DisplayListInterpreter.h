@@ -60,7 +60,10 @@ public:
 	}
 	virtual bool FramebufferDirty();
 
-	virtual void GetReportingInfo(std::string &info) { info = reportingInfo_; }
+	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
+		primaryInfo = reportingPrimaryInfo_;
+		fullInfo = reportingFullInfo_;
+	}
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 protected:
@@ -84,5 +87,6 @@ private:
 	u8 *flushBeforeCommand_;
 	bool resized_;
 
-	std::string reportingInfo_;
+	std::string reportingPrimaryInfo_;
+	std::string reportingFullInfo_;
 };
