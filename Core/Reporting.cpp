@@ -213,6 +213,8 @@ namespace Reporting
 		// TODO: Do we care about OS version?
 #if defined(ANDROID)
 		return "Android";
+#elif defined(_WIN64)
+		return "Windows 64";
 #elif defined(_WIN32)
 		return "Windows";
 #elif defined(IOS)
@@ -227,6 +229,10 @@ namespace Reporting
 		return "Blackberry";
 #elif defined(LOONGSON)
 		return "Loongson";
+#elif defined(MEEGO_EDITION_HARMATTAN)
+		return "Nokia N9/N950";
+#elif defined(__linux__)
+		return "Linux";
 #else
 		return "Unknown";
 #endif
