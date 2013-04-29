@@ -521,7 +521,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	u32 ret = 0;
 	if (atrac != NULL) {
 		// We already passed the end - return an error (many games check for this.)
-		if (atrac->currentSample >= atrac->endSample && atrac->loopEndSample < 0) {
+		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
 			Memory::Write_U32(0, numSamplesAddr);
 			Memory::Write_U32(1, finishFlagAddr);
 			Memory::Write_U32(0, remainAddr);
@@ -576,12 +576,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 					numSamples = ATRAC_MAX_SAMPLES;
 				}
 				
-				// Should we loop?
-				if (numSamples == 0 && (atrac->loopStartSample >= 0)) {
-					// Restart.
-					atrac->decodePos = atrac->getDecodePosBySample(atrac->loopStartSample);
-					if (atrac->loopNum > 0)
-						atrac->loopNum--;
+				if (numSamples == 0 && (atrac->loopNum != 0)) {
 					numSamples = ATRAC_MAX_SAMPLES;
 				}
 				Memory::Memset(outAddr, 0, numSamples * sizeof(s16) * atrac->atracOutputChannels);
@@ -601,9 +596,8 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 			
 			int finishFlag = 0;
-			if (atrac->loopEndSample >= 0 && (atrac->currentSample >= atrac->loopEndSample || numSamples == 0)) {
+			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample || numSamples == 0)) {
 				atrac->currentSample = atrac->loopStartSample;
-				atrac->endSample = atrac->loopEndSample;
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
 			} else if (atrac->currentSample >= atrac->endSample || numSamples == 0)
