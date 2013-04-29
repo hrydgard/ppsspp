@@ -134,9 +134,10 @@ void Core_RunLoop()
 		// Simple throttling to not burn the GPU in the menu.
 #ifdef _WIN32
 		if (globalUIState != UISTATE_INGAME) {
-			double sleepTime = 16.666 - (time_now_d() - startTime) * 1000.0;
-			if (sleepTime > 0.0)
-				Sleep((int)sleepTime);
+			double diffTime = time_now_d() - startTime;
+			int sleepTime = (int) (1000000.0 / 60.0) - (int) (diffTime * 1000000.0);
+			if (sleepTime > 0)
+				Sleep(sleepTime / 1000);
 			GL_SwapBuffers();
 		} else if (!Core_IsStepping()) {
 			GL_SwapBuffers();
