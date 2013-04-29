@@ -470,6 +470,30 @@ void sceUtilityInstallInitStart(u32 unknown)
 	DEBUG_LOG(HLE,"FAKE sceUtilityInstallInitStart()");
 }
 
+int sceUtilityStoreCheckoutShutdownStart()
+{
+	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
+	return 0;
+}
+
+int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
+{
+	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
+	return 0;
+}
+
+int sceUtilityStoreCheckoutUpdate(int drawSpeed)
+{
+	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
+	return 0;
+}
+
+int sceUtilityStoreCheckoutGetStatus()
+{
+	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
+	return 0;
+}
+
 const HLEFunction sceUtility[] = 
 {
 	{0x1579a159, &WrapU_U<sceUtilityLoadNetModule>, "sceUtilityLoadNetModule"},
@@ -552,6 +576,10 @@ const HLEFunction sceUtility[] =
 	{0xA03D29BA, 0, "sceUtilityInstallUpdate"},
 	{0xC4700FA3, 0, "sceUtilityInstallGetStatus"},
 
+	{0x54A5C62F, &WrapI_V<sceUtilityStoreCheckoutShutdownStart>, "sceUtilityStoreCheckoutShutdownStart"},
+	{0xDA97F1AA, &WrapI_U<sceUtilityStoreCheckoutInitStart>, "sceUtilityStoreCheckoutInitStart"},
+	{0xB8592D5F, &WrapI_I<sceUtilityStoreCheckoutUpdate>, "sceUtilityStoreCheckoutUpdate"},
+	{0x3AAD51DC, &WrapI_V<sceUtilityStoreCheckoutGetStatus>, "sceUtilityStoreCheckoutGetStatus"},
 };
 
 void Register_sceUtility()

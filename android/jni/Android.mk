@@ -229,6 +229,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceVaudio.cpp \
   $(SRC)/Core/HLE/scePspNpDrm_user.cpp \
   $(SRC)/Core/HLE/sceGameUpdate.cpp \
+  $(SRC)/Core/HLE/sceNp.cpp \
+  $(SRC)/Core/HLE/scePauth.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \
