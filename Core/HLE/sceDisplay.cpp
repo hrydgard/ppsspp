@@ -590,7 +590,10 @@ float sceDisplayGetFramePerSec() {
 }
 
 u32 sceDisplayIsForeground() {
-  	ERROR_LOG(HLE,"UNIMPL sceDisplayIsForeground()");
+  	DEBUG_LOG(HLE,"IMPL sceDisplayIsForeground()");	
+	if (!hasSetMode || framebuf.topaddr == 0)
+	return 0;
+	else
   	return 1;   // return value according to JPCSP comment
 }
 
