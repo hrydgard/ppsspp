@@ -156,6 +156,8 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "varying vec2 v_texcoord;\n");
 	}
 
+	WRITE(p, "float round255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
+
 	WRITE(p, "void main() {\n");
 
 	if (gstate.isModeClear()) {
@@ -223,8 +225,13 @@ void GenerateFragmentShader(char *buffer) {
 		if (enableAlphaTest) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
-			if (alphaTestFuncs[alphaTestFunc][0] != '#')
-				WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
+				// If it's an equality check (!=, ==, <=, >=), rounding is more likely to be important.
+				if (alphaTestFuncs[alphaTestFunc][2] == '=')
+					WRITE(p, "  if (round255f(v.a) %s round255f(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+				else
+					WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+			}
 		}
 		
 		if (enableColorTest) {
