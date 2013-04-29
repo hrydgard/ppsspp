@@ -472,25 +472,25 @@ void sceUtilityInstallInitStart(u32 unknown)
 
 int sceUtilityStoreCheckoutShutdownStart()
 {
-	DEBUG_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
+	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
 	return 0;
 }
 
 int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
 {
-	DEBUG_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
+	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
 	return 0;
 }
 
 int sceUtilityStoreCheckoutUpdate(int drawSpeed)
 {
-	DEBUG_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
+	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
 	return 0;
 }
 
 int sceUtilityStoreCheckoutGetStatus()
 {
-	DEBUG_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
+	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
 	return 0;
 }
 

@@ -25,14 +25,14 @@
 int sceNp_857B47D3()
 {
 	// No parameters
-	DEBUG_LOG(HLE, "UNIMPL sceNp_857B47D3()");
+	ERROR_LOG(HLE, "UNIMPL sceNp_857B47D3()");
 	return 0;
 }
 
 int sceNp_37E1E274()
 {
 	// No parameters
-	DEBUG_LOG(HLE, "UNIMPL sceNp_37E1E274()");
+	ERROR_LOG(HLE, "UNIMPL sceNp_37E1E274()");
 	return 0;
 }
 

@@ -802,7 +802,7 @@ int sceRtcGetLastAdjustedTime(u32 tickPtr)
 	u64 curTick = __RtcGetCurrentTick();
 	if (Memory::IsValidAddress(tickPtr))
 		Memory::Write_U64(curTick, tickPtr);
-	DEBUG_LOG(HLE, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
+	ERROR_LOG(HLE, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
 	return 0;
 }
 

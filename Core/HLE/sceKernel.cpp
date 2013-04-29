@@ -236,7 +236,7 @@ void sceKernelExitGameWithStatus()
 
 int LoadExecForUser_362A956B()
 {
-	DEBUG_LOG(HLE,"UNIMPL LoadExecForUser_362A956B()");
+	ERROR_LOG(HLE,"UNIMPL LoadExecForUser_362A956B()");
 	return 0;
 }
 
@@ -616,7 +616,7 @@ u32 sceKernelReferThreadProfiler(u32 statusPtr) {
 }
 
 int sceKernelReferGlobalProfiler(u32 statusPtr) {
-	DEBUG_LOG(HLE, "UNIMPL sceKernelReferGlobalProfiler(%08x)", statusPtr);
+	ERROR_LOG(HLE, "UNIMPL sceKernelReferGlobalProfiler(%08x)", statusPtr);
 	// Ignore for now
 	return 0;
 }

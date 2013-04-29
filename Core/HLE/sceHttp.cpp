@@ -21,7 +21,7 @@
 
 int sceHttpSetResolveRetry(int connectionID, int retryCount)
 {
-	DEBUG_LOG(HLE, "UNIMPL sceHttpSetResolveRetry()");
+	ERROR_LOG(HLE, "UNIMPL sceHttpSetResolveRetry()");
 	return 0;
 }
 

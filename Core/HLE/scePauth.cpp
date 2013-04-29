@@ -21,13 +21,13 @@
 
 int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {
-	DEBUG_LOG(HLE, "UNIMPL scePauth_F7AA47F6(%d, %d, %d, %d)", srcPtr, srcLength, destLengthPtr, workArea);
+	ERROR_LOG(HLE, "UNIMPL scePauth_F7AA47F6(%d, %d, %d, %d)", srcPtr, srcLength, destLengthPtr, workArea);
 	return 0;
 }
 
 int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
 {
-	DEBUG_LOG(HLE, "UNIMPL scePauth_98B83B5D(%d, %d, %d, %d)", srcPtr, srcLength, destLengthPtr, workArea);
+	ERROR_LOG(HLE, "UNIMPL scePauth_98B83B5D(%d, %d, %d, %d)", srcPtr, srcLength, destLengthPtr, workArea);
 	return 0;
 }
 
