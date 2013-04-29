@@ -60,6 +60,10 @@ public:
 	}
 	virtual bool FramebufferDirty();
 
+	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
+		primaryInfo = reportingPrimaryInfo_;
+		fullInfo = reportingFullInfo_;
+	}
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 protected:
@@ -69,6 +73,7 @@ private:
 	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
 	void CheckFlushOp(u32 op, u32 diff);
+	void BuildReportingInfo();
 
 	// Applies states for debugging if enabled.
 	void BeginDebugDraw();
@@ -81,4 +86,7 @@ private:
 
 	u8 *flushBeforeCommand_;
 	bool resized_;
+
+	std::string reportingPrimaryInfo_;
+	std::string reportingFullInfo_;
 };
