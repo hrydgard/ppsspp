@@ -808,6 +808,10 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceVaudio.h
 	Core/HLE/scePspNpDrm_user.cpp
 	Core/HLE/scePspNpDrm_user.h
+	Core/HLE/sceNp.cpp
+	Core/HLE/sceNp.h
+	Core/HLE/scePauth.cpp
+	Core/HLE/scePauth.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MemoryStick.cpp

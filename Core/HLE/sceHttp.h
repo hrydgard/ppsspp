@@ -17,4 +17,6 @@
 
 #pragma once
 
+int sceHttpSetResolveRetry(int connectionID, int retryCount);
+
 void Register_sceHttp();

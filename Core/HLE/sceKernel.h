@@ -287,8 +287,10 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param);
 
 int sceKernelLoadExec(const char *filename, u32 paramPtr);
 
-void sceKernelRegisterExitCallback();
 void sceKernelExitGame();
+void sceKernelExitGameWithStatus();
+int LoadExecForUser_362A956B();
+void sceKernelRegisterExitCallback();
 
 void sceKernelSleepThread();
 void sceKernelSleepThreadCB();

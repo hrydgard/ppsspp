@@ -234,12 +234,17 @@ void sceKernelExitGameWithStatus()
 	Core_Stop();
 }
 
+int LoadExecForUser_362A956B()
+{
+	DEBUG_LOG(HLE,"UNIMPL LoadExecForUser_362A956B()");
+	return 0;
+}
+
 u32 sceKernelRegisterExitCallback(u32 cbId)
 {
 	DEBUG_LOG(HLE,"NOP sceKernelRegisterExitCallback(%i)", cbId);
 	return 0;
 }
-
 
 u32 sceKernelDevkitVersion()
 {
@@ -812,6 +817,7 @@ const HLEFunction LoadExecForUser[] =
 	{0x4AC57943,&WrapU_U<sceKernelRegisterExitCallback>,"sceKernelRegisterExitCallback"},
 	{0xBD2F1094,&WrapI_CU<sceKernelLoadExec>,"sceKernelLoadExec"},
 	{0x2AC9954B,&WrapV_V<sceKernelExitGameWithStatus>,"sceKernelExitGameWithStatus"},
+	{0x362A956B,&WrapI_V<LoadExecForUser_362A956B>, "LoadExecForUser_362A956B"},
 };
 
 void Register_LoadExecForUser()

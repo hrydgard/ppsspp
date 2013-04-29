@@ -797,6 +797,15 @@ int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 	return 0;
 }
 
+int sceRtcGetLastAdjustedTime(u32 tickPtr)
+{
+	u64 curTick = __RtcGetCurrentTick();
+	if (Memory::IsValidAddress(tickPtr))
+		Memory::Write_U64(curTick, tickPtr);
+	DEBUG_LOG(HLE, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
+	return 0;
+}
+
 const HLEFunction sceRtc[] =
 {
 	{0xC41C2853, WrapU_V<sceRtcGetTickResolution>, "sceRtcGetTickResolution"},
@@ -837,6 +846,7 @@ const HLEFunction sceRtc[] =
 	{0x28E1E988, 0, "sceRtcParseRFC3339"},
 	{0xe1c93e47, WrapI_UU<sceRtcGetTime64_t>, "sceRtcGetTime64_t"},
 	{0x1909c99b, WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
+	{0x62685E98, WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
 };
 
 void Register_sceRtc()

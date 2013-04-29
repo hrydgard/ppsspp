@@ -17,16 +17,4 @@
 
 #pragma once
 
-void sceRtcGetCurrentTick();
-int sceRtcGetLastAdjustedTime(u32 tickPtr);
-void Register_sceRtc();
-
-struct ScePspDateTime {
-	unsigned short year;
-	unsigned short month;
-	unsigned short day;
-	unsigned short hour;
-	unsigned short minute;
-	unsigned short second;
-	unsigned int microsecond;
-};
+void Register_scePauth();

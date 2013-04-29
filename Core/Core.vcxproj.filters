@@ -401,6 +401,12 @@
       <Filter>ELF</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp" />
+    <ClCompile Include="HLE\scePauth.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceNp.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -740,6 +746,12 @@
       <Filter>ELF</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h" />
+    <ClInclude Include="HLE\scePauth.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceNp.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
