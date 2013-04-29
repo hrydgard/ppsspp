@@ -117,6 +117,9 @@ struct Atrac {
 	}
 
 	void DoState(PointerWrap &p) {
+		p.Do(atracChannels);
+		p.Do(atracOutputChannels);
+
 		if (atracID == -1) {
 			// loading state
 			p.Do(atracID);
@@ -177,8 +180,6 @@ struct Atrac {
 		p.Do(decodePos);
 		p.Do(decodeEnd);
 
-		p.Do(atracChannels);
-		p.Do(atracOutputChannels);
 		p.Do(atracBitrate);
 		p.Do(atracBytesPerFrame);
 
