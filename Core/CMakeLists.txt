@@ -53,8 +53,10 @@ set(SRCS
   HLE/sceKernelVTimer.cpp
   HLE/sceMpeg.cpp
   HLE/sceNet.cpp
+  HLE/sceNp.cpp
   HLE/sceP3da.cpp
   HLE/sceMp4.cpp
+  HLE/scePauth.cpp
   HLE/scePower.cpp
   HLE/scePsmf.cpp
   HLE/sceRtc.cpp
