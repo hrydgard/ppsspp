@@ -247,7 +247,7 @@ void JitBlockCache::GetBlockNumbersFromAddress(u32 em_address, std::vector<int> 
 
 u32 JitBlockCache::GetOriginalFirstOp(int block_num)
 {
-	if (block_num >= num_blocks)
+	if (block_num >= num_blocks || block_num < 0)
 	{
 		//PanicAlert("JitBlockCache::GetOriginalFirstOp - block_num = %u is out of range", block_num);
 		return block_num;
