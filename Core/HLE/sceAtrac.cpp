@@ -396,7 +396,8 @@ u32 sceAtracGetChannel(int atracID, u32 channelAddr)
 	ERROR_LOG(HLE, "UNIMPL sceAtracGetChannel(%i, %08x)", atracID, channelAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+//Fix Sengoku Musou 3 Z Special [JPN] crash
+		return -1;
 	}
 	if (Memory::IsValidAddress(channelAddr))
 		Memory::Write_U32(atrac->atracChannels, channelAddr);
