@@ -194,6 +194,8 @@ GLES_GPU::GLES_GPU()
 		flushBeforeCommand_[flushBeforeCommandList[i]] = 1;
 	}
 	flushBeforeCommand_[1] = 0;
+
+	BuildReportingInfo();
 }
 
 GLES_GPU::~GLES_GPU() {
@@ -201,6 +203,27 @@ GLES_GPU::~GLES_GPU() {
 	shaderManager_->ClearCache(true);
 	delete shaderManager_;
 	delete [] flushBeforeCommand_;
+}
+
+// Let's avoid passing nulls into snprintf().
+static const char *GetGLStringAlways(GLenum name) {
+	const GLubyte *value = glGetString(name);
+	if (!value)
+		return "?";
+	return (const char *)value;
+}
+
+// Needs to be called on GPU thread, not reporting thread.
+void GLES_GPU::BuildReportingInfo() {
+	const char *glVendor = GetGLStringAlways(GL_VENDOR);
+	const char *glRenderer = GetGLStringAlways(GL_RENDERER);
+	const char *glVersion = GetGLStringAlways(GL_VERSION);
+	const char *glSlVersion = GetGLStringAlways(GL_SHADING_LANGUAGE_VERSION);
+	const char *glExtensions = GetGLStringAlways(GL_EXTENSIONS);
+
+	char temp[2048];
+	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
+	reportingInfo_ = temp;
 }
 
 void GLES_GPU::DeviceLost() {

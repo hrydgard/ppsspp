@@ -20,6 +20,8 @@
 #include "Common/StdThread.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #include "net/http_client.h"
 #include "net/resolve.h"
@@ -150,12 +152,16 @@ namespace Reporting
 		const int PARAM_BUFFER_SIZE = 4096;
 		char temp[PARAM_BUFFER_SIZE];
 
+		std::string gpuInfo;
+		gpu->GetReportingInfo(gpuInfo);
+
 		// TODO: Need to escape these values, add more.
-		snprintf(temp, PARAM_BUFFER_SIZE - 1, "version=%s&game=%s_%s&game_title=%s",
+		snprintf(temp, PARAM_BUFFER_SIZE - 1, "version=%s&game=%s_%s&game_title=%s&gpu=%s",
 			PPSSPP_GIT_VERSION,
 			g_paramSFO.GetValueString("DISC_ID").c_str(),
 			g_paramSFO.GetValueString("DISC_VERSION").c_str(),
-			g_paramSFO.GetValueString("TITLE").c_str());
+			g_paramSFO.GetValueString("TITLE").c_str(),
+			gpuInfo.c_str());
 
 		std::string data;
 		switch (payload.type)

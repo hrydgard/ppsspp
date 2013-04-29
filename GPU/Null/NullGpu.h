@@ -42,6 +42,7 @@ public:
 	virtual void DumpNextFrame() {}
 
 	virtual void Resized() {}
+	virtual void GetReportingInfo(std::string &info) { info = "NULL"; }
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);
