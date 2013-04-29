@@ -17,6 +17,7 @@
 
 #include "Core/Reporting.h"
 
+#include "Common/CPUDetect.h"
 #include "Common/StdThread.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -207,6 +208,30 @@ namespace Reporting
 		return str;
 	}
 
+	std::string GetPlatformIdentifer()
+	{
+		// TODO: Do we care about OS version?
+#if defined(ANDROID)
+		return "Android";
+#elif defined(_WIN32)
+		return "Windows";
+#elif defined(IOS)
+		return "iOS";
+#elif defined(__APPLE__)
+		return "Mac";
+#elif defined(__SYMBIAN32__)
+		return "Symbian";
+#elif defined(__FreeBSD__)
+		return "BSD";
+#elif defined(BLACKBERRY)
+		return "Blackberry";
+#elif defined(LOONGSON)
+		return "Loongson";
+#else
+		return "Unknown";
+#endif
+	}
+
 	int Process(int pos)
 	{
 		Payload &payload = payloadBuffer[pos];
@@ -220,6 +245,10 @@ namespace Reporting
 		postdata.Add("game", StripTrailingNull(g_paramSFO.GetValueString("DISC_ID")) + "_" + StripTrailingNull(g_paramSFO.GetValueString("DISC_VERSION")));
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
 		postdata.Add("gpu", gpuInfo);
+		postdata.Add("cpu", cpu_info.Summarize());
+		postdata.Add("platform", GetPlatformIdentifer());
+
+		// TODO: Settings, savestate/savedata status, some measure of speed/fps?
 
 		switch (payload.type)
 		{
