@@ -59,6 +59,8 @@
 #include "sceGameUpdate.h"
 #include "sceDeflt.h"
 #include "sceMp4.h"
+#include "scePauth.h"
+#include "sceNp.h"
 
 #define N(s) s
 
@@ -256,6 +258,11 @@ void RegisterAllModules() {
 	Register_sceGameUpdate();
 	Register_sceDeflt();
 	Register_sceMp4();
+	Register_scePauth();
+	Register_sceNp();
+	Register_sceNpCommerce2();
+	Register_sceNpService();
+	Regester_sceNpAuth();
 
 	for (int i = 0; i < numModules; i++)
 	{

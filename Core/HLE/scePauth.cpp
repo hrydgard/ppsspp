@@ -15,18 +15,28 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+#include "HLE.h"
 
-void sceRtcGetCurrentTick();
-int sceRtcGetLastAdjustedTime(u32 tickPtr);
-void Register_sceRtc();
+#include "scePauth.h"
 
-struct ScePspDateTime {
-	unsigned short year;
-	unsigned short month;
-	unsigned short day;
-	unsigned short hour;
-	unsigned short minute;
-	unsigned short second;
-	unsigned int microsecond;
+int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
+{
+	ERROR_LOG(HLE, "UNIMPL scePauth_F7AA47F6(%d, %d, %d, %d)", srcPtr, srcLength, destLengthPtr, workArea);
+	return 0;
+}
+
+int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
+{
+	ERROR_LOG(HLE, "UNIMPL scePauth_98B83B5D(%d, %d, %d, %d)", srcPtr, srcLength, destLengthPtr, workArea);
+	return 0;
+}
+
+const HLEFunction scePauth[] = {
+	{0xF7AA47F6, &WrapI_UIUU<scePauth_F7AA47F6>, "scePauth_F7AA47F6"},
+	{0x98B83B5D, &WrapI_UIUU<scePauth_98B83B5D>, "scePauth_98B83B5D"},
 };
+
+void Register_scePauth()
+{
+	RegisterModule("scePauth", ARRAY_SIZE(scePauth), scePauth);
+}

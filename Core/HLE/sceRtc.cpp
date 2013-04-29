@@ -797,46 +797,56 @@ int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 	return 0;
 }
 
+int sceRtcGetLastAdjustedTime(u32 tickPtr)
+{
+	u64 curTick = __RtcGetCurrentTick();
+	if (Memory::IsValidAddress(tickPtr))
+		Memory::Write_U64(curTick, tickPtr);
+	DEBUG_LOG(HLE, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
+	return 0;
+}
+
 const HLEFunction sceRtc[] =
 {
-	{0xC41C2853, WrapU_V<sceRtcGetTickResolution>, "sceRtcGetTickResolution"},
-	{0x3f7ad767, WrapU_U<sceRtcGetCurrentTick>, "sceRtcGetCurrentTick"},
-	{0x011F03C1, WrapU64_V<sceRtcGetAcculumativeTime>, "sceRtcGetAccumulativeTime"},
-	{0x029CA3B3, WrapU64_V<sceRtcGetAcculumativeTime>, "sceRtcGetAccumlativeTime"},
-	{0x4cfa57b0, WrapU_UI<sceRtcGetCurrentClock>, "sceRtcGetCurrentClock"},
-	{0xE7C27D1B, WrapU_U<sceRtcGetCurrentClockLocalTime>, "sceRtcGetCurrentClockLocalTime"},
-	{0x34885E0D, WrapI_UU<sceRtcConvertUtcToLocalTime>, "sceRtcConvertUtcToLocalTime"},
-	{0x779242A2, WrapI_UU<sceRtcConvertLocalTimeToUTC>, "sceRtcConvertLocalTimeToUTC"},
-	{0x42307A17, WrapU_U<sceRtcIsLeapYear>, "sceRtcIsLeapYear"},
-	{0x05ef322c, WrapU_UU<sceRtcGetDaysInMonth>, "sceRtcGetDaysInMonth"},
-	{0x57726bc1, WrapU_UUU<sceRtcGetDayOfWeek>, "sceRtcGetDayOfWeek"},
-	{0x4B1B5E82, WrapI_U<sceRtcCheckValid>, "sceRtcCheckValid"},
-	{0x3a807cc8, WrapI_UU<sceRtcSetTime_t>, "sceRtcSetTime_t"},
-	{0x27c4594c, WrapI_UU<sceRtcGetTime_t>, "sceRtcGetTime_t"},
-	{0xF006F264, WrapI_UU<sceRtcSetDosTime>, "sceRtcSetDosTime"},
-	{0x36075567, WrapI_UU<sceRtcGetDosTime>, "sceRtcGetDosTime"},
-	{0x7ACE4C04, WrapI_UU<sceRtcSetWin32FileTime>, "sceRtcSetWin32FileTime"},
-	{0xCF561893, WrapI_UU<sceRtcGetWin32FileTime>, "sceRtcGetWin32FileTime"},
-	{0x7ED29E40, WrapU_UU<sceRtcSetTick>, "sceRtcSetTick"},
-	{0x6FF40ACC, WrapU_UU<sceRtcGetTick>, "sceRtcGetTick"},
-	{0x9ED0AE87, WrapI_UU<sceRtcCompareTick>, "sceRtcCompareTick"},
-	{0x44F45E05, WrapI_UUU64<sceRtcTickAddTicks>, "sceRtcTickAddTicks"},
-	{0x26D25A5D, WrapI_UUU64<sceRtcTickAddMicroseconds>, "sceRtcTickAddMicroseconds"},
-	{0xF2A4AFE5, WrapI_UUU64<sceRtcTickAddSeconds>, "sceRtcTickAddSeconds"},
-	{0xE6605BCA, WrapI_UUU64<sceRtcTickAddMinutes>, "sceRtcTickAddMinutes"},
-	{0x26D7A24A, WrapI_UUI<sceRtcTickAddHours>, "sceRtcTickAddHours"},
-	{0xE51B4B7A, WrapI_UUI<sceRtcTickAddDays>, "sceRtcTickAddDays"},
-	{0xCF3A2CA8, WrapI_UUI<sceRtcTickAddWeeks>, "sceRtcTickAddWeeks"},
-	{0xDBF74F1B, WrapI_UUI<sceRtcTickAddMonths>, "sceRtcTickAddMonths"},
-	{0x42842C77, WrapI_UUI<sceRtcTickAddYears>, "sceRtcTickAddYears"},
+	{0xC41C2853, &WrapU_V<sceRtcGetTickResolution>, "sceRtcGetTickResolution"},
+	{0x3f7ad767, &WrapU_U<sceRtcGetCurrentTick>, "sceRtcGetCurrentTick"},
+	{0x011F03C1, &WrapU64_V<sceRtcGetAcculumativeTime>, "sceRtcGetAccumulativeTime"},
+	{0x029CA3B3, &WrapU64_V<sceRtcGetAcculumativeTime>, "sceRtcGetAccumlativeTime"},
+	{0x4cfa57b0, &WrapU_UI<sceRtcGetCurrentClock>, "sceRtcGetCurrentClock"},
+	{0xE7C27D1B, &WrapU_U<sceRtcGetCurrentClockLocalTime>, "sceRtcGetCurrentClockLocalTime"},
+	{0x34885E0D, &WrapI_UU<sceRtcConvertUtcToLocalTime>, "sceRtcConvertUtcToLocalTime"},
+	{0x779242A2, &WrapI_UU<sceRtcConvertLocalTimeToUTC>, "sceRtcConvertLocalTimeToUTC"},
+	{0x42307A17, &WrapU_U<sceRtcIsLeapYear>, "sceRtcIsLeapYear"},
+	{0x05ef322c, &WrapU_UU<sceRtcGetDaysInMonth>, "sceRtcGetDaysInMonth"},
+	{0x57726bc1, &WrapU_UUU<sceRtcGetDayOfWeek>, "sceRtcGetDayOfWeek"},
+	{0x4B1B5E82, &WrapI_U<sceRtcCheckValid>, "sceRtcCheckValid"},
+	{0x3a807cc8, &WrapI_UU<sceRtcSetTime_t>, "sceRtcSetTime_t"},
+	{0x27c4594c, &WrapI_UU<sceRtcGetTime_t>, "sceRtcGetTime_t"},
+	{0xF006F264, &WrapI_UU<sceRtcSetDosTime>, "sceRtcSetDosTime"},
+	{0x36075567, &WrapI_UU<sceRtcGetDosTime>, "sceRtcGetDosTime"},
+	{0x7ACE4C04, &WrapI_UU<sceRtcSetWin32FileTime>, "sceRtcSetWin32FileTime"},
+	{0xCF561893, &WrapI_UU<sceRtcGetWin32FileTime>, "sceRtcGetWin32FileTime"},
+	{0x7ED29E40, &WrapU_UU<sceRtcSetTick>, "sceRtcSetTick"},
+	{0x6FF40ACC, &WrapU_UU<sceRtcGetTick>, "sceRtcGetTick"},
+	{0x9ED0AE87, &WrapI_UU<sceRtcCompareTick>, "sceRtcCompareTick"},
+	{0x44F45E05, &WrapI_UUU64<sceRtcTickAddTicks>, "sceRtcTickAddTicks"},
+	{0x26D25A5D, &WrapI_UUU64<sceRtcTickAddMicroseconds>, "sceRtcTickAddMicroseconds"},
+	{0xF2A4AFE5, &WrapI_UUU64<sceRtcTickAddSeconds>, "sceRtcTickAddSeconds"},
+	{0xE6605BCA, &WrapI_UUU64<sceRtcTickAddMinutes>, "sceRtcTickAddMinutes"},
+	{0x26D7A24A, &WrapI_UUI<sceRtcTickAddHours>, "sceRtcTickAddHours"},
+	{0xE51B4B7A, &WrapI_UUI<sceRtcTickAddDays>, "sceRtcTickAddDays"},
+	{0xCF3A2CA8, &WrapI_UUI<sceRtcTickAddWeeks>, "sceRtcTickAddWeeks"},
+	{0xDBF74F1B, &WrapI_UUI<sceRtcTickAddMonths>, "sceRtcTickAddMonths"},
+	{0x42842C77, &WrapI_UUI<sceRtcTickAddYears>, "sceRtcTickAddYears"},
 	{0xC663B3B9, 0, "sceRtcFormatRFC2822"},
 	{0x7DE6711B, 0, "sceRtcFormatRFC2822LocalTime"},
 	{0x0498FB3C, 0, "sceRtcFormatRFC3339"},
 	{0x27F98543, 0, "sceRtcFormatRFC3339LocalTime"},
-	{0xDFBC5F16, WrapI_UU<sceRtcParseDateTime>, "sceRtcParseDateTime"},
+	{0xDFBC5F16, &WrapI_UU<sceRtcParseDateTime>, "sceRtcParseDateTime"},
 	{0x28E1E988, 0, "sceRtcParseRFC3339"},
-	{0xe1c93e47, WrapI_UU<sceRtcGetTime64_t>, "sceRtcGetTime64_t"},
-	{0x1909c99b, WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
+	{0xe1c93e47, &WrapI_UU<sceRtcGetTime64_t>, "sceRtcGetTime64_t"},
+	{0x1909c99b, &WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
+	{0x62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
 };
 
 void Register_sceRtc()

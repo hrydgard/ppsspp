@@ -19,6 +19,11 @@
 
 #include "sceHttp.h"
 
+int sceHttpSetResolveRetry(int connectionID, int retryCount)
+{
+	ERROR_LOG(HLE, "UNIMPL sceHttpSetResolveRetry()");
+	return 0;
+}
 
 /*
 *	0x62411801 sceSircsInit
@@ -55,6 +60,7 @@ const HLEFunction sceHttp[] = {
 	{0xc10b6bd9,0,"sceHttpAbortRequest"},
 	{0xfcf8c055,0,"sceHttpDeleteTemplate"},
 	{0xf49934f6,0,"sceHttpSetMallocFunction"},
+	{0x03D9526F,&WrapI_II<sceHttpSetResolveRetry>, "sceHttpSetResolveRetry"},
 	{0x47940436,0,"sceHttpSetResolveTimeOut"},
 	{0x2a6c3296,0,"sceHttpSetAuthInfoCB"},
 	{0xd081ec8f,0,"sceHttpGetNetworkErrno"},
