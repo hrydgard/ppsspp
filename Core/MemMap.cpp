@@ -117,7 +117,12 @@ u32 Read_Instruction(u32 address)
 	if (MIPS_IS_EMUHACK(inst) && MIPSComp::jit)
 	{
 		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
-		return bc->GetOriginalFirstOp(bc->GetBlockNumberFromEmuHackOp(inst));
+		int block_num = bc->GetBlockNumberFromEmuHackOp(inst);
+		if (block_num >= 0) {
+			return bc->GetOriginalFirstOp(block_num);
+		} else {
+			return inst;
+		}
 	} else {
 		return inst;
 	}
