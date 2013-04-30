@@ -86,6 +86,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
+		bool enableAlphaDoubling = gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA || gstate.getBlendFuncB() == GE_DSTBLEND_DOUBLESRCALPHA;
 		bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 		// id->d[0] |= (gstate.clearmode & 1);
@@ -105,6 +106,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (enableFog & 1) << 15;
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
+		id->d[0] |= (enableAlphaDoubling & 1) << 18;
 	}
 }
 
@@ -125,6 +127,8 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
+	// TODO: This only does one of the four possible modes.
+	bool enableAlphaDoubling = gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA || gstate.getBlendFuncB() == GE_DSTBLEND_DOUBLESRCALPHA;
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 	if (doTexture)
@@ -232,6 +236,10 @@ void GenerateFragmentShader(char *buffer) {
 				else
 					WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 			}
+		}
+
+		if (enableAlphaDoubling) {
+			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
 		
 		if (enableColorTest) {
