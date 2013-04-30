@@ -71,7 +71,7 @@ public:
 	bool bTrueColor;
 	bool bMipMap;
 	bool bAnisotropicFiltering;
-	int iXBRZTexScalingLevel; // 0 = 1 = off, 2 = 2xBRZ, 3 = 3xBRZ, ..., 5 = 5xBRZ
+	int iXBRZTexScalingLevel; // 1 = off, 2 = 2xBRZ, ..., 5 = 5xBRZ
 
 	// Sound
 	bool bEnableSound;
