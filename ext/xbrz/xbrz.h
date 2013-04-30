@@ -17,7 +17,11 @@
 #define XBRZ_HEADER_3847894708239054
 
 #include <cstddef> //size_t
+#ifdef __SYMBIAN32__
+#include <boost/cstdint.hpp>
+#else
 #include <cstdint> //uint32_t
+#endif
 #include <limits>
 #include "config.h"
 
