@@ -177,7 +177,7 @@ namespace MainWindow
 
 	void setXbrzTexScaling(int num) {
 		g_Config.iXBRZTexScalingLevel = num;
-		if(gpu) gpu->InvalidateCache(0,0);
+		if(gpu) gpu->ClearCacheNextFrame();
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
