@@ -174,6 +174,9 @@ public:
 	virtual void InvalidateCache(u32 addr, int size) = 0;
 	virtual void InvalidateCacheHint(u32 addr, int size) = 0;
 
+	// Will cause the texture cache to be cleared at the start of the next frame.
+	virtual void ClearCacheNextFrame() = 0;
+
 	// Internal hack to avoid interrupts from "PPGe" drawing (utility UI, etc)
 	virtual void EnableInterrupts(bool enable) = 0;
 
