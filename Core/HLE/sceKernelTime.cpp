@@ -164,11 +164,14 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr)
 	};
 
 	timeval *tv = (timeval*)Memory::GetPointer(timeAddr);
-	DEBUG_LOG(HLE,"sceKernelLibcGettimeofday()");
 
 	GetSystemTimeAsFileTime (&now.ft);
 	tv->tv_usec = (long) ((now.ns100 / 10LL) % 1000000LL);
 	tv->tv_sec = (long) ((now.ns100 - 116444736000000000LL) / 10000000LL);
+#else
+	timeval *tv = (timeval*)Memory::GetPointer(timeAddr);
+	gettimeofday(tv, NULL);
 #endif
+	DEBUG_LOG(HLE,"sceKernelLibcGettimeofday()");
     return 0;
 }
