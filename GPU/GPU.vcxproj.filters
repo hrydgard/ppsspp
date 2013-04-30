@@ -64,6 +64,10 @@
     <ClInclude Include="GPUCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\xbrz\xbrz.h" />
+    <ClInclude Include="GLES\TextureScaler.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -108,6 +112,10 @@
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GPUCommon.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
+    <ClCompile Include="GLES\TextureScaler.cpp">
+      <Filter>GLES</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
