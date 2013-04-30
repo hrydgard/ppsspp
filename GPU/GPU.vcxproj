@@ -138,6 +138,7 @@
     <ClInclude Include="GLES\ShaderManager.h" />
     <ClInclude Include="GLES\StateMapping.h" />
     <ClInclude Include="GLES\TextureCache.h" />
+    <ClInclude Include="GLES\TextureScaler.h" />
     <ClInclude Include="GLES\TransformPipeline.h" />
     <ClInclude Include="GLES\VertexDecoder.h" />
     <ClInclude Include="GLES\VertexShaderGenerator.h" />
@@ -157,6 +158,7 @@
     <ClCompile Include="GLES\ShaderManager.cpp" />
     <ClCompile Include="GLES\StateMapping.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
+    <ClCompile Include="GLES\TextureScaler.cpp" />
     <ClCompile Include="GLES\TransformPipeline.cpp" />
     <ClCompile Include="GLES\VertexDecoder.cpp">
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>
