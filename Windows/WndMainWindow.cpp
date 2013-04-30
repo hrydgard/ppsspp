@@ -175,6 +175,11 @@ namespace MainWindow
 		ResizeDisplay();
 	}
 
+	void setXbrzTexScaling(int num) {
+		g_Config.iXBRZTexScalingLevel = num;
+		if(gpu) gpu->InvalidateCache(0,0);
+	}
+
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
 	{
 		hInst = hInstance; // Store instance handle in our global variable
@@ -495,6 +500,22 @@ namespace MainWindow
 				g_Config.bMipMap = !g_Config.bMipMap;
 				break;
 
+			case ID_TEXTURESCALING_OFF:
+				setXbrzTexScaling(1);
+				break;
+			case ID_TEXTURESCALING_2XBRZ:
+				setXbrzTexScaling(2);
+				break;
+			case ID_TEXTURESCALING_3XBRZ:
+				setXbrzTexScaling(3);
+				break;
+			case ID_TEXTURESCALING_4XBRZ:
+				setXbrzTexScaling(4);
+				break;
+			case ID_TEXTURESCALING_5XBRZ:
+				setXbrzTexScaling(5);
+				break;
+
 			case ID_OPTIONS_BUFFEREDRENDERING:
 				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
 				if (gpu)
@@ -784,6 +805,17 @@ namespace MainWindow
 		};
 		for (int i = 0; i < 4; i++) {
 			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iWindowZoom - 1) ? MF_CHECKED : MF_UNCHECKED));
+		}
+
+		static const int texscalingitems[] = {
+			ID_TEXTURESCALING_OFF,
+			ID_TEXTURESCALING_2XBRZ,
+			ID_TEXTURESCALING_3XBRZ,
+			ID_TEXTURESCALING_4XBRZ,
+			ID_TEXTURESCALING_5XBRZ,
+		};
+		for (int i = 0; i < 5; i++) {
+			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iXBRZTexScalingLevel-1) ? MF_CHECKED : MF_UNCHECKED));
 		}
 	}
 

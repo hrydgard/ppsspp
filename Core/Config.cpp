@@ -113,6 +113,8 @@ void Config::Load(const char *iniFileName)
 #else
 	graphics->Get("MipMap", &bMipMap, false);
 #endif
+	graphics->Get("XBRZTexScalingLevel", &iXBRZTexScalingLevel, 1);
+
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
 
@@ -192,6 +194,7 @@ void Config::Save()
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("MipMap", bMipMap);
+		graphics->Set("XBRZTexScalingLevel", iXBRZTexScalingLevel);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
