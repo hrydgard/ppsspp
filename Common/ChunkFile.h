@@ -136,7 +136,7 @@ public:
 	{
 		if (error < error_)
 			error = error_;
-		if (error != ERROR_NONE)
+		if (error > ERROR_WARNING)
 			mode = PointerWrap::MODE_MEASURE;
 	}
 
