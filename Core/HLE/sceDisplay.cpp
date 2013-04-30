@@ -85,6 +85,8 @@ static int vCount;
 static int isVblank;
 static int numSkippedFrames;
 static bool hasSetMode;
+static int resumeMode;
+static int holdMode;
 static int mode;
 static int width;
 static int height;
@@ -120,6 +122,8 @@ void __DisplayInit() {
 	gpuStats.reset();
 	hasSetMode = false;
 	mode = 0;
+	resumeMode = 0;
+	holdMode = 0;
 	width = 480;
 	height = 272;
 	numSkippedFrames = 0;
@@ -150,6 +154,8 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(isVblank);
 	p.Do(hasSetMode);
 	p.Do(mode);
+	p.Do(resumeMode);
+	p.Do(holdMode);
 	p.Do(width);
 	p.Do(height);
 	WaitVBlankInfo wvi(0);
@@ -592,9 +598,9 @@ float sceDisplayGetFramePerSec() {
 u32 sceDisplayIsForeground() {
   	DEBUG_LOG(HLE,"IMPL sceDisplayIsForeground()");	
 	if (!hasSetMode || framebuf.topaddr == 0)
-	return 0;
+		return 0;
 	else
-  	return 1;   // return value according to JPCSP comment
+  		return 1;   // return value according to JPCSP comment
 }
 
 u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
@@ -605,6 +611,35 @@ u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
 		Memory::Write_U32(width, widthAddr);
 	if (Memory::IsValidAddress(heightAddr))
 		Memory::Write_U32(height, heightAddr);
+	return 0;
+}
+
+u32 sceDisplayIsVsync() {
+	ERROR_LOG(HLE,"UNIMPL sceDisplayIsVsync()");
+	return 0;
+}
+
+u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
+	ERROR_LOG(HLE,"sceDisplayGetResumeMode(%08x)", resumeModeAddr);
+	if (Memory::IsValidAddress(resumeModeAddr))
+		Memory::Write_U32(resumeMode, resumeModeAddr);
+	return 0;
+}
+
+u32 sceDisplaySetResumeMode(u32 rMode) {
+	ERROR_LOG(HLE,"sceDisplaySetResumeMode(%08x)", rMode);
+	resumeMode = rMode;
+	return 0;
+}
+
+u32 sceDisplayGetBrightness(u32 levelAddr) {
+	ERROR_LOG(HLE,"UNIMPL sceDisplayGetBrightness(%08x)", levelAddr);
+	return 0;
+}
+
+u32 sceDisplaySetHoldMode(u32 hMode) {
+	ERROR_LOG(HLE,"sceDisplaySetHoldMode(%08x)", hMode);
+	holdMode = hMode;
 	return 0;
 }
 
@@ -624,13 +659,13 @@ const HLEFunction sceDisplay[] = {
 	{0xA83EF139,WrapU_V<sceDisplayAdjustAccumulatedHcount>,"sceDisplayAdjustAccumulatedHcount"},
 	{0x9C6EAAD7,WrapU_V<sceDisplayGetVcount>,"sceDisplayGetVcount"},
 	{0xDEA197D4,WrapU_UUU<sceDisplayGetMode>,"sceDisplayGetMode"},
-	{0x7ED59BC4,0,"sceDisplaySetHoldMode"},
-	{0xA544C486,0,"sceDisplaySetResumeMode"},
-	{0xBF79F646,0,"sceDisplayGetResumeMode"},
+	{0x7ED59BC4,WrapU_U<sceDisplaySetHoldMode>,"sceDisplaySetHoldMode"},
+	{0xA544C486,WrapU_U<sceDisplaySetResumeMode>,"sceDisplaySetResumeMode"},
+	{0xBF79F646,WrapU_U<sceDisplayGetResumeMode>,"sceDisplayGetResumeMode"},
 	{0xB4F378FA,WrapU_V<sceDisplayIsForeground>,"sceDisplayIsForeground"},
-	{0x31C4BAA8,0,"sceDisplayGetBrightness"},
+	{0x31C4BAA8,WrapU_U<sceDisplayGetBrightness>,"sceDisplayGetBrightness"},
 	{0x4D4E10EC,WrapU_V<sceDisplayIsVblank>,"sceDisplayIsVblank"},
-	{0x21038913,0,"sceDisplayIsVsync"},
+	{0x21038913,WrapU_V<sceDisplayIsVsync>,"sceDisplayIsVsync"},
 };
 
 void Register_sceDisplay() {
