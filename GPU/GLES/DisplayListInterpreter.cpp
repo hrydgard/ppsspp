@@ -997,6 +997,11 @@ void GLES_GPU::InvalidateCacheHint(u32 addr, int size) {
 		textureCache_.InvalidateAll(false);
 }
 
+void GLES_GPU::ClearCacheNextFrame() {
+	textureCache_.ClearNextFrame();
+}
+
+
 void GLES_GPU::Flush() {
 	transformDraw_.Flush();
 }

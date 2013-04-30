@@ -44,7 +44,7 @@ u32 RoundUpToPowerOf2(u32 v)
 	return v;
 }
 
-TextureCache::TextureCache() {
+TextureCache::TextureCache() : clearCacheNextFrame_(false) {
 	lastBoundTexture = -1;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
@@ -119,6 +119,11 @@ void TextureCache::Invalidate(u32 addr, int size, bool force) {
 void TextureCache::InvalidateAll(bool force) {
 	Invalidate(0, 0xFFFFFFFF, force);
 }
+
+void TextureCache::ClearNextFrame() {
+	clearCacheNextFrame_ = true;
+}
+
 
 TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
 	// If no CLUT, as in framebuffer textures, cache key is simply texaddr.
@@ -654,7 +659,12 @@ static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 
 void TextureCache::StartFrame() {
 	lastBoundTexture = -1;
-	Decimate();
+	if(clearCacheNextFrame_) {
+		Clear(true);
+		clearCacheNextFrame_ = false;
+	} else {
+		Decimate();
+	}
 }
 
 static const u8 bitsPerPixel[11] = {
