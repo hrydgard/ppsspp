@@ -36,6 +36,7 @@ public:
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size);
 	virtual void InvalidateCacheHint(u32 addr, int size);
+	virtual void ClearCacheNextFrame() {};
 	virtual void Flush() {}
 
 	virtual void DeviceLost() {}
