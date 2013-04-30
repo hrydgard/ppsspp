@@ -64,13 +64,14 @@ public:
 	int iWindowX;
 	int iWindowY;
 	int iWindowZoom;  // for Windows
-	bool SSAntiAliasing; //for Windows, too
+	bool SSAntiAliasing; // for Windows, too
 	bool bVertexCache;
 	bool bFullScreen;
 	int iAnisotropyLevel;
 	bool bTrueColor;
 	bool bMipMap;
 	bool bAnisotropicFiltering;
+	int iXBRZTexScalingLevel; // 1 = off, 2 = 2xBRZ, ..., 5 = 5xBRZ
 
 	// Sound
 	bool bEnableSound;

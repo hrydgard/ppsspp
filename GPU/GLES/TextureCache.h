@@ -93,6 +93,7 @@ private:
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, int level);
 	void *DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt);
+	void ScaleTexture(u32* &data, GLenum &dstfmt, int &width, int &height);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
@@ -147,6 +148,9 @@ private:
 	SimpleBuf<u16> tmpTexBuf16;
 
 	SimpleBuf<u32> tmpTexBufRearrange;
+
+	SimpleBuf<u32> tmpTexBufScalingInput;
+	SimpleBuf<u32> tmpTexBufScalingOutput;
 
 	u32 *clutBuf32;
 	u16 *clutBuf16;
