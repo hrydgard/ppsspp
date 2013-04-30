@@ -36,6 +36,7 @@ public:
 	void StartFrame();
 	void Invalidate(u32 addr, int size, bool force);
 	void InvalidateAll(bool force);
+	void ClearNextFrame();
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
@@ -99,6 +100,8 @@ private:
 
 	typedef std::map<u64, TexCacheEntry> TexCache;
 	TexCache cache;
+
+	bool clearCacheNextFrame_;
 
 	template <typename T>
 	class SimpleBuf {
