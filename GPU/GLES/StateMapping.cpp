@@ -23,6 +23,7 @@
 #include "GPU/ge_constants.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "DisplayListInterpreter.h"
 #include "ShaderManager.h"
 #include "TextureCache.h"
@@ -171,6 +172,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 					const float blendColor[4] = {(fixA & 0xFF)/255.0f, ((fixA >> 8) & 0xFF)/255.0f, ((fixA >> 16) & 0xFF)/255.0f, 1.0f};
 					glstate.blendColor.set(blendColor);
 				} else {
+					static bool didReportBlend = false;
+					if (!didReportBlend)
+						Reporting::ReportMessage("ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
+					didReportBlend = true;
+
 					DEBUG_LOG(HLE, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
 					glBlendFuncA = GL_ONE;
 					glBlendFuncB = GL_ONE;
