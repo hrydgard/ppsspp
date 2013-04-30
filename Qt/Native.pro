@@ -28,11 +28,6 @@ SOURCES += ../native/ext/cityhash/city.cpp
 HEADERS += ../native/ext/cityhash/*.h
 INCLUDEPATH += ../native/ext/cityhash
 
-# XBRZ
-SOURCES += ../native/ext/xbrz/xbrz.cpp
-HEADERS += ../native/ext/xbrz/xbrz.h
-INCLUDEPATH += ../native/ext/xbrz
-
 # Stb_image
 
 SOURCES += ../native/ext/stb_image/stb_image.c

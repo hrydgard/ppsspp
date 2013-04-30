@@ -15,7 +15,7 @@ SOURCES += ../git-version.cpp
 
 include(Settings.pri)
 
-INCLUDEPATH += ../native ../Core/MIPS ../
+INCLUDEPATH += ../native ../Core/MIPS ../ ../ext/xbrz
 
 arm {
 	SOURCES += ../Core/MIPS/ARM/*.cpp \ #CoreARM
@@ -61,7 +61,8 @@ SOURCES += ../Core/CPU.cpp \ # Core
 	../GPU/Math3D.cpp \
 	../GPU/Null/NullGpu.cpp \
 	../GPU/GLES/*.cpp \
-	../ext/libkirk/*.c # Kirk
+	../ext/libkirk/*.c \ # Kirk
+	../ext/xbrz/*.cpp # XBRZ
 
 HEADERS += ../Core/CPU.h \
 	../Core/Config.h \
@@ -88,5 +89,6 @@ HEADERS += ../Core/CPU.h \
 	../Core/Util/*.h \
 	../GPU/GLES/*.h \
 	../GPU/*.h \
-	../ext/libkirk/*.h
+	../ext/libkirk/*.h \
+	../ext/xbrz/*.h
 
