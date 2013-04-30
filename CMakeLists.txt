@@ -629,6 +629,12 @@ add_library(kirk STATIC
 	ext/libkirk/kirk_engine.h)
 include_directories(ext/libkirk)
 
+add_library(xbrz STATIC
+	ext/xbrz/xbrz.cpp
+	ext/xbrz/xbrz.h
+)
+include_directories(ext/xbrz)
+
 set(CoreExtra)
 if(ARM)
 	set(CoreExtra ${CoreExtra}
@@ -868,7 +874,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
 	git-version.cpp)
-target_link_libraries(${CoreLibName} Common native kirk cityhash
+target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz
 	${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 
