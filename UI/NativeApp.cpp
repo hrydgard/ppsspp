@@ -374,10 +374,17 @@ void NativeInitGraphics()
 	UIInit(&ui_atlas, theme);
 
 	uiTexture = new Texture();
-	if (!uiTexture->Load("ui_atlas.zim"))
-	{
+	if (!uiTexture->Load("ui_atlas.zim")){
+#ifdef _WIN32
+		if (!uiTexture->Load("..\\assets\\ui_atlas.zim")){
+			PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");		
+			ELOG("Failed to load ui_atlas.zim");		
+		}
+#endif
+#ifndef _WIN32
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
+#endif
 	}
 	uiTexture->Bind(0);
 

@@ -122,10 +122,18 @@ void __PPGeInit()
 	int width;
 	int height;
 	int flags;
-	if (!LoadZIM("ppge_atlas.zim", &width, &height, &flags, &imageData)) {
+	if (!LoadZIM("ppge_atlas.zim", &width, &height, &flags, &imageData)) {				
+#ifdef _WIN32
+		if (!LoadZIM("..\\assets\\ppge_atlas.zim", &width, &height, &flags, &imageData)) {
+			PanicAlert("Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
+			ERROR_LOG(HLE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
+		}
+#endif
+#ifndef _WIN32
 		PanicAlert("Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ERROR_LOG(HLE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
 		return;
+#endif
 	}
 
 	u32 atlasSize = height * width / 2;  // it's a 4-bit paletted texture in ram
