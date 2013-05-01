@@ -28,6 +28,14 @@
 #include "image/zim_save.h"
 
 #include "kanjifilter.h"
+// ShiftJIS perfect support case.
+// #define USE_KANJI KANJI_STANDARD | KANJI_RARELY_USED | KANJI_LEVEL4
+// daily-use character only. However, it is too enough this.
+// #define USE_KANJI KANJI_STANDARD
+// more conpact daily-use character. but, not enough this.
+// if when you find the unintelligible sequence of characters,
+// add kanjiFilter Array with KANJI_LEARNING_ORDER_ADDTIONAL.
+#define USE_KANJI KANJI_LEARNING_ORDER_ALL
 #include "util/text/utf8.h"
 
 #define CHECK(x) if (!(x)) { printf("%i: CHECK failed on this line\n", __LINE__); exit(1); }
@@ -677,8 +685,8 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 	std::set<u16> hangul1, hangul2, hangul3;
 	for (int i = 0; i < sizeof(kanjiFilter)/sizeof(kanjiFilter[0]); i+=2)
 	{
-		// TODO: learning level check?
-		if (kanjiFilter[i+1] > 0) {
+		// Kanji filtering.
+		if ((kanjiFilter[i+1] & USE_KANJI) > 0) {
 			kanji.insert(kanjiFilter[i]);
 		}
 	}
@@ -716,6 +724,11 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(0x3041, 0x3097));
 			ranges.push_back(range(0x3099, 0x309F));
 			break;
+		case 's':  // ShiftJIS symbols
+			ranges.push_back(range(0x2010, 0x2312)); // General Punctuation, Letterlike Symbols, Arrows, 
+			                                         // Mathematical Operators, Miscellaneous Technical
+			ranges.push_back(range(0x2500, 0x254B)); // Box drawing
+			ranges.push_back(range(0x25A0, 0x266F)); //  Geometric Shapes,  Miscellaneous Symbols
 		case 'H':  // Hebrew
 			ranges.push_back(range(0x0590, 0x05FF));
 			break;
