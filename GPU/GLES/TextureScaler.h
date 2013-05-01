@@ -21,55 +21,53 @@
 #include "../Globals.h"
 #include "../native/ext/glew/GL/glew.h"
 
-template <typename T>
-class SimpleBuf {
+#include <functional>
+#include <vector>
+
+#include "native/thread/thread.h"
+#include "base/mutex.h"
+
+// This is the simplest possible worker implementation I can think of
+// but entirely sufficient for the given purpose.
+// Only handles a single item of work at a time.
+class WorkerThread {
 public:
-	SimpleBuf() : buf_(NULL), size_(0) {
-	}
+	WorkerThread();
+	~WorkerThread();
 
-	SimpleBuf(size_t size) : buf_(NULL) {
-		resize(size);
-	}
-
-	~SimpleBuf() {
-		if (buf_ != NULL) {
-			FreeMemoryPages(buf_, size_ * sizeof(T));
-		}
-	}
-
-	inline T &operator[](size_t index) {
-		return buf_[index];
-	}
-
-	// Doesn't preserve contents.
-	void resize(size_t size) {
-		if (size_ < size) {
-			if (buf_ != NULL) {
-				FreeMemoryPages(buf_, size_ * sizeof(T));
-			}
-			buf_ = (T *)AllocateMemoryPages(size * sizeof(T));
-			size_ = size;
-		}
-	}
-
-	T *data() {
-		return buf_;
-	}
-
-	size_t size() {
-		return size_;
-	}
+	// submit a new work item
+	void Process(const std::function<void()>& work);
+	// wait for a submitted work item to be completed
+	void WaitForCompletion();
 
 private:
-	T *buf_;
-	size_t size_;
+	std::thread *thread; // the worker thread
+	condition_variable signal; // used to signal new work
+	condition_variable done; // used to signal work completion
+	recursive_mutex mutex, doneMutex; // associated with each respective condition variable
+	volatile bool active, started;
+	std::function<void()> work_; // the work to be done by this thread
+
+	void WorkFunc();
+
+	WorkerThread(const WorkerThread& other) { } // prevent copies
 };
 
 class TextureScaler {
 public:
+	TextureScaler();
+
 	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height);
 
 private:
+	const int numThreads;
+	std::vector<std::shared_ptr<WorkerThread>> workers;
+
+	bool workersStarted;
+	void StartWorkers();
+
+	void ParallelLoop(std::function<void(int,int)> loop, int lower, int upper);
+
 	SimpleBuf<u32> bufInput;
 	SimpleBuf<u32> bufOutput;
 };
