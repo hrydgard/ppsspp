@@ -27,7 +27,7 @@
 namespace p = std::placeholders;
 
 // Report the time and throughput for each larger scaling operation in the log
-//#define SCALING_MEASURE_TIME
+#define SCALING_MEASURE_TIME
 
 #ifdef SCALING_MEASURE_TIME
 #include "native/base/timeutil.h"
@@ -71,6 +71,74 @@ namespace {
 			}
 		}
 	}
+	
+	// this is sadly much faster than an inline function with a loop
+	#define MIX_PIXELS(p0, p1, p2, factors) \
+		((((p0>> 0)&0xFF)*factors[0] + ((p1>> 0)&0xFF)*factors[1] + ((p2>> 0)&0xFF)*factors[2])/255 <<  0 ) | \
+		((((p0>> 8)&0xFF)*factors[0] + ((p1>> 8)&0xFF)*factors[1] + ((p2>> 8)&0xFF)*factors[2])/255 <<  8 ) | \
+		((((p0>>16)&0xFF)*factors[0] + ((p1>>16)&0xFF)*factors[1] + ((p2>>16)&0xFF)*factors[2])/255 << 16 ) | \
+		((((p0>>24)&0xFF)*factors[0] + ((p1>>24)&0xFF)*factors[1] + ((p2>>24)&0xFF)*factors[2])/255 << 24 )
+
+	const static u8 BILINEAR_FACTORS[4][5][3] = {
+		{ {127,128,  0}, {  0,128,127}, {  0,  0,  0}, {  0,  0,  0}, {  0,  0,  0} }, // x2
+		{ {170, 85,  0}, {  0,255,  0}, {  0, 85,170}, {  0,  0,  0}, {  0,  0,  0} }, // x3
+		{ {102,153,  0}, { 51,204,  0}, {  0,204, 51}, {  0,153,102}, {  0,  0,  0} }, // x4
+		{ {102,153,  0}, { 51,204,  0}, {  0,255,  0}, {  0,204, 51}, {  0,153,102} }, // x5
+	};
+	// integral bilinear upscaling by factor f, horizontal part
+	template<int f>
+	void bilinearHt(u32* data, u32* out, int w, int l, int u) {
+		static_assert(f>1 && f<=5, "Bilinear scaling only implemented for factors 2 to 5");
+		int outw = w*f;
+		for(int y = l; y < u; ++y) {
+			for(int x = 0; x < w; ++x) {
+				int inpos = y*w + x;
+				u32 left   = data[inpos - (x==0  ?0:1)];
+				u32 center = data[inpos];
+				u32 right  = data[inpos + (x==w-1?0:1)];
+				for(int i=0; i<f; ++i) { // hope the compiler unrolls this
+					out[y*outw + x*f + i] = MIX_PIXELS(left, center, right, BILINEAR_FACTORS[f-2][i]);
+				}
+			}
+		}
+	}
+	void bilinearH(int factor, u32* data, u32* out, int w, int l, int u) {
+		switch(factor) {
+		case 2: bilinearHt<2>(data, out, w, l, u); break;
+		case 3: bilinearHt<3>(data, out, w, l, u); break;
+		case 4: bilinearHt<4>(data, out, w, l, u); break;
+		case 5: bilinearHt<5>(data, out, w, l, u); break;
+		default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+		}
+	}
+	// integral bilinear upscaling by factor f, vertical part
+	// gl/gu == global lower and upper bound
+	template<int f>
+	void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
+		static_assert(f>1 && f<=5, "Bilinear scaling only implemented for 2x, 3x, 4x, and 5x");
+		int outw = w*f;
+		for(int y = l; y < u; ++y) {
+			for(int x = 0; x < outw; ++x) {
+				u32 upper  = data[(y - (y==gl  ?0:1)) * outw + x];
+				u32 center = data[y * outw + x];
+				u32 lower  = data[(y + (y==gu-1?0:1)) * outw + x];
+				for(int i=0; i<f; ++i) { // hope the compiler unrolls this
+					out[(y*f + i)*outw + x] = MIX_PIXELS(upper, center, lower, BILINEAR_FACTORS[f-2][i]);
+				}
+			}
+		}
+	}
+	void bilinearV(int factor, u32* data, u32* out, int w, int gl, int gu, int l, int u) {
+		switch(factor) {
+		case 2: bilinearVt<2>(data, out, w, gl, gu, l, u); break;
+		case 3: bilinearVt<3>(data, out, w, gl, gu, l, u); break;
+		case 4: bilinearVt<4>(data, out, w, gl, gu, l, u); break;
+		case 5: bilinearVt<5>(data, out, w, gl, gu, l, u); break;
+		default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+		}
+	}
+
+	#undef MIX_PIXELS
 }
 
 
@@ -78,47 +146,36 @@ TextureScaler::TextureScaler() {
 }
 
 void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
-	if(g_Config.iXBRZTexScalingLevel > 1) {
+	if(g_Config.iTexScalingLevel > 1) {
 		#ifdef SCALING_MEASURE_TIME
 		double t_start = real_time_now();
 		#endif
 
-		int factor = g_Config.iXBRZTexScalingLevel;
+		int factor = g_Config.iTexScalingLevel;
 
-		// depending on the factor and texture sizes, these can be pretty large (25 MB for a 512 by 512 texture with scaling factor 5)
 		bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
 		bufOutput.resize(width*height*factor*factor); // used to store the upscaled image
-		u32 *xbrzInputBuf = bufInput.data();
-		u32 *xbrzBuf = bufOutput.data();
+		u32 *inputBuf = bufInput.data();
+		u32 *outputBuf = bufOutput.data();
 
-		// convert texture to correct format for xBRZ
-		switch(dstFmt) {
-		case GL_UNSIGNED_BYTE:
-			xbrzInputBuf = data; // already fine
-			break;
-
-		case GL_UNSIGNED_SHORT_4_4_4_4:
-			GlobalThreadPool::Loop(std::bind(&convert4444, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
-			break;
-
-		case GL_UNSIGNED_SHORT_5_6_5:
-			GlobalThreadPool::Loop(std::bind(&convert565, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
-			break;
-
-		case GL_UNSIGNED_SHORT_5_5_5_1:
-			GlobalThreadPool::Loop(std::bind(&convert5551, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
-			break;
-
-		default:
-			ERROR_LOG(G3D, "iXBRZTexScaling: unsupported texture format");
-		}
+		// convert texture to correct format for scaling
+		ConvertTo8888(dstFmt, data, inputBuf, width, height);
 
 		// scale 
-		xbrz::ScalerCfg cfg;
-		GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, xbrzInputBuf, xbrzBuf, width, height, cfg, p::_1, p::_2), 0, height);
+		switch(g_Config.iTexScalingType) {
+		case BILINEAR:
+			ScaleBilinear(factor, inputBuf, outputBuf, width, height);
+			break;
+		case XBRZ:
+			ScaleXBRZ(factor, inputBuf, outputBuf, width, height);
+			break;
+		case HYBRID:
+			ScaleHybrid(factor, inputBuf, outputBuf, width, height);
+			break;
+		}
 
 		// update values accordingly
-		data = xbrzBuf;
+		data = outputBuf;
 		dstFmt = GL_UNSIGNED_BYTE;
 		width *= factor;
 		height *= factor;
@@ -130,5 +187,45 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
 				width*height, t, (width*height)/(t*1000*1000));
 		}
 		#endif
+	}
+}
+
+void TextureScaler::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
+	xbrz::ScalerCfg cfg;
+	GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, source, dest, width, height, cfg, p::_1, p::_2), 0, height);
+}
+
+void TextureScaler::ScaleBilinear(int factor, u32* source, u32* dest, int width, int height) {
+	bufTmp1.resize(width*height*factor);
+	u32 *tmpBuf = bufTmp1.data();
+	GlobalThreadPool::Loop(std::bind(&bilinearH, factor, source, tmpBuf, width, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&bilinearV, factor, tmpBuf, dest, width, 0, height, p::_1, p::_2), 0, height);
+}
+
+void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height) {
+
+}
+
+void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height) {
+	switch(format) {
+	case GL_UNSIGNED_BYTE:
+		dest = source; // already fine
+		break;
+
+	case GL_UNSIGNED_SHORT_4_4_4_4:
+		GlobalThreadPool::Loop(std::bind(&convert4444, (u16*)source, dest, width, p::_1, p::_2), 0, height);
+		break;
+
+	case GL_UNSIGNED_SHORT_5_6_5:
+		GlobalThreadPool::Loop(std::bind(&convert565, (u16*)source, dest, width, p::_1, p::_2), 0, height);
+		break;
+
+	case GL_UNSIGNED_SHORT_5_5_5_1:
+		GlobalThreadPool::Loop(std::bind(&convert5551, (u16*)source, dest, width, p::_1, p::_2), 0, height);
+		break;
+
+	default:
+		dest = source;
+		ERROR_LOG(G3D, "iXBRZTexScaling: unsupported texture format");
 	}
 }
