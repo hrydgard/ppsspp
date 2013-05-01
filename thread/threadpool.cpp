@@ -3,7 +3,7 @@
 ///////////////////////////// WorkerThread
 
 WorkerThread::WorkerThread() : active(true), started(false) {
-	thread = new std::thread([&]() { WorkFunc(); });
+	thread = new std::thread(std::bind(&WorkerThread::WorkFunc, this));
 	doneMutex.lock();
 	while(!started) { };
 }
