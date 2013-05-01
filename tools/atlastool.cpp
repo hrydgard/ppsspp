@@ -28,8 +28,13 @@
 #include "image/zim_save.h"
 
 #include "kanjifilter.h"
+// ShiftJIS perfect support case.
 // #define USE_KANJI KANJI_STANDARD | KANJI_RARELY_USED | KANJI_LEVEL4
+// daily-use character only. However, it is too enough this.
 // #define USE_KANJI KANJI_STANDARD
+// more conpact daily-use character. but, not enough this.
+// if when you find the unintelligible sequence of characters,
+// add kanjiFilter Array with KANJI_LEARNING_ORDER_ADDTIONAL.
 #define USE_KANJI KANJI_LEARNING_ORDER_ALL
 #include "util/text/utf8.h"
 
@@ -680,7 +685,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 	std::set<u16> hangul1, hangul2, hangul3;
 	for (int i = 0; i < sizeof(kanjiFilter)/sizeof(kanjiFilter[0]); i+=2)
 	{
-		// TODO: learning level check?
+		// Kanji filtering.
 		if ((kanjiFilter[i+1] & USE_KANJI) > 0) {
 			kanji.insert(kanjiFilter[i]);
 		}
