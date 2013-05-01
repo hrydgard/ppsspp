@@ -158,7 +158,7 @@ void deleteAtrac(int atracID) {
 	}
 }
 
-int getCodecType(int addr) {
+int getCodecType(const u32 addr) {
 	int at3magic = Memory::Read_U16(addr + 20);
 	if (at3magic == AT3_MAGIC) {
 		return PSP_MODE_AT_3;
@@ -212,7 +212,7 @@ void Atrac::Analyze()
 		switch (chunkMagic) {
 			case FMT_CHUNK_MAGIC: {
 					if (chunkSize >= 16) {
-						atracChannels = (getCodecType(Memory::Read_U16(first.addr + offset )) == PSP_MODE_AT_3_PLUS) ?  Memory::Read_U16(first.addr + offset + 2) : 2 ;
+						atracChannels = Memory::Read_U16(first.addr + offset + 2);
 						atracSampleRate = Memory::Read_U32(first.addr + offset + 4);  
 						atracBitrate = Memory::Read_U32(first.addr + offset + 8);
 						atracBytesPerFrame = Memory::Read_U16(first.addr + offset + 12);

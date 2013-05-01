@@ -83,6 +83,16 @@ void __UtilityShutdown()
 	netDialog.Shutdown();
 }
 
+int __UtilityGetStatus()
+{
+	if (currentDialogType == UTILITY_DIALOG_NONE) {
+		return 0;
+	} else {
+		WARN_LOG(HLE, "__UtilityGetStatus() Faked dialog : wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+}
+
 int sceUtilitySavedataInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SAVEDATA)
@@ -369,7 +379,7 @@ int sceUtilityNetconfGetStatus()
 
 int sceUtilityScreenshotGetStatus()
 {
-	u32 retval =  0;//__UtilityGetStatus();
+	u32 retval =  __UtilityGetStatus();
 	ERROR_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
 	return retval;
 }
@@ -381,7 +391,7 @@ void sceUtilityGamedataInstallInitStart(u32 unkown)
 
 int sceUtilityGamedataInstallGetStatus()
 {
-	u32 retval = 0;//__UtilityGetStatus();
+	u32 retval = __UtilityGetStatus();
 	ERROR_LOG(HLE, "UNIMPL %i=sceUtilityGamedataInstallGetStatus()", retval);
 	return retval;
 }
