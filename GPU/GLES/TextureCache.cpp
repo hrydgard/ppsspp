@@ -27,7 +27,6 @@
 #include "Core/Config.h"
 
 #include "native/ext/cityhash/city.h"
-#include "ext/xbrz/xbrz.h"
 
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
@@ -792,8 +791,10 @@ void TextureCache::SetTexture() {
 			entry->hash != texhash ||
 			entry->format != format ||
 			entry->maxLevel != maxLevel ||
-			(hasClut && entry->clutformat != clutformat))
+			(hasClut && entry->clutformat != clutformat)) {
 			match = false;
+			entry->numInvalidated++;
+		}
 
 		if (match) {
 			if (entry->lastFrame != gpuStats.numFrames) {
@@ -823,6 +824,7 @@ void TextureCache::SetTexture() {
 					gpuStats.numTextureInvalidations++;
 					entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 					entry->numFrames = 0;
+					entry->numInvalidated++;
 				} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 					entry->status = TexCacheEntry::STATUS_HASHING;
 				}
@@ -1206,78 +1208,10 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
 	u32* pixelData = (u32*)finalBuf;
-	ScaleTexture(pixelData, dstFmt, w, h);
+	if(entry.numInvalidated == 0) scaler.Scale(pixelData, dstFmt, w, h);
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
-}
-
-void TextureCache::ScaleTexture(u32* &data, GLenum &dstFmt, int &width, int &height) {
-	if(g_Config.iXBRZTexScalingLevel > 1) {
-		int factor = g_Config.iXBRZTexScalingLevel;
-
-		// I tried to reuse the existing tmpTexBuf initially, but that's not a good idea as data could already be stored in it
-		// depending on the factor and texture sizes, these can be pretty large (25 MB for a 512 by 512 texture with scaling factor 5)
-		tmpTexBufScalingInput.resize(width*height); // used to store the input image image if it needs to be reformatted
-		tmpTexBufScalingOutput.resize(width*height*factor*factor); // used to store the upscaled image
-		u32 *xbrzInputBuf = tmpTexBufScalingInput.data();
-		u32 *xbrzBuf = tmpTexBufScalingOutput.data();
-
-		// convert texture to correct format for xBRZ
-		switch(dstFmt) {
-		case GL_UNSIGNED_BYTE:
-			xbrzInputBuf = data; // already fine
-			break;
-
-		case GL_UNSIGNED_SHORT_4_4_4_4:
-			for(int y = 0; y < height; ++y) {
-				for(int x = 0; x < width; ++x) {
-					u32 val = ((u16*)data)[y*width + x];
-					u32 r = ((val>>12) & 0xF) * 17;
-					u32 g = ((val>> 8) & 0xF) * 17;
-					u32 b = ((val>> 4) & 0xF) * 17;
-					u32 a = ((val>> 0) & 0xF) * 17;
-					xbrzInputBuf[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
-				}
-			}
-			break;
-
-		case GL_UNSIGNED_SHORT_5_6_5:
-			for(int y = 0; y < height; ++y) {
-				for(int x = 0; x < width; ++x) {
-					u32 val = ((u16*)data)[y*width + x];
-					u32 r = ((val>>11) & 0x1F) * 8;
-					u32 g = ((val>> 5) & 0x3F) * 4;
-					u32 b = ((val    ) & 0x1F) * 8;
-					xbrzInputBuf[y*width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
-				}
-			}
-			break;
-
-		case GL_UNSIGNED_SHORT_5_5_5_1:
-			for(int y = 0; y < height; ++y) {
-				for(int x = 0; x < width; ++x) {
-					u32 val = ((u16*)data)[y*width + x];
-					u32 r = ((val>>11) & 0x1F) * 8;
-					u32 g = ((val>> 6) & 0x1F) * 8;
-					u32 b = ((val>> 1) & 0x1F) * 8;
-					u32 a = (val & 0x1) * 255;
-					xbrzInputBuf[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
-				}
-			}
-			break;
-
-		default:
-			ERROR_LOG(G3D, "iXBRZTexScaling: unsupported texture format");
-		}
-
-		// scale and update values accordingly
-		xbrz::scale(factor, xbrzInputBuf, xbrzBuf, width, height);
-		data = xbrzBuf;
-		dstFmt = GL_UNSIGNED_BYTE;
-		width *= factor;
-		height *= factor;
-	}
 }
 
 bool TextureCache::DecodeTexture(u8* output, GPUgstate state)

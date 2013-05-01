@@ -18,9 +18,9 @@
 #pragma once
 
 #include "../Globals.h"
-#include "Common/MemoryUtil.h"
 #include "gfx_es2/fbo.h"
 #include "GPU/GPUState.h"
+#include "TextureScaler.h"
 
 struct VirtualFramebuffer;
 
@@ -69,6 +69,7 @@ private:
 		u32 sizeInRAM;
 		int lastFrame;
 		int numFrames;
+		int numInvalidated;
 		u32 framesUntilNextFullHash;
 		u8 format;
 		u8 clutformat;
@@ -94,7 +95,6 @@ private:
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
 	void LoadTextureLevel(TexCacheEntry &entry, int level);
 	void *DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt);
-	void ScaleTexture(u32* &data, GLenum &dstfmt, int &width, int &height);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
@@ -102,58 +102,12 @@ private:
 	TexCache cache;
 
 	bool clearCacheNextFrame_;
-
-	template <typename T>
-	class SimpleBuf {
-	public:
-		SimpleBuf() : buf_(NULL), size_(0) {
-		}
-
-		SimpleBuf(size_t size) : buf_(NULL) {
-			resize(size);
-		}
-
-		~SimpleBuf() {
-			if (buf_ != NULL) {
-				FreeMemoryPages(buf_, size_ * sizeof(T));
-			}
-		}
-
-		inline T &operator[](size_t index) {
-			return buf_[index];
-		}
-
-		// Doesn't preserve contents.
-		void resize(size_t size) {
-			if (size_ < size) {
-				if (buf_ != NULL) {
-					FreeMemoryPages(buf_, size_ * sizeof(T));
-				}
-				buf_ = (T *)AllocateMemoryPages(size * sizeof(T));
-				size_ = size;
-			}
-		}
-
-		T *data() {
-			return buf_;
-		}
-
-		size_t size() {
-			return size_;
-		}
-
-	private:
-		T *buf_;
-		size_t size_;
-	};
+	TextureScaler scaler;
 
 	SimpleBuf<u32> tmpTexBuf32;
 	SimpleBuf<u16> tmpTexBuf16;
 
 	SimpleBuf<u32> tmpTexBufRearrange;
-
-	SimpleBuf<u32> tmpTexBufScalingInput;
-	SimpleBuf<u32> tmpTexBufScalingOutput;
 
 	u32 *clutBuf32;
 	u16 *clutBuf16;
