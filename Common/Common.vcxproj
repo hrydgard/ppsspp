@@ -191,6 +191,7 @@
     <ClInclude Include="StringUtil.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Thread.h" />
+    <ClInclude Include="ThreadPool.h" />
     <ClInclude Include="Thunk.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="x64Analyzer.h" />
@@ -226,6 +227,7 @@
     </ClCompile>
     <ClCompile Include="StringUtil.cpp" />
     <ClCompile Include="Thread.cpp" />
+    <ClCompile Include="ThreadPool.cpp" />
     <ClCompile Include="Thunk.cpp" />
     <ClCompile Include="Timer.cpp" />
     <ClCompile Include="Version.cpp" />

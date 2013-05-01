@@ -40,6 +40,9 @@ public:
 	bool bAutoRun;  // start immediately
 	bool bBrowse;
 
+	// General
+	int iNumWorkerThreads;
+
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
