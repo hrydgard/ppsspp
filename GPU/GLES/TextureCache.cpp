@@ -791,8 +791,10 @@ void TextureCache::SetTexture() {
 			entry->hash != texhash ||
 			entry->format != format ||
 			entry->maxLevel != maxLevel ||
-			(hasClut && entry->clutformat != clutformat))
+			(hasClut && entry->clutformat != clutformat)) {
 			match = false;
+			entry->numInvalidated++;
+		}
 
 		if (match) {
 			if (entry->lastFrame != gpuStats.numFrames) {
@@ -822,6 +824,7 @@ void TextureCache::SetTexture() {
 					gpuStats.numTextureInvalidations++;
 					entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 					entry->numFrames = 0;
+					entry->numInvalidated++;
 				} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 					entry->status = TexCacheEntry::STATUS_HASHING;
 				}
@@ -1205,7 +1208,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
 	u32* pixelData = (u32*)finalBuf;
-	scaler.Scale(pixelData, dstFmt, w, h);
+	if(entry.numInvalidated == 0) scaler.Scale(pixelData, dstFmt, w, h);
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);

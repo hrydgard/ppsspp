@@ -69,6 +69,7 @@ private:
 		u32 sizeInRAM;
 		int lastFrame;
 		int numFrames;
+		int numInvalidated;
 		u32 framesUntilNextFullHash;
 		u8 format;
 		u8 clutformat;
