@@ -251,6 +251,9 @@
     <ClInclude Include="file\ini_file.h">
       <Filter>file</Filter>
     </ClInclude>
+    <ClInclude Include="thread\threadpool.h">
+      <Filter>thread</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -443,6 +446,9 @@
     </ClCompile>
     <ClCompile Include="file\ini_file.cpp">
       <Filter>file</Filter>
+    </ClCompile>
+    <ClCompile Include="thread\threadpool.cpp">
+      <Filter>thread</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

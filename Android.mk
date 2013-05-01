@@ -45,6 +45,7 @@ LOCAL_SRC_FILES :=\
     profiler/profiler.cpp \
     thread/threadutil.cpp \
     thread/prioritizedworkqueue.cpp \
+    thread/threadpool.cpp \
     gfx_es2/glsl_program.cpp \
     gfx_es2/gl_state.cpp \
     gfx_es2/draw_buffer.cpp.arm \

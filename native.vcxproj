@@ -245,6 +245,7 @@
     <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="thread\prioritizedworkqueue.h" />
     <ClInclude Include="thread\thread.h" />
+    <ClInclude Include="thread\threadpool.h" />
     <ClInclude Include="thread\threadutil.h" />
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
@@ -358,6 +359,7 @@
     <ClCompile Include="net\resolve.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
     <ClCompile Include="thread\prioritizedworkqueue.cpp" />
+    <ClCompile Include="thread\threadpool.cpp" />
     <ClCompile Include="thread\threadutil.cpp" />
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
