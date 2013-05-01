@@ -18,10 +18,11 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <sys/time.h>
 #endif
 
 #include <time.h>
-#include <sys/time.h>
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
