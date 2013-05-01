@@ -33,10 +33,12 @@ void WorkerThread::WorkFunc() {
 	started = true;
 	while(active) {
 		signal.wait(mutex);
-		if(active) work_();
-		doneMutex.lock();
-		done.notify_one();
-		doneMutex.unlock();
+		if(active) { 
+			work_();
+			doneMutex.lock();
+			done.notify_one();
+			doneMutex.unlock();
+		}
 	}
 }
 
@@ -58,7 +60,7 @@ void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int 
 	mutex.lock();
 	StartWorkers();
 	int range = upper-lower;
-	if(range >= numThreads*2) { // don't parallelize tiny loops
+	if(range >= numThreads*2) { // don't parallelize tiny loops (this could be better, maybe add optional parameter that estimates work per iteration)
 		// could do slightly better load balancing for the generic case, 
 		// but doesn't matter since all our loops are power of 2
 		int chunk = range/numThreads; 
