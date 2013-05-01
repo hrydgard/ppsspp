@@ -178,8 +178,19 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 					didReportBlend = true;
 
 					DEBUG_LOG(HLE, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
-					glBlendFuncA = GL_ONE;
-					glBlendFuncB = GL_ONE;
+					// Let's approximate, at least.
+					int blendSumA = (fixA & 0xFF) + ((fixA >> 8) & 0xFF) +  ((fixA >> 16) & 0xFF);
+					int blendSumB = (fixB & 0xFF) + ((fixB >> 8) & 0xFF) +  ((fixB >> 16) & 0xFF);
+					if (blendSumA < 64 * 3 && blendSumB > 192 * 3) {
+						glBlendFuncA = GL_ZERO;
+						glBlendFuncB = GL_ONE;
+					} else if (blendSumA > 192 * 3 && blendSumB < 64 * 3) {
+						glBlendFuncA = GL_ONE;
+						glBlendFuncB = GL_ZERO;
+					} else {
+						glBlendFuncA = GL_ONE;
+						glBlendFuncB = GL_ONE;
+					}
 				}
 			}
 			// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set somehow.
