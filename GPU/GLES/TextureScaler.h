@@ -24,34 +24,6 @@
 #include <functional>
 #include <vector>
 
-#include "native/thread/thread.h"
-#include "base/mutex.h"
-
-// This is the simplest possible worker implementation I can think of
-// but entirely sufficient for the given purpose.
-// Only handles a single item of work at a time.
-class WorkerThread {
-public:
-	WorkerThread();
-	~WorkerThread();
-
-	// submit a new work item
-	void Process(const std::function<void()>& work);
-	// wait for a submitted work item to be completed
-	void WaitForCompletion();
-
-private:
-	std::thread *thread; // the worker thread
-	condition_variable signal; // used to signal new work
-	condition_variable done; // used to signal work completion
-	recursive_mutex mutex, doneMutex; // associated with each respective condition variable
-	volatile bool active, started;
-	std::function<void()> work_; // the work to be done by this thread
-
-	void WorkFunc();
-
-	WorkerThread(const WorkerThread& other) { } // prevent copies
-};
 
 class TextureScaler {
 public:
@@ -60,14 +32,6 @@ public:
 	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height);
 
 private:
-	const int numThreads;
-	std::vector<std::shared_ptr<WorkerThread>> workers;
-
-	bool workersStarted;
-	void StartWorkers();
-
-	void ParallelLoop(std::function<void(int,int)> loop, int lower, int upper);
-
 	SimpleBuf<u32> bufInput;
 	SimpleBuf<u32> bufOutput;
 };

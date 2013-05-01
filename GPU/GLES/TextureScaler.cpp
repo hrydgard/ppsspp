@@ -21,82 +21,19 @@
 #include "Common/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/CommonFuncs.h"
+#include "Common/ThreadPool.h"
 #include "ext/xbrz/xbrz.h"
 
-WorkerThread::WorkerThread() : active(true), started(false) {
-	thread = new std::thread([&]() { WorkFunc(); });
-	doneMutex.lock();
-	while(!started) { };
-}
-
-WorkerThread::~WorkerThread() {
-	mutex.lock();
-	active = false;
-	signal.notify_one();
-	mutex.unlock();
-	thread->join();
-	delete thread;
-}
-
-void WorkerThread::Process(const std::function<void()>& work) {
-	mutex.lock();
-	work_ = work;
-	signal.notify_one();
-	mutex.unlock();
-}
-
-void WorkerThread::WaitForCompletion() {
-	done.wait(doneMutex);
-}
-
-void WorkerThread::WorkFunc() {
-	mutex.lock();
-	started = true;
-	while(active) {
-		signal.wait(mutex);
-		if(active) work_();
-		doneMutex.lock();
-		done.notify_one();
-		doneMutex.unlock();
-	}
-}
-
-
-TextureScaler::TextureScaler() : numThreads(4), workersStarted(false) {
-}
-
-void TextureScaler::StartWorkers() {
-	if(!workersStarted) {
-		for(int i=0; i<numThreads; ++i) {
-			workers.push_back(std::make_shared<WorkerThread>());
-		}
-		workersStarted = true;
-	}
-}
-
-void TextureScaler::ParallelLoop(std::function<void(int,int)> loop, int lower, int upper) {
-	StartWorkers();
-	int range = upper-lower;
-	if(range >= numThreads*2) { // don't parallelize tiny loops
-		// could do slightly better load balancing for the generic case, 
-		// but doesn't matter since all our loops are power of 2
-		int chunk = range/numThreads; 
-		for(int s=lower, i=0; i<numThreads; s+=chunk, ++i) {
-			workers[i]->Process(std::bind(loop, s, std::min(s+chunk,upper)));
-		}
-		for(int i=0; i<numThreads; ++i) {
-			workers[i]->WaitForCompletion();
-		}
-	} else {
-		loop(lower, upper);
-	}
-}
-
+// Report the time and throughput for each larger scaling operation in the log
 //#define SCALING_MEASURE_TIME
 
 #ifdef SCALING_MEASURE_TIME
 #include "native/base/timeutil.h"
 #endif
+
+
+TextureScaler::TextureScaler() {
+}
 
 void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
 	if(g_Config.iXBRZTexScalingLevel > 1) {
@@ -119,7 +56,7 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
 			break;
 
 		case GL_UNSIGNED_SHORT_4_4_4_4:
-			ParallelLoop([&](int l, int u){
+			GlobalThreadPool::Loop([&](int l, int u){
 				for(int y = l; y < u; ++y) {
 					for(int x = 0; x < width; ++x) {
 						u32 val = ((u16*)data)[y*width + x];
@@ -134,7 +71,7 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
 			break;
 
 		case GL_UNSIGNED_SHORT_5_6_5:
-			ParallelLoop([&](int l, int u){
+			GlobalThreadPool::Loop([&](int l, int u){
 				for(int y = l; y < u; ++y) {
 					for(int x = 0; x < width; ++x) {
 						u32 val = ((u16*)data)[y*width + x];
@@ -148,7 +85,7 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
 			break;
 
 		case GL_UNSIGNED_SHORT_5_5_5_1:
-			ParallelLoop([&](int l, int u) {
+			GlobalThreadPool::Loop([&](int l, int u) {
 				for(int y = l; y < u; ++y) {
 					for(int x = 0; x < width; ++x) {
 						u32 val = ((u16*)data)[y*width + x];
@@ -168,7 +105,7 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
 
 		// scale 
 		xbrz::ScalerCfg cfg;
-		ParallelLoop([&](int l, int u) {
+		GlobalThreadPool::Loop([&](int l, int u) {
 			xbrz::scale(factor, xbrzInputBuf, xbrzBuf, width, height, cfg, l, u);
 		}, 0, height);
 
