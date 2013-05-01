@@ -34,8 +34,8 @@ private:
 };
 
 // A thread pool manages a set of worker threads, and allows the execution of parallel loops on them
-// individual parallel loops are sequentialized, which should not be a problem as they should each
-// use the entire system
+// individual parallel loops are fully sequentialized to simplify synchronization, which should not 
+// be a problem as they should each use the entire system
 class ThreadPool {
 public:
 	ThreadPool(int numThreads);

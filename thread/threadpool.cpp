@@ -55,6 +55,7 @@ void ThreadPool::StartWorkers() {
 }
 
 void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int upper) {
+	mutex.lock();
 	StartWorkers();
 	int range = upper-lower;
 	if(range >= numThreads*2) { // don't parallelize tiny loops
@@ -70,5 +71,6 @@ void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int 
 	} else {
 		loop(lower, upper);
 	}
+	mutex.unlock();
 }
 
