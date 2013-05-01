@@ -20,6 +20,7 @@
 #include "Config.h"
 #include "file/ini_file.h"
 #include "HLE/sceUtility.h"
+#include "Common/CPUDetect.h"
 
 Config g_Config;
 
@@ -61,6 +62,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	general->Get("Language", &languageIni, "en_US");
+	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
@@ -172,6 +174,7 @@ void Config::Save()
 		general->Set("WindowY", iWindowY);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
 		general->Set("Language", languageIni);
+		general->Set("NumWorkerThreads", iNumWorkerThreads);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
