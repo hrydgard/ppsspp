@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cassert>
 #include <algorithm>
+#include <limits>
 
 namespace
 {
@@ -32,7 +33,7 @@ inline unsigned char getBlue (uint32_t val) { return getByte<1>(val); }
 template <class T> inline
 T abs(T value)
 {
-    static_assert(std::is_signed<T>::value, "");
+	static_assert(std::numeric_limits<T>::is_signed, "abs performed on unsigned");
     return value < 0 ? -value : value;
 }
 

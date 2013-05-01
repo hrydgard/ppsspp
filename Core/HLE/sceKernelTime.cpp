@@ -21,6 +21,7 @@
 #endif
 
 #include <time.h>
+#include <sys/time.h>
 
 #include "HLE.h"
 #include "../MIPS/MIPS.h"
