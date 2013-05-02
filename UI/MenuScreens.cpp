@@ -706,7 +706,7 @@ void GraphicsScreenP1::render() {
 			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
-		if (UICheckBox(GEN_ID, x, y += stride, gs->T("2X", "2x Render Resolution"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
+		if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
 		}
