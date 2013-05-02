@@ -46,6 +46,7 @@ namespace p = std::placeholders;
 #endif
 
 namespace {
+	// convert 4444 image to 8888, parallelizable
 	void convert4444(u16* data, u32* out, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
@@ -59,6 +60,7 @@ namespace {
 		}
 	}
 
+	// convert 565 image to 8888, parallelizable
 	void convert565(u16* data, u32* out, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
@@ -71,6 +73,7 @@ namespace {
 		}
 	}
 
+	// convert 5551 image to 8888, parallelizable
 	void convert5551(u16* data, u32* out, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
@@ -83,17 +86,8 @@ namespace {
 			}
 		}
 	}
-
-	void convertSum(u32* data, u32* out, int width, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				u32 val = data[y*width + x];
-				out[y*width + x] = (val>>24)&0xFF + (val>>16)&0xFF + (val>>8)&0xFF + (val>>0)&0xFF;
-			}
-		}
-	}
-
-	// 3x3 convolution with Neumann boundary conditions
+	
+	// 3x3 convolution with Neumann boundary conditions, parallelizable
 	// quite slow, could be sped up a lot
 	// especially handling of separable kernels
 	void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int height, int l, int u) {
@@ -112,20 +106,54 @@ namespace {
 		}
 	}
 
-	// this is sadly much faster than an inline function with a loop
+	#define R(_col) ((_col>> 0)&0xFF)
+	#define G(_col) ((_col>> 8)&0xFF)
+	#define B(_col) ((_col>>16)&0xFF)
+	#define A(_col) ((_col>>24)&0xFF)
+
+	#define DISTANCE(_p1,_p2) ( abs((int)((int)(R(_p1))-R(_p2))) + abs((int)((int)(G(_p1))-G(_p2))) \
+							  + abs((int)((int)(B(_p1)-B(_p2)))) + abs((int)((int)(A(_p1)-A(_p2)))) )
+
+	void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int u) {
+		for(int y = l; y < u; ++y) {
+			for(int x = 0; x < width; ++x) {
+				out[y*width + x] = 0;
+				u32 center = data[y*width + x];
+				for(int yoff = -1; yoff < 1; ++yoff) {
+					int yy = y+yoff;
+					if(yy == height-1 || yy == -1) {
+						out[y*width + x] += 400; // assume distance at borders, usually makes for better result
+						continue;
+					}
+					for(int xoff = -1; xoff < 1; ++xoff) {
+						if(yoff == 0 && xoff == 0) continue;
+						int xx = x+xoff;
+						if(xx == width-1 || xx == -1) {
+							out[y*width + x] += 400; // assume distance at borders, usually makes for better result
+							continue;
+						}
+						out[y*width + x] += DISTANCE(data[yy*width + xx], center);
+					}
+				}
+			}
+		}
+	}
+
+	// this is sadly much faster than an inline function with a loop, at least in VC10
 	#define MIX_PIXELS(p0, p1, p2, factors) \
-		((((p0>> 0)&0xFF)*factors[0] + ((p1>> 0)&0xFF)*factors[1] + ((p2>> 0)&0xFF)*factors[2])/255 <<  0 ) | \
-		((((p0>> 8)&0xFF)*factors[0] + ((p1>> 8)&0xFF)*factors[1] + ((p2>> 8)&0xFF)*factors[2])/255 <<  8 ) | \
-		((((p0>>16)&0xFF)*factors[0] + ((p1>>16)&0xFF)*factors[1] + ((p2>>16)&0xFF)*factors[2])/255 << 16 ) | \
-		((((p0>>24)&0xFF)*factors[0] + ((p1>>24)&0xFF)*factors[1] + ((p2>>24)&0xFF)*factors[2])/255 << 24 )
+		((R(p0)*factors[0] + R(p1)*factors[1] + R(p2)*factors[2])/255 <<  0 ) | \
+		((G(p0)*factors[0] + G(p1)*factors[1] + G(p2)*factors[2])/255 <<  8 ) | \
+		((B(p0)*factors[0] + B(p1)*factors[1] + B(p2)*factors[2])/255 << 16 ) | \
+		((A(p0)*factors[0] + A(p1)*factors[1] + A(p2)*factors[2])/255 << 24 )
 
 	void mix(u32* data, u32* source, u32* mask, u32 maskmax, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
 				int pos = y*width + x;
-				u8 mixFactors[3] = {(std::min(mask[pos], maskmax)*255)/maskmax, 0, 0 };
-				mixFactors[1] = 255-mixFactors[0];
+				u8 mixFactors[3] = {0, (std::min(mask[pos], maskmax)*255)/maskmax, 0 };
+				mixFactors[0] = 255-mixFactors[1];
 				data[pos] = MIX_PIXELS(data[pos], source[pos], 0, mixFactors);
+				if(A(source[pos]) == 0) data[pos] = data[pos] & 0x00FFFFFF; // xBRZ always does a better job with hard alpha
 			}
 		}
 	}
@@ -190,6 +218,42 @@ namespace {
 	}
 
 	#undef MIX_PIXELS
+	#undef DISTANCE
+	#undef R
+	#undef G
+	#undef B
+	#undef A
+
+	// used for debugging texture scaling (writing textures to files)
+	static int g_imgCount = 0;
+	void dbgPPM(int w, int h, u8* pixels, const char* prefix = "dbg") { // 3 component RGB
+		char fn[32];
+		snprintf(fn, 32, "%s%04d.ppm", prefix, g_imgCount++);
+		FILE *fp = fopen(fn, "wb");
+		fprintf(fp, "P6\n%d %d\n255\n", w, h);
+		for(int j = 0; j < h; ++j) {
+			for(int i = 0; i < w; ++i) {
+				static unsigned char color[3];
+				color[0] = pixels[(j*w+i)*4+0];  /* red */
+				color[1] = pixels[(j*w+i)*4+1];  /* green */
+				color[2] = pixels[(j*w+i)*4+2];  /* blue */
+				fwrite(color, 1, 3, fp);
+			}
+		}
+		fclose(fp);
+	}
+	void dbgPGM(int w, int h, u32* pixels, const char* prefix = "dbg") { // 1 component
+		char fn[32];
+		snprintf(fn, 32, "%s%04d.pgm", prefix, g_imgCount++);
+		FILE *fp = fopen(fn, "wb");
+		fprintf(fp, "P5\n%d %d\n65536\n", w, h);
+		for(int j = 0; j < h; ++j) {
+			for(int i = 0; i < w; ++i) {
+				fwrite((pixels+(j*w+i)), 1, 2, fp);
+			}
+		}
+		fclose(fp);
+	}
 }
 
 
@@ -255,30 +319,37 @@ void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, i
 	// 2) generate 2 scaled images: A - using Bilinear filtering, B - using xBRZ
 	// 3) output = A*C + B*(1-C)
 
-	const static int KERNEL_EDGE_DETECT[3][3] = {
-		{ -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 }
-	};
+	bool generateDebugImgs = true && width==256 && height==128;
+
 	const static int KERNEL_SPLAT[3][3] = {
 		{ 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 }
 	};
 
+	if(generateDebugImgs) dbgPPM(width, height, (u8*)source);
+
 	bufTmp1.resize(width*height);
 	bufTmp2.resize(width*height*factor*factor);
 	bufTmp3.resize(width*height*factor*factor);
-	GlobalThreadPool::Loop(std::bind(&convertSum, source, bufTmp2.data(), width, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&convolve3x3, bufTmp2.data(), bufTmp1.data(), KERNEL_EDGE_DETECT, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&generateDistanceMask, source, bufTmp1.data(), width, height, p::_1, p::_2), 0, height);
+	if(generateDebugImgs) dbgPGM(width, height, bufTmp1.data());
 	GlobalThreadPool::Loop(std::bind(&convolve3x3, bufTmp1.data(), bufTmp2.data(), KERNEL_SPLAT, width, height, p::_1, p::_2), 0, height);
+	if(generateDebugImgs) dbgPGM(width, height, bufTmp2.data());
 	ScaleBilinear(factor, bufTmp2.data(), bufTmp3.data(), width, height);
+	if(generateDebugImgs) dbgPGM(width*factor, height*factor, bufTmp3.data());
 	// mask C is now in bufTmp3
 
 	ScaleXBRZ(factor, source, bufTmp2.data(), width, height);
+	if(generateDebugImgs) dbgPPM(width*factor, height*factor, (u8*)bufTmp2.data());
 	// xBRZ upscaled source is in bufTmp2
 
 	ScaleBilinear(factor, source, dest, width, height);
+	if(generateDebugImgs) dbgPPM(width*factor, height*factor, (u8*)dest);
 	// Bilinear upscaled source is in dest
 
 	// Now we can mix it all together
-	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 333, width, p::_1, p::_2), 0, height);
+	// The factor 5000 was found through practical testing on a variety of textures
+	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 666, width*factor, p::_1, p::_2), 0, height*factor);
+	if(generateDebugImgs) dbgPPM(width*factor, height*factor, (u8*)dest);
 }
 
 void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height) {
