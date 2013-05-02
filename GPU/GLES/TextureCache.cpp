@@ -680,6 +680,7 @@ static const u8 bitsPerPixel[11] = {
 	8,   //GE_TFMT_DXT5=8,
 };
 
+// This is the same as (fmt & 4) != 0, heh.
 static const bool formatUsesClut[11] = {
 	false,
 	false,
