@@ -89,58 +89,54 @@ namespace {
 TextureScaler::TextureScaler() {
 }
 
-void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
-	if(g_Config.iXBRZTexScalingLevel > 1) {
-		#ifdef SCALING_MEASURE_TIME
-		double t_start = real_time_now();
-		#endif
+void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, int factor) {
+	#ifdef SCALING_MEASURE_TIME
+	double t_start = real_time_now();
+	#endif
 
-		int factor = g_Config.iXBRZTexScalingLevel;
+	// depending on the factor and texture sizes, these can be pretty large (25 MB for a 512 by 512 texture with scaling factor 5)
+	bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
+	bufOutput.resize(width*height*factor*factor); // used to store the upscaled image
+	u32 *xbrzInputBuf = bufInput.data();
+	u32 *xbrzBuf = bufOutput.data();
 
-		// depending on the factor and texture sizes, these can be pretty large (25 MB for a 512 by 512 texture with scaling factor 5)
-		bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
-		bufOutput.resize(width*height*factor*factor); // used to store the upscaled image
-		u32 *xbrzInputBuf = bufInput.data();
-		u32 *xbrzBuf = bufOutput.data();
+	// convert texture to correct format for xBRZ
+	switch(dstFmt) {
+	case GL_UNSIGNED_BYTE:
+		xbrzInputBuf = data; // already fine
+		break;
 
-		// convert texture to correct format for xBRZ
-		switch(dstFmt) {
-		case GL_UNSIGNED_BYTE:
-			xbrzInputBuf = data; // already fine
-			break;
+	case GL_UNSIGNED_SHORT_4_4_4_4:
+		GlobalThreadPool::Loop(bind(&convert4444, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
+		break;
 
-		case GL_UNSIGNED_SHORT_4_4_4_4:
-			GlobalThreadPool::Loop(bind(&convert4444, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
-			break;
+	case GL_UNSIGNED_SHORT_5_6_5:
+		GlobalThreadPool::Loop(bind(&convert565, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
+		break;
 
-		case GL_UNSIGNED_SHORT_5_6_5:
-			GlobalThreadPool::Loop(bind(&convert565, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
-			break;
+	case GL_UNSIGNED_SHORT_5_5_5_1:
+		GlobalThreadPool::Loop(bind(&convert5551, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
+		break;
 
-		case GL_UNSIGNED_SHORT_5_5_5_1:
-			GlobalThreadPool::Loop(bind(&convert5551, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
-			break;
-
-		default:
-			ERROR_LOG(G3D, "iXBRZTexScaling: unsupported texture format");
-		}
-
-		// scale 
-		xbrz::ScalerCfg cfg;
-		GlobalThreadPool::Loop(bind(&xbrz::scale, factor, xbrzInputBuf, xbrzBuf, width, height, cfg, p::_1, p::_2), 0, height);
-
-		// update values accordingly
-		data = xbrzBuf;
-		dstFmt = GL_UNSIGNED_BYTE;
-		width *= factor;
-		height *= factor;
-
-		#ifdef SCALING_MEASURE_TIME
-		if(width*height > 64*64*factor*factor) {
-			double t = real_time_now() - t_start;
-			NOTICE_LOG(MASTER_LOG, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.0lf Mpixels/second)", 
-				width*height, t, (width*height)/(t*1000*1000));
-		}
-		#endif
+	default:
+		ERROR_LOG(G3D, "iXBRZTexScaling: unsupported texture format");
 	}
+
+	// scale 
+	xbrz::ScalerCfg cfg;
+	GlobalThreadPool::Loop(bind(&xbrz::scale, factor, xbrzInputBuf, xbrzBuf, width, height, cfg, p::_1, p::_2), 0, height);
+
+	// update values accordingly
+	data = xbrzBuf;
+	dstFmt = GL_UNSIGNED_BYTE;
+	width *= factor;
+	height *= factor;
+
+	#ifdef SCALING_MEASURE_TIME
+	if(width*height > 64*64*factor*factor) {
+		double t = real_time_now() - t_start;
+		NOTICE_LOG(MASTER_LOG, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.0lf Mpixels/second)", 
+			width*height, t, (width*height)/(t*1000*1000));
+	}
+	#endif
 }

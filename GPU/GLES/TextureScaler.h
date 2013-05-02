@@ -29,7 +29,7 @@ class TextureScaler {
 public:
 	TextureScaler();
 
-	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height);
+	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height, int factor);
 
 private:
 	SimpleBuf<u32> bufInput;

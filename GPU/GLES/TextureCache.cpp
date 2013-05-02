@@ -1208,7 +1208,15 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
 	u32* pixelData = (u32*)finalBuf;
-	if(entry.numInvalidated == 0) scaler.Scale(pixelData, dstFmt, w, h);
+
+	int scaleFactor = g_Config.iXBRZTexScalingLevel;
+
+	// Don't scale the PPGe texture.
+	if (entry.addr > 0x05000000 && entry.addr < 0x08800000)
+		scaleFactor = 1;
+
+	if (scaleFactor > 1 && entry.numInvalidated == 0) 
+		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
