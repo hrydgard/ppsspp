@@ -416,7 +416,7 @@ u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 
 u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	PGD_DESC *pgd = f->pgdInfo;
-	u32 block, offset;
+	u32 block, offset, blockPos;
 	u32 remain_size, copy_size;
 
 	block  = pgd->file_offset/pgd->block_size;
@@ -427,6 +427,8 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	while(remain_size){
 	
 		if(pgd->current_block!=block){
+			blockPos = block*pgd->block_size;
+			pspFileSystem.SeekFile(f->handle, (s32)pgd->data_offset+blockPos, FILEMOVE_BEGIN);
 			pspFileSystem.ReadFile(f->handle, pgd->block_buf, pgd->block_size);
 			pgd_decrypt_block(pgd, block);
 			pgd->current_block = block;
@@ -599,7 +601,7 @@ u32 sceIoCancel(int id)
 
 u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 {
-	u32 newPos;
+	u32 newPos, blockPos;
 
 	if(whence==FILEMOVE_BEGIN){
 		newPos = where;
@@ -614,7 +616,8 @@ u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
 	}
 
 	f->pgdInfo->file_offset = newPos;
-	pspFileSystem.SeekFile(f->handle, (s32)f->pgdInfo->data_offset+newPos, whence);
+	blockPos = newPos&~(f->pgdInfo->block_size-1);
+	pspFileSystem.SeekFile(f->handle, (s32)f->pgdInfo->data_offset+blockPos, whence);
 
 	return newPos;
 }
@@ -639,15 +642,14 @@ s64 __IoLseek(SceUID id, s64 offset, int whence) {
 			seek = FILEMOVE_END;
 			break;
 		}
+
+		if(f->npdrm)
+			return npdrmLseek(f, (s32)offset, seek);
+
 		// Yes, -1 is the correct return code for this case.
 		if (newPos < 0)
 			return -1;
-
-		if(f->npdrm){
-			return npdrmLseek(f, (s32)offset, seek);
-		}else{
-			return pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
-		}
+		return pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
 	} else {
 		return (s32) error;
 	}
