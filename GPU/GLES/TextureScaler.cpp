@@ -37,7 +37,7 @@ namespace {
 	void convert4444(u16* data, u32* out, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
-				u32 val = ((u16*)data)[y*width + x];
+				u32 val = data[y*width + x];
 				u32 r = ((val>>12) & 0xF) * 17;
 				u32 g = ((val>> 8) & 0xF) * 17;
 				u32 b = ((val>> 4) & 0xF) * 17;
@@ -50,7 +50,7 @@ namespace {
 	void convert565(u16* data, u32* out, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
-				u32 val = ((u16*)data)[y*width + x];
+				u32 val = data[y*width + x];
 				u32 r = ((val>>11) & 0x1F) * 8;
 				u32 g = ((val>> 5) & 0x3F) * 4;
 				u32 b = ((val    ) & 0x1F) * 8;
@@ -62,7 +62,7 @@ namespace {
 	void convert5551(u16* data, u32* out, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
-				u32 val = ((u16*)data)[y*width + x];
+				u32 val = data[y*width + x];
 				u32 r = ((val>>11) & 0x1F) * 8;
 				u32 g = ((val>> 6) & 0x1F) * 8;
 				u32 b = ((val>> 1) & 0x1F) * 8;
@@ -71,7 +71,35 @@ namespace {
 			}
 		}
 	}
-	
+
+	void convertSum(u32* data, u32* out, int width, int l, int u) {
+		for(int y = l; y < u; ++y) {
+			for(int x = 0; x < width; ++x) {
+				u32 val = data[y*width + x];
+				out[y*width + x] = (val>>24)&0xFF + (val>>16)&0xFF + (val>>8)&0xFF + (val>>0)&0xFF;
+			}
+		}
+	}
+
+	// 3x3 convolution with Neumann boundary conditions
+	// quite slow, could be sped up a lot
+	// especially handling of separable kernels
+	void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int height, int l, int u) {
+		for(int y = l; y < u; ++y) {
+			for(int x = 0; x < width; ++x) {
+				int val = 0;
+				for(int yoff = -1; yoff < 1; ++yoff) {
+					int yy = std::max(std::min(y+yoff, height-1), 0);
+					for(int xoff = -1; xoff < 1; ++xoff) {
+						int xx = std::max(std::min(x+xoff, width-1), 0);
+						val += data[yy*width + xx] * kernel[yoff+1][xoff+1];
+					}
+				}
+				out[y*width + x] = abs(val);
+			}
+		}
+	}
+
 	// this is sadly much faster than an inline function with a loop
 	#define MIX_PIXELS(p0, p1, p2, factors) \
 		((((p0>> 0)&0xFF)*factors[0] + ((p1>> 0)&0xFF)*factors[1] + ((p2>> 0)&0xFF)*factors[2])/255 <<  0 ) | \
@@ -79,9 +107,20 @@ namespace {
 		((((p0>>16)&0xFF)*factors[0] + ((p1>>16)&0xFF)*factors[1] + ((p2>>16)&0xFF)*factors[2])/255 << 16 ) | \
 		((((p0>>24)&0xFF)*factors[0] + ((p1>>24)&0xFF)*factors[1] + ((p2>>24)&0xFF)*factors[2])/255 << 24 )
 
+	void mix(u32* data, u32* source, u32* mask, u32 maskmax, int width, int l, int u) {
+		for(int y = l; y < u; ++y) {
+			for(int x = 0; x < width; ++x) {
+				int pos = y*width + x;
+				u8 mixFactors[3] = {(std::min(mask[pos], maskmax)*255)/maskmax, 0, 0 };
+				mixFactors[1] = 255-mixFactors[0];
+				data[pos] = MIX_PIXELS(data[pos], source[pos], 0, mixFactors);
+			}
+		}
+	}
+	
 	const static u8 BILINEAR_FACTORS[4][5][3] = {
-		{ {127,128,  0}, {  0,128,127}, {  0,  0,  0}, {  0,  0,  0}, {  0,  0,  0} }, // x2
-		{ {170, 85,  0}, {  0,255,  0}, {  0, 85,170}, {  0,  0,  0}, {  0,  0,  0} }, // x3
+		{ { 76,179,  0}, {  0,179, 76}, {  0,  0,  0}, {  0,  0,  0}, {  0,  0,  0} }, // x2
+		{ { 85,170,  0}, {  0,255,  0}, {  0,170, 85}, {  0,  0,  0}, {  0,  0,  0} }, // x3
 		{ {102,153,  0}, { 51,204,  0}, {  0,204, 51}, {  0,153,102}, {  0,  0,  0} }, // x4
 		{ {102,153,  0}, { 51,204,  0}, {  0,255,  0}, {  0,204, 51}, {  0,153,102} }, // x5
 	};
@@ -203,7 +242,35 @@ void TextureScaler::ScaleBilinear(int factor, u32* source, u32* dest, int width,
 }
 
 void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height) {
+	// Basic algorithm:
+	// 1) determine a feature mask C based on a sobel-ish filter + splatting, and upscale that mask bilinearly
+	// 2) generate 2 scaled images: A - using Bilinear filtering, B - using xBRZ
+	// 3) output = A*C + B*(1-C)
 
+	const static int KERNEL_EDGE_DETECT[3][3] = {
+		{ -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 }
+	};
+	const static int KERNEL_SPLAT[3][3] = {
+		{ 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 }
+	};
+
+	bufTmp1.resize(width*height);
+	bufTmp2.resize(width*height*factor*factor);
+	bufTmp3.resize(width*height*factor*factor);
+	GlobalThreadPool::Loop(std::bind(&convertSum, source, bufTmp2.data(), width, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&convolve3x3, bufTmp2.data(), bufTmp1.data(), KERNEL_EDGE_DETECT, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&convolve3x3, bufTmp1.data(), bufTmp2.data(), KERNEL_SPLAT, width, height, p::_1, p::_2), 0, height);
+	ScaleBilinear(factor, bufTmp2.data(), bufTmp3.data(), width, height);
+	// mask C is now in bufTmp3
+
+	ScaleXBRZ(factor, source, bufTmp2.data(), width, height);
+	// xBRZ upscaled source is in bufTmp2
+
+	ScaleBilinear(factor, source, dest, width, height);
+	// Bilinear upscaled source is in dest
+
+	// Now we can mix it all together
+	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 333, width, p::_1, p::_2), 0, height);
 }
 
 void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height) {
