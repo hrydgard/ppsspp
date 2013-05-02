@@ -3,7 +3,7 @@
 ///////////////////////////// WorkerThread
 
 WorkerThread::WorkerThread() : active(true), started(false) {
-	thread = new std::thread(std::bind(&WorkerThread::WorkFunc, this));
+	thread = new std::thread(bind(&WorkerThread::WorkFunc, this));
 	doneMutex.lock();
 	while(!started) { };
 }
@@ -17,7 +17,7 @@ WorkerThread::~WorkerThread() {
 	delete thread;
 }
 
-void WorkerThread::Process(const std::function<void()>& work) {
+void WorkerThread::Process(const function<void()>& work) {
 	mutex.lock();
 	work_ = work;
 	signal.notify_one();
@@ -50,13 +50,17 @@ ThreadPool::ThreadPool(int numThreads) : numThreads(numThreads), workersStarted(
 void ThreadPool::StartWorkers() {
 	if(!workersStarted) {
 		for(int i=0; i<numThreads; ++i) {
-			workers.push_back(std::make_shared<WorkerThread>());
+#ifdef __SYMBIAN32__
+			workers.push_back(make_shared<WorkerThread>(weak_ptr<WorkerThread>()));
+#else
+			workers.push_back(make_shared<WorkerThread>());
+#endif
 		}
 		workersStarted = true;
 	}
 }
 
-void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int upper) {
+void ThreadPool::ParallelLoop(function<void(int,int)> loop, int lower, int upper) {
 	mutex.lock();
 	StartWorkers();
 	int range = upper-lower;
@@ -65,7 +69,7 @@ void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int 
 		// but doesn't matter since all our loops are power of 2
 		int chunk = range/numThreads; 
 		for(int s=lower, i=0; i<numThreads; s+=chunk, ++i) {
-			workers[i]->Process(std::bind(loop, s, std::min(s+chunk,upper)));
+			workers[i]->Process(bind(loop, s, std::min(s+chunk,upper)));
 		}
 		for(int i=0; i<numThreads; ++i) {
 			workers[i]->WaitForCompletion();
