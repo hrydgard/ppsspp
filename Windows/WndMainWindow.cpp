@@ -746,6 +746,21 @@ namespace MainWindow
 			UpdateMenus();
 			break;
 
+		// Turn off the screensaver.
+		// Note that if there's a screensaver password, this simple method
+		// doesn't work on Vista or higher.
+		case WM_SYSCOMMAND:
+			{
+				switch (wParam)
+				{
+				case SC_SCREENSAVE:  
+					return 0;
+				case SC_MONITORPOWER:
+					return 0;      
+				}
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
