@@ -60,7 +60,7 @@ public:
 	bool bLinearFiltering;
 	bool bUseVBO;
 	bool bStretchToDisplay;
-	bool iFrameSkip;
+	int iFrameSkip;
 	bool bUseMediaEngine;
 
 	int iWindowX;
