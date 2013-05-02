@@ -44,6 +44,7 @@ SOURCES += ../Common/ColorUtil.cpp \
 	../Common/MsgHandler.cpp \
 	../Common/StringUtil.cpp \
 	../Common/Thread.cpp \
+	../Common/ThreadPool.cpp \
 	../Common/Timer.cpp \
 	../Common/Version.cpp \
 	../Common/Crypto/*.cpp
@@ -61,6 +62,7 @@ HEADERS += ../Common/ChunkFile.h \
 	../Common/MsgHandler.h \
 	../Common/StringUtil.h \
 	../Common/Thread.h \
+	../Common/ThreadPool.h \
 	../Common/Timer.h \
 	../Common/Crypto/*.h
 

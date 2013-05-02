@@ -20,6 +20,8 @@
 #ifdef __SYMBIAN32__
 #include <libc/sys/config.h>
 typedef __uint32_t uint32_t;
+#elif defined(IOS)
+#include <stdint.h>
 #else
 #include <cstdint> //uint32_t
 #endif

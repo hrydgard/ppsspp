@@ -14,6 +14,7 @@ set(SRCS
 	MsgHandler.cpp
 	StringUtil.cpp
 	Thread.cpp
+	ThreadPool.cpp
 	Timer.cpp
 )
 

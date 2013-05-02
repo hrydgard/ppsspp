@@ -26,6 +26,9 @@
 
 #ifdef __SYMBIAN32__
 #define p
+#elif defined(IOS)
+#include <tr1/functional>
+namespace p = std::tr1::placeholders;
 #else
 namespace p = std::placeholders;
 #endif
