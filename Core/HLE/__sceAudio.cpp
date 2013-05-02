@@ -51,8 +51,8 @@ const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSamp
 // High and low watermarks, basically.
 // TODO: Tweak
 #ifdef ANDROID
-	const int chanQueueMaxSizeFactor = 8;
-	const int chanQueueMinSizeFactor = 4;
+	const int chanQueueMaxSizeFactor = 4;
+	const int chanQueueMinSizeFactor = 2;
 #else
 	const int chanQueueMaxSizeFactor = 2;
 	const int chanQueueMinSizeFactor = 1;
