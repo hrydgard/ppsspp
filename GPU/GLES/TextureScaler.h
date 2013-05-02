@@ -19,7 +19,7 @@
 
 #include "Common/MemoryUtil.h"
 #include "../Globals.h"
-#include "../native/ext/glew/GL/glew.h"
+#include "gfx/gl_common.h"
 
 #include <functional>
 #include <vector>

@@ -24,7 +24,11 @@
 #include "Common/ThreadPool.h"
 #include "ext/xbrz/xbrz.h"
 
+#ifdef __SYMBIAN32__
+#define p
+#else
 namespace p = std::placeholders;
+#endif
 
 // Report the time and throughput for each larger scaling operation in the log
 //#define SCALING_MEASURE_TIME
