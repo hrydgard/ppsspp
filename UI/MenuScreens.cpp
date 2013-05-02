@@ -734,6 +734,16 @@ void GraphicsScreenP2::render() {
 	} else
 		g_Config.iAnisotropyLevel = 0;
 
+	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &g_Config.bXBRZTexScaling);
+	if (g_Config.bXBRZTexScaling) {
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 160 , y + 5, 20);
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
+			g_Config.iXBRZTexScalingLevel = 2;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
+			g_Config.iXBRZTexScalingLevel = 3;
+	} else
+		g_Config.iXBRZTexScalingLevel = 1;
 	UIEnd();
 }
 
