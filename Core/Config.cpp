@@ -100,8 +100,6 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &bFrameSkip, false);
-	graphics->Get("XBRZTexScaling", &bXBRZTexScaling, false);
-	graphics->Get("XBRZTexScalingLevel", &iXBRZTexScalingLevel, 1);
 	graphics->Get("UseMediaEngine", &bUseMediaEngine, true);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropicFiltering", &bAnisotropicFiltering, true);
@@ -193,8 +191,6 @@ void Config::Save()
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", bFrameSkip);
-		graphics->Set("XBRZTexScaling", bXBRZTexScaling);
-		graphics->Set("XBRZTexScalingLevel", iXBRZTexScalingLevel);
 		graphics->Set("UseMediaEngine", bUseMediaEngine);	
 		graphics->Set("AnisotropicFiltering", bAnisotropicFiltering);
 		graphics->Set("VertexCache", bVertexCache);
