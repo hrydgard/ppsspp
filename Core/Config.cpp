@@ -99,12 +99,12 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
-	graphics->Get("FrameSkip", &bFrameSkip, false);
+	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("UseMediaEngine", &bUseMediaEngine, true);
 #ifdef USING_GLES2
-	graphics->Get("AnisotropicFiltering", &bAnisotropicFiltering, true);
+	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
 #else
-	graphics->Get("AnisotropicFiltering", &bAnisotropicFiltering, false);
+	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 8);
 #endif
 	graphics->Get("VertexCache", &bVertexCache, true);
 	graphics->Get("FullScreen", &bFullScreen, false);	
@@ -190,9 +190,9 @@ void Config::Save()
 		graphics->Set("LinearFiltering", bLinearFiltering);
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
-		graphics->Set("FrameSkip", bFrameSkip);
+		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("UseMediaEngine", bUseMediaEngine);	
-		graphics->Set("AnisotropicFiltering", bAnisotropicFiltering);
+		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
 		graphics->Set("StretchToDisplay", bStretchToDisplay);

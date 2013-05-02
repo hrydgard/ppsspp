@@ -552,7 +552,7 @@ namespace MainWindow
 				break;
 
 			case ID_OPTIONS_FRAMESKIP:
-				g_Config.bFrameSkip = !g_Config.bFrameSkip;
+				g_Config.iFrameSkip = g_Config.iFrameSkip == 0 ? 1 : 0;
 				break;
 
 			case ID_OPTIONS_USEMEDIAENGINE:
@@ -761,6 +761,21 @@ namespace MainWindow
 			UpdateMenus();
 			break;
 
+		// Turn off the screensaver.
+		// Note that if there's a screensaver password, this simple method
+		// doesn't work on Vista or higher.
+		case WM_SYSCOMMAND:
+			{
+				switch (wParam)
+				{
+				case SC_SCREENSAVE:  
+					return 0;
+				case SC_MONITORPOWER:
+					return 0;      
+				}
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			}
+
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -791,7 +806,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
-		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.bFrameSkip);
+		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound); 
