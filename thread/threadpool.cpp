@@ -50,11 +50,7 @@ ThreadPool::ThreadPool(int numThreads) : numThreads(numThreads), workersStarted(
 void ThreadPool::StartWorkers() {
 	if(!workersStarted) {
 		for(int i=0; i<numThreads; ++i) {
-#ifdef __SYMBIAN32__
-			workers.push_back(make_shared<WorkerThread>(weak_ptr<WorkerThread>()));
-#else
-			workers.push_back(make_shared<WorkerThread>());
-#endif
+			workers.push_back(std::make_shared<WorkerThread>());
 		}
 		workersStarted = true;
 	}

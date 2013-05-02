@@ -15,13 +15,17 @@ using namespace std;
 #endif
 #include <vector>
 
-#if defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
+#if defined(__SYMBIAN32__) || defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
+#ifndef __SYMBIAN32__
 #include <tr1/functional>
 #include <tr1/memory>
+#endif
 namespace std {
+#ifndef __SYMBIAN32__
 	using tr1::bind;
 	using tr1::function;
 	using tr1::shared_ptr;
+#endif
 
 	template <typename T>
 	inline shared_ptr<T> make_shared()
