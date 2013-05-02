@@ -60,8 +60,7 @@ public:
 	bool bLinearFiltering;
 	bool bUseVBO;
 	bool bStretchToDisplay;
-	bool bFrameSkip;  
-	int iNumSkip;
+	bool iFrameSkip;
 	bool bUseMediaEngine;
 
 	int iWindowX;
@@ -73,8 +72,6 @@ public:
 	int iAnisotropyLevel;
 	bool bTrueColor;
 	bool bMipMap;
-	bool bAnisotropicFiltering;
-	bool bXBRZTexScaling;
 	int iXBRZTexScalingLevel; 
 
 	// Sound
