@@ -52,10 +52,10 @@ void ScreenManager::switchToNext()
 	nextScreen_ = 0;
 }
 
-void ScreenManager::touch(int pointer, float x, float y, double time, TouchEvent event)
+void ScreenManager::touch(const TouchInput &touch)
 {
 	if (stack_.size()) {
-		stack_.back().screen->touch(pointer, x, y, time, event);
+		stack_.back().screen->touch(touch);
 		return;
 	}
 }

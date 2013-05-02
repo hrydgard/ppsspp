@@ -254,6 +254,12 @@
     <ClInclude Include="thread\threadpool.h">
       <Filter>thread</Filter>
     </ClInclude>
+    <ClInclude Include="ui\view.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\viewgroup.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -449,6 +455,12 @@
     </ClCompile>
     <ClCompile Include="thread\threadpool.cpp">
       <Filter>thread</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\view.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\viewgroup.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

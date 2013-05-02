@@ -533,20 +533,35 @@ int main(int argc, char *argv[]) {
 			} else if (event.type == SDL_MOUSEMOTION) {
 				input_state.pointer_x[0] = mx;
 				input_state.pointer_y[0] = my;
-				NativeTouch(0, mx, my, 0, TOUCH_MOVE);
+				TouchInput input;
+				input.x = mx;
+				input.y = my;
+				input.flags = TOUCH_MOVE;
+				input.id = 0;
+				NativeTouch(input);
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					//input_state.mouse_buttons_down = 1;
 					input_state.pointer_down[0] = true;
 					nextFrameMD = true;
-					NativeTouch(0, mx, my, 0, TOUCH_DOWN);
+					TouchInput input;
+					input.x = mx;
+					input.y = my;
+					input.flags = TOUCH_DOWN;
+					input.id = 0;
+					NativeTouch(input);
 				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					input_state.pointer_down[0] = false;
 					nextFrameMD = false;
 					//input_state.mouse_buttons_up = 1;
-					NativeTouch(0, mx, my, 0, TOUCH_UP);
+					TouchInput input;
+					input.x = mx;
+					input.y = my;
+					input.flags = TOUCH_UP;
+					input.id = 0;
+					NativeTouch(input);
 				}
 			}
 		}

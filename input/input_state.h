@@ -89,3 +89,21 @@ inline void UpdateInputState(InputState *input) {
 inline void EndInputState(InputState *input) {
 	input->pad_last_buttons = input->pad_buttons;
 }
+
+enum {
+	TOUCH_MOVE = 1,
+	TOUCH_DOWN = 2,
+	TOUCH_UP = 4,
+};
+
+// Used for asynchronous touch input.
+// DOWN is always on its own. 
+// MOVE and UP can be combined.
+struct TouchInput {
+	float x;
+	float y;
+	int id;  // can be relied upon to be 0...MAX_POINTERS
+	int flags;
+	double timestamp;
+};
+

@@ -28,6 +28,7 @@ DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	fontscaley = 1.0f;
 	inited_ = false;
 }
+
 DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
@@ -368,18 +369,21 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 // U+3040–U+309F Hiragana
 // U+30A0–U+30FF Katakana
 
+void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color, int align) {
+	DrawText(font, text, x, y, color, align);
+}
 
 // ROTATE_* doesn't yet work right.
-void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int flags) {
+void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int align) {
 	const AtlasFont &atlasfont = *atlas->fonts[font];
 	unsigned int cval;
 	float w, h;
 	MeasureText(font, text, &w, &h);
-	if (flags) {
-		DoAlign(flags, &x, &y, &w, &h);
+	if (align) {
+		DoAlign(align, &x, &y, &w, &h);
 	}
 
-	if (flags & ROTATE_90DEG_LEFT) {
+	if (align & ROTATE_90DEG_LEFT) {
 		x -= atlasfont.ascend*fontscaley;
 		// y += h;
 	}
@@ -402,7 +406,7 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 		if (ch) {
 			const AtlasChar &c = *ch;
 			float cx1, cy1, cx2, cy2;
-			if (flags & ROTATE_90DEG_LEFT) {
+			if (align & ROTATE_90DEG_LEFT) {
 				cy1 = y - c.ox * fontscalex;
 				cx1 = x + c.oy * fontscaley;
 				cy2 = y - (c.ox + c.pw) * fontscalex;
@@ -419,7 +423,7 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 			V(cx1,	cy1, color, c.sx, c.sy);
 			V(cx2,	cy2, color, c.ex, c.ey);
 			V(cx1,	cy2, color, c.sx, c.ey);
-			if (flags & ROTATE_90DEG_LEFT)
+			if (align & ROTATE_90DEG_LEFT)
 				y -= c.wx * fontscalex;
 			else
 				x += c.wx * fontscalex;

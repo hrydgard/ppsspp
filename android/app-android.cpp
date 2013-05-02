@@ -322,15 +322,19 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	float scaledY = (int)(y * dp_yscale);
 	input_state.pointer_x[pointerId] = scaledX;
 	input_state.pointer_y[pointerId] = scaledY;
+	TouchInput touch;
+	touch.x = scaledX;
+	touch.y = scaledY;
 	if (code == 1) {
 		input_state.pointer_down[pointerId] = true;
-		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_DOWN);
+		touch.flags = TOUCH_DOWN;
 	} else if (code == 2) {
 		input_state.pointer_down[pointerId] = false;
-		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_UP);
+		touch.flags = TOUCH_UP;
 	} else {
-		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_MOVE);
+		touch.flags = TOUCH_MOVE;
 	}
+	NativeTouch(touch);
 	input_state.mouse_valid = true;
 }
 

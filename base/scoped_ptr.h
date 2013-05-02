@@ -21,7 +21,8 @@ public:
 	}
 	T *operator->() { return ptr_; }
 	const T *operator->() const { return ptr_; }
-
+	const T *get() const { return ptr_; }
+	T *get() { return ptr_; }
 private:
 	scoped_ptr(const scoped_ptr<T> &other);
 	void operator=(const scoped_ptr<T> &other);

@@ -1,7 +1,7 @@
 #pragma once
 
 // This is meant to be a framework for handling DPI scaling etc.
-// For now, it just consists of these two ugly globals.
+// For now, it just consists of these ugly globals.
 
 extern int dp_xres;
 extern int dp_yres;

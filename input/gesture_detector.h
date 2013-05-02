@@ -3,17 +3,43 @@
 // WIP - doesn't do much yet
 // Mainly for detecting (multi-)touch gestures but also useable for left button mouse dragging etc.
 
-namespace GestureDetector
+
+enum Gesture {
+	GESTURE_DRAG_VERTICAL = 1,
+	GESTURE_DRAG_HORIZONTAL = 2,
+	GESTURE_TWO_FINGER_ZOOM = 4,
+	GESTURE_TWO_FINGER_ZOOM_ROTATE = 4,
+};
+
+// May track multiple gestures at the same time. You simply call GetGestureInfo
+// with the gesture you are interested in.
+class GestureDetector
 {
-	void update(const InputState &state);
+public:
+	void Update(const TouchInput &touch);
+	bool IsGestureActive(Gesture gesture) const;
+	void GetGestureInfo(Gesture gesture, float info[4]);
 
-	bool down(int finger, float *xdown, float *ydown);
+private:
+	// jazzhands!
+	enum Locals {
+		MAX_PTRS = 10 
+	};
 
-	// x/ydelta is difference from current location to the start of the drag.
-	// Returns true if button/finger is down, for convenience.
-	bool dragDistance(int finger, float *xdelta, float *ydelta);
+	struct Pointer {
+		bool down;
+		float X;
+		float Y;
+		float lastX;
+		float lastY;
+		float downX;
+		float downY;
+		float deltaX;
+		float deltaY;
+		float smoothDeltaX;
+		float smoothDeltaY;
+	};
 
-	// x/ydelta is (smoothed?) difference from current location to the position from the last frame.
-	// Returns true if button/finger is down, for convenience.
-	bool dragDelta(int finger, float *xdelta, float *ydelta);
+	Pointer pointers[MAX_PTRS];
+	// ...
 };

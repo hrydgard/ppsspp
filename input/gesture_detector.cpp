@@ -4,68 +4,57 @@
 
 #include "input/gesture_detector.h"
 
-namespace GestureDetector {
-
-struct Finger {
-	bool down;
-	float X;
-	float Y;
-	float lastX;
-	float lastY;
-	float downX;
-	float downY;
-	float deltaX;
-	float deltaY;
-	float smoothDeltaX;
-	float smoothDeltaY;
-};
-
-// State
-#define MAX_FINGERS 4
-
-static Finger fingers[MAX_FINGERS];
-
-void update(const InputState &state) {
+void GestureDetector::Update(const TouchInput &touch) {
 	// Mouse / 1-finger-touch control.
-	if (state.pointer_down[0]) {
-		fingers[0].down = true;
-		fingers[0].downX = state.pointer_x[0];
-		fingers[0].downY = state.pointer_y[0];
-	} else {
-		fingers[0].down = false;
+	if (touch.flags & TOUCH_DOWN) {
+		pointers[0].down = true;
+		pointers[0].downX = touch.x;
+		pointers[0].downY = touch.y;
+	} else if (touch.flags & TOUCH_UP) {
+		pointers[0].down = false;
 	}
 
-	fingers[0].lastX = fingers[0].X;
-	fingers[0].lastY = fingers[0].Y;
+	pointers[0].lastX = pointers[0].X;
+	pointers[0].lastY = pointers[0].Y;
 
 	// TODO: real multitouch
 }
 
+bool GestureDetector::IsGestureActive(Gesture gesture) const {
+	// TODO
+	return false;
+}
+
+void GestureDetector::GetGestureInfo(Gesture gesture, float info[4])
+{
+/*
+
 bool down(int i, float *xdelta, float *ydelta) {
-	if (!fingers[i].down) {
+	if (!pointers[i].down) {
 		return false;
 	}
-	*xdelta = fingers[i].downX;
-	*ydelta = fingers[i].downY;
+	*xdelta = pointers[i].downX;
+	*ydelta = pointers[i].downY;
 	return true;
 }
 
 bool dragDistance(int i, float *xdelta, float *ydelta) {
-	if (!fingers[i].down)
+	if (!pointers[i].down)
 		return false;
 
-	*xdelta = fingers[i].X - fingers[i].downX;
-	*ydelta = fingers[i].Y - fingers[i].downY;
+	*xdelta = pointers[i].X - pointers[i].downX;
+	*ydelta = pointers[i].Y - pointers[i].downY;
 	return true;
 }
 
 bool dragDelta(int i, float *xdelta, float *ydelta) {
-	if (!fingers[i].down)
+	if (!pointers[i].down)
 		return false;
 
-	*xdelta = fingers[i].X - fingers[i].lastX;
-	*ydelta = fingers[i].Y - fingers[i].lastY;
+	*xdelta = pointers[i].X - pointers[i].lastX;
+	*ydelta = pointers[i].Y - pointers[i].lastY;
 	return true;
 }
+*/
 
 }
