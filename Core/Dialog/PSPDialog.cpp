@@ -53,9 +53,9 @@ void PSPDialog::EndDraw()
 
 void PSPDialog::DisplayMessage(std::string text)
 {
-	PPGeDrawRect(30, 50, 450, 51, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(30, 180, 450, 181, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(text.c_str(), 40, 60, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(30, 30, 450, 31, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(30, 200, 450, 201, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(text.c_str(), 40, 50, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPDialog::Shutdown()
