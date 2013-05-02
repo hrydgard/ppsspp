@@ -759,7 +759,7 @@ void GraphicsScreenP2::render() {
 		g_Config.iAnisotropyLevel = 0;
 	}
 
-	bool XBRZTexScaling = g_Config.iXBRZTexScalingLevel <= 1;
+	bool XBRZTexScaling = g_Config.iXBRZTexScalingLevel > 1;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &XBRZTexScaling);
 	if (XBRZTexScaling) {
 		if (g_Config.iXBRZTexScalingLevel <= 1)
