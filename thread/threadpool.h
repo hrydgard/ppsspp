@@ -56,9 +56,9 @@ public:
 
 private:
 	std::thread *thread; // the worker thread
-	condition_variable signal; // used to signal new work
-	condition_variable done; // used to signal work completion
-	recursive_mutex mutex, doneMutex; // associated with each respective condition variable
+	::condition_variable signal; // used to signal new work
+	::condition_variable done; // used to signal work completion
+	::recursive_mutex mutex, doneMutex; // associated with each respective condition variable
 	volatile bool active, started;
 	function<void()> work_; // the work to be done by this thread
 
@@ -82,7 +82,7 @@ public:
 private:
 	const int numThreads;
 	std::vector<shared_ptr<WorkerThread>> workers;
-	recursive_mutex mutex; // used to sequentialize loop execution
+	::recursive_mutex mutex; // used to sequentialize loop execution
 
 	bool workersStarted;
 	void StartWorkers();
