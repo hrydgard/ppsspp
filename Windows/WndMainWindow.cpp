@@ -1084,6 +1084,9 @@ namespace MainWindow
 
 	void _ViewNormal(HWND hWnd)
 	{
+		ShowCursor(TRUE);
+		SetCursor(LoadCursor(NULL, IDC_ARROW));
+		ClipCursor(NULL);
 		// put caption and border styles back
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
@@ -1107,6 +1110,9 @@ namespace MainWindow
 
 	void _ViewFullScreen(HWND hWnd)
 	{
+		ShowCursor(FALSE);
+		SetCursor(NULL);
+		ClipCursor(&g_normalRC);
 		// keep in mind normal window rectangle
 		::GetWindowRect(hWnd, &g_normalRC);
 
