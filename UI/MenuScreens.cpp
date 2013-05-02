@@ -424,16 +424,24 @@ void PauseScreen::render() {
 		if (gpu)
 			gpu->Resized();
 	}
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &g_Config.bFrameSkip);
-	if (g_Config.bFrameSkip) {
+
+	bool enableFrameSkip = g_Config.iFrameSkip != 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
+	if (enableFrameSkip) {
+		if (g_Config.iFrameSkip == 0)
+			g_Config.iFrameSkip = 3;
+
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Skip Frames :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250 , y + 5, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
-			g_Config.iNumSkip = 3;
+			g_Config.iFrameSkip = 3;
 		if (UIButton(GEN_ID, hlinear1, 30, 0, "1", ALIGN_LEFT))
-			g_Config.iNumSkip = 1;
+			g_Config.iFrameSkip = 1;
 		if (UIButton(GEN_ID, hlinear1, 30, 0, "2", ALIGN_LEFT))
-			g_Config.iNumSkip = 2;
+			g_Config.iFrameSkip = 2;
+	}
+	else {
+		g_Config.iFrameSkip = 0;
 	}
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 
@@ -680,7 +688,18 @@ void GraphicsScreenP1::render() {
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &g_Config.bFrameSkip);
+	bool enableFrameSkip = g_Config.iFrameSkip != 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
+	if (enableFrameSkip) {
+		// This one doesn't have the # of frame options, so only change the setting if they flipped it.
+		// 3 means auto.
+		if (g_Config.iFrameSkip == 0)
+			g_Config.iFrameSkip = 3;
+	}
+	else {
+		g_Config.iFrameSkip = 0;
+	}
+
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
@@ -719,8 +738,13 @@ void GraphicsScreenP2::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Draw Wireframe"), ALIGN_TOPLEFT, &g_Config.bDrawWireframe);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("True Color"), ALIGN_TOPLEFT, &g_Config.bTrueColor);
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &g_Config.bAnisotropicFiltering);
-	if (g_Config.bAnisotropicFiltering) {
+
+	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
+	if (AnisotropicFiltering) {
+		if (g_Config.iAnisotropyLevel == 0)
+			g_Config.iAnisotropyLevel = 2;
+
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 160 , y + 5, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
@@ -731,19 +755,25 @@ void GraphicsScreenP2::render() {
 			g_Config.iAnisotropyLevel = 8;
 		if (UIButton(GEN_ID, hlinear1, 60, 0, "16x", ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 16;
-	} else
+	} else {
 		g_Config.iAnisotropyLevel = 0;
+	}
 
-	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &g_Config.bXBRZTexScaling);
-	if (g_Config.bXBRZTexScaling) {
+	bool XBRZTexScaling = g_Config.iXBRZTexScalingLevel <= 1;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &XBRZTexScaling);
+	if (XBRZTexScaling) {
+		if (g_Config.iXBRZTexScalingLevel <= 1)
+			g_Config.iXBRZTexScalingLevel = 2;
+
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 160 , y + 5, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
 			g_Config.iXBRZTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
 			g_Config.iXBRZTexScalingLevel = 3;
-	} else
+	} else {
 		g_Config.iXBRZTexScalingLevel = 1;
+	}
 	UIEnd();
 }
 
