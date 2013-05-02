@@ -261,6 +261,8 @@ add_library(Common STATIC
 	Common/StringUtil.h
 	Common/Thread.cpp
 	Common/Thread.h
+	Common/ThreadPool.cpp
+	Common/ThreadPool.h
 	Common/Timer.cpp
 	Common/Timer.h
 	Common/Version.cpp)
@@ -576,8 +578,11 @@ add_library(native STATIC
 	native/profiler/profiler.cpp
 	native/profiler/profiler.h
 	native/thread/prioritizedworkqueue.cpp
+	native/thread/prioritizedworkqueue.h
 	native/thread/threadutil.cpp
 	native/thread/threadutil.h
+	native/thread/threadpool.cpp
+	native/thread/threadpool.h
 	native/ui/screen.cpp
 	native/ui/screen.h
 	native/ui/ui.cpp
@@ -904,6 +909,8 @@ add_library(GPU OBJECT
 	GPU/GLES/StateMapping.h
 	GPU/GLES/TextureCache.cpp
 	GPU/GLES/TextureCache.h
+	GPU/GLES/TextureScaler.cpp
+	GPU/GLES/TextureScaler.h
 	GPU/GLES/TransformPipeline.cpp
 	GPU/GLES/TransformPipeline.h
 	GPU/GLES/VertexDecoder.cpp

@@ -2,10 +2,10 @@
 
 #include "../Core/Config.h"
 
-std::shared_ptr<ThreadPool> GlobalThreadPool::pool;
+shared_ptr<ThreadPool> GlobalThreadPool::pool;
 bool  GlobalThreadPool::initialized = false;
 
-void GlobalThreadPool::Loop(const std::function<void(int,int)>& loop, int lower, int upper) {
+void GlobalThreadPool::Loop(const function<void(int,int)>& loop, int lower, int upper) {
 	Inititialize();
 	pool->ParallelLoop(loop, lower, upper);
 }

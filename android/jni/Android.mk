@@ -136,6 +136,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtil.cpp \
   $(SRC)/Common/Thread.cpp \
+  $(SRC)/Common/ThreadPool.cpp \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/Common/MathUtil.cpp \
@@ -153,6 +154,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/ShaderManager.cpp \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
+  $(SRC)/GPU/GLES/TextureScaler.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PBPReader.cpp \

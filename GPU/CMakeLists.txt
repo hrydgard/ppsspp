@@ -9,6 +9,7 @@ set(SRCS
 	GLES/ShaderManager.cpp
 	GLES/StateMapping.cpp
 	GLES/TextureCache.cpp
+	GLES/TextureScaler.cpp
 	GLES/TransformPipeline.cpp
 	GLES/VertexDecoder.cpp
 	GLES/VertexShaderGenerator.cpp

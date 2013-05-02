@@ -24,7 +24,19 @@
 #include "Common/ThreadPool.h"
 #include "ext/xbrz/xbrz.h"
 
+#ifdef __SYMBIAN32__
+#define p
+#elif defined(IOS)
+#include <tr1/functional>
+namespace p = std::tr1::placeholders;
+#else
 namespace p = std::placeholders;
+#endif
+
+// Hack for Meego
+#ifdef MEEGO_EDITION_HARMATTAN
+#include "Common/ThreadPool.cpp"
+#endif
 
 // Report the time and throughput for each larger scaling operation in the log
 #define SCALING_MEASURE_TIME
@@ -51,9 +63,9 @@ namespace {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
 				u32 val = data[y*width + x];
-				u32 r = ((val>>11) & 0x1F) * 8;
-				u32 g = ((val>> 5) & 0x3F) * 4;
-				u32 b = ((val    ) & 0x1F) * 8;
+				u32 r = Convert5To8((val>>11) & 0x1F);
+				u32 g = Convert6To8((val>> 5) & 0x3F);
+				u32 b = Convert5To8((val    ) & 0x1F);
 				out[y*width + x] = (0xFF << 24) | (b << 16) | (g << 8) | r;
 			}
 		}
@@ -63,9 +75,9 @@ namespace {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
 				u32 val = data[y*width + x];
-				u32 r = ((val>>11) & 0x1F) * 8;
-				u32 g = ((val>> 6) & 0x1F) * 8;
-				u32 b = ((val>> 1) & 0x1F) * 8;
+				u32 r = Convert5To8((val>>11) & 0x1F);
+				u32 g = Convert5To8((val>> 6) & 0x1F);
+				u32 b = Convert5To8((val>> 1) & 0x1F);
 				u32 a = (val & 0x1) * 255;
 				out[y*width + x] = (a << 24) | (b << 16) | (g << 8) | r;
 			}
@@ -184,49 +196,45 @@ namespace {
 TextureScaler::TextureScaler() {
 }
 
-void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
-	if(g_Config.iTexScalingLevel > 1) {
-		#ifdef SCALING_MEASURE_TIME
-		double t_start = real_time_now();
-		#endif
+void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, int factor) {
+	#ifdef SCALING_MEASURE_TIME
+	double t_start = real_time_now();
+	#endif
 
-		int factor = g_Config.iTexScalingLevel;
+	bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
+	bufOutput.resize(width*height*factor*factor); // used to store the upscaled image
+	u32 *inputBuf = bufInput.data();
+	u32 *outputBuf = bufOutput.data();
 
-		bufInput.resize(width*height); // used to store the input image image if it needs to be reformatted
-		bufOutput.resize(width*height*factor*factor); // used to store the upscaled image
-		u32 *inputBuf = bufInput.data();
-		u32 *outputBuf = bufOutput.data();
+	// convert texture to correct format for scaling
+	ConvertTo8888(dstFmt, data, inputBuf, width, height);
 
-		// convert texture to correct format for scaling
-		ConvertTo8888(dstFmt, data, inputBuf, width, height);
-
-		// scale 
-		switch(g_Config.iTexScalingType) {
-		case BILINEAR:
-			ScaleBilinear(factor, inputBuf, outputBuf, width, height);
-			break;
-		case XBRZ:
-			ScaleXBRZ(factor, inputBuf, outputBuf, width, height);
-			break;
-		case HYBRID:
-			ScaleHybrid(factor, inputBuf, outputBuf, width, height);
-			break;
-		}
-
-		// update values accordingly
-		data = outputBuf;
-		dstFmt = GL_UNSIGNED_BYTE;
-		width *= factor;
-		height *= factor;
-
-		#ifdef SCALING_MEASURE_TIME
-		if(width*height > 64*64*factor*factor) {
-			double t = real_time_now() - t_start;
-			NOTICE_LOG(MASTER_LOG, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.0lf Mpixels/second)", 
-				width*height, t, (width*height)/(t*1000*1000));
-		}
-		#endif
+	// scale 
+	switch(g_Config.iTexScalingType) {
+	case BILINEAR:
+		ScaleBilinear(factor, inputBuf, outputBuf, width, height);
+		break;
+	case XBRZ:
+		ScaleXBRZ(factor, inputBuf, outputBuf, width, height);
+		break;
+	case HYBRID:
+		ScaleHybrid(factor, inputBuf, outputBuf, width, height);
+		break;
 	}
+
+	// update values accordingly
+	data = outputBuf;
+	dstFmt = GL_UNSIGNED_BYTE;
+	width *= factor;
+	height *= factor;
+
+	#ifdef SCALING_MEASURE_TIME
+	if(width*height > 64*64*factor*factor) {
+		double t = real_time_now() - t_start;
+		NOTICE_LOG(MASTER_LOG, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.0lf Mpixels/second)", 
+			width*height, t, (width*height)/(t*1000*1000));
+	}
+	#endif
 }
 
 void TextureScaler::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {

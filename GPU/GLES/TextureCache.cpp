@@ -1208,12 +1208,21 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
 	u32* pixelData = (u32*)finalBuf;
-	if(entry.numInvalidated == 0) scaler.Scale(pixelData, dstFmt, w, h);
+
+	int scaleFactor = g_Config.iTexScalingLevel;
+
+	// Don't scale the PPGe texture.
+	if (entry.addr > 0x05000000 && entry.addr < 0x08800000)
+		scaleFactor = 1;
+
+	if (scaleFactor > 1 && entry.numInvalidated == 0) 
+		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
 }
 
+// Only used by Qt UI?
 bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 {
 	GPUgstate oldState = gstate;
@@ -1250,10 +1259,10 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			for(int y = 0; y < bufw; y++)
 			{
 				u32 val = ((u16*)finalBuf)[x*bufw + y];
-				u32 a = (val & 0xF) * 255 / 15;
-				u32 r = ((val & 0xF) >> 24) * 255 / 15;
-				u32 g = ((val & 0xF) >> 16) * 255 / 15;
-				u32 b = ((val & 0xF) >> 8) * 255 / 15;
+				u32 r = ((val>>12) & 0xF) * 17;
+				u32 g = ((val>> 8) & 0xF) * 17;
+				u32 b = ((val>> 4) & 0xF) * 17;
+				u32 a = ((val>> 0) & 0xF) * 17;
 				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
 		break;
@@ -1263,10 +1272,10 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			for(int y = 0; y < bufw; y++)
 			{
 				u32 val = ((u16*)finalBuf)[x*bufw + y];
+				u32 r = Convert5To8((val>>11) & 0x1F);
+				u32 g = Convert5To8((val>> 6) & 0x1F);
+				u32 b = Convert5To8((val>> 1) & 0x1F);
 				u32 a = (val & 0x1) * 255;
-				u32 r = ((val & 0x1F) >> 11) * 255 / 31;
-				u32 g = ((val & 0x1F) >> 6) * 255 / 31;
-				u32 b = ((val & 0x1F) >> 1) * 255 / 31;
 				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
 		break;
@@ -1277,9 +1286,9 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 			{
 				u32 val = ((u16*)finalBuf)[x*bufw + y];
 				u32 a = 0xFF;
-				u32 r = ((val & 0x1F) >> 11) * 255 / 31;
-				u32 g = ((val & 0x3F) >> 6) * 255 / 63;
-				u32 b = ((val & 0x1F)) * 255 / 31;
+				u32 r = Convert5To8((val>>11) & 0x1F);
+				u32 g = Convert6To8((val>> 5) & 0x3F);
+				u32 b = Convert5To8((val    ) & 0x1F);
 				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
 		break;

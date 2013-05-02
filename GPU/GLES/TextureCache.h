@@ -47,6 +47,7 @@ public:
 		return cache.size();
 	}
 
+	// Only used by Qt UI?
 	bool DecodeTexture(u8 *output, GPUgstate state);
 
 private:
