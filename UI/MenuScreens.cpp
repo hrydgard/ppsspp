@@ -742,10 +742,6 @@ void GraphicsScreenP2::render() {
 			g_Config.iXBRZTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
 			g_Config.iXBRZTexScalingLevel = 3;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "4x", ALIGN_LEFT))
-			g_Config.iXBRZTexScalingLevel = 4;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "5x", ALIGN_LEFT))
-			g_Config.iXBRZTexScalingLevel = 5;
 	} else
 		g_Config.iXBRZTexScalingLevel = 1;
 	UIEnd();
