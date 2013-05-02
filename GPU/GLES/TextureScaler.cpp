@@ -105,15 +105,15 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
 			break;
 
 		case GL_UNSIGNED_SHORT_4_4_4_4:
-			GlobalThreadPool::Loop(std::bind(&convert4444, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
+			GlobalThreadPool::Loop(bind(&convert4444, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
 			break;
 
 		case GL_UNSIGNED_SHORT_5_6_5:
-			GlobalThreadPool::Loop(std::bind(&convert565, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
+			GlobalThreadPool::Loop(bind(&convert565, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
 			break;
 
 		case GL_UNSIGNED_SHORT_5_5_5_1:
-			GlobalThreadPool::Loop(std::bind(&convert5551, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
+			GlobalThreadPool::Loop(bind(&convert5551, (u16*)data, xbrzInputBuf, width, p::_1, p::_2), 0, height);
 			break;
 
 		default:
@@ -122,7 +122,7 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height) {
 
 		// scale 
 		xbrz::ScalerCfg cfg;
-		GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, xbrzInputBuf, xbrzBuf, width, height, cfg, p::_1, p::_2), 0, height);
+		GlobalThreadPool::Loop(bind(&xbrz::scale, factor, xbrzInputBuf, xbrzBuf, width, height, cfg, p::_1, p::_2), 0, height);
 
 		// update values accordingly
 		data = xbrzBuf;
