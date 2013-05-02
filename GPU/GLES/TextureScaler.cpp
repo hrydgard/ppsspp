@@ -33,6 +33,11 @@ namespace p = std::tr1::placeholders;
 namespace p = std::placeholders;
 #endif
 
+// Hack for Meego
+#ifdef MEEGO_EDITION_HARMATTAN
+#include "Common/ThreadPool.cpp"
+#endif
+
 // Report the time and throughput for each larger scaling operation in the log
 //#define SCALING_MEASURE_TIME
 
