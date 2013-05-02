@@ -315,9 +315,12 @@ int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w
 	return clicked;
 }
 
-
 int UICheckBox(int id, int x, int y, const char *text, int align, bool *value) {
-	const int h = 64;
+#ifdef _WIN32
+	const int h = 32;
+#else
+	const int h = 48;
+#endif
 	float tw, th;
 	ui_draw2d.MeasureText(theme.uiFont, text, &tw, &th);
 	int w = themeAtlas->images[theme.checkOn].w + UI_SPACE + tw;
