@@ -92,6 +92,13 @@ namespace {
 
 	#define DISTANCE(_p1,_p2) ( abs((int)((int)(R(_p1))-R(_p2))) + abs((int)((int)(G(_p1))-G(_p2))) \
 							  + abs((int)((int)(B(_p1)-B(_p2)))) + abs((int)((int)(A(_p1)-A(_p2)))) )
+	
+	// this is sadly much faster than an inline function with a loop, at least in VC10
+	#define MIX_PIXELS(_p0, _p1, _factors) \
+		( (R(_p0)*(_factors)[0] + R(_p1)*(_factors)[1])/255 <<  0 ) | \
+		( (G(_p0)*(_factors)[0] + G(_p1)*(_factors)[1])/255 <<  8 ) | \
+		( (B(_p0)*(_factors)[0] + B(_p1)*(_factors)[1])/255 << 16 ) | \
+		( (A(_p0)*(_factors)[0] + A(_p1)*(_factors)[1])/255 << 24 )
 
 	#define BLOCK_SIZE 32
 	
@@ -112,6 +119,64 @@ namespace {
 							}
 						}
 						out[y*width + x] = abs(val);
+					}
+				}
+			}
+		}
+	}
+
+	void deposterizeH(u32* data, u32* out, int w, int l, int u) {
+		static const int T = 8;
+		for(int y = l; y < u; ++y) {
+			for(int x = 0; x < w; ++x) {
+				int inpos = y*w + x;
+				u32 center = data[inpos];
+				if(x==0 || x==w-1) {
+					out[y*w + x] = center;
+					continue;
+				}
+				u32 left   = data[inpos - 1];
+				u32 right  = data[inpos + 1];
+				out[y*w + x] = 0;
+				for(int c=0; c<4; ++c) {
+					u8 lc = ((  left>>c*8)&0xFF);
+					u8 cc = ((center>>c*8)&0xFF);
+					u8 rc = (( right>>c*8)&0xFF);
+					if((lc != rc) && ((lc == cc && abs((int)((int)rc)-cc) <= T) || (rc == cc && abs((int)((int)lc)-cc) <= T))) {
+						// blend this component
+						out[y*w + x] |= ((rc+lc)/2) << (c*8);
+					} else {
+						// no change for this component
+						out[y*w + x] |= cc << (c*8);
+					}
+				}
+			}
+		}
+	}
+	void deposterizeV(u32* data, u32* out, int w, int h, int l, int u) {
+		static const int T = 8;
+		for(int xb = 0; xb < w/BLOCK_SIZE+1; ++xb) {
+			for(int y = l; y < u; ++y) {
+				for(int x = xb*BLOCK_SIZE; x < (xb+1)*BLOCK_SIZE && x < w; ++x) {
+					u32 center = data[ y    * w + x];
+					if(y==0 || y==h-1) {
+						out[y*w + x] = center;
+						continue;
+					}
+					u32 upper  = data[(y-1) * w + x];
+					u32 lower  = data[(y+1) * w + x];
+					out[y*w + x] = 0;
+					for(int c=0; c<4; ++c) {
+						u8 uc = (( upper>>c*8)&0xFF);
+						u8 cc = ((center>>c*8)&0xFF);
+						u8 lc = (( lower>>c*8)&0xFF);
+						if((uc != lc) && ((uc == cc && abs((int)((int)lc)-cc) <= T) || (lc == cc && abs((int)((int)uc)-cc) <= T))) {
+							// blend this component
+							out[y*w + x] |= ((lc+uc)/2) << (c*8);
+						} else {
+							// no change for this component
+							out[y*w + x] |= cc << (c*8);
+						}
 					}
 				}
 			}
@@ -146,13 +211,6 @@ namespace {
 			}
 		}
 	}
-
-	// this is sadly much faster than an inline function with a loop, at least in VC10
-	#define MIX_PIXELS(_p0, _p1, _factors) \
-		( (R(_p0)*(_factors)[0] + R(_p1)*(_factors)[1])/255 <<  0 ) | \
-		( (G(_p0)*(_factors)[0] + G(_p1)*(_factors)[1])/255 <<  8 ) | \
-		( (B(_p0)*(_factors)[0] + B(_p1)*(_factors)[1])/255 << 16 ) | \
-		( (A(_p0)*(_factors)[0] + A(_p1)*(_factors)[1])/255 << 24 )
 
 	void mix(u32* data, u32* source, u32* mask, u32 maskmax, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
@@ -237,6 +295,7 @@ namespace {
 		}
 	}
 
+	#undef BLOCK_SIZE
 	#undef MIX_PIXELS
 	#undef DISTANCE
 	#undef R
@@ -309,7 +368,14 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 
 	// convert texture to correct format for scaling
 	ConvertTo8888(dstFmt, data, inputBuf, width, height);
-
+	
+	// deposterize
+	if(g_Config.bTexDeposterize) {
+		bufDeposter.resize(width*height);
+		DePosterize(inputBuf, bufDeposter.data(), width, height);
+		inputBuf = bufDeposter.data();
+	}
+	
 	// scale 
 	switch(g_Config.iTexScalingType) {
 	case XBRZ:
@@ -376,6 +442,14 @@ void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, i
 	// Now we can mix it all together
 	// The factor 8192 was found through practical testing on a variety of textures
 	GlobalThreadPool::Loop(bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, p::_1, p::_2), 0, height*factor);
+}
+
+void TextureScaler::DePosterize(u32* source, u32* dest, int width, int height) {
+	bufTmp3.resize(width*height);
+	GlobalThreadPool::Loop(bind(&deposterizeH, source, bufTmp3.data(), width, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(bind(&deposterizeV, bufTmp3.data(), dest, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(bind(&deposterizeH, dest, bufTmp3.data(), width, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(bind(&deposterizeV, bufTmp3.data(), dest, width, height, p::_1, p::_2), 0, height);
 }
 
 void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height) {
