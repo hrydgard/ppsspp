@@ -158,6 +158,8 @@ void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *f
 	}
 }
 
+static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels);
+
 static u32 GetClutAddr(u32 clutEntrySize) {
 	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000)) + ((gstate.clutformat >> 16) & 0x1f) * clutEntrySize;
 }
@@ -167,13 +169,14 @@ static u32 GetClutIndex(u32 index) {
 }
 
 template <typename T>
-static void ReadClut(T *clutBuf) {
+static void ReadClut(T *clutBuf, GLuint dstFmt) {
 	u32 clutNumBytes = (gstate.loadclut & 0x3f) * 32;
 	u32 clutAddr = GetClutAddr(sizeof(T));
 	if (Memory::IsValidAddress(clutAddr)) {
 		// Technically we could read the whole thing, but we only need from the offset.
 		u32 clutOffsetBytes = ((gstate.clutformat >> 16) & 0x1f) * sizeof(T);
-		Memory::Memcpy((u8 *) clutBuf + clutOffsetBytes, clutAddr + clutOffsetBytes, clutNumBytes - clutOffsetBytes);
+		Memory::Memcpy((u8 *)clutBuf + clutOffsetBytes, clutAddr + clutOffsetBytes, clutNumBytes - clutOffsetBytes);
+		convertColors((u8*)clutBuf + clutOffsetBytes, dstFmt, clutNumBytes / sizeof(T));
 	}
 }
 
@@ -299,7 +302,7 @@ inline void DeIndexTexture4(ClutT *dest, const u32 texaddr, int length, const Cl
 	DeIndexTexture4(dest, indexed, length, clut);
 }
 
-void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
+void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt) {
 	// Special rules for kernel textures (PPGe):
 	int mask = 0x3FF;
 	if (texaddr < 0x08800000)
@@ -316,7 +319,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 		{
 		tmpTexBuf16.resize(std::max(bufw, w) * h);
 		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-		ReadClut(clutBuf16);
+		ReadClut(clutBuf16, dstFmt);
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
@@ -356,7 +359,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex) {
 		{
 		tmpTexBuf32.resize(std::max(bufw, w) * h);
 		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-		ReadClut(clutBuf32);
+		ReadClut(clutBuf32, dstFmt);
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
@@ -619,9 +622,9 @@ static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 			for (int i = 0; i < (numPixels + 1) / 2; i++) {
 				u32 c = p[i];
 				p[i] = ((c >> 12) & 0x000F000F) |
-					     ((c >> 4)  & 0x00F000F0) |
-							 ((c << 4)  & 0x0F000F00) |
-							 ((c << 12) & 0xF000F000);
+				       ((c >> 4)  & 0x00F000F0) |
+				       ((c << 4)  & 0x0F000F00) |
+				       ((c << 12) & 0xF000F000);
 			}
 		}
 		break;
@@ -631,9 +634,9 @@ static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 			for (int i = 0; i < (numPixels + 1) / 2; i++) {
 				u32 c = p[i];
 				p[i] = ((c >> 15) & 0x00010001) |
-					     ((c >> 9)  & 0x003E003E) |
-							 ((c << 1)  & 0x07C007C0) |
-							 ((c << 11) & 0xF800F800);
+				       ((c >> 9)  & 0x003E003E) |
+				       ((c << 1)  & 0x07C007C0) |
+				       ((c << 11) & 0xF800F800);
 			}
 		}
 		break;
@@ -643,8 +646,8 @@ static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 			for (int i = 0; i < (numPixels + 1) / 2; i++) {
 				u32 c = p[i];
 				p[i] = ((c >> 11) & 0x001F001F) |
-					     (c & 0x07E007E0) |
-							 ((c << 11) & 0xF800F800);
+				       ((c >> 0)  & 0x07E007E0) |
+				       ((c << 11) & 0xF800F800);
 			}
 		}
 		break;
@@ -973,7 +976,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			{
 			tmpTexBuf16.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			ReadClut(clutBuf16);
+			ReadClut(clutBuf16, dstFmt);
 			const u16 *clut = clutBuf16;
 			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
 			texByteAlign = 2;
@@ -992,7 +995,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			{
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			ReadClut(clutBuf32);
+			ReadClut(clutBuf32, dstFmt);
 			const u32 *clut = clutBuf32;
 			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
@@ -1015,20 +1018,20 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 		break;
 
 	case GE_TFMT_CLUT8:
-		finalBuf = readIndexedTex(level, texaddr, 1);
 		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		finalBuf = readIndexedTex(level, texaddr, 1, dstFmt);
 		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
 		break;
 
 	case GE_TFMT_CLUT16:
-		finalBuf = readIndexedTex(level, texaddr, 2);
 		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		finalBuf = readIndexedTex(level, texaddr, 2, dstFmt);
 		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
 		break;
 
 	case GE_TFMT_CLUT32:
-		finalBuf = readIndexedTex(level, texaddr, 4);
 		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		finalBuf = readIndexedTex(level, texaddr, 4, dstFmt);
 		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
 		break;
 
@@ -1054,6 +1057,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
 		}
+		convertColors((u8*)finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_8888:
@@ -1069,6 +1073,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
 		}
+		convertColors((u8*)finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_DXT1:
@@ -1088,6 +1093,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 				}
 			}
 			finalBuf = tmpTexBuf32.data();
+			convertColors((u8*)finalBuf, dstFmt, bufw * h);
 			w = (w + 3) & ~3;
 		}
 		break;
@@ -1116,6 +1122,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
+			convertColors((u8*)finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
@@ -1137,6 +1144,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
+			convertColors((u8*)finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
@@ -1148,8 +1156,6 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 	if (!finalBuf) {
 		ERROR_LOG_REPORT(G3D, "NO finalbuf! Will crash!");
 	}
-
-	convertColors((u8*)finalBuf, dstFmt, bufw * h);
 
 	if (w != bufw) {
 		int pixelSize;
