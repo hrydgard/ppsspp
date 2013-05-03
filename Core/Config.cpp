@@ -116,7 +116,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("MipMap", &bMipMap, false);
 #endif
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
-	graphics->Get("TexScalingType", &iTexScalingType, 1);
+	graphics->Get("TexScalingType", &iTexScalingType, 0);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);

@@ -31,7 +31,7 @@ public:
 
 	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height, int factor);
 
-	enum { BILINEAR = 0, XBRZ= 1, HYBRID = 2 };
+	enum { XBRZ= 0, HYBRID = 1 };
 
 private:
 	void ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height);

@@ -275,15 +275,14 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 
 	// scale 
 	switch(g_Config.iTexScalingType) {
-	case BILINEAR:
-		ScaleBilinear(factor, inputBuf, outputBuf, width, height);
-		break;
 	case XBRZ:
 		ScaleXBRZ(factor, inputBuf, outputBuf, width, height);
 		break;
 	case HYBRID:
 		ScaleHybrid(factor, inputBuf, outputBuf, width, height);
 		break;
+	default:
+		ERROR_LOG(G3D, "Unknown scaling type: %d", g_Config.iTexScalingType);
 	}
 
 	// update values accordingly

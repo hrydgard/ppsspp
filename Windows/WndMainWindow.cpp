@@ -521,9 +521,6 @@ namespace MainWindow
 				setTexScalingLevel(5);
 				break;
 
-			case ID_TEXTURESCALING_BILINEAR:
-				setTexScalingType(TextureScaler::BILINEAR);
-				break;
 			case ID_TEXTURESCALING_XBRZ:
 				setTexScalingType(TextureScaler::XBRZ);
 				break;
@@ -849,7 +846,6 @@ namespace MainWindow
 		}
 
 		static const int texscalingtypeitems[] = {
-			ID_TEXTURESCALING_BILINEAR,
 			ID_TEXTURESCALING_XBRZ,
 			ID_TEXTURESCALING_HYBRID,
 		};

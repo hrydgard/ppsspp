@@ -73,7 +73,7 @@ public:
 	bool bTrueColor;
 	bool bMipMap;
 	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
-	int iTexScalingType; // 0 = Bilinear, 1 = xBRZ, 2 = Hybrid
+	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 
 	// Sound
 	bool bEnableSound;
