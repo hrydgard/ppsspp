@@ -72,6 +72,29 @@ static bool IsColorTestTriviallyTrue() {
 	}
 }
 
+static bool CanDoubleSrcBlendMode() {
+	int funcA = gstate.getBlendFuncA();
+	int funcB = gstate.getBlendFuncB();
+	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {
+		funcB = funcA;
+		funcA = gstate.getBlendFuncB();
+	}
+	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {
+		return false;
+	}
+
+	// One side should be doubled.  Let's check the other side.
+	// LittleBigPlanet, for example, uses 2.0 * src, 1.0 - src, which can't double.
+	switch (funcB) {
+	case GE_DSTBLEND_SRCALPHA:
+	case GE_DSTBLEND_INVSRCALPHA:
+		return false;
+
+	default:
+		return true;
+	}
+}
+
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
@@ -86,7 +109,8 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
 		bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
-		bool enableAlphaDoubling = gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA || gstate.getBlendFuncB() == GE_DSTBLEND_DOUBLESRCALPHA;
+		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
+		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 		// id->d[0] |= (gstate.clearmode & 1);
@@ -127,8 +151,8 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
-	// TODO: This only does one of the four possible modes.
-	bool enableAlphaDoubling = gstate.getBlendFuncA() == GE_SRCBLEND_DOUBLESRCALPHA || gstate.getBlendFuncB() == GE_DSTBLEND_DOUBLESRCALPHA;
+	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
+	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
 
 	if (doTexture)
