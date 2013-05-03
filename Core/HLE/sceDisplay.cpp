@@ -93,6 +93,8 @@ static int height;
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
 static double nextFrameTime;
+double vfpLimit;
+double vfpLimis;
 
 static u64 frameStartTicks;
 const float hCountPerVblank = 285.72f; // insprired by jpcsp
@@ -107,7 +109,7 @@ std::vector<VblankCallback> vblankListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
-const double frameMs = 1000.0 / 60.0;
+double frameMs = 1000.0 / 60.0;
 
 enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
@@ -135,7 +137,11 @@ void __DisplayInit() {
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
 	afterFlipEvent = CoreTiming::RegisterEvent("AfterFlip", &hleAfterFlip);
-
+	if (!g_Config.bVpsLimit) {
+		frameMs = 1000.0 / 60.0;
+	} else {
+		frameMs = 1000.0 / g_Config.iNumVps;
+	}
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
@@ -306,22 +312,28 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	
 	time_update();
 	
+	if (!g_Config.bVpsLimit) {
+		vfpLimit=60.0;
+		vfpLimis=30.0;
+	} else {
+		vfpLimit=g_Config.iNumVps;
+		vfpLimis=g_Config.iNumVps / 2;
+	}
 	curFrameTime = time_now_d();
 	if (nextFrameTime == 0.0)
-		nextFrameTime = time_now_d() + 1.0 / 60.0;
+		nextFrameTime = time_now_d() + 1.0 / vfpLimit;
 	
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		skipFrame = true;
 		// INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
 	}
-
 	
 	if (curFrameTime < nextFrameTime && throttle)
 	{
 		// If time gap is huge just jump (somebody unthrottled)
-		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
-			nextFrameTime = curFrameTime + 1.0 / 60.0;
+		if (nextFrameTime - curFrameTime > 1.0 / vfpLimis) {
+			nextFrameTime = curFrameTime + 1.0 / vfpLimit;
 		} else {
 			// Wait until we've catched up.
 			while (time_now_d() < nextFrameTime) {
@@ -336,9 +348,9 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	const double maxFallBehindFrames = 5.5;
 
 	if (throttle || doFrameSkip) {
-		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
+		nextFrameTime = std::max(nextFrameTime + 1.0 / vfpLimit, time_now_d() - maxFallBehindFrames / vfpLimit);
 	} else {
-		nextFrameTime = nextFrameTime + 1.0 / 60.0;
+		nextFrameTime = nextFrameTime + 1.0 / vfpLimit;
 	}
 
 	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
@@ -436,6 +448,11 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
 	frameStartTicks = CoreTiming::GetTicks();
+	if (!g_Config.bVpsLimit) {
+		frameMs = 1000.0 / 60.0;
+	} else {
+		frameMs = 1000.0 / g_Config.iNumVps;
+	}
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
@@ -446,6 +463,7 @@ u32 sceDisplayIsVblank() {
 
 u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	DEBUG_LOG(HLE,"sceDisplaySetMode(%i, %i, %i)", displayMode, displayWidth, displayHeight);
+	host->BeginFrame();
 
 	if (!hasSetMode) {
 		gpu->InitClear();
