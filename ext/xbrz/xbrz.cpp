@@ -419,7 +419,7 @@ double distYCbCrA(uint32_t pix1, uint32_t pix2, double lumaWeight)
 	const double c_r = scale_r * (r_diff - y);
 
 	//we skip division by 255 to have similar range like other distance functions
-	return (std::sqrt(square(lumaWeight * y) + square(c_b) +  square(c_r)))*0.67 + square(static_cast<int>(getAlpha(pix1)) - getAlpha(pix2))*0.33;
+	return std::sqrt(square(lumaWeight * y) + square(c_b) +  square(c_r)+ square(static_cast<int>(getAlpha(pix1)) - getAlpha(pix2)));
 }
 
 
