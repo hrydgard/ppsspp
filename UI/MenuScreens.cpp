@@ -408,8 +408,9 @@ void PauseScreen::render() {
 	// Shared with settings
 	I18NCategory *ss = GetI18NCategory("System");
 	I18NCategory *gs = GetI18NCategory("Graphics");
-
-	UICheckBox(GEN_ID, x, y += stride, ss->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+	I18NCategory *a = GetI18NCategory("Audio");
+	
+	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	UICheckBox(GEN_ID, x, y += stride, ss->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
 	// TODO: Maybe shouldn't show this if the screen ratios are very close...
@@ -427,7 +428,7 @@ void PauseScreen::render() {
 		if (g_Config.iFrameSkip == 0)
 			g_Config.iFrameSkip = 3;
 
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Skip Frames :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Frames :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250 , y + 5, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
 			g_Config.iFrameSkip = 3;
@@ -702,7 +703,7 @@ void GraphicsScreenP1::render() {
 			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
-		if (UICheckBox(GEN_ID, x, y += stride, gs->T("2X", "2x Render Resolution"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
+		if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "AntiAliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
 		}

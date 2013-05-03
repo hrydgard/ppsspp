@@ -131,8 +131,8 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 void PSPMsgDialog::DisplayBack()
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawImage(cancelButtonImg, 290, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Back"), 320, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(cancelButtonImg, 290, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Back"), 310, 218, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPMsgDialog::DisplayYesNo()
@@ -154,8 +154,8 @@ void PSPMsgDialog::DisplayYesNo()
 void PSPMsgDialog::DisplayOk()
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawImage(okButtonImg, 200, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Enter"), 230, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(okButtonImg, 200, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Enter"), 220, 218, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
