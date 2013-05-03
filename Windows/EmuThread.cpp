@@ -4,7 +4,7 @@
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "Log.h"
-#include "StringUtil.h"
+#include "StringUtils.h"
 #include "../Globals.h"
 #include "EmuThread.h"
 #include "../Core/Reporting.h"

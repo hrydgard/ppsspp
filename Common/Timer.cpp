@@ -27,7 +27,7 @@
 
 #include "Common.h"
 #include "Timer.h"
-#include "StringUtil.h"
+#include "StringUtils.h"
 
 namespace Common
 {

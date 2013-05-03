@@ -18,7 +18,7 @@
 #pragma once
 
 #include "Log.h"
-#include "StringUtil.h"
+#include "StringUtils.h"
 #include "Thread.h"
 #include "FileUtil.h"
 #include "file/ini_file.h" 

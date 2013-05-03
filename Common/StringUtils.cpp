@@ -20,7 +20,7 @@
 
 #include "Common.h"
 #include "CommonPaths.h"
-#include "StringUtil.h"
+#include "StringUtils.h"
 
 // faster than sscanf
 bool AsciiToHex(const char* _szValue, u32& result)

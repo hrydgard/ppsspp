@@ -188,7 +188,7 @@
     <ClInclude Include="StdConditionVariable.h" />
     <ClInclude Include="StdMutex.h" />
     <ClInclude Include="StdThread.h" />
-    <ClInclude Include="StringUtil.h" />
+    <ClInclude Include="StringUtils.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadPool.h" />
@@ -225,7 +225,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="StringUtil.cpp" />
+    <ClCompile Include="StringUtils.cpp" />
     <ClCompile Include="Thread.cpp" />
     <ClCompile Include="ThreadPool.cpp" />
     <ClCompile Include="Thunk.cpp" />

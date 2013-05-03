@@ -72,7 +72,7 @@ void __cpuid(int regs[4], int cpuid_leaf)
 
 #include "Common.h"
 #include "CPUDetect.h"
-#include "StringUtil.h"
+#include "StringUtils.h"
 
 CPUInfo cpu_info;
 

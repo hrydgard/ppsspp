@@ -27,7 +27,7 @@
 #include "MIPS/MIPSAnalyst.h"
 #include "MIPS/MIPSCodeUtils.h"
 
-#include "StringUtil.h"
+#include "StringUtils.h"
 
 #include "Host.h"
 

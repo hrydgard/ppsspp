@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
-#include "Common/StringUtil.h"
+#include "Common/StringUtils.h"
 #include "../HLE/sceKernelThread.h"
 #include "MetaFileSystem.h"
 

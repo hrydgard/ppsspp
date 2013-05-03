@@ -18,10 +18,6 @@
 #include <cmath>
 #include <string>
 #include <cstdio>
-// Hack: Harmattan will not compile without this!
-#ifdef MEEGO_EDITION_HARMATTAN
-#include "StringUtil.cpp"
-#endif
 
 #ifdef _WIN32
 namespace MainWindow {
@@ -52,7 +48,7 @@ namespace MainWindow {
 #include "util/text/utf8.h"
 #include "UIShader.h"
 
-#include "Common/StringUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "GPU/ge_constants.h"

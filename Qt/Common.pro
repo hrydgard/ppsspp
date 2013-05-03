@@ -42,7 +42,7 @@ SOURCES += ../Common/ColorUtil.cpp \
 	../Common/MemoryUtil.cpp \
 	../Common/Misc.cpp \
 	../Common/MsgHandler.cpp \
-	../Common/StringUtil.cpp \
+	../Common/StringUtils.cpp \
 	../Common/Thread.cpp \
 	../Common/ThreadPool.cpp \
 	../Common/Timer.cpp \
@@ -60,7 +60,7 @@ HEADERS += ../Common/ChunkFile.h \
 	../Common/MemArena.h \
 	../Common/MemoryUtil.h \
 	../Common/MsgHandler.h \
-	../Common/StringUtil.h \
+	../Common/StringUtils.h \
 	../Common/Thread.h \
 	../Common/ThreadPool.h \
 	../Common/Timer.h \
