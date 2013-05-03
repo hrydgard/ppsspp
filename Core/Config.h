@@ -72,7 +72,6 @@ public:
 	int iAnisotropyLevel;
 	bool bTrueColor;
 	bool bMipMap;
-	bool bAnisotropicFiltering;
 	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = Bilinear, 1 = xBRZ, 2 = Hybrid
 
