@@ -431,14 +431,21 @@ void PauseScreen::render() {
 		if (g_Config.iFrameSkip == 0)
 			g_Config.iFrameSkip = 3;
 
+		float getfskip= g_Config.iFrameSkip;
+		char showfskip[256];
+		sprintf(showfskip, "Skip Frames: %0.0f", getfskip);
+		ui_draw2d.DrawText(UBUNTU24, showfskip, dp_xres - 8, 42, 0xc0000000, ALIGN_TOPRIGHT);
+		ui_draw2d.DrawText(UBUNTU24, showfskip, dp_xres - 10, 40, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Skip Frames :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250 , y + 5, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
 			g_Config.iFrameSkip = 3;
-		if (UIButton(GEN_ID, hlinear1, 30, 0, "1", ALIGN_LEFT))
-			g_Config.iFrameSkip = 1;
-		if (UIButton(GEN_ID, hlinear1, 30, 0, "2", ALIGN_LEFT))
-			g_Config.iFrameSkip = 2;
+		if (UIButton(GEN_ID, hlinear1, 40, 0, "-1", ALIGN_LEFT))
+			if(g_Config.iFrameSkip>0){
+			g_Config.iFrameSkip -= 1;}
+		if (UIButton(GEN_ID, hlinear1, 40, 0, "+1", ALIGN_LEFT))
+			if(g_Config.iFrameSkip!=9){
+			g_Config.iFrameSkip += 1;}
 	}
 	else {
 		g_Config.iFrameSkip = 0;
