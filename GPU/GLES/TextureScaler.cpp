@@ -157,7 +157,7 @@ namespace {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
 				int pos = y*width + x;
-				u8 mixFactors[2] = { 0, static_cast<unsigned int>((std::min(mask[pos], maskmax)*255)/maskmax) };
+				u8 mixFactors[2] = { 0, static_cast<u8>((std::min(mask[pos], maskmax)*255)/maskmax) };
 				mixFactors[0] = 255-mixFactors[1];
 				data[pos] = MIX_PIXELS(data[pos], source[pos], mixFactors);
 				if(A(source[pos]) == 0) data[pos] = data[pos] & 0x00FFFFFF; // xBRZ always does a better job with hard alpha
