@@ -31,7 +31,16 @@ public:
 
 	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height, int factor);
 
+	enum { XBRZ= 0, HYBRID = 1 };
+
 private:
-	SimpleBuf<u32> bufInput;
-	SimpleBuf<u32> bufOutput;
+	void ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height);
+	void ScaleBilinear(int factor, u32* source, u32* dest, int width, int height);
+	void ScaleHybrid(int factor, u32* source, u32* dest, int width, int height);
+	void ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height);
+
+	// depending on the factor and texture sizes, these can get pretty large 
+	// maximum is (100 MB total for a 512 by 512 texture with scaling factor 5 and hybrid scaling)
+	// of course, scaling factor 5 is totally silly anyway
+	SimpleBuf<u32> bufInput, bufOutput, bufTmp1, bufTmp2, bufTmp3;
 };

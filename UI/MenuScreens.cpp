@@ -756,20 +756,20 @@ void GraphicsScreenP2::render() {
 		g_Config.iAnisotropyLevel = 0;
 	}
 
-	bool XBRZTexScaling = g_Config.iXBRZTexScalingLevel > 1;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &XBRZTexScaling);
-	if (XBRZTexScaling) {
-		if (g_Config.iXBRZTexScalingLevel <= 1)
-			g_Config.iXBRZTexScalingLevel = 2;
+	bool TexScaling = g_Config.iTexScalingLevel > 1;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
+	if (TexScaling) {
+		if (g_Config.iTexScalingLevel <= 1)
+			g_Config.iTexScalingLevel = 2;
 
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 160 , y + 5, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
-			g_Config.iXBRZTexScalingLevel = 2;
+			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
-			g_Config.iXBRZTexScalingLevel = 3;
+			g_Config.iTexScalingLevel = 3;
 	} else {
-		g_Config.iXBRZTexScalingLevel = 1;
+		g_Config.iTexScalingLevel = 1;
 	}
 	UIEnd();
 }

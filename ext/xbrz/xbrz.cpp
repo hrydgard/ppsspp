@@ -26,9 +26,10 @@ unsigned char getByte(uint32_t val) { return static_cast<unsigned char>((val >> 
 
 // adjusted for RGBA
 // - Durante
-inline unsigned char getRed  (uint32_t val) { return getByte<3>(val); }
-inline unsigned char getGreen(uint32_t val) { return getByte<2>(val); }
-inline unsigned char getBlue (uint32_t val) { return getByte<1>(val); }
+inline unsigned char getRed  (uint32_t val) { return getByte<0>(val); }
+inline unsigned char getGreen(uint32_t val) { return getByte<1>(val); }
+inline unsigned char getBlue (uint32_t val) { return getByte<2>(val); }
+inline unsigned char getAlpha(uint32_t val) { return getByte<3>(val); }
 
 template <class T> inline
 T abs(T value)
@@ -396,6 +397,31 @@ double distYCbCr(uint32_t pix1, uint32_t pix2, double lumaWeight)
 	return std::sqrt(square(lumaWeight * y) + square(c_b) +  square(c_r));
 }
 
+// distance function taking alpha distance into account
+inline
+double distYCbCrA(uint32_t pix1, uint32_t pix2, double lumaWeight)
+{
+	//http://en.wikipedia.org/wiki/YCbCr#ITU-R_BT.601_conversion
+	//YCbCr conversion is a matrix multiplication => take advantage of linearity by subtracting first!
+	const int r_diff = static_cast<int>(getRed  (pix1)) - getRed  (pix2); //we may delay division by 255 to after matrix multiplication
+	const int g_diff = static_cast<int>(getGreen(pix1)) - getGreen(pix2); //
+	const int b_diff = static_cast<int>(getBlue (pix1)) - getBlue (pix2); //substraction for int is noticeable faster than for double!
+
+	const double k_b = 0.0722; //ITU-R BT.709 conversion
+	const double k_r = 0.2126; //
+	const double k_g = 1 - k_b - k_r;
+
+	const double scale_b = 0.5 / (1 - k_b);
+	const double scale_r = 0.5 / (1 - k_r);
+
+	const double y   = k_r * r_diff + k_g * g_diff + k_b * b_diff; //[!], analog YCbCr!
+	const double c_b = scale_b * (b_diff - y);
+	const double c_r = scale_r * (r_diff - y);
+
+	//we skip division by 255 to have similar range like other distance functions
+	return std::sqrt(square(lumaWeight * y) + square(c_b) +  square(c_r)+ square(static_cast<int>(getAlpha(pix1)) - getAlpha(pix2)));
+}
+
 
 inline
 double distYUV(uint32_t pix1, uint32_t pix2, double luminanceWeight)
@@ -443,8 +469,8 @@ double colorDist(uint32_t pix1, uint32_t pix2, double luminanceWeight)
 	//return distLAB(pix1, pix2);
 	//return distNonLinearRGB(pix1, pix2);
 	//return distYUV(pix1, pix2, luminanceWeight);
-
-	return distYCbCr(pix1, pix2, luminanceWeight);
+	//return distYCbCr(pix1, pix2, luminanceWeight);
+	return distYCbCrA(pix1, pix2, luminanceWeight);
 }
 
 
