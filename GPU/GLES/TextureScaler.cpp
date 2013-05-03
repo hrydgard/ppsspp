@@ -445,10 +445,10 @@ void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, i
 
 void TextureScaler::DePosterize(u32* source, u32* dest, int width, int height) {
 	bufTmp3.resize(width*height);
-	GlobalThreadPool::Loop(std::bind(&deposterizeH, source, bufTmp3.data(), width, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&deposterizeH, dest, bufTmp3.data(), width, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(bind(&deposterizeH, source, bufTmp3.data(), width, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(bind(&deposterizeV, bufTmp3.data(), dest, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(bind(&deposterizeH, dest, bufTmp3.data(), width, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(bind(&deposterizeV, bufTmp3.data(), dest, width, height, p::_1, p::_2), 0, height);
 }
 
 void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height) {
