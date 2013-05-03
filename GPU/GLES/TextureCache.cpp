@@ -1221,7 +1221,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 
 	u32* pixelData = (u32*)finalBuf;
 
-	int scaleFactor = g_Config.iXBRZTexScalingLevel;
+	int scaleFactor = g_Config.iTexScalingLevel;
 
 	// Don't scale the PPGe texture.
 	if (entry.addr > 0x05000000 && entry.addr < 0x08800000)

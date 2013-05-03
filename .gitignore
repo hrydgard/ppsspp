@@ -28,6 +28,7 @@ Windows/ipch
 
 # For ppsspp.ini, etc.
 ppsspp.ini
+PPSSPPControls.dat
 
 # Qt Linguist files
 *.qm

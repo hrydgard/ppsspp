@@ -100,7 +100,6 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
-	graphics->Get("XBRZTexScalingLevel", &iXBRZTexScalingLevel, 1);
 	graphics->Get("UseMediaEngine", &bUseMediaEngine, true);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
@@ -116,6 +115,8 @@ void Config::Load(const char *iniFileName)
 #else
 	graphics->Get("MipMap", &bMipMap, false);
 #endif
+	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
+	graphics->Get("TexScalingType", &iTexScalingType, 0);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -190,7 +191,6 @@ void Config::Save()
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
-		graphics->Set("XBRZTexScalingLevel", iXBRZTexScalingLevel);
 		graphics->Set("UseMediaEngine", bUseMediaEngine);	
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
@@ -198,7 +198,8 @@ void Config::Save()
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("MipMap", bMipMap);
-		graphics->Set("XBRZTexScalingLevel", iXBRZTexScalingLevel);
+		graphics->Set("TexScalingLevel", iTexScalingLevel);
+		graphics->Set("TexScalingType", iTexScalingType);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
