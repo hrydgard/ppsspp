@@ -64,10 +64,13 @@ void ThreadPool::ParallelLoop(function<void(int,int)> loop, int lower, int upper
 		// could do slightly better load balancing for the generic case, 
 		// but doesn't matter since all our loops are power of 2
 		int chunk = range/numThreads; 
-		for(int s=lower, i=0; i<numThreads; s+=chunk, ++i) {
-			workers[i]->Process(bind(loop, s, std::min(s+chunk,upper)));
+		int s = lower;
+		for(int i=0; i<numThreads-1; ++i) {
+			workers[i]->Process(bind(loop, s, s+chunk));
+			s+=chunk;
 		}
-		for(int i=0; i<numThreads; ++i) {
+		loop(s, upper);
+		for(int i=0; i<numThreads-1; ++i) {
 			workers[i]->WaitForCompletion();
 		}
 	} else {
