@@ -261,8 +261,8 @@ add_library(Common STATIC
 	Common/StringUtils.h
 	Common/Thread.cpp
 	Common/Thread.h
-	Common/ThreadPool.cpp
-	Common/ThreadPool.h
+	Common/ThreadPools.cpp
+	Common/ThreadPools.h
 	Common/Timer.cpp
 	Common/Timer.h
 	Common/Version.cpp)

@@ -42,7 +42,7 @@
     <ClInclude Include="x64Emitter.h" />
     <ClInclude Include="ArmEmitter.h" />
     <ClInclude Include="FixedSizeUnorderedSet.h" />
-    <ClInclude Include="ThreadPool.h" />
+    <ClInclude Include="ThreadPools.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -69,7 +69,7 @@
     <ClCompile Include="x64Emitter.cpp" />
     <ClCompile Include="ArmEmitter.cpp" />
     <ClCompile Include="ArmCPUDetect.cpp" />
-    <ClCompile Include="ThreadPool.cpp" />
+    <ClCompile Include="ThreadPools.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

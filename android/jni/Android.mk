@@ -136,7 +136,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/FileUtil.cpp \
   $(SRC)/Common/StringUtils.cpp \
   $(SRC)/Common/Thread.cpp \
-  $(SRC)/Common/ThreadPool.cpp \
+  $(SRC)/Common/ThreadPools.cpp \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/Common/MathUtil.cpp \

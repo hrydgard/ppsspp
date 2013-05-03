@@ -21,7 +21,7 @@
 #include "Common/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/CommonFuncs.h"
-#include "Common/ThreadPool.h"
+#include "Common/ThreadPools.h"
 #include "ext/xbrz/xbrz.h"
 
 #ifdef __SYMBIAN32__
@@ -31,11 +31,6 @@
 namespace p = std::tr1::placeholders;
 #else
 namespace p = std::placeholders;
-#endif
-
-// Hack for Meego
-#ifdef MEEGO_EDITION_HARMATTAN
-#include "Common/ThreadPool.cpp"
 #endif
 
 // Report the time and throughput for each larger scaling operation in the log
