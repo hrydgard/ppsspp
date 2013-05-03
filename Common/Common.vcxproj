@@ -156,7 +156,7 @@
   <ItemGroup>
     <ClInclude Include="ABI.h" />
     <ClInclude Include="ArmEmitter.h" />
-    <ClInclude Include="Atomic.h" />
+    <ClInclude Include="Atomics.h" />
     <ClInclude Include="Atomic_GCC.h" />
     <ClInclude Include="Atomic_Win32.h" />
     <ClInclude Include="ChunkFile.h" />

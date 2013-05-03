@@ -21,7 +21,7 @@
 
 #include "MsgHandler.h"
 #include "StdMutex.h"
-#include "Atomic.h"
+#include "Atomics.h"
 #include "CoreTiming.h"
 #include "Core.h"
 #include "HLE/sceKernelThread.h"

@@ -30,7 +30,7 @@
 #include "Common.h"
 #include "LogManager.h" // Common
 #include "ConsoleListener.h" // Common
-#include "Atomic.h"
+#include "Atomics.h"
 
 #ifdef _WIN32
 const int LOG_PENDING_MAX = 120 * 10000;
