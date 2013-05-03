@@ -117,6 +117,7 @@ void Config::Load(const char *iniFileName)
 #endif
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
+	graphics->Get("TexDeposterize", &bTexDeposterize, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -200,6 +201,7 @@ void Config::Save()
 		graphics->Set("MipMap", bMipMap);
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
 		graphics->Set("TexScalingType", iTexScalingType);
+		graphics->Set("TexDeposterize", bTexDeposterize);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
