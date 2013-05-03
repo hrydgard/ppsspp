@@ -39,7 +39,7 @@ namespace p = std::placeholders;
 #endif
 
 // Report the time and throughput for each larger scaling operation in the log
-#define SCALING_MEASURE_TIME
+//#define SCALING_MEASURE_TIME
 
 #ifdef SCALING_MEASURE_TIME
 #include "native/base/timeutil.h"
@@ -94,9 +94,9 @@ namespace {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
 				int val = 0;
-				for(int yoff = -1; yoff < 1; ++yoff) {
+				for(int yoff = -1; yoff <= 1; ++yoff) {
 					int yy = std::max(std::min(y+yoff, height-1), 0);
-					for(int xoff = -1; xoff < 1; ++xoff) {
+					for(int xoff = -1; xoff <= 1; ++xoff) {
 						int xx = std::max(std::min(x+xoff, width-1), 0);
 						val += data[yy*width + xx] * kernel[yoff+1][xoff+1];
 					}
@@ -119,16 +119,16 @@ namespace {
 			for(int x = 0; x < width; ++x) {
 				out[y*width + x] = 0;
 				u32 center = data[y*width + x];
-				for(int yoff = -1; yoff < 1; ++yoff) {
+				for(int yoff = -1; yoff <= 1; ++yoff) {
 					int yy = y+yoff;
-					if(yy == height-1 || yy == -1) {
-						out[y*width + x] += 400; // assume distance at borders, usually makes for better result
+					if(yy == height || yy == -1) {
+						out[y*width + x] += 1200; // assume distance at borders, usually makes for better result
 						continue;
 					}
-					for(int xoff = -1; xoff < 1; ++xoff) {
+					for(int xoff = -1; xoff <= 1; ++xoff) {
 						if(yoff == 0 && xoff == 0) continue;
 						int xx = x+xoff;
-						if(xx == width-1 || xx == -1) {
+						if(xx == width || xx == -1) {
 							out[y*width + x] += 400; // assume distance at borders, usually makes for better result
 							continue;
 						}
@@ -318,38 +318,28 @@ void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, i
 	// 1) determine a feature mask C based on a sobel-ish filter + splatting, and upscale that mask bilinearly
 	// 2) generate 2 scaled images: A - using Bilinear filtering, B - using xBRZ
 	// 3) output = A*C + B*(1-C)
-
-	bool generateDebugImgs = true && width==256 && height==128;
-
+	
 	const static int KERNEL_SPLAT[3][3] = {
 		{ 1, 1, 1 }, { 1, 1, 1 }, { 1, 1, 1 }
 	};
-
-	if(generateDebugImgs) dbgPPM(width, height, (u8*)source);
-
+	
 	bufTmp1.resize(width*height);
 	bufTmp2.resize(width*height*factor*factor);
 	bufTmp3.resize(width*height*factor*factor);
 	GlobalThreadPool::Loop(std::bind(&generateDistanceMask, source, bufTmp1.data(), width, height, p::_1, p::_2), 0, height);
-	if(generateDebugImgs) dbgPGM(width, height, bufTmp1.data());
 	GlobalThreadPool::Loop(std::bind(&convolve3x3, bufTmp1.data(), bufTmp2.data(), KERNEL_SPLAT, width, height, p::_1, p::_2), 0, height);
-	if(generateDebugImgs) dbgPGM(width, height, bufTmp2.data());
 	ScaleBilinear(factor, bufTmp2.data(), bufTmp3.data(), width, height);
-	if(generateDebugImgs) dbgPGM(width*factor, height*factor, bufTmp3.data());
 	// mask C is now in bufTmp3
 
 	ScaleXBRZ(factor, source, bufTmp2.data(), width, height);
-	if(generateDebugImgs) dbgPPM(width*factor, height*factor, (u8*)bufTmp2.data());
 	// xBRZ upscaled source is in bufTmp2
 
 	ScaleBilinear(factor, source, dest, width, height);
-	if(generateDebugImgs) dbgPPM(width*factor, height*factor, (u8*)dest);
 	// Bilinear upscaled source is in dest
 
 	// Now we can mix it all together
-	// The factor 5000 was found through practical testing on a variety of textures
-	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 666, width*factor, p::_1, p::_2), 0, height*factor);
-	if(generateDebugImgs) dbgPPM(width*factor, height*factor, (u8*)dest);
+	// The factor 8192 was found through practical testing on a variety of textures
+	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, p::_1, p::_2), 0, height*factor);
 }
 
 void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height) {
