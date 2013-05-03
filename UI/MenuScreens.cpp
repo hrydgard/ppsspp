@@ -740,8 +740,8 @@ void GraphicsScreenP2::render() {
 		if (g_Config.iAnisotropyLevel == 0)
 			g_Config.iAnisotropyLevel = 2;
 
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride - 5, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 160 , y + 5, 20);
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 160 , y, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "4x", ALIGN_LEFT))
@@ -755,23 +755,20 @@ void GraphicsScreenP2::render() {
 	}
 
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
-	UICheckBox(GEN_ID, x, y += stride + 20, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
+	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
-
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 5, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 160 , y - 5, 20);
+		UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
+		bool tst = g_Config.iTexScalingType == 1;
+		UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Hybrid"), ALIGN_LEFT, &tst);
+		g_Config.iTexScalingType = tst ? 1 : 0;
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 160 , y, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
-		HLinear hlinear2(x + 160 , y + 60, 20);
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride + 20, 0xFFFFFFFF, ALIGN_LEFT);
-		if (UIButton(GEN_ID, hlinear2, 90, 0, "xBRZ", ALIGN_LEFT))
-			g_Config.iTexScalingType = 0;
-		if (UIButton(GEN_ID, hlinear2, 100, 0, "Hybrid", ALIGN_LEFT))
-			g_Config.iTexScalingType = 1;
 	} else {
 		g_Config.iTexScalingLevel = 1;
 	}
