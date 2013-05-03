@@ -40,6 +40,8 @@ namespace p = std::placeholders;
 #include "native/base/timeutil.h"
 #endif
 
+/////////////////////////////////////// Helper Functions (mostly math for parallelization)
+
 namespace {
 	// convert 4444 image to 8888, parallelizable
 	void convert4444(u16* data, u32* out, int width, int l, int u) {
@@ -261,11 +263,28 @@ namespace {
 	}
 }
 
+/////////////////////////////////////// Texture Scaler
 
 TextureScaler::TextureScaler() {
 }
 
+bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, GLenum fmt) {
+	int pixelsPerWord = (fmt == GL_UNSIGNED_BYTE) ? 1 : 2;
+	int ref = data[0];
+	for(int i=0; i<pixels/pixelsPerWord; ++i) {
+		if(data[i]!=ref) return false;
+	}
+	return true;
+}
+
 void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, int factor) {
+	// prevent processing empty or flat textures (this happens a lot in some games)
+	// doesn't hurt the standard case, will be very quick for textures with actual texture
+	if(IsEmptyOrFlat(data, width*height, dstFmt)) {
+		INFO_LOG(G3D, "TextureScaler: early exit -- empty/flat texture");
+		return;
+	}
+
 	#ifdef SCALING_MEASURE_TIME
 	double t_start = real_time_now();
 	#endif
