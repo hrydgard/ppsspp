@@ -700,12 +700,6 @@ void GraphicsScreenP1::render() {
 		if (gpu)
 			gpu->Resized();
 	}
-	if (g_Config.bBufferedRendering) {
-		if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "AntiAliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
-			if (gpu)
-				gpu->Resized();
-		}
-	}
 	UIEnd();
 }
 
@@ -730,6 +724,12 @@ void GraphicsScreenP2::render() {
 	int stride = 40;
 	int columnw = 400;
 
+	if (g_Config.bBufferedRendering) {
+		if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
+			if (gpu)
+				gpu->Resized();
+		}
+	}
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Draw Wireframe"), ALIGN_TOPLEFT, &g_Config.bDrawWireframe);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("True Color"), ALIGN_TOPLEFT, &g_Config.bTrueColor);
@@ -740,7 +740,7 @@ void GraphicsScreenP2::render() {
 		if (g_Config.iAnisotropyLevel == 0)
 			g_Config.iAnisotropyLevel = 2;
 
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride - 5, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 160 , y + 5, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
@@ -760,14 +760,14 @@ void GraphicsScreenP2::render() {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
 
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 160 , y + 5, 20);
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 5, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 160 , y - 5, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
-		HLinear hlinear2(x + 160 , y + 75, 20);
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride + 25, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 160 , y + 60, 20);
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride + 20, 0xFFFFFFFF, ALIGN_LEFT);
 		if (UIButton(GEN_ID, hlinear2, 90, 0, "xBRZ", ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
 		if (UIButton(GEN_ID, hlinear2, 100, 0, "Hybrid", ALIGN_LEFT))
