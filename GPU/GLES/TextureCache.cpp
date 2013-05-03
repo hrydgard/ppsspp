@@ -1063,11 +1063,16 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 	case GE_TFMT_8888:
 		dstFmt = GL_UNSIGNED_BYTE;
 		if (!(gstate.texmode & 1)) {
-			int len = bufw * h;
-			tmpTexBuf32.resize(std::max(bufw, w) * h);
-			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			Memory::Memcpy(tmpTexBuf32.data(), texaddr, len * sizeof(u32));
-			finalBuf = tmpTexBuf32.data();
+			// Special case: if we don't need to deal with packing, we don't need to copy.
+			if (w == bufw) {
+				finalBuf = Memory::GetPointer(texaddr);
+			} else {
+				int len = bufw * h;
+				tmpTexBuf32.resize(std::max(bufw, w) * h);
+				tmpTexBufRearrange.resize(std::max(bufw, w) * h);
+				Memory::Memcpy(tmpTexBuf32.data(), texaddr, len * sizeof(u32));
+				finalBuf = tmpTexBuf32.data();
+			}
 		}
 		else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
