@@ -39,6 +39,8 @@ private:
 	void ScaleHybrid(int factor, u32* source, u32* dest, int width, int height);
 	void ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height);
 
+	bool IsEmptyOrFlat(u32* data, int pixels, GLenum fmt);
+
 	// depending on the factor and texture sizes, these can get pretty large 
 	// maximum is (100 MB total for a 512 by 512 texture with scaling factor 5 and hybrid scaling)
 	// of course, scaling factor 5 is totally silly anyway

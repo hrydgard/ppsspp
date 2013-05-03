@@ -83,25 +83,6 @@ namespace {
 			}
 		}
 	}
-	
-	// 3x3 convolution with Neumann boundary conditions, parallelizable
-	// quite slow, could be sped up a lot
-	// especially handling of separable kernels
-	void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int height, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				int val = 0;
-				for(int yoff = -1; yoff <= 1; ++yoff) {
-					int yy = std::max(std::min(y+yoff, height-1), 0);
-					for(int xoff = -1; xoff <= 1; ++xoff) {
-						int xx = std::max(std::min(x+xoff, width-1), 0);
-						val += data[yy*width + xx] * kernel[yoff+1][xoff+1];
-					}
-				}
-				out[y*width + x] = abs(val);
-			}
-		}
-	}
 
 	#define R(_col) ((_col>> 0)&0xFF)
 	#define G(_col) ((_col>> 8)&0xFF)
@@ -111,25 +92,54 @@ namespace {
 	#define DISTANCE(_p1,_p2) ( abs((int)((int)(R(_p1))-R(_p2))) + abs((int)((int)(G(_p1))-G(_p2))) \
 							  + abs((int)((int)(B(_p1)-B(_p2)))) + abs((int)((int)(A(_p1)-A(_p2)))) )
 
-	void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int u) {
-		for(int y = l; y < u; ++y) {
-			for(int x = 0; x < width; ++x) {
-				out[y*width + x] = 0;
-				u32 center = data[y*width + x];
-				for(int yoff = -1; yoff <= 1; ++yoff) {
-					int yy = y+yoff;
-					if(yy == height || yy == -1) {
-						out[y*width + x] += 1200; // assume distance at borders, usually makes for better result
-						continue;
-					}
-					for(int xoff = -1; xoff <= 1; ++xoff) {
-						if(yoff == 0 && xoff == 0) continue;
-						int xx = x+xoff;
-						if(xx == width || xx == -1) {
-							out[y*width + x] += 400; // assume distance at borders, usually makes for better result
-							continue;
+	#define BLOCK_SIZE 32
+	
+	// 3x3 convolution with Neumann boundary conditions, parallelizable
+	// quite slow, could be sped up a lot
+	// especially handling of separable kernels
+	void convolve3x3(u32* data, u32* out, const int kernel[3][3], int width, int height, int l, int u) {
+		for(int yb = 0; yb < (u-l)/BLOCK_SIZE+1; ++yb) {
+			for(int xb = 0; xb < width/BLOCK_SIZE+1; ++xb) {
+				for(int y = l+yb*BLOCK_SIZE; y < l+(yb+1)*BLOCK_SIZE && y < u; ++y) {
+					for(int x = xb*BLOCK_SIZE; x < (xb+1)*BLOCK_SIZE && x < width; ++x) {
+						int val = 0;
+						for(int yoff = -1; yoff <= 1; ++yoff) {
+							int yy = std::max(std::min(y+yoff, height-1), 0);
+							for(int xoff = -1; xoff <= 1; ++xoff) {
+								int xx = std::max(std::min(x+xoff, width-1), 0);
+								val += data[yy*width + xx] * kernel[yoff+1][xoff+1];
+							}
 						}
-						out[y*width + x] += DISTANCE(data[yy*width + xx], center);
+						out[y*width + x] = abs(val);
+					}
+				}
+			}
+		}
+	}
+
+	void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int u) {
+		for(int yb = 0; yb < (u-l)/BLOCK_SIZE+1; ++yb) {
+			for(int xb = 0; xb < width/BLOCK_SIZE+1; ++xb) {
+				for(int y = l+yb*BLOCK_SIZE; y < l+(yb+1)*BLOCK_SIZE && y < u; ++y) {
+					for(int x = xb*BLOCK_SIZE; x < (xb+1)*BLOCK_SIZE && x < width; ++x) {
+						out[y*width + x] = 0;
+						u32 center = data[y*width + x];
+						for(int yoff = -1; yoff <= 1; ++yoff) {
+							int yy = y+yoff;
+							if(yy == height || yy == -1) {
+								out[y*width + x] += 1200; // assume distance at borders, usually makes for better result
+								continue;
+							}
+							for(int xoff = -1; xoff <= 1; ++xoff) {
+								if(yoff == 0 && xoff == 0) continue;
+								int xx = x+xoff;
+								if(xx == width || xx == -1) {
+									out[y*width + x] += 400; // assume distance at borders, usually makes for better result
+									continue;
+								}
+								out[y*width + x] += DISTANCE(data[yy*width + xx], center);
+							}
+						}
 					}
 				}
 			}
@@ -197,19 +207,21 @@ namespace {
 	void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
 		static_assert(f>1 && f<=5, "Bilinear scaling only implemented for 2x, 3x, 4x, and 5x");
 		int outw = w*f;
-		for(int y = l; y < u; ++y) {
-			u32 uy = y - (y==gl  ?0:1);
-			u32 ly = y + (y==gu-1?0:1);
-			for(int x = 0; x < outw; ++x) {
-				u32 upper  = data[uy * outw + x];
-				u32 center = data[y * outw + x];
-				u32 lower  = data[ly * outw + x];
-				int i=0;
-				for(; i<f/2+f%2; ++i) { // first half of the new pixels + center, hope the compiler unrolls this
-					out[(y*f + i)*outw + x] = MIX_PIXELS(upper, center, BILINEAR_FACTORS[f-2][i]);
-				}
-				for(; i<f      ; ++i) { // second half of the new pixels, hope the compiler unrolls this
-					out[(y*f + i)*outw + x] = MIX_PIXELS(lower, center, BILINEAR_FACTORS[f-2][f-1-i]);
+		for(int xb = 0; xb < outw/BLOCK_SIZE+1; ++xb) {
+			for(int y = l; y < u; ++y) {
+				u32 uy = y - (y==gl  ?0:1);
+				u32 ly = y + (y==gu-1?0:1);
+				for(int x = xb*BLOCK_SIZE; x < (xb+1)*BLOCK_SIZE && x < outw; ++x) {
+					u32 upper  = data[uy * outw + x];
+					u32 center = data[y * outw + x];
+					u32 lower  = data[ly * outw + x];
+					int i=0;
+					for(; i<f/2+f%2; ++i) { // first half of the new pixels + center, hope the compiler unrolls this
+						out[(y*f + i)*outw + x] = MIX_PIXELS(upper, center, BILINEAR_FACTORS[f-2][i]);
+					}
+					for(; i<f      ; ++i) { // second half of the new pixels, hope the compiler unrolls this
+						out[(y*f + i)*outw + x] = MIX_PIXELS(lower, center, BILINEAR_FACTORS[f-2][f-1-i]);
+					}
 				}
 			}
 		}
