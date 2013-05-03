@@ -412,7 +412,8 @@ void PauseScreen::render() {
 	// Shared with settings
 	I18NCategory *ss = GetI18NCategory("System");
 	I18NCategory *gs = GetI18NCategory("Graphics");
-
+	I18NCategory *a = GetI18NCategory("Audio");
+	
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	UICheckBox(GEN_ID, x, y += stride, ss->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
