@@ -146,15 +146,12 @@ public:
     // mtx.lock();
 #else
     timespec timeout;
-#ifdef __APPLE__
-	timeval tv;
-	gettimeofday(&tv, NULL);
-	timeout.tv_sec = tv.tv_sec;
-	timeout.tv_nsec = tv.tv_usec * 1000;
-#else
-	clock_gettime(CLOCK_REALTIME, &timeout);
-#endif
-    timeout.tv_sec += milliseconds / 1000;
+		timeval tv;
+		gettimeofday(&tv, NULL);
+		timeout.tv_sec = tv.tv_sec;
+		timeout.tv_nsec = tv.tv_usec * 1000;
+
+		timeout.tv_sec += milliseconds / 1000;
     timeout.tv_nsec += milliseconds * 1000000;
     pthread_mutex_lock(&mtx.native_handle());
     pthread_cond_timedwait(&event_, &mtx.native_handle(), &timeout);
