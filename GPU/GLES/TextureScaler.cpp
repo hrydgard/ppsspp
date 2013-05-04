@@ -43,6 +43,8 @@ namespace p = std::placeholders;
 /////////////////////////////////////// Helper Functions (mostly math for parallelization)
 
 namespace {
+	//////////////////////////////////////////////////////////////////// Color space conversion
+
 	// convert 4444 image to 8888, parallelizable
 	void convert4444(u16* data, u32* out, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
@@ -84,13 +86,15 @@ namespace {
 		}
 	}
 
+	//////////////////////////////////////////////////////////////////// Various image processing
+
 	#define R(_col) ((_col>> 0)&0xFF)
 	#define G(_col) ((_col>> 8)&0xFF)
 	#define B(_col) ((_col>>16)&0xFF)
 	#define A(_col) ((_col>>24)&0xFF)
 
-	#define DISTANCE(_p1,_p2) ( abs((int)((int)(R(_p1))-R(_p2))) + abs((int)((int)(G(_p1))-G(_p2))) \
-							  + abs((int)((int)(B(_p1)-B(_p2)))) + abs((int)((int)(A(_p1)-A(_p2)))) )
+	#define DISTANCE(_p1,_p2) ( abs(static_cast<int>(static_cast<int>(R(_p1))-R(_p2))) + abs(static_cast<int>(static_cast<int>(G(_p1))-G(_p2))) \
+							  + abs(static_cast<int>(static_cast<int>(B(_p1))-B(_p2))) + abs(static_cast<int>(static_cast<int>(A(_p1))-A(_p2))) )
 	
 	// this is sadly much faster than an inline function with a loop, at least in VC10
 	#define MIX_PIXELS(_p0, _p1, _factors) \
@@ -124,6 +128,7 @@ namespace {
 		}
 	}
 
+	// deposterization: smoothes posterized gradients from low-color-depth (e.g. 444, 565, compressed) sources
 	void deposterizeH(u32* data, u32* out, int w, int l, int u) {
 		static const int T = 8;
 		for(int y = l; y < u; ++y) {
@@ -182,6 +187,8 @@ namespace {
 		}
 	}
 
+	// generates a distance mask value for each pixel in data
+	// higher values -> larger distance to the surrounding pixels
 	void generateDistanceMask(u32* data, u32* out, int width, int height, int l, int u) {
 		for(int yb = 0; yb < (u-l)/BLOCK_SIZE+1; ++yb) {
 			for(int xb = 0; xb < width/BLOCK_SIZE+1; ++xb) {
@@ -211,6 +218,7 @@ namespace {
 		}
 	}
 
+	// mix two images based on a mask
 	void mix(u32* data, u32* source, u32* mask, u32 maskmax, int width, int l, int u) {
 		for(int y = l; y < u; ++y) {
 			for(int x = 0; x < width; ++x) {
@@ -222,7 +230,90 @@ namespace {
 			}
 		}
 	}
+
+	//////////////////////////////////////////////////////////////////// Bicubic scaling
 	
+	// generate the value of a Mitchell-Netravali scaling spline at distance d, with parameters A and B
+	// B=1 C=0   : cubic B spline (very smooth)
+	// B=C=1/3   : recommended for general upscaling
+	// B=0 C=1/2 : Catmull-Rom spline (sharp, ringing)
+	// B = Bi/100 and C = Ci/100 (template parameters to allow compiler to specialize weighting function for each spline type)
+	// see Mitchell & Netravali, "Reconstruction Filters in Computer Graphics"
+	template<int Bi, int Ci>
+	__forceinline float mitchell(float x) {
+		const float B = Bi/100.0f, C = Ci/100.0f;
+		float ax = fabs(x);
+		if(ax>=2.0f) return 0.0f;
+		if(ax>=1.0f) return ((-B-6*C)*(x*x*x) + (6*B+30*C)*(x*x) + (-12*B-48*C)*x + (8*B+24*C))/6.0f;
+		return ((12-9*B-6*C)*(x*x*x) + (-18+12*B+6*C)*(x*x) + (6-2*B));
+	}
+
+	// perform bicubic scaling by factor f, with a Mitchell-Netravali spline specified by Bi and Ci
+	template<int f, int Bi, int Ci>
+	void scaleBicubicT(u32* data, u32* out, int w, int h, int l, int u) {
+		const float ff = static_cast<float>(f);
+		int outw = w*f;
+		for(int yb = 0; yb < (u-l)*f/BLOCK_SIZE+1; ++yb) {
+			for(int xb = 0; xb < w*f/BLOCK_SIZE+1; ++xb) {
+				for(int y = l*f+yb*BLOCK_SIZE; y < l*f+(yb+1)*BLOCK_SIZE && y < u*f; ++y) {
+					for(int x = xb*BLOCK_SIZE; x < (xb+1)*BLOCK_SIZE && x < w*f; ++x) {
+						float r = 0.0f, g = 0.0f, b = 0.0f, a = 0.0f, sum = 0.0f;
+						int cx = x/f, cy = y/f;
+						// sample supporting pixels in original image
+						for(int sx = cx-2; sx <= cx+2; ++sx) { 
+							for(int sy = cy-2; sy <= cy+2; ++sy) {
+								float dx = (x+0.5f)/ff - (sx+0.5f);
+								float dy = (y+0.5f)/ff - (sy+0.5f);
+								float dist = dx*dx + dy*dy; // do sqrt only after check
+								if(dist < 4.0f) {
+									float weight = mitchell<Bi, Ci>(sqrt(dist));
+									// clamp pixel locations
+									int csy = std::max(std::min(sy,h-1),0);
+									int csx = std::max(std::min(sx,w-1),0);
+									// sample & add weighted components
+									u32 sample = data[csy*w+csx];
+									r += weight*R(sample);
+									g += weight*G(sample);
+									b += weight*B(sample);
+									a += weight*A(sample);
+									sum += weight;
+								}
+							}
+						}
+						// generate and write result
+						int ri = std::min(std::max(static_cast<int>(r/sum),0),255);
+						int gi = std::min(std::max(static_cast<int>(g/sum),0),255);
+						int bi = std::min(std::max(static_cast<int>(b/sum),0),255);
+						int ai = std::min(std::max(static_cast<int>(a/sum),0),255);
+						out[y*outw + x] = (ai << 24) | (bi << 16) | (gi << 8) | ri;
+					}
+				}
+			}
+		}
+	}
+
+	void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, int u) {
+		switch(factor) {
+		case 2: scaleBicubicT<2, 100, 0>(data, out, w, h, l, u); break; // when I first tested this, 
+		case 3: scaleBicubicT<3, 100, 0>(data, out, w, h, l, u); break; // it was even slower than I had expected
+		case 4: scaleBicubicT<4, 100, 0>(data, out, w, h, l, u); break; // turns out I had not included
+		case 5: scaleBicubicT<5, 100, 0>(data, out, w, h, l, u); break; // any of these break statements
+		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+		}
+	}
+
+	void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, int u) {
+		switch(factor) {
+		case 2: scaleBicubicT<2, 34, 33>(data, out, w, h, l, u); break;
+		case 3: scaleBicubicT<3, 34, 33>(data, out, w, h, l, u); break;
+		case 4: scaleBicubicT<4, 34, 33>(data, out, w, h, l, u); break;
+		case 5: scaleBicubicT<5, 34, 33>(data, out, w, h, l, u); break;
+		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+		}
+	}
+
+	//////////////////////////////////////////////////////////////////// Bilinear scaling
+
 	const static u8 BILINEAR_FACTORS[4][3][2] = {
 		{ { 44,211}, {  0,  0}, {  0,  0} }, // x2
 		{ { 64,191}, {  0,255}, {  0,  0} }, // x3
@@ -383,6 +474,12 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 	case HYBRID:
 		ScaleHybrid(factor, inputBuf, outputBuf, width, height);
 		break;
+	case BICUBIC:
+		ScaleBicubicMitchell(factor, inputBuf, outputBuf, width, height);
+		break;
+	case HYBRID_BICUBIC:
+		ScaleHybrid(factor, inputBuf, outputBuf, width, height, true);
+		break;
 	default:
 		ERROR_LOG(G3D, "Unknown scaling type: %d", g_Config.iTexScalingType);
 	}
@@ -414,7 +511,15 @@ void TextureScaler::ScaleBilinear(int factor, u32* source, u32* dest, int width,
 	GlobalThreadPool::Loop(bind(&bilinearV, factor, tmpBuf, dest, width, 0, height, p::_1, p::_2), 0, height);
 }
 
-void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height) {
+void TextureScaler::ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height) {
+	GlobalThreadPool::Loop(bind(&scaleBicubicBSpline, factor, source, dest, width, height, p::_1, p::_2), 0, height);
+}
+
+void TextureScaler::ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height) {
+	GlobalThreadPool::Loop(bind(&scaleBicubicMitchell, factor, source, dest, width, height, p::_1, p::_2), 0, height);
+}
+
+void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic) {
 	// Basic algorithm:
 	// 1) determine a feature mask C based on a sobel-ish filter + splatting, and upscale that mask bilinearly
 	// 2) generate 2 scaled images: A - using Bilinear filtering, B - using xBRZ
@@ -435,8 +540,9 @@ void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, i
 	ScaleXBRZ(factor, source, bufTmp2.data(), width, height);
 	// xBRZ upscaled source is in bufTmp2
 
-	ScaleBilinear(factor, source, dest, width, height);
-	// Bilinear upscaled source is in dest
+	if(bicubic) ScaleBicubicBSpline(factor, source, dest, width, height);
+	else ScaleBilinear(factor, source, dest, width, height);
+	// Upscaled source is in dest
 
 	// Now we can mix it all together
 	// The factor 8192 was found through practical testing on a variety of textures
