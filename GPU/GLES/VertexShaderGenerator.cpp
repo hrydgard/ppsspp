@@ -165,8 +165,6 @@ void GenerateVertexShader(int prim, char *buffer) {
 		int shadeLight0 = gstate.getUVGenMode() == 2 ? gstate.getUVLS0() : -1;
 		int shadeLight1 = gstate.getUVGenMode() == 2 ? gstate.getUVLS1() : -1;
 		for (int i = 0; i < 4; i++) {
-			if (!hasNormal)
-				continue;
 			if (i == shadeLight0 || i == shadeLight1)
 				doLight[i] = LIGHT_SHADE;
 			if ((gstate.lightingEnable & 1) && (gstate.lightEnable[i] & 1))
@@ -293,10 +291,14 @@ void GenerateVertexShader(int prim, char *buffer) {
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
 				WRITE(p, "  vec3 worldnormal = (u_world * vec4(a_normal, 0.0)).xyz;\n");
+			else
+				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
 			WRITE(p, "  vec3 worldpos = vec3(0.0);\n");
 			if (hasNormal)
 				WRITE(p, "  vec3 worldnormal = vec3(0.0);\n");
+			else
+				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 
 			int numWeights = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 			static const float rescale[4] = {0, 2*127.5f/128.f, 2*32767.5f/32768.f, 2.0f};
