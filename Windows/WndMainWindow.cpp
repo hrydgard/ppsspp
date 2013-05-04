@@ -541,6 +541,12 @@ namespace MainWindow
 			case ID_TEXTURESCALING_HYBRID:
 				setTexScalingType(TextureScaler::HYBRID);
 				break;
+			case ID_TEXTURESCALING_BICUBIC:
+				setTexScalingType(TextureScaler::BICUBIC);
+				break;
+			case ID_TEXTURESCALING_HYBRID_BICUBIC:
+				setTexScalingType(TextureScaler::HYBRID_BICUBIC);
+				break;
 
 			case ID_TEXTURESCALING_DEPOSTERIZE:
 				g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
@@ -869,8 +875,10 @@ namespace MainWindow
 		static const int texscalingtypeitems[] = {
 			ID_TEXTURESCALING_XBRZ,
 			ID_TEXTURESCALING_HYBRID,
+			ID_TEXTURESCALING_BICUBIC,
+			ID_TEXTURESCALING_HYBRID_BICUBIC,
 		};
-		for (int i = 0; i < 3; i++) {
+		for (int i = 0; i < 4; i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));
 		}
 	}
