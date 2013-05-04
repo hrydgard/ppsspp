@@ -142,14 +142,32 @@ extern struct LASTESTACCESSFILE {
 	{
 		if (!buffer)
 			return 0;
+		u8 idbuf[0x20];
+		generateidbuf(buffer, idbuf);
 		for (int i = 0; i < 256; i++) {
 			int pos = (256 + cachepos - i) & 0xFF;
-			if (memcmp(buffer, cache[pos].idbuf, 0x20) == 0)
+			if (memcmp(idbuf, cache[pos].idbuf, 0x20) == 0)
 			{
 				return &cache[pos];
 			}
 		}
 		return 0;
+	}
+	void generateidbuf(u8* inbuf, u8* idbuf) {
+		if (inbuf[0] == 'R') {
+			u16 codeType = *(u16*)(inbuf + 0x14);
+			if (codeType == 0xfffe)
+				idbuf[0] = 0;
+			else if (codeType == 0x270)
+				idbuf[0] = 1;
+			else 
+				idbuf[0] = 2;
+			memcpy(idbuf + 1, inbuf + 4, 4);
+			memcpy(idbuf + 5, inbuf + 0x60, 0x20 - 5);
+		}
+		else {
+			memcpy(idbuf, inbuf, 0x20);
+		}
 	}
 } lastestAccessFile;
 #endif // _USE_FFMPEG_

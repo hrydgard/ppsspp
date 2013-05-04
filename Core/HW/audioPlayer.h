@@ -58,6 +58,10 @@ bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize,
 	                        u8* buffer, int atracID, void* pgd_info = 0);
 audioEngine* getaudioEngineByID(int atracID);
 void deleteAtrac3Audio(int atracID);
+
+int generateAudioFilename(u8* buf, char* outfilename);
+bool checkAudioFileExist(u8* buf, char* outfilename = 0);
+
 void initaudioEngine();
 void shutdownEngine();
 void stopAllAtrac3Audio();

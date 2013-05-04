@@ -896,7 +896,9 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 	atrac->data_buf = 0;
 	{
 		Memory::LASTESTFILECACHE *cache = Memory::lastestAccessFile.findmatchcache(Memory::GetPointer(buffer));
-		if (cache) {
+		if (checkAudioFileExist(Memory::GetPointer(buffer))) {
+			addAtrac3Audio(Memory::GetPointer(buffer), atrac->first.filesize, atracID);
+		} else if (cache) {
 			PGD_DESC pgdinfo = cache->pgd_info;
 			if (cache->npdrm) {
 				pgdinfo.block_buf = new u8[pgdinfo.block_size];

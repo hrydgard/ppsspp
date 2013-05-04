@@ -173,30 +173,36 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 {
 	u8 *oma = 0;
 	m_ID = atracID;
-	int omasize = OMAConvert::convertRIFFtoOMA(stream, streamsize, &oma);
-	if (omasize <= 0) {
-		char strtemp[260];
-		sprintf(m_filename, "tmp\\%d.at3", m_ID);
-		FILE *wfp = fopen(m_filename, "wb");
-		fwrite(stream, 1, streamsize, wfp);
-		fclose(wfp);
-		sprintf(strtemp, "at3tool\\at3tool.exe -d -repeat 1 tmp\\%d.at3 tmp\\%d.wav", m_ID, m_ID);
-		system(strtemp);
-		DeleteFileA(m_filename);
+	bool isexist = checkAudioFileExist(stream, m_filename);
+	if (!isexist) {
+		int omasize = OMAConvert::convertRIFFtoOMA(stream, streamsize, &oma);
+		if (omasize <= 0) {
+			int pos = generateAudioFilename(stream, m_filename);
+			char strtemp[260];
+			sprintf(strtemp, "%s.at3", m_filename);
+			FILE *wfp = fopen(strtemp, "wb");
+			fwrite(stream, 1, streamsize, wfp);
+			fclose(wfp);
+			sprintf(strtemp, "at3tool\\at3tool.exe -d -repeat 1 %s.at3 %s.wav", m_filename, m_filename);
+			system(strtemp);
+			sprintf(strtemp, "%s.at3", m_filename);
+			DeleteFileA(strtemp);
 
-		sprintf(m_filename, "tmp\\%d.wav", m_ID);
-		wfp = fopen(m_filename, "rb");
-		if (!wfp) {
-			m_ID = -1;
-			return false;
+			memcpy(m_filename + pos, ".wav", 5);
+			wfp = fopen(m_filename, "rb");
+			if (!wfp) {
+				m_ID = -1;
+				return false;
+			}
+			fclose(wfp);
+		} else {
+			int pos = generateAudioFilename(stream, m_filename);
+			memcpy(m_filename + pos, ".oma", 5);
+			FILE *wfp = fopen(m_filename, "wb");
+			fwrite(oma, 1, omasize, wfp);
+			fclose(wfp);
+			OMAConvert::releaseStream(&oma);
 		}
-		fclose(wfp);
-	} else {
-		sprintf(m_filename, "tmp\\%d.oma", m_ID);
-		FILE *wfp = fopen(m_filename, "wb");
-		fwrite(oma, 1, omasize, wfp);
-		fclose(wfp);
-		OMAConvert::releaseStream(&oma);
 	}
 
 	m_iloop = 0;
@@ -217,8 +223,6 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 bool audioEngine::closeStream()
 {
 	bool bResult = closeMedia();
-	if (m_ID >= 0)
-		DeleteFileA(m_filename);
 	m_ID = -1;
 	return bResult;
 }
@@ -377,6 +381,41 @@ bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize,
 	return bResult;
 }
 
+int generateAudioFilename(u8* buf, char* outfilename)
+{
+	u8 idbuf[0x20];
+	Memory::lastestAccessFile.generateidbuf(buf, idbuf);
+	static const char charmap[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 
+		'A', 'B', 'C', 'D', 'E', 'F'};
+	char *filename = outfilename;
+	memcpy(filename, "tmp\\",4);
+	int pos = 4;
+	for (int i = 0; i < 0x20; i++) {
+		filename[pos + 2 * i + 1] = charmap[idbuf[i] & 0xf];
+		filename[pos + 2 * i] = charmap[idbuf[i] >> 4];
+	}
+	pos += 0x20 * 2;
+	filename[pos] = 0;
+	return pos;
+}
+bool checkAudioFileExist(u8* buf, char* outfilename)
+{
+	char filename[256];
+	int pos = generateAudioFilename(buf, filename);
+	memcpy(filename + pos, ".oma", 5);
+	FILE *wfp = fopen(filename, "rb");
+	if (!wfp) {
+		memcpy(filename + pos, ".wav", 5);
+		wfp = fopen(filename, "rb");
+	}
+	if (!wfp)
+		return false;
+	fclose(wfp);
+	if (outfilename)
+		strcpy(outfilename, filename);
+	return true;
+}
+
 audioEngine* getaudioEngineByID(int atracID)
 {
 	if (audioMap.find(atracID) == audioMap.end()) {
@@ -405,6 +444,7 @@ void shutdownEngine()
 	}
 	audioMap.clear();
 	CoUninitialize();
+	system("cleanAudios.bat");
 }
 
 void stopAllAtrac3Audio()

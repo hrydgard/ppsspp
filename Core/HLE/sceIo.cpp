@@ -498,7 +498,7 @@ int __IoRead(int id, u32 data_addr, int size) {
 #ifdef _USE_FFMPEG_
 			if (idbuf) {
 				if (memcmp(data, "PSMF", 4) == 0) {
-					memcpy(idbuf, data, 0x20);
+					Memory::lastestAccessFile.generateidbuf(data, idbuf);
 					Memory::lastestAccessFile.cachepos++;
 				}
 #ifdef _USE_DSHOW_
@@ -506,7 +506,7 @@ int __IoRead(int id, u32 data_addr, int size) {
 					int end = std::max(std::min(size - 8, 0x100), 1);
 					for (int i = 0; i < end; i++) {
 						if (memcmp(data + i, "RIFF", 4) == 0) {
-							memcpy(idbuf, data + i, 0x20);
+							Memory::lastestAccessFile.generateidbuf(data + i, idbuf);
 							Memory::lastestAccessFile.cachepos++;
 							break;
 						}
