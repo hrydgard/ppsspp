@@ -42,11 +42,12 @@
 
 #define ENABLE_TOUCH 0
 
-static BOOL g_bFullScreen = FALSE;
+BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 
 extern InputState input_state;
-
+#define TIMER_CURSORUPDATE 1
+#define CURSORUPDATE_INTERVAL_MS 50
 extern unsigned short analog_ctrl_map[];
 extern unsigned int key_pad_map[];
 extern const char * getVirtualKeyName(unsigned char key);
@@ -200,6 +201,7 @@ namespace MainWindow
 
 		hwndMain = CreateWindowEx(0,szWindowClass, "", style,
 			rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, NULL, NULL, hInstance, NULL);
+		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 		SetPlaying(0);
 		if (!hwndMain)
 			return FALSE;
@@ -233,6 +235,7 @@ namespace MainWindow
 #endif
 
 		SetFocus(hwndMain);
+		SetFocus(hwndDisplay);
 
 		return TRUE;
 	}
@@ -387,6 +390,17 @@ namespace MainWindow
 			SavePosition();
 			ResizeDisplay();
 			break;
+
+		case WM_TIMER:
+			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
+			if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
+				ShowCursor(FALSE);
+			} else {
+				ShowCursor(TRUE);
+				SetCursor(LoadCursor(NULL, IDC_ARROW));
+			}
+			SetTimer(hWnd, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
+			return 0;
 
 		case WM_COMMAND:
 			wmId    = LOWORD(wParam); 
@@ -751,7 +765,8 @@ namespace MainWindow
 			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow[0]);
 			disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
-			if (g_Config.bFullScreen)  _ViewFullScreen(hWnd);
+			if (g_Config.bFullScreen)
+				_ViewFullScreen(hWnd);
 			memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(memoryWindow[0]);
 			if (disasmWindow[0])
@@ -1120,7 +1135,7 @@ namespace MainWindow
 	{
 		ShowCursor(TRUE);
 		SetCursor(LoadCursor(NULL, IDC_ARROW));
-		ClipCursor(NULL);
+
 		// put caption and border styles back
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
@@ -1144,9 +1159,9 @@ namespace MainWindow
 
 	void _ViewFullScreen(HWND hWnd)
 	{
-		ShowCursor(FALSE);
-		SetCursor(NULL);
-		ClipCursor(&g_normalRC);
+		if (globalUIState == UISTATE_INGAME)
+			ShowCursor(FALSE);
+
 		// keep in mind normal window rectangle
 		::GetWindowRect(hWnd, &g_normalRC);
 

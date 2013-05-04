@@ -26,6 +26,39 @@ in order to get the "native" library.
 
 Now, the actual building:
 
+Building for Windows
+---------------------
+
+Use Visual Studio 2010+, Visual C++ Express is fine. Open the solution and just build,
+it'll work. You may just need to set up a path or two to the Windows SDK (which includes the DX SDK)
+nowadays.
+
+
+Building for Android
+--------------------
+
+Install the Android SDK and NDK.
+
+To build the native C/C++ part, from a shell or command prompt, run:
+
+    ./ab.sh 
+
+or, on Windows:
+
+    ab.cmd 
+
+in android/. You may need to tweak the paths in the ab file.
+
+Then just open the project in Eclipse and run on your device. When you make changes to
+the native code, you may have to refresh or add a few spaces to PPSSPPActivity.java for
+Eclipse to rebuild the APK when you run it on your device the next time.
+
+There's an alternate method of building for Android using CMake below.
+
+
+Other platforms
+---------------
+
 PPSSPP currently uses CMake for its build system. In order
 to build for most systems, create a `build` directory and
 run:
@@ -75,10 +108,10 @@ on homebrew. Just follow the basic build instructions afterwards.
 Currently the user interface is identical to Android's, operated
 with the mouse. A Qt-based interface is planned.
 
-Building for Android
---------------------
+Building for Android using CMake (not recommended, see above)
+-------------------------------------------------------------
 
-To build for android, first you must set the ANDROID\_NDK environment
+To build for Android using CMake, first you must set the ANDROID\_NDK environment
 variable to point to the path of your NDK install. This is done on
 windows cmd with `set ANDROID_NDK=X:\...`, on bourne shells with
 `export ANDROID_NDK=/path/to/ndk`, and on C shells with

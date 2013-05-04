@@ -18,6 +18,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
+#include "Core/System.h"
 #include "EmuThread.h"
 #include "DSoundStream.h"
 #include "WindowsHost.h"
@@ -127,6 +128,7 @@ void WindowsHost::SetDebugMode(bool mode)
 			disasmWindow[i]->SetDebugMode(mode);
 }
 
+extern BOOL g_bFullScreen;
 
 void WindowsHost::PollControllers(InputState &input_state)
 {

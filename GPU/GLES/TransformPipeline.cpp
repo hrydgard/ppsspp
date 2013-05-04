@@ -518,7 +518,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// We do software T&L for now
 			float out[3], norm[3];
 			float pos[3], nrm[3];
-			Vec3 normal(0, 0, 0);
+			Vec3 normal(0, 0, 1);
 			reader.ReadPos(pos);
 			if (reader.hasNormal())
 				reader.ReadNrm(nrm);

@@ -3241,3 +3241,36 @@ void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus)
 	__KernelChangeThreadState(t, newStatus);
 }
 
+int hleLoadExecForUser_362A956B()
+{
+	u32 error;
+	Callback *cb = kernelObjects.Get<Callback>(registeredExitCbId, error);
+	if (!cb) {
+		WARN_LOG(HLE, "LoadExecForUser_362A956B() : registeredExitCbId not found 0x%x", registeredExitCbId);
+		return SCE_KERNEL_ERROR_UNKNOWN_CBID;
+	}
+	int cbArg = cb->nc.commonArgument;
+	if (!Memory::IsValidAddress(cbArg)) {
+		WARN_LOG(HLE, "LoadExecForUser_362A956B() : invalid address for cbArg (0x%08X)", cbArg);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+	int unknown1 = Memory::Read_U32(cbArg - 8);
+	if (unknown1 < 0 || unknown1 >= 4) {
+		WARN_LOG(HLE, "LoadExecForUser_362A956B() : invalid value unknown1 (0x%08X)", unknown1);
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+	int parameterArea = Memory::Read_U32(cbArg - 4);
+	if (!Memory::IsValidAddress(parameterArea)) {
+		WARN_LOG(HLE, "LoadExecForUser_362A956B() : invalid address for parameterArea on userMemory  (0x%08X)", parameterArea);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+	
+	int size = Memory::Read_U32(parameterArea);
+	if (size < 12) {
+		WARN_LOG(HLE, "LoadExecForUser_362A956B() : invalid parameterArea size %d", size);
+		return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
+	}
+	Memory::Write_U32(0, parameterArea + 4);
+	Memory::Write_U32(-1, parameterArea + 8);
+	return 0;
+}

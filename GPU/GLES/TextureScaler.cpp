@@ -23,6 +23,7 @@
 #include "Common/CommonFuncs.h"
 #include "Common/ThreadPools.h"
 #include "ext/xbrz/xbrz.h"
+#include <stdlib.h>
 
 #ifdef __SYMBIAN32__
 #define p
