@@ -71,6 +71,7 @@ struct InputBuffer {
 };
 
 struct Atrac;
+int __AtracSetContext(Atrac *atrac, u32 buffer, u32 bufferSize);
 int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize);
 
 struct AtracLoopInfo {
@@ -85,7 +86,7 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : decodePos(0), decodeEnd(0), loopNum(0), atracChannels(2), 
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), currentSample(0), 
-		endSample(-1), loopinfoNum(0), firstSampleoffset(0),data_buf(0), 
+		endSample(-1), loopinfoNum(0), firstSampleoffset(0), data_buf(0), 
 		atracOutputChannels(2), atracID(-1) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
@@ -102,51 +103,28 @@ struct Atrac {
 #ifdef USE_FFMPEG
 		ReleaseFFMPEGContext();
 #endif // USE_FFMPEG
-		if (data_buf) delete [] data_buf; 
+		if (data_buf)
+			delete [] data_buf;
 	}
 
 	void DoState(PointerWrap &p) {
 		p.Do(atracChannels);
 		p.Do(atracOutputChannels);
 
-		if (atracID == -1) {
-			// loading state
-			p.Do(atracID);
-			p.Do(first);
-			p.Do(atracBufSize);
-			p.Do(codeType);
-			u32 data_buf_value;
-			p.Do(data_buf_value);
-			if (data_buf_value) {
+		p.Do(atracID);
+		p.Do(first);
+		p.Do(atracBufSize);
+		p.Do(codeType);
+		u32 has_data_buf = data_buf != NULL;
+		p.Do(has_data_buf);
+		if (has_data_buf) {
+			if (p.mode == p.MODE_READ) {
 				data_buf = new u8[first.filesize];
-				p.DoArray(data_buf, first.filesize);
 			}
-			InputBuffer temp = first;
-			if (first.addr) {
-				int size = std::min(first.size, atracBufSize);
-				first.size = size;
-				if (data_buf)
-					Memory::Memcpy(first.addr, data_buf, size);
-				u8* temp_buf = data_buf;
-				data_buf = 0;
-				_AtracSetData(this, first.addr, atracBufSize);
-				// restore the state
-				first = temp;
-				if (data_buf)
-					delete [] data_buf;
-				data_buf = temp_buf;
-			}
+			p.DoArray(data_buf, first.filesize);
 		}
-		else {
-			// saving state
-			p.Do(atracID);
-			p.Do(first);
-			p.Do(atracBufSize);
-			p.Do(codeType);
-			u32 data_buf_value = (u32)(intptr_t)data_buf;
-			p.Do(data_buf_value);
-			if (data_buf)
-				p.DoArray(data_buf, first.filesize);
+		if (p.mode == p.MODE_READ && data_buf != NULL) {
+			__AtracSetContext(this, first.addr, atracBufSize);
 		}
 		p.Do(second);
 
@@ -272,9 +250,6 @@ void __AtracInit() {
 }
 
 void __AtracDoState(PointerWrap &p) {
-#ifdef USE_FFMPEG
-	p.Do(Memory::lastestAccessFile);
-#endif // _USE_FFMPEG
 	p.Do(atracMap);
 	p.Do(nextAtracID);
 
@@ -815,6 +790,76 @@ int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
 
 #endif // USE_FFMPEG
 
+int __AtracSetContext(Atrac *atrac, u32 buffer, u32 bufferSize)
+{
+#ifdef USE_FFMPEG
+	u8* tempbuf = (u8*)av_malloc(atrac->atracBufSize);
+
+	atrac->pFormatCtx = avformat_alloc_context();
+	atrac->pAVIOCtx = avio_alloc_context(tempbuf, atrac->atracBufSize, 0, (void*)atrac, _AtracReadbuffer, NULL, _AtracSeekbuffer);
+	atrac->pFormatCtx->pb = atrac->pAVIOCtx;
+
+	int ret;
+	// Load audio buffer
+	if((ret = avformat_open_input((AVFormatContext**)&atrac->pFormatCtx, NULL, NULL, NULL)) != 0) {
+		ERROR_LOG(HLE, "avformat_open_input: Cannot open input %d", ret);
+		return -1;
+	}
+
+	if((ret = avformat_find_stream_info(atrac->pFormatCtx, NULL)) < 0) {
+		ERROR_LOG(HLE, "avformat_find_stream_info: Cannot find stream information %d", ret);
+		return -1;
+	}
+
+	AVCodec *pCodec;
+	// select the audio stream
+	ret = av_find_best_stream(atrac->pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &pCodec, 0);
+	if (ret < 0) {
+		ERROR_LOG(HLE, "av_find_best_stream: Cannot find a audio stream in the input file %d", ret);
+		return -1;
+	}
+	atrac->audio_stream_index = ret;
+	atrac->pCodecCtx = atrac->pFormatCtx->streams[atrac->audio_stream_index]->codec;
+
+	// open codec
+	if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
+		ERROR_LOG(HLE, "avcodec_open2: Cannot open audio decoder %d", ret);
+		return -1;
+	}
+
+	int wanted_channels = atrac->atracOutputChannels;
+	int wanted_channel_layout = av_get_default_channel_layout(wanted_channels);
+	int dec_channel_layout = av_get_default_channel_layout(atrac->atracChannels);
+
+	atrac->pSwrCtx =
+		swr_alloc_set_opts
+		(
+			NULL,
+			wanted_channel_layout,
+			AV_SAMPLE_FMT_S16,
+			atrac->pCodecCtx->sample_rate,
+			dec_channel_layout,
+			atrac->pCodecCtx->sample_fmt,
+			atrac->pCodecCtx->sample_rate,
+			0,
+			NULL
+		);
+	if (!atrac->pSwrCtx) {
+		ERROR_LOG(HLE, "swr_alloc_set_opts: Could not allocate resampler context %d", ret);
+		return -1;
+	}
+	if ((ret = swr_init(atrac->pSwrCtx)) < 0) {
+		ERROR_LOG(HLE, "swr_init: Failed to initialize the resampling context %d", ret);
+		return -1;
+	}
+
+	// alloc audio frame
+	atrac->pFrame = avcodec_alloc_frame();
+#endif
+
+	return 0;
+}
+
 int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 {
 	atrac->atracBufSize = bufferSize;
@@ -835,70 +880,8 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 
 		atrac->data_buf = new u8[atrac->first.filesize];
 		Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
-		u8* tempbuf = (u8*)av_malloc(atrac->atracBufSize);
 
-		atrac->pFormatCtx = avformat_alloc_context();
-		atrac->pAVIOCtx = avio_alloc_context(tempbuf, atrac->atracBufSize, 0, (void*)atrac, _AtracReadbuffer, NULL, _AtracSeekbuffer);
-		atrac->pFormatCtx->pb = atrac->pAVIOCtx;
-		
-		int ret;
-		// Load audio buffer
-		if((ret = avformat_open_input((AVFormatContext**)&atrac->pFormatCtx, NULL, NULL, NULL)) != 0) {
-			ERROR_LOG(HLE, "avformat_open_input: Cannot open input %d", ret);
-			return -1;
-		}
-
-		if((ret = avformat_find_stream_info(atrac->pFormatCtx, NULL)) < 0) {
-			ERROR_LOG(HLE, "avformat_find_stream_info: Cannot find stream information %d", ret);
-			return -1;
-		}
-		
-		AVCodec *pCodec;
-		// select the audio stream 
-		ret = av_find_best_stream(atrac->pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &pCodec, 0);
-		if (ret < 0) {
-			ERROR_LOG(HLE, "av_find_best_stream: Cannot find a audio stream in the input file %d", ret);
-			return -1;
-		}
-		atrac->audio_stream_index = ret;
-		atrac->pCodecCtx= atrac->pFormatCtx->streams[atrac->audio_stream_index]->codec;
-
-		// open codec
-		if ((ret = avcodec_open2(atrac->pCodecCtx, pCodec, NULL)) < 0) {
-			ERROR_LOG(HLE, "avcodec_open2: Cannot open audio decoder %d", ret);
-			return -1;
-		}
-		
-		int wanted_channels = atrac->atracOutputChannels;
-		int wanted_channel_layout = av_get_default_channel_layout(wanted_channels);
-		int dec_channel_layout = av_get_default_channel_layout(atrac->atracChannels);
-
-		atrac->pSwrCtx = 
-			swr_alloc_set_opts
-			(
-				NULL,
-				wanted_channel_layout,
-				AV_SAMPLE_FMT_S16,
-				atrac->pCodecCtx->sample_rate,
-				dec_channel_layout,
-				atrac->pCodecCtx->sample_fmt,
-				atrac->pCodecCtx->sample_rate,
-				0, 
-				NULL
-			);
-		if (!atrac->pSwrCtx) {
-			ERROR_LOG(HLE, "swr_alloc_set_opts: Could not allocate resampler context %d", ret);
-			return -1;
-		}
-		if ((ret = swr_init(atrac->pSwrCtx)) < 0) {
-			ERROR_LOG(HLE, "swr_init: Failed to initialize the resampling context %d", ret);
-			return -1;
-		}
-
-		// alloc audio frame
-		atrac->pFrame = avcodec_alloc_frame();
-		
-		return 0;
+		return __AtracSetContext(atrac, buffer, bufferSize);
 	}
 #endif // _USE_FFMPEG
 
