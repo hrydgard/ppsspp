@@ -241,13 +241,20 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 }
 
 VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
+	VirtualFramebuffer *match = NULL;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_) {
 			// Could check w too but whatever
-			return *iter;
+			if (match == NULL || match->last_frame_used < v->last_frame_used) {
+				match = v;
+			}
 		}
 	}
+	if (match != NULL) {
+		return match;
+	}
+
 	DEBUG_LOG(HLE, "Finding no FBO matching address %08x", displayFramebufPtr_);
 #if 0  // defined(_DEBUG)
 	std::string debug = "FBOs: ";
