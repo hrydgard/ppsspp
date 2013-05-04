@@ -241,7 +241,7 @@ namespace {
 	// B = Bi/100 and C = Ci/100 (template parameters to allow compiler to specialize weighting function for each spline type)
 	// see Mitchell & Netravali, "Reconstruction Filters in Computer Graphics"
 	template<int Bi, int Ci>
-	__forceinline float mitchell(float x) {
+	inline float mitchell(float x) {
 		const float B = Bi/100.0f, C = Ci/100.0f;
 		float ax = fabs(x);
 		if(ax>=2.0f) return 0.0f;
