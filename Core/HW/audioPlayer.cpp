@@ -18,7 +18,7 @@
 #define LIF(x) if (FAILED(hr=(x))) \
     {}
 
-static volatile int g_volume = 20;
+static volatile int g_volume = 60;
 
 audioPlayer::audioPlayer(void)
 {
@@ -27,14 +27,12 @@ audioPlayer::audioPlayer(void)
 	m_pMC = 0;
 	m_pGB = 0;
 	m_pMS = 0;
-	CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 }
 
 
 audioPlayer::~audioPlayer(void)
 {
 	closeMedia();
-	CoUninitialize();
 }
 
 bool audioPlayer::load(const char* filename)
@@ -284,14 +282,15 @@ UINT WINAPI loopAtrac3Audio(LPVOID)
 	{
 		bool bChangeVolume = false;
 		int sleeptime = 300;
-		if (GetAsyncKeyState('1') < 0 && g_volume > 0)
+		const int deltavolume = 3;
+		if (GetAsyncKeyState('1') < 0 && g_volume >= deltavolume)
 		{
-			g_volume--;
+			g_volume -= deltavolume;
 			bChangeVolume = true;
 		}
-		else if (GetAsyncKeyState('2') < 0 && g_volume < 100)
+		else if (GetAsyncKeyState('2') < 0 && g_volume <= 100 - deltavolume)
 		{
-			g_volume++;
+			g_volume += deltavolume;
 			bChangeVolume = true;
 		}
 		for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
@@ -394,12 +393,18 @@ void deleteAtrac3Audio(int atracID)
 	}
 }
 
+void initaudioEngine()
+{
+	CoInitialize(0);
+}
+
 void shutdownEngine()
 {
 	for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 		delete it->second;
 	}
 	audioMap.clear();
+	CoUninitialize();
 }
 
 void stopAllAtrac3Audio()

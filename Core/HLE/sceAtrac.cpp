@@ -296,6 +296,10 @@ void __AtracInit() {
 	avcodec_register_all();
 	av_register_all();
 #endif // _USE_FFMPEG_
+
+#ifdef _USE_DSHOW_
+	initaudioEngine();
+#endif //_USE_DSHOW_
 }
 
 void __AtracDoState(PointerWrap &p) {
