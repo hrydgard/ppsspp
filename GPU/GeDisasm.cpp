@@ -808,10 +808,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 				"unsupported2",
 				"unsupported3",
 			};
-			if (data & ~0x107)
-				sprintf(buffer, "TexFunc %i %s (%s, extra %x)", data & 7, data & 0x100 ? "RGBA" : "RGB", texfuncs[data & 7], data);
+			if (data & ~0x10107)
+				sprintf(buffer, "TexFunc %i %s %s%s (extra %x)", data & 7, data & 0x100 ? "RGBA" : "RGB", texfuncs[data & 7], data & 0x10000 ? " color double" : "", data);
 			else
-				sprintf(buffer, "TexFunc %i %s (%s)", data & 7, data & 0x100 ? "RGBA" : "RGB", texfuncs[data & 7]);
+				sprintf(buffer, "TexFunc %i %s %s%s", data & 7, data & 0x100 ? "RGBA" : "RGB", texfuncs[data & 7], data & 0x10000 ? " color double" : "");
 		}
 		break;
 
