@@ -512,8 +512,8 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 	// Alignment is only allowed for powers of 2.
 	if ((type == PSP_SMEM_LowAligned || type == PSP_SMEM_HighAligned) && ((addr & (addr - 1)) != 0 || addr == 0))
 	{
-		WARN_LOG_REPORT(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid alignment %x", SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE, addr);
-		return SCE_ERROR_KERNEL_ILLEGAL_ALIGNMENT_SIZE;
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelAllocPartitionMemory(): invalid alignment %x", SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, addr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE;
 	}
 
 	PartitionMemoryBlock *block = new PartitionMemoryBlock(&userMemory, name, size, (MemblockType)type, addr);
@@ -1161,11 +1161,25 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr)
 
 // TODO: Make proper kernel objects for these instead of using the UID as a pointer.
 
+
+
 u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 
 	// Just support allocating a block in the user region.
+	if (paramsAddr) {
+		u32 length = Memory::Read_U32(paramsAddr);
+		if (length != 4) {
+			WARN_LOG(HLE, "AllockMemoryBlock(SysMemUserForUser_FE707FDF) : unknown parameters with length %d", length);
+		}
+	}
+	if (type < 0 || type > 1) {
+		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
+	}
 
 	u32 blockPtr = userMemory.Alloc(size, type == 1, pname);
+	if (!blockPtr) {
+		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
+	}
 	INFO_LOG(HLE,"%08x=AllocMemoryBlock(SysMemUserForUser_FE707FDF)(%s, %i, %08x, %08x)", blockPtr, pname, type, size, paramsAddr);
 
 	// Create a UID object??? Nah, let's just us the UID itself (hack!)
@@ -1175,13 +1189,21 @@ u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 
 u32 FreeMemoryBlock(u32 uid) {
 	INFO_LOG(HLE, "FreeMemoryBlock(%08x)", uid);
-	userMemory.Free(uid);
+	u32 blockPtr = userMemory.GetBlockStartFromAddress(uid);
+	if (!blockPtr) {
+		return SCE_KERNEL_ERROR_UNKNOWN_UID;
+	}
+	userMemory.Free(blockPtr);
 	return 0;
 }
 
 u32 GetMemoryBlockPtr(u32 uid, u32 addr) {
 	INFO_LOG(HLE, "GetMemoryBlockPtr(%08x, %08x)", uid, addr);
-	Memory::Write_U32(uid, addr);
+	u32 blockPtr = userMemory.GetBlockStartFromAddress(uid);
+	if (!blockPtr) {
+		return SCE_KERNEL_ERROR_UNKNOWN_UID;
+	}
+	Memory::Write_U32(blockPtr, addr);
 	return 0;
 }
 
