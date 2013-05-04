@@ -1497,7 +1497,7 @@ const HLEFunction SysMemUserForUser[] = {
 	// Obscure raw block API
 	{0xDB83A952,WrapU_UU<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
 	{0x50F61D8A,WrapU_U<FreeMemoryBlock>,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock
-	{0xFE707FDF,WrapU_CUUU<AllocMemoryBlock>,"SCE_KERNEL_ERROR_INVAL"},  // AllocMemoryBlock
+	{0xFE707FDF,WrapU_CUUU<AllocMemoryBlock>,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
 	{0xD8DE5C1E,WrapU_V<SysMemUserForUser_D8DE5C1E>,"SysMemUserForUser_D8DE5C1E"}
 };
 
