@@ -76,6 +76,7 @@
 static bool kernelRunning = false;
 KernelObjectPool kernelObjects;
 KernelStats kernelStats;
+u32 registeredExitCbId;
 
 void __KernelInit()
 {
@@ -236,13 +237,15 @@ void sceKernelExitGameWithStatus()
 
 int LoadExecForUser_362A956B()
 {
-	ERROR_LOG(HLE,"UNIMPL LoadExecForUser_362A956B()");
-	return 0;
+	return hleLoadExecForUser_362A956B();
 }
 
 u32 sceKernelRegisterExitCallback(u32 cbId)
 {
-	DEBUG_LOG(HLE,"NOP sceKernelRegisterExitCallback(%i)", cbId);
+	DEBUG_LOG(HLE,"sceKernelRegisterExitCallback(%i)", cbId);
+	if (__KernelRegisterCallback(THREAD_CALLBACK_EXIT, cbId) == 0) {
+		registeredExitCbId = cbId;
+	}
 	return 0;
 }
 
