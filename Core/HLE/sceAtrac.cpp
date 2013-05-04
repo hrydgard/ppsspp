@@ -143,7 +143,7 @@ struct Atrac {
 			p.Do(first);
 			p.Do(atracBufSize);
 			p.Do(codeType);
-			u32 data_buf_value = (u32)data_buf;
+			u32 data_buf_value = (u32)(intptr_t)data_buf;
 			p.Do(data_buf_value);
 			if (data_buf)
 				p.DoArray(data_buf, first.filesize);
