@@ -1,0 +1,9850 @@
+=head1 NAME
+
+ffmpeg-filters - FFmpeg filters
+
+=head1 DESCRIPTION
+
+
+This document describes filters, sources, and sinks provided by the
+libavfilter library.
+
+
+
+=head1 FILTERING INTRODUCTION
+
+
+Filtering in FFmpeg is enabled through the libavfilter library.
+
+In libavfilter, it is possible for filters to have multiple inputs and
+multiple outputs.
+To illustrate the sorts of things that are possible, we can
+use a complex filter graph. For example, the following one:
+
+	
+	input --> split ---------------------> overlay --> output
+	            |                             ^
+	            |                             |
+	            +-----> crop --> vflip -------+
+
+
+splits the stream in two streams, sends one stream through the crop filter
+and the vflip filter before merging it back with the other stream by
+overlaying it on top. You can use the following command to achieve this:
+
+	
+	ffmpeg -i input -vf "[in] split [T1], [T2] overlay=0:H/2 [out]; [T1] crop=iw:ih/2:0:ih/2, vflip [T2]" output
+
+
+The result will be that in output the top half of the video is mirrored
+onto the bottom half.
+
+Filters are loaded using the I<-vf> or I<-af> option passed to
+B<ffmpeg> or to B<ffplay>. Filters in the same linear
+chain are separated by commas. In our example, I<split,
+overlay> are in one linear chain, and I<crop, vflip> are in
+another. The points where the linear chains join are labeled by names
+enclosed in square brackets. In our example, that is I<[T1]> and
+I<[T2]>. The special labels I<[in]> and I<[out]> are the points
+where video is input and output.
+
+Some filters take in input a list of parameters: they are specified
+after the filter name and an equal sign, and are separated from each other
+by a colon.
+
+There exist so-called I<source filters> that do not have an
+audio/video input, and I<sink filters> that will not have audio/video
+output.
+
+
+
+=head1 GRAPH
+
+
+The F<graph2dot> program included in the FFmpeg F<tools>
+directory can be used to parse a filter graph description and issue a
+corresponding textual representation in the dot language.
+
+Invoke the command:
+	
+	graph2dot -h
+
+
+to see how to use F<graph2dot>.
+
+You can then pass the dot description to the F<dot> program (from
+the graphviz suite of programs) and obtain a graphical representation
+of the filter graph.
+
+For example the sequence of commands:
+	
+	echo <GRAPH_DESCRIPTION> | \
+	tools/graph2dot -o graph.tmp && \
+	dot -Tpng graph.tmp -o graph.png && \
+	display graph.png
+
+
+can be used to create and display an image representing the graph
+described by the I<GRAPH_DESCRIPTION> string. Note that this string must be
+a complete self-contained graph, with its inputs and outputs explicitly defined.
+For example if your command line is of the form:
+	
+	ffmpeg -i infile -vf scale=640:360 outfile
+
+your I<GRAPH_DESCRIPTION> string will need to be of the form:
+	
+	nullsrc,scale=640:360,nullsink
+
+you may also need to set the I<nullsrc> parameters and add a I<format>
+filter in order to simulate a specific input file.
+
+
+
+=head1 FILTERGRAPH DESCRIPTION
+
+
+A filtergraph is a directed graph of connected filters. It can contain
+cycles, and there can be multiple links between a pair of
+filters. Each link has one input pad on one side connecting it to one
+filter from which it takes its input, and one output pad on the other
+side connecting it to the one filter accepting its output.
+
+Each filter in a filtergraph is an instance of a filter class
+registered in the application, which defines the features and the
+number of input and output pads of the filter.
+
+A filter with no input pads is called a "source", a filter with no
+output pads is called a "sink".
+
+
+
+=head2 Filtergraph syntax
+
+
+A filtergraph can be represented using a textual representation, which is
+recognized by the B<-filter>/B<-vf> and B<-filter_complex>
+options in B<ffmpeg> and B<-vf> in B<ffplay>, and by the
+C<avfilter_graph_parse()>/C<avfilter_graph_parse2()> function defined in
+F<libavfilter/avfiltergraph.h>.
+
+A filterchain consists of a sequence of connected filters, each one
+connected to the previous one in the sequence. A filterchain is
+represented by a list of ","-separated filter descriptions.
+
+A filtergraph consists of a sequence of filterchains. A sequence of
+filterchains is represented by a list of ";"-separated filterchain
+descriptions.
+
+A filter is represented by a string of the form:
+[I<in_link_1>]...[I<in_link_N>]I<filter_name>=I<arguments>[I<out_link_1>]...[I<out_link_M>]
+
+I<filter_name> is the name of the filter class of which the
+described filter is an instance of, and has to be the name of one of
+the filter classes registered in the program.
+The name of the filter class is optionally followed by a string
+"=I<arguments>".
+
+I<arguments> is a string which contains the parameters used to
+initialize the filter instance, and are described in the filter
+descriptions below.
+
+The list of arguments can be quoted using the character "'" as initial
+and ending mark, and the character '\' for escaping the characters
+within the quoted text; otherwise the argument string is considered
+terminated when the next special character (belonging to the set
+"[]=;,") is encountered.
+
+The name and arguments of the filter are optionally preceded and
+followed by a list of link labels.
+A link label allows to name a link and associate it to a filter output
+or input pad. The preceding labels I<in_link_1>
+... I<in_link_N>, are associated to the filter input pads,
+the following labels I<out_link_1> ... I<out_link_M>, are
+associated to the output pads.
+
+When two link labels with the same name are found in the
+filtergraph, a link between the corresponding input and output pad is
+created.
+
+If an output pad is not labelled, it is linked by default to the first
+unlabelled input pad of the next filter in the filterchain.
+For example in the filterchain:
+	
+	nullsrc, split[L1], [L2]overlay, nullsink
+
+the split filter instance has two output pads, and the overlay filter
+instance two input pads. The first output pad of split is labelled
+"L1", the first input pad of overlay is labelled "L2", and the second
+output pad of split is linked to the second input pad of overlay,
+which are both unlabelled.
+
+In a complete filterchain all the unlabelled filter input and output
+pads must be connected. A filtergraph is considered valid if all the
+filter input and output pads of all the filterchains are connected.
+
+Libavfilter will automatically insert scale filters where format
+conversion is required. It is possible to specify swscale flags
+for those automatically inserted scalers by prepending
+C<sws_flags=I<flags>;>
+to the filtergraph description.
+
+Follows a BNF description for the filtergraph syntax:
+	
+	<NAME>             ::= sequence of alphanumeric characters and '_'
+	<LINKLABEL>        ::= "[" <NAME> "]"
+	<LINKLABELS>       ::= <LINKLABEL> [<LINKLABELS>]
+	<FILTER_ARGUMENTS> ::= sequence of chars (eventually quoted)
+	<FILTER>           ::= [<LINKLABELS>] <NAME> ["=" <FILTER_ARGUMENTS>] [<LINKLABELS>]
+	<FILTERCHAIN>      ::= <FILTER> [,<FILTERCHAIN>]
+	<FILTERGRAPH>      ::= [sws_flags=<flags>;] <FILTERCHAIN> [;<FILTERGRAPH>]
+
+
+
+=head2 Notes on filtergraph escaping
+
+
+Some filter arguments require the use of special characters, typically
+C<:> to separate key=value pairs in a named options list. In this
+case the user should perform a first level escaping when specifying
+the filter arguments. For example, consider the following literal
+string to be embedded in the drawtext filter arguments:
+	
+	this is a 'string': may contain one, or more, special characters
+
+
+Since C<:> is special for the filter arguments syntax, it needs to
+be escaped, so you get:
+	
+	text=this is a \'string\'\: may contain one, or more, special characters
+
+
+A second level of escaping is required when embedding the filter
+arguments in a filtergraph description, in order to escape all the
+filtergraph special characters. Thus the example above becomes:
+	
+	drawtext=text=this is a \\\'string\\\'\\: may contain one\, or more\, special characters
+
+
+Finally an additional level of escaping may be needed when writing the
+filtergraph description in a shell command, which depends on the
+escaping rules of the adopted shell. For example, assuming that
+C<\> is special and needs to be escaped with another C<\>, the
+previous string will finally result in:
+	
+	-vf "drawtext=text=this is a \\\\\\'string\\\\\\'\\\\: may contain one\\, or more\\, special characters"
+
+
+Sometimes, it might be more convenient to employ quoting in place of
+escaping. For example the string:
+	
+	Caesar: tu quoque, Brute, fili mi
+
+
+Can be quoted in the filter arguments as:
+	
+	text='Caesar: tu quoque, Brute, fili mi'
+
+
+And finally inserted in a filtergraph like:
+	
+	drawtext=text=\'Caesar: tu quoque\, Brute\, fili mi\'
+
+
+See the ``Quoting and escaping'' section in the ffmpeg-utils manual
+for more information about the escaping and quoting rules adopted by
+FFmpeg.
+
+
+
+=head1 AUDIO FILTERS
+
+
+When you configure your FFmpeg build, you can disable any of the
+existing filters using C<--disable-filters>.
+The configure output will show the audio filters included in your
+build.
+
+Below is a description of the currently available audio filters.
+
+
+=head2 aconvert
+
+
+Convert the input audio format to the specified formats.
+
+The filter accepts a string of the form:
+"I<sample_format>:I<channel_layout>".
+
+I<sample_format> specifies the sample format, and can be a string or the
+corresponding numeric value defined in F<libavutil/samplefmt.h>. Use 'p'
+suffix for a planar sample format.
+
+I<channel_layout> specifies the channel layout, and can be a string
+or the corresponding number value defined in F<libavutil/channel_layout.h>.
+
+The special parameter "auto", signifies that the filter will
+automatically select the output format depending on the output filter.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Convert input to float, planar, stereo:
+	
+	aconvert=fltp:stereo
+
+
+
+=item *
+
+Convert input to unsigned 8-bit, automatically select out channel layout:
+	
+	aconvert=u8:auto
+
+
+=back
+
+
+
+=head2 allpass
+
+
+Apply a two-pole all-pass filter with central frequency (in Hz)
+I<frequency>, and filter-width I<width>.
+An all-pass filter changes the audio's frequency to phase relationship
+without changing its frequency to amplitude relationship.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<frequency, f>
+
+Set frequency in Hz.
+
+
+=item B<width_type>
+
+Set method to specify band-width of filter.
+
+=over 4
+
+
+=item B<h>
+
+Hz
+
+=item B<q>
+
+Q-Factor
+
+=item B<o>
+
+octave
+
+=item B<s>
+
+slope
+
+=back
+
+
+
+=item B<width, w>
+
+Specify the band-width of a filter in width_type units.
+
+=back
+
+
+
+=head2 highpass
+
+
+Apply a high-pass filter with 3dB point frequency.
+The filter can be either single-pole, or double-pole (the default).
+The filter roll off at 6dB per pole per octave (20dB per pole per decade).
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<frequency, f>
+
+Set frequency in Hz. Default is 3000.
+
+
+=item B<poles, p>
+
+Set number of poles. Default is 2.
+
+
+=item B<width_type>
+
+Set method to specify band-width of filter.
+
+=over 4
+
+
+=item B<h>
+
+Hz
+
+=item B<q>
+
+Q-Factor
+
+=item B<o>
+
+octave
+
+=item B<s>
+
+slope
+
+=back
+
+
+
+=item B<width, w>
+
+Specify the band-width of a filter in width_type units.
+Applies only to double-pole filter.
+The default is 0.707q and gives a Butterworth response.
+
+=back
+
+
+
+=head2 lowpass
+
+
+Apply a low-pass filter with 3dB point frequency.
+The filter can be either single-pole or double-pole (the default).
+The filter roll off at 6dB per pole per octave (20dB per pole per decade).
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<frequency, f>
+
+Set frequency in Hz. Default is 500.
+
+
+=item B<poles, p>
+
+Set number of poles. Default is 2.
+
+
+=item B<width_type>
+
+Set method to specify band-width of filter.
+
+=over 4
+
+
+=item B<h>
+
+Hz
+
+=item B<q>
+
+Q-Factor
+
+=item B<o>
+
+octave
+
+=item B<s>
+
+slope
+
+=back
+
+
+
+=item B<width, w>
+
+Specify the band-width of a filter in width_type units.
+Applies only to double-pole filter.
+The default is 0.707q and gives a Butterworth response.
+
+=back
+
+
+
+=head2 bass
+
+
+Boost or cut the bass (lower) frequencies of the audio using a two-pole
+shelving filter with a response similar to that of a standard
+hi-fi's tone-controls. This is also known as shelving equalisation (EQ).
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<gain, g>
+
+Give the gain at 0 Hz. Its useful range is about -20
+(for a large cut) to +20 (for a large boost).
+Beware of clipping when using a positive gain.
+
+
+=item B<frequency, f>
+
+Set the filter's central frequency and so can be used
+to extend or reduce the frequency range to be boosted or cut.
+The default value is C<100> Hz.
+
+
+=item B<width_type>
+
+Set method to specify band-width of filter.
+
+=over 4
+
+
+=item B<h>
+
+Hz
+
+=item B<q>
+
+Q-Factor
+
+=item B<o>
+
+octave
+
+=item B<s>
+
+slope
+
+=back
+
+
+
+=item B<width, w>
+
+Determine how steep is the filter's shelf transition.
+
+=back
+
+
+
+=head2 treble
+
+
+Boost or cut treble (upper) frequencies of the audio using a two-pole
+shelving filter with a response similar to that of a standard
+hi-fi's tone-controls. This is also known as shelving equalisation (EQ).
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<gain, g>
+
+Give the gain at whichever is the lower of ~22 kHz and the
+Nyquist frequency. Its useful range is about -20 (for a large cut)
+to +20 (for a large boost). Beware of clipping when using a positive gain.
+
+
+=item B<frequency, f>
+
+Set the filter's central frequency and so can be used
+to extend or reduce the frequency range to be boosted or cut.
+The default value is C<3000> Hz.
+
+
+=item B<width_type>
+
+Set method to specify band-width of filter.
+
+=over 4
+
+
+=item B<h>
+
+Hz
+
+=item B<q>
+
+Q-Factor
+
+=item B<o>
+
+octave
+
+=item B<s>
+
+slope
+
+=back
+
+
+
+=item B<width, w>
+
+Determine how steep is the filter's shelf transition.
+
+=back
+
+
+
+=head2 bandpass
+
+
+Apply a two-pole Butterworth band-pass filter with central
+frequency I<frequency>, and (3dB-point) band-width width.
+The I<csg> option selects a constant skirt gain (peak gain = Q)
+instead of the default: constant 0dB peak gain.
+The filter roll off at 6dB per octave (20dB per decade).
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<frequency, f>
+
+Set the filter's central frequency. Default is C<3000>.
+
+
+=item B<csg>
+
+Constant skirt gain if set to 1. Defaults to 0.
+
+
+=item B<width_type>
+
+Set method to specify band-width of filter.
+
+=over 4
+
+
+=item B<h>
+
+Hz
+
+=item B<q>
+
+Q-Factor
+
+=item B<o>
+
+octave
+
+=item B<s>
+
+slope
+
+=back
+
+
+
+=item B<width, w>
+
+Specify the band-width of a filter in width_type units.
+
+=back
+
+
+
+=head2 bandreject
+
+
+Apply a two-pole Butterworth band-reject filter with central
+frequency I<frequency>, and (3dB-point) band-width I<width>.
+The filter roll off at 6dB per octave (20dB per decade).
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<frequency, f>
+
+Set the filter's central frequency. Default is C<3000>.
+
+
+=item B<width_type>
+
+Set method to specify band-width of filter.
+
+=over 4
+
+
+=item B<h>
+
+Hz
+
+=item B<q>
+
+Q-Factor
+
+=item B<o>
+
+octave
+
+=item B<s>
+
+slope
+
+=back
+
+
+
+=item B<width, w>
+
+Specify the band-width of a filter in width_type units.
+
+=back
+
+
+
+=head2 biquad
+
+
+Apply a biquad IIR filter with the given coefficients.
+Where I<b0>, I<b1>, I<b2> and I<a0>, I<a1>, I<a2>
+are the numerator and denominator coefficients respectively.
+
+
+=head2 equalizer
+
+
+Apply a two-pole peaking equalisation (EQ) filter. With this
+filter, the signal-level at and around a selected frequency can
+be increased or decreased, whilst (unlike bandpass and bandreject
+filters) that at all other frequencies is unchanged.
+
+In order to produce complex equalisation curves, this filter can
+be given several times, each with a different central frequency.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<frequency, f>
+
+Set the filter's central frequency in Hz.
+
+
+=item B<width_type>
+
+Set method to specify band-width of filter.
+
+=over 4
+
+
+=item B<h>
+
+Hz
+
+=item B<q>
+
+Q-Factor
+
+=item B<o>
+
+octave
+
+=item B<s>
+
+slope
+
+=back
+
+
+
+=item B<width, w>
+
+Specify the band-width of a filter in width_type units.
+
+
+=item B<gain, g>
+
+Set the required gain or attenuation in dB.
+Beware of clipping when using a positive gain.
+
+=back
+
+
+
+=head2 afade
+
+
+Apply fade-in/out effect to input audio.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":".
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<type, t>
+
+Specify the effect type, can be either C<in> for fade-in, or
+C<out> for a fade-out effect. Default is C<in>.
+
+
+=item B<start_sample, ss>
+
+Specify the number of the start sample for starting to apply the fade
+effect. Default is 0.
+
+
+=item B<nb_samples, ns>
+
+Specify the number of samples for which the fade effect has to last. At
+the end of the fade-in effect the output audio will have the same
+volume as the input audio, at the end of the fade-out transition
+the output audio will be silence. Default is 44100.
+
+
+=item B<start_time, st>
+
+Specify time in seconds for starting to apply the fade
+effect. Default is 0.
+If set this option is used instead of I<start_sample> one.
+
+
+=item B<duration, d>
+
+Specify the number of seconds for which the fade effect has to last. At
+the end of the fade-in effect the output audio will have the same
+volume as the input audio, at the end of the fade-out transition
+the output audio will be silence. Default is 0.
+If set this option is used instead of I<nb_samples> one.
+
+
+=item B<curve>
+
+Set curve for fade transition.
+
+It accepts the following values:
+
+=over 4
+
+
+=item B<tri>
+
+select triangular, linear slope (default)
+
+=item B<qsin>
+
+select quarter of sine wave
+
+=item B<hsin>
+
+select half of sine wave
+
+=item B<esin>
+
+select exponential sine wave
+
+=item B<log>
+
+select logarithmic
+
+=item B<par>
+
+select inverted parabola
+
+=item B<qua>
+
+select quadratic
+
+=item B<cub>
+
+select cubic
+
+=item B<squ>
+
+select square root
+
+=item B<cbr>
+
+select cubic root
+
+=back
+
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Fade in first 15 seconds of audio:
+	
+	afade=t=in:ss=0:d=15
+
+
+
+=item *
+
+Fade out last 25 seconds of a 900 seconds audio:
+	
+	afade=t=out:ss=875:d=25
+
+
+=back
+
+
+
+=head2 aformat
+
+
+Set output format constraints for the input audio. The framework will
+negotiate the most appropriate format to minimize conversions.
+
+The filter accepts the following named parameters:
+
+=over 4
+
+
+
+=item B<sample_fmts>
+
+A comma-separated list of requested sample formats.
+
+
+=item B<sample_rates>
+
+A comma-separated list of requested sample rates.
+
+
+=item B<channel_layouts>
+
+A comma-separated list of requested channel layouts.
+
+
+=back
+
+
+If a parameter is omitted, all values are allowed.
+
+For example to force the output to either unsigned 8-bit or signed 16-bit stereo:
+	
+	aformat='sample_fmts=u8,s16:channel_layouts=stereo'
+
+
+
+=head2 amerge
+
+
+Merge two or more audio streams into a single multi-channel stream.
+
+The filter accepts the following named options:
+
+
+=over 4
+
+
+
+=item B<inputs>
+
+Set the number of inputs. Default is 2.
+
+
+=back
+
+
+If the channel layouts of the inputs are disjoint, and therefore compatible,
+the channel layout of the output will be set accordingly and the channels
+will be reordered as necessary. If the channel layouts of the inputs are not
+disjoint, the output will have all the channels of the first input then all
+the channels of the second input, in that order, and the channel layout of
+the output will be the default value corresponding to the total number of
+channels.
+
+For example, if the first input is in 2.1 (FL+FR+LF) and the second input
+is FC+BL+BR, then the output will be in 5.1, with the channels in the
+following order: a1, a2, b1, a3, b2, b3 (a1 is the first channel of the
+first input, b1 is the first channel of the second input).
+
+On the other hand, if both input are in stereo, the output channels will be
+in the default order: a1, a2, b1, b2, and the channel layout will be
+arbitrarily set to 4.0, which may or may not be the expected value.
+
+All inputs must have the same sample rate, and format.
+
+If inputs do not have the same duration, the output will stop with the
+shortest.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Merge two mono files into a stereo stream:
+	
+	amovie=left.wav [l] ; amovie=right.mp3 [r] ; [l] [r] amerge
+
+
+
+=item *
+
+Multiple merges:
+	
+	ffmpeg -f lavfi -i "
+	amovie=input.mkv:si=0 [a0];
+	amovie=input.mkv:si=1 [a1];
+	amovie=input.mkv:si=2 [a2];
+	amovie=input.mkv:si=3 [a3];
+	amovie=input.mkv:si=4 [a4];
+	amovie=input.mkv:si=5 [a5];
+	[a0][a1][a2][a3][a4][a5] amerge=inputs=6" -c:a pcm_s16le output.mkv
+
+
+=back
+
+
+
+=head2 amix
+
+
+Mixes multiple audio inputs into a single output.
+
+For example
+	
+	ffmpeg -i INPUT1 -i INPUT2 -i INPUT3 -filter_complex amix=inputs=3:duration=first:dropout_transition=3 OUTPUT
+
+will mix 3 input audio streams to a single output with the same duration as the
+first input and a dropout transition time of 3 seconds.
+
+The filter accepts the following named parameters:
+
+=over 4
+
+
+
+=item B<inputs>
+
+Number of inputs. If unspecified, it defaults to 2.
+
+
+=item B<duration>
+
+How to determine the end-of-stream.
+
+=over 4
+
+
+
+=item B<longest>
+
+Duration of longest input. (default)
+
+
+=item B<shortest>
+
+Duration of shortest input.
+
+
+=item B<first>
+
+Duration of first input.
+
+
+=back
+
+
+
+=item B<dropout_transition>
+
+Transition time, in seconds, for volume renormalization when an input
+stream ends. The default value is 2 seconds.
+
+
+=back
+
+
+
+=head2 anull
+
+
+Pass the audio source unchanged to the output.
+
+
+=head2 apad
+
+
+Pad the end of a audio stream with silence, this can be used together with
+-shortest to extend audio streams to the same length as the video stream.
+
+
+
+=head2 aresample
+
+
+Resample the input audio to the specified parameters, using the
+libswresample library. If none are specified then the filter will
+automatically convert between its input and output.
+
+This filter is also able to stretch/squeeze the audio data to make it match
+the timestamps or to inject silence / cut out audio to make it match the
+timestamps, do a combination of both or do neither.
+
+The filter accepts the syntax
+[I<sample_rate>:]I<resampler_options>, where I<sample_rate>
+expresses a sample rate and I<resampler_options> is a list of
+I<key>=I<value> pairs, separated by ":". See the
+ffmpeg-resampler manual for the complete list of supported options.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Resample the input audio to 44100Hz:
+	
+	aresample=44100
+
+
+
+=item *
+
+Stretch/squeeze samples to the given timestamps, with a maximum of 1000
+samples per second compensation:
+	
+	aresample=async=1000
+
+
+=back
+
+
+
+=head2 asetnsamples
+
+
+Set the number of samples per each output audio frame.
+
+The last output packet may contain a different number of samples, as
+the filter will flush all the remaining samples when the input audio
+signal its end.
+
+The filter accepts parameters as a list of I<key>=I<value> pairs,
+separated by ":".
+
+
+=over 4
+
+
+
+=item B<nb_out_samples, n>
+
+Set the number of frames per each output audio frame. The number is
+intended as the number of samples I<per each channel>.
+Default value is 1024.
+
+
+=item B<pad, p>
+
+If set to 1, the filter will pad the last audio frame with zeroes, so
+that the last frame will contain the same number of samples as the
+previous ones. Default value is 1.
+
+=back
+
+
+For example, to set the number of per-frame samples to 1234 and
+disable padding for the last frame, use:
+	
+	asetnsamples=n=1234:p=0
+
+
+
+=head2 ashowinfo
+
+
+Show a line containing various information for each input audio frame.
+The input audio is not modified.
+
+The shown line contains a sequence of key/value pairs of the form
+I<key>:I<value>.
+
+A description of each shown parameter follows:
+
+
+=over 4
+
+
+=item B<n>
+
+sequential number of the input frame, starting from 0
+
+
+=item B<pts>
+
+Presentation timestamp of the input frame, in time base units; the time base
+depends on the filter input pad, and is usually 1/I<sample_rate>.
+
+
+=item B<pts_time>
+
+presentation timestamp of the input frame in seconds
+
+
+=item B<pos>
+
+position of the frame in the input stream, -1 if this information in
+unavailable and/or meaningless (for example in case of synthetic audio)
+
+
+=item B<fmt>
+
+sample format
+
+
+=item B<chlayout>
+
+channel layout
+
+
+=item B<rate>
+
+sample rate for the audio frame
+
+
+=item B<nb_samples>
+
+number of samples (per channel) in the frame
+
+
+=item B<checksum>
+
+Adler-32 checksum (printed in hexadecimal) of the audio data. For planar audio
+the data is treated as if all the planes were concatenated.
+
+
+=item B<plane_checksums>
+
+A list of Adler-32 checksums for each data plane.
+
+=back
+
+
+
+=head2 asplit
+
+
+Split input audio into several identical outputs.
+
+The filter accepts a single parameter which specifies the number of outputs. If
+unspecified, it defaults to 2.
+
+For example:
+	
+	[in] asplit [out0][out1]
+
+
+will create two separate outputs from the same input.
+
+To create 3 or more outputs, you need to specify the number of
+outputs, like in:
+	
+	[in] asplit=3 [out0][out1][out2]
+
+
+	
+	ffmpeg -i INPUT -filter_complex asplit=5 OUTPUT
+
+will create 5 copies of the input audio.
+
+
+
+=head2 astreamsync
+
+
+Forward two audio streams and control the order the buffers are forwarded.
+
+The argument to the filter is an expression deciding which stream should be
+forwarded next: if the result is negative, the first stream is forwarded; if
+the result is positive or zero, the second stream is forwarded. It can use
+the following variables:
+
+
+=over 4
+
+
+=item I<b1 b2>
+
+number of buffers forwarded so far on each stream
+
+=item I<s1 s2>
+
+number of samples forwarded so far on each stream
+
+=item I<t1 t2>
+
+current timestamp of each stream
+
+=back
+
+
+The default value is C<t1-t2>, which means to always forward the stream
+that has a smaller timestamp.
+
+Example: stress-test C<amerge> by randomly sending buffers on the wrong
+input, while avoiding too much of a desynchronization:
+	
+	amovie=file.ogg [a] ; amovie=file.mp3 [b] ;
+	[a] [b] astreamsync=(2*random(1))-1+tanh(5*(t1-t2)) [a2] [b2] ;
+	[a2] [b2] amerge
+
+
+
+=head2 atempo
+
+
+Adjust audio tempo.
+
+The filter accepts exactly one parameter, the audio tempo. If not
+specified then the filter will assume nominal 1.0 tempo. Tempo must
+be in the [0.5, 2.0] range.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Slow down audio to 80% tempo:
+	
+	atempo=0.8
+
+
+
+=item *
+
+To speed up audio to 125% tempo:
+	
+	atempo=1.25
+
+
+=back
+
+
+
+=head2 earwax
+
+
+Make audio easier to listen to on headphones.
+
+This filter adds `cues' to 44.1kHz stereo (i.e. audio CD format) audio
+so that when listened to on headphones the stereo image is moved from
+inside your head (standard for headphones) to outside and in front of
+the listener (standard for speakers).
+
+Ported from SoX.
+
+
+=head2 pan
+
+
+Mix channels with specific gain levels. The filter accepts the output
+channel layout followed by a set of channels definitions.
+
+This filter is also designed to remap efficiently the channels of an audio
+stream.
+
+The filter accepts parameters of the form:
+"I<l>:I<outdef>:I<outdef>:..."
+
+
+=over 4
+
+
+=item B<l>
+
+output channel layout or number of channels
+
+
+=item B<outdef>
+
+output channel specification, of the form:
+"I<out_name>=[I<gain>*]I<in_name>[+[I<gain>*]I<in_name>...]"
+
+
+=item B<out_name>
+
+output channel to define, either a channel name (FL, FR, etc.) or a channel
+number (c0, c1, etc.)
+
+
+=item B<gain>
+
+multiplicative coefficient for the channel, 1 leaving the volume unchanged
+
+
+=item B<in_name>
+
+input channel to use, see out_name for details; it is not possible to mix
+named and numbered input channels
+
+=back
+
+
+If the `=' in a channel specification is replaced by `E<lt>', then the gains for
+that specification will be renormalized so that the total is 1, thus
+avoiding clipping noise.
+
+
+=head3 Mixing examples
+
+
+For example, if you want to down-mix from stereo to mono, but with a bigger
+factor for the left channel:
+	
+	pan=1:c0=0.9*c0+0.1*c1
+
+
+A customized down-mix to stereo that works automatically for 3-, 4-, 5- and
+7-channels surround:
+	
+	pan=stereo: FL < FL + 0.5*FC + 0.6*BL + 0.6*SL : FR < FR + 0.5*FC + 0.6*BR + 0.6*SR
+
+
+Note that B<ffmpeg> integrates a default down-mix (and up-mix) system
+that should be preferred (see "-ac" option) unless you have very specific
+needs.
+
+
+=head3 Remapping examples
+
+
+The channel remapping will be effective if, and only if:
+
+
+=over 4
+
+
+=item *<gain coefficients are zeroes or ones,>
+
+
+=item *<only one input per channel output,>
+
+
+=back
+
+
+If all these conditions are satisfied, the filter will notify the user ("Pure
+channel mapping detected"), and use an optimized and lossless method to do the
+remapping.
+
+For example, if you have a 5.1 source and want a stereo audio stream by
+dropping the extra channels:
+	
+	pan="stereo: c0=FL : c1=FR"
+
+
+Given the same source, you can also switch front left and front right channels
+and keep the input channel layout:
+	
+	pan="5.1: c0=c1 : c1=c0 : c2=c2 : c3=c3 : c4=c4 : c5=c5"
+
+
+If the input is a stereo audio stream, you can mute the front left channel (and
+still keep the stereo channel layout) with:
+	
+	pan="stereo:c1=c1"
+
+
+Still with a stereo audio stream input, you can copy the right channel in both
+front left and right:
+	
+	pan="stereo: c0=FR : c1=FR"
+
+
+
+=head2 silencedetect
+
+
+Detect silence in an audio stream.
+
+This filter logs a message when it detects that the input audio volume is less
+or equal to a noise tolerance value for a duration greater or equal to the
+minimum detected noise duration.
+
+The printed times and duration are expressed in seconds.
+
+
+=over 4
+
+
+=item B<duration, d>
+
+Set silence duration until notification (default is 2 seconds).
+
+
+=item B<noise, n>
+
+Set noise tolerance. Can be specified in dB (in case "dB" is appended to the
+specified value) or amplitude ratio. Default is -60dB, or 0.001.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Detect 5 seconds of silence with -50dB noise tolerance:
+	
+	silencedetect=n=-50dB:d=5
+
+
+
+=item *
+
+Complete example with B<ffmpeg> to detect silence with 0.0001 noise
+tolerance in F<silence.mp3>:
+	
+	ffmpeg -f lavfi -i amovie=silence.mp3,silencedetect=noise=0.0001 -f null -
+
+
+=back
+
+
+
+=head2 asyncts
+
+Synchronize audio data with timestamps by squeezing/stretching it and/or
+dropping samples/adding silence when needed.
+
+This filter is not built by default, please use aresample to do squeezing/stretching.
+
+The filter accepts the following named parameters:
+
+=over 4
+
+
+
+=item B<compensate>
+
+Enable stretching/squeezing the data to make it match the timestamps. Disabled
+by default. When disabled, time gaps are covered with silence.
+
+
+=item B<min_delta>
+
+Minimum difference between timestamps and audio data (in seconds) to trigger
+adding/dropping samples. Default value is 0.1. If you get non-perfect sync with
+this filter, try setting this parameter to 0.
+
+
+=item B<max_comp>
+
+Maximum compensation in samples per second. Relevant only with compensate=1.
+Default value 500.
+
+
+=item B<first_pts>
+
+Assume the first pts should be this value. The time base is 1 / sample rate.
+This allows for padding/trimming at the start of stream. By default, no
+assumption is made about the first frame's expected pts, so no padding or
+trimming is done. For example, this could be set to 0 to pad the beginning with
+silence if an audio stream starts after the video stream or to trim any samples
+with a negative pts due to encoder delay.
+
+
+=back
+
+
+
+=head2 channelsplit
+
+Split each channel in input audio stream into a separate output stream.
+
+This filter accepts the following named parameters:
+
+=over 4
+
+
+=item B<channel_layout>
+
+Channel layout of the input stream. Default is "stereo".
+
+=back
+
+
+For example, assuming a stereo input MP3 file
+	
+	ffmpeg -i in.mp3 -filter_complex channelsplit out.mkv
+
+will create an output Matroska file with two audio streams, one containing only
+the left channel and the other the right channel.
+
+To split a 5.1 WAV file into per-channel files
+	
+	ffmpeg -i in.wav -filter_complex
+	'channelsplit=channel_layout=5.1[FL][FR][FC][LFE][SL][SR]'
+	-map '[FL]' front_left.wav -map '[FR]' front_right.wav -map '[FC]'
+	front_center.wav -map '[LFE]' lfe.wav -map '[SL]' side_left.wav -map '[SR]'
+	side_right.wav
+
+
+
+=head2 channelmap
+
+Remap input channels to new locations.
+
+This filter accepts the following named parameters:
+
+=over 4
+
+
+=item B<channel_layout>
+
+Channel layout of the output stream.
+
+
+=item B<map>
+
+Map channels from input to output. The argument is a comma-separated list of
+mappings, each in the C<I<in_channel>-I<out_channel>> or
+I<in_channel> form. I<in_channel> can be either the name of the input
+channel (e.g. FL for front left) or its index in the input channel layout.
+I<out_channel> is the name of the output channel or its index in the output
+channel layout. If I<out_channel> is not given then it is implicitly an
+index, starting with zero and increasing by one for each mapping.
+
+=back
+
+
+If no mapping is present, the filter will implicitly map input channels to
+output channels preserving index.
+
+For example, assuming a 5.1+downmix input MOV file
+	
+	ffmpeg -i in.mov -filter 'channelmap=map=DL-FL\,DR-FR' out.wav
+
+will create an output WAV file tagged as stereo from the downmix channels of
+the input.
+
+To fix a 5.1 WAV improperly encoded in AAC's native channel order
+	
+	ffmpeg -i in.wav -filter 'channelmap=1\,2\,0\,5\,3\,4:channel_layout=5.1' out.wav
+
+
+
+=head2 join
+
+Join multiple input streams into one multi-channel stream.
+
+The filter accepts the following named parameters:
+
+=over 4
+
+
+
+=item B<inputs>
+
+Number of input streams. Defaults to 2.
+
+
+=item B<channel_layout>
+
+Desired output channel layout. Defaults to stereo.
+
+
+=item B<map>
+
+Map channels from inputs to output. The argument is a comma-separated list of
+mappings, each in the C<I<input_idx>.I<in_channel>-I<out_channel>>
+form. I<input_idx> is the 0-based index of the input stream. I<in_channel>
+can be either the name of the input channel (e.g. FL for front left) or its
+index in the specified input stream. I<out_channel> is the name of the output
+channel.
+
+=back
+
+
+The filter will attempt to guess the mappings when those are not specified
+explicitly. It does so by first trying to find an unused matching input channel
+and if that fails it picks the first unused input channel.
+
+E.g. to join 3 inputs (with properly set channel layouts)
+	
+	ffmpeg -i INPUT1 -i INPUT2 -i INPUT3 -filter_complex join=inputs=3 OUTPUT
+
+
+To build a 5.1 output from 6 single-channel streams:
+	
+	ffmpeg -i fl -i fr -i fc -i sl -i sr -i lfe -filter_complex
+	'join=inputs=6:channel_layout=5.1:map=0.0-FL\,1.0-FR\,2.0-FC\,3.0-SL\,4.0-SR\,5.0-LFE'
+	out
+
+
+
+=head2 resample
+
+Convert the audio sample format, sample rate and channel layout. This filter is
+not meant to be used directly.
+
+
+=head2 volume
+
+
+Adjust the input audio volume.
+
+The filter accepts the following named parameters. If the key of the
+first options is omitted, the arguments are interpreted according to
+the following syntax:
+	
+	volume=<volume>:<precision>
+
+
+
+=over 4
+
+
+
+=item B<volume>
+
+Expresses how the audio volume will be increased or decreased.
+
+Output values are clipped to the maximum value.
+
+The output audio volume is given by the relation:
+	
+	<output_volume> = <volume> * <input_volume>
+
+
+Default value for I<volume> is 1.0.
+
+
+=item B<precision>
+
+Set the mathematical precision.
+
+This determines which input sample formats will be allowed, which affects the
+precision of the volume scaling.
+
+
+=over 4
+
+
+=item B<fixed>
+
+8-bit fixed-point; limits input sample format to U8, S16, and S32.
+
+=item B<float>
+
+32-bit floating-point; limits input sample format to FLT. (default)
+
+=item B<double>
+
+64-bit floating-point; limits input sample format to DBL.
+
+=back
+
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Halve the input audio volume:
+	
+	volume=volume=0.5
+	volume=volume=1/2
+	volume=volume=-6.0206dB
+
+
+In all the above example the named key for B<volume> can be
+omitted, for example like in:
+	
+	volume=0.5
+
+
+
+=item *
+
+Increase input audio power by 6 decibels using fixed-point precision:
+	
+	volume=volume=6dB:precision=fixed
+
+
+=back
+
+
+
+=head2 volumedetect
+
+
+Detect the volume of the input video.
+
+The filter has no parameters. The input is not modified. Statistics about
+the volume will be printed in the log when the input stream end is reached.
+
+In particular it will show the mean volume (root mean square), maximum
+volume (on a per-sample basis), and the beginning of an histogram of the
+registered volume values (from the maximum value to a cumulated 1/1000 of
+the samples).
+
+All volumes are in decibels relative to the maximum PCM value.
+
+
+=head3 Examples
+
+
+Here is an excerpt of the output:
+	
+	[Parsed_volumedetect_0  0xa23120] mean_volume: -27 dB
+	[Parsed_volumedetect_0  0xa23120] max_volume: -4 dB
+	[Parsed_volumedetect_0  0xa23120] histogram_4db: 6
+	[Parsed_volumedetect_0  0xa23120] histogram_5db: 62
+	[Parsed_volumedetect_0  0xa23120] histogram_6db: 286
+	[Parsed_volumedetect_0  0xa23120] histogram_7db: 1042
+	[Parsed_volumedetect_0  0xa23120] histogram_8db: 2551
+	[Parsed_volumedetect_0  0xa23120] histogram_9db: 4609
+	[Parsed_volumedetect_0  0xa23120] histogram_10db: 8409
+
+
+It means that:
+
+=over 4
+
+
+=item *
+
+The mean square energy is approximately -27 dB, or 10^-2.7.
+
+=item *
+
+The largest sample is at -4 dB, or more precisely between -4 dB and -5 dB.
+
+=item *
+
+There are 6 samples at -4 dB, 62 at -5 dB, 286 at -6 dB, etc.
+
+=back
+
+
+In other words, raising the volume by +4 dB does not cause any clipping,
+raising it by +5 dB causes clipping for 6 samples, etc.
+
+
+
+=head1 AUDIO SOURCES
+
+
+Below is a description of the currently available audio sources.
+
+
+=head2 abuffer
+
+
+Buffer audio frames, and make them available to the filter chain.
+
+This source is mainly intended for a programmatic use, in particular
+through the interface defined in F<libavfilter/asrc_abuffer.h>.
+
+It accepts the following mandatory parameters:
+I<sample_rate>:I<sample_fmt>:I<channel_layout>
+
+
+=over 4
+
+
+
+=item B<sample_rate>
+
+The sample rate of the incoming audio buffers.
+
+
+=item B<sample_fmt>
+
+The sample format of the incoming audio buffers.
+Either a sample format name or its corresponging integer representation from
+the enum AVSampleFormat in F<libavutil/samplefmt.h>
+
+
+=item B<channel_layout>
+
+The channel layout of the incoming audio buffers.
+Either a channel layout name from channel_layout_map in
+F<libavutil/channel_layout.c> or its corresponding integer representation
+from the AV_CH_LAYOUT_* macros in F<libavutil/channel_layout.h>
+
+
+=item B<channels>
+
+The number of channels of the incoming audio buffers.
+If both I<channels> and I<channel_layout> are specified, then they
+must be consistent.
+
+
+=back
+
+
+
+=head3 Examples
+
+
+	
+	abuffer=44100:s16p:stereo
+
+
+will instruct the source to accept planar 16bit signed stereo at 44100Hz.
+Since the sample format with name "s16p" corresponds to the number
+6 and the "stereo" channel layout corresponds to the value 0x3, this is
+equivalent to:
+	
+	abuffer=44100:6:0x3
+
+
+
+=head2 aevalsrc
+
+
+Generate an audio signal specified by an expression.
+
+This source accepts in input one or more expressions (one for each
+channel), which are evaluated and used to generate a corresponding
+audio signal.
+
+It accepts the syntax: I<exprs>[::I<options>].
+I<exprs> is a list of expressions separated by ":", one for each
+separate channel. In case the I<channel_layout> is not
+specified, the selected channel layout depends on the number of
+provided expressions.
+
+I<options> is an optional sequence of I<key>=I<value> pairs,
+separated by ":".
+
+The description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<channel_layout, c>
+
+Set the channel layout. The number of channels in the specified layout
+must be equal to the number of specified expressions.
+
+
+=item B<duration, d>
+
+Set the minimum duration of the sourced audio. See the function
+C<av_parse_time()> for the accepted format.
+Note that the resulting duration may be greater than the specified
+duration, as the generated audio is always cut at the end of a
+complete frame.
+
+If not specified, or the expressed duration is negative, the audio is
+supposed to be generated forever.
+
+
+=item B<nb_samples, n>
+
+Set the number of samples per channel per each output frame,
+default to 1024.
+
+
+=item B<sample_rate, s>
+
+Specify the sample rate, default to 44100.
+
+=back
+
+
+Each expression in I<exprs> can contain the following constants:
+
+
+=over 4
+
+
+=item B<n>
+
+number of the evaluated sample, starting from 0
+
+
+=item B<t>
+
+time of the evaluated sample expressed in seconds, starting from 0
+
+
+=item B<s>
+
+sample rate
+
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Generate silence:
+	
+	aevalsrc=0
+
+
+
+=item *
+
+Generate a sin signal with frequency of 440 Hz, set sample rate to
+8000 Hz:
+	
+	aevalsrc="sin(440*2*PI*t)::s=8000"
+
+
+
+=item *
+
+Generate a two channels signal, specify the channel layout (Front
+Center + Back Center) explicitly:
+	
+	aevalsrc="sin(420*2*PI*t):cos(430*2*PI*t)::c=FC|BC"
+
+
+
+=item *
+
+Generate white noise:
+	
+	aevalsrc="-2+random(0)"
+
+
+
+=item *
+
+Generate an amplitude modulated signal:
+	
+	aevalsrc="sin(10*2*PI*t)*sin(880*2*PI*t)"
+
+
+
+=item *
+
+Generate 2.5 Hz binaural beats on a 360 Hz carrier:
+	
+	aevalsrc="0.1*sin(2*PI*(360-2.5/2)*t) : 0.1*sin(2*PI*(360+2.5/2)*t)"
+
+
+
+=back
+
+
+
+=head2 anullsrc
+
+
+Null audio source, return unprocessed audio frames. It is mainly useful
+as a template and to be employed in analysis / debugging tools, or as
+the source for filters which ignore the input data (for example the sox
+synth filter).
+
+It accepts an optional sequence of I<key>=I<value> pairs,
+separated by ":".
+
+The description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<sample_rate, s>
+
+Specify the sample rate, and defaults to 44100.
+
+
+=item B<channel_layout, cl>
+
+
+Specify the channel layout, and can be either an integer or a string
+representing a channel layout. The default value of I<channel_layout>
+is "stereo".
+
+Check the channel_layout_map definition in
+F<libavutil/channel_layout.c> for the mapping between strings and
+channel layout values.
+
+
+=item B<nb_samples, n>
+
+Set the number of samples per requested frames.
+
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Set the sample rate to 48000 Hz and the channel layout to AV_CH_LAYOUT_MONO.
+	
+	anullsrc=r=48000:cl=4
+
+
+
+=item *
+
+Do the same operation with a more obvious syntax:
+	
+	anullsrc=r=48000:cl=mono
+
+
+=back
+
+
+
+=head2 abuffer
+
+Buffer audio frames, and make them available to the filter chain.
+
+This source is not intended to be part of user-supplied graph descriptions but
+for insertion by calling programs through the interface defined in
+F<libavfilter/buffersrc.h>.
+
+It accepts the following named parameters:
+
+=over 4
+
+
+
+=item B<time_base>
+
+Timebase which will be used for timestamps of submitted frames. It must be
+either a floating-point number or in I<numerator>/I<denominator> form.
+
+
+=item B<sample_rate>
+
+Audio sample rate.
+
+
+=item B<sample_fmt>
+
+Name of the sample format, as returned by C<av_get_sample_fmt_name()>.
+
+
+=item B<channel_layout>
+
+Channel layout of the audio data, in the form that can be accepted by
+C<av_get_channel_layout()>.
+
+=back
+
+
+All the parameters need to be explicitly defined.
+
+
+=head2 flite
+
+
+Synthesize a voice utterance using the libflite library.
+
+To enable compilation of this filter you need to configure FFmpeg with
+C<--enable-libflite>.
+
+Note that the flite library is not thread-safe.
+
+The source accepts parameters as a list of I<key>=I<value> pairs,
+separated by ":".
+
+The description of the accepted parameters follows.
+
+
+=over 4
+
+
+
+=item B<list_voices>
+
+If set to 1, list the names of the available voices and exit
+immediately. Default value is 0.
+
+
+=item B<nb_samples, n>
+
+Set the maximum number of samples per frame. Default value is 512.
+
+
+=item B<textfile>
+
+Set the filename containing the text to speak.
+
+
+=item B<text>
+
+Set the text to speak.
+
+
+=item B<voice, v>
+
+Set the voice to use for the speech synthesis. Default value is
+C<kal>. See also the I<list_voices> option.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Read from file F<speech.txt>, and synthetize the text using the
+standard flite voice:
+	
+	flite=textfile=speech.txt
+
+
+
+=item *
+
+Read the specified text selecting the C<slt> voice:
+	
+	flite=text='So fare thee well, poor devil of a Sub-Sub, whose commentator I am':voice=slt
+
+
+
+=item *
+
+Input text to ffmpeg:
+	
+	ffmpeg -f lavfi -i flite=text='So fare thee well, poor devil of a Sub-Sub, whose commentator I am':voice=slt
+
+
+
+=item *
+
+Make F<ffplay> speak the specified text, using C<flite> and
+the C<lavfi> device:
+	
+	ffplay -f lavfi flite=text='No more be grieved for which that thou hast done.'
+
+
+=back
+
+
+For more information about libflite, check:
+E<lt>B<http://www.speech.cs.cmu.edu/flite/>E<gt>
+
+
+
+=head1 AUDIO SINKS
+
+
+Below is a description of the currently available audio sinks.
+
+
+=head2 abuffersink
+
+
+Buffer audio frames, and make them available to the end of filter chain.
+
+This sink is mainly intended for programmatic use, in particular
+through the interface defined in F<libavfilter/buffersink.h>.
+
+It requires a pointer to an AVABufferSinkContext structure, which
+defines the incoming buffers' formats, to be passed as the opaque
+parameter to C<avfilter_init_filter> for initialization.
+
+
+=head2 anullsink
+
+
+Null audio sink, do absolutely nothing with the input audio. It is
+mainly useful as a template and to be employed in analysis / debugging
+tools.
+
+
+=head2 abuffersink
+
+This sink is intended for programmatic use. Frames that arrive on this sink can
+be retrieved by the calling program using the interface defined in
+F<libavfilter/buffersink.h>.
+
+This filter accepts no parameters.
+
+
+
+=head1 VIDEO FILTERS
+
+
+When you configure your FFmpeg build, you can disable any of the
+existing filters using C<--disable-filters>.
+The configure output will show the video filters included in your
+build.
+
+Below is a description of the currently available video filters.
+
+
+=head2 alphaextract
+
+
+Extract the alpha component from the input as a grayscale video. This
+is especially useful with the I<alphamerge> filter.
+
+
+=head2 alphamerge
+
+
+Add or replace the alpha component of the primary input with the
+grayscale value of a second input. This is intended for use with
+I<alphaextract> to allow the transmission or storage of frame
+sequences that have alpha in a format that doesn't support an alpha
+channel.
+
+For example, to reconstruct full frames from a normal YUV-encoded video
+and a separate video created with I<alphaextract>, you might use:
+	
+	movie=in_alpha.mkv [alpha]; [in][alpha] alphamerge [out]
+
+
+Since this filter is designed for reconstruction, it operates on frame
+sequences without considering timestamps, and terminates when either
+input reaches end of stream. This will cause problems if your encoding
+pipeline drops frames. If you're trying to apply an image as an
+overlay to a video stream, consider the I<overlay> filter instead.
+
+
+=head2 ass
+
+
+Same as the subtitles filter, except that it doesn't require libavcodec
+and libavformat to work. On the other hand, it is limited to ASS (Advanced
+Substation Alpha) subtitles files.
+
+
+=head2 bbox
+
+
+Compute the bounding box for the non-black pixels in the input frame
+luminance plane.
+
+This filter computes the bounding box containing all the pixels with a
+luminance value greater than the minimum allowed value.
+The parameters describing the bounding box are printed on the filter
+log.
+
+
+=head2 blackdetect
+
+
+Detect video intervals that are (almost) completely black. Can be
+useful to detect chapter transitions, commercials, or invalid
+recordings. Output lines contains the time for the start, end and
+duration of the detected black interval expressed in seconds.
+
+In order to display the output lines, you need to set the loglevel at
+least to the AV_LOG_INFO value.
+
+This filter accepts a list of options in the form of
+I<key>=I<value> pairs separated by ":". A description of the
+accepted options follows.
+
+
+=over 4
+
+
+=item B<black_min_duration, d>
+
+Set the minimum detected black duration expressed in seconds. It must
+be a non-negative floating point number.
+
+Default value is 2.0.
+
+
+=item B<picture_black_ratio_th, pic_th>
+
+Set the threshold for considering a picture "black".
+Express the minimum value for the ratio:
+	
+	<nb_black_pixels> / <nb_pixels>
+
+
+for which a picture is considered black.
+Default value is 0.98.
+
+
+=item B<pixel_black_th, pix_th>
+
+Set the threshold for considering a pixel "black".
+
+The threshold expresses the maximum pixel luminance value for which a
+pixel is considered "black". The provided value is scaled according to
+the following equation:
+	
+	<absolute_threshold> = <luminance_minimum_value> + <pixel_black_th> * <luminance_range_size>
+
+
+I<luminance_range_size> and I<luminance_minimum_value> depend on
+the input video format, the range is [0-255] for YUV full-range
+formats and [16-235] for YUV non full-range formats.
+
+Default value is 0.10.
+
+=back
+
+
+The following example sets the maximum pixel threshold to the minimum
+value, and detects only black intervals of 2 or more seconds:
+	
+	blackdetect=d=2:pix_th=0.00
+
+
+
+=head2 blackframe
+
+
+Detect frames that are (almost) completely black. Can be useful to
+detect chapter transitions or commercials. Output lines consist of
+the frame number of the detected frame, the percentage of blackness,
+the position in the file if known or -1 and the timestamp in seconds.
+
+In order to display the output lines, you need to set the loglevel at
+least to the AV_LOG_INFO value.
+
+The filter accepts the syntax:
+	
+	blackframe[=<amount>:[<threshold>]]
+
+
+I<amount> is the percentage of the pixels that have to be below the
+threshold, and defaults to 98.
+
+I<threshold> is the threshold below which a pixel value is
+considered black, and defaults to 32.
+
+
+=head2 blend
+
+
+Blend two video frames into each other.
+
+It takes two input streams and outputs one stream, the first input is the
+"top" layer and second input is "bottom" layer.
+Output terminates when shortest input terminates.
+
+This filter accepts a list of options in the form of I<key>=I<value>
+pairs separated by ":". A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<c0_mode>
+
+
+=item B<c1_mode>
+
+
+=item B<c2_mode>
+
+
+=item B<c3_mode>
+
+
+=item B<all_mode>
+
+Set blend mode for specific pixel component or all pixel components in case
+of I<all_mode>. Default value is C<normal>.
+
+Available values for component modes are:
+
+=over 4
+
+
+=item B<addition>
+
+
+=item B<and>
+
+
+=item B<average>
+
+
+=item B<burn>
+
+
+=item B<darken>
+
+
+=item B<difference>
+
+
+=item B<divide>
+
+
+=item B<dodge>
+
+
+=item B<exclusion>
+
+
+=item B<hardlight>
+
+
+=item B<lighten>
+
+
+=item B<multiply>
+
+
+=item B<negation>
+
+
+=item B<normal>
+
+
+=item B<or>
+
+
+=item B<overlay>
+
+
+=item B<phoenix>
+
+
+=item B<pinlight>
+
+
+=item B<reflect>
+
+
+=item B<screen>
+
+
+=item B<softlight>
+
+
+=item B<subtract>
+
+
+=item B<vividlight>
+
+
+=item B<xor>
+
+
+=back
+
+
+
+=item B<c0_opacity>
+
+
+=item B<c1_opacity>
+
+
+=item B<c2_opacity>
+
+
+=item B<c3_opacity>
+
+
+=item B<all_opacity>
+
+Set blend opacity for specific pixel component or all pixel components in case
+of I<all_expr>. Only used in combination with pixel component blend modes.
+
+
+=item B<c0_expr>
+
+
+=item B<c1_expr>
+
+
+=item B<c2_expr>
+
+
+=item B<c3_expr>
+
+
+=item B<all_expr>
+
+Set blend expression for specific pixel component or all pixel components in case
+of I<all_expr>. Note that related mode options will be ignored if those are set.
+
+The expressions can use the following variables:
+
+
+=over 4
+
+
+=item B<X>
+
+
+=item B<Y>
+
+the coordinates of the current sample
+
+
+=item B<W>
+
+
+=item B<H>
+
+the width and height of currently filtered plane
+
+
+=item B<SW>
+
+
+=item B<SH>
+
+Width and height scale depending on the currently filtered plane. It is the
+ratio between the corresponding luma plane number of pixels and the current
+plane ones. E.g. for YUV4:2:0 the values are C<1,1> for the luma plane, and
+C<0.5,0.5> for chroma planes.
+
+
+=item B<T>
+
+Time of the current frame, expressed in seconds.
+
+
+=item B<TOP, A>
+
+Value of pixel component at current location for first video frame (top layer).
+
+
+=item B<BOTTOM, B>
+
+Value of pixel component at current location for second video frame (bottom layer).
+
+=back
+
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Apply transition from bottom layer to top layer in first 10 seconds:
+	
+	blend=all_expr='A*(if(gte(T,10),1,T/10))+B*(1-(if(gte(T,10),1,T/10)))'
+
+
+
+=item *
+
+Apply 1x1 checkerboard effect:
+	
+	blend=all_expr='if(eq(mod(X,2),mod(Y,2)),A,B)'
+
+
+=back
+
+
+
+=head2 boxblur
+
+
+Apply boxblur algorithm to the input video.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to the syntax
+B<luma_radius>:B<luma_power>:B<chroma_radius>:B<chroma_power>:B<alpha_radius>:B<alpha_power>.
+
+A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<luma_radius, lr>
+
+
+=item B<chroma_radius, cr>
+
+
+=item B<alpha_radius, ar>
+
+Set an expression for the box radius in pixels used for blurring the
+corresponding input plane.
+
+The radius value must be a non-negative number, and must not be
+greater than the value of the expression C<min(w,h)/2> for the
+luma and alpha planes, and of C<min(cw,ch)/2> for the chroma
+planes.
+
+Default value for B<luma_radius> is "2". If not specified,
+B<chroma_radius> and B<alpha_radius> default to the
+corresponding value set for B<luma_radius>.
+
+The expressions can contain the following constants:
+
+=over 4
+
+
+=item B<w, h>
+
+the input width and height in pixels
+
+
+=item B<cw, ch>
+
+the input chroma image width and height in pixels
+
+
+=item B<hsub, vsub>
+
+horizontal and vertical chroma subsample values. For example for the
+pixel format "yuv422p" I<hsub> is 2 and I<vsub> is 1.
+
+=back
+
+
+
+=item B<luma_power, lp>
+
+
+=item B<chroma_power, cp>
+
+
+=item B<alpha_power, ap>
+
+Specify how many times the boxblur filter is applied to the
+corresponding plane.
+
+Default value for B<luma_power> is 2. If not specified,
+B<chroma_power> and B<alpha_power> default to the
+corresponding value set for B<luma_power>.
+
+A value of 0 will disable the effect.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Apply a boxblur filter with luma, chroma, and alpha radius
+set to 2:
+	
+	boxblur=2:1
+
+
+
+=item *
+
+Set luma radius to 2, alpha and chroma radius to 0:
+	
+	boxblur=2:1:cr=0:ar=0
+
+
+
+=item *
+
+Set luma and chroma radius to a fraction of the video dimension:
+	
+	boxblur=min(h\,w)/10:1:min(cw\,ch)/10:1
+
+
+=back
+
+
+
+=head2 colormatrix
+
+
+The colormatrix filter allows conversion between any of the following color
+space: BT.709 (I<bt709>), BT.601 (I<bt601>), SMPTE-240M (I<smpte240m>)
+and FCC (I<fcc>).
+
+The syntax of the parameters is I<source>:I<destination>:
+
+	
+	colormatrix=bt601:smpte240m
+
+
+
+=head2 copy
+
+
+Copy the input source unchanged to the output. Mainly useful for
+testing purposes.
+
+
+=head2 crop
+
+
+Crop the input video.
+
+This filter accepts a list of I<key>=I<value> pairs as argument,
+separated by ':'. If the key of the first options is omitted, the
+arguments are interpreted according to the syntax
+I<out_w>:I<out_h>:I<x>:I<y>:I<keep_aspect>.
+
+A description of the accepted options follows:
+
+=over 4
+
+
+=item B<w, out_w>
+
+Set the crop area width. It defaults to C<iw>.
+This expression is evaluated only once during the filter
+configuration.
+
+
+=item B<h, out_h>
+
+Set the crop area width. It defaults to C<ih>.
+This expression is evaluated only once during the filter
+configuration.
+
+
+=item B<x>
+
+Set the expression for the x top-left coordinate of the cropped area.
+It defaults to C<(in_w-out_w)/2>.
+This expression is evaluated per-frame.
+
+
+=item B<y>
+
+Set the expression for the y top-left coordinate of the cropped area.
+It defaults to C<(in_h-out_h)/2>.
+This expression is evaluated per-frame.
+
+
+=item B<keep_aspect>
+
+If set to 1 will force the output display aspect ratio
+to be the same of the input, by changing the output sample aspect
+ratio. It defaults to 0.
+
+=back
+
+
+The I<out_w>, I<out_h>, I<x>, I<y> parameters are
+expressions containing the following constants:
+
+
+=over 4
+
+
+=item B<x, y>
+
+the computed values for I<x> and I<y>. They are evaluated for
+each new frame.
+
+
+=item B<in_w, in_h>
+
+the input width and height
+
+
+=item B<iw, ih>
+
+same as I<in_w> and I<in_h>
+
+
+=item B<out_w, out_h>
+
+the output (cropped) width and height
+
+
+=item B<ow, oh>
+
+same as I<out_w> and I<out_h>
+
+
+=item B<a>
+
+same as I<iw> / I<ih>
+
+
+=item B<sar>
+
+input sample aspect ratio
+
+
+=item B<dar>
+
+input display aspect ratio, it is the same as (I<iw> / I<ih>) * I<sar>
+
+
+=item B<hsub, vsub>
+
+horizontal and vertical chroma subsample values. For example for the
+pixel format "yuv422p" I<hsub> is 2 and I<vsub> is 1.
+
+
+=item B<n>
+
+the number of input frame, starting from 0
+
+
+=item B<pos>
+
+the position in the file of the input frame, NAN if unknown
+
+
+=item B<t>
+
+timestamp expressed in seconds, NAN if the input timestamp is unknown
+
+
+=back
+
+
+The expression for I<out_w> may depend on the value of I<out_h>,
+and the expression for I<out_h> may depend on I<out_w>, but they
+cannot depend on I<x> and I<y>, as I<x> and I<y> are
+evaluated after I<out_w> and I<out_h>.
+
+The I<x> and I<y> parameters specify the expressions for the
+position of the top-left corner of the output (non-cropped) area. They
+are evaluated for each frame. If the evaluated value is not valid, it
+is approximated to the nearest valid value.
+
+The expression for I<x> may depend on I<y>, and the expression
+for I<y> may depend on I<x>.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Crop area with size 100x100 at position (12,34).
+	
+	crop=100:100:12:34
+
+
+Using named options, the example above becomes:
+	
+	crop=w=100:h=100:x=12:y=34
+
+
+
+=item *
+
+Crop the central input area with size 100x100:
+	
+	crop=100:100
+
+
+
+=item *
+
+Crop the central input area with size 2/3 of the input video:
+	
+	crop=2/3*in_w:2/3*in_h
+
+
+
+=item *
+
+Crop the input video central square:
+	
+	crop=in_h
+
+
+
+=item *
+
+Delimit the rectangle with the top-left corner placed at position
+100:100 and the right-bottom corner corresponding to the right-bottom
+corner of the input image:
+	
+	crop=in_w-100:in_h-100:100:100
+
+
+
+=item *
+
+Crop 10 pixels from the left and right borders, and 20 pixels from
+the top and bottom borders
+	
+	crop=in_w-2*10:in_h-2*20
+
+
+
+=item *
+
+Keep only the bottom right quarter of the input image:
+	
+	crop=in_w/2:in_h/2:in_w/2:in_h/2
+
+
+
+=item *
+
+Crop height for getting Greek harmony:
+	
+	crop=in_w:1/PHI*in_w
+
+
+
+=item *
+
+Appply trembling effect:
+	
+	crop=in_w/2:in_h/2:(in_w-out_w)/2+((in_w-out_w)/2)*sin(n/10):(in_h-out_h)/2 +((in_h-out_h)/2)*sin(n/7)
+
+
+
+=item *
+
+Apply erratic camera effect depending on timestamp:
+	
+	crop=in_w/2:in_h/2:(in_w-out_w)/2+((in_w-out_w)/2)*sin(t*10):(in_h-out_h)/2 +((in_h-out_h)/2)*sin(t*13)"
+
+
+
+=item *
+
+Set x depending on the value of y:
+	
+	crop=in_w/2:in_h/2:y:10+10*sin(n/10)
+
+
+=back
+
+
+
+=head2 cropdetect
+
+
+Auto-detect crop size.
+
+Calculate necessary cropping parameters and prints the recommended
+parameters through the logging system. The detected dimensions
+correspond to the non-black area of the input video.
+
+It accepts the syntax:
+	
+	cropdetect[=<limit>[:<round>[:<reset>]]]
+
+
+
+=over 4
+
+
+
+=item B<limit>
+
+Threshold, which can be optionally specified from nothing (0) to
+everything (255), defaults to 24.
+
+
+=item B<round>
+
+Value which the width/height should be divisible by, defaults to
+16. The offset is automatically adjusted to center the video. Use 2 to
+get only even dimensions (needed for 4:2:2 video). 16 is best when
+encoding to most video codecs.
+
+
+=item B<reset>
+
+Counter that determines after how many frames cropdetect will reset
+the previously detected largest video area and start over to detect
+the current optimal crop area. Defaults to 0.
+
+This can be useful when channel logos distort the video area. 0
+indicates never reset and return the largest area encountered during
+playback.
+
+=back
+
+
+
+=head2 decimate
+
+
+Drop frames that do not differ greatly from the previous frame in
+order to reduce framerate.
+
+The main use of this filter is for very-low-bitrate encoding
+(e.g. streaming over dialup modem), but it could in theory be used for
+fixing movies that were inverse-telecined incorrectly.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to the syntax:
+B<max>:B<hi>:B<lo>:B<frac>.
+
+A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<max>
+
+Set the maximum number of consecutive frames which can be dropped (if
+positive), or the minimum interval between dropped frames (if
+negative). If the value is 0, the frame is dropped unregarding the
+number of previous sequentially dropped frames.
+
+Default value is 0.
+
+
+=item B<hi>
+
+
+=item B<lo>
+
+
+=item B<frac>
+
+Set the dropping threshold values.
+
+Values for B<hi> and B<lo> are for 8x8 pixel blocks and
+represent actual pixel value differences, so a threshold of 64
+corresponds to 1 unit of difference for each pixel, or the same spread
+out differently over the block.
+
+A frame is a candidate for dropping if no 8x8 blocks differ by more
+than a threshold of B<hi>, and if no more than B<frac> blocks (1
+meaning the whole image) differ by more than a threshold of B<lo>.
+
+Default value for B<hi> is 64*12, default value for B<lo> is
+64*5, and default value for B<frac> is 0.33.
+
+=back
+
+
+
+=head2 delogo
+
+
+Suppress a TV station logo by a simple interpolation of the surrounding
+pixels. Just set a rectangle covering the logo and watch it disappear
+(and sometimes something even uglier appear - your mileage may vary).
+
+The filter accepts parameters as a string of the form
+"I<x>:I<y>:I<w>:I<h>:I<band>", or as a list of
+I<key>=I<value> pairs, separated by ":".
+
+The description of the accepted parameters follows.
+
+
+=over 4
+
+
+
+=item B<x, y>
+
+Specify the top left corner coordinates of the logo. They must be
+specified.
+
+
+=item B<w, h>
+
+Specify the width and height of the logo to clear. They must be
+specified.
+
+
+=item B<band, t>
+
+Specify the thickness of the fuzzy edge of the rectangle (added to
+I<w> and I<h>). The default value is 4.
+
+
+=item B<show>
+
+When set to 1, a green rectangle is drawn on the screen to simplify
+finding the right I<x>, I<y>, I<w>, I<h> parameters, and
+I<band> is set to 4. The default value is 0.
+
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Set a rectangle covering the area with top left corner coordinates 0,0
+and size 100x77, setting a band of size 10:
+	
+	delogo=0:0:100:77:10
+
+
+
+=item *
+
+As the previous example, but use named options:
+	
+	delogo=x=0:y=0:w=100:h=77:band=10
+
+
+
+=back
+
+
+
+=head2 deshake
+
+
+Attempt to fix small changes in horizontal and/or vertical shift. This
+filter helps remove camera shake from hand-holding a camera, bumping a
+tripod, moving on a vehicle, etc.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to the syntax
+I<x>:I<y>:I<w>:I<h>:I<rx>:I<ry>:I<edge>:I<blocksize>:I<contrast>:I<search>:I<filename>.
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+
+=item B<x, y, w, h>
+
+Specify a rectangular area where to limit the search for motion
+vectors.
+If desired the search for motion vectors can be limited to a
+rectangular area of the frame defined by its top left corner, width
+and height. These parameters have the same meaning as the drawbox
+filter which can be used to visualise the position of the bounding
+box.
+
+This is useful when simultaneous movement of subjects within the frame
+might be confused for camera motion by the motion vector search.
+
+If any or all of I<x>, I<y>, I<w> and I<h> are set to -1
+then the full frame is used. This allows later options to be set
+without specifying the bounding box for the motion vector search.
+
+Default - search the whole frame.
+
+
+=item B<rx, ry>
+
+Specify the maximum extent of movement in x and y directions in the
+range 0-64 pixels. Default 16.
+
+
+=item B<edge>
+
+Specify how to generate pixels to fill blanks at the edge of the
+frame. Available values are:
+
+=over 4
+
+
+=item B<blank, 0>
+
+Fill zeroes at blank locations
+
+=item B<original, 1>
+
+Original image at blank locations
+
+=item B<clamp, 2>
+
+Extruded edge value at blank locations
+
+=item B<mirror, 3>
+
+Mirrored edge at blank locations
+
+=back
+
+Default value is B<mirror>.
+
+
+=item B<blocksize>
+
+Specify the blocksize to use for motion search. Range 4-128 pixels,
+default 8.
+
+
+=item B<contrast>
+
+Specify the contrast threshold for blocks. Only blocks with more than
+the specified contrast (difference between darkest and lightest
+pixels) will be considered. Range 1-255, default 125.
+
+
+=item B<search>
+
+Specify the search strategy. Available values are:
+
+=over 4
+
+
+=item B<exhaustive, 0>
+
+Set exhaustive search
+
+=item B<less, 1>
+
+Set less exhaustive search.
+
+=back
+
+Default value is B<exhaustive>.
+
+
+=item B<filename>
+
+If set then a detailed log of the motion search is written to the
+specified file.
+
+
+=back
+
+
+
+=head2 drawbox
+
+
+Draw a colored box on the input image.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to the syntax
+B<x>:B<y>:B<width>:B<height>:B<color>:B<thickness>.
+
+A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<x, y>
+
+Specify the top left corner coordinates of the box. Default to 0.
+
+
+=item B<width, w>
+
+
+=item B<height, h>
+
+Specify the width and height of the box, if 0 they are interpreted as
+the input width and height. Default to 0.
+
+
+=item B<color, c>
+
+Specify the color of the box to write, it can be the name of a color
+(case insensitive match) or a 0xRRGGBB[AA] sequence. If the special
+value C<invert> is used, the box edge color is the same as the
+video with inverted luma.
+
+
+=item B<thickness, t>
+
+Set the thickness of the box edge. Default value is C<4>.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Draw a black box around the edge of the input image:
+	
+	drawbox
+
+
+
+=item *
+
+Draw a box with color red and an opacity of 50%:
+	
+	drawbox=10:20:200:60:red@0.5
+
+
+The previous example can be specified as:
+	
+	drawbox=x=10:y=20:w=200:h=60:color=red@0.5
+
+
+
+=item *
+
+Fill the box with pink color:
+	
+	drawbox=x=10:y=10:w=100:h=100:color=pink@0.5:t=max
+
+
+=back
+
+
+
+
+=head2 drawtext
+
+
+Draw text string or text from specified file on top of video using the
+libfreetype library.
+
+To enable compilation of this filter you need to configure FFmpeg with
+C<--enable-libfreetype>.
+
+
+=head3 Syntax
+
+
+The filter accepts parameters as a list of I<key>=I<value> pairs,
+separated by ":".
+
+The description of the accepted parameters follows.
+
+
+=over 4
+
+
+
+=item B<box>
+
+Used to draw a box around text using background color.
+Value should be either 1 (enable) or 0 (disable).
+The default value of I<box> is 0.
+
+
+=item B<boxcolor>
+
+The color to be used for drawing box around text.
+Either a string (e.g. "yellow") or in 0xRRGGBB[AA] format
+(e.g. "0xff00ff"), possibly followed by an alpha specifier.
+The default value of I<boxcolor> is "white".
+
+
+=item B<draw>
+
+Set an expression which specifies if the text should be drawn. If the
+expression evaluates to 0, the text is not drawn. This is useful for
+specifying that the text should be drawn only when specific conditions
+are met.
+
+Default value is "1".
+
+See below for the list of accepted constants and functions.
+
+
+=item B<expansion>
+
+Select how the I<text> is expanded. Can be either C<none>,
+C<strftime> (deprecated) or
+C<normal> (default). See the drawtext_expansion, Text expansion section
+below for details.
+
+
+=item B<fix_bounds>
+
+If true, check and fix text coords to avoid clipping.
+
+
+=item B<fontcolor>
+
+The color to be used for drawing fonts.
+Either a string (e.g. "red") or in 0xRRGGBB[AA] format
+(e.g. "0xff000033"), possibly followed by an alpha specifier.
+The default value of I<fontcolor> is "black".
+
+
+=item B<fontfile>
+
+The font file to be used for drawing text. Path must be included.
+This parameter is mandatory.
+
+
+=item B<fontsize>
+
+The font size to be used for drawing text.
+The default value of I<fontsize> is 16.
+
+
+=item B<ft_load_flags>
+
+Flags to be used for loading the fonts.
+
+The flags map the corresponding flags supported by libfreetype, and are
+a combination of the following values:
+
+=over 4
+
+
+=item I<default>
+
+
+=item I<no_scale>
+
+
+=item I<no_hinting>
+
+
+=item I<render>
+
+
+=item I<no_bitmap>
+
+
+=item I<vertical_layout>
+
+
+=item I<force_autohint>
+
+
+=item I<crop_bitmap>
+
+
+=item I<pedantic>
+
+
+=item I<ignore_global_advance_width>
+
+
+=item I<no_recurse>
+
+
+=item I<ignore_transform>
+
+
+=item I<monochrome>
+
+
+=item I<linear_design>
+
+
+=item I<no_autohint>
+
+
+=item I<end table>
+
+
+=back
+
+
+Default value is "render".
+
+For more information consult the documentation for the FT_LOAD_*
+libfreetype flags.
+
+
+=item B<shadowcolor>
+
+The color to be used for drawing a shadow behind the drawn text.  It
+can be a color name (e.g. "yellow") or a string in the 0xRRGGBB[AA]
+form (e.g. "0xff00ff"), possibly followed by an alpha specifier.
+The default value of I<shadowcolor> is "black".
+
+
+=item B<shadowx, shadowy>
+
+The x and y offsets for the text shadow position with respect to the
+position of the text. They can be either positive or negative
+values. Default value for both is "0".
+
+
+=item B<tabsize>
+
+The size in number of spaces to use for rendering the tab.
+Default value is 4.
+
+
+=item B<timecode>
+
+Set the initial timecode representation in "hh:mm:ss[:;.]ff"
+format. It can be used with or without text parameter. I<timecode_rate>
+option must be specified.
+
+
+=item B<timecode_rate, rate, r>
+
+Set the timecode frame rate (timecode only).
+
+
+=item B<text>
+
+The text string to be drawn. The text must be a sequence of UTF-8
+encoded characters.
+This parameter is mandatory if no file is specified with the parameter
+I<textfile>.
+
+
+=item B<textfile>
+
+A text file containing text to be drawn. The text must be a sequence
+of UTF-8 encoded characters.
+
+This parameter is mandatory if no text string is specified with the
+parameter I<text>.
+
+If both I<text> and I<textfile> are specified, an error is thrown.
+
+
+=item B<reload>
+
+If set to 1, the I<textfile> will be reloaded before each frame.
+Be sure to update it atomically, or it may be read partially, or even fail.
+
+
+=item B<x, y>
+
+The expressions which specify the offsets where text will be drawn
+within the video frame. They are relative to the top/left border of the
+output image.
+
+The default value of I<x> and I<y> is "0".
+
+See below for the list of accepted constants and functions.
+
+=back
+
+
+The parameters for I<x> and I<y> are expressions containing the
+following constants and functions:
+
+
+=over 4
+
+
+=item B<dar>
+
+input display aspect ratio, it is the same as (I<w> / I<h>) * I<sar>
+
+
+=item B<hsub, vsub>
+
+horizontal and vertical chroma subsample values. For example for the
+pixel format "yuv422p" I<hsub> is 2 and I<vsub> is 1.
+
+
+=item B<line_h, lh>
+
+the height of each text line
+
+
+=item B<main_h, h, H>
+
+the input height
+
+
+=item B<main_w, w, W>
+
+the input width
+
+
+=item B<max_glyph_a, ascent>
+
+the maximum distance from the baseline to the highest/upper grid
+coordinate used to place a glyph outline point, for all the rendered
+glyphs.
+It is a positive value, due to the grid's orientation with the Y axis
+upwards.
+
+
+=item B<max_glyph_d, descent>
+
+the maximum distance from the baseline to the lowest grid coordinate
+used to place a glyph outline point, for all the rendered glyphs.
+This is a negative value, due to the grid's orientation, with the Y axis
+upwards.
+
+
+=item B<max_glyph_h>
+
+maximum glyph height, that is the maximum height for all the glyphs
+contained in the rendered text, it is equivalent to I<ascent> -
+I<descent>.
+
+
+=item B<max_glyph_w>
+
+maximum glyph width, that is the maximum width for all the glyphs
+contained in the rendered text
+
+
+=item B<n>
+
+the number of input frame, starting from 0
+
+
+=item B<rand(min, max)>
+
+return a random number included between I<min> and I<max>
+
+
+=item B<sar>
+
+input sample aspect ratio
+
+
+=item B<t>
+
+timestamp expressed in seconds, NAN if the input timestamp is unknown
+
+
+=item B<text_h, th>
+
+the height of the rendered text
+
+
+=item B<text_w, tw>
+
+the width of the rendered text
+
+
+=item B<x, y>
+
+the x and y offset coordinates where the text is drawn.
+
+These parameters allow the I<x> and I<y> expressions to refer
+each other, so you can for example specify C<y=x/dar>.
+
+=back
+
+
+If libavfilter was built with C<--enable-fontconfig>, then
+B<fontfile> can be a fontconfig pattern or omitted.
+
+
+
+=head3 Text expansion
+
+
+If B<expansion> is set to C<strftime>,
+the filter recognizes strftime() sequences in the provided text and
+expands them accordingly. Check the documentation of strftime(). This
+feature is deprecated.
+
+If B<expansion> is set to C<none>, the text is printed verbatim.
+
+If B<expansion> is set to C<normal> (which is the default),
+the following expansion mechanism is used.
+
+The backslash character '\', followed by any character, always expands to
+the second character.
+
+Sequence of the form C<%{...}> are expanded. The text between the
+braces is a function name, possibly followed by arguments separated by ':'.
+If the arguments contain special characters or delimiters (':' or '}'),
+they should be escaped.
+
+Note that they probably must also be escaped as the value for the
+B<text> option in the filter argument string and as the filter
+argument in the filter graph description, and possibly also for the shell,
+that makes up to four levels of escaping; using a text file avoids these
+problems.
+
+The following functions are available:
+
+
+=over 4
+
+
+
+=item B<expr, e>
+
+The expression evaluation result.
+
+It must take one argument specifying the expression to be evaluated,
+which accepts the same constants and functions as the I<x> and
+I<y> values. Note that not all constants should be used, for
+example the text size is not known when evaluating the expression, so
+the constants I<text_w> and I<text_h> will have an undefined
+value.
+
+
+=item B<gmtime>
+
+The time at which the filter is running, expressed in UTC.
+It can accept an argument: a strftime() format string.
+
+
+=item B<localtime>
+
+The time at which the filter is running, expressed in the local time zone.
+It can accept an argument: a strftime() format string.
+
+
+=item B<n, frame_num>
+
+The frame number, starting from 0.
+
+
+=item B<pts>
+
+The timestamp of the current frame, in seconds, with microsecond accuracy.
+
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Draw "Test Text" with font FreeSerif, using the default values for the
+optional parameters.
+
+	
+	drawtext="fontfile=/usr/share/fonts/truetype/freefont/FreeSerif.ttf: text='Test Text'"
+
+
+
+=item *
+
+Draw 'Test Text' with font FreeSerif of size 24 at position x=100
+and y=50 (counting from the top-left corner of the screen), text is
+yellow with a red box around it. Both the text and the box have an
+opacity of 20%.
+
+	
+	drawtext="fontfile=/usr/share/fonts/truetype/freefont/FreeSerif.ttf: text='Test Text':\
+	          x=100: y=50: fontsize=24: fontcolor=yellow@0.2: box=1: boxcolor=red@0.2"
+
+
+Note that the double quotes are not necessary if spaces are not used
+within the parameter list.
+
+
+=item *
+
+Show the text at the center of the video frame:
+	
+	drawtext="fontsize=30:fontfile=FreeSerif.ttf:text='hello world':x=(w-text_w)/2:y=(h-text_h-line_h)/2"
+
+
+
+=item *
+
+Show a text line sliding from right to left in the last row of the video
+frame. The file F<LONG_LINE> is assumed to contain a single line
+with no newlines.
+	
+	drawtext="fontsize=15:fontfile=FreeSerif.ttf:text=LONG_LINE:y=h-line_h:x=-50*t"
+
+
+
+=item *
+
+Show the content of file F<CREDITS> off the bottom of the frame and scroll up.
+	
+	drawtext="fontsize=20:fontfile=FreeSerif.ttf:textfile=CREDITS:y=h-20*t"
+
+
+
+=item *
+
+Draw a single green letter "g", at the center of the input video.
+The glyph baseline is placed at half screen height.
+	
+	drawtext="fontsize=60:fontfile=FreeSerif.ttf:fontcolor=green:text=g:x=(w-max_glyph_w)/2:y=h/2-ascent"
+
+
+
+=item *
+
+Show text for 1 second every 3 seconds:
+	
+	drawtext="fontfile=FreeSerif.ttf:fontcolor=white:x=100:y=x/dar:draw=lt(mod(t\,3)\,1):text='blink'"
+
+
+
+=item *
+
+Use fontconfig to set the font. Note that the colons need to be escaped.
+	
+	drawtext='fontfile=Linux Libertine O-40\:style=Semibold:text=FFmpeg'
+
+
+
+=item *
+
+Print the date of a real-time encoding (see strftime(3)):
+	
+	drawtext='fontfile=FreeSans.ttf:text=%{localtime:%a %b %d %Y}'
+
+
+
+=back
+
+
+For more information about libfreetype, check:
+E<lt>B<http://www.freetype.org/>E<gt>.
+
+For more information about fontconfig, check:
+E<lt>B<http://freedesktop.org/software/fontconfig/fontconfig-user.html>E<gt>.
+
+
+=head2 edgedetect
+
+
+Detect and draw edges. The filter uses the Canny Edge Detection algorithm.
+
+This filter accepts the following optional named parameters:
+
+
+=over 4
+
+
+=item B<low, high>
+
+Set low and high threshold values used by the Canny thresholding
+algorithm.
+
+The high threshold selects the "strong" edge pixels, which are then
+connected through 8-connectivity with the "weak" edge pixels selected
+by the low threshold.
+
+I<low> and I<high> threshold values must be choosen in the range
+[0,1], and I<low> should be lesser or equal to I<high>.
+
+Default value for I<low> is C<20/255>, and default value for I<high>
+is C<50/255>.
+
+=back
+
+
+Example:
+	
+	edgedetect=low=0.1:high=0.4
+
+
+
+=head2 fade
+
+
+Apply fade-in/out effect to input video.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to the syntax
+I<type>:I<start_frame>:I<nb_frames>.
+
+A description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<type, t>
+
+Specify if the effect type, can be either C<in> for fade-in, or
+C<out> for a fade-out effect. Default is C<in>.
+
+
+=item B<start_frame, s>
+
+Specify the number of the start frame for starting to apply the fade
+effect. Default is 0.
+
+
+=item B<nb_frames, n>
+
+Specify the number of frames for which the fade effect has to last. At
+the end of the fade-in effect the output video will have the same
+intensity as the input video, at the end of the fade-out transition
+the output video will be completely black. Default is 25.
+
+
+=item B<alpha>
+
+If set to 1, fade only alpha channel, if one exists on the input.
+Default value is 0.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Fade in first 30 frames of video:
+	
+	fade=in:0:30
+
+
+The command above is equivalent to:
+	
+	fade=t=in:s=0:n=30
+
+
+
+=item *
+
+Fade out last 45 frames of a 200-frame video:
+	
+	fade=out:155:45
+
+
+
+=item *
+
+Fade in first 25 frames and fade out last 25 frames of a 1000-frame video:
+	
+	fade=in:0:25, fade=out:975:25
+
+
+
+=item *
+
+Make first 5 frames black, then fade in from frame 5-24:
+	
+	fade=in:5:20
+
+
+
+=item *
+
+Fade in alpha over first 25 frames of video:
+	
+	fade=in:0:25:alpha=1
+
+
+=back
+
+
+
+=head2 field
+
+
+Extract a single field from an interlaced image using stride
+arithmetic to avoid wasting CPU time. The output frames are marked as
+non-interlaced.
+
+This filter accepts the following named options:
+
+=over 4
+
+
+=item B<type>
+
+Specify whether to extract the top (if the value is C<0> or
+C<top>) or the bottom field (if the value is C<1> or
+C<bottom>).
+
+=back
+
+
+If the option key is not specified, the first value sets the I<type>
+option. For example:
+	
+	field=bottom
+
+
+is equivalent to:
+	
+	field=type=bottom
+
+
+
+=head2 fieldorder
+
+
+Transform the field order of the input video.
+
+It accepts one parameter which specifies the required field order that
+the input interlaced video will be transformed to. The parameter can
+assume one of the following values:
+
+
+=over 4
+
+
+=item B<0 or bff>
+
+output bottom field first
+
+=item B<1 or tff>
+
+output top field first
+
+=back
+
+
+Default value is "tff".
+
+Transformation is achieved by shifting the picture content up or down
+by one line, and filling the remaining line with appropriate picture content.
+This method is consistent with most broadcast field order converters.
+
+If the input video is not flagged as being interlaced, or it is already
+flagged as being of the required output field order then this filter does
+not alter the incoming video.
+
+This filter is very useful when converting to or from PAL DV material,
+which is bottom field first.
+
+For example:
+	
+	ffmpeg -i in.vob -vf "fieldorder=bff" out.dv
+
+
+
+=head2 fifo
+
+
+Buffer input images and send them when they are requested.
+
+This filter is mainly useful when auto-inserted by the libavfilter
+framework.
+
+The filter does not take parameters.
+
+
+=head2 format
+
+
+Convert the input video to one of the specified pixel formats.
+Libavfilter will try to pick one that is supported for the input to
+the next filter.
+
+The filter accepts a list of pixel format names, separated by ":",
+for example "yuv420p:monow:rgb24".
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Convert the input video to the format I<yuv420p>
+	
+	format=yuv420p
+
+
+Convert the input video to any of the formats in the list
+	
+	format=yuv420p:yuv444p:yuv410p
+
+
+=back
+
+
+
+=head2 fps
+
+
+Convert the video to specified constant framerate by duplicating or dropping
+frames as necessary.
+
+This filter accepts the following named parameters:
+
+=over 4
+
+
+
+=item B<fps>
+
+Desired output framerate. The default is C<25>.
+
+
+=item B<round>
+
+Rounding method.
+
+Possible values are:
+
+=over 4
+
+
+=item B<zero>
+
+zero round towards 0
+
+=item B<inf>
+
+round away from 0
+
+=item B<down>
+
+round towards -infinity
+
+=item B<up>
+
+round towards +infinity
+
+=item B<near>
+
+round to nearest
+
+=back
+
+The default is C<near>.
+
+
+=back
+
+
+Alternatively, the options can be specified as a flat string:
+I<fps>[:I<round>].
+
+See also the setpts filter.
+
+
+=head2 framestep
+
+
+Select one frame every N.
+
+This filter accepts in input a string representing a positive
+integer. Default argument is C<1>.
+
+
+
+=head2 frei0r
+
+
+Apply a frei0r effect to the input video.
+
+To enable compilation of this filter you need to install the frei0r
+header and configure FFmpeg with C<--enable-frei0r>.
+
+The filter supports the syntax:
+	
+	<filter_name>[{:|=}<param1>:<param2>:...:<paramN>]
+
+
+I<filter_name> is the name of the frei0r effect to load. If the
+environment variable B<FREI0R_PATH> is defined, the frei0r effect
+is searched in each one of the directories specified by the colon (or
+semicolon on Windows platforms) separated list in B<FREIOR_PATH>,
+otherwise in the standard frei0r paths, which are in this order:
+F<HOME/.frei0r-1/lib/>, F</usr/local/lib/frei0r-1/>,
+F</usr/lib/frei0r-1/>.
+
+I<param1>, I<param2>, ... , I<paramN> specify the parameters
+for the frei0r effect.
+
+A frei0r effect parameter can be a boolean (whose values are specified
+with "y" and "n"), a double, a color (specified by the syntax
+I<R>/I<G>/I<B>, I<R>, I<G>, and I<B> being float
+numbers from 0.0 to 1.0) or by an C<av_parse_color()> color
+description), a position (specified by the syntax I<X>/I<Y>,
+I<X> and I<Y> being float numbers) and a string.
+
+The number and kind of parameters depend on the loaded effect. If an
+effect parameter is not specified the default value is set.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Apply the distort0r effect, set the first two double parameters:
+	
+	frei0r=distort0r:0.5:0.01
+
+
+
+=item *
+
+Apply the colordistance effect, take a color as first parameter:
+	
+	frei0r=colordistance:0.2/0.3/0.4
+	frei0r=colordistance:violet
+	frei0r=colordistance:0x112233
+
+
+
+=item *
+
+Apply the perspective effect, specify the top left and top right image
+positions:
+	
+	frei0r=perspective:0.2/0.2:0.8/0.2
+
+
+=back
+
+
+For more information see:
+E<lt>B<http://frei0r.dyne.org>E<gt>
+
+
+=head2 geq
+
+
+The filter takes one, two, three or four equations as parameter, separated by ':'.
+The first equation is mandatory and applies to the luma plane. The two
+following are respectively for chroma blue and chroma red planes.
+
+The filter syntax allows named parameters:
+
+
+=over 4
+
+
+=item B<lum_expr>
+
+the luminance expression
+
+=item B<cb_expr>
+
+the chrominance blue expression
+
+=item B<cr_expr>
+
+the chrominance red expression
+
+=item B<alpha_expr>
+
+the alpha expression
+
+=back
+
+
+If one of the chrominance expression is not defined, it falls back on the other
+one. If no alpha expression is specified it will evaluate to opaque value.
+If none of chrominance expressions are
+specified, they will evaluate the luminance expression.
+
+The expressions can use the following variables and functions:
+
+
+=over 4
+
+
+=item B<N>
+
+The sequential number of the filtered frame, starting from C<0>.
+
+
+=item B<X, Y>
+
+The coordinates of the current sample.
+
+
+=item B<W, H>
+
+The width and height of the image.
+
+
+=item B<SW, SH>
+
+Width and height scale depending on the currently filtered plane. It is the
+ratio between the corresponding luma plane number of pixels and the current
+plane ones. E.g. for YUV4:2:0 the values are C<1,1> for the luma plane, and
+C<0.5,0.5> for chroma planes.
+
+
+=item B<T>
+
+Time of the current frame, expressed in seconds.
+
+
+=item B<p(x, y)>
+
+Return the value of the pixel at location (I<x>,I<y>) of the current
+plane.
+
+
+=item B<lum(x, y)>
+
+Return the value of the pixel at location (I<x>,I<y>) of the luminance
+plane.
+
+
+=item B<cb(x, y)>
+
+Return the value of the pixel at location (I<x>,I<y>) of the
+blue-difference chroma plane. Returns 0 if there is no such plane.
+
+
+=item B<cr(x, y)>
+
+Return the value of the pixel at location (I<x>,I<y>) of the
+red-difference chroma plane. Returns 0 if there is no such plane.
+
+
+=item B<alpha(x, y)>
+
+Return the value of the pixel at location (I<x>,I<y>) of the alpha
+plane. Returns 0 if there is no such plane.
+
+=back
+
+
+For functions, if I<x> and I<y> are outside the area, the value will be
+automatically clipped to the closer edge.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Flip the image horizontally:
+	
+	geq=p(W-X\,Y)
+
+
+
+=item *
+
+Generate a bidimensional sine wave, with angle C<PI/3> and a
+wavelength of 100 pixels:
+	
+	geq=128 + 100*sin(2*(PI/100)*(cos(PI/3)*(X-50*T) + sin(PI/3)*Y)):128:128
+
+
+
+=item *
+
+Generate a fancy enigmatic moving light:
+	
+	nullsrc=s=256x256,geq=random(1)/hypot(X-cos(N*0.07)*W/2-W/2\,Y-sin(N*0.09)*H/2-H/2)^2*1000000*sin(N*0.02):128:128
+
+
+=back
+
+
+
+=head2 gradfun
+
+
+Fix the banding artifacts that are sometimes introduced into nearly flat
+regions by truncation to 8bit color depth.
+Interpolate the gradients that should go where the bands are, and
+dither them.
+
+This filter is designed for playback only.  Do not use it prior to
+lossy compression, because compression tends to lose the dither and
+bring back the bands.
+
+The filter accepts a list of options in the form of I<key>=I<value> pairs
+separated by ":". A description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<strength>
+
+The maximum amount by which the filter will change
+any one pixel. Also the threshold for detecting nearly flat
+regions. Acceptable values range from C<0.51> to C<64>, default value
+is C<1.2>.
+
+
+=item B<radius>
+
+The neighborhood to fit the gradient to. A larger
+radius makes for smoother gradients, but also prevents the filter from
+modifying the pixels near detailed regions. Acceptable values are
+C<8-32>, default value is C<16>.
+
+
+=back
+
+
+Alternatively, the options can be specified as a flat string:
+I<strength>[:I<radius>]
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Apply the filter with a C<3.5> strength and radius of C<8>:
+	
+	gradfun=3.5:8
+
+
+
+=item *
+
+Specify radius, omitting the strength (which will fall-back to the default
+value):
+	
+	gradfun=radius=8
+
+
+
+=back
+
+
+
+=head2 hflip
+
+
+Flip the input video horizontally.
+
+For example to horizontally flip the input video with B<ffmpeg>:
+	
+	ffmpeg -i in.avi -vf "hflip" out.avi
+
+
+
+=head2 histeq
+
+This filter applies a global color histogram equalization on a
+per-frame basis.
+
+It can be used to correct video that has a compressed range of pixel
+intensities.  The filter redistributes the pixel intensities to
+equalize their distribution across the intensity range. It may be
+viewed as an "automatically adjusting contrast filter". This filter is
+useful only for correcting degraded or poorly captured source
+video.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to syntax
+I<strength>:I<intensity>:I<antibanding>.
+
+This filter accepts the following named options:
+
+
+=over 4
+
+
+=item B<strength>
+
+Determine the amount of equalization to be applied.  As the strength
+is reduced, the distribution of pixel intensities more-and-more
+approaches that of the input frame. The value must be a float number
+in the range [0,1] and defaults to 0.200.
+
+
+=item B<intensity>
+
+Set the maximum intensity that can generated and scale the output
+values appropriately.  The strength should be set as desired and then
+the intensity can be limited if needed to avoid washing-out. The value
+must be a float number in the range [0,1] and defaults to 0.210.
+
+
+=item B<antibanding>
+
+Set the antibanding level. If enabled the filter will randomly vary
+the luminance of output pixels by a small amount to avoid banding of
+the histogram. Possible values are C<none>, C<weak> or
+C<strong>. It defaults to C<none>.
+
+=back
+
+
+
+=head2 histogram
+
+
+Compute and draw a color distribution histogram for the input video.
+
+The computed histogram is a representation of distribution of color components
+in an image.
+
+The filter accepts the following named parameters:
+
+
+=over 4
+
+
+=item B<mode>
+
+Set histogram mode.
+
+It accepts the following values:
+
+=over 4
+
+
+=item B<levels>
+
+standard histogram that display color components distribution in an image.
+Displays color graph for each color component. Shows distribution
+of the Y, U, V, A or G, B, R components, depending on input format,
+in current frame. Bellow each graph is color component scale meter.
+
+
+=item B<color>
+
+chroma values in vectorscope, if brighter more such chroma values are
+distributed in an image.
+Displays chroma values (U/V color placement) in two dimensional graph
+(which is called a vectorscope). It can be used to read of the hue and
+saturation of the current frame. At a same time it is a histogram.
+The whiter a pixel in the vectorscope, the more pixels of the input frame
+correspond to that pixel (that is the more pixels have this chroma value).
+The V component is displayed on the horizontal (X) axis, with the leftmost
+side being V = 0 and the rightmost side being V = 255.
+The U component is displayed on the vertical (Y) axis, with the top
+representing U = 0 and the bottom representing U = 255.
+
+The position of a white pixel in the graph corresponds to the chroma value
+of a pixel of the input clip. So the graph can be used to read of the
+hue (color flavor) and the saturation (the dominance of the hue in the color).
+As the hue of a color changes, it moves around the square. At the center of
+the square, the saturation is zero, which means that the corresponding pixel
+has no color. If you increase the amount of a specific color, while leaving
+the other colors unchanged, the saturation increases, and you move towards
+the edge of the square.
+
+
+=item B<color2>
+
+chroma values in vectorscope, similar as C<color> but actual chroma values
+are displayed.
+
+
+=item B<waveform>
+
+per row/column color component graph. In row mode graph in the left side represents
+color component value 0 and right side represents value = 255. In column mode top
+side represents color component value = 0 and bottom side represents value = 255.
+
+=back
+
+Default value is C<levels>.
+
+
+=item B<level_height>
+
+Set height of level in C<levels>. Default value is C<200>.
+Allowed range is [50, 2048].
+
+
+=item B<scale_height>
+
+Set height of color scale in C<levels>. Default value is C<12>.
+Allowed range is [0, 40].
+
+
+=item B<step>
+
+Set step for C<waveform> mode. Smaller values are useful to find out how much
+of same luminance values across input rows/columns are distributed.
+Default value is C<10>. Allowed range is [1, 255].
+
+
+=item B<waveform_mode>
+
+Set mode for C<waveform>. Can be either C<row>, or C<column>.
+Default is C<row>.
+
+
+=item B<display_mode>
+
+Set display mode for C<waveform> and C<levels>.
+It accepts the following values:
+
+=over 4
+
+
+=item B<parade>
+
+Display separate graph for the color components side by side in
+C<row> waveform mode or one below other in C<column> waveform mode
+for C<waveform> histogram mode. For C<levels> histogram mode
+per color component graphs are placed one bellow other.
+
+This display mode in C<waveform> histogram mode makes it easy to spot
+color casts in the highlights and shadows of an image, by comparing the
+contours of the top and the bottom of each waveform.
+Since whites, grays, and blacks are characterized by
+exactly equal amounts of red, green, and blue, neutral areas of the
+picture should display three waveforms of roughly equal width/height.
+If not, the correction is easy to make by making adjustments to level the
+three waveforms.
+
+
+=item B<overlay>
+
+Presents information that's identical to that in the C<parade>, except
+that the graphs representing color components are superimposed directly
+over one another.
+
+This display mode in C<waveform> histogram mode can make it easier to spot
+the relative differences or similarities in overlapping areas of the color
+components that are supposed to be identical, such as neutral whites, grays,
+or blacks.
+
+=back
+
+Default is C<parade>.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+
+=item *
+
+Calculate and draw histogram:
+	
+	ffplay -i input -vf histogram
+
+
+
+=back
+
+
+
+=head2 hqdn3d
+
+
+High precision/quality 3d denoise filter. This filter aims to reduce
+image noise producing smooth images and making still images really
+still. It should enhance compressibility.
+
+It accepts the following optional parameters:
+I<luma_spatial>:I<chroma_spatial>:I<luma_tmp>:I<chroma_tmp>
+
+
+=over 4
+
+
+=item B<luma_spatial>
+
+a non-negative float number which specifies spatial luma strength,
+defaults to 4.0
+
+
+=item B<chroma_spatial>
+
+a non-negative float number which specifies spatial chroma strength,
+defaults to 3.0*I<luma_spatial>/4.0
+
+
+=item B<luma_tmp>
+
+a float number which specifies luma temporal strength, defaults to
+6.0*I<luma_spatial>/4.0
+
+
+=item B<chroma_tmp>
+
+a float number which specifies chroma temporal strength, defaults to
+I<luma_tmp>*I<chroma_spatial>/I<luma_spatial>
+
+=back
+
+
+
+=head2 hue
+
+
+Modify the hue and/or the saturation of the input.
+
+This filter accepts the following optional named options:
+
+
+=over 4
+
+
+=item B<h>
+
+Specify the hue angle as a number of degrees. It accepts a float
+number or an expression, and defaults to 0.0.
+
+
+=item B<H>
+
+Specify the hue angle as a number of radians. It accepts a float
+number or an expression, and defaults to 0.0.
+
+
+=item B<s>
+
+Specify the saturation in the [-10,10] range. It accepts a float number and
+defaults to 1.0.
+
+=back
+
+
+The I<h>, I<H> and I<s> parameters are expressions containing the
+following constants:
+
+
+=over 4
+
+
+=item B<n>
+
+frame count of the input frame starting from 0
+
+
+=item B<pts>
+
+presentation timestamp of the input frame expressed in time base units
+
+
+=item B<r>
+
+frame rate of the input video, NAN if the input frame rate is unknown
+
+
+=item B<t>
+
+timestamp expressed in seconds, NAN if the input timestamp is unknown
+
+
+=item B<tb>
+
+time base of the input video
+
+=back
+
+
+The options can also be set using the syntax: I<hue>:I<saturation>
+
+In this case I<hue> is expressed in degrees.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Set the hue to 90 degrees and the saturation to 1.0:
+	
+	hue=h=90:s=1
+
+
+
+=item *
+
+Same command but expressing the hue in radians:
+	
+	hue=H=PI/2:s=1
+
+
+
+=item *
+
+Same command without named options, hue must be expressed in degrees:
+	
+	hue=90:1
+
+
+
+=item *
+
+Note that "h:s" syntax does not support expressions for the values of
+h and s, so the following example will issue an error:
+	
+	hue=PI/2:1
+
+
+
+=item *
+
+Rotate hue and make the saturation swing between 0
+and 2 over a period of 1 second:
+	
+	hue="H=2*PI*t: s=sin(2*PI*t)+1"
+
+
+
+=item *
+
+Apply a 3 seconds saturation fade-in effect starting at 0:
+	
+	hue="s=min(t/3\,1)"
+
+
+The general fade-in expression can be written as:
+	
+	hue="s=min(0\, max((t-START)/DURATION\, 1))"
+
+
+
+=item *
+
+Apply a 3 seconds saturation fade-out effect starting at 5 seconds:
+	
+	hue="s=max(0\, min(1\, (8-t)/3))"
+
+
+The general fade-out expression can be written as:
+	
+	hue="s=max(0\, min(1\, (START+DURATION-t)/DURATION))"
+
+
+
+=back
+
+
+
+=head3 Commands
+
+
+This filter supports the following command:
+
+=over 4
+
+
+=item B<reinit>
+
+Modify the hue and/or the saturation of the input video.
+The command accepts the same named options and syntax than when calling the
+filter from the command-line.
+
+If a parameter is omitted, it is kept at its current value.
+
+=back
+
+
+
+=head2 idet
+
+
+Detect video interlacing type.
+
+This filter tries to detect if the input is interlaced or progressive,
+top or bottom field first.
+
+
+=head2 il
+
+
+Deinterleave or interleave fields.
+
+This filter allows to process interlaced images fields without
+deinterlacing them. Deinterleaving splits the input frame into 2
+fields (so called half pictures). Odd lines are moved to the top
+half of the output image, even lines to the bottom half.
+You can process (filter) them independently and then re-interleave them.
+
+It accepts a list of options in the form of I<key>=I<value> pairs
+separated by ":". A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<luma_mode, l>
+
+
+=item B<chroma_mode, s>
+
+
+=item B<alpha_mode, a>
+
+Available values for I<luma_mode>, I<chroma_mode> and
+I<alpha_mode> are:
+
+
+=over 4
+
+
+=item B<none>
+
+Do nothing.
+
+
+=item B<deinterleave, d>
+
+Deinterleave fields, placing one above the other.
+
+
+=item B<interleave, i>
+
+Interleave fields. Reverse the effect of deinterleaving.
+
+=back
+
+Default value is C<none>.
+
+
+=item B<luma_swap, ls>
+
+
+=item B<chroma_swap, cs>
+
+
+=item B<alpha_swap, as>
+
+Swap luma/chroma/alpha fields. Exchange even & odd lines. Default value is C<0>.
+
+=back
+
+
+
+=head2 kerndeint
+
+
+Deinterlace input video by applying Donald Graft's adaptive kernel
+deinterling. Work on interlaced parts of a video to produce
+progressive frames.
+
+This filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to the following syntax:
+I<thresh>:I<map>:I<order>:I<sharp>:I<twoway>.
+
+The description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<thresh>
+
+Set the threshold which affects the filter's tolerance when
+determining if a pixel line must be processed. It must be an integer
+in the range [0,255] and defaults to 10. A value of 0 will result in
+applying the process on every pixels.
+
+
+=item B<map>
+
+Paint pixels exceeding the threshold value to white if set to 1.
+Default is 0.
+
+
+=item B<order>
+
+Set the fields order. Swap fields if set to 1, leave fields alone if
+0. Default is 0.
+
+
+=item B<sharp>
+
+Enable additional sharpening if set to 1. Default is 0.
+
+
+=item B<twoway>
+
+Enable twoway sharpening if set to 1. Default is 0.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Apply default values:
+	
+	kerndeint=thresh=10:map=0:order=0:sharp=0:twoway=0
+
+
+
+=item *
+
+Enable additional sharpening:
+	
+	kerndeint=sharp=1
+
+
+
+=item *
+
+Paint processed pixels in white:
+	
+	kerndeint=map=1
+
+
+=back
+
+
+
+=head2 lut, lutrgb, lutyuv
+
+
+Compute a look-up table for binding each pixel component input value
+to an output value, and apply it to input video.
+
+I<lutyuv> applies a lookup table to a YUV input video, I<lutrgb>
+to an RGB input video.
+
+These filters accept in input a ":"-separated list of options, which
+specify the expressions used for computing the lookup table for the
+corresponding pixel component values.
+
+The I<lut> filter requires either YUV or RGB pixel formats in
+input, and accepts the options:
+
+=over 4
+
+
+=item B<c0>
+
+set first pixel component expression
+
+=item B<c1>
+
+set second pixel component expression
+
+=item B<c2>
+
+set third pixel component expression
+
+=item B<c3>
+
+set fourth pixel component expression, corresponds to the alpha component
+
+=back
+
+
+The exact component associated to each option depends on the format in
+input.
+
+The I<lutrgb> filter requires RGB pixel formats in input, and
+accepts the options:
+
+=over 4
+
+
+=item B<r>
+
+set red component expression
+
+=item B<g>
+
+set green component expression
+
+=item B<b>
+
+set blue component expression
+
+=item B<a>
+
+alpha component expression
+
+=back
+
+
+The I<lutyuv> filter requires YUV pixel formats in input, and
+accepts the options:
+
+=over 4
+
+
+=item B<y>
+
+set Y/luminance component expression
+
+=item B<u>
+
+set U/Cb component expression
+
+=item B<v>
+
+set V/Cr component expression
+
+=item B<a>
+
+set alpha component expression
+
+=back
+
+
+The expressions can contain the following constants and functions:
+
+
+=over 4
+
+
+=item B<w, h>
+
+the input width and height
+
+
+=item B<val>
+
+input value for the pixel component
+
+
+=item B<clipval>
+
+the input value clipped in the I<minval>-I<maxval> range
+
+
+=item B<maxval>
+
+maximum value for the pixel component
+
+
+=item B<minval>
+
+minimum value for the pixel component
+
+
+=item B<negval>
+
+the negated value for the pixel component value clipped in the
+I<minval>-I<maxval> range , it corresponds to the expression
+"maxval-clipval+minval"
+
+
+=item B<clip(val)>
+
+the computed value in I<val> clipped in the
+I<minval>-I<maxval> range
+
+
+=item B<gammaval(gamma)>
+
+the computed gamma correction value of the pixel component value
+clipped in the I<minval>-I<maxval> range, corresponds to the
+expression
+"pow((clipval-minval)/(maxval-minval)\,I<gamma>)*(maxval-minval)+minval"
+
+
+=back
+
+
+All expressions default to "val".
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Negate input video:
+	
+	lutrgb="r=maxval+minval-val:g=maxval+minval-val:b=maxval+minval-val"
+	lutyuv="y=maxval+minval-val:u=maxval+minval-val:v=maxval+minval-val"
+
+
+The above is the same as:
+	
+	lutrgb="r=negval:g=negval:b=negval"
+	lutyuv="y=negval:u=negval:v=negval"
+
+
+
+=item *
+
+Negate luminance:
+	
+	lutyuv=y=negval
+
+
+
+=item *
+
+Remove chroma components, turns the video into a graytone image:
+	
+	lutyuv="u=128:v=128"
+
+
+
+=item *
+
+Apply a luma burning effect:
+	
+	lutyuv="y=2*val"
+
+
+
+=item *
+
+Remove green and blue components:
+	
+	lutrgb="g=0:b=0"
+
+
+
+=item *
+
+Set a constant alpha channel value on input:
+	
+	format=rgba,lutrgb=a="maxval-minval/2"
+
+
+
+=item *
+
+Correct luminance gamma by a 0.5 factor:
+	
+	lutyuv=y=gammaval(0.5)
+
+
+=back
+
+
+
+=head2 mp
+
+
+Apply an MPlayer filter to the input video.
+
+This filter provides a wrapper around most of the filters of
+MPlayer/MEncoder.
+
+This wrapper is considered experimental. Some of the wrapped filters
+may not work properly and we may drop support for them, as they will
+be implemented natively into FFmpeg. Thus you should avoid
+depending on them when writing portable scripts.
+
+The filters accepts the parameters:
+I<filter_name>[:=]I<filter_params>
+
+I<filter_name> is the name of a supported MPlayer filter,
+I<filter_params> is a string containing the parameters accepted by
+the named filter.
+
+The list of the currently supported filters follows:
+
+=over 4
+
+
+=item I<detc>
+
+
+=item I<dint>
+
+
+=item I<divtc>
+
+
+=item I<down3dright>
+
+
+=item I<eq2>
+
+
+=item I<eq>
+
+
+=item I<fil>
+
+
+=item I<fspp>
+
+
+=item I<harddup>
+
+
+=item I<ilpack>
+
+
+=item I<ivtc>
+
+
+=item I<mcdeint>
+
+
+=item I<ow>
+
+
+=item I<perspective>
+
+
+=item I<phase>
+
+
+=item I<pp7>
+
+
+=item I<pullup>
+
+
+=item I<qp>
+
+
+=item I<sab>
+
+
+=item I<softpulldown>
+
+
+=item I<spp>
+
+
+=item I<telecine>
+
+
+=item I<tinterlace>
+
+
+=item I<uspp>
+
+
+=back
+
+
+The parameter syntax and behavior for the listed filters are the same
+of the corresponding MPlayer filters. For detailed instructions check
+the "VIDEO FILTERS" section in the MPlayer manual.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Adjust gamma, brightness, contrast:
+	
+	mp=eq2=1.0:2:0.5
+
+
+=back
+
+
+See also mplayer(1), E<lt>B<http://www.mplayerhq.hu/>E<gt>.
+
+
+=head2 negate
+
+
+Negate input video.
+
+This filter accepts an integer in input, if non-zero it negates the
+alpha component (if available). The default value in input is 0.
+
+
+=head2 noformat
+
+
+Force libavfilter not to use any of the specified pixel formats for the
+input to the next filter.
+
+The filter accepts a list of pixel format names, separated by ":",
+for example "yuv420p:monow:rgb24".
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Force libavfilter to use a format different from I<yuv420p> for the
+input to the vflip filter:
+	
+	noformat=yuv420p,vflip
+
+
+
+=item *
+
+Convert the input video to any of the formats not contained in the list:
+	
+	noformat=yuv420p:yuv444p:yuv410p
+
+
+=back
+
+
+
+=head2 noise
+
+
+Add noise on video input frame.
+
+This filter accepts a list of options in the form of I<key>=I<value>
+pairs separated by ":". A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<all_seed>
+
+
+=item B<c0_seed>
+
+
+=item B<c1_seed>
+
+
+=item B<c2_seed>
+
+
+=item B<c3_seed>
+
+Set noise seed for specific pixel component or all pixel components in case
+of I<all_seed>. Default value is C<123457>.
+
+
+=item B<all_strength, alls>
+
+
+=item B<c0_strength, c0s>
+
+
+=item B<c1_strength, c1s>
+
+
+=item B<c2_strength, c2s>
+
+
+=item B<c3_strength, c3s>
+
+Set noise strength for specific pixel component or all pixel components in case
+I<all_strength>. Default value is C<0>. Allowed range is [0, 100].
+
+
+=item B<all_flags, allf>
+
+
+=item B<c0_flags, c0f>
+
+
+=item B<c1_flags, c1f>
+
+
+=item B<c2_flags, c2f>
+
+
+=item B<c3_flags, c3f>
+
+Set pixel component flags or set flags for all components if I<all_flags>.
+Available values for component flags are:
+
+=over 4
+
+
+=item B<a>
+
+averaged temporal noise (smoother)
+
+=item B<p>
+
+mix random noise with a (semi)regular pattern
+
+=item B<q>
+
+higher quality (slightly better looking, slightly slower)
+
+=item B<t>
+
+temporal noise (noise pattern changes between frames)
+
+=item B<u>
+
+uniform noise (gaussian otherwise)
+
+=back
+
+
+=back
+
+
+
+=head3 Examples
+
+
+Add temporal and uniform noise to input video:
+	
+	noise=alls=20:allf=t+u
+
+
+
+=head2 null
+
+
+Pass the video source unchanged to the output.
+
+
+=head2 ocv
+
+
+Apply video transform using libopencv.
+
+To enable this filter install libopencv library and headers and
+configure FFmpeg with C<--enable-libopencv>.
+
+The filter takes the parameters: I<filter_name>{:=}I<filter_params>.
+
+I<filter_name> is the name of the libopencv filter to apply.
+
+I<filter_params> specifies the parameters to pass to the libopencv
+filter. If not specified the default values are assumed.
+
+Refer to the official libopencv documentation for more precise
+information:
+E<lt>B<http://opencv.willowgarage.com/documentation/c/image_filtering.html>E<gt>
+
+Follows the list of supported libopencv filters.
+
+
+
+=head3 dilate
+
+
+Dilate an image by using a specific structuring element.
+This filter corresponds to the libopencv function C<cvDilate>.
+
+It accepts the parameters: I<struct_el>:I<nb_iterations>.
+
+I<struct_el> represents a structuring element, and has the syntax:
+I<cols>xI<rows>+I<anchor_x>xI<anchor_y>/I<shape>
+
+I<cols> and I<rows> represent the number of columns and rows of
+the structuring element, I<anchor_x> and I<anchor_y> the anchor
+point, and I<shape> the shape for the structuring element, and
+can be one of the values "rect", "cross", "ellipse", "custom".
+
+If the value for I<shape> is "custom", it must be followed by a
+string of the form "=I<filename>". The file with name
+I<filename> is assumed to represent a binary image, with each
+printable character corresponding to a bright pixel. When a custom
+I<shape> is used, I<cols> and I<rows> are ignored, the number
+or columns and rows of the read file are assumed instead.
+
+The default value for I<struct_el> is "3x3+0x0/rect".
+
+I<nb_iterations> specifies the number of times the transform is
+applied to the image, and defaults to 1.
+
+Follow some example:
+	
+	# use the default values
+	ocv=dilate
+	
+	# dilate using a structuring element with a 5x5 cross, iterate two times
+	ocv=dilate=5x5+2x2/cross:2
+	
+	# read the shape from the file diamond.shape, iterate two times
+	# the file diamond.shape may contain a pattern of characters like this:
+	#   *
+	#  ***
+	# *****
+	#  ***
+	#   *
+	# the specified cols and rows are ignored (but not the anchor point coordinates)
+	ocv=0x0+2x2/custom=diamond.shape:2
+
+
+
+=head3 erode
+
+
+Erode an image by using a specific structuring element.
+This filter corresponds to the libopencv function C<cvErode>.
+
+The filter accepts the parameters: I<struct_el>:I<nb_iterations>,
+with the same syntax and semantics as the dilate filter.
+
+
+=head3 smooth
+
+
+Smooth the input video.
+
+The filter takes the following parameters:
+I<type>:I<param1>:I<param2>:I<param3>:I<param4>.
+
+I<type> is the type of smooth filter to apply, and can be one of
+the following values: "blur", "blur_no_scale", "median", "gaussian",
+"bilateral". The default value is "gaussian".
+
+I<param1>, I<param2>, I<param3>, and I<param4> are
+parameters whose meanings depend on smooth type. I<param1> and
+I<param2> accept integer positive values or 0, I<param3> and
+I<param4> accept float values.
+
+The default value for I<param1> is 3, the default value for the
+other parameters is 0.
+
+These parameters correspond to the parameters assigned to the
+libopencv function C<cvSmooth>.
+
+
+
+=head2 overlay
+
+
+Overlay one video on top of another.
+
+It takes two inputs and one output, the first input is the "main"
+video on which the second input is overlayed.
+
+This filter accepts a list of I<key>=I<value> pairs as argument,
+separated by ":". If the key of the first options is omitted, the
+arguments are interpreted according to the syntax I<x>:I<y>.
+
+A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<x, y>
+
+Set the expression for the x and y coordinates of the overlayed video
+on the main video. Default value is 0.
+
+The I<x> and I<y> expressions can contain the following
+parameters:
+
+=over 4
+
+
+=item B<main_w, main_h>
+
+main input width and height
+
+
+=item B<W, H>
+
+same as I<main_w> and I<main_h>
+
+
+=item B<overlay_w, overlay_h>
+
+overlay input width and height
+
+
+=item B<w, h>
+
+same as I<overlay_w> and I<overlay_h>
+
+=back
+
+
+
+=item B<format>
+
+Set the format for the output video.
+
+It accepts the following values:
+
+=over 4
+
+
+=item B<yuv420>
+
+force YUV420 output
+
+
+=item B<yuv444>
+
+force YUV444 output
+
+
+=item B<rgb>
+
+force RGB output
+
+=back
+
+
+Default value is B<yuv420>.
+
+
+=item B<rgb> I<(deprecated)>
+
+If set to 1, force the filter to accept inputs in the RGB
+color space. Default value is 0. This option is deprecated, use
+B<format> instead.
+
+
+=item B<shortest>
+
+If set to 1, force the output to terminate when the shortest input
+terminates. Default value is 0.
+
+=back
+
+
+Be aware that frames are taken from each input video in timestamp
+order, hence, if their initial timestamps differ, it is a a good idea
+to pass the two inputs through a I<setpts=PTS-STARTPTS> filter to
+have them begin in the same zero timestamp, as it does the example for
+the I<movie> filter.
+
+You can chain together more overlays but you should test the
+efficiency of such approach.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Draw the overlay at 10 pixels from the bottom right corner of the main
+video:
+	
+	overlay=main_w-overlay_w-10:main_h-overlay_h-10
+
+
+Using named options the example above becomes:
+	
+	overlay=x=main_w-overlay_w-10:y=main_h-overlay_h-10
+
+
+
+=item *
+
+Insert a transparent PNG logo in the bottom left corner of the input,
+using the B<ffmpeg> tool with the C<-filter_complex> option:
+	
+	ffmpeg -i input -i logo -filter_complex 'overlay=10:main_h-overlay_h-10' output
+
+
+
+=item *
+
+Insert 2 different transparent PNG logos (second logo on bottom
+right corner) using the B<ffmpeg> tool:
+	
+	ffmpeg -i input -i logo1 -i logo2 -filter_complex 'overlay=10:H-h-10,overlay=W-w-10:H-h-10' output
+
+
+
+=item *
+
+Add a transparent color layer on top of the main video, WxH specifies
+the size of the main input to the overlay filter:
+	
+	color=red@.3:WxH [over]; [in][over] overlay [out]
+
+
+
+=item *
+
+Play an original video and a filtered version (here with the deshake
+filter) side by side using the B<ffplay> tool:
+	
+	ffplay input.avi -vf 'split[a][b]; [a]pad=iw*2:ih[src]; [b]deshake[filt]; [src][filt]overlay=w'
+
+
+The above command is the same as:
+	
+	ffplay input.avi -vf 'split[b], pad=iw*2[src], [b]deshake, [src]overlay=w'
+
+
+
+=item *
+
+Compose output by putting two input videos side to side:
+	
+	ffmpeg -i left.avi -i right.avi -filter_complex "
+	nullsrc=size=200x100 [background];
+	[0:v] setpts=PTS-STARTPTS, scale=100x100 [left];
+	[1:v] setpts=PTS-STARTPTS, scale=100x100 [right];
+	[background][left]       overlay=shortest=1       [background+left];
+	[background+left][right] overlay=shortest=1:x=100 [left+right]
+	"
+
+
+
+=item *
+
+Chain several overlays in cascade:
+	
+	nullsrc=s=200x200 [bg];
+	testsrc=s=100x100, split=4 [in0][in1][in2][in3];
+	[in0] lutrgb=r=0, [bg]   overlay=0:0     [mid0];
+	[in1] lutrgb=g=0, [mid0] overlay=100:0   [mid1];
+	[in2] lutrgb=b=0, [mid1] overlay=0:100   [mid2];
+	[in3] null,       [mid2] overlay=100:100 [out0]
+
+
+
+=back
+
+
+
+=head2 pad
+
+
+Add paddings to the input image, and place the original input at the
+given coordinates I<x>, I<y>.
+
+The filter accepts parameters as a list of I<key>=I<value> pairs,
+separated by ":".
+
+If the key of the first options is omitted, the arguments are
+interpreted according to the syntax
+I<width>:I<height>:I<x>:I<y>:I<color>.
+
+A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<width, w>
+
+
+=item B<height, h>
+
+Specify an expression for the size of the output image with the
+paddings added. If the value for I<width> or I<height> is 0, the
+corresponding input size is used for the output.
+
+The I<width> expression can reference the value set by the
+I<height> expression, and vice versa.
+
+The default value of I<width> and I<height> is 0.
+
+
+=item B<x>
+
+
+=item B<y>
+
+Specify an expression for the offsets where to place the input image
+in the padded area with respect to the top/left border of the output
+image.
+
+The I<x> expression can reference the value set by the I<y>
+expression, and vice versa.
+
+The default value of I<x> and I<y> is 0.
+
+
+=item B<color>
+
+Specify the color of the padded area, it can be the name of a color
+(case insensitive match) or a 0xRRGGBB[AA] sequence.
+
+The default value of I<color> is "black".
+
+=back
+
+
+The value for the I<width>, I<height>, I<x>, and I<y>
+options are expressions containing the following constants:
+
+
+=over 4
+
+
+=item B<in_w, in_h>
+
+the input video width and height
+
+
+=item B<iw, ih>
+
+same as I<in_w> and I<in_h>
+
+
+=item B<out_w, out_h>
+
+the output width and height, that is the size of the padded area as
+specified by the I<width> and I<height> expressions
+
+
+=item B<ow, oh>
+
+same as I<out_w> and I<out_h>
+
+
+=item B<x, y>
+
+x and y offsets as specified by the I<x> and I<y>
+expressions, or NAN if not yet specified
+
+
+=item B<a>
+
+same as I<iw> / I<ih>
+
+
+=item B<sar>
+
+input sample aspect ratio
+
+
+=item B<dar>
+
+input display aspect ratio, it is the same as (I<iw> / I<ih>) * I<sar>
+
+
+=item B<hsub, vsub>
+
+horizontal and vertical chroma subsample values. For example for the
+pixel format "yuv422p" I<hsub> is 2 and I<vsub> is 1.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Add paddings with color "violet" to the input video. Output video
+size is 640x480, the top-left corner of the input video is placed at
+column 0, row 40:
+	
+	pad=640:480:0:40:violet
+
+
+The example above is equivalent to the following command:
+	
+	pad=width=640:height=480:x=0:y=40:color=violet
+
+
+
+=item *
+
+Pad the input to get an output with dimensions increased by 3/2,
+and put the input video at the center of the padded area:
+	
+	pad="3/2*iw:3/2*ih:(ow-iw)/2:(oh-ih)/2"
+
+
+
+=item *
+
+Pad the input to get a squared output with size equal to the maximum
+value between the input width and height, and put the input video at
+the center of the padded area:
+	
+	pad="max(iw\,ih):ow:(ow-iw)/2:(oh-ih)/2"
+
+
+
+=item *
+
+Pad the input to get a final w/h ratio of 16:9:
+	
+	pad="ih*16/9:ih:(ow-iw)/2:(oh-ih)/2"
+
+
+
+=item *
+
+In case of anamorphic video, in order to set the output display aspect
+correctly, it is necessary to use I<sar> in the expression,
+according to the relation:
+	
+	(ih * X / ih) * sar = output_dar
+	X = output_dar / sar
+
+
+Thus the previous example needs to be modified to:
+	
+	pad="ih*16/9/sar:ih:(ow-iw)/2:(oh-ih)/2"
+
+
+
+=item *
+
+Double output size and put the input video in the bottom-right
+corner of the output padded area:
+	
+	pad="2*iw:2*ih:ow-iw:oh-ih"
+
+
+=back
+
+
+
+=head2 pixdesctest
+
+
+Pixel format descriptor test filter, mainly useful for internal
+testing. The output video should be equal to the input video.
+
+For example:
+	
+	format=monow, pixdesctest
+
+
+can be used to test the monowhite pixel format descriptor definition.
+
+
+=head2 pp
+
+
+Enable the specified chain of postprocessing subfilters using libpostproc. This
+library should be automatically selected with a GPL build (C<--enable-gpl>).
+Subfilters must be separated by '/' and can be disabled by prepending a '-'.
+Each subfilter and some options have a short and a long name that can be used
+interchangeably, i.e. dr/dering are the same.
+
+All subfilters share common options to determine their scope:
+
+
+=over 4
+
+
+=item B<a/autoq>
+
+Honor the quality commands for this subfilter.
+
+
+=item B<c/chrom>
+
+Do chrominance filtering, too (default).
+
+
+=item B<y/nochrom>
+
+Do luminance filtering only (no chrominance).
+
+
+=item B<n/noluma>
+
+Do chrominance filtering only (no luminance).
+
+=back
+
+
+These options can be appended after the subfilter name, separated by a ':'.
+
+Available subfilters are:
+
+
+=over 4
+
+
+=item B<hb/hdeblock[:difference[:flatness]]>
+
+Horizontal deblocking filter
+
+=over 4
+
+
+=item B<difference>
+
+Difference factor where higher values mean more deblocking (default: C<32>).
+
+=item B<flatness>
+
+Flatness threshold where lower values mean more deblocking (default: C<39>).
+
+=back
+
+
+
+=item B<vb/vdeblock[:difference[:flatness]]>
+
+Vertical deblocking filter
+
+=over 4
+
+
+=item B<difference>
+
+Difference factor where higher values mean more deblocking (default: C<32>).
+
+=item B<flatness>
+
+Flatness threshold where lower values mean more deblocking (default: C<39>).
+
+=back
+
+
+
+=item B<ha/hadeblock[:difference[:flatness]]>
+
+Accurate horizontal deblocking filter
+
+=over 4
+
+
+=item B<difference>
+
+Difference factor where higher values mean more deblocking (default: C<32>).
+
+=item B<flatness>
+
+Flatness threshold where lower values mean more deblocking (default: C<39>).
+
+=back
+
+
+
+=item B<va/vadeblock[:difference[:flatness]]>
+
+Accurate vertical deblocking filter
+
+=over 4
+
+
+=item B<difference>
+
+Difference factor where higher values mean more deblocking (default: C<32>).
+
+=item B<flatness>
+
+Flatness threshold where lower values mean more deblocking (default: C<39>).
+
+=back
+
+
+=back
+
+
+The horizontal and vertical deblocking filters share the difference and
+flatness values so you cannot set different horizontal and vertical
+thresholds.
+
+
+=over 4
+
+
+=item B<h1/x1hdeblock>
+
+Experimental horizontal deblocking filter
+
+
+=item B<v1/x1vdeblock>
+
+Experimental vertical deblocking filter
+
+
+=item B<dr/dering>
+
+Deringing filter
+
+
+=item B<tn/tmpnoise[:threshold1[:threshold2[:threshold3]]], temporal noise reducer>
+
+
+=over 4
+
+
+=item B<threshold1>
+
+larger -E<gt> stronger filtering
+
+=item B<threshold2>
+
+larger -E<gt> stronger filtering
+
+=item B<threshold3>
+
+larger -E<gt> stronger filtering
+
+=back
+
+
+
+=item B<al/autolevels[:f/fullyrange], automatic brightness / contrast correction>
+
+
+=over 4
+
+
+=item B<f/fullyrange>
+
+Stretch luminance to C<0-255>.
+
+=back
+
+
+
+=item B<lb/linblenddeint>
+
+Linear blend deinterlacing filter that deinterlaces the given block by
+filtering all lines with a C<(1 2 1)> filter.
+
+
+=item B<li/linipoldeint>
+
+Linear interpolating deinterlacing filter that deinterlaces the given block by
+linearly interpolating every second line.
+
+
+=item B<ci/cubicipoldeint>
+
+Cubic interpolating deinterlacing filter deinterlaces the given block by
+cubically interpolating every second line.
+
+
+=item B<md/mediandeint>
+
+Median deinterlacing filter that deinterlaces the given block by applying a
+median filter to every second line.
+
+
+=item B<fd/ffmpegdeint>
+
+FFmpeg deinterlacing filter that deinterlaces the given block by filtering every
+second line with a C<(-1 4 2 4 -1)> filter.
+
+
+=item B<l5/lowpass5>
+
+Vertically applied FIR lowpass deinterlacing filter that deinterlaces the given
+block by filtering all lines with a C<(-1 2 6 2 -1)> filter.
+
+
+=item B<fq/forceQuant[:quantizer]>
+
+Overrides the quantizer table from the input with the constant quantizer you
+specify.
+
+=over 4
+
+
+=item B<quantizer>
+
+Quantizer to use
+
+=back
+
+
+
+=item B<de/default>
+
+Default pp filter combination (C<hb:a,vb:a,dr:a>)
+
+
+=item B<fa/fast>
+
+Fast pp filter combination (C<h1:a,v1:a,dr:a>)
+
+
+=item B<ac>
+
+High quality pp filter combination (C<ha:a:128:7,va:a,dr:a>)
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Apply horizontal and vertical deblocking, deringing and automatic
+brightness/contrast:
+	
+	pp=hb/vb/dr/al
+
+
+
+=item *
+
+Apply default filters without brightness/contrast correction:
+	
+	pp=de/-al
+
+
+
+=item *
+
+Apply default filters and temporal denoiser:
+	
+	pp=default/tmpnoise:1:2:3
+
+
+
+=item *
+
+Apply deblocking on luminance only, and switch vertical deblocking on or off
+automatically depending on available CPU time:
+	
+	pp=hb:y/vb:a
+
+
+=back
+
+
+
+=head2 removelogo
+
+
+Suppress a TV station logo, using an image file to determine which
+pixels comprise the logo. It works by filling in the pixels that
+comprise the logo with neighboring pixels.
+
+This filter requires one argument which specifies the filter bitmap
+file, which can be any image format supported by libavformat. The
+width and height of the image file must match those of the video
+stream being processed.
+
+Pixels in the provided bitmap image with a value of zero are not
+considered part of the logo, non-zero pixels are considered part of
+the logo. If you use white (255) for the logo and black (0) for the
+rest, you will be safe. For making the filter bitmap, it is
+recommended to take a screen capture of a black frame with the logo
+visible, and then using a threshold filter followed by the erode
+filter once or twice.
+
+If needed, little splotches can be fixed manually. Remember that if
+logo pixels are not covered, the filter quality will be much
+reduced. Marking too many pixels as part of the logo does not hurt as
+much, but it will increase the amount of blurring needed to cover over
+the image and will destroy more information than necessary, and extra
+pixels will slow things down on a large logo.
+
+
+=head2 scale
+
+
+Scale (resize) the input video, using the libswscale library.
+
+The scale filter forces the output display aspect ratio to be the same
+of the input, by changing the output sample aspect ratio.
+
+This filter accepts a list of named options in the form of
+I<key>=I<value> pairs separated by ":". If the key for the first
+two options is not specified, the assumed keys for the first two
+values are C<w> and C<h>. If the first option has no key and
+can be interpreted like a video size specification, it will be used
+to set the video size.
+
+A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<width, w>
+
+Set the video width expression, default value is C<iw>. See below
+for the list of accepted constants.
+
+
+=item B<height, h>
+
+Set the video heiht expression, default value is C<ih>.
+See below for the list of accepted constants.
+
+
+=item B<interl>
+
+Set the interlacing. It accepts the following values:
+
+
+=over 4
+
+
+=item B<1>
+
+force interlaced aware scaling
+
+
+=item B<0>
+
+do not apply interlaced scaling
+
+
+=item B<-1>
+
+select interlaced aware scaling depending on whether the source frames
+are flagged as interlaced or not
+
+=back
+
+
+Default value is C<0>.
+
+
+=item B<flags>
+
+Set libswscale scaling flags. If not explictly specified the filter
+applies a bilinear scaling algorithm.
+
+
+=item B<size, s>
+
+Set the video size, the value must be a valid abbreviation or in the
+form I<width>xI<height>.
+
+=back
+
+
+The values of the I<w> and I<h> options are expressions
+containing the following constants:
+
+
+=over 4
+
+
+=item B<in_w, in_h>
+
+the input width and height
+
+
+=item B<iw, ih>
+
+same as I<in_w> and I<in_h>
+
+
+=item B<out_w, out_h>
+
+the output (cropped) width and height
+
+
+=item B<ow, oh>
+
+same as I<out_w> and I<out_h>
+
+
+=item B<a>
+
+same as I<iw> / I<ih>
+
+
+=item B<sar>
+
+input sample aspect ratio
+
+
+=item B<dar>
+
+input display aspect ratio, it is the same as (I<iw> / I<ih>) * I<sar>
+
+
+=item B<hsub, vsub>
+
+horizontal and vertical chroma subsample values. For example for the
+pixel format "yuv422p" I<hsub> is 2 and I<vsub> is 1.
+
+=back
+
+
+If the input image format is different from the format requested by
+the next filter, the scale filter will convert the input to the
+requested format.
+
+If the value for I<width> or I<height> is 0, the respective input
+size is used for the output.
+
+If the value for I<width> or I<height> is -1, the scale filter will
+use, for the respective output size, a value that maintains the aspect
+ratio of the input image.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Scale the input video to a size of 200x100:
+	
+	scale=200:100
+
+
+This is equivalent to:
+	
+	scale=w=200:h=100
+
+
+or:
+	
+	scale=200x100
+
+
+
+=item *
+
+Specify a size abbreviation for the output size:
+	
+	scale=qcif
+
+
+which can also be written as:
+	
+	scale=size=qcif
+
+
+
+=item *
+
+Scale the input to 2x:
+	
+	scale=2*iw:2*ih
+
+
+
+=item *
+
+The above is the same as:
+	
+	scale=2*in_w:2*in_h
+
+
+
+=item *
+
+Scale the input to 2x with forced interlaced scaling:
+	
+	scale=2*iw:2*ih:interl=1
+
+
+
+=item *
+
+Scale the input to half size:
+	
+	scale=iw/2:ih/2
+
+
+
+=item *
+
+Increase the width, and set the height to the same size:
+	
+	scale=3/2*iw:ow
+
+
+
+=item *
+
+Seek for Greek harmony:
+	
+	scale=iw:1/PHI*iw
+	scale=ih*PHI:ih
+
+
+
+=item *
+
+Increase the height, and set the width to 3/2 of the height:
+	
+	scale=3/2*oh:3/5*ih
+
+
+
+=item *
+
+Increase the size, but make the size a multiple of the chroma:
+	
+	scale="trunc(3/2*iw/hsub)*hsub:trunc(3/2*ih/vsub)*vsub"
+
+
+
+=item *
+
+Increase the width to a maximum of 500 pixels, keep the same input
+aspect ratio:
+	
+	scale='min(500\, iw*3/2):-1'
+
+
+=back
+
+
+
+=head2 setdar, setsar
+
+
+The C<setdar> filter sets the Display Aspect Ratio for the filter
+output video.
+
+This is done by changing the specified Sample (aka Pixel) Aspect
+Ratio, according to the following equation:
+	
+	<DAR> = <HORIZONTAL_RESOLUTION> / <VERTICAL_RESOLUTION> * <SAR>
+
+
+Keep in mind that the C<setdar> filter does not modify the pixel
+dimensions of the video frame. Also the display aspect ratio set by
+this filter may be changed by later filters in the filterchain,
+e.g. in case of scaling or if another "setdar" or a "setsar" filter is
+applied.
+
+The C<setsar> filter sets the Sample (aka Pixel) Aspect Ratio for
+the filter output video.
+
+Note that as a consequence of the application of this filter, the
+output display aspect ratio will change according to the equation
+above.
+
+Keep in mind that the sample aspect ratio set by the C<setsar>
+filter may be changed by later filters in the filterchain, e.g. if
+another "setsar" or a "setdar" filter is applied.
+
+The C<setdar> and C<setsar> filters accept a string in the
+form I<num>:I<den> expressing an aspect ratio, or the following
+named options, expressed as a sequence of I<key>=I<value> pairs,
+separated by ":".
+
+
+=over 4
+
+
+=item B<max>
+
+Set the maximum integer value to use for expressing numerator and
+denominator when reducing the expressed aspect ratio to a rational.
+Default value is C<100>.
+
+
+=item B<r, ratio:>
+
+Set the aspect ratio used by the filter.
+
+The parameter can be a floating point number string, an expression, or
+a string of the form I<num>:I<den>, where I<num> and
+I<den> are the numerator and denominator of the aspect ratio. If
+the parameter is not specified, it is assumed the value "0".
+In case the form "I<num>:I<den>" the C<:> character should
+be escaped.
+
+=back
+
+
+If the keys are omitted in the named options list, the specifed values
+are assumed to be I<ratio> and I<max> in that order.
+
+For example to change the display aspect ratio to 16:9, specify:
+	
+	setdar='16:9'
+
+
+The example above is equivalent to:
+	
+	setdar=1.77777
+
+
+To change the sample aspect ratio to 10:11, specify:
+	
+	setsar='10:11'
+
+
+To set a display aspect ratio of 16:9, and specify a maximum integer value of
+1000 in the aspect ratio reduction, use the command:
+	
+	setdar=ratio='16:9':max=1000
+
+
+
+=head2 setfield
+
+
+Force field for the output video frame.
+
+The C<setfield> filter marks the interlace type field for the
+output frames. It does not change the input frame, but only sets the
+corresponding property, which affects how the frame is treated by
+following filters (e.g. C<fieldorder> or C<yadif>).
+
+This filter accepts a single option B<mode>, which can be
+specified either by setting C<mode=VALUE> or setting the value
+alone. Available values are:
+
+
+=over 4
+
+
+=item B<auto>
+
+Keep the same field property.
+
+
+=item B<bff>
+
+Mark the frame as bottom-field-first.
+
+
+=item B<tff>
+
+Mark the frame as top-field-first.
+
+
+=item B<prog>
+
+Mark the frame as progressive.
+
+=back
+
+
+
+=head2 showinfo
+
+
+Show a line containing various information for each input video frame.
+The input video is not modified.
+
+The shown line contains a sequence of key/value pairs of the form
+I<key>:I<value>.
+
+A description of each shown parameter follows:
+
+
+=over 4
+
+
+=item B<n>
+
+sequential number of the input frame, starting from 0
+
+
+=item B<pts>
+
+Presentation TimeStamp of the input frame, expressed as a number of
+time base units. The time base unit depends on the filter input pad.
+
+
+=item B<pts_time>
+
+Presentation TimeStamp of the input frame, expressed as a number of
+seconds
+
+
+=item B<pos>
+
+position of the frame in the input stream, -1 if this information in
+unavailable and/or meaningless (for example in case of synthetic video)
+
+
+=item B<fmt>
+
+pixel format name
+
+
+=item B<sar>
+
+sample aspect ratio of the input frame, expressed in the form
+I<num>/I<den>
+
+
+=item B<s>
+
+size of the input frame, expressed in the form
+I<width>xI<height>
+
+
+=item B<i>
+
+interlaced mode ("P" for "progressive", "T" for top field first, "B"
+for bottom field first)
+
+
+=item B<iskey>
+
+1 if the frame is a key frame, 0 otherwise
+
+
+=item B<type>
+
+picture type of the input frame ("I" for an I-frame, "P" for a
+P-frame, "B" for a B-frame, "?" for unknown type).
+Check also the documentation of the C<AVPictureType> enum and of
+the C<av_get_picture_type_char> function defined in
+F<libavutil/avutil.h>.
+
+
+=item B<checksum>
+
+Adler-32 checksum (printed in hexadecimal) of all the planes of the input frame
+
+
+=item B<plane_checksum>
+
+Adler-32 checksum (printed in hexadecimal) of each plane of the input frame,
+expressed in the form "[I<c0> I<c1> I<c2> I<c3>]"
+
+=back
+
+
+
+=head2 smartblur
+
+
+Blur the input video without impacting the outlines.
+
+The filter accepts the following parameters:
+I<luma_radius>:I<luma_strength>:I<luma_threshold>[:I<chroma_radius>:I<chroma_strength>:I<chroma_threshold>]
+
+Parameters prefixed by I<luma> indicate that they work on the
+luminance of the pixels whereas parameters prefixed by I<chroma>
+refer to the chrominance of the pixels.
+
+If the chroma parameters are not set, the luma parameters are used for
+either the luminance and the chrominance of the pixels.
+
+I<luma_radius> or I<chroma_radius> must be a float number in the
+range [0.1,5.0] that specifies the variance of the gaussian filter
+used to blur the image (slower if larger).
+
+I<luma_strength> or I<chroma_strength> must be a float number in
+the range [-1.0,1.0] that configures the blurring. A value included in
+[0.0,1.0] will blur the image whereas a value included in [-1.0,0.0]
+will sharpen the image.
+
+I<luma_threshold> or I<chroma_threshold> must be an integer in
+the range [-30,30] that is used as a coefficient to determine whether
+a pixel should be blurred or not. A value of 0 will filter all the
+image, a value included in [0,30] will filter flat areas and a value
+included in [-30,0] will filter edges.
+
+
+=head2 stereo3d
+
+
+Convert between different stereoscopic image formats.
+
+This filter accepts the following named options, expressed as a
+sequence of I<key>=I<value> pairs, separated by ":".
+
+
+=over 4
+
+
+=item B<in>
+
+Set stereoscopic image format of input.
+
+Available values for input image formats are:
+
+=over 4
+
+
+=item B<sbsl>
+
+side by side parallel (left eye left, right eye right)
+
+
+=item B<sbsr>
+
+side by side crosseye (right eye left, left eye right)
+
+
+=item B<sbs2l>
+
+side by side parallel with half width resolution
+(left eye left, right eye right)
+
+
+=item B<sbs2r>
+
+side by side crosseye with half width resolution
+(right eye left, left eye right)
+
+
+=item B<abl>
+
+above-below (left eye above, right eye below)
+
+
+=item B<abr>
+
+above-below (right eye above, left eye below)
+
+
+=item B<ab2l>
+
+above-below with half height resolution
+(left eye above, right eye below)
+
+
+=item B<ab2r>
+
+above-below with half height resolution
+(right eye above, left eye below)
+
+Default value is B<sbsl>.
+
+=back
+
+
+
+=item B<out>
+
+Set stereoscopic image format of output.
+
+Available values for output image formats are all the input formats as well as:
+
+=over 4
+
+
+=item B<arbg>
+
+anaglyph red/blue gray
+(red filter on left eye, blue filter on right eye)
+
+
+=item B<argg>
+
+anaglyph red/green gray
+(red filter on left eye, green filter on right eye)
+
+
+=item B<arcg>
+
+anaglyph red/cyan gray
+(red filter on left eye, cyan filter on right eye)
+
+
+=item B<arch>
+
+anaglyph red/cyan half colored
+(red filter on left eye, cyan filter on right eye)
+
+
+=item B<arcc>
+
+anaglyph red/cyan color
+(red filter on left eye, cyan filter on right eye)
+
+
+=item B<arcd>
+
+anaglyph red/cyan color optimized with the least squares projection of dubois
+(red filter on left eye, cyan filter on right eye)
+
+
+=item B<agmg>
+
+anaglyph green/magenta gray
+(green filter on left eye, magenta filter on right eye)
+
+
+=item B<agmh>
+
+anaglyph green/magenta half colored
+(green filter on left eye, magenta filter on right eye)
+
+
+=item B<agmc>
+
+anaglyph green/magenta colored
+(green filter on left eye, magenta filter on right eye)
+
+
+=item B<agmd>
+
+anaglyph green/magenta color optimized with the least squares projection of dubois
+(green filter on left eye, magenta filter on right eye)
+
+
+=item B<aybg>
+
+anaglyph yellow/blue gray
+(yellow filter on left eye, blue filter on right eye)
+
+
+=item B<aybh>
+
+anaglyph yellow/blue half colored
+(yellow filter on left eye, blue filter on right eye)
+
+
+=item B<aybc>
+
+anaglyph yellow/blue colored
+(yellow filter on left eye, blue filter on right eye)
+
+
+=item B<aybd>
+
+anaglyph yellow/blue color optimized with the least squares projection of dubois
+(yellow filter on left eye, blue filter on right eye)
+
+
+=item B<irl>
+
+interleaved rows (left eye has top row, right eye starts on next row)
+
+
+=item B<irr>
+
+interleaved rows (right eye has top row, left eye starts on next row)
+
+
+=item B<ml>
+
+mono output (left eye only)
+
+
+=item B<mr>
+
+mono output (right eye only)
+
+=back
+
+
+Default value is B<arcd>.
+
+=back
+
+
+
+
+=head2 subtitles
+
+
+Draw subtitles on top of input video using the libass library.
+
+To enable compilation of this filter you need to configure FFmpeg with
+C<--enable-libass>. This filter also requires a build with libavcodec and
+libavformat to convert the passed subtitles file to ASS (Advanced Substation
+Alpha) subtitles format.
+
+This filter accepts the following named options, expressed as a
+sequence of I<key>=I<value> pairs, separated by ":".
+
+
+=over 4
+
+
+=item B<filename, f>
+
+Set the filename of the subtitle file to read. It must be specified.
+
+
+=item B<original_size>
+
+Specify the size of the original video, the video for which the ASS file
+was composed. Due to a misdesign in ASS aspect ratio arithmetic, this is
+necessary to correctly scale the fonts if the aspect ratio has been changed.
+
+
+=item B<charenc>
+
+Set subtitles input character encoding. C<subtitles> filter only. Only
+useful if not UTF-8.
+
+=back
+
+
+If the first key is not specified, it is assumed that the first value
+specifies the B<filename>.
+
+For example, to render the file F<sub.srt> on top of the input
+video, use the command:
+	
+	subtitles=sub.srt
+
+
+which is equivalent to:
+	
+	subtitles=filename=sub.srt
+
+
+
+=head2 split
+
+
+Split input video into several identical outputs.
+
+The filter accepts a single parameter which specifies the number of outputs. If
+unspecified, it defaults to 2.
+
+For example
+	
+	ffmpeg -i INPUT -filter_complex split=5 OUTPUT
+
+will create 5 copies of the input video.
+
+For example:
+	
+	[in] split [splitout1][splitout2];
+	[splitout1] crop=100:100:0:0    [cropout];
+	[splitout2] pad=200:200:100:100 [padout];
+
+
+will create two separate outputs from the same input, one cropped and
+one padded.
+
+
+=head2 super2xsai
+
+
+Scale the input by 2x and smooth using the Super2xSaI (Scale and
+Interpolate) pixel art scaling algorithm.
+
+Useful for enlarging pixel art images without reducing sharpness.
+
+
+=head2 swapuv
+
+Swap U & V plane.
+
+
+=head2 thumbnail
+
+Select the most representative frame in a given sequence of consecutive frames.
+
+It accepts as argument the frames batch size to analyze (default I<N>=100);
+in a set of I<N> frames, the filter will pick one of them, and then handle
+the next batch of I<N> frames until the end.
+
+Since the filter keeps track of the whole frames sequence, a bigger I<N>
+value will result in a higher memory usage, so a high value is not recommended.
+
+The following example extract one picture each 50 frames:
+	
+	thumbnail=50
+
+
+Complete example of a thumbnail creation with B<ffmpeg>:
+	
+	ffmpeg -i in.avi -vf thumbnail,scale=300:200 -frames:v 1 out.png
+
+
+
+=head2 tile
+
+
+Tile several successive frames together.
+
+It accepts a list of options in the form of I<key>=I<value> pairs
+separated by ":". A description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<layout>
+
+Set the grid size (i.e. the number of lines and columns) in the form
+"I<w>xI<h>".
+
+
+=item B<margin>
+
+Set the outer border margin in pixels.
+
+
+=item B<padding>
+
+Set the inner border thickness (i.e. the number of pixels between frames). For
+more advanced padding options (such as having different values for the edges),
+refer to the pad video filter.
+
+
+=item B<nb_frames>
+
+Set the maximum number of frames to render in the given area. It must be less
+than or equal to I<w>xI<h>. The default value is C<0>, meaning all
+the area will be used.
+
+
+=back
+
+
+Alternatively, the options can be specified as a flat string:
+
+I<layout>[:I<nb_frames>[:I<margin>[:I<padding>]]]
+
+For example, produce 8x8 PNG tiles of all keyframes (B<-skip_frame
+nokey>) in a movie:
+	
+	ffmpeg -skip_frame nokey -i file.avi -vf 'scale=128:72,tile=8x8' -an -vsync 0 keyframes%03d.png
+
+The B<-vsync 0> is necessary to prevent B<ffmpeg> from
+duplicating each output frame to accomodate the originally detected frame
+rate.
+
+Another example to display C<5> pictures in an area of C<3x2> frames,
+with C<7> pixels between them, and C<2> pixels of initial margin, using
+mixed flat and named options:
+	
+	tile=3x2:nb_frames=5:padding=7:margin=2
+
+
+
+=head2 tinterlace
+
+
+Perform various types of temporal field interlacing.
+
+Frames are counted starting from 1, so the first input frame is
+considered odd.
+
+This filter accepts options in the form of I<key>=I<value> pairs
+separated by ":".
+Alternatively, the I<mode> option can be specified as a value alone,
+optionally followed by a ":" and further ":" separated I<key>=I<value>
+pairs.
+
+A description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<mode>
+
+Specify the mode of the interlacing. This option can also be specified
+as a value alone. See below for a list of values for this option.
+
+Available values are:
+
+
+=over 4
+
+
+=item B<merge, 0>
+
+Move odd frames into the upper field, even into the lower field,
+generating a double height frame at half framerate.
+
+
+=item B<drop_odd, 1>
+
+Only output even frames, odd frames are dropped, generating a frame with
+unchanged height at half framerate.
+
+
+=item B<drop_even, 2>
+
+Only output odd frames, even frames are dropped, generating a frame with
+unchanged height at half framerate.
+
+
+=item B<pad, 3>
+
+Expand each frame to full height, but pad alternate lines with black,
+generating a frame with double height at the same input framerate.
+
+
+=item B<interleave_top, 4>
+
+Interleave the upper field from odd frames with the lower field from
+even frames, generating a frame with unchanged height at half framerate.
+
+
+=item B<interleave_bottom, 5>
+
+Interleave the lower field from odd frames with the upper field from
+even frames, generating a frame with unchanged height at half framerate.
+
+
+=item B<interlacex2, 6>
+
+Double frame rate with unchanged height. Frames are inserted each
+containing the second temporal field from the previous input frame and
+the first temporal field from the next input frame. This mode relies on
+the top_field_first flag. Useful for interlaced video displays with no
+field synchronisation.
+
+=back
+
+
+Numeric values are deprecated but are accepted for backward
+compatibility reasons.
+
+Default mode is C<merge>.
+
+
+=item B<flags>
+
+Specify flags influencing the filter process.
+
+Available value for I<flags> is:
+
+
+=over 4
+
+
+=item B<low_pass_filter, vlfp>
+
+Enable vertical low-pass filtering in the filter.
+Vertical low-pass filtering is required when creating an interlaced
+destination from a progressive source which contains high-frequency
+vertical detail. Filtering will reduce interlace 'twitter' and Moire
+patterning.
+
+Vertical low-pass filtering can only be enabled for B<mode>
+I<interleave_top> and I<interleave_bottom>.
+
+
+=back
+
+
+=back
+
+
+
+=head2 transpose
+
+
+Transpose rows with columns in the input video and optionally flip it.
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ':'. If the key of the first options is omitted,
+the arguments are interpreted according to the syntax
+I<dir>:I<passthrough>.
+
+
+=over 4
+
+
+=item B<dir>
+
+Specify the transposition direction. Can assume the following values:
+
+
+=over 4
+
+
+=item B<0, 4>
+
+Rotate by 90 degrees counterclockwise and vertically flip (default), that is:
+	
+	L.R     L.l
+	. . ->  . .
+	l.r     R.r
+
+
+
+=item B<1, 5>
+
+Rotate by 90 degrees clockwise, that is:
+	
+	L.R     l.L
+	. . ->  . .
+	l.r     r.R
+
+
+
+=item B<2, 6>
+
+Rotate by 90 degrees counterclockwise, that is:
+	
+	L.R     R.r
+	. . ->  . .
+	l.r     L.l
+
+
+
+=item B<3, 7>
+
+Rotate by 90 degrees clockwise and vertically flip, that is:
+	
+	L.R     r.R
+	. . ->  . .
+	l.r     l.L
+
+
+=back
+
+
+For values between 4-7, the transposition is only done if the input
+video geometry is portrait and not landscape. These values are
+deprecated, the C<passthrough> option should be used instead.
+
+
+=item B<passthrough>
+
+Do not apply the transposition if the input geometry matches the one
+specified by the specified value. It accepts the following values:
+
+=over 4
+
+
+=item B<none>
+
+Always apply transposition.
+
+=item B<portrait>
+
+Preserve portrait geometry (when I<height> E<gt>= I<width>).
+
+=item B<landscape>
+
+Preserve landscape geometry (when I<width> E<gt>= I<height>).
+
+=back
+
+
+Default value is C<none>.
+
+=back
+
+
+For example to rotate by 90 degrees clockwise and preserve portrait
+layout:
+	
+	transpose=dir=1:passthrough=portrait
+
+
+The command above can also be specified as:
+	
+	transpose=1:portrait
+
+
+
+=head2 unsharp
+
+
+Sharpen or blur the input video.
+
+This filter accepts parameters as a list of I<key>=I<value> pairs,
+separated by ":".
+
+If the key of the first options is omitted, the arguments are
+interpreted according to the syntax:
+I<luma_msize_x>:I<luma_msize_y>:I<luma_amount>:I<chroma_msize_x>:I<chroma_msize_y>:I<chroma_amount>
+
+A description of the accepted options follows.
+
+
+=over 4
+
+
+=item B<luma_msize_x, lx>
+
+
+=item B<chroma_msize_x, cx>
+
+Set the luma/chroma matrix horizontal size. It must be an odd integer
+between 3 and 63, default value is 5.
+
+
+=item B<luma_msize_y, ly>
+
+
+=item B<chroma_msize_y, cy>
+
+Set the luma/chroma matrix vertical size. It must be an odd integer
+between 3 and 63, default value is 5.
+
+
+=item B<luma_amount, la>
+
+
+=item B<chroma_amount, ca>
+
+Set the luma/chroma effect strength. It can be a float number,
+reasonable values lay between -1.5 and 1.5.
+
+Negative values will blur the input video, while positive values will
+sharpen it, a value of zero will disable the effect.
+
+Default value is 1.0 for B<luma_amount>, 0.0 for
+B<chroma_amount>.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Apply strong luma sharpen effect:
+	
+	unsharp=7:7:2.5
+
+
+
+=item *
+
+Apply strong blur of both luma and chroma parameters:
+	
+	unsharp=7:7:-2:7:7:-2
+
+
+=back
+
+
+
+=head2 vflip
+
+
+Flip the input video vertically.
+
+	
+	ffmpeg -i in.avi -vf "vflip" out.avi
+
+
+
+=head2 yadif
+
+
+Deinterlace the input video ("yadif" means "yet another deinterlacing
+filter").
+
+The filter accepts parameters as a list of I<key>=I<value>
+pairs, separated by ":". If the key of the first options is omitted,
+the arguments are interpreted according to syntax
+I<mode>:I<parity>:I<deint>.
+
+The description of the accepted parameters follows.
+
+
+=over 4
+
+
+=item B<mode>
+
+Specify the interlacing mode to adopt. Accept one of the following
+values:
+
+
+=over 4
+
+
+=item B<0, send_frame>
+
+output 1 frame for each frame
+
+=item B<1, send_field>
+
+output 1 frame for each field
+
+=item B<2, send_frame_nospatial>
+
+like C<send_frame> but skip spatial interlacing check
+
+=item B<3, send_field_nospatial>
+
+like C<send_field> but skip spatial interlacing check
+
+=back
+
+
+Default value is C<send_frame>.
+
+
+=item B<parity>
+
+Specify the picture field parity assumed for the input interlaced
+video. Accept one of the following values:
+
+
+=over 4
+
+
+=item B<0, tff>
+
+assume top field first
+
+=item B<1, bff>
+
+assume bottom field first
+
+=item B<-1, auto>
+
+enable automatic detection
+
+=back
+
+
+Default value is C<auto>.
+If interlacing is unknown or decoder does not export this information,
+top field first will be assumed.
+
+
+=item B<deint>
+
+Specify which frames to deinterlace. Accept one of the following
+values:
+
+
+=over 4
+
+
+=item B<0, all>
+
+deinterlace all frames
+
+=item B<1, interlaced>
+
+only deinterlace frames marked as interlaced
+
+=back
+
+
+Default value is C<all>.
+
+=back
+
+
+
+
+=head1 VIDEO SOURCES
+
+
+Below is a description of the currently available video sources.
+
+
+=head2 buffer
+
+
+Buffer video frames, and make them available to the filter chain.
+
+This source is mainly intended for a programmatic use, in particular
+through the interface defined in F<libavfilter/vsrc_buffer.h>.
+
+It accepts a list of options in the form of I<key>=I<value> pairs
+separated by ":". A description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<video_size>
+
+Specify the size (width and height) of the buffered video frames.
+
+
+=item B<pix_fmt>
+
+A string representing the pixel format of the buffered video frames.
+It may be a number corresponding to a pixel format, or a pixel format
+name.
+
+
+=item B<time_base>
+
+Specify the timebase assumed by the timestamps of the buffered frames.
+
+
+=item B<time_base>
+
+Specify the frame rate expected for the video stream.
+
+
+=item B<pixel_aspect>
+
+Specify the sample aspect ratio assumed by the video frames.
+
+
+=item B<sws_param>
+
+Specify the optional parameters to be used for the scale filter which
+is automatically inserted when an input change is detected in the
+input size or format.
+
+=back
+
+
+For example:
+	
+	buffer=size=320x240:pix_fmt=yuv410p:time_base=1/24:pixel_aspect=1/1
+
+
+will instruct the source to accept video frames with size 320x240 and
+with format "yuv410p", assuming 1/24 as the timestamps timebase and
+square pixels (1:1 sample aspect ratio).
+Since the pixel format with name "yuv410p" corresponds to the number 6
+(check the enum AVPixelFormat definition in F<libavutil/pixfmt.h>),
+this example corresponds to:
+	
+	buffer=size=320x240:pixfmt=6:time_base=1/24:pixel_aspect=1/1
+
+
+Alternatively, the options can be specified as a flat string, but this
+syntax is deprecated:
+
+I<width>:I<height>:I<pix_fmt>:I<time_base.num>:I<time_base.den>:I<pixel_aspect.num>:I<pixel_aspect.den>[:I<sws_param>]
+
+
+=head2 cellauto
+
+
+Create a pattern generated by an elementary cellular automaton.
+
+The initial state of the cellular automaton can be defined through the
+B<filename>, and B<pattern> options. If such options are
+not specified an initial state is created randomly.
+
+At each new frame a new row in the video is filled with the result of
+the cellular automaton next generation. The behavior when the whole
+frame is filled is defined by the B<scroll> option.
+
+This source accepts a list of options in the form of
+I<key>=I<value> pairs separated by ":". A description of the
+accepted options follows.
+
+
+=over 4
+
+
+=item B<filename, f>
+
+Read the initial cellular automaton state, i.e. the starting row, from
+the specified file.
+In the file, each non-whitespace character is considered an alive
+cell, a newline will terminate the row, and further characters in the
+file will be ignored.
+
+
+=item B<pattern, p>
+
+Read the initial cellular automaton state, i.e. the starting row, from
+the specified string.
+
+Each non-whitespace character in the string is considered an alive
+cell, a newline will terminate the row, and further characters in the
+string will be ignored.
+
+
+=item B<rate, r>
+
+Set the video rate, that is the number of frames generated per second.
+Default is 25.
+
+
+=item B<random_fill_ratio, ratio>
+
+Set the random fill ratio for the initial cellular automaton row. It
+is a floating point number value ranging from 0 to 1, defaults to
+1/PHI.
+
+This option is ignored when a file or a pattern is specified.
+
+
+=item B<random_seed, seed>
+
+Set the seed for filling randomly the initial row, must be an integer
+included between 0 and UINT32_MAX. If not specified, or if explicitly
+set to -1, the filter will try to use a good random seed on a best
+effort basis.
+
+
+=item B<rule>
+
+Set the cellular automaton rule, it is a number ranging from 0 to 255.
+Default value is 110.
+
+
+=item B<size, s>
+
+Set the size of the output video.
+
+If B<filename> or B<pattern> is specified, the size is set
+by default to the width of the specified initial state row, and the
+height is set to I<width> * PHI.
+
+If B<size> is set, it must contain the width of the specified
+pattern string, and the specified pattern will be centered in the
+larger row.
+
+If a filename or a pattern string is not specified, the size value
+defaults to "320x518" (used for a randomly generated initial state).
+
+
+=item B<scroll>
+
+If set to 1, scroll the output upward when all the rows in the output
+have been already filled. If set to 0, the new generated row will be
+written over the top row just after the bottom row is filled.
+Defaults to 1.
+
+
+=item B<start_full, full>
+
+If set to 1, completely fill the output with generated rows before
+outputting the first frame.
+This is the default behavior, for disabling set the value to 0.
+
+
+=item B<stitch>
+
+If set to 1, stitch the left and right row edges together.
+This is the default behavior, for disabling set the value to 0.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Read the initial state from F<pattern>, and specify an output of
+size 200x400.
+	
+	cellauto=f=pattern:s=200x400
+
+
+
+=item *
+
+Generate a random initial row with a width of 200 cells, with a fill
+ratio of 2/3:
+	
+	cellauto=ratio=2/3:s=200x200
+
+
+
+=item *
+
+Create a pattern generated by rule 18 starting by a single alive cell
+centered on an initial row with width 100:
+	
+	cellauto=p=@s=100x400:full=0:rule=18
+
+
+
+=item *
+
+Specify a more elaborated initial pattern:
+	
+	cellauto=p='@@ @ @@':s=100x400:full=0:rule=18
+
+
+
+=back
+
+
+
+=head2 mandelbrot
+
+
+Generate a Mandelbrot set fractal, and progressively zoom towards the
+point specified with I<start_x> and I<start_y>.
+
+This source accepts a list of options in the form of
+I<key>=I<value> pairs separated by ":". A description of the
+accepted options follows.
+
+
+=over 4
+
+
+
+=item B<end_pts>
+
+Set the terminal pts value. Default value is 400.
+
+
+=item B<end_scale>
+
+Set the terminal scale value.
+Must be a floating point value. Default value is 0.3.
+
+
+=item B<inner>
+
+Set the inner coloring mode, that is the algorithm used to draw the
+Mandelbrot fractal internal region.
+
+It shall assume one of the following values:
+
+=over 4
+
+
+=item B<black>
+
+Set black mode.
+
+=item B<convergence>
+
+Show time until convergence.
+
+=item B<mincol>
+
+Set color based on point closest to the origin of the iterations.
+
+=item B<period>
+
+Set period mode.
+
+=back
+
+
+Default value is I<mincol>.
+
+
+=item B<bailout>
+
+Set the bailout value. Default value is 10.0.
+
+
+=item B<maxiter>
+
+Set the maximum of iterations performed by the rendering
+algorithm. Default value is 7189.
+
+
+=item B<outer>
+
+Set outer coloring mode.
+It shall assume one of following values:
+
+=over 4
+
+
+=item B<iteration_count>
+
+Set iteration cound mode.
+
+=item B<normalized_iteration_count>
+
+set normalized iteration count mode.
+
+=back
+
+Default value is I<normalized_iteration_count>.
+
+
+=item B<rate, r>
+
+Set frame rate, expressed as number of frames per second. Default
+value is "25".
+
+
+=item B<size, s>
+
+Set frame size. Default value is "640x480".
+
+
+=item B<start_scale>
+
+Set the initial scale value. Default value is 3.0.
+
+
+=item B<start_x>
+
+Set the initial x position. Must be a floating point value between
+-100 and 100. Default value is -0.743643887037158704752191506114774.
+
+
+=item B<start_y>
+
+Set the initial y position. Must be a floating point value between
+-100 and 100. Default value is -0.131825904205311970493132056385139.
+
+=back
+
+
+
+=head2 mptestsrc
+
+
+Generate various test patterns, as generated by the MPlayer test filter.
+
+The size of the generated video is fixed, and is 256x256.
+This source is useful in particular for testing encoding features.
+
+This source accepts an optional sequence of I<key>=I<value> pairs,
+separated by ":". The description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<rate, r>
+
+Specify the frame rate of the sourced video, as the number of frames
+generated per second. It has to be a string in the format
+I<frame_rate_num>/I<frame_rate_den>, an integer number, a float
+number or a valid video frame rate abbreviation. The default value is
+"25".
+
+
+=item B<duration, d>
+
+Set the video duration of the sourced video. The accepted syntax is:
+	
+	[-]HH:MM:SS[.m...]
+	[-]S+[.m...]
+
+See also the function C<av_parse_time()>.
+
+If not specified, or the expressed duration is negative, the video is
+supposed to be generated forever.
+
+
+=item B<test, t>
+
+
+Set the number or the name of the test to perform. Supported tests are:
+
+=over 4
+
+
+=item B<dc_luma>
+
+
+=item B<dc_chroma>
+
+
+=item B<freq_luma>
+
+
+=item B<freq_chroma>
+
+
+=item B<amp_luma>
+
+
+=item B<amp_chroma>
+
+
+=item B<cbp>
+
+
+=item B<mv>
+
+
+=item B<ring1>
+
+
+=item B<ring2>
+
+
+=item B<all>
+
+
+=back
+
+
+Default value is "all", which will cycle through the list of all tests.
+
+=back
+
+
+For example the following:
+	
+	testsrc=t=dc_luma
+
+
+will generate a "dc_luma" test pattern.
+
+
+=head2 frei0r_src
+
+
+Provide a frei0r source.
+
+To enable compilation of this filter you need to install the frei0r
+header and configure FFmpeg with C<--enable-frei0r>.
+
+The source supports the syntax:
+	
+	<size>:<rate>:<src_name>[{=|:}<param1>:<param2>:...:<paramN>]
+
+
+I<size> is the size of the video to generate, may be a string of the
+form I<width>xI<height> or a frame size abbreviation.
+I<rate> is the rate of the video to generate, may be a string of
+the form I<num>/I<den> or a frame rate abbreviation.
+I<src_name> is the name to the frei0r source to load. For more
+information regarding frei0r and how to set the parameters read the
+section frei0r in the description of the video filters.
+
+For example, to generate a frei0r partik0l source with size 200x200
+and frame rate 10 which is overlayed on the overlay filter main input:
+	
+	frei0r_src=200x200:10:partik0l=1234 [overlay]; [in][overlay] overlay
+
+
+
+=head2 life
+
+
+Generate a life pattern.
+
+This source is based on a generalization of John Conway's life game.
+
+The sourced input represents a life grid, each pixel represents a cell
+which can be in one of two possible states, alive or dead. Every cell
+interacts with its eight neighbours, which are the cells that are
+horizontally, vertically, or diagonally adjacent.
+
+At each interaction the grid evolves according to the adopted rule,
+which specifies the number of neighbor alive cells which will make a
+cell stay alive or born. The B<rule> option allows to specify
+the rule to adopt.
+
+This source accepts a list of options in the form of
+I<key>=I<value> pairs separated by ":". A description of the
+accepted options follows.
+
+
+=over 4
+
+
+=item B<filename, f>
+
+Set the file from which to read the initial grid state. In the file,
+each non-whitespace character is considered an alive cell, and newline
+is used to delimit the end of each row.
+
+If this option is not specified, the initial grid is generated
+randomly.
+
+
+=item B<rate, r>
+
+Set the video rate, that is the number of frames generated per second.
+Default is 25.
+
+
+=item B<random_fill_ratio, ratio>
+
+Set the random fill ratio for the initial random grid. It is a
+floating point number value ranging from 0 to 1, defaults to 1/PHI.
+It is ignored when a file is specified.
+
+
+=item B<random_seed, seed>
+
+Set the seed for filling the initial random grid, must be an integer
+included between 0 and UINT32_MAX. If not specified, or if explicitly
+set to -1, the filter will try to use a good random seed on a best
+effort basis.
+
+
+=item B<rule>
+
+Set the life rule.
+
+A rule can be specified with a code of the kind "SI<NS>/BI<NB>",
+where I<NS> and I<NB> are sequences of numbers in the range 0-8,
+I<NS> specifies the number of alive neighbor cells which make a
+live cell stay alive, and I<NB> the number of alive neighbor cells
+which make a dead cell to become alive (i.e. to "born").
+"s" and "b" can be used in place of "S" and "B", respectively.
+
+Alternatively a rule can be specified by an 18-bits integer. The 9
+high order bits are used to encode the next cell state if it is alive
+for each number of neighbor alive cells, the low order bits specify
+the rule for "borning" new cells. Higher order bits encode for an
+higher number of neighbor cells.
+For example the number 6153 = C<(12E<lt>E<lt>9)+9> specifies a stay alive
+rule of 12 and a born rule of 9, which corresponds to "S23/B03".
+
+Default value is "S23/B3", which is the original Conway's game of life
+rule, and will keep a cell alive if it has 2 or 3 neighbor alive
+cells, and will born a new cell if there are three alive cells around
+a dead cell.
+
+
+=item B<size, s>
+
+Set the size of the output video.
+
+If B<filename> is specified, the size is set by default to the
+same size of the input file. If B<size> is set, it must contain
+the size specified in the input file, and the initial grid defined in
+that file is centered in the larger resulting area.
+
+If a filename is not specified, the size value defaults to "320x240"
+(used for a randomly generated initial grid).
+
+
+=item B<stitch>
+
+If set to 1, stitch the left and right grid edges together, and the
+top and bottom edges also. Defaults to 1.
+
+
+=item B<mold>
+
+Set cell mold speed. If set, a dead cell will go from B<death_color> to
+B<mold_color> with a step of B<mold>. B<mold> can have a
+value from 0 to 255.
+
+
+=item B<life_color>
+
+Set the color of living (or new born) cells.
+
+
+=item B<death_color>
+
+Set the color of dead cells. If B<mold> is set, this is the first color
+used to represent a dead cell.
+
+
+=item B<mold_color>
+
+Set mold color, for definitely dead and moldy cells.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Read a grid from F<pattern>, and center it on a grid of size
+300x300 pixels:
+	
+	life=f=pattern:s=300x300
+
+
+
+=item *
+
+Generate a random grid of size 200x200, with a fill ratio of 2/3:
+	
+	life=ratio=2/3:s=200x200
+
+
+
+=item *
+
+Specify a custom rule for evolving a randomly generated grid:
+	
+	life=rule=S14/B34
+
+
+
+=item *
+
+Full example with slow death effect (mold) using B<ffplay>:
+	
+	ffplay -f lavfi life=s=300x200:mold=10:r=60:ratio=0.1:death_color=#C83232:life_color=#00ff00,scale=1200:800:flags=16
+
+
+=back
+
+
+
+=head2 color, nullsrc, rgbtestsrc, smptebars, testsrc
+
+
+The C<color> source provides an uniformly colored input.
+
+The C<nullsrc> source returns unprocessed video frames. It is
+mainly useful to be employed in analysis / debugging tools, or as the
+source for filters which ignore the input data.
+
+The C<rgbtestsrc> source generates an RGB test pattern useful for
+detecting RGB vs BGR issues. You should see a red, green and blue
+stripe from top to bottom.
+
+The C<smptebars> source generates a color bars pattern, based on
+the SMPTE Engineering Guideline EG 1-1990.
+
+The C<testsrc> source generates a test video pattern, showing a
+color pattern, a scrolling gradient and a timestamp. This is mainly
+intended for testing purposes.
+
+These sources accept an optional sequence of I<key>=I<value> pairs,
+separated by ":". The description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<color, c>
+
+Specify the color of the source, only used in the C<color>
+source. It can be the name of a color (case insensitive match) or a
+0xRRGGBB[AA] sequence, possibly followed by an alpha specifier. The
+default value is "black".
+
+
+=item B<size, s>
+
+Specify the size of the sourced video, it may be a string of the form
+I<width>xI<height>, or the name of a size abbreviation. The
+default value is "320x240".
+
+
+=item B<rate, r>
+
+Specify the frame rate of the sourced video, as the number of frames
+generated per second. It has to be a string in the format
+I<frame_rate_num>/I<frame_rate_den>, an integer number, a float
+number or a valid video frame rate abbreviation. The default value is
+"25".
+
+
+=item B<sar>
+
+Set the sample aspect ratio of the sourced video.
+
+
+=item B<duration, d>
+
+Set the video duration of the sourced video. The accepted syntax is:
+	
+	[-]HH[:MM[:SS[.m...]]]
+	[-]S+[.m...]
+
+See also the function C<av_parse_time()>.
+
+If not specified, or the expressed duration is negative, the video is
+supposed to be generated forever.
+
+
+=item B<decimals, n>
+
+Set the number of decimals to show in the timestamp, only used in the
+C<testsrc> source.
+
+The displayed timestamp value will correspond to the original
+timestamp value multiplied by the power of 10 of the specified
+value. Default value is 0.
+
+=back
+
+
+For example the following:
+	
+	testsrc=duration=5.3:size=qcif:rate=10
+
+
+will generate a video with a duration of 5.3 seconds, with size
+176x144 and a frame rate of 10 frames per second.
+
+The following graph description will generate a red source
+with an opacity of 0.2, with size "qcif" and a frame rate of 10
+frames per second.
+	
+	color=c=red@0.2:s=qcif:r=10
+
+
+If the input content is to be ignored, C<nullsrc> can be used. The
+following command generates noise in the luminance plane by employing
+the C<geq> filter:
+	
+	nullsrc=s=256x256, geq=random(1)*255:128:128
+
+
+
+
+=head1 VIDEO SINKS
+
+
+Below is a description of the currently available video sinks.
+
+
+=head2 buffersink
+
+
+Buffer video frames, and make them available to the end of the filter
+graph.
+
+This sink is mainly intended for a programmatic use, in particular
+through the interface defined in F<libavfilter/buffersink.h>.
+
+It does not require a string parameter in input, but you need to
+specify a pointer to a list of supported pixel formats terminated by
+-1 in the opaque parameter provided to C<avfilter_init_filter>
+when initializing this sink.
+
+
+=head2 nullsink
+
+
+Null video sink, do absolutely nothing with the input video. It is
+mainly useful as a template and to be employed in analysis / debugging
+tools.
+
+
+
+=head1 MULTIMEDIA FILTERS
+
+
+Below is a description of the currently available multimedia filters.
+
+
+=head2 aselect, select
+
+Select frames to pass in output.
+
+These filters accept a single option B<expr> or B<e>
+specifying the select expression, which can be specified either by
+specyfing C<expr=VALUE> or specifying the expression
+alone.
+
+The select expression is evaluated for each input frame. If the
+evaluation result is a non-zero value, the frame is selected and
+passed to the output, otherwise it is discarded.
+
+The expression can contain the following constants:
+
+
+=over 4
+
+
+=item B<n>
+
+the sequential number of the filtered frame, starting from 0
+
+
+=item B<selected_n>
+
+the sequential number of the selected frame, starting from 0
+
+
+=item B<prev_selected_n>
+
+the sequential number of the last selected frame, NAN if undefined
+
+
+=item B<TB>
+
+timebase of the input timestamps
+
+
+=item B<pts>
+
+the PTS (Presentation TimeStamp) of the filtered video frame,
+expressed in I<TB> units, NAN if undefined
+
+
+=item B<t>
+
+the PTS (Presentation TimeStamp) of the filtered video frame,
+expressed in seconds, NAN if undefined
+
+
+=item B<prev_pts>
+
+the PTS of the previously filtered video frame, NAN if undefined
+
+
+=item B<prev_selected_pts>
+
+the PTS of the last previously filtered video frame, NAN if undefined
+
+
+=item B<prev_selected_t>
+
+the PTS of the last previously selected video frame, NAN if undefined
+
+
+=item B<start_pts>
+
+the PTS of the first video frame in the video, NAN if undefined
+
+
+=item B<start_t>
+
+the time of the first video frame in the video, NAN if undefined
+
+
+=item B<pict_type> I<(video only)>
+
+the type of the filtered frame, can assume one of the following
+values:
+
+=over 4
+
+
+=item B<I>
+
+
+=item B<P>
+
+
+=item B<B>
+
+
+=item B<S>
+
+
+=item B<SI>
+
+
+=item B<SP>
+
+
+=item B<BI>
+
+
+=back
+
+
+
+=item B<interlace_type> I<(video only)>
+
+the frame interlace type, can assume one of the following values:
+
+=over 4
+
+
+=item B<PROGRESSIVE>
+
+the frame is progressive (not interlaced)
+
+=item B<TOPFIRST>
+
+the frame is top-field-first
+
+=item B<BOTTOMFIRST>
+
+the frame is bottom-field-first
+
+=back
+
+
+
+=item B<consumed_sample_n> I<(audio only)>
+
+the number of selected samples before the current frame
+
+
+=item B<samples_n> I<(audio only)>
+
+the number of samples in the current frame
+
+
+=item B<sample_rate> I<(audio only)>
+
+the input sample rate
+
+
+=item B<key>
+
+1 if the filtered frame is a key-frame, 0 otherwise
+
+
+=item B<pos>
+
+the position in the file of the filtered frame, -1 if the information
+is not available (e.g. for synthetic video)
+
+
+=item B<scene> I<(video only)>
+
+value between 0 and 1 to indicate a new scene; a low value reflects a low
+probability for the current frame to introduce a new scene, while a higher
+value means the current frame is more likely to be one (see the example below)
+
+
+=back
+
+
+The default value of the select expression is "1".
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Select all frames in input:
+	
+	select
+
+
+The example above is the same as:
+	
+	select=1
+
+
+
+=item *
+
+Skip all frames:
+	
+	select=0
+
+
+
+=item *
+
+Select only I-frames:
+	
+	select='eq(pict_type\,I)'
+
+
+
+=item *
+
+Select one frame every 100:
+	
+	select='not(mod(n\,100))'
+
+
+
+=item *
+
+Select only frames contained in the 10-20 time interval:
+	
+	select='gte(t\,10)*lte(t\,20)'
+
+
+
+=item *
+
+Select only I frames contained in the 10-20 time interval:
+	
+	select='gte(t\,10)*lte(t\,20)*eq(pict_type\,I)'
+
+
+
+=item *
+
+Select frames with a minimum distance of 10 seconds:
+	
+	select='isnan(prev_selected_t)+gte(t-prev_selected_t\,10)'
+
+
+
+=item *
+
+Use aselect to select only audio frames with samples number E<gt> 100:
+	
+	aselect='gt(samples_n\,100)'
+
+
+
+=item *
+
+Create a mosaic of the first scenes:
+	
+	ffmpeg -i video.avi -vf select='gt(scene\,0.4)',scale=160:120,tile -frames:v 1 preview.png
+
+
+Comparing I<scene> against a value between 0.3 and 0.5 is generally a sane
+choice.
+
+=back
+
+
+
+=head2 asendcmd, sendcmd
+
+
+Send commands to filters in the filtergraph.
+
+These filters read commands to be sent to other filters in the
+filtergraph.
+
+C<asendcmd> must be inserted between two audio filters,
+C<sendcmd> must be inserted between two video filters, but apart
+from that they act the same way.
+
+The specification of commands can be provided in the filter arguments
+with the I<commands> option, or in a file specified by the
+I<filename> option.
+
+These filters accept the following options:
+
+=over 4
+
+
+=item B<commands, c>
+
+Set the commands to be read and sent to the other filters.
+
+=item B<filename, f>
+
+Set the filename of the commands to be read and sent to the other
+filters.
+
+=back
+
+
+
+=head3 Commands syntax
+
+
+A commands description consists of a sequence of interval
+specifications, comprising a list of commands to be executed when a
+particular event related to that interval occurs. The occurring event
+is typically the current frame time entering or leaving a given time
+interval.
+
+An interval is specified by the following syntax:
+	
+	<START>[-<END>] <COMMANDS>;
+
+
+The time interval is specified by the I<START> and I<END> times.
+I<END> is optional and defaults to the maximum time.
+
+The current frame time is considered within the specified interval if
+it is included in the interval [I<START>, I<END>), that is when
+the time is greater or equal to I<START> and is lesser than
+I<END>.
+
+I<COMMANDS> consists of a sequence of one or more command
+specifications, separated by ",", relating to that interval.  The
+syntax of a command specification is given by:
+	
+	[<FLAGS>] <TARGET> <COMMAND> <ARG>
+
+
+I<FLAGS> is optional and specifies the type of events relating to
+the time interval which enable sending the specified command, and must
+be a non-null sequence of identifier flags separated by "+" or "|" and
+enclosed between "[" and "]".
+
+The following flags are recognized:
+
+=over 4
+
+
+=item B<enter>
+
+The command is sent when the current frame timestamp enters the
+specified interval. In other words, the command is sent when the
+previous frame timestamp was not in the given interval, and the
+current is.
+
+
+=item B<leave>
+
+The command is sent when the current frame timestamp leaves the
+specified interval. In other words, the command is sent when the
+previous frame timestamp was in the given interval, and the
+current is not.
+
+=back
+
+
+If I<FLAGS> is not specified, a default value of C<[enter]> is
+assumed.
+
+I<TARGET> specifies the target of the command, usually the name of
+the filter class or a specific filter instance name.
+
+I<COMMAND> specifies the name of the command for the target filter.
+
+I<ARG> is optional and specifies the optional list of argument for
+the given I<COMMAND>.
+
+Between one interval specification and another, whitespaces, or
+sequences of characters starting with C<#> until the end of line,
+are ignored and can be used to annotate comments.
+
+A simplified BNF description of the commands specification syntax
+follows:
+	
+	<COMMAND_FLAG>  ::= "enter" | "leave"
+	<COMMAND_FLAGS> ::= <COMMAND_FLAG> [(+|"|")<COMMAND_FLAG>]
+	<COMMAND>       ::= ["[" <COMMAND_FLAGS> "]"] <TARGET> <COMMAND> [<ARG>]
+	<COMMANDS>      ::= <COMMAND> [,<COMMANDS>]
+	<INTERVAL>      ::= <START>[-<END>] <COMMANDS>
+	<INTERVALS>     ::= <INTERVAL>[;<INTERVALS>]
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Specify audio tempo change at second 4:
+	
+	asendcmd=c='4.0 atempo tempo 1.5',atempo
+
+
+
+=item *
+
+Specify a list of drawtext and hue commands in a file.
+	
+	# show text in the interval 5-10
+	5.0-10.0 [enter] drawtext reinit 'fontfile=FreeSerif.ttf:text=hello world',
+	         [leave] drawtext reinit 'fontfile=FreeSerif.ttf:text=';
+	
+	# desaturate the image in the interval 15-20
+	15.0-20.0 [enter] hue reinit s=0,
+	          [enter] drawtext reinit 'fontfile=FreeSerif.ttf:text=nocolor',
+	          [leave] hue reinit s=1,
+	          [leave] drawtext reinit 'fontfile=FreeSerif.ttf:text=color';
+	
+	# apply an exponential saturation fade-out effect, starting from time 25
+	25 [enter] hue s=exp(t-25)
+
+
+A filtergraph allowing to read and process the above command list
+stored in a file F<test.cmd>, can be specified with:
+	
+	sendcmd=f=test.cmd,drawtext=fontfile=FreeSerif.ttf:text='',hue
+
+
+=back
+
+
+
+
+=head2 asetpts, setpts
+
+
+Change the PTS (presentation timestamp) of the input frames.
+
+C<asetpts> works on audio frames, C<setpts> on video frames.
+
+Accept in input an expression evaluated through the eval API, which
+can contain the following constants:
+
+
+=over 4
+
+
+=item B<FRAME_RATE>
+
+frame rate, only defined for constant frame-rate video
+
+
+=item B<PTS>
+
+the presentation timestamp in input
+
+
+=item B<N>
+
+the count of the input frame, starting from 0.
+
+
+=item B<NB_CONSUMED_SAMPLES>
+
+the number of consumed samples, not including the current frame (only
+audio)
+
+
+=item B<NB_SAMPLES>
+
+the number of samples in the current frame (only audio)
+
+
+=item B<SAMPLE_RATE>
+
+audio sample rate
+
+
+=item B<STARTPTS>
+
+the PTS of the first frame
+
+
+=item B<STARTT>
+
+the time in seconds of the first frame
+
+
+=item B<INTERLACED>
+
+tell if the current frame is interlaced
+
+
+=item B<T>
+
+the time in seconds of the current frame
+
+
+=item B<TB>
+
+the time base
+
+
+=item B<POS>
+
+original position in the file of the frame, or undefined if undefined
+for the current frame
+
+
+=item B<PREV_INPTS>
+
+previous input PTS
+
+
+=item B<PREV_INT>
+
+previous input time in seconds
+
+
+=item B<PREV_OUTPTS>
+
+previous output PTS
+
+
+=item B<PREV_OUTT>
+
+previous output time in seconds
+
+
+=item B<RTCTIME>
+
+wallclock (RTC) time in microseconds. This is deprecated, use time(0)
+instead.
+
+
+=item B<RTCSTART>
+
+wallclock (RTC) time at the start of the movie in microseconds
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Start counting PTS from zero
+	
+	setpts=PTS-STARTPTS
+
+
+
+=item *
+
+Apply fast motion effect:
+	
+	setpts=0.5*PTS
+
+
+
+=item *
+
+Apply slow motion effect:
+	
+	setpts=2.0*PTS
+
+
+
+=item *
+
+Set fixed rate of 25 frames per second:
+	
+	setpts=N/(25*TB)
+
+
+
+=item *
+
+Set fixed rate 25 fps with some jitter:
+	
+	setpts='1/(25*TB) * (N + 0.05 * sin(N*2*PI/25))'
+
+
+
+=item *
+
+Apply an offset of 10 seconds to the input PTS:
+	
+	setpts=PTS+10/TB
+
+
+
+=item *
+
+Generate timestamps from a "live source" and rebase onto the current timebase:
+	
+	setpts='(RTCTIME - RTCSTART) / (TB * 1000000)'
+
+
+=back
+
+
+
+=head2 ebur128
+
+
+EBU R128 scanner filter. This filter takes an audio stream as input and outputs
+it unchanged. By default, it logs a message at a frequency of 10Hz with the
+Momentary loudness (identified by C<M>), Short-term loudness (C<S>),
+Integrated loudness (C<I>) and Loudness Range (C<LRA>).
+
+The filter also has a video output (see the I<video> option) with a real
+time graph to observe the loudness evolution. The graphic contains the logged
+message mentioned above, so it is not printed anymore when this option is set,
+unless the verbose logging is set. The main graphing area contains the
+short-term loudness (3 seconds of analysis), and the gauge on the right is for
+the momentary loudness (400 milliseconds).
+
+More information about the Loudness Recommendation EBU R128 on
+E<lt>B<http://tech.ebu.ch/loudness>E<gt>.
+
+The filter accepts the following named parameters:
+
+
+=over 4
+
+
+
+=item B<video>
+
+Activate the video output. The audio stream is passed unchanged whether this
+option is set or no. The video stream will be the first output stream if
+activated. Default is C<0>.
+
+
+=item B<size>
+
+Set the video size. This option is for video only. Default and minimum
+resolution is C<640x480>.
+
+
+=item B<meter>
+
+Set the EBU scale meter. Default is C<9>. Common values are C<9> and
+C<18>, respectively for EBU scale meter +9 and EBU scale meter +18. Any
+other integer value between this range is allowed.
+
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Real-time graph using B<ffplay>, with a EBU scale meter +18:
+	
+	ffplay -f lavfi -i "amovie=input.mp3,ebur128=video=1:meter=18 [out0][out1]"
+
+
+
+=item *
+
+Run an analysis with B<ffmpeg>:
+	
+	ffmpeg -nostats -i input.mp3 -filter_complex ebur128 -f null -
+
+
+=back
+
+
+
+=head2 settb, asettb
+
+
+Set the timebase to use for the output frames timestamps.
+It is mainly useful for testing timebase configuration.
+
+It accepts in input an arithmetic expression representing a rational.
+The expression can contain the constants "AVTB" (the
+default timebase), "intb" (the input timebase) and "sr" (the sample rate,
+audio only).
+
+The default value for the input is "intb".
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Set the timebase to 1/25:
+	
+	settb=1/25
+
+
+
+=item *
+
+Set the timebase to 1/10:
+	
+	settb=0.1
+
+
+
+=item *
+
+Set the timebase to 1001/1000:
+	
+	settb=1+0.001
+
+
+
+=item *
+
+Set the timebase to 2*intb:
+	
+	settb=2*intb
+
+
+
+=item *
+
+Set the default timebase value:
+	
+	settb=AVTB
+
+
+=back
+
+
+
+=head2 concat
+
+
+Concatenate audio and video streams, joining them together one after the
+other.
+
+The filter works on segments of synchronized video and audio streams. All
+segments must have the same number of streams of each type, and that will
+also be the number of streams at output.
+
+The filter accepts the following named parameters:
+
+=over 4
+
+
+
+=item B<n>
+
+Set the number of segments. Default is 2.
+
+
+=item B<v>
+
+Set the number of output video streams, that is also the number of video
+streams in each segment. Default is 1.
+
+
+=item B<a>
+
+Set the number of output audio streams, that is also the number of video
+streams in each segment. Default is 0.
+
+
+=item B<unsafe>
+
+Activate unsafe mode: do not fail if segments have a different format.
+
+
+=back
+
+
+The filter has I<v>+I<a> outputs: first I<v> video outputs, then
+I<a> audio outputs.
+
+There are I<n>x(I<v>+I<a>) inputs: first the inputs for the first
+segment, in the same order as the outputs, then the inputs for the second
+segment, etc.
+
+Related streams do not always have exactly the same duration, for various
+reasons including codec frame size or sloppy authoring. For that reason,
+related synchronized streams (e.g. a video and its audio track) should be
+concatenated at once. The concat filter will use the duration of the longest
+stream in each segment (except the last one), and if necessary pad shorter
+audio streams with silence.
+
+For this filter to work correctly, all segments must start at timestamp 0.
+
+All corresponding streams must have the same parameters in all segments; the
+filtering system will automatically select a common pixel format for video
+streams, and a common sample format, sample rate and channel layout for
+audio streams, but other settings, such as resolution, must be converted
+explicitly by the user.
+
+Different frame rates are acceptable but will result in variable frame rate
+at output; be sure to configure the output file to handle it.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Concatenate an opening, an episode and an ending, all in bilingual version
+(video in stream 0, audio in streams 1 and 2):
+	
+	ffmpeg -i opening.mkv -i episode.mkv -i ending.mkv -filter_complex \
+	  '[0:0] [0:1] [0:2] [1:0] [1:1] [1:2] [2:0] [2:1] [2:2]
+	   concat=n=3:v=1:a=2 [v] [a1] [a2]' \
+	  -map '[v]' -map '[a1]' -map '[a2]' output.mkv
+
+
+
+=item *
+
+Concatenate two parts, handling audio and video separately, using the
+(a)movie sources, and adjusting the resolution:
+	
+	movie=part1.mp4, scale=512:288 [v1] ; amovie=part1.mp4 [a1] ;
+	movie=part2.mp4, scale=512:288 [v2] ; amovie=part2.mp4 [a2] ;
+	[v1] [v2] concat [outv] ; [a1] [a2] concat=v=0:a=1 [outa]
+
+Note that a desync will happen at the stitch if the audio and video streams
+do not have exactly the same duration in the first file.
+
+
+=back
+
+
+
+=head2 showspectrum
+
+
+Convert input audio to a video output, representing the audio frequency
+spectrum.
+
+The filter accepts the following named parameters:
+
+=over 4
+
+
+=item B<size, s>
+
+Specify the video size for the output. Default value is C<640x512>.
+
+
+=item B<slide>
+
+Specify if the spectrum should slide along the window. Default value is
+C<0>.
+
+
+=item B<mode>
+
+Specify display mode.
+
+It accepts the following values:
+
+=over 4
+
+
+=item B<combined>
+
+all channels are displayed in the same row
+
+=item B<separate>
+
+all channels are displayed in separate rows
+
+=back
+
+
+Default value is B<combined>.
+
+
+=item B<color>
+
+Specify display color mode.
+
+It accepts the following values:
+
+=over 4
+
+
+=item B<channel>
+
+each channel is displayed in a separate color
+
+=item B<intensity>
+
+each channel is is displayed using the same color scheme
+
+=back
+
+
+Default value is B<channel>.
+
+
+=item B<scale>
+
+Specify scale used for calculating intensity color values.
+
+It accepts the following values:
+
+=over 4
+
+
+=item B<lin>
+
+linear
+
+=item B<sqrt>
+
+square root, default
+
+=item B<cbrt>
+
+cubic root
+
+=item B<log>
+
+logarithmic
+
+=back
+
+
+Default value is B<sqrt>.
+
+
+=item B<saturation>
+
+Set saturation modifier for displayed colors. Negative values provide
+alternative color scheme. C<0> is no saturation at all.
+Saturation must be in [-10.0, 10.0] range.
+Default value is C<1>.
+
+=back
+
+
+The usage is very similar to the showwaves filter; see the examples in that
+section.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Large window with logarithmic color scaling:
+	
+	showspectrum=s=1280x480:scale=log
+
+
+
+=item *
+
+Complete example for a colored and sliding spectrum per channel using B<ffplay>:
+	
+	ffplay -f lavfi 'amovie=input.mp3, asplit [a][out1];
+	             [a] showspectrum=mode=separate:color=intensity:slide=1:scale=cbrt [out0]'
+
+
+=back
+
+
+
+=head2 showwaves
+
+
+Convert input audio to a video output, representing the samples waves.
+
+The filter accepts the following named parameters:
+
+=over 4
+
+
+=item B<mode>
+
+Set display mode.
+
+Available values are:
+
+=over 4
+
+
+=item B<point>
+
+Draw a point for each sample.
+
+
+=item B<line>
+
+Draw a vertical line for each sample.
+
+=back
+
+
+Default value is C<point>.
+
+
+=item B<n>
+
+Set the number of samples which are printed on the same column. A
+larger value will decrease the frame rate. Must be a positive
+integer. This option can be set only if the value for I<rate>
+is not explicitly specified.
+
+
+=item B<rate, r>
+
+Set the (approximate) output frame rate. This is done by setting the
+option I<n>. Default value is "25".
+
+
+=item B<size, s>
+
+Specify the video size for the output. Default value is "600x240".
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Output the input file audio and the corresponding video representation
+at the same time:
+	
+	amovie=a.mp3,asplit[out0],showwaves[out1]
+
+
+
+=item *
+
+Create a synthetic signal and show it with showwaves, forcing a
+framerate of 30 frames per second:
+	
+	aevalsrc=sin(1*2*PI*t)*sin(880*2*PI*t):cos(2*PI*200*t),asplit[out0],showwaves=r=30[out1]
+
+
+=back
+
+
+
+
+=head1 MULTIMEDIA SOURCES
+
+
+Below is a description of the currently available multimedia sources.
+
+
+=head2 amovie
+
+
+This is the same as movie source, except it selects an audio
+stream by default.
+
+
+
+=head2 movie
+
+
+Read audio and/or video stream(s) from a movie container.
+
+It accepts the syntax: I<movie_name>[:I<options>] where
+I<movie_name> is the name of the resource to read (not necessarily
+a file but also a device or a stream accessed through some protocol),
+and I<options> is an optional sequence of I<key>=I<value>
+pairs, separated by ":".
+
+The description of the accepted options follows.
+
+
+=over 4
+
+
+
+=item B<format_name, f>
+
+Specifies the format assumed for the movie to read, and can be either
+the name of a container or an input device. If not specified the
+format is guessed from I<movie_name> or by probing.
+
+
+=item B<seek_point, sp>
+
+Specifies the seek point in seconds, the frames will be output
+starting from this seek point, the parameter is evaluated with
+C<av_strtod> so the numerical value may be suffixed by an IS
+postfix. Default value is "0".
+
+
+=item B<streams, s>
+
+Specifies the streams to read. Several streams can be specified,
+separated by "+". The source will then have as many outputs, in the
+same order. The syntax is explained in the ``Stream specifiers''
+section in the ffmpeg manual. Two special names, "dv" and "da" specify
+respectively the default (best suited) video and audio stream. Default
+is "dv", or "da" if the filter is called as "amovie".
+
+
+=item B<stream_index, si>
+
+Specifies the index of the video stream to read. If the value is -1,
+the best suited video stream will be automatically selected. Default
+value is "-1". Deprecated. If the filter is called "amovie", it will select
+audio instead of video.
+
+
+=item B<loop>
+
+Specifies how many times to read the stream in sequence.
+If the value is less than 1, the stream will be read again and again.
+Default value is "1".
+
+Note that when the movie is looped the source timestamps are not
+changed, so it will generate non monotonically increasing timestamps.
+
+=back
+
+
+This filter allows to overlay a second video on top of main input of
+a filtergraph as shown in this graph:
+	
+	input -----------> deltapts0 --> overlay --> output
+	                                    ^
+	                                    |
+	movie --> scale--> deltapts1 -------+
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Skip 3.2 seconds from the start of the avi file in.avi, and overlay it
+on top of the input labelled as "in":
+	
+	movie=in.avi:seek_point=3.2, scale=180:-1, setpts=PTS-STARTPTS [movie];
+	[in] setpts=PTS-STARTPTS, [movie] overlay=16:16 [out]
+
+
+
+=item *
+
+Read from a video4linux2 device, and overlay it on top of the input
+labelled as "in":
+	
+	movie=/dev/video0:f=video4linux2, scale=180:-1, setpts=PTS-STARTPTS [movie];
+	[in] setpts=PTS-STARTPTS, [movie] overlay=16:16 [out]
+
+
+
+=item *
+
+Read the first video stream and the audio stream with id 0x81 from
+dvd.vob; the video is connected to the pad named "video" and the audio is
+connected to the pad named "audio":
+	
+	movie=dvd.vob:s=v:0+#0x81 [video] [audio]
+
+
+=back
+
+
+
+
+=head1 SEE ALSO
+
+
+
+ffmpeg(1), ffplay(1), ffprobe(1), ffserver(1), libavfilter(3)
+
+
+=head1 AUTHORS
+
+
+The FFmpeg developers.
+
+For details about the authorship, see the Git history of the project
+(git://source.ffmpeg.org/ffmpeg), e.g. by typing the command
+B<git log> in the FFmpeg source directory, or browsing the
+online repository at E<lt>B<http://source.ffmpeg.org>E<gt>.
+
+Maintainers for the specific components are listed in the file
+F<MAINTAINERS> in the source code tree.
+
+
+

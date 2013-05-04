@@ -1,0 +1,3598 @@
+=head1 NAME
+
+ffmpeg-codecs - FFmpeg codecs
+
+=head1 DESCRIPTION
+
+
+This document describes the codecs (decoders and encoders) provided by
+the libavcodec library.
+
+
+
+=head1 CODEC OPTIONS
+
+
+libavcodec provides some generic global options, which can be set on
+all the encoders and decoders. In addition each codec may support
+so-called private options, which are specific for a given codec.
+
+Sometimes, a global option may only affect a specific kind of codec,
+and may be unsensical or ignored by another, so you need to be aware
+of the meaning of the specified options. Also some options are
+meant only for decoding or encoding.
+
+Options may be set by specifying -I<option> I<value> in the
+FFmpeg tools, or by setting the value explicitly in the
+C<AVCodecContext> options or using the F<libavutil/opt.h> API
+for programmatic use.
+
+The list of supported options follow:
+
+
+=over 4
+
+
+=item B<b> I<integer> B<(>I<encoding,audio,video>B<)>
+
+Set bitrate in bits/s. Default value is 200K.
+
+
+=item B<ab> I<integer> B<(>I<encoding,audio>B<)>
+
+Set audio bitrate (in bits/s). Default value is 128K.
+
+
+=item B<bt> I<integer> B<(>I<encoding,video>B<)>
+
+Set video bitrate tolerance (in bits/s). In 1-pass mode, bitrate
+tolerance specifies how far ratecontrol is willing to deviate from the
+target average bitrate value. This is not related to min/max
+bitrate. Lowering tolerance too much has an adverse effect on quality.
+
+
+=item B<flags> I<flags> B<(>I<decoding/encoding,audio,video,subtitles>B<)>
+
+Set generic flags.
+
+Possible values:
+
+=over 4
+
+
+=item B<mv4>
+
+Use four motion vector by macroblock (mpeg4).
+
+=item B<qpel>
+
+Use 1/4 pel motion compensation.
+
+=item B<loop>
+
+Use loop filter.
+
+=item B<qscale>
+
+Use fixed qscale.
+
+=item B<gmc>
+
+Use gmc.
+
+=item B<mv0>
+
+Always try a mb with mv=E<lt>0,0E<gt>.
+
+=item B<input_preserved>
+
+
+
+=item B<pass1>
+
+Use internal 2pass ratecontrol in first pass mode.
+
+=item B<pass2>
+
+Use internal 2pass ratecontrol in second pass mode.
+
+=item B<gray>
+
+Only decode/encode grayscale.
+
+=item B<emu_edge>
+
+Do not draw edges.
+
+=item B<psnr>
+
+Set error[?] variables during encoding.
+
+=item B<truncated>
+
+
+
+=item B<naq>
+
+Normalize adaptive quantization.
+
+=item B<ildct>
+
+Use interlaced DCT.
+
+=item B<low_delay>
+
+Force low delay.
+
+=item B<global_header>
+
+Place global headers in extradata instead of every keyframe.
+
+=item B<bitexact>
+
+Use only bitexact stuff (except (I)DCT).
+
+=item B<aic>
+
+Apply H263 advanced intra coding / mpeg4 ac prediction.
+
+=item B<cbp>
+
+Deprecated, use mpegvideo private options instead.
+
+=item B<qprd>
+
+Deprecated, use mpegvideo private options instead.
+
+=item B<ilme>
+
+Apply interlaced motion estimation.
+
+=item B<cgop>
+
+Use closed gop.
+
+=back
+
+
+
+=item B<sub_id> I<integer>
+
+Deprecated, currently unused.
+
+
+=item B<me_method> I<integer> B<(>I<encoding,video>B<)>
+
+Set motion estimation method.
+
+Possible values:
+
+=over 4
+
+
+=item B<zero>
+
+zero motion estimation (fastest)
+
+=item B<full>
+
+full motion estimation (slowest)
+
+=item B<epzs>
+
+EPZS motion estimation (default)
+
+=item B<esa>
+
+esa motion estimation (alias for full)
+
+=item B<tesa>
+
+tesa motion estimation
+
+=item B<dia>
+
+dia motion estimation (alias for epzs)
+
+=item B<log>
+
+log motion estimation
+
+=item B<phods>
+
+phods motion estimation
+
+=item B<x1>
+
+X1 motion estimation
+
+=item B<hex>
+
+hex motion estimation
+
+=item B<umh>
+
+umh motion estimation
+
+=item B<iter>
+
+iter motion estimation
+
+=back
+
+
+
+=item B<extradata_size> I<integer>
+
+Set extradata size.
+
+
+=item B<time_base> I<rational number>
+
+Set codec time base.
+
+It is the fundamental unit of time (in seconds) in terms of which
+frame timestamps are represented. For fixed-fps content, timebase
+should be 1/framerate and timestamp increments should be identically
+1.
+
+
+=item B<g> I<integer> B<(>I<encoding,video>B<)>
+
+Set the group of picture size. Default value is 12.
+
+
+=item B<ar> I<integer> B<(>I<decoding/encoding,audio>B<)>
+
+Set audio sampling rate (in Hz).
+
+
+=item B<ac> I<integer> B<(>I<decoding/encoding,audio>B<)>
+
+Set number of audio channels.
+
+
+=item B<cutoff> I<integer> B<(>I<encoding,audio>B<)>
+
+Set cutoff bandwidth.
+
+
+=item B<frame_size> I<integer> B<(>I<encoding,audio>B<)>
+
+Set audio frame size.
+
+Each submitted frame except the last must contain exactly frame_size
+samples per channel. May be 0 when the codec has
+CODEC_CAP_VARIABLE_FRAME_SIZE set, in that case the frame size is not
+restricted. It is set by some decoders to indicate constant frame
+size.
+
+
+=item B<frame_number> I<integer>
+
+Set the frame number.
+
+
+=item B<delay> I<integer>
+
+
+
+=item B<qcomp> I<float> B<(>I<encoding,video>B<)>
+
+Set video quantizer scale compression (VBR). It is used as a constant
+in the ratecontrol equation. Recommended range for default rc_eq:
+0.0-1.0.
+
+
+=item B<qblur> I<float> B<(>I<encoding,video>B<)>
+
+Set video quantizer scale blur (VBR).
+
+
+=item B<qmin> I<integer> B<(>I<encoding,video>B<)>
+
+Set min video quantizer scale (VBR). Must be included between -1 and
+69, default value is 2.
+
+
+=item B<qmax> I<integer> B<(>I<encoding,video>B<)>
+
+Set max video quantizer scale (VBR). Must be included between -1 and
+1024, default value is 31.
+
+
+=item B<qdiff> I<integer> B<(>I<encoding,video>B<)>
+
+Set max difference between the quantizer scale (VBR).
+
+
+=item B<bf> I<integer> B<(>I<encoding,video>B<)>
+
+Set max number of B frames.
+
+
+=item B<b_qfactor> I<float> B<(>I<encoding,video>B<)>
+
+Set qp factor between P and B frames.
+
+
+=item B<rc_strategy> I<integer> B<(>I<encoding,video>B<)>
+
+Set ratecontrol method.
+
+
+=item B<b_strategy> I<integer> B<(>I<encoding,video>B<)>
+
+Set strategy to choose between I/P/B-frames.
+
+
+=item B<ps> I<integer> B<(>I<encoding,video>B<)>
+
+Set RTP payload size in bytes.
+
+
+=item B<mv_bits> I<integer>
+
+
+=item B<header_bits> I<integer>
+
+
+=item B<i_tex_bits> I<integer>
+
+
+=item B<p_tex_bits> I<integer>
+
+
+=item B<i_count> I<integer>
+
+
+=item B<p_count> I<integer>
+
+
+=item B<skip_count> I<integer>
+
+
+=item B<misc_bits> I<integer>
+
+
+=item B<frame_bits> I<integer>
+
+
+=item B<codec_tag> I<integer>
+
+
+=item B<bug> I<flags> B<(>I<decoding,video>B<)>
+
+Workaround not auto detected encoder bugs.
+
+Possible values:
+
+=over 4
+
+
+=item B<autodetect>
+
+
+
+=item B<old_msmpeg4>
+
+some old lavc generated msmpeg4v3 files (no autodetection)
+
+=item B<xvid_ilace>
+
+Xvid interlacing bug (autodetected if fourcc==XVIX)
+
+=item B<ump4>
+
+(autodetected if fourcc==UMP4)
+
+=item B<no_padding>
+
+padding bug (autodetected)
+
+=item B<amv>
+
+
+
+=item B<ac_vlc>
+
+illegal vlc bug (autodetected per fourcc)
+
+=item B<qpel_chroma>
+
+
+
+=item B<std_qpel>
+
+old standard qpel (autodetected per fourcc/version)
+
+=item B<qpel_chroma2>
+
+
+
+=item B<direct_blocksize>
+
+direct-qpel-blocksize bug (autodetected per fourcc/version)
+
+=item B<edge>
+
+edge padding bug (autodetected per fourcc/version)
+
+=item B<hpel_chroma>
+
+
+
+=item B<dc_clip>
+
+
+
+=item B<ms>
+
+Workaround various bugs in microsoft broken decoders.
+
+=item B<trunc>
+
+trancated frames
+
+=back
+
+
+
+=item B<lelim> I<integer> B<(>I<encoding,video>B<)>
+
+Set single coefficient elimination threshold for luminance (negative
+values also consider DC coefficient).
+
+
+=item B<celim> I<integer> B<(>I<encoding,video>B<)>
+
+Set single coefficient elimination threshold for chrominance (negative
+values also consider dc coefficient)
+
+
+=item B<strict> I<integer> B<(>I<decoding/encoding,audio,video>B<)>
+
+Specify how strictly to follow the standards.
+
+Possible values:
+
+=over 4
+
+
+=item B<very>
+
+strictly conform to a older more strict version of the spec or reference software
+
+=item B<strict>
+
+strictly conform to all the things in the spec no matter what consequences
+
+=item B<normal>
+
+
+
+=item B<unofficial>
+
+allow unofficial extensions
+
+=item B<experimental>
+
+allow non standardized experimental things
+
+=back
+
+
+
+=item B<b_qoffset> I<float> B<(>I<encoding,video>B<)>
+
+Set QP offset between P and B frames.
+
+
+=item B<err_detect> I<flags> B<(>I<decoding,audio,video>B<)>
+
+Set error detection flags.
+
+Possible values:
+
+=over 4
+
+
+=item B<crccheck>
+
+verify embedded CRCs
+
+=item B<bitstream>
+
+detect bitstream specification deviations
+
+=item B<buffer>
+
+detect improper bitstream length
+
+=item B<explode>
+
+abort decoding on minor error detection
+
+=item B<careful>
+
+consider things that violate the spec and have not been seen in the wild as errors
+
+=item B<compliant>
+
+consider all spec non compliancies as errors
+
+=item B<aggressive>
+
+consider things that a sane encoder should not do as an error
+
+=back
+
+
+
+=item B<has_b_frames> I<integer>
+
+
+
+=item B<block_align> I<integer>
+
+
+
+=item B<mpeg_quant> I<integer> B<(>I<encoding,video>B<)>
+
+Use MPEG quantizers instead of H.263.
+
+
+=item B<qsquish> I<float> B<(>I<encoding,video>B<)>
+
+How to keep quantizer between qmin and qmax (0 = clip, 1 = use
+differentiable function).
+
+
+=item B<rc_qmod_amp> I<float> B<(>I<encoding,video>B<)>
+
+Set experimental quantizer modulation.
+
+
+=item B<rc_qmod_freq> I<integer> B<(>I<encoding,video>B<)>
+
+Set experimental quantizer modulation.
+
+
+=item B<rc_override_count> I<integer>
+
+
+
+=item B<rc_eq> I<string> B<(>I<encoding,video>B<)>
+
+Set rate control equation. When computing the expression, besides the
+standard functions defined in the section 'Expression Evaluation', the
+following functions are available: bits2qp(bits), qp2bits(qp). Also
+the following constants are available: iTex pTex tex mv fCode iCount
+mcVar var isI isP isB avgQP qComp avgIITex avgPITex avgPPTex avgBPTex
+avgTex.
+
+
+=item B<maxrate> I<integer> B<(>I<encoding,audio,video>B<)>
+
+Set max bitrate tolerance (in bits/s). Requires bufsize to be set.
+
+
+=item B<minrate> I<integer> B<(>I<encoding,audio,video>B<)>
+
+Set min bitrate tolerance (in bits/s). Most useful in setting up a CBR
+encode. It is of little use elsewise.
+
+
+=item B<bufsize> I<integer> B<(>I<encoding,audio,video>B<)>
+
+Set ratecontrol buffer size (in bits).
+
+
+=item B<rc_buf_aggressivity> I<float> B<(>I<encoding,video>B<)>
+
+Currently useless.
+
+
+=item B<i_qfactor> I<float> B<(>I<encoding,video>B<)>
+
+Set QP factor between P and I frames.
+
+
+=item B<i_qoffset> I<float> B<(>I<encoding,video>B<)>
+
+Set QP offset between P and I frames.
+
+
+=item B<rc_init_cplx> I<float> B<(>I<encoding,video>B<)>
+
+Set initial complexity for 1-pass encoding.
+
+
+=item B<dct> I<integer> B<(>I<encoding,video>B<)>
+
+Set DCT algorithm.
+
+Possible values:
+
+=over 4
+
+
+=item B<auto>
+
+autoselect a good one (default)
+
+=item B<fastint>
+
+fast integer
+
+=item B<int>
+
+accurate integer
+
+=item B<mmx>
+
+
+
+=item B<altivec>
+
+
+
+=item B<faan>
+
+floating point AAN DCT
+
+=back
+
+
+
+=item B<lumi_mask> I<float> B<(>I<encoding,video>B<)>
+
+Compress bright areas stronger than medium ones.
+
+
+=item B<tcplx_mask> I<float> B<(>I<encoding,video>B<)>
+
+Set temporal complexity masking.
+
+
+=item B<scplx_mask> I<float> B<(>I<encoding,video>B<)>
+
+Set spatial complexity masking.
+
+
+=item B<p_mask> I<float> B<(>I<encoding,video>B<)>
+
+Set inter masking.
+
+
+=item B<dark_mask> I<float> B<(>I<encoding,video>B<)>
+
+Compress dark areas stronger than medium ones.
+
+
+=item B<idct> I<integer> B<(>I<decoding/encoding,video>B<)>
+
+Select IDCT implementation.
+
+Possible values:
+
+=over 4
+
+
+=item B<auto>
+
+
+
+=item B<int>
+
+
+
+=item B<simple>
+
+
+
+=item B<simplemmx>
+
+
+
+=item B<libmpeg2mmx>
+
+
+
+=item B<mmi>
+
+
+
+=item B<arm>
+
+
+
+=item B<altivec>
+
+
+
+=item B<sh4>
+
+
+
+=item B<simplearm>
+
+
+
+=item B<simplearmv5te>
+
+
+
+=item B<simplearmv6>
+
+
+
+=item B<simpleneon>
+
+
+
+=item B<simplealpha>
+
+
+
+=item B<h264>
+
+
+
+=item B<vp3>
+
+
+
+=item B<ipp>
+
+
+
+=item B<xvidmmx>
+
+
+
+=item B<faani>
+
+floating point AAN IDCT
+
+=back
+
+
+
+=item B<slice_count> I<integer>
+
+
+
+=item B<ec> I<flags> B<(>I<decoding,video>B<)>
+
+Set error concealment strategy.
+
+Possible values:
+
+=over 4
+
+
+=item B<guess_mvs>
+
+iterative motion vector (MV) search (slow)
+
+=item B<deblock>
+
+use strong deblock filter for damaged MBs
+
+=back
+
+
+
+=item B<bits_per_coded_sample> I<integer>
+
+
+
+=item B<pred> I<integer> B<(>I<encoding,video>B<)>
+
+Set prediction method.
+
+Possible values:
+
+=over 4
+
+
+=item B<left>
+
+
+
+=item B<plane>
+
+
+
+=item B<median>
+
+
+
+=back
+
+
+
+=item B<aspect> I<rational number> B<(>I<encoding,video>B<)>
+
+Set sample aspect ratio.
+
+
+=item B<debug> I<flags> B<(>I<decoding/encoding,audio,video,subtitles>B<)>
+
+Print specific debug info.
+
+Possible values:
+
+=over 4
+
+
+=item B<pict>
+
+picture info
+
+=item B<rc>
+
+rate control
+
+=item B<bitstream>
+
+
+
+=item B<mb_type>
+
+macroblock (MB) type
+
+=item B<qp>
+
+per-block quantization parameter (QP)
+
+=item B<mv>
+
+motion vector
+
+=item B<dct_coeff>
+
+
+
+=item B<skip>
+
+
+
+=item B<startcode>
+
+
+
+=item B<pts>
+
+
+
+=item B<er>
+
+error recognition
+
+=item B<mmco>
+
+memory management control operations (H.264)
+
+=item B<bugs>
+
+
+
+=item B<vis_qp>
+
+visualize quantization parameter (QP), lower QP are tinted greener
+
+=item B<vis_mb_type>
+
+visualize block types
+
+=item B<buffers>
+
+picture buffer allocations
+
+=item B<thread_ops>
+
+threading operations
+
+=back
+
+
+
+=item B<vismv> I<integer> B<(>I<decoding,video>B<)>
+
+Visualize motion vectors (MVs).
+
+Possible values:
+
+=over 4
+
+
+=item B<pf>
+
+forward predicted MVs of P-frames
+
+=item B<bf>
+
+forward predicted MVs of B-frames
+
+=item B<bb>
+
+backward predicted MVs of B-frames
+
+=back
+
+
+
+=item B<cmp> I<integer> B<(>I<encoding,video>B<)>
+
+Set full pel me compare function.
+
+Possible values:
+
+=over 4
+
+
+=item B<sad>
+
+sum of absolute differences, fast (default)
+
+=item B<sse>
+
+sum of squared errors
+
+=item B<satd>
+
+sum of absolute Hadamard transformed differences
+
+=item B<dct>
+
+sum of absolute DCT transformed differences
+
+=item B<psnr>
+
+sum of squared quantization errors (avoid, low quality)
+
+=item B<bit>
+
+number of bits needed for the block
+
+=item B<rd>
+
+rate distortion optimal, slow
+
+=item B<zero>
+
+0
+
+=item B<vsad>
+
+sum of absolute vertical differences
+
+=item B<vsse>
+
+sum of squared vertical differences
+
+=item B<nsse>
+
+noise preserving sum of squared differences
+
+=item B<w53>
+
+5/3 wavelet, only used in snow
+
+=item B<w97>
+
+9/7 wavelet, only used in snow
+
+=item B<dctmax>
+
+
+
+=item B<chroma>
+
+
+
+=back
+
+
+
+=item B<subcmp> I<integer> B<(>I<encoding,video>B<)>
+
+Set sub pel me compare function.
+
+Possible values:
+
+=over 4
+
+
+=item B<sad>
+
+sum of absolute differences, fast (default)
+
+=item B<sse>
+
+sum of squared errors
+
+=item B<satd>
+
+sum of absolute Hadamard transformed differences
+
+=item B<dct>
+
+sum of absolute DCT transformed differences
+
+=item B<psnr>
+
+sum of squared quantization errors (avoid, low quality)
+
+=item B<bit>
+
+number of bits needed for the block
+
+=item B<rd>
+
+rate distortion optimal, slow
+
+=item B<zero>
+
+0
+
+=item B<vsad>
+
+sum of absolute vertical differences
+
+=item B<vsse>
+
+sum of squared vertical differences
+
+=item B<nsse>
+
+noise preserving sum of squared differences
+
+=item B<w53>
+
+5/3 wavelet, only used in snow
+
+=item B<w97>
+
+9/7 wavelet, only used in snow
+
+=item B<dctmax>
+
+
+
+=item B<chroma>
+
+
+
+=back
+
+
+
+=item B<mbcmp> I<integer> B<(>I<encoding,video>B<)>
+
+Set macroblock compare function.
+
+Possible values:
+
+=over 4
+
+
+=item B<sad>
+
+sum of absolute differences, fast (default)
+
+=item B<sse>
+
+sum of squared errors
+
+=item B<satd>
+
+sum of absolute Hadamard transformed differences
+
+=item B<dct>
+
+sum of absolute DCT transformed differences
+
+=item B<psnr>
+
+sum of squared quantization errors (avoid, low quality)
+
+=item B<bit>
+
+number of bits needed for the block
+
+=item B<rd>
+
+rate distortion optimal, slow
+
+=item B<zero>
+
+0
+
+=item B<vsad>
+
+sum of absolute vertical differences
+
+=item B<vsse>
+
+sum of squared vertical differences
+
+=item B<nsse>
+
+noise preserving sum of squared differences
+
+=item B<w53>
+
+5/3 wavelet, only used in snow
+
+=item B<w97>
+
+9/7 wavelet, only used in snow
+
+=item B<dctmax>
+
+
+
+=item B<chroma>
+
+
+
+=back
+
+
+
+=item B<ildctcmp> I<integer> B<(>I<encoding,video>B<)>
+
+Set interlaced dct compare function.
+
+Possible values:
+
+=over 4
+
+
+=item B<sad>
+
+sum of absolute differences, fast (default)
+
+=item B<sse>
+
+sum of squared errors
+
+=item B<satd>
+
+sum of absolute Hadamard transformed differences
+
+=item B<dct>
+
+sum of absolute DCT transformed differences
+
+=item B<psnr>
+
+sum of squared quantization errors (avoid, low quality)
+
+=item B<bit>
+
+number of bits needed for the block
+
+=item B<rd>
+
+rate distortion optimal, slow
+
+=item B<zero>
+
+0
+
+=item B<vsad>
+
+sum of absolute vertical differences
+
+=item B<vsse>
+
+sum of squared vertical differences
+
+=item B<nsse>
+
+noise preserving sum of squared differences
+
+=item B<w53>
+
+5/3 wavelet, only used in snow
+
+=item B<w97>
+
+9/7 wavelet, only used in snow
+
+=item B<dctmax>
+
+
+
+=item B<chroma>
+
+
+
+=back
+
+
+
+=item B<dia_size> I<integer> B<(>I<encoding,video>B<)>
+
+Set diamond type & size for motion estimation.
+
+
+=item B<last_pred> I<integer> B<(>I<encoding,video>B<)>
+
+Set amount of motion predictors from the previous frame.
+
+
+=item B<preme> I<integer> B<(>I<encoding,video>B<)>
+
+Set pre motion estimation.
+
+
+=item B<precmp> I<integer> B<(>I<encoding,video>B<)>
+
+Set pre motion estimation compare function.
+
+Possible values:
+
+=over 4
+
+
+=item B<sad>
+
+sum of absolute differences, fast (default)
+
+=item B<sse>
+
+sum of squared errors
+
+=item B<satd>
+
+sum of absolute Hadamard transformed differences
+
+=item B<dct>
+
+sum of absolute DCT transformed differences
+
+=item B<psnr>
+
+sum of squared quantization errors (avoid, low quality)
+
+=item B<bit>
+
+number of bits needed for the block
+
+=item B<rd>
+
+rate distortion optimal, slow
+
+=item B<zero>
+
+0
+
+=item B<vsad>
+
+sum of absolute vertical differences
+
+=item B<vsse>
+
+sum of squared vertical differences
+
+=item B<nsse>
+
+noise preserving sum of squared differences
+
+=item B<w53>
+
+5/3 wavelet, only used in snow
+
+=item B<w97>
+
+9/7 wavelet, only used in snow
+
+=item B<dctmax>
+
+
+
+=item B<chroma>
+
+
+
+=back
+
+
+
+=item B<pre_dia_size> I<integer> B<(>I<encoding,video>B<)>
+
+Set diamond type & size for motion estimation pre-pass.
+
+
+=item B<subq> I<integer> B<(>I<encoding,video>B<)>
+
+Set sub pel motion estimation quality.
+
+
+=item B<dtg_active_format> I<integer>
+
+
+
+=item B<me_range> I<integer> B<(>I<encoding,video>B<)>
+
+Set limit motion vectors range (1023 for DivX player).
+
+
+=item B<ibias> I<integer> B<(>I<encoding,video>B<)>
+
+Set intra quant bias.
+
+
+=item B<pbias> I<integer> B<(>I<encoding,video>B<)>
+
+Set inter quant bias.
+
+
+=item B<color_table_id> I<integer>
+
+
+
+=item B<global_quality> I<integer> B<(>I<encoding,audio,video>B<)>
+
+
+
+=item B<coder> I<integer> B<(>I<encoding,video>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=item B<vlc>
+
+variable length coder / huffman coder
+
+=item B<ac>
+
+arithmetic coder
+
+=item B<raw>
+
+raw (no encoding)
+
+=item B<rle>
+
+run-length coder
+
+=item B<deflate>
+
+deflate-based coder
+
+=back
+
+
+
+=item B<context> I<integer> B<(>I<encoding,video>B<)>
+
+Set context model.
+
+
+=item B<slice_flags> I<integer>
+
+
+
+=item B<xvmc_acceleration> I<integer>
+
+
+
+=item B<mbd> I<integer> B<(>I<encoding,video>B<)>
+
+Set macroblock decision algorithm (high quality mode).
+
+Possible values:
+
+=over 4
+
+
+=item B<simple>
+
+use mbcmp (default)
+
+=item B<bits>
+
+use fewest bits
+
+=item B<rd>
+
+use best rate distortion
+
+=back
+
+
+
+=item B<stream_codec_tag> I<integer>
+
+
+
+=item B<sc_threshold> I<integer> B<(>I<encoding,video>B<)>
+
+Set scene change threshold.
+
+
+=item B<lmin> I<integer> B<(>I<encoding,video>B<)>
+
+Set min lagrange factor (VBR).
+
+
+=item B<lmax> I<integer> B<(>I<encoding,video>B<)>
+
+Set max lagrange factor (VBR).
+
+
+=item B<nr> I<integer> B<(>I<encoding,video>B<)>
+
+Set noise reduction.
+
+
+=item B<rc_init_occupancy> I<integer> B<(>I<encoding,video>B<)>
+
+Set number of bits which should be loaded into the rc buffer before
+decoding starts.
+
+
+=item B<inter_threshold> I<integer> B<(>I<encoding,video>B<)>
+
+
+
+=item B<flags2> I<flags> B<(>I<decoding/encoding,audio,video>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=item B<fast>
+
+allow non spec compliant speedup tricks
+
+=item B<sgop>
+
+Deprecated, use mpegvideo private options instead
+
+=item B<noout>
+
+skip bitstream encoding
+
+=item B<local_header>
+
+place global headers at every keyframe instead of in extradata
+
+=item B<chunks>
+
+Frame data might be split into multiple chunks
+
+=item B<showall>
+
+Show all frames before the first keyframe
+
+=item B<skiprd>
+
+Deprecated, use mpegvideo private options instead
+
+=back
+
+
+
+=item B<error> I<integer> B<(>I<encoding,video>B<)>
+
+
+
+=item B<qns> I<integer> B<(>I<encoding,video>B<)>
+
+Deprecated, use mpegvideo private options instead.
+
+
+=item B<threads> I<integer> B<(>I<decoding/encoding,video>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=item B<auto>
+
+detect a good number of threads
+
+=back
+
+
+
+=item B<me_threshold> I<integer> B<(>I<encoding,video>B<)>
+
+Set motion estimation threshold.
+
+
+=item B<mb_threshold> I<integer> B<(>I<encoding,video>B<)>
+
+Set macroblock threshold.
+
+
+=item B<dc> I<integer> B<(>I<encoding,video>B<)>
+
+Set intra_dc_precision.
+
+
+=item B<nssew> I<integer> B<(>I<encoding,video>B<)>
+
+Set nsse weight.
+
+
+=item B<skip_top> I<integer> B<(>I<decoding,video>B<)>
+
+Set number of macroblock rows at the top which are skipped.
+
+
+=item B<skip_bottom> I<integer> B<(>I<decoding,video>B<)>
+
+Set number of macroblock rows at the bottom which are skipped.
+
+
+=item B<profile> I<integer> B<(>I<encoding,audio,video>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=item B<unknown>
+
+
+
+=item B<aac_main>
+
+
+
+=item B<aac_low>
+
+
+
+=item B<aac_ssr>
+
+
+
+=item B<aac_ltp>
+
+
+
+=item B<aac_he>
+
+
+
+=item B<aac_he_v2>
+
+
+
+=item B<aac_ld>
+
+
+
+=item B<aac_eld>
+
+
+
+=item B<dts>
+
+
+
+=item B<dts_es>
+
+
+
+=item B<dts_96_24>
+
+
+
+=item B<dts_hd_hra>
+
+
+
+=item B<dts_hd_ma>
+
+
+
+=back
+
+
+
+=item B<level> I<integer> B<(>I<encoding,audio,video>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=item B<unknown>
+
+
+
+=back
+
+
+
+=item B<lowres> I<integer> B<(>I<decoding,audio,video>B<)>
+
+Decode at 1= 1/2, 2=1/4, 3=1/8 resolutions.
+
+
+=item B<skip_threshold> I<integer> B<(>I<encoding,video>B<)>
+
+Set frame skip threshold.
+
+
+=item B<skip_factor> I<integer> B<(>I<encoding,video>B<)>
+
+Set frame skip factor.
+
+
+=item B<skip_exp> I<integer> B<(>I<encoding,video>B<)>
+
+Set frame skip exponent.
+
+
+=item B<skipcmp> I<integer> B<(>I<encoding,video>B<)>
+
+Set frame skip compare function.
+
+Possible values:
+
+=over 4
+
+
+=item B<sad>
+
+sum of absolute differences, fast (default)
+
+=item B<sse>
+
+sum of squared errors
+
+=item B<satd>
+
+sum of absolute Hadamard transformed differences
+
+=item B<dct>
+
+sum of absolute DCT transformed differences
+
+=item B<psnr>
+
+sum of squared quantization errors (avoid, low quality)
+
+=item B<bit>
+
+number of bits needed for the block
+
+=item B<rd>
+
+rate distortion optimal, slow
+
+=item B<zero>
+
+0
+
+=item B<vsad>
+
+sum of absolute vertical differences
+
+=item B<vsse>
+
+sum of squared vertical differences
+
+=item B<nsse>
+
+noise preserving sum of squared differences
+
+=item B<w53>
+
+5/3 wavelet, only used in snow
+
+=item B<w97>
+
+9/7 wavelet, only used in snow
+
+=item B<dctmax>
+
+
+
+=item B<chroma>
+
+
+
+=back
+
+
+
+=item B<border_mask> I<float> B<(>I<encoding,video>B<)>
+
+Increase the quantizer for macroblocks close to borders.
+
+
+=item B<mblmin> I<integer> B<(>I<encoding,video>B<)>
+
+Set min macroblock lagrange factor (VBR).
+
+
+=item B<mblmax> I<integer> B<(>I<encoding,video>B<)>
+
+Set max macroblock lagrange factor (VBR).
+
+
+=item B<mepc> I<integer> B<(>I<encoding,video>B<)>
+
+Set motion estimation bitrate penalty compensation (1.0 = 256).
+
+
+=item B<skip_loop_filter> I<integer> B<(>I<decoding,video>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=item B<none>
+
+
+
+=item B<default>
+
+
+
+=item B<noref>
+
+
+
+=item B<bidir>
+
+
+
+=item B<nokey>
+
+
+
+=item B<all>
+
+
+
+=back
+
+
+
+=item B<skip_idct> I<integer> B<(>I<decoding,video>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=item B<none>
+
+
+
+=item B<default>
+
+
+
+=item B<noref>
+
+
+
+=item B<bidir>
+
+
+
+=item B<nokey>
+
+
+
+=item B<all>
+
+
+
+=back
+
+
+
+=item B<skip_frame> I<integer> B<(>I<decoding,video>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=item B<none>
+
+
+
+=item B<default>
+
+
+
+=item B<noref>
+
+
+
+=item B<bidir>
+
+
+
+=item B<nokey>
+
+
+
+=item B<all>
+
+
+
+=back
+
+
+
+=item B<bidir_refine> I<integer> B<(>I<encoding,video>B<)>
+
+Refine the two motion vectors used in bidirectional macroblocks.
+
+
+=item B<brd_scale> I<integer> B<(>I<encoding,video>B<)>
+
+Downscale frames for dynamic B-frame decision.
+
+
+=item B<keyint_min> I<integer> B<(>I<encoding,video>B<)>
+
+Set minimum interval between IDR-frames.
+
+
+=item B<refs> I<integer> B<(>I<encoding,video>B<)>
+
+Set reference frames to consider for motion compensation.
+
+
+=item B<chromaoffset> I<integer> B<(>I<encoding,video>B<)>
+
+Set chroma qp offset from luma.
+
+
+=item B<trellis> I<integer> B<(>I<encoding,audio,video>B<)>
+
+Set rate-distortion optimal quantization.
+
+
+=item B<sc_factor> I<integer> B<(>I<encoding,video>B<)>
+
+Set value multiplied by qscale for each frame and added to
+scene_change_score.
+
+
+=item B<mv0_threshold> I<integer> B<(>I<encoding,video>B<)>
+
+
+=item B<b_sensitivity> I<integer> B<(>I<encoding,video>B<)>
+
+Adjust sensitivity of b_frame_strategy 1.
+
+
+=item B<compression_level> I<integer> B<(>I<encoding,audio,video>B<)>
+
+
+=item B<min_prediction_order> I<integer> B<(>I<encoding,audio>B<)>
+
+
+=item B<max_prediction_order> I<integer> B<(>I<encoding,audio>B<)>
+
+
+=item B<timecode_frame_start> I<integer> B<(>I<encoding,video>B<)>
+
+Set GOP timecode frame start number, in non drop frame format.
+
+
+=item B<request_channels> I<integer> B<(>I<decoding,audio>B<)>
+
+Set desired number of audio channels.
+
+
+=item B<bits_per_raw_sample> I<integer>
+
+
+=item B<channel_layout> I<integer> B<(>I<decoding/encoding,audio>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=back
+
+
+=item B<request_channel_layout> I<integer> B<(>I<decoding,audio>B<)>
+
+
+Possible values:
+
+=over 4
+
+
+=back
+
+
+=item B<rc_max_vbv_use> I<float> B<(>I<encoding,video>B<)>
+
+
+=item B<rc_min_vbv_use> I<float> B<(>I<encoding,video>B<)>
+
+
+=item B<ticks_per_frame> I<integer> B<(>I<decoding/encoding,audio,video>B<)>
+
+
+=item B<color_primaries> I<integer> B<(>I<decoding/encoding,video>B<)>
+
+
+=item B<color_trc> I<integer> B<(>I<decoding/encoding,video>B<)>
+
+
+=item B<colorspace> I<integer> B<(>I<decoding/encoding,video>B<)>
+
+
+=item B<color_range> I<integer> B<(>I<decoding/encoding,video>B<)>
+
+
+=item B<chroma_sample_location> I<integer> B<(>I<decoding/encoding,video>B<)>
+
+
+
+=item B<log_level_offset> I<integer>
+
+Set the log level offset.
+
+
+=item B<slices> I<integer> B<(>I<encoding,video>B<)>
+
+Number of slices, used in parallelized encoding.
+
+
+=item B<thread_type> I<flags> B<(>I<decoding/encoding,video>B<)>
+
+Select multithreading type.
+
+Possible values:
+
+=over 4
+
+
+=item B<slice>
+
+
+
+=item B<frame>
+
+
+
+=back
+
+
+=item B<audio_service_type> I<integer> B<(>I<encoding,audio>B<)>
+
+Set audio service type.
+
+Possible values:
+
+=over 4
+
+
+=item B<ma>
+
+Main Audio Service
+
+=item B<ef>
+
+Effects
+
+=item B<vi>
+
+Visually Impaired
+
+=item B<hi>
+
+Hearing Impaired
+
+=item B<di>
+
+Dialogue
+
+=item B<co>
+
+Commentary
+
+=item B<em>
+
+Emergency
+
+=item B<vo>
+
+Voice Over
+
+=item B<ka>
+
+Karaoke
+
+=back
+
+
+
+=item B<request_sample_fmt> I<sample_fmt> B<(>I<decoding,audio>B<)>
+
+Set sample format audio decoders should prefer. Default value is
+C<none>.
+
+
+=item B<pkt_timebase> I<rational number>
+
+
+
+=item B<sub_charenc> I<encoding> B<(>I<decoding,subtitles>B<)>
+
+Set the input subtitles character encoding.
+
+=back
+
+
+
+
+=head1 DECODERS
+
+
+Decoders are configured elements in FFmpeg which allow the decoding of
+multimedia streams.
+
+When you configure your FFmpeg build, all the supported native decoders
+are enabled by default. Decoders requiring an external library must be enabled
+manually via the corresponding C<--enable-lib> option. You can list all
+available decoders using the configure option C<--list-decoders>.
+
+You can disable all the decoders with the configure option
+C<--disable-decoders> and selectively enable / disable single decoders
+with the options C<--enable-decoder=I<DECODER>> /
+C<--disable-decoder=I<DECODER>>.
+
+The option C<-codecs> of the ff* tools will display the list of
+enabled decoders.
+
+
+
+=head1 VIDEO DECODERS
+
+
+A description of some of the currently available video decoders
+follows.
+
+
+=head2 rawvideo
+
+
+Raw video decoder.
+
+This decoder decodes rawvideo streams.
+
+
+=head3 Options
+
+
+
+=over 4
+
+
+=item B<top> I<top_field_first>
+
+Specify the assumed field type of the input video.
+
+=over 4
+
+
+=item B<-1>
+
+the video is assumed to be progressive (default)
+
+=item B<0>
+
+bottom-field-first is assumed
+
+=item B<1>
+
+top-field-first is assumed
+
+=back
+
+
+
+=back
+
+
+
+
+=head1 AUDIO DECODERS
+
+
+
+=head2 ffwavesynth
+
+
+Internal wave synthetizer.
+
+This decoder generates wave patterns according to predefined sequences. Its
+use is purely internal and the format of the data it accepts is not publicly
+documented.
+
+
+
+=head1 SUBTITLES DECODERS
+
+
+
+=head2 dvdsub
+
+
+This codec decodes the bitmap subtitles used in DVDs; the same subtitles can
+also be found in VobSub file pairs and in some Matroska files.
+
+
+=head3 Options
+
+
+
+=over 4
+
+
+=item B<palette>
+
+Specify the global palette used by the bitmaps. When stored in VobSub, the
+palette is normally specified in the index file; in Matroska, the palette is
+stored in the codec extra-data in the same format as in VobSub. In DVDs, the
+palette is stored in the IFO file, and therefore not available when reading
+from dumped VOB files.
+
+The format for this option is a string containing 16 24-bits hexadecimal
+numbers (without 0x prefix) separated by comas, for example C<0d00ee,
+ee450d, 101010, eaeaea, 0ce60b, ec14ed, ebff0b, 0d617a, 7b7b7b, d1d1d1,
+7b2a0e, 0d950c, 0f007b, cf0dec, cfa80c, 7c127b>.
+
+=back
+
+
+
+=head1 ENCODERS
+
+
+Encoders are configured elements in FFmpeg which allow the encoding of
+multimedia streams.
+
+When you configure your FFmpeg build, all the supported native encoders
+are enabled by default. Encoders requiring an external library must be enabled
+manually via the corresponding C<--enable-lib> option. You can list all
+available encoders using the configure option C<--list-encoders>.
+
+You can disable all the encoders with the configure option
+C<--disable-encoders> and selectively enable / disable single encoders
+with the options C<--enable-encoder=I<ENCODER>> /
+C<--disable-encoder=I<ENCODER>>.
+
+The option C<-codecs> of the ff* tools will display the list of
+enabled encoders.
+
+
+
+=head1 AUDIO ENCODERS
+
+
+A description of some of the currently available audio encoders
+follows.
+
+
+=head2 ac3 and ac3_fixed
+
+
+AC-3 audio encoders.
+
+These encoders implement part of ATSC A/52:2010 and ETSI TS 102 366, as well as
+the undocumented RealAudio 3 (a.k.a. dnet).
+
+The I<ac3> encoder uses floating-point math, while the I<ac3_fixed>
+encoder only uses fixed-point integer math. This does not mean that one is
+always faster, just that one or the other may be better suited to a
+particular system. The floating-point encoder will generally produce better
+quality audio for a given bitrate. The I<ac3_fixed> encoder is not the
+default codec for any of the output formats, so it must be specified explicitly
+using the option C<-acodec ac3_fixed> in order to use it.
+
+
+=head3 AC-3 Metadata
+
+
+The AC-3 metadata options are used to set parameters that describe the audio,
+but in most cases do not affect the audio encoding itself. Some of the options
+do directly affect or influence the decoding and playback of the resulting
+bitstream, while others are just for informational purposes. A few of the
+options will add bits to the output stream that could otherwise be used for
+audio data, and will thus affect the quality of the output. Those will be
+indicated accordingly with a note in the option list below.
+
+These parameters are described in detail in several publicly-available
+documents.
+
+=over 4
+
+
+=item *<E<lt>B<http://www.atsc.org/cms/standards/a_52-2010.pdf>E<gt>>
+
+
+=item *<E<lt>B<http://www.atsc.org/cms/standards/a_54a_with_corr_1.pdf>E<gt>>
+
+
+=item *<E<lt>B<http://www.dolby.com/uploadedFiles/zz-_Shared_Assets/English_PDFs/Professional/18_Metadata.Guide.pdf>E<gt>>
+
+
+=item *<E<lt>B<http://www.dolby.com/uploadedFiles/zz-_Shared_Assets/English_PDFs/Professional/46_DDEncodingGuidelines.pdf>E<gt>>
+
+
+=back
+
+
+
+=head4 Metadata Control Options
+
+
+
+=over 4
+
+
+
+=item B<-per_frame_metadata> I<boolean>
+
+Allow Per-Frame Metadata. Specifies if the encoder should check for changing
+metadata for each frame.
+
+=over 4
+
+
+=item B<0>
+
+The metadata values set at initialization will be used for every frame in the
+stream. (default)
+
+=item B<1>
+
+Metadata values can be changed before encoding each frame.
+
+=back
+
+
+
+=back
+
+
+
+=head4 Downmix Levels
+
+
+
+=over 4
+
+
+
+=item B<-center_mixlev> I<level>
+
+Center Mix Level. The amount of gain the decoder should apply to the center
+channel when downmixing to stereo. This field will only be written to the
+bitstream if a center channel is present. The value is specified as a scale
+factor. There are 3 valid values:
+
+=over 4
+
+
+=item B<0.707>
+
+Apply -3dB gain
+
+=item B<0.595>
+
+Apply -4.5dB gain (default)
+
+=item B<0.500>
+
+Apply -6dB gain
+
+=back
+
+
+
+=item B<-surround_mixlev> I<level>
+
+Surround Mix Level. The amount of gain the decoder should apply to the surround
+channel(s) when downmixing to stereo. This field will only be written to the
+bitstream if one or more surround channels are present. The value is specified
+as a scale factor.  There are 3 valid values:
+
+=over 4
+
+
+=item B<0.707>
+
+Apply -3dB gain
+
+=item B<0.500>
+
+Apply -6dB gain (default)
+
+=item B<0.000>
+
+Silence Surround Channel(s)
+
+=back
+
+
+
+=back
+
+
+
+=head4 Audio Production Information
+
+Audio Production Information is optional information describing the mixing
+environment.  Either none or both of the fields are written to the bitstream.
+
+
+=over 4
+
+
+
+=item B<-mixing_level> I<number>
+
+Mixing Level. Specifies peak sound pressure level (SPL) in the production
+environment when the mix was mastered. Valid values are 80 to 111, or -1 for
+unknown or not indicated. The default value is -1, but that value cannot be
+used if the Audio Production Information is written to the bitstream. Therefore,
+if the C<room_type> option is not the default value, the C<mixing_level>
+option must not be -1.
+
+
+=item B<-room_type> I<type>
+
+Room Type. Describes the equalization used during the final mixing session at
+the studio or on the dubbing stage. A large room is a dubbing stage with the
+industry standard X-curve equalization; a small room has flat equalization.
+This field will not be written to the bitstream if both the C<mixing_level>
+option and the C<room_type> option have the default values.
+
+=over 4
+
+
+=item B<0>
+
+
+=item B<notindicated>
+
+Not Indicated (default)
+
+=item B<1>
+
+
+=item B<large>
+
+Large Room
+
+=item B<2>
+
+
+=item B<small>
+
+Small Room
+
+=back
+
+
+
+=back
+
+
+
+=head4 Other Metadata Options
+
+
+
+=over 4
+
+
+
+=item B<-copyright> I<boolean>
+
+Copyright Indicator. Specifies whether a copyright exists for this audio.
+
+=over 4
+
+
+=item B<0>
+
+
+=item B<off>
+
+No Copyright Exists (default)
+
+=item B<1>
+
+
+=item B<on>
+
+Copyright Exists
+
+=back
+
+
+
+=item B<-dialnorm> I<value>
+
+Dialogue Normalization. Indicates how far the average dialogue level of the
+program is below digital 100% full scale (0 dBFS). This parameter determines a
+level shift during audio reproduction that sets the average volume of the
+dialogue to a preset level. The goal is to match volume level between program
+sources. A value of -31dB will result in no volume level change, relative to
+the source volume, during audio reproduction. Valid values are whole numbers in
+the range -31 to -1, with -31 being the default.
+
+
+=item B<-dsur_mode> I<mode>
+
+Dolby Surround Mode. Specifies whether the stereo signal uses Dolby Surround
+(Pro Logic). This field will only be written to the bitstream if the audio
+stream is stereo. Using this option does B<NOT> mean the encoder will actually
+apply Dolby Surround processing.
+
+=over 4
+
+
+=item B<0>
+
+
+=item B<notindicated>
+
+Not Indicated (default)
+
+=item B<1>
+
+
+=item B<off>
+
+Not Dolby Surround Encoded
+
+=item B<2>
+
+
+=item B<on>
+
+Dolby Surround Encoded
+
+=back
+
+
+
+=item B<-original> I<boolean>
+
+Original Bit Stream Indicator. Specifies whether this audio is from the
+original source and not a copy.
+
+=over 4
+
+
+=item B<0>
+
+
+=item B<off>
+
+Not Original Source
+
+=item B<1>
+
+
+=item B<on>
+
+Original Source (default)
+
+=back
+
+
+
+=back
+
+
+
+=head3 Extended Bitstream Information
+
+The extended bitstream options are part of the Alternate Bit Stream Syntax as
+specified in Annex D of the A/52:2010 standard. It is grouped into 2 parts.
+If any one parameter in a group is specified, all values in that group will be
+written to the bitstream.  Default values are used for those that are written
+but have not been specified.  If the mixing levels are written, the decoder
+will use these values instead of the ones specified in the C<center_mixlev>
+and C<surround_mixlev> options if it supports the Alternate Bit Stream
+Syntax.
+
+
+=head4 Extended Bitstream Information - Part 1
+
+
+
+=over 4
+
+
+
+=item B<-dmix_mode> I<mode>
+
+Preferred Stereo Downmix Mode. Allows the user to select either Lt/Rt
+(Dolby Surround) or Lo/Ro (normal stereo) as the preferred stereo downmix mode.
+
+=over 4
+
+
+=item B<0>
+
+
+=item B<notindicated>
+
+Not Indicated (default)
+
+=item B<1>
+
+
+=item B<ltrt>
+
+Lt/Rt Downmix Preferred
+
+=item B<2>
+
+
+=item B<loro>
+
+Lo/Ro Downmix Preferred
+
+=back
+
+
+
+=item B<-ltrt_cmixlev> I<level>
+
+Lt/Rt Center Mix Level. The amount of gain the decoder should apply to the
+center channel when downmixing to stereo in Lt/Rt mode.
+
+=over 4
+
+
+=item B<1.414>
+
+Apply +3dB gain
+
+=item B<1.189>
+
+Apply +1.5dB gain
+
+=item B<1.000>
+
+Apply 0dB gain
+
+=item B<0.841>
+
+Apply -1.5dB gain
+
+=item B<0.707>
+
+Apply -3.0dB gain
+
+=item B<0.595>
+
+Apply -4.5dB gain (default)
+
+=item B<0.500>
+
+Apply -6.0dB gain
+
+=item B<0.000>
+
+Silence Center Channel
+
+=back
+
+
+
+=item B<-ltrt_surmixlev> I<level>
+
+Lt/Rt Surround Mix Level. The amount of gain the decoder should apply to the
+surround channel(s) when downmixing to stereo in Lt/Rt mode.
+
+=over 4
+
+
+=item B<0.841>
+
+Apply -1.5dB gain
+
+=item B<0.707>
+
+Apply -3.0dB gain
+
+=item B<0.595>
+
+Apply -4.5dB gain
+
+=item B<0.500>
+
+Apply -6.0dB gain (default)
+
+=item B<0.000>
+
+Silence Surround Channel(s)
+
+=back
+
+
+
+=item B<-loro_cmixlev> I<level>
+
+Lo/Ro Center Mix Level. The amount of gain the decoder should apply to the
+center channel when downmixing to stereo in Lo/Ro mode.
+
+=over 4
+
+
+=item B<1.414>
+
+Apply +3dB gain
+
+=item B<1.189>
+
+Apply +1.5dB gain
+
+=item B<1.000>
+
+Apply 0dB gain
+
+=item B<0.841>
+
+Apply -1.5dB gain
+
+=item B<0.707>
+
+Apply -3.0dB gain
+
+=item B<0.595>
+
+Apply -4.5dB gain (default)
+
+=item B<0.500>
+
+Apply -6.0dB gain
+
+=item B<0.000>
+
+Silence Center Channel
+
+=back
+
+
+
+=item B<-loro_surmixlev> I<level>
+
+Lo/Ro Surround Mix Level. The amount of gain the decoder should apply to the
+surround channel(s) when downmixing to stereo in Lo/Ro mode.
+
+=over 4
+
+
+=item B<0.841>
+
+Apply -1.5dB gain
+
+=item B<0.707>
+
+Apply -3.0dB gain
+
+=item B<0.595>
+
+Apply -4.5dB gain
+
+=item B<0.500>
+
+Apply -6.0dB gain (default)
+
+=item B<0.000>
+
+Silence Surround Channel(s)
+
+=back
+
+
+
+=back
+
+
+
+=head4 Extended Bitstream Information - Part 2
+
+
+
+=over 4
+
+
+
+=item B<-dsurex_mode> I<mode>
+
+Dolby Surround EX Mode. Indicates whether the stream uses Dolby Surround EX
+(7.1 matrixed to 5.1). Using this option does B<NOT> mean the encoder will actually
+apply Dolby Surround EX processing.
+
+=over 4
+
+
+=item B<0>
+
+
+=item B<notindicated>
+
+Not Indicated (default)
+
+=item B<1>
+
+
+=item B<on>
+
+Dolby Surround EX Off
+
+=item B<2>
+
+
+=item B<off>
+
+Dolby Surround EX On
+
+=back
+
+
+
+=item B<-dheadphone_mode> I<mode>
+
+Dolby Headphone Mode. Indicates whether the stream uses Dolby Headphone
+encoding (multi-channel matrixed to 2.0 for use with headphones). Using this
+option does B<NOT> mean the encoder will actually apply Dolby Headphone
+processing.
+
+=over 4
+
+
+=item B<0>
+
+
+=item B<notindicated>
+
+Not Indicated (default)
+
+=item B<1>
+
+
+=item B<on>
+
+Dolby Headphone Off
+
+=item B<2>
+
+
+=item B<off>
+
+Dolby Headphone On
+
+=back
+
+
+
+=item B<-ad_conv_type> I<type>
+
+A/D Converter Type. Indicates whether the audio has passed through HDCD A/D
+conversion.
+
+=over 4
+
+
+=item B<0>
+
+
+=item B<standard>
+
+Standard A/D Converter (default)
+
+=item B<1>
+
+
+=item B<hdcd>
+
+HDCD A/D Converter
+
+=back
+
+
+
+=back
+
+
+
+=head3 Other AC-3 Encoding Options
+
+
+
+=over 4
+
+
+
+=item B<-stereo_rematrixing> I<boolean>
+
+Stereo Rematrixing. Enables/Disables use of rematrixing for stereo input. This
+is an optional AC-3 feature that increases quality by selectively encoding
+the left/right channels as mid/side. This option is enabled by default, and it
+is highly recommended that it be left as enabled except for testing purposes.
+
+
+=back
+
+
+
+=head3 Floating-Point-Only AC-3 Encoding Options
+
+
+These options are only valid for the floating-point encoder and do not exist
+for the fixed-point encoder due to the corresponding features not being
+implemented in fixed-point.
+
+
+=over 4
+
+
+
+=item B<-channel_coupling> I<boolean>
+
+Enables/Disables use of channel coupling, which is an optional AC-3 feature
+that increases quality by combining high frequency information from multiple
+channels into a single channel. The per-channel high frequency information is
+sent with less accuracy in both the frequency and time domains. This allows
+more bits to be used for lower frequencies while preserving enough information
+to reconstruct the high frequencies. This option is enabled by default for the
+floating-point encoder and should generally be left as enabled except for
+testing purposes or to increase encoding speed.
+
+=over 4
+
+
+=item B<-1>
+
+
+=item B<auto>
+
+Selected by Encoder (default)
+
+=item B<0>
+
+
+=item B<off>
+
+Disable Channel Coupling
+
+=item B<1>
+
+
+=item B<on>
+
+Enable Channel Coupling
+
+=back
+
+
+
+=item B<-cpl_start_band> I<number>
+
+Coupling Start Band. Sets the channel coupling start band, from 1 to 15. If a
+value higher than the bandwidth is used, it will be reduced to 1 less than the
+coupling end band. If I<auto> is used, the start band will be determined by
+the encoder based on the bit rate, sample rate, and channel layout. This option
+has no effect if channel coupling is disabled.
+
+=over 4
+
+
+=item B<-1>
+
+
+=item B<auto>
+
+Selected by Encoder (default)
+
+=back
+
+
+
+=back
+
+
+
+
+=head1 VIDEO ENCODERS
+
+
+A description of some of the currently available video encoders
+follows.
+
+
+=head2 libtheora
+
+
+Theora format supported through libtheora.
+
+Requires the presence of the libtheora headers and library during
+configuration. You need to explicitly configure the build with
+C<--enable-libtheora>.
+
+
+=head3 Options
+
+
+The following global options are mapped to internal libtheora options
+which affect the quality and the bitrate of the encoded stream.
+
+
+=over 4
+
+
+=item B<b>
+
+Set the video bitrate, only works if the C<qscale> flag in
+B<flags> is not enabled.
+
+
+=item B<flags>
+
+Used to enable constant quality mode encoding through the
+B<qscale> flag, and to enable the C<pass1> and C<pass2>
+modes.
+
+
+=item B<g>
+
+Set the GOP size.
+
+
+=item B<global_quality>
+
+Set the global quality in lambda units, only works if the
+C<qscale> flag in B<flags> is enabled. The value is clipped
+in the [0 - 10*C<FF_QP2LAMBDA>] range, and then multiplied for 6.3
+to get a value in the native libtheora range [0-63]. A higher value
+corresponds to a higher quality.
+
+For example, to set maximum constant quality encoding with
+B<ffmpeg>:
+	
+	ffmpeg -i INPUT -flags:v qscale -global_quality:v "10*QP2LAMBDA" -codec:v libtheora OUTPUT.ogg
+
+
+=back
+
+
+
+=head2 libvpx
+
+
+VP8 format supported through libvpx.
+
+Requires the presence of the libvpx headers and library during configuration.
+You need to explicitly configure the build with C<--enable-libvpx>.
+
+
+=head3 Options
+
+
+Mapping from FFmpeg to libvpx options with conversion notes in parentheses.
+
+
+=over 4
+
+
+
+=item B<threads>
+
+g_threads
+
+
+=item B<profile>
+
+g_profile
+
+
+=item B<vb>
+
+rc_target_bitrate
+
+
+=item B<g>
+
+kf_max_dist
+
+
+=item B<keyint_min>
+
+kf_min_dist
+
+
+=item B<qmin>
+
+rc_min_quantizer
+
+
+=item B<qmax>
+
+rc_max_quantizer
+
+
+=item B<bufsize, vb>
+
+rc_buf_sz
+C<(bufsize * 1000 / vb)>
+
+rc_buf_optimal_sz
+C<(bufsize * 1000 / vb * 5 / 6)>
+
+
+=item B<rc_init_occupancy, vb>
+
+rc_buf_initial_sz
+C<(rc_init_occupancy * 1000 / vb)>
+
+
+=item B<rc_buffer_aggressivity>
+
+rc_undershoot_pct
+
+
+=item B<skip_threshold>
+
+rc_dropframe_thresh
+
+
+=item B<qcomp>
+
+rc_2pass_vbr_bias_pct
+
+
+=item B<maxrate, vb>
+
+rc_2pass_vbr_maxsection_pct
+C<(maxrate * 100 / vb)>
+
+
+=item B<minrate, vb>
+
+rc_2pass_vbr_minsection_pct
+C<(minrate * 100 / vb)>
+
+
+=item B<minrate, maxrate, vb>
+
+C<VPX_CBR>
+C<(minrate == maxrate == vb)>
+
+
+=item B<crf>
+
+C<VPX_CQ>, C<VP8E_SET_CQ_LEVEL>
+
+
+=item B<quality>
+
+
+=over 4
+
+
+=item I<best>
+
+C<VPX_DL_BEST_QUALITY>
+
+=item I<good>
+
+C<VPX_DL_GOOD_QUALITY>
+
+=item I<realtime>
+
+C<VPX_DL_REALTIME>
+
+=back
+
+
+
+=item B<speed>
+
+C<VP8E_SET_CPUUSED>
+
+
+=item B<nr>
+
+C<VP8E_SET_NOISE_SENSITIVITY>
+
+
+=item B<mb_threshold>
+
+C<VP8E_SET_STATIC_THRESHOLD>
+
+
+=item B<slices>
+
+C<VP8E_SET_TOKEN_PARTITIONS>
+
+
+=item B<max-intra-rate>
+
+C<VP8E_SET_MAX_INTRA_BITRATE_PCT>
+
+
+=item B<force_key_frames>
+
+C<VPX_EFLAG_FORCE_KF>
+
+
+=item B<Alternate reference frame related>
+
+
+=over 4
+
+
+=item B<vp8flags altref>
+
+C<VP8E_SET_ENABLEAUTOALTREF>
+
+=item I<arnr_max_frames>
+
+C<VP8E_SET_ARNR_MAXFRAMES>
+
+=item I<arnr_type>
+
+C<VP8E_SET_ARNR_TYPE>
+
+=item I<arnr_strength>
+
+C<VP8E_SET_ARNR_STRENGTH>
+
+=item I<rc_lookahead>
+
+g_lag_in_frames
+
+=back
+
+
+
+=item B<vp8flags error_resilient>
+
+g_error_resilient
+
+
+=back
+
+
+For more information about libvpx see:
+E<lt>B<http://www.webmproject.org/>E<gt>
+
+
+=head2 libx264
+
+
+x264 H.264/MPEG-4 AVC encoder wrapper
+
+Requires the presence of the libx264 headers and library during
+configuration. You need to explicitly configure the build with
+C<--enable-libx264>.
+
+x264 supports an impressive number of features, including 8x8 and 4x4 adaptive
+spatial transform, adaptive B-frame placement, CAVLC/CABAC entropy coding,
+interlacing (MBAFF), lossless mode, psy optimizations for detail retention
+(adaptive quantization, psy-RD, psy-trellis).
+
+The FFmpeg wrapper provides a mapping for most of them using global options
+that match those of the encoders and provides private options for the unique
+encoder options. Additionally an expert override is provided to directly pass
+a list of key=value tuples as accepted by x264_param_parse.
+
+
+=head3 Option Mapping
+
+
+The following options are supported by the x264 wrapper, the x264-equivalent
+options follow the FFmpeg ones.
+
+
+=over 4
+
+
+=item B<b                  :  bitrate>
+
+FFmpeg C<b> option is expressed in bits/s, x264 C<bitrate> in kilobits/s.
+
+=item B<bf                 :  bframes>
+
+Maximum number of B-frames.
+
+=item B<g                  :  keyint>
+
+Maximum GOP size.
+
+=item B<qmin               :  qpmin>
+
+
+=item B<qmax               :  qpmax>
+
+
+=item B<qdiff              :  qpstep>
+
+
+=item B<qblur              :  qblur>
+
+
+=item B<qcomp              :  qcomp>
+
+
+=item B<refs               :  ref>
+
+
+=item B<sc_threshold       :  scenecut>
+
+
+=item B<trellis            :  trellis>
+
+
+=item B<nr                 :  nr>
+
+Noise reduction.
+
+=item B<me_range           :  merange>
+
+
+=item B<me_method          :  me>
+
+
+=item B<subq               :  subme>
+
+
+=item B<b_strategy         :  b-adapt>
+
+
+=item B<keyint_min         :  keyint-min>
+
+
+=item B<coder              :  cabac>
+
+Set coder to C<ac> to use CABAC.
+
+=item B<cmp                :  chroma-me>
+
+Set to C<chroma> to use chroma motion estimation.
+
+=item B<threads            :  threads>
+
+
+=item B<thread_type        :  sliced_threads>
+
+Set to C<slice> to use sliced threading instead of frame threading.
+
+=item B<flags -cgop        :  open-gop>
+
+Set C<-cgop> to use recovery points to close GOPs.
+
+=item B<rc_init_occupancy  :  vbv-init>
+
+Initial buffer occupancy.
+
+=back
+
+
+
+=head3 Private Options
+
+
+=over 4
+
+
+=item B<-preset> I<string>
+
+Set the encoding preset (cf. x264 --fullhelp).
+
+=item B<-tune> I<string>
+
+Tune the encoding params (cf. x264 --fullhelp).
+
+=item B<-profile> I<string>
+
+Set profile restrictions (cf. x264 --fullhelp).
+
+=item B<-fastfirstpass> I<integer>
+
+Use fast settings when encoding first pass.
+
+=item B<-crf> I<float>
+
+Select the quality for constant quality mode.
+
+=item B<-crf_max> I<float>
+
+In CRF mode, prevents VBV from lowering quality beyond this point.
+
+=item B<-qp> I<integer>
+
+Constant quantization parameter rate control method.
+
+=item B<-aq-mode> I<integer>
+
+AQ method
+
+Possible values:
+
+=over 4
+
+
+=item B<none>
+
+
+
+=item B<variance>
+
+Variance AQ (complexity mask).
+
+=item B<autovariance>
+
+Auto-variance AQ (experimental).
+
+=back
+
+
+=item B<-aq-strength> I<float>
+
+AQ strength, reduces blocking and blurring in flat and textured areas.
+
+=item B<-psy> I<integer>
+
+Use psychovisual optimizations.
+
+=item B<-psy-rd> I<string>
+
+Strength of psychovisual optimization, in E<lt>psy-rdE<gt>:E<lt>psy-trellisE<gt> format.
+
+=item B<-rc-lookahead> I<integer>
+
+Number of frames to look ahead for frametype and ratecontrol.
+
+=item B<-weightb> I<integer>
+
+Weighted prediction for B-frames.
+
+=item B<-weightp> I<integer>
+
+Weighted prediction analysis method.
+
+Possible values:
+
+=over 4
+
+
+=item B<none>
+
+
+
+=item B<simple>
+
+
+
+=item B<smart>
+
+
+
+=back
+
+
+=item B<-ssim> I<integer>
+
+Calculate and print SSIM stats.
+
+=item B<-intra-refresh> I<integer>
+
+Use Periodic Intra Refresh instead of IDR frames.
+
+=item B<-b-bias> I<integer>
+
+Influences how often B-frames are used.
+
+=item B<-b-pyramid> I<integer>
+
+Keep some B-frames as references.
+
+Possible values:
+
+=over 4
+
+
+=item B<none>
+
+
+
+=item B<strict>
+
+Strictly hierarchical pyramid.
+
+=item B<normal>
+
+Non-strict (not Blu-ray compatible).
+
+=back
+
+
+=item B<-mixed-refs> I<integer>
+
+One reference per partition, as opposed to one reference per macroblock.
+
+=item B<-8x8dct> I<integer>
+
+High profile 8x8 transform.
+
+=item B<-fast-pskip> I<integer>
+
+
+=item B<-aud> I<integer>
+
+Use access unit delimiters.
+
+=item B<-mbtree> I<integer>
+
+Use macroblock tree ratecontrol.
+
+=item B<-deblock> I<string>
+
+Loop filter parameters, in E<lt>alpha:betaE<gt> form.
+
+=item B<-cplxblur> I<float>
+
+Reduce fluctuations in QP (before curve compression).
+
+=item B<-partitions> I<string>
+
+A comma-separated list of partitions to consider, possible values: p8x8, p4x4, b8x8, i8x8, i4x4, none, all.
+
+=item B<-direct-pred> I<integer>
+
+Direct MV prediction mode
+
+Possible values:
+
+=over 4
+
+
+=item B<none>
+
+
+
+=item B<spatial>
+
+
+
+=item B<temporal>
+
+
+
+=item B<auto>
+
+
+
+=back
+
+
+=item B<-slice-max-size> I<integer>
+
+Limit the size of each slice in bytes.
+
+=item B<-stats> I<string>
+
+Filename for 2 pass stats.
+
+=item B<-nal-hrd> I<integer>
+
+Signal HRD information (requires vbv-bufsize; cbr not allowed in .mp4).
+
+Possible values:
+
+=over 4
+
+
+=item B<none>
+
+
+
+=item B<vbr>
+
+
+
+=item B<cbr>
+
+
+
+=back
+
+
+
+=item B<x264opts> I<options>
+
+Allow to set any x264 option, see C<x264 --fullhelp> for a list.
+
+I<options> is a list of I<key>=I<value> couples separated by
+":". In I<filter> and I<psy-rd> options that use ":" as a separator
+themselves, use "," instead. They accept it as well since long ago but this
+is kept undocumented for some reason.
+
+For example to specify libx264 encoding options with B<ffmpeg>:
+	
+	ffmpeg -i foo.mpg -vcodec libx264 -x264opts keyint=123:min-keyint=20 -an out.mkv
+
+
+For more information about libx264 and the supported options see:
+E<lt>B<http://www.videolan.org/developers/x264.html>E<gt>
+
+
+=item B<-x264-params> I<string>
+
+Override the x264 configuration using a :-separated list of key=value parameters.
+	
+	-x264-params level=30:bframes=0:weightp=0:cabac=0:ref=1:vbv-maxrate=768:vbv-bufsize=2000:analyse=all:me=umh:no-fast-pskip=1:subq=6:8x8dct=0:trellis=0
+
+
+=back
+
+
+Encoding avpresets for common usages are provided so they can be used with the
+general presets system (e.g. passing the C<-pre> option).
+
+
+
+=head1 SEE ALSO
+
+
+
+ffmpeg(1), ffplay(1), ffprobe(1), ffserver(1), libavcodec(3)
+
+
+=head1 AUTHORS
+
+
+The FFmpeg developers.
+
+For details about the authorship, see the Git history of the project
+(git://source.ffmpeg.org/ffmpeg), e.g. by typing the command
+B<git log> in the FFmpeg source directory, or browsing the
+online repository at E<lt>B<http://source.ffmpeg.org>E<gt>.
+
+Maintainers for the specific components are listed in the file
+F<MAINTAINERS> in the source code tree.
+
+
+

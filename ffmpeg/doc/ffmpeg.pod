@@ -1,0 +1,2024 @@
+=head1 NAME
+
+ffmpeg - ffmpeg video converter
+
+=head1 SYNOPSIS
+
+
+ffmpeg [I<global_options>] {[I<input_file_options>] -i F<input_file>} ... {[I<output_file_options>] F<output_file>} ...
+
+
+=head1 DESCRIPTION
+
+
+ffmpeg is a very fast video and audio converter that can also grab from
+a live audio/video source. It can also convert between arbitrary sample
+rates and resize video on the fly with a high quality polyphase filter.
+
+ffmpeg reads from an arbitrary number of input "files" (which can be regular
+files, pipes, network streams, grabbing devices, etc.), specified by the
+C<-i> option, and writes to an arbitrary number of output "files", which are
+specified by a plain output filename. Anything found on the command line which
+cannot be interpreted as an option is considered to be an output filename.
+
+Each input or output file can in principle contain any number of streams of
+different types (video/audio/subtitle/attachment/data). Allowed number and/or
+types of streams can be limited by the container format. Selecting, which
+streams from which inputs go into output, is done either automatically or with
+the C<-map> option (see the Stream selection chapter).
+
+To refer to input files in options, you must use their indices (0-based). E.g.
+the first input file is C<0>, the second is C<1> etc. Similarly, streams
+within a file are referred to by their indices. E.g. C<2:3> refers to the
+fourth stream in the third input file. See also the Stream specifiers chapter.
+
+As a general rule, options are applied to the next specified
+file. Therefore, order is important, and you can have the same
+option on the command line multiple times. Each occurrence is
+then applied to the next input or output file.
+Exceptions from this rule are the global options (e.g. verbosity level),
+which should be specified first.
+
+Do not mix input and output files -- first specify all input files, then all
+output files. Also do not mix options which belong to different files. All
+options apply ONLY to the next input or output file and are reset between files.
+
+
+=over 4
+
+
+=item *
+
+To set the video bitrate of the output file to 64kbit/s:
+	
+	ffmpeg -i input.avi -b:v 64k -bufsize 64k output.avi
+
+
+
+=item *
+
+To force the frame rate of the output file to 24 fps:
+	
+	ffmpeg -i input.avi -r 24 output.avi
+
+
+
+=item *
+
+To force the frame rate of the input file (valid for raw formats only)
+to 1 fps and the frame rate of the output file to 24 fps:
+	
+	ffmpeg -r 1 -i input.m2v -r 24 output.avi
+
+
+=back
+
+
+The format option may be needed for raw input files.
+
+
+
+=head1 DETAILED DESCRIPTION
+
+
+The transcoding process in B<ffmpeg> for each output can be described by
+the following diagram:
+
+	
+	 _______              ______________               _________              ______________            ________
+	|       |            |              |             |         |            |              |          |        |
+	| input |  demuxer   | encoded data |   decoder   | decoded |  encoder   | encoded data |  muxer   | output |
+	| file  | ---------> | packets      |  ---------> | frames  | ---------> | packets      | -------> | file   |
+	|_______|            |______________|             |_________|            |______________|          |________|
+	
+
+
+B<ffmpeg> calls the libavformat library (containing demuxers) to read
+input files and get packets containing encoded data from them. When there are
+multiple input files, B<ffmpeg> tries to keep them synchronized by
+tracking lowest timestamp on any active input stream.
+
+Encoded packets are then passed to the decoder (unless streamcopy is selected
+for the stream, see further for a description). The decoder produces
+uncompressed frames (raw video/PCM audio/...) which can be processed further by
+filtering (see next section). After filtering the frames are passed to the
+encoder, which encodes them and outputs encoded packets again. Finally those are
+passed to the muxer, which writes the encoded packets to the output file.
+
+
+=head2 Filtering
+
+Before encoding, B<ffmpeg> can process raw audio and video frames using
+filters from the libavfilter library. Several chained filters form a filter
+graph.  B<ffmpeg> distinguishes between two types of filtergraphs -
+simple and complex.
+
+
+=head3 Simple filtergraphs
+
+Simple filtergraphs are those that have exactly one input and output, both of
+the same type. In the above diagram they can be represented by simply inserting
+an additional step between decoding and encoding:
+
+	
+	 _________                        __________              ______________
+	|         |                      |          |            |              |
+	| decoded |  simple filtergraph  | filtered |  encoder   | encoded data |
+	| frames  | -------------------> | frames   | ---------> | packets      |
+	|_________|                      |__________|            |______________|
+	
+
+
+Simple filtergraphs are configured with the per-stream B<-filter> option
+(with B<-vf> and B<-af> aliases for video and audio respectively).
+A simple filtergraph for video can look for example like this:
+
+	
+	 _______        _____________        _______        _____        ________
+	|       |      |             |      |       |      |     |      |        |
+	| input | ---> | deinterlace | ---> | scale | ---> | fps | ---> | output |
+	|_______|      |_____________|      |_______|      |_____|      |________|
+	
+
+
+Note that some filters change frame properties but not frame contents. E.g. the
+C<fps> filter in the example above changes number of frames, but does not
+touch the frame contents. Another example is the C<setpts> filter, which
+only sets timestamps and otherwise passes the frames unchanged.
+
+
+=head3 Complex filtergraphs
+
+Complex filtergraphs are those which cannot be described as simply a linear
+processing chain applied to one stream. This is the case e.g. when the graph has
+more than one input and/or output, or when output stream type is different from
+input. They can be represented with the following diagram:
+
+	
+	 _________
+	|         |
+	| input 0 |\                    __________
+	|_________| \                  |          |
+	             \   _________    /| output 0 |
+	              \ |         |  / |__________|
+	 _________     \| complex | /
+	|         |     |         |/
+	| input 1 |---->| filter  |\
+	|_________|     |         | \   __________
+	               /| graph   |  \ |          |
+	              / |         |   \| output 1 |
+	 _________   /  |_________|    |__________|
+	|         | /
+	| input 2 |/
+	|_________|
+	
+
+
+Complex filtergraphs are configured with the B<-filter_complex> option.
+Note that this option is global, since a complex filtergraph by its nature
+cannot be unambiguously associated with a single stream or file.
+
+A trivial example of a complex filtergraph is the C<overlay> filter, which
+has two video inputs and one video output, containing one video overlaid on top
+of the other. Its audio counterpart is the C<amix> filter.
+
+
+=head2 Stream copy
+
+Stream copy is a mode selected by supplying the C<copy> parameter to the
+B<-codec> option. It makes B<ffmpeg> omit the decoding and encoding
+step for the specified stream, so it does only demuxing and muxing. It is useful
+for changing the container format or modifying container-level metadata. The
+diagram above will in this case simplify to this:
+
+	
+	 _______              ______________            ________
+	|       |            |              |          |        |
+	| input |  demuxer   | encoded data |  muxer   | output |
+	| file  | ---------> | packets      | -------> | file   |
+	|_______|            |______________|          |________|
+	
+
+
+Since there is no decoding or encoding, it is very fast and there is no quality
+loss. However it might not work in some cases because of many factors. Applying
+filters is obviously also impossible, since filters work on uncompressed data.
+
+
+
+=head1 STREAM SELECTION
+
+
+By default ffmpeg includes only one stream of each type (video, audio, subtitle)
+present in the input files and adds them to each output file.  It picks the
+"best" of each based upon the following criteria; for video it is the stream
+with the highest resolution, for audio the stream with the most channels, for
+subtitle it's the first subtitle stream. In the case where several streams of
+the same type rate equally, the lowest numbered stream is chosen.
+
+You can disable some of those defaults by using C<-vn/-an/-sn> options. For
+full manual control, use the C<-map> option, which disables the defaults just
+described.
+
+
+
+=head1 OPTIONS
+
+
+All the numerical options, if not specified otherwise, accept in input
+a string representing a number, which may contain one of the
+SI unit prefixes, for example 'K', 'M', 'G'.
+If 'i' is appended after the prefix, binary prefixes are used,
+which are based on powers of 1024 instead of powers of 1000.
+The 'B' postfix multiplies the value by 8, and can be
+appended after a unit prefix or used alone. This allows using for
+example 'KB', 'MiB', 'G' and 'B' as number postfix.
+
+Options which do not take arguments are boolean options, and set the
+corresponding value to true. They can be set to false by prefixing
+with "no" the option name, for example using "-nofoo" in the
+command line will set to false the boolean option with name "foo".
+
+
+
+=head2 Stream specifiers
+
+Some options are applied per-stream, e.g. bitrate or codec. Stream specifiers
+are used to precisely specify which stream(s) does a given option belong to.
+
+A stream specifier is a string generally appended to the option name and
+separated from it by a colon. E.g. C<-codec:a:1 ac3> option contains
+C<a:1> stream specifier, which matches the second audio stream. Therefore it
+would select the ac3 codec for the second audio stream.
+
+A stream specifier can match several streams, the option is then applied to all
+of them. E.g. the stream specifier in C<-b:a 128k> matches all audio
+streams.
+
+An empty stream specifier matches all streams, for example C<-codec copy>
+or C<-codec: copy> would copy all the streams without reencoding.
+
+Possible forms of stream specifiers are:
+
+=over 4
+
+
+=item I<stream_index>
+
+Matches the stream with this index. E.g. C<-threads:1 4> would set the
+thread count for the second stream to 4.
+
+=item I<stream_type>B<[:>I<stream_index>B<]>
+
+I<stream_type> is one of: 'v' for video, 'a' for audio, 's' for subtitle,
+'d' for data and 't' for attachments. If I<stream_index> is given, then
+matches stream number I<stream_index> of this type. Otherwise matches all
+streams of this type.
+
+=item B<p:>I<program_id>B<[:>I<stream_index>B<]>
+
+If I<stream_index> is given, then matches stream number I<stream_index> in
+program with id I<program_id>. Otherwise matches all streams in this program.
+
+=item B<#>I<stream_id>
+
+Matches the stream by format-specific ID.
+
+=back
+
+
+
+=head2 Generic options
+
+
+These options are shared amongst the av* tools.
+
+
+=over 4
+
+
+
+=item B<-L>
+
+Show license.
+
+
+=item B<-h, -?, -help, --help [>I<arg>B<]>
+
+Show help. An optional parameter may be specified to print help about a specific
+item.
+
+Possible values of I<arg> are:
+
+=over 4
+
+
+=item B<decoder=>I<decoder_name>
+
+Print detailed information about the decoder named I<decoder_name>. Use the
+B<-decoders> option to get a list of all decoders.
+
+
+=item B<encoder=>I<encoder_name>
+
+Print detailed information about the encoder named I<encoder_name>. Use the
+B<-encoders> option to get a list of all encoders.
+
+
+=item B<demuxer=>I<demuxer_name>
+
+Print detailed information about the demuxer named I<demuxer_name>. Use the
+B<-formats> option to get a list of all demuxers and muxers.
+
+
+=item B<muxer=>I<muxer_name>
+
+Print detailed information about the muxer named I<muxer_name>. Use the
+B<-formats> option to get a list of all muxers and demuxers.
+
+
+=back
+
+
+
+=item B<-version>
+
+Show version.
+
+
+=item B<-formats>
+
+Show available formats.
+
+The fields preceding the format names have the following meanings:
+
+=over 4
+
+
+=item B<D>
+
+Decoding available
+
+=item B<E>
+
+Encoding available
+
+=back
+
+
+
+=item B<-codecs>
+
+Show all codecs known to libavcodec.
+
+Note that the term 'codec' is used throughout this documentation as a shortcut
+for what is more correctly called a media bitstream format.
+
+
+=item B<-decoders>
+
+Show available decoders.
+
+
+=item B<-encoders>
+
+Show all available encoders.
+
+
+=item B<-bsfs>
+
+Show available bitstream filters.
+
+
+=item B<-protocols>
+
+Show available protocols.
+
+
+=item B<-filters>
+
+Show available libavfilter filters.
+
+
+=item B<-pix_fmts>
+
+Show available pixel formats.
+
+
+=item B<-sample_fmts>
+
+Show available sample formats.
+
+
+=item B<-layouts>
+
+Show channel names and standard channel layouts.
+
+
+=item B<-loglevel> I<loglevel> B<| -v> I<loglevel>
+
+Set the logging level used by the library.
+I<loglevel> is a number or a string containing one of the following values:
+
+=over 4
+
+
+=item B<quiet>
+
+
+=item B<panic>
+
+
+=item B<fatal>
+
+
+=item B<error>
+
+
+=item B<warning>
+
+
+=item B<info>
+
+
+=item B<verbose>
+
+
+=item B<debug>
+
+
+=back
+
+
+By default the program logs to stderr, if coloring is supported by the
+terminal, colors are used to mark errors and warnings. Log coloring
+can be disabled setting the environment variable
+B<AV_LOG_FORCE_NOCOLOR> or B<NO_COLOR>, or can be forced setting
+the environment variable B<AV_LOG_FORCE_COLOR>.
+The use of the environment variable B<NO_COLOR> is deprecated and
+will be dropped in a following FFmpeg version.
+
+
+=item B<-report>
+
+Dump full command line and console output to a file named
+C<I<program>-I<YYYYMMDD>-I<HHMMSS>.log> in the current
+directory.
+This file can be useful for bug reports.
+It also implies C<-loglevel verbose>.
+
+Setting the environment variable C<FFREPORT> to any value has the
+same effect. If the value is a ':'-separated key=value sequence, these
+options will affect the report; options values must be escaped if they
+contain special characters or the options delimiter ':' (see the
+``Quoting and escaping'' section in the ffmpeg-utils manual). The
+following option is recognized:
+
+=over 4
+
+
+=item B<file>
+
+set the file name to use for the report; C<%p> is expanded to the name
+of the program, C<%t> is expanded to a timestamp, C<%%> is expanded
+to a plain C<%>
+
+=back
+
+
+Errors in parsing the environment variable are not fatal, and will not
+appear in the report.
+
+
+=item B<-cpuflags flags (>I<global>B<)>
+
+Allows setting and clearing cpu flags. This option is intended
+for testing. Do not use it unless you know what you're doing.
+	
+	ffmpeg -cpuflags -sse+mmx ...
+	ffmpeg -cpuflags mmx ...
+	ffmpeg -cpuflags 0 ...
+
+
+
+=back
+
+
+
+=head2 AVOptions
+
+
+These options are provided directly by the libavformat, libavdevice and
+libavcodec libraries. To see the list of available AVOptions, use the
+B<-help> option. They are separated into two categories:
+
+=over 4
+
+
+=item B<generic>
+
+These options can be set for any container, codec or device. Generic options
+are listed under AVFormatContext options for containers/devices and under
+AVCodecContext options for codecs.
+
+=item B<private>
+
+These options are specific to the given container, device or codec. Private
+options are listed under their corresponding containers/devices/codecs.
+
+=back
+
+
+For example to write an ID3v2.3 header instead of a default ID3v2.4 to
+an MP3 file, use the B<id3v2_version> private option of the MP3
+muxer:
+	
+	ffmpeg -i input.flac -id3v2_version 3 out.mp3
+
+
+All codec AVOptions are obviously per-stream, so the chapter on stream
+specifiers applies to them
+
+Note B<-nooption> syntax cannot be used for boolean AVOptions,
+use B<-option 0>/B<-option 1>.
+
+Note2 old undocumented way of specifying per-stream AVOptions by prepending
+v/a/s to the options name is now obsolete and will be removed soon.
+
+
+=head2 Main options
+
+
+
+=over 4
+
+
+
+=item B<-f> I<fmt> B<(>I<input/output>B<)>
+
+Force input or output file format. The format is normally auto detected for input
+files and guessed from file extension for output files, so this option is not
+needed in most cases.
+
+
+=item B<-i> I<filename> B<(>I<input>B<)>
+
+input file name
+
+
+=item B<-y (>I<global>B<)>
+
+Overwrite output files without asking.
+
+
+=item B<-n (>I<global>B<)>
+
+Do not overwrite output files but exit if file exists.
+
+
+=item B<-c[:>I<stream_specifier>B<]> I<codec> B<(>I<input/output,per-stream>B<)>
+
+
+=item B<-codec[:>I<stream_specifier>B<]> I<codec> B<(>I<input/output,per-stream>B<)>
+
+Select an encoder (when used before an output file) or a decoder (when used
+before an input file) for one or more streams. I<codec> is the name of a
+decoder/encoder or a special value C<copy> (output only) to indicate that
+the stream is not to be re-encoded.
+
+For example
+	
+	ffmpeg -i INPUT -map 0 -c:v libx264 -c:a copy OUTPUT
+
+encodes all video streams with libx264 and copies all audio streams.
+
+For each stream, the last matching C<c> option is applied, so
+	
+	ffmpeg -i INPUT -map 0 -c copy -c:v:1 libx264 -c:a:137 libvorbis OUTPUT
+
+will copy all the streams except the second video, which will be encoded with
+libx264, and the 138th audio, which will be encoded with libvorbis.
+
+
+=item B<-t> I<duration> B<(>I<output>B<)>
+
+Stop writing the output after its duration reaches I<duration>.
+I<duration> may be a number in seconds, or in C<hh:mm:ss[.xxx]> form.
+
+-to and -t are mutually exclusive and -t has priority.
+
+
+=item B<-to> I<position> B<(>I<output>B<)>
+
+Stop writing the output at I<position>.
+I<position> may be a number in seconds, or in C<hh:mm:ss[.xxx]> form.
+
+-to and -t are mutually exclusive and -t has priority.
+
+
+=item B<-fs> I<limit_size> B<(>I<output>B<)>
+
+Set the file size limit, expressed in bytes.
+
+
+=item B<-ss> I<position> B<(>I<input/output>B<)>
+
+When used as an input option (before C<-i>), seeks in this input file to
+I<position>. When used as an output option (before an output filename),
+decodes but discards input until the timestamps reach I<position>. This is
+slower, but more accurate.
+
+I<position> may be either in seconds or in C<hh:mm:ss[.xxx]> form.
+
+
+=item B<-itsoffset> I<offset> B<(>I<input>B<)>
+
+Set the input time offset in seconds.
+C<[-]hh:mm:ss[.xxx]> syntax is also supported.
+The offset is added to the timestamps of the input files.
+Specifying a positive offset means that the corresponding
+streams are delayed by I<offset> seconds.
+
+
+=item B<-timestamp> I<time> B<(>I<output>B<)>
+
+Set the recording timestamp in the container.
+The syntax for I<time> is:
+	
+	now|([(YYYY-MM-DD|YYYYMMDD)[T|t| ]]((HH:MM:SS[.m...])|(HHMMSS[.m...]))[Z|z])
+
+If the value is "now" it takes the current time.
+Time is local time unless 'Z' or 'z' is appended, in which case it is
+interpreted as UTC.
+If the year-month-day part is not specified it takes the current
+year-month-day.
+
+
+=item B<-metadata[:metadata_specifier]> I<key>B<=>I<value> B<(>I<output,per-metadata>B<)>
+
+Set a metadata key/value pair.
+
+An optional I<metadata_specifier> may be given to set metadata
+on streams or chapters. See C<-map_metadata> documentation for
+details.
+
+This option overrides metadata set with C<-map_metadata>. It is
+also possible to delete metadata by using an empty value.
+
+For example, for setting the title in the output file:
+	
+	ffmpeg -i in.avi -metadata title="my title" out.flv
+
+
+To set the language of the first audio stream:
+	
+	ffmpeg -i INPUT -metadata:s:a:1 language=eng OUTPUT
+
+
+
+=item B<-target> I<type> B<(>I<output>B<)>
+
+Specify target file type (C<vcd>, C<svcd>, C<dvd>, C<dv>,
+C<dv50>). I<type> may be prefixed with C<pal->, C<ntsc-> or
+C<film-> to use the corresponding standard. All the format options
+(bitrate, codecs, buffer sizes) are then set automatically. You can just type:
+
+	
+	ffmpeg -i myfile.avi -target vcd /tmp/vcd.mpg
+
+
+Nevertheless you can specify additional options as long as you know
+they do not conflict with the standard, as in:
+
+	
+	ffmpeg -i myfile.avi -target vcd -bf 2 /tmp/vcd.mpg
+
+
+
+=item B<-dframes> I<number> B<(>I<output>B<)>
+
+Set the number of data frames to record. This is an alias for C<-frames:d>.
+
+
+=item B<-frames[:>I<stream_specifier>B<]> I<framecount> B<(>I<output,per-stream>B<)>
+
+Stop writing to the stream after I<framecount> frames.
+
+
+=item B<-q[:>I<stream_specifier>B<]> I<q> B<(>I<output,per-stream>B<)>
+
+
+=item B<-qscale[:>I<stream_specifier>B<]> I<q> B<(>I<output,per-stream>B<)>
+
+Use fixed quality scale (VBR). The meaning of I<q> is
+codec-dependent.
+
+
+
+=item B<-filter[:>I<stream_specifier>B<]> I<filter_graph> B<(>I<output,per-stream>B<)>
+
+Create the filter graph specified by I<filter_graph> and use it to
+filter the stream.
+
+I<filter_graph> is a description of the filter graph to apply to
+the stream, and must have a single input and a single output of the
+same type of the stream. In the filter graph, the input is associated
+to the label C<in>, and the output to the label C<out>. See
+the ffmpeg-filters manual for more information about the filtergraph
+syntax.
+
+See the -filter_complex option if you
+want to create filter graphs with multiple inputs and/or outputs.
+
+
+=item B<-pre[:>I<stream_specifier>B<]> I<preset_name> B<(>I<output,per-stream>B<)>
+
+Specify the preset for matching stream(s).
+
+
+=item B<-stats (>I<global>B<)>
+
+Print encoding progress/statistics. On by default.
+
+
+=item B<-progress> I<url> B<(>I<global>B<)>
+
+Send program-friendly progress information to I<url>.
+
+Progress information is written approximately every second and at the end of
+the encoding process. It is made of "I<key>=I<value>" lines. I<key>
+consists of only alphanumeric characters. The last key of a sequence of
+progress information is always "progress".
+
+
+=item B<-stdin>
+
+Enable interaction on standard input. On by default unless standard input is
+used as an input. To explicitly disable interaction you need to specify
+C<-nostdin>.
+
+Disabling interaction on standard input is useful, for example, if
+ffmpeg is in the background process group. Roughly the same result can
+be achieved with C<ffmpeg ... E<lt> /dev/null> but it requires a
+shell.
+
+
+=item B<-debug_ts (>I<global>B<)>
+
+Print timestamp information. It is off by default. This option is
+mostly useful for testing and debugging purposes, and the output
+format may change from one version to another, so it should not be
+employed by portable scripts.
+
+See also the option C<-fdebug ts>.
+
+
+=item B<-attach> I<filename> B<(>I<output>B<)>
+
+Add an attachment to the output file. This is supported by a few formats
+like Matroska for e.g. fonts used in rendering subtitles. Attachments
+are implemented as a specific type of stream, so this option will add
+a new stream to the file. It is then possible to use per-stream options
+on this stream in the usual way. Attachment streams created with this
+option will be created after all the other streams (i.e. those created
+with C<-map> or automatic mappings).
+
+Note that for Matroska you also have to set the mimetype metadata tag:
+	
+	ffmpeg -i INPUT -attach DejaVuSans.ttf -metadata:s:2 mimetype=application/x-truetype-font out.mkv
+
+(assuming that the attachment stream will be third in the output file).
+
+
+=item B<-dump_attachment[:>I<stream_specifier>B<]> I<filename> B<(>I<input,per-stream>B<)>
+
+Extract the matching attachment stream into a file named I<filename>. If
+I<filename> is empty, then the value of the C<filename> metadata tag
+will be used.
+
+E.g. to extract the first attachment to a file named 'out.ttf':
+	
+	ffmpeg -dump_attachment:t:0 out.ttf -i INPUT
+
+To extract all attachments to files determined by the C<filename> tag:
+	
+	ffmpeg -dump_attachment:t "" -i INPUT
+
+
+Technical note -- attachments are implemented as codec extradata, so this
+option can actually be used to extract extradata from any stream, not just
+attachments.
+
+
+=back
+
+
+
+=head2 Video Options
+
+
+
+=over 4
+
+
+=item B<-vframes> I<number> B<(>I<output>B<)>
+
+Set the number of video frames to record. This is an alias for C<-frames:v>.
+
+=item B<-r[:>I<stream_specifier>B<]> I<fps> B<(>I<input/output,per-stream>B<)>
+
+Set frame rate (Hz value, fraction or abbreviation).
+
+As an input option, ignore any timestamps stored in the file and instead
+generate timestamps assuming constant frame rate I<fps>.
+
+As an output option, duplicate or drop input frames to achieve constant output
+frame rate I<fps>.
+
+
+=item B<-s[:>I<stream_specifier>B<]> I<size> B<(>I<input/output,per-stream>B<)>
+
+Set frame size.
+
+As an input option, this is a shortcut for the B<video_size> private
+option, recognized by some demuxers for which the frame size is either not
+stored in the file or is configurable -- e.g. raw video or video grabbers.
+
+As an output option, this inserts the C<scale> video filter to the
+I<end> of the corresponding filtergraph. Please use the C<scale> filter
+directly to insert it at the beginning or some other place.
+
+The format is B<wxh> (default - same as source).
+
+
+=item B<-aspect[:>I<stream_specifier>B<]> I<aspect> B<(>I<output,per-stream>B<)>
+
+Set the video display aspect ratio specified by I<aspect>.
+
+I<aspect> can be a floating point number string, or a string of the
+form I<num>:I<den>, where I<num> and I<den> are the
+numerator and denominator of the aspect ratio. For example "4:3",
+"16:9", "1.3333", and "1.7777" are valid argument values.
+
+
+=item B<-vn (>I<output>B<)>
+
+Disable video recording.
+
+
+=item B<-vcodec> I<codec> B<(>I<output>B<)>
+
+Set the video codec. This is an alias for C<-codec:v>.
+
+
+=item B<-pass[:>I<stream_specifier>B<]> I<n> B<(>I<output,per-stream>B<)>
+
+Select the pass number (1 or 2). It is used to do two-pass
+video encoding. The statistics of the video are recorded in the first
+pass into a log file (see also the option -passlogfile),
+and in the second pass that log file is used to generate the video
+at the exact requested bitrate.
+On pass 1, you may just deactivate audio and set output to null,
+examples for Windows and Unix:
+	
+	ffmpeg -i foo.mov -c:v libxvid -pass 1 -an -f rawvideo -y NUL
+	ffmpeg -i foo.mov -c:v libxvid -pass 1 -an -f rawvideo -y /dev/null
+
+
+
+=item B<-passlogfile[:>I<stream_specifier>B<]> I<prefix> B<(>I<output,per-stream>B<)>
+
+Set two-pass log file name prefix to I<prefix>, the default file name
+prefix is ``ffmpeg2pass''. The complete file name will be
+F<PREFIX-N.log>, where N is a number specific to the output
+stream
+
+
+=item B<-vlang> I<code>
+
+Set the ISO 639 language code (3 letters) of the current video stream.
+
+
+=item B<-vf> I<filter_graph> B<(>I<output>B<)>
+
+Create the filter graph specified by I<filter_graph> and use it to
+filter the stream.
+
+This is an alias for C<-filter:v>, see the -filter option.
+
+=back
+
+
+
+=head2 Advanced Video Options
+
+
+
+=over 4
+
+
+=item B<-pix_fmt[:>I<stream_specifier>B<]> I<format> B<(>I<input/output,per-stream>B<)>
+
+Set pixel format. Use C<-pix_fmts> to show all the supported
+pixel formats.
+If the selected pixel format can not be selected, ffmpeg will print a
+warning and select the best pixel format supported by the encoder.
+If I<pix_fmt> is prefixed by a C<+>, ffmpeg will exit with an error
+if the requested pixel format can not be selected, and automatic conversions
+inside filter graphs are disabled.
+If I<pix_fmt> is a single C<+>, ffmpeg selects the same pixel format
+as the input (or graph output) and automatic conversions are disabled.
+
+
+=item B<-sws_flags> I<flags> B<(>I<input/output>B<)>
+
+Set SwScaler flags.
+
+=item B<-vdt> I<n>
+
+Discard threshold.
+
+
+=item B<-rc_override[:>I<stream_specifier>B<]> I<override> B<(>I<output,per-stream>B<)>
+
+Rate control override for specific intervals, formatted as "int,int,int"
+list separated with slashes. Two first values are the beginning and
+end frame numbers, last one is quantizer to use if positive, or quality
+factor if negative.
+
+
+=item B<-deinterlace>
+
+Deinterlace pictures.
+This option is deprecated since the deinterlacing is very low quality.
+Use the yadif filter with C<-filter:v yadif>.
+
+=item B<-ilme>
+
+Force interlacing support in encoder (MPEG-2 and MPEG-4 only).
+Use this option if your input file is interlaced and you want
+to keep the interlaced format for minimum losses.
+The alternative is to deinterlace the input stream with
+B<-deinterlace>, but deinterlacing introduces losses.
+
+=item B<-psnr>
+
+Calculate PSNR of compressed frames.
+
+=item B<-vstats>
+
+Dump video coding statistics to F<vstats_HHMMSS.log>.
+
+=item B<-vstats_file> I<file>
+
+Dump video coding statistics to I<file>.
+
+=item B<-top[:>I<stream_specifier>B<]> I<n> B<(>I<output,per-stream>B<)>
+
+top=1/bottom=0/auto=-1 field first
+
+=item B<-dc> I<precision>
+
+Intra_dc_precision.
+
+=item B<-vtag> I<fourcc/tag> B<(>I<output>B<)>
+
+Force video tag/fourcc. This is an alias for C<-tag:v>.
+
+=item B<-qphist (>I<global>B<)>
+
+Show QP histogram
+
+=item B<-vbsf> I<bitstream_filter>
+
+Deprecated see -bsf
+
+
+=item B<-force_key_frames[:>I<stream_specifier>B<]> I<time>B<[,>I<time>B<...] (>I<output,per-stream>B<)>
+
+
+=item B<-force_key_frames[:>I<stream_specifier>B<] expr:>I<expr> B<(>I<output,per-stream>B<)>
+
+Force key frames at the specified timestamps, more precisely at the first
+frames after each specified time.
+
+If the argument is prefixed with C<expr:>, the string I<expr>
+is interpreted like an expression and is evaluated for each frame. A
+key frame is forced in case the evaluation is non-zero.
+
+If one of the times is "C<chapters>[I<delta>]", it is expanded into
+the time of the beginning of all chapters in the file, shifted by
+I<delta>, expressed as a time in seconds.
+This option can be useful to ensure that a seek point is present at a
+chapter mark or any other designated place in the output file.
+
+For example, to insert a key frame at 5 minutes, plus key frames 0.1 second
+before the beginning of every chapter:
+	
+	-force_key_frames 0:05:00,chapters-0.1
+
+
+The expression in I<expr> can contain the following constants:
+
+=over 4
+
+
+=item B<n>
+
+the number of current processed frame, starting from 0
+
+=item B<n_forced>
+
+the number of forced frames
+
+=item B<prev_forced_n>
+
+the number of the previous forced frame, it is C<NAN> when no
+keyframe was forced yet
+
+=item B<prev_forced_t>
+
+the time of the previous forced frame, it is C<NAN> when no
+keyframe was forced yet
+
+=item B<t>
+
+the time of the current processed frame
+
+=back
+
+
+For example to force a key frame every 5 seconds, you can specify:
+	
+	-force_key_frames expr:gte(t,n_forced*5)
+
+
+To force a key frame 5 seconds after the time of the last forced one,
+starting from second 13:
+	
+	-force_key_frames expr:if(isnan(prev_forced_t),gte(t,13),gte(t,prev_forced_t+5))
+
+
+Note that forcing too many keyframes is very harmful for the lookahead
+algorithms of certain encoders: using fixed-GOP options or similar
+would be more efficient.
+
+
+=item B<-copyinkf[:>I<stream_specifier>B<] (>I<output,per-stream>B<)>
+
+When doing stream copy, copy also non-key frames found at the
+beginning.
+
+=back
+
+
+
+=head2 Audio Options
+
+
+
+=over 4
+
+
+=item B<-aframes> I<number> B<(>I<output>B<)>
+
+Set the number of audio frames to record. This is an alias for C<-frames:a>.
+
+=item B<-ar[:>I<stream_specifier>B<]> I<freq> B<(>I<input/output,per-stream>B<)>
+
+Set the audio sampling frequency. For output streams it is set by
+default to the frequency of the corresponding input stream. For input
+streams this option only makes sense for audio grabbing devices and raw
+demuxers and is mapped to the corresponding demuxer options.
+
+=item B<-aq> I<q> B<(>I<output>B<)>
+
+Set the audio quality (codec-specific, VBR). This is an alias for -q:a.
+
+=item B<-ac[:>I<stream_specifier>B<]> I<channels> B<(>I<input/output,per-stream>B<)>
+
+Set the number of audio channels. For output streams it is set by
+default to the number of input audio channels. For input streams
+this option only makes sense for audio grabbing devices and raw demuxers
+and is mapped to the corresponding demuxer options.
+
+=item B<-an (>I<output>B<)>
+
+Disable audio recording.
+
+=item B<-acodec> I<codec> B<(>I<input/output>B<)>
+
+Set the audio codec. This is an alias for C<-codec:a>.
+
+=item B<-sample_fmt[:>I<stream_specifier>B<]> I<sample_fmt> B<(>I<output,per-stream>B<)>
+
+Set the audio sample format. Use C<-sample_fmts> to get a list
+of supported sample formats.
+
+
+=item B<-af> I<filter_graph> B<(>I<output>B<)>
+
+Create the filter graph specified by I<filter_graph> and use it to
+filter the stream.
+
+This is an alias for C<-filter:a>, see the -filter option.
+
+=back
+
+
+
+=head2 Advanced Audio options:
+
+
+
+=over 4
+
+
+=item B<-atag> I<fourcc/tag> B<(>I<output>B<)>
+
+Force audio tag/fourcc. This is an alias for C<-tag:a>.
+
+=item B<-absf> I<bitstream_filter>
+
+Deprecated, see -bsf
+
+=item B<-guess_layout_max> I<channels> B<(>I<input,per-stream>B<)>
+
+If some input channel layout is not known, try to guess only if it
+corresponds to at most the specified number of channels. For example, 2
+tells to B<ffmpeg> to recognize 1 channel as mono and 2 channels as
+stereo but not 6 channels as 5.1. The default is to always try to guess. Use
+0 to disable all guessing.
+
+=back
+
+
+
+=head2 Subtitle options:
+
+
+
+=over 4
+
+
+=item B<-slang> I<code>
+
+Set the ISO 639 language code (3 letters) of the current subtitle stream.
+
+=item B<-scodec> I<codec> B<(>I<input/output>B<)>
+
+Set the subtitle codec. This is an alias for C<-codec:s>.
+
+=item B<-sn (>I<output>B<)>
+
+Disable subtitle recording.
+
+=item B<-sbsf> I<bitstream_filter>
+
+Deprecated, see -bsf
+
+=back
+
+
+
+=head2 Advanced Subtitle options:
+
+
+
+=over 4
+
+
+
+=item B<-fix_sub_duration>
+
+Fix subtitles durations. For each subtitle, wait for the next packet in the
+same stream and adjust the duration of the first to avoid overlap. This is
+necessary with some subtitles codecs, especially DVB subtitles, because the
+duration in the original packet is only a rough estimate and the end is
+actually marked by an empty subtitle frame. Failing to use this option when
+necessary can result in exaggerated durations or muxing failures due to
+non-monotonic timestamps.
+
+Note that this option will delay the output of all data until the next
+subtitle packet is decoded: it may increase memory consumption and latency a
+lot.
+
+
+=back
+
+
+
+=head2 Advanced options
+
+
+
+=over 4
+
+
+=item B<-map [-]>I<input_file_id>B<[:>I<stream_specifier>B<][,>I<sync_file_id>B<[:>I<stream_specifier>B<]] |> I<[linklabel]> B<(>I<output>B<)>
+
+
+Designate one or more input streams as a source for the output file. Each input
+stream is identified by the input file index I<input_file_id> and
+the input stream index I<input_stream_id> within the input
+file. Both indices start at 0. If specified,
+I<sync_file_id>:I<stream_specifier> sets which input stream
+is used as a presentation sync reference.
+
+The first C<-map> option on the command line specifies the
+source for output stream 0, the second C<-map> option specifies
+the source for output stream 1, etc.
+
+A C<-> character before the stream identifier creates a "negative" mapping.
+It disables matching streams from already created mappings.
+
+An alternative I<[linklabel]> form will map outputs from complex filter
+graphs (see the B<-filter_complex> option) to the output file.
+I<linklabel> must correspond to a defined output link label in the graph.
+
+For example, to map ALL streams from the first input file to output
+	
+	ffmpeg -i INPUT -map 0 output
+
+
+For example, if you have two audio streams in the first input file,
+these streams are identified by "0:0" and "0:1". You can use
+C<-map> to select which streams to place in an output file. For
+example:
+	
+	ffmpeg -i INPUT -map 0:1 out.wav
+
+will map the input stream in F<INPUT> identified by "0:1" to
+the (single) output stream in F<out.wav>.
+
+For example, to select the stream with index 2 from input file
+F<a.mov> (specified by the identifier "0:2"), and stream with
+index 6 from input F<b.mov> (specified by the identifier "1:6"),
+and copy them to the output file F<out.mov>:
+	
+	ffmpeg -i a.mov -i b.mov -c copy -map 0:2 -map 1:6 out.mov
+
+
+To select all video and the third audio stream from an input file:
+	
+	ffmpeg -i INPUT -map 0:v -map 0:a:2 OUTPUT
+
+
+To map all the streams except the second audio, use negative mappings
+	
+	ffmpeg -i INPUT -map 0 -map -0:a:1 OUTPUT
+
+
+Note that using this option disables the default mappings for this output file.
+
+
+=item B<-map_channel [>I<input_file_id>B<.>I<stream_specifier>B<.>I<channel_id>B<|-1][:>I<output_file_id>B<.>I<stream_specifier>B<]>
+
+Map an audio channel from a given input to an output. If
+I<output_file_id>.I<stream_specifier> is not set, the audio channel will
+be mapped on all the audio streams.
+
+Using "-1" instead of
+I<input_file_id>.I<stream_specifier>.I<channel_id> will map a muted
+channel.
+
+For example, assuming I<INPUT> is a stereo audio file, you can switch the
+two audio channels with the following command:
+	
+	ffmpeg -i INPUT -map_channel 0.0.1 -map_channel 0.0.0 OUTPUT
+
+
+If you want to mute the first channel and keep the second:
+	
+	ffmpeg -i INPUT -map_channel -1 -map_channel 0.0.1 OUTPUT
+
+
+The order of the "-map_channel" option specifies the order of the channels in
+the output stream. The output channel layout is guessed from the number of
+channels mapped (mono if one "-map_channel", stereo if two, etc.). Using "-ac"
+in combination of "-map_channel" makes the channel gain levels to be updated if
+input and output channel layouts don't match (for instance two "-map_channel"
+options and "-ac 6").
+
+You can also extract each channel of an input to specific outputs; the following
+command extracts two channels of the I<INPUT> audio stream (file 0, stream 0)
+to the respective I<OUTPUT_CH0> and I<OUTPUT_CH1> outputs:
+	
+	ffmpeg -i INPUT -map_channel 0.0.0 OUTPUT_CH0 -map_channel 0.0.1 OUTPUT_CH1
+
+
+The following example splits the channels of a stereo input into two separate
+streams, which are put into the same output file:
+	
+	ffmpeg -i stereo.wav -map 0:0 -map 0:0 -map_channel 0.0.0:0.0 -map_channel 0.0.1:0.1 -y out.ogg
+
+
+Note that currently each output stream can only contain channels from a single
+input stream; you can't for example use "-map_channel" to pick multiple input
+audio channels contained in different streams (from the same or different files)
+and merge them into a single output stream. It is therefore not currently
+possible, for example, to turn two separate mono streams into a single stereo
+stream. However splitting a stereo stream into two single channel mono streams
+is possible.
+
+If you need this feature, a possible workaround is to use the I<amerge>
+filter. For example, if you need to merge a media (here F<input.mkv>) with 2
+mono audio streams into one single stereo channel audio stream (and keep the
+video stream), you can use the following command:
+	
+	ffmpeg -i input.mkv -filter_complex "[0:1] [0:2] amerge" -c:a pcm_s16le -c:v copy output.mkv
+
+
+
+=item B<-map_metadata[:>I<metadata_spec_out>B<]> I<infile>B<[:>I<metadata_spec_in>B<] (>I<output,per-metadata>B<)>
+
+Set metadata information of the next output file from I<infile>. Note that
+those are file indices (zero-based), not filenames.
+Optional I<metadata_spec_in/out> parameters specify, which metadata to copy.
+A metadata specifier can have the following forms:
+
+=over 4
+
+
+=item I<g>
+
+global metadata, i.e. metadata that applies to the whole file
+
+
+=item I<s>B<[:>I<stream_spec>B<]>
+
+per-stream metadata. I<stream_spec> is a stream specifier as described
+in the Stream specifiers chapter. In an input metadata specifier, the first
+matching stream is copied from. In an output metadata specifier, all matching
+streams are copied to.
+
+
+=item I<c>B<:>I<chapter_index>
+
+per-chapter metadata. I<chapter_index> is the zero-based chapter index.
+
+
+=item I<p>B<:>I<program_index>
+
+per-program metadata. I<program_index> is the zero-based program index.
+
+=back
+
+If metadata specifier is omitted, it defaults to global.
+
+By default, global metadata is copied from the first input file,
+per-stream and per-chapter metadata is copied along with streams/chapters. These
+default mappings are disabled by creating any mapping of the relevant type. A negative
+file index can be used to create a dummy mapping that just disables automatic copying.
+
+For example to copy metadata from the first stream of the input file to global metadata
+of the output file:
+	
+	ffmpeg -i in.ogg -map_metadata 0:s:0 out.mp3
+
+
+To do the reverse, i.e. copy global metadata to all audio streams:
+	
+	ffmpeg -i in.mkv -map_metadata:s:a 0:g out.mkv
+
+Note that simple C<0> would work as well in this example, since global
+metadata is assumed by default.
+
+
+=item B<-map_chapters> I<input_file_index> B<(>I<output>B<)>
+
+Copy chapters from input file with index I<input_file_index> to the next
+output file. If no chapter mapping is specified, then chapters are copied from
+the first input file with at least one chapter. Use a negative file index to
+disable any chapter copying.
+
+
+=item B<-benchmark (>I<global>B<)>
+
+Show benchmarking information at the end of an encode.
+Shows CPU time used and maximum memory consumption.
+Maximum memory consumption is not supported on all systems,
+it will usually display as 0 if not supported.
+
+=item B<-benchmark_all (>I<global>B<)>
+
+Show benchmarking information during the encode.
+Shows CPU time used in various steps (audio/video encode/decode).
+
+=item B<-timelimit> I<duration> B<(>I<global>B<)>
+
+Exit after ffmpeg has been running for I<duration> seconds.
+
+=item B<-dump (>I<global>B<)>
+
+Dump each input packet to stderr.
+
+=item B<-hex (>I<global>B<)>
+
+When dumping packets, also dump the payload.
+
+=item B<-re (>I<input>B<)>
+
+Read input at native frame rate. Mainly used to simulate a grab device.
+By default B<ffmpeg> attempts to read the input(s) as fast as possible.
+This option will slow down the reading of the input(s) to the native frame rate
+of the input(s). It is useful for real-time output (e.g. live streaming). If
+your input(s) is coming from some other live streaming source (through HTTP or
+UDP for example) the server might already be in real-time, thus the option will
+likely not be required. On the other hand, this is meaningful if your input(s)
+is a file you are trying to push in real-time.
+
+=item B<-loop_input>
+
+Loop over the input stream. Currently it works only for image
+streams. This option is used for automatic FFserver testing.
+This option is deprecated, use -loop 1.
+
+=item B<-loop_output> I<number_of_times>
+
+Repeatedly loop output for formats that support looping such as animated GIF
+(0 will loop the output infinitely).
+This option is deprecated, use -loop.
+
+=item B<-vsync> I<parameter>
+
+Video sync method.
+For compatibility reasons old values can be specified as numbers.
+Newly added values will have to be specified as strings always.
+
+
+=over 4
+
+
+=item B<0, passthrough>
+
+Each frame is passed with its timestamp from the demuxer to the muxer.
+
+=item B<1, cfr>
+
+Frames will be duplicated and dropped to achieve exactly the requested
+constant framerate.
+
+=item B<2, vfr>
+
+Frames are passed through with their timestamp or dropped so as to
+prevent 2 frames from having the same timestamp.
+
+=item B<drop>
+
+As passthrough but destroys all timestamps, making the muxer generate
+fresh timestamps based on frame-rate.
+
+=item B<-1, auto>
+
+Chooses between 1 and 2 depending on muxer capabilities. This is the
+default method.
+
+=back
+
+
+With -map you can select from which stream the timestamps should be
+taken. You can leave either video or audio unchanged and sync the
+remaining stream(s) to the unchanged one.
+
+
+=item B<-async> I<samples_per_second>
+
+Audio sync method. "Stretches/squeezes" the audio stream to match the timestamps,
+the parameter is the maximum samples per second by which the audio is changed.
+-async 1 is a special case where only the start of the audio stream is corrected
+without any later correction.
+This option has been deprecated. Use the C<aresample> audio filter instead.
+
+
+=item B<-copyts>
+
+Do not process input timestamps, but keep their values without trying
+to sanitize them. In particular, do not remove the initial start time
+offset value.
+
+Note that, depending on the B<vsync> option or on specific muxer
+processing, the output timestamps may mismatch with the input
+timestamps even when this option is selected.
+
+
+=item B<-copytb> I<mode>
+
+Specify how to set the encoder timebase when stream copying.  I<mode> is an
+integer numeric value, and can assume one of the following values:
+
+
+=over 4
+
+
+=item B<1>
+
+Use the demuxer timebase.
+
+The time base is copied to the output encoder from the corresponding input
+demuxer. This is sometimes required to avoid non monotonically increasing
+timestamps when copying video streams with variable frame rate.
+
+
+=item B<0>
+
+Use the decoder timebase.
+
+The time base is copied to the output encoder from the corresponding input
+decoder.
+
+
+=item B<-1>
+
+Try to make the choice automatically, in order to generate a sane output.
+
+=back
+
+
+Default value is -1.
+
+
+=item B<-shortest (>I<output>B<)>
+
+Finish encoding when the shortest input stream ends.
+
+=item B<-dts_delta_threshold>
+
+Timestamp discontinuity delta threshold.
+
+=item B<-muxdelay> I<seconds> B<(>I<input>B<)>
+
+Set the maximum demux-decode delay.
+
+=item B<-muxpreload> I<seconds> B<(>I<input>B<)>
+
+Set the initial demux-decode delay.
+
+=item B<-streamid> I<output-stream-index>B<:>I<new-value> B<(>I<output>B<)>
+
+Assign a new stream-id value to an output stream. This option should be
+specified prior to the output filename to which it applies.
+For the situation where multiple output files exist, a streamid
+may be reassigned to a different value.
+
+For example, to set the stream 0 PID to 33 and the stream 1 PID to 36 for
+an output mpegts file:
+	
+	ffmpeg -i infile -streamid 0:33 -streamid 1:36 out.ts
+
+
+
+=item B<-bsf[:>I<stream_specifier>B<]> I<bitstream_filters> B<(>I<output,per-stream>B<)>
+
+Set bitstream filters for matching streams. I<bitstream_filters> is
+a comma-separated list of bitstream filters. Use the C<-bsfs> option
+to get the list of bitstream filters.
+	
+	ffmpeg -i h264.mp4 -c:v copy -bsf:v h264_mp4toannexb -an out.h264
+
+	
+	ffmpeg -i file.mov -an -vn -bsf:s mov2textsub -c:s copy -f rawvideo sub.txt
+
+
+
+=item B<-tag[:>I<stream_specifier>B<]> I<codec_tag> B<(>I<per-stream>B<)>
+
+Force a tag/fourcc for matching streams.
+
+
+=item B<-timecode> I<hh>B<:>I<mm>B<:>I<ss>B<SEP>I<ff>
+
+Specify Timecode for writing. I<SEP> is ':' for non drop timecode and ';'
+(or '.') for drop.
+	
+	ffmpeg -i input.mpg -timecode 01:02:03.04 -r 30000/1001 -s ntsc output.mpg
+
+
+
+
+=item B<-filter_complex> I<filtergraph> B<(>I<global>B<)>
+
+Define a complex filter graph, i.e. one with arbitrary number of inputs and/or
+outputs. For simple graphs -- those with one input and one output of the same
+type -- see the B<-filter> options. I<filtergraph> is a description of
+the filter graph, as described in the ``Filtergraph syntax'' section of the
+ffmpeg-filters manual.
+
+Input link labels must refer to input streams using the
+C<[file_index:stream_specifier]> syntax (i.e. the same as B<-map>
+uses). If I<stream_specifier> matches multiple streams, the first one will be
+used. An unlabeled input will be connected to the first unused input stream of
+the matching type.
+
+Output link labels are referred to with B<-map>. Unlabeled outputs are
+added to the first output file.
+
+Note that with this option it is possible to use only lavfi sources without
+normal input files.
+
+For example, to overlay an image over video
+	
+	ffmpeg -i video.mkv -i image.png -filter_complex '[0:v][1:v]overlay[out]' -map
+	'[out]' out.mkv
+
+Here C<[0:v]> refers to the first video stream in the first input file,
+which is linked to the first (main) input of the overlay filter. Similarly the
+first video stream in the second input is linked to the second (overlay) input
+of overlay.
+
+Assuming there is only one video stream in each input file, we can omit input
+labels, so the above is equivalent to
+	
+	ffmpeg -i video.mkv -i image.png -filter_complex 'overlay[out]' -map
+	'[out]' out.mkv
+
+
+Furthermore we can omit the output label and the single output from the filter
+graph will be added to the output file automatically, so we can simply write
+	
+	ffmpeg -i video.mkv -i image.png -filter_complex 'overlay' out.mkv
+
+
+To generate 5 seconds of pure red video using lavfi C<color> source:
+	
+	ffmpeg -filter_complex 'color=c=red' -t 5 out.mkv
+
+
+=back
+
+
+As a special exception, you can use a bitmap subtitle stream as input: it
+will be converted into a video with the same size as the largest video in
+the file, or 720x576 if no video is present. Note that this is an
+experimental and temporary solution. It will be removed once libavfilter has
+proper support for subtitles.
+
+For example, to hardcode subtitles on top of a DVB-T recording stored in
+MPEG-TS format, delaying the subtitles by 1 second:
+	
+	ffmpeg -i input.ts -filter_complex \
+	  '[#0x2ef] setpts=PTS+1/TB [sub] ; [#0x2d0] [sub] overlay' \
+	  -sn -map '#0x2dc' output.mkv
+
+(0x2d0, 0x2dc and 0x2ef are the MPEG-TS PIDs of respectively the video,
+audio and subtitles streams; 0:0, 0:3 and 0:7 would have worked too)
+
+
+=head2 Preset files
+
+A preset file contains a sequence of I<option>=I<value> pairs,
+one for each line, specifying a sequence of options which would be
+awkward to specify on the command line. Lines starting with the hash
+('#') character are ignored and are used to provide comments. Check
+the F<presets> directory in the FFmpeg source tree for examples.
+
+Preset files are specified with the C<vpre>, C<apre>,
+C<spre>, and C<fpre> options. The C<fpre> option takes the
+filename of the preset instead of a preset name as input and can be
+used for any kind of codec. For the C<vpre>, C<apre>, and
+C<spre> options, the options specified in a preset file are
+applied to the currently selected codec of the same type as the preset
+option.
+
+The argument passed to the C<vpre>, C<apre>, and C<spre>
+preset options identifies the preset file to use according to the
+following rules:
+
+First ffmpeg searches for a file named I<arg>.ffpreset in the
+directories F<$FFMPEG_DATADIR> (if set), and F<$HOME/.ffmpeg>, and in
+the datadir defined at configuration time (usually F<PREFIX/share/ffmpeg>)
+or in a F<ffpresets> folder along the executable on win32,
+in that order. For example, if the argument is C<libvpx-1080p>, it will
+search for the file F<libvpx-1080p.ffpreset>.
+
+If no such file is found, then ffmpeg will search for a file named
+I<codec_name>-I<arg>.ffpreset in the above-mentioned
+directories, where I<codec_name> is the name of the codec to which
+the preset file options will be applied. For example, if you select
+the video codec with C<-vcodec libvpx> and use C<-vpre 1080p>,
+then it will search for the file F<libvpx-1080p.ffpreset>.
+
+
+=head1 TIPS
+
+
+
+=over 4
+
+
+=item *
+
+For streaming at very low bitrate application, use a low frame rate
+and a small GOP size. This is especially true for RealVideo where
+the Linux player does not seem to be very fast, so it can miss
+frames. An example is:
+
+	
+	ffmpeg -g 3 -r 3 -t 10 -b:v 50k -s qcif -f rv10 /tmp/b.rm
+
+
+
+=item *
+
+The parameter 'q' which is displayed while encoding is the current
+quantizer. The value 1 indicates that a very good quality could
+be achieved. The value 31 indicates the worst quality. If q=31 appears
+too often, it means that the encoder cannot compress enough to meet
+your bitrate. You must either increase the bitrate, decrease the
+frame rate or decrease the frame size.
+
+
+=item *
+
+If your computer is not fast enough, you can speed up the
+compression at the expense of the compression ratio. You can use
+'-me zero' to speed up motion estimation, and '-g 0' to disable
+motion estimation completely (you have only I-frames, which means it
+is about as good as JPEG compression).
+
+
+=item *
+
+To have very low audio bitrates, reduce the sampling frequency
+(down to 22050 Hz for MPEG audio, 22050 or 11025 for AC-3).
+
+
+=item *
+
+To have a constant quality (but a variable bitrate), use the option
+'-qscale n' when 'n' is between 1 (excellent quality) and 31 (worst
+quality).
+
+
+=back
+
+
+
+=head1 EXAMPLES
+
+
+
+=head2 Preset files
+
+
+A preset file contains a sequence of I<option=value> pairs, one for
+each line, specifying a sequence of options which can be specified also on
+the command line. Lines starting with the hash ('#') character are ignored and
+are used to provide comments. Empty lines are also ignored. Check the
+F<presets> directory in the FFmpeg source tree for examples.
+
+Preset files are specified with the C<pre> option, this option takes a
+preset name as input.  FFmpeg searches for a file named I<preset_name>.avpreset in
+the directories F<$AVCONV_DATADIR> (if set), and F<$HOME/.ffmpeg>, and in
+the data directory defined at configuration time (usually F<$PREFIX/share/ffmpeg>)
+in that order.  For example, if the argument is C<libx264-max>, it will
+search for the file F<libx264-max.avpreset>.
+
+
+=head2 Video and Audio grabbing
+
+
+If you specify the input format and device then ffmpeg can grab video
+and audio directly.
+
+	
+	ffmpeg -f oss -i /dev/dsp -f video4linux2 -i /dev/video0 /tmp/out.mpg
+
+
+Or with an ALSA audio source (mono input, card id 1) instead of OSS:
+	
+	ffmpeg -f alsa -ac 1 -i hw:1 -f video4linux2 -i /dev/video0 /tmp/out.mpg
+
+
+Note that you must activate the right video source and channel before
+launching ffmpeg with any TV viewer such as
+E<lt>B<http://linux.bytesex.org/xawtv/>E<gt> by Gerd Knorr. You also
+have to set the audio recording levels correctly with a
+standard mixer.
+
+
+=head2 X11 grabbing
+
+
+Grab the X11 display with ffmpeg via
+
+	
+	ffmpeg -f x11grab -s cif -r 25 -i :0.0 /tmp/out.mpg
+
+
+0.0 is display.screen number of your X11 server, same as
+the DISPLAY environment variable.
+
+	
+	ffmpeg -f x11grab -s cif -r 25 -i :0.0+10,20 /tmp/out.mpg
+
+
+0.0 is display.screen number of your X11 server, same as the DISPLAY environment
+variable. 10 is the x-offset and 20 the y-offset for the grabbing.
+
+
+=head2 Video and Audio file format conversion
+
+
+Any supported file format and protocol can serve as input to ffmpeg:
+
+Examples:
+
+=over 4
+
+
+=item *
+
+You can use YUV files as input:
+
+	
+	ffmpeg -i /tmp/test%d.Y /tmp/out.mpg
+
+
+It will use the files:
+	
+	/tmp/test0.Y, /tmp/test0.U, /tmp/test0.V,
+	/tmp/test1.Y, /tmp/test1.U, /tmp/test1.V, etc...
+
+
+The Y files use twice the resolution of the U and V files. They are
+raw files, without header. They can be generated by all decent video
+decoders. You must specify the size of the image with the B<-s> option
+if ffmpeg cannot guess it.
+
+
+=item *
+
+You can input from a raw YUV420P file:
+
+	
+	ffmpeg -i /tmp/test.yuv /tmp/out.avi
+
+
+test.yuv is a file containing raw YUV planar data. Each frame is composed
+of the Y plane followed by the U and V planes at half vertical and
+horizontal resolution.
+
+
+=item *
+
+You can output to a raw YUV420P file:
+
+	
+	ffmpeg -i mydivx.avi hugefile.yuv
+
+
+
+=item *
+
+You can set several input files and output files:
+
+	
+	ffmpeg -i /tmp/a.wav -s 640x480 -i /tmp/a.yuv /tmp/a.mpg
+
+
+Converts the audio file a.wav and the raw YUV video file a.yuv
+to MPEG file a.mpg.
+
+
+=item *
+
+You can also do audio and video conversions at the same time:
+
+	
+	ffmpeg -i /tmp/a.wav -ar 22050 /tmp/a.mp2
+
+
+Converts a.wav to MPEG audio at 22050 Hz sample rate.
+
+
+=item *
+
+You can encode to several formats at the same time and define a
+mapping from input stream to output streams:
+
+	
+	ffmpeg -i /tmp/a.wav -map 0:a -b:a 64k /tmp/a.mp2 -map 0:a -b:a 128k /tmp/b.mp2
+
+
+Converts a.wav to a.mp2 at 64 kbits and to b.mp2 at 128 kbits. '-map
+file:index' specifies which input stream is used for each output
+stream, in the order of the definition of output streams.
+
+
+=item *
+
+You can transcode decrypted VOBs:
+
+	
+	ffmpeg -i snatch_1.vob -f avi -c:v mpeg4 -b:v 800k -g 300 -bf 2 -c:a libmp3lame -b:a 128k snatch.avi
+
+
+This is a typical DVD ripping example; the input is a VOB file, the
+output an AVI file with MPEG-4 video and MP3 audio. Note that in this
+command we use B-frames so the MPEG-4 stream is DivX5 compatible, and
+GOP size is 300 which means one intra frame every 10 seconds for 29.97fps
+input video. Furthermore, the audio stream is MP3-encoded so you need
+to enable LAME support by passing C<--enable-libmp3lame> to configure.
+The mapping is particularly useful for DVD transcoding
+to get the desired audio language.
+
+NOTE: To see the supported input formats, use C<ffmpeg -formats>.
+
+
+=item *
+
+You can extract images from a video, or create a video from many images:
+
+For extracting images from a video:
+	
+	ffmpeg -i foo.avi -r 1 -s WxH -f image2 foo-%03d.jpeg
+
+
+This will extract one video frame per second from the video and will
+output them in files named F<foo-001.jpeg>, F<foo-002.jpeg>,
+etc. Images will be rescaled to fit the new WxH values.
+
+If you want to extract just a limited number of frames, you can use the
+above command in combination with the -vframes or -t option, or in
+combination with -ss to start extracting from a certain point in time.
+
+For creating a video from many images:
+	
+	ffmpeg -f image2 -i foo-%03d.jpeg -r 12 -s WxH foo.avi
+
+
+The syntax C<foo-%03d.jpeg> specifies to use a decimal number
+composed of three digits padded with zeroes to express the sequence
+number. It is the same syntax supported by the C printf function, but
+only formats accepting a normal integer are suitable.
+
+When importing an image sequence, -i also supports expanding
+shell-like wildcard patterns (globbing) internally, by selecting the
+image2-specific C<-pattern_type glob> option.
+
+For example, for creating a video from filenames matching the glob pattern
+C<foo-*.jpeg>:
+	
+	ffmpeg -f image2 -pattern_type glob -i 'foo-*.jpeg' -r 12 -s WxH foo.avi
+
+
+
+=item *
+
+You can put many streams of the same type in the output:
+
+	
+	ffmpeg -i test1.avi -i test2.avi -map 0:3 -map 0:2 -map 0:1 -map 0:0 -c copy test12.nut
+
+
+The resulting output file F<test12.avi> will contain first four streams from
+the input file in reverse order.
+
+
+=item *
+
+To force CBR video output:
+	
+	ffmpeg -i myfile.avi -b 4000k -minrate 4000k -maxrate 4000k -bufsize 1835k out.m2v
+
+
+
+=item *
+
+The four options lmin, lmax, mblmin and mblmax use 'lambda' units,
+but you may use the QP2LAMBDA constant to easily convert from 'q' units:
+	
+	ffmpeg -i src.ext -lmax 21*QP2LAMBDA dst.ext
+
+
+
+=back
+
+
+
+=head1 SEE ALSO
+
+
+
+ffplay(1), ffprobe(1), ffserver(1),
+ffmpeg-utils(1), ffmpeg-scaler(1), ffmpeg-resampler(1),
+ffmpeg-codecs(1), ffmpeg-bitstream-filters(1), ffmpeg-formats(1),
+ffmpeg-devices(1), ffmpeg-protocols(1), ffmpeg-filters(1)
+
+
+=head1 AUTHORS
+
+
+The FFmpeg developers.
+
+For details about the authorship, see the Git history of the project
+(git://source.ffmpeg.org/ffmpeg), e.g. by typing the command
+B<git log> in the FFmpeg source directory, or browsing the
+online repository at E<lt>B<http://source.ffmpeg.org>E<gt>.
+
+Maintainers for the specific components are listed in the file
+F<MAINTAINERS> in the source code tree.
+
+
+

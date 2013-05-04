@@ -1,0 +1,195 @@
+=head1 NAME
+
+ffmpeg-scaler - FFmpeg video scaling and pixel format converter
+
+=head1 DESCRIPTION
+
+
+The FFmpeg rescaler provides an high-level interface to the libswscale
+library image conversion utilities. In particular it allows to perform
+image rescaling and pixel format conversion.
+
+
+
+=head1 SCALER OPTIONS
+
+
+The video scaler supports the following named options.
+
+Options may be set by specifying -I<option> I<value> in the
+FFmpeg tools. For programmatic use, they can be set explicitly in the
+C<SwsContext> options or through the F<libavutil/opt.h> API.
+
+
+=over 4
+
+
+
+=item B<sws_flags>
+
+Set the scaler flags. This is also used to set the scaling
+algorithm. Only a single algorithm should be selected.
+
+It accepts the following values:
+
+=over 4
+
+
+=item B<fast_bilinear>
+
+Select fast bilinear scaling algorithm.
+
+
+=item B<bilinear>
+
+Select bilinear scaling algorithm.
+
+
+=item B<bicubic>
+
+Select bicubic scaling algorithm.
+
+
+=item B<experimental>
+
+Select experimental scaling algorithm.
+
+
+=item B<neighbor>
+
+Select nearest neighbor rescaling algorithm.
+
+
+=item B<area>
+
+Select averaging area rescaling algorithm.
+
+
+=item B<bicubiclin>
+
+Select bicubic scaling algorithm for the luma component, bilinear for
+chroma components.
+
+
+=item B<gauss>
+
+Select Gaussian rescaling algorithm.
+
+
+=item B<sinc>
+
+Select sinc rescaling algorithm.
+
+
+=item B<lanczos>
+
+Select lanczos rescaling algorithm.
+
+
+=item B<spline>
+
+Select natural bicubic spline rescaling algorithm.
+
+
+=item B<print_info>
+
+Enable printing/debug logging.
+
+
+=item B<accurate_rnd>
+
+Enable accurate rounding.
+
+
+=item B<full_chroma_int>
+
+Enable full chroma interpolation.
+
+
+=item B<full_chroma_inp>
+
+Select full chroma input.
+
+
+=item B<bitexact>
+
+Enable bitexact output.
+
+=back
+
+
+
+=item B<srcw>
+
+Set source width.
+
+
+=item B<srch>
+
+Set source height.
+
+
+=item B<dstw>
+
+Set destination width.
+
+
+=item B<dsth>
+
+Set destination height.
+
+
+=item B<src_format>
+
+Set source pixel format (must be expressed as an integer).
+
+
+=item B<dst_format>
+
+Set destination pixel format (must be expressed as an integer).
+
+
+=item B<src_range>
+
+Select source range.
+
+
+=item B<dst_range>
+
+Select destination range.
+
+
+=item B<param0, param1>
+
+Set scaling algorithm parameters. The specified values are specific of
+some scaling algorithms and ignored by others. The specified values
+are floating point number values.
+
+
+=back
+
+
+
+
+=head1 SEE ALSO
+
+
+
+ffmpeg(1), ffplay(1), ffprobe(1), ffserver(1), libswscale(3)
+
+
+=head1 AUTHORS
+
+
+The FFmpeg developers.
+
+For details about the authorship, see the Git history of the project
+(git://source.ffmpeg.org/ffmpeg), e.g. by typing the command
+B<git log> in the FFmpeg source directory, or browsing the
+online repository at E<lt>B<http://source.ffmpeg.org>E<gt>.
+
+Maintainers for the specific components are listed in the file
+F<MAINTAINERS> in the source code tree.
+
+
+

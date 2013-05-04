@@ -1,0 +1,1770 @@
+=head1 NAME
+
+ffmpeg-formats - FFmpeg formats
+
+=head1 DESCRIPTION
+
+
+This document describes the supported formats (muxers and demuxers)
+provided by the libavformat library.
+
+
+
+=head1 FORMAT OPTIONS
+
+
+The libavformat library provides some generic global options, which
+can be set on all the muxers and demuxers. In addition each muxer or
+demuxer may support so-called private options, which are specific for
+that component.
+
+Options may be set by specifying -I<option> I<value> in the
+FFmpeg tools, or by setting the value explicitly in the
+C<AVFormatContext> options or using the F<libavutil/opt.h> API
+for programmatic use.
+
+The list of supported options follows:
+
+
+=over 4
+
+
+=item B<avioflags> I<flags> B<(>I<input/output>B<)>
+
+Possible values:
+
+=over 4
+
+
+=item B<direct>
+
+Reduce buffering.
+
+=back
+
+
+
+=item B<probesize> I<integer> B<(>I<input>B<)>
+
+Set probing size in bytes, i.e. the size of the data to analyze to get
+stream information. A higher value will allow to detect more
+information in case it is dispersed into the stream, but will increase
+latency. Must be an integer not lesser than 32. It is 5000000 by default.
+
+
+=item B<packetsize> I<integer> B<(>I<output>B<)>
+
+Set packet size.
+
+
+=item B<fflags> I<flags> B<(>I<input/output>B<)>
+
+Set format flags.
+
+Possible values:
+
+=over 4
+
+
+=item B<ignidx>
+
+Ignore index.
+
+=item B<genpts>
+
+Generate PTS.
+
+=item B<nofillin>
+
+Do not fill in missing values that can be exactly calculated.
+
+=item B<noparse>
+
+Disable AVParsers, this needs C<+nofillin> too.
+
+=item B<igndts>
+
+Ignore DTS.
+
+=item B<discardcorrupt>
+
+Discard corrupted frames.
+
+=item B<sortdts>
+
+Try to interleave output packets by DTS.
+
+=item B<keepside>
+
+Do not merge side data.
+
+=item B<latm>
+
+Enable RTP MP4A-LATM payload.
+
+=item B<nobuffer>
+
+Reduce the latency introduced by optional buffering
+
+=back
+
+
+
+=item B<analyzeduration> I<integer> B<(>I<input>B<)>
+
+Specify how many microseconds are analyzed to probe the input. A
+higher value will allow to detect more accurate information, but will
+increase latency. It defaults to 5,000,000 microseconds = 5 seconds.
+
+
+=item B<cryptokey> I<hexadecimal string> B<(>I<input>B<)>
+
+Set decryption key.
+
+
+=item B<indexmem> I<integer> B<(>I<input>B<)>
+
+Set max memory used for timestamp index (per stream).
+
+
+=item B<rtbufsize> I<integer> B<(>I<input>B<)>
+
+Set max memory used for buffering real-time frames.
+
+
+=item B<fdebug> I<flags> B<(>I<input/output>B<)>
+
+Print specific debug info.
+
+Possible values:
+
+=over 4
+
+
+=item B<ts>
+
+
+=back
+
+
+
+=item B<max_delay> I<integer> B<(>I<input/output>B<)>
+
+Set maximum muxing or demuxing delay in microseconds.
+
+
+=item B<fpsprobesize> I<integer> B<(>I<input>B<)>
+
+Set number of frames used to probe fps.
+
+
+=item B<audio_preload> I<integer> B<(>I<output>B<)>
+
+Set microseconds by which audio packets should be interleaved earlier.
+
+
+=item B<chunk_duration> I<integer> B<(>I<output>B<)>
+
+Set microseconds for each chunk.
+
+
+=item B<chunk_size> I<integer> B<(>I<output>B<)>
+
+Set size in bytes for each chunk.
+
+
+=item B<err_detect, f_err_detect> I<flags> B<(>I<input>B<)>
+
+Set error detection flags. C<f_err_detect> is deprecated and
+should be used only via the B<ffmpeg> tool.
+
+Possible values:
+
+=over 4
+
+
+=item B<crccheck>
+
+Verify embedded CRCs.
+
+=item B<bitstream>
+
+Detect bitstream specification deviations.
+
+=item B<buffer>
+
+Detect improper bitstream length.
+
+=item B<explode>
+
+Abort decoding on minor error detection.
+
+=item B<careful>
+
+Consider things that violate the spec and have not been seen in the
+wild as errors.
+
+=item B<compliant>
+
+Consider all spec non compliancies as errors.
+
+=item B<aggressive>
+
+Consider things that a sane encoder should not do as an error.
+
+=back
+
+
+
+=item B<use_wallclock_as_timestamps> I<integer> B<(>I<input>B<)>
+
+Use wallclock as timestamps.
+
+
+=item B<avoid_negative_ts> I<integer> B<(>I<output>B<)>
+
+Shift timestamps to make them positive. 1 enables, 0 disables, default
+of -1 enables when required by target format.
+
+=back
+
+
+
+
+=head1 DEMUXERS
+
+
+Demuxers are configured elements in FFmpeg which allow to read the
+multimedia streams from a particular type of file.
+
+When you configure your FFmpeg build, all the supported demuxers
+are enabled by default. You can list all available ones using the
+configure option C<--list-demuxers>.
+
+You can disable all the demuxers using the configure option
+C<--disable-demuxers>, and selectively enable a single demuxer with
+the option C<--enable-demuxer=I<DEMUXER>>, or disable it
+with the option C<--disable-demuxer=I<DEMUXER>>.
+
+The option C<-formats> of the ff* tools will display the list of
+enabled demuxers.
+
+The description of some of the currently available demuxers follows.
+
+
+=head2 applehttp
+
+
+Apple HTTP Live Streaming demuxer.
+
+This demuxer presents all AVStreams from all variant streams.
+The id field is set to the bitrate variant index number. By setting
+the discard flags on AVStreams (by pressing 'a' or 'v' in ffplay),
+the caller can decide which variant streams to actually receive.
+The total bitrate of the variant that the stream belongs to is
+available in a metadata key named "variant_bitrate".
+
+
+
+=head2 concat
+
+
+Virtual concatenation script demuxer.
+
+This demuxer reads a list of files and other directives from a text file and
+demuxes them one after the other, as if all their packet had been muxed
+together.
+
+The timestamps in the files are adjusted so that the first file starts at 0
+and each next file starts where the previous one finishes. Note that it is
+done globally and may cause gaps if all streams do not have exactly the same
+length.
+
+All files must have the same streams (same codecs, same time base, etc.).
+
+The duration of each file is used to adjust the timestamps of the next file:
+if the duration is incorrect (because it was computed using the bit-rate or
+because the file is truncated, for example), it can cause artifacts. The
+C<duration> directive can be used to override the duration stored in
+each file.
+
+
+=head3 Syntax
+
+
+The script is a text file in extended-ASCII, with one directive per line.
+Empty lines, leading spaces and lines starting with '#' are ignored. The
+following directive is recognized:
+
+
+=over 4
+
+
+
+=item B<C<file I<path>>>
+
+Path to a file to read; special characters and spaces must be escaped with
+backslash or single quotes.
+
+All subsequent directives apply to that file.
+
+
+=item B<C<ffconcat version 1.0>>
+
+Identify the script type and version. It also sets the B<safe> option
+to 1 if it was to its default -1.
+
+To make FFmpeg recognize the format automatically, this directive must
+appears exactly as is (no extra space or byte-order-mark) on the very first
+line of the script.
+
+
+=item B<C<duration I<dur>>>
+
+Duration of the file. This information can be specified from the file;
+specifying it here may be more efficient or help if the information from the
+file is not available or accurate.
+
+
+=back
+
+
+
+=head3 Options
+
+
+This demuxer accepts the following option:
+
+
+=over 4
+
+
+
+=item B<safe>
+
+If set to 1, reject unsafe file paths. A file path is considered safe if it
+does not contain a protocol specification and is relative and all components
+only contain characters from the portable character set (letters, digits,
+period, underscore and hyphen) and have no period at the beginning of a
+component.
+
+If set to 0, any file name is accepted.
+
+The default is -1, it is equivalent to 1 if the format was automatically
+probed and 0 otherwise.
+
+
+=back
+
+
+
+=head2 image2
+
+
+Image file demuxer.
+
+This demuxer reads from a list of image files specified by a pattern.
+The syntax and meaning of the pattern is specified by the
+option I<pattern_type>.
+
+The pattern may contain a suffix which is used to automatically
+determine the format of the images contained in the files.
+
+The size, the pixel format, and the format of each image must be the
+same for all the files in the sequence.
+
+This demuxer accepts the following options:
+
+=over 4
+
+
+=item B<framerate>
+
+Set the framerate for the video stream. It defaults to 25.
+
+=item B<loop>
+
+If set to 1, loop over the input. Default value is 0.
+
+=item B<pattern_type>
+
+Select the pattern type used to interpret the provided filename.
+
+I<pattern_type> accepts one of the following values.
+
+=over 4
+
+
+=item B<sequence>
+
+Select a sequence pattern type, used to specify a sequence of files
+indexed by sequential numbers.
+
+A sequence pattern may contain the string "%d" or "%0I<N>d", which
+specifies the position of the characters representing a sequential
+number in each filename matched by the pattern. If the form
+"%d0I<N>d" is used, the string representing the number in each
+filename is 0-padded and I<N> is the total number of 0-padded
+digits representing the number. The literal character '%' can be
+specified in the pattern with the string "%%".
+
+If the sequence pattern contains "%d" or "%0I<N>d", the first filename of
+the file list specified by the pattern must contain a number
+inclusively contained between I<start_number> and
+I<start_number>+I<start_number_range>-1, and all the following
+numbers must be sequential.
+
+For example the pattern "img-%03d.bmp" will match a sequence of
+filenames of the form F<img-001.bmp>, F<img-002.bmp>, ...,
+F<img-010.bmp>, etc.; the pattern "i%%m%%g-%d.jpg" will match a
+sequence of filenames of the form F<i%m%g-1.jpg>,
+F<i%m%g-2.jpg>, ..., F<i%m%g-10.jpg>, etc.
+
+Note that the pattern must not necessarily contain "%d" or
+"%0I<N>d", for example to convert a single image file
+F<img.jpeg> you can employ the command:
+	
+	ffmpeg -i img.jpeg img.png
+
+
+
+=item B<glob>
+
+Select a glob wildcard pattern type.
+
+The pattern is interpreted like a C<glob()> pattern. This is only
+selectable if libavformat was compiled with globbing support.
+
+
+=item B<glob_sequence> I<(deprecated, will be removed)>
+
+Select a mixed glob wildcard/sequence pattern.
+
+If your version of libavformat was compiled with globbing support, and
+the provided pattern contains at least one glob meta character among
+C<%*?[]{}> that is preceded by an unescaped "%", the pattern is
+interpreted like a C<glob()> pattern, otherwise it is interpreted
+like a sequence pattern.
+
+All glob special characters C<%*?[]{}> must be prefixed
+with "%". To escape a literal "%" you shall use "%%".
+
+For example the pattern C<foo-%*.jpeg> will match all the
+filenames prefixed by "foo-" and terminating with ".jpeg", and
+C<foo-%?%?%?.jpeg> will match all the filenames prefixed with
+"foo-", followed by a sequence of three characters, and terminating
+with ".jpeg".
+
+This pattern type is deprecated in favor of I<glob> and
+I<sequence>.
+
+=back
+
+
+Default value is I<glob_sequence>.
+
+=item B<pixel_format>
+
+Set the pixel format of the images to read. If not specified the pixel
+format is guessed from the first image file in the sequence.
+
+=item B<start_number>
+
+Set the index of the file matched by the image file pattern to start
+to read from. Default value is 0.
+
+=item B<start_number_range>
+
+Set the index interval range to check when looking for the first image
+file in the sequence, starting from I<start_number>. Default value
+is 5.
+
+=item B<video_size>
+
+Set the video size of the images to read. If not specified the video
+size is guessed from the first image file in the sequence.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Use B<ffmpeg> for creating a video from the images in the file
+sequence F<img-001.jpeg>, F<img-002.jpeg>, ..., assuming an
+input frame rate of 10 frames per second:
+	
+	ffmpeg -i 'img-%03d.jpeg' -r 10 out.mkv
+
+
+
+=item *
+
+As above, but start by reading from a file with index 100 in the sequence:
+	
+	ffmpeg -start_number 100 -i 'img-%03d.jpeg' -r 10 out.mkv
+
+
+
+=item *
+
+Read images matching the "*.png" glob pattern , that is all the files
+terminating with the ".png" suffix:
+	
+	ffmpeg -pattern_type glob -i "*.png" -r 10 out.mkv
+
+
+=back
+
+
+
+=head2 rawvideo
+
+
+Raw video demuxer.
+
+This demuxer allows to read raw video data. Since there is no header
+specifying the assumed video parameters, the user must specify them
+in order to be able to decode the data correctly.
+
+This demuxer accepts the following options:
+
+=over 4
+
+
+
+=item B<framerate>
+
+Set input video frame rate. Default value is 25.
+
+
+=item B<pixel_format>
+
+Set the input video pixel format. Default value is C<yuv420p>.
+
+
+=item B<video_size>
+
+Set the input video size. This value must be specified explicitly.
+
+=back
+
+
+For example to read a rawvideo file F<input.raw> with
+B<ffplay>, assuming a pixel format of C<rgb24>, a video
+size of C<320x240>, and a frame rate of 10 images per second, use
+the command:
+	
+	ffplay -f rawvideo -pixel_format rgb24 -video_size 320x240 -framerate 10 input.raw
+
+
+
+=head2 sbg
+
+
+SBaGen script demuxer.
+
+This demuxer reads the script language used by SBaGen
+E<lt>B<http://uazu.net/sbagen/>E<gt> to generate binaural beats sessions. A SBG
+script looks like that:
+	
+	-SE
+	a: 300-2.5/3 440+4.5/0
+	b: 300-2.5/0 440+4.5/3
+	off: -
+	NOW      == a
+	+0:07:00 == b
+	+0:14:00 == a
+	+0:21:00 == b
+	+0:30:00    off
+
+
+A SBG script can mix absolute and relative timestamps. If the script uses
+either only absolute timestamps (including the script start time) or only
+relative ones, then its layout is fixed, and the conversion is
+straightforward. On the other hand, if the script mixes both kind of
+timestamps, then the I<NOW> reference for relative timestamps will be
+taken from the current time of day at the time the script is read, and the
+script layout will be frozen according to that reference. That means that if
+the script is directly played, the actual times will match the absolute
+timestamps up to the sound controller's clock accuracy, but if the user
+somehow pauses the playback or seeks, all times will be shifted accordingly.
+
+
+=head2 tedcaptions
+
+
+JSON captions used for E<lt>B<http://www.ted.com/>E<gt>.
+
+TED does not provide links to the captions, but they can be guessed from the
+page. The file F<tools/bookmarklets.html> from the FFmpeg source tree
+contains a bookmarklet to expose them.
+
+This demuxer accepts the following option:
+
+=over 4
+
+
+=item B<start_time>
+
+Set the start time of the TED talk, in milliseconds. The default is 15000
+(15s). It is used to sync the captions with the downloadable videos, because
+they include a 15s intro.
+
+=back
+
+
+Example: convert the captions to a format most players understand:
+	
+	ffmpeg -i http://www.ted.com/talks/subtitles/id/1/lang/en talk1-en.srt
+
+
+
+=head1 MUXERS
+
+
+Muxers are configured elements in FFmpeg which allow writing
+multimedia streams to a particular type of file.
+
+When you configure your FFmpeg build, all the supported muxers
+are enabled by default. You can list all available muxers using the
+configure option C<--list-muxers>.
+
+You can disable all the muxers with the configure option
+C<--disable-muxers> and selectively enable / disable single muxers
+with the options C<--enable-muxer=I<MUXER>> /
+C<--disable-muxer=I<MUXER>>.
+
+The option C<-formats> of the ff* tools will display the list of
+enabled muxers.
+
+A description of some of the currently available muxers follows.
+
+
+
+=head2 crc
+
+
+CRC (Cyclic Redundancy Check) testing format.
+
+This muxer computes and prints the Adler-32 CRC of all the input audio
+and video frames. By default audio frames are converted to signed
+16-bit raw audio and video frames to raw video before computing the
+CRC.
+
+The output of the muxer consists of a single line of the form:
+CRC=0xI<CRC>, where I<CRC> is a hexadecimal number 0-padded to
+8 digits containing the CRC for all the decoded input frames.
+
+For example to compute the CRC of the input, and store it in the file
+F<out.crc>:
+	
+	ffmpeg -i INPUT -f crc out.crc
+
+
+You can print the CRC to stdout with the command:
+	
+	ffmpeg -i INPUT -f crc -
+
+
+You can select the output format of each frame with B<ffmpeg> by
+specifying the audio and video codec and format. For example to
+compute the CRC of the input audio converted to PCM unsigned 8-bit
+and the input video converted to MPEG-2 video, use the command:
+	
+	ffmpeg -i INPUT -c:a pcm_u8 -c:v mpeg2video -f crc -
+
+
+See also the framecrc muxer.
+
+
+
+=head2 framecrc
+
+
+Per-packet CRC (Cyclic Redundancy Check) testing format.
+
+This muxer computes and prints the Adler-32 CRC for each audio
+and video packet. By default audio frames are converted to signed
+16-bit raw audio and video frames to raw video before computing the
+CRC.
+
+The output of the muxer consists of a line for each audio and video
+packet of the form:
+	
+	<stream_index>, <packet_dts>, <packet_pts>, <packet_duration>, <packet_size>, 0x<CRC>
+
+
+I<CRC> is a hexadecimal number 0-padded to 8 digits containing the
+CRC of the packet.
+
+For example to compute the CRC of the audio and video frames in
+F<INPUT>, converted to raw audio and video packets, and store it
+in the file F<out.crc>:
+	
+	ffmpeg -i INPUT -f framecrc out.crc
+
+
+To print the information to stdout, use the command:
+	
+	ffmpeg -i INPUT -f framecrc -
+
+
+With B<ffmpeg>, you can select the output format to which the
+audio and video frames are encoded before computing the CRC for each
+packet by specifying the audio and video codec. For example, to
+compute the CRC of each decoded input audio frame converted to PCM
+unsigned 8-bit and of each decoded input video frame converted to
+MPEG-2 video, use the command:
+	
+	ffmpeg -i INPUT -c:a pcm_u8 -c:v mpeg2video -f framecrc -
+
+
+See also the crc muxer.
+
+
+
+=head2 framemd5
+
+
+Per-packet MD5 testing format.
+
+This muxer computes and prints the MD5 hash for each audio
+and video packet. By default audio frames are converted to signed
+16-bit raw audio and video frames to raw video before computing the
+hash.
+
+The output of the muxer consists of a line for each audio and video
+packet of the form:
+	
+	<stream_index>, <packet_dts>, <packet_pts>, <packet_duration>, <packet_size>, <MD5>
+
+
+I<MD5> is a hexadecimal number representing the computed MD5 hash
+for the packet.
+
+For example to compute the MD5 of the audio and video frames in
+F<INPUT>, converted to raw audio and video packets, and store it
+in the file F<out.md5>:
+	
+	ffmpeg -i INPUT -f framemd5 out.md5
+
+
+To print the information to stdout, use the command:
+	
+	ffmpeg -i INPUT -f framemd5 -
+
+
+See also the md5 muxer.
+
+
+
+=head2 hls
+
+
+Apple HTTP Live Streaming muxer that segments MPEG-TS according to
+the HTTP Live Streaming specification.
+
+It creates a playlist file and numbered segment files. The output
+filename specifies the playlist filename; the segment filenames
+receive the same basename as the playlist, a sequential number and
+a .ts extension.
+
+	
+	ffmpeg -i in.nut out.m3u8
+
+
+
+=over 4
+
+
+=item B<-hls_time> I<seconds>
+
+Set the segment length in seconds.
+
+=item B<-hls_list_size> I<size>
+
+Set the maximum number of playlist entries.
+
+=item B<-hls_wrap> I<wrap>
+
+Set the number after which index wraps.
+
+=item B<-start_number> I<number>
+
+Start the sequence from I<number>.
+
+=back
+
+
+
+
+=head2 ico
+
+
+ICO file muxer.
+
+Microsoft's icon file format (ICO) has some strict limitations that should be noted:
+
+
+=over 4
+
+
+=item *
+
+Size cannot exceed 256 pixels in any dimension
+
+
+=item *
+
+Only BMP and PNG images can be stored
+
+
+=item *
+
+If a BMP image is used, it must be one of the following pixel formats:
+	
+	BMP Bit Depth      FFmpeg Pixel Format
+	1bit               pal8
+	4bit               pal8
+	8bit               pal8
+	16bit              rgb555le
+	24bit              bgr24
+	32bit              bgra
+
+
+
+=item *
+
+If a BMP image is used, it must use the BITMAPINFOHEADER DIB header
+
+
+=item *
+
+If a PNG image is used, it must use the rgba pixel format
+
+=back
+
+
+
+
+=head2 image2
+
+
+Image file muxer.
+
+The image file muxer writes video frames to image files.
+
+The output filenames are specified by a pattern, which can be used to
+produce sequentially numbered series of files.
+The pattern may contain the string "%d" or "%0I<N>d", this string
+specifies the position of the characters representing a numbering in
+the filenames. If the form "%0I<N>d" is used, the string
+representing the number in each filename is 0-padded to I<N>
+digits. The literal character '%' can be specified in the pattern with
+the string "%%".
+
+If the pattern contains "%d" or "%0I<N>d", the first filename of
+the file list specified will contain the number 1, all the following
+numbers will be sequential.
+
+The pattern may contain a suffix which is used to automatically
+determine the format of the image files to write.
+
+For example the pattern "img-%03d.bmp" will specify a sequence of
+filenames of the form F<img-001.bmp>, F<img-002.bmp>, ...,
+F<img-010.bmp>, etc.
+The pattern "img%%-%d.jpg" will specify a sequence of filenames of the
+form F<img%-1.jpg>, F<img%-2.jpg>, ..., F<img%-10.jpg>,
+etc.
+
+The following example shows how to use B<ffmpeg> for creating a
+sequence of files F<img-001.jpeg>, F<img-002.jpeg>, ...,
+taking one image every second from the input video:
+	
+	ffmpeg -i in.avi -vsync 1 -r 1 -f image2 'img-%03d.jpeg'
+
+
+Note that with B<ffmpeg>, if the format is not specified with the
+C<-f> option and the output filename specifies an image file
+format, the image2 muxer is automatically selected, so the previous
+command can be written as:
+	
+	ffmpeg -i in.avi -vsync 1 -r 1 'img-%03d.jpeg'
+
+
+Note also that the pattern must not necessarily contain "%d" or
+"%0I<N>d", for example to create a single image file
+F<img.jpeg> from the input video you can employ the command:
+	
+	ffmpeg -i in.avi -f image2 -frames:v 1 img.jpeg
+
+
+
+=over 4
+
+
+=item B<start_number> I<number>
+
+Start the sequence from I<number>. Default value is 1. Must be a
+positive number.
+
+
+=item B<updatefirst 1|0>
+
+If set to 1, update the first written image file again and
+again. Default value is 0.
+
+=back
+
+
+The image muxer supports the .Y.U.V image file format. This format is
+special in that that each image frame consists of three files, for
+each of the YUV420P components. To read or write this image file format,
+specify the name of the '.Y' file. The muxer will automatically open the
+'.U' and '.V' files as required.
+
+
+
+=head2 md5
+
+
+MD5 testing format.
+
+This muxer computes and prints the MD5 hash of all the input audio
+and video frames. By default audio frames are converted to signed
+16-bit raw audio and video frames to raw video before computing the
+hash.
+
+The output of the muxer consists of a single line of the form:
+MD5=I<MD5>, where I<MD5> is a hexadecimal number representing
+the computed MD5 hash.
+
+For example to compute the MD5 hash of the input converted to raw
+audio and video, and store it in the file F<out.md5>:
+	
+	ffmpeg -i INPUT -f md5 out.md5
+
+
+You can print the MD5 to stdout with the command:
+	
+	ffmpeg -i INPUT -f md5 -
+
+
+See also the framemd5 muxer.
+
+
+=head2 MOV/MP4/ISMV
+
+
+The mov/mp4/ismv muxer supports fragmentation. Normally, a MOV/MP4
+file has all the metadata about all packets stored in one location
+(written at the end of the file, it can be moved to the start for
+better playback by adding I<faststart> to the I<movflags>, or
+using the B<qt-faststart> tool). A fragmented
+file consists of a number of fragments, where packets and metadata
+about these packets are stored together. Writing a fragmented
+file has the advantage that the file is decodable even if the
+writing is interrupted (while a normal MOV/MP4 is undecodable if
+it is not properly finished), and it requires less memory when writing
+very long files (since writing normal MOV/MP4 files stores info about
+every single packet in memory until the file is closed). The downside
+is that it is less compatible with other applications.
+
+Fragmentation is enabled by setting one of the AVOptions that define
+how to cut the file into fragments:
+
+
+=over 4
+
+
+=item B<-moov_size> I<bytes>
+
+Reserves space for the moov atom at the beginning of the file instead of placing the
+moov atom at the end. If the space reserved is insufficient, muxing will fail.
+
+=item B<-movflags frag_keyframe>
+
+Start a new fragment at each video keyframe.
+
+=item B<-frag_duration> I<duration>
+
+Create fragments that are I<duration> microseconds long.
+
+=item B<-frag_size> I<size>
+
+Create fragments that contain up to I<size> bytes of payload data.
+
+=item B<-movflags frag_custom>
+
+Allow the caller to manually choose when to cut fragments, by
+calling C<av_write_frame(ctx, NULL)> to write a fragment with
+the packets written so far. (This is only useful with other
+applications integrating libavformat, not from B<ffmpeg>.)
+
+=item B<-min_frag_duration> I<duration>
+
+Don't create fragments that are shorter than I<duration> microseconds long.
+
+=back
+
+
+If more than one condition is specified, fragments are cut when
+one of the specified conditions is fulfilled. The exception to this is
+C<-min_frag_duration>, which has to be fulfilled for any of the other
+conditions to apply.
+
+Additionally, the way the output file is written can be adjusted
+through a few other options:
+
+
+=over 4
+
+
+=item B<-movflags empty_moov>
+
+Write an initial moov atom directly at the start of the file, without
+describing any samples in it. Generally, an mdat/moov pair is written
+at the start of the file, as a normal MOV/MP4 file, containing only
+a short portion of the file. With this option set, there is no initial
+mdat atom, and the moov atom only describes the tracks but has
+a zero duration.
+
+Files written with this option set do not work in QuickTime.
+This option is implicitly set when writing ismv (Smooth Streaming) files.
+
+=item B<-movflags separate_moof>
+
+Write a separate moof (movie fragment) atom for each track. Normally,
+packets for all tracks are written in a moof atom (which is slightly
+more efficient), but with this option set, the muxer writes one moof/mdat
+pair for each track, making it easier to separate tracks.
+
+This option is implicitly set when writing ismv (Smooth Streaming) files.
+
+=item B<-movflags faststart>
+
+Run a second pass moving the moov atom on top of the file. This
+operation can take a while, and will not work in various situations such
+as fragmented output, thus it is not enabled by default.
+
+=item B<-movflags rtphint>
+
+Add RTP hinting tracks to the output file.
+
+=back
+
+
+Smooth Streaming content can be pushed in real time to a publishing
+point on IIS with this muxer. Example:
+	
+	ffmpeg -re <<normal input/transcoding options>> -movflags isml+frag_keyframe -f ismv http://server/publishingpoint.isml/Streams(Encoder1)
+
+
+
+=head2 mpegts
+
+
+MPEG transport stream muxer.
+
+This muxer implements ISO 13818-1 and part of ETSI EN 300 468.
+
+The muxer options are:
+
+
+=over 4
+
+
+=item B<-mpegts_original_network_id> I<number>
+
+Set the original_network_id (default 0x0001). This is unique identifier
+of a network in DVB. Its main use is in the unique identification of a
+service through the path Original_Network_ID, Transport_Stream_ID.
+
+=item B<-mpegts_transport_stream_id> I<number>
+
+Set the transport_stream_id (default 0x0001). This identifies a
+transponder in DVB.
+
+=item B<-mpegts_service_id> I<number>
+
+Set the service_id (default 0x0001) also known as program in DVB.
+
+=item B<-mpegts_pmt_start_pid> I<number>
+
+Set the first PID for PMT (default 0x1000, max 0x1f00).
+
+=item B<-mpegts_start_pid> I<number>
+
+Set the first PID for data packets (default 0x0100, max 0x0f00).
+
+=back
+
+
+The recognized metadata settings in mpegts muxer are C<service_provider>
+and C<service_name>. If they are not set the default for
+C<service_provider> is "FFmpeg" and the default for
+C<service_name> is "Service01".
+
+	
+	ffmpeg -i file.mpg -c copy \
+	     -mpegts_original_network_id 0x1122 \
+	     -mpegts_transport_stream_id 0x3344 \
+	     -mpegts_service_id 0x5566 \
+	     -mpegts_pmt_start_pid 0x1500 \
+	     -mpegts_start_pid 0x150 \
+	     -metadata service_provider="Some provider" \
+	     -metadata service_name="Some Channel" \
+	     -y out.ts
+
+
+
+=head2 null
+
+
+Null muxer.
+
+This muxer does not generate any output file, it is mainly useful for
+testing or benchmarking purposes.
+
+For example to benchmark decoding with B<ffmpeg> you can use the
+command:
+	
+	ffmpeg -benchmark -i INPUT -f null out.null
+
+
+Note that the above command does not read or write the F<out.null>
+file, but specifying the output file is required by the B<ffmpeg>
+syntax.
+
+Alternatively you can write the command as:
+	
+	ffmpeg -benchmark -i INPUT -f null -
+
+
+
+=head2 matroska
+
+
+Matroska container muxer.
+
+This muxer implements the matroska and webm container specs.
+
+The recognized metadata settings in this muxer are:
+
+
+=over 4
+
+
+
+=item B<title=>I<title name>
+
+Name provided to a single track
+
+=back
+
+
+
+=over 4
+
+
+
+=item B<language=>I<language name>
+
+Specifies the language of the track in the Matroska languages form
+
+=back
+
+
+
+=over 4
+
+
+
+=item B<stereo_mode=>I<mode>
+
+Stereo 3D video layout of two views in a single video track
+
+=over 4
+
+
+=item B<mono>
+
+video is not stereo
+
+=item B<left_right>
+
+Both views are arranged side by side, Left-eye view is on the left
+
+=item B<bottom_top>
+
+Both views are arranged in top-bottom orientation, Left-eye view is at bottom
+
+=item B<top_bottom>
+
+Both views are arranged in top-bottom orientation, Left-eye view is on top
+
+=item B<checkerboard_rl>
+
+Each view is arranged in a checkerboard interleaved pattern, Left-eye view being first
+
+=item B<checkerboard_lr>
+
+Each view is arranged in a checkerboard interleaved pattern, Right-eye view being first
+
+=item B<row_interleaved_rl>
+
+Each view is constituted by a row based interleaving, Right-eye view is first row
+
+=item B<row_interleaved_lr>
+
+Each view is constituted by a row based interleaving, Left-eye view is first row
+
+=item B<col_interleaved_rl>
+
+Both views are arranged in a column based interleaving manner, Right-eye view is first column
+
+=item B<col_interleaved_lr>
+
+Both views are arranged in a column based interleaving manner, Left-eye view is first column
+
+=item B<anaglyph_cyan_red>
+
+All frames are in anaglyph format viewable through red-cyan filters
+
+=item B<right_left>
+
+Both views are arranged side by side, Right-eye view is on the left
+
+=item B<anaglyph_green_magenta>
+
+All frames are in anaglyph format viewable through green-magenta filters
+
+=item B<block_lr>
+
+Both eyes laced in one Block, Left-eye view is first
+
+=item B<block_rl>
+
+Both eyes laced in one Block, Right-eye view is first
+
+=back
+
+
+=back
+
+
+For example a 3D WebM clip can be created using the following command line:
+	
+	ffmpeg -i sample_left_right_clip.mpg -an -c:v libvpx -metadata stereo_mode=left_right -y stereo_clip.webm
+
+
+
+=head2 segment, stream_segment, ssegment
+
+
+Basic stream segmenter.
+
+The segmenter muxer outputs streams to a number of separate files of nearly
+fixed duration. Output filename pattern can be set in a fashion similar to
+image2.
+
+C<stream_segment> is a variant of the muxer used to write to
+streaming output formats, i.e. which do not require global headers,
+and is recommended for outputting e.g. to MPEG transport stream segments.
+C<ssegment> is a shorter alias for C<stream_segment>.
+
+Every segment starts with a keyframe of the selected reference stream,
+which is set through the B<reference_stream> option.
+
+Note that if you want accurate splitting for a video file, you need to
+make the input key frames correspond to the exact splitting times
+expected by the segmenter, or the segment muxer will start the new
+segment with the key frame found next after the specified start
+time.
+
+The segment muxer works best with a single constant frame rate video.
+
+Optionally it can generate a list of the created segments, by setting
+the option I<segment_list>. The list type is specified by the
+I<segment_list_type> option.
+
+The segment muxer supports the following options:
+
+
+=over 4
+
+
+=item B<reference_stream> I<specifier>
+
+Set the reference stream, as specified by the string I<specifier>.
+If I<specifier> is set to C<auto>, the reference is choosen
+automatically. Otherwise it must be a stream specifier (see the ``Stream
+specifiers'' chapter in the ffmpeg manual) which specifies the
+reference stream. The default value is ``auto''.
+
+
+=item B<segment_format> I<format>
+
+Override the inner container format, by default it is guessed by the filename
+extension.
+
+
+=item B<segment_list> I<name>
+
+Generate also a listfile named I<name>. If not specified no
+listfile is generated.
+
+
+=item B<segment_list_flags> I<flags>
+
+Set flags affecting the segment list generation.
+
+It currently supports the following flags:
+
+=over 4
+
+
+=item I<cache>
+
+Allow caching (only affects M3U8 list files).
+
+
+=item I<live>
+
+Allow live-friendly file generation.
+
+=back
+
+
+Default value is C<cache>.
+
+
+=item B<segment_list_size> I<size>
+
+Update the list file so that it contains at most the last I<size>
+segments. If 0 the list file will contain all the segments. Default
+value is 0.
+
+
+=item B<segment_list type> I<type>
+
+Specify the format for the segment list file.
+
+The following values are recognized:
+
+=over 4
+
+
+=item B<flat>
+
+Generate a flat list for the created segments, one segment per line.
+
+
+=item B<csv, ext>
+
+Generate a list for the created segments, one segment per line,
+each line matching the format (comma-separated values):
+	
+	<segment_filename>,<segment_start_time>,<segment_end_time>
+
+
+I<segment_filename> is the name of the output file generated by the
+muxer according to the provided pattern. CSV escaping (according to
+RFC4180) is applied if required.
+
+I<segment_start_time> and I<segment_end_time> specify
+the segment start and end time expressed in seconds.
+
+A list file with the suffix C<".csv"> or C<".ext"> will
+auto-select this format.
+
+C<ext> is deprecated in favor or C<csv>.
+
+
+=item B<ffconcat>
+
+Generate an ffconcat file for the created segments. The resulting file
+can be read using the FFmpeg concat demuxer.
+
+A list file with the suffix C<".ffcat"> or C<".ffconcat"> will
+auto-select this format.
+
+
+=item B<m3u8>
+
+Generate an extended M3U8 file, version 3, compliant with
+E<lt>B<http://tools.ietf.org/id/draft-pantos-http-live-streaming>E<gt>.
+
+A list file with the suffix C<".m3u8"> will auto-select this format.
+
+=back
+
+
+If not specified the type is guessed from the list file name suffix.
+
+
+=item B<segment_time> I<time>
+
+Set segment duration to I<time>, the value must be a duration
+specification. Default value is "2". See also the
+B<segment_times> option.
+
+Note that splitting may not be accurate, unless you force the
+reference stream key-frames at the given time. See the introductory
+notice and the examples below.
+
+
+=item B<segment_time_delta> I<delta>
+
+Specify the accuracy time when selecting the start time for a
+segment, expressed as a duration specification. Default value is "0".
+
+When delta is specified a key-frame will start a new segment if its
+PTS satisfies the relation:
+	
+	PTS >= start_time - time_delta
+
+
+This option is useful when splitting video content, which is always
+split at GOP boundaries, in case a key frame is found just before the
+specified split time.
+
+In particular may be used in combination with the F<ffmpeg> option
+I<force_key_frames>. The key frame times specified by
+I<force_key_frames> may not be set accurately because of rounding
+issues, with the consequence that a key frame time may result set just
+before the specified time. For constant frame rate videos a value of
+1/2*I<frame_rate> should address the worst case mismatch between
+the specified time and the time set by I<force_key_frames>.
+
+
+=item B<segment_times> I<times>
+
+Specify a list of split points. I<times> contains a list of comma
+separated duration specifications, in increasing order. See also
+the B<segment_time> option.
+
+
+=item B<segment_frames> I<frames>
+
+Specify a list of split video frame numbers. I<frames> contains a
+list of comma separated integer numbers, in increasing order.
+
+This option specifies to start a new segment whenever a reference
+stream key frame is found and the sequential number (starting from 0)
+of the frame is greater or equal to the next value in the list.
+
+
+=item B<segment_wrap> I<limit>
+
+Wrap around segment index once it reaches I<limit>.
+
+
+=item B<segment_start_number> I<number>
+
+Set the sequence number of the first segment. Defaults to C<0>.
+
+
+=item B<reset_timestamps> I<1|0>
+
+Reset timestamps at the begin of each segment, so that each segment
+will start with near-zero timestamps. It is meant to ease the playback
+of the generated segments. May not work with some combinations of
+muxers/codecs. It is set to C<0> by default.
+
+=back
+
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+To remux the content of file F<in.mkv> to a list of segments
+F<out-000.nut>, F<out-001.nut>, etc., and write the list of
+generated segments to F<out.list>:
+	
+	ffmpeg -i in.mkv -codec copy -map 0 -f segment -segment_list out.list out%03d.nut
+
+
+
+=item *
+
+As the example above, but segment the input file according to the split
+points specified by the I<segment_times> option:
+	
+	ffmpeg -i in.mkv -codec copy -map 0 -f segment -segment_list out.csv -segment_times 1,2,3,5,8,13,21 out%03d.nut
+
+
+
+=item *
+
+As the example above, but use the C<ffmpeg> I<force_key_frames>
+option to force key frames in the input at the specified location, together
+with the segment option I<segment_time_delta> to account for
+possible roundings operated when setting key frame times.
+	
+	ffmpeg -i in.mkv -force_key_frames 1,2,3,5,8,13,21 -codec:v mpeg4 -codec:a pcm_s16le -map 0 \
+	-f segment -segment_list out.csv -segment_times 1,2,3,5,8,13,21 -segment_time_delta 0.05 out%03d.nut
+
+In order to force key frames on the input file, transcoding is
+required.
+
+
+=item *
+
+Segment the input file by splitting the input file according to the
+frame numbers sequence specified with the I<segment_frames> option:
+	
+	ffmpeg -i in.mkv -codec copy -map 0 -f segment -segment_list out.csv -segment_frames 100,200,300,500,800 out%03d.nut
+
+
+
+=item *
+
+To convert the F<in.mkv> to TS segments using the C<libx264>
+and C<libfaac> encoders:
+	
+	ffmpeg -i in.mkv -map 0 -codec:v libx264 -codec:a libfaac -f ssegment -segment_list out.list out%03d.ts
+
+
+
+=item *
+
+Segment the input file, and create an M3U8 live playlist (can be used
+as live HLS source):
+	
+	ffmpeg -re -i in.mkv -codec copy -map 0 -f segment -segment_list playlist.m3u8 \
+	-segment_list_flags +live -segment_time 10 out%03d.mkv
+
+
+=back
+
+
+
+=head2 mp3
+
+
+The MP3 muxer writes a raw MP3 stream with an ID3v2 header at the beginning and
+optionally an ID3v1 tag at the end. ID3v2.3 and ID3v2.4 are supported, the
+C<id3v2_version> option controls which one is used. The legacy ID3v1 tag is
+not written by default, but may be enabled with the C<write_id3v1> option.
+
+For seekable output the muxer also writes a Xing frame at the beginning, which
+contains the number of frames in the file. It is useful for computing duration
+of VBR files.
+
+The muxer supports writing ID3v2 attached pictures (APIC frames). The pictures
+are supplied to the muxer in form of a video stream with a single packet. There
+can be any number of those streams, each will correspond to a single APIC frame.
+The stream metadata tags I<title> and I<comment> map to APIC
+I<description> and I<picture type> respectively. See
+E<lt>B<http://id3.org/id3v2.4.0-frames>E<gt> for allowed picture types.
+
+Note that the APIC frames must be written at the beginning, so the muxer will
+buffer the audio frames until it gets all the pictures. It is therefore advised
+to provide the pictures as soon as possible to avoid excessive buffering.
+
+Examples:
+
+Write an mp3 with an ID3v2.3 header and an ID3v1 footer:
+	
+	ffmpeg -i INPUT -id3v2_version 3 -write_id3v1 1 out.mp3
+
+
+To attach a picture to an mp3 file select both the audio and the picture stream
+with C<map>:
+	
+	ffmpeg -i input.mp3 -i cover.png -c copy -map 0 -map 1
+	-metadata:s:v title="Album cover" -metadata:s:v comment="Cover (Front)" out.mp3
+
+
+
+=head2 ogg
+
+
+Ogg container muxer.
+
+
+=over 4
+
+
+=item B<-page_duration> I<duration>
+
+Preferred page duration, in microseconds. The muxer will attempt to create
+pages that are approximately I<duration> microseconds long. This allows the
+user to compromise between seek granularity and container overhead. The default
+is 1 second. A value of 0 will fill all segments, making pages as large as
+possible. A value of 1 will effectively use 1 packet-per-page in most
+situations, giving a small seek granularity at the cost of additional container
+overhead.
+
+=back
+
+
+
+=head2 tee
+
+
+The tee muxer can be used to write the same data to several files or any
+other kind of muxer. It can be used, for example, to both stream a video to
+the network and save it to disk at the same time.
+
+It is different from specifying several outputs to the B<ffmpeg>
+command-line tool because the audio and video data will be encoded only once
+with the tee muxer; encoding can be a very expensive process. It is not
+useful when using the libavformat API directly because it is then possible
+to feed the same packets to several muxers directly.
+
+The slave outputs are specified in the file name given to the muxer,
+separated by '|'. If any of the slave name contains the '|' separator,
+leading or trailing spaces or any special character, it must be
+escaped (see the ``Quoting and escaping'' section in the ffmpeg-utils
+manual).
+
+Options can be specified for each slave by prepending them as a list of
+I<key>=I<value> pairs separated by ':', between square brackets. If
+the options values contain a special character or the ':' separator, they
+must be escaped; note that this is a second level escaping.
+
+Example: encode something and both archive it in a WebM file and stream it
+as MPEG-TS over UDP (the streams need to be explicitly mapped):
+
+	
+	ffmpeg -i ... -c:v libx264 -c:a mp2 -f tee -map 0:v -map 0:a
+	  "archive-20121107.mkv|[f=mpegts]udp://10.0.1.255:1234/"
+
+
+Note: some codecs may need different options depending on the output format;
+the auto-detection of this can not work with the tee muxer. The main example
+is the B<global_header> flag.
+
+
+=head1 METADATA
+
+
+FFmpeg is able to dump metadata from media files into a simple UTF-8-encoded
+INI-like text file and then load it back using the metadata muxer/demuxer.
+
+The file format is as follows:
+
+=over 4
+
+
+
+=item 1.
+
+A file consists of a header and a number of metadata tags divided into sections,
+each on its own line.
+
+
+=item 2.
+
+The header is a ';FFMETADATA' string, followed by a version number (now 1).
+
+
+=item 3.
+
+Metadata tags are of the form 'key=value'
+
+
+=item 4.
+
+Immediately after header follows global metadata
+
+
+=item 5.
+
+After global metadata there may be sections with per-stream/per-chapter
+metadata.
+
+
+=item 6.
+
+A section starts with the section name in uppercase (i.e. STREAM or CHAPTER) in
+brackets ('[', ']') and ends with next section or end of file.
+
+
+=item 7.
+
+At the beginning of a chapter section there may be an optional timebase to be
+used for start/end values. It must be in form 'TIMEBASE=num/den', where num and
+den are integers. If the timebase is missing then start/end times are assumed to
+be in milliseconds.
+Next a chapter section must contain chapter start and end times in form
+'START=num', 'END=num', where num is a positive integer.
+
+
+=item 8.
+
+Empty lines and lines starting with ';' or '#' are ignored.
+
+
+=item 9.
+
+Metadata keys or values containing special characters ('=', ';', '#', '\' and a
+newline) must be escaped with a backslash '\'.
+
+
+=item 10.
+
+Note that whitespace in metadata (e.g. foo = bar) is considered to be a part of
+the tag (in the example above key is 'foo ', value is ' bar').
+
+=back
+
+
+A ffmetadata file might look like this:
+	
+	;FFMETADATA1
+	title=bike\\shed
+	;this is a comment
+	artist=FFmpeg troll team
+	
+	[CHAPTER]
+	TIMEBASE=1/1000
+	START=0
+	#chapter ends at 0:01:00
+	END=60000
+	title=chapter \#1
+	[STREAM]
+	title=multi\
+	line
+
+
+
+=head1 SEE ALSO
+
+
+
+ffmpeg(1), ffplay(1), ffprobe(1), ffserver(1), libavformat(3)
+
+
+=head1 AUTHORS
+
+
+The FFmpeg developers.
+
+For details about the authorship, see the Git history of the project
+(git://source.ffmpeg.org/ffmpeg), e.g. by typing the command
+B<git log> in the FFmpeg source directory, or browsing the
+online repository at E<lt>B<http://source.ffmpeg.org>E<gt>.
+
+Maintainers for the specific components are listed in the file
+F<MAINTAINERS> in the source code tree.
+
+
+

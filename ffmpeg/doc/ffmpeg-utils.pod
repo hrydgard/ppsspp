@@ -1,0 +1,883 @@
+=head1 NAME
+
+ffmpeg-utils - FFmpeg utilities
+
+=head1 DESCRIPTION
+
+
+This document describes some generic features and utilities provided
+by the libavutil library.
+
+
+
+=head1 SYNTAX
+
+
+This section documents the syntax and formats employed by the FFmpeg
+libraries and tools.
+
+
+
+=head2 Quoting and escaping
+
+
+FFmpeg adopts the following quoting and escaping mechanism, unless
+explicitly specified. The following rules are applied:
+
+
+=over 4
+
+
+=item *
+
+C<'> and C<\> are special characters (respectively used for
+quoting and escaping). In addition to them, there might be other
+special characters depending on the specific syntax where the escaping
+and quoting are employed.
+
+
+=item *
+
+A special character is escaped by prefixing it with a '\'.
+
+
+=item *
+
+All characters enclosed between '' are included literally in the
+parsed string. The quote character C<'> itself cannot be quoted,
+so you may need to close the quote and escape it.
+
+
+=item *
+
+Leading and trailing whitespaces, unless escaped or quoted, are
+removed from the parsed string.
+
+=back
+
+
+Note that you may need to add a second level of escaping when using
+the command line or a script, which depends on the syntax of the
+adopted shell language.
+
+The function C<av_get_token> defined in
+F<libavutil/avstring.h> can be used to parse a token quoted or
+escaped according to the rules defined above.
+
+The tool F<tools/ffescape> in the FFmpeg source tree can be used
+to automatically quote or escape a string in a script.
+
+
+=head3 Examples
+
+
+
+=over 4
+
+
+=item *
+
+Escape the string C<Crime d'Amour> containing the C<'> special
+character:
+	
+	Crime d\'Amour
+
+
+
+=item *
+
+The string above contains a quote, so the C<'> needs to be escaped
+when quoting it:
+	
+	'Crime d'\''Amour'
+
+
+
+=item *
+
+Include leading or trailing whitespaces using quoting:
+	
+	'  this string starts and ends with whitespaces  '
+
+
+
+=item *
+
+Escaping and quoting can be mixed together:
+	
+	' The string '\'string\'' is a string '
+
+
+
+=item *
+
+To include a literal C<\> you can use either escaping or quoting:
+	
+	'c:\foo' can be written as c:\\foo
+
+
+=back
+
+
+
+
+=head2 Date
+
+
+The accepted syntax is:
+	
+	[(YYYY-MM-DD|YYYYMMDD)[T|t| ]]((HH:MM:SS[.m...]]])|(HHMMSS[.m...]]]))[Z]
+	now
+
+
+If the value is "now" it takes the current time.
+
+Time is local time unless Z is appended, in which case it is
+interpreted as UTC.
+If the year-month-day part is not specified it takes the current
+year-month-day.
+
+
+
+=head2 Time duration
+
+
+The accepted syntax is:
+	
+	[-][HH:]MM:SS[.m...]
+	[-]S+[.m...]
+
+
+I<HH> expresses the number of hours, I<MM> the number a of minutes
+and I<SS> the number of seconds.
+
+
+
+=head2 Video size
+
+Specify the size of the sourced video, it may be a string of the form
+I<width>xI<height>, or the name of a size abbreviation.
+
+The following abbreviations are recognized:
+
+=over 4
+
+
+=item B<ntsc>
+
+720x480
+
+=item B<pal>
+
+720x576
+
+=item B<qntsc>
+
+352x240
+
+=item B<qpal>
+
+352x288
+
+=item B<sntsc>
+
+640x480
+
+=item B<spal>
+
+768x576
+
+=item B<film>
+
+352x240
+
+=item B<ntsc-film>
+
+352x240
+
+=item B<sqcif>
+
+128x96
+
+=item B<qcif>
+
+176x144
+
+=item B<cif>
+
+352x288
+
+=item B<4cif>
+
+704x576
+
+=item B<16cif>
+
+1408x1152
+
+=item B<qqvga>
+
+160x120
+
+=item B<qvga>
+
+320x240
+
+=item B<vga>
+
+640x480
+
+=item B<svga>
+
+800x600
+
+=item B<xga>
+
+1024x768
+
+=item B<uxga>
+
+1600x1200
+
+=item B<qxga>
+
+2048x1536
+
+=item B<sxga>
+
+1280x1024
+
+=item B<qsxga>
+
+2560x2048
+
+=item B<hsxga>
+
+5120x4096
+
+=item B<wvga>
+
+852x480
+
+=item B<wxga>
+
+1366x768
+
+=item B<wsxga>
+
+1600x1024
+
+=item B<wuxga>
+
+1920x1200
+
+=item B<woxga>
+
+2560x1600
+
+=item B<wqsxga>
+
+3200x2048
+
+=item B<wquxga>
+
+3840x2400
+
+=item B<whsxga>
+
+6400x4096
+
+=item B<whuxga>
+
+7680x4800
+
+=item B<cga>
+
+320x200
+
+=item B<ega>
+
+640x350
+
+=item B<hd480>
+
+852x480
+
+=item B<hd720>
+
+1280x720
+
+=item B<hd1080>
+
+1920x1080
+
+=item B<2k>
+
+2048x1080
+
+=item B<2kflat>
+
+1998x1080
+
+=item B<2kscope>
+
+2048x858
+
+=item B<4k>
+
+4096x2160
+
+=item B<4kflat>
+
+3996x2160
+
+=item B<4kscope>
+
+4096x1716
+
+=back
+
+
+
+
+=head2 Video rate
+
+
+Specify the frame rate of a video, expressed as the number of frames
+generated per second. It has to be a string in the format
+I<frame_rate_num>/I<frame_rate_den>, an integer number, a float
+number or a valid video frame rate abbreviation.
+
+The following abbreviations are recognized:
+
+=over 4
+
+
+=item B<ntsc>
+
+30000/1001
+
+=item B<pal>
+
+25/1
+
+=item B<qntsc>
+
+30000/1001
+
+=item B<qpal>
+
+25/1
+
+=item B<sntsc>
+
+30000/1001
+
+=item B<spal>
+
+25/1
+
+=item B<film>
+
+24/1
+
+=item B<ntsc-film>
+
+24000/1001
+
+=back
+
+
+
+
+=head2 Ratio
+
+
+A ratio can be expressed as an expression, or in the form
+I<numerator>:I<denominator>.
+
+Note that a ratio with infinite (1/0) or negative value is
+considered valid, so you should check on the returned value if you
+want to exclude those values.
+
+The undefined value can be expressed using the "0:0" string.
+
+
+
+=head2 Color
+
+
+It can be the name of a color (case insensitive match) or a
+[0x|#]RRGGBB[AA] sequence, possibly followed by "@" and a string
+representing the alpha component.
+
+The alpha component may be a string composed by "0x" followed by an
+hexadecimal number or a decimal number between 0.0 and 1.0, which
+represents the opacity value (0x00/0.0 means completely transparent,
+0xff/1.0 completely opaque).
+If the alpha component is not specified then 0xff is assumed.
+
+The string "random" will result in a random color.
+
+
+=head1 EXPRESSION EVALUATION
+
+
+When evaluating an arithmetic expression, FFmpeg uses an internal
+formula evaluator, implemented through the F<libavutil/eval.h>
+interface.
+
+An expression may contain unary, binary operators, constants, and
+functions.
+
+Two expressions I<expr1> and I<expr2> can be combined to form
+another expression "I<expr1>;I<expr2>".
+I<expr1> and I<expr2> are evaluated in turn, and the new
+expression evaluates to the value of I<expr2>.
+
+The following binary operators are available: C<+>, C<->,
+C<*>, C</>, C<^>.
+
+The following unary operators are available: C<+>, C<->.
+
+The following functions are available:
+
+=over 4
+
+
+=item B<abs(x)>
+
+Compute absolute value of I<x>.
+
+
+=item B<acos(x)>
+
+Compute arccosine of I<x>.
+
+
+=item B<asin(x)>
+
+Compute arcsine of I<x>.
+
+
+=item B<atan(x)>
+
+Compute arctangent of I<x>.
+
+
+=item B<ceil(expr)>
+
+Round the value of expression I<expr> upwards to the nearest
+integer. For example, "ceil(1.5)" is "2.0".
+
+
+=item B<cos(x)>
+
+Compute cosine of I<x>.
+
+
+=item B<cosh(x)>
+
+Compute hyperbolic cosine of I<x>.
+
+
+=item B<eq(x, y)>
+
+Return 1 if I<x> and I<y> are equivalent, 0 otherwise.
+
+
+=item B<exp(x)>
+
+Compute exponential of I<x> (with base C<e>, the Euler's number).
+
+
+=item B<floor(expr)>
+
+Round the value of expression I<expr> downwards to the nearest
+integer. For example, "floor(-1.5)" is "-2.0".
+
+
+=item B<gauss(x)>
+
+Compute Gauss function of I<x>, corresponding to
+C<exp(-x*x/2) / sqrt(2*PI)>.
+
+
+=item B<gcd(x, y)>
+
+Return the greatest common divisor of I<x> and I<y>. If both I<x> and
+I<y> are 0 or either or both are less than zero then behavior is undefined.
+
+
+=item B<gt(x, y)>
+
+Return 1 if I<x> is greater than I<y>, 0 otherwise.
+
+
+=item B<gte(x, y)>
+
+Return 1 if I<x> is greater than or equal to I<y>, 0 otherwise.
+
+
+=item B<hypot(x, y)>
+
+This function is similar to the C function with the same name; it returns
+"sqrt(I<x>*I<x> + I<y>*I<y>)", the length of the hypotenuse of a
+right triangle with sides of length I<x> and I<y>, or the distance of the
+point (I<x>, I<y>) from the origin.
+
+
+=item B<if(x, y)>
+
+Evaluate I<x>, and if the result is non-zero return the result of
+the evaluation of I<y>, return 0 otherwise.
+
+
+=item B<if(x, y, z)>
+
+Evaluate I<x>, and if the result is non-zero return the evaluation
+result of I<y>, otherwise the evaluation result of I<z>.
+
+
+=item B<ifnot(x, y)>
+
+Evaluate I<x>, and if the result is zero return the result of the
+evaluation of I<y>, return 0 otherwise.
+
+
+=item B<ifnot(x, y, z)>
+
+Evaluate I<x>, and if the result is zero return the evaluation
+result of I<y>, otherwise the evaluation result of I<z>.
+
+
+=item B<isinf(x)>
+
+Return 1.0 if I<x> is +/-INFINITY, 0.0 otherwise.
+
+
+=item B<isnan(x)>
+
+Return 1.0 if I<x> is NAN, 0.0 otherwise.
+
+
+=item B<ld(var)>
+
+Allow to load the value of the internal variable with number
+I<var>, which was previously stored with st(I<var>, I<expr>).
+The function returns the loaded value.
+
+
+=item B<log(x)>
+
+Compute natural logarithm of I<x>.
+
+
+=item B<lt(x, y)>
+
+Return 1 if I<x> is lesser than I<y>, 0 otherwise.
+
+
+=item B<lte(x, y)>
+
+Return 1 if I<x> is lesser than or equal to I<y>, 0 otherwise.
+
+
+=item B<max(x, y)>
+
+Return the maximum between I<x> and I<y>.
+
+
+=item B<min(x, y)>
+
+Return the maximum between I<x> and I<y>.
+
+
+=item B<mod(x, y)>
+
+Compute the remainder of division of I<x> by I<y>.
+
+
+=item B<not(expr)>
+
+Return 1.0 if I<expr> is zero, 0.0 otherwise.
+
+
+=item B<pow(x, y)>
+
+Compute the power of I<x> elevated I<y>, it is equivalent to
+"(I<x>)^(I<y>)".
+
+
+=item B<print(t)>
+
+
+=item B<print(t, l)>
+
+Print the value of expression I<t> with loglevel I<l>. If
+I<l> is not specified then a default log level is used.
+Returns the value of the expression printed.
+
+Prints t with loglevel l
+
+
+=item B<random(x)>
+
+Return a pseudo random value between 0.0 and 1.0. I<x> is the index of the
+internal variable which will be used to save the seed/state.
+
+
+=item B<root(expr, max)>
+
+Find an input value for which the function represented by I<expr>
+with argument I<ld(0)> is 0 in the interval 0..I<max>.
+
+The expression in I<expr> must denote a continuous function or the
+result is undefined.
+
+I<ld(0)> is used to represent the function input value, which means
+that the given expression will be evaluated multiple times with
+various input values that the expression can access through
+C<ld(0)>. When the expression evaluates to 0 then the
+corresponding input value will be returned.
+
+
+=item B<sin(x)>
+
+Compute sine of I<x>.
+
+
+=item B<sinh(x)>
+
+Compute hyperbolic sine of I<x>.
+
+
+=item B<sqrt(expr)>
+
+Compute the square root of I<expr>. This is equivalent to
+"(I<expr>)^.5".
+
+
+=item B<squish(x)>
+
+Compute expression C<1/(1 + exp(4*x))>.
+
+
+=item B<st(var, expr)>
+
+Allow to store the value of the expression I<expr> in an internal
+variable. I<var> specifies the number of the variable where to
+store the value, and it is a value ranging from 0 to 9. The function
+returns the value stored in the internal variable.
+Note, Variables are currently not shared between expressions.
+
+
+=item B<tan(x)>
+
+Compute tangent of I<x>.
+
+
+=item B<tanh(x)>
+
+Compute hyperbolic tangent of I<x>.
+
+
+=item B<taylor(expr, x)>
+
+
+=item B<taylor(expr, x, id)>
+
+Evaluate a Taylor series at I<x>, given an expression representing
+the C<ld(id)>-th derivative of a function at 0.
+
+When the series does not converge the result is undefined.
+
+I<ld(id)> is used to represent the derivative order in I<expr>,
+which means that the given expression will be evaluated multiple times
+with various input values that the expression can access through
+C<ld(id)>. If I<id> is not specified then 0 is assumed.
+
+Note, when you have the derivatives at y instead of 0,
+C<taylor(expr, x-y)> can be used.
+
+
+=item B<time(0)>
+
+Return the current (wallclock) time in seconds.
+
+
+=item B<trunc(expr)>
+
+Round the value of expression I<expr> towards zero to the nearest
+integer. For example, "trunc(-1.5)" is "-1.0".
+
+
+=item B<while(cond, expr)>
+
+Evaluate expression I<expr> while the expression I<cond> is
+non-zero, and returns the value of the last I<expr> evaluation, or
+NAN if I<cond> was always false.
+
+=back
+
+
+The following constants are available:
+
+=over 4
+
+
+=item B<PI>
+
+area of the unit disc, approximately 3.14
+
+=item B<E>
+
+exp(1) (Euler's number), approximately 2.718
+
+=item B<PHI>
+
+golden ratio (1+sqrt(5))/2, approximately 1.618
+
+=back
+
+
+Assuming that an expression is considered "true" if it has a non-zero
+value, note that:
+
+C<*> works like AND
+
+C<+> works like OR
+
+For example the construct:
+	
+	if (A AND B) then C
+
+is equivalent to:
+	
+	if(A*B, C)
+
+
+In your C code, you can extend the list of unary and binary functions,
+and define recognized constants, so that they are available for your
+expressions.
+
+The evaluator also recognizes the International System unit prefixes.
+If 'i' is appended after the prefix, binary prefixes are used, which
+are based on powers of 1024 instead of powers of 1000.
+The 'B' postfix multiplies the value by 8, and can be appended after a
+unit prefix or used alone. This allows using for example 'KB', 'MiB',
+'G' and 'B' as number postfix.
+
+The list of available International System prefixes follows, with
+indication of the corresponding powers of 10 and of 2.
+
+=over 4
+
+
+=item B<y>
+
+10^-24 / 2^-80
+
+=item B<z>
+
+10^-21 / 2^-70
+
+=item B<a>
+
+10^-18 / 2^-60
+
+=item B<f>
+
+10^-15 / 2^-50
+
+=item B<p>
+
+10^-12 / 2^-40
+
+=item B<n>
+
+10^-9 / 2^-30
+
+=item B<u>
+
+10^-6 / 2^-20
+
+=item B<m>
+
+10^-3 / 2^-10
+
+=item B<c>
+
+10^-2
+
+=item B<d>
+
+10^-1
+
+=item B<h>
+
+10^2
+
+=item B<k>
+
+10^3 / 2^10
+
+=item B<K>
+
+10^3 / 2^10
+
+=item B<M>
+
+10^6 / 2^20
+
+=item B<G>
+
+10^9 / 2^30
+
+=item B<T>
+
+10^12 / 2^40
+
+=item B<P>
+
+10^15 / 2^40
+
+=item B<E>
+
+10^18 / 2^50
+
+=item B<Z>
+
+10^21 / 2^60
+
+=item B<Y>
+
+10^24 / 2^70
+
+=back
+
+
+
+
+=head1 SEE ALSO
+
+
+
+ffmpeg(1), ffplay(1), ffprobe(1), ffserver(1), libavutil(3)
+
+
+=head1 AUTHORS
+
+
+The FFmpeg developers.
+
+For details about the authorship, see the Git history of the project
+(git://source.ffmpeg.org/ffmpeg), e.g. by typing the command
+B<git log> in the FFmpeg source directory, or browsing the
+online repository at E<lt>B<http://source.ffmpeg.org>E<gt>.
+
+Maintainers for the specific components are listed in the file
+F<MAINTAINERS> in the source code tree.
+
+
+
