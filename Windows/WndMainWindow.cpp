@@ -47,7 +47,7 @@ static RECT g_normalRC = {0};
 
 extern InputState input_state;
 #define TIMER_CURSORUPDATE 1
-#define CURSORUPDATE_INTERVAL_MS 500
+#define CURSORUPDATE_INTERVAL_MS 50
 extern unsigned short analog_ctrl_map[];
 extern unsigned int key_pad_map[];
 extern const char * getVirtualKeyName(unsigned char key);
@@ -395,7 +395,6 @@ namespace MainWindow
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
 			if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
 				ShowCursor(FALSE);
-				SetCursor(0);
 			} else {
 				ShowCursor(TRUE);
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
@@ -760,7 +759,8 @@ namespace MainWindow
 			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(disasmWindow[0]);
 			disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
-			if (g_Config.bFullScreen)  _ViewFullScreen(hWnd);
+			if (g_Config.bFullScreen)
+				_ViewFullScreen(hWnd);
 			memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 			DialogManager::AddDlg(memoryWindow[0]);
 			if (disasmWindow[0])
@@ -1151,8 +1151,8 @@ namespace MainWindow
 
 	void _ViewFullScreen(HWND hWnd)
 	{
-		ShowCursor(FALSE);
-		SetCursor(NULL);
+		if (globalUIState == UISTATE_INGAME)
+			ShowCursor(FALSE);
 
 		// keep in mind normal window rectangle
 		::GetWindowRect(hWnd, &g_normalRC);
