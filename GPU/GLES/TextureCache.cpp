@@ -30,7 +30,8 @@
 
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
-
+#define TEXTURE_KILL_AGE_LOWMEM 60
+// Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
 
 u32 RoundUpToPowerOf2(u32 v)
@@ -45,7 +46,7 @@ u32 RoundUpToPowerOf2(u32 v)
 	return v;
 }
 
-TextureCache::TextureCache() : clearCacheNextFrame_(false) {
+TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false) {
 	lastBoundTexture = -1;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
@@ -84,6 +85,7 @@ void TextureCache::Clear(bool delete_them) {
 // Removes old textures.
 void TextureCache::Decimate() {
 	glBindTexture(GL_TEXTURE_2D, 0);
+	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
@@ -93,7 +95,7 @@ void TextureCache::Decimate() {
 			++iter;
 	}
 	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			secondCache.erase(iter++);
 		}
@@ -854,7 +856,7 @@ void TextureCache::SetTexture() {
 
 					// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
 					// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
-					if (entry->numInvalidated > 2 && entry->numInvalidated < 128) {
+					if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
 						u64 secondKey = check | (u64)cluthash << 32;
 						TexCache::iterator secondIter = secondCache.find(secondKey);
 						if (secondIter != secondCache.end()) {
@@ -1282,6 +1284,14 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
+	GLenum err = glGetError();
+	if (err == GL_OUT_OF_MEMORY) {
+		lowMemoryMode_ = true;
+		Decimate();
+
+		// Try again.
+		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
+	}
 }
 
 // Only used by Qt UI?

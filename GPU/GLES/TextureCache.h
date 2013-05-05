@@ -108,6 +108,7 @@ private:
 	TexCache secondCache;
 
 	bool clearCacheNextFrame_;
+	bool lowMemoryMode_;
 	TextureScaler scaler;
 
 	SimpleBuf<u32> tmpTexBuf32;
