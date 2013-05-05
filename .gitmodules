@@ -9,4 +9,4 @@
 	url = git://github.com/hrydgard/ppsspp-lang.git
 [submodule "ffmpeg"]
 	path = ffmpeg
-	url = git://github.com/hrydgard/ppsspp-ffmpeg.git
+	url = git://github.com/hrydgard/ppsspp-ffmpeg
