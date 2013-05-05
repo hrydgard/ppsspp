@@ -18,10 +18,12 @@
 #include "TextureScaler.h"
 
 #include "Core/Config.h"
+#include "Common/Common.h"
 #include "Common/Log.h"
 #include "Common/MsgHandler.h"
 #include "Common/CommonFuncs.h"
 #include "Common/ThreadPools.h"
+#include "Common/CPUDetect.h"
 #include "ext/xbrz/xbrz.h"
 #include <stdlib.h>
 #include <math.h>
@@ -33,6 +35,10 @@
 namespace p = std::tr1::placeholders;
 #else
 namespace p = std::placeholders;
+#endif
+
+#if _M_SSE >= 0x402
+#include <nmmintrin.h>
 #endif
 
 // Report the time and throughput for each larger scaling operation in the log
@@ -247,7 +253,7 @@ namespace {
 		float ax = fabs(x);
 		if(ax>=2.0f) return 0.0f;
 		if(ax>=1.0f) return ((-B-6*C)*(x*x*x) + (6*B+30*C)*(x*x) + (-12*B-48*C)*x + (8*B+24*C))/6.0f;
-		return ((12-9*B-6*C)*(x*x*x) + (-18+12*B+6*C)*(x*x) + (6-2*B));
+		return ((12-9*B-6*C)*(x*x*x) + (-18+12*B+6*C)*(x*x) + (6-2*B))/6.0f;
 	}
 
 	// perform bicubic scaling by factor f, with a Mitchell-Netravali spline specified by Bi and Ci
@@ -269,6 +275,7 @@ namespace {
 								float dist = dx*dx + dy*dy; // do sqrt only after check
 								if(dist < 4.0f) {
 									float weight = mitchell<Bi, Ci>(sqrt(dist));
+									sum += weight;
 									// clamp pixel locations
 									int csy = std::max(std::min(sy,h-1),0);
 									int csx = std::max(std::min(sx,w-1),0);
@@ -278,40 +285,111 @@ namespace {
 									g += weight*G(sample);
 									b += weight*B(sample);
 									a += weight*A(sample);
-									sum += weight;
 								}
 							}
 						}
 						// generate and write result
-						int ri = std::min(std::max(static_cast<int>(r/sum),0),255);
-						int gi = std::min(std::max(static_cast<int>(g/sum),0),255);
-						int bi = std::min(std::max(static_cast<int>(b/sum),0),255);
-						int ai = std::min(std::max(static_cast<int>(a/sum),0),255);
+						int ri = std::min(std::max(static_cast<int>(ceilf(r/sum)),0),255);
+						int gi = std::min(std::max(static_cast<int>(ceilf(g/sum)),0),255);
+						int bi = std::min(std::max(static_cast<int>(ceilf(b/sum)),0),255);
+						int ai = std::min(std::max(static_cast<int>(ceilf(a/sum)),0),255);
 						out[y*outw + x] = (ai << 24) | (bi << 16) | (gi << 8) | ri;
 					}
 				}
 			}
 		}
 	}
+	#if _M_SSE >= 0x401
+	template<int f, int Bi, int Ci>
+	void scaleBicubicTSSE41(u32* data, u32* out, int w, int h, int l, int u) {
+		const float ff = static_cast<float>(f);
+		int outw = w*f;
+		for(int yb = 0; yb < (u-l)*f/BLOCK_SIZE+1; ++yb) {
+			for(int xb = 0; xb < w*f/BLOCK_SIZE+1; ++xb) {
+				for(int y = l*f+yb*BLOCK_SIZE; y < l*f+(yb+1)*BLOCK_SIZE && y < u*f; ++y) {
+					for(int x = xb*BLOCK_SIZE; x < (xb+1)*BLOCK_SIZE && x < w*f; ++x) {
+						__m128 result = _mm_set1_ps(0.0f);
+						float sum = 0.0f;
+						int cx = x/f, cy = y/f;
+						// sample supporting pixels in original image
+						for(int sx = cx-2; sx <= cx+2; ++sx) { 
+							for(int sy = cy-2; sy <= cy+2; ++sy) {
+								float dx = (x+0.5f)/ff - (sx+0.5f);
+								float dy = (y+0.5f)/ff - (sy+0.5f);
+								float dist = dx*dx + dy*dy; // do sqrt only after check
+								if(dist < 4.0f) {
+									float weight = mitchell<Bi, Ci>(sqrt(dist));
+									sum += weight;
+									// clamp pixel locations
+									int csy = std::max(std::min(sy,h-1),0);
+									int csx = std::max(std::min(sx,w-1),0);
+									// sample & add weighted components
+									__m128i sample = _mm_cvtsi32_si128(data[csy*w+csx]);
+									sample = _mm_cvtepu8_epi32(sample);
+									__m128 col = _mm_cvtepi32_ps(sample);
+									col = _mm_mul_ps(col, _mm_set1_ps(weight));
+									result = _mm_add_ps(result, col);
+								}
+							}
+						}
+						// generate and write result
+						__m128i pixel = _mm_cvtps_epi32(_mm_mul_ps(result, _mm_set1_ps(1.0f/sum)));
+						pixel = _mm_packs_epi32(pixel, pixel);
+						pixel = _mm_packus_epi16(pixel, pixel);
+						out[y*outw + x] = _mm_cvtsi128_si32(pixel);
+					}
+				}
+			}
+		}
+	}
+	#endif
 
 	void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, int u) {
-		switch(factor) {
-		case 2: scaleBicubicT<2, 100, 0>(data, out, w, h, l, u); break; // when I first tested this, 
-		case 3: scaleBicubicT<3, 100, 0>(data, out, w, h, l, u); break; // it was even slower than I had expected
-		case 4: scaleBicubicT<4, 100, 0>(data, out, w, h, l, u); break; // turns out I had not included
-		case 5: scaleBicubicT<5, 100, 0>(data, out, w, h, l, u); break; // any of these break statements
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+		#if _M_SSE >= 0x401
+		if(cpu_info.bSSE4_1) {
+			switch(factor) {
+			case 2: scaleBicubicTSSE41<2, 100, 0>(data, out, w, h, l, u); break; // when I first tested this, 
+			case 3: scaleBicubicTSSE41<3, 100, 0>(data, out, w, h, l, u); break; // it was even slower than I had expected
+			case 4: scaleBicubicTSSE41<4, 100, 0>(data, out, w, h, l, u); break; // turns out I had not included
+			case 5: scaleBicubicTSSE41<5, 100, 0>(data, out, w, h, l, u); break; // any of these break statements
+			default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+			}
+		} else {
+		#endif
+			switch(factor) {
+			case 2: scaleBicubicT<2, 100, 0>(data, out, w, h, l, u); break; // when I first tested this, 
+			case 3: scaleBicubicT<3, 100, 0>(data, out, w, h, l, u); break; // it was even slower than I had expected
+			case 4: scaleBicubicT<4, 100, 0>(data, out, w, h, l, u); break; // turns out I had not included
+			case 5: scaleBicubicT<5, 100, 0>(data, out, w, h, l, u); break; // any of these break statements
+			default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+			}
+		#if _M_SSE >= 0x401
 		}
+		#endif
 	}
 
 	void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, int u) {
-		switch(factor) {
-		case 2: scaleBicubicT<2, 34, 33>(data, out, w, h, l, u); break;
-		case 3: scaleBicubicT<3, 34, 33>(data, out, w, h, l, u); break;
-		case 4: scaleBicubicT<4, 34, 33>(data, out, w, h, l, u); break;
-		case 5: scaleBicubicT<5, 34, 33>(data, out, w, h, l, u); break;
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+		#if _M_SSE >= 0x401
+		if(cpu_info.bSSE4_1) {
+			switch(factor) {
+			case 2: scaleBicubicTSSE41<2, 34, 34>(data, out, w, h, l, u); break;
+			case 3: scaleBicubicTSSE41<3, 34, 34>(data, out, w, h, l, u); break;
+			case 4: scaleBicubicTSSE41<4, 34, 34>(data, out, w, h, l, u); break;
+			case 5: scaleBicubicTSSE41<5, 34, 34>(data, out, w, h, l, u); break;
+			default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+			}
+		} else {
+		#endif
+			switch(factor) {
+			case 2: scaleBicubicT<2, 34, 34>(data, out, w, h, l, u); break;
+			case 3: scaleBicubicT<3, 34, 34>(data, out, w, h, l, u); break;
+			case 4: scaleBicubicT<4, 34, 34>(data, out, w, h, l, u); break;
+			case 5: scaleBicubicT<5, 34, 34>(data, out, w, h, l, u); break;
+			default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+			}
+		#if _M_SSE >= 0x401
 		}
+		#endif
 	}
 
 	//////////////////////////////////////////////////////////////////// Bilinear scaling
@@ -495,7 +573,7 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 	#ifdef SCALING_MEASURE_TIME
 	if(width*height > 64*64*factor*factor) {
 		double t = real_time_now() - t_start;
-		NOTICE_LOG(MASTER_LOG, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.0lf Mpixels/second)", 
+		NOTICE_LOG(MASTER_LOG, "TextureScaler: processed %9d pixels in %6.5lf seconds. (%9.2lf Mpixels/second)", 
 			width*height, t, (width*height)/(t*1000*1000));
 	}
 	#endif
