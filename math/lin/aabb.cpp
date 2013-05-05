@@ -74,7 +74,7 @@ bool AABB::IntersectRay(const Ray &ray, float &tnear, float &tfar) const {
 
 
 // Possible orientation of the splitting plane in the interior node of the kd-tree, 
-// ”No axis” denotes a leaf. 
+// "No axis" denotes a leaf.
 enum Axes
 {
 	Xaxis, 
