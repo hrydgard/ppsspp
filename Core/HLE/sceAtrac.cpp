@@ -165,11 +165,8 @@ struct Atrac {
 			// require more data
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
 		} else {
-			// This is the correct one
-			//remainFrame = (first.size - decodePos) / atracBytesPerFrame;
-
-			// Try to load all file data immediately
-			remainFrame = 0;
+			// Games expect to be told how many frames need to be read.
+			remainFrame = (first.size - decodePos) / atracBytesPerFrame;
 		}
 		return remainFrame;
 	}
