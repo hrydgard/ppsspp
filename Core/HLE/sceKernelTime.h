@@ -17,7 +17,7 @@
 
 #pragma once
 
-u32 sceKernelLibcGettimeofday(u32 timeAddr);
+u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr);
 u32 sceKernelLibcTime(u32 outPtr);
 int sceKernelUSec2SysClock(u32 microsec, u32 clockPtr);
 int sceKernelGetSystemTime(u32 sysclockPtr);

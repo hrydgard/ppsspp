@@ -193,7 +193,7 @@ u32 sceRtcGetCurrentTick(u32 tickPtr)
 	u64 curTick = __RtcGetCurrentTick();
 	if (Memory::IsValidAddress(tickPtr))
 		Memory::Write_U64(curTick, tickPtr);
-	hleEatCycles(222);
+	hleEatCycles(300);
 	return 0;
 }
 
@@ -228,6 +228,7 @@ u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 	if (Memory::IsValidAddress(pspTimePtr))
 		Memory::WriteStruct(pspTimePtr, &ret);
 
+	hleEatCycles(1900);
 	return 0;
 }
 
@@ -252,6 +253,7 @@ u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 	if (Memory::IsValidAddress(pspTimePtr))
 		Memory::WriteStruct(pspTimePtr, &ret);
 
+	hleEatCycles(2000);
 	return 0;
 }
 

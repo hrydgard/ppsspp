@@ -2038,6 +2038,7 @@ int sceKernelRotateThreadReadyQueue(int priority)
 		hleReSchedule("rotatethreadreadyqueue");
 	}
 
+	hleEatCycles(250);
 	return 0;
 }
 
@@ -2196,24 +2197,32 @@ void sceKernelChangeThreadPriority()
 	}
 }
 
+s64 __KernelDelayThreadUs(u64 usec)
+{
+	// Seems to very based on clockrate / other things, but 0 delays less than 200us for sure.
+	if (usec == 0)
+		return 100;
+	else if (usec < 200)
+		return 200;
+	return usec;
+}
+
 int sceKernelDelayThreadCB(u32 usec)
 {
-	if (usec < 200) usec = 200;
 	DEBUG_LOG(HLE,"sceKernelDelayThreadCB(%i usec)",usec);
 
 	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, usec);
+	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
 	return 0;
 }
 
 int sceKernelDelayThread(u32 usec)
 {
-	if (usec < 200) usec = 200;
 	DEBUG_LOG(HLE,"sceKernelDelayThread(%i usec)",usec);
 
 	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, usec);
+	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
 	return 0;
 }
@@ -2231,11 +2240,10 @@ void sceKernelDelaySysClockThreadCB()
 
 	// TODO: Which unit?
 	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
-	if (usec < 200) usec = 200;
 	DEBUG_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, usec);
+	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
 }
 
@@ -2252,11 +2260,10 @@ void sceKernelDelaySysClockThread()
 
 	// TODO: Which unit?
 	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
-	if (usec < 200) usec = 200;
 	DEBUG_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
-	__KernelScheduleWakeup(curThread, usec);
+	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
 }
 
