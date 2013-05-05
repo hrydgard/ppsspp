@@ -349,6 +349,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;
+		int bpp = vfb->format == 3 ? 4 : 2;
+		Memory::Memset(vfb->fb_address | 0x04000000, 0, vfb->width * vfb->height * bpp);
 
 		if (g_Config.bTrueColor) {
 			vfb->colorDepth = FBO_8888;
