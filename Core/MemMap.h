@@ -163,7 +163,7 @@ extern struct LASTESTACCESSFILE {
 			else 
 				idbuf[0] = 2;
 			memcpy(idbuf + 1, inbuf + 4, 4);
-			memcpy(idbuf + 5, inbuf + 0x60, 0x20 - 5);
+			memcpy(idbuf + 5, inbuf + 0xa0, 0x20 - 5);
 		}
 		else {
 			memcpy(idbuf, inbuf, 0x20);
