@@ -83,7 +83,7 @@ const HLEFunction UtilsForUser[] =
 {
 	{0x91E4F6A7, WrapU_V<sceKernelLibcClock>, "sceKernelLibcClock"},
 	{0x27CC57F0, WrapU_U<sceKernelLibcTime>, "sceKernelLibcTime"},
-	{0x71EC4271, WrapU_U<sceKernelLibcGettimeofday>, "sceKernelLibcGettimeofday"},
+	{0x71EC4271, WrapU_UU<sceKernelLibcGettimeofday>, "sceKernelLibcGettimeofday"},
 	{0xBFA98062, WrapI_UI<sceKernelDcacheInvalidateRange>, "sceKernelDcacheInvalidateRange"},
 	{0xC8186A58, 0, "sceKernelUtilsMd5Digest"},
 	{0x9E5C5086, 0, "sceKernelUtilsMd5BlockInit"},
