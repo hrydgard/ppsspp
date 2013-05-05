@@ -707,8 +707,27 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	const u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
-	for (u32 i = 0; i < sizeInRAM / 4; ++i)
-		check += *checkp++;
+
+#if !defined(ARM) && !defined(MIPS)
+	// Make sure both the size and start are aligned, OR will get either.
+	if ((((u32)checkp | sizeInRAM) & 0xf) == 0) {
+		__m128i cursor = _mm_set1_epi32(0);
+		const __m128i *p = (const __m128i *)checkp;
+		for (u32 i = 0; i < sizeInRAM / 16; ++i) {
+			cursor = _mm_add_epi32(cursor, _mm_load_si128(&p[i]));
+		}
+		// Add the four parts into the low i32.
+		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
+		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
+		check = _mm_cvtsi128_si32(cursor);
+	} else {
+#else
+	// TODO: ARM NEON implementation (using CPUDetect to be sure it has NEON.)
+	{
+#endif
+		for (u32 i = 0; i < sizeInRAM / 4; ++i)
+			check += *checkp++;
+	}
 
 	return check;
 }
