@@ -24,14 +24,12 @@
 
 #include <time.h>
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-
-#include "sceKernel.h"
-#include "sceKernelTime.h"
-
-#include "../CoreTiming.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
+#include "Core/CoreTiming.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelTime.h"
+#include "Core/HLE/sceRtc.h"
 
 //////////////////////////////////////////////////////////////////////////
 // State
@@ -160,27 +158,12 @@ u32 sceKernelLibcTime(u32 outPtr)
 u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 {
 	// TODO: tzAddr?
-#ifdef _WIN32
-	union {
-		s64 ns100; /*time since 1 Jan 1601 in 100ns units */
-		FILETIME ft;
-	} now;
-
-	struct timeval
+	if (Memory::IsValidAddress(timeAddr))
 	{
-		u32 tv_sec;
-		u32 tv_usec;
-	};
+		timeval *tv = (timeval *)Memory::GetPointer(timeAddr);
+		__RtcTimeOfDay(tv);
+	}
 
-	timeval *tv = (timeval*)Memory::GetPointer(timeAddr);
-
-	GetSystemTimeAsFileTime (&now.ft);
-	tv->tv_usec = (long) ((now.ns100 / 10LL) % 1000000LL);
-	tv->tv_sec = (long) ((now.ns100 - 116444736000000000LL) / 10000000LL);
-#else
-	timeval *tv = (timeval*)Memory::GetPointer(timeAddr);
-	gettimeofday(tv, NULL);
-#endif
 	DEBUG_LOG(HLE,"sceKernelLibcGettimeofday(%08x, %08x)", timeAddr, tzAddr);
 	hleEatCycles(1885);
     return 0;
