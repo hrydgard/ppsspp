@@ -24,6 +24,7 @@
 #include "Common/ThreadPools.h"
 #include "ext/xbrz/xbrz.h"
 #include <stdlib.h>
+#include <math.h>
 
 #ifdef __SYMBIAN32__
 #define p
