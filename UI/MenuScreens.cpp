@@ -760,15 +760,22 @@ void GraphicsScreenP2::render() {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
 		UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
-		bool tst = g_Config.iTexScalingType == 1;
-		UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Hybrid"), ALIGN_LEFT, &tst);
-		g_Config.iTexScalingType = tst ? 1 : 0;
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 160 , y, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride + 20, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 160 , y + 10, 20);
+		if (UIButton(GEN_ID, hlinear2, 80, 0, "xBRZ", ALIGN_LEFT))
+			g_Config.iTexScalingType = 0;
+		if (UIButton(GEN_ID, hlinear2, 140, 0, "Hybrid(H)", ALIGN_LEFT))
+			g_Config.iTexScalingType = 1;
+		if (UIButton(GEN_ID, hlinear2, 150, 0, "Bicubic(B)", ALIGN_LEFT))
+			g_Config.iTexScalingType = 2;
+		if (UIButton(GEN_ID, hlinear2, 60, 0, "H+B", ALIGN_LEFT))
+			g_Config.iTexScalingType = 3;
 	} else {
 		g_Config.iTexScalingLevel = 1;
 	}
@@ -835,7 +842,7 @@ void LanguageScreen::render() {
 		langValuesMapping["ca_ES"] = std::make_pair("Català", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["uk_UA"] = std::make_pair("Українська", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["ro_RO"] = std::make_pair("Român", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-
+		langValuesMapping["id_ID"] = std::make_pair("Indonesia", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		if (!code.empty()) {
 			if(langValuesMapping.find(code) == langValuesMapping.end()) {
 				//No title found, show locale code
