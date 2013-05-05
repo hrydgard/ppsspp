@@ -177,8 +177,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
-  $(SRC)/Core/HW/MpegDemux.cpp \
-  $(SRC)/Core/HW/OMAConvert.cpp \
   $(SRC)/Core/HW/audioPlayer.cpp \
   $(SRC)/Core/HW/mediaPlayer.cpp \
   $(SRC)/Core/Core.cpp \
