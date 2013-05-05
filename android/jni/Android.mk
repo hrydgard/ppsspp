@@ -26,10 +26,11 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CFLAGS := -D_USE_FFMPEG_ -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
 # yes, it's really CPPFLAGS for C++
 LOCAL_CPPFLAGS := -std=gnu++11 -frtti
 LOCAL_C_INCLUDES := \
+  $(LOCAL_PATH)/../../ffmpeg/android/include \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
   $(LOCAL_PATH)/$(NATIVE)/base \
@@ -39,7 +40,20 @@ LOCAL_C_INCLUDES := \
 
 LOCAL_STATIC_LIBRARIES := native libzip
 LOCAL_LDLIBS := -lz -lGLESv2 -ldl -llog
-
+ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm7/libavformat.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm7/libavcodec.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm7/libswresample.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm7/libswscale.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm7/libavutil.a
+endif
+ifeq ($(TARGET_ARCH_ABI),armeabi)
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm6/libavformat.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm6/libavcodec.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm6/libswresample.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm6/libswscale.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm6/libavutil.a
+endif
 
 #  $(SRC)/Core/EmuThread.cpp \
 
@@ -134,9 +148,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/MemoryUtil.cpp \
   $(SRC)/Common/MsgHandler.cpp \
   $(SRC)/Common/FileUtil.cpp \
-  $(SRC)/Common/StringUtils.cpp \
+  $(SRC)/Common/StringUtil.cpp \
   $(SRC)/Common/Thread.cpp \
-  $(SRC)/Common/ThreadPools.cpp \
+  $(SRC)/Common/ThreadPool.cpp \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/Common/MathUtil.cpp \
@@ -163,6 +177,10 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
+  $(SRC)/Core/HW/MpegDemux.cpp \
+  $(SRC)/Core/HW/OMAConvert.cpp \
+  $(SRC)/Core/HW/audioPlayer.cpp \
+  $(SRC)/Core/HW/mediaPlayer.cpp \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
