@@ -124,6 +124,12 @@ static std::map<u32, u32> fontLibMap;
 // We keep this list to avoid ptr references, even before alloc is called.
 static std::vector<FontLib *> fontLibList;
 
+enum MatchQuality {
+	MATCH_NONE,
+	MATCH_GOOD,
+	MATCH_PERFECT,
+};
+
 // TODO: Merge this class with PGF? That'd make it harder to support .bwfon
 // fonts though, unless that's added directly to PGF.
 class Font {
@@ -161,9 +167,44 @@ public:
 
 	const PGFFontStyle &GetFontStyle() const { return style_; }
 
-	bool MatchesStyle(const PGFFontStyle &style, bool optimum) const {
-		// TODO
-		return true;
+	MatchQuality MatchesStyle(const PGFFontStyle &style, bool optimum) const {
+		// If no field matches, it doesn't match.
+		MatchQuality match = MATCH_NONE;
+
+#define CHECK_FIELD(f, m) \
+		if (style.##f != 0) { \
+			if (style.##f != style_.##f) { \
+				return MATCH_NONE; \
+			} \
+			if (match < m) { \
+				match = m; \
+			} \
+		}
+#define CHECK_FIELD_STR(f, m) \
+		if (style.##f[0] != '\0') { \
+			if (strcmp(style.##f, style_.##f) != 0) { \
+				return MATCH_NONE; \
+			} \
+			if (match < m) { \
+				match = m; \
+			} \
+		}
+
+		// H and V take the first match, most other fields take the last match.
+		CHECK_FIELD(fontH, MATCH_PERFECT);
+		CHECK_FIELD(fontV, MATCH_PERFECT);
+
+		CHECK_FIELD(fontFamily, MATCH_GOOD);
+		CHECK_FIELD(fontStyle, MATCH_GOOD);
+		CHECK_FIELD(fontLanguage, MATCH_GOOD);
+		CHECK_FIELD(fontCountry, MATCH_GOOD);
+
+		CHECK_FIELD_STR(fontName, MATCH_GOOD);
+		CHECK_FIELD_STR(fontFileName, MATCH_GOOD);
+
+#undef CHECK_FIELD_STR
+#undef CHECK_FIELD
+		return match;
 	}
 
 	PGF *GetPGF() { return &pgf_; }
@@ -680,14 +721,16 @@ int sceFontFindOptimumFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr)
 	if (!Memory::IsValidAddress(errorCodePtr))
 		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
 	
-	PGFFontStyle requestedStyle;
-	Memory::ReadStruct(fontStylePtr, &requestedStyle);
+	auto requestedStyle = Memory::GetStruct<const PGFFontStyle>(fontStylePtr);
 
 	Font *optimumFont = 0;
 	for (size_t i = 0; i < internalFonts.size(); i++) {
-		if (internalFonts[i]->MatchesStyle(requestedStyle, true)) {
-			optimumFont = GetOptimumFont(requestedStyle, optimumFont, internalFonts[i]);
-			break;
+		MatchQuality q = internalFonts[i]->MatchesStyle(*requestedStyle, true);
+		if (q != MATCH_NONE) {
+			optimumFont = internalFonts[i];
+			if (q == MATCH_PERFECT) {
+				break;
+			}
 		}
 	}
 	if (optimumFont) {
@@ -851,7 +894,7 @@ int sceFontFlush(u32 fontHandle) {
 // One would think that this should loop through the fonts loaded in the fontLibHandle,
 // but it seems not.
 int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, u32 numFonts) {
-	ERROR_LOG(HLE, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
+	INFO_LOG(HLE, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
 	numFonts = std::min(numFonts, (u32)internalFonts.size());
 	for (u32 i = 0; i < numFonts; i++)
 	{
