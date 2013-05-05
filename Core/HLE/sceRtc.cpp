@@ -31,6 +31,10 @@
 #include "sceRtc.h"
 #include "../CoreTiming.h"
 
+// This is a base time that everything is relative to.
+// This way, time doesn't move strangely with savestates, turbo speed, etc.
+static timeval rtcBaseTime;
+
 // Grabbed from JPSCP
 // This is # of microseconds between January 1, 0001 and January 1, 1970.
 const u64 rtcMagicOffset = 62135596800000000L;
@@ -72,7 +76,6 @@ time_t rtc_timegm(struct tm *tm)
 	return _mkgmtime(&modified);
 }
 
-// TODO: Who has timegm?
 #elif defined(__GLIBC__) && !defined(ANDROID)
 #define rtc_timegm timegm
 #else
@@ -99,6 +102,30 @@ time_t rtc_timegm(struct tm *tm)
 }
 
 #endif
+
+void __RtcInit()
+{
+	// This is the base time, the only case we use gettimeofday() for.
+	// Everything else is relative to that, "virtual time."
+	gettimeofday(&rtcBaseTime, NULL);
+}
+
+void __RtcDoState(PointerWrap &p)
+{
+	p.Do(rtcBaseTime);
+
+	p.DoMarker("sceRtc");
+}
+
+void __RtcTimeOfDay(timeval *tv)
+{
+	s64 additionalUs = cyclesToUs(CoreTiming::GetTicks());
+	*tv = rtcBaseTime;
+
+	s64 adjustedUs = additionalUs + tv->tv_usec;
+	tv->tv_sec += long(adjustedUs / 1000000UL);
+	tv->tv_usec = adjustedUs % 1000000UL;
+}
 
 void __RtcTmToPspTime(ScePspDateTime &t, tm *val)
 {
@@ -207,7 +234,7 @@ u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 {
 	DEBUG_LOG(HLE, "sceRtcGetCurrentClock(%08x, %d)", pspTimePtr, tz);
 	timeval tv;
-	gettimeofday(&tv, NULL);
+	__RtcTimeOfDay(&tv);
 
 	time_t sec = (time_t) tv.tv_sec;
 	tm *utc = gmtime(&sec);
@@ -236,7 +263,7 @@ u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 {
 	DEBUG_LOG(HLE, "sceRtcGetCurrentClockLocalTime(%08x)", pspTimePtr);
 	timeval tv;
-	gettimeofday(&tv, NULL);
+	__RtcTimeOfDay(&tv);
 
 	time_t sec = (time_t) tv.tv_sec;
 	tm *local = localtime(&sec);

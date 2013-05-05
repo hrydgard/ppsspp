@@ -57,6 +57,7 @@
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
+#include "sceRtc.h"
 #include "sceSsl.h"
 #include "sceSas.h"
 #include "scePsmf.h"
@@ -108,6 +109,7 @@ void __KernelInit()
 	__MpegInit(PSP_CoreParameter().useMediaEngine);
 	__PsmfInit();
 	__CtrlInit();
+	__RtcInit();
 	__SslInit();
 	__ImposeInit();
 	__UsbInit();
@@ -201,6 +203,7 @@ void __KernelDoState(PointerWrap &p)
 	__PowerDoState(p);
 	__PsmfDoState(p);
 	__PsmfPlayerDoState(p);
+	__RtcDoState(p);
 	__SasDoState(p);
 	__SslDoState(p);
 	__UmdDoState(p);
