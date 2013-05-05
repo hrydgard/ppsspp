@@ -352,20 +352,21 @@ bool addAtrac3AudioByPackage(const char* package, u32 startpos, int audiosize,
 	int filesize = OMAConvert::getRIFFSize(buffer, 0x2000);
 	if (filesize <= 0)
 		return false;
-	u8* buf = new u8[filesize];
+	int readsize = filesize + 0x800;
+	u8* buf = new u8[readsize];
 	pspFileSystem.SeekFile(h, startpos, FILEMOVE_BEGIN);
 
 	if (strlen(package) >= 10) {
 		if (pgd_info)
-			filesize = npdrmRead(pgd_info, h, buf, filesize);
+			readsize = npdrmRead(pgd_info, h, buf, readsize);
 		else
-			filesize = pspFileSystem.ReadFile(h, buf, filesize);
+			readsize = pspFileSystem.ReadFile(h, buf, readsize);
 	}
 	else {
 		if (pgd_info)
-			npdrmRead(pgd_info, h, buf, filesize / 2048);
+			npdrmRead(pgd_info, h, buf, readsize / 2048);
 		else
-			pspFileSystem.ReadFile(h, buf, filesize / 2048);
+			pspFileSystem.ReadFile(h, buf, readsize / 2048);
 	}
 	pspFileSystem.CloseFile(h);
 
