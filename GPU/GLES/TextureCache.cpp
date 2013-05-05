@@ -670,32 +670,17 @@ void TextureCache::StartFrame() {
 }
 
 static const u8 bitsPerPixel[11] = {
-	16,  //GE_TFMT_5650=16,
-	16,  //GE_TFMT_5551=16,
-	16,  //GE_TFMT_4444=16,
-	32,  //GE_TFMT_8888=3,
-	4,   //GE_TFMT_CLUT4=4,
-	8,   //GE_TFMT_CLUT8=5,
-	16,  //GE_TFMT_CLUT16=6,
-	32,  //GE_TFMT_CLUT32=7,
-	4,   //GE_TFMT_DXT1=4,
-	8,   //GE_TFMT_DXT3=8,
-	8,   //GE_TFMT_DXT5=8,
-};
-
-// This is the same as (fmt & 4) != 0, heh.
-static const bool formatUsesClut[11] = {
-	false,
-	false,
-	false,
-	false,
-	true,
-	true,
-	true,
-	true,
-	false,
-	false,
-	false,
+	16,  //GE_TFMT_5650,
+	16,  //GE_TFMT_5551,
+	16,  //GE_TFMT_4444,
+	32,  //GE_TFMT_8888,
+	4,   //GE_TFMT_CLUT4,
+	8,   //GE_TFMT_CLUT8,
+	16,  //GE_TFMT_CLUT16,
+	32,  //GE_TFMT_CLUT32,
+	4,   //GE_TFMT_DXT1,
+	8,   //GE_TFMT_DXT3,
+	8,   //GE_TFMT_DXT5,
 };
 
 static inline u32 MiniHash(const u32 *ptr) {
@@ -703,10 +688,10 @@ static inline u32 MiniHash(const u32 *ptr) {
 }
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
-	u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
+	const u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
-	for (u32 i = 0; i < (sizeInRAM * 2) / 4; ++i)
+	for (u32 i = 0; i < sizeInRAM / 4; ++i)
 		check += *checkp++;
 
 	return check;
@@ -733,7 +718,8 @@ void TextureCache::SetTexture() {
 		ERROR_LOG_REPORT(G3D, "Unknown texture format %i", format);
 		format = 0;
 	}
-	bool hasClut = formatUsesClut[format];
+	// GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
+	bool hasClut = (format & 4) != 0;
 
 	u64 cachekey = texaddr;
 
