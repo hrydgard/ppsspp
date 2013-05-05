@@ -30,6 +30,9 @@
 
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
+#define TEXTURE_KILL_AGE_LOWMEM 60
+// Not used in lowmem mode.
+#define TEXTURE_SECOND_KILL_AGE 100
 
 u32 RoundUpToPowerOf2(u32 v)
 {
@@ -43,7 +46,7 @@ u32 RoundUpToPowerOf2(u32 v)
 	return v;
 }
 
-TextureCache::TextureCache() : clearCacheNextFrame_(false) {
+TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false) {
 	lastBoundTexture = -1;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
@@ -62,24 +65,39 @@ TextureCache::~TextureCache() {
 void TextureCache::Clear(bool delete_them) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 	if (delete_them) {
+		lastBoundTexture = -1;
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
 			glDeleteTextures(1, &iter->second.texture);
 		}
+		for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ++iter) {
+			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
+			glDeleteTextures(1, &iter->second.texture);
+		}
 	}
-	if (cache.size()) {
-		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)cache.size());
+	if (cache.size() + secondCache.size()) {
+		INFO_LOG(G3D, "Texture cached cleared from %i textures", (int)(cache.size() + secondCache.size()));
 		cache.clear();
+		secondCache.clear();
 	}
 }
 
 // Removes old textures.
 void TextureCache::Decimate() {
 	glBindTexture(GL_TEXTURE_2D, 0);
+	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
+		}
+		else
+			++iter;
+	}
+	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
+		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+			glDeleteTextures(1, &iter->second.texture);
+			secondCache.erase(iter++);
 		}
 		else
 			++iter;
@@ -670,32 +688,17 @@ void TextureCache::StartFrame() {
 }
 
 static const u8 bitsPerPixel[11] = {
-	16,  //GE_TFMT_5650=16,
-	16,  //GE_TFMT_5551=16,
-	16,  //GE_TFMT_4444=16,
-	32,  //GE_TFMT_8888=3,
-	4,   //GE_TFMT_CLUT4=4,
-	8,   //GE_TFMT_CLUT8=5,
-	16,  //GE_TFMT_CLUT16=6,
-	32,  //GE_TFMT_CLUT32=7,
-	4,   //GE_TFMT_DXT1=4,
-	8,   //GE_TFMT_DXT3=8,
-	8,   //GE_TFMT_DXT5=8,
-};
-
-// This is the same as (fmt & 4) != 0, heh.
-static const bool formatUsesClut[11] = {
-	false,
-	false,
-	false,
-	false,
-	true,
-	true,
-	true,
-	true,
-	false,
-	false,
-	false,
+	16,  //GE_TFMT_5650,
+	16,  //GE_TFMT_5551,
+	16,  //GE_TFMT_4444,
+	32,  //GE_TFMT_8888,
+	4,   //GE_TFMT_CLUT4,
+	8,   //GE_TFMT_CLUT8,
+	16,  //GE_TFMT_CLUT16,
+	32,  //GE_TFMT_CLUT32,
+	4,   //GE_TFMT_DXT1,
+	8,   //GE_TFMT_DXT3,
+	8,   //GE_TFMT_DXT5,
 };
 
 static inline u32 MiniHash(const u32 *ptr) {
@@ -703,11 +706,30 @@ static inline u32 MiniHash(const u32 *ptr) {
 }
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
-	u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
+	const u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
-	for (u32 i = 0; i < (sizeInRAM * 2) / 4; ++i)
-		check += *checkp++;
+
+#if !defined(ARM) && !defined(MIPS)
+	// Make sure both the size and start are aligned, OR will get either.
+	if ((((u32)checkp | sizeInRAM) & 0xf) == 0) {
+		__m128i cursor = _mm_set1_epi32(0);
+		const __m128i *p = (const __m128i *)checkp;
+		for (u32 i = 0; i < sizeInRAM / 16; ++i) {
+			cursor = _mm_add_epi32(cursor, _mm_load_si128(&p[i]));
+		}
+		// Add the four parts into the low i32.
+		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
+		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
+		check = _mm_cvtsi128_si32(cursor);
+	} else {
+#else
+	// TODO: ARM NEON implementation (using CPUDetect to be sure it has NEON.)
+	{
+#endif
+		for (u32 i = 0; i < sizeInRAM / 4; ++i)
+			check += *checkp++;
+	}
 
 	return check;
 }
@@ -718,6 +740,16 @@ static inline u32 QuickClutHash(u32 addr) {
 		return CityHash32(Memory::GetCharPointer(addr), clutTotalBytes);
 	}
 	return 0;
+}
+
+inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2) {
+	return dim == dim2 && hash == hash2 && format == format2 && maxLevel == maxLevel2;
+}
+
+inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat2, u32 clutaddr2) {
+	if (!hasClut)
+		return true;
+	return clutformat == clutformat2;
 }
 
 void TextureCache::SetTexture() {
@@ -733,17 +765,21 @@ void TextureCache::SetTexture() {
 		ERROR_LOG_REPORT(G3D, "Unknown texture format %i", format);
 		format = 0;
 	}
-	bool hasClut = formatUsesClut[format];
+	// GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
+	bool hasClut = (format & 4) != 0;
 
 	u64 cachekey = texaddr;
 
-	u32 clutformat, clutaddr;
+	u32 clutformat, clutaddr, cluthash;
 	if (hasClut) {
 		clutformat = gstate.clutformat & 3;
 		clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
-		cachekey |= (u64)QuickClutHash(clutaddr) << 32;
+		cluthash = QuickClutHash(clutaddr);
+		cachekey |= (u64)cluthash << 32;
 	} else {
+		clutformat = 0;
 		clutaddr = 0;
+		cluthash = 0;
 	}
 
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
@@ -787,18 +823,9 @@ void TextureCache::SetTexture() {
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
-		bool match = true;
+		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat, clutaddr);
 		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
-
-		// Verify texture parameters.
-		if (dim != entry->dim ||
-			entry->hash != texhash ||
-			entry->format != format ||
-			entry->maxLevel != maxLevel ||
-			(hasClut && entry->clutformat != clutformat)) {
-			match = false;
-			entry->numInvalidated++;
-		}
+		bool doDelete = true;
 
 		if (match) {
 			if (entry->lastFrame != gpuStats.numFrames) {
@@ -824,11 +851,35 @@ void TextureCache::SetTexture() {
 				int bufw = gstate.texbufwidth[0] & 0x3ff;
 				u32 check = QuickTexHash(texaddr, bufw, w, h, format);
 				if (check != entry->fullhash) {
-					match = false;
-					gpuStats.numTextureInvalidations++;
 					entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 					entry->numFrames = 0;
-					entry->numInvalidated++;
+
+					// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
+					// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
+					if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
+						u64 secondKey = check | (u64)cluthash << 32;
+						TexCache::iterator secondIter = secondCache.find(secondKey);
+						if (secondIter != secondCache.end()) {
+							TexCacheEntry *secondEntry = &secondIter->second;
+							if (secondEntry->Matches(dim, texhash, format, maxLevel) && secondEntry->MatchesClut(hasClut, clutformat, clutaddr)) {
+								// Reset the numInvalidated value lower, we got a match.
+								if (entry->numInvalidated > 8) {
+									--entry->numInvalidated;
+								}
+								entry = secondEntry;
+							} else {
+								match = false;
+							}
+						} else {
+							match = false;
+
+							secondKey = entry->fullhash | (u64)entry->cluthash << 32;
+							secondCache[secondKey] = *entry;
+							doDelete = false;
+						}
+					} else {
+						match = false;
+					}
 				} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 					entry->status = TexCacheEntry::STATUS_HASHING;
 				}
@@ -847,11 +898,15 @@ void TextureCache::SetTexture() {
 			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
+			entry->numInvalidated++;
+			gpuStats.numTextureInvalidations++;
 			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
-			if (entry->texture == lastBoundTexture)
+			if (entry->texture == lastBoundTexture) {
 				lastBoundTexture = -1;
-
-			glDeleteTextures(1, &entry->texture);
+			}
+			if (doDelete) {
+				glDeleteTextures(1, &entry->texture);
+			}
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
 				entry->status = TexCacheEntry::STATUS_HASHING;
 			}
@@ -880,12 +935,9 @@ void TextureCache::SetTexture() {
 	entry->lodBias = 0.0f;
 
 
-	if (hasClut) {
-		entry->clutformat = clutformat;
-		entry->clutaddr = clutaddr;
-	} else {
-		entry->clutaddr = 0;
-	}
+	entry->clutformat = clutformat;
+	entry->clutaddr = clutaddr;
+	entry->cluthash = cluthash;
 
 	
 	entry->dim = gstate.texsize[0] & 0xF0F;
@@ -1232,6 +1284,14 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
+	GLenum err = glGetError();
+	if (err == GL_OUT_OF_MEMORY) {
+		lowMemoryMode_ = true;
+		Decimate();
+
+		// Try again.
+		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
+	}
 }
 
 // Only used by Qt UI?

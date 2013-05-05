@@ -74,6 +74,7 @@ private:
 		u32 framesUntilNextFullHash;
 		u8 format;
 		u8 clutformat;
+		u32 cluthash;
 		u16 dim;
 		u32 clutaddr;
 		u32 texture;  //GLuint
@@ -88,6 +89,9 @@ private:
 		u8 minFilt;
 		bool sClamp;
 		bool tClamp;
+
+		bool Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2);
+		bool MatchesClut(bool hasClut, u8 clutformat2, u32 clutaddr2);
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -101,8 +105,10 @@ private:
 
 	typedef std::map<u64, TexCacheEntry> TexCache;
 	TexCache cache;
+	TexCache secondCache;
 
 	bool clearCacheNextFrame_;
+	bool lowMemoryMode_;
 	TextureScaler scaler;
 
 	SimpleBuf<u32> tmpTexBuf32;
