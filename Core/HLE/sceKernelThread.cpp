@@ -2038,6 +2038,7 @@ int sceKernelRotateThreadReadyQueue(int priority)
 		hleReSchedule("rotatethreadreadyqueue");
 	}
 
+	hleEatCycles(250);
 	return 0;
 }
 
