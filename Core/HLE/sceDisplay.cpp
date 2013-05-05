@@ -26,6 +26,7 @@
 #include "Thread.h"
 #include "../Core/CoreTiming.h"
 #include "../Core/CoreParameter.h"
+#include "Core/Reporting.h"
 #include "../MIPS/MIPS.h"
 #include "../HLE/HLE.h"
 #include "sceAudio.h"
@@ -525,7 +526,7 @@ u32 sceDisplayWaitVblank() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
-		hleEatCycles(5 * 222);
+		hleEatCycles(1110);
 		return 1;
 	}
 }
@@ -545,7 +546,7 @@ u32 sceDisplayWaitVblankCB() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
-		hleEatCycles(5 * 222);
+		hleEatCycles(1110);
 		return 1;
 	}
 }
@@ -567,18 +568,19 @@ u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 u32 sceDisplayGetVcount() {
 	VERBOSE_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);
 
-	hleEatCycles(2 * 222);
+	hleEatCycles(150);
 	return vCount;
 }
 
 u32 sceDisplayGetCurrentHcount() {
 	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetCurrentHcount()", currentHCount);
+	hleEatCycles(275);
 	return currentHCount;
 }
 
 u32 sceDisplayAdjustAccumulatedHcount() {
-	ERROR_LOG(HLE,"UNIMPL sceDisplayAdjustAccumulatedHcount()");
+	ERROR_LOG_REPORT(HLE,"UNIMPL sceDisplayAdjustAccumulatedHcount()");
 	return 0;
 }
 
@@ -586,6 +588,7 @@ u32 sceDisplayGetAccumulatedHcount() {
 	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
 	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
+	hleEatCycles(235);
 	return accumHCount;
 }
 
