@@ -763,21 +763,22 @@ int sceFontFindFont(u32 libHandlePtr, u32 fontStylePtr, u32 errorCodePtr) {
 }
 
 int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
-	ERROR_LOG(HLE, "sceFontGetFontInfo(%x, %x)", fontHandle, fontInfoPtr);
-
-	PGFFontInfo fi;
-	memset (&fi, 0, sizeof(fi));
-	if (!Memory::IsValidAddress(fontInfoPtr))
-		return 0;
-
+	if (!Memory::IsValidAddress(fontInfoPtr)) {
+		ERROR_LOG(HLE, "sceFontGetFontInfo(%x, %x): bad fontInfo pointer", fontHandle, fontInfoPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
-	if (!font)
-		return 0;
-	PGF *pgf = font->GetFont()->GetPGF();
-	pgf->GetFontInfo(&fi);
-	fi.fontStyle = font->GetFont()->GetFontStyle();
+	if (!font) {
+		ERROR_LOG(HLE, "sceFontGetFontInfo(%x, %x): bad font", fontHandle, fontInfoPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
 
-	Memory::WriteStruct(fontInfoPtr, &fi);
+	INFO_LOG(HLE, "sceFontGetFontInfo(%x, %x)", fontHandle, fontInfoPtr);
+	auto fi = Memory::GetStruct<PGFFontInfo>(fontInfoPtr);
+	PGF *pgf = font->GetFont()->GetPGF();
+	pgf->GetFontInfo(fi);
+	fi->fontStyle = font->GetFont()->GetFontStyle();
+
 	return 0;
 }
 
@@ -789,19 +790,22 @@ int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 unknown,
 }
 
 int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
-	INFO_LOG(HLE, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
-	if (!Memory::IsValidAddress(charInfoPtr))
-		return -1;
-
-	PGFCharInfo charInfo;
-	memset(&charInfo, 0, sizeof(charInfo));		
-	LoadedFont *font = GetLoadedFont(fontHandle, false);
-	if (font) {
-		font->GetFont()->GetPGF()->GetCharInfo(charCode, &charInfo);
-	} else {
-		ERROR_LOG(HLE, "sceFontGetCharInfo - invalid font");
+	if (!Memory::IsValidAddress(charInfoPtr)) {
+		ERROR_LOG(HLE, "sceFontGetCharInfo(%08x, %i, %08x): bad charInfo pointer", fontHandle, charCode, charInfoPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
 	}
-	Memory::WriteStruct(charInfoPtr, &charInfo);
+	LoadedFont *font = GetLoadedFont(fontHandle, false);
+	if (!font) {
+		// The PSP crashes, but we assume it'd work like sceFontGetFontInfo(), and not touch charInfo.
+		ERROR_LOG(HLE, "sceFontGetCharInfo(%08x, %i, %08x): bad font", fontHandle, charCode, charInfoPtr);
+		return ERROR_FONT_INVALID_PARAMETER;
+	}
+
+	DEBUG_LOG(HLE, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
+	auto charInfo = Memory::GetStruct<PGFCharInfo>(charInfoPtr);
+	PGF *pgf = font->GetFont()->GetPGF();
+	pgf->GetCharInfo(charCode, charInfo);
+
 	return 0;
 }
 

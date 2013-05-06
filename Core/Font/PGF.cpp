@@ -241,11 +241,12 @@ int PGF::GetCharIndex(int charCode, const std::vector<int> &charmapCompressed) {
 
 bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo) {
 	Glyph glyph;
+	memset(charInfo, 0, sizeof(*charInfo));
+
 	if (!GetCharGlyph(charCode, FONT_PGF_CHARGLYPH, glyph)) {
 		// Character not in font, return zeroed charInfo as on real PSP.
 		return false;
 	}
-	memset(charInfo, 0, sizeof(*charInfo));
 
 	charInfo->bitmapWidth = glyph.w;
 	charInfo->bitmapHeight = glyph.h;
