@@ -57,17 +57,6 @@ struct FontNewLibParams {
 	u32 ioFinishFuncAddr;
 };
 
-struct GlyphImage {
-	FontPixelFormat pixelFormat;
-	s32 xPos64;
-	s32 yPos64;
-	u16 bufWidth;
-	u16 bufHeight;
-	u16 bytesPerLine;
-	u16 pad;
-	u32 bufferPtr;
-};
-
 struct FontRegistryEntry {
 	int hSize;
 	int vSize;
@@ -840,13 +829,7 @@ int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
 int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 	INFO_LOG(HLE, "sceFontGetCharGlyphImage(%x, %x, %x)", fontHandle, charCode, glyphImagePtr);
 
-	int pixelFormat = Memory::Read_U32(glyphImagePtr);
-	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
-	int yPos64 = Memory::Read_U32(glyphImagePtr+8);
-	int bufWidth = Memory::Read_U16(glyphImagePtr+12);
-	int bufHeight = Memory::Read_U16(glyphImagePtr+14);
-	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
-	int buffer = Memory::Read_U32(glyphImagePtr+20);
+	auto glyph = Memory::GetStruct<const GlyphImage>(glyphImagePtr);
 
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
 	if (!font) {
@@ -854,20 +837,14 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 		return 0;
 	}
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, 0, 0, 8192, 8192, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	font->GetPGF()->DrawCharacter(glyph, 0, 0, 8192, 8192, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 
 int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePtr, int clipXPos, int clipYPos, int clipWidth, int clipHeight) {
 	INFO_LOG(HLE, "sceFontGetCharGlyphImage_Clip(%08x, %i, %08x, %i, %i, %i, %i)", fontHandle, charCode, glyphImagePtr, clipXPos, clipYPos, clipWidth, clipHeight);
 
-	int pixelFormat = Memory::Read_U32(glyphImagePtr);
-	int xPos64 = Memory::Read_U32(glyphImagePtr+4);
-	int yPos64 = Memory::Read_U32(glyphImagePtr+8);
-	int bufWidth = Memory::Read_U16(glyphImagePtr+12);
-	int bufHeight = Memory::Read_U16(glyphImagePtr+14);
-	int bytesPerLine = Memory::Read_U16(glyphImagePtr+16);
-	int buffer = Memory::Read_U32(glyphImagePtr+20);
+	auto glyph = Memory::GetStruct<const GlyphImage>(glyphImagePtr);
 
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
 	if (!font) {
@@ -875,7 +852,7 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 		return 0;
 	}
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	font->GetPGF()->DrawCharacter(glyph, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 
