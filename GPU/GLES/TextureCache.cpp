@@ -319,9 +319,36 @@ inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const Cl
 }
 
 template <typename ClutT>
+inline void DeIndexTexture4Optimal(ClutT *dest, const u8 *indexed, int length, ClutT color) {
+	for (int i = 0; i < length; i += 2) {
+		u8 index = *indexed++;
+		dest[i + 0] = color | ((index >> 0) & 0xf);
+		dest[i + 1] = color | ((index >> 4) & 0xf);
+	}
+}
+
+template <>
+inline void DeIndexTexture4Optimal<u16>(u16 *dest, const u8 *indexed, int length, u16 color) {
+	const u16 *indexed16 = (const u16 *)indexed;
+	const u32 color32 = (color << 16) | color;
+	u32 *dest32 = (u32 *)dest;
+	for (int i = 0; i < length / 2; i += 2) {
+		u16 index = *indexed16++;
+		dest32[i + 0] = color32 | ((index & 0x00f0) << 12) | ((index & 0x000f) >> 0);
+		dest32[i + 1] = color32 | ((index & 0xf000) <<  4) | ((index & 0x0f00) >> 8);
+	}
+}
+
+template <typename ClutT>
 inline void DeIndexTexture4(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
 	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
 	DeIndexTexture4(dest, indexed, length, clut);
+}
+
+template <typename ClutT>
+inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, ClutT color) {
+	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
+	DeIndexTexture4Optimal(dest, indexed, length, color);
 }
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt) {
@@ -1036,12 +1063,41 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			const u16 *clut = clutBuf16;
 			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
 			texByteAlign = 2;
+
+			// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
+			bool linearClut = false;
+			u16 linearColor = 0;
+			if (gstate.clutformat == (0xC500FF00 | GE_CMODE_16BIT_ABGR4444)) {
+				// TODO: Do this check once per CLUT load?
+				linearClut = true;
+				linearColor = clut[clutSharingOffset + 15] & 0xFFF0;
+				for (int i = 0; i < 16; ++i) {
+					if ((clut[clutSharingOffset + i] & 0xf) != i) {
+						linearClut = false;
+						break;
+					}
+					// Alpha 0 doesn't matter.
+					if (i != 0 && (clut[clutSharingOffset + i] & 0xFFF0) != linearColor) {
+						linearClut = false;
+						break;
+					}
+				}
+			}
+
 			if (!(gstate.texmode & 1)) {
-				DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut + clutSharingOffset);
+				if (linearClut) {
+					DeIndexTexture4Optimal(tmpTexBuf16.data(), texaddr, bufw * h, linearColor);
+				} else {
+					DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut + clutSharingOffset);
+				}
 			} else {
 				tmpTexBuf32.resize(std::max(bufw, w) * h);
 				UnswizzleFromMem(texaddr, bufw, 0, level);
-				DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
+				if (linearClut) {
+					DeIndexTexture4Optimal(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, linearColor);
+				} else {
+					DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
+				}
 			}
 			finalBuf = tmpTexBuf16.data();
 			}
