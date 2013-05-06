@@ -172,8 +172,8 @@ public:
 		MatchQuality match = MATCH_NONE;
 
 #define CHECK_FIELD(f, m) \
-		if (style.##f != 0) { \
-			if (style.##f != style_.##f) { \
+		if (style.f != 0) { \
+			if (style.f != style_.f) { \
 				return MATCH_NONE; \
 			} \
 			if (match < m) { \
@@ -181,8 +181,8 @@ public:
 			} \
 		}
 #define CHECK_FIELD_STR(f, m) \
-		if (style.##f[0] != '\0') { \
-			if (strcmp(style.##f, style_.##f) != 0) { \
+		if (style.f[0] != '\0') { \
+			if (strcmp(style.f, style_.f) != 0) { \
 				return MATCH_NONE; \
 			} \
 			if (match < m) { \
