@@ -61,8 +61,6 @@ public:
 	bool bUseVBO;
 	bool bStretchToDisplay;
 	int iFrameSkip;
-	int iNumVps;
-	bool bVpsLimit;
 	bool bUseMediaEngine;
 
 	int iWindowX;

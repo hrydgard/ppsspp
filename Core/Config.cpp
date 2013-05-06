@@ -100,8 +100,6 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
-	graphics->Get("Vps Unlock", &bVpsLimit, false);
-	graphics->Get("Vps Num", &iNumVps, 90);
 	graphics->Get("UseMediaEngine", &bUseMediaEngine, true);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);

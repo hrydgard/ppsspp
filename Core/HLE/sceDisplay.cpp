@@ -26,6 +26,7 @@
 #include "Thread.h"
 #include "../Core/CoreTiming.h"
 #include "../Core/CoreParameter.h"
+#include "Core/Reporting.h"
 #include "../MIPS/MIPS.h"
 #include "../HLE/HLE.h"
 #include "sceAudio.h"
@@ -93,8 +94,6 @@ static int height;
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
 static double nextFrameTime;
-double vfpLimit;
-double vfpLimis;
 
 static u64 frameStartTicks;
 const float hCountPerVblank = 285.72f; // insprired by jpcsp
@@ -109,7 +108,7 @@ std::vector<VblankCallback> vblankListeners;
 
 // The vblank period is 731.5 us (0.7315 ms)
 const double vblankMs = 0.7315;
-double frameMs = 1000.0 / 60.0;
+const double frameMs = 1000.0 / 60.0;
 
 enum {
 	PSP_DISPLAY_SETBUF_IMMEDIATE = 0,
@@ -137,11 +136,7 @@ void __DisplayInit() {
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
 	afterFlipEvent = CoreTiming::RegisterEvent("AfterFlip", &hleAfterFlip);
-	if (!g_Config.bVpsLimit) {
-		frameMs = 1000.0 / 60.0;
-	} else {
-		frameMs = 1000.0 / g_Config.iNumVps;
-	}
+
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
@@ -312,28 +307,22 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	
 	time_update();
 	
-	if (!g_Config.bVpsLimit) {
-		vfpLimit=60.0;
-		vfpLimis=30.0;
-	} else {
-		vfpLimit=g_Config.iNumVps;
-		vfpLimis=g_Config.iNumVps / 2;
-	}
 	curFrameTime = time_now_d();
 	if (nextFrameTime == 0.0)
-		nextFrameTime = time_now_d() + 1.0 / vfpLimit;
+		nextFrameTime = time_now_d() + 1.0 / 60.0;
 	
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		skipFrame = true;
 		// INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
 	}
+
 	
 	if (curFrameTime < nextFrameTime && throttle)
 	{
 		// If time gap is huge just jump (somebody unthrottled)
-		if (nextFrameTime - curFrameTime > 1.0 / vfpLimis) {
-			nextFrameTime = curFrameTime + 1.0 / vfpLimit;
+		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
+			nextFrameTime = curFrameTime + 1.0 / 60.0;
 		} else {
 			// Wait until we've catched up.
 			while (time_now_d() < nextFrameTime) {
@@ -348,9 +337,9 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	const double maxFallBehindFrames = 5.5;
 
 	if (throttle || doFrameSkip) {
-		nextFrameTime = std::max(nextFrameTime + 1.0 / vfpLimit, time_now_d() - maxFallBehindFrames / vfpLimit);
+		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
 	} else {
-		nextFrameTime = nextFrameTime + 1.0 / vfpLimit;
+		nextFrameTime = nextFrameTime + 1.0 / 60.0;
 	}
 
 	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
@@ -448,11 +437,6 @@ void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
 	frameStartTicks = CoreTiming::GetTicks();
-	if (!g_Config.bVpsLimit) {
-		frameMs = 1000.0 / 60.0;
-	} else {
-		frameMs = 1000.0 / g_Config.iNumVps;
-	}
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
@@ -542,7 +526,7 @@ u32 sceDisplayWaitVblank() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
-		hleEatCycles(5 * 222);
+		hleEatCycles(1110);
 		return 1;
 	}
 }
@@ -562,7 +546,7 @@ u32 sceDisplayWaitVblankCB() {
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
-		hleEatCycles(5 * 222);
+		hleEatCycles(1110);
 		return 1;
 	}
 }
@@ -584,18 +568,19 @@ u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 u32 sceDisplayGetVcount() {
 	VERBOSE_LOG(HLE,"%i=sceDisplayGetVcount()", vCount);
 
-	hleEatCycles(2 * 222);
+	hleEatCycles(150);
 	return vCount;
 }
 
 u32 sceDisplayGetCurrentHcount() {
 	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetCurrentHcount()", currentHCount);
+	hleEatCycles(275);
 	return currentHCount;
 }
 
 u32 sceDisplayAdjustAccumulatedHcount() {
-	ERROR_LOG(HLE,"UNIMPL sceDisplayAdjustAccumulatedHcount()");
+	ERROR_LOG_REPORT(HLE,"UNIMPL sceDisplayAdjustAccumulatedHcount()");
 	return 0;
 }
 
@@ -603,6 +588,7 @@ u32 sceDisplayGetAccumulatedHcount() {
 	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
 	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
 	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
+	hleEatCycles(235);
 	return accumHCount;
 }
 
