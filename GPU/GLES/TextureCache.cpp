@@ -743,7 +743,7 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 
 #ifdef _M_SSE
 	// Make sure both the size and start are aligned, OR will get either.
-	if ((((u32)checkp | sizeInRAM) & 0xf) == 0) {
+	if ((((u32)(intptr_t)checkp | sizeInRAM) & 0xf) == 0) {
 		__m128i cursor = _mm_set1_epi32(0);
 		const __m128i *p = (const __m128i *)checkp;
 		for (u32 i = 0; i < sizeInRAM / 16; ++i) {

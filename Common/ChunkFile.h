@@ -34,7 +34,7 @@
 #include <list>
 #include <set>
 #ifndef __SYMBIAN32__
-#if defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
+#if defined(IOS) || defined(MACGNUSTD)
 #include <tr1/type_traits>
 #else
 #include <type_traits>
@@ -45,7 +45,7 @@
 #include "FileUtil.h"
 #include "../ext/snappy/snappy-c.h"
 
-#if defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
+#if defined(IOS) || defined(MACGNUSTD)
 namespace std {
 	using tr1::is_pointer;
 }
