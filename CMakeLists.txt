@@ -112,6 +112,8 @@ endif()
 
 if(PANDORA)
 	add_definitions(-DPANDORA)
+	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -flto -fuse-linker-plugin")
+	add_definitions(-mcpu=cortex-a8 -march=armv7-a -mfpu=neon -mfloat-abi=softfp -ftree-vectorize -mno-unaligned-access)
 endif()
 
 if(ARM)
