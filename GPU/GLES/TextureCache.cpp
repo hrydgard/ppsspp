@@ -108,7 +108,7 @@ void TextureCache::Decimate() {
 	}
 }
 
-void TextureCache::Invalidate(u32 addr, int size, bool force) {
+void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	addr &= 0xFFFFFFF;
 	u32 addr_end = addr + size;
 
@@ -125,10 +125,10 @@ void TextureCache::Invalidate(u32 addr, int size, bool force) {
 			if (iter->second.status == TexCacheEntry::STATUS_RELIABLE) {
 				iter->second.status = TexCacheEntry::STATUS_HASHING;
 			}
-			if (force) {
+			if (type != GPU_INVALIDATE_ALL) {
 				gpuStats.numTextureInvalidations++;
-				// Start it over from 0.
-				iter->second.numFrames = 0;
+				// Start it over from 0 (unless it's safe.)
+				iter->second.numFrames = type == GPU_INVALIDATE_SAFE ? 256 : 0;
 				iter->second.framesUntilNextFullHash = 0;
 			} else {
 				iter->second.invalidHint++;
@@ -137,8 +137,8 @@ void TextureCache::Invalidate(u32 addr, int size, bool force) {
 	}
 }
 
-void TextureCache::InvalidateAll(bool force) {
-	Invalidate(0, 0xFFFFFFFF, force);
+void TextureCache::InvalidateAll(GPUInvalidationType type) {
+	Invalidate(0, 0xFFFFFFFF, type);
 }
 
 void TextureCache::ClearNextFrame() {

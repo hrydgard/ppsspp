@@ -25,6 +25,9 @@
 #include "Core/Font/PGF.h"
 #include "Core/HLE/HLE.h"
 
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
+
 // These fonts, created by ttf2pgf, don't have complete glyph info and need to be identified.
 static bool isJPCSPFont(const char *fontName) {
 	return !strcmp(fontName, "Liberation") || !strcmp(fontName, "Sazanami") || !strcmp(fontName, "UnDotum");
@@ -495,6 +498,8 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 			pixelIndex++;
 		}
 	}
+
+	gpu->InvalidateCache(image->bufferPtr, image->bytesPerLine * image->bufHeight, GPU_INVALIDATE_SAFE);
 }
 
 void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat) {
