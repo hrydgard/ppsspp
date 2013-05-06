@@ -1,7 +1,7 @@
 # vim:noexpandtab:
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
-
+ 
 if(ANDROID)
 	if(ARMEABI OR ARMEABI_V7A)
 		set(ARM ON)
