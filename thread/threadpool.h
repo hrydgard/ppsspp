@@ -15,7 +15,7 @@ using namespace std;
 #endif
 #include <vector>
 
-#if defined(__SYMBIAN32__) || defined(IOS) || (defined(__APPLE__) && !defined(__MAC_10_7))
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MACGNUSTD)
 #ifndef __SYMBIAN32__
 #include <tr1/functional>
 #include <tr1/memory>
