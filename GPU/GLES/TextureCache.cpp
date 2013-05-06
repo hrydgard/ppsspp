@@ -28,6 +28,10 @@
 
 #include "native/ext/cityhash/city.h"
 
+#ifdef _M_SSE
+#include <xmmintrin.h>
+#endif
+
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
 #define TEXTURE_KILL_AGE_LOWMEM 60
@@ -710,7 +714,7 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
 
-#if !defined(ARM) && !defined(MIPS)
+#ifdef _M_SSE
 	// Make sure both the size and start are aligned, OR will get either.
 	if ((((u32)checkp | sizeInRAM) & 0xf) == 0) {
 		__m128i cursor = _mm_set1_epi32(0);
