@@ -231,6 +231,7 @@ public:
 		: fontLibID_(fontLibID), font_(font), handle_(handle) {}
 
 	Font *GetFont() { return font_; }
+	PGF *GetPGF() { return font_->GetPGF(); }
 	FontLib *GetFontLib() { if (!IsOpen()) return NULL; return fontLibList[fontLibID_]; }
 	u32 Handle() const { return handle_; }
 
@@ -775,8 +776,7 @@ int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
 
 	INFO_LOG(HLE, "sceFontGetFontInfo(%x, %x)", fontHandle, fontInfoPtr);
 	auto fi = Memory::GetStruct<PGFFontInfo>(fontInfoPtr);
-	PGF *pgf = font->GetFont()->GetPGF();
-	pgf->GetFontInfo(fi);
+	font->GetPGF()->GetFontInfo(fi);
 	fi->fontStyle = font->GetFont()->GetFontStyle();
 
 	return 0;
@@ -803,8 +803,7 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 
 	DEBUG_LOG(HLE, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
 	auto charInfo = Memory::GetStruct<PGFCharInfo>(charInfoPtr);
-	PGF *pgf = font->GetFont()->GetPGF();
-	pgf->GetCharInfo(charCode, charInfo);
+	font->GetPGF()->GetCharInfo(charCode, charInfo);
 
 	return 0;
 }
@@ -824,7 +823,7 @@ int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
 	PGFCharInfo charInfo;
 	LoadedFont *font = GetLoadedFont(fontHandle, false);
 	if (font) {
-		font->GetFont()->GetPGF()->GetCharInfo(charCode, &charInfo);
+		font->GetPGF()->GetCharInfo(charCode, &charInfo);
 		Memory::Write_U16(charInfo.bitmapWidth, charRectPtr);      // character bitmap width in pixels
 		Memory::Write_U16(charInfo.bitmapHeight, charRectPtr + 2);  // character bitmap height in pixels
 	} else {
@@ -855,7 +854,7 @@ int sceFontGetCharGlyphImage(u32 fontHandle, u32 charCode, u32 glyphImagePtr) {
 		return 0;
 	}
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetFont()->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, 0, 0, 8192, 8192, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	font->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, 0, 0, 8192, 8192, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 
@@ -876,7 +875,7 @@ int sceFontGetCharGlyphImage_Clip(u32 fontHandle, u32 charCode, u32 glyphImagePt
 		return 0;
 	}
 	int altCharCode = font->GetFontLib()->GetAltCharCode();
-	font->GetFont()->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
+	font->GetPGF()->DrawCharacter(buffer, bytesPerLine, bufWidth, bufHeight, xPos64 >> 6, yPos64 >> 6, clipXPos, clipYPos, clipXPos + clipWidth, clipYPos + clipHeight, pixelFormat, charCode, altCharCode, FONT_PGF_CHARGLYPH);
 	return 0;
 }
 
