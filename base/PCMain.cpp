@@ -36,21 +36,33 @@
 #include "net/resolve.h"
 
 
-#ifdef MAEMO
+#if defined(MAEMO) || defined(PANDORA)
 #define EGL
-#endif
-
-#ifdef PANDORA
-#define EGL
-#endif
-
-#ifdef EGL
 #include "EGL/egl.h"
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include "SDL_syswm.h"
+#include "math.h"
+
+#ifdef PANDORA
 SDL_Joystick    *ljoy = NULL;
 SDL_Joystick    *rjoy = NULL;
+
+void enable_runfast()
+{
+	static const unsigned int x = 0x04086060;
+	static const unsigned int y = 0x03000000;
+	int r;
+	asm volatile (
+		"fmrx	%0, fpscr			\n\t"	//r0 = FPSCR
+		"and	%0, %0, %1			\n\t"	//r0 = r0 & 0x04086060
+		"orr	%0, %0, %2			\n\t"	//r0 = r0 | 0x03000000
+		"fmxr	fpscr, %0			\n\t"	//FPSCR = r0
+		: "=r"(r)
+		: "r"(x), "r"(y)
+	);
+}
+#endif
 
 EGLDisplay          g_eglDisplay    = NULL;
 EGLContext          g_eglContext    = NULL;
@@ -91,8 +103,12 @@ int8_t CheckEGLErrors(const std::string& file, uint16_t line) {
 	}
 
 int8_t EGL_Open() {
+#ifdef PANDORA
+	g_Display = EGL_DEFAULT_DISPLAY;
+#else
 	if ((g_Display = XOpenDisplay(NULL)) == NULL)
 		EGL_ERROR("Unable to get display!", false);
+#endif
 	if ((g_eglDisplay = eglGetDisplay((NativeDisplayType)g_Display)) == EGL_NO_DISPLAY)
 		EGL_ERROR("Unable to create EGL display.", true);
 	if (eglInitialize(g_eglDisplay, NULL, NULL) != EGL_TRUE)
@@ -136,12 +152,17 @@ int8_t EGL_Init() {
 		return 1;
 	}
 
+#ifdef PANDORA
+	g_Window = (NativeWindowType)NULL;
+#else
 	g_Window = (NativeWindowType)sysInfo.info.x11.window;
+#endif
 	g_eglSurface = eglCreateWindowSurface(g_eglDisplay, g_eglConfig, g_Window, 0);
 	if (g_eglSurface == EGL_NO_SURFACE) EGL_ERROR("Unable to create EGL surface!", true);
 
 	if (eglMakeCurrent(g_eglDisplay, g_eglSurface, g_eglSurface, g_eglContext) != EGL_TRUE)
 		EGL_ERROR("Unable to make GLES context current.", true);
+
 	return 0;
 }
 
@@ -250,7 +271,11 @@ const int buttonMappings[14] = {
 	SDLK_DOWN,      //DOWN
 	SDLK_LEFT,      //LEFT
 	SDLK_RIGHT,     //RIGHT
+#ifdef PANDORA
+	SDLK_SPACE,     //MENU
+#else
 	SDLK_m,         //MENU
+#endif
 	SDLK_BACKSPACE,	//BACK
 };
 
@@ -269,12 +294,12 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	if ((ljoy)||(rjoy)) {
 		SDL_JoystickUpdate();
 		if (ljoy) {
-			input->pad_lstick_x = SDL_JoystickGetAxis(ljoy, 0) / 32768.0f;
-			input->pad_lstick_y = SDL_JoystickGetAxis(ljoy, 1) / 32768.0f;
+			input->pad_lstick_x = max(min(SDL_JoystickGetAxis(ljoy, 0) / 32000.0f, 1.0f, -1.0f);
+			input->pad_lstick_y = max(min(-SDL_JoystickGetAxis(ljoy, 1) / 32000.0f, 1.0f, -1.0f);
 		}
 		if (rjoy) {
-			input->pad_rstick_x = SDL_JoystickGetAxis(rjoy, 0) / 32768.0f;
-			input->pad_rstick_y = SDL_JoystickGetAxis(rjoy, 1) / 32768.0f;
+			input->pad_rstick_x = max(min(SDL_JoystickGetAxis(rjoy, 0) / 32000.0f, 1.0f, -1.0f);
+			input->pad_rstick_y = max(min(SDL_JoystickGetAxis(rjoy, 1) / 32000.0f, 1.0f, -1.0f);
 		}
 	}
 #else
@@ -368,7 +393,7 @@ int main(int argc, char *argv[]) {
 	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 #endif
 
-	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_AUDIO) < 0) {
 		fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
 		return 1;
 	}
@@ -479,13 +504,11 @@ int main(int argc, char *argv[]) {
 	// Joysticks init, we the nubs if setup as Joystick
 	int numjoys = SDL_NumJoysticks();
 	if (numjoys>0)
-		for (int i=0; i<numjoys; i++)
-		{
-			if (strncmp(SDL_JoystickName(i), "nub0", 4) == 0)
-				ljoy=SDL_JoystickOpen(i);
-			if (strncmp(SDL_JoystickName(i), "nub1", 4) == 0)
-				rjoy=SDL_JoystickOpen(i);
-		}
+	{
+		ljoy=SDL_JoystickOpen(0);
+		if (numjoys>1) rjoy=SDL_JoystickOpen(1);
+	}
+	enable_runfast(); // VFPv2 RunFast
 #endif
 
 	int framecount = 0;
