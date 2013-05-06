@@ -108,6 +108,17 @@ struct Glyph {
 	u32 ptr;
 };
 
+struct GlyphImage {
+	FontPixelFormat pixelFormat;
+	s32 xPos64;
+	s32 yPos64;
+	u16 bufWidth;
+	u16 bufHeight;
+	u16 bytesPerLine;
+	u16 pad;
+	u32 bufferPtr;
+};
+
 #pragma pack(push,1)
 struct PGFHeader
 {
@@ -243,7 +254,7 @@ public:
 
 	bool GetCharInfo(int charCode, PGFCharInfo *ci);
 	void GetFontInfo(PGFFontInfo *fi);
-	void DrawCharacter(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int clipX, int clipY, int clipWidth, int clipHeight, int pixelformat, int charCode, int altCharCode, int glyphType);
+	void DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType);
 
 	void DoState(PointerWrap &p);
 
