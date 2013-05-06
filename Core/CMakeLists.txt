@@ -56,6 +56,7 @@ set(SRCS
   HLE/sceNp.cpp
   HLE/sceP3da.cpp
   HLE/sceMp4.cpp
+  HLE/sceMp3.cpp
   HLE/scePauth.cpp
   HLE/scePower.cpp
   HLE/scePsmf.cpp
@@ -136,3 +137,4 @@ if(UNIX)
   add_definitions(-fPIC)
   add_definitions(-std=gnu++0x)
 endif(UNIX)
+

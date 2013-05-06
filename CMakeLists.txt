@@ -1,7 +1,7 @@
 # vim:noexpandtab:
 cmake_minimum_required(VERSION 2.8.8)
 project(PPSSPP)
-
+ 
 if(ANDROID)
 	if(ARMEABI OR ARMEABI_V7A)
 		set(ARM ON)
@@ -795,6 +795,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceP3da.h
 	Core/HLE/sceMp4.cpp
 	Core/HLE/sceMp4.h
+	Core/HLE/sceMp3.cpp
+	Core/HLE/sceMp3.h
 	Core/HLE/sceParseHttp.cpp
 	Core/HLE/sceParseHttp.h
 	Core/HLE/sceParseUri.cpp
