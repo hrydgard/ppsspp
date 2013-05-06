@@ -59,6 +59,7 @@
 #include "sceGameUpdate.h"
 #include "sceDeflt.h"
 #include "sceMp4.h"
+#include "sceMp3.h"
 #include "scePauth.h"
 #include "sceNp.h"
 
