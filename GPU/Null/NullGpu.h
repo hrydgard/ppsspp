@@ -34,8 +34,7 @@ public:
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {}
 	virtual void CopyDisplayToOutput() {}
 	virtual void UpdateStats();
-	virtual void InvalidateCache(u32 addr, int size);
-	virtual void InvalidateCacheHint(u32 addr, int size);
+	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
 	virtual void ClearCacheNextFrame() {};
 	virtual void Flush() {}
 

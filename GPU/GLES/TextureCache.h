@@ -19,6 +19,7 @@
 
 #include "../Globals.h"
 #include "gfx_es2/fbo.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 #include "TextureScaler.h"
 
@@ -34,8 +35,8 @@ public:
 
 	void Clear(bool delete_them);
 	void StartFrame();
-	void Invalidate(u32 addr, int size, bool force);
-	void InvalidateAll(bool force);
+	void Invalidate(u32 addr, int size, GPUInvalidationType type);
+	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory

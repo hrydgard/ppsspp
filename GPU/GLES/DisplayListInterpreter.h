@@ -44,8 +44,7 @@ public:
 	virtual void CopyDisplayToOutput();
 	virtual void BeginFrame();
 	virtual void UpdateStats();
-	virtual void InvalidateCache(u32 addr, int size);
-	virtual void InvalidateCacheHint(u32 addr, int size);
+	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
 	virtual void ClearCacheNextFrame();
 	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
 

@@ -132,6 +132,15 @@ struct DisplayList
 	u64 waitTicks;
 };
 
+enum GPUInvalidationType {
+	// Affects all memory.  Not considered highly.
+	GPU_INVALIDATE_ALL,
+	// Indicates some memory may have changed.
+	GPU_INVALIDATE_HINT,
+	// Reliable invalidation (where any hashing, etc. is unneeded, it'll always invalidate.)
+	GPU_INVALIDATE_SAFE,
+};
+
 class GPUInterface
 {
 public:
@@ -171,8 +180,7 @@ public:
 
 	// Invalidate any cached content sourced from the specified range.
 	// If size = -1, invalidate everything.
-	virtual void InvalidateCache(u32 addr, int size) = 0;
-	virtual void InvalidateCacheHint(u32 addr, int size) = 0;
+	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type) = 0;
 
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;

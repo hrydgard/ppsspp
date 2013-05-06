@@ -674,12 +674,7 @@ void NullGPU::UpdateStats()
 	gpuStats.numTextures = 0;
 }
 
-void NullGPU::InvalidateCache(u32 addr, int size)
-{
-	// Nothing to invalidate.
-}
-
-void NullGPU::InvalidateCacheHint(u32 addr, int size)
+void NullGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
 {
 	// Nothing to invalidate.
 }

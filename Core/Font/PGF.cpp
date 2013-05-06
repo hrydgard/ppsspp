@@ -25,6 +25,9 @@
 #include "Core/Font/PGF.h"
 #include "Core/HLE/HLE.h"
 
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
+
 // These fonts, created by ttf2pgf, don't have complete glyph info and need to be identified.
 static bool isJPCSPFont(const char *fontName) {
 	return !strcmp(fontName, "Liberation") || !strcmp(fontName, "Sazanami") || !strcmp(fontName, "UnDotum");
@@ -241,11 +244,12 @@ int PGF::GetCharIndex(int charCode, const std::vector<int> &charmapCompressed) {
 
 bool PGF::GetCharInfo(int charCode, PGFCharInfo *charInfo) {
 	Glyph glyph;
+	memset(charInfo, 0, sizeof(*charInfo));
+
 	if (!GetCharGlyph(charCode, FONT_PGF_CHARGLYPH, glyph)) {
 		// Character not in font, return zeroed charInfo as on real PSP.
 		return false;
 	}
-	memset(charInfo, 0, sizeof(*charInfo));
 
 	charInfo->bitmapWidth = glyph.w;
 	charInfo->bitmapHeight = glyph.h;
@@ -408,7 +412,7 @@ bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) {
 	return true;
 }
 
-void PGF::DrawCharacter(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int clipX, int clipY, int clipWidth, int clipHeight, int pixelformat, int charCode, int altCharCode, int glyphType) {
+void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) {
 	Glyph glyph;
 	if (!GetCharGlyph(charCode, glyphType, glyph)) {
 		// No Glyph available for this charCode, try to use the alternate char.
@@ -430,6 +434,9 @@ void PGF::DrawCharacter(u32 base, int bpl, int bufWidth, int bufHeight, int x, i
 	u32 bitPtr = glyph.ptr * 8;
 	int numberPixels = glyph.w * glyph.h;
 	int pixelIndex = 0;
+
+	int x = image->xPos64 >> 6;
+	int y = image->yPos64 >> 6;
 
 	while (pixelIndex < numberPixels && bitPtr + 8 < fontDataSize * 8) {
 		// This is some kind of nibble based RLE compression.
@@ -466,7 +473,7 @@ void PGF::DrawCharacter(u32 base, int bpl, int bufWidth, int bufHeight, int x, i
 			if (pixelX >= clipX && pixelX < clipX + clipWidth && pixelY >= clipY && pixelY < clipY + clipHeight) {
 				// 4-bit color value
 				int pixelColor = value;
-				switch (pixelformat) {
+				switch (image->pixelFormat) {
 				case PSP_FONT_PIXELFORMAT_8:
 					// 8-bit color value
 					pixelColor |= pixelColor << 4;
@@ -485,12 +492,14 @@ void PGF::DrawCharacter(u32 base, int bpl, int bufWidth, int bufHeight, int x, i
 					break;
 				}
 
-				SetFontPixel(base, bpl, bufWidth, bufHeight, pixelX, pixelY, pixelColor, pixelformat);
+				SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, pixelX, pixelY, pixelColor, image->pixelFormat);
 			}
 
 			pixelIndex++;
 		}
 	}
+
+	gpu->InvalidateCache(image->bufferPtr, image->bytesPerLine * image->bufHeight, GPU_INVALIDATE_SAFE);
 }
 
 void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, int pixelformat) {

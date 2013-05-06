@@ -980,21 +980,14 @@ void GLES_GPU::DoBlockTransfer() {
 
 	// TODO: Notify all overlapping FBOs that they need to reload.
 
-	textureCache_.Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp, true);
+	textureCache_.Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp, GPU_INVALIDATE_HINT);
 }
 
-void GLES_GPU::InvalidateCache(u32 addr, int size) {
+void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
-		textureCache_.Invalidate(addr, size, true);
+		textureCache_.Invalidate(addr, size, type);
 	else
-		textureCache_.InvalidateAll(true);
-}
-
-void GLES_GPU::InvalidateCacheHint(u32 addr, int size) {
-	if (size > 0)
-		textureCache_.Invalidate(addr, size, false);
-	else
-		textureCache_.InvalidateAll(false);
+		textureCache_.InvalidateAll(type);
 }
 
 void GLES_GPU::ClearCacheNextFrame() {
