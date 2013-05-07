@@ -184,8 +184,8 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "varying vec2 v_texcoord;\n");
 	}
 
-	WRITE(p, "int round255f(in float x) { return int(x * 255.0 + 0.5); }\n");
-	WRITE(p, "ivec3 round255v(in vec3 x) { return ivec3(x * 255.0 + 0.5); }\n");
+	WRITE(p, "int roundAndScaleTo255f(in float x) { return int(x * 255.0 + 0.5); }\n");
+	WRITE(p, "ivec3 roundAndScaleTo255v(in vec3 x) { return ivec3(x * 255.0 + 0.5); }\n");
 
 	WRITE(p, "void main() {\n");
 
@@ -255,7 +255,7 @@ void GenerateFragmentShader(char *buffer) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-				WRITE(p, "  if (round255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 			}
 		}
 
@@ -268,7 +268,7 @@ void GenerateFragmentShader(char *buffer) {
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
-				WRITE(p, "if (round255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+				WRITE(p, "if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 			}
 		}
 
