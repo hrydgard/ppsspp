@@ -257,7 +257,7 @@ void GenerateFragmentShader(char *buffer) {
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 				// If it's an equality check (!=, ==, <=, >=), rounding is more likely to be important.
 				if (alphaTestFuncs[alphaTestFunc][2] == '=')
-					WRITE(p, "  if (round255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					WRITE(p, "  if (round255f(v.a) %s round255f(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				else
 					WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 			}
@@ -273,7 +273,7 @@ void GenerateFragmentShader(char *buffer) {
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
 				if (colorTestFuncs[colorTestFunc][2] == '=')
-					WRITE(p, "if (round255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+					WRITE(p, "if (round255v(v.rgb) %s round255v(u_alphacolorref.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
 				else
 					WRITE(p, "if (v.rgb %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 		}
