@@ -256,7 +256,7 @@ void GenerateFragmentShader(char *buffer) {
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 				// If it's an equality check (!=, ==, <=, >=), rounding is more likely to be important.
 				if (alphaTestFuncs[alphaTestFunc][2] == '=')
-					WRITE(p, "  if (round255f(v.a) %s round255f(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					WRITE(p, "  if (round255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 				else
 					WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 			}
@@ -271,7 +271,10 @@ void GenerateFragmentShader(char *buffer) {
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
-				WRITE(p, "if (v.rgb %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+				if (colorTestFuncs[colorTestFunc][2] == '=')
+					WRITE(p, "if (round255f(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+				else
+					WRITE(p, "if (v.rgb %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 		}
 
 		if (enableFog) {
