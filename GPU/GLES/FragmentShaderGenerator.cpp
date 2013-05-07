@@ -159,7 +159,7 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "uniform sampler2D tex;\n");
 
 	if (enableAlphaTest || enableColorTest) {
-		WRITE(p, "uniform vec4 u_alphacolorref;\n");
+		WRITE(p, "uniform ivec4 u_alphacolorref;\n");
 		WRITE(p, "uniform vec4 u_colormask;\n");
 	}
 	if (gstate.isTextureMapEnabled()) 
@@ -184,8 +184,8 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "varying vec2 v_texcoord;\n");
 	}
 
-	WRITE(p, "float round255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
-	WRITE(p, "vec3 round255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
+	WRITE(p, "int round255f(in float x) { return int(x * 255.0 + 0.5); }\n");
+	WRITE(p, "ivec3 round255v(in vec3 x) { return ivec3(x * 255.0 + 0.5); }\n");
 
 	WRITE(p, "void main() {\n");
 
@@ -255,11 +255,7 @@ void GenerateFragmentShader(char *buffer) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-				// If it's an equality check (!=, ==, <=, >=), rounding is more likely to be important.
-				if (alphaTestFuncs[alphaTestFunc][2] == '=')
-					WRITE(p, "  if (round255f(v.a) %s round255f(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
-				else
-					WRITE(p, "  if (v.a %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+				WRITE(p, "  if (round255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 			}
 		}
 
@@ -271,11 +267,9 @@ void GenerateFragmentShader(char *buffer) {
 			int colorTestFunc = gstate.colortest & 3;
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 			int colorTestMask = gstate.colormask;
-			if (colorTestFuncs[colorTestFunc][0] != '#')
-				if (colorTestFuncs[colorTestFunc][2] == '=')
-					WRITE(p, "if (round255v(v.rgb) %s round255v(u_alphacolorref.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
-				else
-					WRITE(p, "if (v.rgb %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+			if (colorTestFuncs[colorTestFunc][0] != '#') {
+				WRITE(p, "if (round255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+			}
 		}
 
 		if (enableFog) {

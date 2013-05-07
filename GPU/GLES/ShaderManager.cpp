@@ -179,6 +179,17 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha)
 	glUniform4fv(uniform, 1, col);
 }
 
+static void SetColorUniform3iAlpha(int uniform, u32 color, u8 alpha)
+{
+	const GLint col[4] = {
+		((color & 0xFF)),
+		((color & 0xFF00) >> 8),
+		((color & 0xFF0000) >> 16),
+		alpha
+	};
+	glUniform4iv(uniform, 1, col);
+}
+
 static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra)
 {
 	const float col[4] = {
@@ -262,7 +273,7 @@ void LinkedShader::updateUniforms() {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
 	if (u_alphacolorref != -1 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
-		SetColorUniform3Alpha(u_alphacolorref, gstate.colorref, (gstate.alphatest >> 8) & 0xFF);
+		SetColorUniform3iAlpha(u_alphacolorref, gstate.colorref, (gstate.alphatest >> 8) & 0xFF);
 	}
 	if (u_colormask != -1 && (dirtyUniforms & DIRTY_COLORMASK)) {
 		SetColorUniform3(u_colormask, gstate.colormask);
