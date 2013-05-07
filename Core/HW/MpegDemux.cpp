@@ -115,13 +115,14 @@ int MpegDemux::readPesHeader(PesHeader &pesHeader, int length, int startCode) {
 	return length;
 }
 
-void MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
+int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 {
 	int length = read16();
 	if (bdemux) {
 		PesHeader pesHeader(channel);
 		length = readPesHeader(pesHeader, length, startCode);
 		if (pesHeader.channel == channel || channel < 0) {
+			channel = pesHeader.channel;
 			memcpy(m_audioStream + m_audiopos, m_buf + m_index, length);
 			m_audiopos += length;
 		}
@@ -129,6 +130,7 @@ void MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 	} else {
 		skip(length);
 	}
+	return channel;
 }
 
 void MpegDemux::demux(int audioChannel)
@@ -160,7 +162,7 @@ void MpegDemux::demux(int audioChannel)
 			}
 			case PRIVATE_STREAM_1: {
 				// Audio stream
-				demuxStream(true, startCode, audioChannel);
+				audioChannel = demuxStream(true, startCode, audioChannel);
 				break;
 			}
 			case 0x1E0: case 0x1E1: case 0x1E2: case 0x1E3:

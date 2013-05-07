@@ -49,7 +49,7 @@ private:
 		}
 	}
 	int readPesHeader(PesHeader &pesHeader, int length, int startCode);
-	void demuxStream(bool bdemux, int startCode, int channel);
+	int demuxStream(bool bdemux, int startCode, int channel);
 private:
 	int m_index;
 	int m_len;
