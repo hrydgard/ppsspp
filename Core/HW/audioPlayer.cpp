@@ -173,11 +173,16 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 {
 	u8 *oma = 0;
 	m_ID = atracID;
-	bool isexist = checkAudioFileExist(stream, m_filename);
+	bool isneedcache = streamsize >= 0x19000;
+	bool isexist = isneedcache ? checkAudioFileExist(stream, m_filename) : false;
 	if (!isexist) {
 		int omasize = OMAConvert::convertRIFFtoOMA(stream, streamsize, &oma);
 		if (omasize <= 0) {
-			int pos = generateAudioFilename(stream, m_filename);
+			int pos;
+			if (isneedcache)
+				pos = generateAudioFilename(stream, m_filename);
+			else
+				pos = sprintf(m_filename, "tmp\\%d", m_ID);
 			char strtemp[260];
 			sprintf(strtemp, "%s.at3", m_filename);
 			FILE *wfp = fopen(strtemp, "wb");
@@ -196,7 +201,11 @@ bool audioEngine::loadRIFFStream(u8* stream, int streamsize, int atracID)
 			}
 			fclose(wfp);
 		} else {
-			int pos = generateAudioFilename(stream, m_filename);
+			int pos;
+			if (isneedcache)
+				pos = generateAudioFilename(stream, m_filename);
+			else
+				pos = sprintf(m_filename, "tmp\\%d", m_ID);
 			memcpy(m_filename + pos, ".oma", 5);
 			FILE *wfp = fopen(m_filename, "wb");
 			fwrite(oma, 1, omasize, wfp);
