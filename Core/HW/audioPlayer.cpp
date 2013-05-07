@@ -8,6 +8,7 @@
 #include "OMAConvert.h"
 #include <map>
 #include <process.h>
+#include "StdMutex.h"
 
 #include "../Core/System.h"
 
@@ -288,6 +289,7 @@ bool audioEngine::play()
 
 std::map<int, audioEngine*> audioMap;
 static bool bFirst = true;
+std::recursive_mutex atracsection;
 
 UINT WINAPI loopAtrac3Audio(LPVOID)
 {
@@ -306,6 +308,7 @@ UINT WINAPI loopAtrac3Audio(LPVOID)
 			g_volume += deltavolume;
 			bChangeVolume = true;
 		}
+		atracsection.lock();
 		for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 			audioEngine *temp = it->second;
 			if (temp->m_lenstoplay == 0)
@@ -325,6 +328,7 @@ UINT WINAPI loopAtrac3Audio(LPVOID)
 			if (bChangeVolume)
 				temp->setVolume(g_volume);
 		}
+		atracsection.unlock();
 		Sleep(sleeptime);
 	}
 	return 0;
@@ -345,7 +349,9 @@ void addAtrac3Audio(u8* stream, int streamsize, int atracID)
 		return;
 	audioEngine *temp = new audioEngine();
 	bool bResult = temp->loadRIFFStream(stream, streamsize, atracID);
+	atracsection.lock();
 	audioMap[atracID] = temp;
+	atracsection.unlock();
 	if (!bResult)
 		temp->closeMedia();
 }
@@ -436,10 +442,12 @@ audioEngine* getaudioEngineByID(int atracID)
 
 void deleteAtrac3Audio(int atracID)
 {
+	atracsection.lock();
 	if (audioMap.find(atracID) != audioMap.end()) {
 		delete audioMap[atracID];
 		audioMap.erase(atracID);
 	}
+	atracsection.unlock();
 }
 
 void initaudioEngine()
@@ -449,20 +457,24 @@ void initaudioEngine()
 
 void shutdownEngine()
 {
+	atracsection.lock();
 	for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 		delete it->second;
 	}
 	audioMap.clear();
+	atracsection.unlock();
 	CoUninitialize();
 	system("cleanAudios.bat");
 }
 
 void stopAllAtrac3Audio()
 {
+	atracsection.lock();
 	for (auto it = audioMap.begin(); it != audioMap.end(); ++it) {
 		audioEngine *temp = it->second;
 		temp->pause();
 	}
+	atracsection.unlock();
 }
 
 #endif // _USE_DSHOW_
