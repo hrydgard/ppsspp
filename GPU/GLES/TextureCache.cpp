@@ -50,6 +50,13 @@ u32 RoundUpToPowerOf2(u32 v)
 	return v;
 }
 
+static inline u32 GetLevelBufw(int level, u32 texaddr) {
+	// Special rules for kernel textures (PPGe):
+	if (texaddr < PSP_GetUserMemoryBase())
+		return gstate.texbufwidth[level] & 0x1FFF;
+	return gstate.texbufwidth[level] & 0x7FF;
+}
+
 TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false) {
 	lastBoundTexture = -1;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
@@ -203,7 +210,7 @@ static void ReadClut(T *clutBuf, GLuint dstFmt) {
 }
 
 void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
-	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : ((bufw & 0x3FF) / 2);
+	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
 	const int bxc = rowWidth / 16;
 	int byc = ((1 << ((gstate.texsize[level] >> 8) & 0xf)) + 7) / 8;
@@ -352,11 +359,7 @@ inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, C
 }
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt) {
-	// Special rules for kernel textures (PPGe):
-	int mask = 0x3FF;
-	if (texaddr < 0x08800000)
-		mask = 0x1FFF;
-	int bufw = gstate.texbufwidth[level] & mask;
+	int bufw = GetLevelBufw(level, texaddr);
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 	int length = bufw * h;
@@ -879,7 +882,7 @@ void TextureCache::SetTexture() {
 			if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
 				int w = 1 << (gstate.texsize[0] & 0xf);
 				int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-				int bufw = gstate.texbufwidth[0] & 0x3ff;
+				int bufw = GetLevelBufw(0, texaddr);
 				u32 check = QuickTexHash(texaddr, bufw, w, h, format);
 				if (check != entry->fullhash) {
 					entry->status = TexCacheEntry::STATUS_UNRELIABLE;
@@ -954,7 +957,10 @@ void TextureCache::SetTexture() {
 	int w = 1 << (gstate.texsize[0] & 0xf);
 	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 
-	int bufw = gstate.texbufwidth[0] & 0x3ff;
+	int bufw = GetLevelBufw(0, texaddr);
+	if (bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) {
+		ERROR_LOG_REPORT(HLE, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
+	}
 
 	// We have to decode it, let's setup the cache entry first.
 	entry->addr = texaddr;
@@ -1038,10 +1044,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 
-	int mask = 0x3ff;
-	if (texaddr < 0x08800000)
-		mask = 0x1FFF;
-	int bufw = gstate.texbufwidth[level] & mask;
+	int bufw = GetLevelBufw(level, texaddr);
 
 	int w = 1 << (gstate.texsize[level] & 0xf);
 	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
@@ -1373,8 +1376,7 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	u32 clutformat = gstate.clutformat & 3;
 	u8 level = 0;
 
-	int mask = texaddr < 0x08800000 ? 0x1FFF : 0x3ff;
-	int bufw = gstate.texbufwidth[level] & mask;
+	int bufw = GetLevelBufw(level, texaddr);
 
 	int w = 1 << (gstate.texsize[level] & 0xf);
 	int h = 1 << ((gstate.texsize[level]>>8) & 0xf);
