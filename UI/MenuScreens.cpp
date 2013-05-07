@@ -703,9 +703,28 @@ void GraphicsScreenP1::render() {
 	}
 
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
-		if (gpu)
-			gpu->Resized();
+	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
+	if (AnisotropicFiltering) {
+		if (g_Config.iAnisotropyLevel == 0)
+			g_Config.iAnisotropyLevel = 2;
+		int level = g_Config.iAnisotropyLevel;
+		char showLevel[256];
+		sprintf(showLevel, "Anisotropic Level : %ix", level);
+		ui_draw2d.DrawText(UBUNTU24, showLevel, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
+		ui_draw2d.DrawText(UBUNTU24, showLevel, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 160 , y, 20);
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
+			g_Config.iAnisotropyLevel = 2;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "4x", ALIGN_LEFT))
+			g_Config.iAnisotropyLevel = 4;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "8x", ALIGN_LEFT))
+			g_Config.iAnisotropyLevel = 8;
+		if (UIButton(GEN_ID, hlinear1, 60, 0, "16x", ALIGN_LEFT))
+			g_Config.iAnisotropyLevel = 16;
+	} else {
+		g_Config.iAnisotropyLevel = 0;
 	}
 	UIEnd();
 }
@@ -730,7 +749,10 @@ void GraphicsScreenP2::render() {
 	int y = 30;
 	int stride = 40;
 	int columnw = 400;
-
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
+		if (gpu)
+			gpu->Resized();
+	}
 	if (g_Config.bBufferedRendering) {
 		if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
@@ -740,32 +762,33 @@ void GraphicsScreenP2::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Draw Wireframe"), ALIGN_TOPLEFT, &g_Config.bDrawWireframe);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("True Color"), ALIGN_TOPLEFT, &g_Config.bTrueColor);
-
-	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
-	if (AnisotropicFiltering) {
-		if (g_Config.iAnisotropyLevel == 0)
-			g_Config.iAnisotropyLevel = 2;
-
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 160 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
-			g_Config.iAnisotropyLevel = 2;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "4x", ALIGN_LEFT))
-			g_Config.iAnisotropyLevel = 4;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "8x", ALIGN_LEFT))
-			g_Config.iAnisotropyLevel = 8;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "16x", ALIGN_LEFT))
-			g_Config.iAnisotropyLevel = 16;
-	} else {
-		g_Config.iAnisotropyLevel = 0;
-	}
-
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
-	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
+
+		int level = g_Config.iTexScalingLevel;
+		int type = g_Config.iTexScalingType;
+		char showLevel[256];
+		char showType[256];
+		std::string text;
+		switch (type) {
+		case 0:
+			text = "xBRZ";break;
+		case 1:
+			text = "Hybrid(H)";break;
+		case 2:
+			text = "Bicubic(B)";break;
+		case 3:
+			text = "H+B";break;
+		}
+		sprintf(showLevel, "Tex Scaling Level : %ix", level);
+		sprintf(showType, "Tex Scaling Type : %s", text.c_str());
+		ui_draw2d.DrawText(UBUNTU24, showLevel, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
+		ui_draw2d.DrawText(UBUNTU24, showLevel, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
+		ui_draw2d.DrawText(UBUNTU24, showType, dp_xres - 8, 52, 0xc0000000, ALIGN_TOPRIGHT);
+		ui_draw2d.DrawText(UBUNTU24, showType, dp_xres - 10, 50, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 		UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 160 , y, 20);
