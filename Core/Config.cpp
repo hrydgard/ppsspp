@@ -90,9 +90,9 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
 	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 #ifdef _WIN32
-	graphics->Get("WindowZoom", &iWindowZoom, 2);
+	graphics->Get("ResolutionScale", &iWindowZoom, 2);
 #else
-	graphics->Get("WindowZoom", &iWindowZoom, 1);
+	graphics->Get("ResolutionScale", &iWindowZoom, 1);
 #endif
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
@@ -185,14 +185,14 @@ void Config::Save()
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", bShowFPSCounter);
 		graphics->Set("DisplayFramebuffer", bDisplayFramebuffer);
-		graphics->Set("WindowZoom", iWindowZoom);
+		graphics->Set("ResolutionScale", iWindowZoom);
 		graphics->Set("BufferedRendering", bBufferedRendering);
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("LinearFiltering", bLinearFiltering);
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
-		graphics->Set("UseMediaEngine", bUseMediaEngine);	
+		graphics->Set("UseMediaEngine", bUseMediaEngine);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);

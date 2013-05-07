@@ -182,10 +182,10 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha)
 static void SetColorUniform3iAlpha(int uniform, u32 color, u8 alpha)
 {
 	const GLint col[4] = {
-		((color & 0xFF)),
-		((color & 0xFF00) >> 8),
-		((color & 0xFF0000) >> 16),
-		alpha
+		(GLint)((color & 0xFF)),
+		(GLint)((color & 0xFF00) >> 8),
+		(GLint)((color & 0xFF0000) >> 16),
+		(GLint)alpha
 	};
 	glUniform4iv(uniform, 1, col);
 }
