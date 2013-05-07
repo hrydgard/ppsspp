@@ -185,6 +185,7 @@ void GenerateFragmentShader(char *buffer) {
 	}
 
 	WRITE(p, "float round255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
+	WRITE(p, "vec3 round255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
 
 	WRITE(p, "void main() {\n");
 
@@ -272,7 +273,7 @@ void GenerateFragmentShader(char *buffer) {
 			int colorTestMask = gstate.colormask;
 			if (colorTestFuncs[colorTestFunc][0] != '#')
 				if (colorTestFuncs[colorTestFunc][2] == '=')
-					WRITE(p, "if (round255f(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+					WRITE(p, "if (round255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 				else
 					WRITE(p, "if (v.rgb %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 		}
