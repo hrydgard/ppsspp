@@ -22,7 +22,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef __SYMBIAN32__
 #include <malloc.h>
+#endif
 
 #include "Common.h"
 

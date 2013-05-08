@@ -714,6 +714,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/ELF/PrxDecrypter.h
 	Core/ELF/ParamSFO.cpp
 	Core/ELF/ParamSFO.h
+	Core/FileSystems/tlzrc.cpp
 	Core/FileSystems/BlockDevices.cpp
 	Core/FileSystems/BlockDevices.h
 	Core/FileSystems/DirectoryFileSystem.cpp
