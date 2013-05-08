@@ -470,7 +470,8 @@ int main(int argc, char *argv[]) {
 					pad_buttons |= PAD_BUTTON_MENU;
 					break;
 				case NAVIGATOR_EXIT:
-					running = false;
+					NativeShutdown();
+					exit(0);
 					break;
 				}
 #ifdef BLACKBERRY10
@@ -492,6 +493,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		input_state.pad_buttons = pad_buttons;
+		pad_buttons &= ~PAD_BUTTON_MENU;
 #ifndef BLACKBERRY10
 		// Handle accelerometer
 		double x, y, z;
