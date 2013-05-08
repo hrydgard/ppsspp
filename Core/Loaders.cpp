@@ -37,11 +37,19 @@ EmuFileType Identify_File(const char *filename)
 		return FILETYPE_ERROR;
 	}
 	u32 id;
-	size_t readSize = fread(&id,4,1,f);
-	fclose(f);
+	u32 psar_offset, psar_id;
 
+	size_t readSize = fread(&id,4,1,f);
 	if(readSize != 1)
 		return FILETYPE_ERROR;
+
+	psar_id = 0;
+	fseek(f, 0x24, SEEK_SET);
+	fread(&psar_offset, 4, 1, f);
+	fseek(f, psar_offset, SEEK_SET);
+	fread(&psar_id, 4, 1, f);
+
+	fclose(f);
 
 	if (strlen(filename) < 5) {
 		ERROR_LOG(LOADER, "invalid filename %s", filename);
@@ -60,7 +68,10 @@ EmuFileType Identify_File(const char *filename)
 	}
 	else if (id == 'PBP\x00')
 	{
-		return FILETYPE_PSP_PBP;
+		if(psar_id == 'MUPN')
+			return FILETYPE_PSP_ISO_NP;
+		else
+			return FILETYPE_PSP_PBP;
 	}
 	else
 	{
@@ -101,6 +112,7 @@ bool LoadFile(const char *filename, std::string *error_string)
 			return Load_PSP_ELF_PBP(filename, error_string);
 		}
 	case FILETYPE_PSP_ISO:
+	case FILETYPE_PSP_ISO_NP:
 		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
 		return Load_PSP_ISO(filename, error_string);
 	case FILETYPE_ERROR:
