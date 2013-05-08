@@ -1411,6 +1411,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 	// Or always?
 	if (entry.numInvalidated == 0)
 		CheckAlpha(entry, pixelData, dstFmt, w, h);
+	else
+		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
