@@ -217,6 +217,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (gstate.isModeClear()) {
 		bool colorMask = (gstate.clearmode >> 8) & 1;
 		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		bool depthMask = (gstate.clearmode >> 10) & 1;
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		glstate.stencilTest.enable();
@@ -225,9 +226,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(GL_TRUE);
+		glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
 
-	} else {	
+	} else {
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
