@@ -22,7 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef __SYMBIAN32__
+#if !defined(__SYMBIAN32__) && !defined(__MAC_10_6)
 #include <malloc.h>
 #endif
 
