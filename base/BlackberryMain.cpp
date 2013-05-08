@@ -101,25 +101,25 @@ void LaunchEmail(const char *email_address)
 InputState input_state;
 
 // Input
-const int buttonMappings[18] = {
-	KEYCODE_X,          //A
-	KEYCODE_S,          //B
-	KEYCODE_Z,          //X
-	KEYCODE_A,          //Y
+const unsigned int buttonMappings[18] = {
+	KEYCODE_K,          //Cross
+	KEYCODE_L,          //Circle
+	KEYCODE_J,          //Square
+	KEYCODE_I,          //Triangle
 	KEYCODE_Q,          //LBUMPER
-	KEYCODE_W,          //RBUMPER
-	KEYCODE_ONE,        //START
-	KEYCODE_TWO,        //SELECT
-	KEYCODE_UP,         //UP
-	KEYCODE_DOWN,       //DOWN
-	KEYCODE_LEFT,       //LEFT
-	KEYCODE_RIGHT,      //RIGHT
+	KEYCODE_P,          //RBUMPER
+	KEYCODE_SPACE,      //START
+	KEYCODE_ZERO,       //SELECT
+	KEYCODE_W,          //UP
+	KEYCODE_S,          //DOWN
+	KEYCODE_A,          //LEFT
+	KEYCODE_D,          //RIGHT
 	0,                  //MENU (SwipeDown)
 	KEYCODE_BACKSPACE,  //BACK
-	KEYCODE_I,          //JOY UP
-	KEYCODE_K,          //JOY DOWN
-	KEYCODE_J,          //JOY LEFT
-	KEYCODE_L,          //JOY RIGHT
+	KEYCODE_W,          //JOY UP
+	KEYCODE_S,          //JOY DOWN
+	KEYCODE_A,          //JOY LEFT
+	KEYCODE_D,          //JOY RIGHT
 };
 
 void SimulateGamepad(InputState *input) {
@@ -360,7 +360,7 @@ int main(int argc, char *argv[]) {
 	static screen_context_t screen_cxt;
 	// Receive events from window manager
 	screen_create_context(&screen_cxt, 0);
-	//Initialise Blackberry Platform Services
+	// Initialise Blackberry Platform Services
 	bps_initialize();
 	// TODO: Enable/disable based on setting
 #ifdef BLACKBERRY10
@@ -452,15 +452,11 @@ int main(int argc, char *argv[]) {
 					int flags, value;
 					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_FLAGS, &flags);
 					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_SYM, &value);
-					if (flags & (KEY_DOWN | KEY_SYM_VALID)) {
-						for (int b = 0; b < 14; b++) {
-							if (value == buttonMappings[b])
+					for (int b = 0; b < 14; b++) {
+						if (value == buttonMappings[b] & 0xFF) {
+							if (flags & KEY_DOWN)
 								pad_buttons |= (1<<b);
-						}
-					}
-					else {
-						for (int b = 0; b < 14; b++) {
-							if (value == buttonMappings[b])
+							else
 								pad_buttons &= ~(1<<b);
 						}
 					}
@@ -496,7 +492,6 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		input_state.pad_buttons = pad_buttons;
-		pad_buttons = 0;
 #ifndef BLACKBERRY10
 		// Handle accelerometer
 		double x, y, z;
