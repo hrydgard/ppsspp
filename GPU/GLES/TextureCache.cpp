@@ -958,7 +958,7 @@ void TextureCache::SetTexture() {
 	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 
 	int bufw = GetLevelBufw(0, texaddr);
-	if (bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) {
+	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetUserMemoryBase()) {
 		ERROR_LOG_REPORT(HLE, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
 	}
 
