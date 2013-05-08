@@ -59,6 +59,9 @@ public:
 	bool bDrawWireframe;
 	bool bLinearFiltering;
 	bool bUseVBO;
+#ifdef BLACKBERRY10
+	bool bPartialStretch;
+#endif
 	bool bStretchToDisplay;
 	int iFrameSkip;
 	bool bUseMediaEngine;
