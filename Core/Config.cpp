@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
+#include "base/display.h"
 #include "Common/FileUtil.h"
 #include "Config.h"
 #include "file/ini_file.h"
@@ -76,10 +77,7 @@ void Config::Load(const char *iniFileName)
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
-	if(isJailed == true)
-		cpu->Get("Jit", &bJit, false);
-	else
-		cpu->Get("Jit", &bJit, true);
+	cpu->Get("Jit", &bJit, !isJailed);
 #else
 	cpu->Get("Jit", &bJit, true);
 #endif
@@ -107,7 +105,10 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 8);
 #endif
 	graphics->Get("VertexCache", &bVertexCache, true);
-	graphics->Get("FullScreen", &bFullScreen, false);	
+	graphics->Get("FullScreen", &bFullScreen, false);
+#ifdef BLACKBERRY10
+	graphics->Get("PartialStretch", &bPartialStretch, pixel_xres == pixel_yres);
+#endif
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
 #ifdef USING_GLES2
@@ -124,7 +125,9 @@ void Config::Load(const char *iniFileName)
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
-#ifdef USING_GLES2
+#ifdef BLACKBERRY10
+	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
+#elif defined(USING_GLES2)
 	control->Get("ShowTouchControls", &bShowTouchControls, true);
 #else
 	control->Get("ShowTouchControls", &bShowTouchControls,false);
@@ -196,6 +199,9 @@ void Config::Save()
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
+#ifdef BLACKBERRY10
+		graphics->Set("PartialStretch", bPartialStretch);
+#endif
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("MipMap", bMipMap);
