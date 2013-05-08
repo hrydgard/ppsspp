@@ -73,6 +73,14 @@ private:
 
 // For encrypted ISOs in PBP files.
 
+struct table_info {
+	u8 mac[16];
+	u32 offset;
+	int size;
+	int flag;
+	int unk_1c;
+};
+
 class NPDRMDemoBlockDevice : public BlockDevice
 {
 public:
@@ -80,14 +88,25 @@ public:
 	~NPDRMDemoBlockDevice();
 
 	bool ReadBlock(int blockNumber, u8 *outPtr);
-	u32 GetNumBlocks() {return (u32)numBlocks_;}
+	u32 GetNumBlocks() {return (u32)lbaSize;}
 
 private:
 	std::string filename_;
-	PBPReader pbpReader_;
-	FILE *file_;
-	size_t size_;
-	size_t numBlocks_;
+	FILE *f;
+	u32 lbaSize;
+
+	u32 psarOffset;
+	int blockSize;
+	int blockLBAs;
+	u32 numBlocks;
+
+	u8 vkey[16];
+	u8 hkey[16];
+	struct table_info *table;
+
+	int currentBlock;
+	u8 *blockBuf;
+	u8 *tempBuf;
 };
 
 

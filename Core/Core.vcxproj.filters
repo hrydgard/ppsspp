@@ -407,6 +407,10 @@
     <ClCompile Include="HLE\sceNp.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceMp3.cpp" />
+    <ClCompile Include="FileSystems\tlzrc.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -752,6 +756,7 @@
     <ClInclude Include="HLE\sceNp.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceMp3.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

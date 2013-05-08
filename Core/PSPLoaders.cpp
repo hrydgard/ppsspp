@@ -126,47 +126,26 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 {
-	// Figure out if this is a "DEMO" PBP. In that case we want to mount it
-	// on UMD0:.
-	PBPReader reader(filename);
+	// This is really just for headless, might need tweaking later.
+	if (!PSP_CoreParameter().mountIso.empty())
+	{
+		ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(PSP_CoreParameter().mountIso.c_str()));
 
-	// Hacky check, should find something better
-	if (reader.IsValid() && reader.GetSubFileSize(PBP_UNKNOWN_PSAR) > 0x100000) {
-		// Yay, got a demo.
-		ISOFileSystem *umd0 = new ISOFileSystem(&pspFileSystem, new NPDRMDemoBlockDevice(filename));
-		
-		pspFileSystem.Mount("umd1:", umd0);
-		pspFileSystem.Mount("disc0:", umd0);
-		pspFileSystem.Mount("umd:", umd0);
-		pspFileSystem.Mount("umd0:", umd0);
+		pspFileSystem.Mount("umd1:", umd2);
+		pspFileSystem.Mount("disc0:", umd2);
+		pspFileSystem.Mount("umd:", umd2);
+	}
 
-		std::string bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.BIN";
-		INFO_LOG(LOADER,"Loading %s from demo iso...", bootpath.c_str());
-		return __KernelLoadExec(bootpath.c_str(), 0, error_string);
-	} else {
-		// Classic homebrew PBP.
-
-		// This is really just for headless, might need tweaking later.
-		if (!PSP_CoreParameter().mountIso.empty())
-		{
-			ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(PSP_CoreParameter().mountIso.c_str()));
-
-			pspFileSystem.Mount("umd1:", umd2);
-			pspFileSystem.Mount("disc0:", umd2);
-			pspFileSystem.Mount("umd:", umd2);
-		}
-
-		std::string full_path = filename;
-		std::string path, file, extension;
-		SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
+	std::string full_path = filename;
+	std::string path, file, extension;
+	SplitPath(ReplaceAll(full_path, "\\", "/"), &path, &file, &extension);
 #ifdef _WIN32
-		path = ReplaceAll(path, "/", "\\");
+	path = ReplaceAll(path, "/", "\\");
 #endif
 
-		DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
-		pspFileSystem.Mount("umd0:", fs);
+	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
+	pspFileSystem.Mount("umd0:", fs);
 
-		std::string finalName = "umd0:/" + file + extension;
-		return __KernelLoadExec(finalName.c_str(), 0, error_string);
-	}
+	std::string finalName = "umd0:/" + file + extension;
+	return __KernelLoadExec(finalName.c_str(), 0, error_string);
 }
