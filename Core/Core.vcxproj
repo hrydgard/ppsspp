@@ -170,6 +170,7 @@
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
     <ClCompile Include="FileSystems\ISOFileSystem.cpp" />
     <ClCompile Include="FileSystems\MetaFileSystem.cpp" />
+    <ClCompile Include="FileSystems\tlzrc.cpp" />
     <ClCompile Include="Font\PGF.cpp" />
     <ClCompile Include="HLE\HLE.cpp" />
     <ClCompile Include="HLE\HLETables.cpp" />
