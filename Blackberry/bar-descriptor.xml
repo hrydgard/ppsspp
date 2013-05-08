@@ -3,7 +3,7 @@
     <id>com.Qtness.PPSSPP</id>
     <name>PPSSPP</name>
     <filename>PPSSPPBlackberry</filename>
-    <versionNumber>0.7.5</versionNumber>
+    <versionNumber>0.7.6</versionNumber>
     <buildId>1</buildId>
     <description>Playstation portable emulator.</description>
 
@@ -20,6 +20,7 @@
     <asset path="PPSSPPBlackberry" entry="true" type="Qnx/Elf">PPSSPPBlackberry</asset>
     <asset path="../assets/icon-114.png">icon-114.png</asset>
     <asset path="../android/assets">assets</asset>
+    <asset path="../lang">assets/lang</asset>
     <asset path="../flash0">assets/flash</asset>
     
     <category>core.games</category>
@@ -27,7 +28,7 @@
         <image>icon-114.png</image>
     </icon>
 
-    <!-- <splashscreen></splashscreen> -->
+    <splashscreen>icon-114.png</splashscreen>
 
     <action system="true">run_native</action>
     <action>access_shared</action>
