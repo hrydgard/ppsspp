@@ -73,6 +73,7 @@ set(SRCS
   HW/MemoryStick.cpp
   HW/MediaEngine.cpp
   HW/SasAudio.cpp
+  HW/MediaPlayer.cpp
   FileSystems/BlockDevices.cpp
   FileSystems/ISOFileSystem.cpp
   FileSystems/DirectoryFileSystem.cpp

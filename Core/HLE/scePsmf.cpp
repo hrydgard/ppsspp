@@ -21,6 +21,10 @@
 #include "scePsmf.h"
 #include "sceMpeg.h"
 
+#ifdef USE_FFMPEG
+#include "../HW/mediaPlayer.h"
+#endif // USE_FFMPEG
+
 #include <map>
 
 // "Go Sudoku" is a good way to test this code...
@@ -669,6 +673,11 @@ int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+
+#ifdef USE_FFMPEG
+	loadPMFPSFFile(filename, -1);
+#endif // USE_FFMPEG
+
 	return 0;
 }
 
@@ -678,6 +687,11 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+
+#ifdef USE_FFMPEG
+	loadPMFPSFFile(filename, -1);
+#endif // USE_FFMPEG
+
 	return 0;
 }
 
@@ -725,6 +739,9 @@ int scePsmfPlayerDelete(u32 psmfPlayer)
 		delete psmfplayer;
 		psmfPlayerMap.erase(psmfPlayer);
 	}
+#ifdef USE_FFMPEG
+	deletePMFStream();
+#endif // USE_FFMPEG
 	return 0;
 }
 
@@ -743,7 +760,14 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 		}
 	}
 	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
+#ifdef USE_FFMPEG
+	if (!playPMFVideo())
+	{
+		psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+	}
+#else
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+#endif // USE_FFMPEG
 	return 0;
 }
 
@@ -766,7 +790,14 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	}
 
 	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
+#ifdef USE_FFMPEG
+	if (!playPMFVideo())
+	{
+		psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+	}
+#else
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
+#endif // USE_FFMPEG
 	return 0;
 }
 
