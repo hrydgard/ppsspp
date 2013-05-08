@@ -832,6 +832,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/MemoryStick.h
 	Core/HW/SasAudio.cpp
 	Core/HW/SasAudio.h
+	Core/HW/MediaPlayer.cpp
+	Core/HW/MediaPlayer.h
 	Core/Host.cpp
 	Core/Host.h
 	Core/Loaders.cpp
