@@ -164,7 +164,7 @@ struct Atrac {
 			// There are not enough atrac data right now to play at a certain position.
 			// Must load more atrac data first
 			remainFrame = 0;
-		else {
+		} else {
 			// guess the remain frames. 
 			// games would add atrac data when remainFrame = 0 or -1 
 			remainFrame = (first.size - decodePos) / atracBytesPerFrame - 1;
