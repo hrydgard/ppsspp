@@ -255,10 +255,10 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
-		if (enableColorDoubling) {
-			WRITE(p, "  v = v * 2.0;\n");
+		if (enableAlphaDoubling) {
+			WRITE(p, "  v.a = v.a * 2.0;\n");
 		}
-
+		
 		if (enableAlphaTest) {
 			int alphaTestFunc = gstate.alphatest & 7;
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
@@ -266,9 +266,9 @@ void GenerateFragmentShader(char *buffer) {
 				WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 			}
 		}
-
-		if (enableAlphaDoubling) {
-			WRITE(p, "  v.a = v.a * 2.0;\n");
+		
+		if (enableColorDoubling) {
+			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
 		}
 		
 		if (enableColorTest) {
