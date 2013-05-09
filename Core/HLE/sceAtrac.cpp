@@ -429,6 +429,9 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 	// TODO
 	if (bytesToAdd > atrac->first.writableBytes)
 		return ATRAC_ERROR_ADD_DATA_IS_TOO_BIG;
+	// only add stream data when it need more atrac data
+	if (atrac->getRemainFrames() > 0)
+		return 0;
 
 	if (atrac->data_buf && (bytesToAdd > 0)) {
 		int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
