@@ -697,9 +697,12 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 
 	Module *module = __KernelLoadModule(temp, 0, error_string);
 
-	if (!module) {
+	if (!module || module->isFake)
+	{
+		if (module)
+			kernelObjects.Destroy<Module>(module->GetUID());
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
-		*error_string = "Failed to load executable module";
+		*error_string = "Failed to load executable: " + *error_string;
 		delete [] temp;
 		return false;
 	}
