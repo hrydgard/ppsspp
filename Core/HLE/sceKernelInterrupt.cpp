@@ -382,14 +382,14 @@ void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
 	{
 		intrHandlers[intno]->queueUp(subintr);
-		DEBUG_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
+		VERBOSE_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
 		__TriggerRunInterrupts(type);
 	}
 }
 
 void __KernelReturnFromInterrupt()
 {
-	DEBUG_LOG(CPU, "Left interrupt handler at %08x", currentMIPS->pc);
+	VERBOSE_LOG(CPU, "Left interrupt handler at %08x", currentMIPS->pc);
 
 	// This is what we just ran.
 	PendingInterrupt pend = pendingInterrupts.front();

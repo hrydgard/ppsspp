@@ -2012,7 +2012,7 @@ bool __KernelIsDispatchEnabled()
 
 int sceKernelRotateThreadReadyQueue(int priority)
 {
-	DEBUG_LOG(HLE, "sceKernelRotateThreadReadyQueue(%x)", priority);
+	VERBOSE_LOG(HLE, "sceKernelRotateThreadReadyQueue(%x)", priority);
 
 	Thread *cur = __GetCurrentThread();
 
