@@ -114,7 +114,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool doTextureProjection = gstate.getUVGenMode() == 1;
 		bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
 
-		// Except replace, all other modes treat are the same for RGB if the texture is 1.0 alpha.
+		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && (gstate.texfunc & 0x7) != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 

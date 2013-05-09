@@ -1319,7 +1319,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 }
 
 void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h) {
-	// TODO: Faster during convertColors?  Should be on palette for clut based, not final pixels.
+	// TODO: Could probably be optimized more.
 	u32 hitZeroAlpha = 0;
 	u32 hitSomeAlpha = 0;
 
