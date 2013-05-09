@@ -112,13 +112,17 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == 1;
+		bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+
+		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
+		if (gstate_c.textureFullAlpha && (gstate.texfunc & 0x7) != GE_TEXFUNC_REPLACE)
+			doTextureAlpha = false;
 
 		// id->d[0] |= (gstate.clearmode & 1);
 		if (gstate.isTextureMapEnabled()) {
 			id->d[0] |= 1 << 1;
 			id->d[0] |= (gstate.texfunc & 0x7) << 2;
-			id->d[0] |= ((gstate.texfunc & 0x100) >> 8) << 5; // rgb or rgba
-			id->d[0] |= ((gstate.texfunc & 0x10000) >> 16) << 6;	// color double
+			id->d[0] |= (doTextureAlpha & 1) << 5; // rgb or rgba
 		}
 		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= gstate.isAlphaTestEnabled() << 8;
@@ -154,6 +158,10 @@ void GenerateFragmentShader(char *buffer) {
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
+	bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+
+	if (gstate_c.textureFullAlpha && (gstate.texfunc & 0x7) != GE_TEXFUNC_REPLACE)
+		doTextureAlpha = false;
 
 	if (doTexture)
 		WRITE(p, "uniform sampler2D tex;\n");
@@ -210,7 +218,7 @@ void GenerateFragmentShader(char *buffer) {
 			}
 			WRITE(p, "  vec4 p = v_color0;\n");
 
-			if (gstate.texfunc & 0x100) { // texfmt == RGBA
+			if (doTextureAlpha) { // texfmt == RGBA
 				switch (gstate.texfunc & 0x7) {
 				case GE_TEXFUNC_MODULATE:
 					WRITE(p, "  vec4 v = p * t%s;\n", secondary); break;

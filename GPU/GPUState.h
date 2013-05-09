@@ -252,6 +252,7 @@ struct GPUStateCache
 	u32 offsetAddr;
 
 	bool textureChanged;
+	bool textureFullAlpha;
 	bool framebufChanged;
 
 	int skipDrawReason;
