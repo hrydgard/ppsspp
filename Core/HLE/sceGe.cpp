@@ -254,6 +254,7 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId,
 
 	DEBUG_LOG(HLE, "List %i enqueued.", listID);
 	//return display list ID
+	CoreTiming::Advance();
 	return listID;
 }
 
@@ -282,6 +283,7 @@ int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
 	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
 	hleEatCycles(190);
+	CoreTiming::Advance();
 	return gpu->UpdateStall(displayListID, stallAddress);
 }
 
