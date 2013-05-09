@@ -442,6 +442,47 @@ static void RotateUVThrough(TransformedVertex v[4]) {
 		SwapUVs(v[1], v[3]);
 }
 
+
+// Clears on the PSP are best done by drawing a series of vertical strips
+// in clear mode. This tries to detect that.
+bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
+	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
+		return false;
+
+	u32 matchcolor = *(const u32 *)(transformed[0].color0);
+	float matchz = transformed[0].z;
+
+	int bufW = gstate_c.curRTWidth;
+	int bufH = gstate_c.curRTHeight;
+
+	float prevX = 0.0f;
+	for (int i = 1; i < numVerts; i++) {
+		u32 vcolor = *(const u32 *)(transformed[i].color0);
+		if (vcolor != matchcolor || transformed[i].z != matchz)
+			return false;
+		
+		if ((i & 1) == 0) {
+			// Top left of a rectangle
+			if (transformed[i].y != 0)
+				return false;
+			if (i > 0 && transformed[i].x != transformed[i - 1].x)
+				return false;
+		} else {
+			// Bottom right
+			if (transformed[i].y != bufH)
+				return false;
+			if (transformed[i].x <= transformed[i - 1].x)
+				return false;
+		}
+	}
+
+	// The last vertical strip often extends outside the drawing area.
+	if (transformed[numVerts - 1].x < bufW)
+		return false;
+
+	return true;
+}
+
 // This is the software transform pipeline, which is necessary for supporting RECT
 // primitives correctly, and may be easier to use for debugging than the hardware
 // transform pipeline.
@@ -685,6 +726,41 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		}
 	}
 
+	// Here's the best opportunity to try to detect rectangles used to clear the screen, and 
+	// replace them with real OpenGL clears. This can provide a speedup on certain mobile chips.
+	// Disabled for now - depth does not come out exactly the same
+
+	if (false && maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex)) {
+		u32 clearColor = *(const u32 *)(transformed[0].color0);
+		float clearDepth = transformed[0].z;
+		const float col[4] = {
+			((clearColor & 0xFF)) / 255.0f,
+			((clearColor & 0xFF00) >> 8) / 255.0f,
+			((clearColor & 0xFF0000) >> 16) / 255.0f,
+			((clearColor & 0xFF000000) >> 24) / 255.0f,
+		};
+		int target = 0;
+		if ((gstate.clearmode >> 8) & 3) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		if ((gstate.clearmode >> 10) & 1) target |= GL_DEPTH_BUFFER_BIT;
+
+		bool colorMask = (gstate.clearmode >> 8) & 1;
+		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
+		glstate.stencilTest.set(false);
+		glstate.scissorTest.set(false);
+		bool depthMask = (gstate.clearmode >> 10) & 1;
+
+		glClearColor(col[0], col[1], col[2], col[3]);
+#ifdef USING_GLES2
+		glClearDepthf(clearDepth);
+#else
+		glClearDepth(clearDepth);
+#endif
+		glClearStencil(0);  // TODO - take from alpha?
+		glClear(target);
+		return;
+	}
+
 	// Step 2: expand rectangles.
 	const TransformedVertex *drawBuffer = transformed;
 	int numTrans = 0;
@@ -753,6 +829,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			}
 		}
 	}
+
 
 	// TODO: Add a post-transform cache here for multi-RECTANGLES only.
 	// Might help for text drawing.
