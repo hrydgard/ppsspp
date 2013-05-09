@@ -129,8 +129,9 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 		invalidate = invalidate || (iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end);
 
 		if (invalidate) {
-			if (iter->second.status == TexCacheEntry::STATUS_RELIABLE) {
-				iter->second.status = TexCacheEntry::STATUS_HASHING;
+			if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
+				// Clear status -> STATUS_HASHING.
+				iter->second.status &= ~TexCacheEntry::STATUS_MASK;
 			}
 			if (type != GPU_INVALIDATE_ALL) {
 				gpuStats.numTextureInvalidations++;
@@ -851,6 +852,7 @@ void TextureCache::SetTexture() {
 			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 			gstate_c.actualTextureHeight = h;
 			gstate_c.flipTexture = true;
+			gstate_c.textureFullAlpha = (entry->status && TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 			entry->lastFrame = gpuStats.numFrames;
 			return;
 		}
@@ -858,7 +860,7 @@ void TextureCache::SetTexture() {
 
 		int dim = gstate.texsize[0] & 0xF0F;
 		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat, clutaddr);
-		bool rehash = entry->status == TexCacheEntry::STATUS_UNRELIABLE;
+		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
 
 		if (match) {
@@ -879,13 +881,13 @@ void TextureCache::SetTexture() {
 				rehash = true;
 			}
 
-			if (rehash && entry->status != TexCacheEntry::STATUS_RELIABLE) {
+			if (rehash && (entry->status & TexCacheEntry::STATUS_MASK) != TexCacheEntry::STATUS_RELIABLE) {
 				int w = 1 << (gstate.texsize[0] & 0xf);
 				int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 				int bufw = GetLevelBufw(0, texaddr);
 				u32 check = QuickTexHash(texaddr, bufw, w, h, format);
 				if (check != entry->fullhash) {
-					entry->status = TexCacheEntry::STATUS_UNRELIABLE;
+					entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 					entry->numFrames = 0;
 
 					// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
@@ -914,8 +916,9 @@ void TextureCache::SetTexture() {
 					} else {
 						match = false;
 					}
-				} else if (entry->status == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
-					entry->status = TexCacheEntry::STATUS_HASHING;
+				} else if ((entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
+					// Reset to STATUS_HASHING.
+					entry->status &= ~TexCacheEntry::STATUS_MASK;
 				}
 			}
 		}
@@ -927,6 +930,7 @@ void TextureCache::SetTexture() {
 			if (entry->texture != lastBoundTexture) {
 				glBindTexture(GL_TEXTURE_2D, entry->texture);
 				lastBoundTexture = entry->texture;
+				gstate_c.textureFullAlpha = (entry->status && TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 			}
 			UpdateSamplingParams(*entry, false);
 			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
@@ -985,6 +989,8 @@ void TextureCache::SetTexture() {
 
 	entry->fullhash = QuickTexHash(texaddr, bufw, w, h, format);
 
+	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
+
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 
@@ -1037,6 +1043,8 @@ void TextureCache::SetTexture() {
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+	gstate_c.textureFullAlpha = (entry->status && TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
 void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt) {
@@ -1310,6 +1318,62 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 	return finalBuf;
 }
 
+void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h) {
+	// TODO: Could probably be optimized more.
+	u32 hitZeroAlpha = 0;
+	u32 hitSomeAlpha = 0;
+
+	switch (dstFmt) {
+	case GL_UNSIGNED_SHORT_4_4_4_4:
+		{
+			const u32 *p = pixelData;
+			for (int i = 0; i < (w * h + 1) / 2; ++i) {
+				u32 a = p[i] & 0x000F000F;
+				hitZeroAlpha |= a ^ 0x000F000F;
+				if (a != 0x000F000F && a != 0x0000000F && a != 0x000F0000 && a != 0) {
+					hitSomeAlpha = 1;
+					break;
+				}
+			}
+		}
+		break;
+	case GL_UNSIGNED_SHORT_5_5_5_1:
+		{
+			const u32 *p = pixelData;
+			for (int i = 0; i < (w * h + 1) / 2; ++i) {
+				u32 a = p[i] & 0x00010001;
+				hitZeroAlpha |= a ^ 0x00010001;
+			}
+		}
+		break;
+	case GL_UNSIGNED_SHORT_5_6_5:
+		{
+			// Never has any alpha.
+		}
+		break;
+	default:
+		{
+			const u32 *p = pixelData;
+			for (int i = 0; i < w * h; ++i) {
+				u32 a = p[i] & 0xFF000000;
+				hitZeroAlpha |= a ^ 0xFF000000;
+				if (a != 0xFF000000 && a != 0) {
+					hitSomeAlpha = 1;
+					break;
+				}
+			}
+		}
+		break;
+	}
+
+	if (hitSomeAlpha != 0)
+		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
+	else if (hitZeroAlpha != 0)
+		entry.status |= TexCacheEntry::STATUS_ALPHA_SIMPLE;
+	else
+		entry.status |= TexCacheEntry::STATUS_ALPHA_FULL;
+}
+
 void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 	// TODO: only do this once
 	u32 texByteAlign = 1;
@@ -1334,7 +1398,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 
 	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
 
-	u32* pixelData = (u32*)finalBuf;
+	u32 *pixelData = (u32 *)finalBuf;
 
 	int scaleFactor = g_Config.iTexScalingLevel;
 
@@ -1344,6 +1408,11 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 
 	if (scaleFactor > 1 && entry.numInvalidated == 0) 
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
+	// Or always?
+	if (entry.numInvalidated == 0)
+		CheckAlpha(entry, pixelData, dstFmt, w, h);
+	else
+		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
