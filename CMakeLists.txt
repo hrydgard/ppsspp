@@ -455,6 +455,11 @@ elseif(USING_QT_UI)
 elseif(BLACKBERRY)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} asound bps screen socket EGL)
+	# FFMPEG
+	add_definitions(-DUSE_FFMPEG)
+	include_directories(ffmpeg/blackberry/armv7/include)
+	link_directories(ffmpeg/blackberry/armv7/lib)
+	set(nativeExtraLibs ${nativeExtraLibs} iconv libavformat.a libavcodec.a libswresample.a libavutil.a)
 	set(TargetBin PPSSPPBlackberry)
 elseif(SDL_FOUND)
 	# Require SDL
