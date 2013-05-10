@@ -442,7 +442,7 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
 	atrac->first.fileoffset = atrac->first.size;
-	atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+	atrac->first.writableBytes = 0;
 	return 0;
 }
 
@@ -723,6 +723,7 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 	if (!atrac) {
 		//return -1;
 	} else {
+		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		Memory::Write_U32(atrac->first.addr, writeAddr);
 		Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
 		Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
@@ -864,7 +865,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
 	atrac->first.fileoffset = atrac->first.size;
-	atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+	atrac->first.writableBytes = 0;
 
 #ifdef USE_FFMPEG
 	if (atrac->codeType == PSP_MODE_AT_3) {
