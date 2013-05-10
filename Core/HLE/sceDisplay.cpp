@@ -278,9 +278,10 @@ void __DisplayGetDebugStats(char stats[2048])
 }
 
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame) {
+void DoFrameTiming(bool &throttle, bool &skipFrame, int &fpsLimiter, double &customLimiter) {
 	throttle = !PSP_CoreParameter().unthrottle;
-
+	fpsLimiter = PSP_CoreParameter().fpsLimit;
+	customLimiter = g_Config.iFpsLimit;
 	skipFrame = false;
 	if (PSP_CoreParameter().headLess)
 		throttle = false;
@@ -309,7 +310,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	
 	curFrameTime = time_now_d();
 	if (nextFrameTime == 0.0)
-		nextFrameTime = time_now_d() + 1.0 / 60.0;
+		nextFrameTime = time_now_d() + 1.0 / 60;
 	
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
@@ -321,8 +322,8 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	if (curFrameTime < nextFrameTime && throttle)
 	{
 		// If time gap is huge just jump (somebody unthrottled)
-		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
-			nextFrameTime = curFrameTime + 1.0 / 60.0;
+		if (nextFrameTime - curFrameTime > 1.0 / 30) {
+			nextFrameTime = curFrameTime + 1.0 / 60;
 		} else {
 			// Wait until we've catched up.
 			while (time_now_d() < nextFrameTime) {
@@ -336,10 +337,16 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	// but don't let it get too far behind as things can get very jumpy.
 	const double maxFallBehindFrames = 5.5;
 
-	if (throttle || doFrameSkip) {
+	// 3 states of fps limiter
+	if (fpsLimiter == 0) {
 		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
-	} else {
-		nextFrameTime = nextFrameTime + 1.0 / 60.0;
+	} else if (fpsLimiter == 1) {
+		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
+	} else if (fpsLimiter == 2) {
+		nextFrameTime = std::max(nextFrameTime + 1.0 / 2000.0, time_now_d() - maxFallBehindFrames / 2000.0);
+	}
+	else {
+		nextFrameTime = nextFrameTime + 1.0 / 60;
 	}
 
 	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
@@ -402,8 +409,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
 	bool throttle, skipFrame;
+	int fpsLimiter;
+	double customLimiter;
 	
-	DoFrameTiming(throttle, skipFrame);
+	DoFrameTiming(throttle, skipFrame, fpsLimiter, customLimiter);
 
 	if (skipFrame) {
 		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;

@@ -66,4 +66,6 @@ struct CoreParameter
 
 	// Can be modified at runtime.
 	bool unthrottle;
+	int fpsLimit;
+	double customLimit;
 };
