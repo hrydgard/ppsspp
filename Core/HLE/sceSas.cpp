@@ -107,7 +107,7 @@ u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume)
 		return ERROR_SAS_INVALID_PARAMETER;
 	}
 
-	sas->Mix(inoutAddr, inoutAddr);
+	sas->Mix(inoutAddr, inoutAddr, leftVolume, rightVolume);
 	return 0;
 }
 

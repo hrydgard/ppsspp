@@ -265,7 +265,7 @@ static inline s16 clamp_s16(int i) {
 	return i;
 }
 
-void SasInstance::Mix(u32 outAddr, u32 inAddr) {
+void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	int voicesPlayingCount = 0;
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
 		SasVoice &voice = voices[v];
@@ -377,13 +377,13 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr) {
 	for (int i = 0; i < grainSize * 2; i += 2) {
 		int sampleL = mixBuffer[i] + sendBuffer[i];
 		if (inp)
-			sampleL += *inp++;
+			sampleL += (*inp++) * leftVol >> 12;
 		*outp++ = clamp_s16(sampleL);
 		if (outputMode == 0) {
 			// stereo
 			int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1];
 			if (inp)
-				sampleR += *inp++;
+				sampleR += (*inp++) * rightVol >> 12;
 			*outp++ = clamp_s16(sampleR);
 		}
 	}
