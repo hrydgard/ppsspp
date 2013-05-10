@@ -864,7 +864,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 
 #ifdef USE_FFMPEG
 	if (atrac->codeType == PSP_MODE_AT_3) {
-		INFO_LOG(HLE, "This is an atrac3 audio");
+		WARN_LOG(HLE, "This is an atrac3 audio");
 
 		// some games may reuse an atracID for playing sound
 		atrac->ReleaseFFMPEGContext();
@@ -877,7 +877,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 
 		return __AtracSetContext(atrac, buffer, bufferSize);
 	} else if (atrac->codeType == PSP_MODE_AT_3_PLUS) 
-		INFO_LOG(HLE, "This is an atrac3+ audio");
+		WARN_LOG(HLE, "This is an atrac3+ audio");
 #endif // _USE_FFMPEG
 
 	return 0;
