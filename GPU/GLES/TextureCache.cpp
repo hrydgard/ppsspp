@@ -619,7 +619,16 @@ static void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool igno
 static void decodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch)
 {
 	decodeDXT1Block(dst, &src->color, pitch, true);
-	// Alpha: TODO
+
+	for (int y = 0; y < 4; y++) {
+		u32 line = src->alphaLines[y];
+		for (int x = 0; x < 4; x++) {
+			const u8 a4 = line & 0xF;
+			dst[x] = (dst[x] & 0xFFFFFF) | (a4 << 24) | (a4 << 28);
+			line >>= 4;
+		}
+		dst += pitch;
+	}
 }
 
 static inline u8 lerp8(const DXT5Block *src, int n) {
@@ -1229,18 +1238,12 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 	case GE_TFMT_DXT3:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
-			static bool dxt3Reported = false;
-			if (!dxt3Reported)
-				ERROR_LOG_REPORT(G3D, "Warning: DXT3 textures not well supported");
-			dxt3Reported = true;
-
 			int minw = std::min(bufw, w);
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			u32 *dst = tmpTexBuf32.data();
 			DXT3Block *src = (DXT3Block*)texptr;
 
-			// Alpha is off
 			for (int y = 0; y < h; y += 4) {
 				u32 blockIndex = (y / 4) * (bufw / 4);
 				for (int x = 0; x < minw; x += 4) {
