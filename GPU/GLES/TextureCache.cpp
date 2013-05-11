@@ -832,6 +832,7 @@ void TextureCache::SetTexture() {
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
+	u32 fullhash = 0;
 
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
@@ -897,15 +898,15 @@ void TextureCache::SetTexture() {
 				int w = 1 << (gstate.texsize[0] & 0xf);
 				int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 				int bufw = GetLevelBufw(0, texaddr);
-				u32 check = QuickTexHash(texaddr, bufw, w, h, format);
-				if (check != entry->fullhash) {
+				fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+				if (fullhash != entry->fullhash) {
 					entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 					entry->numFrames = 0;
 
 					// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
 					// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
 					if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
-						u64 secondKey = check | (u64)cluthash << 32;
+						u64 secondKey = fullhash | (u64)cluthash << 32;
 						TexCache::iterator secondIter = secondCache.find(secondKey);
 						if (secondIter != secondCache.end()) {
 							TexCacheEntry *secondEntry = &secondIter->second;
@@ -999,7 +1000,7 @@ void TextureCache::SetTexture() {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
-	entry->fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
