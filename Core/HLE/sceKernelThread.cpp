@@ -1862,8 +1862,6 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 		// TODO: Maybe this happens even for worse-priority started threads?
 		dispatchEnabled = true;
 
-		if (cur && cur->isRunning())
-			cur->nt.status &= ~THREADSTATUS_RUNNING;
 		__KernelChangeReadyState(cur, currentThread, true);
 		hleReSchedule("thread started");
 	}
