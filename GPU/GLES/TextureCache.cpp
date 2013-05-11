@@ -185,7 +185,7 @@ void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *f
 }
 
 static u32 GetClutAddr(u32 clutEntrySize) {
-	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000)) + ((gstate.clutformat >> 16) & 0x1f) * clutEntrySize;
+	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
 }
 
 static u32 GetClutIndex(u32 index) {
