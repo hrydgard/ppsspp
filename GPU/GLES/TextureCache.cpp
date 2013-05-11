@@ -120,11 +120,9 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
-		// Clear if either the addr or clutaddr is in the range.
+
 		bool invalidate = (texAddr >= addr && texAddr < addr_end) || (texEnd >= addr && texEnd < addr_end);
 		invalidate = invalidate || (addr >= texAddr && addr < texEnd) || (addr_end >= texAddr && addr_end < texEnd);
-
-		invalidate = invalidate || (iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end);
 
 		if (invalidate) {
 			if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
@@ -769,7 +767,7 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2
 	return dim == dim2 && hash == hash2 && format == format2 && maxLevel == maxLevel2;
 }
 
-inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat2, u32 clutaddr2) {
+inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat2) {
 	if (!hasClut)
 		return true;
 	return clutformat == clutformat2;
@@ -817,7 +815,7 @@ void TextureCache::SetTexture() {
 
 	u64 cachekey = texaddr;
 
-	u32 clutformat, clutaddr, cluthash;
+	u32 clutformat, cluthash;
 	if (hasClut) {
 		if (gstate_c.clutChanged) {
 			UpdateCurrentClut();
@@ -825,12 +823,10 @@ void TextureCache::SetTexture() {
 		}
 
 		clutformat = gstate.clutformat & 3;
-		clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
 		cluthash = GetCurrentClutHash();
 		cachekey |= (u64)cluthash << 32;
 	} else {
 		clutformat = 0;
-		clutaddr = 0;
 		cluthash = 0;
 	}
 
@@ -877,7 +873,7 @@ void TextureCache::SetTexture() {
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
-		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat, clutaddr);
+		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat);
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
 
@@ -915,7 +911,7 @@ void TextureCache::SetTexture() {
 						TexCache::iterator secondIter = secondCache.find(secondKey);
 						if (secondIter != secondCache.end()) {
 							TexCacheEntry *secondEntry = &secondIter->second;
-							if (secondEntry->Matches(dim, texhash, format, maxLevel) && secondEntry->MatchesClut(hasClut, clutformat, clutaddr)) {
+							if (secondEntry->Matches(dim, texhash, format, maxLevel) && secondEntry->MatchesClut(hasClut, clutformat)) {
 								// Reset the numInvalidated value lower, we got a match.
 								if (entry->numInvalidated > 8) {
 									--entry->numInvalidated;
@@ -995,7 +991,6 @@ void TextureCache::SetTexture() {
 
 
 	entry->clutformat = clutformat;
-	entry->clutaddr = clutaddr;
 	entry->cluthash = cluthash;
 
 	
