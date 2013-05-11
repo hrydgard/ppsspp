@@ -18,6 +18,7 @@
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "gfx_es2/gl_state.h"
 
@@ -795,8 +796,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		shaderManager_->DirtyUniform(DIRTY_COLORMASK);
 		break;
 
-	case GE_CMD_COLORREF:
 	case GE_CMD_ALPHATEST:
+#ifndef USING_GLES2
+		if (((data >> 16) & 0xFF) != 0xFF && data != 0)
+			WARN_LOG_REPORT_ONCE(alphatestmask, HLE, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
+#endif
+	case GE_CMD_COLORREF:
 		shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
 		break;
 
