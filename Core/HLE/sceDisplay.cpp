@@ -310,7 +310,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, int &fpsLimiter, double &cus
 	
 	curFrameTime = time_now_d();
 	if (nextFrameTime == 0.0)
-		nextFrameTime = time_now_d() + 1.0 / 60;
+		nextFrameTime = time_now_d() + 1.0 / 60.0;
 	
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
@@ -322,8 +322,8 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, int &fpsLimiter, double &cus
 	if (curFrameTime < nextFrameTime && throttle)
 	{
 		// If time gap is huge just jump (somebody unthrottled)
-		if (nextFrameTime - curFrameTime > 1.0 / 30) {
-			nextFrameTime = curFrameTime + 1.0 / 60;
+		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
+			nextFrameTime = curFrameTime + 1.0 / 60.0;
 		} else {
 			// Wait until we've catched up.
 			while (time_now_d() < nextFrameTime) {
@@ -343,7 +343,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, int &fpsLimiter, double &cus
 	} else if (fpsLimiter == 1) {
 		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
 	} else if (fpsLimiter == 2) {
-		nextFrameTime = std::max(nextFrameTime + 1.0 / 2000.0, time_now_d() - maxFallBehindFrames / 2000.0);
+		return;
 	}
 	else {
 		nextFrameTime = nextFrameTime + 1.0 / 60;

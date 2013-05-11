@@ -187,7 +187,6 @@ namespace MainWindow
 	}
 	void setFpsLimit(int fps) {
 		g_Config.iFpsLimit = fps;
-		if(gpu) gpu->ClearCacheNextFrame();
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
