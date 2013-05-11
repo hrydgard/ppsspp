@@ -919,12 +919,17 @@ u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 half
 
 u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
+	INFO_LOG(HLE, "sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		//return -1;
+	int ret = 0;
+	if (atrac != NULL) {
+		atrac->first.addr = secondBuffer;
+		atrac->first.size = secondBufferSize;
+		atrac->Analyze();
+		atrac->atracOutputChannels = 2;
+		ret = _AtracSetData(atracID, secondBuffer, secondBufferSize);
 	}
-	return 0;
+	return ret;
 }
 
 u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
