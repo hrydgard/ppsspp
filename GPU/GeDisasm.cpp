@@ -374,7 +374,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		sprintf(buffer, "FramebufPixeFormat: %i", data);
+		sprintf(buffer, "FramebufPixelFormat: %i", data);
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -1068,8 +1068,8 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
-		if (data & ~0xF)
-			sprintf(buffer, "BONE #%i (extra %x)", data & 0xF, data);
+		if (data & ~0x7F)
+			sprintf(buffer, "BONE #%i (extra %x)", data & 0x7F, data);
 		else
 			sprintf(buffer, "BONE #%i", data & 0xF);
 		break;
