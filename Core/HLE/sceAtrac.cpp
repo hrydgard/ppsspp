@@ -1112,7 +1112,8 @@ int _sceAtracGetContextAddress(int atracID)
 	ERROR_LOG(HLE, "UNIMPL _sceAtracGetContextAddress(%i)", atracID);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		// Sol Trigger requires return -1 otherwise hangup .
+		return -1;
 	}
 	return 0;
 }
