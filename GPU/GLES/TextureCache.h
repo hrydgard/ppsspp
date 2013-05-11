@@ -108,6 +108,10 @@ private:
 	void LoadTextureLevel(TexCacheEntry &entry, int level);
 	void *DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt);
 	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h);
+	void UpdateCurrentClut();
+	template <typename T>
+	const T *GetCurrentClut();
+	u32 GetCurrentClutHash();
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
@@ -124,8 +128,8 @@ private:
 
 	SimpleBuf<u32> tmpTexBufRearrange;
 
-	u32 *clutBuf32;
-	u16 *clutBuf16;
+	u32 *clutBuf_;
+	u32 clutHash_;
 
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
