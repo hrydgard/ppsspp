@@ -600,8 +600,11 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 		return -1;
 	}
 
-	// I wonder which result should be returned. Such as a 64kbps bitrate audio,
-	// should we return 64 or 64 * 1000 ? Here returns the second one.
+	atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
+	if (atrac->codeType == PSP_MODE_AT_3_PLUS)  
+		atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0; 
+	else
+		atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10; 
 	if (Memory::IsValidAddress(outBitrateAddr))
 		Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
 	return 0;
@@ -701,7 +704,6 @@ u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
 	DEBUG_LOG(HLE, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
 		Memory::Write_U32(12, remainAddr); // outpos
 	} else {
 		Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
@@ -1120,7 +1122,8 @@ int _sceAtracGetContextAddress(int atracID)
 	ERROR_LOG(HLE, "UNIMPL _sceAtracGetContextAddress(%i)", atracID);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		// Sol Trigger requires return -1 otherwise hangup until SetContext has been implemented 
+		return -1;
 	}
 	return 0;
 }
