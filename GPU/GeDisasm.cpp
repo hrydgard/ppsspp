@@ -374,7 +374,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
-		sprintf(buffer, "FramebufPixeFormat: %i", data);
+		sprintf(buffer, "FramebufPixelFormat: %i", data);
 		break;
 
 	case GE_CMD_TEXADDR0:
@@ -708,7 +708,25 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	//	CLEARING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
-		sprintf(buffer, "Clear mode: %06x", data);
+		{
+			const char *clearModes[] = {
+				"on",
+				"on, color",
+				"on, alpha/stencil",
+				"on, color, alpha/stencil",
+				"on, depth",
+				"on, color, depth",
+				"on, alpha/stencil, depth",
+				"on, color, alpha/stencil, depth",
+			};
+
+			const char *mode;
+			if (data & 1)
+				mode = clearModes[(data >> 8) & 7];
+			else
+				mode = "off";
+			sprintf(buffer, "Clear mode: %06x (%s)", data, mode);
+		}
 		break;
 
 
@@ -775,8 +793,8 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_ALPHATEST:
 		{
-			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
-			sprintf(buffer, "Alpha test settings: %x (%s)", data, alphaTestFuncs[data & 7]);
+			const char *alphaTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			sprintf(buffer, "Alpha test settings: %06x (%02x%s(c & %02x))", data, (data >> 8) & 0xFF, alphaTestFuncs[data & 7], (data >> 16) & 0xFF);
 		}
 		break;
 
@@ -915,7 +933,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_STENCILTEST:
-		sprintf(buffer, "Stencil test: %06x", data);
+		{
+			const char *zTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			sprintf(buffer, "Stencil test: %06x (%02x %s (c & %02x))", data, (data >> 8) & 0xFF, zTestFuncs[data & 7], (data >> 16) & 0xFF);
+		}
 		break;
 
 	case GE_CMD_STENCILTESTENABLE:
@@ -923,7 +944,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_ZTEST:
-		sprintf(buffer, "Z test mode: %i", data);
+		{
+			const char *zTestFuncs[] = { "NEVER", "ALWAYS", " == ", " != ", " < ", " <= ", " > ", " >= " };
+			sprintf(buffer, "Z test mode: %i (%s)", data, zTestFuncs[data & 7]);
+		}
 		break;
 
 	case GE_CMD_MORPHWEIGHT0:
@@ -949,7 +973,27 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_LOGICOP:
-		sprintf(buffer, "LogicOp: %06x", data);
+		{
+			const char *logicOps[] = {
+				"clear",
+				"and",
+				"reverse and",
+				"copy",
+				"inverted and",
+				"noop",
+				"xor",
+				"or",
+				"negated or",
+				"equivalence",
+				"inverted",
+				"reverse or",
+				"inverted copy",
+				"inverted or",
+				"negated and",
+				"set",
+			};
+			sprintf(buffer, "LogicOp: %06x (%s)", data, logicOps[data & 0xF]);
+		}
 		break;
 
 	case GE_CMD_ZWRITEDISABLE:
@@ -957,7 +1001,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_COLORTEST:
-		sprintf(buffer, "ColorTest: %06x", data);
+		{
+			const char *colorTests[] = {"NEVER", "ALWAYS", " == ", " != "};
+			sprintf(buffer, "ColorTest: %06x (ref%s(c & cmask))", data, colorTests[data & 3]);
+		}
 		break;
 
 	case GE_CMD_COLORREF:
@@ -1021,8 +1068,8 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_BONEMATRIXNUMBER:
-		if (data & ~0xF)
-			sprintf(buffer, "BONE #%i (extra %x)", data & 0xF, data);
+		if (data & ~0x7F)
+			sprintf(buffer, "BONE #%i (extra %x)", data & 0x7F, data);
 		else
 			sprintf(buffer, "BONE #%i", data & 0xF);
 		break;
