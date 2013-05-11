@@ -34,6 +34,12 @@ static const unsigned int dinput_ctrl_map[] = {
 	3,		PAD_BUTTON_Y,
 };
 
+#define DIFF  (JOY_POVRIGHT - JOY_POVFORWARD) / 2
+#define JOY_POVFORWARD_RIGHT	JOY_POVFORWARD + DIFF
+#define JOY_POVRIGHT_BACKWARD	JOY_POVRIGHT + DIFF
+#define JOY_POVBACKWARD_LEFT	JOY_POVBACKWARD + DIFF
+#define JOY_POVLEFT_FORWARD		JOY_POVLEFT + DIFF
+
 struct XINPUT_DEVICE_NODE
 {
     DWORD dwVidPid;
@@ -135,6 +141,10 @@ int DinputDevice::UpdateState(InputState &input_state)
 		case JOY_POVBACKWARD:	input_state.pad_buttons |= PAD_BUTTON_DOWN; break;
 		case JOY_POVLEFT:		input_state.pad_buttons |= PAD_BUTTON_LEFT; break;
 		case JOY_POVRIGHT:		input_state.pad_buttons |= PAD_BUTTON_RIGHT; break;
+		case JOY_POVFORWARD_RIGHT:	input_state.pad_buttons |= (PAD_BUTTON_UP | PAD_BUTTON_RIGHT); break;
+		case JOY_POVRIGHT_BACKWARD:	input_state.pad_buttons |= (PAD_BUTTON_RIGHT | PAD_BUTTON_DOWN); break;
+		case JOY_POVBACKWARD_LEFT:	input_state.pad_buttons |= (PAD_BUTTON_DOWN | PAD_BUTTON_LEFT); break;
+		case JOY_POVLEFT_FORWARD:	input_state.pad_buttons |= (PAD_BUTTON_LEFT | PAD_BUTTON_UP); break;
 	}
 
 	if (analog)
