@@ -1163,6 +1163,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 			Memory::Memcpy(statusPtr, &t->nt, sz);
 	}
 
+	hleEatCycles(1220);
 	return 0;
 }
 
