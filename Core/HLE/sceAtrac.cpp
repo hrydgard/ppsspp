@@ -157,10 +157,14 @@ struct Atrac {
 		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
 		// Still need to find out how getRemainFrames() should work.
 
+		if (currentSample >= endSample)
+			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+
+		if ((first.fileoffset >= first.filesize) && (currentSample > loopEndSample))
+			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+
 		int remainFrame;
-		if (first.fileoffset >= first.filesize || currentSample >= endSample)
-			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else if (decodePos > first.size) {
+		if (decodePos > first.size) {
 			// There are not enough atrac data right now to play at a certain position.
 			// Must load more atrac data first
 			remainFrame = 0;
@@ -575,12 +579,15 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return -1;
+	} else {
+		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
+		if (atrac->codeType == PSP_MODE_AT_3_PLUS)  
+			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0; 
+		else
+			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10; 
+		if (Memory::IsValidAddress(outBitrateAddr))
+			Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
 	}
-
-	// I wonder which result should be returned. Such as a 64kbps bitrate audio,
-	// should we return 64 or 64 * 1000 ? Here returns the second one.
-	if (Memory::IsValidAddress(outBitrateAddr))
-		Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
 	return 0;
 }
 
@@ -879,7 +886,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 		return __AtracSetContext(atrac, buffer, bufferSize);
 	} else if (atrac->codeType == PSP_MODE_AT_3_PLUS) 
 		WARN_LOG(HLE, "This is an atrac3+ audio");
-#endif // _USE_FFMPEG
+#endif // USE_FFMPEG
 
 	return 0;
 }
