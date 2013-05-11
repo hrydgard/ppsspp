@@ -22,6 +22,11 @@
 #define NOTICE_LOG_REPORT(t,...)  { NOTICE_LOG(t, __VA_ARGS__); Reporting::ReportMessage(__VA_ARGS__); }
 #define INFO_LOG_REPORT(t,...)    { INFO_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); }
 
+#define ERROR_LOG_REPORT_ONCE(n,t,...)   { static bool n = false; if (!n) { n = true; ERROR_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } }
+#define WARN_LOG_REPORT_ONCE(n,t,...)    { static bool n = false; if (!n) { n = true; WARN_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); } }
+#define NOTICE_LOG_REPORT_ONCE(n,t,...)  { static bool n = false; if (!n) { n = true; NOTICE_LOG(t, __VA_ARGS__); Reporting::ReportMessage(__VA_ARGS__); } }
+#define INFO_LOG_REPORT_ONCE(n,t,...)    { static bool n = false; if (!n) { n = true; INFO_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); } }
+
 namespace Reporting
 {
 	bool IsEnabled();
