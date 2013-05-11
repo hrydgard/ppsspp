@@ -292,23 +292,13 @@ public:
 
 	FontLib(u32 paramPtr) :	fontHRes_(128.0f), fontVRes_(128.0f) {
 		Memory::ReadStruct(paramPtr, &params_);
-		fakeAlloc_ = 0x13370;
 		// We use the same strange scheme that JPCSP uses.
 		u32 allocSize = 4 + 4 * params_.numFonts;
-		PostAllocCallback *action = (PostAllocCallback*) __KernelCreateAction(actionPostAllocCallback);
+		PostAllocCallback *action = (PostAllocCallback *) __KernelCreateAction(actionPostAllocCallback);
 		action->SetFontLib(GetListID());
 
-		if (false) {
-			// This fails in dissidia. The function at 088ff320 (params_.allocFuncAddr) calls some malloc function, the second one returns 0 which causes
-			// bad stores later. So we just ignore this with if (false) and fake it.
-			u32 args[2] = { params_.userDataAddr, allocSize };
-			__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 2, false);
-		} else {
-			AllocDone(fakeAlloc_);
-			fakeAlloc_ += allocSize;
-			fontLibMap[handle()] = GetListID();
-			INFO_LOG(HLE, "Leaving PostAllocCallback::run");
-		}
+		u32 args[2] = { params_.userDataAddr, allocSize };
+		__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 2, true);
 	}
 
 	u32 GetListID() {
@@ -398,7 +388,6 @@ public:
 		p.Do(fileFontHandle_);
 		p.Do(handle_);
 		p.Do(altCharCode_);
-		p.Do(fakeAlloc_);
 		p.DoMarker("FontLib");
 	}
 
@@ -419,16 +408,15 @@ private:
 	int handle_;
 	int altCharCode_;
 
-	u32 fakeAlloc_;
 	DISALLOW_COPY_AND_ASSIGN(FontLib);
 };
 
 
 void PostAllocCallback::run(MipsCall &call) {
 	INFO_LOG(HLE, "Entering PostAllocCallback::run");
-	u32 v0 = currentMIPS->r[0];
+	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	FontLib *fontLib = fontLibList[fontLibID_];
-	fontLib->AllocDone(call.savedV0);
+	fontLib->AllocDone(v0);
 	fontLibMap[fontLib->handle()] = fontLibID_;
 	call.setReturnValue(fontLib->handle());
 	INFO_LOG(HLE, "Leaving PostAllocCallback::run");
@@ -436,7 +424,8 @@ void PostAllocCallback::run(MipsCall &call) {
 
 void PostOpenCallback::run(MipsCall &call) {
 	FontLib *fontLib = fontLibList[fontLibID_];
-	fontLib->SetFileFontHandle(call.savedV0);
+	u32 v0 = currentMIPS->r[MIPS_REG_V0];
+	fontLib->SetFileFontHandle(v0);
 }
 
 FontLib *GetFontLib(u32 handle) {
