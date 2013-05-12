@@ -107,8 +107,8 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
 #else
 
-	AVFrame frame;
-	AVPacket packet;
+	AVFrame frame = {0};
+	AVPacket packet = {0};
 	int got_frame, ret;
 	static int audio_frame_count = 0;
 
@@ -125,11 +125,11 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 				continue;
 			}
 			if (got_frame) {
-				char buf[256];
+				char buf[1024] = "";
 				av_ts_make_time_string(buf, frame.pts, &ctx->decoder_context->time_base);
-				INFO_LOG(HLE, "audio_frame n:%d nb_samples:%d pts:%s",
-					audio_frame_count++, frame.nb_samples, buf);
+				INFO_LOG(HLE, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
 
+				/*
 				u8 *audio_dst_data;
 				int audio_dst_linesize;
 
@@ -138,6 +138,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 					ERROR_LOG(HLE, "av_samples_alloc: Could not allocate audio buffer %d", ret);
 					return -1;
 				}
+				*/
 
 				int decoded = av_samples_get_buffer_size(NULL, frame.channels, frame.nb_samples, (AVSampleFormat)frame.format, 1);
 
@@ -152,7 +153,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 
 				//memcpy(Memory::GetPointer(ctx->mp3PcmBuf + bytesdecoded), audio_dst_data, decoded);
 				bytesdecoded += decoded;
-				//av_freep(&audio_dst_data[0]);
+				// av_freep(&audio_dst_data[0]);
 			}
 		}
 		av_free_packet(&packet);
