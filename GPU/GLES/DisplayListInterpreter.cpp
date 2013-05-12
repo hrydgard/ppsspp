@@ -222,7 +222,7 @@ void GLES_GPU::BuildReportingInfo() {
 	const char *glSlVersion = GetGLStringAlways(GL_SHADING_LANGUAGE_VERSION);
 	const char *glExtensions = GetGLStringAlways(GL_EXTENSIONS);
 
-	char temp[2048];
+	char temp[16384];
 	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
 	reportingPrimaryInfo_ = glVendor;
 	reportingFullInfo_ = temp;
