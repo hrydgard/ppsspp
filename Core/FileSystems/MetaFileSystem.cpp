@@ -131,6 +131,13 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 		inAfterColon = inPath.substr(inColon + 1);
 	}
 
+	// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
+	if (inAfterColon == "/")
+	{
+		outPath = prefix + inAfterColon;
+		return true;
+	}
+
 	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{
 		WARN_LOG(HLE, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
@@ -170,9 +177,9 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
 	std::string inpath = _inpath;
-	if (strncasecmp(inpath.c_str(), "host0:", 5) == 0) {
+	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
 		INFO_LOG(HLE, "Host0 path detected, stripping: %s", inpath.c_str());
-		inpath = inpath.substr(6);
+		inpath = inpath.substr(strlen("host0:"));
 	}
 
 	const std::string *currentDirectory = &startingDirectory;
