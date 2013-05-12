@@ -171,7 +171,7 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "uniform sampler2D tex;\n");
 
 	if (enableAlphaTest || enableColorTest) {
-		WRITE(p, "uniform ivec4 u_alphacolorref;\n");
+		WRITE(p, "uniform vec4 u_alphacolorref;\n");
 		WRITE(p, "uniform vec4 u_colormask;\n");
 	}
 	if (gstate.isTextureMapEnabled()) 
@@ -196,8 +196,8 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "varying vec2 v_texcoord;\n");
 	}
 
-	WRITE(p, "int roundAndScaleTo255f(in float x) { return int(x * 255.0 + 0.5); }\n");
-	WRITE(p, "ivec3 roundAndScaleTo255v(in vec3 x) { return ivec3(x * 255.0 + 0.5); }\n");
+	WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
+	WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
 
 	WRITE(p, "void main() {\n");
 
