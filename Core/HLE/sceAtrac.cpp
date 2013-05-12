@@ -28,13 +28,18 @@
 #include "sceUtility.h"
 
 #define ATRAC_ERROR_API_FAIL                 0x80630002
-#define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
-#define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
-#define ATRAC_ERROR_INCORRECT_READ_SIZE	     0x80630013
-#define ATRAC_ERROR_UNSET_PARAM              0x80630021
 #define ATRAC_ERROR_NO_ATRACID               0x80630003
-#define ATRAC_ERROR_BAD_CODECTYPE            0x80630004
+#define ATRAC_ERROR_INVALID_CODECTYPE        0x80630004
+#define ATRAC_ERROR_BAD_ATRACID              0x80630005
+#define ATRAC_ERROR_ALL_DATA_LOADED          0x80630009
+#define ATRAC_ERROR_NO_DATA		             0x80630010
+#define ATRAC_ERROR_SECOND_BUFFER_NEEDED	 0x80630012
+#define ATRAC_ERROR_INCORRECT_READ_SIZE	     0x80630013
 #define ATRAC_ERROR_ADD_DATA_IS_TOO_BIG      0x80630018
+#define ATRAC_ERROR_UNSET_PARAM              0x80630021
+#define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
+#define ATRAC_ERROR_BUFFER_IS_EMPTY			 0x80630023
+#define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
 
 #define AT3_MAGIC			0x0270
 #define AT3_PLUS_MAGIC		0xFFFE
@@ -144,6 +149,9 @@ struct Atrac {
 		p.Do(loopEndSample);
 		p.Do(loopNum);
 
+		p.Do(isSecondBufferNeeded);
+		p.Do(isSecondBufferSet);
+
 		p.DoMarker("Atrac");
 	}
 
@@ -157,10 +165,14 @@ struct Atrac {
 		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
 		// Still need to find out how getRemainFrames() should work.
 
+		if (currentSample >= endSample)
+			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+
+		if ((first.fileoffset >= first.filesize) && (currentSample > loopEndSample))
+			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+
 		int remainFrame;
-		if (first.fileoffset >= first.filesize || currentSample >= endSample)
-			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else if (decodePos > first.size) {
+		if (decodePos > first.size) {
 			// There are not enough atrac data right now to play at a certain position.
 			// Must load more atrac data first
 			remainFrame = 0;
@@ -171,7 +183,6 @@ struct Atrac {
 		}
 		return remainFrame;
 	}
-
 	int atracID;
 	u8* data_buf;
 
@@ -197,6 +208,9 @@ struct Atrac {
 	int loopNum;
 
 	u32 codeType;
+
+	bool isSecondBufferNeeded;
+	bool isSecondBufferSet;
 
 	InputBuffer first;
 	InputBuffer second;
@@ -303,6 +317,7 @@ void Atrac::Analyze()
 	loopStartSample = -1;
 	loopEndSample = -1;
 	decodePos = 0;
+	isSecondBufferNeeded = false;
 
 	if (first.size < 0x100)
 	{
@@ -408,7 +423,7 @@ u32 sceAtracGetAtracID(int codecType)
 {
 	INFO_LOG(HLE, "sceAtracGetAtracID(%i)", codecType);
 	if (codecType < 0x1000 || codecType > 0x1001)
-		return ATRAC_ERROR_BAD_CODECTYPE;
+		return ATRAC_ERROR_INVALID_CODECTYPE;
 
 	int atracID = createAtrac(new Atrac);
 	Atrac *atrac = getAtrac(atracID);
@@ -447,8 +462,19 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	DEBUG_LOG(HLE, "sceAtracDecodeData(%i, %08x, %08x, %08x, %08x)", atracID, outAddr, numSamplesAddr, finishFlagAddr, remainAddr);
 	Atrac *atrac = getAtrac(atracID);
 
+	if (atrac->isSecondBufferNeeded && !(atrac->isSecondBufferSet))
+		return ATRAC_ERROR_SECOND_BUFFER_NEEDED;
+
 	u32 ret = 0;
-	if (atrac != NULL) {
+	if (!atrac) {
+		// TODO: Can probably remove this after we validate no wrong ids?
+		Memory::Write_U16(0, outAddr);	// Write a single 16-bit stereo
+		Memory::Write_U16(0, outAddr + 2);
+
+		Memory::Write_U32(1, numSamplesAddr);
+		Memory::Write_U32(1, finishFlagAddr);	// Lie that decoding is finished
+		Memory::Write_U32(-1, remainAddr);	// Lie that decoding is finished
+	} else {
 		// We already passed the end - return an error (many games check for this.)
 		if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
 			Memory::Write_U32(0, numSamplesAddr);
@@ -528,16 +554,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			int remains = atrac->getRemainFrames();
 			Memory::Write_U32(remains, remainAddr);
 		}
-	// TODO: Can probably remove this after we validate no wrong ids?
-	} else {
-		Memory::Write_U16(0, outAddr);	// Write a single 16-bit stereo
-		Memory::Write_U16(0, outAddr + 2);
-
-		Memory::Write_U32(1, numSamplesAddr);
-		Memory::Write_U32(1, finishFlagAddr);	// Lie that decoding is finished
-		Memory::Write_U32(-1, remainAddr);	// Lie that decoding is finished
 	}
-
 	return ret;
 }
 
@@ -575,12 +592,15 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return -1;
+	} else {
+		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
+		if (atrac->codeType == PSP_MODE_AT_3_PLUS)  
+			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0; 
+		else
+			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10; 
+		if (Memory::IsValidAddress(outBitrateAddr))
+			Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
 	}
-
-	// I wonder which result should be returned. Such as a 64kbps bitrate audio,
-	// should we return 64 or 64 * 1000 ? Here returns the second one.
-	if (Memory::IsValidAddress(outBitrateAddr))
-		Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
 	return 0;
 }
 
@@ -690,13 +710,14 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 {
 	ERROR_LOG(HLE, "sceAtracGetSecondBufferInfo(%i, %08x, %08x)", atracID, outposAddr, outBytesAddr);
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		//return -1;
+
+	if(!(atrac->isSecondBufferNeeded))
+		return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
+	else {
+		Memory::Write_U32(atrac->second.fileoffset, outposAddr);
+		Memory::Write_U32(atrac->second.writableBytes, outBytesAddr);
 	}
-	Memory::Write_U32(0, outposAddr);
-	Memory::Write_U32(0x10000, outBytesAddr);
-	// TODO: Maybe don't write the above?
-	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
+	return 0;
 }
 
 u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSampleAddr, u32 outLoopEndSampleAddr)
@@ -705,10 +726,11 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+	} else {
+		Memory::Write_U32(atrac->endSample, outEndSampleAddr); // outEndSample
+		Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr); // outLoopStartSample
+		Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr); // outLoopEndSample
 	}
-	Memory::Write_U32(atrac->endSample, outEndSampleAddr); // outEndSample
-	Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr); // outLoopStartSample
-	Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr); // outLoopEndSample
 	return 0;
 }
 
@@ -879,7 +901,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 		return __AtracSetContext(atrac, buffer, bufferSize);
 	} else if (atrac->codeType == PSP_MODE_AT_3_PLUS) 
 		WARN_LOG(HLE, "This is an atrac3+ audio");
-#endif // _USE_FFMPEG
+#endif // USE_FFMPEG
 
 	return 0;
 }
@@ -912,12 +934,18 @@ u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 half
 
 u32 sceAtracSetSecondBuffer(int atracID, u32 secondBuffer, u32 secondBufferSize)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
+	INFO_LOG(HLE, "sceAtracSetSecondBuffer(%i, %08x, %8x)", atracID, secondBuffer, secondBufferSize);
 	Atrac *atrac = getAtrac(atracID);
-	if (!atrac) {
-		//return -1;
+	int ret = 0;
+	if (atrac != NULL) {
+		atrac->first.addr = secondBuffer;
+		atrac->first.size = secondBufferSize;
+		atrac->Analyze();
+		atrac->atracOutputChannels = 2;
+		atrac->isSecondBufferSet = true;
+		ret = _AtracSetData(atracID, secondBuffer, secondBufferSize);
 	}
-	return 0;
+	return ret;
 }
 
 u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
@@ -938,7 +966,6 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 {	
 	INFO_LOG(HLE, "sceAtracSetDataAndGetID(%08x, %08x)", buffer, bufferSize);
-	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
@@ -957,7 +984,6 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	INFO_LOG(HLE, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
 	if (readSize > halfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
-	int codecType = getCodecType(halfBuffer);
 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
@@ -973,7 +999,7 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 
 u32 sceAtracStartEntry()
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracStartEntry(.)");
+	ERROR_LOG(HLE, "UNIMPL sceAtracStartEntry()");
 	return 0;
 }
 
@@ -1055,7 +1081,6 @@ u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize)
 int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
 {	
 	INFO_LOG(HLE, "sceAtracSetMOutDataAndGetID(%08x, %08x)", buffer, bufferSize);
-	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
@@ -1074,7 +1099,6 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 	INFO_LOG(HLE, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
 	if (readSize > halfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
-	int codecType = getCodecType(halfBuffer);
 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
@@ -1091,8 +1115,6 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", buffer, bufferSize, fileSize, metadataSizeAddr);
-	int codecType = getCodecType(buffer);
-
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
@@ -1105,7 +1127,8 @@ int _sceAtracGetContextAddress(int atracID)
 	ERROR_LOG(HLE, "UNIMPL _sceAtracGetContextAddress(%i)", atracID);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		// Sol Trigger requires return -1 otherwise hangup .
+		return -1;
 	}
 	return 0;
 }
