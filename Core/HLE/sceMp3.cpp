@@ -267,9 +267,9 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	ctx->readPosition = ctx->mp3StreamStart;
 	ctx->mp3MaxSamples = ctx->mp3PcmBufSize / 4 ;
 
-	/*ctx->mp3Channels = 2;
+	ctx->mp3Channels = 2;
 	ctx->mp3Bitrate = 128;
-	ctx->mp3SamplingRate = 44100;*/
+	ctx->mp3SamplingRate = 44100;
 
 #ifdef USE_FFMPEG
 	ctx->avformat_context = NULL;
@@ -307,32 +307,6 @@ int sceMp3Init(u32 mp3) {
 		((header<<8) & 0x00FF0000) |
 		((header>>8) & 0x0000FF00) |
 		(header << 24);
-
-	int channels = ((header >> 6) & 0x3);
-	if (channels == 0 || channels == 1 || channels == 2)
-		ctx->mp3Channels = 2;
-	else if (channels == 3)
-		ctx->mp3Channels = 1;
-	else
-		ctx->mp3Channels = 0;
-
-	// 0 == VBR
-	int bitrate = ((header >> 10) & 0x3);
-	if (bitrate < sizeof(MP3_BITRATES) / sizeof(MP3_BITRATES[0]))
-		ctx->mp3Bitrate = MP3_BITRATES[bitrate];
-	else
-		ctx->mp3Bitrate = -1;
-
-	int samplerate = ((header >> 12) & 0x3);
-	if (samplerate == 0) {
-		ctx->mp3SamplingRate = 44100;
-	} else if (samplerate == 1) {
-		ctx->mp3SamplingRate = 48000;
-	} else if (samplerate == 2) {
-		ctx->mp3SamplingRate = 32000;
-	} else {
-		ctx->mp3SamplingRate = 0;
-	}
 
 	ctx->mp3Version = ((header >> 19) & 0x3);
 
@@ -378,6 +352,13 @@ int sceMp3Init(u32 mp3) {
 		ctx->decoder_context->sample_fmt,
 		ctx->decoder_context->sample_rate,
 		0, NULL);
+
+	// Let's just grab this info from FFMPEG, it seems more reliable than the code above.
+
+	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
+	ctx->mp3Channels = ctx->decoder_context->channels;
+	ctx->mp3Bitrate = ctx->decoder_context->bit_rate;
+
 	if (!ctx->resampler_context) {
 		ERROR_LOG(HLE, "Could not allocate resampler context %d", ret);
 		return -1;
@@ -415,24 +396,6 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 	}
 
 	return ctx->mp3MaxSamples;
-}
-
-int sceMp3NotifyAddStreamData(u32 mp3, int size) {
-	DEBUG_LOG(HLE, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
-
-	Mp3Context *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
-	}
-
-	ctx->readPosition += size;
-	ctx->bufferAvailable += size;
-	ctx->bufferWrite += size;
-	if (ctx->bufferWrite == ctx->mp3BufSize)
-		ctx->bufferWrite = 0;
-
-	return 0;
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
@@ -486,6 +449,7 @@ int sceMp3GetSamplingRate(u32 mp3) {
 
 	return ctx->mp3SamplingRate;
 }
+
 int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
 	DEBUG_LOG(HLE, "HACK: sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
 
@@ -513,6 +477,26 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 
 	return 0;
 }
+
+int sceMp3NotifyAddStreamData(u32 mp3, int size) {
+	DEBUG_LOG(HLE, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
+
+	Mp3Context *ctx = getMp3Ctx(mp3);
+	if (!ctx) {
+		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		return -1;
+	}
+
+	ctx->readPosition += size;
+	ctx->bufferAvailable += size;
+	ctx->bufferWrite += size;
+
+	if (ctx->bufferWrite == ctx->mp3BufSize)
+		ctx->bufferWrite = 0;
+
+	return 0;
+}
+
 int sceMp3ReleaseMp3Handle(u32 mp3) {
 	DEBUG_LOG(HLE, "sceMp3ReleaseMp3Handle(%08X)", mp3);
 
