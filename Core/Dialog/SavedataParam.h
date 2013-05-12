@@ -110,7 +110,7 @@ struct SceUtilitySavedataParam
 	char unused[3];
 	/** saveName: name of the particular save, normally a number */
 	char saveName[20];
-	int saveNameList;
+	u32 saveNameList;
 	/** fileName: name of the data file of the game for example DATA.BIN */
 	char fileName[13];
 	char unused2[3];
@@ -128,7 +128,7 @@ struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData pic1FileData;
 	PspUtilitySavedataFileData snd0FileData;
 
-	int newData;
+	u32 newData;
 	int focus;
 	int abortStatus;
 
@@ -194,16 +194,18 @@ public:
 
 	static void Init();
 	std::string GetSaveFilePath(SceUtilitySavedataParam* param, int saveId = -1);
+	std::string GetSaveFilePath(SceUtilitySavedataParam* param, const std::string &saveDir);
 	std::string GetSaveDirName(SceUtilitySavedataParam* param, int saveId = -1);
 	std::string GetSaveDir(SceUtilitySavedataParam* param, int saveId = -1);
+	std::string GetSaveDir(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
-	bool Save(SceUtilitySavedataParam* param, int saveId = -1, bool secureMode = true);
-	bool Load(SceUtilitySavedataParam* param, int saveId = -1, bool secureMode = true);
+	bool Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
+	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	bool GetFilesList(SceUtilitySavedataParam* param);
 	bool GetSize(SceUtilitySavedataParam* param);
-	bool IsSaveEncrypted(SceUtilitySavedataParam* param, int saveId);
+	bool IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);
@@ -227,6 +229,8 @@ private:
 	void Clear();
 	bool CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info);
 	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
+	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName);
+	void ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName);
 
 	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey);
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
@@ -235,8 +239,8 @@ private:
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
-	SaveFileInfo* saveDataList;
-	SaveFileInfo* noSaveIcon;
+	SaveFileInfo *saveDataList;
+	SaveFileInfo *noSaveIcon;
 	int saveDataListCount;
 	int saveNameListDataCount;
 };
