@@ -82,17 +82,20 @@ private :
 	void DisplaySaveDataInfo2();
 	void DisplayConfirmationYesNo(std::string text);
 	void DisplayInfo(std::string text);
+	const std::string GetSelectedSaveDirName();
 
 	enum DisplayState
 	{
 		DS_NONE,
 
 		DS_SAVE_LIST_CHOICE,
+		DS_SAVE_CONFIRM,
 		DS_SAVE_CONFIRM_OVERWRITE,
 		DS_SAVE_SAVING,
 		DS_SAVE_DONE,
 
 		DS_LOAD_LIST_CHOICE,
+		DS_LOAD_CONFIRM,
 		DS_LOAD_LOADING,
 		DS_LOAD_DONE,
 		DS_LOAD_NODATA,
@@ -108,7 +111,7 @@ private :
 
 	SavedataParam param;
 	SceUtilitySavedataParam request;
-	int requestAddr;
+	u32 requestAddr;
 	int currentSelectedSave;
 
 	int yesnoChoice;
