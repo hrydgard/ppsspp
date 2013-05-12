@@ -307,7 +307,7 @@ void MetaFileSystem::ThreadEnded(int threadID)
 	currentDir.erase(threadID);
 }
 
-void MetaFileSystem::ChDir(const std::string &dir)
+int MetaFileSystem::ChDir(const std::string &dir)
 {
 	int curThread = __KernelGetCurThread();
 	
@@ -316,14 +316,24 @@ void MetaFileSystem::ChDir(const std::string &dir)
 	if (MapFilePath(dir, of, &mountPoint))
 	{
 		currentDir[curThread] = mountPoint->prefix + of;
-		//return true;
+		return 0;
 	}
 	else
 	{
-		//TODO: PSP's sceIoChdir seems very forgiving, but does it always accept bad paths and what happens when it does?
-		WARN_LOG(HLE, "ChDir failed to map path \"%s\", saving as current directory anyway", dir.c_str());
-		currentDir[curThread] = dir;
-		//return false;
+		for (size_t i = 0; i < fileSystems.size(); i++)
+		{
+			const std::string &prefix = fileSystems[i].prefix;
+			if (strncasecmp(prefix.c_str(), dir.c_str(), prefix.size()) == 0)
+			{
+				// The PSP is completely happy with invalid current dirs as long as they have a valid device.
+				WARN_LOG(HLE, "ChDir failed to map path \"%s\", saving as current directory anyway", dir.c_str());
+				currentDir[curThread] = dir;
+				return 0;
+			}
+		}
+
+		WARN_LOG(HLE, "ChDir failed to map device for \"%s\", failing", dir.c_str());
+		return SCE_KERNEL_ERROR_NODEV;
 	}
 }
 

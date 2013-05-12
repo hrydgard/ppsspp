@@ -1149,8 +1149,7 @@ u32 sceIoRename(const char *from, const char *to) {
 
 u32 sceIoChdir(const char *dirname) {
 	DEBUG_LOG(HLE, "sceIoChdir(%s)", dirname);
-	pspFileSystem.ChDir(dirname);
-	return 0;
+	return pspFileSystem.ChDir(dirname);
 }
 
 int sceIoChangeAsyncPriority(int id, int priority)
