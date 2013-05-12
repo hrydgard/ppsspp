@@ -73,6 +73,10 @@ static bool IsColorTestTriviallyTrue() {
 }
 
 static bool CanDoubleSrcBlendMode() {
+	if (!gstate.isAlphaBlendEnabled()) {
+		return false;
+	}
+
 	int funcA = gstate.getBlendFuncA();
 	int funcB = gstate.getBlendFuncB();
 	if (funcA != GE_SRCBLEND_DOUBLESRCALPHA) {

@@ -38,7 +38,7 @@ public:
 	void Invalidate(u32 addr, int size, GPUInvalidationType type);
 	void InvalidateAll(GPUInvalidationType type);
 	void ClearNextFrame();
-	void UpdateCurrentClut();
+	void LoadClut();
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
@@ -111,6 +111,7 @@ private:
 	template <typename T>
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
+	void UpdateCurrentClut();
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
@@ -127,8 +128,12 @@ private:
 
 	SimpleBuf<u32> tmpTexBufRearrange;
 
+	bool clutDirty_;
 	u32 *clutBuf_;
 	u32 clutHash_;
+	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
+	bool clutAlphaLinear_;
+	u16 clutAlphaLinearColor_;
 
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
