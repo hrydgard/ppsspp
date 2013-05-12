@@ -128,7 +128,7 @@ struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData pic1FileData;
 	PspUtilitySavedataFileData snd0FileData;
 
-	int newData;
+	u32 newData;
 	int focus;
 	int abortStatus;
 
@@ -227,6 +227,8 @@ private:
 	void Clear();
 	bool CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info);
 	void SetFileInfo(int idx, PSPFileInfo &info, std::string saveName);
+	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName);
+	void ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName);
 
 	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey);
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
@@ -235,8 +237,8 @@ private:
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
-	SaveFileInfo* saveDataList;
-	SaveFileInfo* noSaveIcon;
+	SaveFileInfo *saveDataList;
+	SaveFileInfo *noSaveIcon;
 	int saveDataListCount;
 	int saveNameListDataCount;
 };

@@ -953,7 +953,7 @@ void SavedataParam::Clear()
 		saveDataList = 0;
 		saveDataListCount = 0;
 	}
-	if(noSaveIcon)
+	if (noSaveIcon)
 	{
 		if(noSaveIcon->textureData != 0)
 			kernelMemory.Free(noSaveIcon->textureData);
@@ -1018,25 +1018,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 				{
 					if (listEmptyFile)
 					{
-						saveDataList[realCount].size = 0;
-						saveDataList[realCount].saveName = saveNameListData[i];
-						saveDataList[realCount].idx = i;
-						saveDataList[realCount].textureData = 0;
-
-						if(Memory::IsValidAddress(param->newData))
-						{
-							// We have a png to show
-							if(!noSaveIcon)
-							{
-								noSaveIcon = new SaveFileInfo();
-								PspUtilitySavedataFileData newData;
-								Memory::ReadStruct(param->newData, &newData);
-								CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, *noSaveIcon);
-							}
-							saveDataList[realCount].textureData = noSaveIcon->textureData;
-							saveDataList[realCount].textureWidth = noSaveIcon->textureWidth;
-							saveDataList[realCount].textureHeight = noSaveIcon->textureHeight;
-						}
+						ClearFileInfo(saveDataList[realCount], saveNameListData[i]);
 						DEBUG_LOG(HLE,"Don't Exist");
 						realCount++;
 					}
@@ -1060,7 +1042,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 		if (info.exists)
 		{
-			SetFileInfo(0, info, GetSaveName(pspParam));
+			SetFileInfo(0, info, GetSaveName(param));
 
 			DEBUG_LOG(HLE,"%s Exist",fileDataPath.c_str());
 			saveNameListDataCount = 1;
@@ -1069,25 +1051,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		{
 			if (listEmptyFile)
 			{
-				saveDataList[0].size = 0;
-				saveDataList[0].saveName = GetSaveName(param);
-				saveDataList[0].idx = 0;
-				saveDataList[0].textureData = 0;
-
-				if(Memory::IsValidAddress(param->newData))
-				{
-					// We have a png to show
-					if(!noSaveIcon)
-					{
-						noSaveIcon = new SaveFileInfo();
-						PspUtilitySavedataFileData newData;
-						Memory::ReadStruct(param->newData, &newData);
-						CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, *noSaveIcon);
-					}
-					saveDataList[0].textureData = noSaveIcon->textureData;
-					saveDataList[0].textureWidth = noSaveIcon->textureWidth;
-					saveDataList[0].textureHeight = noSaveIcon->textureHeight;
-				}
+				ClearFileInfo(saveDataList[0], GetSaveName(param));
 				DEBUG_LOG(HLE,"Don't Exist");
 			}
 			saveNameListDataCount = 0;
@@ -1124,18 +1088,18 @@ bool SavedataParam::CreatePNGIcon(u8* pngData, int pngSize, SaveFileInfo& info)
 	return true;
 }
 
-void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName)
+void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName)
 {
-	saveDataList[idx].size = info.size;
-	saveDataList[idx].saveName = saveName;
-	saveDataList[idx].idx = 0;
-	saveDataList[idx].modif_time = info.mtime;
+	saveInfo.size = info.size;
+	saveInfo.saveName = saveName;
+	saveInfo.idx = 0;
+	saveInfo.modif_time = info.mtime;
 
 	// Start with a blank slate.
-	saveDataList[idx].textureData = 0;
-	saveDataList[idx].title[0] = 0;
-	saveDataList[idx].saveTitle[0] = 0;
-	saveDataList[idx].saveDetail[0] = 0;
+	saveInfo.textureData = 0;
+	saveInfo.title[0] = 0;
+	saveInfo.saveTitle[0] = 0;
+	saveInfo.saveDetail[0] = 0;
 
 	// Search save image icon0
 	// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
@@ -1145,7 +1109,7 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 	{
 		u8 *textureDataPNG = new u8[(size_t)info2.size];
 		ReadPSPFile(fileDataPath2, &textureDataPNG, info2.size, NULL);
-		CreatePNGIcon(textureDataPNG, (int)info2.size, saveDataList[idx]);
+		CreatePNGIcon(textureDataPNG, (int)info2.size, saveInfo);
 		delete[] textureDataPNG;
 	}
 
@@ -1159,11 +1123,40 @@ void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName
 		ParamSFOData sfoFile;
 		if (sfoFile.ReadSFO(sfoParam,(size_t)info2.size))
 		{
-			SetStringFromSFO(sfoFile, "TITLE", saveDataList[idx].title, sizeof(saveDataList[idx].title));
-			SetStringFromSFO(sfoFile, "SAVEDATA_TITLE", saveDataList[idx].saveTitle, sizeof(saveDataList[idx].saveTitle));
-			SetStringFromSFO(sfoFile, "SAVEDATA_DETAIL", saveDataList[idx].saveDetail, sizeof(saveDataList[idx].saveDetail));
+			SetStringFromSFO(sfoFile, "TITLE", saveInfo.title, sizeof(saveInfo.title));
+			SetStringFromSFO(sfoFile, "SAVEDATA_TITLE", saveInfo.saveTitle, sizeof(saveInfo.saveTitle));
+			SetStringFromSFO(sfoFile, "SAVEDATA_DETAIL", saveInfo.saveDetail, sizeof(saveInfo.saveDetail));
 		}
 		delete [] sfoParam;
+	}
+}
+
+void SavedataParam::SetFileInfo(int idx, PSPFileInfo &info, std::string saveName)
+{
+	SetFileInfo(saveDataList[idx], info, saveName);
+	saveDataList[idx].idx = idx;
+}
+
+void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
+{
+	saveInfo.size = 0;
+	saveInfo.saveName = saveName;
+	saveInfo.idx = 0;
+	saveInfo.textureData = 0;
+
+	if (Memory::IsValidAddress(GetPspParam()->newData))
+	{
+		// We have a png to show
+		if (!noSaveIcon)
+		{
+			noSaveIcon = new SaveFileInfo();
+			PspUtilitySavedataFileData newData;
+			Memory::ReadStruct(GetPspParam()->newData, &newData);
+			CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, *noSaveIcon);
+		}
+		saveInfo.textureData = noSaveIcon->textureData;
+		saveInfo.textureWidth = noSaveIcon->textureWidth;
+		saveInfo.textureHeight = noSaveIcon->textureHeight;
 	}
 }
 

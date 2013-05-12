@@ -110,7 +110,7 @@ private :
 
 	SavedataParam param;
 	SceUtilitySavedataParam request;
-	int requestAddr;
+	u32 requestAddr;
 	int currentSelectedSave;
 
 	int yesnoChoice;
