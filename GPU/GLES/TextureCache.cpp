@@ -1069,7 +1069,14 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 	switch (format)
 	{
 	case GE_TFMT_CLUT4:
+		{
 		dstFmt = getClutDestFormat((GEPaletteFormat)(clutformat));
+
+		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
+		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
+		if (mipmapShareClut) {
+			WARN_LOG_REPORT_ONCE(mipMapShareClut4, G3D, "Untested: mipmaps using separate cluts.");
+		}
 
 		switch (clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
@@ -1078,8 +1085,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			{
 			tmpTexBuf16.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			const u16 *clut = GetCurrentClut<u16>();
-			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
+			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 			texByteAlign = 2;
 
 			// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
@@ -1088,14 +1094,14 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			if (gstate.clutformat == (0xC500FF00 | GE_CMODE_16BIT_ABGR4444)) {
 				// TODO: Do this check once per CLUT load?
 				linearClut = true;
-				linearColor = clut[clutSharingOffset + 15] & 0xFFF0;
+				linearColor = clut[15] & 0xFFF0;
 				for (int i = 0; i < 16; ++i) {
-					if ((clut[clutSharingOffset + i] & 0xf) != i) {
+					if ((clut[i] & 0xf) != i) {
 						linearClut = false;
 						break;
 					}
 					// Alpha 0 doesn't matter.
-					if (i != 0 && (clut[clutSharingOffset + i] & 0xFFF0) != linearColor) {
+					if (i != 0 && (clut[i] & 0xFFF0) != linearColor) {
 						linearClut = false;
 						break;
 					}
@@ -1106,7 +1112,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 				if (linearClut) {
 					DeIndexTexture4Optimal(tmpTexBuf16.data(), texaddr, bufw * h, linearColor);
 				} else {
-					DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut + clutSharingOffset);
+					DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut);
 				}
 			} else {
 				tmpTexBuf32.resize(std::max(bufw, w) * h);
@@ -1114,7 +1120,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 				if (linearClut) {
 					DeIndexTexture4Optimal(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, linearColor);
 				} else {
-					DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
+					DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut);
 				}
 			}
 			finalBuf = tmpTexBuf16.data();
@@ -1125,16 +1131,15 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			{
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			const u32 *clut = GetCurrentClut<u32>();
-			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
+			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
 			if (!(gstate.texmode & 1)) {
-				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut + clutSharingOffset);
+				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut);
 				finalBuf = tmpTexBuf32.data();
 			} else {
 				UnswizzleFromMem(texaddr, bufw, 0, level);
 				// Let's reuse tmpTexBuf16, just need double the space.
 				tmpTexBuf16.resize(std::max(bufw, w) * h * 2);
-				DeIndexTexture4((u32 *)tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut + clutSharingOffset);
+				DeIndexTexture4((u32 *)tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut);
 				finalBuf = tmpTexBuf16.data();
 			}
 			}
@@ -1143,6 +1148,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 		default:
 			ERROR_LOG(G3D, "Unknown CLUT4 texture mode %d", (gstate.clutformat & 3));
 			return NULL;
+		}
 		}
 		break;
 
