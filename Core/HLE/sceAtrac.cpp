@@ -27,14 +27,20 @@
 #include "sceKernel.h"
 #include "sceUtility.h"
 
+
 #define ATRAC_ERROR_API_FAIL                 0x80630002
-#define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
-#define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
-#define ATRAC_ERROR_INCORRECT_READ_SIZE	     0x80630013
-#define ATRAC_ERROR_UNSET_PARAM              0x80630021
 #define ATRAC_ERROR_NO_ATRACID               0x80630003
-#define ATRAC_ERROR_BAD_CODECTYPE            0x80630004
+#define ATRAC_ERROR_INVALID_CODECTYPE        0x80630004
+#define ATRAC_ERROR_BAD_ATRACID              0x80630005
+#define ATRAC_ERROR_ALL_DATA_LOADED          0x80630009
+#define ATRAC_ERROR_NO_DATA		             0x80630010
+#define ATRAC_ERROR_SECOND_BUFFER_NEEDED	 0x80630012
+#define ATRAC_ERROR_INCORRECT_READ_SIZE	     0x80630013
 #define ATRAC_ERROR_ADD_DATA_IS_TOO_BIG      0x80630018
+#define ATRAC_ERROR_UNSET_PARAM              0x80630021
+#define ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED 0x80630022
+#define ATRAC_ERROR_BUFFER_IS_EMPTY			 0x80630023
+#define ATRAC_ERROR_ALL_DATA_DECODED         0x80630024
 
 #define AT3_MAGIC			0x0270
 #define AT3_PLUS_MAGIC		0xFFFE
@@ -157,10 +163,14 @@ struct Atrac {
 		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
 		// Still need to find out how getRemainFrames() should work.
 
+		if (currentSample >= endSample)
+			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+
+		if ((first.fileoffset >= first.filesize) && (currentSample > loopEndSample))
+			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+
 		int remainFrame;
-		if (first.fileoffset >= first.filesize || currentSample >= endSample)
-			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else if (decodePos > first.size) {
+		if (decodePos > first.size) {
 			// There are not enough atrac data right now to play at a certain position.
 			// Must load more atrac data first
 			remainFrame = 0;
@@ -304,13 +314,12 @@ void Atrac::Analyze()
 	loopEndSample = -1;
 	decodePos = 0;
 
-	if (first.size < 0x100)
-	{
+	if (first.size < 0x100)	{
 		ERROR_LOG(HLE, "Atrac buffer very small: %d", first.size);
 		return;
 	}
-	if (!Memory::IsValidAddress(first.addr))
-	{
+
+	if (!Memory::IsValidAddress(first.addr)) {
 		WARN_LOG(HLE, "Atrac buffer at invalid address: %08x-%08x", first.addr, first.size);
 		return;
 	}
@@ -408,7 +417,7 @@ u32 sceAtracGetAtracID(int codecType)
 {
 	INFO_LOG(HLE, "sceAtracGetAtracID(%i)", codecType);
 	if (codecType < 0x1000 || codecType > 0x1001)
-		return ATRAC_ERROR_BAD_CODECTYPE;
+		return ATRAC_ERROR_INVALID_CODECTYPE;
 
 	int atracID = createAtrac(new Atrac);
 	Atrac *atrac = getAtrac(atracID);
@@ -423,22 +432,22 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 	INFO_LOG(HLE, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
 		return 0;
-	}
-	// TODO
-	if (bytesToAdd > atrac->first.writableBytes)
-		return ATRAC_ERROR_ADD_DATA_IS_TOO_BIG;
+	} else {
+		// TODO
+		if (bytesToAdd > atrac->first.writableBytes)
+			return ATRAC_ERROR_ADD_DATA_IS_TOO_BIG;
 
-	if (atrac->data_buf && (bytesToAdd > 0)) {
-		int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
-		Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, addbytes);
+		if (atrac->data_buf && (bytesToAdd > 0)) {
+			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
+			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, addbytes);
+		}
+		atrac->first.size += bytesToAdd;
+		if (atrac->first.size > atrac->first.filesize)
+			atrac->first.size = atrac->first.filesize;
+		atrac->first.fileoffset = atrac->first.size;
+		atrac->first.writableBytes = 0;
 	}
-	atrac->first.size += bytesToAdd;
-	if (atrac->first.size > atrac->first.filesize)
-		atrac->first.size = atrac->first.filesize;
-	atrac->first.fileoffset = atrac->first.size;
-	atrac->first.writableBytes = 0;
 	return 0;
 }
 
@@ -454,7 +463,6 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			Memory::Write_U32(0, numSamplesAddr);
 			Memory::Write_U32(1, finishFlagAddr);
 			Memory::Write_U32(0, remainAddr);
-
 			ret = ATRAC_ERROR_ALL_DATA_DECODED;
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
@@ -543,7 +551,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 
 u32 sceAtracEndEntry()
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracEndEntry(.)");
+	ERROR_LOG(HLE, "UNIMPL sceAtracEndEntry()");
 	return 0;
 }
 
@@ -575,12 +583,15 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return -1;
+	} else {
+		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
+		if (atrac->codeType == PSP_MODE_AT_3_PLUS)  
+			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0; 
+		else
+			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10; 
+		if (Memory::IsValidAddress(outBitrateAddr))
+			Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
 	}
-
-	// I wonder which result should be returned. Such as a 64kbps bitrate audio,
-	// should we return 64 or 64 * 1000 ? Here returns the second one.
-	if (Memory::IsValidAddress(outBitrateAddr))
-		Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
 	return 0;
 }
 
@@ -590,9 +601,10 @@ u32 sceAtracGetChannel(int atracID, u32 channelAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return -1;
+	} else {
+		if (Memory::IsValidAddress(channelAddr))
+			Memory::Write_U32(atrac->atracChannels, channelAddr);
 	}
-	if (Memory::IsValidAddress(channelAddr))
-		Memory::Write_U32(atrac->atracChannels, channelAddr);
 	return 0;
 }
 
@@ -622,9 +634,10 @@ u32 sceAtracGetInternalErrorInfo(int atracID, u32 errorAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+	} else {
+		if (Memory::IsValidAddress(errorAddr))
+			Memory::Write_U32(0, errorAddr);
 	}
-	if (Memory::IsValidAddress(errorAddr))
-		Memory::Write_U32(0, errorAddr);
 	return 0;
 }
 
@@ -634,9 +647,10 @@ u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+	} else {
+		if (Memory::IsValidAddress(maxSamplesAddr))
+			Memory::Write_U32(ATRAC_MAX_SAMPLES, maxSamplesAddr);
 	}
-	if (Memory::IsValidAddress(maxSamplesAddr))
-		Memory::Write_U32(ATRAC_MAX_SAMPLES, maxSamplesAddr);
 	return 0;
 }
 
@@ -646,10 +660,12 @@ u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return -1;
+	} else {
+		if (atrac->currentSample >= atrac->endSample)
+			return ATRAC_ERROR_ALL_DATA_DECODED;
+		if (Memory::IsValidAddress(outposAddr))
+			Memory::Write_U32(atrac->currentSample, outposAddr); 
 	}
-	if (atrac->currentSample >= atrac->endSample)
-		return ATRAC_ERROR_ALL_DATA_DECODED;
-	Memory::Write_U32(atrac->currentSample, outposAddr); // outpos
 	return 0;
 }
 
@@ -662,12 +678,14 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 		Memory::Write_U32(1, outNAddr);
 	} else {
 		if (atrac->currentSample >= atrac->endSample) {
-			Memory::Write_U32(0, outNAddr);
+			if (Memory::IsValidAddress(outNAddr))
+				Memory::Write_U32(0, outNAddr);
 		} else {
 			u32 numSamples = atrac->endSample - atrac->currentSample;
 			if (numSamples > ATRAC_MAX_SAMPLES)
 				numSamples = ATRAC_MAX_SAMPLES;
-			Memory::Write_U32(numSamples, outNAddr);
+			if (Memory::IsValidAddress(outNAddr))
+				Memory::Write_U32(numSamples, outNAddr);
 		}
 	}
 	return 0;
@@ -678,10 +696,11 @@ u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
 	DEBUG_LOG(HLE, "sceAtracGetRemainFrame(%i, %08x)", atracID, remainAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
-		Memory::Write_U32(12, remainAddr); // outpos
+		if (Memory::IsValidAddress(remainAddr))
+			Memory::Write_U32(12, remainAddr); 
 	} else {
-		Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
+		if (Memory::IsValidAddress(remainAddr))
+			Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
 	}
 	return 0;
 }
@@ -693,8 +712,10 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	Memory::Write_U32(0, outposAddr);
-	Memory::Write_U32(0x10000, outBytesAddr);
+	if (Memory::IsValidAddress(outposAddr))
+		Memory::Write_U32(0, outposAddr);
+	if (Memory::IsValidAddress(outBytesAddr))
+		Memory::Write_U32(0x10000, outBytesAddr);
 	// TODO: Maybe don't write the above?
 	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
 }
@@ -705,10 +726,14 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		//return -1;
+	} else {
+		if (Memory::IsValidAddress(outEndSampleAddr))
+			Memory::Write_U32(atrac->endSample, outEndSampleAddr); // outEndSample
+		if (Memory::IsValidAddress(outLoopStartSampleAddr))
+			Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr); // outLoopStartSample
+		if (Memory::IsValidAddress(outLoopEndSampleAddr))
+			Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr); // outLoopEndSample
 	}
-	Memory::Write_U32(atrac->endSample, outEndSampleAddr); // outEndSample
-	Memory::Write_U32(atrac->loopStartSample, outLoopStartSampleAddr); // outLoopStartSample
-	Memory::Write_U32(atrac->loopEndSample, outLoopEndSampleAddr); // outLoopEndSample
 	return 0;
 }
 
@@ -720,8 +745,11 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 		//return -1;
 	} else {
 		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+		if (Memory::IsValidAddress(writeAddr))
 		Memory::Write_U32(atrac->first.addr, writeAddr);
+		if (Memory::IsValidAddress(writableBytesAddr))
 		Memory::Write_U32(atrac->first.writableBytes, writableBytesAddr);
+		if (Memory::IsValidAddress(readOffsetAddr))
 		Memory::Write_U32(atrac->first.fileoffset, readOffsetAddr);
 	}
 	return 0;
@@ -879,7 +907,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 		return __AtracSetContext(atrac, buffer, bufferSize);
 	} else if (atrac->codeType == PSP_MODE_AT_3_PLUS) 
 		WARN_LOG(HLE, "This is an atrac3+ audio");
-#endif // _USE_FFMPEG
+#endif // USE_FFMPEG
 
 	return 0;
 }
@@ -1105,7 +1133,8 @@ int _sceAtracGetContextAddress(int atracID)
 	ERROR_LOG(HLE, "UNIMPL _sceAtracGetContextAddress(%i)", atracID);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		//return -1;
+		// Sol Trigger requires return -1 otherwise hangup .
+		return -1;
 	}
 	return 0;
 }
