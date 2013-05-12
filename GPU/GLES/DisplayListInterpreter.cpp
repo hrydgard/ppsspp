@@ -582,8 +582,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_LOADCLUT:
-		gstate_c.clutChanged = true;
 		gstate_c.textureChanged = true;
+		textureCache_.UpdateCurrentClut();
 		// This could be used to "dirty" textures with clut.
 		break;
 

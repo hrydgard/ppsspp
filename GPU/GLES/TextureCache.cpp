@@ -817,11 +817,6 @@ void TextureCache::SetTexture() {
 
 	u32 clutformat, cluthash;
 	if (hasClut) {
-		if (gstate_c.clutChanged) {
-			UpdateCurrentClut();
-			gstate_c.clutChanged = false;
-		}
-
 		clutformat = gstate.clutformat & 3;
 		cluthash = GetCurrentClutHash();
 		cachekey |= (u64)cluthash << 32;
