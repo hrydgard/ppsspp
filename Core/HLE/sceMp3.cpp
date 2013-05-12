@@ -64,12 +64,13 @@ struct Mp3Context {
 	int mp3Bitrate;
 	int mp3SamplingRate;
 	int mp3Version;
-
+#ifdef USE_FFMPEG
 	AVFormatContext *avformat_context;
 	AVIOContext	  *avio_context;
 	AVCodecContext  *decoder_context;
 	SwrContext      *resampler_context;
 	int audio_stream_index;
+#endif
 };
 
 static std::map<u32, Mp3Context *> mp3Map;
@@ -269,8 +270,10 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	ctx->mp3Bitrate = 128;
 	ctx->mp3SamplingRate = 44100;*/
 
+#ifdef USE_FFMPEG
 	ctx->avformat_context = NULL;
 	ctx->avio_context = NULL;
+#endif
 
 	mp3Map[mp3Addr] = ctx;
 	return mp3Addr;
@@ -332,6 +335,7 @@ int sceMp3Init(u32 mp3) {
 
 	ctx->mp3Version = ((header >> 19) & 0x3);
 
+#ifdef USE_FFMPEG
 	u8* avio_buffer = static_cast<u8*>(av_malloc(ctx->mp3BufSize));
 	ctx->avio_context = avio_alloc_context(avio_buffer, ctx->mp3BufSize, 0, ctx, readFunc, NULL, NULL);
 	ctx->avformat_context = avformat_alloc_context();
@@ -384,6 +388,8 @@ int sceMp3Init(u32 mp3) {
 	}
 
 	av_dump_format(ctx->avformat_context, 0, "mp3", 0);
+#endif
+
 	return 0;
 }
 
@@ -515,8 +521,10 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 		return -1;
 	}
 
+#ifdef USE_FFMPEG
 	av_free(ctx->avio_context->buffer);
 	av_free(ctx->avio_context);
+#endif
 	mp3Map.erase(mp3Map.find(mp3));
 
 	delete ctx;
