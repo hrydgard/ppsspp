@@ -57,7 +57,7 @@ static inline u32 GetLevelBufw(int level, u32 texaddr) {
 	return gstate.texbufwidth[level] & 0x7FF;
 }
 
-TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false) {
+TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutDirty_(false) {
 	lastBoundTexture = -1;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
@@ -184,7 +184,7 @@ void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *f
 	}
 }
 
-static u32 GetClutAddr(u32 clutEntrySize) {
+static u32 GetClutAddr() {
 	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
 }
 
@@ -773,38 +773,43 @@ inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat
 	return clutformat == clutformat2;
 }
 
-void TextureCache::UpdateCurrentClut() {
-	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
-	const u32 clutColorBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
-	u32 clutAddr = GetClutAddr(clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+void TextureCache::LoadClut() {
+	u32 clutAddr = GetClutAddr();
 	u32 clutTotalBytes = (gstate.loadclut & 0x3f) * 32;
 	if (Memory::IsValidAddress(clutAddr)) {
 		Memory::Memcpy((u8 *)clutBuf_, clutAddr, clutTotalBytes);
-		convertColors((u8 *)clutBuf_, getClutDestFormat(clutFormat), clutTotalBytes / clutColorBytes);
 		clutHash_ = CityHash32((const char *)clutBuf_, clutTotalBytes);
-
-		// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
-		clutAlphaLinear_ = false;
-		clutAlphaLinearColor_ = 0;
-		if (gstate.clutformat == (0xC500FF00 | GE_CMODE_16BIT_ABGR4444)) {
-			const u16 *clut = GetCurrentClut<u16>();
-			clutAlphaLinear_ = true;
-			clutAlphaLinearColor_ = clut[15] & 0xFFF0;
-			for (int i = 0; i < 16; ++i) {
-				if ((clut[i] & 0xf) != i) {
-					clutAlphaLinear_ = false;
-					break;
-				}
-				// Alpha 0 doesn't matter.
-				if (i != 0 && (clut[i] & 0xFFF0) != clutAlphaLinearColor_) {
-					clutAlphaLinear_ = false;
-					break;
-				}
-			}
-		}
 	} else {
 		memset(clutBuf_, 0xFF, clutTotalBytes);
 		clutHash_ = 0;
+	}
+	clutDirty_ = true;
+}
+
+void TextureCache::UpdateCurrentClut() {
+	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
+	const u32 clutColorBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	u32 clutTotalBytes = (gstate.loadclut & 0x3f) * 32;
+	convertColors((u8 *)clutBuf_, getClutDestFormat(clutFormat), clutTotalBytes / clutColorBytes);
+
+	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
+	clutAlphaLinear_ = false;
+	clutAlphaLinearColor_ = 0;
+	if (gstate.clutformat == (0xC500FF00 | GE_CMODE_16BIT_ABGR4444)) {
+		const u16 *clut = GetCurrentClut<u16>();
+		clutAlphaLinear_ = true;
+		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
+		for (int i = 0; i < 16; ++i) {
+			if ((clut[i] & 0xf) != i) {
+				clutAlphaLinear_ = false;
+				break;
+			}
+			// Alpha 0 doesn't matter.
+			if (i != 0 && (clut[i] & 0xFFF0) != clutAlphaLinearColor_) {
+				clutAlphaLinear_ = false;
+				break;
+			}
+		}
 	}
 }
 
@@ -837,6 +842,11 @@ void TextureCache::SetTexture() {
 
 	u32 clutformat, cluthash;
 	if (hasClut) {
+		if (clutDirty_) {
+			// We update here because the clut format can be specified after the load.
+			UpdateCurrentClut();
+			clutDirty_ = false;
+		}
 		clutformat = gstate.clutformat & 3;
 		cluthash = GetCurrentClutHash();
 		cachekey |= (u64)cluthash << 32;
