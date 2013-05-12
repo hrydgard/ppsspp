@@ -59,6 +59,14 @@ const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 const u32 ATRAC_MAX_SAMPLES = 1024;
 
 #ifdef USE_FFMPEG
+
+// Urgh! Why is this needed?
+#ifdef ANDROID
+#ifndef UINT64_C
+#define UINT64_C(c) (c ## ULL)
+#endif
+#endif
+
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
