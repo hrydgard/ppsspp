@@ -222,7 +222,7 @@ void GLES_GPU::BuildReportingInfo() {
 	const char *glSlVersion = GetGLStringAlways(GL_SHADING_LANGUAGE_VERSION);
 	const char *glExtensions = GetGLStringAlways(GL_EXTENSIONS);
 
-	char temp[2048];
+	char temp[16384];
 	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
 	reportingPrimaryInfo_ = glVendor;
 	reportingFullInfo_ = temp;
@@ -576,9 +576,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_CLUTADDR:
 	case GE_CMD_CLUTADDRUPPER:
-	case GE_CMD_LOADCLUT:
 	case GE_CMD_CLUTFORMAT:
 		gstate_c.textureChanged = true;
+		// This could be used to "dirty" textures with clut.
+		break;
+
+	case GE_CMD_LOADCLUT:
+		gstate_c.textureChanged = true;
+		textureCache_.UpdateCurrentClut();
 		// This could be used to "dirty" textures with clut.
 		break;
 

@@ -63,14 +63,12 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
 	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
-	clutBuf32 = new u32[4096];  // 16KB
-	clutBuf16 = new u16[4096];  // 8KB
+	clutBuf_ = new u32[4096];  // 16KB
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 }
 
 TextureCache::~TextureCache() {
-	delete [] clutBuf32;
-	delete [] clutBuf16;
+	delete [] clutBuf_;
 }
 
 void TextureCache::Clear(bool delete_them) {
@@ -122,11 +120,9 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
-		// Clear if either the addr or clutaddr is in the range.
+
 		bool invalidate = (texAddr >= addr && texAddr < addr_end) || (texEnd >= addr && texEnd < addr_end);
 		invalidate = invalidate || (addr >= texAddr && addr < texEnd) || (addr_end >= texAddr && addr_end < texEnd);
-
-		invalidate = invalidate || (iter->second.clutaddr >= addr && iter->second.clutaddr < addr_end);
 
 		if (invalidate) {
 			if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
@@ -188,26 +184,12 @@ void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *f
 	}
 }
 
-static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels);
-
 static u32 GetClutAddr(u32 clutEntrySize) {
-	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000)) + ((gstate.clutformat >> 16) & 0x1f) * clutEntrySize;
+	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
 }
 
 static u32 GetClutIndex(u32 index) {
 	return ((((gstate.clutformat >> 16) & 0x1f) + index) >> ((gstate.clutformat >> 2) & 0x1f)) & ((gstate.clutformat >> 8) & 0xff);
-}
-
-template <typename T>
-static void ReadClut(T *clutBuf, GLuint dstFmt) {
-	u32 clutNumBytes = (gstate.loadclut & 0x3f) * 32;
-	u32 clutAddr = GetClutAddr(sizeof(T));
-	if (Memory::IsValidAddress(clutAddr)) {
-		// Technically we could read the whole thing, but we only need from the offset.
-		u32 clutOffsetBytes = ((gstate.clutformat >> 16) & 0x1f) * sizeof(T);
-		Memory::Memcpy((u8 *)clutBuf + clutOffsetBytes, clutAddr + clutOffsetBytes, clutNumBytes - clutOffsetBytes);
-		convertColors((u8*)clutBuf + clutOffsetBytes, dstFmt, clutNumBytes / sizeof(T));
-	}
 }
 
 void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
@@ -372,19 +354,19 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 		{
 		tmpTexBuf16.resize(std::max(bufw, w) * h);
 		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-		ReadClut(clutBuf16, dstFmt);
+		const u16 *clut = GetCurrentClut<u16>();
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTexture<u8>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
+				DeIndexTexture<u8>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 
 			case 2:
-				DeIndexTexture<u16>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
+				DeIndexTexture<u16>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32>(tmpTexBuf16.data(), texaddr, length, clutBuf16);
+				DeIndexTexture<u32>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 			}
 		} else {
@@ -392,15 +374,15 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 			UnswizzleFromMem(texaddr, bufw, bytesPerIndex, level);
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTexture(tmpTexBuf16.data(), (u8 *) tmpTexBuf32.data(), length, clutBuf16);
+				DeIndexTexture(tmpTexBuf16.data(), (u8 *) tmpTexBuf32.data(), length, clut);
 				break;
 
 			case 2:
-				DeIndexTexture(tmpTexBuf16.data(), (u16 *) tmpTexBuf32.data(), length, clutBuf16);
+				DeIndexTexture(tmpTexBuf16.data(), (u16 *) tmpTexBuf32.data(), length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture(tmpTexBuf16.data(), (u32 *) tmpTexBuf32.data(), length, clutBuf16);
+				DeIndexTexture(tmpTexBuf16.data(), (u32 *) tmpTexBuf32.data(), length, clut);
 				break;
 			}
 		}
@@ -412,19 +394,19 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 		{
 		tmpTexBuf32.resize(std::max(bufw, w) * h);
 		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-		ReadClut(clutBuf32, dstFmt);
+		const u32 *clut = GetCurrentClut<u32>();
 		if (!(gstate.texmode & 1)) {
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTexture<u8>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
+				DeIndexTexture<u8>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 
 			case 2:
-				DeIndexTexture<u16>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
+				DeIndexTexture<u16>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32>(tmpTexBuf32.data(), texaddr, length, clutBuf32);
+				DeIndexTexture<u32>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 			}
 			buf = tmpTexBuf32.data();
@@ -435,18 +417,18 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 			u32 *dest32 = (u32 *) tmpTexBuf16.data();
 			switch (bytesPerIndex) {
 			case 1:
-				DeIndexTexture(dest32, (u8 *) tmpTexBuf32.data(), length, clutBuf32);
+				DeIndexTexture(dest32, (u8 *) tmpTexBuf32.data(), length, clut);
 				buf = dest32;
 				break;
 
 			case 2:
-				DeIndexTexture(dest32, (u16 *) tmpTexBuf32.data(), length, clutBuf32);
+				DeIndexTexture(dest32, (u16 *) tmpTexBuf32.data(), length, clut);
 				buf = dest32;
 				break;
 
 			case 4:
-				// TODO: If a game actually uses this crazy mode, check if using dest32 or tmpTexBuf32 is faster.
-				DeIndexTexture(tmpTexBuf32.data(), tmpTexBuf32.data(), length, clutBuf32);
+				// TODO: If a game actually uses this mode, check if using dest32 or tmpTexBuf32 is faster.
+				DeIndexTexture(tmpTexBuf32.data(), tmpTexBuf32.data(), length, clut);
 				buf = tmpTexBuf32.data();
 				break;
 			}
@@ -756,11 +738,12 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 
 #ifdef _M_SSE
 	// Make sure both the size and start are aligned, OR will get either.
-	if ((((u32)(intptr_t)checkp | sizeInRAM) & 0xf) == 0) {
+	if ((((u32)(intptr_t)checkp | sizeInRAM) & 0x1f) == 0) {
 		__m128i cursor = _mm_set1_epi32(0);
 		const __m128i *p = (const __m128i *)checkp;
-		for (u32 i = 0; i < sizeInRAM / 16; ++i) {
+		for (u32 i = 0; i < sizeInRAM / 16; i += 2) {
 			cursor = _mm_add_epi32(cursor, _mm_load_si128(&p[i]));
+			cursor = _mm_xor_si128(cursor, _mm_load_si128(&p[i + 1]));
 		}
 		// Add the four parts into the low i32.
 		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
@@ -771,29 +754,47 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	// TODO: ARM NEON implementation (using CPUDetect to be sure it has NEON.)
 	{
 #endif
-		for (u32 i = 0; i < sizeInRAM / 4; ++i)
+		for (u32 i = 0; i < sizeInRAM / 8; ++i) {
 			check += *checkp++;
+			check ^= *checkp++;
+		}
 	}
 
 	return check;
-}
-
-static inline u32 QuickClutHash(u32 addr) {
-	const int clutTotalBytes = (gstate.loadclut & 0x3f) * 32;
-	if (Memory::IsValidAddress(addr)) {
-		return CityHash32(Memory::GetCharPointer(addr), clutTotalBytes);
-	}
-	return 0;
 }
 
 inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2) {
 	return dim == dim2 && hash == hash2 && format == format2 && maxLevel == maxLevel2;
 }
 
-inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat2, u32 clutaddr2) {
+inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat2) {
 	if (!hasClut)
 		return true;
 	return clutformat == clutformat2;
+}
+
+void TextureCache::UpdateCurrentClut() {
+	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
+	const u32 clutColorBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	u32 clutAddr = GetClutAddr(clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
+	u32 clutTotalBytes = (gstate.loadclut & 0x3f) * 32;
+	if (Memory::IsValidAddress(clutAddr)) {
+		Memory::Memcpy((u8 *)clutBuf_, clutAddr, clutTotalBytes);
+		convertColors((u8 *)clutBuf_, getClutDestFormat(clutFormat), clutTotalBytes / clutColorBytes);
+		clutHash_ = CityHash32((const char *)clutBuf_, clutTotalBytes);
+	} else {
+		memset(clutBuf_, 0xFF, clutTotalBytes);
+		clutHash_ = 0;
+	}
+}
+
+template <typename T>
+inline const T *TextureCache::GetCurrentClut() {
+	return (const T *)clutBuf_;
+}
+
+inline u32 TextureCache::GetCurrentClutHash() {
+	return clutHash_;
 }
 
 void TextureCache::SetTexture() {
@@ -814,21 +815,20 @@ void TextureCache::SetTexture() {
 
 	u64 cachekey = texaddr;
 
-	u32 clutformat, clutaddr, cluthash;
+	u32 clutformat, cluthash;
 	if (hasClut) {
 		clutformat = gstate.clutformat & 3;
-		clutaddr = GetClutAddr(clutformat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2);
-		cluthash = QuickClutHash(clutaddr);
+		cluthash = GetCurrentClutHash();
 		cachekey |= (u64)cluthash << 32;
 	} else {
 		clutformat = 0;
-		clutaddr = 0;
 		cluthash = 0;
 	}
 
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
+	u32 fullhash = 0;
 
 	TexCache::iterator iter = cache.find(cachekey);
 	TexCacheEntry *entry = NULL;
@@ -868,7 +868,7 @@ void TextureCache::SetTexture() {
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
-		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat, clutaddr);
+		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat);
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
 
@@ -894,19 +894,19 @@ void TextureCache::SetTexture() {
 				int w = 1 << (gstate.texsize[0] & 0xf);
 				int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 				int bufw = GetLevelBufw(0, texaddr);
-				u32 check = QuickTexHash(texaddr, bufw, w, h, format);
-				if (check != entry->fullhash) {
+				fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+				if (fullhash != entry->fullhash) {
 					entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
 					entry->numFrames = 0;
 
 					// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
 					// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
 					if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
-						u64 secondKey = check | (u64)cluthash << 32;
+						u64 secondKey = fullhash | (u64)cluthash << 32;
 						TexCache::iterator secondIter = secondCache.find(secondKey);
 						if (secondIter != secondCache.end()) {
 							TexCacheEntry *secondEntry = &secondIter->second;
-							if (secondEntry->Matches(dim, texhash, format, maxLevel) && secondEntry->MatchesClut(hasClut, clutformat, clutaddr)) {
+							if (secondEntry->Matches(dim, texhash, format, maxLevel) && secondEntry->MatchesClut(hasClut, clutformat)) {
 								// Reset the numInvalidated value lower, we got a match.
 								if (entry->numInvalidated > 8) {
 									--entry->numInvalidated;
@@ -986,7 +986,6 @@ void TextureCache::SetTexture() {
 
 
 	entry->clutformat = clutformat;
-	entry->clutaddr = clutaddr;
 	entry->cluthash = cluthash;
 
 	
@@ -996,7 +995,7 @@ void TextureCache::SetTexture() {
 	// to avoid excessive clearing caused by cache invalidations.
 	entry->sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
-	entry->fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
@@ -1079,8 +1078,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			{
 			tmpTexBuf16.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			ReadClut(clutBuf16, dstFmt);
-			const u16 *clut = clutBuf16;
+			const u16 *clut = GetCurrentClut<u16>();
 			u32 clutSharingOffset = 0; //(gstate.mipmapShareClut & 1) ? 0 : level * 16;
 			texByteAlign = 2;
 
@@ -1127,8 +1125,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			{
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
-			ReadClut(clutBuf32, dstFmt);
-			const u32 *clut = clutBuf32;
+			const u32 *clut = GetCurrentClut<u32>();
 			u32 clutSharingOffset = 0;//gstate.mipmapShareClut ? 0 : level * 16;
 			if (!(gstate.texmode & 1)) {
 				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut + clutSharingOffset);
