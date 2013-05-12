@@ -473,8 +473,8 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_TRANSFERSRCPOS:
 		{
-			u32 x = (data & 1023)+1;
-			u32 y = ((data>>10) & 1023)+1;
+			u32 x = (data & 1023);
+			u32 y = ((data>>10) & 1023);
 			if (data & 0xF00000)
 				sprintf(buffer, "Block transfer src rect TL: %i, %i (extra %x)", x, y, data >> 20);
 			else
@@ -484,8 +484,8 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_TRANSFERDSTPOS:
 		{
-			u32 x = (data & 1023)+1;
-			u32 y = ((data>>10) & 1023)+1;
+			u32 x = (data & 1023);
+			u32 y = ((data>>10) & 1023);
 			if (data & 0xF00000)
 				sprintf(buffer, "Block transfer dest rect TL: %i, %i (extra %x)", x, y, data >> 20);
 			else
@@ -849,7 +849,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_TEXMODE:
-		sprintf(buffer, "TexMode %06x (%s)", data, data & 1 ? "swizzle" : "no swizzle");
+		sprintf(buffer, "TexMode %06x (%s, %d levels, %s)", data, data & 1 ? "swizzle" : "no swizzle", (data >> 16) & 7, (data >> 8) & 1 ? "separate cluts" : "shared clut");
 		break;
 
 	case GE_CMD_TEXFORMAT:
@@ -929,7 +929,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		break;
 
 	case GE_CMD_STENCILOP:
-		sprintf(buffer, "Stencil op: %06x", data);
+		{
+			const char *stencilOps[] = { "KEEP", "ZERO", "REPLACE", "INVERT", "INCREMENT", "DECREMENT", "unsupported1", "unsupported2" };
+			sprintf(buffer, "Stencil op: fail=%s, pass/depthfail=%s, pass=%s", stencilOps[data & 7], stencilOps[(data >> 8) & 7], stencilOps[(data >> 16) & 7]);
+		}
 		break;
 
 	case GE_CMD_STENCILTEST:

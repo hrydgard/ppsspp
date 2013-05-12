@@ -938,6 +938,33 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
+#ifndef USING_GLES2
+	case GE_CMD_LOGICOPENABLE:
+		if (data != 0)
+			ERROR_LOG_REPORT(G3D, "Unsupported logic op enabled: %x", data);
+		break;
+
+	case GE_CMD_LOGICOP:
+		if (data != 0)
+			ERROR_LOG_REPORT(G3D, "Unsupported logic op: %06x", data);
+		break;
+
+	case GE_CMD_ANTIALIASENABLE:
+		if (data != 0)
+			WARN_LOG_REPORT(G3D, "Unsupported antialias enabled: %06x", data);
+		break;
+
+	case GE_CMD_TEXLODSLOPE:
+		if (data != 0)
+			WARN_LOG_REPORT(G3D, "Unsupported texture lod slope: %06x", data);
+		break;
+
+	case GE_CMD_TEXLEVEL:
+		if (data != 0)
+			WARN_LOG_REPORT(G3D, "Unsupported texture level bias settings: %06x", data);
+		break;
+#endif
+
 	default:
 		GPUCommon::ExecuteOp(op, diff);
 		break;
