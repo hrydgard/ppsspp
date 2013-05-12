@@ -129,6 +129,9 @@ private:
 
 	u32 *clutBuf_;
 	u32 clutHash_;
+	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
+	bool clutAlphaLinear_;
+	u16 clutAlphaLinearColor_;
 
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;

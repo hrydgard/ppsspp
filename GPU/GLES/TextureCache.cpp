@@ -782,6 +782,26 @@ void TextureCache::UpdateCurrentClut() {
 		Memory::Memcpy((u8 *)clutBuf_, clutAddr, clutTotalBytes);
 		convertColors((u8 *)clutBuf_, getClutDestFormat(clutFormat), clutTotalBytes / clutColorBytes);
 		clutHash_ = CityHash32((const char *)clutBuf_, clutTotalBytes);
+
+		// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
+		clutAlphaLinear_ = false;
+		clutAlphaLinearColor_ = 0;
+		if (gstate.clutformat == (0xC500FF00 | GE_CMODE_16BIT_ABGR4444)) {
+			const u16 *clut = GetCurrentClut<u16>();
+			clutAlphaLinear_ = true;
+			clutAlphaLinearColor_ = clut[15] & 0xFFF0;
+			for (int i = 0; i < 16; ++i) {
+				if ((clut[i] & 0xf) != i) {
+					clutAlphaLinear_ = false;
+					break;
+				}
+				// Alpha 0 doesn't matter.
+				if (i != 0 && (clut[i] & 0xFFF0) != clutAlphaLinearColor_) {
+					clutAlphaLinear_ = false;
+					break;
+				}
+			}
+		}
 	} else {
 		memset(clutBuf_, 0xFF, clutTotalBytes);
 		clutHash_ = 0;
@@ -1074,9 +1094,6 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 
 		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
-		if (mipmapShareClut) {
-			WARN_LOG_REPORT_ONCE(mipMapShareClut4, G3D, "Untested: mipmaps using separate cluts.");
-		}
 
 		switch (clutformat) {
 		case GE_CMODE_16BIT_BGR5650:
@@ -1087,38 +1104,17 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 			texByteAlign = 2;
-
-			// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
-			bool linearClut = false;
-			u16 linearColor = 0;
-			if (gstate.clutformat == (0xC500FF00 | GE_CMODE_16BIT_ABGR4444)) {
-				// TODO: Do this check once per CLUT load?
-				linearClut = true;
-				linearColor = clut[15] & 0xFFF0;
-				for (int i = 0; i < 16; ++i) {
-					if ((clut[i] & 0xf) != i) {
-						linearClut = false;
-						break;
-					}
-					// Alpha 0 doesn't matter.
-					if (i != 0 && (clut[i] & 0xFFF0) != linearColor) {
-						linearClut = false;
-						break;
-					}
-				}
-			}
-
 			if (!(gstate.texmode & 1)) {
-				if (linearClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), texaddr, bufw * h, linearColor);
+				if (clutAlphaLinear_ && mipmapShareClut) {
+					DeIndexTexture4Optimal(tmpTexBuf16.data(), texaddr, bufw * h, clutAlphaLinearColor_);
 				} else {
 					DeIndexTexture4(tmpTexBuf16.data(), texaddr, bufw * h, clut);
 				}
 			} else {
 				tmpTexBuf32.resize(std::max(bufw, w) * h);
 				UnswizzleFromMem(texaddr, bufw, 0, level);
-				if (linearClut) {
-					DeIndexTexture4Optimal(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, linearColor);
+				if (clutAlphaLinear_ && mipmapShareClut) {
+					DeIndexTexture4Optimal(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clutAlphaLinearColor_);
 				} else {
 					DeIndexTexture4(tmpTexBuf16.data(), (u8 *)tmpTexBuf32.data(), bufw * h, clut);
 				}
