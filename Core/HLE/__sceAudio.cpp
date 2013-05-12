@@ -216,8 +216,8 @@ void __AudioUpdate()
 				s16 sampleL = chans[i].sampleQueue.pop_front();
 				s16 sampleR = chans[i].sampleQueue.pop_front();
 				// The channel volume should be done here?
-				mixBuffer[s * 2 + 0] += sampleL * (s32)chans[i].leftVolume >> 14;
-				mixBuffer[s * 2 + 1] += sampleR * (s32)chans[i].rightVolume >> 14;
+				mixBuffer[s * 2 + 0] += sampleL * (s32)chans[i].leftVolume >> 15;
+				mixBuffer[s * 2 + 1] += sampleR * (s32)chans[i].rightVolume >> 15;
 			} 
 			else
 			{
