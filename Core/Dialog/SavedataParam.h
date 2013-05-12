@@ -194,16 +194,18 @@ public:
 
 	static void Init();
 	std::string GetSaveFilePath(SceUtilitySavedataParam* param, int saveId = -1);
+	std::string GetSaveFilePath(SceUtilitySavedataParam* param, const std::string &saveDir);
 	std::string GetSaveDirName(SceUtilitySavedataParam* param, int saveId = -1);
 	std::string GetSaveDir(SceUtilitySavedataParam* param, int saveId = -1);
+	std::string GetSaveDir(SceUtilitySavedataParam* param, const std::string &saveDirName);
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
-	bool Save(SceUtilitySavedataParam* param, int saveId = -1, bool secureMode = true);
-	bool Load(SceUtilitySavedataParam* param, int saveId = -1, bool secureMode = true);
+	bool Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
+	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	bool GetFilesList(SceUtilitySavedataParam* param);
 	bool GetSize(SceUtilitySavedataParam* param);
-	bool IsSaveEncrypted(SceUtilitySavedataParam* param, int saveId);
+	bool IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName);
 
 	std::string GetGameName(SceUtilitySavedataParam* param);
 	std::string GetSaveName(SceUtilitySavedataParam* param);
