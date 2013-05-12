@@ -171,14 +171,10 @@ struct Atrac {
 		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
 		// Still need to find out how getRemainFrames() should work.
 
-		if (currentSample >= endSample)
-			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-
-		if ((first.fileoffset >= first.filesize) && (currentSample > loopEndSample))
-			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-
 		int remainFrame;
-		if (decodePos > first.size) {
+		if (first.fileoffset >= first.filesize || currentSample >= endSample)
+			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+		else if (decodePos > first.size) {
 			// There are not enough atrac data right now to play at a certain position.
 			// Must load more atrac data first
 			remainFrame = 0;
@@ -435,6 +431,12 @@ u32 sceAtracGetAtracID(int codecType)
 	return atracID;
 }
 
+// PSP allow games to add stream data to a temp buf, the buf size is given by "atracBufSize "here. 
+// "first.offset" means how many bytes the temp buf has been written, 
+// and "first.writableBytes" means how many bytes the temp buf is allowed to write 
+// (We always have "first.offset + first.writableBytes = atracBufSize"). 
+// We only reset the temp buf when games call sceAtracGetStreamDataInfo, 
+// because that function would tell games how to add the left stream data.
 u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 {
 	INFO_LOG(HLE, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
@@ -448,13 +450,14 @@ u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 
 		if (atrac->data_buf && (bytesToAdd > 0)) {
 			int addbytes = std::min(bytesToAdd, atrac->first.filesize - atrac->first.fileoffset);
-			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr, addbytes);
+			Memory::Memcpy(atrac->data_buf + atrac->first.fileoffset, atrac->first.addr + atrac->first.offset, addbytes);
 		}
 		atrac->first.size += bytesToAdd;
 		if (atrac->first.size > atrac->first.filesize)
 			atrac->first.size = atrac->first.filesize;
 		atrac->first.fileoffset = atrac->first.size;
-		atrac->first.writableBytes = 0;
+		atrac->first.writableBytes -= bytesToAdd;
+		atrac->first.offset += bytesToAdd;
 	}
 	return 0;
 }
@@ -745,6 +748,9 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 	return 0;
 }
 
+// Games call this function to get some info for add more stream data,
+// such as where the data read from, where the data add to, 
+// and how many bytes are allowed to add.
 u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr)
 {
 	DEBUG_LOG(HLE, "sceAtracGetStreamDataInfo(%i, %08x, %08x, %08x)", atracID, writeAddr, writableBytesAddr, readOffsetAddr);
@@ -752,7 +758,10 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 	if (!atrac) {
 		//return -1;
 	} else {
+		// reset the temp buf for adding more stream data
 		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+		atrac->first.offset = 0;
+
 		if (Memory::IsValidAddress(writeAddr))
 		Memory::Write_U32(atrac->first.addr, writeAddr);
 		if (Memory::IsValidAddress(writableBytesAddr))
@@ -893,11 +902,14 @@ int __AtracSetContext(Atrac *atrac, u32 buffer, u32 bufferSize)
 
 int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 {
-	atrac->atracBufSize = bufferSize;
 	if (atrac->first.size > atrac->first.filesize)
 		atrac->first.size = atrac->first.filesize;
 	atrac->first.fileoffset = atrac->first.size;
-	atrac->first.writableBytes = 0;
+
+	// got the size of temp buf, and calculate writableBytes and offset
+	atrac->atracBufSize = bufferSize;
+	atrac->first.writableBytes = (u32)std::max((int)bufferSize - (int)atrac->first.size, 0);
+	atrac->first.offset = atrac->first.size;
 
 #ifdef USE_FFMPEG
 	if (atrac->codeType == PSP_MODE_AT_3) {
