@@ -163,14 +163,10 @@ struct Atrac {
 		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
 		// Still need to find out how getRemainFrames() should work.
 
-		if (currentSample >= endSample)
-			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-
-		if ((first.fileoffset >= first.filesize) && (currentSample > loopEndSample))
-			return PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-
 		int remainFrame;
-		if (decodePos > first.size) {
+		if (first.fileoffset >= first.filesize || currentSample >= endSample)
+			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
+		else if (decodePos > first.size) {
 			// There are not enough atrac data right now to play at a certain position.
 			// Must load more atrac data first
 			remainFrame = 0;
