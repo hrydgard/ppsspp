@@ -110,7 +110,7 @@ struct SceUtilitySavedataParam
 	char unused[3];
 	/** saveName: name of the particular save, normally a number */
 	char saveName[20];
-	int saveNameList;
+	u32 saveNameList;
 	/** fileName: name of the data file of the game for example DATA.BIN */
 	char fileName[13];
 	char unused2[3];

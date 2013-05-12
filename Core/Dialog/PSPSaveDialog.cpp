@@ -57,8 +57,14 @@ int PSPSaveDialog::Init(int paramAddr)
 
 	switch(param.GetPspParam()->mode)
 	{
-		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
+			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			if (param.GetFileInfo(0).size != 0)
+				display = DS_LOAD_CONFIRM;
+			else
+				display = DS_LOAD_NODATA;
+			break;
+		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
 			break;
@@ -69,8 +75,14 @@ int PSPSaveDialog::Init(int paramAddr)
 			else
 				display = DS_LOAD_LIST_CHOICE;
 			break;
-		case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
 		case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
+			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			if (param.GetFileInfo(0).size != 0)
+				display = DS_SAVE_CONFIRM_OVERWRITE;
+			else
+				display = DS_SAVE_CONFIRM;
+			break;
+		case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
 			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
 			break;
@@ -423,6 +435,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveDataInfo1();
 
 			DisplayEnterBack();
+
 			if (IsButtonPressed(cancelButtonFlag))
 			{
 				param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
@@ -452,9 +465,39 @@ int PSPSaveDialog::Update()
 			}
 			EndDraw();
 		break;
+		case DS_SAVE_CONFIRM:
+			StartDraw();
+
+			DisplaySaveIcon();
+			DisplaySaveDataInfo2();
+
+			DisplayConfirmationYesNo(d->T("Confirm Save", "Do you want to save this data?"));
+
+			DisplayEnterBack();
+			if (IsButtonPressed(cancelButtonFlag) || (IsButtonPressed(okButtonFlag) && yesnoChoice == 0))
+			{
+				param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+				StartFade(false);
+			}
+			else if (IsButtonPressed(okButtonFlag))
+			{
+				display = DS_SAVE_SAVING;
+				if (param.Save(param.GetPspParam(), param.GetSelectedSave()))
+				{
+					param.SetPspParam(param.GetPspParam()); // Optim : Just Update modified save
+					display = DS_SAVE_DONE;
+				}
+				else
+				{
+					// TODO: This should probably show an error message?
+					StartFade(false);
+				}
+			}
+
+			EndDraw();
+		break;
 		case DS_SAVE_CONFIRM_OVERWRITE:
 			StartDraw();
-			
 
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
@@ -462,28 +505,31 @@ int PSPSaveDialog::Update()
 			DisplayConfirmationYesNo(d->T("Do you want to overwrite the data?"));
 
 			DisplayEnterBack();
-			if (IsButtonPressed(cancelButtonFlag))
+			if (IsButtonPressed(cancelButtonFlag) || (IsButtonPressed(okButtonFlag) && yesnoChoice == 0))
 			{
-				display = DS_SAVE_LIST_CHOICE;
+				if (param.GetPspParam()->mode != SCE_UTILITY_SAVEDATA_TYPE_SAVE)
+					display = DS_SAVE_LIST_CHOICE;
+				else
+				{
+					param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+					StartFade(false);
+				}
 			}
 			else if (IsButtonPressed(okButtonFlag))
 			{
-				if(yesnoChoice == 0)
+				display = DS_SAVE_SAVING;
+				if(param.Save(param.GetPspParam(),currentSelectedSave))
 				{
-					display = DS_SAVE_LIST_CHOICE;
+					param.SetPspParam(param.GetPspParam()); // Optim : Just Update modified save
+					display = DS_SAVE_DONE;
 				}
 				else
 				{
-					display = DS_SAVE_SAVING;
-					if(param.Save(param.GetPspParam(),currentSelectedSave))
-					{
-						param.SetPspParam(param.GetPspParam()); // Optim : Just Update modified save
-						display = DS_SAVE_DONE;
-					}
+					// TODO: This should probably show an error message?
+					if (param.GetPspParam()->mode != SCE_UTILITY_SAVEDATA_TYPE_SAVE)
+						display = DS_SAVE_LIST_CHOICE;
 					else
-					{
-						display = DS_SAVE_LIST_CHOICE; // This will probably need error message ?
-					}
+						StartFade(false);
 				}
 			}
 
@@ -539,6 +585,36 @@ int PSPSaveDialog::Update()
 				if(param.Load(param.GetPspParam(),currentSelectedSave))
 				{
 					display = DS_LOAD_DONE;
+				}
+			}
+
+			EndDraw();
+		break;
+		case DS_LOAD_CONFIRM:
+			StartDraw();
+
+			DisplaySaveIcon();
+			DisplaySaveDataInfo2();
+
+			DisplayConfirmationYesNo(d->T("ConfirmLoad", "Load this data?"));
+
+			DisplayEnterBack();
+			if (IsButtonPressed(cancelButtonFlag) || (IsButtonPressed(okButtonFlag) && yesnoChoice == 0))
+			{
+				param.GetPspParam()->result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+				StartFade(false);
+			}
+			else if (IsButtonPressed(okButtonFlag))
+			{
+				display = DS_LOAD_LOADING;
+				if (param.Load(param.GetPspParam(), param.GetSelectedSave()))
+				{
+					display = DS_LOAD_DONE;
+				}
+				else
+				{
+					// TODO: Show some error message?
+					StartFade(false);
 				}
 			}
 
