@@ -223,6 +223,7 @@ int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 		if (ctx->bufferRead == ctx->mp3BufSize)
 			ctx->bufferRead = 0;
 		ctx->bufferAvailable -= to_read;
+		buf_size -= to_read;
 		res += to_read;
 	}
 
