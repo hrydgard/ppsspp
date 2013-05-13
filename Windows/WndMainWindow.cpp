@@ -702,12 +702,8 @@ namespace MainWindow
 			}
 			break;
 		case WM_KEYDOWN:
-			{
-				static int mojs = 0;
-				mojs ^= 1;
-				//SetSkinMode(mojs);
-			}
 			return 0;
+
 		case WM_DROPFILES:
 			{
 				HDROP hdrop = (HDROP)wParam;
