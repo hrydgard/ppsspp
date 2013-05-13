@@ -124,6 +124,7 @@ bool LoadFile(const char *filename, std::string *error_string)
 	case FILETYPE_UNKNOWN:
 	default:
 		ERROR_LOG(LOADER, "Failed to identify file");
+		*error_string = "Failed to identify file";
 		break;
 	}
 	return false;

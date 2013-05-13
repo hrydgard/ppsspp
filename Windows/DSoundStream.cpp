@@ -14,8 +14,8 @@ namespace DSound
 
 	StreamCallback callback;
 
-	IDirectSound8 *ds;
-	IDirectSoundBuffer *dsBuffer;
+	IDirectSound8 *ds = NULL;
+	IDirectSoundBuffer *dsBuffer = NULL;
 
 	int bufferSize; // bytes
 	int totalRenderedBytes;
@@ -196,8 +196,10 @@ namespace DSound
 		/*
 		while (threadData!=2)
 			;*/
-		dsBuffer->Release();
-		ds->Release();
+		if (dsBuffer != NULL)
+			dsBuffer->Release();
+		if (ds != NULL)
+			ds->Release();
 
 		CloseHandle(soundSyncEvent);
 	}
