@@ -136,9 +136,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	{
 		//DSound_UpdateSound();
 
-		//hack to make it possible to get to main window from floating windows with Esc
-		if (msg.hwnd != hwndMain && msg.message==WM_KEYDOWN && msg.wParam==VK_ESCAPE)
-			BringWindowToTop(hwndMain);
+		if (msg.message == WM_KEYDOWN)
+		{
+			//hack to enable/disable menu command accelerate keys
+			MainWindow::UpdateCommands();
+
+			//hack to make it possible to get to main window from floating windows with Esc
+			if (msg.hwnd != hwndMain && msg.wParam == VK_ESCAPE)
+				BringWindowToTop(hwndMain);
+		}
 
 		//Translate accelerators and dialog messages...
 		if (!TranslateAccelerator(hwndMain, hAccelTable, &msg))
