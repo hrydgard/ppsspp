@@ -200,7 +200,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 				outpath = realpath.substr(prefLen);
 				*system = &(fileSystems[i]);
 
-				DEBUG_LOG(HLE, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
+				VERBOSE_LOG(HLE, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
 
 				return true;
 			}
