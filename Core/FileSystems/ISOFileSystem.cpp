@@ -588,6 +588,9 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path)
 
 std::string ISOFileSystem::EntryFullPath(TreeEntry *e)
 {
+	if (e == &entireISO)
+		return "";
+
 	size_t fullLen = 0;
 	TreeEntry *cur = e;
 	while (cur != NULL && cur != treeroot)
@@ -623,15 +626,24 @@ void ISOFileSystem::DoState(PointerWrap &p)
 		for (int i = 0; i < n; ++i)
 		{
 			u32 fd;
-			p.Do(fd);
-			std::string path;
-			p.Do(path);
 			OpenFileEntry of;
-			of.file = path.empty() ? NULL : GetFromPath(path);
+
+			p.Do(fd);
 			p.Do(of.seekPos);
 			p.Do(of.isRawSector);
 			p.Do(of.sectorStart);
 			p.Do(of.openSize);
+
+			bool hasFile;
+			p.Do(hasFile);
+			if (hasFile) {
+				std::string path;
+				p.Do(path);
+				of.file = GetFromPath(path);
+			} else {
+				of.file = NULL;
+			}
+
 			entries[fd] = of;
 		}
 	}
@@ -639,15 +651,20 @@ void ISOFileSystem::DoState(PointerWrap &p)
 	{
 		for (EntryMap::iterator it = entries.begin(), end = entries.end(); it != end; ++it)
 		{
+			OpenFileEntry &of = it->second;
 			p.Do(it->first);
-			std::string path = "";
-			if (it->second.file != NULL)
-				path = EntryFullPath(it->second.file);
-			p.Do(path);
-			p.Do(it->second.seekPos);
-			p.Do(it->second.isRawSector);
-			p.Do(it->second.sectorStart);
-			p.Do(it->second.openSize);
+			p.Do(of.seekPos);
+			p.Do(of.isRawSector);
+			p.Do(of.sectorStart);
+			p.Do(of.openSize);
+
+			bool hasFile = of.file != NULL;
+			p.Do(hasFile);
+			if (hasFile) {
+				std::string path = "";
+				path = EntryFullPath(of.file);
+				p.Do(path);
+			}
 		}
 	}
 	p.DoMarker("ISOFileSystem");
