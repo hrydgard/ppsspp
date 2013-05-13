@@ -8,7 +8,7 @@ if(ANDROID)
 	endif()
 endif()
 
-if (IOS)
+if (IOS OR BLACKBERRY)
 	set(ARM ON)
 endif()
 
@@ -16,10 +16,6 @@ if (MAEMO)
 	set(ARM ON)
 	#Maemo's gcc-4.7.2 is strickt
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
-endif()
-
-if(BLACKBERRY)
-	set(ARM ON)
 endif()
 
 if(LOONGSON)
@@ -144,7 +140,7 @@ if(NOT MSVC)
 	endif()
 
 	if(BLACKBERRY)
-		add_definitions(-D_QNX_SOURCE=1 -D_C99=1)
+		add_definitions(-D_QNX_SOURCE=1 -D_C99=1 -O2 -mfpu=neon -mtune=cortex-a9)
 	endif()
 
 	if(X86 AND NOT MIPS)
