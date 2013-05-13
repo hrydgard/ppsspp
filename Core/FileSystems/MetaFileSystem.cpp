@@ -131,6 +131,13 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 		inAfterColon = inPath.substr(inColon + 1);
 	}
 
+	// Special case: "disc0:" is different from "disc0:/", so keep track of the single slash.
+	if (inAfterColon == "/")
+	{
+		outPath = prefix + inAfterColon;
+		return true;
+	}
+
 	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{
 		WARN_LOG(HLE, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
@@ -170,9 +177,9 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
 	std::string inpath = _inpath;
-	if (strncasecmp(inpath.c_str(), "host0:", 5) == 0) {
+	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
 		INFO_LOG(HLE, "Host0 path detected, stripping: %s", inpath.c_str());
-		inpath = inpath.substr(6);
+		inpath = inpath.substr(strlen("host0:"));
 	}
 
 	const std::string *currentDirectory = &startingDirectory;
@@ -300,8 +307,12 @@ void MetaFileSystem::ThreadEnded(int threadID)
 	currentDir.erase(threadID);
 }
 
-void MetaFileSystem::ChDir(const std::string &dir)
+int MetaFileSystem::ChDir(const std::string &dir)
 {
+	// Retain the old path and fail if the arg is 1023 bytes or longer.
+	if (dir.size() >= 1023)
+		return SCE_KERNEL_ERROR_NAMETOOLONG;
+
 	int curThread = __KernelGetCurThread();
 	
 	std::string of;
@@ -309,14 +320,24 @@ void MetaFileSystem::ChDir(const std::string &dir)
 	if (MapFilePath(dir, of, &mountPoint))
 	{
 		currentDir[curThread] = mountPoint->prefix + of;
-		//return true;
+		return 0;
 	}
 	else
 	{
-		//TODO: PSP's sceIoChdir seems very forgiving, but does it always accept bad paths and what happens when it does?
-		WARN_LOG(HLE, "ChDir failed to map path \"%s\", saving as current directory anyway", dir.c_str());
-		currentDir[curThread] = dir;
-		//return false;
+		for (size_t i = 0; i < fileSystems.size(); i++)
+		{
+			const std::string &prefix = fileSystems[i].prefix;
+			if (strncasecmp(prefix.c_str(), dir.c_str(), prefix.size()) == 0)
+			{
+				// The PSP is completely happy with invalid current dirs as long as they have a valid device.
+				WARN_LOG(HLE, "ChDir failed to map path \"%s\", saving as current directory anyway", dir.c_str());
+				currentDir[curThread] = dir;
+				return 0;
+			}
+		}
+
+		WARN_LOG(HLE, "ChDir failed to map device for \"%s\", failing", dir.c_str());
+		return SCE_KERNEL_ERROR_NODEV;
 	}
 }
 

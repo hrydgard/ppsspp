@@ -84,7 +84,7 @@ public:
 		return SeekFile(handle, 0, FILEMOVE_CURRENT);
 	}
 
-	virtual void ChDir(const std::string &dir);
+	virtual int ChDir(const std::string &dir);
 
 	virtual bool MkDir(const std::string &dirname);
 	virtual bool RmDir(const std::string &dirname);
