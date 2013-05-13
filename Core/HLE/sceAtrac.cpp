@@ -340,7 +340,7 @@ void Atrac::Analyze()
 	bool bfoundData = false;
 	while ((first.filesize - offset) >= 8 && !bfoundData) {
 		int chunkMagic = Memory::Read_U32(first.addr + offset);
-		int chunkSize = Memory::Read_U32(first.addr + offset + 4);
+		u32 chunkSize = Memory::Read_U32(first.addr + offset + 4);
 		offset += 8;
 		if (chunkSize > first.filesize - offset)
 			break;
@@ -868,8 +868,8 @@ int __AtracSetContext(Atrac *atrac, u32 buffer, u32 bufferSize)
 	}
 
 	int wanted_channels = atrac->atracOutputChannels;
-	int wanted_channel_layout = av_get_default_channel_layout(wanted_channels);
-	int dec_channel_layout = av_get_default_channel_layout(atrac->atracChannels);
+	int64_t wanted_channel_layout = av_get_default_channel_layout(wanted_channels);
+	int64_t dec_channel_layout = av_get_default_channel_layout(atrac->atracChannels);
 
 	atrac->pSwrCtx =
 		swr_alloc_set_opts
