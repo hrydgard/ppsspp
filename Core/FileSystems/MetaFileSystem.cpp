@@ -309,6 +309,10 @@ void MetaFileSystem::ThreadEnded(int threadID)
 
 int MetaFileSystem::ChDir(const std::string &dir)
 {
+	// Retain the old path and fail if the arg is 1023 bytes or longer.
+	if (dir.size() >= 1023)
+		return SCE_KERNEL_ERROR_NAMETOOLONG;
+
 	int curThread = __KernelGetCurThread();
 	
 	std::string of;
