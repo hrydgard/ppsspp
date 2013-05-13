@@ -11,6 +11,7 @@ namespace MainWindow
 	BOOL Show(HINSTANCE hInstance, int nCmdShow);
 	void Close();
 	void UpdateMenus();
+	void UpdateCommands();
 	void Update();
 	void Redraw();
 	HWND GetHWND();
