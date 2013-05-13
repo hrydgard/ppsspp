@@ -178,6 +178,8 @@ struct Atrac {
 			// There are not enough atrac data right now to play at a certain position.
 			// Must load more atrac data first
 			remainFrame = 0;
+		} else if (second.writableBytes <= 0) {
+			remainFrame = PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY ;
 		} else {
 			// guess the remain frames. 
 			// games would add atrac data when remainFrame = 0 or -1 
@@ -724,9 +726,9 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 		//return -1;
 	}
 	if (Memory::IsValidAddress(outposAddr))
-		Memory::Write_U32(0, outposAddr);
+		Memory::Write_U32(atrac->second.fileoffset, outposAddr);
 	if (Memory::IsValidAddress(outBytesAddr))
-		Memory::Write_U32(0x10000, outBytesAddr);
+		Memory::Write_U32(atrac->second.writableBytes, outBytesAddr);
 	// TODO: Maybe don't write the above?
 	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
 }
