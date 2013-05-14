@@ -677,7 +677,12 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 {
 	// Wipe kernel here, loadexec should reset the entire system
 	if (__KernelIsRunning())
+	{
 		__KernelShutdown();
+		//HLE needs to be reset here
+		HLEShutdown();
+		HLEInit();
+	}
 
 	__KernelModuleInit();
 	__KernelInit();
