@@ -214,11 +214,11 @@ void EmuScreen::update(InputState &input) {
 	__CtrlSetAnalog(stick_x, stick_y, 0);
 	__CtrlSetAnalog(rightstick_x, rightstick_x, 1);
 
-	//if (input.pad_buttons & PAD_BUTTON_LEFT_THUMB) {
-	//	PSP_CoreParameter().unthrottle = true;
-	//} else {
-		//PSP_CoreParameter().unthrottle = false;
-	//}
+	if (input.pad_buttons & PAD_BUTTON_UNTHROTTLE) {
+		PSP_CoreParameter().unthrottle = true;
+	} else {
+		PSP_CoreParameter().unthrottle = false;
+	}
 	// Make sure fpsLimit starts at 0
 	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1 && PSP_CoreParameter().fpsLimit != 2) {
 		PSP_CoreParameter().fpsLimit = 0;
