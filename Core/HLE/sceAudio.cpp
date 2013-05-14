@@ -269,7 +269,7 @@ u32 sceAudioOutput2Reserve(u32 sampleCount){
 
 u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr){
 	// Note: 0xFFFFF, not 0xFFFF!
-	if (vol > 0xFFFFF) {
+	if (vol < 0 || vol > 0xFFFFF) {
 		ERROR_LOG(HLE,"sceAudioOutput2OutputBlocking(%08x, %08x) - invalid volume", vol, dataPtr);
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
 	}
@@ -348,7 +348,7 @@ u32 sceAudioSRCChRelease() {
 }
 
 u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
-	if (vol > 0xFFFF) {
+	if (vol < 0 || vol > 0xFFFFF) {
 		ERROR_LOG(HLE,"sceAudioSRCOutputBlocking(%08x, %08x) - invalid volume", vol, buf);
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
 	}
