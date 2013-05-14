@@ -538,11 +538,11 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 			
 			int finishFlag = 0;
-			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample || numSamples == 0)) {
+			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample)) {
 				atrac->currentSample = atrac->loopStartSample;
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
-			} else if (atrac->currentSample >= atrac->endSample || numSamples == 0)
+			} else if (atrac->currentSample >= atrac->endSample)
 				finishFlag = 1;
 
 			Memory::Write_U32(finishFlag, finishFlagAddr);
