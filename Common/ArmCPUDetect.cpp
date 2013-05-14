@@ -79,6 +79,7 @@ bool CheckCPUFeature(const char *feature)
 	return false;
 }
 #endif
+
 int GetCoreCount()
 {
 #ifdef __SYMBIAN32__
@@ -126,7 +127,49 @@ void CPUInfo::Detect()
 	
 	// Get the information about the CPU 
 	num_cores = GetCoreCount();
-#if !defined(BLACKBERRY) && !defined(IOS) && !defined(__SYMBIAN32__)
+#if defined(__SYMBIAN32__) || defined(BLACKBERRY) || defined(IOS)
+bool isVFP3 = false;
+bool isVFP4 = false;
+#ifdef IOS
+	isVFP3 = true;
+	// TODO: Check for swift arch (VFP4)
+#elif defined(BLACKBERRY)
+	isVFP3 = true;
+	const char cpuInfoPath[] = "/pps/services/hw_info/inventory";
+	const char marker[] = "Processor_Name::";
+	const char qcCPU[] = "MSM";
+	char buf[1024];
+	FILE* fp;
+	if (fp = fopen(cpuInfoPath, "r"))
+	{
+		while (fgets(buf, sizeof(buf), fp))
+		{
+			if (strncmp(buf, marker, sizeof(marker) - 1))
+				continue;
+			if (strncmp(buf + sizeof(marker) - 1, qcCPU, sizeof(qcCPU) - 1) == 0)
+				isVFP4 = true;
+			break;
+		}
+		fclose(fp);
+	}
+#endif
+	// Hardcode this for now
+	bSwp = true;
+	bHalf = true;
+	bThumb = false;
+	bFastMult = true;
+	bVFP = true;
+	bEDSP = true;
+	bThumbEE = isVFP3;
+	bNEON = isVFP3;
+	bVFPv3 = isVFP3;
+	bTLS = true;
+	bVFPv4 = isVFP4;
+	bIDIVa = isVFP4;
+	bIDIVt = isVFP4;
+	bFP = false;
+	bASIMD = false;
+#else
 	strncpy(cpu_string, GetCPUString(), sizeof(cpu_string));
 	bSwp = CheckCPUFeature("swp");
 	bHalf = CheckCPUFeature("half");
@@ -146,29 +189,6 @@ void CPUInfo::Detect()
 	// These two require ARMv8 or higher
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");
-#else
-	// Hardcode this for now
-	bSwp = true;
-	bHalf = true;
-	bThumb = false;
-	bFastMult = true;
-	bVFP = true;
-	bEDSP = true;
-#ifdef __SYMBIAN32__
-	bThumbEE = false;
-	bNEON = false;
-	bVFPv3 = false;
-#else
-	bThumbEE = true;
-	bNEON = true;
-	bVFPv3 = true;
-#endif
-	bTLS = true;
-	bVFPv4 = false;
-	bIDIVa = false;
-	bIDIVt = false;
-	bFP = false;
-	bASIMD = false;
 #endif
 // On android, we build a separate library for ARMv7 so this is fine.
 // TODO: Check for ARMv7 on other platforms.
