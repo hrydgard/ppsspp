@@ -185,6 +185,9 @@ namespace MainWindow
 		g_Config.iTexScalingType = num;
 		if(gpu) gpu->ClearCacheNextFrame();
 	}
+	void setFpsLimit(int fps) {
+		g_Config.iFpsLimit = fps;
+	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
 	{
