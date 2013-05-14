@@ -764,7 +764,25 @@ void GraphicsScreenP2::render() {
 	} else {
 		g_Config.iAnisotropyLevel = 0;
 	}
-
+	bool FpsLimit = g_Config.iFpsLimit != 0;
+	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("Fps Limit"), ALIGN_TOPLEFT, &FpsLimit);
+	if (FpsLimit) {
+		if (g_Config.iFpsLimit == 0)
+			g_Config.iFpsLimit = 60;
+		
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Fps :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 160 , y, 20);
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "90", ALIGN_LEFT))
+			g_Config.iFpsLimit = 90;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "120", ALIGN_LEFT))
+			g_Config.iFpsLimit = 120;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "180", ALIGN_LEFT))
+			g_Config.iFpsLimit = 180;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, "240", ALIGN_LEFT))
+			g_Config.iFpsLimit = 240;
+	} else {
+			g_Config.iFpsLimit = 60;
+				}
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
 	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
