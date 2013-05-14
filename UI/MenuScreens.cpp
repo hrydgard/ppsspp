@@ -56,6 +56,7 @@ namespace MainWindow {
 #include "GPU/GPUInterface.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
+#include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/HLE/sceUtility.h"
 
@@ -928,8 +929,15 @@ void SystemScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, s->T("Encrypt Save"), ALIGN_TOPLEFT, &g_Config.bEncryptSave);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Use Button X to Confirm"), ALIGN_TOPLEFT, &g_Config.bButtonPreference); 
 	bool tf = g_Config.itimeformat == 1;
-	UICheckBox(GEN_ID, x, y += stride, s->T("12HR Time Format"), ALIGN_TOPLEFT, &tf);
-	g_Config.itimeformat = tf ? 1 : 0;
+	if (UICheckBox(GEN_ID, x, y += stride, s->T("12HR Time Format"), ALIGN_TOPLEFT, &tf)) {
+		g_Config.itimeformat = tf ? 1 : 0;
+	}
+
+	bool reportingEnabled = Reporting::IsEnabled();
+	const static std::string reportHostOfficial = "report.ppsspp.org";
+	if (UICheckBox(GEN_ID, x, y += stride, s->T("Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
+		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
+	}
 
 	if (UIButton(GEN_ID, Pos(x, y += stride * 3), LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new LanguageScreen());
