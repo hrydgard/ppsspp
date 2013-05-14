@@ -405,6 +405,7 @@
     <ClInclude Include="HW\audioPlayer.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\OMAConvert.h" />
+    <ClInclude Include="HW\qeditsimple.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
     <ClInclude Include="Loaders.h" />

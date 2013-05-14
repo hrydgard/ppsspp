@@ -2,7 +2,7 @@
 
 #include "audioPlayer.h"
 #include <dshow.h>
-#include <qedit.h>
+#include "qeditsimple.h"
 #pragma comment(lib, "Strmiids.lib")
 #pragma comment(lib, "Quartz.lib")
 
