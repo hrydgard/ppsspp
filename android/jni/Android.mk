@@ -216,6 +216,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceHttp.cpp \
   $(SRC)/Core/HLE/sceImpose.cpp \
   $(SRC)/Core/HLE/sceIo.cpp \
+  $(SRC)/Core/HLE/sceJpeg.cpp \
   $(SRC)/Core/HLE/sceKernel.cpp \
   $(SRC)/Core/HLE/sceKernelAlarm.cpp \
   $(SRC)/Core/HLE/sceKernelEventFlag.cpp \
@@ -230,6 +231,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceKernelTime.cpp \
   $(SRC)/Core/HLE/sceKernelVTimer.cpp \
   $(SRC)/Core/HLE/sceMpeg.cpp \
+  $(SRC)/Core/HLE/sceMd5.cpp \
   $(SRC)/Core/HLE/sceMp4.cpp \
   $(SRC)/Core/HLE/sceMp3.cpp \
   $(SRC)/Core/HLE/sceNet.cpp \

@@ -38,6 +38,7 @@ set(SRCS
   HLE/sceHttp.cpp
   HLE/sceImpose.cpp
   HLE/sceIo.cpp
+  HLE/sceJpeg.cpp
   HLE/sceKernel.cpp
   HLE/sceKernelAlarm.cpp
   HLE/sceKernelEventFlag.cpp
@@ -55,6 +56,7 @@ set(SRCS
   HLE/sceNet.cpp
   HLE/sceNp.cpp
   HLE/sceP3da.cpp
+  HLE/sceMd5.cpp
   HLE/sceMp4.cpp
   HLE/sceMp3.cpp
   HLE/scePauth.cpp
