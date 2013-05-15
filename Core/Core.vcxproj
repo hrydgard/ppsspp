@@ -190,6 +190,7 @@
     <ClCompile Include="HLE\sceHttp.cpp" />
     <ClCompile Include="HLE\sceImpose.cpp" />
     <ClCompile Include="HLE\sceIo.cpp" />
+    <ClCompile Include="HLE\sceJpeg.cpp" />
     <ClCompile Include="HLE\sceKernel.cpp" />
     <ClCompile Include="HLE\sceKernelAlarm.cpp" />
     <ClCompile Include="HLE\sceKernelEventFlag.cpp" />
@@ -214,6 +215,7 @@
     <ClCompile Include="HLE\scePsmf.cpp" />
     <ClCompile Include="HLE\scePspNpDrm_user.cpp" />
     <ClCompile Include="HLE\sceP3da.cpp" />
+    <ClCompile Include="HLE\sceMd5.cpp" />
     <ClCompile Include="HLE\sceMp4.cpp" />
     <ClCompile Include="HLE\sceMp3.cpp" />
     <ClCompile Include="HLE\sceGameUpdate.cpp" />
@@ -364,6 +366,7 @@
     <ClInclude Include="HLE\sceHttp.h" />
     <ClInclude Include="HLE\sceImpose.h" />
     <ClInclude Include="HLE\sceIo.h" />
+    <ClInclude Include="HLE\sceJpeg.h" />
     <ClInclude Include="HLE\sceKernel.h" />
     <ClInclude Include="HLE\sceKernelAlarm.h" />
     <ClInclude Include="HLE\sceKernelEventFlag.h" />
@@ -387,6 +390,7 @@
     <ClInclude Include="HLE\scePsmf.h" />
     <ClInclude Include="HLE\scePspNpDrm_user.h" />
     <ClInclude Include="HLE\sceP3da.h" />
+    <ClInclude Include="HLE\sceMd5.h" />
     <ClInclude Include="HLE\sceMp4.h" />
     <ClInclude Include="HLE\sceMp3.h" />
     <ClInclude Include="HLE\sceGameUpdate.h" />
