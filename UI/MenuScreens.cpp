@@ -723,7 +723,7 @@ void GraphicsScreenP2::render() {
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 
-	ui_draw2d.SetFontScale(1.5f, 1.5f);
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
@@ -782,7 +782,7 @@ void GraphicsScreenP2::render() {
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "240", ALIGN_LEFT))
 			g_Config.iFpsLimit = 240;
 	} else {
-			g_Config.iFpsLimit = 60;
+			g_Config.iFpsLimit = 0;
 				}
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
 	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
