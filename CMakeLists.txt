@@ -762,6 +762,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceImpose.h
 	Core/HLE/sceIo.cpp
 	Core/HLE/sceIo.h
+	Core/HLE/sceJpeg.cpp
+	Core/HLE/sceJpeg.h
 	Core/HLE/sceKernel.cpp
 	Core/HLE/sceKernel.h
 	Core/HLE/sceKernelAlarm.cpp
@@ -796,6 +798,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceOpenPSID.h
 	Core/HLE/sceP3da.cpp
 	Core/HLE/sceP3da.h
+	Core/HLE/sceMd5.cpp
+	Core/HLE/sceMd5.h
 	Core/HLE/sceMp4.cpp
 	Core/HLE/sceMp4.h
 	Core/HLE/sceMp3.cpp

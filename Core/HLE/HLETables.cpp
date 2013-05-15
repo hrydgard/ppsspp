@@ -62,6 +62,8 @@
 #include "sceMp3.h"
 #include "scePauth.h"
 #include "sceNp.h"
+#include "sceMd5.h"
+#include "sceJpeg.h"
 
 #define N(s) s
 
@@ -263,7 +265,9 @@ void RegisterAllModules() {
 	Register_sceNp();
 	Register_sceNpCommerce2();
 	Register_sceNpService();
-	Regester_sceNpAuth();
+	Register_sceNpAuth();
+	Register_sceMd5();
+	Register_sceJpeg();
 
 	for (int i = 0; i < numModules; i++)
 	{

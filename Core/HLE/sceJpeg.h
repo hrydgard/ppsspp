@@ -17,7 +17,6 @@
 
 #pragma once
 
-void Register_sceNp();
-void Register_sceNpCommerce2();
-void Register_sceNpService();
-void Register_sceNpAuth();
+#include "HLE.h"
+
+void Register_sceJpeg();
