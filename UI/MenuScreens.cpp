@@ -767,17 +767,18 @@ void GraphicsScreenP2::render() {
 		
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Fps  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 180 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "90", ALIGN_LEFT))
-			g_Config.iFpsLimit = 90;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "120", ALIGN_LEFT))
-			g_Config.iFpsLimit = 120;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "180", ALIGN_LEFT))
-			g_Config.iFpsLimit = 180;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "240", ALIGN_LEFT))
-			g_Config.iFpsLimit = 240;
+		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
+			g_Config.iFpsLimit = 60;
+		if (UIButton(GEN_ID, hlinear1, 60, 0, "-30", ALIGN_LEFT))
+			if(g_Config.iFpsLimit > 30){
+			g_Config.iFpsLimit -= 30;}
+		if (UIButton(GEN_ID, hlinear1, 60, 0, "+30", ALIGN_LEFT))
+			if(g_Config.iFrameSkip != 240){
+			g_Config.iFpsLimit += 30;}
 	} else {
 			g_Config.iFpsLimit = 0;
 	}
+
 
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
 	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
