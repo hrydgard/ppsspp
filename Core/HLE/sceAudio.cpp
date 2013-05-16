@@ -156,9 +156,10 @@ int sceAudioGetChannelRestLength(u32 chan) {
 }
 
 static u32 GetFreeChannel() {
-	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX ; i++)
+	for (u32 i = PSP_AUDIO_CHANNEL_MAX - 1; i > 0; --i) {
 		if (!chans[i].reserved)
 			return i;
+	}
 	return -1;
 }
 
