@@ -168,22 +168,16 @@ struct Atrac {
 	int getRemainFrames() {
 		// many games request to add atrac data when remainFrames = 0
 		// However, some other games request to add atrac data 
-		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
+		// when remainFrames < 0 .
 		// Still need to find out how getRemainFrames() should work.
 
 		int remainFrame;
 		if (first.fileoffset >= first.filesize || currentSample >= endSample)
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else if (decodePos > first.size) {
-			// There are not enough atrac data right now to play at a certain position.
-			// Must load more atrac data first
-			remainFrame = 0;
-		} else if (second.writableBytes <= 0) {
-			remainFrame = PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY ;
-		} else {
+		else {
 			// guess the remain frames. 
-			// games would add atrac data when remainFrame = 0 or -1 
-			remainFrame = (first.size - decodePos) / atracBytesPerFrame - 1;
+			// games would add atrac data when remainFrame = 0 or < 0 
+			remainFrame = ((int)first.size - (int)decodePos) / atracBytesPerFrame - 1;
 		}
 		return remainFrame;
 	}
@@ -538,11 +532,13 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 			
 			int finishFlag = 0;
-			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample)) {
+			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample || 
+				(numSamples == 0 && atrac->first.size >= atrac->first.fileoffset))) {
 				atrac->currentSample = atrac->loopStartSample;
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
-			} else if (atrac->currentSample >= atrac->endSample)
+			} else if (atrac->currentSample >= atrac->endSample || 
+				(numSamples == 0 && atrac->first.size >= atrac->first.fileoffset))
 				finishFlag = 1;
 
 			Memory::Write_U32(finishFlag, finishFlagAddr);
