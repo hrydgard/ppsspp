@@ -271,9 +271,12 @@ u32 sceAudioEnd(){
 	return 0;
 }
 
-u32 sceAudioOutput2Reserve(u32 sampleCount){
-	if (chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
-		DEBUG_LOG(HLE, "sceAudioOutput2Reserve(%08x) - channel already reserved ", sampleCount);
+u32 sceAudioOutput2Reserve(u32 sampleCount) {
+	if (sampleCount < 17 || sampleCount > 4111) {
+		DEBUG_LOG(HLE, "sceAudioOutput2Reserve(%08x) - invalid sample count", sampleCount);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	} else if (chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
+		DEBUG_LOG(HLE, "sceAudioOutput2Reserve(%08x) - channel already reserved", sampleCount);
 		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	} else {
 		DEBUG_LOG(HLE,"sceAudioOutput2Reserve(%08x)", sampleCount);
@@ -339,7 +342,10 @@ u32 sceAudioSetVolumeOffset() {
 }
 
 u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
-	if (chans[PSP_AUDIO_CHANNEL_SRC].reserved) {
+	if (sampleCount < 17 || sampleCount > 4111) {
+		DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x) - invalid sample count", sampleCount, freq, format);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	} else if (chans[PSP_AUDIO_CHANNEL_SRC].reserved) {
 		DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x) - channel already reserved ", sampleCount, freq, format);
 		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	} else {
