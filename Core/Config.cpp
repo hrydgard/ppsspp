@@ -25,7 +25,6 @@
 
 Config g_Config;
 
-int MAX_RECENT = 12;
 
 #ifdef IOS
 extern bool isJailed;
@@ -64,7 +63,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	general->Get("Language", &languageIni, "en_US");
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
-	general->Get("MaxRecent", &MAX_RECENT, 12);
+	general->Get("MaxRecent", &iMaxRecent, 12);
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
@@ -73,8 +72,8 @@ void Config::Load(const char *iniFileName)
 	general->Get("WindowY", &iWindowY, 100);
 	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
 
-	if (recentIsos.size() > MAX_RECENT)
-		recentIsos.resize(MAX_RECENT);
+	if (recentIsos.size() > iMaxRecent)
+		recentIsos.resize(iMaxRecent);
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
@@ -182,7 +181,7 @@ void Config::Save()
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
 		general->Set("Language", languageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
-		general->Set("MaxRecent", MAX_RECENT);
+		general->Set("MaxRecent", iMaxRecent);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
@@ -253,14 +252,14 @@ void Config::AddRecent(const std::string &file) {
 		if (*str == file) {
 			recentIsos.erase(str);
 			recentIsos.insert(recentIsos.begin(), file);
-			if (recentIsos.size() > MAX_RECENT)
-				recentIsos.resize(MAX_RECENT);
+			if (recentIsos.size() > iMaxRecent)
+				recentIsos.resize(iMaxRecent);
 			return;
 		}
 	}
 	recentIsos.insert(recentIsos.begin(), file);
-	if (recentIsos.size() > MAX_RECENT)
-		recentIsos.resize(MAX_RECENT);
+	if (recentIsos.size() > iMaxRecent)
+		recentIsos.resize(iMaxRecent);
 }
 
 void Config::CleanRecent() {
