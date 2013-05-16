@@ -272,9 +272,14 @@ u32 sceAudioEnd(){
 }
 
 u32 sceAudioOutput2Reserve(u32 sampleCount){
-	DEBUG_LOG(HLE,"sceAudioOutput2Reserve(%08x)", sampleCount);
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleCount = sampleCount;
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved = true;
+	if (chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
+		DEBUG_LOG(HLE, "sceAudioOutput2Reserve(%08x) - channel already reserved ", sampleCount);
+		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
+	} else {
+		DEBUG_LOG(HLE,"sceAudioOutput2Reserve(%08x)", sampleCount);
+		chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleCount = sampleCount;
+		chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved = true;
+	}
 	return 0;
 }
 
