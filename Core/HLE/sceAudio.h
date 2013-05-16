@@ -42,7 +42,10 @@ enum  	PspAudioFrequencies { PSP_AUDIO_FREQ_44K = 44100, PSP_AUDIO_FREQ_48K = 48
 #define SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED				0x80268002
 
 
-#define PSP_AUDIO_CHANNEL_MAX 8
+const int PSP_AUDIO_CHANNEL_MAX = 8;
+
+const int PSP_AUDIO_CHANNEL_SRC = 8;
+const int PSP_AUDIO_CHANNEL_OUTPUT2 = 8;
 
 struct AudioChannel
 {
@@ -83,6 +86,7 @@ struct AudioChannel
 	}
 };
 
-extern AudioChannel chans[8];
+// The extra channel is for SRC/Output2.
+extern AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
 
 void Register_sceAudio();
