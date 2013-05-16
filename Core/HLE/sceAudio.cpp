@@ -24,6 +24,8 @@
 #include "__sceAudio.h"
 #include "HLE.h"
 
+const int PSP_AUDIO_SAMPLE_MAX = 65536 - 64;
+
 void AudioChannel::DoState(PointerWrap &p)
 {
 	p.Do(reserved);
@@ -175,6 +177,10 @@ u32 sceAudioChReserve(u32 chan, u32 sampleCount, u32 format) {
 		ERROR_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x) - bad channel", chan, sampleCount, format);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}
+	if ((sampleCount & 63) != 0 || sampleCount == 0 || sampleCount > PSP_AUDIO_SAMPLE_MAX) {
+		ERROR_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x) - invalid sample count", chan, sampleCount, format);
+		return SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED;
+	}
 	if (format != PSP_AUDIO_FORMAT_MONO && format != PSP_AUDIO_FORMAT_STEREO) {
 		ERROR_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x) - invalid format", chan, sampleCount, format);
 		return SCE_ERROR_AUDIO_INVALID_FORMAT;
@@ -188,7 +194,7 @@ u32 sceAudioChReserve(u32 chan, u32 sampleCount, u32 format) {
 	chans[chan].sampleCount = sampleCount;
 	chans[chan].format = format;
 	chans[chan].reserved = true;
-	return chan; 
+	return chan;
 }
 
 u32 sceAudioChRelease(u32 chan) {
