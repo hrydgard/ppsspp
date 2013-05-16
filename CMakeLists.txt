@@ -438,7 +438,7 @@ elseif(IOS)
 		ios/ViewController.h
         ios/AudioEngine.mm
         ios/AudioEngine.h)
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework AudioToolbox -framework OpenAL")
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
