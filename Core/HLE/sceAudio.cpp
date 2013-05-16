@@ -25,6 +25,7 @@
 #include "HLE.h"
 
 const int PSP_AUDIO_SAMPLE_MAX = 65536 - 64;
+const int PSP_AUDIO_ERROR_SRC_FORMAT_4 = 0x80000003;
 
 void AudioChannel::DoState(PointerWrap &p)
 {
@@ -281,6 +282,7 @@ u32 sceAudioOutput2Reserve(u32 sampleCount) {
 	} else {
 		DEBUG_LOG(HLE,"sceAudioOutput2Reserve(%08x)", sampleCount);
 		chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleCount = sampleCount;
+		chans[PSP_AUDIO_CHANNEL_OUTPUT2].format = PSP_AUDIO_FORMAT_STEREO;
 		chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved = true;
 	}
 	return 0;
@@ -342,7 +344,13 @@ u32 sceAudioSetVolumeOffset() {
 }
 
 u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
-	if (sampleCount < 17 || sampleCount > 4111) {
+	if (format == 4) {
+		DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
+		return PSP_AUDIO_ERROR_SRC_FORMAT_4;
+	} else if (format != 2) {
+		DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	} else if (sampleCount < 17 || sampleCount > 4111) {
 		DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x) - invalid sample count", sampleCount, freq, format);
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 	} else if (chans[PSP_AUDIO_CHANNEL_SRC].reserved) {
@@ -352,7 +360,7 @@ u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 		DEBUG_LOG(HLE, "sceAudioSRCChReserve(%08x, %08x, %08x)", sampleCount, freq, format);
 		chans[PSP_AUDIO_CHANNEL_SRC].reserved = true;
 		chans[PSP_AUDIO_CHANNEL_SRC].sampleCount = sampleCount;
-		chans[PSP_AUDIO_CHANNEL_SRC].format = format;
+		chans[PSP_AUDIO_CHANNEL_SRC].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
 		__AudioSetOutputFrequency(freq);
 	}
 	return 0;
