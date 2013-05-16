@@ -174,16 +174,10 @@ struct Atrac {
 		int remainFrame;
 		if (first.fileoffset >= first.filesize || currentSample >= endSample)
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else if (decodePos > first.size) {
-			// There are not enough atrac data right now to play at a certain position.
-			// Must load more atrac data first
-			remainFrame = 0;
-		} else {
+		else {
 			// guess the remain frames. 
 			// games would add atrac data when remainFrame = 0 or < 0 
-			remainFrame = (first.size - decodePos) / atracBytesPerFrame - 1;
-			if (remainFrame < 0)
-				remainFrame = -0x100;
+			remainFrame = ((int)first.size - (int)decodePos) / atracBytesPerFrame - 1;
 		}
 		return remainFrame;
 	}
