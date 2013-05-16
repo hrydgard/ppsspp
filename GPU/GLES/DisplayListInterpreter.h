@@ -75,10 +75,6 @@ private:
 	void CheckFlushOp(u32 op, u32 diff);
 	void BuildReportingInfo();
 
-	// Applies states for debugging if enabled.
-	void BeginDebugDraw();
-	void EndDebugDraw();
-
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;
 	TransformDrawEngine transformDraw_;

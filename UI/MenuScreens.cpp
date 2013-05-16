@@ -707,7 +707,6 @@ void GraphicsScreenP1::render() {
 				gpu->Resized();
 		}
 	}
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Draw Wireframe"), ALIGN_TOPLEFT, &g_Config.bDrawWireframe);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 	UIEnd();
 }

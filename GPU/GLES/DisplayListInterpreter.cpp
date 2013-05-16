@@ -249,19 +249,6 @@ void GLES_GPU::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }
 
-void GLES_GPU::BeginDebugDraw() {
-	if (g_Config.bDrawWireframe) {
-#ifndef USING_GLES2
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-#endif
-	}
-}
-void GLES_GPU::EndDebugDraw() {
-#ifndef USING_GLES2
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-#endif
-}
-
 void GLES_GPU::BeginFrame() {
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
@@ -300,16 +287,12 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 	transformDraw_.Flush();
 
-	EndDebugDraw();
-
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
 
 	shaderManager_->EndFrame();
 
 	gstate_c.textureChanged = true;
-
-	BeginDebugDraw();
 }
 
 // Render queue
