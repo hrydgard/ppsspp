@@ -505,7 +505,7 @@ void SettingsScreen::render() {
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, ms->T("Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, ms->T("Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	VLinear vlinear(40, 150, 20);
@@ -606,7 +606,7 @@ void DeveloperScreen::render() {
 	I18NCategory *d = GetI18NCategory("Developer");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, d->T("Developer Tools"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, d->T("Developer Tools"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 
@@ -647,7 +647,7 @@ void AudioScreen::render() {
 	I18NCategory *a = GetI18NCategory("Audio");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, a->T("Audio Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, a->T("Audio Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -672,7 +672,7 @@ void GraphicsScreenP1::render() {
 	I18NCategory *gs = GetI18NCategory("Graphics");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -696,22 +696,18 @@ void GraphicsScreenP1::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
-	if (enableFrameSkip) {
-		// This one doesn't have the # of frame options, so only change the setting if they flipped it.
-		// 3 means auto.
-		if (g_Config.iFrameSkip == 0)
-			g_Config.iFrameSkip = 3;
-	}
-	else {
-		g_Config.iFrameSkip = 0;
-	}
-
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
 			gpu->Resized();
 	}
+	if (g_Config.bBufferedRendering) {
+		if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
+			if (gpu)
+				gpu->Resized();
+		}
+	}
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 	UIEnd();
 }
 
@@ -723,8 +719,8 @@ void GraphicsScreenP2::render() {
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 
-	ui_draw2d.SetFontScale(1.0f, 1.0f);
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.SetFontScale(1.5f, 1.5f);
+	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -736,24 +732,35 @@ void GraphicsScreenP2::render() {
 	int stride = 40;
 	int columnw = 400;
 
-	if (g_Config.bBufferedRendering) {
-		if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
-			if (gpu)
-				gpu->Resized();
-		}
+	bool FpsLimit = g_Config.iFpsLimit != 0;
+	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("Fps Limit"), ALIGN_TOPLEFT, &FpsLimit);
+	if (FpsLimit) {
+		if (g_Config.iFpsLimit == 0)
+			g_Config.iFpsLimit = 60;
+		
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Fps  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 180 , y, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
+			g_Config.iFpsLimit = 60;
+		if (UIButton(GEN_ID, hlinear1, 60, 0, "-30", ALIGN_LEFT))
+			if(g_Config.iFpsLimit > 30){
+			g_Config.iFpsLimit -= 30;}
+		if (UIButton(GEN_ID, hlinear1, 60, 0, "+30", ALIGN_LEFT))
+			if(g_Config.iFrameSkip != 240){
+			g_Config.iFpsLimit += 30;}
+	} else {
+			g_Config.iFpsLimit = 0;
 	}
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Draw Wireframe"), ALIGN_TOPLEFT, &g_Config.bDrawWireframe);
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
-	UICheckBox(GEN_ID, x, y += stride, gs->T("True Color"), ALIGN_TOPLEFT, &g_Config.bTrueColor);
+
 
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
+	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
 	if (AnisotropicFiltering) {
 		if (g_Config.iAnisotropyLevel == 0)
 			g_Config.iAnisotropyLevel = 2;
 
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 160 , y, 20);
+		HLinear hlinear1(x + 180 , y, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "4x", ALIGN_LEFT))
@@ -765,50 +772,32 @@ void GraphicsScreenP2::render() {
 	} else {
 		g_Config.iAnisotropyLevel = 0;
 	}
-	bool FpsLimit = g_Config.iFpsLimit != 0;
-	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("Fps Limit"), ALIGN_TOPLEFT, &FpsLimit);
-	if (FpsLimit) {
-		if (g_Config.iFpsLimit == 0)
-			g_Config.iFpsLimit = 60;
-		
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Fps :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 160 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "90", ALIGN_LEFT))
-			g_Config.iFpsLimit = 90;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "120", ALIGN_LEFT))
-			g_Config.iFpsLimit = 120;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "180", ALIGN_LEFT))
-			g_Config.iFpsLimit = 180;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "240", ALIGN_LEFT))
-			g_Config.iFpsLimit = 240;
-	} else {
-			g_Config.iFpsLimit = 0;
-				}
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
 	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
-		UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 160 , y, 20);
+		HLinear hlinear1(x + 180 , y, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride + 20, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 160 , y + 10, 20);
+		UICheckBox(GEN_ID, x + 320, y , gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride + 15, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 180 , y + 10, 20);
 		if (UIButton(GEN_ID, hlinear2, 80, 0, "xBRZ", ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
 		if (UIButton(GEN_ID, hlinear2, 140, 0, "Hybrid(H)", ALIGN_LEFT))
 			g_Config.iTexScalingType = 1;
 		if (UIButton(GEN_ID, hlinear2, 150, 0, "Bicubic(B)", ALIGN_LEFT))
 			g_Config.iTexScalingType = 2;
-		if (UIButton(GEN_ID, hlinear2, 60, 0, "H+B", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 65, 0, "H+B", ALIGN_LEFT))
 			g_Config.iTexScalingType = 3;
 	} else {
 		g_Config.iTexScalingLevel = 1;
 	}
+
 	UIEnd();
 }
 
@@ -831,7 +820,7 @@ void LanguageScreen::render() {
 	I18NCategory *l = GetI18NCategory("Language");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, s->T("Language"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, s->T("Language"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -917,7 +906,7 @@ void SystemScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, s->T("System Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, s->T("System Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -972,7 +961,7 @@ void ControlsScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, c->T("Controls Settings"), dp_xres / 2, 20, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, c->T("Controls Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {

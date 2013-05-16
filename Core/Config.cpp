@@ -152,8 +152,6 @@ void Config::Load(const char *iniFileName)
 	pspConfig->Get("EncryptSave", &bEncryptSave, true);
 
 	CleanRecent();
-	// Ephemeral settings
-	bDrawWireframe = false;
 }
 
 void Config::Save()
