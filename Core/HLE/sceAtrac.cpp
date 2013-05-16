@@ -168,7 +168,7 @@ struct Atrac {
 	int getRemainFrames() {
 		// many games request to add atrac data when remainFrames = 0
 		// However, some other games request to add atrac data 
-		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
+		// when remainFrames < 0 .
 		// Still need to find out how getRemainFrames() should work.
 
 		int remainFrame;
@@ -178,12 +178,12 @@ struct Atrac {
 			// There are not enough atrac data right now to play at a certain position.
 			// Must load more atrac data first
 			remainFrame = 0;
-		} else if (second.writableBytes <= 0) {
-			remainFrame = PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY ;
 		} else {
 			// guess the remain frames. 
-			// games would add atrac data when remainFrame = 0 or -1 
+			// games would add atrac data when remainFrame = 0 or < 0 
 			remainFrame = (first.size - decodePos) / atracBytesPerFrame - 1;
+			if (remainFrame < 0)
+				remainFrame = -0x100;
 		}
 		return remainFrame;
 	}
