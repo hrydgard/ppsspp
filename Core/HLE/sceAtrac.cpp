@@ -165,25 +165,18 @@ struct Atrac {
 	u32 getDecodePosBySample(int sample) {
 		return (u32)(firstSampleoffset + sample / ATRAC_MAX_SAMPLES * atracBytesPerFrame );
 	}
+
 	int getRemainFrames() {
-		// many games request to add atrac data when remainFrames = 0
-		// However, some other games request to add atrac data 
-		// when remainFrames = PSP_ATRAC_ALLDATA_IS_ON_MEMORY .
-		// Still need to find out how getRemainFrames() should work.
+		// games would like to add atrac data when it wants.
+		// Do not try to guess when it want to add data.
+		// Just return current remainFrames.
 
 		int remainFrame;
 		if (first.fileoffset >= first.filesize || currentSample >= endSample)
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
-		else if (decodePos > first.size) {
-			// There are not enough atrac data right now to play at a certain position.
-			// Must load more atrac data first
-			remainFrame = 0;
-		} else if (second.writableBytes <= 0) {
-			remainFrame = PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY ;
-		} else {
+		else {
 			// guess the remain frames. 
-			// games would add atrac data when remainFrame = 0 or -1 
-			remainFrame = (first.size - decodePos) / atracBytesPerFrame - 1;
+			remainFrame = ((int)first.size - (int)decodePos) / atracBytesPerFrame;
 		}
 		return remainFrame;
 	}
@@ -538,11 +531,13 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 			
 			int finishFlag = 0;
-			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample)) {
+			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample || 
+				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
 				atrac->currentSample = atrac->loopStartSample;
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
-			} else if (atrac->currentSample >= atrac->endSample)
+			} else if (atrac->currentSample >= atrac->endSample || 
+				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))
 				finishFlag = 1;
 
 			Memory::Write_U32(finishFlag, finishFlagAddr);
@@ -897,6 +892,8 @@ int __AtracSetContext(Atrac *atrac, u32 buffer, u32 bufferSize)
 
 	// alloc audio frame
 	atrac->pFrame = avcodec_alloc_frame();
+	// reinit decodePos, because ffmpeg had changed it.
+	atrac->decodePos = 0;
 #endif
 
 	return 0;
