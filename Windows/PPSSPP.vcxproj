@@ -251,6 +251,7 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </ForcedIncludeFiles>
     </ClCompile>
+    <ClCompile Include="ControlMapping.cpp" />
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp" />
     <ClCompile Include="Debugger\CtrlMemView.cpp" />
     <ClCompile Include="Debugger\CtrlRegisterList.cpp" />
@@ -288,6 +289,7 @@
   <ItemGroup>
     <ClInclude Include="..\android\jni\ARMEmitterTest.h" />
     <ClInclude Include="..\android\jni\TestRunner.h" />
+    <ClInclude Include="ControlMapping.h" />
     <ClInclude Include="Debugger\CtrlDisAsmView.h" />
     <ClInclude Include="Debugger\CtrlMemView.h" />
     <ClInclude Include="Debugger\CtrlRegisterList.h" />

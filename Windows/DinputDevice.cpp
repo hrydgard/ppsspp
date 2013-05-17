@@ -16,23 +16,35 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <limits.h>
+#include "Core/HLE/sceCtrl.h"
 #include "DinputDevice.h"
+#include "ControlMapping.h"
 #include "Core/Config.h"
 #include "input/input_state.h"
 #include "Core/Reporting.h"
 #include "Xinput.h"
 #pragma comment(lib,"dinput8.lib")
 
-static const unsigned int dinput_ctrl_map[] = {
-	9,		PAD_BUTTON_START,
+unsigned int dinput_ctrl_map[] = {
+	11,     PAD_BUTTON_MENU,         // Open PauseScreen
+	10,     PAD_BUTTON_BACK,         // Toggle PauseScreen & Back Setting Page
+	1,		PAD_BUTTON_A,            // Cross    = XBOX-A
+	2,		PAD_BUTTON_B,            // Circle   = XBOX-B 
+	0,		PAD_BUTTON_X,            // Square   = XBOX-X
+	3,		PAD_BUTTON_Y,            // Triangle = XBOX-Y
 	8,		PAD_BUTTON_SELECT,
-	4,		PAD_BUTTON_LBUMPER,
-	5,		PAD_BUTTON_RBUMPER,
-	1,		PAD_BUTTON_A,
-	2,		PAD_BUTTON_B,
-	0,		PAD_BUTTON_X,
-	3,		PAD_BUTTON_Y,
+	9,		PAD_BUTTON_START,
+	4,		PAD_BUTTON_LBUMPER,      // LTrigger = XBOX-LBumper
+	5,		PAD_BUTTON_RBUMPER,      // RTrigger = XBOX-RBumper
+	6,      PAD_BUTTON_LEFT_THUMB,   // Turbo
+	7,      PAD_BUTTON_RIGHT_THUMB,  // Open PauseScreen
+	POV_CODE_UP, PAD_BUTTON_UP,
+	POV_CODE_DOWN, PAD_BUTTON_DOWN,
+	POV_CODE_LEFT, PAD_BUTTON_LEFT,
+	POV_CODE_RIGHT, PAD_BUTTON_RIGHT,
 };
+
+const unsigned int dinput_ctrl_map_size = sizeof(dinput_ctrl_map);
 
 #define DIFF  (JOY_POVRIGHT - JOY_POVFORWARD) / 2
 #define JOY_POVFORWARD_RIGHT	JOY_POVFORWARD + DIFF
@@ -119,6 +131,16 @@ DinputDevice::~DinputDevice()
 	}
 }
 
+static inline int getPadCodeFromVirtualPovCode(unsigned int povCode)
+{
+	int mergedCode = 0;
+	for (int i = 0; i < dinput_ctrl_map_size / sizeof(dinput_ctrl_map[0]); i += 2) {
+		if (dinput_ctrl_map[i] > 0xFF && dinput_ctrl_map[i] & povCode)
+			mergedCode |= dinput_ctrl_map[i + 1];
+	}
+	return mergedCode;
+}
+
 int DinputDevice::UpdateState(InputState &input_state)
 {
 	if (g_Config.iForceInputDevice == 0) return -1;
@@ -134,17 +156,16 @@ int DinputDevice::UpdateState(InputState &input_state)
 
 	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
     return -1;
-
 	switch (js.rgdwPOV[0])
 	{
-		case JOY_POVFORWARD:	input_state.pad_buttons |= PAD_BUTTON_UP; break;
-		case JOY_POVBACKWARD:	input_state.pad_buttons |= PAD_BUTTON_DOWN; break;
-		case JOY_POVLEFT:		input_state.pad_buttons |= PAD_BUTTON_LEFT; break;
-		case JOY_POVRIGHT:		input_state.pad_buttons |= PAD_BUTTON_RIGHT; break;
-		case JOY_POVFORWARD_RIGHT:	input_state.pad_buttons |= (PAD_BUTTON_UP | PAD_BUTTON_RIGHT); break;
-		case JOY_POVRIGHT_BACKWARD:	input_state.pad_buttons |= (PAD_BUTTON_RIGHT | PAD_BUTTON_DOWN); break;
-		case JOY_POVBACKWARD_LEFT:	input_state.pad_buttons |= (PAD_BUTTON_DOWN | PAD_BUTTON_LEFT); break;
-		case JOY_POVLEFT_FORWARD:	input_state.pad_buttons |= (PAD_BUTTON_LEFT | PAD_BUTTON_UP); break;
+		case JOY_POVFORWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_UP); break;
+		case JOY_POVBACKWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_DOWN); break;
+		case JOY_POVLEFT:			input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_LEFT); break;
+		case JOY_POVRIGHT:			input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_RIGHT); break;
+		case JOY_POVFORWARD_RIGHT:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_UP | POV_CODE_RIGHT); break;
+		case JOY_POVRIGHT_BACKWARD:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_RIGHT | POV_CODE_DOWN); break;
+		case JOY_POVBACKWARD_LEFT:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_DOWN | POV_CODE_LEFT); break;
+		case JOY_POVLEFT_FORWARD:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_LEFT | POV_CODE_UP); break;
 	}
 
 	if (analog)
@@ -155,7 +176,8 @@ int DinputDevice::UpdateState(InputState &input_state)
 
 	for (u8 i = 0; i < sizeof(dinput_ctrl_map)/sizeof(dinput_ctrl_map[0]); i += 2)
 	{
-		if (js.rgbButtons[dinput_ctrl_map[i]] & 0x80)
+		// DIJOYSTATE2 supported 128 buttons. for exclude the Virtual POV_CODE bit fields.
+		if (dinput_ctrl_map[i] < DIRECTINPUT_RGBBUTTONS_MAX && js.rgbButtons[dinput_ctrl_map[i]] & 0x80)
 		{
 			input_state.pad_buttons |= dinput_ctrl_map[i+1];
 		}
@@ -164,3 +186,34 @@ int DinputDevice::UpdateState(InputState &input_state)
 	return UPDATESTATE_SKIP_PAD;
 }
 
+int DinputDevice::UpdateRawStateSingle(RawInputState &rawState)
+{
+	if (g_Config.iForceInputDevice == 0) return FALSE;
+	if (!pJoystick) return FALSE;
+
+	DIJOYSTATE2 js;
+
+	if (FAILED(pJoystick->Poll()))
+	{
+		if(pJoystick->Acquire() == DIERR_INPUTLOST)
+			return FALSE;
+	}
+
+	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
+    return -1;
+	switch (js.rgdwPOV[0])
+	{
+		case JOY_POVFORWARD:		rawState.button = POV_CODE_UP; return TRUE;
+		case JOY_POVBACKWARD:		rawState.button = POV_CODE_DOWN; return TRUE;
+		case JOY_POVLEFT:			rawState.button = POV_CODE_LEFT; return TRUE;
+		case JOY_POVRIGHT:			rawState.button = POV_CODE_RIGHT; return TRUE;
+	}
+
+	for (int i = 0; i < DIRECTINPUT_RGBBUTTONS_MAX; i++) {
+		if (js.rgbButtons[i] & 0x80) {
+			rawState.button = i;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}

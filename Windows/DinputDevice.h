@@ -18,8 +18,11 @@
 #pragma once
 #include <InitGuid.h>
 #define DIRECTINPUT_VERSION 0x0800
+#define DIRECTINPUT_RGBBUTTONS_MAX 128
 #include "InputDevice.h"
 #include "dinput.h"
+
+struct RawInputState;
 
 class DinputDevice :
 	public InputDevice
@@ -29,9 +32,9 @@ public:
 	~DinputDevice();
 	virtual int UpdateState(InputState &input_state);
 	virtual bool IsPad() { return true; }
+	int UpdateRawStateSingle(RawInputState &rawState);
 private:
 	LPDIRECTINPUT8			pDI;
 	LPDIRECTINPUTDEVICE8    pJoystick;
 	bool					analog;
 };
-
