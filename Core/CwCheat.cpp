@@ -4,8 +4,11 @@
 #include "StringUtils.h"
 #include "Common/FileUtil.h"
 #include "Config.h"
+#include "MIPS/MIPS.h"
+
 using namespace std;
 
+string title, title2, title3;
 static int CheatEvent = -1;
 CWCheatEngine member;
 CWCheatEngine cheatsThread;
@@ -13,12 +16,14 @@ void hleCheat(u64 userdata, int cyclesLate);
 
 
 void __CheatInit() {
-
+	title ="Cheats/";
+	title2 = g_paramSFO.GetValueString("DISC_ID").c_str();
+	title3 = title + title2 + ".ini";
 	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
 	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
 	File::CreateFullPath("Cheats");
-	if (!File::Exists("Cheats/Cheats.ini")) {
-	File::CreateEmptyFile("Cheats/Cheats.ini");
+	if (!File::Exists(title3)) {
+		File::CreateEmptyFile(title3);
 	}
 }
 void __CheatShutdown() {
@@ -28,7 +33,7 @@ void __CheatShutdown() {
 void hleCheat(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
 	if (g_Config.iEnableCheats == 1) {
-	member.Run();
+		member.Run();
 	}
 }
 
@@ -124,20 +129,23 @@ inline vector<string> makeCodeParts(string l) {
 
 vector<string> CWCheatEngine::GetCodesList() {
 	string line;
+	string path = __FILE__;
+	path = path.substr(0,1+path.find_last_of('\\'));
+	path+= title3;
 	char* skip = "//";
 	vector<string> codesList; //Read from INI here
-	ifstream list("D:\\User\\Steven\\Documents\\GitHub\\ppsspp\\Cheats\\Cheats.ini");
+	ifstream list(title3);
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list,line, '\n');
 		if (line.substr(0,2) == skip)
 		{line.clear();
 		}
 		else {
-		codesList.push_back(line);
+			codesList.push_back(line);
 		}
 	}
 	for( int i = 0; i < codesList.size(); i++) {
-	trim2(codesList[i]);
+		trim2(codesList[i]);
 	}
 	return codesList;
 }
