@@ -15,10 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../CPU.h"
-#include "MIPS.h"
-
-#include "MIPSVFPUUtils.h"
+#include "Core/CPU.h"
+#include "Core/Reporting.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 
 #include <limits>
 
@@ -183,7 +183,7 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 
 	int transpose = (reg>>5)&1;
 	if (currentMIPS->VfpuWriteMask() != 0) {
-		ERROR_LOG(CPU, "Write mask used with vfpu matrix instruction.");
+		ERROR_LOG_REPORT(CPU, "Write mask used with vfpu matrix instruction.");
 	}
 
 	for (int i=0; i<side; i++) {
@@ -211,7 +211,7 @@ int GetNumVectorElements(VectorSize sz)
 		case V_Pair:   return 2;
 		case V_Triple: return 3;
 		case V_Quad:   return 4;
-    default:       return 0;
+		default:       return 0;
 	}
 }
 
@@ -221,8 +221,8 @@ VectorSize GetHalfVectorSize(VectorSize sz)
 	{
 	case V_Pair: return V_Single;
 	case V_Quad: return V_Pair;
-  default:
-    return V_Single;
+	default:
+		return V_Single;
 	}
 }
 
@@ -248,7 +248,7 @@ MatrixSize GetMtxSize(u32 op)
 	a += (b<<1);
 	switch (a)
 	{
-	case 0: ERROR_LOG(CPU, "Unexpected matrix size 1x1."); return M_2x2;
+	case 0: ERROR_LOG_REPORT(CPU, "Unexpected matrix size 1x1."); return M_2x2;
 	case 1: return M_2x2;
 	case 2: return M_3x3;
 	case 3: return M_4x4;
