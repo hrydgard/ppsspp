@@ -431,6 +431,8 @@ SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 
 
 int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
+		return -1;
 	if (!intrHandlers[intrNumber]->has(subIntrNumber))
 		return -1;
 
