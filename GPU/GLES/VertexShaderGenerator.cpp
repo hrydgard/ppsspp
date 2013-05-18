@@ -135,7 +135,6 @@ enum DoLightComputation {
 
 void GenerateVertexShader(int prim, char *buffer) {
 	char *p = buffer;
-	WRITE(p, "precision highp float;\n");
 
 #define USE_FOR_LOOP
 
