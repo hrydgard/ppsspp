@@ -5,6 +5,7 @@ using namespace std;
 
 static int CheatEvent = -1;
 CheatsGUI member;
+CheatsGUI cheatsThread;
 
 void hleCheat(u64 userdata, int cyclesLate);
 
@@ -12,18 +13,17 @@ void hleCheat(u64 userdata, int cyclesLate);
 void __CheatInit() {
 	
 	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
-	CoreTiming::ScheduleEvent(msToCycles(66), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(600), CheatEvent, 0);
 }
 void __CheatShutdown() {
 	member.Exit();
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
-	CoreTiming::ScheduleEvent(msToCycles(66), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(660), CheatEvent, 0);
 	member.Run();
 }
 CheatsGUI::CheatsGUI() {
-
 }
 
 void CheatsGUI::Exit() {
@@ -33,6 +33,7 @@ void CheatsGUI::Exit() {
 string CheatsGUI::GetNextCode() {
 	string code;
 	string modifier = "_L";
+	char modifier2 = '	';
 	while (true)  {
 		if (currentCode >= codes.size()) {
 			code.clear();
@@ -43,9 +44,9 @@ string CheatsGUI::GetNextCode() {
 		trim2(code);
 
 		if (code.substr(0,2) == modifier) {
-			code = code.substr(3,21);
+			code = code.substr(3);
 		}
-		else if (code[0] == '0') {
+		else if (code[0] == modifier2) {
 			break;
 		}
 	}
@@ -78,7 +79,7 @@ void CheatsGUI::AddCheatLine(string& line) {
 		if (cheatCodes.length() <= 0) {
 			cheatCodes = line;
 		} else {
-			cheatCodes += "/n" + line;
+			cheatCodes += "\n" + line;
 		}
 	}
 
@@ -117,7 +118,7 @@ inline void trim2(string& str)
 
 inline vector<string> makeCodeParts(string l) {
 	vector<string> parts;
-	char split_char = '/n';
+	char split_char = '\n';
 	char empty = ' ';
 	
 	for (int i=0; i < l.length(); i++) {
@@ -142,24 +143,26 @@ vector<string> CheatsGUI::GetCodesList() {
 }
 
 void CheatsGUI::OnCheatsThreadEnded() {
-        cheatsThread = false;
+        test = 0;
     }
 void CheatsGUI::Dispose() {
 }
 
 void CheatsGUI::Run() {
 	CheatsGUI cheats;
+	exit2 = false;
 	while (!exit2) {
 		codes = cheats.GetCodesList(); //UI Member
 		currentCode = 0;
 		
 		while (true) {
-			string code = GetNextCode();
+			string code = "0x203BFA00 0x05F5E0FF";
 			vector<string>parts = makeCodeParts(code);
 			int value;
 			trim2(parts[0]);
 			trim2(parts[1]);
-			int comm = (int)parseHexLong(parts[0]);
+			cout << parts[0] << endl << parts[1];
+			unsigned int comm = (unsigned int)parseHexLong(parts[0]);
 			int arg = (int)parseHexLong(parts[1]);
 			int addr = getAddress(comm & 0x0FFFFFFF);
 
@@ -434,6 +437,7 @@ void CheatsGUI::Run() {
 			case 0xD: // Test commands & Jocker codes ( Someone will have to help me with these)
 				break;
 			case 0xE: // Test commands, multiple skip
+				{
 				bool is8Bit = (comm >> 24) == 0x1;
 				addr = getAddress(arg & 0x0FFFFFFF);
 				if (Memory::IsValidAddress(addr)) {
@@ -461,6 +465,11 @@ void CheatsGUI::Run() {
 				}
 				break;
 				}
+			default:
+				break;
+				}
+				Exit();
+				break;
 				}
 				}
 				// exiting...

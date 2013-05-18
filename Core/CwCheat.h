@@ -29,7 +29,7 @@ private:
 	void skipCodes(int count);
 	void skipAllCodes();
 	int getAddress(int value);
-	bool cheatsThread;
+	bool test;
 
 public:
 	CheatsGUI();
