@@ -328,7 +328,12 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 	if (s)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
-		Memory::WriteStruct(infoPtr, &s->ns);
+
+		if (!Memory::IsValidAddress(infoPtr))
+			return -1;
+
+		if (Memory::Read_U32(infoPtr) != 0)
+			Memory::WriteStruct(infoPtr, &s->ns);
 		return 0;
 	}
 	else
