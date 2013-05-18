@@ -29,6 +29,7 @@ TouchButton buttonStart(&ui_atlas, I_RECT, I_START, PAD_BUTTON_START);
 TouchButton buttonLShoulder(&ui_atlas, I_SHOULDER, I_L, PAD_BUTTON_LBUMPER);
 TouchButton buttonRShoulder(&ui_atlas, I_SHOULDER, I_R, PAD_BUTTON_RBUMPER, 0, true);
 TouchButton buttonTurbo(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_UNTHROTTLE, 180);
+TouchButton buttonVPS(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_LEFT_THUMB, 180);
 TouchCrossPad crossPad(&ui_atlas, I_DIR, I_ARROW);
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
@@ -65,7 +66,10 @@ void LayoutGamepad(int w, int h)
 
 	crossPad.setPos(leftX + arrow_spacing, leftY, 40, controlScale);
 
-	buttonTurbo.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
+	if (g_Config.iFpsLimit)
+		buttonVPS.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
+	else
+		buttonTurbo.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
 	buttonSelect.setPos(halfW , h - 20 * controlScale, controlScale);
 	buttonStart.setPos(halfW + button_spacing * 2 , h - 20 * controlScale, controlScale);
 	buttonLShoulder.setPos(button_spacing + 10 * controlScale, 30 * controlScale, controlScale);
@@ -94,7 +98,11 @@ void UpdateGamepad(InputState &input_state)
 	buttonStart.update(input_state);
 	buttonLShoulder.update(input_state);
 	buttonRShoulder.update(input_state);
-	buttonTurbo.update(input_state);
+
+	if (g_Config.iFpsLimit)
+		buttonVPS.update(input_state);
+	else 
+		buttonTurbo.update(input_state);
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 	buttonPause.update(input_state);
@@ -119,7 +127,11 @@ void DrawGamepad(DrawBuffer &db)
 	buttonStart.draw(db, color, colorOverlay);
 	buttonLShoulder.draw(db, color, colorOverlay);
 	buttonRShoulder.draw(db, color, colorOverlay);
-	buttonTurbo.draw(db, color, colorOverlay);
+
+	if (g_Config.iFpsLimit)
+		buttonVPS.draw(db, color, colorOverlay);
+	else
+		buttonTurbo.draw(db, color, colorOverlay);
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 	buttonPause.draw(db, color, colorOverlay);
