@@ -47,7 +47,7 @@ void VagDecoder::DecodeBlock(u8 *&readp) {
 	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
-	if (predict_nr >= sizeof(f) / sizeof(s8)) {
+	if (predict_nr >= sizeof(f) / sizeof(f[0])) {
 		predict_nr = 0;
 	}
 	int flags = *readp++;
@@ -311,7 +311,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 				break;
 			case VOICETYPE_PCM:
 				{
-					int size = std::min(voice.pcmSize, (int)(numSamples * sizeof(s16)));
+					u32 size = std::min(voice.pcmSize, (int)(numSamples * sizeof(s16)));
 					Memory::Memcpy(resampleBuffer + 2, voice.pcmAddr, size);
 					if (numSamples * sizeof(s16) > size)
 						memset(resampleBuffer + 2 + voice.pcmSize, 0, numSamples * sizeof(s16) - size);

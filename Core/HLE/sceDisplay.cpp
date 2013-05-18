@@ -494,8 +494,8 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	return 0;
 }
 
-bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mode) {
-	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
+bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
+	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
 	if (topaddr != NULL)
 		*topaddr = Memory::GetPointer(fbState.topaddr);
 	if (linesize != NULL)
@@ -506,8 +506,8 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mod
 	return true;
 }
 
-u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode) {
-	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
+u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
+	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
 	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
 
 	if (Memory::IsValidAddress(topaddrPtr))
@@ -602,9 +602,9 @@ u32 sceDisplayGetAccumulatedHcount() {
 }
 
 float sceDisplayGetFramePerSec() {
-	float fps = 59.9400599f;
-	DEBUG_LOG(HLE,"%f=sceDisplayGetFramePerSec()", fps);
-	return fps;	// (9MHz * 1)/(525 * 286)
+	const static float framePerSec = 59.9400599f;
+	DEBUG_LOG(HLE,"%f=sceDisplayGetFramePerSec()", framePerSec);
+	return framePerSec;	// (9MHz * 1)/(525 * 286)
 }
 
 u32 sceDisplayIsForeground() {

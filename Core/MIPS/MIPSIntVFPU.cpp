@@ -623,18 +623,17 @@ namespace MIPSInt
 				continue;
 			}
 			double sv = s[i] * mult; // (float)0x7fffffff == (float)0x80000000
-			int dsv;
 			// Cap/floor it to 0x7fffffff / 0x80000000
 			if (sv > 0x7fffffff) sv = 0x7fffffff;
 			if (sv < (int)0x80000000) sv = (int)0x80000000;
 			switch ((op >> 21) & 0x1f)
 			{
-			case 16: dsv = (int)rint(sv); break; //n
-			case 17: dsv = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
-			case 18: dsv = (int)ceil(sv); break; //u
-			case 19: dsv = (int)floor(sv); break; //d
+			case 16: d[i] = (int)rint(sv); break; //n
+			case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
+			case 18: d[i] = (int)ceil(sv); break; //u
+			case 19: d[i] = (int)floor(sv); break; //d
+			default: d[i] = 0x7FFFFFFF; break;
 			}
-			d[i] = (int) dsv;
 		}
 		ApplyPrefixD((float*)d, sz, true);
 		WriteVector((float*)d, sz, vd);
@@ -837,24 +836,47 @@ namespace MIPSInt
 			break;
 
 		case 2:  // vus2i
-			for (int i = 0; i < GetNumVectorElements(sz); i++) {
-				u32 value = s[i];
-				d[i * 2] = (value & 0xFFFF) << 15;
-				d[i * 2 + 1] = (value & 0xFFFF0000) >> 1;
-			}
 			oz = V_Pair;
-			if (sz == V_Pair) oz = V_Quad;
+			switch (sz)
+			{
+			case V_Pair:
+				oz = V_Quad;
+				// Intentional fallthrough.
+			case V_Single:
+				for (int i = 0; i < GetNumVectorElements(sz); i++) {
+					u32 value = s[i];
+					d[i * 2] = (value & 0xFFFF) << 15;
+					d[i * 2 + 1] = (value & 0xFFFF0000) >> 1;
+				}
+				break;
+
+			default:
+				ERROR_LOG_REPORT(CPU, "vus2i with more than 2 elements.");
+				break;
+			}
 			break;
 
 		case 3:  // vs2i
-			for (int i = 0; i < GetNumVectorElements(sz); i++) {
-				u32 value = s[i];
-				d[i * 2] = (value & 0xFFFF) << 16;
-				d[i * 2 + 1] = value & 0xFFFF0000;
-			}
 			oz = V_Pair;
-			if (sz == V_Pair) oz = V_Quad;
+			switch (sz)
+			{
+			case V_Pair:
+				oz = V_Quad;
+				// Intentional fallthrough.
+			case V_Single:
+				for (int i = 0; i < GetNumVectorElements(sz); i++) {
+					u32 value = s[i];
+					d[i * 2] = (value & 0xFFFF) << 16;
+					d[i * 2 + 1] = value & 0xFFFF0000;
+				}
+				break;
+
+			default:
+				ERROR_LOG_REPORT(CPU, "vs2i with more than 2 elements.");
+				break;
+			}
 			break;
+
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
