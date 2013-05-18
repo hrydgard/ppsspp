@@ -77,53 +77,55 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 }
 
 void ReadVector(float *rd, VectorSize size, int reg) {
-  int mtx = (reg >> 2) & 7;
-  int col = reg & 3;
-  int row = 0;
-  int length = 0;
-  int transpose = (reg>>5) & 1;
+	const int mtx = (reg >> 2) & 7;
+	const int col = reg & 3;
+	int row = 0;
+	int length = 0;
+	int transpose = (reg>>5) & 1;
 
-  switch (size) {
-  case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
-  case V_Pair:   row=(reg>>5)&2; length = 2; break;
-  case V_Triple: row=(reg>>6)&1; length = 3; break;
-  case V_Quad:   row=(reg>>5)&2; length = 4; break;
-  }
+	switch (size) {
+	case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Pair:   row=(reg>>5)&2; length = 2; break;
+	case V_Triple: row=(reg>>6)&1; length = 3; break;
+	case V_Quad:   row=(reg>>5)&2; length = 4; break;
+	}
 
+	u32 *rdu = (u32 *)rd;
 	if (transpose) {
-		int base = mtx * 4 + col * 32;
+		const int base = mtx * 4 + col * 32;
 		for (int i = 0; i < length; i++)
-			rd[i] = V(base + ((row+i)&3));
+			rdu[i] = VI(base + ((row+i)&3));
 	} else {
-		int base = mtx * 4 + col;
+		const int base = mtx * 4 + col;
 		for (int i = 0; i < length; i++)
-			rd[i] = V(base + ((row+i)&3)*32);
+			rdu[i] = VI(base + ((row+i)&3)*32);
 	}
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg) {
-  int mtx = (reg>>2)&7;
-  int col = reg & 3;
-  int row = 0;
-  int length = 0;
-  int transpose = (reg>>5)&1;
+	const int mtx = (reg>>2)&7;
+	const int col = reg & 3;
+	int row = 0;
+	int length = 0;
+	int transpose = (reg>>5)&1;
 
-  switch (size) {
-  case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
-  case V_Pair:   row=(reg>>5)&2; length = 2; break;
-  case V_Triple: row=(reg>>6)&1; length = 3; break;
-  case V_Quad:   row=(reg>>5)&2; length = 4; break;
-  }
+	switch (size) {
+	case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Pair:   row=(reg>>5)&2; length = 2; break;
+	case V_Triple: row=(reg>>6)&1; length = 3; break;
+	case V_Quad:   row=(reg>>5)&2; length = 4; break;
+	}
 
+	u32 *rdu = (u32 *)rd;
 	if (currentMIPS->VfpuWriteMask() == 0) {
 		if (transpose) {
-			int base = mtx * 4 + col * 32;
+			const int base = mtx * 4 + col * 32;
 			for (int i = 0; i < length; i++)
-				V(base + ((row+i)&3)) = rd[i];
+				VI(base + ((row+i)&3)) = rdu[i];
 		} else {
-			int base = mtx * 4 + col;
+			const int base = mtx * 4 + col;
 			for (int i = 0; i < length; i++)
-				V(base + ((row+i)&3)*32) = rd[i];
+				VI(base + ((row+i)&3)*32) = rdu[i];
 		}
 	} else {
 		for (int i = 0; i < length; i++) {
@@ -133,7 +135,7 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 					index += ((row+i)&3) + col*32;
 				else
 					index += col + ((row+i)&3)*32;
-				V(index) = rd[i];
+				VI(index) = rdu[i];
 			}
 		}
 	}
@@ -152,7 +154,7 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	case M_4x4: row = (reg>>5)&2; side = 4; break;
 	}
 
-  int transpose = (reg>>5) & 1;
+	int transpose = (reg>>5) & 1;
 
 	for (int i = 0; i < side; i++) {
 		for (int j = 0; j < side; j++) {
