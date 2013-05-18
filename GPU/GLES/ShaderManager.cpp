@@ -202,8 +202,7 @@ static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra)
 	glUniform4fv(uniform, 1, col);
 }
 
-static void SetMatrix4x3(int uniform, const float *m4x3) {
-	float m4x4[16];
+static void ConvertMatrix4x3To4x4(const float *m4x3, float *m4x4) {
 	m4x4[0] = m4x3[0];
 	m4x4[1] = m4x3[1];
 	m4x4[2] = m4x3[2];
@@ -220,6 +219,11 @@ static void SetMatrix4x3(int uniform, const float *m4x3) {
 	m4x4[13] = m4x3[10];
 	m4x4[14] = m4x3[11];
 	m4x4[15] = 1.0f;
+}
+
+static void SetMatrix4x3(int uniform, const float *m4x3) {
+	float m4x4[16];
+	ConvertMatrix4x3To4x4(m4x3, m4x4);
 	glUniformMatrix4fv(uniform, 1, GL_FALSE, m4x4);
 }
 
@@ -320,9 +324,25 @@ void LinkedShader::updateUniforms() {
 
 	// TODO: Could even set all bones in one go if they're all dirty.
 	if (u_bone != -1) {
+		float allBones[8 * 16];
+
+		bool allDirty = true;
 		for (int i = 0; i < numBones; i++) {
 			if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-				SetMatrix4x3(u_bone + i, gstate.boneMatrix + 12 * i);
+				ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, allBones + 16 * i);
+			} else {
+				allDirty = false;
+			}
+		}
+		if (allDirty) {
+			// Set them all with one call
+			glUniformMatrix4fv(u_bone, numBones, GL_FALSE, allBones);
+		} else {
+			// Set them one by one. Could try to coalesce two in a row etc but too lazy.
+			for (int i = 0; i < numBones; i++) {
+				if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+					glUniformMatrix4fv(u_bone + i, 1, GL_FALSE, allBones + 16 * i);
+				}
 			}
 		}
 	}
