@@ -1,39 +1,48 @@
 #include "CwCheat.h"
 #include "../Core/CoreTiming.h"
 #include "../Core/CoreParameter.h"
+#include "StringUtils.h"
+#include "Common/FileUtil.h"
+#include "Config.h"
 using namespace std;
 
 static int CheatEvent = -1;
-CheatsGUI member;
-CheatsGUI cheatsThread;
-
+CWCheatEngine member;
+CWCheatEngine cheatsThread;
 void hleCheat(u64 userdata, int cyclesLate);
 
 
 void __CheatInit() {
-	
+
 	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
-	CoreTiming::ScheduleEvent(msToCycles(600), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
+	File::CreateFullPath("Cheats");
+	if (!File::Exists("Cheats/Cheats.ini")) {
+	File::CreateEmptyFile("Cheats/Cheats.ini");
+	}
 }
 void __CheatShutdown() {
 	member.Exit();
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
-	CoreTiming::ScheduleEvent(msToCycles(660), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
+	if (g_Config.iEnableCheats == 1) {
 	member.Run();
-}
-CheatsGUI::CheatsGUI() {
+	}
 }
 
-void CheatsGUI::Exit() {
+CWCheatEngine::CWCheatEngine() {
+}
+
+void CWCheatEngine::Exit() {
 	exit2 = true;
 }
 
-string CheatsGUI::GetNextCode() {
+string CWCheatEngine::GetNextCode() {
 	string code;
 	string modifier = "_L";
-	char modifier2 = '	';
+	char modifier2 = '0';
 	while (true)  {
 		if (currentCode >= codes.size()) {
 			code.clear();
@@ -53,74 +62,52 @@ string CheatsGUI::GetNextCode() {
 	return code;
 }
 
-void CheatsGUI::skipCodes(int count) {
+void CWCheatEngine::skipCodes(int count) {
 	for (int i = 0; i < count; i ++) {
 		if (GetNextCode() == "") {
 			break;
 		}
 	}
 }
-	
-void CheatsGUI::skipAllCodes() {
+
+void CWCheatEngine::skipAllCodes() {
 	currentCode = codes.size();
 }
 
-int CheatsGUI::getAddress(int value) {
+int CWCheatEngine::getAddress(int value) {
 	// The User space base address has to be added to given value
 	return (value + 0x08800000) & 0x3FFFFFFF;
 }
 
 
-				
 
-void CheatsGUI::AddCheatLine(string& line) {
-		//Need GUI text area here
-		string cheatCodes;
-		if (cheatCodes.length() <= 0) {
-			cheatCodes = line;
-		} else {
-			cheatCodes += "\n" + line;
-		}
+
+void CWCheatEngine::AddCheatLine(string& line) {
+	//Need GUI text area here
+	string cheatCodes;
+	if (cheatCodes.length() <= 0) {
+		cheatCodes = line;
+	} else {
+		cheatCodes += "\n" + line;
 	}
-
-
-inline static long parseHexLong(string s) {
-         long value = 0;
-
-         if (s.substr(0,2) == "0x") {
-             s = s.substr(2);
-         }
-         value = strtol(s.c_str(),NULL, 16);
-         return value;
-     }
-inline static long parseLong(string s) {
-         long value = 0;
-         if (s.substr(0,2) == "0x") {
-			 s = s.substr(2);
-             value = strtol(s.c_str(),NULL, 16);
-         } else {
-             value = strtol(s.c_str(),NULL, 10);
-         }
-         return value;
-     }
-
+}
 
 inline void trim2(string& str)
 {
-  string::size_type pos = str.find_last_not_of(' ');
-  if(pos != string::npos) {
-    str.erase(pos + 1);
-    pos = str.find_first_not_of(' ');
-    if(pos != string::npos) str.erase(0, pos);
-  }
-  else str.erase(str.begin(), str.end());
+	string::size_type pos = str.find_last_not_of(' ');
+	if(pos != string::npos) {
+		str.erase(pos + 1);
+		pos = str.find_first_not_of(' ');
+		if(pos != string::npos) str.erase(0, pos);
+	}
+	else str.erase(str.begin(), str.end());
 }
 
 inline vector<string> makeCodeParts(string l) {
 	vector<string> parts;
 	char split_char = '\n';
 	char empty = ' ';
-	
+
 	for (int i=0; i < l.length(); i++) {
 		if (l[i] == empty) {
 			l[i] = '\n';
@@ -128,40 +115,55 @@ inline vector<string> makeCodeParts(string l) {
 	}
 	trim2(l);
 	istringstream iss (l);
-	for (std::string each; std::getline(iss, each, split_char);parts.push_back(each))
-	{}
+	std::string each;
+	while (std::getline(iss, each, split_char)) {
+		parts.push_back(each);
+	}
 	return parts;
 }
 
-vector<string> CheatsGUI::GetCodesList() {
-	string text = "0x203BFA00 0x05F5E0FF";
-	vector<string> codeslist;
-	codeslist = makeCodeParts(text);
-	trim2(codeslist[0]);
-	trim2(codeslist[1]);
-	return codeslist;
+vector<string> CWCheatEngine::GetCodesList() {
+	string line;
+	char* skip = "//";
+	vector<string> codesList; //Read from INI here
+	ifstream list("D:\\User\\Steven\\Documents\\GitHub\\ppsspp\\Cheats\\Cheats.ini");
+	for (int i = 0; !list.eof(); i ++) {
+		getline(list,line, '\n');
+		if (line.substr(0,2) == skip)
+		{line.clear();
+		}
+		else {
+		codesList.push_back(line);
+		}
+	}
+	for( int i = 0; i < codesList.size(); i++) {
+	trim2(codesList[i]);
+	}
+	return codesList;
 }
 
-void CheatsGUI::OnCheatsThreadEnded() {
-        test = 0;
-    }
-void CheatsGUI::Dispose() {
-}
-
-void CheatsGUI::Run() {
-	CheatsGUI cheats;
+void CWCheatEngine::Run() {
+	CWCheatEngine cheats;
 	exit2 = false;
 	while (!exit2) {
 		codes = cheats.GetCodesList(); //UI Member
 		currentCode = 0;
-		
+
 		while (true) {
-			string code = "0x203BFA00 0x05F5E0FF";
+			string code = GetNextCode();
+			if (code == "") {
+				Exit();
+				break;
+			}
 			vector<string>parts = makeCodeParts(code);
+			if (parts[0] == "" || parts.size() < 2) {
+				continue;
+			}
+
 			int value;
 			trim2(parts[0]);
 			trim2(parts[1]);
-			cout << parts[0] << endl << parts[1];
+			//cout << parts[0] << endl << parts[1];
 			unsigned int comm = (unsigned int)parseHexLong(parts[0]);
 			int arg = (int)parseHexLong(parts[1]);
 			int addr = getAddress(comm & 0x0FFFFFFF);
@@ -184,61 +186,61 @@ void CheatsGUI::Run() {
 				break;
 			case 0x3: // Increment/Decrement
 				{
-				addr = getAddress(arg);
-				value = 0;
-				int increment = 0;
-				// Read value from memory
-				switch ((comm >> 20) & 0xF) {
-				case 1:
-				case 2: // 8-bit
-					value = Memory::Read_U8(addr);
-					increment = comm & 0xFF;
-					break;
-				case 3:
-				case 4: // 16-bit
-					value = Memory::Read_U16(addr);
-					increment = comm & 0xFFFF;
-					break;
-				case 5:
-				case 6: // 32-bit
-					value = Memory::Read_U32(addr);
-					code = GetNextCode();
-					parts = makeCodeParts(code);
-					trim2(parts[0]);
-					if ( parts[0] != "") {
-						increment = (int) parseHexLong(parts[0]);
+					addr = getAddress(arg);
+					value = 0;
+					int increment = 0;
+					// Read value from memory
+					switch ((comm >> 20) & 0xF) {
+					case 1:
+					case 2: // 8-bit
+						value = Memory::Read_U8(addr);
+						increment = comm & 0xFF;
+						break;
+					case 3:
+					case 4: // 16-bit
+						value = Memory::Read_U16(addr);
+						increment = comm & 0xFFFF;
+						break;
+					case 5:
+					case 6: // 32-bit
+						value = Memory::Read_U32(addr);
+						code = GetNextCode();
+						parts = makeCodeParts(code);
+						trim2(parts[0]);
+						if ( parts[0] != "") {
+							increment = (int) parseHexLong(parts[0]);
+						}
+						break;
 					}
-					break;
-				}
-				// Increment/Decrement value
-				switch ((comm >> 20) & 0xF) {
-				case 1:
-				case 3:
-				case 5: // increment
-					value += increment;
-					break;
-				case 2:
-				case 4:
-				case 6: // Decrement
-					value -= increment;
-					break;
-				}
-				// Write value back to memory
-				switch ((comm >> 20) & 0xF) {
-				case 1:
-				case 2: // 8-bit
-					Memory::Write_U8((u8) value, addr);
-					break;
-				case 3:
-				case 4: // 16-bit
-					Memory::Write_U16((u16) value, addr);
-					break;
-				case 5:
-				case 6: // 32-bit
-					Memory::Write_U32((u32) value, addr);
-					break;
-				}
-				break; }
+					// Increment/Decrement value
+					switch ((comm >> 20) & 0xF) {
+					case 1:
+					case 3:
+					case 5: // increment
+						value += increment;
+						break;
+					case 2:
+					case 4:
+					case 6: // Decrement
+						value -= increment;
+						break;
+					}
+					// Write value back to memory
+					switch ((comm >> 20) & 0xF) {
+					case 1:
+					case 2: // 8-bit
+						Memory::Write_U8((u8) value, addr);
+						break;
+					case 3:
+					case 4: // 16-bit
+						Memory::Write_U16((u16) value, addr);
+						break;
+					case 5:
+					case 6: // 32-bit
+						Memory::Write_U32((u32) value, addr);
+						break;
+					}
+					break; }
 			case 0x4: // 32-bit patch code
 				code = GetNextCode();
 				parts = makeCodeParts(code);
@@ -295,31 +297,31 @@ void CheatsGUI::Run() {
 							switch (comm3) {
 							case 0x1: // type copy byte
 								{
-								int srcAddr = Memory::Read_U32(addr) + offset;
-								int dstAddr = Memory::Read_U16(addr + baseOffset) + (arg3 & 0x0FFFFFFF);
-								Memory::Memcpy(dstAddr, Memory::GetPointer(srcAddr), arg);
-								type = -1; //Done
-								break; }
+									int srcAddr = Memory::Read_U32(addr) + offset;
+									int dstAddr = Memory::Read_U16(addr + baseOffset) + (arg3 & 0x0FFFFFFF);
+									Memory::Memcpy(dstAddr, Memory::GetPointer(srcAddr), arg);
+									type = -1; //Done
+									break; }
 							case 0x2:
 							case 0x3: // type pointer walk
 								{
-								int walkOffset = arg3 & 0x0FFFFFFF;
-								if (comm3 == 0x3) {
-									walkOffset = -walkOffset;
-								}
-								base = Memory::Read_U32(base + walkOffset);
-								int comm4 = arg4 >> 28;
-								switch (comm4) {
-								case 0x2:
-								case 0x3: // type pointer walk
-									walkOffset = arg4 & 0x0FFFFFFF;
-									if (comm4 == 0x3) {
+									int walkOffset = arg3 & 0x0FFFFFFF;
+									if (comm3 == 0x3) {
 										walkOffset = -walkOffset;
 									}
 									base = Memory::Read_U32(base + walkOffset);
-									break;
-								}
-								break; }
+									int comm4 = arg4 >> 28;
+									switch (comm4) {
+									case 0x2:
+									case 0x3: // type pointer walk
+										walkOffset = arg4 & 0x0FFFFFFF;
+										if (comm4 == 0x3) {
+											walkOffset = -walkOffset;
+										}
+										base = Memory::Read_U32(base + walkOffset);
+										break;
+									}
+									break; }
 							case 0x9: // type multi address write
 								base += arg3 & 0x0FFFFFFF;
 								arg += arg4;
@@ -327,29 +329,29 @@ void CheatsGUI::Run() {
 							}
 						}
 					}
-				
-				switch (type) {
-				case 0: // 8 bit write
-					Memory::Write_U8((u8) arg, base + offset);
-					break;
-				case 1: // 16-bit write
-					Memory::Write_U16((u16) arg, base + offset);
-					break;
-				case 2: // 32-bit write
-					Memory::Write_U32((u32) arg, base + offset);
-					break;
-				case 3: // 8 bit inverse write
-					Memory::Write_U8((u8) arg, base - offset);
-					break;
-				case 4: // 16-bit inverse write
-					Memory::Write_U16((u16) arg, base - offset);
-					break;
-				case 5: // 32-bit inverse write
-					Memory::Write_U32((u32) arg, base - offset);
-					break;
-				case -1: // Operation already performed, nothing to do
-					break;
-				}
+
+					switch (type) {
+					case 0: // 8 bit write
+						Memory::Write_U8((u8) arg, base + offset);
+						break;
+					case 1: // 16-bit write
+						Memory::Write_U16((u16) arg, base + offset);
+						break;
+					case 2: // 32-bit write
+						Memory::Write_U32((u32) arg, base + offset);
+						break;
+					case 3: // 8 bit inverse write
+						Memory::Write_U8((u8) arg, base - offset);
+						break;
+					case 4: // 16-bit inverse write
+						Memory::Write_U16((u16) arg, base - offset);
+						break;
+					case 5: // 32-bit inverse write
+						Memory::Write_U32((u32) arg, base - offset);
+						break;
+					case -1: // Operation already performed, nothing to do
+						break;
+					}
 				}
 				break;
 			case 0x7: // Boolean commands.
@@ -413,10 +415,10 @@ void CheatsGUI::Run() {
 					for (int a = 0; a < maxAddr; a++) {
 						if (Memory::IsValidAddress(addr)) {
 							if (is8Bit) {
-								 Memory::Write_U8((u8) (data & 0xFF), addr);
+								Memory::Write_U8((u8) (data & 0xFF), addr);
 							}
 							else {
-								 Memory::Write_U16((u16) (data & 0xFFFF), addr);
+								Memory::Write_U16((u16) (data & 0xFFFF), addr);
 							}
 						}
 						addr += stepAddr;
@@ -438,43 +440,39 @@ void CheatsGUI::Run() {
 				break;
 			case 0xE: // Test commands, multiple skip
 				{
-				bool is8Bit = (comm >> 24) == 0x1;
-				addr = getAddress(arg & 0x0FFFFFFF);
-				if (Memory::IsValidAddress(addr)) {
-					int memoryValue = is8Bit ? Memory::Read_U8(addr) : Memory::Read_U16(addr);
-					int testValue = comm & (is8Bit ? 0xFF : 0xFFFF);
-					bool executeNextLines = false;
-					switch ( arg >> 28) {
-					case 0x0: // Equal
-						executeNextLines = memoryValue == testValue;
-						break;
-					case 0x1: // Not Equal
-						executeNextLines = memoryValue != testValue;
-						break;
-					case 0x2: // Less Than
-						executeNextLines = memoryValue < testValue;
-						break;
-					case 0x3: // Greater Than
-						executeNextLines = memoryValue > testValue;
-						break;
+					bool is8Bit = (comm >> 24) == 0x1;
+					addr = getAddress(arg & 0x0FFFFFFF);
+					if (Memory::IsValidAddress(addr)) {
+						int memoryValue = is8Bit ? Memory::Read_U8(addr) : Memory::Read_U16(addr);
+						int testValue = comm & (is8Bit ? 0xFF : 0xFFFF);
+						bool executeNextLines = false;
+						switch ( arg >> 28) {
+						case 0x0: // Equal
+							executeNextLines = memoryValue == testValue;
+							break;
+						case 0x1: // Not Equal
+							executeNextLines = memoryValue != testValue;
+							break;
+						case 0x2: // Less Than
+							executeNextLines = memoryValue < testValue;
+							break;
+						case 0x3: // Greater Than
+							executeNextLines = memoryValue > testValue;
+							break;
+						}
+						if (!executeNextLines) {
+							int skip = (comm >> 16) & (is8Bit ? 0xFF : 0xFFF);
+							skipCodes(skip);
+						}
 					}
-					if (!executeNextLines) {
-						int skip = (comm >> 16) & (is8Bit ? 0xFF : 0xFFF);
-						skipCodes(skip);
-					}
+					break;
 				}
-				break;
-				}
-			default:
-				break;
-				}
-				Exit();
-				break;
-				}
-				}
-				// exiting...
-				cheats.OnCheatsThreadEnded();
-				}
+			}
+		}
+	}
+	// exiting...
+	Exit();
+}
 
 
 

@@ -14,11 +14,9 @@ using namespace std;
 
 vector<string> makeCodeParts(string l);
 void trim2(string& str);
-static long parseLong(string s);
-static long parseHexLong(string s);
 
 
-class CheatsGUI {
+class CWCheatEngine {
 private:
 	static long const serialVersionUID = 6791588139795694296L;
 	static long const int cheatsThreadSleepMillis = 5;
@@ -29,14 +27,11 @@ private:
 	void skipCodes(int count);
 	void skipAllCodes();
 	int getAddress(int value);
-	bool test;
 
 public:
-	CheatsGUI();
+	CWCheatEngine();
 	string String();
 	void AddCheatLine(string& line);
-	void OnCheatsThreadEnded();
-	void Dispose();
 	vector<string> GetCodesList();
 
 	void Exit();

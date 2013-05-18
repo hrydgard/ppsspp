@@ -22,6 +22,27 @@
 #include "CommonPaths.h"
 #include "StringUtils.h"
 
+long parseHexLong(std::string s) {
+	long value = 0;
+
+	if (s.substr(0,2) == "0x") {
+		//s = s.substr(2);
+	}
+	value = strtoul(s.c_str(),0, 0);
+	return value;
+}
+long parseLong(std::string s) {
+	long value = 0;
+	if (s.substr(0,2) == "0x") {
+		s = s.substr(2);
+		value = strtol(s.c_str(),NULL, 16);
+	} else {
+		value = strtol(s.c_str(),NULL, 10);
+	}
+	return value;
+}
+
+
 // faster than sscanf
 bool AsciiToHex(const char* _szValue, u32& result)
 {
