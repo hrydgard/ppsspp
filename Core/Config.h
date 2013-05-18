@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "CommonTypes.h"
 
 extern const char *PPSSPP_GIT_VERSION;
 
@@ -78,7 +79,7 @@ public:
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
 	int iFpsLimit;
-	int iMaxRecent;
+	u32 iMaxRecent;
 
 	// Sound
 	bool bEnableSound;
