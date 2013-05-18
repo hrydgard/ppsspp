@@ -243,7 +243,8 @@ namespace Reporting
 		Payload &payload = payloadBuffer[pos];
 
 		std::string gpuPrimary, gpuFull;
-		gpu->GetReportingInfo(gpuPrimary, gpuFull);
+		if (gpu)
+			gpu->GetReportingInfo(gpuPrimary, gpuFull);
 
 		UrlEncoder postdata;
 		postdata.Add("version", PPSSPP_GIT_VERSION);

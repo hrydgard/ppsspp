@@ -371,7 +371,7 @@ void Atrac::Analyze()
 				if (chunkSize < 36)
 					break;
 				int checkNumLoops = Memory::Read_U32(first.addr + offset + 28);
-				if (chunkSize >= 36 + checkNumLoops * 24) {
+				if (chunkSize >= 36 + (u32)checkNumLoops * 24) {
 					loopinfoNum = checkNumLoops;
 					loopinfo.resize(loopinfoNum);
 					u32 loopinfoAddr = first.addr + offset + 36;
@@ -479,13 +479,13 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 				atrac->SeekToSample(forceseekSample);
 				atrac->SeekToSample(atrac->currentSample);
 				AVPacket packet;
-				int got_frame, ret;
+				int got_frame, avret;
 				while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
 					if (packet.stream_index == atrac->audio_stream_index) {
 						got_frame = 0;
-						ret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
-						if (ret < 0) {
-							ERROR_LOG(HLE, "avcodec_decode_audio4: Error decoding audio %d", ret);
+						avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
+						if (avret < 0) {
+							ERROR_LOG(HLE, "avcodec_decode_audio4: Error decoding audio %d", avret);
 							av_free_packet(&packet);
 							break;
 						}
@@ -496,10 +496,10 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 								atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
 							u8* out = Memory::GetPointer(outAddr);
 							numSamples = atrac->pFrame->nb_samples;
-							ret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples, 
+							avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples, 
 								(const u8**)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
-							if (ret < 0) {
-								ERROR_LOG(HLE, "swr_convert: Error while converting %d", ret);
+							if (avret < 0) {
+								ERROR_LOG(HLE, "swr_convert: Error while converting %d", avret);
 							}
 
 						}
@@ -720,9 +720,9 @@ u32 sceAtracGetSecondBufferInfo(int atracID, u32 outposAddr, u32 outBytesAddr)
 	if (!atrac) {
 		//return -1;
 	}
-	if (Memory::IsValidAddress(outposAddr))
+	if (Memory::IsValidAddress(outposAddr) && atrac)
 		Memory::Write_U32(atrac->second.fileoffset, outposAddr);
-	if (Memory::IsValidAddress(outBytesAddr))
+	if (Memory::IsValidAddress(outBytesAddr) && atrac)
 		Memory::Write_U32(atrac->second.writableBytes, outBytesAddr);
 	// TODO: Maybe don't write the above?
 	return ATRAC_ERROR_SECOND_BUFFER_NOT_NEEDED;
@@ -813,13 +813,13 @@ int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
 	Atrac *atrac = (Atrac*)opaque;
 	switch (whence) {
 	case SEEK_SET:
-		atrac->decodePos = offset;
+		atrac->decodePos = (u32)offset;
 		break;
 	case SEEK_CUR:
-		atrac->decodePos += offset;
+		atrac->decodePos += (u32)offset;
 		break;
 	case SEEK_END:
-		atrac->decodePos = atrac->first.filesize - offset;
+		atrac->decodePos = atrac->first.filesize - (u32)offset;
 		break;
 	}
 	return offset;

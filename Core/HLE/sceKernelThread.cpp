@@ -651,8 +651,12 @@ private:
 		int size = cur->end - cur->first;
 		if (size >= cur->capacity - 2)
 		{
-			cur->capacity *= 2;
-			cur->data = (SceUID *)realloc(cur->data, cur->capacity * sizeof(SceUID));
+			SceUID *new_data = (SceUID *)realloc(cur->data, cur->capacity * sizeof(SceUID));
+			if (new_data != NULL)
+			{
+				cur->capacity *= 2;
+				cur->data = new_data;
+			}
 		}
 
 		int newFirst = (cur->capacity - size) / 2;
@@ -2735,14 +2739,14 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		hleCurrentThreadName = target->nt.name;
 		__KernelChangeReadyState(target, currentThread, false);
 		target->nt.status = (target->nt.status | THREADSTATUS_RUNNING) & ~THREADSTATUS_READY;
+
+		__KernelLoadContext(&target->context, (target->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
 	}
 	else
 	{
 		currentThread = 0;
 		hleCurrentThreadName = NULL;
 	}
-
-	__KernelLoadContext(&target->context, (target->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
 
 	bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
 	bool toIdle = currentThread == threadIdleID[0] || currentThread == threadIdleID[1];
