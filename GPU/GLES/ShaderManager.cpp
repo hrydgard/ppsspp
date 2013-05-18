@@ -54,6 +54,9 @@ Shader::Shader(const char *code, uint32_t shaderType) {
 		ERROR_LOG(G3D, "Info log: %s\n", infoLog);
 		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
 		Reporting::ReportMessage("Error in shader compilation: info: %s / code: %s", infoLog, (const char *)code);
+#ifdef SHADERLOG
+		OutputDebugString(infoLog);
+#endif
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
@@ -102,11 +105,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
-	for (int i = 0; i < 8; i++) {
-		char name[64];
-		sprintf(name, "u_bone%i", i);
-		u_bone[i] = glGetUniformLocation(program, name);
-	}
+	u_bone = glGetUniformLocation(program, "u_bone");
+	numBones = gstate.getNumBoneWeights();
 
 	// Lighting, texturing
 	u_ambient = glGetUniformLocation(program, "u_ambient");
@@ -141,8 +141,8 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	a_color1 = glGetAttribLocation(program, "a_color1");
 	a_texcoord = glGetAttribLocation(program, "a_texcoord");
 	a_normal = glGetAttribLocation(program, "a_normal");
-	a_weight0123 = glGetAttribLocation(program, "a_weight0123");
-	a_weight4567 = glGetAttribLocation(program, "a_weight4567");
+	a_weight0123 = glGetAttribLocation(program, "a_w1");
+	a_weight4567 = glGetAttribLocation(program, "a_w2");
 
 	glUseProgram(program);
 
@@ -317,9 +317,13 @@ void LinkedShader::updateUniforms() {
 	if (u_texmtx != -1 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
 		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
-	for (int i = 0; i < 8; i++) {
-		if (u_bone[i] != -1 && (dirtyUniforms & (DIRTY_BONEMATRIX0 << i))) {
-			SetMatrix4x3(u_bone[i], gstate.boneMatrix + 12 * i);
+
+	// TODO: Could even set all bones in one go if they're all dirty.
+	if (u_bone != -1) {
+		for (int i = 0; i < numBones; i++) {
+			if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+				SetMatrix4x3(u_bone + i, gstate.boneMatrix + 12 * i);
+			}
 		}
 	}
 

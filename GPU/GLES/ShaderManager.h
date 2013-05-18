@@ -54,7 +54,8 @@ public:
 	int u_view;
 	int u_texmtx;
 	int u_world;
-	int u_bone[8];
+	int u_bone;  // array, size is numBones
+	int numBones;
 	
 	// Fragment processing inputs
 	int u_alphacolorref;
