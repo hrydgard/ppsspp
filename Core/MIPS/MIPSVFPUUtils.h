@@ -38,17 +38,17 @@ inline int Xpose(int v)
 
 enum VectorSize
 {
-  V_Single,
-  V_Pair,
-  V_Triple,
-  V_Quad,
+	V_Single,
+	V_Pair,
+	V_Triple,
+	V_Quad,
 };
 
 enum MatrixSize
 {
-  M_2x2,
-  M_3x3,
-  M_4x4,
+	M_2x2,
+	M_3x3,
+	M_4x4,
 };
 
 void ReadMatrix(float *rd, MatrixSize size, int reg);
