@@ -779,7 +779,8 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
-	Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+	if (Memory::IsValidAddress(audioDataAddr))
+		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 	return 0;
 }
 
