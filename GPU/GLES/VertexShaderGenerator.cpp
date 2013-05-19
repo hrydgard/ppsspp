@@ -364,9 +364,22 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 		if (gstate.isLightingEnabled()) {
 			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambient);
-			WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
 		}
 
+		bool lightSum1IsZero = true;
+		for (int i = 0; i < 4; i++) {
+			if (doLight[i] != LIGHT_FULL)
+				continue;
+			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
+			if (comp != GE_LIGHTCOMP_ONLYDIFFUSE) {
+				lightSum1IsZero = false;
+				break;
+			}
+		}
+
+		if (!lightSum1IsZero) {
+			WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
+		}
 
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
 		// at least partially calculated.
@@ -392,7 +405,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			}
 
 			char timesLightScale[128];
-			sprintf(timesLightScale, " * lightScale%i");
+			sprintf(timesLightScale, " * lightScale%i", i);
 
 			// Attenuation
 			switch (type) {
@@ -428,11 +441,20 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 		if (gstate.isLightingEnabled()) {
 			// Sum up ambient, emissive here.
-			WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
 			if (lmode) {
-				WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
+				WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
+				// v_color1 only exists when lmode = 1.
+				if (lightSum1IsZero) {
+					WRITE(p, "  v_color1 = vec3(0.0);\n");
+				} else {
+					WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
+				}
 			} else {
-				WRITE(p, "  v_color0 = clamp(v_color0 + vec4(lightSum1, 0.0), 0.0, 1.0);\n");
+				if (lightSum1IsZero) {
+					WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
+				} else {
+					WRITE(p, "  v_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n");
+				}
 			}
 		} else {
 			// Lighting doesn't affect color.
