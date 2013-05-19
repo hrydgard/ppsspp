@@ -26,12 +26,18 @@ const int PSP_ERROR_UMD_INVALID_PARAM = 0x80010016;
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
-#define UMD_NOT_PRESENT 0x01
-#define UMD_PRESENT		 0x02
-#define UMD_CHANGED		 0x04
-#define UMD_NOT_READY	 0x08
-#define UMD_READY			 0x10
+#define UMD_INIT			0x00		
+#define UMD_NOT_PRESENT		0x01
+#define UMD_PRESENT			0x02
+#define UMD_CHANGED			0x04
+#define UMD_NOT_READY		0x08
+#define UMD_READY			0x10
 #define UMD_READABLE		0x20
+
+
+#define SCE_KERNEL_ERROR_UMD_NOT_READY				0x80210001
+#define SCE_KERNEL_ERROR_UMD_LBA_OUT_OF_BOUNDS		0x80210002
+#define SCE_KERNEL_ERROR_UMD_NO_DISC				0x80210003
 
 struct UmdWaitingThread
 {
@@ -111,15 +117,13 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 	umdActivated = userdata & 0xFF;
 
 	// Wake anyone waiting on this.
-	for (size_t i = 0; i < umdWaitingThreads.size(); ++i)
-	{
+	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
 		UmdWaitingThread &info = umdWaitingThreads[i];
 
 		u32 error;
 		SceUID waitID = __KernelGetWaitID(info.threadID, WAITTYPE_UMD, error);
 		bool keep = false;
-		if (waitID == 1)
-		{
+		if (waitID == 1) {
 			if ((info.stat & __KernelUmdGetState()) != 0)
 				__KernelResumeThreadFromWait(info.threadID, 0);
 			// Only if they are still waiting do we keep them in the list.
@@ -161,8 +165,7 @@ u32 sceUmdGetDiscInfo(u32 infoAddr)
 {
 	DEBUG_LOG(HLE, "sceUmdGetDiscInfo(%08x)", infoAddr);
 
-	if (Memory::IsValidAddress(infoAddr))
-	{
+	if (Memory::IsValidAddress(infoAddr)) {
 		PspUmdInfo info;
 		Memory::ReadStruct(infoAddr, &info);
 		if (info.size != 8)
@@ -171,45 +174,38 @@ u32 sceUmdGetDiscInfo(u32 infoAddr)
 		info.type = PSP_UMD_TYPE_GAME;
 		Memory::WriteStruct(infoAddr, &info);
 		return 0;
-	}
-	else
+	} else
 		return PSP_ERROR_UMD_INVALID_PARAM;
 }
 
-int sceUmdActivate(u32 unknown, const char *name)
+int sceUmdActivate(u32 mode, const char *name)
 {
-	if (unknown < 1 || unknown > 2)
+	if (mode < 1 || mode > 2)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 
 	__KernelUmdActivate();
 
-	if (unknown == 1)
-	{
-		DEBUG_LOG(HLE, "0=sceUmdActivate(%d, %s)", unknown, name);
-	}
-	else
-	{
-		ERROR_LOG(HLE, "UNTESTED 0=sceUmdActivate(%d, %s)", unknown, name);
+	if (mode == 1) {
+		DEBUG_LOG(HLE, "0=sceUmdActivate(%d, %s)", mode, name);
+	} else {
+		ERROR_LOG(HLE, "UNTESTED 0=sceUmdActivate(%d, %s)", mode, name);
 	}
 
 	return 0;
 }
 
-int sceUmdDeactivate(u32 unknown, const char *name)
+int sceUmdDeactivate(u32 mode, const char *name)
 {
 	// Why 18?  No idea.
-	if (unknown > 18)
+	if (mode > 18)
 		return PSP_ERROR_UMD_INVALID_PARAM;
 
 	__KernelUmdDeactivate();
 
-	if (unknown == 1)
-	{
-		DEBUG_LOG(HLE, "0=sceUmdDeactivate(%d, %s)", unknown, name);
-	}
-	else
-	{
-		ERROR_LOG(HLE, "UNTESTED 0=sceUmdDeactivate(%d, %s)", unknown, name);
+	if (mode == 1) {
+		DEBUG_LOG(HLE, "0=sceUmdDeactivate(%d, %s)", mode, name);
+	} else {
+		ERROR_LOG(HLE, "UNTESTED 0=sceUmdDeactivate(%d, %s)", mode, name);
 	}
 
 	return 0;
@@ -222,8 +218,7 @@ u32 sceUmdRegisterUMDCallBack(u32 cbId)
 	// TODO: If the callback is invalid, return PSP_ERROR_UMD_INVALID_PARAM.
 	if (cbId == 0)
 		retVal = PSP_ERROR_UMD_INVALID_PARAM;
-	else
-	{
+	else {
 		// Remove the old one, we're replacing.
 		if (driveCBId != -1)
 			__KernelUnregisterCallback(THREAD_CALLBACK_UMD, driveCBId);
@@ -242,8 +237,7 @@ int sceUmdUnRegisterUMDCallBack(int cbId)
 
 	if (cbId != driveCBId)
 		retVal = PSP_ERROR_UMD_INVALID_PARAM;
-	else
-	{
+	else {
 		retVal = cbId;
 		driveCBId = -1;
 		__KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
@@ -257,7 +251,7 @@ u32 sceUmdGetDriveStat()
 {
 	//u32 retVal = PSP_UMD_INITED | PSP_UMD_READY | PSP_UMD_PRESENT;
 	u32 retVal = __KernelUmdGetState();
-	DEBUG_LOG(HLE,"0x%02x=sceUmdGetDriveStat()",retVal);
+	DEBUG_LOG(HLE,"0x%02x=sceUmdGetDriveStat()", retVal);
 	return retVal;
 }
 
@@ -271,8 +265,7 @@ void __UmdStatTimeout(u64 userdata, int cyclesLate)
 	if (waitID == 1)
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 
-	for (size_t i = 0; i < umdWaitingThreads.size(); ++i)
-	{
+	for (size_t i = 0; i < umdWaitingThreads.size(); ++i) {
 		if (umdWaitingThreads[i].threadID == threadID)
 			umdWaitingThreads.erase(umdWaitingThreads.begin() + i--);
 	}
@@ -300,8 +293,7 @@ int sceUmdWaitDriveStat(u32 stat)
 {
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
 
-	if ((stat & __KernelUmdGetState()) == 0)
-	{
+	if ((stat & __KernelUmdGetState()) == 0) {
 		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
 	}
@@ -313,13 +305,11 @@ int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 {
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
 
-	if ((stat & __KernelUmdGetState()) == 0)
-	{
+	if ((stat & __KernelUmdGetState()) == 0) {
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited with timer");
-	}
-	else
+	} else
 		hleReSchedule("umd stat waited with timer");
 
 	return 0;
@@ -330,16 +320,14 @@ int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
 
 	hleCheckCurrentCallbacks();
-	if ((stat & __KernelUmdGetState()) == 0)
-	{
+	if ((stat & __KernelUmdGetState()) == 0) {
 		if (timeout == 0)
 			timeout = 8000;
 
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true, "umd stat waited");
-	}
-	else
+	} else
 		hleReSchedule("umd stat waited");
 
 	return 0;
@@ -364,6 +352,9 @@ u32 sceUmdGetErrorStat()
 u32 sceUmdReplaceProhibit()
 {
 	DEBUG_LOG(HLE,"sceUmdReplaceProhibit()");
+	if ((__KernelUmdGetState() & UMD_READY) != UMD_READY || (__KernelUmdGetState() & UMD_READABLE) != UMD_READABLE) 
+		return SCE_KERNEL_ERROR_UMD_NOT_READY;
+
 	return 0;
 }
 
