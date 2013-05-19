@@ -230,11 +230,14 @@ u32 sceAudioChRelease(u32 chan) {
 
 u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
-		ERROR_LOG(HLE,"sceAudioSetChannelDataLen(%08x, %08x) - bad channel", chan, len);
+		ERROR_LOG(HLE, "sceAudioSetChannelDataLen(%08x, %08x) - bad channel", chan, len);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved)	{
-		ERROR_LOG(HLE,"sceAudioSetChannelDataLen(%08x, %08x) - channel not reserved", chan, len);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		ERROR_LOG(HLE, "sceAudioSetChannelDataLen(%08x, %08x) - channel not reserved", chan, len);
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
+	} else if ((len & 63) != 0 || len == 0 || len > PSP_AUDIO_SAMPLE_MAX) {
+		ERROR_LOG(HLE, "sceAudioSetChannelDataLen(%08x, %08x) - invalid sample count", chan, len);
+		return SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED;
 	} else {
 		DEBUG_LOG(HLE, "sceAudioSetChannelDataLen(%08x, %08x)", chan, len);
 		chans[chan].sampleCount = len;
