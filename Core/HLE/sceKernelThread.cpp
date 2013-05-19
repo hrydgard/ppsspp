@@ -39,8 +39,7 @@
 #include "sceKernelInterrupt.h"
 
 
-enum
-{
+enum {
 	PSP_THREAD_ATTR_KERNEL =           0x00001000,
 	PSP_THREAD_ATTR_VFPU =             0x00004000,
 	PSP_THREAD_ATTR_SCRATCH_SRAM =     0x00008000,   // Save/restore scratch as part of context???
@@ -1657,19 +1656,15 @@ void __KernelReSchedule(bool doCallbacks, const char *reason)
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Thread Management
-//////////////////////////////////////////////////////////////////////////
 int sceKernelCheckThreadStack()
 {
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(__KernelGetCurThread(), error);
 	if (t) {
-		u32 diff = labs((long)((s64)t->currentStack.start - (s64)currentMIPS->r[MIPS_REG_SP]));
+		u32 diff = labs((long)((s64)currentMIPS->r[MIPS_REG_SP] - (s64)t->currentStack.start));
 		WARN_LOG(HLE, "%i=sceKernelCheckThreadStack()", diff);
 		return diff;
 	} else {
-		// WTF?
 		ERROR_LOG_REPORT(HLE, "sceKernelCheckThreadStack() - not on thread");
 		return -1;
 	}
@@ -1964,7 +1959,6 @@ void sceKernelGetThreadStackFreeSize()
 	RETURN(sz & ~3);
 }
 
-// Internal function
 void __KernelReturnFromThread()
 {
 	int exitStatus = currentMIPS->r[2];
@@ -2197,7 +2191,6 @@ u32 __KernelGetCurThreadStack()
 		return t->currentStack.end;
 	return 0;
 }
-
 
 SceUID sceKernelGetThreadId()
 {
