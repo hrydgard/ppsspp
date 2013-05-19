@@ -58,9 +58,9 @@ u32 sceVaudioSetAlcMode(int alcMode) {
 }
 
 const HLEFunction sceVaudio[] = {
-	{0x03b6807d, WrapU_IU<sceVaudioOutputBlocking>, "sceVaudioOutputBlockingFunction"},
-	{0x67585dfd, WrapU_III<sceVaudioChReserve>, "sceVaudioChReserveFunction"},
-	{0x8986295e, WrapU_V<sceVaudioChRelease>, "sceVaudioChReleaseFunction"},
+	{0x8986295e, WrapU_IU<sceVaudioOutputBlocking>, "sceVaudioOutputBlocking"},
+	{0x03b6807d, WrapU_III<sceVaudioChReserve>, "sceVaudioChReserve"},
+	{0x67585dfd, WrapU_V<sceVaudioChRelease>, "sceVaudioChRelease"},
 	{0x346FBE94, WrapU_II<sceVaudioSetEffectType>, "sceVaudioSetEffectType"},
 	{0xCBD4AC51, WrapU_I<sceVaudioSetAlcMode>, "sceVaudioSetAlcMode"},
 };
