@@ -394,6 +394,12 @@ public:
 
 	~Thread()
 	{
+		if (pushedStacks.size() != 0)
+		{
+			WARN_LOG_REPORT(HLE, "Thread ended within an extended stack");
+			for (size_t i = 0; i < pushedStacks.size(); ++i)
+				userMemory.Free(pushedStacks[i].start);
+		}
 		FreeStack();
 	}
 
