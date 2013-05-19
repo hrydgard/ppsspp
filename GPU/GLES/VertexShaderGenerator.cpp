@@ -136,7 +136,7 @@ enum DoLightComputation {
 void GenerateVertexShader(int prim, char *buffer) {
 	char *p = buffer;
 
-#define USE_FOR_LOOP
+// #define USE_FOR_LOOP
 
 #if defined(USING_GLES2)
 	WRITE(p, "precision highp float;\n");
@@ -304,16 +304,9 @@ void GenerateVertexShader(int prim, char *buffer) {
 			else
 				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
-			WRITE(p, "  vec3 worldpos = vec3(0.0);\n");
-			if (hasNormal)
-				WRITE(p, "  vec3 worldnormal = vec3(0.0);\n");
-			else
-				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
-
 			int numWeights = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 
 #ifdef USE_FOR_LOOP
-
 			// To loop through the weights, we unfortunately need to put them in a float array.
 			// GLSL ES sucks - no way to directly initialize an array!
 			switch (numWeights) {
@@ -327,23 +320,33 @@ void GenerateVertexShader(int prim, char *buffer) {
 			case 8: WRITE(p, "  float w[8]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y; w[6] = a_w2.z; w[7] = a_w2.w;\n"); break;
 			}
 
-			WRITE(p, "  for (int i = 0; i < %i; i++) {\n", numWeights);
-			WRITE(p, "    worldpos += w[i] * (u_bone[i] * vec4(a_position.xyz, 1.0)).xyz;\n");
-			if (hasNormal)
-				WRITE(p, "    worldnormal += w[i] * (u_bone[i] * vec4(a_normal, 0.0)).xyz;\n");
-			WRITE(p, "  }\n");
+			WRITE(p, "  mat4 skinMatrix = w[0] * u_bone[0];\n");
+			if (numWeights > 1) {
+				WRITE(p, "  for (int i = 1; i < %i; i++) {\n", numWeights);
+				WRITE(p, "    skinMatrix += w[i] * u_bone[i];\n");
+				WRITE(p, "  }\n");
+			}
 
 #else
-			for (int i = 0; i < numWeights; i++) {
+			if (numWeights == 1)
+				WRITE(p, "  mat4 skinMatrix = a_w1 * u_bone[0];\n");
+			else
+				WRITE(p, "  mat4 skinMatrix = a_w1.x * u_bone[0];\n");
+			for (int i = 1; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
 				if (numWeights == 1 && i == 0) weightAttr = "a_w1";
 				if (numWeights == 5 && i == 4) weightAttr = "a_w2";
-				WRITE(p, "  worldpos += %s * (u_bone[%i] * vec4(a_position.xyz, 1.0)).xyz;\n", weightAttr, i);
-				if (hasNormal)
-					WRITE(p, "  worldnormal += %s * (u_bone[%i] * vec4(a_normal, 0.0)).xyz;\n", weightAttr, i);
+				WRITE(p, "  skinMatrix += %s * u_bone[%i];\n", weightAttr, i);
 			}
 #endif
+
+			WRITE(p, "  vec3 worldpos = (skinMatrix * vec4(a_position, 1.0)).xyz;\n");
+
+			if (hasNormal)
+				WRITE(p, "  vec3 worldnormal = (skinMatrix * vec4(a_normal, 0.0)).xyz;\n");
+			else
+				WRITE(p, "  vec3 worldnormal = (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0)).xyz;\n");
 
 			static const float rescale[4] = {0, 2*127.5f/128.f, 2*32767.5f/32768.f, 2.0f};
 			float factor = rescale[(vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT];
@@ -498,28 +501,31 @@ void GenerateVertexShader(int prim, char *buffer) {
 				break;
 
 			case 1:  // Projection mapping.
-				switch (gstate.getUVProjMode()) {
-				case 0:  // Use model space XYZ as source
-					WRITE(p, "  vec3 temp_tc = a_position.xyz;\n");
-					break;
-				case 1:  // Use unscaled UV as source
-					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy * 2.0, 0.0);\n");
-					break;
-				case 2:  // Use normalized transformed normal as source
-					if (hasNormal)
-						WRITE(p, "  vec3 temp_tc = normalize(a_normal);\n");
-					else
-						WRITE(p, "  vec3 temp_tc = vec3(0.0, 0.0, 1.0);\n");
-					break;
-				case 3:  // Use non-normalized transformed normal as source
-					if (hasNormal)
-						WRITE(p, "  vec3 temp_tc = a_normal;\n");
-					else
-						WRITE(p, "  vec3 temp_tc = vec3(0.0, 0.0, 1.0);\n");
-					break;
+				{
+					const char *temp_tc;
+					switch (gstate.getUVProjMode()) {
+					case 0:  // Use model space XYZ as source
+						temp_tc = "vec4(a_position.xyz, 1.0)";
+						break;
+					case 1:  // Use unscaled UV as source
+						temp_tc = "vec4(a_texcoord.xy * 2.0, 0.0, 1.0)";
+						break;
+					case 2:  // Use normalized transformed normal as source
+						if (hasNormal)
+							temp_tc = "vec4(normalize(a_normal), 1.0)";
+						else
+							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
+						break;
+					case 3:  // Use non-normalized transformed normal as source
+						if (hasNormal)
+							temp_tc = "vec4(a_normal, 1.0)";
+						else
+							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
+						break;
+					}
+					WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz;\n", temp_tc);
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
-				WRITE(p, "  v_texcoord = (u_texmtx * vec4(temp_tc, 1.0)).xyz;\n");
 				break;
 
 			case 2:  // Shade mapping - use dots from light sources.
