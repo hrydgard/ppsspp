@@ -275,6 +275,48 @@ public:
 	SceUID cbId;
 };
 
+class ActionAfterExtendStackCallback : public Action
+{
+public:
+	ActionAfterExtendStackCallback() {}
+	virtual void run(MipsCall &call);
+
+	static Action *Create()
+	{
+		return new ActionAfterExtendStackCallback();
+	}
+
+	void setCallback(SceUID memoryID_, u32 pc_, u32 sp_, u32 ra_)
+	{
+		memoryID = memoryID_;
+		pc = pc_;
+		sp = sp_;
+		ra = ra_;
+	}
+
+	void DoState(PointerWrap &p)
+	{
+		p.Do(memoryID);
+		p.Do(pc);
+		p.Do(sp);
+		p.Do(ra);
+		p.DoMarker("ActionAfterExtendStackCallback");
+	}
+
+	SceUID memoryID;
+	u32 pc;
+	u32 sp;
+	u32 ra;
+};
+
+void ActionAfterExtendStackCallback::run(MipsCall &call) {
+	currentMIPS->pc = pc;
+	currentMIPS->r[MIPS_REG_SP] = sp;
+	currentMIPS->r[MIPS_REG_RA] = ra;
+	if (memoryID > 0)
+		sceKernelFreePartitionMemory(memoryID);
+}
+
 class Thread : public KernelObject
 {
 public:
@@ -718,6 +760,7 @@ bool dispatchEnabled = true;
 MipsCallManager mipsCalls;
 int actionAfterCallback;
 int actionAfterMipsCall;
+int actionAfterExtendStackCallback;
 
 // Doesn't need state saving.
 WaitTypeFuncs waitTypeFuncs[NUM_WAITTYPES];
@@ -837,6 +880,7 @@ void __KernelThreadingInit()
 	eventThreadEndTimeout = CoreTiming::RegisterEvent("ThreadEndTimeout", &hleThreadEndTimeout);
 	actionAfterMipsCall = __KernelRegisterActionType(ActionAfterMipsCall::Create);
 	actionAfterCallback = __KernelRegisterActionType(ActionAfterCallback::Create);
+	actionAfterExtendStackCallback = __KernelRegisterActionType(ActionAfterExtendStackCallback::Create);
 
 	// Create the two idle threads, as well. With the absolute minimal possible priority.
 	// 4096 stack size - don't know what the right value is. Hm, if callbacks are ever to run on these threads...
@@ -874,6 +918,8 @@ void __KernelThreadingDoState(PointerWrap &p)
 	__KernelRestoreActionType(actionAfterMipsCall, ActionAfterMipsCall::Create);
 	p.Do(actionAfterCallback);
 	__KernelRestoreActionType(actionAfterCallback, ActionAfterCallback::Create);
+	p.Do(actionAfterExtendStackCallback);
+	__KernelRestoreActionType(actionAfterExtendStackCallback, ActionAfterExtendStackCallback::Create);
 
 	hleCurrentThreadName = __KernelGetThreadName(currentThread);
 
@@ -2557,9 +2603,21 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr)
 
 u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 {
-	ERROR_LOG_REPORT(HLE,"sceKernelExtendThreadStack(%08x, %08x, %08x) - Not fully supported", size, entryAddr, entryParameter);
+	DEBUG_LOG(HLE,"sceKernelExtendThreadStack(%08x, %08x, %08x)", size, entryAddr, entryParameter);
 	u32 args[1] = { entryParameter };
-	__KernelDirectMipsCall(entryAddr, 0, args, 1, false);
+	ActionAfterExtendStackCallback *action = (ActionAfterExtendStackCallback *) __KernelCreateAction(actionAfterExtendStackCallback);
+	if (action != NULL) {
+		char temp[128];
+		Thread *thread = __GetCurrentThread();
+		sprintf(temp, "ExtendedStack-0x%x-%s", thread->GetUID(), thread->GetName());
+		SceUID uid = sceKernelAllocPartitionMemory(2, temp, PSP_SMEM_High, size, 0);
+		action->setCallback(uid, currentMIPS->pc, currentMIPS->r[MIPS_REG_SP], currentMIPS->r[MIPS_REG_RA]);
+		if (uid > 0)
+			currentMIPS->r[MIPS_REG_SP] = sceKernelGetBlockHeadAddr(uid) + size;
+	}
+	else
+		ERROR_LOG(HLE, "Something went wrong creating a restore action for a callback.");
+	__KernelDirectMipsCall(entryAddr, action, args, 1, false);
 	return 0;
 }
 
