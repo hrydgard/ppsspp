@@ -47,6 +47,12 @@ const int PSP_AUDIO_CHANNEL_MAX = 8;
 const int PSP_AUDIO_CHANNEL_SRC = 8;
 const int PSP_AUDIO_CHANNEL_OUTPUT2 = 8;
 
+struct AudioChannelWaitInfo
+{
+	SceUID threadID;
+	int numSamples;
+};
+
 struct AudioChannel
 {
 	AudioChannel() {
@@ -64,7 +70,7 @@ struct AudioChannel
 	u32 rightVolume;
 	u32 format;
 
-	SceUID waitingThread;
+	std::vector<AudioChannelWaitInfo> waitingThreads;
 
 	// PC side - should probably split out
 
@@ -74,16 +80,7 @@ struct AudioChannel
 
 	void DoState(PointerWrap &p);
 
-	void clear() {
-		reserved = false;
-		waitingThread = 0;
-		leftVolume = 0;
-		rightVolume = 0;
-		format = 0;
-		sampleAddress = 0;
-		sampleCount = 0;
-		sampleQueue.clear();
-	}
+	void clear();
 };
 
 // The extra channel is for SRC/Output2.

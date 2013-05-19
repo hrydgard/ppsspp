@@ -15,14 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../MIPS/MIPS.h"
-#include "../Host.h"
+#include "Common/ChunkFile.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Host.h"
 #include "Core/CoreTiming.h"
-#include "ChunkFile.h"
-
-#include "sceAudio.h"
-#include "__sceAudio.h"
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceAudio.h"
+#include "Core/HLE/__sceAudio.h"
 
 const int PSP_AUDIO_SAMPLE_MAX = 65536 - 64;
 const int PSP_AUDIO_ERROR_SRC_FORMAT_4 = 0x80000003;
@@ -35,9 +35,22 @@ void AudioChannel::DoState(PointerWrap &p)
 	p.Do(leftVolume);
 	p.Do(rightVolume);
 	p.Do(format);
-	p.Do(waitingThread);
+	p.Do(waitingThreads);
 	sampleQueue.DoState(p);
 	p.DoMarker("AudioChannel");
+}
+
+void AudioChannel::clear()
+{
+	reserved = false;
+	leftVolume = 0;
+	rightVolume = 0;
+	format = 0;
+	sampleAddress = 0;
+	sampleCount = 0;
+	sampleQueue.clear();
+
+	__AudioWakeThreads(*this);
 }
 
 // There's a second Audio api called Audio2 that only has one channel, I guess the 8 channel api was overkill.
@@ -56,9 +69,6 @@ u32 sceAudioOutputBlocking(u32 chan, int vol, u32 samplePtr) {
 	if (vol > 0xFFFF) {
 		ERROR_LOG(HLE, "sceAudioOutputBlocking() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
-	} else if (samplePtr == 0) {
-		ERROR_LOG(HLE, "sceAudioOutputBlocking() - Sample pointer null");
-		return 0;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE,"sceAudioOutputBlocking() - bad channel");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -80,9 +90,6 @@ u32 sceAudioOutputPannedBlocking(u32 chan, int leftvol, int rightvol, u32 sample
 	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
-	} else if (samplePtr == 0) {
-		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - Sample pointer null");
-		return 0;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - bad channel");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -106,9 +113,6 @@ u32 sceAudioOutput(u32 chan, int vol, u32 samplePtr) {
 	if (vol > 0xFFFF) {
 		ERROR_LOG(HLE, "sceAudioOutput() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
-	} else if (samplePtr == 0) {
-		ERROR_LOG(HLE, "sceAudioOutput() - Sample pointer null");
-		return 0;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE,"sceAudioOutput() - bad channel");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
@@ -130,9 +134,6 @@ u32 sceAudioOutputPanned(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
 	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
-	} else if (samplePtr == 0) {
-		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - Sample pointer null");
-		return 0;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE,"sceAudioOutputPanned() - bad channel");
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
