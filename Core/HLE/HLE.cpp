@@ -470,7 +470,7 @@ void CallSyscall(u32 op)
 	}
 	else
 	{
-		ERROR_LOG(HLE,"Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
+		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
 	}
 	if (g_Config.bShowDebugStats)
 	{

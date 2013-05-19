@@ -360,7 +360,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
-	if (attr >= 0xC00)
+	if (attr & ~0xBFF)
 	{
 		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
@@ -390,7 +390,11 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	DEBUG_LOG(HLE, "%i=sceKernelCreateMutex(%s, %08x, %d, %08x)", id, name, attr, initialCount, optionsPtr);
 
 	if (optionsPtr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
+	{
+		u32 size = Memory::Read_U32(optionsPtr);
+		if (size != 0)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
@@ -735,7 +739,11 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	DEBUG_LOG(HLE, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
 
 	if (optionsPtr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
+	{
+		u32 size = Memory::Read_U32(optionsPtr);
+		if (size != 0)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 

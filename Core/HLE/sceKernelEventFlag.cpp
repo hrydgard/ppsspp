@@ -661,16 +661,22 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 //int sceKernelReferEventFlagStatus(SceUID event, SceKernelEventFlagInfo *status);
 u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelReferEventFlagStatus(%i, %08x)", id, statusPtr);
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{
-		Memory::WriteStruct(statusPtr, &e->nef);
+		DEBUG_LOG(HLE, "sceKernelReferEventFlagStatus(%i, %08x)", id, statusPtr);
+
+		if (!Memory::IsValidAddress(statusPtr))
+			return -1;
+
+		if (Memory::Read_U32(statusPtr) != 0)
+			Memory::WriteStruct(statusPtr, &e->nef);
 		return 0;
 	}
 	else
 	{
+		ERROR_LOG(HLE, "sceKernelReferEventFlagStatus(%i, %08x): invalid event flag", id, statusPtr);
 		return error;
 	}
 }
