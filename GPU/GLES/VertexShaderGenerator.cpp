@@ -367,6 +367,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
 		}
 
+
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
 		// at least partially calculated.
 		for (int i = 0; i < 4; i++) {
@@ -385,25 +386,27 @@ void GenerateVertexShader(int prim, char *buffer) {
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
 			WRITE(p, "  mediump float dot%i = dot(normalize(toLight%i), worldnormal);\n", i, i);
-			WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
-			WRITE(p, "  lowp float angle%i = 0.0;\n", i);
 
 			if (poweredDiffuse) {
 				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
 			}
 
-			WRITE(p, "  lowp float lightScale%i = 0.0;\n", i);
+			char timesLightScale[128];
+			sprintf(timesLightScale, " * lightScale%i");
 
 			// Attenuation
 			switch (type) {
 			case GE_LIGHTTYPE_DIRECTIONAL:
-				WRITE(p, "  lightScale%i = 1.0;\n", i);
+				timesLightScale[0] = 0;
 				break;
 			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0);\n", i, i, i, i, i);
+				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
+				WRITE(p, "  lowp float lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0);\n", i, i, i, i, i);
 				break;
 			case GE_LIGHTTYPE_SPOT:
-				WRITE(p, "  angle%i = dot(normalize(u_lightdir%i), normalize(toLight%i));\n", i, i, i);
+				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
+				WRITE(p, "  lowp float lightScale%i = 0.0;\n", i);
+				WRITE(p, "  lowp float angle%i = dot(normalize(u_lightdir%i), normalize(toLight%i));\n", i, i, i);
 				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
 				WRITE(p, "    lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i, i, i, i, i);
 				WRITE(p, "  }\n");
@@ -418,9 +421,9 @@ void GenerateVertexShader(int prim, char *buffer) {
 				WRITE(p, "  mediump vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0.0, 0.0, 1.0));\n", i, i);
 				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i, i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * lightScale%i);\n", i, specular, i, i);
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specular, i, timesLightScale);
 			}
-			WRITE(p, "  lightSum0.rgb += (u_lightambient%i + diffuse%i)*lightScale%i;\n", i, i, i);
+			WRITE(p, "  lightSum0.rgb += (u_lightambient%i + diffuse%i) %s;\n", i, i, timesLightScale);
 		}
 
 		if (gstate.isLightingEnabled()) {
