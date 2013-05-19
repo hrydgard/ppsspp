@@ -36,6 +36,8 @@ inline UINT* ControlMapping::GetDeviceButtonsMap(UINT curDevice)
 			return pButtonsMap + buttonsCount;
 		case CONTROLS_XINPUT_INDEX: 
 			return pButtonsMap + (buttonsCount * 2);
+		case CONTROLS_KEYBOARD_ANALOG_INDEX:
+			return pButtonsMap + (buttonsCount * 3);
 	}
 	return NULL;
 }
@@ -67,17 +69,16 @@ ControlMapping::ControlMapping(UINT nButtons) :
 	dinput = std::shared_ptr<DinputDevice>(new DinputDevice());
 	xinput = std::shared_ptr<XinputDevice>(new XinputDevice());
 
-	pButtonsMap = new UINT[3 * nButtons];
+	pButtonsMap = new UINT[CONTROLS_DEVICE_NUM * nButtons];
 	ZeroMemory(pButtonsMap, sizeof(UINT) * CONTROLS_DEVICE_NUM * nButtons);
-	for (int i = 0; i < nButtons; i++) {
+	for (UINT i = 0; i < nButtons; i++) {
 		*(GetDeviceButtonsMap(CONTROLS_KEYBOARD_INDEX) + i) = key_pad_map[i * 2];
 		*(GetDeviceButtonsMap(CONTROLS_DIRECT_INPUT_INDEX) + i) = dinput_ctrl_map[i * 2];
 		*(GetDeviceButtonsMap(CONTROLS_XINPUT_INDEX) + i) = xinput_ctrl_map[i * 2];
 	}
 
-	ZeroMemory(&keyboardAnalogMap, sizeof(keyboardAnalogMap));
 	for (int i = 0; i < 4; i++) {
-		keyboardAnalogMap[i] = analog_ctrl_map[i * 2];
+		*(GetDeviceButtonsMap(CONTROLS_KEYBOARD_ANALOG_INDEX) + i) = (UINT)analog_ctrl_map[i * 2];
 	}
 }
 
@@ -94,12 +95,13 @@ void ControlMapping::UpdateState()
 	rawState.button = -1;
 	switch(currentDevicePage)
 	{
-		case CONTROLS_KEYBOARD_INDEX: // keyboard
+		case CONTROLS_KEYBOARD_INDEX:
+		case CONTROLS_KEYBOARD_ANALOG_INDEX:
 			{
 				; // leave it to KeyboardProc.
 			}
 			break;
-		case CONTROLS_DIRECT_INPUT_INDEX: // directinput
+		case CONTROLS_DIRECT_INPUT_INDEX:
 			{
 
 				dinput->UpdateRawStateSingle(rawState);
@@ -110,7 +112,7 @@ void ControlMapping::UpdateState()
 				}
 			}
 			break;
-		case CONTROLS_XINPUT_INDEX: // xinput
+		case CONTROLS_XINPUT_INDEX:
 			{
 				xinput->UpdateRawStateSingle(rawState);
 				UINT newButton = (rawState.button != rawState.prevButton && rawState.prevButton == -1)
@@ -126,13 +128,13 @@ void ControlMapping::UpdateState()
 
 void ControlMapping::BindToDevices()
 {
-	for (int i = 0; i < buttonsCount; i++) {
+	for (UINT i = 0; i < buttonsCount; i++) {
 		key_pad_map[i * 2] = *(GetDeviceButtonsMap(CONTROLS_KEYBOARD_INDEX) + i);
 		dinput_ctrl_map[i * 2] = *(GetDeviceButtonsMap(CONTROLS_DIRECT_INPUT_INDEX) + i);
 		xinput_ctrl_map[i * 2] = *(GetDeviceButtonsMap(CONTROLS_XINPUT_INDEX) + i);
 	}
-	for (int i = 0; i < 4; i++) {
-		analog_ctrl_map[i * 2] = keyboardAnalogMap[i];
+	for (UINT i = 0; i < 4; i++) {
+		analog_ctrl_map[i * 2] = (USHORT)*(GetDeviceButtonsMap(CONTROLS_KEYBOARD_ANALOG_INDEX) + i);
 	}
 }
 
