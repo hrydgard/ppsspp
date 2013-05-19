@@ -190,6 +190,7 @@ void __KernelReturnFromThread();  // Called as HLE function
 u32 __KernelGetThreadPrio(SceUID id);
 bool __KernelThreadSortPriority(SceUID thread1, SceUID thread2);
 bool __KernelIsDispatchEnabled();
+void __KernelReturnFromExtendStack();
 
 void __KernelIdle();
 

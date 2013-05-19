@@ -306,29 +306,29 @@ public:
 		if (nt.attr & PSP_THREAD_ATTR_KERNEL)
 		{
 			// Allocate stacks for kernel threads (idle) in kernel RAM
-			stackBlock = kernelMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+			currentStack.start = kernelMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
 		}
 		else
 		{
-			stackBlock = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
+			currentStack.start = userMemory.Alloc(stackSize, true, (std::string("stack/") + nt.name).c_str());
 		}
-		if (stackBlock == (u32)-1)
+		if (currentStack.start == (u32)-1)
 		{
-			stackBlock = 0;
+			currentStack.start = 0;
 			ERROR_LOG(HLE, "Failed to allocate stack for thread");
 			return false;
 		}
 
-		nt.initialStack = stackBlock;
+		nt.initialStack = currentStack.start;
 		nt.stackSize = stackSize;
 		return true;
 	}
 
 	bool FillStack() {
 		// Fill the stack.
-		Memory::Memset(stackBlock, 0xFF, nt.stackSize);
-		context.r[MIPS_REG_SP] = stackBlock + nt.stackSize;
-		stackEnd = context.r[MIPS_REG_SP];
+		Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+		context.r[MIPS_REG_SP] = currentStack.start + nt.stackSize;
+		currentStack.end = context.r[MIPS_REG_SP];
 		// The k0 section is 256 bytes at the top of the stack.
 		context.r[MIPS_REG_SP] -= 256;
 		context.r[MIPS_REG_K0] = context.r[MIPS_REG_SP];
@@ -345,23 +345,61 @@ public:
 	}
 
 	void FreeStack() {
-		if (stackBlock != 0) {
+		if (currentStack.start != 0) {
 			DEBUG_LOG(HLE, "Freeing thread stack %s", nt.name);
 			if (nt.attr & PSP_THREAD_ATTR_KERNEL) {
-				kernelMemory.Free(stackBlock);
+				kernelMemory.Free(currentStack.start);
 			} else {
-				userMemory.Free(stackBlock);
+				userMemory.Free(currentStack.start);
 			}
-			stackBlock = 0;
+			currentStack.start = 0;
 		}
 	}
 
-	Thread() : stackBlock(0)
+	bool PushExtendedStack(u32 size)
 	{
+		u32 stack = userMemory.Alloc(size, true, (std::string("extended/") + nt.name).c_str());
+		if (stack == (u32)-1)
+			return false;
+
+		pushedStacks.push_back(currentStack);
+		currentStack.start = stack;
+		currentStack.end = stack + size;
+		nt.initialStack = currentStack.start;
+		nt.stackSize = currentStack.end - currentStack.start;
+
+		// We still drop the threadID at the bottom and fill it, but there's no k0.
+		Memory::Memset(currentStack.start, 0xFF, nt.stackSize);
+		Memory::Write_U32(GetUID(), nt.initialStack);
+		return true;
+	}
+
+	bool PopExtendedStack()
+	{
+		if (pushedStacks.size() == 0)
+			return false;
+
+		userMemory.Free(currentStack.start);
+		currentStack = pushedStacks.back();
+		pushedStacks.pop_back();
+		nt.initialStack = currentStack.start;
+		nt.stackSize = currentStack.end - currentStack.start;
+		return true;
+	}
+
+	Thread()
+	{
+		currentStack.start = 0;
 	}
 
 	~Thread()
 	{
+		if (pushedStacks.size() != 0)
+		{
+			WARN_LOG_REPORT(HLE, "Thread ended within an extended stack");
+			for (size_t i = 0; i < pushedStacks.size(); ++i)
+				userMemory.Free(pushedStacks[i].start);
+		}
 		FreeStack();
 	}
 
@@ -406,7 +444,8 @@ public:
 		}
 
 		p.Do(pendingMipsCalls);
-		p.Do(stackBlock);
+		p.Do(pushedStacks);
+		p.Do(currentStack);
 
 		p.DoMarker("Thread");
 	}
@@ -427,8 +466,15 @@ public:
 
 	std::list<u32> pendingMipsCalls;
 
-	u32 stackBlock;
-	u32 stackEnd;
+	struct StackInfo {
+		u32 start;
+		u32 end;
+	};
+	// This is a stack of... stacks, since sceKernelExtendThreadStack() can recurse.
+	// These are stacks that aren't "active" right now, but will pop off once the func returns.
+	std::vector<StackInfo> pushedStacks;
+
+	StackInfo currentStack;
 };
 
 struct ThreadQueueList
@@ -700,6 +746,7 @@ u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
 u32 intReturnHackAddr;
+u32 extendReturnHackAddr;
 std::vector<ThreadCallback> threadEndListeners;
 
 // Lists all thread ids that aren't deleted/etc.
@@ -801,9 +848,25 @@ u32 __KernelInterruptReturnAddress()
 void hleScheduledWakeup(u64 userdata, int cyclesLate);
 void hleThreadEndTimeout(u64 userdata, int cyclesLate);
 
+void __KernelWriteFakeSysCall(u32 nid, u32 &ptr, u32 &pos)
+{
+	ptr = pos;
+	pos += 8;
+	WriteSyscall("FakeSysCalls", nid, ptr);
+}
+
 void __KernelThreadingInit()
 {
-	u32 blockSize = 4 * 4 + 4 * 2 * 3;  // One 16-byte thread plus 3 8-byte "hacks"
+	// Yeah, this is straight out of JPCSP, I should be ashamed.
+	const static u32 idleThreadCode[] = {
+		MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 0),
+		MIPS_MAKE_LUI(MIPS_REG_RA, 0x0800),
+		MIPS_MAKE_JR_RA(),
+		//MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread"),
+		MIPS_MAKE_SYSCALL("FakeSysCalls", "_sceKernelIdle"),
+		MIPS_MAKE_BREAK(),
+	};
+	u32 blockSize = sizeof(idleThreadCode) + 4 * 2 * 4;  // The thread code above plus 4 8-byte "hacks"
 
 	dispatchEnabled = true;
 	memset(waitTypeFuncs, 0, sizeof(waitTypeFuncs));
@@ -813,25 +876,15 @@ void __KernelThreadingInit()
 	currentCallbackThreadID = 0;
 	readyCallbacksCount = 0;
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
-	// Make sure it got allocated where we expect it... at the very start of kernel RAM
-	//CHECK_EQ(idleThreadHackAddr & 0x3FFFFFFF, 0x08000000);
 
-	// Yeah, this is straight out of JPCSP, I should be ashamed.
-	Memory::Write_U32(MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 0), idleThreadHackAddr);
-	Memory::Write_U32(MIPS_MAKE_LUI(MIPS_REG_RA, 0x0800), idleThreadHackAddr + 4);
-	Memory::Write_U32(MIPS_MAKE_JR_RA(), idleThreadHackAddr + 8);
-	//Memory::Write_U32(MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelDelayThread"), idleThreadHackAddr + 12);
-	Memory::Write_U32(MIPS_MAKE_SYSCALL("FakeSysCalls", "_sceKernelIdle"), idleThreadHackAddr + 12);
-	Memory::Write_U32(MIPS_MAKE_BREAK(), idleThreadHackAddr + 16);
+	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode));
 
-	threadReturnHackAddr = idleThreadHackAddr + 20;
-	WriteSyscall("FakeSysCalls", NID_THREADRETURN, threadReturnHackAddr);
-
-	cbReturnHackAddr = threadReturnHackAddr + 8;
-	WriteSyscall("FakeSysCalls", NID_CALLBACKRETURN, cbReturnHackAddr);
-
-	intReturnHackAddr = cbReturnHackAddr + 8;
-	WriteSyscall("FakeSysCalls", NID_INTERRUPTRETURN, intReturnHackAddr);
+	u32 pos = idleThreadHackAddr + sizeof(idleThreadCode);
+	// IF you add another func here, add it to the allocation above, and also to DoState below.
+	__KernelWriteFakeSysCall(NID_THREADRETURN, threadReturnHackAddr, pos);
+	__KernelWriteFakeSysCall(NID_CALLBACKRETURN, cbReturnHackAddr, pos);
+	__KernelWriteFakeSysCall(NID_INTERRUPTRETURN, intReturnHackAddr, pos);
+	__KernelWriteFakeSysCall(NID_EXTENDRETURN, extendReturnHackAddr, pos);
 
 	eventScheduledWakeup = CoreTiming::RegisterEvent("ScheduledWakeup", &hleScheduledWakeup);
 	eventThreadEndTimeout = CoreTiming::RegisterEvent("ThreadEndTimeout", &hleThreadEndTimeout);
@@ -857,6 +910,7 @@ void __KernelThreadingDoState(PointerWrap &p)
 	p.Do(threadReturnHackAddr);
 	p.Do(cbReturnHackAddr);
 	p.Do(intReturnHackAddr);
+	p.Do(extendReturnHackAddr);
 
 	p.Do(currentThread);
 	SceUID dv = 0;
@@ -1611,7 +1665,7 @@ int sceKernelCheckThreadStack()
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(__KernelGetCurThread(), error);
 	if (t) {
-		u32 diff = labs((long)((s64)t->stackEnd - (s64)currentMIPS->r[MIPS_REG_SP]));
+		u32 diff = labs((long)((s64)t->currentStack.end - (s64)currentMIPS->r[MIPS_REG_SP]));
 		WARN_LOG(HLE, "%i=sceKernelCheckThreadStack()", diff);
 		return diff;
 	} else {
@@ -1726,7 +1780,7 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	//grab mips regs
 	SceUID id;
 	Thread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
-	if (thread->stackBlock == 0)
+	if (thread->currentStack.start == 0)
 		ERROR_LOG_REPORT(HLE, "Unable to allocate stack for root thread.");
 	__KernelResetThread(thread);
 
@@ -1781,7 +1835,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 
 	SceUID id;
 	Thread *newThread = __KernelCreateThread(id, moduleID, threadName, entry, prio, stacksize, attr);
-	if (newThread->stackBlock == 0)
+	if (newThread->currentStack.start == 0)
 	{
 		ERROR_LOG_REPORT(HLE, "sceKernelCreateThread(name=%s): out of memory, %08x stack requested", threadName, stacksize);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
@@ -1900,7 +1954,7 @@ void sceKernelGetThreadStackFreeSize()
 
 	// Scan the stack for 0xFF
 	int sz = 0;
-	for (u32 addr = thread->stackBlock; addr < thread->stackBlock + thread->nt.stackSize; addr++)
+	for (u32 addr = thread->currentStack.start; addr < thread->currentStack.start + thread->nt.stackSize; addr++)
 	{
 		if (Memory::Read_U8(addr) != 0xFF)
 			break;
@@ -2140,7 +2194,7 @@ u32 __KernelGetCurThreadStack()
 {
 	Thread *t = __GetCurrentThread();
 	if (t)
-		return t->stackEnd;
+		return t->currentStack.end;
 	return 0;
 }
 
@@ -2557,10 +2611,68 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr)
 
 u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 {
-	ERROR_LOG_REPORT(HLE,"sceKernelExtendThreadStack(%08x, %08x, %08x) - Not fully supported", size, entryAddr, entryParameter);
-	u32 args[1] = { entryParameter };
-	__KernelDirectMipsCall(entryAddr, 0, args, 1, false);
+	if (size < 512)
+	{
+		ERROR_LOG_REPORT(HLE, "sceKernelExtendThreadStack(%08x, %08x, %08x) - stack size too small", size, entryAddr, entryParameter);
+		return SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE;
+	}
+
+	Thread *thread = __GetCurrentThread();
+	if (!thread)
+	{
+		ERROR_LOG_REPORT(HLE, "sceKernelExtendThreadStack(%08x, %08x, %08x) - not on a thread?", size, entryAddr, entryParameter);
+		return -1;
+	}
+
+	if (!thread->PushExtendedStack(size))
+	{
+		ERROR_LOG_REPORT(HLE, "sceKernelExtendThreadStack(%08x, %08x, %08x) - could not allocate new stack", size, entryAddr, entryParameter);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
+
+	// The stack has been changed now, so it's do or die time.
+	DEBUG_LOG(HLE, "sceKernelExtendThreadStack(%08x, %08x, %08x)", size, entryAddr, entryParameter);
+
+	// Push the old SP, RA, and PC onto the stack (so we can restore them later.)
+	Memory::Write_U32(currentMIPS->r[MIPS_REG_RA], thread->currentStack.end - 4);
+	Memory::Write_U32(currentMIPS->r[MIPS_REG_SP], thread->currentStack.end - 8);
+	Memory::Write_U32(currentMIPS->pc, thread->currentStack.end - 12);
+
+	currentMIPS->pc = entryAddr;
+	currentMIPS->r[MIPS_REG_A0] = entryParameter;
+	currentMIPS->r[MIPS_REG_RA] = extendReturnHackAddr;
+	// Stack should stay aligned even though we saved only 3 regs.
+	currentMIPS->r[MIPS_REG_SP] = thread->currentStack.end - 0x10;
+
 	return 0;
+}
+
+void __KernelReturnFromExtendStack()
+{
+	Thread *thread = __GetCurrentThread();
+	if (!thread)
+	{
+		ERROR_LOG_REPORT(HLE, "__KernelReturnFromExtendStack() - not on a thread?");
+		return;
+	}
+
+	// Grab the saved regs at the top of the stack.
+	u32 restoreRA = Memory::Read_U32(thread->currentStack.end - 4);
+	u32 restoreSP = Memory::Read_U32(thread->currentStack.end - 8);
+	u32 restorePC = Memory::Read_U32(thread->currentStack.end - 12);
+
+	if (!thread->PopExtendedStack())
+	{
+		ERROR_LOG_REPORT(HLE, "__KernelReturnFromExtendStack() - no stack to restore?");
+		return;
+	}
+
+	DEBUG_LOG(HLE, "__KernelReturnFromExtendStack()");
+	currentMIPS->r[MIPS_REG_RA] = restoreRA;
+	currentMIPS->r[MIPS_REG_SP] = restoreSP;
+	currentMIPS->pc = restorePC;
+
+	// We retain whatever is in v0/v1, it gets passed on to the caller of sceKernelExtendThreadStack().
 }
 
 void ActionAfterMipsCall::run(MipsCall &call) {

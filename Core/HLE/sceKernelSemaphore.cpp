@@ -293,7 +293,11 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	DEBUG_LOG(HLE, "%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
 	if (optionPtr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported options parameter: %08x", name, optionPtr);
+	{
+		u32 size = Memory::Read_U32(optionPtr);
+		if (size != 0)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
 
@@ -328,7 +332,12 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 	if (s)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
-		Memory::WriteStruct(infoPtr, &s->ns);
+
+		if (!Memory::IsValidAddress(infoPtr))
+			return -1;
+
+		if (Memory::Read_U32(infoPtr) != 0)
+			Memory::WriteStruct(infoPtr, &s->ns);
 		return 0;
 	}
 	else

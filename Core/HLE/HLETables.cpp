@@ -79,6 +79,7 @@ const HLEFunction FakeSysCalls[] =
 	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
 	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
 	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
+	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack"},
 	{NID_IDLE, __KernelIdle, "_sceKernelIdle"},
 };
 
