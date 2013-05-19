@@ -1855,24 +1855,57 @@ bad:
 		// S & D valid
 		Reporting::ReportMessage("vlgb not implemented");
 		_dbg_assert_msg_(CPU,0,"vlgb not implemented");
+		PC += 4;
+		EatPrefixes();
 	}
 
-	void Int_Vwbn(u32 op)
-	{
-		// S & D valid
+	// There has to be a concise way of expressing this in terms of
+	// bit manipulation on the raw floats.
+	void Int_Vwbn(u32 op) {
 		Reporting::ReportMessage("vwbn not implemented");
 		_dbg_assert_msg_(CPU,0,"vwbn not implemented");
+		PC += 4;
+		EatPrefixes();
+
+		/*
+		int vd = _VD;
+		int vs = _VS;
+
+		double modulo = pow(2.0, 127 - (int)((op >> 16) & 0xFF));
+
+		// Only S is allowed? gas says so
+		VectorSize sz = GetVecSize(op);
+
+		float s[4];
+		float d[4];
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++) {
+			double bn = (double)s[i];
+			if (bn > 0.0)
+				bn = fmod((double)bn, modulo);
+			d[i] = s[i] < 0.0f ? bn - modulo : bn + modulo;
+		}
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();*/
 	}
 
 	void Int_Vsbn(u32 op)
 	{
 		Reporting::ReportMessage("vsbn not implemented");
 		_dbg_assert_msg_(CPU,0,"vsbn not implemented");
+		PC += 4;
+		EatPrefixes();
 	}
 
 	void Int_Vsbz(u32 op)
 	{
 		Reporting::ReportMessage("vsbz not implemented");
 		_dbg_assert_msg_(CPU,0,"vsbz not implemented");
+		PC += 4;
+		EatPrefixes();
 	}
 }
