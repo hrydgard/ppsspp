@@ -358,36 +358,41 @@ void GenerateVertexShader(int prim, char *buffer) {
 		}
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambient = (gstate.materialupdate & 1) ? (hasColor ? "a_color0" : "u_matambientalpha") : "u_matambientalpha";
-		const char *diffuse = (gstate.materialupdate & 2) ? "unlitColor" : "u_matdiffuse";
-		const char *specular = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
-
-		if (gstate.isLightingEnabled()) {
-			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambient);
-		}
+		const char *ambientStr = (gstate.materialupdate & 1) ? (hasColor ? "a_color0" : "u_matambientalpha") : "u_matambientalpha";
+		const char *diffuseStr = (gstate.materialupdate & 2) ? "unlitColor" : "u_matdiffuse";
+		const char *specularStr = (gstate.materialupdate & 4) ? "unlitColor" : "u_matspecular.rgb";
 
 		bool diffuseIsZero = true;
 		bool specularIsZero = true;
 		bool distanceNeeded = false;
-		for (int i = 0; i < 4; i++) {
-			if (doLight[i] != LIGHT_FULL)
-				continue;
-			diffuseIsZero = false;
-			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
-			if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
-				specularIsZero = false;
-			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
-			if (type != GE_LIGHTTYPE_DIRECTIONAL)
-				distanceNeeded = true;
-		}
 
-		if (!specularIsZero) {
-			WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
-		}
+		if (gstate.isLightingEnabled()) {
+			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambientStr);
 
-		if (distanceNeeded) {
-			WRITE(p, "  float distance;\n");
-			WRITE(p, "  lowp float lightScale;\n");
+			for (int i = 0; i < 4; i++) {
+				if (doLight[i] != LIGHT_FULL)
+					continue;
+				diffuseIsZero = false;
+				GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
+				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+					specularIsZero = false;
+				GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
+				if (type != GE_LIGHTTYPE_DIRECTIONAL)
+					distanceNeeded = true;
+			}
+
+			if (!specularIsZero) {
+				WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
+				WRITE(p, "  mediump vec3 halfVec;\n");
+			}
+			if (!diffuseIsZero) {
+				WRITE(p, "  vec3 toLight;\n");
+				WRITE(p, "  lowp vec3 diffuse;\n");
+			}
+			if (distanceNeeded) {
+				WRITE(p, "  float distance;\n");
+				WRITE(p, "  lowp float lightScale;\n");
+			}
 		}
 
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
@@ -400,17 +405,17 @@ void GenerateVertexShader(int prim, char *buffer) {
 			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
 
 			if (type == GE_LIGHTTYPE_DIRECTIONAL)
-				WRITE(p, "  vec3 toLight%i = u_lightpos%i;\n", i, i);
+				WRITE(p, "  toLight = u_lightpos%i;\n", i);
 			else
-				WRITE(p, "  vec3 toLight%i = u_lightpos%i - worldpos;\n", i, i);
+				WRITE(p, "  toLight = u_lightpos%i - worldpos;\n", i);
 
 			bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
-			WRITE(p, "  mediump float dot%i = dot(normalize(toLight%i), worldnormal);\n", i, i);
-
 			if (poweredDiffuse) {
-				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
+				WRITE(p, "  mediump float dot%i = pow(dot(normalize(toLight), worldnormal), u_matspecular.a);\n", i, i);
+			} else {
+				WRITE(p, "  mediump float dot%i = dot(normalize(toLight), worldnormal);\n", i);
 			}
 
 			char timesLightScale[128];
@@ -422,12 +427,12 @@ void GenerateVertexShader(int prim, char *buffer) {
 				timesLightScale[0] = 0;
 				break;
 			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  distance = length(toLight%i);\n", i, i);
+				WRITE(p, "  distance = length(toLight);\n", i, i);
 				WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				break;
 			case GE_LIGHTTYPE_SPOT:
-				WRITE(p, "  distance = length(toLight%i);\n", i, i);
-				WRITE(p, "  lowp float angle%i = dot(normalize(u_lightdir%i), normalize(toLight%i));\n", i, i, i);
+				WRITE(p, "  distance = length(toLight);\n", i, i);
+				WRITE(p, "  lowp float angle%i = dot(normalize(u_lightdir%i), normalize(toLight));\n", i, i, i);
 				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
 				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i);
 				WRITE(p, "  } else {\n");
@@ -439,14 +444,14 @@ void GenerateVertexShader(int prim, char *buffer) {
 				break;
 			}
 
-			WRITE(p, "  lowp vec3 diffuse%i = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, i, diffuse, i);
+			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
 			if (doSpecular) {
-				WRITE(p, "  mediump vec3 halfVec%i = normalize(normalize(toLight%i) + vec3(0.0, 0.0, 1.0));\n", i, i);
-				WRITE(p, "  dot%i = dot(halfVec%i, worldnormal);\n", i, i);
+				WRITE(p, "  halfVec = normalize(normalize(toLight) + vec3(0.0, 0.0, 1.0));\n", i, i);
+				WRITE(p, "  dot%i = dot(halfVec, worldnormal);\n", i, i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specular, i, timesLightScale);
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
 			}
-			WRITE(p, "  lightSum0.rgb += (u_lightambient%i + diffuse%i) %s;\n", i, i, timesLightScale);
+			WRITE(p, "  lightSum0.rgb += (u_lightambient%i + diffuse) %s;\n", i, timesLightScale);
 		}
 
 		if (gstate.isLightingEnabled()) {
