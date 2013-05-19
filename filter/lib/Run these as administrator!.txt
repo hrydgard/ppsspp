@@ -1,0 +1,5 @@
+Open task manager (Ctrl Shift Esc)
+click show all processes button to launch it in Admin elevation.
+click File > Run
+tick create the task with administrative priviledges
+select {ppssppdir}\lib\filter\Register.bat
