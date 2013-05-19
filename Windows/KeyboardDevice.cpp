@@ -71,7 +71,8 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 			break;
 		}
 	}
-
+	
+	// keyboard device
 	input_state.pad_lstick_x += analogX;
 	input_state.pad_lstick_y += analogY;
 	return 0;

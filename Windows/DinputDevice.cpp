@@ -107,13 +107,26 @@ DinputDevice::DinputDevice()
 
 	DIPROPRANGE diprg; 
 	diprg.diph.dwSize       = sizeof(DIPROPRANGE); 
-	diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER); 
+	diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER);
 	diprg.diph.dwHow        = DIPH_DEVICE; 
 	diprg.diph.dwObj        = 0;
 	diprg.lMin              = -10000; 
-	diprg.lMax              = 10000; 
-   
+	diprg.lMax              = 10000;
+
 	analog = FAILED(pJoystick->SetProperty(DIPROP_RANGE, &diprg.diph))?false:true;
+
+	// Other devices suffer If do not set the dead zone. 
+	// TODO: the dead zone will make configurable in the Control dialog.
+	DIPROPDWORD dipw;
+	dipw.diph.dwSize       = sizeof(DIPROPDWORD);
+	dipw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+	dipw.diph.dwHow        = DIPH_DEVICE;
+	dipw.diph.dwObj        = 0;
+	// dwData 1000 is deadzone(0% - 10%)
+	dipw.dwData            = 1000;
+
+	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph))?false:true;
+
 }
 
 DinputDevice::~DinputDevice()
@@ -170,8 +183,8 @@ int DinputDevice::UpdateState(InputState &input_state)
 
 	if (analog)
 	{
-		input_state.pad_lstick_x = (float)js.lX / 10000.f;
-		input_state.pad_lstick_y = -((float)js.lY / 10000.f);
+		input_state.pad_lstick_x += (float)js.lX / 10000.f;
+		input_state.pad_lstick_y += -((float)js.lY / 10000.f);
 	}
 
 	for (u8 i = 0; i < sizeof(dinput_ctrl_map)/sizeof(dinput_ctrl_map[0]); i += 2)
