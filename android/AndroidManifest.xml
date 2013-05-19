@@ -22,7 +22,8 @@
             android:name=".PpssppActivity"
             android:label="@string/app_name"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-            android:configChanges="orientation|locale|keyboard|keyboardHidden|navigation|fontScale|uiMode" >
+            android:configChanges="orientation|locale|keyboard|keyboardHidden|navigation|fontScale|uiMode"
+            android:screenOrientation="landscape" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -31,3 +32,4 @@
     </application>
 
 </manifest>
+ 
