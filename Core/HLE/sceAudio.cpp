@@ -56,7 +56,7 @@ void AudioChannel::clear()
 // There's a second Audio api called Audio2 that only has one channel, I guess the 8 channel api was overkill.
 // We simply map it to an extra channel after the 8 channels, since they can be used concurrently.
 
-// The extra channel is for SRC/Output2.
+// The extra channel is for SRC/Output2/Vaudio.
 AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
 
 // Enqueues the buffer pointer on the channel. If channel buffer queue is full (2 items?) will block until it isn't.

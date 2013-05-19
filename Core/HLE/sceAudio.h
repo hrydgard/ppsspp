@@ -46,6 +46,7 @@ const int PSP_AUDIO_CHANNEL_MAX = 8;
 
 const int PSP_AUDIO_CHANNEL_SRC = 8;
 const int PSP_AUDIO_CHANNEL_OUTPUT2 = 8;
+const int PSP_AUDIO_CHANNEL_VAUDIO = 8;
 
 struct AudioChannelWaitInfo
 {
@@ -83,7 +84,7 @@ struct AudioChannel
 	void clear();
 };
 
-// The extra channel is for SRC/Output2.
+// The extra channel is for SRC/Output2/Vaudio (who all share, apparently.)
 extern AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
 
 void Register_sceAudio();

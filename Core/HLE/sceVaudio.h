@@ -17,5 +17,10 @@
 
 #pragma once
 
+class PointerWrap;
+
 void Register_sceVaudio();
+
+void __VaudioInit();
+void __VaudioDoState(PointerWrap &p);
 
