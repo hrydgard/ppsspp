@@ -226,14 +226,6 @@ void GenerateVertexShader(int prim, char *buffer) {
 			int numBones = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
 			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBones);
 		}
-		if (gstate.isLightingEnabled()) {
-			WRITE(p, "uniform lowp vec4 u_ambient;\n");
-			if ((gstate.materialupdate & 2) == 0)
-				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
-			// if ((gstate.materialupdate & 4) == 0)
-			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
-			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
-		}
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
 				// This is needed for shade mapping
@@ -242,14 +234,30 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (doLight[i] == LIGHT_FULL) {
 				// These are needed for the full thing
 				WRITE(p, "uniform mediump vec3 u_lightdir%i;\n", i);
-				WRITE(p, "uniform mediump vec3 u_lightatt%i;\n", i);
-				WRITE(p, "uniform mediump float u_lightangle%i;\n", i);
-				WRITE(p, "uniform mediump float u_lightspotCoef%i;\n", i);
+				GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
 
+				if (type != GE_LIGHTTYPE_DIRECTIONAL)
+					WRITE(p, "uniform mediump vec3 u_lightatt%i;\n", i);
+
+				if (type == GE_LIGHTTYPE_SPOT) {
+					WRITE(p, "uniform mediump float u_lightangle%i;\n", i);
+					WRITE(p, "uniform mediump float u_lightspotCoef%i;\n", i);
+				}
 				WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
 				WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
-				WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
+
+				GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
+				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+					WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
 			}
+		}
+		if (gstate.isLightingEnabled()) {
+			WRITE(p, "uniform lowp vec4 u_ambient;\n");
+			if ((gstate.materialupdate & 2) == 0)
+				WRITE(p, "uniform lowp vec3 u_matdiffuse;\n");
+			// if ((gstate.materialupdate & 4) == 0)
+			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
+			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 		}
 	}
 
@@ -498,10 +506,16 @@ void GenerateVertexShader(int prim, char *buffer) {
 					WRITE(p, "  vec3 temp_tc = vec3(a_texcoord.xy * 2.0, 0.0);\n");
 					break;
 				case 2:  // Use normalized transformed normal as source
-					WRITE(p, "  vec3 temp_tc = normalize(a_normal);\n");
+					if (hasNormal)
+						WRITE(p, "  vec3 temp_tc = normalize(a_normal);\n");
+					else
+						WRITE(p, "  vec3 temp_tc = vec3(0.0, 0.0, 1.0);\n");
 					break;
 				case 3:  // Use non-normalized transformed normal as source
-					WRITE(p, "  vec3 temp_tc = a_normal;\n");
+					if (hasNormal)
+						WRITE(p, "  vec3 temp_tc = a_normal;\n");
+					else
+						WRITE(p, "  vec3 temp_tc = vec3(0.0, 0.0, 1.0);\n");
 					break;
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
