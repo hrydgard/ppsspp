@@ -366,19 +366,28 @@ void GenerateVertexShader(int prim, char *buffer) {
 			WRITE(p, "  lowp vec4 lightSum0 = u_ambient * %s + vec4(u_matemissive, 0.0);\n", ambient);
 		}
 
-		bool lightSum1IsZero = true;
+		bool diffuseIsZero = true;
+		bool specularIsZero = true;
+		bool distanceNeeded = false;
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_FULL)
 				continue;
+			diffuseIsZero = false;
 			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
-			if (comp != GE_LIGHTCOMP_ONLYDIFFUSE) {
-				lightSum1IsZero = false;
-				break;
-			}
+			if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+				specularIsZero = false;
+			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
+			if (type != GE_LIGHTTYPE_DIRECTIONAL)
+				distanceNeeded = true;
 		}
 
-		if (!lightSum1IsZero) {
+		if (!specularIsZero) {
 			WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
+		}
+
+		if (distanceNeeded) {
+			WRITE(p, "  float distance;\n");
+			WRITE(p, "  lowp float lightScale;\n");
 		}
 
 		// Calculate lights if needed. If shade mapping is enabled, lights may need to be
@@ -405,7 +414,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			}
 
 			char timesLightScale[128];
-			sprintf(timesLightScale, " * lightScale%i", i);
+			sprintf(timesLightScale, " * lightScale");
 
 			// Attenuation
 			switch (type) {
@@ -413,16 +422,17 @@ void GenerateVertexShader(int prim, char *buffer) {
 				timesLightScale[0] = 0;
 				break;
 			case GE_LIGHTTYPE_POINT:
-				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
-				WRITE(p, "  lowp float lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0);\n", i, i, i, i, i);
+				WRITE(p, "  distance = length(toLight%i);\n", i, i);
+				WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				break;
 			case GE_LIGHTTYPE_SPOT:
-				WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
-				WRITE(p, "  lowp float lightScale%i = 0.0;\n", i);
+				WRITE(p, "  distance = length(toLight%i);\n", i, i);
 				WRITE(p, "  lowp float angle%i = dot(normalize(u_lightdir%i), normalize(toLight%i));\n", i, i, i);
 				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
-				WRITE(p, "    lightScale%i = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance%i, distance%i*distance%i)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i, i, i, i, i);
-				WRITE(p, "  }\n");
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i);
+				WRITE(p, "  } else {\n");
+				WRITE(p, "    lightScale = 0.0;\n");
+				WRITE(p, "  }\n");  
 				break;
 			default:
 				// ILLEGAL
@@ -444,13 +454,13 @@ void GenerateVertexShader(int prim, char *buffer) {
 			if (lmode) {
 				WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
 				// v_color1 only exists when lmode = 1.
-				if (lightSum1IsZero) {
+				if (specularIsZero) {
 					WRITE(p, "  v_color1 = vec3(0.0);\n");
 				} else {
 					WRITE(p, "  v_color1 = clamp(lightSum1, 0.0, 1.0);\n");
 				}
 			} else {
-				if (lightSum1IsZero) {
+				if (specularIsZero) {
 					WRITE(p, "  v_color0 = clamp(lightSum0, 0.0, 1.0);\n");
 				} else {
 					WRITE(p, "  v_color0 = clamp(clamp(lightSum0, 0.0, 1.0) + vec4(lightSum1, 0.0), 0.0, 1.0);\n");
