@@ -29,6 +29,7 @@
 #include "FixedSizeQueue.h"
 #include "Common/Thread.h"
 
+// Should be used to lock anything related to the outAudioQueue.
 std::recursive_mutex section;
 
 int eventAudioUpdate = -1;
@@ -89,28 +90,27 @@ void __AudioInit()
 
 void __AudioDoState(PointerWrap &p)
 {
-	section.lock();
-
 	p.Do(eventAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventAudioUpdate, "AudioUpdate", &hleAudioUpdate);
 	p.Do(eventHostAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleHostAudioUpdate);
 
 	p.Do(mixFrequency);
+
+	section.lock();
 	outAudioQueue.DoState(p);
+	section.unlock();
 
 	int chanCount = ARRAY_SIZE(chans);
 	p.Do(chanCount);
 	if (chanCount != ARRAY_SIZE(chans))
 	{
 		ERROR_LOG(HLE, "Savestate failure: different number of audio channels.");
-		section.unlock();
 		return;
 	}
 	for (int i = 0; i < chanCount; ++i)
 		chans[i].DoState(p);
 
-	section.unlock();
 	p.DoMarker("sceAudio");
 }
 
@@ -123,7 +123,6 @@ void __AudioShutdown()
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 {
 	u32 ret = 0;
-	section.lock();
 	if (chan.sampleAddress == 0)
 		return SCE_ERROR_AUDIO_NOT_OUTPUT;
 	if (chan.sampleQueue.size() > chan.sampleCount*2*chanQueueMaxSizeFactor) {
@@ -176,7 +175,6 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 
 		ret = chan.sampleCount;
 	}
-	section.unlock();
 	return ret;
 }
 
@@ -266,6 +264,7 @@ void __AudioSetOutputFrequency(int freq)
 }
 
 // numFrames is number of stereo frames.
+// This is called from *outside* the emulator thread.
 int __AudioMix(short *outstereo, int numFrames)
 {
 	// TODO: if mixFrequency != the actual output frequency, resample!
