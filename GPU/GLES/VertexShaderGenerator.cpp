@@ -386,12 +386,13 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 			WRITE(p, "  mediump float dot%i = dot(normalize(toLight%i), worldnormal);\n", i, i);
 			WRITE(p, "  float distance%i = length(toLight%i);\n", i, i);
-			WRITE(p, "  lowp float lightScale%i = 0.0;\n", i);
 			WRITE(p, "  lowp float angle%i = 0.0;\n", i);
 
 			if (poweredDiffuse) {
 				WRITE(p, "  dot%i = pow(dot%i, u_matspecular.a);\n", i, i);
 			}
+
+			WRITE(p, "  lowp float lightScale%i = 0.0;\n", i);
 
 			// Attenuation
 			switch (type) {
@@ -419,7 +420,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
 				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) * lightScale%i);\n", i, specular, i, i);
 			}
-			WRITE(p, "  lightSum0 += vec4((u_lightambient%i + diffuse%i)*lightScale%i, 0.0);\n", i, i, i);
+			WRITE(p, "  lightSum0.rgb += (u_lightambient%i + diffuse%i)*lightScale%i;\n", i, i, i);
 		}
 
 		if (gstate.isLightingEnabled()) {
