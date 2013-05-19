@@ -36,10 +36,12 @@ struct RawInputState
 #define XBOX_CODE_LEFTTRIGER  0x00010000
 #define XBOX_CODE_RIGHTTRIGER 0x00020000
 
-#define CONTROLS_KEYBOARD_INDEX     0
-#define CONTROLS_DIRECT_INPUT_INDEX 1
-#define CONTROLS_XINPUT_INDEX       2
-#define CONTROLS_DEVICE_NUM         3
+#define CONTROLS_KEYBOARD_INDEX        0
+#define CONTROLS_DIRECT_INPUT_INDEX    1
+#define CONTROLS_XINPUT_INDEX          2
+#define CONTROLS_KEYBOARD_ANALOG_INDEX 3
+#define CONTROLS_DEVICE_NUM            4
+
 
 extern bool saveControlsToFile();
 extern bool loadControlsFromFile();
@@ -65,6 +67,8 @@ public:
 	void SetTargetButton(UINT buttonIdx);
 	UINT  GetTargetButton();
 	void  SetBindCode(UINT newCode);
+	void SetBindCode(UINT newCode, UINT buttonIdx);
+	void SetBindCode(UINT newCode, UINT deviceIdx, UINT buttonIdx);
 	UINT  GetBindCode();
 	UINT  GetBindCode(UINT buttonIdx);
 	UINT  GetBindCode(UINT deviceIdx, UINT buttonIdx);
@@ -73,8 +77,8 @@ private:
 	ControlMapping(UINT nButtons);
 	ControlMapping();
 	inline UINT* GetDeviceButtonsMap(UINT curDevice);
-	void SetBindCode(UINT newCode, UINT buttonIdx);
-	void SetBindCode(UINT newCode, UINT deviceIdx, UINT buttonIdx);
+
+private:
 	std::shared_ptr<DinputDevice> dinput;
 	std::shared_ptr<XinputDevice> xinput;
 	UINT  currentDevicePage;
@@ -82,5 +86,4 @@ private:
 	UINT  buttonsCount;
 	RawInputState rawState;
 	UINT *pButtonsMap;
-	USHORT keyboardAnalogMap[4];
 };
