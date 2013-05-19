@@ -22,7 +22,8 @@
 #include <base/stringutil.h>
 
 #include "Common.h"
-
+long parseHexLong(std::string s);
+long parseLong(std::string s);
 std::string StringFromFormat(const char* format, ...);
 // Cheap!
 bool CharArrayFromFormatV(char* out, int outsize, const char* format, va_list args);
