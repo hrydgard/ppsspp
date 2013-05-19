@@ -1159,10 +1159,10 @@ namespace MainWindow
 				{
 					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), (g_Config.iForceInputDevice + 1));
 				}
-				pCtrlDlgState->orgPSPImageProc = (WNDPROC)GetWindowLong(pCtrlDlgState->hStaticPspImage, GWL_WNDPROC);
-				SetWindowLong(pCtrlDlgState->hStaticPspImage, GWL_WNDPROC, (LONG)PSPImageProc);
+				pCtrlDlgState->orgPSPImageProc = (WNDPROC)GetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC);
+				SetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC, (LONG_PTR)PSPImageProc);
 				DWORD dwThreadID = GetWindowThreadProcessId(hDlg, NULL);
-				pCtrlDlgState->pKeydownHook = SetWindowsHookEx(WH_KEYBOARD,KeyboardProc, NULL, dwThreadID);
+				pCtrlDlgState->pKeydownHook = SetWindowsHookEx(WH_KEYBOARD, KeyboardProc, NULL, dwThreadID);
 			
 				pCtrlDlgState->timerId = SetTimer(hDlg, TIMER_CONTROLS_BINDUPDATE, BINDUPDATE_INTERVAL_MS, 0);
 			}
@@ -1356,7 +1356,7 @@ namespace MainWindow
 				}
 				UnhookWindowsHookEx(pCtrlDlgState->pKeydownHook);
 				KillTimer(hDlg, pCtrlDlgState->timerId);
-				SetWindowLong(pCtrlDlgState->hStaticPspImage, GWL_WNDPROC, (LONG)pCtrlDlgState->orgPSPImageProc);
+				SetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC, (LONG_PTR)pCtrlDlgState->orgPSPImageProc);
 				EndDialog(hDlg, LOWORD(wParam));
 				if (pCtrlDlgState->hbmPspImage) {
 					DeleteObject(pCtrlDlgState->hbmPspImage);
