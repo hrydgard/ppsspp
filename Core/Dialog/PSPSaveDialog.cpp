@@ -54,9 +54,9 @@ int PSPSaveDialog::Init(int paramAddr)
 	INFO_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
 	INFO_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
 
-	currentSelectedSave = 0;
 	yesnoChoice = 1;
-	switch(param.GetPspParam()->mode)
+	currentSelectedSave = param.GetLatestSave();
+	switch (param.GetPspParam()->mode)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
 			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
@@ -64,12 +64,12 @@ int PSPSaveDialog::Init(int paramAddr)
 				display = DS_LOAD_CONFIRM;
 			else
 				display = DS_LOAD_NODATA;
-			currentSelectedSave = param.GetSelectedSave();
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
-			currentSelectedSave = param.GetSelectedSave();
+			// Is this necessary?
+			// currentSelectedSave = param.GetSelectedSave();
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTLOAD:
 			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
@@ -87,12 +87,12 @@ int PSPSaveDialog::Init(int paramAddr)
 			}
 			else
 				display = DS_SAVE_CONFIRM;
-			currentSelectedSave = param.GetSelectedSave();
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
 			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			display = DS_NONE;
-			currentSelectedSave = param.GetSelectedSave();
+			// Is this necessary?
+			// currentSelectedSave = param.GetSelectedSave();
 			break;
 		case SCE_UTILITY_SAVEDATA_TYPE_LISTSAVE:
 			DEBUG_LOG(HLE, "Saving. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());

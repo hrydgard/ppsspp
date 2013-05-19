@@ -223,6 +223,8 @@ public:
 	int GetSelectedSave();
 	void SetSelectedSave(int idx);
 
+	int GetLatestSave();
+
 	void DoState(PointerWrap &p);
 
 private:
