@@ -29,6 +29,7 @@
 #include "FixedSizeQueue.h"
 #include "Common/Thread.h"
 
+// Should be used to lock anything related to the outAudioQueue.
 std::recursive_mutex section;
 
 int eventAudioUpdate = -1;
@@ -48,7 +49,7 @@ const int hostAttemptBlockSize = 512;
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
-// High and low watermarks, basically.
+// High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
 // TODO: Tweak
 #ifdef ANDROID
 	const int chanQueueMaxSizeFactor = 4;
@@ -89,28 +90,27 @@ void __AudioInit()
 
 void __AudioDoState(PointerWrap &p)
 {
-	section.lock();
-
 	p.Do(eventAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventAudioUpdate, "AudioUpdate", &hleAudioUpdate);
 	p.Do(eventHostAudioUpdate);
 	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleHostAudioUpdate);
 
 	p.Do(mixFrequency);
+
+	section.lock();
 	outAudioQueue.DoState(p);
+	section.unlock();
 
 	int chanCount = ARRAY_SIZE(chans);
 	p.Do(chanCount);
 	if (chanCount != ARRAY_SIZE(chans))
 	{
 		ERROR_LOG(HLE, "Savestate failure: different number of audio channels.");
-		section.unlock();
 		return;
 	}
 	for (int i = 0; i < chanCount; ++i)
 		chans[i].DoState(p);
 
-	section.unlock();
 	p.DoMarker("sceAudio");
 }
 
@@ -122,25 +122,38 @@ void __AudioShutdown()
 
 u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 {
-	u32 ret = 0;
-	section.lock();
-	if (chan.sampleAddress == 0)
-		return SCE_ERROR_AUDIO_NOT_OUTPUT;
-	if (chan.sampleQueue.size() > chan.sampleCount*2*chanQueueMaxSizeFactor) {
-		// Block!
-		if (blocking) {
-			chan.waitingThread = __KernelGetCurThread();
-			// WARNING: This changes currentThread so must grab waitingThread before (line above).
-			__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chanNum, 0, 0, false, "blocking audio waited");
-			// Fall through to the sample queueing, don't want to lose the samples even though
-			// we're getting full.
+	u32 ret = chan.sampleCount;
+
+	if (chan.sampleAddress == 0) {
+		// For some reason, multichannel audio lies and returns the sample count here.
+		if (chanNum == PSP_AUDIO_CHANNEL_SRC || chanNum == PSP_AUDIO_CHANNEL_OUTPUT2) {
+			ret = 0;
 		}
-		else
-		{
-			chan.waitingThread = 0;
+	}
+
+	// If there's anything on the queue at all, it should be busy, but we try to be a bit lax.
+	if (chan.sampleQueue.size() > chan.sampleCount * 2 * chanQueueMaxSizeFactor || chan.sampleAddress == 0) {
+		if (blocking) {
+			// TODO: Regular multichannel audio seems to block for 64 samples less?  Or enqueue the first 64 sync?
+			int blockSamples = chan.sampleQueue.size() / 2 / chanQueueMinSizeFactor;
+
+			AudioChannelWaitInfo waitInfo = {__KernelGetCurThread(), blockSamples};
+			chan.waitingThreads.push_back(waitInfo);
+			// Also remember the value to return in the waitValue.
+			__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chanNum + 1, ret, 0, false, "blocking audio waited");
+
+			// Fall through to the sample queueing, don't want to lose the samples even though
+			// we're getting full.  The PSP would enqueue after blocking.
+		} else {
+			// Non-blocking doesn't even enqueue, but it's not commonly used.
 			return SCE_ERROR_AUDIO_CHANNEL_BUSY;
 		}
 	}
+
+	if (chan.sampleAddress == 0) {
+		return ret;
+	}
+
 	if (chan.format == PSP_AUDIO_FORMAT_STEREO)
 	{
 		const u32 totalSamples = chan.sampleCount * 2;
@@ -161,8 +174,6 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 			for (u32 i = 0; i < totalSamples; i++)
 				chan.sampleQueue.push((s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i));
 		}
-
-		ret = chan.sampleCount;
 	}
 	else if (chan.format == PSP_AUDIO_FORMAT_MONO)
 	{
@@ -173,10 +184,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 			chan.sampleQueue.push(sample);
 			chan.sampleQueue.push(sample);
 		}
-
-		ret = chan.sampleCount;
 	}
-	section.unlock();
 	return ret;
 }
 
@@ -186,6 +194,31 @@ static inline s16 clamp_s16(int i) {
 	if (i < -32768)
 		return -32768;
 	return i;
+}
+
+inline void __AudioWakeThreads(AudioChannel &chan, int step)
+{
+	u32 error;
+	for (size_t w = 0; w < chan.waitingThreads.size(); ++w)
+	{
+		AudioChannelWaitInfo &waitInfo = chan.waitingThreads[w];
+		waitInfo.numSamples -= hwBlockSize;
+
+		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
+		if (waitInfo.numSamples <= 0 && __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error) != 0)
+		{
+			// DEBUG_LOG(HLE, "Woke thread %i for some buffer filling", waitingThread);
+			u32 ret = __KernelGetWaitValue(waitInfo.threadID, error);
+			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
+
+			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
+		}
+	}
+}
+
+void __AudioWakeThreads(AudioChannel &chan)
+{
+	__AudioWakeThreads(chan, 0x7FFFFFFF);
 }
 
 // Mix samples from the various audio channels into a single sample queue.
@@ -204,6 +237,8 @@ void __AudioUpdate()
 	{
 		if (!chans[i].reserved)
 			continue;
+		__AudioWakeThreads(chans[i], hwBlockSize);
+
 		if (!chans[i].sampleQueue.size()) {
 			// ERROR_LOG(HLE, "No queued samples, skipping channel %i", i);
 			continue;
@@ -223,17 +258,6 @@ void __AudioUpdate()
 			{
 				ERROR_LOG(HLE, "Channel %i buffer underrun at %i of %i", i, s, hwBlockSize);
 				break;
-			}
-		}
-
-		if (chans[i].sampleQueue.size() < chans[i].sampleCount * 2 * chanQueueMinSizeFactor)
-		{
-			// Ask the thread to send more samples until next time, queue is being drained.
-			if (chans[i].waitingThread) {
-				SceUID waitingThread = chans[i].waitingThread;
-				chans[i].waitingThread = 0;
-				// DEBUG_LOG(HLE, "Woke thread %i for some buffer filling", waitingThread);
-				__KernelResumeThreadFromWait(waitingThread, chans[i].sampleCount);
 			}
 		}
 	}
@@ -266,6 +290,7 @@ void __AudioSetOutputFrequency(int freq)
 }
 
 // numFrames is number of stereo frames.
+// This is called from *outside* the emulator thread.
 int __AudioMix(short *outstereo, int numFrames)
 {
 	// TODO: if mixFrequency != the actual output frequency, resample!
