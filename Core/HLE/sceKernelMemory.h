@@ -25,6 +25,14 @@
 // have elf loader grab its memory block first to avoid overwriting,
 // etc
 
+enum MemblockType
+{
+	PSP_SMEM_Low = 0,
+	PSP_SMEM_High = 1,
+	PSP_SMEM_Addr = 2,
+	PSP_SMEM_LowAligned = 3,
+	PSP_SMEM_HighAligned = 4,
+};
 
 extern BlockAllocator userMemory;
 extern BlockAllocator kernelMemory;
@@ -62,5 +70,8 @@ int sceKernelDeleteTls(SceUID uid);
 int sceKernelAllocateTls(SceUID uid);
 int sceKernelFreeTls(SceUID uid);
 int sceKernelReferTlsStatus(SceUID uid, u32 infoPtr);
+int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr);
+int sceKernelFreePartitionMemory(SceUID id);
+u32 sceKernelGetBlockHeadAddr(SceUID id);
 
 void Register_SysMemUserForUser();
