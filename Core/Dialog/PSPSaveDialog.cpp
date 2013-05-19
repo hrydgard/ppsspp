@@ -370,10 +370,10 @@ void PSPSaveDialog::DisplayTitle(std::string name)
 void PSPSaveDialog::DisplayEnterBack()
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawImage(okButtonImg, 180, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawImage(cancelButtonImg, 270, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Enter"), 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Back"), 285, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(cancelButtonImg, 180, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(okButtonImg, 270, 257, 11, 11, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Back"), 195, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Enter"), 285, 255, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPSaveDialog::DisplayBack()
