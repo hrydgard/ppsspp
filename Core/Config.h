@@ -79,7 +79,7 @@ public:
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
 	int iFpsLimit;
-	u32 iMaxRecent;
+	int iMaxRecent;
 
 	// Sound
 	bool bEnableSound;

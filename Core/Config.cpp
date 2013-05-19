@@ -64,6 +64,9 @@ void Config::Load(const char *iniFileName)
 	general->Get("Language", &languageIni, "en_US");
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
 	general->Get("MaxRecent", &iMaxRecent, 12);
+	// Fix issue from switching from uint (hex in .ini) to int (dec)
+	if (iMaxRecent == 0)
+		iMaxRecent = 12;
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
