@@ -1665,7 +1665,7 @@ int sceKernelCheckThreadStack()
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(__KernelGetCurThread(), error);
 	if (t) {
-		u32 diff = labs((long)((s64)t->currentStack.end - (s64)currentMIPS->r[MIPS_REG_SP]));
+		u32 diff = labs((long)((s64)t->currentStack.start - (s64)currentMIPS->r[MIPS_REG_SP]));
 		WARN_LOG(HLE, "%i=sceKernelCheckThreadStack()", diff);
 		return diff;
 	} else {
