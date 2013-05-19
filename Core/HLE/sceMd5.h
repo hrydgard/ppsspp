@@ -20,3 +20,6 @@
 #include "HLE.h"
 
 void Register_sceMd5();
+
+u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed);
+u32 sceKernelUtilsMt19937UInt(u32 ctx);

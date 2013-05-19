@@ -17,6 +17,25 @@
 
 #include "HLE.h"
 
+// Not really sure where these belong - is it worth giving them their own file?
+u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
+	DEBUG_LOG(HLE, "sceKernelUtilsMt19937Init(%08x, %08x)", ctx, seed);
+	if (!Memory::IsValidAddress(ctx))
+		return -1;
+	void *ptr = Memory::GetPointer(ctx);
+	// This is made to match the memory layout of a PSP MT structure exactly.
+	// Let's just construct it in place with placement new. Elite C++ hackery FTW.
+	new (ptr) MersenneTwister(seed);
+	return 0;
+}
+
+u32 sceKernelUtilsMt19937UInt(u32 ctx) {
+	VERBOSE_LOG(HLE, "sceKernelUtilsMt19937UInt(%08x)", ctx);
+	if (!Memory::IsValidAddress(ctx))
+		return -1;
+	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointer(ctx);
+	return mt->R32();
+}
 
 int sceMd5BlockInit(u32 ctxAddr)
 {

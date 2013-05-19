@@ -74,8 +74,7 @@
 //kjfs
 //sound
 //zlibdec
-const HLEFunction FakeSysCalls[] =
-{
+const HLEFunction FakeSysCalls[] = {
 	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
 	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
 	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
@@ -97,8 +96,8 @@ const HLEFunction UtilsForUser[] =
 	{0xF8FCD5BA, 0, "sceKernelUtilsSha1BlockInit"},
 	{0x346F6DA8, 0, "sceKernelUtilsSha1BlockUpdate"},
 	{0x585F1C09, 0, "sceKernelUtilsSha1BlockResult"},
-	{0xE860E75E, 0, "sceKernelUtilsMt19937Init"},
-	{0x06FB8A63, 0, "sceKernelUtilsMt19937UInt"},
+	{0xE860E75E, WrapU_UU<sceKernelUtilsMt19937Init>, "sceKernelUtilsMt19937Init"},
+	{0x06FB8A63, WrapU_U<sceKernelUtilsMt19937UInt>, "sceKernelUtilsMt19937UInt"},
 	{0x37FB5C42, WrapU_V<sceKernelGetGPI>, "sceKernelGetGPI"},
 	{0x6AD345D7, WrapV_U<sceKernelSetGPO>, "sceKernelSetGPO"},
 	{0x79D1C3FA, WrapI_V<sceKernelDcacheWritebackAll>, "sceKernelDcacheWritebackAll"},

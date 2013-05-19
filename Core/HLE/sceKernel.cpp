@@ -31,6 +31,8 @@
 #include "../../GPU/GPUInterface.h"
 #include "../../GPU/GPUState.h"
 
+#include "util/random/rng.h"
+
 #include "__sceAudio.h"
 #include "sceAtrac.h"
 #include "sceAudio.h"

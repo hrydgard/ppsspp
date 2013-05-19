@@ -552,7 +552,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 				numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
 				s16* in = buf;
 				s16* out = (s16*)Memory::GetPointer(outAddr);
-				for (int i = 0; i < numSamples; i++) {
+				for (u32 i = 0; i < numSamples; i++) {
 					s16 sampleL = *in++;
 					s16 sampleR = sampleL;
 					if (atrac->atracChannels == 2)
