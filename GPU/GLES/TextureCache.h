@@ -81,12 +81,11 @@ private:
 		int numInvalidated;
 		u32 framesUntilNextFullHash;
 		u8 format;
-		u8 clutformat;
-		u32 cluthash;
 		u16 dim;
 		u32 texture;  //GLuint
 		int invalidHint;
 		u32 fullhash;
+		u32 cluthash;
 		int maxLevel;
 		float lodBias;
 
@@ -98,7 +97,6 @@ private:
 		bool tClamp;
 
 		bool Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2);
-		bool MatchesClut(bool hasClut, u8 clutformat2);
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
