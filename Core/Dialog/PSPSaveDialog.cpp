@@ -344,11 +344,11 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawRect(180, 105, 460, 106, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(180, 160, 460, 161, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(text.c_str(), 220, 110, PPGE_ALIGN_LEFT, 0.45f, 0xFFFFFFFF);
-	PPGeDrawText(d->T("Yes"), 250, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText(d->T("No"), 350, 140, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawRect(200, 85, 460, 86, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(200, 160, 460, 161, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(text.c_str(), 320, 100, PPGE_ALIGN_HCENTER, 0.5f, 0xFFFFFFFF);
+	PPGeDrawText(d->T("Yes"), 275, 130, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
+	PPGeDrawText(d->T("No"), 340, 130, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 		yesnoChoice = 1;
 	else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1)
@@ -357,9 +357,9 @@ void PSPSaveDialog::DisplayConfirmationYesNo(std::string text)
 
 void PSPSaveDialog::DisplayInfo(std::string text)
 {
-	PPGeDrawRect(180, 105, 460, 106, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(180, 130, 460, 131, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(text.c_str(), 270, 110, PPGE_ALIGN_LEFT, 0.45f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(200, 100, 460, 101, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(200, 140, 460, 141, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(text.c_str(), 320, 110, PPGE_ALIGN_HCENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPSaveDialog::DisplayTitle(std::string name)
