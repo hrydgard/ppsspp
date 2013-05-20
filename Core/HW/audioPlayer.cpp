@@ -517,7 +517,6 @@ void shutdownEngine()
 	audioMap.clear();
 	atracsection.unlock();
 	CoUninitialize();
-	system("cleanAudios.bat");
 }
 
 #endif // _USE_DSHOW_
