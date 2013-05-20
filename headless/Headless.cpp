@@ -183,6 +183,7 @@ int main(int argc, const char* argv[])
 	coreParameter.pixelWidth = 480;
 	coreParameter.pixelHeight = 272;
 	coreParameter.useMediaEngine = false;
+	coreParameter.unthrottle = true;
 
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;

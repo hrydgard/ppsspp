@@ -299,14 +299,17 @@ void __DisplayGetDebugStats(char stats[2048])
 	kernelStats.ResetFrame();
 }
 
+enum {
+	FPS_LIMIT_NORMAL = 0,
+	FPS_LIMIT_CUSTOM = 1,
+	FPS_LIMIT_TURBO = 2,
+};
+
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame, int &fpsLimiter, double &customLimiter) {
-	throttle = !PSP_CoreParameter().unthrottle;
-	fpsLimiter = PSP_CoreParameter().fpsLimit;
-	customLimiter = g_Config.iFpsLimit;
+void DoFrameTiming(bool &throttle, bool &skipFrame) {
+	int fpsLimiter = PSP_CoreParameter().fpsLimit;
+	throttle = !PSP_CoreParameter().unthrottle && fpsLimiter != FPS_LIMIT_TURBO;
 	skipFrame = false;
-	if (PSP_CoreParameter().headLess)
-		throttle = false;
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
@@ -347,7 +350,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, int &fpsLimiter, double &cus
 		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
 			nextFrameTime = curFrameTime + 1.0 / 60.0;
 		} else {
-			// Wait until we've catched up.
+			// Wait until we've caught up.
 			while (time_now_d() < nextFrameTime) {
 				Common::SleepCurrentThread(1);
 				time_update();
@@ -360,15 +363,13 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, int &fpsLimiter, double &cus
 	const double maxFallBehindFrames = 5.5;
 
 	// 3 states of fps limiter
-	if (fpsLimiter == 0) {
+	if (fpsLimiter == FPS_LIMIT_NORMAL) {
 		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
-	} else if (fpsLimiter == 1) {
+	} else if (fpsLimiter == FPS_LIMIT_CUSTOM) {
+		double customLimiter = g_Config.iFpsLimit;
 		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
-	} else if (fpsLimiter == 2) {
-		return;
-	}
-	else {
-		nextFrameTime = nextFrameTime + 1.0 / 60;
+	} else {
+		nextFrameTime = nextFrameTime + 1.0 / 60.0;
 	}
 
 	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
@@ -431,10 +432,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
 	bool throttle, skipFrame;
-	int fpsLimiter;
-	double customLimiter;
-	
-	DoFrameTiming(throttle, skipFrame, fpsLimiter, customLimiter);
+	DoFrameTiming(throttle, skipFrame);
 
 	if (skipFrame) {
 		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
