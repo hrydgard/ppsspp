@@ -118,10 +118,6 @@ void Core_RunLoop()
 				input_state.pad_lstick_y = 0;
 				input_state.pad_rstick_x = 0;
 				input_state.pad_rstick_y = 0;
-				// Temporary hack.
-				if (GetAsyncKeyState(VK_ESCAPE)) {
-					input_state.pad_buttons |= PAD_BUTTON_MENU;
-				}
 				host->PollControllers(input_state);
 				UpdateInputState(&input_state);
 #endif
