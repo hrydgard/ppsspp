@@ -15,24 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "Core/Reporting.h"
 
 
 u32 sceP3daBridgeInit(u32 channelsNum, u32 samplesNum)
 {
-  DEBUG_LOG(HLE, "UNIMPL sceP3daBridgeInit(%08x, %08x)", channelsNum, samplesNum);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceP3daBridgeInit(%08x, %08x)", channelsNum, samplesNum);
 	return 0;
 }
 
 u32 sceP3daBridgeExit()
 {
-	DEBUG_LOG(HLE, "UNIMPL sceP3daBridgeExit()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceP3daBridgeExit()");
 	return 0;
 }
 
 u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inputAddr, u32 outputAddr)
 {
-	DEBUG_LOG(HLE, "UNIMPL sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
 	return 0;
 }
 

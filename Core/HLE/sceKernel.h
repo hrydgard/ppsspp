@@ -376,7 +376,7 @@ u32 sceKernelDevkitVersion();
 u32 sceKernelRegisterKprintfHandler();
 void sceKernelRegisterDefaultExceptionHandler();
 
-u32 sceKernelFindModuleByName();
+u32 sceKernelFindModuleByName(const char *name);
 
 void sceKernelSetGPO(u32 ledAddr);
 u32 sceKernelGetGPI();

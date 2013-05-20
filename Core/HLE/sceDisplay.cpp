@@ -115,6 +115,13 @@ enum {
 	PSP_DISPLAY_SETBUF_NEXTFRAME = 1
 };
 
+static int lastFpsFrame = 0;
+static double lastFpsTime = 0.0;
+static double fps = 0.0;
+static double fpsHistory[120];
+static size_t fpsHistoryPos = 0;
+static size_t fpsHistoryValid = 0;
+
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
 void hleAfterFlip(u64 userdata, int cyclesLate);
@@ -142,6 +149,9 @@ void __DisplayInit() {
 	vCount = 0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
+
+	fpsHistoryPos = 0;
+	fpsHistoryValid = 0;
 
 	InitGfxState();
 }
@@ -203,13 +213,23 @@ void __DisplayFireVblank() {
 	}
 }
 
-static double highestFps = 0.0;
-static int lastFpsFrame = 0;
-static double lastFpsTime = 0.0;
-static double fps = 0.0;
-
 void __DisplayGetFPS(float *out_vps, float *out_fps) {
 	*out_vps = *out_fps = fps;
+}
+
+void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
+	float avg = 0.0;
+	if (fpsHistoryValid > 0) {
+		if (fpsHistoryValid > ARRAY_SIZE(fpsHistory)) {
+			fpsHistoryValid = ARRAY_SIZE(fpsHistory);
+		}
+		for (size_t i = 0; i < fpsHistoryValid; ++i) {
+			avg += fpsHistory[i];
+		}
+		avg /= (double) fpsHistoryValid;
+	}
+
+	*out_vps = *out_fps = avg;
 }
 
 void CalculateFPS()
@@ -220,11 +240,13 @@ void CalculateFPS()
 	if (now >= lastFpsTime + 1.0)
 	{
 		fps = (gpuStats.numFrames - lastFpsFrame) / (now - lastFpsTime);
-		if (fps > highestFps)
-			highestFps = fps;
 
 		lastFpsFrame = gpuStats.numFrames;	
 		lastFpsTime = now;
+
+		fpsHistory[fpsHistoryPos++] = fps;
+		fpsHistoryPos = fpsHistoryPos % ARRAY_SIZE(fpsHistory);
+		++fpsHistoryValid;
 	}
 }
 
@@ -657,7 +679,7 @@ u32 sceDisplaySetHoldMode(u32 hMode) {
 
 const HLEFunction sceDisplay[] = {
 	{0x0E20F177,WrapU_III<sceDisplaySetMode>, "sceDisplaySetMode"},
-	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
+	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFrameBuf"},
 	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,WrapU_V<sceDisplayWaitVblank>, "sceDisplayWaitVblank"},
 	{0x984C27E7,WrapU_V<sceDisplayWaitVblankStart>, "sceDisplayWaitVblankStart"},

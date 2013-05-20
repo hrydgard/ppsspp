@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <string>
 #include "HLE.h"
 #include "../System.h"
 #include "../MIPS/MIPS.h"
@@ -555,13 +556,93 @@ u32 sceKernelGetBlockHeadAddr(SceUID id)
 }
 
 
-void sceKernelPrintf()
+int sceKernelPrintf(const char *formatString)
 {
-	const char *formatString = Memory::GetCharPointer(PARAM(0));
+	if (formatString == NULL)
+		return -1;
 
-	ERROR_LOG(HLE,"UNIMPL sceKernelPrintf(%08x, %08x, %08x, %08x)", PARAM(0),PARAM(1),PARAM(2),PARAM(3));
-	ERROR_LOG(HLE,"%s", formatString);
-	RETURN(0);
+	bool supported = true;
+	int param = 1;
+	char tempStr[24];
+	char tempFormat[24] = {'%'};
+	std::string result, format = formatString;
+
+	// Each printf is a separate line already in the log, so don't double space.
+	// This does mean we break up strings, unfortunately.
+	if (!format.empty() && format[format.size() - 1] == '\n')
+		format.resize(format.size() - 1);
+
+	for (size_t i = 0, n = format.size(); supported && i < n; )
+	{
+		size_t next = format.find('%', i);
+		if (next == format.npos)
+		{
+			result += format.substr(i);
+			break;
+		}
+		else if (next != i)
+			result += format.substr(i, next - i);
+
+		i = next + 1;
+		if (i >= n)
+		{
+			supported = false;
+			break;
+		}
+
+		switch (format[i])
+		{
+		case '%':
+			result += '%';
+			++i;
+			break;
+
+		case 's':
+			result += Memory::GetCharPointer(PARAM(param++));
+			++i;
+			break;
+
+		case 'd':
+		case 'i':
+		case 'x':
+		case 'u':
+			tempFormat[1] = format[i];
+			tempFormat[2] = '\0';
+			snprintf(tempStr, sizeof(tempStr), tempFormat, PARAM(param++));
+			result += tempStr;
+			++i;
+			break;
+
+		case '0':
+			if (i + 3 >= n || format[i + 1] != '8' || format[i + 2] != 'x')
+				supported = false;
+			else
+			{
+				snprintf(tempFormat + 1, sizeof(tempFormat) - 1, "08x");
+				snprintf(tempStr, sizeof(tempStr), tempFormat, PARAM(param++));
+				result += tempStr;
+				i += 3;
+			}
+			break;
+
+		default:
+			supported = false;
+			break;
+		}
+
+		if (param > 6)
+			supported = false;
+	}
+
+	// Just in case there were embedded strings that had \n's.
+	if (!result.empty() && result[result.size() - 1] == '\n')
+		result.resize(result.size() - 1);
+
+	if (supported)
+		INFO_LOG(HLE, "sceKernelPrintf: %s", result.c_str())
+	else
+		ERROR_LOG(HLE, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
+	return 0;
 }
 
 void sceKernelSetCompiledSdkVersion(int sdkVersion)
@@ -1481,7 +1562,7 @@ const HLEFunction SysMemUserForUser[] = {
 	{0x237DBD4F,WrapI_ICIUU<sceKernelAllocPartitionMemory>,"sceKernelAllocPartitionMemory"},	//(int size) ?
 	{0xB6D61D02,WrapI_I<sceKernelFreePartitionMemory>,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
 	{0x9D9A5BA1,WrapU_I<sceKernelGetBlockHeadAddr>,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?
-	{0x13a5abef,sceKernelPrintf,"sceKernelPrintf 0x13a5abef"},
+	{0x13a5abef,WrapI_C<sceKernelPrintf>,"sceKernelPrintf"},
 	{0x7591c7db,&WrapV_I<sceKernelSetCompiledSdkVersion>,"sceKernelSetCompiledSdkVersion"},
 	{0x342061E5,&WrapV_I<sceKernelSetCompiledSdkVersion370>,"sceKernelSetCompiledSdkVersion370"},
 	{0x315AD3A0,&WrapV_I<sceKernelSetCompiledSdkVersion380_390>,"sceKernelSetCompiledSdkVersion380_390"},

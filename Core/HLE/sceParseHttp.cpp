@@ -21,8 +21,8 @@
 
 const HLEFunction sceParseHttp [] = 
 {
-	{0x8077A433, 0, "sceParseHttpStatusLineFunction"},
-	{0xAD7BFDEF, 0, "sceParseHttpResponseHeaderFunction"},
+	{0x8077A433, 0, "sceParseHttpStatusLine"},
+	{0xAD7BFDEF, 0, "sceParseHttpResponseHeader"},
 };
 
 void Register_sceParseHttp()

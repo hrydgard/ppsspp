@@ -263,18 +263,15 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 	DEBUG_LOG(HLE,
 			"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
-	//if (!stallAddress)
-	//	stallAddress = listAddress;
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), true);
 
 	DEBUG_LOG(HLE, "List %i enqueued.", listID);
-	//return display list ID
 	return listID;
 }
 
 int sceGeListDeQueue(u32 listID)
 {
-	ERROR_LOG(HLE, "UNIMPL sceGeListDeQueue(%08x)", listID);
+	WARN_LOG(HLE, "sceGeListDeQueue(%08x)", listID);
 	return gpu->DequeueList(listID);
 }
 

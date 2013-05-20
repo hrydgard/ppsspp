@@ -19,8 +19,11 @@
 
 #include "Common/CPUDetect.h"
 #include "Common/StdThread.h"
+#include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -57,6 +60,45 @@ namespace Reporting
 			AppendEscaped(key);
 			data += '=';
 			AppendEscaped(value);
+		}
+
+		void Add(const std::string &key, const char *value)
+		{
+			Add(key, std::string(value));
+		}
+
+		template <typename T>
+		void AddT(const std::string &key, const char *fmt, const T value)
+		{
+			char temp[64];
+			snprintf(temp, sizeof(temp), fmt, value);
+			temp[sizeof(temp) - 1] = '\0';
+			Add(key, temp);
+		}
+
+		void Add(const std::string &key, const int value)
+		{
+			AddT(key, "%d", value);
+		}
+
+		void Add(const std::string &key, const u32 value)
+		{
+			AddT(key, "%u", value);
+		}
+
+		void Add(const std::string &key, const u64 value)
+		{
+			AddT(key, "%llu", value);
+		}
+
+		void Add(const std::string &key, const double value)
+		{
+			AddT(key, "%f", value);
+		}
+
+		void Add(const std::string &key, const bool value)
+		{
+			Add(key, value ? "true" : "false");
 		}
 
 		// Percent encoding, aka application/x-www-form-urlencoded.
@@ -255,6 +297,17 @@ namespace Reporting
 		postdata.Add("gpu_full", gpuFull);
 		postdata.Add("cpu", cpu_info.Summarize());
 		postdata.Add("platform", GetPlatformIdentifer());
+		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
+		postdata.Add("pixel_width", PSP_CoreParameter().pixelWidth);
+		postdata.Add("pixel_height", PSP_CoreParameter().pixelHeight);
+		postdata.Add("ticks", CoreTiming::GetTicks());
+
+		if (g_Config.bShowFPSCounter)
+		{
+			float vps, fps;
+			__DisplayGetAveragedFPS(&vps, &fps);
+			postdata.Add("vps", vps);
+		}
 
 		// TODO: Settings, savestate/savedata status, some measure of speed/fps?
 

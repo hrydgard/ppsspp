@@ -123,6 +123,7 @@ const HLEFunction sceNet[] =
 	{0xd27961c9, 0, "sceNetEtherStrton"}, 
 	{0x50647530, 0, "sceNetFreeThreadinfo"}, 
 	{0xcc393e48, 0, "sceNetGetMallocStat"},
+	{0xad6844c6, 0, "sceNetThreadAbort"},
 };
 
 const HLEFunction sceNetAdhoc[] =
@@ -152,6 +153,7 @@ const HLEFunction sceNetAdhoc[] =
 	{0x7F75C338, 0, "sceNetAdhocGameModeCreateMaster"},
 	{0x73bfd52d, 0, "sceNetAdhocSetSocketAlert"},
 	{0x7a662d6b, 0, "sceNetAdhocPollSocket"},
+	{0x4d2ce199, 0, "sceNetAdhocGetSocketAlert"},
 };							
 
 int sceNetAdhocMatchingInit(u32 memsize) {
@@ -175,6 +177,8 @@ const HLEFunction sceNetAdhocMatching[] =
 	{0xec19337d, 0, "sceNetAdhocMatchingAbortSendData"},
 	{0xf79472d7, 0, "sceNetAdhocMatchingSendData"},
 	{0x40F8F435, 0, "sceNetAdhocMatchingGetPoolMaxAlloc"},
+	{0xb5d96c2a, 0, "sceNetAdhocMatchingGetHelloOpt"},
+	{0x9c5cfb7d, 0, "sceNetAdhocMatchingGetPoolStat"},
 };
 
 const HLEFunction sceNetAdhocctl[] =
@@ -186,7 +190,7 @@ const HLEFunction sceNetAdhocctl[] =
 	{0x34401D65, 0, "sceNetAdhocctlDisconnect"},
 	{0x0ad043ed, 0, "sceNetAdhocctlConnect"},
 	{0x08fff7a0, 0, "sceNetAdhocctlScan"},
-	{0x75ecd386, 0, "sceNetAdhocctlGetNameByAddr"},
+	{0x75ecd386, 0, "sceNetAdhocctlGetState"},
 	{0x8916c003, 0, "sceNetAdhocctlGetNameByAddr"},
 	{0xded9d28e, 0, "sceNetAdhocctlGetParameter"},
 	{0x81aee1be, 0, "sceNetAdhocctlGetScanInfo"},
@@ -198,6 +202,9 @@ const HLEFunction sceNetAdhocctl[] =
 	{0xcf8e084d, 0, "sceNetAdhocctlExitGameMode"},
 	{0xe162cb14, 0, "sceNetAdhocctlGetPeerList"},
 	{0x362cbe8f, 0, "sceNetAdhocctlGetAdhocId"},
+	{0x5a014ce0, 0, "sceNetAdhocctlGetGameModeInfo"},
+	{0x99560abe, 0, "sceNetAdhocctlGetAddrByName"},
+	{0xb0b80e80, 0, "sceNetAdhocctlCreateEnterGameModeMin"},
 };
 
 const HLEFunction sceNetResolver[] =
@@ -207,7 +214,12 @@ const HLEFunction sceNetResolver[] =
 	{0x94523e09, 0, "sceNetResolverDelete"},
 	{0xf3370e61, 0, "sceNetResolverInit"},
 	{0x808F6063, 0, "sceNetResolverStop"},
-	{0x6138194A, 0, "sceNetResolverTermFunction"},
+	{0x6138194A, 0, "sceNetResolverTerm"},
+	{0x629e2fb7, 0, "sceNetResolverStartAtoN"},
+	{0x14c17ef9, 0, "sceNetResolverStartNtoAAsync"},
+	{0xaac09184, 0, "sceNetResolverStartAtoNAsync"},
+	{0x12748eb9, 0, "sceNetResolverWaitAsync"},
+	{0x4ee99358, 0, "sceNetResolverPollAsync"},
 };					 
 
 const HLEFunction sceNetInet[] = 
@@ -240,6 +252,9 @@ const HLEFunction sceNetInet[] =
 	{0x1BDF5D13, 0, "sceNetInetInetAton"},
 	{0x80A21ABD, 0, "sceNetInetSocketAbort"},
 	{0x805502DD, 0, "sceNetInetCloseWithRST"},
+	{0x774e36f4, 0, "sceNetInetSendmsg"},
+	{0xeece61d2, 0, "sceNetInetRecvmsg"},
+	{0x39b0c7d3, 0, "sceNetInetGetUdpcbstat"},
 };
 
 const HLEFunction sceNetApctl[] = 
@@ -248,10 +263,13 @@ const HLEFunction sceNetApctl[] =
 	{0x24fe91a1, 0, "sceNetApctlDisconnect"},
 	{0x5deac81b, 0, "sceNetApctlGetState"},
 	{0x8abadd51, 0, "sceNetApctlAddHandler"},
-	{0xe2f91f9b, 0, "sceNetApctlInitFunction"},
+	{0xe2f91f9b, 0, "sceNetApctlInit"},
 	{0x5963991b, 0, "sceNetApctlDelHandler"},
 	{0xb3edd0ec, 0, "sceNetApctlTerm"},
 	{0x2BEFDF23, 0, "sceNetApctlGetInfo"},
+	{0xa3e77e13, 0, "sceNetApctlScanSSID2"},
+	{0xf25a5006, 0, "sceNetApctlGetBSSDescIDList2"},
+	{0x2935c45b, 0, "sceNetApctlGetBSSDescEntry2"},
 };
 
 const HLEFunction sceWlanDrv[] =

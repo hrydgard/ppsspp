@@ -1421,6 +1421,7 @@ const HLEFunction sceMpeg[] =
 	{0xfcbdb5ad,WrapU_U<sceMpegAvcResourceInit>,"sceMpegAvcResourceInit"},
 	{0xF5E7EA31,WrapI_UUUI<sceMpegAvcConvertToYuv420>,"sceMpegAvcConvertToYuv420"},
 	{0x01977054,WrapI_UUUU<sceMpegGetUserdataAu>,"sceMpegGetUserdataAu"},
+	{0x3c37a7a6,0,"sceMpegNextAvcRpAu"},
 };
 
 void Register_sceMpeg()

@@ -829,6 +829,7 @@ const HLEFunction LoadExecForUser[] =
 	{0xBD2F1094,&WrapI_CU<sceKernelLoadExec>,"sceKernelLoadExec"},
 	{0x2AC9954B,&WrapV_V<sceKernelExitGameWithStatus>,"sceKernelExitGameWithStatus"},
 	{0x362A956B,&WrapI_V<LoadExecForUser_362A956B>, "LoadExecForUser_362A956B"},
+	{0x8ada38d3,0, "LoadExecForUser_8ADA38D3"},
 };
 
 void Register_LoadExecForUser()

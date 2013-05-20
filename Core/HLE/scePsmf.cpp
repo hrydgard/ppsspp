@@ -15,11 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Common/ChunkFile.h"
+#include "Core/Reporting.h"
 
-#include "scePsmf.h"
-#include "sceMpeg.h"
+#include "Core/HLE/scePsmf.h"
+#include "Core/HLE/sceMpeg.h"
 
 #include <map>
 
@@ -391,7 +392,7 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "UNIMPL scePsmfGetNumberOfSpecificStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	INFO_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
@@ -1034,6 +1035,8 @@ const HLEFunction scePsmfPlayer[] =
 	{0xf3efaa91, WrapU_UUU<scePsmfPlayerGetCurrentPlayMode>, "scePsmfPlayerGetCurrentPlayMode"},
 	{0xf8ef08a6, WrapI_U<scePsmfPlayerGetCurrentStatus>, "scePsmfPlayerGetCurrentStatus"},
 	{0x2D0E4E0A, WrapI_UUU<scePsmfPlayerSetTempBuf>, "scePsmfPlayerSetTempBuf"},
+	{0x76C0F4AE, 0, "scePsmfPlayerSetPsmfOffset"},
+	{0xA72DB4F9, 0, "scePsmfPlayerSetPsmfOffsetCB"},
 };
 
 void Register_scePsmf() {

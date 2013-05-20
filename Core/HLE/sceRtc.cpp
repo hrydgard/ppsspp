@@ -24,12 +24,13 @@
 #include <time.h>
 #include "base/timeutil.h"
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/Reporting.h"
+#include "Core/CoreTiming.h"
 
-#include "sceKernel.h"
-#include "sceRtc.h"
-#include "../CoreTiming.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceRtc.h"
 
 // This is a base time that everything is relative to.
 // This way, time doesn't move strangely with savestates, turbo speed, etc.
@@ -625,13 +626,13 @@ int sceRtcGetDosTime(u32 datePtr, u32 dosTime)
 
 int sceRtcSetWin32FileTime(u32 datePtr, u32 win32TimePtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceRtcSetWin32FileTime(%d,%d)", datePtr, win32TimePtr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceRtcSetWin32FileTime(%d,%d)", datePtr, win32TimePtr);
 	return 0;
 }
 
 int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceRtcGetWin32FileTime(%d,%d)", datePtr, win32TimePtr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceRtcGetWin32FileTime(%d,%d)", datePtr, win32TimePtr);
 	return 0;
 }
 
@@ -822,7 +823,7 @@ int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
 
 int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceRtcParseDateTime(%d,%d)", destTickPtr, dateStringPtr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceRtcParseDateTime(%d,%d)", destTickPtr, dateStringPtr);
 	return 0;
 }
 
@@ -876,6 +877,7 @@ const HLEFunction sceRtc[] =
 	{0xe1c93e47, &WrapI_UU<sceRtcGetTime64_t>, "sceRtcGetTime64_t"},
 	{0x1909c99b, &WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
 	{0x62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
+	{0x203ceb0d, 0, "sceRtcGetLastReincarnatedTime"},
 };
 
 void Register_sceRtc()

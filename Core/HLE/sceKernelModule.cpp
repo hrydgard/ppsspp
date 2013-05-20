@@ -17,6 +17,7 @@
 
 #include <fstream>
 #include <algorithm>
+#include <string>
 
 #include "HLE.h"
 #include "Core/Reporting.h"
@@ -428,16 +429,20 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	PspLibStubEntry *entry = (PspLibStubEntry *)Memory::GetPointer(modinfo->libstub);
 
-	int numSyms=0;
+	bool needReport = false;
+	int numSyms = 0;
 	for (int m = 0; m < numModules; m++) {
 		const char *modulename;
-		if (Memory::IsValidAddress(entry[m].name))
+		if (Memory::IsValidAddress(entry[m].name)) {
 			modulename = (const char*)Memory::GetPointer(entry[m].name);
-		else
+		} else {
 			modulename = "(invalidname)";
+			needReport = true;
+		}
 
 		if (!Memory::IsValidAddress(entry[m].nidData)) {
 			ERROR_LOG(LOADER, "Crazy niddata address %08x, skipping entire module", entry[m].nidData);
+			needReport = true;
 			continue;
 		}
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry[m].nidData);
@@ -461,6 +466,25 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			numSyms++;
 		}
 		DEBUG_LOG(LOADER,"-------------------------------------------------------------");
+	}
+
+	if (needReport) {
+		std::string debugInfo;
+		for (int m = 0; m < numModules; m++) {
+			char temp[512];
+			const char *modulename;
+			if (Memory::IsValidAddress(entry[m].name)) {
+				modulename = (const char*)Memory::GetPointer(entry[m].name);
+			} else {
+				modulename = "(invalidname)";
+			}
+
+			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numFuncs=%d, nidData=%08x, firstSym=%08x\n",
+				modulename, entry[m].version, entry[m].flags, entry[m].size, entry[m].numFuncs, entry[m].nidData, entry[m].firstSymAddr);
+			debugInfo += temp;
+		}
+
+		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
 	}
 
 	// Look at the exports, too.
@@ -854,7 +878,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 	} else {
-		WARN_LOG(HLE, "UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		WARN_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
 		u32 entryAddr = module->nm.entry_addr;
@@ -887,6 +911,7 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule(%08x, %08x, %08x, %08x, %08x)", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 
 	// We should call the "stop" entry point and return the value in returnValueAddr. See StartModule.
+	// Possibly also kill all its threads?
 	return 0;
 }
 
@@ -902,9 +927,11 @@ u32 sceKernelUnloadModule(u32 moduleId)
 	return 0;
 }
 
-u32 sceKernelStopUnloadSelfModuleWithStatus(u32 moduleId, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)
+u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x,)", moduleId, argSize, argp, statusAddr, optionAddr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
+
+	// Probably similar to sceKernelStopModule, but games generally call this when they die.
 	return 0;
 }
 
@@ -945,9 +972,9 @@ u32 sceKernelGetModuleId()
 	return __KernelGetCurThreadModuleId();
 }
 
-u32 sceKernelFindModuleByName()
+u32 sceKernelFindModuleByName(const char *name)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelFindModuleByName()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelFindModuleByName(%s)", name);
 	return 1;
 }
 
@@ -993,7 +1020,7 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 
 u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 {
-	ERROR_LOG(HLE,"UNIMPL 0=sceKernelLoadModuleDNAS()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL 0=sceKernelLoadModuleDNAS()");
 	return 0;
 }
 
@@ -1042,6 +1069,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xf0a26395,WrapU_V<sceKernelGetModuleId>, "sceKernelGetModuleId"},
 	{0x8f2df740,WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
+	{0x644395e2,0,"sceKernelGetModuleIdList"},
 };
 
 

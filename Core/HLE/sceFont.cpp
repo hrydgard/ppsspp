@@ -11,6 +11,7 @@
 #include "../MIPS/MIPS.h"
 #include "ChunkFile.h"
 #include "Core/FileSystems/FileSystem.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/Font/PGF.h"
@@ -793,7 +794,7 @@ int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 
 // Not sure about the arguments.
 int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 shadowCharInfoPtr) {
-	ERROR_LOG(HLE, "UNIMPL sceFontGetShadowInfo(%08x, %i, %08x)", fontHandle, charCode, shadowCharInfoPtr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceFontGetShadowInfo(%08x, %i, %08x)", fontHandle, charCode, shadowCharInfoPtr);
 	// TODO
 	return 0;
 }
@@ -816,7 +817,7 @@ int sceFontGetCharImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
 }
 
 int sceFontGetShadowImageRect(u32 fontHandle, u32 charCode, u32 charRectPtr) {
-	ERROR_LOG(HLE, "UNIMPL sceFontGetShadowImageRect()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceFontGetShadowImageRect()");
 	return 0;
 }
 
@@ -946,17 +947,17 @@ float sceFontPointToPixelV(int fontLibHandle, float fontPointsV, u32 errorCodePt
 }
 
 int sceFontCalcMemorySize() {
-	ERROR_LOG(HLE, "UNIMPL sceFontCalcMemorySize()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceFontCalcMemorySize()");
 	return 0;
 }
 
 int sceFontGetShadowGlyphImage() {
-	ERROR_LOG(HLE, "UNIMPL sceFontGetShadowGlyphImage()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceFontGetShadowGlyphImage()");
 	return 0;
 }
 
 int sceFontGetShadowGlyphImage_Clip() {
-	ERROR_LOG(HLE, "UNIMPL sceFontGetShadowGlyphImage_Clip()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceFontGetShadowGlyphImage_Clip()");
 	return 0;
 }
 

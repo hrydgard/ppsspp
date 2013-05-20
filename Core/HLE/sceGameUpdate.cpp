@@ -20,7 +20,7 @@
 
 u32 sceGameUpdateInit()
 {
-	ERROR_LOG(HLE, "UNIMPL ceGameUpdateInit()");
+	ERROR_LOG(HLE, "UNIMPL sceGameUpdateInit()");
 	return 0;
 }
 
