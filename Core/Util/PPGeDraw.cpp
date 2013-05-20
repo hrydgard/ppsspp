@@ -347,6 +347,112 @@ void PPGeDrawText(const char *text, float x, float y, int align, float scale, u3
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
+static float NextWordWidth(UTF8 utf, const AtlasFont &atlasfont, float scale) {
+	float w = 0.0;
+	bool finished = false;
+	while (!utf.end() && !finished) {
+		u32 cval = utf.next();
+		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
+		if (!ch) {
+			continue;
+		}
+
+		switch (cval) {
+		// TODO: This list of punctuation is very incomplete.
+		case ',':
+		case '.':
+		case ':':
+		case '!':
+		case ')':
+		case '?':
+		case 0x3001: // IDEOGRAPHIC COMMA
+		case 0x3002: // IDEOGRAPHIC FULL STOP
+		case 0x06D4: // ARABIC FULL STOP
+		case 0xFF01: // FULLWIDTH EXCLAMATION MARK
+		case 0xFF09: // FULLWIDTH RIGHT PARENTHESIS
+		case 0xFF1F: // FULLWIDTH QUESTION MARK
+			// Count this character (punctuation is so clingy), but then we're done.
+			w += ch->wx * scale;
+			finished = true;
+			break;
+
+		case ' ':
+		case '\t':
+		case '\r':
+		case '\n':
+		case 0x3000: // IDEOGRAPHIC SPACE
+			finished = true;
+			break;
+
+		default:
+			w += ch->wx * scale;
+			break;
+		}
+	}
+
+	return w;
+}
+
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, int align, float scale, u32 color) {
+	if (!dlPtr)
+		return;
+	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
+	unsigned int cval;
+	float w, h;
+	// TODO: Could ideally try to handle center, right align better.
+	PPGeMeasureText(text, scale, &w, &h);
+	if (align && w < wrapWidth) {
+		PPGeDoAlign(align, &x, &y, &w, &h);
+	}
+	BeginVertexData();
+	y += atlasfont.ascend*scale;
+	float sx = x;
+	bool skipWrap = true;
+	const float wrapCutoff = wrapWidth * 0.8f;
+	UTF8 utf(text);
+	while (true) {
+		if (utf.end())
+			break;
+		cval = utf.next();
+		if (cval == '\n') {
+			// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
+			y += atlasfont.height * scale;
+			x = sx;
+			skipWrap = false;
+			continue;
+		}
+		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
+		if (ch) {
+			const AtlasChar &c = *ch;
+			float cx1 = x + c.ox * scale;
+			float cy1 = y + c.oy * scale;
+			float cx2 = x + (c.ox + c.pw) * scale;
+			float cy2 = y + (c.oy + c.ph) * scale;
+			Vertex(cx1, cy1, c.sx, c.sy, atlasWidth, atlasHeight, color);
+			Vertex(cx2, cy2, c.ex, c.ey, atlasWidth, atlasHeight, color);
+			x += c.wx * scale;
+
+			float nextWidth = NextWordWidth(utf, atlasfont, scale);
+			// This word is too long, and we're not near the end of the line.
+			if (nextWidth > wrapCutoff && wrapWidth + sx - x > wrapCutoff) {
+				skipWrap = true;
+			}
+			// Pretend the word is only a single character long.
+			if (skipWrap) {
+				nextWidth = c.wx * scale;
+			}
+
+			if (x + nextWidth > wrapWidth) {
+				// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
+				y += atlasfont.height * scale;
+				x = sx;
+				skipWrap = false;
+			}
+		}
+	}
+	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+}
+
 // Draws a "4-patch" for button-like things that can be resized
 void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color)
 {
