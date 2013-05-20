@@ -81,12 +81,11 @@ private:
 		int numInvalidated;
 		u32 framesUntilNextFullHash;
 		u8 format;
-		u8 clutformat;
-		u32 cluthash;
 		u16 dim;
 		u32 texture;  //GLuint
 		int invalidHint;
 		u32 fullhash;
+		u32 cluthash;
 		int maxLevel;
 		float lodBias;
 

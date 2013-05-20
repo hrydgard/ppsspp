@@ -983,7 +983,7 @@ void TextureCache::SetTexture() {
 			}
 		}
 	} else {
-		INFO_LOG(G3D,"No texture in cache, decoding...");
+		INFO_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
 
@@ -1007,11 +1007,6 @@ void TextureCache::SetTexture() {
 	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
-
-
-	entry->clutformat = clutformat;
-	entry->cluthash = cluthash;
-
 	
 	entry->dim = gstate.texsize[0] & 0xF0F;
 
@@ -1020,6 +1015,7 @@ void TextureCache::SetTexture() {
 	entry->sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
 	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
+	entry->cluthash = cluthash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
@@ -1387,7 +1383,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
 	GLenum dstFmt = 0;
 
-	void *finalBuf = DecodeTextureLevel(entry.format, entry.clutformat, level, texByteAlign, dstFmt);
+	u8 clutformat = gstate.clutformat & 3;
+	void *finalBuf = DecodeTextureLevel(entry.format, clutformat, level, texByteAlign, dstFmt);
 	if (finalBuf == NULL) {
 		return;
 	}
