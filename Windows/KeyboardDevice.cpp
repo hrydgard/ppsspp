@@ -17,7 +17,6 @@ unsigned int key_pad_map[] = {
 	VK_SPACE, PAD_BUTTON_START,
 	'Q',      PAD_BUTTON_LBUMPER,
 	'W',      PAD_BUTTON_RBUMPER,
-	VK_TAB,   PAD_BUTTON_UNTHROTTLE,  // Turbo
 	VK_F3,    PAD_BUTTON_LEFT_THUMB,  // Toggle Turbo
 	VK_PAUSE, PAD_BUTTON_RIGHT_THUMB, // Open PauseScreen
 	VK_UP,    PAD_BUTTON_UP,
@@ -40,6 +39,11 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 	bool alternate = GetAsyncKeyState(VK_SHIFT) != 0;
 	static u32 alternator = 0;
 	bool doAlternate = alternate && (alternator++ % 10) < 5;
+
+	// This button isn't customizable.  Also, if alt is held, we ignore it (alt-tab is common.)
+	if (GetAsyncKeyState(VK_TAB) && !GetAsyncKeyState(VK_MENU)) {
+		input_state.pad_buttons |= PAD_BUTTON_UNTHROTTLE;
+	}
 
 	for (int i = 0; i < sizeof(key_pad_map)/sizeof(key_pad_map[0]); i += 2) {
 		if (!GetAsyncKeyState(key_pad_map[i])) {
