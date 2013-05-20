@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
-#include "HLE.h"
-#include "../HW/MediaEngine.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HW/MediaEngine.h"
+#include "Core/Reporting.h"
 
 static const int MP3_BITRATES[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
 
@@ -279,7 +280,7 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
-	DEBUG_LOG(HLE, "UNIMPL: sceMp3GetSumDecodedSample(%08X)", mp3);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
 	return 0;
 }
 
@@ -359,17 +360,17 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 }
 
 u32 sceMp3EndEntry() {
-	DEBUG_LOG(HLE, "UNIMPL sceMp3StartEntry(.)");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3EndEntry(...)");
 	return 0;
 }
 
 u32 sceMp3StartEntry() {
-	DEBUG_LOG(HLE, "UNIMPL sceMp3StartEntry(.)");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3StartEntry(...)");
 	return 0;
 }
 
 u32 sceMp3GetFrameNum(u32 mp3) {
-	DEBUG_LOG(HLE, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
 	return 0;
 }
 

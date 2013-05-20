@@ -386,7 +386,7 @@ int sceUtilityScreenshotGetStatus()
 
 void sceUtilityGamedataInstallInitStart(u32 unkown)
 {
-	ERROR_LOG(HLE, "UNIMPL sceUtilityGamedataInstallInitStart(%i)", unkown);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceUtilityGamedataInstallInitStart(%i)", unkown);
 }
 
 int sceUtilityGamedataInstallGetStatus()
@@ -488,7 +488,7 @@ int sceUtilityStoreCheckoutShutdownStart()
 
 int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
+	ERROR_LOG_REPORT(HLE,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
 	return 0;
 }
 

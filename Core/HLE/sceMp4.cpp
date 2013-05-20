@@ -15,12 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "Core/Reporting.h"
 
 
 u32 sceMp4Init()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4Init()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp4Init()");
   	return 0;
 }
 
@@ -32,7 +33,7 @@ u32 sceMp4Finish()
 
 u32 sceMp4Create()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4Create()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp4Create()");
 	return 0;
 }
 

@@ -15,84 +15,85 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "Core/Reporting.h"
 
 
 int sceJpegDecompressAllImage()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegDecompressAllImage");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecompressAllImage");
 	return 0;
 }
 
 int sceJpegMJpegCsc()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegMJpegCsc");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegMJpegCsc");
 	return 0;
 }
 
 int sceJpegDecodeMJpeg()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegDecodeMJpeg");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpeg");
 	return 0;
 }
 
 int sceJpegDecodeMJpegYCbCrSuccessively()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively");
 	return 0;
 }
 
 int sceJpegDeleteMJpeg()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegDeleteMJpeg");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDeleteMJpeg");
 	return 0;
 }
 
 int sceJpegDecodeMJpegSuccessively()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegDecodeMJpegSuccessively");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegSuccessively");
 	return 0;
 }
 
 int sceJpegCsc()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegCsc");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegCsc");
 	return 0;
 }
 
 int sceJpegFinishMJpeg()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegFinishMJpeg");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegFinishMJpeg");
 	return 0;
 }
 
 int sceJpegGetOutputInfo()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegGetOutputInfo");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegGetOutputInfo");
 	return 0;
 }
 
 int sceJpegDecodeMJpegYCbCr()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegDecodeMJpegYCbCr");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegYCbCr");
 	return 0;
 }
 
 int sceJpeg_9B36444C()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpeg_9B36444C");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpeg_9B36444C");
 	return 0;
 }
 
 int sceJpegCreateMJpeg()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegCreateMJpeg");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegCreateMJpeg");
 	return 0;
 }
 
 int sceJpegInitMJpeg()
 {
-	ERROR_LOG(HLE, "UNIMPL sceJpegInitMJpeg");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegInitMJpeg");
 	return 0;
 }
 

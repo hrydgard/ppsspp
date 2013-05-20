@@ -854,7 +854,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 	} else {
-		WARN_LOG(HLE, "UNIMPL sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		WARN_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
 		u32 entryAddr = module->nm.entry_addr;
@@ -887,6 +887,7 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule(%08x, %08x, %08x, %08x, %08x)", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 
 	// We should call the "stop" entry point and return the value in returnValueAddr. See StartModule.
+	// Possibly also kill all its threads?
 	return 0;
 }
 
@@ -902,9 +903,11 @@ u32 sceKernelUnloadModule(u32 moduleId)
 	return 0;
 }
 
-u32 sceKernelStopUnloadSelfModuleWithStatus(u32 moduleId, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)
+u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x,)", moduleId, argSize, argp, statusAddr, optionAddr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
+
+	// Probably similar to sceKernelStopModule, but games generally call this when they die.
 	return 0;
 }
 
@@ -945,9 +948,9 @@ u32 sceKernelGetModuleId()
 	return __KernelGetCurThreadModuleId();
 }
 
-u32 sceKernelFindModuleByName()
+u32 sceKernelFindModuleByName(const char *name)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelFindModuleByName()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelFindModuleByName(%s)", name);
 	return 1;
 }
 
@@ -993,7 +996,7 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 
 u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 {
-	ERROR_LOG(HLE,"UNIMPL 0=sceKernelLoadModuleDNAS()");
+	ERROR_LOG_REPORT(HLE, "UNIMPL 0=sceKernelLoadModuleDNAS()");
 	return 0;
 }
 

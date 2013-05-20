@@ -416,27 +416,27 @@ u32 sceSasGetAllEnvelopeHeights(u32 core, u32 heightsAddr) {
 }
 
 u32 sceSasSetTriangularWave(u32 sasCore, int voice, int unknown) {
-	ERROR_LOG(HLE,"UNIMPL sceSasSetTriangularWave(%08x, %i, %i)", sasCore, voice, unknown);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceSasSetTriangularWave(%08x, %i, %i)", sasCore, voice, unknown);
 	return 0;
 }
 
 u32 sceSasSetSteepWave(u32 sasCore, int voice, int unknown) {
-	ERROR_LOG(HLE,"UNIMPL sceSasSetSteepWave(%08x, %i, %i)", sasCore, voice, unknown);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceSasSetSteepWave(%08x, %i, %i)", sasCore, voice, unknown);
 	return 0;
 }
 
 u32 __sceSasSetVoiceATRAC3(u32 core, int voice, int atrac3Context) {
-	ERROR_LOG(HLE,"UNIMPL __sceSasSetVoiceATRAC3(%08x, %i, %i)", core, voice, atrac3Context);
+	ERROR_LOG_REPORT(HLE, "UNIMPL __sceSasSetVoiceATRAC3(%08x, %i, %i)", core, voice, atrac3Context);
 	return 0;
 }
 
 u32 __sceSasConcatenateATRAC3(u32 core, int voice, u32 atrac3DataAddr, int atrac3DataLength) {
-	ERROR_LOG(HLE,"UNIMPL __sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voice, atrac3DataAddr, atrac3DataLength);
+	ERROR_LOG_REPORT(HLE, "UNIMPL __sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voice, atrac3DataAddr, atrac3DataLength);
 	return 0;
 }
 
 u32 __sceSasUnsetATRAC3(u32 core, int voice) {
-	ERROR_LOG(HLE, "UNIMPL __sceSasUnsetATRAC3(%08x, %i)", core, voice);
+	ERROR_LOG_REPORT(HLE, "UNIMPL __sceSasUnsetATRAC3(%08x, %i)", core, voice);
 	return 0;
 }
 

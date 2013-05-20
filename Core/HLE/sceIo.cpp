@@ -574,7 +574,7 @@ u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 
 u32 sceIoGetDevType(int id) 
 {
-	ERROR_LOG(HLE, "UNIMPL sceIoGetDevType(%d)", id);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceIoGetDevType(%d)", id);
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	int result;
@@ -590,7 +590,7 @@ u32 sceIoGetDevType(int id)
 
 u32 sceIoCancel(int id) 
 {
-	ERROR_LOG(HLE, "UNIMPL sceIoCancel(%d)", id);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceIoCancel(%d)", id);
 	u32 error;
 	FileNode *f = kernelObjects.Get < FileNode > (id, error);
 	if (f) {
@@ -1561,24 +1561,24 @@ u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u
 		__IoSchedAsync(f, id, 100);
 		return 0;
 	} else {
-		ERROR_LOG(HLE, "UNIMPL %08x=sceIoIoctl id: %08x, cmd %08x, bad file", error, id, cmd);
+		ERROR_LOG(HLE, "UNIMPL %08x=sceIoIoctlAsync id: %08x, cmd %08x, bad file", error, id, cmd);
 		return error;
 	}
 }
 
 u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
 	return 0;
 }
 
 // Presumably lets you hook up stderr to a MsgPipe.
 u32 sceKernelRegisterStderrPipe(u32 msgPipeUID) {
-	ERROR_LOG(HLE, "UNIMPL sceKernelRegisterStderrPipe(%08x)", msgPipeUID);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelRegisterStderrPipe(%08x)", msgPipeUID);
 	return 0;
 }
 
 u32 sceKernelRegisterStdoutPipe(u32 msgPipeUID) {
-	ERROR_LOG(HLE, "UNIMPL sceKernelRegisterStdoutPipe(%08x)", msgPipeUID);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelRegisterStdoutPipe(%08x)", msgPipeUID);
 	return 0;
 }
 
