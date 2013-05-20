@@ -463,7 +463,7 @@ const HLEFunction sceSasCore[] =
 	{0x267a6dd2, WrapU_UII<sceSasRevParam>, "__sceSasRevParam"},
 	{0x2c8e6ab3, WrapU_U<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"},
 	{0x787d04d5, WrapU_UII<sceSasSetPause>, "__sceSasSetPause"},
-	{0xa232cbe6, WrapU_UII<sceSasSetTriangularWave>, "__sceSasSetTriangularWave"},
+	{0xa232cbe6, WrapU_UII<sceSasSetTriangularWave>, "__sceSasSetTrianglarWave"}, // Typo.
 	{0xd5ebbbcd, WrapU_UII<sceSasSetSteepWave>, "__sceSasSetSteepWave"},
 	{0xBD11B7C2, WrapU_U<sceSasGetGrain>, "__sceSasGetGrain"},
 	{0xd1e0a01e, WrapU_UI<sceSasSetGrain>, "__sceSasSetGrain"},

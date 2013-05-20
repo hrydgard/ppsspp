@@ -21,10 +21,10 @@
 
 const HLEFunction sceParseUri[] =
 {
-	{0x49E950EC, 0, "sceUriEscapeFunction"},
-	{0x062BB07E, 0, "sceUriUnescapeFunction"},
-	{0x568518C9, 0, "sceUriParseFunction"},
-	{0x7EE318AF, 0, "sceUriBuildFunction"},
+	{0x49E950EC, 0, "sceUriEscape"},
+	{0x062BB07E, 0, "sceUriUnescape"},
+	{0x568518C9, 0, "sceUriParse"},
+	{0x7EE318AF, 0, "sceUriBuild"},
 };
 
 void Register_sceParseUri()
