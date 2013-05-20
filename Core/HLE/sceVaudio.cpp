@@ -73,7 +73,7 @@ u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].rightVolume = vol;
 	// TODO: This may be wrong, not sure if's in a different format?
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleAddress = buffer;
-	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_VAUDIO], 0, true);
+	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_VAUDIO], PSP_AUDIO_CHANNEL_VAUDIO, true);
 }
 
 u32 sceVaudioSetEffectType(int effectType, int vol) {
