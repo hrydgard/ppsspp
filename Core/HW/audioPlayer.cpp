@@ -33,14 +33,14 @@ HRESULT LoadFilterLibrary(int index, const char *pPath)
 		return E_FAIL;
 	// load the target DLL directly
 	lib[index] = LoadLibrary(pPath);
-	if (!lib)
+	if (!lib[index])
 	{
 		return HRESULT_FROM_WIN32(GetLastError());
 	}
 
 	// the entry point is an exported function
 	fn[index] = (FN_DLLGETCLASSOBJECT)GetProcAddress(lib[index], "DllGetClassObject");
-	if (fn == NULL)
+	if (fn[index] == NULL)
 	{
 		return HRESULT_FROM_WIN32(GetLastError());
 	}
