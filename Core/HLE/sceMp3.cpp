@@ -407,6 +407,7 @@ const HLEFunction sceMp3[] =
 	{0xF5478233,WrapI_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
 	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},
 	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
+	{0x0840e808,0,"sceMp3_0840e808"},
 };
 
 void Register_sceMp3()

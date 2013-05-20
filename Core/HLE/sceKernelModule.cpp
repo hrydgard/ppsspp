@@ -1045,6 +1045,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xf0a26395,WrapU_V<sceKernelGetModuleId>, "sceKernelGetModuleId"},
 	{0x8f2df740,WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
+	{0x644395e2,0,"sceKernelGetModuleIdList"},
 };
 
 

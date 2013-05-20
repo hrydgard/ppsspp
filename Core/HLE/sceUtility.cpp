@@ -590,6 +590,16 @@ const HLEFunction sceUtility[] =
 	{0xDA97F1AA, &WrapI_U<sceUtilityStoreCheckoutInitStart>, "sceUtilityStoreCheckoutInitStart"},
 	{0xB8592D5F, &WrapI_I<sceUtilityStoreCheckoutUpdate>, "sceUtilityStoreCheckoutUpdate"},
 	{0x3AAD51DC, &WrapI_V<sceUtilityStoreCheckoutGetStatus>, "sceUtilityStoreCheckoutGetStatus"},
+
+	{0xe1bc175e, 0, "sceUtility_E1BC175E"},
+	{0x43e521b7, 0, "sceUtility_43E521B7"},
+	{0xdb4149ee, 0, "sceUtility_DB4149EE"},
+	{0xcfe7c460, 0, "sceUtility_CFE7C460"},
+
+	{0xc130d441, 0, "sceUtility_C130D441"},
+	{0x0940a1b9, 0, "sceUtility_0940A1B9"},
+	{0x094198b8, 0, "sceUtility_094198B8"},
+	{0xa7bb7c67, 0, "sceUtility_A7BB7C67"},
 };
 
 void Register_sceUtility()
