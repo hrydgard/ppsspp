@@ -407,6 +407,8 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, in
 	BeginVertexData();
 	y += atlasfont.ascend*scale;
 	float sx = x;
+	bool skipWrap = true;
+	const float wrapCutoff = wrapWidth * 0.8f;
 	UTF8 utf(text);
 	while (true) {
 		if (utf.end())
@@ -416,6 +418,7 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, in
 			// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
 			y += atlasfont.height * scale;
 			x = sx;
+			skipWrap = false;
 			continue;
 		}
 		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
@@ -429,10 +432,21 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, in
 			Vertex(cx2, cy2, c.ex, c.ey, atlasWidth, atlasHeight, color);
 			x += c.wx * scale;
 
-			if (x + NextWordWidth(utf, atlasfont, scale) > wrapWidth) {
+			float nextWidth = NextWordWidth(utf, atlasfont, scale);
+			// This word is too long, and we're not near the end of the line.
+			if (nextWidth > wrapCutoff && wrapWidth + sx - x > wrapCutoff) {
+				skipWrap = true;
+			}
+			// Pretend the word is only a single character long.
+			if (skipWrap) {
+				nextWidth = c.wx * scale;
+			}
+
+			if (x + nextWidth > wrapWidth) {
 				// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
 				y += atlasfont.height * scale;
 				x = sx;
+				skipWrap = false;
 			}
 		}
 	}
