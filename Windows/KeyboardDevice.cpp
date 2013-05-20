@@ -17,7 +17,8 @@ unsigned int key_pad_map[] = {
 	VK_SPACE, PAD_BUTTON_START,
 	'Q',      PAD_BUTTON_LBUMPER,
 	'W',      PAD_BUTTON_RBUMPER,
-	VK_TAB,   PAD_BUTTON_LEFT_THUMB,  // Turbo
+	VK_TAB,   PAD_BUTTON_UNTHROTTLE,  // Turbo
+	VK_F3,    PAD_BUTTON_LEFT_THUMB,  // Toggle Turbo
 	VK_PAUSE, PAD_BUTTON_RIGHT_THUMB, // Open PauseScreen
 	VK_UP,    PAD_BUTTON_UP,
 	VK_DOWN,  PAD_BUTTON_DOWN,
