@@ -450,7 +450,7 @@ elseif(USING_QT_UI)
 	set(TargetBin PPSSPPQt)
 elseif(BLACKBERRY)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} asound bps screen socket EGL)
+	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	# FFMPEG
 	add_definitions(-DUSE_FFMPEG)
 	include_directories(ffmpeg/blackberry/armv7/include)
