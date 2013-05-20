@@ -47,6 +47,19 @@ enum SceUtilitySavedataType
 	SCE_UTILITY_SAVEDATA_TYPE_GETSIZE         = 22,
 };
 
+enum SceUtilitySavedataFocus
+{
+	SCE_UTILITY_SAVEDATA_FOCUS_NAME       = 0, // specified by saveName[]
+	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST  = 1, // first listed (on screen or of all)?
+	SCE_UTILITY_SAVEDATA_FOCUS_LASTLIST   = 2, // last listed (on screen or of all)?
+	SCE_UTILITY_SAVEDATA_FOCUS_LATEST     = 3, // latest by modification date (first if none)
+	SCE_UTILITY_SAVEDATA_FOCUS_OLDEST     = 4, // doldest by modification date (first if none)
+	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTDATA  = 5, // first non-empty (first if none)
+	SCE_UTILITY_SAVEDATA_FOCUS_LASTDATA   = 6, // last non-empty (first if none)
+	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTEMPTY = 7, // first empty (what if no empty?)
+	SCE_UTILITY_SAVEDATA_FOCUS_LASTEMPTY  = 8, // last empty (what if no empty?)
+};
+
 // title, savedataTitle, detail: parts of the unencrypted SFO
 // data, it contains what the VSH and standard load screen shows
 struct PspUtilitySavedataSFOParam
@@ -222,6 +235,15 @@ public:
 
 	int GetSelectedSave();
 	void SetSelectedSave(int idx);
+
+	int GetFirstListSave();
+	int GetLastListSave();
+	int GetLatestSave();
+	int GetOldestSave();
+	int GetFirstDataSave();
+	int GetLastDataSave();
+	int GetFirstEmptySave();
+	int GetLastEmptySave();
 
 	void DoState(PointerWrap &p);
 

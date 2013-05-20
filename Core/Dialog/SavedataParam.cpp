@@ -985,22 +985,23 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		listEmptyFile = false;
 	}
 
-	char (*saveNameListData)[20];
+	typedef char (*SaveNameListData_t)[20];
+	SaveNameListData_t saveNameListData;
 	bool hasMultipleFileName = false;
 	if (param->saveNameList != 0)
 	{
 		Clear();
 
-		saveNameListData = (char(*)[20])Memory::GetPointer(param->saveNameList);
+		saveNameListData = (SaveNameListData_t)Memory::GetPointer(param->saveNameList);
 
 		// Get number of fileName in array
 		saveDataListCount = 0;
-		while(saveNameListData[saveDataListCount][0] != 0)
+		while (saveNameListData[saveDataListCount][0] != 0)
 		{
 			saveDataListCount++;
 		}
 
-		if(saveDataListCount > 0)
+		if (saveDataListCount > 0)
 		{
 			hasMultipleFileName = true;
 			saveDataList = new SaveFileInfo[saveDataListCount];
@@ -1011,7 +1012,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			{
 				DEBUG_LOG(HLE,"Name : %s",saveNameListData[i]);
 
-				std::string fileDataPath = savePath+GetGameName(param)+saveNameListData[i]+"/"+param->fileName;
+				std::string fileDataPath = savePath+GetGameName(param) + saveNameListData[i] + "/" + param->fileName;
 				PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 				if (info.exists)
 				{
@@ -1033,7 +1034,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			saveNameListDataCount = realCount;
 		}
 	}
-	if(!hasMultipleFileName) // Load info on only save
+	if (!hasMultipleFileName) // Load info on only save
 	{
 		saveNameListData = 0;
 
@@ -1044,7 +1045,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		// get and stock file info for each file
 		DEBUG_LOG(HLE,"Name : %s",GetSaveName(param).c_str());
 
-		std::string fileDataPath = savePath+GetGameName(param)+GetSaveName(param)+"/"+param->fileName;
+		std::string fileDataPath = savePath + GetGameName(param) + GetSaveName(param) + "/" + param->fileName;
 		PSPFileInfo info = pspFileSystem.GetFileInfo(fileDataPath);
 		if (info.exists)
 		{
@@ -1187,12 +1188,113 @@ std::string SavedataParam::GetFilename(int idx)
 
 int SavedataParam::GetSelectedSave()
 {
-	return selectedSave;
+	// The slot # of the same save on LOAD/SAVE lists can dismatch so this isn't right anyhow
+	return selectedSave < saveNameListDataCount ? selectedSave : 0;
 }
 
 void SavedataParam::SetSelectedSave(int idx)
 {
 	selectedSave = idx;
+}
+
+int SavedataParam::GetFirstListSave()
+{
+	return 0;
+}
+
+int SavedataParam::GetLastListSave()
+{
+	return saveDataListCount - 1;
+}
+
+int SavedataParam::GetLatestSave()
+{
+	int idx = 0;
+	time_t idxTime = 0;
+	for (int i = 0; i < saveDataListCount; ++i)
+	{
+		time_t thisTime = mktime(&saveDataList[i].modif_time);
+		if (idxTime < thisTime)
+		{
+			idx = i;
+			idxTime = thisTime;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetOldestSave()
+{
+	int idx = 0;
+	time_t idxTime = 0;
+	for (int i = 0; i < saveDataListCount; ++i)
+	{
+		time_t thisTime = mktime(&saveDataList[i].modif_time);
+		if (idxTime > thisTime)
+		{
+			idx = i;
+			idxTime = thisTime;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetFirstDataSave()
+{
+	int idx = 0;
+	for (int i = 0; i < saveDataListCount; ++i)
+	{
+		if (saveDataList[i].size != 0)
+		{
+			idx = i;;
+			break;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetLastDataSave()
+{
+	int idx = 0;
+	for (int i = saveDataListCount; i > 0; )
+	{
+		--i;
+		if (saveDataList[i].size != 0)
+		{
+			idx = i;
+			break;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetFirstEmptySave()
+{
+	int idx = 0;
+	for (int i = 0; i < saveDataListCount; ++i)
+	{
+		if (saveDataList[i].size == 0)
+		{
+			idx = i;
+			break;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetLastEmptySave()
+{
+	int idx = 0;
+	for (int i = saveDataListCount; i > 0; )
+	{
+		--i;
+		if (saveDataList[i].size == 0)
+		{
+			idx = i;
+			break;
+		}
+	}
+	return idx;
 }
 
 void SavedataParam::DoState(PointerWrap &p)
