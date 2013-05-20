@@ -561,6 +561,10 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 					if (atrac->atracOutputChannels == 2)
 						*out++ = sampleR;
 				}
+				if (numSamples == 0) {
+					numSamples = ATRAC_MAX_SAMPLES;
+					memset(out, 0, numSamples * sizeof(s16) * atrac->atracOutputChannels);
+				}
 			} else
 #endif // _USE_DSHOW
 			{
