@@ -8,16 +8,14 @@
 #include <unistd.h>
 #include <string>
 
-#include <sys/asoundlib.h>
-#include <sys/asound.h>
+#include <AL/al.h>
+#include <AL/alc.h>
 
 #include <EGL/egl.h>
 #include <screen/screen.h>
 #include <sys/platform.h>
 #include <GLES2/gl2.h>
 
-#include "base/display.h"
-#include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx_es2/glsl_program.h"
 #include "file/zip_read.h"
@@ -31,16 +29,10 @@
 #include <bps/screen.h>	        // Blackberry Window Manager
 #include <bps/navigator.h>      // Invoke Service
 #include <bps/virtualkeyboard.h>// Keyboard Service
-#ifdef BLACKBERRY10
 #include <bps/sensor.h>         // Accelerometer
-#else
-#include <bps/accelerometer.h>  // Accelerometer
-#endif
 #include <sys/keycodes.h>
 #include <bps/dialog.h>         // Dialog Service (Toast=BB10)
-#ifdef BLACKBERRY10
 #include <bps/vibration.h>      // Vibrate Service (BB10)
-#endif
 
 EGLDisplay egl_disp;
 EGLSurface egl_surf;
@@ -55,15 +47,11 @@ static screen_display_t screen_disp;
 // Simple implementations of System functions
 
 void SystemToast(const char *text) {
-#ifdef BLACKBERRY10
 	dialog_instance_t dialog = 0;
 	dialog_create_toast(&dialog);
 	dialog_set_toast_message_text(dialog, text);
 	dialog_set_toast_position(dialog, DIALOG_POSITION_TOP_CENTER);
 	dialog_show(dialog);
-#else
-	puts(text);
-#endif
 }
 
 void ShowAd(int x, int y, bool center_x) {
@@ -75,9 +63,7 @@ void ShowKeyboard() {
 }
 
 void Vibrate(int length_ms) {
-#ifdef BLACKBERRY10
 	vibration_request(VIBRATION_INTENSITY_LOW, 500 /* intensity (1-100), duration (ms) */);
-#endif
 }
 
 void LaunchBrowser(const char *url)
@@ -163,10 +149,8 @@ int init_GLES2(screen_context_t ctx) {
 	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_USAGE, &usage);
 	screen_get_window_property_pv(screen_win, SCREEN_PROPERTY_DISPLAY, (void **)&screen_disp);
 
-	// This must be landscape.
 	int screen_resolution[2];
 	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_SIZE, screen_resolution);
-	int angle = atoi(getenv("ORIENTATION"));
 	pixel_xres = screen_resolution[0]; pixel_yres = screen_resolution[1];
 
 	screen_display_mode_t screen_mode;
@@ -177,25 +161,29 @@ int init_GLES2(screen_context_t ctx) {
 
 	int buffer_size[2] = {size[0], size[1]};
 
-	if ((angle == 0) || (angle == 180)) {
-		if (((screen_mode.width > screen_mode.height) && (size[0] < size[1])) ||
-		((screen_mode.width < screen_mode.height) && (size[0] > size[1]))) {
-			buffer_size[1] = size[0];
-			buffer_size[0] = size[1];
-			pixel_yres = screen_resolution[0];
-			pixel_xres = screen_resolution[1];
+	// This must be landscape, unless 1:1.
+	if (pixel_xres != pixel_yres) {
+		int angle = atoi(getenv("ORIENTATION"));
+		if ((angle == 0) || (angle == 180)) {
+			if (((screen_mode.width > screen_mode.height) && (size[0] < size[1])) ||
+			((screen_mode.width < screen_mode.height) && (size[0] > size[1]))) {
+				buffer_size[1] = size[0];
+				buffer_size[0] = size[1];
+				pixel_yres = screen_resolution[0];
+				pixel_xres = screen_resolution[1];
+			}
+		} else if ((angle == 90) || (angle == 270)){
+			if (((screen_mode.width > screen_mode.height) && (size[0] > size[1])) ||
+			((screen_mode.width < screen_mode.height && size[0] < size[1]))) {
+				buffer_size[1] = size[0];
+				buffer_size[0] = size[1];
+				pixel_yres = screen_resolution[0];
+				pixel_xres = screen_resolution[1];
+			}
 		}
-	} else if ((angle == 90) || (angle == 270)){
-		if (((screen_mode.width > screen_mode.height) && (size[0] > size[1])) ||
-		((screen_mode.width < screen_mode.height && size[0] < size[1]))) {
-			buffer_size[1] = size[0];
-			buffer_size[0] = size[1];
-			pixel_yres = screen_resolution[0];
-			pixel_xres = screen_resolution[1];
-		}
+		screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_BUFFER_SIZE, buffer_size);
+		screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_ROTATION, &angle);
 	}
-	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_BUFFER_SIZE, buffer_size);
-	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_ROTATION, &angle);
 
 	screen_create_window_buffers(screen_win, 2); // Double buffered
 	egl_disp = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -234,125 +222,73 @@ void kill_GLES2() {
 }
 
 // Audio
-#define AUDIO_CHANNELS 2
-#define AUDIO_FREQ 44100
-#define AUDIO_SAMPLES 1024
+#define SAMPLE_SIZE 44100
 class BlackberryAudio
 {
 public:
 	BlackberryAudio()
 	{
-		paused = false;
-		OpenAudio();
+		alcDevice = alcOpenDevice(NULL);
+		if (alContext = alcCreateContext(alcDevice, NULL))
+			alcMakeContextCurrent(alContext);
+		alGenSources(1, &source);
+		alGenBuffers(1, &buffer);
+		pthread_attr_t attr;
+		pthread_attr_init(&attr);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+		pthread_create(&thread_handle, &attr, &BlackberryAudio::staticThreadProc, this);
 	}
 	~BlackberryAudio()
 	{
 		pthread_cancel(thread_handle);
-		snd_pcm_plugin_flush(pcm_handle, SND_PCM_CHANNEL_PLAYBACK);
-		snd_mixer_close(mixer_handle);
-		snd_pcm_close(pcm_handle);
-		free(mixer_handle);
-		free(pcm_handle);
-	}
-	void setPaused(bool pause)
-	{
-		paused = pause;
+		alcMakeContextCurrent(NULL);
+		if (alContext)
+		{
+			alcDestroyContext(alContext);
+			alContext = NULL;
+		}
+		if (alcDevice)
+		{
+			alcCloseDevice(alcDevice);
+			alcDevice = NULL;
+		}
 	}
 	static void* staticThreadProc(void* arg)
 	{
 		return reinterpret_cast<BlackberryAudio*>(arg)->RunAudio();
 	}
 private:
-	void OpenAudio()
-	{
-		int card = -1, dev = 0;
-
-		snd_pcm_channel_info_t pi;
-		snd_mixer_group_t group;
-		snd_pcm_channel_params_t pp;
-		snd_pcm_channel_setup_t setup;
-
-		mixlen = 2*AUDIO_CHANNELS*AUDIO_SAMPLES;
-		mixbuf = (uint8_t*)malloc(mixlen);
-		if (mixbuf == NULL)
-			return;
-		memset(mixbuf, 0, mixlen);
-
-		if ((snd_pcm_open_preferred(&pcm_handle, &card, &dev, SND_PCM_OPEN_PLAYBACK)) < 0)
-			return;
-
-		memset(&pi, 0, sizeof (pi));
-		pi.channel = SND_PCM_CHANNEL_PLAYBACK;
-		if ((snd_pcm_plugin_info (pcm_handle, &pi)) < 0)
-			return;
-
-		memset(&pp, 0, sizeof (pp));
-		pp.mode = SND_PCM_MODE_BLOCK;
-		pp.channel = SND_PCM_CHANNEL_PLAYBACK;
-		pp.start_mode = SND_PCM_START_FULL;
-		pp.stop_mode = SND_PCM_STOP_STOP;
-
-		pp.buf.block.frag_size = pi.max_fragment_size;
-		pp.buf.block.frags_max = -1;
-		pp.buf.block.frags_min = 1;
-
-		pp.format.interleave = 1;
-		pp.format.rate = AUDIO_FREQ;
-		pp.format.voices = AUDIO_CHANNELS;
-		pp.format.format = SND_PCM_SFMT_S16_LE;
-
-		if ((snd_pcm_plugin_params (pcm_handle, &pp)) < 0)
-			return;
-
-		snd_pcm_plugin_prepare(pcm_handle, SND_PCM_CHANNEL_PLAYBACK);
-
-		memset (&setup, 0, sizeof(setup));
-		memset (&group, 0, sizeof(group));
-		setup.channel = SND_PCM_CHANNEL_PLAYBACK;
-		setup.mixer_gid = &group.gid;
-		if ((snd_pcm_plugin_setup (pcm_handle, &setup)) < 0)
-			return;
-		setup.buf.block.frag_size;
-		if ((snd_mixer_open(&mixer_handle, card, setup.mixer_device)) < 0)
-			return;
-		pthread_attr_t attr;
-		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-		pthread_create(&thread_handle, &attr, &BlackberryAudio::staticThreadProc, this);
-	}
 	void* RunAudio()
 	{
 		while(true)
 		{
-			if (!paused)
+			size_t frames_ready;
+			alGetSourcei(source, AL_SOURCE_STATE, &state);
+			if (state != AL_PLAYING)
+				frames_ready = NativeMix(stream, SAMPLE_SIZE / 2);
+			else
+				frames_ready = 0;
+			if (frames_ready > 0)
 			{
-				memset(mixbuf, 0, mixlen);
-				NativeMix((short *)mixbuf, mixlen / 4);
-
-				fd_set rfds, wfds;
-				int nflds;
-				if (FD_ISSET(snd_pcm_file_descriptor(pcm_handle, SND_PCM_CHANNEL_PLAYBACK), &wfds))
-				{
-					snd_pcm_plugin_write(pcm_handle, mixbuf, mixlen);
-				}
-				FD_ZERO(&rfds);
-				FD_ZERO(&wfds);
-
-				FD_SET(snd_mixer_file_descriptor(mixer_handle), &rfds);
-				FD_SET(snd_pcm_file_descriptor(pcm_handle, SND_PCM_CHANNEL_PLAYBACK), &wfds);
-				nflds = std::max(snd_mixer_file_descriptor(mixer_handle), snd_pcm_file_descriptor(pcm_handle, SND_PCM_CHANNEL_PLAYBACK));
-				select (nflds+1, &rfds, &wfds, NULL, NULL);
+				const size_t bytes_ready = frames_ready * sizeof(short) * 2;
+				alSourcei(source, AL_BUFFER, 0);
+				alBufferData(buffer, AL_FORMAT_STEREO16, stream, bytes_ready, SAMPLE_SIZE);
+				alSourcei(source, AL_BUFFER, buffer);
+				alSourcePlay(source);
+				// TODO: Maybe this could get behind?
+				usleep((1000000 * frames_ready) / SAMPLE_SIZE);
 			}
 			else
-				delay((AUDIO_SAMPLES*1000)/AUDIO_FREQ);
+				usleep(100);
 		}
 	}
-	snd_pcm_t* pcm_handle;
-	snd_mixer_t* mixer_handle;
-	int mixlen;
-	uint8_t* mixbuf;
+	ALCdevice *alcDevice;
+	ALCcontext *alContext;
+	ALenum state;
+	ALuint buffer;
+	ALuint source;
+	short stream[SAMPLE_SIZE];
 	pthread_t thread_handle;
-	bool paused;
 };
 
 // Entry Point
@@ -363,31 +299,17 @@ int main(int argc, char *argv[]) {
 	// Initialise Blackberry Platform Services
 	bps_initialize();
 	// TODO: Enable/disable based on setting
-#ifdef BLACKBERRY10
 	sensor_set_rate(SENSOR_TYPE_ACCELEROMETER, 25000);
 	sensor_request_events(SENSOR_TYPE_ACCELEROMETER);
-#else
-	accelerometer_set_update_frequency(FREQ_40_HZ);
-#endif
 
 	net::Init();
 	init_GLES2(screen_cxt);
-#ifdef BLACKBERRY10
-	// Dev Alpha: 1280x768, 4.2", 356DPI, 0.6f scale
+	// Z10: 1280x768, 4.2", 356DPI, 0.6f scale
+	// Q10:  720x720, 3.1", 328DPI, 0.65f*1.4f=0.91f scale
 	int dpi;
 	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_DPI, &dpi);
-#else
-	// Playbook: 1024x600, 7", 170DPI, 1.25f scale
-	int screen_phys_size[2];
-	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_PHYSICAL_SIZE, screen_phys_size);
-	int screen_resolution[2];
-	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_SIZE, screen_resolution);
-	double diagonal_pixels = sqrt((double)(screen_resolution[0] * screen_resolution[0] + screen_resolution[1] * screen_resolution[1]));
-	double diagonal_inches = 0.0393700787 * sqrt((double)(screen_phys_size[0] * screen_phys_size[0] + screen_phys_size[1] * screen_phys_size[1]));
-	int dpi = (int)(diagonal_pixels / diagonal_inches + 0.5);
-#endif
 	float dpi_scale = 213.6f / dpi;
-	if (pixel_xres == 720) dpi_scale *= 1.4;
+	if (pixel_xres == pixel_yres) dpi_scale *= 1.4;
 	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
 
 	NativeInit(argc, (const char **)argv, "/accounts/1000/shared/misc/", "data/", "BADCOFFEE");
@@ -395,9 +317,7 @@ int main(int argc, char *argv[]) {
 	screen_request_events(screen_cxt);
 	navigator_request_events(0);
 	dialog_request_events(0);
-#ifdef BLACKBERRY10
 	vibration_request_events(0);
-#endif
 	static int pad_buttons = 0;
 	BlackberryAudio* audio = new BlackberryAudio();
 	bool running = true;
@@ -474,7 +394,6 @@ int main(int argc, char *argv[]) {
 					exit(0);
 					break;
 				}
-#ifdef BLACKBERRY10
 			} else if (domain == sensor_get_domain()) {
 				if (SENSOR_ACCELEROMETER_READING == bps_event_get_code(event)) {
 					float x, y, z;
@@ -489,25 +408,10 @@ int main(int argc, char *argv[]) {
 					}
 					input_state.acc.z = z;
 				}
-#endif
 			}
 		}
 		input_state.pad_buttons = pad_buttons;
 		pad_buttons &= ~PAD_BUTTON_MENU;
-#ifndef BLACKBERRY10
-		// Handle accelerometer
-		double x, y, z;
-		accelerometer_read_forces(&x, &y, &z);
-		if (pixel_xres == 1024 || pixel_xres == 720) // Playbook has this reversed
-		{
-			input_state.acc.x = y;
-			input_state.acc.y = x;
-		} else {
-			input_state.acc.x = x;
-			input_state.acc.y = y;
-		}
-		input_state.acc.z = z;
-#endif
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		EndInputState(&input_state);
