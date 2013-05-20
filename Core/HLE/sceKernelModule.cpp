@@ -17,6 +17,7 @@
 
 #include <fstream>
 #include <algorithm>
+#include <string>
 
 #include "HLE.h"
 #include "Core/Reporting.h"
@@ -428,16 +429,20 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	PspLibStubEntry *entry = (PspLibStubEntry *)Memory::GetPointer(modinfo->libstub);
 
-	int numSyms=0;
+	bool needReport = false;
+	int numSyms = 0;
 	for (int m = 0; m < numModules; m++) {
 		const char *modulename;
-		if (Memory::IsValidAddress(entry[m].name))
+		if (Memory::IsValidAddress(entry[m].name)) {
 			modulename = (const char*)Memory::GetPointer(entry[m].name);
-		else
+		} else {
 			modulename = "(invalidname)";
+			needReport = true;
+		}
 
 		if (!Memory::IsValidAddress(entry[m].nidData)) {
 			ERROR_LOG(LOADER, "Crazy niddata address %08x, skipping entire module", entry[m].nidData);
+			needReport = true;
 			continue;
 		}
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry[m].nidData);
@@ -461,6 +466,25 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			numSyms++;
 		}
 		DEBUG_LOG(LOADER,"-------------------------------------------------------------");
+	}
+
+	if (needReport) {
+		std::string debugInfo;
+		for (int m = 0; m < numModules; m++) {
+			char temp[512];
+			const char *modulename;
+			if (Memory::IsValidAddress(entry[m].name)) {
+				modulename = (const char*)Memory::GetPointer(entry[m].name);
+			} else {
+				modulename = "(invalidname)";
+			}
+
+			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numFuncs=%d, nidData=%08x, firstSym=%08x\n",
+				modulename, entry[m].version, entry[m].flags, entry[m].size, entry[m].numFuncs, entry[m].nidData, entry[m].firstSymAddr);
+			debugInfo += temp;
+		}
+
+		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
 	}
 
 	// Look at the exports, too.
