@@ -135,7 +135,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0xBF983EF2, 0, "sceKernelProbeExecutableObject"},
 	{0x7068E6BA, 0, "sceKernelLoadExecutableObject"},
 	{0xB4D6FECC, 0, "sceKernelApplyElfRelSection"},
-	{0x54AB2675, 0, "LoadCoreForKernel_54AB2675"},
+	{0x54AB2675, 0, "sceKernelApplyPspRelSection"},
 	{0x2952F5AC, 0, "sceKernelDcacheWBinvAll"},
 	{0xD8779AC6, WrapU_V<sceKernelIcacheClearAll>, "sceKernelIcacheClearAll"},
 	{0x99A695F0, 0, "sceKernelRegisterLibrary"},
@@ -159,7 +159,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0xCCE4A157, 0, "sceKernelFindModuleByUID"},
 	{0x82CE54ED, 0, "sceKernelModuleCount"},
 	{0xC0584F0C, 0, "sceKernelGetModuleList"},
-        {0xCF8A41B1, WrapU_V<sceKernelFindModuleByName>,"sceKernelFindModuleByName"},
+	{0xCF8A41B1, WrapU_C<sceKernelFindModuleByName>,"sceKernelFindModuleByName"},
 };
 
 

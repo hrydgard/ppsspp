@@ -576,7 +576,7 @@ const HLEFunction Kernel_Library[] =
 	{0xc1734599,WrapI_UU<sceKernelReferLwMutexStatus>, "sceKernelReferLwMutexStatus"},
 	{0x293b45b8,WrapI_V<sceKernelGetThreadId>, "sceKernelGetThreadId"},
 	{0xD13BDE95,WrapI_V<sceKernelCheckThreadStack>, "sceKernelCheckThreadStack"},
-	{0x1839852A,WrapU_UUU<sceKernelMemcpy>, "sce_paf_private_memcpy"},
+	{0x1839852A,WrapU_UUU<sceKernelMemcpy>, "sceKernelMemcpy"},
 	// Name is only a guess.
 	{0xfa835cde,WrapI_I<sceKernelAllocateTls>, "sceKernelAllocateTls"},
 };

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceVaudio.h"
 #include "Core/HLE/sceAudio.h"
@@ -76,12 +77,12 @@ u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 }
 
 u32 sceVaudioSetEffectType(int effectType, int vol) {
-	ERROR_LOG(HLE, "UNIMPL sceVaudioSetEffectType(%i, %i)", effectType, vol);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceVaudioSetEffectType(%i, %i)", effectType, vol);
 	return 0;
 }
 
 u32 sceVaudioSetAlcMode(int alcMode) {
-	ERROR_LOG(HLE, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
 	return 0;
 }
 

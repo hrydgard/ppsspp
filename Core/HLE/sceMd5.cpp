@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "Core/Reporting.h"
 
 // Not really sure where these belong - is it worth giving them their own file?
 u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
@@ -39,25 +40,25 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 
 int sceMd5BlockInit(u32 ctxAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceMd5BlockInit(%08x)", ctxAddr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMd5BlockInit(%08x)", ctxAddr);
 	return 0;
 }
 
 int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len)
 {
-	ERROR_LOG(HLE, "UNIMPL sceMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
 	return 0;
 }
 
 int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
 	return 0;
 }
 
 int sceMd5Digest(u32 dataPtr, u32 len, u32 digestAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceMd5Digest(%08x, %d, %08x)", dataPtr, len, digestAddr);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMd5Digest(%08x, %d, %08x)", dataPtr, len, digestAddr);
 	return 0;
 }
 
