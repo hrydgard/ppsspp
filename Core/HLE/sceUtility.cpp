@@ -545,10 +545,10 @@ const HLEFunction sceUtility[] =
 	{0x7853182d, 0, "sceUtilityGameSharingUpdate"},
 	{0x946963f3, 0, "sceUtilityGameSharingGetStatus"},
 
-	{0x2995d020, 0, "sceUtility_2995d020"},
-	{0xb62a4061, 0, "sceUtility_b62a4061"},
-	{0xed0fad38, 0, "sceUtility_ed0fad38"},
-	{0x88bc7406, 0, "sceUtility_88bc7406"},
+	{0x2995d020, 0, "sceUtilitySavedataErrInitStart"},
+	{0xb62a4061, 0, "sceUtilitySavedataErrShutdownStart"},
+	{0xed0fad38, 0, "sceUtilitySavedataErrUpdate"},
+	{0x88bc7406, 0, "sceUtilitySavedataErrGetStatus"},
 
 	{0xbda7d894, 0, "sceUtilityHtmlViewerGetStatus"},
 	{0xcdc3aa41, 0, "sceUtilityHtmlViewerInitStart"},
