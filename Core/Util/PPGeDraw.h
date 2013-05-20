@@ -66,6 +66,7 @@ enum {
 
 // Draws some text using the one font we have.
 void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
 
 // Draws a "4-patch" for button-like things that can be resized
 void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
