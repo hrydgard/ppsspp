@@ -55,7 +55,41 @@ int PSPSaveDialog::Init(int paramAddr)
 	INFO_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
 
 	yesnoChoice = 1;
-	currentSelectedSave = param.GetLatestSave();
+	switch (param.GetPspParam()->focus)
+	{
+	case SCE_UTILITY_SAVEDATA_FOCUS_NAME:
+		currentSelectedSave = 0;
+		break;
+	case SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST:
+		currentSelectedSave = param.GetFirstListSave();
+		break;
+	case SCE_UTILITY_SAVEDATA_FOCUS_LASTLIST:
+		currentSelectedSave = param.GetLastListSave();
+		break;
+	case SCE_UTILITY_SAVEDATA_FOCUS_LATEST:
+		currentSelectedSave = param.GetLatestSave();
+		break;
+	case SCE_UTILITY_SAVEDATA_FOCUS_OLDEST:
+		currentSelectedSave = param.GetOldestSave();
+		break;
+	case SCE_UTILITY_SAVEDATA_FOCUS_FIRSTDATA:
+		currentSelectedSave = param.GetFirstDataSave();
+		break;
+	case SCE_UTILITY_SAVEDATA_FOCUS_LASTDATA:
+		currentSelectedSave = param.GetLastDataSave();
+		break;
+	case SCE_UTILITY_SAVEDATA_FOCUS_FIRSTEMPTY:
+		currentSelectedSave = param.GetFirstEmptySave();
+		break;
+	case SCE_UTILITY_SAVEDATA_FOCUS_LASTEMPTY:
+		currentSelectedSave = param.GetLastEmptySave();
+		break;
+	default:
+		WARN_LOG(HLE, "Unknown save list focus option: %d", param.GetPspParam()->focus);
+		currentSelectedSave = 0;
+		break;
+	}
+
 	switch (param.GetPspParam()->mode)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:

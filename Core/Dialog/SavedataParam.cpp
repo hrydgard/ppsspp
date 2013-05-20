@@ -1197,17 +1197,101 @@ void SavedataParam::SetSelectedSave(int idx)
 	selectedSave = idx;
 }
 
+int SavedataParam::GetFirstListSave()
+{
+	return 0;
+}
+
+int SavedataParam::GetLastListSave()
+{
+	return saveDataListCount - 1;
+}
+
 int SavedataParam::GetLatestSave()
 {
 	int idx = 0;
-	time_t lastTime = 0;
+	time_t idxTime = 0;
 	for (int i = 0; i < saveDataListCount; ++i)
 	{
 		time_t thisTime = mktime(&saveDataList[i].modif_time);
-		if (lastTime < thisTime)
+		if (idxTime < thisTime)
 		{
 			idx = i;
-			lastTime = thisTime;
+			idxTime = thisTime;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetOldestSave()
+{
+	int idx = 0;
+	time_t idxTime = 0;
+	for (int i = 0; i < saveDataListCount; ++i)
+	{
+		time_t thisTime = mktime(&saveDataList[i].modif_time);
+		if (idxTime > thisTime)
+		{
+			idx = i;
+			idxTime = thisTime;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetFirstDataSave()
+{
+	int idx = 0;
+	for (int i = 0; i < saveDataListCount; ++i)
+	{
+		if (saveDataList[i].size != 0)
+		{
+			idx = i;;
+			break;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetLastDataSave()
+{
+	int idx = 0;
+	for (int i = saveDataListCount; i > 0; )
+	{
+		--i;
+		if (saveDataList[i].size != 0)
+		{
+			idx = i;
+			break;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetFirstEmptySave()
+{
+	int idx = 0;
+	for (int i = 0; i < saveDataListCount; ++i)
+	{
+		if (saveDataList[i].size == 0)
+		{
+			idx = i;
+			break;
+		}
+	}
+	return idx;
+}
+
+int SavedataParam::GetLastEmptySave()
+{
+	int idx = 0;
+	for (int i = saveDataListCount; i > 0; )
+	{
+		--i;
+		if (saveDataList[i].size == 0)
+		{
+			idx = i;
+			break;
 		}
 	}
 	return idx;
