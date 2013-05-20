@@ -767,12 +767,6 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2
 	return dim == dim2 && hash == hash2 && format == format2 && maxLevel == maxLevel2;
 }
 
-inline bool TextureCache::TexCacheEntry::MatchesClut(bool hasClut, u8 clutformat2) {
-	if (!hasClut)
-		return true;
-	return clutformat == clutformat2;
-}
-
 void TextureCache::LoadClut() {
 	u32 clutAddr = GetClutAddr();
 	u32 clutTotalBytes = (gstate.loadclut & 0x3f) * 32;
@@ -848,7 +842,7 @@ void TextureCache::SetTexture() {
 			clutDirty_ = false;
 		}
 		clutformat = gstate.clutformat & 3;
-		cluthash = GetCurrentClutHash();
+		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
 		cachekey |= (u64)cluthash << 32;
 	} else {
 		clutformat = 0;
@@ -898,7 +892,7 @@ void TextureCache::SetTexture() {
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
-		bool match = entry->Matches(dim, texhash, format, maxLevel) && entry->MatchesClut(hasClut, clutformat);
+		bool match = entry->Matches(dim, texhash, format, maxLevel);
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
 
@@ -936,7 +930,7 @@ void TextureCache::SetTexture() {
 						TexCache::iterator secondIter = secondCache.find(secondKey);
 						if (secondIter != secondCache.end()) {
 							TexCacheEntry *secondEntry = &secondIter->second;
-							if (secondEntry->Matches(dim, texhash, format, maxLevel) && secondEntry->MatchesClut(hasClut, clutformat)) {
+							if (secondEntry->Matches(dim, texhash, format, maxLevel)) {
 								// Reset the numInvalidated value lower, we got a match.
 								if (entry->numInvalidated > 8) {
 									--entry->numInvalidated;
@@ -989,7 +983,7 @@ void TextureCache::SetTexture() {
 			}
 		}
 	} else {
-		INFO_LOG(G3D,"No texture in cache, decoding...");
+		INFO_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
 
@@ -1013,11 +1007,6 @@ void TextureCache::SetTexture() {
 	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
-
-
-	entry->clutformat = clutformat;
-	entry->cluthash = cluthash;
-
 	
 	entry->dim = gstate.texsize[0] & 0xF0F;
 
@@ -1026,6 +1015,7 @@ void TextureCache::SetTexture() {
 	entry->sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
 
 	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
+	entry->cluthash = cluthash;
 
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
@@ -1393,7 +1383,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
 	GLenum dstFmt = 0;
 
-	void *finalBuf = DecodeTextureLevel(entry.format, entry.clutformat, level, texByteAlign, dstFmt);
+	u8 clutformat = gstate.clutformat & 3;
+	void *finalBuf = DecodeTextureLevel(entry.format, clutformat, level, texByteAlign, dstFmt);
 	if (finalBuf == NULL) {
 		return;
 	}
