@@ -422,8 +422,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u32 firstSymAddr;
 	};
 
+	// Might be off, only used for logging.
 	int numModules = (modinfo->libstubend - modinfo->libstub)/sizeof(PspLibStubEntry);
-
 	DEBUG_LOG(LOADER,"Num Modules: %i",numModules);
 	DEBUG_LOG(LOADER,"===================================================");
 
@@ -432,9 +432,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	bool needReport = false;
 	int numSyms = 0;
-	//for (int m = 0; m < numModules; m++) {
 	while (entryPos < entryEnd) {
-		PspLibStubEntry *entry = (PspLibStubEntry *) entryPos;
+		PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
 		entryPos += entry->size;
 
 		const char *modulename;
@@ -459,6 +458,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d, extra = %08x", entry->size, *(entryPos - 1));
 			} else {
 				WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d", entry->size);
+				needReport = true;
 			}
 		}
 
@@ -482,8 +482,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	if (needReport) {
 		std::string debugInfo;
+		entryPos = (u32 *)Memory::GetPointer(modinfo->libstub);
 		while (entryPos < entryEnd) {
-			PspLibStubEntry *entry = (PspLibStubEntry *) entryPos;
+			PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
 			entryPos += entry->size;
 
 			char temp[512];
@@ -497,6 +498,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numFuncs=%d, nidData=%08x, firstSym=%08x\n",
 				modulename, entry->version, entry->flags, entry->size, entry->numFuncs, entry->nidData, entry->firstSymAddr);
 			debugInfo += temp;
+			NOTICE_LOG(LOADER, "%s", temp);
 		}
 
 		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
@@ -515,14 +517,19 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u32 resident;
 	};
 
-	int numEnts = (modinfo->libentend - modinfo->libent)/sizeof(PspLibEntEntry);
-	PspLibEntEntry *ent = (PspLibEntEntry *)Memory::GetPointer(modinfo->libent);
-	for (int m=0; m<numEnts; m++)
+	u32 *entPos = (u32 *)Memory::GetPointer(modinfo->libent);
+	u32 *entEnd = (u32 *)Memory::GetPointer(modinfo->libentend);
+	for (int m = 0; entPos < entEnd; ++m)
 	{
-		const char *name;
-		if (ent->size == 0)
+		PspLibEntEntry *ent = (PspLibEntEntry *)entPos;
+		if (ent->size == 0) {
+			entPos += 4;
 			continue;
+		} else {
+			entPos += ent->size;
+		}
 
+		const char *name;
 		if (ent->name == 0) {
 			// ?
 			name = module->nm.name;
@@ -602,19 +609,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 					DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
 					break;
 				default:
+					// TODO: Do these need to be resolved or anything also?
 					DEBUG_LOG(LOADER, "Unexpected variable with nid: %08x", nid);
 					break;
 				}
 			}
-		}
-
-		if (ent->size > 4)
-		{
-			ent = (PspLibEntEntry*)((u8*)ent + ent->size * 4);
-		}
-		else
-		{
-			ent++;
 		}
 	}
 
