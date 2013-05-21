@@ -40,6 +40,12 @@ void AudioChannel::DoState(PointerWrap &p)
 	p.DoMarker("AudioChannel");
 }
 
+void AudioChannel::reset()
+{
+	__AudioWakeThreads(*this);
+	clear();
+}
+
 void AudioChannel::clear()
 {
 	reserved = false;
@@ -49,8 +55,7 @@ void AudioChannel::clear()
 	sampleAddress = 0;
 	sampleCount = 0;
 	sampleQueue.clear();
-
-	__AudioWakeThreads(*this);
+	waitingThreads.clear();
 }
 
 // There's a second Audio api called Audio2 that only has one channel, I guess the 8 channel api was overkill.
@@ -224,7 +229,7 @@ u32 sceAudioChRelease(u32 chan) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
 	DEBUG_LOG(HLE, "sceAudioChRelease(%i)", chan);
-	chans[chan].clear();
+	chans[chan].reset();
 	chans[chan].reserved = false;
 	return 1;
 }
@@ -340,7 +345,7 @@ u32 sceAudioOutput2GetRestSample(){
 
 u32 sceAudioOutput2Release(){
 	DEBUG_LOG(HLE,"sceAudioOutput2Release()");
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].clear();
+	chans[PSP_AUDIO_CHANNEL_OUTPUT2].reset();
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved = false;
 	return 0;
 }
@@ -390,7 +395,7 @@ u32 sceAudioSRCChRelease() {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
 	DEBUG_LOG(HLE, "sceAudioSRCChRelease()");
-	chans[PSP_AUDIO_CHANNEL_SRC].clear();
+	chans[PSP_AUDIO_CHANNEL_SRC].reset();
 	chans[PSP_AUDIO_CHANNEL_SRC].reserved = false;
 	return 0;
 }

@@ -61,6 +61,7 @@ u32 sceVaudioChRelease() {
 	if (!chans[PSP_AUDIO_CHANNEL_VAUDIO].reserved) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	} else {
+		chans[PSP_AUDIO_CHANNEL_VAUDIO].reset();
 		chans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = false;
 		vaudioReserved = false;
 		return 0;
