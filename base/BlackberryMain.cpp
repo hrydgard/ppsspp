@@ -149,41 +149,9 @@ int init_GLES2(screen_context_t ctx) {
 	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_USAGE, &usage);
 	screen_get_window_property_pv(screen_win, SCREEN_PROPERTY_DISPLAY, (void **)&screen_disp);
 
-	int screen_resolution[2];
-	screen_get_display_property_iv(screen_disp, SCREEN_PROPERTY_SIZE, screen_resolution);
-	pixel_xres = screen_resolution[0]; pixel_yres = screen_resolution[1];
-
-	screen_display_mode_t screen_mode;
-	screen_get_display_property_pv(screen_disp, SCREEN_PROPERTY_MODE, (void**)&screen_mode);
-
-	int size[2];
-	screen_get_window_property_iv(screen_win, SCREEN_PROPERTY_BUFFER_SIZE, size);
-
-	int buffer_size[2] = {size[0], size[1]};
-
-	// This must be landscape, unless 1:1.
-	if (pixel_xres != pixel_yres) {
-		int angle = atoi(getenv("ORIENTATION"));
-		if ((angle == 0) || (angle == 180)) {
-			if (((screen_mode.width > screen_mode.height) && (size[0] < size[1])) ||
-			((screen_mode.width < screen_mode.height) && (size[0] > size[1]))) {
-				buffer_size[1] = size[0];
-				buffer_size[0] = size[1];
-				pixel_yres = screen_resolution[0];
-				pixel_xres = screen_resolution[1];
-			}
-		} else if ((angle == 90) || (angle == 270)){
-			if (((screen_mode.width > screen_mode.height) && (size[0] > size[1])) ||
-			((screen_mode.width < screen_mode.height && size[0] < size[1]))) {
-				buffer_size[1] = size[0];
-				buffer_size[0] = size[1];
-				pixel_yres = screen_resolution[0];
-				pixel_xres = screen_resolution[1];
-			}
-		}
-		screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_BUFFER_SIZE, buffer_size);
-		screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_ROTATION, &angle);
-	}
+	pixel_xres = atoi(getenv("WIDTH")); pixel_yres = atoi(getenv("HEIGHT"));
+	int size[2] = { pixel_xres, pixel_yres };
+	screen_set_window_property_iv(screen_win, SCREEN_PROPERTY_BUFFER_SIZE, size);
 
 	screen_create_window_buffers(screen_win, 2); // Double buffered
 	egl_disp = eglGetDisplay(EGL_DEFAULT_DISPLAY);
