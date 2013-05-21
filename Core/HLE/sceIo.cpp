@@ -1532,13 +1532,22 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 
 	//Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
 	case 0x1f30003:
+		// UMD disc read sectors operation.
 		INFO_LOG(HLE, "sceIoioCtl: Unknown cmd %08x always returns 1", cmd);
 		if(inlen != 4 || outlen != 1 || Memory::Read_U32(indataPtr) != outlen) {
 			INFO_LOG(HLE, "sceIoIoCtl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outlen %08x has invalid parameters", id, cmd, indataPtr, inlen, outdataPtr, outlen);
 			return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
-		}
-		else {
+		} else {
 			return 1;
+		}
+
+	case 0x1f100a6:
+		// UMD file seek whence.
+		if (Memory::IsValidAddress(indataPtr) && inlen >= 16) {
+			INFO_LOG(HLE, "sceIoIoCtl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outlen %08x has invalid parameters", id, cmd, indataPtr, inlen, outdataPtr, outlen);
+			//TODO
+		} else {
+			return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
 		}
 
 	default:
