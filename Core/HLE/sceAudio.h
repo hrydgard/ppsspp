@@ -81,6 +81,7 @@ struct AudioChannel
 
 	void DoState(PointerWrap &p);
 
+	void reset();
 	void clear();
 };
 
