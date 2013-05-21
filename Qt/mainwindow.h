@@ -105,7 +105,6 @@ private slots:
 	void on_action_OptionsHardwareTransform_triggered();
 	void on_action_OptionsUseVBO_triggered();
 	void on_action_OptionsVertexCache_triggered();
-	void on_action_OptionsWireframe_triggered();
 	void on_action_OptionsDisplayRawFramebuffer_triggered();
 	void on_actionFrameskip_triggered();
 

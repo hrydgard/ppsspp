@@ -152,7 +152,6 @@ void MainWindow::UpdateMenus()
 	ui->action_OptionsHardwareTransform->setChecked(g_Config.bHardwareTransform);
 	ui->action_OptionsUseVBO->setChecked(g_Config.bUseVBO);
 	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
-	ui->action_OptionsWireframe->setChecked(g_Config.bDrawWireframe);
 	ui->action_OptionsDisplayRawFramebuffer->setChecked(g_Config.bDisplayFramebuffer);
 	ui->actionFrameskip->setChecked(g_Config.iFrameSkip != 0);
 
@@ -566,12 +565,6 @@ void MainWindow::on_action_OptionsUseVBO_triggered()
 void MainWindow::on_action_OptionsVertexCache_triggered()
 {
 	g_Config.bVertexCache = !g_Config.bVertexCache;
-	UpdateMenus();
-}
-
-void MainWindow::on_action_OptionsWireframe_triggered()
-{
-	g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
 	UpdateMenus();
 }
 

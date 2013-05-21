@@ -176,7 +176,6 @@
      <addaction name="action_OptionsHardwareTransform"/>
      <addaction name="action_OptionsUseVBO"/>
      <addaction name="action_OptionsVertexCache"/>
-     <addaction name="action_OptionsWireframe"/>
      <addaction name="action_OptionsDisplayRawFramebuffer"/>
      <addaction name="actionFrameskip"/>
     </widget>
@@ -402,14 +401,6 @@
    </property>
    <property name="text">
     <string>&amp;Linear Filtering</string>
-   </property>
-  </action>
-  <action name="action_OptionsWireframe">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Wireframe (experimental)</string>
    </property>
   </action>
   <action name="action_OptionsDisplayRawFramebuffer">
