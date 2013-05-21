@@ -160,7 +160,7 @@ const char *GetFuncName(const char *moduleName, u32 nib)
 	static char temp[256];
 	for (auto it = exportedCalls.begin(), end = exportedCalls.end(); it != end; ++it)
 	{
-		if (!strcmp(it->moduleName, moduleName) && it->nid == nib)
+		if (!strncmp(it->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && it->nid == nib)
 		{
 			sprintf(temp, "[EXP: 0x%08x]", nib);
 			return temp;
@@ -215,7 +215,7 @@ void WriteSyscall(const char *moduleName, u32 nib, u32 address)
 		// Did another module export this already?
 		for (auto it = exportedCalls.begin(), end = exportedCalls.end(); it != end; ++it)
 		{
-			if (!strcmp(it->moduleName, moduleName) && it->nid == nib)
+			if (!strncmp(it->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && it->nid == nib)
 			{
 				Memory::Write_U32(MIPS_MAKE_J(it->symAddr), address); // j symAddr
 				Memory::Write_U32(MIPS_MAKE_NOP(), address + 4); // nop (delay slot)
@@ -243,7 +243,7 @@ void ResolveSyscall(const char *moduleName, u32 nib, u32 address)
 	for (size_t i = 0; i < unresolvedSyscalls.size(); i++)
 	{
 		Syscall *sysc = &unresolvedSyscalls[i];
-		if (strncmp(sysc->moduleName, moduleName, 32) == 0 && sysc->nid == nib)
+		if (strncmp(sysc->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) == 0 && sysc->nid == nib)
 		{
 			INFO_LOG(HLE,"Resolving %s/%08x",moduleName,nib);
 			// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
