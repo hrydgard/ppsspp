@@ -878,9 +878,13 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	if (optionAddr) {
 		SceKernelSMOption smoption;
 		Memory::ReadStruct(optionAddr, &smoption);;
-		priority = smoption.priority;
+		if (smoption.priority != 0) {
+			priority = smoption.priority;
+		}
 		attr = smoption.attribute;
-		stacksize = smoption.stacksize;
+		if (smoption.stacksize != 0) {
+			stacksize = smoption.stacksize;
+		}
 		stackPartition = smoption.mpidstack;
 	}
 	u32 error;
@@ -900,9 +904,13 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			// TODO: Do these always take effect, or do they not override optionAddr?
 			if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1) {
 				entryAddr = module->nm.module_start_func;
-				priority = module->nm.module_start_thread_priority;
+				if (module->nm.module_start_thread_priority != 0) {
+					priority = module->nm.module_start_thread_priority;
+				}
 				attr = module->nm.module_start_thread_attr;
-				stacksize = module->nm.module_start_thread_stacksize;
+				if (module->nm.module_start_thread_stacksize != 0) {
+					stacksize = module->nm.module_start_thread_stacksize;
+				}
 			} else {
 				// TODO: Fix, check return value?  Or do we call nothing?
 				RETURN(moduleId);
