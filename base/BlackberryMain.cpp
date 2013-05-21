@@ -286,7 +286,7 @@ int main(int argc, char *argv[]) {
 	navigator_request_events(0);
 	dialog_request_events(0);
 	vibration_request_events(0);
-	static int pad_buttons = 0;
+	static int pad_buttons = 0, controller_buttons = 0;
 	BlackberryAudio* audio = new BlackberryAudio();
 	bool running = true;
 	while (running) {
@@ -349,6 +349,18 @@ int main(int argc, char *argv[]) {
 						}
 					}
 					break;
+				// Gamepad
+				case SCREEN_EVENT_GAMEPAD:
+				case SCREEN_EVENT_JOYSTICK:
+					int buttons;
+					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS, &buttons);
+					// Map the buttons integer to our mappings
+					controller_buttons = (buttons & (SCREEN_A_GAME_BUTTON | SCREEN_B_GAME_BUTTON)) |
+					                     (buttons & (SCREEN_X_GAME_BUTTON | SCREEN_Y_GAME_BUTTON)) >> 1 |
+					                     (buttons & (SCREEN_MENU1_GAME_BUTTON | SCREEN_MENU2_GAME_BUTTON)) |
+					                     (buttons & SCREEN_L1_GAME_BUTTON) >> 6 | (buttons & SCREEN_R1_GAME_BUTTON) >> 8 |
+					                     (buttons & (SCREEN_DPAD_UP_GAME_BUTTON | SCREEN_DPAD_DOWN_GAME_BUTTON | SCREEN_DPAD_LEFT_GAME_BUTTON | SCREEN_DPAD_RIGHT_GAME_BUTTON)) >> 8;
+					break;
 				}
 			} else if (domain == navigator_get_domain()) {
 				switch(bps_event_get_code(event))
@@ -378,7 +390,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
-		input_state.pad_buttons = pad_buttons;
+		input_state.pad_buttons = pad_buttons | controller_buttons;
 		pad_buttons &= ~PAD_BUTTON_MENU;
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
