@@ -125,7 +125,7 @@ enum DoLightComputation {
 void GenerateVertexShader(int prim, char *buffer) {
 	char *p = buffer;
 
-// #define USE_FOR_LOOP
+#define USE_FOR_LOOP
 
 #if defined(USING_GLES2)
 	WRITE(p, "precision highp float;\n");
@@ -299,34 +299,23 @@ void GenerateVertexShader(int prim, char *buffer) {
 			float factor = rescale[(vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT];
 
 			static const char * const boneWeightAttr[8] = {
-				"bw1.x", "bw1.y", "bw1.z", "bw1.w",
-				"bw2.x", "bw2.y", "bw2.z", "bw2.w",
+				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
+				"a_w2.x", "a_w2.y", "a_w2.z", "a_w2.w",
 			};
-
-			switch (numWeights) {
-			case 1: WRITE(p, "  float bw1 = a_w1 * %f;\n", factor); break;
-			case 2: WRITE(p, "  vec2 bw1 = a_w1 * %f;\n", factor); break;
-			case 3: WRITE(p, "  vec3 bw1 = a_w1 * %f;\n", factor); break;
-			case 4: WRITE(p, "  vec4 bw1 = a_w1 * %f;\n", factor); break;
-			case 5: WRITE(p, "  vec4 bw1 = a_w1 * %f; float bw2 = a_w2 * %f;\n", factor, factor); break;
-			case 6: WRITE(p, "  vec4 bw1 = a_w1 * %f; vec2 bw2 = a_w2 * %f;\n", factor, factor); break;
-			case 7: WRITE(p, "  vec4 bw1 = a_w1 * %f; vec3 bw2 = a_w2 * %f;\n", factor, factor); break;
-			case 8: WRITE(p, "  vec4 bw1 = a_w1 * %f; vec4 bw2 = a_w2 * %f;\n", factor, factor); break;
-			}
-
+			
 #ifdef USE_FOR_LOOP
 
 			// To loop through the weights, we unfortunately need to put them in a float array.
 			// GLSL ES sucks - no way to directly initialize an array!
 			switch (numWeights) {
-			case 1: WRITE(p, "  float w[1]; w[0] = bw1;\n"); break;
-			case 2: WRITE(p, "  float w[2]; w[0] = bw1.x; w[1] = bw1.y;\n"); break;
-			case 3: WRITE(p, "  float w[3]; w[0] = bw1.x; w[1] = bw1.y; w[2] = bw1.z;\n"); break;
-			case 4: WRITE(p, "  float w[4]; w[0] = bw1.x; w[1] = bw1.y; w[2] = bw1.z; w[3] = bw1.w;\n"); break;
-			case 5: WRITE(p, "  float w[5]; w[0] = bw1.x; w[1] = bw1.y; w[2] = bw1.z; w[3] = bw1.w; w[4] = bw2;\n"); break;
-			case 6: WRITE(p, "  float w[6]; w[0] = bw1.x; w[1] = bw1.y; w[2] = bw1.z; w[3] = bw1.w; w[4] = bw2.x; w[5] = bw2.y;\n"); break;
-			case 7: WRITE(p, "  float w[7]; w[0] = bw1.x; w[1] = bw1.y; w[2] = bw1.z; w[3] = bw1.w; w[4] = bw2.x; w[5] = bw2.y; w[6] = bw2.z;\n"); break;
-			case 8: WRITE(p, "  float w[8]; w[0] = bw1.x; w[1] = bw1.y; w[2] = bw1.z; w[3] = bw1.w; w[4] = bw2.x; w[5] = bw2.y; w[6] = bw2.z; w[7] = bw2.w;\n"); break;
+			case 1: WRITE(p, "  float w[1]; w[0] = a_w1;\n"); break;
+			case 2: WRITE(p, "  float w[2]; w[0] = a_w1.x; w[1] = a_w1.y;\n"); break;
+			case 3: WRITE(p, "  float w[3]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z;\n"); break;
+			case 4: WRITE(p, "  float w[4]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w;\n"); break;
+			case 5: WRITE(p, "  float w[5]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2;\n"); break;
+			case 6: WRITE(p, "  float w[6]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y;\n"); break;
+			case 7: WRITE(p, "  float w[7]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y; w[6] = a_w2.z;\n"); break;
+			case 8: WRITE(p, "  float w[8]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y; w[6] = a_w2.z; w[7] = a_w2.w;\n"); break;
 			}
 
 			WRITE(p, "  mat4 skinMatrix = w[0] * u_bone[0];\n");
@@ -348,15 +337,19 @@ void GenerateVertexShader(int prim, char *buffer) {
 				if (numWeights == 5 && i == 4) weightAttr = "bw2";
 				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
 			}
-#endif
 			WRITE(p, ";\n");
+#endif
 
-			WRITE(p, "  vec3 worldpos = (u_world * (skinMatrix * vec4(a_position, 1.0))).xyz;\n");
+			// Trying to simplify this results in bugs in LBP...
+			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(a_position, 1.0)).xyz * %f;\n", factor);
+			WRITE(p, "  vec3 worldpos = (u_world * vec4(skinnedpos, 1.0)).xyz;\n");
 
-			if (hasNormal)
-				WRITE(p, "  vec3 worldnormal = normalize((u_world * (skinMatrix * vec4(a_normal, 0.0))).xyz);\n");
-			else
+			if (hasNormal) {
+				WRITE(p, "  vec3 skinnednormal = (skinMatrix * vec4(a_normal, 0.0)).xyz * %f;\n", factor);
+				WRITE(p, "  vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
+			} else {
 				WRITE(p, "  vec3 worldnormal = (u_world * (skinMatrix * vec4(0.0, 0.0, 1.0, 0.0))).xyz;\n");
+			}
 		}
 
 		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
