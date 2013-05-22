@@ -38,26 +38,15 @@ int mixFrequency = 44100;
 
 const int hwSampleRate = 44100;
 const int hwBlockSize = 64;
-
-// TODO: Tweak
-#ifdef ANDROID
-const int hostAttemptBlockSize = 2048;
-#else
 const int hostAttemptBlockSize = 512;
-#endif
-
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
 // High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
 // TODO: Tweak
-#ifdef ANDROID
-	const int chanQueueMaxSizeFactor = 4;
-	const int chanQueueMinSizeFactor = 2;
-#else
-	const int chanQueueMaxSizeFactor = 2;
-	const int chanQueueMinSizeFactor = 1;
-#endif
+const int chanQueueMaxSizeFactor = 1;
+const int chanQueueMinSizeFactor = 0;
+
 
 FixedSizeQueue<s16, hostAttemptBlockSize * 16> outAudioQueue;
 
