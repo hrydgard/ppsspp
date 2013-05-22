@@ -878,6 +878,8 @@ const HLEFunction sceRtc[] =
 	{0x1909c99b, &WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
 	{0x62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
 	{0x203ceb0d, 0, "sceRtcGetLastReincarnatedTime"},
+	{0x7d1fbed3, 0, "sceRtcSetAlarmTick"},
+	{0xf5fcc995, 0, "sceRtc_F5FCC995"},
 };
 
 void Register_sceRtc()

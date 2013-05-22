@@ -113,6 +113,7 @@ const HLEFunction sceJpeg[] =
 	{0x9B36444C, WrapI_V<sceJpeg_9B36444C>, "sceJpeg_9B36444C"},
 	{0x9D47469C, WrapI_V<sceJpegCreateMJpeg>, "sceJpegCreateMJpeg"},
 	{0xAC9E70E6, WrapI_V<sceJpegInitMJpeg>, "sceJpegInitMJpeg"},
+	{0xa06a75c4, 0, "sceJpeg_A06A75C4"},
 };
 
 void Register_sceJpeg()
