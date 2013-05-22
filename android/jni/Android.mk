@@ -133,6 +133,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/UIShader.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
+  $(SRC)/UI/OnScreenDisplay.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \

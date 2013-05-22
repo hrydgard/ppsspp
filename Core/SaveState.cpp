@@ -15,20 +15,22 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../Common/StdMutex.h"
-#include "../Common/FileUtil.h"
 #include <vector>
 
-#include "SaveState.h"
-#include "Core.h"
-#include "CoreTiming.h"
-#include "HLE/HLE.h"
-#include "HLE/sceKernel.h"
+#include "Common/StdMutex.h"
+#include "Common/FileUtil.h"
+
+#include "Core/SaveState.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernel.h"
 #include "HW/MemoryStick.h"
-#include "MemMap.h"
-#include "MIPS/MIPS.h"
-#include "MIPS/JitCommon/JitCommon.h"
-#include "System.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/System.h"
+#include "UI/OnScreenDisplay.h"
 
 namespace SaveState
 {
@@ -223,6 +225,7 @@ namespace SaveState
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
+				osm.Show("Loaded state", 2.0);
 				result = CChunkFileReader::Load(op.filename, REVISION, state);
 				break;
 
@@ -230,6 +233,7 @@ namespace SaveState
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
+				osm.Show("Saved state", 2.0);
 				result = CChunkFileReader::Save(op.filename, REVISION, state);
 				break;
 

@@ -1027,6 +1027,7 @@ set(NativeAppSource
 	UI/MenuScreens.cpp
 	UI/GamepadEmu.cpp
 	UI/UIShader.cpp
+	UI/OnScreenDisplay.cpp
 	UI/ui_atlas.cpp)
 if(ANDROID)
 	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)

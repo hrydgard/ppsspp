@@ -5,6 +5,7 @@
     <ClCompile Include="..\native\ext\glew\glew.c" />
     <ClCompile Include="WindowsHeadlessHost.cpp" />
     <ClCompile Include="Compare.cpp" />
+    <ClCompile Include="..\UI\OnScreenDisplay.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />
@@ -13,5 +14,6 @@
     <ClInclude Include="StubHost.h" />
     <ClInclude Include="WindowsHeadlessHost.h" />
     <ClInclude Include="Compare.h" />
+    <ClInclude Include="..\UI\OnScreenDisplay.h" />
   </ItemGroup>
 </Project>

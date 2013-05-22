@@ -24,6 +24,7 @@
     <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="MenuScreens.cpp" />
     <ClCompile Include="NativeApp.cpp" />
+    <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="UIShader.cpp" />
     <ClCompile Include="ui_atlas.cpp" />
   </ItemGroup>
@@ -32,6 +33,7 @@
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="MenuScreens.h" />
+    <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="UIShader.h" />
     <ClInclude Include="ui_atlas.h" />
   </ItemGroup>

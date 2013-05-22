@@ -8,6 +8,7 @@
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="ui_atlas.cpp" />
     <ClCompile Include="UIShader.cpp" />
+    <ClCompile Include="OnScreenDisplay.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EmuScreen.h" />
@@ -16,5 +17,6 @@
     <ClInclude Include="MenuScreens.h" />
     <ClInclude Include="ui_atlas.h" />
     <ClInclude Include="UIShader.h" />
+    <ClInclude Include="OnScreenDisplay.h" />
   </ItemGroup>
 </Project>

@@ -36,6 +36,8 @@
 #include "native/image/png_load.h"
 #include "GPU/GLES/TextureScaler.h"
 #include "ControlMapping.h"
+#include "UI/OnScreenDisplay.h"
+#include "i18n/i18n.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -376,6 +378,8 @@ namespace MainWindow
 		int wmId, wmEvent;
 		std::string fn;
 
+		I18NCategory *g = GetI18NCategory("Graphics");
+
 		switch (message) 
 		{
 		case WM_CREATE:
@@ -556,6 +560,7 @@ namespace MainWindow
 
 			case ID_OPTIONS_BUFFEREDRENDERING:
 				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
+				osm.ShowOnOff(g->T("Buffered Rendering"), g_Config.bBufferedRendering);
 				if (gpu)
 					gpu->Resized();  // easy way to force a clear...
 				break;
@@ -566,6 +571,7 @@ namespace MainWindow
 
 			case ID_OPTIONS_HARDWARETRANSFORM:
 				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+				osm.ShowOnOff(g->T("Hardware Transform"), g_Config.bHardwareTransform);
 				break;
 
 			case ID_OPTIONS_STRETCHDISPLAY:
@@ -576,10 +582,12 @@ namespace MainWindow
 
 			case ID_OPTIONS_FRAMESKIP:
 				g_Config.iFrameSkip = g_Config.iFrameSkip == 0 ? 1 : 0;
+				osm.ShowOnOff(g->T("Frame Skipping"), g_Config.iFrameSkip != 0);
 				break;
 
 			case ID_OPTIONS_USEMEDIAENGINE:
 				g_Config.bUseMediaEngine = !g_Config.bUseMediaEngine;
+				osm.ShowOnOff(g->T("Media Engine"), g_Config.bUseMediaEngine);
 				break;
 
 			case ID_FILE_EXIT:
@@ -588,6 +596,7 @@ namespace MainWindow
 
 			case ID_CPU_DYNAREC:
 				g_Config.bJit = true;
+				osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
 				break;	
 
 			case ID_CPU_INTERPRETER:
