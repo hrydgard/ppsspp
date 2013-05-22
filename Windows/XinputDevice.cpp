@@ -1,4 +1,4 @@
-#include <limits.h>
+﻿#include <limits.h>
 #include "Core/Config.h"
 #include "input/input_state.h"
 #include "XinputDevice.h"
@@ -97,23 +97,27 @@ inline float Clampf(float val, float min, float max) {
 }
 
 // We only filter the left stick since PSP has no analog triggers or right stick
-// Doesn't currently do any real deadzoning. Maybe we don't need it.
 static Stick NormalizedDeadzoneFilter(short x, short y) {
+	static const float DEADZONE = (float)XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE / 32767.0f;
 	Stick s;
-	float magnitude = 32767.0f;
 
-	s.x = (float)x / magnitude;
-	s.y = (float)y / magnitude;
+	s.x = (float)x / 32767.0f;
+	s.y = (float)y / 32767.0f;
 
-	magnitude = s.x * s.x + s.y * s.y;
+	float magnitude = sqrtf(s.x * s.x + s.y * s.y);
 	
-	if (magnitude > 1.0f) {
-		s.x *= 1.41421f;
-		s.y *= 1.41421f;
-	}
+	if (magnitude > DEADZONE) {
+		if (magnitude > 1.0f) {
+			s.x *= 1.41421f;
+			s.y *= 1.41421f;
+		}
 
-	s.x = Clampf(s.x, -1.0f, 1.0f);
-	s.y = Clampf(s.y, -1.0f, 1.0f);
+		s.x = Clampf(s.x, -1.0f, 1.0f);
+		s.y = Clampf(s.y, -1.0f, 1.0f);
+	} else {
+		s.x = 0.0f;
+		s.y = 0.0f;
+	}
 	return s;
 }
 
