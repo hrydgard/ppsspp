@@ -406,7 +406,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u32 name;
 		u16 version;
 		u16 flags;
-		u16 size;
+		u8 size;
+		u8 numVars;
 		u16 numFuncs;
 		// each symbol has an associated nid; nidData is a pointer
 		// (in .rodata.sceNid section) to an array of longs, one
@@ -420,11 +421,12 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		// the address of the function stubs where the function address jumps
 		// should be filled in
 		u32 firstSymAddr;
+		// Optional, this is where var relocations are.
+		// They use the format: u32 addr, u32 nid, ...
+		// WARNING: May have garbage if size < 6.
+		u32 varData;
 	};
 
-	// Might be off, only used for logging.
-	int numModules = (modinfo->libstubend - modinfo->libstub)/sizeof(PspLibStubEntry);
-	DEBUG_LOG(LOADER,"Num Modules: %i",numModules);
 	DEBUG_LOG(LOADER,"===================================================");
 
 	u32 *entryPos = (u32 *)Memory::GetPointer(modinfo->libstub);
@@ -450,16 +452,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			continue;
 		}
 		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry->nidData);
-		// u32 *stubs = (u32*)Memory::GetPointer(entry->firstSymAddr);
 
 		DEBUG_LOG(LOADER,"Importing Module %s, stubs at %08x",modulename,entry->firstSymAddr);
-		if (entry->size != 5) {
-			if (entry->size == 6) {
-				WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d, extra = %08x", entry->size, *(entryPos - 1));
-			} else {
-				WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d", entry->size);
-				needReport = true;
-			}
+		if (entry->size != 5 && entry->size != 6) {
+			WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d", entry->size);
+			needReport = true;
 		}
 
 		for (int i=0; i<entry->numFuncs; i++)
@@ -477,6 +474,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			}
 			numSyms++;
 		}
+		// TODO: numVars / varData.
 		DEBUG_LOG(LOADER,"-------------------------------------------------------------");
 	}
 
@@ -495,10 +493,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				modulename = "(invalidname)";
 			}
 
-			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numFuncs=%d, nidData=%08x, firstSym=%08x\n",
-				modulename, entry->version, entry->flags, entry->size, entry->numFuncs, entry->nidData, entry->firstSymAddr);
+			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numFuncs=%d, nidData=%08x, firstSym=%08x, varData=%08x\n",
+				modulename, entry->version, entry->flags, entry->size, entry->numFuncs, entry->nidData, entry->firstSymAddr, entry->size >= 6 ? entry->varData : 0);
 			debugInfo += temp;
-			NOTICE_LOG(LOADER, "%s", temp);
 		}
 
 		Reporting::ReportMessage("Module linking debug info:\n%s", debugInfo.c_str());
@@ -538,12 +535,11 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			name = (const char*)Memory::GetPointer(ent->name);
 		}
 		else {
-			name = "invalid?";  // God Eater Burst
+			name = "invalid?";
 		}
 
 		INFO_LOG(HLE,"Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
-		
-		// Seen 0x00060005 in God Eater Burst
+
 		if (Memory::IsValidAddress(ent->resident)) 
 		{
 			u32 *residentPtr = (u32*)Memory::GetPointer(ent->resident);
@@ -609,7 +605,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 					DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
 					break;
 				default:
-					// TODO: Do these need to be resolved or anything also?
+					// TODO: These need to be resolved too.
 					DEBUG_LOG(LOADER, "Unexpected variable with nid: %08x", nid);
 					break;
 				}
