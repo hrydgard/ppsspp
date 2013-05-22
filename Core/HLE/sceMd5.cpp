@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
+#include "Common/Crypto/md5.h"
 
 // Not really sure where these belong - is it worth giving them their own file?
 u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
@@ -38,39 +39,59 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 	return mt->R32();
 }
 
-int sceMd5BlockInit(u32 ctxAddr)
-{
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMd5BlockInit(%08x)", ctxAddr);
+// TODO: This MD5 stuff needs tests!
+
+static md5_context md5_ctx;
+
+int sceMd5BlockInit(u32 ctxAddr) {
+	DEBUG_LOG(HLE, "sceMd5BlockInit(%08x)", ctxAddr);
+	if (!Memory::IsValidAddress(ctxAddr))
+		return -1;
+
+	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
+	// which will work just fine unless games do several MD5 concurrently.
+
+	md5_starts(&md5_ctx);
 	return 0;
 }
 
-int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len)
-{
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
+int sceMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
+	DEBUG_LOG(HLE, "sceMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
+	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
+		return -1;
+	
+	md5_update(&md5_ctx, Memory::GetPointer(dataPtr), (int)len);
 	return 0;
 }
 
-int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr)
-{
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
+int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
+	DEBUG_LOG(HLE, "sceMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
+	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
+		return -1;
+
+	md5_finish(&md5_ctx, Memory::GetPointer(digestAddr));
+	// TODO: Should output be hex ascii?
 	return 0;
 }
 
-int sceMd5Digest(u32 dataPtr, u32 len, u32 digestAddr)
-{
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMd5Digest(%08x, %d, %08x)", dataPtr, len, digestAddr);
+int sceMd5Digest(u32 dataPtr, u32 len, u32 digestAddr) {
+	WARN_LOG(HLE, "sceMd5Digest(%08x, %d, %08x)", dataPtr, len, digestAddr);
+	
+	if (!Memory::IsValidAddress(dataPtr) || !Memory::IsValidAddress(digestAddr))
+		return -1;
+
+	md5(Memory::GetPointer(dataPtr), (int)len, Memory::GetPointer(digestAddr));
+	// TODO: Should output be hex ascii?
 	return 0;
 }
 
-const HLEFunction sceMd5[] =
-{
+const HLEFunction sceMd5[] = {
 	{0x19884A15, WrapI_U<sceMd5BlockInit>, "sceMd5BlockInit"},
 	{0xA30206C2, WrapI_UUU<sceMd5BlockUpdate>, "sceMd5BlockUpdate"},
 	{0x4876AFFF, WrapI_UU<sceMd5BlockResult>, "sceMd5BlockResult"},
 	{0x98E31A9E, WrapI_UUU<sceMd5Digest>, "sceMd5Digest"},
 };
 
-void Register_sceMd5()
-{
+void Register_sceMd5() {
 	RegisterModule("sceMd5", ARRAY_SIZE(sceMd5), sceMd5);
 }
