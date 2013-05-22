@@ -184,6 +184,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
   $(SRC)/Core/CPU.cpp \
+  $(SRC)/Core/Cwcheat.cpp \
   $(SRC)/Core/Host.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
