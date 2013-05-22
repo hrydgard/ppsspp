@@ -591,6 +591,11 @@ const HLEFunction sceUtility[] =
 	{0xB8592D5F, &WrapI_I<sceUtilityStoreCheckoutUpdate>, "sceUtilityStoreCheckoutUpdate"},
 	{0x3AAD51DC, &WrapI_V<sceUtilityStoreCheckoutGetStatus>, "sceUtilityStoreCheckoutGetStatus"},
 
+	{0xd17a0573, 0, "sceUtilityPS3ScanShutdownStart"},
+	{0x42071a83, 0, "sceUtilityPS3ScanInitStart"},
+	{0xd852cdce, 0, "sceUtilityPS3ScanUpdate"},
+	{0x89317c8f, 0, "sceUtilityPS3ScanGetStatus"},
+
 	{0xe1bc175e, 0, "sceUtility_E1BC175E"},
 	{0x43e521b7, 0, "sceUtility_43E521B7"},
 	{0xdb4149ee, 0, "sceUtility_DB4149EE"},
@@ -600,6 +605,13 @@ const HLEFunction sceUtility[] =
 	{0x0940a1b9, 0, "sceUtility_0940A1B9"},
 	{0x094198b8, 0, "sceUtility_094198B8"},
 	{0xa7bb7c67, 0, "sceUtility_A7BB7C67"},
+
+	{0x3a15cd0a, 0, "sceUtility_3A15CD0A"},
+	{0x9f313d14, 0, "sceUtility_9F313D14"},
+	{0xd23665f4, 0, "sceUtility_D23665F4"},
+	{0xd4c2bd73, 0, "sceUtility_D4C2BD73"},
+
+	{0x0e0c27af, 0, "sceUtility_0E0C27AF"},
 };
 
 void Register_sceUtility()

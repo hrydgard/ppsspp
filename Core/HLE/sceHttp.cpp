@@ -84,6 +84,9 @@ const HLEFunction sceHttp[] = {
 	{0x2255551E,0,"sceHttpGetNetworkPspError"},
 	{0xAB1540D5,0,"sceHttpsGetSslError"},
 	{0xA4496DE5,0,"sceHttpSetRedirectCallback"},
+	{0x267618f4,0,"sceHttpSetAuthInfoCallback"},
+	{0x569a1481,0,"sceHttpsSetSslCallback"},
+	{0xbac31bf1,0,"sceHttpsEnableOption"},
 };				
 
 void Register_sceHttp()
