@@ -427,6 +427,9 @@
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp">
       <Filter>MIPS\JitCommon</Filter>
     </ClCompile>
+    <ClCompile Include="Cwcheat.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -777,6 +780,7 @@
     <ClInclude Include="HLE\sceNp.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+<<<<<<< HEAD
     <ClInclude Include="HLE\sceMp3.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -791,6 +795,11 @@
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h">
       <Filter>MIPS\JitCommon</Filter>
+=======
+    <ClInclude Include="HLE\sceMp3.h" />
+    <ClInclude Include="Cwcheat.h">
+      <Filter>Core</Filter>
+>>>>>>> eaf060015d9dc1ec3caf2f9f576b62eb5c5572f4
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

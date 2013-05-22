@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
+#include "Core/Cwcheat.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -119,6 +120,7 @@ void __KernelInit()
 	__FontInit();
 	__NetInit();
 	__VaudioInit();
+	__CheatInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 
@@ -160,6 +162,7 @@ void __KernelShutdown()
 	__KernelThreadingShutdown();
 	__KernelMemoryShutdown();
 	__InterruptsShutdown();
+	__CheatShutdown();
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
