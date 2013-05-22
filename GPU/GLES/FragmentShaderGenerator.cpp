@@ -196,8 +196,12 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "varying vec2 v_texcoord;\n");
 	}
 
-	WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
-	WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
+	if (enableAlphaTest) {
+		WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n");
+	}
+	if (enableColorTest) {
+		WRITE(p, "vec3 roundAndScaleTo255v(in vec3 x) { return floor(x * 255.0 + 0.5); }\n");
+	}
 
 	WRITE(p, "void main() {\n");
 
