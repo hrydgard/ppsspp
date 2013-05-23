@@ -353,13 +353,22 @@ int main(int argc, char *argv[]) {
 				case SCREEN_EVENT_GAMEPAD:
 				case SCREEN_EVENT_JOYSTICK:
 					int buttons;
+					char device_id[16];
+					screen_device_t device;
+					screen_get_event_property_pv(screen_event, SCREEN_PROPERTY_DEVICE, (void**)&device);
+					screen_get_device_property_cv(device, SCREEN_PROPERTY_ID_STRING, sizeof(device_id), device_id);
 					screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS, &buttons);
 					// Map the buttons integer to our mappings
-					controller_buttons = (buttons & (SCREEN_A_GAME_BUTTON | SCREEN_B_GAME_BUTTON)) |
-					                     (buttons & (SCREEN_X_GAME_BUTTON | SCREEN_Y_GAME_BUTTON)) >> 1 |
-					                     (buttons & (SCREEN_MENU1_GAME_BUTTON | SCREEN_MENU2_GAME_BUTTON)) |
-					                     (buttons & SCREEN_L1_GAME_BUTTON) >> 6 | (buttons & SCREEN_R1_GAME_BUTTON) >> 8 |
-					                     (buttons & (SCREEN_DPAD_UP_GAME_BUTTON | SCREEN_DPAD_DOWN_GAME_BUTTON | SCREEN_DPAD_LEFT_GAME_BUTTON | SCREEN_DPAD_RIGHT_GAME_BUTTON)) >> 8;
+					if (strstr(device_id, "057E-0306")) // Wiimote
+						controller_buttons = (buttons & (SCREEN_A_GAME_BUTTON | SCREEN_B_GAME_BUTTON)) << 2 |
+						                     (buttons & (SCREEN_X_GAME_BUTTON | SCREEN_Y_GAME_BUTTON)) >> 3;
+					else
+						controller_buttons = (buttons & (SCREEN_A_GAME_BUTTON | SCREEN_B_GAME_BUTTON)) |
+						                     (buttons & (SCREEN_X_GAME_BUTTON | SCREEN_Y_GAME_BUTTON)) >> 1;
+					controller_buttons |= (buttons & (SCREEN_MENU1_GAME_BUTTON | SCREEN_MENU2_GAME_BUTTON)) |
+					                      (buttons & SCREEN_L1_GAME_BUTTON) >> 6 | (buttons & SCREEN_R1_GAME_BUTTON) >> 8 |
+					                      (buttons & (SCREEN_DPAD_UP_GAME_BUTTON | SCREEN_DPAD_DOWN_GAME_BUTTON | SCREEN_DPAD_LEFT_GAME_BUTTON | SCREEN_DPAD_RIGHT_GAME_BUTTON)) >> 8 |
+					                      (buttons & (SCREEN_DPAD_UP_GAME_BUTTON | SCREEN_DPAD_DOWN_GAME_BUTTON | SCREEN_DPAD_LEFT_GAME_BUTTON | SCREEN_DPAD_RIGHT_GAME_BUTTON)) >> 2;
 					break;
 				}
 			} else if (domain == navigator_get_domain()) {
