@@ -870,7 +870,7 @@ bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	u32 fileInfosAddr = Memory::Read_U32(dataAddr + 24);
 
 	//for Valkyria2, dataAddr+0 and dataAddr+12 has "5" for 5 files
-	int numFiles = Memory::Read_U32(dataAddr+12);
+	int numFiles = Memory::Read_U32(dataAddr+0);
 	int foundFiles = 0;
 	for (int i = 0; i < numFiles; i++)
 	{
