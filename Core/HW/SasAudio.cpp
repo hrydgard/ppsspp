@@ -342,7 +342,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 				envelopeValue = ((envelopeValue >> 15) + 1) >> 1;
 
 				// We just scale by the envelope before we scale by volumes.
-				sample = sample * envelopeValue >> 15;
+				sample = sample * (envelopeValue + 0x4000) >> 15;
 
 				// We mix into this 32-bit temp buffer and clip in a second loop
 				// Ideally, the shift right should be there too but for now I'm concerned about
