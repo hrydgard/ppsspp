@@ -45,7 +45,7 @@ const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSamp
 // High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
 // TODO: Tweak
 const int chanQueueMaxSizeFactor = 2;
-const int chanQueueMinSizeFactor = 1
+const int chanQueueMinSizeFactor = 1;
 
 
 FixedSizeQueue<s16, hostAttemptBlockSize * 16> outAudioQueue;
