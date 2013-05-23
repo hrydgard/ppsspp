@@ -866,61 +866,75 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	// Dunno what these three defaults should be...
 	u32 priority = 0x20;
 	u32 stacksize = 0x40000; 
 	u32 attr = 0;
 	int stackPartition = 0;
+	SceKernelSMOption smoption;
 	if (optionAddr) {
-		SceKernelSMOption smoption;
 		Memory::ReadStruct(optionAddr, &smoption);;
-		if (smoption.priority != 0) {
-			priority = smoption.priority;
-		}
-		attr = smoption.attribute;
-		if (smoption.stacksize != 0) {
-			stacksize = smoption.stacksize;
-		}
-		stackPartition = smoption.mpidstack;
 	}
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
 	if (!module) {
-		RETURN(error);
+		RETURN(0x8002012e/*= ERROR_UNKNOWN_MODULE*/);
 		return;
 	} else if (module->isFake) {
 		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+		RETURN(moduleId);
+		return;
 	} else {
-		WARN_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
+		int attribute = module->nm.attribute;
 		u32 entryAddr = module->nm.entry_addr;
-		if (entryAddr == (u32)-1 || entryAddr == module->memoryBlockAddr - 1) {
-			// TODO: Do these always take effect, or do they not override optionAddr?
-			if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1) {
-				entryAddr = module->nm.module_start_func;
-				if (module->nm.module_start_thread_priority != 0) {
-					priority = module->nm.module_start_thread_priority;
-				}
-				attr = module->nm.module_start_thread_attr;
-				if (module->nm.module_start_thread_stacksize != 0) {
-					stacksize = module->nm.module_start_thread_stacksize;
-				}
-			} else {
-				// TODO: Fix, check return value?  Or do we call nothing?
-				RETURN(moduleId);
-				return;
-			}
+
+		if (entryAddr == -1)
+		{
+			entryAddr = module->nm.module_start_func;
+			attribute = module->nm.module_start_thread_attr;
 		}
 
-		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attr, 0);
-		sceKernelStartThread(threadID, argsize, argAddr);
-		// TODO: This will probably return the wrong value?
-		sceKernelWaitThreadEnd(threadID, 0);
+		if (Memory::IsValidAddress(entryAddr))
+		{
+			int priority = 0x20;
+			int stackSize = 0x40000;
+
+            if ((optionAddr) && (smoption.stacksize > 0)) {
+                stackSize = smoption.stacksize;
+            } else if (module->nm.module_start_thread_stacksize > 0) {
+                stackSize = module->nm.module_start_thread_stacksize;
+            }
+
+			if (optionAddr)
+			{
+				attribute = smoption.attribute;
+			}
+
+			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stackSize, attribute, 0);
+
+			sceKernelStartThread(threadID, argsize, argAddr);
+			// TODO: This will probably return the wrong value?
+			sceKernelWaitThreadEnd(threadID, 0);
+
+		}
+		else if (entryAddr == 0)
+		{
+			INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+			WARN_LOG(HLE, "No Entry Address");
+		}
+		else
+		{
+			ERROR_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+			ERROR_LOG(HLE, "Invalid Entry Address");
+			RETURN(-1);
+		}
 	}
 
-	// TODO: Is this the correct return value?
 	RETURN(moduleId);
 }
 
