@@ -929,9 +929,9 @@ namespace MainWindow
 		return FALSE;
 	}
 
-#define CONTROLS_IDC_EDIT_BIGIN IDC_EDIT_KEY_MENU
+#define CONTROLS_IDC_EDIT_BEGIN IDC_EDIT_KEY_MENU
 #define CONTROLS_IDC_EDIT_END   IDC_EDIT_KEY_ANALOG_RIGHT
-#define CONTROLS_BUTTONS_COUNT  IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BIGIN + 1
+#define CONTROLS_BUTTONS_COUNT  (IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BEGIN + 1)
 #define CONTROLS_BUTTONNAME_MAX 16
 // for controls dialog device polling and bind update.
 #define TIMER_CONTROLS_BINDUPDATE 1
@@ -966,6 +966,7 @@ namespace MainWindow
 		HWND     hCtrlTab;
 		UINT_PTR timerId;
 		WNDPROC  orgPSPImageProc;
+		WNDPROC  orgEditProc;
 		ControlMapping *pCtrlMap;
 		HWND     hStaticPspImage;
 	};
@@ -990,7 +991,7 @@ namespace MainWindow
 		if (pCtrlDlgState->pCtrlMap->GetTargetDevice() == CONTROLS_KEYBOARD_INDEX) {
 			HWND hEdit = GetFocus();
 			UINT nCtrlID = GetDlgCtrlID(hEdit);
-			if (nCtrlID < CONTROLS_IDC_EDIT_BIGIN || nCtrlID > CONTROLS_IDC_EDIT_END) {
+			if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > CONTROLS_IDC_EDIT_END) {
 				return CallNextHookEx(pCtrlDlgState->pKeydownHook, nCode, wParam, lParam);
 			}
 			if (!(lParam&(1<<31))) {
@@ -1043,6 +1044,15 @@ namespace MainWindow
 		DeleteObject(hCompDC);
 	}
 
+	inline void SetWindowTextForButton(HWND hEdit, u32 buttonCode, const char *pszButtonName)
+	{
+		if (buttonCode == 0) {
+			SetWindowTextA(hEdit, "Disable");
+		} else {
+			SetWindowTextA(hEdit, pszButtonName);
+		}
+	}
+
 	// Draw background image of Controls Dialog (pspmode.png) by use static control.
 	LRESULT CALLBACK PSPImageProc(HWND hStatic, UINT message, WPARAM wParam, LPARAM lParam)
 	{
@@ -1064,6 +1074,49 @@ namespace MainWindow
 				break;
 		}
 		return CallWindowProc(pCtrlDlgState->orgPSPImageProc, hStatic, message, wParam, lParam);
+	}
+
+	LRESULT CALLBACK ButtonsEditProc(HWND hEdit, UINT message, WPARAM wParam, LPARAM lParam)
+	{
+		switch (message) {
+		case WM_RBUTTONUP:
+			{
+				UINT nCtrlID = GetDlgCtrlID(hEdit);
+				int deviceIdx =  TabCtrl_GetCurSel(pCtrlDlgState->hCtrlTab);
+				if (deviceIdx != CONTROLS_KEYBOARD_INDEX && nCtrlID >= IDC_EDIT_KEY_ANALOG_UP)
+					return TRUE;
+
+				HMENU hSubMenu = GetSubMenu(g_hPopupMenus, 4);
+				POINT pos;
+				pos.x = LOWORD(lParam);
+				pos.y = HIWORD(lParam);
+				ClientToScreen(hEdit, &pos);
+				switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus, 4), TPM_RETURNCMD, pos.x, pos.y, hEdit, NULL))
+				{
+				case ID_CONTROLS_KEY_DISABLE:
+					{
+						if (nCtrlID < IDC_EDIT_KEY_ANALOG_UP) {
+							pCtrlDlgState->pCtrlMap->SetDisableBind(deviceIdx, nCtrlID - CONTROLS_IDC_EDIT_BEGIN);
+						}
+						else if (deviceIdx == CONTROLS_KEYBOARD_INDEX) {
+							pCtrlDlgState->pCtrlMap->SetDisableBind(
+								CONTROLS_KEYBOARD_ANALOG_INDEX, nCtrlID - IDC_EDIT_KEY_ANALOG_UP);
+						}
+						SetWindowTextA(hEdit, "Disable");
+						RECT rc = getRedrawRect(hEdit);
+						HWND hDlg = GetParent(hEdit);
+						InvalidateRect(hDlg, &rc, false);
+						break;
+					}
+				default:
+					break;
+				}
+				return TRUE;
+			}
+		default :
+			break;
+		}
+		return CallWindowProc(pCtrlDlgState->orgEditProc, hEdit, message, wParam, lParam);
 	}
 
 	// Message handler for control box.
@@ -1148,15 +1201,27 @@ namespace MainWindow
 					DeleteObject(hResBM);
 				}
 
-				for (u32 i = 0; i <= IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BIGIN; i++) {
-					HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BIGIN + i);
-					SetWindowTextA(hEdit, getVirtualKeyName(pCtrlDlgState->pCtrlMap->GetBindCode(CONTROLS_KEYBOARD_INDEX, i)));
+				pCtrlDlgState->orgEditProc = (WNDPROC)GetWindowLongPtr(
+					GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN), GWLP_WNDPROC);
+				for (int i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
+					HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
+					if (i < CONTROLS_BUTTONS_COUNT) {
+						u32 keyCode = pCtrlDlgState->pCtrlMap->GetBindCode(CONTROLS_KEYBOARD_INDEX, i);
+						SetWindowTextForButton(hEdit, keyCode, getVirtualKeyName(keyCode));
+					} else {
+						u32 analogCode = pCtrlDlgState->pCtrlMap->GetBindCode(
+							CONTROLS_KEYBOARD_ANALOG_INDEX, i - CONTROLS_BUTTONS_COUNT);
+						SetWindowTextForButton(hEdit, analogCode, getVirtualKeyName(analogCode));
+					}
+					if (pCtrlDlgState->orgEditProc != (WNDPROC)GetWindowLongPtr(hEdit, GWLP_WNDPROC)) {
+						MessageBoxA(hDlg,
+							"Can not hook to the inherited Edit control. need wndproc of original edit control.",
+							"Controls dialog init error.", MB_OK);
+						break;
+					}
+					SetWindowLongPtr(hEdit, GWLP_WNDPROC, (LONG_PTR)ButtonsEditProc);
+				}
 
-				}
-				for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - IDC_EDIT_KEY_ANALOG_UP; i++) {
-					HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_ANALOG_UP + i);
-					SetWindowTextA(hEdit, getVirtualKeyName(pCtrlDlgState->pCtrlMap->GetBindCode(CONTROLS_KEYBOARD_ANALOG_INDEX, i)));
-				}
 				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "None");
 				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "XInput");
 				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "DirectInput");
@@ -1182,7 +1247,7 @@ namespace MainWindow
 					pCtrlDlgState->pCtrlMap->GetTargetDevice() != CONTROLS_KEYBOARD_INDEX) {
 					HWND hEdit = GetFocus();
 					UINT nCtrlID = GetDlgCtrlID(hEdit);
-					if (nCtrlID < CONTROLS_IDC_EDIT_BIGIN || nCtrlID > IDC_EDIT_KEYRIGHT) {
+					if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > IDC_EDIT_KEYRIGHT) {
 						break;
 					}
 					// device polling and update.
@@ -1209,7 +1274,7 @@ namespace MainWindow
 										n++;
 									}
 								snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",
-									controllist[(IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BIGIN - 1) + n]);
+									controllist[(IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN - 1) + n]);
 							} else {
 								snprintf(str, CONTROLS_BUTTONNAME_MAX, "%d", buttonCode + 1);
 							}
@@ -1220,7 +1285,7 @@ namespace MainWindow
 						break;
 					case CONTROLS_XINPUT_INDEX:
 						{
-							SetWindowText(hEdit, getXinputButtonName(buttonCode));
+							SetWindowTextA(hEdit, getXinputButtonName(buttonCode));
 							RECT rc = getRedrawRect(hEdit);
 							InvalidateRect(hDlg, &rc, FALSE);								
 						}
@@ -1241,15 +1306,17 @@ namespace MainWindow
 						{
 						case CONTROLS_KEYBOARD_INDEX:
 							{
-								for (u32 i = 0; i <= IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BIGIN; i++) {
-									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BIGIN + i);
-									SetWindowTextA(hEdit, getVirtualKeyName(pCtrlDlgState->pCtrlMap->GetBindCode(i)));
+								for (u32 i = 0; i <= IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BEGIN; i++) {
+									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
+									u32 keyCode = pCtrlDlgState->pCtrlMap->GetBindCode(i);
+									SetWindowTextForButton(hEdit, keyCode, getVirtualKeyName(keyCode));
 								}
 								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - IDC_EDIT_KEY_ANALOG_UP; i++) {
 									HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_ANALOG_UP + i);
 									Edit_SetReadOnly(hEdit, FALSE);
-									SetWindowText(hEdit, getVirtualKeyName(pCtrlDlgState->pCtrlMap->GetBindCode(
-										CONTROLS_KEYBOARD_ANALOG_INDEX, i)));
+									u32 analogCode = pCtrlDlgState->pCtrlMap->GetBindCode(
+										CONTROLS_KEYBOARD_ANALOG_INDEX, i);
+									SetWindowTextForButton(hEdit, analogCode, getVirtualKeyName(analogCode));
 								}
 								InvalidateRect(hDlg, 0, 0);
 							}
@@ -1257,46 +1324,44 @@ namespace MainWindow
 						case CONTROLS_DIRECT_INPUT_INDEX:
 							{
 
-								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BIGIN; i++) {
-									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BIGIN + i);
+								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
+									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
+									int buttonCode = (int)pCtrlDlgState->pCtrlMap->GetBindCode(i);
 									char str[16];
-									if (i >= IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BIGIN) {
-										if (i >= IDC_EDIT_KEY_ANALOG_UP - CONTROLS_IDC_EDIT_BIGIN) {
+									if (i >= IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN) {
+										if (i >= IDC_EDIT_KEY_ANALOG_UP - CONTROLS_IDC_EDIT_BEGIN) {
 											Edit_SetReadOnly(hEdit, TRUE);
 											SetWindowTextA(hEdit, controllist[i]);
 										} else {
 											int n = 1;
-											int buttonCode = pCtrlDlgState->pCtrlMap->GetBindCode(i);
-											for (int i = buttonCode >> 8; i > 1; i >>= 1) {
-												n++;
+											if (buttonCode != -1) {
+												for (int i = buttonCode >> 8; i > 1; i >>= 1) {
+													n++;
+												}
+												snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",
+													controllist[(IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN - 1) + n]);
 											}
-											snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",
-												controllist[(IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BIGIN - 1) + n]);
-											SetWindowTextA(hEdit, str);
+											SetWindowTextForButton(hEdit, buttonCode + 1, str);
 										}
 										continue;
 									}
 									snprintf(str, CONTROLS_BUTTONNAME_MAX, "%d", pCtrlDlgState->pCtrlMap->GetBindCode(i) + 1);
-									SetWindowTextA(hEdit, str);
+									SetWindowTextForButton(hEdit, buttonCode + 1, str);
 								}
 								InvalidateRect(hDlg, 0, 0);
 							}
 							break;
 						case CONTROLS_XINPUT_INDEX:
 							{
-								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BIGIN; i++) {
-									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BIGIN + i);
-									if (i >= IDC_EDIT_KEY_ANALOG_UP - CONTROLS_IDC_EDIT_BIGIN) {
+								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
+									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
+									if (i >= IDC_EDIT_KEY_ANALOG_UP - CONTROLS_IDC_EDIT_BEGIN) {
 										Edit_SetReadOnly(hEdit, TRUE);
 										SetWindowTextA(hEdit, controllist[i]);
 										continue;
 									}
 									u32 button = pCtrlDlgState->pCtrlMap->GetBindCode(i);
-									if (button == 0) {
-										SetWindowTextA(hEdit, "Disabled");
-									} else {
-										SetWindowTextA(hEdit, getXinputButtonName(button));
-									}
+									SetWindowTextForButton(hEdit, button, getXinputButtonName(button));
 								}
 								InvalidateRect(hDlg, 0, 0);
 							}
@@ -1335,7 +1400,6 @@ namespace MainWindow
 				}
 				return (LRESULT)GetStockObject(NULL_BRUSH); 
 			}
-		
 		case WM_CTLCOLOREDIT:
 			{
 				if ((HWND)lParam == GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE))
@@ -1366,25 +1430,33 @@ namespace MainWindow
 				UnhookWindowsHookEx(pCtrlDlgState->pKeydownHook);
 				KillTimer(hDlg, pCtrlDlgState->timerId);
 				SetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC, (LONG_PTR)pCtrlDlgState->orgPSPImageProc);
+				for (u32 i = CONTROLS_IDC_EDIT_BEGIN; i <= CONTROLS_IDC_EDIT_END; i++) {
+					HWND hEdit = GetDlgItem(hDlg, i);
+					SetWindowLongPtr(hEdit, GWLP_WNDPROC, (LONG_PTR)pCtrlDlgState->orgEditProc);
+				}
 				EndDialog(hDlg, LOWORD(wParam));
 				if (pCtrlDlgState->hbmPspImage) {
 					DeleteObject(pCtrlDlgState->hbmPspImage);
 					pCtrlDlgState->hbmPspImage = 0;
+				}
+				if (pCtrlDlgState->pCtrlMap) {
+					delete pCtrlDlgState->pCtrlMap;
+					pCtrlDlgState->pCtrlMap = NULL;
 				}
 				if (pCtrlDlgState) {
 					delete pCtrlDlgState;
 					pCtrlDlgState = NULL;
 				}
 				return TRUE;
-			} else if (LOWORD(wParam) >= CONTROLS_IDC_EDIT_BIGIN &&
+			} else if (LOWORD(wParam) >= CONTROLS_IDC_EDIT_BEGIN &&
 						LOWORD(wParam) <= IDC_EDIT_KEYRIGHT &&
 						HIWORD(wParam) == EN_SETFOCUS) {
 				// send about buttonsMap-index of current focus Edit-Control to ControlMapping instance.
 				UINT nCtrlID = LOWORD(wParam);
-				if (nCtrlID < CONTROLS_IDC_EDIT_BIGIN || nCtrlID > IDC_EDIT_KEYRIGHT) {
+				if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > IDC_EDIT_KEYRIGHT) {
 					break;
 				}
-				pCtrlDlgState->pCtrlMap->SetTargetButton(nCtrlID - CONTROLS_IDC_EDIT_BIGIN);
+				pCtrlDlgState->pCtrlMap->SetTargetButton(nCtrlID - CONTROLS_IDC_EDIT_BEGIN);
 			}
 			break;
 		}

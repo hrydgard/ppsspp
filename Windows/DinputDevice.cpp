@@ -148,7 +148,7 @@ static inline int getPadCodeFromVirtualPovCode(unsigned int povCode)
 {
 	int mergedCode = 0;
 	for (int i = 0; i < dinput_ctrl_map_size / sizeof(dinput_ctrl_map[0]); i += 2) {
-		if (dinput_ctrl_map[i] > 0xFF && dinput_ctrl_map[i] & povCode)
+		if (dinput_ctrl_map[i] != 0xFFFFFFFF && dinput_ctrl_map[i] > 0xFF && dinput_ctrl_map[i] & povCode)
 			mergedCode |= dinput_ctrl_map[i + 1];
 	}
 	return mergedCode;
