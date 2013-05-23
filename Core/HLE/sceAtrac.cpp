@@ -192,6 +192,8 @@ struct Atrac {
 		else {
 			// guess the remain frames. 
 			remainFrame = ((int)first.size - (int)decodePos) / atracBytesPerFrame;
+			if (remainFrame < 0)
+				remainFrame = 0;
 		}
 		return remainFrame;
 	}
