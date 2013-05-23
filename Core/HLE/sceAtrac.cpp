@@ -1254,6 +1254,7 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 		atrac->atracChannels = Memory::Read_U32(paramsAddr);
 		atrac->atracOutputChannels = Memory::Read_U32(paramsAddr + 4);
 		atrac->atracBufSize = Memory::Read_U32(paramsAddr + 8);
+		atrac->atracBytesPerFrame = atrac->atracBufSize;
 	}
 	return 0;
 }
@@ -1262,14 +1263,13 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 {
 	DEBUG_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 	Atrac *atrac = getAtrac(atracID);
-	// The following will crash the title screen at Gundam AGE Universe 
-	/*if (Memory::IsValidAddress(sourceBytesConsumedAddr))
-		Memory::Write_U32(0, sourceBytesConsumedAddr);
+	if (Memory::IsValidAddress(sourceBytesConsumedAddr) && atrac)
+		Memory::Write_U32(atrac->atracBytesPerFrame, sourceBytesConsumedAddr);
 	if (Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr)) {
-		Memory::Write_U32(ATRAC_MAX_SAMPLES, sampleBytesAddr);
 		int outputChannels = atrac ? atrac->atracOutputChannels : 2;
+		Memory::Write_U32(ATRAC_MAX_SAMPLES * sizeof(s16) * outputChannels, sampleBytesAddr);
 		Memory::Memset(samplesAddr, 0, ATRAC_MAX_SAMPLES * sizeof(s16) * outputChannels);
-	}*/
+	}
 	return 0;
 }
 
