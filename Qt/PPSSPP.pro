@@ -41,6 +41,7 @@ SOURCES += ../UI/EmuScreen.cpp \
 	../UI/MenuScreens.cpp \
 	../UI/GamepadEmu.cpp \
 	../UI/GameInfoCache.cpp \
+	../UI/OnScreenDisplay.cpp \
 	../android/jni/TestRunner.cpp \
 	../UI/UIShader.cpp \
 	../UI/ui_atlas.cpp
