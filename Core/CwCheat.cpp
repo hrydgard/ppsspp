@@ -6,47 +6,55 @@
 #include "Config.h"
 #include "MIPS/MIPS.h"
 
-using namespace std;
-
-string title, title2, title3;
+static std::string title, title2, title3;
 static int CheatEvent = -1;
-CWCheatEngine member;
-CWCheatEngine cheatsThread;
-void hleCheat(u64 userdata, int cyclesLate);
 
+static CWCheatEngine *cheatEngine;
+
+void hleCheat(u64 userdata, int cyclesLate);
+void trim2(std::string& str);
 
 void __CheatInit() {
-	title ="Cheats/";
-	title2 = g_paramSFO.GetValueString("DISC_ID").c_str();
-	title3 = title + title2 + ".ini";
-	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
-	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
-	File::CreateFullPath("Cheats");
-	if (!File::Exists(title3)) {
-		File::CreateEmptyFile(title3);
+	if (g_Config.bEnableCheats) {
+		CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
+		CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
+
+		cheatEngine = new CWCheatEngine();
 	}
 }
+
 void __CheatShutdown() {
-	member.Exit();
+	if (cheatEngine != 0) {
+		cheatEngine->Exit();
+		delete cheatEngine;
+	}
 }
 
 void hleCheat(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
-	if (g_Config.iEnableCheats == 1) {
-		member.Run();
+	if (g_Config.bEnableCheats && cheatEngine) {
+		cheatEngine->Run();
 	}
 }
 
 CWCheatEngine::CWCheatEngine() {
+	title = "Cheats/";
+	title2 = g_paramSFO.GetValueString("DISC_ID").c_str();
+	title3 = title + title2 + ".ini";
+
+	File::CreateFullPath("Cheats");
+	if (!File::Exists(title3)) {
+		File::CreateEmptyFile(title3);
+	}
 }
 
 void CWCheatEngine::Exit() {
 	exit2 = true;
 }
 
-string CWCheatEngine::GetNextCode() {
-	string code;
-	string modifier = "_L";
+std::string CWCheatEngine::GetNextCode() {
+	std::string code;
+	std::string modifier = "_L";
 	char modifier2 = '0';
 	while (true)  {
 		if (currentCode >= codes.size()) {
@@ -67,7 +75,7 @@ string CWCheatEngine::GetNextCode() {
 	return code;
 }
 
-void CWCheatEngine::skipCodes(int count) {
+void CWCheatEngine::SkipCodes(int count) {
 	for (int i = 0; i < count; i ++) {
 		if (GetNextCode() == "") {
 			break;
@@ -75,21 +83,18 @@ void CWCheatEngine::skipCodes(int count) {
 	}
 }
 
-void CWCheatEngine::skipAllCodes() {
+void CWCheatEngine::SkipAllCodes() {
 	currentCode = codes.size();
 }
 
-int CWCheatEngine::getAddress(int value) {
+int CWCheatEngine::GetAddress(int value) {
 	// The User space base address has to be added to given value
 	return (value + 0x08800000) & 0x3FFFFFFF;
 }
 
-
-
-
-void CWCheatEngine::AddCheatLine(string& line) {
+void CWCheatEngine::AddCheatLine(std::string& line) {
 	//Need GUI text area here
-	string cheatCodes;
+	std::string cheatCodes;
 	if (cheatCodes.length() <= 0) {
 		cheatCodes = line;
 	} else {
@@ -97,19 +102,18 @@ void CWCheatEngine::AddCheatLine(string& line) {
 	}
 }
 
-inline void trim2(string& str)
-{
-	string::size_type pos = str.find_last_not_of(' ');
-	if(pos != string::npos) {
+inline void trim2(std::string& str) {
+	size_t pos = str.find_last_not_of(' ');
+	if(pos != std::string::npos) {
 		str.erase(pos + 1);
 		pos = str.find_first_not_of(' ');
-		if(pos != string::npos) str.erase(0, pos);
+		if(pos != std::string::npos) str.erase(0, pos);
 	}
 	else str.erase(str.begin(), str.end());
 }
 
-inline vector<string> makeCodeParts(string l) {
-	vector<string> parts;
+inline std::vector<std::string> makeCodeParts(std::string l) {
+	std::vector<std::string> parts;
 	char split_char = '\n';
 	char empty = ' ';
 
@@ -118,8 +122,9 @@ inline vector<string> makeCodeParts(string l) {
 			l[i] = '\n';
 		}
 	}
+
 	trim2(l);
-	istringstream iss (l);
+	std::istringstream iss(l);
 	std::string each;
 	while (std::getline(iss, each, split_char)) {
 		parts.push_back(each);
@@ -127,20 +132,22 @@ inline vector<string> makeCodeParts(string l) {
 	return parts;
 }
 
-vector<string> CWCheatEngine::GetCodesList() {
-	string line;
-	string path = __FILE__;
-	path = path.substr(0,1+path.find_last_of('\\'));
-	path+= title3;
+std::vector<std::string> CWCheatEngine::GetCodesList() {
+	std::string line;
+	std::string path = __FILE__;
+	path = path.substr(0, 1 + path.find_last_of('\\'));
+	path += title3;
+
+	// TODO: path is not used!
+
 	char* skip = "//";
-	vector<string> codesList; //Read from INI here
-	ifstream list(title3);
+	std::vector<std::string> codesList;  // Read from INI here
+	std::ifstream list(title3);
 	for (int i = 0; !list.eof(); i ++) {
-		getline(list,line, '\n');
-		if (line.substr(0,2) == skip)
-		{line.clear();
-		}
-		else {
+		getline(list, line, '\n');
+		if (line.substr(0,2) == skip) {
+			line.clear();
+		} else {
 			codesList.push_back(line);
 		}
 	}
@@ -150,20 +157,23 @@ vector<string> CWCheatEngine::GetCodesList() {
 	return codesList;
 }
 
+// TODO: All the string parsing in here should really, really be done at load time!
+// They should be parsed into pairs of u32 (or a small struct), which GetNextCode should return.
+// This would also eliminate the need for makeCodeParts.
 void CWCheatEngine::Run() {
 	CWCheatEngine cheats;
 	exit2 = false;
 	while (!exit2) {
-		codes = cheats.GetCodesList(); //UI Member
+		codes = cheats.GetCodesList();  // UI Member
 		currentCode = 0;
 
 		while (true) {
-			string code = GetNextCode();
+			std::string code = GetNextCode();
 			if (code == "") {
 				Exit();
 				break;
 			}
-			vector<string>parts = makeCodeParts(code);
+			std::vector<std::string> parts = makeCodeParts(code);
 			if (parts[0] == "" || parts.size() < 2) {
 				continue;
 			}
@@ -171,10 +181,10 @@ void CWCheatEngine::Run() {
 			int value;
 			trim2(parts[0]);
 			trim2(parts[1]);
-			//cout << parts[0] << endl << parts[1];
+
 			unsigned int comm = (unsigned int)parseHexLong(parts[0]);
 			int arg = (int)parseHexLong(parts[1]);
-			int addr = getAddress(comm & 0x0FFFFFFF);
+			int addr = GetAddress(comm & 0x0FFFFFFF);
 
 			switch (comm >> 28) {
 			case 0: // 8-bit write.
@@ -194,7 +204,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x3: // Increment/Decrement
 				{
-					addr = getAddress(arg);
+					addr = GetAddress(arg);
 					value = 0;
 					int increment = 0;
 					// Read value from memory
@@ -248,7 +258,8 @@ void CWCheatEngine::Run() {
 						Memory::Write_U32((u32) value, addr);
 						break;
 					}
-					break; }
+					break;
+				}
 			case 0x4: // 32-bit patch code
 				code = GetNextCode();
 				parts = makeCodeParts(code);
@@ -440,7 +451,7 @@ void CWCheatEngine::Run() {
 				if (Memory::IsValidAddress(addr)) { 
 					value = Memory::Read_U32(addr);
 					if (value != arg) {
-						skipAllCodes();
+						SkipAllCodes();
 					}
 				}
 				break;
@@ -449,7 +460,7 @@ void CWCheatEngine::Run() {
 			case 0xE: // Test commands, multiple skip
 				{
 					bool is8Bit = (comm >> 24) == 0x1;
-					addr = getAddress(arg & 0x0FFFFFFF);
+					addr = GetAddress(arg & 0x0FFFFFFF);
 					if (Memory::IsValidAddress(addr)) {
 						int memoryValue = is8Bit ? Memory::Read_U8(addr) : Memory::Read_U16(addr);
 						int testValue = comm & (is8Bit ? 0xFF : 0xFFFF);
@@ -470,7 +481,7 @@ void CWCheatEngine::Run() {
 						}
 						if (!executeNextLines) {
 							int skip = (comm >> 16) & (is8Bit ? 0xFF : 0xFFF);
-							skipCodes(skip);
+							SkipCodes(skip);
 						}
 					}
 					break;

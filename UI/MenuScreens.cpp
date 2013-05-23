@@ -939,14 +939,7 @@ void SystemScreen::render() {
 	if (UICheckBox(GEN_ID, x, y += stride, s->T("12HR Time Format"), ALIGN_TOPLEFT, &tf)) {
 		g_Config.itimeformat = tf ? 1 : 0;
 	}
-	bool bEnableCheats = g_Config.iEnableCheats != 0;
-	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &bEnableCheats);
-	if (bEnableCheats) {
-		g_Config.iEnableCheats = 1;
-	}
-	else {
-		g_Config.iEnableCheats = 0;
-	}
+	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	
 	bool reportingEnabled = Reporting::IsEnabled();
 	const static std::string reportHostOfficial = "report.ppsspp.org";

@@ -1,44 +1,40 @@
+// Rough and ready CwCheats implementation, disabled by default.
+// Will not enable by default until the TOOD:s have been addressed.
 
 #include <string>
 #include <vector>
 #include <iostream>
 #include <sstream>
-#include "Core\MemMap.h"
+
+#include "base/basictypes.h"
+#include "Core/MemMap.h"
 
 void __CheatInit();
 void __CheatShutdown();
-//void Register_CwCheat();
-using namespace std;
 
-
-
-vector<string> makeCodeParts(string l);
-void trim2(string& str);
-
+std::vector<std::string> makeCodeParts(std::string l);
 
 class CWCheatEngine {
+public:
+	CWCheatEngine();
+	std::string String();
+	void AddCheatLine(std::string& line);
+	std::vector<std::string> GetCodesList();
+
+	void Exit();
+	void Run();
+	std::string GetNextCode();
+
 private:
-	static long const serialVersionUID = 6791588139795694296L;
-	static long const int cheatsThreadSleepMillis = 5;
+	void SkipCodes(int count);
+	void SkipAllCodes();
+	int GetAddress(int value);
+
+	static uint64_t const serialVersionUID = 6791588139795694296ULL;
+	static const int cheatsThreadSleepMillis = 5;
+
 	bool cheatsOn;
 	std::vector<std::string> codes;
 	int currentCode;
 	bool exit2;
-	void skipCodes(int count);
-	void skipAllCodes();
-	int getAddress(int value);
-
-public:
-	CWCheatEngine();
-	string String();
-	void AddCheatLine(string& line);
-	vector<string> GetCodesList();
-
-	void Exit();
-	void Run();
-	string GetNextCode();
 };
-
-
-
-

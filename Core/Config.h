@@ -80,7 +80,7 @@ public:
 	bool bTexDeposterize;
 	int iFpsLimit;
 	int iMaxRecent;
-	int iEnableCheats;
+	bool bEnableCheats;
 
 	// Sound
 	bool bEnableSound;
