@@ -877,7 +877,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
 	if (!module) {
-		RETURN(0x8002012e/*= ERROR_UNKNOWN_MODULE*/);
+		RETURN(error);
 		return;
 	} else if (module->isFake) {
 		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
@@ -899,21 +899,24 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 
 		if (Memory::IsValidAddress(entryAddr))
 		{
-			int priority = 0x20;
-			int stackSize = 0x40000;
-
-            		if ((optionAddr) && (smoption.stacksize > 0)) {
-                		stackSize = smoption.stacksize;
-            		} else if (module->nm.module_start_thread_stacksize > 0) {
-                		stackSize = module->nm.module_start_thread_stacksize;
-            		}
+			if ((optionAddr) && smoption.priority > 0) {
+				priority = smoption.priority;
+			} else if (module->nm.module_start_thread_priority > 0) {
+				priority = module->nm.module_start_thread_priority;
+			}
+			
+			if ((optionAddr) && (smoption.stacksize > 0)) {
+				stacksize = smoption.stacksize;
+			} else if (module->nm.module_start_thread_stacksize > 0) {
+				stacksize = module->nm.module_start_thread_stacksize;
+			}
 
 			if (optionAddr)
 			{
 				attribute = smoption.attribute;
 			}
 
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stackSize, attribute, 0);
+			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0);
 
 			sceKernelStartThread(threadID, argsize, argAddr);
 			// TODO: This will probably return the wrong value?
@@ -932,9 +935,12 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 			ERROR_LOG(HLE, "Invalid Entry Address");
 			RETURN(-1);
+			return;
 		}
 	}
 
+	// TODO: Is this the correct return value?
+	// JPCSP says it is
 	RETURN(moduleId);
 }
 
