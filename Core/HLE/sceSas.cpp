@@ -164,6 +164,7 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 	v.type = VOICETYPE_PCM;
 	v.pcmAddr = pcmAddr;
 	v.pcmSize = size;
+	v.pcmIndex = 0;
 	v.loop = loop ? false : true;
 	v.playing = true;
 	v.ChangedParams(pcmAddr == prevPcmAddr);

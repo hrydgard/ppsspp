@@ -196,6 +196,7 @@ struct SasVoice
 	int vagSize;
 	u32 pcmAddr;
 	int pcmSize;
+	int pcmIndex;
 	int sampleRate;
 
 	int sampleFrac;
