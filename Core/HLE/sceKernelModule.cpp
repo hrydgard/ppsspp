@@ -902,11 +902,11 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			int priority = 0x20;
 			int stackSize = 0x40000;
 
-            if ((optionAddr) && (smoption.stacksize > 0)) {
-                stackSize = smoption.stacksize;
-            } else if (module->nm.module_start_thread_stacksize > 0) {
-                stackSize = module->nm.module_start_thread_stacksize;
-            }
+            		if ((optionAddr) && (smoption.stacksize > 0)) {
+                		stackSize = smoption.stacksize;
+            		} else if (module->nm.module_start_thread_stacksize > 0) {
+                		stackSize = module->nm.module_start_thread_stacksize;
+            		}
 
 			if (optionAddr)
 			{
