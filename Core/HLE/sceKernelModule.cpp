@@ -319,17 +319,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	module->memoryBlockAddr = reader.GetVaddr();
 	module->memoryBlockSize = reader.GetTotalSize();
 
-	struct libent
-	{
-		u32 exportName; //default 0
-		u16 bcdVersion;
-		u16 moduleAttributes;
-		u8 exportEntrySize;
-		u8 numVariables;
-		u16 numFunctions;
-		u32 __entrytableAddr;
-	};
-
 	struct PspModuleInfo
 	{
 		// 0, 0, 1, 1 ?
@@ -425,6 +414,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		// They use the format: u32 addr, u32 nid, ...
 		// WARNING: May have garbage if size < 6.
 		u32 varData;
+		// Not sure what this is yet, assume garbage for now.
+		// TODO: Tales of the World: Radiant Mythology 2 has something here?
+		u32 extra;
 	};
 
 	DEBUG_LOG(LOADER,"===================================================");
@@ -433,7 +425,6 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	u32 *entryEnd = (u32 *)Memory::GetPointer(modinfo->libstubend);
 
 	bool needReport = false;
-	int numSyms = 0;
 	while (entryPos < entryEnd) {
 		PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
 		entryPos += entry->size;
@@ -446,36 +437,59 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			needReport = true;
 		}
 
-		if (!Memory::IsValidAddress(entry->nidData)) {
-			ERROR_LOG(LOADER, "Crazy niddata address %08x, skipping entire module", entry->nidData);
-			needReport = true;
-			continue;
-		}
-		u32 *nidDataPtr = (u32*)Memory::GetPointer(entry->nidData);
-
-		DEBUG_LOG(LOADER,"Importing Module %s, stubs at %08x",modulename,entry->firstSymAddr);
+		DEBUG_LOG(LOADER, "Importing Module %s, stubs at %08x", modulename, entry->firstSymAddr);
 		if (entry->size != 5 && entry->size != 6) {
 			WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d", entry->size);
 			needReport = true;
 		}
 
-		for (int i=0; i<entry->numFuncs; i++)
-		{
-			u32 addrToWriteSyscall = entry->firstSymAddr+i*8;
-			DEBUG_LOG(LOADER,"%s : %08x",GetFuncName(modulename, nidDataPtr[i]), addrToWriteSyscall);
-			//write a syscall here
-			if (Memory::IsValidAddress(addrToWriteSyscall))
-				WriteSyscall(modulename, nidDataPtr[i], addrToWriteSyscall);
-			if (!dontadd)
-			{
-				char temp[256];
-				sprintf(temp,"zz_%s", GetFuncName(modulename, nidDataPtr[i]));
-				symbolMap.AddSymbol(temp, addrToWriteSyscall, 8, ST_FUNCTION);
+		// If nidData is 0, only variables are being imported.
+		if (entry->nidData != 0) {
+			if (!Memory::IsValidAddress(entry->nidData)) {
+				ERROR_LOG_REPORT(LOADER, "Crazy nidData address %08x, skipping entire module", entry->nidData);
+				needReport = true;
+				continue;
 			}
-			numSyms++;
+
+			u32 *nidDataPtr = (u32 *)Memory::GetPointer(entry->nidData);
+			for (int i = 0; i < entry->numFuncs; ++i) {
+				u32 addrToWriteSyscall = entry->firstSymAddr + i * 8;
+				DEBUG_LOG(LOADER, "%s : %08x", GetFuncName(modulename, nidDataPtr[i]), addrToWriteSyscall);
+				//write a syscall here
+				if (Memory::IsValidAddress(addrToWriteSyscall)) {
+					WriteSyscall(modulename, nidDataPtr[i], addrToWriteSyscall);
+				} else {
+					WARN_LOG_REPORT(LOADER, "Invalid address for syscall stub %s %08x", modulename, nidDataPtr[i]);
+				}
+
+				if (!dontadd) {
+					char temp[256];
+					sprintf(temp,"zz_%s", GetFuncName(modulename, nidDataPtr[i]));
+					symbolMap.AddSymbol(temp, addrToWriteSyscall, 8, ST_FUNCTION);
+				}
+			}
+		} else if (entry->numFuncs > 0) {
+			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
+			needReport = true;
 		}
-		// TODO: numVars / varData.
-		DEBUG_LOG(LOADER,"-------------------------------------------------------------");
+
+		if (entry->varData != 0) {
+			if (!Memory::IsValidAddress(entry->varData)) {
+				ERROR_LOG_REPORT(LOADER, "Crazy varData address %08x, skipping rest of module", entry->varData);
+				needReport = true;
+				continue;
+			}
+
+			// TODO: Actually import these.
+			if (entry->numVars > 0) {
+				WARN_LOG_REPORT(HLE, "Possibly requires var imports.");
+			}
+		} else if (entry->numVars > 0) {
+			WARN_LOG_REPORT(LOADER, "Module entry with %d var imports but no valid address", entry->numVars);
+			needReport = true;
+		}
+
+		DEBUG_LOG(LOADER, "-------------------------------------------------------------");
 	}
 
 	if (needReport) {
@@ -493,8 +507,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				modulename = "(invalidname)";
 			}
 
-			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numFuncs=%d, nidData=%08x, firstSym=%08x, varData=%08x\n",
-				modulename, entry->version, entry->flags, entry->size, entry->numFuncs, entry->nidData, entry->firstSymAddr, entry->size >= 6 ? entry->varData : 0);
+			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numVars=%d, numFuncs=%d, nidData=%08x, firstSym=%08x, varData=%08x, extra=%08x\n",
+				modulename, entry->version, entry->flags, entry->size, entry->numVars, entry->numFuncs, entry->nidData, entry->firstSymAddr, entry->size >= 6 ? entry->varData : 0, entry->size >= 7 ? entry->extra : 0);
 			debugInfo += temp;
 		}
 
@@ -516,99 +530,94 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	u32 *entPos = (u32 *)Memory::GetPointer(modinfo->libent);
 	u32 *entEnd = (u32 *)Memory::GetPointer(modinfo->libentend);
-	for (int m = 0; entPos < entEnd; ++m)
-	{
+	for (int m = 0; entPos < entEnd; ++m) {
 		PspLibEntEntry *ent = (PspLibEntEntry *)entPos;
+		entPos += ent->size;
 		if (ent->size == 0) {
+			WARN_LOG_REPORT(LOADER, "Invalid export entry size %d", ent->size);
 			entPos += 4;
 			continue;
-		} else {
-			entPos += ent->size;
 		}
 
 		const char *name;
-		if (ent->name == 0) {
-			// ?
+		if (Memory::IsValidAddress(ent->name)) {
+			name = Memory::GetCharPointer(ent->name);
+		} else if (ent->name == 0) {
 			name = module->nm.name;
-		}
-		else if (Memory::IsValidAddress(ent->name)) {
-			name = (const char*)Memory::GetPointer(ent->name);
-		}
-		else {
+		} else {
 			name = "invalid?";
 		}
 
-		INFO_LOG(HLE,"Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
+		INFO_LOG(HLE, "Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
 
-		if (Memory::IsValidAddress(ent->resident)) 
-		{
-			u32 *residentPtr = (u32*)Memory::GetPointer(ent->resident);
+		if (!Memory::IsValidAddress(ent->resident)) {
+			WARN_LOG_REPORT(LOADER, "Invalid export resident address %08x", ent->resident);
+			continue;
+		}
 
-			for (u32 j = 0; j < ent->fcount; j++)
-			{
-				u32 nid = residentPtr[j];
-				u32 exportAddr = residentPtr[ent->fcount + ent->vcount + j];
+		u32 *residentPtr = (u32 *)Memory::GetPointer(ent->resident);
+		u32 *exportPtr = residentPtr + ent->fcount + ent->vcount;
 
-				switch (nid)
-				{
-				case NID_MODULE_START:
-					module->nm.module_start_func = exportAddr;
-					break;
-				case NID_MODULE_STOP:
-					module->nm.module_stop_func = exportAddr;
-					break;
-				case NID_MODULE_REBOOT_BEFORE:
-					module->nm.module_reboot_before_func = exportAddr;
-					break;
-				case NID_MODULE_REBOOT_PHASE:
-					module->nm.module_reboot_phase_func = exportAddr;
-					break;
-				case NID_MODULE_BOOTSTART:
-					module->nm.module_bootstart_func = exportAddr;
-					break;
-				default:
-					ResolveSyscall(name, nid, exportAddr);
-				}
+		for (u32 j = 0; j < ent->fcount; j++) {
+			u32 nid = residentPtr[j];
+			u32 exportAddr = exportPtr[j];
+
+			switch (nid) {
+			case NID_MODULE_START:
+				module->nm.module_start_func = exportAddr;
+				break;
+			case NID_MODULE_STOP:
+				module->nm.module_stop_func = exportAddr;
+				break;
+			case NID_MODULE_REBOOT_BEFORE:
+				module->nm.module_reboot_before_func = exportAddr;
+				break;
+			case NID_MODULE_REBOOT_PHASE:
+				module->nm.module_reboot_phase_func = exportAddr;
+				break;
+			case NID_MODULE_BOOTSTART:
+				module->nm.module_bootstart_func = exportAddr;
+				break;
+			default:
+				ResolveSyscall(name, nid, exportAddr);
 			}
+		}
 
-			for (u32 j = 0; j < ent->vcount; j++)
-			{
-				u32 nid = residentPtr[ent->fcount + j];
-				u32 exportAddr = residentPtr[ent->fcount + ent->vcount + ent->fcount + j];
+		for (u32 j = 0; j < ent->vcount; j++) {
+			u32 nid = residentPtr[ent->fcount + j];
+			u32 exportAddr = exportPtr[ent->fcount + j];
 
-				switch (nid)
-				{
-				case NID_MODULE_INFO:
-					break;
-				case NID_MODULE_START_THREAD_PARAMETER:
-					if (Memory::Read_U32(exportAddr) != 3)
-						WARN_LOG_REPORT(LOADER, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-					module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
-					module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-					module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
-					break;
-				case NID_MODULE_STOP_THREAD_PARAMETER:
-					if (Memory::Read_U32(exportAddr) != 3)
-						WARN_LOG_REPORT(LOADER, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-					module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
-					module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-					module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
-					break;
-				case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
-					if (Memory::Read_U32(exportAddr) != 3)
-						WARN_LOG_REPORT(LOADER, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
-					module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
-					module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
-					module->nm.module_reboot_before_thread_attr = Memory::Read_U32(exportAddr + 12);
-					break;
-				case NID_MODULE_SDK_VERSION:
-					DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
-					break;
-				default:
-					// TODO: These need to be resolved too.
-					DEBUG_LOG(LOADER, "Unexpected variable with nid: %08x", nid);
-					break;
-				}
+			switch (nid) {
+			case NID_MODULE_INFO:
+				break;
+			case NID_MODULE_START_THREAD_PARAMETER:
+				if (Memory::Read_U32(exportAddr) != 3)
+					WARN_LOG_REPORT(LOADER, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+				module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
+				module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+				module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
+				break;
+			case NID_MODULE_STOP_THREAD_PARAMETER:
+				if (Memory::Read_U32(exportAddr) != 3)
+					WARN_LOG_REPORT(LOADER, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+				module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
+				module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+				module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
+				break;
+			case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
+				if (Memory::Read_U32(exportAddr) != 3)
+					WARN_LOG_REPORT(LOADER, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
+				module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
+				module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
+				module->nm.module_reboot_before_thread_attr = Memory::Read_U32(exportAddr + 12);
+				break;
+			case NID_MODULE_SDK_VERSION:
+				DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
+				break;
+			default:
+				// TODO: These need to be resolved too.
+				DEBUG_LOG(LOADER, "Unexpected variable with nid: %08x", nid);
+				break;
 			}
 		}
 	}
