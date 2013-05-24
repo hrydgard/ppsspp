@@ -1337,14 +1337,14 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		if (!atrac->data_buf) {
 			if (atrac->codeType == PSP_MODE_AT_3_PLUS) {
 				if (atrac->atracChannels == 1) {
-					WARN_LOG(HLE, "This is an atrac3+ mono audio");
+					WARN_LOG(HLE, "This is an atrac3+ mono audio (low level)");
 					initAT3plusDecoder(atrac, Memory::Read_U32(sourceAddr - 4));
 				} else {
-					WARN_LOG(HLE, "This is an atrac3+ stereo audio");
+					WARN_LOG(HLE, "This is an atrac3+ stereo audio (low level)");
 					initAT3plusDecoder(atrac);
 				}
 			} else if (atrac->codeType == PSP_MODE_AT_3) {
-				WARN_LOG(HLE, "This is an atrac3 audio");
+				WARN_LOG(HLE, "This is an atrac3 audio (low level)");
 			}
 			int headersize = sizeof(at3plusHeader);
 			atrac->first.filesize = (*(u32*)(at3plusHeader + 4)) + 8;
