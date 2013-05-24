@@ -49,6 +49,22 @@ enum {
 };
 
 enum {
+	R_MIPS_NONE,
+	R_MIPS_16,
+	R_MIPS_32,
+	R_MIPS_REL32,
+	R_MIPS_26,
+	R_MIPS_HI16,
+	R_MIPS_LO16,
+	R_MIPS_GPREL16,
+	R_MIPS_LITERAL,
+	R_MIPS_GOT16,
+	R_MIPS_PC16,
+	R_MIPS_CALL16,
+	R_MIPS_GPREL32
+};
+
+enum {
 	// Function exports.
 	NID_MODULE_START = 0xD632ACDB,
 	NID_MODULE_STOP = 0xCEE8593C,
@@ -80,6 +96,13 @@ static const char *blacklistedModules[] = {
 	"sceNetResolver_Library",
 	"sceNet_Library",
 	"sceSsl_Module",
+};
+
+struct VarSymbol {
+	char moduleName[32];
+	u32 symAddr;
+	u32 nid;
+	u8 type;
 };
 
 struct NativeModule {
@@ -235,6 +258,9 @@ struct SceKernelSMOption {
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
 static int actionAfterModule;
+
+static std::vector<VarSymbol> unresolvedVars;
+static std::vector<VarSymbol> exportedVars;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -247,7 +273,69 @@ void __KernelModuleDoState(PointerWrap &p)
 {
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
+	VarSymbol vs = {""};
+	p.Do(unresolvedVars, vs);
+	p.Do(exportedVars, vs);
 	p.DoMarker("sceKernelModule");
+}
+
+void __KernelModuleShutdown()
+{
+	unresolvedVars.clear();
+	exportedVars.clear();
+}
+
+void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
+{
+	// TODO
+	WARN_LOG(LOADER, "Var relocation type %d - %08x => %08x", type, exportAddress, relocAddress);
+}
+
+void ImportVarSymbol(const char *moduleName, u32 nid, u32 address, u8 type)
+{
+	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
+
+	if (nid == 0)
+	{
+		// TODO: What's the right thing for this?
+		ERROR_LOG(LOADER, "Var import with nid = 0, type = %d", type);
+		return;
+	}
+
+	for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it)
+	{
+		if (!strncmp(it->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && it->nid == nid)
+		{
+			WriteVarSymbol(it->symAddr, address, type);
+			return;
+		}
+	}
+
+	// It hasn't been exported yet, but hopefully it will later.
+	INFO_LOG(LOADER, "Variable (%s,%08x) unresolved, storing for later resolving", moduleName, nid);
+	VarSymbol vs = {"", address, nid, type};
+	strncpy(vs.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
+	vs.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+	unresolvedVars.push_back(vs);
+}
+
+void ExportVarSymbol(const char *moduleName, u32 nid, u32 address)
+{
+	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
+
+	VarSymbol ex = {"", address, nid};
+	strncpy(ex.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
+	ex.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+	exportedVars.push_back(ex);
+
+	for (auto it = unresolvedVars.begin(), end = unresolvedVars.end(); it != end; ++it)
+	{
+		if (strncmp(it->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) == 0 && it->nid == nid)
+		{
+			INFO_LOG(HLE,"Resolving var %s/%08x", moduleName, nid);
+			WriteVarSymbol(address, it->symAddr, it->type);
+		}
+	}
 }
 
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string)
@@ -480,9 +568,18 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				continue;
 			}
 
-			// TODO: Actually import these.
-			if (entry->numVars > 0) {
-				WARN_LOG_REPORT(HLE, "Possibly requires var imports.");
+			for (int i = 0; i < entry->numVars; ++i) {
+				u32 varRefsPtr = Memory::Read_U32(entry->varData + i * 8);
+				u32 nid = Memory::Read_U32(entry->varData + i * 8 + 4);
+				if (!Memory::IsValidAddress(varRefsPtr)) {
+					WARN_LOG_REPORT(LOADER, "Bad relocation list address for nid %08x in %s", nid, modulename);
+					continue;
+				}
+
+				u32 *varRef = (u32 *)Memory::GetPointer(varRefsPtr);
+				for (; *varRef != 0; ++varRef) {
+					ImportVarSymbol(modulename, nid, (*varRef & 0x03FFFFFF) << 2, *varRef >> 26);
+				}
 			}
 		} else if (entry->numVars > 0) {
 			WARN_LOG_REPORT(LOADER, "Module entry with %d var imports but no valid address", entry->numVars);
@@ -615,8 +712,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
 				break;
 			default:
-				// TODO: These need to be resolved too.
-				DEBUG_LOG(LOADER, "Unexpected variable with nid: %08x", nid);
+				ExportVarSymbol(name, nid, exportAddr);
 				break;
 			}
 		}
