@@ -160,6 +160,7 @@ void __KernelShutdown()
 	__KernelThreadingShutdown();
 	__KernelMemoryShutdown();
 	__InterruptsShutdown();
+	__KernelModuleShutdown();
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
