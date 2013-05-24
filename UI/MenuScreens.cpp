@@ -595,6 +595,13 @@ void KeyMappingScreen::update(InputState &input) {
 	}
 }
 
+void KeyMappingNewKeyDialog::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
 void LanguageScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
@@ -1006,12 +1013,12 @@ void KeyMappingScreen::render() {
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
 	I18NCategory *generalI18N = GetI18NCategory("General");
 
-	// TODO: use unicode symbols
-	
 
-	
 #define KeyBtn(x, y, symbol) \
-	UIButton(GEN_ID, Pos(x, y), 50, 0, symbol , ALIGN_TOPLEFT);
+	if (UIButton(GEN_ID, Pos(x, y), 50, 0, symbol , ALIGN_TOPLEFT)) {\
+		screenManager()->push(new KeyMappingNewKeyDialog(), 0); \
+		UIReset(); \
+	}
 
 	int pad = 150;
 	int hlfpad = pad / 2;
@@ -1020,6 +1027,7 @@ void KeyMappingScreen::render() {
 	KeyBtn(left, 30, "L");
 	KeyBtn(dp_yres, 30, "R");
 
+	// TODO: use unicode symbols
 	int top = 100;
 	KeyBtn(left+hlfpad, top, "^"); // ^
 	KeyBtn(left, top+hlfpad, "<"); // <
@@ -1036,8 +1044,53 @@ void KeyMappingScreen::render() {
 	left = dp_yres /2;
 	KeyBtn(left, top, "start");
 	KeyBtn(left + pad, top, "select");
+#undef KeyBtn
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+	UIEnd();
+}
+
+void KeyMappingNewKeyDialog::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	I18NCategory *generalI18N = GetI18NCategory("General");
+
+#define KeyText(x, y, sentence) \
+	ui_draw2d.DrawText(UBUNTU24, (sentence), x, y, 0xFFFFFFFF, ALIGN_TOPLEFT);
+#define KeyScale(width) \
+	ui_draw2d.SetFontScale(width, width);
+
+	int top = 10;
+	int left = 10;
+	int stride = 70;
+	KeyScale(1.6f);
+	KeyText(left, top, keyI18N->T("Set a new key mapping"));
+	KeyScale(1.3f);
+	KeyText(left, top += stride, keyI18N->T("Current key"));
+	KeyScale(2.0f);
+	KeyText(left, top + stride, "X");
+
+	int right = dp_yres ;
+	KeyScale(1.4f);
+	KeyText(right, top, keyI18N->T("New Key"));
+	KeyScale(2.0f);
+	KeyText(right, top + stride, "Y");
+
+	KeyScale(1.0f);
+#undef KeyText
+#undef KeyScale
+
+	// Save & cancel buttons
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Save Mapping"), ALIGN_LEFT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Cancel"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 	UIEnd();
