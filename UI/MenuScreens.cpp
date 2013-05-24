@@ -1015,35 +1015,37 @@ void KeyMappingScreen::render() {
 
 
 #define KeyBtn(x, y, symbol) \
-	if (UIButton(GEN_ID, Pos(x, y), 50, 0, symbol , ALIGN_TOPLEFT)) {\
-		screenManager()->push(new KeyMappingNewKeyDialog(), 0); \
+	if (UIButton(GEN_ID, Pos(x, y), 50, 0, (KeyMap::GetPspButtonName(symbol)).c_str(), \
+ 															ALIGN_TOPLEFT)) {\
+		screenManager()->push(new KeyMappingNewKeyDialog(symbol), 0); \
 		UIReset(); \
 	}
+
+	KeyMap::DeregisterPlatformDefaultKeyMap();
 
 	int pad = 150;
 	int hlfpad = pad / 2;
 
 	int left = 30;
-	KeyBtn(left, 30, "L");
-	KeyBtn(dp_yres, 30, "R");
+	KeyBtn(left, 30, PAD_BUTTON_LBUMPER);
+	KeyBtn(dp_yres, 30, PAD_BUTTON_RBUMPER);
 
-	// TODO: use unicode symbols
 	int top = 100;
-	KeyBtn(left+hlfpad, top, "^"); // ^
-	KeyBtn(left, top+hlfpad, "<"); // <
-	KeyBtn(left+pad, top+hlfpad, ">"); // <
-	KeyBtn(left+hlfpad, top+pad, "V"); // <
+	KeyBtn(left+hlfpad, top, PAD_BUTTON_UP); // ^
+	KeyBtn(left, top+hlfpad, PAD_BUTTON_LEFT);// <
+	KeyBtn(left+pad, top+hlfpad, PAD_BUTTON_RIGHT); // >
+	KeyBtn(left+hlfpad, top+pad, PAD_BUTTON_DOWN); // <
 
 	left = dp_yres;
-	KeyBtn(left+hlfpad, top, "^"); // Triangle
-	KeyBtn(left, top+hlfpad, "H"); // Square
-	KeyBtn(left+pad, top+hlfpad, "O"); // Circle
-	KeyBtn(left+hlfpad, top+pad, "X"); // Cross
+	KeyBtn(left+hlfpad, top, PAD_BUTTON_Y); // Triangle
+	KeyBtn(left, top+hlfpad, PAD_BUTTON_X); // Square
+	KeyBtn(left+pad, top+hlfpad, PAD_BUTTON_A); // Circle
+	KeyBtn(left+hlfpad, top+pad, PAD_BUTTON_B); // Cross
 
 	top += pad;
 	left = dp_yres /2;
-	KeyBtn(left, top, "start");
-	KeyBtn(left + pad, top, "select");
+	KeyBtn(left, top, PAD_BUTTON_START);
+	KeyBtn(left + pad, top, PAD_BUTTON_SELECT);
 #undef KeyBtn
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -1075,7 +1077,7 @@ void KeyMappingNewKeyDialog::render() {
 	KeyScale(2.0f);
 	KeyText(left, top + stride, "X");
 
-	int right = dp_yres ;
+	int right = dp_yres;
 	KeyScale(1.4f);
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);

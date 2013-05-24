@@ -133,7 +133,12 @@ public:
 // Dialog box, meant to be pushed
 class KeyMappingNewKeyDialog : public Screen
 {
+private:
+	int pspBtn;
 public:
+	KeyMappingNewKeyDialog(int btn) {
+		pspBtn = btn;
+	}
 	void update(InputState &input);
 	void render();
 };
