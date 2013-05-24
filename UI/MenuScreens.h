@@ -123,6 +123,22 @@ public:
 	void render();
 };
 
+class KeyMappingScreen : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
+/*
+// Dialog box, meant to be pushed
+class KeyMappingNewKeyDialog : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+	virtual void sendMessage(const char *msg, const char *value);
+};*/
+
 struct FileSelectScreenOptions {
 	const char* filter;  // Enforced extension filter. Case insensitive, extensions separated by ":".
 	bool allowChooseDirectory;

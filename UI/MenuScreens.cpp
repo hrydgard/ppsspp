@@ -49,6 +49,7 @@ namespace MainWindow {
 #include "UIShader.h"
 
 #include "Common/StringUtils.h"
+#include "Common/KeyMap.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "GPU/ge_constants.h"
@@ -544,6 +545,7 @@ void SettingsScreen::render() {
 	UIEnd();
 }
 
+// TODO: Move these into a superclass
 void DeveloperScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
@@ -580,6 +582,13 @@ void SystemScreen::update(InputState &input) {
 }
 
 void ControlsScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void KeyMappingScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -980,6 +989,57 @@ void ControlsScreen::render() {
 	} 
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 
+	// Button to KeyMapping screen
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Key Mapping"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new KeyMappingScreen());
+	}
+
+	UIEnd();
+}
+
+void KeyMappingScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	I18NCategory *generalI18N = GetI18NCategory("General");
+
+	// TODO: use unicode symbols
+	
+
+	
+#define KeyBtn(x, y, symbol) \
+	UIButton(GEN_ID, Pos(x, y), 50, 0, symbol , ALIGN_TOPLEFT);
+
+	int pad = 150;
+	int hlfpad = pad / 2;
+
+	int left = 30;
+	KeyBtn(left, 30, "L");
+	KeyBtn(dp_yres, 30, "R");
+
+	int top = 100;
+	KeyBtn(left+hlfpad, top, "^"); // ^
+	KeyBtn(left, top+hlfpad, "<"); // <
+	KeyBtn(left+pad, top+hlfpad, ">"); // <
+	KeyBtn(left+hlfpad, top+pad, "V"); // <
+
+	left = dp_yres;
+	KeyBtn(left+hlfpad, top, "^"); // Triangle
+	KeyBtn(left, top+hlfpad, "H"); // Square
+	KeyBtn(left+pad, top+hlfpad, "O"); // Circle
+	KeyBtn(left+hlfpad, top+pad, "X"); // Cross
+
+	top += pad;
+	left = dp_yres /2;
+	KeyBtn(left, top, "start");
+	KeyBtn(left + pad, top, "select");
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
 	UIEnd();
 }
 
