@@ -547,6 +547,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 
 			} else
 #endif // USE_FFMPEG
+
 #ifdef _USE_DSHOW_
 			if (engine) {
 				static s16 buf[ATRAC_MAX_SAMPLES * 2];
@@ -909,6 +910,7 @@ int __AtracSetContext(Atrac *atrac, u32 buffer, u32 bufferSize)
 		return 0;
 	}
 #endif // _USE_DSHOW_
+
 #ifdef USE_FFMPEG
 	u8* tempbuf = (u8*)av_malloc(atrac->atracBufSize);
 
@@ -993,28 +995,31 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 	// some games may reuse an atracID for playing sound
 	atrac->CleanStuff();
 
-#ifdef USE_FFMPEG
+
 	if (atrac->codeType == PSP_MODE_AT_3) {
 		WARN_LOG(HLE, "This is an atrac3 audio");
 
+#ifdef USE_FFMPEG
 		atrac->data_buf = new u8[atrac->first.filesize];
 		Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
-
 		return __AtracSetContext(atrac, buffer, bufferSize);
+#endif // USE_FFMPEG
+
 	} else if (atrac->codeType == PSP_MODE_AT_3_PLUS) {
-		WARN_LOG(HLE, "This is an atrac3+ audio");
-#ifdef _USE_DSHOW_
 		if (atrac->atracChannels == 1) {
-			WARN_LOG(HLE, "Unsupported mono atrac3+ audio!");
+			WARN_LOG(HLE, "This is an atrac3+ mono audio (Unsupported)");
 		} else {
+			WARN_LOG(HLE, "This is an atrac3+ stereo audio");
+
+#ifdef _USE_DSHOW_
 			atrac->data_buf = new u8[atrac->first.filesize];
 			Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
-			
 			return __AtracSetContext(atrac, buffer, bufferSize);
-		}
 #endif // _USE_DSHOW
+
+		}
 	}
-#endif // USE_FFMPEG
+
 
 	return 0;
 }
@@ -1331,13 +1336,15 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		sourcebytes = atrac->atracBytesPerFrame;
 		if (!atrac->data_buf) {
 			if (atrac->codeType == PSP_MODE_AT_3_PLUS) {
-				WARN_LOG(HLE, "This is an atrac3+ audio");
-				if (atrac->atracChannels == 1)
+				if (atrac->atracChannels == 1) {
+					WARN_LOG(HLE, "This is an atrac3+ mono audio (low level)");
 					initAT3plusDecoder(atrac, Memory::Read_U32(sourceAddr - 4));
-				else
+				} else {
+					WARN_LOG(HLE, "This is an atrac3+ stereo audio (low level)");
 					initAT3plusDecoder(atrac);
+				}
 			} else if (atrac->codeType == PSP_MODE_AT_3) {
-				WARN_LOG(HLE, "This is an atrac3 audio");
+				WARN_LOG(HLE, "This is an atrac3 audio (low level)");
 			}
 			int headersize = sizeof(at3plusHeader);
 			atrac->first.filesize = (*(u32*)(at3plusHeader + 4)) + 8;
