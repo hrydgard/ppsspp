@@ -33,7 +33,7 @@ enum pspUmdError {
 };
 
 enum pspUmdType {
-	PSP_UMD_TYPE_GAME = 0x00,
+	PSP_UMD_TYPE_GAME = 0x10,
 	PSP_UMD_TYPE_VIDEO = 0x20,
 	PSP_UMD_TYPE_AUDIO = 0x40,
 };
