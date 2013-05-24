@@ -287,8 +287,66 @@ void __KernelModuleShutdown()
 
 void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 {
-	// TODO
-	WARN_LOG(LOADER, "Var relocation type %d - %08x => %08x", type, exportAddress, relocAddress);
+	static u32 lastHI16RelocAddress = 0;
+	static u32 lastHI16ExportAddress = 0;
+
+	u32 relocData = Memory::Read_Instruction(relocAddress);
+
+	switch (type)
+	{
+	case R_MIPS_NONE:
+		WARN_LOG_REPORT(LOADER, "Var relocation type NONE - %08x => %08x", exportAddress, relocAddress);
+		break;
+
+	case R_MIPS_32:
+		relocData += exportAddress;
+		break;
+
+	// Not really tested, but should work...
+	/*
+	case R_MIPS_26:
+		if (exportAddress % 4 || (exportAddress >> 28) != ((relocAddress + 4) >> 28))
+			WARN_LOG_REPORT(LOADER, "Bad var relocation addresses for type 26 - %08x => %08x", exportAddress, relocAddress)
+		else
+			relocData = (relocData & ~0x03ffffff) | ((relocData + (exportAddress >> 2)) & 0x03ffffff);
+		break;
+	*/
+
+	case R_MIPS_HI16:
+		// After this will be an R_MIPS_LO16.  If that addition overflows, we need to account for it in HI16.
+		// The R_MIPS_LO16 and R_MIPS_HI16 will often be *different* relocAddress values.
+		lastHI16RelocAddress = relocAddress;
+		lastHI16ExportAddress = exportAddress;
+		break;
+
+	case R_MIPS_LO16:
+		{
+			// The ABI requires that these come in pairs.
+			if (lastHI16ExportAddress != exportAddress)
+			{
+				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match for %08x => %08x/%08x (hi16 export: %08x)", exportAddress, lastHI16RelocAddress, relocAddress, lastHI16ExportAddress);
+				break;
+			}
+
+			u32 relocDataHi = Memory::Read_Instruction(lastHI16RelocAddress);
+			// Sign extend the existing low value (e.g. from addiu.)
+			u32 full = (relocDataHi << 16) + (s16)(u16)(relocData & 0xFFFF) + exportAddress;
+
+			// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
+			// We add 1 in that case so that it ends up the right value.
+			u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
+			Memory::Write_U32((relocDataHi & ~0xFFFF) | high, lastHI16RelocAddress);
+
+			// And then this is the low relocation, hurray.
+			relocData = (relocData & ~0xFFFF) | (full & 0xFFFF);
+		}
+		break;
+
+	default:
+		WARN_LOG_REPORT(LOADER, "Unsupported var relocation type %d - %08x => %08x", type, exportAddress, relocAddress);
+	}
+
+	Memory::Write_U32(relocData, relocAddress);
 }
 
 void ImportVarSymbol(const char *moduleName, u32 nid, u32 address, u8 type)
@@ -298,7 +356,13 @@ void ImportVarSymbol(const char *moduleName, u32 nid, u32 address, u8 type)
 	if (nid == 0)
 	{
 		// TODO: What's the right thing for this?
-		ERROR_LOG(LOADER, "Var import with nid = 0, type = %d", type);
+		ERROR_LOG_REPORT(LOADER, "Var import with nid = 0, type = %d", type);
+		return;
+	}
+
+	if (!Memory::IsValidAddress(address))
+	{
+		ERROR_LOG_REPORT(LOADER, "Invalid address for var import nid = %08x, type = %d, addr = %08x", nid, type, address);
 		return;
 	}
 
