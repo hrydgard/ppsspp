@@ -246,13 +246,8 @@ namespace MainWindow
 	void BrowseAndBoot(std::string defaultPath)
 	{
 		std::string fn;
-		std::string filter = "";
-
-		filter += "PSP";
-		filter += "|";
-		filter += "*.pbp;*.elf;*.iso;*.cso;*.prx";
-		filter += "|";
-		filter += "|";
+		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx||";
+		
 		for (int i=0; i<(int)filter.length(); i++)
 		{
 			if (filter[i] == '|')
