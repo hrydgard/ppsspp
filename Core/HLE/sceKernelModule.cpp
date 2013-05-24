@@ -891,10 +891,23 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		int attribute = module->nm.attribute;
 		u32 entryAddr = module->nm.entry_addr;
 
-		if (entryAddr == -1)
+		if ((entryAddr == -1) || entryAddr == module->memoryBlockAddr - 1)
 		{
-			entryAddr = module->nm.module_start_func;
-			attribute = module->nm.module_start_thread_attr;
+			if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1)
+			{
+				entryAddr = module->nm.module_start_func;
+				attribute = module->nm.module_start_thread_attr;
+			}
+			else if (optionAddr)
+			{
+				attribute = smoption.attribute;
+			}
+			else
+			{
+				// TODO: Fix, check return value?  Or do we call nothing?
+				RETURN(moduleId);
+				return;
+			}
 		}
 
 		if (Memory::IsValidAddress(entryAddr))
@@ -904,16 +917,11 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			} else if (module->nm.module_start_thread_priority > 0) {
 				priority = module->nm.module_start_thread_priority;
 			}
-			
+
 			if ((optionAddr) && (smoption.stacksize > 0)) {
 				stacksize = smoption.stacksize;
 			} else if (module->nm.module_start_thread_stacksize > 0) {
 				stacksize = module->nm.module_start_thread_stacksize;
-			}
-
-			if (optionAddr)
-			{
-				attribute = smoption.attribute;
 			}
 
 			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0);
@@ -940,7 +948,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	}
 
 	// TODO: Is this the correct return value?
-	// JPCSP says it is
+	// JPCSP returns this value as well.
 	RETURN(moduleId);
 }
 
