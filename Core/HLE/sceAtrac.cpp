@@ -1343,19 +1343,19 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 					WARN_LOG(HLE, "This is an atrac3+ stereo audio (low level)");
 					initAT3plusDecoder(atrac);
 				}
+				int headersize = sizeof(at3plusHeader);
+				atrac->first.filesize = (*(u32*)(at3plusHeader + 4)) + 8;
+				atrac->data_buf = new u8[atrac->first.filesize];
+				memcpy(atrac->data_buf, at3plusHeader, headersize);
+				int copysize = atrac->atracChannels == 2 ? sourcebytes : atrac->first.filesize - headersize;
+				memcpy(atrac->data_buf + headersize, Memory::GetPointer(sourceAddr), copysize);
+				atrac->firstSampleoffset = headersize;
+				atrac->first.size = headersize + atrac->atracBytesPerFrame;
+				atrac->first.fileoffset = atrac->first.size;
+				addAtrac3Audio(atrac->data_buf, atrac->atracChannels == 2 ? atrac->first.size : atrac->first.filesize, atracID);
 			} else if (atrac->codeType == PSP_MODE_AT_3) {
 				WARN_LOG(HLE, "This is an atrac3 audio (low level)");
 			}
-			int headersize = sizeof(at3plusHeader);
-			atrac->first.filesize = (*(u32*)(at3plusHeader + 4)) + 8;
-			atrac->data_buf = new u8[atrac->first.filesize];
-			memcpy(atrac->data_buf, at3plusHeader, headersize);
-			int copysize = atrac->atracChannels == 2 ? sourcebytes : atrac->first.filesize - headersize;
-			memcpy(atrac->data_buf + headersize, Memory::GetPointer(sourceAddr), copysize);
-			atrac->firstSampleoffset = headersize;
-			atrac->first.size = headersize + atrac->atracBytesPerFrame;
-			atrac->first.fileoffset = atrac->first.size;
-			addAtrac3Audio(atrac->data_buf, atrac->atracChannels == 2 ? atrac->first.size : atrac->first.filesize, atracID);
 		}
 		else {
 			audioEngine *engine = getaudioEngineByID(atracID);
