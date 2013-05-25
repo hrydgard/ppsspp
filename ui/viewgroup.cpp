@@ -259,29 +259,44 @@ void FrameLayout::Layout() {
 }
 
 void ScrollView::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	// Respect margins
+	Margins margins;
+	const LinearLayoutParams *params = dynamic_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
+	if (params) {
+		margins = params->margins;
+	}
+
 	// The scroll view itself simply obeys its parent.
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), vert);
+		views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), vert - (margins.top + margins.bottom));
 	} else {
-		views_[0]->Measure(dc, horiz, MeasureSpec(UNSPECIFIED));
+		views_[0]->Measure(dc, horiz - (margins.left + margins.right), MeasureSpec(UNSPECIFIED));
 	}
 }
 
 void ScrollView::Layout() {
 	Bounds scrolled;
-	scrolled.w = views_[0]->GetMeasuredWidth();
-	scrolled.h = views_[0]->GetMeasuredHeight();
+
+	// Respect margins
+	Margins margins;
+	const LinearLayoutParams *params = dynamic_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
+	if (params) {
+		margins = params->margins;
+	}
+
+	scrolled.w = views_[0]->GetMeasuredWidth() - (margins.left + margins.right);
+	scrolled.h = views_[0]->GetMeasuredHeight() - (margins.top + margins.bottom);
 
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
 		scrolled.x = bounds_.x - scrollPos_;
-		scrolled.y = bounds_.y;
+		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
-		scrolled.x = bounds_.x;
+		scrolled.x = bounds_.x + margins.left;
 		scrolled.y = bounds_.y - scrollPos_;
 		break;
 	}
@@ -293,17 +308,18 @@ void ScrollView::Touch(const TouchInput &input) {
 	if ((input.flags & TOUCH_DOWN) && input.id == 0) {
 		scrollStart_ = scrollPos_;
 	}
-
-	gesture_.Update(input);
+	
+	TouchInput input2 = gesture_.Update(input, bounds_);
 
 	if (gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
 		float info[4];
 		gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info);
 		scrollPos_ = scrollStart_ - info[0];
-	} else {
-		ViewGroup::Touch(input);
 	}
-
+	
+	if (!(input.flags & TOUCH_DOWN) || bounds_.Contains(input.x, input.y))
+		ViewGroup::Touch(input2);
+	
 	// Clamp scrollPos_. TODO: flinging, bouncing, etc.
 	if (scrollPos_ < 0.0f) {
 		scrollPos_ = 0.0f;

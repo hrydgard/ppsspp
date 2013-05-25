@@ -63,6 +63,7 @@ LOCAL_SRC_FILES :=\
     ui/ui_context.cpp \
     ui/screen.cpp \
     ui/virtual_input.cpp \
+    ui/drawing.cpp \
     util/random/perlin.cpp \
     util/text/utf8.cpp
 

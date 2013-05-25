@@ -218,6 +218,7 @@
     <ClInclude Include="json\json_writer.h" />
     <ClInclude Include="math\compression.h" />
     <ClInclude Include="math\curves.h" />
+    <ClInclude Include="math\geom2d.h" />
     <ClInclude Include="math\lin\aabb.h" />
     <ClInclude Include="math\lin\matrix4x4.h" />
     <ClInclude Include="math\lin\plane.h" />
@@ -232,6 +233,7 @@
     <ClInclude Include="thread\thread.h" />
     <ClInclude Include="thread\threadpool.h" />
     <ClInclude Include="thread\threadutil.h" />
+    <ClInclude Include="ui\drawing.h" />
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
     <ClInclude Include="ui\ui_context.h" />
@@ -348,6 +350,7 @@
     <ClCompile Include="thread\prioritizedworkqueue.cpp" />
     <ClCompile Include="thread\threadpool.cpp" />
     <ClCompile Include="thread\threadutil.cpp" />
+    <ClCompile Include="ui\drawing.cpp" />
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
     <ClCompile Include="ui\ui_context.cpp" />

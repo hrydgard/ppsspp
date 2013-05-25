@@ -94,24 +94,37 @@ void Clickable::Click() {
 };
 
 void Clickable::Touch(const TouchInput &input) {
-	if (input.flags & (TOUCH_DOWN | TOUCH_MOVE)) {
+	if (input.flags & TOUCH_DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
 			if (IsFocusMovementEnabled())
 				SetFocusedView(this);
-			down_ = true;
+			downCountDown_ = 8;
 		} else {
 			down_ = false;
+			dragging_ = false;
 		}
+	} else if (input.flags & TOUCH_MOVE) {
+		if (dragging_)
+			down_ = bounds_.Contains(input.x, input.y);
 	} 
 	if (input.flags & TOUCH_UP) {
-		if (bounds_.Contains(input.x, input.y)) {
+		if (dragging_ && bounds_.Contains(input.x, input.y)) {
 			Click();
 		}	
+		downCountDown_ = 0;
 		down_ = false;	
+		dragging_ = false;
 	}
 }
 
 void Clickable::Update(const InputState &input_state) {
+	if (downCountDown_ == 1) {
+		downCountDown_ = 0;
+		dragging_ = true;
+		down_ = true;
+	} else if (downCountDown_ > 0) {
+		downCountDown_--;
+	}
 	if (!HasFocus())
 		return;
 	if (input_state.pad_buttons_down & PAD_BUTTON_A) {
@@ -125,10 +138,19 @@ void Clickable::Update(const InputState &input_state) {
 	}
 }
 
+void ClickableItem::Draw(DrawContext &dc) {
+	if (down_) {
+		dc.draw->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.bgColor);
+	} else if (HasFocus()) {
+		dc.draw->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemFocusedStyle.bgColor);
+	}
+}
+
 void Choice::Draw(DrawContext &dc) {
+	ClickableItem::Draw(dc);
 	int paddingX = 4;
 	int paddingY = 4;
-	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
@@ -137,16 +159,21 @@ void InfoItem::Draw(DrawContext &dc) {
 	int paddingY = 4;
 	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_RIGHT);
-	dc.draw->hLine(bounds_.x, bounds_.y, bounds_.x2(), 0xFFFFFFFF);
+	dc.draw->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
+}
+
+void ItemHeader::Draw(DrawContext &dc) {
+	dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFF707070, ALIGN_LEFT);
+	dc.draw->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.bgColor);
 }
 
 void CheckBox::Draw(DrawContext &dc) {
+	ClickableItem::Draw(dc);
 	int paddingX = 80;
 	int paddingY = 4;
 	dc.draw->DrawImage(dc.theme->checkOn, bounds_.x + 30, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
-	dc.draw->hLine(bounds_.x, bounds_.y, bounds_.x2(), 0xFFFFFFFF);
 }
 
 void Button::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {

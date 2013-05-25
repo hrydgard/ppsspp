@@ -1,4 +1,5 @@
 #include "input/input_state.h"
+#include "math/geom2d.h"
 
 // WIP - doesn't do much yet
 // Mainly for detecting (multi-)touch gestures but also useable for left button mouse dragging etc.
@@ -13,15 +14,16 @@ enum Gesture {
 
 // May track multiple gestures at the same time. You simply call GetGestureInfo
 // with the gesture you are interested in.
-class GestureDetector
-{
+class GestureDetector {
 public:
 	GestureDetector();
-	void Update(const TouchInput &touch);
+	TouchInput Update(const TouchInput &touch, const Bounds &bounds);
 	bool IsGestureActive(Gesture gesture) const;
 	void GetGestureInfo(Gesture gesture, float info[4]);
 
 private:
+	Bounds bounds_;
+
 	// jazzhands!
 	enum Locals {
 		MAX_PTRS = 10 
@@ -41,7 +43,6 @@ private:
 	};
 
 	Pointer pointers[MAX_PTRS];
-	// ...
 
 	uint32_t active_;
 };

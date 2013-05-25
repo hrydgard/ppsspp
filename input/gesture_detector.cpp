@@ -9,10 +9,10 @@ GestureDetector::GestureDetector() : active_(0) {
 
 }
 
-void GestureDetector::Update(const TouchInput &touch) {
+TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds) {
 	// Mouse / 1-finger-touch control.
 	Pointer &p = pointers[touch.id];
-	if (touch.flags & TOUCH_DOWN) {
+	if ((touch.flags & TOUCH_DOWN) && bounds.Contains(touch.x, touch.y)) {
 		p.down = true;
 		p.downTime = time_now_d();
 		p.downX = touch.x;
@@ -33,13 +33,18 @@ void GestureDetector::Update(const TouchInput &touch) {
 	if (touch.id == 0 && p.distanceY > p.distanceX) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
-			if (p.distanceY * timeDown > 3) {
+			if (!active_ && p.distanceY * timeDown > 3) {
 				active_ |= GESTURE_DRAG_VERTICAL;
+				// Kill the drag
+				TouchInput inp2 = touch;
+				inp2.flags = TOUCH_UP;
+				return inp2;
 			}
 		} else {
 			active_ = 0;
 		}
 	}
+	return touch;
 }
 
 bool GestureDetector::IsGestureActive(Gesture gesture) const {

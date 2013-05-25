@@ -9,11 +9,14 @@
 
 #include <vector>
 #include <functional>
+#include <cmath>
 
 #include "base/mutex.h"
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
 #include "math/lin/matrix4x4.h"
+#include "math/math_util.h"
+#include "math/geom2d.h"
 
 struct TouchInput;
 struct InputState;
@@ -62,10 +65,14 @@ struct Theme {
 	int buttonSelected;
 	int checkOn;
 	int checkOff;
+	int whiteImage;
 
 	Style buttonStyle;
 	Style buttonFocusedStyle;
 	Style buttonDownStyle;
+
+	Style itemDownStyle;
+	Style itemFocusedStyle;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
@@ -123,23 +130,6 @@ enum EventReturn {
 };
 
 class ViewGroup;
-
-// Resolved bounds on screen after layout.
-struct Bounds {
-	bool Contains(float px, float py) const {
-		return (px >= x && py >= y && px < x + w && py < y + h);
-	}
-
-	float x2() const { return x + w; }
-	float y2() const { return y + h; }
-	float centerX() const { return x + w * 0.5f; }
-	float centerY() const { return y + h * 0.5f; }
-
-	float x;
-	float y;
-	float w;
-	float h;
-};
 
 void Fill(DrawContext &dc, const Bounds &bounds, const Drawable &drawable);
 
@@ -200,6 +190,7 @@ private:
 struct Margins {
 	Margins() : top(0), bottom(0), left(0), right(0) {}
 	explicit Margins(uint8_t all) : top(all), bottom(all), left(all), right(all) {}
+	explicit Margins(uint8_t horiz, uint8_t vert) : top(vert), bottom(vert), left(horiz), right(horiz) {}
 	uint8_t top;
 	uint8_t bottom;
 	uint8_t left;
@@ -217,7 +208,6 @@ public:
 
 	Size width;
 	Size height;
-private:
 };
 
 class LinearLayoutParams : public LayoutParams {
@@ -327,7 +317,7 @@ public:
 class Clickable : public View {
 public:
 	Clickable(LayoutParams *layoutParams)
-		: View(layoutParams), down_(false) {}
+		: View(layoutParams), downCountDown_(0), down_(false), dragging_(false) {}
 
 	virtual void Touch(const TouchInput &input);
 	virtual void Update(const InputState &input_state);
@@ -340,6 +330,8 @@ protected:
 	// Use it for checking/unchecking checkboxes, etc.
 	virtual void Click();
 
+	int downCountDown_;
+	bool dragging_;
 	bool down_;
 };
 
@@ -354,7 +346,6 @@ public:
 private:
 	Style style_;
 	std::string text_;
-	DISALLOW_COPY_AND_ASSIGN(Button);
 };
 
 class Item : public InertView {
@@ -381,9 +372,11 @@ public:
 		w = 0.0f;
 		h = 0.0f;
 	}
+
+	// Draws the item background.
+	virtual void Draw(DrawContext &dc);
+
 };
-
-
 
 // The following classes are mostly suitable as items in ListView which
 // really is just a LinearLayout in a ScrollView, possibly with some special optimizations.
@@ -411,6 +404,18 @@ public:
 private:
 	std::string text_;
 	std::string rightText_;
+};
+
+class ItemHeader : public Item {
+public:
+	ItemHeader(const std::string &text, LayoutParams *layoutParams = 0)
+		: Item(layoutParams), text_(text) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = 26;
+	}
+	virtual void Draw(DrawContext &dc);
+private:
+	std::string text_;
 };
 
 class CheckBox : public ClickableItem {
