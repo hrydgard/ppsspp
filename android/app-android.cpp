@@ -306,8 +306,13 @@ extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	e
 		short *data = env->GetShortArrayElements(array, 0);
 		int samples = buf_size / 2;
 		samples = NativeMix(data, samples);
-		env->ReleaseShortArrayElements(array, data, 0);
-		return samples * 2;
+		if (samples != 0) {
+			env->ReleaseShortArrayElements(array, data, 0);
+			return samples * 2;
+		} else {
+			env->ReleaseShortArrayElements(array, data, JNI_ABORT);
+			return 0;
+		}
 	}
 	return 0;
 }
