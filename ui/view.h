@@ -16,12 +16,22 @@
 #include "math/lin/matrix4x4.h"
 
 struct TouchInput;
+struct InputState;
 
 class DrawBuffer;
 class DrawContext;
 
 // I don't generally like namespaces but I think we do need one for UI, so many potentially-clashing names.
 namespace UI {
+
+class View;
+
+// The ONLY global is the currently focused item.
+// Can be and often is null.
+void EnableFocusMovement(bool enable);
+bool IsFocusMovementEnabled();
+View *GetFocusedView();
+void SetFocusedView(View *view);
 
 enum DrawableType {
 	DRAW_NOTHING,
@@ -52,7 +62,20 @@ struct Theme {
 	int buttonSelected;
 	int checkOn;
 	int checkOff;
+
 	Style buttonStyle;
+	Style buttonFocusedStyle;
+	Style buttonDownStyle;
+};
+
+// The four cardinal directions should be enough, plus Prev/Next in "element order".
+enum FocusDirection {
+	FOCUS_UP,
+	FOCUS_DOWN,
+	FOCUS_LEFT,
+	FOCUS_RIGHT,
+	FOCUS_NEXT,
+	FOCUS_PREV,
 };
 
 enum {
@@ -118,9 +141,7 @@ struct Bounds {
 	float h;
 };
 
-
 void Fill(DrawContext &dc, const Bounds &bounds, const Drawable &drawable);
-
 
 struct MeasureSpec {
 	MeasureSpec(MeasureSpecType t, float s = 0.0f) : type(t), size(s) {}
@@ -232,6 +253,7 @@ public:
 	// Can even be called on a different thread! This is to really minimize latency, and decouple
 	// touch response from the frame rate.
 	virtual void Touch(const TouchInput &input) = 0;
+	virtual void Update(const InputState &input_state) = 0;
 
 	void Move(Bounds bounds) {
 		bounds_ = bounds;
@@ -253,9 +275,17 @@ public:
 	virtual const LayoutParams *GetLayoutParams() const { return layoutParams_.get(); }
 	const Bounds &GetBounds() const { return bounds_; }
 
+	virtual bool SetFocus() {
+		if (CanBeFocused()) {
+			SetFocusedView(this);
+			return true;
+		}
+		return false;
+	}
+	virtual void MoveFocus(FocusDirection direction) {}
 	virtual bool CanBeFocused() const { return true; }
 
-	bool Focused() const {
+	bool HasFocus() const {
 		return GetFocusedView() == this;
 	}
 
@@ -283,6 +313,8 @@ public:
 		: View(layoutParams) {}
 
 	virtual void Touch(const TouchInput &input) {}
+	virtual bool CanBeFocused() const { return false; }
+	virtual void Update(const InputState &input_state) {}
 };
 
 
@@ -290,9 +322,10 @@ public:
 class Clickable : public View {
 public:
 	Clickable(LayoutParams *layoutParams)
-		: View(layoutParams) {}
+		: View(layoutParams), down_(false) {}
 
 	virtual void Touch(const TouchInput &input);
+	virtual void Update(const InputState &input_state);
 
 	Event OnClick;
 
@@ -319,38 +352,93 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(Button);
 };
 
+class Item : public InertView {
+public:
+	Item(LayoutParams *layoutParams) : InertView(layoutParams) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = 80;
+	}
+
+	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
+		w = 0.0f;
+		h = 0.0f;
+	}
+};
+
+class ClickableItem : public Clickable {
+public:
+	ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = 80;
+	}
+
+	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
+		w = 0.0f;
+		h = 0.0f;
+	}
+};
+
+
+
 // The following classes are mostly suitable as items in ListView which
 // really is just a LinearLayout in a ScrollView, possibly with some special optimizations.
 
 // Use to trigger something or open a submenu screen.
-class Choice : public Clickable {
+class Choice : public ClickableItem {
 public:
 	Choice(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), text_(text), smallText_(smallText) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {}
 
 	virtual void Draw(DrawContext &dc);
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
 
 private:
 	std::string text_;
 	std::string smallText_;
+};
+
+class InfoItem : public Item {
+public:
+	InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams = 0)
+		: Item(layoutParams), text_(text), rightText_(rightText) {}
+
+	virtual void Draw(DrawContext &dc);
+
+private:
+	std::string text_;
+	std::string rightText_;
 };
 
 class CheckBox : public Clickable {
 public:
-	CheckBox(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), text_(text), smallText_(smallText) {}
+	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
+		: Clickable(layoutParams), text_(text), smallText_(smallText) {
+		OnClick.Add(std::bind(&CheckBox::OnClicked, this, std::placeholders::_1));
+	}
 
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
 	virtual void Draw(DrawContext &dc);
 
+	EventReturn OnClicked(const EventParams &e) {
+		if (toggle_)
+			*toggle_ = !(*toggle_);
+		return EVENT_DONE;
+	}
 private:
+	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
 };
 
-enum ImageSizeMode {
 
+// These are for generic use.
+
+class Spacer : public InertView {
+public:
+	Spacer(LayoutParams *layoutParams = 0)
+		: InertView(layoutParams) {}
+	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) {
+		w = 0.0f; h = 0.0f;
+	}
+	virtual void Draw(DrawContext &dc) {}
 };
 
 class TextView : public InertView {
@@ -360,11 +448,14 @@ public:
 
 	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
 	virtual void Draw(DrawContext &dc);
-	virtual bool CanBeFocused() const { return false; }
 
 private:
 	std::string text_;
 	int font_;
+};
+
+enum ImageSizeMode {
+	IS_DEFAULT,
 };
 
 class ImageView : public InertView {
@@ -374,7 +465,6 @@ public:
 
 	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
 	virtual void Draw(DrawContext &dc);
-	virtual bool CanBeFocused() const { return false; }
 
 private:
 	int atlasImage_;
@@ -406,11 +496,6 @@ private:
 	std::vector<Tab> tabs_;
 };*/
 
-// The ONLY global is the currently focused item.
-// Can be and often is null.
-
-View *GetFocusedView();
-void SetFocusedView(View *view);
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
 
 }  // namespace

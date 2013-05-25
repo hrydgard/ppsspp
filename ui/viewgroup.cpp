@@ -42,6 +42,39 @@ void ViewGroup::Draw(DrawContext &dc) {
 	}
 }
 
+void ViewGroup::Update(const InputState &input_state) {
+	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+		// TODO: If there is a transformation active, transform input coordinates accordingly.
+		(*iter)->Update(input_state);
+	}
+}
+
+bool ViewGroup::SetFocus() {
+	if (!CanBeFocused() && !views_.empty()) {
+		for (size_t i = 0; i < views_.size(); i++) {
+			if (views_[i]->SetFocus())
+				return true;
+		}
+	}
+	return false;
+}
+
+void ViewGroup::MoveFocus(FocusDirection direction) {
+	if (!GetFocusedView()) {
+		SetFocus();
+		return;
+	}
+
+	View *neighbor = FindNeighbor(GetFocusedView(), direction);
+	if (neighbor) {
+		neighbor->SetFocus();
+	} else {
+		for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+			(*iter)->MoveFocus(direction);
+		}
+	}
+}
+
 View *ViewGroup::FindNeighbor(View *view, FocusDirection direction) {
 	// First, find the position of the view in the list.
 	size_t num = -1;
@@ -74,15 +107,9 @@ View *ViewGroup::FindNeighbor(View *view, FocusDirection direction) {
 	} 
 }
 
-void FrameLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
-	if (views_.empty()) {
-		ELOG("A FrameLayout must have a child view");
-		return;
-	}
-}
 
 void LinearLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
-	if (!views_.size()) {
+	if (views_.empty()) {
 		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 		return; 
@@ -215,8 +242,26 @@ void LinearLayout::Layout() {
 	}
 }
 
+void FrameLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	if (views_.empty()) {
+		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
+		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
+		return; 
+	}
+
+	for (size_t i = 0; i < views_.size(); i++) {
+		views_[i]->Measure(dc, horiz, vert);
+	}
+}
+
+void FrameLayout::Layout() {
+
+}
+
 void ScrollView::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
-	
+	// The scroll view itself simply obeys its parent.
+	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
+	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 }
 
 void ScrollView::Layout() {
@@ -246,6 +291,7 @@ void ScrollView::Touch(const TouchInput &input) {
 	}
 }
 
+
 void GridLayout::Layout() {
 
 }
@@ -269,6 +315,24 @@ void LayoutViewHierarchy(const DrawContext &dc, ViewGroup *root) {
 	// Root has a specified size. Set it, then let root layout all its children.
 	root->SetBounds(rootBounds);
 	root->Layout();
+}
+
+void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
+	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN))
+		EnableFocusMovement(true);
+
+	if (input_state.pad_last_buttons == 0) {
+		if (input_state.pad_buttons_down & PAD_BUTTON_RIGHT)
+			root->MoveFocus(FOCUS_RIGHT);
+		if (input_state.pad_buttons_down & PAD_BUTTON_UP)
+			root->MoveFocus(FOCUS_UP);
+		if (input_state.pad_buttons_down & PAD_BUTTON_LEFT)
+			root->MoveFocus(FOCUS_LEFT);
+		if (input_state.pad_buttons_down & PAD_BUTTON_DOWN)
+			root->MoveFocus(FOCUS_DOWN);
+	}
+
+	root->Update(input_state);
 }
 
 }  // namespace UI

@@ -9,6 +9,7 @@
 namespace UI {
 
 static View *focusedView;
+static bool focusMovementEnabled;
 
 const float ITEM_HEIGHT = 48.f;
 
@@ -18,6 +19,14 @@ View *GetFocusedView() {
 
 void SetFocusedView(View *view) {
 	focusedView = view;
+}
+
+void EnableFocusMovement(bool enable) {
+	focusMovementEnabled = true;
+}
+
+bool IsFocusMovementEnabled() {
+	return focusMovementEnabled;
 }
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured) {
@@ -64,7 +73,6 @@ void Event::Update() {
 	}
 }
 
-
 void View::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	float contentW = 0.0f, contentH = 0.0f;
 	GetContentDimensions(dc, contentW, contentH);
@@ -88,7 +96,8 @@ void Clickable::Click() {
 void Clickable::Touch(const TouchInput &input) {
 	if (input.flags & (TOUCH_DOWN | TOUCH_MOVE)) {
 		if (bounds_.Contains(input.x, input.y)) {
-			SetFocusedView(this);
+			if (IsFocusMovementEnabled())
+				SetFocusedView(this);
 			down_ = true;
 		} else {
 			down_ = false;
@@ -102,10 +111,18 @@ void Clickable::Touch(const TouchInput &input) {
 	}
 }
 
-void Choice::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
-	// Will be sized to fill parent horizontally.
-	w = 0.0f;
-	h = ITEM_HEIGHT;
+void Clickable::Update(const InputState &input_state) {
+	if (!HasFocus())
+		return;
+	if (input_state.pad_buttons_down & PAD_BUTTON_A) {
+		down_ = true;
+	} else if (input_state.pad_buttons_up & PAD_BUTTON_A) {
+		if (down_) {
+			UI::EventParams e;
+			OnClick.Trigger(e);
+		}
+		down_ = false;
+	}
 }
 
 void Choice::Draw(DrawContext &dc) {
@@ -115,15 +132,27 @@ void Choice::Draw(DrawContext &dc) {
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
+void CheckBox::Draw(DrawContext &dc) {
+	int paddingX = 80;
+	int paddingY = 4;
+	dc.draw->DrawImage(dc.theme->checkOn, bounds_.x + 30, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.y + paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
+}
+
 void Button::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
 	dc.draw->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
 }
 
 void Button::Draw(DrawContext &dc) {
 	int image = down_ ? dc.theme->buttonImage : dc.theme->buttonSelected;
-
-	dc.draw->DrawImage4Grid(dc.theme->buttonImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style_.bgColor);
-	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.centerX(), bounds_.centerY(), style_.fgColor, ALIGN_CENTER);
+	
+	Style style = dc.theme->buttonStyle;
+	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
+	if (down_) style = dc.theme->buttonDownStyle;
+	
+	dc.draw->DrawImage4Grid(dc.theme->buttonImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
+	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 }
 
 void ImageView::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {

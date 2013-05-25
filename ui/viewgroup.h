@@ -5,16 +5,6 @@
 
 namespace UI {
 
-// The four cardinal directions should be enough, plus Prev/Next in "element order".
-enum FocusDirection {
-	FOCUS_UP,
-	FOCUS_DOWN,
-	FOCUS_LEFT,
-	FOCUS_RIGHT,
-	FOCUS_NEXT,
-	FOCUS_PREV,
-};
-
 class ViewGroup : public View {
 public:
 	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams) {}
@@ -26,6 +16,7 @@ public:
 	// By default, a container will layout to its own bounds.
 	virtual void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) = 0;
 	virtual void Layout() = 0;
+	virtual void Update(const InputState &input_state);
 
 	virtual void Draw(DrawContext &dc);
 
@@ -36,9 +27,14 @@ public:
 	// Takes ownership! DO NOT add a view to multiple parents!
 	void Add(View *view) { views_.push_back(view); }
 
+	virtual bool SetFocus();
+	virtual void MoveFocus(FocusDirection direction);
+
 	// Assumes that layout has taken place.
 	View *FindNeighbor(View *view, FocusDirection direction);
 	
+	virtual bool CanBeFocused() const { return false; }
+
 protected:
 	std::vector<View *> views_;
 };
@@ -72,15 +68,15 @@ private:
 
 class GridLayout : public ViewGroup {
 public:
-	GridLayout(Orientation orientation, int colsOrRows) :
-		orientation_(orientation), colsOrRows_(colsOrRows) {}
+	GridLayout(Orientation orientation, int numPerLine) :
+		orientation_(orientation), numPerLine_(numPerLine) {}
 
 	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 
 private:
 	Orientation orientation_;
-	int colsOrRows_;
+	int numPerLine_;
 };
 
 // A scrollview usually contains just a single child - a linear layout or similar.
@@ -106,5 +102,6 @@ public:
 };
 
 void LayoutViewHierarchy(const DrawContext &dc, ViewGroup *root);
+void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root);
 
 }  // namespace UI
