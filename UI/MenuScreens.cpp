@@ -740,12 +740,12 @@ void GraphicsScreenP2::render() {
 		
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Fps  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 180 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "-30", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("-30"), ALIGN_LEFT))
 			if(g_Config.iFpsLimit > 30){
 			g_Config.iFpsLimit -= 30;}
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "+30", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("+30"), ALIGN_LEFT))
 			if(g_Config.iFrameSkip != 240){
 			g_Config.iFpsLimit += 30;}
 	} else {
@@ -761,13 +761,13 @@ void GraphicsScreenP2::render() {
 
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 180 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "4x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 4;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "8x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("8x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 8;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "16x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("16x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 16;
 	} else {
 		g_Config.iAnisotropyLevel = 0;
@@ -777,22 +777,22 @@ void GraphicsScreenP2::render() {
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
+		UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 180 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("3x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
-		UICheckBox(GEN_ID, x + 320, y , gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride + 15, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 180 , y + 10, 20);
-		if (UIButton(GEN_ID, hlinear2, 80, 0, "xBRZ", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("xBRZ"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
-		if (UIButton(GEN_ID, hlinear2, 140, 0, "Hybrid(H)", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 150, 0, gs->T("Hybrid", "Hybrid(H)"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 1;
-		if (UIButton(GEN_ID, hlinear2, 150, 0, "Bicubic(B)", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 150, 0, gs->T("Bicubic", "Bicubic(B)"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 2;
-		if (UIButton(GEN_ID, hlinear2, 65, 0, "H+B", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 120, 0, gs->T("H+B", "H+B"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 3;
 	} else {
 		g_Config.iTexScalingLevel = 1;
