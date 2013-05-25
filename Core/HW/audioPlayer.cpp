@@ -1,6 +1,8 @@
 #ifdef _USE_DSHOW_
 
 #include "audioPlayer.h"
+#include "Core/Config.h"
+
 #include <dshow.h>
 #include "qeditsimple.h"
 #pragma comment(lib, "Strmiids.lib")
@@ -568,9 +570,11 @@ void deleteAtrac3Audio(int atracID)
 
 void initaudioEngine()
 {
-	if (LoadFilterLibrary(0, "filter\\lib\\AsyncStreamflt.ax") != S_OK)
-	{
-		WARN_LOG(HLE, "Can't load AsyncStreamflt.ax");
+	if (g_Config.bAutoLoadDShow) {
+		if (LoadFilterLibrary(0, "filter\\lib\\AsyncStreamflt.ax") != S_OK)
+		{
+			WARN_LOG(HLE, "Can't load AsyncStreamflt.ax");
+		}
 	}
 	CoInitialize(0);
 }
