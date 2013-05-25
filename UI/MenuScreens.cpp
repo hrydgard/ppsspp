@@ -1219,11 +1219,13 @@ void ErrorScreen::render()
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
+	I18NCategory *ge = GetI18NCategory("Error");
+
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, errorTitle_.c_str(), dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, ge->T(errorTitle_.c_str()), dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
-	ui_draw2d.DrawText(UBUNTU24, errorMessage_.c_str(), 40, 120, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, ge->T(errorMessage_.c_str()), 40, 120, 0xFFFFFFFF, ALIGN_LEFT);
 
 	I18NCategory *g = GetI18NCategory("General");
 

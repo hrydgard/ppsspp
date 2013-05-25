@@ -102,6 +102,8 @@ Back = 返回
 Delete = 删除
 Finish = 完成
 Shift = Shift
+[Error]
+Error loading file = 文件载入错误
 
 繁體中文
 [MainMenu]
@@ -207,3 +209,5 @@ There is no data = 沒有存檔
 DeleteConfirm = 這份檔案將被刪除。\n您確定要繼續嗎?
 Deleting = 刪除中\n請稍候...
 Delete completed = 已刪除
+[Error]
+Error loading file = 檔案載入錯誤
