@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 
 // for native audio
 #include <SLES/OpenSLES.h>
@@ -46,8 +47,16 @@ static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
 	assert(bq == bqPlayerBufferQueue);
 	assert(NULL == context);
 
+	int nextSamples = audioCallback(buffer[curBuffer], BUFFER_SIZE_IN_SAMPLES);
+	// We can't enqueue nothing, the callback will never be called again.
+	// Delay until we get some audio.
+	while (nextSamples == 0) {
+		usleep(40);
+		nextSamples = audioCallback(buffer[curBuffer], BUFFER_SIZE_IN_SAMPLES);
+	}
+
 	short *nextBuffer = buffer[curBuffer];
-	int nextSize = sizeof(buffer[0]);
+	int nextSize = nextSamples * 2 * sizeof(short);
 
 	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, nextBuffer, nextSize);
 
@@ -57,8 +66,6 @@ static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
 	assert(SL_RESULT_SUCCESS == result);
 
 	curBuffer ^= 1;	// Switch buffer
-	// Render to the fresh buffer
-	audioCallback(buffer[curBuffer], BUFFER_SIZE_IN_SAMPLES);
 }
 
 // create the engine and output mix objects
