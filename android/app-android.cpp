@@ -294,7 +294,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 	}
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
+extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
 	// Too spammy
 	// ILOG("NativeApp.audioRender");
 
@@ -305,9 +305,16 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	e
 	if (buf_size) {
 		short *data = env->GetShortArrayElements(array, 0);
 		int samples = buf_size / 2;
-		NativeMix(data, samples);
-		env->ReleaseShortArrayElements(array, data, 0);
+		samples = NativeMix(data, samples);
+		if (samples != 0) {
+			env->ReleaseShortArrayElements(array, data, 0);
+			return samples * 2;
+		} else {
+			env->ReleaseShortArrayElements(array, data, JNI_ABORT);
+			return 0;
+		}
 	}
+	return 0;
 }
 
 extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
