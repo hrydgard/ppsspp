@@ -712,7 +712,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		INFO_LOG(HLE, "Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
 
 		if (!Memory::IsValidAddress(ent->resident)) {
-			WARN_LOG_REPORT(LOADER, "Invalid export resident address %08x", ent->resident);
+			if (ent->fcount + ent->vcount > 0) {
+				WARN_LOG_REPORT(LOADER, "Invalid export resident address %08x", ent->resident);
+			}
 			continue;
 		}
 
@@ -748,25 +750,35 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			u32 nid = residentPtr[ent->fcount + j];
 			u32 exportAddr = exportPtr[ent->fcount + j];
 
+			int size;
 			switch (nid) {
 			case NID_MODULE_INFO:
 				break;
 			case NID_MODULE_START_THREAD_PARAMETER:
-				if (Memory::Read_U32(exportAddr) != 3)
+				size = Memory::Read_U32(exportAddr);
+				if (size == 0)
+					break;
+				else if (size != 3)
 					WARN_LOG_REPORT(LOADER, "Strange value at module_start_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 				module->nm.module_start_thread_priority = Memory::Read_U32(exportAddr + 4);
 				module->nm.module_start_thread_stacksize = Memory::Read_U32(exportAddr + 8);
 				module->nm.module_start_thread_attr = Memory::Read_U32(exportAddr + 12);
 				break;
 			case NID_MODULE_STOP_THREAD_PARAMETER:
-				if (Memory::Read_U32(exportAddr) != 3)
+				size = Memory::Read_U32(exportAddr);
+				if (size == 0)
+					break;
+				else if (size != 3)
 					WARN_LOG_REPORT(LOADER, "Strange value at module_stop_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 				module->nm.module_stop_thread_priority = Memory::Read_U32(exportAddr + 4);
 				module->nm.module_stop_thread_stacksize = Memory::Read_U32(exportAddr + 8);
 				module->nm.module_stop_thread_attr = Memory::Read_U32(exportAddr + 12);
 				break;
 			case NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER:
-				if (Memory::Read_U32(exportAddr) != 3)
+				size = Memory::Read_U32(exportAddr);
+				if (size == 0)
+					break;
+				else if (size != 3)
 					WARN_LOG_REPORT(LOADER, "Strange value at module_reboot_before_thread_parameter export: %08x", Memory::Read_U32(exportAddr));
 				module->nm.module_reboot_before_thread_priority = Memory::Read_U32(exportAddr + 4);
 				module->nm.module_reboot_before_thread_stacksize = Memory::Read_U32(exportAddr + 8);
