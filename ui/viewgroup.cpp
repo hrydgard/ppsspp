@@ -163,7 +163,7 @@ void LinearLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec
 	// Awright, got the sum. Let's take the remaining space after the fixed-size views,
 	// and distribute among the weighted ones.
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		MeasureBySpec(layoutParams_->width, sum, horiz, &measuredWidth_);
+		MeasureBySpec(layoutParams_->width, weightZeroSum, horiz, &measuredWidth_);
 		MeasureBySpec(layoutParams_->height, maxOther, vert, &measuredHeight_);
 
 		float unit = (measuredWidth_ - weightZeroSum) / weightSum;
@@ -176,7 +176,7 @@ void LinearLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec
 				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight), vert);
 		}
 	} else {
-		MeasureBySpec(layoutParams_->height, sum, vert, &measuredHeight_);
+		MeasureBySpec(layoutParams_->height, weightZeroSum, vert, &measuredHeight_);
 		MeasureBySpec(layoutParams_->width, maxOther, horiz, &measuredWidth_);
 
 		float unit = (measuredHeight_ - weightZeroSum) / weightSum;
@@ -262,25 +262,36 @@ void ScrollView::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec v
 	// The scroll view itself simply obeys its parent.
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
+
+	if (orientation_ == ORIENT_HORIZONTAL) {
+		views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), vert);
+	} else {
+		views_[0]->Measure(dc, horiz, MeasureSpec(UNSPECIFIED));
+	}
 }
 
 void ScrollView::Layout() {
-	Bounds scrolled = bounds_;
+	Bounds scrolled;
+	scrolled.w = views_[0]->GetMeasuredWidth();
+	scrolled.h = views_[0]->GetMeasuredHeight();
 
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
-		scrolled.x -= scrollPos_;
+		scrolled.x = bounds_.x - scrollPos_;
+		scrolled.y = bounds_.y;
 		break;
 	case ORIENT_VERTICAL:
-		scrolled.y -= scrollPos_;
+		scrolled.x = bounds_.x;
+		scrolled.y = bounds_.y - scrollPos_;
 		break;
 	}
 	views_[0]->SetBounds(scrolled);
+	views_[0]->Layout();
 }
 
 void ScrollView::Touch(const TouchInput &input) {
 	if ((input.flags & TOUCH_DOWN) && input.id == 0) {
-		scrollStart_ = orientation_ == ORIENT_HORIZONTAL ? input.x : input.y;
+		scrollStart_ = scrollPos_;
 	}
 
 	gesture_.Update(input);
@@ -288,9 +299,27 @@ void ScrollView::Touch(const TouchInput &input) {
 	if (gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
 		float info[4];
 		gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info);
+		scrollPos_ = scrollStart_ - info[0];
+	} else {
+		ViewGroup::Touch(input);
+	}
+
+	// Clamp scrollPos_. TODO: flinging, bouncing, etc.
+	if (scrollPos_ < 0.0f) {
+		scrollPos_ = 0.0f;
+	}
+	float childHeight = views_[0]->GetBounds().h;
+	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
+	if (scrollPos_ > scrollMax) {
+		scrollPos_ = scrollMax;
 	}
 }
 
+void ScrollView::Draw(DrawContext &dc) {
+	dc.PushStencil(bounds_);
+	views_[0]->Draw(dc);
+	dc.PopStencil();
+}
 
 void GridLayout::Layout() {
 

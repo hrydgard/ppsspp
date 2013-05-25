@@ -8,7 +8,7 @@ enum Gesture {
 	GESTURE_DRAG_VERTICAL = 1,
 	GESTURE_DRAG_HORIZONTAL = 2,
 	GESTURE_TWO_FINGER_ZOOM = 4,
-	GESTURE_TWO_FINGER_ZOOM_ROTATE = 4,
+	GESTURE_TWO_FINGER_ZOOM_ROTATE = 8,
 };
 
 // May track multiple gestures at the same time. You simply call GetGestureInfo
@@ -16,6 +16,7 @@ enum Gesture {
 class GestureDetector
 {
 public:
+	GestureDetector();
 	void Update(const TouchInput &touch);
 	bool IsGestureActive(Gesture gesture) const;
 	void GetGestureInfo(Gesture gesture, float info[4]);
@@ -28,18 +29,19 @@ private:
 
 	struct Pointer {
 		bool down;
-		float X;
-		float Y;
+		double downTime;
 		float lastX;
 		float lastY;
 		float downX;
 		float downY;
 		float deltaX;
 		float deltaY;
-		float smoothDeltaX;
-		float smoothDeltaY;
+		float distanceX;
+		float distanceY;
 	};
 
 	Pointer pointers[MAX_PTRS];
 	// ...
+
+	uint32_t active_;
 };

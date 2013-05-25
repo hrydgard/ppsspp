@@ -161,6 +161,9 @@ struct DrawContext {
 	DrawBuffer *draw;
 	DrawBuffer *drawTop;
 	const Theme *theme;
+
+	void PushStencil(const Bounds &bounds) {}
+	void PopStencil() {}
 };
 
 // Should cover all bases.
@@ -221,6 +224,8 @@ class LinearLayoutParams : public LayoutParams {
 public:
 	LinearLayoutParams()
 		: LayoutParams(), weight(0.0f), gravity(G_TOPLEFT), hasMargins_(false) {}
+	explicit LinearLayoutParams(float wgt)
+		: LayoutParams(), weight(wgt), gravity(G_TOPLEFT), hasMargins_(false) {}
 	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = G_TOPLEFT)
 		: LayoutParams(w, h), weight(wgt), gravity(grav), hasMargins_(false) {}
 	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)
@@ -408,10 +413,10 @@ private:
 	std::string rightText_;
 };
 
-class CheckBox : public Clickable {
+class CheckBox : public ClickableItem {
 public:
 	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), text_(text), smallText_(smallText) {
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {
 		OnClick.Add(std::bind(&CheckBox::OnClicked, this, std::placeholders::_1));
 	}
 
@@ -422,6 +427,7 @@ public:
 			*toggle_ = !(*toggle_);
 		return EVENT_DONE;
 	}
+
 private:
 	bool *toggle_;
 	std::string text_;

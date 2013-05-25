@@ -531,14 +531,16 @@ int main(int argc, char *argv[]) {
 					quitRequested = 1;
 				}
 			} else if (event.type == SDL_MOUSEMOTION) {
-				input_state.pointer_x[0] = mx;
-				input_state.pointer_y[0] = my;
-				TouchInput input;
-				input.x = mx;
-				input.y = my;
-				input.flags = TOUCH_MOVE;
-				input.id = 0;
-				NativeTouch(input);
+				if (input_state.pointer_down[0]) {
+					input_state.pointer_x[0] = mx;
+					input_state.pointer_y[0] = my;
+					TouchInput input;
+					input.x = mx;
+					input.y = my;
+					input.flags = TOUCH_MOVE;
+					input.id = 0;
+					NativeTouch(input);
+				}
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					//input_state.mouse_buttons_down = 1;

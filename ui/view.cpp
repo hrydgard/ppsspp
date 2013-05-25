@@ -132,12 +132,21 @@ void Choice::Draw(DrawContext &dc) {
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
+void InfoItem::Draw(DrawContext &dc) {
+	int paddingX = 4;
+	int paddingY = 4;
+	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_RIGHT);
+	dc.draw->hLine(bounds_.x, bounds_.y, bounds_.x2(), 0xFFFFFFFF);
+}
+
 void CheckBox::Draw(DrawContext &dc) {
 	int paddingX = 80;
 	int paddingY = 4;
 	dc.draw->DrawImage(dc.theme->checkOn, bounds_.x + 30, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.y + paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	dc.draw->hLine(bounds_.x, bounds_.y, bounds_.x2(), 0xFFFFFFFF);
 }
 
 void Button::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {

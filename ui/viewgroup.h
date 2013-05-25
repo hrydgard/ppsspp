@@ -68,8 +68,8 @@ private:
 
 class GridLayout : public ViewGroup {
 public:
-	GridLayout(Orientation orientation, int numPerLine) :
-		orientation_(orientation), numPerLine_(numPerLine) {}
+	GridLayout(Orientation orientation, int numPerLine, LayoutParams *layoutParams = 0)
+		: ViewGroup(layoutParams), orientation_(orientation), numPerLine_(numPerLine) {}
 
 	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
@@ -82,13 +82,14 @@ private:
 // A scrollview usually contains just a single child - a linear layout or similar.
 class ScrollView : public ViewGroup {
 public:
-	ScrollView(Orientation orientation) :
-		orientation_(orientation) {}
+	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0) :
+		ViewGroup(layoutParams), orientation_(orientation), scrollPos_(0) {}
 
 	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 
 	void Touch(const TouchInput &input);
+	void Draw(DrawContext &dc);
 
 private:
 	GestureDetector gesture_;
