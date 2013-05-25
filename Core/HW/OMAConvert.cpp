@@ -1,4 +1,5 @@
 #include "OMAConvert.h"
+#include <cstring>
 
 namespace OMAConvert {
 
