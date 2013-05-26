@@ -54,7 +54,11 @@ public:
 	int u_view;
 	int u_texmtx;
 	int u_world;
+#ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones
+#else
+	int u_bone[8];
+#endif
 	int numBones;
 	
 	// Fragment processing inputs

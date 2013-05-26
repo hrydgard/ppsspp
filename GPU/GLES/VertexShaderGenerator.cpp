@@ -128,6 +128,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 // #define USE_FOR_LOOP
 
 #if defined(USING_GLES2)
+	WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	WRITE(p, "precision highp float;\n");
 
 #elif !defined(FORCE_OPENGL_2_0)
@@ -213,7 +214,13 @@ void GenerateVertexShader(int prim, char *buffer) {
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 		if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
 			int numBones = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
+#ifdef USE_BONE_ARRAY
 			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBones);
+#else
+			for (int i = 0; i < numBones; i++) {
+				WRITE(p, "uniform mediump mat4 u_bone%i;\n", i);
+			}
+#endif
 		}
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
@@ -303,7 +310,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				"a_w2.x", "a_w2.y", "a_w2.z", "a_w2.w",
 			};
 			
-#ifdef USE_FOR_LOOP
+#if defined(USE_FOR_LOOP) && defined(USE_BONE_ARRAY)
 
 			// To loop through the weights, we unfortunately need to put them in a float array.
 			// GLSL ES sucks - no way to directly initialize an array!
@@ -326,6 +333,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 			}
 
 #else
+
+#ifdef USE_BONE_ARRAY
 			if (numWeights == 1)
 				WRITE(p, "  mat4 skinMatrix = a_w1 * u_bone[0]");
 			else
@@ -337,8 +346,23 @@ void GenerateVertexShader(int prim, char *buffer) {
 				if (numWeights == 5 && i == 4) weightAttr = "a_w2";
 				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
 			}
-			WRITE(p, ";\n");
+#else
+			if (numWeights == 1)
+				WRITE(p, "  mat4 skinMatrix = a_w1 * u_bone0");
+			else
+				WRITE(p, "  mat4 skinMatrix = a_w1.x * u_bone0");
+			for (int i = 1; i < numWeights; i++) {
+				const char *weightAttr = boneWeightAttr[i];
+				// workaround for "cant do .x of scalar" issue
+				if (numWeights == 1 && i == 0) weightAttr = "a_w1";
+				if (numWeights == 5 && i == 4) weightAttr = "a_w2";
+				WRITE(p, " + %s * u_bone%i", weightAttr, i);
+			}
 #endif
+
+#endif
+
+			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
 			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(a_position, 1.0)).xyz * %f;\n", factor);

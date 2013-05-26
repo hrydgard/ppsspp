@@ -148,6 +148,7 @@ void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
 
 #if defined(GLSL_ES_1_0)
+	WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	WRITE(p, "precision lowp float;\n");
 #elif !defined(FORCE_OPENGL_2_0)
 	WRITE(p, "#version 110\n");

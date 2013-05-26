@@ -105,8 +105,16 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs)
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
-	u_bone = glGetUniformLocation(program, "u_bone");
 	numBones = gstate.getNumBoneWeights();
+#ifdef USE_BONE_ARRAY
+	u_bone = glGetUniformLocation(program, "u_bone");
+#else
+	for (int i = 0; i < numBones; i++) {
+		char name[10];
+		sprintf(name, "u_bone%i", i);
+		u_bone[i] = glGetUniformLocation(program, name);
+	}
+#endif
 
 	// Lighting, texturing
 	u_ambient = glGetUniformLocation(program, "u_ambient");
@@ -323,6 +331,7 @@ void LinkedShader::updateUniforms() {
 	}
 
 	// TODO: Could even set all bones in one go if they're all dirty.
+#ifdef USE_BONE_ARRAY
 	if (u_bone != -1) {
 		float allBones[8 * 16];
 
@@ -346,6 +355,15 @@ void LinkedShader::updateUniforms() {
 			}
 		}
 	}
+#else
+	float bonetemp[16];
+	for (int i = 0; i < numBones; i++) {
+		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+			ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, bonetemp);
+			glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
+		}
+	}
+#endif
 
 	// Lighting
 	if (u_ambient != -1 && (dirtyUniforms & DIRTY_AMBIENT)) {
