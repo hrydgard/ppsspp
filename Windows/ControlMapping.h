@@ -72,6 +72,9 @@ public:
 	UINT  GetBindCode();
 	UINT  GetBindCode(UINT buttonIdx);
 	UINT  GetBindCode(UINT deviceIdx, UINT buttonIdx);
+	void SetDisableBind();
+	void SetDisableBind(UINT buttonIdx);
+	void SetDisableBind(UINT deviceIdx, UINT buttonIdx);
 
 private:
 	ControlMapping(UINT nButtons);

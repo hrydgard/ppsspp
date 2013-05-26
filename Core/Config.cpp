@@ -126,6 +126,7 @@ void Config::Load(const char *iniFileName)
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
+	sound->Get("AutoLoadDShow", &bAutoLoadDShow, false);
 
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
@@ -215,6 +216,7 @@ void Config::Save()
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
+		sound->Set("AutoLoadDShow", bAutoLoadDShow);
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);

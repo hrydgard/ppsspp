@@ -83,6 +83,7 @@ public:
 
 	// Sound
 	bool bEnableSound;
+	bool bAutoLoadDShow;
 
 	// UI
 	bool bShowTouchControls;

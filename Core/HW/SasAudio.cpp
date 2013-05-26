@@ -311,10 +311,17 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 				break;
 			case VOICETYPE_PCM:
 				{
-					u32 size = std::min(voice.pcmSize, (int)(numSamples * sizeof(s16)));
-					Memory::Memcpy(resampleBuffer + 2, voice.pcmAddr, size);
-					if (numSamples * sizeof(s16) > size)
-						memset(resampleBuffer + 2 + voice.pcmSize, 0, numSamples * sizeof(s16) - size);
+					u32 size = std::min(voice.pcmSize * 2 - voice.pcmIndex, (int)(numSamples * sizeof(s16)));
+					memset(resampleBuffer + 2, 0, numSamples * sizeof(s16));
+					if (!voice.on) {
+						voice.pcmIndex = 0;
+						break;
+					}
+					Memory::Memcpy(resampleBuffer + 2, voice.pcmAddr + voice.pcmIndex, size);
+					voice.pcmIndex += size;
+					if (voice.pcmIndex >= voice.pcmSize * 2) {
+						voice.pcmIndex = 0;
+					}
 				}
 				break;
 			default:
@@ -342,7 +349,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 				envelopeValue = ((envelopeValue >> 15) + 1) >> 1;
 
 				// We just scale by the envelope before we scale by volumes.
-				sample = sample * envelopeValue >> 15;
+				sample = sample * (envelopeValue + 0x4000) >> 15;
 
 				// We mix into this 32-bit temp buffer and clip in a second loop
 				// Ideally, the shift right should be there too but for now I'm concerned about
@@ -357,6 +364,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 			// Let's hope grainSize is a power of 2.
 			//voice.sampleFrac &= grainSize * PSP_SAS_PITCH_BASE - 1;
 			voice.sampleFrac -= numSamples * PSP_SAS_PITCH_BASE;
+
 			if (voice.envelope.HasEnded())
 			{
 				// NOTICE_LOG(SAS, "Hit end of envelope");

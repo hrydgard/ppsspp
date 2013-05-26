@@ -24,8 +24,6 @@ extern unsigned short analog_ctrl_map[];
 extern unsigned int dinput_ctrl_map[];
 extern unsigned int xinput_ctrl_map[];
 
-#define DINPUT_CAST(inst) static_cast<std::shared_ptr<DinputDevice>>(inst)
-
 inline UINT* ControlMapping::GetDeviceButtonsMap(UINT curDevice)
 {
 	switch (curDevice)
@@ -169,6 +167,25 @@ UINT  ControlMapping::GetBindCode(UINT buttonIdx)
 UINT ControlMapping::GetBindCode()
 {
 	return GetBindCode(currentDevicePage, currentButtonIndex);
+}
+
+void ControlMapping::SetDisableBind(UINT deviceIdx, UINT buttonIdx)
+{
+	u32 disableCode = 0;
+	if (deviceIdx == CONTROLS_DIRECT_INPUT_INDEX) {
+		disableCode = 0xFFFFFFFF;
+	}
+	SetBindCode(disableCode, deviceIdx, buttonIdx);
+}
+
+void ControlMapping::SetDisableBind(UINT buttonIdx)
+{
+	SetDisableBind(currentDevicePage, buttonIdx);
+}
+
+void ControlMapping::SetDisableBind()
+{
+	SetDisableBind(currentDevicePage, currentButtonIndex);
 }
 
 UINT ControlMapping::GetTargetDevice()

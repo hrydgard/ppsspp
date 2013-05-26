@@ -125,7 +125,7 @@ enum DoLightComputation {
 void GenerateVertexShader(int prim, char *buffer) {
 	char *p = buffer;
 
-#define USE_FOR_LOOP
+// #define USE_FOR_LOOP
 
 #if defined(USING_GLES2)
 	WRITE(p, "precision highp float;\n");
@@ -327,14 +327,14 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 #else
 			if (numWeights == 1)
-				WRITE(p, "  mat4 skinMatrix = bw1 * u_bone[0]");
+				WRITE(p, "  mat4 skinMatrix = a_w1 * u_bone[0]");
 			else
-				WRITE(p, "  mat4 skinMatrix = bw1.x * u_bone[0]");
+				WRITE(p, "  mat4 skinMatrix = a_w1.x * u_bone[0]");
 			for (int i = 1; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
-				if (numWeights == 1 && i == 0) weightAttr = "bw1";
-				if (numWeights == 5 && i == 4) weightAttr = "bw2";
+				if (numWeights == 1 && i == 0) weightAttr = "a_w1";
+				if (numWeights == 5 && i == 4) weightAttr = "a_w2";
 				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
 			}
 			WRITE(p, ";\n");

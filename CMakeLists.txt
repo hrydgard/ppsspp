@@ -19,7 +19,7 @@ if (MAEMO)
 endif()
 
 if(LOONGSON)
-    set(MIPS ON) # MIPS + x86 for now
+	set(MIPS ON) # MIPS + x86 for now
 endif()
 
 if(ARM)
@@ -436,8 +436,8 @@ elseif(IOS)
 		ios/AppDelegate.h
 		ios/ViewController.mm
 		ios/ViewController.h
-        ios/AudioEngine.mm
-        ios/AudioEngine.h)
+		ios/AudioEngine.mm
+		ios/AudioEngine.h)
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
@@ -1011,6 +1011,7 @@ endif()
 if(HEADLESS)
 	add_executable(PPSSPPHeadless
 		headless/Headless.cpp
+		UI/OnScreenDisplay.cpp
 		headless/StubHost.h
 		headless/Compare.cpp
 		headless/Compare.h)
@@ -1023,7 +1024,7 @@ set(NativeAppSource
 	UI/NativeApp.cpp
 	UI/EmuScreen.cpp
 	android/jni/TestRunner.cpp
-    UI/GameInfoCache.cpp
+	UI/GameInfoCache.cpp
 	UI/MenuScreens.cpp
 	UI/GamepadEmu.cpp
 	UI/UIShader.cpp

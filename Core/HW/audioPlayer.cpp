@@ -1,6 +1,8 @@
 #ifdef _USE_DSHOW_
 
 #include "audioPlayer.h"
+#include "Core/Config.h"
+
 #include <dshow.h>
 #include "qeditsimple.h"
 #pragma comment(lib, "Strmiids.lib")
@@ -18,6 +20,70 @@
     {return hr;}
 #define LIF(x) if (FAILED(hr=(x))) \
     {}
+
+// Add filter from a dll/ax library directly
+#include <comdef.h>
+typedef HRESULT (STDAPICALLTYPE* FN_DLLGETCLASSOBJECT)(REFCLSID clsid, REFIID iid, void** ppv);
+
+static const int importlibnum = 1;
+static HMODULE lib[importlibnum] = {0};
+static FN_DLLGETCLASSOBJECT fn[importlibnum] = {0};
+
+HRESULT LoadFilterLibrary(int index, const char *pPath)
+{
+	if (index < 0 || index >= importlibnum)
+		return E_FAIL;
+	// load the target DLL directly
+	lib[index] = LoadLibrary(pPath);
+	if (!lib[index])
+	{
+		return HRESULT_FROM_WIN32(GetLastError());
+	}
+
+	// the entry point is an exported function
+	fn[index] = (FN_DLLGETCLASSOBJECT)GetProcAddress(lib[index], "DllGetClassObject");
+	if (fn[index] == NULL)
+	{
+		return HRESULT_FROM_WIN32(GetLastError());
+	}
+
+	return S_OK;
+}
+
+HRESULT FreeFilterLibrary(int index)
+{
+	if (index < 0 || index >= importlibnum)
+		return E_FAIL;
+	if (lib[index])
+		FreeLibrary(lib[index]);
+	lib[index] = 0;
+	return S_OK;
+}
+
+HRESULT CreateFilterFromLibrary(int index, REFCLSID clsid, REFIID iid, void** ppUnk)
+{
+	if (index < 0 || index >= importlibnum)
+		return E_FAIL;
+	if (!fn[index])
+		return E_FAIL;
+	// create a class factory
+	IUnknownPtr pUnk;
+	HRESULT hr = fn[index](clsid,  IID_IUnknown,  (void**)&pUnk);
+	if (SUCCEEDED(hr))
+	{
+		IClassFactoryPtr pCF = pUnk;
+		if (pCF == NULL)
+		{
+			hr = E_NOINTERFACE;
+		}
+		else
+		{
+			// ask the class factory to create the object
+			hr = pCF->CreateInstance(NULL, iid, (void**)ppUnk);
+		}
+	}
+	return hr;
+}
 
 // {2AE44C10-B451-4B01-9BBE-A5FBEF68C9D4}
 static const GUID CLSID_AsyncStreamSource = 
@@ -250,8 +316,7 @@ bool audioPlayer::load(const char* filename, u8* stream, int readSize, int strea
 	JIF(pGB->QueryInterface(IID_IMediaSeeking, (void **)&m_pMS));
 
 	IBaseFilter *pSrc = 0;
-	JIF(CoCreateInstance(CLSID_AsyncStreamSource, NULL, CLSCTX_INPROC_SERVER,
-		IID_IBaseFilter, (void**)&pSrc));
+	JIF(CreateFilterFromLibrary(0, CLSID_AsyncStreamSource, IID_IBaseFilter, (void**)&pSrc));
 	JIF(pGB->AddFilter(pSrc,wstrfilename));
 	JIF(pSrc->QueryInterface(IID_IStreamSourceFilter,(void**)&m_pStreamReader));
 	IStreamSourceFilter* pStreamReader = (IStreamSourceFilter*)m_pStreamReader;
@@ -505,6 +570,12 @@ void deleteAtrac3Audio(int atracID)
 
 void initaudioEngine()
 {
+	if (g_Config.bAutoLoadDShow) {
+		if (LoadFilterLibrary(0, "filter\\lib\\AsyncStreamflt.ax") != S_OK)
+		{
+			WARN_LOG(HLE, "Can't load AsyncStreamflt.ax");
+		}
+	}
 	CoInitialize(0);
 }
 
@@ -517,6 +588,7 @@ void shutdownEngine()
 	audioMap.clear();
 	atracsection.unlock();
 	CoUninitialize();
+	FreeFilterLibrary(0);
 }
 
 #endif // _USE_DSHOW_
