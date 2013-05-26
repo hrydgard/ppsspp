@@ -368,9 +368,6 @@ void sceKernelExitGameWithStatus();
 int LoadExecForUser_362A956B();
 void sceKernelRegisterExitCallback();
 
-void sceKernelSleepThread();
-void sceKernelSleepThreadCB();
-
 u32 sceKernelDevkitVersion();
 
 u32 sceKernelRegisterKprintfHandler();
