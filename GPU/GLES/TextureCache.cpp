@@ -795,8 +795,8 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	return check;
 }
 
-inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2) {
-	return dim == dim2 && hash == hash2 && format == format2 && maxLevel == maxLevel2;
+inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLevel2) {
+	return dim == dim2 && format == format2 && maxLevel == maxLevel2;
 }
 
 void TextureCache::LoadClut() {
@@ -891,6 +891,9 @@ void TextureCache::SetTexture() {
 		cluthash = 0;
 	}
 
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	int bufw = GetLevelBufw(0, texaddr);
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
 	u32 texhash = MiniHash((const u32 *)Memory::GetPointer(texaddr));
@@ -934,7 +937,7 @@ void TextureCache::SetTexture() {
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
-		bool match = entry->Matches(dim, texhash, format, maxLevel);
+		bool match = entry->Matches(dim, format, maxLevel);
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
 
@@ -956,44 +959,48 @@ void TextureCache::SetTexture() {
 				rehash = true;
 			}
 
+			bool hashFail = false;
+			if (texhash != entry->hash) {
+				fullhash = QuickTexHash(texaddr, bufw, w, h, format);
+				hashFail = true;
+				rehash = false;
+			}
+
 			if (rehash && (entry->status & TexCacheEntry::STATUS_MASK) != TexCacheEntry::STATUS_RELIABLE) {
-				int w = 1 << (gstate.texsize[0] & 0xf);
-				int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-				int bufw = GetLevelBufw(0, texaddr);
 				fullhash = QuickTexHash(texaddr, bufw, w, h, format);
 				if (fullhash != entry->fullhash) {
-					entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
-					entry->numFrames = 0;
-
-					// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
-					// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
-					if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
-						u64 secondKey = fullhash | (u64)cluthash << 32;
-						TexCache::iterator secondIter = secondCache.find(secondKey);
-						if (secondIter != secondCache.end()) {
-							TexCacheEntry *secondEntry = &secondIter->second;
-							if (secondEntry->Matches(dim, texhash, format, maxLevel)) {
-								// Reset the numInvalidated value lower, we got a match.
-								if (entry->numInvalidated > 8) {
-									--entry->numInvalidated;
-								}
-								entry = secondEntry;
-							} else {
-								match = false;
-							}
-						} else {
-							match = false;
-
-							secondKey = entry->fullhash | (u64)entry->cluthash << 32;
-							secondCache[secondKey] = *entry;
-							doDelete = false;
-						}
-					} else {
-						match = false;
-					}
+					hashFail = true;
 				} else if ((entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE && entry->numFrames > TexCacheEntry::FRAMES_REGAIN_TRUST) {
 					// Reset to STATUS_HASHING.
 					entry->status &= ~TexCacheEntry::STATUS_MASK;
+				}
+			}
+
+			if (hashFail) {
+				match = false;
+				entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
+				entry->numFrames = 0;
+
+				// Don't give up just yet.  Let's try the secondary cache if it's been invalidated before.
+				// If it's failed a bunch of times, then the second cache is just wasting time and VRAM.
+				if (entry->numInvalidated > 2 && entry->numInvalidated < 128 && !lowMemoryMode_) {
+					u64 secondKey = fullhash | (u64)cluthash << 32;
+					TexCache::iterator secondIter = secondCache.find(secondKey);
+					if (secondIter != secondCache.end()) {
+						TexCacheEntry *secondEntry = &secondIter->second;
+						if (secondEntry->Matches(dim, format, maxLevel)) {
+							// Reset the numInvalidated value lower, we got a match.
+							if (entry->numInvalidated > 8) {
+								--entry->numInvalidated;
+							}
+							entry = secondEntry;
+							match = true;
+						}
+					} else {
+						secondKey = entry->fullhash | (u64)entry->cluthash << 32;
+						secondCache[secondKey] = *entry;
+						doDelete = false;
+					}
 				}
 			}
 		}
@@ -1033,10 +1040,6 @@ void TextureCache::SetTexture() {
 		entry->status = TexCacheEntry::STATUS_HASHING;
 	}
 
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-
-	int bufw = GetLevelBufw(0, texaddr);
 	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetUserMemoryBase()) {
 		ERROR_LOG_REPORT(HLE, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
 	}

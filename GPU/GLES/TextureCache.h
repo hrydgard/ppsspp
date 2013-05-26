@@ -96,7 +96,7 @@ private:
 		bool sClamp;
 		bool tClamp;
 
-		bool Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2);
+		bool Matches(u16 dim2, u8 format2, int maxLevel2);
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
