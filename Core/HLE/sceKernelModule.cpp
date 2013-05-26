@@ -1151,7 +1151,7 @@ u32 sceKernelUnloadModule(u32 moduleId)
 		return error;
 
 	kernelObjects.Destroy<Module>(moduleId);
-	return 0;
+	return moduleId;
 }
 
 u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)

@@ -2334,9 +2334,8 @@ bool __KernelThreadSortPriority(SceUID thread1, SceUID thread2)
 //////////////////////////////////////////////////////////////////////////
 // WAIT/SLEEP ETC
 //////////////////////////////////////////////////////////////////////////
-void sceKernelWakeupThread()
+int sceKernelWakeupThread(SceUID uid)
 {
-	SceUID uid = PARAM(0);
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(uid, error);
 	if (t)
@@ -2344,22 +2343,21 @@ void sceKernelWakeupThread()
 		if (!t->isWaitingFor(WAITTYPE_SLEEP, 1)) {
 			t->nt.wakeupCount++;
 			DEBUG_LOG(HLE,"sceKernelWakeupThread(%i) - wakeupCount incremented to %i", uid, t->nt.wakeupCount);
-			RETURN(0);
 		} else {
 			VERBOSE_LOG(HLE,"sceKernelWakeupThread(%i) - woke thread at %i", uid, t->nt.wakeupCount);
 			__KernelResumeThreadFromWait(uid);
 			hleReSchedule("thread woken up");
 		}
+		return 0;
 	} 
 	else {
 		ERROR_LOG(HLE,"sceKernelWakeupThread(%i) - bad thread id", uid);
-		RETURN(error);
+		return error;
 	}
 }
 
-void sceKernelCancelWakeupThread()
+int sceKernelCancelWakeupThread(SceUID uid)
 {
-	SceUID uid = PARAM(0);
 	u32 error;
 	if (uid == 0) uid = __KernelGetCurThread();
 	Thread *t = kernelObjects.Get<Thread>(uid, error);
@@ -2368,44 +2366,42 @@ void sceKernelCancelWakeupThread()
 		int wCount = t->nt.wakeupCount;
 		t->nt.wakeupCount = 0;
 		DEBUG_LOG(HLE,"sceKernelCancelWakeupThread(%i) - wakeupCount reset from %i", uid, wCount);
-		RETURN(wCount);
+		return wCount;
 	}
 	else {
 		ERROR_LOG(HLE,"sceKernelCancelWakeupThread(%i) - bad thread id", uid);
-		RETURN(error);
+		return error;
 	}
 }
 
-static void __KernelSleepThread(bool doCallbacks) {
+static int __KernelSleepThread(bool doCallbacks) {
 	Thread *thread = __GetCurrentThread();
-	if (!thread)
-	{
+	if (!thread) {
 		ERROR_LOG(HLE, "sceKernelSleepThread*(): bad current thread");
-		return;
+		return -1;
 	}
 
 	if (thread->nt.wakeupCount > 0) {
 		thread->nt.wakeupCount--;
 		DEBUG_LOG(HLE, "sceKernelSleepThread() - wakeupCount decremented to %i", thread->nt.wakeupCount);
-		RETURN(0);
 	} else {
 		VERBOSE_LOG(HLE, "sceKernelSleepThread()");
-		RETURN(0);
 		__KernelWaitCurThread(WAITTYPE_SLEEP, 1, 0, 0, doCallbacks, "thread slept");
 	}
+	return 0;
 }
 
-void sceKernelSleepThread()
+int sceKernelSleepThread()
 {
-	__KernelSleepThread(false);
+	return __KernelSleepThread(false);
 }
 
 //the homebrew PollCallbacks
-void sceKernelSleepThreadCB()
+int sceKernelSleepThreadCB()
 {
 	VERBOSE_LOG(HLE, "sceKernelSleepThreadCB()");
-	__KernelSleepThread(true);
-	__KernelCheckCallbacks();
+	hleCheckCurrentCallbacks();
+	return __KernelSleepThread(true);
 }
 
 int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
