@@ -59,23 +59,42 @@ bool ViewGroup::SetFocus() {
 	return false;
 }
 
-void ViewGroup::MoveFocus(FocusDirection direction) {
-	if (!GetFocusedView()) {
-		SetFocus();
-		return;
+float GetDirectionScore(View *origin, View *destination, FocusDirection direction) {
+	// Skip labels and things like that.
+	if (!destination->CanBeFocused())
+		return 0.0f;
+
+	float dx = destination->GetBounds().centerX() - origin->GetBounds().centerX();
+	float dy = destination->GetBounds().centerY() - origin->GetBounds().centerY();
+
+	float distance = sqrtf(dx*dx+dy*dy);
+	float dirX = dx / distance;
+	float dirY = dy / distance;
+
+	switch (direction) {
+	case FOCUS_LEFT:
+		if (dirX > 0.0f) return 0.0f;
+		if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
+		break;
+	case FOCUS_UP:
+		if (dirY > 0.0f) return 0.0f;
+		if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
+		break;
+	case FOCUS_RIGHT:
+		if (dirX < 0.0f) return 0.0f;
+		if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
+		break;
+	case FOCUS_DOWN:
+		if (dirY < 0.0f) return 0.0f;
+		if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
+		break;
 	}
 
-	View *neighbor = FindNeighbor(GetFocusedView(), direction);
-	if (neighbor) {
-		neighbor->SetFocus();
-	} else {
-		for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-			(*iter)->MoveFocus(direction);
-		}
-	}
+	return 100.0f / distance;
 }
 
-View *ViewGroup::FindNeighbor(View *view, FocusDirection direction) {
+
+NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
 	// First, find the position of the view in the list.
 	size_t num = -1;
 	for (size_t i = 0; i < views_.size(); i++) {
@@ -85,28 +104,78 @@ View *ViewGroup::FindNeighbor(View *view, FocusDirection direction) {
 		}
 	}
 
-	// If view not found, no neighbor to find.
-	if (num == -1)
-		return 0;
-
 	// TODO: Do the cardinal directions right. Now we just map to
 	// prev/next.
-
+	
 	switch (direction) {
+	case FOCUS_PREV:
+		// If view not found, no neighbor to find.
+		if (num == -1)
+			return NeighborResult(0, 0.0f);
+		return NeighborResult(views_[(num + views_.size() - 1) % views_.size()], 0.0f);
+
+	case FOCUS_NEXT:
+		// If view not found, no neighbor to find.
+		if (num == -1)
+			return NeighborResult(0, 0.0f);
+		return NeighborResult(views_[(num + 1) % views_.size()], 0.0f);
+
 	case FOCUS_UP:
 	case FOCUS_LEFT:
-	case FOCUS_PREV:
-		return views_[(num + views_.size() - 1) % views_.size()];
 	case FOCUS_RIGHT:
 	case FOCUS_DOWN:
-	case FOCUS_NEXT:
-		return views_[(num + 1) % views_.size()];
+		{
+			// First, try the child views themselves as candidates
+			for (size_t i = 0; i < views_.size(); i++) {
+				if (views_[i] == view)
+					continue;
+
+				float score = GetDirectionScore(view, views_[i], direction);
+				if (score > result.score) {
+					result.score = score;
+					result.view = views_[i];
+					result.parent = this;
+				}
+			}
+
+			// Then go right ahead and see if any of the children contain any better candidates.
+			for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+				ViewGroup *vg = dynamic_cast<ViewGroup *>(*iter);
+				if (vg)
+					result = vg->FindNeighbor(view, direction, result);
+			}
+
+			// Boost neighbors with the same parent
+			if (num != -1) {
+				result.score += 100.0f;
+			}
+
+			return result;
+		}
 
 	default:
-		return view;
+		return result;
 	} 
 }
 
+void MoveFocus(ViewGroup *root, FocusDirection direction) {
+	if (!GetFocusedView()) {
+		// Nothing was focused when we got in here. Focus the first non-group in the hierarchy.
+		root->SetFocus();
+		return;
+	}
+
+	NeighborResult neigh(0, 0);
+	neigh = root->FindNeighbor(GetFocusedView(), direction, neigh);
+
+	if (neigh.view) {
+		neigh.view->SetFocus();
+		if (neigh.parent != 0) {
+			// Let scrollviews and similar know that a child has been focused.
+			neigh.parent->FocusView(neigh.view);
+		}
+	}
+}
 
 void LinearLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	if (views_.empty()) {
@@ -300,6 +369,7 @@ void ScrollView::Layout() {
 		scrolled.y = bounds_.y - scrollPos_;
 		break;
 	}
+
 	views_[0]->SetBounds(scrolled);
 	views_[0]->Layout();
 }
@@ -337,8 +407,57 @@ void ScrollView::Draw(DrawContext &dc) {
 	dc.PopStencil();
 }
 
-void GridLayout::Layout() {
+void ScrollView::FocusView(View *view) {
+	// Moved the focus to a child view (can be any level deep). 
+	// Figure out if it's currently in view, if not, let's scroll there.
+	// TODO: the above.
+}
 
+void GridLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	MeasureSpecType measureType = settings_.fillCells ? EXACTLY : AT_MOST;
+
+	for (size_t i = 0; i < views_.size(); i++) {
+		views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth), MeasureSpec(measureType, settings_.rowHeight));
+	}
+
+	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
+
+	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
+	int numColumns = (measuredWidth_ - settings_.spacing) / (settings_.columnWidth + settings_.spacing);
+	int numRows = (views_.size() + (numColumns - 1)) / numColumns;
+
+	float estimatedHeight = settings_.rowHeight * numRows;
+
+	MeasureBySpec(layoutParams_->height, estimatedHeight, vert, &measuredHeight_);
+}
+
+
+void GridLayout::Layout() {
+	int y = 0;
+	int x = 0;
+	for (size_t i = 0; i < views_.size(); i++) {
+		Bounds itemBounds, innerBounds;
+
+		itemBounds.x = bounds_.x + x;
+		itemBounds.y = bounds_.y + y;
+		itemBounds.w = settings_.columnWidth;
+		itemBounds.h = settings_.rowHeight;
+
+		ApplyGravity(itemBounds, Margins(0.0f),
+			views_[i]->GetMeasuredWidth(), views_[i]->GetMeasuredHeight(),
+			G_HCENTER | G_VCENTER, innerBounds);
+
+		views_[i]->SetBounds(innerBounds);
+		views_[i]->Layout();
+
+		x += itemBounds.w;
+		if (x >= bounds_.w) {
+			x = 0;
+			y += itemBounds.h + settings_.spacing;
+		} else {
+			x += settings_.spacing;
+		}
+	}
 }
 
 void RelativeLayout::Layout() {
@@ -362,19 +481,20 @@ void LayoutViewHierarchy(const DrawContext &dc, ViewGroup *root) {
 	root->Layout();
 }
 
+
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN))
 		EnableFocusMovement(true);
 
 	if (input_state.pad_last_buttons == 0) {
 		if (input_state.pad_buttons_down & PAD_BUTTON_RIGHT)
-			root->MoveFocus(FOCUS_RIGHT);
+			MoveFocus(root, FOCUS_RIGHT);
 		if (input_state.pad_buttons_down & PAD_BUTTON_UP)
-			root->MoveFocus(FOCUS_UP);
+			MoveFocus(root, FOCUS_UP);
 		if (input_state.pad_buttons_down & PAD_BUTTON_LEFT)
-			root->MoveFocus(FOCUS_LEFT);
+			MoveFocus(root, FOCUS_LEFT);
 		if (input_state.pad_buttons_down & PAD_BUTTON_DOWN)
-			root->MoveFocus(FOCUS_DOWN);
+			MoveFocus(root, FOCUS_DOWN);
 	}
 
 	root->Update(input_state);

@@ -11,6 +11,14 @@
 #include <functional>
 #include <cmath>
 
+// <functional> fix
+#if defined(IOS) || defined(MACGNUSTD)
+#include <tr1/functional>
+namespace std {
+	using tr1::bind;
+}
+#endif
+
 #include "base/mutex.h"
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
@@ -277,7 +285,7 @@ public:
 		}
 		return false;
 	}
-	virtual void MoveFocus(FocusDirection direction) {}
+
 	virtual bool CanBeFocused() const { return true; }
 
 	bool HasFocus() const {
@@ -375,7 +383,6 @@ public:
 
 	// Draws the item background.
 	virtual void Draw(DrawContext &dc);
-
 };
 
 // The following classes are mostly suitable as items in ListView which

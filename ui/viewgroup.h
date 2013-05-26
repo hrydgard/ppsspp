@@ -5,6 +5,15 @@
 
 namespace UI {
 
+struct NeighborResult {
+	NeighborResult() : view(0), score(0) {}
+	NeighborResult(View *v, float s) : view(v), score(s) {}
+
+	View *view;
+	ViewGroup *parent;
+	float score;
+};
+
 class ViewGroup : public View {
 public:
 	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams) {}
@@ -28,10 +37,10 @@ public:
 	void Add(View *view) { views_.push_back(view); }
 
 	virtual bool SetFocus();
-	virtual void MoveFocus(FocusDirection direction);
+	virtual void FocusView(View *view) {}
 
 	// Assumes that layout has taken place.
-	View *FindNeighbor(View *view, FocusDirection direction);
+	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
 	
 	virtual bool CanBeFocused() const { return false; }
 
@@ -66,17 +75,34 @@ private:
 	float spacing_;
 };
 
+
+// GridLayout is a little different from the Android layout. This one has fixed size
+// rows and columns. Items are not allowed to deviate from the set sizes.
+// Initially, only horizontal layout is supported.
+struct GridLayoutSettings {
+	GridLayoutSettings() : orientation(ORIENT_HORIZONTAL), columnWidth(100), rowHeight(50), spacing(5), fillCells(false) {}
+	GridLayoutSettings(int colW, int colH, int spac = 5) : orientation(ORIENT_HORIZONTAL), columnWidth(colW), rowHeight(colH), spacing(spac), fillCells(false) {}
+
+	Orientation orientation;
+	int columnWidth;
+	int rowHeight;
+	int spacing;
+	bool fillCells;
+};
+
 class GridLayout : public ViewGroup {
 public:
-	GridLayout(Orientation orientation, int numPerLine, LayoutParams *layoutParams = 0)
-		: ViewGroup(layoutParams), orientation_(orientation), numPerLine_(numPerLine) {}
+	GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams = 0)
+		: ViewGroup(layoutParams), settings_(settings) {
+		if (settings.orientation != ORIENT_HORIZONTAL)
+			ELOG("GridLayout: Vertical layouts not yet supported");
+	}
 
 	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 
 private:
-	Orientation orientation_;
-	int numPerLine_;
+	GridLayoutSettings settings_;
 };
 
 // A scrollview usually contains just a single child - a linear layout or similar.
@@ -90,6 +116,9 @@ public:
 
 	void Touch(const TouchInput &input);
 	void Draw(DrawContext &dc);
+
+	// Override so that we can scroll to the active one after moving the focus.
+	virtual void FocusView(View *view);
 
 private:
 	GestureDetector gesture_;
