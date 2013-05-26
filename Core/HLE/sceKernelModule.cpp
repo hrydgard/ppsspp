@@ -885,9 +885,6 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
-
-	// TODO: if current thread, put it in wait state, waiting for the new thread
-	// TODO: Really?  That sounds fishy.
 }
 
 
