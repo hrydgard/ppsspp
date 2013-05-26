@@ -1256,9 +1256,8 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 	return 0;
 }
 
-void sceKernelGetThreadExitStatus()
+int sceKernelGetThreadExitStatus(SceUID threadID)
 {
-	SceUID threadID = PARAM(0);
 	if (threadID == 0)
 		threadID = __KernelGetCurThread();
 
@@ -1269,17 +1268,17 @@ void sceKernelGetThreadExitStatus()
 		if (t->nt.status == THREADSTATUS_DORMANT) // TODO: can be dormant before starting, too, need to avoid that
 		{
 			DEBUG_LOG(HLE,"sceKernelGetThreadExitStatus(%i)", threadID);
-			RETURN(t->nt.exitStatus);
+			return t->nt.exitStatus;
 		}
 		else
 		{
-			RETURN(SCE_KERNEL_ERROR_NOT_DORMANT);
+			return SCE_KERNEL_ERROR_NOT_DORMANT;
 		}
 	}
 	else
 	{
 		ERROR_LOG(HLE,"sceKernelGetThreadExitStatus Error %08x", error);
-		RETURN(SCE_KERNEL_ERROR_UNKNOWN_THID);
+		return SCE_KERNEL_ERROR_UNKNOWN_THID;
 	}
 }
 
