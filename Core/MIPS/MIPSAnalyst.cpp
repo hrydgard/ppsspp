@@ -264,6 +264,12 @@ namespace MIPSAnalyst
 
 	map<u32, Function*> hashToFunction;
 
+	void Shutdown()
+	{
+		functions.clear();
+		hashToFunction.clear();
+	}
+
 	// hm pointless :P
 	void UpdateHashToFunctionMap()
 	{

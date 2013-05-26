@@ -62,5 +62,6 @@ namespace MIPSAnalyst
 	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op);
 	bool IsSyscall(u32 op);
 
+	void Shutdown();
 
 }	// namespace MIPSAnalyst
