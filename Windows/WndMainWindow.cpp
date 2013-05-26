@@ -1501,6 +1501,7 @@ namespace MainWindow
 		g_bFullScreen = FALSE;
 		CorrectCursor();
 		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, TRUE);
 	}
 
 	void _ViewFullScreen(HWND hWnd)
@@ -1528,6 +1529,7 @@ namespace MainWindow
 		g_bFullScreen = TRUE;
 		CorrectCursor();
 		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, FALSE);
 	}
 
 	void SetPlaying(const char *text)
