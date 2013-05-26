@@ -56,7 +56,7 @@ int sceKernelSleepThreadCB();
 int sceKernelTerminateDeleteThread(int threadno);
 int sceKernelTerminateThread(SceUID threadID);
 int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr);
-void sceKernelGetThreadExitStatus();
+int sceKernelGetThreadExitStatus(SceUID threadID);
 u32 sceKernelGetThreadmanIdType(u32);
 u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 idCountPtr);
 u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter);
@@ -89,6 +89,7 @@ enum WaitType
 	WAITTYPE_IO = 16,
 	WAITTYPE_GEDRAWSYNC = 17,
 	WAITTYPE_GELISTSYNC = 18,
+	WAITTYPE_MODULE = 19,
 
 	NUM_WAITTYPES
 };
@@ -186,7 +187,7 @@ u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int not
 
 SceUID __KernelGetCurThread();
 SceUID __KernelGetCurThreadModuleId();
-void __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
+SceUID __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
 void __KernelStartIdleThreads(SceUID moduleId);
 void __KernelReturnFromThread();  // Called as HLE function
 u32 __KernelGetThreadPrio(SceUID id);
@@ -231,6 +232,10 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notify
 // Returns whether a switch occurred.
 bool __KernelSwitchOffThread(const char *reason);
 bool __KernelSwitchToThread(SceUID threadID, const char *reason);
+
+// Set a thread's return address to a specific FakeSyscall nid.
+// Discards old RA.  Only useful for special threads that do special things on exit.
+u32 __KernelSetThreadRA(SceUID threadID, int nid);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
