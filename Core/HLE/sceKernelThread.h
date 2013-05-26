@@ -186,7 +186,7 @@ u32 __KernelNotifyCallbackType(RegisteredCallbackType type, SceUID cbId, int not
 
 SceUID __KernelGetCurThread();
 SceUID __KernelGetCurThreadModuleId();
-void __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
+SceUID __KernelSetupRootThread(SceUID moduleId, int args, const char *argp, int prio, int stacksize, int attr); //represents the real PSP elf loader, run before execution
 void __KernelStartIdleThreads(SceUID moduleId);
 void __KernelReturnFromThread();  // Called as HLE function
 u32 __KernelGetThreadPrio(SceUID id);
@@ -231,6 +231,10 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notify
 // Returns whether a switch occurred.
 bool __KernelSwitchOffThread(const char *reason);
 bool __KernelSwitchToThread(SceUID threadID, const char *reason);
+
+// Set a thread's return address to a specific FakeSyscall nid.
+// Discards old RA.  Only useful for special threads that do special things on exit.
+u32 __KernelSetThreadRA(SceUID threadID, int nid);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.

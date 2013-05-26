@@ -746,6 +746,7 @@ u32 threadReturnHackAddr;
 u32 cbReturnHackAddr;
 u32 intReturnHackAddr;
 u32 extendReturnHackAddr;
+u32 moduleReturnHackAddr;
 std::vector<ThreadCallback> threadEndListeners;
 
 // Lists all thread ids that aren't deleted/etc.
@@ -844,18 +845,52 @@ u32 __KernelInterruptReturnAddress()
 	return intReturnHackAddr;
 }
 
+u32 __KernelSetThreadRA(SceUID threadID, int nid)
+{
+	u32 newRA;
+	switch (nid)
+	{
+	case NID_MODULERETURN:
+		newRA = moduleReturnHackAddr;
+		break;
+	default:
+		ERROR_LOG_REPORT(HLE, "__KernelSetThreadRA(): invalid RA address");
+		return -1;
+	}
+
+	if (threadID == currentThread)
+		currentMIPS->r[MIPS_REG_RA] = newRA;
+	else
+	{
+		u32 error;
+		Thread *thread = kernelObjects.Get<Thread>(threadID, error);
+		if (!thread)
+			return error;
+
+		thread->context.r[MIPS_REG_RA] = newRA;
+	}
+
+	return 0;
+}
+
 void hleScheduledWakeup(u64 userdata, int cyclesLate);
 void hleThreadEndTimeout(u64 userdata, int cyclesLate);
 
-void __KernelWriteFakeSysCall(u32 nid, u32 &ptr, u32 &pos)
+void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
 {
-	ptr = pos;
+	*ptr = pos;
 	pos += 8;
-	WriteSyscall("FakeSysCalls", nid, ptr);
+	WriteSyscall("FakeSysCalls", nid, *ptr);
 }
 
 void __KernelThreadingInit()
 {
+	struct ThreadHack
+	{
+		u32 nid;
+		u32 *addr;
+	};
+
 	// Yeah, this is straight out of JPCSP, I should be ashamed.
 	const static u32 idleThreadCode[] = {
 		MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 0),
@@ -865,7 +900,16 @@ void __KernelThreadingInit()
 		MIPS_MAKE_SYSCALL("FakeSysCalls", "_sceKernelIdle"),
 		MIPS_MAKE_BREAK(),
 	};
-	u32 blockSize = sizeof(idleThreadCode) + 4 * 2 * 4;  // The thread code above plus 4 8-byte "hacks"
+
+	// If you add another func here, don't forget __KernelThreadingDoState() below.
+	static ThreadHack threadHacks[] = {
+		{NID_THREADRETURN, &threadReturnHackAddr},
+		{NID_CALLBACKRETURN, &cbReturnHackAddr},
+		{NID_INTERRUPTRETURN, &intReturnHackAddr},
+		{NID_EXTENDRETURN, &extendReturnHackAddr},
+		{NID_MODULERETURN, &moduleReturnHackAddr},
+	};
+	u32 blockSize = sizeof(idleThreadCode) + ARRAY_SIZE(threadHacks) * 2 * 4;  // The thread code above plus 8 bytes per "hack"
 
 	dispatchEnabled = true;
 	memset(waitTypeFuncs, 0, sizeof(waitTypeFuncs));
@@ -879,11 +923,9 @@ void __KernelThreadingInit()
 	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode));
 
 	u32 pos = idleThreadHackAddr + sizeof(idleThreadCode);
-	// IF you add another func here, add it to the allocation above, and also to DoState below.
-	__KernelWriteFakeSysCall(NID_THREADRETURN, threadReturnHackAddr, pos);
-	__KernelWriteFakeSysCall(NID_CALLBACKRETURN, cbReturnHackAddr, pos);
-	__KernelWriteFakeSysCall(NID_INTERRUPTRETURN, intReturnHackAddr, pos);
-	__KernelWriteFakeSysCall(NID_EXTENDRETURN, extendReturnHackAddr, pos);
+	for (int i = 0; i < ARRAY_SIZE(threadHacks); ++i) {
+		__KernelWriteFakeSysCall(threadHacks[i].nid, threadHacks[i].addr, pos);
+	}
 
 	eventScheduledWakeup = CoreTiming::RegisterEvent("ScheduledWakeup", &hleScheduledWakeup);
 	eventThreadEndTimeout = CoreTiming::RegisterEvent("ThreadEndTimeout", &hleThreadEndTimeout);
@@ -910,6 +952,7 @@ void __KernelThreadingDoState(PointerWrap &p)
 	p.Do(cbReturnHackAddr);
 	p.Do(intReturnHackAddr);
 	p.Do(extendReturnHackAddr);
+	p.Do(moduleReturnHackAddr);
 
 	p.Do(currentThread);
 	SceUID dv = 0;
@@ -1769,7 +1812,7 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	return t;
 }
 
-void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int prio, int stacksize, int attr) 
+SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int prio, int stacksize, int attr) 
 {
 	//grab mips regs
 	SceUID id;
@@ -1794,6 +1837,8 @@ void __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int pr
 	mipsr4k.r[MIPS_REG_A1] = location;
 	for (int i = 0; i < args; i++)
 		Memory::Write_U8(argp[i], location + i);
+
+	return id;
 }
 
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)

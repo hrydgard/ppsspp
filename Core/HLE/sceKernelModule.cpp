@@ -19,7 +19,8 @@
 #include <algorithm>
 #include <string>
 
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
 #include "Core/Reporting.h"
 #include "Common/FileUtil.h"
 #include "../Host.h"
@@ -869,8 +870,11 @@ void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOptio
 			WARN_LOG_REPORT(LOADER, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
 	}
 
-	__KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
-	//TODO: if current thread, put it in wait state, waiting for the new thread
+	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
+	__KernelSetThreadRA(threadID, NID_MODULERETURN);
+
+	// TODO: if current thread, put it in wait state, waiting for the new thread
+	// TODO: Really?  That sounds fishy.
 }
 
 
@@ -1160,6 +1164,13 @@ u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp,
 
 	// Probably similar to sceKernelStopModule, but games generally call this when they die.
 	return 0;
+}
+
+void __KernelReturnFromModuleFunc()
+{
+	// Return from the thread as normal.
+	__KernelReturnFromThread();
+	// TODO: sceKernelGetThreadExitStatus, __KernelGetCurThreadModuleId()
 }
 
 struct GetModuleIdByAddressArg
