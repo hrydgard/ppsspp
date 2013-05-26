@@ -171,7 +171,7 @@ struct ModuleWaitingThread
 class Module : public KernelObject
 {
 public:
-	Module() : memoryBlockAddr(0), isFake(false) {}
+	Module() : memoryBlockAddr(0), isFake(false), isStarted(false) {}
 	~Module() {
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
@@ -196,6 +196,8 @@ public:
 		p.Do(nm);
 		p.Do(memoryBlockAddr);
 		p.Do(memoryBlockSize);
+		p.Do(isFake);
+		p.Do(isStarted);
 		ModuleWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
 		p.DoMarker("Module");
@@ -207,6 +209,8 @@ public:
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
 	bool isFake;
+	// Probably one of the NativeModule fields, but not sure...
+	bool isStarted;
 };
 
 KernelObject *__KernelModuleObject()
@@ -872,6 +876,7 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 
 void __KernelStartModule(Module *m, int args, const char *argp, SceKernelSMOption *options)
 {
+	m->isStarted = true;
 	if (m->nm.module_start_func != 0 && m->nm.module_start_func != (u32)-1)
 	{
 		if (m->nm.module_start_func != m->nm.entry_addr)
@@ -1065,7 +1070,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	int stackPartition = 0;
 	SceKernelSMOption smoption;
 	if (optionAddr) {
-		Memory::ReadStruct(optionAddr, &smoption);;
+		Memory::ReadStruct(optionAddr, &smoption);
 	}
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
@@ -1075,7 +1080,16 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	} else if (module->isFake) {
 		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+		if (returnValueAddr)
+			Memory::Write_U32(0, returnValueAddr);
 		RETURN(moduleId);
+		return;
+	} else if (module->isStarted) {
+		ERROR_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x) : already started",
+		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+		// TODO: Maybe should be SCE_KERNEL_ERROR_ALREADY_STARTED, but I get SCE_KERNEL_ERROR_ERROR.
+		// But I also get crashes...
+		RETURN(SCE_KERNEL_ERROR_ERROR);
 		return;
 	} else {
 		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
@@ -1145,10 +1159,78 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 
 u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	ERROR_LOG(HLE,"UNIMPL sceKernelStopModule(%08x, %08x, %08x, %08x, %08x)", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+	u32 priority = 0x20;
+	u32 stacksize = 0x40000;
+	u32 attr = 0;
 
-	// We should call the "stop" entry point and return the value in returnValueAddr. See StartModule.
-	// Possibly also kill all its threads?
+	// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
+
+	u32 error;
+	Module *module = kernelObjects.Get<Module>(moduleId, error);
+	if (!module)
+	{
+		ERROR_LOG(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): invalid module id", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		return error;
+	}
+
+	if (module->isFake)
+	{
+		INFO_LOG(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x) - faking", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		if (returnValueAddr)
+			Memory::Write_U32(0, returnValueAddr);
+		return 0;
+	}
+	if (!module->isStarted)
+	{
+		ERROR_LOG(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): already stopped", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		return SCE_KERNEL_ERROR_ALREADY_STOPPED;
+	}
+
+	u32 stopFunc = module->nm.module_stop_func;
+	if (module->nm.module_stop_thread_priority != 0)
+		priority = module->nm.module_stop_thread_priority;
+	if (module->nm.module_stop_thread_stacksize != 0)
+		stacksize = module->nm.module_stop_thread_stacksize;
+	if (module->nm.module_stop_thread_attr != 0)
+		attr = module->nm.module_stop_thread_attr;
+
+	// TODO: Need to test how this really works.  Let's assume it's an override.
+	if (Memory::IsValidAddress(optionAddr))
+	{
+		auto options = Memory::GetStruct<SceKernelSMOption>(optionAddr);
+		// TODO: Check how size handling actually works.
+		if (options->size != 0 && options->priority != 0)
+			priority = options->priority;
+		if (options->size != 0 && options->stacksize != 0)
+			stacksize = options->stacksize;
+		if (options->size != 0 && options->attribute != 0)
+			attr = options->attribute;
+		// TODO: Maybe based on size?
+		else if (attr != 0)
+			WARN_LOG_REPORT(HLE, "Stopping module with attr=%x, but options specify 0", attr);
+	}
+
+	if (Memory::IsValidAddress(stopFunc))
+	{
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0);
+		sceKernelStartThread(threadID, argSize, argAddr);
+		__KernelSetThreadRA(threadID, NID_MODULERETURN);
+		__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "stopped module");
+
+		const ModuleWaitingThread mwt = {__KernelGetCurThread(), returnValueAddr};
+		module->waitingThreads.push_back(mwt);
+	}
+	else if (stopFunc == 0)
+	{
+		INFO_LOG(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): no stop func, skipping", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		module->isStarted = false;
+	}
+	else
+	{
+		ERROR_LOG_REPORT(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): bad stop func address", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		module->isStarted = false;
+	}
+
 	return 0;
 }
 
@@ -1194,6 +1276,7 @@ void __KernelReturnFromModuleFunc()
 	}
 
 	// We can't be starting and stopping at the same time, so no need to differentiate.
+	module->isStarted = !module->isStarted;
 	for (auto it = module->waitingThreads.begin(), end = module->waitingThreads.end(); it < end; ++it)
 	{
 		// Still waiting?
