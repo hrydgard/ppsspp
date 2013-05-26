@@ -1468,7 +1468,7 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	Thread *thread = __GetCurrentThread();
 	thread->nt.waitID = waitID;
 	thread->nt.waitType = type;
-	__KernelChangeThreadState(thread, THREADSTATUS_WAIT);
+	__KernelChangeThreadState(thread, ThreadStatus(THREADSTATUS_WAIT | (thread->nt.status & THREADSTATUS_SUSPEND)));
 	thread->nt.numReleases++;
 	thread->waitInfo.waitValue = waitValue;
 	thread->waitInfo.timeoutPtr = timeoutPtr;
@@ -1495,7 +1495,7 @@ void __KernelWaitCallbacksCurThread(WaitType type, SceUID waitID, u32 waitValue,
 	Thread *thread = __GetCurrentThread();
 	thread->nt.waitID = waitID;
 	thread->nt.waitType = type;
-	__KernelChangeThreadState(thread, THREADSTATUS_WAIT);
+	__KernelChangeThreadState(thread, ThreadStatus(THREADSTATUS_WAIT | (thread->nt.status & THREADSTATUS_SUSPEND)));
 	// TODO: Probably not...?
 	thread->nt.numReleases++;
 	thread->waitInfo.waitValue = waitValue;
@@ -2080,7 +2080,7 @@ int sceKernelRotateThreadReadyQueue(int priority)
 		if (cur->nt.currentPriority == priority)
 		{
 			threadReadyQueue.push_back(priority, currentThread);
-			cur->nt.status = THREADSTATUS_READY;
+			cur->nt.status = (cur->nt.status & ~THREADSTATUS_RUNNING) | THREADSTATUS_READY;
 		}
 		// Yield the next thread of this priority to all other threads of same priority.
 		else
