@@ -162,6 +162,11 @@ struct ModuleInfo {
 	char name[28];
 };
 
+struct ModuleWaitingThread
+{
+	SceUID threadID;
+	u32 statusPtr;
+};
 
 class Module : public KernelObject
 {
@@ -191,10 +196,13 @@ public:
 		p.Do(nm);
 		p.Do(memoryBlockAddr);
 		p.Do(memoryBlockSize);
+		ModuleWaitingThread mwt = {0};
+		p.Do(waitingThreads, mwt);
 		p.DoMarker("Module");
 	}
 
 	NativeModule nm;
+	std::vector<ModuleWaitingThread> waitingThreads;
 
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
@@ -1089,7 +1097,8 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			}
 			else
 			{
-				// TODO: Fix, check return value?  Or do we call nothing?
+				// TODO: Why are we just returning the module ID in this case?
+				ERROR_LOG_REPORT(HLE, "sceKernelStartModule(): doing nothing for some reason?");
 				RETURN(moduleId);
 				return;
 			}
@@ -1110,30 +1119,27 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			}
 
 			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0);
-
 			sceKernelStartThread(threadID, argsize, argAddr);
-			// TODO: This will probably return the wrong value?
-			sceKernelWaitThreadEnd(threadID, 0);
+			__KernelSetThreadRA(threadID, NID_MODULERETURN);
+			__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "started module");
 
+			const ModuleWaitingThread mwt = {__KernelGetCurThread(), returnValueAddr};
+			module->waitingThreads.push_back(mwt);
 		}
 		else if (entryAddr == 0)
 		{
-			INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+			INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): no entry address",
 			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-			WARN_LOG(HLE, "No Entry Address");
 		}
 		else
 		{
-			ERROR_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+			ERROR_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): invalid entry address",
 			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
-			ERROR_LOG(HLE, "Invalid Entry Address");
 			RETURN(-1);
 			return;
 		}
 	}
 
-	// TODO: Is this the correct return value?
-	// JPCSP returns this value as well.
 	RETURN(moduleId);
 }
 
@@ -1178,6 +1184,28 @@ void __KernelReturnFromModuleFunc()
 	// Reschedule immediately (to leave the thread) and delete it and its stack.
 	__KernelReSchedule("returned from module");
 	sceKernelDeleteThread(leftThreadID);
+
+	u32 error;
+	Module *module = kernelObjects.Get<Module>(leftModuleID, error);
+	if (!module)
+	{
+		ERROR_LOG_REPORT(HLE, "Returned from deleted module start/stop func");
+		return;
+	}
+
+	// We can't be starting and stopping at the same time, so no need to differentiate.
+	for (auto it = module->waitingThreads.begin(), end = module->waitingThreads.end(); it < end; ++it)
+	{
+		// Still waiting?
+		SceUID waitingModuleID = __KernelGetWaitID(it->threadID, WAITTYPE_MODULE, error);
+		if (waitingModuleID == leftModuleID)
+		{
+			if (it->statusPtr != 0)
+				Memory::Write_U32(exitStatus, it->statusPtr);
+			__KernelResumeThreadFromWait(it->threadID, 0);
+		}
+	}
+	module->waitingThreads.clear();
 }
 
 struct GetModuleIdByAddressArg
