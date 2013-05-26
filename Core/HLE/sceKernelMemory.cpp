@@ -1458,7 +1458,7 @@ int sceKernelDeleteTls(SceUID uid)
 int sceKernelAllocateTls(SceUID uid)
 {
 	// TODO: Allocate downward if PSP_TLS_ATTR_HIGHMEM?
-	WARN_LOG(HLE, "UNIMPL sceKernelAllocateTls(%08x)", uid);
+	DEBUG_LOG(HLE, "sceKernelAllocateTls(%08x)", uid);
 	u32 error;
 	TLS *tls = kernelObjects.Get<TLS>(uid, error);
 	if (tls)
@@ -1493,7 +1493,7 @@ int sceKernelAllocateTls(SceUID uid)
 		if (allocBlock == -1)
 		{
 			// TODO: Wait here, wake when one is free.
-			ERROR_LOG(HLE, "sceKernelAllocateTls: should wait");
+			ERROR_LOG_REPORT(HLE, "sceKernelAllocateTls: should wait");
 			return -1;
 		}
 

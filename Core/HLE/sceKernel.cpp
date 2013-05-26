@@ -673,7 +673,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xA9C2CB9A,&WrapI_IU<sceKernelReferMutexStatus>,          "sceKernelReferMutexStatus"},
 	{0x87D9223C,0,                                             "sceKernelCancelMutex"},
 
-	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},
+	{0xFCCFAD26,WrapI_I<sceKernelCancelWakeupThread>,"sceKernelCancelWakeupThread"},
 	{0x1AF94D03,0,"sceKernelDonateWakeupThread"},
 	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
 	{0x71bc9871,sceKernelChangeThreadPriority,"sceKernelChangeThreadPriority"},
@@ -696,8 +696,8 @@ const HLEFunction ThreadManForUser[] =
 	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,"sceKernelSuspendDispatchThread"},
 	{0x27e22ec2,&WrapU_U<sceKernelResumeDispatchThread>,"sceKernelResumeDispatchThread"},
 	{0x912354a7,&WrapI_I<sceKernelRotateThreadReadyQueue>,"sceKernelRotateThreadReadyQueue"},
-	{0x9ACE131E,sceKernelSleepThread,"sceKernelSleepThread"},
-	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
+	{0x9ACE131E,WrapI_V<sceKernelSleepThread>,"sceKernelSleepThread"},
+	{0x82826f70,WrapI_V<sceKernelSleepThreadCB>,"sceKernelSleepThreadCB"},
 	{0xF475845D,&WrapI_IIU<sceKernelStartThread>,"sceKernelStartThread"},
 	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
 	{0x616403ba,WrapI_I<sceKernelTerminateThread>,"sceKernelTerminateThread"},
@@ -731,7 +731,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xE1619D7C,WrapI_UUUU<sceKernelSysClock2USecWide>,"sceKernelSysClock2USecWide"},
 
 	{0x278C0DF5,WrapI_IU<sceKernelWaitThreadEnd>,"sceKernelWaitThreadEnd"},
-	{0xd59ead2f,sceKernelWakeupThread,"sceKernelWakeupThread"}, //AI Go, audio?
+	{0xd59ead2f,WrapI_I<sceKernelWakeupThread>,"sceKernelWakeupThread"}, //AI Go, audio?
 
 	{0x0C106E53,0,"sceKernelRegisterThreadEventHandler"},
 	{0x72F3C145,0,"sceKernelReleaseThreadEventHandler"},
