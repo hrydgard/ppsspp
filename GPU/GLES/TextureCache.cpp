@@ -769,12 +769,11 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u32 hash2, u8 format2
 
 void TextureCache::LoadClut() {
 	u32 clutAddr = GetClutAddr();
-	u32 clutTotalBytes = (gstate.loadclut & 0x3f) * 32;
+	clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
 	if (Memory::IsValidAddress(clutAddr)) {
-		Memory::Memcpy((u8 *)clutBuf_, clutAddr, clutTotalBytes);
-		clutHash_ = CityHash32((const char *)clutBuf_, clutTotalBytes);
+		Memory::Memcpy((u8 *)clutBuf_, clutAddr, clutTotalBytes_);
 	} else {
-		memset(clutBuf_, 0xFF, clutTotalBytes);
+		memset(clutBuf_, 0xFF, clutTotalBytes_);
 		clutHash_ = 0;
 	}
 	clutDirty_ = true;
@@ -838,6 +837,7 @@ void TextureCache::SetTexture() {
 	if (hasClut) {
 		if (clutDirty_) {
 			// We update here because the clut format can be specified after the load.
+			clutHash_ = CityHash32((const char *)clutBuf_, clutTotalBytes_);
 			UpdateCurrentClut();
 			clutDirty_ = false;
 		}
