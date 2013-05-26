@@ -1170,7 +1170,14 @@ void __KernelReturnFromModuleFunc()
 {
 	// Return from the thread as normal.
 	__KernelReturnFromThread();
-	// TODO: sceKernelGetThreadExitStatus, __KernelGetCurThreadModuleId()
+
+	SceUID leftModuleID = __KernelGetCurThreadModuleId();
+	SceUID leftThreadID = __KernelGetCurThread();
+	int exitStatus = sceKernelGetThreadExitStatus(leftThreadID);
+
+	// Reschedule immediately (to leave the thread) and delete it and its stack.
+	__KernelReSchedule("returned from module");
+	sceKernelDeleteThread(leftThreadID);
 }
 
 struct GetModuleIdByAddressArg

@@ -2010,10 +2010,6 @@ void __KernelReturnFromThread()
 	_dbg_assert_msg_(HLE, thread != NULL, "Returned from a NULL thread.");
 
 	INFO_LOG(HLE,"__KernelReturnFromThread: %d", exitStatus);
-	// TEMPORARY HACK: kill the stack of the root thread early:
-	if (!strcmp(thread->GetName(), "root")) {
-		thread->FreeStack();
-	}
 
 	thread->nt.exitStatus = exitStatus;
 	__KernelChangeReadyState(thread, currentThread, false);
