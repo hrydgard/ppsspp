@@ -2484,16 +2484,60 @@ int sceKernelReleaseWaitThread(SceUID threadID)
 	}
 }
 
-void sceKernelSuspendThread()
+int sceKernelSuspendThread(SceUID threadID)
 {
-	WARN_LOG_REPORT(HLE,"UNIMPL sceKernelSuspendThread");
-	RETURN(0);
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		if (t->isStopped())
+		{
+			ERROR_LOG(HLE, "sceKernelSuspendThread(%d): thread not running", threadID);
+			return SCE_KERNEL_ERROR_DORMANT;
+		}
+		if (t->isSuspended())
+		{
+			ERROR_LOG(HLE, "sceKernelSuspendThread(%d): thread already suspended", threadID);
+			return SCE_KERNEL_ERROR_SUSPEND;
+		}
+
+		WARN_LOG(HLE, "sceKernelSuspendThread(%d)", threadID);
+		if (t->isReady())
+			__KernelChangeReadyState(t, threadID, false);
+		t->nt.status = (t->nt.status & ~THREADSTATUS_READY) | THREADSTATUS_SUSPEND;
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "sceKernelSuspendThread(%d): bad thread", threadID);
+		return error;
+	}
 }
 
-void sceKernelResumeThread()
+int sceKernelResumeThread(SceUID threadID)
 {
-	WARN_LOG_REPORT(HLE,"UNIMPL sceKernelResumeThread");
-	RETURN(0);
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		if (!t->isSuspended())
+		{
+			ERROR_LOG(HLE, "sceKernelSuspendThread(%d): thread not suspended", threadID);
+			return SCE_KERNEL_ERROR_NOT_SUSPEND;
+		}
+		WARN_LOG(HLE, "sceKernelResumeThread(%d)", threadID);
+		t->nt.status &= ~THREADSTATUS_SUSPEND;
+
+		// If it was dormant, waiting, etc. before we don't flip it's ready state.
+		if (t->nt.status == 0)
+			__KernelChangeReadyState(t, threadID, true);
+		return 0;
+	}
+	else
+	{
+		ERROR_LOG(HLE, "sceKernelResumeThread(%d): bad thread", threadID);
+		return error;
+	}
 }
 
 
