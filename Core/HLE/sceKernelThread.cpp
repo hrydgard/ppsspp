@@ -2486,6 +2486,13 @@ int sceKernelReleaseWaitThread(SceUID threadID)
 
 int sceKernelSuspendThread(SceUID threadID)
 {
+	// TODO: What about interrupts/callbacks?
+	if (threadID == 0 || threadID == currentThread)
+	{
+		ERROR_LOG(HLE, "sceKernelSuspendThread(%d): cannot suspend current thread", threadID);
+		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+	}
+
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
@@ -2516,6 +2523,13 @@ int sceKernelSuspendThread(SceUID threadID)
 
 int sceKernelResumeThread(SceUID threadID)
 {
+	// TODO: What about interrupts/callbacks?
+	if (threadID == 0 || threadID == currentThread)
+	{
+		ERROR_LOG(HLE, "sceKernelSuspendThread(%d): cannot suspend current thread", threadID);
+		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+	}
+
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
