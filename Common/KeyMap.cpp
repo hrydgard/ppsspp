@@ -230,13 +230,13 @@ namespace KeyMap {
 
 	std::string GetPspButtonName(int btn)
 	{
-		return FindName(btn, key_names, key_names_count);
+		return FindName(btn, psp_button_names, psp_button_names_count);
 	}
 
 	static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 	{
 		std::map<int,int>::iterator it;
-		if (*map_id >= 0) {
+		if (*map_id <= 0) {
 			// check user configuration
 			std::map<int,int> user_map = g_Config.iMappingMap;
 			it = user_map.find(key);
@@ -247,7 +247,7 @@ namespace KeyMap {
 			}
 		}
 
-		if (*map_id >= 1 && platform_keymap != NULL) {
+		if (*map_id <= 1 && platform_keymap != NULL) {
 			// check optional platform specific keymap
 			std::map<int,int> port_map = *platform_keymap;
 			it = port_map.find(key);
@@ -258,13 +258,13 @@ namespace KeyMap {
 			}
 		}
 
-		if (*map_id >= 2) {
+		if (*map_id <= 2) {
 			// check default keymap
 			const std::map<int,int> default_map = DefaultKeyMap::KeyMap;
-			const std::map<int,int>::const_iterator it = default_map.find(key);
-			if (it != default_map.end()) {
+			const std::map<int,int>::const_iterator const_it = default_map.find(key);
+			if (const_it != default_map.end()) {
 				*map_id = 2;
-				*psp_button = it->second;
+				*psp_button = const_it->second;
 				return true;
 			}
 		}
@@ -302,9 +302,9 @@ namespace KeyMap {
 		// We drive our iteration 
 		// with the list of key names.
 		for (int i = 0; i < key_names_count; i++) {
-			const struct KeyMap_IntStrPair *key_name = key_names + i;
-			if (btn == KeyMap::KeyToPspButton((KeyMap::Key)key_name->key))
-				return key_name->name;
+			const struct KeyMap_IntStrPair key_name = key_names[i];
+			if (btn == KeyMap::KeyToPspButton((KeyMap::Key)(key_name.key)))
+				return key_name.name;
 		}
 
 		// all psp buttons are mapped from some key

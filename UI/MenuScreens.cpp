@@ -1075,7 +1075,7 @@ void KeyMappingNewKeyDialog::render() {
 	KeyScale(1.3f);
 	KeyText(left, top += stride, keyI18N->T("Current key"));
 	KeyScale(2.0f);
-	KeyText(left, top + stride, (KeyMap::GetPspButtonName(this.pspBtn)).c_str());
+	KeyText(left, top + stride, (KeyMap::NameKeyFromPspButton(this->pspBtn)).c_str());
 
 	int right = dp_yres;
 	KeyScale(1.4f);
