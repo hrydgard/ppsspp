@@ -733,6 +733,37 @@ static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
 }
 
+static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
+	// CLUTs always come in multiples of 32 bytes, can't load them any other way.
+	_dbg_assert_msg_(G3D, (bytes & 31) == 0, "CLUT should always have a multiple of 32 bytes.");
+
+	const u32 prime = 2246822519U;
+	u32 hash = 0;
+#ifdef _M_SSE
+	if ((((u32)(intptr_t)clut) & 0xf) == 0) {
+		__m128i cursor = _mm_set1_epi32(0);
+		const __m128i mult = _mm_set1_epi32(prime);
+		const __m128i *p = (const __m128i *)clut;
+		for (u32 i = 0; i < bytes / 16; ++i) {
+			cursor = _mm_add_epi32(cursor, _mm_mul_epi32(_mm_load_si128(&p[i]), mult));
+		}
+		// Add the four parts into the low i32.
+		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
+		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 4));
+		hash = _mm_cvtsi128_si32(cursor);
+	} else {
+#else
+	// TODO: ARM NEON implementation (using CPUDetect to be sure it has NEON.)
+	{
+#endif
+		for (const u32 *p = (u32 *)clut, *end = (u32 *)(clut + bytes); p < end; ) {
+			hash += *p++ * prime;
+		}
+	}
+
+	return hash;
+}
+
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	const u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
@@ -785,7 +816,7 @@ void TextureCache::LoadClut() {
 void TextureCache::UpdateCurrentClut() {
 	// 0xFF is an invalid format, it means not yet hashed or updated.
 	if (clutLastFormat_ == 0xFF) {
-		clutHash_ = CityHash32((const char *)clutBufRaw_, clutTotalBytes_);
+		clutHash_ = QuickClutHash((const u8 *)clutBufRaw_, clutTotalBytes_);
 	}
 
 	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
