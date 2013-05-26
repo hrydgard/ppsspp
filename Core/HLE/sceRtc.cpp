@@ -633,7 +633,7 @@ int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time)
 		return -1;
 	}
 
-	DEBUG_LOG(HLE, "UNIMPL sceRtcSetWin32FileTime(%08x, %lld)", datePtr, win32Time);
+	DEBUG_LOG(HLE, "sceRtcSetWin32FileTime(%08x, %lld)", datePtr, win32Time);
 
 	u64 ticks = (win32Time / 10) + rtcFiletimeOffset;
 	auto pspTime = Memory::GetStruct<ScePspDateTime>(datePtr);
@@ -649,7 +649,7 @@ int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr)
 		return -1;
 	}
 
-	DEBUG_LOG(HLE, "UNIMPL sceRtcGetWin32FileTime(%08x, %08x)", datePtr, win32TimePtr);
+	DEBUG_LOG(HLE, "sceRtcGetWin32FileTime(%08x, %08x)", datePtr, win32TimePtr);
 	if (!Memory::IsValidAddress(win32TimePtr))
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
 
