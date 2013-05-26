@@ -353,7 +353,7 @@ namespace MIPSAnalyst
 			}
 
 			u32 op = Memory::Read_Instruction(addr);
-			u32 target = GetBranchTarget(addr);
+			u32 target = GetBranchTargetNoRA(addr);
 			if (target != INVALIDTARGET)
 			{
 				isStraightLeaf = false;
