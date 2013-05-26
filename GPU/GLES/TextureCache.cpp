@@ -57,18 +57,20 @@ static inline u32 GetLevelBufw(int level, u32 texaddr) {
 	return gstate.texbufwidth[level] & 0x7FF;
 }
 
-TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutDirty_(false) {
+TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = -1;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
 	tmpTexBufRearrange.resize(1024 * 512);   // 2MB
-	clutBuf_ = new u32[4096];  // 16KB
+	clutBufConverted_ = new u32[4096];  // 16KB
+	clutBufRaw_ = new u32[4096];  // 16KB
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 }
 
 TextureCache::~TextureCache() {
-	delete [] clutBuf_;
+	delete [] clutBufConverted_;
+	delete [] clutBufRaw_;
 }
 
 void TextureCache::Clear(bool delete_them) {
@@ -771,19 +773,30 @@ void TextureCache::LoadClut() {
 	u32 clutAddr = GetClutAddr();
 	clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
 	if (Memory::IsValidAddress(clutAddr)) {
-		Memory::Memcpy((u8 *)clutBuf_, clutAddr, clutTotalBytes_);
+		Memory::Memcpy((u8 *)clutBufRaw_, clutAddr, clutTotalBytes_);
 	} else {
-		memset(clutBuf_, 0xFF, clutTotalBytes_);
+		memset(clutBufRaw_, 0xFF, clutTotalBytes_);
 		clutHash_ = 0;
 	}
-	clutDirty_ = true;
+	// Reload the clut next time.
+	clutLastFormat_ = 0xFF;
 }
 
 void TextureCache::UpdateCurrentClut() {
+	// 0xFF is an invalid format, it means not yet hashed or updated.
+	if (clutLastFormat_ == 0xFF) {
+		clutHash_ = CityHash32((const char *)clutBufRaw_, clutTotalBytes_);
+	}
+
 	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
-	const u32 clutColorBytes = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
-	u32 clutTotalBytes = (gstate.loadclut & 0x3f) * 32;
-	convertColors((u8 *)clutBuf_, getClutDestFormat(clutFormat), clutTotalBytes / clutColorBytes);
+	// Avoid a copy when we don't need to convert colors.
+	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
+		memcpy(clutBufConverted_, clutBufRaw_, clutTotalBytes_);
+		convertColors((u8 *)clutBufConverted_, getClutDestFormat(clutFormat), clutTotalBytes_ / sizeof(u16));
+		clutBuf_ = clutBufConverted_;
+	} else {
+		clutBuf_ = clutBufRaw_;
+	}
 
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
 	clutAlphaLinear_ = false;
@@ -804,6 +817,8 @@ void TextureCache::UpdateCurrentClut() {
 			}
 		}
 	}
+
+	clutLastFormat_ = clutFormat;
 }
 
 template <typename T>
@@ -835,13 +850,11 @@ void TextureCache::SetTexture() {
 
 	u32 clutformat, cluthash;
 	if (hasClut) {
-		if (clutDirty_) {
-			// We update here because the clut format can be specified after the load.
-			clutHash_ = CityHash32((const char *)clutBuf_, clutTotalBytes_);
-			UpdateCurrentClut();
-			clutDirty_ = false;
-		}
 		clutformat = gstate.clutformat & 3;
+		if (clutLastFormat_ != clutformat) {
+			// We update here because the clut format can be specified after the load.
+			UpdateCurrentClut();
+		}
 		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
 		cachekey |= (u64)cluthash << 32;
 	} else {
