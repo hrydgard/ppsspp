@@ -659,15 +659,16 @@ static void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 	}
 }
 
-static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
+static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {
+	const u32 *src = (const u32 *)srcBuf;
+	u32 *dst = (u32 *)dstBuf;
 	// TODO: All these can be further sped up with SSE or NEON.
 	switch (dstFmt) {
 	case GL_UNSIGNED_SHORT_4_4_4_4:
 		{
-			u32 *p = (u32 *)finalBuf;
 			for (int i = 0; i < (numPixels + 1) / 2; i++) {
-				u32 c = p[i];
-				p[i] = ((c >> 12) & 0x000F000F) |
+				u32 c = src[i];
+				dst[i] = ((c >> 12) & 0x000F000F) |
 				       ((c >> 4)  & 0x00F000F0) |
 				       ((c << 4)  & 0x0F000F00) |
 				       ((c << 12) & 0xF000F000);
@@ -676,10 +677,9 @@ static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 		break;
 	case GL_UNSIGNED_SHORT_5_5_5_1:
 		{
-			u32 *p = (u32 *)finalBuf;
 			for (int i = 0; i < (numPixels + 1) / 2; i++) {
-				u32 c = p[i];
-				p[i] = ((c >> 15) & 0x00010001) |
+				u32 c = src[i];
+				dst[i] = ((c >> 15) & 0x00010001) |
 				       ((c >> 9)  & 0x003E003E) |
 				       ((c << 1)  & 0x07C007C0) |
 				       ((c << 11) & 0xF800F800);
@@ -688,10 +688,9 @@ static void convertColors(u8 *finalBuf, GLuint dstFmt, int numPixels) {
 		break;
 	case GL_UNSIGNED_SHORT_5_6_5:
 		{
-			u32 *p = (u32 *)finalBuf;
 			for (int i = 0; i < (numPixels + 1) / 2; i++) {
-				u32 c = p[i];
-				p[i] = ((c >> 11) & 0x001F001F) |
+				u32 c = src[i];
+				dst[i] = ((c >> 11) & 0x001F001F) |
 				       ((c >> 0)  & 0x07E007E0) |
 				       ((c << 11) & 0xF800F800);
 			}
@@ -822,8 +821,7 @@ void TextureCache::UpdateCurrentClut() {
 	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
 	// Avoid a copy when we don't need to convert colors.
 	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		memcpy(clutBufConverted_, clutBufRaw_, clutTotalBytes_);
-		convertColors((u8 *)clutBufConverted_, getClutDestFormat(clutFormat), clutTotalBytes_ / sizeof(u16));
+		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), clutTotalBytes_ / sizeof(u16));
 		clutBuf_ = clutBufConverted_;
 	} else {
 		clutBuf_ = clutBufRaw_;
@@ -1232,7 +1230,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
 		}
-		convertColors((u8*)finalBuf, dstFmt, bufw * h);
+		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_8888:
@@ -1253,7 +1251,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
 		}
-		convertColors((u8*)finalBuf, dstFmt, bufw * h);
+		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_DXT1:
@@ -1273,7 +1271,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 				}
 			}
 			finalBuf = tmpTexBuf32.data();
-			convertColors((u8*)finalBuf, dstFmt, bufw * h);
+			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 			w = (w + 3) & ~3;
 		}
 		break;
@@ -1296,7 +1294,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
-			convertColors((u8*)finalBuf, dstFmt, bufw * h);
+			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
@@ -1318,7 +1316,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
-			convertColors((u8*)finalBuf, dstFmt, bufw * h);
+			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
