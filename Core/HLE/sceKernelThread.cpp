@@ -845,7 +845,7 @@ u32 __KernelInterruptReturnAddress()
 	return intReturnHackAddr;
 }
 
-u32 __KernelSetThreadRA(SceUID threadID, int nid)
+u32 __KernelSetThreadRA(SceUID threadID, u32 nid)
 {
 	u32 newRA;
 	switch (nid)

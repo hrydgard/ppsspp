@@ -235,7 +235,7 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason);
 
 // Set a thread's return address to a specific FakeSyscall nid.
 // Discards old RA.  Only useful for special threads that do special things on exit.
-u32 __KernelSetThreadRA(SceUID threadID, int nid);
+u32 __KernelSetThreadRA(SceUID threadID, u32 nid);
 
 // A call into game code. These can be pending on a thread.
 // Similar to Callback-s (NOT CallbackInfos) in JPCSP.
