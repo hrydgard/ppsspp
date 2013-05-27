@@ -218,16 +218,16 @@ void EmuScreen::update(InputState &input) {
 	__CtrlSetAnalog(stick_x, stick_y, 0);
 	__CtrlSetAnalog(rightstick_x, rightstick_x, 1);
 	
-	std::string msg = s->T("Speed:", "Speed:");
+	std::string msg = s->T("Speed:");
 	msg.append(" ");
 
 	if (PSP_CoreParameter().fpsLimit != 2) {
 		if (input.pad_buttons_down & PAD_BUTTON_UNTHROTTLE) {
-			msg.append(s->T("unlimited!", "unlimited!"));
+			msg.append(s->T("unlimited!"));
 			osm.Show(msg, 1.0, 0x50E0FF);
 		}
 		if (input.pad_buttons_up & PAD_BUTTON_UNTHROTTLE) {
-			msg.append(s->T("standard", "standard"));
+			msg.append(s->T("standard"));
 			osm.Show(msg, 1.0);
 		}
 	}
@@ -244,17 +244,17 @@ void EmuScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_LEFT_THUMB) {
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
-			msg.append(s->T("fixed", "fixed"));
+			msg.append(s->T("fixed"));
 			osm.Show(msg, 1.0);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 1){
 			PSP_CoreParameter().fpsLimit = 2;
-			msg.append(s->T("unlimited!", "unlimited!"));
+			msg.append(s->T("unlimited!"));
 			osm.Show(msg, 1.0, 0x50E0FF);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 2){
 			PSP_CoreParameter().fpsLimit = 0;
-			msg.append(s->T("standard", "standard"));
+			msg.append(s->T("standard"));
 			osm.Show(msg, 1.0);
 		}
 	}
