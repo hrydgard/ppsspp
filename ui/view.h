@@ -352,11 +352,7 @@ private:
 
 class Item : public InertView {
 public:
-	Item(LayoutParams *layoutParams) : InertView(layoutParams) {
-		layoutParams_->width = FILL_PARENT;
-		layoutParams_->height = 80;
-	}
-
+	Item(LayoutParams *layoutParams);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 		w = 0.0f;
 		h = 0.0f;
@@ -365,11 +361,7 @@ public:
 
 class ClickableItem : public Clickable {
 public:
-	ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
-		layoutParams_->width = FILL_PARENT;
-		layoutParams_->height = 80;
-	}
-
+	ClickableItem(LayoutParams *layoutParams);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 		w = 0.0f;
 		h = 0.0f;

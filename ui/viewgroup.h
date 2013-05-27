@@ -10,7 +10,6 @@ struct NeighborResult {
 	NeighborResult(View *v, float s) : view(v), score(s) {}
 
 	View *view;
-	ViewGroup *parent;
 	float score;
 };
 
@@ -150,7 +149,7 @@ private:
 class ScrollView : public ViewGroup {
 public:
 	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0) :
-		ViewGroup(layoutParams), orientation_(orientation), scrollPos_(0) {}
+		ViewGroup(layoutParams), orientation_(orientation), scrollPos_(0), scrollTarget_(0), scrollToTarget_(false) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
@@ -159,6 +158,7 @@ public:
 	void Draw(UIContext &dc);
 
 	void ScrollTo(float newScrollPos);
+	void Update(const InputState &input_state);
 
 	// Override so that we can scroll to the active one after moving the focus.
 	virtual bool SubviewFocused(View *view);
@@ -169,6 +169,8 @@ private:
 	float scrollPos_;
 	float scrollStart_;
 	float scrollMax_;
+	float scrollTarget_;
+	bool scrollToTarget_;
 };
 
 class ViewPager : public ScrollView {

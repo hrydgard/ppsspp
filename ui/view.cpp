@@ -12,7 +12,7 @@ namespace UI {
 static View *focusedView;
 static bool focusMovementEnabled;
 
-const float ITEM_HEIGHT = 48.f;
+const float ITEM_HEIGHT = 64.f;
 
 View *GetFocusedView() {
 	return focusedView;
@@ -48,7 +48,6 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 		*measured = spec.size;
 	}
 }
-
 
 void Event::Add(std::function<EventReturn(const EventParams&)> func) {
 	HandlerRegistration reg;
@@ -133,6 +132,16 @@ void Clickable::Update(const InputState &input_state) {
 		}
 		down_ = false;
 	}
+}
+
+Item::Item(LayoutParams *layoutParams) : InertView(layoutParams) {
+	layoutParams_->width = FILL_PARENT;
+	layoutParams_->height = ITEM_HEIGHT;
+}
+
+ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
+	layoutParams_->width = FILL_PARENT;
+	layoutParams_->height = ITEM_HEIGHT;
 }
 
 void ClickableItem::Draw(UIContext &dc) {

@@ -145,7 +145,6 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 				if (score > result.score) {
 					result.score = score;
 					result.view = views_[i];
-					result.parent = this;
 				}
 			}
 
@@ -451,8 +450,20 @@ bool ScrollView::SubviewFocused(View *view) {
 }
 
 void ScrollView::ScrollTo(float newScrollPos) {
-	// TODO: Smooth scrolling
-	scrollPos_ = newScrollPos;
+	scrollTarget_ = newScrollPos;
+	scrollToTarget_ = true;
+}
+
+void ScrollView::Update(const InputState &input_state) {
+	ViewGroup::Update(input_state);
+	if (scrollToTarget_) {
+		if (fabsf(scrollTarget_ - scrollPos_) < 0.5f) {
+			scrollPos_ = scrollTarget_;
+			scrollToTarget_ = false;
+		} else {
+			scrollPos_ += (scrollTarget_ - scrollPos_) * 0.3f;
+		}
+	}
 }
 
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -577,20 +588,24 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN))
+	{
 		EnableFocusMovement(true);
+		if (!GetFocusedView()) {
+			root->SetFocus();
+			root->SubviewFocused(GetFocusedView());
+		} else {
+			if (input_state.pad_buttons_down & PAD_BUTTON_RIGHT)
+				MoveFocus(root, FOCUS_RIGHT);
+			if (input_state.pad_buttons_down & PAD_BUTTON_UP)
+				MoveFocus(root, FOCUS_UP);
+			if (input_state.pad_buttons_down & PAD_BUTTON_LEFT)
+				MoveFocus(root, FOCUS_LEFT);
+			if (input_state.pad_buttons_down & PAD_BUTTON_DOWN)
+				MoveFocus(root, FOCUS_DOWN);
+		}
+	}
 	if (input_state.pointer_down[0])
 		EnableFocusMovement(false);
-
-	//if (input_state.pad_last_buttons == 0) {
-		if (input_state.pad_buttons_down & PAD_BUTTON_RIGHT)
-			MoveFocus(root, FOCUS_RIGHT);
-		if (input_state.pad_buttons_down & PAD_BUTTON_UP)
-			MoveFocus(root, FOCUS_UP);
-		if (input_state.pad_buttons_down & PAD_BUTTON_LEFT)
-			MoveFocus(root, FOCUS_LEFT);
-		if (input_state.pad_buttons_down & PAD_BUTTON_DOWN)
-			MoveFocus(root, FOCUS_DOWN);
-	//}
 
 	root->Update(input_state);
 }
