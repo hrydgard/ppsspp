@@ -124,14 +124,14 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	if (!Memory::IsValidAddress(vagAddr)) {
-		ERROR_LOG(HLE, "Ignoring invalid VAG audio address %08x", vagAddr);
-		return 0;
-	}
-
 	if (size <= 0 || (size & 0xF) != 0) {
 		WARN_LOG(HLE, "%s: invalid size %d", __FUNCTION__, size);
 		return ERROR_SAS_INVALID_SIZE;
+	}
+
+	if (!Memory::IsValidAddress(vagAddr)) {
+		ERROR_LOG(HLE, "Ignoring invalid VAG audio address %08x", vagAddr);
+		return 0;
 	}
 
 	//Real VAG header is 0x30 bytes behind the vagAddr
