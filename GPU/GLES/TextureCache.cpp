@@ -744,7 +744,7 @@ static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 		const __m128i mult = _mm_set1_epi32(prime);
 		const __m128i *p = (const __m128i *)clut;
 		for (u32 i = 0; i < bytes / 16; ++i) {
-			cursor = _mm_add_epi32(cursor, _mm_mul_epi32(_mm_load_si128(&p[i]), mult));
+			cursor = _mm_add_epi32(cursor, _mm_mul_epu32(_mm_load_si128(&p[i]), mult));
 		}
 		// Add the four parts into the low i32.
 		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
