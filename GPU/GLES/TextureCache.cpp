@@ -815,7 +815,9 @@ void TextureCache::LoadClut() {
 void TextureCache::UpdateCurrentClut() {
 	// 0xFF is an invalid format, it means not yet hashed or updated.
 	if (clutLastFormat_ == 0xFF) {
-		clutHash_ = QuickClutHash((const u8 *)clutBufRaw_, clutTotalBytes_);
+		// QuickClutHash is not quite good enough apparently.
+		// clutHash_ = QuickClutHash((const u8 *)clutBufRaw_, clutTotalBytes_);
+		clutHash_ = CityHash32((const char *)clutBufRaw_, clutTotalBytes_);
 	}
 
 	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
