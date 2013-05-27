@@ -17,8 +17,9 @@
 
 #include <set>
 #include "Common/StringUtils.h"
-#include "../HLE/sceKernelThread.h"
-#include "MetaFileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/Reporting.h"
 
 static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
 {
@@ -190,7 +191,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	{
 		//TODO: emulate PSP's error 8002032C: "no current working directory" if relative... may break things requiring fixes elsewhere
 		if (inpath.find(':') == std::string::npos  /* means path is relative */)
-			WARN_LOG(HLE, "Path is relative, but current directory not set for thread %i. Should give error, instead falling back to %s", currentThread, startingDirectory.c_str());
+			WARN_LOG_REPORT(HLE, "Path is relative, but current directory not set for thread %i. Should give error, instead falling back to %s", currentThread, startingDirectory.c_str());
 	}
 	else
 	{
@@ -336,7 +337,7 @@ int MetaFileSystem::ChDir(const std::string &dir)
 			}
 		}
 
-		WARN_LOG(HLE, "ChDir failed to map device for \"%s\", failing", dir.c_str());
+		WARN_LOG_REPORT(HLE, "ChDir failed to map device for \"%s\", failing", dir.c_str());
 		return SCE_KERNEL_ERROR_NODEV;
 	}
 }

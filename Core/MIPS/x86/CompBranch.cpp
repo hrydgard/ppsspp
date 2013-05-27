@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Core/Reporting.h"
+
 #include "../../HLE/HLE.h"
 #include "../../Host.h"
 
@@ -127,7 +129,7 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x", js.compilerPC);
 		return;
 	}
 	int offset = (signed short)(op&0xFFFF)<<2;
@@ -183,7 +185,7 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x", js.compilerPC);
 		return;
 	}
 	int offset = (signed short)(op&0xFFFF)<<2;
@@ -278,7 +280,7 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x", js.compilerPC);
 		return;
 	}
 	int offset = (signed short)(op & 0xFFFF) << 2;
@@ -339,7 +341,7 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x", js.compilerPC);
 		return;
 	}
 	int offset = (signed short)(op & 0xFFFF) << 2;
@@ -403,7 +405,7 @@ void Jit::Comp_Jump(u32 op)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x", js.compilerPC);
 		return;
 	}
 	u32 off = ((op & 0x3FFFFFF) << 2);
@@ -440,7 +442,7 @@ void Jit::Comp_JumpReg(u32 op)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG(JIT, "Branch in delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x", js.compilerPC);
 		return;
 	}
 	int rs = _RS;

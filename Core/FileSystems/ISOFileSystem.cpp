@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Globals.h"
-#include "Common.h"
-#include "ISOFileSystem.h"
+#include "Common/Common.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/Reporting.h"
 #include <cstring>
 #include <cstdio>
 #include <ctype.h>
@@ -36,20 +37,20 @@ static bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
 
 	int offset = 0;
 	if (sscanf(filename_c + pos, "%x%n", sectorStart, &offset) != 1)
-		WARN_LOG(FILESYS, "Invalid LBN reference: %s", filename_c);
+		WARN_LOG_REPORT(FILESYS, "Invalid LBN reference: %s", filename_c);
 	pos += offset;
 
 	if (filename.compare(pos, sizeof("_size") - 1, "_size") != 0)
-		WARN_LOG(FILESYS, "Invalid LBN reference: %s", filename_c);
+		WARN_LOG_REPORT(FILESYS, "Invalid LBN reference: %s", filename_c);
 	pos += sizeof("_size") - 1;
 
 	offset = 0;
 	if (sscanf(filename_c + pos, "%x%n", readSize, &offset) != 1)
-		WARN_LOG(FILESYS, "Invalid LBN reference: %s", filename_c);
+		WARN_LOG_REPORT(FILESYS, "Invalid LBN reference: %s", filename_c);
 	pos += offset;
 
 	if (filename.size() > pos)
-		WARN_LOG(FILESYS, "Incomplete LBN reference: %s", filename_c);
+		WARN_LOG_REPORT(FILESYS, "Incomplete LBN reference: %s", filename_c);
 	return true;
 }
 
