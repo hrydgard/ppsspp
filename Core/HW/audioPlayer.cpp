@@ -571,9 +571,10 @@ void deleteAtrac3Audio(int atracID)
 void initaudioEngine()
 {
 	if (g_Config.bAutoLoadDShow) {
-		if (LoadFilterLibrary(0, "filter\\lib\\AsyncStreamflt.ax") != S_OK)
-		{
-			WARN_LOG(HLE, "Can't load AsyncStreamflt.ax");
+		if (LoadFilterLibrary(0, "filter\\lib\\AsyncStreamflt.ax") != S_OK) {
+			WARN_LOG(HLE, "AsyncStreamflt.ax failed to load");
+		} else {
+			NOTICE_LOG(HLE, "AsyncStreamflt.ax loading completed successfully");
 		}
 	}
 	CoInitialize(0);
