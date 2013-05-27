@@ -89,7 +89,7 @@ struct InputBuffer {
 };
 
 struct Atrac;
-int __AtracSetContext(Atrac *atrac, u32 buffer, u32 bufferSize);
+int __AtracSetContext(Atrac *atrac);
 int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize);
 
 struct AtracLoopInfo {
@@ -156,7 +156,7 @@ struct Atrac {
 			p.DoArray(data_buf, first.filesize);
 		}
 		if (p.mode == p.MODE_READ && data_buf != NULL) {
-			__AtracSetContext(this, first.addr, atracBufSize);
+			__AtracSetContext(this);
 		}
 		p.Do(second);
 
@@ -897,7 +897,7 @@ int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
 
 #endif // USE_FFMPEG
 
-int __AtracSetContext(Atrac *atrac, u32 buffer, u32 bufferSize)
+int __AtracSetContext(Atrac *atrac)
 {
 #ifdef _USE_DSHOW_
 	if (atrac->codeType == PSP_MODE_AT_3_PLUS && atrac->atracChannels != 1) {
@@ -1251,17 +1251,35 @@ int _sceAtracGetContextAddress(int atracID)
 	return 0;
 }
 
-int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
+static u8 at3Header[] ={0x52,0x49,0x46,0x46,0x3b,0xbe,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x20,0x00,0x00,0x00,0x70,0x02,0x02,0x00,0x44,0xac,0x00,0x00,0x4d,0x20,0x00,0x00,0xc0,0x00,0x00,0x00,0x0e,0x00,0x01,0x00,0x00,0x10,0x00,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x00,0x00,0x64,0x61,0x74,0x61,0xc0,0xbd,0x00,0x00};
+static const u16 at3HeaderMap[][4] = {
+    { 0x00C0, 0x1, 0x8,  0x00 },
+    { 0x0098, 0x1, 0x8,  0x00 },
+    { 0x0180, 0x2, 0x10, 0x01 },
+    { 0x0130, 0x2, 0x10, 0x00 },
+    { 0x00C0, 0x2, 0x10, 0x00 }
+};
+
+static const int at3HeaderMapSize = sizeof(at3HeaderMap)/(sizeof(u16) * 4);
+
+bool initAT3Decoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
-	Atrac *atrac = getAtrac(atracID);
-	if (atrac && Memory::IsValidAddress(paramsAddr)) {
-		atrac->atracChannels = Memory::Read_U32(paramsAddr);
-		atrac->atracOutputChannels = Memory::Read_U32(paramsAddr + 4);
-		atrac->atracBufSize = Memory::Read_U32(paramsAddr + 8);
-		atrac->atracBytesPerFrame = atrac->atracBufSize;
+	for (int i = 0; i < at3HeaderMapSize; i ++) {
+		if (at3HeaderMap[i][0] == atrac->atracBytesPerFrame && at3HeaderMap[i][1] == atrac->atracChannels) {
+			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3Header) - 8;
+			*(u16*)(at3Header + 0x16) = atrac->atracChannels;
+			*(u16*)(at3Header + 0x20) = atrac->atracBytesPerFrame;
+			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
+			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10; 
+			*(u32*)(at3Header + 0x1c) = atrac->atracBitrate * 1000 / 8;
+			at3Header[0x29] = (u8)at3HeaderMap[i][2];
+			at3Header[0x2c] = (u8)at3HeaderMap[i][3];
+			at3Header[0x2e] = (u8)at3HeaderMap[i][3];
+			*(u32*)(at3Header + sizeof(at3Header) - 4) = dataSize;
+			return true;
+		}
 	}
-	return 0;
+	return false;
 }
 
 static u8 at3plusHeader[] = {0x52,0x49,0x46,0x46,0x00,0xb5,0xff,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x34,0x00,0x00,0x00,0xfe,0xff,0x02,0x00,0x44,0xac,0x00,0x00,0xa0,0x1f,0x00,0x00,0xe8,0x02,0x00,0x00,0x22,0x00,0x00,0x08,0x03,0x00,0x00,0x00,0xbf,0xaa,0x23,0xe9,0x58,0xcb,0x71,0x44,0xa1,0x19,0xff,0xfa,0x01,0xe4,0xce,0x62,0x01,0x00,0x28,0x5c,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x66,0x61,0x63,0x74,0x08,0x00,0x00,0x00,0xff,0xff,0xff,0x00,0x00,0x08,0x00,0x00,0x64,0x61,0x74,0x61,0xa8,0xb4,0xff,0x00};
@@ -1312,11 +1330,8 @@ bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
 			*(u16*)(at3plusHeader + 0x16) = atrac->atracChannels;
 			*(u16*)(at3plusHeader + 0x20) = atrac->atracBytesPerFrame;
 			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
-			if (atrac->codeType == PSP_MODE_AT_3_PLUS)  
-				atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0; 
-			else
-				atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10; 
-			*(u32*)(at3plusHeader + 0x1c) = atrac->atracBitrate / 8;
+			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0; 
+			*(u32*)(at3plusHeader + 0x1c) = atrac->atracBitrate * 1000 / 8;
 			*(u16*)(at3plusHeader + 0x3e) = at3plusHeaderMap[i + 1][0];
 			*(u32*)(at3plusHeader + sizeof(at3plusHeader) - 4) = dataSize;
 			return true;
@@ -1325,10 +1340,97 @@ bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
 	return false;
 }
 
+int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
+{
+	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
+	Atrac *atrac = getAtrac(atracID);
+	if (atrac && Memory::IsValidAddress(paramsAddr)) {
+		atrac->atracChannels = Memory::Read_U32(paramsAddr);
+		atrac->atracOutputChannels = Memory::Read_U32(paramsAddr + 4);
+		atrac->atracBufSize = Memory::Read_U32(paramsAddr + 8);
+		atrac->atracBytesPerFrame = atrac->atracBufSize;
+		atrac->first.writableBytes = atrac->atracBytesPerFrame;
+		atrac->CleanStuff();
+#ifdef USE_FFMPEG
+		if (atrac->codeType == PSP_MODE_AT_3) {
+			int headersize = sizeof(at3Header);
+			initAT3Decoder(atrac);
+			atrac->firstSampleoffset = headersize;
+			atrac->first.size = headersize;
+			atrac->first.filesize = headersize + atrac->atracBytesPerFrame;
+			atrac->data_buf = new u8[atrac->first.filesize];
+			memcpy(atrac->data_buf, at3Header, headersize);
+			atrac->currentSample = 0;
+			__AtracSetContext(atrac);
+			return 0;
+		}
+#endif // USE_FFMPEG
+	}
+	return 0;
+}
+
 int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr)
 {
 	DEBUG_LOG(HLE, "UNIMPL sceAtracLowLevelDecode(%i, %08x, %08x, %08x, %08x)", atracID, sourceAddr, sourceBytesConsumedAddr, samplesAddr, sampleBytesAddr);
 	Atrac *atrac = getAtrac(atracID);
+
+#ifdef USE_FFMPEG
+	if (Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) && 
+		Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr) && atrac && atrac->pCodecCtx) {
+			u32 sourcebytes = atrac->first.writableBytes;
+			if (sourcebytes > 0) {
+				Memory::Memcpy(atrac->data_buf + atrac->first.size, sourceAddr, sourcebytes);
+				atrac->first.size += sourcebytes;
+			}
+			int numSamples = 0;
+			int forceseekSample = 0x200000;
+			atrac->SeekToSample(forceseekSample);
+			atrac->SeekToSample(atrac->currentSample);
+			AVPacket packet;
+			int got_frame, avret;
+			while (av_read_frame(atrac->pFormatCtx, &packet) >= 0) {
+				if (packet.stream_index == atrac->audio_stream_index) {
+					got_frame = 0;
+					avret = avcodec_decode_audio4(atrac->pCodecCtx, atrac->pFrame, &got_frame, &packet);
+					if (avret < 0) {
+						ERROR_LOG(HLE, "atracID: %i, avcodec_decode_audio4: Error decoding audio %d", atracID, avret);
+						av_free_packet(&packet);
+						break;
+					}
+
+					if (got_frame) {
+						// got a frame
+						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels, 
+							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
+						u8* out = Memory::GetPointer(samplesAddr);
+						numSamples = atrac->pFrame->nb_samples;
+						avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples, 
+							(const u8**)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
+						if (avret < 0) {
+							ERROR_LOG(HLE, "swr_convert: Error while converting %d", avret);
+						}
+					}
+					av_free_packet(&packet);
+					if (got_frame)
+						break;
+				}
+			}
+			atrac->currentSample += numSamples;
+			numSamples = ATRAC_MAX_SAMPLES;
+			Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
+			atrac->SeekToSample(atrac->currentSample);
+			if (atrac->decodePos >= atrac->first.size) {
+				atrac->first.writableBytes = atrac->atracBytesPerFrame;
+				atrac->first.size = atrac->firstSampleoffset;
+				atrac->currentSample = 0;
+			}
+			else
+				atrac->first.writableBytes = 0;
+			Memory::Write_U32(atrac->first.writableBytes, sourceBytesConsumedAddr);
+			return 0;
+	}
+#endif // USE_FFMPEG
+
 #ifdef _USE_DSHOW_
 	if (Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) && atrac) {
 		u32 sourcebytes = Memory::Read_U32(sourceBytesConsumedAddr);
@@ -1376,6 +1478,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 		if (engine) {
 			int numSamples = 0;
 			s16* out = (s16*)Memory::GetPointer(samplesAddr);
+			memset(out, 0, ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
 			static s16 buf[ATRAC_MAX_SAMPLES * 2];
 			int gotsize = engine->getNextSamples((u8*)buf, ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 			numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
@@ -1390,14 +1493,14 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 					*out++ = sampleR;
 			}
 			atrac->currentSample += numSamples;
-			if (numSamples == 0) {
-				numSamples = ATRAC_MAX_SAMPLES / 4;
-				memset(out, 0, numSamples * sizeof(s16) * atrac->atracOutputChannels);
+			if (numSamples == 0 && atrac->first.filesize == atrac->first.size) {
+				Memory::Write_U32(atrac->atracBytesPerFrame, sourceBytesConsumedAddr);
 			}
+			numSamples = ATRAC_MAX_SAMPLES;
 			Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
 		} else {
 			int outputChannels = atrac ? atrac->atracOutputChannels : 2;
-			Memory::Write_U32(ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
+			Memory::Write_U32(ATRAC_MAX_SAMPLES * sizeof(s16) * outputChannels, sampleBytesAddr);
 			Memory::Memset(samplesAddr, 0, ATRAC_MAX_SAMPLES * sizeof(s16) * outputChannels);
 		}
 	}
