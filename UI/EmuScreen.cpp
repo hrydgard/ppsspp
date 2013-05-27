@@ -220,10 +220,10 @@ void EmuScreen::update(InputState &input) {
 
 	if (PSP_CoreParameter().fpsLimit != 2) {
 		if (input.pad_buttons_down & PAD_BUTTON_UNTHROTTLE) {
-			osm.Show(s->T("Speed: unlimited!"), 1.0, 0x50E0FF);
+			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
 		}
 		if (input.pad_buttons_up & PAD_BUTTON_UNTHROTTLE) {
-			osm.Show(s->T("Speed: standard"), 1.0);
+			osm.Show(s->T("standard", "Speed: standard"), 1.0);
 		}
 	}
 	if (input.pad_buttons & PAD_BUTTON_UNTHROTTLE) {
@@ -239,15 +239,15 @@ void EmuScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_LEFT_THUMB) {
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
-			osm.Show(s->T("Speed: fixed"), 1.0);
+			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 1){
 			PSP_CoreParameter().fpsLimit = 2;
-			osm.Show(s->T("Speed: unlimited!"), 1.0, 0x50E0FF);
+			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 2){
 			PSP_CoreParameter().fpsLimit = 0;
-			osm.Show(s->T("Speed: standard"), 1.0);
+			osm.Show(s->T("standard", "Speed: standard"), 1.0);
 		}
 	}
 		
