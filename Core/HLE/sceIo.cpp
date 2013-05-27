@@ -755,7 +755,7 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	if (f == NULL) {
 		ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
 		// Timing is not accurate, aiming low for now.
-		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 100);
+		return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "file opened", 100);
 	}
 
 	SceUID id = f->GetUID();

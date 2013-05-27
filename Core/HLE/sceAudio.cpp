@@ -168,6 +168,7 @@ int sceAudioGetChannelRestLen(u32 chan) {
 }
 
 int sceAudioGetChannelRestLength(u32 chan) {
+	hleEatCycles(165);
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		ERROR_LOG(HLE, "sceAudioGetChannelRestLength(%08x) - bad channel", chan);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
