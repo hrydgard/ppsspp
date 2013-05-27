@@ -90,7 +90,7 @@ u32 sceNetAdhocInit() {
 }
 
 u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
-	ERROR_LOG(HLE,"UNIMPL sceNetAdhocInit(%i, %i, %08x)", stackSize, prio, productAddr);
+	ERROR_LOG(HLE,"UNIMPL sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
 	return 0;
 }
 
@@ -111,6 +111,19 @@ u32 sceWlanDevIsPowerOn()
 
 u32 sceWlanGetSwitchState() {
 	DEBUG_LOG(HLE, "UNTESTED sceWlanGetSwitchState()");
+	return 0;
+}
+
+u32 sceNetAdhocctlGetState(int eventEvent) {
+	DEBUG_LOG(HLE, "UNTESTED 0=sceNetAdhocctlGetState()");
+	if(eventEvent)
+		return 0;
+	else 
+		return -1;
+}
+
+u32 sceNetAdhocctlDisconnect() {
+	DEBUG_LOG(HLE, "UNTESTED 0=sceNetAdhocctlDisconnect()");
 	return 0;
 }
 
@@ -187,10 +200,10 @@ const HLEFunction sceNetAdhocctl[] =
 	{0x9D689E13, 0, "sceNetAdhocctlTerm"},
 	{0x20B317A0, 0, "sceNetAdhocctlAddHandler"},
 	{0x6402490B, 0, "sceNetAdhocctlDelHandler"},
-	{0x34401D65, 0, "sceNetAdhocctlDisconnect"},
+	{0x34401D65, WrapU_V<sceNetAdhocctlDisconnect>, "sceNetAdhocctlDisconnect"},
 	{0x0ad043ed, 0, "sceNetAdhocctlConnect"},
 	{0x08fff7a0, 0, "sceNetAdhocctlScan"},
-	{0x75ecd386, 0, "sceNetAdhocctlGetState"},
+	{0x75ecd386, WrapU_I<sceNetAdhocctlGetState>, "sceNetAdhocctlGetState"},
 	{0x8916c003, 0, "sceNetAdhocctlGetNameByAddr"},
 	{0xded9d28e, 0, "sceNetAdhocctlGetParameter"},
 	{0x81aee1be, 0, "sceNetAdhocctlGetScanInfo"},
