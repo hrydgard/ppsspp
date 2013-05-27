@@ -287,7 +287,7 @@ public:
 	}
 
 	virtual bool CanBeFocused() const { return true; }
-
+	virtual bool SubviewFocused(View *view) { return false; }
 	bool HasFocus() const {
 		return GetFocusedView() == this;
 	}

@@ -37,7 +37,7 @@ public:
 	void Add(View *view) { views_.push_back(view); }
 
 	virtual bool SetFocus();
-	virtual void FocusView(View *view) {}
+	virtual bool SubviewFocused(View *view);
 
 	// Assumes that layout has taken place.
 	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
@@ -74,7 +74,6 @@ private:
 	Margins defaultMargins_;
 	float spacing_;
 };
-
 
 // GridLayout is a little different from the Android layout. This one has fixed size
 // rows and columns. Items are not allowed to deviate from the set sizes.
@@ -117,14 +116,17 @@ public:
 	void Touch(const TouchInput &input);
 	void Draw(DrawContext &dc);
 
+	void ScrollTo(float newScrollPos);
+
 	// Override so that we can scroll to the active one after moving the focus.
-	virtual void FocusView(View *view);
+	virtual bool SubviewFocused(View *view);
 
 private:
 	GestureDetector gesture_;
 	Orientation orientation_;
 	float scrollPos_;
 	float scrollStart_;
+	float scrollMax_;
 };
 
 class ViewPager : public ScrollView {

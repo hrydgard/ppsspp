@@ -59,6 +59,16 @@ bool ViewGroup::SetFocus() {
 	return false;
 }
 
+bool ViewGroup::SubviewFocused(View *view) {
+	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i] == view)
+			return true;
+		if (views_[i]->SubviewFocused(view))
+			return true;
+	}
+	return false;
+}
+
 float GetDirectionScore(View *origin, View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
@@ -170,10 +180,13 @@ void MoveFocus(ViewGroup *root, FocusDirection direction) {
 
 	if (neigh.view) {
 		neigh.view->SetFocus();
-		if (neigh.parent != 0) {
+
+		root->SubviewFocused(neigh.view);
+
+		//if (neigh.parent != 0) {
 			// Let scrollviews and similar know that a child has been focused.
-			neigh.parent->FocusView(neigh.view);
-		}
+			//neigh.parent->SubviewFocused(neigh.view);
+		//}
 	}
 }
 
@@ -407,10 +420,38 @@ void ScrollView::Draw(DrawContext &dc) {
 	dc.PopStencil();
 }
 
-void ScrollView::FocusView(View *view) {
-	// Moved the focus to a child view (can be any level deep). 
-	// Figure out if it's currently in view, if not, let's scroll there.
-	// TODO: the above.
+bool ScrollView::SubviewFocused(View *view) {
+	if (!ViewGroup::SubviewFocused(view))
+		return false;
+
+	const Bounds &vBounds = view->GetBounds();
+
+	// Scroll so that the focused view is visible.
+	switch (orientation_) {
+	case ORIENT_HORIZONTAL:
+		if (vBounds.x2() > bounds_.x2()) {
+			ScrollTo(scrollPos_ + vBounds.x2() - bounds_.x2());
+		}
+		if (vBounds.x < bounds_.x) {
+			ScrollTo(scrollPos_ + (vBounds.x - bounds_.x));
+		}
+		break;
+	case ORIENT_VERTICAL:
+		if (vBounds.y2() > bounds_.y2()) {
+			ScrollTo(scrollPos_ + vBounds.y2() - bounds_.y2());
+		}
+		if (vBounds.y < bounds_.y) {
+			ScrollTo(scrollPos_ + (vBounds.y - bounds_.y - 30));
+		}
+		break;
+	}
+
+	return true;
+}
+
+void ScrollView::ScrollTo(float newScrollPos) {
+	// TODO: Smooth scrolling
+	scrollPos_ = newScrollPos;
 }
 
 void GridLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -430,7 +471,6 @@ void GridLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec v
 
 	MeasureBySpec(layoutParams_->height, estimatedHeight, vert, &measuredHeight_);
 }
-
 
 void GridLayout::Layout() {
 	int y = 0;
@@ -485,8 +525,10 @@ void LayoutViewHierarchy(const DrawContext &dc, ViewGroup *root) {
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN))
 		EnableFocusMovement(true);
+	if (input_state.pointer_down[0])
+		EnableFocusMovement(false);
 
-	if (input_state.pad_last_buttons == 0) {
+	//if (input_state.pad_last_buttons == 0) {
 		if (input_state.pad_buttons_down & PAD_BUTTON_RIGHT)
 			MoveFocus(root, FOCUS_RIGHT);
 		if (input_state.pad_buttons_down & PAD_BUTTON_UP)
@@ -495,7 +537,7 @@ void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 			MoveFocus(root, FOCUS_LEFT);
 		if (input_state.pad_buttons_down & PAD_BUTTON_DOWN)
 			MoveFocus(root, FOCUS_DOWN);
-	}
+	//}
 
 	root->Update(input_state);
 }

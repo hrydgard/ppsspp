@@ -22,7 +22,9 @@ void SetFocusedView(View *view) {
 }
 
 void EnableFocusMovement(bool enable) {
-	focusMovementEnabled = true;
+	focusMovementEnabled = enable;
+	if (!enable)
+		focusedView = 0;
 }
 
 bool IsFocusMovementEnabled() {
@@ -98,7 +100,8 @@ void Clickable::Touch(const TouchInput &input) {
 		if (bounds_.Contains(input.x, input.y)) {
 			if (IsFocusMovementEnabled())
 				SetFocusedView(this);
-			downCountDown_ = 8;
+			dragging_ = true;
+			down_ = true;
 		} else {
 			down_ = false;
 			dragging_ = false;
@@ -118,13 +121,6 @@ void Clickable::Touch(const TouchInput &input) {
 }
 
 void Clickable::Update(const InputState &input_state) {
-	if (downCountDown_ == 1) {
-		downCountDown_ = 0;
-		dragging_ = true;
-		down_ = true;
-	} else if (downCountDown_ > 0) {
-		downCountDown_--;
-	}
 	if (!HasFocus())
 		return;
 	if (input_state.pad_buttons_down & PAD_BUTTON_A) {
