@@ -96,7 +96,7 @@ private:
 		bool sClamp;
 		bool tClamp;
 
-		bool Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2);
+		bool Matches(u16 dim2, u8 format2, int maxLevel2);
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
@@ -126,9 +126,12 @@ private:
 
 	SimpleBuf<u32> tmpTexBufRearrange;
 
-	bool clutDirty_;
+	u8 clutLastFormat_;
+	u32 *clutBufRaw_;
+	u32 *clutBufConverted_;
 	u32 *clutBuf_;
 	u32 clutHash_;
+	u32 clutTotalBytes_;
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_;
 	u16 clutAlphaLinearColor_;
