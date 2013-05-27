@@ -1353,6 +1353,7 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 		atrac->CleanStuff();
 #ifdef USE_FFMPEG
 		if (atrac->codeType == PSP_MODE_AT_3) {
+			WARN_LOG(HLE, "This is an atrac3 audio (low level)");
 			int headersize = sizeof(at3Header);
 			initAT3Decoder(atrac);
 			atrac->firstSampleoffset = headersize;
@@ -1455,9 +1456,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 				atrac->first.size = headersize + atrac->atracBytesPerFrame;
 				atrac->first.fileoffset = atrac->first.size;
 				addAtrac3Audio(atrac->data_buf, atrac->atracChannels == 2 ? atrac->first.size : atrac->first.filesize, atracID);
-			} else if (atrac->codeType == PSP_MODE_AT_3) {
-				WARN_LOG(HLE, "This is an atrac3 audio (low level)");
-			}
+			} 
 		}
 		else {
 			audioEngine *engine = getaudioEngineByID(atracID);
