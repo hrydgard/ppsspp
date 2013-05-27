@@ -23,6 +23,7 @@
 
 #include "input/input_state.h"
 #include "ui/ui.h"
+#include "i18n/i18n.h"
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -204,6 +205,8 @@ void EmuScreen::update(InputState &input) {
 	float stick_y = input.pad_lstick_y;
 	float rightstick_x = input.pad_rstick_x;
 	float rightstick_y = input.pad_rstick_y;
+	
+	I18NCategory *s = GetI18NCategory("Screen");
 
 	// Apply tilt to left stick
 	if (g_Config.bAccelerometerToAnalogHoriz) {
@@ -214,13 +217,18 @@ void EmuScreen::update(InputState &input) {
 
 	__CtrlSetAnalog(stick_x, stick_y, 0);
 	__CtrlSetAnalog(rightstick_x, rightstick_x, 1);
+	
+	std::string msg = s->T("Speed:", "Speed:");
+	msg.append(" ");
 
 	if (PSP_CoreParameter().fpsLimit != 2) {
 		if (input.pad_buttons_down & PAD_BUTTON_UNTHROTTLE) {
-			osm.Show("Speed: unlimited!", 1.0, 0x50E0FF);
+			msg.append(s->T("unlimited!", "unlimited!"));
+			osm.Show(msg, 1.0, 0x50E0FF);
 		}
 		if (input.pad_buttons_up & PAD_BUTTON_UNTHROTTLE) {
-			osm.Show("Speed: standard", 1.0);
+			msg.append(s->T("standard", "standard"));
+			osm.Show(msg, 1.0);
 		}
 	}
 	if (input.pad_buttons & PAD_BUTTON_UNTHROTTLE) {
@@ -236,15 +244,18 @@ void EmuScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_LEFT_THUMB) {
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
-			osm.Show("Speed: fixed", 1.0);
+			msg.append(s->T("fixed", "fixed"));
+			osm.Show(msg, 1.0);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 1){
 			PSP_CoreParameter().fpsLimit = 2;
-			osm.Show("Speed: unlimited!", 1.0, 0x50E0FF);
+			msg.append(s->T("unlimited!", "unlimited!"));
+			osm.Show(msg, 1.0, 0x50E0FF);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 2){
 			PSP_CoreParameter().fpsLimit = 0;
-			osm.Show("Speed: standard", 1.0);
+			msg.append(s->T("standard", "standard"));
+			osm.Show(msg, 1.0);
 		}
 	}
 		
