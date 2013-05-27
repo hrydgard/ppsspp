@@ -384,6 +384,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+
 	net::Init();
 #ifdef __APPLE__
 	// Make sure to request a somewhat modern GL context at least - the
@@ -480,6 +481,8 @@ int main(int argc, char *argv[]) {
 
 	float dp_xscale = (float)dp_xres / pixel_xres;
 	float dp_yscale = (float)dp_yres / pixel_yres;
+
+	g_dpi_scale = pixel_xres / dp_xres;
 
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);

@@ -5,6 +5,7 @@
 #include "gfx/texture_atlas.h"
 #include "ui/ui.h"
 #include "ui/view.h"
+#include "ui/drawing.h"
 
 namespace UI {
 

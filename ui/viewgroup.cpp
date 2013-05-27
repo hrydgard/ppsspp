@@ -1,5 +1,6 @@
 #include "base/display.h"
 #include "base/logging.h"
+#include "ui/drawing.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 
@@ -415,9 +416,9 @@ void ScrollView::Touch(const TouchInput &input) {
 }
 
 void ScrollView::Draw(DrawContext &dc) {
-	dc.PushStencil(bounds_);
+	dc.PushScissor(bounds_);
 	views_[0]->Draw(dc);
-	dc.PopStencil();
+	dc.PopScissor();
 }
 
 bool ScrollView::SubviewFocused(View *view) {

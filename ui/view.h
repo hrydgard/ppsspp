@@ -155,14 +155,6 @@ struct MeasureSpec {
 
 class View;
 
-struct DrawContext {
-	DrawBuffer *draw;
-	DrawBuffer *drawTop;
-	const Theme *theme;
-
-	void PushStencil(const Bounds &bounds) {}
-	void PopStencil() {}
-};
 
 // Should cover all bases.
 struct EventParams {
