@@ -744,7 +744,7 @@ static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 		const __m128i mult = _mm_set1_epi32(prime);
 		const __m128i *p = (const __m128i *)clut;
 		for (u32 i = 0; i < bytes / 16; ++i) {
-			cursor = _mm_add_epi32(cursor, _mm_mul_epi32(_mm_load_si128(&p[i]), mult));
+			cursor = _mm_add_epi32(cursor, _mm_mul_epu32(_mm_load_si128(&p[i]), mult));
 		}
 		// Add the four parts into the low i32.
 		cursor = _mm_add_epi32(cursor, _mm_srli_si128(cursor, 8));
@@ -815,7 +815,9 @@ void TextureCache::LoadClut() {
 void TextureCache::UpdateCurrentClut() {
 	// 0xFF is an invalid format, it means not yet hashed or updated.
 	if (clutLastFormat_ == 0xFF) {
-		clutHash_ = QuickClutHash((const u8 *)clutBufRaw_, clutTotalBytes_);
+		// QuickClutHash is not quite good enough apparently.
+		// clutHash_ = QuickClutHash((const u8 *)clutBufRaw_, clutTotalBytes_);
+		clutHash_ = CityHash32((const char *)clutBufRaw_, clutTotalBytes_);
 	}
 
 	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
