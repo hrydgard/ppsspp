@@ -264,6 +264,12 @@ namespace MIPSAnalyst
 
 	map<u32, Function*> hashToFunction;
 
+	void Shutdown()
+	{
+		functions.clear();
+		hashToFunction.clear();
+	}
+
 	// hm pointless :P
 	void UpdateHashToFunctionMap()
 	{
@@ -353,7 +359,7 @@ namespace MIPSAnalyst
 			}
 
 			u32 op = Memory::Read_Instruction(addr);
-			u32 target = GetBranchTarget(addr);
+			u32 target = GetBranchTargetNoRA(addr);
 			if (target != INVALIDTARGET)
 			{
 				isStraightLeaf = false;

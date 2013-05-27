@@ -262,6 +262,8 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask)
 	//ListBox_AddString(listbox,"(0x80002000)");
 	//ListBox_SetItemData(listbox,1,0x80002000);
 
+	SendMessage(listbox, WM_SETREDRAW, FALSE, 0);
+	SendMessage(listbox, LB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30);
 	for (size_t i = 0; i < entries.size(); i++)
 	{
 		if (entries[i].type & symmask)
@@ -272,6 +274,8 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask)
 			ListBox_SetItemData(listbox,index,entries[i].vaddress);
 		}
 	}
+	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
+	RedrawWindow(listbox, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 
 	ShowWindow(listbox,SW_SHOW);
 }
@@ -289,6 +293,8 @@ void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask)
 	//ListBox_AddString(listbox,"(0x80002000)");
 	//ListBox_SetItemData(listbox,1,0x80002000);
 
+	SendMessage(listbox, WM_SETREDRAW, FALSE, 0);
+	SendMessage(listbox, CB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30);
 	for (size_t i = 0; i < entries.size(); i++)
 	{
 		if (entries[i].type & symmask)
@@ -299,6 +305,8 @@ void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask)
 			ComboBox_SetItemData(listbox,index,entries[i].vaddress);
 		}
 	}
+	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
+	RedrawWindow(listbox, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 	
 	ShowWindow(listbox,SW_SHOW);
 }
