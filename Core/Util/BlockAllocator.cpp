@@ -261,7 +261,11 @@ bool BlockAllocator::FreeExact(u32 position)
 {
 	Block *b = GetBlockFromAddress(position);
 	if (b && b->taken && b->start == position)
-		return Free(position);
+	{
+		b->taken = false;
+		MergeFreeBlocks(b);
+		return true;
+	}
 	else
 	{
 		ERROR_LOG(HLE, "BlockAllocator : invalid free %08x", position);
@@ -304,7 +308,7 @@ void BlockAllocator::CheckBlocks() const
 	}
 }
 
-BlockAllocator::Block *BlockAllocator::GetBlockFromAddress(u32 addr)
+inline BlockAllocator::Block *BlockAllocator::GetBlockFromAddress(u32 addr)
 {
 	for (Block *bp = bottom_; bp != NULL; bp = bp->next)
 	{
