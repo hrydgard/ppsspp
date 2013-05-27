@@ -208,6 +208,42 @@ void TextView::Draw(DrawContext &dc) {
 	dc.draw->DrawTextRect(dc.theme->uiFont, text_.c_str(), bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
 }
 
+void TriggerButton::Touch(const TouchInput &input) {
+	if (input.flags & TOUCH_DOWN) {
+		if (bounds_.Contains(input.x, input.y)) {
+			down_ |= 1 << input.id;
+		}
+	}
+	if (input.flags & TOUCH_MOVE) {
+		if (bounds_.Contains(input.x, input.y))
+			down_ |= 1 << input.id;
+		else
+			down_ &= ~(1 << input.id);
+	}
+
+	if (input.flags & TOUCH_UP) {
+		down_ &= ~(1 << input.id);
+	}
+
+	if (down_ != 0) {
+		*bitField_ |= bit_;
+	} else {
+		*bitField_ &= ~bit_;
+	}
+}
+
+void TriggerButton::Draw(DrawContext &dc) {
+	dc.draw->DrawImage(imageBackground_, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.draw->DrawImage(imageForeground_, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+}
+
+void TriggerButton::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
+	const AtlasImage &image = dc.draw->GetAtlas()->images[imageBackground_];
+	w = image.w;
+	h = image.h;
+}
+
+
 /*
 TabStrip::TabStrip()
 	: selected_(0) {

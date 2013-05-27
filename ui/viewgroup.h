@@ -55,10 +55,52 @@ public:
 	void Layout();
 };
 
-class RelativeLayout : public ViewGroup {
+
+enum {
+	NONE = -1,
+};
+
+class AnchorLayoutParams : public LayoutParams {
 public:
+	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b)
+		: LayoutParams(w, h), left(l), top(t), right(r), bottom(b) {}
+
+	AnchorLayoutParams(float l, float t, float r, float b)
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT), left(l), top(t), right(r), bottom(b) {}
+
+	// These are not bounds, but distances from the container edges.
+	// Set to NONE to not attach this edge to the container.
+	float left, top, right, bottom;
+};
+
+class AnchorLayout : public ViewGroup {
+public:
+	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams) {}
 	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
+};
+
+class LinearLayoutParams : public LayoutParams {
+public:
+	LinearLayoutParams()
+		: LayoutParams(), weight(0.0f), gravity(G_TOPLEFT), hasMargins_(false) {}
+	explicit LinearLayoutParams(float wgt)
+		: LayoutParams(), weight(wgt), gravity(G_TOPLEFT), hasMargins_(false) {}
+	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = G_TOPLEFT)
+		: LayoutParams(w, h), weight(wgt), gravity(grav), hasMargins_(false) {}
+	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)
+		: LayoutParams(w, h), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
+	LinearLayoutParams(const Margins &mgn)
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+
+	float weight;
+	Gravity gravity;
+	Margins margins;
+
+	bool HasMargins() const { return hasMargins_; }
+
+private:
+	bool hasMargins_;
 };
 
 class LinearLayout : public ViewGroup {

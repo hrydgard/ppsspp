@@ -472,6 +472,62 @@ void GridLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec v
 	MeasureBySpec(layoutParams_->height, estimatedHeight, vert, &measuredHeight_);
 }
 
+void AnchorLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
+	MeasureBySpec(layoutParams_->height, 0.0f, horiz, &measuredHeight_);
+
+	for (size_t i = 0; i < views_.size(); i++) {
+		Size width = WRAP_CONTENT;
+		Size height = WRAP_CONTENT;
+
+		MeasureSpec specW(UNSPECIFIED, 0.0f);
+		MeasureSpec specH(UNSPECIFIED, 0.0f);
+
+		const AnchorLayoutParams *params = dynamic_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
+		if (params) {
+			width = params->width;
+			height = params->height;
+
+			if (params->left >= 0 && params->right >= 0) 	{
+				width = measuredWidth_ - params->left - params->right;
+				specW = MeasureSpec(EXACTLY, width);
+			}
+			if (params->top >= 0 && params->bottom >= 0) 	{
+				height = measuredHeight_ - params->top - params->bottom;
+				specH = MeasureSpec(EXACTLY, height);
+			}
+		}
+
+		views_[i]->Measure(dc, specW, specH);
+	}
+}
+
+void AnchorLayout::Layout() {
+	for (size_t i = 0; i < views_.size(); i++) {
+		const AnchorLayoutParams *params = dynamic_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
+
+		Bounds vBounds;
+		vBounds.w = views_[i]->GetMeasuredWidth();
+		vBounds.h = views_[i]->GetMeasuredHeight();
+
+		float left = 0, top = 0, right = 0, bottom = 0;
+
+		if (params) {
+			left = params->left;
+			top = params->top;
+			right = params->right;
+			bottom = params->bottom;
+		}
+
+		if (left >= 0) vBounds.x = bounds_.x + left;
+		if (top >= 0)	vBounds.y = bounds_.y + top;
+		if (right >= 0) vBounds.x = bounds_.x2() - right - vBounds.w;
+		if (bottom >= 0) vBounds.y = bounds_.y2() - bottom - vBounds.y;
+
+		views_[i]->SetBounds(vBounds);
+	}
+}
+
 void GridLayout::Layout() {
 	int y = 0;
 	int x = 0;
@@ -498,10 +554,6 @@ void GridLayout::Layout() {
 			x += settings_.spacing;
 		}
 	}
-}
-
-void RelativeLayout::Layout() {
-
 }
 
 void LayoutViewHierarchy(const DrawContext &dc, ViewGroup *root) {

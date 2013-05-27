@@ -218,29 +218,6 @@ public:
 	Size height;
 };
 
-class LinearLayoutParams : public LayoutParams {
-public:
-	LinearLayoutParams()
-		: LayoutParams(), weight(0.0f), gravity(G_TOPLEFT), hasMargins_(false) {}
-	explicit LinearLayoutParams(float wgt)
-		: LayoutParams(), weight(wgt), gravity(G_TOPLEFT), hasMargins_(false) {}
-	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = G_TOPLEFT)
-		: LayoutParams(w, h), weight(wgt), gravity(grav), hasMargins_(false) {}
-	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)
-		: LayoutParams(w, h), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
-	LinearLayoutParams(const Margins &mgn)
-		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
-
-	float weight;
-	Gravity gravity;
-	Margins margins;
-
-	bool HasMargins() const { return hasMargins_; }
-
-private:
-	bool hasMargins_;
-};
-
 View *GetFocusedView();
 
 class View {
@@ -356,6 +333,31 @@ private:
 	std::string text_;
 };
 
+// Basic button that modifies a bitfield based on the pressed status. Supports multitouch.
+// Suitable for controller simulation (ABXY etc).
+class TriggerButton : public View {
+public:
+	TriggerButton(uint32_t *bitField, uint32_t bit, int imageBackground, int imageForeground, LayoutParams *layoutParams)
+		: View(layoutParams), down_(0.0), bitField_(bitField), bit_(bit), imageBackground_(imageBackground), imageForeground_(imageForeground) {}
+
+	virtual void Touch(const TouchInput &input);
+	virtual void Draw(DrawContext &dc);
+	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
+
+private:
+	int down_;  // bitfield of pressed fingers, translates into bitField
+
+	uint32_t *bitField_;
+	uint32_t bit_;
+
+	int imageBackground_;
+	int imageForeground_;
+};
+
+
+// The following classes are mostly suitable as items in ListView which
+// really is just a LinearLayout in a ScrollView, possibly with some special optimizations.
+
 class Item : public InertView {
 public:
 	Item(LayoutParams *layoutParams) : InertView(layoutParams) {
@@ -384,9 +386,6 @@ public:
 	// Draws the item background.
 	virtual void Draw(DrawContext &dc);
 };
-
-// The following classes are mostly suitable as items in ListView which
-// really is just a LinearLayout in a ScrollView, possibly with some special optimizations.
 
 // Use to trigger something or open a submenu screen.
 class Choice : public ClickableItem {
@@ -488,6 +487,8 @@ private:
 	int atlasImage_;
 	ImageSizeMode sizeMode_;
 };
+
+
 
 // This tab strip is a little special.
 /*
