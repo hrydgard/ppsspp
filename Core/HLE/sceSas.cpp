@@ -76,7 +76,7 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 	for (int i = 0; i < sas->maxVoices; i++) {
 		sas->voices[i].sampleRate = sampleRate;
 		sas->voices[i].playing = false;
-		sas->voices[i].loop = true;  // inverted flag
+		sas->voices[i].loop = false;
 	}
 	return 0;
 }
@@ -140,7 +140,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	v.type = VOICETYPE_VAG;
 	v.vagAddr = vagAddr;
 	v.vagSize = size;
-	v.loop = loop ? false : true;
+	v.loop = loop ? true : false;
 	v.ChangedParams(vagAddr == prevVagAddr);
 	return 0;
 }
@@ -170,7 +170,7 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 	v.pcmAddr = pcmAddr;
 	v.pcmSize = size;
 	v.pcmIndex = 0;
-	v.loop = loop ? false : true;
+	v.loop = loop ? true : false;
 	v.playing = true;
 	v.ChangedParams(pcmAddr == prevPcmAddr);
 	return 0;
