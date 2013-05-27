@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 struct Point {
 	Point() {}
 	Point(float x_, float y_) : x(x_), y(y_) {}

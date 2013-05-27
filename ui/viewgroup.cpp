@@ -1,6 +1,6 @@
 #include "base/display.h"
 #include "base/logging.h"
-#include "ui/drawing.h"
+#include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 
@@ -36,7 +36,7 @@ void ViewGroup::Touch(const TouchInput &input) {
 	}
 }
 
-void ViewGroup::Draw(DrawContext &dc) {
+void ViewGroup::Draw(UIContext &dc) {
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		(*iter)->Draw(dc);
@@ -191,7 +191,7 @@ void MoveFocus(ViewGroup *root, FocusDirection direction) {
 	}
 }
 
-void LinearLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	if (views_.empty()) {
 		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
@@ -325,7 +325,7 @@ void LinearLayout::Layout() {
 	}
 }
 
-void FrameLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	if (views_.empty()) {
 		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
@@ -341,7 +341,7 @@ void FrameLayout::Layout() {
 
 }
 
-void ScrollView::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	// Respect margins
 	Margins margins;
 	const LinearLayoutParams *params = dynamic_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
@@ -415,7 +415,7 @@ void ScrollView::Touch(const TouchInput &input) {
 	}
 }
 
-void ScrollView::Draw(DrawContext &dc) {
+void ScrollView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	views_[0]->Draw(dc);
 	dc.PopScissor();
@@ -455,7 +455,7 @@ void ScrollView::ScrollTo(float newScrollPos) {
 	scrollPos_ = newScrollPos;
 }
 
-void GridLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	MeasureSpecType measureType = settings_.fillCells ? EXACTLY : AT_MOST;
 
 	for (size_t i = 0; i < views_.size(); i++) {
@@ -473,7 +473,7 @@ void GridLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec v
 	MeasureBySpec(layoutParams_->height, estimatedHeight, vert, &measuredHeight_);
 }
 
-void AnchorLayout::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, horiz, &measuredHeight_);
 
@@ -557,7 +557,7 @@ void GridLayout::Layout() {
 	}
 }
 
-void LayoutViewHierarchy(const DrawContext &dc, ViewGroup *root) {
+void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 	Bounds rootBounds;
 	rootBounds.x = 0;
 	rootBounds.y = 0;

@@ -38,11 +38,9 @@ void ScreenManager::update(InputState &input) {
 	}
 }
 
-void ScreenManager::switchToNext()
-{
+void ScreenManager::switchToNext() {
 	Layer temp = {0, 0};
-	if (!stack_.empty())
-	{
+	if (!stack_.empty()) {
 		temp = stack_.back();
 		stack_.pop_back();
 	}
@@ -52,8 +50,7 @@ void ScreenManager::switchToNext()
 	nextScreen_ = 0;
 }
 
-void ScreenManager::touch(const TouchInput &touch)
-{
+void ScreenManager::touch(const TouchInput &touch) {
 	if (stack_.size()) {
 		stack_.back().screen->touch(touch);
 		return;
@@ -62,16 +59,12 @@ void ScreenManager::touch(const TouchInput &touch)
 
 void ScreenManager::render() {
 	if (stack_.size()) {
-		switch (stack_.back().flags)
-		{
+		switch (stack_.back().flags) {
 		case LAYER_SIDEMENU:
-			if (stack_.size() == 1)
-			{
+			if (stack_.size() == 1) {
 				ELOG("Can't have sidemenu over nothing");
 				break;
-			}
-			else
-			{
+			} else {
 				auto iter = stack_.end();
 				iter--;
 				iter--;
@@ -94,8 +87,7 @@ void ScreenManager::render() {
 	processFinishDialog();
 }
 
-void ScreenManager::sendMessage(const char *msg, const char *value)
-{
+void ScreenManager::sendMessage(const char *msg, const char *value) {
 	if (stack_.size())
 		stack_.back().screen->sendMessage(msg, value);
 }
@@ -144,10 +136,8 @@ void ScreenManager::pop() {
 	}
 }
 
-void ScreenManager::finishDialog(const Screen *dialog, DialogResult result)
-{
-	if (dialog != stack_.back().screen)
-	{
+void ScreenManager::finishDialog(const Screen *dialog, DialogResult result) {
+	if (dialog != stack_.back().screen) {
 		ELOG("Wrong dialog being finished!");
 		return;
 	}
@@ -159,10 +149,8 @@ void ScreenManager::finishDialog(const Screen *dialog, DialogResult result)
 	dialogResult_ = result;
 }
 
-void ScreenManager::processFinishDialog()
-{
-	if (dialogFinished_)
-	{
+void ScreenManager::processFinishDialog() {
+	if (dialogFinished_) {
 		if (stack_.size()) {
 			stack_.pop_back();
 		}

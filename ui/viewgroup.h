@@ -23,11 +23,11 @@ public:
 	virtual void Touch(const TouchInput &input);
 
 	// By default, a container will layout to its own bounds.
-	virtual void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) = 0;
+	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) = 0;
 	virtual void Layout() = 0;
 	virtual void Update(const InputState &input_state);
 
-	virtual void Draw(DrawContext &dc);
+	virtual void Draw(UIContext &dc);
 
 	// These should be unused.
 	virtual float GetContentWidth() const { return 0.0f; }
@@ -51,7 +51,7 @@ protected:
 // A frame layout contains a single child view (normally).
 class FrameLayout : public ViewGroup {
 public:
-	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 };
 
@@ -76,7 +76,7 @@ public:
 class AnchorLayout : public ViewGroup {
 public:
 	AnchorLayout(LayoutParams *layoutParams = 0) : ViewGroup(layoutParams) {}
-	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 };
 
@@ -108,7 +108,7 @@ public:
 	LinearLayout(Orientation orientation, LayoutParams *layoutParams = 0)
 		: ViewGroup(layoutParams), spacing_(5), orientation_(orientation), defaultMargins_(0) {}
 
-	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 
 private:
@@ -139,7 +139,7 @@ public:
 			ELOG("GridLayout: Vertical layouts not yet supported");
 	}
 
-	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 
 private:
@@ -152,11 +152,11 @@ public:
 	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0) :
 		ViewGroup(layoutParams), orientation_(orientation), scrollPos_(0) {}
 
-	void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 
 	void Touch(const TouchInput &input);
-	void Draw(DrawContext &dc);
+	void Draw(UIContext &dc);
 
 	void ScrollTo(float newScrollPos);
 
@@ -175,7 +175,7 @@ class ViewPager : public ScrollView {
 public:
 };
 
-void LayoutViewHierarchy(const DrawContext &dc, ViewGroup *root);
+void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root);
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root);
 
 }  // namespace UI

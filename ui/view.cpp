@@ -5,7 +5,7 @@
 #include "gfx/texture_atlas.h"
 #include "ui/ui.h"
 #include "ui/view.h"
-#include "ui/drawing.h"
+#include "ui/ui_context.h"
 
 namespace UI {
 
@@ -76,7 +76,7 @@ void Event::Update() {
 	}
 }
 
-void View::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+void View::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	float contentW = 0.0f, contentH = 0.0f;
 	GetContentDimensions(dc, contentW, contentH);
 	MeasureBySpec(layoutParams_->width, contentW, horiz, &measuredWidth_);
@@ -85,7 +85,7 @@ void View::Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 
 // Default values
 
-void View::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
+void View::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	w = 10.0f;
 	h = 10.0f;
 }
@@ -135,78 +135,78 @@ void Clickable::Update(const InputState &input_state) {
 	}
 }
 
-void ClickableItem::Draw(DrawContext &dc) {
+void ClickableItem::Draw(UIContext &dc) {
 	if (down_) {
-		dc.draw->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.bgColor);
+		dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.bgColor);
 	} else if (HasFocus()) {
-		dc.draw->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemFocusedStyle.bgColor);
+		dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemFocusedStyle.bgColor);
 	}
 }
 
-void Choice::Draw(DrawContext &dc) {
+void Choice::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
 	int paddingX = 4;
 	int paddingY = 4;
-	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
-void InfoItem::Draw(DrawContext &dc) {
+void InfoItem::Draw(UIContext &dc) {
 	int paddingX = 4;
 	int paddingY = 4;
-	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_RIGHT);
-	dc.draw->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
+	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_RIGHT);
+	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
 }
 
-void ItemHeader::Draw(DrawContext &dc) {
-	dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFF707070, ALIGN_LEFT);
-	dc.draw->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.bgColor);
+void ItemHeader::Draw(UIContext &dc) {
+	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFF707070, ALIGN_LEFT);
+	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.bgColor);
 }
 
-void CheckBox::Draw(DrawContext &dc) {
+void CheckBox::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
 	int paddingX = 80;
 	int paddingY = 4;
-	dc.draw->DrawImage(dc.theme->checkOn, bounds_.x + 30, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.Draw()->DrawImage(dc.theme->checkOn, bounds_.x + 30, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
-void Button::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
-	dc.draw->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
 }
 
-void Button::Draw(DrawContext &dc) {
+void Button::Draw(UIContext &dc) {
 	int image = down_ ? dc.theme->buttonImage : dc.theme->buttonSelected;
 	
 	Style style = dc.theme->buttonStyle;
 	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
 	if (down_) style = dc.theme->buttonDownStyle;
 	
-	dc.draw->DrawImage4Grid(dc.theme->buttonImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
-	dc.draw->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
+	dc.Draw()->DrawImage4Grid(dc.theme->buttonImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
+	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 }
 
-void ImageView::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
-	const AtlasImage &img = dc.draw->GetAtlas()->images[atlasImage_];
+void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	const AtlasImage &img = dc.Draw()->GetAtlas()->images[atlasImage_];
 	// TODO: involve sizemode
 	w = img.w;
 	h = img.h;
 }
 
-void ImageView::Draw(DrawContext &dc) {
+void ImageView::Draw(UIContext &dc) {
 	// TODO: involve sizemode
-	dc.draw->DrawImage(atlasImage_, bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
+	dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
 }
 
-void TextView::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
-	dc.draw->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
 }
 
-void TextView::Draw(DrawContext &dc) {
+void TextView::Draw(UIContext &dc) {
 	// TODO: involve sizemode
-	dc.draw->DrawTextRect(dc.theme->uiFont, text_.c_str(), bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
+	dc.Draw()->DrawTextRect(dc.theme->uiFont, text_.c_str(), bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
 }
 
 void TriggerButton::Touch(const TouchInput &input) {
@@ -233,13 +233,13 @@ void TriggerButton::Touch(const TouchInput &input) {
 	}
 }
 
-void TriggerButton::Draw(DrawContext &dc) {
-	dc.draw->DrawImage(imageBackground_, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.draw->DrawImage(imageForeground_, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+void TriggerButton::Draw(UIContext &dc) {
+	dc.Draw()->DrawImage(imageBackground_, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.Draw()->DrawImage(imageForeground_, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
 }
 
-void TriggerButton::GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
-	const AtlasImage &image = dc.draw->GetAtlas()->images[imageBackground_];
+void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	const AtlasImage &image = dc.Draw()->GetAtlas()->images[imageBackground_];
 	w = image.w;
 	h = image.h;
 }
@@ -282,7 +282,7 @@ void TabStrip::Draw(DrawContext &dc) {
 	}
 }*/
 
-void Fill(DrawContext &dc, const Bounds &bounds, const Drawable &drawable) {
+void Fill(UIContext &dc, const Bounds &bounds, const Drawable &drawable) {
 	if (drawable.type == DRAW_SOLID_COLOR) {
 		
 	}

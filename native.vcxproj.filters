@@ -263,7 +263,6 @@
     <ClInclude Include="math\geom2d.h">
       <Filter>math</Filter>
     </ClInclude>
-    <ClInclude Include="ui\drawing.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -466,7 +465,6 @@
     <ClCompile Include="ui\viewgroup.cpp">
       <Filter>ui</Filter>
     </ClCompile>
-    <ClCompile Include="ui\drawing.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

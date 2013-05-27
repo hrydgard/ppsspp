@@ -30,7 +30,7 @@ struct TouchInput;
 struct InputState;
 
 class DrawBuffer;
-class DrawContext;
+class UIContext;
 
 // I don't generally like namespaces but I think we do need one for UI, so many potentially-clashing names.
 namespace UI {
@@ -139,7 +139,7 @@ enum EventReturn {
 
 class ViewGroup;
 
-void Fill(DrawContext &dc, const Bounds &bounds, const Drawable &drawable);
+void Fill(UIContext &dc, const Bounds &bounds, const Drawable &drawable);
 
 struct MeasureSpec {
 	MeasureSpec(MeasureSpecType t, float s = 0.0f) : type(t), size(s) {}
@@ -232,15 +232,15 @@ public:
 	}
 	
 	// Views don't do anything here in Layout, only containers implement this.
-	virtual void Measure(const DrawContext &dc, MeasureSpec horiz, MeasureSpec vert);
+	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	virtual void Layout() {}
-	virtual void Draw(DrawContext &dc) {}
+	virtual void Draw(UIContext &dc) {}
 
 	virtual float GetMeasuredWidth() const { return measuredWidth_; }
 	virtual float GetMeasuredHeight() const { return measuredHeight_; }
 
 	// Override this for easy standard behaviour. No need to override Measure.
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 
 	// Called when the layout is done.
 	void SetBounds(Bounds bounds) { bounds_ = bounds; }
@@ -317,8 +317,8 @@ public:
 	Button(const std::string &text, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text) {}
 	
-	virtual void Draw(DrawContext &dc);
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
+	virtual void Draw(UIContext &dc);
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 
 private:
 	Style style_;
@@ -333,8 +333,8 @@ public:
 		: View(layoutParams), down_(0.0), bitField_(bitField), bit_(bit), imageBackground_(imageBackground), imageForeground_(imageForeground) {}
 
 	virtual void Touch(const TouchInput &input);
-	virtual void Draw(DrawContext &dc);
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
+	virtual void Draw(UIContext &dc);
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 
 private:
 	int down_;  // bitfield of pressed fingers, translates into bitField
@@ -357,7 +357,7 @@ public:
 		layoutParams_->height = 80;
 	}
 
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 		w = 0.0f;
 		h = 0.0f;
 	}
@@ -370,13 +370,13 @@ public:
 		layoutParams_->height = 80;
 	}
 
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const {
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 		w = 0.0f;
 		h = 0.0f;
 	}
 
 	// Draws the item background.
-	virtual void Draw(DrawContext &dc);
+	virtual void Draw(UIContext &dc);
 };
 
 // Use to trigger something or open a submenu screen.
@@ -385,7 +385,7 @@ public:
 	Choice(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {}
 
-	virtual void Draw(DrawContext &dc);
+	virtual void Draw(UIContext &dc);
 
 private:
 	std::string text_;
@@ -397,7 +397,7 @@ public:
 	InfoItem(const std::string &text, const std::string &rightText, LayoutParams *layoutParams = 0)
 		: Item(layoutParams), text_(text), rightText_(rightText) {}
 
-	virtual void Draw(DrawContext &dc);
+	virtual void Draw(UIContext &dc);
 
 private:
 	std::string text_;
@@ -411,7 +411,7 @@ public:
 		layoutParams_->width = FILL_PARENT;
 		layoutParams_->height = 26;
 	}
-	virtual void Draw(DrawContext &dc);
+	virtual void Draw(UIContext &dc);
 private:
 	std::string text_;
 };
@@ -423,7 +423,7 @@ public:
 		OnClick.Add(std::bind(&CheckBox::OnClicked, this, std::placeholders::_1));
 	}
 
-	virtual void Draw(DrawContext &dc);
+	virtual void Draw(UIContext &dc);
 
 	EventReturn OnClicked(const EventParams &e) {
 		if (toggle_)
@@ -444,10 +444,10 @@ class Spacer : public InertView {
 public:
 	Spacer(LayoutParams *layoutParams = 0)
 		: InertView(layoutParams) {}
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) {
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) {
 		w = 0.0f; h = 0.0f;
 	}
-	virtual void Draw(DrawContext &dc) {}
+	virtual void Draw(UIContext &dc) {}
 };
 
 class TextView : public InertView {
@@ -455,8 +455,8 @@ public:
 	TextView(int font, const std::string &text, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), font_(font), text_(text) {}
 
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
-	virtual void Draw(DrawContext &dc);
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual void Draw(UIContext &dc);
 
 private:
 	std::string text_;
@@ -472,8 +472,8 @@ public:
 	ImageView(int atlasImage, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
 
-	virtual void GetContentDimensions(const DrawContext &dc, float &w, float &h) const;
-	virtual void Draw(DrawContext &dc);
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual void Draw(UIContext &dc);
 
 private:
 	int atlasImage_;

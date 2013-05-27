@@ -69,3 +69,31 @@ void UIContext::End()
 	UIEnd();
 	Flush();
 }
+
+// TODO: Support transformed bounds using stencil
+void UIContext::PushScissor(const Bounds &bounds) {
+	Flush();
+	scissorStack_.push_back(bounds);
+	ActivateTopScissor();
+}
+
+void UIContext::PopScissor() {
+	Flush();
+	scissorStack_.pop_back();
+	ActivateTopScissor();
+}
+
+void UIContext::ActivateTopScissor() {
+	if (scissorStack_.size()) {
+		const Bounds &bounds = scissorStack_.back();
+		int x = g_dpi_scale * bounds.x;
+		int y = g_dpi_scale * (dp_yres - bounds.y2());
+		int w = g_dpi_scale * bounds.w;
+		int h = g_dpi_scale * bounds.h;
+
+		glstate.scissorRect.set(x,y,w,h);
+		glstate.scissorTest.enable();
+	} else {
+		glstate.scissorTest.disable();
+	}
+}
