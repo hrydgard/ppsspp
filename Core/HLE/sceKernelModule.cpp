@@ -296,6 +296,7 @@ void __KernelModuleShutdown()
 {
 	unresolvedVars.clear();
 	exportedVars.clear();
+	MIPSAnalyst::Shutdown();
 }
 
 void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)

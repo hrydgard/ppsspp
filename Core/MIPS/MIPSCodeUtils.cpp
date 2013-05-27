@@ -56,7 +56,24 @@ namespace MIPSCodeUtils
 				return addr + ((signed short)(op&0xFFFF)<<2);
 			}
 			else
-				return INVALIDTARGET;	
+				return INVALIDTARGET;
+		}
+		else
+			return INVALIDTARGET;
+	}
+
+	u32 GetBranchTargetNoRA(u32 addr)
+	{
+		u32 op = Memory::Read_Instruction(addr);
+		if (op)
+		{
+			u32 info = MIPSGetInfo(op);
+			if ((info & IS_CONDBRANCH) && !(info & OUT_RA))
+			{
+				return addr + ((signed short)(op&0xFFFF)<<2);
+			}
+			else
+				return INVALIDTARGET;
 		}
 		else
 			return INVALIDTARGET;
