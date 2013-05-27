@@ -1002,7 +1002,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 #ifdef USE_FFMPEG
 		atrac->data_buf = new u8[atrac->first.filesize];
 		Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
-		return __AtracSetContext(atrac, buffer, bufferSize);
+		return __AtracSetContext(atrac);
 #endif // USE_FFMPEG
 
 	} else if (atrac->codeType == PSP_MODE_AT_3_PLUS) {
@@ -1014,7 +1014,7 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 #ifdef _USE_DSHOW_
 			atrac->data_buf = new u8[atrac->first.filesize];
 			Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
-			return __AtracSetContext(atrac, buffer, bufferSize);
+			return __AtracSetContext(atrac);
 #endif // _USE_DSHOW
 
 		}
