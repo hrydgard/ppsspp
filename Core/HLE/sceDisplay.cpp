@@ -561,7 +561,11 @@ u32 sceDisplayWaitVblank() {
 }
 
 u32 sceDisplayWaitVblankStartMulti(int vblanks) {
-	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
+	if (vblanks <= 0) {
+		WARN_LOG(HLE, "sceDisplayWaitVblankStartMulti(%d): invalid number of vblanks", vblanks);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	VERBOSE_LOG(HLE, "sceDisplayWaitVblankStartMulti(%d)", vblanks);
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start multi waited");
 	return 0;
@@ -588,7 +592,11 @@ u32 sceDisplayWaitVblankStartCB() {
 }
 
 u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
-	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");
+	if (vblanks <= 0) {
+		WARN_LOG(HLE, "sceDisplayWaitVblankStartMultiCB(%d): invalid number of vblanks", vblanks);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMultiCB(%d)", vblanks);
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start multi waited");
 	return 0;
