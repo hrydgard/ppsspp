@@ -218,7 +218,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBones);
 #else
 			for (int i = 0; i < numBones; i++) {
-				WRITE(p, "uniform mediump mat4 u_bone%i;\n", i);
+				WRITE(p, "uniform mat4 u_bone%i;\n", i);
 			}
 #endif
 		}
