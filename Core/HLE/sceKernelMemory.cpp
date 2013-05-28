@@ -1331,7 +1331,7 @@ struct TLS : public KernelObject
 	const char *GetName() {return ntls.name;}
 	const char *GetTypeName() {return "TLS";}
 	static u32 GetMissingErrorCode() { return PSP_ERROR_UNKNOWN_TLS_ID; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
+	int GetIDType() const { return SCE_KERNEL_TMID_Tls; }
 
 	TLS() : next(0) {}
 
