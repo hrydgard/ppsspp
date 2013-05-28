@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdlib>
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Host.h"
@@ -143,6 +144,7 @@ public:
 	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), hasAsyncResult(false), pendingAsyncResult(false), sectorBlockMode(false), closePending(false), npdrm(0), pgdInfo(NULL) {}
 	~FileNode() {
 		pspFileSystem.CloseFile(handle);
+		pgd_close(pgdInfo);
 	}
 	const char *GetName() {return fullpath.c_str();}
 	const char *GetTypeName() {return "OpenFile";}
@@ -165,7 +167,19 @@ public:
 		p.Do(info);
 		p.Do(openMode);
 
-		// TODO: Savestate PGD files?
+		p.Do(npdrm);
+		p.Do(pgd_offset);
+		bool hasPGD = pgdInfo != NULL;
+		p.Do(hasPGD);
+		if (hasPGD) {
+			if (p.mode == p.MODE_READ) {
+				pgdInfo = (PGD_DESC*) malloc(sizeof(PGD_DESC));
+			}
+			p.DoVoid(pgdInfo, sizeof(PGD_DESC));
+			if (p.mode == p.MODE_READ) {
+				pgdInfo->block_buf = (u8 *)malloc(pgdInfo->block_size * 2);
+			}
+		}
 
 		p.DoMarker("File");
 	}
@@ -768,9 +782,6 @@ u32 sceIoClose(int id) {
 	u32 error;
 	DEBUG_LOG(HLE, "sceIoClose(%d)", id);
 	FileNode *f = kernelObjects.Get<FileNode>(id, error);
-	if(f && f->npdrm){
-		pgd_close(f->pgdInfo);
-	}
 	// Timing is not accurate, aiming low for now.
 	return hleDelayResult(kernelObjects.Destroy<FileNode>(id), "file closed", 100);
 }

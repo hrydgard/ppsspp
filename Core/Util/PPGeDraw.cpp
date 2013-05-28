@@ -266,10 +266,35 @@ void PPGeEnd()
 static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cval)
 {
 	const AtlasChar *c = atlasfont.getChar(cval);
-	if (c == NULL)
-		c = atlasfont.getChar(0xFFFD);
-	if (c == NULL)
-		c = atlasfont.getChar('?');
+	if (c == NULL) {
+		// Try to use a replacement character, these come from the below table.
+		// http://unicode.org/cldr/charts/supplemental/character_fallback_substitutions.html
+		switch (cval) {
+		case 0x00A0: // NO-BREAK SPACE
+		case 0x2000: // EN QUAD
+		case 0x2001: // EM QUAD
+		case 0x2002: // EN SPACE
+		case 0x2003: // EM SPACE
+		case 0x2004: // THREE-PER-EM SPACE
+		case 0x2005: // FOUR-PER-EM SPACE
+		case 0x2006: // SIX-PER-EM SPACE
+		case 0x2007: // FIGURE SPACE
+		case 0x2008: // PUNCTUATION SPACE
+		case 0x2009: // THIN SPACE
+		case 0x200A: // HAIR SPACE
+		case 0x202F: // NARROW NO-BREAK SPACE
+		case 0x205F: // MEDIUM MATHEMATICAL
+		case 0x3000: // IDEOGRAPHIC SPACE
+			c = atlasfont.getChar(0x0020);
+			break;
+
+		default:
+			c = atlasfont.getChar(0xFFFD);
+			break;
+		}
+		if (c == NULL)
+			c = atlasfont.getChar('?');
+	}
 	return c;
 }
 
@@ -407,7 +432,7 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, in
 	BeginVertexData();
 	y += atlasfont.ascend*scale;
 	float sx = x;
-	bool skipWrap = true;
+	bool skipWrap = false;
 	const float wrapCutoff = wrapWidth * 0.8f;
 	UTF8 utf(text);
 	while (true) {
