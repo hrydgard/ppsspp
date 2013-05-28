@@ -97,10 +97,12 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {
 			if (loopAtNextBlock_) {
-				read_ = data_ + 16 * loopStartBlock_;
+				// data_ starts at curBlock = -1.
+				read_ = data_ + 16 * loopStartBlock_ + 16;
 				readp = Memory::GetPointer(read_);
 				origp = readp;
 				curBlock_ = loopStartBlock_;
+				loopAtNextBlock_ = false;
 			}
 			DecodeBlock(readp);
 			if (end_) {
