@@ -22,12 +22,26 @@
 
 // #define AUDIO_TO_FILE
 
-static const s8 f[5][2] =
-{ { 0, 0 },
-{	 60,	0 },
-{	115, -52 },
-{	 98, -55 },
-{	122, -60 } };
+static const s8 f[16][2] = {
+	{   0,   0 },
+	{  60,	 0 },
+	{ 115, -52 },
+	{  98, -55 },
+	{ 122, -60 },
+
+	// Padding to prevent overflow.
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+	{   0,   0 },
+};
 
 void VagDecoder::Start(u32 data, int vagSize, bool loopEnabled) {
 	loopEnabled_ = loopEnabled;
@@ -47,9 +61,6 @@ void VagDecoder::DecodeBlock(u8 *&readp) {
 	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
 	predict_nr >>= 4;
-	if (predict_nr >= sizeof(f) / sizeof(f[0])) {
-		predict_nr = 0;
-	}
 	int flags = *readp++;
 	if (flags == 7) {
 		end_ = true;
