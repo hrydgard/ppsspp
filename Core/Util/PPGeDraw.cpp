@@ -432,7 +432,7 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, in
 	BeginVertexData();
 	y += atlasfont.ascend*scale;
 	float sx = x;
-	bool skipWrap = true;
+	bool skipWrap = false;
 	const float wrapCutoff = wrapWidth * 0.8f;
 	UTF8 utf(text);
 	while (true) {
