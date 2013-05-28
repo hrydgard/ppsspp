@@ -2316,6 +2316,7 @@ u32 sceKernelSuspendDispatchThread()
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
 	DEBUG_LOG(SCEKERNEL, "%i=sceKernelSuspendDispatchThread()", oldDispatchEnabled);
+	hleEatCycles(940);
 	return oldDispatchEnabled;
 }
 
@@ -2331,6 +2332,7 @@ u32 sceKernelResumeDispatchThread(u32 enabled)
 	dispatchEnabled = enabled != 0;
 	DEBUG_LOG(SCEKERNEL, "sceKernelResumeDispatchThread(%i) - from %i", enabled, oldDispatchEnabled);
 	hleReSchedule("dispatch resumed");
+	hleEatCycles(940);
 	return 0;
 }
 
