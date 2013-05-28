@@ -86,6 +86,7 @@ public:
 	void DoState(PointerWrap &p);
 
 private:
+	void DecodeSample(int i, int sample, int predict_nr);
 	int samples[28];
 	int curSample;
 
