@@ -505,6 +505,7 @@ void SasVoice::DoState(PointerWrap &p)
 	p.Do(vagSize);
 	p.Do(pcmAddr);
 	p.Do(pcmSize);
+	p.Do(pcmIndex);
 	p.Do(sampleRate);
 
 	p.Do(sampleFrac);
