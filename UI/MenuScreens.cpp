@@ -339,6 +339,8 @@ void PauseScreen::update(InputState &input) {
 void PauseScreen::sendMessage(const char *msg, const char *value) {
 	if (!strcmp(msg, "run")) {
 		screenManager()->finishDialog(this, DR_CANCEL);
+	} else if (!strcmp(msg, "stop")) {
+		screenManager()->finishDialog(this, DR_OK);
 	}
 }
 
