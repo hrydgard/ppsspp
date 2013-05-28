@@ -3650,6 +3650,7 @@ void sceKernelCheckCallback()
 	} else {
 		RETURN(0);
 	}
+	hleEatCycles(230);
 }
 
 bool __KernelInCallback()
