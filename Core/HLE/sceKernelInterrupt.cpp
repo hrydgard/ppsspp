@@ -84,6 +84,7 @@ void sceKernelCpuSuspendIntr()
 	{
 		returnValue = 0;
 	}
+	hleEatCycles(15);
 	RETURN(returnValue);
 }
 
@@ -100,6 +101,7 @@ void sceKernelCpuResumeIntr(u32 enable)
 	{
 		__DisableInterrupts();
 	}
+	hleEatCycles(15);
 }
 
 void sceKernelIsCpuIntrEnable()
