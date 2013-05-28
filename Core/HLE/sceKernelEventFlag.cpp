@@ -296,6 +296,7 @@ u32 sceKernelClearEventFlag(SceUID id, u32 bits)
 		DEBUG_LOG(SCEKERNEL, "sceKernelClearEventFlag(%i, %08x)", id, bits);
 		e->nef.currentPattern &= bits;
 		// Note that it's not possible for threads to get woken up by this action.
+		hleEatCycles(430);
 		return 0;
 	}
 	else
@@ -350,6 +351,7 @@ u32 sceKernelSetEventFlag(SceUID id, u32 bitsToSet)
 		if (wokeThreads)
 			hleReSchedule("event flag set");
 
+		hleEatCycles(430);
 		return 0;
 	}
 	else
@@ -466,6 +468,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 		else
 			DEBUG_LOG(SCEKERNEL, "0=sceKernelWaitEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
 
+		hleEatCycles(600);
 		return 0;
 	}
 	else
