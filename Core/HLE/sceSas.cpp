@@ -23,6 +23,7 @@
 // JPCSP is, as it often is, a pretty good reference although I didn't actually use it much yet:
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
 
+#include <cstdlib>
 #include "base/basictypes.h"
 #include "Log.h"
 #include "HLE.h"
@@ -62,10 +63,6 @@ void __SasShutdown() {
 	sas = 0;
 }
 
-
-inline static int absVolume(int vol) {
-	return vol > 0 ? vol : -vol;
-}
 
 u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate) {
 	INFO_LOG(HLE,"sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
@@ -208,8 +205,8 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effec
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
-	bool overVolume = absVolume(leftVol) > PSP_SAS_VOL_MAX || absVolume(rightVol) > PSP_SAS_VOL_MAX;
-	overVolume = overVolume || absVolume(effectLeftVol) > PSP_SAS_VOL_MAX || absVolume(effectRightVol) > PSP_SAS_VOL_MAX;
+	bool overVolume = abs(leftVol) > PSP_SAS_VOL_MAX || abs(rightVol) > PSP_SAS_VOL_MAX;
+	overVolume = overVolume || abs(effectLeftVol) > PSP_SAS_VOL_MAX || abs(effectRightVol) > PSP_SAS_VOL_MAX;
 	if (overVolume)
 		return ERROR_SAS_INVALID_VOLUME;
 
