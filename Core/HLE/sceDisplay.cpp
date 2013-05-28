@@ -629,6 +629,7 @@ u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	FrameBufferState fbstate;
 	DEBUG_LOG(SCEDISPLAY,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
+	hleEatCycles(290);
 	if (topaddr == 0) {
 		DEBUG_LOG(SCEDISPLAY,"- screen off");
 	} else {
