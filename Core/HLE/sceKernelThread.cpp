@@ -2483,6 +2483,7 @@ u32 __KernelGetCurThreadStack()
 SceUID sceKernelGetThreadId()
 {
 	VERBOSE_LOG(SCEKERNEL, "%i = sceKernelGetThreadId()", currentThread);
+	hleEatCycles(180);
 	return currentThread;
 }
 
