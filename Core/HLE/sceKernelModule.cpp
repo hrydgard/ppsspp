@@ -1060,6 +1060,13 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	return hleDelayResult(module->GetUID(), "module loaded", 500);
 }
 
+u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
+{
+	DEBUG_LOG(LOADER, "sceKernelLoadModuleNpDrm(%s, %08x)", name, flags);
+
+	return sceKernelLoadModule(name, flags, optionAddr);
+}
+
 void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
 	u32 priority = 0x20;
@@ -1424,7 +1431,7 @@ const HLEFunction ModuleMgrForUser[] =
 	{0x8f2df740,WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>,"sceKernelStopUnloadSelfModuleWithStatus"},
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
 	{0x644395e2,0,"sceKernelGetModuleIdList"},
-	{0xf2d8d1b4,0,"ModuleMgrForUser_F2D8D1B4"},
+	{0xf2d8d1b4,&WrapU_CUU<sceKernelLoadModuleNpDrm>,"sceKernelLoadModuleNpDrm"},
 };
 
 
