@@ -1,4 +1,8 @@
-﻿简体中文
+﻿
+戰數據
+
+
+简体中文
 [MainMenu]
 Credits = 开发人员
 Exit = 退出
@@ -104,6 +108,10 @@ Finish = 完成
 Shift = Shift
 [Error]
 Error loading file = 文件载入错误
+[Screen]
+fixed = 速度：固定
+standard = 速度：标准
+unlimited = 速度：不限！
 
 繁體中文
 [MainMenu]
@@ -211,3 +219,7 @@ Deleting = 刪除中\n請稍候...
 Delete completed = 已刪除
 [Error]
 Error loading file = 檔案載入錯誤
+[Screen]
+fixed = 速度：固定
+standard = 速度：標準
+unlimited = 速度：不限！
