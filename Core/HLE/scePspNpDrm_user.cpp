@@ -43,18 +43,6 @@ int sceNpDrmOpen()
 	return 0;
 }
 
-int sceKernelLoadModuleNpDrm()
-{
-	ERROR_LOG(HLE, "UNIMPL sceKernelLoadModuleNpDrm");
-	return 0;
-}
-
-int sceKernelLoadExecNpDrm()
-{
-	ERROR_LOG(HLE, "UNIMPL sceKernelLoadExecNpDrm");
-	return 0;
-}
-
 const HLEFunction sceNpDrm[] =
 { 
 	{0xA1336091, WrapI_U<sceNpDrmSetLicenseeKey>, "sceNpDrmSetLicenseeKey"},
@@ -63,8 +51,6 @@ const HLEFunction sceNpDrm[] =
 	{0x08d98894, WrapI_U<sceNpDrmEdataSetupKey>, "sceNpDrmEdataSetupKey"},
 	{0x219EF5CC, WrapI_U<sceNpDrmEdataGetDataSize>, "sceNpDrmEdataGetDataSize"},
 	{0x2BAA4294, 0, "sceNpDrmOpen"},
-	{0xC618D0B1, 0, "sceKernelLoadModuleNpDrm"},
-	{0xAA5FC85B, 0, "sceKernelLoadExecNpDrm"},
 };
 
 void Register_sceNpDrm()
