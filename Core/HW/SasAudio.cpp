@@ -63,6 +63,7 @@ void VagDecoder::DecodeBlock(u8 *&readp) {
 	predict_nr >>= 4;
 	int flags = *readp++;
 	if (flags == 7) {
+		VERBOSE_LOG(SAS, "VAG ending block at %d", curBlock_);
 		end_ = true;
 		return;
 	}
@@ -102,13 +103,14 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	u8 *readp = Memory::GetPointer(read_);
 	if (!readp)
 	{
-		WARN_LOG(HLE, "Bad VAG samples address?");
+		WARN_LOG(SAS, "Bad VAG samples address?");
 		return;
 	}
 	u8 *origp = readp;
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {
 			if (loopAtNextBlock_) {
+				VERBOSE_LOG(SAS, "Looping VAG from block %d/%d to %d", curBlock_, numBlocks_, loopStartBlock_);
 				// data_ starts at curBlock = -1.
 				read_ = data_ + 16 * loopStartBlock_ + 16;
 				readp = Memory::GetPointer(read_);
@@ -482,6 +484,7 @@ void SasVoice::KeyOn() {
 void SasVoice::KeyOff() {
 	on = false;
 	envelope.KeyOff();
+	vag.SetLoop(false);
 }
 
 void SasVoice::ChangedParams(bool changedVag) {
