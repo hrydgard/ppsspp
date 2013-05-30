@@ -192,7 +192,7 @@ static u32 GetClutAddr() {
 
 static u32 GetClutIndex(u32 index) {
     const u32 clutBase = (gstate.clutformat & 0x1f0000) >> 12;
-    const u32 clutMask = (gstate.clutformat >> 8) & 0xff
+    const u32 clutMask = (gstate.clutformat >> 8) & 0xff;
     const u8 clutShift = (gstate.clutformat >> 2) & 0x1f;
     return ((index >> clutShift) & clutMask) | clutBase;
 }
