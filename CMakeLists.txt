@@ -841,6 +841,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/MemoryStick.h
 	Core/HW/SasAudio.cpp
 	Core/HW/SasAudio.h
+	Core/HW/atrac3plus.cpp
 	Core/Host.cpp
 	Core/Host.h
 	Core/Loaders.cpp
