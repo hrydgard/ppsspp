@@ -47,9 +47,7 @@ const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSamp
 const int chanQueueMaxSizeFactor = 2;
 const int chanQueueMinSizeFactor = 1;
 
-
 FixedSizeQueue<s16, hostAttemptBlockSize * 16> outAudioQueue;
-
 
 void hleAudioUpdate(u64 userdata, int cyclesLate)
 {

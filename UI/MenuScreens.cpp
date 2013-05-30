@@ -941,16 +941,20 @@ void SystemScreen::render() {
 	if (UICheckBox(GEN_ID, x, y += stride, s->T("12HR Time Format"), ALIGN_TOPLEFT, &tf)) {
 		g_Config.itimeformat = tf ? 1 : 0;
 	}
-
+	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
+	HLinear hlinear2(x, y+110, 20);
+	if (UIButton(GEN_ID, hlinear2, 210, 0, "Reload Cheats", ALIGN_TOPLEFT)) {
+		g_Config.bReloadCheats = true;
+	}
 	bool reportingEnabled = Reporting::IsEnabled();
 	const static std::string reportHostOfficial = "report.ppsspp.org";
 	if (UICheckBox(GEN_ID, x, y += stride, s->T("Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
 		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
 	}
-
-	if (UIButton(GEN_ID, Pos(x, y += stride * 3), LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_BOTTOMLEFT)) {
-		screenManager()->push(new LanguageScreen());
-	}
+	if (UIButton(GEN_ID, Pos(x+300, y += stride * 3), LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_BOTTOMLEFT)) {
+    screenManager()->push(new LanguageScreen());
+  } 
+	
 	UIEnd();
 }
 
