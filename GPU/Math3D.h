@@ -71,15 +71,15 @@ public:
 	{
 		return Vec3(x*other.x, y*other.y, z*other.z);
 	}
-	Vec3 operator * (const float f) const 
+	Vec3 operator * (const float f) const
 	{
 		return Vec3(x*f,y*f,z*f);
 	}
-	void operator *= (const float f) 
+	void operator *= (const float f)
 	{
 		x*=f; y*=f; z*=f;
 	}
-	Vec3 operator / (const float f) const 
+	Vec3 operator / (const float f) const
 	{
 		float invf = (1.0f/f);
 		return Vec3(x*invf,y*invf,z*invf);
@@ -88,16 +88,16 @@ public:
 	{
 		*this = *this / f;
 	}
-	Vec3 operator %(const Vec3 &v) const 
+	Vec3 operator %(const Vec3 &v) const
 	{
 		return Vec3(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x);
 	}
 
-	float Length2() const 
+	float Length2() const
 	{
 		return x*x + y*y + z*z;
 	}
-	float Length() const 
+	float Length() const
 	{
 		return sqrtf(Length2());
 	}
@@ -105,7 +105,7 @@ public:
 	{
 		(*this) *= l / Length();
 	}
-	Vec3 WithLength(const float l) const 
+	Vec3 WithLength(const float l) const
 	{
 		return (*this) * l / Length();
 	}
@@ -129,7 +129,7 @@ public:
 	{
 		return *((&x) + i);
 	}
-	Vec3 Lerp(const Vec3 &other, const float t) const 
+	Vec3 Lerp(const Vec3 &other, const float t) const
 	{
 		return (*this)*(1-t) + other*t;
 	}

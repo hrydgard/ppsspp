@@ -309,7 +309,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
 				"a_w2.x", "a_w2.y", "a_w2.z", "a_w2.w",
 			};
-			
+
 #if defined(USE_FOR_LOOP) && defined(USE_BONE_ARRAY)
 
 			// To loop through the weights, we unfortunately need to put them in a float array.

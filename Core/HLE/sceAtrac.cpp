@@ -100,8 +100,8 @@ struct AtracLoopInfo {
 };
 
 struct Atrac {
-	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(2), atracOutputChannels(2), loopNum(0), 
-		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0), 
+	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(2), atracOutputChannels(2), loopNum(0),
+		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
 		currentSample(0), endSample(-1), firstSampleoffset(0), loopinfoNum(0) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
@@ -116,7 +116,7 @@ struct Atrac {
 		sampleQueue.empty();
 	}
 
-	~Atrac() { 
+	~Atrac() {
 		CleanStuff();
 	}
 
@@ -190,7 +190,7 @@ struct Atrac {
 		if (first.fileoffset >= first.filesize || currentSample >= endSample)
 			remainFrame = PSP_ATRAC_ALLDATA_IS_ON_MEMORY;
 		else {
-			// guess the remain frames. 
+			// guess the remain frames.
 			remainFrame = ((int)first.size - (int)decodePos) / atracBytesPerFrame;
 			if (remainFrame < 0)
 				remainFrame = 0;
@@ -450,11 +450,11 @@ u32 sceAtracGetAtracID(int codecType)
 	return atracID;
 }
 
-// PSP allow games to add stream data to a temp buf, the buf size is given by "atracBufSize "here. 
-// "first.offset" means how many bytes the temp buf has been written, 
-// and "first.writableBytes" means how many bytes the temp buf is allowed to write 
-// (We always have "first.offset + first.writableBytes = atracBufSize"). 
-// We only reset the temp buf when games call sceAtracGetStreamDataInfo, 
+// PSP allow games to add stream data to a temp buf, the buf size is given by "atracBufSize "here.
+// "first.offset" means how many bytes the temp buf has been written,
+// and "first.writableBytes" means how many bytes the temp buf is allowed to write
+// (We always have "first.offset + first.writableBytes = atracBufSize").
+// We only reset the temp buf when games call sceAtracGetStreamDataInfo,
 // because that function would tell games how to add the left stream data.
 u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 {
@@ -516,11 +516,11 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 
 						if (got_frame) {
 							// got a frame
-							int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels, 
+							int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
 								atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
 							u8* out = Memory::GetPointer(outAddr);
 							numSamples = atrac->pFrame->nb_samples;
-							avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples, 
+							avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
 								(const u8**)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
 							if (avret < 0) {
 								ERROR_LOG(HLE, "swr_convert: Error while converting %d", avret);
@@ -572,7 +572,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 				} else if (numSamples > ATRAC_MAX_SAMPLES) {
 					numSamples = ATRAC_MAX_SAMPLES;
 				}
-				
+
 				if (numSamples == 0 && (atrac->loopNum != 0)) {
 					numSamples = ATRAC_MAX_SAMPLES;
 				}
@@ -583,14 +583,14 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 			// update current sample and decodePos
 			atrac->currentSample += numSamples;
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
-			
+
 			int finishFlag = 0;
-			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample || 
+			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
 				atrac->currentSample = atrac->loopStartSample;
 				if (atrac->loopNum > 0)
 					atrac->loopNum --;
-			} else if (atrac->currentSample >= atrac->endSample || 
+			} else if (atrac->currentSample >= atrac->endSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))
 				finishFlag = 1;
 
@@ -646,11 +646,11 @@ u32 sceAtracGetBitrate(int atracID, u32 outBitrateAddr)
 	if (!atrac) {
 		return -1;
 	} else {
-		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
-		if (atrac->codeType == PSP_MODE_AT_3_PLUS)  
-			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0; 
+		atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
+		if (atrac->codeType == PSP_MODE_AT_3_PLUS)
+			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
 		else
-			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10; 
+			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10;
 		if (Memory::IsValidAddress(outBitrateAddr))
 			Memory::Write_U32(atrac->atracBitrate, outBitrateAddr);
 	}
@@ -726,7 +726,7 @@ u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 		if (atrac->currentSample >= atrac->endSample)
 			return ATRAC_ERROR_ALL_DATA_DECODED;
 		if (Memory::IsValidAddress(outposAddr))
-			Memory::Write_U32(atrac->currentSample, outposAddr); 
+			Memory::Write_U32(atrac->currentSample, outposAddr);
 	}
 	return 0;
 }
@@ -759,7 +759,7 @@ u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		if (Memory::IsValidAddress(remainAddr))
-			Memory::Write_U32(12, remainAddr); 
+			Memory::Write_U32(12, remainAddr);
 	} else {
 		if (Memory::IsValidAddress(remainAddr))
 			Memory::Write_U32(atrac->getRemainFrames(), remainAddr);
@@ -800,7 +800,7 @@ u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoopStartSa
 }
 
 // Games call this function to get some info for add more stream data,
-// such as where the data read from, where the data add to, 
+// such as where the data read from, where the data add to,
 // and how many bytes are allowed to add.
 u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr, u32 readOffsetAddr)
 {
@@ -1048,10 +1048,10 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 		ret = _AtracSetData(atracID, buffer, bufferSize);
 	}
 	return ret;
-} 
+}
 
 int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
-{	
+{
 	INFO_LOG(HLE, "sceAtracSetDataAndGetID(%08x, %08x)", buffer, bufferSize);
 	int codecType = getCodecType(buffer);
 
@@ -1165,10 +1165,10 @@ u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize)
 		ret = _AtracSetData(atracID, buffer, bufferSize);
 	}
 	return ret;
-} 
+}
 
 int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
-{	
+{
 	INFO_LOG(HLE, "sceAtracSetMOutDataAndGetID(%08x, %08x)", buffer, bufferSize);
 	int codecType = getCodecType(buffer);
 
@@ -1244,8 +1244,8 @@ bool initAT3Decoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
 			*(u32*)(at3Header + 0x04) = dataSize + sizeof(at3Header) - 8;
 			*(u16*)(at3Header + 0x16) = atrac->atracChannels;
 			*(u16*)(at3Header + 0x20) = atrac->atracBytesPerFrame;
-			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
-			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10; 
+			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
+			atrac->atracBitrate = (atrac->atracBitrate + 511) >> 10;
 			*(u32*)(at3Header + 0x1c) = atrac->atracBitrate * 1000 / 8;
 			at3Header[0x29] = (u8)at3HeaderMap[i][2];
 			at3Header[0x2c] = (u8)at3HeaderMap[i][3];
@@ -1285,7 +1285,7 @@ static const u16 at3plusHeaderMap[][3] = {
     { 0x7428, 0x0, 0x0 },
     { 0x0460, 0x2, 0x0 },
     { 0x8B28, 0x0, 0x0 },
-    
+
     { 0x05D0, 0x2, 0x0 },
     { 0xB928, 0x0, 0x0 },
     { 0x0748, 0x2, 0x0 },
@@ -1304,8 +1304,8 @@ bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
 			*(u32*)(at3plusHeader + 0x04) = dataSize + sizeof(at3plusHeader) - 8;
 			*(u16*)(at3plusHeader + 0x16) = atrac->atracChannels;
 			*(u16*)(at3plusHeader + 0x20) = atrac->atracBytesPerFrame;
-			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000; 
-			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0; 
+			atrac->atracBitrate = ( atrac->atracBytesPerFrame * 352800 ) / 1000;
+			atrac->atracBitrate = ((atrac->atracBitrate >> 11) + 8) & 0xFFFFFFF0;
 			*(u32*)(at3plusHeader + 0x1c) = atrac->atracBitrate * 1000 / 8;
 			*(u16*)(at3plusHeader + 0x3e) = at3plusHeaderMap[i + 1][0];
 			*(u32*)(at3plusHeader + sizeof(at3plusHeader) - 4) = dataSize;
@@ -1357,7 +1357,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 	Atrac *atrac = getAtrac(atracID);
 
 #ifdef USE_FFMPEG
-	if (Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) && 
+	if (Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) &&
 		Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr) && atrac && atrac->pCodecCtx) {
 			u32 sourcebytes = atrac->first.writableBytes;
 			if (sourcebytes > 0) {
@@ -1382,11 +1382,11 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 
 					if (got_frame) {
 						// got a frame
-						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels, 
+						int decoded = av_samples_get_buffer_size(NULL, atrac->pFrame->channels,
 							atrac->pFrame->nb_samples, (AVSampleFormat)atrac->pFrame->format, 1);
 						u8* out = Memory::GetPointer(samplesAddr);
 						numSamples = atrac->pFrame->nb_samples;
-						avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples, 
+						avret = swr_convert(atrac->pSwrCtx, &out, atrac->pFrame->nb_samples,
 							(const u8**)atrac->pFrame->extended_data, atrac->pFrame->nb_samples);
 						if (avret < 0) {
 							ERROR_LOG(HLE, "swr_convert: Error while converting %d", avret);
@@ -1413,7 +1413,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 	}
 #endif // USE_FFMPEG
 
-	if (Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) && 
+	if (Memory::IsValidAddress(sourceAddr) && Memory::IsValidAddress(sourceBytesConsumedAddr) &&
 		Memory::IsValidAddress(samplesAddr) && Memory::IsValidAddress(sampleBytesAddr) && atrac && atrac->decoder_context) {
 			u32 sourcebytes = atrac->first.writableBytes;
 			static u8 buf[0x8000];
@@ -1456,7 +1456,7 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 	if (readSize > halfBufferSize)
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 
-	if (readSize < 0 || halfBufferSize < 0) 
+	if (readSize < 0 || halfBufferSize < 0)
 		return -1;
 
 	int codecType = getCodecType(halfBuffer);
