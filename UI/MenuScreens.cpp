@@ -949,7 +949,9 @@ void SystemScreen::render() {
 	if (UICheckBox(GEN_ID, x, y += stride, s->T("Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
 		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
 	}
-
+	if (UIButton(GEN_ID, Pos(x+300, y += stride * 3), LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_BOTTOMLEFT)) {
+    screenManager()->push(new LanguageScreen());
+  } 
 	
 	UIEnd();
 }
