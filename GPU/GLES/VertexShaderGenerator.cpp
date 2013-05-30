@@ -441,7 +441,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
 			if (poweredDiffuse) {
-				WRITE(p, "  mediump float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i, i);
+				WRITE(p, "  mediump float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i);
 			} else {
 				WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
 			}
@@ -457,12 +457,12 @@ void GenerateVertexShader(int prim, char *buffer) {
 				WRITE(p, "  lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0);\n", i);
 				break;
 			case GE_LIGHTTYPE_SPOT:
-				WRITE(p, "  lowp float angle%i = dot(normalize(u_lightdir%i), toLight);\n", i, i, i);
+				WRITE(p, "  lowp float angle%i = dot(normalize(u_lightdir%i), toLight);\n", i, i);
 				WRITE(p, "  if (angle%i >= u_lightangle%i) {\n", i, i);
 				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, u_lightspotCoef%i);\n", i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
-				WRITE(p, "  }\n");  
+				WRITE(p, "  }\n");
 				break;
 			default:
 				// ILLEGAL
@@ -471,8 +471,8 @@ void GenerateVertexShader(int prim, char *buffer) {
 
 			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
 			if (doSpecular) {
-				WRITE(p, "  halfVec = normalize(toLight + vec3(0.0, 0.0, 1.0));\n", i, i);
-				WRITE(p, "  dot%i = dot(halfVec, worldnormal);\n", i, i);
+				WRITE(p, "  halfVec = normalize(toLight + vec3(0.0, 0.0, 1.0));\n");
+				WRITE(p, "  dot%i = dot(halfVec, worldnormal);\n", i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
 				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
 			}

@@ -545,7 +545,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 					inbytes = std::min(inbytes, (int)atrac->atracBytesPerFrame);
 					if (inbytes > 0) {
 						Atrac3plus_Decoder::atrac3plus_decode(atrac->decoder_context, atrac->data_buf + atrac->decodePos, inbytes, &decodebytes, buf);
-						INFO_LOG(HLE, "decodebytes: %i outbuf: %08x", decodebytes, buf);
+						INFO_LOG(HLE, "decodebytes: %i outbuf: %08p", decodebytes, buf);
 						atrac->sampleQueue.push(buf, decodebytes);
 					}
 				}

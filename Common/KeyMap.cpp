@@ -319,6 +319,7 @@ static int KeyMap::SetKeyMapping(KeyMap::Key key, int btn)
 		return KEYMAP_ERROR_KEY_ALREADY_USED;
 
 	g_Config.iMappingMap[key] = btn;
+	return btn;
 }
 
 static int KeyMap::RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)
