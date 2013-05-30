@@ -191,7 +191,10 @@ static u32 GetClutAddr() {
 }
 
 static u32 GetClutIndex(u32 index) {
-	return ((((gstate.clutformat >> 16) & 0x1f) + index) >> ((gstate.clutformat >> 2) & 0x1f)) & ((gstate.clutformat >> 8) & 0xff);
+    const u32 clutBase = (gstate.clutformat & 0x1f0000) >> 12;
+    const u32 clutMask = (gstate.clutformat >> 8) & 0xff
+    const u8 clutShift = (gstate.clutformat >> 2) & 0x1f;
+    return ((index >> clutShift) & clutMask) | clutBase;
 }
 
 void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
