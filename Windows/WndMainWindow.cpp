@@ -62,6 +62,7 @@ namespace MainWindow
 	static HMENU menu;
 
 	static HINSTANCE hInst;
+	static int cursorCounter = 0;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
@@ -177,6 +178,19 @@ namespace MainWindow
 		ResizeDisplay();
 	}
 
+	void CorrectCursor() {
+		if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
+			while (cursorCounter >= 0) {
+				cursorCounter = ShowCursor(FALSE);
+			}
+		} else {
+			if (cursorCounter < 0) {
+				cursorCounter = ShowCursor(TRUE);
+				SetCursor(LoadCursor(NULL, IDC_ARROW));
+			}
+		}
+	}
+
 	void setTexScalingLevel(int num) {
 		g_Config.iTexScalingLevel = num;
 		if(gpu) gpu->ClearCacheNextFrame();
@@ -249,13 +263,8 @@ namespace MainWindow
 	void BrowseAndBoot(std::string defaultPath)
 	{
 		std::string fn;
-		std::string filter = "";
-
-		filter += "PSP";
-		filter += "|";
-		filter += "*.pbp;*.elf;*.iso;*.cso;*.prx";
-		filter += "|";
-		filter += "|";
+		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
+		
 		for (int i=0; i<(int)filter.length(); i++)
 		{
 			if (filter[i] == '|')
@@ -401,12 +410,7 @@ namespace MainWindow
 
 		case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
-			if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
-				ShowCursor(FALSE);
-			} else {
-				ShowCursor(TRUE);
-				SetCursor(LoadCursor(NULL, IDC_ARROW));
-			}
+			CorrectCursor();
 			SetTimer(hWnd, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 			return 0;
 
@@ -1480,9 +1484,6 @@ namespace MainWindow
 
 	void _ViewNormal(HWND hWnd)
 	{
-		ShowCursor(TRUE);
-		SetCursor(LoadCursor(NULL, IDC_ARROW));
-
 		// put caption and border styles back
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
@@ -1501,14 +1502,13 @@ namespace MainWindow
 
 		// reset full screen indicator
 		g_bFullScreen = FALSE;
+		CorrectCursor();
 		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, TRUE);
 	}
 
 	void _ViewFullScreen(HWND hWnd)
 	{
-		if (globalUIState == UISTATE_INGAME)
-			ShowCursor(FALSE);
-
 		// keep in mind normal window rectangle
 		::GetWindowRect(hWnd, &g_normalRC);
 
@@ -1530,7 +1530,9 @@ namespace MainWindow
 
 		// set full screen indicator
 		g_bFullScreen = TRUE;
+		CorrectCursor();
 		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, FALSE);
 	}
 
 	void SetPlaying(const char *text)

@@ -19,6 +19,8 @@
 
 #include "Globals.h"
 
+// #define USE_BONE_ARRAY
+
 struct VertexShaderID
 {
 	VertexShaderID() {d[0] = 0xFFFFFFFF;}

@@ -82,10 +82,12 @@ public:
 
 	void DecodeBlock(u8 *&readp);
 	bool End() const { return end_; }
+	void SetLoop(bool enabled) { loopEnabled_ = enabled; }
 
 	void DoState(PointerWrap &p);
 
 private:
+	void DecodeSample(int i, int sample, int predict_nr);
 	int samples[28];
 	int curSample;
 
@@ -196,6 +198,7 @@ struct SasVoice
 	int vagSize;
 	u32 pcmAddr;
 	int pcmSize;
+	int pcmIndex;
 	int sampleRate;
 
 	int sampleFrac;

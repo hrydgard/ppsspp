@@ -205,7 +205,7 @@ void MenuScreen::render() {
 
 	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 75, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 85, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
+	ui_draw2d.DrawTextShadow(UBUNTU24, PPSSPP_GIT_VERSION, dp_xres + xoff, 95, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 	VLinear vlinear(dp_xres + xoff, 100, 20);
 
@@ -316,7 +316,7 @@ void MenuScreen::render() {
 #if defined(_DEBUG) & defined(_WIN32)
 	// Print the current dp_xres/yres in the corner. For UI scaling testing - just
 	// resize to 800x480 to get an idea of what it will look like on a Nexus S.
-	ui_draw2d.SetFontScale(0.4, 0.4);
+	ui_draw2d.SetFontScale(0.6, 0.6);
 	char temptext[64];
 	sprintf(temptext, "%ix%i", dp_xres, dp_yres);
 	ui_draw2d.DrawTextShadow(UBUNTU24, temptext, 5, dp_yres-5, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
@@ -339,6 +339,8 @@ void PauseScreen::update(InputState &input) {
 void PauseScreen::sendMessage(const char *msg, const char *value) {
 	if (!strcmp(msg, "run")) {
 		screenManager()->finishDialog(this, DR_CANCEL);
+	} else if (!strcmp(msg, "stop")) {
+		screenManager()->finishDialog(this, DR_OK);
 	}
 }
 
@@ -740,12 +742,12 @@ void GraphicsScreenP2::render() {
 		
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Fps  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 180 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "-30", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("-30"), ALIGN_LEFT))
 			if(g_Config.iFpsLimit > 30){
 			g_Config.iFpsLimit -= 30;}
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "+30", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("+30"), ALIGN_LEFT))
 			if(g_Config.iFrameSkip != 240){
 			g_Config.iFpsLimit += 30;}
 	} else {
@@ -761,13 +763,13 @@ void GraphicsScreenP2::render() {
 
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 180 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "4x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 4;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "8x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("8x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 8;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, "16x", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("16x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 16;
 	} else {
 		g_Config.iAnisotropyLevel = 0;
@@ -777,23 +779,23 @@ void GraphicsScreenP2::render() {
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 180 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "2x", ALIGN_LEFT))
-			g_Config.iTexScalingLevel = 2;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, "3x", ALIGN_LEFT))
-			g_Config.iTexScalingLevel = 3;
-		UICheckBox(GEN_ID, x + 320, y , gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride + 15, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 180 , y + 10, 20);
-		if (UIButton(GEN_ID, hlinear2, 80, 0, "xBRZ", ALIGN_LEFT))
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 180 , y + 5, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("xBRZ"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
-		if (UIButton(GEN_ID, hlinear2, 140, 0, "Hybrid(H)", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Hybrid", "Hybrid(H)"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 1;
-		if (UIButton(GEN_ID, hlinear2, 150, 0, "Bicubic(B)", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Bicubic", "Bicubic(B)"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 2;
-		if (UIButton(GEN_ID, hlinear2, 65, 0, "H+B", ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("H+B", "H+B"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 3;
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, (y += stride) + 25, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 180 , y + 25, 20);
+		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("2x"), ALIGN_LEFT))
+			g_Config.iTexScalingLevel = 2;
+		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("3x"), ALIGN_LEFT))
+			g_Config.iTexScalingLevel = 3;
+		UICheckBox(GEN_ID, x + 60, y += stride + 45, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
 	} else {
 		g_Config.iTexScalingLevel = 1;
 	}
@@ -1220,11 +1222,13 @@ void ErrorScreen::render()
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
+	I18NCategory *ge = GetI18NCategory("Error");
+
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, errorTitle_.c_str(), dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, ge->T(errorTitle_.c_str()), dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
-	ui_draw2d.DrawText(UBUNTU24, errorMessage_.c_str(), 40, 120, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, ge->T(errorMessage_.c_str()), 40, 120, 0xFFFFFFFF, ALIGN_LEFT);
 
 	I18NCategory *g = GetI18NCategory("General");
 

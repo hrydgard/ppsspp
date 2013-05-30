@@ -890,8 +890,6 @@ bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &err
 			Memory::Write_U32(addr, threadInfo.addrPtr);
 		else
 			return false;
-
-		vpl->nv.numWaitThreads--;
 	}
 
 	if (timeoutPtr != 0 && vplWaitTimer != -1)
@@ -1073,8 +1071,6 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate)
 		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
 		// actually running, it will get a DELETE result instead of a TIMEOUT.
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
-		vpl->nv.numWaitThreads--;
-
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	}
 }
@@ -1108,8 +1104,6 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		{
 			if (vpl)
 			{
-				vpl->nv.numWaitThreads++;
-
 				SceUID threadID = __KernelGetCurThread();
 				__KernelVplRemoveThread(vpl, threadID);
 				VplWaitingThread waiting = {threadID, addrPtr};
@@ -1209,9 +1203,9 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
+		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
-		vpl->nv.numWaitThreads = 0;
 
 		bool wokeThreads = __KernelClearVplThreads(vpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
 		if (wokeThreads)
@@ -1230,6 +1224,17 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr)
 	if (vpl)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferVplStatus(%i, %08x)", uid, infoPtr);
+
+		u32 error;
+		for (auto iter = vpl->waitingThreads.begin(); iter != vpl->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(iter->threadID, WAITTYPE_VPL, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != uid)
+				vpl->waitingThreads.erase(iter--);
+		}
+
+		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		vpl->nv.freeSize = vpl->alloc.GetTotalFreeBytes();
 		if (Memory::IsValidAddress(infoPtr) && Memory::Read_U32(infoPtr))
 			Memory::WriteStruct(infoPtr, &vpl->nv);
@@ -1326,7 +1331,7 @@ struct TLS : public KernelObject
 	const char *GetName() {return ntls.name;}
 	const char *GetTypeName() {return "TLS";}
 	static u32 GetMissingErrorCode() { return PSP_ERROR_UNKNOWN_TLS_ID; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
+	int GetIDType() const { return SCE_KERNEL_TMID_Tls; }
 
 	TLS() : next(0) {}
 
@@ -1458,7 +1463,7 @@ int sceKernelDeleteTls(SceUID uid)
 int sceKernelAllocateTls(SceUID uid)
 {
 	// TODO: Allocate downward if PSP_TLS_ATTR_HIGHMEM?
-	WARN_LOG(HLE, "UNIMPL sceKernelAllocateTls(%08x)", uid);
+	DEBUG_LOG(HLE, "sceKernelAllocateTls(%08x)", uid);
 	u32 error;
 	TLS *tls = kernelObjects.Get<TLS>(uid, error);
 	if (tls)
@@ -1493,7 +1498,7 @@ int sceKernelAllocateTls(SceUID uid)
 		if (allocBlock == -1)
 		{
 			// TODO: Wait here, wake when one is free.
-			ERROR_LOG(HLE, "sceKernelAllocateTls: should wait");
+			ERROR_LOG_REPORT(HLE, "sceKernelAllocateTls: should wait");
 			return -1;
 		}
 

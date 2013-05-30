@@ -692,7 +692,15 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
 	// Don't write if the size is 0.  Anything else is A-OK, though, apparently.
 	if (Memory::Read_U32(infoAddr) != 0)
 	{
-		// Refresh and write
+		u32 error;
+		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_MUTEX, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != id)
+				m->waitingThreads.erase(iter--);
+		}
+
 		m->nm.numWaitThreads = (int) m->waitingThreads.size();
 		Memory::WriteStruct(infoAddr, &m->nm);
 	}
@@ -1143,6 +1151,15 @@ int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 	if (Memory::Read_U32(infoPtr) != 0)
 	{
 		auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(m->nm.workareaPtr);
+
+		u32 error;
+		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_LWMUTEX, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != uid)
+				m->waitingThreads.erase(iter--);
+		}
 
 		// Refresh and write
 		m->nm.currentCount = workarea->lockLevel;

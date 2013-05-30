@@ -421,14 +421,14 @@
     <ClCompile Include="HW\OMAConvert.cpp">
       <Filter>HW</Filter>
     </ClCompile>
-    <ClCompile Include="HW\audioPlayer.cpp">
-      <Filter>HW</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp">
       <Filter>MIPS\JitCommon</Filter>
     </ClCompile>
     <ClCompile Include="Cwcheat.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\atrac3plus.cpp">
+      <Filter>HW</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -784,13 +784,7 @@
     <ClInclude Include="HLE\sceMp3.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
-    <ClInclude Include="HW\qeditsimple.h">
-      <Filter>HW</Filter>
-    </ClInclude>
     <ClInclude Include="HW\OMAConvert.h">
-      <Filter>HW</Filter>
-    </ClInclude>
-    <ClInclude Include="HW\audioPlayer.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h">
@@ -800,6 +794,9 @@
     <ClInclude Include="Cwcheat.h">
       <Filter>Core</Filter>
 >>>>>>> eaf060015d9dc1ec3caf2f9f576b62eb5c5572f4
+    </ClInclude>
+    <ClInclude Include="HW\atrac3plus.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

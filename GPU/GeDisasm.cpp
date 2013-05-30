@@ -86,7 +86,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		if (data != 0)
 			sprintf(buffer, "NOP: %06x", data);
 		else
-			sprintf(buffer, "NOP", data);
+			sprintf(buffer, "NOP");
 		break;
 
 	case GE_CMD_BASE:

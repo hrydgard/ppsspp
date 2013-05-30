@@ -856,48 +856,44 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 
 bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 {
-	if (!param)
-	{
+	if (!param)	{
 		return false;
 	}
-
-	u32 dataAddr = param->fileListAddr;
-	if (!Memory::IsValidAddress(dataAddr))
-		return false;
-
 	// TODO : Need to be checked against more game
 
-	u32 fileInfosAddr = Memory::Read_U32(dataAddr + 24);
-
-	//for Valkyria2, dataAddr+0 and dataAddr+12 has "5" for 5 files
-	int numFiles = Memory::Read_U32(dataAddr+12);
+	u32 dataAddr = param->fileListAddr;
 	int foundFiles = 0;
-	for (int i = 0; i < numFiles; i++)
-	{
-		// for each file (80 bytes):
-		// u32 mode, u32 ??, u64 size, u64 ctime, u64 ??, u64 atime, u64 ???, u64 mtime, u64 ???
-		// u8[16] filename (or 13 + padding?)
-		u32 curFileInfoAddr = fileInfosAddr + i*80;
+	if (Memory::IsValidAddress(dataAddr)) {
+		u32 fileInfosAddr = Memory::Read_U32(dataAddr + 24); 
+		//for Valkyria2, dataAddr+0 and dataAddr+12 has "5" for 5 files
+		int numFiles = Memory::Read_U32(dataAddr);
+		for (int i = 0; i < numFiles; i++) {
+			// for each file (80 bytes):
+			// u32 mode, u32 ??, u64 size, u64 ctime, u64 ??, u64 atime, u64 ???, u64 mtime, u64 ???
+			// u8[16] filename (or 13 + padding?)
+			u32 curFileInfoAddr = fileInfosAddr + i*80;
+			if (Memory::IsValidAddress(curFileInfoAddr)) {
+				char fileName[16];
+				strncpy(fileName, Memory::GetCharPointer(curFileInfoAddr + 64),16);
+				std::string filePath = savePath + GetGameName(param) + GetSaveName(param) + "/" + fileName;
+				PSPFileInfo info = pspFileSystem.GetFileInfo(filePath);
+				if (info.exists) {
+					bool isCrypted = IsSaveEncrypted(param, GetSaveDirName(param, 0));
+					Memory::Write_U32(0x21FF, curFileInfoAddr+0);
+					if(isCrypted)	// Crypted save are 16 bytes bigger
+						Memory::Write_U64(info.size - 0x10, curFileInfoAddr+8);
+					else
+						Memory::Write_U64(info.size, curFileInfoAddr+8);
 
-		char fileName[16];
-		strncpy(fileName, Memory::GetCharPointer(curFileInfoAddr + 64),16);
-		std::string filePath = savePath + GetGameName(param) + GetSaveName(param) + "/" + fileName;
-		PSPFileInfo info = pspFileSystem.GetFileInfo(filePath);
-		if (info.exists)
-		{
-			bool isCrypted = IsSaveEncrypted(param, GetSaveDirName(param, 0));
-			Memory::Write_U32(0x21FF, curFileInfoAddr+0);
-			if(isCrypted)	// Crypted save are 16 bytes bigger
-				Memory::Write_U64(info.size - 0x10, curFileInfoAddr+8);
-			else
-				Memory::Write_U64(info.size, curFileInfoAddr+8);
-			Memory::Write_U64(0,curFileInfoAddr + 16); // TODO ctime
-			Memory::Write_U64(0,curFileInfoAddr + 24); // TODO unknow
-			Memory::Write_U64(0,curFileInfoAddr + 32); // TODO atime
-			Memory::Write_U64(0,curFileInfoAddr + 40); // TODO unknow
-			Memory::Write_U64(0,curFileInfoAddr + 48); // TODO mtime
-			Memory::Write_U64(0,curFileInfoAddr + 56); // TODO unknow
-			foundFiles++;
+					Memory::Write_U64(0,curFileInfoAddr + 16); // TODO ctime
+					Memory::Write_U64(0,curFileInfoAddr + 24); // TODO unknow
+					Memory::Write_U64(0,curFileInfoAddr + 32); // TODO atime
+					Memory::Write_U64(0,curFileInfoAddr + 40); // TODO unknow
+					Memory::Write_U64(0,curFileInfoAddr + 48); // TODO mtime
+					Memory::Write_U64(0,curFileInfoAddr + 56); // TODO unknow
+					foundFiles++;
+				}
+			}
 		}
 	}
 

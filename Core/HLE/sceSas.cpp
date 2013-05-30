@@ -23,6 +23,7 @@
 // JPCSP is, as it often is, a pretty good reference although I didn't actually use it much yet:
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
 
+#include <cstdlib>
 #include "base/basictypes.h"
 #include "Log.h"
 #include "HLE.h"
@@ -38,6 +39,7 @@ enum {
 	ERROR_SAS_INVALID_ADSR_CURVE_MODE = 0x80420013,
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
 	ERROR_SAS_VOICE_PAUSED = 0x80420016,
+	ERROR_SAS_INVALID_VOLUME = 0x80420018,
 	ERROR_SAS_INVALID_SIZE = 0x8042001A,
 	ERROR_SAS_BUSY = 0x80420030,
 	ERROR_SAS_NOT_INIT = 0x80420100,
@@ -71,7 +73,7 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 	for (int i = 0; i < sas->maxVoices; i++) {
 		sas->voices[i].sampleRate = sampleRate;
 		sas->voices[i].playing = false;
-		sas->voices[i].loop = true;  // inverted flag
+		sas->voices[i].loop = false;
 	}
 	return 0;
 }
@@ -119,14 +121,14 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	if (!Memory::IsValidAddress(vagAddr)) {
-		ERROR_LOG(HLE, "Ignoring invalid VAG audio address %08x", vagAddr);
-		return 0;
-	}
-
 	if (size <= 0 || (size & 0xF) != 0) {
 		WARN_LOG(HLE, "%s: invalid size %d", __FUNCTION__, size);
 		return ERROR_SAS_INVALID_SIZE;
+	}
+
+	if (!Memory::IsValidAddress(vagAddr)) {
+		ERROR_LOG(HLE, "Ignoring invalid VAG audio address %08x", vagAddr);
+		return 0;
 	}
 
 	//Real VAG header is 0x30 bytes behind the vagAddr
@@ -135,7 +137,7 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	v.type = VOICETYPE_VAG;
 	v.vagAddr = vagAddr;
 	v.vagSize = size;
-	v.loop = loop ? false : true;
+	v.loop = loop ? true : false;
 	v.ChangedParams(vagAddr == prevVagAddr);
 	return 0;
 }
@@ -164,7 +166,8 @@ u32 sceSasSetVoicePCM(u32 core, int voiceNum, u32 pcmAddr, int size, int loop)
 	v.type = VOICETYPE_PCM;
 	v.pcmAddr = pcmAddr;
 	v.pcmSize = size;
-	v.loop = loop ? false : true;
+	v.pcmIndex = 0;
+	v.loop = loop ? true : false;
 	v.playing = true;
 	v.ChangedParams(pcmAddr == prevPcmAddr);
 	return 0;
@@ -202,6 +205,10 @@ u32 sceSasSetVolume(u32 core, int voiceNum, int leftVol, int rightVol, int effec
 		WARN_LOG(HLE, "%s: invalid voicenum %d", __FUNCTION__, voiceNum);
 		return ERROR_SAS_INVALID_VOICE;
 	}
+	bool overVolume = abs(leftVol) > PSP_SAS_VOL_MAX || abs(rightVol) > PSP_SAS_VOL_MAX;
+	overVolume = overVolume || abs(effectLeftVol) > PSP_SAS_VOL_MAX || abs(effectRightVol) > PSP_SAS_VOL_MAX;
+	if (overVolume)
+		return ERROR_SAS_INVALID_VOLUME;
 
 	SasVoice &v = sas->voices[voiceNum];
 	v.volumeLeft = leftVol;

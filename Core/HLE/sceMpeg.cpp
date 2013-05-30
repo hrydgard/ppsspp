@@ -659,7 +659,11 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	if (ctx->mediaengine->stepVideo()) {
 		ctx->mediaengine->writeVideoImage(buffer, frameWidth, ctx->videoPixelMode);
-		packetsConsumed += ctx->mediaengine->readLength() / ringbuffer.packetSize;
+		// TODO: The idea here is to consume packets based on actual decoded bytes.
+		// We don't actually decode anything (readLength is always 0), so hardcoded for now.
+		//packetsConsumed = ctx->mediaengine->readLength() / ringbuffer.packetSize;
+		if (packetsConsumed == 0)
+			packetsConsumed = std::min(packetsInRingBuffer, 4);
 
 		// The MediaEngine is already consuming all the remaining
 		// packets when approaching the end of the video. The PSP
@@ -840,7 +844,12 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 
 	if (ctx->mediaengine->stepVideo()) {
 		// TODO: Write it somewhere or buffer it or something?
-		packetsConsumed += ctx->mediaengine->readLength() / ringbuffer.packetSize;
+
+		// TODO: The idea here is to consume packets based on actual decoded bytes.
+		// We don't actually decode anything (readLength is always 0), so hardcoded for now.
+		//packetsConsumed = ctx->mediaengine->readLength() / ringbuffer.packetSize;
+		if (packetsConsumed == 0)
+			packetsConsumed = std::min(packetsInRingBuffer, 4);
 
 		// Consuming all the remaining packets?
 		if (ringbuffer.packetsFree + packetsConsumed >= ringbuffer.packets) {
@@ -1423,7 +1432,9 @@ const HLEFunction sceMpeg[] =
 	{0x01977054,WrapI_UUUU<sceMpegGetUserdataAu>,"sceMpegGetUserdataAu"},
 	{0x3c37a7a6,0,"sceMpegNextAvcRpAu"},
 	{0x11f95cf1,0,"sceMpegGetAvcNalAu"},
+	{0xab0e9556,0,"sceMpegAvcDecodeDetailIndex"},
 	{0xcf3547a2,0,"sceMpegAvcDecodeDetail2"},
+	{0x921fcccf,0,"sceMpegGetAvcEsAu"},
 };
 
 void Register_sceMpeg()
