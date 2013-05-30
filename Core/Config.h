@@ -81,6 +81,7 @@ public:
 	int iFpsLimit;
 	int iMaxRecent;
 	bool bEnableCheats;
+	bool bReloadCheats;
 
 	// Sound
 	bool bEnableSound;
