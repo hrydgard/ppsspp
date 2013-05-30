@@ -228,6 +228,7 @@
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
     <ClCompile Include="Host.cpp" />
+    <ClCompile Include="HW\atrac3plus.cpp" />
     <ClCompile Include="HW\audioPlayer.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
@@ -406,6 +407,7 @@
     <ClInclude Include="HLE\sceVaudio.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="Host.h" />
+    <ClInclude Include="HW\atrac3plus.h" />
     <ClInclude Include="HW\audioPlayer.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\OMAConvert.h" />
