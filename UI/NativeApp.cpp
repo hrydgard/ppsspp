@@ -295,6 +295,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	}
 
 #if defined(ANDROID)
+	g_Config.internalDataDirectory = savegame_directory;
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.

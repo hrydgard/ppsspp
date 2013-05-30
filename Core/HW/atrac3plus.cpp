@@ -3,6 +3,9 @@
 #else
 #include <dlfcn.h>
 #include <errno.h>
+#ifdef ANDROID
+#include <sys/stat.h>
+#endif
 #endif // _WIN32
 
 #include <string.h>
@@ -11,6 +14,7 @@
 
 #include "base/logging.h"
 #include "Core/Config.h"
+#include "Common/FileUtil.h"
 
 extern std::string externalDirectory;
 
@@ -46,16 +50,29 @@ namespace Atrac3plus_Decoder {
 			return -1;
 		}
 #else
-		std::string filename = "at3plusdecoder.so";
 
 #if defined(ANDROID) && defined(ARM)
-
+		std::string sdFilename;
+		std::string internalFilename = g_Config.internalDataDirectory + "libat3plusdecoder.so";
 #if ARMEABI_V7A
-		filename = g_Config.memCardDirectory + "PSP/libs/armeabi-v7a/lib" + filename;
+		sdFilename = g_Config.memCardDirectory + "PSP/libs/armeabi-v7a/libat3plusdecoder.so";
 #else
-		filename = g_Config.memCardDirectory + "PSP/libs/armeabi/lib" + filename;
+		sdFilename = g_Config.memCardDirectory + "PSP/libs/armeabi/libat3plusdecoder.so";
 #endif
 
+		// SD cards are often mounted no-exec.
+		if (!File::Exists(internalFilename)) {
+			if (!File::Copy(sdFilename, internalFilename)) {
+				ELOG("Failed to copy %s to %s", sdFilename.c_str(), internalFilename.c_str());
+				return -1;
+			}
+			if (chmod(internalFilename.c_str(), 0777) < 0) {
+				ELOG("Failed to chmod %s, continuing anyway", internalFilename.c_str());
+			}
+		}
+		std::string filename = internalFilename;
+#else
+		std::string filename = "libat3plusdecoder.so";
 #endif
 
 		ILOG("Attempting to load atrac3plus decoder from %s", filename.c_str());
