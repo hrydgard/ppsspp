@@ -1,6 +1,8 @@
-
 #ifdef _WIN32 
 #include <Windows.h>
+#else
+#include <dlfcn.h>
+#include <errno.h>
 #endif // _WIN32
 
 #include <string.h>
@@ -9,6 +11,8 @@ namespace Atrac3plus_Decoder {
 
 #ifdef _WIN32 
 	HMODULE hlib = 0;
+#else
+	static void *so;
 #endif // _WIN32
 
 	typedef int   (* ATRAC3PLUS_DECODEFRAME)(void* context, void* inbuf, int inbytes, int* channels, void** outbuf);
@@ -21,11 +25,21 @@ namespace Atrac3plus_Decoder {
 	int initdecoder() {
 
 #ifdef _WIN32 
-		hlib = LoadLibraryA("MaiAT3PlusDecoder.dll");
+		hlib = LoadLibraryA("at3plusdecoder.dll");
 		if (hlib) {
 			frame_decoder = (ATRAC3PLUS_DECODEFRAME)GetProcAddress(hlib, "Atrac3plusDecoder_decodeFrame");
 			open_context = (ATRAC3PLUS_OPENCONTEXT)GetProcAddress(hlib, "Atrac3plusDecoder_openContext");
 			close_context = (ATRAC3PLUS_CLOSECONTEXT)GetProcAddress(hlib, "Atrac3plusDecoder_closeContext");
+		} else {
+			return -1;
+		}
+#else
+		// TODO: from which directory on Android?
+		so = dlopen("at3plusdecoder.so", RTLD_LAZY);
+		if (so) {
+			frame_decoder = (ATRAC3PLUS_DECODEFRAME)dlsym(so, "Atrac3plusDecoder_decodeFrame");
+			open_context = (ATRAC3PLUS_OPENCONTEXT)dlsym(so, "Atrac3plusDecoder_openContext");
+			close_context = (ATRAC3PLUS_CLOSECONTEXT)dlsym(so, "Atrac3plusDecoder_closeContext");
 		} else {
 			return -1;
 		}
@@ -40,6 +54,11 @@ namespace Atrac3plus_Decoder {
 		if (hlib) {
 			FreeLibrary(hlib);
 			hlib = 0;
+		}
+#else
+		if (so) {
+			dlclose(so);
+			so = 0;
 		}
 #endif // _WIN32
 

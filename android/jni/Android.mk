@@ -177,6 +177,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/PBPReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
+  $(SRC)/Core/HW/atrac3plus.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
