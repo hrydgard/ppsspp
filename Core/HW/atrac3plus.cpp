@@ -25,7 +25,12 @@ namespace Atrac3plus_Decoder {
 	int initdecoder() {
 
 #ifdef _WIN32 
+
+#ifdef _M_X64
+		hlib = LoadLibraryA("at3plusdecoder64.dll");
+#else
 		hlib = LoadLibraryA("at3plusdecoder.dll");
+#endif
 		if (hlib) {
 			frame_decoder = (ATRAC3PLUS_DECODEFRAME)GetProcAddress(hlib, "Atrac3plusDecoder_decodeFrame");
 			open_context = (ATRAC3PLUS_OPENCONTEXT)GetProcAddress(hlib, "Atrac3plusDecoder_openContext");
