@@ -41,7 +41,10 @@ EmuFileType Identify_File(const char *filename)
 
 	size_t readSize = fread(&id,4,1,f);
 	if(readSize != 1)
+	{
+		fclose(f);
 		return FILETYPE_ERROR;
+	}
 
 	psar_id = 0;
 	fseek(f, 0x24, SEEK_SET);
