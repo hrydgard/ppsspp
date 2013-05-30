@@ -770,12 +770,15 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 
 	FileNode *f = __IoOpen(filename, flags, mode);
 	if (f == NULL) {
-		ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
 		// Timing is not accurate, aiming low for now.
-		if(errorCode == SCE_KERNEL_ERROR_NOCWD)
+		if(errorCode == SCE_KERNEL_ERROR_NOCWD) {
+			ERROR_LOG(HLE, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
 			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 100);
-		else
+		}
+		else {
+			ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
 			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND , "file opened", 100);
+		}
 	}
 	
 	SceUID id = f->GetUID();
