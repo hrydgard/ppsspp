@@ -2957,11 +2957,14 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 			oldUID, oldPC, currentThread, currentMIPS->pc);
 	}
 
-	// No longer waiting.
-	target->nt.waitType = WAITTYPE_NONE;
-	target->nt.waitID = 0;
+	if (target)
+	{
+		// No longer waiting.
+		target->nt.waitType = WAITTYPE_NONE;
+		target->nt.waitID = 0;
 
-	__KernelExecutePendingMipsCalls(target, true);
+		__KernelExecutePendingMipsCalls(target, true);
+	}
 }
 
 void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
