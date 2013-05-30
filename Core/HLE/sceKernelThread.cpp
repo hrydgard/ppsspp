@@ -2962,9 +2962,9 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		// No longer waiting.
 		target->nt.waitType = WAITTYPE_NONE;
 		target->nt.waitID = 0;
-	}
 
-	__KernelExecutePendingMipsCalls(target, true);
+		__KernelExecutePendingMipsCalls(target, true);
+	}
 }
 
 void __KernelChangeThreadState(Thread *thread, ThreadStatus newStatus) {
