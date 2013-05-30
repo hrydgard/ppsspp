@@ -23,7 +23,7 @@ public:
 	void CreateCodeList();
 	void Exit();
 	void Run();
-	std::vector<std::string> GetNextCode();
+	std::vector<int> GetNextCode();
 
 private:
 	void SkipCodes(int count);
