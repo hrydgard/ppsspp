@@ -98,6 +98,8 @@ typedef s64 SceOff;
 typedef u64 SceIores;
 
 int asyncNotifyEvent = -1;
+u32 errorCode = 0;
+
 
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
@@ -761,17 +763,24 @@ FileNode *__IoOpen(const char* filename, int flags, int mode) {
 	return f;
 }
 
+
 u32 sceIoOpen(const char* filename, int flags, int mode) {
 	if (!__KernelIsDispatchEnabled())
 		return -1;
 
 	FileNode *f = __IoOpen(filename, flags, mode);
 	if (f == NULL) {
-		ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
 		// Timing is not accurate, aiming low for now.
-		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 100);
+		if(errorCode == SCE_KERNEL_ERROR_NOCWD) {
+			ERROR_LOG(HLE, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
+			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 100);
+		}
+		else {
+			ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
+			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND , "file opened", 100);
+		}
 	}
-
+	
 	SceUID id = f->GetUID();
 	DEBUG_LOG(HLE, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
 	// Timing is not accurate, aiming low for now.
