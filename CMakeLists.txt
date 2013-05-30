@@ -832,6 +832,9 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNp.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
+	Core/HW/atrac3plus.cpp
+	Core/HW/atrac3plus.h
+	Core/HW/MediaEngine.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MemoryStick.cpp
