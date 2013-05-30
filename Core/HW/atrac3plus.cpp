@@ -6,6 +6,13 @@
 #endif // _WIN32
 
 #include <string.h>
+#include <string>
+
+
+#include "base/logging.h"
+#include "Core/Config.h"
+
+extern std::string externalDirectory;
 
 namespace Atrac3plus_Decoder {
 
@@ -39,13 +46,32 @@ namespace Atrac3plus_Decoder {
 			return -1;
 		}
 #else
+		std::string filename = "at3plusdecoder.so";
+
+#if defined(ANDROID) && defined(ARM)
+
+#if ARMEABI_V7A
+		filename = g_Config.memCardDirectory + "PSP/libs/armeabi-v7a/lib" + filename;
+#else
+		filename = g_Config.memCardDirectory + "PSP/libs/armeabi/lib" + filename;
+#endif
+
+	#endif
+
+		ILOG("Attempting to load atrac3plus decoder from %s", filename.c_str());
 		// TODO: from which directory on Android?
-		so = dlopen("at3plusdecoder.so", RTLD_LAZY);
+		so = dlopen(filename.c_str(), RTLD_LAZY);
 		if (so) {
 			frame_decoder = (ATRAC3PLUS_DECODEFRAME)dlsym(so, "Atrac3plusDecoder_decodeFrame");
 			open_context = (ATRAC3PLUS_OPENCONTEXT)dlsym(so, "Atrac3plusDecoder_openContext");
 			close_context = (ATRAC3PLUS_CLOSECONTEXT)dlsym(so, "Atrac3plusDecoder_closeContext");
+			ILOG("Successfully loaded atrac3plus decoder from %s", filename.c_str());
+			if (!frame_decoder || !open_context || !close_context) {
+				ILOG("Found atrac3plus decoder at %s but failed to load functions", filename.c_str());
+				return -1;
+			}
 		} else {
+			ELOG("Failed to load atrac3plus decoder from %s", filename.c_str());
 			return -1;
 		}
 #endif // _WIN32
