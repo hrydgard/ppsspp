@@ -67,11 +67,12 @@ void CWCheatEngine::Exit() {
 void CWCheatEngine::CreateCodeList() {
 	parts = makeCodeParts();
 }
-std::vector<std::string> CWCheatEngine::GetNextCode() {
+std::vector<int> CWCheatEngine::GetNextCode() {
 	std::string code1;
 	std::string code2;
 	std::string modifier = "_L";
 	std::vector<std::string> splitCode;
+	std::vector<int> finalCode;
 	std::string modifier2 = "0";
 	while (true)  {
 		if (currentCode >= parts.size()) {
@@ -79,26 +80,31 @@ std::vector<std::string> CWCheatEngine::GetNextCode() {
 			code2.clear();
 			break;
 		}
-			code1 = parts[currentCode++];
-			trim2(code1);
-			code2 = parts[currentCode++];
-			trim2(code2);
-			splitCode.push_back(code1);
-			splitCode.push_back(code2);
+		code1 = parts[currentCode++];
+		trim2(code1);
+		code2 = parts[currentCode++];
+		trim2(code2);
+		splitCode.push_back(code1);
+		splitCode.push_back(code2);
 
+		int var1 = (int) parseHexLong(splitCode[0]);
+		int var2 = (int) parseHexLong(splitCode[1]);
+		finalCode.push_back(var1);
+		finalCode.push_back(var2);
 		if (splitCode[0].substr(0,2) == modifier) {
 			splitCode[0] = splitCode[0].substr(3);
+			break;
 		}
 		else if (splitCode[0].substr(0,1) == modifier2) {
 			break;
 		}
 	}
-	return splitCode;
+	return finalCode;
 }
 
 void CWCheatEngine::SkipCodes(int count) {
 	for (int i = 0; i < count; i ++) {
-		if (GetNextCode()[0] == "") {
+		if (GetNextCode()[0] == NULL) {
 			break;
 		}
 	}
@@ -184,18 +190,15 @@ void CWCheatEngine::Run() {
 		currentCode = 0;
 
 		while (true) {
-			std::vector<std::string> code = GetNextCode();
+			std::vector<int> code = GetNextCode();
 			if (code.size() < 2) {
 				Exit();
 				break;
 			}
-			//if (code[0] == "" || code.size() < 2) {
-			//	continue;
-			//}
 
 			int value;
-			unsigned int comm = (unsigned int)parseHexLong(code[0]);
-			int arg = (int)parseHexLong(code[1]);
+			unsigned int comm = code[0];
+			int arg = code[1];
 			int addr = GetAddress(comm & 0x0FFFFFFF);
 
 			switch (comm >> 28) {
@@ -235,8 +238,8 @@ void CWCheatEngine::Run() {
 					case 6: // 32-bit
 						value = Memory::Read_U32(addr);
 						code = GetNextCode();
-						if ( code[0] != "") {
-							increment = (int) parseHexLong(code[0]);
+						if ( code[0] != NULL) {
+							increment = code[0];
 						}
 						break;
 					}
@@ -272,9 +275,9 @@ void CWCheatEngine::Run() {
 				}
 			case 0x4: // 32-bit patch code
 				code = GetNextCode();
-				if (code[0] != "") {
-					int data = (int) parseHexLong(code[0]);
-					int dataAdd = (int) parseHexLong(code[1]);
+				if (code[0] != NULL) {
+					int data = code[0];
+					int dataAdd = code[1];
 
 					int maxAddr = (arg >> 16) & 0xFFFF;
 					int stepAddr = (arg & 0xFFFF) * 4;
@@ -289,8 +292,8 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x5: // Memcpy command
 				code = GetNextCode();
-				if (code[0] != "") {
-					int destAddr = (int) parseHexLong(code[0]);
+				if (code[0] != NULL) {
+					int destAddr = code[0];
 					if (Memory::IsValidAddress(addr) && Memory::IsValidAddress(destAddr)) {
 						Memory::Memcpy(destAddr, Memory::GetPointer(addr), arg);
 					}
@@ -298,9 +301,9 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x6: // Pointer commands
 				code = GetNextCode();
-				if (code[0] != "") {
-					int arg2 = (int) parseHexLong(code[0]);
-					int offset = (int) parseHexLong(code[1]);
+				if (code[0] != NULL) {
+					int arg2 = code[0];
+					int offset = code[1];
 					int baseOffset = (arg2 >> 20) * 4;
 					int base = Memory::Read_U32(addr + baseOffset);
 					int count = arg2 & 0xFFFF;
@@ -308,8 +311,8 @@ void CWCheatEngine::Run() {
 					for (int i = 1; i < count; i ++ ) {
 						if (i+1 < count) {
 							code = GetNextCode();
-							int arg3 = (int) parseHexLong(code[0]);
-							int arg4 = (int) parseHexLong(code[1]);
+							int arg3 = code[0];
+							int arg4 = code[1];
 							int comm3 = arg3 >> 28;
 							switch (comm3) {
 							case 0x1: // type copy byte
@@ -419,9 +422,9 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x8: // 8-bit and 16-bit patch code
 				code = GetNextCode();
-				if (code[0] != "") {
-					int data = (int) parseHexLong(code[0]);
-					int dataAdd = (int) parseHexLong(code[1]);
+				if (code[0] != NULL) {
+					int data = code[0];
+					int dataAdd = code[1];
 
 					bool is8Bit = (data >> 16) == 0x0000;
 					int maxAddr = (arg >> 16) & 0xFFFF;
