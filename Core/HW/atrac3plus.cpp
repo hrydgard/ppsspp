@@ -56,7 +56,7 @@ namespace Atrac3plus_Decoder {
 		filename = g_Config.memCardDirectory + "PSP/libs/armeabi/lib" + filename;
 #endif
 
-	#endif
+#endif
 
 		ILOG("Attempting to load atrac3plus decoder from %s", filename.c_str());
 		// TODO: from which directory on Android?
@@ -71,10 +71,14 @@ namespace Atrac3plus_Decoder {
 				return -1;
 			}
 		} else {
-			ELOG("Failed to load atrac3plus decoder from %s", filename.c_str());
+			if (errno == ENOEXEC) {
+				ELOG("Failed to load atrac3plus decoder from %s. errno=%i, dlerror=%s", filename.c_str(), (int)(errno), dlerror());
+			} else {
+				ELOG("Failed to load atrac3plus decoder from %s. errno=%i", filename.c_str(), (int)(errno));
+			}
 			return -1;
 		}
-#endif // _WIN32
+#endif
 
 		return 0;
 	}
