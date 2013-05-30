@@ -32,7 +32,7 @@ namespace Atrac3plus_Decoder {
 			return true;
 		}
 
-		void empty() {
+		void clear() {
 			start = 0;
 			end = 0;
 		}
