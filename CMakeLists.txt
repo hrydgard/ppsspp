@@ -129,9 +129,15 @@ if(NOT MSVC)
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
-	add_definitions(-ffast-math)
+	if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
+	else()
+		add_definitions(-ffast-math)
+	endif()
 	if(NOT APPLE)
-		add_definitions(-Wno-psabi)
+		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel")
+			add_definitions(-Wno-psabi)
+		endif()
 		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	endif()
@@ -841,6 +847,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/MemoryStick.h
 	Core/HW/SasAudio.cpp
 	Core/HW/SasAudio.h
+	Core/HW/atrac3plus.cpp
 	Core/Host.cpp
 	Core/Host.h
 	Core/Loaders.cpp
