@@ -113,7 +113,7 @@ struct Atrac {
 		pFrame = 0;
 #endif // USE_FFMPEG
 		decoder_context = 0;
-		sampleQueue.empty();
+		sampleQueue.clear();
 	}
 
 	~Atrac() {
@@ -130,7 +130,7 @@ struct Atrac {
 		data_buf = 0;
 
 		Atrac3plus_Decoder::closeContext(&decoder_context);
-		sampleQueue.empty();
+		sampleQueue.clear();
 	}
 
 	void DoState(PointerWrap &p) {
