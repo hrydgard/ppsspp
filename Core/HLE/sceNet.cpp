@@ -90,7 +90,7 @@ u32 sceNetAdhocInit() {
 }
 
 u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
-	ERROR_LOG(HLE,"UNIMPL sceNetAdhocInit(%i, %i, %08x)", stackSize, prio, productAddr);
+	ERROR_LOG(HLE,"UNIMPL sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
 	return 0;
 }
 
