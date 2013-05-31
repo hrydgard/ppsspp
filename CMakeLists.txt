@@ -443,7 +443,10 @@ elseif(IOS)
 		ios/ViewController.mm
 		ios/ViewController.h
 		ios/AudioEngine.mm
-		ios/AudioEngine.h)
+		ios/AudioEngine.h
+		ios/iCade/iCadeReaderView.h
+		ios/iCade/iCadeReaderView.m
+		ios/iCade/iCadeState.h)
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
