@@ -167,7 +167,7 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 
 	char* skip = "//";
 	std::vector<std::string> codesList;  // Read from INI here
-	std::ifstream list; title3.c_str();
+	std::ifstream list(title3);
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list, line, '\n');
 		if (line.substr(0,2) == skip) {
