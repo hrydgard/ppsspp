@@ -15,13 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "SavedataParam.h"
-#include "image/png_load.h"
-#include "../HLE/sceKernelMemory.h"
-#include "../ELF/ParamSFO.h"
-#include "../HLE/sceChnnlsv.h"
+#include "Core/Reporting.h"
+#include "Core/Dialog/SavedataParam.h"
+#include "Core/Dialog/PSPSaveDialog.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceChnnlsv.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/HW/MemoryStick.h"
-#include "PSPSaveDialog.h"
+
+#include "image/png_load.h"
 
 std::string icon0Name = "ICON0.PNG";
 std::string icon1Name = "ICON1.PMF";
@@ -309,40 +311,43 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	sfoFile.SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
 
 	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
-	const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
-	const int FILE_LIST_COUNT_MAX = 99;
-	const int FILE_LIST_TOTAL_SIZE = FILE_LIST_ITEM_SIZE * FILE_LIST_COUNT_MAX;
-	u32 tmpDataSize = 0;
-	u8* tmpDataOrig = sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
-	u8* tmpData = new u8[FILE_LIST_TOTAL_SIZE];
-
-	if (tmpDataOrig != NULL)
-		memcpy(tmpData, tmpDataOrig, tmpDataSize > FILE_LIST_TOTAL_SIZE ? FILE_LIST_TOTAL_SIZE : tmpDataSize);
-	else
-		memset(tmpData, 0, FILE_LIST_TOTAL_SIZE);
-
-	if (param->dataBuf != 0)
+	if (secureMode)
 	{
-		char *fName = (char*)tmpData;
-		for(int i = 0; i < FILE_LIST_COUNT_MAX; i++)
-		{
-			if(fName[0] == 0)
-				break; // End of list
-			if(strncmp(fName,GetFileName(param).c_str(),20) == 0)
-				break;
-			fName += FILE_LIST_ITEM_SIZE;
-		}
+		const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
+		const int FILE_LIST_COUNT_MAX = 99;
+		const int FILE_LIST_TOTAL_SIZE = FILE_LIST_ITEM_SIZE * FILE_LIST_COUNT_MAX;
+		u32 tmpDataSize = 0;
+		u8 *tmpDataOrig = sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
+		u8 *tmpData = new u8[FILE_LIST_TOTAL_SIZE];
 
-		if (fName + 13 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
-			snprintf(fName, 13, "%s",GetFileName(param).c_str());
-		if (fName + 13 + 16 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
-			memcpy(fName+13, cryptedHash, 16);
+		if (tmpDataOrig != NULL)
+			memcpy(tmpData, tmpDataOrig, tmpDataSize > FILE_LIST_TOTAL_SIZE ? FILE_LIST_TOTAL_SIZE : tmpDataSize);
+		else
+			memset(tmpData, 0, FILE_LIST_TOTAL_SIZE);
+
+		if (param->dataBuf != 0)
+		{
+			char *fName = (char*)tmpData;
+			for(int i = 0; i < FILE_LIST_COUNT_MAX; i++)
+			{
+				if(fName[0] == 0)
+					break; // End of list
+				if(strncmp(fName,GetFileName(param).c_str(),20) == 0)
+					break;
+				fName += FILE_LIST_ITEM_SIZE;
+			}
+
+			if (fName + 13 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
+				snprintf(fName, 13, "%s",GetFileName(param).c_str());
+			if (fName + 13 + 16 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
+				memcpy(fName+13, cryptedHash, 16);
+		}
+		sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, FILE_LIST_TOTAL_SIZE, FILE_LIST_TOTAL_SIZE);
+		delete[] tmpData;
 	}
-	sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, FILE_LIST_TOTAL_SIZE, FILE_LIST_TOTAL_SIZE);
-	delete[] tmpData;
 
 	// Init param with 0. This will be used to detect crypted save or not on loading
-	tmpData = new u8[128];
+	u8 *tmpData = new u8[128];
 	memset(tmpData, 0, 128);
 	sfoFile.SetValue("SAVEDATA_PARAMS", tmpData, 128, 128);
 	delete[] tmpData;
@@ -833,12 +838,44 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 	return true;
 }
 
-bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
+int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 {
 	if (!param)	{
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
 	}
-	// TODO : Need to be checked against more game
+
+	if (!Memory::IsValidAddress(param->fileListAddr)) {
+		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): bad fileList address %08x", param->fileListAddr);
+		// Should crash.
+		return -1;
+	}
+
+	auto fileList = Memory::GetStruct<SceUtilitySavedataFileListInfo>(param->fileListAddr);
+	if (fileList->secureEntries.Valid() && fileList->maxSecureEntries > 99) {
+		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many secure entries, %d", fileList->maxSecureEntries);
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	}
+	if (fileList->normalEntries.Valid() && fileList->maxNormalEntries > 8192) {
+		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	}
+	if (fileList->systemEntries.Valid() && fileList->maxSystemEntries > 5) {
+		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	}
+
+	std::string dirPath = savePath + GetGameName(param) + GetSaveName(param);
+	if (!pspFileSystem.GetFileInfo(dirPath).exists) {
+		DEBUG_LOG(HLE, "SavedataParam::GetFilesList(): directory %s does not exist", dirPath.c_str());
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+	}
+
+	// Even if there are no files, initialize to 0.
+	fileList->resultNumSecureEntries = 0;
+	fileList->resultNumNormalEntries = 0;
+	fileList->resultNumSystemEntries = 0;
+
+	// TODO: Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
 
 	u32 dataAddr = param->fileListAddr;
 	int foundFiles = 0;
@@ -876,8 +913,7 @@ bool SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		}
 	}
 
-	// TODO : verify if return true if at least 1 file found or only if all found
-	return foundFiles > 0;
+	return 0;
 }
 
 bool SavedataParam::GetSize(SceUtilitySavedataParam *param)

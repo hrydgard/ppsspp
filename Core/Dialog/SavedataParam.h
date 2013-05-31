@@ -17,8 +17,9 @@
 
 #pragma once
 
-#include "../HLE/sceKernel.h"
-#include "../System.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceRtc.h"
+#include "Core/System.h"
 
 enum SceUtilitySavedataType
 {
@@ -98,6 +99,29 @@ struct PspUtilitySavedataSizeInfo {
 	char neededString[8];
 	int overwriteKB;
 	char overwriteString[8];
+};
+
+struct SceUtilitySavedataFileListEntry
+{
+	int st_mode;
+	u64 st_size;
+	ScePspDateTime st_ctime;
+	ScePspDateTime st_atime;
+	ScePspDateTime st_mtime;
+	char name[16];
+};
+
+struct SceUtilitySavedataFileListInfo
+{
+	u32 maxSecureEntries;
+	u32 maxNormalEntries;
+	u32 maxSystemEntries;
+	u32 resultNumSecureEntries;
+	u32 resultNumNormalEntries;
+	u32 resultNumSystemEntries;
+	PSPPointer<SceUtilitySavedataFileListEntry> secureEntries;
+	PSPPointer<SceUtilitySavedataFileListEntry> normalEntries;
+	PSPPointer<SceUtilitySavedataFileListEntry> systemEntries;
 };
 
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.
@@ -216,7 +240,7 @@ public:
 	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
-	bool GetFilesList(SceUtilitySavedataParam* param);
+	int GetFilesList(SceUtilitySavedataParam* param);
 	bool GetSize(SceUtilitySavedataParam* param);
 	bool IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName);
 

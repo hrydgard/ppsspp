@@ -785,10 +785,7 @@ int PSPSaveDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_FILES:
-					if (param.GetFilesList(param.GetPspParam()))
-						param.GetPspParam()->result = 0;
-					else
-						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					param.GetPspParam()->result = param.GetFilesList(param.GetPspParam());
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
@@ -819,6 +816,7 @@ int PSPSaveDialog::Update()
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
+				// TODO: Should reset the directory's other files.
 				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 					if (param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE))
