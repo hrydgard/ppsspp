@@ -12,7 +12,7 @@
 // Yes, this maps more than the PSP has, but that's fine as this lets us
 // map buttons to extra functionality like speedup.
 unsigned int xinput_ctrl_map[] = {
-	XBOX_CODE_LEFTTRIGER,          PAD_BUTTON_MENU,
+	XBOX_CODE_LEFTTRIGER,          PAD_BUTTON_UNTHROTTLE,
 	XBOX_CODE_RIGHTTRIGER,         PAD_BUTTON_BACK,
 	XINPUT_GAMEPAD_A,              PAD_BUTTON_A,
 	XINPUT_GAMEPAD_B,              PAD_BUTTON_B,
