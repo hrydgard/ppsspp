@@ -78,13 +78,6 @@ namespace
 		return result != 0;
 	}
 
-	struct EncryptFileInfo
-	{
-		int fileVersion;
-		u8 key[16];
-		int sdkVersion;
-	};
-
 	bool PSPMatch(std::string text, std::string regexp)
 	{
 		if(text.empty() && regexp.empty())
@@ -435,20 +428,6 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
 	}
 
-	// Save Encryption Data
-	{
-		EncryptFileInfo encryptInfo;
-		SceSize dataSize = sizeof(encryptInfo); // version + key + sdkVersion
-		memset(&encryptInfo,0,dataSize);
-
-		encryptInfo.fileVersion = 1;
-		encryptInfo.sdkVersion = sceKernelGetCompiledSdkVersion();
-		if(param->size > 1500)
-			memcpy(encryptInfo.key,param->key,16);
-
-		std::string encryptInfoPath = dirPath+"/"+"ENCRYPT_INFO.BIN";
-		WritePSPFile(encryptInfoPath, (u8*)&encryptInfo, dataSize);
-	}
 	return true;
 }
 
