@@ -77,10 +77,10 @@ void __UtilityDoState(PointerWrap &p)
 
 void __UtilityShutdown()
 {
-	saveDialog.Shutdown();
-	msgDialog.Shutdown();
-	oskDialog.Shutdown();
-	netDialog.Shutdown();
+	saveDialog.Shutdown(true);
+	msgDialog.Shutdown(true);
+	oskDialog.Shutdown(true);
+	netDialog.Shutdown(true);
 }
 
 int __UtilityGetStatus()

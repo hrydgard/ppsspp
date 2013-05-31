@@ -58,6 +58,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	switch (param.GetPspParam()->focus)
 	{
 	case SCE_UTILITY_SAVEDATA_FOCUS_NAME:
+		// TODO: This should probably force not using the list?
 		currentSelectedSave = 0;
 		break;
 	case SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST:
@@ -219,7 +220,21 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 			return param.GetSaveDirName(param.GetPspParam());
 		// Intentional fallthrough when saveName not valid.
 
-	// TODO: Maybe also WRITEDATA/READDATA/MAKEDATA/DELETEDATA/SINGLEDELETE?
+	// TODO: Test these to see what they use for the filename.
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
+	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
+		if (param.GetSaveDirName(param.GetPspParam(), currentSelectedSave) == "<>")
+			return param.GetSaveDirName(param.GetPspParam());
+		// Intentional fallthrough when saveName not valid.
+
+	// TODO: Maybe also SINGLEDELETE/etc?
 
 	default:
 		return param.GetSaveDirName(param.GetPspParam(), currentSelectedSave);
@@ -770,10 +785,7 @@ int PSPSaveDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_FILES:
-					if (param.GetFilesList(param.GetPspParam()))
-						param.GetPspParam()->result = 0;
-					else
-						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+					param.GetPspParam()->result = param.GetFilesList(param.GetPspParam());
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
@@ -804,6 +816,7 @@ int PSPSaveDialog::Update()
 						param.GetPspParam()->result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
+				// TODO: Should reset the directory's other files.
 				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 				case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 					if (param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE))
@@ -847,9 +860,9 @@ int PSPSaveDialog::Update()
 	return 0;
 }
 
-int PSPSaveDialog::Shutdown()
+int PSPSaveDialog::Shutdown(bool force)
 {
-	if (status != SCE_UTILITY_STATUS_FINISHED)
+	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	PSPDialog::Shutdown();
