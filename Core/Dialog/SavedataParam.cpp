@@ -875,6 +875,39 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	fileList->resultNumNormalEntries = 0;
 	fileList->resultNumSystemEntries = 0;
 
+	// We need PARAMS.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
+	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + sfoName);
+	std::vector<std::string> secureFilenames;
+	// TODO: Error code if not?
+	if (sfoFileInfo.exists) {
+		ParamSFOData sfoFile;
+		size_t sfoSize = (size_t)sfoFileInfo.size;
+		u8 *sfoData = new u8[sfoSize];
+		if (ReadPSPFile(dirPath + "/" + sfoName, &sfoData, sfoSize, NULL)){
+			sfoFile.ReadSFO(sfoData, sfoSize);
+		}
+		delete[] sfoData;
+
+		u32 sfoFileListSize = 0;
+		char *sfoFileList = (char *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
+		const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
+		const int FILE_LIST_COUNT_MAX = 99;
+
+		// Filenames are 13 bytes long at most.  Add a NULL so there's no surprises.
+		char temp[14];
+		temp[13] = '\0';
+
+		for (int i = 0; i < FILE_LIST_COUNT_MAX; ++i) {
+			// Ends at a NULL filename.
+			if (sfoFileList[i * FILE_LIST_ITEM_SIZE] == '\0') {
+				break;
+			}
+
+			strncpy(temp, &sfoFileList[i * FILE_LIST_ITEM_SIZE], 13);
+			secureFilenames.push_back(temp);
+		}
+	}
+
 	// TODO: Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
 
 	u32 dataAddr = param->fileListAddr;
