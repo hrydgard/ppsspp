@@ -58,6 +58,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	switch (param.GetPspParam()->focus)
 	{
 	case SCE_UTILITY_SAVEDATA_FOCUS_NAME:
+		// TODO: This should probably force not using the list?
 		currentSelectedSave = 0;
 		break;
 	case SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST:
@@ -219,7 +220,21 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 			return param.GetSaveDirName(param.GetPspParam());
 		// Intentional fallthrough when saveName not valid.
 
-	// TODO: Maybe also WRITEDATA/READDATA/MAKEDATA/DELETEDATA/SINGLEDELETE?
+	// TODO: Test these to see what they use for the filename.
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
+	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
+		if (param.GetSaveDirName(param.GetPspParam(), currentSelectedSave) == "<>")
+			return param.GetSaveDirName(param.GetPspParam());
+		// Intentional fallthrough when saveName not valid.
+
+	// TODO: Maybe also SINGLEDELETE/etc?
 
 	default:
 		return param.GetSaveDirName(param.GetPspParam(), currentSelectedSave);
