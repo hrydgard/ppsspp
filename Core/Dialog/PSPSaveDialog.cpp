@@ -860,9 +860,9 @@ int PSPSaveDialog::Update()
 	return 0;
 }
 
-int PSPSaveDialog::Shutdown()
+int PSPSaveDialog::Shutdown(bool force)
 {
-	if (status != SCE_UTILITY_STATUS_FINISHED)
+	if (status != SCE_UTILITY_STATUS_FINISHED && !force)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
 	PSPDialog::Shutdown();

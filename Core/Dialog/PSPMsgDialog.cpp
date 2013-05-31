@@ -239,7 +239,7 @@ int PSPMsgDialog::Abort()
 	return PSPDialog::Shutdown();
 }
 
-int PSPMsgDialog::Shutdown()
+int PSPMsgDialog::Shutdown(bool force)
 {
 	return PSPDialog::Shutdown();
 }

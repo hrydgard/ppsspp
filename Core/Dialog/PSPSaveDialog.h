@@ -69,7 +69,7 @@ public:
 
 	virtual int Init(int paramAddr);
 	virtual int Update();
-	virtual int Shutdown();
+	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 
 private :
