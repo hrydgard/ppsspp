@@ -52,7 +52,7 @@ public:
 	virtual ~PSPDialog();
 
 	virtual int Update();
-	virtual int Shutdown();
+	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 
 	enum DialogStatus

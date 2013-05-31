@@ -58,7 +58,7 @@ void PSPDialog::DisplayMessage(std::string text)
 	PPGeDrawTextWrapped(text.c_str(), 40, 50, 420, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
 }
 
-int PSPDialog::Shutdown()
+int PSPDialog::Shutdown(bool force)
 {
 	status = SCE_UTILITY_STATUS_SHUTDOWN;
 	return 0;

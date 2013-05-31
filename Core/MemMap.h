@@ -264,5 +264,31 @@ const char *GetAddressName(u32 address);
 
 };
 
+template <typename T>
+struct PSPPointer
+{
+	u32 ptr;
+
+	T &operator*() const
+	{
+		return *(T *)(Memory::base + ptr);
+	}
+
+	T &operator[](int i) const
+	{
+		return *((T *)(Memory::base + ptr) + i);
+	}
+
+	T *operator->() const
+	{
+		return (T *)(Memory::base + ptr);
+	}
+
+	bool Valid() const
+	{
+		return Memory::IsValidAddress(ptr);
+	}
+};
+
 #endif
 
