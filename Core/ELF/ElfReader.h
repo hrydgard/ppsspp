@@ -120,6 +120,7 @@ public:
 	bool LoadInto(u32 vaddr);
 	bool LoadSymbols();
 	void LoadRelocations(Elf32_Rel *rels, int numRelocs);
+	void LoadRelocations2(int rel_seg);
 
 
 private:
