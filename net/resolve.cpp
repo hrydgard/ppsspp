@@ -22,6 +22,7 @@ namespace net {
 void Init()
 {
 #ifdef _WIN32
+	// WSA does its own internal reference counting, no need to keep track of if we inited or not.
 	WSADATA wsaData = {0};
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif

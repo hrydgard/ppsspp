@@ -76,7 +76,7 @@ int Buffer::SkipLineCRLF() {
 }
 
 int Buffer::OffsetToAfterNextCRLF() {
-  for (size_t i = 0; i < data_.size() - 1; i++) {
+  for (int i = 0; i < (int)data_.size() - 1; i++) {
     if (data_[i] == '\r' && data_[i + 1] == '\n') {
       return i + 2;
     }
@@ -109,6 +109,17 @@ bool Buffer::Flush(int fd) {
   return success;
 }
 
+bool Buffer::FlushToFile(const char *filename) {
+	FILE *f = fopen(filename, "wb");
+	if (!f)
+		return false;
+	if (data_.size()) {
+		fwrite(&data_[0], 1, data_.size(), f);
+	}
+	fclose(f);
+	return true;
+}
+
 bool Buffer::FlushSocket(uintptr_t sock) {
   for (size_t pos = 0, end = data_.size(); pos < end; ) {
     int sent = send(sock, &data_[pos], end - pos, 0);
@@ -132,13 +143,20 @@ bool Buffer::FlushSocket(uintptr_t sock) {
   return true;
 }
 
-void Buffer::ReadAll(int fd) {
-  char buf[1024];
-  int retval;
-  while ((retval = recv(fd, buf, sizeof(buf), 0)) > 0) {
-    char *p = Append((size_t)retval);
-    memcpy(p, buf, retval);
-  }
+bool Buffer::ReadAll(int fd) {
+	char buf[1024];
+	while (true) {
+		int retval = recv(fd, buf, sizeof(buf), 0);
+		if (retval == 0)
+			return true;
+		else if (retval < 0) {
+			ELOG("Error reading from buffer: %i", retval);
+			return false;
+		}
+		char *p = Append((size_t)retval);
+		memcpy(p, buf, retval);
+	}
+	return true;
 }
 
 void Buffer::Read(int fd, size_t sz) {

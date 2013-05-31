@@ -1,15 +1,7 @@
-#include <functional>
-
+#include "base/functional.h"
 #include "base/logging.h"
 #include "thread/thread.h"
 #include "thread/prioritizedworkqueue.h"
-
-#if defined(IOS) || defined(MACGNUSTD)
-#include <tr1/functional>
-namespace std {
-	using tr1::bind;
-}
-#endif
 
 PrioritizedWorkQueue::~PrioritizedWorkQueue() {
 	if (!done_) {

@@ -254,6 +254,12 @@
     <ClInclude Include="thread\threadpool.h">
       <Filter>thread</Filter>
     </ClInclude>
+    <ClInclude Include="base\functional.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="net\url.h">
+      <Filter>net</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -449,6 +455,9 @@
     </ClCompile>
     <ClCompile Include="thread\threadpool.cpp">
       <Filter>thread</Filter>
+    </ClCompile>
+    <ClCompile Include="net\url.cpp">
+      <Filter>net</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

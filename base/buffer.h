@@ -60,10 +60,11 @@ class Buffer {
   // Writes the entire buffer to the file descriptor. Also resets the
   // size to zero. On failure, data remains in buffer and nothing is
   // written.
-  bool Flush(int fd);
+	bool Flush(int fd);
+	bool FlushToFile(const char *filename);
   bool FlushSocket(uintptr_t sock);  // Windows portability
 
-  void ReadAll(int fd);
+  bool ReadAll(int fd);
   void Read(int fd, size_t sz);
 
   // Utilities. Try to avoid checking for size.

@@ -18,6 +18,9 @@
 #include "base/buffer.h"
 #include "base/stringutil.h"
 #include "net/resolve.h"
+#include "net/url.h"
+#include "base/functional.h"
+
 // #include "strings/strutil.h"
 
 namespace net {
@@ -99,24 +102,30 @@ namespace http {
 Client::Client() {
 }
 Client::~Client() {
+	Disconnect();
 }
 
 #define USERAGENT "METAGET 1.0"
 
-void Client::GET(const char *resource, Buffer *output) {
+int Client::GET(const char *resource, Buffer *output) {
 	Buffer buffer;
 	const char *tpl = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: " USERAGENT "\r\n\r\n";
 	buffer.Printf(tpl, resource, host_.c_str());
-	CHECK(buffer.FlushSocket(sock()));
+	bool flushed = buffer.FlushSocket(sock());
+	if (!flushed) {
+		return -1;  // TODO error code.
+	}
 
 	// Snarf all the data we can.
-	output->ReadAll(sock());
+	if (!output->ReadAll(sock()))
+		return -1;
 
-	// Skip the header.
+	// Skip the header. TODO: read HTTP code and file size so we can make progress bars.
 	while (output->SkipLineCRLF() > 0)
 		;
 
 	// output now contains the rest of the reply.
+	return 200;
 }
 
 int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output) {
@@ -148,7 +157,7 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 	// Tear off the http headers, leaving the actual response data.
 	std::string firstline;
 	CHECK_GT(output->TakeLineCRLF(&firstline), 0);
-	int code = atoi(&firstline[9]);	// ugggly hardcoding
+	int code = atoi(&firstline[9]);
 	//VLOG(1) << "HTTP result code: " << code;
 	while (true) {
 		int skipped = output->SkipLineCRLF();
@@ -161,6 +170,62 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 
 int Client::POST(const char *resource, const std::string &data, Buffer *output) {
 	return POST(resource, data, "", output);
+}
+
+Download::Download(const std::string &url, const std::string &outfile)
+	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false) {
+
+	std::thread th(std::bind(&Download::Do, this));
+	th.detach();
+}
+
+Download::~Download() {
+
+}
+
+
+void Download::Do() {
+	Url fileUrl(url_);
+	if (!fileUrl.Valid()) {
+		failed_ = true;
+		return;
+	}
+	net::Init();
+
+	http::Client client;
+	if (!client.Resolve(fileUrl.Host().c_str(), 80)) {
+		ELOG("Failed resolving %s", url_.c_str());
+		failed_ = true;
+		return;
+	}
+	client.Connect();
+	if (client.GET(fileUrl.Resource().c_str(), &buffer_)) {
+		progress_ = 1.0f;
+		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.c_str());
+		if (!buffer_.FlushToFile(outfile_.c_str())) {
+			ELOG("Failed writing download to %s", outfile_.c_str());
+		}
+	} else {
+		ELOG("Error downloading %s to %s", url_.c_str(), outfile_.c_str());
+	}
+
+	net::Shutdown();
+}
+
+std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
+	std::shared_ptr<Download> dl(new Download(url, outfile));
+	downloads_.push_back(dl);
+	return dl;
+}
+
+void Downloader::Update() {
+	restart:
+	for (size_t i = 0; i < downloads_.size(); i++) {
+		if (downloads_[i]->Progress() == 1.0f || downloads_[i]->Failed()) {
+			downloads_.erase(downloads_.begin() + i);
+			goto restart;
+		}
+	}
 }
 
 }	// http

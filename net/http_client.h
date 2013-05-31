@@ -3,6 +3,7 @@
 
 #include "base/basictypes.h"
 #include "base/buffer.h"
+#include "thread/thread.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -56,7 +57,8 @@ public:
 	Client();
 	~Client();
 
-	void GET(const char *resource, Buffer *output);
+	// Return value is the HTTP return code. 200 means OK. < 0 means some local error.
+	int GET(const char *resource, Buffer *output);
 
 	// Return value is the HTTP return code.
 	int POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output);
@@ -64,6 +66,41 @@ public:
 
 	// HEAD, PUT, DELETE aren't implemented yet.
 };
+
+// Not particularly efficient, but hey - it's a background download, that's pretty cool :P
+class Download {
+public:
+	Download(const std::string &url, const std::string &outfile);
+	~Download();
+
+	// Returns 1.0 when done. That one value can be compared exactly.
+	float Progress() const { return progress_; }
+	bool Failed() const { return failed_; }
+
+	std::string url() const { return url_; }
+	std::string outfile() const { return outfile_; }
+
+private:
+	void Do();  // Actually does the download. Runs on thread.
+
+	float progress_;
+	Buffer buffer_;
+	std::string url_;
+	std::string outfile_;
+	bool failed_;
+};
+
+class Downloader {
+public:
+	std::shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
+
+	// Drops finished downloads from the list.
+	void Update();
+
+private:
+	std::vector<std::shared_ptr<Download>> downloads_;
+};
+
 
 }	// http
 

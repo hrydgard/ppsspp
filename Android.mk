@@ -42,6 +42,7 @@ LOCAL_SRC_FILES :=\
     midi/midi_input.cpp \
     net/http_client.cpp \
     net/resolve.cpp \
+    net/url.cpp \
     profiler/profiler.cpp \
     thread/threadutil.cpp \
     thread/prioritizedworkqueue.cpp \
