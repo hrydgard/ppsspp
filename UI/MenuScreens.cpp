@@ -179,6 +179,9 @@ void LogoScreen::render() {
 //		Menu Screen
 // ==================
 
+MenuScreen::MenuScreen() : frames_(0) {
+}
+
 void MenuScreen::update(InputState &input_state) {
 	globalUIState = UISTATE_MENU;
 	frames_++;

@@ -445,16 +445,9 @@ bool NativeIsAtTopLevel()
 	return false;
 }
 
-void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
+void NativeTouch(const TouchInput &touch)
 {
-	switch (event) {
-	case TOUCH_DOWN:
-		break;
-	case TOUCH_MOVE:
-		break;
-	case TOUCH_UP:
-		break;
-	}
+	screenManager->touch(touch);
 }
 
 void NativeMessageReceived(const char *message, const char *value)

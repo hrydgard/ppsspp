@@ -506,6 +506,7 @@ add_library(native STATIC
 	native/base/error_context.h
 	native/base/fastlist.h
 	native/base/fastlist_test.cpp
+	native/base/functional.h
 	native/base/linked_ptr.h
 	native/base/logging.h
 	native/base/mutex.h
@@ -586,6 +587,8 @@ add_library(native STATIC
 	native/net/http_client.h
 	native/net/resolve.cpp
 	native/net/resolve.h
+	native/net/url.cpp
+	native/net/url.h
 	native/profiler/profiler.cpp
 	native/profiler/profiler.h
 	native/thread/prioritizedworkqueue.cpp

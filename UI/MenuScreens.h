@@ -24,6 +24,7 @@
 #include "ui/screen.h"
 #include "ui/ui.h"
 #include "file/file_util.h"
+#include "net/http_client.h"
 
 class LogoScreen : public Screen
 {
@@ -43,7 +44,7 @@ private:
 class MenuScreen : public Screen
 {
 public:
-	MenuScreen() : frames_(0) {}
+	MenuScreen();
 	void update(InputState &input);
 	void render();
 	void sendMessage(const char *message, const char *value);

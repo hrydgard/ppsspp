@@ -21,7 +21,6 @@
 #include "../Globals.h"
 #include "gfx/gl_common.h"
 
-#include <functional>
 #include <vector>
 
 
