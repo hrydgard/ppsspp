@@ -390,6 +390,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			transformDraw_.SubmitPrim(verts, inds, type, count, gstate.vertType, -1, &bytesRead);
 
 			int vertexCost = transformDraw_.EstimatePerVertexCost();
+			gpuStats.vertexGPUCycles += vertexCost * count;
 			cyclesExecuted += vertexCost * count;
 
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
