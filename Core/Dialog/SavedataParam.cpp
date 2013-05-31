@@ -877,7 +877,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 
 	// We need PARAMS.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
 	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
-	std::vector<std::string> secureFilenames;
+	std::set<std::string> secureFilenames;
 	// TODO: Error code if not?
 	if (sfoFileInfo.exists) {
 		ParamSFOData sfoFile;
@@ -904,46 +904,57 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 			}
 
 			strncpy(temp, &sfoFileList[i * FILE_LIST_ITEM_SIZE], 13);
-			secureFilenames.push_back(temp);
+			secureFilenames.insert(temp);
 		}
 	}
 
-	// TODO: Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
+	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
+	auto files = pspFileSystem.GetDirListing(dirPath);
+	for (auto file = files.begin(), end = files.end(); file != end; ++file) {
+		if (file->type == FILETYPE_DIRECTORY) {
+			continue;
+		}
+		// TODO: What are the exact rules?  It definitely skips lowercase, and allows FILE or FILE.EXT.
+		if (file->name.find_first_of("abcdefghijklmnopqrstuvwxyz") != file->name.npos) {
+			DEBUG_LOG(HLE, "SavedataParam::GetFilesList(): skipping file %s with lowercase", file->name.c_str());
+			continue;
+		}
 
-	u32 dataAddr = param->fileListAddr;
-	int foundFiles = 0;
-	if (Memory::IsValidAddress(dataAddr)) {
-		u32 fileInfosAddr = Memory::Read_U32(dataAddr + 24); 
-		//for Valkyria2, dataAddr+0 and dataAddr+12 has "5" for 5 files
-		int numFiles = Memory::Read_U32(dataAddr);
-		for (int i = 0; i < numFiles; i++) {
-			// for each file (80 bytes):
-			// u32 mode, u32 ??, u64 size, u64 ctime, u64 ??, u64 atime, u64 ???, u64 mtime, u64 ???
-			// u8[16] filename (or 13 + padding?)
-			u32 curFileInfoAddr = fileInfosAddr + i*80;
-			if (Memory::IsValidAddress(curFileInfoAddr)) {
-				char fileName[16];
-				strncpy(fileName, Memory::GetCharPointer(curFileInfoAddr + 64),16);
-				std::string filePath = savePath + GetGameName(param) + GetSaveName(param) + "/" + fileName;
-				PSPFileInfo info = pspFileSystem.GetFileInfo(filePath);
-				if (info.exists) {
-					bool isCrypted = IsSaveEncrypted(param, GetSaveDirName(param, 0));
-					Memory::Write_U32(0x21FF, curFileInfoAddr+0);
-					if(isCrypted)	// Crypted save are 16 bytes bigger
-						Memory::Write_U64(info.size - 0x10, curFileInfoAddr+8);
-					else
-						Memory::Write_U64(info.size, curFileInfoAddr+8);
+		bool isSystemFile = file->name == ICON0_FILENAME || file->name == ICON1_FILENAME || file->name == PIC1_FILENAME;
+		isSystemFile = isSystemFile || file->name == SND0_FILENAME || file->name == SFO_FILENAME;
 
-					Memory::Write_U64(0,curFileInfoAddr + 16); // TODO ctime
-					Memory::Write_U64(0,curFileInfoAddr + 24); // TODO unknow
-					Memory::Write_U64(0,curFileInfoAddr + 32); // TODO atime
-					Memory::Write_U64(0,curFileInfoAddr + 40); // TODO unknow
-					Memory::Write_U64(0,curFileInfoAddr + 48); // TODO mtime
-					Memory::Write_U64(0,curFileInfoAddr + 56); // TODO unknow
-					foundFiles++;
-				}
+		SceUtilitySavedataFileListEntry *entry = NULL;
+		int sizeOffset = 0;
+		if (isSystemFile) {
+			if (fileList->systemEntries.Valid() && fileList->resultNumSystemEntries < fileList->maxSystemEntries) {
+				entry = &fileList->systemEntries[fileList->resultNumSystemEntries++];
+			}
+		} else if (secureFilenames.find(file->name) != secureFilenames.end()) {
+			if (fileList->secureEntries.Valid() && fileList->resultNumSecureEntries < fileList->maxSecureEntries) {
+				entry = &fileList->secureEntries[fileList->resultNumSecureEntries++];
+			}
+			// Secure files are slightly bigger.
+			bool isCrypted = IsSaveEncrypted(param, GetSaveDirName(param, 0));
+			if (isCrypted) {
+				sizeOffset = -0x10;
+			}
+		} else {
+			if (fileList->normalEntries.Valid() && fileList->resultNumNormalEntries < fileList->maxNormalEntries) {
+				entry = &fileList->normalEntries[fileList->resultNumNormalEntries++];
 			}
 		}
+
+		// Out of space for this file in the list.
+		if (entry == NULL) {
+			continue;
+		}
+
+		entry->st_mode = 0x21FF;
+		entry->st_size = file->size + sizeOffset;
+		// TODO: ctime, atime, mtime
+		// TODO: Probably actually 13 + 3 pad...
+		strncpy(entry->name, file->name.c_str(), 16);
+		entry->name[15] = '\0';
 	}
 
 	return 0;
