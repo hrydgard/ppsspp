@@ -281,6 +281,8 @@ struct GPUStateCache
 	u32 curRTHeight;
 
 	u32 getRelativeAddress(u32 data) const;
+	
+	int patch_div_s, patch_div_t;
 };
 
 // TODO: Implement support for these.
