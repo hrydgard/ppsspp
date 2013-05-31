@@ -459,6 +459,7 @@ void NativeMessageReceived(const char *message, const char *value)
 		pendingValue = value;
 		isMessagePending = true;
 	}
+	screenManager->sendMessage(message, value);
 }
 
 void NativeShutdownGraphics()
@@ -480,7 +481,6 @@ void NativeShutdownGraphics()
 
 void NativeShutdown()
 {
-	i18nrepo.SaveIni("D:\\lang.ini");
 	g_gameInfoCache.Shutdown();
 
 	delete host;
