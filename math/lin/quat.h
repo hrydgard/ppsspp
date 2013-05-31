@@ -76,7 +76,7 @@ public:
 	float &operator [] (int i) {
 		return *((&x) + i);
 	}
-	const float operator [] (int i) const {
+	float operator [] (int i) const {
 		return *((&x) + i);
 	}
 	//not sure about this, maybe mag is supposed to sqrt

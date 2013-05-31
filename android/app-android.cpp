@@ -294,7 +294,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 	}
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
+extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {
 	// Too spammy
 	// ILOG("NativeApp.audioRender");
 
@@ -305,9 +305,16 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	e
 	if (buf_size) {
 		short *data = env->GetShortArrayElements(array, 0);
 		int samples = buf_size / 2;
-		NativeMix(data, samples);
-		env->ReleaseShortArrayElements(array, data, 0);
+		samples = NativeMix(data, samples);
+		if (samples != 0) {
+			env->ReleaseShortArrayElements(array, data, 0);
+			return samples * 2;
+		} else {
+			env->ReleaseShortArrayElements(array, data, JNI_ABORT);
+			return 0;
+		}
 	}
+	return 0;
 }
 
 extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
@@ -322,15 +329,19 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	float scaledY = (int)(y * dp_yscale);
 	input_state.pointer_x[pointerId] = scaledX;
 	input_state.pointer_y[pointerId] = scaledY;
+	TouchInput touch;
+	touch.x = scaledX;
+	touch.y = scaledY;
 	if (code == 1) {
 		input_state.pointer_down[pointerId] = true;
-		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_DOWN);
+		touch.flags = TOUCH_DOWN;
 	} else if (code == 2) {
 		input_state.pointer_down[pointerId] = false;
-		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_UP);
+		touch.flags = TOUCH_UP;
 	} else {
-		NativeTouch(pointerId, scaledX, scaledY, 0, TOUCH_MOVE);
+		touch.flags = TOUCH_MOVE;
 	}
+	NativeTouch(touch);
 	input_state.mouse_valid = true;
 }
 

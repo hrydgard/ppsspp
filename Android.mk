@@ -60,6 +60,9 @@ LOCAL_SRC_FILES :=\
     image/zim_load.cpp \
     image/zim_save.cpp \
     image/png_load.cpp \
+    ui/view.cpp \
+    ui/viewgroup.cpp \
+    ui/drawing.cpp \
     ui/ui.cpp \
     ui/ui_context.cpp \
     ui/screen.cpp \

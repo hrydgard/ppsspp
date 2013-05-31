@@ -50,6 +50,7 @@ char *DNSResolveTry(const char *host, const char **err)
 	if (iptoa == NULL)
 	{
 		*err = "Can't resolve host";
+		free(ip);
 		return NULL;
 	}
 	strncpy(ip, iptoa, iplen);

@@ -21,7 +21,7 @@ public class NativeApp {
 	public static native void joystickEvent(float x, float y);
 
 	// will only be called between init() and shutdown()
-	public static native void audioRender(short[] buffer);
+	public static native int audioRender(short[] buffer);
 
 	// Sensor/input data. These are asynchronous, beware!
 	public static native void touch(float x, float y, int data, int pointerId);

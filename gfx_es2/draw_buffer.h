@@ -97,6 +97,7 @@ public:
 	void SetAtlas(const Atlas *_atlas) {
 		atlas = _atlas;
 	}
+	const Atlas *GetAtlas() const { return atlas; }
 	void MeasureImage(int atlas_image, float *w, float *h);
 	void DrawImage(int atlas_image, float x, float y, float scale, Color color = COLOR(0xFFFFFF), int align = ALIGN_TOPLEFT);
 	void DrawImageStretch(int atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF));
@@ -108,6 +109,7 @@ public:
 	void DrawImage2GridH(int atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
 
 	void MeasureText(int font, const char *text, float *w, float *h);
+	void DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawTextShadow(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 
@@ -119,7 +121,6 @@ public:
 
 	// Utility to avoid having to include gl.h just for this in UI code.
 	void EnableBlend(bool enable);
-
 
 	// Rectangular clipping, implemented using scissoring.
 	// Must flush before and after.
