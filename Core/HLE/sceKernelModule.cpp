@@ -1103,24 +1103,25 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		int attribute = module->nm.attribute;
 		u32 entryAddr = module->nm.entry_addr;
 
-		if ((entryAddr == -1) || entryAddr == module->memoryBlockAddr - 1)
+		if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1)
 		{
-			if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1)
-			{
-				entryAddr = module->nm.module_start_func;
-				attribute = module->nm.module_start_thread_attr;
-			}
-			else if (optionAddr)
-			{
-				attribute = smoption.attribute;
-			}
-			else
-			{
-				// TODO: Why are we just returning the module ID in this case?
-				ERROR_LOG_REPORT(HLE, "sceKernelStartModule(): doing nothing for some reason?");
-				RETURN(moduleId);
-				return;
-			}
+			entryAddr = module->nm.module_start_func;
+			attribute = module->nm.module_start_thread_attr;		
+        }
+        else if ((entryAddr == -1) || entryAddr == module->memoryBlockAddr - 1)
+        {
+            if (optionAddr)
+            {
+                // TODO: Does sceKernelStartModule() really give an error when no entry only if you pass options?
+                attribute = smoption.attribute;
+            }
+            else
+            {
+                // TODO: Why are we just returning the module ID in this case?
+                WARN_LOG(HLE, "sceKernelStartModule(): module has no start or entry func");
+                RETURN(moduleId);
+                return;
+		    }
 		}
 
 		if (Memory::IsValidAddress(entryAddr))
