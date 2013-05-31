@@ -68,7 +68,7 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 
 // .CSO format
 
-// complessed ISO(9660) header format
+// compressed ISO(9660) header format
 typedef struct ciso_header
 {
 	unsigned char magic[4];			// +00 : 'C','I','S','O'                 
