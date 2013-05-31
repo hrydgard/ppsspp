@@ -459,7 +459,6 @@ void NativeMessageReceived(const char *message, const char *value)
 		pendingValue = value;
 		isMessagePending = true;
 	}
-	screenManager->sendMessage(message, value);
 }
 
 void NativeShutdownGraphics()
