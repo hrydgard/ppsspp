@@ -254,6 +254,8 @@ void __DisplayGetDebugStats(char stats[2048])
 {
 	gpu->UpdateStats();
 
+	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
+
 	sprintf(stats,
 		"Frames: %i\n"
 		"DL processing time: %0.2f ms\n"
@@ -263,6 +265,7 @@ void __DisplayGetDebugStats(char stats[2048])
 		"Draw calls: %i, flushes %i\n"
 		"Cached Draw calls: %i\n"
 		"Num Tracked Vertex Arrays: %i\n"
+		"Cycles executed: %d (%f per vertex)\n"
 		"Vertices Submitted: %i\n"
 		"Cached Vertices Drawn: %i\n"
 		"Uncached Vertices Drawn: %i\n"
@@ -283,6 +286,8 @@ void __DisplayGetDebugStats(char stats[2048])
 		gpuStats.numFlushes,
 		gpuStats.numCachedDrawCalls,
 		gpuStats.numTrackedVertexArrays,
+		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
+		vertexAverageCycles,
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
