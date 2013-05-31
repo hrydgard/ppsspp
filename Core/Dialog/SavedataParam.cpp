@@ -25,11 +25,11 @@
 
 #include "image/png_load.h"
 
-std::string icon0Name = "ICON0.PNG";
-std::string icon1Name = "ICON1.PMF";
-std::string pic1Name = "PIC1.PNG";
-std::string snd0Name = "SND0.AT3";
-std::string sfoName = "PARAM.SFO";
+static const std::string ICON0_FILENAME = "ICON0.PNG";
+static const std::string ICON1_FILENAME = "ICON1.PMF";
+static const std::string PIC1_FILENAME = "PIC1.PNG";
+static const std::string SND0_FILENAME = "SND0.AT3";
+static const std::string SFO_FILENAME = "PARAM.SFO";
 
 std::string savePath = "ms0:/PSP/SAVEDATA/";
 
@@ -289,7 +289,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 
 	// SAVE PARAM.SFO
 	ParamSFOData sfoFile;
-	std::string sfopath = dirPath+"/"+sfoName;
+	std::string sfopath = dirPath+"/" + SFO_FILENAME;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
 	if(sfoInfo.exists) // Read old sfo if exist
 	{
@@ -407,21 +407,21 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	if (param->icon0FileData.buf)
 	{
 		u8* data_ = (u8*)Memory::GetPointer(param->icon0FileData.buf);
-		std::string icon0path = dirPath+"/"+icon0Name;
+		std::string icon0path = dirPath + "/" + ICON0_FILENAME;
 		WritePSPFile(icon0path, data_, param->icon0FileData.bufSize);
 	}
 	// SAVE ICON1
 	if (param->icon1FileData.buf)
 	{
 		u8* data_ = (u8*)Memory::GetPointer(param->icon1FileData.buf);
-		std::string icon1path = dirPath+"/"+icon1Name;
+		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
 		WritePSPFile(icon1path, data_, param->icon1FileData.bufSize);
 	}
 	// SAVE PIC1
 	if (param->pic1FileData.buf)
 	{
 		u8* data_ = (u8*)Memory::GetPointer(param->pic1FileData.buf);
-		std::string pic1path = dirPath+"/"+pic1Name;
+		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
 		WritePSPFile(pic1path, data_, param->pic1FileData.bufSize);
 	}
 
@@ -429,7 +429,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	if (param->snd0FileData.buf)
 	{
 		u8* data_ = (u8*)Memory::GetPointer(param->snd0FileData.buf);
-		std::string snd0path = dirPath+"/"+snd0Name;
+		std::string snd0path = dirPath + "/" + SND0_FILENAME;
 		WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
 	}
 
@@ -469,7 +469,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	strncpy(param->saveName, saveDirName.c_str(), 20);
 
 	ParamSFOData sfoFile;
-	std::string sfopath = dirPath+"/"+sfoName;
+	std::string sfopath = dirPath+"/" + SFO_FILENAME;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
 	if(sfoInfo.exists) // Read sfo
 	{
@@ -876,14 +876,14 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	fileList->resultNumSystemEntries = 0;
 
 	// We need PARAMS.SFO's SAVEDATA_FILE_LIST to determine which entries are secure.
-	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + sfoName);
+	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
 	std::vector<std::string> secureFilenames;
 	// TODO: Error code if not?
 	if (sfoFileInfo.exists) {
 		ParamSFOData sfoFile;
 		size_t sfoSize = (size_t)sfoFileInfo.size;
 		u8 *sfoData = new u8[sfoSize];
-		if (ReadPSPFile(dirPath + "/" + sfoName, &sfoData, sfoSize, NULL)){
+		if (ReadPSPFile(dirPath + "/" + SFO_FILENAME, &sfoData, sfoSize, NULL)){
 			sfoFile.ReadSFO(sfoData, sfoSize);
 		}
 		delete[] sfoData;
@@ -1154,7 +1154,7 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 
 	// Search save image icon0
 	// TODO : If icon0 don't exist, need to use icon1 which is a moving icon. Also play sound
-	std::string fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + icon0Name;
+	std::string fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + ICON0_FILENAME;
 	PSPFileInfo info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 	if (info2.exists)
 	{
@@ -1165,7 +1165,7 @@ void SavedataParam::SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::
 	}
 
 	// Load info in PARAM.SFO
-	fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + sfoName;
+	fileDataPath2 = savePath + GetGameName(pspParam) + saveName + "/" + SFO_FILENAME;
 	info2 = pspFileSystem.GetFileInfo(fileDataPath2);
 	if (info2.exists)
 	{
@@ -1370,7 +1370,7 @@ bool SavedataParam::IsSaveEncrypted(SceUtilitySavedataParam* param, const std::s
 
 	ParamSFOData sfoFile;
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
-	std::string sfopath = dirPath+"/"+sfoName;
+	std::string sfopath = dirPath + "/" + SFO_FILENAME;
 	PSPFileInfo sfoInfo = pspFileSystem.GetFileInfo(sfopath);
 	if(sfoInfo.exists) // Read sfo
 	{
