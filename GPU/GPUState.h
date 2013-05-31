@@ -302,6 +302,8 @@ struct GPUStatistics
 		numFlushes = 0;
 		numTexturesDecoded = 0;
 		msProcessingDisplayLists = 0;
+		vertexGPUCycles = 0;
+		otherGPUCycles = 0;
 	}
 
 	// Per frame statistics
@@ -317,6 +319,8 @@ struct GPUStatistics
 	int numShaderSwitches;
 	int numTexturesDecoded;
 	double msProcessingDisplayLists;
+	int vertexGPUCycles;
+	int otherGPUCycles;
 
 	// Total statistics, updated by the GPU core in UpdateStats
 	int numFrames;

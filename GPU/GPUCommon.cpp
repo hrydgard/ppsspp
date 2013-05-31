@@ -463,6 +463,7 @@ inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC)
 {
 	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
 	cyclesExecuted += 2 * (currentPC - cycleLastPC) / 4;
+	gpuStats.otherGPUCycles += 2 * (currentPC - cycleLastPC) / 4;
 	cycleLastPC = newPC == 0 ? currentPC : newPC;
 
 	// Exit the runloop and recalculate things.  This isn't common.
