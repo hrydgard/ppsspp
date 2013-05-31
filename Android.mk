@@ -62,7 +62,6 @@ LOCAL_SRC_FILES :=\
     image/png_load.cpp \
     ui/view.cpp \
     ui/viewgroup.cpp \
-    ui/drawing.cpp \
     ui/ui.cpp \
     ui/ui_context.cpp \
     ui/screen.cpp \
@@ -71,7 +70,7 @@ LOCAL_SRC_FILES :=\
     util/text/utf8.cpp
 
 LOCAL_CFLAGS := -O3 -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
-LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11
+LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -frtti
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip
 

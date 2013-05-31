@@ -20,7 +20,7 @@ class Buffer {
   char *Append(size_t length) { return Append((ssize_t)length); }
 
   // These work pretty much like you'd expect.
-  void Append(const char *str);  // str null-terminated. The null is not copied.
+	void Append(const char *str);  // str null-terminated. The null is not copied.
   void Append(const std::string &str);
 
   // Various types. Useful for varz etc. Appends a string representation of the

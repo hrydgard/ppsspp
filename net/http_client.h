@@ -1,6 +1,7 @@
 #ifndef _NET_HTTP_HTTP_CLIENT
 #define _NET_HTTP_HTTP_CLIENT
 
+#include <memory>
 #include "base/basictypes.h"
 #include "base/buffer.h"
 #include "thread/thread.h"

@@ -183,7 +183,6 @@ Download::~Download() {
 
 }
 
-
 void Download::Do() {
 	Url fileUrl(url_);
 	if (!fileUrl.Valid()) {

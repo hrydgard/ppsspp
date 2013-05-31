@@ -7,6 +7,7 @@
 // Works very similarly to Android, there's a Measure pass and a Layout pass which you don't
 // really need to care about if you just use the standard containers and widgets.
 
+#include <string>
 #include <vector>
 #include <functional>
 #include <cmath>
