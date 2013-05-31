@@ -3,6 +3,8 @@
 #import <UIKit/UIKit.h>
 #import <GLKit/GLKit.h>
 
-@interface ViewController : GLKViewController
+#import "iCade/iCadeReaderView.h"
+
+@interface ViewController : GLKViewController <iCadeEventDelegate>
 
 @end
