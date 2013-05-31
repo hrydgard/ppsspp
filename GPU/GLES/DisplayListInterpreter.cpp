@@ -751,6 +751,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_PATCHDIVISION:
+		gstate_c.patch_div_s = std::max(data & 0xFF, (unsigned int)1);
+		gstate_c.patch_div_t = std::max((data >> 8) & 0xFF, (unsigned int)1);
+		break;
 	case GE_CMD_PATCHPRIMITIVE:
 	case GE_CMD_PATCHFACING:
 		break;
