@@ -196,10 +196,10 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 			errorCode = SCE_KERNEL_ERROR_NOCWD;
 			WARN_LOG_REPORT(HLE, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread, startingDirectory.c_str());
 		}
-		else
-		{
-			currentDirectory = &(it->second);
-		}
+	}
+	else
+	{
+		currentDirectory = &(it->second);
 	}
 
 	if ( RealPath(*currentDirectory, inpath, realpath) )
