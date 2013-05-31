@@ -171,6 +171,7 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	return 0;
 }
 
+extern u32 errorCode;
 bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
 {
 	std::string realpath;
@@ -187,15 +188,18 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 
 	int currentThread = __KernelGetCurThread();
 	currentDir_t::iterator it = currentDir.find(currentThread);
-	if (it == currentDir.end())
+	if (it == currentDir.end()) 
 	{
-		//TODO: emulate PSP's error 8002032C: "no current working directory" if relative... may break things requiring fixes elsewhere
-		if (inpath.find(':') == std::string::npos  /* means path is relative */)
-			WARN_LOG_REPORT(HLE, "Path is relative, but current directory not set for thread %i. Should give error, instead falling back to %s", currentThread, startingDirectory.c_str());
-	}
-	else
-	{
-		currentDirectory = &(it->second);
+		//Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
+		if (inpath.find(':') == std::string::npos /* means path is relative */) 
+		{
+			errorCode = SCE_KERNEL_ERROR_NOCWD;
+			WARN_LOG_REPORT(HLE, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread, startingDirectory.c_str());
+		}
+		else
+		{
+			currentDirectory = &(it->second);
+		}
 	}
 
 	if ( RealPath(*currentDirectory, inpath, realpath) )
