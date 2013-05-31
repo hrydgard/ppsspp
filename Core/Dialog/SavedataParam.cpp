@@ -1065,6 +1065,10 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 			int realCount = 0;
 			for (int i = 0; i < saveDataListCount; i++)
 			{
+				// TODO: Maybe we should fill the list with existing files instead?
+				if (strcmp(saveNameListData[i], "<>") == 0)
+					continue;
+
 				DEBUG_LOG(HLE,"Name : %s",saveNameListData[i]);
 
 				std::string fileDataPath = savePath+GetGameName(param) + saveNameListData[i] + "/" + param->fileName;
