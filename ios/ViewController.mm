@@ -30,6 +30,9 @@ static uint32_t pad_buttons_async_set = 0;
 static uint32_t pad_buttons_async_clear = 0;
 static uint32_t pad_buttons_down = 0;
 
+double lastSelectPress = 0.0f;
+bool simulateAnalog = false;
+
 extern ScreenManager *screenManager;
 InputState input_state;
 
@@ -45,11 +48,12 @@ ViewController* sharedViewController;
 @property (nonatomic,retain) NSString* bundlePath;
 @property (nonatomic,retain) NSMutableArray* touches;
 @property (nonatomic,retain) AudioEngine* audioEngine;
+@property (nonatomic,retain) iCadeReaderView *iCadeView;
 
 @end
 
 @implementation ViewController
-@synthesize documentsPath,bundlePath,touches,audioEngine;
+@synthesize documentsPath,bundlePath,touches,audioEngine,iCadeView;
 
 - (id)init
 {
@@ -133,6 +137,11 @@ ViewController* sharedViewController;
 	UISwipeGestureRecognizer* gesture = [[[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)] autorelease];
 	[self.view addGestureRecognizer:gesture];
 */
+    
+    self.iCadeView = [[iCadeReaderView alloc] init];
+    [self.view addSubview:self.iCadeView];
+    self.iCadeView.delegate = self;
+    self.iCadeView.active = YES;
 }
 
 - (void)viewDidUnload
@@ -154,6 +163,7 @@ ViewController* sharedViewController;
 {
 	[self viewDidUnload];
     
+    self.iCadeView = nil;
 	self.audioEngine = nil;
 	self.touches = nil;
 	self.documentsPath = nil;
@@ -183,8 +193,31 @@ ViewController* sharedViewController;
 		lock_guard guard(input_state.lock);
 		pad_buttons_down |= pad_buttons_async_set;
 		pad_buttons_down &= ~pad_buttons_async_clear;
-		input_state.pad_lstick_x = 0;
-		input_state.pad_lstick_y = 0;
+        
+        float analogX = 0;
+        float analogY = 0;
+        
+        if (simulateAnalog) {
+            if (pad_buttons_down & PAD_BUTTON_UP) {
+                analogY = 1.0f;
+                pad_buttons_down &= ~PAD_BUTTON_UP;
+            }
+            if (pad_buttons_down & PAD_BUTTON_DOWN) {
+                analogY = -1.0f;
+                pad_buttons_down &= ~PAD_BUTTON_DOWN;
+            }
+            if (pad_buttons_down & PAD_BUTTON_LEFT) {
+                analogX = -1.0f;
+                pad_buttons_down &= ~PAD_BUTTON_LEFT;
+            }
+            if (pad_buttons_down & PAD_BUTTON_RIGHT) {
+                analogX = 1.0f;
+                pad_buttons_down &= ~PAD_BUTTON_RIGHT;
+            }
+        }
+        
+        input_state.pad_lstick_x = analogX;
+        input_state.pad_lstick_y = analogY;
 		input_state.pad_rstick_x = 0;
 		input_state.pad_rstick_y = 0;
 		input_state.pad_buttons = pad_buttons_down;
@@ -315,5 +348,145 @@ void bindDefaultFBO()
 
 void EnableFZ(){};
 void DisableFZ(){};
+
+- (void)buttonDown:(iCadeState)button
+{
+    switch (button) {
+        case iCadeJoystickUp :
+            pad_buttons_async_set |= PAD_BUTTON_UP;
+            pad_buttons_async_clear &= ~PAD_BUTTON_UP;
+            break;
+            
+        case iCadeJoystickRight :
+            pad_buttons_async_set |= PAD_BUTTON_RIGHT;
+            pad_buttons_async_clear &= ~PAD_BUTTON_RIGHT;
+            break;
+            
+        case iCadeJoystickDown :
+            pad_buttons_async_set |= PAD_BUTTON_DOWN;
+            pad_buttons_async_clear &= ~PAD_BUTTON_DOWN;
+            break;
+            
+        case iCadeJoystickLeft :
+            pad_buttons_async_set |= PAD_BUTTON_LEFT;
+            pad_buttons_async_clear &= ~PAD_BUTTON_LEFT;
+            break;
+            
+        case iCadeButtonA :
+            pad_buttons_async_set |= PAD_BUTTON_SELECT;
+            pad_buttons_async_clear &= ~PAD_BUTTON_SELECT;
+            break;
+            
+        case iCadeButtonB :
+            pad_buttons_async_set |= PAD_BUTTON_LBUMPER;
+            pad_buttons_async_clear &= ~PAD_BUTTON_LBUMPER;
+            break;
+            
+        case iCadeButtonC :
+            pad_buttons_async_set |= PAD_BUTTON_START;
+            pad_buttons_async_clear &= ~PAD_BUTTON_START;
+            break;
+            
+        case iCadeButtonD :
+            pad_buttons_async_set |= PAD_BUTTON_RBUMPER;
+            pad_buttons_async_clear &= ~PAD_BUTTON_RBUMPER;
+            break;
+            
+        case iCadeButtonE :
+            pad_buttons_async_set |= PAD_BUTTON_X;
+            pad_buttons_async_clear &= ~PAD_BUTTON_X;
+            break;
+            
+        case iCadeButtonF :
+            pad_buttons_async_set |= PAD_BUTTON_A;
+            pad_buttons_async_clear &= ~PAD_BUTTON_A;
+            break;
+            
+        case iCadeButtonG :
+            pad_buttons_async_set |= PAD_BUTTON_Y;
+            pad_buttons_async_clear &= ~PAD_BUTTON_Y;
+            break;
+            
+        case iCadeButtonH :
+            pad_buttons_async_set |= PAD_BUTTON_B;
+            pad_buttons_async_clear &= ~PAD_BUTTON_B;
+            break;
+            
+        default :
+            break;
+    }
+}
+
+- (void)buttonUp:(iCadeState)button
+{
+    switch (button) {
+        case iCadeJoystickUp :
+            pad_buttons_async_set &= ~PAD_BUTTON_UP;
+            pad_buttons_async_clear |= PAD_BUTTON_UP;
+            break;
+            
+        case iCadeJoystickRight :
+            pad_buttons_async_set &= ~PAD_BUTTON_RIGHT;
+            pad_buttons_async_clear |= PAD_BUTTON_RIGHT;
+            break;
+            
+        case iCadeJoystickDown :
+            pad_buttons_async_set &= ~PAD_BUTTON_DOWN;
+            pad_buttons_async_clear |= PAD_BUTTON_DOWN;
+            break;
+            
+        case iCadeJoystickLeft :
+            pad_buttons_async_set &= ~PAD_BUTTON_LEFT;
+            pad_buttons_async_clear |= PAD_BUTTON_LEFT;
+            break;
+            
+        case iCadeButtonA :
+            pad_buttons_async_set &= ~PAD_BUTTON_SELECT;
+            pad_buttons_async_clear |= PAD_BUTTON_SELECT;
+            
+            if ((lastSelectPress + 1.0f) > time_now_d())
+                simulateAnalog = !simulateAnalog;
+            lastSelectPress = time_now_d();
+            break;
+            
+        case iCadeButtonB :
+            pad_buttons_async_set &= ~PAD_BUTTON_LBUMPER;
+            pad_buttons_async_clear |= PAD_BUTTON_LBUMPER;
+            break;
+            
+        case iCadeButtonC :
+            pad_buttons_async_set &= ~PAD_BUTTON_START;
+            pad_buttons_async_clear |= PAD_BUTTON_START;
+            break;
+            
+        case iCadeButtonD :
+            pad_buttons_async_set &= ~PAD_BUTTON_RBUMPER;
+            pad_buttons_async_clear |= PAD_BUTTON_RBUMPER;
+            break;
+            
+        case iCadeButtonE :
+            pad_buttons_async_set &= ~PAD_BUTTON_X;
+            pad_buttons_async_clear |= PAD_BUTTON_X;
+            break;
+            
+        case iCadeButtonF :
+            pad_buttons_async_set &= ~PAD_BUTTON_A;
+            pad_buttons_async_clear |= PAD_BUTTON_A;
+            break;
+            
+        case iCadeButtonG :
+            pad_buttons_async_set &= ~PAD_BUTTON_Y;
+            pad_buttons_async_clear |= PAD_BUTTON_Y;
+            break;
+            
+        case iCadeButtonH :
+            pad_buttons_async_set &= ~PAD_BUTTON_B;
+            pad_buttons_async_clear |= PAD_BUTTON_B;
+            break;
+            
+        default :
+            break;
+    }
+}
 
 @end
