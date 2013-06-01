@@ -129,7 +129,7 @@ struct Atrac {
 			delete [] data_buf;
 		data_buf = 0;
 
-		Atrac3plus_Decoder::closeContext(&decoder_context);
+		Atrac3plus_Decoder::CloseContext(&decoder_context);
 		sampleQueue.clear();
 	}
 
@@ -275,7 +275,7 @@ void __AtracInit() {
 	av_register_all();
 #endif // USE_FFMPEG
 
-	Atrac3plus_Decoder::initdecoder();
+	Atrac3plus_Decoder::Init();
 }
 
 void __AtracDoState(PointerWrap &p) {
@@ -291,7 +291,7 @@ void __AtracShutdown() {
 	}
 	atracMap.clear();
 
-	Atrac3plus_Decoder::shutdowndecoder();
+	Atrac3plus_Decoder::Shutdown();
 }
 
 Atrac *getAtrac(int atracID) {
@@ -544,7 +544,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 					int inbytes = std::max((int)atrac->first.filesize - (int)atrac->decodePos, 0);
 					inbytes = std::min(inbytes, (int)atrac->atracBytesPerFrame);
 					if (inbytes > 0) {
-						Atrac3plus_Decoder::atrac3plus_decode(atrac->decoder_context, atrac->data_buf + atrac->decodePos, inbytes, &decodebytes, buf);
+						Atrac3plus_Decoder::Decode(atrac->decoder_context, atrac->data_buf + atrac->decodePos, inbytes, &decodebytes, buf);
 						DEBUG_LOG(HLE, "decodebytes: %i outbuf: %p", decodebytes, buf);
 						atrac->sampleQueue.push(buf, decodebytes);
 					}
@@ -884,7 +884,7 @@ int64_t _AtracSeekbuffer(void *opaque, int64_t offset, int whence)
 int __AtracSetContext(Atrac *atrac)
 {
 	if (atrac->codeType == PSP_MODE_AT_3_PLUS) {
-		atrac->decoder_context = Atrac3plus_Decoder::openContext();
+		atrac->decoder_context = Atrac3plus_Decoder::OpenContext();
 		return 0;
 	}
 
@@ -1419,7 +1419,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 			static u8 buf[0x8000];
 			if (sourcebytes > 0) {
 				int decodebytes = 0;
-				Atrac3plus_Decoder::atrac3plus_decode(atrac->decoder_context, Memory::GetPointer(sourceAddr), sourcebytes, &decodebytes, buf);
+				Atrac3plus_Decoder::Decode(atrac->decoder_context, Memory::GetPointer(sourceAddr), sourcebytes, &decodebytes, buf);
 				atrac->sampleQueue.push(buf, decodebytes);
 			}
 			s16* out = (s16*)Memory::GetPointer(samplesAddr);

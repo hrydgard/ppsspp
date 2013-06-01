@@ -15,6 +15,7 @@
 #include "base/logging.h"
 #include "Core/Config.h"
 #include "Common/FileUtil.h"
+#include "Core/HW/atrac3plus.h"
 
 extern std::string externalDirectory;
 
@@ -33,16 +34,90 @@ namespace Atrac3plus_Decoder {
 	ATRAC3PLUS_OPENCONTEXT open_context = 0;
 	ATRAC3PLUS_CLOSECONTEXT close_context = 0;
 
-	int initdecoder() {
+	std::string GetInstalledFilename() {
+#if defined(ANDROID) && defined(ARM)
+		std::string internalFilename = g_Config.internalDataDirectory + "libat3plusdecoder.so";
+#else
+#ifdef _M_X64
+		std::string internalFilename = "at3plusdecoder64.dll";
+#else
+		std::string internalFilename = "at3plusdecoder.dll";
+#endif
+#endif
+		return internalFilename;
+	}
 
+	std::string GetAutoInstallFilename() {
+#if ARMEABI_V7A
+		return g_Config.memCardDirectory + "PSP/libs/armeabi-v7a/libat3plusdecoder.so";
+#else
+		return g_Config.memCardDirectory + "PSP/libs/armeabi/libat3plusdecoder.so";
+#endif
+	}
+
+	// Android-only: From SD card. .so files must be in internal memory to load on many devices.
+	bool CanAutoInstall() {
+#if defined(ANDROID) && defined(ARM)
+		// Android will auto install from SD card
+		if (File::Exists(GetAutoInstallFilename()))
+			return true;
+#endif
+
+		// Other platforms can't.
+		return false;
+	}
+	
+	bool IsInstalled() {
+		return File::Exists(GetInstalledFilename());
+	}
+
+	bool DoAutoInstall() {
+#if defined(ANDROID) && defined(ARM)
+		std::string internalFilename = g_Config.internalDataDirectory + "libat3plusdecoder.so";
+#if ARMEABI_V7A
+		std::string sdFilename = g_Config.memCardDirectory + "PSP/libs/armeabi-v7a/libat3plusdecoder.so";
+#else
+		std::string sdFilename = g_Config.memCardDirectory + "PSP/libs/armeabi/libat3plusdecoder.so";
+#endif
+
+		// SD cards are often mounted no-exec.
+		if (!File::Exists(internalFilename)) {
+			if (!File::Copy(sdFilename, internalFilename)) {
+				ELOG("Failed to copy %s to %s", sdFilename.c_str(), internalFilename.c_str());
+				return false;
+			}
+			if (chmod(internalFilename.c_str(), 0777) < 0) {
+				ELOG("Failed to chmod %s, continuing anyway", internalFilename.c_str());
+			}
+		}
+#else
+		ELOG("Autoinstall is for android only");
+#endif
+		return true;
+	}
+
+	int Init() {
+		if (!g_Config.bEnableAtrac3plus)
+			return -1;
+		// Let's always autoinstall if we can, to get the latest version.
+		// TODO: Make this look at file dates.
+		if (CanAutoInstall()) {
+			DoAutoInstall();
+		}
+
+		if (!IsInstalled()) {
+			// Okay, we're screwed. Let's bail.
+			return -1;
+		}
+		
 #ifdef _WIN32 
 
 #ifdef _M_X64
-		hlib = LoadLibraryA("at3plusdecoder64.dll");
+		hlib = LoadLibraryA(GetInstalledFilename().c_str());
 #else
-		hlib = LoadLibraryA("at3plusdecoder.dll");
+		hlib = LoadLibraryA(GetInstalledFilename().c_str());
 #endif
-		if (hlib && g_Config.bEnableAtrac3plus) {
+		if (hlib) {
 			frame_decoder = (ATRAC3PLUS_DECODEFRAME)GetProcAddress(hlib, "Atrac3plusDecoder_decodeFrame");
 			open_context = (ATRAC3PLUS_OPENCONTEXT)GetProcAddress(hlib, "Atrac3plusDecoder_openContext");
 			close_context = (ATRAC3PLUS_CLOSECONTEXT)GetProcAddress(hlib, "Atrac3plusDecoder_closeContext");
@@ -51,32 +126,9 @@ namespace Atrac3plus_Decoder {
 		}
 #else
 
-#if defined(ANDROID) && defined(ARM)
-		std::string sdFilename;
-		std::string internalFilename = g_Config.internalDataDirectory + "libat3plusdecoder.so";
-#if ARMEABI_V7A
-		sdFilename = g_Config.memCardDirectory + "PSP/libs/armeabi-v7a/libat3plusdecoder.so";
-#else
-		sdFilename = g_Config.memCardDirectory + "PSP/libs/armeabi/libat3plusdecoder.so";
-#endif
-
-		// SD cards are often mounted no-exec.
-		if (!File::Exists(internalFilename)) {
-			if (!File::Copy(sdFilename, internalFilename)) {
-				ELOG("Failed to copy %s to %s", sdFilename.c_str(), internalFilename.c_str());
-				return -1;
-			}
-			if (chmod(internalFilename.c_str(), 0777) < 0) {
-				ELOG("Failed to chmod %s, continuing anyway", internalFilename.c_str());
-			}
-		}
-		std::string filename = internalFilename;
-#else
-		std::string filename = "libat3plusdecoder.so";
-#endif
+		std::string filename = GetInstalledFilename();
 
 		ILOG("Attempting to load atrac3plus decoder from %s", filename.c_str());
-		// TODO: from which directory on Android?
 		so = dlopen(filename.c_str(), RTLD_LAZY);
 		if (so) {
 			frame_decoder = (ATRAC3PLUS_DECODEFRAME)dlsym(so, "Atrac3plusDecoder_decodeFrame");
@@ -100,8 +152,7 @@ namespace Atrac3plus_Decoder {
 		return 0;
 	}
 
-	int shutdowndecoder() {
-
+	int Shutdown() {
 #ifdef _WIN32 
 		if (hlib) {
 			FreeLibrary(hlib);
@@ -113,17 +164,19 @@ namespace Atrac3plus_Decoder {
 			so = 0;
 		}
 #endif // _WIN32
-
+		frame_decoder = 0;
+		open_context = 0;
+		close_context = 0;
 		return 0;
 	}
 
-	void* openContext() {
+	void* OpenContext() {
 		if (!open_context)
 			return 0;
 		return open_context();
 	}
 
-	int closeContext(void** context) {
+	int CloseContext(Context *context) {
 		if (!close_context || !context)
 			return 0;
 		close_context(*context);
@@ -131,7 +184,7 @@ namespace Atrac3plus_Decoder {
 		return 0;
 	}
 
-	bool atrac3plus_decode(void* context, void* inbuf, int inbytes, int *outbytes, void* outbuf) {
+	bool Decode(Context context, void* inbuf, int inbytes, int *outbytes, void* outbuf) {
 		if (!frame_decoder) {
 			*outbytes = 0;
 			return false;

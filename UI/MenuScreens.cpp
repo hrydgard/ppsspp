@@ -51,6 +51,7 @@ namespace MainWindow {
 #include "Common/StringUtils.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
+#include "Core/HW/atrac3plus.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -664,7 +665,9 @@ void AudioScreen::render() {
 	int stride = 40;
 	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
+	if (Atrac3plus_Decoder::IsInstalled()) {
+		UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
+	}
 	
 	UIEnd();
 }

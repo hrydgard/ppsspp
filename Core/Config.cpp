@@ -170,7 +170,11 @@ void Config::Save()
 		}
 
 		IniFile::Section *general = iniFile.GetOrCreateSection("General");
+		
+		// Need to do this somewhere...
+		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
+
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
 		general->Set("Browse", bBrowse);

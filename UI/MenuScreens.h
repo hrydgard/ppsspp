@@ -24,7 +24,6 @@
 #include "ui/screen.h"
 #include "ui/ui.h"
 #include "file/file_util.h"
-#include "net/http_client.h"
 
 class LogoScreen : public Screen
 {

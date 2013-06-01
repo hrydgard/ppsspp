@@ -2,12 +2,19 @@
 #define _ATRAC3PLUS_DECODER_
 
 namespace Atrac3plus_Decoder {
-	int initdecoder();
-	int shutdowndecoder();
 
-	void* openContext();
-	int closeContext(void** context);
-	bool atrac3plus_decode(void* context, void* inbuf, int inbytes, int *outbytes, void* outbuf);
+	bool IsInstalled();
+	bool CanAutoInstall();
+	bool DoAutoInstall();
+	
+	int Init();
+	int Shutdown();
+
+	typedef void* Context;
+
+	Context OpenContext();
+	int CloseContext(Context *context);
+	bool Decode(Context context, void* inbuf, int inbytes, int *outbytes, void* outbuf);
 
 	struct BufferQueue {
 		BufferQueue(int size = 0x20000) {
