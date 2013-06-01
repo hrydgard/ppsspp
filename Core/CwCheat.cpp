@@ -40,6 +40,7 @@ void __CheatShutdown() {
 	if (cheatEngine != 0) {
 		cheatEngine->Exit();
 		delete cheatEngine;
+		cheatEngine = 0;
 	}
 }
 
