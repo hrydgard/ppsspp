@@ -85,7 +85,8 @@ public:
 
 	// Sound
 	bool bEnableSound;
-
+	bool bEnableAtrac3plus;
+	
 	// UI
 	bool bShowTouchControls;
 	bool bShowDebuggerOnLoad;
