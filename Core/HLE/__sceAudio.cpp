@@ -122,7 +122,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 	if (chan.sampleQueue.size() > chan.sampleCount * 2 * chanQueueMaxSizeFactor || chan.sampleAddress == 0) {
 		if (blocking) {
 			// TODO: Regular multichannel audio seems to block for 64 samples less?  Or enqueue the first 64 sync?
-			int blockSamples = chan.sampleQueue.size() / 2 / chanQueueMinSizeFactor;
+			int blockSamples = (int)chan.sampleQueue.size() / 2 / chanQueueMinSizeFactor;
 
 			AudioChannelWaitInfo waitInfo = {__KernelGetCurThread(), blockSamples};
 			chan.waitingThreads.push_back(waitInfo);

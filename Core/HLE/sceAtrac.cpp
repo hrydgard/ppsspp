@@ -554,7 +554,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 				int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 				numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
 				s16* in = (s16*)buf;
-				for (int i = 0; i < numSamples; i++) {
+				for (u32 i = 0; i < numSamples; i++) {
 					s16 sampleL = *in++;
 					s16 sampleR = sampleL;
 					if (atrac->atracChannels == 2)
