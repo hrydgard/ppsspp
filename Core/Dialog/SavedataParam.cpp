@@ -897,9 +897,9 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		char temp[14];
 		temp[13] = '\0';
 
-		for (int i = 0; i < FILE_LIST_COUNT_MAX; ++i) {
+		for (u32 i = 0; i < FILE_LIST_COUNT_MAX; ++i) {
 			// Ends at a NULL filename.
-			if (sfoFileList[i * FILE_LIST_ITEM_SIZE] == '\0') {
+			if (i * FILE_LIST_ITEM_SIZE >= sfoFileListSize || sfoFileList[i * FILE_LIST_ITEM_SIZE] == '\0') {
 				break;
 			}
 
