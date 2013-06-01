@@ -923,7 +923,7 @@ void __KernelThreadingInit()
 	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode));
 
 	u32 pos = idleThreadHackAddr + sizeof(idleThreadCode);
-	for (int i = 0; i < ARRAY_SIZE(threadHacks); ++i) {
+	for (size_t i = 0; i < ARRAY_SIZE(threadHacks); ++i) {
 		__KernelWriteFakeSysCall(threadHacks[i].nid, threadHacks[i].addr, pos);
 	}
 

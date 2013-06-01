@@ -202,7 +202,7 @@ namespace MainWindow
 	void setFpsLimit(int fps) {
 		g_Config.iFpsLimit = fps;
 	}
-	void enableCheats(int cheats){
+	void enableCheats(bool cheats){
 		g_Config.bEnableCheats = cheats;
 	}
 

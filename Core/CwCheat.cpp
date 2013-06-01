@@ -7,7 +7,9 @@
 #include "MIPS/MIPS.h"
 #include "Core/Config.h"
 
-static std::string title, title2, title3;
+const static std::string CHEATS_DIR = "Cheats";
+
+static std::string activeCheatFile;
 static int CheatEvent = -1;
 
 static CWCheatEngine *cheatEngine;
@@ -17,24 +19,20 @@ void trim2(std::string& str);
 
 void __CheatInit() {
 	//Moved createFullPath to CheatInit from the constructor because it spams the log and constantly checks if exists. In here, only checks once.
-	title = "Cheats/";
-	title2 = g_paramSFO.GetValueString("DISC_ID").c_str();
-	title3 = title + title2 + ".ini";
+	activeCheatFile = CHEATS_DIR + "/" + g_paramSFO.GetValueString("DISC_ID").c_str() + ".ini";
 
-	File::CreateFullPath("Cheats");
-	if (!File::Exists(title3)) {
-		File::CreateEmptyFile(title3);
-	}
+	File::CreateFullPath(CHEATS_DIR);
 	if (g_Config.bEnableCheats) {
+		if (!File::Exists(activeCheatFile)) {
+			File::CreateEmptyFile(activeCheatFile);
+		}
+
 		cheatEngine = new CWCheatEngine();
 
 		cheatEngine->CreateCodeList();
 		g_Config.bReloadCheats = false;
 		CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
 		CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
-
-
-		
 	}
 }
 
@@ -42,6 +40,7 @@ void __CheatShutdown() {
 	if (cheatEngine != 0) {
 		cheatEngine->Exit();
 		delete cheatEngine;
+		cheatEngine = 0;
 	}
 }
 
@@ -51,7 +50,7 @@ void hleCheat(u64 userdata, int cyclesLate) {
 	if (g_Config.bReloadCheats == true) {
 		cheatEngine->CreateCodeList();
 		g_Config.bReloadCheats = false;
-		}
+	}
 	if (g_Config.bEnableCheats && cheatEngine) {
 		cheatEngine->Run();
 	}
@@ -104,7 +103,7 @@ std::vector<int> CWCheatEngine::GetNextCode() {
 
 void CWCheatEngine::SkipCodes(int count) {
 	for (int i = 0; i < count; i ++) {
-		if (GetNextCode()[0] == NULL) {
+		if (GetNextCode()[0] == 0) {
 			break;
 		}
 	}
@@ -167,7 +166,7 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 
 	char* skip = "//";
 	std::vector<std::string> codesList;  // Read from INI here
-	std::ifstream list(title3.c_str());
+	std::ifstream list(activeCheatFile.c_str());
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list, line, '\n');
 		if (line.substr(0,2) == skip) {

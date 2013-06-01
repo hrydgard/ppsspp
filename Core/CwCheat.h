@@ -36,7 +36,7 @@ private:
 
 	bool cheatsOn;
 	std::vector<std::string> codes;
-	int currentCode;
+	size_t currentCode;
 	bool exit2;
 	std::vector<std::string> parts;
 };

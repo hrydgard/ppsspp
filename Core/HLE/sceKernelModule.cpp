@@ -1108,7 +1108,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			entryAddr = module->nm.module_start_func;
 			attribute = module->nm.module_start_thread_attr;
 		}
-		else if ((entryAddr == -1) || entryAddr == module->memoryBlockAddr - 1)
+		else if ((entryAddr == (u32)-1) || entryAddr == module->memoryBlockAddr - 1)
 		{
 			if (optionAddr)
 			{

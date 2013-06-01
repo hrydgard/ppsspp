@@ -18,7 +18,6 @@
 *.aps
 *.exp
 Debug
-DebugFast
 Release
 Windows/x64
 Windows/ipch
@@ -35,6 +34,8 @@ PPSSPPControls.dat
 
 Logs
 Memstick
+memstick
+Cheats
 
 bin
 gen
