@@ -233,6 +233,7 @@
     <ClCompile Include="HW\atrac3plus.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
+    <ClCompile Include="HW\MpegDemux.cpp" />
     <ClCompile Include="HW\OMAConvert.cpp" />
     <ClCompile Include="HW\SasAudio.cpp" />
     <ClCompile Include="Loaders.cpp" />
@@ -411,6 +412,7 @@
     <ClInclude Include="Host.h" />
     <ClInclude Include="HW\atrac3plus.h" />
     <ClInclude Include="HW\MediaEngine.h" />
+    <ClInclude Include="HW\MpegDemux.h" />
     <ClInclude Include="HW\OMAConvert.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
