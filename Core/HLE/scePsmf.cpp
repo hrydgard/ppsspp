@@ -21,6 +21,7 @@
 
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceMpeg.h"
+#include "Core/HW/MediaEngine.h"
 
 #include <map>
 
@@ -146,8 +147,9 @@ public:
 class PsmfPlayer {
 public:
 	// For savestates only.
-	PsmfPlayer() {}
+	PsmfPlayer() { mediaengine = new MediaEngine;}
 	PsmfPlayer(u32 data);
+	~PsmfPlayer() { if (mediaengine) delete mediaengine;}
 	void DoState(PointerWrap &p);
 
 	int videoCodec;
@@ -166,6 +168,8 @@ public:
 	SceMpegAu psmfPlayerAtracAu;
 	SceMpegAu psmfPlayerAvcAu;
 	PsmfPlayerStatus status;
+
+	MediaEngine* mediaengine;
 };
 
 class PsmfStream {
@@ -263,6 +267,7 @@ PsmfPlayer::PsmfPlayer(u32 data) {
 	playSpeed = Memory::Read_U32(data + 20);
 	psmfPlayerLastTimestamp = bswap32(Memory::Read_U32(data + PSMF_LAST_TIMESTAMP_OFFSET)) ;
 	status = PSMF_PLAYER_STATUS_INIT;
+	mediaengine = new MediaEngine;
 }
 
 void Psmf::DoState(PointerWrap &p) {
@@ -307,6 +312,7 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.Do(playbackThreadPriority);
 	p.Do(psmfMaxAheadTimestamp);
 	p.Do(psmfPlayerLastTimestamp);
+	p.DoClass(mediaengine);
 
 	p.DoMarker("PsmfPlayer");
 }
@@ -670,6 +676,8 @@ int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+	psmfplayer->mediaengine->loadFile(filename);
+	psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 	return 0;
 }
 
@@ -679,6 +687,8 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+	psmfplayer->mediaengine->loadFile(filename);
+	psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 	return 0;
 }
 
@@ -698,15 +708,24 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 		psmfPlayerMap[psmfPlayer] = psmfplayer;
 	}
 
-	PsmfPlayerData data = {0};
-	data.videoCodec = psmfplayer->videoCodec;
-	data.videoStreamNum = psmfplayer->videoStreamNum;
-	data.audioCodec = psmfplayer->audioCodec;
-	data.audioStreamNum = psmfplayer->audioStreamNum;
-	data.playMode = psmfplayer->playMode;
-	data.playSpeed = psmfplayer->playSpeed;
-	data.psmfPlayerLastTimestamp = psmfplayer->psmfPlayerLastTimestamp;
-	Memory::WriteStruct(psmfPlayerData, &data);
+	if (Memory::IsValidAddress(psmfPlayerData)) {
+		PsmfPlayerData data = {0};
+		Memory::ReadStruct(psmfPlayerData, &data);
+		psmfplayer->videoCodec = data.videoCodec;
+		psmfplayer->videoStreamNum = data.videoStreamNum;
+		psmfplayer->audioCodec = data.audioCodec;
+		psmfplayer->audioStreamNum = data.audioStreamNum;
+		psmfplayer->playMode = data.playMode;
+		psmfplayer->playSpeed = data.playSpeed;
+		/*data.videoCodec = psmfplayer->videoCodec;
+		data.videoStreamNum = psmfplayer->videoStreamNum;
+		data.audioCodec = psmfplayer->audioCodec;
+		data.audioStreamNum = psmfplayer->audioStreamNum;
+		data.playMode = psmfplayer->playMode;
+		data.playSpeed = psmfplayer->playSpeed;
+		data.psmfPlayerLastTimestamp = psmfplayer->psmfPlayerLastTimestamp;
+		Memory::WriteStruct(psmfPlayerData, &data);*/
+	}
 
 	psmfplayer->psmfPlayerAtracAu.dts = initPts;
 	psmfplayer->psmfPlayerAtracAu.pts = initPts;
@@ -731,7 +750,7 @@ int scePsmfPlayerDelete(u32 psmfPlayer)
 
 int scePsmfPlayerUpdate(u32 psmfPlayer) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerUpdate(%08x)", psmfPlayer);
+	DEBUG_LOG(HLE, "scePsmfPlayerUpdate(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(HLE, "scePsmfPlayerUpdate - invalid psmf");
@@ -739,13 +758,15 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 	}
 
 	if (psmfplayer->psmfPlayerAvcAu.pts > 0) {
-		if (psmfplayer->psmfPlayerAvcAu.pts > psmfplayer->psmfPlayerLastTimestamp) {
+		if (psmfplayer->psmfPlayerAvcAu.pts >= psmfplayer->psmfPlayerLastTimestamp) {
 			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
 	}
 	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
-	return 0;
+	psmfplayer->mediaengine->stepVideo();
+	psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
+	// This seems to be crazy!
+	return  hleDelayResult(0, "psmfPlayer update", 30000);
 }
 
 int scePsmfPlayerReleasePsmf(u32 psmfPlayer) 
@@ -759,30 +780,39 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 
 int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetVideoData(%08x, %08x)", psmfPlayer, videoDataAddr);
+	DEBUG_LOG(HLE, "scePsmfPlayerGetVideoData(%08x, %08x)", psmfPlayer, videoDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(HLE, "scePsmfPlayerGetVideoData - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
-	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
-	return 0;
+	if (Memory::IsValidAddress(videoDataAddr)) {
+		int frameWidth = Memory::Read_U32(videoDataAddr);
+        u32 displaybuf = Memory::Read_U32(videoDataAddr + 4);
+        int displaypts = Memory::Read_U32(videoDataAddr + 8);
+
+		psmfplayer->mediaengine->writeVideoImage(Memory::GetPointer(displaybuf), frameWidth, videoPixelMode);
+		
+		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, videoDataAddr + 8);
+	}
+	return hleDelayResult(0, "psmfPlayer video decode", 3000);
 }
 
 int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
+	DEBUG_LOG(HLE, "scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(HLE, "scePsmfPlayerGetAudioData - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
-	if (Memory::IsValidAddress(audioDataAddr))
+	if (Memory::IsValidAddress(audioDataAddr)) {
 		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
-	return 0;
+		psmfplayer->mediaengine->getAudioSamples(Memory::GetPointer(audioDataAddr));
+	}
+	return hleDelayResult(0, "psmfPlayer audio decode", 3000);
 }
 
 int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer) 
@@ -792,13 +822,13 @@ int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer)
 		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentStatus(%08x) - invalid psmf", psmfPlayer);
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	ERROR_LOG(HLE, "%d=scePsmfPlayerGetCurrentStatus(%08x)", psmfplayer->status, psmfPlayer);
+	DEBUG_LOG(HLE, "%d=scePsmfPlayerGetCurrentStatus(%08x)", psmfplayer->status, psmfPlayer);
 	return psmfplayer->status;
 }
 
 u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPts(%08x, %08x)", psmfPlayer , currentPtsAddr);
+	DEBUG_LOG(HLE, "scePsmfPlayerGetCurrentPts(%08x, %08x)", psmfPlayer , currentPtsAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPts - invalid psmf");
@@ -810,7 +840,7 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 
 	if (Memory::IsValidAddress(currentPtsAddr)) {
 		//Comment out until psmfPlayerAvcAu.pts start increasing correctly, Ultimate Ghosts N Goblins relies on it .
-		//Memory::Write_U64(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
+		Memory::Write_U64(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
 	}	
 	return 0;
 }
