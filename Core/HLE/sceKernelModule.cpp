@@ -1115,6 +1115,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			{
 				// TODO: Why are we just returning the module ID in this case?
 				WARN_LOG(HLE, "sceKernelStartModule(): module has no start or entry func");
+				module->isStarted = true;
 				RETURN(moduleId);
 				return;
 			}
@@ -1146,6 +1147,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		{
 			INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): no entry address",
 			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
+			module->isStarted = true;
 		}
 		else
 		{
