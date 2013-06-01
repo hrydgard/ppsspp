@@ -9,17 +9,9 @@
 
 #include <string>
 #include <vector>
-#include <functional>
 #include <cmath>
 
-// <functional> fix
-#if defined(IOS) || defined(MACGNUSTD)
-#include <tr1/functional>
-namespace std {
-	using tr1::bind;
-}
-#endif
-
+#include "base/functional.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
 #include "base/scoped_ptr.h"
@@ -165,17 +157,17 @@ struct EventParams {
 };
 
 struct HandlerRegistration {
-	std::function<EventReturn(const EventParams&)> func;
+	std::function<EventReturn(EventParams&)> func;
 };
 
 class Event {
 public:
 	Event() : triggered_(false) {}
 
-	void Add(std::function<EventReturn(const EventParams&)> func);
+	void Add(std::function<EventReturn(EventParams&)> func);
 
 	// Call this from input thread or whatever, it doesn't matter
-	void Trigger(const EventParams &e);
+	void Trigger(EventParams &e);
 	// Call this from UI thread
 	void Update();
 
@@ -215,7 +207,7 @@ View *GetFocusedView();
 
 class View {
 public:
-	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams) {
+	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), enabled_(true) {
 		if (!layoutParams)
 			layoutParams_.reset(new LayoutParams());
 	}
@@ -262,10 +254,15 @@ public:
 		return GetFocusedView() == this;
 	}
 
+	void SetEnabled(bool enabled) { enabled_ = enabled; }
+	bool Enabled() const { return enabled_; }
+
 protected:
 	// Inputs to layout
 	scoped_ptr<LayoutParams> layoutParams_;
 	
+	bool enabled_;
+
 	// Results of measure pass. Set these in Measure.
 	float measuredWidth_;
 	float measuredHeight_;
@@ -295,7 +292,7 @@ public:
 class Clickable : public View {
 public:
 	Clickable(LayoutParams *layoutParams)
-		: View(layoutParams), downCountDown_(0), down_(false), dragging_(false) {}
+		: View(layoutParams), downCountDown_(0), dragging_(false), down_(false) {}
 
 	virtual void Touch(const TouchInput &input);
 	virtual void Update(const InputState &input_state);
@@ -413,12 +410,12 @@ class CheckBox : public ClickableItem {
 public:
 	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {
-		OnClick.Add(std::bind(&CheckBox::OnClicked, this, std::placeholders::_1));
+		OnClick.Add(std::bind(&CheckBox::OnClicked, this, p::_1));
 	}
 
 	virtual void Draw(UIContext &dc);
 
-	EventReturn OnClicked(const EventParams &e) {
+	EventReturn OnClicked(EventParams &e) {
 		if (toggle_)
 			*toggle_ = !(*toggle_);
 		return EVENT_DONE;
@@ -445,15 +442,17 @@ public:
 
 class TextView : public InertView {
 public:
-	TextView(int font, const std::string &text, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), font_(font), text_(text) {}
+	TextView(int font, const std::string &text, int textAlign, float textScale, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), font_(font), text_(text), textScale_(textScale), textAlign_(textAlign) {}
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
 
 private:
-	std::string text_;
 	int font_;
+	std::string text_;
+	float textScale_;
+	int textAlign_;
 };
 
 enum ImageSizeMode {

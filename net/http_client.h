@@ -74,12 +74,17 @@ public:
 	Download(const std::string &url, const std::string &outfile);
 	~Download();
 
-	// Returns 1.0 when done. That one value can be compared exactly.
+	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
 	float Progress() const { return progress_; }
+	bool Done() const { return progress_ == 1.0f; }
+
 	bool Failed() const { return failed_; }
 
 	std::string url() const { return url_; }
 	std::string outfile() const { return outfile_; }
+
+	// If not downloading to a file, access this to get the result.
+	Buffer &buffer() { return buffer_; }
 
 private:
 	void Do();  // Actually does the download. Runs on thread.

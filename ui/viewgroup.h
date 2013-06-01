@@ -1,5 +1,6 @@
 #pragma once
 
+#include "base/logging.h"
 #include "ui/view.h"
 #include "input/gesture_detector.h"
 
@@ -33,7 +34,8 @@ public:
 	virtual float GetContentHeight() const { return 0.0f; }
 
 	// Takes ownership! DO NOT add a view to multiple parents!
-	void Add(View *view) { views_.push_back(view); }
+	template <class T>
+	T *Add(T *view) { views_.push_back(view); return view; }
 
 	virtual bool SetFocus();
 	virtual bool SubviewFocused(View *view);
@@ -83,8 +85,10 @@ class LinearLayoutParams : public LayoutParams {
 public:
 	LinearLayoutParams()
 		: LayoutParams(), weight(0.0f), gravity(G_TOPLEFT), hasMargins_(false) {}
-	explicit LinearLayoutParams(float wgt)
-		: LayoutParams(), weight(wgt), gravity(G_TOPLEFT), hasMargins_(false) {}
+	explicit LinearLayoutParams(float wgt, Gravity grav = G_TOPLEFT)
+		: LayoutParams(), weight(wgt), gravity(grav), hasMargins_(false) {}
+	LinearLayoutParams(float wgt, const Margins &mgn)
+		: LayoutParams(), weight(wgt), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = G_TOPLEFT)
 		: LayoutParams(w, h), weight(wgt), gravity(grav), hasMargins_(false) {}
 	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)

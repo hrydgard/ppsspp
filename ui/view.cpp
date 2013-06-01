@@ -49,14 +49,14 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 	}
 }
 
-void Event::Add(std::function<EventReturn(const EventParams&)> func) {
+void Event::Add(std::function<EventReturn(EventParams&)> func) {
 	HandlerRegistration reg;
 	reg.func = func;
 	handlers_.push_back(reg);
 }
 
 // Call this from input thread or whatever, it doesn't matter
-void Event::Trigger(const EventParams &e) {
+void Event::Trigger(EventParams &e) {
 	lock_guard guard(mutex_);
 	if (!triggered_) {
 		triggered_ = true;
@@ -96,6 +96,12 @@ void Clickable::Click() {
 };
 
 void Clickable::Touch(const TouchInput &input) {
+	if (!enabled_) {
+		dragging_ = false;
+		down_ = false;
+		return;
+	}
+
 	if (input.flags & TOUCH_DOWN) {
 		if (bounds_.Contains(input.x, input.y)) {
 			if (IsFocusMovementEnabled())
@@ -128,6 +134,7 @@ void Clickable::Update(const InputState &input_state) {
 	} else if (input_state.pad_buttons_up & PAD_BUTTON_A) {
 		if (down_) {
 			UI::EventParams e;
+			e.v = this;
 			OnClick.Trigger(e);
 		}
 		down_ = false;
@@ -210,12 +217,15 @@ void ImageView::Draw(UIContext &dc) {
 }
 
 void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	dc.Draw()->SetFontScale(textScale_, textScale_);
 	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+	dc.Draw()->SetFontScale(1.0f, 1.0f);
 }
 
 void TextView::Draw(UIContext &dc) {
-	// TODO: involve sizemode
-	dc.Draw()->DrawTextRect(dc.theme->uiFont, text_.c_str(), bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
+	dc.Draw()->SetFontScale(textScale_, textScale_);
+	dc.Draw()->DrawTextRect(dc.theme->uiFont, text_.c_str(), bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF, textAlign_);
+	dc.Draw()->SetFontScale(1.0f, 1.0f);
 }
 
 void TriggerButton::Touch(const TouchInput &input) {

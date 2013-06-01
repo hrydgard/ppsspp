@@ -82,7 +82,8 @@ public:
 	}
 	
 	~JsonReader() {
-		free(buffer_);
+		if (buffer_)
+			free(buffer_);
 	}
 	
 	void parse() {

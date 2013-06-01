@@ -201,7 +201,7 @@ void Download::Do() {
 	if (client.GET(fileUrl.Resource().c_str(), &buffer_)) {
 		progress_ = 1.0f;
 		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.c_str());
-		if (!buffer_.FlushToFile(outfile_.c_str())) {
+		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
 			ELOG("Failed writing download to %s", outfile_.c_str());
 		}
 	} else {

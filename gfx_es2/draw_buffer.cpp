@@ -370,6 +370,17 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 // U+30A0–U+30FF Katakana
 
 void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color, int align) {
+	if (align & ALIGN_HCENTER) {
+		x += w / 2;
+	} else if (align & ALIGN_RIGHT) {
+		x += w;
+	}
+	if (align & ALIGN_VCENTER) {
+		y += h / 2;
+	} else if (align & ALIGN_BOTTOM) {
+		y += h;
+	}
+
 	DrawText(font, text, x, y, color, align);
 }
 
