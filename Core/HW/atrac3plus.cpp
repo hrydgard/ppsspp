@@ -42,7 +42,7 @@ namespace Atrac3plus_Decoder {
 #else
 		hlib = LoadLibraryA("at3plusdecoder.dll");
 #endif
-		if (hlib) {
+		if (hlib && g_Config.bEnableAtrac3plus) {
 			frame_decoder = (ATRAC3PLUS_DECODEFRAME)GetProcAddress(hlib, "Atrac3plusDecoder_decodeFrame");
 			open_context = (ATRAC3PLUS_OPENCONTEXT)GetProcAddress(hlib, "Atrac3plusDecoder_openContext");
 			close_context = (ATRAC3PLUS_CLOSECONTEXT)GetProcAddress(hlib, "Atrac3plusDecoder_closeContext");
