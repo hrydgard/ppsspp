@@ -189,9 +189,9 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 				for (int x = 0; x < 480; x++)
 				{
 					dst[x * 4] = src[x * 4];
-					dst[x * 4 + 1] = src[x * 4 + 3];
+					dst[x * 4 + 1] = src[x * 4 + 1];
 					dst[x * 4 + 2] = src[x * 4 + 2];
-					dst[x * 4 + 3] = src[x * 4 + 1];
+					dst[x * 4 + 3] = src[x * 4 + 3];
 				}
 			}
 			break;
@@ -214,6 +214,10 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	}
 
 	glBindTexture(GL_TEXTURE_2D,backbufTex);
+	if (g_Config.bLinearFiltering)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	}
 	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,480,272, GL_RGBA, GL_UNSIGNED_BYTE, convBuf);
 
 	float x, y, w, h;
