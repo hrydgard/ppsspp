@@ -303,7 +303,8 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 {
 	static u32 lastHI16RelocAddress = 0;
 	static u32 lastHI16ExportAddress = 0;
-	static u32 lastHI16Processed = 0;
+	static bool lastHI16Processed = false;
+	static u32 lastHILO16Address = 0;
 
 	u32 relocData = Memory::Read_Instruction(relocAddress);
 
@@ -328,11 +329,14 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 	*/
 
 	case R_MIPS_HI16:
+		if (lastHI16Processed)
+			WARN_LOG_REPORT(LOADER, "Unsafe unpaired HI16 variable relocation @ %08x / %08x", lastHI16RelocAddress, relocAddress);
+
 		// After this will be an R_MIPS_LO16.  If that addition overflows, we need to account for it in HI16.
 		// The R_MIPS_LO16 and R_MIPS_HI16 will often be *different* relocAddress values.
 		lastHI16RelocAddress = relocAddress;
 		lastHI16ExportAddress = exportAddress;
-		lastHI16Processed = 0;
+		lastHI16Processed = false;
 		break;
 
 	case R_MIPS_LO16:
@@ -347,16 +351,20 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 			// Sign extend the existing low value (e.g. from addiu.)
 			u32 full = (relocDataHi << 16) + (s16)(u16)(relocData & 0xFFFF) + exportAddress;
 
-			if(!lastHI16Processed){
+			if (!lastHI16Processed)
+			{
 				// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
 				// We add 1 in that case so that it ends up the right value.
 				u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
 				Memory::Write_U32((relocDataHi & ~0xFFFF) | high, lastHI16RelocAddress);
-				lastHI16Processed = 1;
+				lastHI16Processed = true;
 			}
+			else if (lastHILO16Address != full)
+				WARN_LOG_REPORT(LOADER, "Potentially unsafe unpaired LO16 variable relocation @ %08x / %08x", lastHI16RelocAddress, relocAddress);
 
 			// And then this is the low relocation, hurray.
 			relocData = (relocData & ~0xFFFF) | (full & 0xFFFF);
+			lastHILO16Address = full;
 		}
 		break;
 
