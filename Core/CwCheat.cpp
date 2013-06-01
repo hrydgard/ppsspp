@@ -103,7 +103,7 @@ std::vector<int> CWCheatEngine::GetNextCode() {
 
 void CWCheatEngine::SkipCodes(int count) {
 	for (int i = 0; i < count; i ++) {
-		if (GetNextCode()[0] == NULL) {
+		if (GetNextCode()[0] == 0) {
 			break;
 		}
 	}

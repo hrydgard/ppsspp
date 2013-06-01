@@ -71,7 +71,7 @@ void __AudioInit()
 
 	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs), eventAudioUpdate, 0);
 	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs), eventHostAudioUpdate, 0);
-	for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 		chans[i].clear();
 }
 
@@ -103,7 +103,7 @@ void __AudioDoState(PointerWrap &p)
 
 void __AudioShutdown()
 {
-	for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 		chans[i].clear();
 }
 
@@ -220,7 +220,7 @@ void __AudioUpdate()
 	s32 mixBuffer[hwBlockSize * 2];
 	memset(mixBuffer, 0, sizeof(mixBuffer));
 
-	for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 	{
 		if (!chans[i].reserved)
 			continue;
