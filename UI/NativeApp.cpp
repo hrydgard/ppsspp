@@ -30,6 +30,7 @@
 #include <locale.h>
 
 #include "base/logging.h"
+#include "base/mutex.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -43,23 +44,30 @@
 #include "ui/screen.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
+#include "ui/view.h"
 
-#include "base/mutex.h"
-#include "FileUtil.h"
-#include "LogManager.h"
-#include "../../Core/PSPMixer.h"
-#include "../../Core/CPU.h"
-#include "../../Core/Config.h"
-#include "../../Core/HLE/sceCtrl.h"
-#include "../../Core/Host.h"
-#include "../../Core/SaveState.h"
-#include "../../Common/MemArena.h"
+#include "Common/FileUtil.h"
+#include "Common/LogManager.h"
+#include "Core/PSPMixer.h"
+#include "Core/CPU.h"
+#include "Core/Config.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/Host.h"
+#include "Core/SaveState.h"
+#include "Core/HW/atrac3plus.h"
+#include "Common/MemArena.h"
 
 #include "ui_atlas.h"
 #include "EmuScreen.h"
 #include "MenuScreens.h"
 #include "GameInfoCache.h"
 #include "UIShader.h"
+
+#include "UI/PluginScreen.h"
+
+// The new UI framework, for initialization
+
+static UI::Theme ui_theme;
 
 #ifdef ARM
 #include "../../android/jni/ArmEmitterTest.h"
@@ -157,31 +165,24 @@ static AndroidLogger *logger = 0;
 
 std::string boot_filename = "";
 
-void NativeHost::InitSound(PMixer *mixer)
-{
+void NativeHost::InitSound(PMixer *mixer) {
 	g_mixer = mixer;
 }
 
-void NativeHost::ShutdownSound()
-{
+void NativeHost::ShutdownSound() {
 	g_mixer = 0;
 }
 
-int NativeMix(short *audio, int num_samples)
-{
-	if (g_mixer)
-	{
+int NativeMix(short *audio, int num_samples) {
+	if (g_mixer) {
 		return g_mixer->Mix(audio, num_samples);
-	}
-	else
-	{
+	}	else {
 		//memset(audio, 0, numSamples * 2);
 		return 0;
 	}
 }
 
-void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape)
-{
+void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape) {
 	*app_nice_name = "PPSSPP";
 	*app_dir_name = "ppsspp";
 	*landscape = true;
@@ -191,8 +192,8 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 #endif
 }
 
-void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
-{
+void NativeInit(int argc, const char *argv[],
+								const char *savegame_directory, const char *external_directory, const char *installID) {
 	EnableFZ();
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
@@ -344,22 +345,29 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_gameInfoCache.Init();
 }
 
-void NativeInitGraphics()
-{
+void NativeInitGraphics() {
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 
 	screenManager = new ScreenManager();
+
 	if (boot_filename.empty()) {
-		screenManager->switchScreen(new LogoScreen(boot_filename));
+		// If first run and can't autoinstall, let's send the user to the atrac3plus download screen.
+		if (Atrac3plus_Decoder::CanAutoInstall()) {
+			Atrac3plus_Decoder::DoAutoInstall();
+		} else if ((true || g_Config.bFirstRun) && !Atrac3plus_Decoder::IsInstalled()) {
+			screenManager->switchScreen(new PluginScreen());
+		} else {
+			screenManager->switchScreen(new LogoScreen(boot_filename));
+		}
 	} else {
 		// Go directly into the game.
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	}
-	// screenManager->switchScreen(new FileSelectScreen());
 
 	UIShader_Init();
 
+	// Old style theme, to be removed later
 	UITheme theme = {0};
 	theme.uiFont = UBUNTU24;
 	theme.uiFontSmall = UBUNTU24;
@@ -368,6 +376,21 @@ void NativeInitGraphics()
 	theme.buttonSelected = I_BUTTON_SELECTED;
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
+
+	// New style theme
+	ui_theme.uiFont = UBUNTU24;
+	ui_theme.uiFontSmall = UBUNTU24;
+	ui_theme.uiFontSmaller = UBUNTU24;
+	ui_theme.buttonImage = I_BUTTON;
+	ui_theme.buttonSelected = I_BUTTON_SELECTED;
+	ui_theme.checkOn = I_CHECKEDBOX;
+	ui_theme.checkOff = I_SQUARE;
+	ui_theme.whiteImage = SOLIDWHITE;
+	ui_theme.buttonFocusedStyle.bgColor = 0xFFc0c0c0;
+	ui_theme.buttonDownStyle.bgColor = 0xFFFF00c0;
+	ui_theme.itemFocusedStyle.bgColor = 0xFF808080;
+	ui_theme.itemDownStyle.bgColor = 0xFFFFc080;
+	ui_theme.itemDownStyle.fgColor = 0xFF000000;
 
 	ui_draw2d.Init();
 	ui_draw2d_front.Init();
@@ -383,6 +406,7 @@ void NativeInitGraphics()
 	uiTexture->Bind(0);
 
 	uiContext = new UIContext();
+	uiContext->theme = &ui_theme;
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
 
 	screenManager->setUIContext(uiContext);
@@ -395,9 +419,9 @@ void NativeInitGraphics()
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 }
 
-void NativeRender()
-{
+void NativeRender() {
 	EnableFZ();
+
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -416,8 +440,7 @@ void NativeRender()
 	screenManager->render();
 }
 
-void NativeUpdate(InputState &input)
-{
+void NativeUpdate(InputState &input) {
 	{
 		lock_guard lock(pendingMutex);
 		if (isMessagePending) {
@@ -430,8 +453,7 @@ void NativeUpdate(InputState &input)
 	screenManager->update(input);
 } 
 
-void NativeDeviceLost()
-{
+void NativeDeviceLost() {
 	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
 	gl_lost();
@@ -439,19 +461,16 @@ void NativeDeviceLost()
 	// Should dirty EVERYTHING
 }
 
-bool NativeIsAtTopLevel()
-{
+bool NativeIsAtTopLevel() {
 	// TODO
 	return false;
 }
 
-void NativeTouch(const TouchInput &touch)
-{
+void NativeTouch(const TouchInput &touch) {
 	screenManager->touch(touch);
 }
 
-void NativeMessageReceived(const char *message, const char *value)
-{
+void NativeMessageReceived(const char *message, const char *value) {
 	// We can only have one message queued.
 	lock_guard lock(pendingMutex);
 	if (!isMessagePending) {
@@ -461,8 +480,7 @@ void NativeMessageReceived(const char *message, const char *value)
 	}
 }
 
-void NativeShutdownGraphics()
-{
+void NativeShutdownGraphics() {
 	delete uiTexture;
 	uiTexture = NULL;
 
@@ -478,8 +496,7 @@ void NativeShutdownGraphics()
 	gl_lost_manager_shutdown();
 }
 
-void NativeShutdown()
-{
+void NativeShutdown() {
 	g_gameInfoCache.Shutdown();
 
 	delete host;

@@ -300,32 +300,42 @@ namespace MainWindow
 		case WM_ERASEBKGND:
 	  	return DefWindowProc(hWnd, message, wParam, lParam);
 
+		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
+		// and as asynchronous touch events for minimal latency.
+
 		case WM_LBUTTONDOWN:
 			{
 				lock_guard guard(input_state.lock);
 				input_state.mouse_valid = true;
 				input_state.pointer_down[0] = true;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
-				}
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+
+				TouchInput touch;
+				touch.id = 0;
+				touch.flags = TOUCH_DOWN;
+				touch.x = GET_X_LPARAM(lParam);
+				touch.y = GET_Y_LPARAM(lParam);
+				NativeTouch(touch);
 			}
 			break;
 
 		case WM_MOUSEMOVE:
 			{
 				lock_guard guard(input_state.lock);
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
+				if (wParam & MK_LBUTTON) {
+					TouchInput touch;
+					touch.id = 0;
+					touch.flags = TOUCH_MOVE;
+					touch.x = GET_X_LPARAM(lParam);
+					touch.y = GET_Y_LPARAM(lParam);
+					NativeTouch(touch);
 				}
 			}
 			break;
@@ -334,16 +344,21 @@ namespace MainWindow
 			{
 				lock_guard guard(input_state.lock);
 				input_state.pointer_down[0] = false;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
-				}
+				TouchInput touch;
+				touch.id = 0;
+				touch.flags = TOUCH_UP;
+				touch.x = GET_X_LPARAM(lParam);
+				touch.y = GET_Y_LPARAM(lParam);
+				NativeTouch(touch);
 			}
 			break;
+
+
+		// Actual touch! Unfinished
 
 		case WM_TOUCH:
 			{
