@@ -850,11 +850,14 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/atrac3plus.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
+	Core/HW/MpegDemux.cpp
+	Core/HW/MpegDemux.h
 	Core/HW/MemoryStick.cpp
 	Core/HW/MemoryStick.h
+	Core/HW/OMAConvert.cpp
+	Core/HW/OMAConvert.h
 	Core/HW/SasAudio.cpp
 	Core/HW/SasAudio.h
-	Core/HW/atrac3plus.cpp
 	Core/Host.cpp
 	Core/Host.h
 	Core/Loaders.cpp
