@@ -862,6 +862,16 @@ static void DoBasePointer(PointerWrap &p, T **ptr)
 
 }
 
+int PSPOskDialog::Shutdown(bool force)
+{
+    if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+        return SCE_ERROR_UTILITY_INVALID_STATUS;
+
+    PSPDialog::Shutdown();
+
+    return 0;
+}
+
 void PSPOskDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);

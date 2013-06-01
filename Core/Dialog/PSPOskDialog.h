@@ -161,6 +161,7 @@ public:
 
 	virtual int Init(u32 oskPtr);
 	virtual int Update();
+	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 private:
 	void ConvertUCS2ToUTF8(std::string& _string, const u32 em_address);
