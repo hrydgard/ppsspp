@@ -21,6 +21,22 @@
 
 #include "ElfTypes.h"
 
+enum {
+	R_MIPS_NONE,
+	R_MIPS_16,
+	R_MIPS_32,
+	R_MIPS_REL32,
+	R_MIPS_26,
+	R_MIPS_HI16,
+	R_MIPS_LO16,
+	R_MIPS_GPREL16,
+	R_MIPS_LITERAL,
+	R_MIPS_GOT16,
+	R_MIPS_PC16,
+	R_MIPS_CALL16,
+	R_MIPS_GPREL32
+};
+
 enum KnownElfTypes
 {
 	KNOWNELF_PSP = 0,
