@@ -62,18 +62,16 @@ struct SceMpegAu {
 
 	void read(u32 addr) {
 		Memory::ReadStruct(addr, this);
-		pts = (pts & 0xFFFFFFFFULL) << 32 | (pts >> 32);
-		dts = (dts & 0xFFFFFFFFULL) << 32 | (dts >> 32);
+		pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
+		dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
 	}
 
 	void write(u32 addr) {
-		pts = (pts & 0xFFFFFFFFULL) << 32 | (pts >> 32);
-		dts = (dts & 0xFFFFFFFFULL) << 32 | (dts >> 32);
+		pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
+		dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
 		Memory::WriteStruct(addr, this);
 	}
 };
-
-const int videoTimestampStep = 3003;
 
 // As native in PSP ram
 struct SceMpegRingBuffer {
