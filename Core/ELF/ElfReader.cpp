@@ -274,7 +274,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			}
 
 			op = Memory::ReadUnchecked_U32(rel_offset);
-			DEBUG_LOG(LOADER, "Rel2: %5d: CMD=0x%04X type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x\n", rcount, cmd, type, off_seg, rel_base, addr_seg, op);
+			DEBUG_LOG(LOADER, "Rel2: %5d: CMD=0x%04X type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x", rcount, cmd, type, off_seg, rel_base, addr_seg, op);
 
 			switch(type){
 			case 0:
