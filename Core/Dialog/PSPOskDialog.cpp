@@ -611,7 +611,7 @@ void PSPOskDialog::RemoveKorean()
 		{
 			if(kor_lconsCom[i] == i_value[2])
 			{
-				tmp = kor_vowelCom[i - 1];
+				tmp = kor_lconsCom[i - 1];
 				break;
 			}
 		}
