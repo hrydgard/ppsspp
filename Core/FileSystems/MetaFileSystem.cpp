@@ -171,7 +171,7 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	return 0;
 }
 
-extern u32 errorCode;
+extern u32 ioErrorCode;
 bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
 {
 	std::string realpath;
@@ -193,8 +193,8 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 		//Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
 		if (inpath.find(':') == std::string::npos /* means path is relative */) 
 		{
-			errorCode = SCE_KERNEL_ERROR_NOCWD;
-			WARN_LOG_REPORT(HLE, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread, startingDirectory.c_str());
+			ioErrorCode = SCE_KERNEL_ERROR_NOCWD;
+			WARN_LOG_REPORT(HLE, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
 		}
 	}
 	else

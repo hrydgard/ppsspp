@@ -21,7 +21,7 @@
 
 // Slow freaking thing but works (eventually) :)
 
-BlockAllocator::BlockAllocator(int grain) : grain_(grain), top_(NULL), bottom_(NULL)
+BlockAllocator::BlockAllocator(int grain) : bottom_(NULL), top_(NULL), grain_(grain)
 {
 }
 

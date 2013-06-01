@@ -100,9 +100,9 @@ struct AtracLoopInfo {
 };
 
 struct Atrac {
-	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(2), atracOutputChannels(2), loopNum(0),
+	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(2), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(-1), firstSampleoffset(0), loopinfoNum(0) {
+		currentSample(0), endSample(-1), firstSampleoffset(0), loopinfoNum(0), loopNum(0) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -545,7 +545,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 					inbytes = std::min(inbytes, (int)atrac->atracBytesPerFrame);
 					if (inbytes > 0) {
 						Atrac3plus_Decoder::atrac3plus_decode(atrac->decoder_context, atrac->data_buf + atrac->decodePos, inbytes, &decodebytes, buf);
-						DEBUG_LOG(HLE, "decodebytes: %i outbuf: %08p", decodebytes, buf);
+						DEBUG_LOG(HLE, "decodebytes: %i outbuf: %p", decodebytes, buf);
 						atrac->sampleQueue.push(buf, decodebytes);
 					}
 				}
@@ -554,7 +554,7 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 				int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 				numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
 				s16* in = (s16*)buf;
-				for (int i = 0; i < numSamples; i++) {
+				for (u32 i = 0; i < numSamples; i++) {
 					s16 sampleL = *in++;
 					s16 sampleR = sampleL;
 					if (atrac->atracChannels == 2)
