@@ -430,6 +430,9 @@
     <ClCompile Include="HW\atrac3plus.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HW\MpegDemux.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -793,6 +796,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="HW\atrac3plus.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\MpegDemux.h">
       <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
