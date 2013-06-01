@@ -458,7 +458,7 @@ elseif(USING_QT_UI)
 	set(nativeExtraLibs ${nativeExtraLibs} ${QT_LIBRARIES})
 	set(TargetBin PPSSPPQt)
 elseif(BLACKBERRY)
-	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp)
+	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	# FFMPEG
 	add_definitions(-DUSE_FFMPEG)
