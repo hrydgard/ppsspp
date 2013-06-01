@@ -28,70 +28,62 @@
 #include "../../Globals.h"
 #include "../HLE/sceMpeg.h"
 #include "ChunkFile.h"
+#include "Core/HW/MpegDemux.h"
 
 class MediaEngine
 {
 public:
-	MediaEngine() : fakeMode_(false), readLength_(0), fakeFrameCounter_(0) {}
+	MediaEngine();
+	~MediaEngine();
 
-	void setFakeMode(bool fake) {
-		fakeMode_ = fake;
-	}
+	void closeMedia();
+	bool loadStream(u8* buffer, int readSize, int StreamSize);
+	bool loadFile(const char* filename);
+	void addStreamData(u8* buffer, int addSize);
+	int getRemainSize() { return m_streamSize - m_readSize;}
 
-	void init(u32 bufferAddr, u32 mpegStreamSize, u32 mpegOffset) {
-		bufferAddr_ = bufferAddr;
-		mpegStreamSize_ = mpegStreamSize;
-		mpegOffset_ = mpegOffset;
-	}
-	void finish();
+	bool stepVideo();
+	bool writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
+	bool writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
+	                             int xpos, int ypos, int width, int height);
+	int getAudioSamples(u8* buffer);
 
-	void setVideoDim(int w, int h) { videoWidth_ = w; videoHeight_ = h; }
-	void feedPacketData(u32 addr, int size);
-
-	bool readVideoAu(SceMpegAu *au) {
-		if (fakeMode_) {
-			au->pts += videoTimestampStep;
-		}
-		return true;
-	}
-	bool readAudioAu(SceMpegAu *au) {
-		if (fakeMode_) {
-
-		}
-		return true;
-	}
-
-	bool stepVideo() {
-		if (fakeMode_)
-			return true;
-		return true;
-	}
-
-	void writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode);
-
-	// WTF is this?
-	int readLength() { return readLength_; }
-	void setReadLength(int len) { readLength_ = len; }
+	bool setVideoDim(int width = 0, int height = 0);
+	s64 getVideoTimeStamp();
+	s64 getAudioTimeStamp();
+	s64 getLastTimeStamp();
 
 	void DoState(PointerWrap &p) {
-		p.Do(fakeMode_);
-		p.Do(bufferAddr_);
-		p.Do(mpegStreamSize_);
-		p.Do(mpegOffset_);
-		p.Do(readLength_);
-		p.Do(videoWidth_);
-		p.Do(videoHeight_);
-		p.Do(fakeFrameCounter_);
+		p.Do(m_streamSize);
+		p.Do(m_readSize);
 		p.DoMarker("MediaEngine");
 	}
 
 private:
-	bool fakeMode_;
-	u32 bufferAddr_;
-	u32 mpegStreamSize_;
-	u32 mpegOffset_;
-	int readLength_;
-	int videoWidth_;
-	int videoHeight_;
-	int fakeFrameCounter_;
+    bool openContext();
+
+public:
+
+	void *m_pFormatCtx;
+	void *m_pCodecCtx;
+	void *m_pFrame;
+    void *m_pFrameRGB;
+	void *m_pIOContext;
+	int  m_videoStream;
+    void *m_sws_ctx;
+	u8* m_buffer;
+
+	int  m_desWidth;
+	int  m_desHeight;
+	int m_streamSize;
+	int m_readSize;
+	int m_decodePos;
+	int m_bufSize;
+	s64 m_videopts;
+	u8* m_pdata;
+	
+	MpegDemux *m_demux;
+	int m_audioPos;
+	void* m_audioContext;
+	s64 m_audiopts;
 };
