@@ -178,7 +178,7 @@ bool MediaEngine::openContext() {
 	av_dump_format(pFormatCtx, 0, NULL, 0);
 
 	// Find the first video stream
-	for(int i = 0; i < pFormatCtx->nb_streams; i++) {
+	for(int i = 0; i < (int)pFormatCtx->nb_streams; i++) {
 		if(pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
 			m_videoStream = i;
 			break;
@@ -259,7 +259,7 @@ bool MediaEngine::loadFile(const char* filename)
 	return true;
 }
 
-void MediaEngine::addStreamData(u8* buffer, int addSize) {
+int MediaEngine::addStreamData(u8* buffer, int addSize) {
 	int size = std::min(addSize, m_streamSize - m_readSize);
 	if (size > 0) {
 		memcpy(m_pdata + m_readSize, buffer, size);
@@ -271,6 +271,7 @@ void MediaEngine::addStreamData(u8* buffer, int addSize) {
 			m_demux->demux();
 		}
 	}
+	return size;
 }
 
 bool MediaEngine::setVideoDim(int width, int height)

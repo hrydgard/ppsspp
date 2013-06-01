@@ -39,8 +39,10 @@ public:
 	void closeMedia();
 	bool loadStream(u8* buffer, int readSize, int StreamSize);
 	bool loadFile(const char* filename);
-	void addStreamData(u8* buffer, int addSize);
+	// Returns number of packets actually added.
+	int addStreamData(u8* buffer, int addSize);
 	int getRemainSize() { return m_streamSize - m_readSize;}
+	int getBufferedSize() { return m_readSize - m_decodePos; }
 
 	bool stepVideo();
 	bool writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
