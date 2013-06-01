@@ -98,6 +98,8 @@ static void JitLogMiss(u32 op)
 	func(op);
 }
 
+// JitBlockCache doesn't use this, just stores it.
+#pragma warning(disable:4355)
 Jit::Jit(MIPSState *mips) : blocks(mips, this), mips_(mips)
 {
 	blocks.Init();
