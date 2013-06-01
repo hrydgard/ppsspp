@@ -209,7 +209,7 @@ namespace Reporting
 		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
 		postdata.Add("pixel_width", PSP_CoreParameter().pixelWidth);
 		postdata.Add("pixel_height", PSP_CoreParameter().pixelHeight);
-		postdata.Add("ticks", CoreTiming::GetTicks());
+		postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks());
 
 		if (g_Config.bShowFPSCounter)
 		{
