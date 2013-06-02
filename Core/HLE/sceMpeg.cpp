@@ -325,11 +325,6 @@ void __MpegShutdown() {
 
 u32 sceMpegInit()
 {
-	if (!g_Config.bUseMediaEngine){
-		WARN_LOG(HLE, "Media Engine disabled");
-		return -1;
-	}
-
 	WARN_LOG(HLE, "sceMpegInit()");
 	return 0;
 }
@@ -352,11 +347,6 @@ u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32
 
 u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
 {
-	if (!g_Config.bUseMediaEngine){
-		WARN_LOG(HLE, "Media Engine disabled");
-		return -1;
-	}
-
 	if (size < MPEG_MEMSIZE) {
 		WARN_LOG(HLE, "ERROR_MPEG_NO_MEMORY=sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i)",
 			mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
@@ -592,11 +582,6 @@ int sceMpegFreeAvcEsBuf(u32 mpeg, int esBuf)
 
 u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
 {
-	if (!g_Config.bUseMediaEngine){
-		WARN_LOG(HLE, "Media Engine disabled");
-		return -1;
-	}
-
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(HLE, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): bad mpeg handle", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
@@ -744,11 +729,6 @@ u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr)
 
 int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 {
-	if (!g_Config.bUseMediaEngine){
-		WARN_LOG(HLE, "Media Engine disabled");
-		return -1;
-	}
-
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		WARN_LOG(HLE, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x): bad mpeg handle", mpeg, auAddr, bufferAddr, initAddr);
@@ -1175,10 +1155,6 @@ u32 sceMpegAvcCopyYCbCr(u32 mpeg, u32 sourceAddr, u32 YCbCrAddr)
 u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 {
 	DEBUG_LOG(HLE, "UNIMPL sceMpegAtracDecode(%08x, %08x, %08x, %i)", mpeg, auAddr, bufferAddr, init);
-	if (!g_Config.bUseMediaEngine){
-		WARN_LOG(HLE, "Media Engine disabled");
-		return -1;
-	}
 
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {

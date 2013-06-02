@@ -193,7 +193,6 @@ int main(int argc, const char* argv[])
 	g_Config.bAutoSaveSymbolMap = false;
 	g_Config.bBufferedRendering = true;
 	g_Config.bHardwareTransform = true;
-	g_Config.bUseMediaEngine = true;
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
 #else
