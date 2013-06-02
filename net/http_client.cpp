@@ -19,7 +19,6 @@
 #include "base/stringutil.h"
 #include "net/resolve.h"
 #include "net/url.h"
-#include "base/functional.h"
 
 // #include "strings/strutil.h"
 
@@ -175,7 +174,7 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 Download::Download(const std::string &url, const std::string &outfile)
 	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false) {
 
-	std::thread th(std::bind(&Download::Do, this));
+	std::thread th(bind(&Download::Do, this));
 	th.detach();
 }
 
@@ -211,8 +210,8 @@ void Download::Do() {
 	net::Shutdown();
 }
 
-std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
-	std::shared_ptr<Download> dl(new Download(url, outfile));
+shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
+	shared_ptr<Download> dl(new Download(url, outfile));
 	downloads_.push_back(dl);
 	return dl;
 }

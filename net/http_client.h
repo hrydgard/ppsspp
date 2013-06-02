@@ -5,6 +5,7 @@
 #include "base/basictypes.h"
 #include "base/buffer.h"
 #include "thread/thread.h"
+#include "base/functional.h"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -98,13 +99,13 @@ private:
 
 class Downloader {
 public:
-	std::shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
+	shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
 
 	// Drops finished downloads from the list.
 	void Update();
 
 private:
-	std::vector<std::shared_ptr<Download>> downloads_;
+	std::vector<shared_ptr<Download>> downloads_;
 };
 
 

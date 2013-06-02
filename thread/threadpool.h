@@ -2,44 +2,7 @@
 
 #include "thread.h"
 #include "base/mutex.h"
-
-#include <functional>
-#ifdef __SYMBIAN32__
-#include <boost/function.hpp>
-#include <boost/bind.hpp>
-#include <boost/weak_ptr.hpp>
-using namespace boost;
-#else
-#include <memory>
-using namespace std;
-#endif
-#include <vector>
-
-#if defined(__SYMBIAN32__) || defined(IOS) || defined(MACGNUSTD)
-#ifndef __SYMBIAN32__
-#include <tr1/functional>
-#include <tr1/memory>
-#endif
-namespace std {
-#ifndef __SYMBIAN32__
-	using tr1::bind;
-	using tr1::function;
-	using tr1::shared_ptr;
-#endif
-
-	template <typename T>
-	inline shared_ptr<T> make_shared()
-	{
-		return shared_ptr<T>(new T());
-	}
-
-	template <typename T, typename Arg1>
-	inline shared_ptr<T> make_shared(Arg1& arg1)
-	{
-		return shared_ptr<T>(new T(arg1));
-	}
-}
-#endif
+#include "base/functional.h"
 
 // This is the simplest possible worker implementation I can think of
 // but entirely sufficient for the given purpose.
@@ -90,3 +53,4 @@ private:
 	ThreadPool(const ThreadPool& other); // prevent copies
 	void operator =(const WorkerThread &other);
 };
+

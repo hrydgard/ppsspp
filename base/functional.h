@@ -1,24 +1,53 @@
 // This file simply includes <functional> and applies any necessary compatibility fixes for
 // strange platforms like iOS.
 
-// Use p as the namespace for placeholders.
+// Use placeholder as the namespace for placeholders.
 
 #pragma once
 
 #include <functional>
+#ifdef __SYMBIAN32__
+#include <boost/function.hpp>
+#include <boost/bind.hpp>
+#include <boost/weak_ptr.hpp>
+using namespace boost;
+#else
+#include <memory>
+using namespace std;
+#endif
+#include <vector>
 
-#if defined(IOS) || defined(MACGNUSTD)
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MACGNUSTD)
+#ifndef __SYMBIAN32__
 #include <tr1/functional>
+#include <tr1/memory>
+#endif
 namespace std {
-	using tr1::bind;
+#ifndef __SYMBIAN32__
+    using tr1::bind;
+    using tr1::function;
+    using tr1::shared_ptr;
+#endif
+
+    template <typename T>
+    inline shared_ptr<T> make_shared()
+    {
+        return shared_ptr<T>(new T());
+    }
+
+    template <typename T, typename Arg1>
+    inline shared_ptr<T> make_shared(Arg1& arg1)
+    {
+        return shared_ptr<T>(new T(arg1));
+    }
 }
 #endif
 
 #ifdef __SYMBIAN32__
-#define p
+#define placeholder
 #elif defined(IOS)
-#include <tr1/functional>
-namespace p = std::tr1::placeholders;
+namespace placeholder = std::tr1::placeholders;
 #else
-namespace p = std::placeholders;
+namespace placeholder = std::placeholders;
 #endif
+

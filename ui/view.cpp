@@ -49,7 +49,7 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 	}
 }
 
-void Event::Add(std::function<EventReturn(EventParams&)> func) {
+void Event::Add(function<EventReturn(EventParams&)> func) {
 	HandlerRegistration reg;
 	reg.func = func;
 	handlers_.push_back(reg);
