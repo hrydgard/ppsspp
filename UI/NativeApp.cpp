@@ -377,6 +377,7 @@ void NativeInitGraphics() {
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
+	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
 	ui_theme.uiFont = UBUNTU24;
 	ui_theme.uiFontSmall = UBUNTU24;
@@ -386,8 +387,14 @@ void NativeInitGraphics() {
 	ui_theme.checkOn = I_CHECKEDBOX;
 	ui_theme.checkOff = I_SQUARE;
 	ui_theme.whiteImage = SOLIDWHITE;
-	ui_theme.buttonFocusedStyle.bgColor = 0xFFc0c0c0;
-	ui_theme.buttonDownStyle.bgColor = 0xFFFF00c0;
+	ui_theme.buttonStyle.bgColor = 0xFFFFFFFF;
+	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.buttonFocusedStyle.bgColor = 0xFF808080;
+	ui_theme.buttonFocusedStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.buttonDownStyle.bgColor = 0xFFc0c0c0;
+	ui_theme.buttonDownStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.buttonDisabledStyle.bgColor = 0xFF404040;
+	ui_theme.buttonDisabledStyle.fgColor = 0xFF707070;
 	ui_theme.itemFocusedStyle.bgColor = 0xFF808080;
 	ui_theme.itemDownStyle.bgColor = 0xFFFFc080;
 	ui_theme.itemDownStyle.fgColor = 0xFF000000;

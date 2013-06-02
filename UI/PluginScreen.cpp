@@ -68,24 +68,35 @@ void PluginScreen::CreateViews() {
 
 	Margins textMargins(20,17);
 
-	tvDescription_ = root_->Add(new TextView(0, "Audio decoding support", ALIGN_HCENTER, 1.0f, new LinearLayoutParams(textMargins)));
-	tvDescription_ = root_->Add(new TextView(0, 
+	root_->Add(new TextView(0, "Audio decoding support", ALIGN_HCENTER, 1.0f, new LinearLayoutParams(textMargins)));
+
+	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
+	
+	root_->Add(scroll);
+	tvDescription_ = scroll->Add(new TextView(0, 
 		"Would you like to install Atrac3+ decoding support by Mai?\n"
+		"This is required for audio in many games.\n"
 		"Note that there may be legality issues around non-clean-room\n"
 		"reverse engineered code in the US and some other countries.\n"
-		"Choose \"More Information\" for more info.\n", ALIGN_LEFT, 1.0f, new LinearLayoutParams(1.0, textMargins)));
+
+		"Choose \"More Information\" for more info.\n", ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins)));
 
 	progress_ = root_->Add(new ProgressBar());
+	progress_->SetVisibility(V_GONE);
 
 	ViewGroup *buttonBar = new LinearLayout(ORIENT_HORIZONTAL);
 	root_->Add(buttonBar);
 
+	buttonBack_ = new Button(c->T("Back"));
+	buttonBar->Add(buttonBack_);
 	buttonDownload_ = new Button(c->T("Download"), new LinearLayoutParams(1.0));
 	buttonBar->Add(buttonDownload_)->OnClick.Add(std::bind(&PluginScreen::OnDownload, this, placeholder::_1));
 	buttonBar->Add(new Button(c->T("More Information"), new LinearLayoutParams(1.0)))->OnClick.Add(std::bind(&PluginScreen::OnInformation, this, placeholder::_1));
 }
 
 void PluginScreen::update(InputState &input) {
+	UIScreen::update(input);
+
 	downloader_.Update();
 
 	if (json_.get() && json_->Done()) {
@@ -93,39 +104,55 @@ void PluginScreen::update(InputState &input) {
 		json_->buffer().TakeAll(&json);
 
 		JsonReader reader(json.data(), json.size());
-		reader.parse();
 		const json_value *root = reader.root();
 
-		std::string destination = Atrac3plus_Decoder::GetInstalledFilename();
-
+		std::string abi = "";
+#if defined(_M_IX86) && defined(_WIN32)
+		abi = "Win32";
+#elif defined(_M_X64) && defined(_WIN32)
+		abi = "Win64";
+#elif defined(ARMEABI)
+		abi = "armeabi";
+#elif defined(ARMEABI_V7A)
+		abi = "armeabi-v7a";
+#endif
+		if (!abi.empty()) {
+			at3plusdecoderUrl_ = root->getString(abi.c_str(), "");
+			if (at3plusdecoderUrl_.empty()) {
+				buttonDownload_->SetEnabled(false);
+			}
+		}
 		json_.reset();
 	}
 
 	if (at3plusdecoder_.get() && at3plusdecoder_->Done()) {
 		// Done! yay.
+		progress_->SetProgress(1.0);
 
+		int result = at3plusdecoder_->ResultCode();
+
+		if (result == 200) {
+			// Yay!
+			tvDescription_->SetText("Mai Atrac3plus plugin downloaded and installed.\n"
+				                      "Please press Continue.");
+			buttonDownload_->SetVisibility(UI::V_GONE);
+		} else {
+			char codeStr[8];
+			sprintf(codeStr, "%i", result);
+			tvDescription_->SetText(std::string("Failed to download (") + codeStr + ").\nPlease try again later.");
+			buttonDownload_->SetEnabled(true);
+		}
 	}
-
-	UIScreen::update(input);
 }
 
 UI::EventReturn PluginScreen::OnDownload(UI::EventParams &e) {
 	buttonDownload_->SetEnabled(false);
 
-#if 0
-#if defined(_M_IX86) && defined(_WIN32)
-	at3plusdecoder_ = downloader_.StartDownload(root->getString("Win32"), destination);
-#elif defined(_M_X64) && defined(_WIN32)
-	at3plusdecoder_ = downloader_.StartDownload(root->getString("Win64"), destination);
-#elif defined(ARMEABI)
-	at3plusdecoder_ = downloader_.StartDownload(root->getString("armeabi"), destination);
-#elif defined(ARMEABI_V7A)
-	at3plusdecoder_ = downloader_.StartDownload(root->getString("armeabi-v7a"), destination);
-#else
+	std::string destination = Atrac3plus_Decoder::GetInstalledFilename();
+
+	at3plusdecoder_ = downloader_.StartDownload(at3plusdecoderUrl_, destination);
 	// No decoder available for this arch
 	// #error Unable to identify architecture
-#endif
-#endif
 
 	return UI::EVENT_DONE;
 }

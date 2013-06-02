@@ -62,6 +62,9 @@ private:
 
 	// UI widgets that need updating
 	UI::TextView *tvDescription_;
+	UI::Button *buttonBack_;
 	UI::Button *buttonDownload_;
 	UI::ProgressBar *progress_;
+
+	std::string at3plusdecoderUrl_;
 };
