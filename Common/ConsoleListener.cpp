@@ -37,6 +37,15 @@ const int LOG_PENDING_MAX = 120 * 10000;
 const int LOG_LATENCY_DELAY_MS = 20;
 const int LOG_SHUTDOWN_DELAY_MS = 250;
 const int LOG_MAX_DISPLAY_LINES = 4000;
+
+int ConsoleListener::refCount = 0;
+HANDLE ConsoleListener::hThread = NULL;
+HANDLE ConsoleListener::hTriggerEvent = NULL;
+CRITICAL_SECTION ConsoleListener::criticalSection;
+
+char *ConsoleListener::logPending = NULL;
+volatile u32 ConsoleListener::logPendingReadPos = 0;
+volatile u32 ConsoleListener::logPendingWritePos = 0;
 #endif
 
 ConsoleListener::ConsoleListener()
@@ -45,12 +54,12 @@ ConsoleListener::ConsoleListener()
 	hConsole = NULL;
 	bUseColor = true;
 
-	hThread = NULL;
-	hTriggerEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
-	InitializeCriticalSection(&criticalSection);
-	logPending = NULL;
-	logPendingReadPos = 0;
-	logPendingWritePos = 0;
+	if (hTriggerEvent == NULL)
+	{
+		hTriggerEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+		InitializeCriticalSection(&criticalSection);
+	}
+	++refCount;
 #else
 	bUseColor = isatty(fileno(stdout));
 #endif
@@ -59,13 +68,6 @@ ConsoleListener::ConsoleListener()
 ConsoleListener::~ConsoleListener()
 {
 	Close();
-
-#ifdef _WIN32
-	DeleteCriticalSection(&criticalSection);
-
-	if (logPending != NULL)
-		delete [] logPending;
-#endif
 }
 
 // 100, 100, "Dolphin Log Console"
@@ -96,7 +98,7 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	}
 
-	if (hTriggerEvent != NULL)
+	if (hTriggerEvent != NULL && hThread == NULL)
 	{
 		logPending = new char[LOG_PENDING_MAX];
 		hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &ConsoleListener::RunThread, this, 0, NULL);
@@ -135,17 +137,30 @@ void ConsoleListener::Close()
 	if (hConsole == NULL)
 		return;
 
-	if (hThread != NULL)
+	if (--refCount <= 0)
 	{
-		Common::AtomicStoreRelease(logPendingWritePos, (u32) -1);
+		if (hThread != NULL)
+		{
+			Common::AtomicStoreRelease(logPendingWritePos, (u32) -1);
 
-		SetEvent(hTriggerEvent);
-		WaitForSingleObject(hThread, LOG_SHUTDOWN_DELAY_MS);
-		CloseHandle(hThread);
-		hThread = NULL;
+			SetEvent(hTriggerEvent);
+			WaitForSingleObject(hThread, LOG_SHUTDOWN_DELAY_MS);
+			CloseHandle(hThread);
+			hThread = NULL;
+		}
+		if (hTriggerEvent != NULL)
+		{
+			DeleteCriticalSection(&criticalSection);
+			CloseHandle(hTriggerEvent);
+			hTriggerEvent = NULL;
+		}
+		if (logPending != NULL)
+		{
+			delete [] logPending;
+			logPending = NULL;
+		}
+		refCount = 0;
 	}
-	if (hTriggerEvent != NULL)
-		CloseHandle(hTriggerEvent);
 
 	FreeConsole();
 	hConsole = NULL;
