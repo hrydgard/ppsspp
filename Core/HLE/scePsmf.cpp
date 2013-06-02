@@ -683,7 +683,7 @@ int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename)
 	}
 	else
 	{
-		WARN_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmf");
+		DEBUG_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmf");
 	}
 
 	return 0;
@@ -702,7 +702,7 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 	}
 	else
 	{
-		WARN_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmfCB");
+		DEBUG_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmfCB");
 	}
 
 	return 0;
