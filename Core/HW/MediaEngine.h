@@ -32,6 +32,7 @@
 
 enum AVPixelFormat;
 struct SwsContext;
+struct AVFrame;
 
 class MediaEngine
 {
@@ -72,8 +73,8 @@ public:
 
 	void *m_pFormatCtx;
 	void *m_pCodecCtx;
-	void *m_pFrame;
-	void *m_pFrameRGB;
+	AVFrame *m_pFrame;
+	AVFrame *m_pFrameRGB;
 	void *m_pIOContext;
 	int  m_videoStream;
 	SwsContext *m_sws_ctx;
