@@ -673,22 +673,38 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
+
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
+	{
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	psmfplayer->mediaengine->loadFile(filename);
-	psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->mediaengine->loadFile(filename);
+		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	}
+	else
+	{
+		ERROR_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmf");
+	}
+
 	return 0;
 }
 
 int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
+
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
+	{
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	psmfplayer->mediaengine->loadFile(filename);
-	psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->mediaengine->loadFile(filename);
+		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	}
+	else
+	{
+		ERROR_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmfCB");
+	}
+
 	return 0;
 }
 
