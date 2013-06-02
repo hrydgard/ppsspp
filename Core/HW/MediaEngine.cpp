@@ -43,9 +43,9 @@ static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551 = 0x01;
 static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444 = 0x02;
 static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0x03;
 
+#ifdef USE_FFMPEG
 static AVPixelFormat getSwsFormat(int pspFormat)
 {
-#ifdef USE_FFMPEG
 	switch (pspFormat)
 	{
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
@@ -61,10 +61,8 @@ static AVPixelFormat getSwsFormat(int pspFormat)
 		ERROR_LOG(ME, "Unknown pixel format");
 		return (AVPixelFormat)0;
 	}
-#else
-	return (AVPixelFormat)0;
-#endif;
 }
+#endif
 
 static int getPixelFormatBytes(int pspFormat)
 {
@@ -565,3 +563,4 @@ s64 MediaEngine::getLastTimeStamp() {
 	int lastTimeStamp = bswap32(*(int*)(m_pdata + 92));
 	return lastTimeStamp;
 }
+
