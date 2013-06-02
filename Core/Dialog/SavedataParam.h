@@ -20,6 +20,9 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/System.h"
+#undef st_ctime
+#undef st_atime
+#undef st_mtime
 
 enum SceUtilitySavedataType
 {

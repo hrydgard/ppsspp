@@ -1,5 +1,3 @@
-#include <cstring>
-
 extern "C"
 {
 #include "ext/libkirk/kirk_engine.h"

@@ -23,7 +23,8 @@
 #include "sceKernelThread.h"
 #include "HLE.h"
 #include "../HW/MediaEngine.h"
-#include "../../Core/Config.h"
+#include "Core/Config.h"
+#include "Core/Reporting.h"
 
 static bool useMediaEngine;
 
@@ -193,7 +194,7 @@ MpegContext *getMpegCtx(u32 mpegAddr) {
 	// TODO: Remove.
 	if (mpegMap.find(mpeg) == mpegMap.end())
 	{
-		ERROR_LOG(HLE, "Bad mpeg handle %08x - using last one (%08x) instead", mpeg, lastMpegHandle);
+		ERROR_LOG_REPORT(HLE, "Bad mpeg handle %08x - using last one (%08x) instead", mpeg, lastMpegHandle);
 		mpeg = lastMpegHandle;
 	}
 
@@ -630,10 +631,10 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	u32 init = Memory::Read_U32(initAddr);
 	DEBUG_LOG(HLE, "*buffer = %08x, *init = %08x", buffer, init);
 
-	if (ctx->mediaengine->stepVideo()) {
+	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		ctx->mediaengine->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
 	}
-	ringbuffer.packetsFree = std::min(16, ctx->mediaengine->getRemainSize() / 2048);
+	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp();
 
@@ -774,12 +775,12 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	u32 init = Memory::Read_U32(initAddr);
 	DEBUG_LOG(HLE, "*buffer = %08x, *init = %08x", buffer, init);
 
-	if (ctx->mediaengine->stepVideo()) {
+	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		// do nothing
 		;
 	}
 
-	ringbuffer.packetsFree = std::min(16, ctx->mediaengine->getRemainSize() / 2048);
+	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp();
 	ctx->avc.avcFrameStatus = 1;
@@ -886,13 +887,15 @@ void PostPutAction::run(MipsCall &call) {
 			WARN_LOG(HLE, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer.packetsFree);
 			packetsAdded = ringbuffer.packetsFree;
 		}
-		ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer.data), packetsAdded * 2048);
+		int actuallyAdded = ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer.data), packetsAdded * 2048) / 2048;
+		if (actuallyAdded != packetsAdded) {
+			WARN_LOG_REPORT(HLE, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
+		}
 		ringbuffer.packetsRead += packetsAdded;
 		ringbuffer.packetsWritten += packetsAdded;
-		//ringbuffer.packetsFree = std::min(16, ctx->mediaengine->getRemainSize() / 2048);
-		ringbuffer.packetsFree = 0;
+		ringbuffer.packetsFree -= packetsAdded;
 	}
-	DEBUG_LOG(HLE, "packetAdded: %i packetsRead: %i packetsTotol: %i", packetsAdded, ringbuffer.packetsRead, ringbuffer.packets);
+	DEBUG_LOG(HLE, "packetAdded: %i packetsRead: %i packetsTotal: %i", packetsAdded, ringbuffer.packetsRead, ringbuffer.packets);
 
 	Memory::WriteStruct(ringAddr_, &ringbuffer);
 	call.setReturnValue(packetsAdded);

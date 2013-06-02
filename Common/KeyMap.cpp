@@ -15,9 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <map>
-#include <string>
-
 #include "input/input_state.h"
 #include "Core/Config.h"
 #include "KeyMap.h"

@@ -19,7 +19,6 @@
 
 #include "../../Globals.h"
 #include "ChunkFile.h"
-#include <string>
 
 enum FileAccess
 {

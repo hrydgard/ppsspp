@@ -673,22 +673,38 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
+
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
+	{
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	psmfplayer->mediaengine->loadFile(filename);
-	psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->mediaengine->loadFile(filename);
+		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	}
+	else
+	{
+		ERROR_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmf");
+	}
+
 	return 0;
 }
 
 int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
+
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
+	{
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	psmfplayer->mediaengine->loadFile(filename);
-	psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->mediaengine->loadFile(filename);
+		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	}
+	else
+	{
+		ERROR_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmfCB");
+	}
+
 	return 0;
 }
 
@@ -763,7 +779,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 		}
 	}
 	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfplayer->mediaengine->stepVideo();
+	psmfplayer->mediaengine->stepVideo(videoPixelMode);
 	psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
 	// This seems to be crazy!
 	return  hleDelayResult(0, "psmfPlayer update", 30000);

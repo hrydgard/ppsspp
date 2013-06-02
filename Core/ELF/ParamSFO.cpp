@@ -17,7 +17,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "../Globals.h"
 #include "ParamSFO.h"
 
 struct Header
