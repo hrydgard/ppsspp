@@ -210,8 +210,8 @@ void Download::Do() {
 	net::Shutdown();
 }
 
-shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
-	shared_ptr<Download> dl(new Download(url, outfile));
+std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
+	std::shared_ptr<Download> dl(new Download(url, outfile));
 	downloads_.push_back(dl);
 	return dl;
 }

@@ -44,7 +44,7 @@ public:
 
 private:
 	const int numThreads;
-	std::vector<shared_ptr<WorkerThread>> workers;
+	std::vector<std::shared_ptr<WorkerThread>> workers;
 	::recursive_mutex mutex; // used to sequentialize loop execution
 
 	bool workersStarted;

@@ -99,13 +99,13 @@ private:
 
 class Downloader {
 public:
-	shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
+	std::shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
 
 	// Drops finished downloads from the list.
 	void Update();
 
 private:
-	std::vector<shared_ptr<Download>> downloads_;
+	std::vector<std::shared_ptr<Download>> downloads_;
 };
 
 

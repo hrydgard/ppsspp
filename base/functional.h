@@ -12,7 +12,6 @@
 #include <boost/weak_ptr.hpp>
 #else
 #include <memory>
-using std::shared_ptr;
 #endif
 #include <vector>
 
