@@ -225,14 +225,16 @@ public:
 
 		int chainedActionType = 0;
 		if (chainedAction != NULL)
-			chainedActionType = chainedAction->actionTypeID;
-		p.Do(chainedActionType);
-
-		if (chainedActionType != 0)
 		{
-			if (p.mode == p.MODE_READ)
-				chainedAction = __KernelCreateAction(chainedActionType);
-			chainedAction->DoState(p);
+			chainedActionType = chainedAction->actionTypeID;
+			p.Do(chainedActionType);
+
+			if (chainedActionType != 0)
+			{
+				if (p.mode == p.MODE_READ)
+					chainedAction = __KernelCreateAction(chainedActionType);
+				chainedAction->DoState(p);
+			}
 		}
 	}
 
