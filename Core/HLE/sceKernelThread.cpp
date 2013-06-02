@@ -809,13 +809,15 @@ void MipsCall::DoState(PointerWrap &p)
 
 	int actionTypeID = 0;
 	if (doAfter != NULL)
-		actionTypeID = doAfter->actionTypeID;
-	p.Do(actionTypeID);
-	if (actionTypeID != 0)
 	{
-		if (p.mode == p.MODE_READ)
-			doAfter = __KernelCreateAction(actionTypeID);
-		doAfter->DoState(p);
+		actionTypeID = doAfter->actionTypeID;
+		p.Do(actionTypeID);
+		if (actionTypeID != 0)
+		{
+			if (p.mode == p.MODE_READ)
+				doAfter = __KernelCreateAction(actionTypeID);
+			doAfter->DoState(p);
+		}
 	}
 }
 
