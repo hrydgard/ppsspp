@@ -1,7 +1,7 @@
 // This file simply includes <functional> and applies any necessary compatibility fixes for
 // strange platforms like iOS.
 
-// Use p or placeholder as the namespace for placeholders.
+// Use placeholder as the namespace for placeholders.
 
 #pragma once
 
