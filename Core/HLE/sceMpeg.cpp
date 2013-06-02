@@ -631,7 +631,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	u32 init = Memory::Read_U32(initAddr);
 	DEBUG_LOG(HLE, "*buffer = %08x, *init = %08x", buffer, init);
 
-	if (ctx->mediaengine->stepVideo()) {
+	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		ctx->mediaengine->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
 	}
 	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
@@ -775,7 +775,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	u32 init = Memory::Read_U32(initAddr);
 	DEBUG_LOG(HLE, "*buffer = %08x, *init = %08x", buffer, init);
 
-	if (ctx->mediaengine->stepVideo()) {
+	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		// do nothing
 		;
 	}
