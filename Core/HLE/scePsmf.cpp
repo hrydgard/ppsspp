@@ -1015,9 +1015,12 @@ u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configAttr)
 	if (configMode == PSMF_PLAYER_CONFIG_MODE_LOOP) {
 		videoLoopStatus = configAttr;
 	} else if (configMode == PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE) {
-		videoPixelMode = configAttr;
+		// Does -1 mean default or something?
+		if (configAttr != -1) {
+			videoPixelMode = configAttr;
+		}
 	} else {
-		ERROR_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, %i, %i)", psmfPlayer , configMode, configAttr);
+		ERROR_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, %i, %i): unknown parameter", psmfPlayer, configMode, configAttr);
 	}
 
 	return 0;

@@ -447,6 +447,11 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 	u16 *imgbuf16 = (u16 *)buffer;
 	u16 *data16 = (u16 *)data;
 
+	if (width > m_desWidth - xpos)
+		width = m_desWidth - xpos;
+	if (height > m_desHeight - ypos)
+		height = m_desHeight - ypos;
+
 	switch (videoPixelMode) {
 	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
 		data += (ypos * m_desWidth + xpos) * sizeof(u32);
