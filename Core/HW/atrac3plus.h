@@ -6,7 +6,8 @@ namespace Atrac3plus_Decoder {
 	bool IsInstalled();
 	bool CanAutoInstall();
 	bool DoAutoInstall();
-	
+	std::string GetInstalledFilename();
+
 	int Init();
 	int Shutdown();
 

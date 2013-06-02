@@ -24,9 +24,19 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui_context.h"
-
+#include "Core/HW/atrac3plus.h"
 
 void UIScreen::update(InputState &input) {
+	if (!root_) {
+		CreateViews();
+	}
+
+	if (orientationChanged_) {
+		delete root_;
+		root_ = 0;
+		CreateViews();
+	}
+
 	UpdateViewHierarchy(input, root_);
 }
 
@@ -46,14 +56,15 @@ void UIScreen::touch(const TouchInput &touch) {
 PluginScreen::PluginScreen() {
 	// Let's start by downloading the json. We'll find out in Update when it's finished.
 	json_ = downloader_.StartDownload("http://www.ppsspp.org/update/at3plusdecoder.json", "");
+}
 
+void PluginScreen::CreateViews() {
 	I18NCategory *c = GetI18NCategory("Plugin");
 	// Build the UI.
 
 	using namespace UI;
 
 	root_ = new LinearLayout(ORIENT_VERTICAL);
-
 
 	Margins textMargins(20,17);
 
@@ -64,12 +75,14 @@ PluginScreen::PluginScreen() {
 		"reverse engineered code in the US and some other countries.\n"
 		"Choose \"More Information\" for more info.\n", ALIGN_LEFT, 1.0f, new LinearLayoutParams(1.0, textMargins)));
 
+	progress_ = root_->Add(new ProgressBar());
+
 	ViewGroup *buttonBar = new LinearLayout(ORIENT_HORIZONTAL);
 	root_->Add(buttonBar);
 
 	buttonDownload_ = new Button(c->T("Download"), new LinearLayoutParams(1.0));
-	buttonBar->Add(buttonDownload_)->OnClick.Add(std::bind(&PluginScreen::OnDownload, this, p::_1));
-	buttonBar->Add(new Button(c->T("More Information"), new LinearLayoutParams(1.0)))->OnClick.Add(std::bind(&PluginScreen::OnInformation, this, p::_1));
+	buttonBar->Add(buttonDownload_)->OnClick.Add(std::bind(&PluginScreen::OnDownload, this, placeholder::_1));
+	buttonBar->Add(new Button(c->T("More Information"), new LinearLayoutParams(1.0)))->OnClick.Add(std::bind(&PluginScreen::OnInformation, this, placeholder::_1));
 }
 
 void PluginScreen::update(InputState &input) {

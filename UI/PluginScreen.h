@@ -29,13 +29,18 @@
 
 class UIScreen : public Screen {
 public:
-	UIScreen() : Screen(), root_(0) {}
+	UIScreen() : Screen(), root_(0), orientationChanged_(false) {}
+	~UIScreen() { delete root_; }
+
 	virtual void update(InputState &input);
 	virtual void render();
 	virtual void touch(const TouchInput &touch);
 
 protected:
+	virtual void CreateViews() = 0;
+
 	UI::ViewGroup *root_;
+	bool orientationChanged_;
 };
 
 class PluginScreen : public UIScreen {
@@ -43,6 +48,9 @@ public:
 	PluginScreen();
 
 	virtual void update(InputState &input);
+	
+protected:
+	virtual void CreateViews();
 
 private:
 	UI::EventReturn OnDownload(UI::EventParams &e);
@@ -55,4 +63,5 @@ private:
 	// UI widgets that need updating
 	UI::TextView *tvDescription_;
 	UI::Button *buttonDownload_;
+	UI::ProgressBar *progress_;
 };
