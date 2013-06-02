@@ -124,34 +124,15 @@ PSPOskDialog::PSPOskDialog() : PSPDialog() {
 PSPOskDialog::~PSPOskDialog() {
 }
 
-void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<wchar_t> em_address)
 {
-	char stringBuffer[2048];
-	char *string = stringBuffer;
-
-	if (em_address == 0)
+	if (!em_address.Valid())
 	{
 		_string = "";
 		return;
 	}
 
-	u16 *src = (u16 *) Memory::GetPointer(em_address);
-	int c;
-	while (c = *src++)
-	{
-		if (c < 0x80)
-			*string++ = c;
-		else if (c < 0x800) {
-			*string++ = 0xC0 | (c >> 6);
-			*string++ = 0x80 | (c & 0x3F);
-		} else {
-			*string++ = 0xE0 | (c >> 12);
-			*string++ = 0x80 | ((c >> 6) & 0x3F);
-			*string++ = 0x80 | (c & 0x3F);
-		}
-	}
-	*string++ = '\0';
-	_string = stringBuffer;
+	ConvertUCS2ToUTF8(_string, &em_address[0]);
 }
 
 void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
@@ -189,16 +170,16 @@ int PSPOskDialog::Init(u32 oskPtr)
 		return -1;
 	}
 
-	oskParams = Memory::GetStruct<SceUtilityOskParams>(oskPtr);
+	oskParams = oskPtr;
 	if (oskParams->base.size != sizeof(SceUtilityOskParams))
 	{
 		ERROR_LOG(HLE, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
-	if (!Memory::IsValidAddress(oskParams->fieldPtr))
+	if (!oskParams->fields.Valid())
 	{
-		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fieldPtr);
+		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
 	}
 
@@ -211,17 +192,16 @@ int PSPOskDialog::Init(u32 oskPtr)
 	selectedChar = 0;
 	currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
 
-	Memory::ReadStruct(oskParams->fieldPtr, &oskData);
-	ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
-	ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
-	ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
+	ConvertUCS2ToUTF8(oskDesc, oskParams->fields[0].desc);
+	ConvertUCS2ToUTF8(oskIntext, oskParams->fields[0].intext);
+	ConvertUCS2ToUTF8(oskOuttext, oskParams->fields[0].outtext);
 
 	i_level = 0;
 
 	inputChars = L"";
 
-	if (oskData.intextPtr) {
-		u16 *src = (u16 *) Memory::GetPointer(oskData.intextPtr);
+	if (oskParams->fields[0].intext.Valid()) {
+		auto src = oskParams->fields[0].intext;
 		int c;
 		while (c = *src++)
 		{
@@ -646,9 +626,9 @@ u32 PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
 
 u32 PSPOskDialog::FieldMaxLength()
 {
-	if (oskData.outtextlimit > oskData.outtextlength - 1 || oskData.outtextlimit == 0)
-		return oskData.outtextlength - 1;
-	return oskData.outtextlimit;
+	if (oskParams->fields[0].outtextlimit > oskParams->fields[0].outtextlength - 1 || oskParams->fields[0].outtextlimit == 0)
+		return oskParams->fields[0].outtextlength - 1;
+	return oskParams->fields[0].outtextlimit;
 }
 
 void PSPOskDialog::RenderKeyboard()
@@ -835,31 +815,19 @@ int PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	for (u32 i = 0; i < oskData.outtextlength; ++i)
+	wchar_t *outText = oskParams->fields[0].outtext;
+	for (u32 i = 0, end = oskParams->fields[0].outtextlength; i < end; ++i)
 	{
 		u16 value = 0;
 		if (i < inputChars.size())
-			value = inputChars[i];
-		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
+			outText[i] = inputChars[i];
+		outText[i] = value;
 	}
 
 	oskParams->base.result = 0;
-	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
-	Memory::WriteStruct(oskParams->fieldPtr, &oskData);
+	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
 
 	return 0;
-}
-
-template <typename T>
-static void DoBasePointer(PointerWrap &p, T **ptr)
-{
-	u32 addr = *ptr == NULL ? 0 : (u8 *) *ptr - Memory::base;
-	p.Do(addr);
-	if (addr == 0)
-		*ptr = NULL;
-	else
-		*ptr = Memory::GetStruct<T>(addr);
-
 }
 
 int PSPOskDialog::Shutdown(bool force)
@@ -875,8 +843,7 @@ int PSPOskDialog::Shutdown(bool force)
 void PSPOskDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
-	DoBasePointer(p, &oskParams);
-	p.Do(oskData);
+	p.Do(oskParams);
 	p.Do(oskDesc);
 	p.Do(oskIntext);
 	p.Do(oskOuttext);
