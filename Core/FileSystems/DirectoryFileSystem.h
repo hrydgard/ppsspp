@@ -20,7 +20,6 @@
 // TODO: Remove the Windows-specific code, FILE is fine there too.
 
 #include <map>
-#include <string>
 
 #include "../Core/FileSystems/FileSystem.h"
 

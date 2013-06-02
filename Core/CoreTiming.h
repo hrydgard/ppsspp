@@ -33,8 +33,6 @@
 
 #include "../Globals.h"
 
-#include <string>
-
 class PointerWrap;
 
 //const int CPU_HZ = 222000000;

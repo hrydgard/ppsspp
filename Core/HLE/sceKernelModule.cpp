@@ -17,7 +17,6 @@
 
 #include <fstream>
 #include <algorithm>
-#include <string>
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"

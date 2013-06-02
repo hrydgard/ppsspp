@@ -19,9 +19,7 @@
 
 #include "../../Globals.h"
 
-#include <vector>
 #include <list>
-#include <cstring>
 
 class PointerWrap;
 
