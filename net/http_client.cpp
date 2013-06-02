@@ -119,12 +119,20 @@ int Client::GET(const char *resource, Buffer *output) {
 	if (!output->ReadAll(sock()))
 		return -1;
 
+	// Grab the first header line that contains the http code.
+
 	// Skip the header. TODO: read HTTP code and file size so we can make progress bars.
+
+	std::string firstline;
+	CHECK_GT(output->TakeLineCRLF(&firstline), 0);
+	int code = atoi(&firstline[9]);
+
+
 	while (output->SkipLineCRLF() > 0)
 		;
 
 	// output now contains the rest of the reply.
-	return 200;
+	return code;
 }
 
 int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output) {
@@ -172,7 +180,7 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 }
 
 Download::Download(const std::string &url, const std::string &outfile)
-	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false) {
+	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false), resultCode_(0) {
 
 	std::thread th(std::bind(&Download::Do, this));
 	th.detach();
@@ -197,16 +205,18 @@ void Download::Do() {
 		return;
 	}
 	client.Connect();
-	if (client.GET(fileUrl.Resource().c_str(), &buffer_)) {
+	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_);
+	if (resultCode == 200) {
 		progress_ = 1.0f;
 		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.c_str());
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
 			ELOG("Failed writing download to %s", outfile_.c_str());
 		}
 	} else {
-		ELOG("Error downloading %s to %s", url_.c_str(), outfile_.c_str());
+		progress_ = 1.0f;
+		ELOG("Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
 	}
-
+	resultCode_ = resultCode;
 	net::Shutdown();
 }
 

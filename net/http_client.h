@@ -81,6 +81,8 @@ public:
 
 	bool Failed() const { return failed_; }
 
+	int ResultCode() const { return resultCode_; }
+
 	std::string url() const { return url_; }
 	std::string outfile() const { return outfile_; }
 
@@ -94,8 +96,11 @@ private:
 	Buffer buffer_;
 	std::string url_;
 	std::string outfile_;
+	int resultCode_;
 	bool failed_;
 };
+
+using std::shared_ptr;
 
 class Downloader {
 public:

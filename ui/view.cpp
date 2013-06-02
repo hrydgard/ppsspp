@@ -127,8 +127,15 @@ void Clickable::Touch(const TouchInput &input) {
 }
 
 void Clickable::Update(const InputState &input_state) {
+	OnClick.Update();
 	if (!HasFocus())
 		return;
+
+	if (!enabled_) {
+		down_ = false;
+		return;
+	}
+
 	if (input_state.pad_buttons_down & PAD_BUTTON_A) {
 		down_ = true;
 	} else if (input_state.pad_buttons_up & PAD_BUTTON_A) {
@@ -199,7 +206,8 @@ void Button::Draw(UIContext &dc) {
 	Style style = dc.theme->buttonStyle;
 	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
 	if (down_) style = dc.theme->buttonDownStyle;
-	
+	if (!enabled_) style = dc.theme->buttonDisabledStyle;
+
 	dc.Draw()->DrawImage4Grid(dc.theme->buttonImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 }
@@ -226,6 +234,17 @@ void TextView::Draw(UIContext &dc) {
 	dc.Draw()->SetFontScale(textScale_, textScale_);
 	dc.Draw()->DrawTextRect(dc.theme->uiFont, text_.c_str(), bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF, textAlign_);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
+}
+
+void ProgressBar::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	dc.Draw()->MeasureText(dc.theme->uiFont, "  100%  ", &w, &h);
+}
+
+void ProgressBar::Draw(UIContext &dc) {
+	char temp[32];
+	sprintf(temp, "%i%%", (int)(progress_ * 100.0f));
+	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.h);
+	dc.Draw()->DrawTextRect(dc.theme->uiFont, temp, bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF, ALIGN_CENTER);
 }
 
 void TriggerButton::Touch(const TouchInput &input) {

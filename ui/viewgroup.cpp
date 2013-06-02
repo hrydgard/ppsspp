@@ -32,21 +32,24 @@ ViewGroup::~ViewGroup() {
 void ViewGroup::Touch(const TouchInput &input) {
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		(*iter)->Touch(input);
+		if ((*iter)->GetVisibility() == V_VISIBLE)
+			(*iter)->Touch(input);
 	}
 }
 
 void ViewGroup::Draw(UIContext &dc) {
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		(*iter)->Draw(dc);
+		if ((*iter)->GetVisibility() == V_VISIBLE)
+			(*iter)->Draw(dc);
 	}
 }
 
 void ViewGroup::Update(const InputState &input_state) {
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		(*iter)->Update(input_state);
+		if ((*iter)->GetVisibility() != V_GONE)
+			(*iter)->Update(input_state);
 	}
 }
 
@@ -73,6 +76,8 @@ bool ViewGroup::SubviewFocused(View *view) {
 float GetDirectionScore(View *origin, View *destination, FocusDirection direction) {
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
+		return 0.0f;
+	if (destination->GetEnabled() == false)
 		return 0.0f;
 
 	float dx = destination->GetBounds().centerX() - origin->GetBounds().centerX();
@@ -203,7 +208,13 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 	float weightSum = 0.0f;
 	float weightZeroSum = 0.0f;
 
+	int numVisible = 0;
+
 	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i]->GetVisibility() == V_GONE)
+			continue;
+		numVisible++;
+
 		const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
 		const LinearLayoutParams *linLayoutParams = dynamic_cast<const LinearLayoutParams *>(layoutParams);
 		Margins margins = defaultMargins_;
@@ -240,7 +251,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 	}
 
-	weightZeroSum += spacing_ * (views_.size() - 1);
+	weightZeroSum += spacing_ * (numVisible - 1);
 	
 	// Awright, got the sum. Let's take the remaining space after the fixed-size views,
 	// and distribute among the weighted ones.
@@ -293,6 +304,9 @@ void LinearLayout::Layout() {
 	}
 
 	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i]->GetVisibility() == V_GONE)
+			continue;
+
 		const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
 		const LinearLayoutParams *linLayoutParams = dynamic_cast<const LinearLayoutParams *>(layoutParams);
 

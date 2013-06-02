@@ -43,6 +43,12 @@ enum DrawableType {
 	DRAW_4GRID,
 };
 
+enum Visibility {
+	V_VISIBLE,
+	V_INVISIBLE,  // Keeps position, not drawn or interacted with
+	V_GONE,  // Does not participate in layout
+};
+
 struct Drawable {
 	Drawable() : type(DRAW_NOTHING) {}
 
@@ -71,6 +77,7 @@ struct Theme {
 	Style buttonStyle;
 	Style buttonFocusedStyle;
 	Style buttonDownStyle;
+	Style buttonDisabledStyle;
 
 	Style itemDownStyle;
 	Style itemFocusedStyle;
@@ -207,7 +214,7 @@ View *GetFocusedView();
 
 class View {
 public:
-	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), enabled_(true) {
+	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), enabled_(true), visibility_(V_VISIBLE) {
 		if (!layoutParams)
 			layoutParams_.reset(new LayoutParams());
 	}
@@ -255,13 +262,17 @@ public:
 	}
 
 	void SetEnabled(bool enabled) { enabled_ = enabled; }
-	bool Enabled() const { return enabled_; }
+	bool GetEnabled() const { return enabled_; }
+
+	void SetVisibility(Visibility visibility) { visibility_ = visibility; }
+	Visibility GetVisibility() const { return visibility_; }
 
 protected:
 	// Inputs to layout
 	scoped_ptr<LayoutParams> layoutParams_;
 	
 	bool enabled_;
+	Visibility visibility_;
 
 	// Results of measure pass. Set these in Measure.
 	float measuredWidth_;
@@ -447,7 +458,7 @@ public:
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
-
+	virtual void SetText(const std::string &text) { text_ = text; }
 private:
 	int font_;
 	std::string text_;
@@ -470,6 +481,21 @@ public:
 private:
 	int atlasImage_;
 	ImageSizeMode sizeMode_;
+};
+
+class ProgressBar : public InertView {
+public:
+	ProgressBar(LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), progress_(0.0) {}
+
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual void Draw(UIContext &dc);
+
+	void SetProgress(float progress) { progress_ = progress; }
+	float GetProgress() const { return progress_; }
+
+private:
+	float progress_;
 };
 
 
