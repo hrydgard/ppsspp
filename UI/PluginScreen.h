@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+
 #include <string>
 #include <vector>
 #include <map>
@@ -23,25 +24,10 @@
 #include "ui/screen.h"
 #include "ui/ui.h"
 #include "ui/viewgroup.h"
+#include "ui/ui_screen.h"
 #include "file/file_util.h"
 #include "net/http_client.h"
 
-
-class UIScreen : public Screen {
-public:
-	UIScreen() : Screen(), root_(0), orientationChanged_(false) {}
-	~UIScreen() { delete root_; }
-
-	virtual void update(InputState &input);
-	virtual void render();
-	virtual void touch(const TouchInput &touch);
-
-protected:
-	virtual void CreateViews() = 0;
-
-	UI::ViewGroup *root_;
-	bool orientationChanged_;
-};
 
 class PluginScreen : public UIScreen {
 public:
@@ -51,6 +37,7 @@ public:
 	
 protected:
 	virtual void CreateViews();
+	virtual void DrawBackground();
 
 private:
 	UI::EventReturn OnDownload(UI::EventParams &e);

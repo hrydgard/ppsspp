@@ -355,10 +355,10 @@ void NativeInitGraphics() {
 		// If first run and can't autoinstall, let's send the user to the atrac3plus download screen.
 		if (Atrac3plus_Decoder::CanAutoInstall()) {
 			Atrac3plus_Decoder::DoAutoInstall();
-		} else if ((true || g_Config.bFirstRun) && !Atrac3plus_Decoder::IsInstalled()) {
-			screenManager->switchScreen(new PluginScreen());
 		} else {
 			screenManager->switchScreen(new LogoScreen(boot_filename));
+			if ((true || g_Config.bFirstRun) && !Atrac3plus_Decoder::IsInstalled())
+				screenManager->push(new PluginScreen());
 		}
 	} else {
 		// Go directly into the game.

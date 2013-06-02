@@ -61,8 +61,10 @@ namespace MainWindow {
 #include "Core/SaveState.h"
 #include "Core/HLE/sceUtility.h"
 
-#include "MenuScreens.h"
-#include "EmuScreen.h"
+#include "UI/MenuScreens.h"
+#include "UI/EmuScreen.h"
+#include "UI/PluginScreen.h"
+
 #include "GameInfoCache.h"
 #include "android/jni/TestRunner.h"
 
@@ -98,7 +100,7 @@ static const uint32_t colors[4] = {
 	0xC0FFFFFF,
 };
 
-static void DrawBackground(float alpha) {
+void DrawBackground(float alpha) {
 	static float xbase[100] = {0};
 	static float ybase[100] = {0};
 	static int last_dp_xres = 0;
@@ -669,7 +671,12 @@ void AudioScreen::render() {
 	if (Atrac3plus_Decoder::IsInstalled()) {
 		UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
 	}
-	
+
+	VLinear vlinear(30, 300, 20);
+	if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
+		screenManager()->push(new PluginScreen());
+	}
+
 	UIEnd();
 }
 
