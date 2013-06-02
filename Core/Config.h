@@ -65,7 +65,6 @@ public:
 #endif
 	bool bStretchToDisplay;
 	int iFrameSkip;
-	bool bUseMediaEngine;
 
 	int iWindowX;
 	int iWindowY;
