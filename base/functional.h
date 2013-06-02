@@ -1,7 +1,7 @@
 // This file simply includes <functional> and applies any necessary compatibility fixes for
 // strange platforms like iOS.
 
-// Use placeholder as the namespace for placeholders.
+// Use p or placeholder as the namespace for placeholders.
 
 #pragma once
 
@@ -10,10 +10,10 @@
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <boost/weak_ptr.hpp>
-using namespace boost;
+using boost::shared_ptr;
 #else
 #include <memory>
-using namespace std;
+using std::shared_ptr;
 #endif
 #include <vector>
 
@@ -40,14 +40,21 @@ namespace std {
     {
         return shared_ptr<T>(new T(arg1));
     }
-}
+
+#else
+using std::bind;
+using std::function;
+using std::shared_ptr;
 #endif
 
 #ifdef __SYMBIAN32__
 #define placeholder
+#define p
 #elif defined(IOS)
 namespace placeholder = std::tr1::placeholders;
+namespace p = std::tr1::placeholders;
 #else
 namespace placeholder = std::placeholders;
+namespace p = std::placeholders;
 #endif
 
