@@ -763,7 +763,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 		}
 	}
 	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfplayer->mediaengine->stepVideo();
+	psmfplayer->mediaengine->stepVideo(videoPixelMode);
 	psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
 	// This seems to be crazy!
 	return  hleDelayResult(0, "psmfPlayer update", 30000);
