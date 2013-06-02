@@ -172,7 +172,7 @@ private:
 	void RemoveKorean(); // for Korean character removal
 	
 	u32 FieldMaxLength();
-	u32 GetIndex(const wchar_t* src, wchar_t ch);
+	int GetIndex(const wchar_t* src, wchar_t ch);
 
 	PSPPointer<SceUtilityOskParams> oskParams;
 	std::string oskDesc;

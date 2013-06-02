@@ -141,7 +141,7 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
 	char *string = stringBuffer;
 
 	int c;
-	while (c = *input++)
+	while ((c = *input++) != 0)
 	{
 		if (c < 0x80)
 			*string++ = c;
@@ -203,14 +203,8 @@ int PSPOskDialog::Init(u32 oskPtr)
 	if (oskParams->fields[0].intext.Valid()) {
 		auto src = oskParams->fields[0].intext;
 		int c;
-		while (c = *src++)
-		{
+		while ((c = *src++) != 0)
 			inputChars += c;
-			if(c == 0x00)
-			{
-				break;
-			}
-		}
 	}
 
 	// Eat any keys pressed before the dialog inited.
@@ -287,10 +281,10 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 						}
 					}
 				} else if(i_level == 2) {
-					u32 tmp = GetIndex(kor_vowel, sw);
+					int tmp = GetIndex(kor_vowel, sw);
 					if(tmp != -1) {
 						int tmp2 = -1;
-						for(int j = 0; j < sizeof(kor_vowelCom) / 4; j+=3) {
+						for(size_t j = 0; j < sizeof(kor_vowelCom) / 4; j+=3) {
 							if(kor_vowelCom[j] == tmp && kor_vowelCom[j + 1] == i_value[1]) {
 								tmp2 = kor_vowelCom[j + 2];
 								break;
@@ -317,7 +311,7 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 							}
 						}
 					} else {
-						u32 tmp = GetIndex(kor_lcons, sw);
+						int tmp = GetIndex(kor_lcons, sw);
 
 						if(tmp == -1) {
 							string += inputChars[i];
@@ -347,10 +341,10 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 						}
 					}
 				} else if(i_level == 3) {
-					u32 tmp = GetIndex(kor_lcons, sw);
+					int tmp = GetIndex(kor_lcons, sw);
 					if(tmp != -1) {
 						int tmp2 = -1;
-						for(int j = 0; j < sizeof(kor_lconsCom) / 4; j+=3) {
+						for(size_t j = 0; j < sizeof(kor_lconsCom) / 4; j+=3) {
 							if(kor_lconsCom[j] == tmp && kor_lconsCom[j + 1] == i_value[2]) {
 								tmp2 = kor_lconsCom[j + 2];
 								break;
@@ -382,7 +376,7 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 							}
 						}
 					} else {
-						u32 tmp = GetIndex(kor_vowel, sw);
+						int tmp = GetIndex(kor_vowel, sw);
 						if(tmp == -1) {
 							string += inputChars[i];
 							if (inputChars.size() < FieldMaxLength()) {
@@ -402,9 +396,9 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 						} else {
 							if (inputChars.size() < FieldMaxLength()) {
 								int tmp2 = -1;
-								for(int j = 0; j < sizeof(kor_lconsSpr) / 4; j+=3) {
+								for(size_t j = 0; j < sizeof(kor_lconsSpr) / 4; j+=3) {
 									if(kor_lconsSpr[j] == i_value[2]) {
-										tmp2 = j;
+										tmp2 = (int)j;
 										break;
 									}
 								}
@@ -421,7 +415,7 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 										i_level = 2;
 									}
 								} else {
-									u32 tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
+									int tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
 
 									if(tmp2 != -1) {
 										u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
@@ -563,7 +557,7 @@ void PSPOskDialog::RemoveKorean()
 	else if(i_level == 2)
 	{
 		int tmp = -1;
-		for(int i = 2; i < sizeof(kor_vowelCom) / 4; i+=3)
+		for(size_t i = 2; i < sizeof(kor_vowelCom) / 4; i+=3)
 		{
 			if(kor_vowelCom[i] == i_value[1])
 			{
@@ -587,7 +581,7 @@ void PSPOskDialog::RemoveKorean()
 	else if(i_level == 3)
 	{
 		int tmp = -1;
-		for(int i = 2; i < sizeof(kor_lconsCom) / 4; i+=3)
+		for(size_t i = 2; i < sizeof(kor_lconsCom) / 4; i+=3)
 		{
 			if(kor_lconsCom[i] == i_value[2])
 			{
@@ -611,9 +605,9 @@ void PSPOskDialog::RemoveKorean()
 	}
 }
 
-u32 PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
+int PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
 {
-	for(u32 i = 0; i < wcslen(src); i++)
+	for(int i = 0, end = (int)wcslen(src); i < end; i++)
 	{
 		if(src[i] == ch)
 		{
