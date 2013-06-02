@@ -157,14 +157,14 @@ struct EventParams {
 };
 
 struct HandlerRegistration {
-	function<EventReturn(EventParams&)> func;
+	std::function<EventReturn(EventParams&)> func;
 };
 
 class Event {
 public:
 	Event() : triggered_(false) {}
 
-	void Add(function<EventReturn(EventParams&)> func);
+	void Add(std::function<EventReturn(EventParams&)> func);
 
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
@@ -410,7 +410,7 @@ class CheckBox : public ClickableItem {
 public:
 	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {
-		OnClick.Add(bind(&CheckBox::OnClicked, this, placeholder::_1));
+		OnClick.Add(std::bind(&CheckBox::OnClicked, this, placeholder::_1));
 	}
 
 	virtual void Draw(UIContext &dc);

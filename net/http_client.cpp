@@ -174,7 +174,7 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 Download::Download(const std::string &url, const std::string &outfile)
 	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false) {
 
-	std::thread th(bind(&Download::Do, this));
+	std::thread th(std::bind(&Download::Do, this));
 	th.detach();
 }
 

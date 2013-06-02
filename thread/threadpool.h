@@ -13,7 +13,7 @@ public:
 	~WorkerThread();
 
 	// submit a new work item
-	void Process(const function<void()>& work);
+	void Process(const std::function<void()>& work);
 	// wait for a submitted work item to be completed
 	void WaitForCompletion();
 
@@ -23,7 +23,7 @@ private:
 	::condition_variable done; // used to signal work completion
 	::recursive_mutex mutex, doneMutex; // associated with each respective condition variable
 	volatile bool active, started;
-	function<void()> work_; // the work to be done by this thread
+	std::function<void()> work_; // the work to be done by this thread
 
 	void WorkFunc();
 
@@ -40,7 +40,7 @@ public:
 	// don't need a destructor, "workers" is cleared on delete, 
 	// leading to the stopping and joining of all worker threads (RAII and all that)
 
-	void ParallelLoop(function<void(int,int)> loop, int lower, int upper);
+	void ParallelLoop(std::function<void(int,int)> loop, int lower, int upper);
 
 private:
 	const int numThreads;

@@ -10,7 +10,6 @@
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
 #include <boost/weak_ptr.hpp>
-using boost::shared_ptr;
 #else
 #include <memory>
 using std::shared_ptr;
@@ -23,7 +22,11 @@ using std::shared_ptr;
 #include <tr1/memory>
 #endif
 namespace std {
-#ifndef __SYMBIAN32__
+#ifdef __SYMBIAN32__
+	using boost::bind;
+	using boost::function;
+	using boost::shared_ptr;
+#else
     using tr1::bind;
     using tr1::function;
     using tr1::shared_ptr;
@@ -40,21 +43,14 @@ namespace std {
     {
         return shared_ptr<T>(new T(arg1));
     }
-
-#else
-using std::bind;
-using std::function;
-using std::shared_ptr;
+}
 #endif
 
 #ifdef __SYMBIAN32__
 #define placeholder
-#define p
 #elif defined(IOS)
 namespace placeholder = std::tr1::placeholders;
-namespace p = std::tr1::placeholders;
 #else
 namespace placeholder = std::placeholders;
-namespace p = std::placeholders;
 #endif
 
