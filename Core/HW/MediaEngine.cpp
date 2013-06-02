@@ -43,44 +43,6 @@ static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551 = 0x01;
 static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444 = 0x02;
 static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0x03;
 
-inline void YUV444toRGB888(u8 ypos, u8 upos, u8 vpos, u8 &r, u8 &g, u8 &b)
-{
-	u8 u = upos - 128;
-	u8 v = vpos -128;
-	int rdif = v + ((v * 103) >> 8);
-	int invgdif = ((u * 88) >> 8) + ((v * 183) >> 8);
-	int bdif = u + ((u * 198) >> 8);
-
-	r = (u8)(ypos + rdif);
-	g = (u8)(ypos - invgdif);
-	b = (u8)(ypos + bdif);
-}
-
-void getPixelColor(u8 r, u8 g, u8 b, u8 a, int pixelMode, u16* color)
-{
-	switch (pixelMode)
-	{
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650: 
-		{
-			*color = ((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3);
-		}
-		break;
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
-		{
-			*color = ((a >> 7) << 15) | ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
-		}
-		break;
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
-		{
-			*color = ((a >> 4) << 12) | ((b >> 4) << 8) | ((g >> 4) << 4) | (r >> 4);
-		}
-		break;
-	default:
-		// do nothing yet
-		break;
-	}
-}
-
 static AVPixelFormat getSwsFormat(int pspFormat)
 {
 #ifdef USE_FFMPEG
@@ -482,43 +444,56 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 		return false;
 #ifdef USE_FFMPEG
 	// lock the image size
-	u8* imgbuf = buffer;
-	u8* data = m_pFrameRGB->data[0];
-	if (videoPixelMode == TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888)
-	{
-		// ABGR8888
-		data +=  (ypos *  m_desWidth + xpos) * 3;
+	u8 *imgbuf = buffer;
+	u8 *data = m_pFrameRGB->data[0];
+	u16 *imgbuf16 = (u16 *)buffer;
+	u16 *data16 = (u16 *)data;
+
+	switch (videoPixelMode) {
+	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+		data += (ypos * m_desWidth + xpos) * sizeof(u32);
 		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++)
-			{
-				u8 r = *(data++);
-				u8 g = *(data++);
-				u8 b = *(data++);
-				*(imgbuf++) = r;
-				*(imgbuf++) = g;
-				*(imgbuf++) = b;
-				*(imgbuf++) = 0xFF;
-			}
-			imgbuf += (frameWidth - width) * 4;
-			data += (m_desWidth - width) * 3;
+			memcpy(imgbuf, data, width * sizeof(u32));
+			data += m_desWidth * sizeof(u32);
+			imgbuf += frameWidth * sizeof(u32);
 		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+		data += (ypos * m_desWidth + xpos) * sizeof(u16);
+		for (int y = 0; y < height; y++) {
+			memcpy(imgbuf, data, width * sizeof(u16));
+			data += m_desWidth * sizeof(u16);
+			imgbuf += frameWidth * sizeof(u16);
+		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
+		data += (ypos * m_desWidth + xpos) * sizeof(u16);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				*imgbuf16++ = *data16++ | (1 << 15);
+			}
+			imgbuf16 += (frameWidth - width);
+			data16 += (m_desWidth - width);
+		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+		data += (ypos * m_desWidth + xpos) * sizeof(u16);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				*imgbuf16++ = *data16++ | (0xF << 12);
+			}
+			imgbuf16 += (frameWidth - width);
+			data16 += (m_desWidth - width);
+		}
+		break;
+
+	default:
+		ERROR_LOG(ME, "Unsupported video pixel format %d", videoPixelMode);
+		break;
 	}
-	else
-	{
-		data +=  (ypos *  m_desWidth + xpos) * 3;
-		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++)
-			{
-				u8 r = *(data++);
-				u8 g = *(data++);
-				u8 b = *(data++);
-				getPixelColor(r, g, b, 0xFF, videoPixelMode, (u16*)imgbuf);
-				imgbuf += 2;
-			}
-			imgbuf += (frameWidth - width) * 2;
-			data += (m_desWidth - width) * 3;
-		}
-	} 
 #endif // USE_FFMPEG
 	return true;
 }
