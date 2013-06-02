@@ -30,6 +30,9 @@
 #include "ChunkFile.h"
 #include "Core/HW/MpegDemux.h"
 
+enum AVPixelFormat;
+struct SwsContext;
+
 class MediaEngine
 {
 public:
@@ -44,7 +47,7 @@ public:
 	int getRemainSize() { return m_streamSize - m_readSize;}
 	int getBufferedSize() { return m_readSize - m_decodePos; }
 
-	bool stepVideo();
+	bool stepVideo(int videoPixelMode);
 	bool writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
 	bool writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
 	                             int xpos, int ypos, int width, int height);
@@ -63,17 +66,19 @@ public:
 
 private:
     bool openContext();
+	void updateSwsFormat(int videoPixelMode);
 
 public:
 
 	void *m_pFormatCtx;
 	void *m_pCodecCtx;
 	void *m_pFrame;
-    void *m_pFrameRGB;
+	void *m_pFrameRGB;
 	void *m_pIOContext;
 	int  m_videoStream;
-    void *m_sws_ctx;
-	u8* m_buffer;
+	SwsContext *m_sws_ctx;
+	AVPixelFormat m_sws_fmt;
+	u8 *m_buffer;
 
 	int  m_desWidth;
 	int  m_desHeight;
