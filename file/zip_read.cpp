@@ -164,7 +164,7 @@ bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) {
 #endif
 
 uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
-	char new_path[256] = {0};
+	char new_path[1024] = {0};
 	// Check if it already contains the path
 	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
 	}
@@ -177,7 +177,7 @@ uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
 
 bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
 {
-	char new_path[256] = {0};
+	char new_path[1024] = {0};
 	// Check if it already contains the path
 	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
 	}
@@ -202,7 +202,7 @@ bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<FileInfo
 
 bool DirectoryAssetReader::GetFileInfo(const char *path, FileInfo *info) 
 {
-	char new_path[256] = {0};
+	char new_path[1024] = {0};
 	// Check if it already contains the path
 	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
 	}
