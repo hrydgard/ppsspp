@@ -21,6 +21,14 @@
 #include "Core/HW/atrac3plus.h"
 
 #ifdef USE_FFMPEG
+
+// Urgh! Why is this needed?
+#ifdef ANDROID
+#ifndef UINT64_C
+#define UINT64_C(c) (c ## ULL)
+#endif
+#endif
+
 extern "C" {
 
 #include "libavcodec/avcodec.h"
@@ -119,7 +127,7 @@ void MediaEngine::closeMedia() {
 	m_videoStream = -1;
 	m_pdata = 0;
 	m_demux = 0;
-	Atrac3plus_Decoder::closeContext(&m_audioContext);
+	Atrac3plus_Decoder::CloseContext(&m_audioContext);
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
@@ -199,8 +207,8 @@ bool MediaEngine::openContext() {
 	m_demux->setReadSize(m_readSize);
 	m_demux->demux();
 	m_audioPos = 0;
-	m_audioContext = Atrac3plus_Decoder::openContext();
-#endif USE_FFMPEG
+	m_audioContext = Atrac3plus_Decoder::OpenContext();
+#endif // USE_FFMPEG
 	return true;
 }
 
@@ -489,7 +497,7 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	int nextHeader = getNextHeaderPosition(audioStream, m_audioPos, audioSize, frameSize);
 	u8* frame = audioStream + m_audioPos;
 	int outbytes = 0;
-	Atrac3plus_Decoder::atrac3plus_decode(m_audioContext, frame, frameSize - 8, &outbytes, buffer);
+	Atrac3plus_Decoder::Decode(m_audioContext, frame, frameSize - 8, &outbytes, buffer);
 	if (nextHeader >= 0) {
 		m_audioPos = nextHeader;
 	} else

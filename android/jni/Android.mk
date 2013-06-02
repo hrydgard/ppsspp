@@ -181,6 +181,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/atrac3plus.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
+  $(SRC)/Core/HW/MpegDemux.cpp.arm \
+  $(SRC)/Core/HW/OMAConvert.cpp.arm \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
   $(SRC)/Core/Core.cpp \
