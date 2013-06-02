@@ -83,7 +83,7 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
-MediaEngine::MediaEngine(): m_pdata(0), m_streamSize(0), m_readSize(0){
+MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
 	m_pFormatCtx = 0;
 	m_pCodecCtx = 0;
 	m_pFrame = 0;
@@ -298,16 +298,16 @@ bool MediaEngine::setVideoDim(int width, int height)
 	m_pFrame = avcodec_alloc_frame();
 	
 	m_sws_ctx = NULL;
-	m_sws_fmt = (AVPixelFormat)-1;
+	m_sws_fmt = -1;
 	updateSwsFormat(TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888);
 
 	// Allocate video frame for RGB24
 	m_pFrameRGB = avcodec_alloc_frame();
-	int numBytes = avpicture_get_size(m_sws_fmt, m_desWidth, m_desHeight);  
+	int numBytes = avpicture_get_size((AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
     m_buffer = (u8*)av_malloc(numBytes * sizeof(uint8_t));
   
     // Assign appropriate parts of buffer to image planes in pFrameRGB   
-    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, m_sws_fmt, m_desWidth, m_desHeight);  
+    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, (AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
 #endif // USE_FFMPEG
 	return true;
 }
@@ -326,7 +326,7 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 				pCodecCtx->pix_fmt,
 				m_desWidth,
 				m_desHeight,
-				m_sws_fmt,
+				(AVPixelFormat)m_sws_fmt,
 				SWS_BILINEAR,
 				NULL,
 				NULL,

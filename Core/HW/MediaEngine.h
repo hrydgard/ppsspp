@@ -30,7 +30,6 @@
 #include "ChunkFile.h"
 #include "Core/HW/MpegDemux.h"
 
-enum AVPixelFormat;
 struct SwsContext;
 struct AVFrame;
 
@@ -78,7 +77,7 @@ public:
 	void *m_pIOContext;
 	int  m_videoStream;
 	SwsContext *m_sws_ctx;
-	AVPixelFormat m_sws_fmt;
+	int m_sws_fmt;
 	u8 *m_buffer;
 
 	int  m_desWidth;
