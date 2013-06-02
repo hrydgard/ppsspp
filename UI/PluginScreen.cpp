@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "base/functional.h"
 #include "UI/PluginScreen.h"
 #include "ext/vjson/json.h"
 #include "i18n/i18n.h"
@@ -81,20 +82,8 @@ void PluginScreen::update(InputState &input) {
 		JsonReader reader(json.data(), json.size());
 		reader.parse();
 		const json_value *root = reader.root();
-#if 0
-#if defined(_M_IX86) && defined(_WIN32)
-		at3plusdecoder_ = downloader_.StartDownload(root->getString("Win32"), "D:\at3.dll");
-#elif defined(_M_X64) && defined(_WIN32)
-		at3plusdecoder_ = downloader_.StartDownload(root->getString("Win64"), "D:\at364.dll");
-#elif defined(ARMEABI)
-		at3plusdecoder_ = downloader_.StartDownload(root->getString("armeabi"), "D:\at364.so");
-#elif defined(ARMEABI_V7A)
-		at3plusdecoder_ = downloader_.StartDownload(root->getString("armeabi-v7a"), "D:\at364.so");
-#else
-		// No decoder available for this arch
-		// #error Unable to identify architecture
-#endif
-#endif
+
+		std::string destination = Atrac3plus_Decoder::GetInstalledFilename();
 
 		json_.reset();
 	}
@@ -109,6 +98,22 @@ void PluginScreen::update(InputState &input) {
 
 UI::EventReturn PluginScreen::OnDownload(UI::EventParams &e) {
 	buttonDownload_->SetEnabled(false);
+
+#if 0
+#if defined(_M_IX86) && defined(_WIN32)
+	at3plusdecoder_ = downloader_.StartDownload(root->getString("Win32"), destination);
+#elif defined(_M_X64) && defined(_WIN32)
+	at3plusdecoder_ = downloader_.StartDownload(root->getString("Win64"), destination);
+#elif defined(ARMEABI)
+	at3plusdecoder_ = downloader_.StartDownload(root->getString("armeabi"), destination);
+#elif defined(ARMEABI_V7A)
+	at3plusdecoder_ = downloader_.StartDownload(root->getString("armeabi-v7a"), destination);
+#else
+	// No decoder available for this arch
+	// #error Unable to identify architecture
+#endif
+#endif
+
 	return UI::EVENT_DONE;
 }
 
