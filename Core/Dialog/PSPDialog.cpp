@@ -112,6 +112,10 @@ void PSPDialog::DoState(PointerWrap &p)
 	p.Do(status);
 	p.Do(lastButtons);
 	p.Do(buttons);
+	p.Do(fadeTimer);
+	p.Do(isFading);
+	p.Do(fadeIn);
+	p.Do(fadeValue);
 	p.DoMarker("PSPDialog");
 }
 
