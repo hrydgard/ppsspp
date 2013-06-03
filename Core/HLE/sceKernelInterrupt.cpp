@@ -552,7 +552,11 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 			// Try to handle overlapped copies with similar properties to hardware, just in case.
 			// Not that anyone ought to rely on it.
 			for (u32 size64 = size / 8; size64 > 0; --size64)
+			{
 				memmove(dstp, srcp, 8);
+				dstp += 8;
+				srcp += 8;
+			}
 			for (u32 size8 = size % 8; size8 > 0; --size8)
 				*dstp++ = *srcp++;
 		}
