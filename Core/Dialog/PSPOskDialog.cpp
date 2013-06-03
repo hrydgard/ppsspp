@@ -814,7 +814,7 @@ int PSPOskDialog::Update()
 	{
 		u16 value = 0;
 		if (i < inputChars.size())
-			outText[i] = inputChars[i];
+			value = inputChars[i];
 		outText[i] = value;
 	}
 
