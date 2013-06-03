@@ -63,6 +63,7 @@ LOCAL_SRC_FILES :=\
     ui/view.cpp \
     ui/viewgroup.cpp \
     ui/ui.cpp \
+    ui/ui_screen.cpp \
     ui/ui_context.cpp \
     ui/screen.cpp \
     ui/virtual_input.cpp \

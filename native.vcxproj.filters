@@ -269,6 +269,9 @@
     <ClInclude Include="base\functional.h">
       <Filter>base</Filter>
     </ClInclude>
+    <ClInclude Include="ui\ui_screen.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -473,6 +476,9 @@
     </ClCompile>
     <ClCompile Include="net\url.cpp">
       <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ui_screen.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

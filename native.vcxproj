@@ -244,6 +244,7 @@
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
     <ClInclude Include="ui\ui_context.h" />
+    <ClInclude Include="ui\ui_screen.h" />
     <ClInclude Include="ui\view.h" />
     <ClInclude Include="ui\viewgroup.h" />
     <ClInclude Include="ui\virtual_input.h" />
@@ -361,6 +362,7 @@
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
     <ClCompile Include="ui\ui_context.cpp" />
+    <ClCompile Include="ui\ui_screen.cpp" />
     <ClCompile Include="ui\view.cpp" />
     <ClCompile Include="ui\viewgroup.cpp" />
     <ClCompile Include="ui\virtual_input.cpp" />
