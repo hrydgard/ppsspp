@@ -619,7 +619,7 @@ u32 sceAtracEndEntry()
 
 u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracGetBufferInfoForReseting(%i, %i, %08x)",atracID, sample, bufferInfoAddr);
+	INFO_LOG(HLE, "sceAtracGetBufferInfoForReseting(%i, %i, %08x)",atracID, sample, bufferInfoAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		// TODO: Write the right stuff instead.
@@ -627,10 +627,15 @@ u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr
 		//return -1;
 	} else {
 		int Sampleoffset = atrac->getDecodePosBySample(sample);
+		int neededBytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
+		// reset the temp buf for adding more stream data
+		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
+		atrac->first.offset = 0;
+
 		Memory::Write_U32(atrac->first.addr, bufferInfoAddr);
 		Memory::Write_U32(atrac->first.writableBytes, bufferInfoAddr + 4);
-		Memory::Write_U32(atrac->first.neededBytes, bufferInfoAddr + 8);
-		Memory::Write_U32(Sampleoffset, bufferInfoAddr + 12);
+		Memory::Write_U32(neededBytes, bufferInfoAddr + 8);
+		Memory::Write_U32(atrac->first.fileoffset, bufferInfoAddr + 12);
 		Memory::Write_U32(atrac->second.addr, bufferInfoAddr + 16);
 		Memory::Write_U32(atrac->second.writableBytes, bufferInfoAddr + 20);
 		Memory::Write_U32(atrac->second.neededBytes, bufferInfoAddr + 24);
@@ -837,6 +842,8 @@ u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf,
 	if (!atrac) {
 		//return -1;
 	} else {
+		if (bytesWrittenFirstBuf > 0)
+			sceAtracAddStreamData(atracID, bytesWrittenFirstBuf);
 		atrac->currentSample = sample;
 #ifdef USE_FFMPEG
 		if (atrac->codeType == PSP_MODE_AT_3 && atrac->pCodecCtx) {
