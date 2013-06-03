@@ -541,9 +541,9 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 				if (atrac->sampleQueue.getQueueSize() < ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels) {
 					int decodebytes = 0;
 					atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
-					int inbytes = std::max((int)atrac->first.filesize - (int)atrac->decodePos, 0);
+					int inbytes = std::max((int)atrac->first.size - (int)atrac->decodePos, 0);
 					inbytes = std::min(inbytes, (int)atrac->atracBytesPerFrame);
-					if (inbytes > 0) {
+					if (inbytes > 0 && inbytes == atrac->atracBytesPerFrame) {
 						Atrac3plus_Decoder::Decode(atrac->decoder_context, atrac->data_buf + atrac->decodePos, inbytes, &decodebytes, buf);
 						DEBUG_LOG(HLE, "decodebytes: %i outbuf: %p", decodebytes, buf);
 						atrac->sampleQueue.push(buf, decodebytes);
