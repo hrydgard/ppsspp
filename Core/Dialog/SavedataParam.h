@@ -186,7 +186,7 @@ struct SceUtilitySavedataParam
 	u32 idListAddr;
 
 	// Function 12 FILES
-	u32 fileListAddr;
+	PSPPointer<SceUtilitySavedataFileListInfo> fileList;
 
 	// Function 22 GETSIZES
 	u32 sizeAddr;
