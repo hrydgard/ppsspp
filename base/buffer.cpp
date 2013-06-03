@@ -159,19 +159,22 @@ bool Buffer::ReadAll(int fd) {
 	return true;
 }
 
-void Buffer::Read(int fd, size_t sz) {
-  char buf[1024];
-  int retval;
-  while ((retval = recv(fd, buf, std::min(sz, sizeof(buf)), 0)) > 0) {
-    char *p = Append((size_t)retval);
-    memcpy(p, buf, retval);
-    sz -= retval;
-    if (sz == 0)
-      break;
-  }
+size_t Buffer::Read(int fd, size_t sz) {
+	char buf[1024];
+	int retval;
+	size_t received = 0;
+	while ((retval = recv(fd, buf, std::min(sz, sizeof(buf)), 0)) > 0) {
+		char *p = Append((size_t)retval);
+		memcpy(p, buf, retval);
+		sz -= retval;
+		received += retval;
+		if (sz == 0)
+			return 0;
+	}
+	return received;
 }
 
 void Buffer::PeekAll(std::string *dest) {
-  dest->resize(data_.size());
-  memcpy(&(*dest)[0], &data_[0], data_.size());
+	dest->resize(data_.size());
+	memcpy(&(*dest)[0], &data_[0], data_.size());
 }

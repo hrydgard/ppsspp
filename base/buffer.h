@@ -65,7 +65,7 @@ class Buffer {
   bool FlushSocket(uintptr_t sock);  // Windows portability
 
   bool ReadAll(int fd);
-  void Read(int fd, size_t sz);
+  size_t Read(int fd, size_t sz);
 
   // Utilities. Try to avoid checking for size.
   size_t size() const { return data_.size(); }

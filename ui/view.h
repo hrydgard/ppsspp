@@ -58,10 +58,11 @@ struct Drawable {
 };
 
 struct Style {
-	Style() : fgColor(0xFFFFFFFF), bgColor(0xFF303030) {}
+	Style() : fgColor(0xFFFFFFFF), bgColor(0xFF303030), image(-1) {}
 
 	uint32_t fgColor;
 	uint32_t bgColor;
+	int image;  // where applicable.
 };
 
 // To use with an UI atlas.
@@ -69,8 +70,6 @@ struct Theme {
 	int uiFont;
 	int uiFontSmall;
 	int uiFontSmaller;
-	int buttonImage;
-	int buttonSelected;
 	int checkOn;
 	int checkOff;
 	int whiteImage;

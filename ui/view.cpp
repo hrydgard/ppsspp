@@ -189,11 +189,13 @@ void ItemHeader::Draw(UIContext &dc) {
 
 void CheckBox::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
-	int paddingX = 80;
+	int paddingX = 4;
 	int paddingY = 4;
-	dc.Draw()->DrawImage(dc.theme->checkOn, bounds_.x + 30, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+
+	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
+
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	dc.Draw()->DrawImage(image, bounds_.x2() - 4, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -201,14 +203,12 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 }
 
 void Button::Draw(UIContext &dc) {
-	int image = down_ ? dc.theme->buttonImage : dc.theme->buttonSelected;
-	
 	Style style = dc.theme->buttonStyle;
 	if (HasFocus()) style = dc.theme->buttonFocusedStyle;
 	if (down_) style = dc.theme->buttonDownStyle;
 	if (!enabled_) style = dc.theme->buttonDisabledStyle;
 
-	dc.Draw()->DrawImage4Grid(dc.theme->buttonImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
+	dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 }
 
@@ -243,7 +243,7 @@ void ProgressBar::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 void ProgressBar::Draw(UIContext &dc) {
 	char temp[32];
 	sprintf(temp, "%i%%", (int)(progress_ * 100.0f));
-	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.h);
+	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.y2(), 0xc0c0c0c0);
 	dc.Draw()->DrawTextRect(dc.theme->uiFont, temp, bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF, ALIGN_CENTER);
 }
 

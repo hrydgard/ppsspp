@@ -127,7 +127,6 @@ int Client::GET(const char *resource, Buffer *output) {
 	CHECK_GT(output->TakeLineCRLF(&firstline), 0);
 	int code = atoi(&firstline[9]);
 
-
 	while (output->SkipLineCRLF() > 0)
 		;
 
@@ -181,7 +180,6 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 
 Download::Download(const std::string &url, const std::string &outfile)
 	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false), resultCode_(0) {
-
 	std::thread th(std::bind(&Download::Do, this));
 	th.detach();
 }
@@ -191,9 +189,12 @@ Download::~Download() {
 }
 
 void Download::Do() {
+	resultCode_ = 0;
+
 	Url fileUrl(url_);
 	if (!fileUrl.Valid()) {
 		failed_ = true;
+		progress_ = 1.0f;
 		return;
 	}
 	net::Init();
@@ -202,22 +203,22 @@ void Download::Do() {
 	if (!client.Resolve(fileUrl.Host().c_str(), 80)) {
 		ELOG("Failed resolving %s", url_.c_str());
 		failed_ = true;
+		progress_ = 1.0f;
 		return;
 	}
 	client.Connect();
 	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_);
 	if (resultCode == 200) {
-		progress_ = 1.0f;
 		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.c_str());
 		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
 			ELOG("Failed writing download to %s", outfile_.c_str());
 		}
 	} else {
-		progress_ = 1.0f;
 		ELOG("Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
 	}
 	resultCode_ = resultCode;
 	net::Shutdown();
+	progress_ = 1.0f;
 }
 
 std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
