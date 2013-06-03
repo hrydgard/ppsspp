@@ -844,13 +844,13 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
 	}
 
-	if (!Memory::IsValidAddress(param->fileListAddr)) {
-		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): bad fileList address %08x", param->fileListAddr);
+	if (!param->fileList.Valid()) {
+		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): bad fileList address %08x", param->fileList.ptr);
 		// Should crash.
 		return -1;
 	}
 
-	auto fileList = Memory::GetStruct<SceUtilitySavedataFileListInfo>(param->fileListAddr);
+	auto &fileList = param->fileList;
 	if (fileList->secureEntries.Valid() && fileList->maxSecureEntries > 99) {
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many secure entries, %d", fileList->maxSecureEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
