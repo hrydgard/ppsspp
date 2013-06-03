@@ -1,4 +1,8 @@
-﻿简体中文
+﻿
+戰數據
+
+
+简体中文
 [MainMenu]
 Credits = 开发人员
 Exit = 退出
@@ -37,11 +41,14 @@ System Settings = 系统设置
 Encrypt Save = 加密储存数据 (使用非文本格式)
 12HR Time Format = 使用12小时制
 Use Button X to Confirm = 使用X按钮确认
-Language = 语言设置
+Enable Cheats = 启用作弊码
 Enable Compatibility Server Reports = 向网络服务器报告兼容性问题
+Reload Cheats = 重载作弊码
+Language = 语言设置
 [Audio]
 Audio Settings = 声音设置
 Enable Sound = 开启声音
+Enable Atrac3+ = 开启Atract3+解码器
 [Controls]
 Controls Settings = 控制设置
 OnScreen = 触屏虚拟按钮
@@ -60,6 +67,7 @@ Media Engine = 媒体引擎
 Mipmapping = 多级纹理映射 (MipMap)
 Stream VBO = 流式顶点缓冲对象 (Stream VBO)
 Vertex Cache = 顶点缓存
+Partial Vertical Stretch = 垂直拉伸画面
 Stretch to Display = 拉伸画面
 AA = 抗锯齿处理
 Draw Wireframe = 显示线框
@@ -104,6 +112,10 @@ Finish = 完成
 Shift = Shift
 [Error]
 Error loading file = 文件载入错误
+[Screen]
+fixed = 速度：固定
+standard = 速度：标准
+unlimited = 速度：不限！
 
 繁體中文
 [MainMenu]
@@ -113,7 +125,6 @@ Credits = 製作組
 Exit = 離開
 Recent = 最近執行的遊戲
 [System]
-Language = 語言設定
 System Settings = 系統設定
 Dynarec = 動態重新編譯 (JIT)
 DynarecisJailed = 動態重新編譯 (JIT) - 尚未越獄故無法使用
@@ -122,9 +133,13 @@ Show Debug Statistics = 顯示除錯訊息
 Show FPS = 顯示每秒張數
 Encrypt Save = 加密儲存資料
 Use Button X to Confirm = 使用按鈕X確認
+Enable Cheats = 啓用作弊碼
 12HR Time Format = 使用12小時制
 Enable Compatibility Server Reports = 向網路伺服器報告相容性問題
+Reload Cheats = 重载作弊碼
+Language = 語言設定
 [Graphics]
+Partial Vertical Stretch = 畫面垂直拉伸
 Stretch to Display = 畫面拉伸
 Hardware Transform = 硬體幾何轉換
 Buffered Rendering = 描繪緩衝
@@ -142,14 +157,14 @@ Fps Limit = 每秒張數限制
 Fps  : = 張數：
 Auto = 自動
 Anisotropic Filtering = 非等方性過濾
-Level : = 等級 :
-Frames : = 跳格數 :
+Level : = 等級：
+Frames : = 跳格數：
 xBRZ Texture Scaling = xBRZ 貼圖放大
-Type  : = 類型 :
+Type  : = 類別：
 xBRZ = xBRZ
-Hybrid = 混合式
-Bicubic = 雙三次
-H+B = 混雙三
+Hybrid = 混合式(H)
+Bicubic = 雙三次(B)
+H+B = H+B
 Deposterize = 色調混合
 [Pause]
 Save State = 即時存檔
@@ -178,6 +193,7 @@ Dump frame to log = 建立記憶體轉儲
 [Audio]
 Audio Settings = 聲音設定
 Enable Sound = 開啟聲音
+Enable Atrac3+ = 開啓Atrac3+解碼器
 [Controls]
 Controls Settings = 控制器設定
 OnScreen = 顯示虛擬控制器
@@ -211,3 +227,7 @@ Deleting = 刪除中\n請稍候...
 Delete completed = 已刪除
 [Error]
 Error loading file = 檔案載入錯誤
+[Screen]
+fixed = 速度：固定
+standard = 速度：標準
+unlimited = 速度：不限！
