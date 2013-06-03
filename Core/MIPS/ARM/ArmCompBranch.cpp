@@ -265,6 +265,10 @@ void Jit::Comp_FPUBranch(u32 op)
 // If likely is set, discard the branch slot if NOT taken.
 void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 {
+	if (js.inDelaySlot) {
+		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x", js.compilerPC);
+		return;
+	}
 	int offset = (signed short)(op & 0xFFFF) << 2;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
