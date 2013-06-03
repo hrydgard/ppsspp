@@ -48,19 +48,28 @@ void PluginScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 
 	Margins textMargins(20,17);
+	Margins buttonMargins(10,10);
 
-	root_->Add(new TextView(UBUNTU48, "Audio decoding support", ALIGN_HCENTER, 1.0f, new LinearLayoutParams(textMargins)));
+	root_->Add(new TextView(UBUNTU24, "Atrac3+ Audio Decoding Support", ALIGN_HCENTER, 1.0f, new LinearLayoutParams(textMargins)));
 
 	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
-	
+	LinearLayout *scrollContents = new LinearLayout(ORIENT_VERTICAL);
 	root_->Add(scroll);
+	scroll->Add(scrollContents);
 
-	tvDescription_ = scroll->Add(new TextView(0, "Looking for download...", ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins)));
+	tvDescription_ = scrollContents->Add(new TextView(0, "Looking for download...", ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins)));
+
+	const char *legalityNotice =
+		"* Mai's Atrac3+ decoder is required for audio in many games.\n"
+		"Please note that the origins of this code are dubious.\n"
+		"Choose More Information for more information.";
+
+	scrollContents->Add(new TextView(0, legalityNotice, ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins) ));
 
 	progress_ = root_->Add(new ProgressBar());
 	progress_->SetVisibility(V_GONE);
 
-	ViewGroup *buttonBar = new LinearLayout(ORIENT_HORIZONTAL);
+	ViewGroup *buttonBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(buttonMargins));
 	root_->Add(buttonBar);
 
 	buttonBack_ = new Button(c->T("Back"), new LinearLayoutParams(1.0));
@@ -99,15 +108,8 @@ void PluginScreen::update(InputState &input) {
 				buttonDownload_->SetEnabled(false);
 			} else {
 				buttonDownload_->SetEnabled(true);
-
-				const char *notInstalledText = "Would you like to install Atrac3+ decoding support by Mai?\n"
-					"This is required for audio in many games.\n"
-					"Note that there may be legality issues around non-clean-room\n"
-					"reverse engineered code in the US and some other countries.\n"
-
-					"Choose \"More Information\" for more info.\n";
-
-				const char *reInstallText = "Would you like to redownload Atrac3+ decoding support by Mai?\n";
+				const char *notInstalledText = "To download and install Mai's Atrac3+ decoding support, click Download.\n";
+				const char *reInstallText = "Mai's Atrac3+ decoder already installed.\nWould you like to redownload and reinstall it?\n";
 				tvDescription_->SetText(Atrac3plus_Decoder::IsInstalled() ? reInstallText : notInstalledText);
 			}
 		}
@@ -129,6 +131,7 @@ void PluginScreen::update(InputState &input) {
 			char codeStr[18];
 			sprintf(codeStr, "%i", result);
 			tvDescription_->SetText(std::string("Failed to download (") + codeStr + ").\nPlease try again later.");
+			progress_->SetVisibility(UI::V_GONE);
 			buttonDownload_->SetEnabled(true);
 		}
 
@@ -141,7 +144,7 @@ UI::EventReturn PluginScreen::OnDownload(UI::EventParams &e) {
 
 	std::string destination = Atrac3plus_Decoder::GetInstalledFilename();
 	at3plusdecoder_ = downloader_.StartDownload(at3plusdecoderUrl_, destination);
-
+	progress_->SetVisibility(UI::V_VISIBLE);
 	return UI::EVENT_DONE;
 }
 
