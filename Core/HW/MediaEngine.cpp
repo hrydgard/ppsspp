@@ -361,19 +361,13 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 					pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
       
 			if(frameFinished) {
-				if (m_videopts == 3003) {
-					m_audiopts = packet.pts;
-				}
-				m_videopts = packet.pts + packet.duration;
+				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
+				m_videopts = packet.pts + packet.duration - firstTimeStamp;
 				bGetFrame = true;
 			}
 		}
 		av_free_packet(&packet);
 		if (bGetFrame) break;
-	}
-	if (m_audiopts > 0) {
-		if (m_audiopts - m_videopts > 5000)
-			return stepVideo(videoPixelMode);
 	}
 	return bGetFrame;
 #else
@@ -557,7 +551,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 }
 
 s64 MediaEngine::getAudioTimeStamp() {
-	if (m_audiopts > 0)
+	if (m_demux)
 		return m_audiopts;
 	return m_videopts;
 }
@@ -565,7 +559,8 @@ s64 MediaEngine::getAudioTimeStamp() {
 s64 MediaEngine::getLastTimeStamp() {
 	if (!m_pdata)
 		return 0;
+	int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
 	int lastTimeStamp = bswap32(*(int*)(m_pdata + 92));
-	return lastTimeStamp;
+	return lastTimeStamp - firstTimeStamp;
 }
 
