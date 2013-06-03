@@ -19,16 +19,9 @@
 #include <string>
 #include <cstdio>
 
-#ifdef _WIN32
-namespace MainWindow {
-	void BrowseAndBoot(std::string defaultPath);
-}
-
-#pragma execution_character_set("utf-8")
-#endif
-
 #ifdef _MSC_VER
 #define snprintf _snprintf
+#pragma execution_character_set("utf-8")
 #endif
 
 #include "base/display.h"
@@ -70,6 +63,13 @@ namespace MainWindow {
 #include <QFileDialog>
 #include <QFile>
 #include <QDir>
+#endif
+
+#ifdef _WIN32
+namespace MainWindow {
+	extern HWND hwndMain;
+	void BrowseAndBoot(std::string defaultPath);
+}
 #endif
 
 #if !defined(nullptr)
@@ -251,12 +251,12 @@ void MenuScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, 0, m->T("Exit"), ALIGN_RIGHT)) {
-		// TODO: Save when setting changes, rather than when we quit
-		NativeShutdown();
 		// TODO: Need a more elegant way to quit
 #ifdef _WIN32
-		ExitProcess(0);
+		PostMessage(MainWindow::hwndMain, WM_CLOSE, 0, 0);
 #else
+		// TODO: Save when setting changes, rather than when we quit
+		NativeShutdown();
 		exit(0);
 #endif
 	}
