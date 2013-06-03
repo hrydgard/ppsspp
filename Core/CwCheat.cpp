@@ -144,9 +144,9 @@ inline std::vector<std::string> makeCodeParts() {
 	std::vector<std::string> CodesList = cheats.GetCodesList();
 	char split_char = '\n';
 	char empty = ' ';
-	for (int i = 0; i < CodesList.size(); i++) {
+	for (size_t i = 0; i < CodesList.size(); i++) {
 		currentcode = CodesList[i];
-		for (int j=0; j < currentcode.length(); j++) {
+		for (size_t j=0; j < currentcode.length(); j++) {
 			if (currentcode[j] == empty) {
 				currentcode[j] = '\n';
 			}
@@ -175,7 +175,7 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 			codesList.push_back(line);
 		}
 	}
-	for( int i = 0; i < codesList.size(); i++) {
+	for(size_t i = 0; i < codesList.size(); i++) {
 		trim2(codesList[i]);
 	}
 	return codesList;

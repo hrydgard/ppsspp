@@ -464,7 +464,7 @@ elseif(BLACKBERRY)
 	add_definitions(-DUSE_FFMPEG)
 	include_directories(ffmpeg/blackberry/armv7/include)
 	link_directories(ffmpeg/blackberry/armv7/lib)
-	set(nativeExtraLibs ${nativeExtraLibs} iconv libavformat.a libavcodec.a libswresample.a libavutil.a)
+	set(nativeExtraLibs ${nativeExtraLibs} iconv libavformat.a libavcodec.a libswresample.a libavutil.a libswscale.a)
 	set(TargetBin PPSSPPBlackberry)
 elseif(SDL_FOUND)
 	# Require SDL
@@ -603,6 +603,12 @@ add_library(native STATIC
 	native/ui/ui.h
 	native/ui/ui_context.cpp
 	native/ui/ui_context.h
+	native/ui/ui_screen.cpp
+	native/ui/ui_screen.h
+	native/ui/view.cpp
+	native/ui/view.h
+	native/ui/viewgroup.cpp
+	native/ui/viewgroup.h
 	native/ui/virtual_input.cpp
 	native/ui/virtual_input.h
 	native/util/bits/bits.cpp

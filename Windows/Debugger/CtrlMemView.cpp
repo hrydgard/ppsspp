@@ -201,11 +201,11 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 					  sprintf(temp, "%08x %08x %08x %08x  ................", 
 						  memory[0],memory[1],memory[2],memory[3]);
 					}
-					for (int i=0; i<16; i++)
+					for (int j=0; j<16; ++j)
 					{
-						int c = (unsigned char)m[i];
+						int c = (unsigned char)m[j];
 						if (c>=32 && c<255)
-							temp[i+37]=c;
+							temp[j+37]=c;
 					}
 				}
 //				if (align == 16)

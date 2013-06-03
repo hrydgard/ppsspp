@@ -2,7 +2,7 @@
 
 #include "../Core/Config.h"
 
-shared_ptr<ThreadPool> GlobalThreadPool::pool;
+std::shared_ptr<ThreadPool> GlobalThreadPool::pool;
 bool  GlobalThreadPool::initialized = false;
 
 void GlobalThreadPool::Loop(const std::function<void(int,int)>& loop, int lower, int upper) {

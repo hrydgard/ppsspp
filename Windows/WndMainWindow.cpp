@@ -405,8 +405,6 @@ namespace MainWindow
 		int wmId, wmEvent;
 		std::string fn;
 
-		I18NCategory *g = GetI18NCategory("Graphics");
-
 		switch (message) 
 		{
 		case WM_CREATE:
@@ -430,6 +428,9 @@ namespace MainWindow
 			return 0;
 
 		case WM_COMMAND:
+			{
+			I18NCategory *g = GetI18NCategory("Graphics");
+
 			wmId    = LOWORD(wParam); 
 			wmEvent = HIWORD(wParam); 
 			// Parse the menu selections:
@@ -713,21 +714,20 @@ namespace MainWindow
 			case ID_EMULATION_SOUND:
 				g_Config.bEnableSound = !g_Config.bEnableSound;
 				break;
-      			case ID_HELP_OPENWEBSITE:
+      		case ID_HELP_OPENWEBSITE:
 				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-        			break;
+        		break;
 
-      			case ID_HELP_ABOUT:
+      		case ID_HELP_ABOUT:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
 				break;
 
 			default:
-				{
-					MessageBox(hwndMain,"Unimplemented","Sorry",0);
-				}
+				MessageBox(hwndMain,"Unimplemented","Sorry",0);
 				break;
+			}
 			}
 			break;
 		case WM_KEYDOWN:
@@ -1357,7 +1357,7 @@ namespace MainWindow
 										} else {
 											int n = 1;
 											if (buttonCode != -1) {
-												for (int i = buttonCode >> 8; i > 1; i >>= 1) {
+												for (int j = buttonCode >> 8; j > 1; j >>= 1) {
 													n++;
 												}
 												snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",

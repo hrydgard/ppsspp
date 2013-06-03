@@ -43,45 +43,45 @@ static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551 = 0x01;
 static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444 = 0x02;
 static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0x03;
 
-inline void YUV444toRGB888(u8 ypos, u8 upos, u8 vpos, u8 &r, u8 &g, u8 &b)
+#ifdef USE_FFMPEG
+static AVPixelFormat getSwsFormat(int pspFormat)
 {
-	u8 u = upos - 128;
-	u8 v = vpos -128;
-	int rdif = v + ((v * 103) >> 8);
-	int invgdif = ((u * 88) >> 8) + ((v * 183) >> 8);
-	int bdif = u + ((u * 198) >> 8);
-
-	r = (u8)(ypos + rdif);
-	g = (u8)(ypos - invgdif);
-	b = (u8)(ypos + bdif);
-}
-
-void getPixelColor(u8 r, u8 g, u8 b, u8 a, int pixelMode, u16* color)
-{
-	switch (pixelMode)
+	switch (pspFormat)
 	{
-	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650: 
-		{
-			*color = ((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3);
-		}
-		break;
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+		return AV_PIX_FMT_BGR565LE;
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
-		{
-			*color = ((a >> 7) << 15) | ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
-		}
-		break;
+		return AV_PIX_FMT_BGR555LE;
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
-		{
-			*color = ((a >> 4) << 12) | ((b >> 4) << 8) | ((g >> 4) << 4) | (r >> 4);
-		}
-		break;
+		return AV_PIX_FMT_BGR444LE;
+	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+		return AV_PIX_FMT_RGBA;
+
 	default:
-		// do nothing yet
-		break;
+		ERROR_LOG(ME, "Unknown pixel format");
+		return (AVPixelFormat)0;
+	}
+}
+#endif
+
+static int getPixelFormatBytes(int pspFormat)
+{
+	switch (pspFormat)
+	{
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+		return 2;
+	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+		return 4;
+
+	default:
+		ERROR_LOG(ME, "Unknown pixel format");
+		return 4;
 	}
 }
 
-MediaEngine::MediaEngine(): m_pdata(0), m_streamSize(0), m_readSize(0){
+MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
 	m_pFormatCtx = 0;
 	m_pCodecCtx = 0;
 	m_pFrame = 0;
@@ -174,11 +174,11 @@ bool MediaEngine::openContext() {
 	if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
 		return false;
 
-	 // Dump information about file onto standard error
+	// Dump information about file onto standard error
 	av_dump_format(pFormatCtx, 0, NULL, 0);
 
 	// Find the first video stream
-	for(int i = 0; i < pFormatCtx->nb_streams; i++) {
+	for(int i = 0; i < (int)pFormatCtx->nb_streams; i++) {
 		if(pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
 			m_videoStream = i;
 			break;
@@ -259,7 +259,7 @@ bool MediaEngine::loadFile(const char* filename)
 	return true;
 }
 
-void MediaEngine::addStreamData(u8* buffer, int addSize) {
+int MediaEngine::addStreamData(u8* buffer, int addSize) {
 	int size = std::min(addSize, m_streamSize - m_readSize);
 	if (size > 0) {
 		memcpy(m_pdata + m_readSize, buffer, size);
@@ -271,6 +271,7 @@ void MediaEngine::addStreamData(u8* buffer, int addSize) {
 			m_demux->demux();
 		}
 	}
+	return size;
 }
 
 bool MediaEngine::setVideoDim(int width, int height)
@@ -294,37 +295,55 @@ bool MediaEngine::setVideoDim(int width, int height)
 	// Allocate video frame
 	m_pFrame = avcodec_alloc_frame();
 	
-	m_sws_ctx = (void*)
-    sws_getContext
-    (
-        pCodecCtx->width,
-        pCodecCtx->height,
-        pCodecCtx->pix_fmt,
-        m_desWidth,
-        m_desHeight,
-        PIX_FMT_RGB24,
-        SWS_BILINEAR,
-        NULL,
-        NULL,
-        NULL
-    );
+	m_sws_ctx = NULL;
+	m_sws_fmt = -1;
+	updateSwsFormat(TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888);
 
 	// Allocate video frame for RGB24
 	m_pFrameRGB = avcodec_alloc_frame();
-	int numBytes = avpicture_get_size(PIX_FMT_RGB24, m_desWidth, m_desHeight);  
+	int numBytes = avpicture_get_size((AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
     m_buffer = (u8*)av_malloc(numBytes * sizeof(uint8_t));
   
     // Assign appropriate parts of buffer to image planes in pFrameRGB   
-    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, PIX_FMT_RGB24, m_desWidth, m_desHeight);  
+    avpicture_fill((AVPicture *)m_pFrameRGB, m_buffer, (AVPixelFormat)m_sws_fmt, m_desWidth, m_desHeight);
 #endif // USE_FFMPEG
 	return true;
 }
 
-bool MediaEngine::stepVideo() {
+void MediaEngine::updateSwsFormat(int videoPixelMode) {
+#ifdef USE_FFMPEG
+	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
+	AVPixelFormat swsDesired = getSwsFormat(videoPixelMode);
+	if (swsDesired != m_sws_fmt) {
+		m_sws_fmt = swsDesired;
+		m_sws_ctx = sws_getCachedContext
+			(
+				m_sws_ctx,
+				pCodecCtx->width,
+				pCodecCtx->height,
+				pCodecCtx->pix_fmt,
+				m_desWidth,
+				m_desHeight,
+				(AVPixelFormat)m_sws_fmt,
+				SWS_BILINEAR,
+				NULL,
+				NULL,
+				NULL
+			);
+	}
+#endif
+}
+
+bool MediaEngine::stepVideo(int videoPixelMode) {
 
 	// if video engine is broken, force to add timestamp
 	m_videopts += 3003;
 #ifdef USE_FFMPEG
+	updateSwsFormat(videoPixelMode);
+	// TODO: Technically we could set this to frameWidth instead of m_desWidth for better perf.
+	// Update the linesize for the new format too.  We started with the largest size, so it should fit.
+	m_pFrameRGB->linesize[0] = getPixelFormatBytes(videoPixelMode) * m_desWidth;
+
 	AVFormatContext *pFormatCtx = (AVFormatContext*)m_pFormatCtx;
 	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
 	AVFrame *pFrame = (AVFrame*)m_pFrame;
@@ -337,24 +356,18 @@ bool MediaEngine::stepVideo() {
 	while(av_read_frame(pFormatCtx, &packet)>=0) {
 		if(packet.stream_index == m_videoStream) {
 			// Decode video frame
-			avcodec_decode_video2(pCodecCtx, pFrame, &frameFinished, &packet);
-			sws_scale((SwsContext*)m_sws_ctx, pFrame->data, pFrame->linesize, 0, 
-					pCodecCtx->height, pFrameRGB->data, pFrameRGB->linesize);
+			avcodec_decode_video2(pCodecCtx, m_pFrame, &frameFinished, &packet);
+			sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
+					pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
       
 			if(frameFinished) {
-				if (m_videopts == 3003) {
-					m_audiopts = packet.pts;
-				}
-				m_videopts = packet.pts + packet.duration;
+				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
+				m_videopts = packet.pts + packet.duration - firstTimeStamp;
 				bGetFrame = true;
 			}
 		}
 		av_free_packet(&packet);
 		if (bGetFrame) break;
-	}
-	if (m_audiopts > 0) {
-		if (m_audiopts - m_videopts > 5000)
-			return stepVideo();
 	}
 	return bGetFrame;
 #else
@@ -366,43 +379,53 @@ bool MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
 #ifdef USE_FFMPEG
-	AVFrame *pFrameRGB = (AVFrame*)m_pFrameRGB;
 	// lock the image size
 	int height = m_desHeight;
 	int width = m_desWidth;
-	u8* imgbuf = buffer;
-	u8* data = pFrameRGB->data[0];
-	if (videoPixelMode == TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888)
-	{
-		// ABGR8888
+	u8 *imgbuf = buffer;
+	u8 *data = m_pFrameRGB->data[0];
+	u16 *imgbuf16 = (u16 *)buffer;
+	u16 *data16 = (u16 *)data;
+
+	switch (videoPixelMode) {
+	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
 		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++)
-			{
-				u8 r = *(data++);
-				u8 g = *(data++);
-				u8 b = *(data++);
-				*(imgbuf++) = r;
-				*(imgbuf++) = g;
-				*(imgbuf++) = b;
-				*(imgbuf++) = 0xFF;
-			}
-			imgbuf += (frameWidth - width) * 4;
+			memcpy(imgbuf, data, width * sizeof(u32));
+			data += width * sizeof(u32);
+			imgbuf += frameWidth * sizeof(u32);
 		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+		for (int y = 0; y < height; y++) {
+			memcpy(imgbuf, data, width * sizeof(u16));
+			data += width * sizeof(u16);
+			imgbuf += frameWidth * sizeof(u16);
+		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				*imgbuf16++ = *data16++ | (1 << 15);
+			}
+			imgbuf16 += (frameWidth - width);
+		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				*imgbuf16++ = *data16++ | (0xF << 12);
+			}
+			imgbuf16 += (frameWidth - width);
+		}
+		break;
+
+	default:
+		ERROR_LOG(ME, "Unsupported video pixel format %d", videoPixelMode);
+		break;
 	}
-	else
-	{
-		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++)
-			{
-				u8 r = *(data++);
-				u8 g = *(data++);
-				u8 b = *(data++);
-				getPixelColor(r, g, b, 0xFF, videoPixelMode, (u16*)imgbuf);
-				imgbuf += 2;
-			}
-			imgbuf += (frameWidth - width) * 2;
-		}
-	} 
 #endif // USE_FFMPEG
 	return true;
 }
@@ -412,45 +435,62 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
 #ifdef USE_FFMPEG
-	AVFrame *pFrameRGB = (AVFrame*)m_pFrameRGB;
 	// lock the image size
-	u8* imgbuf = buffer;
-	u8* data = pFrameRGB->data[0];
-	if (videoPixelMode == TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888)
-	{
-		// ABGR8888
-		data +=  (ypos *  m_desWidth + xpos) * 3;
+	u8 *imgbuf = buffer;
+	u8 *data = m_pFrameRGB->data[0];
+	u16 *imgbuf16 = (u16 *)buffer;
+	u16 *data16 = (u16 *)data;
+
+	if (width > m_desWidth - xpos)
+		width = m_desWidth - xpos;
+	if (height > m_desHeight - ypos)
+		height = m_desHeight - ypos;
+
+	switch (videoPixelMode) {
+	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
+		data += (ypos * m_desWidth + xpos) * sizeof(u32);
 		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++)
-			{
-				u8 r = *(data++);
-				u8 g = *(data++);
-				u8 b = *(data++);
-				*(imgbuf++) = r;
-				*(imgbuf++) = g;
-				*(imgbuf++) = b;
-				*(imgbuf++) = 0xFF;
-			}
-			imgbuf += (frameWidth - width) * 4;
-			data += (m_desWidth - width) * 3;
+			memcpy(imgbuf, data, width * sizeof(u32));
+			data += m_desWidth * sizeof(u32);
+			imgbuf += frameWidth * sizeof(u32);
 		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
+		data += (ypos * m_desWidth + xpos) * sizeof(u16);
+		for (int y = 0; y < height; y++) {
+			memcpy(imgbuf, data, width * sizeof(u16));
+			data += m_desWidth * sizeof(u16);
+			imgbuf += frameWidth * sizeof(u16);
+		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
+		data += (ypos * m_desWidth + xpos) * sizeof(u16);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				*imgbuf16++ = *data16++ | (1 << 15);
+			}
+			imgbuf16 += (frameWidth - width);
+			data16 += (m_desWidth - width);
+		}
+		break;
+
+	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
+		data += (ypos * m_desWidth + xpos) * sizeof(u16);
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				*imgbuf16++ = *data16++ | (0xF << 12);
+			}
+			imgbuf16 += (frameWidth - width);
+			data16 += (m_desWidth - width);
+		}
+		break;
+
+	default:
+		ERROR_LOG(ME, "Unsupported video pixel format %d", videoPixelMode);
+		break;
 	}
-	else
-	{
-		data +=  (ypos *  m_desWidth + xpos) * 3;
-		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++)
-			{
-				u8 r = *(data++);
-				u8 g = *(data++);
-				u8 b = *(data++);
-				getPixelColor(r, g, b, 0xFF, videoPixelMode, (u16*)imgbuf);
-				imgbuf += 2;
-			}
-			imgbuf += (frameWidth - width) * 2;
-			data += (m_desWidth - width) * 3;
-		}
-	} 
 #endif // USE_FFMPEG
 	return true;
 }
@@ -511,7 +551,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 }
 
 s64 MediaEngine::getAudioTimeStamp() {
-	if (m_audiopts > 0)
+	if (m_demux)
 		return m_audiopts;
 	return m_videopts;
 }
@@ -519,6 +559,8 @@ s64 MediaEngine::getAudioTimeStamp() {
 s64 MediaEngine::getLastTimeStamp() {
 	if (!m_pdata)
 		return 0;
+	int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
 	int lastTimeStamp = bswap32(*(int*)(m_pdata + 92));
-	return lastTimeStamp;
+	return lastTimeStamp - firstTimeStamp;
 }
+

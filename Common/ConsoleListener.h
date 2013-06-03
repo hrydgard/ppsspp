@@ -55,13 +55,14 @@ private:
 	void SendToThread(LogTypes::LOG_LEVELS Level, const char *Text);
 	void WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len);
 
-	HANDLE hThread;
-	HANDLE hTriggerEvent;
-	CRITICAL_SECTION criticalSection;
+	static int refCount;
+	static HANDLE hThread;
+	static HANDLE hTriggerEvent;
+	static CRITICAL_SECTION criticalSection;
 
-	char *logPending;
-	volatile u32 logPendingReadPos;
-	volatile u32 logPendingWritePos;
+	static char *logPending;
+	static volatile u32 logPendingReadPos;
+	static volatile u32 logPendingWritePos;
 #endif
 	bool bHidden;
 	bool bUseColor;

@@ -22,14 +22,12 @@
 #include <unistd.h>
 #endif
 
-#include <cstring>
 #include <algorithm>
 
 #include "../../Globals.h"
 #include "../../Core/MemMap.h"
 #include "SymbolMap.h"
 
-#include <vector>
 #include <map>
 
 SymbolMap symbolMap;

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdio>
+#include <cstring>
 #include <vector>
 #include <string>
 #include <utility>

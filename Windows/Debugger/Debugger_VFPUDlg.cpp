@@ -155,7 +155,6 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					int x = column * columnWidth + xStart;
 
 					Rectangle(hdc, x, y, x + columnWidth, y+rowHeight);
-					char temp[256];
 					temp_len = sprintf_s(temp, "R%i0%i", matrix, column);
 					TextOut(hdc,x+3,y+2,temp,temp_len);
 
@@ -169,8 +168,6 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					{
 						float val = mipsr4k.v[column*32+row+matrix*4];
 						u32 hex = *((u32*)&val);
-						char temp[256];
-						int temp_len;
 						switch (mode)
 						{
 						case 0: temp_len = sprintf_s(temp,"%f",val); break;

@@ -1,4 +1,6 @@
-﻿한국어
+﻿된
+
+한국어
 [MainMenu]
 Credits = 제작진
 Exit = 종료
@@ -67,8 +69,17 @@ xBRZ Texture Scaling = xBRZ 텍스처 스케일링
 AA = 안티앨리어싱
 Skip Frames : = 스킵 프레임:
 Level : = 레벨:
+Frames : = 프레임:
 Type  : = 유형:
 Fps Limit = Fps 제한
+Fps  : = Fps  :
+xBRZ = xBRZ
+Hybrid = 하이브리드
+Bicubic = 바이큐빅
+2X = 2배의 해상도
+Auto = 자동
+Deposterize = 색조융합
+H+B = H+B
 [Pause]
 Save State = 상태 저장
 Load State = 상태 불러오기
@@ -90,7 +101,14 @@ DeleteConfirm = 데이터를 삭제합니다.\n계속하시겠습니까?
 Deleting = 삭제중입니다.\n잠시 기다려 주십시오.
 Delete completed = 삭제를 완료했습니다.
 Load completed = 불러오기를 완료했습니다.
+Shift = 전환
 Select = 선택
 Delete = 삭제
 Start = 스타트
 Finish = 완료
+[Error]
+Error loading file = 파일을 불러올 수 없습니다.
+[Screen]
+fixed = 속도: 고정
+unlimited = 속도: 제한 없음!
+standard = 속도: 보통

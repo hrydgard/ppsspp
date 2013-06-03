@@ -244,12 +244,12 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 				const char *mojs=strstr(dis2,"->$");
 				if (mojs)
 				{
-					for (int i=0; i<8; i++)
+					for (int j=0; j<8; ++j)
 					{
 						bool found=false;
-						for (int j=0; j<22; j++)
+						for (int k=0; k<22; ++k)
 						{
-							if (mojs[i+3]=="0123456789ABCDEFabcdef"[j])
+							if (mojs[j+3]=="0123456789ABCDEFabcdef"[k])
 								found=true;
 						}
 						if (!found)

@@ -17,7 +17,6 @@
 
 #include <fstream>
 #include <algorithm>
-#include <string>
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
@@ -313,7 +312,7 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 	*/
 
 	case R_MIPS_HI16:
-		if (lastHI16Processed)
+		if (!lastHI16Processed)
 			WARN_LOG_REPORT(LOADER, "Unsafe unpaired HI16 variable relocation @ %08x / %08x", lastHI16RelocAddress, relocAddress);
 
 		// After this will be an R_MIPS_LO16.  If that addition overflows, we need to account for it in HI16.

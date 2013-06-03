@@ -20,6 +20,9 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/System.h"
+#undef st_ctime
+#undef st_atime
+#undef st_mtime
 
 enum SceUtilitySavedataType
 {
@@ -183,7 +186,7 @@ struct SceUtilitySavedataParam
 	u32 idListAddr;
 
 	// Function 12 FILES
-	u32 fileListAddr;
+	PSPPointer<SceUtilitySavedataFileListInfo> fileList;
 
 	// Function 22 GETSIZES
 	u32 sizeAddr;

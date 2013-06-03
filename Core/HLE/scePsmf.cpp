@@ -673,22 +673,38 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
+
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
+	{
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	psmfplayer->mediaengine->loadFile(filename);
-	psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->mediaengine->loadFile(filename);
+		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	}
+	else
+	{
+		ERROR_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmf");
+	}
+
 	return 0;
 }
 
 int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename) 
 {
 	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
+
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
+	{
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-	psmfplayer->mediaengine->loadFile(filename);
-	psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->mediaengine->loadFile(filename);
+		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	}
+	else
+	{
+		ERROR_LOG(HLE, "psmfplayer null in scePsmfPlayerSetPsmfCB");
+	}
+
 	return 0;
 }
 
@@ -763,7 +779,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 		}
 	}
 	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfplayer->mediaengine->stepVideo();
+	psmfplayer->mediaengine->stepVideo(videoPixelMode);
 	psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
 	// This seems to be crazy!
 	return  hleDelayResult(0, "psmfPlayer update", 30000);
@@ -999,9 +1015,12 @@ u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configAttr)
 	if (configMode == PSMF_PLAYER_CONFIG_MODE_LOOP) {
 		videoLoopStatus = configAttr;
 	} else if (configMode == PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE) {
-		videoPixelMode = configAttr;
+		// Does -1 mean default or something?
+		if (configAttr != -1) {
+			videoPixelMode = configAttr;
+		}
 	} else {
-		ERROR_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, %i, %i)", psmfPlayer , configMode, configAttr);
+		ERROR_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, %i, %i): unknown parameter", psmfPlayer, configMode, configAttr);
 	}
 
 	return 0;

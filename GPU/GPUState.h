@@ -20,7 +20,6 @@
 #include "../Globals.h"
 #include "../native/gfx/gl_common.h"
 #include "ge_constants.h"
-#include <cstring>
 
 struct GPUgstate
 {
