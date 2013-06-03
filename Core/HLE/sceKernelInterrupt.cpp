@@ -539,23 +539,23 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
 	DEBUG_LOG(HLE, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	// Technically should crash if these are invalid and size > 0...
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src + size - 1))
+	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
 	{
 		u8 *dstp = Memory::GetPointer(dst);
 		u8 *srcp = Memory::GetPointer(src);
-		u32 size64 = size / 8;
-		u32 size8 = size % 8;
 
-		// Try to handle overlapped copies with similar properties to hardware, just in case.
-		// Not that anyone ought to rely on it.
-		while (size64-- > 0)
+		// If it's non-overlapping, just do it in one go.
+		if (dst + size < src || src + size < dst)
+			memcpy(dstp, srcp, size);
+		else
 		{
-			*(u64 *) dstp = *(u64 *) srcp;
-			srcp += 8;
-			dstp += 8;
+			// Try to handle overlapped copies with similar properties to hardware, just in case.
+			// Not that anyone ought to rely on it.
+			for (u32 size64 = size / 8; size64 > 0; --size64)
+				memmove(dstp, srcp, 8);
+			for (u32 size8 = size % 8; size8 > 0; --size8)
+				*dstp++ = *srcp++;
 		}
-		while (size8-- > 0)
-			*dstp++ = *srcp++;
 	}
 	return dst;
 }
