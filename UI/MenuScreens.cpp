@@ -407,8 +407,29 @@ void PauseScreen::render() {
 
 	ui_draw2d.DrawText(UBUNTU24, title.c_str(), 10+144+10, 30, 0xFFFFFFFF, ALIGN_LEFT);
 
+	I18NCategory *i = GetI18NCategory("Pause");
+
+	VLinear vlinear(dp_xres - 10, 100, 20);
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 40, 0, i->T("Continue"), ALIGN_RIGHT)) {
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 40, 0, i->T("Settings"), ALIGN_RIGHT)) {
+		screenManager()->push(new SettingsScreen(), 0);
+	}
+
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 40, 0, i->T("Back to Menu"), ALIGN_RIGHT)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	/*
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH*2, 0, "Debug: Dump Next Frame", ALIGN_BOTTOMRIGHT)) {
+		gpu->DumpNextFrame();
+	}
+	*/
+
 	int x = 30;
-	int y = 50;
+	int y = 60;
 	int stride = 40;
 	int columnw = 400;
 
@@ -417,8 +438,8 @@ void PauseScreen::render() {
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *a = GetI18NCategory("Audio");
 	
-	UICheckBox(GEN_ID, x, y += stride, ss->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 	// TODO: Maybe shouldn't show this if the screen ratios are very close...
 #ifdef BLACKBERRY10
 	if (pixel_xres == pixel_yres)
@@ -431,64 +452,44 @@ void PauseScreen::render() {
 		if (gpu)
 			gpu->Resized();
 	}
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
+	UICheckBox(GEN_ID, x, y += stride, ss->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
+
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
+	UICheckBox(GEN_ID, x, (y += stride) + 5, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
+
+	HLinear hlinear1(x + 330, y, 20);
+	if (UIButton(GEN_ID, hlinear1, 90, 0, gs->T("Auto"), ALIGN_LEFT))
+		g_Config.iFrameSkip = 3;
+	if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("-1"), ALIGN_LEFT))
+		if (g_Config.iFrameSkip > 1)
+			g_Config.iFrameSkip -= 1;
+	if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("+1"), ALIGN_LEFT))
+		if (g_Config.iFrameSkip < 9)
+			g_Config.iFrameSkip += 1;
+
 	if (enableFrameSkip) {
 		if (g_Config.iFrameSkip == 0)
 			g_Config.iFrameSkip = 3;
 
-		float getfskip= g_Config.iFrameSkip;
-		char showfskip[256];
-		sprintf(showfskip, "Skip Frames: %0.0f", getfskip);
-		ui_draw2d.DrawText(UBUNTU24, showfskip, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
-		ui_draw2d.DrawText(UBUNTU24, showfskip, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Frames :"), x + 60, y += stride + 10, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 200 , y + 5, 20);
-		if (UIButton(GEN_ID, hlinear1, 80, 0, "Auto", ALIGN_LEFT))
-			g_Config.iFrameSkip = 3;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, "-1", ALIGN_LEFT))
-			if(g_Config.iFrameSkip>0){
-			g_Config.iFrameSkip -= 1;}
-		if (UIButton(GEN_ID, hlinear1, 40, 0, "+1", ALIGN_LEFT))
-			if(g_Config.iFrameSkip!=9){
-			g_Config.iFrameSkip += 1;}
+		char showFrameSkip[256];
+		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
+		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, dp_xres - 15, y - 2, 0xc0000000, ALIGN_TOPRIGHT);
+		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, dp_xres - 15, y, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 	}
 	else {
 		g_Config.iFrameSkip = 0;
 	}
 
-	I18NCategory *i = GetI18NCategory("Pause");
-
 	// TODO: Add UI for more than one slot.
-	HLinear hlinear1(x, y + 80, 20);
-	if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH, 0, i->T("Save State"), ALIGN_LEFT)) {
+	HLinear hlinear2(x, y += 70, 20);
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 125, 0, i->T("Save State"), ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH, 0, i->T("Load State"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 125, 0, i->T("Load State"), ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-
-	VLinear vlinear(dp_xres - 10, 160, 20);
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Continue"), ALIGN_RIGHT)) {
-		screenManager()->finishDialog(this, DR_CANCEL);
-	}
-
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Settings"), ALIGN_RIGHT)) {
-		screenManager()->push(new SettingsScreen(), 0);
-	}
-
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 20, 0, i->T("Back to Menu"), ALIGN_RIGHT)) {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-
-	/*
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH*2, 0, "Debug: Dump Next Frame", ALIGN_BOTTOMRIGHT)) {
-		gpu->DumpNextFrame();
-	}
-	*/
 
 	DrawWatermark();
 	UIEnd();
@@ -514,39 +515,41 @@ void SettingsScreen::render() {
 	ui_draw2d.DrawText(UBUNTU24, ms->T("Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
-	VLinear vlinear(40, 150, 20);
+	VLinear vlinear(30, 135, 20);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
+	const int stride = 70;
 	int w = LARGE_BUTTON_WIDTH + 25;
-	int s = 280;
+	int s = 270;
+	int y = 90;
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Audio"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new AudioScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("AudioDesc", "Adjust Audio Settings"), s, 110, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, ms->T("AudioDesc", "Adjust Audio Settings"), s, y, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Graphics"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new GraphicsScreenP1());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("GraphicsDesc", "Change graphics options"), s, 180, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, ms->T("GraphicsDesc", "Change graphics options"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("System"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new SystemScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("SystemDesc", "Turn on Dynarec (JIT), Fast Memory"), s, 250, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, ms->T("SystemDesc", "Turn on Dynarec (JIT), Fast Memory"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Controls"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new ControlsScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("ControlsDesc", "On Screen Controls, Large Buttons"), s, 320, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, ms->T("ControlsDesc", "On Screen Controls, Large Buttons"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Developer"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new DeveloperScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("DeveloperDesc", "Run CPU test, Dump Next Frame Log"), s, 390, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawText(UBUNTU24, ms->T("DeveloperDesc", "Run CPU test, Dump Next Frame Log"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 	UIEnd();
 }
 
@@ -572,6 +575,13 @@ void GraphicsScreenP1::update(InputState &input) {
 }
 
 void GraphicsScreenP2::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void GraphicsScreenP3::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -604,19 +614,30 @@ void DeveloperScreen::render() {
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
 
-	VLinear vlinear(50, 100, 20);
-
-	int w = 400;
-
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *d = GetI18NCategory("Developer");
+	I18NCategory *s = GetI18NCategory("System");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
 	ui_draw2d.DrawText(UBUNTU24, d->T("Developer Tools"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
+	int x = 50;
+	int y = 40;
+	const int stride = 40;
+	const int w = 400;
 
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
+
+	bool reportingEnabled = Reporting::IsEnabled();
+	const static std::string reportHostOfficial = "report.ppsspp.org";
+	if (UICheckBox(GEN_ID, x, y += stride, s->T("Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
+		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
+	}
+
+	VLinear vlinear(x, y + stride + 12, 16);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
@@ -661,7 +682,7 @@ void AudioScreen::render() {
 	}
 
 	int x = 30;
-	int y = 30;
+	int y = 35;
 	int stride = 40;
 	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
@@ -684,39 +705,44 @@ void GraphicsScreenP1::render() {
 	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	if (UIButton(GEN_ID, Pos( 220 , dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Next Page"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
-		screenManager()->push(new GraphicsScreenP2());
+	HLinear hlinear(10, dp_yres - 10, 20.0f);
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP3());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP2());
 	}
 
 	int x = 30;
-	int y = 30;
+	int y = 35;
 	int stride = 40;
 	int columnw = 400;
 
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Vertex Cache"), ALIGN_TOPLEFT, &g_Config.bVertexCache);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 #ifndef __SYMBIAN32__
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Hardware Transform"), ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
+#endif
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Vertex Cache"), ALIGN_TOPLEFT, &g_Config.bVertexCache);
+#ifndef __SYMBIAN32__
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Stream VBO"), ALIGN_TOPLEFT, &g_Config.bUseVBO);
 #endif
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
-	bool enableFrameSkip = g_Config.iFrameSkip != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
 			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
-		if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
 		}
 	}
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
+
 	UIEnd();
 }
 
@@ -736,40 +762,29 @@ void GraphicsScreenP2::render() {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
+	HLinear hlinear(10, dp_yres - 10, 20.0f);
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP1());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP3());
+	}
+
 	int x = 30;
-	int y = 30;
+	int y = 35;
 	int stride = 40;
 	int columnw = 400;
 
-	bool FpsLimit = g_Config.iFpsLimit != 0;
-	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("Fps Limit"), ALIGN_TOPLEFT, &FpsLimit);
-	if (FpsLimit) {
-		if (g_Config.iFpsLimit == 0)
-			g_Config.iFpsLimit = 60;
-		
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Fps  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 180 , y, 20);
-		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
-			g_Config.iFpsLimit = 60;
-		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("-30"), ALIGN_LEFT))
-			if(g_Config.iFpsLimit > 30){
-			g_Config.iFpsLimit -= 30;}
-		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("+30"), ALIGN_LEFT))
-			if(g_Config.iFrameSkip != 240){
-			g_Config.iFpsLimit += 30;}
-	} else {
-			g_Config.iFpsLimit = 0;
-	}
-
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
-	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
 	if (AnisotropicFiltering) {
 		if (g_Config.iAnisotropyLevel == 0)
 			g_Config.iAnisotropyLevel = 2;
 
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 180 , y, 20);
+		HLinear hlinear1(x + 180, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
@@ -778,16 +793,18 @@ void GraphicsScreenP2::render() {
 			g_Config.iAnisotropyLevel = 8;
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("16x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 16;
+
+		y += 20;
 	} else {
 		g_Config.iAnisotropyLevel = 0;
 	}
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
-	UICheckBox(GEN_ID, x, y += stride + 15, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
 		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 180 , y + 5, 20);
+		HLinear hlinear1(x + 180, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("xBRZ"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
 		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Hybrid", "Hybrid(H)"), ALIGN_LEFT))
@@ -796,16 +813,93 @@ void GraphicsScreenP2::render() {
 			g_Config.iTexScalingType = 2;
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("H+B", "H+B"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 3;
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, (y += stride) + 25, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 180 , y + 25, 20);
+		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 20, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 180, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("3x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
-		UICheckBox(GEN_ID, x + 60, y += stride + 45, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
+		UICheckBox(GEN_ID, x + 60, y += stride + 20, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
 	} else {
 		g_Config.iTexScalingLevel = 1;
 	}
+
+	UIEnd();
+}
+
+void GraphicsScreenP3::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *gs = GetI18NCategory("Graphics");
+
+	ui_draw2d.SetFontScale(1.5f, 1.5f);
+	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	HLinear hlinear(10, dp_yres - 10, 20.0f);
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP2());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP1());
+	}
+
+	int x = 30;
+	int y = 35;
+	int stride = 40;
+	int columnw = 400;
+
+	bool FpsLimit = g_Config.iFpsLimit != 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Fps Limit"), ALIGN_TOPLEFT, &FpsLimit);
+	if (FpsLimit) {
+		if (g_Config.iFpsLimit == 0)
+			g_Config.iFpsLimit = 60;
+		
+		char showFps[256];
+		sprintf(showFps, "%s %d", gs->T("Fps  :"), g_Config.iFpsLimit);
+		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
+	} else {
+			g_Config.iFpsLimit = 0;
+	}
+	HLinear hlinear1(x + 60, y += stride, 20);
+	if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+		g_Config.iFpsLimit = 60;
+	if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("-30"), ALIGN_LEFT))
+		if(g_Config.iFpsLimit > 30){
+		g_Config.iFpsLimit -= 30;}
+	if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("+30"), ALIGN_LEFT))
+		if(g_Config.iFrameSkip != 240){
+		g_Config.iFpsLimit += 30;}
+
+	bool enableFrameSkip = g_Config.iFrameSkip != 0;
+	UICheckBox(GEN_ID, x, y += stride + 25, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
+	if (enableFrameSkip) {
+		if (g_Config.iFrameSkip == 0)
+			g_Config.iFrameSkip = 3;
+
+		char showFrameSkip[256];
+		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
+		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
+	}
+	else {
+		g_Config.iFrameSkip = 0;
+	}
+	HLinear hlinear2(x + 60, y += stride, 20);
+	if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+		g_Config.iFrameSkip = 3;
+	if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
+		if (g_Config.iFrameSkip > 1)
+			g_Config.iFrameSkip -= 1;
+	if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
+		if (g_Config.iFrameSkip < 9)
+			g_Config.iFrameSkip += 1;
 
 	UIEnd();
 }
@@ -861,16 +955,19 @@ void LanguageScreen::render() {
 		langValuesMapping["ko_KR"] = std::make_pair("한국어", PSP_SYSTEMPARAM_LANGUAGE_KOREAN);
 		langValuesMapping["zh_TW"] = std::make_pair("繁體中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL);
 		langValuesMapping["zh_CN"] = std::make_pair("简体中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED);
+
+		//langValuesMapping["ar_AE"] = std::make_pair("العربية", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["ca_ES"] = std::make_pair("Català", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["gr_EL"] = std::make_pair("ελληνικά", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["he_IL"] = std::make_pair("עברית", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["hu_HU"] = std::make_pair("Magyar", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["id_ID"] = std::make_pair("Indonesia", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["pl_PL"] = std::make_pair("Polski", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["ro_RO"] = std::make_pair("Român", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["sv_SE"] = std::make_pair("Svenska", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["tr_TR"] = std::make_pair("Türk", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-		langValuesMapping["ca_ES"] = std::make_pair("Català", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["uk_UA"] = std::make_pair("Українська", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-		langValuesMapping["ro_RO"] = std::make_pair("Român", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-		langValuesMapping["id_ID"] = std::make_pair("Indonesia", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+
 		if (!code.empty()) {
 			if(langValuesMapping.find(code) == langValuesMapping.end()) {
 				//No title found, show locale code
@@ -923,7 +1020,7 @@ void SystemScreen::render() {
 	}
 
 	int x = 30;
-	int y = 30;
+	int y = 35;
 	int stride = 40;
 	int columnw = 400;
 
@@ -940,7 +1037,6 @@ void SystemScreen::render() {
 #endif
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
-	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Encrypt Save"), ALIGN_TOPLEFT, &g_Config.bEncryptSave);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Use Button X to Confirm"), ALIGN_TOPLEFT, &g_Config.bButtonPreference); 
@@ -949,18 +1045,13 @@ void SystemScreen::render() {
 		g_Config.itimeformat = tf ? 1 : 0;
 	}
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
-	HLinear hlinear2(x, y+110, 20);
-	if (UIButton(GEN_ID, hlinear2, 210, 0, "Reload Cheats", ALIGN_TOPLEFT)) {
+	HLinear hlinear2(x, y += stride + 10, 20);
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 150, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) {
 		g_Config.bReloadCheats = true;
 	}
-	bool reportingEnabled = Reporting::IsEnabled();
-	const static std::string reportHostOfficial = "report.ppsspp.org";
-	if (UICheckBox(GEN_ID, x, y += stride, s->T("Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
-		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
-	}
-	if (UIButton(GEN_ID, Pos(x+300, y += stride * 3), LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_BOTTOMLEFT)) {
-    screenManager()->push(new LanguageScreen());
-  } 
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
+		screenManager()->push(new LanguageScreen());
+	} 
 	
 	UIEnd();
 }
@@ -982,7 +1073,7 @@ void ControlsScreen::render() {
 	}
 
 	int x = 30;
-	int y = 30;
+	int y = 35;
 	int stride = 40;
 	int columnw = 440;
 
