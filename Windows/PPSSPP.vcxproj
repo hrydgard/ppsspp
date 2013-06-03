@@ -132,7 +132,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Sync</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -146,7 +146,7 @@
       <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>XInput.lib;Winmm.lib;Ws2_32.lib;opengl32.lib;glu32.lib;comctl32.lib;dsound.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>XInput.lib;Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avdevice.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -155,6 +155,7 @@
       <LargeAddressAware>true</LargeAddressAware>
       <BaseAddress>0x00400000</BaseAddress>
       <FixedBaseAddress>true</FixedBaseAddress>
+      <ShowProgress>NotSet</ShowProgress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -203,7 +204,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>false</OmitFramePointers>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions);_CRT_SECURE_NO_WARNINGS</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -217,7 +218,7 @@
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>XInput.lib;Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>XInput.lib;Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avdevice.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>

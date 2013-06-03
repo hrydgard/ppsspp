@@ -603,6 +603,12 @@ add_library(native STATIC
 	native/ui/ui.h
 	native/ui/ui_context.cpp
 	native/ui/ui_context.h
+	native/ui/ui_screen.cpp
+	native/ui/ui_screen.h
+	native/ui/view.cpp
+	native/ui/view.h
+	native/ui/viewgroup.cpp
+	native/ui/viewgroup.h
 	native/ui/virtual_input.cpp
 	native/ui/virtual_input.h
 	native/util/bits/bits.cpp
