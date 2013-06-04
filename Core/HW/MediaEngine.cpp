@@ -175,7 +175,7 @@ bool MediaEngine::openContext() {
 		return false;
 
 	// Dump information about file onto standard error
-	av_dump_format(pFormatCtx, 0, NULL, 0);
+	//av_dump_format(pFormatCtx, 0, NULL, 0);
 
 	// Find the first video stream
 	for(int i = 0; i < (int)pFormatCtx->nb_streams; i++) {
