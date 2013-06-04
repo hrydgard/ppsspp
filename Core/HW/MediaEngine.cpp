@@ -91,6 +91,7 @@ MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
 	m_buffer = 0;
 	m_demux = 0;
 	m_audioContext = 0;
+	m_isVideoEnd = false;
 }
 
 MediaEngine::~MediaEngine() {
@@ -128,6 +129,7 @@ void MediaEngine::closeMedia() {
 	m_pdata = 0;
 	m_demux = 0;
 	Atrac3plus_Decoder::CloseContext(&m_audioContext);
+	m_isVideoEnd = false;
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
@@ -158,8 +160,22 @@ int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
 	return offset;
 }
 
+#ifdef _DEBUG
+void ffmpeg_logger(void *, int, const char *format, va_list va_args) {
+	char tmp[1024];
+	vsprintf(tmp, format, va_args);
+	INFO_LOG(HLE, tmp);
+}
+#endif
+
 bool MediaEngine::openContext() {
 #ifdef USE_FFMPEG
+
+#ifdef _DEBUG
+	av_log_set_level(AV_LOG_VERBOSE);
+	av_log_set_callback(&ffmpeg_logger);
+#endif 
+
 	u8* tempbuf = (u8*)av_malloc(m_bufSize);
 
 	AVFormatContext *pFormatCtx = avformat_alloc_context();
@@ -173,9 +189,6 @@ bool MediaEngine::openContext() {
 
 	if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
 		return false;
-
-	// Dump information about file onto standard error
-	av_dump_format(pFormatCtx, 0, NULL, 0);
 
 	// Find the first video stream
 	for(int i = 0; i < (int)pFormatCtx->nb_streams; i++) {
@@ -208,6 +221,7 @@ bool MediaEngine::openContext() {
 	m_demux->demux();
 	m_audioPos = 0;
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
+	m_isVideoEnd = false;
 #endif // USE_FFMPEG
 	return true;
 }
@@ -362,13 +376,15 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
       
 			if(frameFinished) {
 				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
-				m_videopts = packet.pts + packet.duration - firstTimeStamp;
+				m_videopts = pFrame->pkt_dts + pFrame->pkt_duration - firstTimeStamp;
 				bGetFrame = true;
 			}
 		}
 		av_free_packet(&packet);
 		if (bGetFrame) break;
 	}
+	if (!bGetFrame && m_readSize >= m_streamSize)
+		m_isVideoEnd = true;
 	return bGetFrame;
 #else
 	return true;
@@ -552,7 +568,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 
 s64 MediaEngine::getAudioTimeStamp() {
 	if (m_demux)
-		return m_audiopts;
+		return std::max(m_audiopts - 4180, (s64)0);
 	return m_videopts;
 }
 
@@ -563,4 +579,3 @@ s64 MediaEngine::getLastTimeStamp() {
 	int lastTimeStamp = bswap32(*(int*)(m_pdata + 92));
 	return lastTimeStamp - firstTimeStamp;
 }
-

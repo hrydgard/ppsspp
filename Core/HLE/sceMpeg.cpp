@@ -975,7 +975,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	int result = 0;
 
 	sceAu.pts = ctx->mediaengine->getVideoTimeStamp();
-	if (sceAu.pts >= ctx->mediaengine->getLastTimeStamp()) {
+	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(HLE, "video end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
 		Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);
@@ -1039,7 +1039,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	int result = 0;
 
 	sceAu.pts = ctx->mediaengine->getAudioTimeStamp();
-	if (sceAu.pts >= ctx->mediaengine->getLastTimeStamp()) {
+	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(HLE, "video end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
 		Memory::WriteStruct(ctx->mpegRingbufferAddr, &mpegRingbuffer);

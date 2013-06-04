@@ -58,6 +58,8 @@ public:
 	s64 getAudioTimeStamp();
 	s64 getLastTimeStamp();
 
+	bool IsVideoEnd() { return m_isVideoEnd;}
+
 	void DoState(PointerWrap &p) {
 		p.Do(m_streamSize);
 		p.Do(m_readSize);
@@ -93,4 +95,6 @@ public:
 	int m_audioPos;
 	void* m_audioContext;
 	s64 m_audiopts;
+
+	bool m_isVideoEnd;
 };

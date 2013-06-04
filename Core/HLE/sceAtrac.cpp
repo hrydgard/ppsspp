@@ -992,17 +992,12 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 	} else if (atrac->codeType == PSP_MODE_AT_3_PLUS) {
 		if (atrac->atracChannels == 1) {
 			WARN_LOG(HLE, "This is an atrac3+ mono audio");
-#ifndef ANDROID
-			atrac->data_buf = new u8[atrac->first.filesize];
-			Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
-			return __AtracSetContext(atrac);
-#endif 
 		} else {
 			WARN_LOG(HLE, "This is an atrac3+ stereo audio");
-			atrac->data_buf = new u8[atrac->first.filesize];
-			Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
-			return __AtracSetContext(atrac);
 		}
+		atrac->data_buf = new u8[atrac->first.filesize];
+		Memory::Memcpy(atrac->data_buf, buffer, std::min(bufferSize, atrac->first.filesize));
+		return __AtracSetContext(atrac);
 	}
 
 
