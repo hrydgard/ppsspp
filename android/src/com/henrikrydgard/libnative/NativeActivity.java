@@ -207,8 +207,11 @@ public class NativeActivity extends Activity {
         if (audioPlayer != null) {
         	audioPlayer.stop();
         }
+    	Log.i(TAG, "nativeapp pause");
         NativeApp.pause();
+    	Log.i(TAG, "gl pause");
         mGLSurfaceView.onPause();
+    	Log.i(TAG, "onPause returning");
     }
       
     @Override
@@ -297,9 +300,19 @@ public class NativeActivity extends Activity {
 		if (event.getSource() == InputDevice.SOURCE_JOYSTICK) {
 			float leftJoystickX = event.getAxisValue(MotionEvent.AXIS_X) * 1f;
 			float leftJoystickY = event.getAxisValue(MotionEvent.AXIS_Y) * -1f;
-			NativeApp.joystickEvent(leftJoystickX, leftJoystickY);
+			NativeApp.joystickEvent(0, leftJoystickX, leftJoystickY);
 		}
-		return false;
+		if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
+	         switch (event.getAction()) {
+	             case MotionEvent.ACTION_HOVER_MOVE:
+	                 // process the mouse hover movement...
+	                 return true;
+	             case MotionEvent.ACTION_SCROLL:
+	                 NativeApp.mouseWheelEvent(event.getX(), event.getY());
+	                 return true;
+	         }
+	    }
+		return super.onGenericMotionEvent(event);
 	}
 
 	@SuppressLint("NewApi")

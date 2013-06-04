@@ -96,7 +96,7 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		const char* name = zip_get_name(zip_file_, i, 0);
 		if (!name)
 			continue;
-		ILOG("Comparing %s %s %i", name, path, pathlen);
+		// ILOG("Comparing %s %s %i", name, path, pathlen);
 		if (!memcmp(name, path, pathlen)) {
 			// The prefix is right. Let's see if this is a file or path.
 			char *slashPos = strchr(name + pathlen + 1, '/');

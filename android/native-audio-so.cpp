@@ -136,6 +136,13 @@ extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb) {
 
 // shut down the native audio system
 extern "C" void OpenSLWrap_Shutdown() {
+	SLresult result;
+	ILOG("OpenSLWrap_Shutdown - stopping playback");
+	result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
+	assert(SL_RESULT_SUCCESS == result);
+
+	ILOG("OpenSLWrap_Shutdown - deleting player object");
+
 	if (bqPlayerObject != NULL) {
 		(*bqPlayerObject)->Destroy(bqPlayerObject);
 		bqPlayerObject = NULL;
@@ -144,13 +151,21 @@ extern "C" void OpenSLWrap_Shutdown() {
 		bqPlayerMuteSolo = NULL;
 		bqPlayerVolume = NULL;
 	}
+
+	ILOG("OpenSLWrap_Shutdown - deleting mix object");
+
 	if (outputMixObject != NULL) {
 		(*outputMixObject)->Destroy(outputMixObject);
 		outputMixObject = NULL;
 	}
+
+	ILOG("OpenSLWrap_Shutdown - deleting engine object");
+
 	if (engineObject != NULL) {
 		(*engineObject)->Destroy(engineObject);
 		engineObject = NULL;
 		engineEngine = NULL;
 	}
-}
+	ILOG("OpenSLWrap_Shutdown - finished");
+}	
+

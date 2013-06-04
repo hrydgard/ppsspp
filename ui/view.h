@@ -171,14 +171,19 @@ class Event {
 public:
 	Event() : triggered_(false) {}
 
-	void Add(std::function<EventReturn(EventParams&)> func);
-
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
 	// Call this from UI thread
 	void Update();
 
+	template<class T> 
+	void Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
+		Add(std::bind(theCallback, thiz, placeholder::_1));
+	}
+
 private:
+	void Add(std::function<EventReturn(EventParams&)> func);
+
 	recursive_mutex mutex_;
 	std::vector<HandlerRegistration> handlers_;
 	bool triggered_;
@@ -421,7 +426,7 @@ class CheckBox : public ClickableItem {
 public:
 	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {
-		OnClick.Add(std::bind(&CheckBox::OnClicked, this, placeholder::_1));
+		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
 	virtual void Draw(UIContext &dc);

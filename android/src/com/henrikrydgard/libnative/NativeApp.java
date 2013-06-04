@@ -18,7 +18,8 @@ public class NativeApp {
 
 	public static native void keyUp(int key);
 
-	public static native void joystickEvent(float x, float y);
+	public static native void joystickEvent(int stick, float x, float y);
+	public static native void mouseWheelEvent(float x, float y);
 
 	// will only be called between init() and shutdown()
 	public static native int audioRender(short[] buffer);
