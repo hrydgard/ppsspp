@@ -86,10 +86,11 @@ void UIContext::PopScissor() {
 void UIContext::ActivateTopScissor() {
 	if (scissorStack_.size()) {
 		const Bounds &bounds = scissorStack_.back();
-		int x = g_dpi_scale * bounds.x;
-		int y = g_dpi_scale * (dp_yres - bounds.y2());
-		int w = g_dpi_scale * bounds.w;
-		int h = g_dpi_scale * bounds.h;
+		float scale = 1.0f / g_dpi_scale;
+		int x = scale * bounds.x;
+		int y = scale * (dp_yres - bounds.y2());
+		int w = scale * bounds.w;
+		int h = scale * bounds.h;
 
 		glstate.scissorRect.set(x,y,w,h);
 		glstate.scissorTest.enable();

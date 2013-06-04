@@ -17,6 +17,7 @@
 #include "base/logging.h"
 #include "base/buffer.h"
 #include "base/stringutil.h"
+#include "data/compression.h"
 #include "net/resolve.h"
 #include "net/url.h"
 
@@ -84,8 +85,6 @@ void Connection::Disconnect() {
 	if ((intptr_t)sock_ != -1) {
 		closesocket(sock_);
 		sock_ = -1;
-	} else {
-		WLOG("Socket was already disconnected.");
 	}
 }
 
@@ -99,38 +98,103 @@ void Connection::Reconnect() {
 namespace http {
 
 Client::Client() {
+
 }
+
 Client::~Client() {
 	Disconnect();
 }
 
-#define USERAGENT "METAGET 1.0"
+// TODO: do something sane here
+#define USERAGENT "NATIVEAPP 1.0"
+
+
+void DeChunk(Buffer *inbuffer, Buffer *outbuffer) {
+	while (true) {
+		std::string line;
+		inbuffer->TakeLineCRLF(&line);
+		if (!line.size())
+			return;
+		int chunkSize;
+		sscanf(line.c_str(), "%x", &chunkSize);
+		if (chunkSize) {
+			std::string data;
+			inbuffer->Take(chunkSize, &data);
+			outbuffer->Append(data);
+		} else {
+			// a zero size chunk should mean the end.
+			inbuffer->clear();
+			return;
+		}
+		inbuffer->Skip(2);
+	}
+}
 
 int Client::GET(const char *resource, Buffer *output) {
 	Buffer buffer;
-	const char *tpl = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: " USERAGENT "\r\n\r\n";
+	const char *tpl =
+		"GET %s HTTP/1.1\r\n"
+		"Host: %s\r\n"
+		"User-Agent: " USERAGENT "\r\n"
+		"Accept: */*\r\n"
+		"Accept-Encoding: gzip\r\n"
+		"Connection: close\r\n"
+		"\r\n";
+
 	buffer.Printf(tpl, resource, host_.c_str());
 	bool flushed = buffer.FlushSocket(sock());
 	if (!flushed) {
 		return -1;  // TODO error code.
 	}
 
-	// Snarf all the data we can.
-	if (!output->ReadAll(sock()))
+	Buffer readbuf;
+
+	// Snarf all the data we can into RAM. A little unsafe but hey.
+	if (!readbuf.ReadAll(sock()))
 		return -1;
 
 	// Grab the first header line that contains the http code.
 
 	// Skip the header. TODO: read HTTP code and file size so we can make progress bars.
 
-	std::string firstline;
-	CHECK_GT(output->TakeLineCRLF(&firstline), 0);
-	int code = atoi(&firstline[9]);
+	std::string line;
+	CHECK_GT(readbuf.TakeLineCRLF(&line), 0);
+	int code = atoi(&line[line.find(" ") + 1]);
 
-	while (output->SkipLineCRLF() > 0)
-		;
+	bool gzip = false;
+	int contentLength = 0;
+	while (true) {
+		int sz = readbuf.TakeLineCRLF(&line);
+		if (!sz)
+			break;
+		if (startsWith(line, "Content-Length:")) {
+			contentLength = atoi(&line[16]);
+		} else if (startsWith(line, "Content-Encoding:")) {
+			if (line.find("gzip") != std::string::npos) {
+				gzip = true;
+			}
+		}
+	}
 
-	// output now contains the rest of the reply.
+	// output now contains the rest of the reply. Dechunk it.
+	DeChunk(&readbuf, output);
+
+	// If it's gzipped, we decompress it and put it back in the buffer.
+	if (gzip) {
+		std::string compressed;
+		output->TakeAll(&compressed);
+		// What is this garbage?
+		//if (compressed[0] == 0x8e)
+//			compressed = compressed.substr(4);
+		std::string decompressed;
+		bool result = decompress_string(compressed, &decompressed);
+		if (!result) {
+			ELOG("Error decompressing using zlib");
+			return -1;
+		}
+		output->Append(decompressed);
+	}
+
 	return code;
 }
 

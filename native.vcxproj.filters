@@ -131,9 +131,6 @@
     <ClInclude Include="file\file_util.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="math\compression.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\vertex_format.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -271,6 +268,9 @@
     </ClInclude>
     <ClInclude Include="ui\ui_screen.h">
       <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="data\compression.h">
+      <Filter>data</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -479,6 +479,9 @@
     </ClCompile>
     <ClCompile Include="ui\ui_screen.cpp">
       <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="data\compression.cpp">
+      <Filter>data</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -189,6 +189,7 @@
     <ClInclude Include="base\stats.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
+    <ClInclude Include="data\compression.h" />
     <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\cityhash\city.h" />
     <ClInclude Include="ext\cityhash\citycrc.h" />
@@ -223,7 +224,6 @@
     <ClInclude Include="input\gesture_detector.h" />
     <ClInclude Include="input\input_state.h" />
     <ClInclude Include="json\json_writer.h" />
-    <ClInclude Include="math\compression.h" />
     <ClInclude Include="math\curves.h" />
     <ClInclude Include="math\geom2d.h" />
     <ClInclude Include="math\lin\aabb.h" />
@@ -293,6 +293,7 @@
     </ClCompile>
     <ClCompile Include="base\stringutil.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
+    <ClCompile Include="data\compression.cpp" />
     <ClCompile Include="ext\cityhash\city.cpp">
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</IntrinsicFunctions>

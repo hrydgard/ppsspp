@@ -263,8 +263,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 			lock_guard guard(input_state.lock);
 			input_state.pad_lstick_x = left_joystick_x_async;
 			input_state.pad_lstick_y = left_joystick_y_async;
-			NativeUpdate(input_state);
 		}
+		NativeUpdate(input_state);
 
 		{
 			lock_guard guard(input_state.lock);
@@ -319,17 +319,14 @@ extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	e
 
 extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	(JNIEnv *, jclass, float x, float y, int code, int pointerId) {
+	ELOG("Touch Enter %i", pointerId);
 	lock_guard guard(input_state.lock);
 
-	if (pointerId >= MAX_POINTERS) {
-		ELOG("Too many pointers: %i", pointerId);
-		return;	// We ignore 8+ pointers entirely.
-	}
 	float scaledX = (int)(x * dp_xscale);	// why the (int) cast?
 	float scaledY = (int)(y * dp_yscale);
-	input_state.pointer_x[pointerId] = scaledX;
-	input_state.pointer_y[pointerId] = scaledY;
+
 	TouchInput touch;
+	touch.id = pointerId;
 	touch.x = scaledX;
 	touch.y = scaledY;
 	if (code == 1) {
@@ -341,8 +338,16 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	} else {
 		touch.flags = TOUCH_MOVE;
 	}
-	NativeTouch(touch);
+
+	if (pointerId >= MAX_POINTERS) {
+		ELOG("Too many pointers: %i", pointerId);
+		return;	// We ignore 8+ pointers entirely.
+	}
+	input_state.pointer_x[pointerId] = scaledX;
+	input_state.pointer_y[pointerId] = scaledY;
 	input_state.mouse_valid = true;
+	NativeTouch(touch);
+	ELOG("Touch Exit %i", pointerId);
 }
 
 static void AsyncDown(int padbutton) {

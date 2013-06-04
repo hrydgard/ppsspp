@@ -16,6 +16,7 @@ LOCAL_SRC_FILES :=\
     base/colorutil.cpp \
     base/error_context.cpp \
     base/stringutil.cpp \
+    data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
     ext/sha1/sha1.cpp \
@@ -32,6 +33,7 @@ LOCAL_SRC_FILES :=\
     file/zip_read.cpp \
     json/json_writer.cpp \
     i18n/i18n.cpp \
+	input/gesture_detector.cpp \
     math/math_util.cpp \
     math/curves.cpp \
     math/lin/aabb.cpp.arm \

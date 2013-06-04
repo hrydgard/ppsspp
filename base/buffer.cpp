@@ -46,8 +46,10 @@ void Buffer::AppendValue(int value) {
 void Buffer::Take(size_t length, std::string *dest) {
   CHECK_LE(length, data_.size());
   dest->resize(length);
-  memcpy(&(*dest)[0], &data_[0], length);
-  data_.erase(data_.begin(), data_.begin() + length);
+	if (length > 0) {
+		memcpy(&(*dest)[0], &data_[0], length);
+		data_.erase(data_.begin(), data_.begin() + length);
+	}
 }
 
 int Buffer::TakeLineCRLF(std::string *dest) {

@@ -63,10 +63,14 @@ public:
 // Other simple string utilities.
 
 inline bool startsWith(const std::string &str, const std::string &what) {
+	if (str.size() < what.size())
+		return false;
 	return str.substr(0, what.size()) == what;
 }
 
 inline bool endsWith(const std::string &str, const std::string &what) {
+	if (str.size() < what.size())
+		return false;
   return str.substr(str.size() - what.size()) == what;
 }
 

@@ -1,5 +1,11 @@
 #pragma once
 
+#include <zlib.h>
+
+bool compress_string(const std::string& str, std::string *dest, int compressionlevel = Z_BEST_COMPRESSION);
+bool decompress_string(const std::string& str, std::string *dest);
+
+
 // Delta encoding/decoding - many formats benefit from a pass of this before zlibbing.
 // WARNING : Do not use these with floating point data, especially not float16...
 

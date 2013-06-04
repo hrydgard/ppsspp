@@ -109,7 +109,7 @@ private:
 class LinearLayout : public ViewGroup {
 public:
 	LinearLayout(Orientation orientation, LayoutParams *layoutParams = 0)
-		: ViewGroup(layoutParams), spacing_(5), orientation_(orientation), defaultMargins_(0) {}
+		: ViewGroup(layoutParams), orientation_(orientation), defaultMargins_(0), spacing_(10) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
@@ -153,7 +153,13 @@ private:
 class ScrollView : public ViewGroup {
 public:
 	ScrollView(Orientation orientation, LayoutParams *layoutParams = 0) :
-		ViewGroup(layoutParams), orientation_(orientation), scrollPos_(0), scrollTarget_(0), scrollToTarget_(false) {}
+		ViewGroup(layoutParams), 
+		orientation_(orientation),
+		scrollPos_(0),
+		scrollStart_(0),
+		scrollMax_(0),
+		scrollTarget_(0),
+		scrollToTarget_(false) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
