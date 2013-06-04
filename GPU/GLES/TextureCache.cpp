@@ -123,10 +123,7 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
 
-		bool invalidate = (texAddr >= addr && texAddr < addr_end) || (texEnd >= addr && texEnd < addr_end);
-		invalidate = invalidate || (addr >= texAddr && addr < texEnd) || (addr_end >= texAddr && addr_end < texEnd);
-
-		if (invalidate) {
+		if (texAddr < addr_end && addr < texEnd) {
 			if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
 				// Clear status -> STATUS_HASHING.
 				iter->second.status &= ~TexCacheEntry::STATUS_MASK;
@@ -143,8 +140,14 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	}
 }
 
-void TextureCache::InvalidateAll(GPUInvalidationType type) {
-	Invalidate(0, 0xFFFFFFFF, type);
+void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
+	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
+		if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
+			// Clear status -> STATUS_HASHING.
+			iter->second.status &= ~TexCacheEntry::STATUS_MASK;
+		}
+		iter->second.invalidHint++;
+	}
 }
 
 void TextureCache::ClearNextFrame() {
