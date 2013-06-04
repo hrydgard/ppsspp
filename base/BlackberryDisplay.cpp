@@ -66,7 +66,6 @@ void BlackberryMain::startDisplays() {
 
 		egl_disp[i] = eglGetDisplay((EGLNativeDisplayType)i);
 		eglInitialize(egl_disp[i], NULL, NULL);
-		//eglSwapInterval(egl_disp[idx], 1);
 		if (egl_cont == EGL_NO_CONTEXT) {
 			eglChooseConfig(egl_disp[0], attrib_list, &egl_conf, 1, &num_configs);
 			egl_cont = eglCreateContext(egl_disp[0], egl_conf, EGL_NO_CONTEXT, attributes);
@@ -89,14 +88,14 @@ void BlackberryMain::realiseDisplay(int idx) {
 		screen_get_display_property_iv(screen_dpy[idx], SCREEN_PROPERTY_SIZE, size);
 	displays[idx].width = size[0];
 	displays[idx].height = size[1];
-	int err_1 = screen_set_window_property_iv(screen_win[idx], SCREEN_PROPERTY_BUFFER_SIZE, size);
-	int err_2 = screen_create_window_buffers(screen_win[idx], 2); // Double buffered
+	screen_set_window_property_iv(screen_win[idx], SCREEN_PROPERTY_BUFFER_SIZE, size);
+	screen_create_window_buffers(screen_win[idx], 2); // Double buffered
 	fprintf(stderr, "Display %i realised with %ix%i\n", idx, size[0], size[1]);
 
 	egl_surf[idx] = eglCreateWindowSurface(egl_disp[idx], egl_conf, screen_win[idx], egl_surfaceAttr);
-	fprintf(stderr, "Stats: %i %i %i\n", err_1, err_2, egl_surf[idx]);
 
-	if (displays[idx].type != SCREEN_DISPLAY_TYPE_INTERNAL)
+	// Only enable for devices with hardware QWERTY, 1:1 aspect ratio
+	if ((pixel_xres == pixel_yres) && displays[idx].type != SCREEN_DISPLAY_TYPE_INTERNAL)
 	{
 		screen_emu = idx;
 		if (emulating)
@@ -114,15 +113,12 @@ void BlackberryMain::unrealiseDisplay(int idx) {
 			switchDisplay(screen_ui);
 	}
 	killDisplay(idx, false);
-//	screen_flush_context(screen_cxt, 0);
-	fprintf(stderr, "Unrealising %i\n", idx);
 	displays[idx].realised = false;
 }
 
 void BlackberryMain::switchDisplay(int idx) {
 	static int screen_curr = -1;
 	if (idx != screen_curr) {
-		fprintf(stderr, "Switching to %i\n", idx);
 		pixel_xres = displays[idx].width;
 		pixel_yres = displays[idx].height;
 		dp_xres = (int)(pixel_xres * dpi_scale);

@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <cstdio>
 
 #include "base/functional.h"
 #include "base/mutex.h"
