@@ -160,8 +160,6 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 	case SCREEN_EVENT_DISPLAY:
 		screen_display_t new_dpy = NULL;
 		screen_get_event_property_pv(screen_event, SCREEN_PROPERTY_DISPLAY, (void **)&new_dpy);
-		static int hits = 0;
-		hits++;
 		for (int i = 0; i < ndisplays; i++) {
 			if (new_dpy != screen_dpy[i])
 				continue;
@@ -191,12 +189,9 @@ void BlackberryMain::startMain(int argc, char *argv[]) {
 	// TODO: Enable/disable based on setting
 	sensor_set_rate(SENSOR_TYPE_ACCELEROMETER, 25000);
 	sensor_request_events(SENSOR_TYPE_ACCELEROMETER);
-	pad_buttons = 0;
-	controller_buttons = 0;
 
 	net::Init();
 	startDisplays();
-	//eglMakeCurrent(egl_disp[0], egl_surf[0], egl_surf[0], egl_ctx[0]);
 	NativeInit(argc, (const char **)argv, "/accounts/1000/shared/misc/", "data/", "BADCOFFEE");
 	NativeInitGraphics();
 	screen_request_events(screen_cxt);
@@ -230,9 +225,7 @@ void BlackberryMain::runMain() {
 					pad_buttons |= PAD_BUTTON_MENU;
 					break;
 				case NAVIGATOR_EXIT:
-					NativeShutdown();
-					exit(0);
-					break;
+					return;
 				}
 			} else if (domain == sensor_get_domain()) {
 				if (SENSOR_ACCELEROMETER_READING == bps_event_get_code(event)) {
@@ -257,9 +250,7 @@ void BlackberryMain::runMain() {
 		EndInputState(&input_state);
 		// Work in Progress
 		// Currently: Render to HDMI port (eg. 1080p) when in game. Render to device when in menu.
-		// Right now, hotswapping displays is not working. Temporarily disable. 
 		// Idea: Render to all displays. Controls go to internal, game goes to external(s).
-#if 0
 		if (globalUIState == UISTATE_INGAME && !emulating)
 		{
 			emulating = true;
@@ -268,16 +259,14 @@ void BlackberryMain::runMain() {
 			emulating = false;
 			switchDisplay(screen_ui);
 		}
-#endif
 		NativeRender();
 		time_update();
 		// This handles VSync
-		if (false && emulating) // Temporarily disable
+		if (emulating)
 			eglSwapBuffers(egl_disp[screen_emu], egl_surf[screen_emu]);
 		else
 			eglSwapBuffers(egl_disp[screen_ui], egl_surf[screen_ui]);
 	}
-	endMain();
 }
 
 void BlackberryMain::endMain() {
@@ -293,8 +282,6 @@ void BlackberryMain::endMain() {
 
 // Entry Point
 int main(int argc, char *argv[]) {
-	BlackberryMain emu;
-	emu.startMain(argc, argv);
-	exit(0);
+	delete new BlackberryMain(argc, argv);
 	return 0;
 }

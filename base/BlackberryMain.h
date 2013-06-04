@@ -44,24 +44,33 @@ struct dispdata_t {
 class BlackberryMain
 {
 public:
-	BlackberryMain() { }
-	~BlackberryMain() { }
-	void startMain(int argc, char *argv[]);
+	BlackberryMain(int argc, char *argv[]) :
+		emulating(false),
+		screen_ui(0), screen_emu(0),
+		pad_buttons(0), controller_buttons(0),
+		egl_cont(EGL_NO_CONTEXT)
+	{
+		startMain(argc, argv);
+	}
+	~BlackberryMain() {
+		endMain();
+	}
+	void  startMain(int argc, char *argv[]);
 
 private:
-	void runMain();
-	void endMain();
+	void  runMain();
+	void  endMain();
 
-	void handleInput(screen_event_t screen_event);
+	void  handleInput(screen_event_t screen_event);
 
 	char* displayTypeString(int type);
-	void startDisplays();
+	void  startDisplays();
 	void* startDisplay(int idx);
-	void realiseDisplay(int idx);
-	void unrealiseDisplay(int idx);
-	void switchDisplay(int idx);
-	void killDisplays();
-	void killDisplay(int idx, bool killContext);
+	void  realiseDisplay(int idx);
+	void  unrealiseDisplay(int idx);
+	void  switchDisplay(int idx);
+	void  killDisplays();
+	void  killDisplay(int idx, bool killContext);
 
 	BlackberryAudio* audio;
 	dispdata_t *displays;
@@ -73,10 +82,11 @@ private:
 	int pad_buttons, controller_buttons;
 	EGLDisplay* egl_disp;
 	EGLSurface* egl_surf;
-	EGLContext* egl_cont;
+	EGLContext  egl_cont;
+	EGLConfig   egl_conf;
 	screen_context_t screen_cxt;
 	screen_display_t *screen_dpy;
-	screen_window_t *screen_win;
+	screen_window_t  *screen_win;
 };
 
 #endif
