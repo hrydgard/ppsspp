@@ -160,11 +160,14 @@ int sceNetAdhocTerm() {
 	return 0;
 }
 
-void sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
+//homebrew SDK claims it's a void function, but tests seem to indicate otherwise
+int sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
 	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
 	int len = strlen(mac);
 	for (int i = 0; i < len; i++)
 		Memory::Write_U8(mac[i], bufferPtr + i);
+
+	return 0;
 }
 
 //write SCE_KERNEL_ERROR_ERRNO_NOT_CONNECTED to attempt to stop games from spamming wifi syscalls...
@@ -215,7 +218,7 @@ const HLEFunction sceNet[] =
 {
 	{0x39AF39A6, sceNetInit, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
-	{0x89360950, WrapV_CU<sceNetEtherNtostr>, "sceNetEtherNtostr"}, 
+	{0x89360950, WrapI_CU<sceNetEtherNtostr>, "sceNetEtherNtostr"}, 
 	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"}, 
 	{0xd27961c9, 0, "sceNetEtherStrton"}, 
 	{0x50647530, 0, "sceNetFreeThreadinfo"}, 
