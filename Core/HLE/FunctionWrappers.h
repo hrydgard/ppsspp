@@ -18,7 +18,6 @@
 #pragma once
 
 #include "../../Globals.h"
-#include "sceNet.h" //TODO: How do I make this not reliant on sceNet? :\
 // For easy parameter parsing and return value processing.
 
 // 64bit wrappers
