@@ -160,8 +160,22 @@ int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
 	return offset;
 }
 
+#ifdef _DEBUG
+void ffmpeg_logger(void *, int, const char *format, va_list va_args) {
+	char tmp[1024];
+	vsprintf(tmp, format, va_args);
+	INFO_LOG(HLE, tmp);
+}
+#endif
+
 bool MediaEngine::openContext() {
 #ifdef USE_FFMPEG
+
+#ifdef _DEBUG
+	av_log_set_level(AV_LOG_VERBOSE);
+	av_log_set_callback(&ffmpeg_logger);
+#endif 
+
 	u8* tempbuf = (u8*)av_malloc(m_bufSize);
 
 	AVFormatContext *pFormatCtx = avformat_alloc_context();
@@ -175,9 +189,6 @@ bool MediaEngine::openContext() {
 
 	if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
 		return false;
-
-	// Dump information about file onto standard error
-	av_dump_format(pFormatCtx, 0, NULL, 0);
 
 	// Find the first video stream
 	for(int i = 0; i < (int)pFormatCtx->nb_streams; i++) {
@@ -568,4 +579,3 @@ s64 MediaEngine::getLastTimeStamp() {
 	int lastTimeStamp = bswap32(*(int*)(m_pdata + 92));
 	return lastTimeStamp - firstTimeStamp;
 }
-
