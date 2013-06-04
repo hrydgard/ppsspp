@@ -231,12 +231,20 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 					if (align==4)
 					{
 						u32 value = Memory::ReadUnchecked_U32(address);
-						sprintf(temp, "%08x [%s]", value, symbolMap.GetSymbolName(symbolMap.GetSymbolNum(value)));
+						int num = symbolMap.GetSymbolNum(value);
+						if (num != -1)
+							sprintf(temp, "%08x [%s]", value, symbolMap.GetSymbolName(num));
+						else
+							sprintf(temp, "%08x", value);
 					}
 					else if (align==2)
 					{
 						u16 value = Memory::ReadUnchecked_U16(address);
-						sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(symbolMap.GetSymbolNum(value)));
+						int num = symbolMap.GetSymbolNum(value);
+						if (num != -1)
+							sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(num));
+						else
+							sprintf(temp, "%04x", value);
 					}
 
 					TextOut(hdc,70,rowY1,temp,(int)strlen(temp));
