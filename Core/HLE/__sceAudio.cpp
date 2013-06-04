@@ -19,7 +19,7 @@
 #include "sceAudio.h"
 #include "sceKernel.h"
 #include "sceKernelThread.h"
-#include "StdMutex.h"
+#include "base/mutex.h"
 #include "CommonTypes.h"
 #include "../CoreTiming.h"
 #include "../MemMap.h"
@@ -30,7 +30,7 @@
 #include "Common/Thread.h"
 
 // Should be used to lock anything related to the outAudioQueue.
-std::recursive_mutex section;
+recursive_mutex section;
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
@@ -84,9 +84,10 @@ void __AudioDoState(PointerWrap &p)
 
 	p.Do(mixFrequency);
 
-	section.lock();
-	outAudioQueue.DoState(p);
-	section.unlock();
+	{
+		lock_guard guard(section);
+		outAudioQueue.DoState(p);
+	}
 
 	int chanCount = ARRAY_SIZE(chans);
 	p.Do(chanCount);
@@ -250,7 +251,7 @@ void __AudioUpdate()
 	}
 
 	if (g_Config.bEnableSound) {
-		section.lock();
+		lock_guard guard(section);
 		if (outAudioQueue.room() >= hwBlockSize * 2) {
 			// Push the mixed samples onto the output audio queue.
 			for (int i = 0; i < hwBlockSize; i++) {
@@ -265,7 +266,6 @@ void __AudioUpdate()
 			// about the amount of audio we produce.
 			DEBUG_LOG(HLE, "Audio outbuffer overrun! room = %i / %i", outAudioQueue.room(), (u32)outAudioQueue.capacity());
 		}
-		section.unlock();
 	}
 	
 }
@@ -281,15 +281,13 @@ void __AudioSetOutputFrequency(int freq)
 int __AudioMix(short *outstereo, int numFrames)
 {
 	// TODO: if mixFrequency != the actual output frequency, resample!
-
-	section.lock();
+	lock_guard guard(section);
 	int underrun = -1;
 	s16 sampleL = 0;
 	s16 sampleR = 0;
 	bool anythingToPlay = false;
 	for (int i = 0; i < numFrames; i++) {
-		if (outAudioQueue.size() >= 2)
-		{
+		if (outAudioQueue.size() >= 2) {
 			sampleL = outAudioQueue.pop_front();
 			sampleR = outAudioQueue.pop_front();
 			outstereo[i * 2 + 0] = sampleL;
@@ -306,6 +304,5 @@ int __AudioMix(short *outstereo, int numFrames)
 	} else {
 		// DEBUG_LOG(HLE, "No underrun, mixed %i samples fine", numFrames);
 	}
-	section.unlock();
 	return underrun >= 0 ? underrun : numFrames;
 }

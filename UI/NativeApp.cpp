@@ -174,12 +174,14 @@ void NativeHost::ShutdownSound() {
 }
 
 int NativeMix(short *audio, int num_samples) {
+	// ILOG("Entering mixer");
 	if (g_mixer) {
-		return g_mixer->Mix(audio, num_samples);
+		num_samples = g_mixer->Mix(audio, num_samples);
 	}	else {
-		//memset(audio, 0, numSamples * 2);
-		return 0;
+		memset(audio, 0, num_samples * 2 * sizeof(short));
 	}
+	// ILOG("Leaving mixer");
+	return num_samples;
 }
 
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape) {

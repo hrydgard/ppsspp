@@ -71,11 +71,11 @@ void PluginScreen::CreateViews() {
 	root_->Add(buttonBar);
 
 	buttonBack_ = new Button(c->T("Back"), new LinearLayoutParams(1.0));
-	buttonBar->Add(buttonBack_)->OnClick.Add(std::bind(&UIScreen::OnBack, this, placeholder::_1));
+	buttonBar->Add(buttonBack_)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	buttonDownload_ = new Button(c->T("Download"), new LinearLayoutParams(1.0));
 	buttonDownload_->SetEnabled(false);
-	buttonBar->Add(buttonDownload_)->OnClick.Add(std::bind(&PluginScreen::OnDownload, this, placeholder::_1));
-	buttonBar->Add(new Button(c->T("More Information"), new LinearLayoutParams(1.0)))->OnClick.Add(std::bind(&PluginScreen::OnInformation, this, placeholder::_1));
+	buttonBar->Add(buttonDownload_)->OnClick.Handle(this, &PluginScreen::OnDownload);
+	buttonBar->Add(new Button(c->T("More Information"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &PluginScreen::OnInformation);
 }
 
 void PluginScreen::update(InputState &input) {
