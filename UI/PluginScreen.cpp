@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
-
 #include "base/functional.h"
 #include "UI/PluginScreen.h"
 #include "ext/vjson/json.h"
@@ -86,33 +84,43 @@ void PluginScreen::update(InputState &input) {
 	downloader_.Update();
 
 	if (json_.get() && json_->Done()) {
-		std::string json;
-		json_->buffer().TakeAll(&json);
+		if (json_->ResultCode() != 200) {
+			char codeStr[18];
+			sprintf(codeStr, "%i", json_->ResultCode());
+			tvDescription_->SetText(std::string("Failed to check availability (") + codeStr + ").\nPlease try again later and check that you have a\nworking internet connection.");
+			buttonDownload_->SetEnabled(false);
+		}
+		else
+		{
+			std::string json;
+			json_->buffer().TakeAll(&json);
 
-		JsonReader reader(json.data(), json.size());
-		const json_value *root = reader.root();
+			JsonReader reader(json.data(), json.size());
+			const json_value *root = reader.root();
 
-		std::string abi = "";
+			std::string abi = "";
 #if defined(_M_IX86) && defined(_WIN32)
-		abi = "Win32";
+			abi = "Win32";
 #elif defined(_M_X64) && defined(_WIN32)
-		abi = "Win64";
+			abi = "Win64";
 #elif defined(ARMEABI)
-		abi = "armeabi";
+			abi = "armeabi";
 #elif defined(ARMEABI_V7A)
-		abi = "armeabi-v7a";
+			abi = "armeabi-v7a";
 #endif
-		if (!abi.empty()) {
-			at3plusdecoderUrl_ = root->getString(abi.c_str(), "");
-			if (at3plusdecoderUrl_.empty()) {
-				buttonDownload_->SetEnabled(false);
-			} else {
-				buttonDownload_->SetEnabled(true);
-				const char *notInstalledText = "To download and install Mai's Atrac3+ decoding support, click Download.\n";
-				const char *reInstallText = "Mai's Atrac3+ decoder already installed.\nWould you like to redownload and reinstall it?\n";
-				tvDescription_->SetText(Atrac3plus_Decoder::IsInstalled() ? reInstallText : notInstalledText);
+			if (!abi.empty()) {
+				at3plusdecoderUrl_ = root->getString(abi.c_str(), "");
+				if (at3plusdecoderUrl_.empty()) {
+					buttonDownload_->SetEnabled(false);
+				} else {
+					buttonDownload_->SetEnabled(true);
+					const char *notInstalledText = "To download and install Mai's Atrac3+ decoding support, click Download.\n";
+					const char *reInstallText = "Mai's Atrac3+ decoder already installed.\nWould you like to redownload and reinstall it?\n";
+					tvDescription_->SetText(Atrac3plus_Decoder::IsInstalled() ? reInstallText : notInstalledText);
+				}
 			}
 		}
+
 		json_.reset();
 	}
 
@@ -120,16 +128,14 @@ void PluginScreen::update(InputState &input) {
 		// Done! yay.
 		progress_->SetProgress(1.0);
 
-		int result = at3plusdecoder_->ResultCode();
-
-		if (result == 200) {
+		if (at3plusdecoder_->ResultCode() == 200) {
 			// Yay!
 			tvDescription_->SetText("Mai Atrac3plus plugin downloaded and installed.\n"
 				                      "Please press Back.");
 			buttonDownload_->SetVisibility(UI::V_GONE);
 		} else {
 			char codeStr[18];
-			sprintf(codeStr, "%i", result);
+			sprintf(codeStr, "%i", at3plusdecoder_->ResultCode());
 			tvDescription_->SetText(std::string("Failed to download (") + codeStr + ").\nPlease try again later.");
 			progress_->SetVisibility(UI::V_GONE);
 			buttonDownload_->SetEnabled(true);

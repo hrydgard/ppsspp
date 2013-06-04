@@ -99,11 +99,6 @@ namespace Atrac3plus_Decoder {
 	int Init() {
 		if (!g_Config.bEnableAtrac3plus)
 			return -1;
-		// Let's always autoinstall if we can, to get the latest version.
-		// TODO: Make this look at file dates.
-		if (CanAutoInstall()) {
-			DoAutoInstall();
-		}
 
 		if (!IsInstalled()) {
 			// Okay, we're screwed. Let's bail.

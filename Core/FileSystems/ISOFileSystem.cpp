@@ -164,7 +164,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 
 	if (!memcmp(desc.cd001, "CD001", 5))
 	{
-		INFO_LOG(FILESYS, "Looks like a valid ISO!");
+		DEBUG_LOG(FILESYS, "Looks like a valid ISO!");
 	}
 	else
 	{
