@@ -91,6 +91,7 @@ MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
 	m_buffer = 0;
 	m_demux = 0;
 	m_audioContext = 0;
+	m_isVideoEnd = false;
 }
 
 MediaEngine::~MediaEngine() {
@@ -128,6 +129,7 @@ void MediaEngine::closeMedia() {
 	m_pdata = 0;
 	m_demux = 0;
 	Atrac3plus_Decoder::CloseContext(&m_audioContext);
+	m_isVideoEnd = false;
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
@@ -208,6 +210,7 @@ bool MediaEngine::openContext() {
 	m_demux->demux();
 	m_audioPos = 0;
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
+	m_isVideoEnd = false;
 #endif // USE_FFMPEG
 	return true;
 }
@@ -362,13 +365,15 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
       
 			if(frameFinished) {
 				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
-				m_videopts = packet.pts + packet.duration - firstTimeStamp;
+				m_videopts = pFrame->pkt_dts + pFrame->pkt_duration - firstTimeStamp;
 				bGetFrame = true;
 			}
 		}
 		av_free_packet(&packet);
 		if (bGetFrame) break;
 	}
+	if (!bGetFrame && m_readSize >= m_streamSize)
+		m_isVideoEnd = true;
 	return bGetFrame;
 #else
 	return true;
@@ -552,7 +557,7 @@ s64 MediaEngine::getVideoTimeStamp() {
 
 s64 MediaEngine::getAudioTimeStamp() {
 	if (m_demux)
-		return m_audiopts;
+		return std::max(m_audiopts - 4180, (s64)0);
 	return m_videopts;
 }
 
