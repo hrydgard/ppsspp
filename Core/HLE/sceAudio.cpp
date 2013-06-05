@@ -42,7 +42,7 @@ void AudioChannel::DoState(PointerWrap &p)
 
 void AudioChannel::reset()
 {
-	__AudioWakeThreads(*this);
+	__AudioWakeThreads(*this, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
 	clear();
 }
 
