@@ -727,8 +727,8 @@ const MIPSInstruction tableALLEGREX0[32] =  //111111
 {
 	{-2},
 	{-2},
-	INSTR("wsbh",&Jit::Comp_Generic, Dis_Allegrex2,Int_Allegrex2,0),
-	INSTR("wsbw",&Jit::Comp_Generic, Dis_Allegrex2,Int_Allegrex2,0),
+	INSTR("wsbh",&Jit::Comp_Allegrex2, Dis_Allegrex2,Int_Allegrex2,0),
+	INSTR("wsbw",&Jit::Comp_Allegrex2, Dis_Allegrex2,Int_Allegrex2,0),
 	{-2},	{-2},	{-2},	{-2},
 //8
 	{-2},	{-2},	{-2},	{-2},	{-2},	{-2},	{-2},	{-2},
