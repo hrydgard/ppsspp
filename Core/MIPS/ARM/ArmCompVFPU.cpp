@@ -17,6 +17,7 @@
 
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
+#include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
@@ -166,39 +167,22 @@ namespace MIPSComp
 
 			int sat = (js.prefixD >> (i * 2)) & 3;
 			if (sat == 1) {
+				// clamped = fabs(x) - fabs(x-0.5f) + 0.5f; // [ 0, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
-				// ARGH this is a pain - no MIN/MAX in non-NEON VFP!
-				// NEON does have min/max though so this should only be a fallback.
-				MOVI2F(S0, 0.0, R0);
-				MOVI2F(S1, 1.0, R0);
-				VCMP(fpr.V(vregs[i]), S1);
-				VMRS_APSR();
-				SetCC(CC_GE);
-				VMOV(fpr.V(vregs[i]), S1);
-				FixupBranch skip = B();
-				SetCC(CC_AL);
-				VCMP(fpr.V(vregs[i]), S0);
-				VMRS_APSR();
-				SetCC(CC_LE);
-				VMOV(fpr.V(vregs[i]), S0);
-				SetCC(CC_AL);
-				SetJumpTarget(skip);
+				MOVI2F(S0, 0.5, R0);
+				VABS(S1, fpr.V(vregs[i]));     // S1 = fabs(x)
+				VSUB(S2, fpr.V(vregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
+				VABS(S2, S2);
+				VSUB(fpr.V(vregs[i]), S1, S2); // v[i] = S1 - S2 + 0.5f
+				VADD(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
 			} else if (sat == 3) {
+				// clamped = fabs(x) - fabs(x-1.0f);        // [-1, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
-				MOVI2F(S0, -1.0, R0);
-				MOVI2F(S1, 1.0, R0);
-				VCMP(fpr.V(vregs[i]), S1);
-				VMRS_APSR();
-				SetCC(CC_GE);
-				VMOV(fpr.V(vregs[i]), S1);
-				FixupBranch skip = B();
-				SetCC(CC_AL);
-				VCMP(fpr.V(vregs[i]), S0);
-				VMRS_APSR();
-				SetCC(CC_LE);
-				VMOV(fpr.V(vregs[i]), S0);
-				SetCC(CC_AL);
-				SetJumpTarget(skip);
+				MOVI2F(S0, 1.0, R0);
+				VABS(S1, fpr.V(vregs[i]));     // S1 = fabs(x)
+				VSUB(S2, fpr.V(vregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
+				VABS(S2, S2);
+				VSUB(fpr.V(vregs[i]), S1, S2); // v[i] = S1 - S2
 			}
 		}
 	}

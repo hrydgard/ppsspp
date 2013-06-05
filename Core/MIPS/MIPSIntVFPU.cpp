@@ -115,9 +115,9 @@ return floor(x+.5);
 
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
-  // Possible optimization shortcut:
-  if (data == 0xe4)
-    return;
+	// Possible optimization shortcut:
+	if (data == 0xe4)
+		return;
 
 	int n = GetNumVectorElements(size);
 	float origV[4];
