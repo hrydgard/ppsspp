@@ -417,6 +417,11 @@ u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32
 	return 0;
 }
 
+u32 scePsmfSpecifyStream(u32 psmfPlayer, int streamNum) {
+	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStream(%08x, %i)", psmfPlayer, streamNum);
+	return 0;
+}
+
 u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
 	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
@@ -1023,11 +1028,6 @@ u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configAttr)
 		ERROR_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, %i, %i): unknown parameter", psmfPlayer, configMode, configAttr);
 	}
 
-	return 0;
-}
-
-u32 scePsmfSpecifyStream(u32 psmfPlayer, int streamNum) {
-	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStream(%08x, %i)", psmfPlayer, streamNum);
 	return 0;
 }
 

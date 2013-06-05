@@ -411,8 +411,7 @@ void ExportVarSymbol(const char *moduleName, u32 nid, u32 address)
 	}
 }
 
-Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string)
-{
+Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
 	memset(&module->nm, 0, sizeof(module->nm));
@@ -422,9 +421,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		INFO_LOG(HLE, "~SCE module, skipping header");
 		ptr += *(u32*)(ptr + 4);
 	}
-
-	if (*(u32*)ptr == 0x5053507e) { // "~PSP"
-		// Decrypt module! YAY!
+	*magic = *(u32*)ptr;
+	if (*magic == 0x5053507e) { // "~PSP"
 		INFO_LOG(HLE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
 		const u8 *in = ptr;
@@ -451,29 +449,26 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		{
 			ERROR_LOG(HLE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
 			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
+			// Fall through to safe exit in the next check.
 		}
 	}
 
-	if (*(u32*)ptr != 0x464c457f)
-	{
+	// DO NOT change to else if, see above.
+	if (*(u32*)ptr != 0x464c457f) {
 		ERROR_LOG_REPORT(HLE, "Wrong magic number %08x", *(u32*)ptr);
 		*error_string = "File corrupt";
-		if (newptr) {
+		if (newptr)
 			delete [] newptr;
-		}
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
 	// Open ELF reader
 	ElfReader reader((void*)ptr);
 
-	if (!reader.LoadInto(loadAddress))
-	{
+	if (!reader.LoadInto(loadAddress)) 	{
 		ERROR_LOG(HLE, "LoadInto failed");
 		if (newptr)
-		{
 			delete [] newptr;
-		}
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
@@ -525,8 +520,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	SectionID textSection = reader.GetSectionByName(".text");
 
-	if (textSection != -1)
-	{
+	if (textSection != -1) {
 		u32 textStart = reader.GetSectionAddr(textSection);
 		u32 textSize = reader.GetSectionSize(textSection);
 
@@ -810,9 +804,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		module->nm.entry_addr = module->nm.module_start_func;
 
 	if (newptr)
-	{
 		delete [] newptr;
-	}
+
 	return module;
 }
 
@@ -833,7 +826,8 @@ bool __KernelLoadPBP(const char *filename, std::string *error_string)
 
 	size_t elfSize;
 	u8 *elfData = pbp.GetSubFile(PBP_EXECUTABLE_PSP, &elfSize);
-	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), error_string);
+	u32 magic;
+	Module *module = __KernelLoadELFFromPtr(elfData, PSP_GetDefaultLoadAddress(), error_string, &magic);
 	if (!module) {
 		delete [] elfData;
 		return false;
@@ -860,11 +854,13 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 		offsets[0] = offset0;
 		for (int i = 1; i < numfiles; i++)
 			memcpy(&offsets[i], fileptr + 12 + 4*i, 4);
-		module = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string);
+		u32 magic = 0;
+		module = __KernelLoadELFFromPtr(fileptr + offsets[5], PSP_GetDefaultLoadAddress(), error_string, &magic);
 	}
 	else
 	{
-		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string);
+		u32 magic = 0;
+		module = __KernelLoadELFFromPtr(fileptr, PSP_GetDefaultLoadAddress(), error_string, &magic);
 	}
 
 	return module;
@@ -1032,11 +1028,17 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	u8 *temp = new u8[(int)size];
 	u32 handle = pspFileSystem.OpenFile(name, FILEACCESS_READ);
 	pspFileSystem.ReadFile(handle, temp, (size_t)size);
-	module = __KernelLoadELFFromPtr(temp, 0, &error_string);
+	u32 magic;
+	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic);
 	delete [] temp;
 	pspFileSystem.CloseFile(handle);
 
 	if (!module) {
+		if (magic == 0x46535000) {
+			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
+			return -1;
+		}
+
 		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
 		// Let's just act as if it worked.
 		NOTICE_LOG(LOADER, "Module %s is blacklisted or undecryptable - we lie about success", name);
@@ -1356,12 +1358,21 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	Module *module = 0;
 	u8 *temp = new u8[size];
 	pspFileSystem.ReadFile(handle, temp, size);
-	module = __KernelLoadELFFromPtr(temp, 0, &error_string);
+	u32 magic;
+	module = __KernelLoadELFFromPtr(temp, 0, &error_string, &magic);
 	delete [] temp;
 
 	if (!module) {
+		// Some games try to load strange stuff as PARAM.SFO as modules and expect it to fail.
+		// This checks for the SFO magic number.
+		if (magic == 0x46535000) {
+			ERROR_LOG(LOADER, "Game tried to load an SFO as a module. Go figure? Magic = %08x", magic);
+			return -1;
+		}
+
 		// Module was blacklisted or couldn't be decrypted, which means it's a kernel module we don't want to run.
 		// Let's just act as if it worked.
+
 		NOTICE_LOG(LOADER, "Module %d is blacklisted or undecryptable - we lie about success", id);
 		return 1;
 	}
