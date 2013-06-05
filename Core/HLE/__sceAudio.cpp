@@ -49,6 +49,18 @@ const int chanQueueMinSizeFactor = 1;
 
 FixedSizeQueue<s16, hostAttemptBlockSize * 16> outAudioQueue;
 
+static inline s16 clamp_s16(int i) {
+	if (i > 32767)
+		return 32767;
+	if (i < -32768)
+		return -32768;
+	return i;
+}
+
+static inline s16 adjustvolume(s16 sample, int vol) {
+	return clamp_s16((sample * vol) >> 15);
+}
+
 void hleAudioUpdate(u64 userdata, int cyclesLate)
 {
 	__AudioUpdate();
@@ -153,14 +165,23 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 			// Walking a pointer for speed.  But let's make sure we wouldn't trip on an invalid ptr.
 			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16)))
 			{
-				for (u32 i = 0; i < totalSamples; i++)
-					chan.sampleQueue.push(*sampleData++);
+				for (u32 i = 0; i < totalSamples; i += 2) {
+					chan.sampleQueue.push(adjustvolume(*sampleData++, chan.leftVolume));
+					chan.sampleQueue.push(adjustvolume(*sampleData++, chan.rightVolume));
+				}
 			}
 		}
 		else
 		{
-			for (u32 i = 0; i < totalSamples; i++)
-				chan.sampleQueue.push((s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i));
+			for (u32 i = 0; i < totalSamples; i++) {
+				s16 sampleL = (s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i);
+				sampleL = adjustvolume(sampleL, chan.leftVolume);
+				chan.sampleQueue.push(sampleL);
+				i++;
+				s16 sampleR = (s16)Memory::Read_U16(chan.sampleAddress + sizeof(s16) * i);
+				sampleR = adjustvolume(sampleR, chan.rightVolume);
+				chan.sampleQueue.push(sampleR);
+			}
 		}
 	}
 	else if (chan.format == PSP_AUDIO_FORMAT_MONO)
@@ -169,19 +190,11 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 		{
 			// Expand to stereo
 			s16 sample = (s16)Memory::Read_U16(chan.sampleAddress + 2 * i);
-			chan.sampleQueue.push(sample);
-			chan.sampleQueue.push(sample);
+			chan.sampleQueue.push(adjustvolume(sample, chan.leftVolume));
+			chan.sampleQueue.push(adjustvolume(sample, chan.rightVolume));
 		}
 	}
 	return ret;
-}
-
-static inline s16 clamp_s16(int i) {
-	if (i > 32767)
-		return 32767;
-	if (i < -32768)
-		return -32768;
-	return i;
 }
 
 inline void __AudioWakeThreads(AudioChannel &chan, int step)
@@ -238,9 +251,8 @@ void __AudioUpdate()
 			{
 				s16 sampleL = chans[i].sampleQueue.pop_front();
 				s16 sampleR = chans[i].sampleQueue.pop_front();
-				// The channel volume should be done here?
-				mixBuffer[s * 2 + 0] += sampleL * (s32)chans[i].leftVolume >> 15;
-				mixBuffer[s * 2 + 1] += sampleR * (s32)chans[i].rightVolume >> 15;
+				mixBuffer[s * 2 + 0] += sampleL;
+				mixBuffer[s * 2 + 1] += sampleR;
 			} 
 			else
 			{

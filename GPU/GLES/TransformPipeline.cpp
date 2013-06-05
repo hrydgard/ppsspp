@@ -350,7 +350,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (gstate.lightEnable[l] & 1)
 		{
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
-			lightSum0 += (lightAmbient + diff) * lightScale;
+			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
 		}
 	}
 

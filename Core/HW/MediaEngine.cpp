@@ -91,6 +91,9 @@ MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
 	m_buffer = 0;
 	m_demux = 0;
 	m_audioContext = 0;
+	m_pdata = 0;
+	m_streamSize = 0;
+	m_readSize = 0;
 	m_isVideoEnd = false;
 }
 
@@ -239,6 +242,8 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int StreamSize)
 	m_readSize = readSize;
 	m_streamSize = StreamSize;
 	m_pdata = new u8[StreamSize];
+	if (!m_pdata)
+		return false;
 	memcpy(m_pdata, buffer, m_readSize);
 	
 	if (readSize > 0x2000)
@@ -251,6 +256,8 @@ bool MediaEngine::loadFile(const char* filename)
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	s64 infosize = info.size;
 	u8* buf = new u8[infosize];
+	if (!buf)
+		return false;
 	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
 	pspFileSystem.ReadFile(h, buf, infosize);
 	pspFileSystem.CloseFile(h);
@@ -275,7 +282,7 @@ bool MediaEngine::loadFile(const char* filename)
 
 int MediaEngine::addStreamData(u8* buffer, int addSize) {
 	int size = std::min(addSize, m_streamSize - m_readSize);
-	if (size > 0) {
+	if (size > 0 && m_pdata) {
 		memcpy(m_pdata + m_readSize, buffer, size);
 		m_readSize += size;
 		if (!m_pFormatCtx && m_readSize > 0x2000)

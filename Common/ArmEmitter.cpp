@@ -648,11 +648,11 @@ void ARMXEmitter::RBIT(ARMReg dest, ARMReg src)
 }
 void ARMXEmitter::REV (ARMReg dest, ARMReg src) 
 {
-	Write32(condition | (0x6B << 20) | (0xF << 16) | (dest << 12) | (0xF3 << 4) | src);
+	Write32(condition | (0x6BF << 16) | (dest << 12) | (0xF3 << 4) | src);
 }
 void ARMXEmitter::REV16(ARMReg dest, ARMReg src)
 {
-	Write32(condition | (0x3DF << 16) | (dest << 12) | (0xFD << 4) | src);
+	Write32(condition | (0x6BF << 16) | (dest << 12) | (0xFB << 4) | src);
 }
 
 void ARMXEmitter::_MSR (bool write_nzcvq, bool write_g,		Operand2 op2)

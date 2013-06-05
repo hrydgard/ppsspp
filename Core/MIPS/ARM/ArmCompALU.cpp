@@ -505,6 +505,39 @@ namespace MIPSComp
 		}
 	}
 
+	void Jit::Comp_Allegrex2(u32 op)
+	{
+		CONDITIONAL_DISABLE;
+		int rt = _RT;
+		int rd = _RD;
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
+		switch (op & 0x3ff)
+		{
+		case 0xA0: //wsbh
+			if (cpu_info.bArmV7) {
+				gpr.MapDirtyIn(rd, rt);
+				REV16(gpr.R(rd), gpr.R(rt));
+			} else {
+				Comp_Generic(op);
+			}
+			break;
+		case 0xE0: //wsbw
+			if (cpu_info.bArmV7) {
+				gpr.MapDirtyIn(rd, rt);
+				REV(gpr.R(rd), gpr.R(rt));
+			} else {
+				Comp_Generic(op);
+			}
+			break;
+		default:
+			Comp_Generic(op);
+			break;
+		}
+	}
+
 	void Jit::Comp_MulDivType(u32 op)
 	{
 		CONDITIONAL_DISABLE;
