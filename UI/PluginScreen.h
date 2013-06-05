@@ -28,6 +28,10 @@
 #include "file/file_util.h"
 #include "net/http_client.h"
 
+// Uses the new UI framework through UIScreen for simplicity.
+// Looks disappointingly like the old UI, right? Don't worry, it's just the theme.
+// A redesign is coming. And note that you can control this new UI with your
+// keyboard or Xbox controller.
 
 class PluginScreen : public UIScreen {
 public:
@@ -40,9 +44,11 @@ protected:
 	virtual void DrawBackground();
 
 private:
+	// Event handlers
 	UI::EventReturn OnDownload(UI::EventParams &e);
 	UI::EventReturn OnInformation(UI::EventParams &e);
 
+	// Keeping track of downloads
 	http::Downloader downloader_;
 	std::shared_ptr<http::Download> json_;
 	std::shared_ptr<http::Download> at3plusdecoder_;

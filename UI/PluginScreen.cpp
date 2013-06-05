@@ -38,7 +38,7 @@ PluginScreen::PluginScreen() {
 }
 
 void PluginScreen::CreateViews() {
-	I18NCategory *c = GetI18NCategory("Plugin");
+	I18NCategory *p = GetI18NCategory("Plugin");
 	// Build the UI.
 
 	using namespace UI;
@@ -58,9 +58,10 @@ void PluginScreen::CreateViews() {
 	tvDescription_ = scrollContents->Add(new TextView(0, "Looking for download...", ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins)));
 
 	const char *legalityNotice =
-		"* Mai's Atrac3+ decoder is required for audio in many games.\n"
+		p->T("Origins are dubious", "* Mai's Atrac3+ decoder is currently required\n"
+		"for audio in many games.\n"
 		"Please note that the origins of this code are dubious.\n"
-		"Choose More Information for more information.";
+		"Choose More Information for more information.");
 
 	scrollContents->Add(new TextView(0, legalityNotice, ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins) ));
 
@@ -70,16 +71,18 @@ void PluginScreen::CreateViews() {
 	ViewGroup *buttonBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(buttonMargins));
 	root_->Add(buttonBar);
 
-	buttonBack_ = new Button(c->T("Back"), new LinearLayoutParams(1.0));
+	buttonBack_ = new Button(p->T("Back"), new LinearLayoutParams(1.0));
 	buttonBar->Add(buttonBack_)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	buttonDownload_ = new Button(c->T("Download"), new LinearLayoutParams(1.0));
+	buttonDownload_ = new Button(p->T("Download and install"), new LinearLayoutParams(1.0));
 	buttonDownload_->SetEnabled(false);
 	buttonBar->Add(buttonDownload_)->OnClick.Handle(this, &PluginScreen::OnDownload);
-	buttonBar->Add(new Button(c->T("More Information"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &PluginScreen::OnInformation);
+	buttonBar->Add(new Button(p->T("More Information"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &PluginScreen::OnInformation);
 }
 
 void PluginScreen::update(InputState &input) {
 	UIScreen::update(input);
+
+	I18NCategory *p = GetI18NCategory("Plugin");
 
 	downloader_.Update();
 
@@ -87,11 +90,9 @@ void PluginScreen::update(InputState &input) {
 		if (json_->ResultCode() != 200) {
 			char codeStr[18];
 			sprintf(codeStr, "%i", json_->ResultCode());
-			tvDescription_->SetText(std::string("Failed to check availability (") + codeStr + ").\nPlease try again later and check that you have a\nworking internet connection.");
+			tvDescription_->SetText(p->T("Failed to reach server", "Failed to reach server.\nPlease try again later and check that you have a\nworking internet connection."));
 			buttonDownload_->SetEnabled(false);
-		}
-		else
-		{
+		} else {
 			std::string json;
 			json_->buffer().TakeAll(&json);
 
@@ -114,8 +115,8 @@ void PluginScreen::update(InputState &input) {
 					buttonDownload_->SetEnabled(false);
 				} else {
 					buttonDownload_->SetEnabled(true);
-					const char *notInstalledText = "To download and install Mai's Atrac3+ decoding support, click Download.\n";
-					const char *reInstallText = "Mai's Atrac3+ decoder already installed.\nWould you like to redownload and reinstall it?\n";
+					const char *notInstalledText = p->T("To download and install", "To download and install Mai's Atrac3+ decoding support, click Download.\n");
+					const char *reInstallText = p->T("Already installed", "Mai's Atrac3+ decoder already installed.\nWould you like to redownload and reinstall it?\n");
 					tvDescription_->SetText(Atrac3plus_Decoder::IsInstalled() ? reInstallText : notInstalledText);
 				}
 			}
@@ -130,13 +131,13 @@ void PluginScreen::update(InputState &input) {
 
 		if (at3plusdecoder_->ResultCode() == 200) {
 			// Yay!
-			tvDescription_->SetText("Mai Atrac3plus plugin downloaded and installed.\n"
-				                      "Please press Back.");
+			tvDescription_->SetText(p->T("Installed Correctly", "Mai Atrac3plus plugin downloaded and installed.\n"
+				                      "Please press Back."));
 			buttonDownload_->SetVisibility(UI::V_GONE);
 		} else {
 			char codeStr[18];
 			sprintf(codeStr, "%i", at3plusdecoder_->ResultCode());
-			tvDescription_->SetText(std::string("Failed to download (") + codeStr + ").\nPlease try again later.");
+			tvDescription_->SetText(p->T("Failed to download plugin", "Failed to download plugin.\nPlease try again later."));
 			progress_->SetVisibility(UI::V_GONE);
 			buttonDownload_->SetEnabled(true);
 		}

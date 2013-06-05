@@ -395,9 +395,9 @@ void NativeInitGraphics() {
 	ui_theme.buttonStyle.bgColor = 0xFFFFFFFF;
 	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.buttonStyle.image = I_BUTTON;
-	ui_theme.buttonFocusedStyle.bgColor = 0xFF808080;
+	ui_theme.buttonFocusedStyle.bgColor = 0xFFe0e0e0;
 	ui_theme.buttonFocusedStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonFocusedStyle.image = I_BUTTON;
+	ui_theme.buttonFocusedStyle.image = I_BUTTON_SELECTED;
 	ui_theme.buttonDownStyle.bgColor = 0xFFFFFFFF;
 	ui_theme.buttonDownStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.buttonDownStyle.image = I_BUTTON_SELECTED;
@@ -414,8 +414,7 @@ void NativeInitGraphics() {
 	UIInit(&ui_atlas, theme);
 
 	uiTexture = new Texture();
-	if (!uiTexture->Load("ui_atlas.zim"))
-	{
+	if (!uiTexture->Load("ui_atlas.zim")) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
 	}
