@@ -203,7 +203,7 @@ inline void __AudioWakeThreads(AudioChannel &chan, int step)
 	for (size_t w = 0; w < chan.waitingThreads.size(); ++w)
 	{
 		AudioChannelWaitInfo &waitInfo = chan.waitingThreads[w];
-		waitInfo.numSamples -= hwBlockSize;
+		waitInfo.numSamples -= step;
 
 		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
 		if (waitInfo.numSamples <= 0 && __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error) != 0)
