@@ -257,17 +257,16 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 	ctx->avc.avcFrameStatus = 0;
 
-	//if (!isCurrentMpegAnalyzed) {
-	//SceMpegRingBuffer ringbuffer;
-	//InitRingbuffer(&ringbuffer, 0, 0, 0, 0, 0);
-	// ????
-	//Memory::WriteStruct(ctx->mpegRingbufferAddr, &ringbuffer);
-	//}
-
 	ctx->videoFrameCount = 0;
 	ctx->audioFrameCount = 0;
 	ctx->endOfAudioReached = false;
 	ctx->endOfVideoReached = false;
+
+	if (ctx->mpegMagic != PSMF_MAGIC || ctx->mpegVersion < 0 ||
+		(ctx->mpegOffset & 2047) != 0 || ctx->mpegOffset == 0) {
+		// mpeg header is invalid!
+		return;
+	}
 
 	if (ctx->mediaengine && (ctx->mpegStreamSize > 0) && !ctx->isAnalyzed) {
 		// init mediaEngine
