@@ -1004,6 +1004,16 @@ void GLES_GPU::DoBlockTransfer() {
 	// TODO: Notify all overlapping FBOs that they need to reload.
 
 	textureCache_.Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp, GPU_INVALIDATE_HINT);
+
+	
+	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
+	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
+
+	u32 backBuffer = 0x04000000 | framebufferManager_.PrevDisplayFramebufAddr();
+
+	if (dstBasePtr == backBuffer && width == 512 && height == 272) {
+		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), 3, 512);
+	}
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
