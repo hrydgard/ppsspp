@@ -101,4 +101,5 @@ bool decompress_string(const std::string& str, std::string *dest) {
 	}
 
 	*dest = outstring;
+	return true;
 }
