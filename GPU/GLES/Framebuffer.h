@@ -86,7 +86,7 @@ public:
 	}
 
 	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
-	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false);
+	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f);
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();

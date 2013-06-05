@@ -112,7 +112,8 @@ FramebufferManager::FramebufferManager() :
 	frameLastFramebufUsed(0),
 	currentRenderVfb_(0),
 	drawPixelsTex_(0),
-	drawPixelsTexFormat_(-1)
+	drawPixelsTexFormat_(-1),
+	convBuf(0)
 {
 	draw2dprogram = glsl_create_source(basic_vs, tex_fs);
 
@@ -127,7 +128,6 @@ FramebufferManager::FramebufferManager() :
 	glClearColor(0,0,0,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	convBuf = new u8[480 * 272 * 4];
 	useBufferedRendering_ = g_Config.bBufferedRendering;
 }
 
@@ -160,73 +160,71 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 			break;
 		}
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 480, 272, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 272, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		glBindTexture(GL_TEXTURE_2D, 0);
 		drawPixelsTexFormat_ = pixelFormat;
 	}
 
-	// TODO: We can trivially do these in the shader, and there's no need to
-	// upconvert to 8888 for the 16-bit formats.
-	for (int y = 0; y < 272; y++) {
-		switch (pixelFormat) {
-		case PSP_DISPLAY_PIXEL_FORMAT_565:
-			{
-				const u16 *src = (const u16 *)framebuf + linesize * y;
-				u8 *dst = convBuf + 4 * 480 * y;
-				for (int x = 0; x < 480; x++)
+	// TODO: We can just change the texture format and flip some bits around instead of this.
+	if (pixelFormat != PSP_DISPLAY_PIXEL_FORMAT_8888 || linesize != 512) {
+		if (!convBuf) {
+			convBuf = new u8[512 * 272 * 4];
+		}
+		for (int y = 0; y < 272; y++) {
+			switch (pixelFormat) {
+			case PSP_DISPLAY_PIXEL_FORMAT_565:
 				{
-					u16 col = src[x];
-					dst[x * 4] = ((col) & 0x1f) << 3;
-					dst[x * 4 + 1] = ((col >> 5) & 0x3f) << 2;
-					dst[x * 4 + 2] = ((col >> 11) & 0x1f) << 3;
-					dst[x * 4 + 3] = 255;
+					const u16 *src = (const u16 *)framebuf + linesize * y;
+					u8 *dst = convBuf + 4 * 512 * y;
+					for (int x = 0; x < 480; x++)
+					{
+						u16 col = src[x];
+						dst[x * 4] = ((col) & 0x1f) << 3;
+						dst[x * 4 + 1] = ((col >> 5) & 0x3f) << 2;
+						dst[x * 4 + 2] = ((col >> 11) & 0x1f) << 3;
+						dst[x * 4 + 3] = 255;
+					}
 				}
-			}
-			break;
+				break;
 
-		case PSP_DISPLAY_PIXEL_FORMAT_5551:
-			{
-				const u16 *src = (const u16 *)framebuf + linesize * y;
-				u8 *dst = convBuf + 4 * 480 * y;
-				for (int x = 0; x < 480; x++)
+			case PSP_DISPLAY_PIXEL_FORMAT_5551:
 				{
-					u16 col = src[x];
-					dst[x * 4] = ((col) & 0x1f) << 3;
-					dst[x * 4 + 1] = ((col >> 5) & 0x1f) << 3;
-					dst[x * 4 + 2] = ((col >> 10) & 0x1f) << 3;
-					dst[x * 4 + 3] = (col >> 15) ? 255 : 0;
+					const u16 *src = (const u16 *)framebuf + linesize * y;
+					u8 *dst = convBuf + 4 * 512 * y;
+					for (int x = 0; x < 480; x++)
+					{
+						u16 col = src[x];
+						dst[x * 4] = ((col) & 0x1f) << 3;
+						dst[x * 4 + 1] = ((col >> 5) & 0x1f) << 3;
+						dst[x * 4 + 2] = ((col >> 10) & 0x1f) << 3;
+						dst[x * 4 + 3] = (col >> 15) ? 255 : 0;
+					}
 				}
-			}
-			break;
+				break;
 
-		case PSP_DISPLAY_PIXEL_FORMAT_8888:
-			{
-				const u8 *src = framebuf + linesize * 4 * y;
-				u8 *dst = convBuf + 4 * 480 * y;
-				for (int x = 0; x < 480; x++)
+			case PSP_DISPLAY_PIXEL_FORMAT_4444:
 				{
-					dst[x * 4] = src[x * 4];
-					dst[x * 4 + 1] = src[x * 4 + 1];
-					dst[x * 4 + 2] = src[x * 4 + 2];
-					dst[x * 4 + 3] = src[x * 4 + 3];
+					const u16 *src = (const u16 *)framebuf + linesize * y;
+					u8 *dst = convBuf + 4 * 512 * y;
+					for (int x = 0; x < 480; x++)
+					{
+						u16 col = src[x];
+						dst[x * 4] = ((col >> 8) & 0xf) << 4;
+						dst[x * 4 + 1] = ((col >> 4) & 0xf) << 4;
+						dst[x * 4 + 2] = (col & 0xf) << 4;
+						dst[x * 4 + 3] = (col >> 12) << 4;
+					}
 				}
-			}
-			break;
+				break;
 
-		case PSP_DISPLAY_PIXEL_FORMAT_4444:
-			{
-				const u16 *src = (const u16 *)framebuf + linesize * y;
-				u8 *dst = convBuf + 4 * 480 * y;
-				for (int x = 0; x < 480; x++)
+			case PSP_DISPLAY_PIXEL_FORMAT_8888:
 				{
-					u16 col = src[x];
-					dst[x * 4] = ((col >> 8) & 0xf) << 4;
-					dst[x * 4 + 1] = ((col >> 4) & 0xf) << 4;
-					dst[x * 4 + 2] = (col & 0xf) << 4;
-					dst[x * 4 + 3] = (col >> 12) << 4;
+					const u8 *src = framebuf + linesize * 4 * y;
+					u8 *dst = convBuf + 4 * 512 * y;
+					memcpy(dst, src, 4 * 480);
 				}
+				break;
 			}
-			break;
 		}
 	}
 
@@ -235,15 +233,15 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
-	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,480,272, GL_RGBA, GL_UNSIGNED_BYTE, convBuf);
+	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,512,272, GL_RGBA, GL_UNSIGNED_BYTE, pixelFormat == PSP_DISPLAY_PIXEL_FORMAT_8888 ? framebuf : convBuf);
 
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-	DrawActiveTexture(x, y, w, h);
+	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip) {
-	float u2 = 1.0f;
+void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale) {
+	float u2 = uscale;
 	float v1 = flip ? 1.0f : 0.0f;
 	float v2 = flip ? 0.0f : 1.0f;
 
