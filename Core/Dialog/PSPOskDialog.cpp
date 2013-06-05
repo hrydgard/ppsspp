@@ -124,7 +124,7 @@ PSPOskDialog::PSPOskDialog() : PSPDialog() {
 PSPOskDialog::~PSPOskDialog() {
 }
 
-void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<wchar_t> em_address)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address)
 {
 	if (!em_address.Valid())
 	{
@@ -132,10 +132,29 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<wcha
 		return;
 	}
 
-	ConvertUCS2ToUTF8(_string, &em_address[0]);
+	char stringBuffer[2048];
+	char *string = stringBuffer;
+
+	auto input = em_address;
+	int c;
+	while ((c = *input++) != 0)
+	{
+		if (c < 0x80)
+			*string++ = c;
+		else if (c < 0x800) {
+			*string++ = 0xC0 | (c >> 6);
+			*string++ = 0x80 | (c & 0x3F);
+		} else {
+			*string++ = 0xE0 | (c >> 12);
+			*string++ = 0x80 | ((c >> 6) & 0x3F);
+			*string++ = 0x80 | (c & 0x3F);
+		}
+	}
+	*string++ = '\0';
+	_string = stringBuffer;
 }
 
-void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input)
 {
 	char stringBuffer[2048];
 	char *string = stringBuffer;
@@ -809,7 +828,7 @@ int PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	wchar_t *outText = oskParams->fields[0].outtext;
+	u16 *outText = oskParams->fields[0].outtext;
 	for (u32 i = 0, end = oskParams->fields[0].outtextlength; i < end; ++i)
 	{
 		u16 value = 0;

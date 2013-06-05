@@ -111,13 +111,13 @@ struct SceUtilityOskData
 	/** Unknown. Pass 0. */
 	int unk_24;
 	/** Description text */
-	PSPPointer<wchar_t> desc;
+	PSPPointer<u16> desc;
 	/** Initial text */
-	PSPPointer<wchar_t> intext;
+	PSPPointer<u16> intext;
 	// Length, in unsigned shorts, including the terminator.
 	u32 outtextlength;
 	/** Pointer to the output text */
-	PSPPointer<wchar_t> outtext;
+	PSPPointer<u16> outtext;
 	/** Result. One of ::SceUtilityOskResult */
 	int result;
 	// Number of characters to allow, not including terminator (if less than outtextlength - 1.)
@@ -163,8 +163,8 @@ public:
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
 private:
-	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<wchar_t> em_address);
-	void ConvertUCS2ToUTF8(std::string& _string, wchar_t* input);
+	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address);
+	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
 	void RenderKeyboard();
 
 	std::wstring CombinationString(bool isInput); // for Japanese, Korean
