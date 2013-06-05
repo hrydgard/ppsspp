@@ -476,7 +476,7 @@ void GenerateVertexShader(int prim, char *buffer) {
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
 				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
 			}
-			WRITE(p, "  lightSum0.rgb += (u_lightambient%i + diffuse)%s;\n", i, timesLightScale);
+			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
 
 		if (gstate.isLightingEnabled()) {
