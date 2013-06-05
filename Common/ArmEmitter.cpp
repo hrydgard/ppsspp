@@ -850,6 +850,21 @@ ARMReg ARMXEmitter::SubBase(ARMReg Reg)
 }
 
 // NEON Specific
+void ARMXEmitter::VABD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
+{
+	_assert_msg_(DYNA_REC, Vd >= D0, "Pass invalid register to VABD(float)");
+	_assert_msg_(DYNA_REC, cpu_info.bNEON, "Can't use VABD(float) when CPU doesn't support it");
+	bool register_quad = Vd >= Q0;
+
+	// Gets encoded as a double register
+	Vd = SubBase(Vd);
+	Vn = SubBase(Vn);
+	Vm = SubBase(Vm);
+
+	Write32((0xF3 << 24) | ((Vd & 0x10) << 18) | (Size << 20) | ((Vn & 0xF) << 16) \
+		| ((Vd & 0xF) << 12) | (0xD << 8) | ((Vn & 0x10) << 3) | (register_quad << 6) \
+		| ((Vm & 0x10) << 2) | (Vm & 0xF));
+}
 void ARMXEmitter::VADD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
 	_assert_msg_(DYNA_REC, Vd >= D0, "Pass invalid register to VADD(integer)");
@@ -864,7 +879,7 @@ void ARMXEmitter::VADD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	Write32((0xF2 << 24) | ((Vd & 0x10) << 18) | (Size << 20) | ((Vn & 0xF) << 16) \
 		| ((Vd & 0xF) << 12) | (0x8 << 8) | ((Vn & 0x10) << 3) | (register_quad << 6) \
-		| ((Vm & 0x10) << 2) | (Vm & 0xF)); 
+		| ((Vm & 0x10) << 2) | (Vm & 0xF));
 
 }
 void ARMXEmitter::VSUB(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
@@ -879,7 +894,7 @@ void ARMXEmitter::VSUB(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 
 	Write32((0xF3 << 24) | ((Vd & 0x10) << 18) | (Size << 20) | ((Vn & 0xF) << 16) \
 		| ((Vd & 0xF) << 12) | (0x8 << 8) | ((Vn & 0x10) << 3) | (1 << 6) \
-		| ((Vm & 0x10) << 2) | (Vm & 0xF)); 
+		| ((Vm & 0x10) << 2) | (Vm & 0xF));
 }
 
 // VFP Specific
