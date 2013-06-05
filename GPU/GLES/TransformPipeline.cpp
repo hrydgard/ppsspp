@@ -126,6 +126,7 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 
 	Reporting::ReportMessage("Unsupported bezier curve");
 
+	// if (gstate.patchprimitive)
 	// Generate indices for a rectangular mesh.
 	int c = 0;
 	for (int y = 0; y < 3; y++) {

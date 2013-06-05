@@ -108,9 +108,11 @@ public:
 	int GetTargetWidth() const { return currentRenderVfb_ ? currentRenderVfb_->width : 480; }
 	int GetTargetHeight() const { return currentRenderVfb_ ? currentRenderVfb_->height : 272; }
 
-private:
-	// Deletes old FBOs.
+	u32 PrevDisplayFramebufAddr() {
+		return prevDisplayFramebuf_ ? prevDisplayFramebuf_->fb_address : 0;
+	}
 
+private:
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
 	int displayFormat_;
@@ -125,7 +127,8 @@ private:
 	VirtualFramebuffer *currentRenderVfb_;
 
 	// Used by DrawPixels
-	unsigned int backbufTex;
+	unsigned int drawPixelsTex_;
+	int drawPixelsTexFormat_;
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram;

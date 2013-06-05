@@ -110,20 +110,10 @@ FramebufferManager::FramebufferManager() :
 	prevDisplayFramebuf_(0),
 	prevPrevDisplayFramebuf_(0),
 	frameLastFramebufUsed(0),
-	currentRenderVfb_(0)
+	currentRenderVfb_(0),
+	drawPixelsTex_(0),
+	drawPixelsTexFormat_(-1)
 {
-	glGenTextures(1, &backbufTex);
-
-	//initialize backbuffer texture
-	glBindTexture(GL_TEXTURE_2D, backbufTex);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 480, 272, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
 	draw2dprogram = glsl_create_source(basic_vs, tex_fs);
 
 	glsl_bind(draw2dprogram);
@@ -142,12 +132,39 @@ FramebufferManager::FramebufferManager() :
 }
 
 FramebufferManager::~FramebufferManager() {
-	glDeleteTextures(1, &backbufTex);
+	if (drawPixelsTex_)
+		glDeleteTextures(1, &drawPixelsTex_);
 	glsl_destroy(draw2dprogram);
 	delete [] convBuf;
 }
 
 void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int linesize) {
+	if (drawPixelsTex_ && drawPixelsTexFormat_ != pixelFormat) {
+		glDeleteTextures(1, &drawPixelsTex_);
+		drawPixelsTex_ = 0;
+	}
+
+	if (!drawPixelsTex_) {
+		glGenTextures(1, &drawPixelsTex_);
+
+		// Initialize backbuffer texture for DrawPixels
+		glBindTexture(GL_TEXTURE_2D, drawPixelsTex_);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+		switch (pixelFormat) {
+		case PSP_DISPLAY_PIXEL_FORMAT_8888:
+			break;
+		}
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 480, 272, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		drawPixelsTexFormat_ = pixelFormat;
+	}
+
 	// TODO: We can trivially do these in the shader, and there's no need to
 	// upconvert to 8888 for the 16-bit formats.
 	for (int y = 0; y < 272; y++) {
@@ -213,7 +230,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 		}
 	}
 
-	glBindTexture(GL_TEXTURE_2D,backbufTex);
+	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
 	if (g_Config.bLinearFiltering)
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -552,7 +569,7 @@ void FramebufferManager::BeginFrame() {
 	DecimateFBOs();
 	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
 	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_) {
-		INFO_LOG(HLE, "Drawing the framebuffer");
+		INFO_LOG(HLE, "Drawing the framebuffer (%08x)", displayFramebufPtr_);
 		const u8 *pspframebuf = Memory::GetPointer((0x44000000) | (displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
 		glstate.cullFace.disable();
 		glstate.depthTest.disable();

@@ -183,7 +183,6 @@ void LogoScreen::render() {
 // ==================
 
 MenuScreen::MenuScreen() : frames_(0) {
-	// dl.StartDownload("http://www.ppsspp.org/unofficial/Win32/at3plusdecoder.dll.gz", "D:/at3plusdecoder.dll");
 }
 
 void MenuScreen::update(InputState &input_state) {
