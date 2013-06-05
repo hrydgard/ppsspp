@@ -530,6 +530,7 @@ public:
 	// Subtracts the base from the register to give us the real one
 	ARMReg SubBase(ARMReg Reg);	
 	// NEON Only
+	void VABD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VADD(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSUB(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm);
 
