@@ -106,6 +106,7 @@ void CenterRect(float *x, float *y, float *w, float *h,
 }
 
 FramebufferManager::FramebufferManager() :
+	displayFramebuf_(0),
 	displayFramebufPtr_(0),
 	prevDisplayFramebuf_(0),
 	prevPrevDisplayFramebuf_(0),
@@ -268,7 +269,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	VirtualFramebuffer *match = NULL;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
-		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_) {
+		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_ && v->width >= 480) {
 			// Could check w too but whatever
 			if (match == NULL || match->last_frame_used < v->last_frame_used) {
 				match = v;
@@ -502,9 +503,9 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	VirtualFramebuffer *vfb = GetDisplayFBO();
 	if (!vfb) {
-		if (Memory::IsValidAddress(displayFramebufPtr_)) {
+		if (Memory::IsValidAddress(ramDisplayFramebufPtr_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
-			DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
+			DrawPixels(Memory::GetPointer(ramDisplayFramebufPtr_), displayFormat_, displayStride_);
 		} else {
 			DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
@@ -585,6 +586,9 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int for
 
 	if ((framebuf & 0x04000000) == 0) {
 		DEBUG_LOG(HLE, "Non-VRAM display framebuffer address set: %08x", framebuf);
+		ramDisplayFramebufPtr_ = framebuf;
+		displayStride_ = stride;
+		displayFormat_ = format;
 	} else {
 		displayFramebufPtr_ = framebuf;
 		displayStride_ = stride;

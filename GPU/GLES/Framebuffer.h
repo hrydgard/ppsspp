@@ -109,10 +109,11 @@ public:
 	int GetTargetHeight() const { return currentRenderVfb_ ? currentRenderVfb_->height : 272; }
 
 	u32 PrevDisplayFramebufAddr() {
-		return prevDisplayFramebuf_ ? prevDisplayFramebuf_->fb_address : 0;
+		return prevDisplayFramebuf_ ? (0x04000000 | prevDisplayFramebuf_->fb_address) : 0;
 	}
 
 private:
+	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
 	int displayFormat_;
