@@ -106,6 +106,7 @@ void CenterRect(float *x, float *y, float *w, float *h,
 }
 
 FramebufferManager::FramebufferManager() :
+	ramDisplayFramebufPtr_(0),
 	displayFramebuf_(0),
 	displayFramebufPtr_(0),
 	prevDisplayFramebuf_(0),
@@ -506,6 +507,9 @@ void FramebufferManager::CopyDisplayToOutput() {
 		if (Memory::IsValidAddress(ramDisplayFramebufPtr_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			DrawPixels(Memory::GetPointer(ramDisplayFramebufPtr_), displayFormat_, displayStride_);
+		} else if (Memory::IsValidAddress(displayFramebufPtr_)) {
+			// The game is displaying something directly from RAM. In GTA, it's decoded video.
+			DrawPixels(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_);
 		} else {
 			DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
