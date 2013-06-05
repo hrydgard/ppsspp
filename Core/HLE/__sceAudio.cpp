@@ -197,19 +197,19 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 	return ret;
 }
 
-inline void __AudioWakeThreads(AudioChannel &chan, int step)
+inline void __AudioWakeThreads(AudioChannel &chan, int result, int step)
 {
 	u32 error;
 	for (size_t w = 0; w < chan.waitingThreads.size(); ++w)
 	{
 		AudioChannelWaitInfo &waitInfo = chan.waitingThreads[w];
-		waitInfo.numSamples -= hwBlockSize;
+		waitInfo.numSamples -= step;
 
 		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
 		if (waitInfo.numSamples <= 0 && __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error) != 0)
 		{
 			// DEBUG_LOG(HLE, "Woke thread %i for some buffer filling", waitingThread);
-			u32 ret = __KernelGetWaitValue(waitInfo.threadID, error);
+			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
 
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
@@ -217,9 +217,9 @@ inline void __AudioWakeThreads(AudioChannel &chan, int step)
 	}
 }
 
-void __AudioWakeThreads(AudioChannel &chan)
+void __AudioWakeThreads(AudioChannel &chan, int result)
 {
-	__AudioWakeThreads(chan, 0x7FFFFFFF);
+	__AudioWakeThreads(chan, result, 0x7FFFFFFF);
 }
 
 // Mix samples from the various audio channels into a single sample queue.
@@ -238,7 +238,7 @@ void __AudioUpdate()
 	{
 		if (!chans[i].reserved)
 			continue;
-		__AudioWakeThreads(chans[i], hwBlockSize);
+		__AudioWakeThreads(chans[i], 0, hwBlockSize);
 
 		if (!chans[i].sampleQueue.size()) {
 			// ERROR_LOG(HLE, "No queued samples, skipping channel %i", i);
