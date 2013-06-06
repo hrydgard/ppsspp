@@ -594,6 +594,7 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int for
 		displayStride_ = stride;
 		displayFormat_ = format;
 	} else {
+		ramDisplayFramebufPtr_ = 0;
 		displayFramebufPtr_ = framebuf;
 		displayStride_ = stride;
 		displayFormat_ = format;

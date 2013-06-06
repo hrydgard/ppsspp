@@ -50,6 +50,5 @@ struct VertexShaderID
 
 bool CanUseHardwareTransform(int prim);
 
-void ComputeVertexShaderID(VertexShaderID *id, int prim);
-
-void GenerateVertexShader(int prim, char *buffer);
+void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform);
+void GenerateVertexShader(int prim, char *buffer, bool useHWTransform);

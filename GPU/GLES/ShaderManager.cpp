@@ -29,12 +29,13 @@
 #include "math/lin/matrix4x4.h"
 
 #include "Core/Reporting.h"
-#include "../GPUState.h"
-#include "../ge_constants.h"
-#include "ShaderManager.h"
-#include "TransformPipeline.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TransformPipeline.h"
+#include "UI/OnScreenDisplay.h"
 
-Shader::Shader(const char *code, uint32_t shaderType) {
+Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
 	OutputDebugString(code);
@@ -57,13 +58,20 @@ Shader::Shader(const char *code, uint32_t shaderType) {
 #ifdef SHADERLOG
 		OutputDebugString(infoLog);
 #endif
+		failed_ = true;
+		shader = 0;
 	} else {
 		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
 	}
 }
 
-LinkedShader::LinkedShader(Shader *vs, Shader *fs)
-		: program(0), dirtyUniforms(0) {
+Shader::~Shader() {
+	if (shader)
+		glDeleteShader(shader);
+}
+
+LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
+		: program(0), dirtyUniforms(0), useHWTransform_(useHWTransform) {
 	program = glCreateProgram();
 	glAttachShader(program, vs->shader);
 	glAttachShader(program, fs->shader);
@@ -166,8 +174,7 @@ LinkedShader::~LinkedShader() {
 }
 
 // Utility
-static void SetColorUniform3(int uniform, u32 color)
-{
+static void SetColorUniform3(int uniform, u32 color) {
 	const float col[3] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -176,8 +183,7 @@ static void SetColorUniform3(int uniform, u32 color)
 	glUniform3fv(uniform, 1, col);
 }
 
-static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha)
-{
+static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -188,8 +194,7 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha)
 }
 
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
-static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha)
-{
+static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 	const float col[4] = {
 		(float)((color & 0xFF)),
 		(float)((color & 0xFF00) >> 8),
@@ -199,8 +204,7 @@ static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha)
 	glUniform4fv(uniform, 1, col);
 }
 
-static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra)
-{
+static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
 	const float col[4] = {
 		((color & 0xFF)) / 255.0f,
 		((color & 0xFF00) >> 8) / 255.0f,
@@ -430,22 +434,19 @@ void ShaderManager::Clear() {
 	DirtyShader();
 }
 
-void ShaderManager::ClearCache(bool deleteThem)
-{
+void ShaderManager::ClearCache(bool deleteThem) {
 	Clear();
 }
 
 
-void ShaderManager::DirtyShader()
-{
+void ShaderManager::DirtyShader() {
 	// Forget the last shader ID
 	lastFSID.clear();
 	lastVSID.clear();
 	lastShader = 0;
 }
 
-void ShaderManager::EndFrame()  // disables vertex arrays
-{
+void ShaderManager::EndFrame() { // disables vertex arrays
 	if (lastShader)
 		lastShader->stop();
 	lastShader = 0;
@@ -460,9 +461,11 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 		globalDirty = 0;
 	}
 
+	bool useHWTransform = CanUseHardwareTransform(prim);
+
 	VertexShaderID VSID;
 	FragmentShaderID FSID;
-	ComputeVertexShaderID(&VSID, prim);
+	ComputeVertexShaderID(&VSID, prim, useHWTransform);
 	ComputeFragmentShaderID(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.
@@ -489,8 +492,23 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	Shader *vs;
 	if (vsIter == vsCache.end())	{
 		// Vertex shader not in cache. Let's compile it.
-		GenerateVertexShader(prim, codeBuffer_);
-		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER);
+		GenerateVertexShader(prim, codeBuffer_, useHWTransform);
+		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
+
+		if (vs->Failed()) {
+			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
+			osm.Show("hardware transform error - falling back to software", 2.5f, 0xFF3030FF, -1, true);
+			delete vs;
+
+			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
+			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
+			// next time and we'll do this over and over...
+
+			// Can still work with software transform.
+			GenerateVertexShader(prim, codeBuffer_, false);
+			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
+		}
+
 		vsCache[VSID] = vs;
 	} else {
 		vs = vsIter->second;
@@ -501,18 +519,19 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	if (fsIter == fsCache.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShader(codeBuffer_);
-		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER);
+		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, useHWTransform);
 		fsCache[FSID] = fs;
 	} else {
 		fs = fsIter->second;
 	}
+
 	// Okay, we have both shaders. Let's see if there's a linked one.
 	std::pair<Shader*, Shader*> linkedID(vs, fs);
 
 	LinkedShaderCache::iterator iter = linkedShaderCache.find(linkedID);
 	LinkedShader *ls;
 	if (iter == linkedShaderCache.end()) {
-		ls = new LinkedShader(vs, fs);	// This does "use" automatically
+		ls = new LinkedShader(vs, fs, vs->UseHWTransform());	// This does "use" automatically
 		linkedShaderCache[linkedID] = ls;
 	} else {
 		ls = iter->second;

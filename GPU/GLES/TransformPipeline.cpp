@@ -1112,7 +1112,7 @@ void TransformDrawEngine::Flush() {
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
 
-	if (CanUseHardwareTransform(prim)) {
+	if (program->useHWTransform_) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
 		bool useElements = true;

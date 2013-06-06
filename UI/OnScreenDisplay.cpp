@@ -36,8 +36,14 @@ restart:
 	}
 }
 
-void OnScreenMessages::Show(const std::string &message, float duration_s, uint32_t color, int icon) {
+void OnScreenMessages::Show(const std::string &message, float duration_s, uint32_t color, int icon, bool checkUnique) {
 	std::lock_guard<std::recursive_mutex> guard(mutex_);
+	if (checkUnique) {
+		for (auto iter = messages_.begin(); iter != messages_.end(); ++iter) {
+			if (iter->text == message)
+				return;
+		}
+	}
 	double now = time_now_d();
 	Message msg;
 	msg.text = message;
