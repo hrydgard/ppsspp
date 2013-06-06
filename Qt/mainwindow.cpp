@@ -189,7 +189,7 @@ void MainWindow::closeEvent(QCloseEvent *)
 
 void MainWindow::keyPressEvent(QKeyEvent *e)
 {
-	if(isFullScreen() && e->key() == Qt::Key_F12)
+	if(isFullScreen() && e->key() == Qt::Key_F11)
 	{
 		on_action_OptionsFullScreen_triggered();
 		return;
