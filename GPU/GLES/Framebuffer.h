@@ -111,6 +111,9 @@ public:
 	u32 PrevDisplayFramebufAddr() {
 		return prevDisplayFramebuf_ ? (0x04000000 | prevDisplayFramebuf_->fb_address) : 0;
 	}
+	u32 DisplayFramebufAddr() {
+		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
+	}
 
 private:
 	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity

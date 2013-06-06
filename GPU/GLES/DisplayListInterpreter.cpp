@@ -1010,8 +1010,11 @@ void GLES_GPU::DoBlockTransfer() {
 	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
 
 	u32 backBuffer = framebufferManager_.PrevDisplayFramebufAddr();
+	u32 displayBuffer = framebufferManager_.DisplayFramebufAddr();
 
-	if (backBuffer != 0 && dstBasePtr == backBuffer && width == 512 && height == 272) {
+	if ((backBuffer != 0 && dstBasePtr == backBuffer) ||
+		  (displayBuffer != 0 && dstBasePtr == displayBuffer) &&
+			dstStride == 512 && height == 272) {
 		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), 3, 512);
 	}
 }
