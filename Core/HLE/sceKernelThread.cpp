@@ -728,7 +728,7 @@ struct WaitTypeFuncs
 void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
-void __KernelResetThread(Thread *t);
+void __KernelResetThread(Thread *t, int lowestPriority);
 void __KernelCancelWakeup(SceUID threadID);
 void __KernelCancelThreadEndTimeout(SceUID threadID);
 bool __KernelCheckThreadCallbacks(Thread *thread, bool force);
@@ -934,8 +934,8 @@ void __KernelThreadingInit()
 
 	// Create the two idle threads, as well. With the absolute minimal possible priority.
 	// 4096 stack size - don't know what the right value is. Hm, if callbacks are ever to run on these threads...
-	__KernelResetThread(__KernelCreateThread(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL));
-	__KernelResetThread(__KernelCreateThread(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL));
+	__KernelResetThread(__KernelCreateThread(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
+	__KernelResetThread(__KernelCreateThread(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
 	// These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
@@ -1747,14 +1747,17 @@ void ThreadContext::reset()
 	lo = 0;
 }
 
-void __KernelResetThread(Thread *t)
+void __KernelResetThread(Thread *t, int lowestPriority)
 {
 	t->context.reset();
 	t->context.hi = 0;
 	t->context.lo = 0;
 	t->context.pc = t->nt.entrypoint;
 
-	// TODO: Reset the priority?
+	// If the thread would be better than lowestPriority, reset to its initial.  Yes, kinda odd...
+	if (t->nt.currentPriority < lowestPriority)
+		t->nt.currentPriority = t->nt.initialPriority;
+
 	t->nt.waitType = WAITTYPE_NONE;
 	t->nt.waitID = 0;
 	memset(&t->waitInfo, 0, sizeof(t->waitInfo));
@@ -1819,7 +1822,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	Thread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
 	if (thread->currentStack.start == 0)
 		ERROR_LOG_REPORT(HLE, "Unable to allocate stack for root thread.");
-	__KernelResetThread(thread);
+	__KernelResetThread(thread, 0);
 
 	Thread *prevThread = __GetCurrentThread();
 	if (prevThread && prevThread->isRunning())
@@ -1925,7 +1928,8 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 
 	INFO_LOG(HLE, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)", threadToStartID, argSize, argBlockPtr);
 
-	__KernelResetThread(startThread);
+	Thread *cur = __GetCurrentThread();
+	__KernelResetThread(startThread, cur ? cur->nt.currentPriority : 0);
 
 	u32 &sp = startThread->context.r[MIPS_REG_SP];
 	if (argBlockPtr && argSize > 0)
@@ -1952,7 +1956,6 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 	// This could be stack overflow safety, or just stack eaten by the kernel entry func.
 	sp -= 64;
 
-	Thread *cur = __GetCurrentThread();
 	// Smaller is better for priority.  Only switch if the new thread is better.
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
 	{
@@ -2245,45 +2248,73 @@ void sceKernelGetThreadCurrentPriority()
 	RETURN(retVal);
 }
 
-void sceKernelChangeCurrentThreadAttr()
+int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr)
 {
-	int clearAttr = PARAM(0);
-	int setAttr = PARAM(1);
-	DEBUG_LOG(HLE,"0 = sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x", clearAttr, setAttr);
+	// Seems like this is the only allowed attribute?
+	if ((clearAttr & ~PSP_THREAD_ATTR_VFPU) != 0 || (setAttr & ~PSP_THREAD_ATTR_VFPU) != 0)
+	{
+		ERROR_LOG_REPORT(HLE, "0 = sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x): invalid attr", clearAttr, setAttr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
+	DEBUG_LOG(HLE, "0 = sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x)", clearAttr, setAttr);
 	Thread *t = __GetCurrentThread();
 	if (t)
 		t->nt.attr = (t->nt.attr & ~clearAttr) | setAttr;
 	else
-		ERROR_LOG(HLE, "%s(): No current thread?", __FUNCTION__);
-	RETURN(0);
+		ERROR_LOG_REPORT(HLE, "%s(): No current thread?", __FUNCTION__);
+	return 0;
 }
 
-void sceKernelChangeThreadPriority()
+int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 {
-	int id = PARAM(0);
-	if (id == 0) id = currentThread; //special
+	if (threadID == 0)
+		threadID = currentThread;
+	// 0 means the current (running) thread's priority, not target's.
+	if (priority == 0)
+	{
+		Thread *cur = __GetCurrentThread();
+		if (!cur)
+			ERROR_LOG_REPORT(HLE, "sceKernelChangeThreadPriority(%i, %i): no current thread?", threadID, priority)
+		else
+			priority = cur->nt.currentPriority;
+	}
 
 	u32 error;
-	Thread *thread = kernelObjects.Get<Thread>(id, error);
+	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (thread)
 	{
-		DEBUG_LOG(HLE,"sceKernelChangeThreadPriority(%i, %i)", id, PARAM(1));
+		if (thread->isStopped())
+		{
+			ERROR_LOG_REPORT(HLE, "sceKernelChangeThreadPriority(%i, %i): thread is dormant", threadID, priority);
+			return SCE_KERNEL_ERROR_DORMANT;
+		}
 
-		int prio = thread->nt.currentPriority;
-		threadReadyQueue.remove(prio, id);
+		if (priority < 0x08 || priority > 0x77)
+		{
+			ERROR_LOG_REPORT(HLE, "sceKernelChangeThreadPriority(%i, %i): bogus priority", threadID, priority);
+			return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
+		}
 
-		thread->nt.currentPriority = PARAM(1);
+		DEBUG_LOG(HLE, "sceKernelChangeThreadPriority(%i, %i)", threadID, priority);
 
+		int old = thread->nt.currentPriority;
+		threadReadyQueue.remove(old, threadID);
+
+		thread->nt.currentPriority = priority;
 		threadReadyQueue.prepare(thread->nt.currentPriority);
+		if (thread->isRunning())
+			thread->nt.status = (thread->nt.status & ~THREADSTATUS_RUNNING) | THREADSTATUS_READY;
 		if (thread->isReady())
-			threadReadyQueue.push_back(thread->nt.currentPriority, id);
+			threadReadyQueue.push_back(thread->nt.currentPriority, threadID);
 
-		RETURN(0);
+		hleReSchedule("change thread priority");
+		return 0;
 	}
 	else
 	{
-		ERROR_LOG(HLE,"%08x=sceKernelChangeThreadPriority(%i, %i) failed - no such thread", error, id, PARAM(1));
-		RETURN(error);
+		ERROR_LOG(HLE, "%08x=sceKernelChangeThreadPriority(%i, %i) failed - no such thread", error, threadID, priority);
+		return error;
 	}
 }
 
