@@ -179,7 +179,7 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 
 //always return -1 since we don't have any real networking...
 int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlAddHandler(%s, %x, %x, %x)", mac, port, bufferSize, unknown);
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpCreate(%s, %x, %x, %x)", mac, port, bufferSize, unknown);
 	return -1;
 }
 

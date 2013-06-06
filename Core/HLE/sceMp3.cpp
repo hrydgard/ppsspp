@@ -191,13 +191,13 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 }
 
 int sceMp3InitResource() {
-	WARN_LOG(HLE, "UNIML: sceMp3InitResource");
+	WARN_LOG(HLE, "UNIMPL: sceMp3InitResource");
 	// Do nothing here 
 	return 0;
 }
 
 int sceMp3TermResource() {
-	WARN_LOG(HLE, "UNIML: sceMp3TermResource");
+	WARN_LOG(HLE, "UNIMPL: sceMp3TermResource");
 	// Do nothing here 
 	return 0;
 }
