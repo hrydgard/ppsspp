@@ -2276,6 +2276,12 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (thread)
 	{
+		if (thread->isStopped())
+		{
+			ERROR_LOG_REPORT(HLE, "sceKernelChangeThreadPriority(%i, %i): thread is dormant", threadID, priority);
+			return SCE_KERNEL_ERROR_DORMANT;
+		}
+
 		if (priority < 0x08 || priority > 0x77)
 		{
 			ERROR_LOG_REPORT(HLE, "sceKernelChangeThreadPriority(%i, %i): bogus priority", threadID, priority);
