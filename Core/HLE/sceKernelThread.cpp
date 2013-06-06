@@ -728,7 +728,7 @@ struct WaitTypeFuncs
 void __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
-void __KernelResetThread(Thread *t);
+void __KernelResetThread(Thread *t, int lowestPriority);
 void __KernelCancelWakeup(SceUID threadID);
 void __KernelCancelThreadEndTimeout(SceUID threadID);
 bool __KernelCheckThreadCallbacks(Thread *thread, bool force);
@@ -934,8 +934,8 @@ void __KernelThreadingInit()
 
 	// Create the two idle threads, as well. With the absolute minimal possible priority.
 	// 4096 stack size - don't know what the right value is. Hm, if callbacks are ever to run on these threads...
-	__KernelResetThread(__KernelCreateThread(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL));
-	__KernelResetThread(__KernelCreateThread(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL));
+	__KernelResetThread(__KernelCreateThread(threadIdleID[0], 0, "idle0", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
+	__KernelResetThread(__KernelCreateThread(threadIdleID[1], 0, "idle1", idleThreadHackAddr, 0x7f, 4096, PSP_THREAD_ATTR_KERNEL), 0);
 	// These idle threads are later started in LoadExec, which calls __KernelStartIdleThreads below.
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
@@ -1747,14 +1747,17 @@ void ThreadContext::reset()
 	lo = 0;
 }
 
-void __KernelResetThread(Thread *t)
+void __KernelResetThread(Thread *t, int lowestPriority)
 {
 	t->context.reset();
 	t->context.hi = 0;
 	t->context.lo = 0;
 	t->context.pc = t->nt.entrypoint;
 
-	// TODO: Reset the priority?
+	// If the thread would be better than lowestPriority, reset to its initial.  Yes, kinda odd...
+	if (t->nt.currentPriority < lowestPriority)
+		t->nt.currentPriority = t->nt.initialPriority;
+
 	t->nt.waitType = WAITTYPE_NONE;
 	t->nt.waitID = 0;
 	memset(&t->waitInfo, 0, sizeof(t->waitInfo));
@@ -1819,7 +1822,7 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	Thread *thread = __KernelCreateThread(id, moduleID, "root", currentMIPS->pc, prio, stacksize, attr);
 	if (thread->currentStack.start == 0)
 		ERROR_LOG_REPORT(HLE, "Unable to allocate stack for root thread.");
-	__KernelResetThread(thread);
+	__KernelResetThread(thread, 0);
 
 	Thread *prevThread = __GetCurrentThread();
 	if (prevThread && prevThread->isRunning())
@@ -1925,7 +1928,8 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 
 	INFO_LOG(HLE, "sceKernelStartThread(thread=%i, argSize=%i, argPtr=%08x)", threadToStartID, argSize, argBlockPtr);
 
-	__KernelResetThread(startThread);
+	Thread *cur = __GetCurrentThread();
+	__KernelResetThread(startThread, cur ? cur->nt.currentPriority : 0);
 
 	u32 &sp = startThread->context.r[MIPS_REG_SP];
 	if (argBlockPtr && argSize > 0)
@@ -1952,7 +1956,6 @@ int sceKernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr)
 	// This could be stack overflow safety, or just stack eaten by the kernel entry func.
 	sp -= 64;
 
-	Thread *cur = __GetCurrentThread();
 	// Smaller is better for priority.  Only switch if the new thread is better.
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority)
 	{
