@@ -2258,32 +2258,46 @@ void sceKernelChangeCurrentThreadAttr()
 	RETURN(0);
 }
 
-void sceKernelChangeThreadPriority()
+int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 {
-	int id = PARAM(0);
-	if (id == 0) id = currentThread; //special
+	if (threadID == 0)
+		threadID = currentThread;
+	if (priority == 0)
+	{
+		Thread *cur = __GetCurrentThread();
+		if (!cur)
+			ERROR_LOG_REPORT(HLE, "sceKernelChangeThreadPriority(%i, %i): no current thread?", threadID, priority)
+		else
+			priority = cur->nt.currentPriority;
+	}
 
 	u32 error;
-	Thread *thread = kernelObjects.Get<Thread>(id, error);
+	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (thread)
 	{
-		DEBUG_LOG(HLE,"sceKernelChangeThreadPriority(%i, %i)", id, PARAM(1));
+		if (priority < 0x08 || priority > 0x77)
+		{
+			ERROR_LOG_REPORT(HLE, "sceKernelChangeThreadPriority(%i, %i): bogus priority", threadID, priority);
+			return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
+		}
 
-		int prio = thread->nt.currentPriority;
-		threadReadyQueue.remove(prio, id);
+		DEBUG_LOG(HLE, "sceKernelChangeThreadPriority(%i, %i)", threadID, priority);
 
-		thread->nt.currentPriority = PARAM(1);
+		int old = thread->nt.currentPriority;
+		threadReadyQueue.remove(old, threadID);
+
+		thread->nt.currentPriority = priority;
 
 		threadReadyQueue.prepare(thread->nt.currentPriority);
 		if (thread->isReady())
-			threadReadyQueue.push_back(thread->nt.currentPriority, id);
+			threadReadyQueue.push_back(thread->nt.currentPriority, threadID);
 
-		RETURN(0);
+		return 0;
 	}
 	else
 	{
-		ERROR_LOG(HLE,"%08x=sceKernelChangeThreadPriority(%i, %i) failed - no such thread", error, id, PARAM(1));
-		RETURN(error);
+		ERROR_LOG(HLE, "%08x=sceKernelChangeThreadPriority(%i, %i) failed - no such thread", error, threadID, priority);
+		return error;
 	}
 }
 
