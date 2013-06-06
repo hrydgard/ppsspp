@@ -1042,7 +1042,7 @@
     </message>
     <message>
         <location filename="../mainwindow.ui" line="363"/>
-        <source>F12</source>
+        <source>F11</source>
         <translation></translation>
     </message>
     <message>
