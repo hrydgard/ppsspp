@@ -370,7 +370,7 @@
     <string>&amp;Toggle fullscreen</string>
    </property>
    <property name="shortcut">
-    <string>F12</string>
+    <string>F11</string>
    </property>
   </action>
   <action name="action_OptionsBufferedRendering">
