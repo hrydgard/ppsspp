@@ -2262,6 +2262,7 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 {
 	if (threadID == 0)
 		threadID = currentThread;
+	// 0 means the current (running) thread's priority, not target's.
 	if (priority == 0)
 	{
 		Thread *cur = __GetCurrentThread();
@@ -2287,11 +2288,13 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority)
 		threadReadyQueue.remove(old, threadID);
 
 		thread->nt.currentPriority = priority;
-
 		threadReadyQueue.prepare(thread->nt.currentPriority);
+		if (thread->isRunning())
+			thread->nt.status = (thread->nt.status & ~THREADSTATUS_RUNNING) | THREADSTATUS_READY;
 		if (thread->isReady())
 			threadReadyQueue.push_back(thread->nt.currentPriority, threadID);
 
+		hleReSchedule("change thread priority");
 		return 0;
 	}
 	else
