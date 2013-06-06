@@ -88,7 +88,6 @@ struct InputBuffer {
 
 struct Atrac;
 int __AtracSetContext(Atrac *atrac);
-int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize);
 
 struct AtracLoopInfo {
 	int cuePointID;
@@ -1004,12 +1003,14 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 	return 0;
 }
 
-int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
+int _AtracSetData(int atracID, u32 buffer, u32 bufferSize, bool needReturnAtracID = false)
 {
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return -1;
 	int ret = _AtracSetData(atrac, buffer, bufferSize);
+	if (needReturnAtracID && ret >= 0)
+		ret = atracID;
 	// not sure the real delay time
 	return hleDelayResult(ret, "atrac set data", 100);
 }
@@ -1068,7 +1069,7 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->Analyze();
 	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac);
-	int ret = _AtracSetData(atracID, buffer, bufferSize);
+	int ret = _AtracSetData(atracID, buffer, bufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
@@ -1087,7 +1088,7 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	atrac->Analyze();
 	atrac->atracOutputChannels = 2;
 	int atracID = createAtrac(atrac);
-	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
+	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
@@ -1185,7 +1186,7 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->Analyze();
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac);
-	int ret = _AtracSetData(atracID, buffer, bufferSize);
+	int ret = _AtracSetData(atracID, buffer, bufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
@@ -1204,7 +1205,7 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 	atrac->Analyze();
 	atrac->atracOutputChannels = 1;
 	int atracID = createAtrac(atrac);
-	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize);
+	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
 	return atracID;
