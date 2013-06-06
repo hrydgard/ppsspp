@@ -678,7 +678,7 @@ const HLEFunction ThreadManForUser[] =
 
 	{0xFCCFAD26,WrapI_I<sceKernelCancelWakeupThread>,"sceKernelCancelWakeupThread"},
 	{0x1AF94D03,0,"sceKernelDonateWakeupThread"},
-	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
+	{0xea748e31,WrapI_UU<sceKernelChangeCurrentThreadAttr>,"sceKernelChangeCurrentThreadAttr"},
 	{0x71bc9871,WrapI_II<sceKernelChangeThreadPriority>,"sceKernelChangeThreadPriority"},
 	{0x446D8DE6,WrapI_CUUIUU<sceKernelCreateThread>,"sceKernelCreateThread"},
 	{0x9fa03cd3,WrapI_I<sceKernelDeleteThread>,"sceKernelDeleteThread"},

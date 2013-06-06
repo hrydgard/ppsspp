@@ -2248,17 +2248,22 @@ void sceKernelGetThreadCurrentPriority()
 	RETURN(retVal);
 }
 
-void sceKernelChangeCurrentThreadAttr()
+int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr)
 {
-	int clearAttr = PARAM(0);
-	int setAttr = PARAM(1);
-	DEBUG_LOG(HLE,"0 = sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x", clearAttr, setAttr);
+	// Seems like this is the only allowed attribute?
+	if ((clearAttr & ~PSP_THREAD_ATTR_VFPU) != 0 || (setAttr & ~PSP_THREAD_ATTR_VFPU) != 0)
+	{
+		ERROR_LOG_REPORT(HLE, "0 = sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x): invalid attr", clearAttr, setAttr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
+	DEBUG_LOG(HLE, "0 = sceKernelChangeCurrentThreadAttr(clear = %08x, set = %08x)", clearAttr, setAttr);
 	Thread *t = __GetCurrentThread();
 	if (t)
 		t->nt.attr = (t->nt.attr & ~clearAttr) | setAttr;
 	else
-		ERROR_LOG(HLE, "%s(): No current thread?", __FUNCTION__);
-	RETURN(0);
+		ERROR_LOG_REPORT(HLE, "%s(): No current thread?", __FUNCTION__);
+	return 0;
 }
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority)
