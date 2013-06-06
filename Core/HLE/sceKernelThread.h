@@ -24,7 +24,7 @@
 #include "sceKernelModule.h"
 #include "HLE.h"
 
-void sceKernelChangeThreadPriority();
+int sceKernelChangeThreadPriority(SceUID threadID, int priority);
 int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
@@ -44,7 +44,7 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr);
 u32 sceKernelReferThreadStatus(u32 uid, u32 statusPtr);
 u32 sceKernelReferThreadRunStatus(u32 uid, u32 statusPtr);
 int sceKernelReleaseWaitThread(SceUID threadID);
-void sceKernelChangeCurrentThreadAttr();
+int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr);
 int sceKernelRotateThreadReadyQueue(int priority);
 int sceKernelCheckThreadStack();
 int sceKernelSuspendThread(SceUID threadID);
