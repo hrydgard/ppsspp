@@ -1009,7 +1009,9 @@ int _AtracSetData(int atracID, u32 buffer, u32 bufferSize)
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac)
 		return -1;
-	return _AtracSetData(atrac, buffer, bufferSize);
+	int ret = _AtracSetData(atrac, buffer, bufferSize);
+	// not sure the real delay time
+	return hleDelayResult(ret, "atrac set data", 100);
 }
 
 u32 sceAtracSetHalfwayBuffer(int atracID, u32 halfBuffer, u32 readSize, u32 halfBufferSize)

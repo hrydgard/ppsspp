@@ -110,10 +110,7 @@ u32 sceAudioOutputPannedBlocking(u32 chan, int leftvol, int rightvol, u32 sample
 			chans[chan].rightVolume = rightvol;
 		}
 		chans[chan].sampleAddress = samplePtr;
-		int ret = __AudioEnqueue(chans[chan], chan, true);
-		if (chans[chan].waitingThreads.size() == 0)
-			return hleDelayResult(ret, "output block", 1000);
-		return ret;
+		return __AudioEnqueue(chans[chan], chan, true);
 	}
 }
 
@@ -324,10 +321,7 @@ u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr){
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].leftVolume = vol;
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].rightVolume = vol;
 	chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleAddress = dataPtr;
-	int ret = __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_OUTPUT2], PSP_AUDIO_CHANNEL_OUTPUT2, true);
-	if (chans[PSP_AUDIO_CHANNEL_OUTPUT2].waitingThreads.size() == 0)
-		return hleDelayResult(ret, "output block", 1000);
-	return ret;
+	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_OUTPUT2], PSP_AUDIO_CHANNEL_OUTPUT2, true);
 }
 
 u32 sceAudioOutput2ChangeLength(u32 sampleCount){
