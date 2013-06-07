@@ -849,11 +849,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
 	}
-	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfplayer->mediaengine->stepVideo(videoPixelMode);
-	psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
-	// This seems to be crazy!
-	return  hleDelayResult(0, "psmfPlayer update", 30000);
+	return 0;
 }
 
 int scePsmfPlayerReleasePsmf(u32 psmfPlayer) 
@@ -878,12 +874,16 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		int frameWidth = Memory::Read_U32(videoDataAddr);
         u32 displaybuf = Memory::Read_U32(videoDataAddr + 4);
         int displaypts = Memory::Read_U32(videoDataAddr + 8);
-
-		psmfplayer->mediaengine->writeVideoImage(Memory::GetPointer(displaybuf), frameWidth, videoPixelMode);
-		
+		if (psmfplayer->mediaengine->stepVideo(videoPixelMode))
+			psmfplayer->mediaengine->writeVideoImage(Memory::GetPointer(displaybuf), frameWidth, videoPixelMode);
+		psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
 		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, videoDataAddr + 8);
 	}
-	return hleDelayResult(0, "psmfPlayer video decode", 3000);
+	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
+	int delaytime = 3000;
+	if (deltapts > 0)
+		delaytime = deltapts * 1000000 / 90000;
+	return hleDelayResult(0, "psmfPlayer video decode", delaytime);
 }
 
 int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
