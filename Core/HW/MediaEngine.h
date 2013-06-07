@@ -32,6 +32,7 @@
 
 struct SwsContext;
 struct AVFrame;
+struct AVIOContext;
 
 class MediaEngine
 {
@@ -45,7 +46,7 @@ public:
 	// Returns number of packets actually added.
 	int addStreamData(u8* buffer, int addSize);
 	int getRemainSize() { return m_streamSize - m_readSize;}
-	int getBufferedSize() { return m_readSize - m_decodePos; }
+	int getBufferedSize();
 
 	bool stepVideo(int videoPixelMode);
 	bool writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
@@ -76,7 +77,7 @@ public:
 	void *m_pCodecCtx;
 	AVFrame *m_pFrame;
 	AVFrame *m_pFrameRGB;
-	void *m_pIOContext;
+	AVIOContext *m_pIOContext;
 	int  m_videoStream;
 	SwsContext *m_sws_ctx;
 	int m_sws_fmt;

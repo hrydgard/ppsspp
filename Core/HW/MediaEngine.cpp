@@ -109,8 +109,8 @@ void MediaEngine::closeMedia() {
 		av_free(m_pFrameRGB);
 	if (m_pFrame)
 		av_free(m_pFrame);
-	if (m_pIOContext && ((AVIOContext*)m_pIOContext)->buffer)
-		av_free(((AVIOContext*)m_pIOContext)->buffer);
+	if (m_pIOContext && m_pIOContext->buffer)
+		av_free(m_pIOContext->buffer);
 	if (m_pIOContext)
 		av_free(m_pIOContext);
 	if (m_pCodecCtx)
@@ -183,8 +183,8 @@ bool MediaEngine::openContext() {
 
 	AVFormatContext *pFormatCtx = avformat_alloc_context();
 	m_pFormatCtx = (void*)pFormatCtx;
-	m_pIOContext = (void*)avio_alloc_context(tempbuf, m_bufSize, 0, (void*)this, _MpegReadbuffer, NULL, _MpegSeekbuffer);
-	pFormatCtx->pb = (AVIOContext*)m_pIOContext;
+	m_pIOContext = avio_alloc_context(tempbuf, m_bufSize, 0, (void*)this, _MpegReadbuffer, NULL, _MpegSeekbuffer);
+	pFormatCtx->pb = m_pIOContext;
   
 	// Open video file
 	if(avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
@@ -539,6 +539,12 @@ static int getNextHeaderPosition(u8* audioStream, int curpos, int limit, int fra
 	}
 
 	return -1;
+}
+
+int MediaEngine::getBufferedSize() {
+    // m_decodePos is technically "decoderNextReadPos", we want what has actually been decoded.
+    int buffer_left = m_pIOContext->buffer_size - (m_pIOContext->buf_ptr - m_pIOContext->buffer);
+    return m_readSize - m_decodePos + buffer_left;
 }
 
 int MediaEngine::getAudioSamples(u8* buffer) {
