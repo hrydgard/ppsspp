@@ -56,7 +56,8 @@ const int PSP_ATRAC_ALLDATA_IS_ON_MEMORY = -1;
 const int PSP_ATRAC_NONLOOP_STREAM_DATA_IS_ON_MEMORY = -2;
 const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 
-const u32 ATRAC_MAX_SAMPLES = 1024;
+const u32 ATRAC3_MAX_SAMPLES = 0x400;
+const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
 #ifdef USE_FFMPEG
 
@@ -176,7 +177,7 @@ struct Atrac {
 
 	void Analyze();
 	u32 getDecodePosBySample(int sample) {
-		int atracSamplesPerFrame = (codeType == PSP_MODE_AT_3_PLUS ? 0x800 : 0x400);
+		int atracSamplesPerFrame = (codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 		return (u32)(firstSampleoffset + sample / atracSamplesPerFrame * atracBytesPerFrame );
 	}
 
@@ -431,8 +432,10 @@ void Atrac::Analyze()
 	}
 
 	// if there is no correct endsample, try to guess it
-	if (endSample < 0)
-		endSample = (first.filesize / atracBytesPerFrame) * ATRAC_MAX_SAMPLES;
+	if (endSample < 0) {
+		int atracSamplesPerFrame = (codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+		endSample = (first.filesize / atracBytesPerFrame) * atracSamplesPerFrame;
+	}
 }
 
 u32 sceAtracGetAtracID(int codecType)
@@ -537,20 +540,20 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 
 			if (atrac->decoder_context) {
 				static u8 buf[0x8000];
-				if (atrac->sampleQueue.getQueueSize() < ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels) {
+				if (atrac->sampleQueue.getQueueSize() < ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels) {
 					int decodebytes = 0;
 					atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 					int inbytes = std::max((int)atrac->first.size - (int)atrac->decodePos, 0);
 					inbytes = std::min(inbytes, (int)atrac->atracBytesPerFrame);
 					if (inbytes > 0 && inbytes == atrac->atracBytesPerFrame) {
 						Atrac3plus_Decoder::Decode(atrac->decoder_context, atrac->data_buf + atrac->decodePos, inbytes, &decodebytes, buf);
-						DEBUG_LOG(HLE, "decodebytes: %i outbuf: %p", decodebytes, buf);
+						DEBUG_LOG(HLE, "atracID: %i decodebytes: %i outAddr: %08x", atracID, decodebytes, outAddr);
 						atrac->sampleQueue.push(buf, decodebytes);
 					}
 				}
 				s16* out = (s16*)Memory::GetPointer(outAddr);
-				memset(out, 0, ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
-				int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
+				memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
+				int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 				numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
 				s16* in = (s16*)buf;
 				for (u32 i = 0; i < numSamples; i++) {
@@ -562,18 +565,19 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 					if (atrac->atracOutputChannels == 2)
 						*out++ = sampleR;
 				}
-				numSamples = ATRAC_MAX_SAMPLES;
+				numSamples = ATRAC3PLUS_MAX_SAMPLES;
 			} else
 			{
 				numSamples = atrac->endSample - atrac->currentSample;
+				int atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 				if (atrac->currentSample >= atrac->endSample) {
 					numSamples = 0;
-				} else if (numSamples > ATRAC_MAX_SAMPLES) {
-					numSamples = ATRAC_MAX_SAMPLES;
+				} else if (numSamples > atracSamplesPerFrame) {
+					numSamples = atracSamplesPerFrame;
 				}
 
 				if (numSamples == 0 && (atrac->loopNum != 0)) {
-					numSamples = ATRAC_MAX_SAMPLES;
+					numSamples = atracSamplesPerFrame;
 				}
 				Memory::Memset(outAddr, 0, numSamples * sizeof(s16) * atrac->atracOutputChannels);
 			}
@@ -716,8 +720,10 @@ u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr)
 	if (!atrac) {
 		//return -1;
 	} else {
-		if (Memory::IsValidAddress(maxSamplesAddr))
-			Memory::Write_U32(ATRAC_MAX_SAMPLES, maxSamplesAddr);
+		if (Memory::IsValidAddress(maxSamplesAddr)) {
+			int atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+			Memory::Write_U32(atracSamplesPerFrame, maxSamplesAddr);
+		}
 	}
 	return 0;
 }
@@ -750,8 +756,9 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 				Memory::Write_U32(0, outNAddr);
 		} else {
 			u32 numSamples = atrac->endSample - atrac->currentSample;
-			if (numSamples > ATRAC_MAX_SAMPLES)
-				numSamples = ATRAC_MAX_SAMPLES;
+			int atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+			if (numSamples > atracSamplesPerFrame)
+				numSamples = atracSamplesPerFrame;
 			if (Memory::IsValidAddress(outNAddr))
 				Memory::Write_U32(numSamples, outNAddr);
 		}
@@ -1408,7 +1415,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 				}
 			}
 			atrac->currentSample += numSamples;
-			numSamples = ATRAC_MAX_SAMPLES;
+			numSamples = ATRAC3_MAX_SAMPLES;
 			Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
 			atrac->SeekToSample(atrac->currentSample);
 			if (atrac->decodePos >= atrac->first.size) {
@@ -1433,8 +1440,8 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 				atrac->sampleQueue.push(buf, decodebytes);
 			}
 			s16* out = (s16*)Memory::GetPointer(samplesAddr);
-			memset(out, 0, ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
-			int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
+			memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
+			int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 			int numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
 			s16* in = (s16*)buf;
 			for (int i = 0; i < numSamples; i++) {
@@ -1446,10 +1453,10 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 				if (atrac->atracOutputChannels == 2)
 					*out++ = sampleR;
 			}
-			numSamples = ATRAC_MAX_SAMPLES;
+			numSamples = ATRAC3PLUS_MAX_SAMPLES;
 			Memory::Write_U32(numSamples * sizeof(s16) * atrac->atracOutputChannels, sampleBytesAddr);
 			int space = atrac->sampleQueue.getQueueSize();
-			if (space < ATRAC_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels)
+			if (space < ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels)
 				atrac->first.writableBytes = atrac->atracBytesPerFrame;
 			else
 				atrac->first.writableBytes = 0;
