@@ -698,7 +698,7 @@ endif()
 
 # atrac3plus.cpp used dl* functions on non-win32 platforms
 # Core needs to be linked with dl on these platforms
-if(NOT WIN32)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 endif()
 
