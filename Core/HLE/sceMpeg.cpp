@@ -928,9 +928,13 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 
 	// Execute callback function as a direct MipsCall, no blocking here so no messing around with wait states etc
 	if (ringbuffer.callback_addr) {
-		PostPutAction *action = (PostPutAction *) __KernelCreateAction(actionPostPut);
+		PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
 		action->setRingAddr(ringbufferAddr);
-		u32 args[3] = {(u32)ringbuffer.data, numPackets, (u32)ringbuffer.callback_args};
+		// TODO: Should call this multiple times until we get numPackets.
+		// Normally this would be if it did not read enough, but also if available > packets.
+		// Should ultimately return the TOTAL number of returned packets.
+		u32 packetsThisRound = std::min(numPackets, (u32)ringbuffer.packets);
+		u32 args[3] = {(u32)ringbuffer.data, packetsThisRound, (u32)ringbuffer.callback_args};
 		__KernelDirectMipsCall(ringbuffer.callback_addr, action, args, 3, false);
 	} else {
 		ERROR_LOG(HLE, "sceMpegRingbufferPut: callback_addr zero");
