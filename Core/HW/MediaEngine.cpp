@@ -561,6 +561,16 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	u8* frame = audioStream + m_audioPos;
 	int outbytes = 0;
 	Atrac3plus_Decoder::Decode(m_audioContext, frame, frameSize - 8, &outbytes, buffer);
+	if (headerCode1 == 0x24) {
+		// it a mono atrac3plus, convert it to stereo
+		s16 *outbuf = (s16*)buffer;
+		s16 *inbuf = (s16*)buffer;
+		for (int i = 0x800 - 1; i >= 0; i--) {
+			s16 sample = inbuf[i];
+			outbuf[i * 2] = sample;
+			outbuf[i * 2 + 1] = sample;
+		}
+	}
 	if (nextHeader >= 0) {
 		m_audioPos = nextHeader;
 	} else
