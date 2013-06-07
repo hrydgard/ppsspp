@@ -626,14 +626,16 @@ u32 sceAtracGetBufferInfoForReseting(int atracID, int sample, u32 bufferInfoAddr
 		//return -1;
 	} else {
 		int Sampleoffset = atrac->getDecodePosBySample(sample);
-		int neededBytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
+		int minWritebytes = std::max(Sampleoffset - (int)atrac->first.size, 0);
 		// reset the temp buf for adding more stream data
 		atrac->first.writableBytes = std::min(atrac->first.filesize - atrac->first.size, atrac->atracBufSize);
 		atrac->first.offset = 0;
+		// minWritebytes should not be bigger than writeablebytes
+		minWritebytes = std::min(minWritebytes, (int)atrac->first.writableBytes);
 
 		Memory::Write_U32(atrac->first.addr, bufferInfoAddr);
 		Memory::Write_U32(atrac->first.writableBytes, bufferInfoAddr + 4);
-		Memory::Write_U32(neededBytes, bufferInfoAddr + 8);
+		Memory::Write_U32(minWritebytes, bufferInfoAddr + 8);
 		Memory::Write_U32(atrac->first.fileoffset, bufferInfoAddr + 12);
 		Memory::Write_U32(atrac->second.addr, bufferInfoAddr + 16);
 		Memory::Write_U32(atrac->second.writableBytes, bufferInfoAddr + 20);
