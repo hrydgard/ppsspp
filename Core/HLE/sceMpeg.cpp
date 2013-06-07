@@ -182,6 +182,7 @@ struct MpegContext {
 	MediaEngine *mediaengine;
 };
 
+static bool isMpegInit;
 static u32 streamIdGen;
 static bool isCurrentMpegAnalyzed;
 static int actionPostPut;
@@ -299,6 +300,7 @@ void __MpegInit(bool useMediaEngine_) {
 	lastMpegHandle = 0;
 	streamIdGen = 1;
 	isCurrentMpegAnalyzed = false;
+	isMpegInit = false;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
 }
 
@@ -306,6 +308,7 @@ void __MpegDoState(PointerWrap &p) {
 	p.Do(lastMpegHandle);
 	p.Do(streamIdGen);
 	p.Do(isCurrentMpegAnalyzed);
+	p.Do(isMpegInit);
 	p.Do(actionPostPut);
 	__KernelRestoreActionType(actionPostPut, PostPutAction::Create);
 
@@ -322,15 +325,20 @@ void __MpegShutdown() {
 	mpegMap.clear();
 }
 
-u32 sceMpegInit()
-{
-	if (!g_Config.bUseMediaEngine){
+u32 sceMpegInit() {
+	if (!g_Config.bUseMediaEngine) {
 		WARN_LOG(HLE, "Media Engine disabled");
 		return -1;
 	}
 
-	WARN_LOG(HLE, "sceMpegInit()");
-	return 0;
+	if (isMpegInit) {
+		WARN_LOG(HLE, "sceMpegInit(): already initialized");
+		return ERROR_MPEG_ALREADY_INIT;
+	}
+
+	INFO_LOG(HLE, "sceMpegInit()");
+	isMpegInit = true;
+	return hleDelayResult(0, "mpeg init", 750);
 }
 
 u32 sceMpegRingbufferQueryMemSize(int packets)
@@ -997,9 +1005,16 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 u32 sceMpegFinish()
 {
-	ERROR_LOG(HLE, "sceMpegFinish(...)");
+	if (!isMpegInit)
+	{
+		WARN_LOG(HLE, "sceMpegFinish(...): not initialized");
+		return ERROR_MPEG_NOT_YET_INIT;
+	}
+
+	INFO_LOG(HLE, "sceMpegFinish(...)");
+	isMpegInit = false;
 	//__MpegFinish();
-	return 0;
+	return hleDelayResult(0, "mpeg finish", 250);
 }
 
 u32 sceMpegQueryMemSize()
