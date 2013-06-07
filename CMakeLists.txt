@@ -699,7 +699,7 @@ endif()
 # atrac3plus.cpp used dl* functions on non-win32 platforms
 # Core needs to be linked with dl on these platforms
 if(NOT WIN32)
-  set(CoreExtraLibs ${CoreExtraLibs} dl)
+  set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 endif()
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
