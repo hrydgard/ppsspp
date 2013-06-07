@@ -1334,7 +1334,7 @@ bool initAT3plusDecoder(Atrac *atrac, u32 dataSize = 0xffb4a8)
 
 int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
+	INFO_LOG(HLE, "sceAtracLowLevelInitDecoder(%i, %08x)", atracID, paramsAddr);
 	Atrac *atrac = getAtrac(atracID);
 	if (atrac && Memory::IsValidAddress(paramsAddr)) {
 		atrac->atracChannels = Memory::Read_U32(paramsAddr);
@@ -1343,6 +1343,8 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 		atrac->atracBytesPerFrame = atrac->atracBufSize;
 		atrac->first.writableBytes = atrac->atracBytesPerFrame;
 		atrac->CleanStuff();
+		INFO_LOG(HLE, "Channels: %i outputChannels: %i bytesperFrame: %x", 
+			atrac->atracChannels, atrac->atracOutputChannels, atrac->atracBytesPerFrame);
 #ifdef USE_FFMPEG
 		if (atrac->codeType == PSP_MODE_AT_3) {
 			WARN_LOG(HLE, "This is an atrac3 audio (low level)");
