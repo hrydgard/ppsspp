@@ -359,7 +359,7 @@ u32 sceMpegRingbufferConstruct(u32 ringbufferAddr, u32 numPackets, u32 data, u32
 
 u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop)
 {
-	if (!g_Config.bUseMediaEngine){
+	if (!g_Config.bUseMediaEngine) {
 		WARN_LOG(HLE, "Media Engine disabled");
 		return -1;
 	}
@@ -418,7 +418,7 @@ u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 f
 
 	INFO_LOG(HLE, "%08x=sceMpegCreate(%08x, %08x, %i, %08x, %i, %i, %i)",
 		mpegHandle, mpegAddr, dataPtr, size, ringbufferAddr, frameWidth, mode, ddrTop);
-	return 0;
+	return hleDelayResult(0, "mpeg create", 29000);
 }
 
 int sceMpegDelete(u32 mpeg)
