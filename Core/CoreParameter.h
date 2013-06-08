@@ -33,7 +33,7 @@ enum GPUCore {
 
 struct CoreParameter
 {
-	CoreParameter() : collectEmuLog(0), unthrottle(false), updateRecent(true), fpsLimit(0) {}
+	CoreParameter() : collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true) {}
 	// 0 = Interpreter
 	// 1 = Jit
 	// 2 = JitIL

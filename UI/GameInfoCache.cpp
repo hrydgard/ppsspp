@@ -20,6 +20,7 @@
 
 #include "base/timeutil.h"
 #include "base/stringutil.h"
+#include "file/file_util.h"
 #include "image/png_load.h"
 #include "thread/prioritizedworkqueue.h"
 #include "GameInfoCache.h"
@@ -27,8 +28,69 @@
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/ELF/PBPReader.h"
 
+#include "Core/Config.h"
+
 GameInfoCache g_gameInfoCache;
 
+bool GameInfo::DeleteGame() {
+	switch (fileType) {
+	case FILETYPE_PSP_ISO:
+	case FILETYPE_PSP_ISO_NP:
+		// Just delete the one file (TODO: handle two-disk games as well somehow).
+		deleteFile(fileInfo.fullName.c_str());
+		return true;
+
+	case FILETYPE_PSP_PBP_DIRECTORY:
+		// Recursively deleting directories not yet supported
+		return false;
+
+	default:
+		return false;
+	}
+}
+
+u64 GameInfo::GetGameSizeInBytes() {
+	switch (fileType) {
+	case FILETYPE_PSP_PBP_DIRECTORY:
+		// TODO: Need to recurse here.
+		return 0;
+	default:
+		return fileInfo.size;
+	}
+}
+
+std::string GameInfo::GetSaveDataDirectory() {
+	std::string id = paramSFO.GetValueString("ID");
+	return g_Config.memCardDirectory + "/PSP/GAME/" + id;
+}
+
+u64 GameInfo::GetSaveDataSizeInBytes() {
+	std::string saveDataDir = GetSaveDataDirectory();
+
+	std::vector<FileInfo> fileInfo;
+	getFilesInDir(saveDataDir.c_str(), &fileInfo);
+
+	u64 totalSize = 0;
+	for (size_t i = 0; i < fileInfo.size(); i++) {
+		totalSize += fileInfo[i].size;
+	}
+	return totalSize;
+}
+
+bool GameInfo::DeleteAllSaveData() {
+	std::string saveDataDir = GetSaveDataDirectory();
+
+	std::vector<FileInfo> fileInfo;
+	getFilesInDir(saveDataDir.c_str(), &fileInfo);
+
+	u64 totalSize = 0;
+	for (size_t i = 0; i < fileInfo.size(); i++) {
+		deleteFile(fileInfo[i].fullName.c_str());
+	}
+
+	deleteDir(saveDataDir.c_str());
+	return true;
+}
 
 static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string *contents, recursive_mutex *mtx) {
 	PSPFileInfo info = fs->GetFileInfo(filename);
@@ -61,46 +123,59 @@ public:
 	}
 
 	virtual void run() {
-		// A game can be either an UMD or a directory under ms0:/PSP/GAME .
-		if (startsWith(gamePath_, "ms0:/PSP/GAME")) {
+		getFileInfo(gamePath_.c_str(), &info_->fileInfo);
+		if (!info_->fileInfo.exists)
 			return;
-			// TODO: The case of these extensions is not perfect.
-		} else if (endsWith(gamePath_, ".PBP")) {
-			PBPReader pbp(gamePath_.c_str());
-			if (!pbp.IsValid())
-				return;
-			info_->fileType = FILETYPE_PSP_PBP;
-			// First, PARAM.SFO.
-			size_t sfoSize;
-			u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
-			{
-				lock_guard lock(info_->lock);
-				info_->paramSFO.ReadSFO(sfoData, sfoSize);
-				info_->title = info_->paramSFO.GetValueString("TITLE");
-			}
-			delete [] sfoData;
 
-			// Then, ICON0.PNG.
-			{
-				lock_guard lock(info_->lock);
-				if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
-					pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
-				} else {
-					// We should load a default image here.
-				}
-			}
+		std::string filename = gamePath_;
+		info_->fileType = Identify_File(filename);
 
-			if (info_->wantBG) {
+		switch (info_->fileType) {
+		case FILETYPE_PSP_PBP:
+		case FILETYPE_PSP_PBP_DIRECTORY:
+			{
+				std::string pbpFile = filename;
+				if (info_->fileType == FILETYPE_PSP_PBP_DIRECTORY)
+					pbpFile += "/EBOOT.PBP";
+
+				PBPReader pbp(pbpFile.c_str());
+				if (!pbp.IsValid())
+					return;
+
+				// First, PARAM.SFO.
+				size_t sfoSize;
+				u8 *sfoData = pbp.GetSubFile(PBP_PARAM_SFO, &sfoSize);
 				{
 					lock_guard lock(info_->lock);
-					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
-						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
+					info_->paramSFO.ReadSFO(sfoData, sfoSize);
+					info_->title = info_->paramSFO.GetValueString("TITLE");
+				}
+				delete [] sfoData;
+
+				// Then, ICON0.PNG.
+				{
+					lock_guard lock(info_->lock);
+					if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
+						pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
+					} else {
+						// We should load a default image here.
+					}
+				}
+
+				if (info_->wantBG) {
+					{
+						lock_guard lock(info_->lock);
+						if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
+							pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
+					}
 				}
 			}
-		} else if (endsWith(gamePath_, ".elf") || endsWith(gamePath_, ".prx")) {
-			info_->fileType = FILETYPE_PSP_ELF;
+		case FILETYPE_PSP_ELF:
+			// An elf on its own has no usable information, no icons, no nothing.
 			return;
-		} else {
+
+		case FILETYPE_PSP_ISO:
+		case FILETYPE_PSP_ISO_NP:
 			info_->fileType = FILETYPE_PSP_ISO;
 			SequentialHandleAllocator handles;
 			// Let's assume it's an ISO.

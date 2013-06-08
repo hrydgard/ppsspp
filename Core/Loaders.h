@@ -21,6 +21,8 @@ enum EmuFileType
 {
 	FILETYPE_ERROR,
 
+	FILETYPE_PSP_PBP_DIRECTORY,
+
 	FILETYPE_PSP_PBP,
 	FILETYPE_PSP_ELF,
 	FILETYPE_PSP_ISO,
@@ -32,6 +34,9 @@ enum EmuFileType
 	FILETYPE_UNKNOWN
 };
 
-EmuFileType Identify_File(const char *filename);
+// This can modify the string, for example for stripping off the "/EBOOT.PBP"
+// for a FILETYPE_PSP_PBP_DIRECTORY.
+EmuFileType Identify_File(std::string &str);
 
-bool LoadFile(const char *filename, std::string *error_string);
+// Can modify the string filename, as it calls IdentifyFile above.
+bool LoadFile(std::string &filename, std::string *error_string);

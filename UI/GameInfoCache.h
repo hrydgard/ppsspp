@@ -21,21 +21,38 @@
 #include <map>
 
 #include "base/mutex.h"
+#include "file/file_util.h"
 #include "thread/prioritizedworkqueue.h"
 #include "gfx/texture.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
 
 
+// A GameInfo holds information about a game, and also lets you do things that the VSH
+// does on the PSP, namely checking for and deleting savedata, and similar things.
+
 class GameInfo {
 public:
 	GameInfo() : fileType(FILETYPE_UNKNOWN), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL) {}
+
+	bool DeleteGame();  // Better be sure what you're doing when calling this.
+	bool DeleteAllSaveData();
+
+	u64 GetGameSizeInBytes();
+	u64 GetSaveDataSizeInBytes();
+
+	void LoadParamSFO();
+
+	std::string GetSaveDataDirectory();
+
+
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer
 	// to it.
 	recursive_mutex lock;
 
+	FileInfo fileInfo;
 	std::string title;  // for easy access, also available in paramSFO.
 	EmuFileType fileType;
 	ParamSFOData paramSFO;

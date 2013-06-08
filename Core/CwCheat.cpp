@@ -164,7 +164,7 @@ inline std::vector<std::string> makeCodeParts() {
 std::vector<std::string> CWCheatEngine::GetCodesList() {
 	std::string line;
 
-	char* skip = "//";
+	std::string skip = "//";
 	std::vector<std::string> codesList;  // Read from INI here
 	std::ifstream list(activeCheatFile.c_str());
 	for (int i = 0; !list.eof(); i ++) {
