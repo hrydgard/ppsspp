@@ -24,6 +24,7 @@ struct TouchInput;
 struct InputState;
 
 class DrawBuffer;
+class Texture;
 class UIContext;
 
 // I don't generally like namespaces but I think we do need one for UI, so many potentially-clashing names.
@@ -42,6 +43,7 @@ enum DrawableType {
 	DRAW_NOTHING,
 	DRAW_SOLID_COLOR,
 	DRAW_4GRID,
+	DRAW_STRETCH_IMAGE,
 };
 
 enum Visibility {
@@ -51,17 +53,20 @@ enum Visibility {
 };
 
 struct Drawable {
-	Drawable() : type(DRAW_NOTHING) {}
+	Drawable() : type(DRAW_NOTHING), image(-1), color(0xFFFFFFFF) {}
+	explicit Drawable(uint32_t col) : type(DRAW_SOLID_COLOR), image(-1), color(col) {}
+	Drawable(DrawableType t, int img, uint32_t col = 0xFFFFFFFF) : type(t), image(img), color(col) {}
 
 	DrawableType type;
-	uint32_t data;
+	uint32_t image;
+	uint32_t color;
 };
 
 struct Style {
-	Style() : fgColor(0xFFFFFFFF), bgColor(0xFF303030), image(-1) {}
+	Style() : fgColor(0xFFFFFFFF), background(0xFF303030), image(-1) {}
 
 	uint32_t fgColor;
-	uint32_t bgColor;
+	Drawable background;
 	int image;  // where applicable.
 };
 
@@ -79,6 +84,7 @@ struct Theme {
 	Style buttonDownStyle;
 	Style buttonDisabledStyle;
 
+	Style itemStyle;
 	Style itemDownStyle;
 	Style itemFocusedStyle;
 };
@@ -195,7 +201,9 @@ private:
 struct Margins {
 	Margins() : top(0), bottom(0), left(0), right(0) {}
 	explicit Margins(uint8_t all) : top(all), bottom(all), left(all), right(all) {}
-	explicit Margins(uint8_t horiz, uint8_t vert) : top(vert), bottom(vert), left(horiz), right(horiz) {}
+	Margins(uint8_t horiz, uint8_t vert) : top(vert), bottom(vert), left(horiz), right(horiz) {}
+	Margins(uint8_t l, uint8_t t, uint8_t r, uint8_t b) : top(t), bottom(b), left(l), right(r) {}
+
 	uint8_t top;
 	uint8_t bottom;
 	uint8_t left;
@@ -250,6 +258,7 @@ public:
 	// Called when the layout is done.
 	void SetBounds(Bounds bounds) { bounds_ = bounds; }
 	virtual const LayoutParams *GetLayoutParams() const { return layoutParams_.get(); }
+	virtual void ReplaceLayoutParams(LayoutParams *newLayoutParams) { layoutParams_.reset(newLayoutParams); }
 	const Bounds &GetBounds() const { return bounds_; }
 
 	virtual bool SetFocus() {
@@ -272,10 +281,14 @@ public:
 	void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
 
+	const std::string &Tag() const { return tag_; }
+	void SetTag(const std::string &str) { tag_ = str; }
+
 protected:
 	// Inputs to layout
 	scoped_ptr<LayoutParams> layoutParams_;
-	
+
+	std::string tag_;
 	bool enabled_;
 	Visibility visibility_;
 
@@ -425,7 +438,7 @@ private:
 class CheckBox : public ClickableItem {
 public:
 	CheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {
+		: ClickableItem(layoutParams), toggle_(toggle), text_(text), smallText_(smallText) {
 		OnClick.Handle(this, &CheckBox::OnClicked);
 	}
 
@@ -487,6 +500,24 @@ private:
 	int atlasImage_;
 	ImageSizeMode sizeMode_;
 };
+
+class TextureView : public InertView {
+public:
+	TextureView(Texture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), texture_(texture), sizeMode_(sizeMode) {}
+
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	virtual void Draw(UIContext &dc);
+
+	void SetTexture(Texture *texture) { texture_ = texture; }
+	void SetColor(uint32_t color) { color_ = color; }
+
+private:
+	Texture *texture_;
+	uint32_t color_;
+	ImageSizeMode sizeMode_;
+};
+
 
 class ProgressBar : public InertView {
 public:

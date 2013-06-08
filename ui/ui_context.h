@@ -14,6 +14,7 @@ class DrawBuffer;
 
 // Kind of ugly connection to UI.
 namespace UI {
+	struct Drawable;
 	struct Theme;
 }
 
@@ -48,6 +49,12 @@ public:
 	DrawBuffer *Draw() const { return uidrawbuffer_; }
 
 	const UI::Theme *theme;
+
+	
+	// Utility methods
+	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
+
+
 
 private:
 	// TODO: Collect these into a UIContext

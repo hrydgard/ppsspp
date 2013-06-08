@@ -1,12 +1,12 @@
-#include "ui.h"
-#include "ui_context.h"
+#include "ui/ui.h"
+#include "ui/view.h"
+#include "ui/ui_context.h"
 #include "gfx/texture.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 
-void UIContext::Begin()
-{
+void UIContext::Begin() {
 	glstate.blend.enable();
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.cullFace.disable();
@@ -24,8 +24,7 @@ void UIContext::Begin()
 		uidrawbufferTop_->Begin();*/
 }
 
-void UIContext::BeginNoTex()
-{
+void UIContext::BeginNoTex() {
 	glstate.blend.enable();
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.cullFace.disable();
@@ -44,28 +43,23 @@ void UIContext::BeginNoTex()
 }
 
 
-void UIContext::RebindTexture() const
-{
+void UIContext::RebindTexture() const {
 	if (uitexture_)
 		uitexture_->Bind(0);
 }
 
-void UIContext::Flush()
-{
-	if (uidrawbuffer_)
-	{
+void UIContext::Flush() {
+	if (uidrawbuffer_) {
 		uidrawbuffer_->End();
 		uidrawbuffer_->Flush();
 	}
-	if (uidrawbufferTop_)
-	{
+	if (uidrawbufferTop_) {
 		uidrawbufferTop_->End();
 		uidrawbufferTop_->Flush();
 	}
 }
 
-void UIContext::End() 
-{
+void UIContext::End() {
 	UIEnd();
 	Flush();
 }
@@ -97,4 +91,18 @@ void UIContext::ActivateTopScissor() {
 	} else {
 		glstate.scissorTest.disable();
 	}
+}
+
+void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
+	switch (drawable.type) {
+	case UI::DRAW_SOLID_COLOR:
+		uidrawbuffer_->DrawImageStretch(theme->whiteImage, bounds.x, bounds.y, bounds.x2(), bounds.y2(), drawable.color);
+		break;
+	case UI::DRAW_4GRID:
+		uidrawbuffer_->DrawImage4Grid(drawable.image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), drawable.color);
+		break;
+	case UI::DRAW_STRETCH_IMAGE:
+		uidrawbuffer_->DrawImageStretch(drawable.image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), drawable.color);
+		break;
+	} 
 }

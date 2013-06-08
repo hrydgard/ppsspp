@@ -24,6 +24,9 @@ struct Point {
 
 // Resolved bounds on screen after layout.
 struct Bounds {
+	Bounds() {}
+	Bounds(float x_, float y_, float w_, float h_) : x(x_), y(y_), w(w_), h(h_) {}
+
 	bool Contains(float px, float py) const {
 		return (px >= x && py >= y && px < x + w && py < y + h);
 	}

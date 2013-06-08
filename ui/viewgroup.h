@@ -2,6 +2,7 @@
 
 #include "base/logging.h"
 #include "ui/view.h"
+#include "math/geom2d.h"
 #include "input/gesture_detector.h"
 
 namespace UI {
@@ -93,6 +94,8 @@ public:
 		: LayoutParams(w, h), weight(wgt), gravity(grav), hasMargins_(false) {}
 	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)
 		: LayoutParams(w, h), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
+	LinearLayoutParams(Size w, Size h, const Margins &mgn)
+		: LayoutParams(w, h), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(const Margins &mgn)
 		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 
@@ -185,6 +188,48 @@ private:
 
 class ViewPager : public ScrollView {
 public:
+};
+
+class TabHolder : public LinearLayout {
+public:
+	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0)
+		: LinearLayout(ORIENT_HORIZONTAL, layoutParams),
+		  orientation_(orientation), stripSize_(stripSize), currentTab_(0) {
+		tabStrip_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(stripSize, WRAP_CONTENT));
+		Add(tabStrip_);
+	}
+
+	template <class T>
+	T *AddTab(const std::string &title, T *tabContents) {
+		tabContents->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
+		tabTitles_.push_back(title);
+		tabs_.push_back(tabContents);
+		Choice *choice = new Choice(title);
+		tabStrip_->Add(choice)->OnClick.Handle(this, &TabHolder::OnTabClick);
+		tabChoices_.push_back(choice);
+		Add(tabContents);
+		if (tabs_.size() > 1)
+			tabContents->SetVisibility(V_GONE);
+		return tabContents;
+	}
+
+	void SetCurrentTab(int tab) {
+		tabs_[currentTab_]->SetVisibility(V_GONE);
+		currentTab_ = tab;
+		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	}
+
+private:
+	EventReturn OnTabClick(EventParams &e);
+
+	ViewGroup *tabStrip_;
+
+	Orientation orientation_;
+	int currentTab_;
+	float stripSize_;
+	std::vector<std::string> tabTitles_;
+	std::vector<Choice *> tabChoices_;
+	std::vector<View *> tabs_;
 };
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root);

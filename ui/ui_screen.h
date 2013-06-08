@@ -5,7 +5,7 @@
 
 class UIScreen : public Screen {
 public:
-	UIScreen() : Screen(), root_(0), orientationChanged_(false) {}
+	UIScreen();
 	~UIScreen() { delete root_; }
 
 	virtual void update(InputState &input);
@@ -19,6 +19,10 @@ protected:
 	virtual void CreateViews() = 0;
 	virtual void DrawBackground() {}
 
+	void RecreateViews() { recreateViews_ = true; }
+
 	UI::ViewGroup *root_;
-	bool orientationChanged_;
+
+private:
+	bool recreateViews_;
 };

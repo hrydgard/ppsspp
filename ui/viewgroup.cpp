@@ -3,8 +3,11 @@
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+#include "gfx_es2/draw_buffer.h"
 
 namespace UI {
+
+const float ITEM_HEIGHT = 64.f;
 
 void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, int gravity, Bounds &inner) {
 	inner.w = w - (margins.left + margins.right);
@@ -79,6 +82,8 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 		return 0.0f;
 	if (destination->GetEnabled() == false)
 		return 0.0f;
+	if (destination->GetVisibility() != V_VISIBLE)
+		return 0.0f;
 
 	float dx = destination->GetBounds().centerX() - origin->GetBounds().centerX();
 	float dy = destination->GetBounds().centerY() - origin->GetBounds().centerY();
@@ -111,6 +116,11 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
+	if (!GetEnabled())
+		return result;
+	if (GetVisibility() != V_VISIBLE)
+		return result;
+
 	// First, find the position of the view in the list.
 	size_t num = -1;
 	for (size_t i = 0; i < views_.size(); i++) {
@@ -162,7 +172,7 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 
 			// Boost neighbors with the same parent
 			if (num != -1) {
-				result.score += 100.0f;
+				//result.score += 100.0f;
 			}
 
 			return result;
@@ -196,11 +206,11 @@ void MoveFocus(ViewGroup *root, FocusDirection direction) {
 }
 
 void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
-	if (views_.empty()) {
-		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
-		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
+	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
+	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
+
+	if (views_.empty())
 		return; 
-	}
 
 	float sum = 0.0f;
 	float maxOther = 0.0f;
@@ -226,9 +236,13 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		if (orientation_ == ORIENT_HORIZONTAL) {
-			views_[i]->Measure(dc, MeasureSpec(UNSPECIFIED), vert - (float)(margins.top + margins.bottom));
+			MeasureSpec v = vert;
+			if (v.type == UNSPECIFIED) v = MeasureSpec(AT_MOST, measuredHeight_);
+			views_[i]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), vert - (float)(margins.top + margins.bottom));
 		} else if (orientation_ == ORIENT_VERTICAL) {
-			views_[i]->Measure(dc, horiz - (float)(margins.left + margins.right), MeasureSpec(UNSPECIFIED));
+			MeasureSpec h = horiz;
+			if (h.type == UNSPECIFIED) h = MeasureSpec(AT_MOST, measuredWidth_);
+			views_[i]->Measure(dc, h - (float)(margins.left + margins.right), MeasureSpec(UNSPECIFIED, measuredHeight_));
 		}
 
 		float amount;
@@ -265,8 +279,8 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
 			const LinearLayoutParams *linLayoutParams = dynamic_cast<const LinearLayoutParams *>(layoutParams);
 
-			if (linLayoutParams && linLayoutParams->weight > 0.0)
-				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight), vert);
+			if (linLayoutParams && linLayoutParams->weight > 0.0f)
+				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight), MeasureSpec(EXACTLY, measuredHeight_));
 		}
 	} else {
 		MeasureBySpec(layoutParams_->height, weightZeroSum, vert, &measuredHeight_);
@@ -279,8 +293,8 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
 			const LinearLayoutParams *linLayoutParams = dynamic_cast<const LinearLayoutParams *>(layoutParams);
 
-			if (linLayoutParams && linLayoutParams->weight)
-				views_[i]->Measure(dc, horiz, MeasureSpec(EXACTLY, unit * linLayoutParams->weight));
+			if (linLayoutParams && linLayoutParams->weight > 0.0f)
+				views_[i]->Measure(dc, MeasureSpec(EXACTLY, measuredWidth_), MeasureSpec(EXACTLY, unit * linLayoutParams->weight));
 		}
 	}
 }
@@ -367,9 +381,9 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), vert - (margins.top + margins.bottom));
+		views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(AT_MOST, measuredHeight_ - (margins.top + margins.bottom)));
 	} else {
-		views_[0]->Measure(dc, horiz - (margins.left + margins.right), MeasureSpec(UNSPECIFIED));
+		views_[0]->Measure(dc, MeasureSpec(AT_MOST, measuredWidth_ - (margins.left + margins.right)), MeasureSpec(UNSPECIFIED));
 	}
 }
 
@@ -491,7 +505,7 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
 	int numColumns = (measuredWidth_ - settings_.spacing) / (settings_.columnWidth + settings_.spacing);
-	int numRows = (views_.size() + (numColumns - 1)) / numColumns;
+	int numRows = (int)(views_.size() + (numColumns - 1)) / numColumns;
 
 	float estimatedHeight = settings_.rowHeight * numRows;
 
@@ -500,7 +514,7 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
-	MeasureBySpec(layoutParams_->height, 0.0f, horiz, &measuredHeight_);
+	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 
 	for (size_t i = 0; i < views_.size(); i++) {
 		Size width = WRAP_CONTENT;
@@ -582,6 +596,17 @@ void GridLayout::Layout() {
 	}
 }
 
+EventReturn TabHolder::OnTabClick(EventParams &e) {
+	tabs_[currentTab_]->SetVisibility(V_GONE);
+	for (int i = 0; i < tabChoices_.size(); i++) {
+		if (e.v == tabChoices_[i]) {
+			currentTab_ = i;
+		}
+	}
+	tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	return EVENT_DONE;
+}
+
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 	Bounds rootBounds;
 	rootBounds.x = 0;
@@ -598,7 +623,6 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 	root->SetBounds(rootBounds);
 	root->Layout();
 }
-
 
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN))

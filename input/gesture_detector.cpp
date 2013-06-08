@@ -37,7 +37,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 				active_ |= GESTURE_DRAG_VERTICAL;
 				// Kill the drag
 				TouchInput inp2 = touch;
-				inp2.flags = TOUCH_UP;
+				inp2.flags = TOUCH_UP | TOUCH_CANCEL;
 				return inp2;
 			}
 		} else {

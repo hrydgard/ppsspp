@@ -3,12 +3,17 @@
 #include "ui/ui_context.h"
 #include "ui/screen.h"
 
+UIScreen::UIScreen()
+	: Screen(), root_(0), recreateViews_(false) {
+
+}
+
 void UIScreen::update(InputState &input) {
 	if (!root_) {
 		CreateViews();
 	}
 
-	if (orientationChanged_) {
+	if (recreateViews_) {
 		delete root_;
 		root_ = 0;
 		CreateViews();
@@ -18,17 +23,25 @@ void UIScreen::update(InputState &input) {
 }
 
 void UIScreen::render() {
-	UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+	if (root_) {
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
 
-	screenManager()->getUIContext()->Begin();
-	DrawBackground();
-	root_->Draw(*screenManager()->getUIContext());
-	screenManager()->getUIContext()->End();
-	screenManager()->getUIContext()->Flush();
+		screenManager()->getUIContext()->Begin();
+		DrawBackground();
+		root_->Draw(*screenManager()->getUIContext());
+		screenManager()->getUIContext()->End();
+		screenManager()->getUIContext()->Flush();
+	} else {
+		ELOG("Tried to render without a view root");
+	}
 }
 
 void UIScreen::touch(const TouchInput &touch) {
-	root_->Touch(touch);
+	if (root_) {
+		root_->Touch(touch);
+	} else {
+		ELOG("Tried to touch without a view root");
+	}
 }
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {

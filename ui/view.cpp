@@ -2,6 +2,7 @@
 #include "base/mutex.h"
 #include "input/input_state.h"
 #include "gfx_es2/draw_buffer.h"
+#include "gfx/texture.h"
 #include "gfx/texture_atlas.h"
 #include "ui/ui.h"
 #include "ui/view.h"
@@ -117,7 +118,7 @@ void Clickable::Touch(const TouchInput &input) {
 			down_ = bounds_.Contains(input.x, input.y);
 	} 
 	if (input.flags & TOUCH_UP) {
-		if (dragging_ && bounds_.Contains(input.x, input.y)) {
+		if ((input.flags & TOUCH_CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
 			Click();
 		}	
 		downCountDown_ = 0;
@@ -159,15 +160,18 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 }
 
 void ClickableItem::Draw(UIContext &dc) {
+	Style style = dc.theme->itemStyle;
 	if (down_) {
-		dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.bgColor);
+		style = dc.theme->itemDownStyle;
 	} else if (HasFocus()) {
-		dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemFocusedStyle.bgColor);
+		style = dc.theme->itemFocusedStyle;
 	}
+	dc.FillRect(style.background, bounds_);
 }
 
 void Choice::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
+
 	int paddingX = 4;
 	int paddingY = 4;
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
@@ -175,16 +179,17 @@ void Choice::Draw(UIContext &dc) {
 }
 
 void InfoItem::Draw(UIContext &dc) {
+	Item::Draw(dc);
 	int paddingX = 4;
 	int paddingY = 4;
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_RIGHT);
-	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
+// 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
 }
 
 void ItemHeader::Draw(UIContext &dc) {
 	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFF707070, ALIGN_LEFT);
-	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.bgColor);
+	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), 0xFFFFFFFF);
 }
 
 void CheckBox::Draw(UIContext &dc) {
@@ -195,7 +200,7 @@ void CheckBox::Draw(UIContext &dc) {
 	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-	dc.Draw()->DrawImage(image, bounds_.x2() - 4, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.Draw()->DrawImage(image, bounds_.x2() - 4, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -208,7 +213,8 @@ void Button::Draw(UIContext &dc) {
 	if (down_) style = dc.theme->buttonDownStyle;
 	if (!enabled_) style = dc.theme->buttonDisabledStyle;
 
-	dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
+	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
+	dc.FillRect(style.background, bounds_);
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 }
 
@@ -222,6 +228,28 @@ void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) co
 void ImageView::Draw(UIContext &dc) {
 	// TODO: involve sizemode
 	dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
+}
+
+void TextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	// TODO: involve sizemode
+	if (texture_) {
+		w = (float)texture_->Width();
+		h = (float)texture_->Height();
+	} else {
+		w = 16;
+		h = 16;
+	}
+}
+
+void TextureView::Draw(UIContext &dc) {
+	// TODO: involve sizemode
+	if (texture_) {
+		dc.Flush();
+		texture_->Bind(0);
+		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
+		dc.Flush();
+		dc.RebindTexture();
+	}
 }
 
 void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
