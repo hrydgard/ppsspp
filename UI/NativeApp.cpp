@@ -392,20 +392,19 @@ void NativeInitGraphics() {
 	ui_theme.checkOn = I_CHECKEDBOX;
 	ui_theme.checkOff = I_SQUARE;
 	ui_theme.whiteImage = SOLIDWHITE;
-	ui_theme.buttonStyle.bgColor = 0xFFFFFFFF;
+	ui_theme.buttonStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON);
 	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.buttonStyle.image = I_BUTTON;
-	ui_theme.buttonFocusedStyle.bgColor = 0xFFe0e0e0;
+	ui_theme.buttonFocusedStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFFe0e0e0);
 	ui_theme.buttonFocusedStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonFocusedStyle.image = I_BUTTON_SELECTED;
-	ui_theme.buttonDownStyle.bgColor = 0xFFFFFFFF;
+	ui_theme.buttonDownStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON_SELECTED, 0xFFFFFFFF);
 	ui_theme.buttonDownStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.buttonDownStyle.image = I_BUTTON_SELECTED;
-	ui_theme.buttonDisabledStyle.bgColor = 0xFF404040;
+	ui_theme.buttonDisabledStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFF404040);
 	ui_theme.buttonDisabledStyle.fgColor = 0xFF707070;
-	ui_theme.buttonDisabledStyle.image = I_BUTTON;
-	ui_theme.itemFocusedStyle.bgColor = 0xFF808080;
-	ui_theme.itemDownStyle.bgColor = 0xFFFFc080;
+	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
+	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.itemFocusedStyle.background = UI::Drawable(0xCC909080);
+	ui_theme.itemDownStyle.background = UI::Drawable(0xFFFFc080);
 	ui_theme.itemDownStyle.fgColor = 0xFF000000;
 
 	ui_draw2d.Init();

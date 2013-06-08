@@ -149,6 +149,7 @@ public:
 					lock_guard lock(info_->lock);
 					info_->paramSFO.ReadSFO(sfoData, sfoSize);
 					info_->title = info_->paramSFO.GetValueString("TITLE");
+					info_->paramSFOLoaded = true;
 				}
 				delete [] sfoData;
 
@@ -192,6 +193,7 @@ public:
 				lock_guard lock(info_->lock);
 				info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 				info_->title = info_->paramSFO.GetValueString("TITLE");
+				info_->paramSFOLoaded = true;
 			}
 
 			{

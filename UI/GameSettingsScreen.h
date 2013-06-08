@@ -19,28 +19,22 @@
 
 #include "ui/ui_screen.h"
 
-// Game screen: Allows you to start a game, delete saves, delete the game,
-// set game specific settings, etc.
-// Uses GameInfoCache heavily to implement the functionality.
 
-class GameScreen : public UIScreen {
+// Per-game settings screen - enables you to configure graphic options, control options, etc
+// per game.
+class GameSettingsScreen : public UIScreen {
 public:
-	GameScreen(std::string gamePath) : gamePath_(gamePath) {}
-
-	virtual void update(InputState &input);
+	GameSettingsScreen(std::string gamePath, std::string gameID) : gamePath_(gamePath), gameID_(gameID) {}
 
 protected:
 	virtual void CreateViews();
-	virtual void DrawBackground();
+ 	virtual void DrawBackground();
 
 private:
 	// Event handlers
-	UI::EventReturn OnPlay(UI::EventParams &e);
-	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnDeleteSaveData(UI::EventParams &e);
-	UI::EventReturn OnDeleteGame(UI::EventParams &e);
+	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
 
-	std::string gamePath_;
+	std::string gamePath_, gameID_;
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;

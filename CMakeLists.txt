@@ -1053,6 +1053,8 @@ set(NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/GameInfoCache.cpp
 	UI/MenuScreens.cpp
+	UI/GameScreen.cpp
+	UI/GameSettingsScreen.cpp
 	UI/GamepadEmu.cpp
 	UI/UIShader.cpp
 	UI/OnScreenDisplay.cpp

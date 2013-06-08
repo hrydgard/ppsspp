@@ -55,6 +55,7 @@
 #include "Core/HLE/sceUtility.h"
 
 #include "UI/MenuScreens.h"
+#include "UI/GameScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/PluginScreen.h"
 
@@ -307,12 +308,16 @@ void MenuScreen::render() {
 			}
 			if (UITextureButton(ctx, (int)GEN_ID_LOOP(i), vgrid_recent, textureButtonWidth, textureButtonHeight, ginfo->iconTexture, ALIGN_LEFT, color, I_DROP_SHADOW)) {
 				UIEnd();
+
+				// To try some new UI, enable this.
+				//screenManager()->switchScreen(new GameScreen(g_Config.recentIsos[i]));
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 				return;
 			}
 		} else {
 			if (UIButton((int)GEN_ID_LOOP(i), vgrid_recent, textureButtonWidth, textureButtonHeight, filename.c_str(), ALIGN_LEFT)) {
 				UIEnd();
+				//screenManager()->switchScreen(new GameScreen(g_Config.recentIsos[i]));
 				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 				return;
 			}

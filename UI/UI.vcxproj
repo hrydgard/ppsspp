@@ -23,6 +23,7 @@
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="GameScreen.cpp" />
+    <ClCompile Include="GameSettingsScreen.cpp" />
     <ClCompile Include="MenuScreens.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
@@ -35,6 +36,7 @@
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="GameScreen.h" />
+    <ClInclude Include="GameSettingsScreen.h" />
     <ClInclude Include="MenuScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="PluginScreen.h" />

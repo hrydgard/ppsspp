@@ -19,6 +19,9 @@
     <ClCompile Include="GameScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="GameSettingsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -36,6 +39,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="GameScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="GameSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

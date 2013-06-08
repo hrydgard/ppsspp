@@ -33,7 +33,7 @@
 
 class GameInfo {
 public:
-	GameInfo() : fileType(FILETYPE_UNKNOWN), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL) {}
+	GameInfo() : fileType(FILETYPE_UNKNOWN), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), paramSFOLoaded(false) {}
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
@@ -56,6 +56,7 @@ public:
 	std::string title;  // for easy access, also available in paramSFO.
 	EmuFileType fileType;
 	ParamSFOData paramSFO;
+	bool paramSFOLoaded;
 	
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;

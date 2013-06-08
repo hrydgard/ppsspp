@@ -137,6 +137,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/OnScreenDisplay.cpp \
   $(SRC)/UI/PluginScreen.cpp \
+  $(SRC)/UI/GameScreen.cpp \
+  $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
