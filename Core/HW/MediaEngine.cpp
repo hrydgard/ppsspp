@@ -394,13 +394,12 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 				bGetFrame = true;
 			}
 			if (result <= 0 && dataEnd) {
+				m_isVideoEnd = !bGetFrame && m_readSize >= m_streamSize;
 				break;
 			}
 		}
 		av_free_packet(&packet);
 	}
-	if (!bGetFrame && m_readSize >= m_streamSize)
-		m_isVideoEnd = true;
 	return bGetFrame;
 #else
 	return true;
