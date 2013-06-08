@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Globals.h"
+#include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
@@ -32,7 +33,12 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size)
 
 	Memory::Memcpy(dst, Memory::GetPointer(src), size);
 
-	gpu->InvalidateCache(dst, size, GPU_INVALIDATE_HINT);
+	src &= ~0x40000000;
+	// TODO: If we do this it'll probably black out the framebuffer?
+	if (src < PSP_GetVidMemBase() || src > PSP_GetVidMemEnd())
+		gpu->InvalidateCache(dst, size, GPU_INVALIDATE_HINT);
+	else
+		WARN_LOG_REPORT(HLE, "sceDmacMemcpy(): FBO blit?");
 	return 0;
 }
 

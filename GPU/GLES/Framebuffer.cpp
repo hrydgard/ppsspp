@@ -659,6 +659,38 @@ void FramebufferManager::DestroyAllFBOs() {
 	vfbs_.clear();
 }
 
+void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
+	addr &= ~0x40000000;
+
+	// TODO: Could go through all FBOs, but probably not important?
+	// TODO: Could also check for inner changes, but video is most important.
+	if (addr == DisplayFramebufAddr() || addr == PrevDisplayFramebufAddr()) {
+		// TODO: Deleting the FBO is a heavy hammer solution, so let's only do it if it'd help.
+		if (!Memory::IsValidAddress(displayFramebufPtr_))
+			return;
+
+		fbo_unbind();
+		for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ) {
+			VirtualFramebuffer *vfb = *iter;
+			if (MaskedEqual(vfb->fb_address, addr)) {
+				// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
+				// However, it doesn't seem to work for Star Ocean, at least
+				//DrawPixels(Memory::GetPointer(addr), vfb->format, vfb->fb_stride);
+				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
+				INFO_LOG(HLE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
+				if (vfb->fbo) {
+					fbo_destroy(vfb->fbo);
+					vfb->fbo = 0;
+				}
+				delete vfb;
+				vfbs_.erase(iter++);
+			}
+			else
+				++iter;
+		}
+	}
+}
+
 void FramebufferManager::Resized() {
 	resized_ = true;
 }

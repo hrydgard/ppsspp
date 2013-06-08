@@ -96,6 +96,7 @@ public:
 	void Resized();
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
+	void UpdateFromMemory(u32 addr, int size);
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetDisplayFBO();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
