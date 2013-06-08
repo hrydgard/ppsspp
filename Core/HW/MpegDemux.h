@@ -15,8 +15,9 @@ public:
 
 	void demux();
 
-	// return it's size
+	// return its size
 	int getaudioStream(u8 **audioStream);
+	int getFilePosition() { return m_index; }
 private:
 	struct PesHeader {
 		long pts;

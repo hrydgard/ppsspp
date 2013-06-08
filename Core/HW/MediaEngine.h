@@ -61,7 +61,8 @@ public:
 	s64 getAudioTimeStamp();
 	s64 getLastTimeStamp();
 
-	bool IsVideoEnd() { return m_isVideoEnd;}
+	bool IsVideoEnd() { return m_isVideoEnd; }
+	bool IsAudioEnd() { return m_isAudioEnd; }
 
 	void DoState(PointerWrap &p) {
 		p.Do(m_streamSize);
@@ -101,4 +102,5 @@ public:
 	s64 m_audiopts;
 
 	bool m_isVideoEnd;
+	bool m_isAudioEnd;
 };

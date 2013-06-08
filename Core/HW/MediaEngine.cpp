@@ -92,6 +92,7 @@ MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_decodedPos(0), m_p
 	m_demux = 0;
 	m_audioContext = 0;
 	m_isVideoEnd = false;
+	m_isAudioEnd = false;
 }
 
 MediaEngine::~MediaEngine() {
@@ -130,6 +131,7 @@ void MediaEngine::closeMedia() {
 	m_demux = 0;
 	Atrac3plus_Decoder::CloseContext(&m_audioContext);
 	m_isVideoEnd = false;
+	m_isAudioEnd = false;
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
@@ -220,6 +222,7 @@ bool MediaEngine::openContext() {
 	m_audioPos = 0;
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
 	m_isVideoEnd = false;
+	m_isAudioEnd = false;
 	m_decodedPos = mpegoffset;
 #endif // USE_FFMPEG
 	return true;
@@ -561,6 +564,7 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	int audioSize = m_demux->getaudioStream(&audioStream);
 	if (m_audioPos >= audioSize || !isHeader(audioStream, m_audioPos))
 	{
+		m_isAudioEnd = m_demux->getFilePosition() >= m_streamSize;
 		return 0;
 	}
 	u8 headerCode1 = audioStream[2];
@@ -588,6 +592,7 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	} else
 		m_audioPos = audioSize;
 	m_audiopts += 4180;
+	m_decodedPos += frameSize;
 	return outbytes;
 }
 
