@@ -25,6 +25,8 @@
 #include "../HW/MediaEngine.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 static bool useMediaEngine;
 
@@ -639,7 +641,8 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	DEBUG_LOG(HLE, "*buffer = %08x, *init = %08x", buffer, init);
 
 	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
-		ctx->mediaengine->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
+		int bufferSize = ctx->mediaengine->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
+		gpu->InvalidateCache(buffer, bufferSize, GPU_INVALIDATE_SAFE);
 		ctx->avc.avcFrameStatus = 1;
 		ctx->videoFrameCount++;
 	} else {
@@ -1242,9 +1245,10 @@ u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 d
 	int y = Memory::Read_U32(rangeAddr + 4);
 	int width    = Memory::Read_U32(rangeAddr + 8);
 	int height   = Memory::Read_U32(rangeAddr + 12);
-	ctx->mediaengine->writeVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
+	int destSize = ctx->mediaengine->writeVideoImageWithRange(Memory::GetPointer(destAddr), frameWidth, ctx->videoPixelMode, 
 		x, y, width, height);
 
+	gpu->InvalidateCache(destAddr, destSize, GPU_INVALIDATE_SAFE);
 	return 0;
 }
 

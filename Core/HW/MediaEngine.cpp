@@ -409,7 +409,7 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 #endif // USE_FFMPEG
 }
 
-bool MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode) {
+int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode) {
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
 #ifdef USE_FFMPEG
@@ -420,6 +420,7 @@ bool MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 	u8 *data = m_pFrameRGB->data[0];
 	u16 *imgbuf16 = (u16 *)buffer;
 	u16 *data16 = (u16 *)data;
+	int videoImageSize = 0;
 
 	switch (videoPixelMode) {
 	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
@@ -428,6 +429,7 @@ bool MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 			data += width * sizeof(u32);
 			imgbuf += frameWidth * sizeof(u32);
 		}
+		videoImageSize = frameWidth * sizeof(u32) * height;
 		break;
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
@@ -436,6 +438,7 @@ bool MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 			data += width * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 		}
+		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
@@ -445,6 +448,7 @@ bool MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 			}
 			imgbuf16 += (frameWidth - width);
 		}
+		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
@@ -454,6 +458,7 @@ bool MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 			}
 			imgbuf16 += (frameWidth - width);
 		}
+		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	default:
@@ -461,10 +466,10 @@ bool MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode
 		break;
 	}
 #endif // USE_FFMPEG
-	return true;
+	return videoImageSize;
 }
 
-bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
+int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
 	                             int xpos, int ypos, int width, int height) {
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
@@ -474,6 +479,7 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 	u8 *data = m_pFrameRGB->data[0];
 	u16 *imgbuf16 = (u16 *)buffer;
 	u16 *data16 = (u16 *)data;
+	int videoImageSize = 0;
 
 	if (width > m_desWidth - xpos)
 		width = m_desWidth - xpos;
@@ -488,6 +494,7 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 			data += m_desWidth * sizeof(u32);
 			imgbuf += frameWidth * sizeof(u32);
 		}
+		videoImageSize = frameWidth * sizeof(u32) * m_desHeight;
 		break;
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
@@ -497,6 +504,7 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 		}
+		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
@@ -508,6 +516,7 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 			imgbuf16 += (frameWidth - width);
 			data16 += (m_desWidth - width);
 		}
+		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
@@ -519,6 +528,7 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 			imgbuf16 += (frameWidth - width);
 			data16 += (m_desWidth - width);
 		}
+		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
 
 	default:
@@ -526,7 +536,7 @@ bool MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int video
 		break;
 	}
 #endif // USE_FFMPEG
-	return true;
+	return videoImageSize;
 }
 
 static bool isHeader(u8* audioStream, int offset)
