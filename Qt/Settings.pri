@@ -15,6 +15,10 @@ win32-msvc* {
 	QMAKE_CXXFLAGS += -std=c++0x -ffast-math -fno-strict-aliasing
 }
 
+linux {
+	DEFINES += USE_FFMPEG
+}
+
 # Arch specific
 xarch = $$find(QT_ARCH, "86")
 contains(QT_ARCH, windows)|count(xarch, 1) {
