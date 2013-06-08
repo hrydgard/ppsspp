@@ -36,15 +36,16 @@ namespace Atrac3plus_Decoder {
 
 	std::string GetInstalledFilename() {
 #if defined(ANDROID) && defined(ARM)
-		std::string internalFilename = g_Config.internalDataDirectory + "libat3plusdecoder.so";
-#else
+		return g_Config.internalDataDirectory + "libat3plusdecoder.so";
+#elif defined(_WIN32)
 #ifdef _M_X64
-		std::string internalFilename = "at3plusdecoder64.dll";
+		return "at3plusdecoder64.dll";
 #else
-		std::string internalFilename = "at3plusdecoder.dll";
+		return "at3plusdecoder.dll";
 #endif
+#else
+		return "libat3plusdecoder.so";
 #endif
-		return internalFilename;
 	}
 
 	std::string GetAutoInstallFilename() {
