@@ -43,8 +43,9 @@ u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inp
 			if (!inbuf)
 				continue;
 			for (u32 i = 0; i < samplesNum; i++) {
-				outbuf[i*2] += inbuf[i];
-				outbuf[i*2 + 1] += inbuf[i];
+				s16 sample = inbuf[i] / channelsNum;
+				outbuf[i * 2] += sample;
+				outbuf[i * 2 + 1] += sample;
 			}
 		}
 	}
