@@ -493,6 +493,11 @@ public:
 
 	bool GetIDType(SceUID handle, int *type) const
 	{
+		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
+		{
+			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
+			return false;
+		}
 		KernelObject *t = pool[handle - handleOffset];
 		*type = t->GetIDType();
 		return true;
