@@ -214,16 +214,19 @@ namespace MainWindow
 		if (zoom < 1) zoom = 1;
 		if (zoom > 4) zoom = 4;
 		
-		RECT rc,rcOrig;
+		RECT rc, rcOrig;
 		GetWindowRectAtZoom(zoom, rcOrig, rc);
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
 		hwndMain = CreateWindowEx(0,szWindowClass, "", style,
-			rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, NULL, NULL, hInstance, NULL);
-		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-		SetPlaying(0);
+			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
 		if (!hwndMain)
+			return FALSE;
+
+		hwndDisplay = CreateWindowEx(0, szDisplayClass, TEXT(""), WS_CHILD | WS_VISIBLE,
+			rcOrig.left, rcOrig.top, rcOrig.right - rcOrig.left, rcOrig.bottom - rcOrig.top, hwndMain, 0, hInstance, 0);
+		if (!hwndDisplay)
 			return FALSE;
 
 		menu = GetMenu(hwndMain);
@@ -241,20 +244,22 @@ namespace MainWindow
 		{
 			SetMenuInfo(GetSubMenu(menu,i),&info);
 		}
+		UpdateMenus();
 
-		hwndDisplay = CreateWindowEx(0,szDisplayClass,TEXT(""),
-			WS_CHILD|WS_VISIBLE,
-			0,0,/*rcOrig.left,rcOrig.top,*/rcOrig.right-rcOrig.left,rcOrig.bottom-rcOrig.top,hwndMain,0,hInstance,0);
-
-		ShowWindow(hwndMain, nCmdShow);
 		//accept dragged files
 		DragAcceptFiles(hwndMain, TRUE);
+
+		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
+
+		Update();
+		SetPlaying(0);
+		
+		ShowWindow(hwndMain, nCmdShow);
 
 #if ENABLE_TOUCH
 		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
 #endif
 
-		SetFocus(hwndMain);
 		SetFocus(hwndDisplay);
 
 		return TRUE;
@@ -429,6 +434,8 @@ namespace MainWindow
 
 		case WM_COMMAND:
 			{
+			if (!EmuThread_Ready())
+				return DefWindowProc(hWnd, message, wParam, lParam);
 			I18NCategory *g = GetI18NCategory("Graphics");
 
 			wmId    = LOWORD(wParam); 
@@ -735,6 +742,9 @@ namespace MainWindow
 
 		case WM_DROPFILES:
 			{
+				if (!EmuThread_Ready())
+					return DefWindowProc(hWnd, message, wParam, lParam);
+
 				HDROP hdrop = (HDROP)wParam;
 				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
 				if (count != 1)
@@ -760,21 +770,14 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			Core_Stop();
-			Core_WaitInactive(200);
+			/*
+			if (g_Config.bConfirmOnQuit && __KernelIsRunning())
+				if (IDYES != MessageBox(hwndMain, "A game is in progress. Are you sure you want to exit?",
+					"Are you sure?", MB_YESNO | MB_ICONQUESTION))
+					return 0;
+			//*/
 			EmuThread_Stop();
 
-			/*
-			if (g_Config.bConfirmOnQuit && CCore::IsRunning())
-			{
-				if (IDNO==MessageBox(hwndMain,"A game is in progress. Are you sure you want to exit?","Are you sure?",MB_YESNO|MB_ICONQUESTION))
-					return 1;//or 1?
-				else
-					return DefWindowProc(hWnd,message,wParam,lParam);
-				break;
-			}
-			else
-			*/
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
 		case WM_DESTROY:

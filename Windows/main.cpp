@@ -64,9 +64,11 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	hideLog = false;
 #endif
 
+	LogManager::Init();
+	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
+	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
+
 	g_Config.Load();
-	VFSRegister("", new DirectoryAssetReader("assets/"));
-	VFSRegister("", new DirectoryAssetReader(""));
 
 	// The rest is handled in NativeInit().
 	for (int i = 1; i < __argc; ++i)
@@ -89,6 +91,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 
+	VFSRegister("", new DirectoryAssetReader("assets/"));
+	VFSRegister("", new DirectoryAssetReader(""));
+
 	//Windows, API init stuff
 	INITCOMMONCONTROLSEX comm;
 	comm.dwSize = sizeof(comm);
@@ -97,15 +102,13 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	timeBeginPeriod(1);
 	MainWindow::Init(_hInstance);
 
-	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
 	g_hPopupMenus = LoadMenu(_hInstance, (LPCSTR)IDR_POPUPMENUS);
 
 	MainWindow::Show(_hInstance, iCmdShow);
-	host = new WindowsHost(MainWindow::GetHWND(), MainWindow::GetDisplayHWND());
 
 	HWND hwndMain = MainWindow::GetHWND();
-	HMENU menu = GetMenu(hwndMain);
-
+	HWND hwndDisplay = MainWindow::GetDisplayHWND();
+	
 	//initialize custom controls
 	CtrlDisAsmView::init();
 	CtrlMemView::init();
@@ -114,25 +117,15 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	DialogManager::AddDlg(memoryWindow[0] = new CMemoryDlg(_hInstance, hwndMain, currentDebugMIPS));
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
-	MainWindow::Update();
-	MainWindow::UpdateMenus();
-
-	LogManager::Init();
-	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
+	host = new WindowsHost(hwndMain, hwndDisplay);
 
 	// Emu thread is always running!
 	EmuThread_Start();
 
-	if (g_Config.bBrowse)
-		MainWindow::BrowseAndBoot("");
-
-	if (!hideLog)
-		SetForegroundWindow(hwndMain);
+	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
 
 	//so.. we're at the message pump of the GUI thread
-	MSG msg;
-	while (GetMessage(&msg, NULL, 0, 0))	//while no quit
+	for (MSG msg; GetMessage(&msg, NULL, 0, 0); )	// for no quit
 	{
 		//DSound_UpdateSound();
 

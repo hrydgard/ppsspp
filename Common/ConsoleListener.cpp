@@ -101,7 +101,7 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 	if (hTriggerEvent != NULL && hThread == NULL)
 	{
 		logPending = new char[LOG_PENDING_MAX];
-		hThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE) &ConsoleListener::RunThread, this, 0, NULL);
+		hThread = (HANDLE)_beginthreadex(NULL, 0, &ConsoleListener::RunThread, this, 0, NULL);
 	}
 #endif
 }
@@ -246,9 +246,9 @@ COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 	return Ret;
 }
 
-DWORD WINAPI ConsoleListener::RunThread(LPVOID lpParam)
+unsigned int WINAPI ConsoleListener::RunThread(void *lpParam)
 {
-	ConsoleListener *consoleLog = (ConsoleListener *) lpParam;
+	ConsoleListener *consoleLog = (ConsoleListener *)lpParam;
 	consoleLog->LogWriterThread();
 	return 0;
 }
