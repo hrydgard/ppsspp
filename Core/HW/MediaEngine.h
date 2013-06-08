@@ -51,8 +51,8 @@ public:
 	int getBufferedSize();
 
 	bool stepVideo(int videoPixelMode);
-	bool writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
-	bool writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
+	int writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
+	int writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
 	                             int xpos, int ypos, int width, int height);
 	int getAudioSamples(u8* buffer);
 
