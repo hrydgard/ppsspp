@@ -104,7 +104,7 @@ struct AtracLoopInfo {
 struct Atrac {
 	Atrac() : atracID(-1), data_buf(0), decodePos(0), decodeEnd(0), atracChannels(2), atracOutputChannels(2),
 		atracBitrate(64), atracBytesPerFrame(0), atracBufSize(0),
-		currentSample(0), endSample(-1), firstSampleoffset(0), loopinfoNum(0), loopNum(0), atracContext(0) {
+		currentSample(0), endSample(-1), firstSampleoffset(0), loopinfoNum(0), loopNum(0) {
 		memset(&first, 0, sizeof(first));
 		memset(&second, 0, sizeof(second));
 #ifdef USE_FFMPEG
@@ -115,6 +115,7 @@ struct Atrac {
 		pFrame = 0;
 #endif // USE_FFMPEG
 		decoder_context = 0;
+		atracContext = 0;
 		sampleQueue.clear();
 	}
 
@@ -134,8 +135,8 @@ struct Atrac {
 		Atrac3plus_Decoder::CloseContext(&decoder_context);
 		sampleQueue.clear();
 
-		if (atracContext)
-			kernelMemory.Free(atracContext);
+		if (atracContext.Valid())
+			kernelMemory.Free(atracContext.ptr);
 	}
 
 	void DoState(PointerWrap &p) {
@@ -176,6 +177,11 @@ struct Atrac {
 		p.Do(loopStartSample);
 		p.Do(loopEndSample);
 		p.Do(loopNum);
+
+		// Is NULL okay for this?
+		if (p.mode == p.MODE_READ)
+			decoder_context = 0;
+		p.Do(atracContext);
 
 		p.DoMarker("Atrac");
 	}
@@ -235,7 +241,7 @@ struct Atrac {
 	Atrac3plus_Decoder::BufferQueue sampleQueue;
 	void* decoder_context;
 
-	u32 atracContext;
+	PSPPointer<SceAtracId> atracContext;
 
 #ifdef USE_FFMPEG
 	AVFormatContext *pFormatCtx;
@@ -574,7 +580,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			} else
 			{
 				numSamples = atrac->endSample - atrac->currentSample;
-				int atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+				u32 atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 				if (atrac->currentSample >= atrac->endSample) {
 					numSamples = 0;
 				} else if (numSamples > atracSamplesPerFrame) {
@@ -771,7 +777,7 @@ u32 sceAtracGetNextSample(int atracID, u32 outNAddr)
 				Memory::Write_U32(0, outNAddr);
 		} else {
 			u32 numSamples = atrac->endSample - atrac->currentSample;
-			int atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
+			u32 atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 			if (numSamples > atracSamplesPerFrame)
 				numSamples = atracSamplesPerFrame;
 			if (Memory::IsValidAddress(outNAddr))
@@ -1299,24 +1305,25 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 
 int _sceAtracGetContextAddress(int atracID)
 {
-	ERROR_LOG(HLE, "UNIMPL _sceAtracGetContextAddress(%i)", atracID);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
-		// Sol Trigger requires return -1 otherwise hangup .
+		ERROR_LOG(HLE, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
 		return 0;
 	}
-	if (!atrac->atracContext) {
+	if (!atrac->atracContext.Valid()) {
 		// allocate a new atracContext
 		u32 contextsize = 256;
 		atrac->atracContext = kernelMemory.Alloc(contextsize, false, "Atrac Context");
-		if (atrac->atracContext)
-			Memory::Memset(atrac->atracContext, 0, 256);
+		if (atrac->atracContext.Valid())
+			Memory::Memset(atrac->atracContext.ptr, 0, 256);
+
+		WARN_LOG(HLE, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->atracContext.ptr, atracID);
 	}
-	SceAtracId *context = (SceAtracId*)Memory::GetPointer(atrac->atracContext);
-	if (context)
-		_AtracGenarateContext(atrac, context);
-	INFO_LOG(HLE, "atracContext: %08x", atrac->atracContext);
-	return atrac->atracContext;
+	else
+		WARN_LOG(HLE, "%08x=_sceAtracGetContextAddress(%i)", atrac->atracContext.ptr, atracID);
+	if (atrac->atracContext.Valid())
+		_AtracGenarateContext(atrac, atrac->atracContext);
+	return atrac->atracContext.ptr;
 }
 
 static u8 at3Header[] ={0x52,0x49,0x46,0x46,0x3b,0xbe,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x20,0x00,0x00,0x00,0x70,0x02,0x02,0x00,0x44,0xac,0x00,0x00,0x4d,0x20,0x00,0x00,0xc0,0x00,0x00,0x00,0x0e,0x00,0x01,0x00,0x00,0x10,0x00,0x00,0x01,0x00,0x01,0x00,0x01,0x00,0x00,0x00,0x64,0x61,0x74,0x61,0xc0,0xbd,0x00,0x00};
