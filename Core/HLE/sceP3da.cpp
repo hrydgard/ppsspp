@@ -31,10 +31,20 @@ u32 sceP3daBridgeExit()
 	return 0;
 }
 
+static inline int getScaleValue(u32 channelsNum) {
+	int val = 0;
+	while (channelsNum > 1) {
+		channelsNum >>= 1;
+		val++;
+	}
+	return val;
+}
+
 u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inputAddr, u32 outputAddr)
 {
 	INFO_LOG(HLE, "sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
 	if (Memory::IsValidAddress(inputAddr) && Memory::IsValidAddress(outputAddr)) {
+		int scaleval = getScaleValue(channelsNum);
 		s16* outbuf = (s16*)Memory::GetPointer(outputAddr);
 		memset(outbuf, 0, samplesNum * sizeof(s16) * 2);
 		for (u32 k = 0; k < channelsNum; k++) {
@@ -43,8 +53,9 @@ u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inp
 			if (!inbuf)
 				continue;
 			for (u32 i = 0; i < samplesNum; i++) {
-				outbuf[i*2] += inbuf[i];
-				outbuf[i*2 + 1] += inbuf[i];
+				s16 sample = inbuf[i] >> scaleval;
+				outbuf[i*2] += sample;
+				outbuf[i*2 + 1] += sample;
 			}
 		}
 	}
