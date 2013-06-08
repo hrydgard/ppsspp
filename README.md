@@ -85,6 +85,7 @@ Building for Linux/BSD/Meego Harmattan/Pandora/etc
 --------------------------
 
 Qt (recommended)
+
 A Qt-based frontend is available in the Qt/ dir.
 Open PPSSPPQt.pro with [Qt Creator 2.6+][qt-creator].
 Install libsdl1.2 if you want to use USB Gamepad.
@@ -92,8 +93,11 @@ If the build has an error about finding mobility or multimedia:
 - Install the package "qtmobility-dev"
 
 SDL
+
 Alternatively, install the libsdl1.2 (SDL 1.2) development headers. This is called `libsdl1.2-dev` on Debian/Ubuntu, `SDL-devel` on Fedora/RHEL,
 `sdl12` on BSD ports.
+
+You will need a recent version of ffmpeg (1.1 or greater, which means libav 9.1 or greater probably) or development packets (for distributions with separate packets) for libavformat, libavcodec, libswresample and libswscale (still version 9.1 or greater).
 
 Currently the user interface is identical to Android's, operated
 with the mouse.
