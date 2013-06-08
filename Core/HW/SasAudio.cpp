@@ -156,7 +156,9 @@ void VagDecoder::DoState(PointerWrap &p)
 int SasAtrac3::setContext(u32 context) {
 	contextAddr = context;
 	atracID = _AtracGetIDByContext(context);
-	sampleQueue.clear();
+	if (!sampleQueue)
+		sampleQueue = new Atrac3plus_Decoder::BufferQueue;
+	sampleQueue->clear();
 	return 0;
 }
 
@@ -165,23 +167,26 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 		return -1;
 	u32 finish = 0;
 	int wantedbytes = wantedSamples * sizeof(s16);
-	while (!finish && sampleQueue.getQueueSize() < wantedbytes) {
+	while (!finish && sampleQueue->getQueueSize() < wantedbytes) {
 		u32 numSamples = 0;
 		int remains = 0;
 		static s16 buf[0x800];
 		_AtracDecodeData(atracID, (u8*)buf, &numSamples, &finish, &remains);
 		if (numSamples > 0)
-			sampleQueue.push((u8*)buf, numSamples * sizeof(s16));
+			sampleQueue->push((u8*)buf, numSamples * sizeof(s16));
 		else 
 			finish = 1;
 	}
-	sampleQueue.pop_front((u8*)outbuf, wantedbytes);
+	sampleQueue->pop_front((u8*)outbuf, wantedbytes);
 	return finish;
 }
 
 void SasAtrac3::DoState(PointerWrap &p) {
 	p.Do(contextAddr);
 	p.Do(atracID);
+	if (p.mode == p.MODE_READ && atracID >= 0 && !sampleQueue) {
+		sampleQueue = new Atrac3plus_Decoder::BufferQueue;
+	}
 }
 
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java

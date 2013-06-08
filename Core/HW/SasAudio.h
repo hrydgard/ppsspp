@@ -110,14 +110,15 @@ private:
 
 class SasAtrac3 {
 public:
-	SasAtrac3() : contextAddr(0), atracID(-1){}
+	SasAtrac3() : contextAddr(0), atracID(-1), sampleQueue(0){}
+	~SasAtrac3() { if (sampleQueue) delete sampleQueue; }
 	int setContext(u32 context);
 	int getNextSamples(s16* outbuf, int wantedSamples);
 	void DoState(PointerWrap &p);
 private:
 	u32 contextAddr;
 	int atracID;
-	Atrac3plus_Decoder::BufferQueue sampleQueue;
+	Atrac3plus_Decoder::BufferQueue *sampleQueue;
 };
 
 // Max height: 0x40000000 I think
