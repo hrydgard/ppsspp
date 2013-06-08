@@ -288,6 +288,7 @@ void GameInfoCache::FlushBGs() {
 			delete iter->second->pic1Texture;
 			iter->second->pic1Texture = 0;
 		}
+		iter->second->wantBG = false;
 	}
 }
 

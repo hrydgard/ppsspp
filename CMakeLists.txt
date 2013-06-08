@@ -477,6 +477,9 @@ elseif(SDL_FOUND)
 	elseif(PANDORA OR MAEMO)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL X11)
 	endif()
+	# FFMPEG
+	add_definitions(-DUSE_FFMPEG)
+	set(nativeExtraLibs ${nativeExtraLibs} avformat avcodec swresample swscale)
 	set(TargetBin PPSSPPSDL)
 else()
     message(FATAL_ERROR "Could not find SDL. Failing.")
@@ -758,6 +761,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceAtrac.cpp
 	Core/HLE/sceAtrac.h
 	Core/HLE/sceAudio.cpp
+	Core/HLE/sceAudioCodec.cpp
+	Core/HLE/sceAudioCodec.h
 	Core/HLE/sceAudio.h
 	Core/HLE/sceChnnlsv.cpp
 	Core/HLE/sceChnnlsv.h
