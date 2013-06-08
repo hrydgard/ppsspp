@@ -50,7 +50,6 @@ struct CoreParameter
 	bool printfEmuLog;  // writes "emulator:" logging to stdout
 	std::string *collectEmuLog;
 	bool headLess;   // Try to avoid messageboxes etc
-	bool useMediaEngine;
 
 	// Internal PSP resolution
 	int renderWidth;

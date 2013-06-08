@@ -110,7 +110,7 @@ void __KernelInit()
 	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
-	__MpegInit(PSP_CoreParameter().useMediaEngine);
+	__MpegInit();
 	__PsmfInit();
 	__CtrlInit();
 	__RtcInit();

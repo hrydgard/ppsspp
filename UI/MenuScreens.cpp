@@ -446,7 +446,6 @@ void PauseScreen::render() {
 	I18NCategory *a = GetI18NCategory("Audio");
 	
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 	// TODO: Maybe shouldn't show this if the screen ratios are very close...
 #ifdef BLACKBERRY10
 	if (pixel_xres == pixel_yres)
@@ -739,7 +738,6 @@ void GraphicsScreenP1::render() {
 	int stride = 40;
 	int columnw = 400;
 
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Media Engine"), ALIGN_TOPLEFT, &g_Config.bUseMediaEngine);
 #ifndef __SYMBIAN32__
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Hardware Transform"), ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 #endif

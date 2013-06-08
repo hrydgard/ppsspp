@@ -73,7 +73,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
-	coreParam.useMediaEngine = false;
 	if (g_Config.SSAntiAliasing) {
 		coreParam.renderWidth *= 2;
 		coreParam.renderHeight *= 2;

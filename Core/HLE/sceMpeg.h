@@ -91,7 +91,7 @@ struct SceMpegRingBuffer {
   u32 mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
 };
 
-void __MpegInit(bool useMediaEngine_);
+void __MpegInit();
 void __MpegDoState(PointerWrap &p);
 void __MpegShutdown();
 

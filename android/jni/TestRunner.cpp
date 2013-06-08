@@ -68,7 +68,6 @@ void RunTests()
 	coreParam.renderHeight = 272;
 	coreParam.pixelWidth = 480;
 	coreParam.pixelHeight = 272;
-	coreParam.useMediaEngine = false;
 	coreParam.collectEmuLog = &output;
 	coreParam.unthrottle = true;
 	coreParam.updateRecent = false;

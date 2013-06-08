@@ -608,11 +608,6 @@ namespace MainWindow
 				osm.ShowOnOff(g->T("Frame Skipping"), g_Config.iFrameSkip != 0);
 				break;
 
-			case ID_OPTIONS_USEMEDIAENGINE:
-				g_Config.bUseMediaEngine = !g_Config.bUseMediaEngine;
-				osm.ShowOnOff(g->T("Media Engine"), g_Config.bUseMediaEngine);
-				break;
-
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -854,7 +849,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
-		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
