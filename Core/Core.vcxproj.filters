@@ -433,6 +433,9 @@
     <ClCompile Include="HW\MpegDemux.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceAudiocodec.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -800,6 +803,9 @@
     </ClInclude>
     <ClInclude Include="HW\MpegDemux.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceAudiocodec.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

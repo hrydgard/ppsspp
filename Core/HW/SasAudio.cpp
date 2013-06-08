@@ -18,6 +18,7 @@
 #include "base/basictypes.h"
 #include "../Globals.h"
 #include "../MemMap.h"
+#include "Core/HLE/sceAtrac.h"
 #include "SasAudio.h"
 
 // #define AUDIO_TO_FILE
@@ -150,6 +151,42 @@ void VagDecoder::DoState(PointerWrap &p)
 	p.Do(loopEnabled_);
 	p.Do(loopAtNextBlock_);
 	p.Do(end_);
+}
+
+int SasAtrac3::setContext(u32 context) {
+	contextAddr = context;
+	atracID = _AtracGetIDByContext(context);
+	if (!sampleQueue)
+		sampleQueue = new Atrac3plus_Decoder::BufferQueue;
+	sampleQueue->clear();
+	return 0;
+}
+
+int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
+	if (atracID < 0)
+		return -1;
+	u32 finish = 0;
+	int wantedbytes = wantedSamples * sizeof(s16);
+	while (!finish && sampleQueue->getQueueSize() < wantedbytes) {
+		u32 numSamples = 0;
+		int remains = 0;
+		static s16 buf[0x800];
+		_AtracDecodeData(atracID, (u8*)buf, &numSamples, &finish, &remains);
+		if (numSamples > 0)
+			sampleQueue->push((u8*)buf, numSamples * sizeof(s16));
+		else 
+			finish = 1;
+	}
+	sampleQueue->pop_front((u8*)outbuf, wantedbytes);
+	return finish;
+}
+
+void SasAtrac3::DoState(PointerWrap &p) {
+	p.Do(contextAddr);
+	p.Do(atracID);
+	if (p.mode == p.MODE_READ && atracID >= 0 && !sampleQueue) {
+		sampleQueue = new Atrac3plus_Decoder::BufferQueue;
+	}
 }
 
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/sceSasCore.java
@@ -337,6 +374,16 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 					voice.pcmIndex += size;
 					if (voice.pcmIndex >= voice.pcmSize * 2) {
 						voice.pcmIndex = 0;
+					}
+				}
+				break;
+			case VOICETYPE_ATRAC3:
+				{
+					int ret = voice.atrac3.getNextSamples(resampleBuffer + 2, numSamples);
+					if (ret) {
+						// Hit atrac3 voice end
+						voice.playing = false;
+						voice.on = false;  // ??
 					}
 				}
 				break;
@@ -529,6 +576,7 @@ void SasVoice::DoState(PointerWrap &p)
 
 	envelope.DoState(p);
 	vag.DoState(p);
+	atrac3.DoState(p);
 }
 
 // This is horribly stolen from JPCSP.
