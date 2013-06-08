@@ -81,7 +81,7 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
-MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
+MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_decodedPos(0), m_pdata(0) {
 	m_pFormatCtx = 0;
 	m_pCodecCtx = 0;
 	m_pFrame = 0;
@@ -91,10 +91,8 @@ MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
 	m_buffer = 0;
 	m_demux = 0;
 	m_audioContext = 0;
-	m_pdata = 0;
-	m_streamSize = 0;
-	m_readSize = 0;
 	m_isVideoEnd = false;
+	m_isAudioEnd = false;
 }
 
 MediaEngine::~MediaEngine() {
@@ -109,14 +107,14 @@ void MediaEngine::closeMedia() {
 		av_free(m_pFrameRGB);
 	if (m_pFrame)
 		av_free(m_pFrame);
-	if (m_pIOContext && ((AVIOContext*)m_pIOContext)->buffer)
-		av_free(((AVIOContext*)m_pIOContext)->buffer);
+	if (m_pIOContext && m_pIOContext->buffer)
+		av_free(m_pIOContext->buffer);
 	if (m_pIOContext)
 		av_free(m_pIOContext);
 	if (m_pCodecCtx)
-		avcodec_close((AVCodecContext*)m_pCodecCtx);
+		avcodec_close(m_pCodecCtx);
 	if (m_pFormatCtx)
-		avformat_close_input((AVFormatContext**)&m_pFormatCtx);
+		avformat_close_input(&m_pFormatCtx);
 #endif // USE_FFMPEG
 	if (m_pdata)
 		delete [] m_pdata;
@@ -133,16 +131,17 @@ void MediaEngine::closeMedia() {
 	m_demux = 0;
 	Atrac3plus_Decoder::CloseContext(&m_audioContext);
 	m_isVideoEnd = false;
+	m_isAudioEnd = false;
 }
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 {
 	MediaEngine *mpeg = (MediaEngine*)opaque;
 	int size = std::min(mpeg->m_bufSize, buf_size);
-	size = std::max(std::min((mpeg->m_readSize - mpeg->m_decodePos), size), 0);
+	size = std::max(std::min((mpeg->m_readSize - mpeg->m_decodeNextPos), size), 0);
 	if (size > 0)
-		memcpy(buf, mpeg->m_pdata + mpeg->m_decodePos, size);
-	mpeg->m_decodePos += size;
+		memcpy(buf, mpeg->m_pdata + mpeg->m_decodeNextPos, size);
+	mpeg->m_decodeNextPos += size;
 	return size;
 }
 
@@ -151,13 +150,13 @@ int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
 	MediaEngine *mpeg = (MediaEngine*)opaque;
 	switch (whence) {
 	case SEEK_SET:
-		mpeg->m_decodePos = offset;
+		mpeg->m_decodeNextPos = offset;
 		break;
 	case SEEK_CUR:
-		mpeg->m_decodePos += offset;
+		mpeg->m_decodeNextPos += offset;
 		break;
 	case SEEK_END:
-		mpeg->m_decodePos = mpeg->m_streamSize - (u32)offset;
+		mpeg->m_decodeNextPos = mpeg->m_streamSize - (u32)offset;
 		break;
 	}
 	return offset;
@@ -181,21 +180,20 @@ bool MediaEngine::openContext() {
 
 	u8* tempbuf = (u8*)av_malloc(m_bufSize);
 
-	AVFormatContext *pFormatCtx = avformat_alloc_context();
-	m_pFormatCtx = (void*)pFormatCtx;
-	m_pIOContext = (void*)avio_alloc_context(tempbuf, m_bufSize, 0, (void*)this, _MpegReadbuffer, NULL, _MpegSeekbuffer);
-	pFormatCtx->pb = (AVIOContext*)m_pIOContext;
+	m_pFormatCtx = avformat_alloc_context();
+	m_pIOContext = avio_alloc_context(tempbuf, m_bufSize, 0, (void*)this, _MpegReadbuffer, NULL, _MpegSeekbuffer);
+	m_pFormatCtx->pb = m_pIOContext;
   
 	// Open video file
 	if(avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
 		return false;
 
-	if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
+	if(avformat_find_stream_info(m_pFormatCtx, NULL) < 0)
 		return false;
 
 	// Find the first video stream
-	for(int i = 0; i < (int)pFormatCtx->nb_streams; i++) {
-		if(pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+	for(int i = 0; i < (int)m_pFormatCtx->nb_streams; i++) {
+		if(m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
 			m_videoStream = i;
 			break;
 		}
@@ -204,17 +202,16 @@ bool MediaEngine::openContext() {
 		return false;
 
 	// Get a pointer to the codec context for the video stream
-	m_pCodecCtx = (void*)pFormatCtx->streams[m_videoStream]->codec;
-	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
+	m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
   
 	// Find the decoder for the video stream
-	AVCodec *pCodec = avcodec_find_decoder(pCodecCtx->codec_id);
+	AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
 	if(pCodec == NULL)
 		return false;
   
 	// Open codec
 	AVDictionary *optionsDict = 0;
-	if(avcodec_open2(pCodecCtx, pCodec, &optionsDict)<0)
+	if(avcodec_open2(m_pCodecCtx, pCodec, &optionsDict)<0)
 		return false; // Could not open codec
 
 	setVideoDim();
@@ -225,6 +222,8 @@ bool MediaEngine::openContext() {
 	m_audioPos = 0;
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
 	m_isVideoEnd = false;
+	m_isAudioEnd = false;
+	m_decodedPos = mpegoffset;
 #endif // USE_FFMPEG
 	return true;
 }
@@ -238,7 +237,7 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int StreamSize)
 	m_videopts = 0;
 	m_audiopts = 0;
 	m_bufSize = 0x2000;
-	m_decodePos = 0;
+	m_decodeNextPos = 0;
 	m_readSize = readSize;
 	m_streamSize = StreamSize;
 	m_pdata = new u8[StreamSize];
@@ -269,7 +268,7 @@ bool MediaEngine::loadFile(const char* filename)
 	m_videopts = 0;
 	m_audiopts = 0;
 	m_bufSize = 0x2000;
-	m_decodePos = 0;
+	m_decodeNextPos = 0;
 	m_readSize = infosize;
 	m_streamSize = infosize;
 	m_pdata = buf;
@@ -300,12 +299,11 @@ bool MediaEngine::setVideoDim(int width, int height)
 	if (!m_pCodecCtx)
 		return false;
 #ifdef USE_FFMPEG
-	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
 	if (width == 0 && height == 0)
 	{
 		// use the orignal video size
-		m_desWidth = pCodecCtx->width;
-		m_desHeight = pCodecCtx->height;
+		m_desWidth = m_pCodecCtx->width;
+		m_desHeight = m_pCodecCtx->height;
 	}
 	else
 	{
@@ -333,16 +331,15 @@ bool MediaEngine::setVideoDim(int width, int height)
 
 void MediaEngine::updateSwsFormat(int videoPixelMode) {
 #ifdef USE_FFMPEG
-	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
 	AVPixelFormat swsDesired = getSwsFormat(videoPixelMode);
 	if (swsDesired != m_sws_fmt) {
 		m_sws_fmt = swsDesired;
 		m_sws_ctx = sws_getCachedContext
 			(
 				m_sws_ctx,
-				pCodecCtx->width,
-				pCodecCtx->height,
-				pCodecCtx->pix_fmt,
+				m_pCodecCtx->width,
+				m_pCodecCtx->height,
+				m_pCodecCtx->pix_fmt,
 				m_desWidth,
 				m_desHeight,
 				(AVPixelFormat)m_sws_fmt,
@@ -365,33 +362,47 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	// Update the linesize for the new format too.  We started with the largest size, so it should fit.
 	m_pFrameRGB->linesize[0] = getPixelFormatBytes(videoPixelMode) * m_desWidth;
 
-	AVFormatContext *pFormatCtx = (AVFormatContext*)m_pFormatCtx;
-	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
-	AVFrame *pFrame = (AVFrame*)m_pFrame;
-	AVFrame *pFrameRGB = (AVFrame*)m_pFrameRGB;
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
 	AVPacket packet;
 	int frameFinished;
 	bool bGetFrame = false;
-	while(av_read_frame(pFormatCtx, &packet)>=0) {
-		if(packet.stream_index == m_videoStream) {
-			// Decode video frame
-			avcodec_decode_video2(pCodecCtx, m_pFrame, &frameFinished, &packet);
-			sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
-					pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
-      
-			if(frameFinished) {
+	while (!bGetFrame) {
+		bool dataEnd = av_read_frame(m_pFormatCtx, &packet) < 0;
+		if (!dataEnd) {
+			if (packet.pos != -1) {
+				m_decodedPos = packet.pos;
+			} else {
+				// Packet doesn't know where it is in the file, let's try to approximate.
+				m_decodedPos += packet.size;
+			}
+		}
+
+		// Even if we've read all frames, some may have been re-ordered frames at the end.
+		// Still need to decode those, so keep calling avcodec_decode_video2().
+		if (dataEnd || packet.stream_index == m_videoStream) {
+			// avcodec_decode_video2() gives us the re-ordered frames with a NULL packet.
+			if (dataEnd)
+				av_free_packet(&packet);
+
+			int result = avcodec_decode_video2(m_pCodecCtx, m_pFrame, &frameFinished, &packet);
+			if (frameFinished) {
+				sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
+					m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
+
 				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
-				m_videopts = pFrame->pkt_dts + pFrame->pkt_duration - firstTimeStamp;
+				m_videopts = m_pFrame->pkt_dts + av_frame_get_pkt_duration(m_pFrame) - firstTimeStamp;
 				bGetFrame = true;
+			}
+			if (result <= 0 && dataEnd) {
+				m_isVideoEnd = !bGetFrame && m_readSize >= m_streamSize;
+				if (m_isVideoEnd)
+					m_decodedPos = m_readSize;
+				break;
 			}
 		}
 		av_free_packet(&packet);
-		if (bGetFrame) break;
 	}
-	if (!bGetFrame && m_readSize >= m_streamSize)
-		m_isVideoEnd = true;
 	return bGetFrame;
 #else
 	return true;
@@ -541,6 +552,10 @@ static int getNextHeaderPosition(u8* audioStream, int curpos, int limit, int fra
 	return -1;
 }
 
+int MediaEngine::getBufferedSize() {
+    return std::max(0, m_readSize - (int)m_decodedPos);
+}
+
 int MediaEngine::getAudioSamples(u8* buffer) {
 	if (!m_demux) {
 		return 0;
@@ -549,6 +564,7 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	int audioSize = m_demux->getaudioStream(&audioStream);
 	if (m_audioPos >= audioSize || !isHeader(audioStream, m_audioPos))
 	{
+		m_isAudioEnd = m_demux->getFilePosition() >= m_streamSize;
 		return 0;
 	}
 	u8 headerCode1 = audioStream[2];
@@ -576,6 +592,7 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	} else
 		m_audioPos = audioSize;
 	m_audiopts += 4180;
+	m_decodedPos += frameSize;
 	return outbytes;
 }
 

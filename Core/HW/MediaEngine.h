@@ -32,6 +32,9 @@
 
 struct SwsContext;
 struct AVFrame;
+struct AVIOContext;
+struct AVFormatContext;
+struct AVCodecContext;
 
 class MediaEngine
 {
@@ -45,7 +48,7 @@ public:
 	// Returns number of packets actually added.
 	int addStreamData(u8* buffer, int addSize);
 	int getRemainSize() { return m_streamSize - m_readSize;}
-	int getBufferedSize() { return m_readSize - m_decodePos; }
+	int getBufferedSize();
 
 	bool stepVideo(int videoPixelMode);
 	bool writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
@@ -58,7 +61,8 @@ public:
 	s64 getAudioTimeStamp();
 	s64 getLastTimeStamp();
 
-	bool IsVideoEnd() { return m_isVideoEnd;}
+	bool IsVideoEnd() { return m_isVideoEnd; }
+	bool IsAudioEnd() { return m_isAudioEnd; }
 
 	void DoState(PointerWrap &p) {
 		p.Do(m_streamSize);
@@ -72,11 +76,11 @@ private:
 
 public:
 
-	void *m_pFormatCtx;
-	void *m_pCodecCtx;
+	AVFormatContext *m_pFormatCtx;
+	AVCodecContext *m_pCodecCtx;
 	AVFrame *m_pFrame;
 	AVFrame *m_pFrameRGB;
-	void *m_pIOContext;
+	AVIOContext *m_pIOContext;
 	int  m_videoStream;
 	SwsContext *m_sws_ctx;
 	int m_sws_fmt;
@@ -86,7 +90,8 @@ public:
 	int  m_desHeight;
 	int m_streamSize;
 	int m_readSize;
-	int m_decodePos;
+	int m_decodeNextPos;
+	s64 m_decodedPos;
 	int m_bufSize;
 	s64 m_videopts;
 	u8* m_pdata;
@@ -97,4 +102,5 @@ public:
 	s64 m_audiopts;
 
 	bool m_isVideoEnd;
+	bool m_isAudioEnd;
 };
