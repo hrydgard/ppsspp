@@ -374,21 +374,30 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	AVPacket packet;
 	int frameFinished;
 	bool bGetFrame = false;
-	while(av_read_frame(pFormatCtx, &packet)>=0) {
-		if(packet.stream_index == m_videoStream) {
-			// Decode video frame
-			avcodec_decode_video2(pCodecCtx, m_pFrame, &frameFinished, &packet);
-			sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
+	while (!bGetFrame) {
+		bool dataEnd = av_read_frame(pFormatCtx, &packet) < 0;
+
+		// Even if we've read all frames, some may have been re-ordered frames at the end.
+		// Still need to decode those, so keep calling avcodec_decode_video2().
+		if (dataEnd || packet.stream_index == m_videoStream) {
+			// avcodec_decode_video2() gives us the re-ordered frames with a NULL packet.
+			if (dataEnd)
+				av_free_packet(&packet);
+
+			int result = avcodec_decode_video2(pCodecCtx, m_pFrame, &frameFinished, &packet);
+			if (frameFinished) {
+				sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
 					pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
-      
-			if(frameFinished) {
+
 				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
 				m_videopts = pFrame->pkt_dts + pFrame->pkt_duration - firstTimeStamp;
 				bGetFrame = true;
 			}
+			if (result <= 0 && dataEnd) {
+				break;
+			}
 		}
 		av_free_packet(&packet);
-		if (bGetFrame) break;
 	}
 	if (!bGetFrame && m_readSize >= m_streamSize)
 		m_isVideoEnd = true;
