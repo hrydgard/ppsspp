@@ -46,19 +46,22 @@ void ScreenManager::switchToNext() {
 	}
 	Layer newLayer = {nextScreen_, 0};
 	stack_.push_back(newLayer);
-	delete temp.screen;
+	if (temp.screen) {
+		ELOG("Deleting screen");
+		delete temp.screen;
+	}
 	nextScreen_ = 0;
 }
 
 void ScreenManager::touch(const TouchInput &touch) {
-	if (stack_.size()) {
+	if (!stack_.empty()) {
 		stack_.back().screen->touch(touch);
 		return;
 	}
 }
 
 void ScreenManager::render() {
-	if (stack_.size()) {
+	if (!stack_.empty()) {
 		switch (stack_.back().flags) {
 		case LAYER_SIDEMENU:
 			if (stack_.size() == 1) {
@@ -88,20 +91,20 @@ void ScreenManager::render() {
 }
 
 void ScreenManager::sendMessage(const char *msg, const char *value) {
-	if (stack_.size())
+	if (!stack_.empty())
 		stack_.back().screen->sendMessage(msg, value);
 }
 
 void ScreenManager::deviceLost()
 {
-	if (stack_.size())
+	if (!stack_.empty())
 		stack_.back().screen->deviceLost();
 	// Dialogs too? Nah, they should only use the standard UI texture anyway.
 	// TODO: Change this when it becomes necessary.
 }
 
 Screen *ScreenManager::topScreen() {
-	if (stack_.size())
+	if (!stack_.empty())
 		return stack_.back().screen;
 	else
 		return 0;
@@ -109,9 +112,7 @@ Screen *ScreenManager::topScreen() {
 
 void ScreenManager::shutdown() {
 	for (auto x = stack_.begin(); x != stack_.end(); x++)
-	{
 		delete x->screen;
-	}
 	stack_.clear();
 	delete nextScreen_;
 	nextScreen_ = 0;

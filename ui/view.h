@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "base/logging.h"
 #include "base/functional.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
@@ -227,7 +228,7 @@ View *GetFocusedView();
 
 class View {
 public:
-	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), enabled_(true), visibility_(V_VISIBLE) {
+	View(LayoutParams *layoutParams = 0) : layoutParams_(layoutParams), enabled_(true), visibility_(V_VISIBLE), measuredWidth_(0), measuredHeight_(0) {
 		if (!layoutParams)
 			layoutParams_.reset(new LayoutParams());
 	}

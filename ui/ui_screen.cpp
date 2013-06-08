@@ -4,19 +4,16 @@
 #include "ui/screen.h"
 
 UIScreen::UIScreen()
-	: Screen(), root_(0), recreateViews_(false) {
+	: Screen(), root_(0), recreateViews_(true) {
 
 }
 
 void UIScreen::update(InputState &input) {
-	if (!root_) {
-		CreateViews();
-	}
-
 	if (recreateViews_) {
 		delete root_;
 		root_ = 0;
 		CreateViews();
+		recreateViews_ = false;
 	}
 
 	UpdateViewHierarchy(input, root_);

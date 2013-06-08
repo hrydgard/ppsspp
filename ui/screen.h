@@ -13,9 +13,10 @@
 
 #pragma once
 
-#include <list>
+#include <vector>
 
 #include "base/basictypes.h"
+#include "base/logging.h"
 #include "base/display.h"
 #include "base/NativeApp.h"
 
@@ -33,8 +34,10 @@ class UIContext;
 
 class Screen {
 public:
-	Screen(bool isUiScreen = false) : screenManager_(0), isUiScreen_(isUiScreen) { }
-	virtual ~Screen() {}
+	Screen() : screenManager_(0) { }
+	virtual ~Screen() {
+		screenManager_ = 0;
+	}
 
 	virtual void update(InputState &input) = 0;
 	virtual void render() {}
@@ -50,7 +53,6 @@ public:
 
 private:
 	ScreenManager *screenManager_;
-	bool isUiScreen_;
 	DISALLOW_COPY_AND_ASSIGN(Screen);
 };
 
@@ -110,5 +112,5 @@ private:
 
 	// Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
 	// Used for options, in-game menus and other things you expect to be able to back out from onto something.
-	std::list<Layer> stack_;
+	std::vector<Layer> stack_;
 };

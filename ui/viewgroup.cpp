@@ -28,8 +28,11 @@ void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, 
 
 ViewGroup::~ViewGroup() {
 	// Tear down the contents recursively.
-	for (auto iter = views_.begin(); iter != views_.end(); ++iter)
-		delete *iter;
+	for (size_t i = 0; i < views_.size(); i++) {
+		delete views_[i];
+		views_[i] = 0;
+	}
+	views_.clear();
 }
 
 void ViewGroup::Touch(const TouchInput &input) {
@@ -530,12 +533,12 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 			if (params->left >= 0 && params->right >= 0) 	{
 				width = measuredWidth_ - params->left - params->right;
-				specW = MeasureSpec(EXACTLY, width);
 			}
 			if (params->top >= 0 && params->bottom >= 0) 	{
 				height = measuredHeight_ - params->top - params->bottom;
-				specH = MeasureSpec(EXACTLY, height);
 			}
+			specW = MeasureSpec(EXACTLY, width);
+			specH = MeasureSpec(EXACTLY, height);
 		}
 
 		views_[i]->Measure(dc, specW, specH);

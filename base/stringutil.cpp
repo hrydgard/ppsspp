@@ -1,3 +1,4 @@
+#include <windows.h>
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -14,6 +15,10 @@
 // Function Cross-Compatibility
 #define strcasecmp _stricmp
 #endif
+
+void __ods__(const char *p) {
+	OutputDebugString(p);
+}
 
 unsigned int parseHex(const char *_szValue)
 {
