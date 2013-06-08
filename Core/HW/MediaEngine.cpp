@@ -367,8 +367,6 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 
 	AVFormatContext *pFormatCtx = (AVFormatContext*)m_pFormatCtx;
 	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
-	AVFrame *pFrame = (AVFrame*)m_pFrame;
-	AVFrame *pFrameRGB = (AVFrame*)m_pFrameRGB;
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
 	AVPacket packet;
@@ -390,7 +388,7 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 					pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
 
 				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
-				m_videopts = pFrame->pkt_dts + pFrame->pkt_duration - firstTimeStamp;
+				m_videopts = m_pFrame->pkt_dts + av_frame_get_pkt_duration(m_pFrame) - firstTimeStamp;
 				bGetFrame = true;
 			}
 			if (result <= 0 && dataEnd) {
