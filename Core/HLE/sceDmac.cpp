@@ -16,13 +16,23 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Globals.h"
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 u32 sceDmacMemcpy(u32 dst, u32 src, u32 size)
 {
+	if (!Memory::IsValidAddress(dst) || !Memory::IsValidAddress(src))
+	{
+		ERROR_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i): invalid address", dst, src, size);
+		return 0;
+	}
+
 	DEBUG_LOG(HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
-	// TODO: check the addresses.
+
 	Memory::Memcpy(dst, Memory::GetPointer(src), size);
+
+	gpu->InvalidateCache(dst, size, GPU_INVALIDATE_HINT);
 	return 0;
 }
 
