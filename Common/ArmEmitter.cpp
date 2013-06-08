@@ -906,24 +906,30 @@ struct VFPEnc
 // Double/single, Neon
 const VFPEnc VFPOps[][2] = {
 	{{0xE0, 0xA0}, {0x20, 0xD1}}, // 0: VMLA
-	{{0xE0, 0xA4}, {0x22, 0xD1}}, // 1: VMLS
-	{{0xE3, 0xA0}, {0x20, 0xD0}}, // 2: VADD
-	{{0xE3, 0xA4}, {0x22, 0xD0}}, // 3: VSUB
-	{{0xE2, 0xA0}, {0x30, 0xD1}}, // 4: VMUL
-	{{0xEB, 0xAC}, {  -1 /* 0x3B */,  -1 /* 0x70 */}}, // 5: VABS(Vn(0x0) used for encoding)
-	{{0xE8, 0xA0}, {  -1,   -1}}, // 6: VDIV
-	{{0xEB, 0xA4}, {  -1 /* 0x3B */,   -1 /* 0x78 */}}, // 7: VNEG(Vn(0x1) used for encoding)
-	{{0xEB, 0xAC}, {  -1,   -1}}, // 8: VSQRT (Vn(0x1) used for encoding)
-	{{0xEB, 0xA4}, {  -1,   -1}}, // 9: VCMP (Vn(0x4 | #0 ? 1 : 0) used for encoding)
-	{{0xEB, 0xAC}, {  -1,   -1}}, // 10: VCMPE (Vn(0x4 | #0 ? 1 : 0) used for encoding)
-	{{  -1,   -1}, {0x3B, 0x30}}, // 11: VABSi
+	{{0xE1, 0xA4}, {  -1,   -1}}, // 1: VNMLA
+	{{0xE0, 0xA4}, {0x22, 0xD1}}, // 2: VMLS
+	{{0xE1, 0xA0}, {  -1,   -1}}, // 3: VNMLS
+	{{0xE3, 0xA0}, {0x20, 0xD0}}, // 4: VADD
+	{{0xE3, 0xA4}, {0x22, 0xD0}}, // 5: VSUB
+	{{0xE2, 0xA0}, {0x30, 0xD1}}, // 6: VMUL
+	{{0xE2, 0xA4}, {  -1,   -1}}, // 7: VNMUL
+	{{0xEB, 0xAC}, {  -1 /* 0x3B */,  -1 /* 0x70 */}}, // 8: VABS(Vn(0x0) used for encoding)
+	{{0xE8, 0xA0}, {  -1,   -1}}, // 9: VDIV
+	{{0xEB, 0xA4}, {  -1 /* 0x3B */,   -1 /* 0x78 */}}, // 10: VNEG(Vn(0x1) used for encoding)
+	{{0xEB, 0xAC}, {  -1,   -1}}, // 11: VSQRT (Vn(0x1) used for encoding)
+	{{0xEB, 0xA4}, {  -1,   -1}}, // 12: VCMP (Vn(0x4 | #0 ? 1 : 0) used for encoding)
+	{{0xEB, 0xAC}, {  -1,   -1}}, // 13: VCMPE (Vn(0x4 | #0 ? 1 : 0) used for encoding)
+	{{  -1,   -1}, {0x3B, 0x30}}, // 14: VABSi
 	};
 const char *VFPOpNames[] = {
 	"VMLA",
+	"VNMLA",
 	"VMLS",
+	"VNMLS",
 	"VADD",
 	"VSUB",
 	"VMUL",
+	"VNMUL",
 	"VABS",
 	"VDIV",
 	"VNEG",
@@ -993,18 +999,21 @@ void ARMXEmitter::WriteVFPDataOp(u32 Op, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 	Write32(cond | (enc.opc1 << 20) | VnEnc | VdEnc | (enc.opc2 << 4) | (quad_reg << 6) | (double_reg << 8) | VmEnc);
 }
 void ARMXEmitter::VMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(0, Vd, Vn, Vm); }
-void ARMXEmitter::VMLS(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(1, Vd, Vn, Vm); }
-void ARMXEmitter::VADD(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(2, Vd, Vn, Vm); }
-void ARMXEmitter::VSUB(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(3, Vd, Vn, Vm); }
-void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(4, Vd, Vn, Vm); }
-void ARMXEmitter::VABS(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(5, Vd, D0, Vm); }
-void ARMXEmitter::VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(6, Vd, Vn, Vm); }
-void ARMXEmitter::VNEG(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(7, Vd, D1, Vm); }
-void ARMXEmitter::VSQRT(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(8, Vd, D1, Vm); }
-void ARMXEmitter::VCMP(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(9, Vd, D4, Vm); }
-void ARMXEmitter::VCMPE(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(10, Vd, D4, Vm); }
-void ARMXEmitter::VCMP(ARMReg Vd){ WriteVFPDataOp(9, Vd, D5, D0); }
-void ARMXEmitter::VCMPE(ARMReg Vd){ WriteVFPDataOp(10, Vd, D5, D0); }
+void ARMXEmitter::VNMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(1, Vd, Vn, Vm); }
+void ARMXEmitter::VMLS(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(2, Vd, Vn, Vm); }
+void ARMXEmitter::VNMLS(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(3, Vd, Vn, Vm); }
+void ARMXEmitter::VADD(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(4, Vd, Vn, Vm); }
+void ARMXEmitter::VSUB(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(5, Vd, Vn, Vm); }
+void ARMXEmitter::VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(6, Vd, Vn, Vm); }
+void ARMXEmitter::VNMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(7, Vd, Vn, Vm); }
+void ARMXEmitter::VABS(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(8, Vd, D0, Vm); }
+void ARMXEmitter::VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm){ WriteVFPDataOp(9, Vd, Vn, Vm); }
+void ARMXEmitter::VNEG(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(10, Vd, D1, Vm); }
+void ARMXEmitter::VSQRT(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(11, Vd, D1, Vm); }
+void ARMXEmitter::VCMP(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(12, Vd, D4, Vm); }
+void ARMXEmitter::VCMPE(ARMReg Vd, ARMReg Vm){ WriteVFPDataOp(13, Vd, D4, Vm); }
+void ARMXEmitter::VCMP(ARMReg Vd){ WriteVFPDataOp(12, Vd, D5, D0); }
+void ARMXEmitter::VCMPE(ARMReg Vd){ WriteVFPDataOp(13, Vd, D5, D0); }
 
 void ARMXEmitter::VLDR(ARMReg Dest, ARMReg Base, s16 offset)
 {

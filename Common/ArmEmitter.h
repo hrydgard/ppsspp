@@ -542,6 +542,10 @@ public:
 	// Compares against zero
 	void VCMP(ARMReg Vd);
 	void VCMPE(ARMReg Vd);
+
+	void VNMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VNMLS(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VNMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VDIV(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VSQRT(ARMReg Vd, ARMReg Vm);
 
