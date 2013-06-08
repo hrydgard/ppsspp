@@ -114,9 +114,9 @@ void MediaEngine::closeMedia() {
 	if (m_pIOContext)
 		av_free(m_pIOContext);
 	if (m_pCodecCtx)
-		avcodec_close((AVCodecContext*)m_pCodecCtx);
+		avcodec_close(m_pCodecCtx);
 	if (m_pFormatCtx)
-		avformat_close_input((AVFormatContext**)&m_pFormatCtx);
+		avformat_close_input(&m_pFormatCtx);
 #endif // USE_FFMPEG
 	if (m_pdata)
 		delete [] m_pdata;
@@ -181,21 +181,20 @@ bool MediaEngine::openContext() {
 
 	u8* tempbuf = (u8*)av_malloc(m_bufSize);
 
-	AVFormatContext *pFormatCtx = avformat_alloc_context();
-	m_pFormatCtx = (void*)pFormatCtx;
+	m_pFormatCtx = avformat_alloc_context();
 	m_pIOContext = avio_alloc_context(tempbuf, m_bufSize, 0, (void*)this, _MpegReadbuffer, NULL, _MpegSeekbuffer);
-	pFormatCtx->pb = m_pIOContext;
+	m_pFormatCtx->pb = m_pIOContext;
   
 	// Open video file
 	if(avformat_open_input((AVFormatContext**)&m_pFormatCtx, NULL, NULL, NULL) != 0)
 		return false;
 
-	if(avformat_find_stream_info(pFormatCtx, NULL) < 0)
+	if(avformat_find_stream_info(m_pFormatCtx, NULL) < 0)
 		return false;
 
 	// Find the first video stream
-	for(int i = 0; i < (int)pFormatCtx->nb_streams; i++) {
-		if(pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+	for(int i = 0; i < (int)m_pFormatCtx->nb_streams; i++) {
+		if(m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
 			m_videoStream = i;
 			break;
 		}
@@ -204,17 +203,16 @@ bool MediaEngine::openContext() {
 		return false;
 
 	// Get a pointer to the codec context for the video stream
-	m_pCodecCtx = (void*)pFormatCtx->streams[m_videoStream]->codec;
-	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
+	m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
   
 	// Find the decoder for the video stream
-	AVCodec *pCodec = avcodec_find_decoder(pCodecCtx->codec_id);
+	AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
 	if(pCodec == NULL)
 		return false;
   
 	// Open codec
 	AVDictionary *optionsDict = 0;
-	if(avcodec_open2(pCodecCtx, pCodec, &optionsDict)<0)
+	if(avcodec_open2(m_pCodecCtx, pCodec, &optionsDict)<0)
 		return false; // Could not open codec
 
 	setVideoDim();
@@ -300,12 +298,11 @@ bool MediaEngine::setVideoDim(int width, int height)
 	if (!m_pCodecCtx)
 		return false;
 #ifdef USE_FFMPEG
-	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
 	if (width == 0 && height == 0)
 	{
 		// use the orignal video size
-		m_desWidth = pCodecCtx->width;
-		m_desHeight = pCodecCtx->height;
+		m_desWidth = m_pCodecCtx->width;
+		m_desHeight = m_pCodecCtx->height;
 	}
 	else
 	{
@@ -333,16 +330,15 @@ bool MediaEngine::setVideoDim(int width, int height)
 
 void MediaEngine::updateSwsFormat(int videoPixelMode) {
 #ifdef USE_FFMPEG
-	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
 	AVPixelFormat swsDesired = getSwsFormat(videoPixelMode);
 	if (swsDesired != m_sws_fmt) {
 		m_sws_fmt = swsDesired;
 		m_sws_ctx = sws_getCachedContext
 			(
 				m_sws_ctx,
-				pCodecCtx->width,
-				pCodecCtx->height,
-				pCodecCtx->pix_fmt,
+				m_pCodecCtx->width,
+				m_pCodecCtx->height,
+				m_pCodecCtx->pix_fmt,
 				m_desWidth,
 				m_desHeight,
 				(AVPixelFormat)m_sws_fmt,
@@ -365,15 +361,13 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	// Update the linesize for the new format too.  We started with the largest size, so it should fit.
 	m_pFrameRGB->linesize[0] = getPixelFormatBytes(videoPixelMode) * m_desWidth;
 
-	AVFormatContext *pFormatCtx = (AVFormatContext*)m_pFormatCtx;
-	AVCodecContext *pCodecCtx = (AVCodecContext*)m_pCodecCtx;
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
 	AVPacket packet;
 	int frameFinished;
 	bool bGetFrame = false;
 	while (!bGetFrame) {
-		bool dataEnd = av_read_frame(pFormatCtx, &packet) < 0;
+		bool dataEnd = av_read_frame(m_pFormatCtx, &packet) < 0;
 
 		// Even if we've read all frames, some may have been re-ordered frames at the end.
 		// Still need to decode those, so keep calling avcodec_decode_video2().
@@ -382,10 +376,10 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 			if (dataEnd)
 				av_free_packet(&packet);
 
-			int result = avcodec_decode_video2(pCodecCtx, m_pFrame, &frameFinished, &packet);
+			int result = avcodec_decode_video2(m_pCodecCtx, m_pFrame, &frameFinished, &packet);
 			if (frameFinished) {
 				sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
-					pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
+					m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
 
 				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
 				m_videopts = m_pFrame->pkt_dts + av_frame_get_pkt_duration(m_pFrame) - firstTimeStamp;

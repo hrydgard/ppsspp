@@ -33,6 +33,8 @@
 struct SwsContext;
 struct AVFrame;
 struct AVIOContext;
+struct AVFormatContext;
+struct AVCodecContext;
 
 class MediaEngine
 {
@@ -73,8 +75,8 @@ private:
 
 public:
 
-	void *m_pFormatCtx;
-	void *m_pCodecCtx;
+	AVFormatContext *m_pFormatCtx;
+	AVCodecContext *m_pCodecCtx;
 	AVFrame *m_pFrame;
 	AVFrame *m_pFrameRGB;
 	AVIOContext *m_pIOContext;
