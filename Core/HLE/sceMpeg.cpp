@@ -629,8 +629,8 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	SceMpegRingBuffer ringbuffer;
 	Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
 
-	if (ringbuffer.packetsRead == 0) {
-		// empty!
+	if (ringbuffer.packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
+		WARN_LOG(HLE, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): mpeg buffer empty", mpeg, auAddr, frameWidth, bufferAddr, initAddr);
 		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
@@ -640,13 +640,14 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 
 	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
 		ctx->mediaengine->writeVideoImage(Memory::GetPointer(buffer), frameWidth, ctx->videoPixelMode);
+		ctx->avc.avcFrameStatus = 1;
+		ctx->videoFrameCount++;
+	} else {
+		ctx->avc.avcFrameStatus = 0;
 	}
 	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp();
-
-	ctx->avc.avcFrameStatus = 1;
-	ctx->videoFrameCount++;
 
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
@@ -958,6 +959,9 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
 		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
+		sceAu.pts = -1;
+		sceAu.dts = -1;
+		sceAu.write(auAddr);
 		// TODO: Does this really reschedule?
 		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
 	}
@@ -986,6 +990,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	int result = 0;
 
 	sceAu.pts = ctx->mediaengine->getVideoTimeStamp();
+	sceAu.dts = sceAu.pts - videoTimestampStep;
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(HLE, "video end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
