@@ -236,9 +236,9 @@ void VFSShutdown() {
 }
 
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
-	int fn_len = strlen(filename);
+	int fn_len = (int)strlen(filename);
 	for (int i = 0; i < num_entries; i++) {
-		int prefix_len = strlen(entries[i].prefix);
+		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
 			ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
@@ -256,9 +256,9 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 
 bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter)
 {
-	int fn_len = strlen(path);
+	int fn_len = (int)strlen(path);
 	for (int i = 0; i < num_entries; i++) {
-		int prefix_len = strlen(entries[i].prefix);
+		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
 			if (entries[i].reader->GetFileListing(path + prefix_len, listing, filter))
@@ -273,9 +273,9 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 
 bool VFSGetFileInfo(const char *path, FileInfo *info)
 {
-	int fn_len = strlen(path);
+	int fn_len = (int)strlen(path);
 	for (int i = 0; i < num_entries; i++) {
-		int prefix_len = strlen(entries[i].prefix);
+		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
 			return entries[i].reader->GetFileInfo(path + prefix_len, info);

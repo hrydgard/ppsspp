@@ -98,7 +98,7 @@ Clip *clip_load(const char *filename) {
 		uint8_t *filedata;
 		size_t size;
 		filedata = VFSReadFile(filename, &size);
-		num_samples = stb_vorbis_decode_memory(filedata, size, &num_channels, &data);
+		num_samples = (int)stb_vorbis_decode_memory(filedata, size, &num_channels, &data);
 		if (num_samples <= 0)
 			return NULL;
 		sample_rate = 44100;
