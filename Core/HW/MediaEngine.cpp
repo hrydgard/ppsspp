@@ -81,7 +81,7 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
-MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
+MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_decodedPos(0), m_pdata(0) {
 	m_pFormatCtx = 0;
 	m_pCodecCtx = 0;
 	m_pFrame = 0;
@@ -91,9 +91,6 @@ MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_pdata(0) {
 	m_buffer = 0;
 	m_demux = 0;
 	m_audioContext = 0;
-	m_pdata = 0;
-	m_streamSize = 0;
-	m_readSize = 0;
 	m_isVideoEnd = false;
 }
 
@@ -139,10 +136,10 @@ int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 {
 	MediaEngine *mpeg = (MediaEngine*)opaque;
 	int size = std::min(mpeg->m_bufSize, buf_size);
-	size = std::max(std::min((mpeg->m_readSize - mpeg->m_decodePos), size), 0);
+	size = std::max(std::min((mpeg->m_readSize - mpeg->m_decodeNextPos), size), 0);
 	if (size > 0)
-		memcpy(buf, mpeg->m_pdata + mpeg->m_decodePos, size);
-	mpeg->m_decodePos += size;
+		memcpy(buf, mpeg->m_pdata + mpeg->m_decodeNextPos, size);
+	mpeg->m_decodeNextPos += size;
 	return size;
 }
 
@@ -151,13 +148,13 @@ int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
 	MediaEngine *mpeg = (MediaEngine*)opaque;
 	switch (whence) {
 	case SEEK_SET:
-		mpeg->m_decodePos = offset;
+		mpeg->m_decodeNextPos = offset;
 		break;
 	case SEEK_CUR:
-		mpeg->m_decodePos += offset;
+		mpeg->m_decodeNextPos += offset;
 		break;
 	case SEEK_END:
-		mpeg->m_decodePos = mpeg->m_streamSize - (u32)offset;
+		mpeg->m_decodeNextPos = mpeg->m_streamSize - (u32)offset;
 		break;
 	}
 	return offset;
@@ -223,6 +220,7 @@ bool MediaEngine::openContext() {
 	m_audioPos = 0;
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
 	m_isVideoEnd = false;
+	m_decodedPos = mpegoffset;
 #endif // USE_FFMPEG
 	return true;
 }
@@ -236,7 +234,7 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int StreamSize)
 	m_videopts = 0;
 	m_audiopts = 0;
 	m_bufSize = 0x2000;
-	m_decodePos = 0;
+	m_decodeNextPos = 0;
 	m_readSize = readSize;
 	m_streamSize = StreamSize;
 	m_pdata = new u8[StreamSize];
@@ -267,7 +265,7 @@ bool MediaEngine::loadFile(const char* filename)
 	m_videopts = 0;
 	m_audiopts = 0;
 	m_bufSize = 0x2000;
-	m_decodePos = 0;
+	m_decodeNextPos = 0;
 	m_readSize = infosize;
 	m_streamSize = infosize;
 	m_pdata = buf;
@@ -368,6 +366,14 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	bool bGetFrame = false;
 	while (!bGetFrame) {
 		bool dataEnd = av_read_frame(m_pFormatCtx, &packet) < 0;
+		if (!dataEnd) {
+			if (packet.pos != -1) {
+				m_decodedPos = packet.pos;
+			} else {
+				// Packet doesn't know where it is in the file, let's try to approximate.
+				m_decodedPos += packet.size;
+			}
+		}
 
 		// Even if we've read all frames, some may have been re-ordered frames at the end.
 		// Still need to decode those, so keep calling avcodec_decode_video2().
@@ -387,6 +393,8 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 			}
 			if (result <= 0 && dataEnd) {
 				m_isVideoEnd = !bGetFrame && m_readSize >= m_streamSize;
+				if (m_isVideoEnd)
+					m_decodedPos = m_readSize;
 				break;
 			}
 		}
@@ -542,9 +550,7 @@ static int getNextHeaderPosition(u8* audioStream, int curpos, int limit, int fra
 }
 
 int MediaEngine::getBufferedSize() {
-    // m_decodePos is technically "decoderNextReadPos", we want what has actually been decoded.
-    int buffer_left = m_pIOContext->buffer_size - (m_pIOContext->buf_ptr - m_pIOContext->buffer);
-    return m_readSize - m_decodePos + buffer_left;
+    return std::max(0, m_readSize - (int)m_decodedPos);
 }
 
 int MediaEngine::getAudioSamples(u8* buffer) {

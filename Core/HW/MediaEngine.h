@@ -89,7 +89,8 @@ public:
 	int  m_desHeight;
 	int m_streamSize;
 	int m_readSize;
-	int m_decodePos;
+	int m_decodeNextPos;
+	s64 m_decodedPos;
 	int m_bufSize;
 	s64 m_videopts;
 	u8* m_pdata;
