@@ -29,6 +29,14 @@ SOURCES += ../native/ext/cityhash/city.cpp
 HEADERS += ../native/ext/cityhash/*.h
 INCLUDEPATH += ../native/ext/cityhash
 
+# VJSON
+
+SOURCES += ../native/ext/vjson/json.cpp \
+	../native/ext/vjson/block_allocator.cpp
+HEADERS += ../native/ext/vjson/json.h \
+	../native/ext/vjson/block_allocator.h
+INCLUDEPATH += ../native/ext/vjson
+
 # Stb_image
 
 SOURCES += ../native/ext/stb_image/stb_image.c

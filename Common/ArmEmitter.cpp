@@ -127,11 +127,10 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 		// VFP Encoding for Imms: <7> Not(<6>) Repeat(<6>,5) <5:0> Zeros(19)
 		bool bit6 = (conv.u & 0x40000000) == 0x40000000;
 		bool canEncode = true;
-		for (u32 i = 0, mask = 0x20000000; i < 5; i++)
+		for (u32 mask = 0x20000000; mask >= 0x2000000; mask >>= 1)
 		{
 			if (((conv.u & mask) == mask) == bit6)
 				canEncode = false;
-			mask >>= 1;
 		}
 		if (canEncode)
 		{

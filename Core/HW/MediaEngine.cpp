@@ -416,6 +416,7 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode) {
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
+	int videoImageSize = 0;
 #ifdef USE_FFMPEG
 	// lock the image size
 	int height = m_desHeight;
@@ -424,7 +425,6 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 	u8 *data = m_pFrameRGB->data[0];
 	u16 *imgbuf16 = (u16 *)buffer;
 	u16 *data16 = (u16 *)data;
-	int videoImageSize = 0;
 
 	switch (videoPixelMode) {
 	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
@@ -477,13 +477,13 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	                             int xpos, int ypos, int width, int height) {
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
+	int videoImageSize = 0;
 #ifdef USE_FFMPEG
 	// lock the image size
 	u8 *imgbuf = buffer;
 	u8 *data = m_pFrameRGB->data[0];
 	u16 *imgbuf16 = (u16 *)buffer;
 	u16 *data16 = (u16 *)data;
-	int videoImageSize = 0;
 
 	if (width > m_desWidth - xpos)
 		width = m_desWidth - xpos;
