@@ -1066,12 +1066,19 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			break;
 		case 0x02425823:  
 			// Check if FAT enabled
-			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
+			hleEatCycles(23500);
+			// If the values added together are >= 0x80000000, or less than outPtr, invalid address.
+			if (((int)outPtr + outLen) < (int)outPtr) {
+				ERROR_LOG(HLE, "sceIoDevctl: fatms0: 0x02425823 command, bad address");
+				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			} else if (!Memory::IsValidAddress(outPtr)) {
+				// Technically, only checks for NULL, crashes for many bad addresses.
+				ERROR_LOG(HLE, "sceIoDevctl: fatms0: 0x02425823 command, no output address");
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			} else {
+				// Does not care about outLen, even if it's 0.
 				Memory::Write_U32(MemoryStick_FatState(), outPtr);
 				return 0;
-			} else {
-				ERROR_LOG(HLE, "Failed 0x02425823 fat");
-				return -1;
 			}
 			break;
 		case 0x02425824:  
