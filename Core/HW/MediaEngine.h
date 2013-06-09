@@ -36,6 +36,11 @@ struct AVIOContext;
 struct AVFormatContext;
 struct AVCodecContext;
 
+inline s64 getMpegTimeStamp(u8* buf) {
+	return (s64)buf[5] | ((s64)buf[4] << 8) | ((s64)buf[3] << 16) | ((s64)buf[2] << 24) 
+		| ((s64)buf[1] << 32) | ((s64)buf[0] << 36);
+}
+
 class MediaEngine
 {
 public:

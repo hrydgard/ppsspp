@@ -275,7 +275,7 @@ PsmfPlayer::PsmfPlayer(u32 data) {
 	audioStreamNum = Memory::Read_U32(data + 12);
 	playMode = Memory::Read_U32(data+ 16);
 	playSpeed = Memory::Read_U32(data + 20);
-	psmfPlayerLastTimestamp = bswap32(Memory::Read_U32(data + PSMF_LAST_TIMESTAMP_OFFSET)) ;
+	psmfPlayerLastTimestamp = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET)) ;
 	status = PSMF_PLAYER_STATUS_INIT;
 	mediaengine = new MediaEngine;
 }
