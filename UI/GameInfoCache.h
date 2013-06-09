@@ -33,7 +33,9 @@
 
 class GameInfo {
 public:
-	GameInfo() : fileType(FILETYPE_UNKNOWN), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL), wantBG(false), paramSFOLoaded(false) {}
+	GameInfo() 
+		: fileType(FILETYPE_UNKNOWN), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL),
+		  wantBG(false), paramSFOLoaded(false), gameSize(0), saveDataSize(0) {}
 
 	bool DeleteGame();  // Better be sure what you're doing when calling this.
 	bool DeleteAllSaveData();
@@ -75,6 +77,9 @@ public:
 	double timeIconWasLoaded;
 	double timePic0WasLoaded;
 	double timePic1WasLoaded;
+
+	u64 gameSize;
+	u64 saveDataSize;
 };
 
 class GameInfoCache {

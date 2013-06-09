@@ -196,18 +196,18 @@ public:
 				info_->paramSFOLoaded = true;
 			}
 
-			{
-				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
-			}
-
+			ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
 			if (info_->wantBG) {
-				{
-					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
-				}
-				{
-					ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
-				}
+				ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
 			}
+			ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
+
+		}
+		// probably only want these when we ask for the background image...
+		// should maybe flip the flag to "onlyIcon"
+		if (info_->wantBG) {
+			info_->gameSize = info_->GetGameSizeInBytes();
+			info_->saveDataSize = info_->GetSaveDataSizeInBytes();
 		}
 	}
 
