@@ -34,6 +34,16 @@ EmuFileType Identify_File(std::string &filename)
 		return FILETYPE_ERROR;
 	}
 
+	std::string extension = filename.substr(filename.size() - 4);
+	if (!strcasecmp(extension.c_str(),".iso"))
+	{
+		return FILETYPE_PSP_ISO;
+	}
+	else if (!strcasecmp(extension.c_str(),".cso"))
+	{
+		return FILETYPE_PSP_ISO;
+	}
+
 	// First, check if it's a directory with an EBOOT.PBP in it.
 	FileInfo info;
 	if (!getFileInfo(filename.c_str(), &info)) {
@@ -75,8 +85,6 @@ EmuFileType Identify_File(std::string &filename)
 
 	fclose(f);
 
-	std::string extension = filename.substr(filename.size() - 4);
-
 	if (id == 'FLE\x7F')
 	{
 		if (!strcasecmp(extension.c_str(), ".plf") || strstr(filename.c_str(),"BOOT.BIN") ||
@@ -109,14 +117,6 @@ EmuFileType Identify_File(std::string &filename)
 		{
 			ERROR_LOG(LOADER, "A PBP with the wrong magic number?");
 			return FILETYPE_PSP_PBP;
-		}
-		else if (!strcasecmp(extension.c_str(),".iso"))
-		{
-			return FILETYPE_PSP_ISO;
-		}
-		else if (!strcasecmp(extension.c_str(),".cso"))
-		{
-			return FILETYPE_PSP_ISO;
 		}
 		else if (!strcasecmp(extension.c_str(),".bin"))
 		{
