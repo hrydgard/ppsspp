@@ -72,6 +72,21 @@ void GameSettingsScreen::CreateViews() {
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, "Enable Sound"));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, "Enable Atrac3+"));
 	audioSettings->Add(new Choice("Download Atrac3+ plugin"))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
+	
+	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		ViewGroup *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
+	controlsSettingsScroll->Add(controlsSettings);
+	tabHolder->AddTab("Controls", controlsSettingsScroll);
+	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, "Show Touch Controls"));
+	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, "Show analog stick"));
+	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, "Horizontal tilt to analog"));
+
+	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
+	systemSettingsScroll->Add(systemSettings);
+	tabHolder->AddTab("System", systemSettingsScroll);
+	systemSettings->Add(new CheckBox(&g_Config.bJit, "Enable JIT (dynarec)"));
+	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, "Fast Memory (unstable)"));
 }
 
 UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {
@@ -81,7 +96,7 @@ UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {
 
 void DrawBackground(float alpha);
 
-void GameSettingsScreen::DrawBackground() {
+void GameSettingsScreen::DrawBackground(UIContext &dc) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	::DrawBackground(1.0f);
 }

@@ -27,6 +27,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/ELF/PBPReader.h"
+#include "Core/System.h"
 
 #include "Core/Config.h"
 
@@ -59,36 +60,55 @@ u64 GameInfo::GetGameSizeInBytes() {
 	}
 }
 
-std::string GameInfo::GetSaveDataDirectory() {
-	std::string id = paramSFO.GetValueString("ID");
-	return g_Config.memCardDirectory + "/PSP/GAME/" + id;
+std::vector<std::string> GameInfo::GetSaveDataDirectories() {
+	std::string id = paramSFO.GetValueString("DISC_ID");
+	std::string memc, flash;
+	GetSysDirectories(memc, flash);
+
+	std::vector<FileInfo> dirs;
+	getFilesInDir((memc + "PSP/SAVEDATA/").c_str(), &dirs);
+	
+	std::vector<std::string> directories;
+	for (size_t i = 0; i < dirs.size(); i++) {
+		if (startsWith(dirs[i].name, id)) {
+			directories.push_back(dirs[i].fullName);
+		}
+	}
+
+	return directories;
 }
 
 u64 GameInfo::GetSaveDataSizeInBytes() {
-	std::string saveDataDir = GetSaveDataDirectory();
-
-	std::vector<FileInfo> fileInfo;
-	getFilesInDir(saveDataDir.c_str(), &fileInfo);
+	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
 
 	u64 totalSize = 0;
-	for (size_t i = 0; i < fileInfo.size(); i++) {
-		totalSize += fileInfo[i].size;
+	for (size_t j = 0; j < saveDataDir.size(); j++) {
+		std::vector<FileInfo> fileInfo;
+		getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
+		// Note: getFileInDir does not fill in fileSize properly.
+		for (size_t i = 0; i < fileInfo.size(); i++) {
+			FileInfo finfo;
+			getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+			if (!finfo.isDirectory)
+				totalSize += finfo.size;
+		}
 	}
 	return totalSize;
 }
 
 bool GameInfo::DeleteAllSaveData() {
-	std::string saveDataDir = GetSaveDataDirectory();
+	std::vector<std::string> saveDataDir = GetSaveDataDirectories();
+	for (size_t j = 0; j < saveDataDir.size(); j++) {
+		std::vector<FileInfo> fileInfo;
+		getFilesInDir(saveDataDir[j].c_str(), &fileInfo);
 
-	std::vector<FileInfo> fileInfo;
-	getFilesInDir(saveDataDir.c_str(), &fileInfo);
+		u64 totalSize = 0;
+		for (size_t i = 0; i < fileInfo.size(); i++) {
+			deleteFile(fileInfo[i].fullName.c_str());
+		}
 
-	u64 totalSize = 0;
-	for (size_t i = 0; i < fileInfo.size(); i++) {
-		deleteFile(fileInfo[i].fullName.c_str());
+		deleteDir(saveDataDir[j].c_str());
 	}
-
-	deleteDir(saveDataDir.c_str());
 	return true;
 }
 

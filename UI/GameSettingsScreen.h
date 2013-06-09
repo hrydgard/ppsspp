@@ -28,7 +28,7 @@ public:
 
 protected:
 	virtual void CreateViews();
- 	virtual void DrawBackground();
+ 	virtual void DrawBackground(UIContext &dc);
 
 private:
 	// Event handlers

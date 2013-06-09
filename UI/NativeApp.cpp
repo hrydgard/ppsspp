@@ -337,6 +337,8 @@ void NativeInit(int argc, const char *argv[],
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
+#else
+	g_Config.memCardDirectory = "MemStick/";
 #endif	
 
 	i18nrepo.LoadIni(g_Config.languageIni);

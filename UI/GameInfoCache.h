@@ -45,7 +45,7 @@ public:
 
 	void LoadParamSFO();
 
-	std::string GetSaveDataDirectory();
+	std::vector<std::string> GetSaveDataDirectories();
 
 
 	// Hold this when reading or writing from the GameInfo.
