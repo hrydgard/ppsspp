@@ -181,6 +181,13 @@ int SasAtrac3::getNextSamples(s16* outbuf, int wantedSamples) {
 	return finish;
 }
 
+int SasAtrac3::addStreamData(u8* buf, u32 addbytes) {
+	if (atracID > 0) {
+		_AtracAddStreamData(atracID, buf, addbytes);
+	}
+	return 0;
+}
+
 void SasAtrac3::DoState(PointerWrap &p) {
 	p.Do(contextAddr);
 	p.Do(atracID);
