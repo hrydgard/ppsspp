@@ -7,15 +7,19 @@
 #include <string>
 
 
-#ifndef _WIN32
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#else
+#ifdef _WIN32
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 #undef min
 #undef max
+#else
+#if defined(__FreeBSD__) || defined(__SYMBIAN32__)
+#include <netinet/in.h>
+#else
+#include <arpa/inet.h>
+#endif
+#include <netdb.h>
+#include <sys/socket.h>
 #endif
 
 
@@ -76,7 +80,11 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 	addrinfo hints = {0};
 	// TODO: Might be uses to lookup other values.
 	hints.ai_socktype = SOCK_STREAM;
+#ifdef BLACKBERRY
+	hints.ai_flags = 0;
+#else
 	hints.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG;
+#endif
 	hints.ai_protocol = IPPROTO_TCP;
 
 	const char *servicep = service.length() == 0 ? NULL : service.c_str();
