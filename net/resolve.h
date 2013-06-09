@@ -1,5 +1,8 @@
-#ifndef _NET_RESOLVE_H
-#define _NET_RESOLVE_H
+#pragma once
+
+#include <string>
+
+struct addrinfo;
 
 namespace net {
 
@@ -11,6 +14,8 @@ void Shutdown();
 char *DNSResolveTry(const char *host, const char **err);
 char *DNSResolve(const char *host);
 
+bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error);
+void DNSResolveFree(addrinfo *res);
+
 int inet_pton(int af, const char* src, void* dst);
 }  // namespace net
-#endif
