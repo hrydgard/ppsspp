@@ -45,6 +45,7 @@ public:
 	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
 	
 	virtual bool CanBeFocused() const { return false; }
+	virtual bool IsViewGroup() const { return true; }
 
 protected:
 	std::vector<View *> views_;
@@ -66,12 +67,12 @@ enum {
 class AnchorLayoutParams : public LayoutParams {
 public:
 	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b)
-		: LayoutParams(w, h), left(l), top(t), right(r), bottom(b) {
+		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b) {
 
 	}
 
 	AnchorLayoutParams(float l, float t, float r, float b)
-		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT), left(l), top(t), right(r), bottom(b) {}
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_ANCHOR), left(l), top(t), right(r), bottom(b) {}
 
 	// These are not bounds, but distances from the container edges.
 	// Set to NONE to not attach this edge to the container.
@@ -88,19 +89,19 @@ public:
 class LinearLayoutParams : public LayoutParams {
 public:
 	LinearLayoutParams()
-		: LayoutParams(), weight(0.0f), gravity(G_TOPLEFT), hasMargins_(false) {}
+		: LayoutParams(LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), hasMargins_(false) {}
 	explicit LinearLayoutParams(float wgt, Gravity grav = G_TOPLEFT)
-		: LayoutParams(), weight(wgt), gravity(grav), hasMargins_(false) {}
+		: LayoutParams(LP_LINEAR), weight(wgt), gravity(grav), hasMargins_(false) {}
 	LinearLayoutParams(float wgt, const Margins &mgn)
-		: LayoutParams(), weight(wgt), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(LP_LINEAR), weight(wgt), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, float wgt = 0.0f, Gravity grav = G_TOPLEFT)
-		: LayoutParams(w, h), weight(wgt), gravity(grav), hasMargins_(false) {}
+		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), hasMargins_(false) {}
 	LinearLayoutParams(Size w, Size h, float wgt, Gravity grav, const Margins &mgn)
-		: LayoutParams(w, h), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(w, h, LP_LINEAR), weight(wgt), gravity(grav), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(Size w, Size h, const Margins &mgn)
-		: LayoutParams(w, h), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(w, h, LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 	LinearLayoutParams(const Margins &mgn)
-		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_LINEAR), weight(0.0f), gravity(G_TOPLEFT), margins(mgn), hasMargins_(true) {}
 
 	float weight;
 	Gravity gravity;

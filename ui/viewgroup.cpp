@@ -169,9 +169,11 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, Nei
 
 			// Then go right ahead and see if any of the children contain any better candidates.
 			for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
-				ViewGroup *vg = dynamic_cast<ViewGroup *>(*iter);
-				if (vg)
-					result = vg->FindNeighbor(view, direction, result);
+				if ((*iter)->IsViewGroup()) {
+					ViewGroup *vg = static_cast<ViewGroup *>(*iter);
+					if (vg)
+						result = vg->FindNeighbor(view, direction, result);
+				}
 			}
 
 			// Boost neighbors with the same parent
@@ -230,7 +232,9 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		numVisible++;
 
 		const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
-		const LinearLayoutParams *linLayoutParams = dynamic_cast<const LinearLayoutParams *>(layoutParams);
+		const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
+		if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+
 		Margins margins = defaultMargins_;
 
 		if (linLayoutParams) {
@@ -281,7 +285,8 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (size_t i = 0; i < views_.size(); i++) {
 			const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
-			const LinearLayoutParams *linLayoutParams = dynamic_cast<const LinearLayoutParams *>(layoutParams);
+			const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
+			if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
 
 			if (linLayoutParams && linLayoutParams->weight > 0.0f)
 				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight), MeasureSpec(EXACTLY, measuredHeight_));
@@ -295,7 +300,8 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		// Redistribute! and remeasure children!
 		for (size_t i = 0; i < views_.size(); i++) {
 			const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
-			const LinearLayoutParams *linLayoutParams = dynamic_cast<const LinearLayoutParams *>(layoutParams);
+			const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
+			if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
 
 			if (linLayoutParams && linLayoutParams->weight > 0.0f)
 				views_[i]->Measure(dc, MeasureSpec(EXACTLY, measuredWidth_), MeasureSpec(EXACTLY, unit * linLayoutParams->weight));
@@ -326,7 +332,8 @@ void LinearLayout::Layout() {
 			continue;
 
 		const LayoutParams *layoutParams = views_[i]->GetLayoutParams();
-		const LinearLayoutParams *linLayoutParams = dynamic_cast<const LinearLayoutParams *>(layoutParams);
+		const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
+		if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
 
 		Gravity gravity = G_TOPLEFT; 
 		Margins margins = defaultMargins_;
@@ -386,9 +393,11 @@ void FrameLayout::Layout() {
 void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	// Respect margins
 	Margins margins;
-	const LinearLayoutParams *params = dynamic_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
-	if (params) {
-		margins = params->margins;
+	const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
+	if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+
+	if (linLayoutParams) {
+		margins = linLayoutParams->margins;
 	}
 
 	// The scroll view itself simply obeys its parent.
@@ -407,9 +416,10 @@ void ScrollView::Layout() {
 
 	// Respect margins
 	Margins margins;
-	const LinearLayoutParams *params = dynamic_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
-	if (params) {
-		margins = params->margins;
+	const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
+	if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+	if (linLayoutParams) {
+		margins = linLayoutParams->margins;
 	}
 
 	scrolled.w = views_[0]->GetMeasuredWidth() - (margins.left + margins.right);
@@ -538,7 +548,8 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		MeasureSpec specW(UNSPECIFIED, 0.0f);
 		MeasureSpec specH(UNSPECIFIED, 0.0f);
 
-		const AnchorLayoutParams *params = dynamic_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
+		const AnchorLayoutParams *params = static_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
+		if (!params->Is(LP_ANCHOR)) params = 0;
 		if (params) {
 			width = params->width;
 			height = params->height;
@@ -559,7 +570,8 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 void AnchorLayout::Layout() {
 	for (size_t i = 0; i < views_.size(); i++) {
-		const AnchorLayoutParams *params = dynamic_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
+		const AnchorLayoutParams *params = static_cast<const AnchorLayoutParams *>(views_[i]->GetLayoutParams());
+		if (!params->Is(LP_ANCHOR)) params = 0;
 
 		Bounds vBounds;
 		vBounds.w = views_[i]->GetMeasuredWidth();

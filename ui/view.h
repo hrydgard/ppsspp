@@ -214,17 +214,28 @@ struct Margins {
 	uint8_t right;
 };
 
+enum LayoutParamsType {
+	LP_PLAIN = 0,
+	LP_LINEAR = 1,
+	LP_ANCHOR = 2,
+};
+
 // Need a virtual destructor so vtables are created, otherwise RTTI can't work
 class LayoutParams {
 public:
-	LayoutParams()
-		: width(WRAP_CONTENT), height(WRAP_CONTENT) {}
-	LayoutParams(Size w, Size h)
-		: width(w), height(h) {}
+	LayoutParams(LayoutParamsType type = LP_PLAIN)
+		: type_(type), width(WRAP_CONTENT), height(WRAP_CONTENT) {}
+	LayoutParams(Size w, Size h, LayoutParamsType type = LP_PLAIN)
+		: width(w), height(h), type_(type) {}
 	virtual ~LayoutParams() {}
-
 	Size width;
 	Size height;
+
+	// Fake RTTI
+	bool Is(LayoutParamsType type) const { return type_ == type; }
+
+private:
+	LayoutParamsType type_;
 };
 
 View *GetFocusedView();
@@ -287,6 +298,9 @@ public:
 
 	const std::string &Tag() const { return tag_; }
 	void SetTag(const std::string &str) { tag_ = str; }
+
+	// Fake RTTI
+	virtual bool IsViewGroup() const { return false; }
 
 protected:
 	// Inputs to layout
