@@ -1,4 +1,6 @@
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -14,11 +16,11 @@
 #ifdef _WIN32
 // Function Cross-Compatibility
 #define strcasecmp _stricmp
-#endif
 
 void __ods__(const char *p) {
 	OutputDebugString(p);
 }
+#endif
 
 unsigned int parseHex(const char *_szValue)
 {
