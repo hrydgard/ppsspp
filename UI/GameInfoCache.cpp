@@ -61,7 +61,6 @@ u64 GameInfo::GetGameSizeInBytes() {
 }
 
 std::vector<std::string> GameInfo::GetSaveDataDirectories() {
-	std::string id = paramSFO.GetValueString("DISC_ID");
 	std::string memc, flash;
 	GetSysDirectories(memc, flash);
 
@@ -169,6 +168,9 @@ public:
 					lock_guard lock(info_->lock);
 					info_->paramSFO.ReadSFO(sfoData, sfoSize);
 					info_->title = info_->paramSFO.GetValueString("TITLE");
+					info_->id = info_->paramSFO.GetValueString("DISC_ID");
+					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
+
 					info_->paramSFOLoaded = true;
 				}
 				delete [] sfoData;
@@ -193,6 +195,10 @@ public:
 			}
 		case FILETYPE_PSP_ELF:
 			// An elf on its own has no usable information, no icons, no nothing.
+			info_->title = getFilename(filename);
+			info_->id = "ELF000000";
+			info_->id_version = "ELF000000_1.00";
+			info_->paramSFOLoaded = true;
 			return;
 
 		case FILETYPE_PSP_ISO:
@@ -213,6 +219,9 @@ public:
 				lock_guard lock(info_->lock);
 				info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
 				info_->title = info_->paramSFO.GetValueString("TITLE");
+				info_->id = info_->paramSFO.GetValueString("DISC_ID");
+				info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
+
 				info_->paramSFOLoaded = true;
 			}
 

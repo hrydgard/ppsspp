@@ -56,6 +56,8 @@ public:
 
 	FileInfo fileInfo;
 	std::string title;  // for easy access, also available in paramSFO.
+	std::string id;
+	std::string id_version;
 	EmuFileType fileType;
 	ParamSFOData paramSFO;
 	bool paramSFOLoaded;

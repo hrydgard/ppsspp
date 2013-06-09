@@ -47,6 +47,7 @@ private:
 	std::string gamePath_;
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
+	UI::TextureView *texvGameIcon_;
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
 	UI::TextView *tvSaveDataSize_;

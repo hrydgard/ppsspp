@@ -44,9 +44,10 @@ void GameScreen::CreateViews() {
 
 	leftColumn->Add(new Choice("Back", "", new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
-		tvTitle_ = leftColumn->Add(new TextView(0, info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 10, NONE, NONE)));
-		tvGameSize_ = leftColumn->Add(new TextView(0, "...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 50, NONE, NONE)));
-		tvSaveDataSize_ = leftColumn->Add(new TextView(0, "...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 90, NONE, NONE)));
+		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
+		tvTitle_ = leftColumn->Add(new TextView(0, info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 200, NONE, NONE)));
+		tvGameSize_ = leftColumn->Add(new TextView(0, "...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 250, NONE, NONE)));
+		tvSaveDataSize_ = leftColumn->Add(new TextView(0, "...", ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 290, NONE, NONE)));
 	}
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -94,13 +95,20 @@ void GameScreen::update(InputState &input) {
 	UIScreen::update(input);
 
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
+
 	if (tvTitle_)
 		tvTitle_->SetText(info->title);
+	if (info->iconTexture && texvGameIcon_)	{
+		texvGameIcon_->SetTexture(info->iconTexture);
+		uint32_t color = whiteAlpha(ease((time_now_d() - info->timeIconWasLoaded) * 3));
+		texvGameIcon_->SetColor(color);
+	}
+
 	if (info->gameSize) {
 		char temp[256];
 		sprintf(temp, "Game: %1.1f MB", (float)(info->gameSize) / 1024.f / 1024.f);
 		tvGameSize_->SetText(temp);
-		sprintf(temp, "SaveData: %1.1f MB", (float)(info->saveDataSize) / 1024.f / 1024.f);
+		sprintf(temp, "SaveData: %1.2f MB", (float)(info->saveDataSize) / 1024.f / 1024.f);
 		tvSaveDataSize_->SetText(temp);
 	}
 }
