@@ -394,7 +394,7 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 				sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
 					m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
 
-				int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
+				s64 firstTimeStamp = getMpegTimeStamp(m_pdata + PSMF_FIRST_TIMESTAMP_OFFSET);
 				m_videopts = m_pFrame->pkt_dts + av_frame_get_pkt_duration(m_pFrame) - firstTimeStamp;
 				bGetFrame = true;
 			}
@@ -623,7 +623,7 @@ s64 MediaEngine::getAudioTimeStamp() {
 s64 MediaEngine::getLastTimeStamp() {
 	if (!m_pdata)
 		return 0;
-	int firstTimeStamp = bswap32(*(int*)(m_pdata + 86));
-	int lastTimeStamp = bswap32(*(int*)(m_pdata + 92));
+	s64 firstTimeStamp = getMpegTimeStamp(m_pdata + PSMF_FIRST_TIMESTAMP_OFFSET);
+	s64 lastTimeStamp = getMpegTimeStamp(m_pdata + PSMF_LAST_TIMESTAMP_OFFSET);
 	return lastTimeStamp - firstTimeStamp;
 }
