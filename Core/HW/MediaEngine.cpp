@@ -332,7 +332,7 @@ bool MediaEngine::setVideoDim(int width, int height)
 void MediaEngine::updateSwsFormat(int videoPixelMode) {
 #ifdef USE_FFMPEG
 	AVPixelFormat swsDesired = getSwsFormat(videoPixelMode);
-	if (swsDesired != m_sws_fmt) {
+	if (swsDesired != m_sws_fmt && m_pCodecCtx != 0) {
 		m_sws_fmt = swsDesired;
 		m_sws_ctx = sws_getCachedContext
 			(
@@ -353,6 +353,10 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 }
 
 bool MediaEngine::stepVideo(int videoPixelMode) {
+	if (!m_pFormatCtx)
+		return false;
+	if (!m_pCodecCtx)
+		return false;
 
 	// if video engine is broken, force to add timestamp
 	m_videopts += 3003;
