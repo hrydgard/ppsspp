@@ -1,13 +1,15 @@
-	#include "net/resolve.h"
+#include "net/resolve.h"
+#include "base/logging.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 
 
 #ifndef _WIN32
 #include <arpa/inet.h>
-#include <netdb.h>	// gethostbyname
+#include <netdb.h>
 #include <sys/socket.h>
 #else
 #include <WinSock2.h>
@@ -67,6 +69,46 @@ char *DNSResolve(const char *host)
 		exit(1);
 	}
 	return ip;
+}
+
+bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error)
+{
+	addrinfo hints = {0};
+	// TODO: Might be uses to lookup other values.
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG;
+	hints.ai_protocol = IPPROTO_TCP;
+
+	const char *servicep = service.length() == 0 ? NULL : service.c_str();
+
+	*res = NULL;
+	int result = getaddrinfo(host.c_str(), servicep, &hints, res);
+	if (result == EAI_AGAIN)
+	{
+		// Temporary failure.  Since this already blocks, let's just try once more.
+#ifdef _WIN32
+		Sleep(1);
+#else
+		sleep(1);
+#endif
+		result = getaddrinfo(host.c_str(), servicep, &hints, res);
+	}
+
+	if (result != 0)
+	{
+		error = gai_strerror(result);
+		if (*res != NULL)
+			freeaddrinfo(*res);
+		*res = NULL;
+		return false;
+	}
+
+	return true;
+}
+
+void DNSResolveFree(addrinfo *res)
+{
+	freeaddrinfo(res);
 }
 
 int inet_pton(int af, const char* src, void* dst)

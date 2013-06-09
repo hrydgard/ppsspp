@@ -26,11 +26,13 @@
 namespace net {
 
 Connection::Connection() 
-		: port_(-1), sock_(-1) {
+		: port_(-1), sock_(-1), resolved_(NULL) {
 }
 
 Connection::~Connection() {
 	Disconnect();
+	if (resolved_ != NULL)
+		DNSResolveFree(resolved_);
 }
 
 // For whatever crazy reason, htons isn't available on android x86 on the build server. so here we go.
@@ -45,21 +47,17 @@ bool Connection::Resolve(const char *host, int port) {
 	host_ = host;
 	port_ = port;
 
-	const char *err;
-	const char *ip = net::DNSResolveTry(host, &err);
-	if (ip == NULL) {
-		ELOG("Failed to resolve host %s", host);
+	char port_str[10];
+	snprintf(port_str, sizeof(port_str), "%d", port);
+	
+	std::string err;
+	if (!net::DNSResolve(host, port_str, &resolved_, err)) {
+		ELOG("Failed to resolve host %s: %s", host, err.c_str());
 		// So that future calls fail.
 		port_ = 0;
 		return false;
 	}
-	// VLOG(1) << "Resolved " << host << " to " << ip;
-	remote_.sin_family = AF_INET;
-	int tmpres = net::inet_pton(AF_INET, ip, (void *)(&(remote_.sin_addr.s_addr)));
-	CHECK_GE(tmpres, 0);	// << "inet_pton failed";
-	CHECK_NE(0, tmpres);	// << ip << " not a valid IP address";
-	remote_.sin_port = myhtons(port);
-	free((void *)ip);
+
 	return true;
 }
 
@@ -68,11 +66,16 @@ void Connection::Connect() {
 	sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	CHECK_GE(sock_, 0);
 
-	// poll once per second.. should find a way to do this blocking.
-	int retval = -1;
-	while (retval < 0) {
-		retval = connect(sock_, (sockaddr *)&remote_, sizeof(struct sockaddr));
-		if (retval >= 0) break;
+	for (int tries = 100; tries > 0; --tries) {
+		for (addrinfo *possible = resolved_; possible != NULL; possible = possible->ai_next) {
+			// TODO: Could support ipv6 without huge difficulty...
+			if (possible->ai_family != AF_INET)
+				continue;
+
+			int retval = connect(sock_, possible->ai_addr, (int)possible->ai_addrlen);
+			if (retval >= 0)
+				return;
+		}
 #ifdef _WIN32
 		Sleep(1);
 #else

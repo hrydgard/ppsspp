@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #endif
 #include <sys/socket.h>
+#include <netdb.h>
 #endif
 
 namespace net {
@@ -43,7 +44,7 @@ protected:
 	std::string host_;
 	int port_;
 
-	sockaddr_in remote_;
+	addrinfo *resolved_;
 
 private:
 	uintptr_t sock_;
