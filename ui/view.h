@@ -185,8 +185,9 @@ public:
 
 	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
 	template<class T> 
-	void Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
+	T *Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
 		Add(std::bind(theCallback, thiz, placeholder::_1));
+		return thiz;
 	}
 
 	// Sometimes you have an already-bound function<>, just use this then.
@@ -474,6 +475,7 @@ public:
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
 	virtual void SetText(const std::string &text) { text_ = text; }
+
 private:
 	int font_;
 	std::string text_;
