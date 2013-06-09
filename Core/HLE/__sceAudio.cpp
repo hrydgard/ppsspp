@@ -207,7 +207,8 @@ inline void __AudioWakeThreads(AudioChannel &chan, int result, int step)
 		waitInfo.numSamples -= step;
 
 		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
-		if (waitInfo.numSamples <= 0 && __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error) != 0)
+		u32 waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error);
+		if (waitInfo.numSamples <= 0 && waitID != 0)
 		{
 			// DEBUG_LOG(HLE, "Woke thread %i for some buffer filling", waitingThread);
 			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
@@ -215,6 +216,9 @@ inline void __AudioWakeThreads(AudioChannel &chan, int result, int step)
 
 			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
 		}
+		// This means the thread stopped waiting, so stop trying to wake it.
+		else if (waitID == 0)
+			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
 	}
 }
 
