@@ -557,6 +557,7 @@ public:
 	void VMUL(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMLA(ARMReg Vd, ARMReg Vn, ARMReg Vm);
 	void VMLS(ARMReg Vd, ARMReg Vn, ARMReg Vm);
+	void VMOV(ARMReg Dest, Operand2 op2);
 	void VMOV(ARMReg Dest, ARMReg Src, bool high);
 	void VMOV(ARMReg Dest, ARMReg Src);
 	void VCVT(ARMReg Dest, ARMReg Src, int flags);
@@ -569,7 +570,7 @@ public:
 
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);
-	void MOVI2F(ARMReg dest, float val, ARMReg tempReg);
+	void MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate = false);
 
 	void ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);
 	void ANDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch);

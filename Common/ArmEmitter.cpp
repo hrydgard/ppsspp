@@ -117,14 +117,34 @@ bool ARMXEmitter::TrySetValue_TwoOp(ARMReg reg, u32 val)
 	return true;
 }
 
-void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg)
+void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 {
 	union {float f; u32 u;} conv;
-	conv.f = val;
+	conv.f = negate ? -val : val;
+	// Try moving directly first if mantisse is empty
+	if (cpu_info.bVFPv3 && ((conv.u & 0x7FFFF) == 0))
+	{
+		// VFP Encoding for Imms: <7> Not(<6>) Repeat(<6>,5) <5:0> Zeros(19)
+		bool bit6 = (conv.u & 0x40000000) == 0x40000000;
+		bool canEncode = true;
+		for (u32 i = 0, mask = 0x20000000; i < 5; i++)
+		{
+			if (((conv.u & mask) == mask) == bit6)
+				canEncode = false;
+			mask >>= 1;
+		}
+		if (canEncode)
+		{
+			u32 imm8 = (conv.u & 0x80000000) >> 24; // sign bit
+			imm8 |= (!bit6 << 6);
+			imm8 |= (conv.u & 0x1F80000) >> 19;
+			VMOV(dest, Operand2(imm8, TYPE_IMM));
+			return;
+		}
+	}
 	MOVI2R(tempReg, conv.u);
 	VMOV(dest, tempReg);
-	// TODO: VMOV an IMM directly if possible
-	// Otherwise, use a literal pool and VLDR directly (+- 1020)
+	// Otherwise, possible to use a literal pool and VLDR directly (+- 1020)
 }
 
 void ARMXEmitter::ADDI2R(ARMReg rd, ARMReg rs, u32 val, ARMReg scratch)
@@ -983,6 +1003,7 @@ u32 ARMXEmitter::EncodeVm(ARMReg Vm)
 		else
 			return ((Reg & 0x1) << 5) | (Reg >> 1);
 }
+
 void ARMXEmitter::WriteVFPDataOp(u32 Op, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 {
 	bool quad_reg = Vd >= Q0;
@@ -1083,6 +1104,12 @@ void ARMXEmitter::VMSR(ARMReg Rt) {
 }
 
 // VFP and ASIMD
+void ARMXEmitter::VMOV(ARMReg Dest, Operand2 op2)
+{
+	_assert_msg_(DYNA_REC, cpu_info.bVFPv3, "VMOV #imm requires VFPv3");
+	Write32(condition | (0xEB << 20) | EncodeVd(Dest) | (0xA << 8) | op2.Imm8VFP());
+	fprintf(stderr, "Encoding: %x\n", condition | (0xEB << 20) | EncodeVd(Dest) | (0xB << 8) | op2.Imm8VFP());
+}
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 {
 	_assert_msg_(DYNA_REC, Src < S0, "This VMOV doesn't support SRC other than ARM Reg");
@@ -1091,7 +1118,7 @@ void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 	Dest = SubBase(Dest);
 
 	Write32(condition | (0xE << 24) | (high << 21) | ((Dest & 0xF) << 16) | (Src << 12) \
-		| (11 << 8) | ((Dest & 0x10) << 3) | (1 << 4));
+		| (0xB << 8) | ((Dest & 0x10) << 3) | (1 << 4));
 }
 
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src)

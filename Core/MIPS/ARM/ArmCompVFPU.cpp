@@ -124,17 +124,18 @@ namespace MIPSComp
 				
 				if (abs) {
 					VABS(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					if (negate)
+						VNEG(fpr.V(vregs[i]), fpr.V(vregs[i]));
 				} else {
-					VMOV(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					if (negate)
+						VNEG(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					else
+						VMOV(fpr.V(vregs[i]), fpr.V(origV[regnum]));
 				}
-			} else {
-				// TODO: There is VMOV s, imm on ARM, that can generate some of these constants. Not 1/3 or 1/6 though.
-				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], R0);
-			}
 
-			// TODO: This can be integrated into the VABS / VMOV above, and also the constants.
-			if (negate)
-				VNEG(fpr.V(vregs[i]), fpr.V(vregs[i]));
+			} else {
+				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], R0, negate);
+			}
 
 			// TODO: This probably means it will swap out soon, inefficiently...
 			fpr.ReleaseSpillLockV(vregs[i]);
@@ -169,7 +170,7 @@ namespace MIPSComp
 			if (sat == 1) {
 				// clamped = fabs(x) - fabs(x-0.5f) + 0.5f; // [ 0, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
-				MOVI2F(S0, 0.5, R0);
+				MOVI2F(S0, 0.5f, R0);
 				VABS(S1, fpr.V(vregs[i]));     // S1 = fabs(x)
 				VSUB(S2, fpr.V(vregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
 				VABS(S2, S2);
@@ -178,7 +179,7 @@ namespace MIPSComp
 			} else if (sat == 3) {
 				// clamped = fabs(x) - fabs(x-1.0f);        // [-1, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
-				MOVI2F(S0, 1.0, R0);
+				MOVI2F(S0, 1.0f, R0);
 				VABS(S1, fpr.V(vregs[i]));     // S1 = fabs(x)
 				VSUB(S2, fpr.V(vregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
 				VABS(S2, S2);
@@ -218,8 +219,7 @@ namespace MIPSComp
 				VLDR(fpr.V(vt), R0, 0);
 				if (doCheck) {
 					SetCC(CC_EQ);
-					MOVI2R(R0, 0);
-					VMOV(fpr.V(vt), R0);
+					MOVI2F(fpr.V(vt), 0.0f, R0);
 					SetCC(CC_AL);
 				}
 			}
@@ -559,10 +559,19 @@ namespace MIPSComp
 				VNEG(tempxregs[i], fpr.V(sregs[i]));
 				break;
 			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
-				DISABLE;
+				MOVI2F(S0, 0.5f, R0);
+				VABS(S1, fpr.V(sregs[i]));     // S1 = fabs(x)
+				VSUB(S2, fpr.V(sregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
+				VABS(S2, S2);
+				VSUB(fpr.V(tempxregs[i]), S1, S2); // v[i] = S1 - S2 + 0.5f
+				VADD(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]), S0);
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
-				DISABLE;
+				MOVI2F(S0, 1.0f, R0);
+				VABS(S1, fpr.V(sregs[i]));     // S1 = fabs(x)
+				VSUB(S2, fpr.V(sregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
+				VABS(S2, S2);
+				VSUB(fpr.V(tempxregs[i]), S1, S2); // v[i] = S1 - S2
 				break;
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
 				MOVI2F(S0, 1.0f, R0);

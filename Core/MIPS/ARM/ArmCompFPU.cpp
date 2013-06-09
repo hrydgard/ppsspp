@@ -304,7 +304,7 @@ void Jit::Comp_mxc1(u32 op)
 		{
 			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
 			LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
-			AND(R0,R0, Operand2(1)); // Just in case
+			AND(R0, R0, Operand2(1)); // Just in case
 			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 			BIC(gpr.R(rt), gpr.R(rt), Operand2(0x1 << 23));
 			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));
