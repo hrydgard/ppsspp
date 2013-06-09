@@ -313,7 +313,11 @@ Atrac *getAtrac(int atracID) {
 }
 
 int createAtrac(Atrac *atrac) {
-	int id = nextAtracID++;
+	int id;
+	do {
+		id= nextAtracID;
+		nextAtracID = (nextAtracID + 1) & 0x3f;
+	} while (atracMap.find(id) != atracMap.end());
 	atracMap[id] = atrac;
 	atrac->atracID = id;
 	return id;
@@ -633,8 +637,8 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 		}
 	// TODO: Can probably remove this after we validate no wrong ids?
 	} else {
-		memset(outbuf, 0, ATRAC3_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
-		*SamplesNum = ATRAC3_MAX_SAMPLES;
+		memset(outbuf, 0, 4);
+		*SamplesNum = 1;
 		*finish = 1;
 		*remains = -1;
 	}
