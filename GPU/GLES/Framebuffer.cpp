@@ -501,6 +501,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 void FramebufferManager::CopyDisplayToOutput() {
 	fbo_unbind();
+	currentRenderVfb_ = 0;
 
 	VirtualFramebuffer *vfb = GetDisplayFBO();
 	if (!vfb) {
@@ -531,8 +532,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 		prevDisplayFramebuf_ = displayFramebuf_;
 	}
 	displayFramebuf_ = vfb;
-
-	currentRenderVfb_ = 0;
 
 	if (vfb->fbo) {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
@@ -622,6 +621,8 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
+	currentRenderVfb_ = 0;
+
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
 		VirtualFramebuffer *vfb = *iter;
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
@@ -646,6 +647,8 @@ void FramebufferManager::DecimateFBOs() {
 
 void FramebufferManager::DestroyAllFBOs() {
 	fbo_unbind();
+	currentRenderVfb_ = 0;
+
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
 		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
@@ -670,6 +673,8 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 			return;
 
 		fbo_unbind();
+		currentRenderVfb_ = 0;
+
 		for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ) {
 			VirtualFramebuffer *vfb = *iter;
 			if (MaskedEqual(vfb->fb_address, addr)) {
