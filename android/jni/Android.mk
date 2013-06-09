@@ -7,7 +7,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := native_audio
 LOCAL_CFLAGS := -O2 -fsigned-char -ffast-math -Wall -Wno-multichar -Wno-psabi
 # yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -std=gnu++11 -frtti
+LOCAL_CPPFLAGS := -std=gnu++11 -fno-rtti
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
@@ -28,7 +28,7 @@ SRC := ../..
 
 LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
 # yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -std=gnu++11 -frtti
+LOCAL_CPPFLAGS := -std=gnu++11 -fno-rtti
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \

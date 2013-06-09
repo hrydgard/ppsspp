@@ -310,15 +310,15 @@ void MenuScreen::render() {
 				UIEnd();
 
 				// To try some new UI, enable this.
-				//screenManager()->switchScreen(new GameScreen(g_Config.recentIsos[i]));
-				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
+				screenManager()->switchScreen(new GameScreen(g_Config.recentIsos[i]));
+				//screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 				return;
 			}
 		} else {
 			if (UIButton((int)GEN_ID_LOOP(i), vgrid_recent, textureButtonWidth, textureButtonHeight, filename.c_str(), ALIGN_LEFT)) {
 				UIEnd();
-				//screenManager()->switchScreen(new GameScreen(g_Config.recentIsos[i]));
-				screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
+				screenManager()->switchScreen(new GameScreen(g_Config.recentIsos[i]));
+				//screenManager()->switchScreen(new EmuScreen(g_Config.recentIsos[i]));
 				return;
 			}
 		}

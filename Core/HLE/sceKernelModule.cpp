@@ -1319,7 +1319,7 @@ u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 	state.addr = moduleAddr;
 	state.result = SCE_KERNEL_ERROR_UNKNOWN_MODULE;
 
-	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state);
+	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state, PPSSPP_KERNEL_TMID_Module);
 	if (state.result == SCE_KERNEL_ERROR_UNKNOWN_MODULE)
 		ERROR_LOG(HLE, "sceKernelGetModuleIdByAddress(%08x): module not found", moduleAddr)
 	else

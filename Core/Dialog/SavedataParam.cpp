@@ -361,7 +361,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	{
 		int offset = sfoFile.GetDataOffset(sfoData,"SAVEDATA_PARAMS");
 		if(offset >= 0)
-			UpdateHash(sfoData, sfoSize, offset, (param->key[0]?3:1));
+			UpdateHash(sfoData, (int)sfoSize, offset, (param->key[0] ? 3 : 1));
 	}
 	WritePSPFile(sfopath, sfoData, (SceSize)sfoSize);
 	delete[] sfoData;

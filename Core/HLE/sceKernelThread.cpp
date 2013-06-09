@@ -2819,15 +2819,13 @@ void ActionAfterMipsCall::run(MipsCall &call) {
 
 ActionAfterMipsCall *Thread::getRunningCallbackAction()
 {
-	if (this->GetUID() == currentThread && g_inCbCount > 0)
-	{
+	if (this->GetUID() == currentThread && g_inCbCount > 0) 	{
 		MipsCall *call = mipsCalls.get(this->currentMipscallId);
 		ActionAfterMipsCall *action = 0;
 		if (call)
-			action = dynamic_cast<ActionAfterMipsCall *>(call->doAfter);
+			action = static_cast<ActionAfterMipsCall *>(call->doAfter);
 
-		if (!call || !action)
-		{
+		if (!call || !action) {
 			ERROR_LOG(HLE, "Failed to access deferred info for thread: %s", this->nt.name);
 			return NULL;
 		}
