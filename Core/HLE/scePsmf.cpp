@@ -847,6 +847,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 
 	if (psmfplayer->psmfPlayerAvcAu.pts > 0) {
 		if (psmfplayer->psmfPlayerAvcAu.pts >= psmfplayer->psmfPlayerLastTimestamp) {
+			INFO_LOG(HLE,"video end reach");
 			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
 	}
@@ -882,11 +883,17 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
 		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, videoDataAddr + 8);
 	}
+
+	int ret = psmfplayer->mediaengine->IsVideoEnd() ? ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
+
 	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 	int delaytime = 3000;
 	if (deltapts > 0)
 		delaytime = deltapts * 1000000 / 90000;
-	return hleDelayResult(0, "psmfPlayer video decode", delaytime);
+	if (!ret)
+		return hleDelayResult(ret, "psmfPlayer video decode", delaytime);
+	else
+		return hleDelayResult(ret, "psmfPlayer all data decoded", 3000);
 }
 
 int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
@@ -902,7 +909,8 @@ int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
 		psmfplayer->mediaengine->getAudioSamples(Memory::GetPointer(audioDataAddr));
 	}
-	return hleDelayResult(0, "psmfPlayer audio decode", 3000);
+	int ret = psmfplayer->mediaengine->IsAudioEnd() ? ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
+	return hleDelayResult(ret, "psmfPlayer audio decode", 3000);
 }
 
 int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer) 
@@ -930,7 +938,7 @@ u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr)
 
 	if (Memory::IsValidAddress(currentPtsAddr)) {
 		//Comment out until psmfPlayerAvcAu.pts start increasing correctly, Ultimate Ghosts N Goblins relies on it .
-		Memory::Write_U64(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
+		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
 	}	
 	return 0;
 }
@@ -948,7 +956,13 @@ u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr)
 	}
 
 	if (Memory::IsValidAddress(psmfInfoAddr)) {
-		Memory::Write_U64(psmfplayer->psmfPlayerAvcAu.pts, psmfInfoAddr);
+		Memory::Write_U32(psmfplayer->psmfPlayerLastTimestamp, psmfInfoAddr);
+		Memory::Write_U32(psmfplayer->videoStreamNum, psmfInfoAddr + 4);
+		Memory::Write_U32(psmfplayer->audioStreamNum, psmfInfoAddr + 8);
+		// pcm stream num?
+		Memory::Write_U32(0, psmfInfoAddr + 12);
+		// Player version?
+		Memory::Write_U32(0, psmfInfoAddr + 16);
 	}
 	return 0;
 }
