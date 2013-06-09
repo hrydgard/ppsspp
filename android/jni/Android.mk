@@ -216,7 +216,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceAtrac.cpp \
   $(SRC)/Core/HLE/__sceAudio.cpp \
   $(SRC)/Core/HLE/sceAudio.cpp \
-  $(SRC)/Core/HLE/sceAudioCodec.cpp \
+  $(SRC)/Core/HLE/sceAudiocodec.cpp \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCtrl.cpp \
   $(SRC)/Core/HLE/sceDeflt.cpp \
