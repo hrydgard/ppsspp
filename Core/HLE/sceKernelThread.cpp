@@ -2543,6 +2543,11 @@ int sceKernelReleaseWaitThread(SceUID threadID)
 	{
 		if (!t->isWaiting())
 			return SCE_KERNEL_ERROR_NOT_WAIT;
+		if (t->nt.waitType == WAITTYPE_HLEDELAY)
+		{
+			WARN_LOG_REPORT(HLE, "sceKernelReleaseWaitThread(): Refusing to wake HLE-delayed thread, right thing to do?");
+			return SCE_KERNEL_ERROR_NOT_WAIT;
+		}
 
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_RELEASE_WAIT);
 		hleReSchedule("thread released from wait");
