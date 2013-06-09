@@ -136,9 +136,12 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		if (enableColorTest)
 			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;
-		id->d[0] |= (doTextureProjection & 1) << 16;
-		id->d[0] |= (enableColorDoubling & 1) << 17;
-		id->d[0] |= (enableAlphaDoubling & 1) << 18;
+		if (doTextureProjection) 
+			id->d[0] |= (doTextureProjection & 1) << 16;
+		if (enableColorDoubling) 
+			id->d[0] |= (enableColorDoubling & 1) << 17;
+		if (enableAlphaDoubling) 
+			id->d[0] |= (enableAlphaDoubling & 1) << 18;
 	}
 }
 
