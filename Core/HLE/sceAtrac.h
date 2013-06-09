@@ -66,5 +66,6 @@ typedef struct
 
 // provide some decoder interface
 
+u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd);
 u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int *remains);
 int _AtracGetIDByContext(u32 contextAddr);
