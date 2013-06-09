@@ -158,8 +158,8 @@ struct MpegContext {
 	u32 mpegRawVersion;
 	u32 mpegOffset;
 	u32 mpegStreamSize;
-	u32 mpegFirstTimestamp;
-	u32 mpegLastTimestamp;
+	s64 mpegFirstTimestamp;
+	s64 mpegLastTimestamp;
 	u32 mpegFirstDate;
 	u32 mpegLastDate;
 	u32 mpegRingbufferAddr;
@@ -249,8 +249,8 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 	}
 	ctx->mpegOffset = bswap32(Memory::Read_U32(buffer_addr + PSMF_STREAM_OFFSET_OFFSET));
 	ctx->mpegStreamSize = bswap32(Memory::Read_U32(buffer_addr + PSMF_STREAM_SIZE_OFFSET));
-	ctx->mpegFirstTimestamp = bswap32(Memory::Read_U32(buffer_addr + PSMF_FIRST_TIMESTAMP_OFFSET));
-	ctx->mpegLastTimestamp = bswap32(Memory::Read_U32(buffer_addr + PSMF_LAST_TIMESTAMP_OFFSET));
+	ctx->mpegFirstTimestamp = getMpegTimeStamp(Memory::GetPointer(buffer_addr + PSMF_FIRST_TIMESTAMP_OFFSET));
+	ctx->mpegLastTimestamp = getMpegTimeStamp(Memory::GetPointer(buffer_addr + PSMF_LAST_TIMESTAMP_OFFSET));
 	ctx->mpegFirstDate = convertTimestampToDate(ctx->mpegFirstTimestamp);
 	ctx->mpegLastDate = convertTimestampToDate(ctx->mpegLastTimestamp);
 	ctx->avc.avcDetailFrameWidth = (Memory::Read_U8(buffer_addr + 142) * 0x10);
@@ -281,7 +281,7 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 	ctx->isAnalyzed = true;
 
 	INFO_LOG(ME, "Stream offset: %d, Stream size: 0x%X", ctx->mpegOffset, ctx->mpegStreamSize);
-	INFO_LOG(ME, "First timestamp: %d, Last timestamp: %d", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
+	INFO_LOG(ME, "First timestamp: %lld, Last timestamp: %lld", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
 }
 
 class PostPutAction : public Action {
