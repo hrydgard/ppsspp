@@ -24,7 +24,7 @@ void UIScreen::render() {
 		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
 
 		screenManager()->getUIContext()->Begin();
-		DrawBackground();
+		DrawBackground(*screenManager()->getUIContext());
 		root_->Draw(*screenManager()->getUIContext());
 		screenManager()->getUIContext()->End();
 		screenManager()->getUIContext()->Flush();

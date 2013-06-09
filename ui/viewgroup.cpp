@@ -1,4 +1,5 @@
 #include "base/display.h"
+#include "base/functional.h"
 #include "base/logging.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -368,7 +369,18 @@ void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ve
 }
 
 void FrameLayout::Layout() {
+	for (size_t i = 0; i < views_.size(); i++) {
+		float w = views_[i]->GetMeasuredWidth();
+		float h = views_[i]->GetMeasuredHeight();
 
+		Bounds bounds;
+		bounds.w = w;
+		bounds.h = h;
+
+		bounds.x = bounds_.x + (measuredWidth_ - w) / 2;
+		bounds.y = bounds_.y + (measuredWidth_ - h) / 2;
+		views_[i]->SetBounds(bounds);
+	}
 }
 
 void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -537,8 +549,8 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			if (params->top >= 0 && params->bottom >= 0) 	{
 				height = measuredHeight_ - params->top - params->bottom;
 			}
-			specW = MeasureSpec(EXACTLY, width);
-			specH = MeasureSpec(EXACTLY, height);
+			specW = width < 0 ? MeasureSpec(UNSPECIFIED) : MeasureSpec(EXACTLY, width);
+			specH = height < 0 ? MeasureSpec(UNSPECIFIED) : MeasureSpec(EXACTLY, height);
 		}
 
 		views_[i]->Measure(dc, specW, specH);
@@ -562,12 +574,18 @@ void AnchorLayout::Layout() {
 			bottom = params->bottom;
 		}
 
-		if (left >= 0) vBounds.x = bounds_.x + left;
-		if (top >= 0)	vBounds.y = bounds_.y + top;
-		if (right >= 0) vBounds.x = bounds_.x2() - right - vBounds.w;
-		if (bottom >= 0) vBounds.y = bounds_.y2() - bottom - vBounds.y;
+		if (left >= 0)
+			vBounds.x = bounds_.x + left;
+		else if (right >= 0)
+			vBounds.x = bounds_.x2() - right - vBounds.w;
+
+		if (top >= 0)
+			vBounds.y = bounds_.y + top;
+		else if (bottom >= 0)
+			vBounds.y = bounds_.y2() - bottom - vBounds.h;
 
 		views_[i]->SetBounds(vBounds);
+		views_[i]->Layout();
 	}
 }
 
@@ -628,8 +646,7 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 }
 
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
-	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN))
-	{
+	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN)) {
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
 			root->SetFocus();
@@ -649,6 +666,33 @@ void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 		EnableFocusMovement(false);
 
 	root->Update(input_state);
+}
+
+ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
+	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {
+	// Let's not be clever yet, we'll just create them all up front and add them all in.
+	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
+		View * v = Add(adaptor_->CreateItemView(i));
+		adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, placeholder::_1));
+	}
+}
+
+EventReturn ListView::OnItemCallback(int num, EventParams &e) {
+	EventParams ev;
+	ev.v = e.v;
+	ev.a = num;
+	OnChoice.Trigger(ev);
+	return EVENT_DONE;
+}
+
+View *ChoiceListAdaptor::CreateItemView(int index) {
+	return new Choice(items_[index]);
+}
+
+bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) {
+	Choice *choice = (Choice *)view;
+	choice->OnClick.Add(callback);
+	return EVENT_DONE;
 }
 
 }  // namespace UI

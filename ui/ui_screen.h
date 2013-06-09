@@ -17,7 +17,7 @@ public:
 
 protected:
 	virtual void CreateViews() = 0;
-	virtual void DrawBackground() {}
+	virtual void DrawBackground(UIContext &dc) {}
 
 	void RecreateViews() { recreateViews_ = true; }
 

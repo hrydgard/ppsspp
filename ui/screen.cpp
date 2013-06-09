@@ -95,8 +95,7 @@ void ScreenManager::sendMessage(const char *msg, const char *value) {
 		stack_.back().screen->sendMessage(msg, value);
 }
 
-void ScreenManager::deviceLost()
-{
+void ScreenManager::deviceLost() {
 	if (!stack_.empty())
 		stack_.back().screen->deviceLost();
 	// Dialogs too? Nah, they should only use the standard UI texture anyway.
@@ -124,6 +123,9 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 		switchToNext();
 	}
 	screen->setScreenManager(this);
+	if (screen->isTransparent()) {
+		layerFlags |= LAYER_TRANSPARENT;
+	}
 	Layer layer = {screen, layerFlags};
 	stack_.push_back(layer);
 }
@@ -157,7 +159,11 @@ void ScreenManager::processFinishDialog() {
 		}
 
 		Screen *caller = topScreen();
-		caller->dialogFinished(dialogFinished_, dialogResult_);
+		if (caller) {
+			caller->dialogFinished(dialogFinished_, dialogResult_);
+		} else {
+			ELOG("ERROR: no top screen when finishing dialog");
+		}
 		delete dialogFinished_;
 		dialogFinished_ = 0;
 	}

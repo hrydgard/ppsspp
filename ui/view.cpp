@@ -154,8 +154,19 @@ Item::Item(LayoutParams *layoutParams) : InertView(layoutParams) {
 	layoutParams_->height = ITEM_HEIGHT;
 }
 
+void Item::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = 0.0f;
+	h = 0.0f;
+}
+
+void ClickableItem::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = 0.0f;
+	h = 0.0f;
+}
+
 ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParams) {
-	layoutParams_->width = FILL_PARENT;
+	if (layoutParams_->width == WRAP_CONTENT) 
+		layoutParams_->width = FILL_PARENT;
 	layoutParams_->height = ITEM_HEIGHT;
 }
 

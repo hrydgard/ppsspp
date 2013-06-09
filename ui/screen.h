@@ -51,6 +51,8 @@ public:
 
 	virtual void *dialogData() { return 0; }
 
+	virtual bool isTransparent() { return false; }
+
 private:
 	ScreenManager *screenManager_;
 	DISALLOW_COPY_AND_ASSIGN(Screen);

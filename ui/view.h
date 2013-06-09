@@ -183,14 +183,16 @@ public:
 	// Call this from UI thread
 	void Update();
 
+	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
 	template<class T> 
 	void Handle(T *thiz, EventReturn (T::* theCallback)(EventParams &e)) {
 		Add(std::bind(theCallback, thiz, placeholder::_1));
 	}
 
-private:
+	// Sometimes you have an already-bound function<>, just use this then.
 	void Add(std::function<EventReturn(EventParams&)> func);
 
+private:
 	recursive_mutex mutex_;
 	std::vector<HandlerRegistration> handlers_;
 	bool triggered_;
@@ -381,19 +383,13 @@ private:
 class Item : public InertView {
 public:
 	Item(LayoutParams *layoutParams);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-		w = 0.0f;
-		h = 0.0f;
-	}
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 };
 
 class ClickableItem : public Clickable {
 public:
 	ClickableItem(LayoutParams *layoutParams);
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-		w = 0.0f;
-		h = 0.0f;
-	}
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 
 	// Draws the item background.
 	virtual void Draw(UIContext &dc);
