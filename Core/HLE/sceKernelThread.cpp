@@ -2825,7 +2825,8 @@ ActionAfterMipsCall *Thread::getRunningCallbackAction()
 		if (call)
 			action = static_cast<ActionAfterMipsCall *>(call->doAfter);
 
-		if (!call || !action) {
+		// We don't have rtti, so check manually.
+		if (!call || !action || action->actionTypeID != actionAfterMipsCall) {
 			ERROR_LOG(HLE, "Failed to access deferred info for thread: %s", this->nt.name);
 			return NULL;
 		}
