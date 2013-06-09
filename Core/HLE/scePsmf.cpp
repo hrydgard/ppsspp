@@ -888,7 +888,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 
 	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 	int delaytime = 3000;
-	if (deltapts > 0)
+	if (deltapts > 0 && !psmfplayer->mediaengine->IsAudioEnd())
 		delaytime = deltapts * 1000000 / 90000;
 	if (!ret)
 		return hleDelayResult(ret, "psmfPlayer video decode", delaytime);
