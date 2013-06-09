@@ -137,7 +137,7 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 			u32 imm8 = (conv.u & 0x80000000) >> 24; // sign bit
 			imm8 |= (!bit6 << 6);
 			imm8 |= (conv.u & 0x1F80000) >> 19;
-			VMOV(dest, Operand2(imm8, TYPE_IMM));
+			VMOV(dest, IMM(imm8));
 			return;
 		}
 	}
@@ -1107,7 +1107,6 @@ void ARMXEmitter::VMOV(ARMReg Dest, Operand2 op2)
 {
 	_assert_msg_(DYNA_REC, cpu_info.bVFPv3, "VMOV #imm requires VFPv3");
 	Write32(condition | (0xEB << 20) | EncodeVd(Dest) | (0xA << 8) | op2.Imm8VFP());
-	fprintf(stderr, "Encoding: %x\n", condition | (0xEB << 20) | EncodeVd(Dest) | (0xB << 8) | op2.Imm8VFP());
 }
 void ARMXEmitter::VMOV(ARMReg Dest, ARMReg Src, bool high)
 {
