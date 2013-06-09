@@ -211,3 +211,14 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 
 	output.pop_back();
 }
+
+std::string ReplaceAll(std::string result, const std::string& src, const std::string& dest)
+{
+	while(1)
+	{
+		const size_t pos = result.find(src);
+		if (pos == result.npos) break;
+		result.replace(pos, src.size(), dest);
+	}
+	return result;
+}

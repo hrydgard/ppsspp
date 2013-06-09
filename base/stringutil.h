@@ -131,6 +131,7 @@ static bool TryParse(const std::string &str, N *const output)
 }
 void SplitString(const std::string& str, const char delim, std::vector<std::string>& output);
 
+std::string ReplaceAll(std::string input, const std::string& src, const std::string& dest);
 
 template <typename N>
 static std::string ValueToString(const N value)

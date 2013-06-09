@@ -342,6 +342,14 @@ std::string getDir(const std::string &path)
 	return cutpath;
 }
 
+std::string getFilename(std::string path) {
+	size_t off = getDir(path).size() + 1;
+	if (off < path.size())
+		return path.substr(off);
+	else
+		return path;
+}
+
 void mkDir(const std::string &path)
 {
 #ifdef _WIN32
