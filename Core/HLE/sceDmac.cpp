@@ -34,11 +34,9 @@ u32 sceDmacMemcpy(u32 dst, u32 src, u32 size)
 	Memory::Memcpy(dst, Memory::GetPointer(src), size);
 
 	src &= ~0x40000000;
-	// TODO: If we do this it'll probably black out the framebuffer?
-	if (src < PSP_GetVidMemBase() || src > PSP_GetVidMemEnd())
-		gpu->InvalidateCache(dst, size, GPU_INVALIDATE_HINT);
-	else
-		WARN_LOG_REPORT(HLE, "sceDmacMemcpy(): FBO blit?");
+	dst &= ~0x40000000;
+	if ((src >= PSP_GetVidMemBase() && src < PSP_GetVidMemEnd()) || (dst >= PSP_GetVidMemBase() && dst < PSP_GetVidMemEnd()))
+		gpu->UpdateMemory(dst, src, size);
 	return 0;
 }
 
