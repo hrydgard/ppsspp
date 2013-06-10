@@ -610,8 +610,13 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
-	SceMpegRingBuffer ringbuffer;
-	Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+	SceMpegRingBuffer ringbuffer = {0};
+	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr)) {
+		Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+	} else {
+		ERROR_LOG(HLE, "Bogus mpegringbufferaddr");
+		return -1;
+	}
 
 	if (ringbuffer.packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
 		WARN_LOG(HLE, "sceMpegAvcDecode(%08x, %08x, %d, %08x, %08x): mpeg buffer empty", mpeg, auAddr, frameWidth, bufferAddr, initAddr);

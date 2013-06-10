@@ -96,6 +96,13 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	g_gameInfoCache.FlushBGs();
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
+	I18NCategory *s = GetI18NCategory("Screen"); 
+
+#ifdef _WIN32
+	if (g_Config.bFirstRun) {
+		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
+	}
+#endif
 }
 
 EmuScreen::~EmuScreen() {
