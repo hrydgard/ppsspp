@@ -261,7 +261,7 @@ u32 sceSasSetKeyOn(u32 core, int voiceNum) {
 		return ERROR_SAS_INVALID_VOICE;
 	}
 
-	if (sas->voices[voiceNum].paused) {
+	if (sas->voices[voiceNum].paused || sas->voices[voiceNum].on) {
 		return ERROR_SAS_VOICE_PAUSED;
 	}
 
@@ -282,7 +282,7 @@ u32 sceSasSetKeyOff(u32 core, int voiceNum) {
 	} else {
 		DEBUG_LOG(HLE,"sceSasSetKeyOff(%08x, %i)", core, voiceNum);
 
-		if (sas->voices[voiceNum].paused) {
+		if (sas->voices[voiceNum].paused || !sas->voices[voiceNum].on) {
 			return ERROR_SAS_VOICE_PAUSED;
 		}
 
