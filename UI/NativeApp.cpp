@@ -483,7 +483,8 @@ bool NativeIsAtTopLevel() {
 }
 
 void NativeTouch(const TouchInput &touch) {
-	screenManager->touch(touch);
+	if (screenManager)
+		screenManager->touch(touch);
 }
 
 void NativeMessageReceived(const char *message, const char *value) {
