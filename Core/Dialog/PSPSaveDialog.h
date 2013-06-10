@@ -71,6 +71,7 @@ public:
 	virtual int Update();
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
+	virtual pspUtilityDialogCommon *GetCommonParam();
 
 private :
 
@@ -78,8 +79,6 @@ private :
 	void DisplaySaveList(bool canMove = true);
 	void DisplaySaveIcon();
 	void DisplayTitle(std::string name);
-	void DisplayEnterBack();
-	void DisplayBack();
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2();
 	void DisplayMessage(std::string text, bool hasYesNo = false);
@@ -124,10 +123,5 @@ private :
 	int currentSelectedSave;
 
 	int yesnoChoice;
-
-	int okButtonImg;
-	int cancelButtonImg;
-	int okButtonFlag;
-	int cancelButtonFlag;
 };
 

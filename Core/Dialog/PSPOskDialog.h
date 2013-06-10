@@ -162,6 +162,8 @@ public:
 	virtual int Update();
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
+	virtual pspUtilityDialogCommon *GetCommonParam();
+
 private:
 	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address);
 	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);

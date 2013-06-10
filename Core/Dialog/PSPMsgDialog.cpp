@@ -177,28 +177,6 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 	PPGeDrawRect(60.0f, ey, 420.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
-void PSPMsgDialog::DisplayOk()
-{
-	I18NCategory *d = GetI18NCategory("Dialog");
-	float x = 261.5f;
-	if (messageDialog.common.buttonSwap == 1) {
-		x = 183.5f;
-	}
-	PPGeDrawImage(okButtonImg, x, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Enter"), x + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-}
-
-void PSPMsgDialog::DisplayBack()
-{
-	I18NCategory *d = GetI18NCategory("Dialog");
-	float x = 183.5f;
-	if (messageDialog.common.buttonSwap == 1) {
-		x = 261.5f;
-	}
-	PPGeDrawImage(cancelButtonImg, x, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Back"), x + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-}
-
 int PSPMsgDialog::Update()
 {
 	if (status != SCE_UTILITY_STATUS_RUNNING)
@@ -240,10 +218,10 @@ int PSPMsgDialog::Update()
 			DisplayMessage(msgText, (flag & DS_YESNO) != 0);
 
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
-			DisplayOk();
+			DisplayButtons(DS_BUTTON_OK);
 
 		if (flag & DS_CANCELBUTTON)
-			DisplayBack();
+			DisplayButtons(DS_BUTTON_CANCEL);
 
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
 		{
@@ -296,9 +274,10 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	p.Do(messageDialogAddr);
 	p.DoArray(msgText, sizeof(msgText));
 	p.Do(yesnoChoice);
-	p.Do(okButtonImg);
-	p.Do(cancelButtonImg);
-	p.Do(okButtonFlag);
-	p.Do(cancelButtonFlag);
 	p.DoMarker("PSPMsgDialog");
+}
+
+pspUtilityDialogCommon *PSPMsgDialog::GetCommonParam()
+{
+	return &messageDialog.common;
 }

@@ -865,3 +865,8 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	p.Do(inputChars);
 	p.DoMarker("PSPOskDialog");
 }
+
+pspUtilityDialogCommon *PSPOskDialog::GetCommonParam()
+{
+	return &oskParams->base;
+}

@@ -20,6 +20,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/System.h"
+#include "Core/Dialog/PSPDialog.h"
 #undef st_ctime
 #undef st_atime
 #undef st_mtime
@@ -130,15 +131,7 @@ struct SceUtilitySavedataFileListInfo
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.
 struct SceUtilitySavedataParam
 {
-	SceSize size; // Size of the structure
-
-	int language;
-
-	int buttonSwap;
-
-	int unknown[4];
-	int result;
-	int unknown2[4];
+	pspUtilityDialogCommon common;
 
 	int mode;  // 0 to load, 1 to save
 	int bind;

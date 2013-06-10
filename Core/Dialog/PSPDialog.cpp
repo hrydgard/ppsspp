@@ -18,6 +18,7 @@
 #include "../Util/PPGeDraw.h"
 #include "PSPDialog.h"
 #include "ChunkFile.h"
+#include "i18n/i18n.h"
 
 #define FADE_TIME 0.5
 const float FONT_SCALE = 0.55f;
@@ -110,12 +111,38 @@ void PSPDialog::DoState(PointerWrap &p)
 	p.Do(isFading);
 	p.Do(fadeIn);
 	p.Do(fadeValue);
+	p.Do(okButtonImg);
+	p.Do(cancelButtonImg);
+	p.Do(okButtonFlag);
+	p.Do(cancelButtonFlag);
 	p.DoMarker("PSPDialog");
+}
+
+pspUtilityDialogCommon *PSPDialog::GetCommonParam()
+{
+	// FIXME
+	return 0;
 }
 
 bool PSPDialog::IsButtonPressed(int checkButton)
 {
-	if(isFading) return false;
-	return (!(lastButtons & checkButton)) && (buttons & checkButton);
+	return !isFading && !(lastButtons & checkButton) && (buttons & checkButton);
 }
 
+void PSPDialog::DisplayButtons(int flags)
+{
+	I18NCategory *d = GetI18NCategory("Dialog");
+	float x1 = 183.5f, x2 = 261.5f;
+	if (GetCommonParam()->buttonSwap == 1) {
+		x1 = 261.5f;
+		x2 = 183.5f;
+	}
+	if (flags & DS_BUTTON_OK) {
+		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Enter"), x2 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	}
+	if (flags & DS_BUTTON_CANCEL) {
+		PPGeDrawText(d->T("Back"), x1 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
+	}
+}
