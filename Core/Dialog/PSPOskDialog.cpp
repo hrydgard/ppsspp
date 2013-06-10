@@ -21,6 +21,7 @@
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 #include "GPU/GPUState.h"
@@ -748,8 +749,16 @@ int PSPOskDialog::Update()
 
 		StartDraw();
 		RenderKeyboard();
-		PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(I_CIRCLE, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		if (g_Config.bButtonPreference)
+		{
+			PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CIRCLE, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		}
+		else
+		{
+			PPGeDrawImage(I_CIRCLE, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CROSS, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		}
 		//PPGeDrawImage(I_BUTTON, 230, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		//PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
 
@@ -785,8 +794,8 @@ int PSPOskDialog::Update()
 
 		selectedChar = (selectedChar + (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard])) % (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard]);
 
-		if (IsButtonPressed(CTRL_CROSS))
-		{		
+		if (IsButtonPressed(CTRL_CROSS) && g_Config.bButtonPreference || IsButtonPressed(CTRL_CIRCLE) && !g_Config.bButtonPreference)
+		{
 			inputChars = CombinationString(true);
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
@@ -806,7 +815,7 @@ int PSPOskDialog::Update()
 
 			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
 		}
-		else if (IsButtonPressed(CTRL_CIRCLE))
+		else if (IsButtonPressed(CTRL_CIRCLE) && g_Config.bButtonPreference || IsButtonPressed(CTRL_CROSS) && !g_Config.bButtonPreference)
 		{
 			if (inputChars.size() > 0)
 			{
