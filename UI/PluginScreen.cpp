@@ -27,7 +27,7 @@
 
 void DrawBackground(float alpha);
 
-void PluginScreen::DrawBackground()
+void PluginScreen::DrawBackground(UIContext &dc)
 {
 	::DrawBackground(1.0f);
 }
