@@ -42,7 +42,7 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 			*measured = spec.size;
 	} else if (sz == FILL_PARENT)	{
 		if (spec.type == UNSPECIFIED)
-			*measured = 0.0;  // We have no value to set
+			*measured = contentWidth;  // We have no value to set
 		else
 			*measured = spec.size;
 	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && *measured > spec.size)) {
@@ -178,6 +178,10 @@ void ClickableItem::Draw(UIContext &dc) {
 		style = dc.theme->itemFocusedStyle;
 	}
 	dc.FillRect(style.background, bounds_);
+}
+
+void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
 }
 
 void Choice::Draw(UIContext &dc) {

@@ -30,6 +30,11 @@ struct Bounds {
 	bool Contains(float px, float py) const {
 		return (px >= x && py >= y && px < x + w && py < y + h);
 	}
+
+	bool Intersects(const Bounds &other) const {
+		return !(x > other.x2() || x2() < other.x || y > other.y2() || y2() < other.y);
+	}
+
 	float x2() const { return x + w; }
 	float y2() const { return y + h; }
 	float centerX() const { return x + w * 0.5f; }

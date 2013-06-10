@@ -197,9 +197,9 @@ public:
 class TabHolder : public LinearLayout {
 public:
 	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0)
-		: LinearLayout(ORIENT_HORIZONTAL, layoutParams),
+		: LinearLayout(Opposite(orientation), layoutParams),
 		  orientation_(orientation), stripSize_(stripSize), currentTab_(0) {
-		tabStrip_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(stripSize, WRAP_CONTENT));
+		tabStrip_ = new LinearLayout(orientation, new LinearLayoutParams(stripSize, WRAP_CONTENT));
 		Add(tabStrip_);
 	}
 

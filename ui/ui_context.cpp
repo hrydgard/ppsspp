@@ -77,6 +77,14 @@ void UIContext::PopScissor() {
 	ActivateTopScissor();
 }
 
+Bounds UIContext::GetScissorBounds() {
+	if (!scissorStack_.empty())
+		return scissorStack_.back();
+	else
+		return Bounds(0, 0, dp_xres, dp_yres);
+}
+
+
 void UIContext::ActivateTopScissor() {
 	if (scissorStack_.size()) {
 		const Bounds &bounds = scissorStack_.back();

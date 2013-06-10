@@ -43,6 +43,7 @@ public:
 	// TODO: Support transformed bounds using stencil
 	void PushScissor(const Bounds &bounds);
 	void PopScissor();
+	Bounds GetScissorBounds();
 
 	void ActivateTopScissor();
 

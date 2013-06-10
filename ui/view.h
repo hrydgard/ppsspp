@@ -133,6 +133,10 @@ enum Orientation {
 	ORIENT_VERTICAL,
 };
 
+inline Orientation Opposite(Orientation o) {
+	if (o == ORIENT_HORIZONTAL) return ORIENT_VERTICAL; else return ORIENT_HORIZONTAL;
+}
+
 enum MeasureSpecType {
 	UNSPECIFIED,
 	EXACTLY,
@@ -167,7 +171,7 @@ class View;
 struct EventParams {
 	View *v;
 	uint32_t a, b, x, y;
-	const char *c;
+	std::string s;
 };
 
 struct HandlerRegistration {
@@ -416,6 +420,7 @@ public:
 	Choice(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {}
 
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
 
 private:

@@ -47,8 +47,11 @@ void ViewGroup::Touch(const TouchInput &input) {
 void ViewGroup::Draw(UIContext &dc) {
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if ((*iter)->GetVisibility() == V_VISIBLE)
-			(*iter)->Draw(dc);
+		if ((*iter)->GetVisibility() == V_VISIBLE) {
+			// Check if bounds are in current scissor rectangle.
+			if (dc.GetScissorBounds().Intersects((*iter)->GetBounds()))
+				(*iter)->Draw(dc);
+		}
 	}
 }
 
@@ -530,6 +533,7 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
 	int numColumns = (measuredWidth_ - settings_.spacing) / (settings_.columnWidth + settings_.spacing);
+	if (!numColumns) numColumns = 1;
 	int numRows = (int)(views_.size() + (numColumns - 1)) / numColumns;
 
 	float estimatedHeight = settings_.rowHeight * numRows;
@@ -620,7 +624,7 @@ void GridLayout::Layout() {
 		views_[i]->Layout();
 
 		x += itemBounds.w;
-		if (x >= bounds_.w) {
+		if (x + itemBounds.w >= bounds_.w) {
 			x = 0;
 			y += itemBounds.h + settings_.spacing;
 		} else {
