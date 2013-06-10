@@ -41,6 +41,9 @@ public:
 	bool bConfirmOnQuit;
 	bool bAutoRun;  // start immediately
 	bool bBrowse;
+#ifdef _WIN32
+	bool bTopMost;
+#endif
 
 	// General
 	int iNumWorkerThreads;

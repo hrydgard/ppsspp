@@ -76,6 +76,9 @@ void Config::Load(const char *iniFileName)
 	general->Get("WindowX", &iWindowX, 40);
 	general->Get("WindowY", &iWindowY, 100);
 	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
+#ifdef _WIN32
+	general->Get("TopMost", &bTopMost);
+#endif
 
 	if (recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);
@@ -186,6 +189,9 @@ void Config::Save()
 		general->Set("WindowX", iWindowX);
 		general->Set("WindowY", iWindowY);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
+#ifdef _WIN32
+		general->Set("TopMost", bTopMost);
+#endif
 		general->Set("Language", languageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
 		general->Set("MaxRecent", iMaxRecent);
