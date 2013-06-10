@@ -119,7 +119,9 @@ u32 _sceSasCore(u32 core, u32 outAddr) {
 	}
 
 	sas->Mix(outAddr);
-	return 0;
+	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
+	// Let's aim low for now.
+	return hleDelayResult(0, "sas core", 240);
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
@@ -131,7 +133,9 @@ u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume)
 	}
 
 	sas->Mix(inoutAddr, inoutAddr, leftVolume, rightVolume);
-	return 0;
+	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
+	// Let's aim low for now.
+	return hleDelayResult(0, "sas core", 240);
 }
 
 u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
