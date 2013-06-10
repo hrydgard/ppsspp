@@ -20,7 +20,7 @@
 #include "ChunkFile.h"
 
 #define FADE_TIME 0.5
-const float FONT_SCALE = 0.53125f;
+const float FONT_SCALE = 0.55f;
 
 PSPDialog::PSPDialog() : status(SCE_UTILITY_STATUS_SHUTDOWN)
 , lastButtons(0)
@@ -50,13 +50,6 @@ void PSPDialog::StartDraw()
 void PSPDialog::EndDraw()
 {
 	PPGeEnd();
-}
-
-void PSPDialog::DisplayMessage(std::string text)
-{
-	PPGeDrawRect(30, 30, 450, 31, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(30, 200, 450, 201, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawTextWrapped(text.c_str(), 240, 50, 420, PPGE_ALIGN_HCENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPDialog::Shutdown(bool force)
@@ -125,5 +118,4 @@ bool PSPDialog::IsButtonPressed(int checkButton)
 	if(isFading) return false;
 	return (!(lastButtons & checkButton)) && (buttons & checkButton);
 }
-
 

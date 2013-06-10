@@ -70,7 +70,6 @@ public:
 	void EndDraw();
 protected:
 	bool IsButtonPressed(int checkButton);
-	void DisplayMessage(std::string text);
 
 	void StartFade(bool fadeIn_);
 	void UpdateFade();

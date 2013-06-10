@@ -82,8 +82,7 @@ private :
 	void DisplayBack();
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2();
-	void DisplayConfirmationYesNo(std::string text);
-	void DisplayInfo(std::string text);
+	void DisplayMessage(std::string text, bool hasYesNo = false);
 	const std::string GetSelectedSaveDirName();
 
 	enum DisplayState

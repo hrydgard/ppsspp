@@ -23,7 +23,7 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
-const float FONT_SCALE = 0.53125f;
+const float FONT_SCALE = 0.55f;
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
@@ -130,61 +130,73 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	return 0;
 }
 
+void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
+{
+	const float WRAP_WIDTH = 350.0f;
+	float y = 136.0f, h;
+	int n;
+	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	float h2 = h * (float)n / 2.0f;
+	if (hasYesNo)
+	{
+		I18NCategory *d = GetI18NCategory("Dialog");
+		const char *choiceText;
+		u32 yesColor, noColor;
+		float x, w;
+		if (yesnoChoice == 1) {
+			choiceText = d->T("Yes");
+			x = 208.0f;
+			yesColor = 0xFF0FFFFF;
+			noColor  = 0xFFFFFFFF;
+		}
+		else {
+			choiceText = d->T("No");
+			x = 272.0f;
+			yesColor = 0xFFFFFFFF;
+			noColor  = 0xFF0FFFFF;
+		}
+		PPGeMeasureText(&w, &h, 0, choiceText, FONT_SCALE);
+		w = w / 2.0f + 5.5f;
+		h /= 2.0f;
+		float y2 = y + h2 + 4.0f;
+		h2 += h + 4.0f;
+		y = 132.0f - h;
+		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
+		PPGeDrawText(d->T("Yes"), 208.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(d->T("No"), 272.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
+			yesnoChoice = 1;
+		}
+		else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
+			yesnoChoice = 0;
+		}
+	}
+	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	float sy = 122.0f - h2, ey = 150.0f + h2;
+	PPGeDrawRect(60.0f, sy, 420.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(60.0f, ey, 420.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
+}
+
 void PSPMsgDialog::DisplayOk()
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	float x = 262.0f;
+	float x = 261.5f;
 	if (messageDialog.common.buttonSwap == 1) {
-		x = 172.0f;
+		x = 183.5f;
 	}
-	PPGeDrawImage(okButtonImg, x, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Enter"), x + 20.0f, 216, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(okButtonImg, x, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Enter"), x + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPMsgDialog::DisplayBack()
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	float x = 172.0f;
+	float x = 183.5f;
 	if (messageDialog.common.buttonSwap == 1) {
-		x = 262.0f;
+		x = 261.5f;
 	}
-	PPGeDrawImage(cancelButtonImg, x, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Back"), x + 20.0f, 216, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-}
-
-void PSPMsgDialog::DisplayYesNo()
-{
-	I18NCategory *d = GetI18NCategory("Dialog");
-	const char *choiceText;
-	float x;
-	u32 yesColor, noColor;
-	if (yesnoChoice == 1) {
-		choiceText = d->T("Yes");
-		x = 200.0f;
-		yesColor = 0xFF0FFFFF;
-		noColor  = 0xFFFFFFFF;
-	}
-	else {
-		choiceText = d->T("No");
-		x = 280.0f;
-		yesColor = 0xFFFFFFFF;
-		noColor  = 0xFF0FFFFF;
-	}
-	float w, h;
-	PPGeMeasureText(choiceText, FONT_SCALE, &w, &h);
-	w = w / 2.0f + 5.0f;
-	h = h / 2.0f;
-	PPGeDrawRect(x - w, 160.0f - h, x + w, 160.0f + h, CalcFadedColor(0x6DCFCFCF));
-	PPGeDrawText(d->T("Yes"), 200, 160, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-	PPGeDrawText(d->T("No"), 280, 160, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
-	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
-	{
-		yesnoChoice = 1;
-	}
-	else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1)
-	{
-		yesnoChoice = 0;
-	}
+	PPGeDrawImage(cancelButtonImg, x, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Back"), x + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
@@ -225,10 +237,8 @@ int PSPMsgDialog::Update()
 		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0xC0C8B2AC));
 
 		if ((flag & DS_MSG) || (flag & DS_ERRORMSG))
-			DisplayMessage(msgText);
+			DisplayMessage(msgText, (flag & DS_YESNO) != 0);
 
-		if (flag & DS_YESNO)
-			DisplayYesNo();
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
 			DisplayOk();
 

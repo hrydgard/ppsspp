@@ -64,8 +64,8 @@ public:
 	int Abort();
 
 private :
+	void DisplayMessage(std::string text, bool hasYesNo = false);
 	void DisplayBack();
-	void DisplayYesNo();
 	void DisplayEnter();
 	void DisplayOk();
 
