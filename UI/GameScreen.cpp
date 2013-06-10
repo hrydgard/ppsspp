@@ -26,6 +26,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MenuScreens.h"
+#include "UI/MainScreen.h"
 
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
@@ -114,7 +115,7 @@ void GameScreen::update(InputState &input) {
 }
 
 UI::EventReturn GameScreen::OnSwitchBack(UI::EventParams &e) {
-	screenManager()->switchScreen(new MenuScreen());
+	screenManager()->switchScreen(new MainScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -167,7 +168,7 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 	if (yes) {
 		info->DeleteGame();
 		g_gameInfoCache.Clear();
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->switchScreen(new MainScreen());
 	}
 }
 

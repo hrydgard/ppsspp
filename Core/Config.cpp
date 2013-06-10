@@ -54,6 +54,7 @@ void Config::Load(const char *iniFileName)
 
 	bSpeedLimit = false;
 	general->Get("FirstRun", &bFirstRun, true);
+	general->Get("NewUI", &bNewUI, false);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
@@ -64,11 +65,11 @@ void Config::Load(const char *iniFileName)
 	general->Get("Language", &languageIni, "en_US");
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
 	general->Get("EnableCheats", &bEnableCheats, false);
-	general->Get("MaxRecent", &iMaxRecent, 12);
+	general->Get("MaxRecent", &iMaxRecent, 24);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
-		iMaxRecent = 12;
+		iMaxRecent = 24;
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
