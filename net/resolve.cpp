@@ -83,7 +83,11 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 	hints.ai_socktype = SOCK_STREAM;
 #ifdef BLACKBERRY
 	hints.ai_flags = 0;
+#elif ANDROID
+	hints.ai_flags = AI_ADDRCONFIG;
 #else
+	// AI_V4MAPPED seems to have issues on some platforms, not sure we should include it:
+	// http://stackoverflow.com/questions/1408030/what-is-the-purpose-of-the-ai-v4mapped-flag-in-getaddrinfo
 	hints.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG;
 #endif
 	hints.ai_protocol = IPPROTO_TCP;
