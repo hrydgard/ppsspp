@@ -747,6 +747,7 @@ int PSPOskDialog::Update()
 		UpdateFade();
 
 		StartDraw();
+		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 		RenderKeyboard();
 		PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawImage(I_CIRCLE, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));

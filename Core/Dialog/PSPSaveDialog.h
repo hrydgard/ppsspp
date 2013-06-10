@@ -74,6 +74,7 @@ public:
 
 private :
 
+	void DisplayBanner(int which);
 	void DisplaySaveList(bool canMove = true);
 	void DisplaySaveIcon();
 	void DisplayTitle(std::string name);
@@ -106,6 +107,14 @@ private :
 		DS_DELETE_DELETING,
 		DS_DELETE_DONE,
 		DS_DELETE_NODATA
+	};
+
+	enum DialogBanner
+	{
+		DB_NONE,
+		DB_SAVE,
+		DB_LOAD,
+		DB_DELETE
 	};
 
 	DisplayState display;

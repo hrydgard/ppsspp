@@ -23,6 +23,8 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
+const float FONT_SCALE = 0.53125f;
+
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
 	, flag(0)
@@ -128,19 +130,53 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	return 0;
 }
 
+void PSPMsgDialog::DisplayOk()
+{
+	I18NCategory *d = GetI18NCategory("Dialog");
+	float x = 262.0f;
+	if (messageDialog.common.buttonSwap == 1) {
+		x = 172.0f;
+	}
+	PPGeDrawImage(okButtonImg, x, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Enter"), x + 20.0f, 216, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+}
+
 void PSPMsgDialog::DisplayBack()
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawImage(cancelButtonImg, 290, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Back"), 310, 218, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	float x = 172.0f;
+	if (messageDialog.common.buttonSwap == 1) {
+		x = 262.0f;
+	}
+	PPGeDrawImage(cancelButtonImg, x, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(d->T("Back"), x + 20.0f, 216, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPMsgDialog::DisplayYesNo()
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawText(d->T("Yes"), 200, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText(d->T("No"), 320, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
-
+	const char *choiceText;
+	float x;
+	u32 yesColor, noColor;
+	if (yesnoChoice == 1) {
+		choiceText = d->T("Yes");
+		x = 200.0f;
+		yesColor = 0xFF0FFFFF;
+		noColor  = 0xFFFFFFFF;
+	}
+	else {
+		choiceText = d->T("No");
+		x = 280.0f;
+		yesColor = 0xFFFFFFFF;
+		noColor  = 0xFF0FFFFF;
+	}
+	float w, h;
+	PPGeMeasureText(choiceText, FONT_SCALE, &w, &h);
+	w = w / 2.0f + 5.0f;
+	h = h / 2.0f;
+	PPGeDrawRect(x - w, 160.0f - h, x + w, 160.0f + h, CalcFadedColor(0x6DCFCFCF));
+	PPGeDrawText(d->T("Yes"), 200, 160, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+	PPGeDrawText(d->T("No"), 280, 160, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
 	{
 		yesnoChoice = 1;
@@ -151,22 +187,14 @@ void PSPMsgDialog::DisplayYesNo()
 	}
 }
 
-void PSPMsgDialog::DisplayOk()
-{
-	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawImage(okButtonImg, 200, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Enter"), 220, 218, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-}
-
 int PSPMsgDialog::Update()
 {
-
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 	{
 		return 0;
 	}
 
-	if((flag & DS_ERROR))
+	if ((flag & DS_ERROR))
 	{
 		status = SCE_UTILITY_STATUS_FINISHED;
 	}
@@ -180,7 +208,7 @@ int PSPMsgDialog::Update()
 		cancelButtonImg = I_CROSS;
 		okButtonFlag = CTRL_CIRCLE;
 		cancelButtonFlag = CTRL_CROSS;
-		if(messageDialog.common.buttonSwap == 1)
+		if (messageDialog.common.buttonSwap == 1)
 		{
 			okButtonImg = I_CROSS;
 			cancelButtonImg = I_CIRCLE;
@@ -189,16 +217,22 @@ int PSPMsgDialog::Update()
 		}
 
 		StartDraw();
+		// white -> RGB(168,173,189), black -> RGB(129,134,150)
+		// (255 - a) + (x * a / 255) = 173,  x * a / 255 = 134
+		// a = 255 - w + b = 158, x = b * 255 / a = ?
+		// but is not drawn using x * a + y * (255 - a) here?
+		//PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x9EF2D8D0));
+		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0xC0C8B2AC));
 
-		if((flag & DS_MSG) || (flag & DS_ERRORMSG))
+		if ((flag & DS_MSG) || (flag & DS_ERRORMSG))
 			DisplayMessage(msgText);
 
-		if(flag & DS_YESNO)
+		if (flag & DS_YESNO)
 			DisplayYesNo();
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
 			DisplayOk();
 
-		if(flag & DS_CANCELBUTTON)
+		if (flag & DS_CANCELBUTTON)
 			DisplayBack();
 
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
@@ -210,9 +244,9 @@ int PSPMsgDialog::Update()
 				messageDialog.buttonPressed = 0;
 			StartFade(false);
 		}
-		else if(IsButtonPressed(okButtonFlag) && (flag & DS_VALIDBUTTON))
+		else if (IsButtonPressed(okButtonFlag) && (flag & DS_VALIDBUTTON))
 		{
-			if(yesnoChoice == 0)
+			if (yesnoChoice == 0)
 			{
 				messageDialog.buttonPressed = 2;
 			}

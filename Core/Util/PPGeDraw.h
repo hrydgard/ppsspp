@@ -41,6 +41,8 @@ void __PPGeShutdown();
 void PPGeBegin();
 void PPGeEnd();
 
+// Get the metrics of the bounding box of unwrapped text.
+void PPGeMeasureText(const char *text, float scale, float *w, float *h);
 
 // If you want to draw using this texture but not go through the PSP GE emulation,
 // jsut call this. Will bind the texture to unit 0.
@@ -60,6 +62,18 @@ enum {
 	PPGE_ALIGN_TOPRIGHT = PPGE_ALIGN_TOP | PPGE_ALIGN_RIGHT,
 	PPGE_ALIGN_BOTTOMLEFT = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_LEFT,
 	PPGE_ALIGN_BOTTOMRIGHT = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_RIGHT,
+};
+
+enum {
+	PPGE_ESCAPE_NONE,
+	PPGE_ESCAPE_BACKSLASHED,
+};
+
+enum {
+	PPGE_LINE_NONE = 0,
+	PPGE_LINE_USE_ELLIPSIS = 1, // use ellipses in too long words
+	PPGE_LINE_WRAP_WORD = 2,
+	PPGE_LINE_WRAP_ANYWHERE = 4,
 };
 
 // These functions must be called between PPGeBegin and PPGeEnd.
