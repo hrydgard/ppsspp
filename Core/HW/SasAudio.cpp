@@ -414,12 +414,14 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 				int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
 				sampleFrac += voice.pitch;
 
-				// Reduce envelope to 15 bits, rounding down.
+				// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
+				// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
 				int envelopeValue = voice.envelope.GetHeight();
-				envelopeValue = ((envelopeValue >> 15) + 1) >> 1;
+				envelopeValue = (envelopeValue + (1 << 14)) >> 15;
 
 				// We just scale by the envelope before we scale by volumes.
-				sample = sample * (envelopeValue + 0x4000) >> 15;
+				// Again, we round up by adding (1 << 14) first (*after* multiplying.)
+				sample = ((sample * envelopeValue) + (1 << 14)) >> 15;
 
 				// We mix into this 32-bit temp buffer and clip in a second loop
 				// Ideally, the shift right should be there too but for now I'm concerned about
