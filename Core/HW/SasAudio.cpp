@@ -540,7 +540,6 @@ void SasVoice::KeyOn() {
 void SasVoice::KeyOff() {
 	on = false;
 	envelope.KeyOff();
-	vag.SetLoop(false);
 }
 
 void SasVoice::ChangedParams(bool changedVag) {
