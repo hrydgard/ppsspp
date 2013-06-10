@@ -84,7 +84,6 @@ public:
 
 	void DecodeBlock(u8 *&readp);
 	bool End() const { return end_; }
-	void SetLoop(bool enabled) { loopEnabled_ = enabled; }
 
 	void DoState(PointerWrap &p);
 
