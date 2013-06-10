@@ -669,6 +669,7 @@ add_library(xbrz STATIC
 include_directories(ext/xbrz)
 
 set(CoreExtra)
+set(CoreExtraLibs)
 if(ARM)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/ARM/ArmAsm.cpp
@@ -700,6 +701,12 @@ elseif(X86)
 		Core/MIPS/x86/RegCache.h
 		Core/MIPS/x86/RegCacheFPU.cpp
 		Core/MIPS/x86/RegCacheFPU.h)
+endif()
+
+# atrac3plus.cpp used dl* functions on non-win32 platforms
+# Core needs to be linked with dl on these platforms
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 endif()
 
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
@@ -925,7 +932,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Globals.h
 	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz
-	${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
+	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 
 # Generate git-version.cpp at build time.
