@@ -35,6 +35,11 @@
 #include "sceKernel.h"
 
 enum {
+	ERROR_SAS_INVALID_GRAIN = 0x80420001,
+	ERROR_SAS_INVALID_MAX_VOICES = 0x80420002,
+	ERROR_SAS_INVALID_OUTPUT_MODE = 0x80420003,
+	ERROR_SAS_INVALID_SAMPLE_RATE = 0x80420004,
+	ERROR_SAS_BAD_ADDRESS = 0x80420005,
 	ERROR_SAS_INVALID_VOICE = 0x80420010,
 	ERROR_SAS_INVALID_ADSR_CURVE_MODE = 0x80420013,
 	ERROR_SAS_INVALID_PARAMETER = 0x80420014,
@@ -65,7 +70,23 @@ void __SasShutdown() {
 
 
 u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate) {
-	INFO_LOG(HLE,"sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
+	if (!Memory::IsValidAddress(core) || (core & 0x3F) != 0) {
+		ERROR_LOG_REPORT(HLE, "sceSasInit(%08x, %i, %i, %i, %i): bad core address", core, grainSize, maxVoices, outputMode, sampleRate);
+		return ERROR_SAS_BAD_ADDRESS;
+	}
+	if (maxVoices == 0 || maxVoices > 32) {
+		ERROR_LOG_REPORT(HLE, "sceSasInit(%08x, %i, %i, %i, %i): bad max voices", core, grainSize, maxVoices, outputMode, sampleRate);
+		return ERROR_SAS_INVALID_MAX_VOICES;
+	}
+	if (grainSize < 0x40 || grainSize > 0x800 || (grainSize & 0x1F) != 0) {
+		ERROR_LOG_REPORT(HLE, "sceSasInit(%08x, %i, %i, %i, %i): bad grain size", core, grainSize, maxVoices, outputMode, sampleRate);
+		return ERROR_SAS_INVALID_GRAIN;
+	}
+	if (outputMode != 0 && outputMode != 1) {
+		ERROR_LOG_REPORT(HLE, "sceSasInit(%08x, %i, %i, %i, %i): bad output mode", core, grainSize, maxVoices, outputMode, sampleRate);
+		return ERROR_SAS_INVALID_OUTPUT_MODE;
+	}
+	INFO_LOG(HLE, "sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
 
 	sas->SetGrainSize(grainSize);
 	sas->maxVoices = maxVoices;
