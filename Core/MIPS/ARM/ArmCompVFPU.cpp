@@ -171,19 +171,19 @@ namespace MIPSComp
 				// clamped = fabs(x) - fabs(x-0.5f) + 0.5f; // [ 0, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 				MOVI2F(S0, 0.5f, R0);
-				VABS(S1, fpr.V(vregs[i]));     // S1 = fabs(x)
-				VSUB(S2, fpr.V(vregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
-				VABS(S2, S2);
-				VSUB(fpr.V(vregs[i]), S1, S2); // v[i] = S1 - S2 + 0.5f
+				VABS(S1, fpr.V(vregs[i]));                  // S1 = fabs(x)
+				VSUB(fpr.V(vregs[i]), fpr.V(vregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
+				VABS(fpr.V(vregs[i]), fpr.V(vregs[i]));
+				VSUB(fpr.V(vregs[i]), S1, fpr.V(vregs[i])); // v[i] = S1 - S2 + 0.5f
 				VADD(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
 			} else if (sat == 3) {
 				// clamped = fabs(x) - fabs(x-1.0f);        // [-1, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 				MOVI2F(S0, 1.0f, R0);
-				VABS(S1, fpr.V(vregs[i]));     // S1 = fabs(x)
-				VSUB(S2, fpr.V(vregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
-				VABS(S2, S2);
-				VSUB(fpr.V(vregs[i]), S1, S2); // v[i] = S1 - S2
+				VABS(S1, fpr.V(vregs[i]));                  // S1 = fabs(x)
+				VSUB(fpr.V(vregs[i]), fpr.V(vregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
+				VABS(fpr.V(vregs[i]), fpr.V(vregs[i]));
+				VSUB(fpr.V(vregs[i]), S1, fpr.V(vregs[i])); // v[i] = S1 - S2
 			}
 		}
 	}
@@ -560,18 +560,18 @@ namespace MIPSComp
 				break;
 			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 				MOVI2F(S0, 0.5f, R0);
-				VABS(S1, fpr.V(sregs[i]));     // S1 = fabs(x)
-				VSUB(S2, fpr.V(sregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
-				VABS(S2, S2);
-				VSUB(fpr.V(tempxregs[i]), S1, S2); // v[i] = S1 - S2 + 0.5f
+				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
+				VSUB(fpr.V(tempxregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-0.5f) {VABD}
+				VABS(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]));
+				VSUB(fpr.V(tempxregs[i]), S1, fpr.V(tempxregs[i])); // v[i] = S1 - S2 + 0.5f
 				VADD(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]), S0);
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 				MOVI2F(S0, 1.0f, R0);
-				VABS(S1, fpr.V(sregs[i]));     // S1 = fabs(x)
-				VSUB(S2, fpr.V(sregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
-				VABS(S2, S2);
-				VSUB(fpr.V(tempxregs[i]), S1, S2); // v[i] = S1 - S2
+				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
+				VSUB(fpr.V(tempxregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-1.0f) {VABD}
+				VABS(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]));
+				VSUB(fpr.V(tempxregs[i]), S1, fpr.V(tempxregs[i])); // v[i] = S1 - S2
 				break;
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
 				MOVI2F(S0, 1.0f, R0);
