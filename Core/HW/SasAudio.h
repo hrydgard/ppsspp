@@ -77,7 +77,7 @@ enum VoiceType {
 // It compresses 28 16-bit samples into a block of 16 bytes.
 class VagDecoder {
 public:
-	VagDecoder() : data_(0), read_(0) {}
+	VagDecoder() : data_(0), read_(0), end_(true) {}
 	void Start(u32 dataPtr, int vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
@@ -185,7 +185,7 @@ struct SasVoice
 			sampleRate(44100),
 			sampleFrac(0),
 			pitch(PSP_SAS_PITCH_BASE),
-			loop(true), // true = ignore VAG loop , false = process VAG loop
+			loop(false),
 			noiseFreq(0),
 			volumeLeft(PSP_SAS_VOL_MAX),
 			volumeRight(PSP_SAS_VOL_MAX),

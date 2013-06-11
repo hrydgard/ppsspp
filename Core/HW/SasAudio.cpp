@@ -279,6 +279,7 @@ SasInstance::SasInstance()
 #ifdef AUDIO_TO_FILE
 	audioDump = fopen("D:\\audio.raw", "wb");
 #endif
+	memset(&waveformEffect, 0, sizeof(waveformEffect));
 }
 
 SasInstance::~SasInstance() {
@@ -676,7 +677,6 @@ ADSREnvelope::ADSREnvelope()
 		state_(STATE_OFF),
 		steps_(0),
 		height_(0) {
-	memset(this, 0, sizeof(*this));
 }
 
 void ADSREnvelope::WalkCurve(int rate, int type) {
