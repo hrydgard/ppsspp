@@ -327,6 +327,7 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 
 	unsigned int cval;
 	float wacc = 0;
+	float maxX = 0.0f;
 	int lines = 1;
 	UTF8 utf(text);
 	while (true) {
@@ -334,6 +335,7 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 			break;
 		cval = utf.next();
 		if (cval == '\n') {
+			maxX = std::max(maxX, wacc);
 			wacc = 0;
 			lines++;
 			continue;
@@ -343,7 +345,7 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 			wacc += c->wx * fontscalex;
 		}
 	}
-	if (w) *w = wacc;
+	if (w) *w = std::max(wacc, maxX);
 	if (h) *h = atlasfont.height * fontscaley * lines;
 }
 
