@@ -94,6 +94,7 @@ public:
 	void BeginFrame();
 	void EndFrame();
 	void Resized();
+	void DeviceLost();
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size);

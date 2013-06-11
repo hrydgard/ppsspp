@@ -233,6 +233,7 @@ void GLES_GPU::DeviceLost() {
 	// FBO:s appear to survive? Or no?
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
+	framebufferManager_.DeviceLost();
 }
 
 void GLES_GPU::InitClear() {

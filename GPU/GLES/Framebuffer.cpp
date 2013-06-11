@@ -567,6 +567,11 @@ void FramebufferManager::EndFrame() {
 	}
 }
 
+void FramebufferManager::DeviceLost() {
+	DestroyAllFBOs();
+	resized_ = false;
+}
+
 void FramebufferManager::BeginFrame() {
 	DecimateFBOs();
 	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
