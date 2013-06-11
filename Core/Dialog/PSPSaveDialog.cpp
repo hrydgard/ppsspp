@@ -249,29 +249,23 @@ void PSPSaveDialog::DisplayBanner(int which)
 {
 	I18NCategory *d = GetI18NCategory("Dialog");
 	PPGeDrawRect(0, 0, 480, 23, CalcFadedColor(0x65636358));
-	//PPGeDrawImage(I_HEXAGON, 0, 11, PPGE_ALIGN_CENTER, CalcFadedColor(0xFFFFFFFF));
-	const char *icon = "\xE3\x80\x84"; // jp industrial
-	const char *title = "";
+	const char *title;
 	switch (which)
 	{
 	case DB_SAVE:
-		icon = "\xE2\x99\xA8"; // hot spring
 		title = d->T("Save");
 		break;
 	case DB_LOAD:
-		icon = "\xE2\x98\x82"; // umbrella
-		//icon = "\xE2\x99\xA8"; // 8th note
-		//icon = "\xE2\x99\xAC"; // two 16th notes
 		title = d->T("Load");
 		break;
 	case DB_DELETE:
-		icon = "\xE2\x98\x83"; // snowman
 		title = d->T("Delete");
 		break;
 	default:
+		title = "";
 		break;
 	}
-	PPGeDrawText(icon, 15, 11, PPGE_ALIGN_CENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	// TODO: Draw a hexagon icon
 	PPGeDrawText(title, 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 }
 
