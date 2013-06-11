@@ -88,7 +88,7 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 #else
 	// AI_V4MAPPED seems to have issues on some platforms, not sure we should include it:
 	// http://stackoverflow.com/questions/1408030/what-is-the-purpose-of-the-ai-v4mapped-flag-in-getaddrinfo
-	hints.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG;
+	hints.ai_flags = /*AI_V4MAPPED |*/ AI_ADDRCONFIG;
 #endif
 	hints.ai_protocol = IPPROTO_TCP;
 
