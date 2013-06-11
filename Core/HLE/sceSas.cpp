@@ -74,7 +74,7 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 		ERROR_LOG_REPORT(HLE, "sceSasInit(%08x, %i, %i, %i, %i): bad core address", core, grainSize, maxVoices, outputMode, sampleRate);
 		return ERROR_SAS_BAD_ADDRESS;
 	}
-	if (maxVoices == 0 || maxVoices > 32) {
+	if (maxVoices == 0 || maxVoices > PSP_SAS_VOICES_MAX) {
 		ERROR_LOG_REPORT(HLE, "sceSasInit(%08x, %i, %i, %i, %i): bad max voices", core, grainSize, maxVoices, outputMode, sampleRate);
 		return ERROR_SAS_INVALID_MAX_VOICES;
 	}
@@ -89,7 +89,8 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 	INFO_LOG(HLE, "sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
 
 	sas->SetGrainSize(grainSize);
-	sas->maxVoices = maxVoices;
+	// Seems like maxVoiecs is actually ignored for all intents and purposes.
+	sas->maxVoices = PSP_SAS_VOICES_MAX;
 	sas->outputMode = outputMode;
 	for (int i = 0; i < sas->maxVoices; i++) {
 		sas->voices[i].sampleRate = sampleRate;
