@@ -24,23 +24,7 @@
 #include "android/native_audio.h"
 #include "gfx_es2/gl_state.h"
 
-// For Xperia Play support
-enum AndroidKeyCodes {
-	KEYCODE_BUTTON_CROSS = 23, // trackpad or X button(Xperia Play) is pressed
-	KEYCODE_BUTTON_CROSS_PS3 = 96, // PS3 X button is pressed
-	KEYCODE_BUTTON_CIRCLE = 1004, // Special custom keycode generated from 'O' button by our java code. Or 'O' button if Alt is pressed (TODO)
-	KEYCODE_BUTTON_CIRCLE_PS3 = 97, // PS3 O button is pressed
-	KEYCODE_BUTTON_SQUARE = 99, // Square button(Xperia Play) is pressed
-	KEYCODE_BUTTON_TRIANGLE = 100, // 'Triangle button(Xperia Play) is pressed
-	KEYCODE_DPAD_LEFT = 21,
-	KEYCODE_DPAD_UP = 19,
-	KEYCODE_DPAD_RIGHT = 22,
-	KEYCODE_DPAD_DOWN = 20,
-	KEYCODE_BUTTON_L1 = 102,
-	KEYCODE_BUTTON_R1 = 103,
-	KEYCODE_BUTTON_START = 108,
-	KEYCODE_BUTTON_SELECT = 109,
-};
+#include "app-android.h"
 
 static JNIEnv *jniEnvUI;
 

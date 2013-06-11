@@ -172,6 +172,7 @@
     <None Include="ui\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="android\app-android.h" />
     <ClInclude Include="android\native-audio-so.h" />
     <ClInclude Include="android\native_audio.h" />
     <ClInclude Include="audio\mixer.h" />

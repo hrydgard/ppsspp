@@ -272,6 +272,7 @@
     <ClInclude Include="data\compression.h">
       <Filter>data</Filter>
     </ClInclude>
+    <ClInclude Include="android\app-android.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
