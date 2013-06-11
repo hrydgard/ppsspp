@@ -20,6 +20,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/System.h"
+#include "Core/Dialog/PSPDialog.h"
 #undef st_ctime
 #undef st_atime
 #undef st_mtime
@@ -54,10 +55,10 @@ enum SceUtilitySavedataType
 enum SceUtilitySavedataFocus
 {
 	SCE_UTILITY_SAVEDATA_FOCUS_NAME       = 0, // specified by saveName[]
-	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST  = 1, // first listed (on screen or of all)?
-	SCE_UTILITY_SAVEDATA_FOCUS_LASTLIST   = 2, // last listed (on screen or of all)?
+	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST  = 1, // first listed (on screen or of all?)
+	SCE_UTILITY_SAVEDATA_FOCUS_LASTLIST   = 2, // last listed (on screen or of all?)
 	SCE_UTILITY_SAVEDATA_FOCUS_LATEST     = 3, // latest by modification date (first if none)
-	SCE_UTILITY_SAVEDATA_FOCUS_OLDEST     = 4, // doldest by modification date (first if none)
+	SCE_UTILITY_SAVEDATA_FOCUS_OLDEST     = 4, // oldest by modification date (first if none)
 	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTDATA  = 5, // first non-empty (first if none)
 	SCE_UTILITY_SAVEDATA_FOCUS_LASTDATA   = 6, // last non-empty (first if none)
 	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTEMPTY = 7, // first empty (what if no empty?)
@@ -130,15 +131,7 @@ struct SceUtilitySavedataFileListInfo
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.
 struct SceUtilitySavedataParam
 {
-	SceSize size; // Size of the structure
-
-	int language;
-
-	int buttonSwap;
-
-	int unknown[4];
-	int result;
-	int unknown2[4];
+	pspUtilityDialogCommon common;
 
 	int mode;  // 0 to load, 1 to save
 	int bind;
