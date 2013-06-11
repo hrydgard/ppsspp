@@ -54,6 +54,7 @@ public:
 	virtual int Update();
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
+	virtual pspUtilityDialogCommon *GetCommonParam();
 
 	enum DialogStatus
 	{
@@ -64,13 +65,21 @@ public:
 		SCE_UTILITY_STATUS_SHUTDOWN 	= 4
 	};
 
+	enum DialogStockButton
+	{
+		DS_BUTTON_NONE   = 0x00,
+		DS_BUTTON_OK     = 0x01,
+		DS_BUTTON_CANCEL = 0x02,
+		DS_BUTTON_BOTH   = 0x03,
+	};
+
 	DialogStatus GetStatus();
 
 	void StartDraw();
 	void EndDraw();
 protected:
 	bool IsButtonPressed(int checkButton);
-	void DisplayMessage(std::string text);
+	void DisplayButtons(int flags);
 
 	void StartFade(bool fadeIn_);
 	void UpdateFade();
@@ -85,4 +94,9 @@ protected:
 	bool isFading;
 	bool fadeIn;
 	u32 fadeValue;
+
+	int okButtonImg;
+	int cancelButtonImg;
+	int okButtonFlag;
+	int cancelButtonFlag;
 };

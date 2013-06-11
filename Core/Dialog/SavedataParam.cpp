@@ -1305,7 +1305,7 @@ int SavedataParam::GetFirstDataSave()
 	{
 		if (saveDataList[i].size != 0)
 		{
-			idx = i;;
+			idx = i;
 			break;
 		}
 	}

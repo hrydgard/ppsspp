@@ -748,6 +748,7 @@ int PSPOskDialog::Update()
 		UpdateFade();
 
 		StartDraw();
+		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 		RenderKeyboard();
 		if (g_Config.bButtonPreference)
 		{
@@ -872,4 +873,9 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	p.Do(selectedChar);
 	p.Do(inputChars);
 	p.DoMarker("PSPOskDialog");
+}
+
+pspUtilityDialogCommon *PSPOskDialog::GetCommonParam()
+{
+	return &oskParams->base;
 }

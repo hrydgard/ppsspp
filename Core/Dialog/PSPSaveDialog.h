@@ -71,18 +71,17 @@ public:
 	virtual int Update();
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
+	virtual pspUtilityDialogCommon *GetCommonParam();
 
 private :
 
+	void DisplayBanner(int which);
 	void DisplaySaveList(bool canMove = true);
 	void DisplaySaveIcon();
 	void DisplayTitle(std::string name);
-	void DisplayEnterBack();
-	void DisplayBack();
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2();
-	void DisplayConfirmationYesNo(std::string text);
-	void DisplayInfo(std::string text);
+	void DisplayMessage(std::string text, bool hasYesNo = false);
 	const std::string GetSelectedSaveDirName();
 
 	enum DisplayState
@@ -108,6 +107,14 @@ private :
 		DS_DELETE_NODATA
 	};
 
+	enum DialogBanner
+	{
+		DB_NONE,
+		DB_SAVE,
+		DB_LOAD,
+		DB_DELETE
+	};
+
 	DisplayState display;
 
 	SavedataParam param;
@@ -116,10 +123,5 @@ private :
 	int currentSelectedSave;
 
 	int yesnoChoice;
-
-	int okButtonImg;
-	int cancelButtonImg;
-	int okButtonFlag;
-	int cancelButtonFlag;
 };
 

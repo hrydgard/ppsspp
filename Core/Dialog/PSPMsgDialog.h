@@ -61,13 +61,12 @@ public:
 	virtual int Update();
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
+	virtual pspUtilityDialogCommon *GetCommonParam();
+
 	int Abort();
 
 private :
-	void DisplayBack();
-	void DisplayYesNo();
-	void DisplayEnter();
-	void DisplayOk();
+	void DisplayMessage(std::string text, bool hasYesNo = false);
 
 	enum Flags
 	{
@@ -89,10 +88,5 @@ private :
 
 	char msgText[512];
 	int yesnoChoice;
-
-	int okButtonImg;
-	int cancelButtonImg;
-	int okButtonFlag;
-	int cancelButtonFlag;
 };
 
