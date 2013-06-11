@@ -88,6 +88,7 @@ MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_decodedPos(0), m_p
 	m_pFrameRGB = 0;
 	m_pIOContext = 0;
 	m_videoStream = -1;
+	m_audioStream = -1;
 	m_buffer = 0;
 	m_demux = 0;
 	m_audioContext = 0;
@@ -126,7 +127,6 @@ void MediaEngine::closeMedia() {
 	m_pIOContext = 0;
 	m_pCodecCtx = 0;
 	m_pFormatCtx = 0;
-	m_videoStream = -1;
 	m_pdata = 0;
 	m_demux = 0;
 	Atrac3plus_Decoder::CloseContext(&m_audioContext);
@@ -177,6 +177,8 @@ bool MediaEngine::openContext() {
 	av_log_set_level(AV_LOG_VERBOSE);
 	av_log_set_callback(&ffmpeg_logger);
 #endif 
+	if (m_readSize <= 0x2000 || m_pFormatCtx || !m_pdata)
+		return false;
 
 	u8* tempbuf = (u8*)av_malloc(m_bufSize);
 
@@ -191,15 +193,17 @@ bool MediaEngine::openContext() {
 	if(avformat_find_stream_info(m_pFormatCtx, NULL) < 0)
 		return false;
 
-	// Find the first video stream
-	for(int i = 0; i < (int)m_pFormatCtx->nb_streams; i++) {
-		if(m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
-			m_videoStream = i;
-			break;
+	if (m_videoStream == -1) {
+		// Find the first video stream
+		for(int i = 0; i < (int)m_pFormatCtx->nb_streams; i++) {
+			if(m_pFormatCtx->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) {
+				m_videoStream = i;
+				break;
+			}
 		}
+		if(m_videoStream == -1)
+			return false;
 	}
-	if(m_videoStream == -1)
-		return false;
 
 	// Get a pointer to the codec context for the video stream
 	m_pCodecCtx = m_pFormatCtx->streams[m_videoStream]->codec;
@@ -218,7 +222,7 @@ bool MediaEngine::openContext() {
 	int mpegoffset = bswap32(*(int*)(m_pdata + 8));
 	m_demux = new MpegDemux(m_pdata, m_streamSize, mpegoffset);
 	m_demux->setReadSize(m_readSize);
-	m_demux->demux();
+	m_demux->demux(m_audioStream);
 	m_audioPos = 0;
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
 	m_isVideoEnd = false;
@@ -245,8 +249,6 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int StreamSize)
 		return false;
 	memcpy(m_pdata, buffer, m_readSize);
 	
-	if (readSize > 0x2000)
-		openContext();
 	return true;
 }
 
@@ -272,9 +274,6 @@ bool MediaEngine::loadFile(const char* filename)
 	m_readSize = infosize;
 	m_streamSize = infosize;
 	m_pdata = buf;
-	
-	if (m_readSize > 0x2000)
-		openContext();
 
 	return true;
 }
@@ -288,7 +287,7 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 			openContext();
 		if (m_demux) {
 			m_demux->setReadSize(m_readSize);
-			m_demux->demux();
+			m_demux->demux(m_audioStream);
 		}
 	}
 	return size;

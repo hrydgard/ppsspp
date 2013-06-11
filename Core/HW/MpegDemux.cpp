@@ -140,10 +140,12 @@ int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 	return channel;
 }
 
-void MpegDemux::demux()
+void MpegDemux::demux(int audioChannel)
 {
 	if (!m_audioStream)
 		m_audioStream = new u8[m_len - m_index];
+	if (audioChannel >= 0)
+		m_audioChannel = audioChannel;
 	while (m_index < m_len)
 	{
 		if (m_readSize != m_len && m_index + 2048 > m_readSize)

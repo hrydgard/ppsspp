@@ -821,6 +821,8 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->psmfPlayerAvcAu.pts = initPts;
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
+
+	psmfplayer->mediaengine->openContext();
 	return 0;
 }
 
@@ -1076,6 +1078,7 @@ u32 scePsmfPlayerSelectSpecificVideo(u32 psmfPlayer, int videoCodec, int videoSt
 
 	psmfplayer->videoCodec = videoCodec;
 	psmfplayer->videoStreamNum = videoStreamNum;
+	psmfplayer->mediaengine->setVideoStream(videoStreamNum);
 	return 0;
 }
 
@@ -1090,6 +1093,7 @@ u32 scePsmfPlayerSelectSpecificAudio(u32 psmfPlayer, int audioCodec, int audioSt
 
 	psmfplayer->audioCodec = audioCodec;
 	psmfplayer->audioStreamNum = audioStreamNum;
+	psmfplayer->mediaengine->setAudioStream(audioStreamNum);
 	return 0;
 }
 

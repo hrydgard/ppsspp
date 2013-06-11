@@ -515,15 +515,17 @@ int sceMpegRegistStream(u32 mpeg, u32 streamType, u32 streamNum)
 		return -1;
 	}
 
-	DEBUG_LOG(HLE, "sceMpegRegistStream(%08x, %i, %i)", mpeg, streamType, streamNum);
+	INFO_LOG(HLE, "sceMpegRegistStream(%08x, %i, %i)", mpeg, streamType, streamNum);
 
 	switch (streamType) {
 	case MPEG_AVC_STREAM:
 		ctx->avcRegistered = true;
+		ctx->mediaengine->setVideoStream(streamNum);
 		break;
 	case MPEG_AUDIO_STREAM:
 	case MPEG_ATRAC_STREAM:
 		ctx->atracRegistered = true;
+		ctx->mediaengine->setAudioStream(streamNum);
 		break;
 	case MPEG_PCM_STREAM:
 		ctx->pcmRegistered = true;
