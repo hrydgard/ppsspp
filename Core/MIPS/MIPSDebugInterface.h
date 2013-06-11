@@ -74,16 +74,19 @@ public:
 
 	u32 GetRegValue(int cat, int index)
 	{
+		u32 temp;
 		switch (cat)
 		{
 		case 0:
 			return cpu->r[index];
 
 		case 1:
-			return *(u32 *)&cpu->f[index];
+			memcpy(&temp, &cpu->f[index], 4);
+			return temp;
 
 		case 2:
-			return *(u32 *)&cpu->v[index];
+			memcpy(&temp, &cpu->v[index], 4);
+			return temp;
 
 		default:
 			return 0;
@@ -99,11 +102,11 @@ public:
 			break;
 
 		case 1:
-			cpu->f[index] = *(float *)&value;
+			memcpy(&cpu->f[index], &value, 4);
 			break;
 
 		case 2:
-			cpu->v[index] = *(float *)&value;
+			memcpy(&cpu->v[index], &value, 4);
 			break;
 
 		default:
