@@ -54,6 +54,7 @@ public:
 
 private:
 	// Wow this is starting to grow big. Soon need to start looking at resizing it.
+	// Must stay a POD.
 	struct TexCacheEntry {
 		// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
 		const static int FRAMES_REGAIN_TRUST = 1000;
@@ -103,7 +104,7 @@ private:
 	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
 	void *readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level);
+	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages);
 	void *DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt);
 	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h);
 	template <typename T>

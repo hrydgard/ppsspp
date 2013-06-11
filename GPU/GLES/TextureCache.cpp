@@ -912,6 +912,7 @@ void TextureCache::SetTexture() {
 	gstate_c.flipTexture = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
+	bool replaceImages = false;
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Check for FBO - slow!
@@ -1033,7 +1034,13 @@ void TextureCache::SetTexture() {
 				lastBoundTexture = -1;
 			}
 			if (doDelete) {
-				glDeleteTextures(1, &entry->texture);
+				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F)) {
+					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
+					// Instead, let's use glTexSubImage to replace the images.
+					replaceImages = true;
+				} else {
+					glDeleteTextures(1, &entry->texture);
+				}
 			}
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
 				entry->status = TexCacheEntry::STATUS_HASHING;
@@ -1075,7 +1082,9 @@ void TextureCache::SetTexture() {
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
 
-	glGenTextures(1, &entry->texture);
+	if (!replaceImages) {
+		glGenTextures(1, &entry->texture);
+	}
 	glBindTexture(GL_TEXTURE_2D, entry->texture);
 	lastBoundTexture = entry->texture;
 	
@@ -1098,18 +1107,18 @@ void TextureCache::SetTexture() {
 		// For now, I choose to use autogen mips on GLES2 and the game's own on other platforms.
 		// As is usual, GLES3 will solve this problem nicely but wide distribution of that is
 		// years away.
-		LoadTextureLevel(*entry, 0);
+		LoadTextureLevel(*entry, 0, replaceImages);
 		if (maxLevel > 0)
 			glGenerateMipmap(GL_TEXTURE_2D);
 #else
 		for (int i = 0; i <= maxLevel; i++) {
-			LoadTextureLevel(*entry, i);
+			LoadTextureLevel(*entry, i, replaceImages);
 		}
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 #endif
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
 	} else {
-		LoadTextureLevel(*entry, 0);
+		LoadTextureLevel(*entry, 0, replaceImages);
 #ifndef USING_GLES2
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 #endif
@@ -1429,7 +1438,7 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFm
 		entry.status |= TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
-void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
+void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages) {
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
@@ -1447,9 +1456,10 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 
 	gpuStats.numTexturesDecoded++;
 	// Can restore these and remove the above fixup on some platforms.
-	//glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
+	// glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
+	// glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
+
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
-	//glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
 
 	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
@@ -1471,14 +1481,18 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level) {
 		entry.status |= TexCacheEntry::STATUS_ALPHA_UNKNOWN;
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-	glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
-	GLenum err = glGetError();
-	if (err == GL_OUT_OF_MEMORY) {
-		lowMemoryMode_ = true;
-		Decimate();
 
-		// Try again.
+	if (replaceImages) {
+		glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components, dstFmt, pixelData);
+	} else {
 		glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
+		GLenum err = glGetError();
+		if (err == GL_OUT_OF_MEMORY) {
+			lowMemoryMode_ = true;
+			Decimate();
+			// Try again.
+			glTexImage2D(GL_TEXTURE_2D, level, components, w, h, 0, components, dstFmt, pixelData);
+		}
 	}
 }
 
