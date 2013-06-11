@@ -123,10 +123,7 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
 
-		bool invalidate = (texAddr >= addr && texAddr < addr_end) || (texEnd >= addr && texEnd < addr_end);
-		invalidate = invalidate || (addr >= texAddr && addr < texEnd) || (addr_end >= texAddr && addr_end < texEnd);
-
-		if (invalidate) {
+		if (texAddr < addr_end && addr < texEnd) {
 			if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
 				// Clear status -> STATUS_HASHING.
 				iter->second.status &= ~TexCacheEntry::STATUS_MASK;
@@ -143,8 +140,14 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	}
 }
 
-void TextureCache::InvalidateAll(GPUInvalidationType type) {
-	Invalidate(0, 0xFFFFFFFF, type);
+void TextureCache::InvalidateAll(GPUInvalidationType /*unused*/) {
+	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
+		if ((iter->second.status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_RELIABLE) {
+			// Clear status -> STATUS_HASHING.
+			iter->second.status &= ~TexCacheEntry::STATUS_MASK;
+		}
+		iter->second.invalidHint++;
+	}
 }
 
 void TextureCache::ClearNextFrame() {
@@ -935,7 +938,7 @@ void TextureCache::SetTexture() {
 			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 			gstate_c.actualTextureHeight = h;
 			gstate_c.flipTexture = true;
-			gstate_c.textureFullAlpha = (entry->status && TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
+			gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 			entry->lastFrame = gpuStats.numFrames;
 			return;
 		}
@@ -1017,7 +1020,7 @@ void TextureCache::SetTexture() {
 			if (entry->texture != lastBoundTexture) {
 				glBindTexture(GL_TEXTURE_2D, entry->texture);
 				lastBoundTexture = entry->texture;
-				gstate_c.textureFullAlpha = (entry->status && TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
+				gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 			}
 			UpdateSamplingParams(*entry, false);
 			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
@@ -1122,7 +1125,7 @@ void TextureCache::SetTexture() {
 	//glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
 
-	gstate_c.textureFullAlpha = (entry->status && TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
+	gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
 void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt) {
