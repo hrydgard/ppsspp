@@ -282,6 +282,12 @@ float scePowerGetBusClockFrequencyFloat() {
 	return (float) busFreq;
 }
 
+int scePowerTick() {
+	DEBUG_LOG(HLE, "scePowerTick()");
+	// Don't think we need to do anything.
+	return 0;
+}
+
 
 u32 IsPSPNonFat() {
 	return PSP_MODEL_FAT;  
@@ -291,7 +297,7 @@ static const HLEFunction scePower[] = {
 	{0x04B7766E,&WrapI_II<scePowerRegisterCallback>,"scePowerRegisterCallback"},
 	{0x2B51FE2F,0,"scePower_2B51FE2F"},
 	{0x442BFBAC,0,"scePowerGetBacklightMaximum"},
-	{0xEFD3C963,0,"scePowerTick"},
+	{0xEFD3C963,&WrapI_V<scePowerTick>,"scePowerTick"},
 	{0xEDC13FE5,0,"scePowerGetIdleTimer"},
 	{0x7F30B3B1,0,"scePowerIdleTimerEnable"},
 	{0x972CE941,0,"scePowerIdleTimerDisable"},

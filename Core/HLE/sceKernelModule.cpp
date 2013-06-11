@@ -64,6 +64,12 @@ enum {
 	NID_MODULE_SDK_VERSION = 0x11B97506,
 };
 
+// This is a workaround for misbehaving homebrew (like TBL's Suicide Barbie (Final)).
+static const char *lieAboutSuccessModules[] = {
+	"flash0:/kd/audiocodec.prx",
+	"flash0:/kd/libatrac3plus.prx",
+};
+
 static const char *blacklistedModules[] = {
 	"sceATRAC3plus_Library",
 	"sceFont_Library",
@@ -999,6 +1005,18 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	if (!name) {
 		ERROR_LOG(LOADER, "sceKernelLoadModule(NULL, %08x): Bad name", flags);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(lieAboutSuccessModules); i++) {
+		if (!strcmp(name, lieAboutSuccessModules[i])) {
+			INFO_LOG(LOADER, "Tries to load module %s. We return a fake module.", lieAboutSuccessModules[i]);
+
+			Module *module = new Module;
+			kernelObjects.Create(module);
+			memset(&module->nm, 0, sizeof(module->nm));
+			module->isFake = true;
+			return module->GetUID();
+		}
 	}
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
