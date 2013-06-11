@@ -646,8 +646,14 @@ static int durationFromRate(int rate)
 
 const short expCurveReference = 0x7000;
 
+// This needs a rewrite / rethink. Doing all this per sample is insane.
 static int getExpCurveAt(int index, int duration) {
 	const short curveLength = sizeof(expCurve) / sizeof(short);
+
+	if (duration == 0) {
+		// Avoid division by zero, and thus undefined behaviour in conversion to int.
+		return 0;
+	}
 
 	float curveIndex = (index * curveLength) / (float) duration;
 	int curveIndex1 = (int) curveIndex;
