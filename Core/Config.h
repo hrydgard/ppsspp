@@ -98,6 +98,12 @@ public:
 	bool bShowDebugStats;
 	bool bLargeControls;
 	bool bAccelerometerToAnalogHoriz;
+	// Temporary until control mapping rewrite
+	// 0 = none
+	// 1 = arrow buttons
+	// 2 = face buttons
+	// 3 = L/R
+	int iRightStickBind;
 
 	// Control
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems

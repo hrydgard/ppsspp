@@ -53,7 +53,7 @@ enum {
 };
 
 //these might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc
-typedef struct SceNetAdhocctlParams
+struct SceNetAdhocctlParams
 {
 	int channel; //which ad-hoc channel to connect to
 	char name[8]; //connection name
@@ -61,7 +61,7 @@ typedef struct SceNetAdhocctlParams
 	char nickname[128]; //PSP's nickname?
 };
 
-typedef struct ProductStruct
+struct ProductStruct
 {
 	int unknown; //unknown, set to 0
 	char product[9]; //Product name?
