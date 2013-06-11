@@ -1034,13 +1034,16 @@ void TextureCache::SetTexture() {
 				lastBoundTexture = -1;
 			}
 			if (doDelete) {
+				// TODO: This stuff is missing some check, its causes corruption. See issue #2222 .
+				/*
 				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F)) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
 				} else {
 					glDeleteTextures(1, &entry->texture);
-				}
+				}*/
+				glDeleteTextures(1, &entry->texture);
 			}
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
 				entry->status = TexCacheEntry::STATUS_HASHING;
