@@ -172,7 +172,15 @@ void XinputDevice::ApplyDiff(XINPUT_STATE &state, InputState &input_state) {
 		}
 
 	}
+	const SHORT rthreshold = 22000;
+
+	if      (state.Gamepad.sThumbRX >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+	else if (state.Gamepad.sThumbRX < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+        
+	if      (state.Gamepad.sThumbRY >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
+	else if (state.Gamepad.sThumbRY < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
 }
+
 int XinputDevice::UpdateRawStateSingle(RawInputState &rawState)
 {
 	if (g_Config.iForceInputDevice > 0) return -1;
