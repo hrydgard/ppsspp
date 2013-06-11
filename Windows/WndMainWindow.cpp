@@ -52,7 +52,9 @@ extern InputState input_state;
 extern const char * getVirtualKeyName(unsigned char key);
 extern const char * getXinputButtonName(unsigned int button);
 #define TIMER_CURSORUPDATE 1
+#define TIMER_CURSORMOVEUPDATE 2
 #define CURSORUPDATE_INTERVAL_MS 50
+#define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
 namespace MainWindow
 {
@@ -63,6 +65,10 @@ namespace MainWindow
 
 	static HINSTANCE hInst;
 	static int cursorCounter = 0;
+	static int prevCursorX = -1;
+	static int prevCursorY = -1;
+	static bool mouseButtonDown = false;
+	static bool hideCursor = false;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
@@ -179,11 +185,13 @@ namespace MainWindow
 	}
 
 	void CorrectCursor() {
-		if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
+		bool autoHide = g_bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
+		if (autoHide && hideCursor) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
 			}
 		} else {
+			hideCursor = !autoHide;
 			if (cursorCounter < 0) {
 				cursorCounter = ShowCursor(TRUE);
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
@@ -249,6 +257,7 @@ namespace MainWindow
 		//accept dragged files
 		DragAcceptFiles(hwndMain, TRUE);
 
+		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 
 		Update();
@@ -309,6 +318,8 @@ namespace MainWindow
 		// and as asynchronous touch events for minimal latency.
 
 		case WM_LBUTTONDOWN:
+			// Hack: Take the opportunity to show the cursor.
+			mouseButtonDown = true;
 			{
 				lock_guard guard(input_state.lock);
 				input_state.mouse_valid = true;
@@ -329,6 +340,17 @@ namespace MainWindow
 
 		case WM_MOUSEMOVE:
 			{
+				// Hack: Take the opportunity to show the cursor.
+				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
+				int cursorX = GET_X_LPARAM(lParam);
+				int cursorY = GET_Y_LPARAM(lParam);
+				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
+					hideCursor = false;
+					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
+				}
+				prevCursorX = cursorX;
+				prevCursorY = cursorY;
+
 				lock_guard guard(input_state.lock);
 				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
 				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
@@ -346,6 +368,8 @@ namespace MainWindow
 			break;
 
 		case WM_LBUTTONUP:
+			// Hack: Take the opportunity to hide the cursor.
+			mouseButtonDown = false;
 			{
 				lock_guard guard(input_state.lock);
 				input_state.pointer_down[0] = false;
@@ -428,9 +452,17 @@ namespace MainWindow
 
 		case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
-			CorrectCursor();
-			SetTimer(hWnd, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-			return 0;
+			switch (wParam)
+			{
+			case TIMER_CURSORUPDATE:
+				CorrectCursor();
+				return 0;
+			case TIMER_CURSORMOVEUPDATE:
+				hideCursor = true;
+				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
+				return 0;
+			}
+			break;
 
 		case WM_COMMAND:
 			{
@@ -781,6 +813,8 @@ namespace MainWindow
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
 		case WM_DESTROY:
+			KillTimer(hWnd, TIMER_CURSORUPDATE);
+			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			PostQuitMessage(0);
 			break;
 
