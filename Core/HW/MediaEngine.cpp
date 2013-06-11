@@ -399,7 +399,9 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 				bGetFrame = true;
 			}
 			if (result <= 0 && dataEnd) {
-				m_isVideoEnd = !bGetFrame && m_readSize >= m_streamSize;
+				// Sometimes, m_readSize is less than m_streamSize at the end, but not by much.
+				// This is kinda a hack, but the ringbuffer would have to be prematurely empty too.
+				m_isVideoEnd = !bGetFrame && m_readSize >= (m_streamSize - 4096);
 				if (m_isVideoEnd)
 					m_decodedPos = m_readSize;
 				break;
