@@ -1012,8 +1012,8 @@ void GLES_GPU::DoBlockTransfer() {
 	u32 backBuffer = framebufferManager_.PrevDisplayFramebufAddr();
 	u32 displayBuffer = framebufferManager_.DisplayFramebufAddr();
 
-	if ((backBuffer != 0 && dstBasePtr == backBuffer) ||
-		  (displayBuffer != 0 && dstBasePtr == displayBuffer) &&
+	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
+		  (displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 			dstStride == 512 && height == 272) {
 		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), 3, 512);
 	}
