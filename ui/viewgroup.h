@@ -229,8 +229,8 @@ private:
 	ViewGroup *tabStrip_;
 
 	Orientation orientation_;
-	int currentTab_;
 	float stripSize_;
+	int currentTab_;
 	std::vector<std::string> tabTitles_;
 	std::vector<Choice *> tabChoices_;
 	std::vector<View *> tabs_;

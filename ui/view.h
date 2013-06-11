@@ -228,7 +228,7 @@ enum LayoutParamsType {
 class LayoutParams {
 public:
 	LayoutParams(LayoutParamsType type = LP_PLAIN)
-		: type_(type), width(WRAP_CONTENT), height(WRAP_CONTENT) {}
+		: width(WRAP_CONTENT), height(WRAP_CONTENT), type_(type) {}
 	LayoutParams(Size w, Size h, LayoutParamsType type = LP_PLAIN)
 		: width(w), height(h), type_(type) {}
 	virtual ~LayoutParams() {}
