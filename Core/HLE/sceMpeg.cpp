@@ -1323,10 +1323,14 @@ int sceMpegAvcConvertToYuv420(u32 mpeg, u32 bufferOutput, u32 unknown1, int unkn
 int sceMpegGetUserdataAu(u32 mpeg, u32 streamUid, u32 auAddr, u32 resultAddr)
 {
 	ERROR_LOG(HLE, "UNIMPL sceMpegGetUserdataAu(%08x, %08x, %08x, %08x)", mpeg, streamUid, auAddr, resultAddr);
+
 	// TODO: Are these at all right?  Seen in Phantasy Star Portable 2.
 	Memory::Write_U32(0, resultAddr);
 	Memory::Write_U32(0, resultAddr + 4);
-	return 0;
+
+	// We currently can't demux userdata so this seems like the best thing to return in the meantime..
+	// Then we probably shouldn't do the above writes? but it works...
+	return ERROR_MPEG_NO_DATA;
 }
 
 const HLEFunction sceMpeg[] =

@@ -3,6 +3,9 @@
 const int PACKET_START_CODE_MASK   = 0xffffff00;
 const int PACKET_START_CODE_PREFIX = 0x00000100;
 
+// http://dvd.sourceforge.net/dvdinfo/mpeghdrs.html
+
+const int USER_DATA_START_CODE     = 0x000001b2;
 const int SEQUENCE_START_CODE      = 0x000001b3;
 const int EXT_START_CODE           = 0x000001b5;
 const int SEQUENCE_END_CODE        = 0x000001b7;
@@ -156,33 +159,36 @@ void MpegDemux::demux(int audioChannel)
 			startCode = (startCode << 8) | read8();
 		}
 		switch (startCode) {
-		    case PACK_START_CODE: {
-			    skip(10);
-			    break;
-			}
-			case SYSTEM_HEADER_START_CODE: {
-				skip(14);
-				break;
-			}
-		    case PADDING_STREAM:
-		    case PRIVATE_STREAM_2: {
+		case PACK_START_CODE:
+			skip(10);
+			break;
+		case SYSTEM_HEADER_START_CODE:
+			skip(14);
+			break;
+		case PADDING_STREAM:
+		case PRIVATE_STREAM_2:
+			{
 				int length = read16();
 				skip(length);
 				break;
 			}
-			case PRIVATE_STREAM_1: {
-				// Audio stream
-				m_audioChannel = demuxStream(true, startCode, m_audioChannel);
-				break;
-			}
-			case 0x1E0: case 0x1E1: case 0x1E2: case 0x1E3:
-			case 0x1E4: case 0x1E5: case 0x1E6: case 0x1E7:
-			case 0x1E8: case 0x1E9: case 0x1EA: case 0x1EB:
-			case 0x1EC: case 0x1ED: case 0x1EE: case 0x1EF: {
-				// Video Stream
-				demuxStream(false, startCode, -1);
-				break;
-			}
+		case PRIVATE_STREAM_1: {
+			// Audio stream
+			m_audioChannel = demuxStream(true, startCode, m_audioChannel);
+			break;
+		}
+		case 0x1E0: case 0x1E1: case 0x1E2: case 0x1E3:
+		case 0x1E4: case 0x1E5: case 0x1E6: case 0x1E7:
+		case 0x1E8: case 0x1E9: case 0x1EA: case 0x1EB:
+		case 0x1EC: case 0x1ED: case 0x1EE: case 0x1EF:
+			// Video Stream
+			demuxStream(false, startCode, -1);
+			break;
+		case USER_DATA_START_CODE:
+			// User data, probably same as queried by sceMpegGetUserdataAu.
+			// Not sure what exactly to do or how much to read.
+			// TODO: implement properly.
+			break;
 		}
 	}
 }
