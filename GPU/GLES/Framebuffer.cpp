@@ -648,6 +648,9 @@ void FramebufferManager::DecimateFBOs() {
 void FramebufferManager::DestroyAllFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
+	displayFramebuf_ = 0;
+	prevDisplayFramebuf_ = 0;
+	prevPrevDisplayFramebuf_ = 0;
 
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
