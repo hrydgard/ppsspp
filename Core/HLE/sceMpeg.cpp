@@ -756,11 +756,16 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	SceMpegAu avcAu;
 	avcAu.read(auAddr);
 
-	SceMpegRingBuffer ringbuffer;
-	Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+	SceMpegRingBuffer ringbuffer = {0};
+	if (Memory::IsValidAddress(ctx->mpegRingbufferAddr)) {
+		Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+	} else {
+		ERROR_LOG(HLE, "Bogus mpegringbufferaddr");
+		return -1;
+	}
 
-	if (ringbuffer.packetsRead == 0) {
-		// empty!
+	if (ringbuffer.packetsRead == 0 || ctx->mediaengine->IsVideoEnd()) {
+		WARN_LOG(HLE, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x): mpeg buffer empty", mpeg, auAddr, bufferAddr, initAddr);
 		return hleDelayResult(MPEG_AVC_DECODE_ERROR_FATAL, "mpeg buffer empty", avcEmptyDelayMs);
 	}
 
@@ -769,15 +774,15 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	DEBUG_LOG(HLE, "*buffer = %08x, *init = %08x", buffer, init);
 
 	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
-		// do nothing
-		;
+		// Don't draw here, we'll draw in the Csc func.
+		ctx->avc.avcFrameStatus = 1;
+		ctx->videoFrameCount++;
+	}else {
+		ctx->avc.avcFrameStatus = 0;
 	}
-
 	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp();
-	ctx->avc.avcFrameStatus = 1;
-	ctx->videoFrameCount++;
 
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
@@ -787,7 +792,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 
 	Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);  // 1 = showing, 0 = not showing
 
-	DEBUG_LOG(HLE, "UNIMPL sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
+	DEBUG_LOG(HLE, "sceMpegAvcDecodeYCbCr(%08x, %08x, %08x, %08x)", mpeg, auAddr, bufferAddr, initAddr);
 
 	if (ctx->videoFrameCount <= 1)
 		return hleDelayResult(0, "mpeg decode", avcFirstDelayMs);
