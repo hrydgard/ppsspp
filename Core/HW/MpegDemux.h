@@ -13,7 +13,7 @@ public:
 
 	void setReadSize(int readSize);
 
-	void demux();
+	void demux(int audioChannel);
 
 	// return its size
 	int getaudioStream(u8 **audioStream);
