@@ -50,8 +50,14 @@ public:
 	void closeMedia();
 	bool loadStream(u8* buffer, int readSize, int StreamSize);
 	bool loadFile(const char* filename);
+	// open the mpeg context
+	bool openContext();
 	// Returns number of packets actually added.
 	int addStreamData(u8* buffer, int addSize);
+
+	void setVideoStream(int streamNum) { m_videoStream = streamNum; }
+	void setAudioStream(int streamNum) { m_audioStream = streamNum; }
+
 	int getRemainSize() { return m_streamSize - m_readSize;}
 	int getBufferedSize();
 
@@ -76,7 +82,6 @@ public:
 	}
 
 private:
-    bool openContext();
 	void updateSwsFormat(int videoPixelMode);
 
 public:
@@ -86,10 +91,11 @@ public:
 	AVFrame *m_pFrame;
 	AVFrame *m_pFrameRGB;
 	AVIOContext *m_pIOContext;
-	int  m_videoStream;
 	SwsContext *m_sws_ctx;
 	int m_sws_fmt;
 	u8 *m_buffer;
+	int m_videoStream;
+	int m_audioStream;
 
 	int  m_desWidth;
 	int  m_desHeight;
