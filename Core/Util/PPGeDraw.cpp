@@ -518,9 +518,9 @@ void PPGeDrawCurrentText(u32 color)
 	{
 		float scale = char_lines_metrics.scale;
 		BeginVertexData();
-		for (auto i = char_lines.cbegin(); i != char_lines.cend(); ++i)
+		for (auto i = char_lines.begin(); i != char_lines.end(); ++i)
 		{
-			for (auto j = i->cbegin(); j != i->cend(); ++j)
+			for (auto j = i->begin(); j != i->end(); ++j)
 			{
 				float cx1 = j->x;
 				float cy1 = j->y;

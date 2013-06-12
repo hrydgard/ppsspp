@@ -417,8 +417,8 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode) {
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
-	int videoImageSize = 0;
 #ifdef USE_FFMPEG
+	int videoImageSize = 0;
 	// lock the image size
 	int height = m_desHeight;
 	int width = m_desWidth;
@@ -470,16 +470,17 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 		ERROR_LOG(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
-#endif // USE_FFMPEG
 	return videoImageSize;
+#endif // USE_FFMPEG
+	return true;
 }
 
 int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
 	                             int xpos, int ypos, int width, int height) {
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
-	int videoImageSize = 0;
 #ifdef USE_FFMPEG
+	int videoImageSize = 0;
 	// lock the image size
 	u8 *imgbuf = buffer;
 	u8 *data = m_pFrameRGB->data[0];
@@ -540,8 +541,9 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 		ERROR_LOG(ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
-#endif // USE_FFMPEG
 	return videoImageSize;
+#endif // USE_FFMPEG
+	return true;
 }
 
 static bool isHeader(u8* audioStream, int offset)
