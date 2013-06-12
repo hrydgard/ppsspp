@@ -381,7 +381,7 @@ int sceUtilityNetconfGetStatus()
 //but it requires more investigation
 u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
 {
-	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart()", 0);
+	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", 0, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
 	return 0;
 }
 
