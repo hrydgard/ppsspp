@@ -1350,6 +1350,12 @@ int _sceAtracGetContextAddress(int atracID)
 		WARN_LOG(HLE, "%08x=_sceAtracGetContextAddress(%i)", atrac->atracContext.ptr, atracID);
 	if (atrac->atracContext.Valid())
 		_AtracGenarateContext(atrac, atrac->atracContext);
+	if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
+		// This is a hack method to release those already finished atrac3 voice.
+		// It should be removed after the real issue solved.
+		deleteAtrac(atracID);
+		return 0;
+	}
 	return atrac->atracContext.ptr;
 }
 
