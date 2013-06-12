@@ -381,7 +381,7 @@ int sceUtilityNetconfGetStatus()
 //but it requires more investigation
 u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
 {
-	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(): fake success again", 0);
+	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart()", 0);
 	return 0;
 }
 
@@ -404,7 +404,7 @@ int sceUtilityScreenshotGetStatus()
 	//u32 retval =  __UtilityGetStatus();
 	u32 retval = 0; 
 
-	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotGetStatus(): fake success", retval);
+	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
 	return retval;
 }
 
