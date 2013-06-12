@@ -52,6 +52,7 @@ static PSPSaveDialog saveDialog;
 static PSPMsgDialog msgDialog;
 static PSPOskDialog oskDialog;
 static PSPPlaceholderDialog netDialog;
+static PSPPlaceholderDialog screenshotDialog;
 
 static std::set<int> currentlyLoadedModules;
 
@@ -381,29 +382,26 @@ int sceUtilityNetconfGetStatus()
 //but it requires more investigation
 u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
 {
-	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", 0, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
-	return 0;
+	u32 retval = screenshotDialog.Init();
+	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	return retval;
 }
 
 u32 sceUtilityScreenshotShutdownStart()
 {
 	WARN_LOG(HLE, "UNTESTED sceUtilityScreenshotShutdownStart()");
-	return 0;
+	return screenshotDialog.Shutdown();
 }
 
 u32 sceUtilityScreenshotUpdate(u32 unknown)
 {
 	ERROR_LOG(HLE, "UNIMPL sceUtilityScreenshotUpdate(%d)", unknown);
-	return 0;
+	return screenshotDialog.Update();
 }
 
-//Fake success, because Diva 2nd(and other games?) hang(s) in an infinite loop
-//if you try to take a screenshot without it, due to waiting for success forever
 int sceUtilityScreenshotGetStatus()
 {
-	//u32 retval =  __UtilityGetStatus();
-	u32 retval = 0; 
-
+	u32 retval = screenshotDialog.GetStatus(); 
 	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
 	return retval;
 }
