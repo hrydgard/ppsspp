@@ -866,6 +866,13 @@ int sceRtcGetLastAdjustedTime(u32 tickPtr)
 	return 0;
 }
 
+//Returns 0 on success, according to Project Diva 2nd jpcsptrace log
+int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2)
+{
+	ERROR_LOG(HLE, "UNIMPL sceRtcSetAlarmTick(%x, %x)", unknown1, unknown2);
+	return 0; 
+}
+
 const HLEFunction sceRtc[] =
 {
 	{0xC41C2853, &WrapU_V<sceRtcGetTickResolution>, "sceRtcGetTickResolution"},
@@ -908,7 +915,7 @@ const HLEFunction sceRtc[] =
 	{0x1909c99b, &WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
 	{0x62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
 	{0x203ceb0d, 0, "sceRtcGetLastReincarnatedTime"},
-	{0x7d1fbed3, 0, "sceRtcSetAlarmTick"},
+	{0x7d1fbed3, &WrapI_UU<sceRtcSetAlarmTick>, "sceRtcSetAlarmTick"},
 	{0xf5fcc995, 0, "sceRtc_F5FCC995"},
 };
 
