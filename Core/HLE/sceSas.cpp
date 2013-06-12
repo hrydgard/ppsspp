@@ -404,8 +404,8 @@ u32 sceSasRevEVOL(u32 core, int lv, int rv) {
 
 u32 sceSasRevVON(u32 core, int dry, int wet) {
 	DEBUG_LOG(HLE,"sceSasRevVON(%08x, %i, %i)", core, dry, wet);
-	sas->waveformEffect.isDryOn = (dry > 0);
-	sas->waveformEffect.isWetOn = (wet > 0);
+	sas->waveformEffect.isDryOn = dry & 1;
+	sas->waveformEffect.isWetOn = wet & 1;
 	return 0;
 }
 

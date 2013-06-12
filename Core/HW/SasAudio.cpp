@@ -280,6 +280,8 @@ SasInstance::SasInstance()
 	audioDump = fopen("D:\\audio.raw", "wb");
 #endif
 	memset(&waveformEffect, 0, sizeof(waveformEffect));
+	waveformEffect.type = -1;
+	waveformEffect.isDryOn = 1;
 }
 
 SasInstance::~SasInstance() {
