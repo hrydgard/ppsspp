@@ -678,10 +678,10 @@ ADSREnvelope::ADSREnvelope()
 		decayRate(0),
 		decayType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		sustainRate(0),
-		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
+		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
 		releaseRate(0),
 		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
-		sustainLevel(0),
+		sustainLevel(0x100),
 		state_(STATE_OFF),
 		steps_(0),
 		height_(0) {
