@@ -91,6 +91,7 @@ void Config::Load(const char *iniFileName)
 #endif
 	//FastMemory Default set back to True when solve UNIMPL _sceAtracGetContextAddress making game crash
 	cpu->Get("FastMemory", &bFastMemory, false);
+	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &bShowFPSCounter, false);
@@ -201,6 +202,7 @@ void Config::Save()
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("FastMemory", bFastMemory);
+		cpu->Set("CPUSpeed", iLockedCPUSpeed);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", bShowFPSCounter);

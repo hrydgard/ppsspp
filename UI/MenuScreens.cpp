@@ -1052,6 +1052,20 @@ void SystemScreen::render() {
 #endif
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
+
+	bool LockCPUSpeed = g_Config.iLockedCPUSpeed != 0;
+	UICheckBox(GEN_ID, x, y += stride, s->T("Lock PSP CPU Speed"), ALIGN_TOPLEFT, &LockCPUSpeed);
+	if(LockCPUSpeed) {
+		if(g_Config.iLockedCPUSpeed <= 0)
+			g_Config.iLockedCPUSpeed = 222;
+		char showCPUSpeed[256];
+		sprintf(showCPUSpeed, "%s %d", s->T("Locked CPU Speed: "), g_Config.iLockedCPUSpeed);
+		ui_draw2d.DrawText(UBUNTU24, showCPUSpeed, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
+	}
+	else {
+		g_Config.iLockedCPUSpeed = 0;
+	}
+
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Encrypt Save"), ALIGN_TOPLEFT, &g_Config.bEncryptSave);
 	UICheckBox(GEN_ID, x, y += stride, s->T("Use Button X to Confirm"), ALIGN_TOPLEFT, &g_Config.bButtonPreference); 
