@@ -191,8 +191,8 @@ struct SasVoice
 			volumeRight(PSP_SAS_VOL_MAX),
 			volumeLeftSend(0),
 			volumeRightSend(0),
-			effectLeft(0),
-			effectRight(0) {
+			effectLeft(PSP_SAS_VOL_MAX),
+			effectRight(PSP_SAS_VOL_MAX) {
 		memset(resampleHist, 0, sizeof(resampleHist));
 	}
 

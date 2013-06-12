@@ -210,15 +210,14 @@ u32 sceSasGetPauseFlag(u32 core) {
 	return pauseFlag;
 }
 
-u32 sceSasSetPause(u32 core, int voicebit, int pause) {
+u32 sceSasSetPause(u32 core, u32 voicebit, int pause) {
 	DEBUG_LOG(HLE,"sceSasSetPause(%08x, %08x, %i)", core, voicebit, pause);
 
-	for (int i = 0; voicebit != 0; i++, voicebit >>= 1)	{
+	for (int i = 0; voicebit != 0; i++, voicebit >>= 1) {
 		if (i < PSP_SAS_VOICES_MAX && i >= 0) {
 			if ((voicebit & 1) != 0)
 				sas->voices[i].paused = pause ? true : false;
-		} else // TODO: Correct error code?  Mimana crashes otherwise.
-			return ERROR_SAS_INVALID_VOICE;
+		}
 	}
 
 	return 0;
@@ -405,8 +404,8 @@ u32 sceSasRevEVOL(u32 core, int lv, int rv) {
 
 u32 sceSasRevVON(u32 core, int dry, int wet) {
 	DEBUG_LOG(HLE,"sceSasRevVON(%08x, %i, %i)", core, dry, wet);
-	sas->waveformEffect.isDryOn = (dry > 0);
-	sas->waveformEffect.isWetOn = (wet > 0);
+	sas->waveformEffect.isDryOn = dry & 1;
+	sas->waveformEffect.isWetOn = wet & 1;
 	return 0;
 }
 
@@ -505,7 +504,7 @@ const HLEFunction sceSasCore[] =
 	{0x33d4ab37, WrapU_UI<sceSasRevType>, "__sceSasRevType"},
 	{0x267a6dd2, WrapU_UII<sceSasRevParam>, "__sceSasRevParam"},
 	{0x2c8e6ab3, WrapU_U<sceSasGetPauseFlag>, "__sceSasGetPauseFlag"},
-	{0x787d04d5, WrapU_UII<sceSasSetPause>, "__sceSasSetPause"},
+	{0x787d04d5, WrapU_UUI<sceSasSetPause>, "__sceSasSetPause"},
 	{0xa232cbe6, WrapU_UII<sceSasSetTriangularWave>, "__sceSasSetTrianglarWave"}, // Typo.
 	{0xd5ebbbcd, WrapU_UII<sceSasSetSteepWave>, "__sceSasSetSteepWave"},
 	{0xBD11B7C2, WrapU_U<sceSasGetGrain>, "__sceSasGetGrain"},
