@@ -639,7 +639,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	}
 	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
 
-	avcAu.pts = ctx->mediaengine->getVideoTimeStamp();
+	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
@@ -784,7 +784,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	}
 	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
 
-	avcAu.pts = ctx->mediaengine->getVideoTimeStamp();
+	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
@@ -981,7 +981,7 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	int result = 0;
 
-	sceAu.pts = ctx->mediaengine->getVideoTimeStamp();
+	sceAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 	sceAu.dts = sceAu.pts - videoTimestampStep;
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(HLE, "video end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
@@ -1054,7 +1054,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 	int result = 0;
 
-	sceAu.pts = ctx->mediaengine->getAudioTimeStamp();
+	sceAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
 	if (ctx->mediaengine->IsVideoEnd()) {
 		INFO_LOG(HLE, "video end reach. pts: %i dts: %i", (int)sceAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		mpegRingbuffer.packetsFree = mpegRingbuffer.packets;
@@ -1207,7 +1207,7 @@ u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 
 	Memory::Memset(bufferAddr, 0, MPEG_ATRAC_ES_OUTPUT_SIZE);
 	ctx->mediaengine->getAudioSamples(Memory::GetPointer(bufferAddr));
-	avcAu.pts = ctx->mediaengine->getAudioTimeStamp();
+	avcAu.pts = ctx->mediaengine->getAudioTimeStamp() + ctx->mpegFirstTimestamp;
 
 	avcAu.write(auAddr);
 
