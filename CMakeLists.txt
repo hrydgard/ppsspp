@@ -448,6 +448,11 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h)
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
+	# FFMPEG
+	add_definitions(-DUSE_FFMPEG)
+	include_directories(ffmpeg/ios/universal/include)
+	link_directories(ffmpeg/ios/universal/lib)
+	set(nativeExtraLibs ${nativeExtraLibs} iconv bz2 libavformat.a libavcodec.a libswresample.a libavutil.a libswscale.a)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
