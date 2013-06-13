@@ -596,7 +596,17 @@ u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 
 u32 scePsmfVerifyPsmf(u32 psmfAddr)
 {
-	ERROR_LOG(HLE, "UNIMPLEMENTED scePsmfVerifyPsmf(%08x)", psmfAddr);
+	DEBUG_LOG(HLE, "scePsmfVerifyPsmf(%08x)", psmfAddr);
+	int magic = Memory::Read_U32(psmfAddr);
+	if (magic != PSMF_MAGIC) {
+		ERROR_LOG(HLE, "scePsmfVerifyPsmf - bad magic");
+		return ERROR_PSMF_NOT_FOUND;
+	}
+	int version = Memory::Read_U32(psmfAddr + PSMF_STREAM_VERSION_OFFSET);
+	if (version < 0) {
+		ERROR_LOG(HLE, "scePsmfVerifyPsmf - bad version");
+		return ERROR_PSMF_NOT_FOUND;
+	}
 	return 0;
 }
 
