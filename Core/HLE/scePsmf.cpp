@@ -596,7 +596,7 @@ u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 
 u32 scePsmfVerifyPsmf(u32 psmfAddr)
 {
-	ERROR_LOG(HLE, "scePsmfVerifyPsmf(%08x)", psmfAddr);
+	DEBUG_LOG(HLE, "scePsmfVerifyPsmf(%08x)", psmfAddr);
 	int magic = Memory::Read_U32(psmfAddr);
 	if (magic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "scePsmfVerifyPsmf - bad magic");
