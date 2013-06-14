@@ -1047,9 +1047,9 @@ u32 TransformDrawEngine::ComputeHash() {
 u32 TransformDrawEngine::ComputeFastDCID() {
 	u32 hash = 0;
 	for (int i = 0; i < numDrawCalls; i++) {
-		hash ^= (u32)drawCalls[i].verts;
+		hash ^= (u32)(uintptr_t)drawCalls[i].verts;
 		hash = __rotl(hash, 13);
-		hash ^= (u32)drawCalls[i].inds;
+		hash ^= (u32)(uintptr_t)drawCalls[i].inds;
 		hash = __rotl(hash, 13);
 		hash ^= (u32)drawCalls[i].vertType;
 		hash = __rotl(hash, 13);
