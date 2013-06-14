@@ -291,7 +291,7 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 	if (size > 0 && m_pdata) {
 		memcpy(m_pdata + m_readSize, buffer, size);
 		m_readSize += size;
-		if (!m_pFormatCtx && m_readSize > 0x2000)
+		if (!m_pFormatCtx && (m_readSize > 0x20000 || m_readSize >= m_streamSize))
 			openContext();
 		if (m_demux) {
 			m_demux->setReadSize(m_readSize);
