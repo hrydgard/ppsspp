@@ -1031,10 +1031,10 @@ void TextureCache::SetTexture() {
 			gpuStats.numTextureInvalidations++;
 			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F) && entry->format == format) {
+				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F) && entry->format == format && g_Config.iTexScalingLevel <= 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
-					replaceImages = g_Config.iTexScalingLevel <= 1;
+					replaceImages = true;
 				} else {
 					if (entry->texture == lastBoundTexture) {
 						lastBoundTexture = -1;
