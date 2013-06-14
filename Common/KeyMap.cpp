@@ -19,7 +19,7 @@
 #include "Core/Config.h"
 #include "KeyMap.h"
 
-using namespace KeyMap
+using namespace KeyMap;
 
 // Platform specific
 // default
