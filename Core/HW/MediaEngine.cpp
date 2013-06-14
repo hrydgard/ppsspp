@@ -138,7 +138,15 @@ int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 {
 	MediaEngine *mpeg = (MediaEngine*)opaque;
 	int size = std::min(mpeg->m_bufSize, buf_size);
-	size = std::max(std::min((mpeg->m_readSize - mpeg->m_decodeNextPos), size), 0);
+	int available = mpeg->m_readSize - mpeg->m_decodeNextPos;
+	int remaining = mpeg->m_streamSize - mpeg->m_decodeNextPos;
+
+	// There's more in the file, and there's not as much as requested available.
+	// Return nothing.  Partial packets will cause artifacts or green frames.
+	if (available < remaining && size > available)
+		return 0;
+
+	size = std::min(size, remaining);
 	if (size > 0)
 		memcpy(buf, mpeg->m_pdata + mpeg->m_decodeNextPos, size);
 	mpeg->m_decodeNextPos += size;
