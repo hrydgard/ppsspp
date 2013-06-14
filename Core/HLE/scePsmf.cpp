@@ -246,11 +246,11 @@ Psmf::Psmf(u32 data) {
 		u32 currentStreamAddr = data + 0x82 + i * 16;
 		int streamId = Memory::Read_U8(currentStreamAddr);
 		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_AVC_STREAM, 0);
+			stream = new PsmfStream(PSMF_AVC_STREAM, currentVideoStreamNum);
 			stream->readMPEGVideoStreamParams(currentStreamAddr, this);
 			currentVideoStreamNum++;
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_ATRAC_STREAM, 1);
+			stream = new PsmfStream(PSMF_ATRAC_STREAM, currentAudioStreamNum);
 			stream->readPrivateAudioStreamParams(currentStreamAddr, this);
 			currentAudioStreamNum++;
 		}
@@ -451,7 +451,12 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	WARN_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
-	return 1;
+	int streamNum = 0;
+	for (int i = psmf->streamMap.size() - 1; i >= 0; i--) {
+		if (psmf->streamMap[i]->type == streamType)
+			streamNum++;
+	}
+	return streamNum;
 }
 
 u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel)
