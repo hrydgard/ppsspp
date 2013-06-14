@@ -451,7 +451,12 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	WARN_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
-	return 1;
+	int streamNum = 0;
+	for (int i = psmf->streamMap.size() - 1; i >= 0; i--) {
+		if (psmf->streamMap[i]->type == streamType)
+			streamNum++;
+	}
+	return streamNum;
 }
 
 u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel)
