@@ -246,11 +246,11 @@ Psmf::Psmf(u32 data) {
 		u32 currentStreamAddr = data + 0x82 + i * 16;
 		int streamId = Memory::Read_U8(currentStreamAddr);
 		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_AVC_STREAM, 0);
+			stream = new PsmfStream(PSMF_AVC_STREAM, currentVideoStreamNum);
 			stream->readMPEGVideoStreamParams(currentStreamAddr, this);
 			currentVideoStreamNum++;
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_ATRAC_STREAM, 1);
+			stream = new PsmfStream(PSMF_ATRAC_STREAM, currentAudioStreamNum);
 			stream->readPrivateAudioStreamParams(currentStreamAddr, this);
 			currentAudioStreamNum++;
 		}
