@@ -436,7 +436,7 @@ u32 scePsmfGetNumberOfStreams(u32 psmfStruct)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetNumberOfStreams(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	DEBUG_LOG(HLE, "scePsmfGetNumberOfStreams(%08x)", psmfStruct);
@@ -447,10 +447,10 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x): invalid psmf", psmfStruct, streamType);
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	INFO_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
+	WARN_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
 	return 1;
 }
 
@@ -458,7 +458,7 @@ u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 chann
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfSpecifyStreamWithStreamType - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i): invalid psmf", psmfStruct, streamType, channel);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i)", psmfStruct, streamType, channel);
@@ -472,17 +472,17 @@ u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfSpecifyStream - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x): invalid psmf", psmfStruct, streamType, typeNum);
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
+	ERROR_LOG_REPORT(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
 	return 0;
 }
 
 u32 scePsmfSpecifyStream(u32 psmfStruct, int streamNum) {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfSpecifyStream - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfSpecifyStream(%08x, %i): invalid psmf", psmfStruct, streamNum);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	INFO_LOG(HLE, "scePsmfSpecifyStream(%08x, %i)", psmfStruct, streamNum);
@@ -491,12 +491,12 @@ u32 scePsmfSpecifyStream(u32 psmfStruct, int streamNum) {
 }
 
 u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
-	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetVideoInfo - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x): invalid psmf", psmfStruct, videoInfoAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	if (Memory::IsValidAddress(videoInfoAddr)) {
 		Memory::Write_U32(psmf->videoWidth, videoInfoAddr);
 		Memory::Write_U32(psmf->videoHeight, videoInfoAddr + 4);
@@ -505,12 +505,12 @@ u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
 }
 
 u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
-	INFO_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x)", psmfStruct, audioInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetAudioInfo - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x): invalid psmf", psmfStruct, audioInfoAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	INFO_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x)", psmfStruct, audioInfoAddr);
 	if (Memory::IsValidAddress(audioInfoAddr)) {
 		Memory::Write_U32(psmf->audioChannels, audioInfoAddr);
 		Memory::Write_U32(psmf->audioFrequency, audioInfoAddr + 4);
@@ -519,12 +519,12 @@ u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 }
 
 u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
-	INFO_LOG(HLE, "scePsmfGetCurrentStreamType(%08x, %08x, %08x)", psmfStruct, typeAddr, channelAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetCurrentStreamType - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetCurrentStreamType(%08x, %08x, %08x): invalid psmf", psmfStruct, typeAddr, channelAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	INFO_LOG(HLE, "scePsmfGetCurrentStreamType(%08x, %08x, %08x)", psmfStruct, typeAddr, channelAddr);
 	if (Memory::IsValidAddress(typeAddr)) {
 		u32 type = 0, channel = 0;
 		if (psmf->streamMap.find(psmf->currentStreamNum) != psmf->streamMap.end())
@@ -539,12 +539,12 @@ u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
 
 u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetStreamSize(%08x, %08x)", psmfStruct, sizeAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetStreamSize - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetStreamSize(%08x, %08x): invalid psmf", psmfStruct, sizeAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetStreamSize(%08x, %08x)", psmfStruct, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
 		Memory::Write_U32(psmf->streamSize, sizeAddr);
 	}
@@ -553,7 +553,7 @@ u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
 
 u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
+	WARN_LOG(HLE, "scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
 	if (Memory::IsValidAddress(offsetAddr)) {
 		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
 	}
@@ -562,7 +562,7 @@ u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
 
 u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
+	WARN_LOG(HLE, "scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
 		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
 	}
@@ -571,12 +571,12 @@ u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 
 u32 scePsmfGetHeaderSize(u32 psmfStruct, u32 sizeAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetHeaderSize(%08x, %08x)", psmfStruct, sizeAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetHeaderSize - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetHeaderSize(%08x, %08x): invalid psmf", psmfStruct, sizeAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetHeaderSize(%08x, %08x)", psmfStruct, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
 		Memory::Write_U32(psmf->headerSize, sizeAddr);
 	}
@@ -585,50 +585,50 @@ u32 scePsmfGetHeaderSize(u32 psmfStruct, u32 sizeAddr)
 
 u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 {
-	DEBUG_LOG(HLE, "scePsmfGetPsmfVersion(%08x)", psmfStruct);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetHeaderSize - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetHeaderSize(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetPsmfVersion(%08x)", psmfStruct);
 	return psmf->version;
 }
 
 u32 scePsmfVerifyPsmf(u32 psmfAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfVerifyPsmf(%08x)", psmfAddr);
 	int magic = Memory::Read_U32(psmfAddr);
 	if (magic != PSMF_MAGIC) {
-		ERROR_LOG(HLE, "scePsmfVerifyPsmf - bad magic");
+		ERROR_LOG(HLE, "scePsmfVerifyPsmf(%08x): bad magic %08x", psmfAddr, magic);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	int version = Memory::Read_U32(psmfAddr + PSMF_STREAM_VERSION_OFFSET);
 	if (version < 0) {
-		ERROR_LOG(HLE, "scePsmfVerifyPsmf - bad version");
+		ERROR_LOG(HLE, "scePsmfVerifyPsmf(%08x): bad version %08x", psmfAddr, version);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfVerifyPsmf(%08x)", psmfAddr);
 	return 0;
 }
 
 u32 scePsmfGetNumberOfEPentries(u32 psmfStruct)
 {
-	DEBUG_LOG(HLE, "scePsmfGetNumberOfEPentries(%08x)", psmfStruct);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfEPentries - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetNumberOfEPentries(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetNumberOfEPentries(%08x)", psmfStruct);
 	return psmf->EPMapEntriesNum;
 }
 
 u32 scePsmfGetPresentationStartTime(u32 psmfStruct, u32 startTimeAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetPresentationStartTime(%08x, %08x)", psmfStruct, startTimeAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetPresentationStartTime - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetPresentationStartTime(%08x, %08x): invalid psmf", psmfStruct, startTimeAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetPresentationStartTime(%08x, %08x)", psmfStruct, startTimeAddr);
 	if (Memory::IsValidAddress(startTimeAddr)) {
 		Memory::Write_U32(psmf->presentationStartTime, startTimeAddr);
 	}
@@ -637,12 +637,12 @@ u32 scePsmfGetPresentationStartTime(u32 psmfStruct, u32 startTimeAddr)
 
 u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetPresentationEndTime(%08x, %08x)", psmfStruct, endTimeAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetPresentationEndTime - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetPresentationEndTime(%08x, %08x): invalid psmf", psmfStruct, endTimeAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetPresentationEndTime(%08x, %08x)", psmfStruct, endTimeAddr);
 	if (Memory::IsValidAddress(endTimeAddr)) {
 		Memory::Write_U32(psmf->presentationEndTime, endTimeAddr);
 	}
@@ -651,24 +651,24 @@ u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 
 u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct)
 {
-	DEBUG_LOG(HLE, "scePsmfGetCurrentStreamNumber(%08x)", psmfStruct);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetCurrentStreamNumber - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetCurrentStreamNumber(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
+	DEBUG_LOG(HLE, "scePsmfGetCurrentStreamNumber(%08x)", psmfStruct);
 	return psmf->currentStreamNum;
 }
 
 u32 scePsmfGetEPWithId(u32 psmfStruct, int id, u32 outAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, id, outAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetEPWithId - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetEPWithId(%08x, %i, %08x): invalid psmf", psmfStruct, id, outAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, id, outAddr);
 	if (Memory::IsValidAddress(outAddr)) {
 		Memory::Write_U32(psmf->psmfEntry.EPPts, outAddr);
 		Memory::Write_U32(psmf->psmfEntry.EPOffset, outAddr + 4);
@@ -680,12 +680,12 @@ u32 scePsmfGetEPWithId(u32 psmfStruct, int id, u32 outAddr)
 
 u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetEPWithTimestamp(%08x, %i, %08x)", psmfStruct, ts, entryAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetEPWithTimestamp - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetEPWithTimestamp(%08x, %i, %08x): invalid psmf", psmfStruct, ts, entryAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetEPWithTimestamp(%08x, %i, %08x)", psmfStruct, ts, entryAddr);
 	if (ts < psmf->presentationStartTime) {
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
@@ -700,12 +700,12 @@ u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 
 u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 {
-	DEBUG_LOG(HLE, "scePsmfGetEPidWithTimestamp(%08x, %i)", psmfStruct, ts);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetEPidWithTimestamp - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetEPidWithTimestamp(%08x, %i): invalid psmf", psmfStruct, ts);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetEPidWithTimestamp(%08x, %i)", psmfStruct, ts);
 	if (ts < psmf->presentationStartTime) {
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
