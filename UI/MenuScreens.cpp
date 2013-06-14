@@ -1097,6 +1097,7 @@ void ControlsScreen::render() {
 		UICheckBox(GEN_ID, x, y += stride, c->T("Large Controls"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 	} 
+	UICheckBox(GEN_ID, x, y += stride, c->T("ProcessInvisControls", "Process touch controls even when hidden"), ALIGN_TOPLEFT, &g_Config.bProcessInvisibleTouchControls);
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 
 	UIEnd();
