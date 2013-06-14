@@ -494,12 +494,12 @@ u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
 	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetVideoInfo - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	if (Memory::IsValidAddress(videoInfoAddr)) {
 		Memory::Write_U32(psmf->videoWidth, videoInfoAddr);
-		Memory::Write_U32(psmf->videoWidth, videoInfoAddr + 4);
+		Memory::Write_U32(psmf->videoHeight, videoInfoAddr + 4);
 	}
 	return 0;
 }
@@ -508,7 +508,7 @@ u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 	INFO_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x)", psmfStruct, audioInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetAudioInfo - invalid psmf");
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	if (Memory::IsValidAddress(audioInfoAddr)) {
