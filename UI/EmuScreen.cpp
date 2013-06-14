@@ -176,12 +176,12 @@ void EmuScreen::update(InputState &input) {
 		return;
 
 	// First translate touches into native pad input.
-	// Do this no matter the value of g_Config.bShowTouchControls, some people
-	// like to use invisible controls...
-	UpdateGamepad(input);
+	// People can have their invisible touch controls, but make it optional, not forced.
+	if(g_Config.bProcessInvisibleTouchControls || g_Config.bShowTouchControls) {
+		UpdateGamepad(input);
 
-	UpdateInputState(&input);
-
+		UpdateInputState(&input);
+	}
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
 		{PAD_BUTTON_A, CTRL_CROSS},

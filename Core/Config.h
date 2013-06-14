@@ -92,6 +92,7 @@ public:
 	
 	// UI
 	bool bShowTouchControls;
+	bool bProcessInvisibleTouchControls;
 	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
 	bool bShowFPSCounter;

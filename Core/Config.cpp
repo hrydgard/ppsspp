@@ -141,6 +141,8 @@ void Config::Load(const char *iniFileName)
 #else
 	control->Get("ShowTouchControls", &bShowTouchControls,false);
 #endif
+
+	control->Get("ProcessInvisibleTouchControls", &bProcessInvisibleTouchControls, true);
 	control->Get("LargeControls", &bLargeControls, false);
 	control->Get("KeyMapping",iMappingMap);
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
@@ -233,6 +235,7 @@ void Config::Save()
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
+		control->Set("ProcessInvisibleTouchControls", bProcessInvisibleTouchControls);
 		control->Set("LargeControls", bLargeControls);
 		control->Set("KeyMapping",iMappingMap);
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
