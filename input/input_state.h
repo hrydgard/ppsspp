@@ -99,6 +99,7 @@ enum {
 	TOUCH_DOWN = 2,
 	TOUCH_UP = 4,
 	TOUCH_CANCEL = 8,  // Sent by scrollviews to their children when they detect a scroll
+	TOUCH_WHEEL = 16,  // Scrollwheel event. Usually only affects Y.
 };
 
 // Used for asynchronous touch input.
