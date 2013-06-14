@@ -8,4 +8,5 @@ namespace W32Util
 	HBITMAP CreateBitmapFromARGB(HWND someHwnd, DWORD *image, int w, int h);
 	void NiceSizeFormat(size_t size, char *out);
 	BOOL CopyTextToClipboard(HWND hwnd, const TCHAR *text);
+	void MakeTopMost(HWND hwnd, bool topMost);
 }

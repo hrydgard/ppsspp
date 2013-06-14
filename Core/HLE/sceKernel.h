@@ -19,7 +19,6 @@
 
 #include "../../Globals.h"
 #include "Common.h"
-#include <cstring>
 #include <map>
 
 class PointerWrap;
@@ -368,9 +367,6 @@ void sceKernelExitGameWithStatus();
 int LoadExecForUser_362A956B();
 void sceKernelRegisterExitCallback();
 
-void sceKernelSleepThread();
-void sceKernelSleepThreadCB();
-
 u32 sceKernelDevkitVersion();
 
 u32 sceKernelRegisterKprintfHandler();
@@ -452,7 +448,10 @@ public:
 		}
 		else
 		{
-			T* t = dynamic_cast<T*>(pool[handle - handleOffset]);
+			// Previously we had a dynamic_cast here, but since RTTI was disabled traditionally,
+			// it just acted as a static case and everything worked. This means that we will never
+			// see the Wrong type object error below, but we'll just have to live with that danger.
+			T* t = static_cast<T*>(pool[handle - handleOffset]);
 			if (t == 0)
 			{
 				ERROR_LOG(HLE, "Kernel: Wrong type object %i (%08x)", handle, handle);
@@ -478,15 +477,14 @@ public:
 	}
 
 	template <class T, typename ArgT>
-	void Iterate(bool func(T *, ArgT), ArgT arg)
+	void Iterate(bool func(T *, ArgT), ArgT arg, int type)
 	{
 		for (int i = 0; i < maxCount; i++)
 		{
 			if (!occupied[i])
 				continue;
-			T *t = dynamic_cast<T *>(pool[i]);
-			if (t)
-			{
+			T *t = static_cast<T *>(pool[i]);
+			if (t->GetIDType() == type) {
 				if (!func(t, arg))
 					break;
 			}
@@ -497,6 +495,11 @@ public:
 
 	bool GetIDType(SceUID handle, int *type) const
 	{
+		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
+		{
+			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
+			return false;
+		}
 		KernelObject *t = pool[handle - handleOffset];
 		*type = t->GetIDType();
 		return true;

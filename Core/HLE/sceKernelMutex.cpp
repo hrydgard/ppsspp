@@ -82,22 +82,6 @@ struct Mutex : public KernelObject
 };
 
 
-struct NativeLwMutex
-{
-	SceSize size;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	SceUInt attr;
-	SceUID uid;
-	u32 workareaPtr;
-	int initialCount;
-	// Not kept up to date.
-	int currentCount;
-	// Not kept up to date.
-	SceUID lockThread;
-	// Not kept up to date.
-	int numWaitThreads;
-};
-
 struct NativeLwMutexWorkarea
 {
 	int lockLevel;
@@ -118,6 +102,22 @@ struct NativeLwMutexWorkarea
 		lockThread = -1;
 		uid = -1;
 	}
+};
+
+struct NativeLwMutex
+{
+	SceSize size;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	SceUInt attr;
+	SceUID uid;
+	PSPPointer<NativeLwMutexWorkarea> workarea;
+	int initialCount;
+	// Not kept up to date.
+	int currentCount;
+	// Not kept up to date.
+	SceUID lockThread;
+	// Not kept up to date.
+	int numWaitThreads;
 };
 
 struct LwMutex : public KernelObject
@@ -692,7 +692,15 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
 	// Don't write if the size is 0.  Anything else is A-OK, though, apparently.
 	if (Memory::Read_U32(infoAddr) != 0)
 	{
-		// Refresh and write
+		u32 error;
+		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_MUTEX, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != id)
+				m->waitingThreads.erase(iter--);
+		}
+
 		m->nm.numWaitThreads = (int) m->waitingThreads.size();
 		Memory::WriteStruct(infoAddr, &m->nm);
 	}
@@ -724,7 +732,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	mutex->nm.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.uid = id;
-	mutex->nm.workareaPtr = workareaPtr;
+	mutex->nm.workarea = workareaPtr;
 	mutex->nm.initialCount = initialCount;
 	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 	workarea->init();
@@ -982,8 +990,7 @@ void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &ret
 	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
 
 	// Attempt to unlock.
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(mutex->nm.workareaPtr);
-	if (mutex->nm.lockThread == -1 && __KernelUnlockLwMutexForThread(mutex, workarea, threadID, error, 0))
+	if (mutex->nm.lockThread == -1 && __KernelUnlockLwMutexForThread(mutex, mutex->nm.workarea, threadID, error, 0))
 		return;
 
 	// We only check if it timed out if it couldn't unlock.
@@ -1142,7 +1149,16 @@ int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 
 	if (Memory::Read_U32(infoPtr) != 0)
 	{
-		auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(m->nm.workareaPtr);
+		auto workarea = m->nm.workarea;
+
+		u32 error;
+		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_LWMUTEX, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != uid)
+				m->waitingThreads.erase(iter--);
+		}
 
 		// Refresh and write
 		m->nm.currentCount = workarea->lockLevel;

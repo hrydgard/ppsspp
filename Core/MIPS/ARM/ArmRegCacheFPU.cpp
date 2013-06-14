@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ArmEmitter.h"
+#include "Common/CPUDetect.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
 
 
@@ -48,13 +49,12 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	static const ARMReg allocationOrder[] = {
 		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15
 	};
-	// With NEON, we'll have many more.
+	// With NEON, we have many more.
 	static const ARMReg allocationOrderNEON[] = {
 		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15,
 		S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31
 	};
-	bool useNEON = false;  // TODO: Use cpu detect
-	if (useNEON) {
+	if (false && cpu_info.bNEON) {
 		count = sizeof(allocationOrderNEON) / sizeof(const int);
 		return allocationOrderNEON;
 	} else {

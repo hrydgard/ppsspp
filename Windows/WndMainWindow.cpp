@@ -62,6 +62,7 @@ namespace MainWindow
 	static HMENU menu;
 
 	static HINSTANCE hInst;
+	static int cursorCounter = 0;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
@@ -177,6 +178,19 @@ namespace MainWindow
 		ResizeDisplay();
 	}
 
+	void CorrectCursor() {
+		if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
+			while (cursorCounter >= 0) {
+				cursorCounter = ShowCursor(FALSE);
+			}
+		} else {
+			if (cursorCounter < 0) {
+				cursorCounter = ShowCursor(TRUE);
+				SetCursor(LoadCursor(NULL, IDC_ARROW));
+			}
+		}
+	}
+
 	void setTexScalingLevel(int num) {
 		g_Config.iTexScalingLevel = num;
 		if(gpu) gpu->ClearCacheNextFrame();
@@ -187,6 +201,9 @@ namespace MainWindow
 	}
 	void setFpsLimit(int fps) {
 		g_Config.iFpsLimit = fps;
+	}
+	void enableCheats(bool cheats){
+		g_Config.bEnableCheats = cheats;
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
@@ -283,32 +300,42 @@ namespace MainWindow
 		case WM_ERASEBKGND:
 	  	return DefWindowProc(hWnd, message, wParam, lParam);
 
+		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
+		// and as asynchronous touch events for minimal latency.
+
 		case WM_LBUTTONDOWN:
 			{
 				lock_guard guard(input_state.lock);
 				input_state.mouse_valid = true;
 				input_state.pointer_down[0] = true;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
-				}
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+
+				TouchInput touch;
+				touch.id = 0;
+				touch.flags = TOUCH_DOWN;
+				touch.x = GET_X_LPARAM(lParam);
+				touch.y = GET_Y_LPARAM(lParam);
+				NativeTouch(touch);
 			}
 			break;
 
 		case WM_MOUSEMOVE:
 			{
 				lock_guard guard(input_state.lock);
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
+				if (wParam & MK_LBUTTON) {
+					TouchInput touch;
+					touch.id = 0;
+					touch.flags = TOUCH_MOVE;
+					touch.x = GET_X_LPARAM(lParam);
+					touch.y = GET_Y_LPARAM(lParam);
+					NativeTouch(touch);
 				}
 			}
 			break;
@@ -317,16 +344,21 @@ namespace MainWindow
 			{
 				lock_guard guard(input_state.lock);
 				input_state.pointer_down[0] = false;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
-				}
+				TouchInput touch;
+				touch.id = 0;
+				touch.flags = TOUCH_UP;
+				touch.x = GET_X_LPARAM(lParam);
+				touch.y = GET_Y_LPARAM(lParam);
+				NativeTouch(touch);
 			}
 			break;
+
+
+		// Actual touch! Unfinished
 
 		case WM_TOUCH:
 			{
@@ -373,8 +405,6 @@ namespace MainWindow
 		int wmId, wmEvent;
 		std::string fn;
 
-		I18NCategory *g = GetI18NCategory("Graphics");
-
 		switch (message) 
 		{
 		case WM_CREATE:
@@ -393,16 +423,14 @@ namespace MainWindow
 
 		case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
-			if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
-				ShowCursor(FALSE);
-			} else {
-				ShowCursor(TRUE);
-				SetCursor(LoadCursor(NULL, IDC_ARROW));
-			}
+			CorrectCursor();
 			SetTimer(hWnd, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 			return 0;
 
 		case WM_COMMAND:
+			{
+			I18NCategory *g = GetI18NCategory("Graphics");
+
 			wmId    = LOWORD(wParam); 
 			wmEvent = HIWORD(wParam); 
 			// Parse the menu selections:
@@ -580,11 +608,6 @@ namespace MainWindow
 				osm.ShowOnOff(g->T("Frame Skipping"), g_Config.iFrameSkip != 0);
 				break;
 
-			case ID_OPTIONS_USEMEDIAENGINE:
-				g_Config.bUseMediaEngine = !g_Config.bUseMediaEngine;
-				osm.ShowOnOff(g->T("Media Engine"), g_Config.bUseMediaEngine);
-				break;
-
 			case ID_FILE_EXIT:
 				DestroyWindow(hWnd);
 				break;
@@ -674,6 +697,11 @@ namespace MainWindow
 			case ID_OPTIONS_LINEARFILTERING:
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
 				break;
+			case ID_OPTIONS_TOPMOST:
+				g_Config.bTopMost = !g_Config.bTopMost;
+				W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
+				break;
+
 			case ID_OPTIONS_SIMPLE2XSSAA:
 				g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
 				ResizeDisplay(true);
@@ -686,21 +714,20 @@ namespace MainWindow
 			case ID_EMULATION_SOUND:
 				g_Config.bEnableSound = !g_Config.bEnableSound;
 				break;
-      			case ID_HELP_OPENWEBSITE:
+      		case ID_HELP_OPENWEBSITE:
 				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-        			break;
+        		break;
 
-      			case ID_HELP_ABOUT:
+      		case ID_HELP_ABOUT:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
 				break;
 
 			default:
-				{
-					MessageBox(hwndMain,"Unimplemented","Sorry",0);
-				}
+				MessageBox(hwndMain,"Unimplemented","Sorry",0);
 				break;
+			}
 			}
 			break;
 		case WM_KEYDOWN:
@@ -827,8 +854,8 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
-		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
+		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		
@@ -1330,7 +1357,7 @@ namespace MainWindow
 										} else {
 											int n = 1;
 											if (buttonCode != -1) {
-												for (int i = buttonCode >> 8; i > 1; i >>= 1) {
+												for (int j = buttonCode >> 8; j > 1; j >>= 1) {
 													n++;
 												}
 												snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",
@@ -1472,9 +1499,6 @@ namespace MainWindow
 
 	void _ViewNormal(HWND hWnd)
 	{
-		ShowCursor(TRUE);
-		SetCursor(LoadCursor(NULL, IDC_ARROW));
-
 		// put caption and border styles back
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
@@ -1493,14 +1517,13 @@ namespace MainWindow
 
 		// reset full screen indicator
 		g_bFullScreen = FALSE;
+		CorrectCursor();
 		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, TRUE);
 	}
 
 	void _ViewFullScreen(HWND hWnd)
 	{
-		if (globalUIState == UISTATE_INGAME)
-			ShowCursor(FALSE);
-
 		// keep in mind normal window rectangle
 		::GetWindowRect(hWnd, &g_normalRC);
 
@@ -1522,7 +1545,9 @@ namespace MainWindow
 
 		// set full screen indicator
 		g_bFullScreen = TRUE;
+		CorrectCursor();
 		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, FALSE);
 	}
 
 	void SetPlaying(const char *text)

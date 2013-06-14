@@ -52,6 +52,7 @@ static PSPSaveDialog saveDialog;
 static PSPMsgDialog msgDialog;
 static PSPOskDialog oskDialog;
 static PSPPlaceholderDialog netDialog;
+static PSPPlaceholderDialog screenshotDialog;
 
 static std::set<int> currentlyLoadedModules;
 
@@ -77,10 +78,10 @@ void __UtilityDoState(PointerWrap &p)
 
 void __UtilityShutdown()
 {
-	saveDialog.Shutdown();
-	msgDialog.Shutdown();
-	oskDialog.Shutdown();
-	netDialog.Shutdown();
+	saveDialog.Shutdown(true);
+	msgDialog.Shutdown(true);
+	oskDialog.Shutdown(true);
+	netDialog.Shutdown(true);
 }
 
 int __UtilityGetStatus()
@@ -377,10 +378,31 @@ int sceUtilityNetconfGetStatus()
 	return netDialog.GetStatus();
 }
 
+//TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
+//but it requires more investigation
+u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
+{
+	u32 retval = screenshotDialog.Init();
+	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	return retval;
+}
+
+u32 sceUtilityScreenshotShutdownStart()
+{
+	WARN_LOG(HLE, "UNTESTED sceUtilityScreenshotShutdownStart()");
+	return screenshotDialog.Shutdown();
+}
+
+u32 sceUtilityScreenshotUpdate(u32 unknown)
+{
+	ERROR_LOG(HLE, "UNIMPL sceUtilityScreenshotUpdate(%d)", unknown);
+	return screenshotDialog.Update();
+}
+
 int sceUtilityScreenshotGetStatus()
 {
-	u32 retval =  __UtilityGetStatus();
-	ERROR_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
+	u32 retval = screenshotDialog.GetStatus(); 
+	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
 	return retval;
 }
 
@@ -561,9 +583,9 @@ const HLEFunction sceUtility[] =
 	{0x2a2b3de0, &WrapU_U<sceUtilityLoadModule>, "sceUtilityLoadModule"},
 	{0xe49bfe92, &WrapU_U<sceUtilityUnloadModule>, "sceUtilityUnloadModule"},
 
-	{0x0251B134, 0, "sceUtilityScreenshotInitStart"},
-	{0xF9E0008C, 0, "sceUtilityScreenshotShutdownStart"},
-	{0xAB083EA9, 0, "sceUtilityScreenshotUpdate"},
+	{0x0251B134, &WrapU_UUUUUU<sceUtilityScreenshotInitStart>, "sceUtilityScreenshotInitStart"},
+	{0xF9E0008C, &WrapU_V<sceUtilityScreenshotShutdownStart>, "sceUtilityScreenshotShutdownStart"},
+	{0xAB083EA9, &WrapU_U<sceUtilityScreenshotUpdate>, "sceUtilityScreenshotUpdate"},
 	{0xD81957B7, &WrapI_V<sceUtilityScreenshotGetStatus>, "sceUtilityScreenshotGetStatus"},
 	{0x86A03A27, 0, "sceUtilityScreenshotContStart"},
 

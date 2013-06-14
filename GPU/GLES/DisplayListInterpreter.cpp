@@ -233,6 +233,7 @@ void GLES_GPU::DeviceLost() {
 	// FBO:s appear to survive? Or no?
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
+	framebufferManager_.DeviceLost();
 }
 
 void GLES_GPU::InitClear() {
@@ -390,6 +391,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			transformDraw_.SubmitPrim(verts, inds, type, count, gstate.vertType, -1, &bytesRead);
 
 			int vertexCost = transformDraw_.EstimatePerVertexCost();
+			gpuStats.vertexGPUCycles += vertexCost * count;
 			cyclesExecuted += vertexCost * count;
 
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
@@ -786,7 +788,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_ALPHATEST:
 #ifndef USING_GLES2
-		if (((data >> 16) & 0xFF) != 0xFF && data != 0)
+		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, HLE, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 #endif
 	case GE_CMD_COLORREF:
@@ -1003,6 +1005,19 @@ void GLES_GPU::DoBlockTransfer() {
 	// TODO: Notify all overlapping FBOs that they need to reload.
 
 	textureCache_.Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp, GPU_INVALIDATE_HINT);
+
+	
+	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
+	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
+
+	u32 backBuffer = framebufferManager_.PrevDisplayFramebufAddr();
+	u32 displayBuffer = framebufferManager_.DisplayFramebufAddr();
+
+	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
+		  (displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
+			dstStride == 512 && height == 272) {
+		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), 3, 512);
+	}
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
@@ -1010,6 +1025,13 @@ void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 		textureCache_.Invalidate(addr, size, type);
 	else
 		textureCache_.InvalidateAll(type);
+
+	if (type != GPU_INVALIDATE_ALL)
+		framebufferManager_.UpdateFromMemory(addr, size);
+}
+
+void GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 }
 
 void GLES_GPU::ClearCacheNextFrame() {

@@ -24,7 +24,7 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/__sceAudio.h"
 
-const int PSP_AUDIO_SAMPLE_MAX = 65536 - 64;
+const u32 PSP_AUDIO_SAMPLE_MAX = 65536 - 64;
 const int PSP_AUDIO_ERROR_SRC_FORMAT_4 = 0x80000003;
 
 void AudioChannel::DoState(PointerWrap &p)
@@ -42,7 +42,7 @@ void AudioChannel::DoState(PointerWrap &p)
 
 void AudioChannel::reset()
 {
-	__AudioWakeThreads(*this);
+	__AudioWakeThreads(*this, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
 	clear();
 }
 
@@ -192,7 +192,7 @@ u32 sceAudioChReserve(int chan, u32 sampleCount, u32 format) {
 			return SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE;
 		}
 	} 
-	if (chan >= PSP_AUDIO_CHANNEL_MAX)	{
+	if ((u32)chan >= PSP_AUDIO_CHANNEL_MAX)	{
 		ERROR_LOG(HLE, "sceAudioChReserve(%08x, %08x, %08x) - bad channel", chan, sampleCount, format);
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	}

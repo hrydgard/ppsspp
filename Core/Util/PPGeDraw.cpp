@@ -55,10 +55,35 @@ static u32 dataSize = 0x10000; // should be enough for a frame of gui...
 static u32 palettePtr;
 static u32 paletteSize = 2 * 16;
 
-
 // Vertex collector
 static u32 vertexStart;
 static u32 vertexCount;
+
+// Used for formating text
+struct AtlasCharVertex
+{
+	float x;
+	float y;
+	const AtlasChar *c;
+};
+
+struct AtlasTextMetrics
+{
+	float x;
+	float y;
+	float maxWidth;
+	float lineHeight;
+	float scale;
+	int numLines;
+
+};
+
+typedef std::vector<AtlasCharVertex> AtlasCharLine;
+typedef std::vector<AtlasCharLine> AtlasLineArray;
+
+static AtlasCharLine char_one_line;
+static AtlasLineArray char_lines;
+static AtlasTextMetrics char_lines_metrics;
 
 //only 0xFFFFFF of data is used
 static void WriteCmd(u8 cmd, u32 data) {
@@ -184,6 +209,9 @@ void __PPGeDoState(PointerWrap &p)
 	p.Do(vertexStart);
 	p.Do(vertexCount);
 
+	p.Do(char_lines);
+	p.Do(char_lines_metrics);
+
 	p.DoMarker("PPGeDraw");
 }
 
@@ -266,85 +294,36 @@ void PPGeEnd()
 static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cval)
 {
 	const AtlasChar *c = atlasfont.getChar(cval);
-	if (c == NULL)
-		c = atlasfont.getChar(0xFFFD);
-	if (c == NULL)
-		c = atlasfont.getChar('?');
+	if (c == NULL) {
+		// Try to use a replacement character, these come from the below table.
+		// http://unicode.org/cldr/charts/supplemental/character_fallback_substitutions.html
+		switch (cval) {
+		case 0x00A0: // NO-BREAK SPACE
+		case 0x2000: // EN QUAD
+		case 0x2001: // EM QUAD
+		case 0x2002: // EN SPACE
+		case 0x2003: // EM SPACE
+		case 0x2004: // THREE-PER-EM SPACE
+		case 0x2005: // FOUR-PER-EM SPACE
+		case 0x2006: // SIX-PER-EM SPACE
+		case 0x2007: // FIGURE SPACE
+		case 0x2008: // PUNCTUATION SPACE
+		case 0x2009: // THIN SPACE
+		case 0x200A: // HAIR SPACE
+		case 0x202F: // NARROW NO-BREAK SPACE
+		case 0x205F: // MEDIUM MATHEMATICAL
+		case 0x3000: // IDEOGRAPHIC SPACE
+			c = atlasfont.getChar(0x0020);
+			break;
+
+		default:
+			c = atlasfont.getChar(0xFFFD);
+			break;
+		}
+		if (c == NULL)
+			c = atlasfont.getChar('?');
+	}
 	return c;
-}
-
-static void PPGeMeasureText(const char *text, float scale, float *w, float *h) {
-	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	unsigned int cval;
-	float wacc = 0;
-	float maxw = 0;
-	int lines = 1;
-	UTF8 utf(text);
-	while (true) {
-		if (utf.end())
-			break;
-		cval = utf.next();
-		if (cval == '\n') {
-			if (wacc > maxw) maxw = wacc;
-			wacc = 0;
-			lines++;
-		}
-		const AtlasChar *c = PPGeGetChar(atlasfont, cval);
-		if (c) {
-			wacc += c->wx * scale;
-		}
-	}
-	if (wacc > maxw) maxw = wacc;
-	if (w) *w = maxw;
-	if (h) *h = atlasfont.height * scale * lines;
-}
-
-static void PPGeDoAlign(int flags, float *x, float *y, float *w, float *h) {
-	if (flags & PPGE_ALIGN_HCENTER) *x -= *w / 2;
-	if (flags & PPGE_ALIGN_RIGHT) *x -= *w;
-	if (flags & PPGE_ALIGN_VCENTER) *y -= *h / 2;
-	if (flags & PPGE_ALIGN_BOTTOM) *y -= *h;
-}
-
-// Draws some text using the one font we have.
-// Mostly stolen from DrawBuffer.
-void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color) {
-	if (!dlPtr)
-		return;
-	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	unsigned int cval;
-	float w, h;
-	PPGeMeasureText(text, scale, &w, &h);
-	if (align) {
-		PPGeDoAlign(align, &x, &y, &w, &h);
-	}
-	BeginVertexData();
-	y += atlasfont.ascend*scale;
-	float sx = x;
-	UTF8 utf(text);
-	while (true) {
-		if (utf.end())
-			break;
-		cval = utf.next();
-		if (cval == '\n') {
-			// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
-			y += atlasfont.height * scale;
-			x = sx;
-			continue;
-		}
-		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
-		if (ch) {
-			const AtlasChar &c = *ch;
-			float cx1 = x + c.ox * scale;
-			float cy1 = y + c.oy * scale;
-			float cx2 = x + (c.ox + c.pw) * scale;
-			float cy2 = y + (c.oy + c.ph) * scale;
-			Vertex(cx1, cy1, c.sx, c.sy, atlasWidth, atlasHeight, color);
-			Vertex(cx2, cy2, c.ex, c.ey, atlasWidth, atlasHeight, color);
-			x += c.wx * scale;
-		}
-	}
-	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
 static float NextWordWidth(UTF8 utf, const AtlasFont &atlasfont, float scale) {
@@ -393,64 +372,183 @@ static float NextWordWidth(UTF8 utf, const AtlasFont &atlasfont, float scale) {
 	return w;
 }
 
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, int align, float scale, u32 color) {
-	if (!dlPtr)
-		return;
+// Break a single text string into mutiple lines.
+static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont, float x, float y, 
+									int align, float scale, int wrapType, float wrapWidth, bool dryRun)
+{
+	y += atlasfont.ascend * scale;
+	float sx = x, sy = y;
+
+	// TODO: Can we wrap it smartly on the screen edge?
+	if (wrapWidth <= 0) {
+		wrapWidth = 480.f;
+	}
+
+	// used for replacing with ellipsis
+	float wrapCutoff = 8.0f;
+	const AtlasChar *dot = PPGeGetChar(atlasfont, '.');
+	if (dot) {
+		wrapCutoff = dot->wx * scale * 3.0f;
+	}
+	//const float wrapGreyZone = 2.0f; // Grey zone for punctuations at line ends
+
+	int numLines = 1;
+	float maxw = 0;
+	float lineHeight = atlasfont.height * scale;
+	for (UTF8 utf(text); !utf.end(); )
+	{
+		float lineWidth = 0;
+		while (!utf.end())
+		{
+			uint32_t cval = utf.next();
+			if (cval == '\n') {
+				 ++numLines;
+				break;
+			}
+			if (cval == '\r') {
+				// We simply ignore this.
+				continue;
+			}
+			const AtlasChar *c = PPGeGetChar(atlasfont, cval);
+			if (c)
+			{
+				if (wrapType > 0)
+				{
+					float nextWidth = NextWordWidth(utf, atlasfont, scale);
+					if (lineWidth + nextWidth > wrapWidth) {
+						if (wrapType & PPGE_LINE_WRAP_WORD) {
+							// TODO: Should check if we have had at least one other word instead.
+							if (lineWidth > 0) {
+								 ++numLines;
+								break;
+							}
+						}
+						if (wrapType & PPGE_LINE_USE_ELLIPSIS) {
+							if (nextWidth >= wrapCutoff) {
+								// TODO: Truncate the word with an ellipsis.
+								// The word is not too short.
+							}
+						}
+					}
+				}
+				if (!dryRun)
+				{
+					AtlasCharVertex cv;
+					cv.x = x + c->ox * scale;
+					cv.y = y + c->oy * scale;
+					cv.c = c;
+					char_one_line.push_back(cv);
+				}
+
+				float ww = c->wx * scale;
+				lineWidth += ww;
+				x += ww;
+			}
+		}
+		y += lineHeight;
+		x = sx;
+		if (lineWidth > maxw) {
+			maxw = lineWidth;
+		}
+		if (!dryRun)
+		{
+			char_lines.push_back(char_one_line);
+			char_one_line.clear();
+		}
+	}
+
+	const float w = maxw;
+	const float h = (float)numLines * lineHeight;
+	if (align)
+	{
+		if (!dryRun)
+		{
+			for (auto i = char_lines.begin(); i != char_lines.end(); ++i)
+			{
+				for (auto j = i->begin(); j != i->end(); ++j)
+				{
+					if (align & PPGE_ALIGN_HCENTER) j->x -= w / 2.0f;
+					else if (align & PPGE_ALIGN_RIGHT) j->x -= w;
+
+					if (align & PPGE_ALIGN_VCENTER) j->y -= h / 2.0f;
+					else if (align & PPGE_ALIGN_BOTTOM) j->y -= h;
+				}
+			}
+		}
+		if (align & PPGE_ALIGN_HCENTER) sx -= w / 2.0f;
+		else if (align & PPGE_ALIGN_RIGHT) sx -= w;
+		if (align & PPGE_ALIGN_VCENTER) sy -= h / 2.0f;
+		else if (align & PPGE_ALIGN_BOTTOM) sy -= h;
+	}
+
+	AtlasTextMetrics metrics = { sx, sy, w, lineHeight, scale, numLines };
+	return metrics;
+}
+
+void PPGeMeasureText(float *w, float *h, int *n, 
+					const char *text, float scale, int WrapType, int wrapWidth)
+{
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	unsigned int cval;
-	float w, h;
-	// TODO: Could ideally try to handle center, right align better.
-	PPGeMeasureText(text, scale, &w, &h);
-	if (align && w < wrapWidth) {
-		PPGeDoAlign(align, &x, &y, &w, &h);
-	}
-	BeginVertexData();
-	y += atlasfont.ascend*scale;
-	float sx = x;
-	bool skipWrap = true;
-	const float wrapCutoff = wrapWidth * 0.8f;
-	UTF8 utf(text);
-	while (true) {
-		if (utf.end())
-			break;
-		cval = utf.next();
-		if (cval == '\n') {
-			// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
-			y += atlasfont.height * scale;
-			x = sx;
-			skipWrap = false;
-			continue;
-		}
-		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
-		if (ch) {
-			const AtlasChar &c = *ch;
-			float cx1 = x + c.ox * scale;
-			float cy1 = y + c.oy * scale;
-			float cx2 = x + (c.ox + c.pw) * scale;
-			float cy2 = y + (c.oy + c.ph) * scale;
-			Vertex(cx1, cy1, c.sx, c.sy, atlasWidth, atlasHeight, color);
-			Vertex(cx2, cy2, c.ex, c.ey, atlasWidth, atlasHeight, color);
-			x += c.wx * scale;
+	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, 0, scale, WrapType, wrapWidth, true);
+	if (w) *w = metrics.maxWidth;
+	if (h) *h = metrics.lineHeight;
+	if (n) *n = metrics.numLines;
+}
 
-			float nextWidth = NextWordWidth(utf, atlasfont, scale);
-			// This word is too long, and we're not near the end of the line.
-			if (nextWidth > wrapCutoff && wrapWidth + sx - x > wrapCutoff) {
-				skipWrap = true;
-			}
-			// Pretend the word is only a single character long.
-			if (skipWrap) {
-				nextWidth = c.wx * scale;
-			}
+void PPGePrepareText(const char *text, float x, float y, int align, float scale, int WrapType, int wrapWidth)
+{
+	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
+	char_lines_metrics = BreakLines(text, atlasfont, x, y, align, scale, WrapType, wrapWidth, false);
+}
 
-			if (x + nextWidth > wrapWidth) {
-				// This is not correct when centering or right-justifying, need to set x depending on line width (tricky)
-				y += atlasfont.height * scale;
-				x = sx;
-				skipWrap = false;
+void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n)
+{
+	if (x) *x = char_lines_metrics.x;
+	if (y) *y = char_lines_metrics.y;
+	if (w) *w = char_lines_metrics.maxWidth;
+	if (h) *h = char_lines_metrics.lineHeight;
+	if (n) *n = char_lines_metrics.numLines;
+}
+
+// Draws some text using the one font we have.
+// Mostly rewritten.
+void PPGeDrawCurrentText(u32 color)
+{
+	if (dlPtr)
+	{
+		float scale = char_lines_metrics.scale;
+		BeginVertexData();
+		for (auto i = char_lines.begin(); i != char_lines.end(); ++i)
+		{
+			for (auto j = i->begin(); j != i->end(); ++j)
+			{
+				float cx1 = j->x;
+				float cy1 = j->y;
+				const AtlasChar &c = *j->c;
+				float cx2 = cx1 + c.pw * scale;
+				float cy2 = cy1 + c.ph * scale;
+				Vertex(cx1, cy1, c.sx, c.sy, atlasWidth, atlasHeight, color);
+				Vertex(cx2, cy2, c.ex, c.ey, atlasWidth, atlasHeight, color);
 			}
 		}
+		EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 	}
-	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+	char_one_line.clear();
+	char_lines.clear();
+	AtlasTextMetrics zeroBox = { 0 };
+	char_lines_metrics = zeroBox;
+}
+
+void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color)
+{
+	PPGePrepareText(text, x, y, align, scale, PPGE_LINE_USE_ELLIPSIS);
+	PPGeDrawCurrentText(color);
+}
+
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, int align, float scale, u32 color)
+{
+	PPGePrepareText(text, x, y, align, scale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
+	PPGeDrawCurrentText(color);
 }
 
 // Draws a "4-patch" for button-like things that can be resized

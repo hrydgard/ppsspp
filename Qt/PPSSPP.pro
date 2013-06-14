@@ -4,6 +4,7 @@ QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
 win32: QT += multimedia
+VERSION = 0.7.6
 
 include(Settings.pri)
 mobile_platform: MOBILITY += sensors
@@ -42,6 +43,7 @@ SOURCES += ../UI/EmuScreen.cpp \
 	../UI/GamepadEmu.cpp \
 	../UI/GameInfoCache.cpp \
 	../UI/OnScreenDisplay.cpp \
+	../UI/PluginScreen.cpp \
 	../android/jni/TestRunner.cpp \
 	../UI/UIShader.cpp \
 	../UI/ui_atlas.cpp
@@ -76,7 +78,7 @@ PRE_TARGETDEPS += compiler_lang_make_all
 
 # Packaging
 symbian {
-	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 5, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
+	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 6, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
 	assets.sources = ../assets/flash ../lang
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += deploy assets

@@ -37,8 +37,10 @@
 static timeval rtcBaseTime;
 
 // Grabbed from JPSCP
-// This is # of microseconds between January 1, 0001 and January 1, 1970.
-const u64 rtcMagicOffset = 62135596800000000L;
+// This is the # of microseconds between January 1, 0001 and January 1, 1970.
+const u64 rtcMagicOffset = 62135596800000000ULL;
+// This is the # of microseconds between January 1, 0001 and January 1, 1601 (for Win32 FILETIME.)
+const u64 rtcFiletimeOffset = 50491123200000000ULL;
 
 const int PSP_TIME_INVALID_YEAR = -1;
 const int PSP_TIME_INVALID_MONTH = -2;
@@ -55,7 +57,7 @@ u64 __RtcGetCurrentTick()
 }
 
 #if defined(_WIN32)
-#define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
+#define FILETIME_FROM_UNIX_EPOCH_US (rtcMagicOffset - rtcFiletimeOffset)
 
 void gettimeofday(timeval *tv, void *ignore)
 {
@@ -621,18 +623,46 @@ int sceRtcGetDosTime(u32 datePtr, u32 dosTime)
 		retValue = -1;
 	}
 	return retValue;
-
 }
 
-int sceRtcSetWin32FileTime(u32 datePtr, u32 win32TimePtr)
+int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceRtcSetWin32FileTime(%d,%d)", datePtr, win32TimePtr);
+	if (!Memory::IsValidAddress(datePtr))
+	{
+		ERROR_LOG_REPORT(HLE, "sceRtcSetWin32FileTime(%08x, %lld): invalid address", datePtr, win32Time);
+		return -1;
+	}
+
+	DEBUG_LOG(HLE, "sceRtcSetWin32FileTime(%08x, %lld)", datePtr, win32Time);
+
+	u64 ticks = (win32Time / 10) + rtcFiletimeOffset;
+	auto pspTime = Memory::GetStruct<ScePspDateTime>(datePtr);
+	__RtcTicksToPspTime(*pspTime, ticks);
 	return 0;
 }
 
 int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceRtcGetWin32FileTime(%d,%d)", datePtr, win32TimePtr);
+	if (!Memory::IsValidAddress(datePtr))
+	{
+		ERROR_LOG_REPORT(HLE, "sceRtcGetWin32FileTime(%08x, %08x): invalid address", datePtr, win32TimePtr);
+		return -1;
+	}
+
+	DEBUG_LOG(HLE, "sceRtcGetWin32FileTime(%08x, %08x)", datePtr, win32TimePtr);
+	if (!Memory::IsValidAddress(win32TimePtr))
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+
+	auto pspTime = Memory::GetStruct<ScePspDateTime>(datePtr);
+	u64 result = __RtcPspTimeToTicks(*pspTime);
+
+	if (!__RtcValidatePspTime(*pspTime) || result < rtcFiletimeOffset)
+	{
+		Memory::Write_U64(0, win32TimePtr);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+
+	Memory::Write_U64((result - rtcFiletimeOffset) * 10, win32TimePtr);
 	return 0;
 }
 
@@ -836,6 +866,13 @@ int sceRtcGetLastAdjustedTime(u32 tickPtr)
 	return 0;
 }
 
+//Returns 0 on success, according to Project Diva 2nd jpcsptrace log
+int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2)
+{
+	ERROR_LOG(HLE, "UNIMPL sceRtcSetAlarmTick(%x, %x)", unknown1, unknown2);
+	return 0; 
+}
+
 const HLEFunction sceRtc[] =
 {
 	{0xC41C2853, &WrapU_V<sceRtcGetTickResolution>, "sceRtcGetTickResolution"},
@@ -854,7 +891,7 @@ const HLEFunction sceRtc[] =
 	{0x27c4594c, &WrapI_UU<sceRtcGetTime_t>, "sceRtcGetTime_t"},
 	{0xF006F264, &WrapI_UU<sceRtcSetDosTime>, "sceRtcSetDosTime"},
 	{0x36075567, &WrapI_UU<sceRtcGetDosTime>, "sceRtcGetDosTime"},
-	{0x7ACE4C04, &WrapI_UU<sceRtcSetWin32FileTime>, "sceRtcSetWin32FileTime"},
+	{0x7ACE4C04, &WrapI_UU64<sceRtcSetWin32FileTime>, "sceRtcSetWin32FileTime"},
 	{0xCF561893, &WrapI_UU<sceRtcGetWin32FileTime>, "sceRtcGetWin32FileTime"},
 	{0x7ED29E40, &WrapU_UU<sceRtcSetTick>, "sceRtcSetTick"},
 	{0x6FF40ACC, &WrapU_UU<sceRtcGetTick>, "sceRtcGetTick"},
@@ -878,7 +915,7 @@ const HLEFunction sceRtc[] =
 	{0x1909c99b, &WrapI_UU64<sceRtcSetTime64_t>, "sceRtcSetTime64_t"},
 	{0x62685E98, &WrapI_U<sceRtcGetLastAdjustedTime>, "sceRtcGetLastAdjustedTime"},
 	{0x203ceb0d, 0, "sceRtcGetLastReincarnatedTime"},
-	{0x7d1fbed3, 0, "sceRtcSetAlarmTick"},
+	{0x7d1fbed3, &WrapI_UU<sceRtcSetAlarmTick>, "sceRtcSetAlarmTick"},
 	{0xf5fcc995, 0, "sceRtc_F5FCC995"},
 };
 

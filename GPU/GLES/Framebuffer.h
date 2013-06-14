@@ -86,7 +86,7 @@ public:
 	}
 
 	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
-	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false);
+	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f);
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();
@@ -94,8 +94,10 @@ public:
 	void BeginFrame();
 	void EndFrame();
 	void Resized();
+	void DeviceLost();
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
+	void UpdateFromMemory(u32 addr, int size);
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetDisplayFBO();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
@@ -108,9 +110,15 @@ public:
 	int GetTargetWidth() const { return currentRenderVfb_ ? currentRenderVfb_->width : 480; }
 	int GetTargetHeight() const { return currentRenderVfb_ ? currentRenderVfb_->height : 272; }
 
-private:
-	// Deletes old FBOs.
+	u32 PrevDisplayFramebufAddr() {
+		return prevDisplayFramebuf_ ? (0x04000000 | prevDisplayFramebuf_->fb_address) : 0;
+	}
+	u32 DisplayFramebufAddr() {
+		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
+	}
 
+private:
+	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
 	int displayFormat_;
@@ -125,7 +133,8 @@ private:
 	VirtualFramebuffer *currentRenderVfb_;
 
 	// Used by DrawPixels
-	unsigned int backbufTex;
+	unsigned int drawPixelsTex_;
+	int drawPixelsTexFormat_;
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram;

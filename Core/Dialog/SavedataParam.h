@@ -17,8 +17,13 @@
 
 #pragma once
 
-#include "../HLE/sceKernel.h"
-#include "../System.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceRtc.h"
+#include "Core/System.h"
+#include "Core/Dialog/PSPDialog.h"
+#undef st_ctime
+#undef st_atime
+#undef st_mtime
 
 enum SceUtilitySavedataType
 {
@@ -50,10 +55,10 @@ enum SceUtilitySavedataType
 enum SceUtilitySavedataFocus
 {
 	SCE_UTILITY_SAVEDATA_FOCUS_NAME       = 0, // specified by saveName[]
-	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST  = 1, // first listed (on screen or of all)?
-	SCE_UTILITY_SAVEDATA_FOCUS_LASTLIST   = 2, // last listed (on screen or of all)?
+	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST  = 1, // first listed (on screen or of all?)
+	SCE_UTILITY_SAVEDATA_FOCUS_LASTLIST   = 2, // last listed (on screen or of all?)
 	SCE_UTILITY_SAVEDATA_FOCUS_LATEST     = 3, // latest by modification date (first if none)
-	SCE_UTILITY_SAVEDATA_FOCUS_OLDEST     = 4, // doldest by modification date (first if none)
+	SCE_UTILITY_SAVEDATA_FOCUS_OLDEST     = 4, // oldest by modification date (first if none)
 	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTDATA  = 5, // first non-empty (first if none)
 	SCE_UTILITY_SAVEDATA_FOCUS_LASTDATA   = 6, // last non-empty (first if none)
 	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTEMPTY = 7, // first empty (what if no empty?)
@@ -100,18 +105,33 @@ struct PspUtilitySavedataSizeInfo {
 	char overwriteString[8];
 };
 
+struct SceUtilitySavedataFileListEntry
+{
+	int st_mode;
+	u64 st_size;
+	ScePspDateTime st_ctime;
+	ScePspDateTime st_atime;
+	ScePspDateTime st_mtime;
+	char name[16];
+};
+
+struct SceUtilitySavedataFileListInfo
+{
+	u32 maxSecureEntries;
+	u32 maxNormalEntries;
+	u32 maxSystemEntries;
+	u32 resultNumSecureEntries;
+	u32 resultNumNormalEntries;
+	u32 resultNumSystemEntries;
+	PSPPointer<SceUtilitySavedataFileListEntry> secureEntries;
+	PSPPointer<SceUtilitySavedataFileListEntry> normalEntries;
+	PSPPointer<SceUtilitySavedataFileListEntry> systemEntries;
+};
+
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.
 struct SceUtilitySavedataParam
 {
-	SceSize size; // Size of the structure
-
-	int language;
-
-	int buttonSwap;
-
-	int unknown[4];
-	int result;
-	int unknown2[4];
+	pspUtilityDialogCommon common;
 
 	int mode;  // 0 to load, 1 to save
 	int bind;
@@ -159,7 +179,7 @@ struct SceUtilitySavedataParam
 	u32 idListAddr;
 
 	// Function 12 FILES
-	u32 fileListAddr;
+	PSPPointer<SceUtilitySavedataFileListInfo> fileList;
 
 	// Function 22 GETSIZES
 	u32 sizeAddr;
@@ -216,7 +236,7 @@ public:
 	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	bool GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
-	bool GetFilesList(SceUtilitySavedataParam* param);
+	int GetFilesList(SceUtilitySavedataParam* param);
 	bool GetSize(SceUtilitySavedataParam* param);
 	bool IsSaveEncrypted(SceUtilitySavedataParam* param, const std::string &saveDirName);
 

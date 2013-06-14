@@ -505,6 +505,39 @@ namespace MIPSComp
 		}
 	}
 
+	void Jit::Comp_Allegrex2(u32 op)
+	{
+		CONDITIONAL_DISABLE;
+		int rt = _RT;
+		int rd = _RD;
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
+		switch (op & 0x3ff)
+		{
+		case 0xA0: //wsbh
+			if (cpu_info.bArmV7) {
+				gpr.MapDirtyIn(rd, rt);
+				REV16(gpr.R(rd), gpr.R(rt));
+			} else {
+				Comp_Generic(op);
+			}
+			break;
+		case 0xE0: //wsbw
+			if (cpu_info.bArmV7) {
+				gpr.MapDirtyIn(rd, rt);
+				REV(gpr.R(rd), gpr.R(rt));
+			} else {
+				Comp_Generic(op);
+			}
+			break;
+		default:
+			Comp_Generic(op);
+			break;
+		}
+	}
+
 	void Jit::Comp_MulDivType(u32 op)
 	{
 		CONDITIONAL_DISABLE;
@@ -553,16 +586,6 @@ namespace MIPSComp
 				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
 			} else {
 				DISABLE;
-				gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
-				VMOV(S0, gpr.R(rs));
-				VMOV(S1, gpr.R(rt));
-				VCVT(D0, S0, TO_FLOAT | IS_SIGNED);
-				VCVT(D1, S1, TO_FLOAT | IS_SIGNED);
-				VDIV(D0, D0, D1);
-				VCVT(S0, D0, TO_INT);
-				VMOV(gpr.R(MIPSREG_LO), S0);
-				MUL(R0, gpr.R(rt), gpr.R(MIPSREG_LO));
-				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
 			}
 			break;
 
@@ -575,16 +598,6 @@ namespace MIPSComp
 				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
 			} else {
 				DISABLE;
-				gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
-				VMOV(S0, gpr.R(rs));
-				VMOV(S1, gpr.R(rt));
-				VCVT(D0, S0, TO_FLOAT);
-				VCVT(D1, S1, TO_FLOAT);
-				VDIV(D0, D0, D1);
-				VCVT(S0, D0, TO_INT);
-				VMOV(gpr.R(MIPSREG_LO), S0);
-				MUL(R0, gpr.R(rt), gpr.R(MIPSREG_LO));
-				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
 			}
 			break;
 

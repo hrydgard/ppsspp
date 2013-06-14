@@ -52,6 +52,21 @@ enum {
 	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
 };
 
+//these might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc
+struct SceNetAdhocctlParams
+{
+	int channel; //which ad-hoc channel to connect to
+	char name[8]; //connection name
+	u8 bssid[6];  //BSSID of the connection?
+	char nickname[128]; //PSP's nickname?
+};
+
+struct ProductStruct
+{
+	int unknown; //unknown, set to 0
+	char product[9]; //Product name?
+};
+
 void __NetInit() {
 	netInited = false;
 	netAdhocInited = false;
@@ -90,7 +105,7 @@ u32 sceNetAdhocInit() {
 }
 
 u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
-	ERROR_LOG(HLE,"UNIMPL sceNetAdhocInit(%i, %i, %08x)", stackSize, prio, productAddr);
+	ERROR_LOG(HLE,"UNIMPL sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
 	return 0;
 }
 
@@ -114,11 +129,96 @@ u32 sceWlanGetSwitchState() {
 	return 0;
 }
 
+//handler probably shouldn't be an int...
+u32 sceNetAdhocctlAddHandler(int handler, void *unknown) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlAddHandler(%x, %x)", handler, unknown);
+	return 0;
+}
+
+u32 sceNetAdhocctlDisconnect() {
+	DEBUG_LOG(HLE, "UNIMPL sceNetAdhocctlDisconnect()");
+	return 0;
+}
+
+u32 sceNetAdhocctlDelHandler(int handler) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlDelHandler(%x)", handler);
+	return 0;
+}
+
+int sceNetAdhocMatchingTerm() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingTerm()");
+	return 0;
+}
+
+int sceNetAdhocctlTerm() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlTerm()");
+	return 0;
+}
+
+int sceNetAdhocTerm() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocTerm()");
+	return 0;
+}
+
+//homebrew SDK claims it's a void function, but tests seem to indicate otherwise
+int sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
+	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
+	int len = strlen(mac);
+	for (int i = 0; i < len; i++)
+		Memory::Write_U8(mac[i], bufferPtr + i);
+
+	return 0;
+}
+
+//write SCE_KERNEL_ERROR_ERRNO_NOT_CONNECTED to attempt to stop games from spamming wifi syscalls...
+int sceNetAdhocctlGetState(u32 ptrToStatus) {
+	DEBUG_LOG(HLE, "UNTESTED sceNetAdhocctlGetState(%x)", ptrToStatus);
+	Memory::Write_U32(SCE_KERNEL_ERROR_ERRNO_NOT_CONNECTED, ptrToStatus);
+	return 0;
+}
+
+//always return -1 since we don't have any real networking...
+int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpCreate(%s, %x, %x, %x)", mac, port, bufferSize, unknown);
+	return -1;
+}
+
+//SHOULD be int sceNetAdhocctlGetParameter(struct SceNetAdhocctlParams *params), but I don't want
+//to mess up the function wrappers..
+int sceNetAdhocctlGetParameter() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetParameter()");
+	return -1;
+}
+	
+//SHOULD be int sceNetAdhocctlGetAdhocId(struct productStruct * product), but I don't want
+//to mess up the function wrappers..
+int sceNetAdhocctlGetAdhocId() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetAdhocId()");
+	return -1;
+}
+
+//return -1 packets since we don't have networking yet
+int sceNetAdhocPdpRecv(int id, const char *mac, u32 port, void *data, void *dataLength, u32 timeout, int nonBlock) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpRecv(%d, %d, %d, %x, %x, %d, %d)", id, mac, port, data, dataLength, timeout, nonBlock);
+	return -1;
+}
+
+//Assuming < 0 for failure, homebrew SDK doesn't have much to say about this one
+int sceNetAdhocSetSocketAlert(int id, int flag) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocSetSocketAlert(%d, %d)", id, flag);
+	return -1;
+}
+
+int sceNetAdhocPdpDelete(int id, int unknown) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpDelete(%d, %d)", id, unknown);
+	return 0;
+}
+
 const HLEFunction sceNet[] =
 {
 	{0x39AF39A6, sceNetInit, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
-	{0x89360950, 0, "sceNetEtherNtostr"}, 
+	{0x89360950, WrapI_CU<sceNetEtherNtostr>, "sceNetEtherNtostr"}, 
 	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"}, 
 	{0xd27961c9, 0, "sceNetEtherStrton"}, 
 	{0x50647530, 0, "sceNetFreeThreadinfo"}, 
@@ -129,12 +229,12 @@ const HLEFunction sceNet[] =
 const HLEFunction sceNetAdhoc[] =
 {
 	{0xE1D621D7, WrapU_V<sceNetAdhocInit>, "sceNetAdhocInit"}, 
-	{0xA62C6F57, 0, "sceNetAdhocTerm"}, 
+	{0xA62C6F57, WrapI_V<sceNetAdhocTerm>, "sceNetAdhocTerm"}, 
 	{0x0AD043ED, 0, "sceNetAdhocctlConnect"},
-	{0x6f92741b, 0, "sceNetAdhocPdpCreate"},
+	{0x6f92741b, WrapI_CUIU<sceNetAdhocPdpCreate>, "sceNetAdhocPdpCreate"},
 	{0xabed3790, 0, "sceNetAdhocPdpSend"},
-	{0xdfe53e03, 0, "sceNetAdhocPdpRecv"},
-	{0x7f27bb5e, 0, "sceNetAdhocPdpDelete"},
+	{0xdfe53e03, WrapI_ICUVVUI<sceNetAdhocPdpRecv>, "sceNetAdhocPdpRecv"},
+	{0x7f27bb5e, WrapI_II<sceNetAdhocPdpDelete>, "sceNetAdhocPdpDelete"},
 	{0xc7c1fc57, 0, "sceNetAdhocGetPdpStat"},
 	{0x157e6225, 0, "sceNetAdhocPtpClose"},
 	{0x4da4c788, 0, "sceNetAdhocPtpSend"},
@@ -151,7 +251,7 @@ const HLEFunction sceNetAdhoc[] =
 	{0xa0229362, 0, "sceNetAdhocGameModeDeleteMaster"},
 	{0x0b2228e9, 0, "sceNetAdhocGameModeDeleteReplica"},
 	{0x7F75C338, 0, "sceNetAdhocGameModeCreateMaster"},
-	{0x73bfd52d, 0, "sceNetAdhocSetSocketAlert"},
+	{0x73bfd52d, WrapI_II<sceNetAdhocSetSocketAlert>, "sceNetAdhocSetSocketAlert"},
 	{0x7a662d6b, 0, "sceNetAdhocPollSocket"},
 	{0x4d2ce199, 0, "sceNetAdhocGetSocketAlert"},
 };							
@@ -164,7 +264,7 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 const HLEFunction sceNetAdhocMatching[] = 
 {
 	{0x2a2a1e07, WrapI_U<sceNetAdhocMatchingInit>, "sceNetAdhocMatchingInit"},
-	{0x7945ecda, 0, "sceNetAdhocMatchingTerm"},
+	{0x7945ecda, WrapI_V<sceNetAdhocMatchingTerm>, "sceNetAdhocMatchingTerm"},
 	{0xca5eda6f, 0, "sceNetAdhocMatchingCreate"},
 	{0x93ef3843, 0, "sceNetAdhocMatchingStart"},
 	{0x32b156b3, 0, "sceNetAdhocMatchingStop"},
@@ -184,15 +284,15 @@ const HLEFunction sceNetAdhocMatching[] =
 const HLEFunction sceNetAdhocctl[] =
 {
 	{0xE26F226E, WrapU_IIU<sceNetAdhocctlInit>, "sceNetAdhocctlInit"},
-	{0x9D689E13, 0, "sceNetAdhocctlTerm"},
-	{0x20B317A0, 0, "sceNetAdhocctlAddHandler"},
-	{0x6402490B, 0, "sceNetAdhocctlDelHandler"},
-	{0x34401D65, 0, "sceNetAdhocctlDisconnect"},
+	{0x9D689E13, WrapI_V<sceNetAdhocctlTerm>, "sceNetAdhocctlTerm"},
+	{0x20B317A0, WrapU_IV<sceNetAdhocctlAddHandler>, "sceNetAdhocctlAddHandler"},
+	{0x6402490B, WrapU_I<sceNetAdhocctlDelHandler>, "sceNetAdhocctlDelHandler"},
+	{0x34401D65, WrapU_V<sceNetAdhocctlDisconnect>, "sceNetAdhocctlDisconnect"},
 	{0x0ad043ed, 0, "sceNetAdhocctlConnect"},
 	{0x08fff7a0, 0, "sceNetAdhocctlScan"},
-	{0x75ecd386, 0, "sceNetAdhocctlGetState"},
+	{0x75ecd386, WrapI_U<sceNetAdhocctlGetState>, "sceNetAdhocctlGetState"},
 	{0x8916c003, 0, "sceNetAdhocctlGetNameByAddr"},
-	{0xded9d28e, 0, "sceNetAdhocctlGetParameter"},
+	{0xded9d28e, WrapI_V<sceNetAdhocctlGetParameter>, "sceNetAdhocctlGetParameter"},
 	{0x81aee1be, 0, "sceNetAdhocctlGetScanInfo"},
 	{0x5e7f79c9, 0, "sceNetAdhocctlJoin"},
 	{0x8db83fdc, 0, "sceNetAdhocctlGetPeerInfo"},
@@ -201,7 +301,7 @@ const HLEFunction sceNetAdhocctl[] =
 	{0x1ff89745, 0, "sceNetAdhocctlJoinEnterGameMode"},
 	{0xcf8e084d, 0, "sceNetAdhocctlExitGameMode"},
 	{0xe162cb14, 0, "sceNetAdhocctlGetPeerList"},
-	{0x362cbe8f, 0, "sceNetAdhocctlGetAdhocId"},
+	{0x362cbe8f, WrapI_V<sceNetAdhocctlGetAdhocId>, "sceNetAdhocctlGetAdhocId"},
 	{0x5a014ce0, 0, "sceNetAdhocctlGetGameModeInfo"},
 	{0x99560abe, 0, "sceNetAdhocctlGetAddrByName"},
 	{0xb0b80e80, 0, "sceNetAdhocctlCreateEnterGameModeMin"},

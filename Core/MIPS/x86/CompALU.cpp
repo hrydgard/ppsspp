@@ -711,6 +711,35 @@ namespace MIPSComp
 		}
 	}
 
+	void Jit::Comp_Allegrex2(u32 op)
+	{
+		CONDITIONAL_DISABLE
+		int rt = _RT;
+		int rd = _RD;
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
+		DISABLE;
+		switch (op & 0x3ff)
+		{
+		case 0xA0: //wsbh
+			gpr.Lock(rd, rt);
+			gpr.BindToRegister(rd, rd == rt, true);
+			// Stub
+			gpr.UnlockAll();
+			break;
+		case 0xE0: //wsbw
+			gpr.Lock(rd, rt);
+			gpr.BindToRegister(rd, rd == rt, true);
+			// Stub
+			gpr.UnlockAll();
+			break;
+		default:
+			Comp_Generic(op);
+			break;
+		}
+	}
 
 	void Jit::Comp_MulDivType(u32 op)
 	{

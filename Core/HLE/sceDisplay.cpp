@@ -254,6 +254,8 @@ void __DisplayGetDebugStats(char stats[2048])
 {
 	gpu->UpdateStats();
 
+	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
+
 	sprintf(stats,
 		"Frames: %i\n"
 		"DL processing time: %0.2f ms\n"
@@ -263,6 +265,7 @@ void __DisplayGetDebugStats(char stats[2048])
 		"Draw calls: %i, flushes %i\n"
 		"Cached Draw calls: %i\n"
 		"Num Tracked Vertex Arrays: %i\n"
+		"Cycles executed: %d (%f per vertex)\n"
 		"Vertices Submitted: %i\n"
 		"Cached Vertices Drawn: %i\n"
 		"Uncached Vertices Drawn: %i\n"
@@ -283,6 +286,8 @@ void __DisplayGetDebugStats(char stats[2048])
 		gpuStats.numFlushes,
 		gpuStats.numCachedDrawCalls,
 		gpuStats.numTrackedVertexArrays,
+		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
+		vertexAverageCycles,
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
@@ -561,7 +566,11 @@ u32 sceDisplayWaitVblank() {
 }
 
 u32 sceDisplayWaitVblankStartMulti(int vblanks) {
-	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
+	if (vblanks <= 0) {
+		WARN_LOG(HLE, "sceDisplayWaitVblankStartMulti(%d): invalid number of vblanks", vblanks);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	VERBOSE_LOG(HLE, "sceDisplayWaitVblankStartMulti(%d)", vblanks);
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start multi waited");
 	return 0;
@@ -588,7 +597,11 @@ u32 sceDisplayWaitVblankStartCB() {
 }
 
 u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
-	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");
+	if (vblanks <= 0) {
+		WARN_LOG(HLE, "sceDisplayWaitVblankStartMultiCB(%d): invalid number of vblanks", vblanks);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMultiCB(%d)", vblanks);
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start multi waited");
 	return 0;

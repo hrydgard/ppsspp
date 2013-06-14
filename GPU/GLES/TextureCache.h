@@ -54,6 +54,7 @@ public:
 
 private:
 	// Wow this is starting to grow big. Soon need to start looking at resizing it.
+	// Must stay a POD.
 	struct TexCacheEntry {
 		// After marking STATUS_UNRELIABLE, if it stays the same this many frames we'll trust it again.
 		const static int FRAMES_REGAIN_TRUST = 1000;
@@ -96,14 +97,14 @@ private:
 		bool sClamp;
 		bool tClamp;
 
-		bool Matches(u16 dim2, u32 hash2, u8 format2, int maxLevel2);
+		bool Matches(u16 dim2, u8 format2, int maxLevel2);
 	};
 
 	void Decimate();  // Run this once per frame to get rid of old textures.
 	void *UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level);
 	void *readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt);
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, int level);
+	void LoadTextureLevel(TexCacheEntry &entry, int level, bool replaceImages);
 	void *DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt);
 	void CheckAlpha(TexCacheEntry &entry, u32 *pixelData, GLenum dstFmt, int w, int h);
 	template <typename T>
@@ -126,9 +127,12 @@ private:
 
 	SimpleBuf<u32> tmpTexBufRearrange;
 
-	bool clutDirty_;
+	u8 clutLastFormat_;
+	u32 *clutBufRaw_;
+	u32 *clutBufConverted_;
 	u32 *clutBuf_;
 	u32 clutHash_;
+	u32 clutTotalBytes_;
 	// True if the clut is just alpha values in the same order (RGBA4444-bit only.)
 	bool clutAlphaLinear_;
 	u16 clutAlphaLinearColor_;

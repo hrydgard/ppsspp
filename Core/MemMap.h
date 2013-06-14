@@ -264,5 +264,132 @@ const char *GetAddressName(u32 address);
 
 };
 
+template <typename T>
+struct PSPPointer
+{
+	u32 ptr;
+
+	inline T &operator*() const
+	{
+		return *(T *)(Memory::base + ptr);
+	}
+
+	inline T &operator[](int i) const
+	{
+		return *((T *)(Memory::base + ptr) + i);
+	}
+
+	inline T *operator->() const
+	{
+		return (T *)(Memory::base + ptr);
+	}
+
+	inline PSPPointer<T> operator+(int i) const
+	{
+		PSPPointer other;
+		other.ptr = ptr + i * sizeof(T);
+		return other;
+	}
+
+	inline PSPPointer<T> &operator=(u32 p)
+	{
+		ptr = p;
+		return *this;
+	}
+
+	inline PSPPointer<T> &operator+=(int i)
+	{
+		ptr = ptr + i * sizeof(T);
+		return *this;
+	}
+
+	inline PSPPointer<T> operator-(int i) const
+	{
+		PSPPointer other;
+		other.ptr = ptr - i * sizeof(T);
+		return other;
+	}
+
+	inline PSPPointer<T> &operator-=(int i)
+	{
+		ptr = ptr - i * sizeof(T);
+		return *this;
+	}
+
+	inline PSPPointer<T> &operator++()
+	{
+		ptr += sizeof(T);
+		return *this;
+	}
+
+	inline PSPPointer<T> operator++(int i)
+	{
+		PSPPointer<T> other;
+		other.ptr = ptr;
+		ptr += sizeof(T);
+		return other;
+	}
+
+	inline PSPPointer<T> &operator--()
+	{
+		ptr -= sizeof(T);
+		return *this;
+	}
+
+	inline PSPPointer<T> operator--(int i)
+	{
+		PSPPointer<T> other;
+		other.ptr = ptr;
+		ptr -= sizeof(T);
+		return other;
+	}
+
+	inline operator T*()
+	{
+		return (T *)(Memory::base + ptr);
+	}
+
+	bool Valid() const
+	{
+		return Memory::IsValidAddress(ptr);
+	}
+};
+
+template <typename T>
+inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
+{
+	return lhs.ptr == rhs.ptr;
+}
+
+template <typename T>
+inline bool operator!=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
+{
+	return lhs.ptr != rhs.ptr;
+}
+
+template <typename T>
+inline bool operator<(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
+{
+	return lhs.ptr < rhs.ptr;
+}
+
+template <typename T>
+inline bool operator>(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
+{
+	return lhs.ptr > rhs.ptr;
+}
+
+template <typename T>
+inline bool operator<=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
+{
+	return lhs.ptr <= rhs.ptr;
+}
+
+template <typename T>
+inline bool operator>=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
+{
+	return lhs.ptr >= rhs.ptr;
+}
+
 #endif
 

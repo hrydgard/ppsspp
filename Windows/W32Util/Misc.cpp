@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <WinUser.h>
 #include "Misc.h"
 
 namespace W32Util
@@ -76,6 +77,12 @@ namespace W32Util
 		SetClipboardData(CF_TEXT,hglbCopy);
 		CloseClipboard();
 		return TRUE;
+	}
+
+	void MakeTopMost(HWND hwnd, bool topMost) {
+		HWND style = HWND_NOTOPMOST;
+		if (topMost) style = HWND_TOPMOST;
+		SetWindowPos(hwnd, style, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE);
 	}
 
 }

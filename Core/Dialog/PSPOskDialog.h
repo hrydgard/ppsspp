@@ -94,7 +94,7 @@ enum SceUtilityOskInputType
 /**
 * OSK Field data
 */
-typedef struct _SceUtilityOskData
+struct SceUtilityOskData
 {
 	/** Unknown. Pass 0. */
 	int unk_00;
@@ -111,19 +111,18 @@ typedef struct _SceUtilityOskData
 	/** Unknown. Pass 0. */
 	int unk_24;
 	/** Description text */
-	u32 descPtr;
+	PSPPointer<u16> desc;
 	/** Initial text */
-	u32 intextPtr;
+	PSPPointer<u16> intext;
 	// Length, in unsigned shorts, including the terminator.
 	u32 outtextlength;
 	/** Pointer to the output text */
-	u32 outtextPtr;
+	PSPPointer<u16> outtext;
 	/** Result. One of ::SceUtilityOskResult */
 	int result;
 	// Number of characters to allow, not including terminator (if less than outtextlength - 1.)
 	u32 outtextlimit;
-
-} SceUtilityOskData;
+};
 
 // Parameters to sceUtilityOskInitStart
 struct SceUtilityOskParams
@@ -132,7 +131,7 @@ struct SceUtilityOskParams
 	// Number of fields.
 	int fieldCount;
 	// Pointer to an array of fields (see SceUtilityOskData.)
-	u32 fieldPtr;
+	PSPPointer<SceUtilityOskData> fields;
 	SceUtilityOskState state;
 	// Maybe just padding?
 	int unk_60;
@@ -161,10 +160,13 @@ public:
 
 	virtual int Init(u32 oskPtr);
 	virtual int Update();
+	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
+	virtual pspUtilityDialogCommon *GetCommonParam();
+
 private:
-	void ConvertUCS2ToUTF8(std::string& _string, const u32 em_address);
-	void ConvertUCS2ToUTF8(std::string& _string, wchar_t* input);
+	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address);
+	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
 	void RenderKeyboard();
 
 	std::wstring CombinationString(bool isInput); // for Japanese, Korean
@@ -172,10 +174,9 @@ private:
 	void RemoveKorean(); // for Korean character removal
 	
 	u32 FieldMaxLength();
-	u32 GetIndex(const wchar_t* src, wchar_t ch);
+	int GetIndex(const wchar_t* src, wchar_t ch);
 
-	SceUtilityOskParams *oskParams;
-	SceUtilityOskData oskData;
+	PSPPointer<SceUtilityOskParams> oskParams;
 	std::string oskDesc;
 	std::string oskIntext;
 	std::string oskOuttext;

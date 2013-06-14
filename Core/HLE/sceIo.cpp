@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdlib>
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Host.h"
@@ -97,6 +98,7 @@ typedef s64 SceOff;
 typedef u64 SceIores;
 
 int asyncNotifyEvent = -1;
+u32 ioErrorCode = 0;
 
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
@@ -143,6 +145,7 @@ public:
 	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), hasAsyncResult(false), pendingAsyncResult(false), sectorBlockMode(false), closePending(false), npdrm(0), pgdInfo(NULL) {}
 	~FileNode() {
 		pspFileSystem.CloseFile(handle);
+		pgd_close(pgdInfo);
 	}
 	const char *GetName() {return fullpath.c_str();}
 	const char *GetTypeName() {return "OpenFile";}
@@ -165,7 +168,19 @@ public:
 		p.Do(info);
 		p.Do(openMode);
 
-		// TODO: Savestate PGD files?
+		p.Do(npdrm);
+		p.Do(pgd_offset);
+		bool hasPGD = pgdInfo != NULL;
+		p.Do(hasPGD);
+		if (hasPGD) {
+			if (p.mode == p.MODE_READ) {
+				pgdInfo = (PGD_DESC*) malloc(sizeof(PGD_DESC));
+			}
+			p.DoVoid(pgdInfo, sizeof(PGD_DESC));
+			if (p.mode == p.MODE_READ) {
+				pgdInfo->block_buf = (u8 *)malloc(pgdInfo->block_size * 2);
+			}
+		}
 
 		p.DoMarker("File");
 	}
@@ -728,6 +743,9 @@ FileNode *__IoOpen(const char* filename, int flags, int mode) {
 		access |= FILEACCESS_CREATE;
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+
+	ioErrorCode = 0;
+
 	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) access);
 	if (h == 0) {
 		return NULL;
@@ -752,10 +770,19 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 		return -1;
 
 	FileNode *f = __IoOpen(filename, flags, mode);
-	if (f == NULL) {
-		ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
-		// Timing is not accurate, aiming low for now.
-		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 100);
+	if (f == NULL) 
+	{
+		 //Timing is not accurate, aiming low for now.
+		if (ioErrorCode == SCE_KERNEL_ERROR_NOCWD)
+		{
+			ERROR_LOG(HLE, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
+			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 10000);
+		}
+		else
+		{
+			ERROR_LOG(HLE, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
+			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND , "file opened", 10000);
+		}
 	}
 
 	SceUID id = f->GetUID();
@@ -768,9 +795,6 @@ u32 sceIoClose(int id) {
 	u32 error;
 	DEBUG_LOG(HLE, "sceIoClose(%d)", id);
 	FileNode *f = kernelObjects.Get<FileNode>(id, error);
-	if(f && f->npdrm){
-		pgd_close(f->pgdInfo);
-	}
 	// Timing is not accurate, aiming low for now.
 	return hleDelayResult(kernelObjects.Destroy<FileNode>(id), "file closed", 100);
 }
@@ -1042,12 +1066,19 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 			break;
 		case 0x02425823:  
 			// Check if FAT enabled
-			if (Memory::IsValidAddress(outPtr) && outLen == 4) {
+			hleEatCycles(23500);
+			// If the values added together are >= 0x80000000, or less than outPtr, invalid address.
+			if (((int)outPtr + outLen) < (int)outPtr) {
+				ERROR_LOG(HLE, "sceIoDevctl: fatms0: 0x02425823 command, bad address");
+				return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			} else if (!Memory::IsValidAddress(outPtr)) {
+				// Technically, only checks for NULL, crashes for many bad addresses.
+				ERROR_LOG(HLE, "sceIoDevctl: fatms0: 0x02425823 command, no output address");
+				return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			} else {
+				// Does not care about outLen, even if it's 0.
 				Memory::Write_U32(MemoryStick_FatState(), outPtr);
 				return 0;
-			} else {
-				ERROR_LOG(HLE, "Failed 0x02425823 fat");
-				return -1;
 			}
 			break;
 		case 0x02425824:  
@@ -1532,7 +1563,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 
 	//Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
 	case 0x1f30003:
-		INFO_LOG(HLE, "sceIoioCtl: Unknown cmd %08x always returns 1", cmd);
+		INFO_LOG(HLE, "sceIoIoCtl: Unknown cmd %08x always returns 1", cmd);
 		if(inlen != 4 || outlen != 1 || Memory::Read_U32(indataPtr) != outlen) {
 			INFO_LOG(HLE, "sceIoIoCtl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outlen %08x has invalid parameters", id, cmd, indataPtr, inlen, outdataPtr, outlen);
 			return SCE_KERNEL_ERROR_INVALID_ARGUMENT;

@@ -64,6 +64,7 @@
 #include "sceNp.h"
 #include "sceMd5.h"
 #include "sceJpeg.h"
+#include "sceAudiocodec.h"
 
 #define N(s) s
 
@@ -79,6 +80,7 @@ const HLEFunction FakeSysCalls[] = {
 	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
 	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
 	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack"},
+	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc"},
 	{NID_IDLE, __KernelIdle, "_sceKernelIdle"},
 };
 
@@ -268,6 +270,7 @@ void RegisterAllModules() {
 	Register_sceNpAuth();
 	Register_sceMd5();
 	Register_sceJpeg();
+	Register_sceAudiocodec();
 
 	for (int i = 0; i < numModules; i++)
 	{

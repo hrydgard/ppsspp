@@ -28,12 +28,15 @@ class Shader;
 class LinkedShader
 {
 public:
-	LinkedShader(Shader *vs, Shader *fs);
+	LinkedShader(Shader *vs, Shader *fs, bool useHWTransform);
 	~LinkedShader();
 
 	void use();
 	void stop();
 	void updateUniforms();
+
+	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
+	bool useHWTransform_;
 
 	uint32_t program;
 	u32 dirtyUniforms;
@@ -54,7 +57,11 @@ public:
 	int u_view;
 	int u_texmtx;
 	int u_world;
+#ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones
+#else
+	int u_bone[8];
+#endif
 	int numBones;
 	
 	// Fragment processing inputs
@@ -125,12 +132,18 @@ enum
 
 class Shader {
 public:
-	Shader(const char *code, uint32_t shaderType);
+	Shader(const char *code, uint32_t shaderType, bool useHWTransform);
+	~Shader();
 	uint32_t shader;
 	const std::string &source() const { return source_; }
 
+	bool Failed() const { return failed_; }
+	bool UseHWTransform() const { return useHWTransform_; }
+
 private:
 	std::string source_;
+	bool failed_;
+	bool useHWTransform_;
 };
 
 

@@ -166,6 +166,7 @@ tests_next = [
   "threads/mutex/cancel",
   "threads/scheduling/dispatch",
   "threads/scheduling/scheduling",
+  "threads/threads/change",
   "threads/threads/create",
   "threads/threads/refer",
   "threads/threads/start",

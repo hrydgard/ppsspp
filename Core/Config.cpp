@@ -63,7 +63,9 @@ void Config::Load(const char *iniFileName)
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	general->Get("Language", &languageIni, "en_US");
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
+	general->Get("EnableCheats", &bEnableCheats, false);
 	general->Get("MaxRecent", &iMaxRecent, 12);
+
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
 		iMaxRecent = 12;
@@ -74,6 +76,9 @@ void Config::Load(const char *iniFileName)
 	general->Get("WindowX", &iWindowX, 40);
 	general->Get("WindowY", &iWindowY, 100);
 	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
+#ifdef _WIN32
+	general->Get("TopMost", &bTopMost);
+#endif
 
 	if (recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);
@@ -102,7 +107,6 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 60);
-	graphics->Get("UseMediaEngine", &bUseMediaEngine, true);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
 #else
@@ -126,8 +130,8 @@ void Config::Load(const char *iniFileName)
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
-	sound->Get("AutoLoadDShow", &bAutoLoadDShow, false);
-
+	sound->Get("EnableAtrac3plus", &bEnableAtrac3plus, true);
+	
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
 #ifdef BLACKBERRY10
@@ -141,6 +145,7 @@ void Config::Load(const char *iniFileName)
 	control->Get("KeyMapping",iMappingMap);
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
 	control->Get("ForceInputDevice", &iForceInputDevice, -1);
+	control->Get("RightStickBind", &iRightStickBind, 0);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "shadow");
@@ -168,7 +173,11 @@ void Config::Save()
 		}
 
 		IniFile::Section *general = iniFile.GetOrCreateSection("General");
+		
+		// Need to do this somewhere...
+		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
+
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
 		general->Set("Browse", bBrowse);
@@ -181,9 +190,13 @@ void Config::Save()
 		general->Set("WindowX", iWindowX);
 		general->Set("WindowY", iWindowY);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
+#ifdef _WIN32
+		general->Set("TopMost", bTopMost);
+#endif
 		general->Set("Language", languageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
 		general->Set("MaxRecent", iMaxRecent);
+		general->Set("EnableCheats", bEnableCheats);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
@@ -200,7 +213,6 @@ void Config::Save()
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("FrameRate", iFpsLimit);
-		graphics->Set("UseMediaEngine", bUseMediaEngine);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
@@ -216,8 +228,8 @@ void Config::Save()
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
-		sound->Set("AutoLoadDShow", bAutoLoadDShow);
-
+		sound->Set("EnableAtrac3plus", bEnableAtrac3plus);
+		
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
@@ -225,7 +237,8 @@ void Config::Save()
 		control->Set("KeyMapping",iMappingMap);
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("ForceInputDevice", iForceInputDevice);
-		
+		control->Set("RightStickBind", iRightStickBind);
+
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("NickName", sNickName.c_str());

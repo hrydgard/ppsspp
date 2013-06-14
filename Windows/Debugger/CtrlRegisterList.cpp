@@ -224,11 +224,11 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		// Check for any changes in the registers.
 		if (lastPC != cpu->GetPC())
 		{
-			for (int i = 0, n = cpu->GetNumRegsInCategory(0); i < n; ++i)
+			for (int j = 0, n = cpu->GetNumRegsInCategory(0); j < n; ++j)
 			{
-				u32 v = cpu->GetRegValue(0, i);
-				changedCat0Regs[i] = v != lastCat0Values[i];
-				lastCat0Values[i] = v;
+				u32 v = cpu->GetRegValue(0, j);
+				changedCat0Regs[j] = v != lastCat0Values[j];
+				lastCat0Values[j] = v;
 			}
 			lastPC = cpu->GetPC();
 		}

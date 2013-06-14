@@ -28,15 +28,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-#ifdef __SYMBIAN32__
-#define p
-#elif defined(IOS)
-#include <tr1/functional>
-namespace p = std::tr1::placeholders;
-#else
-namespace p = std::placeholders;
-#endif
-
 #if _M_SSE >= 0x402
 #include <nmmintrin.h>
 #endif
@@ -604,22 +595,22 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 
 void TextureScaler::ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height) {
 	xbrz::ScalerCfg cfg;
-	GlobalThreadPool::Loop(bind(&xbrz::scale, factor, source, dest, width, height, cfg, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&xbrz::scale, factor, source, dest, width, height, cfg, placeholder::_1, placeholder::_2), 0, height);
 }
 
 void TextureScaler::ScaleBilinear(int factor, u32* source, u32* dest, int width, int height) {
 	bufTmp1.resize(width*height*factor);
 	u32 *tmpBuf = bufTmp1.data();
-	GlobalThreadPool::Loop(bind(&bilinearH, factor, source, tmpBuf, width, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(bind(&bilinearV, factor, tmpBuf, dest, width, 0, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&bilinearH, factor, source, tmpBuf, width, placeholder::_1, placeholder::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&bilinearV, factor, tmpBuf, dest, width, 0, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
 void TextureScaler::ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height) {
-	GlobalThreadPool::Loop(bind(&scaleBicubicBSpline, factor, source, dest, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&scaleBicubicBSpline, factor, source, dest, width, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
 void TextureScaler::ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height) {
-	GlobalThreadPool::Loop(bind(&scaleBicubicMitchell, factor, source, dest, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&scaleBicubicMitchell, factor, source, dest, width, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
 void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic) {
@@ -635,8 +626,8 @@ void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, i
 	bufTmp1.resize(width*height);
 	bufTmp2.resize(width*height*factor*factor);
 	bufTmp3.resize(width*height*factor*factor);
-	GlobalThreadPool::Loop(bind(&generateDistanceMask, source, bufTmp1.data(), width, height, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(bind(&convolve3x3, bufTmp1.data(), bufTmp2.data(), KERNEL_SPLAT, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&generateDistanceMask, source, bufTmp1.data(), width, height, placeholder::_1, placeholder::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&convolve3x3, bufTmp1.data(), bufTmp2.data(), KERNEL_SPLAT, width, height, placeholder::_1, placeholder::_2), 0, height);
 	ScaleBilinear(factor, bufTmp2.data(), bufTmp3.data(), width, height);
 	// mask C is now in bufTmp3
 
@@ -649,15 +640,15 @@ void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, i
 
 	// Now we can mix it all together
 	// The factor 8192 was found through practical testing on a variety of textures
-	GlobalThreadPool::Loop(bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, p::_1, p::_2), 0, height*factor);
+	GlobalThreadPool::Loop(std::bind(&mix, dest, bufTmp2.data(), bufTmp3.data(), 8192, width*factor, placeholder::_1, placeholder::_2), 0, height*factor);
 }
 
 void TextureScaler::DePosterize(u32* source, u32* dest, int width, int height) {
 	bufTmp3.resize(width*height);
-	GlobalThreadPool::Loop(bind(&deposterizeH, source, bufTmp3.data(), width, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(bind(&deposterizeV, bufTmp3.data(), dest, width, height, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(bind(&deposterizeH, dest, bufTmp3.data(), width, p::_1, p::_2), 0, height);
-	GlobalThreadPool::Loop(bind(&deposterizeV, bufTmp3.data(), dest, width, height, p::_1, p::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&deposterizeH, source, bufTmp3.data(), width, placeholder::_1, placeholder::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, placeholder::_1, placeholder::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&deposterizeH, dest, bufTmp3.data(), width, placeholder::_1, placeholder::_2), 0, height);
+	GlobalThreadPool::Loop(std::bind(&deposterizeV, bufTmp3.data(), dest, width, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
 void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height) {
@@ -667,15 +658,15 @@ void TextureScaler::ConvertTo8888(GLenum format, u32* source, u32* &dest, int wi
 		break;
 
 	case GL_UNSIGNED_SHORT_4_4_4_4:
-		GlobalThreadPool::Loop(bind(&convert4444, (u16*)source, dest, width, p::_1, p::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert4444, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
 	case GL_UNSIGNED_SHORT_5_6_5:
-		GlobalThreadPool::Loop(bind(&convert565, (u16*)source, dest, width, p::_1, p::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert565, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
 	case GL_UNSIGNED_SHORT_5_5_5_1:
-		GlobalThreadPool::Loop(bind(&convert5551, (u16*)source, dest, width, p::_1, p::_2), 0, height);
+		GlobalThreadPool::Loop(std::bind(&convert5551, (u16*)source, dest, width, placeholder::_1, placeholder::_2), 0, height);
 		break;
 
 	default:

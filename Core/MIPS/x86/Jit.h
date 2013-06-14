@@ -185,6 +185,7 @@ public:
 	void Comp_RType3(u32 op);
 	void Comp_ShiftType(u32 op);
 	void Comp_Allegrex(u32 op);
+	void Comp_Allegrex2(u32 op);
 	void Comp_VBranch(u32 op);
 	void Comp_MulDivType(u32 op);
 	void Comp_Special3(u32 op);

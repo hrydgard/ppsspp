@@ -12,7 +12,7 @@
 // Yes, this maps more than the PSP has, but that's fine as this lets us
 // map buttons to extra functionality like speedup.
 unsigned int xinput_ctrl_map[] = {
-	XBOX_CODE_LEFTTRIGER,          PAD_BUTTON_MENU,
+	XBOX_CODE_LEFTTRIGER,          PAD_BUTTON_UNTHROTTLE,
 	XBOX_CODE_RIGHTTRIGER,         PAD_BUTTON_BACK,
 	XINPUT_GAMEPAD_A,              PAD_BUTTON_A,
 	XINPUT_GAMEPAD_B,              PAD_BUTTON_B,
@@ -170,9 +170,32 @@ void XinputDevice::ApplyDiff(XINPUT_STATE &state, InputState &input_state) {
 			state.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD) {
 			input_state.pad_buttons |= xinput_ctrl_map[i + 1];
 		}
+	}
 
+	const SHORT rthreshold = 22000;
+
+	switch (g_Config.iRightStickBind) {
+	case 0:
+		break;
+	case 1:
+		if      (state.Gamepad.sThumbRX >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+		else if (state.Gamepad.sThumbRX < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+		if      (state.Gamepad.sThumbRY >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
+		else if (state.Gamepad.sThumbRY < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
+		break;
+	case 2:
+		if      (state.Gamepad.sThumbRX >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
+		else if (state.Gamepad.sThumbRX < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
+		if      (state.Gamepad.sThumbRY >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+		else if (state.Gamepad.sThumbRY < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		break;
+	case 3:
+		if      (state.Gamepad.sThumbRX >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+		else if (state.Gamepad.sThumbRX < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+		break;
 	}
 }
+
 int XinputDevice::UpdateRawStateSingle(RawInputState &rawState)
 {
 	if (g_Config.iForceInputDevice > 0) return -1;

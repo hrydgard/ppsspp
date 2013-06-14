@@ -19,9 +19,7 @@
 
 #include "../../Globals.h"
 
-#include <vector>
 #include <list>
-#include <cstring>
 
 class PointerWrap;
 
@@ -36,7 +34,7 @@ public:
 	void Init(u32 _rangeStart, u32 _rangeSize);
 	void Shutdown();
 
-	void ListBlocks();
+	void ListBlocks() const;
 
 	// WARNING: size can be modified upwards!
 	u32 Alloc(u32 &size, bool fromTop = false, const char *tag = 0);
@@ -53,21 +51,20 @@ public:
 			return false;
 	}
 
-	void MergeFreeBlocks();
-
-	u32 GetBlockStartFromAddress(u32 addr);
-	u32 GetBlockSizeFromAddress(u32 addr);
-	u32 GetLargestFreeBlockSize();
-	u32 GetTotalFreeBytes();
+	u32 GetBlockStartFromAddress(u32 addr) const;
+	u32 GetBlockSizeFromAddress(u32 addr) const;
+	u32 GetLargestFreeBlockSize() const;
+	u32 GetTotalFreeBytes() const;
 
 	void DoState(PointerWrap &p);
 
 private:
-	void CheckBlocks();
+	void CheckBlocks() const;
 
 	struct Block
 	{
-		Block(u32 _start, u32 _size, bool _taken) : start(_start), size(_size), taken(_taken)
+		Block(u32 _start, u32 _size, bool _taken, Block *_prev, Block *_next)
+			: start(_start), size(_size), taken(_taken), prev(_prev), next(_next)
 		{
 			strcpy(tag, "(untitled)");
 		}
@@ -83,14 +80,20 @@ private:
 		u32 size;
 		bool taken;
 		char tag[32];
+		Block *prev;
+		Block *next;
 	};
 
-	std::list<Block> blocks;
+	Block *bottom_;
+	Block *top_;
 	u32 rangeStart_;
 	u32 rangeSize_;
 
 	u32 grain_;
 
+	void MergeFreeBlocks(Block *fromBlock);
 	Block *GetBlockFromAddress(u32 addr);
-	std::list<Block>::iterator GetBlockIterFromAddress(u32 addr);
+	const Block *GetBlockFromAddress(u32 addr) const;
+	Block *InsertFreeBefore(Block *b, u32 start, u32 size);
+	Block *InsertFreeAfter(Block *b, u32 start, u32 size);
 };

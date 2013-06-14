@@ -182,7 +182,6 @@ int main(int argc, const char* argv[])
 	coreParameter.outputHeight = 272;
 	coreParameter.pixelWidth = 480;
 	coreParameter.pixelHeight = 272;
-	coreParameter.useMediaEngine = false;
 	coreParameter.unthrottle = true;
 
 	g_Config.bEnableSound = false;
@@ -193,7 +192,6 @@ int main(int argc, const char* argv[])
 	g_Config.bAutoSaveSymbolMap = false;
 	g_Config.bBufferedRendering = true;
 	g_Config.bHardwareTransform = true;
-	g_Config.bUseMediaEngine = true;
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
 #else

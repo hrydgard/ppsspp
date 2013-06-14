@@ -181,6 +181,8 @@ public:
 	// Invalidate any cached content sourced from the specified range.
 	// If size = -1, invalidate everything.
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type) = 0;
+	// Update either RAM from VRAM, or VRAM from RAM... or even VRAM from VRAM.
+	virtual void UpdateMemory(u32 dest, u32 src, int size) = 0;
 
 	// Will cause the texture cache to be cleared at the start of the next frame.
 	virtual void ClearCacheNextFrame() = 0;

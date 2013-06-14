@@ -17,6 +17,7 @@
 
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
+#include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
@@ -123,17 +124,18 @@ namespace MIPSComp
 				
 				if (abs) {
 					VABS(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					if (negate)
+						VNEG(fpr.V(vregs[i]), fpr.V(vregs[i]));
 				} else {
-					VMOV(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					if (negate)
+						VNEG(fpr.V(vregs[i]), fpr.V(origV[regnum]));
+					else
+						VMOV(fpr.V(vregs[i]), fpr.V(origV[regnum]));
 				}
-			} else {
-				// TODO: There is VMOV s, imm on ARM, that can generate some of these constants. Not 1/3 or 1/6 though.
-				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], R0);
-			}
 
-			// TODO: This can be integrated into the VABS / VMOV above, and also the constants.
-			if (negate)
-				VNEG(fpr.V(vregs[i]), fpr.V(vregs[i]));
+			} else {
+				MOVI2F(fpr.V(vregs[i]), constantArray[regnum + (abs<<2)], R0, negate);
+			}
 
 			// TODO: This probably means it will swap out soon, inefficiently...
 			fpr.ReleaseSpillLockV(vregs[i]);
@@ -166,39 +168,22 @@ namespace MIPSComp
 
 			int sat = (js.prefixD >> (i * 2)) & 3;
 			if (sat == 1) {
+				// clamped = fabs(x) - fabs(x-0.5f) + 0.5f; // [ 0, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
-				// ARGH this is a pain - no MIN/MAX in non-NEON VFP!
-				// NEON does have min/max though so this should only be a fallback.
-				MOVI2F(S0, 0.0, R0);
-				MOVI2F(S1, 1.0, R0);
-				VCMP(fpr.V(vregs[i]), S1);
-				VMRS_APSR();
-				SetCC(CC_GE);
-				VMOV(fpr.V(vregs[i]), S1);
-				FixupBranch skip = B();
-				SetCC(CC_AL);
-				VCMP(fpr.V(vregs[i]), S0);
-				VMRS_APSR();
-				SetCC(CC_LE);
-				VMOV(fpr.V(vregs[i]), S0);
-				SetCC(CC_AL);
-				SetJumpTarget(skip);
+				MOVI2F(S0, 0.5f, R0);
+				VABS(S1, fpr.V(vregs[i]));                  // S1 = fabs(x)
+				VSUB(fpr.V(vregs[i]), fpr.V(vregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
+				VABS(fpr.V(vregs[i]), fpr.V(vregs[i]));
+				VSUB(fpr.V(vregs[i]), S1, fpr.V(vregs[i])); // v[i] = S1 - S2 + 0.5f
+				VADD(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
 			} else if (sat == 3) {
+				// clamped = fabs(x) - fabs(x-1.0f);        // [-1, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
-				MOVI2F(S0, -1.0, R0);
-				MOVI2F(S1, 1.0, R0);
-				VCMP(fpr.V(vregs[i]), S1);
-				VMRS_APSR();
-				SetCC(CC_GE);
-				VMOV(fpr.V(vregs[i]), S1);
-				FixupBranch skip = B();
-				SetCC(CC_AL);
-				VCMP(fpr.V(vregs[i]), S0);
-				VMRS_APSR();
-				SetCC(CC_LE);
-				VMOV(fpr.V(vregs[i]), S0);
-				SetCC(CC_AL);
-				SetJumpTarget(skip);
+				MOVI2F(S0, 1.0f, R0);
+				VABS(S1, fpr.V(vregs[i]));                  // S1 = fabs(x)
+				VSUB(fpr.V(vregs[i]), fpr.V(vregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
+				VABS(fpr.V(vregs[i]), fpr.V(vregs[i]));
+				VSUB(fpr.V(vregs[i]), S1, fpr.V(vregs[i])); // v[i] = S1 - S2
 			}
 		}
 	}
@@ -234,8 +219,7 @@ namespace MIPSComp
 				VLDR(fpr.V(vt), R0, 0);
 				if (doCheck) {
 					SetCC(CC_EQ);
-					MOVI2R(R0, 0);
-					VMOV(fpr.V(vt), R0);
+					MOVI2F(fpr.V(vt), 0.0f, R0);
 					SetCC(CC_AL);
 				}
 			}
@@ -575,10 +559,19 @@ namespace MIPSComp
 				VNEG(tempxregs[i], fpr.V(sregs[i]));
 				break;
 			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
-				DISABLE;
+				MOVI2F(S0, 0.5f, R0);
+				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
+				VSUB(fpr.V(tempxregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-0.5f) {VABD}
+				VABS(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]));
+				VSUB(fpr.V(tempxregs[i]), S1, fpr.V(tempxregs[i])); // v[i] = S1 - S2 + 0.5f
+				VADD(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]), S0);
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
-				DISABLE;
+				MOVI2F(S0, 1.0f, R0);
+				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
+				VSUB(fpr.V(tempxregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-1.0f) {VABD}
+				VABS(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]));
+				VSUB(fpr.V(tempxregs[i]), S1, fpr.V(tempxregs[i])); // v[i] = S1 - S2
 				break;
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
 				MOVI2F(S0, 1.0f, R0);

@@ -7,7 +7,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := native_audio
 LOCAL_CFLAGS := -O2 -fsigned-char -ffast-math -Wall -Wno-multichar -Wno-psabi
 # yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -std=gnu++11 -frtti
+LOCAL_CPPFLAGS := -std=gnu++11 -fno-rtti
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
@@ -26,9 +26,9 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O2 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
 # yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -std=gnu++11 -frtti
+LOCAL_CPPFLAGS := -std=gnu++11 -fno-rtti
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
@@ -46,6 +46,7 @@ LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libswresample.a
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libswscale.a
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavutil.a
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv7/include
+LOCAL_CFLAGS += -DARMEABI_V7A
 endif
 ifeq ($(TARGET_ARCH_ABI),armeabi)
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavformat.a
@@ -54,6 +55,7 @@ LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libswresample.a
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libswscale.a
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavutil.a
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv6/include
+LOCAL_CFLAGS += -DARMEABI
 endif
 
 #  $(SRC)/Core/EmuThread.cpp \
@@ -134,6 +136,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/OnScreenDisplay.cpp \
+  $(SRC)/UI/PluginScreen.cpp \
+  $(SRC)/UI/GameScreen.cpp \
+  $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/native/android/app-android.cpp \
   $(SRC)/ext/disarm.cpp \
   $(SRC)/ext/libkirk/AES.c \
@@ -177,13 +182,17 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/PBPReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
+  $(SRC)/Core/HW/atrac3plus.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
+  $(SRC)/Core/HW/MpegDemux.cpp.arm \
+  $(SRC)/Core/HW/OMAConvert.cpp.arm \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
   $(SRC)/Core/Core.cpp \
   $(SRC)/Core/Config.cpp \
   $(SRC)/Core/CoreTiming.cpp \
   $(SRC)/Core/CPU.cpp \
+  $(SRC)/Core/CwCheat.cpp \
   $(SRC)/Core/Host.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
@@ -207,6 +216,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceAtrac.cpp \
   $(SRC)/Core/HLE/__sceAudio.cpp \
   $(SRC)/Core/HLE/sceAudio.cpp \
+  $(SRC)/Core/HLE/sceAudiocodec.cpp \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
   $(SRC)/Core/HLE/sceCtrl.cpp \
   $(SRC)/Core/HLE/sceDeflt.cpp \
