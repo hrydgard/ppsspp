@@ -182,13 +182,14 @@ void EmuScreen::update(InputState &input) {
 	// TODO: What are good ifdefs for OSX and Linux, without breaking other mobile platforms?
 #ifdef _WIN32
 	if(g_Config.bShowTouchControls) {
-#else
-	if(true) {
 #endif
 		UpdateGamepad(input);
 
 		UpdateInputState(&input);
+#ifdef _WIN32
 	}
+#endif
+
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
 		{PAD_BUTTON_A, CTRL_CROSS},
