@@ -881,8 +881,8 @@ void GraphicsScreenP3::render() {
 		
 		char showFps[256];
 		sprintf(showFps, "%s %d", gs->T("FPS :"), g_Config.iFpsLimit);
-		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 60, y += stride, 20);
+		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 220, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("-1"), ALIGN_LEFT))
@@ -904,8 +904,8 @@ void GraphicsScreenP3::render() {
 
 		char showFrameSkip[256];
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
-		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 60, y += stride, 20);
+		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 220, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFrameSkip = 3;
 		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
@@ -918,7 +918,7 @@ void GraphicsScreenP3::render() {
 		y += 20;
 	} else 
 		g_Config.iFrameSkip = 0;
-
+	
 	UIEnd();
 }
 
