@@ -633,7 +633,7 @@ void DeveloperScreen::render() {
 
 	bool reportingEnabled = Reporting::IsEnabled();
 	const static std::string reportHostOfficial = "report.ppsspp.org";
-	if (UICheckBox(GEN_ID, x, y += stride, s->T("Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
+	if (UICheckBox(GEN_ID, x, y += stride, d->T("Report","Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
 		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
 	}
 
@@ -1075,7 +1075,7 @@ void SystemScreen::render() {
 	}
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	HLinear hlinear2(x, y += stride + 10, 20);
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 150, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) {
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 50, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) {
 		g_Config.bReloadCheats = true;
 	}
 	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
