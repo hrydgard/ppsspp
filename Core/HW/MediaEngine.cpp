@@ -136,7 +136,10 @@ void MediaEngine::closeMedia() {
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 {
-	MediaEngine *mpeg = (MediaEngine*)opaque;
+	MediaEngine *mpeg = (MediaEngine *)opaque;
+	if ((u32)mpeg->m_decodeNextPos > (u32)mpeg->m_streamSize)
+		return -1;
+
 	int size = std::min(mpeg->m_bufSize, buf_size);
 	int available = mpeg->m_readSize - mpeg->m_decodeNextPos;
 	int remaining = mpeg->m_streamSize - mpeg->m_decodeNextPos;
