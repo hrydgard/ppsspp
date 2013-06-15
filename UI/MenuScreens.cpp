@@ -268,6 +268,13 @@ void MenuScreen::render() {
 		LaunchBrowser("http://www.ppsspp.org/");
 	}
 
+	// Skip the forum button if screen too small. Will be redesigned in new UI later.
+	if (dp_yres > 510) {
+		if (UIButton(GEN_ID, vlinear, w, 0, "forums.ppsspp.org", ALIGN_RIGHT)) {
+			LaunchBrowser("http://forums.ppsspp.org/");
+		}
+	}
+
 	int recentW = 350;
 	if (g_Config.recentIsos.size()) {
 		ui_draw2d.DrawText(UBUNTU24, m->T("Recent"), -xoff, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
