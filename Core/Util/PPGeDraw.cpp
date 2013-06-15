@@ -354,14 +354,15 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 		float lineWidth = 0;
 		while (!utf.end())
 		{
-			UTF8 utfNext(utf);
+			UTF8 utfWord(utf);
 			float nextWidth = 0;
 			float spaceWidth = 0;
 			int numChars = 0;
 			bool finished = false;
-			while (!utfNext.end() && !finished)
+			while (!utfWord.end() && !finished)
 			{
-				u32 cval = utfNext.next();
+				UTF8 utfPrev = utfWord;
+				u32 cval = utfWord.next();
 				const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
 				if (!ch) {
 					continue;
@@ -401,6 +402,31 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 					break;
 
 				default:
+					{
+						// CJK characters can be wrapped more freely.
+						bool isCJK = (cval >= 0x1100 && cval <= 0x11FF); // Hangul Jamo.
+						isCJK = isCJK || (cval >= 0x2E80 && cval <= 0x2FFF); // Kangxi Radicals etc.
+#if 0
+						isCJK = isCJK || (cval >= 0x3040 && cval <= 0x31FF); // Hiragana, Katakana, Hangul Compatibility Jamo etc.
+						isCJK = isCJK || (cval >= 0x3200 && cval <= 0x32FF); // CJK Enclosed
+						isCJK = isCJK || (cval >= 0x3300 && cval <= 0x33FF); // CJK Compatibility
+						isCJK = isCJK || (cval >= 0x3400 && cval <= 0x4DB5); // CJK Unified Ideographs Extension A
+#else
+						isCJK = isCJK || (cval >= 0x3040 && cval <= 0x4DB5); // Above collapsed
+#endif
+						isCJK = isCJK || (cval >= 0x4E00 && cval <= 0x9FBB); // CJK Unified Ideographs
+						isCJK = isCJK || (cval >= 0xAC00 && cval <= 0xD7AF); // Hangul Syllables
+						isCJK = isCJK || (cval >= 0xF900 && cval <= 0xFAD9); // CJK Compatibility Ideographs
+						isCJK = isCJK || (cval >= 0x20000 && cval <= 0x2A6D6); // CJK Unified Ideographs Extension B
+						isCJK = isCJK || (cval >= 0x2F800 && cval <= 0x2FA1D); // CJK Compatibility Supplement
+						if (isCJK) {
+							if (numChars > 0) {
+								utfWord = utfPrev;
+								finished = true;
+								break;
+							}						
+						}
+					}
 					++numChars;
 					nextWidth += ch->wx * scale;
 					break;
@@ -468,7 +494,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 				++numLines;
 				break;
 			}
-			utf = utfNext;
+			utf = utfWord;
 		}
 		y += lineHeight;
 		x = sx;
