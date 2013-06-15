@@ -166,6 +166,13 @@ int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
 	case SEEK_END:
 		mpeg->m_decodeNextPos = mpeg->m_streamSize - (u32)offset;
 		break;
+
+#ifdef USE_FFMPEG
+	// Don't seek, just return the full size.
+	// Returning this means FFmpeg won't think frames are truncated if we don't have them yet.
+	case AVSEEK_SIZE:
+		return mpeg->m_streamSize;
+#endif
 	}
 	return offset;
 }
