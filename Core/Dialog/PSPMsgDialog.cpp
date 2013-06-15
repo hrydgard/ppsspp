@@ -23,7 +23,7 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
-const float FONT_SCALE = 0.55f;
+const float FONT_SCALE = 0.50f;
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
