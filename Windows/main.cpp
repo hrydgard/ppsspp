@@ -64,11 +64,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	hideLog = false;
 #endif
 
-	LogManager::Init();
-	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
-
-	g_Config.Load();
 
 	// The rest is handled in NativeInit().
 	for (int i = 1; i < __argc; ++i)
@@ -90,6 +85,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			}
 		}
 	}
+
+	g_Config.Load();
+
+	LogManager::Init();
+	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
+	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 	VFSRegister("", new DirectoryAssetReader(""));
