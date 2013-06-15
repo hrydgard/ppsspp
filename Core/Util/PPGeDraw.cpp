@@ -326,52 +326,6 @@ static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cva
 	return c;
 }
 
-static float NextWordWidth(UTF8 utf, const AtlasFont &atlasfont, float scale) {
-	float w = 0.0;
-	bool finished = false;
-	while (!utf.end() && !finished) {
-		u32 cval = utf.next();
-		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
-		if (!ch) {
-			continue;
-		}
-
-		switch (cval) {
-		// TODO: This list of punctuation is very incomplete.
-		case ',':
-		case '.':
-		case ':':
-		case '!':
-		case ')':
-		case '?':
-		case 0x3001: // IDEOGRAPHIC COMMA
-		case 0x3002: // IDEOGRAPHIC FULL STOP
-		case 0x06D4: // ARABIC FULL STOP
-		case 0xFF01: // FULLWIDTH EXCLAMATION MARK
-		case 0xFF09: // FULLWIDTH RIGHT PARENTHESIS
-		case 0xFF1F: // FULLWIDTH QUESTION MARK
-			// Count this character (punctuation is so clingy), but then we're done.
-			w += ch->wx * scale;
-			finished = true;
-			break;
-
-		case ' ':
-		case '\t':
-		case '\r':
-		case '\n':
-		case 0x3000: // IDEOGRAPHIC SPACE
-			finished = true;
-			break;
-
-		default:
-			w += ch->wx * scale;
-			break;
-		}
-	}
-
-	return w;
-}
-
 // Break a single text string into mutiple lines.
 static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont, float x, float y, 
 									int align, float scale, int wrapType, float wrapWidth, bool dryRun)
@@ -384,12 +338,14 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 		wrapWidth = 480.f;
 	}
 
-	// used for replacing with ellipsis
+	// used for replacing with ellipses
 	float wrapCutoff = 8.0f;
 	const AtlasChar *dot = PPGeGetChar(atlasfont, '.');
 	if (dot) {
 		wrapCutoff = dot->wx * scale * 3.0f;
 	}
+	float threshold = sx + wrapWidth - wrapCutoff;
+
 	//const float wrapGreyZone = 2.0f; // Grey zone for punctuations at line ends
 
 	int numLines = 1;
@@ -398,52 +354,175 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 	for (UTF8 utf(text); !utf.end(); )
 	{
 		float lineWidth = 0;
+		bool skipRest = false;
 		while (!utf.end())
 		{
-			uint32_t cval = utf.next();
-			if (cval == '\n') {
-				 ++numLines;
-				break;
-			}
-			if (cval == '\r') {
-				// We simply ignore this.
-				continue;
-			}
-			const AtlasChar *c = PPGeGetChar(atlasfont, cval);
-			if (c)
+			UTF8 utfWord(utf);
+			float nextWidth = 0;
+			float spaceWidth = 0;
+			int numChars = 0;
+			bool finished = false;
+			while (!utfWord.end() && !finished)
 			{
-				if (wrapType > 0)
-				{
-					float nextWidth = NextWordWidth(utf, atlasfont, scale);
-					if (lineWidth + nextWidth > wrapWidth) {
-						if (wrapType & PPGE_LINE_WRAP_WORD) {
-							// TODO: Should check if we have had at least one other word instead.
-							if (lineWidth > 0) {
-								 ++numLines;
+				UTF8 utfPrev = utfWord;
+				u32 cval = utfWord.next();
+				const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
+				if (!ch) {
+					continue;
+				}
+
+				switch (cval) {
+				// TODO: This list of punctuation is very incomplete.
+				case ',':
+				case '.':
+				case ':':
+				case '!':
+				case ')':
+				case '?':
+				case 0x3001: // IDEOGRAPHIC COMMA
+				case 0x3002: // IDEOGRAPHIC FULL STOP
+				case 0x06D4: // ARABIC FULL STOP
+				case 0xFF01: // FULLWIDTH EXCLAMATION MARK
+				case 0xFF09: // FULLWIDTH RIGHT PARENTHESIS
+				case 0xFF1F: // FULLWIDTH QUESTION MARK
+					// Count this character (punctuation is so clingy), but then we're done.
+					++numChars;
+					nextWidth += ch->wx * scale;
+					finished = true;
+					break;
+
+				case ' ':
+				case 0x3000: // IDEOGRAPHIC SPACE
+					spaceWidth += ch->wx * scale;
+					finished = true;
+					break;
+
+				case '\t':
+				case '\r':
+				case '\n':
+					// Ignore this character and we're done.
+					finished = true;
+					break;
+
+				default:
+					{
+						// CJK characters can be wrapped more freely.
+						bool isCJK = (cval >= 0x1100 && cval <= 0x11FF); // Hangul Jamo.
+						isCJK = isCJK || (cval >= 0x2E80 && cval <= 0x2FFF); // Kangxi Radicals etc.
+#if 0
+						isCJK = isCJK || (cval >= 0x3040 && cval <= 0x31FF); // Hiragana, Katakana, Hangul Compatibility Jamo etc.
+						isCJK = isCJK || (cval >= 0x3200 && cval <= 0x32FF); // CJK Enclosed
+						isCJK = isCJK || (cval >= 0x3300 && cval <= 0x33FF); // CJK Compatibility
+						isCJK = isCJK || (cval >= 0x3400 && cval <= 0x4DB5); // CJK Unified Ideographs Extension A
+#else
+						isCJK = isCJK || (cval >= 0x3040 && cval <= 0x4DB5); // Above collapsed
+#endif
+						isCJK = isCJK || (cval >= 0x4E00 && cval <= 0x9FBB); // CJK Unified Ideographs
+						isCJK = isCJK || (cval >= 0xAC00 && cval <= 0xD7AF); // Hangul Syllables
+						isCJK = isCJK || (cval >= 0xF900 && cval <= 0xFAD9); // CJK Compatibility Ideographs
+						isCJK = isCJK || (cval >= 0x20000 && cval <= 0x2A6D6); // CJK Unified Ideographs Extension B
+						isCJK = isCJK || (cval >= 0x2F800 && cval <= 0x2FA1D); // CJK Compatibility Supplement
+						if (isCJK) {
+							if (numChars > 0) {
+								utfWord = utfPrev;
+								finished = true;
 								break;
-							}
-						}
-						if (wrapType & PPGE_LINE_USE_ELLIPSIS) {
-							if (nextWidth >= wrapCutoff) {
-								// TODO: Truncate the word with an ellipsis.
-								// The word is not too short.
-							}
+							}						
 						}
 					}
+					++numChars;
+					nextWidth += ch->wx * scale;
+					break;
 				}
+			}
+
+			bool useEllipsis = false;
+			if (wrapType > 0)
+			{
+				if (lineWidth + nextWidth > wrapWidth || skipRest)
+				{
+					if (wrapType & PPGE_LINE_WRAP_WORD) {
+						// TODO: Should check if we have had at least one other word instead.
+						if (lineWidth > 0) {
+							++numLines;
+							break;
+						}
+					}
+					if (wrapType & PPGE_LINE_USE_ELLIPSIS) {
+						useEllipsis = true;
+						if (skipRest) {
+							numChars = 0;
+						} else if (nextWidth < wrapCutoff) {
+							// The word is too short, so just backspace!
+							x = threshold;
+						}
+						nextWidth = 0;
+						spaceWidth = 0;
+						lineWidth = wrapWidth;
+					}
+				}
+			}
+			for (int i = 0; i < numChars; ++i)
+			{
+				u32 cval = utf.next();
+				const AtlasChar *c = PPGeGetChar(atlasfont, cval);
+				if (c)
+				{
+					if (useEllipsis && x >= threshold && dot)
+					{
+						if (!dryRun)
+						{
+							AtlasCharVertex cv;
+							// Replace the following part with an ellipsis.
+							cv.x = x + dot->ox * scale;
+							cv.y = y + dot->oy * scale;
+							cv.c = dot;
+							char_one_line.push_back(cv);
+							cv.x += dot->wx * scale;
+							char_one_line.push_back(cv);
+							cv.x += dot->wx * scale;
+							char_one_line.push_back(cv);
+						}
+						skipRest = true;
+						break;
+					}
+					if (!dryRun)
+					{
+						AtlasCharVertex cv;
+						cv.x = x + c->ox * scale;
+						cv.y = y + c->oy * scale;
+						cv.c = c;
+						char_one_line.push_back(cv);
+					}
+					x += c->wx * scale;
+				}
+			}
+			lineWidth += nextWidth;
+
+			u32 cval = utf.next();
+			if (spaceWidth > 0)
+			{
 				if (!dryRun)
 				{
+					// No need to check c.
+					const AtlasChar *c = PPGeGetChar(atlasfont, cval);
 					AtlasCharVertex cv;
 					cv.x = x + c->ox * scale;
 					cv.y = y + c->oy * scale;
 					cv.c = c;
 					char_one_line.push_back(cv);
 				}
-
-				float ww = c->wx * scale;
-				lineWidth += ww;
-				x += ww;
+				x += spaceWidth;
+				lineWidth += spaceWidth;
+				if (wrapType > 0 && lineWidth > wrapWidth) {
+					lineWidth = wrapWidth;
+				}
 			}
+			else if (cval == '\n') {
+				++numLines;
+				break;
+			}
+			utf = utfWord;
 		}
 		y += lineHeight;
 		x = sx;
