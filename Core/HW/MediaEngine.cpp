@@ -56,7 +56,6 @@ static AVPixelFormat getSwsFormat(int pspFormat)
 		return AV_PIX_FMT_BGR444LE;
 	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
 		return AV_PIX_FMT_RGBA;
-
 	default:
 		ERROR_LOG(ME, "Unknown pixel format");
 		return (AVPixelFormat)0;
@@ -432,6 +431,46 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 #endif // USE_FFMPEG
 }
 
+// Helpers that null out alpha (which seems to be the case on the PSP.)
+// Some games depend on this, for example Sword Art Online (doesn't clear A's from buffer.)
+
+inline void writeVideoLineRGBA(void *destp, const void *srcp, int width) {
+	// TODO: Use SSE/NEON, investigate why AV_PIX_FMT_RGB0 does not work.
+	u32 *dest = (u32 *)destp;
+	const u32 *src = (u32 *)srcp;
+
+	u32 mask = 0x00FFFFFF;
+	for (int i = 0; i < width; ++i) {
+		dest[i] = src[i] & mask;
+	}
+}
+
+inline void writeVideoLineABGR5650(void *destp, const void *srcp, int width) {
+	memcpy(destp, srcp, width * sizeof(u16));
+}
+
+inline void writeVideoLineABGR5551(void *destp, const void *srcp, int width) {
+	// TODO: Use SSE/NEON.
+	u16 *dest = (u16 *)destp;
+	const u16 *src = (u16 *)srcp;
+
+	u16 mask = 0x7FFF;
+	for (int i = 0; i < width; ++i) {
+		dest[i] = src[i] & mask;
+	}
+}
+
+inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
+	// TODO: Use SSE/NEON.
+	u16 *dest = (u16 *)destp;
+	const u16 *src = (u16 *)srcp;
+
+	u16 mask = 0x0FFF;
+	for (int i = 0; i < width; ++i) {
+		dest[i] = src[i] & mask;
+	}
+}
+
 int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode) {
 	if ((!m_pFrame)||(!m_pFrameRGB))
 		return false;
@@ -441,14 +480,12 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 	int height = m_desHeight;
 	int width = m_desWidth;
 	u8 *imgbuf = buffer;
-	u8 *data = m_pFrameRGB->data[0];
-	u16 *imgbuf16 = (u16 *)buffer;
-	u16 *data16 = (u16 *)data;
+	const u8 *data = m_pFrameRGB->data[0];
 
 	switch (videoPixelMode) {
 	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
 		for (int y = 0; y < height; y++) {
-			memcpy(imgbuf, data, width * sizeof(u32));
+			writeVideoLineRGBA(imgbuf, data, width);
 			data += width * sizeof(u32);
 			imgbuf += frameWidth * sizeof(u32);
 		}
@@ -457,7 +494,7 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
 		for (int y = 0; y < height; y++) {
-			memcpy(imgbuf, data, width * sizeof(u16));
+			writeVideoLineABGR5650(imgbuf, data, width);
 			data += width * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 		}
@@ -466,20 +503,18 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
 		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				*imgbuf16++ = *data16++ | (1 << 15);
-			}
-			imgbuf16 += (frameWidth - width);
+			writeVideoLineABGR5551(imgbuf, data, width);
+			data += width * sizeof(u16);
+			imgbuf += frameWidth * sizeof(u16);
 		}
 		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
 
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
 		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				*imgbuf16++ = *data16++ | (0xF << 12);
-			}
-			imgbuf16 += (frameWidth - width);
+			writeVideoLineABGR4444(imgbuf, data, width);
+			data += width * sizeof(u16);
+			imgbuf += frameWidth * sizeof(u16);
 		}
 		videoImageSize = frameWidth * sizeof(u16) * height;
 		break;
@@ -501,9 +536,7 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	int videoImageSize = 0;
 	// lock the image size
 	u8 *imgbuf = buffer;
-	u8 *data = m_pFrameRGB->data[0];
-	u16 *imgbuf16 = (u16 *)buffer;
-	u16 *data16 = (u16 *)data;
+	const u8 *data = m_pFrameRGB->data[0];
 
 	if (width > m_desWidth - xpos)
 		width = m_desWidth - xpos;
@@ -514,7 +547,7 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	case TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888:
 		data += (ypos * m_desWidth + xpos) * sizeof(u32);
 		for (int y = 0; y < height; y++) {
-			memcpy(imgbuf, data, width * sizeof(u32));
+			writeVideoLineRGBA(imgbuf, data, width);
 			data += m_desWidth * sizeof(u32);
 			imgbuf += frameWidth * sizeof(u32);
 		}
@@ -524,7 +557,7 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650:
 		data += (ypos * m_desWidth + xpos) * sizeof(u16);
 		for (int y = 0; y < height; y++) {
-			memcpy(imgbuf, data, width * sizeof(u16));
+			writeVideoLineABGR5650(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += frameWidth * sizeof(u16);
 		}
@@ -534,11 +567,9 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551:
 		data += (ypos * m_desWidth + xpos) * sizeof(u16);
 		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				*imgbuf16++ = *data16++ | (1 << 15);
-			}
-			imgbuf16 += (frameWidth - width);
-			data16 += (m_desWidth - width);
+			writeVideoLineABGR5551(imgbuf, data, width);
+			data += m_desWidth * sizeof(u16);
+			imgbuf += frameWidth * sizeof(u16);
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
@@ -546,11 +577,9 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	case TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444:
 		data += (ypos * m_desWidth + xpos) * sizeof(u16);
 		for (int y = 0; y < height; y++) {
-			for (int x = 0; x < width; x++) {
-				*imgbuf16++ = *data16++ | (0xF << 12);
-			}
-			imgbuf16 += (frameWidth - width);
-			data16 += (m_desWidth - width);
+			writeVideoLineABGR4444(imgbuf, data, width);
+			data += m_desWidth * sizeof(u16);
+			imgbuf += frameWidth * sizeof(u16);
 		}
 		videoImageSize = frameWidth * sizeof(u16) * m_desHeight;
 		break;
