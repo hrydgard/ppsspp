@@ -803,6 +803,7 @@ int PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
+			// TODO: Limit by allowed keyboards...
 			do {
 				currentKeyboard = (OskKeyboardDisplay)((currentKeyboard + 1) % OSK_KEYBOARD_COUNT);
 			} while (!bKeyboards[currentKeyboard]);
