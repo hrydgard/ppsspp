@@ -17,10 +17,12 @@
 
 #pragma once
 
+#include <bitset>
 #include <string>
 #include <vector>
 #include <map>
 #include "CommonTypes.h"
+#include "Core/Dialog/PSPOskDialog.h"
 
 extern const char *PPSSPP_GIT_VERSION;
 
@@ -112,6 +114,7 @@ public:
 	// SystemParam
 	std::string sNickName;
 	int ilanguage;
+	std::bitset<OSK_KEYBOARD_COUNT> bKeyboards;
 	int itimeformat;
 	int iDateFormat;
 	int iTimeZone;
