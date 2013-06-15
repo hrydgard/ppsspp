@@ -693,7 +693,7 @@ void AudioScreen::render() {
 	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	if (Atrac3plus_Decoder::IsInstalled() && g_Config.bEnableSound) {
-		UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
+		UICheckBox(GEN_ID, x + 60, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
 	}
 
 
@@ -800,8 +800,8 @@ void GraphicsScreenP2::render() {
 
 		char showAF[256];
 		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
-		ui_draw2d.DrawText(UBUNTU24, showAF, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 60, y += stride , 20);
+		ui_draw2d.DrawText(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 220, y , 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
@@ -812,35 +812,44 @@ void GraphicsScreenP2::render() {
 			g_Config.iAnisotropyLevel = 16;
 
 		y += 20;
-	} else {
+	} else 
 		g_Config.iAnisotropyLevel = 0;
-	}
+	
+
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 180, y, 20);
+
+		//TODO : Show the exact mode description instead of number of TexScalingType.
+		char showType[256];
+		sprintf(showType, "%s %d", gs->T("Type :"), g_Config.iTexScalingType);
+		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 220, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("xBRZ"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
-		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Hybrid", "Hybrid(H)"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Hybrid", "Hybrid(H)"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 1;
 		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Bicubic", "Bicubic(B)"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 2;
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("H+B", "H+B"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 3;
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 20, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 180, y, 20);
+
+		y += 20;
+		char showLevel[256];
+		sprintf(showLevel, "%s %dx", gs->T("Level :"), g_Config.iTexScalingLevel);
+		ui_draw2d.DrawText(UBUNTU24, showLevel, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 220, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("3x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
-		UICheckBox(GEN_ID, x + 60, y += stride + 20, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
-	} else {
-		g_Config.iTexScalingLevel = 1;
-	}
 
+		UICheckBox(GEN_ID, x + 60, y += stride + 20, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
+	} else 
+		g_Config.iTexScalingLevel = 1;
+	
 	UIEnd();
 }
 
