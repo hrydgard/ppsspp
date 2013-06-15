@@ -874,29 +874,30 @@ void GraphicsScreenP3::render() {
 	int columnw = 400;
 
 	bool FpsLimit = g_Config.iFpsLimit != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Fps Limit"), ALIGN_TOPLEFT, &FpsLimit);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("FPS Limit"), ALIGN_TOPLEFT, &FpsLimit);
 	if (FpsLimit) {
 		if (g_Config.iFpsLimit == 0)
 			g_Config.iFpsLimit = 60;
 		
 		char showFps[256];
-		sprintf(showFps, "%s %d", gs->T("Fps  :"), g_Config.iFpsLimit);
+		sprintf(showFps, "%s %d", gs->T("FPS :"), g_Config.iFpsLimit);
 		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
-	} else {
-			g_Config.iFpsLimit = 0;
-	}
-	HLinear hlinear1(x + 60, y += stride, 20);
-	if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
-		g_Config.iFpsLimit = 60;
-	if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("-30"), ALIGN_LEFT))
-		if(g_Config.iFpsLimit > 30){
-		g_Config.iFpsLimit -= 30;}
-	if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("+30"), ALIGN_LEFT))
-		if(g_Config.iFrameSkip != 240){
-		g_Config.iFpsLimit += 30;}
+		HLinear hlinear1(x + 60, y += stride, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+			g_Config.iFpsLimit = 60;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("-1"), ALIGN_LEFT))
+			if(g_Config.iFpsLimit > 30)
+				g_Config.iFpsLimit -= 1;
+		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("+1"), ALIGN_LEFT))
+			if(g_Config.iFrameSkip != 120)
+				g_Config.iFpsLimit += 1;
+
+		y += 20;
+	} else 
+		g_Config.iFpsLimit = 0;
 
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
-	UICheckBox(GEN_ID, x, y += stride + 25, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
+	UICheckBox(GEN_ID, x, y += stride , gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
 	if (enableFrameSkip) {
 		if (g_Config.iFrameSkip == 0)
 			g_Config.iFrameSkip = 3;
@@ -904,19 +905,19 @@ void GraphicsScreenP3::render() {
 		char showFrameSkip[256];
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
 		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
-	}
-	else {
+		HLinear hlinear2(x + 60, y += stride, 20);
+		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+			g_Config.iFrameSkip = 3;
+		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip > 1)
+				g_Config.iFrameSkip -= 1;
+		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip < 9)
+				g_Config.iFrameSkip += 1;
+
+		y += 20;
+	} else 
 		g_Config.iFrameSkip = 0;
-	}
-	HLinear hlinear2(x + 60, y += stride, 20);
-	if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
-		g_Config.iFrameSkip = 3;
-	if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
-		if (g_Config.iFrameSkip > 1)
-			g_Config.iFrameSkip -= 1;
-	if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
-		if (g_Config.iFrameSkip < 9)
-			g_Config.iFrameSkip += 1;
 
 	UIEnd();
 }
