@@ -132,8 +132,9 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 
 void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 {
-	const float WRAP_WIDTH = 480.0f;
-	float y = 136.0f, h;
+	const float WRAP_WIDTH = 450.0f;
+	float y = 136.0f;
+	float h;
 	int n;
 	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
 	float h2 = h * (float)n / 2.0f;
