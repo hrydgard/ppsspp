@@ -515,7 +515,6 @@ int main(int argc, char *argv[]) {
 #endif
 
 	int framecount = 0;
-	bool nextFrameMD = 0;
 	float t = 0, lastT = 0;
 	while (true) {
 		input_state.accelerometer_valid = false;
@@ -533,6 +532,19 @@ int main(int argc, char *argv[]) {
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
 					quitRequested = 1;
 				}
+			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
+				if (event.button.button == SDL_BUTTON_LEFT) {
+					input_state.pointer_x[0] = mx;
+					input_state.pointer_y[0] = my;
+					//input_state.mouse_buttons_down = 1;
+					input_state.pointer_down[0] = true;
+					TouchInput input;
+					input.x = mx;
+					input.y = my;
+					input.flags = TOUCH_DOWN;
+					input.id = 0;
+					NativeTouch(input);
+				}
 			} else if (event.type == SDL_MOUSEMOTION) {
 				if (input_state.pointer_down[0]) {
 					input_state.pointer_x[0] = mx;
@@ -544,22 +556,11 @@ int main(int argc, char *argv[]) {
 					input.id = 0;
 					NativeTouch(input);
 				}
-			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
-				if (event.button.button == SDL_BUTTON_LEFT) {
-					//input_state.mouse_buttons_down = 1;
-					input_state.pointer_down[0] = true;
-					nextFrameMD = true;
-					TouchInput input;
-					input.x = mx;
-					input.y = my;
-					input.flags = TOUCH_DOWN;
-					input.id = 0;
-					NativeTouch(input);
-				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
+					input_state.pointer_x[0] = mx;
+					input_state.pointer_y[0] = my;
 					input_state.pointer_down[0] = false;
-					nextFrameMD = false;
 					//input_state.mouse_buttons_up = 1;
 					TouchInput input;
 					input.x = mx;
