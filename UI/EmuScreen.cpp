@@ -178,9 +178,17 @@ void EmuScreen::update(InputState &input) {
 	// First translate touches into native pad input.
 	// Do this no matter the value of g_Config.bShowTouchControls, some people
 	// like to use invisible controls...
-	UpdateGamepad(input);
+	// Don't force on platforms that likely don't have a touchscreen, like Win32, OSX, and Linux...
+	// TODO: What are good ifdefs for OSX and Linux, without breaking other mobile platforms?
+#ifdef _WIN32
+	if(g_Config.bShowTouchControls) {
+#endif
+		UpdateGamepad(input);
 
-	UpdateInputState(&input);
+		UpdateInputState(&input);
+#ifdef _WIN32
+	}
+#endif
 
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
