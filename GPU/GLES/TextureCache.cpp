@@ -934,8 +934,8 @@ void TextureCache::SetTexture() {
 			}
 
 			// This isn't right.
-			gstate_c.curTextureWidth = entry->framebuffer->width;
-			gstate_c.curTextureHeight = entry->framebuffer->height;
+			gstate_c.curTextureWidth = entry->framebuffer->width * 2;
+			gstate_c.curTextureHeight = entry->framebuffer->height * 2 ;
 			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 			gstate_c.actualTextureHeight = h;
 			gstate_c.flipTexture = true;
