@@ -136,7 +136,10 @@ void MediaEngine::closeMedia() {
 
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 {
-	MediaEngine *mpeg = (MediaEngine*)opaque;
+	MediaEngine *mpeg = (MediaEngine *)opaque;
+	if ((u32)mpeg->m_decodeNextPos > (u32)mpeg->m_streamSize)
+		return -1;
+
 	int size = std::min(mpeg->m_bufSize, buf_size);
 	int available = mpeg->m_readSize - mpeg->m_decodeNextPos;
 	int remaining = mpeg->m_streamSize - mpeg->m_decodeNextPos;
@@ -166,8 +169,15 @@ int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
 	case SEEK_END:
 		mpeg->m_decodeNextPos = mpeg->m_streamSize - (u32)offset;
 		break;
+
+#ifdef USE_FFMPEG
+	// Don't seek, just return the full size.
+	// Returning this means FFmpeg won't think frames are truncated if we don't have them yet.
+	case AVSEEK_SIZE:
+		return mpeg->m_streamSize;
+#endif
 	}
-	return offset;
+	return mpeg->m_decodeNextPos;
 }
 
 #ifdef _DEBUG
