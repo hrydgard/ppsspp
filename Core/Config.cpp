@@ -119,11 +119,7 @@ void Config::Load(const char *iniFileName)
 #endif
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
-#ifdef USING_GLES2
 	graphics->Get("MipMap", &bMipMap, true);
-#else
-	graphics->Get("MipMap", &bMipMap, false);
-#endif
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
 	graphics->Get("TexDeposterize", &bTexDeposterize, false);
