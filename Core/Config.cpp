@@ -22,6 +22,7 @@
 #include "file/ini_file.h"
 #include "HLE/sceUtility.h"
 #include "Common/CPUDetect.h"
+#include "Core/Dialog/PSPOskDialog.h"
 
 Config g_Config;
 
@@ -150,6 +151,12 @@ void Config::Load(const char *iniFileName)
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "shadow");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+	unsigned long long ullKeyboards;
+	pspConfig->Get("Keyboards", &ullKeyboards, enableAllKeyboards);
+	if (ullKeyboards == 0 || ullKeyboards > enableAllKeyboards) {
+		ullKeyboards = enableAllKeyboards;
+	}
+	bKeyboards = ullKeyboards;
 	pspConfig->Get("TimeFormat", &itimeformat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
 	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
 	pspConfig->Get("TimeZone", &iTimeZone, 0);
@@ -243,6 +250,7 @@ void Config::Save()
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 		pspConfig->Set("NickName", sNickName.c_str());
 		pspConfig->Set("Language", ilanguage);
+		pspConfig->Set("Keyboards", bKeyboards.to_ulong());
 		pspConfig->Set("TimeFormat", itimeformat);
 		pspConfig->Set("DateFormat", iDateFormat);
 		pspConfig->Set("TimeZone", iTimeZone);
