@@ -50,7 +50,7 @@ private:
 	HWND GetHwnd(void);
 	HANDLE hConsole;
 
-	static DWORD WINAPI RunThread(LPVOID lpParam);
+	static unsigned int WINAPI RunThread(void *lpParam);
 	void LogWriterThread();
 	void SendToThread(LogTypes::LOG_LEVELS Level, const char *Text);
 	void WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Text, size_t Len);

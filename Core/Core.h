@@ -33,6 +33,7 @@ void Core_Halt(const char *msg);
 
 bool Core_IsStepping();
 
+bool Core_IsActive();
 bool Core_IsInactive();
 void Core_WaitInactive();
 void Core_WaitInactive(int milliseconds);
