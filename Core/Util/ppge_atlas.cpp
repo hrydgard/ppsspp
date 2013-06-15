@@ -34620,7 +34620,7 @@ const AtlasCharRange font_UBUNTU24_ranges[] = {
 };
 const AtlasFont font_UBUNTU24 = {
   4.531250f, // padding
-  35.562500f, // height
+  31.562500f, // height
   26.000000f, // ascend
   0.750000f, // distslope
   font_UBUNTU24_chardata,
