@@ -174,7 +174,7 @@ int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
 		return mpeg->m_streamSize;
 #endif
 	}
-	return offset;
+	return mpeg->m_decodeNextPos;
 }
 
 #ifdef _DEBUG
