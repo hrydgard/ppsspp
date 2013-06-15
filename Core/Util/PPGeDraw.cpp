@@ -326,52 +326,6 @@ static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cva
 	return c;
 }
 
-static float NextWordWidth(UTF8 utf, const AtlasFont &atlasfont, float scale) {
-	float w = 0.0;
-	bool finished = false;
-	while (!utf.end() && !finished) {
-		u32 cval = utf.next();
-		const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
-		if (!ch) {
-			continue;
-		}
-
-		switch (cval) {
-		// TODO: This list of punctuation is very incomplete.
-		case ',':
-		case '.':
-		case ':':
-		case '!':
-		case ')':
-		case '?':
-		case 0x3001: // IDEOGRAPHIC COMMA
-		case 0x3002: // IDEOGRAPHIC FULL STOP
-		case 0x06D4: // ARABIC FULL STOP
-		case 0xFF01: // FULLWIDTH EXCLAMATION MARK
-		case 0xFF09: // FULLWIDTH RIGHT PARENTHESIS
-		case 0xFF1F: // FULLWIDTH QUESTION MARK
-			// Count this character (punctuation is so clingy), but then we're done.
-			w += ch->wx * scale;
-			finished = true;
-			break;
-
-		case ' ':
-		case '\t':
-		case '\r':
-		case '\n':
-		case 0x3000: // IDEOGRAPHIC SPACE
-			finished = true;
-			break;
-
-		default:
-			w += ch->wx * scale;
-			break;
-		}
-	}
-
-	return w;
-}
-
 // Break a single text string into mutiple lines.
 static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont, float x, float y, 
 									int align, float scale, int wrapType, float wrapWidth, bool dryRun)
@@ -384,7 +338,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 		wrapWidth = 480.f;
 	}
 
-	// used for replacing with ellipsis
+	// used for replacing with ellipses
 	float wrapCutoff = 8.0f;
 	const AtlasChar *dot = PPGeGetChar(atlasfont, '.');
 	if (dot) {
@@ -400,50 +354,121 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 		float lineWidth = 0;
 		while (!utf.end())
 		{
-			uint32_t cval = utf.next();
-			if (cval == '\n') {
-				 ++numLines;
-				break;
-			}
-			if (cval == '\r') {
-				// We simply ignore this.
-				continue;
-			}
-			const AtlasChar *c = PPGeGetChar(atlasfont, cval);
-			if (c)
+			UTF8 utfNext(utf);
+			float nextWidth = 0;
+			float spaceWidth = 0;
+			int numChars = 0;
+			bool finished = false;
+			while (!utfNext.end() && !finished)
 			{
-				if (wrapType > 0)
+				u32 cval = utfNext.next();
+				const AtlasChar *ch = PPGeGetChar(atlasfont, cval);
+				if (!ch) {
+					continue;
+				}
+
+				switch (cval) {
+				// TODO: This list of punctuation is very incomplete.
+				case ',':
+				case '.':
+				case ':':
+				case '!':
+				case ')':
+				case '?':
+				case 0x3001: // IDEOGRAPHIC COMMA
+				case 0x3002: // IDEOGRAPHIC FULL STOP
+				case 0x06D4: // ARABIC FULL STOP
+				case 0xFF01: // FULLWIDTH EXCLAMATION MARK
+				case 0xFF09: // FULLWIDTH RIGHT PARENTHESIS
+				case 0xFF1F: // FULLWIDTH QUESTION MARK
+					// Count this character (punctuation is so clingy), but then we're done.
+					++numChars;
+					nextWidth += ch->wx * scale;
+					finished = true;
+					break;
+
+				case ' ':
+				case 0x3000: // IDEOGRAPHIC SPACE
+					spaceWidth += ch->wx * scale;
+					finished = true;
+					break;
+
+				case '\t':
+				case '\r':
+				case '\n':
+					// Ignore this character and we're done.
+					finished = true;
+					break;
+
+				default:
+					++numChars;
+					nextWidth += ch->wx * scale;
+					break;
+				}
+			}
+
+			if (wrapType > 0)
+			{
+				if (lineWidth + nextWidth > wrapWidth)
 				{
-					float nextWidth = NextWordWidth(utf, atlasfont, scale);
-					if (lineWidth + nextWidth > wrapWidth) {
-						if (wrapType & PPGE_LINE_WRAP_WORD) {
-							// TODO: Should check if we have had at least one other word instead.
-							if (lineWidth > 0) {
-								 ++numLines;
-								break;
-							}
+					if (wrapType & PPGE_LINE_WRAP_WORD) {
+						// TODO: Should check if we have had at least one other word instead.
+						if (lineWidth > 0) {
+							++numLines;
+							break;
 						}
-						if (wrapType & PPGE_LINE_USE_ELLIPSIS) {
-							if (nextWidth >= wrapCutoff) {
-								// TODO: Truncate the word with an ellipsis.
-								// The word is not too short.
-							}
+					}
+					if (wrapType & PPGE_LINE_USE_ELLIPSIS) {
+						if (nextWidth >= wrapCutoff) {
+							// The word is not too short.
+							// TODO: Truncate the current line with an ellipsis.
 						}
 					}
 				}
+			}
+			for (int i = 0; i < numChars; ++i)
+			{
+				u32 cval = utf.next();
+				const AtlasChar *c = PPGeGetChar(atlasfont, cval);
+				if (c)
+				{
+					if (!dryRun)
+					{
+						AtlasCharVertex cv;
+						cv.x = x + c->ox * scale;
+						cv.y = y + c->oy * scale;
+						cv.c = c;
+						char_one_line.push_back(cv);
+					}
+					x += c->wx * scale;
+				}
+			}
+			lineWidth += nextWidth;
+
+			u32 cval = utf.next();
+			if (spaceWidth > 0)
+			{
 				if (!dryRun)
 				{
+					// No need to check c.
+					const AtlasChar *c = PPGeGetChar(atlasfont, cval);
 					AtlasCharVertex cv;
 					cv.x = x + c->ox * scale;
 					cv.y = y + c->oy * scale;
 					cv.c = c;
 					char_one_line.push_back(cv);
 				}
-
-				float ww = c->wx * scale;
-				lineWidth += ww;
-				x += ww;
+				x += spaceWidth;
+				lineWidth += spaceWidth;
+				if (wrapType > 0 && lineWidth > wrapWidth) {
+					lineWidth = wrapWidth;
+				}
 			}
+			else if (cval == '\n') {
+				++numLines;
+				break;
+			}
+			utf = utfNext;
 		}
 		y += lineHeight;
 		x = sx;
