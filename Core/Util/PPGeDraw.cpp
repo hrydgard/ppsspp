@@ -344,6 +344,8 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 	if (dot) {
 		wrapCutoff = dot->wx * scale * 3.0f;
 	}
+	float threshold = sx + wrapWidth - wrapCutoff;
+
 	//const float wrapGreyZone = 2.0f; // Grey zone for punctuations at line ends
 
 	int numLines = 1;
@@ -352,6 +354,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 	for (UTF8 utf(text); !utf.end(); )
 	{
 		float lineWidth = 0;
+		bool skipRest = false;
 		while (!utf.end())
 		{
 			UTF8 utfWord(utf);
@@ -433,9 +436,10 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 				}
 			}
 
+			bool useEllipsis = false;
 			if (wrapType > 0)
 			{
-				if (lineWidth + nextWidth > wrapWidth)
+				if (lineWidth + nextWidth > wrapWidth || skipRest)
 				{
 					if (wrapType & PPGE_LINE_WRAP_WORD) {
 						// TODO: Should check if we have had at least one other word instead.
@@ -445,10 +449,16 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 						}
 					}
 					if (wrapType & PPGE_LINE_USE_ELLIPSIS) {
-						if (nextWidth >= wrapCutoff) {
-							// The word is not too short.
-							// TODO: Truncate the current line with an ellipsis.
+						useEllipsis = true;
+						if (skipRest) {
+							numChars = 0;
+						} else if (nextWidth < wrapCutoff) {
+							// The word is too short, so just backspace!
+							x = threshold;
 						}
+						nextWidth = 0;
+						spaceWidth = 0;
+						lineWidth = wrapWidth;
 					}
 				}
 			}
@@ -458,6 +468,24 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 				const AtlasChar *c = PPGeGetChar(atlasfont, cval);
 				if (c)
 				{
+					if (useEllipsis && x >= threshold && dot)
+					{
+						if (!dryRun)
+						{
+							AtlasCharVertex cv;
+							// Replace the following part with an ellipsis.
+							cv.x = x + dot->ox * scale;
+							cv.y = y + dot->oy * scale;
+							cv.c = dot;
+							char_one_line.push_back(cv);
+							cv.x += dot->wx * scale;
+							char_one_line.push_back(cv);
+							cv.x += dot->wx * scale;
+							char_one_line.push_back(cv);
+						}
+						skipRest = true;
+						break;
+					}
 					if (!dryRun)
 					{
 						AtlasCharVertex cv;
