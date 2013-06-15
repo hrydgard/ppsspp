@@ -461,38 +461,34 @@ void PauseScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, ss->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
-	UICheckBox(GEN_ID, x, (y += stride) + 5, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
-
-	HLinear hlinear1(x + 330, y, 20);
-	if (UIButton(GEN_ID, hlinear1, 90, 0, gs->T("Auto"), ALIGN_LEFT))
-		g_Config.iFrameSkip = 3;
-	if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("-1"), ALIGN_LEFT))
-		if (g_Config.iFrameSkip > 1)
-			g_Config.iFrameSkip -= 1;
-	if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("+1"), ALIGN_LEFT))
-		if (g_Config.iFrameSkip < 9)
-			g_Config.iFrameSkip += 1;
-
+	UICheckBox(GEN_ID, x, y += stride , gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
 	if (enableFrameSkip) {
 		if (g_Config.iFrameSkip == 0)
 			g_Config.iFrameSkip = 3;
 
 		char showFrameSkip[256];
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
-		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, dp_xres - 15, y - 2, 0xc0000000, ALIGN_TOPRIGHT);
-		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, dp_xres - 15, y, 0xFF3fFF3f, ALIGN_TOPRIGHT);
-	}
-	else {
+		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 220, y, 20);
+		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+			g_Config.iFrameSkip = 3;
+		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip > 1)
+				g_Config.iFrameSkip -= 1;
+		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip < 9)
+				g_Config.iFrameSkip += 1;
+
+	} else 
 		g_Config.iFrameSkip = 0;
-	}
 
 	// TODO: Add UI for more than one slot.
 	HLinear hlinear2(x, y += 70, 20);
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 125, 0, i->T("Save State"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, i->T("Save State"), ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 125, 0, i->T("Load State"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, i->T("Load State"), ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
