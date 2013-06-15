@@ -894,10 +894,10 @@ void GraphicsScreenP3::render() {
 		HLinear hlinear1(x + 220, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("-1"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("-1"), ALIGN_LEFT))
 			if(g_Config.iFpsLimit > 30)
 				g_Config.iFpsLimit -= 1;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("+1"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("+1"), ALIGN_LEFT))
 			if(g_Config.iFrameSkip != 120)
 				g_Config.iFpsLimit += 1;
 
