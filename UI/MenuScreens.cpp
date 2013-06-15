@@ -729,11 +729,11 @@ void GraphicsScreenP1::render() {
 	}
 
 	HLinear hlinear(10, dp_yres - 10, 20.0f);
-	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
-		screenManager()->switchScreen(new GraphicsScreenP2());
-	}
 	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->switchScreen(new GraphicsScreenP3());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP2());
 	}
 
 	int x = 30;
@@ -781,11 +781,11 @@ void GraphicsScreenP2::render() {
 	}
 
 	HLinear hlinear(10, dp_yres - 10, 20.0f);
-	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
-		screenManager()->switchScreen(new GraphicsScreenP3());
-	}
 	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->switchScreen(new GraphicsScreenP1());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP3());
 	}
 
 	int x = 30;
