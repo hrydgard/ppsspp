@@ -768,9 +768,11 @@ int PSPOskDialog::Update()
 		PPGeDrawText(d->T("Delete"), 180, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(d->T("Finish"), 290, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		// TODO: Show title of next keyboard?
-		PPGeDrawText(d->T("Shift"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		if (bKeyboards.count() > 1) {
+			PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawText(d->T("Shift"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+			// TODO: Show title of next keyboard?
+		}
 
 		if (IsButtonPressed(CTRL_UP))
 		{
@@ -801,8 +803,9 @@ int PSPOskDialog::Update()
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
 		{
-			// TODO: Limit by allowed keyboards...
-			currentKeyboard = (OskKeyboardDisplay)((currentKeyboard + 1) % OSK_KEYBOARD_COUNT);
+			do {
+				currentKeyboard = (OskKeyboardDisplay)((currentKeyboard + 1) % OSK_KEYBOARD_COUNT);
+			} while (!bKeyboards[currentKeyboard]);
 
 			if(selectedRow >= numKeyRows[currentKeyboard])
 			{
