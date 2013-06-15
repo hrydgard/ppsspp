@@ -798,8 +798,10 @@ void GraphicsScreenP2::render() {
 		if (g_Config.iAnisotropyLevel == 0)
 			g_Config.iAnisotropyLevel = 2;
 
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 180, y, 20);
+		char showAF[256];
+		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
+		ui_draw2d.DrawText(UBUNTU24, showAF, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 60, y += stride , 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
