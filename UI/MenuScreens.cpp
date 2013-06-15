@@ -461,38 +461,34 @@ void PauseScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, ss->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
 
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
-	UICheckBox(GEN_ID, x, (y += stride) + 5, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
-
-	HLinear hlinear1(x + 330, y, 20);
-	if (UIButton(GEN_ID, hlinear1, 90, 0, gs->T("Auto"), ALIGN_LEFT))
-		g_Config.iFrameSkip = 3;
-	if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("-1"), ALIGN_LEFT))
-		if (g_Config.iFrameSkip > 1)
-			g_Config.iFrameSkip -= 1;
-	if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("+1"), ALIGN_LEFT))
-		if (g_Config.iFrameSkip < 9)
-			g_Config.iFrameSkip += 1;
-
+	UICheckBox(GEN_ID, x, y += stride , gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
 	if (enableFrameSkip) {
 		if (g_Config.iFrameSkip == 0)
 			g_Config.iFrameSkip = 3;
 
 		char showFrameSkip[256];
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
-		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, dp_xres - 15, y - 2, 0xc0000000, ALIGN_TOPRIGHT);
-		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, dp_xres - 15, y, 0xFF3fFF3f, ALIGN_TOPRIGHT);
-	}
-	else {
+		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 220, y, 20);
+		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+			g_Config.iFrameSkip = 3;
+		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip > 1)
+				g_Config.iFrameSkip -= 1;
+		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip < 9)
+				g_Config.iFrameSkip += 1;
+
+	} else 
 		g_Config.iFrameSkip = 0;
-	}
 
 	// TODO: Add UI for more than one slot.
 	HLinear hlinear2(x, y += 70, 20);
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 125, 0, i->T("Save State"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, i->T("Save State"), ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 125, 0, i->T("Load State"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, i->T("Load State"), ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
@@ -637,7 +633,7 @@ void DeveloperScreen::render() {
 
 	bool reportingEnabled = Reporting::IsEnabled();
 	const static std::string reportHostOfficial = "report.ppsspp.org";
-	if (UICheckBox(GEN_ID, x, y += stride, s->T("Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
+	if (UICheckBox(GEN_ID, x, y += stride, d->T("Report","Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
 		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
 	}
 
@@ -693,14 +689,14 @@ void AudioScreen::render() {
 	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	if (Atrac3plus_Decoder::IsInstalled() && g_Config.bEnableSound) {
-		UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
+		UICheckBox(GEN_ID, x + 60, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
 	}
 
 
 #if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A)
 	
 	VLinear vlinear(30, 300, 20);
-	if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
+	if (!Atrac3plus_Decoder::IsInstalled() && UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
 		screenManager()->push(new PluginScreen());
 	}
 
@@ -726,11 +722,11 @@ void GraphicsScreenP1::render() {
 	}
 
 	HLinear hlinear(10, dp_yres - 10, 20.0f);
-	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
-		screenManager()->switchScreen(new GraphicsScreenP3());
-	}
 	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->switchScreen(new GraphicsScreenP2());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP3());
 	}
 
 	int x = 30;
@@ -778,11 +774,11 @@ void GraphicsScreenP2::render() {
 	}
 
 	HLinear hlinear(10, dp_yres - 10, 20.0f);
-	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
-		screenManager()->switchScreen(new GraphicsScreenP1());
-	}
 	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->switchScreen(new GraphicsScreenP3());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new GraphicsScreenP1());
 	}
 
 	int x = 30;
@@ -798,8 +794,10 @@ void GraphicsScreenP2::render() {
 		if (g_Config.iAnisotropyLevel == 0)
 			g_Config.iAnisotropyLevel = 2;
 
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 180, y, 20);
+		char showAF[256];
+		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
+		ui_draw2d.DrawText(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 250, y , 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
@@ -810,35 +808,50 @@ void GraphicsScreenP2::render() {
 			g_Config.iAnisotropyLevel = 16;
 
 		y += 20;
-	} else {
+	} else 
 		g_Config.iAnisotropyLevel = 0;
-	}
+	
+
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Type  :"), x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 180, y, 20);
+
+		char showType[256];
+		std::string type;
+
+		switch (g_Config.iTexScalingType) {
+		case 0:	type = "xBRZ";break;
+		case 1: type = "Hybrid";break;
+		case 2:	type = "Bicubic";break;
+		case 3: type = "H+B";break;
+		}
+		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
+		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("xBRZ"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
-		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Hybrid", "Hybrid(H)"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 120, 0, gs->T("Hybrid", "(H)ybrid"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 1;
-		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Bicubic", "Bicubic(B)"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 130, 0, gs->T("Bicubic", "(B)icubic"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 2;
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("H+B", "H+B"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 3;
-		ui_draw2d.DrawText(UBUNTU24, gs->T("Level :"), x + 60, y += stride + 20, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 180, y, 20);
+		y += 20;
+		char showLevel[256];
+		sprintf(showLevel, "%s %dx", gs->T("Level :"), g_Config.iTexScalingLevel);
+		ui_draw2d.DrawText(UBUNTU24, showLevel, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("3x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
-		UICheckBox(GEN_ID, x + 60, y += stride + 20, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
-	} else {
-		g_Config.iTexScalingLevel = 1;
-	}
 
+		UICheckBox(GEN_ID, x + 60, y += stride + 20, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
+	} else 
+		g_Config.iTexScalingLevel = 1;
+	
 	UIEnd();
 }
 
@@ -872,50 +885,51 @@ void GraphicsScreenP3::render() {
 	int columnw = 400;
 
 	bool FpsLimit = g_Config.iFpsLimit != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Fps Limit"), ALIGN_TOPLEFT, &FpsLimit);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("FPS Limit"), ALIGN_TOPLEFT, &FpsLimit);
 	if (FpsLimit) {
 		if (g_Config.iFpsLimit == 0)
 			g_Config.iFpsLimit = 60;
 		
 		char showFps[256];
-		sprintf(showFps, "%s %d", gs->T("Fps  :"), g_Config.iFpsLimit);
-		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
-	} else {
-			g_Config.iFpsLimit = 0;
-	}
-	HLinear hlinear1(x + 60, y += stride, 20);
-	if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
-		g_Config.iFpsLimit = 60;
-	if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("-30"), ALIGN_LEFT))
-		if(g_Config.iFpsLimit > 30){
-		g_Config.iFpsLimit -= 30;}
-	if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("+30"), ALIGN_LEFT))
-		if(g_Config.iFrameSkip != 240){
-		g_Config.iFpsLimit += 30;}
+		sprintf(showFps, "%s %d", gs->T("FPS :"), g_Config.iFpsLimit);
+		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 250, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+			g_Config.iFpsLimit = 60;
+		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("-1"), ALIGN_LEFT))
+			if(g_Config.iFpsLimit > 30)
+				g_Config.iFpsLimit -= 1;
+		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("+1"), ALIGN_LEFT))
+			if(g_Config.iFrameSkip != 120)
+				g_Config.iFpsLimit += 1;
+
+		y += 20;
+	} else 
+		g_Config.iFpsLimit = 0;
 
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
-	UICheckBox(GEN_ID, x, y += stride + 25, gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
+	UICheckBox(GEN_ID, x, y += stride , gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
 	if (enableFrameSkip) {
 		if (g_Config.iFrameSkip == 0)
 			g_Config.iFrameSkip = 3;
 
 		char showFrameSkip[256];
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
-		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
-	}
-	else {
-		g_Config.iFrameSkip = 0;
-	}
-	HLinear hlinear2(x + 60, y += stride, 20);
-	if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
-		g_Config.iFrameSkip = 3;
-	if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
-		if (g_Config.iFrameSkip > 1)
-			g_Config.iFrameSkip -= 1;
-	if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
-		if (g_Config.iFrameSkip < 9)
-			g_Config.iFrameSkip += 1;
+		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 250, y, 20);
+		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+			g_Config.iFrameSkip = 3;
+		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip > 1)
+				g_Config.iFrameSkip -= 1;
+		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip < 9)
+				g_Config.iFrameSkip += 1;
 
+		y += 20;
+	} else 
+		g_Config.iFrameSkip = 0;
+	
 	UIEnd();
 }
 
@@ -1061,7 +1075,7 @@ void SystemScreen::render() {
 	}
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	HLinear hlinear2(x, y += stride + 10, 20);
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 150, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) {
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 50, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) {
 		g_Config.bReloadCheats = true;
 	}
 	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
