@@ -2136,27 +2136,31 @@ int sceKernelRotateThreadReadyQueue(int priority)
 	return 0;
 }
 
-int sceKernelDeleteThread(int threadHandle)
+int sceKernelDeleteThread(int threadID)
 {
-	if (threadHandle != currentThread)
+	if (threadID == 0 || threadID == currentThread)
 	{
-		DEBUG_LOG(HLE,"sceKernelDeleteThread(%i)",threadHandle);
+		ERROR_LOG(HLE, "sceKernelDeleteThread(%i): cannot delete current thread", threadID);
+		return SCE_KERNEL_ERROR_NOT_DORMANT;
+	}
 
-		u32 error;
-		Thread *t = kernelObjects.Get<Thread>(threadHandle, error);
-		if (t)
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		if (!t->isStopped())
 		{
-			// TODO: Should this reschedule ever?  Probably no?
-			return __KernelDeleteThread(threadHandle, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted", true);
+			ERROR_LOG(HLE, "sceKernelDeleteThread(%i): thread not dormant", threadID);
+			return SCE_KERNEL_ERROR_NOT_DORMANT;
 		}
 
-		// TODO: Error when doesn't exist?
-		return 0;
+		DEBUG_LOG(HLE, "sceKernelDeleteThread(%i)", threadID);
+		return __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted", true);
 	}
 	else
 	{
-		ERROR_LOG_REPORT(HLE, "Thread \"%s\" tries to delete itself! :(", __GetCurrentThread() ? __GetCurrentThread()->GetName() : "NULL");
-		return -1;
+		ERROR_LOG(HLE, "sceKernelDeleteThread(%i): thread doesn't exist", threadID);
+		return error;
 	}
 }
 
@@ -2173,9 +2177,7 @@ int sceKernelTerminateDeleteThread(int threadID)
 	if (t)
 	{
 		INFO_LOG(HLE, "sceKernelTerminateDeleteThread(%i)", threadID);
-		//TODO: should we really reschedule here?
-		error = __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete", false);
-		hleReSchedule("thread terminated with delete");
+		error = __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete", true);
 
 		return error;
 	}
