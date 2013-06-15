@@ -110,7 +110,7 @@ namespace DSound
 	int lastPos;
 	short realtimeBuffer[BUFSIZE * 2];
 
-	DWORD WINAPI soundThread(void *)
+	unsigned int WINAPI soundThread(void *)
 	{
 		currentPos = 0;
 		lastPos = 0;
@@ -175,8 +175,7 @@ namespace DSound
 		memset(p1,0,num1);
 		dsBuffer->Unlock(p1,num1,0,0);
 		totalRenderedBytes = -bufferSize;
-		DWORD h;
-		hThread = CreateThread(0,0,soundThread,0,0,&h);
+		hThread = (HANDLE)_beginthreadex(0, 0, soundThread, 0, 0, 0);
 		SetThreadPriority(hThread, THREAD_PRIORITY_ABOVE_NORMAL);
 		return true;
 	}
