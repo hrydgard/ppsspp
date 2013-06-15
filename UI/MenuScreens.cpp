@@ -801,7 +801,7 @@ void GraphicsScreenP2::render() {
 		char showAF[256];
 		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
 		ui_draw2d.DrawText(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 220, y , 20);
+		HLinear hlinear1(x + 250, y , 20);
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
@@ -822,25 +822,31 @@ void GraphicsScreenP2::render() {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
 
-		//TODO : Show the exact mode description instead of number of TexScalingType.
 		char showType[256];
-		sprintf(showType, "%s %d", gs->T("Type :"), g_Config.iTexScalingType);
+		std::string type;
+
+		switch (g_Config.iTexScalingType) {
+		case 0:	type = "xBRZ";break;
+		case 1: type = "Hybrid";break;
+		case 2:	type = "Bicubic";break;
+		case 3: type = "H+B";break;
+		}
+		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
 		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 220, y, 20);
+		HLinear hlinear1(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("xBRZ"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
-		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Hybrid", "Hybrid(H)"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 120, 0, gs->T("Hybrid", "(H)ybrid"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 1;
-		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Bicubic", "Bicubic(B)"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 130, 0, gs->T("Bicubic", "(B)icubic"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 2;
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("H+B", "H+B"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 3;
-
 		y += 20;
 		char showLevel[256];
 		sprintf(showLevel, "%s %dx", gs->T("Level :"), g_Config.iTexScalingLevel);
 		ui_draw2d.DrawText(UBUNTU24, showLevel, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 220, y, 20);
+		HLinear hlinear2(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("3x"), ALIGN_LEFT))
@@ -891,7 +897,7 @@ void GraphicsScreenP3::render() {
 		char showFps[256];
 		sprintf(showFps, "%s %d", gs->T("FPS :"), g_Config.iFpsLimit);
 		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 220, y, 20);
+		HLinear hlinear1(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
 		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("-1"), ALIGN_LEFT))
@@ -914,7 +920,7 @@ void GraphicsScreenP3::render() {
 		char showFrameSkip[256];
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
 		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 220, y, 20);
+		HLinear hlinear2(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFrameSkip = 3;
 		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
