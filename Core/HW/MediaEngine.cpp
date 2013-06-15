@@ -80,7 +80,7 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
-MediaEngine::MediaEngine(): m_streamSize(0), m_readSize(0), m_decodedPos(0), m_pdata(0) {
+MediaEngine::MediaEngine(): m_pdata(0) {
 	m_pFormatCtx = 0;
 	m_pCodecCtx = 0;
 	m_pFrame = 0;
@@ -117,7 +117,7 @@ void MediaEngine::closeMedia() {
 		avformat_close_input(&m_pFormatCtx);
 #endif // USE_FFMPEG
 	if (m_pdata)
-		delete [] m_pdata;
+		delete m_pdata;
 	if (m_demux)
 		delete m_demux;
 	m_buffer = 0;
@@ -136,21 +136,8 @@ void MediaEngine::closeMedia() {
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 {
 	MediaEngine *mpeg = (MediaEngine *)opaque;
-	if ((u32)mpeg->m_decodeNextPos > (u32)mpeg->m_streamSize)
-		return -1;
 
-	int size = std::min(mpeg->m_bufSize, buf_size);
-	int available = mpeg->m_readSize - mpeg->m_decodeNextPos;
-	int remaining = mpeg->m_streamSize - mpeg->m_decodeNextPos;
-
-	// There's more in the file, and there's not as much as requested available.
-	// Return nothing.  Partial packets will cause artifacts or green frames.
-	if (available < remaining && size > available)
-		return 0;
-
-	size = std::min(size, remaining);
-	if (size > 0)
-		memcpy(buf, mpeg->m_pdata + mpeg->m_decodeNextPos, size);
+	int size = mpeg->m_pdata->pop_front(buf, buf_size);
 	mpeg->m_decodeNextPos += size;
 	return size;
 }
@@ -166,14 +153,14 @@ int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
 		mpeg->m_decodeNextPos += offset;
 		break;
 	case SEEK_END:
-		mpeg->m_decodeNextPos = mpeg->m_streamSize - (u32)offset;
+		mpeg->m_decodeNextPos = 0xFFFFF - (u32)offset;
 		break;
 
 #ifdef USE_FFMPEG
 	// Don't seek, just return the full size.
 	// Returning this means FFmpeg won't think frames are truncated if we don't have them yet.
 	case AVSEEK_SIZE:
-		return mpeg->m_streamSize;
+		return 0xFFFFF;
 #endif
 	}
 	return mpeg->m_decodeNextPos;
@@ -194,13 +181,13 @@ bool MediaEngine::openContext() {
 	av_log_set_level(AV_LOG_VERBOSE);
 	av_log_set_callback(&ffmpeg_logger);
 #endif 
-	if (m_readSize <= 0x2000 || m_pFormatCtx || !m_pdata)
+	if (m_pFormatCtx || !m_pdata)
 		return false;
 
 	u8* tempbuf = (u8*)av_malloc(m_bufSize);
 
 	m_pFormatCtx = avformat_alloc_context();
-	m_pIOContext = avio_alloc_context(tempbuf, m_bufSize, 0, (void*)this, _MpegReadbuffer, NULL, _MpegSeekbuffer);
+	m_pIOContext = avio_alloc_context(tempbuf, m_bufSize, 0, (void*)this, _MpegReadbuffer, NULL, 0);
 	m_pFormatCtx->pb = m_pIOContext;
   
 	// Open video file
@@ -236,20 +223,15 @@ bool MediaEngine::openContext() {
 		return false; // Could not open codec
 
 	setVideoDim();
-	int mpegoffset = bswap32(*(int*)(m_pdata + 8));
-	m_demux = new MpegDemux(m_pdata, m_streamSize, mpegoffset);
-	m_demux->setReadSize(m_readSize);
-	m_demux->demux(m_audioStream);
 	m_audioPos = 0;
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
 	m_isVideoEnd = false;
 	m_isAudioEnd = false;
-	m_decodedPos = mpegoffset;
 #endif // USE_FFMPEG
 	return true;
 }
 
-bool MediaEngine::loadStream(u8* buffer, int readSize, int StreamSize)
+bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 {
 	closeMedia();
 	// force to clear the useless FBO
@@ -259,51 +241,27 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int StreamSize)
 	m_audiopts = 0;
 	m_bufSize = 0x2000;
 	m_decodeNextPos = 0;
-	m_readSize = readSize;
-	m_streamSize = StreamSize;
-	m_pdata = new u8[StreamSize];
+	m_pdata = new Atrac3plus_Decoder::BufferQueue(RingbufferSize + 2048);
 	if (!m_pdata)
 		return false;
-	memcpy(m_pdata, buffer, m_readSize);
-	
-	return true;
-}
-
-bool MediaEngine::loadFile(const char* filename)
-{
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	s64 infosize = info.size;
-	u8* buf = new u8[infosize];
-	if (!buf)
-		return false;
-	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
-	pspFileSystem.ReadFile(h, buf, infosize);
-	pspFileSystem.CloseFile(h);
-
-	closeMedia();
-	// force to clear the useless FBO
-	gpu->Resized();
-
-	m_videopts = 0;
-	m_audiopts = 0;
-	m_bufSize = 0x2000;
-	m_decodeNextPos = 0;
-	m_readSize = infosize;
-	m_streamSize = infosize;
-	m_pdata = buf;
-
+	m_pdata->push(buffer, readSize);
+	m_firstTimeStamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
+	m_lastTimeStamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
+	int mpegoffset = bswap32(*(int*)(buffer + 8));
+	m_demux = new MpegDemux(RingbufferSize + 2048, mpegoffset);
+	m_demux->addStreamData(buffer, readSize);
 	return true;
 }
 
 int MediaEngine::addStreamData(u8* buffer, int addSize) {
-	int size = std::min(addSize, m_streamSize - m_readSize);
+	int size = addSize;
 	if (size > 0 && m_pdata) {
-		memcpy(m_pdata + m_readSize, buffer, size);
-		m_readSize += size;
-		if (!m_pFormatCtx && (m_readSize > 0x20000 || m_readSize >= m_streamSize))
+		if (!m_pdata->push(buffer, size)) 
+			size  = 0;
+		if (!m_pFormatCtx)
 			openContext();
 		if (m_demux) {
-			m_demux->setReadSize(m_readSize);
+			m_demux->addStreamData(buffer, addSize);
 			m_demux->demux(m_audioStream);
 		}
 	}
@@ -389,14 +347,6 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	bool bGetFrame = false;
 	while (!bGetFrame) {
 		bool dataEnd = av_read_frame(m_pFormatCtx, &packet) < 0;
-		if (!dataEnd) {
-			if (packet.pos != -1) {
-				m_decodedPos = packet.pos;
-			} else {
-				// Packet doesn't know where it is in the file, let's try to approximate.
-				m_decodedPos += packet.size;
-			}
-		}
 
 		// Even if we've read all frames, some may have been re-ordered frames at the end.
 		// Still need to decode those, so keep calling avcodec_decode_video2().
@@ -410,16 +360,13 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 				sws_scale(m_sws_ctx, m_pFrame->data, m_pFrame->linesize, 0,
 					m_pCodecCtx->height, m_pFrameRGB->data, m_pFrameRGB->linesize);
 
-				s64 firstTimeStamp = getMpegTimeStamp(m_pdata + PSMF_FIRST_TIMESTAMP_OFFSET);
-				m_videopts = m_pFrame->pkt_dts + av_frame_get_pkt_duration(m_pFrame) - firstTimeStamp;
+				m_videopts = m_pFrame->pkt_dts + av_frame_get_pkt_duration(m_pFrame) - m_firstTimeStamp;
 				bGetFrame = true;
 			}
 			if (result <= 0 && dataEnd) {
 				// Sometimes, m_readSize is less than m_streamSize at the end, but not by much.
 				// This is kinda a hack, but the ringbuffer would have to be prematurely empty too.
-				m_isVideoEnd = !bGetFrame && m_readSize >= (m_streamSize - 4096);
-				if (m_isVideoEnd)
-					m_decodedPos = m_readSize;
+				m_isVideoEnd = !bGetFrame && (m_pdata->getRemainSize() == 0);
 				break;
 			}
 		}
@@ -593,54 +540,23 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	return 0;
 }
 
-static bool isHeader(u8* audioStream, int offset)
-{
-	const u8 header1 = (u8)0x0F;
-	const u8 header2 = (u8)0xD0;
-	return (audioStream[offset] == header1) && (audioStream[offset+1] == header2);
-}
-
-static int getNextHeaderPosition(u8* audioStream, int curpos, int limit, int frameSize)
-{
-	int endScan = limit - 1;
-
-	// Most common case: the header can be found at each frameSize
-	int offset = curpos + frameSize - 8;
-	if (offset < endScan && isHeader(audioStream, offset))
-		return offset;
-	for (int scan = curpos; scan < endScan; scan++) {
-		if (isHeader(audioStream, scan))
-			return scan;
-	}
-
-	return -1;
-}
-
-int MediaEngine::getBufferedSize() {
-    return std::max(0, m_readSize - (int)m_decodedPos);
+int MediaEngine::getRemainSize() {
+	if (!m_pdata)
+		return 0;
+	return std::max(m_pdata->getRemainSize() - 2048, 0);
 }
 
 int MediaEngine::getAudioSamples(u8* buffer) {
 	if (!m_demux) {
 		return 0;
 	}
-	u8* audioStream = 0;
-	int audioSize = m_demux->getaudioStream(&audioStream);
-	if (m_audioPos >= audioSize || !isHeader(audioStream, m_audioPos))
-	{
-		m_isAudioEnd = m_demux->getFilePosition() >= m_streamSize;
+	u8 *audioFrame = 0;
+	int headerCode1, headerCode2;
+	int frameSize = m_demux->getNextaudioFrame(&audioFrame, &headerCode1, &headerCode2);
+	if (frameSize == 0)
 		return 0;
-	}
-	u8 headerCode1 = audioStream[2];
-	u8 headerCode2 = audioStream[3];
-	int frameSize = ((headerCode1 & 0x03) << 8) | (headerCode2 & 0xFF) * 8 + 0x10;
-	if (m_audioPos + frameSize > audioSize)
-		return 0;
-	m_audioPos += 8;
-	int nextHeader = getNextHeaderPosition(audioStream, m_audioPos, audioSize, frameSize);
-	u8* frame = audioStream + m_audioPos;
 	int outbytes = 0;
-	Atrac3plus_Decoder::Decode(m_audioContext, frame, frameSize - 8, &outbytes, buffer);
+	Atrac3plus_Decoder::Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer);
 	if (headerCode1 == 0x24) {
 		// it a mono atrac3plus, convert it to stereo
 		s16 *outbuf = (s16*)buffer;
@@ -651,13 +567,8 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 			outbuf[i * 2 + 1] = sample;
 		}
 	}
-	if (nextHeader >= 0) {
-		m_audioPos = nextHeader;
-	} else
-		m_audioPos = audioSize;
 	m_audiopts += 4180;
-	m_decodedPos += frameSize;
-	return outbytes;
+	return 0x2000;
 }
 
 s64 MediaEngine::getVideoTimeStamp() {
@@ -673,7 +584,5 @@ s64 MediaEngine::getAudioTimeStamp() {
 s64 MediaEngine::getLastTimeStamp() {
 	if (!m_pdata)
 		return 0;
-	s64 firstTimeStamp = getMpegTimeStamp(m_pdata + PSMF_FIRST_TIMESTAMP_OFFSET);
-	s64 lastTimeStamp = getMpegTimeStamp(m_pdata + PSMF_LAST_TIMESTAMP_OFFSET);
-	return lastTimeStamp - firstTimeStamp;
+	return m_lastTimeStamp - m_firstTimeStamp;
 }

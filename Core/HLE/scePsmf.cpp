@@ -156,10 +156,14 @@ public:
 class PsmfPlayer {
 public:
 	// For savestates only.
-	PsmfPlayer() { mediaengine = new MediaEngine;}
+	PsmfPlayer() { mediaengine = new MediaEngine; filehandle = 0;}
 	PsmfPlayer(u32 data);
-	~PsmfPlayer() { if (mediaengine) delete mediaengine;}
+	~PsmfPlayer() { if (mediaengine) delete mediaengine; pspFileSystem.CloseFile(filehandle);}
 	void DoState(PointerWrap &p);
+
+	u32 filehandle;
+	u32 tempbuf;
+	u32 tempbufSize;
 
 	int videoCodec;
 	int videoStreamNum;
@@ -276,6 +280,9 @@ PsmfPlayer::PsmfPlayer(u32 data) {
 	psmfPlayerLastTimestamp = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET)) ;
 	status = PSMF_PLAYER_STATUS_INIT;
 	mediaengine = new MediaEngine;
+	filehandle = 0;
+	tempbuf = 0;
+	tempbufSize = 0;
 }
 
 void Psmf::DoState(PointerWrap &p) {
@@ -321,6 +328,9 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.Do(psmfMaxAheadTimestamp);
 	p.Do(psmfPlayerLastTimestamp);
 	p.DoClass(mediaengine);
+	p.Do(filehandle);
+	p.Do(tempbuf);
+	p.Do(tempbufSize);
 
 	p.DoMarker("PsmfPlayer");
 }
@@ -763,8 +773,14 @@ int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename)
 	{
 		INFO_LOG(HLE, "scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-		psmfplayer->mediaengine->loadFile(filename);
-		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
+		if (psmfplayer->filehandle && psmfplayer->tempbuf) {
+			u8* buf = Memory::GetPointer(psmfplayer->tempbuf);
+			int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, psmfplayer->tempbufSize);
+			if (size)
+				psmfplayer->mediaengine->loadStream(buf, size, std::max(2048 * 500, (int)psmfplayer->tempbufSize));
+			psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		}
 	}
 	else
 	{
@@ -782,8 +798,14 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 	{
 		INFO_LOG(HLE, "scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
-		psmfplayer->mediaengine->loadFile(filename);
-		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
+		if (psmfplayer->filehandle && psmfplayer->tempbuf) {
+			u8* buf = Memory::GetPointer(psmfplayer->tempbuf);
+			int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, psmfplayer->tempbufSize);
+			if (size)
+				psmfplayer->mediaengine->loadStream(buf, size, std::max(2048 * 500, (int)psmfplayer->tempbufSize));
+			psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+		}
 	}
 	else
 	{
@@ -900,6 +922,13 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, videoDataAddr + 8);
 	}
 
+	int addSize = std::min(psmfplayer->mediaengine->getRemainSize(), (int)psmfplayer->tempbufSize);
+	if (psmfplayer->filehandle && psmfplayer->tempbuf && addSize > 0) {
+		u8* buf = Memory::GetPointer(psmfplayer->tempbuf);
+		int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, addSize);
+		if (size)
+			psmfplayer->mediaengine->addStreamData(buf, size);
+	}
 	int ret = psmfplayer->mediaengine->IsVideoEnd() ? ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 
 	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
@@ -1036,10 +1065,13 @@ u32 scePsmfPlayerGetCurrentAudioStream(u32 psmfPlayer, u32 audioCodecAddr, u32 a
 
 int scePsmfPlayerSetTempBuf(u32 psmfPlayer, u32 tempBufAddr, u32 tempBufSize) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetTempBuf(%08x, %08x, %08x)", psmfPlayer, tempBufAddr, tempBufSize);
+	INFO_LOG(HLE, "scePsmfPlayerSetTempBuf(%08x, %08x, %08x)", psmfPlayer, tempBufAddr, tempBufSize);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
-	if (psmfplayer)
+	if (psmfplayer) {
 		psmfplayer->status = PSMF_PLAYER_STATUS_INIT;
+		psmfplayer->tempbuf = tempBufAddr;
+		psmfplayer->tempbufSize = tempBufSize;
+	}
 	return 0;
 }
 

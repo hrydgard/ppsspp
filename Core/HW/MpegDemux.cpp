@@ -18,13 +18,12 @@ const int PRIVATE_STREAM_1         = 0x000001bd;
 const int PADDING_STREAM           = 0x000001be;
 const int PRIVATE_STREAM_2         = 0x000001bf;
 
-MpegDemux::MpegDemux(u8* buffer, int size, int offset)
+MpegDemux::MpegDemux(int size, int offset) : m_audioStream(size)
 {
-	m_buf = buffer;
+	m_buf = new u8[size];
+
 	m_len = size;
 	m_index = offset;
-	m_audioStream = 0;
-	m_audiopos = 0;
 	m_audioChannel = -1;
 	m_readSize = 0;
 }
@@ -32,13 +31,14 @@ MpegDemux::MpegDemux(u8* buffer, int size, int offset)
 
 MpegDemux::~MpegDemux(void)
 {
-	if (m_audioStream)
-		delete [] m_audioStream;
 }
 
-void MpegDemux::setReadSize(int readSize)
-{
-	m_readSize = readSize;
+bool MpegDemux::addStreamData(u8* buf, int addSize) {
+	if (m_readSize + addSize > m_len)
+		return false;
+	memcpy(m_buf + m_readSize, buf, addSize);
+	m_readSize += addSize;
+	return true;
 }
 
 int MpegDemux::readPesHeader(PesHeader &pesHeader, int length, int startCode) {
@@ -133,8 +133,7 @@ int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 		length = readPesHeader(pesHeader, length, startCode);
 		if (pesHeader.channel == channel || channel < 0) {
 			channel = pesHeader.channel;
-			memcpy(m_audioStream + m_audiopos, m_buf + m_index, length);
-			m_audiopos += length;
+			m_audioStream.push(m_buf + m_index, length);
 		}
 		skip(length);
 	} else {
@@ -145,14 +144,12 @@ int MpegDemux::demuxStream(bool bdemux, int startCode, int channel)
 
 void MpegDemux::demux(int audioChannel)
 {
-	if (!m_audioStream)
-		m_audioStream = new u8[m_len - m_index];
 	if (audioChannel >= 0)
 		m_audioChannel = audioChannel;
 	while (m_index < m_len)
 	{
-		if (m_readSize != m_len && m_index + 2048 > m_readSize)
-			return;
+		if (m_index + 2048 > m_readSize)
+			break;
 		// Search for start code
 		int startCode = 0xFF;
 		while ((startCode & PACKET_START_CODE_MASK) != PACKET_START_CODE_PREFIX && !isEOF()) {
@@ -191,10 +188,59 @@ void MpegDemux::demux(int audioChannel)
 			break;
 		}
 	}
+	if (m_index < m_readSize) {
+		int size = m_readSize - m_index;
+		memcpy(m_buf, m_buf + m_index, size);
+		m_index = 0;
+		m_readSize = size;
+	} else {
+		m_index = 0;
+		m_readSize = 0;
+	}
 }
 
-int MpegDemux::getaudioStream(u8** audioStream)
+static bool isHeader(u8* audioStream, int offset)
 {
-	*audioStream = m_audioStream;
-	return m_audiopos;
+	const u8 header1 = (u8)0x0F;
+	const u8 header2 = (u8)0xD0;
+	return (audioStream[offset] == header1) && (audioStream[offset+1] == header2);
+}
+
+static int getNextHeaderPosition(u8* audioStream, int curpos, int limit, int frameSize)
+{
+	int endScan = limit - 1;
+
+	// Most common case: the header can be found at each frameSize
+	int offset = curpos + frameSize - 8;
+	if (offset < endScan && isHeader(audioStream, offset))
+		return offset;
+	for (int scan = curpos; scan < endScan; scan++) {
+		if (isHeader(audioStream, scan))
+			return scan;
+	}
+
+	return -1;
+}
+
+int MpegDemux::getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2)
+{
+	int gotsize = m_audioStream.get_front(m_audioFrame, 0x2000);
+	if (gotsize == 0 || !isHeader(m_audioFrame, 0))
+		return 0;
+	u8 Code1 = m_audioFrame[2];
+	u8 Code2 = m_audioFrame[3];
+	int frameSize = ((Code1 & 0x03) << 8) | (Code2 & 0xFF) * 8 + 0x10;
+	if (frameSize > gotsize)
+		return 0;
+	int audioPos = 8;
+	int nextHeader = getNextHeaderPosition(m_audioFrame, audioPos, gotsize, frameSize);
+	if (nextHeader >= 0) {
+		audioPos = nextHeader;
+	} else
+		audioPos = gotsize;
+	m_audioStream.pop_front(m_audioFrame, audioPos);
+	*buf = m_audioFrame + 8;
+	if (headerCode1) *headerCode1 = Code1;
+	if (headerCode2) *headerCode2 = Code2;
+	return frameSize - 8;
 }
