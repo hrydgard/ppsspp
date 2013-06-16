@@ -174,8 +174,8 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 	}
 	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	float sy = 122.0f - h2, ey = 150.0f + h2;
-	PPGeDrawRect(30.0f, sy, 450.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(30.0f, ey, 450.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(15.0f, sy, 465.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(15.0f, ey, 465.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
