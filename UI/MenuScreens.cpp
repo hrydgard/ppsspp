@@ -700,14 +700,12 @@ void AudioScreen::render() {
 	}
 
 
-#if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A)
-	
-	VLinear vlinear(30, 300, 20);
-	if (!Atrac3plus_Decoder::IsInstalled() && UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
-		screenManager()->push(new PluginScreen());
+	if (Atrac3plus_Decoder::IsSupported()) {
+		VLinear vlinear(30, 300, 20);
+		if (!Atrac3plus_Decoder::IsInstalled() && UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
+			screenManager()->push(new PluginScreen());
+		}
 	}
-
-#endif
 
 	UIEnd();
 }

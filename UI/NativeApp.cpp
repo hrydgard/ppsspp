@@ -356,7 +356,7 @@ void NativeInitGraphics() {
 	screenManager = new ScreenManager();
 
 	if (boot_filename.empty()) {
-#if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A)
+#if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A) || (defined(MACOSX) && defined(_M_IX64))
 		if (Atrac3plus_Decoder::CanAutoInstall()) {
 			Atrac3plus_Decoder::DoAutoInstall();
 			screenManager->switchScreen(new LogoScreen(boot_filename));
