@@ -1,5 +1,9 @@
 #include <assert.h>
 #include "gl_state.h"
+#ifdef _WIN32
+#include "GL/wglew.h"
+#endif
+
 
 OpenGLState glstate;
 GLExtensions gl_extensions;
@@ -65,5 +69,12 @@ void CheckGLExtensions() {
 #else
 	gl_extensions.FBO_ARB = strstr(extString, "GL_ARB_framebuffer_object") != 0;
 	gl_extensions.FBO_EXT = strstr(extString, "GL_EXT_framebuffer_object") != 0;
+#endif
+}
+
+void OpenGLState::SetVSyncInterval(int interval) {
+#ifdef _WIN32
+	if( wglSwapIntervalEXT )
+		wglSwapIntervalEXT(interval);
 #endif
 }
