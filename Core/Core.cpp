@@ -70,6 +70,11 @@ bool Core_IsStepping()
 	return coreState == CORE_STEPPING || coreState == CORE_POWERDOWN;
 }
 
+bool Core_IsActive()
+{
+	return coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME || coreStatePending;
+}
+
 bool Core_IsInactive()
 {
 	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
@@ -77,7 +82,7 @@ bool Core_IsInactive()
 
 void Core_WaitInactive()
 {
-	while (!Core_IsInactive())
+	while (Core_IsActive())
 		m_hInactiveEvent.wait(m_hInactiveMutex);
 }
 

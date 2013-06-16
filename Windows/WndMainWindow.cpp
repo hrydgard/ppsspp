@@ -52,7 +52,9 @@ extern InputState input_state;
 extern const char * getVirtualKeyName(unsigned char key);
 extern const char * getXinputButtonName(unsigned int button);
 #define TIMER_CURSORUPDATE 1
+#define TIMER_CURSORMOVEUPDATE 2
 #define CURSORUPDATE_INTERVAL_MS 50
+#define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
 namespace MainWindow
 {
@@ -63,6 +65,10 @@ namespace MainWindow
 
 	static HINSTANCE hInst;
 	static int cursorCounter = 0;
+	static int prevCursorX = -1;
+	static int prevCursorY = -1;
+	static bool mouseButtonDown = false;
+	static bool hideCursor = false;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
@@ -179,11 +185,13 @@ namespace MainWindow
 	}
 
 	void CorrectCursor() {
-		if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
+		bool autoHide = g_bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
+		if (autoHide && hideCursor) {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
 			}
 		} else {
+			hideCursor = !autoHide;
 			if (cursorCounter < 0) {
 				cursorCounter = ShowCursor(TRUE);
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
@@ -214,16 +222,19 @@ namespace MainWindow
 		if (zoom < 1) zoom = 1;
 		if (zoom > 4) zoom = 4;
 		
-		RECT rc,rcOrig;
+		RECT rc, rcOrig;
 		GetWindowRectAtZoom(zoom, rcOrig, rc);
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
 		hwndMain = CreateWindowEx(0,szWindowClass, "", style,
-			rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, NULL, NULL, hInstance, NULL);
-		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-		SetPlaying(0);
+			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
 		if (!hwndMain)
+			return FALSE;
+
+		hwndDisplay = CreateWindowEx(0, szDisplayClass, TEXT(""), WS_CHILD | WS_VISIBLE,
+			rcOrig.left, rcOrig.top, rcOrig.right - rcOrig.left, rcOrig.bottom - rcOrig.top, hwndMain, 0, hInstance, 0);
+		if (!hwndDisplay)
 			return FALSE;
 
 		menu = GetMenu(hwndMain);
@@ -241,20 +252,23 @@ namespace MainWindow
 		{
 			SetMenuInfo(GetSubMenu(menu,i),&info);
 		}
+		UpdateMenus();
 
-		hwndDisplay = CreateWindowEx(0,szDisplayClass,TEXT(""),
-			WS_CHILD|WS_VISIBLE,
-			0,0,/*rcOrig.left,rcOrig.top,*/rcOrig.right-rcOrig.left,rcOrig.bottom-rcOrig.top,hwndMain,0,hInstance,0);
-
-		ShowWindow(hwndMain, nCmdShow);
 		//accept dragged files
 		DragAcceptFiles(hwndMain, TRUE);
+
+		hideCursor = true;
+		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
+
+		Update();
+		SetPlaying(0);
+		
+		ShowWindow(hwndMain, nCmdShow);
 
 #if ENABLE_TOUCH
 		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
 #endif
 
-		SetFocus(hwndMain);
 		SetFocus(hwndDisplay);
 
 		return TRUE;
@@ -304,6 +318,8 @@ namespace MainWindow
 		// and as asynchronous touch events for minimal latency.
 
 		case WM_LBUTTONDOWN:
+			// Hack: Take the opportunity to show the cursor.
+			mouseButtonDown = true;
 			{
 				lock_guard guard(input_state.lock);
 				input_state.mouse_valid = true;
@@ -324,6 +340,17 @@ namespace MainWindow
 
 		case WM_MOUSEMOVE:
 			{
+				// Hack: Take the opportunity to show the cursor.
+				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
+				int cursorX = GET_X_LPARAM(lParam);
+				int cursorY = GET_Y_LPARAM(lParam);
+				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
+					hideCursor = false;
+					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
+				}
+				prevCursorX = cursorX;
+				prevCursorY = cursorY;
+
 				lock_guard guard(input_state.lock);
 				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
 				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
@@ -341,6 +368,8 @@ namespace MainWindow
 			break;
 
 		case WM_LBUTTONUP:
+			// Hack: Take the opportunity to hide the cursor.
+			mouseButtonDown = false;
 			{
 				lock_guard guard(input_state.lock);
 				input_state.pointer_down[0] = false;
@@ -423,12 +452,22 @@ namespace MainWindow
 
 		case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
-			CorrectCursor();
-			SetTimer(hWnd, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-			return 0;
+			switch (wParam)
+			{
+			case TIMER_CURSORUPDATE:
+				CorrectCursor();
+				return 0;
+			case TIMER_CURSORMOVEUPDATE:
+				hideCursor = true;
+				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
+				return 0;
+			}
+			break;
 
 		case WM_COMMAND:
 			{
+			if (!EmuThread_Ready())
+				return DefWindowProc(hWnd, message, wParam, lParam);
 			I18NCategory *g = GetI18NCategory("Graphics");
 
 			wmId    = LOWORD(wParam); 
@@ -714,11 +753,16 @@ namespace MainWindow
 			case ID_EMULATION_SOUND:
 				g_Config.bEnableSound = !g_Config.bEnableSound;
 				break;
-      		case ID_HELP_OPENWEBSITE:
-				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-        		break;
 
-      		case ID_HELP_ABOUT:
+			case ID_HELP_OPENWEBSITE:
+				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+				break;
+
+			case ID_HELP_OPENFORUM:
+				ShellExecute(NULL, "open", "http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+				break;
+
+      case ID_HELP_ABOUT:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
@@ -735,6 +779,9 @@ namespace MainWindow
 
 		case WM_DROPFILES:
 			{
+				if (!EmuThread_Ready())
+					return DefWindowProc(hWnd, message, wParam, lParam);
+
 				HDROP hdrop = (HDROP)wParam;
 				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
 				if (count != 1)
@@ -760,24 +807,19 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			Core_Stop();
-			Core_WaitInactive(200);
+			/*
+			if (g_Config.bConfirmOnQuit && __KernelIsRunning())
+				if (IDYES != MessageBox(hwndMain, "A game is in progress. Are you sure you want to exit?",
+					"Are you sure?", MB_YESNO | MB_ICONQUESTION))
+					return 0;
+			//*/
 			EmuThread_Stop();
 
-			/*
-			if (g_Config.bConfirmOnQuit && CCore::IsRunning())
-			{
-				if (IDNO==MessageBox(hwndMain,"A game is in progress. Are you sure you want to exit?","Are you sure?",MB_YESNO|MB_ICONQUESTION))
-					return 1;//or 1?
-				else
-					return DefWindowProc(hWnd,message,wParam,lParam);
-				break;
-			}
-			else
-			*/
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
 		case WM_DESTROY:
+			KillTimer(hWnd, TIMER_CURSORUPDATE);
+			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			PostQuitMessage(0);
 			break;
 

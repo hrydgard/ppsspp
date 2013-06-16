@@ -22,7 +22,7 @@ win32 {
 	LIBS += -lCore -lCommon -lNative -lwinmm -lws2_32
 }
 linux {
-	LIBS += -L. -lCore -lCommon -lNative
+	LIBS += -L. -lCore -lCommon -lNative -ldl
 	PRE_TARGETDEPS += ./libCommon.a ./libCore.a ./libNative.a
 	!mobile_platform {
 		CONFIG += link_pkgconfig

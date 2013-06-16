@@ -516,6 +516,11 @@ namespace MIPSComp
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
+		// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
+		if (((op >> 16) & 0x1f) == 0 && _VS == _VD && js.HasNoPrefix()) {
+			return;
+		}
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 

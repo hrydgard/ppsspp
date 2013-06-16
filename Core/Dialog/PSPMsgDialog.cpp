@@ -23,7 +23,7 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
-const float FONT_SCALE = 0.55f;
+const float FONT_SCALE = 0.50f;
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
@@ -132,8 +132,9 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 
 void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 {
-	const float WRAP_WIDTH = 350.0f;
-	float y = 136.0f, h;
+	const float WRAP_WIDTH = 450.0f;
+	float y = 136.0f;
+	float h;
 	int n;
 	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
 	float h2 = h * (float)n / 2.0f;
@@ -173,8 +174,8 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 	}
 	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	float sy = 122.0f - h2, ey = 150.0f + h2;
-	PPGeDrawRect(60.0f, sy, 420.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(60.0f, ey, 420.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(30.0f, sy, 450.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(30.0f, ey, 450.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()

@@ -96,6 +96,10 @@ struct ArmJitState
 		}
 		return false;
 	}
+	bool HasNoPrefix() const {
+		return (prefixDFlag & PREFIX_KNOWN) && (prefixSFlag & PREFIX_KNOWN) && (prefixTFlag & PREFIX_KNOWN) && (prefixS == 0xE4 && prefixT == 0xE4 && prefixD == 0);
+	}
+
 	void EatPrefix() {
 		if ((prefixSFlag & PREFIX_KNOWN) == 0 || prefixS != 0xE4) {
 			prefixSFlag = PREFIX_KNOWN_DIRTY;

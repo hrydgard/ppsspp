@@ -1030,20 +1030,17 @@ void TextureCache::SetTexture() {
 			entry->numInvalidated++;
 			gpuStats.numTextureInvalidations++;
 			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
-			if (entry->texture == lastBoundTexture) {
-				lastBoundTexture = -1;
-			}
 			if (doDelete) {
-				// TODO: This stuff is missing some check, its causes corruption. See issue #2222 .
-				/*
-				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F)) {
+				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F) && entry->format == format && g_Config.iTexScalingLevel <= 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
 				} else {
+					if (entry->texture == lastBoundTexture) {
+						lastBoundTexture = -1;
+					}
 					glDeleteTextures(1, &entry->texture);
-				}*/
-				glDeleteTextures(1, &entry->texture);
+				}
 			}
 			if (entry->status == TexCacheEntry::STATUS_RELIABLE) {
 				entry->status = TexCacheEntry::STATUS_HASHING;
