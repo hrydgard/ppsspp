@@ -995,6 +995,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	std::string error_string;
 	if (!__KernelLoadExec(filename, param, &error_string)) {
 		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
+		Core_UpdateState(CORE_ERROR);
 		return -1;
 	}
 	return 0;
