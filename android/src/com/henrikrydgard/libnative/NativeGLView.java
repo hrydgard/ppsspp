@@ -88,7 +88,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener {
 
 	// Sensor management
 	public void onAccuracyChanged(Sensor sensor, int arg1) {
-		Log.i(TAG, "onAccuracyChanged");
+		// Log.i(TAG, "onAccuracyChanged");
 	}
 
 	public void onSensorChanged(SensorEvent event) {
