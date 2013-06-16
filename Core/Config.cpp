@@ -123,6 +123,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
 	graphics->Get("TexDeposterize", &bTexDeposterize, false);
+	graphics->Get("VSyncInterval", &iVSyncInterval, 0);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -221,6 +222,7 @@ void Config::Save()
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
 		graphics->Set("TexScalingType", iTexScalingType);
 		graphics->Set("TexDeposterize", bTexDeposterize);
+		graphics->Set("VSyncInterval", iVSyncInterval);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

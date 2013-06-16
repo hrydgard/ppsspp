@@ -8,29 +8,21 @@
 
 #include "OpenGLBase.h"
 
-static HDC			hDC=NULL;								// Private GDI Device Context
-static HGLRC		hRC=NULL;								// Permanent Rendering Context
-static HWND			hWnd=NULL;								// Holds Our Window Handle
-static HINSTANCE	hInstance;								// Holds The Instance Of The Application
+static HDC hDC;     // Private GDI Device Context
+static HGLRC hRC;   // Permanent Rendering Context
+static HWND hWnd;   // Holds Our Window Handle
 	
 static int xres, yres;
 
 // TODO: Make config?
 static bool enableGLDebug = false;
 
-
-//typedef BOOL (APIENTRY *PFNWGLSWAPINTERVALFARPROC)( int );
-//static PFNWGLSWAPINTERVALFARPROC wglSwapIntervalEXT = 0;
-
-void setVSync(int interval=1)
+void GL_SetVSyncInterval(int interval=1)
 {
-	const char *extensions = (const char *)glGetString( GL_EXTENSIONS );
-
   if( wglSwapIntervalEXT )
     wglSwapIntervalEXT(interval);
 }
 
-// Resize And Initialize The GL Window
 void GL_Resized() {
 	if (!hWnd)
 		return;
@@ -39,8 +31,6 @@ void GL_Resized() {
 	xres = rc.right - rc.left; //account for border :P
 	yres = rc.bottom - rc.top;
 
-	//swidth=width;									// Set Scissor Width To Window Width
-	//sheight=height;								// Set Scissor Height To Window Height
 	if (yres == 0)
 		yres = 1;
 	glstate.viewport.set(0, 0, xres, yres);
@@ -105,7 +95,6 @@ bool GL_Init(HWND window, std::string *error_message) {
 	hWnd = window;
 	GLuint PixelFormat;
 
-	hInstance = GetModuleHandle(NULL);
 	static const PIXELFORMATDESCRIPTOR pfd = {
 		sizeof(PIXELFORMATDESCRIPTOR),							// Size Of This Pixel Format Descriptor
 			1,														// Version Number
@@ -205,7 +194,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 	glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
 
 	glstate.Initialize();
-	setVSync(0);
+	GL_SetVSyncInterval(0);
 	if (enableGLDebug && glewIsSupported("GL_ARB_debug_output")) {
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
