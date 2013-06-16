@@ -1372,7 +1372,7 @@ u32 sceIoPollAsync(int id, u32 address) {
 			}
 			return 0; //completed
 		} else {
-			WARN_LOG(HLE, "SCE_KERNEL_ERROR_NOASYNC = sceIoWaitAsyncCB(%i, %08x)", id, address);
+			WARN_LOG(HLE, "SCE_KERNEL_ERROR_NOASYNC = sceIoPollAsync(%i, %08x)", id, address);
 			return SCE_KERNEL_ERROR_NOASYNC;
 		}
 	} else {
@@ -1608,9 +1608,33 @@ u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u
 	}
 }
 
+struct GetFdListArg {
+	u32 outAddr;
+	int outLeft;
+	int total;
+};
+
+bool __GetFdListIterator(FileNode *f, GetFdListArg *state) {
+	++state->total;
+	if (Memory::IsValidAddress(state->outAddr) && state->outLeft > 0) {
+		Memory::Write_U32(f->GetUID(), state->outAddr);
+		state->outAddr += 4;
+		--state->outLeft;
+	}
+	return true;
+}
+
 u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
-	return 0;
+	WARN_LOG(HLE, "sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
+	GetFdListArg arg;
+	arg.outAddr = outAddr;
+	arg.outLeft = outSize;
+	arg.total = 0;
+
+	kernelObjects.Iterate(&__GetFdListIterator, &arg, PPSSPP_KERNEL_TMID_File);
+	if (Memory::IsValidAddress(fdNumAddr))
+		Memory::Write_U32(arg.total, fdNumAddr);
+	return outSize - arg.outLeft;
 }
 
 // Presumably lets you hook up stderr to a MsgPipe.
