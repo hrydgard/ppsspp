@@ -148,6 +148,9 @@ bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
 
 bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 &error, int result, bool &wokeThreads)
 {
+	//Fix DK4 Rota Nova when leave port,enter another port will crash
+	if (error > 0)
+		return false;
 	SceUID waitID = __KernelGetWaitID(th.tid, WAITTYPE_EVENTFLAG, error);
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.tid, error);
 
