@@ -826,7 +826,7 @@ void TextureCache::UpdateCurrentClut() {
 	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
 		void *dstPtr = (u16 *)clutBufConverted_ + clutBase;
 		 // This magically works!
-		int numPixels = clutTotalBytes_ / 2;
+		int numPixels = clutTotalBytes_ / sizeof(u16);
 		ConvertColors(dstPtr, srcPtr, getClutDestFormat(clutFormat), numPixels);
 		clutBuf_ = clutBufConverted_;
 	} else {
