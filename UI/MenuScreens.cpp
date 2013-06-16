@@ -208,7 +208,7 @@ void MenuScreen::render() {
 	if (frames_ > 200)  // seems the above goes nuts after a while...
 		xoff = -20;
 
-	int w = LARGE_BUTTON_WIDTH + 60;
+	int w = LARGE_BUTTON_WIDTH + 70;
 
 	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres + xoff - w/2, 75, 0xFFFFFFFF, ALIGN_HCENTER | ALIGN_BOTTOM);
 	ui_draw2d.SetFontScale(0.7f, 0.7f);
@@ -695,14 +695,13 @@ void AudioScreen::render() {
 	int stride = 40;
 	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	if (Atrac3plus_Decoder::IsInstalled() && g_Config.bEnableSound) {
-		UICheckBox(GEN_ID, x + 60, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
-	}
-
-
 	if (Atrac3plus_Decoder::IsSupported()) {
-		VLinear vlinear(30, 300, 20);
-		if (!Atrac3plus_Decoder::IsInstalled() && UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
+		if (Atrac3plus_Decoder::IsInstalled() && g_Config.bEnableSound) {
+			UICheckBox(GEN_ID, x + 60, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
+		}
+
+		VLinear vlinear(30, 200, 20);
+		if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
 			screenManager()->push(new PluginScreen());
 		}
 	}
