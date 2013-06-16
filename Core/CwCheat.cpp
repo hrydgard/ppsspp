@@ -19,7 +19,11 @@ void trim2(std::string& str);
 
 void __CheatInit() {
 	//Moved createFullPath to CheatInit from the constructor because it spams the log and constantly checks if exists. In here, only checks once.
-	activeCheatFile = CHEATS_DIR + "/" + g_paramSFO.GetValueString("DISC_ID").c_str() + ".ini";
+	std::string gameTitle = g_paramSFO.GetValueString("DISC_ID") + " - " + g_paramSFO.GetValueString("TITLE");
+	if (gameTitle.find("™")!= std::string::npos) {
+		gameTitle.erase (gameTitle.find("™"), std::string::npos);
+	}
+	activeCheatFile = CHEATS_DIR + "/" + gameTitle +".ini";
 
 	File::CreateFullPath(CHEATS_DIR);
 	if (g_Config.bEnableCheats) {
@@ -64,12 +68,61 @@ void CWCheatEngine::Exit() {
 	exit2 = true;
 }
 void CWCheatEngine::CreateCodeList() {
-	parts = makeCodeParts();
+	initialCodesList = GetCodesList();
+	std::string currentcode, codename;
+	std::vector<std::string> codelist;
+
+	for (size_t i = 0; i < initialCodesList.size(); i ++) {
+
+		if (initialCodesList[i].substr(0,3) == "_C1") {
+			cheatEnabled = true;
+			codename = initialCodesList[i];
+			codename.erase (codename.begin(), codename.begin()+4);
+			codeNameList.push_back(codename); //Import names for GUI
+			continue;
+		}
+		if (initialCodesList[i].substr(0,2) == "_L") {
+			if (cheatEnabled == true) {
+				currentcode = initialCodesList[i];
+				currentcode.erase(currentcode.begin(), currentcode.begin() + 3);
+				codelist.push_back(currentcode);
+			}
+			continue;
+		}
+		if (initialCodesList[i].substr(0,3) == "_C0") {
+			cheatEnabled = false;
+			codename = initialCodesList[i];
+			codename.erase (codename.begin(), codename.begin()+4);
+			codeNameList.push_back(codename); //Import names for GUI
+			continue;
+		}
+	}
+	parts = makeCodeParts(codelist);
+}
+inline std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList) {
+	std::string currentcode;
+	std::vector<std::string> finalList;
+	char split_char = '\n';
+	char empty = ' ';
+	for (size_t i = 0; i < CodesList.size(); i++) {
+		currentcode = CodesList[i];
+		for (size_t j=0; j < currentcode.length(); j++) {
+			if (currentcode[j] == empty) {
+				currentcode[j] = '\n';
+			}
+		}
+		trim2(currentcode);
+		std::istringstream iss(currentcode);
+		std::string each;
+		while (std::getline(iss, each, split_char)) {
+			finalList.push_back(each);
+		}
+	}
+	return finalList;
 }
 std::vector<int> CWCheatEngine::GetNextCode() {
 	std::string code1;
 	std::string code2;
-	std::string modifier = "_L";
 	std::vector<std::string> splitCode;
 	std::vector<int> finalCode;
 	std::string modifier2 = "0";
@@ -90,11 +143,7 @@ std::vector<int> CWCheatEngine::GetNextCode() {
 		int var2 = (int) parseHexLong(splitCode[1]);
 		finalCode.push_back(var1);
 		finalCode.push_back(var2);
-		if (splitCode[0].substr(0,2) == modifier) {
-			splitCode[0] = splitCode[0].substr(3);
-			break;
-		}
-		else if (splitCode[0].substr(0,1) == modifier2) {
+		if (splitCode[0].substr(0,1) == modifier2) {
 			break;
 		}
 	}
@@ -118,14 +167,6 @@ int CWCheatEngine::GetAddress(int value) {
 	return (value + 0x08800000) & 0x3FFFFFFF;
 }
 
-void CWCheatEngine::AddCheatLine(std::string& line) {
-	std::string cheatCodes;
-	if (cheatCodes.length() <= 0) {
-		cheatCodes = line;
-	} else {
-		cheatCodes += "\n" + line;
-	}
-}
 
 inline void trim2(std::string& str) {
 	size_t pos = str.find_last_not_of(' ');
@@ -137,43 +178,13 @@ inline void trim2(std::string& str) {
 	else str.erase(str.begin(), str.end());
 }
 
-inline std::vector<std::string> makeCodeParts() {
-	CWCheatEngine cheats;
-	std::string currentcode;
-	std::vector<std::string> finalList;
-	std::vector<std::string> CodesList = cheats.GetCodesList();
-	char split_char = '\n';
-	char empty = ' ';
-	for (size_t i = 0; i < CodesList.size(); i++) {
-		currentcode = CodesList[i];
-		for (size_t j=0; j < currentcode.length(); j++) {
-			if (currentcode[j] == empty) {
-				currentcode[j] = '\n';
-			}
-		}
-		trim2(currentcode);
-		std::istringstream iss(currentcode);
-		std::string each;
-		while (std::getline(iss, each, split_char)) {
-			finalList.push_back(each);
-		}
-	}
-	return finalList;
-}
-
 std::vector<std::string> CWCheatEngine::GetCodesList() {
 	std::string line;
-
-	std::string skip = "//";
 	std::vector<std::string> codesList;  // Read from INI here
 	std::ifstream list(activeCheatFile.c_str());
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list, line, '\n');
-		if (line.substr(0,2) == skip) {
-			line.clear();
-		} else {
-			codesList.push_back(line);
-		}
+		codesList.push_back(line);
 	}
 	for(size_t i = 0; i < codesList.size(); i++) {
 		trim2(codesList[i]);
@@ -182,10 +193,8 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 }
 
 void CWCheatEngine::Run() {
-	CWCheatEngine cheats;
 	exit2 = false;
 	while (!exit2) {
-		codes = cheats.GetCodesList();  // UI Member
 		currentCode = 0;
 
 		while (true) {
@@ -274,7 +283,7 @@ void CWCheatEngine::Run() {
 				}
 			case 0x4: // 32-bit patch code
 				code = GetNextCode();
-				if (code[0] != NULL) {
+				if (code[0] != 0) {
 					int data = code[0];
 					int dataAdd = code[1];
 
