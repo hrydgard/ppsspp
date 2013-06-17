@@ -746,6 +746,11 @@ void GraphicsScreenP1::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Stream VBO"), ALIGN_TOPLEFT, &g_Config.bUseVBO);
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
+#ifdef _WIN32
+	bool Vsync = g_Config.iVSyncInterval != 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("VSync"), ALIGN_TOPLEFT, &Vsync);
+	g_Config.iVSyncInterval = Vsync ? 1 : 0;
+#endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
