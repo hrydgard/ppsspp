@@ -23,10 +23,12 @@
 #include "sceKernelThread.h"
 #include "sceUtility.h"
 
+#include <algorithm>
+
 static bool netInited;
 static bool netAdhocInited;
 
-static u32 adhocctlHandlerPtr;
+static u32 adhocctlHandlerCount;
 
 enum {
 	ERROR_NET_BUFFER_TOO_SMALL                   = 0x80400706,
@@ -74,25 +76,44 @@ struct SceNetMallocStat {
 	int pool; // Pointer to the pool?
 	int maximum; // Maximum size of the pool?
 	int free; // How much memory is free
+} static netMallocStat;
+
+struct AdhocctlHandler
+{
+	u32 entryPoint;
+	u32 argument;
+	u32 id;
 };
 
-static struct SceNetMallocStat netMallocStat;
+static std::vector<AdhocctlHandler> adhocctlHandlers;
 
 void __NetInit() {
 	netInited = false;
 	netAdhocInited = false;
-	adhocctlHandlerPtr = 0;
 }
 
 void __NetShutdown() {
 
 }
 
+void __UpdateAdhocctlHandlers(int flag, int error) {
+	u32 args[3] = { 0, 0, 0 };
+	for(std::vector<AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it < adhocctlHandlers.end(); it++) {
+		args[0] = flag;
+		args[1] = error;
+		args[2] = it->argument;
+
+		__KernelDirectMipsCall(it->entryPoint, NULL, args, 3, false);
+	}
+}
+
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
 	p.Do(netInited);
 	p.Do(netAdhocInited);
-	p.Do(adhocctlHandlerPtr);
+	p.Do(adhocctlHandlers);
+	p.Do(adhocctlHandlerCount);
+	p.Do(netMallocStat);
 	p.DoMarker("net");
 }
 
@@ -100,10 +121,12 @@ void __NetDoState(PointerWrap &p) {
 void sceNetInit() {
 	ERROR_LOG(HLE,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 	netInited = true;
+	memset(&netMallocStat, 0, sizeof(netMallocStat));
 	netMallocStat.maximum = PARAM(0);
 	netMallocStat.free = PARAM(0);
 	netMallocStat.pool = 0;
-	RETURN(0); //ERROR
+
+	RETURN(0); //ERROR <- The Dax: Why is it an error when it returns 0 on success?
 }
 
 u32 sceNetTerm() {
@@ -146,34 +169,45 @@ u32 sceWlanGetSwitchState() {
 }
 
 // TODO: How many handlers can the PSP actually have for Adhocctl?
-u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 unknown) {
-	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x)", handlerPtr, unknown);
-	if(adhocctlHandlerPtr == 0) {
-		adhocctlHandlerPtr = handlerPtr;
-		DEBUG_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler", handlerPtr, unknown);
-	}
-	else {
-		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Too many handlers already!", handlerPtr, unknown);
-		return ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS;
+// TODO: Should we allow the same handler to be added more than once?
+u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
+	bool foundHandler = false;
+	struct AdhocctlHandler handler;
+	memset(&handler, 0, sizeof(handler));
+	handler.entryPoint = handlerPtr;
+	handler.argument = handlerArg;
+	handler.id = -1;
+
+	for(std::vector<AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it < adhocctlHandlers.end(); it++) {
+		if(it->entryPoint == handlerPtr) {
+			foundHandler = true;
+			break;
+		}
 	}
 
-	return 0;
+	if(!foundHandler && Memory::IsValidAddress(handlerPtr)) {
+		handler.id = adhocctlHandlerCount > 0? ++adhocctlHandlerCount : 0;
+		adhocctlHandlers.push_back(handler); 
+		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, handler.id);
+	}
+	else
+		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
+
+
+	return handler.id;
 }
 
 u32 sceNetAdhocctlDisconnect() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlDisconnect()");
+	__UpdateAdhocctlHandlers(0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF);
+
 	return 0;
 }
 
-u32 sceNetAdhocctlDelHandler(u32 handlerPtr) {
-	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%x)", handlerPtr);
-
-	if(adhocctlHandlerPtr > 0) {
-		adhocctlHandlerPtr = 0;
-		DEBUG_LOG(HLE, "sceNetAdhocctlDelHandler(%x): deleted handler", handlerPtr);
-	}
-	else
-		WARN_LOG(HLE, "sceNetAdhocctlDelHandler(%x): asked to delete invalid handler", handlerPtr);
+u32 sceNetAdhocctlDelHandler(u32 handlerID) {
+	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%x)", handlerID);
+	adhocctlHandlers.erase(adhocctlHandlers.begin() + handlerID);
+	adhocctlHandlerCount = adhocctlHandlerCount > 0? --adhocctlHandlerCount : adhocctlHandlerCount;
 
 	return 0;
 }
@@ -203,6 +237,7 @@ int sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
 	}
 	else
 		ERROR_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x): Tried to write to an invalid pointer", mac, bufferPtr);
+
 	return 0;
 }
 
@@ -226,7 +261,7 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
 
 // TODO: Should we really write the struct if we're disconnected?
 int sceNetAdhocctlGetParameter(u32 paramAddr) {
-	ERROR_LOG(HLE, "UNIMPL %x=sceNetAdhocctlGetParameter(%x)", 0, paramAddr);
+	ERROR_LOG(HLE, "UNTESTED %x=sceNetAdhocctlGetParameter(%x)", 0, paramAddr);
 	struct SceNetAdhocctlParams params;
 	params.channel = 0;
 	for(int i = 0; i < 6; i++)
@@ -264,10 +299,7 @@ int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 
 int sceNetAdhocctlScan() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlScan()");
-	if(adhocctlHandlerPtr != 0) {
-		u32 args[3] = {0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF, adhocctlHandlerPtr };
-		__KernelDirectMipsCall(adhocctlHandlerPtr, NULL, args, 3, true);
-	}
+	__UpdateAdhocctlHandlers(0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF);
 
 	return 0;
 }
@@ -279,7 +311,9 @@ int sceNetAdhocctlGetScanInfo() {
 
 int sceNetAdhocctlConnect(u32 ptrToGroupName) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlConnect(%x)", ptrToGroupName);
-	return ERROR_NET_ADHOCCTL_BUSY;
+	__UpdateAdhocctlHandlers(0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF);
+
+	return 0;
 }
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
