@@ -23,8 +23,6 @@
 #include "sceKernelThread.h"
 #include "sceUtility.h"
 
-#include <algorithm>
-
 static bool netInited;
 static bool netAdhocInited;
 
