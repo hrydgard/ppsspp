@@ -809,25 +809,30 @@ void TextureCache::LoadClut() {
 	u32 clutAddr = GetClutAddr();
 	clutTotalBytes_ = (gstate.loadclut & 0x3F) * 0x20;
 	if (Memory::IsValidAddress(clutAddr)) {
-		Memory::Memcpy((u8 *)clutBufRaw_, clutAddr, clutTotalBytes_);
+		Memory::Memcpy(clutBufRaw_, clutAddr, clutTotalBytes_);
 	} else {
 		memset(clutBufRaw_, 0xFF, clutTotalBytes_);
-		clutHash_ = 0;
 	}
 	// Reload the clut next time.
-	clutLastFormat_ = 0xFF;
+	clutLastFormat_ = 0xFFFFFFFF;
 }
 
 void TextureCache::UpdateCurrentClut() {
-	u32 clutBase = (gstate.clutformat & 0x1F0000) >> 12;
-	void *srcPtr = (u16 *)clutBufRaw_ + clutBase;
-	GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
+	const GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
+	const u32 clutBase = (gstate.clutformat & 0x1F0000) >> 12;
+
+	// Technically, the extra bytes may not have been loaded, but hopefully it was loaded earlier.
+	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
+	void *srcPtr = (u8 *)clutBufRaw_ + clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
+
+	// QuickClutHash is not quite good enough apparently.
+	// clutHash_ = QuickClutHash((const u8 *)srcPtr, clutTotalBytes_);
+	clutHash_ = CityHash32((const char *)srcPtr, clutTotalBytes_);
+
 	// Avoid a copy when we don't need to convert colors.
 	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
 		void *dstPtr = (u16 *)clutBufConverted_ + clutBase;
-		 // This magically works!
-		int numPixels = clutTotalBytes_ / sizeof(u16);
-		ConvertColors(dstPtr, srcPtr, getClutDestFormat(clutFormat), numPixels);
+		ConvertColors(dstPtr, srcPtr, getClutDestFormat(clutFormat), clutTotalBytes_ / sizeof(u16));
 		clutBuf_ = clutBufConverted_;
 	} else {
 		clutBuf_ = clutBufRaw_;
@@ -852,14 +857,8 @@ void TextureCache::UpdateCurrentClut() {
 			}
 		}
 	}
-	// 0xFF is an invalid format, it means not yet hashed or updated.
-	if (clutLastFormat_ == 0xFF) {
-		// QuickClutHash is not quite good enough apparently.
-		// clutHash_ = QuickClutHash((const u8 *)srcPtr, clutTotalBytes_);
-		clutHash_ = CityHash32((const char *)srcPtr, clutTotalBytes_);
-	}
 
-	clutLastFormat_ = clutFormat;
+	clutLastFormat_ = gstate.clutformat;
 }
 
 template <typename T>
@@ -892,7 +891,7 @@ void TextureCache::SetTexture() {
 	u32 clutformat, cluthash;
 	if (hasClut) {
 		clutformat = gstate.clutformat & 3;
-		if (clutLastFormat_ != clutformat) {
+		if (clutLastFormat_ != gstate.clutformat) {
 			// We update here because the clut format can be specified after the load.
 			UpdateCurrentClut();
 		}

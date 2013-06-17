@@ -127,7 +127,7 @@ private:
 
 	SimpleBuf<u32> tmpTexBufRearrange;
 
-	u8 clutLastFormat_;
+	u32 clutLastFormat_;
 	u32 *clutBufRaw_;
 	u32 *clutBufConverted_;
 	u32 *clutBuf_;
