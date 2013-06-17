@@ -53,6 +53,7 @@ enum {
 	ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED       = 0x80410b07,
 	ERROR_NET_ADHOCCTL_NOT_INITIALIZED           = 0x80410b08,
 	ERROR_NET_ADHOCCTL_DISCONNECTED				 = 0x80410b09,
+	ERROR_NET_ADHOCCTL_BUSY                      = 0x80410b10,
 	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
 };
 
@@ -278,7 +279,7 @@ int sceNetAdhocctlGetScanInfo() {
 
 int sceNetAdhocctlConnect(u32 ptrToGroupName) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlConnect(%x)", ptrToGroupName);
-	return 0;
+	return ERROR_NET_ADHOCCTL_BUSY;
 }
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
