@@ -72,6 +72,7 @@ void __UtilityDoState(PointerWrap &p)
 	msgDialog.DoState(p);
 	oskDialog.DoState(p);
 	netDialog.DoState(p);
+	screenshotDialog.DoState(p);
 	p.Do(currentlyLoadedModules);
 	p.DoMarker("sceUtility");
 }
@@ -82,6 +83,7 @@ void __UtilityShutdown()
 	msgDialog.Shutdown(true);
 	oskDialog.Shutdown(true);
 	netDialog.Shutdown(true);
+	screenshotDialog.Shutdown(true);
 }
 
 int __UtilityGetStatus()
