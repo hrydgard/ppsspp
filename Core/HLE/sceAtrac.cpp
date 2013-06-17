@@ -484,7 +484,7 @@ u32 sceAtracGetAtracID(int codecType) {
 
 	Atrac *atrac = new Atrac();
 	atrac->codeType = codecType;
-	int atracID = createAtrac(new Atrac, codecType);
+	int atracID = createAtrac(atrac, codecType);
 	if (atracID < 0) {
 		ERROR_LOG_REPORT(HLE, "sceAtracGetAtracID(%i): no free ID", codecType);
 		delete atrac;
