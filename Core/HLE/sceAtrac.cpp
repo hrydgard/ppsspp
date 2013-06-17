@@ -304,7 +304,16 @@ void __AtracInit() {
 
 void __AtracDoState(PointerWrap &p) {
 	p.Do(atracInited);
-	p.DoArray(atracIDs, PSP_NUM_ATRAC_IDS);
+	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
+		bool valid = atracIDs[i] != NULL;
+		p.Do(valid);
+		if (valid) {
+			p.Do(atracIDs[i]);
+		} else {
+			delete atracIDs[i];
+			atracIDs[i] = NULL;
+		}
+	}
 	p.DoArray(atracIDTypes, PSP_NUM_ATRAC_IDS);
 
 	p.DoMarker("sceAtrac");
