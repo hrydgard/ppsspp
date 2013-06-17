@@ -20,11 +20,15 @@ void trim2(std::string& str);
 void __CheatInit() {
 	//Moved createFullPath to CheatInit from the constructor because it spams the log and constantly checks if exists. In here, only checks once.
 	std::string gameTitle = g_paramSFO.GetValueString("DISC_ID") + " - " + g_paramSFO.GetValueString("TITLE");
+	//These 3 statements clean up the title, which sometimes contain characters that will cause problems when creating the .ini
 	if (gameTitle.find("™")!= std::string::npos) {
 		gameTitle.erase (gameTitle.find("™"), std::string::npos);
 	}
 	while (gameTitle.find("/")!= std::string::npos) {
 		gameTitle.replace (gameTitle.find("/"),1," ");
+	}
+	if (gameTitle.find(":")!= std::string::npos) {
+		gameTitle.replace (gameTitle.find(":"),1," ");
 	}
 	activeCheatFile = CHEATS_DIR + "/" + gameTitle +".ini";
 
