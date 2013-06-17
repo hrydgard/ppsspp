@@ -19,10 +19,11 @@
 // to keep games happy anyway. So, no ATRAC3 music until someone has reverse engineered Atrac3+.
 
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "../CoreTiming.h"
-#include "ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
+#include "Common/ChunkFile.h"
 
 #include "sceKernel.h"
 #include "sceUtility.h"
@@ -312,7 +313,7 @@ Atrac *getAtrac(int atracID) {
 	return atracMap[atracID];
 }
 
-int createAtrac(Atrac *atrac) {
+int createAtrac(Atrac *atrac, int codecType) {
 	int id;
 	do {
 		id= nextAtracID;
@@ -453,17 +454,22 @@ void Atrac::Analyze()
 	}
 }
 
-u32 sceAtracGetAtracID(int codecType)
-{
-	INFO_LOG(HLE, "sceAtracGetAtracID(%i)", codecType);
-	if (codecType < 0x1000 || codecType > 0x1001)
+u32 sceAtracGetAtracID(int codecType) {
+	if (codecType != PSP_MODE_AT_3 && codecType > PSP_MODE_AT_3_PLUS) {
+		ERROR_LOG_REPORT(HLE, "sceAtracGetAtracID(%i): invalid codecType", codecType);
 		return ATRAC_ERROR_INVALID_CODECTYPE;
+	}
 
-	int atracID = createAtrac(new Atrac);
-	Atrac *atrac = getAtrac(atracID);
-	if (!atrac)
-		return ATRAC_ERROR_NO_ATRACID;
+	Atrac *atrac = new Atrac();
 	atrac->codeType = codecType;
+	int atracID = createAtrac(new Atrac, codecType);
+	if (atracID < 0) {
+		ERROR_LOG_REPORT(HLE, "sceAtracGetAtracID(%i): no free ID", codecType);
+		delete atrac;
+		return atracID;
+	}
+
+	INFO_LOG(HLE, "%d=sceAtracGetAtracID(%i)", atracID, codecType);
 	return atracID;
 }
 
@@ -1133,7 +1139,6 @@ u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize)
 
 int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 {
-	INFO_LOG(HLE, "sceAtracSetDataAndGetID(%08x, %08x)", buffer, bufferSize);
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
@@ -1141,7 +1146,13 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->first.size = bufferSize;
 	atrac->Analyze();
 	atrac->atracOutputChannels = 2;
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(atrac, codecType);
+	if (atracID < 0) {
+		ERROR_LOG_REPORT(HLE, "sceAtracSetDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
+		delete atrac;
+		return atracID;
+	}
+	INFO_LOG(HLE, "%d=sceAtracSetDataAndGetID(%08x, %08x)", atracID, buffer, bufferSize);
 	int ret = _AtracSetData(atracID, buffer, bufferSize, true);
 	if (ret < 0)
 		return ret;
@@ -1150,9 +1161,10 @@ int sceAtracSetDataAndGetID(u32 buffer, u32 bufferSize)
 
 int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
-	INFO_LOG(HLE, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
-	if (readSize > halfBufferSize)
+	if (readSize > halfBufferSize) {
+		ERROR_LOG(HLE, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
+	}
 	int codecType = getCodecType(halfBuffer);
 
 	Atrac *atrac = new Atrac();
@@ -1160,7 +1172,13 @@ int sceAtracSetHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBuffe
 	atrac->first.size = readSize;
 	atrac->Analyze();
 	atrac->atracOutputChannels = 2;
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(atrac, codecType);
+	if (atracID < 0) {
+		ERROR_LOG_REPORT(HLE, "sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		delete atrac;
+		return atracID;
+	}
+	INFO_LOG(HLE, "%d=sceAtracSetHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
 	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
@@ -1250,7 +1268,6 @@ u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize)
 
 int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
 {
-	INFO_LOG(HLE, "sceAtracSetMOutDataAndGetID(%08x, %08x)", buffer, bufferSize);
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
@@ -1258,7 +1275,13 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
 	atrac->first.size = bufferSize;
 	atrac->Analyze();
 	atrac->atracOutputChannels = 1;
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(atrac, codecType);
+	if (atracID < 0) {
+		ERROR_LOG_REPORT(HLE, "sceAtracSetMOutDataAndGetID(%08x, %08x): no free ID", buffer, bufferSize);
+		delete atrac;
+		return atracID;
+	}
+	INFO_LOG(HLE, "%d=sceAtracSetMOutDataAndGetID(%08x, %08x)", atracID, buffer, bufferSize);
 	int ret = _AtracSetData(atracID, buffer, bufferSize, true);
 	if (ret < 0)
 		return ret;
@@ -1267,9 +1290,10 @@ int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize)
 
 int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
-	INFO_LOG(HLE, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
-	if (readSize > halfBufferSize)
+	if (readSize > halfBufferSize) {
+		ERROR_LOG(HLE, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): incorrect read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
+	}
 	int codecType = getCodecType(halfBuffer);
 
 	Atrac *atrac = new Atrac();
@@ -1277,7 +1301,13 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 	atrac->first.size = readSize;
 	atrac->Analyze();
 	atrac->atracOutputChannels = 1;
-	int atracID = createAtrac(atrac);
+	int atracID = createAtrac(atrac, codecType);
+	if (atracID < 0) {
+		ERROR_LOG_REPORT(HLE, "sceAtracSetMOutDataAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		delete atrac;
+		return atracID;
+	}
+	INFO_LOG(HLE, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
 	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
@@ -1286,14 +1316,20 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 
 int sceAtracSetAA3DataAndGetID(u32 buffer, int bufferSize, int fileSize, u32 metadataSizeAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", buffer, bufferSize, fileSize, metadataSizeAddr);
 	int codecType = getCodecType(buffer);
 
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = buffer;
 	atrac->first.size = bufferSize;
 	atrac->Analyze();
-	return createAtrac(atrac);
+	int atracID = createAtrac(atrac, codecType);
+	if (atracID < 0) {
+		ERROR_LOG_REPORT(HLE, "sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x): no free ID",  buffer, bufferSize, fileSize, metadataSizeAddr);
+		delete atrac;
+		return atracID;
+	}
+	ERROR_LOG(HLE, "UNIMPL %d=sceAtracSetAA3DataAndGetID(%08x, %i, %i, %08x)", atracID, buffer, bufferSize, fileSize, metadataSizeAddr);
+	return atracID;
 }
 
 int _AtracGetIDByContext(u32 contextAddr) {
@@ -1596,19 +1632,29 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 
 int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBufferSize)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x)", halfBuffer, readSize, halfBufferSize);
-	if (readSize > halfBufferSize)
+	if (readSize > halfBufferSize) {
+		ERROR_LOG(HLE, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): invalid read size", halfBuffer, readSize, halfBufferSize);
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
+	}
 
-	if (readSize < 0 || halfBufferSize < 0)
+	if (readSize < 0 || halfBufferSize < 0) {
+		ERROR_LOG_REPORT(HLE, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): invalid buffer size", halfBuffer, readSize, halfBufferSize);
 		return -1;
+	}
 
 	int codecType = getCodecType(halfBuffer);
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;
 	atrac->first.size = halfBufferSize;
 	atrac->Analyze();
-	return createAtrac(atrac);
+	int atracID = createAtrac(atrac, codecType);
+	if (atracID < 0) {
+		ERROR_LOG_REPORT(HLE, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): no free ID", halfBuffer, readSize, halfBufferSize);
+		delete atrac;
+		return atracID;
+	}
+	ERROR_LOG(HLE, "UNIMPL %d=sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
+	return createAtrac(atrac, codecType);
 }
 
 const HLEFunction sceAtrac3plus[] =
