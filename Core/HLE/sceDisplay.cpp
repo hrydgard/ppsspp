@@ -121,6 +121,9 @@ static double fps = 0.0;
 static double fpsHistory[120];
 static size_t fpsHistoryPos = 0;
 static size_t fpsHistoryValid = 0;
+static int lastNumFlips = 0;
+static int numFlips = 0;
+static float flips = 0.0f;
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
@@ -214,7 +217,8 @@ void __DisplayFireVblank() {
 }
 
 void __DisplayGetFPS(float *out_vps, float *out_fps) {
-	*out_vps = *out_fps = fps;
+	*out_vps = fps;
+	*out_fps = flips;
 }
 
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
@@ -239,9 +243,12 @@ void CalculateFPS()
 
 	if (now >= lastFpsTime + 1.0)
 	{
-		fps = (gpuStats.numFrames - lastFpsFrame) / (now - lastFpsTime);
+		double frames = (gpuStats.numFrames - lastFpsFrame);
+		fps = frames / (now - lastFpsTime);
+		flips = 60.0 * (double) (numFlips - lastNumFlips) / frames;
 
-		lastFpsFrame = gpuStats.numFrames;	
+		lastFpsFrame = gpuStats.numFrames;
+		lastNumFlips = numFlips;
 		lastFpsTime = now;
 
 		fpsHistory[fpsHistoryPos++] = fps;
@@ -501,6 +508,10 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		fbstate.topaddr = topaddr;
 		fbstate.pspFramebufFormat = (PspDisplayPixelFormat)pixelformat;
 		fbstate.pspFramebufLinesize = linesize;
+	}
+
+	if (topaddr != framebuf.topaddr) {
+		++numFlips;
 	}
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
