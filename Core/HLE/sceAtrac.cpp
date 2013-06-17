@@ -347,8 +347,14 @@ int createAtrac(Atrac *atrac, int codecType) {
 }
 
 int deleteAtrac(int atracID) {
-	delete atracIDs[atracID];
-	atracIDs[atracID] = NULL;
+	if (atracID >= 0 && atracID < PSP_NUM_ATRAC_IDS) {
+		if (atracIDs[atracID] != NULL) {
+			delete atracIDs[atracID];
+			atracIDs[atracID] = NULL;
+
+			return 0;
+		}
+	}
 
 	return ATRAC_ERROR_BAD_ATRACID;
 }
@@ -1266,11 +1272,13 @@ int sceAtracReinit(int at3Count, int at3plusCount)
 
 	// If we ran out of space, we still initialize some, but return an error.
 	int result = space >= 0 ? 0 : SCE_KERNEL_ERROR_OUT_OF_MEMORY;
-	if (atracInited) {
+	if (atracInited || next == 0) {
 		INFO_LOG(HLE, "sceAtracReinit(%d, %d)", at3Count, at3plusCount);
+		atracInited = true;
 		return result;
 	} else {
 		INFO_LOG(HLE, "sceAtracReinit(%d, %d): init", at3Count, at3plusCount);
+		atracInited = true;
 		return hleDelayResult(result, "atrac reinit", 400);
 	}
 }
