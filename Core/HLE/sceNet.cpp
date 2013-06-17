@@ -74,7 +74,9 @@ struct SceNetMallocStat {
 	int pool; // Pointer to the pool?
 	int maximum; // Maximum size of the pool?
 	int free; // How much memory is free
-} static netMallocStat;
+};
+
+static struct SceNetMallocStat netMallocStat;
 
 struct AdhocctlHandler
 {
