@@ -28,8 +28,7 @@ static bool netAdhocInited;
 
 static u32 adhocctlHandlerPtr;
 
-enum 
-{
+enum {
 	ERROR_NET_BUFFER_TOO_SMALL                   = 0x80400706,
 
 	ERROR_NET_RESOLVER_BAD_ID                    = 0x80410408,
@@ -58,22 +57,19 @@ enum
 };
 
 // These might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc..
-struct SceNetAdhocctlParams
-{
+struct SceNetAdhocctlParams {
 	int channel; //which ad-hoc channel to connect to
 	char name[8]; //connection name
 	u8 bssid[6];  //BSSID of the connection?
 	char nickname[128]; //PSP's nickname?
 };
 
-struct ProductStruct
-{
+struct ProductStruct {
 	int unknown; // Unknown, set to 0
 	char product[9]; // Game ID (Example: ULUS10000)
 };
 
-struct SceNetMallocStat 
-{
+struct SceNetMallocStat {
 	int pool; // Pointer to the pool?
 	int maximum; // Maximum size of the pool?
 	int free; // How much memory is free
@@ -81,21 +77,18 @@ struct SceNetMallocStat
 
 static struct SceNetMallocStat netMallocStat;
 
-void __NetInit() 
-{
+void __NetInit() {
 	netInited = false;
 	netAdhocInited = false;
 	adhocctlHandlerPtr = 0;
 }
 
-void __NetShutdown() 
-{
+void __NetShutdown() {
 
 }
 
 // This feels like a dubious proposition, mostly...
-void __NetDoState(PointerWrap &p) 
-{
+void __NetDoState(PointerWrap &p) {
 	p.Do(netInited);
 	p.Do(netAdhocInited);
 	p.Do(adhocctlHandlerPtr);
@@ -103,8 +96,7 @@ void __NetDoState(PointerWrap &p)
 }
 
 // TODO: should that struct actually be initialized here?
-void sceNetInit()
-{
+void sceNetInit() {
 	ERROR_LOG(HLE,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 	netInited = true;
 	netMallocStat.maximum = PARAM(0);
@@ -113,15 +105,13 @@ void sceNetInit()
 	RETURN(0); //ERROR
 }
 
-u32 sceNetTerm() 
-{
+u32 sceNetTerm() {
 	ERROR_LOG(HLE,"UNIMPL sceNetTerm()");
 	netInited = false;
 	return 0;
 }
 
-u32 sceNetAdhocInit() 
-{
+u32 sceNetAdhocInit() {
 	ERROR_LOG(HLE,"UNIMPL sceNetAdhocInit()");
 	if (netAdhocInited)
 		return ERROR_NET_ADHOC_ALREADY_INITIALIZED;
@@ -130,14 +120,12 @@ u32 sceNetAdhocInit()
 	return 0;
 }
 
-u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) 
-{
+u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	ERROR_LOG(HLE,"UNIMPL sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
 	return 0;
 }
 
-u32 sceWlanGetEtherAddr(u32 addrAddr)
-{
+u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	static const u8 fakeEtherAddr[6] = { 1, 2, 3, 4, 5, 6 };
 	DEBUG_LOG(HLE, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
@@ -146,29 +134,24 @@ u32 sceWlanGetEtherAddr(u32 addrAddr)
 	return 0;
 }
 
-u32 sceWlanDevIsPowerOn()
-{
+u32 sceWlanDevIsPowerOn() {
 	DEBUG_LOG(HLE, "UNTESTED 0=sceWlanDevIsPowerOn()");
 	return 0;
 }
 
-u32 sceWlanGetSwitchState() 
-{
+u32 sceWlanGetSwitchState() {
 	DEBUG_LOG(HLE, "UNTESTED sceWlanGetSwitchState()");
 	return 0;
 }
 
 // TODO: How many handlers can the PSP actually have for Adhocctl?
-u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 unknown) 
-{
+u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 unknown) {
 	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x)", handlerPtr, unknown);
-	if(adhocctlHandlerPtr == 0) 
-	{
+	if(adhocctlHandlerPtr == 0) {
 		adhocctlHandlerPtr = handlerPtr;
 		DEBUG_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler", handlerPtr, unknown);
 	}
-	else 
-	{
+	else {
 		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Too many handlers already!", handlerPtr, unknown);
 		return ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS;
 	}
@@ -176,53 +159,43 @@ u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 unknown)
 	return 0;
 }
 
-u32 sceNetAdhocctlDisconnect() 
-{
+u32 sceNetAdhocctlDisconnect() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlDisconnect()");
 	return 0;
 }
 
-u32 sceNetAdhocctlDelHandler(u32 handlerPtr) 
-{
+u32 sceNetAdhocctlDelHandler(u32 handlerPtr) {
 	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%x)", handlerPtr);
 
-	if(adhocctlHandlerPtr > 0) 
-	{
+	if(adhocctlHandlerPtr > 0) {
 		adhocctlHandlerPtr = 0;
 		DEBUG_LOG(HLE, "sceNetAdhocctlDelHandler(%x): deleted handler", handlerPtr);
 	}
-	else 
-	{
+	else
 		WARN_LOG(HLE, "sceNetAdhocctlDelHandler(%x): asked to delete invalid handler", handlerPtr);
-	}
 
 	return 0;
 }
 
-int sceNetAdhocMatchingTerm() 
-{
+int sceNetAdhocMatchingTerm() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingTerm()");
 	return 0;
 }
 
-int sceNetAdhocctlTerm() 
-{
+int sceNetAdhocctlTerm() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlTerm()");
 	return 0;
 }
 
-int sceNetAdhocTerm() 
-{
+int sceNetAdhocTerm() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocTerm()");
 	return 0;
 }
 
 // Homebrew SDK claims it's a void function, but tests seem to indicate otherwise
-int sceNetEtherNtostr(const char *mac, u32 bufferPtr) 
-{
+int sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
 	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
-	if(Memory::IsValidAddress(bufferPtr))
-	{
+	if(Memory::IsValidAddress(bufferPtr)) {
 		int len = strlen(mac);
 		for (int i = 0; i < len; i++)
 			Memory::Write_U8(mac[i], bufferPtr + i);
@@ -234,8 +207,7 @@ int sceNetEtherNtostr(const char *mac, u32 bufferPtr)
 
 // Seems to always return 0, and write 0 to the pointer..
 // TODO: Eventually research what possible states there are
-int sceNetAdhocctlGetState(u32 ptrToStatus) 
-{
+int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlGetState(%x)", ptrToStatus);
 	if(Memory::IsValidAddress(ptrToStatus))
 		Memory::Write_U32(0, ptrToStatus);
@@ -246,15 +218,13 @@ int sceNetAdhocctlGetState(u32 ptrToStatus)
 }
 
 // Always return -1 since we don't have any real networking...
-int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown) 
-{
+int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpCreate(%s, %x, %x, %x)", mac, port, bufferSize, unknown);
 	return -1;
 }
 
 // TODO: Should we really write the struct if we're disconnected?
-int sceNetAdhocctlGetParameter(u32 paramAddr) 
-{
+int sceNetAdhocctlGetParameter(u32 paramAddr) {
 	ERROR_LOG(HLE, "UNIMPL %x=sceNetAdhocctlGetParameter(%x)", 0, paramAddr);
 	struct SceNetAdhocctlParams params;
 	params.channel = 0;
@@ -270,36 +240,30 @@ int sceNetAdhocctlGetParameter(u32 paramAddr)
 }
 
 // Return -1 packets since we don't have networking yet..
-int sceNetAdhocPdpRecv(int id, const char *mac, u32 port, void *data, void *dataLength, u32 timeout, int nonBlock) 
-{
+int sceNetAdhocPdpRecv(int id, const char *mac, u32 port, void *data, void *dataLength, u32 timeout, int nonBlock) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpRecv(%d, %d, %d, %x, %x, %d, %d)", id, mac, port, data, dataLength, timeout, nonBlock);
 	return -1;
 }
 
 // Assuming < 0 for failure, homebrew SDK doesn't have much to say about this one..
-int sceNetAdhocSetSocketAlert(int id, int flag) 
-{
+int sceNetAdhocSetSocketAlert(int id, int flag) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocSetSocketAlert(%d, %d)", id, flag);
 	return -1;
 }
 
-int sceNetAdhocPdpDelete(int id, int unknown) 
-{
+int sceNetAdhocPdpDelete(int id, int unknown) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpDelete(%d, %d)", id, unknown);
 	return 0;
 }
 
-int sceNetAdhocctlGetAdhocId(u32 productStructAddr) 
-{
+int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetAdhocId(%x)", productStructAddr);
 	return 0;
 }
 
-int sceNetAdhocctlScan()
-{
+int sceNetAdhocctlScan() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlScan()");
-	if(adhocctlHandlerPtr != 0)
-	{
+	if(adhocctlHandlerPtr != 0) {
 		u32 args[3] = {0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF, adhocctlHandlerPtr };
 		__KernelDirectMipsCall(adhocctlHandlerPtr, NULL, args, 3, true);
 	}
@@ -307,21 +271,18 @@ int sceNetAdhocctlScan()
 	return 0;
 }
 
-int sceNetAdhocctlGetScanInfo() 
-{
+int sceNetAdhocctlGetScanInfo() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetScanInfo()");
 	return 0;
 }
 
-int sceNetAdhocctlConnect(u32 ptrToGroupName) 
-{
+int sceNetAdhocctlConnect(u32 ptrToGroupName) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlConnect(%x)", ptrToGroupName);
 	return 0;
 }
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
-int sceNetGetMallocStat(u32 statPtr)
-{
+int sceNetGetMallocStat(u32 statPtr) {
 	ERROR_LOG(HLE, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
 	if(Memory::IsValidAddress(statPtr))
 		Memory::WriteStruct(statPtr, &netMallocStat);
@@ -331,14 +292,12 @@ int sceNetGetMallocStat(u32 statPtr)
 	return 0;
 }
 
-int sceNetAdhocMatchingInit(u32 memsize) 
-{
+int sceNetAdhocMatchingInit(u32 memsize) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
 	return 0;
 }
 
-const HLEFunction sceNet[] =
-{
+const HLEFunction sceNet[] = {
 	{0x39AF39A6, sceNetInit, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
 	{0x89360950, WrapI_CU<sceNetEtherNtostr>, "sceNetEtherNtostr"}, 
@@ -349,8 +308,7 @@ const HLEFunction sceNet[] =
 	{0xad6844c6, 0, "sceNetThreadAbort"},
 };
 
-const HLEFunction sceNetAdhoc[] =
-{
+const HLEFunction sceNetAdhoc[] = {
 	{0xE1D621D7, WrapU_V<sceNetAdhocInit>, "sceNetAdhocInit"}, 
 	{0xA62C6F57, WrapI_V<sceNetAdhocTerm>, "sceNetAdhocTerm"}, 
 	{0x0AD043ED, 0, "sceNetAdhocctlConnect"},
@@ -379,8 +337,7 @@ const HLEFunction sceNetAdhoc[] =
 	{0x4d2ce199, 0, "sceNetAdhocGetSocketAlert"},
 };							
 
-const HLEFunction sceNetAdhocMatching[] = 
-{
+const HLEFunction sceNetAdhocMatching[] = {
 	{0x2a2a1e07, WrapI_U<sceNetAdhocMatchingInit>, "sceNetAdhocMatchingInit"},
 	{0x7945ecda, WrapI_V<sceNetAdhocMatchingTerm>, "sceNetAdhocMatchingTerm"},
 	{0xca5eda6f, 0, "sceNetAdhocMatchingCreate"},
@@ -399,8 +356,7 @@ const HLEFunction sceNetAdhocMatching[] =
 	{0x9c5cfb7d, 0, "sceNetAdhocMatchingGetPoolStat"},
 };
 
-const HLEFunction sceNetAdhocctl[] =
-{
+const HLEFunction sceNetAdhocctl[] = {
 	{0xE26F226E, WrapU_IIU<sceNetAdhocctlInit>, "sceNetAdhocctlInit"},
 	{0x9D689E13, WrapI_V<sceNetAdhocctlTerm>, "sceNetAdhocctlTerm"},
 	{0x20B317A0, WrapU_UU<sceNetAdhocctlAddHandler>, "sceNetAdhocctlAddHandler"},
@@ -425,8 +381,7 @@ const HLEFunction sceNetAdhocctl[] =
 	{0xb0b80e80, 0, "sceNetAdhocctlCreateEnterGameModeMin"},
 };
 
-const HLEFunction sceNetResolver[] =
-{
+const HLEFunction sceNetResolver[] = {
 	{0x224c5f44, 0, "sceNetResolverStartNtoA"},
 	{0x244172af, 0, "sceNetResolverCreate"},
 	{0x94523e09, 0, "sceNetResolverDelete"},
@@ -440,8 +395,7 @@ const HLEFunction sceNetResolver[] =
 	{0x4ee99358, 0, "sceNetResolverPollAsync"},
 };					 
 
-const HLEFunction sceNetInet[] = 
-{
+const HLEFunction sceNetInet[] = {
 	{0x17943399, 0, "sceNetInetInit"},
 	{0x2fe71fe7, 0, "sceNetInetSetsockopt"},
 	{0x410b34aa, 0, "sceNetInetConnect"},
@@ -475,8 +429,7 @@ const HLEFunction sceNetInet[] =
 	{0x39b0c7d3, 0, "sceNetInetGetUdpcbstat"},
 };
 
-const HLEFunction sceNetApctl[] = 
-{
+const HLEFunction sceNetApctl[] = {
 	{0xCFB957C6, 0, "sceNetApctlConnect"},
 	{0x24fe91a1, 0, "sceNetApctlDisconnect"},
 	{0x5deac81b, 0, "sceNetApctlGetState"},
@@ -490,15 +443,13 @@ const HLEFunction sceNetApctl[] =
 	{0x2935c45b, 0, "sceNetApctlGetBSSDescEntry2"},
 };
 
-const HLEFunction sceWlanDrv[] =
-{
+const HLEFunction sceWlanDrv[] = {
 	{0xd7763699, WrapU_V<sceWlanGetSwitchState>, "sceWlanGetSwitchState"},
 	{0x0c622081, WrapU_U<sceWlanGetEtherAddr>, "sceWlanGetEtherAddr"},
 	{0x93440B11, WrapU_V<sceWlanDevIsPowerOn>, "sceWlanDevIsPowerOn"},
 };
 
-void Register_sceNet()
-{
+void Register_sceNet() {
 	RegisterModule("sceNet", ARRAY_SIZE(sceNet), sceNet);
 	RegisterModule("sceNetAdhoc", ARRAY_SIZE(sceNetAdhoc), sceNetAdhoc);
 	RegisterModule("sceNetAdhocMatching", ARRAY_SIZE(sceNetAdhocMatching), sceNetAdhocMatching);
@@ -508,7 +459,6 @@ void Register_sceNet()
 	RegisterModule("sceNetApctl", ARRAY_SIZE(sceNetApctl), sceNetApctl);
 }
 
-void Register_sceWlanDrv()
-{
+void Register_sceWlanDrv() {
 	RegisterModule("sceWlanDrv", ARRAY_SIZE(sceWlanDrv), sceWlanDrv);
 }
