@@ -22,7 +22,7 @@
 #include <vector>
 #include <map>
 #include "CommonTypes.h"
-#include "Core/Dialog/PSPOskDialog.h"
+#include "Dialog/PSPOskDialog.h"
 
 extern const char *PPSSPP_GIT_VERSION;
 
