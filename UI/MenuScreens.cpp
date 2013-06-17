@@ -49,10 +49,10 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "Core/Config.h"
-#include "Core/CoreParameter.h"
 #include "Core/Reporting.h"
 #include "Core/SaveState.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/Dialog/PSPOskDialog.h"
 
 #include "UI/MenuScreens.h"
 #include "UI/GameScreen.h"
@@ -618,6 +618,13 @@ void LanguageScreen::update(InputState &input) {
 	}
 }
 
+void KeyboardsScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
 void DeveloperScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
@@ -959,7 +966,7 @@ void LanguageScreen::render() {
 	ui_draw2d.DrawText(UBUNTU24, s->T("Language"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
@@ -1036,6 +1043,43 @@ void LanguageScreen::render() {
 	UIEnd();
 }
 
+void KeyboardsScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *k = GetI18NCategory("Keyboards");
+
+	ui_draw2d.SetFontScale(1.5f, 1.5f);
+	ui_draw2d.DrawText(UBUNTU24, s->T("Keyboards"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	int x = 30;
+	int y = 35;
+	int stride = 40;
+	int columnw = 440;
+
+	UICheckBox(GEN_ID, x, y += stride, k->T("Latin Lowercase"), ALIGN_TOPLEFT, &g_Config.bKeyboards[0]);
+	UICheckBox(GEN_ID, x, y += stride, k->T("Latin Uppercase"), ALIGN_TOPLEFT, &g_Config.bKeyboards[1]);
+	UICheckBox(GEN_ID, x, y += stride, k->T("Hiragana"), ALIGN_TOPLEFT, &g_Config.bKeyboards[2]);
+	UICheckBox(GEN_ID, x, y += stride, k->T("Katakana"), ALIGN_TOPLEFT, &g_Config.bKeyboards[3]);
+	UICheckBox(GEN_ID, x, y += stride, k->T("Hangul"), ALIGN_TOPLEFT, &g_Config.bKeyboards[4]);
+	UICheckBox(GEN_ID, x, y += stride, k->T("Russian Uppercase"), ALIGN_TOPLEFT, &g_Config.bKeyboards[5]);
+	UICheckBox(GEN_ID, x, y += stride, k->T("Russian Uppercase"), ALIGN_TOPLEFT, &g_Config.bKeyboards[6]);
+
+	if (g_Config.bKeyboards.none()) {
+		g_Config.bKeyboards = enableAllKeyboards;
+	}
+
+	UIEnd();
+}
+
 void SystemScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
@@ -1085,6 +1129,9 @@ void SystemScreen::render() {
 	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
 		screenManager()->push(new LanguageScreen());
 	} 
+	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Keyboards"), ALIGN_TOPLEFT)) {
+		screenManager()->push(new KeyboardsScreen());
+	}
 	
 	UIEnd();
 }

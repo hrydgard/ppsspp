@@ -123,6 +123,13 @@ private:
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 };
 
+class KeyboardsScreen : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
+
 class ControlsScreen : public Screen
 {
 public:
