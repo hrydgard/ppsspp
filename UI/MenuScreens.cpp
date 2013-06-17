@@ -960,16 +960,27 @@ void LanguageScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *l = GetI18NCategory("Language");
 
-	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, s->T("Language"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
-	ui_draw2d.SetFontScale(1.0f, 1.0f);
+	bool small = dp_xres < 720;
+
+	if (!small) {
+		ui_draw2d.SetFontScale(1.5f, 1.5f);
+		ui_draw2d.DrawText(UBUNTU24, s->T("Language"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+		ui_draw2d.SetFontScale(1.0f, 1.0f);
+	}
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	VGrid vlang(50, 100, dp_yres - 50, 10, 10);
+	int buttonW = LARGE_BUTTON_WIDTH - 50;
+
+	if (small) {
+		buttonW = LARGE_BUTTON_WIDTH - 70;
+	}
+
+	VGrid vlang(20, small ? 20 : 100, dp_yres - 50, 10, 10);
 	std::string text;
+	
 	
 	for (size_t i = 0; i < langs_.size(); i++) {
 		std::string code;
@@ -1015,7 +1026,7 @@ void LanguageScreen::render() {
 			}
 		}
 
-		if (UIButton(GEN_ID_LOOP(i), vlang, LARGE_BUTTON_WIDTH - 30, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
+		if (UIButton(GEN_ID_LOOP(i), vlang, buttonW, 0, buttonTitle.c_str(), ALIGN_TOPLEFT)) {
 			std::string oldLang = g_Config.languageIni;
 			g_Config.languageIni = code;
 
@@ -1242,7 +1253,11 @@ void FileSelectScreen::render() {
 		currentDirectory_ = getDir(currentDirectory_);
 		updateListing();
 	}
-	ui_draw2d.DrawTextShadow(UBUNTU24, currentDirectory_.c_str(), 20 + SMALL_BUTTON_WIDTH, 10 + 25, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+	if (UIButton(GEN_ID, Pos(SMALL_BUTTON_WIDTH + 20,10), SMALL_BUTTON_WIDTH, 0, g->T("Home"), ALIGN_TOPLEFT)) {
+		currentDirectory_ = g_Config.externalDirectory;
+		updateListing();
+	}
+	ui_draw2d.DrawTextShadow(UBUNTU24, currentDirectory_.c_str(), 30 + SMALL_BUTTON_WIDTH*2, 10 + 25, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, 10), SMALL_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT)) {
 		g_Config.Save();
 		screenManager()->switchScreen(new MenuScreen());

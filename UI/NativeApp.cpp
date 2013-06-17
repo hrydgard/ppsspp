@@ -234,6 +234,7 @@ void NativeInit(int argc, const char *argv[],
 
 	config_filename = user_data_path + "/ppsspp.ini";
 	g_Config.Load(config_filename.c_str());
+	g_Config.externalDirectory = external_directory;
 #endif
 
 	const char *fileToLog = 0;
