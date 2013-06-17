@@ -221,7 +221,7 @@ int sceNetAdhocTerm()
 int sceNetEtherNtostr(const char *mac, u32 bufferPtr) 
 {
 	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
-	if(Memory::IsValidAddress(bufferPtr)
+	if(Memory::IsValidAddress(bufferPtr))
 	{
 		int len = strlen(mac);
 		for (int i = 0; i < len; i++)
