@@ -73,9 +73,7 @@ public:
 	bool IsVideoEnd() { return m_isVideoEnd; }
 	bool IsAudioEnd() { return m_isAudioEnd; }
 
-	void DoState(PointerWrap &p) {
-		p.DoMarker("MediaEngine");
-	}
+	void DoState(PointerWrap &p);
 
 private:
 	void updateSwsFormat(int videoPixelMode);
@@ -101,7 +99,6 @@ public:
 	Atrac3plus_Decoder::BufferQueue *m_pdata;
 	
 	MpegDemux *m_demux;
-	int m_audioPos;
 	void* m_audioContext;
 	s64 m_audiopts;
 
@@ -110,4 +107,8 @@ public:
 
 	bool m_isVideoEnd;
 	bool m_isAudioEnd;
+
+	int m_ringbuffersize;
+	u8 m_mpegheader[0x10000];
+	int m_mpegheaderReadPos;
 };

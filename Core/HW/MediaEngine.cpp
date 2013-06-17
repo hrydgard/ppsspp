@@ -93,6 +93,8 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_audioContext = 0;
 	m_isVideoEnd = false;
 	m_isAudioEnd = false;
+	m_bufSize = 0x2000;
+	m_mpegheaderReadPos = 0;
 }
 
 MediaEngine::~MediaEngine() {
@@ -133,11 +135,49 @@ void MediaEngine::closeMedia() {
 	m_isAudioEnd = false;
 }
 
+void MediaEngine::DoState(PointerWrap &p){
+	p.Do(m_videoStream);
+	p.Do(m_audioStream);
+
+	p.DoArray(m_mpegheader, sizeof(m_mpegheader));
+
+	p.Do(m_ringbuffersize);
+
+	u32 hasloadStream = m_pdata != NULL;
+	p.Do(hasloadStream);
+	if (hasloadStream && p.mode == p.MODE_READ)
+		loadStream(m_mpegheader, 2048, m_ringbuffersize);
+	u32 hasopencontext = m_pFormatCtx != NULL;
+	p.Do(hasopencontext);
+	if (hasopencontext && p.mode == p.MODE_READ)
+		openContext();
+	if (m_pdata)
+		m_pdata->DoState(p);
+	if (m_demux)
+		m_demux->DoState(p);
+
+	p.Do(m_videopts);
+	p.Do(m_audiopts);
+
+	p.Do(m_isVideoEnd);
+	p.Do(m_isAudioEnd);
+	p.DoMarker("MediaEngine");
+}
+
 int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 {
 	MediaEngine *mpeg = (MediaEngine *)opaque;
 
-	int size = mpeg->m_pdata->pop_front(buf, buf_size);
+	int size = buf_size;
+	const int mpegheaderSize = sizeof(mpeg->m_mpegheader);
+	if (mpeg->m_mpegheaderReadPos < mpegheaderSize) {
+		size = std::min(buf_size, mpegheaderSize - mpeg->m_mpegheaderReadPos);
+		memcpy(buf, mpeg->m_mpegheader + mpeg->m_mpegheaderReadPos, size);
+		mpeg->m_mpegheaderReadPos += size;
+	} else if (mpeg->m_mpegheaderReadPos == mpegheaderSize) {
+		return 0;
+	} else
+		size = mpeg->m_pdata->pop_front(buf, buf_size);
 	mpeg->m_decodeNextPos += size;
 	return size;
 }
@@ -183,6 +223,7 @@ bool MediaEngine::openContext() {
 #endif 
 	if (m_pFormatCtx || !m_pdata)
 		return false;
+	m_mpegheaderReadPos = 0;
 
 	u8* tempbuf = (u8*)av_malloc(m_bufSize);
 
@@ -223,10 +264,11 @@ bool MediaEngine::openContext() {
 		return false; // Could not open codec
 
 	setVideoDim();
-	m_audioPos = 0;
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
 	m_isVideoEnd = false;
 	m_isAudioEnd = false;
+	m_mpegheaderReadPos++;
+	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
 #endif // USE_FFMPEG
 	return true;
 }
@@ -239,8 +281,8 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 
 	m_videopts = 0;
 	m_audiopts = 0;
-	m_bufSize = 0x2000;
 	m_decodeNextPos = 0;
+	m_ringbuffersize = RingbufferSize;
 	m_pdata = new Atrac3plus_Decoder::BufferQueue(RingbufferSize + 2048);
 	if (!m_pdata)
 		return false;
@@ -258,12 +300,16 @@ int MediaEngine::addStreamData(u8* buffer, int addSize) {
 	if (size > 0 && m_pdata) {
 		if (!m_pdata->push(buffer, size)) 
 			size  = 0;
-		if (!m_pFormatCtx)
-			openContext();
 		if (m_demux) {
 			m_demux->addStreamData(buffer, addSize);
 			m_demux->demux(m_audioStream);
 		}
+#ifdef USE_FFMPEG
+		if (!m_pFormatCtx) {
+			m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
+			openContext();
+		}
+#endif // USE_FFMPEG
 	}
 	return size;
 }
@@ -347,7 +393,6 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 	bool bGetFrame = false;
 	while (!bGetFrame) {
 		bool dataEnd = av_read_frame(m_pFormatCtx, &packet) < 0;
-
 		// Even if we've read all frames, some may have been re-ordered frames at the end.
 		// Still need to decode those, so keep calling avcodec_decode_video2().
 		if (dataEnd || packet.stream_index == m_videoStream) {

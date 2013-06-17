@@ -332,6 +332,9 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.Do(tempbuf);
 	p.Do(tempbufSize);
 
+	p.Do(status);
+	p.Do(psmfPlayerAvcAu);
+
 	p.DoMarker("PsmfPlayer");
 }
 
@@ -777,8 +780,10 @@ int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename)
 		if (psmfplayer->filehandle && psmfplayer->tempbuf) {
 			u8* buf = Memory::GetPointer(psmfplayer->tempbuf);
 			int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, psmfplayer->tempbufSize);
-			if (size)
-				psmfplayer->mediaengine->loadStream(buf, size, std::max(2048 * 500, (int)psmfplayer->tempbufSize));
+			if (size) {
+				psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, (int)psmfplayer->tempbufSize));
+				psmfplayer->mediaengine->addStreamData(buf + 2048, size - 2048);
+			}
 			psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 		}
 	}
@@ -802,8 +807,10 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 		if (psmfplayer->filehandle && psmfplayer->tempbuf) {
 			u8* buf = Memory::GetPointer(psmfplayer->tempbuf);
 			int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, psmfplayer->tempbufSize);
-			if (size)
-				psmfplayer->mediaengine->loadStream(buf, size, std::max(2048 * 500, (int)psmfplayer->tempbufSize));
+			if (size) {
+				psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, (int)psmfplayer->tempbufSize));
+				psmfplayer->mediaengine->addStreamData(buf + 2048, size - 2048);
+			}
 			psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 		}
 	}
