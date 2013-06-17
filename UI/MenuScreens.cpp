@@ -658,7 +658,7 @@ void DeveloperScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, 0, d->T("Save language ini"), ALIGN_LEFT)) {
-		i18nrepo.SaveIni(g_Config.languageIni);	
+		i18nrepo.SaveIni(g_Config.languageIni);
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, 0, d->T("Run CPU tests"), ALIGN_LEFT)) {
@@ -1119,7 +1119,13 @@ void ControlsScreen::render() {
 	if (g_Config.bShowTouchControls) {
 		UICheckBox(GEN_ID, x, y += stride, c->T("Large Controls"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-	} 
+		// This will be a slider in the new UI later
+		bool bTransparent = g_Config.iTouchButtonOpacity < 30;
+		bool prev = bTransparent;
+		UICheckBox(GEN_ID, x, y += stride, c->T("Transparent Buttons"), ALIGN_TOPLEFT, &bTransparent);
+		if (bTransparent != prev)
+			g_Config.iTouchButtonOpacity = bTransparent ? 15 : 65;
+	}
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 
 	UIEnd();

@@ -22,4 +22,4 @@
 
 void LayoutGamepad(int w, int h);
 void UpdateGamepad(InputState &input_state);
-void DrawGamepad(DrawBuffer &db);
+void DrawGamepad(DrawBuffer &db, float opacity);

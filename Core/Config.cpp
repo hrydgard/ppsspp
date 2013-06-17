@@ -25,18 +25,12 @@
 
 Config g_Config;
 
-
 #ifdef IOS
 extern bool isJailed;
 #endif
 
-Config::Config()
-{
-}
-
-Config::~Config()
-{
-}
+Config::Config() { }
+Config::~Config() { }
 
 void Config::Load(const char *iniFileName)
 {
@@ -143,6 +137,7 @@ void Config::Load(const char *iniFileName)
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
 	control->Get("ForceInputDevice", &iForceInputDevice, -1);
 	control->Get("RightStickBind", &iRightStickBind, 0);
+	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "shadow");
@@ -236,6 +231,7 @@ void Config::Save()
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("ForceInputDevice", iForceInputDevice);
 		control->Set("RightStickBind", iRightStickBind);
+		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");

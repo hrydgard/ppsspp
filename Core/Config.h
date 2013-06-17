@@ -90,7 +90,7 @@ public:
 	// Sound
 	bool bEnableSound;
 	bool bEnableAtrac3plus;
-	
+
 	// UI
 	bool bShowTouchControls;
 	bool bShowDebuggerOnLoad;
@@ -109,6 +109,7 @@ public:
 	// Control
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems
 	int iForceInputDevice;
+	int iTouchButtonOpacity;
 
 	// SystemParam
 	std::string sNickName;
