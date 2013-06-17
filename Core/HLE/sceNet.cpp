@@ -103,7 +103,7 @@ void __UpdateAdhocctlHandlers(int flag, int error) {
 		args[1] = error;
 		args[2] = it->argument;
 
-		__KernelDirectMipsCall(it->entryPoint, NULL, args, 3, false);
+		__KernelDirectMipsCall(it->entryPoint, NULL, args, 3, true);
 	}
 }
 
