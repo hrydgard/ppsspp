@@ -337,7 +337,7 @@ void EmuScreen::render() {
 		float vps, fps;
 		__DisplayGetFPS(&vps, &fps);
 		char fpsbuf[256];
-		sprintf(fpsbuf, "VPS: %0.1f", vps);
+		sprintf(fpsbuf, "VPS: %0.1f\nFPS: %0.1f", vps, fps);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 	}
