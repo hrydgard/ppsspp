@@ -23,6 +23,9 @@ void __CheatInit() {
 	if (gameTitle.find("™")!= std::string::npos) {
 		gameTitle.erase (gameTitle.find("™"), std::string::npos);
 	}
+	while (gameTitle.find("/")!= std::string::npos) {
+		gameTitle.replace (gameTitle.find("/"),1," ");
+	}
 	activeCheatFile = CHEATS_DIR + "/" + gameTitle +".ini";
 
 	File::CreateFullPath(CHEATS_DIR);
@@ -51,7 +54,7 @@ void __CheatShutdown() {
 void hleCheat(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
 
-	if (g_Config.bReloadCheats == true) {
+	if (g_Config.bReloadCheats == true) { //Checks if the "reload cheats" button has been pressed.
 		cheatEngine->CreateCodeList();
 		g_Config.bReloadCheats = false;
 	}
@@ -67,7 +70,7 @@ CWCheatEngine::CWCheatEngine() {
 void CWCheatEngine::Exit() {
 	exit2 = true;
 }
-void CWCheatEngine::CreateCodeList() {
+void CWCheatEngine::CreateCodeList() { //Creates code list to be used in function GetNextCode
 	initialCodesList = GetCodesList();
 	std::string currentcode, codename;
 	std::vector<std::string> codelist;
@@ -99,7 +102,7 @@ void CWCheatEngine::CreateCodeList() {
 	}
 	parts = makeCodeParts(codelist);
 }
-inline std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList) {
+inline std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for all codes. Feeds to CreateCodeList
 	std::string currentcode;
 	std::vector<std::string> finalList;
 	char split_char = '\n';
@@ -120,7 +123,7 @@ inline std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList
 	}
 	return finalList;
 }
-std::vector<int> CWCheatEngine::GetNextCode() {
+std::vector<int> CWCheatEngine::GetNextCode() { // Feeds a size-2 vector of ints to Run() which contains the address and value of one cheat.
 	std::string code1;
 	std::string code2;
 	std::vector<std::string> splitCode;
@@ -162,8 +165,7 @@ void CWCheatEngine::SkipAllCodes() {
 	currentCode = codes.size();
 }
 
-int CWCheatEngine::GetAddress(int value) {
-	// The User space base address has to be added to given value
+int CWCheatEngine::GetAddress(int value) { //Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
 	return (value + 0x08800000) & 0x3FFFFFFF;
 }
 
@@ -178,7 +180,7 @@ inline void trim2(std::string& str) {
 	else str.erase(str.begin(), str.end());
 }
 
-std::vector<std::string> CWCheatEngine::GetCodesList() {
+std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire cheat list from the appropriate .ini.
 	std::string line;
 	std::vector<std::string> codesList;  // Read from INI here
 	std::ifstream list(activeCheatFile.c_str());
