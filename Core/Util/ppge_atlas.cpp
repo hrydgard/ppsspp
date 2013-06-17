@@ -34620,7 +34620,7 @@ const AtlasCharRange font_UBUNTU24_ranges[] = {
 };
 const AtlasFont font_UBUNTU24 = {
   4.531250f, // padding
-  35.562500f, // height
+  31.562500f, // height
   26.000000f, // ascend
   0.750000f, // distslope
   font_UBUNTU24_chardata,
@@ -34633,7 +34633,7 @@ const AtlasFont *ppge_fonts[1] = {
 };
 const AtlasImage ppge_images[4] = {
   {0.033447f, 0.000244f, 0.048096f, 0.014893f, 31, 31, "I_CROSS"},
-  {0.000244f, 0.000244f, 0.015381f, 0.015381f, 32, 32, "I_CIRCLE"},
+  {0.000244f, 0.000244f, 0.015881f, 0.015881f, 32, 32, "I_CIRCLE"},
   {0.066162f, 0.000244f, 0.079834f, 0.013916f, 29, 29, "I_SQUARE"},
   {0.016357f, 0.000244f, 0.032471f, 0.013916f, 34, 29, "I_TRIANGLE"},
 };

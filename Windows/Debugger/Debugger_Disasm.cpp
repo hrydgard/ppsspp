@@ -228,7 +228,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_MEMCHECK:
 				{
-					bool isRunning = !Core_IsInactive();
+					bool isRunning = Core_IsActive();
 					if (isRunning)
 					{
 						SetDebugMode(true);

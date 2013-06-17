@@ -18,6 +18,7 @@
 #include <fstream>
 #include <algorithm>
 
+#include "native/base/stringutil.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/Reporting.h"
@@ -971,30 +972,41 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 //TODO: second param
 int sceKernelLoadExec(const char *filename, u32 paramPtr)
 {
+	std::string exec_filename = filename;
 	SceKernelLoadExecParam *param = 0;
-	if (paramPtr)
-	{
-		param = (SceKernelLoadExecParam*)Memory::GetPointer(paramPtr);
+	if (paramPtr) {
+		param = (SceKernelLoadExecParam *)Memory::GetPointer(paramPtr);
 	}
 
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	
+	PSPFileInfo info = pspFileSystem.GetFileInfo(exec_filename);
+
+	// If there's an EBOOT.BIN, redirect to that instead.
+	if (info.exists && endsWith(exec_filename, "/BOOT.BIN")) {
+		std::string eboot_filename = exec_filename.substr(0, exec_filename.length() - strlen("BOOT.BIN")) + "EBOOT.BIN";
+
+		PSPFileInfo eboot_info = pspFileSystem.GetFileInfo(eboot_filename);
+		if (eboot_info.exists) {
+			exec_filename = eboot_filename;
+			info = eboot_info;
+		}
+	}
+
 	if (!info.exists) {
 		ERROR_LOG(LOADER, "sceKernelLoadExec(%s, ...): File does not exist", filename);
 		return SCE_KERNEL_ERROR_NOFILE;
 	}
 
 	s64 size = (s64)info.size;
-	if (!size)
-	{
+	if (!size) {
 		ERROR_LOG(LOADER, "sceKernelLoadExec(%s, ...): File is size 0", filename);
 		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	}
 
-	DEBUG_LOG(HLE,"sceKernelLoadExec(name=%s,...)", filename);
+	DEBUG_LOG(HLE, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
-	if (!__KernelLoadExec(filename, param, &error_string)) {
+	if (!__KernelLoadExec(exec_filename.c_str(), param, &error_string)) {
 		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
+		Core_UpdateState(CORE_ERROR);
 		return -1;
 	}
 	return 0;

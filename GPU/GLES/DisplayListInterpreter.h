@@ -83,6 +83,7 @@ private:
 
 	u8 *flushBeforeCommand_;
 	bool resized_;
+	int lastVsync_;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

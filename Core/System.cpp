@@ -97,7 +97,8 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
 	std::string filename = coreParameter.fileToStart;
-	if (!LoadFile(filename, error_string)) {
+	if (!LoadFile(filename, error_string) || coreState == CORE_POWERDOWN)
+	{
 		pspFileSystem.Shutdown();
 		CoreTiming::Shutdown();
 		__KernelShutdown();
