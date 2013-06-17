@@ -67,6 +67,7 @@ public:
 	bool bPartialStretch;
 #endif
 	bool bStretchToDisplay;
+	int iVSyncInterval;
 	int iFrameSkip;
 
 	int iWindowX;

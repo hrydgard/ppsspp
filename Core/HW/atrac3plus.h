@@ -2,7 +2,7 @@
 #define _ATRAC3PLUS_DECODER_
 
 namespace Atrac3plus_Decoder {
-
+	bool IsSupported();
 	bool IsInstalled();
 	bool CanAutoInstall();
 	bool DoAutoInstall();

@@ -172,8 +172,10 @@ static const u8 flushBeforeCommandList[] = {
 };
 
 GLES_GPU::GLES_GPU()
-:		resized_(false)
-{
+: resized_(false) {
+	lastVsync_ = g_Config.iVSyncInterval;
+	glstate.SetVSyncInterval(g_Config.iVSyncInterval);
+
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
@@ -251,6 +253,15 @@ void GLES_GPU::DumpNextFrame() {
 }
 
 void GLES_GPU::BeginFrame() {
+	// Turn off vsync when unthrottled
+	int desiredVSyncInterval = g_Config.iVSyncInterval;
+	if (PSP_CoreParameter().unthrottle)
+		desiredVSyncInterval = 0;
+	if (desiredVSyncInterval != lastVsync_) {
+		glstate.SetVSyncInterval(desiredVSyncInterval);
+		lastVsync_ = desiredVSyncInterval;
+	}
+
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
 

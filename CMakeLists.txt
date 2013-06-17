@@ -92,6 +92,7 @@ endif()
 include_directories("${CMAKE_SOURCE_DIR}")
 
 if(BLACKBERRY)
+	set(CMAKE_SYSTEM_NAME "QNX")
 	add_definitions(-DBLACKBERRY)
 	if(BLACKBERRY VERSION_GREATER 10)
 		add_definitions(-DBLACKBERRY10)

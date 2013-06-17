@@ -25,6 +25,13 @@
 #include "UI/ui_atlas.h"
 #include "Core/HW/atrac3plus.h"
 
+#ifdef __APPLE__
+#include "TargetConditionals.h"
+#if TARGET_OS_MAC
+#define MACOSX
+#endif
+#endif
+
 void DrawBackground(float alpha);
 
 void PluginScreen::DrawBackground(UIContext &dc)
@@ -108,17 +115,23 @@ void PluginScreen::update(InputState &input) {
 			abi = "armeabi";
 #elif defined(ARMEABI_V7A)
 			abi = "armeabi-v7a";
+#elif defined(MACOSX)
+			abi = "MacOSX64";
 #endif
+			const char *notSupportedText = p->T("SorryNoDownload", "Sorry, there is no automatic download of the decoder\navailable for this platform.");
 			if (!abi.empty()) {
 				at3plusdecoderUrl_ = root->getString(abi.c_str(), "");
 				if (at3plusdecoderUrl_.empty()) {
 					buttonDownload_->SetEnabled(false);
+					tvDescription_->SetText(notSupportedText);
 				} else {
 					buttonDownload_->SetEnabled(true);
-					const char *notInstalledText = p->T("To download and install", "To download and install Mai's Atrac3+ decoding support, click Download.\n");
-					const char *reInstallText = p->T("Already installed", "Mai's Atrac3+ decoder already installed.\nWould you like to redownload and reinstall it?\n");
+					const char *notInstalledText = p->T("To download and install", "To download and install Mai's Atrac3+ decoding\n support, click Download.");
+					const char *reInstallText = p->T("Already installed", "Mai's Atrac3+ decoder already installed.\nWould you like to redownload and reinstall it?");
 					tvDescription_->SetText(Atrac3plus_Decoder::IsInstalled() ? reInstallText : notInstalledText);
 				}
+			} else {
+				tvDescription_->SetText(notSupportedText);
 			}
 		}
 
