@@ -514,7 +514,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		}
 	}
 
-	if (g_Config.bLinearFiltering) {
+	if (g_Config.bLinearFiltering && !gstate.isColorTestEnabled()) {
 		magFilt |= 1;
 		minFilt |= 1;
 	}
@@ -523,7 +523,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		magFilt &= 1;
 		minFilt &= 1;
 	}
-	
+
 	if (force || entry.minFilt != minFilt) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, MinFiltGL[minFilt]);
 		entry.minFilt = minFilt;
