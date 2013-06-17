@@ -57,7 +57,7 @@ enum
 	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
 };
 
-//these might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc
+// These might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc..
 struct SceNetAdhocctlParams
 {
 	int channel; //which ad-hoc channel to connect to
@@ -68,8 +68,8 @@ struct SceNetAdhocctlParams
 
 struct ProductStruct
 {
-	int unknown; //unknown, set to 0
-	char product[9]; //Product name?
+	int unknown; // Unknown, set to 0
+	char product[9]; // Game ID (Example: ULUS10000)
 };
 
 struct SceNetMallocStat 
@@ -87,7 +87,6 @@ void __NetInit()
 	netAdhocInited = false;
 	adhocctlHandlerPtr = 0;
 }
-
 
 void __NetShutdown() 
 {
@@ -114,7 +113,8 @@ void sceNetInit()
 	RETURN(0); //ERROR
 }
 
-u32 sceNetTerm() {
+u32 sceNetTerm() 
+{
 	ERROR_LOG(HLE,"UNIMPL sceNetTerm()");
 	netInited = false;
 	return 0;
@@ -221,10 +221,14 @@ int sceNetAdhocTerm()
 int sceNetEtherNtostr(const char *mac, u32 bufferPtr) 
 {
 	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
-	int len = strlen(mac);
-	for (int i = 0; i < len; i++)
-		Memory::Write_U8(mac[i], bufferPtr + i);
-
+	if(Memory::IsValidAddress(bufferPtr)
+	{
+		int len = strlen(mac);
+		for (int i = 0; i < len; i++)
+			Memory::Write_U8(mac[i], bufferPtr + i);
+	}
+	else
+		ERROR_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x): Tried to write to an invalid pointer", mac, bufferPtr);
 	return 0;
 }
 
@@ -236,7 +240,7 @@ int sceNetAdhocctlGetState(u32 ptrToStatus)
 	if(Memory::IsValidAddress(ptrToStatus))
 		Memory::Write_U32(0, ptrToStatus);
 	else
-		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlGetState(%x): Tried to write invalid location!", ptrToStatus);
+		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlGetState(%x): Tried to write invalid location", ptrToStatus);
 
 	return 0;
 }
@@ -248,6 +252,7 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
 	return -1;
 }
 
+// TODO: Should we really write the struct if we're disconnected?
 int sceNetAdhocctlGetParameter(u32 paramAddr) 
 {
 	ERROR_LOG(HLE, "UNIMPL %x=sceNetAdhocctlGetParameter(%x)", 0, paramAddr);
@@ -258,7 +263,8 @@ int sceNetAdhocctlGetParameter(u32 paramAddr)
 	strcpy(params.name, "");
 	strcpy(params.nickname, "");
 
-	Memory::WriteStruct(paramAddr, &params);
+	if(Memory::IsValidAddress(paramAddr))
+		Memory::WriteStruct(paramAddr, &params);
 
 	return ERROR_NET_ADHOCCTL_DISCONNECTED;
 }
@@ -292,8 +298,11 @@ int sceNetAdhocctlGetAdhocId(u32 productStructAddr)
 int sceNetAdhocctlScan()
 {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlScan()");
-	u32 args[3] = {0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF, adhocctlHandlerPtr };
-	__KernelDirectMipsCall(adhocctlHandlerPtr, NULL, args, 3, true);
+	if(adhocctlHandlerPtr != 0)
+	{
+		u32 args[3] = {0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF, adhocctlHandlerPtr };
+		__KernelDirectMipsCall(adhocctlHandlerPtr, NULL, args, 3, true);
+	}
 
 	return 0;
 }
