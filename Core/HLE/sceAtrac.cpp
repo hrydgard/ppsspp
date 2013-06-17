@@ -277,11 +277,23 @@ struct Atrac {
 
 };
 
-std::map<int, Atrac *> atracMap;
-u8 nextAtracID;
+const int PSP_NUM_ATRAC_IDS = 6;
+static bool atracInited = true;
+static Atrac *atracIDs[PSP_NUM_ATRAC_IDS];
+static int atracIDTypes[PSP_NUM_ATRAC_IDS];
 
 void __AtracInit() {
-	nextAtracID = 0;
+	atracInited = true;
+	memset(atracIDs, 0, sizeof(atracIDs));
+
+	// Start with 2 of each in this order.
+	atracIDTypes[0] = PSP_MODE_AT_3_PLUS;
+	atracIDTypes[1] = PSP_MODE_AT_3_PLUS;
+	atracIDTypes[2] = PSP_MODE_AT_3;
+	atracIDTypes[3] = PSP_MODE_AT_3;
+	atracIDTypes[4] = 0;
+	atracIDTypes[5] = 0;
+
 #ifdef USE_FFMPEG
 	avcodec_register_all();
 	av_register_all();
@@ -291,44 +303,45 @@ void __AtracInit() {
 }
 
 void __AtracDoState(PointerWrap &p) {
-	p.Do(atracMap);
-	p.Do(nextAtracID);
+	p.Do(atracInited);
+	p.DoArray(atracIDs, PSP_NUM_ATRAC_IDS);
+	p.DoArray(atracIDTypes, PSP_NUM_ATRAC_IDS);
 
 	p.DoMarker("sceAtrac");
 }
 
 void __AtracShutdown() {
-	for (auto it = atracMap.begin(), end = atracMap.end(); it != end; ++it) {
-		delete it->second;
+	for (size_t i = 0; i < ARRAY_SIZE(atracIDs); ++i) {
+		delete atracIDs[i];
+		atracIDs[i] = NULL;
 	}
-	atracMap.clear();
 
 	Atrac3plus_Decoder::Shutdown();
 }
 
 Atrac *getAtrac(int atracID) {
-	if (atracMap.find(atracID) == atracMap.end()) {
+	if (atracID < 0 || atracID >= PSP_NUM_ATRAC_IDS) {
 		return NULL;
 	}
-	return atracMap[atracID];
+	return atracIDs[atracID];
 }
 
 int createAtrac(Atrac *atrac, int codecType) {
-	int id;
-	do {
-		id= nextAtracID;
-		nextAtracID = (nextAtracID + 1) & 0x3f;
-	} while (atracMap.find(id) != atracMap.end());
-	atracMap[id] = atrac;
-	atrac->atracID = id;
-	return id;
+	for (int i = 0; i < (int)ARRAY_SIZE(atracIDs); ++i) {
+		if (atracIDTypes[i] == codecType && atracIDs[i] == 0) {
+			atracIDs[i] = atrac;
+			return i;
+		}
+	}
+
+	return ATRAC_ERROR_NO_ATRACID;
 }
 
-void deleteAtrac(int atracID) {
-	if (atracMap.find(atracID) != atracMap.end()) {
-		delete atracMap[atracID];
-		atracMap.erase(atracID);
-	}
+int deleteAtrac(int atracID) {
+	delete atracIDs[atracID];
+	atracIDs[atracID] = NULL;
+
+	return ATRAC_ERROR_BAD_ATRACID;
 }
 
 int getCodecType(int addr) {
@@ -890,8 +903,7 @@ u32 sceAtracGetStreamDataInfo(int atracID, u32 writeAddr, u32 writableBytesAddr,
 u32 sceAtracReleaseAtracID(int atracID)
 {
 	INFO_LOG(HLE, "sceAtracReleaseAtracID(%i)", atracID);
-	deleteAtrac(atracID);
-	return 0;
+	return deleteAtrac(atracID);
 }
 
 u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf)
@@ -1208,10 +1220,50 @@ u32 sceAtracSetLoopNum(int atracID, int loopNum)
 	return 0;
 }
 
-int sceAtracReinit()
+int sceAtracReinit(int at3Count, int at3plusCount)
 {
-	ERROR_LOG(HLE, "UNIMPL sceAtracReinit(..)");
-	return 0;
+	for (int i = 0; i < PSP_NUM_ATRAC_IDS; ++i) {
+		if (atracIDs[i] != NULL) {
+			ERROR_LOG_REPORT(HLE, "sceAtracReinit(%d, %d): cannot reinit while IDs in use", at3Count, at3plusCount);
+			return SCE_KERNEL_ERROR_BUSY;
+		}
+	}
+
+	memset(atracIDTypes, 0, sizeof(atracIDTypes));
+	int next = 0;
+	int space = PSP_NUM_ATRAC_IDS;
+
+	// This seems to deinit things.  Mostly, it cause a reschedule on next deinit (but -1, -1 does not.)
+	if (at3Count == 0 && at3plusCount == 0) {
+		INFO_LOG(HLE, "sceAtracReinit(%d, %d): deinit", at3Count, at3plusCount);
+		atracInited = false;
+		return hleDelayResult(0, "atrac reinit", 200);
+	}
+
+	// First, ATRAC3+.  These IDs seem to cost double (probably memory.)
+	// Intentionally signed.  9999 tries to allocate, -1 does not.
+	for (int i = 0; i < at3plusCount; ++i) {
+		space -= 2;
+		if (space >= 0) {
+			atracIDTypes[next++] = PSP_MODE_AT_3_PLUS;
+		}
+	}
+	for (int i = 0; i < at3Count; ++i) {
+		space -= 1;
+		if (space >= 0) {
+			atracIDTypes[next++] = PSP_MODE_AT_3;
+		}
+	}
+
+	// If we ran out of space, we still initialize some, but return an error.
+	int result = space >= 0 ? 0 : SCE_KERNEL_ERROR_OUT_OF_MEMORY;
+	if (atracInited) {
+		INFO_LOG(HLE, "sceAtracReinit(%d, %d)", at3Count, at3plusCount);
+		return result;
+	} else {
+		INFO_LOG(HLE, "sceAtracReinit(%d, %d): init", at3Count, at3plusCount);
+		return hleDelayResult(result, "atrac reinit", 400);
+	}
 }
 
 int sceAtracGetOutputChannel(int atracID, u32 outputChanPtr)
@@ -1683,7 +1735,7 @@ const HLEFunction sceAtrac3plus[] =
 	{0x7a20e7af,WrapI_UU<sceAtracSetDataAndGetID>,"sceAtracSetDataAndGetID"},
 	{0xd1f59fdb,WrapU_V<sceAtracStartEntry>,"sceAtracStartEntry"},
 	{0x868120b5,WrapU_II<sceAtracSetLoopNum>,"sceAtracSetLoopNum"},
-	{0x132f1eca,WrapI_V<sceAtracReinit>,"sceAtracReinit"},
+	{0x132f1eca,WrapI_II<sceAtracReinit>,"sceAtracReinit"},
 	{0xeca32a99,WrapI_I<sceAtracIsSecondBufferNeeded>,"sceAtracIsSecondBufferNeeded"},
 	{0x0fae370e,WrapI_UUU<sceAtracSetHalfwayBufferAndGetID>,"sceAtracSetHalfwayBufferAndGetID"},
 	{0x2DD3E298,WrapU_IIU<sceAtracGetBufferInfoForReseting>,"sceAtracGetBufferInfoForResetting"},
