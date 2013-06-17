@@ -151,7 +151,7 @@ enum OskKeyboardDisplay
 	// TODO: Something to do native?
 	OSK_KEYBOARD_COUNT
 };
-extern unsigned enableAllKeyboards = (1 << OSK_KEYBOARD_COUNT) - 1 // default bKeyboards value
+extern unsigned enableAllKeyboards = (1 << OSK_KEYBOARD_COUNT) - 1; // default bKeyboards value
 
 
 class PSPOskDialog: public PSPDialog {
