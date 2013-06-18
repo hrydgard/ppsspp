@@ -491,23 +491,23 @@ void PauseScreen::render() {
 
 	ui_draw2d.DrawText(UBUNTU24, gs->T("Save State :"), 30, 360, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear4(x + 180 , y += 50, 10);
-	if (UIButton(GEN_ID, hlinear4, 30, 0, "1", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "1", ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear4, 30, 0, "2", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "2", ALIGN_LEFT)) {
 		SaveState::SaveSlot(1, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear4, 30, 0, "3", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "3", ALIGN_LEFT)) {
 		SaveState::SaveSlot(2, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear4, 30, 0, "4", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "4", ALIGN_LEFT)) {
 		SaveState::SaveSlot(3, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear4, 30, 0, "5", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "5", ALIGN_LEFT)) {
 		SaveState::SaveSlot(4, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
@@ -515,23 +515,23 @@ void PauseScreen::render() {
 
 	ui_draw2d.DrawText(UBUNTU24, gs->T("Load State :"), 30, 420, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear3(x + 180 , y += 60, 10);
-	if (UIButton(GEN_ID, hlinear3, 30, 0, "1", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "1", ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear3, 30, 0, "2", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "2", ALIGN_LEFT)) {
 		SaveState::LoadSlot(1, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear3, 30, 0, "3", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "3", ALIGN_LEFT)) {
 		SaveState::LoadSlot(2, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear3, 30, 0, "4", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "4", ALIGN_LEFT)) {
 		SaveState::LoadSlot(3, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear3, 30, 0, "5", ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "5", ALIGN_LEFT)) {
 		SaveState::LoadSlot(4, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
