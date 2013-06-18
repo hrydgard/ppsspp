@@ -128,8 +128,8 @@ void CPUInfo::Detect()
 	// Get the information about the CPU 
 	num_cores = GetCoreCount();
 #if defined(__SYMBIAN32__) || defined(BLACKBERRY) || defined(IOS)
-bool isVFP3 = false;
-bool isVFP4 = false;
+	bool isVFP3 = false;
+	bool isVFP4 = false;
 #ifdef IOS
 	isVFP3 = true;
 	// TODO: Check for swift arch (VFP4)

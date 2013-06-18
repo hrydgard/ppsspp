@@ -369,13 +369,13 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 }
 
 bool MediaEngine::stepVideo(int videoPixelMode) {
+	// if video engine is broken, force to add timestamp
+	m_videopts += 3003;
+
 	if (!m_pFormatCtx)
 		return false;
 	if (!m_pCodecCtx)
 		return false;
-
-	// if video engine is broken, force to add timestamp
-	m_videopts += 3003;
 #ifdef USE_FFMPEG
 	updateSwsFormat(videoPixelMode);
 	// TODO: Technically we could set this to frameWidth instead of m_desWidth for better perf.
@@ -525,7 +525,7 @@ int MediaEngine::writeVideoImage(u8* buffer, int frameWidth, int videoPixelMode)
 	}
 	return videoImageSize;
 #endif // USE_FFMPEG
-	return true;
+	return 0;
 }
 
 int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoPixelMode, 
@@ -590,7 +590,7 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 	}
 	return videoImageSize;
 #endif // USE_FFMPEG
-	return true;
+	return 0;
 }
 
 static bool isHeader(u8* audioStream, int offset)
