@@ -238,7 +238,7 @@ int MpegDemux::getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2)
 		audioPos = nextHeader;
 	} else
 		audioPos = gotsize;
-	m_audioStream.pop_front(m_audioFrame, audioPos);
+	m_audioStream.pop_front(0, audioPos);
 	*buf = m_audioFrame + 8;
 	if (headerCode1) *headerCode1 = Code1;
 	if (headerCode2) *headerCode2 = Code2;

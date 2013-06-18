@@ -77,12 +77,14 @@ namespace Atrac3plus_Decoder {
 			int bytesgot = getQueueSize();
 			if (wantedsize < bytesgot)
 				bytesgot = wantedsize;
-			if (start + bytesgot <= bufQueueSize) {
-				memcpy(buf, bufQueue + start, bytesgot);
-			} else {
-				int size = bufQueueSize - start;
-				memcpy(buf, bufQueue + start, size);
-				memcpy(buf + size, bufQueue, bytesgot - size);
+			if (buf) {
+				if (start + bytesgot <= bufQueueSize) {
+					memcpy(buf, bufQueue + start, bytesgot);
+				} else {
+					int size = bufQueueSize - start;
+					memcpy(buf, bufQueue + start, size);
+					memcpy(buf + size, bufQueue, bytesgot - size);
+				}
 			}
 			start = (start + bytesgot) % bufQueueSize;
 			return bytesgot;

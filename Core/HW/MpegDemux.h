@@ -18,7 +18,6 @@ public:
 
 	// return its framesize
 	int getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2);
-	int getFilePosition() { return m_index; }
 private:
 	struct PesHeader {
 		long pts;
@@ -53,7 +52,7 @@ private:
 	}
 	int readPesHeader(PesHeader &pesHeader, int length, int startCode);
 	int demuxStream(bool bdemux, int startCode, int channel);
-
+public:
 	void DoState(PointerWrap &p) {
 		p.Do(m_index);
 		p.Do(m_len);
