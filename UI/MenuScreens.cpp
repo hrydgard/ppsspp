@@ -1134,6 +1134,21 @@ void ControlsScreen::render() {
 		bool bTransparent = g_Config.iTouchButtonOpacity < 30;
 		bool prev = bTransparent;
 		UICheckBox(GEN_ID, x, y += stride, c->T("Transparent Buttons"), ALIGN_TOPLEFT, &bTransparent);
+		if (bTransparent) {
+			char opacity[256];
+			sprintf(opacity, "%s %d", c->T("Opacity :"), g_Config.iTouchButtonOpacity);
+			ui_draw2d.DrawText(UBUNTU24, opacity, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			HLinear hlinear1(x + 250, y, 20);
+			if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
+				g_Config.iTouchButtonOpacity = 15;
+			if (UIButton(GEN_ID, hlinear1, 40, 0, c->T("-1"), ALIGN_LEFT))
+				if (g_Config.iTouchButtonOpacity > 15)
+					g_Config.iTouchButtonOpacity -= 1;
+			if (UIButton(GEN_ID, hlinear1, 40, 0, c->T("+1"), ALIGN_LEFT))
+				if (g_Config.iTouchButtonOpacity < 30)
+					g_Config.iTouchButtonOpacity += 1;
+			y += 20;
+		}
 		if (bTransparent != prev)
 			g_Config.iTouchButtonOpacity = bTransparent ? 15 : 65;
 	}
