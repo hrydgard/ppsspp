@@ -28,6 +28,9 @@ static bool netAdhocInited;
 
 static u32 adhocctlHandlerCount;
 
+// TODO: Determine how many handlers we can actually have
+const u32 MAX_ADHOCCTL_HANDLERS = 32;
+
 enum {
 	ERROR_NET_BUFFER_TOO_SMALL                   = 0x80400706,
 
@@ -78,18 +81,17 @@ struct SceNetMallocStat {
 
 static struct SceNetMallocStat netMallocStat;
 
-struct AdhocctlHandler
-{
+struct AdhocctlHandler {
 	u32 entryPoint;
 	u32 argument;
-	u32 id;
 };
 
-static std::vector<AdhocctlHandler> adhocctlHandlers;
+static std::map<int, AdhocctlHandler> adhocctlHandlers;
 
 void __NetInit() {
 	netInited = false;
 	netAdhocInited = false;
+	memset(&netMallocStat, 0, sizeof(netMallocStat));
 }
 
 void __NetShutdown() {
@@ -98,12 +100,13 @@ void __NetShutdown() {
 
 void __UpdateAdhocctlHandlers(int flag, int error) {
 	u32 args[3] = { 0, 0, 0 };
-	for(std::vector<AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it < adhocctlHandlers.end(); it++) {
+
+	for(std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
 		args[0] = flag;
 		args[1] = error;
-		args[2] = it->argument;
+		args[2] = it->second.argument;
 
-		__KernelDirectMipsCall(it->entryPoint, NULL, args, 3, true);
+		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
 	}
 }
 
@@ -121,12 +124,11 @@ void __NetDoState(PointerWrap &p) {
 void sceNetInit() {
 	ERROR_LOG(HLE,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 	netInited = true;
-	memset(&netMallocStat, 0, sizeof(netMallocStat));
 	netMallocStat.maximum = PARAM(0);
 	netMallocStat.free = PARAM(0);
 	netMallocStat.pool = 0;
 
-	RETURN(0); //ERROR <- The Dax: Why is it an error when it returns 0 on success?
+	RETURN(0);
 }
 
 u32 sceNetTerm() {
@@ -172,29 +174,35 @@ u32 sceWlanGetSwitchState() {
 // TODO: Should we allow the same handler to be added more than once?
 u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	bool foundHandler = false;
+	u32 retval = adhocctlHandlerCount;
 	struct AdhocctlHandler handler;
 	memset(&handler, 0, sizeof(handler));
+
 	handler.entryPoint = handlerPtr;
 	handler.argument = handlerArg;
-	handler.id = -1;
 
-	for(std::vector<AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it < adhocctlHandlers.end(); it++) {
-		if(it->entryPoint == handlerPtr) {
+	for(std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); it++) {
+		if(it->second.entryPoint == handlerPtr) {
 			foundHandler = true;
 			break;
 		}
 	}
 
 	if(!foundHandler && Memory::IsValidAddress(handlerPtr)) {
-		handler.id = adhocctlHandlerCount > 0? ++adhocctlHandlerCount : 0;
-		adhocctlHandlers.push_back(handler); 
-		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, handler.id);
+		if(adhocctlHandlerCount >= MAX_ADHOCCTL_HANDLERS) {
+			ERROR_LOG(HLE, "UNTESTED UNTESTED sceNetAdhocctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
+			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS;
+			return retval;
+		}
+		adhocctlHandlers[adhocctlHandlerCount++] = handler;
+		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, adhocctlHandlerCount);
 	}
 	else
 		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
 
 
-	return handler.id;
+	// The id to return is the number of handlers currently registered
+	return retval;
 }
 
 u32 sceNetAdhocctlDisconnect() {
@@ -205,9 +213,14 @@ u32 sceNetAdhocctlDisconnect() {
 }
 
 u32 sceNetAdhocctlDelHandler(u32 handlerID) {
-	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%x)", handlerID);
-	adhocctlHandlers.erase(adhocctlHandlers.begin() + handlerID);
-	adhocctlHandlerCount = adhocctlHandlerCount > 0? --adhocctlHandlerCount : adhocctlHandlerCount;
+	
+	if(adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
+		adhocctlHandlers.erase(handlerID);
+		adhocctlHandlerCount = adhocctlHandlerCount > 0? --adhocctlHandlerCount : 0;
+		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
+	}
+	else
+		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%d): asked to delete invalid handler %d", handlerID, handlerID);
 
 	return 0;
 }
