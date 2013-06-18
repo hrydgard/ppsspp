@@ -92,6 +92,7 @@ endif()
 include_directories("${CMAKE_SOURCE_DIR}")
 
 if(BLACKBERRY)
+	set(CMAKE_SYSTEM_NAME "QNX")
 	add_definitions(-DBLACKBERRY)
 	if(BLACKBERRY VERSION_GREATER 10)
 		add_definitions(-DBLACKBERRY10)
@@ -160,6 +161,7 @@ if(NOT MSVC)
 
 	if(IOS)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
+		set(CMAKE_OSX_ARCHITECTURES "armv7")
 	elseif(APPLE)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		# Karen/angelXwind: --macosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.

@@ -182,10 +182,8 @@ bool isVFP4 = false;
 	bVFPv3 = CheckCPUFeature("vfpv3");
 	bTLS = CheckCPUFeature("tls");
 	bVFPv4 = CheckCPUFeature("vfpv4");
-	// On some buggy kernels(Qualcomm) they show that they support VFPv4 but not IDIVa
-	// All VFPv4 CPUs will support IDIVa
-	bIDIVa = bVFPv4 || CheckCPUFeature("idiva");
-	bIDIVt = bVFPv4 || CheckCPUFeature("idivt");
+	bIDIVa = CheckCPUFeature("idiva");
+	bIDIVt = CheckCPUFeature("idivt");
 	// These two require ARMv8 or higher
 	bFP = CheckCPUFeature("fp");
 	bASIMD = CheckCPUFeature("asimd");

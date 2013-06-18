@@ -1,4 +1,4 @@
-#ifdef _WIN32 
+#ifdef _WIN32
 #include <Windows.h>
 #else
 #include <dlfcn.h>
@@ -11,17 +11,31 @@
 #include <string.h>
 #include <string>
 
-
 #include "base/logging.h"
 #include "Core/Config.h"
 #include "Common/FileUtil.h"
 #include "Core/HW/atrac3plus.h"
 
+#ifdef __APPLE__
+#include "TargetConditionals.h"
+#if TARGET_OS_MAC
+#define MACOSX
+#endif
+#endif
+
 extern std::string externalDirectory;
 
 namespace Atrac3plus_Decoder {
 
-#ifdef _WIN32 
+	bool IsSupported() {
+#if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A) || defined(MACOSX)
+		return true;
+#else
+		return false;
+#endif
+	}
+
+#ifdef _WIN32
 	HMODULE hlib = 0;
 #else
 	static void *so;
@@ -43,6 +57,8 @@ namespace Atrac3plus_Decoder {
 #else
 		return "at3plusdecoder.dll";
 #endif
+#elif defined(__APPLE__)
+		return "libat3plusdecoder.dylib";
 #else
 		return "libat3plusdecoder.so";
 #endif
@@ -67,7 +83,7 @@ namespace Atrac3plus_Decoder {
 		// Other platforms can't.
 		return false;
 	}
-	
+
 	bool IsInstalled() {
 		return File::Exists(GetInstalledFilename());
 	}
@@ -105,8 +121,8 @@ namespace Atrac3plus_Decoder {
 			// Okay, we're screwed. Let's bail.
 			return -1;
 		}
-		
-#ifdef _WIN32 
+
+#ifdef _WIN32
 
 #ifdef _M_X64
 		hlib = LoadLibraryA(GetInstalledFilename().c_str());
@@ -121,7 +137,6 @@ namespace Atrac3plus_Decoder {
 			return -1;
 		}
 #else
-
 		std::string filename = GetInstalledFilename();
 
 		ILOG("Attempting to load atrac3plus decoder from %s", filename.c_str());
@@ -149,7 +164,7 @@ namespace Atrac3plus_Decoder {
 	}
 
 	int Shutdown() {
-#ifdef _WIN32 
+#ifdef _WIN32
 		if (hlib) {
 			FreeLibrary(hlib);
 			hlib = 0;

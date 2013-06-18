@@ -12,7 +12,7 @@
 void __CheatInit();
 void __CheatShutdown();
 
-std::vector<std::string> makeCodeParts();
+std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList);
 
 class CWCheatEngine {
 public:
@@ -24,19 +24,15 @@ public:
 	void Exit();
 	void Run();
 	std::vector<int> GetNextCode();
+	
 
 private:
 	void SkipCodes(int count);
 	void SkipAllCodes();
-	
+	bool cheatsOn, exit2, cheatEnabled;
 	int GetAddress(int value);
+	std::vector<std::string> codeNameList;
 
-	static uint64_t const serialVersionUID = 6791588139795694296ULL;
-	static const int cheatsThreadSleepMillis = 5;
-
-	bool cheatsOn;
-	std::vector<std::string> codes;
+	std::vector<std::string> codes, initialCodesList, parts;
 	size_t currentCode;
-	bool exit2;
-	std::vector<std::string> parts;
 };

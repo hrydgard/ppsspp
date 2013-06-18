@@ -233,12 +233,15 @@ void EmuScreen::update(InputState &input) {
 	__CtrlSetAnalog(rightstick_x, rightstick_x, 1);
 
 	if (PSP_CoreParameter().fpsLimit != 2) {
+		// Don't really need to show these, it's pretty obvious what unthrottle does,
+		// in contrast to the three state toggle
+		/*
 		if (input.pad_buttons_down & PAD_BUTTON_UNTHROTTLE) {
 			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
 		}
 		if (input.pad_buttons_up & PAD_BUTTON_UNTHROTTLE) {
 			osm.Show(s->T("standard", "Speed: standard"), 1.0);
-		}
+		}*/
 	}
 	if (input.pad_buttons & PAD_BUTTON_UNTHROTTLE) {
 		PSP_CoreParameter().unthrottle = true;
@@ -249,22 +252,22 @@ void EmuScreen::update(InputState &input) {
 	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1 && PSP_CoreParameter().fpsLimit != 2) {
 		PSP_CoreParameter().fpsLimit = 0;
 	}
+
 	//Toggle between 3 different states of fpsLimit
 	if (input.pad_buttons_down & PAD_BUTTON_LEFT_THUMB) {
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
 			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
 		}
-		else if (PSP_CoreParameter().fpsLimit == 1){
+		else if (PSP_CoreParameter().fpsLimit == 1) {
 			PSP_CoreParameter().fpsLimit = 2;
 			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
 		}
-		else if (PSP_CoreParameter().fpsLimit == 2){
+		else if (PSP_CoreParameter().fpsLimit == 2) {
 			PSP_CoreParameter().fpsLimit = 0;
 			osm.Show(s->T("standard", "Speed: standard"), 1.0);
 		}
 	}
-		
 
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB)) {
 		if (g_Config.bBufferedRendering)
@@ -313,8 +316,9 @@ void EmuScreen::render() {
 
 	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
+	float touchOpacity = g_Config.iTouchButtonOpacity / 100.0f;
 	if (g_Config.bShowTouchControls)
-		DrawGamepad(ui_draw2d);
+		DrawGamepad(ui_draw2d, touchOpacity);
 
 	DrawWatermark();
 
@@ -337,7 +341,7 @@ void EmuScreen::render() {
 		float vps, fps;
 		__DisplayGetFPS(&vps, &fps);
 		char fpsbuf[256];
-		sprintf(fpsbuf, "VPS: %0.1f", vps);
+		sprintf(fpsbuf, "VPS: %0.1f\nFPS: %0.1f", vps, fps);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 	}

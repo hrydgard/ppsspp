@@ -148,7 +148,11 @@ u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {
 	}
 
 	if (size <= 0 || (size & 0xF) != 0) {
-		WARN_LOG(HLE, "%s: invalid size %d", __FUNCTION__, size);
+		if (size == 0) {
+			DEBUG_LOG(HLE, "%s: invalid size %d", __FUNCTION__, size);
+		} else {
+			WARN_LOG(HLE, "%s: invalid size %d", __FUNCTION__, size);
+		}
 		return ERROR_SAS_INVALID_SIZE;
 	}
 

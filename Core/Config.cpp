@@ -25,18 +25,12 @@
 
 Config g_Config;
 
-
 #ifdef IOS
 extern bool isJailed;
 #endif
 
-Config::Config()
-{
-}
-
-Config::~Config()
-{
-}
+Config::Config() { }
+Config::~Config() { }
 
 void Config::Load(const char *iniFileName)
 {
@@ -123,6 +117,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
 	graphics->Get("TexDeposterize", &bTexDeposterize, false);
+	graphics->Get("VSyncInterval", &iVSyncInterval, 0);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -142,6 +137,7 @@ void Config::Load(const char *iniFileName)
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
 	control->Get("ForceInputDevice", &iForceInputDevice, -1);
 	control->Get("RightStickBind", &iRightStickBind, 0);
+	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
 	pspConfig->Get("NickName", &sNickName, "shadow");
@@ -221,6 +217,7 @@ void Config::Save()
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
 		graphics->Set("TexScalingType", iTexScalingType);
 		graphics->Set("TexDeposterize", bTexDeposterize);
+		graphics->Set("VSyncInterval", iVSyncInterval);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
@@ -234,6 +231,7 @@ void Config::Save()
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("ForceInputDevice", iForceInputDevice);
 		control->Set("RightStickBind", iRightStickBind);
+		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 
 
 		IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");

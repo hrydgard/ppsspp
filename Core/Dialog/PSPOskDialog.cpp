@@ -795,7 +795,7 @@ int PSPOskDialog::Update()
 
 		selectedChar = (selectedChar + (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard])) % (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard]);
 
-		if (IsButtonPressed(CTRL_CROSS) && g_Config.bButtonPreference || IsButtonPressed(CTRL_CIRCLE) && !g_Config.bButtonPreference)
+		if ((IsButtonPressed(CTRL_CROSS) && g_Config.bButtonPreference) || (IsButtonPressed(CTRL_CIRCLE) && !g_Config.bButtonPreference))
 		{
 			inputChars = CombinationString(true);
 		}
@@ -816,7 +816,7 @@ int PSPOskDialog::Update()
 
 			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
 		}
-		else if (IsButtonPressed(CTRL_CIRCLE) && g_Config.bButtonPreference || IsButtonPressed(CTRL_CROSS) && !g_Config.bButtonPreference)
+		else if ((IsButtonPressed(CTRL_CIRCLE) && g_Config.bButtonPreference) || (IsButtonPressed(CTRL_CROSS) && !g_Config.bButtonPreference))
 		{
 			if (inputChars.size() > 0)
 			{
