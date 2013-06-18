@@ -1094,13 +1094,16 @@ void SystemScreen::render() {
 		g_Config.itimeformat = tf ? 1 : 0;
 	}
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
-	HLinear hlinear2(x, y += stride + 10, 20);
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 50, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) {
-		g_Config.bReloadCheats = true;
+	if (g_Config.bEnableCheats) {
+		HLinear hlinear1(x + 60, y += stride + 10, 20);
+		if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH + 50, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) 
+			g_Config.bReloadCheats = true;
+		y += 10;
 	}
+	HLinear hlinear2(x, y += stride + 10, 20);
 	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
 		screenManager()->push(new LanguageScreen());
-	} 
+	}  
 	
 	UIEnd();
 }
@@ -1131,7 +1134,7 @@ void ControlsScreen::render() {
 		UICheckBox(GEN_ID, x, y += stride, c->T("Large Controls"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 		// This will be a slider in the new UI later
-		bool bTransparent = g_Config.iTouchButtonOpacity < 30;
+		bool bTransparent = g_Config.iTouchButtonOpacity < 65;
 		bool prev = bTransparent;
 		UICheckBox(GEN_ID, x, y += stride, c->T("Transparent Buttons"), ALIGN_TOPLEFT, &bTransparent);
 		if (bTransparent) {
@@ -1141,12 +1144,12 @@ void ControlsScreen::render() {
 			HLinear hlinear1(x + 250, y, 20);
 			if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
 				g_Config.iTouchButtonOpacity = 15;
-			if (UIButton(GEN_ID, hlinear1, 40, 0, c->T("-1"), ALIGN_LEFT))
+			if (UIButton(GEN_ID, hlinear1, 40, 0, c->T("-5"), ALIGN_LEFT))
 				if (g_Config.iTouchButtonOpacity > 15)
-					g_Config.iTouchButtonOpacity -= 1;
-			if (UIButton(GEN_ID, hlinear1, 40, 0, c->T("+1"), ALIGN_LEFT))
-				if (g_Config.iTouchButtonOpacity < 30)
-					g_Config.iTouchButtonOpacity += 1;
+					g_Config.iTouchButtonOpacity -= 5;
+			if (UIButton(GEN_ID, hlinear1, 40, 0, c->T("+5"), ALIGN_LEFT))
+				if (g_Config.iTouchButtonOpacity < 65)
+					g_Config.iTouchButtonOpacity += 5;
 			y += 20;
 		}
 		if (bTransparent != prev)
