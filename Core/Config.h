@@ -125,6 +125,7 @@ public:
 	bool bWlanPowerSave;
 
 	std::string currentDirectory;
+	std::string externalDirectory;
 	std::string memCardDirectory;
 	std::string flashDirectory;
 	std::string internalDataDirectory;
