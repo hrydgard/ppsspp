@@ -11,7 +11,7 @@ const static std::string CHEATS_DIR = "Cheats";
 
 static std::string activeCheatFile;
 static int CheatEvent = -1;
-
+std::string gameTitle;
 static CWCheatEngine *cheatEngine;
 
 void hleCheat(u64 userdata, int cyclesLate);
@@ -19,17 +19,7 @@ void trim2(std::string& str);
 
 void __CheatInit() {
 	//Moved createFullPath to CheatInit from the constructor because it spams the log and constantly checks if exists. In here, only checks once.
-	std::string gameTitle = g_paramSFO.GetValueString("DISC_ID") + " - " + g_paramSFO.GetValueString("TITLE");
-	//These 3 statements clean up the title, which sometimes contain characters that will cause problems when creating the .ini
-	if (gameTitle.find("™")!= std::string::npos) {
-		gameTitle.erase (gameTitle.find("™"), std::string::npos);
-	}
-	while (gameTitle.find("/")!= std::string::npos) {
-		gameTitle.replace (gameTitle.find("/"),1," ");
-	}
-	if (gameTitle.find(":")!= std::string::npos) {
-		gameTitle.replace (gameTitle.find(":"),1," ");
-	}
+	gameTitle = g_paramSFO.GetValueString("DISC_ID");
 	activeCheatFile = CHEATS_DIR + "/" + gameTitle +".ini";
 
 	File::CreateFullPath(CHEATS_DIR);
@@ -80,12 +70,17 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 	std::vector<std::string> codelist;
 
 	for (size_t i = 0; i < initialCodesList.size(); i ++) {
-
+		if (initialCodesList[i].substr(0,2) == "_S") {
+			continue; //Line indicates Disc ID, not needed for cheats
+		}
+		if (initialCodesList[i].substr(0,2) == "_G") {
+			continue; //Line indicates game Title, also not needed for cheats.
+		}
 		if (initialCodesList[i].substr(0,3) == "_C1") {
 			cheatEnabled = true;
 			codename = initialCodesList[i];
 			codename.erase (codename.begin(), codename.begin()+4);
-			codeNameList.push_back(codename); //Import names for GUI
+			codeNameList.push_back(codename); //Import names for GUI, will be implemented later.
 			continue;
 		}
 		if (initialCodesList[i].substr(0,2) == "_L") {
@@ -100,13 +95,13 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 			cheatEnabled = false;
 			codename = initialCodesList[i];
 			codename.erase (codename.begin(), codename.begin()+4);
-			codeNameList.push_back(codename); //Import names for GUI
+			codeNameList.push_back(codename); //Import names for GUI, will be implemented later.
 			continue;
 		}
 	}
 	parts = makeCodeParts(codelist);
 }
-inline std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for all codes. Feeds to CreateCodeList
+inline std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList) { //Takes a single code line and creates a two-part vector for each code. Feeds to CreateCodeList
 	std::string currentcode;
 	std::vector<std::string> finalList;
 	char split_char = '\n';
@@ -170,7 +165,10 @@ void CWCheatEngine::SkipAllCodes() {
 }
 
 int CWCheatEngine::GetAddress(int value) { //Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
-	return (value + 0x08800000) & 0x3FFFFFFF;
+	int address = (value + 0x08800000) & 0x3FFFFFFF;
+	if (gameTitle == "ULUS10563") //Offset to make God Eater Burst codes work
+		address -= 0x7EF00;
+	return address;
 }
 
 
