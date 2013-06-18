@@ -339,6 +339,7 @@ int createAtrac(Atrac *atrac, int codecType) {
 	for (int i = 0; i < (int)ARRAY_SIZE(atracIDs); ++i) {
 		if (atracIDTypes[i] == codecType && atracIDs[i] == 0) {
 			atracIDs[i] = atrac;
+			atrac->atracID = i;
 			return i;
 		}
 	}
@@ -483,7 +484,7 @@ void Atrac::Analyze()
 }
 
 u32 sceAtracGetAtracID(int codecType) {
-	if (codecType != PSP_MODE_AT_3 && codecType > PSP_MODE_AT_3_PLUS) {
+	if (codecType != PSP_MODE_AT_3 && codecType != PSP_MODE_AT_3_PLUS) {
 		ERROR_LOG_REPORT(HLE, "sceAtracGetAtracID(%i): invalid codecType", codecType);
 		return ATRAC_ERROR_INVALID_CODECTYPE;
 	}
