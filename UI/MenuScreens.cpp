@@ -1131,7 +1131,22 @@ void ControlsScreen::render() {
 
 	UICheckBox(GEN_ID, x, y += stride, c->T("OnScreen", "On-Screen Touch Controls"), ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	if (g_Config.bShowTouchControls) {
-		UICheckBox(GEN_ID, x, y += stride, c->T("Large Controls"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
+		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
+		if (g_Config.bLargeControls) {
+			char scale[256];
+			sprintf(scale, "%s %0.2f", c->T("Scale :"), g_Config.fButtonScale);
+			ui_draw2d.DrawText(UBUNTU24, scale, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			HLinear hlinear1(x + 250, y, 20);
+			if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
+				g_Config.fButtonScale = 1.15;
+			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("-0.1"), ALIGN_LEFT))
+				if (g_Config.fButtonScale > 1.15)
+					g_Config.fButtonScale -= 0.1;
+			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("+0.1"), ALIGN_LEFT))
+				if (g_Config.fButtonScale < 2.05)
+					g_Config.fButtonScale += 0.1;
+			y += 20;
+		}
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 		// This will be a slider in the new UI later
 		bool bTransparent = g_Config.iTouchButtonOpacity < 65;

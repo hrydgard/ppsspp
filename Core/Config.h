@@ -110,6 +110,7 @@ public:
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems
 	int iForceInputDevice;
 	int iTouchButtonOpacity;
+	float fButtonScale;
 
 	// SystemParam
 	std::string sNickName;
