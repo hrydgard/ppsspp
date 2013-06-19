@@ -40,6 +40,7 @@ struct Alarm : public KernelObject
 	const char *GetName() {return "[Alarm]";}
 	const char *GetTypeName() {return "Alarm";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_ALMID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Alarm; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Alarm; }
 
 	virtual void DoState(PointerWrap &p)
