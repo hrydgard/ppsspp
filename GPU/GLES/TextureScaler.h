@@ -30,7 +30,7 @@ public:
 
 	void Scale(u32* &data, GLenum &dstfmt, int &width, int &height, int factor);
 
-	enum { XBRZ= 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
+	enum { XBRZ = 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3, NEAREST_NEIGHBOR = 4 };
 
 private:
 	void ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height);
@@ -38,6 +38,7 @@ private:
 	void ScaleBicubicBSpline(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic = false);
+	void ScaleNearest(int factor, u32* source, u32* dest, int width, int height);
 	void ConvertTo8888(GLenum format, u32* source, u32* &dest, int width, int height);
 
 	void DePosterize(u32* source, u32* dest, int width, int height);
