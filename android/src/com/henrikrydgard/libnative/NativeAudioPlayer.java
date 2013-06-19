@@ -10,7 +10,10 @@ public class NativeAudioPlayer {
 	private String TAG = "NativeAudioPlayer";
 	private Thread thread;
 	private boolean playing_;
-
+	
+	public NativeAudioPlayer() {
+	}
+	
 	// Calling stop() is allowed at any time, whether stopped or not.
 	// If playing, blocks until not.
 	public synchronized void stop() {

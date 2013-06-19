@@ -2,7 +2,8 @@ package com.henrikrydgard.libnative;
 
 public class NativeApp {
 	public static native void init(int xxres, int yyres, int dpi, String apkPath, String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
-
+	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
+	
 	public static native boolean isLandscape();
 
 	public static native boolean isAtTopLevel();

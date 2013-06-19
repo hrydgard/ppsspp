@@ -42,6 +42,9 @@ static float right_joystick_y_async;
 
 static uint32_t pad_buttons_down;
 
+int optimalFramesPerBuffer = 0;
+int optimalSampleRate = 0;
+
 // Android implementation of callbacks to the Java part of the app
 void SystemToast(const char *text) {
 	frameCommand = "toast";
@@ -93,7 +96,7 @@ InputState input_state;
 
 static bool renderer_inited = false;
 static bool first_lost = true;
-static bool use_native_audio = false;
+static bool use_opensl_audio = false;
 
 std::string GetJavaString(JNIEnv *env, jstring jstr)
 {
@@ -117,6 +120,12 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isAtTopLevel(JNIE
 		ILOG("isAtTopLevel");
 	}
 	return NativeIsAtTopLevel();
+}
+
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
+	(JNIEnv *env, jclass, jint optimalFPB, jint optimalSR) {
+	optimalFramesPerBuffer = optimalFPB;
+	optimalSampleRate = optimalSR;
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
@@ -167,24 +176,26 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	const char *argv[2] = {app_name.c_str(), 0};
 	NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
 
-	use_native_audio = juseNativeAudio;
-	if (use_native_audio) {
-		ILOG("Using OpenSL audio!");
-		AndroidAudio_Init(&NativeMix, library_path);
+	use_opensl_audio = juseNativeAudio;
+	if (use_opensl_audio) {
+		// TODO: PPSSPP doesn't support 48khz yet so let's not use that yet.
+		ILOG("Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: 44100", optimalFramesPerBuffer, optimalSampleRate);
+		optimalSampleRate = 44100;
+		AndroidAudio_Init(&NativeMix, library_path, optimalFramesPerBuffer, optimalSampleRate);
 	}
 	ILOG("NativeApp.init() -- end");
 }	
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resume(JNIEnv *, jclass) {
 	ILOG("NativeApp.resume() - resuming audio");
-	if (use_native_audio) {
+	if (use_opensl_audio) {
 		AndroidAudio_Resume();
 	}
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclass) {
 	ILOG("NativeApp.pause() - pausing audio");
-	if (use_native_audio) {
+	if (use_opensl_audio) {
 		AndroidAudio_Pause();
 	}
 	ILOG("NativeApp.pause() - paused audio");
@@ -192,7 +203,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclas
  
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
- 	if (use_native_audio) {
+ 	if (use_opensl_audio) {
 		AndroidAudio_Shutdown();
 	}
 	if (renderer_inited) {

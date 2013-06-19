@@ -11,11 +11,13 @@ struct AudioState {
 	OpenSLWrap_Init_T init_func;
 	OpenSLWrap_Shutdown_T shutdown_func;
 	bool playing;
+	int frames_per_buffer;
+	int sample_rate;
 };
 
 static AudioState *state = 0;
 
-bool AndroidAudio_Init(AndroidAudioCallback cb, std::string libraryDir) {
+bool AndroidAudio_Init(AndroidAudioCallback cb, std::string libraryDir, int optimalFramesPerBuffer, int optimalSampleRate) {
 	if (state != 0) {
 		ELOG("Audio state already exists");
 		return false;
@@ -35,6 +37,9 @@ bool AndroidAudio_Init(AndroidAudioCallback cb, std::string libraryDir) {
 	state->playing = false;
 	state->init_func = (OpenSLWrap_Init_T)dlsym(state->so, "OpenSLWrap_Init");
 	state->shutdown_func = (OpenSLWrap_Shutdown_T)dlsym(state->so, "OpenSLWrap_Shutdown");
+	state->frames_per_buffer = optimalFramesPerBuffer ? optimalFramesPerBuffer : 256;
+	state->sample_rate = optimalSampleRate ? optimalSampleRate : 44100;
+
 	ILOG("OpenSLWrap init_func: %p   shutdown_func: %p", (void *)state->init_func, (void *)state->shutdown_func);
 
 	return true;
@@ -47,7 +52,7 @@ bool AndroidAudio_Resume() {
 	}
 	if (!state->playing) {
 		ILOG("Calling OpenSLWrap_Init_T...");
-		bool init_retval = state->init_func(state->s_cb);
+		bool init_retval = state->init_func(state->s_cb, state->frames_per_buffer, state->sample_rate);
 		ILOG("Returned from OpenSLWrap_Init_T");
 		state->playing = true;
 		return init_retval;

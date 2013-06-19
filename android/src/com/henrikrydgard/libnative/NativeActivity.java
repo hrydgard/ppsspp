@@ -91,6 +91,17 @@ public class NativeActivity extends Activity {
 	public static String commandParameter;
 	public static String installID;
 	
+	// Settings for best audio latency
+	private int optimalFramesPerBuffer;
+	private int optimalSampleRate;
+	
+	@TargetApi(17)
+	private void detectOptimalAudioSettings() {
+		AudioManager am = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+		optimalFramesPerBuffer = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));		
+		optimalSampleRate = Integer.parseInt(am.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE));		
+	}
+	
 	String getApplicationLibraryDir(ApplicationInfo application) {    
 	    String libdir = null;
 	    try {
@@ -115,6 +126,10 @@ public class NativeActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 9) {
         	// Native OpenSL is available. Let's use it!
         	useOpenSL = true;
+        }
+        if (Build.VERSION.SDK_INT >= 17) {
+        	// Get the optimal buffer sz
+        	detectOptimalAudioSettings();
         }
 
         if (NativeApp.isLandscape()) {
@@ -154,8 +169,9 @@ public class NativeActivity extends Activity {
 		int dpi = metrics.densityDpi;
 		
 		// INIT!
+		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(scrWidth, scrHeight, dpi, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
-     
+		
  		// Keep the screen bright - very annoying if it goes dark when tilting away
 		Window window = this.getWindow();
 		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
