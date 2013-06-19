@@ -281,7 +281,7 @@ void __AudioUpdate() {
 		}
 
 		if (hwBlockSize * 2 > chans[i].sampleQueue.size()) {
-			ERROR_LOG(HLE, "Channel %i buffer underrun at %i of %i", i, chans[i].sampleQueue.size() / 2, hwBlockSize);
+			ERROR_LOG(HLE, "Channel %i buffer underrun at %i of %i", i, (int)chans[i].sampleQueue.size() / 2, hwBlockSize);
 		}
 
 		const s16 *buf1 = 0, *buf2 = 0;

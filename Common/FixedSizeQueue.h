@@ -201,7 +201,7 @@ public:
 
 	bool CanPush() { 
 		int nextBlock = curWriteBlock + 1;
-		if (nextBlock == NUM_BLOCKS) nextBlock == 0;
+		if (nextBlock == NUM_BLOCKS) nextBlock = 0;
 		return nextBlock != curReadBlock;
 	}
 
