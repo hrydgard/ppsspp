@@ -47,6 +47,8 @@ const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSamp
 const int chanQueueMaxSizeFactor = 2;
 const int chanQueueMinSizeFactor = 1;
 
+// TODO: Need to replace this with something lockless. Mutexes in the audio pipeline
+// is bad mojo.
 FixedSizeQueue<s16, hostAttemptBlockSize * 16> outAudioQueue;
 
 static inline s16 clamp_s16(int i) {
@@ -70,6 +72,8 @@ void hleAudioUpdate(u64 userdata, int cyclesLate)
 
 void hleHostAudioUpdate(u64 userdata, int cyclesLate)
 {
+	// Not all hosts need this call to poke their audio system once in a while, but those that don't
+	// can just ignore it.
 	host->UpdateSound();
 	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs) - cyclesLate, eventHostAudioUpdate, 0);
 }
@@ -166,10 +170,33 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
 			// Walking a pointer for speed.  But let's make sure we wouldn't trip on an invalid ptr.
 			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16)))
 			{
+#if 0
 				for (u32 i = 0; i < totalSamples; i += 2) {
 					chan.sampleQueue.push(adjustvolume(*sampleData++, chan.leftVolume));
 					chan.sampleQueue.push(adjustvolume(*sampleData++, chan.rightVolume));
 				}
+#else
+				s16 *buf1 = 0, *buf2 = 0;
+				size_t sz1, sz2;
+				chan.sampleQueue.pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
+				int leftVol = chan.leftVolume;
+				int rightVol = chan.rightVolume;
+
+				// TODO: SSE/NEON implementations
+				for (u32 i = 0; i < sz1; i += 2)
+				{
+					buf1[i] = adjustvolume(sampleData[i], leftVol);
+					buf1[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
+				}
+				if (buf2) {
+					sampleData += sz1;
+					for (u32 i = 0; i < sz2; i += 2)
+					{
+						buf2[i] = adjustvolume(sampleData[i], leftVol);
+						buf2[i + 1] = adjustvolume(sampleData[i + 1], rightVol);
+					}
+				}
+#endif
 			}
 		}
 		else
@@ -227,44 +254,61 @@ void __AudioWakeThreads(AudioChannel &chan, int result)
 	__AudioWakeThreads(chan, result, 0x7FFFFFFF);
 }
 
+void __AudioSetOutputFrequency(int freq)
+{
+	WARN_LOG(HLE, "Switching audio frequency to %i", freq);
+	mixFrequency = freq;
+}
+
 // Mix samples from the various audio channels into a single sample queue.
 // This single sample queue is where __AudioMix should read from. If the sample queue is full, we should
 // just sleep the main emulator thread a little.
-void __AudioUpdate()
-{
+void __AudioUpdate() {
 	// Audio throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
-
 	s32 mixBuffer[hwBlockSize * 2];
-	memset(mixBuffer, 0, sizeof(mixBuffer));
+	bool firstChannel = true;
 
-	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
-	{
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
 		if (!chans[i].reserved)
 			continue;
+
 		__AudioWakeThreads(chans[i], 0, hwBlockSize);
 
 		if (!chans[i].sampleQueue.size()) {
-			// ERROR_LOG(HLE, "No queued samples, skipping channel %i", i);
 			continue;
 		}
 
-		for (int s = 0; s < hwBlockSize; s++)
-		{
-			if (chans[i].sampleQueue.size() >= 2)
-			{
-				s16 sampleL = chans[i].sampleQueue.pop_front();
-				s16 sampleR = chans[i].sampleQueue.pop_front();
-				mixBuffer[s * 2 + 0] += sampleL;
-				mixBuffer[s * 2 + 1] += sampleR;
-			} 
-			else
-			{
-				ERROR_LOG(HLE, "Channel %i buffer underrun at %i of %i", i, s, hwBlockSize);
-				break;
+		if (hwBlockSize * 2 > chans[i].sampleQueue.size()) {
+			ERROR_LOG(HLE, "Channel %i buffer underrun at %i of %i", i, chans[i].sampleQueue.size() / 2, hwBlockSize);
+		}
+
+		const s16 *buf1 = 0, *buf2 = 0;
+		size_t sz1, sz2;
+
+		chans[i].sampleQueue.popPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
+
+		if (firstChannel) {
+			for (int s = 0; s < sz1; s++)
+				mixBuffer[s] = buf1[s];
+			if (buf2) {
+				for (int s = 0; s < sz2; s++)
+					mixBuffer[s + sz1] = buf2[s];
+			}
+			firstChannel = false;
+		} else {
+			for (int s = 0; s < sz1; s++)
+				mixBuffer[s] += buf1[s];
+			if (buf2) {
+				for (int s = 0; s < sz2; s++)
+					mixBuffer[s + sz1] += buf2[s];
 			}
 		}
+	}
+
+	if (firstChannel) {
+		memset(mixBuffer, 0, sizeof(mixBuffer));
 	}
 
 	if (g_Config.bEnableSound) {
@@ -284,13 +328,6 @@ void __AudioUpdate()
 			DEBUG_LOG(HLE, "Audio outbuffer overrun! room = %i / %i", outAudioQueue.room(), (u32)outAudioQueue.capacity());
 		}
 	}
-	
-}
-
-void __AudioSetOutputFrequency(int freq)
-{
-	WARN_LOG(HLE, "Switching audio frequency to %i", freq);
-	mixFrequency = freq;
 }
 
 // numFrames is number of stereo frames.

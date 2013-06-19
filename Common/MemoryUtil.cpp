@@ -124,6 +124,7 @@ void* AllocateExecutableMemory(size_t size, bool low)
 
 void* AllocateMemoryPages(size_t size)
 {
+	size = (size + 4095) & (~4095);
 #ifdef _WIN32
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_READWRITE);
 #elif defined(__SYMBIAN32__)
@@ -169,6 +170,7 @@ void* AllocateAlignedMemory(size_t size,size_t alignment)
 
 void FreeMemoryPages(void* ptr, size_t size)
 {
+	size = (size + 4095) & (~4095);
 	if (ptr)
 	{
 #ifdef _WIN32

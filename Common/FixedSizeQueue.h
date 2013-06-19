@@ -20,6 +20,7 @@
 
 #include <cstring>
 #include "ChunkFile.h"
+#include "MemoryUtil.h"
 
 // STL-look-a-like interface, but name is mixed case to distinguish it clearly from the
 // real STL classes.
@@ -30,12 +31,14 @@ template <class T, int N>
 class FixedSizeQueue {
 public:
 	FixedSizeQueue() {
-		storage_ = new T[N];
+		// Allocate aligned memory, just because.
+		int sizeInBytes = N * sizeof(T);
+		storage_ = (T *)AllocateMemoryPages(sizeInBytes);
 		clear();
 	}
 
 	~FixedSizeQueue() {
-		delete [] storage_;
+		FreeMemoryPages((void *)storage_, N * sizeof(T));
 	}
 
 	void clear() {
@@ -50,6 +53,45 @@ public:
 		if (tail_ == N)
 			tail_ = 0;
 		count_++;
+	}
+
+	// Gets pointers to write to directly.
+	void pushPointers(size_t size, T **dest1, size_t *sz1, T **dest2, size_t *sz2) {
+		if (tail_ + size < N) {
+			*dest1 = &storage_[tail_];
+			*sz1 = size;
+			tail_ += (int)size;
+			if (tail_ == N) tail_ = 0;
+			*dest2 = 0;
+			*sz2 = 0;
+		} else {
+			*dest1 = &storage_[tail_];
+			*sz1 = N - tail_;
+			tail_ = (int)(size - *sz1);
+			*dest2 = &storage_[0];
+			*sz2 = tail_;
+		}
+		count_ += (int)size;
+	}
+
+	void popPointers(size_t size, const T **src1, size_t *sz1, const T **src2, size_t *sz2) {
+		if (size > count_) size = count_;
+
+		if (head_ + size < N) {
+			*src1 = &storage_[head_];
+			*sz1 = size;
+			head_ += (int)size;
+			if (head_ == N) head_ = 0;
+			*src2 = 0;
+			*sz2 = 0;
+		} else {
+			*src1 = &storage_[head_];
+			*sz1 = N - head_;
+			head_ = (int)(size - *sz1);
+			*src2 = &storage_[0];
+			*sz2 = head_;
+		}
+		count_ -= (int)size;
 	}
 
 	void pop() {
@@ -123,6 +165,62 @@ private:
 
 	// Make copy constructor private for now.
 	FixedSizeQueue(FixedSizeQueue &other) {	}
+};
+
+
+// I'm not sure this is 100% safe but it might be "Good Enough" :)
+// TODO: Use this, maybe make it safer first by using proper atomics
+// instead of volatile
+template<class T, int blockSize, int numBlocks>
+class LockFreeBlockQueue {
+public:
+	LockFreeBlockQueue() {
+		curReadBlock = 0;
+		curWriteBlock = 0;
+		for (size_t i = 0; i < numBlocks; i++) {
+			blocks[i] = new T[blockSize];
+		}
+	}
+	~LockFreeBlockQueue() {
+		for (size_t i = 0; i < numBlocks; i++) {
+			delete [] blocks[i];
+		}
+	}
+
+	// Write to the returned pointer then call EndPush to finish the push.
+	T *BeginPush() {
+		return blocks[curWriteBlock];
+	}
+	void EndPush() {
+		curWriteBlock++;
+		if (curWriteBlock == NUM_BLOCKS)
+			curWriteBlock = 0;
+	}
+
+	bool CanPush() { 
+		int nextBlock = curWriteBlock + 1;
+		if (nextBlock == NUM_BLOCKS) nextBlock == 0;
+		return nextBlock != curReadBlock;
+	}
+
+	bool CanPop() { return curReadBlock != curWriteBlock; }
+
+	// Read from the returned pointer then call EndPush to finish the pop.
+	T *BeginPop() {
+		return blocks[curReadBlock];
+	}
+	T *EndPop() {
+		curReadBlock++;
+		if (curReadBlock == NUM_BLOCKS)
+			curReadBlock = 0;
+	}
+
+private:
+	enum { NUM_BLOCKS = 16 };
+	T **blocks[NUM_BLOCKS];
+
+	volatile int curReadBlock;
+	volatile int curWriteBlock;
 };
 
 #endif // _FIXED_SIZE_QUEUE_H_
