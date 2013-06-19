@@ -34,19 +34,18 @@ BlockDevice *constructBlockDevice(const char *filename) {
 		return 0;
 	char buffer[4];
 	auto size = fread(buffer, 1, 4, f); //size_t
-	fclose(f);
+	fseek(f, 0, SEEK_SET);
 	if (!memcmp(buffer, "CISO", 4) && size == 4)
-		return new CISOFileBlockDevice(filename);
+		return new CISOFileBlockDevice(f);
 	else if (!memcmp(buffer, "\x00PBP", 4) && size == 4)
-		return new NPDRMDemoBlockDevice(filename);
+		return new NPDRMDemoBlockDevice(f);
 	else
-		return new FileBlockDevice(filename);
+		return new FileBlockDevice(f);
 }
 
-FileBlockDevice::FileBlockDevice(std::string _filename)
-: filename(_filename)
+FileBlockDevice::FileBlockDevice(FILE *file)
+	: f(file)
 {
-	f = fopen(_filename.c_str(), "rb");
 	fseek(f,0,SEEK_END);
 	filesize = ftell(f);
 	fseek(f,0,SEEK_SET);
@@ -94,12 +93,12 @@ typedef struct ciso_header
 
 // TODO: Need much better error handling.
 
-CISOFileBlockDevice::CISOFileBlockDevice(std::string _filename)
-: filename(_filename)
+CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
+	: f(file)
 {
 	// CISO format is EXTREMELY crappy and incomplete. All tools make broken CISO.
 
-	f = fopen(_filename.c_str(), "rb");
+	f = file;
 	CISO_H hdr;
 	size_t readSize = fread(&hdr, sizeof(CISO_H), 1, f);
 	if (readSize != 1 || memcmp(hdr.magic, "CISO", 4) != 0)
@@ -206,16 +205,14 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 }
 
 
-NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(std::string _filename)
-	: filename_(_filename)
+NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FILE *file)
+	: f(file)
 {
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
 	u8 np_header[256];
 	u32 tableOffset, tableSize;
 	u32 lbaStart, lbaEnd;
-
-	f = fopen(_filename.c_str(), "rb");
 
 	fseek(f, 0x24, SEEK_SET);
 	fread(&psarOffset, 1, 4, f);
