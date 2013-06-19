@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx_es2/fbo.h"
@@ -356,28 +354,12 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	VirtualFramebuffer *vfb = 0;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
-		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
-			// Okay, let's check the sizes. If the new one is bigger than the old one, recreate.
-			// If the opposite, just use it and hope that the game sets scissors accordingly.
-			if (v->width >= drawing_width && v->height >= drawing_height) {
-				// Let's not be so picky for now. Let's say this is the one.
-				vfb = v;
-				// Update fb stride in case it changed
-				vfb->fb_stride = fb_stride;
-				// Just hack the width/height and we should be fine. also hack renderwidth/renderheight?
-				v->width = drawing_width;
-				v->height = drawing_height;
-				break;
-			} else {
-				INFO_LOG(HLE, "Embiggening framebuffer (%i, %i) -> (%i, %i)", (int)v->width, (int)v->height, drawing_width, drawing_height);
-				// drawing_width or drawing_height is bigger. Let's recreate with the max.
-				// To do this right we should copy the data over too, but meh.
-				drawing_width = std::max((int)v->width, drawing_width);
-				drawing_height = std::max((int)v->height, drawing_height);
-				delete v;
-				vfbs_.erase(iter);
-				break;
-			}
+		if (MaskedEqual(v->fb_address, fb_address) && v->width == drawing_width && v->height == drawing_height && v->format == fmt) {
+			// Let's not be so picky for now. Let's say this is the one.
+			vfb = v;
+			// Update fb stride in case it changed
+			vfb->fb_stride = fb_stride;
+			break;
 		}
 	}
 
