@@ -996,7 +996,7 @@ void LanguageScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *l = GetI18NCategory("Language");
 
-	bool small = dp_xres < 720;
+	bool small = dp_xres < 790;
 
 	if (!small) {
 		ui_draw2d.SetFontScale(1.5f, 1.5f);
@@ -1019,6 +1019,12 @@ void LanguageScreen::render() {
 	
 	
 	for (size_t i = 0; i < langs_.size(); i++) {
+		// Skip README
+		if (langs_[i].name.find("README") != std::string::npos) {
+			continue;
+		}
+
+
 		std::string code;
 		size_t dot = langs_[i].name.find('.');
 		if (dot != std::string::npos)
@@ -1042,6 +1048,7 @@ void LanguageScreen::render() {
 		langValuesMapping["zh_CN"] = std::make_pair("简体中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED);
 
 		//langValuesMapping["ar_AE"] = std::make_pair("العربية", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["az_AZ"] = std::make_pair("Azeri", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["ca_ES"] = std::make_pair("Català", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["gr_EL"] = std::make_pair("ελληνικά", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["he_IL"] = std::make_pair("עברית", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
@@ -1055,7 +1062,7 @@ void LanguageScreen::render() {
 
 		if (!code.empty()) {
 			if(langValuesMapping.find(code) == langValuesMapping.end()) {
-				//No title found, show locale code
+				// No title found, show locale code
 				buttonTitle = code;
 			} else {
 				buttonTitle = langValuesMapping[code].first;
