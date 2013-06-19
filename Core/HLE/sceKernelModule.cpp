@@ -179,6 +179,7 @@ public:
 			nm.entry_addr);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
+	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_Module; }
 	int GetIDType() const { return PPSSPP_KERNEL_TMID_Module; }
 
 	virtual void DoState(PointerWrap &p)
@@ -1349,7 +1350,7 @@ u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 	state.addr = moduleAddr;
 	state.result = SCE_KERNEL_ERROR_UNKNOWN_MODULE;
 
-	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state, PPSSPP_KERNEL_TMID_Module);
+	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state);
 	if (state.result == SCE_KERNEL_ERROR_UNKNOWN_MODULE)
 		ERROR_LOG(HLE, "sceKernelGetModuleIdByAddress(%08x): module not found", moduleAddr)
 	else
