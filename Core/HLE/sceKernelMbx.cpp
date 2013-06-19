@@ -53,6 +53,7 @@ struct Mbx : public KernelObject
 	const char *GetName() {return nmb.name;}
 	const char *GetTypeName() {return "Mbx";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MBXID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mbox; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mbox; }
 
 	void AddWaitingThread(SceUID id, u32 addr)

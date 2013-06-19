@@ -64,6 +64,7 @@ public:
 	static u32 GetMissingErrorCode() {
 		return SCE_KERNEL_ERROR_UNKNOWN_EVFID;
 	}
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_EventFlag; }
 	int GetIDType() const { return SCE_KERNEL_TMID_EventFlag; }
 
 	virtual void DoState(PointerWrap &p)
