@@ -371,12 +371,11 @@ void MediaEngine::updateSwsFormat(int videoPixelMode) {
 bool MediaEngine::stepVideo(int videoPixelMode) {
 	// if video engine is broken, force to add timestamp
 	m_videopts += 3003;
-
+#ifdef USE_FFMPEG
 	if (!m_pFormatCtx)
 		return false;
 	if (!m_pCodecCtx)
 		return false;
-#ifdef USE_FFMPEG
 	updateSwsFormat(videoPixelMode);
 	// TODO: Technically we could set this to frameWidth instead of m_desWidth for better perf.
 	// Update the linesize for the new format too.  We started with the largest size, so it should fit.
