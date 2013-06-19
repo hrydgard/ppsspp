@@ -314,13 +314,14 @@ void __AudioUpdate() {
 	if (g_Config.bEnableSound) {
 		lock_guard guard(section);
 		if (outAudioQueue.room() >= hwBlockSize * 2) {
-			// Push the mixed samples onto the output audio queue.
-			for (int i = 0; i < hwBlockSize; i++) {
-				s16 sampleL = clamp_s16(mixBuffer[i * 2 + 0]);
-				s16 sampleR = clamp_s16(mixBuffer[i * 2 + 1]);
-
-				outAudioQueue.push((s16)sampleL);
-				outAudioQueue.push((s16)sampleR);
+			s16 *buf1 = 0, *buf2 = 0;
+			size_t sz1, sz2;
+			outAudioQueue.pushPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
+			for (int s = 0; s < sz1; s++)
+				buf1[s] = clamp_s16(mixBuffer[s]);
+			if (buf2) {
+				for (int s = 0; s < sz2; s++)
+					buf2[s] = clamp_s16(mixBuffer[s + sz1]);
 			}
 		} else {
 			// This happens quite a lot. There's still something slightly off
@@ -335,28 +336,28 @@ void __AudioUpdate() {
 int __AudioMix(short *outstereo, int numFrames)
 {
 	// TODO: if mixFrequency != the actual output frequency, resample!
-	lock_guard guard(section);
 	int underrun = -1;
 	s16 sampleL = 0;
 	s16 sampleR = 0;
-	bool anythingToPlay = false;
-	for (int i = 0; i < numFrames; i++) {
-		if (outAudioQueue.size() >= 2) {
-			sampleL = outAudioQueue.pop_front();
-			sampleR = outAudioQueue.pop_front();
-			outstereo[i * 2 + 0] = sampleL;
-			outstereo[i * 2 + 1] = sampleR;
-			anythingToPlay = true;
-		} else {
-			if (underrun == -1) underrun = i;
-			outstereo[i * 2 + 0] = sampleL;  // repeat last sample, can reduce clicking
-			outstereo[i * 2 + 1] = sampleR;  // repeat last sample, can reduce clicking
+
+	const s16 *buf1 = 0, *buf2 = 0;
+	size_t sz1, sz2;
+	{
+		lock_guard guard(section);
+		outAudioQueue.popPointers(numFrames * 2, &buf1, &sz1, &buf2, &sz2);
+		memcpy(outstereo, buf1, sz1 * sizeof(s16));
+		if (buf2) {
+			memcpy(outstereo + sz1, buf2, sz2 * sizeof(s16));
 		}
 	}
-	if (anythingToPlay && underrun >= 0) {
+
+	int remains = (int)(numFrames * 2 - sz1 - sz2);
+	if (remains > 0)
+		memset(outstereo + numFrames * 2 - remains, 0, remains);
+
+	if (sz1 + sz2 < numFrames) {
+		underrun = (int)(sz1 + sz2) / 2;
 		DEBUG_LOG(HLE, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
-	} else {
-		// DEBUG_LOG(HLE, "No underrun, mixed %i samples fine", numFrames);
 	}
 	return underrun >= 0 ? underrun : numFrames;
 }
