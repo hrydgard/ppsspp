@@ -231,8 +231,8 @@ Psmf::Psmf(u32 data) {
 	streamOffset = bswap32(Memory::Read_U32(data + 8));
 	streamSize = bswap32(Memory::Read_U32(data + 12));
 	streamDataTotalSize = bswap32(Memory::Read_U32(data + 0x50));
-	presentationStartTime = bswap32(Memory::Read_U32(data + PSMF_FIRST_TIMESTAMP_OFFSET));
-	presentationEndTime = bswap32(Memory::Read_U32(data + PSMF_LAST_TIMESTAMP_OFFSET));
+	presentationStartTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_FIRST_TIMESTAMP_OFFSET));
+	presentationEndTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET));
 	streamDataNextBlockSize = bswap32(Memory::Read_U32(data + 0x6A));
 	streamDataNextInnerBlockSize = bswap32(Memory::Read_U32(data + 0x7C));
 	numStreams = bswap16(Memory::Read_U16(data + 0x80));
