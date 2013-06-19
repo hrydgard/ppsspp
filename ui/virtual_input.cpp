@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <algorithm>
+
 #include "base/logging.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/texture_atlas.h"
@@ -139,6 +141,10 @@ void TouchStick::update(InputState &input_state)
 			//	dy /= len;
 			//}
 
+			// Still need to clamp to a square
+			dx = std::min(1.0f, std::max(-1.0f, dx));
+			dy = std::min(1.0f, std::max(-1.0f, dy));
+
 			if (stick_ == 0) {
 				input_state.pad_lstick_x = dx;
 				input_state.pad_lstick_y = -dy;
@@ -146,6 +152,7 @@ void TouchStick::update(InputState &input_state)
 				input_state.pad_rstick_x = dx;
 				input_state.pad_rstick_y = -dy;
 			}
+
 		} else {
 			dragging_[i] = false;
 		}
