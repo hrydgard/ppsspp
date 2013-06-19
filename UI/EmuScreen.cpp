@@ -342,11 +342,11 @@ void EmuScreen::render() {
 		__DisplayGetFPS(&vps, &fps);
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
-		case 2:
+		case 1:
 			sprintf(fpsbuf, "VPS: %0.1f", vps); break;
-		case 3:
+		case 2:
 			sprintf(fpsbuf, "FPS: %0.1f", fps); break;
-		case 4:
+		case 3:
 			sprintf(fpsbuf, "VPS: %0.1f\nFPS: %0.1f", vps, fps); break;
 		}
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
