@@ -487,8 +487,9 @@ void PauseScreen::render() {
 	} else 
 		g_Config.iFrameSkip = 0;
 
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Save State :"), 30, 360, 0xFFFFFFFF, ALIGN_LEFT);
-	HLinear hlinear4(x + 180 , y += 50, 10);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
+	ui_draw2d.DrawText(UBUNTU24, gs->T("Save State :"), 30, y += 40, 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear4(x + 180 , y , 10);
 	if (UIButton(GEN_ID, hlinear4, 60, 0, "1", ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
@@ -510,9 +511,8 @@ void PauseScreen::render() {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
 
-
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Load State :"), 30, 420, 0xFFFFFFFF, ALIGN_LEFT);
-	HLinear hlinear3(x + 180 , y += 60, 10);
+	ui_draw2d.DrawText(UBUNTU24, gs->T("Load State :"), 30, y += 60, 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear3(x + 180 , y + 10 , 10);
 	if (UIButton(GEN_ID, hlinear3, 60, 0, "1", ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
