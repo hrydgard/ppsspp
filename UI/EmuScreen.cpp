@@ -337,11 +337,18 @@ void EmuScreen::render() {
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 
-	if (g_Config.bShowFPSCounter) {
+	if (g_Config.iShowFPSCounter) {
 		float vps, fps;
 		__DisplayGetFPS(&vps, &fps);
 		char fpsbuf[256];
-		sprintf(fpsbuf, "VPS: %0.1f\nFPS: %0.1f", vps, fps);
+		switch (g_Config.iShowFPSCounter) {
+		case 2:
+			sprintf(fpsbuf, "VPS: %0.1f", vps); break;
+		case 3:
+			sprintf(fpsbuf, "FPS: %0.1f", fps); break;
+		case 4:
+			sprintf(fpsbuf, "VPS: %0.1f\nFPS: %0.1f", vps, fps); break;
+		}
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 	}
