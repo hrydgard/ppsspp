@@ -327,10 +327,11 @@ void __MpegShutdown() {
 u32 sceMpegInit() {
 	if (isMpegInit) {
 		WARN_LOG(HLE, "sceMpegInit(): already initialized");
-		return ERROR_MPEG_ALREADY_INIT;
+		// TODO: Need to properly hook module load/unload for this to work right.
+		//return ERROR_MPEG_ALREADY_INIT;
+	} else {
+		INFO_LOG(HLE, "sceMpegInit()");
 	}
-
-	INFO_LOG(HLE, "sceMpegInit()");
 	isMpegInit = true;
 	return hleDelayResult(0, "mpeg init", 750);
 }
@@ -1009,10 +1010,11 @@ u32 sceMpegFinish()
 	if (!isMpegInit)
 	{
 		WARN_LOG(HLE, "sceMpegFinish(...): not initialized");
-		return ERROR_MPEG_NOT_YET_INIT;
+		// TODO: Need to properly hook module load/unload for this to work right.
+		//return ERROR_MPEG_NOT_YET_INIT;
+	} else {
+		INFO_LOG(HLE, "sceMpegFinish(...)");
 	}
-
-	INFO_LOG(HLE, "sceMpegFinish(...)");
 	isMpegInit = false;
 	//__MpegFinish();
 	return hleDelayResult(0, "mpeg finish", 250);
