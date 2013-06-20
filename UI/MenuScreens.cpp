@@ -1161,7 +1161,7 @@ void SystemScreen::render() {
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
 	UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
-	UICheckBox(GEN_ID, x, y += stride, s->T("Button Perference"), ALIGN_TOPLEFT, &g_Config.bButtonPreference); 
+	UICheckBox(GEN_ID, x, y += stride, s->T("Button Preference"), ALIGN_TOPLEFT, &g_Config.bButtonPreference); 
 	if (g_Config.bButtonPreference) {
 			char button[256];
 			std::string type;
