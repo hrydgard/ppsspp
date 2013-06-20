@@ -161,11 +161,11 @@ void __CtrlSetAnalog(float x, float y, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	if (stick == 0) {
-		ctrlCurrent.analog[0] = (u8)(x * 127.5f + 128.f);
-		ctrlCurrent.analog[1] = (u8)(-y * 127.5f + 128.f);
+		ctrlCurrent.analog[0] = (u8)ceilf(x * 127.5f + 127.5f);
+		ctrlCurrent.analog[1] = (u8)ceilf(-y * 127.5f + 127.5f);
 	} else {
-		ctrlCurrent.analogRight[0] = (u8)(x * 127.5f + 128.f);
-		ctrlCurrent.analogRight[1] = (u8)(-y * 127.5f + 128.f);
+		ctrlCurrent.analogRight[0] = (u8)ceilf(x * 127.5f + 127.5f);
+		ctrlCurrent.analogRight[1] = (u8)ceilf(-y * 127.5f + 127.5f);
 	}
 }
 
