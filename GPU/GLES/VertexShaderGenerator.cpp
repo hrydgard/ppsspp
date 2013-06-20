@@ -429,9 +429,10 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
 			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
 
-			if (type == GE_LIGHTTYPE_DIRECTIONAL)
-				WRITE(p, "  toLight = normalize(u_lightpos%i);\n", i);
-			else {
+			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
+				// We prenormalize light positions for directional lights.
+				WRITE(p, "  toLight = u_lightpos%i;\n", i);
+			} else {
 				WRITE(p, "  toLight = u_lightpos%i - worldpos;\n", i);
 				WRITE(p, "  distance = length(toLight);\n");
 				WRITE(p, "  toLight /= distance;\n");
