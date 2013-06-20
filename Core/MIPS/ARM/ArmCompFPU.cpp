@@ -105,6 +105,17 @@ void Jit::Comp_FPULS(u32 op)
 			}
 			ADD(R0, R0, R11);
 		}
+#ifdef __ARM_ARCH_7S__
+        FixupBranch skip;
+        if (doCheck) {
+            skip = B_CC(CC_EQ);
+        }
+        VLDR(fpr.R(ft), R0, 0);
+        if (doCheck) {
+            SetJumpTarget(skip);
+            SetCC(CC_AL);
+        }
+#else
 		VLDR(fpr.R(ft), R0, 0);
 		if (doCheck) {
 			SetCC(CC_EQ);
@@ -112,6 +123,7 @@ void Jit::Comp_FPULS(u32 op)
 			VMOV(fpr.R(ft), R0);
 			SetCC(CC_AL);
 		}
+#endif
 		break;
 
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
@@ -129,10 +141,22 @@ void Jit::Comp_FPULS(u32 op)
 			}
 			ADD(R0, R0, R11);
 		}
+#ifdef __ARM_ARCH_7S__
+        FixupBranch skip2;
+        if (doCheck) {
+            skip2 = B_CC(CC_EQ);
+        }
+        VSTR(fpr.R(ft), R0, 0);
+        if (doCheck) {
+            SetJumpTarget(skip2);
+            SetCC(CC_AL);
+        }
+#else
 		VSTR(fpr.R(ft), R0, 0);
 		if (doCheck) {
 			SetCC(CC_AL);
 		}
+#endif
 		break;
 
 	default:
