@@ -1172,6 +1172,7 @@ void SystemScreen::render() {
 			y += 10;
 	}
 
+	/*
 	bool time = g_Config.iTimeFormat > 0 ;
 	UICheckBox(GEN_ID, x, y += stride, s->T("Time Format"), ALIGN_TOPLEFT, &time);
 	if (time) {
@@ -1219,7 +1220,8 @@ void SystemScreen::render() {
 			y += 10;
 	} else
 		g_Config.iDateFormat = 0;
-
+	*/
+	
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	if (g_Config.bEnableCheats) {
 		HLinear hlinear1(x + 60, y += stride + 10, 20);
