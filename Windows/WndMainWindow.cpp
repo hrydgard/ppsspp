@@ -726,7 +726,7 @@ namespace MainWindow
 				g_Config.bVertexCache = !g_Config.bVertexCache;
 				break;
 			case ID_OPTIONS_SHOWFPS:
-				g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
+				g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
 				break;
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
@@ -898,7 +898,7 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
-		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
+		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.iVSyncInterval != 0);
