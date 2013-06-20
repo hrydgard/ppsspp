@@ -1511,7 +1511,7 @@ static const char * credits[] = {
 	"PPSSPP is intended for educational purposes only.",
 	"",
 	"Please make sure that you own the rights to any games",
-	"you play by owning the UMD or buying the digital",
+	"you play by owning the UMD or by buying the digital",
 	"download from the PSN store on your real PSP.",
 	"",
 	"",
