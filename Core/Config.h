@@ -95,7 +95,7 @@ public:
 	bool bShowTouchControls;
 	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
-	bool bShowFPSCounter;
+	int iShowFPSCounter;
 	bool bShowDebugStats;
 	bool bLargeControls;
 	bool bAccelerometerToAnalogHoriz;
@@ -115,18 +115,19 @@ public:
 	// SystemParam
 	std::string sNickName;
 	int ilanguage;
-	int itimeformat;
+	int iTimeFormat;
 	int iDateFormat;
 	int iTimeZone;
 	bool bDayLightSavings;
 	bool bButtonPreference;
+	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 
 	std::string currentDirectory;
-	std::string externalDirectory;
+	std::string externalDirectory; 
 	std::string memCardDirectory;
 	std::string flashDirectory;
 	std::string internalDataDirectory;
