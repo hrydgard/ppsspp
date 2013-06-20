@@ -492,8 +492,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp = gstate.texwrap & 1;
 	bool tClamp = (gstate.texwrap>>8) & 1;
 
-
-	bool noMip = gstate.texlevel == 0x000001;  // Fix texlevel at 0
+	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001;  // Fix texlevel at 0
 
 	if (entry.maxLevel == 0) {
 		// Enforce no mip filtering, for safety.
