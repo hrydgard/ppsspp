@@ -54,10 +54,16 @@ struct VirtualFramebuffer {
 	int z_stride;
 
 	// There's also a top left of the drawing region, but meh...
+
+	// width/height: The detected size of the current framebuffer.
 	u16 width;
 	u16 height;
+	// renderWidth/renderHeight: The actual size we render at. May be scaled to render at higher resolutions.
 	u16 renderWidth;
 	u16 renderHeight;
+	// bufferWidth/bufferHeight: The actual (but non scaled) size of the buffer we render to. May only be bigger than width/height.
+	u16 bufferWidth;
+	u16 bufferHeight;
 
 	u16 usageFlags;
 
