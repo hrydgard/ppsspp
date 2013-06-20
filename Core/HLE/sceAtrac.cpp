@@ -528,7 +528,7 @@ u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd) {
 // because that function would tell games how to add the left stream data.
 u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 {
-	INFO_LOG(HLE, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
+	DEBUG_LOG(HLE, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return 0;
