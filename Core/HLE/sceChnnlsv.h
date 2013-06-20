@@ -23,7 +23,7 @@ typedef struct _pspChnnlsvContext1 {
 
 	/** Context data */
 	u8	result[0x10];
-	u8    key[0x10];
+	u8  key[0x10];
 	int	keyLength;
 } pspChnnlsvContext1;
 
@@ -31,7 +31,7 @@ typedef struct _pspChnnlsvContext2 {
 	/** Context data */
 	int mode;
 	int unkn;
-	u8    unknown[0x92];
+	u8  cryptedData[0x92];
 } pspChnnlsvContext2;
 
 int sceSdSetIndex_(pspChnnlsvContext1& ctx, int value);
