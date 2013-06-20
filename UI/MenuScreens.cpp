@@ -705,6 +705,10 @@ void DeveloperScreen::render() {
 		gpu->DumpNextFrame();
 	}
 
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Cleanup Recents"), ALIGN_LEFT)) {
+		g_Config.recentIsos.clear();
+	}
+	
 	UIEnd();
 }
 
