@@ -99,7 +99,6 @@ struct ApctlHandler {
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-
 void __NetInit() {
 	netInited = false;
 	netAdhocInited = false;
@@ -120,7 +119,7 @@ void __UpdateAdhocctlHandlers(int flag, int error) {
 	for(std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
 		args[2] = it->second.argument;
 
-		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 5, true);
+		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
 	}
 }
 
