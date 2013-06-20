@@ -268,13 +268,13 @@ void TextureView::Draw(UIContext &dc) {
 }
 
 void TextView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.Draw()->SetFontScale(textScale_, textScale_);
+	dc.Draw()->SetFontScale(textScaleX_, textScaleY_);
 	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
 }
 
 void TextView::Draw(UIContext &dc) {
-	dc.Draw()->SetFontScale(textScale_, textScale_);
+	dc.Draw()->SetFontScale(textScaleX_, textScaleY_);
 	dc.Draw()->DrawTextRect(dc.theme->uiFont, text_.c_str(), bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF, textAlign_);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
 }
