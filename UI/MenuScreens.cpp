@@ -833,6 +833,7 @@ void GraphicsScreenP2::render() {
 	int stride = 40;
 	int columnw = 400;
 
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Nearest Filtering"), ALIGN_TOPLEFT, &g_Config.bNearestFiltering);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
@@ -860,7 +861,7 @@ void GraphicsScreenP2::render() {
 	
 
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
@@ -873,6 +874,7 @@ void GraphicsScreenP2::render() {
 		case 1: type = "Hybrid";break;
 		case 2:	type = "Bicubic";break;
 		case 3: type = "H+B";break;
+		case 4: type = "Nearest";break;
 		}
 		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
 		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
@@ -885,6 +887,8 @@ void GraphicsScreenP2::render() {
 			g_Config.iTexScalingType = 2;
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("H+B", "H+B"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 3;
+		if (UIButton(GEN_ID, hlinear1, 130, 0, gs->T("Nearest"), ALIGN_LEFT))
+			g_Config.iTexScalingType = 4;
 		y += 20;
 		char showLevel[256];
 		sprintf(showLevel, "%s %dx", gs->T("Level :"), g_Config.iTexScalingLevel);

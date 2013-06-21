@@ -516,6 +516,30 @@ namespace {
 		}
 		fclose(fp);
 	}
+
+	//////////////////////////////////////////////////////////////////// Nearest Neighbor scaling
+	void scaleImageNearest(int scaleFactor, const uint32_t* src, uint32_t* trg, int srcWidth, int srcHeight, int yFirst, int yLast) {
+		yFirst = std::max(yFirst, 0);
+		yLast  = std::min(yLast, srcHeight);
+		if (yFirst >= yLast || srcWidth <= 0)
+			return;
+
+		const int trgWidth = srcWidth * scaleFactor;
+		for (int y = yFirst; y < yLast; ++y) {
+			uint32_t* out = trg + scaleFactor * y * trgWidth;
+			for (int x = 0; x < srcWidth; ++x) {
+				const uint32_t col = src[x + srcWidth * y];
+				
+				// fill enlarged square with source color
+				for ( int cntX = 0; cntX < scaleFactor; ++cntX ) {
+					for ( int cntY = 0; cntY < scaleFactor; ++cntY ) {
+						out[((x * scaleFactor) + cntX) + cntY * trgWidth] = col;
+					}
+				}
+			}
+		}
+		return;
+	}
 }
 
 /////////////////////////////////////// Texture Scaler
@@ -574,6 +598,9 @@ void TextureScaler::Scale(u32* &data, GLenum &dstFmt, int &width, int &height, i
 	case HYBRID_BICUBIC:
 		ScaleHybrid(factor, inputBuf, outputBuf, width, height, true);
 		break;
+	case NEAREST_NEIGHBOR:
+		ScaleNearest(factor, inputBuf, outputBuf, width, height);
+		break;
 	default:
 		ERROR_LOG(G3D, "Unknown scaling type: %d", g_Config.iTexScalingType);
 	}
@@ -611,6 +638,10 @@ void TextureScaler::ScaleBicubicBSpline(int factor, u32* source, u32* dest, int 
 
 void TextureScaler::ScaleBicubicMitchell(int factor, u32* source, u32* dest, int width, int height) {
 	GlobalThreadPool::Loop(std::bind(&scaleBicubicMitchell, factor, source, dest, width, height, placeholder::_1, placeholder::_2), 0, height);
+}
+
+void TextureScaler::ScaleNearest(int factor, u32* source, u32* dest, int width, int height) {
+	GlobalThreadPool::Loop(std::bind(&scaleImageNearest, factor, source, dest, width, height, placeholder::_1, placeholder::_2), 0, height);
 }
 
 void TextureScaler::ScaleHybrid(int factor, u32* source, u32* dest, int width, int height, bool bicubic) {
