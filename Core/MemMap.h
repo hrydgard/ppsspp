@@ -100,9 +100,11 @@ extern u8 *m_pPhysicalVRAM;
 extern u8 *m_pUncachedVRAM;
 
 // TODO: Later PSP models got more RAM.
+// Done, but we still need an emulator-wide rewrite for more RAM support/larger allocations
+// to remove the remaster hack..
 enum
 {
-	RAM_SIZE        = 0x4000000,  // 32 MB - although only the upper 24 are available for the user.
+	RAM_SIZE        = 0x4000000,  // 64 MB - although only the upper 24 are available for the user.
 	RAM_MASK        = RAM_SIZE - 1,
 
 	VRAM_SIZE       = 0x200000,

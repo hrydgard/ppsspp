@@ -43,24 +43,19 @@ namespace Memory
 
 u8 *GetPointer(const u32 address)
 {
-	if ((address & 0x3E000000) == 0x08000000)
-	{
+	if ((address & 0x3E000000) == 0x08000000) {
 		return m_pRAM + (address & RAM_MASK);
 	}
-	else if (g_RemasterMode && (address & 0x3E000000) != 0x08000000)
-	{
+	else if (g_RemasterMode && (address & 0x3E000000) != 0x08000000) {
 		return m_pRAM + (address & RAM_MASK);
 	}
-	else if ((address & 0x3F800000) == 0x04000000)
-	{
+	else if ((address & 0x3F800000) == 0x04000000) {
 		return m_pVRAM + (address & VRAM_MASK);
 	}
-	else if ((address & 0xBFFF0000) == 0x00010000)
-	{
+	else if ((address & 0xBFFF0000) == 0x00010000) {
 		return m_pScratchPad + (address & SCRATCHPAD_MASK);
 	}
-	else
-	{
+	else {
 		ERROR_LOG(MEMMAP, "Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 		if (!g_Config.bIgnoreBadMemAccess) {
 			Core_EnableStepping(true);
@@ -78,20 +73,16 @@ inline void ReadFromHardware(T &var, const u32 address)
 
 	// Could just do a base-relative read, too.... TODO
 
-	if ((address & 0x3E000000) == 0x08000000)
-	{
+	if ((address & 0x3E000000) == 0x08000000) {
 		var = *((const T*)&m_pRAM[address & RAM_MASK]);
 	}
-	else if (g_RemasterMode && (address & 0x3E000000) != 0x08000000)
-	{
+	else if (g_RemasterMode && (address & 0x3E000000) != 0x08000000) {
 		var = *((const T*)&m_pRAM[address & RAM_MASK]);
 	}
-	else if ((address & 0x3F800000) == 0x04000000)
-	{
+	else if ((address & 0x3F800000) == 0x04000000) {
 		var = *((const T*)&m_pVRAM[address & VRAM_MASK]);
 	}
-	else if ((address & 0xBFFF0000) == 0x00010000)
-	{
+	else if ((address & 0xBFFF0000) == 0x00010000) {
 		// Scratchpad
 		var = *((const T*)&m_pScratchPad[address & SCRATCHPAD_MASK]);
 	}
@@ -115,20 +106,16 @@ inline void WriteToHardware(u32 address, const T data)
 {
 	// Could just do a base-relative write, too.... TODO
 
-	if ((address & 0x3E000000) == 0x08000000)
-	{
+	if ((address & 0x3E000000) == 0x08000000) {
 		*(T*)&m_pRAM[address & RAM_MASK] = data;
 	}
-	else if (g_RemasterMode && (address & 0x3E000000) != 0x08000000)
-	{
+	else if (g_RemasterMode && (address & 0x3E000000) != 0x08000000) {
 		*(T*)&m_pRAM[address & RAM_MASK] = data;
 	}
-	else if ((address & 0x3F800000) == 0x04000000)
-	{
+	else if ((address & 0x3F800000) == 0x04000000) {
 		*(T*)&m_pVRAM[address & VRAM_MASK] = data;
 	}
-	else if ((address & 0xBFFF0000) == 0x00010000)
-	{
+	else if ((address & 0xBFFF0000) == 0x00010000) {
 		*(T*)&m_pScratchPad[address & SCRATCHPAD_MASK] = data;
 	}
 	else
@@ -149,20 +136,16 @@ inline void WriteToHardware(u32 address, const T data)
 
 bool IsValidAddress(const u32 address)
 {
-	if ((address & 0x3E000000) == 0x08000000)
-	{
+	if ((address & 0x3E000000) == 0x08000000) {
 		return true;
 	}
-	else if (g_RemasterMode && (address & 0x3E000000) != 0x08000000)
-	{
+	else if (g_RemasterMode && (address & 0x3E000000) != 0x08000000) {
 		return true;
 	}
-	else if ((address & 0x3F800000) == 0x04000000)
-	{
+	else if ((address & 0x3F800000) == 0x04000000) {
 		return true;
 	}
-	else if ((address & 0xBFFF0000) == 0x00010000)
-	{
+	else if ((address & 0xBFFF0000) == 0x00010000) {
 		return true;
 	}
 	else
