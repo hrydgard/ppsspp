@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <limits.h>
+#include <algorithm>
+
 #include "Core/HLE/sceCtrl.h"
 #include "DinputDevice.h"
 #include "ControlMapping.h"
@@ -24,6 +26,11 @@
 #include "Core/Reporting.h"
 #include "Xinput.h"
 #pragma comment(lib,"dinput8.lib")
+
+#ifdef min
+#undef min
+#undef max
+#endif
 
 unsigned int dinput_ctrl_map[] = {
 	11,     PAD_BUTTON_MENU,         // Open PauseScreen
@@ -183,8 +190,15 @@ int DinputDevice::UpdateState(InputState &input_state)
 
 	if (analog)
 	{
-		input_state.pad_lstick_x += (float)js.lX / 10000.f;
-		input_state.pad_lstick_y += -((float)js.lY / 10000.f);
+		float x = (float)js.lX / 10000.f;
+		float y = -((float)js.lY / 10000.f);
+
+		// Expand and clamp. Hack to let us reach the corners on most pads.
+		x = std::min(1.0f, std::max(-1.0f, x * 1.2f));
+		y = std::min(1.0f, std::max(-1.0f, y * 1.2f));
+
+		input_state.pad_lstick_x += x;
+		input_state.pad_lstick_y += y;
 	}
 
 	for (u8 i = 0; i < sizeof(dinput_ctrl_map)/sizeof(dinput_ctrl_map[0]); i += 2)

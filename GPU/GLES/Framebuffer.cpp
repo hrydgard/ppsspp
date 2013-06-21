@@ -350,16 +350,35 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int drawing_width, drawing_height;
 	GuessDrawingSize(drawing_width, drawing_height);
 
-	// Find a matching framebuffer
+	int buffer_width = drawing_width;
+	int buffer_height = drawing_height;
+
+	// Find a matching framebuffer, same size or bigger
 	VirtualFramebuffer *vfb = 0;
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *v = *iter;
-		if (MaskedEqual(v->fb_address, fb_address) && v->width == drawing_width && v->height == drawing_height && v->format == fmt) {
-			// Let's not be so picky for now. Let's say this is the one.
-			vfb = v;
-			// Update fb stride in case it changed
-			vfb->fb_stride = fb_stride;
-			break;
+		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
+			// Okay, let's check the sizes. If the new one is bigger than the old one, recreate.
+			// If the opposite, just use it and hope that the game sets scissors accordingly.
+			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) {
+				// Let's not be so picky for now. Let's say this is the one.
+				vfb = v;
+				// Update fb stride in case it changed
+				vfb->fb_stride = fb_stride;
+				// Just hack the width/height and we should be fine. also hack renderwidth/renderheight?
+				v->width = drawing_width;
+				v->height = drawing_height;
+				break;
+			} else {
+				INFO_LOG(HLE, "Embiggening framebuffer (%i, %i) -> (%i, %i)", (int)v->width, (int)v->height, drawing_width, drawing_height);
+				// drawing_width or drawing_height is bigger. Let's recreate with the max.
+				// To do this right we should copy the data over too, but meh.
+				buffer_width = std::max((int)v->width, drawing_width);
+				buffer_height = std::max((int)v->height, drawing_height);
+				delete v;
+				vfbs_.erase(iter);
+				break;
+			}
 		}
 	}
 
@@ -379,6 +398,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->height = drawing_height;
 		vfb->renderWidth = (u16)(drawing_width * renderWidthFactor);
 		vfb->renderHeight = (u16)(drawing_height * renderHeightFactor);
+		vfb->bufferWidth = buffer_width;
+		vfb->bufferHeight = buffer_height;
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;

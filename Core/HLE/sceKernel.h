@@ -404,6 +404,7 @@ public:
 
 	// Implement this in all subclasses:
 	// static u32 GetMissingErrorCode()
+	// static int GetStaticIDType()
 
 	virtual void DoState(PointerWrap &p)
 	{
@@ -443,7 +444,7 @@ public:
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
 			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
-			outError = T::GetMissingErrorCode(); // ?
+			outError = T::GetMissingErrorCode();
 			return 0;
 		}
 		else
@@ -452,10 +453,10 @@ public:
 			// it just acted as a static case and everything worked. This means that we will never
 			// see the Wrong type object error below, but we'll just have to live with that danger.
 			T* t = static_cast<T*>(pool[handle - handleOffset]);
-			if (t == 0)
+			if (t == 0 || t->GetIDType() != T::GetStaticIDType())
 			{
-				ERROR_LOG(HLE, "Kernel: Wrong type object %i (%08x)", handle, handle);
-				outError = T::GetMissingErrorCode(); //FIX
+				ERROR_LOG(HLE, "Kernel: Wrong object type for %i (%08x)", handle, handle);
+				outError = T::GetMissingErrorCode();
 				return 0;
 			}
 			outError = SCE_KERNEL_ERROR_OK;
@@ -477,8 +478,9 @@ public:
 	}
 
 	template <class T, typename ArgT>
-	void Iterate(bool func(T *, ArgT), ArgT arg, int type)
+	void Iterate(bool func(T *, ArgT), ArgT arg)
 	{
+		int type = T::GetStaticIDType();
 		for (int i = 0; i < maxCount; i++)
 		{
 			if (!occupied[i])
@@ -490,8 +492,6 @@ public:
 			}
 		}
 	}
-
-	static u32 GetMissingErrorCode() { return -1; }	// TODO
 
 	bool GetIDType(SceUID handle, int *type) const
 	{

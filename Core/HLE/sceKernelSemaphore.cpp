@@ -57,6 +57,7 @@ struct Semaphore : public KernelObject
 	const char *GetTypeName() {return "Semaphore";}
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Semaphore; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Semaphore; }
 
 	virtual void DoState(PointerWrap &p)

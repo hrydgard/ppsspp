@@ -466,8 +466,6 @@ void PauseScreen::render() {
 		if (gpu)
 			gpu->Resized();
 	}
-	UICheckBox(GEN_ID, x, y += stride, ss->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
-
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
 	UICheckBox(GEN_ID, x, y += stride , gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
 	if (enableFrameSkip) {
@@ -490,14 +488,50 @@ void PauseScreen::render() {
 	} else 
 		g_Config.iFrameSkip = 0;
 
-	// TODO: Add UI for more than one slot.
-	HLinear hlinear2(x, y += 70, 20);
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, i->T("Save State"), ALIGN_LEFT)) {
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
+	ui_draw2d.DrawText(UBUNTU24, gs->T("Save State :"), 30, y += 40, 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear4(x + 180 , y , 10);
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "1", ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, i->T("Load State"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "2", ALIGN_LEFT)) {
+		SaveState::SaveSlot(1, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "3", ALIGN_LEFT)) {
+		SaveState::SaveSlot(2, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "4", ALIGN_LEFT)) {
+		SaveState::SaveSlot(3, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+	if (UIButton(GEN_ID, hlinear4, 60, 0, "5", ALIGN_LEFT)) {
+		SaveState::SaveSlot(4, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+
+	ui_draw2d.DrawText(UBUNTU24, gs->T("Load State :"), 30, y += 60, 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear3(x + 180 , y + 10 , 10);
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "1", ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "2", ALIGN_LEFT)) {
+		SaveState::LoadSlot(1, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "3", ALIGN_LEFT)) {
+		SaveState::LoadSlot(2, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "4", ALIGN_LEFT)) {
+		SaveState::LoadSlot(3, 0, 0);
+		screenManager()->finishDialog(this, DR_CANCEL);
+	}
+	if (UIButton(GEN_ID, hlinear3, 60, 0, "5", ALIGN_LEFT)) {
+		SaveState::LoadSlot(4, 0, 0);
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
 
@@ -666,27 +700,31 @@ void DeveloperScreen::render() {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	if (UIButton(GEN_ID, vlinear, w, 0, d->T("Load language ini"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Load language ini"), ALIGN_LEFT)) {
 		i18nrepo.LoadIni(g_Config.languageIni);
 		// After this, g and s are no longer valid. Need to reload them.
 		g = GetI18NCategory("General");
 		d = GetI18NCategory("Developer");
 	}
 
-	if (UIButton(GEN_ID, vlinear, w, 0, d->T("Save language ini"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Save language ini"), ALIGN_LEFT)) {
 		i18nrepo.SaveIni(g_Config.languageIni);
 	}
 
-	if (UIButton(GEN_ID, vlinear, w, 0, d->T("Run CPU tests"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Run CPU Tests"), ALIGN_LEFT)) {
 		// TODO: Run tests
 		RunTests();
 		// screenManager()->push(new EmuScreen())
 	}
 
-	if (UIButton(GEN_ID, vlinear, w, 0, d->T("Dump frame to log"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Dump next frame"), ALIGN_LEFT)) {
 		gpu->DumpNextFrame();
 	}
 
+	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Cleanup Recents"), ALIGN_LEFT)) {
+		g_Config.recentIsos.clear();
+	}
+	
 	UIEnd();
 }
 
@@ -908,7 +946,35 @@ void GraphicsScreenP3::render() {
 	int y = 35;
 	int stride = 40;
 	int columnw = 400;
+	
+	bool ShowCounter = g_Config.iShowFPSCounter > 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Show VPS/FPS"), ALIGN_TOPLEFT, &ShowCounter);
+	if (ShowCounter) {
+		if (g_Config.iShowFPSCounter <= 0)
+			g_Config.iShowFPSCounter = 1;
 
+		char counter[256];
+		std::string type;
+
+		switch (g_Config.iShowFPSCounter) {
+		case 1: type = "VPS";break;
+		case 2:	type = "FPS";break;
+		case 3: type = "Both";break;
+		}
+		sprintf(counter, "%s %s", gs->T("Format :"), type.c_str());
+		ui_draw2d.DrawText(UBUNTU24, counter, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 250, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("VPS"), ALIGN_LEFT))
+			g_Config.iShowFPSCounter = 1;
+		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("FPS"), ALIGN_LEFT))
+			g_Config.iShowFPSCounter = 2;
+		if (UIButton(GEN_ID, hlinear1, 90, 0, gs->T("Both"), ALIGN_LEFT))
+			g_Config.iShowFPSCounter = 3;
+
+		y += 20;
+	} else 
+		g_Config.iShowFPSCounter = 0;
+		
 	bool FpsLimit = g_Config.iFpsLimit != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("FPS Limit"), ALIGN_TOPLEFT, &FpsLimit);
 	if (FpsLimit) {
@@ -976,7 +1042,7 @@ void LanguageScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *l = GetI18NCategory("Language");
 
-	bool small = dp_xres < 720;
+	bool small = dp_xres < 790;
 
 	if (!small) {
 		ui_draw2d.SetFontScale(1.5f, 1.5f);
@@ -999,6 +1065,12 @@ void LanguageScreen::render() {
 	
 	
 	for (size_t i = 0; i < langs_.size(); i++) {
+		// Skip README
+		if (langs_[i].name.find("README") != std::string::npos) {
+			continue;
+		}
+
+
 		std::string code;
 		size_t dot = langs_[i].name.find('.');
 		if (dot != std::string::npos)
@@ -1022,6 +1094,7 @@ void LanguageScreen::render() {
 		langValuesMapping["zh_CN"] = std::make_pair("简体中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED);
 
 		//langValuesMapping["ar_AE"] = std::make_pair("العربية", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+		langValuesMapping["az_AZ"] = std::make_pair("Azeri", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["ca_ES"] = std::make_pair("Català", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["gr_EL"] = std::make_pair("ελληνικά", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 		langValuesMapping["he_IL"] = std::make_pair("עברית", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
@@ -1035,7 +1108,7 @@ void LanguageScreen::render() {
 
 		if (!code.empty()) {
 			if(langValuesMapping.find(code) == langValuesMapping.end()) {
-				//No title found, show locale code
+				// No title found, show locale code
 				buttonTitle = code;
 			} else {
 				buttonTitle = langValuesMapping[code].first;
@@ -1102,18 +1175,84 @@ void SystemScreen::render() {
 #endif
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
-	UICheckBox(GEN_ID, x, y += stride, s->T("Show FPS"), ALIGN_TOPLEFT, &g_Config.bShowFPSCounter);
-	UICheckBox(GEN_ID, x, y += stride, s->T("Encrypt Save"), ALIGN_TOPLEFT, &g_Config.bEncryptSave);
-	UICheckBox(GEN_ID, x, y += stride, s->T("Use Button X to Confirm"), ALIGN_TOPLEFT, &g_Config.bButtonPreference); 
-	bool tf = g_Config.itimeformat == 1;
-	if (UICheckBox(GEN_ID, x, y += stride, s->T("12HR Time Format"), ALIGN_TOPLEFT, &tf)) {
-		g_Config.itimeformat = tf ? 1 : 0;
+
+	UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
+	UICheckBox(GEN_ID, x, y += stride, s->T("Button Preference"), ALIGN_TOPLEFT, &g_Config.bButtonPreference); 
+	if (g_Config.bButtonPreference) {
+			char button[256];
+			std::string type;
+			switch (g_Config.iButtonPreference) {
+				case 0:	type = "O to Enter";break;
+				case 1: type = "X to Enter";break;
+			}
+			sprintf(button, "%s %s", s->T("Type :"), type.c_str());
+			ui_draw2d.DrawText(UBUNTU24, button, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			HLinear hlinear1(x + 280, y, 20);
+			if (UIButton(GEN_ID, hlinear1, 90, 0, s->T("Use O"), ALIGN_LEFT))
+					g_Config.iButtonPreference = 0;
+			if (UIButton(GEN_ID, hlinear1, 90, 0, s->T("Use X"), ALIGN_LEFT))
+					g_Config.iButtonPreference = 1;
+			y += 10;
 	}
+
+	/*
+	bool time = g_Config.iTimeFormat > 0 ;
+	UICheckBox(GEN_ID, x, y += stride, s->T("Time Format"), ALIGN_TOPLEFT, &time);
+	if (time) {
+			if (g_Config.iTimeFormat <= 0)
+				g_Config.iTimeFormat = 1;
+
+			char button[256];
+			std::string type;
+			switch (g_Config.iTimeFormat) {
+				case 1:	type = "12HR";break;
+				case 2: type = "24HR";break;
+			}
+			sprintf(button, "%s %s", s->T("Format :"), type.c_str());
+			ui_draw2d.DrawText(UBUNTU24, button, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			HLinear hlinear1(x + 280, y, 20);
+			if (UIButton(GEN_ID, hlinear1, 80, 0, s->T("12HR"), ALIGN_LEFT))
+					g_Config.iTimeFormat = 1;
+			if (UIButton(GEN_ID, hlinear1, 80, 0, s->T("24HR"), ALIGN_LEFT))
+					g_Config.iTimeFormat = 2;
+			y += 10;
+	} else
+		g_Config.iTimeFormat = 0 ;
+
+	bool date = g_Config.iDateFormat > 0;
+	UICheckBox(GEN_ID, x, y += stride, s->T("Date Format"), ALIGN_TOPLEFT, &date);
+	if (date) {
+			if (g_Config.iDateFormat <= 0)
+				g_Config.iDateFormat = 1;
+			char button[256];
+			std::string type;
+			switch (g_Config.iDateFormat) {
+				case 1: type = "YYYYMMDD";break;
+				case 2: type = "MMDDYYYY";break;
+				case 3:	type = "DDMMYYYY";break;
+			}
+			sprintf(button, "%s %s", s->T("Format :"), type.c_str());
+			ui_draw2d.DrawText(UBUNTU24, button, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			HLinear hlinear1(x + 350, y, 10);
+			if (UIButton(GEN_ID, hlinear1, 70, 0, s->T("YMD"), ALIGN_LEFT))
+					g_Config.iDateFormat = 1;
+			if (UIButton(GEN_ID, hlinear1, 70, 0, s->T("MDY"), ALIGN_LEFT))
+					g_Config.iDateFormat = 2;
+			if (UIButton(GEN_ID, hlinear1, 70, 0, s->T("DMY"), ALIGN_LEFT))
+					g_Config.iDateFormat = 3;
+			y += 10;
+	} else
+		g_Config.iDateFormat = 0;
+	*/
+	
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
-	HLinear hlinear2(x, y += stride + 10, 20);
-	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH + 50, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) {
-		g_Config.bReloadCheats = true;
+	if (g_Config.bEnableCheats) {
+		HLinear hlinear1(x + 60, y += stride + 10, 20);
+		if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH + 50, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) 
+			g_Config.bReloadCheats = true;
+		y += 10;
 	}
+	HLinear hlinear2(x, y += stride + 10, 20);
 	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
 		screenManager()->push(new LanguageScreen());
 	} 
@@ -1143,17 +1282,47 @@ void ControlsScreen::render() {
 	int columnw = 440;
 
 	UICheckBox(GEN_ID, x, y += stride, c->T("OnScreen", "On-Screen Touch Controls"), ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
+	UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	if (g_Config.bShowTouchControls) {
-		UICheckBox(GEN_ID, x, y += stride, c->T("Large Controls"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
-		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
+		if (g_Config.bLargeControls) {
+			char scale[256];
+			sprintf(scale, "%s %0.2f", c->T("Scale :"), g_Config.fButtonScale);
+			ui_draw2d.DrawText(UBUNTU24, scale, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			HLinear hlinear1(x + 250, y, 20);
+			if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
+				g_Config.fButtonScale = 1.15;
+			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("-0.1"), ALIGN_LEFT))
+				if (g_Config.fButtonScale > 1.15)
+					g_Config.fButtonScale -= 0.1;
+			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("+0.1"), ALIGN_LEFT))
+				if (g_Config.fButtonScale < 2.05)
+					g_Config.fButtonScale += 0.1;
+			y += 20;
+		}
 		// This will be a slider in the new UI later
-		bool bTransparent = g_Config.iTouchButtonOpacity < 30;
+		bool bTransparent = g_Config.iTouchButtonOpacity < 65;
 		bool prev = bTransparent;
-		UICheckBox(GEN_ID, x, y += stride, c->T("Transparent Buttons"), ALIGN_TOPLEFT, &bTransparent);
+		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Opacity"), ALIGN_TOPLEFT, &bTransparent);
+		if (bTransparent) {
+			char opacity[256];
+			sprintf(opacity, "%s %d", c->T("Opacity :"), g_Config.iTouchButtonOpacity);
+			ui_draw2d.DrawText(UBUNTU24, opacity, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			HLinear hlinear1(x + 250, y, 20);
+			if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
+				g_Config.iTouchButtonOpacity = 15;
+			if (UIButton(GEN_ID, hlinear1, 40, 0, c->T("-5"), ALIGN_LEFT))
+				if (g_Config.iTouchButtonOpacity > 15)
+					g_Config.iTouchButtonOpacity -= 5;
+			if (UIButton(GEN_ID, hlinear1, 40, 0, c->T("+5"), ALIGN_LEFT))
+				if (g_Config.iTouchButtonOpacity < 65)
+					g_Config.iTouchButtonOpacity += 5;
+			y += 20;
+		}
 		if (bTransparent != prev)
 			g_Config.iTouchButtonOpacity = bTransparent ? 15 : 65;
 	}
-	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 
 	// Button to KeyMapping screen
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
@@ -1457,7 +1626,7 @@ static const char * credits[] = {
 	"PPSSPP is intended for educational purposes only.",
 	"",
 	"Please make sure that you own the rights to any games",
-	"you play by owning the UMD or buying the digital",
+	"you play by owning the UMD or by buying the digital",
 	"download from the PSN store on your real PSP.",
 	"",
 	"",

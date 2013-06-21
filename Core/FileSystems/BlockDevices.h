@@ -39,13 +39,12 @@ public:
 class CISOFileBlockDevice : public BlockDevice
 {
 public:
-	CISOFileBlockDevice(std::string _filename);
+	CISOFileBlockDevice(FILE *file);
 	~CISOFileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr);
 	u32 GetNumBlocks() { return numBlocks;}
 
 private:
-	std::string filename;
 	FILE *f;
 	u32 *index;
 	int indexShift;
@@ -57,13 +56,12 @@ private:
 class FileBlockDevice : public BlockDevice
 {
 public:
-	FileBlockDevice(std::string _filename);
+	FileBlockDevice(FILE *file);
 	~FileBlockDevice();
 	bool ReadBlock(int blockNumber, u8 *outPtr);
 	u32 GetNumBlocks() {return (u32)(filesize / GetBlockSize());}
 
 private:
-	std::string filename;
 	FILE *f;
 	size_t filesize;
 };
@@ -82,14 +80,13 @@ struct table_info {
 class NPDRMDemoBlockDevice : public BlockDevice
 {
 public:
-	NPDRMDemoBlockDevice(std::string _filename);
+	NPDRMDemoBlockDevice(FILE *file);
 	~NPDRMDemoBlockDevice();
 
 	bool ReadBlock(int blockNumber, u8 *outPtr);
 	u32 GetNumBlocks() {return (u32)lbaSize;}
 
 private:
-	std::string filename_;
 	FILE *f;
 	u32 lbaSize;
 

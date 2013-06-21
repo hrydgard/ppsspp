@@ -72,6 +72,7 @@ void __UtilityDoState(PointerWrap &p)
 	msgDialog.DoState(p);
 	oskDialog.DoState(p);
 	netDialog.DoState(p);
+	screenshotDialog.DoState(p);
 	p.Do(currentlyLoadedModules);
 	p.DoMarker("sceUtility");
 }
@@ -82,6 +83,7 @@ void __UtilityShutdown()
 	msgDialog.Shutdown(true);
 	oskDialog.Shutdown(true);
 	netDialog.Shutdown(true);
+	screenshotDialog.Shutdown(true);
 }
 
 int __UtilityGetStatus()
@@ -459,7 +461,7 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		param = g_Config.iDateFormat;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
-		param = g_Config.itimeformat?PSP_SYSTEMPARAM_TIME_FORMAT_12HR:PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+		param = g_Config.iTimeFormat?PSP_SYSTEMPARAM_TIME_FORMAT_12HR:PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
 		param = g_Config.iTimeZone;
@@ -471,7 +473,7 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		param = g_Config.ilanguage;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_BUTTON_PREFERENCE:
-		param = g_Config.bButtonPreference?PSP_SYSTEMPARAM_BUTTON_CROSS:PSP_SYSTEMPARAM_BUTTON_CIRCLE;
+		param = g_Config.iButtonPreference?PSP_SYSTEMPARAM_BUTTON_CROSS:PSP_SYSTEMPARAM_BUTTON_CIRCLE;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
 		param = g_Config.iLockParentalLevel;

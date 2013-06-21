@@ -64,6 +64,7 @@ struct Mutex : public KernelObject
 	const char *GetName() {return nm.name;}
 	const char *GetTypeName() {return "Mutex";}
 	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
 
 	virtual void DoState(PointerWrap &p)
@@ -125,6 +126,7 @@ struct LwMutex : public KernelObject
 	const char *GetName() {return nm.name;}
 	const char *GetTypeName() {return "LwMutex";}
 	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_LwMutex; }
 	int GetIDType() const { return SCE_KERNEL_TMID_LwMutex; }
 
 	virtual void DoState(PointerWrap &p)

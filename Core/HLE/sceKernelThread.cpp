@@ -82,6 +82,7 @@ public:
 	}
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_CBID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Callback; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Callback; }
 
 	virtual void DoState(PointerWrap &p)
@@ -295,7 +296,7 @@ public:
 	}
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_THID; }
-
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Thread; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Thread; }
 
 	bool AllocateStack(u32 &stackSize)

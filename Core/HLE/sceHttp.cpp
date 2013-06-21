@@ -25,14 +25,24 @@ int sceHttpSetResolveRetry(int connectionID, int retryCount)
 	return 0;
 }
 
+int sceHttpInit() {
+	ERROR_LOG(HLE, "UNIMPL sceHttpInit()");
+	return 0;
+}
+
+int sceHttpEnd() {
+	ERROR_LOG(HLE, "UNIMPL sceHttpInit()");
+	return 0;
+}
+
 /*
 *	0x62411801 sceSircsInit
 0x19155a2f sceSircsEnd
 0x71eef62d sceSircsSend
 	*/
 const HLEFunction sceHttp[] = {
-	{0xab1abe07,0,"sceHttpInit"},
-	{0xd1c8945e,0,"sceHttpEnd"},
+	{0xab1abe07,WrapI_V<sceHttpInit>,"sceHttpInit"},
+	{0xd1c8945e,WrapI_V<sceHttpEnd>,"sceHttpEnd"},
 	{0xa6800c34,0,"sceHttpInitCache"},
 	{0x78b54c09,0,"sceHttpEndCache"},
 	{0x59e6d16f,0,"sceHttpEnableCache"},

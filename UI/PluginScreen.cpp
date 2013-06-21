@@ -55,7 +55,7 @@ void PluginScreen::CreateViews() {
 	Margins textMargins(20,17);
 	Margins buttonMargins(10,10);
 
-	root_->Add(new TextView(UBUNTU24, "Atrac3+ Audio Decoding Support", ALIGN_HCENTER, 1.0f, new LinearLayoutParams(textMargins)));
+	root_->Add(new TextView(UBUNTU24, "Atrac3+ Audio Support", ALIGN_HCENTER, 1.5f, new LinearLayoutParams(textMargins)));
 
 	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	LinearLayout *scrollContents = new LinearLayout(ORIENT_VERTICAL);
@@ -66,11 +66,11 @@ void PluginScreen::CreateViews() {
 
 	const char *legalityNotice =
 		p->T("Origins are dubious", "* Mai's Atrac3+ decoder is currently required\n"
-		"for audio in many games.\n"
+		"for background audio and voice in many games.\n"
 		"Please note that the origins of this code are dubious.\n"
 		"Choose More Information for more information.");
 
-	scrollContents->Add(new TextView(0, legalityNotice, ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins) ));
+	scrollContents->Add(new TextView(0, legalityNotice, ALIGN_LEFT, 0.65f, new LinearLayoutParams(textMargins) ));
 
 	progress_ = root_->Add(new ProgressBar());
 	progress_->SetVisibility(V_GONE);

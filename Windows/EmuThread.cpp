@@ -67,6 +67,7 @@ void EmuThread_Start()
 
 void EmuThread_Stop()
 {
+	globalUIState = UISTATE_EXIT;
 //	DSound_UpdateSound();
 	Core_Stop();
 	Core_WaitInactive(800);
@@ -137,7 +138,14 @@ unsigned int WINAPI TheThread(void *)
 
 	Core_EnableStepping(FALSE);
 
-	Core_Run();
+	while (globalUIState != UISTATE_EXIT)
+	{
+		Core_Run();
+
+		// We're here again, so the game quit.  Restart Core_Run() which controls the UI.
+		// This way they can load a new game.
+		Core_UpdateState(CORE_RUNNING);
+	}
 
 shutdown:
 	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);

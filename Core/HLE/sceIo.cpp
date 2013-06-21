@@ -158,6 +158,7 @@ public:
 		sprintf(ptr, "Seekpos: %08x", (u32)pspFileSystem.GetSeekPos(handle));
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
+	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_File; }
 	int GetIDType() const { return PPSSPP_KERNEL_TMID_File; }
 
 	virtual void DoState(PointerWrap &p) {
@@ -1441,6 +1442,7 @@ public:
 	const char *GetName() {return name.c_str();}
 	const char *GetTypeName() {return "DirListing";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_BADF; }
+	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_DirList; }
 	int GetIDType() const { return PPSSPP_KERNEL_TMID_DirList; }
 
 	virtual void DoState(PointerWrap &p) {

@@ -484,16 +484,6 @@ static const GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-// OpenGL ES 2.0 workaround. This SHOULD be available but is NOT in the headers in Android.
-// Let's see if this hackery works.
-#ifndef GL_TEXTURE_LOD_BIAS
-#define GL_TEXTURE_LOD_BIAS 0x8501
-#endif
-
-#ifndef GL_TEXTURE_MAX_LOD
-#define GL_TEXTURE_MAX_LOD 0x813B
-#endif
-
 // This should not have to be done per texture! OpenGL is silly yo
 // TODO: Dirty-check this against the current texture.
 void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
@@ -502,6 +492,8 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp = gstate.texwrap & 1;
 	bool tClamp = (gstate.texwrap>>8) & 1;
 
+	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001;  // Fix texlevel at 0
+
 	if (entry.maxLevel == 0) {
 		// Enforce no mip filtering, for safety.
 		minFilt &= 1; // no mipmaps yet
@@ -509,7 +501,9 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		// TODO: Is this a signed value? Which direction?
 		float lodBias = 0.0; // -(float)((gstate.texlevel >> 16) & 0xFF) / 16.0f;
 		if (force || entry.lodBias != lodBias) {
+#ifndef USING_GLES2
 			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, lodBias);
+#endif
 			entry.lodBias = lodBias;
 		}
 	}
@@ -519,7 +513,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		minFilt |= 1;
 	}
 
-	if (!g_Config.bMipMap) {
+	if (!g_Config.bMipMap || noMip) {
 		magFilt &= 1;
 		minFilt &= 1;
 	}
@@ -1117,8 +1111,8 @@ void TextureCache::SetTexture() {
 			LoadTextureLevel(*entry, i, replaceImages);
 		}
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
-#endif
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
+#endif
 	} else {
 		LoadTextureLevel(*entry, 0, replaceImages);
 #ifndef USING_GLES2

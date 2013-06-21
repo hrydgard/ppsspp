@@ -356,14 +356,24 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		char hour_time[10] ;
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
 		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
-		if (g_Config.itimeformat == PSP_SYSTEMPARAM_TIME_FORMAT_12HR) {
+		switch (g_Config.iTimeFormat) {
+		case 1:
 			if (hour > 12) {
 				strcpy(am_pm, "PM");
 				hour -= 12;
 			}
 			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
-		} else 
-			snprintf(hour_time,10,"%02d:%02d", hour, min);
+			break;
+		case 2:
+			snprintf(hour_time,10,"%02d:%02d", hour, min); 
+			break;
+		default:
+			if (hour > 12) {
+				strcpy(am_pm, "PM");
+				hour -= 12;
+			}
+			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+		}
 
 		snprintf(title, 512, "%s", param.GetFileInfo(currentSelectedSave).title);
 		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
@@ -371,14 +381,15 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
 		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
 		switch (g_Config.iDateFormat) {
-		case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
-			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
+		case 1:
+			snprintf(time, 512, "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
 			break;
-		case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+		case 2:
 			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", month, day, year, hour_time, sizeK);
 			break;
-		case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
-			// fall through
+		case 3:
+			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
+			break;
 		default:
 			snprintf(time, 512, "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
 		}
@@ -408,14 +419,24 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 		char hour_time[10] ;
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
 		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
-		if (g_Config.itimeformat == PSP_SYSTEMPARAM_TIME_FORMAT_12HR) {
+		switch (g_Config.iTimeFormat) {
+		case 1:
 			if (hour > 12) {
 				strcpy(am_pm, "PM");
 				hour -= 12;
 			}
 			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
-		} else 
-			snprintf(hour_time,10,"%02d:%02d", hour, min);
+			break;
+		case 2:
+			snprintf(hour_time,10,"%02d:%02d", hour, min); 
+			break;
+		default:
+			if (hour > 12) {
+				strcpy(am_pm, "PM");
+				hour -= 12;
+			}
+			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+		}
 
 		const char *saveTitle = param.GetFileInfo(currentSelectedSave).saveTitle;
 		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
@@ -423,14 +444,14 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
 		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
 		switch (g_Config.iDateFormat) {
-		case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
-			snprintf(date, 256, "%02d/%02d/%d", day, month, year);
-			break;
-		case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+		case 1:
+			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
+		case 2:
 			snprintf(date, 256, "%02d/%02d/%d", month, day, year);
 			break;
-		case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
-			// fall through
+		case 3:
+			snprintf(date, 256, "%02d/%02d/%d", day, month, year);
+			break;
 		default:
 			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
 		}

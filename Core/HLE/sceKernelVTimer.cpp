@@ -42,6 +42,7 @@ struct VTimer : public KernelObject {
 	const char *GetName() {return nvt.name;}
 	const char *GetTypeName() {return "VTimer";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VTID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_VTimer; }
 	int GetIDType() const { return SCE_KERNEL_TMID_VTimer; }
 
 	virtual void DoState(PointerWrap &p) {
