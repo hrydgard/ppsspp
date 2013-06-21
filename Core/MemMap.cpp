@@ -90,6 +90,8 @@ void DoState(PointerWrap &p)
 	p.DoMarker("VRAM");
 	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
+	p.Do(g_RemasterMode);
+	p.DoMarker("RemasterMode");
 }
 
 void Shutdown()

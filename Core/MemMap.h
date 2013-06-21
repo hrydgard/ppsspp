@@ -23,6 +23,8 @@
 #include "Common.h"
 #include "CommonTypes.h"
 
+#include "HDRemaster.h"
+
 // Enable memory checks in the Debug/DebugFast builds, but NOT in release
 #if defined(_DEBUG) || defined(DEBUGFAST)
 #define ENABLE_MEM_CHECK
@@ -64,7 +66,7 @@ inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;}
 // game through sceKernelVolatileMemTryLock.
 
 inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
-inline u32 PSP_GetUserMemoryEnd()  { return 0x0A000000;}
+inline u32 PSP_GetUserMemoryEnd()  { return g_RemasterMode? 0x0B8FFFFF : 0x0A000000;}
 
 inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
 //inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
@@ -100,7 +102,7 @@ extern u8 *m_pUncachedVRAM;
 // TODO: Later PSP models got more RAM.
 enum
 {
-	RAM_SIZE        = 0x2000000,  // 32 MB - although only the upper 24 are available for the user.
+	RAM_SIZE        = 0x4000000,  // 32 MB - although only the upper 24 are available for the user.
 	RAM_MASK        = RAM_SIZE - 1,
 
 	VRAM_SIZE       = 0x200000,

@@ -63,9 +63,18 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 		if (g_paramSFO.ReadSFO(paramsfo, (size_t)fileInfo.size))
 		{
 			char title[1024];
-			sprintf(title, "%s : %s", g_paramSFO.GetValueString("DISC_ID").c_str(), g_paramSFO.GetValueString("TITLE").c_str());
+			std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+			sprintf(title, "%s : %s", gameID.c_str(), g_paramSFO.GetValueString("TITLE").c_str());
 			INFO_LOG(LOADER, "%s", title);
 			host->SetWindowTitle(title);
+			g_RemasterMode = false;
+			for(int i = 0; i < REMASTER_COUNT; i++) {
+				if(g_RemastersGameIDs[i] == gameID) {
+					g_RemasterMode = true;
+					break;
+				}
+			}
+			DEBUG_LOG(LOADER, "HDRemaster mode is %s", g_RemasterMode? "true": "false");
 		}
 		delete [] paramsfo;
 	}
