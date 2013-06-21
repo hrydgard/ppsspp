@@ -384,7 +384,7 @@ BEGIN
         MENUITEM "&Vertex Cache",               ID_OPTIONS_VERTEXCACHE
         MENUITEM "&Use VBO (experimental)",     ID_OPTIONS_USEVBO
         MENUITEM "&Frame Skipping",             ID_OPTIONS_FRAMESKIP
-        MENUITEM "&Linear Filtering",           ID_OPTIONS_LINEARFILTERING
+        MENUITEM "&Force Linear Filtering",     ID_OPTIONS_LINEARFILTERING
         MENUITEM "Simple &2x SSAA",             ID_OPTIONS_SIMPLE2XSSAA
         MENUITEM "&MipMapping",                 ID_OPTIONS_MIPMAP
         MENUITEM "VS&ync",                      ID_OPTIONS_VSYNC
@@ -400,7 +400,6 @@ BEGIN
             MENUITEM "&Hybrid",                     ID_TEXTURESCALING_HYBRID
             MENUITEM "&Bicubic",                    ID_TEXTURESCALING_BICUBIC
             MENUITEM "&Hybrid Bicubic",             ID_TEXTURESCALING_HYBRID_BICUBIC
-            MENUITEM "&Nearest Neighbor",           ID_TEXTURESCALING_NEAREST_NEIGHBOR
             MENUITEM SEPARATOR
             MENUITEM "&Deposterize",                ID_TEXTURESCALING_DEPOSTERIZE
         END
