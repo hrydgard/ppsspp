@@ -37,7 +37,7 @@ contains(MEEGO_EDITION,harmattan)|!count(gleslib,0) {
 contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
 qnx {
 	# Use mkspec: unsupported/qws/qnx-armv7-g++
-	DEFINES += BLACKBERRY BLACKBERRY10 "_QNX_SOURCE=1" "_C99=1"
+	DEFINES += BLACKBERRY "_QNX_SOURCE=1" "_C99=1"
 }
 symbian {
 	# Does not seem to be a way to change to armv6 compile so just override in variants.xml (see README)

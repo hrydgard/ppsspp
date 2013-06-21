@@ -63,7 +63,7 @@ public:
 	bool bBufferedRendering;
 	bool bLinearFiltering;
 	bool bUseVBO;
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 	bool bPartialStretch;
 #endif
 	bool bStretchToDisplay;

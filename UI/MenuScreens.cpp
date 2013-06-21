@@ -454,7 +454,7 @@ void PauseScreen::render() {
 	
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	// TODO: Maybe shouldn't show this if the screen ratios are very close...
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 	if (pixel_xres == pixel_yres)
 		UICheckBox(GEN_ID, x, y += stride, gs->T("Partial Vertical Stretch"), ALIGN_TOPLEFT, &g_Config.bPartialStretch);
 #endif

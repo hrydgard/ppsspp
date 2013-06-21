@@ -108,7 +108,7 @@ void Config::Load(const char *iniFileName)
 #endif
 	graphics->Get("VertexCache", &bVertexCache, true);
 	graphics->Get("FullScreen", &bFullScreen, false);
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 	graphics->Get("PartialStretch", &bPartialStretch, pixel_xres == pixel_yres);
 #endif
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
@@ -125,7 +125,7 @@ void Config::Load(const char *iniFileName)
 	
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
 #elif defined(USING_GLES2)
 	control->Get("ShowTouchControls", &bShowTouchControls, true);
@@ -209,7 +209,7 @@ void Config::Save()
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 		graphics->Set("PartialStretch", bPartialStretch);
 #endif
 		graphics->Set("StretchToDisplay", bStretchToDisplay);

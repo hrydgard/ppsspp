@@ -108,9 +108,6 @@ include_directories("${CMAKE_SOURCE_DIR}")
 
 if(BLACKBERRY)
 	add_definitions(-DBLACKBERRY)
-	if(BLACKBERRY VERSION_GREATER 10)
-		add_definitions(-DBLACKBERRY10)
-	endif()
 endif()
 
 if(ANDROID)
