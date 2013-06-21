@@ -320,11 +320,7 @@ u32 GLES_GPU::DrawSync(int mode)
 // TODO: Fix this so it doesn't crash
 void GLES_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
-		u32 op;
-		if(g_RemasterMode)
-			op = Memory::Read_U32(list.pc);
-		else
-			op = Memory::ReadUnchecked_U32(list.pc);
+		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
 
 		u32 diff = op ^ gstate.cmdmem[cmd];

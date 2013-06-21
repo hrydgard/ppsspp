@@ -399,7 +399,7 @@ bool GPUCommon::InterpretList(DisplayList &list)
 
 	const bool dumpThisFrame = dumpThisFrame_;
 	// TODO: Add check for displaylist debugger.
-	const bool useFastRunLoop = !dumpThisFrame;
+	const bool useFastRunLoop = !dumpThisFrame && !g_RemasterMode;
 	while (gpuState == GPUSTATE_RUNNING)
 	{
 		if (list.pc == list.stall)

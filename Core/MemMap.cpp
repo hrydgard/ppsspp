@@ -55,17 +55,22 @@ u8 *m_pKernelRAM;	// RAM mirrored up to "kernel space". Fully accessible at all 
 u8 *m_pPhysicalVRAM;
 u8 *m_pUncachedVRAM;
 
+// Holds the ending address of the PSP's user space.
+// Required for HD Remasters to work properly.
+u32 g_MemoryEnd;
+u32 g_MemoryMask;
+u32 g_MemorySize;
 
 // We don't declare the IO region in here since its handled by other means.
-static const MemoryView views[] =
+static MemoryView views[] =
 {
 	{&m_pScratchPad, &m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
 	{&m_pVRAM,       &m_pPhysicalVRAM,        0x04000000, 0x00800000, 0},
 	{NULL,           &m_pUncachedVRAM,        0x44000000, 0x00800000, MV_MIRROR_PREVIOUS},
-	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, RAM_SIZE, 0},	// only from 0x08800000 is it usable (last 24 megs)
-	{NULL,           &m_pUncachedRAM,         0x48000000, RAM_SIZE, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pKernelRAM,           0x88000000, RAM_SIZE, MV_MIRROR_PREVIOUS},
+	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, g_MemorySize, 0},	// only from 0x08800000 is it usable (last 24 megs)
+	{NULL,           &m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS},
+	{NULL,           &m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
@@ -76,6 +81,11 @@ static const int num_views = sizeof(views) / sizeof(MemoryView);
 void Init()
 {
 	int flags = 0;
+
+	g_MemoryMask = g_MemorySize - 1;
+	for(int i = 4; i < 7; i++)
+		views[i].size = g_MemorySize;
+
 	base = MemoryMap_Setup(views, num_views, flags, &g_arena);
 
 	INFO_LOG(MEMMAP, "Memory system initialized. RAM at %p (mirror at 0 @ %p, uncached @ %p)",
@@ -84,7 +94,7 @@ void Init()
 
 void DoState(PointerWrap &p)
 {
-	p.DoArray(m_pRAM, RAM_SIZE);
+	p.DoArray(m_pRAM, g_MemorySize);
 	p.DoMarker("RAM");
 	p.DoArray(m_pVRAM, VRAM_SIZE);
 	p.DoMarker("VRAM");
@@ -106,7 +116,7 @@ void Shutdown()
 void Clear()
 {
 	if (m_pRAM)
-		memset(m_pRAM, 0, RAM_SIZE);
+		memset(m_pRAM, 0, g_MemorySize);
 	if (m_pScratchPad)
 		memset(m_pScratchPad, 0, SCRATCHPAD_SIZE);
 	if (m_pVRAM)

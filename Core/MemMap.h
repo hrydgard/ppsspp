@@ -66,7 +66,7 @@ inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;}
 // game through sceKernelVolatileMemTryLock.
 
 inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
-inline u32 PSP_GetUserMemoryEnd()  { return g_RemasterMode? 0x0B8FFFFF : 0x0A000000;}
+inline u32 PSP_GetKernelMemoryEnd();
 
 inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
 //inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
@@ -99,14 +99,12 @@ extern u8 *m_pUncachedRAM;
 extern u8 *m_pPhysicalVRAM;
 extern u8 *m_pUncachedVRAM;
 
-// TODO: Later PSP models got more RAM.
-// Done, but we still need an emulator-wide rewrite for more RAM support/larger allocations
-// to remove the remaster hack..
+extern u32 g_MemoryEnd;  // End of PSP Userspace
+extern u32 g_MemorySize; // Replaces RAM_SIZE
+extern u32 g_MemoryMask; // Replaces RAM_MASK
+
 enum
 {
-	RAM_SIZE        = 0x4000000,  // 64 MB - although only the upper 24 are available for the user.
-	RAM_MASK        = RAM_SIZE - 1,
-
 	VRAM_SIZE       = 0x200000,
 	VRAM_MASK       = VRAM_SIZE - 1,
 
@@ -358,6 +356,8 @@ struct PSPPointer
 		return Memory::IsValidAddress(ptr);
 	}
 };
+
+inline u32 PSP_GetUserMemoryEnd()  { return Memory::g_MemoryEnd;}
 
 template <typename T>
 inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)

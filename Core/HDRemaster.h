@@ -18,24 +18,31 @@
 #pragma once
 
 #include <string>
-
-const int REMASTER_COUNT = 9;
+#include "CommonTypes.h"
 
 // This bool is the key to having the HD remasters work.
 // We keep it set to false by default in PSPLoaders.cpp
 // in order to keep the 99% of other PSP games working happily.
 extern bool g_RemasterMode;
 
-// TODO: Are those BLJM* IDs really valid? I haven't seen any
-// HD Remasters with them, but they're included for safety.
-const std::string g_RemastersGameIDs[REMASTER_COUNT] = {
-	"NPJB40001", // MONSTER HUNTER PORTABLE 3rd HD Ver.
-	"BLJM85002", // K-ON Houkago Live HD Ver
-	"NPJB40002", // K-ON Houkago Live HD Ver
-	"BLJM85003", // Shin Sangoku Musou Multi Raid 2 HD Ver
-	"NPJB40003", // Shin Sangoku Musou Multi Raid 2 HD Ver
-	"BLJM85004", // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
-	"NPJB40004", // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
-	"BLJM85005", // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
-	"NPJB40005", // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
+struct HDRemaster {
+	std::string gameID;
+	u64 MemorySize;
+	u64 MemoryEnd; //Seems to be different for each game as well
+};
+
+// TODO: Are those BLJM* IDs really valid? They seem to be the physical PS3 disk IDs,
+// but they're included for safety.
+const u32 REMASTER_COUNT = 9;
+
+const struct HDRemaster g_HDRemasters[REMASTER_COUNT] = {
+	{ "NPJB40001", 0x2800000, 0x0B8FFFFF }, // MONSTER HUNTER PORTABLE 3rd HD Ver.
+	{ "BLJM85002", 0x2800000, 0x0B8FFFFF }, // K-ON Houkago Live HD Ver
+	{ "NPJB40002", 0x2800000, 0x0B8FFFFF }, // K-ON Houkago Live HD Ver
+	{ "BLJM85003", 0x2800000, 0x0B8FFFFF }, // Shin Sangoku Musou Multi Raid 2 HD Ver
+	{ "NPJB40003", 0x2800000, 0x0B8FFFFF }, // Shin Sangoku Musou Multi Raid 2 HD Ver
+	{ "BLJM85004", 0x3000000, 0x0B8FFFFF }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
+	{ "NPJB40004", 0x3000000, 0x0B8FFFFF }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
+	{ "BLJM85005", 0x4000000, 0x0B8FFFFF }, // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
+	{ "NPJB40005", 0x4000000, 0x0B8FFFFF }, // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
 };

@@ -40,6 +40,8 @@
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
 
+#include "Core/MemMap.h"
+
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
 {
 	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(filename));
@@ -68,9 +70,13 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 			INFO_LOG(LOADER, "%s", title);
 			host->SetWindowTitle(title);
 			g_RemasterMode = false;
+			Memory::g_MemoryEnd = 0x0A000000;
+			Memory::g_MemorySize = 0x2000000;
 			for(int i = 0; i < REMASTER_COUNT; i++) {
-				if(g_RemastersGameIDs[i] == gameID) {
+				if(g_HDRemasters[i].gameID == gameID) {
 					g_RemasterMode = true;
+					Memory::g_MemoryEnd = g_HDRemasters[i].MemoryEnd;
+					Memory::g_MemorySize = g_HDRemasters[i].MemorySize;
 					break;
 				}
 			}
