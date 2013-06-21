@@ -43,7 +43,11 @@ inline unsigned short myhtons(unsigned short x) {
 }
 
 bool Connection::Resolve(const char *host, int port) {
-	CHECK_EQ(-1, (intptr_t)sock_);
+	if ((intptr_t)sock_ != -1) {
+		ELOG("Resolve: Already have a socket");
+		return false;
+	}
+
 	host_ = host;
 	port_ = port;
 
@@ -61,10 +65,13 @@ bool Connection::Resolve(const char *host, int port) {
 	return true;
 }
 
-void Connection::Connect() {
+bool Connection::Connect() {
 	CHECK_GE(port_, 0);
 	sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	CHECK_GE(sock_, 0);
+	if ((intptr_t)sock_ < 0) {
+		ELOG("Bad socket");
+		return false;
+	}
 
 	for (int tries = 100; tries > 0; --tries) {
 		for (addrinfo *possible = resolved_; possible != NULL; possible = possible->ai_next) {
@@ -74,7 +81,7 @@ void Connection::Connect() {
 
 			int retval = connect(sock_, possible->ai_addr, (int)possible->ai_addrlen);
 			if (retval >= 0)
-				return;
+				return true;
 		}
 #ifdef _WIN32
 		Sleep(1);
@@ -82,6 +89,7 @@ void Connection::Connect() {
 		sleep(1);
 #endif
 	}
+	return false;
 }
 
 void Connection::Disconnect() {
@@ -89,11 +97,6 @@ void Connection::Disconnect() {
 		closesocket(sock_);
 		sock_ = -1;
 	}
-}
-
-void Connection::Reconnect() {
-	Disconnect();
-	Connect();
 }
 
 }	// net
@@ -161,7 +164,7 @@ int Client::GET(const char *resource, Buffer *output) {
 	// Skip the header. TODO: read HTTP code and file size so we can make progress bars.
 
 	std::string line;
-	CHECK_GT(readbuf.TakeLineCRLF(&line), 0);
+	readbuf.TakeLineCRLF(&line);
 	int code = atoi(&line[line.find(" ") + 1]);
 
 	bool gzip = false;
@@ -210,7 +213,9 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 	}
 	buffer.Append("\r\n");
 	buffer.Append(data);
-	CHECK(buffer.FlushSocket(sock()));
+	if (!buffer.FlushSocket(sock())) {
+		ELOG("Failed posting");
+	}
 
 	// I guess we could add a deadline here.
 	output->ReadAll(sock());
@@ -271,9 +276,16 @@ void Download::Do() {
 		ELOG("Failed resolving %s", url_.c_str());
 		failed_ = true;
 		progress_ = 1.0f;
+		net::Shutdown();
 		return;
 	}
-	client.Connect();
+	if (!client.Connect()) {
+		ELOG("Failed connecting to server.");
+		resultCode_ = -1;
+		net::Shutdown();
+		progress_ = 1.0f;
+		return;
+	}
 	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_);
 	if (resultCode == 200) {
 		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.c_str());

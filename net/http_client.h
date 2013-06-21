@@ -29,11 +29,8 @@ public:
 	// Inits the sockaddr_in.
 	bool Resolve(const char *host, int port);
 
-	void Connect();
+	bool Connect();
 	void Disconnect();
-
-	// Disconnects, and connects. Doesn't re-resolve.
-	void Reconnect();
 
 	// Only to be used for bring-up and debugging.
 	uintptr_t sock() const { return sock_; }
