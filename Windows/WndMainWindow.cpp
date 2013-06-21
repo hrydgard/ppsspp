@@ -737,7 +737,12 @@ namespace MainWindow
 			case ID_OPTIONS_USEVBO:
 				g_Config.bUseVBO = !g_Config.bUseVBO;
 				break;
+			case ID_OPTIONS_NEARESTFILTERING:
+				g_Config.bNearestFiltering = !g_Config.bNearestFiltering;
+				g_Config.bLinearFiltering = false;
+				break;
 			case ID_OPTIONS_LINEARFILTERING:
+				g_Config.bNearestFiltering = false;
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
 				break;
 			case ID_OPTIONS_TOPMOST:
@@ -892,6 +897,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
+		CHECKITEM(ID_OPTIONS_NEARESTFILTERING, g_Config.bNearestFiltering);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);

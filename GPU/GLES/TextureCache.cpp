@@ -511,6 +511,11 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		minFilt |= 1;
 	}
 
+	if (g_Config.bNearestFiltering) {
+		magFilt &= 0xFFFFFFFE;
+		minFilt &= 0xFFFFFFFE;
+	}
+
 	if (!g_Config.bMipMap) {
 		magFilt &= 1;
 		minFilt &= 1;
