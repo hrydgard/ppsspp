@@ -11,7 +11,11 @@ mobile_platform: MOBILITY += sensors
 symbian: MOBILITY += systeminfo
 
 # Libs
-symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib -L ffmpeg/symbian/armv6/lib -lavformat.a -lavcodec.a -lswresample.a -lswscale.a
+symbian {
+	LIBS += -lCore.lib -lCommon.lib -lNative.lib
+	# For now you have to copy these to the Symbian lib dir. Better solution coming later.
+	LIBS += -lavutil.lib -lavformat.lib -lavcodec.lib -lswresample.lib -lswscale.lib
+}
 qnx: LIBS += -L. -lCore -lCommon -lNative -lscreen -lz
 win32 {
 	CONFIG(release, debug|release) {

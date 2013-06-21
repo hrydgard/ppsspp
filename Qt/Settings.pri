@@ -43,7 +43,8 @@ symbian {
 	# Does not seem to be a way to change to armv6 compile so just override in variants.xml (see README)
 	MMP_RULES -= "ARMFPU softvfp+vfpv2"
 	MMP_RULES += "ARMFPU vfpv2"
-	DEFINES += USE_FFMPEG "BOOST_COMPILER_CONFIG=<boost/mpl/aux_/config/gcc.hpp>"
+	DEFINES += USE_FFMPEG __STDC_CONSTANT_MACROS "BOOST_COMPILER_CONFIG=<boost/mpl/aux_/config/gcc.hpp>"
 	QMAKE_CXXFLAGS += -marm -Wno-parentheses -Wno-comment
 	INCLUDEPATH += $$EPOCROOT/epoc32/include/stdapis/glib-2.0
+	INCLUDEPATH += ../ffmpeg/symbian/armv6/include
 }
