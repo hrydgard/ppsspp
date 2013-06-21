@@ -956,8 +956,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXLEVEL:
-		// We support 000001, it means fixed at mip level 0.  Don't report 0 as it's normal.
-		if (data != 1 && data != 0)
+		if (data == 1)
+			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data)
+		else if (data != 0)
 			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
 		break;
 #endif
