@@ -483,7 +483,7 @@ void PauseScreen::render() {
 		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
 			if (g_Config.iFrameSkip < 9)
 				g_Config.iFrameSkip += 1;
-
+		y+=20;
 	} else 
 		g_Config.iFrameSkip = 0;
 
