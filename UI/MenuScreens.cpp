@@ -831,6 +831,7 @@ void GraphicsScreenP2::render() {
 	int stride = 40;
 	int columnw = 400;
 
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Nearest Filtering"), ALIGN_TOPLEFT, &g_Config.bNearestFiltering);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;

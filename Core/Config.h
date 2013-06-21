@@ -61,6 +61,7 @@ public:
 	bool bDisplayFramebuffer;
 	bool bHardwareTransform;
 	bool bBufferedRendering;
+	bool bNearestFiltering;
 	bool bLinearFiltering;
 	bool bUseVBO;
 #ifdef BLACKBERRY10
