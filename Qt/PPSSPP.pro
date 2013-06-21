@@ -11,7 +11,7 @@ mobile_platform: MOBILITY += sensors
 symbian: MOBILITY += systeminfo
 
 # Libs
-symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib
+symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib -L ffmpeg/symbian/armv6/lib -lavformat.a -lavcodec.a -lswresample.a -lswscale.a
 qnx: LIBS += -L. -lCore -lCommon -lNative -lscreen -lz
 win32 {
 	CONFIG(release, debug|release) {
