@@ -21,6 +21,7 @@
 #include "base/timeutil.h"
 #include "base/stringutil.h"
 #include "file/file_util.h"
+#include "file/zip_read.h"
 #include "image/png_load.h"
 #include "thread/prioritizedworkqueue.h"
 #include "GameInfoCache.h"
@@ -181,15 +182,21 @@ public:
 					if (pbp.GetSubFileSize(PBP_ICON0_PNG) > 0) {
 						pbp.GetSubFileAsString(PBP_ICON0_PNG, &info_->iconTextureData);
 					} else {
-						// We should load a default image here.
+						// Read standard icon
+						size_t sz;
+						uint8_t *contents = ReadLocalFile("assets/unknown.png", &sz);
+						{
+							lock_guard lock(info_->lock);
+							info_->iconTextureData = std::string((const char *)contents, sz);
+						}
+						delete [] contents;
 					}
 				}
 
 				if (info_->wantBG) {
-					{
+					if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0) {
 						lock_guard lock(info_->lock);
-						if (pbp.GetSubFileSize(PBP_PIC1_PNG) > 0)
-							pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
+						pbp.GetSubFileAsString(PBP_PIC1_PNG, &info_->pic1TextureData);
 					}
 				}
 			}
@@ -199,6 +206,18 @@ public:
 			info_->id = "ELF000000";
 			info_->id_version = "ELF000000_1.00";
 			info_->paramSFOLoaded = true;
+
+			{
+				// Read standard icon
+				size_t sz;
+				uint8_t *contents = ReadLocalFile("assets/unknown.png", &sz);
+				{
+					lock_guard lock(info_->lock);
+					info_->iconTextureData = std::string((const char *)contents, sz);
+				}
+				delete [] contents;
+			}
+
 			return;
 
 		case FILETYPE_PSP_ISO:
