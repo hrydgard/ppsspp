@@ -317,7 +317,6 @@ u32 GLES_GPU::DrawSync(int mode)
 	return GPUCommon::DrawSync(mode);
 }
 
-// TODO: Fix this so it doesn't crash
 void GLES_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
