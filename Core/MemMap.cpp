@@ -28,7 +28,6 @@
 #include "CPU.h"
 #include "Debugger/SymbolMap.h"
 
-#include <algorithm>
 #include "Loaders.h"
 #include "PSPLoaders.h"
 
