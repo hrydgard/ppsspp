@@ -700,6 +700,8 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 	default:
 		{
 			// No need to convert RGBA8888, right order already
+			if (dst != src)
+				memcpy(dst, src, numPixels * sizeof(u32));
 		}
 		break;
 	}
