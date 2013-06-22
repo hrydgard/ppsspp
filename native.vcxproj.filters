@@ -273,6 +273,7 @@
       <Filter>data</Filter>
     </ClInclude>
     <ClInclude Include="android\app-android.h" />
+    <ClInclude Include="ext\jpge\jpge.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -484,6 +485,7 @@
     <ClCompile Include="data\compression.cpp">
       <Filter>data</Filter>
     </ClCompile>
+    <ClCompile Include="ext\jpge\jpge.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
