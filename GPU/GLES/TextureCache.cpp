@@ -866,7 +866,57 @@ inline u32 TextureCache::GetCurrentClutHash() {
 	return clutHash_;
 }
 
+// #define DEBUG_TEXTURES
+
+#ifdef DEBUG_TEXTURES
+bool SetDebugTexture() {
+	static const int highlightFrames = 30;
+
+	static int numTextures = 0;
+	static int lastFrames = 0;
+	static int mostTextures = 1;
+
+	if (lastFrames != gpuStats.numFrames) {
+		mostTextures = std::max(mostTextures, numTextures);
+		numTextures = 0;
+		lastFrames = gpuStats.numFrames;
+	}
+
+	static GLuint solidTexture = 0;
+
+	bool changed = false;
+	if (((gpuStats.numFrames / highlightFrames) % mostTextures) == numTextures) {
+		if (gpuStats.numFrames % highlightFrames == 0) {
+			NOTICE_LOG(HLE, "Highlighting texture # %d / %d", numTextures, mostTextures);
+		}
+		static const u32 solidTextureData[] = {0x99AA99FF};
+
+		if (solidTexture == 0) {
+			glGenTextures(1, &solidTexture);
+			glBindTexture(GL_TEXTURE_2D, solidTexture);
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+			glPixelStorei(GL_PACK_ALIGNMENT, 1);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, solidTextureData);
+		} else {
+			glBindTexture(GL_TEXTURE_2D, solidTexture);
+		}
+		changed = true;
+	}
+
+	++numTextures;
+	return changed;
+}
+#endif
+
 void TextureCache::SetTexture() {
+#ifdef DEBUG_TEXTURES
+	if (SetDebugTexture()) {
+		// A different texture was bound, let's rebind next time.
+		lastBoundTexture = -1;
+		return;
+	}
+#endif
+
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.

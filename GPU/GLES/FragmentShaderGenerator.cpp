@@ -302,6 +302,7 @@ void GenerateFragmentShader(char *buffer) {
 #ifdef DEBUG_SHADER
 	if (doTexture) {
 		WRITE(p, "  gl_FragColor = texture2D(tex, v_texcoord.xy);\n");
+		WRITE(p, "  gl_FragColor += vec4(0.3,0,0.3,0.3);\n");
 	} else {
 		WRITE(p, "  gl_FragColor = vec4(1,0,1,1);\n");
 	}
