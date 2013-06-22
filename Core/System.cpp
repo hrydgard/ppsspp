@@ -72,7 +72,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	coreParameter = coreParam;
 	currentCPU = &mipsr4k;
 	numCPUs = 1;
-	Memory::Init();
+	Memory::Init(coreParam.fileToStart);
 	mipsr4k.Reset();
 	mipsr4k.pc = 0;
 

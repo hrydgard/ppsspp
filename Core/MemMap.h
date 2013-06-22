@@ -57,22 +57,6 @@ typedef void (*readFn16)(u16&, const u32);
 typedef void (*readFn32)(u32&, const u32);
 typedef void (*readFn64)(u64&, const u32);
 
-inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
-inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
-
-inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
-inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;} 
-// "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
-// game through sceKernelVolatileMemTryLock.
-
-inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
-inline u32 PSP_GetKernelMemoryEnd();
-
-inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
-//inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
-inline u32 PSP_GetVidMemBase() { return 0x04000000;}
-inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
-
 namespace Memory
 {
 // Base is a pointer to the base of the memory map. Yes, some MMU tricks
@@ -118,7 +102,7 @@ enum
 };
 
 // Init and Shutdown
-void Init();
+void Init(std::string fileToStart);
 void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();
@@ -358,6 +342,20 @@ struct PSPPointer
 };
 
 inline u32 PSP_GetUserMemoryEnd()  { return Memory::g_MemoryEnd;}
+inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
+inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
+
+inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
+inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;} 
+// "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
+// game through sceKernelVolatileMemTryLock.
+
+inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
+
+inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
+//inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
+inline u32 PSP_GetVidMemBase() { return 0x04000000;}
+inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
 
 template <typename T>
 inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)

@@ -28,6 +28,10 @@
 #include "CPU.h"
 #include "Debugger/SymbolMap.h"
 
+#include <algorithm>
+#include "Loaders.h"
+#include "PSPLoaders.h"
+
 namespace Memory
 {
 
@@ -78,9 +82,24 @@ static MemoryView views[] =
 
 static const int num_views = sizeof(views) / sizeof(MemoryView);
 
-void Init()
+void Init(std::string fileToStart)
 {
 	int flags = 0;
+
+	// Default memory settings
+	// TODO: Should DoubleTex really be initialized here?
+	// Seems to be the safest place currently..
+	g_MemoryEnd =  0x0A000000;
+	g_MemorySize = 0x2000000;
+	g_RemasterMode = false;
+	g_DoubleTextureCoordinates = false;
+
+	switch(Identify_File(fileToStart)) {
+	case FILETYPE_PSP_ISO:
+	case FILETYPE_PSP_ISO_NP:
+		InitGameISO(fileToStart);
+		break;
+	}
 
 	g_MemoryMask = g_MemorySize - 1;
 	for(int i = 4; i < 7; i++)
@@ -102,6 +121,10 @@ void DoState(PointerWrap &p)
 	p.DoMarker("ScratchPad");
 	p.Do(g_RemasterMode);
 	p.DoMarker("RemasterMode");
+	p.Do(g_MemoryEnd);
+	p.DoMarker("MemoryEnd");
+	p.Do(g_MemoryMask);
+	p.DoMarker("MemoryMask");
 }
 
 void Shutdown()

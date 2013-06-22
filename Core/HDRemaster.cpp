@@ -17,4 +17,5 @@
 
 #include "HDRemaster.h"
 
-bool g_RemasterMode = false;
+bool g_RemasterMode;
+bool g_DoubleTextureCoordinates;
