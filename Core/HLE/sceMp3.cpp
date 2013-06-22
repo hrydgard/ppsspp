@@ -1,4 +1,21 @@
-﻿#include "sceMp3.h"
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include "sceMp3.h"
 #include "HLE.h"
 #include "../HW/MediaEngine.h"
 
@@ -110,10 +127,10 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 
 	AVFrame frame = {0};
 	AVPacket packet = {0};
-	int got_frame, ret;
+	int got_frame = 0, ret;
 	static int audio_frame_count = 0;
 
-	while (bytesdecoded < ctx->mp3PcmBufSize) {
+	while (!got_frame) {
 		if ((ret = av_read_frame(ctx->avformat_context, &packet)) < 0)
 			break;
 
@@ -128,7 +145,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 			if (got_frame) {
 				char buf[1024] = "";
 				av_ts_make_time_string(buf, frame.pts, &ctx->decoder_context->time_base);
-				INFO_LOG(HLE, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
+				DEBUG_LOG(HLE, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
 
 				/*
 				u8 *audio_dst_data;
@@ -404,7 +421,7 @@ int sceMp3GetSumDecodedSample(u32 mp3) {
 }
 
 int sceMp3SetLoopNum(u32 mp3, int loop) {
-	DEBUG_LOG(HLE, "sceMp3SetLoopNum(%08X, %i)", mp3, loop);
+	INFO_LOG(HLE, "sceMp3SetLoopNum(%08X, %i)", mp3, loop);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -451,7 +468,7 @@ int sceMp3GetSamplingRate(u32 mp3) {
 }
 
 int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
-	DEBUG_LOG(HLE, "HACK: sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
+	INFO_LOG(HLE, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -461,7 +478,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 
 	u32 buf, max_write;
 	if (ctx->readPosition < ctx->mp3StreamEnd) {
-		buf = ctx->mp3Buf;
+		buf = ctx->mp3Buf + ctx->bufferWrite;
 		max_write = std::min(ctx->mp3BufSize - ctx->bufferWrite, ctx->mp3BufSize - ctx->bufferAvailable);
 	} else {
 		buf = 0;
@@ -479,7 +496,7 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 }
 
 int sceMp3NotifyAddStreamData(u32 mp3, int size) {
-	DEBUG_LOG(HLE, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
+	INFO_LOG(HLE, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
@@ -494,6 +511,11 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 	if (ctx->bufferWrite == ctx->mp3BufSize)
 		ctx->bufferWrite = 0;
 
+	if (ctx->readPosition >= ctx->mp3StreamEnd && ctx->mp3LoopNum != 0) {
+		ctx->readPosition = ctx->mp3StreamStart;
+		if (ctx->mp3LoopNum > 0)
+			ctx->mp3LoopNum--;
+	}
 	return 0;
 }
 
