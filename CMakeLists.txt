@@ -66,6 +66,7 @@ option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(FFMPEG "Set to OFF to disable FFMPEG usage" ${FFMPEG})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
+option(USE_FFMPEG "Build with FFMPEG support (beta)" ${USE_FFMPEG})
 
 if(ANDROID)
 	if(NOT ANDROID_ABI)
@@ -1114,6 +1115,41 @@ set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/ppge_atlas.zim)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
+
+if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
+	message(WARNING "FFMPEG_BUILDDIR variable is required to enable FFmpeg. Disabling it.")
+	unset(USE_FFMPEG)
+endif(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
+
+if(USE_FFMPEG)
+	include_directories(ffmpeg ${FFMPEG_BUILDDIR})
+
+	add_library(libavformat STATIC IMPORTED)
+	set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
+	add_library(libavcodec STATIC IMPORTED)
+	set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
+	add_library(libavutil STATIC IMPORTED)
+	set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
+	add_library(libswresample STATIC IMPORTED)
+	set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
+	add_library(libswscale STATIC IMPORTED)
+	set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
+
+	SET (FFMPEG_LIBRARIES
+		libavcodec
+		libavformat
+		libavutil
+		libswresample
+		libswscale
+	)
+	
+	if(APPLE)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework VideoDecodeAcceleration" "-framework CoreVideo")
+	endif(APPLE)
+	
+	set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
+	add_definitions(-DUSE_FFMPEG)
+endif(USE_FFMPEG)
 
 if (TargetBin)
 	if (IOS)

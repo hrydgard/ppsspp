@@ -301,6 +301,11 @@ void __MpegInit() {
 	isCurrentMpegAnalyzed = false;
 	isMpegInit = false;
 	actionPostPut = __KernelRegisterActionType(PostPutAction::Create);
+
+#ifdef USING_FFMPEG
+	avcodec_register_all();
+	av_register_all();
+#endif
 }
 
 void __MpegDoState(PointerWrap &p) {
