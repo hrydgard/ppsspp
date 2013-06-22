@@ -1275,9 +1275,9 @@ void ControlsScreen::render() {
 	int columnw = 440;
 
 	UICheckBox(GEN_ID, x, y += stride, c->T("OnScreen", "On-Screen Touch Controls"), ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
+	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	if (g_Config.bShowTouchControls) {
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-		UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		if (g_Config.bLargeControls) {
 			char scale[256];
