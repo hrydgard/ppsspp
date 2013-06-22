@@ -75,8 +75,8 @@ TextureCache::~TextureCache() {
 
 void TextureCache::Clear(bool delete_them) {
 	glBindTexture(GL_TEXTURE_2D, 0);
+	lastBoundTexture = -1;
 	if (delete_them) {
-		lastBoundTexture = -1;
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
 			glDeleteTextures(1, &iter->second.texture);
@@ -96,6 +96,7 @@ void TextureCache::Clear(bool delete_them) {
 // Removes old textures.
 void TextureCache::Decimate() {
 	glBindTexture(GL_TEXTURE_2D, 0);
+	lastBoundTexture = -1;
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
@@ -868,6 +869,7 @@ void TextureCache::SetTexture() {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		glBindTexture(GL_TEXTURE_2D, 0);
+		lastBoundTexture = -1;
 		return;
 	}
 
@@ -918,12 +920,14 @@ void TextureCache::SetTexture() {
 				if (entry->framebuffer->fbo)
 					entry->framebuffer->fbo = 0;
 				glBindTexture(GL_TEXTURE_2D, 0);
+				lastBoundTexture = -1;
 				entry->lastFrame = gpuStats.numFrames;
 			} else {
 				if (entry->framebuffer->fbo) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 				} else {
 					glBindTexture(GL_TEXTURE_2D, 0);
+					lastBoundTexture = -1;
 					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 				}
 				UpdateSamplingParams(*entry, false);
