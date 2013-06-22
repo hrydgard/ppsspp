@@ -220,20 +220,20 @@ static std::string FindName(int key, const KeyMap_IntStrPair list[], int size)
 	return unknown_key_name;
 }
 
-static std::string KeyMap::GetKeyName(KeyMap::Key key)
+std::string GetKeyName(KeyMap::Key key)
 {
 	return FindName((int)key, key_names, key_names_count);
 }
 
-static std::string KeyMap::GetPspButtonName(int btn)
+std::string GetPspButtonName(int btn)
 {
-	return FindName(btn, key_names, key_names_count);
+	return FindName(btn, psp_button_names, psp_button_names_count);
 }
 
 static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 {
 	std::map<int,int>::iterator it;
-	if (*map_id >= 0) {
+	if (*map_id <= 0) {
 		// check user configuration
 		std::map<int,int> user_map = g_Config.iMappingMap;
 		it = user_map.find(key);
@@ -244,7 +244,7 @@ static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 		}
 	}
 
-	if (*map_id >= 1 && platform_keymap != NULL) {
+	if (*map_id <= 1 && platform_keymap != NULL) {
 		// check optional platform specific keymap
 		std::map<int,int> port_map = *platform_keymap;
 		it = port_map.find(key);
@@ -255,13 +255,13 @@ static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 		}
 	}
 
-	if (*map_id >= 2) {
+	if (*map_id <= 2) {
 		// check default keymap
 		const std::map<int,int> default_map = DefaultKeyMap::KeyMap;
-		const std::map<int,int>::const_iterator it = default_map.find(key);
-		if (it != default_map.end()) {
+		const std::map<int,int>::const_iterator const_it = default_map.find(key);
+		if (const_it != default_map.end()) {
 			*map_id = 2;
-			*psp_button = it->second;
+			*psp_button = const_it->second;
 			return true;
 		}
 	}
@@ -272,7 +272,7 @@ static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 
 
 
-static int KeyMap::KeyToPspButton(const KeyMap::Key key)
+int KeyToPspButton(const KeyMap::Key key)
 {
 	int search_start_layer = 0;
 	int psp_button;
@@ -283,25 +283,25 @@ static int KeyMap::KeyToPspButton(const KeyMap::Key key)
 	return KEYMAP_ERROR_UNKNOWN_KEY;
 }
 
-static bool KeyMap::IsMappedKey(Key key)
+bool IsMappedKey(Key key)
 {
 	return KeyMap::KeyToPspButton(key) != KEYMAP_ERROR_UNKNOWN_KEY;
 }
 
 
-static std::string KeyMap::NamePspButtonFromKey(KeyMap::Key key)
+std::string NamePspButtonFromKey(KeyMap::Key key)
 {
 	return KeyMap::GetPspButtonName(KeyMap::KeyToPspButton(key));
 }
 
-static std::string KeyMap::NameKeyFromPspButton(int btn)
+std::string NameKeyFromPspButton(int btn)
 {
 	// We drive our iteration
 	// with the list of key names.
 	for (int i = 0; i < key_names_count; i++) {
-		const struct KeyMap_IntStrPair *key_name = key_names + i;
-		if (btn == KeyMap::KeyToPspButton((KeyMap::Key)key_name->key))
-			return key_name->name;
+		const struct KeyMap_IntStrPair key_name = key_names[i];
+		if (btn == KeyMap::KeyToPspButton((KeyMap::Key)(key_name.key)))
+			return key_name.name;
 	}
 
 	// all psp buttons are mapped from some key
@@ -310,7 +310,7 @@ static std::string KeyMap::NameKeyFromPspButton(int btn)
 	return unknown_key_name;
 }
 
-static int KeyMap::SetKeyMapping(KeyMap::Key key, int btn)
+int SetKeyMapping(KeyMap::Key key, int btn)
 {
 	if (KeyMap::IsMappedKey(key))
 		return KEYMAP_ERROR_KEY_ALREADY_USED;
@@ -319,7 +319,7 @@ static int KeyMap::SetKeyMapping(KeyMap::Key key, int btn)
 	return btn;
 }
 
-static int KeyMap::RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)
+int RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)
 {
 	if (overriding_map == NULL)
 		return 1;
@@ -327,7 +327,7 @@ static int KeyMap::RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_m
 	return 0;
 }
 
-static void KeyMap::DeregisterPlatformDefaultKeyMap(void)
+void DeregisterPlatformDefaultKeyMap(void)
 {
 	platform_keymap = NULL;
 	return;

@@ -42,6 +42,7 @@
 #include "UIShader.h"
 
 #include "Common/StringUtils.h"
+#include "Common/KeyMap.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "Core/HW/atrac3plus.h"
@@ -596,6 +597,7 @@ void SettingsScreen::render() {
 	UIEnd();
 }
 
+// TODO: Move these into a superclass
 void DeveloperScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
@@ -639,6 +641,20 @@ void SystemScreen::update(InputState &input) {
 }
 
 void ControlsScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void KeyMappingScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void KeyMappingNewKeyDialog::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -1317,6 +1333,105 @@ void ControlsScreen::render() {
 			g_Config.iTouchButtonOpacity = bTransparent ? 15 : 65;
 	}
 
+	// Button to KeyMapping screen
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Key Mapping"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new KeyMappingScreen());
+	}
+
+	UIEnd();
+}
+
+void KeyMappingScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	I18NCategory *generalI18N = GetI18NCategory("General");
+
+
+#define KeyBtn(x, y, symbol) \
+	if (UIButton(GEN_ID, Pos(x, y), 50, 0, (KeyMap::GetPspButtonName(symbol)).c_str(), \
+ 															ALIGN_TOPLEFT)) {\
+		screenManager()->push(new KeyMappingNewKeyDialog(symbol), 0); \
+		UIReset(); \
+	}
+
+	KeyMap::DeregisterPlatformDefaultKeyMap();
+
+	int pad = 150;
+	int hlfpad = pad / 2;
+
+	int left = 30;
+	KeyBtn(left, 30, PAD_BUTTON_LBUMPER);
+	KeyBtn(dp_yres, 30, PAD_BUTTON_RBUMPER);
+
+	int top = 100;
+	KeyBtn(left+hlfpad, top, PAD_BUTTON_UP); // ^
+	KeyBtn(left, top+hlfpad, PAD_BUTTON_LEFT);// <
+	KeyBtn(left+pad, top+hlfpad, PAD_BUTTON_RIGHT); // >
+	KeyBtn(left+hlfpad, top+pad, PAD_BUTTON_DOWN); // <
+
+	left = dp_yres;
+	KeyBtn(left+hlfpad, top, PAD_BUTTON_Y); // Triangle
+	KeyBtn(left, top+hlfpad, PAD_BUTTON_X); // Square
+	KeyBtn(left+pad, top+hlfpad, PAD_BUTTON_A); // Circle
+	KeyBtn(left+hlfpad, top+pad, PAD_BUTTON_B); // Cross
+
+	top += pad;
+	left = dp_yres /2;
+	KeyBtn(left, top, PAD_BUTTON_START);
+	KeyBtn(left + pad, top, PAD_BUTTON_SELECT);
+#undef KeyBtn
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+	UIEnd();
+}
+
+void KeyMappingNewKeyDialog::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	I18NCategory *generalI18N = GetI18NCategory("General");
+
+#define KeyText(x, y, sentence) \
+	ui_draw2d.DrawText(UBUNTU24, (sentence), x, y, 0xFFFFFFFF, ALIGN_TOPLEFT);
+#define KeyScale(width) \
+	ui_draw2d.SetFontScale(width, width);
+
+	int top = 10;
+	int left = 10;
+	int stride = 70;
+	KeyScale(1.6f);
+	KeyText(left, top, keyI18N->T("Set a new key mapping"));
+	KeyScale(1.3f);
+	KeyText(left, top += stride, keyI18N->T("Current key"));
+	KeyScale(2.0f);
+	KeyText(left, top + stride, (KeyMap::NameKeyFromPspButton(this->pspBtn)).c_str());
+
+	int right = dp_yres;
+	KeyScale(1.4f);
+	KeyText(right, top, keyI18N->T("New Key"));
+	KeyScale(2.0f);
+	KeyText(right, top + stride, "Y");
+
+	KeyScale(1.0f);
+#undef KeyText
+#undef KeyScale
+
+	// Save & cancel buttons
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Save Mapping"), ALIGN_LEFT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Cancel"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
 	UIEnd();
 }
 
