@@ -119,7 +119,6 @@ public:
 	int iDateFormat;
 	int iTimeZone;
 	bool bDayLightSavings;
-	bool bButtonPreference;
 	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
