@@ -65,7 +65,8 @@ u32 g_MemoryMask;
 u32 g_MemorySize;
 
 // We don't declare the IO region in here since its handled by other means.
-static MemoryView views[] =
+const int VIEWS_COUNT = 7;
+static MemoryView views[VIEWS_COUNT] =
 {
 	{&m_pScratchPad, &m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
@@ -101,9 +102,10 @@ void Init(std::string fileToStart)
 	}
 
 	g_MemoryMask = g_MemorySize - 1;
-	for(int i = 4; i < 7; i++)
-		views[i].size = g_MemorySize;
-
+	for(int i = 0; i < VIEWS_COUNT; i++) {
+		if(views[i].size == 0)
+			views[i].size = g_MemorySize;
+	}
 	base = MemoryMap_Setup(views, num_views, flags, &g_arena);
 
 	INFO_LOG(MEMMAP, "Memory system initialized. RAM at %p (mirror at 0 @ %p, uncached @ %p)",
