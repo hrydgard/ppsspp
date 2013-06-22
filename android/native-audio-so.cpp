@@ -48,24 +48,17 @@ static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
 		return;
 	}
 
-	int nextSamples = audioCallback(buffer[curBuffer], framesPerBuffer);
-	// We can't enqueue nothing, the callback will never be called again.
-	// Delay until we get some audio.
-	while (nextSamples == 0) {
-		usleep(40);
-		nextSamples = audioCallback(buffer[curBuffer], framesPerBuffer);
-	}
+	int renderedFrames = audioCallback(buffer[curBuffer], framesPerBuffer);
 
-	short *nextBuffer = buffer[curBuffer];
-	int nextSize = nextSamples * 2 * sizeof(short);
-
-	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, nextBuffer, nextSize);
+	int sizeInBytes = framesPerBuffer * 2 * sizeof(short);
+	memset(buffer[curBuffer] + renderedFrames * 2, 0, (framesPerBuffer - renderedFrames) * 4);
+	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeInBytes);
 
 	// Comment from sample code:
 	// the most likely other result is SL_RESULT_BUFFER_INSUFFICIENT,
 	// which for this code example would indicate a programming error
 	if (result != SL_RESULT_SUCCESS) {
-		ELOG("OpenSL ES: Failed to enqueue! %i %i", nextBuffer, nextSize);
+		ELOG("OpenSL ES: Failed to enqueue! %i %i", renderedFrames, sizeInBytes);
 	}
 
 	curBuffer ^= 1;	// Switch buffer
@@ -81,7 +74,7 @@ extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, i
 		framesPerBuffer = 32;
 	sampleRate = _SampleRate;
 	if (sampleRate != 44100 && sampleRate != 48000) {
-		ELOG("Invalid sample rate %s - choosing 44100", sampleRate);
+		ELOG("Invalid sample rate %i - choosing 44100", sampleRate);
 		sampleRate = 44100;
 	}
 
