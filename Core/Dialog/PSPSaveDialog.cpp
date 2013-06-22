@@ -223,7 +223,6 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 			return param.GetSaveDirName(param.GetPspParam());
 		// Intentional fallthrough when saveName not valid.
 
-	// TODO: Test these to see what they use for the filename.
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
@@ -233,7 +232,7 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
-		if (param.GetSaveDirName(param.GetPspParam(), currentSelectedSave) == "<>")
+		if (param.GetSaveName(param.GetPspParam()).length() != 0)
 			return param.GetSaveDirName(param.GetPspParam());
 		// Intentional fallthrough when saveName not valid.
 
