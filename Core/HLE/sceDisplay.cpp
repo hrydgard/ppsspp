@@ -115,6 +115,16 @@ enum {
 	PSP_DISPLAY_SETBUF_NEXTFRAME = 1
 };
 
+static int lastFpsFrame = 0;
+static double lastFpsTime = 0.0;
+static double fps = 0.0;
+static double fpsHistory[120];
+static size_t fpsHistoryPos = 0;
+static size_t fpsHistoryValid = 0;
+static int lastNumFlips = 0;
+static int numFlips = 0;
+static float flips = 0.0f;
+
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
 void hleAfterFlip(u64 userdata, int cyclesLate);
@@ -142,6 +152,9 @@ void __DisplayInit() {
 	vCount = 0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
+
+	fpsHistoryPos = 0;
+	fpsHistoryValid = 0;
 
 	InitGfxState();
 }
@@ -203,13 +216,24 @@ void __DisplayFireVblank() {
 	}
 }
 
-static double highestFps = 0.0;
-static int lastFpsFrame = 0;
-static double lastFpsTime = 0.0;
-static double fps = 0.0;
-
 void __DisplayGetFPS(float *out_vps, float *out_fps) {
-	*out_vps = *out_fps = fps;
+	*out_vps = fps;
+	*out_fps = flips;
+}
+
+void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
+	float avg = 0.0;
+	if (fpsHistoryValid > 0) {
+		if (fpsHistoryValid > ARRAY_SIZE(fpsHistory)) {
+			fpsHistoryValid = ARRAY_SIZE(fpsHistory);
+		}
+		for (size_t i = 0; i < fpsHistoryValid; ++i) {
+			avg += fpsHistory[i];
+		}
+		avg /= (double) fpsHistoryValid;
+	}
+
+	*out_vps = *out_fps = avg;
 }
 
 void CalculateFPS()
@@ -219,18 +243,25 @@ void CalculateFPS()
 
 	if (now >= lastFpsTime + 1.0)
 	{
-		fps = (gpuStats.numFrames - lastFpsFrame) / (now - lastFpsTime);
-		if (fps > highestFps)
-			highestFps = fps;
+		double frames = (gpuStats.numFrames - lastFpsFrame);
+		fps = frames / (now - lastFpsTime);
+		flips = 60.0 * (double) (numFlips - lastNumFlips) / frames;
 
-		lastFpsFrame = gpuStats.numFrames;	
+		lastFpsFrame = gpuStats.numFrames;
+		lastNumFlips = numFlips;
 		lastFpsTime = now;
+
+		fpsHistory[fpsHistoryPos++] = fps;
+		fpsHistoryPos = fpsHistoryPos % ARRAY_SIZE(fpsHistory);
+		++fpsHistoryValid;
 	}
 }
 
 void __DisplayGetDebugStats(char stats[2048])
 {
 	gpu->UpdateStats();
+
+	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
 
 	sprintf(stats,
 		"Frames: %i\n"
@@ -241,6 +272,7 @@ void __DisplayGetDebugStats(char stats[2048])
 		"Draw calls: %i, flushes %i\n"
 		"Cached Draw calls: %i\n"
 		"Num Tracked Vertex Arrays: %i\n"
+		"Cycles executed: %d (%f per vertex)\n"
 		"Vertices Submitted: %i\n"
 		"Cached Vertices Drawn: %i\n"
 		"Uncached Vertices Drawn: %i\n"
@@ -261,6 +293,8 @@ void __DisplayGetDebugStats(char stats[2048])
 		gpuStats.numFlushes,
 		gpuStats.numCachedDrawCalls,
 		gpuStats.numTrackedVertexArrays,
+		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
+		vertexAverageCycles,
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,
@@ -277,13 +311,17 @@ void __DisplayGetDebugStats(char stats[2048])
 	kernelStats.ResetFrame();
 }
 
+enum {
+	FPS_LIMIT_NORMAL = 0,
+	FPS_LIMIT_CUSTOM = 1,
+	FPS_LIMIT_TURBO = 2,
+};
+
 // Let's collect all the throttling and frameskipping logic here.
 void DoFrameTiming(bool &throttle, bool &skipFrame) {
-	throttle = !PSP_CoreParameter().unthrottle;
-
+	int fpsLimiter = PSP_CoreParameter().fpsLimit;
+	throttle = !PSP_CoreParameter().unthrottle && fpsLimiter != FPS_LIMIT_TURBO;
 	skipFrame = false;
-	if (PSP_CoreParameter().headLess)
-		throttle = false;
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
@@ -324,7 +362,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
 			nextFrameTime = curFrameTime + 1.0 / 60.0;
 		} else {
-			// Wait until we've catched up.
+			// Wait until we've caught up.
 			while (time_now_d() < nextFrameTime) {
 				Common::SleepCurrentThread(1);
 				time_update();
@@ -336,8 +374,12 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	// but don't let it get too far behind as things can get very jumpy.
 	const double maxFallBehindFrames = 5.5;
 
-	if (throttle || doFrameSkip) {
+	// 3 states of fps limiter
+	if (fpsLimiter == FPS_LIMIT_NORMAL) {
 		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
+	} else if (fpsLimiter == FPS_LIMIT_CUSTOM) {
+		double customLimiter = g_Config.iFpsLimit;
+		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
 	} else {
 		nextFrameTime = nextFrameTime + 1.0 / 60.0;
 	}
@@ -384,7 +426,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	gpuStats.numFrames++;
 
-	if (g_Config.bShowFPSCounter) {
+	if (g_Config.iShowFPSCounter) {
 		CalculateFPS();
 	}
 
@@ -402,7 +444,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
 	bool throttle, skipFrame;
-	
 	DoFrameTiming(throttle, skipFrame);
 
 	if (skipFrame) {
@@ -469,6 +510,10 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		fbstate.pspFramebufLinesize = linesize;
 	}
 
+	if (topaddr != framebuf.topaddr) {
+		++numFlips;
+	}
+
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
 		if (topaddr != 0) {
@@ -485,8 +530,8 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	return 0;
 }
 
-bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mode) {
-	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
+bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
+	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
 	if (topaddr != NULL)
 		*topaddr = Memory::GetPointer(fbState.topaddr);
 	if (linesize != NULL)
@@ -497,8 +542,8 @@ bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int mod
 	return true;
 }
 
-u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int mode) {
-	const FrameBufferState &fbState = mode == 1 ? latchedFramebuf : framebuf;
+u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
+	const FrameBufferState &fbState = latchedMode == 1 ? latchedFramebuf : framebuf;
 	DEBUG_LOG(HLE,"sceDisplayGetFramebuf(*%08x = %08x, *%08x = %08x, *%08x = %08x, %i)", topaddrPtr, fbState.topaddr, linesizePtr, fbState.pspFramebufLinesize, pixelFormatPtr, fbState.pspFramebufFormat, mode);
 
 	if (Memory::IsValidAddress(topaddrPtr))
@@ -532,7 +577,11 @@ u32 sceDisplayWaitVblank() {
 }
 
 u32 sceDisplayWaitVblankStartMulti(int vblanks) {
-	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMulti()");
+	if (vblanks <= 0) {
+		WARN_LOG(HLE, "sceDisplayWaitVblankStartMulti(%d): invalid number of vblanks", vblanks);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	VERBOSE_LOG(HLE, "sceDisplayWaitVblankStartMulti(%d)", vblanks);
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start multi waited");
 	return 0;
@@ -559,7 +608,11 @@ u32 sceDisplayWaitVblankStartCB() {
 }
 
 u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
-	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMultiCB()");
+	if (vblanks <= 0) {
+		WARN_LOG(HLE, "sceDisplayWaitVblankStartMultiCB(%d): invalid number of vblanks", vblanks);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartMultiCB(%d)", vblanks);
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
 	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start multi waited");
 	return 0;
@@ -593,9 +646,9 @@ u32 sceDisplayGetAccumulatedHcount() {
 }
 
 float sceDisplayGetFramePerSec() {
-	float fps = 59.9400599f;
-	DEBUG_LOG(HLE,"%f=sceDisplayGetFramePerSec()", fps);
-	return fps;	// (9MHz * 1)/(525 * 286)
+	const static float framePerSec = 59.9400599f;
+	DEBUG_LOG(HLE,"%f=sceDisplayGetFramePerSec()", framePerSec);
+	return framePerSec;	// (9MHz * 1)/(525 * 286)
 }
 
 u32 sceDisplayIsForeground() {
@@ -648,7 +701,7 @@ u32 sceDisplaySetHoldMode(u32 hMode) {
 
 const HLEFunction sceDisplay[] = {
 	{0x0E20F177,WrapU_III<sceDisplaySetMode>, "sceDisplaySetMode"},
-	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFramebuf"},
+	{0x289D82FE,WrapU_UIII<sceDisplaySetFramebuf>, "sceDisplaySetFrameBuf"},
 	{0xEEDA2E54,WrapU_UUUI<sceDisplayGetFramebuf>,"sceDisplayGetFrameBuf"},
 	{0x36CDFADE,WrapU_V<sceDisplayWaitVblank>, "sceDisplayWaitVblank"},
 	{0x984C27E7,WrapU_V<sceDisplayWaitVblankStart>, "sceDisplayWaitVblankStart"},

@@ -62,6 +62,9 @@
 #include "sceMp3.h"
 #include "scePauth.h"
 #include "sceNp.h"
+#include "sceMd5.h"
+#include "sceJpeg.h"
+#include "sceAudiocodec.h"
 
 #define N(s) s
 
@@ -72,11 +75,12 @@
 //kjfs
 //sound
 //zlibdec
-const HLEFunction FakeSysCalls[] =
-{
+const HLEFunction FakeSysCalls[] = {
 	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
 	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
 	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
+	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack"},
+	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc"},
 	{NID_IDLE, __KernelIdle, "_sceKernelIdle"},
 };
 
@@ -94,8 +98,8 @@ const HLEFunction UtilsForUser[] =
 	{0xF8FCD5BA, 0, "sceKernelUtilsSha1BlockInit"},
 	{0x346F6DA8, 0, "sceKernelUtilsSha1BlockUpdate"},
 	{0x585F1C09, 0, "sceKernelUtilsSha1BlockResult"},
-	{0xE860E75E, 0, "sceKernelUtilsMt19937Init"},
-	{0x06FB8A63, 0, "sceKernelUtilsMt19937UInt"},
+	{0xE860E75E, WrapU_UU<sceKernelUtilsMt19937Init>, "sceKernelUtilsMt19937Init"},
+	{0x06FB8A63, WrapU_U<sceKernelUtilsMt19937UInt>, "sceKernelUtilsMt19937UInt"},
 	{0x37FB5C42, WrapU_V<sceKernelGetGPI>, "sceKernelGetGPI"},
 	{0x6AD345D7, WrapV_U<sceKernelSetGPO>, "sceKernelSetGPO"},
 	{0x79D1C3FA, WrapI_V<sceKernelDcacheWritebackAll>, "sceKernelDcacheWritebackAll"},
@@ -133,7 +137,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0xBF983EF2, 0, "sceKernelProbeExecutableObject"},
 	{0x7068E6BA, 0, "sceKernelLoadExecutableObject"},
 	{0xB4D6FECC, 0, "sceKernelApplyElfRelSection"},
-	{0x54AB2675, 0, "LoadCoreForKernel_54AB2675"},
+	{0x54AB2675, 0, "sceKernelApplyPspRelSection"},
 	{0x2952F5AC, 0, "sceKernelDcacheWBinvAll"},
 	{0xD8779AC6, WrapU_V<sceKernelIcacheClearAll>, "sceKernelIcacheClearAll"},
 	{0x99A695F0, 0, "sceKernelRegisterLibrary"},
@@ -157,7 +161,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0xCCE4A157, 0, "sceKernelFindModuleByUID"},
 	{0x82CE54ED, 0, "sceKernelModuleCount"},
 	{0xC0584F0C, 0, "sceKernelGetModuleList"},
-        {0xCF8A41B1, WrapU_V<sceKernelFindModuleByName>,"sceKernelFindModuleByName"},
+	{0xCF8A41B1, WrapU_C<sceKernelFindModuleByName>,"sceKernelFindModuleByName"},
 };
 
 
@@ -263,7 +267,10 @@ void RegisterAllModules() {
 	Register_sceNp();
 	Register_sceNpCommerce2();
 	Register_sceNpService();
-	Regester_sceNpAuth();
+	Register_sceNpAuth();
+	Register_sceMd5();
+	Register_sceJpeg();
+	Register_sceAudiocodec();
 
 	for (int i = 0; i < numModules; i++)
 	{

@@ -43,6 +43,9 @@
     <ClInclude Include="ArmEmitter.h" />
     <ClInclude Include="FixedSizeUnorderedSet.h" />
     <ClInclude Include="ThreadPools.h" />
+    <ClInclude Include="Crypto\md5.h">
+      <Filter>Crypto</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -70,8 +73,16 @@
     <ClCompile Include="ArmEmitter.cpp" />
     <ClCompile Include="ArmCPUDetect.cpp" />
     <ClCompile Include="ThreadPools.cpp" />
+    <ClCompile Include="Crypto\md5.cpp">
+      <Filter>Crypto</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Crypto">
+      <UniqueIdentifier>{1b593f03-7b28-4707-9228-4981796f5589}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

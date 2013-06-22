@@ -18,10 +18,10 @@
 
 #pragma once
 
-#include <string>
 #include <map>
 
 #include "Common/CommonTypes.h"
+#include "../Globals.h"
 
 class ParamSFOData
 {

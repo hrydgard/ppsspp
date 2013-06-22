@@ -64,7 +64,7 @@ void hleDelayResultFinish(u64 userdata, int cycleslate)
 {
 	u32 error;
 	SceUID threadID = (SceUID) userdata;
-	SceUID verify = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
+	SceUID verify = __KernelGetWaitID(threadID, WAITTYPE_HLEDELAY, error);
 	// The top 32 bits of userdata are the top 32 bits of the 64 bit result.
 	// We can't just put it all in userdata because we need to know the threadID...
 	u64 result = (userdata & 0xFFFFFFFF00000000ULL) | __KernelGetWaitValue(threadID, error);
@@ -160,7 +160,7 @@ const char *GetFuncName(const char *moduleName, u32 nib)
 	static char temp[256];
 	for (auto it = exportedCalls.begin(), end = exportedCalls.end(); it != end; ++it)
 	{
-		if (!strcmp(it->moduleName, moduleName) && it->nid == nib)
+		if (!strncmp(it->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && it->nid == nib)
 		{
 			sprintf(temp, "[EXP: 0x%08x]", nib);
 			return temp;
@@ -215,7 +215,7 @@ void WriteSyscall(const char *moduleName, u32 nib, u32 address)
 		// Did another module export this already?
 		for (auto it = exportedCalls.begin(), end = exportedCalls.end(); it != end; ++it)
 		{
-			if (!strcmp(it->moduleName, moduleName) && it->nid == nib)
+			if (!strncmp(it->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && it->nid == nib)
 			{
 				Memory::Write_U32(MIPS_MAKE_J(it->symAddr), address); // j symAddr
 				Memory::Write_U32(MIPS_MAKE_NOP(), address + 4); // nop (delay slot)
@@ -243,7 +243,7 @@ void ResolveSyscall(const char *moduleName, u32 nib, u32 address)
 	for (size_t i = 0; i < unresolvedSyscalls.size(); i++)
 	{
 		Syscall *sysc = &unresolvedSyscalls[i];
-		if (strncmp(sysc->moduleName, moduleName, 32) == 0 && sysc->nid == nib)
+		if (strncmp(sysc->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) == 0 && sysc->nid == nib)
 		{
 			INFO_LOG(HLE,"Resolving %s/%08x",moduleName,nib);
 			// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
@@ -335,7 +335,7 @@ u32 hleDelayResult(u32 result, const char *reason, int usec)
 	if (__KernelIsDispatchEnabled())
 	{
 		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, __KernelGetCurThread());
-		__KernelWaitCurThread(WAITTYPE_DELAY, 1, result, 0, false, reason);
+		__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, result, 0, false, reason);
 	}
 	else
 		WARN_LOG(HLE, "Dispatch disabled, not delaying HLE result (right thing to do?)");
@@ -348,7 +348,7 @@ u64 hleDelayResult(u64 result, const char *reason, int usec)
 	{
 		u64 param = (result & 0xFFFFFFFF00000000) | __KernelGetCurThread();
 		CoreTiming::ScheduleEvent(usToCycles(usec), delayedResultEvent, param);
-		__KernelWaitCurThread(WAITTYPE_DELAY, 1, (u32) result, 0, false, reason);
+		__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, (u32) result, 0, false, reason);
 	}
 	else
 		WARN_LOG(HLE, "Dispatch disabled, not delaying HLE result (right thing to do?)");
@@ -470,7 +470,7 @@ void CallSyscall(u32 op)
 	}
 	else
 	{
-		ERROR_LOG(HLE,"Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
+		ERROR_LOG_REPORT(HLE, "Unimplemented HLE function %s", moduleDB[modulenum].funcTable[funcnum].name);
 	}
 	if (g_Config.bShowDebugStats)
 	{

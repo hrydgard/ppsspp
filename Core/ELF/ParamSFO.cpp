@@ -17,7 +17,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "../Globals.h"
 #include "ParamSFO.h"
 
 struct Header
@@ -124,7 +123,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 			{
 				const char *utfdata = (const char *)(data_start + indexTables[i].data_table_offset);
 				DEBUG_LOG(LOADER, "%s %s", key, utfdata);
-				SetValue(key,std::string(utfdata,indexTables[i].param_len),indexTables[i].param_max_len);
+				SetValue(key,std::string(utfdata /*, indexTables[i].param_len*/), indexTables[i].param_max_len);
 			}
 			break;
 		}

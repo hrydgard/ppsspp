@@ -18,7 +18,6 @@
 #pragma once
 
 #include "../../Globals.h"
-
 // For easy parameter parsing and return value processing.
 
 // 64bit wrappers
@@ -89,6 +88,16 @@ template<u32 func()> void WrapU_V() {
 
 template<u32 func(int, void *, int)> void WrapU_IVI() {
 	u32 retval = func(PARAM(0), Memory::GetPointer(PARAM(1)), PARAM(2));
+	RETURN(retval);
+}
+
+template<int func(int, const char *, u32, void *, void *, u32, int)> void WrapI_ICUVVUI() {
+	u32 retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), Memory::GetPointer(PARAM(3)),Memory::GetPointer(PARAM(4)), PARAM(5), PARAM(6) );
+	RETURN(retval);
+}
+
+template<u32 func(int, void *)> void WrapU_IV() {
+	u32 retval = func(PARAM(0), Memory::GetPointer(PARAM(1)));
 	RETURN(retval);
 }
 
@@ -273,6 +282,11 @@ template<u32 func(u32, int, u32, u32)> void WrapU_UIUU() {
 
 template<u32 func(u32, int, int)> void WrapU_UII() {
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2));
+	RETURN(retval);
+}
+
+template<u32 func(u32, int, int, u32)> void WrapU_UIIU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
 	RETURN(retval);
 }
 

@@ -20,4 +20,4 @@
 void Register_sceNp();
 void Register_sceNpCommerce2();
 void Register_sceNpService();
-void Regester_sceNpAuth();
+void Register_sceNpAuth();

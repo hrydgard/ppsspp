@@ -57,6 +57,7 @@ struct Semaphore : public KernelObject
 	const char *GetTypeName() {return "Semaphore";}
 
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_SEMID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Semaphore; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Semaphore; }
 
 	virtual void DoState(PointerWrap &p)
@@ -115,7 +116,6 @@ bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int 
 			return false;
 
 		s->ns.currentCount -= wVal;
-		s->ns.numWaitThreads--;
 	}
 
 	if (timeoutPtr != 0 && semaWaitTimer != -1)
@@ -157,7 +157,6 @@ void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 		// TODO: Hmm, what about priority/fifo order?  Does it lose its place in line?
 		s->waitingThreads.erase(std::remove(s->waitingThreads.begin(), s->waitingThreads.end(), threadID), s->waitingThreads.end());
-		s->ns.numWaitThreads--;
 
 		DEBUG_LOG(HLE, "sceKernelWaitSemaCB: Suspending sema wait for callback");
 	}
@@ -188,7 +187,6 @@ void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &return
 
 	u64 waitDeadline = s->pausedWaitTimeouts[pauseKey];
 	s->pausedWaitTimeouts.erase(pauseKey);
-	s->ns.numWaitThreads++;
 
 	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
 
@@ -205,7 +203,6 @@ void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &return
 			Memory::Write_U32(0, timeoutPtr);
 
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-		s->ns.numWaitThreads--;
 	}
 	else
 	{
@@ -244,6 +241,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		if (newCount > s->ns.maxCount)
 			return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 
+		s->ns.numWaitThreads = (int) s->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(s->ns.numWaitThreads, numWaitThreadsPtr);
 
@@ -251,7 +249,6 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 			s->ns.currentCount = s->ns.initCount;
 		else
 			s->ns.currentCount = newCount;
-		s->ns.numWaitThreads = 0;
 
 		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL))
 			hleReSchedule("semaphore canceled");
@@ -293,7 +290,11 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	DEBUG_LOG(HLE, "%i=sceKernelCreateSema(%s, %08x, %i, %i, %08x)", id, s->ns.name, s->ns.attr, s->ns.initCount, s->ns.maxCount, optionPtr);
 
 	if (optionPtr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported options parameter: %08x", name, optionPtr);
+	{
+		u32 size = Memory::Read_U32(optionPtr);
+		if (size != 0)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
 
@@ -328,7 +329,22 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 	if (s)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferSemaStatus(%i, %08x)", id, infoPtr);
-		Memory::WriteStruct(infoPtr, &s->ns);
+
+		if (!Memory::IsValidAddress(infoPtr))
+			return -1;
+
+		u32 error;
+		for (auto iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_SEMA, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != id)
+				s->waitingThreads.erase(iter--);
+		}
+
+		s->ns.numWaitThreads = (int) s->waitingThreads.size();
+		if (Memory::Read_U32(infoPtr) != 0)
+			Memory::WriteStruct(infoPtr, &s->ns);
 		return 0;
 	}
 	else
@@ -344,7 +360,7 @@ int sceKernelSignalSema(SceUID id, int signal)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		if (s->ns.currentCount + signal - s->ns.numWaitThreads > s->ns.maxCount)
+		if (s->ns.currentCount + signal - (int) s->waitingThreads.size() > s->ns.maxCount)
 			return SCE_KERNEL_ERROR_SEMA_OVF;
 
 		int oldval = s->ns.currentCount;
@@ -394,8 +410,6 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate)
 		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
 		// actually running, it will get a DELETE result instead of a TIMEOUT.
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
-		s->ns.numWaitThreads--;
-
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	}
 }
@@ -428,14 +442,10 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 
 		// If there are any callbacks, we always wait, and wake after the callbacks.
 		bool hasCallbacks = processCallbacks && __KernelCurHasReadyCallbacks();
-		if (s->ns.currentCount >= wantedCount && s->ns.numWaitThreads == 0 && !hasCallbacks)
+		if (s->ns.currentCount >= wantedCount && s->waitingThreads.size() == 0 && !hasCallbacks)
 		{
 			if (hasCallbacks)
 			{
-				// __KernelSemaBeginCallback() will decrement this, so increment it here.
-				// TODO: Clean this up a bit better.
-				s->ns.numWaitThreads++;
-
 				// Might actually end up having to wait, so set the timeout.
 				__KernelSetSemaTimeout(s, timeoutPtr);
 				__KernelWaitCallbacksCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr);
@@ -445,8 +455,6 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 		}
 		else
 		{
-			s->ns.numWaitThreads++;
-
 			SceUID threadID = __KernelGetCurThread();
 			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 			if (std::find(s->waitingThreads.begin(), s->waitingThreads.end(), threadID) == s->waitingThreads.end())
@@ -490,7 +498,7 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 	Semaphore *s = kernelObjects.Get<Semaphore>(id, error);
 	if (s)
 	{
-		if (s->ns.currentCount >= wantedCount && s->ns.numWaitThreads == 0)
+		if (s->ns.currentCount >= wantedCount && s->waitingThreads.size() == 0)
 		{
 			s->ns.currentCount -= wantedCount;
 			return 0;

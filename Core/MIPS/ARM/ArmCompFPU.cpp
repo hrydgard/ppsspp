@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 #include "Core/Config.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSTables.h"
 
 #include "ArmJit.h"
 #include "ArmRegCache.h"
@@ -52,7 +53,22 @@ void Jit::Comp_FPU3op(u32 op)
 	{
 	case 0: VADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
 	case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
-	case 2: VMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) * F(ft); //mul
+	case 2: { //F(fd) = F(fs) * F(ft); //mul
+		u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+		// Optimise possible if destination is the same
+		if (fd == ((nextOp>>6) & 0x1F)) {
+			// VMUL + VNEG -> VNMUL
+			if (!strcmp(MIPSGetName(nextOp), "neg.s")) {
+				if (fd == ((nextOp>>11) & 0x1F)) {
+					VNMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft));
+					EatInstruction(nextOp);
+				}
+				return;
+			}
+		}
+		VMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft));
+		break;
+	}
 	case 3: VDIV(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) / F(ft); //div
 	default:
 		DISABLE;
@@ -288,7 +304,7 @@ void Jit::Comp_mxc1(u32 op)
 		{
 			gpr.MapReg(rt, MAP_DIRTY | MAP_NOINIT);
 			LDR(R0, CTXREG, offsetof(MIPSState, fpcond));
-			AND(R0,R0, Operand2(1)); // Just in case
+			AND(R0, R0, Operand2(1)); // Just in case
 			LDR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 			BIC(gpr.R(rt), gpr.R(rt), Operand2(0x1 << 23));
 			ORR(gpr.R(rt), gpr.R(rt), Operand2(R0, ST_LSL, 23));

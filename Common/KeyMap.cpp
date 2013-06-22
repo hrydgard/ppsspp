@@ -15,9 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <map>
-#include <string>
-
 #include "input/input_state.h"
 #include "Core/Config.h"
 #include "KeyMap.h"
@@ -30,7 +27,7 @@ std::map<int,int> *platform_keymap = NULL;
 
 // Default key mapping
 // Ugly, yet the cleanest way
-// I could find to create a 
+// I could find to create a
 // static map.
 // Still nicer than what
 // I once did in C.
@@ -299,7 +296,7 @@ static std::string KeyMap::NamePspButtonFromKey(KeyMap::Key key)
 
 static std::string KeyMap::NameKeyFromPspButton(int btn)
 {
-	// We drive our iteration 
+	// We drive our iteration
 	// with the list of key names.
 	for (int i = 0; i < key_names_count; i++) {
 		const struct KeyMap_IntStrPair *key_name = key_names + i;
@@ -319,6 +316,7 @@ static int KeyMap::SetKeyMapping(KeyMap::Key key, int btn)
 		return KEYMAP_ERROR_KEY_ALREADY_USED;
 
 	g_Config.iMappingMap[key] = btn;
+	return btn;
 }
 
 static int KeyMap::RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)

@@ -97,15 +97,7 @@ void MIPSState::Reset()
 	rng.Init(0x1337);
 }
 
-void GMRng::DoState(PointerWrap &p)
-{
-	p.Do(m_w);
-	p.Do(m_z);
-	p.DoMarker("GMRng");
-}
-
-void MIPSState::DoState(PointerWrap &p)
-{
+void MIPSState::DoState(PointerWrap &p) {
 	// Reset the jit if we're loading.
 	if (p.mode == p.MODE_READ)
 		Reset();
@@ -126,7 +118,8 @@ void MIPSState::DoState(PointerWrap &p)
 	p.Do(fpcond);
 	p.Do(fcr0);
 	p.Do(fcr31);
-	rng.DoState(p);
+	p.Do(rng.m_w);
+	p.Do(rng.m_z);
 	p.Do(inDelaySlot);
 	p.Do(llBit);
 	p.Do(debugCount);

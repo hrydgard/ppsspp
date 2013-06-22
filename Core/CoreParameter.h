@@ -33,7 +33,7 @@ enum GPUCore {
 
 struct CoreParameter
 {
-	CoreParameter() : collectEmuLog(0), unthrottle(false) {}
+	CoreParameter() : collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true) {}
 	// 0 = Interpreter
 	// 1 = Jit
 	// 2 = JitIL
@@ -50,7 +50,6 @@ struct CoreParameter
 	bool printfEmuLog;  // writes "emulator:" logging to stdout
 	std::string *collectEmuLog;
 	bool headLess;   // Try to avoid messageboxes etc
-	bool useMediaEngine;
 
 	// Internal PSP resolution
 	int renderWidth;
@@ -66,4 +65,7 @@ struct CoreParameter
 
 	// Can be modified at runtime.
 	bool unthrottle;
+	int fpsLimit;
+
+	bool updateRecent;
 };

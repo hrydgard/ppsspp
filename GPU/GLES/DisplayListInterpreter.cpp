@@ -172,8 +172,10 @@ static const u8 flushBeforeCommandList[] = {
 };
 
 GLES_GPU::GLES_GPU()
-:		resized_(false)
-{
+: resized_(false) {
+	lastVsync_ = g_Config.iVSyncInterval;
+	glstate.SetVSyncInterval(g_Config.iVSyncInterval);
+
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
@@ -233,6 +235,7 @@ void GLES_GPU::DeviceLost() {
 	// FBO:s appear to survive? Or no?
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
+	framebufferManager_.DeviceLost();
 }
 
 void GLES_GPU::InitClear() {
@@ -249,20 +252,16 @@ void GLES_GPU::DumpNextFrame() {
 	dumpNextFrame_ = true;
 }
 
-void GLES_GPU::BeginDebugDraw() {
-	if (g_Config.bDrawWireframe) {
-#ifndef USING_GLES2
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-#endif
-	}
-}
-void GLES_GPU::EndDebugDraw() {
-#ifndef USING_GLES2
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-#endif
-}
-
 void GLES_GPU::BeginFrame() {
+	// Turn off vsync when unthrottled
+	int desiredVSyncInterval = g_Config.iVSyncInterval;
+	if (PSP_CoreParameter().unthrottle)
+		desiredVSyncInterval = 0;
+	if (desiredVSyncInterval != lastVsync_) {
+		glstate.SetVSyncInterval(desiredVSyncInterval);
+		lastVsync_ = desiredVSyncInterval;
+	}
+
 	textureCache_.StartFrame();
 	transformDraw_.DecimateTrackedVertexArrays();
 
@@ -300,16 +299,12 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 	transformDraw_.Flush();
 
-	EndDebugDraw();
-
 	framebufferManager_.CopyDisplayToOutput();
 	framebufferManager_.EndFrame();
 
 	shaderManager_->EndFrame();
 
 	gstate_c.textureChanged = true;
-
-	BeginDebugDraw();
 }
 
 // Render queue
@@ -407,6 +402,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			transformDraw_.SubmitPrim(verts, inds, type, count, gstate.vertType, -1, &bytesRead);
 
 			int vertexCost = transformDraw_.EstimatePerVertexCost();
+			gpuStats.vertexGPUCycles += vertexCost * count;
 			cyclesExecuted += vertexCost * count;
 
 			// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
@@ -583,7 +579,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_LOADCLUT:
 		gstate_c.textureChanged = true;
-		textureCache_.UpdateCurrentClut();
+		textureCache_.LoadClut();
 		// This could be used to "dirty" textures with clut.
 		break;
 
@@ -803,7 +799,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_ALPHATEST:
 #ifndef USING_GLES2
-		if (((data >> 16) & 0xFF) != 0xFF && data != 0)
+		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, HLE, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 #endif
 	case GE_CMD_COLORREF:
@@ -938,6 +934,35 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
+#ifndef USING_GLES2
+	case GE_CMD_LOGICOPENABLE:
+		if (data != 0)
+			ERROR_LOG_REPORT_ONCE(logicOpEnable, G3D, "Unsupported logic op enabled: %x", data);
+		break;
+
+	case GE_CMD_LOGICOP:
+		if (data != 0)
+			ERROR_LOG_REPORT_ONCE(logicOp, G3D, "Unsupported logic op: %06x", data);
+		break;
+
+	case GE_CMD_ANTIALIASENABLE:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(antiAlias, G3D, "Unsupported antialias enabled: %06x", data);
+		break;
+
+	case GE_CMD_TEXLODSLOPE:
+		if (data != 0)
+			WARN_LOG_REPORT_ONCE(texLodSlope, G3D, "Unsupported texture lod slope: %06x", data);
+		break;
+
+	case GE_CMD_TEXLEVEL:
+		if (data == 1)
+			WARN_LOG_REPORT_ONCE(texLevel1, G3D, "Unsupported texture level bias settings: %06x", data)
+		else if (data != 0)
+			WARN_LOG_REPORT_ONCE(texLevel2, G3D, "Unsupported texture level bias settings: %06x", data);
+		break;
+#endif
+
 	default:
 		GPUCommon::ExecuteOp(op, diff);
 		break;
@@ -991,6 +1016,19 @@ void GLES_GPU::DoBlockTransfer() {
 	// TODO: Notify all overlapping FBOs that they need to reload.
 
 	textureCache_.Invalidate(dstBasePtr + dstY * dstStride + dstX, height * dstStride + width * bpp, GPU_INVALIDATE_HINT);
+
+	
+	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
+	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
+
+	u32 backBuffer = framebufferManager_.PrevDisplayFramebufAddr();
+	u32 displayBuffer = framebufferManager_.DisplayFramebufAddr();
+
+	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
+		  (displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
+			dstStride == 512 && height == 272) {
+		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), 3, 512);
+	}
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
@@ -998,6 +1036,13 @@ void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 		textureCache_.Invalidate(addr, size, type);
 	else
 		textureCache_.InvalidateAll(type);
+
+	if (type != GPU_INVALIDATE_ALL)
+		framebufferManager_.UpdateFromMemory(addr, size);
+}
+
+void GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
+	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 }
 
 void GLES_GPU::ClearCacheNextFrame() {

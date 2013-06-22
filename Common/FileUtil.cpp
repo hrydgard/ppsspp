@@ -177,7 +177,11 @@ bool CreateDir(const std::string &path)
 	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %i", path.c_str(), error);
 	return false;
 #else
+#ifdef BLACKBERRY
+	if (mkdir(path.c_str(), 0775) == 0)
+#else
 	if (mkdir(path.c_str(), 0755) == 0)
+#endif
 		return true;
 
 	int err = errno;

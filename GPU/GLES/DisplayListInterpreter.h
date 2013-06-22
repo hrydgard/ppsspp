@@ -45,6 +45,7 @@ public:
 	virtual void BeginFrame();
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
+	virtual void UpdateMemory(u32 dest, u32 src, int size);
 	virtual void ClearCacheNextFrame();
 	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
 
@@ -75,10 +76,6 @@ private:
 	void CheckFlushOp(u32 op, u32 diff);
 	void BuildReportingInfo();
 
-	// Applies states for debugging if enabled.
-	void BeginDebugDraw();
-	void EndDebugDraw();
-
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;
 	TransformDrawEngine transformDraw_;
@@ -86,6 +83,7 @@ private:
 
 	u8 *flushBeforeCommand_;
 	bool resized_;
+	int lastVsync_;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

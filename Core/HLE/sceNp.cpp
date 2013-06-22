@@ -51,7 +51,7 @@ const HLEFunction sceNpAuth[] = {
 	{0xA1DE86F8, 0, "sceNpAuth_A1DE86F8"},
 };
 
-void Regester_sceNpAuth()
+void Register_sceNpAuth()
 {
 	RegisterModule("sceNpAuth", ARRAY_SIZE(sceNpAuth), sceNpAuth);
 }

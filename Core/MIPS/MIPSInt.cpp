@@ -33,10 +33,9 @@
 #include "../System.h"
 
 #define R(i) (currentMIPS->r[i])
-#define RF(i) (*(float*)(&(currentMIPS->r[i])))
 #define F(i) (currentMIPS->f[i])
-#define FI(i) (*(u32*)(&(currentMIPS->f[i])))
-#define FsI(i) (*(s32*)(&(currentMIPS->f[i])))
+#define FI(i) (currentMIPS->fi[i])
+#define FsI(i) (currentMIPS->fs[i])
 #define PC (currentMIPS->pc)
 
 #define _RS ((op>>21) & 0x1F)

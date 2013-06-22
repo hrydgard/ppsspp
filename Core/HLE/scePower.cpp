@@ -282,6 +282,12 @@ float scePowerGetBusClockFrequencyFloat() {
 	return (float) busFreq;
 }
 
+int scePowerTick() {
+	DEBUG_LOG(HLE, "scePowerTick()");
+	// Don't think we need to do anything.
+	return 0;
+}
+
 
 u32 IsPSPNonFat() {
 	return PSP_MODEL_FAT;  
@@ -291,7 +297,7 @@ static const HLEFunction scePower[] = {
 	{0x04B7766E,&WrapI_II<scePowerRegisterCallback>,"scePowerRegisterCallback"},
 	{0x2B51FE2F,0,"scePower_2B51FE2F"},
 	{0x442BFBAC,0,"scePowerGetBacklightMaximum"},
-	{0xEFD3C963,0,"scePowerTick"},
+	{0xEFD3C963,&WrapI_V<scePowerTick>,"scePowerTick"},
 	{0xEDC13FE5,0,"scePowerGetIdleTimer"},
 	{0x7F30B3B1,0,"scePowerIdleTimerEnable"},
 	{0x972CE941,0,"scePowerIdleTimerDisable"},
@@ -335,7 +341,7 @@ static const HLEFunction scePower[] = {
 	{0x737486F2,WrapU_UUU<scePowerSetClockFrequency>,"scePowerSetClockFrequency"},
 	{0x34f9c463,WrapU_V<scePowerGetPllClockFrequencyInt>,"scePowerGetPllClockFrequencyInt"},
 	{0xea382a27,WrapF_V<scePowerGetPllClockFrequencyFloat>,"scePowerGetPllClockFrequencyFloat"},
-	{0xebd177d6,WrapU_UUU<scePowerSetClockFrequency>,"scePower_driver_ebd177d6"}, // This is also the same as SetClockFrequency
+	{0xebd177d6,WrapU_UUU<scePowerSetClockFrequency>,"scePower_EBD177D6"}, // This is also the same as SetClockFrequency
 	{0x469989ad,WrapU_UUU<scePowerSetClockFrequency>,"scePower_469989ad"},  // This is also the same as SetClockFrequency
 	{0xa85880d0,WrapU_V<IsPSPNonFat>,"scePower_a85880d0_IsPSPNonFat"},
 };

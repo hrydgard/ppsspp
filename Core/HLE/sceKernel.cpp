@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Config.h"
+#include "Core/CwCheat.h"
 #include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -30,6 +31,8 @@
 #include "../../Core/System.h"
 #include "../../GPU/GPUInterface.h"
 #include "../../GPU/GPUState.h"
+
+#include "util/random/rng.h"
 
 #include "__sceAudio.h"
 #include "sceAtrac.h"
@@ -64,6 +67,7 @@
 #include "sceImpose.h"
 #include "sceUsb.h"
 #include "scePspNpDrm_user.h"
+#include "sceVaudio.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -106,7 +110,7 @@ void __KernelInit()
 	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
-	__MpegInit(PSP_CoreParameter().useMediaEngine);
+	__MpegInit();
 	__PsmfInit();
 	__CtrlInit();
 	__RtcInit();
@@ -115,6 +119,8 @@ void __KernelInit()
 	__UsbInit();
 	__FontInit();
 	__NetInit();
+	__VaudioInit();
+	__CheatInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 
@@ -156,6 +162,8 @@ void __KernelShutdown()
 	__KernelThreadingShutdown();
 	__KernelMemoryShutdown();
 	__InterruptsShutdown();
+	__CheatShutdown();
+	__KernelModuleShutdown();
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
@@ -209,6 +217,7 @@ void __KernelDoState(PointerWrap &p)
 	__UmdDoState(p);
 	__UtilityDoState(p);
 	__UsbDoState(p);
+	__VaudioDoState(p);
 
 	__PPGeDoState(p);
 
@@ -667,10 +676,10 @@ const HLEFunction ThreadManForUser[] =
 	{0xA9C2CB9A,&WrapI_IU<sceKernelReferMutexStatus>,          "sceKernelReferMutexStatus"},
 	{0x87D9223C,0,                                             "sceKernelCancelMutex"},
 
-	{0xFCCFAD26,sceKernelCancelWakeupThread,"sceKernelCancelWakeupThread"},
+	{0xFCCFAD26,WrapI_I<sceKernelCancelWakeupThread>,"sceKernelCancelWakeupThread"},
 	{0x1AF94D03,0,"sceKernelDonateWakeupThread"},
-	{0xea748e31,sceKernelChangeCurrentThreadAttr,"sceKernelChangeCurrentThreadAttr"},
-	{0x71bc9871,sceKernelChangeThreadPriority,"sceKernelChangeThreadPriority"},
+	{0xea748e31,WrapI_UU<sceKernelChangeCurrentThreadAttr>,"sceKernelChangeCurrentThreadAttr"},
+	{0x71bc9871,WrapI_II<sceKernelChangeThreadPriority>,"sceKernelChangeThreadPriority"},
 	{0x446D8DE6,WrapI_CUUIUU<sceKernelCreateThread>,"sceKernelCreateThread"},
 	{0x9fa03cd3,WrapI_I<sceKernelDeleteThread>,"sceKernelDeleteThread"},
 	{0xBD123D9E,sceKernelDelaySysClockThread,"sceKernelDelaySysClockThread"},
@@ -681,19 +690,19 @@ const HLEFunction ThreadManForUser[] =
 	{0x809ce29b,WrapV_I<sceKernelExitDeleteThread>,"sceKernelExitDeleteThread"},
 	{0x94aa61ee,sceKernelGetThreadCurrentPriority,"sceKernelGetThreadCurrentPriority"},
 	{0x293b45b8,WrapI_V<sceKernelGetThreadId>,"sceKernelGetThreadId"},
-	{0x3B183E26,sceKernelGetThreadExitStatus,"sceKernelGetThreadExitStatus"},
+	{0x3B183E26,WrapI_I<sceKernelGetThreadExitStatus>,"sceKernelGetThreadExitStatus"},
 	{0x52089CA1,sceKernelGetThreadStackFreeSize,"sceKernelGetThreadStackFreeSize"},
 	{0xFFC36A14,WrapU_UU<sceKernelReferThreadRunStatus>,"sceKernelReferThreadRunStatus"},
 	{0x17c1684e,WrapU_UU<sceKernelReferThreadStatus>,"sceKernelReferThreadStatus"},
 	{0x2C34E053,WrapI_I<sceKernelReleaseWaitThread>,"sceKernelReleaseWaitThread"},
-	{0x75156e8f,sceKernelResumeThread,"sceKernelResumeThread"},
+	{0x75156e8f,WrapI_I<sceKernelResumeThread>,"sceKernelResumeThread"},
 	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,"sceKernelSuspendDispatchThread"},
 	{0x27e22ec2,&WrapU_U<sceKernelResumeDispatchThread>,"sceKernelResumeDispatchThread"},
 	{0x912354a7,&WrapI_I<sceKernelRotateThreadReadyQueue>,"sceKernelRotateThreadReadyQueue"},
-	{0x9ACE131E,sceKernelSleepThread,"sceKernelSleepThread"},
-	{0x82826f70,sceKernelSleepThreadCB,"sceKernelSleepThreadCB"},
+	{0x9ACE131E,WrapI_V<sceKernelSleepThread>,"sceKernelSleepThread"},
+	{0x82826f70,WrapI_V<sceKernelSleepThreadCB>,"sceKernelSleepThreadCB"},
 	{0xF475845D,&WrapI_IIU<sceKernelStartThread>,"sceKernelStartThread"},
-	{0x9944f31f,sceKernelSuspendThread,"sceKernelSuspendThread"},
+	{0x9944f31f,WrapI_I<sceKernelSuspendThread>,"sceKernelSuspendThread"},
 	{0x616403ba,WrapI_I<sceKernelTerminateThread>,"sceKernelTerminateThread"},
 	{0x383f7bcc,WrapI_I<sceKernelTerminateDeleteThread>,"sceKernelTerminateDeleteThread"},
 	{0x840E8133,WrapI_IU<sceKernelWaitThreadEndCB>,"sceKernelWaitThreadEndCB"},
@@ -725,7 +734,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xE1619D7C,WrapI_UUUU<sceKernelSysClock2USecWide>,"sceKernelSysClock2USecWide"},
 
 	{0x278C0DF5,WrapI_IU<sceKernelWaitThreadEnd>,"sceKernelWaitThreadEnd"},
-	{0xd59ead2f,sceKernelWakeupThread,"sceKernelWakeupThread"}, //AI Go, audio?
+	{0xd59ead2f,WrapI_I<sceKernelWakeupThread>,"sceKernelWakeupThread"}, //AI Go, audio?
 
 	{0x0C106E53,0,"sceKernelRegisterThreadEventHandler"},
 	{0x72F3C145,0,"sceKernelReleaseThreadEventHandler"},
@@ -824,6 +833,7 @@ const HLEFunction LoadExecForUser[] =
 	{0xBD2F1094,&WrapI_CU<sceKernelLoadExec>,"sceKernelLoadExec"},
 	{0x2AC9954B,&WrapV_V<sceKernelExitGameWithStatus>,"sceKernelExitGameWithStatus"},
 	{0x362A956B,&WrapI_V<LoadExecForUser_362A956B>, "LoadExecForUser_362A956B"},
+	{0x8ada38d3,0, "LoadExecForUser_8ADA38D3"},
 };
 
 void Register_LoadExecForUser()

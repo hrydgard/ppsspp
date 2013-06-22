@@ -7,6 +7,8 @@
 #include "StringUtils.h"
 #include "../Globals.h"
 #include "EmuThread.h"
+#include "WndMainWindow.h"
+#include "resource.h"
 #include "../Core/Reporting.h"
 #include "../Core/MemMap.h"
 #include "../Core/Core.h"
@@ -17,34 +19,80 @@
 
 #include <tchar.h>
 #include <process.h>
+#include <intrin.h>
+#pragma intrinsic(_InterlockedExchange)
 
+class EmuThreadLockGuard
+{
+public:
+	EmuThreadLockGuard() { emuThreadCS_.Enter(); }
+	~EmuThreadLockGuard() { emuThreadCS_.Leave(); }
+private:
+	static struct EmuThreadCS
+	{
+		EmuThreadCS() { InitializeCriticalSection(&TheCS_); }
+		~EmuThreadCS() { DeleteCriticalSection(&TheCS_); }
+		void Enter() { EnterCriticalSection(&TheCS_); }
+		void Leave() { LeaveCriticalSection(&TheCS_); }
+		CRITICAL_SECTION TheCS_;
+	} emuThreadCS_;
+};
+
+EmuThreadLockGuard::EmuThreadCS EmuThreadLockGuard::emuThreadCS_;
 static HANDLE emuThread;
+static long emuThreadReady;
+
+enum EmuTreadStatus : long
+{
+	THREAD_NONE = 0,
+	THREAD_INIT,
+	THREAD_CORE_LOOP,
+	THREAD_SHUTDOWN,
+	THREAD_END,
+};
 
 HANDLE EmuThread_GetThreadHandle()
 {
+	EmuThreadLockGuard lock;
 	return emuThread;
 }
 
-DWORD TheThread(LPVOID x);
+unsigned int WINAPI TheThread(void *);
 
 void EmuThread_Start()
 {
-	unsigned int i;
-	emuThread = (HANDLE)_beginthreadex(0,0,(unsigned int (__stdcall *)(void *))TheThread,(LPVOID)0,0,&i);
+	EmuThreadLockGuard lock;
+	emuThread = (HANDLE)_beginthreadex(0, 0, &TheThread, 0, 0, 0);
 }
 
 void EmuThread_Stop()
 {
+	globalUIState = UISTATE_EXIT;
 //	DSound_UpdateSound();
 	Core_Stop();
-	if (WAIT_TIMEOUT == WaitForSingleObject(EmuThread_GetThreadHandle(),300))
+	Core_WaitInactive(800);
+	if (WAIT_TIMEOUT == WaitForSingleObject(emuThread, 800))
 	{
-		//MessageBox(0,"Wait for emuthread timed out, please alert the developer to possible deadlock or infinite loop in emuthread :(.",0,0);
+		MessageBox(MainWindow::GetHWND(),"Wait for emuthread timed out! :(\n"
+			"please alert the developer to possible deadlock or infinite loop in emuthread!", 0, 0);
+	}
+	{
+		EmuThreadLockGuard lock;
+		CloseHandle(emuThread);
+		emuThread = 0;
 	}
 	host->UpdateUI();
 }
 
-DWORD TheThread(LPVOID x) {
+bool EmuThread_Ready()
+{
+	return emuThreadReady == THREAD_CORE_LOOP;
+}
+
+unsigned int WINAPI TheThread(void *)
+{
+	_InterlockedExchange(&emuThreadReady, THREAD_INIT);
+
 	setCurrentThreadName("EmuThread");
 
 	std::string memstick, flash0;
@@ -75,20 +123,43 @@ DWORD TheThread(LPVOID x) {
 	INFO_LOG(BOOT, "Done.");
 	_dbg_update_();
 
+	if (coreState == CORE_POWERDOWN) {
+		INFO_LOG(BOOT, "Exit before core loop.");
+		goto shutdown;
+	}
+
+	_InterlockedExchange(&emuThreadReady, THREAD_CORE_LOOP);
+
+	if (g_Config.bBrowse)
+	{
+		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
+		//MainWindow::BrowseAndBoot("");
+	}
+
 	Core_EnableStepping(FALSE);
-	Core_Run();
+
+	while (globalUIState != UISTATE_EXIT)
+	{
+		Core_Run();
+
+		// We're here again, so the game quit.  Restart Core_Run() which controls the UI.
+		// This way they can load a new game.
+		Core_UpdateState(CORE_RUNNING);
+	}
 
 shutdown:
-	host = nativeHost;
+	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
+
 	NativeShutdownGraphics();
+	host = nativeHost;
 	NativeShutdown();
 	host = oldHost;
-
 	host->ShutdownGL();
 	
+	_InterlockedExchange(&emuThreadReady, THREAD_END);
+
 	//The CPU should return when a game is stopped and cleanup should be done here, 
 	//so we can restart the plugins (or load new ones) for the next game
-	_endthreadex(0);
 	return 0;
 }
 

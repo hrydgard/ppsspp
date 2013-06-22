@@ -64,6 +64,7 @@ struct Mutex : public KernelObject
 	const char *GetName() {return nm.name;}
 	const char *GetTypeName() {return "Mutex";}
 	static u32 GetMissingErrorCode() { return PSP_MUTEX_ERROR_NO_SUCH_MUTEX; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mutex; }
 
 	virtual void DoState(PointerWrap &p)
@@ -81,22 +82,6 @@ struct Mutex : public KernelObject
 	std::map<SceUID, u64> pausedWaitTimeouts;
 };
 
-
-struct NativeLwMutex
-{
-	SceSize size;
-	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	SceUInt attr;
-	SceUID uid;
-	u32 workareaPtr;
-	int initialCount;
-	// Not kept up to date.
-	int currentCount;
-	// Not kept up to date.
-	SceUID lockThread;
-	// Not kept up to date.
-	int numWaitThreads;
-};
 
 struct NativeLwMutexWorkarea
 {
@@ -120,11 +105,28 @@ struct NativeLwMutexWorkarea
 	}
 };
 
+struct NativeLwMutex
+{
+	SceSize size;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	SceUInt attr;
+	SceUID uid;
+	PSPPointer<NativeLwMutexWorkarea> workarea;
+	int initialCount;
+	// Not kept up to date.
+	int currentCount;
+	// Not kept up to date.
+	SceUID lockThread;
+	// Not kept up to date.
+	int numWaitThreads;
+};
+
 struct LwMutex : public KernelObject
 {
 	const char *GetName() {return nm.name;}
 	const char *GetTypeName() {return "LwMutex";}
 	static u32 GetMissingErrorCode() { return PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_LwMutex; }
 	int GetIDType() const { return SCE_KERNEL_TMID_LwMutex; }
 
 	virtual void DoState(PointerWrap &p)
@@ -360,7 +362,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
-	if (attr >= 0xC00)
+	if (attr & ~0xBFF)
 	{
 		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
@@ -390,7 +392,11 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	DEBUG_LOG(HLE, "%i=sceKernelCreateMutex(%s, %08x, %d, %08x)", id, name, attr, initialCount, optionsPtr);
 
 	if (optionsPtr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
+	{
+		u32 size = Memory::Read_U32(optionsPtr);
+		if (size != 0)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
@@ -688,7 +694,15 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
 	// Don't write if the size is 0.  Anything else is A-OK, though, apparently.
 	if (Memory::Read_U32(infoAddr) != 0)
 	{
-		// Refresh and write
+		u32 error;
+		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_MUTEX, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != id)
+				m->waitingThreads.erase(iter--);
+		}
+
 		m->nm.numWaitThreads = (int) m->waitingThreads.size();
 		Memory::WriteStruct(infoAddr, &m->nm);
 	}
@@ -720,7 +734,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	mutex->nm.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	mutex->nm.attr = attr;
 	mutex->nm.uid = id;
-	mutex->nm.workareaPtr = workareaPtr;
+	mutex->nm.workarea = workareaPtr;
 	mutex->nm.initialCount = initialCount;
 	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 	workarea->init();
@@ -735,7 +749,11 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	DEBUG_LOG(HLE, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
 
 	if (optionsPtr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter: %08x", name, optionsPtr);
+	{
+		u32 size = Memory::Read_U32(optionsPtr);
+		if (size != 0)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
@@ -974,8 +992,7 @@ void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &ret
 	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
 
 	// Attempt to unlock.
-	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(mutex->nm.workareaPtr);
-	if (mutex->nm.lockThread == -1 && __KernelUnlockLwMutexForThread(mutex, workarea, threadID, error, 0))
+	if (mutex->nm.lockThread == -1 && __KernelUnlockLwMutexForThread(mutex, mutex->nm.workarea, threadID, error, 0))
 		return;
 
 	// We only check if it timed out if it couldn't unlock.
@@ -1134,7 +1151,16 @@ int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 
 	if (Memory::Read_U32(infoPtr) != 0)
 	{
-		auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(m->nm.workareaPtr);
+		auto workarea = m->nm.workarea;
+
+		u32 error;
+		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_LWMUTEX, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != uid)
+				m->waitingThreads.erase(iter--);
+		}
 
 		// Refresh and write
 		m->nm.currentCount = workarea->lockLevel;

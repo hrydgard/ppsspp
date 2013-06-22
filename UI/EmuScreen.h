@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <list>
 
 #include "ui/screen.h"
 

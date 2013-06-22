@@ -35,6 +35,9 @@
 #include "GPU/GPUState.h"
 #include "native/image/png_load.h"
 #include "GPU/GLES/TextureScaler.h"
+#include "ControlMapping.h"
+#include "UI/OnScreenDisplay.h"
+#include "i18n/i18n.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -46,13 +49,12 @@ BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 
 extern InputState input_state;
-#define TIMER_CURSORUPDATE 1
-#define CURSORUPDATE_INTERVAL_MS 50
-extern unsigned short analog_ctrl_map[];
-extern unsigned int key_pad_map[];
 extern const char * getVirtualKeyName(unsigned char key);
-extern bool saveControlsToFile();
-extern bool loadControlsFromFile();
+extern const char * getXinputButtonName(unsigned int button);
+#define TIMER_CURSORUPDATE 1
+#define TIMER_CURSORMOVEUPDATE 2
+#define CURSORUPDATE_INTERVAL_MS 50
+#define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
 namespace MainWindow
 {
@@ -62,6 +64,11 @@ namespace MainWindow
 	static HMENU menu;
 
 	static HINSTANCE hInst;
+	static int cursorCounter = 0;
+	static int prevCursorX = -1;
+	static int prevCursorY = -1;
+	static bool mouseButtonDown = false;
+	static bool hideCursor = false;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
@@ -177,6 +184,21 @@ namespace MainWindow
 		ResizeDisplay();
 	}
 
+	void CorrectCursor() {
+		bool autoHide = g_bFullScreen && !mouseButtonDown && globalUIState == UISTATE_INGAME;
+		if (autoHide && hideCursor) {
+			while (cursorCounter >= 0) {
+				cursorCounter = ShowCursor(FALSE);
+			}
+		} else {
+			hideCursor = !autoHide;
+			if (cursorCounter < 0) {
+				cursorCounter = ShowCursor(TRUE);
+				SetCursor(LoadCursor(NULL, IDC_ARROW));
+			}
+		}
+	}
+
 	void setTexScalingLevel(int num) {
 		g_Config.iTexScalingLevel = num;
 		if(gpu) gpu->ClearCacheNextFrame();
@@ -184,6 +206,12 @@ namespace MainWindow
 	void setTexScalingType(int num) {
 		g_Config.iTexScalingType = num;
 		if(gpu) gpu->ClearCacheNextFrame();
+	}
+	void setFpsLimit(int fps) {
+		g_Config.iFpsLimit = fps;
+	}
+	void enableCheats(bool cheats){
+		g_Config.bEnableCheats = cheats;
 	}
 
 	BOOL Show(HINSTANCE hInstance, int nCmdShow)
@@ -194,16 +222,19 @@ namespace MainWindow
 		if (zoom < 1) zoom = 1;
 		if (zoom > 4) zoom = 4;
 		
-		RECT rc,rcOrig;
+		RECT rc, rcOrig;
 		GetWindowRectAtZoom(zoom, rcOrig, rc);
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
 		hwndMain = CreateWindowEx(0,szWindowClass, "", style,
-			rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, NULL, NULL, hInstance, NULL);
-		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-		SetPlaying(0);
+			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
 		if (!hwndMain)
+			return FALSE;
+
+		hwndDisplay = CreateWindowEx(0, szDisplayClass, TEXT(""), WS_CHILD | WS_VISIBLE,
+			rcOrig.left, rcOrig.top, rcOrig.right - rcOrig.left, rcOrig.bottom - rcOrig.top, hwndMain, 0, hInstance, 0);
+		if (!hwndDisplay)
 			return FALSE;
 
 		menu = GetMenu(hwndMain);
@@ -221,20 +252,23 @@ namespace MainWindow
 		{
 			SetMenuInfo(GetSubMenu(menu,i),&info);
 		}
+		UpdateMenus();
 
-		hwndDisplay = CreateWindowEx(0,szDisplayClass,TEXT(""),
-			WS_CHILD|WS_VISIBLE,
-			0,0,/*rcOrig.left,rcOrig.top,*/rcOrig.right-rcOrig.left,rcOrig.bottom-rcOrig.top,hwndMain,0,hInstance,0);
-
-		ShowWindow(hwndMain, nCmdShow);
 		//accept dragged files
 		DragAcceptFiles(hwndMain, TRUE);
+
+		hideCursor = true;
+		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
+
+		Update();
+		SetPlaying(0);
+		
+		ShowWindow(hwndMain, nCmdShow);
 
 #if ENABLE_TOUCH
 		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
 #endif
 
-		SetFocus(hwndMain);
 		SetFocus(hwndDisplay);
 
 		return TRUE;
@@ -243,13 +277,8 @@ namespace MainWindow
 	void BrowseAndBoot(std::string defaultPath)
 	{
 		std::string fn;
-		std::string filter = "";
-
-		filter += "PSP";
-		filter += "|";
-		filter += "*.pbp;*.elf;*.iso;*.cso;*.prx";
-		filter += "|";
-		filter += "|";
+		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
+		
 		for (int i=0; i<(int)filter.length(); i++)
 		{
 			if (filter[i] == '|')
@@ -285,50 +314,80 @@ namespace MainWindow
 		case WM_ERASEBKGND:
 	  	return DefWindowProc(hWnd, message, wParam, lParam);
 
+		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
+		// and as asynchronous touch events for minimal latency.
+
 		case WM_LBUTTONDOWN:
+			// Hack: Take the opportunity to show the cursor.
+			mouseButtonDown = true;
 			{
 				lock_guard guard(input_state.lock);
 				input_state.mouse_valid = true;
 				input_state.pointer_down[0] = true;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
-				}
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+
+				TouchInput touch;
+				touch.id = 0;
+				touch.flags = TOUCH_DOWN;
+				touch.x = GET_X_LPARAM(lParam);
+				touch.y = GET_Y_LPARAM(lParam);
+				NativeTouch(touch);
 			}
 			break;
 
 		case WM_MOUSEMOVE:
 			{
-				lock_guard guard(input_state.lock);
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+				// Hack: Take the opportunity to show the cursor.
+				mouseButtonDown = (wParam & MK_LBUTTON) != 0;
+				int cursorX = GET_X_LPARAM(lParam);
+				int cursorY = GET_Y_LPARAM(lParam);
+				if (abs(cursorX - prevCursorX) > 1 || abs(cursorY - prevCursorY) > 1) {
+					hideCursor = false;
+					SetTimer(hwndMain, TIMER_CURSORMOVEUPDATE, CURSORUPDATE_MOVE_TIMESPAN_MS, 0);
+				}
+				prevCursorX = cursorX;
+				prevCursorY = cursorY;
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
+				lock_guard guard(input_state.lock);
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+
+				if (wParam & MK_LBUTTON) {
+					TouchInput touch;
+					touch.id = 0;
+					touch.flags = TOUCH_MOVE;
+					touch.x = GET_X_LPARAM(lParam);
+					touch.y = GET_Y_LPARAM(lParam);
+					NativeTouch(touch);
 				}
 			}
 			break;
 
 		case WM_LBUTTONUP:
+			// Hack: Take the opportunity to hide the cursor.
+			mouseButtonDown = false;
 			{
 				lock_guard guard(input_state.lock);
 				input_state.pointer_down[0] = false;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam); 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam);
+				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
 
-				if (g_Config.iWindowZoom == 1)
-				{
-					input_state.pointer_x[0] *= 2;
-					input_state.pointer_y[0] *= 2;
-				}
+				TouchInput touch;
+				touch.id = 0;
+				touch.flags = TOUCH_UP;
+				touch.x = GET_X_LPARAM(lParam);
+				touch.y = GET_Y_LPARAM(lParam);
+				NativeTouch(touch);
 			}
 			break;
+
+
+		// Actual touch! Unfinished
 
 		case WM_TOUCH:
 			{
@@ -393,16 +452,24 @@ namespace MainWindow
 
 		case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
-			if (g_bFullScreen && globalUIState == UISTATE_INGAME) {
-				ShowCursor(FALSE);
-			} else {
-				ShowCursor(TRUE);
-				SetCursor(LoadCursor(NULL, IDC_ARROW));
+			switch (wParam)
+			{
+			case TIMER_CURSORUPDATE:
+				CorrectCursor();
+				return 0;
+			case TIMER_CURSORMOVEUPDATE:
+				hideCursor = true;
+				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
+				return 0;
 			}
-			SetTimer(hWnd, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-			return 0;
+			break;
 
 		case WM_COMMAND:
+			{
+			if (!EmuThread_Ready())
+				return DefWindowProc(hWnd, message, wParam, lParam);
+			I18NCategory *g = GetI18NCategory("Graphics");
+
 			wmId    = LOWORD(wParam); 
 			wmEvent = HIWORD(wParam); 
 			// Parse the menu selections:
@@ -519,6 +586,10 @@ namespace MainWindow
 				g_Config.bMipMap = !g_Config.bMipMap;
 				break;
 
+			case ID_OPTIONS_VSYNC:
+				g_Config.iVSyncInterval = !g_Config.iVSyncInterval;
+				break;
+
 			case ID_TEXTURESCALING_OFF:
 				setTexScalingLevel(1);
 				break;
@@ -555,6 +626,7 @@ namespace MainWindow
 
 			case ID_OPTIONS_BUFFEREDRENDERING:
 				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
+				osm.ShowOnOff(g->T("Buffered Rendering"), g_Config.bBufferedRendering);
 				if (gpu)
 					gpu->Resized();  // easy way to force a clear...
 				break;
@@ -565,6 +637,7 @@ namespace MainWindow
 
 			case ID_OPTIONS_HARDWARETRANSFORM:
 				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+				osm.ShowOnOff(g->T("Hardware Transform"), g_Config.bHardwareTransform);
 				break;
 
 			case ID_OPTIONS_STRETCHDISPLAY:
@@ -575,10 +648,7 @@ namespace MainWindow
 
 			case ID_OPTIONS_FRAMESKIP:
 				g_Config.iFrameSkip = g_Config.iFrameSkip == 0 ? 1 : 0;
-				break;
-
-			case ID_OPTIONS_USEMEDIAENGINE:
-				g_Config.bUseMediaEngine = !g_Config.bUseMediaEngine;
+				osm.ShowOnOff(g->T("Frame Skipping"), g_Config.iFrameSkip != 0);
 				break;
 
 			case ID_FILE_EXIT:
@@ -587,6 +657,7 @@ namespace MainWindow
 
 			case ID_CPU_DYNAREC:
 				g_Config.bJit = true;
+				osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
 				break;	
 
 			case ID_CPU_INTERPRETER:
@@ -651,14 +722,11 @@ namespace MainWindow
 				}
 				break;
 
-			case ID_OPTIONS_WIREFRAME:
-				g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
-				break;
 			case ID_OPTIONS_VERTEXCACHE:
 				g_Config.bVertexCache = !g_Config.bVertexCache;
 				break;
 			case ID_OPTIONS_SHOWFPS:
-				g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
+				g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
 				break;
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
@@ -672,6 +740,11 @@ namespace MainWindow
 			case ID_OPTIONS_LINEARFILTERING:
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
 				break;
+			case ID_OPTIONS_TOPMOST:
+				g_Config.bTopMost = !g_Config.bTopMost;
+				W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
+				break;
+
 			case ID_OPTIONS_SIMPLE2XSSAA:
 				g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
 				ResizeDisplay(true);
@@ -684,32 +757,35 @@ namespace MainWindow
 			case ID_EMULATION_SOUND:
 				g_Config.bEnableSound = !g_Config.bEnableSound;
 				break;
-      			case ID_HELP_OPENWEBSITE:
-				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-        			break;
 
-      			case ID_HELP_ABOUT:
+			case ID_HELP_OPENWEBSITE:
+				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+				break;
+
+			case ID_HELP_OPENFORUM:
+				ShellExecute(NULL, "open", "http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+				break;
+
+      case ID_HELP_ABOUT:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
 				break;
 
 			default:
-				{
-					MessageBox(hwndMain,"Unimplemented","Sorry",0);
-				}
+				MessageBox(hwndMain,"Unimplemented","Sorry",0);
 				break;
+			}
 			}
 			break;
 		case WM_KEYDOWN:
-			{
-				static int mojs=0;
-				mojs ^= 1;
-				//SetSkinMode(mojs);
-			}
 			return 0;
+
 		case WM_DROPFILES:
 			{
+				if (!EmuThread_Ready())
+					return DefWindowProc(hWnd, message, wParam, lParam);
+
 				HDROP hdrop = (HDROP)wParam;
 				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
 				if (count != 1)
@@ -735,24 +811,19 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			Core_Stop();
-			Core_WaitInactive(200);
+			/*
+			if (g_Config.bConfirmOnQuit && __KernelIsRunning())
+				if (IDYES != MessageBox(hwndMain, "A game is in progress. Are you sure you want to exit?",
+					"Are you sure?", MB_YESNO | MB_ICONQUESTION))
+					return 0;
+			//*/
 			EmuThread_Stop();
 
-			/*
-			if (g_Config.bConfirmOnQuit && CCore::IsRunning())
-			{
-				if (IDNO==MessageBox(hwndMain,"A game is in progress. Are you sure you want to exit?","Are you sure?",MB_YESNO|MB_ICONQUESTION))
-					return 1;//or 1?
-				else
-					return DefWindowProc(hWnd,message,wParam,lParam);
-				break;
-			}
-			else
-			*/
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
 		case WM_DESTROY:
+			KillTimer(hWnd, TIMER_CURSORUPDATE);
+			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			PostQuitMessage(0);
 			break;
 
@@ -779,8 +850,8 @@ namespace MainWindow
 
 
 		case WM_MENUSELECT:
-			// This happens when a menu drops down, so this is the only place
-			// we need to call UpdateMenus.
+			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
+			// with corresponding menu items.
 			UpdateMenus();
 			break;
 
@@ -819,7 +890,6 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
-		CHECKITEM(ID_OPTIONS_WIREFRAME, g_Config.bDrawWireframe);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
@@ -828,28 +898,13 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
-		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
+		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
-		CHECKITEM(ID_OPTIONS_USEMEDIAENGINE, g_Config.bUseMediaEngine);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
-		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound); 
-		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize); 
-
-		EnableMenuItem(menu,ID_EMULATION_RUN, (Core_IsStepping() || globalUIState == UISTATE_PAUSEMENU) ? MF_ENABLED : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_PAUSE, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_STOP, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
-		EnableMenuItem(menu,ID_EMULATION_RESET, globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED);
-
-		UINT enable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu,ID_FILE_LOAD,enable);
-		EnableMenuItem(menu,ID_FILE_LOAD_MEMSTICK,enable);
-		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE,!enable);
-		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE,!enable);
-		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE,!enable);
-		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE,!enable);
-		EnableMenuItem(menu,ID_CPU_DYNAREC,enable);
-		EnableMenuItem(menu,ID_CPU_INTERPRETER,enable);
-		EnableMenuItem(menu,ID_EMULATION_STOP,!enable);
+		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.iVSyncInterval != 0);
+		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
+		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
+		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
 		
 		static const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
@@ -881,6 +936,39 @@ namespace MainWindow
 		for (int i = 0; i < 4; i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));
 		}
+
+		UpdateCommands();
+	}
+
+	void UpdateCommands()
+	{
+		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
+		static CoreState lastCoreState = CORE_ERROR;
+
+		if (lastGlobalUIState == globalUIState && lastCoreState == coreState)
+			return;
+
+		lastCoreState = coreState;
+		lastGlobalUIState = globalUIState;
+
+		HMENU menu = GetMenu(GetHWND());
+		EnableMenuItem(menu,ID_EMULATION_RUN, (Core_IsStepping() || globalUIState == UISTATE_PAUSEMENU) ? MF_ENABLED : MF_GRAYED);
+
+		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
+		EnableMenuItem(menu,ID_EMULATION_PAUSE, ingameEnable);
+		EnableMenuItem(menu,ID_EMULATION_STOP, ingameEnable);
+		EnableMenuItem(menu,ID_EMULATION_RESET, ingameEnable);
+
+		UINT menuEnable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
+		EnableMenuItem(menu,ID_FILE_LOAD, menuEnable);
+		EnableMenuItem(menu,ID_FILE_LOAD_MEMSTICK, menuEnable);
+		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE, !menuEnable);
+		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE, !menuEnable);
+		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE, !menuEnable);
+		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE, !menuEnable);
+		EnableMenuItem(menu,ID_CPU_DYNAREC, menuEnable);
+		EnableMenuItem(menu,ID_CPU_INTERPRETER, menuEnable);
+		EnableMenuItem(menu,ID_EMULATION_STOP, !menuEnable);
 	}
 
 
@@ -910,30 +998,49 @@ namespace MainWindow
 		return FALSE;
 	}
 
+#define CONTROLS_IDC_EDIT_BEGIN IDC_EDIT_KEY_MENU
+#define CONTROLS_IDC_EDIT_END   IDC_EDIT_KEY_ANALOG_RIGHT
+#define CONTROLS_BUTTONS_COUNT  (IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BEGIN + 1)
+#define CONTROLS_BUTTONNAME_MAX 16
+// for controls dialog device polling and bind update.
+#define TIMER_CONTROLS_BINDUPDATE 1
+#define BINDUPDATE_INTERVAL_MS 50
+
 	static const char *controllist[] = {
-		"TURBO MODE\tHold TAB",
-		"Start\tSpace",
-		"Select\tV",
-		"Square\tA",
-		"Triangle\tS",
-		"Circle\tX",
-		"Cross\tZ",
-		"Left Trigger\tQ",
-		"Right Trigger\tW",
-		"Up\tArrow Up",
-		"Down\tArrow Down",
-		"Left\tArrow Left",
-		"Right\tArrow Right",
-		"Analog Up\tI",
-		"Analog Down\tK",
-		"Analog Left\tJ",
-		"Analog Right\tL",
-		"Rapid Fire\tShift",
+		"Menu",        // Open PauseScreen
+		"Back",        // Toggle PauseScreen & Back Setting Page.
+		"Triangle",
+		"Rectangle",
+		"Cross",
+		"Circle",
+		"Select",
+		"Start",
+		"Left Trigger",
+		"Right Trigger",
+		"Turbo",       // LBUMPER (Turbo)
+		"Reserved",    // RBUMPER (Open PauseScreen)
+		"Up",
+		"Down",
+		"Left",
+		"Right",
+		"LY+",
+		"LY-",
+		"LX-",
+		"LX+",
 	};
 
-	static HHOOK pKeydownHook;
-	static const int control_map_size = IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO + 1;
-	static u8 control_map[control_map_size];
+	struct ControlsDlgState {
+		HHOOK    pKeydownHook;
+		HBITMAP  hbmPspImage;
+		HWND     hCtrlTab;
+		UINT_PTR timerId;
+		WNDPROC  orgPSPImageProc;
+		WNDPROC  orgEditProc;
+		ControlMapping *pCtrlMap;
+		HWND     hStaticPspImage;
+	};
+	static ControlsDlgState *pCtrlDlgState;
+
 	RECT getRedrawRect(HWND hWnd) {
 		RECT rc;
 		HWND hDlg = GetParent(hWnd);
@@ -950,23 +1057,30 @@ namespace MainWindow
 
 	LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
-		HWND hEdit = GetFocus();
-		UINT nCtrlID = GetDlgCtrlID(hEdit);
-		if (nCtrlID < IDC_EDIT_KEY_TURBO || nCtrlID > IDC_EDIT_KEY_ANALOG_RIGHT) {
-			return CallNextHookEx(pKeydownHook, nCode, wParam, lParam);
-		}
-		if (!(lParam&(1<<31))) {
-			// key down
-			HWND hDlg = GetParent(hEdit);
-			const char *str = getVirtualKeyName(wParam);
-			if (str) {
-				control_map[nCtrlID - IDC_EDIT_KEY_TURBO] = wParam;
-				SetWindowTextA(hEdit, str);
-				RECT rc = getRedrawRect(hEdit);
-				InvalidateRect(hDlg, &rc, false);
+		if (pCtrlDlgState->pCtrlMap->GetTargetDevice() == CONTROLS_KEYBOARD_INDEX) {
+			HWND hEdit = GetFocus();
+			UINT nCtrlID = GetDlgCtrlID(hEdit);
+			if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > CONTROLS_IDC_EDIT_END) {
+				return CallNextHookEx(pCtrlDlgState->pKeydownHook, nCode, wParam, lParam);
 			}
-			else
-				MessageBoxA(hDlg, "Not supported!", "controller", MB_OK);
+			if (!(lParam&(1<<31))) {
+				// key down
+				HWND hDlg = GetParent(hEdit);
+				const char *str = getVirtualKeyName(wParam);
+				if (str) {
+					if (nCtrlID >= IDC_EDIT_KEY_ANALOG_UP) {
+						pCtrlDlgState->pCtrlMap->SetBindCode(wParam, CONTROLS_KEYBOARD_ANALOG_INDEX,
+							nCtrlID - IDC_EDIT_KEY_ANALOG_UP);
+					} else {
+						pCtrlDlgState->pCtrlMap->SetBindCode(wParam);
+					}
+					SetWindowTextA(hEdit, str);
+					RECT rc = getRedrawRect(hEdit);
+					InvalidateRect(hDlg, &rc, false);
+				}
+				else
+					MessageBoxA(hDlg, "Not supported!", "controller", MB_OK);
+			}
 		}
 		return 1;
 	}
@@ -999,22 +1113,137 @@ namespace MainWindow
 		DeleteObject(hCompDC);
 	}
 
+	inline void SetWindowTextForButton(HWND hEdit, u32 buttonCode, const char *pszButtonName)
+	{
+		if (buttonCode == 0) {
+			SetWindowTextA(hEdit, "Disable");
+		} else {
+			SetWindowTextA(hEdit, pszButtonName);
+		}
+	}
+
+	// Draw background image of Controls Dialog (pspmode.png) by use static control.
+	LRESULT CALLBACK PSPImageProc(HWND hStatic, UINT message, WPARAM wParam, LPARAM lParam)
+	{
+
+		switch(message) {
+			case WM_PAINT:
+				{
+					PAINTSTRUCT pst;	
+					HDC hdc = BeginPaint(hStatic, &pst);
+					
+					BITMAP bm;
+					GetObject(pCtrlDlgState->hbmPspImage, sizeof(BITMAP), &bm);
+					BitBlt(pCtrlDlgState->hbmPspImage, hdc, 0, 0, bm.bmWidth, bm.bmHeight, 0 , 0);
+					EndPaint(hStatic, &pst);
+					
+					return TRUE;
+				}
+			default:
+				break;
+		}
+		return CallWindowProc(pCtrlDlgState->orgPSPImageProc, hStatic, message, wParam, lParam);
+	}
+
+	LRESULT CALLBACK ButtonsEditProc(HWND hEdit, UINT message, WPARAM wParam, LPARAM lParam)
+	{
+		switch (message) {
+		case WM_RBUTTONUP:
+			{
+				UINT nCtrlID = GetDlgCtrlID(hEdit);
+				int deviceIdx =  TabCtrl_GetCurSel(pCtrlDlgState->hCtrlTab);
+				if (deviceIdx != CONTROLS_KEYBOARD_INDEX && nCtrlID >= IDC_EDIT_KEY_ANALOG_UP)
+					return TRUE;
+
+				HMENU hSubMenu = GetSubMenu(g_hPopupMenus, 4);
+				POINT pos;
+				pos.x = LOWORD(lParam);
+				pos.y = HIWORD(lParam);
+				ClientToScreen(hEdit, &pos);
+				switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus, 4), TPM_RETURNCMD, pos.x, pos.y, hEdit, NULL))
+				{
+				case ID_CONTROLS_KEY_DISABLE:
+					{
+						if (nCtrlID < IDC_EDIT_KEY_ANALOG_UP) {
+							pCtrlDlgState->pCtrlMap->SetDisableBind(deviceIdx, nCtrlID - CONTROLS_IDC_EDIT_BEGIN);
+						}
+						else if (deviceIdx == CONTROLS_KEYBOARD_INDEX) {
+							pCtrlDlgState->pCtrlMap->SetDisableBind(
+								CONTROLS_KEYBOARD_ANALOG_INDEX, nCtrlID - IDC_EDIT_KEY_ANALOG_UP);
+						}
+						SetWindowTextA(hEdit, "Disable");
+						RECT rc = getRedrawRect(hEdit);
+						HWND hDlg = GetParent(hEdit);
+						InvalidateRect(hDlg, &rc, false);
+						break;
+					}
+				default:
+					break;
+				}
+				return TRUE;
+			}
+		default :
+			break;
+		}
+		return CallWindowProc(pCtrlDlgState->orgEditProc, hEdit, message, wParam, lParam);
+	}
+
 	// Message handler for control box.
 	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-		static HBITMAP hbm = 0;
+	{	
 		switch (message)
 		{
 		case WM_INITDIALOG:
 			W32Util::CenterWindow(hDlg);
 			{
+				// IDC_EDIT_xxx is need continuous value to IDC_EDIT_KEY_ANALOG_RIGHT from IDC_EDIT_KEY_MENU.
+				// it is total 16.
+				// it is need the same order as the dinput_ctrl_map(and xinput/keyboard).
+				if (CONTROLS_BUTTONS_COUNT != 16) {
+					char mes[100];
+					snprintf(mes, 100, "CONTROLS_BUTTONS_COUNT(%d) is need 16.", CONTROLS_BUTTONS_COUNT);
+					MessageBoxA(hDlg, mes, "Controls dialog init error.", MB_OK);
+				}
+				pCtrlDlgState = new ControlsDlgState();
+				ZeroMemory(pCtrlDlgState, sizeof(ControlsDlgState));
+				pCtrlDlgState->pCtrlMap = ControlMapping::CreateInstance(CONTROLS_BUTTONS_COUNT);
+				if (!pCtrlDlgState->pCtrlMap) {
+					MessageBoxA(hDlg, "Cannot Created ControlMapping instance.", "Controls dialog init error.", MB_OK);
+				}
+				pCtrlDlgState->pCtrlMap->SetTargetDevice(CONTROLS_KEYBOARD_INDEX);
+
+				pCtrlDlgState->hCtrlTab = GetDlgItem(hDlg, IDC_TAB_INPUT_DEVICE);
+				TCITEM tcItem;
+				ZeroMemory(&tcItem, sizeof(tcItem));
+				tcItem.mask			= TCIF_TEXT;
+				tcItem.dwState		= 0;
+				tcItem.pszText		= "Keyboard";
+				tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+				tcItem.iImage		= 0;
+				TabCtrl_InsertItem(pCtrlDlgState->hCtrlTab, TabCtrl_GetItemCount(pCtrlDlgState->hCtrlTab),&tcItem);
+				tcItem.pszText		= "DirectInput";
+				tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+				TabCtrl_InsertItem(pCtrlDlgState->hCtrlTab, TabCtrl_GetItemCount(pCtrlDlgState->hCtrlTab),&tcItem);
+				tcItem.pszText		= "XInput";
+				tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+				TabCtrl_InsertItem(pCtrlDlgState->hCtrlTab, TabCtrl_GetItemCount(pCtrlDlgState->hCtrlTab),&tcItem);
+				int tp_w = 0, tp_h = 0;
 				// TODO: connect to keyboard device instead
 				{
+					
 					HBITMAP hResBM = LoadImageFromResource(hInst, MAKEINTRESOURCE(IDB_IMAGE_PSP), "IMAGE");
-					HDC hDC = GetDC(hDlg);
-					RECT clientRect;
+					pCtrlDlgState->hStaticPspImage = GetDlgItem(hDlg,IDC_STATIC_IMAGE_PSP);
+					RECT clientRect, tabPageRect, imgRect;
+					
 					GetClientRect(hDlg, &clientRect);
-					HBITMAP hMemBM = CreateCompatibleBitmap(hDC, clientRect.right, clientRect.bottom);
+					memcpy(&tabPageRect, &clientRect, sizeof(RECT));
+					TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, FALSE, &tabPageRect);
+					tp_w = tabPageRect.right - tabPageRect.left;
+					tp_h = tabPageRect.bottom - tabPageRect.top;
+					MoveWindow(pCtrlDlgState->hStaticPspImage, tabPageRect.left, tabPageRect.top, tp_w, tp_h, FALSE);
+					
+					HDC hDC = GetDC(pCtrlDlgState->hStaticPspImage);
+					HBITMAP hMemBM = CreateCompatibleBitmap(hDC, tp_w, tp_h);
 					HDC hResDC = CreateCompatibleDC(hDC);
 					HDC hMemDC = CreateCompatibleDC(hDC);
 					SelectObject(hResDC, hResBM);
@@ -1023,25 +1252,45 @@ namespace MainWindow
 					BITMAP bm;
 					GetObject(hResBM, sizeof(BITMAP), &bm);
 					SetStretchBltMode(hMemDC, HALFTONE);
-					StretchBlt(hMemDC, 0, 0, clientRect.right, clientRect.bottom, hResDC, 0, 0, bm.bmWidth, bm.bmHeight, SRCCOPY); 
-					if (hbm)
-						DeleteObject(hbm);
-					hbm = hMemBM;
+					float scaleX = (float)bm.bmWidth / clientRect.right;
+					float scaleY = (float)bm.bmHeight / clientRect.bottom;
+					imgRect.left = (int)(tabPageRect.left * scaleX);
+					imgRect.top  = (int)(tabPageRect.top * scaleY);
+					imgRect.right= (int)(bm.bmWidth - ((clientRect.right - tabPageRect.right) * scaleX));
+					imgRect.bottom = (int)(bm.bmHeight - ((clientRect.bottom - tabPageRect.bottom) * scaleY));
+					StretchBlt(hMemDC, 0, 0, tp_w, tp_h, hResDC, imgRect.left, imgRect.top,
+						imgRect.right - imgRect.left, imgRect.bottom - imgRect.top, SRCCOPY); 
+					if (pCtrlDlgState->hbmPspImage)
+						DeleteObject(pCtrlDlgState->hbmPspImage);
+					pCtrlDlgState->hbmPspImage = hMemBM;
 
 					DeleteDC(hMemDC);
 					DeleteDC(hResDC);
-					ReleaseDC(hDlg, hDC);
+					ReleaseDC(pCtrlDlgState->hStaticPspImage, hDC);
 					DeleteObject(hResBM);
 				}
-				int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
-				for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
-					HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_TURBO + i);
-					if (IDC_EDIT_KEY_TURBO + i <= IDC_EDIT_KEYRIGHT)
-						control_map[i] = key_pad_map[i * 2];
-					else
-						control_map[i] = analog_ctrl_map[(i - key_pad_size) * 2];
-					SetWindowTextA(hEdit, getVirtualKeyName(control_map[i]));
+
+				pCtrlDlgState->orgEditProc = (WNDPROC)GetWindowLongPtr(
+					GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN), GWLP_WNDPROC);
+				for (int i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
+					HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
+					if (i < CONTROLS_BUTTONS_COUNT) {
+						u32 keyCode = pCtrlDlgState->pCtrlMap->GetBindCode(CONTROLS_KEYBOARD_INDEX, i);
+						SetWindowTextForButton(hEdit, keyCode, getVirtualKeyName(keyCode));
+					} else {
+						u32 analogCode = pCtrlDlgState->pCtrlMap->GetBindCode(
+							CONTROLS_KEYBOARD_ANALOG_INDEX, i - CONTROLS_BUTTONS_COUNT);
+						SetWindowTextForButton(hEdit, analogCode, getVirtualKeyName(analogCode));
+					}
+					if (pCtrlDlgState->orgEditProc != (WNDPROC)GetWindowLongPtr(hEdit, GWLP_WNDPROC)) {
+						MessageBoxA(hDlg,
+							"Can not hook to the inherited Edit control. need wndproc of original edit control.",
+							"Controls dialog init error.", MB_OK);
+						break;
+					}
+					SetWindowLongPtr(hEdit, GWLP_WNDPROC, (LONG_PTR)ButtonsEditProc);
 				}
+
 				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "None");
 				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "XInput");
 				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "DirectInput");
@@ -1053,26 +1302,171 @@ namespace MainWindow
 				{
 					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), (g_Config.iForceInputDevice + 1));
 				}
+				pCtrlDlgState->orgPSPImageProc = (WNDPROC)GetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC);
+				SetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC, (LONG_PTR)PSPImageProc);
 				DWORD dwThreadID = GetWindowThreadProcessId(hDlg, NULL);
-				pKeydownHook = SetWindowsHookEx(WH_KEYBOARD,KeyboardProc, NULL, dwThreadID);
+				pCtrlDlgState->pKeydownHook = SetWindowsHookEx(WH_KEYBOARD, KeyboardProc, NULL, dwThreadID);
+			
+				pCtrlDlgState->timerId = SetTimer(hDlg, TIMER_CONTROLS_BINDUPDATE, BINDUPDATE_INTERVAL_MS, 0);
 			}
 			return TRUE;
+		case WM_TIMER:
+			{
+				if (wParam == TIMER_CONTROLS_BINDUPDATE && 
+					pCtrlDlgState->pCtrlMap->GetTargetDevice() != CONTROLS_KEYBOARD_INDEX) {
+					HWND hEdit = GetFocus();
+					UINT nCtrlID = GetDlgCtrlID(hEdit);
+					if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > IDC_EDIT_KEYRIGHT) {
+						break;
+					}
+					// device polling and update.
+					int prevButton = pCtrlDlgState->pCtrlMap->GetBindCode();
+					pCtrlDlgState->pCtrlMap->UpdateState();
+					char str[CONTROLS_BUTTONNAME_MAX];
+					ZeroMemory(str, CONTROLS_BUTTONNAME_MAX * sizeof(char));
+					int buttonCode = pCtrlDlgState->pCtrlMap->GetBindCode();
+					if (buttonCode == -1 || prevButton == buttonCode)
+						break;
+
+					switch(pCtrlDlgState->pCtrlMap->GetTargetDevice())
+					{
+					case CONTROLS_KEYBOARD_INDEX:
+						{
+							; // leave it to KeyboardProc.
+						}
+						break;
+					case CONTROLS_DIRECT_INPUT_INDEX:
+						{
+							if (buttonCode > 0xFF) {
+									int n = 1;
+									for (int i = buttonCode >> 8; i > 1; i >>= 1) {
+										n++;
+									}
+								snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",
+									controllist[(IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN - 1) + n]);
+							} else {
+								snprintf(str, CONTROLS_BUTTONNAME_MAX, "%d", buttonCode + 1);
+							}
+							SetWindowTextA(hEdit, str);
+							RECT rc = getRedrawRect(hEdit);
+							InvalidateRect(hDlg, &rc, FALSE);
+						}
+						break;
+					case CONTROLS_XINPUT_INDEX:
+						{
+							SetWindowTextA(hEdit, getXinputButtonName(buttonCode));
+							RECT rc = getRedrawRect(hEdit);
+							InvalidateRect(hDlg, &rc, FALSE);								
+						}
+						break;
+					}
+				}
+			}
+			break;
+		case WM_NOTIFY:
+			{
+				switch (((NMHDR *)lParam)->code)
+				{
+				case TCN_SELCHANGE:
+					{
+						int cursel =  TabCtrl_GetCurSel(pCtrlDlgState->hCtrlTab);
+						pCtrlDlgState->pCtrlMap->SetTargetDevice(cursel);
+						switch (cursel)
+						{
+						case CONTROLS_KEYBOARD_INDEX:
+							{
+								for (u32 i = 0; i <= IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BEGIN; i++) {
+									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
+									u32 keyCode = pCtrlDlgState->pCtrlMap->GetBindCode(i);
+									SetWindowTextForButton(hEdit, keyCode, getVirtualKeyName(keyCode));
+								}
+								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - IDC_EDIT_KEY_ANALOG_UP; i++) {
+									HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_ANALOG_UP + i);
+									Edit_SetReadOnly(hEdit, FALSE);
+									u32 analogCode = pCtrlDlgState->pCtrlMap->GetBindCode(
+										CONTROLS_KEYBOARD_ANALOG_INDEX, i);
+									SetWindowTextForButton(hEdit, analogCode, getVirtualKeyName(analogCode));
+								}
+								InvalidateRect(hDlg, 0, 0);
+							}
+							break;
+						case CONTROLS_DIRECT_INPUT_INDEX:
+							{
+
+								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
+									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
+									int buttonCode = (int)pCtrlDlgState->pCtrlMap->GetBindCode(i);
+									char str[16];
+									if (i >= IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN) {
+										if (i >= IDC_EDIT_KEY_ANALOG_UP - CONTROLS_IDC_EDIT_BEGIN) {
+											Edit_SetReadOnly(hEdit, TRUE);
+											SetWindowTextA(hEdit, controllist[i]);
+										} else {
+											int n = 1;
+											if (buttonCode != -1) {
+												for (int j = buttonCode >> 8; j > 1; j >>= 1) {
+													n++;
+												}
+												snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",
+													controllist[(IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN - 1) + n]);
+											}
+											SetWindowTextForButton(hEdit, buttonCode + 1, str);
+										}
+										continue;
+									}
+									snprintf(str, CONTROLS_BUTTONNAME_MAX, "%d", pCtrlDlgState->pCtrlMap->GetBindCode(i) + 1);
+									SetWindowTextForButton(hEdit, buttonCode + 1, str);
+								}
+								InvalidateRect(hDlg, 0, 0);
+							}
+							break;
+						case CONTROLS_XINPUT_INDEX:
+							{
+								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
+									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
+									if (i >= IDC_EDIT_KEY_ANALOG_UP - CONTROLS_IDC_EDIT_BEGIN) {
+										Edit_SetReadOnly(hEdit, TRUE);
+										SetWindowTextA(hEdit, controllist[i]);
+										continue;
+									}
+									u32 button = pCtrlDlgState->pCtrlMap->GetBindCode(i);
+									SetWindowTextForButton(hEdit, button, getXinputButtonName(button));
+								}
+								InvalidateRect(hDlg, 0, 0);
+							}
+							break;
+						default:
+							break;
+						} // pCtrlDlgState->curDevice
+					} // TCN_SELCHANGING:
+					break;
+				default:
+					break;
+				} // ((NMHDR *)lParam)->code
+			} // WM_NOTIFY:
+			break;
 		case WM_PAINT:
 			{
-				PAINTSTRUCT pst;
-				HDC hdc = BeginPaint(hDlg, &pst);
-				BITMAP bm;
-				GetObject(hbm, sizeof(BITMAP), &bm);
-				int width = bm.bmWidth;
-				int height = bm.bmHeight;
-				BitBlt(hbm, hdc, 0, 0, width, height, 0 , 0);
-				EndPaint(hDlg, &pst);
-				return TRUE;
+				return DefWindowProc(hDlg, message, wParam, lParam);
 			}
 		case WM_CTLCOLORSTATIC:
 			{
 				HDC hdc=(HDC)wParam;
+				HWND hCtrl = (HWND)lParam;
 				SetBkMode(hdc, TRANSPARENT);
+				int ctrlId = GetDlgCtrlID(hCtrl);
+				if (ctrlId >= IDC_EDIT_KEY_ANALOG_UP && ctrlId <= IDC_EDIT_KEY_ANALOG_RIGHT) {
+					SetTextColor(hdc, RGB(128,128,128));
+					RECT rc = getRedrawRect(hCtrl);
+					TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, TRUE, &rc);
+					RECT clientrc;
+					GetClientRect(hCtrl, &clientrc);
+					TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, TRUE, &clientrc);
+					BitBlt(pCtrlDlgState->hbmPspImage, hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
+					char str[11];
+					GetWindowTextA(hCtrl, str, 10);
+					DrawTextA(hdc, str, (int)strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
+				}
 				return (LRESULT)GetStockObject(NULL_BRUSH); 
 			}
 		case WM_CTLCOLOREDIT:
@@ -1084,9 +1478,11 @@ namespace MainWindow
 				SetTextColor(hdc, RGB(255, 0, 0));
 				HWND hEdit = (HWND)lParam;
 				RECT rc = getRedrawRect(hEdit);
+				TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, TRUE, &rc);
 				RECT clientrc;
 				GetClientRect(hEdit, &clientrc);
-				BitBlt(hbm, hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
+				TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, TRUE, &clientrc);
+				BitBlt(pCtrlDlgState->hbmPspImage, hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
 				char str[11];
 				GetWindowTextA(hEdit, str, 10);
 				DrawTextA(hdc, str, (int)strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
@@ -1097,22 +1493,39 @@ namespace MainWindow
 			{
 				if (LOWORD(wParam) == IDOK) {
 					g_Config.iForceInputDevice = (ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE)) - 1);
-					int key_pad_size = (IDC_EDIT_KEYRIGHT - IDC_EDIT_KEY_TURBO + 1);
-					for (u32 i = 0; i <= IDC_EDIT_KEY_ANALOG_RIGHT - IDC_EDIT_KEY_TURBO; i++) {
-						if (IDC_EDIT_KEY_TURBO + i <= IDC_EDIT_KEYRIGHT)
-							key_pad_map[i * 2] = control_map[i];
-					else
-						analog_ctrl_map[(i - key_pad_size) * 2] = control_map[i];
-					}
+					pCtrlDlgState->pCtrlMap->BindToDevices();
 					saveControlsToFile();
 				}
-				UnhookWindowsHookEx(pKeydownHook);
+				UnhookWindowsHookEx(pCtrlDlgState->pKeydownHook);
+				KillTimer(hDlg, pCtrlDlgState->timerId);
+				SetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC, (LONG_PTR)pCtrlDlgState->orgPSPImageProc);
+				for (u32 i = CONTROLS_IDC_EDIT_BEGIN; i <= CONTROLS_IDC_EDIT_END; i++) {
+					HWND hEdit = GetDlgItem(hDlg, i);
+					SetWindowLongPtr(hEdit, GWLP_WNDPROC, (LONG_PTR)pCtrlDlgState->orgEditProc);
+				}
 				EndDialog(hDlg, LOWORD(wParam));
-				if (hbm) {
-					DeleteObject(hbm);
-					hbm = 0;
+				if (pCtrlDlgState->hbmPspImage) {
+					DeleteObject(pCtrlDlgState->hbmPspImage);
+					pCtrlDlgState->hbmPspImage = 0;
+				}
+				if (pCtrlDlgState->pCtrlMap) {
+					delete pCtrlDlgState->pCtrlMap;
+					pCtrlDlgState->pCtrlMap = NULL;
+				}
+				if (pCtrlDlgState) {
+					delete pCtrlDlgState;
+					pCtrlDlgState = NULL;
 				}
 				return TRUE;
+			} else if (LOWORD(wParam) >= CONTROLS_IDC_EDIT_BEGIN &&
+						LOWORD(wParam) <= IDC_EDIT_KEYRIGHT &&
+						HIWORD(wParam) == EN_SETFOCUS) {
+				// send about buttonsMap-index of current focus Edit-Control to ControlMapping instance.
+				UINT nCtrlID = LOWORD(wParam);
+				if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > IDC_EDIT_KEYRIGHT) {
+					break;
+				}
+				pCtrlDlgState->pCtrlMap->SetTargetButton(nCtrlID - CONTROLS_IDC_EDIT_BEGIN);
 			}
 			break;
 		}
@@ -1133,9 +1546,6 @@ namespace MainWindow
 
 	void _ViewNormal(HWND hWnd)
 	{
-		ShowCursor(TRUE);
-		SetCursor(LoadCursor(NULL, IDC_ARROW));
-
 		// put caption and border styles back
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
@@ -1154,14 +1564,13 @@ namespace MainWindow
 
 		// reset full screen indicator
 		g_bFullScreen = FALSE;
+		CorrectCursor();
 		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, TRUE);
 	}
 
 	void _ViewFullScreen(HWND hWnd)
 	{
-		if (globalUIState == UISTATE_INGAME)
-			ShowCursor(FALSE);
-
 		// keep in mind normal window rectangle
 		::GetWindowRect(hWnd, &g_normalRC);
 
@@ -1183,7 +1592,9 @@ namespace MainWindow
 
 		// set full screen indicator
 		g_bFullScreen = TRUE;
+		CorrectCursor();
 		ResizeDisplay();
+		ShowOwnedPopups(hwndMain, FALSE);
 	}
 
 	void SetPlaying(const char *text)

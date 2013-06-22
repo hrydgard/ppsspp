@@ -96,7 +96,8 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
-	if (!LoadFile(coreParameter.fileToStart.c_str(), error_string))
+	std::string filename = coreParameter.fileToStart;
+	if (!LoadFile(filename, error_string) || coreState == CORE_POWERDOWN)
 	{
 		pspFileSystem.Shutdown();
 		CoreTiming::Shutdown();
@@ -108,7 +109,9 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 		return false;
 	}
 
-	g_Config.AddRecent(coreParameter.fileToStart);
+	if (coreParam.updateRecent)
+		g_Config.AddRecent(filename);
+
 	// Setup JIT here.
 	if (coreParameter.startPaused)
 		coreState = CORE_STEPPING;

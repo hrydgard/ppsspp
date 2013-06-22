@@ -5,22 +5,32 @@
     android:versionName="0.7.6"
     android:installLocation="auto" >
 
-    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="8"/>
+    <uses-sdk android:minSdkVersion="8" android:targetSdkVersion="17"/>
     
     <uses-feature android:glEsVersion="0x00020000"></uses-feature>
-		<uses-feature android:name="android.hardware.screen.landscape" />
-		<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-		<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-		<uses-permission android:name="archos.permission.FULLSCREEN.FULL" />
-		
-		<application
-        android:icon="@drawable/ic_launcher"
-        android:label="@string/app_name">
+	<uses-feature android:name="android.hardware.screen.landscape" />
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+	<uses-permission android:name="archos.permission.FULLSCREEN.FULL" />
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+	<uses-permission android:name="android.permission.INTERNET"/>
+
+	<supports-screens
+	    android:smallScreens="true"
+	    android:normalScreens="true"
+	    android:largeScreens="true"
+	    android:xlargeScreens="true"/>
+
+	<application
+       android:icon="@drawable/ic_launcher"
+       android:label="@string/app_name"
+       android:allowBackup="true">
         <activity
             android:name=".PpssppActivity"
             android:label="@string/app_name"
             android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
-            android:configChanges="orientation|locale|keyboard|keyboardHidden|navigation|fontScale|uiMode" >
+            android:configChanges="orientation|locale|keyboard|keyboardHidden|navigation|fontScale|uiMode"
+            android:screenOrientation="landscape" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -29,3 +39,4 @@
     </application>
 
 </manifest>
+ 

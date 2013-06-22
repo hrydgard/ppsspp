@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "CommonTypes.h"
 
 extern const char *PPSSPP_GIT_VERSION;
 
@@ -32,13 +33,17 @@ public:
 	// Whether to save the config on close.
 	bool bSaveSettings;
 
+	bool bFirstRun;
+
 	// These are broken
 	bool bAutoLoadLast;
-	bool bFirstRun;
 	bool bSpeedLimit;
 	bool bConfirmOnQuit;
 	bool bAutoRun;  // start immediately
 	bool bBrowse;
+#ifdef _WIN32
+	bool bTopMost;
+#endif
 
 	// General
 	int iNumWorkerThreads;
@@ -56,15 +61,14 @@ public:
 	bool bDisplayFramebuffer;
 	bool bHardwareTransform;
 	bool bBufferedRendering;
-	bool bDrawWireframe;
 	bool bLinearFiltering;
 	bool bUseVBO;
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 	bool bPartialStretch;
 #endif
 	bool bStretchToDisplay;
+	int iVSyncInterval;
 	int iFrameSkip;
-	bool bUseMediaEngine;
 
 	int iWindowX;
 	int iWindowY;
@@ -78,39 +82,55 @@ public:
 	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
+	int iFpsLimit;
+	int iMaxRecent;
+	bool bEnableCheats;
+	bool bReloadCheats;
 
 	// Sound
 	bool bEnableSound;
+	bool bEnableAtrac3plus;
 
 	// UI
 	bool bShowTouchControls;
 	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
-	bool bShowFPSCounter;
+	int iShowFPSCounter;
 	bool bShowDebugStats;
 	bool bLargeControls;
 	bool bAccelerometerToAnalogHoriz;
+	// Temporary until control mapping rewrite
+	// 0 = none
+	// 1 = arrow buttons
+	// 2 = face buttons
+	// 3 = L/R
+	// 4 = L/R + triangle/cross
+	int iRightStickBind;
 
 	// Control
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems
 	int iForceInputDevice;
+	int iTouchButtonOpacity;
+	float fButtonScale;
 
 	// SystemParam
 	std::string sNickName;
 	int ilanguage;
-	int itimeformat;
+	int iTimeFormat;
 	int iDateFormat;
 	int iTimeZone;
 	bool bDayLightSavings;
-	bool bButtonPreference;
+	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 
 	std::string currentDirectory;
+	std::string externalDirectory; 
 	std::string memCardDirectory;
 	std::string flashDirectory;
+	std::string internalDataDirectory;
 
 	void Load(const char *iniFileName = "ppsspp.ini");
 	void Save();

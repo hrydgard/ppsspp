@@ -64,6 +64,7 @@ public:
 	static u32 GetMissingErrorCode() {
 		return SCE_KERNEL_ERROR_UNKNOWN_EVFID;
 	}
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_EventFlag; }
 	int GetIDType() const { return SCE_KERNEL_TMID_EventFlag; }
 
 	virtual void DoState(PointerWrap &p)
@@ -160,8 +161,6 @@ bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 &error,
 	{
 		if (!__KernelEventFlagMatches(&e->nef.currentPattern, th.bits, th.wait, th.outAddr))
 			return false;
-
-		e->nef.numWaitThreads--;
 	}
 	else
 	{
@@ -219,7 +218,6 @@ void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId)
 				waitData = *t;
 				// TODO: Hmm, what about priority/fifo order?  Does it lose its place in line?
 				flag->waitingThreads.erase(flag->waitingThreads.begin() + i);
-				flag->nef.numWaitThreads--;
 				break;
 			}
 		}
@@ -267,7 +265,6 @@ void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &r
 	EventFlagTh waitData = flag->pausedWaits[pauseKey];
 	u64 waitDeadline = waitData.pausedTimeout;
 	flag->pausedWaits.erase(pauseKey);
-	flag->nef.numWaitThreads++;
 
 	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
 
@@ -342,11 +339,11 @@ u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr)
 	EventFlag *e = kernelObjects.Get<EventFlag>(uid, error);
 	if (e)
 	{
+		e->nef.numWaitThreads = (int) e->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(e->nef.numWaitThreads, numWaitThreadsPtr);
 
 		e->nef.currentPattern = pattern;
-		e->nef.numWaitThreads = 0;
 
 		if (__KernelClearEventFlagThreads(e, SCE_KERNEL_ERROR_WAIT_CANCEL))
 			hleReSchedule("event flag canceled");
@@ -451,7 +448,6 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate)
 				// actually running, it will get a DELETE result instead of a TIMEOUT.
 				// So, we need to remember it or we won't be able to mark it DELETE instead later.
 				__KernelUnlockEventFlagForThread(e, *t, error, SCE_KERNEL_ERROR_WAIT_TIMEOUT, wokeThreads);
-				e->nef.numWaitThreads--;
 				break;
 			}
 		}
@@ -520,11 +516,10 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 				timeout = Memory::Read_U32(timeoutPtr);
 
 			// Do we allow more than one thread to wait?
-			if (e->nef.numWaitThreads > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
+			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
 				return SCE_KERNEL_ERROR_EVF_MULTI;
 
 			// No match - must wait.
-			e->nef.numWaitThreads++;
 			th.tid = __KernelGetCurThread();
 			th.bits = bits;
 			th.wait = wait;
@@ -584,11 +579,10 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 				timeout = Memory::Read_U32(timeoutPtr);
 
 			// Do we allow more than one thread to wait?
-			if (e->nef.numWaitThreads > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
+			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
 				return SCE_KERNEL_ERROR_EVF_MULTI;
 
 			// No match - must wait.
-			e->nef.numWaitThreads++;
 			th.tid = __KernelGetCurThread();
 			th.bits = bits;
 			th.wait = wait;
@@ -641,7 +635,7 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 			if (Memory::IsValidAddress(outBitsPtr))
 				Memory::Write_U32(e->nef.currentPattern, outBitsPtr);
 
-			if (e->nef.numWaitThreads > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
+			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
 				return SCE_KERNEL_ERROR_EVF_MULTI;
 
 			// No match - return that, this is polling, not waiting.
@@ -661,16 +655,32 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 //int sceKernelReferEventFlagStatus(SceUID event, SceKernelEventFlagInfo *status);
 u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelReferEventFlagStatus(%i, %08x)", id, statusPtr);
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(id, error);
 	if (e)
 	{
-		Memory::WriteStruct(statusPtr, &e->nef);
+		DEBUG_LOG(HLE, "sceKernelReferEventFlagStatus(%i, %08x)", id, statusPtr);
+
+		if (!Memory::IsValidAddress(statusPtr))
+			return -1;
+
+		u32 error;
+		for (auto iter = e->waitingThreads.begin(); iter != e->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(iter->tid, WAITTYPE_EVENTFLAG, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != id)
+				e->waitingThreads.erase(iter--);
+		}
+
+		e->nef.numWaitThreads = (int) e->waitingThreads.size();
+		if (Memory::Read_U32(statusPtr) != 0)
+			Memory::WriteStruct(statusPtr, &e->nef);
 		return 0;
 	}
 	else
 	{
+		ERROR_LOG(HLE, "sceKernelReferEventFlagStatus(%i, %08x): invalid event flag", id, statusPtr);
 		return error;
 	}
 }

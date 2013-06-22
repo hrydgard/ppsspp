@@ -1026,8 +1026,8 @@
     </message>
     <message>
         <location filename="../mainwindow.ui" line="363"/>
-        <source>F12</source>
-        <translation>F12</translation>
+        <source>F11</source>
+        <translation>F11</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="371"/>

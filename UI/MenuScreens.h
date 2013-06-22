@@ -43,7 +43,7 @@ private:
 class MenuScreen : public Screen
 {
 public:
-	MenuScreen() : frames_(0) {}
+	MenuScreen();
 	void update(InputState &input);
 	void render();
 	void sendMessage(const char *message, const char *value);
@@ -92,6 +92,13 @@ public:
 };
 
 class GraphicsScreenP2 : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
+
+class GraphicsScreenP3 : public Screen
 {
 public:
 	void update(InputState &input);

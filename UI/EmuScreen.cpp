@@ -23,6 +23,7 @@
 
 #include "input/input_state.h"
 #include "ui/ui.h"
+#include "i18n/i18n.h"
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -37,6 +38,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
 
+#include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
 #include "UI/GamepadEmu.h"
 #include "UI/UIShader.h"
@@ -71,7 +73,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
-	coreParam.useMediaEngine = false;
 	if (g_Config.SSAntiAliasing) {
 		coreParam.renderWidth *= 2;
 		coreParam.renderHeight *= 2;
@@ -85,7 +86,7 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 		ERROR_LOG(BOOT, "%s", errorMessage_.c_str());
 		return;
 	}
-	
+
 	globalUIState = UISTATE_INGAME;
 	host->BootDone();
 	host->UpdateDisassembly();
@@ -95,6 +96,13 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	g_gameInfoCache.FlushBGs();
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
+	I18NCategory *s = GetI18NCategory("Screen"); 
+
+#ifdef _WIN32
+	if (g_Config.bFirstRun) {
+		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
+	}
+#endif
 }
 
 EmuScreen::~EmuScreen() {
@@ -170,9 +178,17 @@ void EmuScreen::update(InputState &input) {
 	// First translate touches into native pad input.
 	// Do this no matter the value of g_Config.bShowTouchControls, some people
 	// like to use invisible controls...
-	UpdateGamepad(input);
+	// Don't force on platforms that likely don't have a touchscreen, like Win32, OSX, and Linux...
+	// TODO: What are good ifdefs for OSX and Linux, without breaking other mobile platforms?
+#ifdef _WIN32
+	if(g_Config.bShowTouchControls) {
+#endif
+		UpdateGamepad(input);
 
-	UpdateInputState(&input);
+		UpdateInputState(&input);
+#ifdef _WIN32
+	}
+#endif
 
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
@@ -203,6 +219,8 @@ void EmuScreen::update(InputState &input) {
 	float stick_y = input.pad_lstick_y;
 	float rightstick_x = input.pad_rstick_x;
 	float rightstick_y = input.pad_rstick_y;
+	
+	I18NCategory *s = GetI18NCategory("Screen"); 
 
 	// Apply tilt to left stick
 	if (g_Config.bAccelerometerToAnalogHoriz) {
@@ -214,10 +232,41 @@ void EmuScreen::update(InputState &input) {
 	__CtrlSetAnalog(stick_x, stick_y, 0);
 	__CtrlSetAnalog(rightstick_x, rightstick_x, 1);
 
-	if (input.pad_buttons & PAD_BUTTON_LEFT_THUMB) {
+	if (PSP_CoreParameter().fpsLimit != 2) {
+		// Don't really need to show these, it's pretty obvious what unthrottle does,
+		// in contrast to the three state toggle
+		/*
+		if (input.pad_buttons_down & PAD_BUTTON_UNTHROTTLE) {
+			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
+		}
+		if (input.pad_buttons_up & PAD_BUTTON_UNTHROTTLE) {
+			osm.Show(s->T("standard", "Speed: standard"), 1.0);
+		}*/
+	}
+	if (input.pad_buttons & PAD_BUTTON_UNTHROTTLE) {
 		PSP_CoreParameter().unthrottle = true;
 	} else {
 		PSP_CoreParameter().unthrottle = false;
+	}
+	// Make sure fpsLimit starts at 0
+	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1 && PSP_CoreParameter().fpsLimit != 2) {
+		PSP_CoreParameter().fpsLimit = 0;
+	}
+
+	//Toggle between 3 different states of fpsLimit
+	if (input.pad_buttons_down & PAD_BUTTON_LEFT_THUMB) {
+		if (PSP_CoreParameter().fpsLimit == 0) {
+			PSP_CoreParameter().fpsLimit = 1;
+			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
+		}
+		else if (PSP_CoreParameter().fpsLimit == 1) {
+			PSP_CoreParameter().fpsLimit = 2;
+			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
+		}
+		else if (PSP_CoreParameter().fpsLimit == 2) {
+			PSP_CoreParameter().fpsLimit = 0;
+			osm.Show(s->T("standard", "Speed: standard"), 1.0);
+		}
 	}
 
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB)) {
@@ -267,10 +316,15 @@ void EmuScreen::render() {
 
 	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
+	float touchOpacity = g_Config.iTouchButtonOpacity / 100.0f;
 	if (g_Config.bShowTouchControls)
-		DrawGamepad(ui_draw2d);
+		DrawGamepad(ui_draw2d, touchOpacity);
 
 	DrawWatermark();
+
+	if (!osm.IsEmpty()) {
+		osm.Draw(ui_draw2d);
+	}
 
 	if (g_Config.bShowDebugStats) {
 		char statbuf[4096] = {0};
@@ -283,11 +337,18 @@ void EmuScreen::render() {
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 
-	if (g_Config.bShowFPSCounter) {
+	if (g_Config.iShowFPSCounter) {
 		float vps, fps;
 		__DisplayGetFPS(&vps, &fps);
 		char fpsbuf[256];
-		sprintf(fpsbuf, "VPS: %0.1f", vps);
+		switch (g_Config.iShowFPSCounter) {
+		case 1:
+			sprintf(fpsbuf, "VPS: %0.1f", vps); break;
+		case 2:
+			sprintf(fpsbuf, "FPS: %0.1f", fps); break;
+		case 3:
+			sprintf(fpsbuf, "VPS: %0.1f\nFPS: %0.1f", vps, fps); break;
+		}
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 	}

@@ -42,7 +42,17 @@ enum  	PspAudioFrequencies { PSP_AUDIO_FREQ_44K = 44100, PSP_AUDIO_FREQ_48K = 48
 #define SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED				0x80268002
 
 
-#define PSP_AUDIO_CHANNEL_MAX 8
+const u32 PSP_AUDIO_CHANNEL_MAX = 8;
+
+const int PSP_AUDIO_CHANNEL_SRC = 8;
+const int PSP_AUDIO_CHANNEL_OUTPUT2 = 8;
+const int PSP_AUDIO_CHANNEL_VAUDIO = 8;
+
+struct AudioChannelWaitInfo
+{
+	SceUID threadID;
+	int numSamples;
+};
 
 struct AudioChannel
 {
@@ -61,7 +71,7 @@ struct AudioChannel
 	u32 rightVolume;
 	u32 format;
 
-	SceUID waitingThread;
+	std::vector<AudioChannelWaitInfo> waitingThreads;
 
 	// PC side - should probably split out
 
@@ -71,18 +81,11 @@ struct AudioChannel
 
 	void DoState(PointerWrap &p);
 
-	void clear() {
-		reserved = false;
-		waitingThread = 0;
-		leftVolume = 0;
-		rightVolume = 0;
-		format = 0;
-		sampleAddress = 0;
-		sampleCount = 0;
-		sampleQueue.clear();
-	}
+	void reset();
+	void clear();
 };
 
-extern AudioChannel chans[8];
+// The extra channel is for SRC/Output2/Vaudio (who all share, apparently.)
+extern AudioChannel chans[PSP_AUDIO_CHANNEL_MAX + 1];
 
 void Register_sceAudio();

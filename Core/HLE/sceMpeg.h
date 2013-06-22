@@ -40,6 +40,8 @@ enum {
 	ERROR_PSMFPLAYER_NO_MORE_DATA                       = 0x8061600c,
 
 	ERROR_MPEG_NO_DATA                                  = 0x80618001,
+	ERROR_MPEG_ALREADY_INIT                             = 0x80618005,
+	ERROR_MPEG_NOT_YET_INIT                             = 0x80618009,
 };
 
 // MPEG statics.
@@ -51,8 +53,8 @@ static const int PSMF_VERSION_0015 = 0x35313030;
 static const int PSMF_STREAM_VERSION_OFFSET = 0x4;
 static const int PSMF_STREAM_OFFSET_OFFSET = 0x8;
 static const int PSMF_STREAM_SIZE_OFFSET = 0xC;
-static const int PSMF_FIRST_TIMESTAMP_OFFSET = 0x56;
-static const int PSMF_LAST_TIMESTAMP_OFFSET = 0x5C;
+static const int PSMF_FIRST_TIMESTAMP_OFFSET = 0x54;
+static const int PSMF_LAST_TIMESTAMP_OFFSET = 0x5A;
 
 struct SceMpegAu {
 	s64 pts;  // presentation time stamp
@@ -62,18 +64,16 @@ struct SceMpegAu {
 
 	void read(u32 addr) {
 		Memory::ReadStruct(addr, this);
-		pts = (pts & 0xFFFFFFFFULL) << 32 | (pts >> 32);
-		dts = (dts & 0xFFFFFFFFULL) << 32 | (dts >> 32);
+		pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
+		dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
 	}
 
 	void write(u32 addr) {
-		pts = (pts & 0xFFFFFFFFULL) << 32 | (pts >> 32);
-		dts = (dts & 0xFFFFFFFFULL) << 32 | (dts >> 32);
+		pts = (pts & 0xFFFFFFFFULL) << 32 | (((u64)pts) >> 32);
+		dts = (dts & 0xFFFFFFFFULL) << 32 | (((u64)dts) >> 32);
 		Memory::WriteStruct(addr, this);
 	}
 };
-
-const int videoTimestampStep = 3003;
 
 // As native in PSP ram
 struct SceMpegRingBuffer {
@@ -91,7 +91,7 @@ struct SceMpegRingBuffer {
   u32 mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
 };
 
-void __MpegInit(bool useMediaEngine_);
+void __MpegInit();
 void __MpegDoState(PointerWrap &p);
 void __MpegShutdown();
 

@@ -186,7 +186,13 @@
     <ClCompile Include="HLE\sceIo.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceJpeg.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceMpeg.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceMd5.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceMp4.cpp">
@@ -400,16 +406,35 @@
     <ClCompile Include="ELF\PBPReader.cpp">
       <Filter>ELF</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp" />
     <ClCompile Include="HLE\scePauth.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceNp.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="HLE\sceMp3.cpp" />
     <ClCompile Include="FileSystems\tlzrc.cpp">
       <Filter>FileSystems</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceMp3.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\OMAConvert.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClCompile>
+    <ClCompile Include="Cwcheat.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\atrac3plus.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\MpegDemux.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceAudiocodec.cpp">
+      <Filter>HLE\Libraries</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -539,7 +564,13 @@
     <ClInclude Include="HLE\sceIo.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\sceJpeg.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceMpeg.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceMd5.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceMp4.h">
@@ -749,14 +780,33 @@
     <ClInclude Include="ELF\PBPReader.h">
       <Filter>ELF</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\JitCommon\JitBlockCache.h" />
     <ClInclude Include="HLE\scePauth.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceNp.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
-    <ClInclude Include="HLE\sceMp3.h" />
+    <ClInclude Include="HLE\sceMp3.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\OMAConvert.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\JitCommon\JitBlockCache.h">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClInclude>
+    <ClInclude Include="Cwcheat.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\atrac3plus.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\MpegDemux.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceAudiocodec.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

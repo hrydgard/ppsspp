@@ -19,7 +19,6 @@
 
 #include "../../Globals.h"
 #include "Common.h"
-#include <cstring>
 #include <map>
 
 class PointerWrap;
@@ -368,15 +367,12 @@ void sceKernelExitGameWithStatus();
 int LoadExecForUser_362A956B();
 void sceKernelRegisterExitCallback();
 
-void sceKernelSleepThread();
-void sceKernelSleepThreadCB();
-
 u32 sceKernelDevkitVersion();
 
 u32 sceKernelRegisterKprintfHandler();
 void sceKernelRegisterDefaultExceptionHandler();
 
-u32 sceKernelFindModuleByName();
+u32 sceKernelFindModuleByName(const char *name);
 
 void sceKernelSetGPO(u32 ledAddr);
 u32 sceKernelGetGPI();
@@ -408,6 +404,7 @@ public:
 
 	// Implement this in all subclasses:
 	// static u32 GetMissingErrorCode()
+	// static int GetStaticIDType()
 
 	virtual void DoState(PointerWrap &p)
 	{
@@ -447,16 +444,19 @@ public:
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
 			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
-			outError = T::GetMissingErrorCode(); // ?
+			outError = T::GetMissingErrorCode();
 			return 0;
 		}
 		else
 		{
-			T* t = dynamic_cast<T*>(pool[handle - handleOffset]);
-			if (t == 0)
+			// Previously we had a dynamic_cast here, but since RTTI was disabled traditionally,
+			// it just acted as a static case and everything worked. This means that we will never
+			// see the Wrong type object error below, but we'll just have to live with that danger.
+			T* t = static_cast<T*>(pool[handle - handleOffset]);
+			if (t == 0 || t->GetIDType() != T::GetStaticIDType())
 			{
-				ERROR_LOG(HLE, "Kernel: Wrong type object %i (%08x)", handle, handle);
-				outError = T::GetMissingErrorCode(); //FIX
+				ERROR_LOG(HLE, "Kernel: Wrong object type for %i (%08x)", handle, handle);
+				outError = T::GetMissingErrorCode();
 				return 0;
 			}
 			outError = SCE_KERNEL_ERROR_OK;
@@ -480,23 +480,26 @@ public:
 	template <class T, typename ArgT>
 	void Iterate(bool func(T *, ArgT), ArgT arg)
 	{
+		int type = T::GetStaticIDType();
 		for (int i = 0; i < maxCount; i++)
 		{
 			if (!occupied[i])
 				continue;
-			T *t = dynamic_cast<T *>(pool[i]);
-			if (t)
-			{
+			T *t = static_cast<T *>(pool[i]);
+			if (t->GetIDType() == type) {
 				if (!func(t, arg))
 					break;
 			}
 		}
 	}
 
-	static u32 GetMissingErrorCode() { return -1; }	// TODO
-
 	bool GetIDType(SceUID handle, int *type) const
 	{
+		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
+		{
+			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
+			return false;
+		}
 		KernelObject *t = pool[handle - handleOffset];
 		*type = t->GetIDType();
 		return true;

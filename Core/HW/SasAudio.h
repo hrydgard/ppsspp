@@ -25,6 +25,8 @@
 #include "../Globals.h"
 #include "ChunkFile.h"
 
+#include "Core/HW/atrac3plus.h"
+
 enum {
 	PSP_SAS_VOICES_MAX = 32,
 
@@ -75,7 +77,7 @@ enum VoiceType {
 // It compresses 28 16-bit samples into a block of 16 bytes.
 class VagDecoder {
 public:
-	VagDecoder() : data_(0), read_(0) {}
+	VagDecoder() : data_(0), read_(0), end_(true) {}
 	void Start(u32 dataPtr, int vagSize, bool loopEnabled);
 
 	void GetSamples(s16 *outSamples, int numSamples);
@@ -86,6 +88,7 @@ public:
 	void DoState(PointerWrap &p);
 
 private:
+	void DecodeSample(int i, int sample, int predict_nr);
 	int samples[28];
 	int curSample;
 
@@ -102,6 +105,20 @@ private:
 	bool loopEnabled_;
 	bool loopAtNextBlock_;
 	bool end_;
+};
+
+class SasAtrac3 {
+public:
+	SasAtrac3() : contextAddr(0), atracID(-1), sampleQueue(0){}
+	~SasAtrac3() { if (sampleQueue) delete sampleQueue; }
+	int setContext(u32 context);
+	int getNextSamples(s16* outbuf, int wantedSamples);
+	int addStreamData(u8* buf, u32 addbytes);
+	void DoState(PointerWrap &p);
+private:
+	u32 contextAddr;
+	int atracID;
+	Atrac3plus_Decoder::BufferQueue *sampleQueue;
 };
 
 // Max height: 0x40000000 I think
@@ -168,14 +185,14 @@ struct SasVoice
 			sampleRate(44100),
 			sampleFrac(0),
 			pitch(PSP_SAS_PITCH_BASE),
-			loop(true), // true = ignore VAG loop , false = process VAG loop
+			loop(false),
 			noiseFreq(0),
 			volumeLeft(PSP_SAS_VOL_MAX),
 			volumeRight(PSP_SAS_VOL_MAX),
 			volumeLeftSend(0),
 			volumeRightSend(0),
-			effectLeft(0),
-			effectRight(0) {
+			effectLeft(PSP_SAS_VOL_MAX),
+			effectRight(PSP_SAS_VOL_MAX) {
 		memset(resampleHist, 0, sizeof(resampleHist));
 	}
 
@@ -196,6 +213,7 @@ struct SasVoice
 	int vagSize;
 	u32 pcmAddr;
 	int pcmSize;
+	int pcmIndex;
 	int sampleRate;
 
 	int sampleFrac;
@@ -215,6 +233,7 @@ struct SasVoice
 	ADSREnvelope envelope;
 
 	VagDecoder vag;
+	SasAtrac3 atrac3;
 };
 
 class SasInstance

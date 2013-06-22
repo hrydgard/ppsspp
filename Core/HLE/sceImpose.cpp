@@ -37,7 +37,7 @@ static u32 backlightOffTime;
 void __ImposeInit()
 {
 	language = g_Config.ilanguage;
-	buttonValue = g_Config.bButtonPreference?PSP_SYSTEMPARAM_BUTTON_CROSS:PSP_SYSTEMPARAM_BUTTON_CIRCLE;
+	buttonValue = g_Config.iButtonPreference;
 	umdPopup = PSP_UMD_POPUP_DISABLE;
 	backlightOffTime = 0;
 }

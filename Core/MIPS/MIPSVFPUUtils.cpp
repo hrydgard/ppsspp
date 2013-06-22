@@ -15,10 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../CPU.h"
-#include "MIPS.h"
-
-#include "MIPSVFPUUtils.h"
+#include "Core/CPU.h"
+#include "Core/Reporting.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 
 #include <limits>
 
@@ -77,53 +77,55 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 }
 
 void ReadVector(float *rd, VectorSize size, int reg) {
-  int mtx = (reg >> 2) & 7;
-  int col = reg & 3;
-  int row = 0;
-  int length = 0;
-  int transpose = (reg>>5) & 1;
+	const int mtx = (reg >> 2) & 7;
+	const int col = reg & 3;
+	int row = 0;
+	int length = 0;
+	int transpose = (reg>>5) & 1;
 
-  switch (size) {
-  case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
-  case V_Pair:   row=(reg>>5)&2; length = 2; break;
-  case V_Triple: row=(reg>>6)&1; length = 3; break;
-  case V_Quad:   row=(reg>>5)&2; length = 4; break;
-  }
+	switch (size) {
+	case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Pair:   row=(reg>>5)&2; length = 2; break;
+	case V_Triple: row=(reg>>6)&1; length = 3; break;
+	case V_Quad:   row=(reg>>5)&2; length = 4; break;
+	}
 
+	u32 *rdu = (u32 *)rd;
 	if (transpose) {
-		int base = mtx * 4 + col * 32;
+		const int base = mtx * 4 + col * 32;
 		for (int i = 0; i < length; i++)
-			rd[i] = V(base + ((row+i)&3));
+			rdu[i] = VI(base + ((row+i)&3));
 	} else {
-		int base = mtx * 4 + col;
+		const int base = mtx * 4 + col;
 		for (int i = 0; i < length; i++)
-			rd[i] = V(base + ((row+i)&3)*32);
+			rdu[i] = VI(base + ((row+i)&3)*32);
 	}
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg) {
-  int mtx = (reg>>2)&7;
-  int col = reg & 3;
-  int row = 0;
-  int length = 0;
-  int transpose = (reg>>5)&1;
+	const int mtx = (reg>>2)&7;
+	const int col = reg & 3;
+	int row = 0;
+	int length = 0;
+	int transpose = (reg>>5)&1;
 
-  switch (size) {
-  case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
-  case V_Pair:   row=(reg>>5)&2; length = 2; break;
-  case V_Triple: row=(reg>>6)&1; length = 3; break;
-  case V_Quad:   row=(reg>>5)&2; length = 4; break;
-  }
+	switch (size) {
+	case V_Single: transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Pair:   row=(reg>>5)&2; length = 2; break;
+	case V_Triple: row=(reg>>6)&1; length = 3; break;
+	case V_Quad:   row=(reg>>5)&2; length = 4; break;
+	}
 
+	u32 *rdu = (u32 *)rd;
 	if (currentMIPS->VfpuWriteMask() == 0) {
 		if (transpose) {
-			int base = mtx * 4 + col * 32;
+			const int base = mtx * 4 + col * 32;
 			for (int i = 0; i < length; i++)
-				V(base + ((row+i)&3)) = rd[i];
+				VI(base + ((row+i)&3)) = rdu[i];
 		} else {
-			int base = mtx * 4 + col;
+			const int base = mtx * 4 + col;
 			for (int i = 0; i < length; i++)
-				V(base + ((row+i)&3)*32) = rd[i];
+				VI(base + ((row+i)&3)*32) = rdu[i];
 		}
 	} else {
 		for (int i = 0; i < length; i++) {
@@ -133,7 +135,7 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 					index += ((row+i)&3) + col*32;
 				else
 					index += col + ((row+i)&3)*32;
-				V(index) = rd[i];
+				VI(index) = rdu[i];
 			}
 		}
 	}
@@ -152,7 +154,7 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	case M_4x4: row = (reg>>5)&2; side = 4; break;
 	}
 
-  int transpose = (reg>>5) & 1;
+	int transpose = (reg>>5) & 1;
 
 	for (int i = 0; i < side; i++) {
 		for (int j = 0; j < side; j++) {
@@ -181,7 +183,7 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 
 	int transpose = (reg>>5)&1;
 	if (currentMIPS->VfpuWriteMask() != 0) {
-		ERROR_LOG(CPU, "Write mask used with vfpu matrix instruction.");
+		ERROR_LOG_REPORT(CPU, "Write mask used with vfpu matrix instruction.");
 	}
 
 	for (int i=0; i<side; i++) {
@@ -209,7 +211,7 @@ int GetNumVectorElements(VectorSize sz)
 		case V_Pair:   return 2;
 		case V_Triple: return 3;
 		case V_Quad:   return 4;
-    default:       return 0;
+		default:       return 0;
 	}
 }
 
@@ -219,8 +221,8 @@ VectorSize GetHalfVectorSize(VectorSize sz)
 	{
 	case V_Pair: return V_Single;
 	case V_Quad: return V_Pair;
-  default:
-    return V_Single;
+	default:
+		return V_Single;
 	}
 }
 
@@ -246,7 +248,7 @@ MatrixSize GetMtxSize(u32 op)
 	a += (b<<1);
 	switch (a)
 	{
-	case 0: ERROR_LOG(CPU, "Unexpected matrix size 1x1."); return M_2x2;
+	case 0: ERROR_LOG_REPORT(CPU, "Unexpected matrix size 1x1."); return M_2x2;
 	case 1: return M_2x2;
 	case 2: return M_3x3;
 	case 3: return M_4x4;

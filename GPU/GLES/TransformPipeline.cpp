@@ -51,7 +51,7 @@ const GLuint glprim[8] = {
 
 enum {
 	DECODED_VERTEX_BUFFER_SIZE = 65536 * 48,
-	DECODED_INDEX_BUFFER_SIZE = 65536 * 2,
+	DECODED_INDEX_BUFFER_SIZE = 65536 * 20,
 	TRANSFORMED_VERTEX_BUFFER_SIZE = 65536 * sizeof(TransformedVertex)
 };
 
@@ -126,6 +126,7 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 
 	Reporting::ReportMessage("Unsupported bezier curve");
 
+	// if (gstate.patchprimitive)
 	// Generate indices for a rectangular mesh.
 	int c = 0;
 	for (int y = 0; y < 3; y++) {
@@ -350,7 +351,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (gstate.lightEnable[l] & 1)
 		{
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
-			lightSum0 += (lightAmbient + diff) * lightScale;
+			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
 		}
 	}
 
@@ -449,7 +450,8 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 	if (transformed[0].x != 0.0f || transformed[0].y != 0.0f)
 		return false;
 
-	u32 matchcolor = *(const u32 *)(transformed[0].color0);
+	u32 matchcolor;
+	memcpy(&matchcolor, transformed[0].color0, 4);
 	float matchz = transformed[0].z;
 
 	int bufW = gstate_c.curRTWidth;
@@ -457,7 +459,8 @@ bool TransformDrawEngine::IsReallyAClear(int numVerts) const {
 
 	float prevX = 0.0f;
 	for (int i = 1; i < numVerts; i++) {
-		u32 vcolor = *(const u32 *)(transformed[i].color0);
+		u32 vcolor;
+		memcpy(&vcolor, transformed[i].color0, 4);
 		if (vcolor != matchcolor || transformed[i].z != matchz)
 			return false;
 		
@@ -731,7 +734,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	// Disabled for now - depth does not come out exactly the same
 
 	if (false && maxIndex > 1 && gstate.isModeClear() && prim == GE_PRIM_RECTANGLES && IsReallyAClear(maxIndex)) {
-		u32 clearColor = *(const u32 *)(transformed[0].color0);
+		u32 clearColor;
+		memcpy(&clearColor, transformed[0].color0, 4);
 		float clearDepth = transformed[0].z;
 		const float col[4] = {
 			((clearColor & 0xFF)) / 255.0f,
@@ -1043,9 +1047,9 @@ u32 TransformDrawEngine::ComputeHash() {
 u32 TransformDrawEngine::ComputeFastDCID() {
 	u32 hash = 0;
 	for (int i = 0; i < numDrawCalls; i++) {
-		hash ^= *(u32*)&drawCalls[i].verts;
+		hash ^= (u32)(uintptr_t)drawCalls[i].verts;
 		hash = __rotl(hash, 13);
-		hash ^= *(u32*)&drawCalls[i].inds;
+		hash ^= (u32)(uintptr_t)drawCalls[i].inds;
 		hash = __rotl(hash, 13);
 		hash ^= (u32)drawCalls[i].vertType;
 		hash = __rotl(hash, 13);
@@ -1111,7 +1115,7 @@ void TransformDrawEngine::Flush() {
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
 
-	if (CanUseHardwareTransform(prevPrim_)) {
+	if (program->useHWTransform_) {
 		GLuint vbo = 0, ebo = 0;
 		int vertexCount = 0;
 		bool useElements = true;

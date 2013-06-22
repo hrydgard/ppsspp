@@ -22,7 +22,8 @@
 #include <base/stringutil.h>
 
 #include "Common.h"
-
+long parseHexLong(std::string s);
+long parseLong(std::string s);
 std::string StringFromFormat(const char* format, ...);
 // Cheap!
 bool CharArrayFromFormatV(char* out, int outsize, const char* format, va_list args);
@@ -51,19 +52,11 @@ std::string ThousandSeparate(I value, int spaces = 0)
 	return oss.str();
 }
 
-// TODO: kill this
-bool AsciiToHex(const char* _szValue, u32& result);
-
 std::string TabsToSpaces(int tab_size, const std::string &in);
 
 // "C:/Windows/winhelp.exe" to "C:/Windows/", "winhelp", ".exe"
 bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _pFilename, std::string* _pExtension);
 
 void BuildCompleteFilename(std::string& _CompleteFilename, const std::string& _Path, const std::string& _Filename);
-std::string ReplaceAll(std::string result, const std::string& src, const std::string& dest);
-std::string UriDecode(const std::string & sSrc);
-std::string UriEncode(const std::string & sSrc);
-
-bool StringEndsWith(std::string const &fullString, std::string const &ending);
 
 #endif // _STRINGUTIL_H_

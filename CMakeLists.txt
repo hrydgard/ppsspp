@@ -5,25 +5,27 @@ project(PPSSPP)
 if(ANDROID)
 	if(ARMEABI OR ARMEABI_V7A)
 		set(ARM ON)
+		set(FFMPEG ON)
 	endif()
 endif()
 
-if (IOS)
+if(BLACKBERRY)
+	set(CMAKE_SYSTEM_NAME "QNX")
+endif()
+
+if (IOS OR BLACKBERRY)
 	set(ARM ON)
+	set(FFMPEG ON)
 endif()
 
 if (MAEMO)
 	set(ARM ON)
-	#Maemo's gcc-4.7.2 is strickt
+	#Maemo's gcc-4.7.2 is strict
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
 endif()
 
-if(BLACKBERRY)
-	set(ARM ON)
-endif()
-
 if(LOONGSON)
-    set(MIPS ON) # MIPS + x86 for now
+	set(MIPS ON) # MIPS + x86 for now
 endif()
 
 if(ARM)
@@ -32,7 +34,20 @@ else() # Assume x86
 	set(X86 ON)
 endif()
 
-if(ANDROID OR BLACKBERRY OR IOS OR PANDORA OR MAEMO)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	set(LINUX ON)
+	if (NOT USING_GLES2)
+		# Not working yet.
+		#set(FFMPEG ON)
+	endif()
+endif()
+
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+	set(MACOSX ON)
+	set(FFMPEG ON)
+endif()
+
+if(ANDROID OR BLACKBERRY OR IOS OR PANDORA OR MAEMO OR MACOSX)
 	set(HEADLESS OFF)
 elseif(NOT DEFINED HEADLESS)
 	set(HEADLESS ON)
@@ -49,6 +64,7 @@ option(MAEMO "Set to ON if targeting an Maemo (N900) device" ${MAEMO})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
+option(FFMPEG "Set to OFF to disable FFMPEG usage" ${FFMPEG})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(USE_FFMPEG "Build with FFMPEG support (beta)" ${USE_FFMPEG})
 
@@ -94,9 +110,6 @@ include_directories("${CMAKE_SOURCE_DIR}")
 
 if(BLACKBERRY)
 	add_definitions(-DBLACKBERRY)
-	if(BLACKBERRY VERSION_GREATER 10)
-		add_definitions(-DBLACKBERRY10)
-	endif()
 endif()
 
 if(ANDROID)
@@ -134,9 +147,15 @@ if(NOT MSVC)
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 	add_definitions(-Wno-multichar)
 	add_definitions(-fno-strict-aliasing)
-	add_definitions(-ffast-math)
+	if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
+	else()
+		add_definitions(-ffast-math)
+	endif()
 	if(NOT APPLE)
-		add_definitions(-Wno-psabi)
+		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel")
+			add_definitions(-Wno-psabi)
+		endif()
 		add_definitions(-D_XOPEN_SOURCE=600 -D_XOPEN_SOURCE_EXTENDED -D__BSD_VISIBLE=1)
 		add_definitions(-D_LARGEFILE64_SOURCE=1 -D_FILE_OFFSET_BITS=64)
 	endif()
@@ -145,7 +164,7 @@ if(NOT MSVC)
 	endif()
 
 	if(BLACKBERRY)
-		add_definitions(-D_QNX_SOURCE=1 -D_C99=1)
+		add_definitions(-D_QNX_SOURCE=1 -D_C99=1 -O3 -mfpu=neon -mtune=cortex-a9)
 	endif()
 
 	if(X86 AND NOT MIPS)
@@ -155,6 +174,7 @@ if(NOT MSVC)
 
 	if(IOS)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
+		set(CMAKE_OSX_ARCHITECTURES "armv7")
 	elseif(APPLE)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		# Karen/angelXwind: --macosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.
@@ -441,9 +461,12 @@ elseif(IOS)
 		ios/AppDelegate.h
 		ios/ViewController.mm
 		ios/ViewController.h
-        ios/AudioEngine.mm
-        ios/AudioEngine.h)
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework AudioToolbox -framework OpenAL")
+		ios/AudioEngine.mm
+		ios/AudioEngine.h
+		ios/iCade/iCadeReaderView.h
+		ios/iCade/iCadeReaderView.m
+		ios/iCade/iCadeState.h)
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
@@ -454,15 +477,11 @@ elseif(USING_QT_UI)
 	set(nativeExtraLibs ${nativeExtraLibs} ${QT_LIBRARIES})
 	set(TargetBin PPSSPPQt)
 elseif(BLACKBERRY)
-	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} asound bps screen socket EGL)
-	# FFMPEG
-	add_definitions(-DUSE_FFMPEG)
-	include_directories(ffmpeg/blackberry/armv7/include)
-	link_directories(ffmpeg/blackberry/armv7/lib)
-	set(nativeExtraLibs ${nativeExtraLibs} iconv libavformat.a libavcodec.a libswresample.a libavutil.a)
+	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
+	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
 	set(TargetBin PPSSPPBlackberry)
 elseif(SDL_FOUND)
+	set(TargetBin PPSSPPSDL)
 	# Require SDL
 	include_directories(${SDL_INCLUDE_DIR})
 	set(nativeExtra ${nativeExtra} native/base/PCMain.cpp)
@@ -476,6 +495,26 @@ elseif(SDL_FOUND)
 	set(TargetBin PPSSPPSDL)
 else()
     message(FATAL_ERROR "Could not find SDL. Failing.")
+endif()
+
+if(FFMPEG)
+	add_definitions(-DUSE_FFMPEG)
+	set(PLATFORM_ARCH "")
+	if (BLACKBERRY)
+		set(PLATFORM_ARCH "blackberry/armv7")
+		set(nativeExtraLibs ${nativeExtraLibs} iconv)
+	elseif(IOS)
+		set(PLATFORM_ARCH "ios/universal")
+		set(nativeExtraLibs ${nativeExtraLibs} iconv bz2)
+	elseif(MACOSX)
+		set(PLATFORM_ARCH "macosx/x86_64")
+	elseif(LINUX)
+		# Note: Only 64-bit is supported
+		set(PLATFORM_ARCH "linux/x86_64")
+	endif()
+	include_directories(ffmpeg/${PLATFORM_ARCH}/include)
+	link_directories(ffmpeg/${PLATFORM_ARCH}/lib)
+	set(nativeExtraLibs ${nativeExtraLibs} libavformat.a libavcodec.a libswresample.a libavutil.a libswscale.a)
 endif()
 
 if(X86)
@@ -502,6 +541,7 @@ add_library(native STATIC
 	native/base/error_context.h
 	native/base/fastlist.h
 	native/base/fastlist_test.cpp
+	native/base/functional.h
 	native/base/linked_ptr.h
 	native/base/logging.h
 	native/base/mutex.h
@@ -511,6 +551,8 @@ add_library(native STATIC
 	native/base/stringutil.h
 	native/base/timeutil.cpp
 	native/base/timeutil.h
+	native/data/compression.cpp
+	native/data/compression.h
 	native/file/chunk_file.cpp
 	native/file/chunk_file.h
 	native/file/dialog.cpp
@@ -560,7 +602,6 @@ add_library(native STATIC
 	native/input/input_state.h
 	native/json/json_writer.cpp
 	native/json/json_writer.h
-	native/math/compression.h
 	native/math/curves.cpp
 	native/math/curves.h
 	native/math/lin/aabb.cpp
@@ -582,6 +623,8 @@ add_library(native STATIC
 	native/net/http_client.h
 	native/net/resolve.cpp
 	native/net/resolve.h
+	native/net/url.cpp
+	native/net/url.h
 	native/profiler/profiler.cpp
 	native/profiler/profiler.h
 	native/thread/prioritizedworkqueue.cpp
@@ -596,6 +639,12 @@ add_library(native STATIC
 	native/ui/ui.h
 	native/ui/ui_context.cpp
 	native/ui/ui_context.h
+	native/ui/ui_screen.cpp
+	native/ui/ui_screen.h
+	native/ui/view.cpp
+	native/ui/view.h
+	native/ui/viewgroup.cpp
+	native/ui/viewgroup.h
 	native/ui/virtual_input.cpp
 	native/ui/virtual_input.h
 	native/util/bits/bits.cpp
@@ -613,7 +662,11 @@ add_library(native STATIC
 	native/ext/rapidxml/rapidxml.hpp
 	native/ext/rapidxml/rapidxml_iterators.hpp
 	native/ext/rapidxml/rapidxml_print.hpp
-	native/ext/rapidxml/rapidxml_utils.hpp)
+	native/ext/rapidxml/rapidxml_utils.hpp
+	native/ext/vjson/json.cpp
+	native/ext/vjson/json.h
+	native/ext/vjson/block_allocator.cpp
+	native/ext/vjson/block_allocator.h)
 include_directories(native)
 # rapidxml is headers only so we can't make a lib specific for it
 include_directories(native/ext/rapidxml)
@@ -648,6 +701,7 @@ add_library(xbrz STATIC
 include_directories(ext/xbrz)
 
 set(CoreExtra)
+set(CoreExtraLibs)
 if(ARM)
 	set(CoreExtra ${CoreExtra}
 		Core/MIPS/ARM/ArmAsm.cpp
@@ -681,6 +735,12 @@ elseif(X86)
 		Core/MIPS/x86/RegCacheFPU.h)
 endif()
 
+# atrac3plus.cpp used dl* functions on non-win32 platforms
+# Core needs to be linked with dl on these platforms
+if(LINUX)
+  set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
+endif()
+
 # 'ppsspp_jni' on ANDROID, 'Core' everywhere else
 # SHARED on ANDROID, STATIC everywhere else
 add_library(${CoreLibName} ${CoreLinkType}
@@ -694,6 +754,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/CoreParameter.h
 	Core/CoreTiming.cpp
 	Core/CoreTiming.h
+	Core/CwCheat.cpp
+	Core/CwCheat.h
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h
@@ -742,6 +804,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceAtrac.cpp
 	Core/HLE/sceAtrac.h
 	Core/HLE/sceAudio.cpp
+	Core/HLE/sceAudiocodec.cpp
+	Core/HLE/sceAudiocodec.h
 	Core/HLE/sceAudio.h
 	Core/HLE/sceChnnlsv.cpp
 	Core/HLE/sceChnnlsv.h
@@ -767,6 +831,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceImpose.h
 	Core/HLE/sceIo.cpp
 	Core/HLE/sceIo.h
+	Core/HLE/sceJpeg.cpp
+	Core/HLE/sceJpeg.h
 	Core/HLE/sceKernel.cpp
 	Core/HLE/sceKernel.h
 	Core/HLE/sceKernelAlarm.cpp
@@ -801,6 +867,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceOpenPSID.h
 	Core/HLE/sceP3da.cpp
 	Core/HLE/sceP3da.h
+	Core/HLE/sceMd5.cpp
+	Core/HLE/sceMd5.h
 	Core/HLE/sceMp4.cpp
 	Core/HLE/sceMp4.h
 	Core/HLE/sceMp3.cpp
@@ -833,10 +901,16 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceNp.h
 	Core/HLE/scePauth.cpp
 	Core/HLE/scePauth.h
+	Core/HW/atrac3plus.cpp
+	Core/HW/atrac3plus.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
+	Core/HW/MpegDemux.cpp
+	Core/HW/MpegDemux.h
 	Core/HW/MemoryStick.cpp
 	Core/HW/MemoryStick.h
+	Core/HW/OMAConvert.cpp
+	Core/HW/OMAConvert.h
 	Core/HW/SasAudio.cpp
 	Core/HW/SasAudio.h
 	Core/Host.cpp
@@ -890,7 +964,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Globals.h
 	git-version.cpp)
 target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz
-	${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
+	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 
 # Generate git-version.cpp at build time.
@@ -1012,6 +1086,7 @@ endif()
 if(HEADLESS)
 	add_executable(PPSSPPHeadless
 		headless/Headless.cpp
+		UI/OnScreenDisplay.cpp
 		headless/StubHost.h
 		headless/Compare.cpp
 		headless/Compare.h)
@@ -1024,10 +1099,14 @@ set(NativeAppSource
 	UI/NativeApp.cpp
 	UI/EmuScreen.cpp
 	android/jni/TestRunner.cpp
-    UI/GameInfoCache.cpp
+	UI/GameInfoCache.cpp
 	UI/MenuScreens.cpp
+	UI/GameScreen.cpp
+	UI/GameSettingsScreen.cpp
 	UI/GamepadEmu.cpp
 	UI/UIShader.cpp
+	UI/OnScreenDisplay.cpp
+	UI/PluginScreen.cpp
 	UI/ui_atlas.cpp)
 if(ANDROID)
 	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)

@@ -176,7 +176,6 @@
      <addaction name="action_OptionsHardwareTransform"/>
      <addaction name="action_OptionsUseVBO"/>
      <addaction name="action_OptionsVertexCache"/>
-     <addaction name="action_OptionsWireframe"/>
      <addaction name="action_OptionsDisplayRawFramebuffer"/>
      <addaction name="actionFrameskip"/>
     </widget>
@@ -197,7 +196,6 @@
      <addaction name="action_OptionsFastMemory"/>
      <addaction name="action_OptionsIgnoreIllegalReadsWrites"/>
      <addaction name="separator"/>
-     <addaction name="actionUse_MediaEngine"/>
     </widget>
     <addaction name="menuCore"/>
     <addaction name="menuControls"/>
@@ -371,7 +369,7 @@
     <string>&amp;Toggle fullscreen</string>
    </property>
    <property name="shortcut">
-    <string>F12</string>
+    <string>F11</string>
    </property>
   </action>
   <action name="action_OptionsBufferedRendering">
@@ -402,14 +400,6 @@
    </property>
    <property name="text">
     <string>&amp;Linear Filtering</string>
-   </property>
-  </action>
-  <action name="action_OptionsWireframe">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Wireframe (experimental)</string>
    </property>
   </action>
   <action name="action_OptionsDisplayRawFramebuffer">
@@ -713,14 +703,6 @@
    </property>
    <property name="text">
     <string>Frameskip</string>
-   </property>
-  </action>
-  <action name="actionUse_MediaEngine">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Use MediaEngine</string>
    </property>
   </action>
  </widget>

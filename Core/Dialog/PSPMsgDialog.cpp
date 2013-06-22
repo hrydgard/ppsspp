@@ -23,6 +23,8 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
+const float FONT_SCALE = 0.50f;
+
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
 	, flag(0)
@@ -128,45 +130,62 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	return 0;
 }
 
-void PSPMsgDialog::DisplayBack()
+void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 {
-	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawImage(cancelButtonImg, 290, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Back"), 310, 218, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-}
-
-void PSPMsgDialog::DisplayYesNo()
-{
-	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawText(d->T("Yes"), 200, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 1?0xFF0000FF:0xFFFFFFFF));
-	PPGeDrawText(d->T("No"), 320, 150, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(yesnoChoice == 0?0xFF0000FF:0xFFFFFFFF));
-
-	if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0)
+	const float WRAP_WIDTH = 450.0f;
+	float y = 136.0f;
+	float h;
+	int n;
+	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	float h2 = h * (float)n / 2.0f;
+	if (hasYesNo)
 	{
-		yesnoChoice = 1;
+		I18NCategory *d = GetI18NCategory("Dialog");
+		const char *choiceText;
+		u32 yesColor, noColor;
+		float x, w;
+		if (yesnoChoice == 1) {
+			choiceText = d->T("Yes");
+			x = 208.0f;
+			yesColor = 0xFF0FFFFF;
+			noColor  = 0xFFFFFFFF;
+		}
+		else {
+			choiceText = d->T("No");
+			x = 272.0f;
+			yesColor = 0xFFFFFFFF;
+			noColor  = 0xFF0FFFFF;
+		}
+		PPGeMeasureText(&w, &h, 0, choiceText, FONT_SCALE);
+		w = w / 2.0f + 5.5f;
+		h /= 2.0f;
+		float y2 = y + h2 + 4.0f;
+		h2 += h + 4.0f;
+		y = 132.0f - h;
+		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
+		PPGeDrawText(d->T("Yes"), 208.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(d->T("No"), 272.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
+			yesnoChoice = 1;
+		}
+		else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
+			yesnoChoice = 0;
+		}
 	}
-	else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1)
-	{
-		yesnoChoice = 0;
-	}
-}
-
-void PSPMsgDialog::DisplayOk()
-{
-	I18NCategory *d = GetI18NCategory("Dialog");
-	PPGeDrawImage(okButtonImg, 200, 220, 12, 12, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(d->T("Enter"), 220, 218, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	float sy = 122.0f - h2, ey = 150.0f + h2;
+	PPGeDrawRect(15.0f, sy, 465.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(15.0f, ey, 465.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
 {
-
 	if (status != SCE_UTILITY_STATUS_RUNNING)
 	{
 		return 0;
 	}
 
-	if((flag & DS_ERROR))
+	if ((flag & DS_ERROR))
 	{
 		status = SCE_UTILITY_STATUS_FINISHED;
 	}
@@ -180,7 +199,7 @@ int PSPMsgDialog::Update()
 		cancelButtonImg = I_CROSS;
 		okButtonFlag = CTRL_CIRCLE;
 		cancelButtonFlag = CTRL_CROSS;
-		if(messageDialog.common.buttonSwap == 1)
+		if (messageDialog.common.buttonSwap == 1)
 		{
 			okButtonImg = I_CROSS;
 			cancelButtonImg = I_CIRCLE;
@@ -189,17 +208,21 @@ int PSPMsgDialog::Update()
 		}
 
 		StartDraw();
+		// white -> RGB(168,173,189), black -> RGB(129,134,150)
+		// (255 - a) + (x * a / 255) = 173,  x * a / 255 = 134
+		// a = 255 - w + b = 158, x = b * 255 / a = ?
+		// but is not drawn using x * a + y * (255 - a) here?
+		//PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x9EF2D8D0));
+		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0xC0C8B2AC));
 
-		if((flag & DS_MSG) || (flag & DS_ERRORMSG))
-			DisplayMessage(msgText);
+		if ((flag & DS_MSG) || (flag & DS_ERRORMSG))
+			DisplayMessage(msgText, (flag & DS_YESNO) != 0);
 
-		if(flag & DS_YESNO)
-			DisplayYesNo();
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
-			DisplayOk();
+			DisplayButtons(DS_BUTTON_OK);
 
-		if(flag & DS_CANCELBUTTON)
-			DisplayBack();
+		if (flag & DS_CANCELBUTTON)
+			DisplayButtons(DS_BUTTON_CANCEL);
 
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
 		{
@@ -210,9 +233,9 @@ int PSPMsgDialog::Update()
 				messageDialog.buttonPressed = 0;
 			StartFade(false);
 		}
-		else if(IsButtonPressed(okButtonFlag) && (flag & DS_VALIDBUTTON))
+		else if (IsButtonPressed(okButtonFlag) && (flag & DS_VALIDBUTTON))
 		{
-			if(yesnoChoice == 0)
+			if (yesnoChoice == 0)
 			{
 				messageDialog.buttonPressed = 2;
 			}
@@ -239,7 +262,7 @@ int PSPMsgDialog::Abort()
 	return PSPDialog::Shutdown();
 }
 
-int PSPMsgDialog::Shutdown()
+int PSPMsgDialog::Shutdown(bool force)
 {
 	return PSPDialog::Shutdown();
 }
@@ -252,9 +275,10 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	p.Do(messageDialogAddr);
 	p.DoArray(msgText, sizeof(msgText));
 	p.Do(yesnoChoice);
-	p.Do(okButtonImg);
-	p.Do(cancelButtonImg);
-	p.Do(okButtonFlag);
-	p.Do(cancelButtonFlag);
 	p.DoMarker("PSPMsgDialog");
+}
+
+pspUtilityDialogCommon *PSPMsgDialog::GetCommonParam()
+{
+	return &messageDialog.common;
 }

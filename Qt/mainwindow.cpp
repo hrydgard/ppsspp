@@ -113,7 +113,6 @@ void MainWindow::UpdateMenus()
 	ui->action_FileQuickSaveState->setEnabled(!enable);
 	ui->action_CPUDynarec->setEnabled(enable);
 	ui->action_CPUInterpreter->setEnabled(enable);
-	ui->actionUse_MediaEngine->setEnabled(enable);
 	ui->action_DebugDumpFrame->setEnabled(!enable);
 	ui->action_DebugDisassembly->setEnabled(!enable);
 	ui->action_DebugMemoryView->setEnabled(!enable);
@@ -131,7 +130,6 @@ void MainWindow::UpdateMenus()
 	ui->action_CPUDynarec->setChecked(g_Config.bJit);
 	ui->action_OptionsFastMemory->setChecked(g_Config.bFastMemory);
 	ui->action_OptionsIgnoreIllegalReadsWrites->setChecked(g_Config.bIgnoreBadMemAccess);
-	ui->actionUse_MediaEngine->setChecked(g_Config.bUseMediaEngine);
 
 	ui->action_AFOff->setChecked(g_Config.iAnisotropyLevel == 0);
 	ui->action_AF2x->setChecked(g_Config.iAnisotropyLevel == 2);
@@ -152,14 +150,13 @@ void MainWindow::UpdateMenus()
 	ui->action_OptionsHardwareTransform->setChecked(g_Config.bHardwareTransform);
 	ui->action_OptionsUseVBO->setChecked(g_Config.bUseVBO);
 	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
-	ui->action_OptionsWireframe->setChecked(g_Config.bDrawWireframe);
 	ui->action_OptionsDisplayRawFramebuffer->setChecked(g_Config.bDisplayFramebuffer);
 	ui->actionFrameskip->setChecked(g_Config.iFrameSkip != 0);
 
 	ui->action_Sound->setChecked(g_Config.bEnableSound);
 
 	ui->action_OptionsShowDebugStatistics->setChecked(g_Config.bShowDebugStats);
-	ui->action_Show_FPS_counter->setChecked(g_Config.bShowFPSCounter);
+	ui->action_Show_FPS_counter->setChecked(g_Config.iShowFPSCounter);
 
 	ui->actionLogDefDebug->setChecked(LogManager::GetInstance()->GetLogLevel(LogTypes::COMMON) == LogTypes::LDEBUG);
 	ui->actionLogDefInfo->setChecked(LogManager::GetInstance()->GetLogLevel(LogTypes::COMMON) == LogTypes::LINFO);
@@ -190,7 +187,7 @@ void MainWindow::closeEvent(QCloseEvent *)
 
 void MainWindow::keyPressEvent(QKeyEvent *e)
 {
-	if(isFullScreen() && e->key() == Qt::Key_F12)
+	if(isFullScreen() && e->key() == Qt::Key_F11)
 	{
 		on_action_OptionsFullScreen_triggered();
 		return;
@@ -451,12 +448,6 @@ void MainWindow::on_action_OptionsIgnoreIllegalReadsWrites_triggered()
 	UpdateMenus();
 }
 
-void MainWindow::on_actionUse_MediaEngine_triggered()
-{
-	g_Config.bUseMediaEngine = !g_Config.bUseMediaEngine;
-	UpdateMenus();
-}
-
 void MainWindow::on_action_OptionsControls_triggered()
 {
 	controls->show();
@@ -569,12 +560,6 @@ void MainWindow::on_action_OptionsVertexCache_triggered()
 	UpdateMenus();
 }
 
-void MainWindow::on_action_OptionsWireframe_triggered()
-{
-	g_Config.bDrawWireframe = !g_Config.bDrawWireframe;
-	UpdateMenus();
-}
-
 void MainWindow::on_action_OptionsDisplayRawFramebuffer_triggered()
 {
 	g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
@@ -644,7 +629,7 @@ void MainWindow::on_action_OptionsShowDebugStatistics_triggered()
 
 void MainWindow::on_action_Show_FPS_counter_triggered()
 {
-	g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
+	g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
 	UpdateMenus();
 }
 

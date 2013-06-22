@@ -431,6 +431,8 @@ SubIntrHandler *__RegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 
 
 int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 {
+	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
+		return -1;
 	if (!intrHandlers[intrNumber]->has(subIntrNumber))
 		return -1;
 
@@ -537,23 +539,27 @@ u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
 	DEBUG_LOG(HLE, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	// Technically should crash if these are invalid and size > 0...
-	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src + size - 1))
+	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
 	{
 		u8 *dstp = Memory::GetPointer(dst);
 		u8 *srcp = Memory::GetPointer(src);
-		u32 size64 = size / 8;
-		u32 size8 = size % 8;
 
-		// Try to handle overlapped copies with similar properties to hardware, just in case.
-		// Not that anyone ought to rely on it.
-		while (size64-- > 0)
+		// If it's non-overlapping, just do it in one go.
+		if (dst + size < src || src + size < dst)
+			memcpy(dstp, srcp, size);
+		else
 		{
-			*(u64 *) dstp = *(u64 *) srcp;
-			srcp += 8;
-			dstp += 8;
+			// Try to handle overlapped copies with similar properties to hardware, just in case.
+			// Not that anyone ought to rely on it.
+			for (u32 size64 = size / 8; size64 > 0; --size64)
+			{
+				memmove(dstp, srcp, 8);
+				dstp += 8;
+				srcp += 8;
+			}
+			for (u32 size8 = size % 8; size8 > 0; --size8)
+				*dstp++ = *srcp++;
 		}
-		while (size8-- > 0)
-			*dstp++ = *srcp++;
 	}
 	return dst;
 }
@@ -574,7 +580,7 @@ const HLEFunction Kernel_Library[] =
 	{0xc1734599,WrapI_UU<sceKernelReferLwMutexStatus>, "sceKernelReferLwMutexStatus"},
 	{0x293b45b8,WrapI_V<sceKernelGetThreadId>, "sceKernelGetThreadId"},
 	{0xD13BDE95,WrapI_V<sceKernelCheckThreadStack>, "sceKernelCheckThreadStack"},
-	{0x1839852A,WrapU_UUU<sceKernelMemcpy>, "sce_paf_private_memcpy"},
+	{0x1839852A,WrapU_UUU<sceKernelMemcpy>, "sceKernelMemcpy"},
 	// Name is only a guess.
 	{0xfa835cde,WrapI_I<sceKernelAllocateTls>, "sceKernelAllocateTls"},
 };

@@ -1,6 +1,25 @@
-﻿#include "sceMp3.h"
-#include "HLE.h"
-#include "../HW/MediaEngine.h"
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include <map>
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceMp3.h"
+#include "Core/HW/MediaEngine.h"
+#include "Core/Reporting.h"
 
 #ifdef USE_FFMPEG
 #ifndef PRId64
@@ -281,14 +300,14 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 }
 
 int sceMp3InitResource() {
-	WARN_LOG(HLE, "UNIML: sceMp3InitResource");
-	// Do nothing here
+	WARN_LOG(HLE, "UNIMPL: sceMp3InitResource");
+	// Do nothing here 
 	return 0;
 }
 
 int sceMp3TermResource() {
-	WARN_LOG(HLE, "UNIML: sceMp3TermResource");
-	// Do nothing here
+	WARN_LOG(HLE, "UNIMPL: sceMp3TermResource");
+	// Do nothing here 
 	return 0;
 }
 
@@ -399,7 +418,7 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
-	DEBUG_LOG(HLE, "UNIMPL: sceMp3GetSumDecodedSample(%08X)", mp3);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
 	return 0;
 }
 
@@ -518,17 +537,17 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 }
 
 u32 sceMp3EndEntry() {
-	DEBUG_LOG(HLE, "UNIMPL sceMp3StartEntry(.)");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3EndEntry(...)");
 	return 0;
 }
 
 u32 sceMp3StartEntry() {
-	DEBUG_LOG(HLE, "UNIMPL sceMp3StartEntry(.)");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3StartEntry(...)");
 	return 0;
 }
 
 u32 sceMp3GetFrameNum(u32 mp3) {
-	DEBUG_LOG(HLE, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
 	return 0;
 }
 
@@ -563,8 +582,11 @@ const HLEFunction sceMp3[] = {
 	{0xD0A56296,WrapI_U<sceMp3CheckStreamDataNeeded>,"sceMp3CheckStreamDataNeeded"},
 	{0xD8F54A51,WrapI_U<sceMp3GetLoopNum>,"sceMp3GetLoopNum"},
 	{0xF5478233,WrapI_U<sceMp3ReleaseMp3Handle>,"sceMp3ReleaseMp3Handle"},
-	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"},
+	{0xAE6D2027,WrapU_U<sceMp3GetVersion>,"sceMp3GetVersion"}, // Name is wrong.
 	{0x3548AEC8,WrapU_U<sceMp3GetFrameNum>,"sceMp3GetFrameNum"},
+	{0x0840e808,0,"sceMp3_0840E808"},
+	{0x1b839b83,0,"sceMp3_1B839B83"},
+	{0xe3ee2c81,0,"sceMp3_E3EE2C81"},
 };
 
 void Register_sceMp3() {

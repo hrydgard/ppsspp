@@ -30,6 +30,7 @@
 #include <locale.h>
 
 #include "base/logging.h"
+#include "base/mutex.h"
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
@@ -43,23 +44,30 @@
 #include "ui/screen.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
+#include "ui/view.h"
 
-#include "base/mutex.h"
-#include "FileUtil.h"
-#include "LogManager.h"
-#include "../../Core/PSPMixer.h"
-#include "../../Core/CPU.h"
-#include "../../Core/Config.h"
-#include "../../Core/HLE/sceCtrl.h"
-#include "../../Core/Host.h"
-#include "../../Core/SaveState.h"
-#include "../../Common/MemArena.h"
+#include "Common/FileUtil.h"
+#include "Common/LogManager.h"
+#include "Core/PSPMixer.h"
+#include "Core/CPU.h"
+#include "Core/Config.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/Host.h"
+#include "Core/SaveState.h"
+#include "Core/HW/atrac3plus.h"
+#include "Common/MemArena.h"
 
 #include "ui_atlas.h"
 #include "EmuScreen.h"
 #include "MenuScreens.h"
 #include "GameInfoCache.h"
 #include "UIShader.h"
+
+#include "UI/PluginScreen.h"
+
+// The new UI framework, for initialization
+
+static UI::Theme ui_theme;
 
 #ifdef ARM
 #include "../../android/jni/ArmEmitterTest.h"
@@ -157,31 +165,26 @@ static AndroidLogger *logger = 0;
 
 std::string boot_filename = "";
 
-void NativeHost::InitSound(PMixer *mixer)
-{
+void NativeHost::InitSound(PMixer *mixer) {
 	g_mixer = mixer;
 }
 
-void NativeHost::ShutdownSound()
-{
+void NativeHost::ShutdownSound() {
 	g_mixer = 0;
 }
 
-int NativeMix(short *audio, int num_samples)
-{
-	if (g_mixer)
-	{
-		return g_mixer->Mix(audio, num_samples);
+int NativeMix(short *audio, int num_samples) {
+	// ILOG("Entering mixer");
+	if (g_mixer) {
+		num_samples = g_mixer->Mix(audio, num_samples);
+	}	else {
+		memset(audio, 0, num_samples * 2 * sizeof(short));
 	}
-	else
-	{
-		//memset(audio, 0, numSamples * 2);
-		return 0;
-	}
+	// ILOG("Leaving mixer");
+	return num_samples;
 }
 
-void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape)
-{
+void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape) {
 	*app_nice_name = "PPSSPP";
 	*app_dir_name = "ppsspp";
 	*landscape = true;
@@ -191,8 +194,8 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 #endif
 }
 
-void NativeInit(int argc, const char *argv[], const char *savegame_directory, const char *external_directory, const char *installID)
-{
+void NativeInit(int argc, const char *argv[],
+								const char *savegame_directory, const char *external_directory, const char *installID) {
 	EnableFZ();
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
@@ -231,6 +234,16 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 
 	config_filename = user_data_path + "/ppsspp.ini";
 	g_Config.Load(config_filename.c_str());
+	g_Config.externalDirectory = external_directory;
+#endif
+
+#ifdef ANDROID
+	// On Android, create a PSP directory tree in the external_directory,
+	// to hopefully reduce confusion a bit. 
+	ILOG("Creating %s", (g_Config.externalDirectory + "/PSP").c_str());
+	mkDir((g_Config.externalDirectory + "/PSP").c_str());
+	mkDir((g_Config.externalDirectory + "/PSP/SAVEDATA").c_str());
+	mkDir((g_Config.externalDirectory + "/PSP/GAME").c_str());
 #endif
 
 	const char *fileToLog = 0;
@@ -295,6 +308,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	}
 
 #if defined(ANDROID)
+	g_Config.internalDataDirectory = savegame_directory;
 	// Maybe there should be an option to use internal memory instead, but I think
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
@@ -333,6 +347,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	if (!gfxLog)
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
+#else
+	g_Config.memCardDirectory = "MemStick/";
 #endif	
 
 	i18nrepo.LoadIni(g_Config.languageIni);
@@ -343,22 +359,34 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	g_gameInfoCache.Init();
 }
 
-void NativeInitGraphics()
-{
+void NativeInitGraphics() {
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 
 	screenManager = new ScreenManager();
+
 	if (boot_filename.empty()) {
+#if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A) || (defined(MACOSX) && defined(_M_IX64))
+		if (Atrac3plus_Decoder::CanAutoInstall()) {
+			Atrac3plus_Decoder::DoAutoInstall();
+			screenManager->switchScreen(new LogoScreen(boot_filename));
+		} else {
+			screenManager->switchScreen(new LogoScreen(boot_filename));
+			// If first run and can't autoinstall, let's send the user to the atrac3plus download screen.
+			if (g_Config.bFirstRun && !Atrac3plus_Decoder::IsInstalled())
+				screenManager->push(new PluginScreen());
+		}
+#else
 		screenManager->switchScreen(new LogoScreen(boot_filename));
+#endif
 	} else {
 		// Go directly into the game.
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	}
-	// screenManager->switchScreen(new FileSelectScreen());
 
 	UIShader_Init();
 
+	// Old style theme, to be removed later
 	UITheme theme = {0};
 	theme.uiFont = UBUNTU24;
 	theme.uiFontSmall = UBUNTU24;
@@ -368,20 +396,43 @@ void NativeInitGraphics()
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
+	// memset(&ui_theme, 0, sizeof(ui_theme));
+	// New style theme
+	ui_theme.uiFont = UBUNTU24;
+	ui_theme.uiFontSmall = UBUNTU24;
+	ui_theme.uiFontSmaller = UBUNTU24;
+	ui_theme.checkOn = I_CHECKEDBOX;
+	ui_theme.checkOff = I_SQUARE;
+	ui_theme.whiteImage = SOLIDWHITE;
+	ui_theme.buttonStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON);
+	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.buttonStyle.image = I_BUTTON;
+	ui_theme.buttonFocusedStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFFe0e0e0);
+	ui_theme.buttonFocusedStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.buttonDownStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON_SELECTED, 0xFFFFFFFF);
+	ui_theme.buttonDownStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.buttonDisabledStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFF404040);
+	ui_theme.buttonDisabledStyle.fgColor = 0xFF707070;
+	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
+	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.itemFocusedStyle.background = UI::Drawable(0xCC909080);
+	ui_theme.itemDownStyle.background = UI::Drawable(0xFFFFc080);
+	ui_theme.itemDownStyle.fgColor = 0xFF000000;
+
 	ui_draw2d.Init();
 	ui_draw2d_front.Init();
 
 	UIInit(&ui_atlas, theme);
 
 	uiTexture = new Texture();
-	if (!uiTexture->Load("ui_atlas.zim"))
-	{
+	if (!uiTexture->Load("ui_atlas.zim")) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ELOG("Failed to load ui_atlas.zim");
 	}
 	uiTexture->Bind(0);
 
 	uiContext = new UIContext();
+	uiContext->theme = &ui_theme;
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
 
 	screenManager->setUIContext(uiContext);
@@ -394,9 +445,9 @@ void NativeInitGraphics()
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 }
 
-void NativeRender()
-{
+void NativeRender() {
 	EnableFZ();
+
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -415,8 +466,7 @@ void NativeRender()
 	screenManager->render();
 }
 
-void NativeUpdate(InputState &input)
-{
+void NativeUpdate(InputState &input) {
 	{
 		lock_guard lock(pendingMutex);
 		if (isMessagePending) {
@@ -429,8 +479,7 @@ void NativeUpdate(InputState &input)
 	screenManager->update(input);
 } 
 
-void NativeDeviceLost()
-{
+void NativeDeviceLost() {
 	g_gameInfoCache.Clear();
 	screenManager->deviceLost();
 	gl_lost();
@@ -438,26 +487,17 @@ void NativeDeviceLost()
 	// Should dirty EVERYTHING
 }
 
-bool NativeIsAtTopLevel()
-{
+bool NativeIsAtTopLevel() {
 	// TODO
 	return false;
 }
 
-void NativeTouch(int finger, float x, float y, double time, TouchEvent event)
-{
-	switch (event) {
-	case TOUCH_DOWN:
-		break;
-	case TOUCH_MOVE:
-		break;
-	case TOUCH_UP:
-		break;
-	}
+void NativeTouch(const TouchInput &touch) {
+	if (screenManager)
+		screenManager->touch(touch);
 }
 
-void NativeMessageReceived(const char *message, const char *value)
-{
+void NativeMessageReceived(const char *message, const char *value) {
 	// We can only have one message queued.
 	lock_guard lock(pendingMutex);
 	if (!isMessagePending) {
@@ -467,8 +507,7 @@ void NativeMessageReceived(const char *message, const char *value)
 	}
 }
 
-void NativeShutdownGraphics()
-{
+void NativeShutdownGraphics() {
 	delete uiTexture;
 	uiTexture = NULL;
 
@@ -484,9 +523,7 @@ void NativeShutdownGraphics()
 	gl_lost_manager_shutdown();
 }
 
-void NativeShutdown()
-{
-	i18nrepo.SaveIni("D:\\lang.ini");
+void NativeShutdown() {
 	g_gameInfoCache.Shutdown();
 
 	delete host;

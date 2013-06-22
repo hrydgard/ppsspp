@@ -41,7 +41,6 @@ void __PPGeShutdown();
 void PPGeBegin();
 void PPGeEnd();
 
-
 // If you want to draw using this texture but not go through the PSP GE emulation,
 // jsut call this. Will bind the texture to unit 0.
 void PPGeBindTexture();
@@ -62,12 +61,41 @@ enum {
 	PPGE_ALIGN_BOTTOMRIGHT = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_RIGHT,
 };
 
+enum {
+	PPGE_ESCAPE_NONE,
+	PPGE_ESCAPE_BACKSLASHED,
+};
+
+enum {
+	PPGE_LINE_NONE = 0,
+	PPGE_LINE_USE_ELLIPSIS = 1, // use ellipses in too long words
+	PPGE_LINE_WRAP_WORD = 2,
+	PPGE_LINE_WRAP_CHAR = 4,
+};
+
+// Get the metrics of the bounding box of the text without changing the buffer or state.
+void PPGeMeasureText(float *w, float *h, int *n, 
+					const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
+
+// Overwrite the current text lines buffer so it can be drawn later.
+void PPGePrepareText(const char *text, float x, float y, int align, float scale, 
+					int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
+
+// Get the metrics of the bounding box of the currently stated text.
+void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n);
+
 // These functions must be called between PPGeBegin and PPGeEnd.
 
-// Draws some text using the one font we have.
-void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+// Draw currently buffered text using the state from PPGeGetTextBoundingBox() call.
+// Clears the buffer and state when done.
+void PPGeDrawCurrentText(u32 color = 0xFFFFFFFF);
 
-// Draws a "4-patch" for button-like things that can be resized
+// Draws some text using the one font we have.
+// Clears the text buffer when done.
+void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+
+// Draws a "4-patch" for button-like things that can be resized.
 void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
 
 // Just blits an image to the screen, multiplied with the color.

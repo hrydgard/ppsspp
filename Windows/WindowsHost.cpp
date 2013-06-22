@@ -97,7 +97,8 @@ void WindowsHost::UpdateSound()
 void WindowsHost::ShutdownSound()
 {
 	DSound::DSound_StopSound();
-	delete curMixer;
+	if (curMixer != NULL)
+		delete curMixer;
 	curMixer = 0;
 }
 

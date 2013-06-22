@@ -16,8 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "GamepadEmu.h"
+#include "base/colorutil.h"
 #include "ui/virtual_input.h"
-#include "../../Core/Config.h"
+#include "Core/Config.h"
 #include "ui_atlas.h"
 
 TouchButton buttonX(&ui_atlas, I_ROUND, I_CROSS, PAD_BUTTON_A);
@@ -28,7 +29,8 @@ TouchButton buttonSelect(&ui_atlas, I_RECT, I_SELECT, PAD_BUTTON_SELECT);
 TouchButton buttonStart(&ui_atlas, I_RECT, I_START, PAD_BUTTON_START);
 TouchButton buttonLShoulder(&ui_atlas, I_SHOULDER, I_L, PAD_BUTTON_LBUMPER);
 TouchButton buttonRShoulder(&ui_atlas, I_SHOULDER, I_R, PAD_BUTTON_RBUMPER, 0, true);
-TouchButton buttonTurbo(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_LEFT_THUMB, 180);
+TouchButton buttonTurbo(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_UNTHROTTLE, 180);
+TouchButton buttonVPS(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_LEFT_THUMB, 180);
 TouchCrossPad crossPad(&ui_atlas, I_DIR, I_ARROW);
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
@@ -38,7 +40,7 @@ TouchStick leftStick(&ui_atlas, I_STICKBG, I_STICK, 0);
 
 void LayoutGamepad(int w, int h)
 {
-	float controlScale = g_Config.bLargeControls ? 1.6 : 1.15;
+	float controlScale = g_Config.bLargeControls ? g_Config.fButtonScale : 1.15;
 
 	const int button_spacing = 50 * controlScale;
 	const int arrow_spacing = 40 * controlScale;
@@ -65,7 +67,10 @@ void LayoutGamepad(int w, int h)
 
 	crossPad.setPos(leftX + arrow_spacing, leftY, 40, controlScale);
 
-	buttonTurbo.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
+	if (g_Config.iFpsLimit)
+		buttonVPS.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
+	else
+		buttonTurbo.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
 	buttonSelect.setPos(halfW , h - 20 * controlScale, controlScale);
 	buttonStart.setPos(halfW + button_spacing * 2 , h - 20 * controlScale, controlScale);
 	buttonLShoulder.setPos(button_spacing + 10 * controlScale, 30 * controlScale, controlScale);
@@ -94,7 +99,11 @@ void UpdateGamepad(InputState &input_state)
 	buttonStart.update(input_state);
 	buttonLShoulder.update(input_state);
 	buttonRShoulder.update(input_state);
-	buttonTurbo.update(input_state);
+
+	if (g_Config.iFpsLimit)
+		buttonVPS.update(input_state);
+	else 
+		buttonTurbo.update(input_state);
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 	buttonPause.update(input_state);
@@ -104,10 +113,11 @@ void UpdateGamepad(InputState &input_state)
 		leftStick.update(input_state);
 }
 
-void DrawGamepad(DrawBuffer &db)
+void DrawGamepad(DrawBuffer &db, float opacity)
 {
-	uint32_t color = 0xa0c0b080;
-	uint32_t colorOverlay = 0xa0FFFFFF;
+	uint32_t color = colorAlpha(0xc0b080, opacity);
+	uint32_t colorOverlay = colorAlpha(0xFFFFFF, opacity);
+
 	buttonO.draw(db, color, colorOverlay);
 	buttonX.draw(db, color, colorOverlay);
 	buttonTri.draw(db, color, colorOverlay);
@@ -119,7 +129,11 @@ void DrawGamepad(DrawBuffer &db)
 	buttonStart.draw(db, color, colorOverlay);
 	buttonLShoulder.draw(db, color, colorOverlay);
 	buttonRShoulder.draw(db, color, colorOverlay);
-	buttonTurbo.draw(db, color, colorOverlay);
+
+	if (g_Config.iFpsLimit)
+		buttonVPS.draw(db, color, colorOverlay);
+	else
+		buttonTurbo.draw(db, color, colorOverlay);
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 	buttonPause.draw(db, color, colorOverlay);

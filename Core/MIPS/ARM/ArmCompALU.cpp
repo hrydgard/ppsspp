@@ -382,12 +382,6 @@ namespace MIPSComp
 	void Jit::Comp_Special3(u32 op)
 	{
 		CONDITIONAL_DISABLE;
-		
-		bool useUBFXandBFI = false;
-
-		if (!cpu_info.bArmV7) {
-			// useUBFXandBFI = true;
-		}
 
 		int rs = _RS;
 		int rt = _RT;
@@ -409,11 +403,8 @@ namespace MIPSComp
 				return;
 			}
 
-			// Reported to break Disgaea.
-			DISABLE;
-
 			gpr.MapDirtyIn(rt, rs);
-			if (useUBFXandBFI) {
+			if (cpu_info.bArmV7) {
 				UBFX(gpr.R(rt), gpr.R(rs), pos, size);
 			} else {
 				MOV(gpr.R(rt), Operand2(gpr.R(rs), ST_LSR, pos));
@@ -440,9 +431,9 @@ namespace MIPSComp
 				}
 				else
 				{
-					if (useUBFXandBFI) {
+					if (cpu_info.bArmV7) {
 						gpr.MapDirtyIn(rt, rs, false);
-						BFI(gpr.R(rt), gpr.R(rs), pos, size);
+						BFI(gpr.R(rt), gpr.R(rs), pos, size-pos);
 					} else {
 						gpr.MapDirtyIn(rt, rs, false);
 						ANDI2R(R0, gpr.R(rs), sourcemask, R1);
@@ -514,6 +505,39 @@ namespace MIPSComp
 		}
 	}
 
+	void Jit::Comp_Allegrex2(u32 op)
+	{
+		CONDITIONAL_DISABLE;
+		int rt = _RT;
+		int rd = _RD;
+		// Don't change $zr.
+		if (rd == 0)
+			return;
+
+		switch (op & 0x3ff)
+		{
+		case 0xA0: //wsbh
+			if (cpu_info.bArmV7) {
+				gpr.MapDirtyIn(rd, rt);
+				REV16(gpr.R(rd), gpr.R(rt));
+			} else {
+				Comp_Generic(op);
+			}
+			break;
+		case 0xE0: //wsbw
+			if (cpu_info.bArmV7) {
+				gpr.MapDirtyIn(rd, rt);
+				REV(gpr.R(rd), gpr.R(rt));
+			} else {
+				Comp_Generic(op);
+			}
+			break;
+		default:
+			Comp_Generic(op);
+			break;
+		}
+	}
+
 	void Jit::Comp_MulDivType(u32 op)
 	{
 		CONDITIONAL_DISABLE;
@@ -554,42 +578,26 @@ namespace MIPSComp
 			break;
 
 		case 26: //div
-			DISABLE;
-			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
 			if (cpu_info.bIDIVa)
 			{
+				gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
 				SDIV(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
 				MUL(R0, gpr.R(rt), gpr.R(MIPSREG_LO));
 				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
 			} else {
-				VMOV(S0, gpr.R(rs));
-				VMOV(S1, gpr.R(rt));
-				VCVT(D0, S0, TO_FLOAT | IS_SIGNED);
-				VCVT(D1, S1, TO_FLOAT | IS_SIGNED);
-				VDIV(D0, D0, D1);
-				VCVT(gpr.R(MIPSREG_LO), D0, TO_INT | IS_SIGNED);
-				MUL(R0, gpr.R(rt), gpr.R(MIPSREG_LO));
-				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
+				DISABLE;
 			}
 			break;
 
 		case 27: //divu
-			DISABLE;
-			gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
 			if (cpu_info.bIDIVa)
 			{
+				gpr.MapDirtyDirtyInIn(MIPSREG_LO, MIPSREG_HI, rs, rt);
 				UDIV(gpr.R(MIPSREG_LO), gpr.R(rs), gpr.R(rt));
 				MUL(R0, gpr.R(rt), gpr.R(MIPSREG_LO));
 				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
 			} else {
-				VMOV(S0, gpr.R(rs));
-				VMOV(S1, gpr.R(rt));
-				VCVT(D0, S0, TO_FLOAT);
-				VCVT(D1, S1, TO_FLOAT);
-				VDIV(D0, D0, D1);
-				VCVT(gpr.R(MIPSREG_LO), D0, TO_INT);
-				MUL(R0, gpr.R(rt), gpr.R(MIPSREG_LO));
-				SUB(gpr.R(MIPSREG_HI), gpr.R(rs), Operand2(R0));
+				DISABLE;
 			}
 			break;
 

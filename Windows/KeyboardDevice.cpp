@@ -1,4 +1,5 @@
 #include "input/input_state.h"
+#include "ControlMapping.h"
 #include "Windows/WndMainWindow.h"
 #include "KeyboardDevice.h"
 #include "../Common/CommonTypes.h"
@@ -6,20 +7,24 @@
 #include "WinUser.h"
 
 unsigned int key_pad_map[] = {
-	VK_TAB,   PAD_BUTTON_LEFT_THUMB,
-	VK_SPACE, PAD_BUTTON_START,
-	'V',      PAD_BUTTON_SELECT,
+	VK_ESCAPE,PAD_BUTTON_MENU,        // Open PauseScreen
+	VK_BACK,  PAD_BUTTON_BACK,        // Toggle PauseScreen & Back Setting Page
+	'Z',      PAD_BUTTON_A,
+	'X',      PAD_BUTTON_B,
 	'A',      PAD_BUTTON_X,
 	'S',      PAD_BUTTON_Y,
-	'X',      PAD_BUTTON_B,
-	'Z',      PAD_BUTTON_A,
+	'V',      PAD_BUTTON_SELECT,
+	VK_SPACE, PAD_BUTTON_START,
 	'Q',      PAD_BUTTON_LBUMPER,
 	'W',      PAD_BUTTON_RBUMPER,
+	VK_F3,    PAD_BUTTON_LEFT_THUMB,  // Toggle Turbo
+	VK_PAUSE, PAD_BUTTON_RIGHT_THUMB, // Open PauseScreen
 	VK_UP,    PAD_BUTTON_UP,
 	VK_DOWN,  PAD_BUTTON_DOWN,
 	VK_LEFT,  PAD_BUTTON_LEFT,
 	VK_RIGHT, PAD_BUTTON_RIGHT,
 };
+const unsigned int key_pad_map_size = sizeof(key_pad_map);
 
 unsigned short analog_ctrl_map[] = {
 	'I', CTRL_UP,
@@ -27,12 +32,18 @@ unsigned short analog_ctrl_map[] = {
 	'J', CTRL_LEFT,
 	'L', CTRL_RIGHT,
 };
+const unsigned int analog_ctrl_map_size = sizeof(analog_ctrl_map);
 
 int KeyboardDevice::UpdateState(InputState &input_state) {
 	if (MainWindow::GetHWND() != GetForegroundWindow()) return -1;
 	bool alternate = GetAsyncKeyState(VK_SHIFT) != 0;
 	static u32 alternator = 0;
 	bool doAlternate = alternate && (alternator++ % 10) < 5;
+
+	// This button isn't customizable.  Also, if alt is held, we ignore it (alt-tab is common.)
+	if (GetAsyncKeyState(VK_TAB) && !GetAsyncKeyState(VK_MENU)) {
+		input_state.pad_buttons |= PAD_BUTTON_UNTHROTTLE;
+	}
 
 	for (int i = 0; i < sizeof(key_pad_map)/sizeof(key_pad_map[0]); i += 2) {
 		if (!GetAsyncKeyState(key_pad_map[i])) {
@@ -65,7 +76,8 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 			break;
 		}
 	}
-
+	
+	// keyboard device
 	input_state.pad_lstick_x += analogX;
 	input_state.pad_lstick_y += analogY;
 	return 0;
@@ -189,22 +201,3 @@ const char * getVirtualKeyName(unsigned char key)
 	return 0;
 }
 
-bool saveControlsToFile() {
-	FILE *wfp = fopen("PPSSPPControls.dat", "wb");
-	if (!wfp)
-		return false;
-	fwrite(key_pad_map, 1, sizeof(key_pad_map), wfp);
-	fwrite(analog_ctrl_map, 1, sizeof(analog_ctrl_map), wfp);
-	fclose(wfp);
-	return true;
-}
-
-bool loadControlsFromFile() {
-	FILE *rfp = fopen("PPSSPPControls.dat", "rb");
-	if (!rfp)
-		return false;
-	fread(key_pad_map, 1, sizeof(key_pad_map), rfp);
-	fread(analog_ctrl_map, 1, sizeof(analog_ctrl_map), rfp);
-	fclose(rfp);
-	return true;
-}

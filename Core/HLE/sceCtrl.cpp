@@ -161,11 +161,11 @@ void __CtrlSetAnalog(float x, float y, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	if (stick == 0) {
-		ctrlCurrent.analog[0] = (u8)(x * 127.f + 128.f);
-		ctrlCurrent.analog[1] = (u8)(-y * 127.f + 128.f);
+		ctrlCurrent.analog[0] = (u8)ceilf(x * 127.5f + 127.5f);
+		ctrlCurrent.analog[1] = (u8)ceilf(-y * 127.5f + 127.5f);
 	} else {
-		ctrlCurrent.analogRight[0] = (u8)(x * 127.f + 128.f);
-		ctrlCurrent.analogRight[1] = (u8)(-y * 127.f + 128.f);
+		ctrlCurrent.analogRight[0] = (u8)ceilf(x * 127.5f + 127.5f);
+		ctrlCurrent.analogRight[1] = (u8)ceilf(-y * 127.5f + 127.5f);
 	}
 }
 
@@ -482,8 +482,8 @@ static const HLEFunction sceCtrl[] =
 	{0x60B81F86, WrapV_UU<sceCtrlReadBufferNegative>, "sceCtrlReadBufferNegative"},
 	{0xB1D0E5CD, WrapU_U<sceCtrlPeekLatch>, "sceCtrlPeekLatch"},
 	{0x0B588501, WrapU_U<sceCtrlReadLatch>, "sceCtrlReadLatch"},
-	{0x348D99D4, 0, "sceCtrl_348D99D4"},
-	{0xAF5960F3, 0, "sceCtrl_AF5960F3"},
+	{0x348D99D4, 0, "sceCtrlSetSuspendingExtraSamples"},
+	{0xAF5960F3, 0, "sceCtrlGetSuspendingExtraSamples"},
 	{0xA68FD260, 0, "sceCtrlClearRapidFire"},
 	{0x6841BE1A, 0, "sceCtrlSetRapidFire"},
 	{0xa7144800, WrapI_II<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold"},

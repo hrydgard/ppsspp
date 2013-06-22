@@ -15,7 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../MemMap.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "../MIPS/MIPSTables.h"
 #include "ElfReader.h"
 #include "../Debugger/SymbolMap.h"
@@ -46,7 +47,7 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 	u32 test = (hi<<16) + lo;
 	if (test != addr)
 	{
-		
+		WARN_LOG_REPORT(LOADER, "HI16/LO16 relocation failure?");
 	}
 }
 
@@ -77,28 +78,23 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		}
 		u32 relocateTo = segmentVAddr[relative];
 
-#define R_MIPS32 2
-#define R_MIPS26 4
-#define R_MIPS16_HI 5
-#define R_MIPS16_LO 6
-
 		switch (type) 
 		{
-		case R_MIPS32:
+		case R_MIPS_32:
 			if (log)
 				DEBUG_LOG(LOADER,"Full address reloc %08x", addr);
 			//full address, no problemo
 			op += relocateTo;
 			break;
 
-		case R_MIPS26: //j, jal
+		case R_MIPS_26: //j, jal
 			//add on to put in correct address space
 			if (log)
 				DEBUG_LOG(LOADER,"j/jal reloc %08x", addr);
 			op = (op & 0xFC000000) | (((op&0x03FFFFFF)+(relocateTo>>2))&0x03FFFFFFF);
 			break;
 
-		case R_MIPS16_HI: //lui part of lui-addiu pairs
+		case R_MIPS_HI16: //lui part of lui-addiu pairs
 			{
 				if (log)
 					DEBUG_LOG(LOADER,"HI reloc %08x", addr);
@@ -108,7 +104,7 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 				bool found = false;
 				for (int t = r + 1; t<numRelocs; t++)
 				{
-					if ((rels[t].r_info & 0xF) == R_MIPS16_LO) 
+					if ((rels[t].r_info & 0xF) == R_MIPS_LO16) 
 					{
 						u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
 						if (log)
@@ -125,13 +121,13 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 					}
 				}
 				if (!found)
-					ERROR_LOG(LOADER, "R_MIPS16: not found");
+					ERROR_LOG_REPORT(LOADER, "R_MIPS_HI16: could not find R_MIPS_LO16");
 
 				op = (op & 0xFFFF0000) | (hi);
 			}
 			break;
 
-		case R_MIPS16_LO: //addiu part of lui-addiu pairs
+		case R_MIPS_LO16: //addiu part of lui-addiu pairs
 			{
 				if (log)
 					DEBUG_LOG(LOADER,"LO reloc %08x", addr);
@@ -142,26 +138,179 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 			}
 			break;
 
-		case 7: //gp
-			if (log)
-				ERROR_LOG(LOADER,"ARGH IT'S A GP!!!!!!!! %08x", addr);
+		case R_MIPS_GPREL16: //gp
+			{
+				char temp[256];
+				MIPSDisAsm(op, 0, temp);
+				ERROR_LOG_REPORT(LOADER, "ARGH IT'S A GP!!!!!!!! %08x : %s", addr, temp);
+			}
 			break;
 
 		case 0: // another GP reloc!
 			{
 				char temp[256];
 				MIPSDisAsm(op, 0, temp);
-				ERROR_LOG(LOADER,"WARNING: GP reloc? @ %08x : 0 : %s", addr, temp );
+				ERROR_LOG_REPORT(LOADER, "WARNING: GP reloc? @ %08x : 0 : %s", addr, temp);
 			}
 			break;
 
 		default:
-			ERROR_LOG(LOADER,"ARGH IT'S A UNKNOWN RELOCATION!!!!!!!! %08x", addr);
+			{
+				char temp[256];
+				MIPSDisAsm(op, 0, temp);
+				ERROR_LOG_REPORT(LOADER,"ARGH IT'S A UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
+			}
 			break;
 		}
 		Memory::Write_U32(op, addr);
 	}
 }
+
+
+void ElfReader::LoadRelocations2(int rel_seg)
+{
+	Elf32_Phdr *ph;
+	u8 *buf, *end, *flag_table, *type_table;
+	int flag_table_size, type_table_size;
+	int flag_bits, seg_bits, type_bits;
+	int cmd, flag, seg, type;
+	int off_seg = 0, addr_seg, rel_base, rel_offset;
+	int relocate_to, last_type, lo16;
+	u32 op, addr;
+	int rcount = 0;
+
+	ph = segments + rel_seg;
+
+
+	buf = (u8*)GetSegmentPtr(rel_seg);
+	end = buf+ph->p_filesz;
+
+	flag_bits = buf[2];
+	type_bits = buf[3];
+
+	seg_bits = 1;
+	while((1<<seg_bits)<rel_seg)
+		seg_bits += 1;
+
+	buf += 4;
+
+	flag_table = buf;
+	flag_table_size = flag_table[0];
+	buf += flag_table_size;
+
+	type_table = buf;
+	type_table_size = flag_table[0];
+	buf += type_table_size;
+
+	rel_base = 0;
+	last_type = -1;
+	while(buf<end){
+		cmd = *(u16*)(buf);
+		buf += 2;
+
+		flag = ( cmd<<(16-flag_bits))&0xffff;
+		flag = (flag>>(16-flag_bits))&0xffff;
+		flag = flag_table[flag];
+
+		seg = (cmd<<(16-seg_bits-flag_bits))&0xffff;
+		seg = (seg>>(16-seg_bits))&0xffff;
+
+		type = ( cmd<<(16-type_bits-seg_bits-flag_bits))&0xffff;
+		type = (type>>(16-type_bits))&0xffff;
+		type = type_table[type];
+
+		if((flag&0x01)==0){
+			off_seg = seg;
+			if((flag&0x06)==0){
+				rel_base = cmd>>(seg_bits+flag_bits);
+			}else if((flag&0x06)==4){
+				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);
+				buf += 4;
+			}else{
+				ERROR_LOG_REPORT(LOADER, "Rel2: invalid size flag! %x", flag);
+				rel_base = 0;
+			}
+		}else{
+			addr_seg = seg;
+			relocate_to = segmentVAddr[addr_seg];
+
+			if((flag&0x06)==0x00){
+				rel_offset = cmd;
+				if(cmd&0x8000){
+					rel_offset |= 0xffff0000;
+					rel_offset >>= type_bits+seg_bits+flag_bits;
+					rel_offset |= 0xffff0000;
+				}else{
+					rel_offset >>= type_bits+seg_bits+flag_bits;
+				}
+				rel_base += rel_offset;
+			}else if((flag&0x06)==0x02){
+				rel_offset = cmd;
+				if(cmd&0x8000)
+					rel_offset |= 0xffff0000;
+				rel_offset >>= type_bits+seg_bits+flag_bits;
+				rel_offset = (rel_offset<<16) | (buf[0]) | (buf[1]<<8);
+				buf += 2;
+				rel_base += rel_offset;
+			}else if((flag&0x06)==0x04){
+				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);;
+				buf += 4;
+			}else{
+				ERROR_LOG_REPORT(LOADER, "Rel2: invalid relocat size flag! %x", flag);
+			}
+
+
+			rel_offset = rel_base+segmentVAddr[off_seg];
+
+			if((flag&0x38)==0x00){
+				lo16 = 0;
+			}else if((flag&0x38)==0x08){
+				if(last_type!=0x04)
+					lo16 = 0;
+			}else if((flag&0x38)==0x10){
+				lo16 = (buf[0]) | (buf[1]<<8);
+				if(lo16&0x8000)
+					lo16 |= 0xffff0000;
+				buf += 2;
+			}else{
+				ERROR_LOG_REPORT(LOADER, "Rel2: invalid lo16 type! %x", flag);
+			}
+
+			op = Memory::ReadUnchecked_U32(rel_offset);
+			DEBUG_LOG(LOADER, "Rel2: %5d: CMD=0x%04X type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x\n", rcount, cmd, type, off_seg, rel_base, addr_seg, op);
+
+			switch(type){
+			case 0:
+				continue;
+			case 2: // R_MIPS_32
+				op += relocate_to;
+				break;
+			case 3: // R_MIPS_26
+			case 6: // R_MIPS_J26
+			case 7: // R_MIPS_JAL26
+				op = (op&0xFC000000) | (((op&0x03FFFFFF)+(relocate_to>>2))&0x03FFFFFFF);
+				break;
+			case 4: // R_MIPS_HI16
+				addr = ((op<<16)+lo16)+relocate_to;
+				if(addr&0x8000)
+					addr += 0x00010000;
+				op = (op&0xffff0000) | (addr>>16 );
+				break;
+			case 1:
+			case 5: // R)MIPS_LO16
+				op = (op&0xffff0000) | (((op&0xffff)+relocate_to)&0xffff);
+				break;
+			default:
+				break;
+			}
+
+			Memory::Write_U32(op, rel_offset);
+			rcount += 1;
+		}
+	}
+
+}
+
 
 bool ElfReader::LoadInto(u32 loadAddress)
 {
@@ -218,7 +367,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	}
 
 	if (vaddr == (u32)-1) {
-		ERROR_LOG(LOADER, "Failed to allocate memory for ELF!");
+		ERROR_LOG_REPORT(LOADER, "Failed to allocate memory for ELF!");
 		return false;
 	}
 	
@@ -237,7 +386,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	for (int i=0; i<header->e_phnum; i++)
 	{
 		Elf32_Phdr *p = segments + i;
-		DEBUG_LOG(LOADER, "Type: %i Vaddr: %08x Filesz: %i Memsz: %i ", (int)p->p_type, (u32)p->p_vaddr, (int)p->p_filesz, (int)p->p_memsz);
+		DEBUG_LOG(LOADER, "Type: %08x Vaddr: %08x Filesz: %08x Memsz: %08x ", (int)p->p_type, (u32)p->p_vaddr, (int)p->p_filesz, (int)p->p_memsz);
 
 		if (p->p_type == PT_LOAD)
 		{
@@ -298,7 +447,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 			{
 				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 				{
-					ERROR_LOG(LOADER,"Trying to relocate non-loaded section %s",GetSectionName(sectionToModify));
+					ERROR_LOG_REPORT(LOADER, "Trying to relocate non-loaded section %s", GetSectionName(sectionToModify));
 					continue;
 				}
 
@@ -311,7 +460,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 			}
 			else
 			{
-				WARN_LOG(LOADER, "sectionToModify = %i - ignoring PSP relocation sector %i", sectionToModify, i);
+				WARN_LOG_REPORT(LOADER, "sectionToModify = %i - ignoring PSP relocation sector %i", sectionToModify, i);
 			}
 		}
 		else if (s->sh_type == SHT_REL)
@@ -329,15 +478,15 @@ bool ElfReader::LoadInto(u32 loadAddress)
 				{
 					if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 					{
-						ERROR_LOG(LOADER,"Trying to relocate non-loaded section %s, ignoring",GetSectionName(sectionToModify));
+						ERROR_LOG_REPORT(LOADER, "Trying to relocate non-loaded section %s, ignoring", GetSectionName(sectionToModify));
 						continue;
 					}
 				}
 				else
 				{
-					WARN_LOG(LOADER, "sectionToModify = %i - ignoring relocation sector %i", sectionToModify, i);
+					WARN_LOG_REPORT(LOADER, "sectionToModify = %i - ignoring relocation sector %i", sectionToModify, i);
 				}
-				ERROR_LOG(LOADER,"Traditional relocations unsupported.");
+				ERROR_LOG_REPORT(LOADER, "Traditional relocations unsupported.");
 			}
 		}
 	}
@@ -356,6 +505,10 @@ bool ElfReader::LoadInto(u32 loadAddress)
 
 				Elf32_Rel *rels = (Elf32_Rel *)GetSegmentPtr(i);
 				LoadRelocations(rels, numRelocs);
+			} else if (p->p_type == 0x700000A1)
+			{
+				INFO_LOG(LOADER,"Loading segment relocations2");
+				LoadRelocations2(i);
 			}
 		}
 	}

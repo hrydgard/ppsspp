@@ -21,24 +21,46 @@
 #include <map>
 
 #include "base/mutex.h"
+#include "file/file_util.h"
 #include "thread/prioritizedworkqueue.h"
 #include "gfx/texture.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
 
 
+// A GameInfo holds information about a game, and also lets you do things that the VSH
+// does on the PSP, namely checking for and deleting savedata, and similar things.
+
 class GameInfo {
 public:
-	GameInfo() : fileType(FILETYPE_UNKNOWN), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL) {}
+	GameInfo() 
+		: fileType(FILETYPE_UNKNOWN), paramSFOLoaded(false), iconTexture(NULL), pic0Texture(NULL), pic1Texture(NULL),
+		  wantBG(false), gameSize(0), saveDataSize(0) {}
+
+	bool DeleteGame();  // Better be sure what you're doing when calling this.
+	bool DeleteAllSaveData();
+
+	u64 GetGameSizeInBytes();
+	u64 GetSaveDataSizeInBytes();
+
+	void LoadParamSFO();
+
+	std::vector<std::string> GetSaveDataDirectories();
+
+
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer
 	// to it.
 	recursive_mutex lock;
 
+	FileInfo fileInfo;
 	std::string title;  // for easy access, also available in paramSFO.
+	std::string id;
+	std::string id_version;
 	EmuFileType fileType;
 	ParamSFOData paramSFO;
+	bool paramSFOLoaded;
 	
 	// Pre read the data, create a texture the next time (GL thread..)
 	std::string iconTextureData;
@@ -57,6 +79,9 @@ public:
 	double timeIconWasLoaded;
 	double timePic0WasLoaded;
 	double timePic1WasLoaded;
+
+	u64 gameSize;
+	u64 saveDataSize;
 };
 
 class GameInfoCache {

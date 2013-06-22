@@ -182,7 +182,7 @@ int main(int argc, const char* argv[])
 	coreParameter.outputHeight = 272;
 	coreParameter.pixelWidth = 480;
 	coreParameter.pixelHeight = 272;
-	coreParameter.useMediaEngine = false;
+	coreParameter.unthrottle = true;
 
 	g_Config.bEnableSound = false;
 	g_Config.bFirstRun = false;
@@ -192,7 +192,6 @@ int main(int argc, const char* argv[])
 	g_Config.bAutoSaveSymbolMap = false;
 	g_Config.bBufferedRendering = true;
 	g_Config.bHardwareTransform = true;
-	g_Config.bUseMediaEngine = true;
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
 #else
@@ -201,12 +200,12 @@ int main(int argc, const char* argv[])
 	g_Config.bVertexCache = true;
 	g_Config.bTrueColor = true;
 	g_Config.ilanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-	g_Config.itimeformat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
+	g_Config.iTimeFormat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 	g_Config.bEncryptSave = true;
 	g_Config.sNickName = "shadow";
 	g_Config.iTimeZone = 60;
 	g_Config.iDateFormat = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
-	g_Config.bButtonPreference = true;
+	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 
 #if defined(ANDROID)

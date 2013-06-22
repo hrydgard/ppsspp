@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <string>
 #include "HLE.h"
 #include "../System.h"
 #include "../MIPS/MIPS.h"
@@ -71,6 +72,7 @@ struct FPL : public KernelObject
 	const char *GetName() {return nf.name;}
 	const char *GetTypeName() {return "FPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_FPLID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Fpl; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Fpl; }
 
 	int findFreeBlock() {
@@ -132,6 +134,7 @@ struct VPL : public KernelObject
 	const char *GetName() {return nv.name;}
 	const char *GetTypeName() {return "VPL";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_VPLID; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Vpl; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
 
 	VPL() : alloc(8) {}
@@ -423,6 +426,7 @@ public:
 		sprintf(ptr, "MemPart: %08x - %08x	size: %08x", address, address + sz, sz);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_UID; }
+	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_PMB; }
 	int GetIDType() const { return PPSSPP_KERNEL_TMID_PMB; }
 
 	PartitionMemoryBlock(BlockAllocator *_alloc, const char *_name, u32 size, MemblockType type, u32 alignment)
@@ -555,13 +559,93 @@ u32 sceKernelGetBlockHeadAddr(SceUID id)
 }
 
 
-void sceKernelPrintf()
+int sceKernelPrintf(const char *formatString)
 {
-	const char *formatString = Memory::GetCharPointer(PARAM(0));
+	if (formatString == NULL)
+		return -1;
 
-	ERROR_LOG(HLE,"UNIMPL sceKernelPrintf(%08x, %08x, %08x, %08x)", PARAM(0),PARAM(1),PARAM(2),PARAM(3));
-	ERROR_LOG(HLE,"%s", formatString);
-	RETURN(0);
+	bool supported = true;
+	int param = 1;
+	char tempStr[24];
+	char tempFormat[24] = {'%'};
+	std::string result, format = formatString;
+
+	// Each printf is a separate line already in the log, so don't double space.
+	// This does mean we break up strings, unfortunately.
+	if (!format.empty() && format[format.size() - 1] == '\n')
+		format.resize(format.size() - 1);
+
+	for (size_t i = 0, n = format.size(); supported && i < n; )
+	{
+		size_t next = format.find('%', i);
+		if (next == format.npos)
+		{
+			result += format.substr(i);
+			break;
+		}
+		else if (next != i)
+			result += format.substr(i, next - i);
+
+		i = next + 1;
+		if (i >= n)
+		{
+			supported = false;
+			break;
+		}
+
+		switch (format[i])
+		{
+		case '%':
+			result += '%';
+			++i;
+			break;
+
+		case 's':
+			result += Memory::GetCharPointer(PARAM(param++));
+			++i;
+			break;
+
+		case 'd':
+		case 'i':
+		case 'x':
+		case 'u':
+			tempFormat[1] = format[i];
+			tempFormat[2] = '\0';
+			snprintf(tempStr, sizeof(tempStr), tempFormat, PARAM(param++));
+			result += tempStr;
+			++i;
+			break;
+
+		case '0':
+			if (i + 3 >= n || format[i + 1] != '8' || format[i + 2] != 'x')
+				supported = false;
+			else
+			{
+				snprintf(tempFormat + 1, sizeof(tempFormat) - 1, "08x");
+				snprintf(tempStr, sizeof(tempStr), tempFormat, PARAM(param++));
+				result += tempStr;
+				i += 3;
+			}
+			break;
+
+		default:
+			supported = false;
+			break;
+		}
+
+		if (param > 6)
+			supported = false;
+	}
+
+	// Just in case there were embedded strings that had \n's.
+	if (!result.empty() && result[result.size() - 1] == '\n')
+		result.resize(result.size() - 1);
+
+	if (supported)
+		INFO_LOG(HLE, "sceKernelPrintf: %s", result.c_str())
+	else
+		ERROR_LOG(HLE, "UNIMPL sceKernelPrintf(%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
+	return 0;
 }
 
 void sceKernelSetCompiledSdkVersion(int sdkVersion)
@@ -809,8 +893,6 @@ bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &err
 			Memory::Write_U32(addr, threadInfo.addrPtr);
 		else
 			return false;
-
-		vpl->nv.numWaitThreads--;
 	}
 
 	if (timeoutPtr != 0 && vplWaitTimer != -1)
@@ -992,8 +1074,6 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate)
 		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
 		// actually running, it will get a DELETE result instead of a TIMEOUT.
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
-		vpl->nv.numWaitThreads--;
-
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 	}
 }
@@ -1027,8 +1107,6 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		{
 			if (vpl)
 			{
-				vpl->nv.numWaitThreads++;
-
 				SceUID threadID = __KernelGetCurThread();
 				__KernelVplRemoveThread(vpl, threadID);
 				VplWaitingThread waiting = {threadID, addrPtr};
@@ -1128,9 +1206,9 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
+		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
-		vpl->nv.numWaitThreads = 0;
 
 		bool wokeThreads = __KernelClearVplThreads(vpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
 		if (wokeThreads)
@@ -1149,6 +1227,17 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr)
 	if (vpl)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferVplStatus(%i, %08x)", uid, infoPtr);
+
+		u32 error;
+		for (auto iter = vpl->waitingThreads.begin(); iter != vpl->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(iter->threadID, WAITTYPE_VPL, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != uid)
+				vpl->waitingThreads.erase(iter--);
+		}
+
+		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		vpl->nv.freeSize = vpl->alloc.GetTotalFreeBytes();
 		if (Memory::IsValidAddress(infoPtr) && Memory::Read_U32(infoPtr))
 			Memory::WriteStruct(infoPtr, &vpl->nv);
@@ -1245,7 +1334,8 @@ struct TLS : public KernelObject
 	const char *GetName() {return ntls.name;}
 	const char *GetTypeName() {return "TLS";}
 	static u32 GetMissingErrorCode() { return PSP_ERROR_UNKNOWN_TLS_ID; }
-	int GetIDType() const { return SCE_KERNEL_TMID_Vpl; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Tls; }
+	int GetIDType() const { return SCE_KERNEL_TMID_Tls; }
 
 	TLS() : next(0) {}
 
@@ -1377,7 +1467,7 @@ int sceKernelDeleteTls(SceUID uid)
 int sceKernelAllocateTls(SceUID uid)
 {
 	// TODO: Allocate downward if PSP_TLS_ATTR_HIGHMEM?
-	WARN_LOG(HLE, "UNIMPL sceKernelAllocateTls(%08x)", uid);
+	DEBUG_LOG(HLE, "sceKernelAllocateTls(%08x)", uid);
 	u32 error;
 	TLS *tls = kernelObjects.Get<TLS>(uid, error);
 	if (tls)
@@ -1412,7 +1502,7 @@ int sceKernelAllocateTls(SceUID uid)
 		if (allocBlock == -1)
 		{
 			// TODO: Wait here, wake when one is free.
-			ERROR_LOG(HLE, "sceKernelAllocateTls: should wait");
+			ERROR_LOG_REPORT(HLE, "sceKernelAllocateTls: should wait");
 			return -1;
 		}
 
@@ -1481,7 +1571,7 @@ const HLEFunction SysMemUserForUser[] = {
 	{0x237DBD4F,WrapI_ICIUU<sceKernelAllocPartitionMemory>,"sceKernelAllocPartitionMemory"},	//(int size) ?
 	{0xB6D61D02,WrapI_I<sceKernelFreePartitionMemory>,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
 	{0x9D9A5BA1,WrapU_I<sceKernelGetBlockHeadAddr>,"sceKernelGetBlockHeadAddr"},			//(void *ptr) ?
-	{0x13a5abef,sceKernelPrintf,"sceKernelPrintf 0x13a5abef"},
+	{0x13a5abef,WrapI_C<sceKernelPrintf>,"sceKernelPrintf"},
 	{0x7591c7db,&WrapV_I<sceKernelSetCompiledSdkVersion>,"sceKernelSetCompiledSdkVersion"},
 	{0x342061E5,&WrapV_I<sceKernelSetCompiledSdkVersion370>,"sceKernelSetCompiledSdkVersion370"},
 	{0x315AD3A0,&WrapV_I<sceKernelSetCompiledSdkVersion380_390>,"sceKernelSetCompiledSdkVersion380_390"},

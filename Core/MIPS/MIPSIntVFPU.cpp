@@ -51,11 +51,10 @@
 #include <limits>
 
 #define R(i)   (currentMIPS->r[i])
-#define RF(i)  (*(float*)(&(currentMIPS->r[i])))
 #define V(i)   (currentMIPS->v[i])
-#define VI(i)   (*(u32*)(&(currentMIPS->v[i])))
-#define FI(i)  (*(u32*)(&(currentMIPS->f[i])))
-#define FsI(i) (*(s32*)(&(currentMIPS->f[i])))
+#define VI(i)   (currentMIPS->vi[i])
+#define FI(i)  (currentMIPS->fi[i])
+#define FsI(i) (currentMIPS->fs[i])
 #define PC     (currentMIPS->pc)
 
 #define _RS   ((op >> 21) & 0x1F)
@@ -115,9 +114,9 @@ return floor(x+.5);
 
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
-  // Possible optimization shortcut:
-  if (data == 0xe4)
-    return;
+	// Possible optimization shortcut:
+	if (data == 0xe4)
+		return;
 
 	int n = GetNumVectorElements(size);
 	float origV[4];
@@ -623,18 +622,17 @@ namespace MIPSInt
 				continue;
 			}
 			double sv = s[i] * mult; // (float)0x7fffffff == (float)0x80000000
-			int dsv;
 			// Cap/floor it to 0x7fffffff / 0x80000000
 			if (sv > 0x7fffffff) sv = 0x7fffffff;
 			if (sv < (int)0x80000000) sv = (int)0x80000000;
 			switch ((op >> 21) & 0x1f)
 			{
-			case 16: dsv = (int)rint(sv); break; //n
-			case 17: dsv = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
-			case 18: dsv = (int)ceil(sv); break; //u
-			case 19: dsv = (int)floor(sv); break; //d
+			case 16: d[i] = (int)rint(sv); break; //n
+			case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
+			case 18: d[i] = (int)ceil(sv); break; //u
+			case 19: d[i] = (int)floor(sv); break; //d
+			default: d[i] = 0x7FFFFFFF; break;
 			}
-			d[i] = (int) dsv;
 		}
 		ApplyPrefixD((float*)d, sz, true);
 		WriteVector((float*)d, sz, vd);
@@ -837,24 +835,47 @@ namespace MIPSInt
 			break;
 
 		case 2:  // vus2i
-			for (int i = 0; i < GetNumVectorElements(sz); i++) {
-				u32 value = s[i];
-				d[i * 2] = (value & 0xFFFF) << 15;
-				d[i * 2 + 1] = (value & 0xFFFF0000) >> 1;
-			}
 			oz = V_Pair;
-			if (sz == V_Pair) oz = V_Quad;
+			switch (sz)
+			{
+			case V_Pair:
+				oz = V_Quad;
+				// Intentional fallthrough.
+			case V_Single:
+				for (int i = 0; i < GetNumVectorElements(sz); i++) {
+					u32 value = s[i];
+					d[i * 2] = (value & 0xFFFF) << 15;
+					d[i * 2 + 1] = (value & 0xFFFF0000) >> 1;
+				}
+				break;
+
+			default:
+				ERROR_LOG_REPORT(CPU, "vus2i with more than 2 elements.");
+				break;
+			}
 			break;
 
 		case 3:  // vs2i
-			for (int i = 0; i < GetNumVectorElements(sz); i++) {
-				u32 value = s[i];
-				d[i * 2] = (value & 0xFFFF) << 16;
-				d[i * 2 + 1] = value & 0xFFFF0000;
-			}
 			oz = V_Pair;
-			if (sz == V_Pair) oz = V_Quad;
+			switch (sz)
+			{
+			case V_Pair:
+				oz = V_Quad;
+				// Intentional fallthrough.
+			case V_Single:
+				for (int i = 0; i < GetNumVectorElements(sz); i++) {
+					u32 value = s[i];
+					d[i * 2] = (value & 0xFFFF) << 16;
+					d[i * 2 + 1] = value & 0xFFFF0000;
+				}
+				break;
+
+			default:
+				ERROR_LOG_REPORT(CPU, "vs2i with more than 2 elements.");
+				break;
+			}
 			break;
+
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
@@ -1833,24 +1854,57 @@ bad:
 		// S & D valid
 		Reporting::ReportMessage("vlgb not implemented");
 		_dbg_assert_msg_(CPU,0,"vlgb not implemented");
+		PC += 4;
+		EatPrefixes();
 	}
 
-	void Int_Vwbn(u32 op)
-	{
-		// S & D valid
+	// There has to be a concise way of expressing this in terms of
+	// bit manipulation on the raw floats.
+	void Int_Vwbn(u32 op) {
 		Reporting::ReportMessage("vwbn not implemented");
 		_dbg_assert_msg_(CPU,0,"vwbn not implemented");
+		PC += 4;
+		EatPrefixes();
+
+		/*
+		int vd = _VD;
+		int vs = _VS;
+
+		double modulo = pow(2.0, 127 - (int)((op >> 16) & 0xFF));
+
+		// Only S is allowed? gas says so
+		VectorSize sz = GetVecSize(op);
+
+		float s[4];
+		float d[4];
+		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
+		int n = GetNumVectorElements(sz);
+		for (int i = 0; i < n; i++) {
+			double bn = (double)s[i];
+			if (bn > 0.0)
+				bn = fmod((double)bn, modulo);
+			d[i] = s[i] < 0.0f ? bn - modulo : bn + modulo;
+		}
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
+		PC += 4;
+		EatPrefixes();*/
 	}
 
 	void Int_Vsbn(u32 op)
 	{
 		Reporting::ReportMessage("vsbn not implemented");
 		_dbg_assert_msg_(CPU,0,"vsbn not implemented");
+		PC += 4;
+		EatPrefixes();
 	}
 
 	void Int_Vsbz(u32 op)
 	{
 		Reporting::ReportMessage("vsbz not implemented");
 		_dbg_assert_msg_(CPU,0,"vsbz not implemented");
+		PC += 4;
+		EatPrefixes();
 	}
 }

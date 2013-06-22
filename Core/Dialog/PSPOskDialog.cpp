@@ -21,6 +21,8 @@
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceUtility.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 #include "GPU/GPUState.h"
@@ -124,20 +126,20 @@ PSPOskDialog::PSPOskDialog() : PSPDialog() {
 PSPOskDialog::~PSPOskDialog() {
 }
 
-void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address)
 {
-	char stringBuffer[2048];
-	char *string = stringBuffer;
-
-	if (em_address == 0)
+	if (!em_address.Valid())
 	{
 		_string = "";
 		return;
 	}
 
-	u16 *src = (u16 *) Memory::GetPointer(em_address);
+	char stringBuffer[2048];
+	char *string = stringBuffer;
+
+	auto input = em_address;
 	int c;
-	while (c = *src++)
+	while ((c = *input++) != 0)
 	{
 		if (c < 0x80)
 			*string++ = c;
@@ -154,13 +156,13 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const u32 em_address)
 	_string = stringBuffer;
 }
 
-void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, wchar_t* input)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input)
 {
 	char stringBuffer[2048];
 	char *string = stringBuffer;
 
 	int c;
-	while (c = *input++)
+	while ((c = *input++) != 0)
 	{
 		if (c < 0x80)
 			*string++ = c;
@@ -189,16 +191,16 @@ int PSPOskDialog::Init(u32 oskPtr)
 		return -1;
 	}
 
-	oskParams = Memory::GetStruct<SceUtilityOskParams>(oskPtr);
+	oskParams = oskPtr;
 	if (oskParams->base.size != sizeof(SceUtilityOskParams))
 	{
 		ERROR_LOG(HLE, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
-	if (!Memory::IsValidAddress(oskParams->fieldPtr))
+	if (!oskParams->fields.Valid())
 	{
-		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fieldPtr);
+		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
 	}
 
@@ -211,26 +213,19 @@ int PSPOskDialog::Init(u32 oskPtr)
 	selectedChar = 0;
 	currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
 
-	Memory::ReadStruct(oskParams->fieldPtr, &oskData);
-	ConvertUCS2ToUTF8(oskDesc, oskData.descPtr);
-	ConvertUCS2ToUTF8(oskIntext, oskData.intextPtr);
-	ConvertUCS2ToUTF8(oskOuttext, oskData.outtextPtr);
+	ConvertUCS2ToUTF8(oskDesc, oskParams->fields[0].desc);
+	ConvertUCS2ToUTF8(oskIntext, oskParams->fields[0].intext);
+	ConvertUCS2ToUTF8(oskOuttext, oskParams->fields[0].outtext);
 
 	i_level = 0;
 
 	inputChars = L"";
 
-	if (oskData.intextPtr) {
-		u16 *src = (u16 *) Memory::GetPointer(oskData.intextPtr);
+	if (oskParams->fields[0].intext.Valid()) {
+		auto src = oskParams->fields[0].intext;
 		int c;
-		while (c = *src++)
-		{
+		while ((c = *src++) != 0)
 			inputChars += c;
-			if(c == 0x00)
-			{
-				break;
-			}
-		}
 	}
 
 	// Eat any keys pressed before the dialog inited.
@@ -307,10 +302,10 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 						}
 					}
 				} else if(i_level == 2) {
-					u32 tmp = GetIndex(kor_vowel, sw);
+					int tmp = GetIndex(kor_vowel, sw);
 					if(tmp != -1) {
 						int tmp2 = -1;
-						for(int j = 0; j < sizeof(kor_vowelCom) / 4; j+=3) {
+						for(size_t j = 0; j < sizeof(kor_vowelCom) / 4; j+=3) {
 							if(kor_vowelCom[j] == tmp && kor_vowelCom[j + 1] == i_value[1]) {
 								tmp2 = kor_vowelCom[j + 2];
 								break;
@@ -337,7 +332,7 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 							}
 						}
 					} else {
-						u32 tmp = GetIndex(kor_lcons, sw);
+						int tmp = GetIndex(kor_lcons, sw);
 
 						if(tmp == -1) {
 							string += inputChars[i];
@@ -367,10 +362,10 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 						}
 					}
 				} else if(i_level == 3) {
-					u32 tmp = GetIndex(kor_lcons, sw);
+					int tmp = GetIndex(kor_lcons, sw);
 					if(tmp != -1) {
 						int tmp2 = -1;
-						for(int j = 0; j < sizeof(kor_lconsCom) / 4; j+=3) {
+						for(size_t j = 0; j < sizeof(kor_lconsCom) / 4; j+=3) {
 							if(kor_lconsCom[j] == tmp && kor_lconsCom[j + 1] == i_value[2]) {
 								tmp2 = kor_lconsCom[j + 2];
 								break;
@@ -402,7 +397,7 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 							}
 						}
 					} else {
-						u32 tmp = GetIndex(kor_vowel, sw);
+						int tmp = GetIndex(kor_vowel, sw);
 						if(tmp == -1) {
 							string += inputChars[i];
 							if (inputChars.size() < FieldMaxLength()) {
@@ -422,9 +417,9 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 						} else {
 							if (inputChars.size() < FieldMaxLength()) {
 								int tmp2 = -1;
-								for(int j = 0; j < sizeof(kor_lconsSpr) / 4; j+=3) {
+								for(size_t j = 0; j < sizeof(kor_lconsSpr) / 4; j+=3) {
 									if(kor_lconsSpr[j] == i_value[2]) {
-										tmp2 = j;
+										tmp2 = (int)j;
 										break;
 									}
 								}
@@ -441,7 +436,7 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 										i_level = 2;
 									}
 								} else {
-									u32 tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
+									int tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
 
 									if(tmp2 != -1) {
 										u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
@@ -583,7 +578,7 @@ void PSPOskDialog::RemoveKorean()
 	else if(i_level == 2)
 	{
 		int tmp = -1;
-		for(int i = 2; i < sizeof(kor_vowelCom) / 4; i+=3)
+		for(size_t i = 2; i < sizeof(kor_vowelCom) / 4; i+=3)
 		{
 			if(kor_vowelCom[i] == i_value[1])
 			{
@@ -607,11 +602,11 @@ void PSPOskDialog::RemoveKorean()
 	else if(i_level == 3)
 	{
 		int tmp = -1;
-		for(int i = 2; i < sizeof(kor_lconsCom) / 4; i+=3)
+		for(size_t i = 2; i < sizeof(kor_lconsCom) / 4; i+=3)
 		{
 			if(kor_lconsCom[i] == i_value[2])
 			{
-				tmp = kor_vowelCom[i - 1];
+				tmp = kor_lconsCom[i - 1];
 				break;
 			}
 		}
@@ -631,9 +626,9 @@ void PSPOskDialog::RemoveKorean()
 	}
 }
 
-u32 PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
+int PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
 {
-	for(u32 i = 0; i < wcslen(src); i++)
+	for(int i = 0, end = (int)wcslen(src); i < end; i++)
 	{
 		if(src[i] == ch)
 		{
@@ -646,9 +641,9 @@ u32 PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
 
 u32 PSPOskDialog::FieldMaxLength()
 {
-	if (oskData.outtextlimit > oskData.outtextlength - 1 || oskData.outtextlimit == 0)
-		return oskData.outtextlength - 1;
-	return oskData.outtextlimit;
+	if (oskParams->fields[0].outtextlimit > oskParams->fields[0].outtextlength - 1 || oskParams->fields[0].outtextlimit == 0)
+		return oskParams->fields[0].outtextlength - 1;
+	return oskParams->fields[0].outtextlimit;
 }
 
 void PSPOskDialog::RenderKeyboard()
@@ -754,9 +749,18 @@ int PSPOskDialog::Update()
 		UpdateFade();
 
 		StartDraw();
+		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 		RenderKeyboard();
-		PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(I_CIRCLE, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE)
+		{
+			PPGeDrawImage(I_CROSS, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CIRCLE, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		}
+		else
+		{
+			PPGeDrawImage(I_CIRCLE, 30, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+			PPGeDrawImage(I_CROSS, 150, 220, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
+		}
 		//PPGeDrawImage(I_BUTTON, 230, 220, 50, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		//PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
 
@@ -792,8 +796,8 @@ int PSPOskDialog::Update()
 
 		selectedChar = (selectedChar + (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard])) % (numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard]);
 
-		if (IsButtonPressed(CTRL_CROSS))
-		{		
+		if (IsButtonPressed(g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE ? CTRL_CROSS : CTRL_CIRCLE))
+		{
 			inputChars = CombinationString(true);
 		}
 		else if (IsButtonPressed(CTRL_SELECT))
@@ -813,7 +817,7 @@ int PSPOskDialog::Update()
 
 			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
 		}
-		else if (IsButtonPressed(CTRL_CIRCLE))
+		else if (IsButtonPressed(g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE ? CTRL_CROSS : CTRL_CIRCLE))
 		{
 			if (inputChars.size() > 0)
 			{
@@ -835,42 +839,44 @@ int PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	for (u32 i = 0; i < oskData.outtextlength; ++i)
+	u16 *outText = oskParams->fields[0].outtext;
+	for (u32 i = 0, end = oskParams->fields[0].outtextlength; i < end; ++i)
 	{
 		u16 value = 0;
 		if (i < inputChars.size())
 			value = inputChars[i];
-		Memory::Write_U16(value, oskData.outtextPtr + (2 * i));
+		outText[i] = value;
 	}
 
 	oskParams->base.result = 0;
-	oskData.result = PSP_UTILITY_OSK_RESULT_CHANGED;
-	Memory::WriteStruct(oskParams->fieldPtr, &oskData);
+	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
 
 	return 0;
 }
 
-template <typename T>
-static void DoBasePointer(PointerWrap &p, T **ptr)
+int PSPOskDialog::Shutdown(bool force)
 {
-	u32 addr = *ptr == NULL ? 0 : (u8 *) *ptr - Memory::base;
-	p.Do(addr);
-	if (addr == 0)
-		*ptr = NULL;
-	else
-		*ptr = Memory::GetStruct<T>(addr);
+    if (status != SCE_UTILITY_STATUS_FINISHED && !force)
+        return SCE_ERROR_UTILITY_INVALID_STATUS;
 
+    PSPDialog::Shutdown();
+
+    return 0;
 }
 
 void PSPOskDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
-	DoBasePointer(p, &oskParams);
-	p.Do(oskData);
+	p.Do(oskParams);
 	p.Do(oskDesc);
 	p.Do(oskIntext);
 	p.Do(oskOuttext);
 	p.Do(selectedChar);
 	p.Do(inputChars);
 	p.DoMarker("PSPOskDialog");
+}
+
+pspUtilityDialogCommon *PSPOskDialog::GetCommonParam()
+{
+	return &oskParams->base;
 }

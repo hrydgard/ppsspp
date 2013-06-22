@@ -14,8 +14,8 @@ namespace DSound
 
 	StreamCallback callback;
 
-	IDirectSound8 *ds;
-	IDirectSoundBuffer *dsBuffer;
+	IDirectSound8 *ds = NULL;
+	IDirectSoundBuffer *dsBuffer = NULL;
 
 	int bufferSize; // bytes
 	int totalRenderedBytes;
@@ -49,7 +49,7 @@ namespace DSound
 		pcmwf.wBitsPerSample = 16; 
 
 		dsbdesc.dwSize = sizeof(DSBUFFERDESC); 
-		dsbdesc.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_STICKYFOCUS; // //DSBCAPS_CTRLPAN | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLFREQUENCY; 
+		dsbdesc.dwFlags = DSBCAPS_GETCURRENTPOSITION2 | DSBCAPS_GLOBALFOCUS; // //DSBCAPS_CTRLPAN | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLFREQUENCY; 
 		dsbdesc.dwBufferBytes = bufferSize = BUFSIZE;  //FIX32(pcmwf.wf.nAvgBytesPerSec);   //change to set buffer size
 		dsbdesc.lpwfxFormat = (WAVEFORMATEX *)&pcmwf; 
 
@@ -110,7 +110,7 @@ namespace DSound
 	int lastPos;
 	short realtimeBuffer[BUFSIZE * 2];
 
-	DWORD WINAPI soundThread(void *)
+	unsigned int WINAPI soundThread(void *)
 	{
 		currentPos = 0;
 		lastPos = 0;
@@ -175,8 +175,7 @@ namespace DSound
 		memset(p1,0,num1);
 		dsBuffer->Unlock(p1,num1,0,0);
 		totalRenderedBytes = -bufferSize;
-		DWORD h;
-		hThread = CreateThread(0,0,soundThread,0,0,&h);
+		hThread = (HANDLE)_beginthreadex(0, 0, soundThread, 0, 0, 0);
 		SetThreadPriority(hThread, THREAD_PRIORITY_ABOVE_NORMAL);
 		return true;
 	}
@@ -196,8 +195,10 @@ namespace DSound
 		/*
 		while (threadData!=2)
 			;*/
-		dsBuffer->Release();
-		ds->Release();
+		if (dsBuffer != NULL)
+			dsBuffer->Release();
+		if (ds != NULL)
+			ds->Release();
 
 		CloseHandle(soundSyncEvent);
 	}

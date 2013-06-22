@@ -15,11 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Common/ChunkFile.h"
+#include "Core/Reporting.h"
 
-#include "scePsmf.h"
-#include "sceMpeg.h"
+#include "Core/HLE/scePsmf.h"
+#include "Core/HLE/sceMpeg.h"
+#include "Core/HW/MediaEngine.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #include <map>
 
@@ -108,6 +112,13 @@ public:
 	Psmf(u32 data);
 	~Psmf();
 	void DoState(PointerWrap &p);
+	
+	bool isValidCurrentStreamNumber() {
+		return currentStreamNum >= 0 && currentStreamNum < streamMap.size();  // urgh, checking size isn't really right here.
+	}
+
+	void setStreamNum(int num);
+	bool setStreamWithType(int type, int channel);
 
 	u32 magic;
 	u32 version;
@@ -145,8 +156,9 @@ public:
 class PsmfPlayer {
 public:
 	// For savestates only.
-	PsmfPlayer() {}
+	PsmfPlayer() { mediaengine = new MediaEngine;}
 	PsmfPlayer(u32 data);
+	~PsmfPlayer() { if (mediaengine) delete mediaengine;}
 	void DoState(PointerWrap &p);
 
 	int videoCodec;
@@ -165,6 +177,8 @@ public:
 	SceMpegAu psmfPlayerAtracAu;
 	SceMpegAu psmfPlayerAvcAu;
 	PsmfPlayerStatus status;
+
+	MediaEngine* mediaengine;
 };
 
 class PsmfStream {
@@ -204,6 +218,7 @@ public:
 		p.Do(channel);
 	}
 
+
 	int type;
 	int channel;
 };
@@ -216,8 +231,8 @@ Psmf::Psmf(u32 data) {
 	streamOffset = bswap32(Memory::Read_U32(data + 8));
 	streamSize = bswap32(Memory::Read_U32(data + 12));
 	streamDataTotalSize = bswap32(Memory::Read_U32(data + 0x50));
-	presentationStartTime = bswap32(Memory::Read_U32(data + PSMF_FIRST_TIMESTAMP_OFFSET));
-	presentationEndTime = bswap32(Memory::Read_U32(data + PSMF_LAST_TIMESTAMP_OFFSET));
+	presentationStartTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_FIRST_TIMESTAMP_OFFSET));
+	presentationEndTime = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET));
 	streamDataNextBlockSize = bswap32(Memory::Read_U32(data + 0x6A));
 	streamDataNextInnerBlockSize = bswap32(Memory::Read_U32(data + 0x7C));
 	numStreams = bswap16(Memory::Read_U16(data + 0x80));
@@ -231,13 +246,11 @@ Psmf::Psmf(u32 data) {
 		u32 currentStreamAddr = data + 0x82 + i * 16;
 		int streamId = Memory::Read_U8(currentStreamAddr);
 		if ((streamId & PSMF_VIDEO_STREAM_ID) == PSMF_VIDEO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_AVC_STREAM, 0);
+			stream = new PsmfStream(PSMF_AVC_STREAM, ++currentVideoStreamNum);
 			stream->readMPEGVideoStreamParams(currentStreamAddr, this);
-			currentVideoStreamNum++;
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
-			stream = new PsmfStream(PSMF_ATRAC_STREAM, 1);
+			stream = new PsmfStream(PSMF_ATRAC_STREAM, ++currentAudioStreamNum);
 			stream->readPrivateAudioStreamParams(currentStreamAddr, this);
-			currentAudioStreamNum++;
 		}
 		if (stream) {
 			currentStreamNum++;
@@ -260,8 +273,9 @@ PsmfPlayer::PsmfPlayer(u32 data) {
 	audioStreamNum = Memory::Read_U32(data + 12);
 	playMode = Memory::Read_U32(data+ 16);
 	playSpeed = Memory::Read_U32(data + 20);
-	psmfPlayerLastTimestamp = bswap32(Memory::Read_U32(data + PSMF_LAST_TIMESTAMP_OFFSET)) ;
+	psmfPlayerLastTimestamp = getMpegTimeStamp(Memory::GetPointer(data + PSMF_LAST_TIMESTAMP_OFFSET)) ;
 	status = PSMF_PLAYER_STATUS_INIT;
+	mediaengine = new MediaEngine;
 }
 
 void Psmf::DoState(PointerWrap &p) {
@@ -306,9 +320,49 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.Do(playbackThreadPriority);
 	p.Do(psmfMaxAheadTimestamp);
 	p.Do(psmfPlayerLastTimestamp);
+	p.DoClass(mediaengine);
 
 	p.DoMarker("PsmfPlayer");
 }
+
+void Psmf::setStreamNum(int num) {
+	currentStreamNum = num;
+	if (!isValidCurrentStreamNumber())
+		return;
+	PsmfStreamMap::iterator iter = streamMap.find(currentStreamNum);
+	if (iter == streamMap.end())
+		return;
+
+	int type = iter->second->type;
+	int channel = iter->second->channel;
+	switch (type) {
+	case PSMF_AVC_STREAM:
+		if (currentVideoStreamNum != num) {
+			// TODO: Tell video mediaengine or something about channel.
+			currentVideoStreamNum = num;
+		}
+		break;
+
+	case PSMF_ATRAC_STREAM:
+	case PSMF_PCM_STREAM:
+		if (currentAudioStreamNum != num) {
+			// TODO: Tell audio mediaengine or something about channel.
+			currentAudioStreamNum = num;
+		}
+		break;
+	}
+}
+
+bool Psmf::setStreamWithType(int type, int channel) {
+	for (PsmfStreamMap::iterator iter = streamMap.begin(); iter != streamMap.end(); ++iter) {
+		if (iter->second->type == type) {
+			setStreamNum(iter->first);
+			return true;
+		}
+	}
+	return false;
+}
+
 
 static std::map<u32, Psmf *> psmfMap;
 static std::map<u32, PsmfPlayer *> psmfPlayerMap;
@@ -380,7 +434,7 @@ u32 scePsmfGetNumberOfStreams(u32 psmfStruct)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetNumberOfStreams(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	DEBUG_LOG(HLE, "scePsmfGetNumberOfStreams(%08x)", psmfStruct);
@@ -391,46 +445,76 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "UNIMPL scePsmfGetNumberOfSpecificStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x): invalid psmf", psmfStruct, streamType);
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	INFO_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
-	return 1;
+	WARN_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
+	int streamNum = 0;
+	int type = (streamType == PSMF_AUDIO_STREAM ? PSMF_ATRAC_STREAM : streamType);
+	for (int i = psmf->streamMap.size() - 1; i >= 0; i--) {
+		if (psmf->streamMap[i]->type == type)
+			streamNum++;
+	}
+	return streamNum;
 }
 
 u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 channel)
 {
+	Psmf *psmf = getPsmf(psmfStruct);
+	if (!psmf) {
+		ERROR_LOG(HLE, "scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i): invalid psmf", psmfStruct, streamType, channel);
+		return ERROR_PSMF_NOT_FOUND;
+	}
 	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i)", psmfStruct, streamType, channel);
+	if (!psmf->setStreamWithType(streamType, channel)) {
+		psmf->setStreamNum(-1);
+	}
 	return 0;
 }
 
 u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32 typeNum)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
+	Psmf *psmf = getPsmf(psmfStruct);
+	if (!psmf) {
+		ERROR_LOG(HLE, "scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x): invalid psmf", psmfStruct, streamType, typeNum);
+		return ERROR_PSMF_NOT_FOUND;
+	}
+	ERROR_LOG_REPORT(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
+	return 0;
+}
+
+u32 scePsmfSpecifyStream(u32 psmfStruct, int streamNum) {
+	Psmf *psmf = getPsmf(psmfStruct);
+	if (!psmf) {
+		ERROR_LOG(HLE, "scePsmfSpecifyStream(%08x, %i): invalid psmf", psmfStruct, streamNum);
+		return ERROR_PSMF_NOT_FOUND;
+	}
+	INFO_LOG(HLE, "scePsmfSpecifyStream(%08x, %i)", psmfStruct, streamNum);
+	psmf->setStreamNum(streamNum);
 	return 0;
 }
 
 u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
-	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x): invalid psmf", psmfStruct, videoInfoAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	INFO_LOG(HLE, "scePsmfGetVideoInfo(%08x, %08x)", psmfStruct, videoInfoAddr);
 	if (Memory::IsValidAddress(videoInfoAddr)) {
 		Memory::Write_U32(psmf->videoWidth, videoInfoAddr);
-		Memory::Write_U32(psmf->videoWidth, videoInfoAddr + 4);
+		Memory::Write_U32(psmf->videoHeight, videoInfoAddr + 4);
 	}
 	return 0;
 }
 
 u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
-	INFO_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x)", psmfStruct, audioInfoAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfSpecificStreams - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x): invalid psmf", psmfStruct, audioInfoAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	INFO_LOG(HLE, "scePsmfGetAudioInfo(%08x, %08x)", psmfStruct, audioInfoAddr);
 	if (Memory::IsValidAddress(audioInfoAddr)) {
 		Memory::Write_U32(psmf->audioChannels, audioInfoAddr);
 		Memory::Write_U32(psmf->audioFrequency, audioInfoAddr + 4);
@@ -439,12 +523,12 @@ u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 }
 
 u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
-	INFO_LOG(HLE, "scePsmfGetCurrentStreamType(%08x, %08x, %08x)", psmfStruct, typeAddr, channelAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetCurrentStreamType - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetCurrentStreamType(%08x, %08x, %08x): invalid psmf", psmfStruct, typeAddr, channelAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	INFO_LOG(HLE, "scePsmfGetCurrentStreamType(%08x, %08x, %08x)", psmfStruct, typeAddr, channelAddr);
 	if (Memory::IsValidAddress(typeAddr)) {
 		u32 type = 0, channel = 0;
 		if (psmf->streamMap.find(psmf->currentStreamNum) != psmf->streamMap.end())
@@ -459,12 +543,12 @@ u32 scePsmfGetCurrentStreamType(u32 psmfStruct, u32 typeAddr, u32 channelAddr) {
 
 u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetStreamSize(%08x, %08x)", psmfStruct, sizeAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetStreamSize - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetStreamSize(%08x, %08x): invalid psmf", psmfStruct, sizeAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetStreamSize(%08x, %08x)", psmfStruct, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
 		Memory::Write_U32(psmf->streamSize, sizeAddr);
 	}
@@ -473,31 +557,30 @@ u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
 
 u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
+	WARN_LOG(HLE, "scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
 	if (Memory::IsValidAddress(offsetAddr)) {
-		Memory::Write_U32(0, offsetAddr);
+		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
 	}
-	// return 0 breaks history mode in Saint Seiya Omega
-	return 1; 
+	return 0;
 }
 
 u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
+	WARN_LOG(HLE, "scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
-		Memory::Write_U32(1, sizeAddr);
+		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
 	}
 	return 0;
 }
 
 u32 scePsmfGetHeaderSize(u32 psmfStruct, u32 sizeAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetHeaderSize(%08x, %08x)", psmfStruct, sizeAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetHeaderSize - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetHeaderSize(%08x, %08x): invalid psmf", psmfStruct, sizeAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetHeaderSize(%08x, %08x)", psmfStruct, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
 		Memory::Write_U32(psmf->headerSize, sizeAddr);
 	}
@@ -506,40 +589,50 @@ u32 scePsmfGetHeaderSize(u32 psmfStruct, u32 sizeAddr)
 
 u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 {
-	DEBUG_LOG(HLE, "scePsmfGetPsmfVersion(%08x)", psmfStruct);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetHeaderSize - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetHeaderSize(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetPsmfVersion(%08x)", psmfStruct);
 	return psmf->version;
 }
 
 u32 scePsmfVerifyPsmf(u32 psmfAddr)
 {
-	ERROR_LOG(HLE, "UNIMPLEMENTED scePsmfVerifyPsmf(%08x)", psmfAddr);
+	int magic = Memory::Read_U32(psmfAddr);
+	if (magic != PSMF_MAGIC) {
+		ERROR_LOG(HLE, "scePsmfVerifyPsmf(%08x): bad magic %08x", psmfAddr, magic);
+		return ERROR_PSMF_NOT_FOUND;
+	}
+	int version = Memory::Read_U32(psmfAddr + PSMF_STREAM_VERSION_OFFSET);
+	if (version < 0) {
+		ERROR_LOG(HLE, "scePsmfVerifyPsmf(%08x): bad version %08x", psmfAddr, version);
+		return ERROR_PSMF_NOT_FOUND;
+	}
+	DEBUG_LOG(HLE, "scePsmfVerifyPsmf(%08x)", psmfAddr);
 	return 0;
 }
 
 u32 scePsmfGetNumberOfEPentries(u32 psmfStruct)
 {
-	DEBUG_LOG(HLE, "scePsmfGetNumberOfEPentries(%08x)", psmfStruct);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetNumberOfEPentries - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetNumberOfEPentries(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetNumberOfEPentries(%08x)", psmfStruct);
 	return psmf->EPMapEntriesNum;
 }
 
 u32 scePsmfGetPresentationStartTime(u32 psmfStruct, u32 startTimeAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetPresentationStartTime(%08x, %08x)", psmfStruct, startTimeAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetPresentationStartTime - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetPresentationStartTime(%08x, %08x): invalid psmf", psmfStruct, startTimeAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetPresentationStartTime(%08x, %08x)", psmfStruct, startTimeAddr);
 	if (Memory::IsValidAddress(startTimeAddr)) {
 		Memory::Write_U32(psmf->presentationStartTime, startTimeAddr);
 	}
@@ -548,12 +641,12 @@ u32 scePsmfGetPresentationStartTime(u32 psmfStruct, u32 startTimeAddr)
 
 u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetPresentationEndTime(%08x, %08x)", psmfStruct, endTimeAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetPresentationEndTime - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetPresentationEndTime(%08x, %08x): invalid psmf", psmfStruct, endTimeAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetPresentationEndTime(%08x, %08x)", psmfStruct, endTimeAddr);
 	if (Memory::IsValidAddress(endTimeAddr)) {
 		Memory::Write_U32(psmf->presentationEndTime, endTimeAddr);
 	}
@@ -562,24 +655,24 @@ u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 
 u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct)
 {
-	DEBUG_LOG(HLE, "scePsmfGetCurrentStreamNumber(%08x)", psmfStruct);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetCurrentStreamNumber - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetCurrentStreamNumber(%08x): invalid psmf", psmfStruct);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
+	DEBUG_LOG(HLE, "scePsmfGetCurrentStreamNumber(%08x)", psmfStruct);
 	return psmf->currentStreamNum;
 }
 
 u32 scePsmfGetEPWithId(u32 psmfStruct, int id, u32 outAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, id, outAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetEPWithId - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetEPWithId(%08x, %i, %08x): invalid psmf", psmfStruct, id, outAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetEPWithId(%08x, %i, %08x)", psmfStruct, id, outAddr);
 	if (Memory::IsValidAddress(outAddr)) {
 		Memory::Write_U32(psmf->psmfEntry.EPPts, outAddr);
 		Memory::Write_U32(psmf->psmfEntry.EPOffset, outAddr + 4);
@@ -591,12 +684,12 @@ u32 scePsmfGetEPWithId(u32 psmfStruct, int id, u32 outAddr)
 
 u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 {
-	DEBUG_LOG(HLE, "scePsmfGetEPWithTimestamp(%08x, %i, %08x)", psmfStruct, ts, entryAddr);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetEPWithTimestamp - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetEPWithTimestamp(%08x, %i, %08x): invalid psmf", psmfStruct, ts, entryAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetEPWithTimestamp(%08x, %i, %08x)", psmfStruct, ts, entryAddr);
 	if (ts < psmf->presentationStartTime) {
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
@@ -611,12 +704,12 @@ u32 scePsmfGetEPWithTimestamp(u32 psmfStruct, u32 ts, u32 entryAddr)
 
 u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 {
-	DEBUG_LOG(HLE, "scePsmfGetEPidWithTimestamp(%08x, %i)", psmfStruct, ts);
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
-		ERROR_LOG(HLE, "scePsmfGetEPidWithTimestamp - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfGetEPidWithTimestamp(%08x, %i): invalid psmf", psmfStruct, ts);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfGetEPidWithTimestamp(%08x, %i)", psmfStruct, ts);
 	if (ts < psmf->presentationStartTime) {
 		return ERROR_PSMF_INVALID_TIMESTAMP;
 	}
@@ -626,7 +719,7 @@ u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 
 int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerCreate(%08x, %08x)", psmfPlayer, psmfPlayerDataAddr);
+	WARN_LOG(HLE, "scePsmfPlayerCreate(%08x, %08x)", psmfPlayer, psmfPlayerDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
 		// TODO: This is the wrong data.  PsmfPlayer needs a new interface.
@@ -647,7 +740,7 @@ int scePsmfPlayerCreate(u32 psmfPlayer, u32 psmfPlayerDataAddr)
 
 int scePsmfPlayerStop(u32 psmfPlayer) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerStop(%08x)", psmfPlayer);
+	INFO_LOG(HLE, "scePsmfPlayerStop(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
@@ -665,31 +758,50 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 
 int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
+	{
+		INFO_LOG(HLE, "scePsmfPlayerSetPsmf(%08x, %s)", psmfPlayer, filename);
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+		psmfplayer->mediaengine->loadFile(filename);
+		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	}
+	else
+	{
+		INFO_LOG(HLE, "scePsmfPlayerSetPsmf(%08x, %s): invalid psmf player", psmfPlayer, filename);
+	}
+
 	return 0;
 }
 
 int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
+	// TODO: hleCheckCurrentCallbacks?
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer)
+	{
+		INFO_LOG(HLE, "scePsmfPlayerSetPsmfCB(%08x, %s)", psmfPlayer, filename);
 		psmfplayer->status = PSMF_PLAYER_STATUS_STANDBY;
+		psmfplayer->mediaengine->loadFile(filename);
+		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
+	}
+	else
+	{
+		INFO_LOG(HLE, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid psmf player", psmfPlayer, filename);
+	}
+
 	return 0;
 }
 
 int scePsmfPlayerGetAudioOutSize(u32 psmfPlayer) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetAudioOutSize(%08x)", psmfPlayer);
+	WARN_LOG(HLE, "scePsmfPlayerGetAudioOutSize(%08x)", psmfPlayer);
 	return audioSamplesBytes;
 }
 
 int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerStart(%08x, %08x, %08x)", psmfPlayer, psmfPlayerData, initPts);
+	WARN_LOG(HLE, "UNIMPL scePsmfPlayerStart(%08x, %08x, %08x)", psmfPlayer, psmfPlayerData, initPts);
 
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
@@ -697,15 +809,24 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 		psmfPlayerMap[psmfPlayer] = psmfplayer;
 	}
 
-	PsmfPlayerData data = {0};
-	data.videoCodec = psmfplayer->videoCodec;
-	data.videoStreamNum = psmfplayer->videoStreamNum;
-	data.audioCodec = psmfplayer->audioCodec;
-	data.audioStreamNum = psmfplayer->audioStreamNum;
-	data.playMode = psmfplayer->playMode;
-	data.playSpeed = psmfplayer->playSpeed;
-	data.psmfPlayerLastTimestamp = psmfplayer->psmfPlayerLastTimestamp;
-	Memory::WriteStruct(psmfPlayerData, &data);
+	if (Memory::IsValidAddress(psmfPlayerData)) {
+		PsmfPlayerData data = {0};
+		Memory::ReadStruct(psmfPlayerData, &data);
+		psmfplayer->videoCodec = data.videoCodec;
+		psmfplayer->videoStreamNum = data.videoStreamNum;
+		psmfplayer->audioCodec = data.audioCodec;
+		psmfplayer->audioStreamNum = data.audioStreamNum;
+		psmfplayer->playMode = data.playMode;
+		psmfplayer->playSpeed = data.playSpeed;
+		/*data.videoCodec = psmfplayer->videoCodec;
+		data.videoStreamNum = psmfplayer->videoStreamNum;
+		data.audioCodec = psmfplayer->audioCodec;
+		data.audioStreamNum = psmfplayer->audioStreamNum;
+		data.playMode = psmfplayer->playMode;
+		data.playSpeed = psmfplayer->playSpeed;
+		data.psmfPlayerLastTimestamp = psmfplayer->psmfPlayerLastTimestamp;
+		Memory::WriteStruct(psmfPlayerData, &data);*/
+	}
 
 	psmfplayer->psmfPlayerAtracAu.dts = initPts;
 	psmfplayer->psmfPlayerAtracAu.pts = initPts;
@@ -713,37 +834,39 @@ int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	psmfplayer->psmfPlayerAvcAu.pts = initPts;
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING;
+
+	psmfplayer->mediaengine->openContext();
 	return 0;
 }
 
 int scePsmfPlayerDelete(u32 psmfPlayer) 
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerDelete(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (psmfplayer) {
-		psmfplayer->status = PSMF_PLAYER_STATUS_NONE;
+		INFO_LOG(HLE, "scePsmfPlayerDelete(%08x)", psmfPlayer);
 		delete psmfplayer;
 		psmfPlayerMap.erase(psmfPlayer);
+	} else {
+		ERROR_LOG(HLE, "scePsmfPlayerDelete(%08x): invalid psmf player", psmfPlayer);
 	}
 	return 0;
 }
 
 int scePsmfPlayerUpdate(u32 psmfPlayer) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerUpdate(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerUpdate - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerUpdate(%08x): invalid psmf player", psmfPlayer);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
+	DEBUG_LOG(HLE, "scePsmfPlayerUpdate(%08x)", psmfPlayer);
 	if (psmfplayer->psmfPlayerAvcAu.pts > 0) {
-		if (psmfplayer->psmfPlayerAvcAu.pts > psmfplayer->psmfPlayerLastTimestamp) {
+		if (psmfplayer->psmfPlayerAvcAu.pts >= psmfplayer->psmfPlayerLastTimestamp) {
+			INFO_LOG(HLE, "video end reached");
 			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
 	}
-	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 	return 0;
 }
 
@@ -758,87 +881,116 @@ int scePsmfPlayerReleasePsmf(u32 psmfPlayer)
 
 int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetVideoData(%08x, %08x)", psmfPlayer, videoDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerGetVideoData - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerGetVideoData(%08x, %08x): invalid psmf player", psmfPlayer, videoDataAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
-	// TODO: Once we start increasing pts somewhere, and actually know the last timestamp, do this better.
-	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
-	return 0;
+	DEBUG_LOG(HLE, "scePsmfPlayerGetVideoData(%08x, %08x)", psmfPlayer, videoDataAddr);
+	if (Memory::IsValidAddress(videoDataAddr)) {
+		int frameWidth = Memory::Read_U32(videoDataAddr);
+        u32 displaybuf = Memory::Read_U32(videoDataAddr + 4);
+        int displaypts = Memory::Read_U32(videoDataAddr + 8);
+		if (psmfplayer->mediaengine->stepVideo(videoPixelMode)) {
+			int displaybufSize = psmfplayer->mediaengine->writeVideoImage(Memory::GetPointer(displaybuf), frameWidth, videoPixelMode);
+			gpu->InvalidateCache(displaybuf, displaybufSize, GPU_INVALIDATE_SAFE);
+		}
+		psmfplayer->psmfPlayerAvcAu.pts = psmfplayer->mediaengine->getVideoTimeStamp();
+		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, videoDataAddr + 8);
+	}
+
+	int ret = psmfplayer->mediaengine->IsVideoEnd() ? ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
+
+	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
+	int delaytime = 3000;
+	if (deltapts > 0 && !psmfplayer->mediaengine->IsAudioEnd())
+		delaytime = deltapts * 1000000 / 90000;
+	if (!ret)
+		return hleDelayResult(ret, "psmfPlayer video decode", delaytime);
+	else
+		return hleDelayResult(ret, "psmfPlayer all data decoded", 3000);
 }
 
 int scePsmfPlayerGetAudioData(u32 psmfPlayer, u32 audioDataAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerGetAudioData - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerGetAudioData(%08x, %08x): invalid psmf player", psmfPlayer, audioDataAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
-	Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
-	return 0;
+	DEBUG_LOG(HLE, "scePsmfPlayerGetAudioData(%08x, %08x)", psmfPlayer, audioDataAddr);
+	if (Memory::IsValidAddress(audioDataAddr)) {
+		Memory::Memset(audioDataAddr, 0, audioSamplesBytes);
+		psmfplayer->mediaengine->getAudioSamples(Memory::GetPointer(audioDataAddr));
+	}
+	int ret = psmfplayer->mediaengine->IsAudioEnd() ? ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
+	return hleDelayResult(ret, "psmfPlayer audio decode", 3000);
 }
 
 int scePsmfPlayerGetCurrentStatus(u32 psmfPlayer) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerGetCurrentStatus(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerUpdate - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentStatus(%08x): invalid psmf player", psmfPlayer);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "%d=scePsmfPlayerGetCurrentStatus(%08x)", psmfplayer->status, psmfPlayer);
 	return psmfplayer->status;
 }
 
 u32 scePsmfPlayerGetCurrentPts(u32 psmfPlayer, u32 currentPtsAddr) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPts(%08x, %08x)", psmfPlayer , currentPtsAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPts - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPts(%08x, %08x): invalid psmf player", psmfPlayer, currentPtsAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	DEBUG_LOG(HLE, "scePsmfPlayerGetCurrentPts(%08x, %08x)", psmfPlayer, currentPtsAddr);
 	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
 	}
 
 	if (Memory::IsValidAddress(currentPtsAddr)) {
-		//Comment out until psmfPlayerAvcAu.pts start increasing correctly, Ultimate Ghosts N Goblins relies on it .
-		//Memory::Write_U64(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
+		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, currentPtsAddr);
 	}	
 	return 0;
 }
 
 u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerGetPsmfInfo(%08x, %08x)", psmfPlayer , psmfInfoAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerGetPsmfInfo - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerGetPsmfInfo(%08x, %08x): invalid psmf player", psmfPlayer, psmfInfoAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	if (psmfplayer->status < PSMF_PLAYER_STATUS_STANDBY) {
+		ERROR_LOG(HLE, "scePsmfPlayerGetPsmfInfo(%08x, %08x): not initialized", psmfPlayer, psmfInfoAddr);
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
 	}
 
+	WARN_LOG(HLE, "scePsmfPlayerGetPsmfInfo(%08x, %08x)", psmfPlayer, psmfInfoAddr);
 	if (Memory::IsValidAddress(psmfInfoAddr)) {
-		Memory::Write_U64(psmfplayer->psmfPlayerAvcAu.pts, psmfInfoAddr);
+		Memory::Write_U32(psmfplayer->psmfPlayerLastTimestamp, psmfInfoAddr);
+		Memory::Write_U32(psmfplayer->videoStreamNum, psmfInfoAddr + 4);
+		Memory::Write_U32(psmfplayer->audioStreamNum, psmfInfoAddr + 8);
+		// pcm stream num?
+		Memory::Write_U32(0, psmfInfoAddr + 12);
+		// Player version?
+		Memory::Write_U32(0, psmfInfoAddr + 16);
 	}
 	return 0;
 }
 
 u32 scePsmfPlayerGetCurrentPlayMode(u32 psmfPlayer, u32 playModeAddr, u32 playSpeedAddr) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPlayMode(%08x, %08x, %08x)", psmfPlayer , playModeAddr, playSpeedAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPlayMode - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentPlayMode(%08x, %08x, %08x): invalid psmf player", psmfPlayer, playModeAddr, playSpeedAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	WARN_LOG(HLE, "scePsmfPlayerGetCurrentPlayMode(%08x, %08x, %08x)", psmfPlayer, playModeAddr, playSpeedAddr);
 	if (Memory::IsValidAddress(playModeAddr)) {
 		Memory::Write_U64(psmfplayer->playMode, playModeAddr);
 	}
@@ -850,12 +1002,12 @@ u32 scePsmfPlayerGetCurrentPlayMode(u32 psmfPlayer, u32 playModeAddr, u32 playSp
 
 u32 scePsmfPlayerGetCurrentVideoStream(u32 psmfPlayer, u32 videoCodecAddr, u32 videoStreamNumAddr) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerGetCurrentVideoStream(%08x, %08x, %08x)", psmfPlayer , videoCodecAddr, videoStreamNumAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentVideoStream - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentVideoStream(%08x, %08x, %08x): invalid psmf player", psmfPlayer, videoCodecAddr, videoStreamNumAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	WARN_LOG(HLE, "scePsmfPlayerGetCurrentVideoStream(%08x, %08x, %08x)", psmfPlayer, videoCodecAddr, videoStreamNumAddr);
 	if (Memory::IsValidAddress(videoCodecAddr)) {
 		Memory::Write_U64(psmfplayer->videoCodec, videoCodecAddr);
 	}
@@ -867,12 +1019,12 @@ u32 scePsmfPlayerGetCurrentVideoStream(u32 psmfPlayer, u32 videoCodecAddr, u32 v
 
 u32 scePsmfPlayerGetCurrentAudioStream(u32 psmfPlayer, u32 audioCodecAddr, u32 audioStreamNumAddr) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerGetCurrentAudioStream(%08x, %08x, %08x)", psmfPlayer , audioCodecAddr, audioStreamNumAddr);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentAudioStream - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerGetCurrentAudioStream(%08x, %08x, %08x): invalid psmf player", psmfPlayer, audioCodecAddr, audioStreamNumAddr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	WARN_LOG(HLE, "scePsmfPlayerGetCurrentAudioStream(%08x, %08x, %08x)", psmfPlayer, audioCodecAddr, audioStreamNumAddr);
 	if (Memory::IsValidAddress(audioCodecAddr)) {
 		Memory::Write_U64(psmfplayer->audioCodec, audioCodecAddr);
 	}
@@ -893,13 +1045,13 @@ int scePsmfPlayerSetTempBuf(u32 psmfPlayer, u32 tempBufAddr, u32 tempBufSize)
 
 u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpeed) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerChangePlayMode(%08x, %i, %i)", psmfPlayer , playMode, playSpeed);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerChangePlayMode - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerChangePlayMode(%08x, %i, %i): invalid psmf player", psmfPlayer, playMode, playSpeed);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
+	WARN_LOG(HLE, "scePsmfPlayerChangePlayMode(%08x, %i, %i)", psmfPlayer, playMode, playSpeed);
 	psmfplayer->playMode = playMode;
 	psmfplayer->playSpeed = playSpeed;
 	return 0;
@@ -907,53 +1059,55 @@ u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpeed)
 
 u32 scePsmfPlayerSelectAudio(u32 psmfPlayer) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerSelectAudio(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerChangePlayMode - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerSelectAudio(%08x): invalid psmf player", psmfPlayer);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	ERROR_LOG(HLE, "scePsmfPlayerSelectAudio(%08x)", psmfPlayer);
 	psmfplayer->audioStreamNum++;
 	return 0;
 }
 
 u32 scePsmfPlayerSelectVideo(u32 psmfPlayer) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerSelectVideo(%08x)", psmfPlayer);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerSelectVideo - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerSelectVideo(%08x): invalid psmf player", psmfPlayer);
 		return ERROR_PSMF_NOT_FOUND;
 	}
+	ERROR_LOG(HLE, "scePsmfPlayerSelectVideo(%08x)", psmfPlayer);
 	psmfplayer->videoStreamNum++;
 	return 0;
 }
 
 u32 scePsmfPlayerSelectSpecificVideo(u32 psmfPlayer, int videoCodec, int videoStreamNum) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i)", psmfPlayer , videoCodec, videoStreamNum);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerSelectSpecificVideo - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i): invalid psmf player", psmfPlayer, videoCodec, videoStreamNum);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
+	ERROR_LOG(HLE, "scePsmfPlayerSelectSpecificVideo(%08x, %i, %i)", psmfPlayer, videoCodec, videoStreamNum);
 	psmfplayer->videoCodec = videoCodec;
 	psmfplayer->videoStreamNum = videoStreamNum;
+	psmfplayer->mediaengine->setVideoStream(videoStreamNum);
 	return 0;
 }
 
 u32 scePsmfPlayerSelectSpecificAudio(u32 psmfPlayer, int audioCodec, int audioStreamNum) 
 {
-	ERROR_LOG(HLE, "scePsmfPlayerSelectSpecificAudio(%08x, %i, %i)", psmfPlayer , audioCodec, audioStreamNum);
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerSelectSpecificAudio - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerSelectSpecificAudio(%08x, %i, %i): invalid psmf player", psmfPlayer, audioCodec, audioStreamNum);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 
+	ERROR_LOG(HLE, "scePsmfPlayerSelectSpecificAudio(%08x, %i, %i)", psmfPlayer, audioCodec, audioStreamNum);
 	psmfplayer->audioCodec = audioCodec;
 	psmfplayer->audioStreamNum = audioStreamNum;
+	psmfplayer->mediaengine->setAudioStream(audioStreamNum);
 	return 0;
 }
 
@@ -961,22 +1115,22 @@ u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configAttr)
 {
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
 	if (!psmfplayer) {
-		ERROR_LOG(HLE, "scePsmfPlayerConfigPlayer - invalid psmf");
+		ERROR_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, %i, %i): invalid psmf player", psmfPlayer, configMode, configAttr);
 		return ERROR_PSMF_NOT_FOUND;
 	}
 	if (configMode == PSMF_PLAYER_CONFIG_MODE_LOOP) {
+		INFO_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, loop, %i)", psmfPlayer, configAttr);
 		videoLoopStatus = configAttr;
 	} else if (configMode == PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE) {
-		videoPixelMode = configAttr;
+		INFO_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, pixelType, %i)", psmfPlayer, configAttr);
+		// Does -1 mean default or something?
+		if (configAttr != -1) {
+			videoPixelMode = configAttr;
+		}
 	} else {
-		ERROR_LOG(HLE, "scePsmfPlayerConfigPlayer(%08x, %i, %i)", psmfPlayer , configMode, configAttr);
+		ERROR_LOG_REPORT(HLE, "scePsmfPlayerConfigPlayer(%08x, %i, %i): unknown parameter", psmfPlayer, configMode, configAttr);
 	}
 
-	return 0;
-}
-
-u32 scePsmfSpecifyStream(u32 psmfPlayer, int streamNum) {
-	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStream(%08x, %i)", psmfPlayer, streamNum);
 	return 0;
 }
 
@@ -1033,6 +1187,8 @@ const HLEFunction scePsmfPlayer[] =
 	{0xf3efaa91, WrapU_UUU<scePsmfPlayerGetCurrentPlayMode>, "scePsmfPlayerGetCurrentPlayMode"},
 	{0xf8ef08a6, WrapI_U<scePsmfPlayerGetCurrentStatus>, "scePsmfPlayerGetCurrentStatus"},
 	{0x2D0E4E0A, WrapI_UUU<scePsmfPlayerSetTempBuf>, "scePsmfPlayerSetTempBuf"},
+	{0x76C0F4AE, 0, "scePsmfPlayerSetPsmfOffset"},
+	{0xA72DB4F9, 0, "scePsmfPlayerSetPsmfOffsetCB"},
 };
 
 void Register_scePsmf() {

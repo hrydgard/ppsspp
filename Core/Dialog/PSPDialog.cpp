@@ -18,8 +18,10 @@
 #include "../Util/PPGeDraw.h"
 #include "PSPDialog.h"
 #include "ChunkFile.h"
+#include "i18n/i18n.h"
 
 #define FADE_TIME 0.5
+const float FONT_SCALE = 0.55f;
 
 PSPDialog::PSPDialog() : status(SCE_UTILITY_STATUS_SHUTDOWN)
 , lastButtons(0)
@@ -44,21 +46,15 @@ PSPDialog::DialogStatus PSPDialog::GetStatus()
 void PSPDialog::StartDraw()
 {
 	PPGeBegin();
-	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x70606060));
+	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x80000000));
 }
+
 void PSPDialog::EndDraw()
 {
 	PPGeEnd();
 }
 
-void PSPDialog::DisplayMessage(std::string text)
-{
-	PPGeDrawRect(30, 30, 450, 31, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(30, 200, 450, 201, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(text.c_str(), 40, 50, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
-}
-
-int PSPDialog::Shutdown()
+int PSPDialog::Shutdown(bool force)
 {
 	status = SCE_UTILITY_STATUS_SHUTDOWN;
 	return 0;
@@ -75,7 +71,7 @@ void PSPDialog::UpdateFade()
 {
 	if(isFading)
 	{
-		fadeTimer += 1.0f/30; // Probably need a more real value of delta time
+		fadeTimer += 1.0f/30.0f; // Probably need a more real value of delta time
 		if(fadeTimer < FADE_TIME)
 		{
 			if(fadeIn)
@@ -112,13 +108,42 @@ void PSPDialog::DoState(PointerWrap &p)
 	p.Do(status);
 	p.Do(lastButtons);
 	p.Do(buttons);
+	p.Do(fadeTimer);
+	p.Do(isFading);
+	p.Do(fadeIn);
+	p.Do(fadeValue);
+	p.Do(okButtonImg);
+	p.Do(cancelButtonImg);
+	p.Do(okButtonFlag);
+	p.Do(cancelButtonFlag);
 	p.DoMarker("PSPDialog");
+}
+
+pspUtilityDialogCommon *PSPDialog::GetCommonParam()
+{
+	// FIXME
+	return 0;
 }
 
 bool PSPDialog::IsButtonPressed(int checkButton)
 {
-	if(isFading) return false;
-	return (!(lastButtons & checkButton)) && (buttons & checkButton);
+	return !isFading && !(lastButtons & checkButton) && (buttons & checkButton);
 }
 
-
+void PSPDialog::DisplayButtons(int flags)
+{
+	I18NCategory *d = GetI18NCategory("Dialog");
+	float x1 = 183.5f, x2 = 261.5f;
+	if (GetCommonParam()->buttonSwap == 1) {
+		x1 = 261.5f;
+		x2 = 183.5f;
+	}
+	if (flags & DS_BUTTON_OK) {
+		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Enter"), x2 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	}
+	if (flags & DS_BUTTON_CANCEL) {
+		PPGeDrawText(d->T("Back"), x1 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
+	}
+}

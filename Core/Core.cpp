@@ -70,6 +70,11 @@ bool Core_IsStepping()
 	return coreState == CORE_STEPPING || coreState == CORE_POWERDOWN;
 }
 
+bool Core_IsActive()
+{
+	return coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME || coreStatePending;
+}
+
 bool Core_IsInactive()
 {
 	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
@@ -77,7 +82,7 @@ bool Core_IsInactive()
 
 void Core_WaitInactive()
 {
-	while (!Core_IsInactive())
+	while (Core_IsActive())
 		m_hInactiveEvent.wait(m_hInactiveMutex);
 }
 
@@ -118,10 +123,6 @@ void Core_RunLoop()
 				input_state.pad_lstick_y = 0;
 				input_state.pad_rstick_x = 0;
 				input_state.pad_rstick_y = 0;
-				// Temporary hack.
-				if (GetAsyncKeyState(VK_ESCAPE)) {
-					input_state.pad_buttons |= PAD_BUTTON_MENU;
-				}
 				host->PollControllers(input_state);
 				UpdateInputState(&input_state);
 #endif

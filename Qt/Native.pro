@@ -24,9 +24,18 @@ HEADERS += ../native/ext/rg_etc1/rg_etc1.h
 INCLUDEPATH += ../native/ext/rg_etc1
 
 # Cityhash
+
 SOURCES += ../native/ext/cityhash/city.cpp
 HEADERS += ../native/ext/cityhash/*.h
 INCLUDEPATH += ../native/ext/cityhash
+
+# VJSON
+
+SOURCES += ../native/ext/vjson/json.cpp \
+	../native/ext/vjson/block_allocator.cpp
+HEADERS += ../native/ext/vjson/json.h \
+	../native/ext/vjson/block_allocator.h
+INCLUDEPATH += ../native/ext/vjson
 
 # Stb_image
 
@@ -63,6 +72,7 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/base/fastlist_test.cpp \
 	../native/base/stringutil.cpp \
 	../native/base/timeutil.cpp \
+	../native/data/compression.cpp \
 	../native/file/*.cpp \
 	../native/gfx/gl_debug_log.cpp \
 	../native/gfx/gl_lost_manager.cpp \
@@ -102,6 +112,7 @@ HEADERS +=  ../native/audio/*.h \
 	../native/base/stats.h \
 	../native/base/stringutil.h \
 	../native/base/timeutil.h \
+	../native/data/compression.h \
 	../native/file/*.h \
 	../native/gfx/gl_debug_log.h \
 	../native/gfx/gl_lost_manager.h \
@@ -114,7 +125,6 @@ HEADERS +=  ../native/audio/*.h \
 	../native/input/gesture_detector.h \
 	../native/input/input_state.h \
 	../native/json/json_writer.h \
-	../native/math/compression.h \
 	../native/math/curves.h \
 	../native/math/lin/*.h \
 	../native/midi/midi_input.h \
