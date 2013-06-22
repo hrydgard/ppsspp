@@ -102,7 +102,7 @@ enum
 };
 
 // Init and Shutdown
-void Init(std::string fileToStart);
+void Init();
 void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();

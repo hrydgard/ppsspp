@@ -65,8 +65,7 @@ u32 g_MemoryMask;
 u32 g_MemorySize;
 
 // We don't declare the IO region in here since its handled by other means.
-const int VIEWS_COUNT = 7;
-static MemoryView views[VIEWS_COUNT] =
+static MemoryView views[] =
 {
 	{&m_pScratchPad, &m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
@@ -82,27 +81,11 @@ static MemoryView views[VIEWS_COUNT] =
 
 static const int num_views = sizeof(views) / sizeof(MemoryView);
 
-void Init(std::string fileToStart)
+void Init()
 {
 	int flags = 0;
 
-	// Default memory settings
-	// TODO: Should DoubleTex really be initialized here?
-	// Seems to be the safest place currently..
-	g_MemoryEnd =  0x0A000000;
-	g_MemorySize = 0x2000000;
-	g_RemasterMode = false;
-	g_DoubleTextureCoordinates = false;
-
-	switch(Identify_File(fileToStart)) {
-	case FILETYPE_PSP_ISO:
-	case FILETYPE_PSP_ISO_NP:
-		InitGameISO(fileToStart);
-		break;
-	}
-
-	g_MemoryMask = g_MemorySize - 1;
-	for(int i = 0; i < VIEWS_COUNT; i++) {
+	for(int i = 0; i < ARRAY_SIZE(views); i++) {
 		if(views[i].size == 0)
 			views[i].size = g_MemorySize;
 	}
@@ -126,6 +109,8 @@ void DoState(PointerWrap &p)
 	p.DoMarker("MemoryEnd");
 	p.Do(g_MemoryMask);
 	p.DoMarker("MemoryMask");
+	p.Do(g_DoubleTextureCoordinates); // TODO: Is there a more appropriate place for this?
+	p.DoMarker("DoubleTextureCoordinates");
 }
 
 void Shutdown()

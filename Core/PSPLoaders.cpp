@@ -42,11 +42,18 @@
 
 #include "Core/MemMap.h"
 
-// TODO: Come up with a better name for this thing
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
-void InitGameISO(std::string fileToStart) {
+void InitMemoryForGameISO(std::string fileToStart) {
+	// Default memory settings
+	// Seems to be the safest place currently..
+	Memory::g_MemoryEnd =  0x0A000000;
+	Memory::g_MemorySize = 0x2000000;
+	g_RemasterMode = false;
+	g_DoubleTextureCoordinates = false;
+	Memory::g_MemoryMask = Memory::g_MemorySize - 1;
+
 	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(fileToStart.c_str()));
 
 	// Parse PARAM.SFO

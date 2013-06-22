@@ -44,6 +44,7 @@
 #include "CoreParameter.h"
 #include "FileSystems/MetaFileSystem.h"
 #include "Loaders.h"
+#include "PSPLoaders.h"
 #include "ELF/ParamSFO.h"
 #include "../Common/LogManager.h"
 
@@ -72,7 +73,14 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	coreParameter = coreParam;
 	currentCPU = &mipsr4k;
 	numCPUs = 1;
-	Memory::Init(coreParam.fileToStart);
+
+	std::string filename = coreParameter.fileToStart;
+	EmuFileType type = Identify_File(filename);
+
+	if(type == FILETYPE_PSP_ISO || type == FILETYPE_PSP_ISO_NP)
+		InitMemoryForGameISO(filename);
+
+	Memory::Init();
 	mipsr4k.Reset();
 	mipsr4k.pc = 0;
 
@@ -96,7 +104,6 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
-	std::string filename = coreParameter.fileToStart;
 	if (!LoadFile(filename, error_string) || coreState == CORE_POWERDOWN)
 	{
 		pspFileSystem.Shutdown();

@@ -627,7 +627,6 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 			steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
 
 		switch (tc) {
-
 		case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
 			decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
 			break;

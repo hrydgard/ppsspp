@@ -23,4 +23,4 @@
 
 bool Load_PSP_ISO(const char *filename, std::string *error_string);
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string);
-void InitGameISO(std::string fileToStart);
+void InitMemoryForGameISO(std::string fileToStart);
