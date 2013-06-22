@@ -36,8 +36,6 @@
 #include "../../Core/HLE/sceKernelInterrupt.h"
 #include "../../Core/HLE/sceGe.h"
 
-#include "../../Core/HDRemaster.h"
-
 extern u32 curTextureWidth;
 extern u32 curTextureHeight;
 
