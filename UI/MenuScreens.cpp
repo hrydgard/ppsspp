@@ -1038,10 +1038,10 @@ void LanguageScreen::render() {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	int buttonW = LARGE_BUTTON_WIDTH - 50;
+	int buttonW = LARGE_BUTTON_WIDTH - 30;
 
 	if (small) {
-		buttonW = LARGE_BUTTON_WIDTH - 70;
+		buttonW = LARGE_BUTTON_WIDTH - 50;
 	}
 
 	VGrid vlang(20, small ? 20 : 100, dp_yres - 50, 10, 10);
@@ -1160,7 +1160,7 @@ void SystemScreen::render() {
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
-	UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
+	//UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
 
 	const char *buttonPreferenceTitle;
 	switch (g_Config.iButtonPreference) {
@@ -1275,9 +1275,9 @@ void ControlsScreen::render() {
 	int columnw = 440;
 
 	UICheckBox(GEN_ID, x, y += stride, c->T("OnScreen", "On-Screen Touch Controls"), ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
-	UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	if (g_Config.bShowTouchControls) {
+		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		if (g_Config.bLargeControls) {
 			char scale[256];
