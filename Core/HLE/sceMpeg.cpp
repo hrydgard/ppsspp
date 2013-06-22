@@ -873,6 +873,7 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	DEBUG_LOG(HLE, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer.packetsFree, ringbufferAddr);
 	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
 	int result = std::min(ringbuffer.packetsFree, ctx->mediaengine->getRemainSize() / 2048);
+	hleEatCycles(2020);
 	return ringbuffer.packetsFree;
 }
 
