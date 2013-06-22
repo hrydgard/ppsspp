@@ -292,9 +292,13 @@ void __KernelModuleShutdown()
 
 void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 {
+	// We have to post-process the HI16 part, since it might be +1 or not depending on the LO16 value.
 	static u32 lastHI16RelocAddress = 0;
 	static u32 lastHI16ExportAddress = 0;
-	static bool lastHI16Processed = false;
+	// Sometimes, there are multiple LO16s per HI16.  This is okay if they match, but we need the old
+	// HI16 value (before our fixup) for each one.
+	static u32 lastHI16RelocData = 0;
+	static bool lastHI16Processed = true;
 	static u32 lastHILO16Address = 0;
 
 	u32 relocData = Memory::Read_Instruction(relocAddress);
@@ -327,6 +331,7 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 		// The R_MIPS_LO16 and R_MIPS_HI16 will often be *different* relocAddress values.
 		lastHI16RelocAddress = relocAddress;
 		lastHI16ExportAddress = exportAddress;
+		lastHI16RelocData = Memory::Read_Instruction(relocAddress);
 		lastHI16Processed = false;
 		break;
 
@@ -338,20 +343,19 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match for %08x => %08x/%08x (hi16 export: %08x)", exportAddress, lastHI16RelocAddress, relocAddress, lastHI16ExportAddress);
 				break;
 			}
-			u32 relocDataHi = Memory::Read_Instruction(lastHI16RelocAddress);
 			// Sign extend the existing low value (e.g. from addiu.)
-			u32 full = (relocDataHi << 16) + (s16)(u16)(relocData & 0xFFFF) + exportAddress;
+			u32 full = (lastHI16RelocData << 16) + (s16)(u16)(relocData & 0xFFFF) + exportAddress;
 
 			if (!lastHI16Processed)
 			{
 				// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
 				// We add 1 in that case so that it ends up the right value.
 				u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
-				Memory::Write_U32((relocDataHi & ~0xFFFF) | high, lastHI16RelocAddress);
+				Memory::Write_U32((lastHI16RelocData & ~0xFFFF) | high, lastHI16RelocAddress);
 				lastHI16Processed = true;
 			}
 			else if (lastHILO16Address != full)
-				WARN_LOG_REPORT(LOADER, "Potentially unsafe unpaired LO16 variable relocation @ %08x / %08x", lastHI16RelocAddress, relocAddress);
+				WARN_LOG_REPORT(LOADER, "Potentially unsafe unpaired LO16 variable relocation: hi=%08x lo=%08x / last=%08x this=%08x", lastHI16RelocAddress, relocAddress, lastHILO16Address, full);
 
 			// And then this is the low relocation, hurray.
 			relocData = (relocData & ~0xFFFF) | (full & 0xFFFF);
