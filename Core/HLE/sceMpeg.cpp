@@ -868,17 +868,23 @@ int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 
 int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 {
-	if (!Memory::IsValidAddress(ringbufferAddr)) {
+	PSPPointer<SceMpegRingBuffer> ringbuffer;
+	ringbuffer = ringbufferAddr;
+
+	if (!ringbuffer.Valid()) {
 		ERROR_LOG(HLE, "sceMpegRingbufferAvailableSize(%08x) - bad address", ringbufferAddr);
 		return -1;
 	}
 
-	SceMpegRingBuffer ringbuffer;
-	Memory::ReadStruct(ringbufferAddr, &ringbuffer);
-	DEBUG_LOG(HLE, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer.packetsFree, ringbufferAddr);
-	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
-	int result = std::min(ringbuffer.packetsFree, ctx->mediaengine->getRemainSize() / 2048);
-	return ringbuffer.packetsFree;
+	MpegContext *ctx = getMpegCtx(ringbuffer->mpeg);
+	if (!ctx) {
+		ERROR_LOG(HLE, "sceMpegRingbufferAvailableSize(%08x) - bad mpeg", ringbufferAddr);
+		return -1;
+	}
+
+	hleEatCycles(2020);
+	DEBUG_LOG(HLE, "%i=sceMpegRingbufferAvailableSize(%08x)", ringbuffer->packetsFree, ringbufferAddr);
+	return ringbuffer->packetsFree;
 }
 
 void PostPutAction::run(MipsCall &call) {
