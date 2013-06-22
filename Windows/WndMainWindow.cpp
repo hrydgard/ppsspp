@@ -47,7 +47,7 @@
 
 BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
-
+extern bool g_TakeScreenshot;
 extern InputState input_state;
 extern const char * getVirtualKeyName(unsigned char key);
 extern const char * getXinputButtonName(unsigned int button);
@@ -770,6 +770,9 @@ namespace MainWindow
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
+				break;
+			case ID_DEBUG_TAKESCREENSHOT:
+				g_TakeScreenshot = true;
 				break;
 
 			default:
