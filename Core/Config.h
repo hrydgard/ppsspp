@@ -104,6 +104,7 @@ public:
 	// 1 = arrow buttons
 	// 2 = face buttons
 	// 3 = L/R
+	// 4 = L/R + triangle/cross
 	int iRightStickBind;
 
 	// Control
@@ -119,7 +120,6 @@ public:
 	int iDateFormat;
 	int iTimeZone;
 	bool bDayLightSavings;
-	bool bButtonPreference;
 	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;

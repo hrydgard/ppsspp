@@ -210,6 +210,35 @@ int DinputDevice::UpdateState(InputState &input_state)
 		}
 	}
 
+	const LONG rthreshold = 8000;
+
+	switch (g_Config.iRightStickBind) {
+	case 0:
+		break;
+	case 1:
+		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
+		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
+		break;
+	case 2:
+		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
+		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
+		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		break;
+	case 3:
+		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+		break;
+	case 4:
+		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		break;
+	}
+
 	return UPDATESTATE_SKIP_PAD;
 }
 
