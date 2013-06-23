@@ -264,7 +264,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		cryptedSize = param->dataSize;
 		if(cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize)
 			cryptedSize = param->dataBufSize; // fallback, should never use this
-		u8* data_ = (u8*)Memory::GetPointer(param->dataBuf);
+		u8 *data_ = param->dataBuf;
 
 		int aligned_len = align16(cryptedSize);
 		cryptedData = new u8[aligned_len + 0x10];
@@ -369,7 +369,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	if(param->dataBuf != 0)	// Can launch save without save data in mode 13
 	{
 		std::string filePath = dirPath+"/"+GetFileName(param);
-		u8* data_ = 0;
+		u8 *data_ = 0;
 		SceSize saveSize = 0;
 		if(cryptedData == 0) // Save decrypted data
 		{
@@ -377,7 +377,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 			if(saveSize == 0 || saveSize > param->dataBufSize)
 				saveSize = param->dataBufSize; // fallback, should never use this
 
-			data_ = (u8*)Memory::GetPointer(param->dataBuf);
+			data_ = param->dataBuf;
 		}
 		else
 		{
@@ -404,33 +404,29 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 
 
 	// SAVE ICON0
-	if (param->icon0FileData.buf)
+	if (param->icon0FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->icon0FileData.buf);
 		std::string icon0path = dirPath + "/" + ICON0_FILENAME;
-		WritePSPFile(icon0path, data_, param->icon0FileData.bufSize);
+		WritePSPFile(icon0path, param->icon0FileData.buf, param->icon0FileData.bufSize);
 	}
 	// SAVE ICON1
-	if (param->icon1FileData.buf)
+	if (param->icon1FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->icon1FileData.buf);
 		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
-		WritePSPFile(icon1path, data_, param->icon1FileData.bufSize);
+		WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.bufSize);
 	}
 	// SAVE PIC1
-	if (param->pic1FileData.buf)
+	if (param->pic1FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->pic1FileData.buf);
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
-		WritePSPFile(pic1path, data_, param->pic1FileData.bufSize);
+		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.bufSize);
 	}
 
 	// Save SND
-	if (param->snd0FileData.buf)
+	if (param->snd0FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->snd0FileData.buf);
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
-		WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
+		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.bufSize);
 	}
 
 	return true;
@@ -442,7 +438,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 		return false;
 	}
 
-	u8 *data_ = (u8*)Memory::GetPointer(param->dataBuf);
+	u8 *data_ = param->dataBuf;
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	if (saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
@@ -1040,14 +1036,13 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		listEmptyFile = false;
 	}
 
-	typedef char (*SaveNameListData_t)[20];
-	SaveNameListData_t saveNameListData;
+	SceUtilitySavedataSaveName *saveNameListData;
 	bool hasMultipleFileName = false;
-	if (param->saveNameList != 0)
+	if (param->saveNameList.Valid())
 	{
 		Clear();
 
-		saveNameListData = (SaveNameListData_t)Memory::GetPointer(param->saveNameList);
+		saveNameListData = param->saveNameList;
 
 		// Get number of fileName in array
 		saveDataListCount = 0;
@@ -1210,15 +1205,14 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 	saveInfo.idx = 0;
 	saveInfo.textureData = 0;
 
-	if (Memory::IsValidAddress(GetPspParam()->newData))
+	if (GetPspParam()->newData.Valid() && GetPspParam()->newData->buf.Valid())
 	{
 		// We have a png to show
 		if (!noSaveIcon)
 		{
 			noSaveIcon = new SaveFileInfo();
-			PspUtilitySavedataFileData newData;
-			Memory::ReadStruct(GetPspParam()->newData, &newData);
-			CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, *noSaveIcon);
+			PspUtilitySavedataFileData *newData = GetPspParam()->newData;
+			CreatePNGIcon(newData->buf, (int)newData->size, *noSaveIcon);
 		}
 		saveInfo.textureData = noSaveIcon->textureData;
 		saveInfo.textureWidth = noSaveIcon->textureWidth;
