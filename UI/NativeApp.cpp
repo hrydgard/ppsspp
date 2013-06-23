@@ -353,6 +353,7 @@ void NativeInit(int argc, const char *argv[],
 	INFO_LOG(BOOT, "Logger inited.");
 #else
 	g_Config.memCardDirectory = "MemStick/";
+	g_Config.flashDirectory = "flash0:/font/";
 #endif	
 
 	i18nrepo.LoadIni(g_Config.languageIni);
