@@ -24,8 +24,9 @@
 
 #ifdef USE_FFMPEG
 #ifndef PRId64
-#define PRId64 "%llu"
+#define PRId64  "%llu" 
 #endif
+
 // Urgh! Why is this needed?
 #ifdef ANDROID
 #ifndef UINT64_C
@@ -35,7 +36,7 @@
 extern "C" {
 #include <libavutil/opt.h>
 #include <libavformat/avformat.h>
-#include <libavutil/timestamp.h>
+//#include <libavutil/timestamp.h>     // iOS build is not happy with this one.
 #include <libswresample/swresample.h>
 #include <libavutil/samplefmt.h>
 }
@@ -128,8 +129,10 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	Memory::Write_U32(ctx->mp3PcmBuf, outPcmPtr);
 #else
 
-	AVFrame frame = {0};
-	AVPacket packet = {0};
+	AVFrame frame;
+	memset(&frame, 0, sizeof(frame));
+	AVPacket packet;
+	memset(&packet, 0, sizeof(packet));
 	int got_frame = 0, ret;
 	static int audio_frame_count = 0;
 
@@ -146,9 +149,9 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 				continue;
 			}
 			if (got_frame) {
-				char buf[1024] = "";
-				av_ts_make_time_string(buf, frame.pts, &ctx->decoder_context->time_base);
-				DEBUG_LOG(HLE, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
+				//char buf[1024] = "";
+				//av_ts_make_time_string(buf, frame.pts, &ctx->decoder_context->time_base);
+				//DEBUG_LOG(HLE, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
 
 				/*
 				u8 *audio_dst_data;
