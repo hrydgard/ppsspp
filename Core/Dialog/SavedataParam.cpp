@@ -404,33 +404,29 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 
 
 	// SAVE ICON0
-	if (param->icon0FileData.buf)
+	if (param->icon0FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->icon0FileData.buf);
 		std::string icon0path = dirPath + "/" + ICON0_FILENAME;
-		WritePSPFile(icon0path, data_, param->icon0FileData.bufSize);
+		WritePSPFile(icon0path, param->icon0FileData.buf, param->icon0FileData.bufSize);
 	}
 	// SAVE ICON1
-	if (param->icon1FileData.buf)
+	if (param->icon1FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->icon1FileData.buf);
 		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
-		WritePSPFile(icon1path, data_, param->icon1FileData.bufSize);
+		WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.bufSize);
 	}
 	// SAVE PIC1
-	if (param->pic1FileData.buf)
+	if (param->pic1FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->pic1FileData.buf);
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
-		WritePSPFile(pic1path, data_, param->pic1FileData.bufSize);
+		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.bufSize);
 	}
 
 	// Save SND
-	if (param->snd0FileData.buf)
+	if (param->snd0FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->snd0FileData.buf);
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
-		WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
+		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.bufSize);
 	}
 
 	return true;
@@ -1210,14 +1206,14 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 	saveInfo.idx = 0;
 	saveInfo.textureData = 0;
 
-	if (GetPspParam()->newData.Valid() && Memory::IsValidAddress(GetPspParam()->newData->buf))
+	if (GetPspParam()->newData.Valid() && GetPspParam()->newData->buf.Valid())
 	{
 		// We have a png to show
 		if (!noSaveIcon)
 		{
 			noSaveIcon = new SaveFileInfo();
 			PspUtilitySavedataFileData *newData = GetPspParam()->newData;
-			CreatePNGIcon(Memory::GetPointer(newData->buf), (int)newData->size, *noSaveIcon);
+			CreatePNGIcon(newData->buf, (int)newData->size, *noSaveIcon);
 		}
 		saveInfo.textureData = noSaveIcon->textureData;
 		saveInfo.textureWidth = noSaveIcon->textureWidth;

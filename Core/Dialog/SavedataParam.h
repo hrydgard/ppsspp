@@ -77,7 +77,7 @@ struct PspUtilitySavedataSFOParam
 };
 
 struct PspUtilitySavedataFileData {
-	int buf;
+	PSPPointer<u8> buf;
 	SceSize bufSize;  // Size of the buffer pointed to by buf
 	SceSize size;	    // Actual file size to write / was read
 	int unknown;
