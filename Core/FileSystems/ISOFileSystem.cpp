@@ -28,29 +28,32 @@ const int sectorSize = 2048;
 
 static bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
 {
-	// Looks like: /sce_lbn0x10_size0x100 or /sce_lbn10_size100 (always hex.)
+	// The format of this is: "/sce_lbn" "0x"? HEX* ANY* "_size" "0x"? HEX* ANY*
+	// That means that "/sce_lbn/_size1/" is perfectly valid.
+	// Most commonly, it looks like /sce_lbn0x10_size0x100 or /sce_lbn10_size100 (always hex.)
+
+	// If it doesn't starts with /sce_lbn or doesn't have _size, look for a file instead.
 	if (filename.compare(0, sizeof("/sce_lbn") - 1, "/sce_lbn") != 0)
 		return false;
+	size_t size_pos = filename.find("_size");
+	if (size_pos == filename.npos)
+		return false;
 
-	size_t pos = sizeof("/sce_lbn") - 1;
+	// TODO: Return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT when >= 32 long but passes above checks.
+	if (filename.size() >= 32)
+		return false;
+
 	const char *filename_c = filename.c_str();
+	size_t pos = strlen("/sce_lbn");
 
-	int offset = 0;
-	if (sscanf(filename_c + pos, "%x%n", sectorStart, &offset) != 1)
-		WARN_LOG_REPORT(FILESYS, "Invalid LBN reference: %s", filename_c);
-	pos += offset;
+	if (sscanf(filename_c + pos, "%x", sectorStart) != 1)
+		*sectorStart = 0;
 
-	if (filename.compare(pos, sizeof("_size") - 1, "_size") != 0)
-		WARN_LOG_REPORT(FILESYS, "Invalid LBN reference: %s", filename_c);
-	pos += sizeof("_size") - 1;
+	pos = size_pos + strlen("_size");
 
-	offset = 0;
-	if (sscanf(filename_c + pos, "%x%n", readSize, &offset) != 1)
-		WARN_LOG_REPORT(FILESYS, "Invalid LBN reference: %s", filename_c);
-	pos += offset;
+	if (sscanf(filename_c + pos, "%x", readSize) != 1)
+		*readSize = 0;
 
-	if (filename.size() > pos)
-		WARN_LOG_REPORT(FILESYS, "Incomplete LBN reference: %s", filename_c);
 	return true;
 }
 
