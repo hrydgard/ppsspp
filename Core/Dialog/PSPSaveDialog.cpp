@@ -219,9 +219,7 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 	case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-		if (param.GetSaveName(param.GetPspParam()).length() != 0)
-			return param.GetSaveDirName(param.GetPspParam());
-		// Intentional fallthrough when saveName not valid.
+		return param.GetSaveDirName(param.GetPspParam());
 
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
@@ -232,9 +230,7 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
-		if (param.GetSaveName(param.GetPspParam()).length() != 0)
-			return param.GetSaveDirName(param.GetPspParam());
-		// Intentional fallthrough when saveName not valid.
+		return param.GetSaveDirName(param.GetPspParam());
 
 	// TODO: Maybe also SINGLEDELETE/etc?
 
