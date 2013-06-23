@@ -137,7 +137,7 @@ private:
 	VirtualFramebuffer *prevPrevDisplayFramebuf_;
 	int frameLastFramebufUsed;
 
-	std::vector<VirtualFramebuffer *> vfbs_;
+	std::list<VirtualFramebuffer *> vfbs_;
 
 	VirtualFramebuffer *currentRenderVfb_;
 
