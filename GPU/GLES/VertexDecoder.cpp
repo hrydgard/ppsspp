@@ -493,7 +493,7 @@ static const StepFunction tcstep_through[4] = {
 	&VertexDecoder::Step_TcFloatThrough,
 };
 
-// Some HD Remaster games double the u16 vertex coordinates.
+// Some HD Remaster games double the u16 texture coordinates.
 static const StepFunction tcstep_Remaster[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
