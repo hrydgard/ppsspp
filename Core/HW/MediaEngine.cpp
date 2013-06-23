@@ -176,34 +176,12 @@ int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 		mpeg->m_mpegheaderReadPos += size;
 	} else if (mpeg->m_mpegheaderReadPos == mpegheaderSize) {
 		return 0;
-	} else
-		size = mpeg->m_pdata->pop_front(buf, buf_size);
-	mpeg->m_decodeNextPos += size;
-	return size;
-}
-
-int64_t _MpegSeekbuffer(void *opaque, int64_t offset, int whence)
-{
-	MediaEngine *mpeg = (MediaEngine*)opaque;
-	switch (whence) {
-	case SEEK_SET:
-		mpeg->m_decodeNextPos = offset;
-		break;
-	case SEEK_CUR:
-		mpeg->m_decodeNextPos += offset;
-		break;
-	case SEEK_END:
-		mpeg->m_decodeNextPos = 0xFFFFF - (u32)offset;
-		break;
-
-#ifdef USE_FFMPEG
-	// Don't seek, just return the full size.
-	// Returning this means FFmpeg won't think frames are truncated if we don't have them yet.
-	case AVSEEK_SIZE:
-		return 0xFFFFF;
-#endif
+	} else {
+		mpeg->m_pdata->pop_front(0, mpeg->m_decodingsize);
+		size = mpeg->m_pdata->get_front(buf, buf_size);
+		mpeg->m_decodingsize = size;
 	}
-	return mpeg->m_decodeNextPos;
+	return size;
 }
 
 #ifdef _DEBUG
@@ -224,6 +202,7 @@ bool MediaEngine::openContext() {
 	if (m_pFormatCtx || !m_pdata)
 		return false;
 	m_mpegheaderReadPos = 0;
+	m_decodingsize = 0;
 
 	u8* tempbuf = (u8*)av_malloc(m_bufSize);
 
@@ -281,7 +260,6 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 
 	m_videopts = 0;
 	m_audiopts = 0;
-	m_decodeNextPos = 0;
 	m_ringbuffersize = RingbufferSize;
 	m_pdata = new Atrac3plus_Decoder::BufferQueue(RingbufferSize + 2048);
 	if (!m_pdata)

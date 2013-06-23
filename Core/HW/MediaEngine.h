@@ -93,7 +93,7 @@ public:
 
 	int  m_desWidth;
 	int  m_desHeight;
-	int m_decodeNextPos;
+	int m_decodingsize;
 	int m_bufSize;
 	s64 m_videopts;
 	Atrac3plus_Decoder::BufferQueue *m_pdata;
