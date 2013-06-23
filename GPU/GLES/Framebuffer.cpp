@@ -324,7 +324,13 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	drawing_height = std::min(drawing_height, 512);
 }
 
-void FramebufferManager::NotifyDestroyed(VirtualFramebuffer *v) {
+void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
+	textureCache_->NotifyFramebufferDestroyed(v->fb_address, v);
+	if (v->fbo) {
+		fbo_destroy(v->fbo);
+		v->fbo = 0;
+	}
+
 	// Wipe some pointers
 	if (currentRenderVfb_ == v)
 		currentRenderVfb_ = 0;
@@ -334,6 +340,8 @@ void FramebufferManager::NotifyDestroyed(VirtualFramebuffer *v) {
 		prevDisplayFramebuf_ = 0;
 	if (prevPrevDisplayFramebuf_ == v)
 		prevPrevDisplayFramebuf_ = 0;
+
+	delete v;
 }
 
 void FramebufferManager::SetRenderFrameBuffer() {
@@ -388,15 +396,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 				buffer_width = std::max((int)v->width, drawing_width);
 				buffer_height = std::max((int)v->height, drawing_height);
 
-				textureCache_->NotifyFramebufferDestroyed(v->fb_address, v);
-				if (v->fbo) {
-					fbo_destroy(v->fbo);
-					v->fbo = 0;
-				}
-				NotifyDestroyed(v);
-
-				delete v;
-				vfbs_.erase(iter++);
+				DestroyFramebuf(v);
+				vfbs_.erase(iter--);
 				break;
 			}
 		}
@@ -673,28 +674,17 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	retry:
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
+	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
-			++iter;
 			continue;
 		}
- 		int age = frameLastFramebufUsed - (*iter)->last_frame_used;
+		int age = frameLastFramebufUsed - (*iter)->last_frame_used;
 		if (age > FBO_OLD_AGE) {
-			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
-			if (vfb->fbo) {
-				fbo_destroy(vfb->fbo);
-				vfb->fbo = 0;
-			}
-			NotifyDestroyed(vfb);
-			delete vfb;
-			vfbs_.erase(iter);
-			goto retry;
+			DestroyFramebuf(vfb);
+			vfbs_.erase(iter--);
 		}
-		else
-			++iter;
 	}
 }
 
@@ -707,14 +697,8 @@ void FramebufferManager::DestroyAllFBOs() {
 
 	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 		VirtualFramebuffer *vfb = *iter;
-		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
-		if (vfb->fbo) {
-			INFO_LOG(HLE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-			fbo_destroy(vfb->fbo);
-			vfb->fbo = 0;
-		}
-		NotifyDestroyed(vfb);
-		delete vfb;
+		INFO_LOG(HLE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();
 }
@@ -733,7 +717,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 		currentRenderVfb_ = 0;
 
 		bool needUnbind = false;
-		for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ) {
+		for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
 			VirtualFramebuffer *vfb = *iter;
 			if (MaskedEqual(vfb->fb_address, addr)) {
 				// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
@@ -742,20 +726,12 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 					fbo_bind_as_render_target(vfb->fbo);
 					needUnbind = true;
 					DrawPixels(Memory::GetPointer(addr), vfb->format, vfb->fb_stride);
-					++iter;
 				} else {
-					textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 					INFO_LOG(HLE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
-					if (vfb->fbo) {
-						fbo_destroy(vfb->fbo);
-						vfb->fbo = 0;
-					}
-					delete vfb;
-					vfbs_.erase(iter++);
+					DestroyFramebuf(vfb);
+					vfbs_.erase(iter--);
 				}
 			}
-			else
-				++iter;
 		}
 
 		if (needUnbind)
