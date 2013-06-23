@@ -96,8 +96,9 @@ void ScreenManager::sendMessage(const char *msg, const char *value) {
 }
 
 void ScreenManager::deviceLost() {
-	if (!stack_.empty())
-		stack_.back().screen->deviceLost();
+	for (size_t i = 0; i < stack_.size(); i++) {
+		stack_[i].screen->deviceLost();
+	}
 	// Dialogs too? Nah, they should only use the standard UI texture anyway.
 	// TODO: Change this when it becomes necessary.
 }
