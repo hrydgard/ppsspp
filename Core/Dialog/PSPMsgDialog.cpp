@@ -23,7 +23,7 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
-const float FONT_SCALE = 0.50f;
+const float FONT_SCALE = 0.55f;
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
@@ -173,6 +173,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 		}
 	}
 	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawTextWrapped(text.c_str(), 241.0f, y+3, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, 0x20000000);
 	float sy = 122.0f - h2, ey = 150.0f + h2;
 	PPGeDrawRect(15.0f, sy, 465.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(15.0f, ey, 465.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
