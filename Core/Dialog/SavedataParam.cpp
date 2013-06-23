@@ -855,7 +855,8 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
-	if (fileList->systemEntries.Valid() && fileList->maxSystemEntries > 5) {
+	// TODO: This may depend on sdk version or something?  Not returned by default.
+	if (false && fileList->systemEntries.Valid() && fileList->maxSystemEntries > 5) {
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
@@ -952,6 +953,10 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		strncpy(entry->name, file->name.c_str(), 16);
 		entry->name[15] = '\0';
 	}
+
+	// TODO: Does this always happen?
+	// Don't know what it is, but PSP always respond this
+	param->bind = 1021;
 
 	return 0;
 }
