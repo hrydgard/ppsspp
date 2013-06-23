@@ -166,7 +166,7 @@ void UpdateGamepad(InputState &input_state)
 #endif
 
 	if (g_Config.bShowAnalogStick)
-		leftStick.update(input_state);
+		leftStick.update(input_state,false);
 }
 
 void UpdateGamepadFlip(InputState &input_state)
@@ -196,7 +196,7 @@ void UpdateGamepadFlip(InputState &input_state)
 #endif
 
 	if (g_Config.bShowAnalogStick)
-		leftStick.update(input_state);
+		leftStick.update(input_state, true);
 }
 
 void DrawGamepad(DrawBuffer &db, float opacity)
