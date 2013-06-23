@@ -872,10 +872,7 @@ int PSPSaveDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
-					if (param.GetSizes(param.GetPspParam()))
-						param.GetPspParam()->common.result = 0;
-					else
-						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
+					param.GetPspParam()->common.result = param.GetSizes(param.GetPspParam());
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_LIST:

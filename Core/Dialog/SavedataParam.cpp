@@ -721,13 +721,13 @@ std::string SavedataParam::GetSpaceText(int size)
 	return std::string(text);
 }
 
-bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
+int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 {
 	if (!param) {
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 	}
 
-	bool ret = true;
+	int ret = 0;
 
 	if (param->msFree.Valid())
 	{
@@ -758,8 +758,7 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 			strncpy(param->msData->info.usedSpaceStr, "", sizeof(param->msData->info.usedSpaceStr));
 			param->msData->info.usedSpace32KB = 0;
 			strncpy(param->msData->info.usedSpace32Str, "", sizeof(param->msData->info.usedSpace32Str));
-			ret = false;
-			// this should return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA
+			ret = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 		}
 	}
 	if (param->utilityData.Valid())

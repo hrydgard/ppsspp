@@ -258,7 +258,7 @@ public:
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
 	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
-	bool GetSizes(SceUtilitySavedataParam* param);
+	int GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	int GetFilesList(SceUtilitySavedataParam* param);
 	bool GetSize(SceUtilitySavedataParam* param);
