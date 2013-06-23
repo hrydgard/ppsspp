@@ -21,5 +21,8 @@
 #include "gfx_es2/draw_buffer.h"
 
 void LayoutGamepad(int w, int h);
+void LayoutGamepadFlip(int w, int h);
 void UpdateGamepad(InputState &input_state);
+void UpdateGamepadFlip(InputState &input_state);
 void DrawGamepad(DrawBuffer &db, float opacity);
+void DrawGamepadFlip(DrawBuffer &db, float opacity);

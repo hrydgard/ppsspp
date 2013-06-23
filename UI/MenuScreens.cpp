@@ -800,7 +800,9 @@ void GraphicsScreenP1::render() {
 				gpu->Resized();
 		}
 	}
-
+	
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Reverse Landscape"), ALIGN_TOPLEFT, &g_Config.bFlip);
+	
 	UIEnd();
 }
 

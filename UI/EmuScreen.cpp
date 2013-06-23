@@ -90,8 +90,11 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	globalUIState = UISTATE_INGAME;
 	host->BootDone();
 	host->UpdateDisassembly();
-
-	LayoutGamepad(dp_xres, dp_yres);
+	
+	if (g_Config.bFlip)
+		LayoutGamepadFlip(dp_xres, dp_yres);
+	else
+		LayoutGamepad(dp_xres, dp_yres);
 
 	g_gameInfoCache.FlushBGs();
 
@@ -183,7 +186,10 @@ void EmuScreen::update(InputState &input) {
 #ifdef _WIN32
 	if(g_Config.bShowTouchControls) {
 #endif
-		UpdateGamepad(input);
+		if (g_Config.bFlip)
+			UpdateGamepadFlip(input);
+		else
+			UpdateGamepad(input);
 
 		UpdateInputState(&input);
 #ifdef _WIN32
@@ -317,8 +323,12 @@ void EmuScreen::render() {
 	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
 	float touchOpacity = g_Config.iTouchButtonOpacity / 100.0f;
-	if (g_Config.bShowTouchControls)
-		DrawGamepad(ui_draw2d, touchOpacity);
+	if (g_Config.bShowTouchControls) {
+		if (g_Config.bFlip)
+			DrawGamepadFlip(ui_draw2d, touchOpacity);
+		else
+			DrawGamepad(ui_draw2d, touchOpacity);
+	}
 
 	DrawWatermark();
 
