@@ -40,8 +40,6 @@
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
 
-#include "Core/MemMap.h"
-
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
@@ -88,7 +86,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
 {
-	//Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
+	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
