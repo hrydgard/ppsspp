@@ -80,7 +80,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 					break;
 				}
 			}
-			ERROR_LOG(LOADER, "HDRemaster mode is %s", g_RemasterMode? "true": "false");
+			DEBUG_LOG(LOADER, "HDRemaster mode is %s", g_RemasterMode? "true": "false");
 		}
 		delete [] paramsfo;
 	}
