@@ -390,7 +390,22 @@ void LinkedShader::updateUniforms() {
 
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
-			if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
+			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
+			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
+				// Prenormalize
+				float x = gstate_c.lightpos[i][0];
+				float y = gstate_c.lightpos[i][1];
+				float z = gstate_c.lightpos[i][2];
+				float len = sqrtf(x*x+y*y+z*z);
+				if (len == 0.0f) 
+					len = 1.0f;
+				else
+					len = 1.0f / len;
+				float vec[3] = { x / len, y / len, z / len };
+				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, vec);
+			} else {
+				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
+			}
 			if (u_lightdir[i] != -1) glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
 			if (u_lightatt[i] != -1) glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
 			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], gstate_c.lightangle[i]);

@@ -292,10 +292,19 @@ void __KernelModuleShutdown()
 
 void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 {
-	static u32 lastHI16RelocAddress = 0;
+	// Sometimes there are multiple LO16's or HI16's per pair, even though the ABI says nothing of this.
+	// For multiple LO16's, we need the original (unrelocated) instruction data of the HI16.
+	// For multiple HI16's, we just need to set each one.
+	struct HI16RelocInfo
+	{
+		u32 addr;
+		u32 data;
+	};
+
+	// We have to post-process the HI16 part, since it might be +1 or not depending on the LO16 value.
 	static u32 lastHI16ExportAddress = 0;
-	static bool lastHI16Processed = false;
-	static u32 lastHILO16Address = 0;
+	static std::vector<HI16RelocInfo> lastHI16Relocs;
+	static bool lastHI16Processed = true;
 
 	u32 relocData = Memory::Read_Instruction(relocAddress);
 
@@ -320,42 +329,52 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 	*/
 
 	case R_MIPS_HI16:
-		if (!lastHI16Processed)
-			WARN_LOG_REPORT(LOADER, "Unsafe unpaired HI16 variable relocation @ %08x / %08x", lastHI16RelocAddress, relocAddress);
+		if (lastHI16ExportAddress != exportAddress)
+		{
+			if (!lastHI16Processed && lastHI16Relocs.size() >= 1)
+				WARN_LOG_REPORT(LOADER, "Unsafe unpaired HI16 variable relocation @ %08x / %08x", lastHI16Relocs[lastHI16Relocs.size() - 1].addr, relocAddress);
+
+			lastHI16ExportAddress = exportAddress;
+			lastHI16Relocs.clear();
+		}
 
 		// After this will be an R_MIPS_LO16.  If that addition overflows, we need to account for it in HI16.
 		// The R_MIPS_LO16 and R_MIPS_HI16 will often be *different* relocAddress values.
-		lastHI16RelocAddress = relocAddress;
-		lastHI16ExportAddress = exportAddress;
+		HI16RelocInfo reloc;
+		reloc.addr = relocAddress;
+		reloc.data = Memory::Read_Instruction(relocAddress);
+		lastHI16Relocs.push_back(reloc);
 		lastHI16Processed = false;
 		break;
 
 	case R_MIPS_LO16:
 		{
-			// The ABI requires that these come in pairs.
-			if (lastHI16ExportAddress != exportAddress)
-			{
-				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match for %08x => %08x/%08x (hi16 export: %08x)", exportAddress, lastHI16RelocAddress, relocAddress, lastHI16ExportAddress);
-				break;
-			}
-			u32 relocDataHi = Memory::Read_Instruction(lastHI16RelocAddress);
 			// Sign extend the existing low value (e.g. from addiu.)
-			u32 full = (relocDataHi << 16) + (s16)(u16)(relocData & 0xFFFF) + exportAddress;
+			const u32 exportOffsetLo = exportAddress + (s16)(u16)(relocData & 0xFFFF);
+			u32 full = exportOffsetLo;
 
-			if (!lastHI16Processed)
+			// The ABI requires that these come in pairs, at least.
+			if (lastHI16Relocs.empty())
+				ERROR_LOG_REPORT(LOADER, "LO16 without any HI16 variable import at %08x for %08x", relocAddress, exportAddress)
+			// Try to process at least the low relocation...
+			else if (lastHI16ExportAddress != exportAddress)
+				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, lastHI16ExportAddress, exportAddress)
+			else
 			{
-				// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
-				// We add 1 in that case so that it ends up the right value.
-				u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
-				Memory::Write_U32((relocDataHi & ~0xFFFF) | high, lastHI16RelocAddress);
+				// Process each of the HI16.  Usually there's only one.
+				for (auto it = lastHI16Relocs.begin(), end = lastHI16Relocs.end(); it != end; ++it)
+				{
+					full = (it->data << 16) + exportOffsetLo;
+					// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
+					// We add 1 in that case so that it ends up the right value.
+					u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
+					Memory::Write_U32((it->data & ~0xFFFF) | high, it->addr);
+				}
 				lastHI16Processed = true;
 			}
-			else if (lastHILO16Address != full)
-				WARN_LOG_REPORT(LOADER, "Potentially unsafe unpaired LO16 variable relocation @ %08x / %08x", lastHI16RelocAddress, relocAddress);
 
-			// And then this is the low relocation, hurray.
+			// With full set above (hopefully), now we just need to correct the low instruction.
 			relocData = (relocData & ~0xFFFF) | (full & 0xFFFF);
-			lastHILO16Address = full;
 		}
 		break;
 

@@ -426,7 +426,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	gpuStats.numFrames++;
 
-	if (g_Config.bShowFPSCounter) {
+	if (g_Config.iShowFPSCounter) {
 		CalculateFPS();
 	}
 

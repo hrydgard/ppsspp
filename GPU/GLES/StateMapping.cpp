@@ -265,8 +265,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	if (g_Config.bBufferedRendering) {
 		renderX = 0;
 		renderY = 0;
-	  	renderWidth = framebufferManager_->GetRenderWidth();
-	  	renderHeight = framebufferManager_->GetRenderHeight();
+		renderWidth = framebufferManager_->GetRenderWidth();
+		renderHeight = framebufferManager_->GetRenderHeight();
 		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
 		renderHeightFactor = (float)renderHeight / framebufferManager_->GetTargetHeight();
 	} else {

@@ -200,7 +200,7 @@ You will need to add the GCCE 4.6.3 variant to Symbian\tools\sbs\lib\config\vari
 You will also need to increase the data section of the executable in linking stage by modifying Symbian\tools\sbs\lib\config\gcce.xml as follows:
 
 ```
-    <set name="RW_BASE" value="$(RW_BASE_OPTION)0x700000"/>
+    <set name="RW_BASE" value="$(RW_BASE_OPTION)0x3000000"/>
 ```
 
 Then simply compile the PPSSPPQt.pro with `qmake` from the SDK or the included QtCreator.

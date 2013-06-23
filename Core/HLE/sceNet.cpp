@@ -24,12 +24,16 @@
 #include "sceUtility.h"
 
 static bool netInited;
+static bool netInetInited;
 static bool netAdhocInited;
+static bool netApctlInited;
 
 static u32 adhocctlHandlerCount;
+static u32 apctlHandlerCount;
 
 // TODO: Determine how many handlers we can actually have
 const u32 MAX_ADHOCCTL_HANDLERS = 32;
+const u32 MAX_APCTL_HANDLERS = 32;
 
 enum {
 	ERROR_NET_BUFFER_TOO_SMALL                   = 0x80400706,
@@ -88,9 +92,18 @@ struct AdhocctlHandler {
 
 static std::map<int, AdhocctlHandler> adhocctlHandlers;
 
+struct ApctlHandler {
+	u32 entryPoint;
+	u32 argument;
+};
+
+static std::map<int, ApctlHandler> apctlHandlers;
+
 void __NetInit() {
 	netInited = false;
 	netAdhocInited = false;
+	netApctlInited = false;
+	netInetInited = false;
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
 }
 
@@ -100,22 +113,40 @@ void __NetShutdown() {
 
 void __UpdateAdhocctlHandlers(int flag, int error) {
 	u32 args[3] = { 0, 0, 0 };
+	args[0] = flag;
+	args[1] = error;
 
 	for(std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
-		args[0] = flag;
-		args[1] = error;
 		args[2] = it->second.argument;
 
 		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
 	}
 }
 
+void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
+	u32 args[5] = { 0, 0, 0, 0, 0 };
+		args[0] = oldState;
+		args[1] = newState;
+		args[2] = flag;
+		args[3] = error;
+
+	for(std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); ++it) {
+		args[4] = it->second.argument;
+
+		__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 5, true);
+	}
+}
+
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
 	p.Do(netInited);
+	p.Do(netInetInited);
 	p.Do(netAdhocInited);
+	p.Do(netApctlInited);
 	p.Do(adhocctlHandlers);
 	p.Do(adhocctlHandlerCount);
+	p.Do(apctlHandlers);
+	p.Do(apctlHandlerCount);
 	p.Do(netMallocStat);
 	p.DoMarker("net");
 }
@@ -274,7 +305,7 @@ int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown)
 
 // TODO: Should we really write the struct if we're disconnected?
 int sceNetAdhocctlGetParameter(u32 paramAddr) {
-	ERROR_LOG(HLE, "UNTESTED %x=sceNetAdhocctlGetParameter(%x)", 0, paramAddr);
+	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlGetParameter(%x)", paramAddr);
 	struct SceNetAdhocctlParams params;
 	params.channel = 0;
 	for(int i = 0; i < 6; i++)
@@ -331,7 +362,7 @@ int sceNetAdhocctlConnect(u32 ptrToGroupName) {
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
 int sceNetGetMallocStat(u32 statPtr) {
-	ERROR_LOG(HLE, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
+	WARN_LOG(HLE, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
 	if(Memory::IsValidAddress(statPtr))
 		Memory::WriteStruct(statPtr, &netMallocStat);
 	else
@@ -344,6 +375,88 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
 	return 0;
 }
+
+int sceNetInetInit() {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetInit()");
+	if (netInetInited)
+		return ERROR_NET_ADHOC_ALREADY_INITIALIZED; // TODO: What's the proper error for netInet already being inited?
+	netInetInited = true;
+
+	return 0;
+}
+
+int sceNetInetTerm() {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetTerm()");
+	netInetInited = false;
+
+	return 0;
+}
+
+int sceNetApctlInit() {
+	ERROR_LOG(HLE, "UNIMPL sceNetApctlInit()");
+	if (netAdhocInited)
+		return ERROR_NET_ADHOC_ALREADY_INITIALIZED; // TODO: What's the proper error for apctl already being inited?
+	netApctlInited = true;
+
+	return 0;
+}
+
+int sceNetApctlTerm() {
+	ERROR_LOG(HLE, "UNIMPL sceNeApctlTerm()");
+	netInetInited = false;
+
+	return 0;
+}
+
+// TODO: How many handlers can the PSP actually have for Apctl?
+// TODO: Should we allow the same handler to be added more than once?
+u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
+	bool foundHandler = false;
+	u32 retval = apctlHandlerCount;
+	struct ApctlHandler handler;
+	memset(&handler, 0, sizeof(handler));
+
+	handler.entryPoint = handlerPtr;
+	handler.argument = handlerArg;
+
+	for(std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); it++) {
+		if(it->second.entryPoint == handlerPtr) {
+			foundHandler = true;
+			break;
+		}
+	}
+
+	if(!foundHandler && Memory::IsValidAddress(handlerPtr)) {
+		if(apctlHandlerCount >= MAX_APCTL_HANDLERS) {
+			ERROR_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
+			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS; // TODO: What's the proper error code for Apctl's TOO_MANY_HANDLERS?
+			return retval;
+		}
+		apctlHandlers[apctlHandlerCount++] = handler;
+		WARN_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, apctlHandlerCount);
+	}
+	else
+		ERROR_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
+
+
+	// The id to return is the number of handlers currently registered
+	return retval;
+}
+
+int sceNetApctlDelHandler(u32 handlerID) {
+	
+	if(apctlHandlers.find(handlerID) != apctlHandlers.end()) {
+		apctlHandlers.erase(handlerID);
+		apctlHandlerCount = apctlHandlerCount > 0? --apctlHandlerCount : 0;
+		WARN_LOG(HLE, "UNTESTED sceNetapctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
+	}
+	else
+		ERROR_LOG(HLE, "UNTESTED sceNetapctlDelHandler(%d): asked to delete invalid handler %d", handlerID, handlerID);
+
+	return 0;
+}
+
+
 
 const HLEFunction sceNet[] = {
 	{0x39AF39A6, sceNetInit, "sceNetInit"},
@@ -444,7 +557,7 @@ const HLEFunction sceNetResolver[] = {
 };					 
 
 const HLEFunction sceNetInet[] = {
-	{0x17943399, 0, "sceNetInetInit"},
+	{0x17943399, WrapI_V<sceNetInetInit>, "sceNetInetInit"},
 	{0x2fe71fe7, 0, "sceNetInetSetsockopt"},
 	{0x410b34aa, 0, "sceNetInetConnect"},
 	{0x5be8d595, 0, "sceNetInetSelect"},
@@ -463,7 +576,7 @@ const HLEFunction sceNetInet[] = {
 	{0xd10a1a7a, 0, "sceNetInetListen"},
 	{0xdb094e1b, 0, "sceNetInetAccept"},
 	{0x8ca3a97e, 0, "sceNetInetGetPspError"},
-	{0xa9ed66b9, 0, "sceNetInetTerm"},
+	{0xa9ed66b9, WrapI_V<sceNetInetTerm>, "sceNetInetTerm"},
 	{0xE30B8C19, 0, "sceNetInetInetPton"},
 	{0xE247B6D6, 0, "sceNetInetGetpeername"},
 	{0x162e6fd5, 0, "sceNetInetGetsockname"},
@@ -481,10 +594,10 @@ const HLEFunction sceNetApctl[] = {
 	{0xCFB957C6, 0, "sceNetApctlConnect"},
 	{0x24fe91a1, 0, "sceNetApctlDisconnect"},
 	{0x5deac81b, 0, "sceNetApctlGetState"},
-	{0x8abadd51, 0, "sceNetApctlAddHandler"},
-	{0xe2f91f9b, 0, "sceNetApctlInit"},
-	{0x5963991b, 0, "sceNetApctlDelHandler"},
-	{0xb3edd0ec, 0, "sceNetApctlTerm"},
+	{0x8abadd51, WrapU_UU<sceNetApctlAddHandler>, "sceNetApctlAddHandler"},
+	{0xe2f91f9b, WrapI_V<sceNetApctlInit>, "sceNetApctlInit"},
+	{0x5963991b, WrapI_U<sceNetApctlDelHandler>, "sceNetApctlDelHandler"},
+	{0xb3edd0ec, WrapI_V<sceNetApctlTerm>, "sceNetApctlTerm"},
 	{0x2BEFDF23, 0, "sceNetApctlGetInfo"},
 	{0xa3e77e13, 0, "sceNetApctlScanSSID2"},
 	{0xf25a5006, 0, "sceNetApctlGetBSSDescIDList2"},

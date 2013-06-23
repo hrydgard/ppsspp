@@ -7,7 +7,7 @@
 #include "MIPS/MIPS.h"
 #include "Core/Config.h"
 
-const static std::string CHEATS_DIR = "Cheats";
+const static std::string CHEATS_DIR = "cheats";
 
 static std::string activeCheatFile;
 static int CheatEvent = -1;

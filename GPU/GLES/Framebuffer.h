@@ -54,10 +54,16 @@ struct VirtualFramebuffer {
 	int z_stride;
 
 	// There's also a top left of the drawing region, but meh...
+
+	// width/height: The detected size of the current framebuffer.
 	u16 width;
 	u16 height;
+	// renderWidth/renderHeight: The actual size we render at. May be scaled to render at higher resolutions.
 	u16 renderWidth;
 	u16 renderHeight;
+	// bufferWidth/bufferHeight: The actual (but non scaled) size of the buffer we render to. May only be bigger than width/height.
+	u16 bufferWidth;
+	u16 bufferHeight;
 
 	u16 usageFlags;
 
@@ -98,6 +104,7 @@ public:
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size);
+
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetDisplayFBO();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
@@ -117,6 +124,8 @@ public:
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
 	}
 
+	void DestroyFramebuf(VirtualFramebuffer *vfb);
+
 private:
 	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
 	u32 displayFramebufPtr_;
@@ -128,7 +137,7 @@ private:
 	VirtualFramebuffer *prevPrevDisplayFramebuf_;
 	int frameLastFramebufUsed;
 
-	std::list<VirtualFramebuffer *> vfbs_;
+	std::vector<VirtualFramebuffer *> vfbs_;
 
 	VirtualFramebuffer *currentRenderVfb_;
 
