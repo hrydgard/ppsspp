@@ -735,6 +735,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/CoreTiming.h
 	Core/CwCheat.cpp
 	Core/CwCheat.h
+	Core/HDRemaster.cpp
+	Core/HDRemaster.h
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h
