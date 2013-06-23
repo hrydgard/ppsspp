@@ -124,6 +124,8 @@ public:
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
 	}
 
+	void NotifyDestroyed(VirtualFramebuffer *vfb);
+
 private:
 	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
 	u32 displayFramebufPtr_;
@@ -135,7 +137,7 @@ private:
 	VirtualFramebuffer *prevPrevDisplayFramebuf_;
 	int frameLastFramebufUsed;
 
-	std::list<VirtualFramebuffer *> vfbs_;
+	std::vector<VirtualFramebuffer *> vfbs_;
 
 	VirtualFramebuffer *currentRenderVfb_;
 
