@@ -85,18 +85,16 @@ struct PspUtilitySavedataFileData {
 	int unknown;
 };
 
-// TODO: According to JPCSP, should verify.
 struct PspUtilitySavedataSizeEntry {
 	u64 size;
 	char name[16];
 };
 
-// TODO: According to JPCSP, should verify.
 struct PspUtilitySavedataSizeInfo {
-	int secureNumEntries;
-	int numEntries;
-	u32 secureEntriesPtr;
-	u32 entriesPtr;
+	int numSecureEntries;
+	int numNormalEntries;
+	PSPPointer<PspUtilitySavedataSizeEntry> secureEntries;
+	PSPPointer<PspUtilitySavedataSizeEntry> normalEntries;
 	int sectorSize;
 	int freeSectors;
 	int freeKB;
@@ -225,7 +223,7 @@ struct SceUtilitySavedataParam
 	PSPPointer<SceUtilitySavedataFileListInfo> fileList;
 
 	// Function 22 GETSIZES
-	u32 sizeAddr;
+	PSPPointer<PspUtilitySavedataSizeInfo> sizeInfo;
 
 };
 
