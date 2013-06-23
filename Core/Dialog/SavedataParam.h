@@ -65,6 +65,8 @@ enum SceUtilitySavedataFocus
 	SCE_UTILITY_SAVEDATA_FOCUS_LASTEMPTY  = 8, // last empty (what if no empty?)
 };
 
+typedef char SceUtilitySavedataSaveName[20];
+
 // title, savedataTitle, detail: parts of the unencrypted SFO
 // data, it contains what the VSH and standard load screen shows
 struct PspUtilitySavedataSFOParam
@@ -128,7 +130,27 @@ struct SceUtilitySavedataFileListInfo
 	PSPPointer<SceUtilitySavedataFileListEntry> systemEntries;
 };
 
-typedef char SceUtilitySavedataSaveName[20];
+typedef struct SceUtilitySavedataMsFreeInfo {
+	int clusterSize;
+	int freeClusters;
+	int freeSpaceKB;
+	char freeSpaceStr[8];
+} SceUtilitySavedataMsFreeInfo;
+
+typedef struct SceUtilitySavedataUsedDataInfo {
+	int usedClusters;
+	int usedSpaceKB;
+	char usedSpaceStr[8];
+	int usedSpace32KB;
+	char usedSpace32Str[8];
+} SceUtilitySavedataUsedDataInfo;
+
+typedef struct SceUtilitySavedataMsDataInfo {
+	char gameName[13];
+	char pad[3];
+	SceUtilitySavedataSaveName saveName;
+	SceUtilitySavedataUsedDataInfo info;
+} SceUtilitySavedataMsDataInfo;
 
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.
 struct SceUtilitySavedataParam
@@ -168,9 +190,9 @@ struct SceUtilitySavedataParam
 	int abortStatus;
 
 	// Function SCE_UTILITY_SAVEDATA_TYPE_SIZES
-	u32 msFree;
-	u32 msData;
-	u32 utilityData;
+	PSPPointer<SceUtilitySavedataMsFreeInfo> msFree;
+	PSPPointer<SceUtilitySavedataMsDataInfo> msData;
+	PSPPointer<SceUtilitySavedataUsedDataInfo> utilityData;
 
 	u8 key[16];
 

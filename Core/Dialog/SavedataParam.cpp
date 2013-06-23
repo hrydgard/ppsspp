@@ -729,40 +729,40 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 
 	bool ret = true;
 
-	if (Memory::IsValidAddress(param->msFree))
+	if (param->msFree.Valid())
 	{
-		Memory::Write_U32((u32)MemoryStick_SectorSize(),param->msFree); // cluster Size
-		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize()),param->msFree+4);	// Free cluster
-		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / 0x400),param->msFree+8); // Free space (in KB)
+		param->msFree->clusterSize = (u32)MemoryStick_SectorSize();
+		param->msFree->freeClusters = (u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
+		param->msFree->freeSpaceKB = (u32)(MemoryStick_FreeSpace() / 0x400);
 		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
-		Memory::Memset(param->msFree+12,0,(u32)spaceTxt.size()+1);
-		Memory::Memcpy(param->msFree+12,spaceTxt.c_str(),(u32)spaceTxt.size()); // Text representing free space
+		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
+		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
 	}
-	if (Memory::IsValidAddress(param->msData))
+	if (param->msData.Valid())
 	{
 		std::string path = GetSaveFilePath(param,0);
 		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
 		if(finfo.exists)
 		{
 			// TODO : fill correctly with the total save size, be aware of crypted file size
-			Memory::Write_U32(1,param->msData+36);	//1
-			Memory::Write_U32(0x20,param->msData+40);	// 0x20
-			Memory::Write_U8(0,param->msData+44);	// "32 KB" // 8 u8
-			Memory::Write_U32(0x20,param->msData+52);	//  0x20
-			Memory::Write_U8(0,param->msData+56);	// "32 KB" // 8 u8
+			param->msData->info.usedClusters = 1;
+			param->msData->info.usedSpaceKB = 0x20;
+			strncpy(param->msData->info.usedSpaceStr, "", sizeof(param->msData->info.usedSpaceStr));	// "32 KB" // 8 u8
+			param->msData->info.usedSpace32KB = 0x20;
+			strncpy(param->msData->info.usedSpace32Str, "", sizeof(param->msData->info.usedSpace32Str));	// "32 KB" // 8 u8
 		}
 		else
 		{
-			Memory::Write_U32(0,param->msData+36);
-			Memory::Write_U32(0,param->msData+40);
-			Memory::Write_U8(0,param->msData+44);
-			Memory::Write_U32(0,param->msData+52);
-			Memory::Write_U8(0,param->msData+56);
+			param->msData->info.usedClusters = 0;
+			param->msData->info.usedSpaceKB = 0;
+			strncpy(param->msData->info.usedSpaceStr, "", sizeof(param->msData->info.usedSpaceStr));
+			param->msData->info.usedSpace32KB = 0;
+			strncpy(param->msData->info.usedSpace32Str, "", sizeof(param->msData->info.usedSpace32Str));
 			ret = false;
 			// this should return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA
 		}
 	}
-	if (Memory::IsValidAddress(param->utilityData))
+	if (param->utilityData.Valid())
 	{
 		int total_size = 0;
 		total_size += getSizeNormalized(1); // SFO;
@@ -772,15 +772,17 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		total_size += getSizeNormalized(param->pic1FileData.size);
 		total_size += getSizeNormalized(param->snd0FileData.size);
 
-		Memory::Write_U32(total_size / (u32)MemoryStick_SectorSize(),param->utilityData);	// num cluster
-		Memory::Write_U32(total_size / 0x400,param->utilityData+4);	// save size in KB
+		param->utilityData->usedClusters = total_size / (u32)MemoryStick_SectorSize();
+		param->utilityData->usedSpaceKB = total_size / 0x400;
 		std::string spaceTxt = SavedataParam::GetSpaceText(total_size);
-		Memory::Memset(param->utilityData+8,0,(u32)spaceTxt.size()+1);
-		Memory::Memcpy(param->utilityData+8,spaceTxt.c_str(),(u32)spaceTxt.size()); // save size in text
-		Memory::Write_U32(total_size / 0x400,param->utilityData+16);	// save size in KB
+		memset(param->utilityData->usedSpaceStr, 0, sizeof(param->utilityData->usedSpaceStr));
+		strncpy(param->utilityData->usedSpaceStr, spaceTxt.c_str(), sizeof(param->utilityData->usedSpaceStr));
+
+		// TODO: Maybe these are rounded to the nearest 32KB?  Or something?
+		param->utilityData->usedSpace32KB = total_size / 0x400;
 		spaceTxt = SavedataParam::GetSpaceText(total_size);
-		Memory::Memset(param->utilityData+20,0,(u32)spaceTxt.size()+1);
-		Memory::Memcpy(param->utilityData+20,spaceTxt.c_str(),(u32)spaceTxt.size()); // save size in text
+		memset(param->utilityData->usedSpace32Str, 0, sizeof(param->utilityData->usedSpace32Str));
+		strncpy(param->utilityData->usedSpace32Str, spaceTxt.c_str(), sizeof(param->utilityData->usedSpace32Str));
 	}
 	return ret;
 
