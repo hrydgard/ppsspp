@@ -177,9 +177,9 @@ int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 	} else if (mpeg->m_mpegheaderReadPos == mpegheaderSize) {
 		return 0;
 	} else {
-		mpeg->m_pdata->pop_front(0, mpeg->m_decodingsize);
-		size = mpeg->m_pdata->get_front(buf, buf_size);
-		mpeg->m_decodingsize = size;
+		size = mpeg->m_pdata->pop_front(buf, buf_size);
+		if (size > 0)
+			mpeg->m_decodingsize = size;
 	}
 	return size;
 }
@@ -391,7 +391,9 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 			if (result <= 0 && dataEnd) {
 				// Sometimes, m_readSize is less than m_streamSize at the end, but not by much.
 				// This is kinda a hack, but the ringbuffer would have to be prematurely empty too.
-				m_isVideoEnd = !bGetFrame && (m_pdata->getRemainSize() == 0);
+				m_isVideoEnd = !bGetFrame && (m_pdata->getQueueSize() == 0);
+				if (m_isVideoEnd)
+					m_decodingsize = 0;
 				break;
 			}
 		}
@@ -568,7 +570,7 @@ int MediaEngine::writeVideoImageWithRange(u8* buffer, int frameWidth, int videoP
 int MediaEngine::getRemainSize() {
 	if (!m_pdata)
 		return 0;
-	return std::max(m_pdata->getRemainSize() - 2048, 0);
+	return std::max(m_pdata->getRemainSize() - m_decodingsize - 2048, 0);
 }
 
 int MediaEngine::getAudioSamples(u8* buffer) {
