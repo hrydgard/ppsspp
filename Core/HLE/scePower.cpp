@@ -71,6 +71,12 @@ int scePowerGetBatteryLifeTime() {
 	return 0;
 }
 
+int scePowerGetBatteryTemp() {
+	DEBUG_LOG(HLE, "0=scePowerGetBatteryTemp()");
+	// 0 means celsius temperature of the battery
+	return 0;
+}
+
 int scePowerIsPowerOnline() {
 	DEBUG_LOG(HLE, "1=scePowerIsPowerOnline");
 	return 1;
@@ -314,7 +320,7 @@ static const HLEFunction scePower[] = {
 	{0xFD18A0FF,0,"scePowerGetBatteryFullCapacity"},
 	{0x2085D15D,&WrapI_V<scePowerGetBatteryLifePercent>,"scePowerGetBatteryLifePercent"},
 	{0x8EFB3FA2,&WrapI_V<scePowerGetBatteryLifeTime>,"scePowerGetBatteryLifeTime"},
-	{0x28E12023,0,"scePowerGetBatteryTemp"},
+	{0x28E12023,&WrapI_V<scePowerGetBatteryTemp>,"scePowerGetBatteryTemp"},
 	{0x862AE1A6,0,"scePowerGetBatteryElec"},
 	{0x483CE86B,0,"scePowerGetBatteryVolt"},
 	{0x23436A4A,0,"scePowerGetInnerTemp"},
