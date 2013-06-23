@@ -44,6 +44,7 @@ TouchButton buttonVPSFlip(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_LEFT_THUMB, 180
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
+TouchButton buttonPauseFlip(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 270);
 #endif
 
 void LayoutGamepad(int w, int h)
@@ -87,7 +88,6 @@ void LayoutGamepad(int w, int h)
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
 	buttonPause.setPos(halfW, 15 * controlScale, controlScale);
-	buttonPauseFlip.setPos(halfW, h - 15 * controlScale, controlScale);
 #endif
 
 	leftStick.setPos(stickX, stickY, controlScale);
@@ -133,7 +133,6 @@ void LayoutGamepadFlip(int w, int h)
 
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
-	buttonPause.setPos(halfW, 15 * controlScale, controlScale);
 	buttonPauseFlip.setPos(halfW, h - 15 * controlScale, controlScale);
 #endif
 
@@ -193,7 +192,7 @@ void UpdateGamepadFlip(InputState &input_state)
 	}
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
-	buttonPause.update(input_state);
+	buttonPauseFlip.update(input_state);
 #endif
 
 	if (g_Config.bShowAnalogStick)
@@ -243,7 +242,7 @@ void DrawGamepadFlip(DrawBuffer &db, float opacity)
 	buttonStartFlip.draw(db, color, colorOverlay);
 	buttonLShoulderFlip.draw(db, color, colorOverlay);
 	buttonRShoulderFlip.draw(db, color, colorOverlay);
-	crossPad.draw(db, color, colorOverlay);
+	crossPad.drawFlip(db, color, colorOverlay);
 
 	if (g_Config.iFpsLimit) {
 			buttonVPSFlip.draw(db, color, colorOverlay);
@@ -252,7 +251,6 @@ void DrawGamepadFlip(DrawBuffer &db, float opacity)
 	}
 
 #if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
-	buttonPause.draw(db, color, colorOverlay);
 	buttonPauseFlip.draw(db, color, colorOverlay);
 #endif
 
