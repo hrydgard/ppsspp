@@ -1210,15 +1210,14 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 	saveInfo.idx = 0;
 	saveInfo.textureData = 0;
 
-	if (Memory::IsValidAddress(GetPspParam()->newData))
+	if (GetPspParam()->newData.Valid() && Memory::IsValidAddress(GetPspParam()->newData->buf))
 	{
 		// We have a png to show
 		if (!noSaveIcon)
 		{
 			noSaveIcon = new SaveFileInfo();
-			PspUtilitySavedataFileData newData;
-			Memory::ReadStruct(GetPspParam()->newData, &newData);
-			CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, *noSaveIcon);
+			PspUtilitySavedataFileData *newData = GetPspParam()->newData;
+			CreatePNGIcon(Memory::GetPointer(newData->buf), (int)newData->size, *noSaveIcon);
 		}
 		saveInfo.textureData = noSaveIcon->textureData;
 		saveInfo.textureWidth = noSaveIcon->textureWidth;

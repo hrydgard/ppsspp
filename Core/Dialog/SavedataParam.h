@@ -161,7 +161,7 @@ struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData pic1FileData;
 	PspUtilitySavedataFileData snd0FileData;
 
-	u32 newData;
+	PSPPointer<PspUtilitySavedataFileData> newData;
 	int focus;
 	int abortStatus;
 
