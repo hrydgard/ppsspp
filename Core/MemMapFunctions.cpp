@@ -24,8 +24,6 @@
 
 #include "MIPS/MIPS.h"
 
-#include "Core/HDRemaster.h"
-
 // TODO: Fix this
 #undef ENABLE_MEM_CHECK
 

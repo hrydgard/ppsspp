@@ -28,9 +28,6 @@
 #include "CPU.h"
 #include "Debugger/SymbolMap.h"
 
-#include "Loaders.h"
-#include "PSPLoaders.h"
-
 namespace Memory
 {
 

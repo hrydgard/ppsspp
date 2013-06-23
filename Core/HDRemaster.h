@@ -37,9 +37,7 @@ struct HDRemaster {
 // but they're included for safety.
 // TODO: Do all of the remasters aside from Monster Hunter use double texture coordinates?
 // TODO: Are all remasters happy with this end address?
-const u32 REMASTER_COUNT = 9;
-
-const struct HDRemaster g_HDRemasters[REMASTER_COUNT] = {
+const struct HDRemaster g_HDRemasters[] = {
 	{ "NPJB40001", 0x4000000, 0x0BBFFFFF, false }, // MONSTER HUNTER PORTABLE 3rd HD Ver.
 	{ "BLJM85002", 0x4000000, 0x0BBFFFFF, true }, // K-ON Houkago Live HD Ver
 	{ "NPJB40002", 0x4000000, 0x0BBFFFFF, true }, // K-ON Houkago Live HD Ver
