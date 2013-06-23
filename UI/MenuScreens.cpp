@@ -831,8 +831,12 @@ void GraphicsScreenP2::render() {
 	int stride = 40;
 	int columnw = 400;
 
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Nearest Filtering"), ALIGN_TOPLEFT, &g_Config.bNearestFiltering);
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
+	if ( UICheckBox(GEN_ID, x, y += stride, gs->T("Force Nearest Filtering"), ALIGN_TOPLEFT, &g_Config.bNearestFiltering) ) {
+		g_Config.bLinearFiltering = false; // disable linear filtering if someone turns on nearest
+	}
+	if ( UICheckBox(GEN_ID, x, y += stride, gs->T("Force Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering) ) {
+		g_Config.bNearestFiltering = false; // and vice versa
+	}
 
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
