@@ -795,15 +795,14 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		return false;
 	}
 
-	if (Memory::IsValidAddress(param->idListAddr))
+	if (param->idList.Valid())
 	{
-		u32 outputBuffer = Memory::Read_U32(param->idListAddr + 8);
-		u32 maxFile = Memory::Read_U32(param->idListAddr + 0);
+		u32 maxFile = param->idList->maxCount;
 
 		std::vector<PSPFileInfo> validDir;
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
-		if (Memory::IsValidAddress(outputBuffer))
+		if (param->idList.Valid())
 		{
 			std::string searchString = GetGameName(param)+GetSaveName(param);
 			for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
@@ -815,24 +814,22 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 				}
 			}
 
+			SceUtilitySavedataIdListEntry *entries = param->idList->entries;
 			for (u32 i = 0; i < (u32)validDir.size(); i++)
 			{
-				u32 baseAddr = outputBuffer + (i*72);
-				Memory::Write_U32(0x11FF,baseAddr + 0); // mode
-				Memory::Write_U64(0,baseAddr + 4); // TODO ctime
-				Memory::Write_U64(0,baseAddr + 12); // TODO unknow
-				Memory::Write_U64(0,baseAddr + 20); // TODO atime
-				Memory::Write_U64(0,baseAddr + 28); // TODO unknow
-				Memory::Write_U64(0,baseAddr + 36); // TODO mtime
-				Memory::Write_U64(0,baseAddr + 44); // TODO unknow
+				entries[i].st_mode = 0x11FF;
+				// TODO
+				memset(&entries[i].st_ctime, 0, sizeof(entries[i].st_ctime));
+				memset(&entries[i].st_atime, 0, sizeof(entries[i].st_atime));
+				memset(&entries[i].st_mtime, 0, sizeof(entries[i].st_mtime));
 				// folder name without gamename (max 20 u8)
 				std::string outName = validDir[i].name.substr(GetGameName(param).size());
-				Memory::Memset(baseAddr + 52,0,20);
-				Memory::Memcpy(baseAddr + 52, outName.c_str(), (u32)outName.size());
+				memset(entries[i].name, 0, sizeof(entries[i].name));
+				strncpy(entries[i].name, outName.c_str(), sizeof(entries[i].name));
 			}
 		}
 		// Save num of folder found
-		Memory::Write_U32((u32)validDir.size(), param->idListAddr + 4);
+		param->idList->resultCount = (u32)validDir.size();
 	}
 	return true;
 }

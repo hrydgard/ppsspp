@@ -107,6 +107,22 @@ struct PspUtilitySavedataSizeInfo {
 	char overwriteString[8];
 };
 
+struct SceUtilitySavedataIdListEntry
+{
+	int st_mode;
+	ScePspDateTime st_ctime;
+	ScePspDateTime st_atime;
+	ScePspDateTime st_mtime;
+	SceUtilitySavedataSaveName name;
+};
+
+struct SceUtilitySavedataIdListInfo
+{
+	int maxCount;
+	int resultCount;
+	PSPPointer<SceUtilitySavedataIdListEntry> entries;
+};
+
 struct SceUtilitySavedataFileListEntry
 {
 	int st_mode;
@@ -130,27 +146,30 @@ struct SceUtilitySavedataFileListInfo
 	PSPPointer<SceUtilitySavedataFileListEntry> systemEntries;
 };
 
-typedef struct SceUtilitySavedataMsFreeInfo {
+struct SceUtilitySavedataMsFreeInfo
+{
 	int clusterSize;
 	int freeClusters;
 	int freeSpaceKB;
 	char freeSpaceStr[8];
-} SceUtilitySavedataMsFreeInfo;
+};
 
-typedef struct SceUtilitySavedataUsedDataInfo {
+struct SceUtilitySavedataUsedDataInfo
+{
 	int usedClusters;
 	int usedSpaceKB;
 	char usedSpaceStr[8];
 	int usedSpace32KB;
 	char usedSpace32Str[8];
-} SceUtilitySavedataUsedDataInfo;
+};
 
-typedef struct SceUtilitySavedataMsDataInfo {
+struct SceUtilitySavedataMsDataInfo
+{
 	char gameName[13];
 	char pad[3];
 	SceUtilitySavedataSaveName saveName;
 	SceUtilitySavedataUsedDataInfo info;
-} SceUtilitySavedataMsDataInfo;
+};
 
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.
 struct SceUtilitySavedataParam
@@ -200,7 +219,7 @@ struct SceUtilitySavedataParam
 	int multiStatus;
 
 	// Function 11 LIST
-	u32 idListAddr;
+	PSPPointer<SceUtilitySavedataIdListInfo> idList;
 
 	// Function 12 FILES
 	PSPPointer<SceUtilitySavedataFileListInfo> fileList;
