@@ -798,7 +798,7 @@ int scePsmfPlayerSetPsmf(u32 psmfPlayer, const char *filename)
 	}
 	else
 	{
-		INFO_LOG(HLE, "scePsmfPlayerSetPsmf(%08x, %s): invalid psmf player", psmfPlayer, filename);
+		ERROR_LOG(HLE, "scePsmfPlayerSetPsmf(%08x, %s): invalid psmf player", psmfPlayer, filename);
 	}
 
 	return 0;
@@ -816,7 +816,7 @@ int scePsmfPlayerSetPsmfCB(u32 psmfPlayer, const char *filename)
 	}
 	else
 	{
-		INFO_LOG(HLE, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid psmf player", psmfPlayer, filename);
+		ERROR_LOG(HLE, "scePsmfPlayerSetPsmfCB(%08x, %s): invalid psmf player", psmfPlayer, filename);
 	}
 
 	return 0;
@@ -833,7 +833,7 @@ int scePsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int offset)
 	}
 	else
 	{
-		INFO_LOG(HLE, "scePsmfPlayerSetPsmfOffset(%08x, %s, %i): invalid psmf player", psmfPlayer, filename, offset);
+		ERROR_LOG(HLE, "scePsmfPlayerSetPsmfOffset(%08x, %s, %i): invalid psmf player", psmfPlayer, filename, offset);
 	}
 
 	return 0;
@@ -851,7 +851,7 @@ int scePsmfPlayerSetPsmfOffsetCB(u32 psmfPlayer, const char *filename, int offse
 	}
 	else
 	{
-		INFO_LOG(HLE, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s, %i): invalid psmf player", psmfPlayer, filename, offset);
+		ERROR_LOG(HLE, "scePsmfPlayerSetPsmfOffsetCB(%08x, %s, %i): invalid psmf player", psmfPlayer, filename, offset);
 	}
 
 	return 0;
