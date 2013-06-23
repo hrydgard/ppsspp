@@ -106,6 +106,7 @@ public:
 	// 3 = L/R
 	// 4 = L/R + triangle/cross
 	int iRightStickBind;
+	bool bFlip;
 
 	// Control
 	std::map<int,int> iMappingMap; // Can be used differently depending on systems

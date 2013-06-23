@@ -245,11 +245,13 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 
 void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale) {
 	float u2 = uscale;
+	float t1 = flip ? 0.0f : 1.0f; 
+	float t2 = flip ? 1.0f : 0.0f; 
 	float v1 = flip ? 1.0f : 0.0f;
 	float v2 = flip ? 0.0f : 1.0f;
 
 	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
-	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
+	const float texCoords[8] = {t1, v1, t2, v1, t2, v2, t1, v2};
 
 	glsl_bind(draw2dprogram);
 	Matrix4x4 ortho;
@@ -569,7 +571,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 	// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(x, y, w, h, true);
+		if (g_Config.bFlip)
+			DrawActiveTexture(x, y, w, h, false);
+		else
+			DrawActiveTexture(x, y, w, h, true);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
