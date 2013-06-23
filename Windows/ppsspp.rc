@@ -395,8 +395,8 @@ BEGIN
             MENUITEM "&Off",                        ID_TEXTURESCALING_OFF
             MENUITEM "&2x",                         ID_TEXTURESCALING_2X
             MENUITEM "&3x",                         ID_TEXTURESCALING_3X
-            MENUITEM "&4x",                         ID_TEXTURESCALING_4X
-            MENUITEM "&5x",                         ID_TEXTURESCALING_5X
+            MENUITEM "&4x (overkill)",              ID_TEXTURESCALING_4X
+            MENUITEM "&5x (insane)",                ID_TEXTURESCALING_5X
             MENUITEM SEPARATOR
             MENUITEM "&xBRZ",                       ID_TEXTURESCALING_XBRZ
             MENUITEM "&Hybrid",                     ID_TEXTURESCALING_HYBRID
