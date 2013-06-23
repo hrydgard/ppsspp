@@ -306,7 +306,7 @@ void MenuScreen::render() {
 		// This might create a texture so we must flush first.
 		UIFlush();
 		GameInfo *ginfo = g_gameInfoCache.GetInfo(g_Config.recentIsos[i], false);
-		if (ginfo && ginfo->fileType != FILETYPE_PSP_ELF) {
+		if (ginfo) {
 			u32 color;
 			if (ginfo->iconTexture == 0) {
 				color = 0;

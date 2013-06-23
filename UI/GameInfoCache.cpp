@@ -184,8 +184,8 @@ public:
 					} else {
 						// Read standard icon
 						size_t sz;
-						uint8_t *contents = ReadLocalFile("assets/unknown.png", &sz);
-						{
+						uint8_t *contents = VFSReadFile("unknown.png", &sz);
+						if (contents) {
 							lock_guard lock(info_->lock);
 							info_->iconTextureData = std::string((const char *)contents, sz);
 						}
@@ -210,7 +210,7 @@ public:
 			{
 				// Read standard icon
 				size_t sz;
-				uint8_t *contents = ReadLocalFile("assets/unknown.png", &sz);
+				uint8_t *contents = VFSReadFile("assets/unknown.png", &sz);
 				{
 					lock_guard lock(info_->lock);
 					info_->iconTextureData = std::string((const char *)contents, sz);
@@ -222,34 +222,38 @@ public:
 
 		case FILETYPE_PSP_ISO:
 		case FILETYPE_PSP_ISO_NP:
-			info_->fileType = FILETYPE_PSP_ISO;
-			SequentialHandleAllocator handles;
-			// Let's assume it's an ISO.
-			// TODO: This will currently read in the whole directory tree. Not really necessary for just a
-			// few files.
-			BlockDevice *bd = constructBlockDevice(gamePath_.c_str());
-			if (!bd)
-				return;  // nothing to do here..
-			ISOFileSystem umd(&handles, bd, "/PSP_GAME");
+			{
+				info_->fileType = FILETYPE_PSP_ISO;
+				SequentialHandleAllocator handles;
+				// Let's assume it's an ISO.
+				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
+				// few files.
+				BlockDevice *bd = constructBlockDevice(gamePath_.c_str());
+				if (!bd)
+					return;  // nothing to do here..
+				ISOFileSystem umd(&handles, bd, "/PSP_GAME");
 
-			// Alright, let's fetch the PARAM.SFO.
-			std::string paramSFOcontents;
-			if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
-				lock_guard lock(info_->lock);
-				info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-				info_->title = info_->paramSFO.GetValueString("TITLE");
-				info_->id = info_->paramSFO.GetValueString("DISC_ID");
-				info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
+				// Alright, let's fetch the PARAM.SFO.
+				std::string paramSFOcontents;
+				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
+					lock_guard lock(info_->lock);
+					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
+					info_->title = info_->paramSFO.GetValueString("TITLE");
+					info_->id = info_->paramSFO.GetValueString("DISC_ID");
+					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
 
-				info_->paramSFOLoaded = true;
+					info_->paramSFOLoaded = true;
+				}
+
+				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
+				if (info_->wantBG) {
+					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
+				}
+				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
+				break;
 			}
-
-			ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
-			if (info_->wantBG) {
-				ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
-			}
-			ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
-
+		default:
+			;
 		}
 		// probably only want these when we ask for the background image...
 		// should maybe flip the flag to "onlyIcon"
