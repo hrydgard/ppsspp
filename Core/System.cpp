@@ -74,7 +74,14 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	currentCPU = &mipsr4k;
 	numCPUs = 1;
 
-	std::string filename = coreParameter.fileToStart;
+	// Default memory settings
+	// Seems to be the safest place currently..
+	Memory::g_MemoryEnd =  0x0A000000; //End of PSP User space memory
+	Memory::g_MemorySize = 0x2000000; //32 MB of ram by default
+	g_RemasterMode = false;
+	g_DoubleTextureCoordinates = false;
+
+	std::string filename = coreParam.fileToStart;
 	EmuFileType type = Identify_File(filename);
 
 	if(type == FILETYPE_PSP_ISO || type == FILETYPE_PSP_ISO_NP)

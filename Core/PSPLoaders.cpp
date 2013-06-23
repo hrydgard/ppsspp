@@ -46,14 +46,6 @@
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
 void InitMemoryForGameISO(std::string fileToStart) {
-	// Default memory settings
-	// Seems to be the safest place currently..
-	Memory::g_MemoryEnd =  0x0A000000;
-	Memory::g_MemorySize = 0x2000000;
-	g_RemasterMode = false;
-	g_DoubleTextureCoordinates = false;
-	Memory::g_MemoryMask = Memory::g_MemorySize - 1;
-
 	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(fileToStart.c_str()));
 
 	// Parse PARAM.SFO
@@ -96,7 +88,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 
 bool Load_PSP_ISO(const char *filename, std::string *error_string)
 {
-	//Mounting stuff removed due to HD Remaster restructuring of code.
+	//Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());

@@ -84,6 +84,7 @@ static const int num_views = sizeof(views) / sizeof(MemoryView);
 void Init()
 {
 	int flags = 0;
+	Memory::g_MemoryMask = Memory::g_MemorySize - 1;
 
 	for(int i = 0; i < ARRAY_SIZE(views); i++) {
 		if(views[i].size == 0)

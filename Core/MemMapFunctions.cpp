@@ -46,7 +46,6 @@ u8 *GetPointer(const u32 address)
 	if ((address & 0x3E000000) == 0x08000000) {
 		return m_pRAM + (address & g_MemoryMask);
 	}
-
 	else if ((address & 0x3F800000) == 0x04000000) {
 		return m_pVRAM + (address & VRAM_MASK);
 	}
@@ -140,7 +139,6 @@ bool IsValidAddress(const u32 address)
 	if ((address & 0x3E000000) == 0x08000000) {
 		return true;
 	}
-
 	else if ((address & 0x3F800000) == 0x04000000) {
 		return true;
 	}
