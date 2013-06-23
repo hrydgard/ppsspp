@@ -234,6 +234,8 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 
 	// TODO: Maybe also SINGLEDELETE/etc?
 
+	// SZIES ignores saveName it seems.
+
 	default:
 		return param.GetSaveDirName(param.GetPspParam(), currentSelectedSave);
 		break;

@@ -734,13 +734,15 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		param->msFree->clusterSize = (u32)MemoryStick_SectorSize();
 		param->msFree->freeClusters = (u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
 		param->msFree->freeSpaceKB = (u32)(MemoryStick_FreeSpace() / 0x400);
-		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
+		const std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
 		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
 		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
 	}
 	if (param->msData.Valid())
 	{
-		std::string path = GetSaveFilePath(param,0);
+		const std::string gameName(param->msData->gameName, strnlen(param->msData->gameName, sizeof(param->msData->gameName)));
+		const std::string saveName(param->msData->saveName, strnlen(param->msData->saveName, sizeof(param->msData->saveName)));
+		std::string path = GetSaveFilePath(param, gameName + saveName);
 		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
 		if(finfo.exists)
 		{
