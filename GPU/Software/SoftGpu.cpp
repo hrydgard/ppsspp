@@ -31,6 +31,9 @@ static GLint uni_tex = -1;
 
 static GLuint program;
 
+u8 fb_dummy[480*272*4]; // TODO: Should replace this one with the actual framebuffer
+u8* fb = fb_dummy;
+
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
 {
 	// generate objects
@@ -179,11 +182,11 @@ void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth
 
 void SoftGPU::CopyDisplayToOutput()
 {
-	u8 dummy[256*256*4];
-	for (unsigned int i = 0; i < sizeof(dummy); ++i)
-		dummy[i] = ((i%4)==2) ? i*255/sizeof(dummy) : 0xff;
+//	//Enable this code to check if stuff is being displayed at all.. :D
+//	for (unsigned int i = 0; i < sizeof(fb_dummy); ++i)
+//		fb_dummy[i] = ((i%4)==2) ? i*255/sizeof(fb_dummy) : 0xff;
 
-	CopyToCurrentFboFromRam(dummy, 256, 256, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+	CopyToCurrentFboFromRam(fb, 480, 272, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 }
 
 u32 SoftGPU::DrawSync(int mode)
