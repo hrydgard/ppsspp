@@ -14,6 +14,7 @@ set(SRCS
 	GLES/VertexDecoder.cpp
 	GLES/VertexShaderGenerator.cpp
 	Null/NullGpu.cpp
+	Software/SoftGpu.cpp
 )
 
 set(SRCS ${SRCS})

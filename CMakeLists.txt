@@ -1015,6 +1015,8 @@ add_library(GPU OBJECT
 	GPU/Math3D.h
 	GPU/Null/NullGpu.cpp
 	GPU/Null/NullGpu.h
+	GPU/Software/SoftGpu.cpp
+	GPU/Software/SoftGpu.h
 	GPU/ge_constants.h)
 setup_target_project(GPU GPU)
 

@@ -68,6 +68,9 @@
     <ClInclude Include="GLES\TextureScaler.h">
       <Filter>GLES</Filter>
     </ClInclude>
+    <ClInclude Include="Software\SoftGpu.h">
+      <Filter>Software</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -116,6 +119,9 @@
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
     <ClCompile Include="GLES\TextureScaler.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\SoftGpu.cpp">
+      <Filter>Software</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

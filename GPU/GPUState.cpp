@@ -20,6 +20,7 @@
 #include "GLES/ShaderManager.h"
 #include "GLES/DisplayListInterpreter.h"
 #include "Null/NullGpu.h"
+#include "Software/SoftGpu.h"
 #include "../Core/CoreParameter.h"
 #include "../Core/System.h"
 
@@ -37,7 +38,7 @@ void GPU_Init() {
 		gpu = new GLES_GPU();
 		break;
 	case GPU_SOFTWARE:
-		gpu = new NullGPU();
+		gpu = new SoftGPU();
 		break;
 	}
 }
