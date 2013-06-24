@@ -4,7 +4,7 @@ QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
 win32: QT += multimedia
-VERSION = 0.7.6
+VERSION = 0.8.0
 
 include(Settings.pri)
 mobile_platform: MOBILITY += sensors
@@ -82,7 +82,7 @@ PRE_TARGETDEPS += compiler_lang_make_all
 
 # Packaging
 symbian {
-	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 6, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
+	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 8, 0, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
 	assets.sources = ../assets/flash ../lang
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += deploy assets
