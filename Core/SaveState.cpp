@@ -217,24 +217,34 @@ namespace SaveState
 		for (size_t i = 0, n = operations.size(); i < n; ++i)
 		{
 			Operation &op = operations[i];
-			bool result;
-
+			std::string result;
+			std::string reason;
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
-				osm.Show("Loaded state", 2.0);
 				result = CChunkFileReader::Load(op.filename, REVISION, state);
+				if(result.length() > 0) {
+					reason = "Failed to load state: " + result;
+					osm.Show(reason, 3.0);
+				}
+				else
+					osm.Show("Loaded state", 2.0);
 				break;
 
 			case SAVESTATE_SAVE:
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
-				osm.Show("Saved state", 2.0);
 				result = CChunkFileReader::Save(op.filename, REVISION, state);
+				if(result.length() > 0) {
+					reason = "Failed to save state: " + result;
+					osm.Show(reason, 3.0);
+				}
+				else
+					osm.Show("Saved state", 2.0);
 				break;
 
 			case SAVESTATE_VERIFY:
@@ -244,12 +254,11 @@ namespace SaveState
 
 			default:
 				ERROR_LOG(COMMON, "Savestate failure: unknown operation type %d", op.type);
-				result = false;
 				break;
 			}
 
 			if (op.callback != NULL)
-				op.callback(result, op.cbUserData);
+				op.callback((result.length() > 0)? false : true, op.cbUserData);
 		}
 	}
 

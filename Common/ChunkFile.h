@@ -581,12 +581,14 @@ class CChunkFileReader
 public:
 	// Load file template
 	template<class T>
-	static bool Load(const std::string& _rFilename, int _Revision, T& _class) 
+	static std::string Load(const std::string& _rFilename, int _Revision, T& _class) 
 	{
 		INFO_LOG(COMMON, "ChunkReader: Loading %s" , _rFilename.c_str());
 
-		if (!File::Exists(_rFilename))
-			return false;
+		if (!File::Exists(_rFilename)) {
+			ERROR_LOG(COMMON, "ChunkReader: File doesn't exist");
+			return "File doesn't exist";
+		}
 				
 		// Check file size
 		const u64 fileSize = File::GetSize(_rFilename);
@@ -594,14 +596,14 @@ public:
 		if (fileSize < headerSize)
 		{
 			ERROR_LOG(COMMON,"ChunkReader: File too small");
-			return false;
+			return "File too small";
 		}
 
 		File::IOFile pFile(_rFilename, "rb");
 		if (!pFile)
 		{
 			ERROR_LOG(COMMON,"ChunkReader: Can't open file for reading");
-			return false;
+			return "Can't open file for reading";
 		}
 
 		// read the header
@@ -609,7 +611,7 @@ public:
 		if (!pFile.ReadArray(&header, 1))
 		{
 			ERROR_LOG(COMMON,"ChunkReader: Bad header size");
-			return false;
+			return "Bad header size";
 		}
 		
 		// Check revision
@@ -617,7 +619,7 @@ public:
 		{
 			ERROR_LOG(COMMON,"ChunkReader: Wrong file revision, got %d expected %d",
 				header.Revision, _Revision);
-			return false;
+			return "Wrong file revision";
 		}
 		
 		// get size
@@ -626,7 +628,7 @@ public:
 		{
 			ERROR_LOG(COMMON,"ChunkReader: Bad file size, got %d expected %d",
 				sz, header.ExpectedSize);
-			return false;
+			return "Bad file size";
 		}
 		
 		// read the state
@@ -634,7 +636,7 @@ public:
 		if (!pFile.ReadBytes(buffer, sz))
 		{
 			ERROR_LOG(COMMON,"ChunkReader: Error reading file");
-			return false;
+			return "Error reading file";
 		}
 
 		u8 *ptr = buffer;
@@ -656,19 +658,19 @@ public:
 		delete[] buf;
 		
 		INFO_LOG(COMMON, "ChunkReader: Done loading %s" , _rFilename.c_str());
-		return p.error != p.ERROR_FAILURE;
+		return p.error != p.ERROR_FAILURE? "" : "PointerWrap failure";
 	}
 	
 	// Save file template
 	template<class T>
-	static bool Save(const std::string& _rFilename, int _Revision, T& _class)
+	static std::string Save(const std::string& _rFilename, int _Revision, T& _class)
 	{
 		INFO_LOG(COMMON, "ChunkReader: Writing %s" , _rFilename.c_str());
 		File::IOFile pFile(_rFilename, "wb");
 		if (!pFile)
 		{
 			ERROR_LOG(COMMON,"ChunkReader: Error opening file for write");
-			return false;
+			return "Error opening file";
 		}
 
 		bool compress = true;
@@ -701,11 +703,11 @@ public:
 			if (!pFile.WriteArray(&header, 1))
 			{
 				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
-				return false;
+				return "Failed writing header";
 			}
 			if (!pFile.WriteBytes(&compressed_buffer[0], comp_len)) {
 				ERROR_LOG(COMMON,"ChunkReader: Failed writing compressed data");
-				return false;
+				return "Failed writing compressed data";
 			}	else {
 				INFO_LOG(COMMON, "Savestate: Compressed %i bytes into %i", (int)sz, (int)comp_len);
 			}
@@ -714,19 +716,19 @@ public:
 			if (!pFile.WriteArray(&header, 1))
 			{
 				ERROR_LOG(COMMON,"ChunkReader: Failed writing header");
-				return false;
+				return "Failed writing header";
 			}
 			if (!pFile.WriteBytes(&buffer[0], sz))
 			{
 				ERROR_LOG(COMMON,"ChunkReader: Failed writing data");
-				return false;
+				return "Failed writing data";
 			}
 			delete [] buffer;
 		}
 		
 		INFO_LOG(COMMON,"ChunkReader: Done writing %s", 
 				 _rFilename.c_str());
-		return p.error != p.ERROR_FAILURE;
+		return p.error != p.ERROR_FAILURE? "" : "PointerWrap failure";
 	}
 	
 	template <class T>
