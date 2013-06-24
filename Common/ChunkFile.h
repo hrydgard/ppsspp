@@ -73,7 +73,7 @@ struct LinkedListItem : public T
 class PointerWrap
 {
 	// This makes it a compile error if you forget to define DoState() on non-POD.
-	// Which also can be a problem, for example struct tm is non-POD on linux, for whatever false...
+	// Which also can be a problem, for example struct tm is non-POD on linux, for whatever reason...
 #ifdef _MSC_VER
 	template<typename T, bool isPOD = std::is_pod<T>::value, bool isPointer = std::is_pointer<T>::value>
 #else

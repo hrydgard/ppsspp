@@ -256,7 +256,7 @@ namespace SaveState
 			}
 
 			if (op.callback != NULL)
-				op.callback(result, op.cbUserData); //If we have a reason, we failed...
+				op.callback(result, op.cbUserData);
 		}
 	}
 
