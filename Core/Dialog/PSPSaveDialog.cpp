@@ -219,9 +219,7 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 	case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-		if (param.GetSaveName(param.GetPspParam()).length() != 0)
-			return param.GetSaveDirName(param.GetPspParam());
-		// Intentional fallthrough when saveName not valid.
+		return param.GetSaveDirName(param.GetPspParam());
 
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
@@ -232,11 +230,11 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
-		if (param.GetSaveName(param.GetPspParam()).length() != 0)
-			return param.GetSaveDirName(param.GetPspParam());
-		// Intentional fallthrough when saveName not valid.
+		return param.GetSaveDirName(param.GetPspParam());
 
 	// TODO: Maybe also SINGLEDELETE/etc?
+
+	// SZIES ignores saveName it seems.
 
 	default:
 		return param.GetSaveDirName(param.GetPspParam(), currentSelectedSave);
@@ -528,6 +526,16 @@ int PSPSaveDialog::Update()
 	if (!param.GetPspParam()) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 		return 0;
+	}
+
+	// The struct may have been updated by the game.  This happens in "Where Is My Heart?"
+	// Check if it has changed, reload it.
+	// TODO: Cut down on preloading?  This rebuilds the list from scratch.
+	int size = Memory::Read_U32(requestAddr);
+	if (memcmp(Memory::GetPointer(requestAddr), &request, size) != 0) {
+		memset(&request, 0, sizeof(request));
+		Memory::Memcpy(&request, requestAddr, size);
+		param.SetPspParam(&request);
 	}
 
 	buttons = __CtrlPeekButtons();
@@ -876,10 +884,7 @@ int PSPSaveDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
-					if (param.GetSizes(param.GetPspParam()))
-						param.GetPspParam()->common.result = 0;
-					else
-						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
+					param.GetPspParam()->common.result = param.GetSizes(param.GetPspParam());
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_LIST:
