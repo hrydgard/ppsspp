@@ -528,6 +528,16 @@ int PSPSaveDialog::Update()
 		return 0;
 	}
 
+	// The struct may have been updated by the game.  This happens in "Where Is My Heart?"
+	// Check if it has changed, reload it.
+	// TODO: Cut down on preloading?  This rebuilds the list from scratch.
+	int size = Memory::Read_U32(requestAddr);
+	if (memcmp(Memory::GetPointer(requestAddr), &request, size) != 0) {
+		memset(&request, 0, sizeof(request));
+		Memory::Memcpy(&request, requestAddr, size);
+		param.SetPspParam(&request);
+	}
+
 	buttons = __CtrlPeekButtons();
 	UpdateFade();
 
