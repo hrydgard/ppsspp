@@ -58,7 +58,7 @@ void __CheatShutdown() {
 void hleCheat(u64 userdata, int cyclesLate) {
 	CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
 
-	if (g_Config.bReloadCheats == true) { //Checks if the "reload cheats" button has been pressed.
+	if (g_Config.bReloadCheats == true && cheatEngine) { //Checks if the "reload cheats" button has been pressed.
 		cheatEngine->CreateCodeList();
 		g_Config.bReloadCheats = false;
 	}
