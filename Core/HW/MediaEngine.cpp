@@ -376,13 +376,14 @@ bool MediaEngine::stepVideo(int videoPixelMode) {
 		return false;
 	if (!m_pCodecCtx)
 		return false;
+	if ((!m_pFrame)||(!m_pFrameRGB))
+		return false;
+
 	updateSwsFormat(videoPixelMode);
 	// TODO: Technically we could set this to frameWidth instead of m_desWidth for better perf.
 	// Update the linesize for the new format too.  We started with the largest size, so it should fit.
 	m_pFrameRGB->linesize[0] = getPixelFormatBytes(videoPixelMode) * m_desWidth;
 
-	if ((!m_pFrame)||(!m_pFrameRGB))
-		return false;
 	AVPacket packet;
 	int frameFinished;
 	bool bGetFrame = false;
