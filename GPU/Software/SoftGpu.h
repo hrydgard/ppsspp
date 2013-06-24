@@ -32,7 +32,7 @@ public:
 
 	virtual void BeginFrame() {}
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {}
-	virtual void CopyDisplayToOutput() {}
+	virtual void CopyDisplayToOutput();
 	virtual void UpdateStats();
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
 	virtual void UpdateMemory(u32 dest, u32 src, int size);

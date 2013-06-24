@@ -22,13 +22,168 @@
 #include "../../Core/MemMap.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
 #include "../../Core/HLE/sceGe.h"
+#include "gfx/gl_common.h"
+
+static GLuint temp_texture = 0;
+
+static GLint attr_pos = -1, attr_tex = -1;
+static GLint uni_tex = -1;
+
+static GLuint program;
+
+GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
+{
+	// generate objects
+	GLuint vertexShaderID = glCreateShader(GL_VERTEX_SHADER);
+	GLuint fragmentShaderID = glCreateShader(GL_FRAGMENT_SHADER);
+	GLuint programID = glCreateProgram();
+
+	// compile vertex shader
+	glShaderSource(vertexShaderID, 1, &vertexShader, NULL);
+	glCompileShader(vertexShaderID);
+
+#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
+	GLint Result = GL_FALSE;
+	char stringBuffer[1024];
+	GLsizei stringBufferUsage = 0;
+	glGetShaderiv(vertexShaderID, GL_COMPILE_STATUS, &Result);
+	glGetShaderInfoLog(vertexShaderID, 1024, &stringBufferUsage, stringBuffer);
+	if(Result && stringBufferUsage) {
+		// not nice
+	} else if(!Result) {
+		// not nice
+	} else {
+		// not nice
+	}
+	bool shader_errors = !Result;
+#endif
+
+	// compile fragment shader
+	glShaderSource(fragmentShaderID, 1, &fragmentShader, NULL);
+	glCompileShader(fragmentShaderID);
+
+#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
+	glGetShaderiv(fragmentShaderID, GL_COMPILE_STATUS, &Result);
+	glGetShaderInfoLog(fragmentShaderID, 1024, &stringBufferUsage, stringBuffer);
+	if(Result && stringBufferUsage) {
+		// not nice
+	} else if(!Result) {
+		// not nice
+	} else {
+		// not nice
+	}
+	shader_errors |= !Result;
+#endif
+
+	// link them
+	glAttachShader(programID, vertexShaderID);
+	glAttachShader(programID, fragmentShaderID);
+	glLinkProgram(programID);
+
+#if defined(_DEBUG) || defined(DEBUGFAST) || defined(DEBUG_GLSL)
+	glGetProgramiv(programID, GL_LINK_STATUS, &Result);
+	glGetProgramInfoLog(programID, 1024, &stringBufferUsage, stringBuffer);
+	if(Result && stringBufferUsage) {
+		// not nice
+	} else if(!Result && !shader_errors) {
+		// not nice
+	}
+#endif
+
+	// cleanup
+	glDeleteShader(vertexShaderID);
+	glDeleteShader(fragmentShaderID);
+
+	return programID;
+}
 
 SoftGPU::SoftGPU()
 {
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);  // 4-byte pixel alignment
+	glGenTextures(1, &temp_texture);
+
+
+	// TODO: Use highp for GLES
+	static const char *fragShaderText =
+		"varying vec2 TexCoordOut;\n"
+		"uniform sampler2D Texture;\n"
+		"void main() {\n"
+		"   vec4 tmpcolor;\n"
+		"   tmpcolor = texture2D(Texture, TexCoordOut);\n"
+		"   gl_FragColor = tmpcolor;\n"
+		"}\n";
+	static const char *vertShaderText =
+		"attribute vec4 pos;\n"
+		"attribute vec2 TexCoordIn;\n "
+		"varying vec2 TexCoordOut;\n "
+		"void main() {\n"
+		"   gl_Position = pos;\n"
+		"   TexCoordOut = TexCoordIn;\n"
+		"}\n";
+
+	program = OpenGL_CompileProgram(vertShaderText, fragShaderText);
+
+	glUseProgram(program);
+
+	uni_tex = glGetUniformLocation(program, "Texture");
+	attr_pos = glGetAttribLocation(program, "pos");
+	attr_tex = glGetAttribLocation(program, "TexCoordIn");
 }
 
 SoftGPU::~SoftGPU()
 {
+	glDeleteProgram(program);
+	glDeleteTextures(1, &temp_texture);
+}
+
+// Copies RGBA8 data from RAM to the currently bound render target.
+void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight)
+{
+	glViewport(0, 0, dstwidth, dstheight);
+	glScissor(0, 0, dstwidth, dstheight);
+
+	glBindTexture(GL_TEXTURE_2D, temp_texture);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)srcwidth, (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+
+	glUseProgram(program);
+
+	static const GLfloat verts[4][2] = {
+		{ -1, -1}, // Left top
+		{ -1,  1}, // left bottom
+		{  1,  1}, // right bottom
+		{  1, -1}  // right top
+	};
+	static const GLfloat texverts[4][2] = {
+		{0, 1},
+		{0, 0},
+		{1, 0},
+		{1, 1}
+	};
+
+	glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glVertexAttribPointer(attr_tex, 2, GL_FLOAT, GL_FALSE, 0, texverts);
+	glEnableVertexAttribArray(attr_pos);
+	glEnableVertexAttribArray(attr_tex);
+	glUniform1i(uni_tex, 0);
+	glActiveTexture(GL_TEXTURE0);
+	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+	glDisableVertexAttribArray(attr_pos);
+	glDisableVertexAttribArray(attr_tex);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void SoftGPU::CopyDisplayToOutput()
+{
+	u8 dummy[256*256*4];
+	for (unsigned int i = 0; i < sizeof(dummy); ++i)
+		dummy[i] = ((i%4)==2) ? i*255/sizeof(dummy) : 0xff;
+
+	CopyToCurrentFboFromRam(dummy, 256, 256, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 }
 
 u32 SoftGPU::DrawSync(int mode)
