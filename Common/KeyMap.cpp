@@ -220,12 +220,12 @@ static std::string FindName(int key, const KeyMap_IntStrPair list[], int size)
 	return unknown_key_name;
 }
 
-std::string GetKeyName(KeyMap::Key key)
+std::string KeyMap::GetKeyName(KeyMap::Key key)
 {
 	return FindName((int)key, key_names, key_names_count);
 }
 
-std::string GetPspButtonName(int btn)
+std::string KeyMap::GetPspButtonName(int btn)
 {
 	return FindName(btn, psp_button_names, psp_button_names_count);
 }
@@ -272,7 +272,7 @@ static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 
 
 
-int KeyToPspButton(const KeyMap::Key key)
+int KeyMap::KeyToPspButton(const KeyMap::Key key)
 {
 	int search_start_layer = 0;
 	int psp_button;
@@ -283,18 +283,18 @@ int KeyToPspButton(const KeyMap::Key key)
 	return KEYMAP_ERROR_UNKNOWN_KEY;
 }
 
-bool IsMappedKey(Key key)
+bool KeyMap::IsMappedKey(Key key)
 {
 	return KeyMap::KeyToPspButton(key) != KEYMAP_ERROR_UNKNOWN_KEY;
 }
 
 
-std::string NamePspButtonFromKey(KeyMap::Key key)
+std::string KeyMap::NamePspButtonFromKey(KeyMap::Key key)
 {
 	return KeyMap::GetPspButtonName(KeyMap::KeyToPspButton(key));
 }
 
-std::string NameKeyFromPspButton(int btn)
+std::string KeyMap::NameKeyFromPspButton(int btn)
 {
 	// We drive our iteration
 	// with the list of key names.
@@ -310,7 +310,7 @@ std::string NameKeyFromPspButton(int btn)
 	return unknown_key_name;
 }
 
-int SetKeyMapping(KeyMap::Key key, int btn)
+int KeyMap::SetKeyMapping(KeyMap::Key key, int btn)
 {
 	if (KeyMap::IsMappedKey(key))
 		return KEYMAP_ERROR_KEY_ALREADY_USED;
@@ -319,7 +319,7 @@ int SetKeyMapping(KeyMap::Key key, int btn)
 	return btn;
 }
 
-int RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)
+int KeyMap::RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)
 {
 	if (overriding_map == NULL)
 		return 1;
@@ -327,7 +327,7 @@ int RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)
 	return 0;
 }
 
-void DeregisterPlatformDefaultKeyMap(void)
+void KeyMap::DeregisterPlatformDefaultKeyMap(void)
 {
 	platform_keymap = NULL;
 	return;
