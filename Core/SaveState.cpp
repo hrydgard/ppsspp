@@ -231,9 +231,9 @@ namespace SaveState
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, state, &reason);
 				if(result)
-					osm.Show(s->T("LoadedState"), 2.0);
+					osm.Show(s->T("Loaded State"), 2.0);
 				else {
-					osm.Show(s->T(reason.c_str()), 2.0);
+					osm.Show(s->T(reason.c_str(), "Load savestate failed"), 2.0);
 				}
 				break;
 
@@ -243,9 +243,9 @@ namespace SaveState
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, state);
 				if(result)
-					osm.Show(s->T("SavedState"), 2.0);
+					osm.Show(s->T("Saved State"), 2.0);
 				else
-					osm.Show(s->T("SaveStateFailed"), 2.0);
+					osm.Show(s->T("Save State Failed"), 2.0);
 				break;
 
 			case SAVESTATE_VERIFY:
