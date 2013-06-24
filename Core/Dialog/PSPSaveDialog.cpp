@@ -536,6 +536,7 @@ int PSPSaveDialog::Update()
 	if (memcmp(Memory::GetPointer(requestAddr), &originalRequest, size) != 0) {
 		memset(&request, 0, sizeof(request));
 		Memory::Memcpy(&request, requestAddr, size);
+		Memory::Memcpy(&originalRequest, requestAddr, size);
 		param.SetPspParam(&request);
 	}
 
