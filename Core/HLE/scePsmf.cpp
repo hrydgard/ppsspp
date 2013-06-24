@@ -665,6 +665,12 @@ u32 scePsmfGetCurrentStreamNumber(u32 psmfStruct)
 	return psmf->currentStreamNum;
 }
 
+u32 scePsmfCheckEPMap(u32 psmfPlayer) 
+{
+	INFO_LOG(HLE, "scePsmfCheckEPMap(%08x)", psmfPlayer);
+	return 0;  // Should be okay according to JPCSP
+}
+
 u32 scePsmfGetEPWithId(u32 psmfStruct, int id, u32 outAddr)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
@@ -1147,7 +1153,7 @@ const HLEFunction scePsmf[] = {
 	{0x7491C438, WrapU_U<scePsmfGetNumberOfEPentries>, "scePsmfGetNumberOfEPentries"},
 	{0x0BA514E5, WrapU_UU<scePsmfGetVideoInfo>, "scePsmfGetVideoInfo"},
 	{0xA83F7113, WrapU_UU<scePsmfGetAudioInfo>, "scePsmfGetAudioInfo"},
-	{0x971A3A90, 0, "scePsmfCheckEPmap"},
+	{0x971A3A90, WrapU_U<scePsmfCheckEPMap>, "scePsmfCheckEPmap"},
 	{0x68d42328, WrapU_UU<scePsmfGetNumberOfSpecificStreams>, "scePsmfGetNumberOfSpecificStreams"},
 	{0x5b70fcc1, WrapU_UU<scePsmfQueryStreamOffset>, "scePsmfQueryStreamOffset"},
 	{0x9553cc91, WrapU_UU<scePsmfQueryStreamSize>, "scePsmfQueryStreamSize"},
