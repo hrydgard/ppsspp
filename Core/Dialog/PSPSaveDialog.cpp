@@ -45,12 +45,13 @@ int PSPSaveDialog::Init(int paramAddr)
 		ERROR_LOG(HLE,"A save request is already running !");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
-
-	int size = Memory::Read_U32(paramAddr);
-	memset(&request,0,sizeof(request));
-	// Only copy the right size to support different save request format
-	Memory::Memcpy(&request,paramAddr,size);
+	
 	requestAddr = paramAddr;
+	int size = Memory::Read_U32(requestAddr);
+	memset(&request, 0, sizeof(request));
+	// Only copy the right size to support different save request format
+	Memory::Memcpy(&request, requestAddr, size);
+	Memory::Memcpy(&originalRequest, requestAddr, size);
 
 	u32 retval = param.SetPspParam(&request);
 
@@ -532,7 +533,7 @@ int PSPSaveDialog::Update()
 	// Check if it has changed, reload it.
 	// TODO: Cut down on preloading?  This rebuilds the list from scratch.
 	int size = Memory::Read_U32(requestAddr);
-	if (memcmp(Memory::GetPointer(requestAddr), &request, size) != 0) {
+	if (memcmp(Memory::GetPointer(requestAddr), &originalRequest, size) != 0) {
 		memset(&request, 0, sizeof(request));
 		Memory::Memcpy(&request, requestAddr, size);
 		param.SetPspParam(&request);
@@ -963,7 +964,7 @@ int PSPSaveDialog::Update()
 	lastButtons = buttons;
 
 	if (status == SCE_UTILITY_STATUS_FINISHED)
-		Memory::Memcpy(requestAddr,&request,request.common.size);
+		Memory::Memcpy(requestAddr, &request, request.common.size);
 	
 	return 0;
 }
