@@ -216,7 +216,7 @@ void ChunkFile::writeWString(String str) {
 
 void ChunkFile::writeWString(const std::string &str) {
 	unsigned short *text;
-	int len=str.length();
+	size_t len = str.length();
 #ifdef UNICODE
 #error
 	text = str.c_str();
@@ -234,7 +234,7 @@ void ChunkFile::writeWString(const std::string &str) {
 }
 
 static void toUnicode(const std::string &str, uint16 *t) {
-	for (int i=0; i<(int)str.size(); i++) {
+	for (size_t i = 0; i < str.size(); i++) {
 		*t++ = str[i];
 	}
 	*t++ = '\0';

@@ -28,6 +28,7 @@ DrawBuffer::DrawBuffer() : count_(0), atlas(0) {
 	fontscaley = 1.0f;
 	inited_ = false;
 }
+
 DrawBuffer::~DrawBuffer() {
 	delete [] verts_;
 }
@@ -326,6 +327,7 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 
 	unsigned int cval;
 	float wacc = 0;
+	float maxX = 0.0f;
 	int lines = 1;
 	UTF8 utf(text);
 	while (true) {
@@ -333,6 +335,7 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 			break;
 		cval = utf.next();
 		if (cval == '\n') {
+			maxX = std::max(maxX, wacc);
 			wacc = 0;
 			lines++;
 			continue;
@@ -342,7 +345,7 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 			wacc += c->wx * fontscalex;
 		}
 	}
-	if (w) *w = wacc;
+	if (w) *w = std::max(wacc, maxX);
 	if (h) *h = atlasfont.height * fontscaley * lines;
 }
 
@@ -368,18 +371,32 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 // U+3040–U+309F Hiragana
 // U+30A0–U+30FF Katakana
 
+void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color, int align) {
+	if (align & ALIGN_HCENTER) {
+		x += w / 2;
+	} else if (align & ALIGN_RIGHT) {
+		x += w;
+	}
+	if (align & ALIGN_VCENTER) {
+		y += h / 2;
+	} else if (align & ALIGN_BOTTOM) {
+		y += h;
+	}
+
+	DrawText(font, text, x, y, color, align);
+}
 
 // ROTATE_* doesn't yet work right.
-void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int flags) {
+void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int align) {
 	const AtlasFont &atlasfont = *atlas->fonts[font];
 	unsigned int cval;
 	float w, h;
 	MeasureText(font, text, &w, &h);
-	if (flags) {
-		DoAlign(flags, &x, &y, &w, &h);
+	if (align) {
+		DoAlign(align, &x, &y, &w, &h);
 	}
 
-	if (flags & ROTATE_90DEG_LEFT) {
+	if (align & ROTATE_90DEG_LEFT) {
 		x -= atlasfont.ascend*fontscaley;
 		// y += h;
 	}
@@ -402,7 +419,7 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 		if (ch) {
 			const AtlasChar &c = *ch;
 			float cx1, cy1, cx2, cy2;
-			if (flags & ROTATE_90DEG_LEFT) {
+			if (align & ROTATE_90DEG_LEFT) {
 				cy1 = y - c.ox * fontscalex;
 				cx1 = x + c.oy * fontscaley;
 				cy2 = y - (c.ox + c.pw) * fontscalex;
@@ -419,7 +436,7 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 			V(cx1,	cy1, color, c.sx, c.sy);
 			V(cx2,	cy2, color, c.ex, c.ey);
 			V(cx1,	cy2, color, c.sx, c.ey);
-			if (flags & ROTATE_90DEG_LEFT)
+			if (align & ROTATE_90DEG_LEFT)
 				y -= c.wx * fontscalex;
 			else
 				x += c.wx * fontscalex;

@@ -82,19 +82,11 @@ public:
 	}
 	
 	~JsonReader() {
-		free(buffer_);
+		if (buffer_)
+			free(buffer_);
 	}
 	
-	void parse() {
-		char *error_pos;
-		char *error_desc;
-		int error_line;
-		root_ = json_parse((char *)buffer_, &error_pos, &error_desc, &error_line, &alloc_);
-		if (!root_) {
-			ELOG("Error at (%i): %s\n%s\n\n", error_line, error_desc, error_pos);
-		}
-	}
-
+	
 	bool ok() const { return root_ != 0; }
 
 	json_value *root() { return root_; }
@@ -105,6 +97,18 @@ public:
 	}
 
 private:
+	bool parse() {
+		char *error_pos;
+		char *error_desc;
+		int error_line;
+		root_ = json_parse((char *)buffer_, &error_pos, &error_desc, &error_line, &alloc_);
+		if (!root_) {
+			ELOG("Error at (%i): %s\n%s\n\n", error_line, error_desc, error_pos);
+			return false;
+		}
+		return true;
+	}
+
 	char *buffer_;
 	block_allocator alloc_;
 	json_value *root_;

@@ -20,7 +20,7 @@ class Buffer {
   char *Append(size_t length) { return Append((ssize_t)length); }
 
   // These work pretty much like you'd expect.
-  void Append(const char *str);  // str null-terminated. The null is not copied.
+	void Append(const char *str);  // str null-terminated. The null is not copied.
   void Append(const std::string &str);
 
   // Various types. Useful for varz etc. Appends a string representation of the
@@ -60,11 +60,12 @@ class Buffer {
   // Writes the entire buffer to the file descriptor. Also resets the
   // size to zero. On failure, data remains in buffer and nothing is
   // written.
-  bool Flush(int fd);
+	bool Flush(int fd);
+	bool FlushToFile(const char *filename);
   bool FlushSocket(uintptr_t sock);  // Windows portability
 
-  void ReadAll(int fd);
-  void Read(int fd, size_t sz);
+  bool ReadAll(int fd);
+  size_t Read(int fd, size_t sz);
 
   // Utilities. Try to avoid checking for size.
   size_t size() const { return data_.size(); }

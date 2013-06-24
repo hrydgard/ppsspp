@@ -3,7 +3,7 @@
 ///////////////////////////// WorkerThread
 
 WorkerThread::WorkerThread() : active(true), started(false) {
-	thread = new std::thread(bind(&WorkerThread::WorkFunc, this));
+	thread = new std::thread(std::bind(&WorkerThread::WorkFunc, this));
 	doneMutex.lock();
 	while(!started) { };
 }
@@ -17,7 +17,7 @@ WorkerThread::~WorkerThread() {
 	delete thread;
 }
 
-void WorkerThread::Process(const function<void()>& work) {
+void WorkerThread::Process(const std::function<void()>& work) {
 	mutex.lock();
 	work_ = work;
 	signal.notify_one();
@@ -56,7 +56,7 @@ void ThreadPool::StartWorkers() {
 	}
 }
 
-void ThreadPool::ParallelLoop(function<void(int,int)> loop, int lower, int upper) {
+void ThreadPool::ParallelLoop(std::function<void(int,int)> loop, int lower, int upper) {
 	mutex.lock();
 	StartWorkers();
 	int range = upper-lower;
@@ -66,7 +66,7 @@ void ThreadPool::ParallelLoop(function<void(int,int)> loop, int lower, int upper
 		int chunk = range/numThreads; 
 		int s = lower;
 		for(int i=0; i<numThreads-1; ++i) {
-			workers[i]->Process(bind(loop, s, s+chunk));
+			workers[i]->Process(std::bind(loop, s, s+chunk));
 			s+=chunk;
 		}
 		loop(s, upper);

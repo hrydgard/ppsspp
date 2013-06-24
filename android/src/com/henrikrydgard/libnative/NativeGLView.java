@@ -3,25 +3,20 @@ package com.henrikrydgard.libnative;
 // Touch- and sensor-enabled GLSurfaceView.
 // Supports simple multitouch and pressure.
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 import android.app.Activity;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.opengl.GLSurfaceView;
-import android.os.Build;
-import android.util.Log;
+// import android.os.Build;
+// import android.util.Log;
 import android.view.MotionEvent;
 
 public class NativeGLView extends GLSurfaceView implements SensorEventListener {
 	private static String TAG = "NativeGLView";
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
-	
-	
 	
 	public NativeGLView(NativeActivity activity) {
 		super(activity);
@@ -88,7 +83,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener {
 
 	// Sensor management
 	public void onAccuracyChanged(Sensor sensor, int arg1) {
-		Log.i(TAG, "onAccuracyChanged");
+		// Log.i(TAG, "onAccuracyChanged");
 	}
 
 	public void onSensorChanged(SensorEvent event) {

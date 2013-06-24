@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <algorithm>
+
 #include "base/logging.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/texture_atlas.h"
@@ -130,12 +132,19 @@ void TouchStick::update(InputState &input_state)
 			if (!dragging_[i])
 				goto skip;
 
-			// Clamp to a circle
-			float len = sqrtf(dx * dx + dy * dy);
-			if (len > 1.0f) {
-				dx /= len;
-				dy /= len;
-			}
+			// Do not clamp to a circle! The PSP has nearly square range!
+
+			// Old code to clamp to a circle
+			// float len = sqrtf(dx * dx + dy * dy);
+			// if (len > 1.0f) {
+			//	dx /= len;
+			//	dy /= len;
+			//}
+
+			// Still need to clamp to a square
+			dx = std::min(1.0f, std::max(-1.0f, dx));
+			dy = std::min(1.0f, std::max(-1.0f, dy));
+
 			if (stick_ == 0) {
 				input_state.pad_lstick_x = dx;
 				input_state.pad_lstick_y = -dy;
@@ -143,6 +152,7 @@ void TouchStick::update(InputState &input_state)
 				input_state.pad_rstick_x = dx;
 				input_state.pad_rstick_y = -dy;
 			}
+
 		} else {
 			dragging_[i] = false;
 		}

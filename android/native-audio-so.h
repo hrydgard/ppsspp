@@ -4,5 +4,5 @@
 
 typedef int (*AndroidAudioCallback)(short *buffer, int num_samples);
 
-typedef bool (*OpenSLWrap_Init_T)(AndroidAudioCallback cb);
+typedef bool (*OpenSLWrap_Init_T)(AndroidAudioCallback cb, int framesPerBuffer, int sampleRate);
 typedef void (*OpenSLWrap_Shutdown_T)();

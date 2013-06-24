@@ -1,3 +1,6 @@
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -13,6 +16,10 @@
 #ifdef _WIN32
 // Function Cross-Compatibility
 #define strcasecmp _stricmp
+
+void __ods__(const char *p) {
+	OutputDebugString(p);
+}
 #endif
 
 unsigned int parseHex(const char *_szValue)
@@ -203,4 +210,15 @@ void SplitString(const std::string& str, const char delim, std::vector<std::stri
 		output.push_back("");
 
 	output.pop_back();
+}
+
+std::string ReplaceAll(std::string result, const std::string& src, const std::string& dest)
+{
+	while(1)
+	{
+		const size_t pos = result.find(src);
+		if (pos == result.npos) break;
+		result.replace(pos, src.size(), dest);
+	}
+	return result;
 }

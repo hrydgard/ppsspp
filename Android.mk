@@ -16,8 +16,10 @@ LOCAL_SRC_FILES :=\
     base/colorutil.cpp \
     base/error_context.cpp \
     base/stringutil.cpp \
+    data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
+    ext/jpge/jpge.cpp \
     ext/sha1/sha1.cpp \
     ext/stb_image/stb_image.c \
     ext/stb_vorbis/stb_vorbis.c.arm \
@@ -32,6 +34,7 @@ LOCAL_SRC_FILES :=\
     file/zip_read.cpp \
     json/json_writer.cpp \
     i18n/i18n.cpp \
+	input/gesture_detector.cpp \
     math/math_util.cpp \
     math/curves.cpp \
     math/lin/aabb.cpp.arm \
@@ -42,6 +45,7 @@ LOCAL_SRC_FILES :=\
     midi/midi_input.cpp \
     net/http_client.cpp \
     net/resolve.cpp \
+    net/url.cpp \
     profiler/profiler.cpp \
     thread/threadutil.cpp \
     thread/prioritizedworkqueue.cpp \
@@ -59,7 +63,10 @@ LOCAL_SRC_FILES :=\
     image/zim_load.cpp \
     image/zim_save.cpp \
     image/png_load.cpp \
+    ui/view.cpp \
+    ui/viewgroup.cpp \
     ui/ui.cpp \
+    ui/ui_screen.cpp \
     ui/ui_context.cpp \
     ui/screen.cpp \
     ui/virtual_input.cpp \
@@ -67,7 +74,7 @@ LOCAL_SRC_FILES :=\
     util/text/utf8.cpp
 
 LOCAL_CFLAGS := -O3 -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
-LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11
+LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -frtti
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip
 

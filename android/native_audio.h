@@ -9,7 +9,8 @@
 // Do not call this if you have detected that the android version is below
 // 2.2, as it will fail miserably.
 
-bool AndroidAudio_Init(AndroidAudioCallback cb, std::string libraryDir);
+// It's okay for optimalFramesPerBuffer and optimalSampleRate to be 0. Defaults will be used.
+bool AndroidAudio_Init(AndroidAudioCallback cb, std::string libraryDir, int optimalFramesPerBuffer, int optimalSampleRate);
 bool AndroidAudio_Pause();
 bool AndroidAudio_Resume();
 void AndroidAudio_Shutdown();

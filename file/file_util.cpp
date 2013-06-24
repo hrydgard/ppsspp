@@ -171,11 +171,13 @@ bool getFileInfo(const char *path, FileInfo *fileInfo)
 	if (!GetFileAttributesExA(path, GetFileExInfoStandard, &attrs)) {
 		fileInfo->size = 0;
 		fileInfo->isDirectory = false;
+		fileInfo->exists = false;
 		return false;
 	}
 	fileInfo->size = (uint64_t)attrs.nFileSizeLow | ((uint64_t)attrs.nFileSizeHigh << 32);
 	fileInfo->isDirectory = (attrs.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 	fileInfo->isWritable = (attrs.dwFileAttributes & FILE_ATTRIBUTE_READONLY) == 0;
+	fileInfo->exists = true;
 #else
 	struct stat64 file_info;
 
@@ -186,12 +188,14 @@ bool getFileInfo(const char *path, FileInfo *fileInfo)
 
 	if (result < 0) {
 		WLOG("IsDirectory: stat failed on %s", path);
+		fileInfo->exists = false;
 		return false;
 	}
 
 	fileInfo->isDirectory = S_ISDIR(file_info.st_mode);
 	fileInfo->isWritable = false;
 	fileInfo->size = file_info.st_size;
+	fileInfo->exists = true;
 	// HACK: approximation
 	if (file_info.st_mode & 0200)
 		fileInfo->isWritable = true;
@@ -270,6 +274,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 		info.fullName = std::string(directory) + "/" + virtualName;
 		info.isDirectory = isDirectory(info.fullName);
 		info.exists = true;
+		info.size = 0;
 		if (!info.isDirectory) {
 			std::string ext = getFileExtension(info.fullName);
 			if (filter) {
@@ -303,13 +308,25 @@ void deleteFile(const char *file)
 	}
 #endif
 }
+
+void deleteDir(const char *dir)
+{
+#ifdef _WIN32
+	if (!RemoveDirectory(dir)) {
+		ELOG("Error deleting directory %s: %i", dir, GetLastError());
+	}
+#else
+	rmdir(dir);
+#endif
+}
+
 #endif
 
 std::string getDir(const std::string &path)
 {
 	if (path == "/")
 		return path;
-	int n = path.size() - 1;
+	int n = (int)path.size() - 1;
 	while (n >= 0 && path[n] != '\\' && path[n] != '/')
 		n--;
 	std::string cutpath = n > 0 ? path.substr(0, n) : "";
@@ -323,6 +340,14 @@ std::string getDir(const std::string &path)
 	}
 #endif
 	return cutpath;
+}
+
+std::string getFilename(std::string path) {
+	size_t off = getDir(path).size() + 1;
+	if (off < path.size())
+		return path.substr(off);
+	else
+		return path;
 }
 
 void mkDir(const std::string &path)

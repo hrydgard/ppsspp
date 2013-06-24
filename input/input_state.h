@@ -29,6 +29,11 @@ enum {
 
 	PAD_BUTTON_LEFT_THUMB = 1 << 18,   // Click left thumb stick on X360
 	PAD_BUTTON_RIGHT_THUMB = 1 << 19,   // Click right thumb stick on X360
+
+	PAD_BUTTON_LEFT_TRIGGER = 1 << 21,   // Click left thumb stick on X360
+	PAD_BUTTON_RIGHT_TRIGGER = 1 << 22,   // Click left thumb stick on X360
+
+	PAD_BUTTON_UNTHROTTLE = 1 << 20, // Click Tab to unthrottle
 };
 
 #ifndef MAX_POINTERS
@@ -88,3 +93,23 @@ inline void UpdateInputState(InputState *input) {
 inline void EndInputState(InputState *input) {
 	input->pad_last_buttons = input->pad_buttons;
 }
+
+enum {
+	TOUCH_MOVE = 1,
+	TOUCH_DOWN = 2,
+	TOUCH_UP = 4,
+	TOUCH_CANCEL = 8,  // Sent by scrollviews to their children when they detect a scroll
+	TOUCH_WHEEL = 16,  // Scrollwheel event. Usually only affects Y.
+};
+
+// Used for asynchronous touch input.
+// DOWN is always on its own. 
+// MOVE and UP can be combined.
+struct TouchInput {
+	float x;
+	float y;
+	int id;  // can be relied upon to be 0...MAX_POINTERS
+	int flags;
+	double timestamp;
+};
+

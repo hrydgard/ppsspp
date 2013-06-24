@@ -29,14 +29,14 @@ public:
 
 	void writeInt(int i);
 	void writeChar(char i);
-	int	write(const void *data, int size);
+	int	write(const void *data, size_t size);
 	void write(const std::string &str) {
 		write((void *)str.data(), str.size());
 	}
 
 	int	readInt();
 	char readChar();
-	int	read(void *data, int size);
+	int	read(void *data, size_t size);
 
 	std::string readAll();
 

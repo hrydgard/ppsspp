@@ -28,14 +28,17 @@
 #include "image/zim_save.h"
 
 #include "kanjifilter.h"
-// ShiftJIS perfect support case.
-// #define USE_KANJI KANJI_STANDARD | KANJI_RARELY_USED | KANJI_LEVEL4
+// extracted only JIS Kanji on the CJK Unified Ideographs of UCS2. Cannot reading BlockAllocator. (texture size over)
+//#define USE_KANJI KANJI_STANDARD | KANJI_RARELY_USED | KANJI_LEVEL4
 // daily-use character only. However, it is too enough this.
-// #define USE_KANJI KANJI_STANDARD
+//#define USE_KANJI KANJI_STANDARD (texture size over)
+// Shift-JIS filtering. (texture size over)
+//#define USE_KANJI KANJI_SJIS_L1 | KANJI_SJIS_L2
 // more conpact daily-use character. but, not enough this.
 // if when you find the unintelligible sequence of characters,
 // add kanjiFilter Array with KANJI_LEARNING_ORDER_ADDTIONAL.
 #define USE_KANJI KANJI_LEARNING_ORDER_ALL
+
 #include "util/text/utf8.h"
 
 #define CHECK(x) if (!(x)) { printf("%i: CHECK failed on this line\n", __LINE__); exit(1); }
@@ -707,7 +710,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 		case 'W':  // Latin-1 extras 1
 			ranges.push_back(range(0x80, 0x80));  // euro sign
 			ranges.push_back(range(0xA2, 0xFF));  // 80 - A0 appears to contain nothing interesting
-			ranges.push_back(range(0x2122, 0x2122));  // trademark symbol 
+			ranges.push_back(range(0x2121, 0x2122));  // TEL symbol and trademark symbol 
 			break;
 		case 'E':  // Latin-1 Extended A (needed for Hungarian etc)
 			ranges.push_back(range(0x100, 0x17F));
@@ -729,6 +732,9 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			                                         // Mathematical Operators, Miscellaneous Technical
 			ranges.push_back(range(0x2500, 0x254B)); // Box drawing
 			ranges.push_back(range(0x25A0, 0x266F)); //  Geometric Shapes,  Miscellaneous Symbols
+			ranges.push_back(range(0x3231, 0x3231)); // Co,.Ltd. symbol
+			ranges.push_back(range(0x2116, 0x2116)); // "No." symbol
+			ranges.push_back(range(0x33CD, 0x33CD)); // "K.K." symbol
 		case 'H':  // Hebrew
 			ranges.push_back(range(0x0590, 0x05FF));
 			break;
@@ -801,7 +807,7 @@ int main(int argc, char **argv) {
 			char fontfile[256];
 			char locales[256];
 			int pixheight;
-			float vertOffset;
+			float vertOffset = 0;
 			sscanf(rest, "%s %s %s %i %f", fontname, fontfile, locales, &pixheight, &vertOffset);
 			printf("Font: %s (%s) in size %i. Locales: %s\n", fontname, fontfile, pixheight, locales);
 

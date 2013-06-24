@@ -2,7 +2,8 @@ package com.henrikrydgard.libnative;
 
 public class NativeApp {
 	public static native void init(int xxres, int yyres, int dpi, String apkPath, String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
-
+	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
+	
 	public static native boolean isLandscape();
 
 	public static native boolean isAtTopLevel();
@@ -18,10 +19,11 @@ public class NativeApp {
 
 	public static native void keyUp(int key);
 
-	public static native void joystickEvent(float x, float y);
+	public static native void joystickEvent(int stick, float x, float y);
+	public static native void mouseWheelEvent(float x, float y);
 
 	// will only be called between init() and shutdown()
-	public static native void audioRender(short[] buffer);
+	public static native int audioRender(short[] buffer);
 
 	// Sensor/input data. These are asynchronous, beware!
 	public static native void touch(float x, float y, int data, int pointerId);

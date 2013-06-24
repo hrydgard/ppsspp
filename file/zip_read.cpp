@@ -96,7 +96,7 @@ bool ZipAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *lis
 		const char* name = zip_get_name(zip_file_, i, 0);
 		if (!name)
 			continue;
-		ILOG("Comparing %s %s %i", name, path, pathlen);
+		// ILOG("Comparing %s %s %i", name, path, pathlen);
 		if (!memcmp(name, path, pathlen)) {
 			// The prefix is right. Let's see if this is a file or path.
 			char *slashPos = strchr(name + pathlen + 1, '/');
@@ -164,7 +164,7 @@ bool ZipAssetReader::GetFileInfo(const char *path, FileInfo *info) {
 #endif
 
 uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
-	char new_path[256] = {0};
+	char new_path[1024] = {0};
 	// Check if it already contains the path
 	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
 	}
@@ -177,7 +177,7 @@ uint8_t *DirectoryAssetReader::ReadAsset(const char *path, size_t *size) {
 
 bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
 {
-	char new_path[256] = {0};
+	char new_path[1024] = {0};
 	// Check if it already contains the path
 	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
 	}
@@ -202,7 +202,7 @@ bool DirectoryAssetReader::GetFileListing(const char *path, std::vector<FileInfo
 
 bool DirectoryAssetReader::GetFileInfo(const char *path, FileInfo *info) 
 {
-	char new_path[256] = {0};
+	char new_path[1024] = {0};
 	// Check if it already contains the path
 	if (strlen(path) > strlen(path_) && 0 == memcmp(path, path_, strlen(path_))) {
 	}
@@ -236,9 +236,9 @@ void VFSShutdown() {
 }
 
 uint8_t *VFSReadFile(const char *filename, size_t *size) {
-	int fn_len = strlen(filename);
+	int fn_len = (int)strlen(filename);
 	for (int i = 0; i < num_entries; i++) {
-		int prefix_len = strlen(entries[i].prefix);
+		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(filename, entries[i].prefix, prefix_len)) {
 			ILOG("Prefix match: %s (%s) -> %s", entries[i].prefix, filename, filename + prefix_len);
@@ -256,9 +256,9 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 
 bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter)
 {
-	int fn_len = strlen(path);
+	int fn_len = (int)strlen(path);
 	for (int i = 0; i < num_entries; i++) {
-		int prefix_len = strlen(entries[i].prefix);
+		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
 			if (entries[i].reader->GetFileListing(path + prefix_len, listing, filter))
@@ -273,9 +273,9 @@ bool VFSGetFileListing(const char *path, std::vector<FileInfo> *listing, const c
 
 bool VFSGetFileInfo(const char *path, FileInfo *info)
 {
-	int fn_len = strlen(path);
+	int fn_len = (int)strlen(path);
 	for (int i = 0; i < num_entries; i++) {
-		int prefix_len = strlen(entries[i].prefix);
+		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
 			return entries[i].reader->GetFileInfo(path + prefix_len, info);

@@ -79,6 +79,10 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -96,6 +100,9 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -117,6 +124,8 @@
       <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -140,6 +149,8 @@
       <AdditionalIncludeDirectories>..\zlib;..\ext\zlib;..\native;..\RollerballGL;..\native\ext\glew;..\SDL\include;..\libpng;%(AdditionalIncludeDirectories);</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -161,6 +172,7 @@
     <None Include="ui\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="android\app-android.h" />
     <ClInclude Include="android\native-audio-so.h" />
     <ClInclude Include="android\native_audio.h" />
     <ClInclude Include="audio\mixer.h" />
@@ -173,6 +185,7 @@
     <ClInclude Include="base\display.h" />
     <ClInclude Include="base\error_context.h" />
     <ClInclude Include="base\fastlist.h" />
+    <ClInclude Include="base\functional.h" />
     <ClInclude Include="base\linked_ptr.h" />
     <ClInclude Include="base\logging.h" />
     <ClInclude Include="base\mutex.h" />
@@ -181,9 +194,11 @@
     <ClInclude Include="base\stats.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
+    <ClInclude Include="data\compression.h" />
     <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\cityhash\city.h" />
     <ClInclude Include="ext\cityhash\citycrc.h" />
+    <ClInclude Include="ext\jpge\jpge.h" />
     <ClInclude Include="ext\rg_etc1\rg_etc1.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
     <ClInclude Include="ext\stb_image\stb_image.h" />
@@ -215,8 +230,8 @@
     <ClInclude Include="input\gesture_detector.h" />
     <ClInclude Include="input\input_state.h" />
     <ClInclude Include="json\json_writer.h" />
-    <ClInclude Include="math\compression.h" />
     <ClInclude Include="math\curves.h" />
+    <ClInclude Include="math\geom2d.h" />
     <ClInclude Include="math\lin\aabb.h" />
     <ClInclude Include="math\lin\matrix4x4.h" />
     <ClInclude Include="math\lin\plane.h" />
@@ -226,6 +241,7 @@
     <ClInclude Include="midi\midi_input.h" />
     <ClInclude Include="net\http_client.h" />
     <ClInclude Include="net\resolve.h" />
+    <ClInclude Include="net\url.h" />
     <ClInclude Include="profiler\profiler.h" />
     <ClInclude Include="thread\prioritizedworkqueue.h" />
     <ClInclude Include="thread\thread.h" />
@@ -234,6 +250,9 @@
     <ClInclude Include="ui\screen.h" />
     <ClInclude Include="ui\ui.h" />
     <ClInclude Include="ui\ui_context.h" />
+    <ClInclude Include="ui\ui_screen.h" />
+    <ClInclude Include="ui\view.h" />
+    <ClInclude Include="ui\viewgroup.h" />
     <ClInclude Include="ui\virtual_input.h" />
     <ClInclude Include="util\bits\bits.h" />
     <ClInclude Include="util\random\perlin.h" />
@@ -280,6 +299,7 @@
     </ClCompile>
     <ClCompile Include="base\stringutil.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
+    <ClCompile Include="data\compression.cpp" />
     <ClCompile Include="ext\cityhash\city.cpp">
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</IntrinsicFunctions>
@@ -302,6 +322,7 @@
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Default</BasicRuntimeChecks>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="ext\jpge\jpge.cpp" />
     <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
     <ClCompile Include="ext\stb_image\stb_image.c" />
@@ -341,6 +362,7 @@
     <ClCompile Include="midi\midi_input.cpp" />
     <ClCompile Include="net\http_client.cpp" />
     <ClCompile Include="net\resolve.cpp" />
+    <ClCompile Include="net\url.cpp" />
     <ClCompile Include="profiler\profiler.cpp" />
     <ClCompile Include="thread\prioritizedworkqueue.cpp" />
     <ClCompile Include="thread\threadpool.cpp" />
@@ -348,6 +370,9 @@
     <ClCompile Include="ui\screen.cpp" />
     <ClCompile Include="ui\ui.cpp" />
     <ClCompile Include="ui\ui_context.cpp" />
+    <ClCompile Include="ui\ui_screen.cpp" />
+    <ClCompile Include="ui\view.cpp" />
+    <ClCompile Include="ui\viewgroup.cpp" />
     <ClCompile Include="ui\virtual_input.cpp" />
     <ClCompile Include="util\bits\bits.cpp" />
     <ClCompile Include="util\random\perlin.cpp">

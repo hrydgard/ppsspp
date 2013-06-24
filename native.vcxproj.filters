@@ -131,9 +131,6 @@
     <ClInclude Include="file\file_util.h">
       <Filter>file</Filter>
     </ClInclude>
-    <ClInclude Include="math\compression.h">
-      <Filter>math</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\vertex_format.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -254,6 +251,29 @@
     <ClInclude Include="thread\threadpool.h">
       <Filter>thread</Filter>
     </ClInclude>
+    <ClInclude Include="ui\view.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\viewgroup.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="math\geom2d.h">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="net\url.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="base\functional.h">
+      <Filter>base</Filter>
+    </ClInclude>
+    <ClInclude Include="ui\ui_screen.h">
+      <Filter>ui</Filter>
+    </ClInclude>
+    <ClInclude Include="data\compression.h">
+      <Filter>data</Filter>
+    </ClInclude>
+    <ClInclude Include="android\app-android.h" />
+    <ClInclude Include="ext\jpge\jpge.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -450,6 +470,22 @@
     <ClCompile Include="thread\threadpool.cpp">
       <Filter>thread</Filter>
     </ClCompile>
+    <ClCompile Include="ui\view.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\viewgroup.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="net\url.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\ui_screen.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="data\compression.cpp">
+      <Filter>data</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\jpge\jpge.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

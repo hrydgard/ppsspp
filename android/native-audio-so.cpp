@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 
 // for native audio
 #include <SLES/OpenSLES.h>
@@ -29,12 +30,11 @@ static SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue;
 static SLMuteSoloItf bqPlayerMuteSolo;
 static SLVolumeItf bqPlayerVolume;
 
-#define BUFFER_SIZE 512
-#define BUFFER_SIZE_IN_SAMPLES (BUFFER_SIZE / 2)
-
 // Double buffering.
-static short buffer[2][BUFFER_SIZE];
+static short *buffer[2];
 static int curBuffer = 0;
+static int framesPerBuffer;
+int sampleRate;
 
 static AndroidAudioCallback audioCallback;
 
@@ -43,27 +43,43 @@ static AndroidAudioCallback audioCallback;
 // I've chosen to this approach: Instantly enqueue a buffer that was rendered to the last time,
 // and then render the next. Hopefully it's okay to spend time in this callback after having enqueued. 
 static void bqPlayerCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
-	assert(bq == bqPlayerBufferQueue);
-	assert(NULL == context);
+	if (bq != bqPlayerBufferQueue) {
+		ELOG("Wrong bq!");
+		return;
+	}
 
-	short *nextBuffer = buffer[curBuffer];
-	int nextSize = sizeof(buffer[0]);
+	int renderedFrames = audioCallback(buffer[curBuffer], framesPerBuffer);
 
-	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, nextBuffer, nextSize);
+	int sizeInBytes = framesPerBuffer * 2 * sizeof(short);
+	memset(buffer[curBuffer] + renderedFrames * 2, 0, (framesPerBuffer - renderedFrames) * 4);
+	SLresult result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeInBytes);
 
 	// Comment from sample code:
 	// the most likely other result is SL_RESULT_BUFFER_INSUFFICIENT,
 	// which for this code example would indicate a programming error
-	assert(SL_RESULT_SUCCESS == result);
+	if (result != SL_RESULT_SUCCESS) {
+		ELOG("OpenSL ES: Failed to enqueue! %i %i", renderedFrames, sizeInBytes);
+	}
 
 	curBuffer ^= 1;	// Switch buffer
-	// Render to the fresh buffer
-	audioCallback(buffer[curBuffer], BUFFER_SIZE_IN_SAMPLES);
 }
 
 // create the engine and output mix objects
-extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb) {
+extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate) {
 	audioCallback = cb;
+	framesPerBuffer = _FramesPerBuffer;
+	if (framesPerBuffer == 0)
+		framesPerBuffer = 256;
+	if (framesPerBuffer < 32)
+		framesPerBuffer = 32;
+	sampleRate = _SampleRate;
+	if (sampleRate != 44100 && sampleRate != 48000) {
+		ELOG("Invalid sample rate %i - choosing 44100", sampleRate);
+		sampleRate = 44100;
+	}
+
+	buffer[0] = new short[framesPerBuffer * 2];
+	buffer[1] = new short[framesPerBuffer * 2];
 
 	SLresult result;
 	// create engine
@@ -78,11 +94,16 @@ extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb) {
 	result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
 	assert(SL_RESULT_SUCCESS == result);
 
+	int sr = SL_SAMPLINGRATE_44_1;
+	if (sampleRate == 48000) {
+		sr = SL_SAMPLINGRATE_48;
+	}
+
 	SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
 	SLDataFormat_PCM format_pcm = {
 		SL_DATAFORMAT_PCM,
 		2,
-		SL_SAMPLINGRATE_44_1,
+		sr,
 		SL_PCMSAMPLEFORMAT_FIXED_16,
 		SL_PCMSAMPLEFORMAT_FIXED_16,
 		SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT,
@@ -117,7 +138,7 @@ extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb) {
 
 	// Render and enqueue a first buffer. (or should we just play the buffer empty?)
 	curBuffer = 0;
-	audioCallback(buffer[curBuffer], BUFFER_SIZE_IN_SAMPLES);
+	audioCallback(buffer[curBuffer], framesPerBuffer);
 
 	result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeof(buffer[curBuffer]));
 	if (SL_RESULT_SUCCESS != result) {
@@ -129,6 +150,13 @@ extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb) {
 
 // shut down the native audio system
 extern "C" void OpenSLWrap_Shutdown() {
+	SLresult result;
+	ILOG("OpenSLWrap_Shutdown - stopping playback");
+	result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_STOPPED);
+	assert(SL_RESULT_SUCCESS == result);
+
+	ILOG("OpenSLWrap_Shutdown - deleting player object");
+
 	if (bqPlayerObject != NULL) {
 		(*bqPlayerObject)->Destroy(bqPlayerObject);
 		bqPlayerObject = NULL;
@@ -137,13 +165,23 @@ extern "C" void OpenSLWrap_Shutdown() {
 		bqPlayerMuteSolo = NULL;
 		bqPlayerVolume = NULL;
 	}
+
+	ILOG("OpenSLWrap_Shutdown - deleting mix object");
+
 	if (outputMixObject != NULL) {
 		(*outputMixObject)->Destroy(outputMixObject);
 		outputMixObject = NULL;
 	}
+
+	ILOG("OpenSLWrap_Shutdown - deleting engine object");
+
 	if (engineObject != NULL) {
 		(*engineObject)->Destroy(engineObject);
 		engineObject = NULL;
 		engineEngine = NULL;
 	}
-}
+	delete [] buffer[0];
+	delete [] buffer[1];
+	ILOG("OpenSLWrap_Shutdown - finished");
+}	
+

@@ -10,7 +10,10 @@ public class NativeAudioPlayer {
 	private String TAG = "NativeAudioPlayer";
 	private Thread thread;
 	private boolean playing_;
-
+	
+	public NativeAudioPlayer() {
+	}
+	
 	// Calling stop() is allowed at any time, whether stopped or not.
 	// If playing, blocks until not.
 	public synchronized void stop() {
@@ -81,8 +84,11 @@ public class NativeAudioPlayer {
 			audioTrack.play();
 			Log.i(TAG, "Playing... minBuffersize = " + buffer_size);
 			while (playing_) {
-				NativeApp.audioRender(buffer);
-				audioTrack.write(buffer, 0, buffer_size);
+				int validShorts = NativeApp.audioRender(buffer);
+				if (validShorts != 0) {
+					audioTrack.write(buffer, 0, validShorts);
+				}
+				Thread.yield();
 			}
 			audioTrack.stop();
 			audioTrack.release();

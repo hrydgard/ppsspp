@@ -1,19 +1,26 @@
-	#include "net/resolve.h"
+#include "net/resolve.h"
+#include "base/logging.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 
 
-#ifndef _WIN32
-#include <arpa/inet.h>
-#include <netdb.h>	// gethostbyname
-#include <sys/socket.h>
-#else
+#ifdef _WIN32
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 #undef min
 #undef max
+#else
+#if defined(__FreeBSD__) || defined(__SYMBIAN32__)
+#include <netinet/in.h>
+#else
+#include <arpa/inet.h>
+#endif
+#include <netdb.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 
@@ -22,6 +29,7 @@ namespace net {
 void Init()
 {
 #ifdef _WIN32
+	// WSA does its own internal reference counting, no need to keep track of if we inited or not.
 	WSADATA wsaData = {0};
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
 #endif
@@ -49,6 +57,7 @@ char *DNSResolveTry(const char *host, const char **err)
 	if (iptoa == NULL)
 	{
 		*err = "Can't resolve host";
+		free(ip);
 		return NULL;
 	}
 	strncpy(ip, iptoa, iplen);
@@ -65,6 +74,54 @@ char *DNSResolve(const char *host)
 		exit(1);
 	}
 	return ip;
+}
+
+bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error)
+{
+	addrinfo hints = {0};
+	// TODO: Might be uses to lookup other values.
+	hints.ai_socktype = SOCK_STREAM;
+#ifdef BLACKBERRY
+	hints.ai_flags = 0;
+#elif ANDROID
+	hints.ai_flags = AI_ADDRCONFIG;
+#else
+	// AI_V4MAPPED seems to have issues on some platforms, not sure we should include it:
+	// http://stackoverflow.com/questions/1408030/what-is-the-purpose-of-the-ai-v4mapped-flag-in-getaddrinfo
+	hints.ai_flags = /*AI_V4MAPPED |*/ AI_ADDRCONFIG;
+#endif
+	hints.ai_protocol = IPPROTO_TCP;
+
+	const char *servicep = service.length() == 0 ? NULL : service.c_str();
+
+	*res = NULL;
+	int result = getaddrinfo(host.c_str(), servicep, &hints, res);
+	if (result == EAI_AGAIN)
+	{
+		// Temporary failure.  Since this already blocks, let's just try once more.
+#ifdef _WIN32
+		Sleep(1);
+#else
+		sleep(1);
+#endif
+		result = getaddrinfo(host.c_str(), servicep, &hints, res);
+	}
+
+	if (result != 0)
+	{
+		error = gai_strerror(result);
+		if (*res != NULL)
+			freeaddrinfo(*res);
+		*res = NULL;
+		return false;
+	}
+
+	return true;
+}
+
+void DNSResolveFree(addrinfo *res)
+{
+	freeaddrinfo(res);
 }
 
 int inet_pton(int af, const char* src, void* dst)

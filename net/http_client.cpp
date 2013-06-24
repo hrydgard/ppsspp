@@ -17,17 +17,22 @@
 #include "base/logging.h"
 #include "base/buffer.h"
 #include "base/stringutil.h"
+#include "data/compression.h"
 #include "net/resolve.h"
+#include "net/url.h"
+
 // #include "strings/strutil.h"
 
 namespace net {
 
 Connection::Connection() 
-		: port_(-1), sock_(-1) {
+		: port_(-1), sock_(-1), resolved_(NULL) {
 }
 
 Connection::~Connection() {
 	Disconnect();
+	if (resolved_ != NULL)
+		DNSResolveFree(resolved_);
 }
 
 // For whatever crazy reason, htons isn't available on android x86 on the build server. so here we go.
@@ -38,58 +43,60 @@ inline unsigned short myhtons(unsigned short x) {
 }
 
 bool Connection::Resolve(const char *host, int port) {
-	CHECK_EQ(-1, (intptr_t)sock_);
+	if ((intptr_t)sock_ != -1) {
+		ELOG("Resolve: Already have a socket");
+		return false;
+	}
+
 	host_ = host;
 	port_ = port;
 
-	const char *err;
-	const char *ip = net::DNSResolveTry(host, &err);
-	if (ip == NULL) {
-		ELOG("Failed to resolve host %s", host);
+	char port_str[10];
+	snprintf(port_str, sizeof(port_str), "%d", port);
+	
+	std::string err;
+	if (!net::DNSResolve(host, port_str, &resolved_, err)) {
+		ELOG("Failed to resolve host %s: %s", host, err.c_str());
 		// So that future calls fail.
 		port_ = 0;
 		return false;
 	}
-	// VLOG(1) << "Resolved " << host << " to " << ip;
-	remote_.sin_family = AF_INET;
-	int tmpres = net::inet_pton(AF_INET, ip, (void *)(&(remote_.sin_addr.s_addr)));
-	CHECK_GE(tmpres, 0);	// << "inet_pton failed";
-	CHECK_NE(0, tmpres);	// << ip << " not a valid IP address";
-	remote_.sin_port = myhtons(port);
-	free((void *)ip);
+
 	return true;
 }
 
-void Connection::Connect() {
+bool Connection::Connect() {
 	CHECK_GE(port_, 0);
 	sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	CHECK_GE(sock_, 0);
+	if ((intptr_t)sock_ < 0) {
+		ELOG("Bad socket");
+		return false;
+	}
 
-	// poll once per second.. should find a way to do this blocking.
-	int retval = -1;
-	while (retval < 0) {
-		retval = connect(sock_, (sockaddr *)&remote_, sizeof(struct sockaddr));
-		if (retval >= 0) break;
+	for (int tries = 100; tries > 0; --tries) {
+		for (addrinfo *possible = resolved_; possible != NULL; possible = possible->ai_next) {
+			// TODO: Could support ipv6 without huge difficulty...
+			if (possible->ai_family != AF_INET)
+				continue;
+
+			int retval = connect(sock_, possible->ai_addr, (int)possible->ai_addrlen);
+			if (retval >= 0)
+				return true;
+		}
 #ifdef _WIN32
 		Sleep(1);
 #else
 		sleep(1);
 #endif
 	}
+	return false;
 }
 
 void Connection::Disconnect() {
 	if ((intptr_t)sock_ != -1) {
 		closesocket(sock_);
 		sock_ = -1;
-	} else {
-		WLOG("Socket was already disconnected.");
 	}
-}
-
-void Connection::Reconnect() {
-	Disconnect();
-	Connect();
 }
 
 }	// net
@@ -97,26 +104,104 @@ void Connection::Reconnect() {
 namespace http {
 
 Client::Client() {
+
 }
+
 Client::~Client() {
+	Disconnect();
 }
 
-#define USERAGENT "METAGET 1.0"
+// TODO: do something sane here
+#define USERAGENT "NATIVEAPP 1.0"
 
-void Client::GET(const char *resource, Buffer *output) {
+
+void DeChunk(Buffer *inbuffer, Buffer *outbuffer) {
+	while (true) {
+		std::string line;
+		inbuffer->TakeLineCRLF(&line);
+		if (!line.size())
+			return;
+		int chunkSize;
+		sscanf(line.c_str(), "%x", &chunkSize);
+		if (chunkSize) {
+			std::string data;
+			inbuffer->Take(chunkSize, &data);
+			outbuffer->Append(data);
+		} else {
+			// a zero size chunk should mean the end.
+			inbuffer->clear();
+			return;
+		}
+		inbuffer->Skip(2);
+	}
+}
+
+int Client::GET(const char *resource, Buffer *output) {
 	Buffer buffer;
-	const char *tpl = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: " USERAGENT "\r\n\r\n";
+	const char *tpl =
+		"GET %s HTTP/1.1\r\n"
+		"Host: %s\r\n"
+		"User-Agent: " USERAGENT "\r\n"
+		"Accept: */*\r\n"
+		"Accept-Encoding: gzip\r\n"
+		"Connection: close\r\n"
+		"\r\n";
+
 	buffer.Printf(tpl, resource, host_.c_str());
-	CHECK(buffer.FlushSocket(sock()));
+	bool flushed = buffer.FlushSocket(sock());
+	if (!flushed) {
+		return -1;  // TODO error code.
+	}
 
-	// Snarf all the data we can.
-	output->ReadAll(sock());
+	Buffer readbuf;
 
-	// Skip the header.
-	while (output->SkipLineCRLF() > 0)
-		;
+	// Snarf all the data we can into RAM. A little unsafe but hey.
+	if (!readbuf.ReadAll(sock()))
+		return -1;
 
-	// output now contains the rest of the reply.
+	// Grab the first header line that contains the http code.
+
+	// Skip the header. TODO: read HTTP code and file size so we can make progress bars.
+
+	std::string line;
+	readbuf.TakeLineCRLF(&line);
+	int code = atoi(&line[line.find(" ") + 1]);
+
+	bool gzip = false;
+	int contentLength = 0;
+	while (true) {
+		int sz = readbuf.TakeLineCRLF(&line);
+		if (!sz)
+			break;
+		if (startsWith(line, "Content-Length:")) {
+			contentLength = atoi(&line[16]);
+		} else if (startsWith(line, "Content-Encoding:")) {
+			if (line.find("gzip") != std::string::npos) {
+				gzip = true;
+			}
+		}
+	}
+
+	// output now contains the rest of the reply. Dechunk it.
+	DeChunk(&readbuf, output);
+
+	// If it's gzipped, we decompress it and put it back in the buffer.
+	if (gzip) {
+		std::string compressed;
+		output->TakeAll(&compressed);
+		// What is this garbage?
+		//if (compressed[0] == 0x8e)
+//			compressed = compressed.substr(4);
+		std::string decompressed;
+		bool result = decompress_string(compressed, &decompressed);
+		if (!result) {
+			ELOG("Error decompressing using zlib");
+			return -1;
+		}
+		output->Append(decompressed);
+	}
+
+	return code;
 }
 
 int Client::POST(const char *resource, const std::string &data, const std::string &mime, Buffer *output) {
@@ -128,7 +213,9 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 	}
 	buffer.Append("\r\n");
 	buffer.Append(data);
-	CHECK(buffer.FlushSocket(sock()));
+	if (!buffer.FlushSocket(sock())) {
+		ELOG("Failed posting");
+	}
 
 	// I guess we could add a deadline here.
 	output->ReadAll(sock());
@@ -148,7 +235,7 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 	// Tear off the http headers, leaving the actual response data.
 	std::string firstline;
 	CHECK_GT(output->TakeLineCRLF(&firstline), 0);
-	int code = atoi(&firstline[9]);	// ugggly hardcoding
+	int code = atoi(&firstline[9]);
 	//VLOG(1) << "HTTP result code: " << code;
 	while (true) {
 		int skipped = output->SkipLineCRLF();
@@ -161,6 +248,72 @@ int Client::POST(const char *resource, const std::string &data, const std::strin
 
 int Client::POST(const char *resource, const std::string &data, Buffer *output) {
 	return POST(resource, data, "", output);
+}
+
+Download::Download(const std::string &url, const std::string &outfile)
+	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false), resultCode_(0) {
+	std::thread th(std::bind(&Download::Do, this));
+	th.detach();
+}
+
+Download::~Download() {
+
+}
+
+void Download::Do() {
+	resultCode_ = 0;
+
+	Url fileUrl(url_);
+	if (!fileUrl.Valid()) {
+		failed_ = true;
+		progress_ = 1.0f;
+		return;
+	}
+	net::Init();
+
+	http::Client client;
+	if (!client.Resolve(fileUrl.Host().c_str(), 80)) {
+		ELOG("Failed resolving %s", url_.c_str());
+		failed_ = true;
+		progress_ = 1.0f;
+		net::Shutdown();
+		return;
+	}
+	if (!client.Connect()) {
+		ELOG("Failed connecting to server.");
+		resultCode_ = -1;
+		net::Shutdown();
+		progress_ = 1.0f;
+		return;
+	}
+	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_);
+	if (resultCode == 200) {
+		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.c_str());
+		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
+			ELOG("Failed writing download to %s", outfile_.c_str());
+		}
+	} else {
+		ELOG("Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
+	}
+	resultCode_ = resultCode;
+	net::Shutdown();
+	progress_ = 1.0f;
+}
+
+std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
+	std::shared_ptr<Download> dl(new Download(url, outfile));
+	downloads_.push_back(dl);
+	return dl;
+}
+
+void Downloader::Update() {
+	restart:
+	for (size_t i = 0; i < downloads_.size(); i++) {
+		if (downloads_[i]->Progress() == 1.0f || downloads_[i]->Failed()) {
+			downloads_.erase(downloads_.begin() + i);
+			goto restart;
+		}
+	}
 }
 
 }	// http

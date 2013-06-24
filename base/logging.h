@@ -11,6 +11,7 @@
 
 #undef Crash
 
+#include <stdio.h>
 // Logging
 #ifdef _WIN32
 
@@ -61,7 +62,17 @@ inline void Crash() {
 
 #else
 
+#ifdef _WIN32
+
+void __ods__(const char *p);
+
+#define ILOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "I: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "I: " __VA_ARGS__); p += sprintf(p, "\n"); __ods__(temp);}
+#define WLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "W: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "W: " __VA_ARGS__); p += sprintf(p, "\n"); __ods__(temp);}
+#define ELOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "E: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "E: " __VA_ARGS__); p += sprintf(p, "\n"); __ods__(temp);}
+#define FLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "F: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "F: " __VA_ARGS__); p += sprintf(p, "\n"); __ods__(temp); Crash();}
+
 // TODO: Win32 version using OutputDebugString
+#else
 
 #include <stdio.h>
 
@@ -70,6 +81,7 @@ inline void Crash() {
 #define ELOG(...) {printf("E: %s:%i: ", __FILE__, __LINE__); printf("E: " __VA_ARGS__); printf("\n");}
 #define FLOG(...) {printf("F: %s:%i: ", __FILE__, __LINE__); printf("F: " __VA_ARGS__); printf("\n"); Crash();}
 
+#endif
 #endif
 
 #undef CHECK

@@ -63,10 +63,14 @@ public:
 // Other simple string utilities.
 
 inline bool startsWith(const std::string &str, const std::string &what) {
+	if (str.size() < what.size())
+		return false;
 	return str.substr(0, what.size()) == what;
 }
 
 inline bool endsWith(const std::string &str, const std::string &what) {
+	if (str.size() < what.size())
+		return false;
   return str.substr(str.size() - what.size()) == what;
 }
 
@@ -127,6 +131,7 @@ static bool TryParse(const std::string &str, N *const output)
 }
 void SplitString(const std::string& str, const char delim, std::vector<std::string>& output);
 
+std::string ReplaceAll(std::string input, const std::string& src, const std::string& dest);
 
 template <typename N>
 static std::string ValueToString(const N value)

@@ -49,7 +49,7 @@ std::string LAMEFile::readAll() {
 	return s;
 }
 
-int LAMEFile::write(const void *data, int size) {
+int LAMEFile::write(const void *data, size_t size) {
 	if (isOpen) {
 		return fwrite(data, 1, size, file_); //we return the number of bytes that actually got written
 	} else {
@@ -57,7 +57,7 @@ int LAMEFile::write(const void *data, int size) {
 	}
 }
 
-int LAMEFile::read(void *data, int size) {
+int LAMEFile::read(void *data, size_t size) {
 	if (isOpen) {
 		return fread(data, 1, size, file_);
 	} else {
