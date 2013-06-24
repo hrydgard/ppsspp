@@ -18,6 +18,7 @@
 #include "input/input_state.h"
 #include "Core/Config.h"
 #include "KeyMap.h"
+#include "input/keyboard_keys.h"
 
 using namespace KeyMap;
 
@@ -220,7 +221,7 @@ static std::string FindName(int key, const KeyMap_IntStrPair list[], int size)
 	return unknown_key_name;
 }
 
-std::string KeyMap::GetKeyName(KeyMap::Key key)
+std::string KeyMap::GetKeyName(kb_key_t key)
 {
 	return FindName((int)key, key_names, key_names_count);
 }
@@ -272,7 +273,7 @@ static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 
 
 
-int KeyMap::KeyToPspButton(const KeyMap::Key key)
+int KeyMap::KeyToPspButton(const kb_key_t key)
 {
 	int search_start_layer = 0;
 	int psp_button;
@@ -283,13 +284,13 @@ int KeyMap::KeyToPspButton(const KeyMap::Key key)
 	return KEYMAP_ERROR_UNKNOWN_KEY;
 }
 
-bool KeyMap::IsMappedKey(Key key)
+bool KeyMap::IsMappedKey(kb_key_t key)
 {
 	return KeyMap::KeyToPspButton(key) != KEYMAP_ERROR_UNKNOWN_KEY;
 }
 
 
-std::string KeyMap::NamePspButtonFromKey(KeyMap::Key key)
+std::string KeyMap::NamePspButtonFromKey(kb_key_t key)
 {
 	return KeyMap::GetPspButtonName(KeyMap::KeyToPspButton(key));
 }
@@ -300,7 +301,7 @@ std::string KeyMap::NameKeyFromPspButton(int btn)
 	// with the list of key names.
 	for (int i = 0; i < key_names_count; i++) {
 		const struct KeyMap_IntStrPair key_name = key_names[i];
-		if (btn == KeyMap::KeyToPspButton((KeyMap::Key)(key_name.key)))
+		if (btn == KeyMap::KeyToPspButton((kb_key_t)(key_name.key)))
 			return key_name.name;
 	}
 
@@ -310,7 +311,7 @@ std::string KeyMap::NameKeyFromPspButton(int btn)
 	return unknown_key_name;
 }
 
-int KeyMap::SetKeyMapping(KeyMap::Key key, int btn)
+int KeyMap::SetKeyMapping(kb_key_t key, int btn)
 {
 	if (KeyMap::IsMappedKey(key))
 		return KEYMAP_ERROR_KEY_ALREADY_USED;

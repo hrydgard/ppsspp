@@ -19,6 +19,7 @@
 
 #include <string>
 #include <map>
+#include "input/keyboard_keys.h"
 
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
@@ -38,145 +39,13 @@
 // Then have KeyMap transform
 // those into psp buttons.
 namespace KeyMap {
-		enum Key {
-			// Lower class latin
-			KEY_q = 1, // top row
-			KEY_w,
-			KEY_e,
-			KEY_r,
-			KEY_t,
-			KEY_y,
-			KEY_u,
-			KEY_i,
-			KEY_o,
-			KEY_p,
-
-			KEY_a, // mid row
-			KEY_s,
-			KEY_d,
-			KEY_f,
-			KEY_g,
-			KEY_h,
-			KEY_j,
-			KEY_k,
-			KEY_l,
-
-			KEY_z, // low row
-			KEY_x,
-			KEY_c,
-			KEY_v,
-			KEY_b,
-			KEY_n,
-			KEY_m,
-
-			// Upper class latin
-			KEY_Q, // top row
-			KEY_W,
-			KEY_E,
-			KEY_R,
-			KEY_T,
-			KEY_Y,
-			KEY_U,
-			KEY_I,
-			KEY_O,
-			KEY_P,
-
-			KEY_A, // mid row
-			KEY_S,
-			KEY_D,
-			KEY_F,
-			KEY_G,
-			KEY_H,
-			KEY_J,
-			KEY_K,
-			KEY_L,
-
-			KEY_Z, // low row
-			KEY_X,
-			KEY_C,
-			KEY_V,
-			KEY_B,
-			KEY_N,
-			KEY_M,
-
-
-			// Numeric
-			KEY_1,
-			KEY_2,
-			KEY_3,
-			KEY_4,
-			KEY_5,
-			KEY_6,
-			KEY_7,
-			KEY_8,
-			KEY_9,
-			KEY_0,
-
-			// Special keys
-			KEY_ARROW_LEFT,
-			KEY_ARROW_RIGHT,
-			KEY_ARROW_UP,
-			KEY_ARROW_DOWN,
-
-			KEY_ANALOG_LEFT,
-			KEY_ANALOG_RIGHT,
-			KEY_ANALOG_UP,
-			KEY_ANALOG_DOWN,
-
-			KEY_ANALOG_ALT_LEFT,
-			KEY_ANALOG_ALT_RIGHT,
-			KEY_ANALOG_ALT_UP,
-			KEY_ANALOG_ALT_DOWN,
-
-			KEY_SPACE,
-			KEY_ENTER,
-			KEY_CTRL_LEFT,
-			KEY_CTRL_RIGHT,
-			KEY_SHIFT_LEFT,
-			KEY_SHIFT_RIGHT,
-			KEY_ALT_LEFT,
-			KEY_ALT_RIGHT,
-			KEY_BACKSPACE,
-			KEY_SUPER,
-			KEY_TAB,
-
-			// Mobile Keys
-			KEY_VOLUME_UP,
-			KEY_VOLUME_DOWN,
-			KEY_HOME,
-			KEY_CALL_START,
-			KEY_CALL_END,
-
-			// Special PPSSPP keys
-			KEY_FASTFORWARD,
-
-			// Extra keys
-			// Use for platform specific keys.
-			// Example: android's back btn
-			KEY_EXTRA1,
-			KEY_EXTRA2,
-			KEY_EXTRA3,
-			KEY_EXTRA4,
-			KEY_EXTRA5,
-			KEY_EXTRA6,
-			KEY_EXTRA7,
-			KEY_EXTRA8,
-			KEY_EXTRA9,
-			KEY_EXTRA0,
-
-			// TODO: Add any missing keys.
-			// Many can be found in the
-			// window's port's keyboard
-			// files.
-		};
-
 		// Use if you need to
 		// display the textual
 		// name 
 		// These functions are not
 		// fast, do not call them
 		// a million times.
-		std::string GetKeyName(Key);
+		std::string GetKeyName(kb_key_t);
 		std::string GetPspButtonName(int);
 
 		// Use if to translate
@@ -189,14 +58,14 @@ namespace KeyMap {
 		//
 		// Returns KEYMAP_ERROR_UNKNOWN_KEY
 		// for any unmapped key
-		int KeyToPspButton(Key);
+		int KeyToPspButton(kb_key_t);
 
-		bool IsMappedKey(Key);
+		bool IsMappedKey(kb_key_t);
 
 		// Might be usful if you want
 		// to provide hints to users
 		// upon mapping conflicts
-		std::string NamePspButtonFromKey(Key);
+		std::string NamePspButtonFromKey(kb_key_t);
 
 		// Use for showing the existing
 		// key mapping.
@@ -209,7 +78,7 @@ namespace KeyMap {
 		// 
 		// Returns KEYMAP_ERROR_KEY_ALREADY_USED
 		//  for mapping conflicts. 0 otherwise.
-		int SetKeyMapping(Key, int);
+		int SetKeyMapping(kb_key_t, int);
 
 		// Platform specific keymaps
 		// override KeyMap's defaults.
