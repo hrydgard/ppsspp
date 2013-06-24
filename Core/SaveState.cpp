@@ -31,6 +31,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/System.h"
 #include "UI/OnScreenDisplay.h"
+#include "i18n/i18n.h"
 
 namespace SaveState
 {
@@ -218,6 +219,9 @@ namespace SaveState
 		{
 			Operation &op = operations[i];
 			bool result;
+			std::string reason;
+
+			I18NCategory *s = GetI18NCategory("Screen"); 
 
 			switch (op.type)
 			{
@@ -225,16 +229,23 @@ namespace SaveState
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
-				osm.Show("Loaded state", 2.0);
-				result = CChunkFileReader::Load(op.filename, REVISION, state);
+				result = CChunkFileReader::Load(op.filename, REVISION, state, &reason);
+				if(result)
+					osm.Show(s->T("Loaded State"), 2.0);
+				else {
+					osm.Show(s->T(reason.c_str(), "Load savestate failed"), 2.0);
+				}
 				break;
 
 			case SAVESTATE_SAVE:
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
-				osm.Show("Saved state", 2.0);
 				result = CChunkFileReader::Save(op.filename, REVISION, state);
+				if(result)
+					osm.Show(s->T("Saved State"), 2.0);
+				else
+					osm.Show(s->T("Save State Failed"), 2.0);
 				break;
 
 			case SAVESTATE_VERIFY:
@@ -244,7 +255,6 @@ namespace SaveState
 
 			default:
 				ERROR_LOG(COMMON, "Savestate failure: unknown operation type %d", op.type);
-				result = false;
 				break;
 			}
 
