@@ -219,6 +219,9 @@ namespace SaveState
 		{
 			Operation &op = operations[i];
 			bool result;
+			std::string reason;
+			std::string fullMessage;
+
 			I18NCategory *s = GetI18NCategory("Screen"); 
 
 			switch (op.type)
@@ -227,11 +230,14 @@ namespace SaveState
 				if (MIPSComp::jit)
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
-				result = CChunkFileReader::Load(op.filename, REVISION, state);
+				result = CChunkFileReader::Load(op.filename, REVISION, state, &reason);
 				if(result)
 					osm.Show(s->T("LoadedState"), 2.0);
-				else
-					osm.Show(s->T("LoadStateFailed"), 2.0);
+				else {
+					fullMessage.append(s->T("LoadStateFailed"));
+					fullMessage.append(s->T(reason.c_str()));
+					osm.Show(fullMessage, 2.0);
+				}
 				break;
 
 			case SAVESTATE_SAVE:
