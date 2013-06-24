@@ -401,7 +401,7 @@ void LinkedShader::updateUniforms() {
 					len = 1.0f;
 				else
 					len = 1.0f / len;
-				float vec[3] = { x / len, y / len, z / len };
+				float vec[3] = { x * len, y * len, z * len };
 				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, vec);
 			} else {
 				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
