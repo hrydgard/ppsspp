@@ -156,7 +156,7 @@ void MainWindow::UpdateMenus()
 	ui->action_Sound->setChecked(g_Config.bEnableSound);
 
 	ui->action_OptionsShowDebugStatistics->setChecked(g_Config.bShowDebugStats);
-	ui->action_Show_FPS_counter->setChecked(g_Config.bShowFPSCounter);
+	ui->action_Show_FPS_counter->setChecked(g_Config.iShowFPSCounter);
 
 	ui->actionLogDefDebug->setChecked(LogManager::GetInstance()->GetLogLevel(LogTypes::COMMON) == LogTypes::LDEBUG);
 	ui->actionLogDefInfo->setChecked(LogManager::GetInstance()->GetLogLevel(LogTypes::COMMON) == LogTypes::LINFO);
@@ -629,7 +629,7 @@ void MainWindow::on_action_OptionsShowDebugStatistics_triggered()
 
 void MainWindow::on_action_Show_FPS_counter_triggered()
 {
-	g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
+	g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
 	UpdateMenus();
 }
 

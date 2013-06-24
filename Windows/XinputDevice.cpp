@@ -193,6 +193,12 @@ void XinputDevice::ApplyDiff(XINPUT_STATE &state, InputState &input_state) {
 		if      (state.Gamepad.sThumbRX >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
 		else if (state.Gamepad.sThumbRX < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
 		break;
+	case 4:
+		if      (state.Gamepad.sThumbRX >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+		else if (state.Gamepad.sThumbRX < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+		if      (state.Gamepad.sThumbRY >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+		else if (state.Gamepad.sThumbRY < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		break;
 	}
 }
 

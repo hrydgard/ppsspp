@@ -34,6 +34,7 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "ext/jpge/jpge.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
@@ -64,6 +65,7 @@
 #include "UIShader.h"
 
 #include "UI/PluginScreen.h"
+#include "UI/OnScreenDisplay.h"
 
 // The new UI framework, for initialization
 
@@ -87,6 +89,8 @@ std::string game_title;
 bool isJailed;
 #endif
 
+// Really need to clean this mess of globals up... but instead I add more :P
+bool g_TakeScreenshot;
 
 recursive_mutex pendingMutex;
 static bool isMessagePending;
@@ -445,6 +449,45 @@ void NativeInitGraphics() {
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
 }
 
+void TakeScreenshot() {
+#ifdef _WIN32
+	g_TakeScreenshot = false;
+	mkDir("screenshots");
+
+	// First, find a free filename.
+	int i = 0;
+
+	char temp[256];
+	while (i < 10000) {
+		sprintf(temp, "screenshots/screen%05d.jpg", i);
+		FileInfo info;
+		if (!getFileInfo(temp, &info))
+			break;
+		i++;
+	}
+
+	// Okay, allocate a buffer.
+	u8 *buffer = new u8[4 * pixel_xres * pixel_yres];
+	// Silly openGL reads upside down, we flip to another buffer for simplicity.
+	u8 *flipbuffer = new u8[4 * pixel_xres * pixel_yres];
+
+	glReadPixels(0, 0, pixel_xres, pixel_yres, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+
+	for (int y = 0; y < pixel_yres; y++) {
+		memcpy(flipbuffer + y * pixel_xres * 4, buffer + (pixel_yres - y - 1) * pixel_xres * 4, pixel_xres * 4);
+	}
+
+	jpge::params params;
+	params.m_quality = 90;
+	compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 4, flipbuffer, params);
+
+	delete [] buffer;
+	delete [] flipbuffer;
+
+	osm.Show(temp);
+#endif
+}
+
 void NativeRender() {
 	EnableFZ();
 
@@ -464,6 +507,10 @@ void NativeRender() {
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
 	screenManager->render();
+
+	if (g_TakeScreenshot) {
+		TakeScreenshot();
+	}
 }
 
 void NativeUpdate(InputState &input) {

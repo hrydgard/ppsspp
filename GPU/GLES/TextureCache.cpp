@@ -75,8 +75,8 @@ TextureCache::~TextureCache() {
 
 void TextureCache::Clear(bool delete_them) {
 	glBindTexture(GL_TEXTURE_2D, 0);
+	lastBoundTexture = -1;
 	if (delete_them) {
-		lastBoundTexture = -1;
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
 			glDeleteTextures(1, &iter->second.texture);
@@ -96,6 +96,7 @@ void TextureCache::Clear(bool delete_them) {
 // Removes old textures.
 void TextureCache::Decimate() {
 	glBindTexture(GL_TEXTURE_2D, 0);
+	lastBoundTexture = -1;
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
@@ -492,7 +493,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp = gstate.texwrap & 1;
 	bool tClamp = (gstate.texwrap>>8) & 1;
 
-	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001;  // Fix texlevel at 0
+	// bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001;  // Fix texlevel at 0
 
 	if (entry.maxLevel == 0) {
 		// Enforce no mip filtering, for safety.
@@ -513,7 +514,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		minFilt |= 1;
 	}
 
-	if (!g_Config.bMipMap || noMip) {
+	if (!g_Config.bMipMap) {
 		magFilt &= 1;
 		minFilt &= 1;
 	}
@@ -699,6 +700,8 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 	default:
 		{
 			// No need to convert RGBA8888, right order already
+			if (dst != src)
+				memcpy(dst, src, numPixels * sizeof(u32));
 		}
 		break;
 	}
@@ -863,11 +866,62 @@ inline u32 TextureCache::GetCurrentClutHash() {
 	return clutHash_;
 }
 
+// #define DEBUG_TEXTURES
+
+#ifdef DEBUG_TEXTURES
+bool SetDebugTexture() {
+	static const int highlightFrames = 30;
+
+	static int numTextures = 0;
+	static int lastFrames = 0;
+	static int mostTextures = 1;
+
+	if (lastFrames != gpuStats.numFrames) {
+		mostTextures = std::max(mostTextures, numTextures);
+		numTextures = 0;
+		lastFrames = gpuStats.numFrames;
+	}
+
+	static GLuint solidTexture = 0;
+
+	bool changed = false;
+	if (((gpuStats.numFrames / highlightFrames) % mostTextures) == numTextures) {
+		if (gpuStats.numFrames % highlightFrames == 0) {
+			NOTICE_LOG(HLE, "Highlighting texture # %d / %d", numTextures, mostTextures);
+		}
+		static const u32 solidTextureData[] = {0x99AA99FF};
+
+		if (solidTexture == 0) {
+			glGenTextures(1, &solidTexture);
+			glBindTexture(GL_TEXTURE_2D, solidTexture);
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+			glPixelStorei(GL_PACK_ALIGNMENT, 1);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, solidTextureData);
+		} else {
+			glBindTexture(GL_TEXTURE_2D, solidTexture);
+		}
+		changed = true;
+	}
+
+	++numTextures;
+	return changed;
+}
+#endif
+
 void TextureCache::SetTexture() {
+#ifdef DEBUG_TEXTURES
+	if (SetDebugTexture()) {
+		// A different texture was bound, let's rebind next time.
+		lastBoundTexture = -1;
+		return;
+	}
+#endif
+
 	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		glBindTexture(GL_TEXTURE_2D, 0);
+		lastBoundTexture = -1;
 		return;
 	}
 
@@ -918,12 +972,14 @@ void TextureCache::SetTexture() {
 				if (entry->framebuffer->fbo)
 					entry->framebuffer->fbo = 0;
 				glBindTexture(GL_TEXTURE_2D, 0);
+				lastBoundTexture = -1;
 				entry->lastFrame = gpuStats.numFrames;
 			} else {
 				if (entry->framebuffer->fbo) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 				} else {
 					glBindTexture(GL_TEXTURE_2D, 0);
+					lastBoundTexture = -1;
 					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 				}
 				UpdateSamplingParams(*entry, false);

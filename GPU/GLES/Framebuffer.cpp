@@ -88,7 +88,7 @@ void CenterRect(float *x, float *y, float *w, float *h,
 		*x = 0.0f;
 		*w = frameW;
 		*h = frameW / origRatio;
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 		// Stretch a little bit
 		if (g_Config.bPartialStretch)
 			*h = (frameH + *h) / 2.0f; // (408 + 720) / 2 = 564
@@ -269,8 +269,8 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 
 VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	VirtualFramebuffer *match = NULL;
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
-		VirtualFramebuffer *v = *iter;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_ && v->width >= 480) {
 			// Could check w too but whatever
 			if (match == NULL || match->last_frame_used < v->last_frame_used) {
@@ -285,9 +285,9 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	DEBUG_LOG(HLE, "Finding no FBO matching address %08x", displayFramebufPtr_);
 #if 0  // defined(_DEBUG)
 	std::string debug = "FBOs: ";
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		char temp[256];
-		sprintf(temp, "%08x %i %i", (*iter)->fb_address, (*iter)->width, (*iter)->height);
+		sprintf(temp, "%08x %i %i", vfbs_[i]->fb_address, vfbs_[i]->width, vfbs_[i]->height);
 		debug += std::string(temp);
 	}
 	ERROR_LOG(HLE, "FBOs: %s", debug.c_str());
@@ -324,6 +324,26 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	drawing_height = std::min(drawing_height, 512);
 }
 
+void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
+	textureCache_->NotifyFramebufferDestroyed(v->fb_address, v);
+	if (v->fbo) {
+		fbo_destroy(v->fbo);
+		v->fbo = 0;
+	}
+
+	// Wipe some pointers
+	if (currentRenderVfb_ == v)
+		currentRenderVfb_ = 0;
+	if (displayFramebuf_ == v)
+		displayFramebuf_ = 0;
+	if (prevDisplayFramebuf_ == v)
+		prevDisplayFramebuf_ = 0;
+	if (prevPrevDisplayFramebuf_ == v)
+		prevPrevDisplayFramebuf_ = 0;
+
+	delete v;
+}
+
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
 		currentRenderVfb_->last_frame_used = gpuStats.numFrames;
@@ -355,8 +375,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 	// Find a matching framebuffer, same size or bigger
 	VirtualFramebuffer *vfb = 0;
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
-		VirtualFramebuffer *v = *iter;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
 			// Okay, let's check the sizes. If the new one is bigger than the old one, recreate.
 			// If the opposite, just use it and hope that the game sets scissors accordingly.
@@ -375,8 +395,9 @@ void FramebufferManager::SetRenderFrameBuffer() {
 				// To do this right we should copy the data over too, but meh.
 				buffer_width = std::max((int)v->width, drawing_width);
 				buffer_height = std::max((int)v->height, drawing_height);
-				delete v;
-				vfbs_.erase(iter);
+
+				DestroyFramebuf(v);
+				vfbs_.erase(vfbs_.begin() + i--);
 				break;
 			}
 		}
@@ -432,7 +453,11 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		if (useBufferedRendering_) {
 			vfb->fbo = fbo_create(vfb->renderWidth, vfb->renderHeight, 1, true, vfb->colorDepth);
-			fbo_bind_as_render_target(vfb->fbo);
+			if (vfb->fbo) {
+				fbo_bind_as_render_target(vfb->fbo);
+			} else {
+				ERROR_LOG(HLE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
+			}
 		} else {
 			fbo_unbind();
 			// Let's ignore rendering to targets that have not (yet) been displayed.
@@ -630,8 +655,8 @@ void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int for
 std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 	std::vector<FramebufferInfo> list;
 
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
-		VirtualFramebuffer *vfb = *iter;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
 
 		FramebufferInfo info;
 		info.fb_address = vfb->fb_address;
@@ -649,26 +674,17 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end();) {
-		VirtualFramebuffer *vfb = *iter;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
-			++iter;
 			continue;
 		}
-		int age = frameLastFramebufUsed - (*iter)->last_frame_used;
+		int age = frameLastFramebufUsed - vfb->last_frame_used;
 		if (age > FBO_OLD_AGE) {
-			textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
-			if (vfb->fbo) {
-				fbo_destroy(vfb->fbo);
-				vfb->fbo = 0;
-			}
-			delete vfb;
-			vfbs_.erase(iter++);
+			DestroyFramebuf(vfb);
+			vfbs_.erase(vfbs_.begin() + i--);
 		}
-		else
-			++iter;
 	}
 }
 
@@ -679,15 +695,10 @@ void FramebufferManager::DestroyAllFBOs() {
 	prevDisplayFramebuf_ = 0;
 	prevPrevDisplayFramebuf_ = 0;
 
-	for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ++iter) {
-		VirtualFramebuffer *vfb = *iter;
-		textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
-		if (vfb->fbo) {
-			INFO_LOG(HLE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-			fbo_destroy(vfb->fbo);
-			vfb->fbo = 0;
-		}
-		delete vfb;
+	for (size_t i = 0; i < vfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = vfbs_[i];
+		INFO_LOG(HLE, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		DestroyFramebuf(vfb);
 	}
 	vfbs_.clear();
 }
@@ -706,8 +717,8 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 		currentRenderVfb_ = 0;
 
 		bool needUnbind = false;
-		for (auto iter = vfbs_.begin(); iter != vfbs_.end(); ) {
-			VirtualFramebuffer *vfb = *iter;
+		for (size_t i = 0; i < vfbs_.size(); ++i) {
+			VirtualFramebuffer *vfb = vfbs_[i];
 			if (MaskedEqual(vfb->fb_address, addr)) {
 				// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
 				// However, it doesn't seem to work for Star Ocean, at least
@@ -715,20 +726,12 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 					fbo_bind_as_render_target(vfb->fbo);
 					needUnbind = true;
 					DrawPixels(Memory::GetPointer(addr), vfb->format, vfb->fb_stride);
-					++iter;
 				} else {
-					textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
 					INFO_LOG(HLE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
-					if (vfb->fbo) {
-						fbo_destroy(vfb->fbo);
-						vfb->fbo = 0;
-					}
-					delete vfb;
-					vfbs_.erase(iter++);
+					DestroyFramebuf(vfb);
+					vfbs_.erase(vfbs_.begin() + i--);
 				}
 			}
-			else
-				++iter;
 		}
 
 		if (needUnbind)

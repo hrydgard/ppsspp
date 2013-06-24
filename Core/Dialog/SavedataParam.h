@@ -77,7 +77,7 @@ struct PspUtilitySavedataSFOParam
 };
 
 struct PspUtilitySavedataFileData {
-	int buf;
+	PSPPointer<u8> buf;
 	SceSize bufSize;  // Size of the buffer pointed to by buf
 	SceSize size;	    // Actual file size to write / was read
 	int unknown;
@@ -128,6 +128,8 @@ struct SceUtilitySavedataFileListInfo
 	PSPPointer<SceUtilitySavedataFileListEntry> systemEntries;
 };
 
+typedef char SceUtilitySavedataSaveName[20];
+
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.
 struct SceUtilitySavedataParam
 {
@@ -142,14 +144,14 @@ struct SceUtilitySavedataParam
 	char gameName[13];
 	char unused[3];
 	/** saveName: name of the particular save, normally a number */
-	char saveName[20];
-	u32 saveNameList;
+	SceUtilitySavedataSaveName saveName;
+	PSPPointer<SceUtilitySavedataSaveName> saveNameList;
 	/** fileName: name of the data file of the game for example DATA.BIN */
 	char fileName[13];
 	char unused2[3];
 
 	/** pointer to a buffer that will contain data file unencrypted data */
-	u32 dataBuf; // Initially void*, but void* in 64bit system take 8 bytes.
+	PSPPointer<u8> dataBuf;
 	/** size of allocated space to dataBuf */
 	SceSize dataBufSize;
 	SceSize dataSize;  // Size of the actual save data
@@ -161,7 +163,7 @@ struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData pic1FileData;
 	PspUtilitySavedataFileData snd0FileData;
 
-	u32 newData;
+	PSPPointer<PspUtilitySavedataFileData> newData;
 	int focus;
 	int abortStatus;
 

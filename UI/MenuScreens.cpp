@@ -307,7 +307,7 @@ void MenuScreen::render() {
 		// This might create a texture so we must flush first.
 		UIFlush();
 		GameInfo *ginfo = g_gameInfoCache.GetInfo(g_Config.recentIsos[i], false);
-		if (ginfo && ginfo->fileType != FILETYPE_PSP_ELF) {
+		if (ginfo) {
 			u32 color;
 			if (ginfo->iconTexture == 0) {
 				color = 0;
@@ -455,7 +455,7 @@ void PauseScreen::render() {
 	
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	// TODO: Maybe shouldn't show this if the screen ratios are very close...
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 	if (pixel_xres == pixel_yres)
 		UICheckBox(GEN_ID, x, y += stride, gs->T("Partial Vertical Stretch"), ALIGN_TOPLEFT, &g_Config.bPartialStretch);
 #endif
@@ -484,7 +484,7 @@ void PauseScreen::render() {
 		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
 			if (g_Config.iFrameSkip < 9)
 				g_Config.iFrameSkip += 1;
-
+		y+=20;
 	} else 
 		g_Config.iFrameSkip = 0;
 
@@ -910,7 +910,12 @@ void GraphicsScreenP2::render() {
 			g_Config.iTexScalingLevel = 2;
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("3x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
-
+#ifdef _WIN32
+		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("4x"), ALIGN_LEFT))
+			g_Config.iTexScalingLevel = 4;
+		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("5x"), ALIGN_LEFT))
+			g_Config.iTexScalingLevel = 5;
+#endif
 		UICheckBox(GEN_ID, x + 60, y += stride + 20, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
 	} else 
 		g_Config.iTexScalingLevel = 1;
@@ -1054,10 +1059,10 @@ void LanguageScreen::render() {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	int buttonW = LARGE_BUTTON_WIDTH - 50;
+	int buttonW = LARGE_BUTTON_WIDTH - 30;
 
 	if (small) {
-		buttonW = LARGE_BUTTON_WIDTH - 70;
+		buttonW = LARGE_BUTTON_WIDTH - 50;
 	}
 
 	VGrid vlang(20, small ? 20 : 100, dp_yres - 50, 10, 10);
@@ -1176,24 +1181,33 @@ void SystemScreen::render() {
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
-	UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
-	UICheckBox(GEN_ID, x, y += stride, s->T("Button Preference"), ALIGN_TOPLEFT, &g_Config.bButtonPreference); 
-	if (g_Config.bButtonPreference) {
-			char button[256];
-			std::string type;
-			switch (g_Config.iButtonPreference) {
-				case 0:	type = "O to Enter";break;
-				case 1: type = "X to Enter";break;
-			}
-			sprintf(button, "%s %s", s->T("Type :"), type.c_str());
-			ui_draw2d.DrawText(UBUNTU24, button, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-			HLinear hlinear1(x + 280, y, 20);
-			if (UIButton(GEN_ID, hlinear1, 90, 0, s->T("Use O"), ALIGN_LEFT))
-					g_Config.iButtonPreference = 0;
-			if (UIButton(GEN_ID, hlinear1, 90, 0, s->T("Use X"), ALIGN_LEFT))
-					g_Config.iButtonPreference = 1;
-			y += 10;
+	//UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
+
+	const char *buttonPreferenceTitle;
+	switch (g_Config.iButtonPreference) {
+	case PSP_SYSTEMPARAM_BUTTON_CIRCLE:
+		buttonPreferenceTitle = s->T("Button Preference - O to Confirm");
+		break;
+	case PSP_SYSTEMPARAM_BUTTON_CROSS:
+	default:
+		buttonPreferenceTitle = s->T("Button Preference - X to Confirm");
+		break;
 	}
+
+#ifdef _WIN32
+	const int checkboxH = 32;
+#else
+	const int checkboxH = 48;
+#endif
+	ui_draw2d.DrawTextShadow(UBUNTU24, buttonPreferenceTitle, x + UI_SPACE + 29, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+	y += stride;
+	// 29 is the width of the checkbox, new UI will replace.
+	HLinear hlinearButtonPref(x + UI_SPACE + 29, y, 20);
+	if (UIButton(GEN_ID, hlinearButtonPref, 90, 0, s->T("Use O"), ALIGN_LEFT))
+		g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
+	if (UIButton(GEN_ID, hlinearButtonPref, 90, 0, s->T("Use X"), ALIGN_LEFT))
+		g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
+	y += 20 + 6;
 
 	/*
 	bool time = g_Config.iTimeFormat > 0 ;
@@ -1282,9 +1296,9 @@ void ControlsScreen::render() {
 	int columnw = 440;
 
 	UICheckBox(GEN_ID, x, y += stride, c->T("OnScreen", "On-Screen Touch Controls"), ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
-	UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	if (g_Config.bShowTouchControls) {
+		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		if (g_Config.bLargeControls) {
 			char scale[256];

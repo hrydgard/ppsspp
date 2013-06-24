@@ -104,6 +104,7 @@ public:
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size);
+
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetDisplayFBO();
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
@@ -123,6 +124,8 @@ public:
 		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
 	}
 
+	void DestroyFramebuf(VirtualFramebuffer *vfb);
+
 private:
 	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
 	u32 displayFramebufPtr_;
@@ -134,7 +137,7 @@ private:
 	VirtualFramebuffer *prevPrevDisplayFramebuf_;
 	int frameLastFramebufUsed;
 
-	std::list<VirtualFramebuffer *> vfbs_;
+	std::vector<VirtualFramebuffer *> vfbs_;
 
 	VirtualFramebuffer *currentRenderVfb_;
 

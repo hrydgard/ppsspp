@@ -150,8 +150,8 @@ unsigned int WINAPI TheThread(void *)
 shutdown:
 	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
 
-	host = nativeHost;
 	NativeShutdownGraphics();
+	host = nativeHost;
 	NativeShutdown();
 	host = oldHost;
 	host->ShutdownGL();
