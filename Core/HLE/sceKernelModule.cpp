@@ -290,17 +290,16 @@ void __KernelModuleShutdown()
 	MIPSAnalyst::Shutdown();
 }
 
+// Sometimes there are multiple LO16's or HI16's per pair, even though the ABI says nothing of this.
+// For multiple LO16's, we need the original (unrelocated) instruction data of the HI16.
+// For multiple HI16's, we just need to set each one.
+struct HI16RelocInfo
+{
+	u32 addr;
+	u32 data;
+};
 void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 {
-	// Sometimes there are multiple LO16's or HI16's per pair, even though the ABI says nothing of this.
-	// For multiple LO16's, we need the original (unrelocated) instruction data of the HI16.
-	// For multiple HI16's, we just need to set each one.
-	struct HI16RelocInfo
-	{
-		u32 addr;
-		u32 data;
-	};
-
 	// We have to post-process the HI16 part, since it might be +1 or not depending on the LO16 value.
 	static u32 lastHI16ExportAddress = 0;
 	static std::vector<HI16RelocInfo> lastHI16Relocs;
