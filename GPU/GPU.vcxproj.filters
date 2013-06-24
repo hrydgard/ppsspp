@@ -71,6 +71,9 @@
     <ClInclude Include="Software\SoftGpu.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Software\TransformUnit.h">
+      <Filter>Software</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -121,6 +124,9 @@
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="Software\SoftGpu.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\TransformUnit.cpp">
       <Filter>Software</Filter>
     </ClCompile>
   </ItemGroup>
