@@ -13,8 +13,8 @@ symbian: MOBILITY += systeminfo
 # Libs
 symbian {
 	LIBS += -lCore.lib -lCommon.lib -lNative.lib
-	# For now you have to copy these to the Symbian lib dir. Better solution coming later.
-	LIBS += -lavutil.lib -lavformat.lib -lavcodec.lib -lswresample.lib -lswscale.lib
+	# For now you have to copy these to the Symbian lib dir using ffmpeg/symbian-install.sh
+	LIBS += -lavformat.lib -lavcodec.lib -lavutil.lib -lswresample.lib -lswscale.lib
 }
 qnx: LIBS += -L. -lCore -lCommon -lNative -lscreen -lz
 win32 {

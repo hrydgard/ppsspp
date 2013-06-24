@@ -5,7 +5,7 @@ project(PPSSPP)
 if(ANDROID)
 	if(ARMEABI OR ARMEABI_V7A)
 		set(ARM ON)
-		set(FFMPEG ON)
+		set(USE_FFMPEG ON)
 	endif()
 endif()
 
@@ -15,7 +15,7 @@ endif()
 
 if (IOS OR BLACKBERRY)
 	set(ARM ON)
-	set(FFMPEG ON)
+	set(USE_FFMPEG ON)
 endif()
 
 if (MAEMO)
@@ -38,13 +38,13 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(LINUX ON)
 	if (NOT USING_GLES2)
 		# Not working yet.
-		#set(FFMPEG ON)
+		set(USE_FFMPEG ON)
 	endif()
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(MACOSX ON)
-	set(FFMPEG ON)
+	set(USE_FFMPEG ON)
 endif()
 
 if(ANDROID OR BLACKBERRY OR IOS OR PANDORA OR MAEMO OR MACOSX)
@@ -64,7 +64,6 @@ option(MAEMO "Set to ON if targeting an Maemo (N900) device" ${MAEMO})
 option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
-option(FFMPEG "Set to OFF to disable FFMPEG usage" ${FFMPEG})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(USE_FFMPEG "Build with FFMPEG support (beta)" ${USE_FFMPEG})
 
@@ -495,26 +494,6 @@ elseif(SDL_FOUND)
 	set(TargetBin PPSSPPSDL)
 else()
     message(FATAL_ERROR "Could not find SDL. Failing.")
-endif()
-
-if(FFMPEG)
-	add_definitions(-DUSE_FFMPEG)
-	set(PLATFORM_ARCH "")
-	if (BLACKBERRY)
-		set(PLATFORM_ARCH "blackberry/armv7")
-		set(nativeExtraLibs ${nativeExtraLibs} iconv)
-	elseif(IOS)
-		set(PLATFORM_ARCH "ios/universal")
-		set(nativeExtraLibs ${nativeExtraLibs} iconv bz2)
-	elseif(MACOSX)
-		set(PLATFORM_ARCH "macosx/x86_64")
-	elseif(LINUX)
-		# Note: Only 64-bit is supported
-		set(PLATFORM_ARCH "linux/x86_64")
-	endif()
-	include_directories(ffmpeg/${PLATFORM_ARCH}/include)
-	link_directories(ffmpeg/${PLATFORM_ARCH}/lib)
-	set(nativeExtraLibs ${nativeExtraLibs} libavformat.a libavcodec.a libswresample.a libavutil.a libswscale.a)
 endif()
 
 if(X86)
@@ -1117,32 +1096,52 @@ set(NativeAssets
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
 
 if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
-	message(WARNING "FFMPEG_BUILDDIR variable is required to enable FFmpeg. Disabling it.")
-	unset(USE_FFMPEG)
+	if(BLACKBERRY)
+		set(PLATFORM_ARCH "blackberry/armv7")
+	elseif(IOS)
+		set(PLATFORM_ARCH "ios/universal")
+	elseif(MACOSX)
+		set(PLATFORM_ARCH "macosx/x86_64")
+	endif()
+	# Using static libraries
+	if (DEFINED PLATFORM_ARCH)
+		include_directories(ffmpeg/${PLATFORM_ARCH}/include)
+		link_directories(ffmpeg/${PLATFORM_ARCH}/lib)
+		set(FFMPEG_LIBRARIES libavformat.a libavcodec.a libavutil.a libswresample.a libswscale.a)
+	else()
+		message(WARNING "FFMPEG_BUILDDIR variable is required to enable FFmpeg. Disabling it.")
+		unset(USE_FFMPEG)
+	endif()
 endif(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
 
 if(USE_FFMPEG)
-	include_directories(ffmpeg ${FFMPEG_BUILDDIR})
+	# Using shared libraries
+	if(DEFINED FFMPEG_BUILDDIR)
+		include_directories(ffmpeg ${FFMPEG_BUILDDIR})
 
-	add_library(libavformat STATIC IMPORTED)
-	set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
-	add_library(libavcodec STATIC IMPORTED)
-	set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
-	add_library(libavutil STATIC IMPORTED)
-	set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
-	add_library(libswresample STATIC IMPORTED)
-	set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
-	add_library(libswscale STATIC IMPORTED)
-	set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
+		add_library(libavformat STATIC IMPORTED)
+		set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
+		add_library(libavcodec STATIC IMPORTED)
+		set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
+		add_library(libavutil STATIC IMPORTED)
+		set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
+		add_library(libswresample STATIC IMPORTED)
+		set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
+		add_library(libswscale STATIC IMPORTED)
+		set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
 
-	SET (FFMPEG_LIBRARIES
-		libavcodec
-		libavformat
-		libavutil
-		libswresample
-		libswscale
-	)
-	
+		SET (FFMPEG_LIBRARIES
+			libavformat
+			libavcodec
+			libavutil
+			libswresample
+			libswscale
+		)
+	endif()
+	if(IOS OR BLACKBERRY)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
+	endif()
+
 	if(APPLE)
 		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework VideoDecodeAcceleration" "-framework CoreVideo")
 	endif(APPLE)
