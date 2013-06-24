@@ -584,9 +584,12 @@ public:
 	static bool Load(const std::string& _rFilename, int _Revision, T& _class, std::string* _failureReason) 
 	{
 		INFO_LOG(COMMON, "ChunkReader: Loading %s" , _rFilename.c_str());
+		_failureReason->clear();
+		_failureReason->append("LoadStateWrongVersion");
 
 		if (!File::Exists(_rFilename)) {
-			_failureReason->append("StateDoesntExist");
+			_failureReason->clear();
+			_failureReason->append("LoadStateDoesntExist");
 			ERROR_LOG(COMMON, "ChunkReader: File doesn't exist");
 			return false;
 		}
@@ -618,7 +621,6 @@ public:
 		// Check revision
 		if (header.Revision != _Revision)
 		{
-			_failureReason->append("StateWrongVersion");
 			ERROR_LOG(COMMON,"ChunkReader: Wrong file revision, got %d expected %d",
 				header.Revision, _Revision);
 			return false;

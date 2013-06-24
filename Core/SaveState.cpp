@@ -220,7 +220,6 @@ namespace SaveState
 			Operation &op = operations[i];
 			bool result;
 			std::string reason;
-			std::string fullMessage;
 
 			I18NCategory *s = GetI18NCategory("Screen"); 
 
@@ -234,9 +233,7 @@ namespace SaveState
 				if(result)
 					osm.Show(s->T("LoadedState"), 2.0);
 				else {
-					fullMessage.append(s->T("LoadStateFailed"));
-					fullMessage.append(s->T(reason.c_str()));
-					osm.Show(fullMessage, 2.0);
+					osm.Show(s->T(reason.c_str()), 2.0);
 				}
 				break;
 
