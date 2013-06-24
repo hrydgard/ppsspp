@@ -32,18 +32,29 @@ ViewCoords TransformUnit::WorldToView(const WorldCoords& coords)
 
 ClipCoords TransformUnit::ViewToClip(const ViewCoords& coords)
 {
-	ClipCoords ret;
-	return ret;
+	Vec4<float> coords4(coords.x, coords.y, coords.z, 1.0f);
+	Mat4x4<float> projection_matrix(gstate.projMatrix);
+	return ClipCoords(projection_matrix * coords4);
 }
 
 ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
 {
 	ScreenCoords ret;
+	float viewport_dx = gstate.viewportx2 - gstate.viewportx1; // TODO: -1?
+	float viewport_dy = gstate.viewporty2 - gstate.viewporty1; // TODO: -1?
+	float viewport_dz = gstate.viewportz2 - gstate.viewportz1; // TODO: -1?
+	// TODO: Check for invalid parameters (x2 < x1, etc)
+
+	ret.x = (coords.x * viewport_dx / coords.w + gstate.viewportx1) * 0xFFFF;
+	ret.y = (coords.y * viewport_dy / coords.w + gstate.viewporty1) * 0xFFFF;
+	ret.z = (coords.z * viewport_dz / coords.w + gstate.viewportz1) * 0xFFFF;
 	return ret;
 }
 
 DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 {
 	DrawingCoords ret;
+	ret.x = (coords.x - gstate.offsetx) & 0x3ff;
+	ret.y = (coords.y - gstate.offsety) & 0x3ff;
 	return ret;
 }

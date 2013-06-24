@@ -35,7 +35,7 @@ struct ScreenCoords
 	u16 z;
 };
 
-typedef Vec2<u10> DrawingCoords;
+typedef Vec2<u10> DrawingCoords; // TODO: Keep z component?
 
 class TransformUnit
 {
