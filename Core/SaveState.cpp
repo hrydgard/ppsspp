@@ -258,7 +258,7 @@ namespace SaveState
 			}
 
 			if (op.callback != NULL)
-				op.callback((result.length() > 0)? false : true, op.cbUserData);
+				op.callback((result.length() > 0)? false : true, op.cbUserData); //If we have a reason, we failed...
 		}
 	}
 
