@@ -31,6 +31,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/System.h"
 #include "UI/OnScreenDisplay.h"
+#include "i18n/i18n.h"
 
 namespace SaveState
 {
@@ -217,8 +218,9 @@ namespace SaveState
 		for (size_t i = 0, n = operations.size(); i < n; ++i)
 		{
 			Operation &op = operations[i];
-			std::string result;
-			std::string reason;
+			bool result;
+			I18NCategory *s = GetI18NCategory("Screen"); 
+
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
@@ -226,12 +228,10 @@ namespace SaveState
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, state);
-				if(result.length() > 0) {
-					reason = "Failed to load state: " + result;
-					osm.Show(reason, 3.0);
-				}
+				if(result)
+					osm.Show(s->T("LoadedState"), 2.0);
 				else
-					osm.Show("Loaded state", 2.0);
+					osm.Show(s->T("LoadStateFailed"), 2.0);
 				break;
 
 			case SAVESTATE_SAVE:
@@ -239,12 +239,10 @@ namespace SaveState
 					MIPSComp::jit->ClearCache();
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, state);
-				if(result.length() > 0) {
-					reason = "Failed to save state: " + result;
-					osm.Show(reason, 3.0);
-				}
+				if(result)
+					osm.Show(s->T("SavedState"), 2.0);
 				else
-					osm.Show("Saved state", 2.0);
+					osm.Show(s->T("SaveStateFailed"), 2.0);
 				break;
 
 			case SAVESTATE_VERIFY:
@@ -258,7 +256,7 @@ namespace SaveState
 			}
 
 			if (op.callback != NULL)
-				op.callback((result.length() > 0)? false : true, op.cbUserData); //If we have a reason, we failed...
+				op.callback(result, op.cbUserData); //If we have a reason, we failed...
 		}
 	}
 
