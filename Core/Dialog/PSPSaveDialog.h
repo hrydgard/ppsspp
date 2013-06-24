@@ -119,6 +119,8 @@ private :
 
 	SavedataParam param;
 	SceUtilitySavedataParam request;
+	// For detecting changes made by the game.
+	SceUtilitySavedataParam originalRequest;
 	u32 requestAddr;
 	int currentSelectedSave;
 
