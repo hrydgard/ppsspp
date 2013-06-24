@@ -1223,9 +1223,10 @@ u32 sceIoRename(const char *from, const char *to) {
 	if (!pspFileSystem.GetFileInfo(from).exists)
 		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file renamed", 1000);
 
-	if (!pspFileSystem.RenameFile(from, to))
+	int result = pspFileSystem.RenameFile(from, to);
+	if (result < 0)
 		WARN_LOG(HLE, "Could not move %s to %s", from, to);
-	return hleDelayResult(0, "file renamed", 1000);
+	return hleDelayResult(result, "file renamed", 1000);
 }
 
 u32 sceIoChdir(const char *dirname) {

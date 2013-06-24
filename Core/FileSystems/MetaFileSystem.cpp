@@ -374,18 +374,34 @@ bool MetaFileSystem::RmDir(const std::string &dirname)
 	}
 }
 
-bool MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
+int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 {
 	std::string of;
 	std::string rf;
-	IFileSystem *system;
-	if (MapFilePath(from, of, &system) && MapFilePath(to, rf, &system))
+	IFileSystem *osystem;
+	IFileSystem *rsystem = NULL;
+	if (MapFilePath(from, of, &osystem))
 	{
-		return system->RenameFile(of, rf);
+		// If it's a relative path, it seems to always use from's filesystem.
+		if (to.find(':/') != to.npos)
+		{
+			if (!MapFilePath(to, rf, &rsystem))
+				return -1;
+		}
+		else
+		{
+			rf = to;
+			rsystem = osystem;
+		}
+
+		if (osystem != rsystem)
+			return SCE_KERNEL_ERROR_XDEV;
+
+		return osystem->RenameFile(of, rf);
 	}
 	else
 	{
-		return false;
+		return -1;
 	}
 }
 
