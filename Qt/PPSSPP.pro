@@ -4,14 +4,18 @@ QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
 win32: QT += multimedia
-VERSION = 0.7.6
+VERSION = 0.8.0
 
 include(Settings.pri)
 mobile_platform: MOBILITY += sensors
 symbian: MOBILITY += systeminfo
 
 # Libs
-symbian: LIBS += -lCore.lib -lCommon.lib -lNative.lib
+symbian {
+	LIBS += -lCore.lib -lCommon.lib -lNative.lib
+	# For now you have to copy these to the Symbian lib dir using ffmpeg/symbian-install.sh
+	LIBS += -lavformat.lib -lavcodec.lib -lavutil.lib -lswresample.lib -lswscale.lib
+}
 qnx: LIBS += -L. -lCore -lCommon -lNative -lscreen -lz
 win32 {
 	CONFIG(release, debug|release) {
@@ -78,7 +82,7 @@ PRE_TARGETDEPS += compiler_lang_make_all
 
 # Packaging
 symbian {
-	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 6, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
+	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 8, 0, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
 	assets.sources = ../assets/flash ../lang
 	assets.path = E:/PPSSPP
 	DEPLOYMENT += deploy assets

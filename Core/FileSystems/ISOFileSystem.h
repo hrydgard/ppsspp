@@ -43,7 +43,7 @@ public:
 	bool GetHostPath(const std::string &inpath, std::string &outpath) {return false;}
 	virtual bool MkDir(const std::string &dirname) {return false;}
 	virtual bool RmDir(const std::string &dirname) {return false;}
-	virtual bool RenameFile(const std::string &from, const std::string &to) {return false;}
+	virtual int  RenameFile(const std::string &from, const std::string &to) {return -1;}
 	virtual bool RemoveFile(const std::string &filename) {return false;}
 
 private:

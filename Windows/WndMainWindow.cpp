@@ -47,7 +47,7 @@
 
 BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
-
+extern bool g_TakeScreenshot;
 extern InputState input_state;
 extern const char * getVirtualKeyName(unsigned char key);
 extern const char * getXinputButtonName(unsigned int button);
@@ -726,7 +726,7 @@ namespace MainWindow
 				g_Config.bVertexCache = !g_Config.bVertexCache;
 				break;
 			case ID_OPTIONS_SHOWFPS:
-				g_Config.bShowFPSCounter = !g_Config.bShowFPSCounter;
+				g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
 				break;
 			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
 				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
@@ -737,7 +737,12 @@ namespace MainWindow
 			case ID_OPTIONS_USEVBO:
 				g_Config.bUseVBO = !g_Config.bUseVBO;
 				break;
+			case ID_OPTIONS_NEARESTFILTERING:
+				g_Config.bNearestFiltering = !g_Config.bNearestFiltering;
+				g_Config.bLinearFiltering = false;
+				break;
 			case ID_OPTIONS_LINEARFILTERING:
+				g_Config.bNearestFiltering = false;
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
 				break;
 			case ID_OPTIONS_TOPMOST:
@@ -770,6 +775,9 @@ namespace MainWindow
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
+				break;
+			case ID_DEBUG_TAKESCREENSHOT:
+				g_TakeScreenshot = true;
 				break;
 
 			default:
@@ -892,13 +900,14 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
+		CHECKITEM(ID_OPTIONS_NEARESTFILTERING, g_Config.bNearestFiltering);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
-		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.bShowFPSCounter);
+		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.iVSyncInterval != 0);

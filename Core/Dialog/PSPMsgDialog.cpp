@@ -23,7 +23,7 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
-const float FONT_SCALE = 0.50f;
+const float FONT_SCALE = 0.65f;
 
 PSPMsgDialog::PSPMsgDialog()
 	: PSPDialog()
@@ -132,8 +132,8 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 
 void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 {
-	const float WRAP_WIDTH = 450.0f;
-	float y = 136.0f;
+	const float WRAP_WIDTH = 300.0f;
+	float y = 125.0f;
 	float h;
 	int n;
 	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
@@ -147,23 +147,25 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 		if (yesnoChoice == 1) {
 			choiceText = d->T("Yes");
 			x = 208.0f;
-			yesColor = 0xFF0FFFFF;
+			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
 		}
 		else {
 			choiceText = d->T("No");
 			x = 272.0f;
 			yesColor = 0xFFFFFFFF;
-			noColor  = 0xFF0FFFFF;
+			noColor  = 0xFFFFFFFF;
 		}
 		PPGeMeasureText(&w, &h, 0, choiceText, FONT_SCALE);
 		w = w / 2.0f + 5.5f;
 		h /= 2.0f;
-		float y2 = y + h2 + 4.0f;
+		float y2 = y + h2 + 30.0f;
 		h2 += h + 4.0f;
 		y = 132.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
+		PPGeDrawText(d->T("Yes"), 209.0f, y2+3, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x30000000));
 		PPGeDrawText(d->T("Yes"), 208.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(d->T("No"), 273.0f, y2+3, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x30000000));
 		PPGeDrawText(d->T("No"), 272.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
@@ -171,11 +173,12 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 		else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
 			yesnoChoice = 0;
 		}
-	}
+	} 
+	PPGeDrawTextWrapped(text.c_str(), 241.0f, y+3, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x30000000));
 	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-	float sy = 122.0f - h2, ey = 150.0f + h2;
-	PPGeDrawRect(15.0f, sy, 465.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(15.0f, ey, 465.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	float sy = 110.0f - h2, ey = 160.0f + h2;
+	PPGeDrawRect(50.0f, sy, 420.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(50.0f, ey, 420.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()

@@ -45,12 +45,13 @@ int PSPSaveDialog::Init(int paramAddr)
 		ERROR_LOG(HLE,"A save request is already running !");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
-
-	int size = Memory::Read_U32(paramAddr);
-	memset(&request,0,sizeof(request));
-	// Only copy the right size to support different save request format
-	Memory::Memcpy(&request,paramAddr,size);
+	
 	requestAddr = paramAddr;
+	int size = Memory::Read_U32(requestAddr);
+	memset(&request, 0, sizeof(request));
+	// Only copy the right size to support different save request format
+	Memory::Memcpy(&request, requestAddr, size);
+	Memory::Memcpy(&originalRequest, requestAddr, size);
 
 	u32 retval = param.SetPspParam(&request);
 
@@ -219,11 +220,8 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
 	case SCE_UTILITY_SAVEDATA_TYPE_SAVE:
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-		if (param.GetSaveName(param.GetPspParam()).length() != 0)
-			return param.GetSaveDirName(param.GetPspParam());
-		// Intentional fallthrough when saveName not valid.
+		return param.GetSaveDirName(param.GetPspParam());
 
-	// TODO: Test these to see what they use for the filename.
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
@@ -233,11 +231,11 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName()
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
 	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
-		if (param.GetSaveDirName(param.GetPspParam(), currentSelectedSave) == "<>")
-			return param.GetSaveDirName(param.GetPspParam());
-		// Intentional fallthrough when saveName not valid.
+		return param.GetSaveDirName(param.GetPspParam());
 
 	// TODO: Maybe also SINGLEDELETE/etc?
+
+	// SZIES ignores saveName it seems.
 
 	default:
 		return param.GetSaveDirName(param.GetPspParam(), currentSelectedSave);
@@ -356,14 +354,24 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		char hour_time[10] ;
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
 		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
-		if (g_Config.itimeformat == PSP_SYSTEMPARAM_TIME_FORMAT_12HR) {
+		switch (g_Config.iTimeFormat) {
+		case 1:
 			if (hour > 12) {
 				strcpy(am_pm, "PM");
 				hour -= 12;
 			}
 			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
-		} else 
-			snprintf(hour_time,10,"%02d:%02d", hour, min);
+			break;
+		case 2:
+			snprintf(hour_time,10,"%02d:%02d", hour, min); 
+			break;
+		default:
+			if (hour > 12) {
+				strcpy(am_pm, "PM");
+				hour -= 12;
+			}
+			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+		}
 
 		snprintf(title, 512, "%s", param.GetFileInfo(currentSelectedSave).title);
 		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
@@ -371,14 +379,15 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
 		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
 		switch (g_Config.iDateFormat) {
-		case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
-			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
+		case 1:
+			snprintf(time, 512, "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
 			break;
-		case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+		case 2:
 			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", month, day, year, hour_time, sizeK);
 			break;
-		case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
-			// fall through
+		case 3:
+			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
+			break;
 		default:
 			snprintf(time, 512, "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
 		}
@@ -408,14 +417,24 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 		char hour_time[10] ;
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
 		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
-		if (g_Config.itimeformat == PSP_SYSTEMPARAM_TIME_FORMAT_12HR) {
+		switch (g_Config.iTimeFormat) {
+		case 1:
 			if (hour > 12) {
 				strcpy(am_pm, "PM");
 				hour -= 12;
 			}
 			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
-		} else 
-			snprintf(hour_time,10,"%02d:%02d", hour, min);
+			break;
+		case 2:
+			snprintf(hour_time,10,"%02d:%02d", hour, min); 
+			break;
+		default:
+			if (hour > 12) {
+				strcpy(am_pm, "PM");
+				hour -= 12;
+			}
+			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+		}
 
 		const char *saveTitle = param.GetFileInfo(currentSelectedSave).saveTitle;
 		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
@@ -423,14 +442,14 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
 		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
 		switch (g_Config.iDateFormat) {
-		case PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY:
-			snprintf(date, 256, "%02d/%02d/%d", day, month, year);
-			break;
-		case PSP_SYSTEMPARAM_DATE_FORMAT_MMDDYYYY:
+		case 1:
+			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
+		case 2:
 			snprintf(date, 256, "%02d/%02d/%d", month, day, year);
 			break;
-		case PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD:
-			// fall through
+		case 3:
+			snprintf(date, 256, "%02d/%02d/%d", day, month, year);
+			break;
 		default:
 			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
 		}
@@ -508,6 +527,17 @@ int PSPSaveDialog::Update()
 	if (!param.GetPspParam()) {
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 		return 0;
+	}
+
+	// The struct may have been updated by the game.  This happens in "Where Is My Heart?"
+	// Check if it has changed, reload it.
+	// TODO: Cut down on preloading?  This rebuilds the list from scratch.
+	int size = Memory::Read_U32(requestAddr);
+	if (memcmp(Memory::GetPointer(requestAddr), &originalRequest, size) != 0) {
+		memset(&request, 0, sizeof(request));
+		Memory::Memcpy(&request, requestAddr, size);
+		Memory::Memcpy(&originalRequest, requestAddr, size);
+		param.SetPspParam(&request);
 	}
 
 	buttons = __CtrlPeekButtons();
@@ -856,10 +886,7 @@ int PSPSaveDialog::Update()
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
-					if (param.GetSizes(param.GetPspParam()))
-						param.GetPspParam()->common.result = 0;
-					else
-						param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
+					param.GetPspParam()->common.result = param.GetSizes(param.GetPspParam());
 					status = SCE_UTILITY_STATUS_FINISHED;
 				break;
 				case SCE_UTILITY_SAVEDATA_TYPE_LIST:
@@ -938,7 +965,7 @@ int PSPSaveDialog::Update()
 	lastButtons = buttons;
 
 	if (status == SCE_UTILITY_STATUS_FINISHED)
-		Memory::Memcpy(requestAddr,&request,request.common.size);
+		Memory::Memcpy(requestAddr, &request, request.common.size);
 	
 	return 0;
 }

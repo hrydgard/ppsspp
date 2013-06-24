@@ -528,7 +528,7 @@ u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd) {
 // because that function would tell games how to add the left stream data.
 u32 sceAtracAddStreamData(int atracID, u32 bytesToAdd)
 {
-	INFO_LOG(HLE, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
+	DEBUG_LOG(HLE, "sceAtracAddStreamData(%i, %08x)", atracID, bytesToAdd);
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {
 		return 0;
@@ -566,6 +566,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 		} else {
 			// TODO: This isn't at all right, but at least it makes the music "last" some time.
 			u32 numSamples = 0;
+			u32 atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 #ifdef USE_FFMPEG
 			if (atrac->codeType == PSP_MODE_AT_3 && atrac->pCodecCtx) {
 				int forceseekSample = atrac->currentSample * 2 > atrac->endSample ? 0 : atrac->endSample;
@@ -580,7 +581,11 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						if (avret < 0) {
 							ERROR_LOG(HLE, "avcodec_decode_audio4: Error decoding audio %d", avret);
 							av_free_packet(&packet);
-							break;
+							// Avoid getting stuck in a loop (Virtua Tennis)
+							*SamplesNum = 0;
+							*finish = 1;
+							*remains = 0;
+							return ATRAC_ERROR_ALL_DATA_DECODED;
 						}
 
 						if (got_frame) {
@@ -635,7 +640,6 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			} else
 			{
 				numSamples = atrac->endSample - atrac->currentSample;
-				u32 atracSamplesPerFrame = (atrac->codeType == PSP_MODE_AT_3_PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES);
 				if (atrac->currentSample >= atrac->endSample) {
 					numSamples = 0;
 				} else if (numSamples > atracSamplesPerFrame) {
@@ -654,7 +658,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			atrac->decodePos = atrac->getDecodePosBySample(atrac->currentSample);
 
 			int finishFlag = 0;
-			if (atrac->loopNum != 0 && (atrac->currentSample >= atrac->loopEndSample ||
+			if (atrac->loopNum != 0 && (atrac->currentSample + atracSamplesPerFrame > atrac->loopEndSample ||
 				(numSamples == 0 && atrac->first.size >= atrac->first.filesize))) {
 				atrac->currentSample = atrac->loopStartSample;
 				if (atrac->loopNum > 0)

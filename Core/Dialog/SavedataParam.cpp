@@ -25,6 +25,10 @@
 
 #include "image/png_load.h"
 
+#ifdef BLACKBERRY
+using std::strnlen;
+#endif
+
 static const std::string ICON0_FILENAME = "ICON0.PNG";
 static const std::string ICON1_FILENAME = "ICON1.PMF";
 static const std::string PIC1_FILENAME = "PIC1.PNG";
@@ -264,7 +268,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		cryptedSize = param->dataSize;
 		if(cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize)
 			cryptedSize = param->dataBufSize; // fallback, should never use this
-		u8* data_ = (u8*)Memory::GetPointer(param->dataBuf);
+		u8 *data_ = param->dataBuf;
 
 		int aligned_len = align16(cryptedSize);
 		cryptedData = new u8[aligned_len + 0x10];
@@ -369,7 +373,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	if(param->dataBuf != 0)	// Can launch save without save data in mode 13
 	{
 		std::string filePath = dirPath+"/"+GetFileName(param);
-		u8* data_ = 0;
+		u8 *data_ = 0;
 		SceSize saveSize = 0;
 		if(cryptedData == 0) // Save decrypted data
 		{
@@ -377,7 +381,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 			if(saveSize == 0 || saveSize > param->dataBufSize)
 				saveSize = param->dataBufSize; // fallback, should never use this
 
-			data_ = (u8*)Memory::GetPointer(param->dataBuf);
+			data_ = param->dataBuf;
 		}
 		else
 		{
@@ -404,33 +408,29 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 
 
 	// SAVE ICON0
-	if (param->icon0FileData.buf)
+	if (param->icon0FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->icon0FileData.buf);
 		std::string icon0path = dirPath + "/" + ICON0_FILENAME;
-		WritePSPFile(icon0path, data_, param->icon0FileData.bufSize);
+		WritePSPFile(icon0path, param->icon0FileData.buf, param->icon0FileData.bufSize);
 	}
 	// SAVE ICON1
-	if (param->icon1FileData.buf)
+	if (param->icon1FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->icon1FileData.buf);
 		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
-		WritePSPFile(icon1path, data_, param->icon1FileData.bufSize);
+		WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.bufSize);
 	}
 	// SAVE PIC1
-	if (param->pic1FileData.buf)
+	if (param->pic1FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->pic1FileData.buf);
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
-		WritePSPFile(pic1path, data_, param->pic1FileData.bufSize);
+		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.bufSize);
 	}
 
 	// Save SND
-	if (param->snd0FileData.buf)
+	if (param->snd0FileData.buf.Valid())
 	{
-		u8* data_ = (u8*)Memory::GetPointer(param->snd0FileData.buf);
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
-		WritePSPFile(snd0path, data_, param->snd0FileData.bufSize);
+		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.bufSize);
 	}
 
 	return true;
@@ -442,7 +442,7 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 		return false;
 	}
 
-	u8 *data_ = (u8*)Memory::GetPointer(param->dataBuf);
+	u8 *data_ = param->dataBuf;
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	if (saveId >= 0 && saveNameListDataCount > 0) // if user selection, use it
@@ -725,48 +725,49 @@ std::string SavedataParam::GetSpaceText(int size)
 	return std::string(text);
 }
 
-bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
+int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 {
 	if (!param) {
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 	}
 
-	bool ret = true;
+	int ret = 0;
 
-	if (Memory::IsValidAddress(param->msFree))
+	if (param->msFree.Valid())
 	{
-		Memory::Write_U32((u32)MemoryStick_SectorSize(),param->msFree); // cluster Size
-		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize()),param->msFree+4);	// Free cluster
-		Memory::Write_U32((u32)(MemoryStick_FreeSpace() / 0x400),param->msFree+8); // Free space (in KB)
-		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
-		Memory::Memset(param->msFree+12,0,(u32)spaceTxt.size()+1);
-		Memory::Memcpy(param->msFree+12,spaceTxt.c_str(),(u32)spaceTxt.size()); // Text representing free space
+		param->msFree->clusterSize = (u32)MemoryStick_SectorSize();
+		param->msFree->freeClusters = (u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
+		param->msFree->freeSpaceKB = (u32)(MemoryStick_FreeSpace() / 0x400);
+		const std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
+		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
+		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
 	}
-	if (Memory::IsValidAddress(param->msData))
+	if (param->msData.Valid())
 	{
-		std::string path = GetSaveFilePath(param,0);
+		const std::string gameName(param->msData->gameName, strnlen(param->msData->gameName, sizeof(param->msData->gameName)));
+		const std::string saveName(param->msData->saveName, strnlen(param->msData->saveName, sizeof(param->msData->saveName)));
+		std::string path = GetSaveFilePath(param, gameName + saveName);
 		PSPFileInfo finfo = pspFileSystem.GetFileInfo(path);
 		if(finfo.exists)
 		{
 			// TODO : fill correctly with the total save size, be aware of crypted file size
-			Memory::Write_U32(1,param->msData+36);	//1
-			Memory::Write_U32(0x20,param->msData+40);	// 0x20
-			Memory::Write_U8(0,param->msData+44);	// "32 KB" // 8 u8
-			Memory::Write_U32(0x20,param->msData+52);	//  0x20
-			Memory::Write_U8(0,param->msData+56);	// "32 KB" // 8 u8
+			param->msData->info.usedClusters = 1;
+			param->msData->info.usedSpaceKB = 0x20;
+			strncpy(param->msData->info.usedSpaceStr, "", sizeof(param->msData->info.usedSpaceStr));	// "32 KB" // 8 u8
+			param->msData->info.usedSpace32KB = 0x20;
+			strncpy(param->msData->info.usedSpace32Str, "", sizeof(param->msData->info.usedSpace32Str));	// "32 KB" // 8 u8
 		}
 		else
 		{
-			Memory::Write_U32(0,param->msData+36);
-			Memory::Write_U32(0,param->msData+40);
-			Memory::Write_U8(0,param->msData+44);
-			Memory::Write_U32(0,param->msData+52);
-			Memory::Write_U8(0,param->msData+56);
-			ret = false;
-			// this should return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA
+			param->msData->info.usedClusters = 0;
+			param->msData->info.usedSpaceKB = 0;
+			strncpy(param->msData->info.usedSpaceStr, "", sizeof(param->msData->info.usedSpaceStr));
+			param->msData->info.usedSpace32KB = 0;
+			strncpy(param->msData->info.usedSpace32Str, "", sizeof(param->msData->info.usedSpace32Str));
+			ret = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 		}
 	}
-	if (Memory::IsValidAddress(param->utilityData))
+	if (param->utilityData.Valid())
 	{
 		int total_size = 0;
 		total_size += getSizeNormalized(1); // SFO;
@@ -776,15 +777,17 @@ bool SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		total_size += getSizeNormalized(param->pic1FileData.size);
 		total_size += getSizeNormalized(param->snd0FileData.size);
 
-		Memory::Write_U32(total_size / (u32)MemoryStick_SectorSize(),param->utilityData);	// num cluster
-		Memory::Write_U32(total_size / 0x400,param->utilityData+4);	// save size in KB
+		param->utilityData->usedClusters = total_size / (u32)MemoryStick_SectorSize();
+		param->utilityData->usedSpaceKB = total_size / 0x400;
 		std::string spaceTxt = SavedataParam::GetSpaceText(total_size);
-		Memory::Memset(param->utilityData+8,0,(u32)spaceTxt.size()+1);
-		Memory::Memcpy(param->utilityData+8,spaceTxt.c_str(),(u32)spaceTxt.size()); // save size in text
-		Memory::Write_U32(total_size / 0x400,param->utilityData+16);	// save size in KB
+		memset(param->utilityData->usedSpaceStr, 0, sizeof(param->utilityData->usedSpaceStr));
+		strncpy(param->utilityData->usedSpaceStr, spaceTxt.c_str(), sizeof(param->utilityData->usedSpaceStr));
+
+		// TODO: Maybe these are rounded to the nearest 32KB?  Or something?
+		param->utilityData->usedSpace32KB = total_size / 0x400;
 		spaceTxt = SavedataParam::GetSpaceText(total_size);
-		Memory::Memset(param->utilityData+20,0,(u32)spaceTxt.size()+1);
-		Memory::Memcpy(param->utilityData+20,spaceTxt.c_str(),(u32)spaceTxt.size()); // save size in text
+		memset(param->utilityData->usedSpace32Str, 0, sizeof(param->utilityData->usedSpace32Str));
+		strncpy(param->utilityData->usedSpace32Str, spaceTxt.c_str(), sizeof(param->utilityData->usedSpace32Str));
 	}
 	return ret;
 
@@ -796,15 +799,14 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		return false;
 	}
 
-	if (Memory::IsValidAddress(param->idListAddr))
+	if (param->idList.Valid())
 	{
-		u32 outputBuffer = Memory::Read_U32(param->idListAddr + 8);
-		u32 maxFile = Memory::Read_U32(param->idListAddr + 0);
+		u32 maxFile = param->idList->maxCount;
 
 		std::vector<PSPFileInfo> validDir;
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
-		if (Memory::IsValidAddress(outputBuffer))
+		if (param->idList.Valid())
 		{
 			std::string searchString = GetGameName(param)+GetSaveName(param);
 			for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
@@ -816,24 +818,22 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 				}
 			}
 
+			SceUtilitySavedataIdListEntry *entries = param->idList->entries;
 			for (u32 i = 0; i < (u32)validDir.size(); i++)
 			{
-				u32 baseAddr = outputBuffer + (i*72);
-				Memory::Write_U32(0x11FF,baseAddr + 0); // mode
-				Memory::Write_U64(0,baseAddr + 4); // TODO ctime
-				Memory::Write_U64(0,baseAddr + 12); // TODO unknow
-				Memory::Write_U64(0,baseAddr + 20); // TODO atime
-				Memory::Write_U64(0,baseAddr + 28); // TODO unknow
-				Memory::Write_U64(0,baseAddr + 36); // TODO mtime
-				Memory::Write_U64(0,baseAddr + 44); // TODO unknow
+				entries[i].st_mode = 0x11FF;
+				// TODO
+				memset(&entries[i].st_ctime, 0, sizeof(entries[i].st_ctime));
+				memset(&entries[i].st_atime, 0, sizeof(entries[i].st_atime));
+				memset(&entries[i].st_mtime, 0, sizeof(entries[i].st_mtime));
 				// folder name without gamename (max 20 u8)
 				std::string outName = validDir[i].name.substr(GetGameName(param).size());
-				Memory::Memset(baseAddr + 52,0,20);
-				Memory::Memcpy(baseAddr + 52, outName.c_str(), (u32)outName.size());
+				memset(entries[i].name, 0, sizeof(entries[i].name));
+				strncpy(entries[i].name, outName.c_str(), sizeof(entries[i].name));
 			}
 		}
 		// Save num of folder found
-		Memory::Write_U32((u32)validDir.size(), param->idListAddr + 4);
+		param->idList->resultCount = (u32)validDir.size();
 	}
 	return true;
 }
@@ -859,7 +859,8 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
-	if (fileList->systemEntries.Valid() && fileList->maxSystemEntries > 5) {
+	// TODO: This may depend on sdk version or something?  Not returned by default.
+	if (false && fileList->systemEntries.Valid() && fileList->maxSystemEntries > 5) {
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
@@ -957,6 +958,10 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		entry->name[15] = '\0';
 	}
 
+	// TODO: Does this always happen?
+	// Don't know what it is, but PSP always respond this
+	param->bind = 1021;
+
 	return 0;
 }
 
@@ -971,29 +976,24 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 	PSPFileInfo info = pspFileSystem.GetFileInfo(saveDir);
 	bool exists = info.exists;
 
-	if (Memory::IsValidAddress(param->sizeAddr))
+	if (param->sizeInfo.Valid())
 	{
-		PspUtilitySavedataSizeInfo sizeInfo;
-		Memory::ReadStruct(param->sizeAddr, &sizeInfo);
-
 		// TODO: Read the entries and count up the size vs. existing size?
 
-		sizeInfo.sectorSize = (int)MemoryStick_SectorSize();
-		sizeInfo.freeSectors = (int)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
+		param->sizeInfo->sectorSize = (int)MemoryStick_SectorSize();
+		param->sizeInfo->freeSectors = (int)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
 
 		// TODO: Is this after the specified files?  Before?
-		sizeInfo.freeKB = (int)(MemoryStick_FreeSpace() / 1024);
+		param->sizeInfo->freeKB = (int)(MemoryStick_FreeSpace() / 1024);
 		std::string spaceTxt = SavedataParam::GetSpaceText((int)MemoryStick_FreeSpace());
-		strncpy(sizeInfo.freeString, spaceTxt.c_str(), 8);
-		sizeInfo.freeString[7] = '\0';
+		strncpy(param->sizeInfo->freeString, spaceTxt.c_str(), 8);
+		param->sizeInfo->freeString[7] = '\0';
 
 		// TODO.
-		sizeInfo.neededKB = 0;
-		strcpy(sizeInfo.neededString, "0 KB");
-		sizeInfo.overwriteKB = 0;
-		strcpy(sizeInfo.overwriteString, "0 KB");
-
-		Memory::WriteStruct(param->sizeAddr, &sizeInfo);
+		param->sizeInfo->neededKB = 0;
+		strcpy(param->sizeInfo->neededString, "0 KB");
+		param->sizeInfo->overwriteKB = 0;
+		strcpy(param->sizeInfo->overwriteString, "0 KB");
 	}
 
 	return exists;
@@ -1040,14 +1040,13 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 		listEmptyFile = false;
 	}
 
-	typedef char (*SaveNameListData_t)[20];
-	SaveNameListData_t saveNameListData;
+	SceUtilitySavedataSaveName *saveNameListData;
 	bool hasMultipleFileName = false;
-	if (param->saveNameList != 0)
+	if (param->saveNameList.Valid())
 	{
 		Clear();
 
-		saveNameListData = (SaveNameListData_t)Memory::GetPointer(param->saveNameList);
+		saveNameListData = param->saveNameList;
 
 		// Get number of fileName in array
 		saveDataListCount = 0;
@@ -1210,15 +1209,14 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 	saveInfo.idx = 0;
 	saveInfo.textureData = 0;
 
-	if (Memory::IsValidAddress(GetPspParam()->newData))
+	if (GetPspParam()->newData.Valid() && GetPspParam()->newData->buf.Valid())
 	{
 		// We have a png to show
 		if (!noSaveIcon)
 		{
 			noSaveIcon = new SaveFileInfo();
-			PspUtilitySavedataFileData newData;
-			Memory::ReadStruct(GetPspParam()->newData, &newData);
-			CreatePNGIcon(Memory::GetPointer(newData.buf), (int)newData.size, *noSaveIcon);
+			PspUtilitySavedataFileData *newData = GetPspParam()->newData;
+			CreatePNGIcon(newData->buf, (int)newData->size, *noSaveIcon);
 		}
 		saveInfo.textureData = noSaveIcon->textureData;
 		saveInfo.textureWidth = noSaveIcon->textureWidth;

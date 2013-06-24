@@ -581,12 +581,18 @@ class CChunkFileReader
 public:
 	// Load file template
 	template<class T>
-	static bool Load(const std::string& _rFilename, int _Revision, T& _class) 
+	static bool Load(const std::string& _rFilename, int _Revision, T& _class, std::string* _failureReason) 
 	{
 		INFO_LOG(COMMON, "ChunkReader: Loading %s" , _rFilename.c_str());
+		_failureReason->clear();
+		_failureReason->append("LoadStateWrongVersion");
 
-		if (!File::Exists(_rFilename))
+		if (!File::Exists(_rFilename)) {
+			_failureReason->clear();
+			_failureReason->append("LoadStateDoesntExist");
+			ERROR_LOG(COMMON, "ChunkReader: File doesn't exist");
 			return false;
+		}
 				
 		// Check file size
 		const u64 fileSize = File::GetSize(_rFilename);
@@ -664,6 +670,7 @@ public:
 	static bool Save(const std::string& _rFilename, int _Revision, T& _class)
 	{
 		INFO_LOG(COMMON, "ChunkReader: Writing %s" , _rFilename.c_str());
+
 		File::IOFile pFile(_rFilename, "wb");
 		if (!pFile)
 		{

@@ -226,17 +226,24 @@ bool loadControlsFromFile() {
 	FILE *rfp = fopen("PPSSPPControls.dat", "rb");
 	if (!rfp)
 		return false;
+
 	fseek(rfp, 0, SEEK_END);
 	fpos_t fsize = 0;
 	fgetpos(rfp, &fsize);
+	
 	if (fsize != (key_pad_map_size + analog_ctrl_map_size + dinput_ctrl_map_size + xinput_ctrl_map_size))
+	{
+		fclose(rfp);
 		return false;
+	}
+
 	fseek(rfp, 0, SEEK_SET);
 	fread(key_pad_map, 1, key_pad_map_size, rfp);
 	fread(analog_ctrl_map, 1, analog_ctrl_map_size, rfp);
 	fread(dinput_ctrl_map, 1, dinput_ctrl_map_size, rfp);
 	fread(xinput_ctrl_map, 1, xinput_ctrl_map_size, rfp);
 	fclose(rfp);
+
 	return true;
 }
 

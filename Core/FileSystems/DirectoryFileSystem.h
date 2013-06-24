@@ -64,7 +64,7 @@ public:
 
 	bool MkDir(const std::string &dirname);
 	bool RmDir(const std::string &dirname);
-	bool RenameFile(const std::string &from, const std::string &to);
+	int  RenameFile(const std::string &from, const std::string &to);
 	bool RemoveFile(const std::string &filename);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 
@@ -114,7 +114,7 @@ public:
 
 	bool MkDir(const std::string &dirname);
 	bool RmDir(const std::string &dirname);
-	bool RenameFile(const std::string &from, const std::string &to);
+	int  RenameFile(const std::string &from, const std::string &to);
 	bool RemoveFile(const std::string &filename);
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 

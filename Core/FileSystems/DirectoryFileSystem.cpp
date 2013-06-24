@@ -18,6 +18,7 @@
 #include "ChunkFile.h"
 #include "FileUtil.h"
 #include "DirectoryFileSystem.h"
+#include "Core/HLE/sceKernel.h"
 #include "file/zip_read.h"
 
 #ifdef _WIN32
@@ -203,17 +204,29 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 	return File::DeleteDirRecursively(fullName);
 }
 
-bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string &to) {
+int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &to) {
 	std::string fullTo = to;
 
-	// Rename only work for filename in current directory
+	// Rename ignores the path (even if specified) on to.
+	size_t chop_at = to.find_last_of('/');
+	if (chop_at != to.npos)
+		fullTo = to.substr(chop_at + 1);
+
+	// Now put it in the same directory as from.
+	size_t dirname_end = from.find_last_of('/');
+	if (dirname_end != from.npos)
+		fullTo = from.substr(0, dirname_end + 1) + fullTo;
+
+	// At this point, we should check if the paths match and give an already exists error.
+	if (from == fullTo)
+		return SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS;
 
 	std::string fullFrom = GetLocalPath(from);
 
 #if HOST_IS_CASE_SENSITIVE
 	// In case TO should overwrite a file with different case
 	if ( ! FixPathCase(fullTo, FPC_PATH_MUST_EXIST) )
-		return false;  // or go on and attempt (for a better error code than just false?)
+		return -1;  // or go on and attempt (for a better error code than just false?)
 #endif
 
 	fullTo = GetLocalPath(fullTo);
@@ -231,7 +244,7 @@ bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string 
 		// May have failed due to case sensitivity on FROM, so try again
 		fullFrom = from;
 		if ( ! FixPathCase(fullFrom, FPC_FILE_MUST_EXIST) )
-			return false;  // or go on and attempt (for a better error code than just false?)
+			return -1;  // or go on and attempt (for a better error code than just false?)
 		fullFrom = GetLocalPath(fullFrom);
 
 #ifdef _WIN32
@@ -242,7 +255,8 @@ bool DirectoryFileSystem::RenameFile(const std::string &from, const std::string 
 	}
 #endif
 
-	return retValue;
+	// TODO: Better error codes.
+	return retValue ? 0 : SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS;
 }
 
 bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
@@ -643,9 +657,9 @@ bool VFSFileSystem::RmDir(const std::string &dirname) {
 	return false;
 }
 
-bool VFSFileSystem::RenameFile(const std::string &from, const std::string &to) {
+int VFSFileSystem::RenameFile(const std::string &from, const std::string &to) {
 	// NOT SUPPORTED - READ ONLY
-	return false;
+	return -1;
 }
 
 bool VFSFileSystem::RemoveFile(const std::string &filename) {

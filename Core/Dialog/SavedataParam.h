@@ -65,6 +65,8 @@ enum SceUtilitySavedataFocus
 	SCE_UTILITY_SAVEDATA_FOCUS_LASTEMPTY  = 8, // last empty (what if no empty?)
 };
 
+typedef char SceUtilitySavedataSaveName[20];
+
 // title, savedataTitle, detail: parts of the unencrypted SFO
 // data, it contains what the VSH and standard load screen shows
 struct PspUtilitySavedataSFOParam
@@ -77,24 +79,22 @@ struct PspUtilitySavedataSFOParam
 };
 
 struct PspUtilitySavedataFileData {
-	int buf;
+	PSPPointer<u8> buf;
 	SceSize bufSize;  // Size of the buffer pointed to by buf
 	SceSize size;	    // Actual file size to write / was read
 	int unknown;
 };
 
-// TODO: According to JPCSP, should verify.
 struct PspUtilitySavedataSizeEntry {
 	u64 size;
 	char name[16];
 };
 
-// TODO: According to JPCSP, should verify.
 struct PspUtilitySavedataSizeInfo {
-	int secureNumEntries;
-	int numEntries;
-	u32 secureEntriesPtr;
-	u32 entriesPtr;
+	int numSecureEntries;
+	int numNormalEntries;
+	PSPPointer<PspUtilitySavedataSizeEntry> secureEntries;
+	PSPPointer<PspUtilitySavedataSizeEntry> normalEntries;
 	int sectorSize;
 	int freeSectors;
 	int freeKB;
@@ -103,6 +103,22 @@ struct PspUtilitySavedataSizeInfo {
 	char neededString[8];
 	int overwriteKB;
 	char overwriteString[8];
+};
+
+struct SceUtilitySavedataIdListEntry
+{
+	int st_mode;
+	ScePspDateTime st_ctime;
+	ScePspDateTime st_atime;
+	ScePspDateTime st_mtime;
+	SceUtilitySavedataSaveName name;
+};
+
+struct SceUtilitySavedataIdListInfo
+{
+	int maxCount;
+	int resultCount;
+	PSPPointer<SceUtilitySavedataIdListEntry> entries;
 };
 
 struct SceUtilitySavedataFileListEntry
@@ -128,6 +144,31 @@ struct SceUtilitySavedataFileListInfo
 	PSPPointer<SceUtilitySavedataFileListEntry> systemEntries;
 };
 
+struct SceUtilitySavedataMsFreeInfo
+{
+	int clusterSize;
+	int freeClusters;
+	int freeSpaceKB;
+	char freeSpaceStr[8];
+};
+
+struct SceUtilitySavedataUsedDataInfo
+{
+	int usedClusters;
+	int usedSpaceKB;
+	char usedSpaceStr[8];
+	int usedSpace32KB;
+	char usedSpace32Str[8];
+};
+
+struct SceUtilitySavedataMsDataInfo
+{
+	char gameName[13];
+	char pad[3];
+	SceUtilitySavedataSaveName saveName;
+	SceUtilitySavedataUsedDataInfo info;
+};
+
 // Structure to hold the parameters for the sceUtilitySavedataInitStart function.
 struct SceUtilitySavedataParam
 {
@@ -142,14 +183,14 @@ struct SceUtilitySavedataParam
 	char gameName[13];
 	char unused[3];
 	/** saveName: name of the particular save, normally a number */
-	char saveName[20];
-	u32 saveNameList;
+	SceUtilitySavedataSaveName saveName;
+	PSPPointer<SceUtilitySavedataSaveName> saveNameList;
 	/** fileName: name of the data file of the game for example DATA.BIN */
 	char fileName[13];
 	char unused2[3];
 
 	/** pointer to a buffer that will contain data file unencrypted data */
-	u32 dataBuf; // Initially void*, but void* in 64bit system take 8 bytes.
+	PSPPointer<u8> dataBuf;
 	/** size of allocated space to dataBuf */
 	SceSize dataBufSize;
 	SceSize dataSize;  // Size of the actual save data
@@ -161,14 +202,14 @@ struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData pic1FileData;
 	PspUtilitySavedataFileData snd0FileData;
 
-	u32 newData;
+	PSPPointer<PspUtilitySavedataFileData> newData;
 	int focus;
 	int abortStatus;
 
 	// Function SCE_UTILITY_SAVEDATA_TYPE_SIZES
-	u32 msFree;
-	u32 msData;
-	u32 utilityData;
+	PSPPointer<SceUtilitySavedataMsFreeInfo> msFree;
+	PSPPointer<SceUtilitySavedataMsDataInfo> msData;
+	PSPPointer<SceUtilitySavedataUsedDataInfo> utilityData;
 
 	u8 key[16];
 
@@ -176,13 +217,13 @@ struct SceUtilitySavedataParam
 	int multiStatus;
 
 	// Function 11 LIST
-	u32 idListAddr;
+	PSPPointer<SceUtilitySavedataIdListInfo> idList;
 
 	// Function 12 FILES
 	PSPPointer<SceUtilitySavedataFileListInfo> fileList;
 
 	// Function 22 GETSIZES
-	u32 sizeAddr;
+	PSPPointer<PspUtilitySavedataSizeInfo> sizeInfo;
 
 };
 
@@ -234,7 +275,7 @@ public:
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	bool Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
 	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
-	bool GetSizes(SceUtilitySavedataParam* param);
+	int GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	int GetFilesList(SceUtilitySavedataParam* param);
 	bool GetSize(SceUtilitySavedataParam* param);

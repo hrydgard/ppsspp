@@ -173,6 +173,9 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 	else
 		WRITE(p, "attribute vec4 a_position;\n");  // need to pass the fog coord in w
 
+	if (useHWTransform && hasNormal)
+		WRITE(p, "attribute mediump vec3 a_normal;\n");
+
 	if (doTexture) {
 		if (!useHWTransform && doTextureProjection)
 			WRITE(p, "attribute vec3 a_texcoord;\n");
@@ -185,9 +188,6 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, "attribute lowp vec3 a_color1;\n");
 	}
 
-	if (useHWTransform && hasNormal)
-		WRITE(p, "attribute mediump vec3 a_normal;\n");
-
 	if (gstate.isModeThrough())	{
 		WRITE(p, "uniform mat4 u_proj_through;\n");
 	} else {
@@ -195,20 +195,11 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		// Add all the uniforms we'll need to transform properly.
 	}
 
-	if (useHWTransform || !hasColor)
-		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
-
-	if (enableFog) {
-		WRITE(p, "uniform vec2 u_fogcoef;\n");
-	}
-
 	if (useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
 		WRITE(p, "uniform mat4 u_world;\n");
 		WRITE(p, "uniform mat4 u_view;\n");
-		if (gstate.getUVGenMode() == 0)
-			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
-		else if (gstate.getUVGenMode() == 1)
+		if (gstate.getUVGenMode() == 1)
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 		if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
 			int numBones = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
@@ -220,6 +211,8 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			}
 #endif
 		}
+		if (gstate.getUVGenMode() == 0)
+			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
 				// This is needed for shade mapping
@@ -253,6 +246,13 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
 			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 		}
+	}
+
+	if (useHWTransform || !hasColor)
+		WRITE(p, "uniform lowp vec4 u_matambientalpha;\n");  // matambient + matalpha
+
+	if (enableFog) {
+		WRITE(p, "uniform vec2 u_fogcoef;\n");
 	}
 
 	WRITE(p, "varying lowp vec4 v_color0;\n");
@@ -429,9 +429,10 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
 			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
 
-			if (type == GE_LIGHTTYPE_DIRECTIONAL)
-				WRITE(p, "  toLight = normalize(u_lightpos%i);\n", i);
-			else {
+			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
+				// We prenormalize light positions for directional lights.
+				WRITE(p, "  toLight = u_lightpos%i;\n", i);
+			} else {
 				WRITE(p, "  toLight = u_lightpos%i - worldpos;\n", i);
 				WRITE(p, "  distance = length(toLight);\n");
 				WRITE(p, "  toLight /= distance;\n");

@@ -456,18 +456,27 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 
 	// Alright, all voices mixed. Let's convert and clip, and at the same time, wipe mixBuffer for next time. Could also dither.
 	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
-	s16 *inp = inAddr ? (s16*)Memory::GetPointer(inAddr) : 0;
-	for (int i = 0; i < grainSize * 2; i += 2) {
-		int sampleL = mixBuffer[i] + sendBuffer[i];
-		if (inp)
-			sampleL += (*inp++) * leftVol >> 12;
-		*outp++ = clamp_s16(sampleL);
-		if (outputMode == 0) {
-			// stereo
-			int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1];
+	const s16 *inp = inAddr ? (s16*)Memory::GetPointer(inAddr) : 0;
+	if (outputMode == 0) {
+		if (inp) {
+			for (int i = 0; i < grainSize * 2; i += 2) {
+				int sampleL = mixBuffer[i] + sendBuffer[i] + ((*inp++) * leftVol >> 12);
+				int sampleR = mixBuffer[i + 1] + sendBuffer[i + 1] + ((*inp++) * rightVol >> 12);
+				*outp++ = clamp_s16(sampleL);
+				*outp++ = clamp_s16(sampleR);
+			}
+		} else {
+			for (int i = 0; i < grainSize * 2; i += 2) {
+				*outp++ = clamp_s16(mixBuffer[i] + sendBuffer[i]);
+				*outp++ = clamp_s16(mixBuffer[i + 1] + sendBuffer[i + 1]);
+			}
+		}
+	} else {
+		for (int i = 0; i < grainSize * 2; i += 2) {
+			int sampleL = mixBuffer[i] + sendBuffer[i];
 			if (inp)
-				sampleR += (*inp++) * rightVol >> 12;
-			*outp++ = clamp_s16(sampleR);
+				sampleL += (*inp++) * leftVol >> 12;
+			*outp++ = clamp_s16(sampleL);
 		}
 	}
 	memset(mixBuffer, 0, grainSize * sizeof(int) * 2);

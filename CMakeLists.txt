@@ -5,16 +5,22 @@ project(PPSSPP)
 if(ANDROID)
 	if(ARMEABI OR ARMEABI_V7A)
 		set(ARM ON)
+		set(USE_FFMPEG ON)
 	endif()
+endif()
+
+if(BLACKBERRY)
+	set(CMAKE_SYSTEM_NAME "QNX")
 endif()
 
 if (IOS OR BLACKBERRY)
 	set(ARM ON)
+	set(USE_FFMPEG ON)
 endif()
 
 if (MAEMO)
 	set(ARM ON)
-	#Maemo's gcc-4.7.2 is strickt
+	#Maemo's gcc-4.7.2 is strict
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpermissive")
 endif()
 
@@ -28,8 +34,17 @@ else() # Assume x86
 	set(X86 ON)
 endif()
 
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	set(LINUX ON)
+	if (NOT USING_GLES2)
+		# Not working yet.
+		set(USE_FFMPEG ON)
+	endif()
+endif()
+
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 	set(MACOSX ON)
+	set(USE_FFMPEG ON)
 endif()
 
 if(ANDROID OR BLACKBERRY OR IOS OR PANDORA OR MAEMO OR MACOSX)
@@ -50,6 +65,7 @@ option(IOS "Set to ON if targeting an iOS device" ${IOS})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
+option(USE_FFMPEG "Build with FFMPEG support (beta)" ${USE_FFMPEG})
 
 if(ANDROID)
 	if(NOT ANDROID_ABI)
@@ -92,11 +108,7 @@ endif()
 include_directories("${CMAKE_SOURCE_DIR}")
 
 if(BLACKBERRY)
-	set(CMAKE_SYSTEM_NAME "QNX")
 	add_definitions(-DBLACKBERRY)
-	if(BLACKBERRY VERSION_GREATER 10)
-		add_definitions(-DBLACKBERRY10)
-	endif()
 endif()
 
 if(ANDROID)
@@ -455,11 +467,6 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h)
 	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework OpenGLES -framework UIKit -framework GLKit -framework OpenAL")
-	# FFMPEG
-	add_definitions(-DUSE_FFMPEG)
-	include_directories(ffmpeg/ios/universal/include)
-	link_directories(ffmpeg/ios/universal/lib)
-	set(nativeExtraLibs ${nativeExtraLibs} iconv bz2 libavformat.a libavcodec.a libswresample.a libavutil.a libswscale.a)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	# Currently unused
@@ -472,18 +479,8 @@ elseif(USING_QT_UI)
 elseif(BLACKBERRY)
 	set(nativeExtra ${nativeExtra} native/base/BlackberryMain.cpp native/base/BlackberryDisplay.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} OpenAL bps screen socket EGL)
-	# FFMPEG
-	add_definitions(-DUSE_FFMPEG)
-	include_directories(ffmpeg/blackberry/armv7/include)
-	link_directories(ffmpeg/blackberry/armv7/lib)
-	set(nativeExtraLibs ${nativeExtraLibs} iconv libavformat.a libavcodec.a libswresample.a libavutil.a libswscale.a)
 	set(TargetBin PPSSPPBlackberry)
 elseif(SDL_FOUND)
-	if(MACOSX)
-		include_directories(ffmpeg/macosx/x86_64/include)
-		link_directories(ffmpeg/macosx/x86_64/lib)
-		set(nativeExtraLibs ${nativeExtraLibs} libavformat.a libavcodec.a libswresample.a libavutil.a libswscale.a)
-	endif()
 	set(TargetBin PPSSPPSDL)
 	# Require SDL
 	include_directories(${SDL_INCLUDE_DIR})
@@ -495,9 +492,6 @@ elseif(SDL_FOUND)
 	elseif(PANDORA OR MAEMO)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread EGL X11)
 	endif()
-	# FFMPEG
-	add_definitions(-DUSE_FFMPEG)
-	set(nativeExtraLibs ${nativeExtraLibs} avformat avcodec swresample swscale)
 	set(TargetBin PPSSPPSDL)
 else()
     message(FATAL_ERROR "Could not find SDL. Failing.")
@@ -723,7 +717,7 @@ endif()
 
 # atrac3plus.cpp used dl* functions on non-win32 platforms
 # Core needs to be linked with dl on these platforms
-if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+if(LINUX)
   set(CoreExtraLibs ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 endif()
 
@@ -1101,6 +1095,61 @@ set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/ppge_atlas.zim)
 set(LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT} ${nativeExtraLibs})
+
+if(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
+	if(BLACKBERRY)
+		set(PLATFORM_ARCH "blackberry/armv7")
+	elseif(IOS)
+		set(PLATFORM_ARCH "ios/universal")
+	elseif(MACOSX)
+		set(PLATFORM_ARCH "macosx/x86_64")
+	endif()
+	# Using static libraries
+	if (DEFINED PLATFORM_ARCH)
+		include_directories(ffmpeg/${PLATFORM_ARCH}/include)
+		link_directories(ffmpeg/${PLATFORM_ARCH}/lib)
+		set(FFMPEG_LIBRARIES libavformat.a libavcodec.a libavutil.a libswresample.a libswscale.a)
+	else()
+		message(WARNING "FFMPEG_BUILDDIR variable is required to enable FFmpeg. Disabling it.")
+		unset(USE_FFMPEG)
+	endif()
+endif(USE_FFMPEG AND NOT DEFINED FFMPEG_BUILDDIR)
+
+if(USE_FFMPEG)
+	# Using shared libraries
+	if(DEFINED FFMPEG_BUILDDIR)
+		include_directories(ffmpeg ${FFMPEG_BUILDDIR})
+
+		add_library(libavformat STATIC IMPORTED)
+		set_target_properties(libavformat PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavformat/libavformat.a)
+		add_library(libavcodec STATIC IMPORTED)
+		set_target_properties(libavcodec PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavcodec/libavcodec.a)
+		add_library(libavutil STATIC IMPORTED)
+		set_target_properties(libavutil PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libavutil/libavutil.a)
+		add_library(libswresample STATIC IMPORTED)
+		set_target_properties(libswresample PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswresample/libswresample.a)
+		add_library(libswscale STATIC IMPORTED)
+		set_target_properties(libswscale PROPERTIES IMPORTED_LOCATION ${FFMPEG_BUILDDIR}/libswscale/libswscale.a)
+
+		SET (FFMPEG_LIBRARIES
+			libavformat
+			libavcodec
+			libavutil
+			libswresample
+			libswscale
+		)
+	endif()
+	if(IOS OR BLACKBERRY)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} iconv)
+	endif()
+
+	if(APPLE)
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework VideoDecodeAcceleration" "-framework CoreVideo")
+	endif(APPLE)
+	
+	set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
+	add_definitions(-DUSE_FFMPEG)
+endif(USE_FFMPEG)
 
 if (TargetBin)
 	if (IOS)

@@ -61,9 +61,10 @@ public:
 	bool bDisplayFramebuffer;
 	bool bHardwareTransform;
 	bool bBufferedRendering;
+	bool bNearestFiltering;
 	bool bLinearFiltering;
 	bool bUseVBO;
-#ifdef BLACKBERRY10
+#ifdef BLACKBERRY
 	bool bPartialStretch;
 #endif
 	bool bStretchToDisplay;
@@ -95,7 +96,7 @@ public:
 	bool bShowTouchControls;
 	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
-	bool bShowFPSCounter;
+	int iShowFPSCounter;
 	bool bShowDebugStats;
 	bool bLargeControls;
 	bool bAccelerometerToAnalogHoriz;
@@ -104,6 +105,7 @@ public:
 	// 1 = arrow buttons
 	// 2 = face buttons
 	// 3 = L/R
+	// 4 = L/R + triangle/cross
 	int iRightStickBind;
 
 	// Control
@@ -115,18 +117,18 @@ public:
 	// SystemParam
 	std::string sNickName;
 	int ilanguage;
-	int itimeformat;
+	int iTimeFormat;
 	int iDateFormat;
 	int iTimeZone;
 	bool bDayLightSavings;
-	bool bButtonPreference;
+	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 
 	std::string currentDirectory;
-	std::string externalDirectory;
+	std::string externalDirectory; 
 	std::string memCardDirectory;
 	std::string flashDirectory;
 	std::string internalDataDirectory;
