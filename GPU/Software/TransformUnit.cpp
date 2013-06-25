@@ -17,6 +17,11 @@
 
 #include "TransformUnit.h"
 #include "../GPUState.h"
+#include "../GLES/VertexDecoder.h"
+
+const int FB_WIDTH = 480;
+const int FB_HEIGHT = 272;
+extern u8* fb;
 
 WorldCoords TransformUnit::ModelToWorld(const ModelCoords& coords)
 {
@@ -61,4 +66,106 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 	ret.x = (((u32)coords.x - (gstate.offsetx&0xffff))/16) & 0x3ff;
 	ret.y = (((u32)coords.y - (gstate.offsety&0xffff))/16) & 0x3ff;
 	return ret;
+}
+
+static void DrawVLine(u8* target, DrawingCoords a, DrawingCoords b)
+{
+	if (a.y > b.y) {
+		DrawVLine(target, b, a);
+		return;
+	}
+
+	for (int y = a.y; y < b.y; ++y) {
+		float u = (float)(y-a.y)/(float)(b.y-a.y);
+		int x = (1-u)*a.x+u*b.x;
+		if (x < gstate.getScissorX1()) continue;
+		if (x > gstate.getScissorX2()) continue;
+		if (y < gstate.getScissorY1()) continue;
+		if (y > gstate.getScissorY2()) continue;
+		target[x*4+y*FB_WIDTH*4] = 0xff;
+		target[x*4+y*FB_WIDTH*4+1] = 0xff;
+		target[x*4+y*FB_WIDTH*4+2] = 0xff;
+		target[x*4+y*FB_WIDTH*4+3] = 0xff;
+	}
+}
+
+static void DrawLine(u8* target, DrawingCoords a, DrawingCoords b)
+{
+	if (a.x > b.x) {
+		DrawLine(target, b, a);
+		return;
+	}
+
+	if (a.y > b.y && a.x - b.x < a.y - b.y)
+	{
+		DrawVLine(target, a, b);
+		return;
+	}
+
+	if (a.y < b.y && a.x - b.x < b.y - a.y)
+	{
+		DrawVLine(target, a, b);
+		return;
+	}
+
+	for (int x = a.x; x < b.x; ++x) {
+		float u = (float)(x-a.x)/(float)(b.x-a.x);
+		int y = (1-u)*a.y+u*b.y;
+		if (x < gstate.getScissorX1()) continue;
+		if (x > gstate.getScissorX2()) continue;
+		if (y < gstate.getScissorY1()) continue;
+		if (y > gstate.getScissorY2()) continue;
+		target[x*4+y*FB_WIDTH*4] = 0xff;
+		target[x*4+y*FB_WIDTH*4+1] = 0xff;
+		target[x*4+y*FB_WIDTH*4+2] = 0xff;
+		target[x*4+y*FB_WIDTH*4+3] = 0xff;
+	}
+}
+
+void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_count, u32 vertex_type)
+{
+	// TODO: Cache VertexDecoder objects
+	VertexDecoder vdecoder;
+	vdecoder.SetVertexType(vertex_type);
+	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
+
+	static u8 buf[102400]; // yolo
+	vdecoder.DecodeVerts(buf, vertices, 0, vertex_count - 1);
+
+	VertexReader vreader(buf, vtxfmt, vertex_type);
+
+	// We only support triangle lists, for now.
+	for (int vtx = 0; vtx < vertex_count; ++vtx)
+	{
+		DrawingCoords dcoords[3];
+		for (unsigned int i = 0; i < 3; ++i)
+		{
+			float pos[3];
+			vreader.Goto(vtx+i);
+			vreader.ReadPos(pos);
+
+			ModelCoords mcoords(pos[0], pos[1], pos[2]);
+			ClipCoords ccoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords)))));
+
+			// TODO: Split primitives in these cases!
+			// TODO: Check if the equal case needs to be included, too
+			if (ccoords.x < -ccoords.w || ccoords.x > ccoords.w) {
+				ERROR_LOG(G3D, "X outside view volume!");
+				goto skip;
+			}
+			if (ccoords.y < -ccoords.w || ccoords.y > ccoords.w) {
+				ERROR_LOG(G3D, "Y outside view volume!");
+				goto skip;
+			}
+			if (ccoords.z < -ccoords.w || ccoords.z > ccoords.w) {
+				ERROR_LOG(G3D, "Z outside view volume!");
+				goto skip;
+			}
+			dcoords[i] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords)));
+		}
+		DrawLine(fb, dcoords[0], dcoords[1]);
+		DrawLine(fb, dcoords[1], dcoords[2]);
+		DrawLine(fb, dcoords[2], dcoords[0]);
+skip:;
+	}
 }

@@ -45,4 +45,6 @@ public:
 	static ClipCoords ViewToClip(const ViewCoords& coords);
 	static ScreenCoords ClipToScreen(const ClipCoords& coords);
 	static DrawingCoords ScreenToDrawing(const ScreenCoords& coords);
+
+	static void SubmitPrimitive(void* vertices, u32 prim_type, int vertex_count, u32 vertex_type);
 };

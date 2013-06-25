@@ -21,7 +21,6 @@
 #include "../../Core/MemMap.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
 #include "../../Core/HLE/sceGe.h"
-#include "../GLES/VertexDecoder.h"
 #include "gfx/gl_common.h"
 
 #include "SoftGpu.h"
@@ -34,8 +33,8 @@ static GLint uni_tex = -1;
 
 static GLuint program;
 
-#define FB_WIDTH 480
-#define FB_HEIGHT 272
+const int FB_WIDTH = 480;
+const int FB_HEIGHT = 272;
 u8 fb_dummy[FB_WIDTH*FB_HEIGHT*4]; // TODO: Should replace this one with the actual framebuffer
 u8* fb = fb_dummy;
 
@@ -221,60 +220,6 @@ void SoftGPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
-void DrawVLine(u8* target, DrawingCoords a, DrawingCoords b)
-{
-	if (a.y > b.y) {
-		DrawVLine(target, b, a);
-		return;
-	}
-
-	for (int y = a.y; y < b.y; ++y) {
-		float u = (float)(y-a.y)/(float)(b.y-a.y);
-		int x = (1-u)*a.x+u*b.x;
-		if (x < gstate.getScissorX1()) continue;
-		if (x > gstate.getScissorX2()) continue;
-		if (y < gstate.getScissorY1()) continue;
-		if (y > gstate.getScissorY2()) continue;
-		target[x*4+y*FB_WIDTH*4] = 0xff;
-		target[x*4+y*FB_WIDTH*4+1] = 0xff;
-		target[x*4+y*FB_WIDTH*4+2] = 0xff;
-		target[x*4+y*FB_WIDTH*4+3] = 0xff;
-	}
-}
-
-void DrawLine(u8* target, DrawingCoords a, DrawingCoords b)
-{
-	if (a.x > b.x) {
-		DrawLine(target, b, a);
-		return;
-	}
-
-	if (a.y > b.y && a.x - b.x < a.y - b.y)
-	{
-		DrawVLine(target, a, b);
-		return;
-	}
-
-	if (a.y < b.y && a.x - b.x < b.y - a.y)
-	{
-		DrawVLine(target, a, b);
-		return;
-	}
-
-	for (int x = a.x; x < b.x; ++x) {
-		float u = (float)(x-a.x)/(float)(b.x-a.x);
-		int y = (1-u)*a.y+u*b.y;
-		if (x < gstate.getScissorX1()) continue;
-		if (x > gstate.getScissorX2()) continue;
-		if (y < gstate.getScissorY1()) continue;
-		if (y > gstate.getScissorY2()) continue;
-		target[x*4+y*FB_WIDTH*4] = 0xff;
-		target[x*4+y*FB_WIDTH*4+1] = 0xff;
-		target[x*4+y*FB_WIDTH*4+2] = 0xff;
-		target[x*4+y*FB_WIDTH*4+3] = 0xff;
-	}
-}
-
 void SoftGPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;
@@ -326,60 +271,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				ERROR_LOG(G3D, "Using through mode... fail");
 			}
 
-			VertexDecoder vdecoder;
-			vdecoder.SetVertexType(gstate.vertType);
-			const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
-
-			static u8 buf[102400]; // yolo
-			vdecoder.DecodeVerts(buf, verts, 0, count - 1);
-
-			VertexReader vreader(buf, vtxfmt, gstate.vertType);
-
-			for (int vtx = 0; vtx < count; vtx += 3)
-			{
-				float pos[9];
-				vreader.Goto(vtx);
-				vreader.ReadPos(pos);
-				vreader.Goto(vtx+1);
-				vreader.ReadPos(pos+3);
-				vreader.Goto(vtx+2);
-				vreader.ReadPos(pos+6);
-				ModelCoords mcoords[3];
-				mcoords[0] = ModelCoords(pos[0], pos[1], pos[2]);
-				mcoords[1] = ModelCoords(pos[3], pos[4], pos[5]);
-				mcoords[2] = ModelCoords(pos[6], pos[7], pos[8]);
-				ClipCoords ccoords[3];
-				ccoords[0] = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[0]))));
-				ccoords[1] = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[1]))));
-				ccoords[2] = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[2]))));
-				for (unsigned int i = 0; i < 3; ++i) {
-					ClipCoords ccoordss = ccoords[i];
-					// TODO: Split primitives in these cases!
-					// TODO: Check if the equal case needs to be included, too
-					if (ccoordss.x < -ccoordss.w || ccoordss.x > ccoordss.w) {
-						ERROR_LOG(G3D, "X outside view volume!");
-						goto skip;
-					}
-					if (ccoordss.y < -ccoordss.w || ccoordss.y > ccoordss.w) {
-						ERROR_LOG(G3D, "Y outside view volume!");
-						goto skip;
-					}
-					if (ccoordss.z < -ccoordss.w || ccoordss.z > ccoordss.w) {
-						ERROR_LOG(G3D, "Z outside view volume!");
-						goto skip;
-					}
-				}
-				{
-				DrawingCoords dcoords[3];
-				dcoords[0] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[0])));
-				dcoords[1] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[1])));
-				dcoords[2] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[2])));
-				DrawLine(fb, dcoords[0], dcoords[1]);
-				DrawLine(fb, dcoords[1], dcoords[2]);
-				DrawLine(fb, dcoords[2], dcoords[0]);
-				}
-skip:;
-			}
+			TransformUnit::SubmitPrimitive(verts, type, count, gstate.vertType);
 		}
 		break;
 
