@@ -50,6 +50,7 @@ public:
 
 private:
 	int frames_;
+	bool showAtracShortcut_;
 };
 
 // Dialog box, meant to be pushed

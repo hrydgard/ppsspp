@@ -184,6 +184,8 @@ void LogoScreen::render() {
 // ==================
 
 MenuScreen::MenuScreen() : frames_(0) {
+	// If first run, let's show the user an easy way to access the atrac3plus download screen.
+	showAtracShortcut_ = g_Config.bFirstRun && !Atrac3plus_Decoder::IsInstalled();
 }
 
 void MenuScreen::update(InputState &input_state) {
@@ -275,6 +277,12 @@ void MenuScreen::render() {
 		}
 	}
 
+	if (showAtracShortcut_) {
+		if (UIButton(GEN_ID, Pos(10,dp_yres - 10), 500, 50, "Download audio plugin", ALIGN_BOTTOMLEFT)) {
+			screenManager()->push(new PluginScreen());
+		}
+	}
+
 	int recentW = 350;
 	if (g_Config.recentIsos.size()) {
 		ui_draw2d.DrawText(UBUNTU24, m->T("Recent"), -xoff, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
@@ -287,13 +295,19 @@ void MenuScreen::render() {
 
 	if (dp_yres < 480)
 		spacing = 8;
+
+	int extraSpace = 0;
+	if (showAtracShortcut_)
+		extraSpace = 60;
+
+	if (showAtracShortcut_)
 	// On small screens, we can't fit four vertically.
 	if (100 + spacing * 6 + textureButtonHeight * 4 > dp_yres) {
 		textureButtonHeight = (dp_yres - 100 - spacing * 6) / 4;
 		textureButtonWidth = (textureButtonHeight / 80) * 144;
 	}
 
-	VGrid vgrid_recent(-xoff, 100, std::min(dp_yres-spacing*2, 480), spacing, spacing);
+	VGrid vgrid_recent(-xoff, 100, std::min(dp_yres-spacing*2-extraSpace, 480), spacing, spacing);
 
 	for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
 		std::string filename;

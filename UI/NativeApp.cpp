@@ -373,13 +373,8 @@ void NativeInitGraphics() {
 #if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A) || (defined(MACOSX) && defined(_M_IX64))
 		if (Atrac3plus_Decoder::CanAutoInstall()) {
 			Atrac3plus_Decoder::DoAutoInstall();
-			screenManager->switchScreen(new LogoScreen(boot_filename));
-		} else {
-			screenManager->switchScreen(new LogoScreen(boot_filename));
-			// If first run and can't autoinstall, let's send the user to the atrac3plus download screen.
-			if (g_Config.bFirstRun && !Atrac3plus_Decoder::IsInstalled())
-				screenManager->push(new PluginScreen());
 		}
+		screenManager->switchScreen(new LogoScreen(boot_filename));
 #else
 		screenManager->switchScreen(new LogoScreen(boot_filename));
 #endif
