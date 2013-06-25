@@ -15,13 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "TransformUnit.h"
 #include "../GPUState.h"
 #include "../GLES/VertexDecoder.h"
 
-const int FB_WIDTH = 480;
-const int FB_HEIGHT = 272;
-extern u8* fb;
+#include "TransformUnit.h"
+#include "Rasterizer.h"
 
 WorldCoords TransformUnit::ModelToWorld(const ModelCoords& coords)
 {
@@ -68,60 +66,6 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 	return ret;
 }
 
-static void DrawVLine(u8* target, DrawingCoords a, DrawingCoords b)
-{
-	if (a.y > b.y) {
-		DrawVLine(target, b, a);
-		return;
-	}
-
-	for (int y = a.y; y < b.y; ++y) {
-		float u = (float)(y-a.y)/(float)(b.y-a.y);
-		int x = (1-u)*a.x+u*b.x;
-		if (x < gstate.getScissorX1()) continue;
-		if (x > gstate.getScissorX2()) continue;
-		if (y < gstate.getScissorY1()) continue;
-		if (y > gstate.getScissorY2()) continue;
-		target[x*4+y*FB_WIDTH*4] = 0xff;
-		target[x*4+y*FB_WIDTH*4+1] = 0xff;
-		target[x*4+y*FB_WIDTH*4+2] = 0xff;
-		target[x*4+y*FB_WIDTH*4+3] = 0xff;
-	}
-}
-
-static void DrawLine(u8* target, DrawingCoords a, DrawingCoords b)
-{
-	if (a.x > b.x) {
-		DrawLine(target, b, a);
-		return;
-	}
-
-	if (a.y > b.y && a.x - b.x < a.y - b.y)
-	{
-		DrawVLine(target, a, b);
-		return;
-	}
-
-	if (a.y < b.y && a.x - b.x < b.y - a.y)
-	{
-		DrawVLine(target, a, b);
-		return;
-	}
-
-	for (int x = a.x; x < b.x; ++x) {
-		float u = (float)(x-a.x)/(float)(b.x-a.x);
-		int y = (1-u)*a.y+u*b.y;
-		if (x < gstate.getScissorX1()) continue;
-		if (x > gstate.getScissorX2()) continue;
-		if (y < gstate.getScissorY1()) continue;
-		if (y > gstate.getScissorY2()) continue;
-		target[x*4+y*FB_WIDTH*4] = 0xff;
-		target[x*4+y*FB_WIDTH*4+1] = 0xff;
-		target[x*4+y*FB_WIDTH*4+2] = 0xff;
-		target[x*4+y*FB_WIDTH*4+3] = 0xff;
-	}
-}
-
 void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_count, u32 vertex_type)
 {
 	// TODO: Cache VertexDecoder objects
@@ -163,9 +107,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_co
 			}
 			dcoords[i] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords)));
 		}
-		DrawLine(fb, dcoords[0], dcoords[1]);
-		DrawLine(fb, dcoords[1], dcoords[2]);
-		DrawLine(fb, dcoords[2], dcoords[0]);
+		Rasterizer::DrawTriangle(dcoords);
 skip:;
 	}
 }

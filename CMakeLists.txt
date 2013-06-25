@@ -1019,6 +1019,8 @@ add_library(GPU OBJECT
 	GPU/Software/SoftGpu.h
 	GPU/Software/TransformUnit.cpp
 	GPU/Software/TransformUnit.h
+	GPU/Software/Rasterizer.cpp
+	GPU/Software/Rasterizer.h
 	GPU/ge_constants.h)
 setup_target_project(GPU GPU)
 
