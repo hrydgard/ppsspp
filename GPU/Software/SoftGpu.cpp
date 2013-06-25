@@ -22,6 +22,7 @@
 #include "../../Core/MemMap.h"
 #include "../../Core/HLE/sceKernelInterrupt.h"
 #include "../../Core/HLE/sceGe.h"
+#include "../GLES/VertexDecoder.h"
 #include "gfx/gl_common.h"
 
 static GLuint temp_texture = 0;
@@ -248,6 +249,22 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				"RECTANGLES=6,",
 			};
 			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+
+			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				// TODO: Index support...
+				ERROR_LOG(G3D, "Using indices... fail");
+			}
+
+			VertexDecoder vdecoder;
+			vdecoder.SetVertexType(gstate.vertType);
+			const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
+
+			static u8 buf[102400]; // yolo
+			vdecoder.DecodeVerts(buf, verts, 0, count - 1);
+
+			VertexReader vreader(buf, vtxfmt, gstate.vertType);
+			PrintDecodedVertex(vreader);
 		}
 		break;
 
