@@ -349,7 +349,7 @@ struct PSPPointer
 		return (T *)(Memory::base + ptr);
 	}
 
-	bool Valid() const
+	bool IsValid() const
 	{
 		return Memory::IsValidAddress(ptr);
 	}
