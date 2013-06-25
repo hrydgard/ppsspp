@@ -47,12 +47,15 @@ u32 SampleNearest(int level, float s, float t)
 	// TODO: Assert tmap.tmn == 0 (uv texture mapping mode)
 
 	if (texfmt == GE_TFMT_4444) {
-		// TODO: no idea if this is correct
 		srcptr += 2 * v * width + 2 * u;
 		u8 r = (*srcptr) >> 4;
-		u8 g = (*srcptr) & 0xFF;
+		u8 g = (*srcptr) & 0xF;
 		u8 b = (*(srcptr+1)) >> 4;
-		u8 a = (*(srcptr+1)) & 0xFF;
+		u8 a = (*(srcptr+1)) & 0xF;
+		r = (r << 4) | r;
+		g = (g << 4) | g;
+		b = (b << 4) | b;
+		a = (a << 4) | a;
 		return (r << 24) | (g << 16) | (b << 8) | a;
 	}
 }
@@ -94,7 +97,7 @@ void DrawTriangle(VertexData vertexdata[3])
 				float s = vertexdata[0].texturecoords.s() * w0 / w + vertexdata[1].texturecoords.s() * w1 / w + vertexdata[2].texturecoords.s() * w2 / w;
 				float t = vertexdata[0].texturecoords.t() * w0 / w + vertexdata[1].texturecoords.t() * w1 / w + vertexdata[2].texturecoords.t() * w2 / w;
 				u32 color = /*TextureDecoder::*/SampleNearest(0, s, t);
-				*(u32*)&fb[p.x*4+p.y*FB_WIDTH*4] = color | 0xff007f00; // first: purple, second: dark blue, third: greenish, fourth: red-ish
+				*(u32*)&fb[p.x*4+p.y*FB_WIDTH*4] = color | 0xff7f0000;
 			}
 		}
 	}
