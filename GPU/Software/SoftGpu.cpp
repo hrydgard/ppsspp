@@ -221,6 +221,28 @@ void SoftGPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
+void DrawLine(u8* target, DrawingCoords a, DrawingCoords b)
+{
+	if (a.x > b.x) {
+		DrawLine(target, b, a);
+		return;
+	}
+
+	if (a.x == b.x)
+		return;
+
+	for (int x = a.x; x < b.x; ++x) {
+		float u = (float)(x-a.x)/(float)(b.x-a.x);
+		int y = (1-u)*a.y+u*b.y;
+		if (x >= FB_WIDTH) continue;
+		if (y >= FB_HEIGHT) continue;
+		target[x*4+y*FB_WIDTH*4] = 0xff;
+		target[x*4+y*FB_WIDTH*4+1] = 0xff;
+		target[x*4+y*FB_WIDTH*4+2] = 0xff;
+		target[x*4+y*FB_WIDTH*4+3] = 0xff;
+	}
+}
+
 void SoftGPU::ExecuteOp(u32 op, u32 diff)
 {
 	u32 cmd = op >> 24;
@@ -276,21 +298,26 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 			VertexReader vreader(buf, vtxfmt, gstate.vertType);
 
-			for (int vtx = 0; vtx < count; ++vtx)
+			for (int vtx = 0; vtx < count; vtx += 3)
 			{
+				float pos[9];
 				vreader.Goto(vtx);
-
-				float pos[3];
 				vreader.ReadPos(pos);
-
-				ModelCoords mcoords(pos[0], pos[1], pos[2]);
-				DrawingCoords dcoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords))))));
-				if (dcoords.x >= FB_WIDTH) break;
-				if (dcoords.y >= FB_HEIGHT) break;
-				fb_dummy[dcoords.x*4 + dcoords.y * FB_WIDTH * 4] = 0xff;
-				fb_dummy[dcoords.x*4 + dcoords.y * FB_WIDTH * 4+1] = 0xff;
-				fb_dummy[dcoords.x*4 + dcoords.y * FB_WIDTH * 4+2] = 0xff;
-				fb_dummy[dcoords.x*4 + dcoords.y * FB_WIDTH * 4+3] = 0xff;
+				vreader.Goto(vtx+1);
+				vreader.ReadPos(pos+3);
+				vreader.Goto(vtx+2);
+				vreader.ReadPos(pos+6);
+				ModelCoords mcoords[3];
+				mcoords[0] = ModelCoords(pos[0], pos[1], pos[2]);
+				mcoords[1] = ModelCoords(pos[3], pos[4], pos[5]);
+				mcoords[2] = ModelCoords(pos[6], pos[7], pos[8]);
+				DrawingCoords dcoords[3];
+				dcoords[0] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[0]))))));
+				dcoords[1] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[1]))))));
+				dcoords[2] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[2]))))));
+				DrawLine(fb_dummy, dcoords[0], dcoords[1]);
+				DrawLine(fb_dummy, dcoords[1], dcoords[2]);
+				DrawLine(fb_dummy, dcoords[2], dcoords[0]);
 			}
 		}
 		break;
