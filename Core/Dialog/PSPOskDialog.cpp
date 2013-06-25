@@ -82,7 +82,7 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		{L"いきしちにひみ　り　ぃ　　"},
 		{L"うくすつぬふむゆるをぅゅ゛"},
 		{L"えけせてねへめ　れ　ぇ　゜"},
-		{L"おこそとのほもよるんぉょー"},
+		{L"おこそとのほもよろんぉょー"},
 	},
 	{
 		// Katakana
@@ -90,7 +90,7 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		{L"イキシチニヒミ　リ　ィ　　"},
 		{L"ウクスツヌフムユルヲゥュ゛"},
 		{L"エケセテネヘメ　レ　ェ　゜"},
-		{L"オコソトノホモヨルンォョー"},
+		{L"オコソトノホモヨロンォョー"},
 	},
 	{
 		// Korean(Hangul)
