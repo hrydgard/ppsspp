@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "../../Core/MemMap.h"
 #include "../GPUState.h"
 
 #include "Rasterizer.h"
@@ -30,8 +31,36 @@ static int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const Draw
 	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
 }
 
-void DrawTriangle(DrawingCoords vertices[3])
+u32 SampleNearest(int level, float s, float t)
 {
+	int texfmt = gstate.texformat & 0xF;
+	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
+	u8* srcptr = (u8*)Memory::GetPointer(texaddr); // TODO: not sure if this is the right place to load from...?
+
+	int width = 1 << (gstate.texsize[level] & 0xf);
+	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+
+	int u = s * width; // TODO: -1?
+	int v = t * height; // TODO: -1?
+
+	// TODO: Assert tmode.hsm == 0 (normal storage mode)
+	// TODO: Assert tmap.tmn == 0 (uv texture mapping mode)
+
+	if (texfmt == GE_TFMT_4444) {
+		// TODO: no idea if this is correct
+		srcptr += 2 * v * width + 2 * u;
+		u8 r = (*srcptr) >> 4;
+		u8 g = (*srcptr) & 0xFF;
+		u8 b = (*(srcptr+1)) >> 4;
+		u8 a = (*(srcptr+1)) & 0xFF;
+		return (r << 24) | (g << 16) | (b << 8) | a;
+	}
+}
+
+void DrawTriangle(VertexData vertexdata[3])
+{
+	DrawingCoords vertices[3] = { vertexdata[0].drawpos, vertexdata[1].drawpos, vertexdata[2].drawpos };
+
 	int minX = std::min(std::min(vertices[0].x, vertices[1].x), vertices[2].x);
 	int minY = std::min(std::min(vertices[0].y, vertices[1].y), vertices[2].y);
 	int maxX = std::max(std::max(vertices[0].x, vertices[1].x), vertices[2].x);
@@ -41,6 +70,13 @@ void DrawTriangle(DrawingCoords vertices[3])
 	maxX = std::min(maxX, gstate.getScissorX2());
 	minY = std::max(minY, gstate.getScissorY1());
 	maxY = std::min(maxY, gstate.getScissorY2());
+
+	int w = orient2d(vertices[2], vertices[0], vertices[1]);
+	if (w == 0)
+	{
+		// TODO: Should draw a line or point here instead
+		return;
+	}
 
 	DrawingCoords p(minX, minY);
 	for (p.y = minY; p.y <= maxY; ++p.y)
@@ -55,10 +91,10 @@ void DrawTriangle(DrawingCoords vertices[3])
 			// TODO: Should only render when it's on the left of the right edge
 			if (w0 >=0 && w1 >= 0 && w2 >= 0)
 			{
-				fb[p.x*4+p.y*FB_WIDTH*4] = 0xff;
-				fb[p.x*4+p.y*FB_WIDTH*4+1] = 0xff;
-				fb[p.x*4+p.y*FB_WIDTH*4+2] = 0xff;
-				fb[p.x*4+p.y*FB_WIDTH*4+3] = 0xff;
+				float s = vertexdata[0].texturecoords.s() * w0 / w + vertexdata[1].texturecoords.s() * w1 / w + vertexdata[2].texturecoords.s() * w2 / w;
+				float t = vertexdata[0].texturecoords.t() * w0 / w + vertexdata[1].texturecoords.t() * w1 / w + vertexdata[2].texturecoords.t() * w2 / w;
+				u32 color = /*TextureDecoder::*/SampleNearest(0, s, t);
+				*(u32*)&fb[p.x*4+p.y*FB_WIDTH*4] = color | 0xff007f00; // first: purple, second: dark blue, third: greenish, fourth: red-ish
 			}
 		}
 	}

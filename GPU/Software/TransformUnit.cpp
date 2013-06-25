@@ -81,33 +81,43 @@ void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_co
 	// We only support triangle lists, for now.
 	for (int vtx = 0; vtx < vertex_count; ++vtx)
 	{
-		DrawingCoords dcoords[3];
+		VertexData data[3];
 		for (unsigned int i = 0; i < 3; ++i)
 		{
 			float pos[3];
 			vreader.Goto(vtx+i);
 			vreader.ReadPos(pos);
 
+			if (gstate.textureMapEnable && vreader.hasUV())
+			{
+				float uv[2];
+				vreader.ReadUV(uv);
+				data[i].texturecoords = Vec2<float>(uv[0], uv[1]);
+			}
+
 			ModelCoords mcoords(pos[0], pos[1], pos[2]);
-			ClipCoords ccoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords)))));
+			data[i].clippos = ClipCoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords)))));
 
 			// TODO: Split primitives in these cases!
 			// TODO: Check if the equal case needs to be included, too
-			if (ccoords.x < -ccoords.w || ccoords.x > ccoords.w) {
+			if (data[i].clippos.x < -data[i].clippos.w || data[i].clippos.x > data[i].clippos.w) {
 				ERROR_LOG(G3D, "X outside view volume!");
 				goto skip;
 			}
-			if (ccoords.y < -ccoords.w || ccoords.y > ccoords.w) {
+			if (data[i].clippos.y < -data[i].clippos.w || data[i].clippos.y > data[i].clippos.w) {
 				ERROR_LOG(G3D, "Y outside view volume!");
 				goto skip;
 			}
-			if (ccoords.z < -ccoords.w || ccoords.z > ccoords.w) {
+			if (data[i].clippos.z < -data[i].clippos.w || data[i].clippos.z > data[i].clippos.w) {
 				ERROR_LOG(G3D, "Z outside view volume!");
 				goto skip;
 			}
-			dcoords[i] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords)));
+			data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
 		}
-		Rasterizer::DrawTriangle(dcoords);
+
+		// TODO: Should do lighting here!
+
+		Rasterizer::DrawTriangle(data);
 skip:;
 	}
 }

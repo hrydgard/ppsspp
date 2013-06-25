@@ -37,6 +37,13 @@ struct ScreenCoords
 
 typedef Vec2<u10> DrawingCoords; // TODO: Keep z component?
 
+struct VertexData
+{
+	ClipCoords clippos;
+	DrawingCoords drawpos;
+	Vec2<float> texturecoords;
+};
+
 class TransformUnit
 {
 public:
