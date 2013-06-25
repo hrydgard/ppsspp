@@ -190,6 +190,7 @@ void EmuScreen::update(InputState &input) {
 	}
 #endif
 
+	/*
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
 		{PAD_BUTTON_A, CTRL_CROSS},
@@ -212,6 +213,15 @@ void EmuScreen::update(InputState &input) {
 		}
 		if (input.pad_buttons_up & mapping[i][0]) {
 			__CtrlButtonUp(mapping[i][1]);
+		}
+	}
+	*/
+
+	// TODO: remove the above dead code
+	for (int i = 0; i < MAX_KEYQUEUESIZE; i++) {
+		int key = input.key_queue[i];
+		if (key != 0) {
+			// TODO: find proper Ctrl* internal function
 		}
 	}
 

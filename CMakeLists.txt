@@ -599,7 +599,9 @@ add_library(native STATIC
 	native/image/zim_save.h
 	native/input/gesture_detector.cpp
 	native/input/gesture_detector.h
+	native/input/keycodes.h
 	native/input/input_state.h
+	native/input/input_state.cpp
 	native/json/json_writer.cpp
 	native/json/json_writer.h
 	native/math/curves.cpp

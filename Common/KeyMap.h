@@ -19,7 +19,8 @@
 
 #include <string>
 #include <map>
-#include "input/keyboard_keys.h"
+#include "input/keycodes.h"     // keyboard keys
+#include "Core/HLE/sceCtrl.h"   // psp keys
 
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
@@ -45,7 +46,7 @@ namespace KeyMap {
 		// These functions are not
 		// fast, do not call them
 		// a million times.
-		std::string GetKeyName(kb_key_t);
+		std::string GetKeyName(int);
 		std::string GetPspButtonName(int);
 
 		// Use if to translate
@@ -58,14 +59,14 @@ namespace KeyMap {
 		//
 		// Returns KEYMAP_ERROR_UNKNOWN_KEY
 		// for any unmapped key
-		int KeyToPspButton(kb_key_t);
+		int KeyToPspButton(int);
 
-		bool IsMappedKey(kb_key_t);
+		bool IsMappedKey(int);
 
 		// Might be usful if you want
 		// to provide hints to users
 		// upon mapping conflicts
-		std::string NamePspButtonFromKey(kb_key_t);
+		std::string NamePspButtonFromKey(int);
 
 		// Use for showing the existing
 		// key mapping.
@@ -78,7 +79,7 @@ namespace KeyMap {
 		// 
 		// Returns KEYMAP_ERROR_KEY_ALREADY_USED
 		//  for mapping conflicts. 0 otherwise.
-		int SetKeyMapping(kb_key_t, int);
+		int SetKeyMapping(int kb_key, int psp_key);
 
 		// Platform specific keymaps
 		// override KeyMap's defaults.
