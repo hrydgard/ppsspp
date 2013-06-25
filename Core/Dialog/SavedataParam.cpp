@@ -263,7 +263,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	memset(cryptedHash,0,0x10);
 	// Encrypt save.
 	// TODO: Is this the correct difference between MAKEDATA and MAKEDATASECURE?
-	if (param->dataBuf != 0 && g_Config.bEncryptSave && secureMode)
+	if (param->dataBuf.Valid() && g_Config.bEncryptSave && secureMode)
 	{
 		cryptedSize = param->dataSize;
 		if(cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize)
@@ -329,7 +329,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		else
 			memset(tmpData, 0, FILE_LIST_TOTAL_SIZE);
 
-		if (param->dataBuf != 0)
+		if (param->dataBuf.Valid())
 		{
 			char *fName = (char*)tmpData;
 			for(int i = 0; i < FILE_LIST_COUNT_MAX; i++)
@@ -370,7 +370,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	WritePSPFile(sfopath, sfoData, (SceSize)sfoSize);
 	delete[] sfoData;
 
-	if(param->dataBuf != 0)	// Can launch save without save data in mode 13
+	if(param->dataBuf.Valid())	// Can launch save without save data in mode 13
 	{
 		std::string filePath = dirPath+"/"+GetFileName(param);
 		u8 *data_ = 0;
