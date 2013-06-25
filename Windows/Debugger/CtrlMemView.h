@@ -47,10 +47,6 @@ class CtrlMemView
 
 	int visibleRows;
 
-	int selection;
-	int oldSelection;
-	bool selectionChanged;
-	bool selecting;
 	bool hasFocus;
 	static TCHAR szClassName[];
 	DebugInterface *debugger;

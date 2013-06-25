@@ -32,7 +32,6 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 		"Lucida Console");
   curAddress=0;
   rowHeight=12;
-  selecting=false;
   mode=MV_NORMAL;
   debugger = 0;
   
@@ -125,7 +124,7 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		ccp->onChar(wParam,lParam);
 		break;
 	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
-	case WM_RBUTTONDOWN: rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
+	case WM_RBUTTONDOWN: SetFocus(hwnd); rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
 	case WM_LBUTTONUP:   lmbDown=false; ccp->onMouseUp(wParam,lParam,1); break;
 	case WM_RBUTTONUP:   rmbDown=false; ccp->onMouseUp(wParam,lParam,2); break;
@@ -449,7 +448,16 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_MEMVIEW_COPYVALUE:
 			{
 				char temp[24];
-				sprintf(temp,"%08x",Memory::ReadUnchecked_U32(selection));
+
+				// it's admittedly not really useful like this
+				if (asciiSelected)
+				{
+					unsigned char c = Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : '.';
+					if (c < 32 || c >= 128) c = '.';
+					sprintf(temp,"%c",c);
+				} else {
+					sprintf(temp,"%02X",Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : 0xFF);
+				}
 				W32Util::CopyTextToClipboard(wnd,temp);
 			}
 			break;
