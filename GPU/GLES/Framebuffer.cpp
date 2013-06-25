@@ -408,8 +408,9 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 	// Save current render framebuffer to memory
 	if(currentRenderVfb_) {
-		// TODO: Add a way to disable the call since it is rather expensive.
-		ReadFramebufferToMemory(currentRenderVfb_);
+		if(g_Config.bFramebuffersToMem) {
+			ReadFramebufferToMemory(currentRenderVfb_);
+		}
 	}
 
 	// None found? Create one.
@@ -604,8 +605,9 @@ void FramebufferManager::CopyDisplayToOutput() {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	// TODO: Add a way to disable the call since it is rather expensive.
-	ReadFramebufferToMemory(vfb);
+	if(g_Config.bFramebuffersToMem) {
+		ReadFramebufferToMemory(vfb);
+	}
 
 	if (resized_) {
 		glstate.depthWrite.set(GL_TRUE);
@@ -775,31 +777,31 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 
 		int pixelType, pixelSize, pixelFormat, align;
 		switch (vfb->format) {
-				case GE_FORMAT_4444: // 16 bit ABGR
-					pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-					pixelFormat = GL_RGBA;
-					pixelSize = 2;
-					align = 8;
-					break;
-				case GE_FORMAT_5551: // 16 bit ABGR
-					pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-					pixelFormat = GL_RGBA;
-					pixelSize = 2;
-					align = 8;
-					break;
-				case GE_FORMAT_565: // 16 bit BGR
-					pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
-					pixelFormat = GL_RGB;
-					pixelSize = 2;
-					align = 8;
-					break;
-				case GE_FORMAT_8888: // 32 bit ABGR
-				default: // And same as above
-					pixelType = GL_UNSIGNED_INT_8_8_8_8_REV;
-					pixelFormat = GL_RGBA;
-					pixelSize = 4;
-					align = 4;
-					break;
+			case GE_FORMAT_4444: // 16 bit ABGR
+				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+				pixelFormat = GL_RGBA;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_5551: // 16 bit ABGR
+				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+				pixelFormat = GL_RGBA;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_565: // 16 bit BGR
+				pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
+				pixelFormat = GL_RGB;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_8888: // 32 bit ABGR
+			default: // And same as above
+				pixelType = GL_UNSIGNED_INT_8_8_8_8_REV;
+				pixelFormat = GL_RGBA;
+				pixelSize = 4;
+				align = 4;
+				break;
 		}
 
 		if (useBufferedRendering_) {
