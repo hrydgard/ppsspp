@@ -35,26 +35,18 @@ struct DefaultKeyMap {
 	static std::map<int,int> init()
 	{
 		std::map<int,int> m;
-		m[KEY_x] = PAD_BUTTON_A;
-		m[KEY_z] = PAD_BUTTON_B;
-		m[KEY_s] = PAD_BUTTON_X;
-		m[KEY_a] = PAD_BUTTON_Y;
-		m[KEY_q] = PAD_BUTTON_LBUMPER;
-		m[KEY_w] = PAD_BUTTON_RBUMPER;
-		m[KEY_SPACE] = PAD_BUTTON_START;
-		m[KEY_ENTER] = PAD_BUTTON_SELECT;
-		m[KEY_ARROW_UP] = PAD_BUTTON_UP;
-		m[KEY_ARROW_DOWN] = PAD_BUTTON_DOWN;
-		m[KEY_ARROW_LEFT] = PAD_BUTTON_LEFT;
-		m[KEY_ARROW_RIGHT] = PAD_BUTTON_RIGHT;
-		m[KEY_TAB] = PAD_BUTTON_MENU;
-		m[KEY_BACKSPACE] = PAD_BUTTON_BACK;
-		m[KEY_ANALOG_UP] = PAD_BUTTON_JOY_UP;
-		m[KEY_ANALOG_DOWN] = PAD_BUTTON_JOY_DOWN;
-		m[KEY_ANALOG_LEFT] = PAD_BUTTON_JOY_LEFT;
-		m[KEY_ANALOG_RIGHT] = PAD_BUTTON_JOY_RIGHT;
-		m[KEY_CTRL_LEFT] = PAD_BUTTON_LEFT_THUMB;
-		m[KEY_ALT_LEFT] = PAD_BUTTON_RIGHT_THUMB;
+		m[KEYCODE_X] = CTRL_SQUARE;
+		m[KEYCODE_Z] = CTRL_TRIANGLE;
+		m[KEYCODE_S] = CTRL_CIRCLE;
+		m[KEYCODE_A] = CTRL_CROSS;
+		m[KEYCODE_Q] = CTRL_LTRIGGER;
+		m[KEYCODE_W] = CTRL_RTRIGGER;
+		m[KEYCODE_SPACE] = CTRL_START;
+		m[KEYCODE_ENTER] = CTRL_SELECT;
+		m[KEYCODE_DPAD_UP] = CTRL_UP;
+		m[KEYCODE_DPAD_DOWN] = CTRL_DOWN;
+		m[KEYCODE_DPAD_LEFT] = CTRL_LEFT;
+		m[KEYCODE_DPAD_RIGHT] = CTRL_RIGHT;
 		return m;
 	}
 	static std::map<int,int> KeyMap;
@@ -68,145 +60,84 @@ struct KeyMap_IntStrPair {
 	std::string name;
 };
 const KeyMap_IntStrPair key_names[] = {
-	{KEY_a, "a"},
-	{KEY_b, "b"},
-	{KEY_c, "c"},
-	{KEY_d, "d"},
-	{KEY_e, "e"},
-	{KEY_f, "f"},
-	{KEY_g, "g"},
-	{KEY_h, "h"},
-	{KEY_i, "i"},
-	{KEY_j, "j"},
-	{KEY_k, "k"},
-	{KEY_l, "l"},
-	{KEY_m, "m"},
-	{KEY_n, "n"},
-	{KEY_o, "o"},
-	{KEY_p, "p"},
-	{KEY_q, "q"},
-	{KEY_r, "r"},
-	{KEY_s, "s"},
-	{KEY_t, "t"},
-	{KEY_u, "u"},
-	{KEY_v, "v"},
-	{KEY_w, "w"},
-	{KEY_x, "x"},
-	{KEY_y, "y"},
-	{KEY_z, "z"},
+	{KEYCODE_A, "A"},
+	{KEYCODE_B, "B"},
+	{KEYCODE_C, "C"},
+	{KEYCODE_D, "D"},
+	{KEYCODE_E, "E"},
+	{KEYCODE_F, "F"},
+	{KEYCODE_G, "G"},
+	{KEYCODE_H, "H"},
+	{KEYCODE_I, "I"},
+	{KEYCODE_J, "J"},
+	{KEYCODE_K, "K"},
+	{KEYCODE_L, "L"},
+	{KEYCODE_M, "M"},
+	{KEYCODE_N, "N"},
+	{KEYCODE_O, "O"},
+	{KEYCODE_P, "P"},
+	{KEYCODE_Q, "Q"},
+	{KEYCODE_R, "R"},
+	{KEYCODE_S, "S"},
+	{KEYCODE_T, "T"},
+	{KEYCODE_U, "U"},
+	{KEYCODE_V, "V"},
+	{KEYCODE_W, "W"},
+	{KEYCODE_X, "X"},
+	{KEYCODE_Y, "Y"},
+	{KEYCODE_Z, "Z"},
 
-	{KEY_A, "A"},
-	{KEY_B, "B"},
-	{KEY_C, "C"},
-	{KEY_D, "D"},
-	{KEY_E, "E"},
-	{KEY_F, "F"},
-	{KEY_G, "G"},
-	{KEY_H, "H"},
-	{KEY_I, "I"},
-	{KEY_J, "J"},
-	{KEY_K, "K"},
-	{KEY_L, "L"},
-	{KEY_M, "M"},
-	{KEY_N, "N"},
-	{KEY_O, "O"},
-	{KEY_P, "P"},
-	{KEY_Q, "Q"},
-	{KEY_R, "R"},
-	{KEY_S, "S"},
-	{KEY_T, "T"},
-	{KEY_U, "U"},
-	{KEY_V, "V"},
-	{KEY_W, "W"},
-	{KEY_X, "X"},
-	{KEY_Y, "Y"},
-	{KEY_Z, "Z"},
-
-	{KEY_1, "1"},
-	{KEY_2, "2"},
-	{KEY_3, "3"},
-	{KEY_4, "4"},
-	{KEY_5, "5"},
-	{KEY_6, "6"},
-	{KEY_7, "7"},
-	{KEY_8, "8"},
-	{KEY_9, "9"},
-	{KEY_0, "0"},
+	{KEYCODE_1, "1"},
+	{KEYCODE_2, "2"},
+	{KEYCODE_3, "3"},
+	{KEYCODE_4, "4"},
+	{KEYCODE_5, "5"},
+	{KEYCODE_6, "6"},
+	{KEYCODE_7, "7"},
+	{KEYCODE_8, "8"},
+	{KEYCODE_9, "9"},
+	{KEYCODE_0, "0"},
 
 
-	{KEY_BACKSPACE, "Backspace"},
-	{KEY_TAB, "Tab"},
-	{KEY_ENTER, "Enter"},
-	{KEY_SHIFT_LEFT, "Shift"},
-	{KEY_SHIFT_RIGHT, "Shift"},
-	{KEY_CTRL_LEFT, "Ctrl"},
-	{KEY_CTRL_RIGHT, "Ctrl"},
-	{KEY_ALT_LEFT, "Alt"},
-	{KEY_ALT_RIGHT, "Alt"},
-	{KEY_SPACE, "Space"},
-	{KEY_SUPER, "Super"},
-	{KEY_SPACE, "Space"},
+	{KEYCODE_BACK, "Back"},
+	{KEYCODE_TAB, "Tab"},
+	{KEYCODE_ENTER, "Enter"},
+	{KEYCODE_SHIFT_LEFT, "Shift"},
+	{KEYCODE_SHIFT_RIGHT, "Shift"},
+	{KEYCODE_CTRL_LEFT, "Ctrl"},
+	{KEYCODE_CTRL_RIGHT, "Ctrl"},
+	{KEYCODE_ALT_LEFT, "Alt"},
+	{KEYCODE_ALT_RIGHT, "Alt"},
+	{KEYCODE_SPACE, "Space"},
+	{KEYCODE_WINDOW, "Windows"},
+	{KEYCODE_SPACE, "Space"},
 
-	{KEY_VOLUME_UP, "Vol Up"},
-	{KEY_VOLUME_DOWN, "Vol Down"},
-	{KEY_HOME, "Home"},
-	{KEY_CALL_START, "Start Call"},
-	{KEY_CALL_END, "End Call"},
+	{KEYCODE_VOLUME_UP, "Vol Up"},
+	{KEYCODE_VOLUME_DOWN, "Vol Down"},
+	{KEYCODE_HOME, "Home"},
+	{KEYCODE_CALL, "Start Call"},
+	{KEYCODE_ENDCALL, "End Call"},
 
-	{KEY_FASTFORWARD, "Fast foward"},
-
-	{KEY_ARROW_LEFT, "Left"},
-	{KEY_ARROW_UP, "Up"},
-	{KEY_ARROW_RIGHT, "Right"},
-	{KEY_ARROW_DOWN, "Down"},
-
-	{KEY_ANALOG_LEFT, "Analog Left"},
-	{KEY_ANALOG_UP, "Analog Up"},
-	{KEY_ANALOG_RIGHT, "Analog Right"},
-	{KEY_ANALOG_DOWN, "Analog Down"},
-
-	{KEY_ANALOG_ALT_LEFT, "Alt analog Left"},
-	{KEY_ANALOG_ALT_UP, "Alt analog Up"},
-	{KEY_ANALOG_ALT_RIGHT, "Alt analog Right"},
-	{KEY_ANALOG_ALT_DOWN, "Alt analog Down"},
-
-	{KEY_EXTRA1, "Extra1"},
-	{KEY_EXTRA2, "Extra2"},
-	{KEY_EXTRA3, "Extra3"},
-	{KEY_EXTRA4, "Extra4"},
-	{KEY_EXTRA5, "Extra5"},
-	{KEY_EXTRA6, "Extra6"},
-	{KEY_EXTRA7, "Extra7"},
-	{KEY_EXTRA8, "Extra8"},
-	{KEY_EXTRA9, "Extra9"},
-	{KEY_EXTRA0, "Extra0"},
+	{KEYCODE_DPAD_LEFT, "Left"},
+	{KEYCODE_DPAD_UP, "Up"},
+	{KEYCODE_DPAD_RIGHT, "Right"},
+	{KEYCODE_DPAD_DOWN, "Down"},
 };
 static int key_names_count = sizeof(key_names) / sizeof(key_names[0]);
 static std::string unknown_key_name = "Unknown";
 const KeyMap_IntStrPair psp_button_names[] = {
-	{PAD_BUTTON_A, "○"},
-	{PAD_BUTTON_B, "⨯"},
-	{PAD_BUTTON_X, "□"},
-	{PAD_BUTTON_Y, "△"},
-	{PAD_BUTTON_LBUMPER, "L"},
-	{PAD_BUTTON_RBUMPER, "R"},
-	{PAD_BUTTON_START, "Start"},
-	{PAD_BUTTON_SELECT, "Select"},
-	{PAD_BUTTON_UP, "Up"},
-	{PAD_BUTTON_DOWN, "Down"},
-	{PAD_BUTTON_LEFT, "Left"},
-	{PAD_BUTTON_RIGHT, "Right"},
-
-	{PAD_BUTTON_MENU, "Menu"},
-	{PAD_BUTTON_BACK, "Back"},
-
-	{PAD_BUTTON_JOY_UP, "Analog Up"},
-	{PAD_BUTTON_JOY_DOWN, "Analog Down"},
-	{PAD_BUTTON_JOY_LEFT, "Analog Left"},
-	{PAD_BUTTON_JOY_RIGHT, "Analog Right"},
-
-	{PAD_BUTTON_LEFT_THUMB, "Left analog click"},
-	{PAD_BUTTON_RIGHT_THUMB, "Right analog click"},
+	{CTRL_CIRCLE, "○"},
+	{CTRL_CROSS, "⨯"},
+	{CTRL_SQUARE, "□"},
+	{CTRL_TRIANGLE, "△"},
+	{CTRL_LTRIGGER, "L"},
+	{CTRL_RTRIGGER, "R"},
+	{CTRL_START, "Start"},
+	{CTRL_SELECT, "Select"},
+	{CTRL_UP, "Up"},
+	{CTRL_DOWN, "Down"},
+	{CTRL_LEFT, "Left"},
+	{CTRL_RIGHT, "Right"},
 };
 static int psp_button_names_count = sizeof(psp_button_names) / sizeof(psp_button_names[0]);
 
@@ -220,9 +151,9 @@ static std::string FindName(int key, const KeyMap_IntStrPair list[], int size)
 	return unknown_key_name;
 }
 
-std::string KeyMap::GetKeyName(kb_key_t key)
+std::string KeyMap::GetKeyName(int key)
 {
-	return FindName((int)key, key_names, key_names_count);
+	return FindName(key, key_names, key_names_count);
 }
 
 std::string KeyMap::GetPspButtonName(int btn)
@@ -272,24 +203,24 @@ static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 
 
 
-int KeyMap::KeyToPspButton(const kb_key_t key)
+int KeyMap::KeyToPspButton(const int key)
 {
 	int search_start_layer = 0;
 	int psp_button;
 
-	if (FindKeyMapping((int)key, &search_start_layer, &psp_button))
+	if (FindKeyMapping(key, &search_start_layer, &psp_button))
 		return psp_button;
 
 	return KEYMAP_ERROR_UNKNOWN_KEY;
 }
 
-bool KeyMap::IsMappedKey(kb_key_t key)
+bool KeyMap::IsMappedKey(int key)
 {
 	return KeyMap::KeyToPspButton(key) != KEYMAP_ERROR_UNKNOWN_KEY;
 }
 
 
-std::string KeyMap::NamePspButtonFromKey(kb_key_t key)
+std::string KeyMap::NamePspButtonFromKey(int key)
 {
 	return KeyMap::GetPspButtonName(KeyMap::KeyToPspButton(key));
 }
@@ -300,7 +231,7 @@ std::string KeyMap::NameKeyFromPspButton(int btn)
 	// with the list of key names.
 	for (int i = 0; i < key_names_count; i++) {
 		const struct KeyMap_IntStrPair key_name = key_names[i];
-		if (btn == KeyMap::KeyToPspButton((kb_key_t)(key_name.key)))
+		if (btn == KeyMap::KeyToPspButton(key_name.key))
 			return key_name.name;
 	}
 
@@ -310,7 +241,7 @@ std::string KeyMap::NameKeyFromPspButton(int btn)
 	return unknown_key_name;
 }
 
-int KeyMap::SetKeyMapping(kb_key_t key, int btn)
+int KeyMap::SetKeyMapping(int key, int btn)
 {
 	if (KeyMap::IsMappedKey(key))
 		return KEYMAP_ERROR_KEY_ALREADY_USED;
