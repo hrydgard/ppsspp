@@ -1,4 +1,4 @@
-// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
+﻿// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
 #include "../resource.h"
 #include "../../Core/MemMap.h"
@@ -74,6 +74,14 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	case WM_VSCROLL:
 		ccp->onVScroll(wParam,lParam);
 		break;
+	case WM_MOUSEWHEEL:
+		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+		{
+			ccp->scrollWindow(-3);
+		} else if (GET_WHEEL_DELTA_WPARAM(wParam) < 0) {
+			ccp->scrollWindow(3);
+		}
+		break;
 	case WM_ERASEBKGND:
 		return FALSE;
 	case WM_KEYDOWN:
@@ -92,6 +100,9 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	case WM_KILLFOCUS:
 		ccp->hasFocus=false;
 		ccp->redraw();
+		break;
+	case WM_GETDLGCODE:
+		return DLGC_WANTARROWS|DLGC_WANTTAB;
 		break;
     default:
         break;
@@ -115,15 +126,21 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
-	font = CreateFont(11,0,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+	font = CreateFont(12,8,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		"Lucida Console");
-	boldfont = CreateFont(11,0,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+	boldfont = CreateFont(12,8,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		"Lucida Console");
 	curAddress=0;
-	rowHeight=12;
-	align=2;
-	selecting=false;
+	rowHeight=14;
+	instructionSize=4;
 	showHex=false;
+	hasFocus = false;
+
+	jumpIndex = 0;
+	windowStart = curAddress;
+	whiteBackground = false;
+	displaySymbols = true;
+	calculatePixelPositions();
 }
 
 
@@ -133,188 +150,236 @@ CtrlDisAsmView::~CtrlDisAsmView()
 	DeleteObject(boldfont);
 }
 
-void fillRect(HDC hdc, RECT *rect, COLORREF colour)
+COLORREF scaleColor(COLORREF color, float factor)
 {
-    COLORREF oldcr = SetBkColor(hdc, colour);
-    ExtTextOut(hdc, 0, 0, ETO_OPAQUE, rect, "", 0, 0);
-    SetBkColor(hdc, oldcr);
+	unsigned char r = color & 0xFF;
+	unsigned char g = (color >> 8) & 0xFF;
+	unsigned char b = (color >> 16) & 0xFF;
+
+	r = min(255,max((int)(r*factor),0));
+	g = min(255,max((int)(g*factor),0));
+	b = min(255,max((int)(b*factor),0));
+
+	return (color & 0xFF000000) | (b << 16) | (g << 8) | r;
 }
 
-
-u32 halfAndHalf(u32 a, u32 b)
+void CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest)
 {
-	return ((a>>1)&0x7f7f7f7f) + ((b>>1)&0x7f7f7f7f);	
+	if (displaySymbols)
+	{
+		const char* addressSymbol = debugger->findSymbolForAddress(address);
+		if (addressSymbol != NULL)
+		{
+			if (memcmp(addressSymbol,"z_",2) == 0) addressSymbol += 2;
+			if (memcmp(addressSymbol,"zz_",3) == 0) addressSymbol += 3;
+
+			for (int k = 0; addressSymbol[k] != 0; k++)
+			{
+				// abbreviate long names
+				if (k == 16 && addressSymbol[k+1] != 0)
+				{
+					*dest++ = '+';
+					break;
+				}
+				*dest++ = addressSymbol[k];
+			}
+			*dest++ = ':';
+			*dest = 0;
+		} else {
+			sprintf(dest,"    %08X",address);
+		}
+	} else {
+		sprintf(dest,"%08X %08X",address,Memory::ReadUnchecked_U32(address));
+	}
 }
 
+void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* arguments)
+{
+	branchTarget = -1;
+	branchRegister = -1;
 
-//Yeah this truly turned into a mess with the latest additions.. but it sure looks nice ;)
+	// copy opcode
+	while (*disasm != 0 && *disasm != '\t')
+	{
+		*opcode++ = *disasm++;
+	}
+	*opcode = 0;
+
+	if (*disasm++ == 0)
+	{
+		*arguments = 0;
+		return;
+	}
+
+	const char* jumpAddress = strstr(disasm,"->$");
+	const char* jumpRegister = strstr(disasm,"->");
+	while (*disasm != 0)
+	{
+		// parse symbol
+		if (disasm == jumpAddress)
+		{
+			sscanf(disasm+3,"%08x",&branchTarget);
+
+			const char* addressSymbol = debugger->findSymbolForAddress(branchTarget);
+			if (addressSymbol != NULL && displaySymbols)
+			{
+				if (memcmp(addressSymbol,"z_",2) == 0) addressSymbol += 2;
+				if (memcmp(addressSymbol,"zz_",3) == 0) addressSymbol += 3;
+				arguments += sprintf(arguments,"%s",addressSymbol);
+			} else {
+				arguments += sprintf(arguments,"0x%08X",branchTarget);
+			}
+			
+			disasm += 3+8;
+			continue;
+		}
+
+		if (disasm == jumpRegister)
+		{
+			disasm += 2;
+			for (int i = 0; i < 32; i++)
+			{
+				if (stricmp(jumpRegister+2,debugger->GetRegName(0,i)) == 0)
+				{
+					branchRegister = i;
+					break;
+				}
+			}
+		}
+
+		if (*disasm == ' ')
+		{
+			disasm++;
+			continue;
+		}
+		*arguments++ = *disasm++;
+	}
+
+	*arguments = 0;
+}
+
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
+	if (!debugger->isAlive()) return;
+
 	struct branch
 	{
 		int src,dst,srcAddr;
-		bool conditional;
 	};
 	branch branches[256];
 	int numBranches=0;
 
-	
-
-	GetClientRect(wnd, &rect);
 	PAINTSTRUCT ps;
-	HDC hdc;
-	
-	hdc = BeginPaint(wnd, &ps);
-	// TODO: Add any drawing code here...
-	int width = rect.right;
-	int numRows=(rect.bottom/rowHeight)/2+1;
-	//numRows=(numRows&(~1)) + 1;
-	SetBkMode(hdc, TRANSPARENT);
-	DWORD bgColor = 0xffffff;
-	HPEN nullPen=CreatePen(0,0,bgColor);
-	HPEN currentPen=CreatePen(0,0,0);
-	HPEN selPen=CreatePen(0,0,0x808080);
-	HPEN condPen=CreatePen(0,0,0xFF3020);
+	HDC actualHdc = BeginPaint(wnd, &ps);
+	HDC hdc = CreateCompatibleDC(actualHdc);
+	HBITMAP hBM = CreateCompatibleBitmap(actualHdc, rect.right-rect.left, rect.bottom-rect.top);
+	SelectObject(hdc, hBM);
 
-	LOGBRUSH lbr;
-	lbr.lbHatch=0; lbr.lbStyle=0; 
-	lbr.lbColor=bgColor;
-	HBRUSH nullBrush=CreateBrushIndirect(&lbr);
-	lbr.lbColor=0xFFEfE8;
-	HBRUSH currentBrush=CreateBrushIndirect(&lbr);
-	lbr.lbColor=0x70FF70;
-	HBRUSH pcBrush=CreateBrushIndirect(&lbr);
+	SetBkMode(hdc, TRANSPARENT);
+
+	HPEN nullPen=CreatePen(0,0,0xffffff);
+	HPEN condPen=CreatePen(0,0,0xFF3020);
+	HBRUSH nullBrush=CreateSolidBrush(0xffffff);
+	HBRUSH currentBrush=CreateSolidBrush(0xFFEfE8);
 
 	HPEN oldPen=(HPEN)SelectObject(hdc,nullPen);
 	HBRUSH oldBrush=(HBRUSH)SelectObject(hdc,nullBrush);
-
-   
 	HFONT oldFont = (HFONT)SelectObject(hdc,(HGDIOBJ)font);
 	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCSTR)IDI_STOP);
 	HICON breakPointDisable = (HICON)LoadIcon(GetModuleHandle(0),(LPCSTR)IDI_STOPDISABLE);
-	int i;
-	curAddress&=~(align-1);
 
-	align=(debugger->getInstructionSize(0));
-	for (i=-numRows; i<=numRows; i++)
+	for (int i = 0; i < visibleRows+2; i++)
 	{
-		unsigned int address=curAddress + i*align;
+		unsigned int address=windowStart + i*instructionSize;
 
-		int rowY1 = rect.bottom/2 + rowHeight*i - rowHeight/2;
-		int rowY2 = rect.bottom/2 + rowHeight*i + rowHeight/2;
-		char temp[256];
-		int temp_len = sprintf(temp,"%08x",address);
+		int rowY1 = rowHeight*i;
+		int rowY2 = rowHeight*(i+1);
 
-		lbr.lbColor=marker==address?0xffeee0:debugger->getColor(address);
-		u32 bg = lbr.lbColor;
-		//SelectObject(hdc,currentBrush);
-		SelectObject(hdc,nullPen);
-		Rectangle(hdc,0,rowY1,16,rowY2);
-
-		if (selecting && address == selection)
-			SelectObject(hdc,selPen);
-		else
-			SelectObject(hdc,i==0 ? currentPen : nullPen);
-
-		HBRUSH mojsBrush=CreateBrushIndirect(&lbr);
-		SelectObject(hdc,mojsBrush);
+		// draw background
+		COLORREF backgroundColor = whiteBackground ? 0xFFFFFF : debugger->getColor(address);
+		COLORREF textColor = 0x000000;
 
 		if (address == debugger->getPC())
-			SelectObject(hdc,pcBrush);
-		//else
-		//	SelectObject(hdc,i==0 ? currentBrush : nullBrush);
-
-		Rectangle(hdc,16,rowY1,width,rowY2);
-		SelectObject(hdc,currentBrush);
-		DeleteObject(mojsBrush);
-		SetTextColor(hdc,halfAndHalf(bg,0));
-		TextOut(hdc,17,rowY1,temp,temp_len);
-		SetTextColor(hdc,0x000000);
-		if (debugger->isAlive())
 		{
-			const TCHAR *dizz = debugger->disasm(address, align);
-			char dis[512];
-			strcpy(dis, dizz);
-			TCHAR *dis2 = strchr(dis,'\t');
-			TCHAR desc[256]="";
-			if (dis2)
+			backgroundColor = scaleColor(backgroundColor,1.05f);
+		}
+
+		if (address == curAddress)
+		{
+			if (hasFocus)
 			{
-				*dis2=0;
-				dis2++;
-				const char *mojs=strstr(dis2,"->$");
-				if (mojs)
-				{
-					for (int j=0; j<8; ++j)
-					{
-						bool found=false;
-						for (int k=0; k<22; ++k)
-						{
-							if (mojs[j+3]=="0123456789ABCDEFabcdef"[k])
-								found=true;
-						}
-						if (!found)
-						{
-							mojs=0;
-							break;
-						}
-					}
-				}
-				if (mojs)
-				{
-					int offs;
-					sscanf(mojs+3,"%08x",&offs);
-					branches[numBranches].src=rowY1 + rowHeight/2;
-					branches[numBranches].srcAddr=address/align;
-					branches[numBranches].dst=(int)(rowY1+((__int64)offs-(__int64)address)*rowHeight/align + rowHeight/2);
-					branches[numBranches].conditional = (dis[1]!=0); //unconditional 'b' branch
-					numBranches++;
-					const char *t = debugger->getDescription(offs);
-					if (memcmp(t,"z_",2)==0)
-						t+=2;
-					if (memcmp(t,"zz_",3)==0)
-						t+=3;
-					sprintf(desc,"-->%s", t);
-					SetTextColor(hdc,0x600060);
-				}
-				else
-					SetTextColor(hdc,0x000000);
-				TextOut(hdc,149,rowY1,dis2,(int)strlen(dis2));
-			}
-			SetTextColor(hdc,0x007000);
-			SelectObject(hdc,boldfont);
-			TextOut(hdc,84,rowY1,dis,(int)strlen(dis));
-			SelectObject(hdc,font);
-			if (desc[0]==0)
-			{
-				const char *t = debugger->getDescription(address);
-				if (memcmp(t,"z_",2)==0)
-					t+=2;
-				if (memcmp(t,"zz_",3)==0)
-					t+=3;
-				strcpy(desc,t);
-			}
-			if (memcmp(desc,"-->",3) == 0)
-				SetTextColor(hdc,0x0000FF);
-			else
-				SetTextColor(hdc,halfAndHalf(halfAndHalf(bg,0),bg));
-			//char temp[256];
-			//UnDecorateSymbolName(desc,temp,255,UNDNAME_COMPLETE);
-			if (strlen(desc))
-				TextOut(hdc,max(280,width/3+190),rowY1,desc,(int)strlen(desc));
-			if (debugger->isBreakpoint(address))
-			{
-				DrawIconEx(hdc,2,rowY1,breakPoint,32,32,0,0,DI_NORMAL);
+				backgroundColor = 0xFF9933;
+				textColor = 0xFFFFFF;
+			} else {
+				backgroundColor = 0xC0C0C0;
 			}
 		}
+		
+		HBRUSH backgroundBrush = CreateSolidBrush(backgroundColor);
+		HPEN backgroundPen = CreatePen(0,0,backgroundColor);
+		SelectObject(hdc,backgroundBrush);
+		SelectObject(hdc,backgroundPen);
+		Rectangle(hdc,0,rowY1,rect.right,rowY1+rowHeight);
+		
+		SelectObject(hdc,currentBrush);
+		SelectObject(hdc,nullPen);
+
+		DeleteObject(backgroundBrush);
+		DeleteObject(backgroundPen);
+
+		// display address/symbol
+		if (debugger->isBreakpoint(address))
+		{
+			textColor = 0x0000FF;
+			DrawIconEx(hdc,2,rowY1,breakPoint,32,32,0,0,DI_NORMAL);
+		}
+		SetTextColor(hdc,textColor);
+
+		char addressText[64];
+		getDisasmAddressText(address,addressText);
+		TextOut(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
+
+		if (address == debugger->getPC())
+		{
+			TextOutW(hdc,pixelPositions.opcodeStart-8,rowY1,L"■",1);
+		}
+
+		// display opcode
+		char opcode[64],arguments[256];
+		const char *dizz = debugger->disasm(address, instructionSize);
+		parseDisasm(dizz,opcode,arguments);
+
+		int length = (int) strlen(arguments);
+		if (length != 0) TextOut(hdc,pixelPositions.argumentsStart,rowY1+2,arguments,length);
+			
+		SelectObject(hdc,boldfont);
+		TextOut(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
+		SelectObject(hdc,font);
+
+		if (branchTarget != -1 && strcmp(opcode,"jal") != 0 && opcode[1] != 0) //unconditional 'b/j' branch
+		{
+			branches[numBranches].src=rowY1 + rowHeight/2;
+			branches[numBranches].srcAddr=address/instructionSize;
+			branches[numBranches].dst=(int)(rowY1+((__int64)branchTarget-(__int64)address)*rowHeight/instructionSize + rowHeight/2);
+			numBranches++;
+		}
 	}
-	for (i=0; i<numBranches; i++)
+
+	for (int i=0; i < numBranches; i++)
 	{
-		SelectObject(hdc,branches[i].conditional ? condPen : currentPen);
-		int x=280+(branches[i].srcAddr%9)*8;
+		SelectObject(hdc,condPen);
+		int x=pixelPositions.arrowsStart+i*8;
 		MoveToEx(hdc,x-2,branches[i].src,0);
 
-		if (branches[i].dst<rect.bottom+200 && branches[i].dst>-200)
+		if (branches[i].dst < 0)
 		{
+			LineTo(hdc,x+2,branches[i].src);
+			LineTo(hdc,x+2,0);
+		} else if (branches[i].dst > rect.bottom)
+		{
+			LineTo(hdc,x+2,branches[i].src);
+			LineTo(hdc,x+2,rect.bottom);
+		} else {
 			LineTo(hdc,x+2,branches[i].src);
 			LineTo(hdc,x+2,branches[i].dst);
 			LineTo(hdc,x-4,branches[i].dst);
@@ -323,29 +388,21 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 			LineTo(hdc,x-4,branches[i].dst);
 			LineTo(hdc,x+1,branches[i].dst+5);
 		}
-		else
-		{
-			LineTo(hdc,x+4,branches[i].src);
-			//MoveToEx(hdc,x+2,branches[i].dst-4,0);
-			//LineTo(hdc,x+6,branches[i].dst);
-			//LineTo(hdc,x+1,branches[i].dst+5);
-		}
-		//LineTo(hdc,x,branches[i].dst+4);
-
-		//LineTo(hdc,x-2,branches[i].dst);
 	}
 
 	SelectObject(hdc,oldFont);
 	SelectObject(hdc,oldPen);
 	SelectObject(hdc,oldBrush);
-	
+
+	// copy bitmap to the actual hdc
+	BitBlt(actualHdc,0,0,rect.right,rect.bottom,hdc,0,0,SRCCOPY);
+	DeleteObject(hBM);
+	DeleteDC(hdc);
+
 	DeleteObject(nullPen);
-	DeleteObject(currentPen);
-	DeleteObject(selPen);
 	DeleteObject(condPen);
 
 	DeleteObject(nullBrush);
-	DeleteObject(pcBrush);
 	DeleteObject(currentBrush);
 	
 	DestroyIcon(breakPoint);
@@ -358,23 +415,23 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 {
-	RECT rect;
-	GetClientRect(this->wnd, &rect);
-	int page=(rect.bottom/rowHeight)/2-1;
-
 	switch (wParam & 0xFFFF)
 	{
 	case SB_LINEDOWN:
-		curAddress+=align;
+		windowStart += instructionSize;
+		curAddress += instructionSize;
 		break;
 	case SB_LINEUP:
-		curAddress-=align;
+		windowStart -= instructionSize;
+		curAddress -= instructionSize;
 		break;
 	case SB_PAGEDOWN:
-		curAddress+=page*align;
+		windowStart += visibleRows*instructionSize;
+		curAddress += visibleRows*instructionSize;
 		break;
 	case SB_PAGEUP:
-		curAddress-=page*align;
+		windowStart -= visibleRows*instructionSize;
+		curAddress -= visibleRows*instructionSize;
 		break;
 	default:
 		return;
@@ -382,25 +439,76 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 	redraw();
 }
 
+void CtrlDisAsmView::followBranch()
+{
+	char opcode[64],arguments[256];
+	const char *dizz = debugger->disasm(curAddress, instructionSize);
+	parseDisasm(dizz,opcode,arguments);
+
+	if (jumpIndex == 256) return;
+	if (branchTarget != -1)
+	{
+		jumpStack[jumpIndex++] = curAddress;
+		gotoAddr(branchTarget);
+	} else if (branchRegister != -1)
+	{
+		jumpStack[jumpIndex++] = curAddress;
+		gotoAddr(debugger->GetRegValue(0,branchRegister));
+	}
+}
+
+
 void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
-	RECT rect;
-	GetClientRect(this->wnd, &rect);
-	int page=(rect.bottom/rowHeight)/2-1;
+	u32 windowEnd = windowStart+visibleRows*instructionSize;
 
 	switch (wParam & 0xFFFF)
 	{
 	case VK_DOWN:
-		curAddress+=align;
+		if (curAddress == windowEnd-instructionSize)
+		{
+			windowStart += instructionSize;
+		}
+		curAddress += instructionSize;
 		break;
 	case VK_UP:
-		curAddress-=align;
+		if (curAddress == windowStart)
+		{
+			windowStart -= instructionSize;
+		}
+		curAddress-=instructionSize;
 		break;
 	case VK_NEXT:
-		curAddress+=page*align;
+		if (curAddress != windowEnd-instructionSize)
+		{
+			curAddress = windowEnd-instructionSize;
+		} else {
+			windowStart += visibleRows*instructionSize;
+			curAddress += visibleRows*instructionSize;
+		}
 		break;
 	case VK_PRIOR:
-		curAddress-=page*align;
+		if (curAddress != windowStart)
+		{
+			curAddress = windowStart;
+		} else {
+			windowStart -= visibleRows*instructionSize;
+			curAddress -= visibleRows*instructionSize;
+		}
+		break;
+	case VK_LEFT:
+		if (jumpIndex == 0)
+		{
+			gotoPC();
+		} else {
+			gotoAddr(jumpStack[--jumpIndex]);
+		}
+		return;
+	case VK_RIGHT:
+		followBranch();
+		return;
+	case VK_TAB:
+		displaySymbols = !displaySymbols;
 		break;
 	default:
 		return;
@@ -411,6 +519,9 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::redraw()
 {
+	GetClientRect(wnd, &rect);
+	visibleRows = rect.bottom/rowHeight;
+
 	InvalidateRect(wnd, NULL, FALSE);
 	UpdateWindow(wnd); 
 }
@@ -419,22 +530,19 @@ void CtrlDisAsmView::redraw()
 void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
 	int x = LOWORD(lParam); 
-	int y = HIWORD(lParam); 
-	if (x>16)
+	int y = HIWORD(lParam);
+
+	int newAddress = yToAddress(y);
+	if (button == 1)
 	{
-		oldSelection=selection;
-		selection=yToAddress(y);
-		SetCapture(wnd);
-		bool oldselecting=selecting;
-		selecting=true;
-		if (!oldselecting || (selection!=oldSelection))
-			redraw();
+		if (newAddress == curAddress)
+		{
+			debugger->toggleBreakpoint(curAddress);
+		}
 	}
-	else
-	{
-		debugger->toggleBreakpoint(yToAddress(y));
-		redraw();
-	}
+
+	curAddress = newAddress;
+	redraw();
 }
 
 void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
@@ -449,61 +557,55 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_GOTOINMEMORYVIEW:
 			for (int i=0; i<numCPUs; i++)
 				if (memoryWindow[i])
-					memoryWindow[i]->Goto(selection);
+					memoryWindow[i]->Goto(curAddress);
 			break;
 		case ID_DISASM_ADDHLE:
 			break;
 		case ID_DISASM_TOGGLEBREAKPOINT:
-			debugger->toggleBreakpoint(selection);
+			debugger->toggleBreakpoint(curAddress);
 			redraw();
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
-			W32Util::CopyTextToClipboard(wnd, debugger->disasm(selection,align));
+			{
+				char temp[256],opcode[64],arguments[256];
+				const char *dizz = debugger->disasm(curAddress, instructionSize);
+				parseDisasm(dizz,opcode,arguments);
+				sprintf(temp,"%s\t%s",opcode,arguments);
+
+				W32Util::CopyTextToClipboard(wnd, temp);
+			}
 			break;
 		case ID_DISASM_COPYADDRESS:
 			{
 				char temp[16];
-				sprintf(temp,"%08x",selection);
+				sprintf(temp,"%08X",curAddress);
 				W32Util::CopyTextToClipboard(wnd, temp);
 			}
 			break;
 		case ID_DISASM_SETPCTOHERE:
-			debugger->setPC(selection);
+			debugger->setPC(curAddress);
 			redraw();
 			break;
 		case ID_DISASM_FOLLOWBRANCH:
-			{
-				const char *temp = debugger->disasm(selection,align);
-				const char *mojs=strstr(temp,"->$");
-				if (mojs)
-				{
-					u32 dest;
-					sscanf(mojs+3,"%08x",&dest);
-					if (dest)
-					{
-						marker = selection;
-						gotoAddr(dest);
-					}
-				}
-			}
+			followBranch();
 			break;
 		case ID_DISASM_COPYINSTRUCTIONHEX:
 			{
 				char temp[24];
-				sprintf(temp,"%08x",debugger->readMemory(selection));
+				sprintf(temp,"%08X",debugger->readMemory(curAddress));
 				W32Util::CopyTextToClipboard(wnd,temp);
 			}
 			break;
 		case ID_DISASM_RUNTOHERE:
 			{
-				debugger->setBreakpoint(selection);
+				debugger->setBreakpoint(curAddress);
 				debugger->runToBreakpoint();
 				redraw();
 			}
 			break;
 		case ID_DISASM_RENAMEFUNCTION:
 			{
-				int sym = symbolMap.GetSymbolNum(selection);
+				int sym = symbolMap.GetSymbolNum(curAddress);
 				if (sym != -1)
 				{
 					char name[256];
@@ -525,45 +627,26 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		}
 		return;
 	}
-	int x = LOWORD(lParam); 
-	int y = HIWORD(lParam); 
-	if (x>16)
-	{
-		curAddress=yToAddress(y);
-		selecting=false;
-		ReleaseCapture();
-		redraw();
-	}
+
+	redraw();
 }
 
 void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 {
-	if (button&1)
-	{
-		int x = LOWORD(lParam); 
-		int y = (signed short)HIWORD(lParam); 
-		if (x>16)
-		{
-			if (y<0)
-			{
-				curAddress-=align;
-				redraw();
-			}
-			else if (y>rect.bottom)
-			{
-				curAddress+=align;
-				redraw();
-			}
-			else
-				onMouseDown(wParam,lParam,1);
-		}
-	}
+
 }	
 
 
 int CtrlDisAsmView::yToAddress(int y)
 {
-	int ydiff=y-rect.bottom/2-rowHeight/2;
-	ydiff=(int)(floorf((float)ydiff / (float)rowHeight))+1;
-	return curAddress + ydiff * align;
+	int line = y/rowHeight;
+	return windowStart + line*instructionSize;
+}
+
+void CtrlDisAsmView::calculatePixelPositions()
+{
+	pixelPositions.addressStart = 16;
+	pixelPositions.opcodeStart = pixelPositions.addressStart + 18*8;
+	pixelPositions.argumentsStart = pixelPositions.opcodeStart + 9*8;
+	pixelPositions.arrowsStart = pixelPositions.argumentsStart + 30*8;
 }

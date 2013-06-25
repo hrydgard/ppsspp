@@ -226,6 +226,16 @@ int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
 	return -1;
 }
 
+const char* SymbolMap::getDirectSymbol(u32 address)
+{
+	for (size_t i = 0, n = entries.size(); i < n; i++)
+	{
+		MapEntry &entry = entries[i];
+		unsigned int addr = entry.vaddress;
+		if (addr == address) return entries[i].name;
+	}
+	return NULL;
+}
 
 char descriptionTemp[256];
 
@@ -281,7 +291,13 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask)
 		if (entries[i].type & symmask)
 		{
 			char temp[256];
-			sprintf(temp,"0x%08X (%s)",entries[i].vaddress,entries[i].name);
+			if (entries[i].type & ST_FUNCTION || !(entries[i].type & ST_DATA))
+			{
+				sprintf(temp,"%s",entries[i].name);
+			} else {
+				sprintf(temp,"0x%08X (%s)",entries[i].vaddress,entries[i].name);
+			}
+
 			int index = ListBox_AddString(listbox,temp);
 			ListBox_SetItemData(listbox,index,entries[i].vaddress);
 		}

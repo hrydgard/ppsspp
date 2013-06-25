@@ -137,7 +137,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				switch (HIWORD(wParam))
 				{
 				case CBN_DBLCLK:
-				case CBN_SELCHANGE:
 					{
 						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
 						int n = ListBox_GetCurSel(lb);
@@ -426,7 +425,6 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	ComboBox_SetCurSel(gotoInt,0);
 */
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
-	ptr->setAlign(cpu->getInstructionSize(0));
 	ptr->redraw();
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 	rl->redraw();						
