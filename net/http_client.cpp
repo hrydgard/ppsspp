@@ -66,9 +66,12 @@ bool Connection::Resolve(const char *host, int port) {
 }
 
 bool Connection::Connect() {
-	CHECK_GE(port_, 0);
+	if (port_ <= 0) {
+		ELOG("Bad port");
+		return false;
+	}
 	sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if ((intptr_t)sock_ < 0) {
+	if ((intptr_t)sock_ == -1) {
 		ELOG("Bad socket");
 		return false;
 	}
@@ -89,6 +92,10 @@ bool Connection::Connect() {
 		sleep(1);
 #endif
 	}
+
+	// Let's not leak this socket.
+	closesocket(sock_);
+	sock_ = -1;
 	return false;
 }
 
