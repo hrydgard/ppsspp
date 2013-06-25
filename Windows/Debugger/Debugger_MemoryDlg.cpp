@@ -51,8 +51,8 @@ CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu
 
 	// subclass the edit box
 	HWND editWnd = GetDlgItem(m_hDlg,IDC_ADDRESS);
-	DefAddressEditProc = (WNDPROC)GetWindowLong(editWnd,GWL_WNDPROC);
-	SetWindowLong(editWnd,GWL_WNDPROC,(long)AddressEditProc); 
+	DefAddressEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
+	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)AddressEditProc); 
 	AddressEditParentHwnd = m_hDlg;
 
 	Size();
