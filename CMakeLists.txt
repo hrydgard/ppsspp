@@ -173,8 +173,9 @@ if(NOT MSVC)
 
 	if(IOS)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
-		# jtraynham: re-enabling default/"standard" architectures (which is a fat armv7/armv7s binary)
-		#set(CMAKE_OSX_ARCHITECTURES "armv7")
+		# armv7s (without resorting to FastMemory) is still a work in progress
+		# comment out the next line to enable default/"standard" architectures (which is a fat armv7/armv7s binary)
+		set(CMAKE_OSX_ARCHITECTURES "armv7")
 	elseif(APPLE)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++ -U__STRICT_ANSI__")
 		# Karen/angelXwind: --macosx-version-min=10.7 is needed in order to produce binaries that OS X 10.7 Lion can execute. However, it seems that PPSSPP won't support 10.6 or lower without getting rid of -stdlib=libc++ ...which probably won't end well. So I guess PPSSPP will strictly be a 10.7+ app.
@@ -1144,9 +1145,12 @@ if(USE_FFMPEG)
 	endif()
 
 	if(APPLE)
-		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework VideoDecodeAcceleration" "-framework CoreVideo")
+		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} bz2 "-framework CoreVideo")
+		if (NOT IOS)
+    		set(FFMPEG_LIBRARIES ${FFMPEG_LIBRARIES} "-framework VideoDecodeAcceleration")
+		endif()
 	endif(APPLE)
-	
+
 	set(LinkCommon ${LinkCommon} ${FFMPEG_LIBRARIES})
 	add_definitions(-DUSE_FFMPEG)
 endif(USE_FFMPEG)

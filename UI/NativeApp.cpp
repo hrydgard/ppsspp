@@ -34,7 +34,7 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "ext/jpge/jpge.h"
+#include "native/ext/jpge/jpge.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
@@ -77,6 +77,10 @@ static UI::Theme ui_theme;
 
 #if defined(__APPLE__) && !defined(IOS)
 #include <mach-o/dyld.h>
+#endif
+
+#ifdef IOS
+#include "ios/iOSCoreAudio.h"
 #endif
 
 Texture *uiTexture;
@@ -171,9 +175,17 @@ std::string boot_filename = "";
 
 void NativeHost::InitSound(PMixer *mixer) {
 	g_mixer = mixer;
+    
+#ifdef IOS
+    iOSCoreAudioInit();
+#endif
 }
 
 void NativeHost::ShutdownSound() {
+#ifdef IOS
+    iOSCoreAudioShutdown();
+#endif
+    
 	g_mixer = 0;
 }
 
