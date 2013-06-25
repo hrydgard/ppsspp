@@ -25,66 +25,43 @@ extern u8* fb;
 
 namespace Rasterizer {
 
-static void DrawVLine(u8* target, DrawingCoords a, DrawingCoords b)
+static int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const DrawingCoords& v2)
 {
-	if (a.y > b.y) {
-		DrawVLine(target, b, a);
-		return;
-	}
-
-	for (int y = a.y; y < b.y; ++y) {
-		float u = (float)(y-a.y)/(float)(b.y-a.y);
-		int x = (1-u)*a.x+u*b.x;
-		if (x < gstate.getScissorX1()) continue;
-		if (x > gstate.getScissorX2()) continue;
-		if (y < gstate.getScissorY1()) continue;
-		if (y > gstate.getScissorY2()) continue;
-		target[x*4+y*FB_WIDTH*4] = 0xff;
-		target[x*4+y*FB_WIDTH*4+1] = 0xff;
-		target[x*4+y*FB_WIDTH*4+2] = 0xff;
-		target[x*4+y*FB_WIDTH*4+3] = 0xff;
-	}
-}
-
-static void DrawLine(u8* target, DrawingCoords a, DrawingCoords b)
-{
-	if (a.x > b.x) {
-		DrawLine(target, b, a);
-		return;
-	}
-
-	if (a.y > b.y && a.x - b.x < a.y - b.y)
-	{
-		DrawVLine(target, a, b);
-		return;
-	}
-
-	if (a.y < b.y && a.x - b.x < b.y - a.y)
-	{
-		DrawVLine(target, a, b);
-		return;
-	}
-
-	for (int x = a.x; x < b.x; ++x) {
-		float u = (float)(x-a.x)/(float)(b.x-a.x);
-		int y = (1-u)*a.y+u*b.y;
-		if (x < gstate.getScissorX1()) continue;
-		if (x > gstate.getScissorX2()) continue;
-		if (y < gstate.getScissorY1()) continue;
-		if (y > gstate.getScissorY2()) continue;
-		target[x*4+y*FB_WIDTH*4] = 0xff;
-		target[x*4+y*FB_WIDTH*4+1] = 0xff;
-		target[x*4+y*FB_WIDTH*4+2] = 0xff;
-		target[x*4+y*FB_WIDTH*4+3] = 0xff;
-	}
+	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
 }
 
 void DrawTriangle(DrawingCoords vertices[3])
 {
-	// TODO: Well yeah, that's not quite it, yet.. :p
-	DrawLine(fb, vertices[0], vertices[1]);
-	DrawLine(fb, vertices[1], vertices[2]);
-	DrawLine(fb, vertices[2], vertices[0]);
+	int minX = std::min(std::min(vertices[0].x, vertices[1].x), vertices[2].x);
+	int minY = std::min(std::min(vertices[0].y, vertices[1].y), vertices[2].y);
+	int maxX = std::max(std::max(vertices[0].x, vertices[1].x), vertices[2].x);
+	int maxY = std::max(std::max(vertices[0].y, vertices[1].y), vertices[2].y);
+
+	minX = std::max(minX, gstate.getScissorX1());
+	maxX = std::min(maxX, gstate.getScissorX2());
+	minY = std::max(minY, gstate.getScissorY1());
+	maxY = std::min(maxY, gstate.getScissorY2());
+
+	DrawingCoords p(minX, minY);
+	for (p.y = minY; p.y <= maxY; ++p.y)
+	{
+		for (p.x = minX; p.x <= maxX; ++p.x)
+		{
+			int w0 = orient2d(vertices[1], vertices[2], p);
+			int w1 = orient2d(vertices[2], vertices[0], p);
+			int w2 = orient2d(vertices[0], vertices[1], p);
+
+			// If p is on or inside all edges, render pixel
+			// TODO: Should only render when it's on the left of the right edge
+			if (w0 >=0 && w1 >= 0 && w2 >= 0)
+			{
+				fb[p.x*4+p.y*FB_WIDTH*4] = 0xff;
+				fb[p.x*4+p.y*FB_WIDTH*4+1] = 0xff;
+				fb[p.x*4+p.y*FB_WIDTH*4+2] = 0xff;
+				fb[p.x*4+p.y*FB_WIDTH*4+3] = 0xff;
+			}
+		}
+	}
 }
 
 } // namespace
