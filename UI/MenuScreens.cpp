@@ -1212,12 +1212,12 @@ void SystemScreen::render() {
 	sprintf(recents, "%s %i", s->T("Max. No of Recents :"), g_Config.iMaxRecent);
 	ui_draw2d.DrawText(UBUNTU24, recents, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear2(x + 400, y, 20);
-	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("-4"), ALIGN_LEFT))
+	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("-1"), ALIGN_LEFT))
 		if (g_Config.iMaxRecent > 4)
-			g_Config.iMaxRecent -= 4;
-	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("+4"), ALIGN_LEFT))
-		if (g_Config.iMaxRecent < 16)
-			g_Config.iMaxRecent += 4;
+			g_Config.iMaxRecent -= 1;
+	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("+1"), ALIGN_LEFT))
+		if (g_Config.iMaxRecent < 40)
+			g_Config.iMaxRecent += 1;
 
 	y += 20;
 
