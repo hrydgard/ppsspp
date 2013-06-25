@@ -81,6 +81,11 @@ const char *MIPSDebugInterface::getDescription(unsigned int address)
 	return symbolMap.GetDescription(address);
 }
 
+const char *MIPSDebugInterface::findSymbolForAddress(unsigned int address)
+{
+	return symbolMap.getDirectSymbol(address);
+}
+
 void MIPSDebugInterface::runToBreakpoint() 
 {
 

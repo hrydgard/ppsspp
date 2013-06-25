@@ -226,6 +226,16 @@ int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
 	return -1;
 }
 
+const char* SymbolMap::getDirectSymbol(u32 address)
+{
+	for (size_t i = 0, n = entries.size(); i < n; i++)
+	{
+		MapEntry &entry = entries[i];
+		unsigned int addr = entry.vaddress;
+		if (addr == address) return entries[i].name;
+	}
+	return NULL;
+}
 
 char descriptionTemp[256];
 
@@ -247,18 +257,32 @@ char *SymbolMap::GetDescription(unsigned int address)
 }
 
 #ifdef _WIN32
+
+static const int defaultSymbolsAddresses[] = {
+	0x08800000, 0x08804000, 0x04000000, 0x88000000, 0x00010000
+};
+
+static const char* defaultSymbolsNames[] = {
+	"User memory", "Default load address", "VRAM","Kernel memory","Scratchpad"
+};
+
+static const int defaultSymbolsAmount = sizeof(defaultSymbolsAddresses)/sizeof(const int);
+
 void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask)
 {
 	ShowWindow(listbox,SW_HIDE);
 	ListBox_ResetContent(listbox);
 
-	//int style = GetWindowLong(listbox,GWL_STYLE);
-
-	ListBox_AddString(listbox,"(0x80000000)");
-	ListBox_SetItemData(listbox,0,0x80000000);
-
-	//ListBox_AddString(listbox,"(0x80002000)");
-	//ListBox_SetItemData(listbox,1,0x80002000);
+	if (symmask & ST_DATA)
+	{
+		for (int i = 0; i < defaultSymbolsAmount; i++)
+		{
+			char temp[256];
+			sprintf(temp,"0x%08X (%s)",defaultSymbolsAddresses[i],defaultSymbolsNames[i]);
+			int index = ListBox_AddString(listbox,temp);
+			ListBox_SetItemData(listbox,index,defaultSymbolsAddresses[i]);
+		}
+	}
 
 	SendMessage(listbox, WM_SETREDRAW, FALSE, 0);
 	SendMessage(listbox, LB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30);
@@ -267,7 +291,13 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask)
 		if (entries[i].type & symmask)
 		{
 			char temp[256];
-			sprintf(temp,"%s (%d)",entries[i].name,entries[i].size);
+			if (entries[i].type & ST_FUNCTION || !(entries[i].type & ST_DATA))
+			{
+				sprintf(temp,"%s",entries[i].name);
+			} else {
+				sprintf(temp,"0x%08X (%s)",entries[i].vaddress,entries[i].name);
+			}
+
 			int index = ListBox_AddString(listbox,temp);
 			ListBox_SetItemData(listbox,index,entries[i].vaddress);
 		}

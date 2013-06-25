@@ -40,6 +40,7 @@ public:
 	virtual void runToBreakpoint() {}
 	virtual int getColor(unsigned int address){return 0xFFFFFFFF;}
 	virtual const char *getDescription(unsigned int address) {return "";}
+	virtual const char *findSymbolForAddress(unsigned int address) { return NULL; };
 
 	virtual const char *GetName() = 0;
 	virtual int GetGPRSize() = 0; //32 or 64

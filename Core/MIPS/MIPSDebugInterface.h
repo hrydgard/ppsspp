@@ -40,6 +40,7 @@ public:
 	virtual void runToBreakpoint();
 	virtual int getColor(unsigned int address);
 	virtual const char *getDescription(unsigned int address);
+	virtual const char *findSymbolForAddress(unsigned int address);
 
 	//overridden functions
 	const char *GetName();
