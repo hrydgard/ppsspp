@@ -704,10 +704,6 @@ void DeveloperScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Dump next frame"), ALIGN_LEFT)) {
 		gpu->DumpNextFrame();
 	}
-
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Cleanup Recents"), ALIGN_LEFT)) {
-		g_Config.recentIsos.clear();
-	}
 	
 	UIEnd();
 }
@@ -1218,7 +1214,9 @@ void SystemScreen::render() {
 	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("+1"), ALIGN_LEFT))
 		if (g_Config.iMaxRecent < 40)
 			g_Config.iMaxRecent += 1;
-
+	if (UIButton(GEN_ID, hlinear2, 80, 0, s->T("Clear"), ALIGN_LEFT)) {
+		g_Config.recentIsos.clear();
+	}
 	y += 20;
 
 
