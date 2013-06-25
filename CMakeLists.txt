@@ -462,8 +462,8 @@ elseif(IOS)
 		ios/AppDelegate.h
 		ios/ViewController.mm
 		ios/ViewController.h
-		ios/AudioEngine.mm
-		ios/AudioEngine.h
+		ios/iOSCoreAudio.cpp
+		ios/iOSCoreAudio.h
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h)
