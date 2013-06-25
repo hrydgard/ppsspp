@@ -39,6 +39,10 @@ enum {
 #ifndef MAX_POINTERS
 #define MAX_POINTERS 8
 #endif
+
+#ifndef MAX_KEYQUEUESIZE
+#define MAX_KEYQUEUESIZE 20
+#endif
 	
 // Collection of all possible inputs, and automatically computed
 // deltas where applicable.
@@ -79,7 +83,7 @@ struct InputState {
 	bool accelerometer_valid;
 	Vec3 acc;
 
-	// TODO: Add key arrays
+	int key_queue[MAX_KEYQUEUESIZE];
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(InputState);
@@ -113,3 +117,9 @@ struct TouchInput {
 	double timestamp;
 };
 
+
+// Key Queue Helpers
+void KeyQueueAddKey(int [], int);
+void KeyQueueRemoveKey(int [], int);
+void KeyQueueCopyQueue(int src[], int dst[]);
+void KeyQueueBlank(int []);

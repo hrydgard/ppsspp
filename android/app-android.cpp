@@ -39,6 +39,7 @@ static float left_joystick_x_async;
 static float left_joystick_y_async;
 static float right_joystick_x_async;
 static float right_joystick_y_async;
+static int key_queue_async[MAX_KEYQUEUESIZE];
 
 static uint32_t pad_buttons_down;
 
@@ -147,6 +148,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	left_joystick_y_async = 0;
 	right_joystick_x_async = 0;
 	right_joystick_y_async = 0;
+
+	KeyQueueBlank(key_queue_async);
 
 	std::string apkPath = GetJavaString(env, japkpath);
 	ILOG("NativeApp::Init: APK path: %s", apkPath.c_str());
@@ -260,6 +263,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 			pad_buttons_down |= pad_buttons_async_set;
 			pad_buttons_down &= ~pad_buttons_async_clear;
 			input_state.pad_buttons = pad_buttons_down;
+			KeyQueueCopyQueue(key_queue_async, input_state.key_queue);
 			UpdateInputState(&input_state);
 		}
 
@@ -369,6 +373,8 @@ static inline void AsyncUp(int padbutton) {
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint key) {
+	KeyQueueAddKey(key_queue_async, key);
+
 	switch (key) {
 	case 1: AsyncDown (PAD_BUTTON_BACK); break; // Back
 	case 2: AsyncDown (PAD_BUTTON_MENU); break; // Menu
@@ -396,6 +402,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jcl
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint key) {
+	KeyQueueRemoveKey(key_queue_async, key);
+
 	switch (key) {
 	case 1: AsyncUp (PAD_BUTTON_BACK); break; // Back
 	case 2: AsyncUp (PAD_BUTTON_MENU); break; // Menu
