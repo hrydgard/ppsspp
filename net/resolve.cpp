@@ -121,7 +121,8 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 
 void DNSResolveFree(addrinfo *res)
 {
-	freeaddrinfo(res);
+	if (res != NULL)
+		freeaddrinfo(res);
 }
 
 int inet_pton(int af, const char* src, void* dst)
