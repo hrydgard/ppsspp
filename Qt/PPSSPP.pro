@@ -82,12 +82,26 @@ PRE_TARGETDEPS += compiler_lang_make_all
 
 # Packaging
 symbian {
-	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 8, 0, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
+        # App UID:
+        TARGET.UID3 = 0xE0095B1D
+
+        # App Name:
+        DEPLOYMENT.display_name = PPSSPP
+
+        # App Vendor:
+        vendorName = "%{\"Qtness\"}" ":\"Qtness\""
+        vendor_deploy.pkg_prerules = vendorName
+
+        # App Icon:
+        ICON = ../assets/icon.svg
+
+        # Folders:
 	assets.sources = ../assets/flash ../lang
 	assets.path = E:/PPSSPP
-	DEPLOYMENT += deploy assets
-	ICON = ../assets/icon.svg
-	# 268MB maximum
+
+        DEPLOYMENT += vendor_deploy assets
+
+        # 268 MB maximum
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
