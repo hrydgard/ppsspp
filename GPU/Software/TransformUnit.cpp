@@ -66,6 +66,82 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 	return ret;
 }
 
+enum {
+	SKIP_FLAG = -1,
+	CLIP_POS_X_BIT = 0x01,
+	CLIP_NEG_X_BIT = 0x02,
+	CLIP_POS_Y_BIT = 0x04,
+	CLIP_NEG_Y_BIT = 0x08,
+	CLIP_POS_Z_BIT = 0x10,
+	CLIP_NEG_Z_BIT = 0x20,
+};
+
+static inline int CalcClipMask(const ClipCoords& v)
+{
+	int mask = 0;
+	// TODO: Do we need to include the equal sign here, too?
+	if (v.x > v.w) mask |= CLIP_POS_X_BIT;
+	if (v.x < -v.w) mask |= CLIP_NEG_X_BIT;
+	if (v.y > v.w) mask |= CLIP_POS_Y_BIT;
+	if (v.y < -v.w) mask |= CLIP_NEG_Y_BIT;
+	if (v.z > v.w) mask |= CLIP_POS_Z_BIT;
+	if (v.z < -v.w) mask |= CLIP_NEG_Z_BIT;
+	return mask;
+}
+
+#define AddInterpolatedVertex(t, out, in, numVertices) \
+{ \
+	Vertices[numVertices]->Lerp(t, *Vertices[out], *Vertices[in]); \
+	numVertices++; \
+}
+
+#define DIFFERENT_SIGNS(x,y) ((x <= 0 && y > 0) || (x > 0 && y <= 0))
+
+#define CLIP_DOTPROD(I, A, B, C, D) \
+	(Vertices[I]->clippos.x * A + Vertices[I]->clippos.y * B + Vertices[I]->clippos.z * C + Vertices[I]->clippos.w * D)
+
+#define POLY_CLIP( PLANE_BIT, A, B, C, D )							\
+{																	\
+	if (mask & PLANE_BIT) {											\
+		int idxPrev = inlist[0];									\
+		float dpPrev = CLIP_DOTPROD(idxPrev, A, B, C, D );			\
+		int outcount = 0;											\
+																	\
+		inlist[n] = inlist[0];										\
+		for (int j = 1; j <= n; j++) { 								\
+			int idx = inlist[j];									\
+			float dp = CLIP_DOTPROD(idx, A, B, C, D );				\
+			if (dpPrev >= 0) {										\
+				outlist[outcount++] = idxPrev;						\
+			}														\
+																	\
+			if (DIFFERENT_SIGNS(dp, dpPrev)) {						\
+				if (dp < 0) {										\
+					float t = dp / (dp - dpPrev);					\
+					AddInterpolatedVertex(t, idx, idxPrev, numVertices);		\
+				} else {											\
+					float t = dpPrev / (dpPrev - dp);				\
+					AddInterpolatedVertex(t, idxPrev, idx, numVertices);		\
+				}													\
+				outlist[outcount++] = numVertices - 1;				\
+			}														\
+																	\
+			idxPrev = idx;											\
+			dpPrev = dp;											\
+		}															\
+																	\
+		if (outcount < 3)											\
+			continue;												\
+																	\
+		{															\
+			int *tmp = inlist;										\
+			inlist = outlist;										\
+			outlist = tmp;											\
+			n = outcount;											\
+		}															\
+	}																\
+}
+
 void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_count, u32 vertex_type)
 {
 	// TODO: Cache VertexDecoder objects
@@ -79,9 +155,21 @@ void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_co
 	VertexReader vreader(buf, vtxfmt, vertex_type);
 
 	// We only support triangle lists, for now.
-	for (int vtx = 0; vtx < vertex_count; ++vtx)
+	for (int vtx = 0; vtx < vertex_count; vtx+=3)
 	{
+		enum { NUM_CLIPPED_VERTICES = 33, NUM_INDICES = NUM_CLIPPED_VERTICES + 3 };
+		VertexData* Vertices[NUM_CLIPPED_VERTICES];
+		VertexData ClippedVertices[NUM_CLIPPED_VERTICES];
 		VertexData data[3];
+
+		for (int i = 0; i < NUM_CLIPPED_VERTICES; ++i)
+			Vertices[i+3] = &ClippedVertices[i];
+
+		// TODO: Change logic when it's a backface
+		Vertices[0] = &data[0];
+		Vertices[1] = &data[1];
+		Vertices[2] = &data[2];
+
 		for (unsigned int i = 0; i < 3; ++i)
 		{
 			float pos[3];
@@ -97,27 +185,95 @@ void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_co
 
 			ModelCoords mcoords(pos[0], pos[1], pos[2]);
 			data[i].clippos = ClipCoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords)))));
-
-			// TODO: Split primitives in these cases!
-			// TODO: Check if the equal case needs to be included, too
-			if (data[i].clippos.x < -data[i].clippos.w || data[i].clippos.x > data[i].clippos.w) {
-				ERROR_LOG(G3D, "X outside view volume!");
-				goto skip;
-			}
-			if (data[i].clippos.y < -data[i].clippos.w || data[i].clippos.y > data[i].clippos.w) {
-				ERROR_LOG(G3D, "Y outside view volume!");
-				goto skip;
-			}
-			if (data[i].clippos.z < -data[i].clippos.w || data[i].clippos.z > data[i].clippos.w) {
-				ERROR_LOG(G3D, "Z outside view volume!");
-				goto skip;
-			}
 			data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
 		}
 
 		// TODO: Should do lighting here!
 
-		Rasterizer::DrawTriangle(data);
+		int indices[NUM_INDICES] = { 0, 1, 2, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG,
+										SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG,
+										SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG };
+		int numIndices = 3;
+
+		int mask = 0;
+		mask |= CalcClipMask(data[0].clippos);
+		mask |= CalcClipMask(data[1].clippos);
+		mask |= CalcClipMask(data[2].clippos);
+
+		if (mask) {
+			for(int i = 0; i < 3; i += 3) {
+				int vlist[2][2*6+1];
+				int *inlist = vlist[0], *outlist = vlist[1];
+				int n = 3;
+				int numVertices = 3;
+
+				inlist[0] = 0;
+				inlist[1] = 1;
+				inlist[2] = 2;
+
+				// mark this triangle as unused in case it should be completely clipped
+				indices[0] = SKIP_FLAG;
+				indices[1] = SKIP_FLAG;
+				indices[2] = SKIP_FLAG;
+
+				POLY_CLIP(CLIP_POS_X_BIT, -1,  0,  0, 1);
+				POLY_CLIP(CLIP_NEG_X_BIT,  1,  0,  0, 1);
+				POLY_CLIP(CLIP_POS_Y_BIT,  0, -1,  0, 1);
+				POLY_CLIP(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
+				POLY_CLIP(CLIP_POS_Z_BIT,  0,  0,  0, 1);
+				POLY_CLIP(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
+
+				// transform the poly in inlist into triangles
+				indices[0] = inlist[0];
+				indices[1] = inlist[1];
+				indices[2] = inlist[2];
+				for (int j = 3; j < n; ++j) {
+					indices[numIndices++] = inlist[0];
+					indices[numIndices++] = inlist[j - 1];
+					indices[numIndices++] = inlist[j];
+				}
+			}
+		}
+
+		for(int i = 0; i+3 <= numIndices; i+=3)
+		{
+			if(indices[i] != SKIP_FLAG)
+			{
+				VertexData data[3] = { *Vertices[indices[i]], *Vertices[indices[i+1]], *Vertices[indices[i+2]] };
+				for (int k = 0; k < 3; ++k)
+				{
+					if (data[k].clippos.x == data[k].clippos.w)
+					{
+						data[k].clippos.x -= data[k].clippos.w / 50.f;
+					}
+					if (data[k].clippos.x == -data[k].clippos.w)
+					{
+						data[k].clippos.x += data[k].clippos.w / 50.f;
+					}
+					if (data[k].clippos.y == data[k].clippos.w)
+					{
+						data[k].clippos.y -= data[k].clippos.w / 50.f;
+					}
+					if (data[k].clippos.y == -data[k].clippos.w)
+					{
+						data[k].clippos.y += data[k].clippos.w / 50.f;
+					}
+					if (data[k].clippos.z == data[k].clippos.w)
+					{
+						data[k].clippos.z -= data[k].clippos.w / 50.f;
+					}
+					if (data[k].clippos.z == -data[k].clippos.w)
+					{
+						data[k].clippos.z += data[k].clippos.w / 50.f;
+					}
+				}
+				data[0].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[0].clippos)));
+				data[1].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos)));
+				data[2].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[2].clippos)));
+
+				Rasterizer::DrawTriangle(data);
+			}
+		}
 skip:;
 	}
 }

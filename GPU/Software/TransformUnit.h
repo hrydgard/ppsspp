@@ -39,8 +39,24 @@ typedef Vec2<u10> DrawingCoords; // TODO: Keep z component?
 
 struct VertexData
 {
+	void Lerp(float t, const VertexData& a, const VertexData& b)
+	{
+		#define LINTERP(T, OUT, IN) (OUT) + ((IN - OUT) * T)
+
+		clippos.x = LINTERP(t, a.clippos.x, b.clippos.x);
+		clippos.y = LINTERP(t, a.clippos.y, b.clippos.y);
+		clippos.z = LINTERP(t, a.clippos.z, b.clippos.z);
+		clippos.w = LINTERP(t, a.clippos.w, b.clippos.w);
+
+		drawpos.x = LINTERP(t, a.drawpos.x, b.drawpos.x);
+		drawpos.y = LINTERP(t, a.drawpos.y, b.drawpos.y);
+
+		texturecoords.x = LINTERP(t, a.texturecoords.x, b.texturecoords.x);
+		texturecoords.y = LINTERP(t, a.texturecoords.y, b.texturecoords.y);
+	}
+
 	ClipCoords clippos;
-	DrawingCoords drawpos;
+	DrawingCoords drawpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
 };
 
