@@ -13,6 +13,27 @@
 
 RECT CMemoryDlg::slRect;
 
+FAR WNDPROC DefAddressEditProc;
+HWND AddressEditParentHwnd;
+
+LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch(message)
+	{
+	case WM_KEYUP:
+		if( wParam == VK_RETURN )
+		{
+			SendMessage(AddressEditParentHwnd,WM_USER+2,0,0);
+			return 0;
+		}
+	default:
+		return (LRESULT)CallWindowProc((WNDPROC)DefAddressEditProc,hDlg,message,wParam,lParam);
+	};
+
+	return 0;
+}
+
+
 CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_MEMORY, _hInstance,_hParent)
 {
   cpu = _cpu;
@@ -27,6 +48,13 @@ CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu
 	Button_SetCheck(GetDlgItem(m_hDlg,IDC_MODESYMBOLS), TRUE);
 
 	GetWindowRect(GetDlgItem(m_hDlg,IDC_SYMBOLS),&slRect);
+
+	// subclass the edit box
+	HWND editWnd = GetDlgItem(m_hDlg,IDC_ADDRESS);
+	DefAddressEditProc = (WNDPROC)GetWindowLong(editWnd,GWL_WNDPROC);
+	SetWindowLong(editWnd,GWL_WNDPROC,(long)AddressEditProc); 
+	AddressEditParentHwnd = m_hDlg;
+
 	Size();
 }
 
@@ -80,7 +108,6 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				switch (HIWORD(wParam)) 
 				{ 
 				case LBN_DBLCLK:
-				case LBN_SELCHANGE: 
 					{
 						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
 						int n = ComboBox_GetCurSel(lb);
@@ -97,7 +124,6 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				switch (HIWORD(wParam)) 
 				{ 
 				case LBN_DBLCLK:
-				case LBN_SELCHANGE: 
 					{
 
 						HWND lb = GetDlgItem(m_hDlg,LOWORD(wParam));
@@ -111,30 +137,12 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					break;
 				};
 				break;		
-			case IDC_ADDRESS:
-				{
-					switch (HIWORD(wParam))
-					{
-					case EN_CHANGE:
-						{
-
-							char temp[256];
-							u32 addr;
-							GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),temp,255);
-							sscanf(temp,"%08x",&addr);
-							mv->gotoAddr(addr & ~3);
-						}
-						break;
-					default:
-						break;
-					}
-				}
-				break;
 			case IDC_MODENORMAL:
 				mv->setMode(MV_NORMAL);
 				break;
 			case IDC_MODESYMBOLS:
-				mv->setMode(MV_SYMBOLS);
+				mv->setMode(MV_NORMAL);
+	//			mv->setMode(MV_SYMBOLS);
 				break;
 			}
 		}
@@ -142,6 +150,16 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_USER+1:
 		NotifyMapLoaded();
 		break;
+	case WM_USER+2:	// enter hit on address edit
+	{
+		CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_MEMVIEW));
+		char temp[256];
+		u32 addr;
+		GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),temp,255);
+		sscanf(temp,"%08x",&addr);
+		mv->gotoAddr(addr);
+		break;
+	}
 	case WM_INITDIALOG:
 		{
 			return TRUE;
@@ -150,7 +168,6 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_SIZE:
 		Size();
 		break;
-		
 	case WM_CLOSE:
 		Show(false);
 		break;
@@ -163,7 +180,7 @@ void CMemoryDlg::Goto(u32 addr)
 {
 	Show(true);
 	CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(CMemoryDlg::m_hDlg,IDC_MEMVIEW));
-	mv->gotoAddr(addr & ~3);
+	mv->gotoAddr(addr);
 }
 
 
