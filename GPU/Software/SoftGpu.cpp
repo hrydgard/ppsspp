@@ -221,6 +221,27 @@ void SoftGPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
+void DrawVLine(u8* target, DrawingCoords a, DrawingCoords b)
+{
+	if (a.y > b.y) {
+		DrawVLine(target, b, a);
+		return;
+	}
+
+	for (int y = a.y; y < b.y; ++y) {
+		float u = (float)(y-a.y)/(float)(b.y-a.y);
+		int x = (1-u)*a.x+u*b.x;
+		if (x < gstate.getScissorX1()) continue;
+		if (x > gstate.getScissorX2()) continue;
+		if (y < gstate.getScissorY1()) continue;
+		if (y > gstate.getScissorY2()) continue;
+		target[x*4+y*FB_WIDTH*4] = 0xff;
+		target[x*4+y*FB_WIDTH*4+1] = 0xff;
+		target[x*4+y*FB_WIDTH*4+2] = 0xff;
+		target[x*4+y*FB_WIDTH*4+3] = 0xff;
+	}
+}
+
 void DrawLine(u8* target, DrawingCoords a, DrawingCoords b)
 {
 	if (a.x > b.x) {
@@ -228,14 +249,25 @@ void DrawLine(u8* target, DrawingCoords a, DrawingCoords b)
 		return;
 	}
 
-	if (a.x == b.x)
+	if (a.y > b.y && a.x - b.x < a.y - b.y)
+	{
+		DrawVLine(target, a, b);
 		return;
+	}
+
+	if (a.y < b.y && a.x - b.x < b.y - a.y)
+	{
+		DrawVLine(target, a, b);
+		return;
+	}
 
 	for (int x = a.x; x < b.x; ++x) {
 		float u = (float)(x-a.x)/(float)(b.x-a.x);
 		int y = (1-u)*a.y+u*b.y;
-		if (x >= FB_WIDTH) continue;
-		if (y >= FB_HEIGHT) continue;
+		if (x < gstate.getScissorX1()) continue;
+		if (x > gstate.getScissorX2()) continue;
+		if (y < gstate.getScissorY1()) continue;
+		if (y > gstate.getScissorY2()) continue;
 		target[x*4+y*FB_WIDTH*4] = 0xff;
 		target[x*4+y*FB_WIDTH*4+1] = 0xff;
 		target[x*4+y*FB_WIDTH*4+2] = 0xff;
@@ -288,6 +320,11 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				// TODO: Index support...
 				ERROR_LOG(G3D, "Using indices... fail");
 			}
+			if (gstate.isModeThrough())
+			{
+				// TODO: through mode support...
+				ERROR_LOG(G3D, "Using through mode... fail");
+			}
 
 			VertexDecoder vdecoder;
 			vdecoder.SetVertexType(gstate.vertType);
@@ -297,6 +334,28 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			vdecoder.DecodeVerts(buf, verts, 0, count - 1);
 
 			VertexReader vreader(buf, vtxfmt, gstate.vertType);
+
+			for (int vtx = 0; vtx < count; ++vtx)
+			{
+				float pos[3];
+				vreader.Goto(vtx);
+				vreader.ReadPos(pos);
+
+				ModelCoords mcoords;
+				mcoords = ModelCoords(pos[0], pos[1], pos[2]);
+
+				WorldCoords wcoords(TransformUnit::ModelToWorld(mcoords));
+				ViewCoords vcoords(TransformUnit::WorldToView(wcoords));
+				ClipCoords ccoords(TransformUnit::ViewToClip(vcoords));
+				ScreenCoords scoords(TransformUnit::ClipToScreen(ccoords));
+				DrawingCoords dcoords(TransformUnit::ScreenToDrawing(scoords));
+//				ERROR_LOG(G3D, "M%d: %.2f %.2f %.2f", vtx, mcoords.x, mcoords.y, mcoords.z); // 0.00 0.00 -2.50
+//				ERROR_LOG(G3D, "W%d: %.2f %.2f %.2f", vtx, wcoords.x, wcoords.y, wcoords.z); // 0.00 0.00 -2.50
+//				ERROR_LOG(G3D, "V%d: %.2f %.2f %.2f", vtx, vcoords.x, vcoords.y, vcoords.z); // 0.00 0.00 -2.50
+//				ERROR_LOG(G3D, "C%d: %.2f %.2f %.2f %.2f", vtx, ccoords.x, ccoords.y, ccoords.z, ccoords.w); // 0.00 0.00 1.50 2.50
+				ERROR_LOG(G3D, "S%d: %d %d %d", vtx, scoords.x, scoords.y, scoords.z); // 65296 136 6464
+				ERROR_LOG(G3D, "D%d: %d %d", vtx, dcoords.x, dcoords.y); // 528 264
+			}
 
 			for (int vtx = 0; vtx < count; vtx += 3)
 			{
@@ -311,10 +370,29 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				mcoords[0] = ModelCoords(pos[0], pos[1], pos[2]);
 				mcoords[1] = ModelCoords(pos[3], pos[4], pos[5]);
 				mcoords[2] = ModelCoords(pos[6], pos[7], pos[8]);
+				ClipCoords ccoords[3];
+				ccoords[0] = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[0]))));
+				ccoords[1] = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[1]))));
+				ccoords[2] = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[2]))));
+				for (unsigned int i = 0; i < 3; ++i) {
+					ClipCoords ccoordss = ccoords[i];
+					if (ccoordss.x < -ccoordss.w || ccoordss.x > ccoordss.w) {
+						ERROR_LOG(G3D, "X outside view volume!");
+						continue;
+					}
+					if (ccoordss.y < -ccoordss.w || ccoordss.y > ccoordss.w) {
+						ERROR_LOG(G3D, "Y outside view volume!");
+						continue;
+					}
+					if (ccoordss.z < -ccoordss.w || ccoordss.z > ccoordss.w) {
+						ERROR_LOG(G3D, "Z outside view volume!");
+						continue;
+					}
+				}
 				DrawingCoords dcoords[3];
-				dcoords[0] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[0]))))));
-				dcoords[1] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[1]))))));
-				dcoords[2] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[2]))))));
+				dcoords[0] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[0])));
+				dcoords[1] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[1])));
+				dcoords[2] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[2])));
 				DrawLine(fb_dummy, dcoords[0], dcoords[1]);
 				DrawLine(fb_dummy, dcoords[1], dcoords[2]);
 				DrawLine(fb_dummy, dcoords[2], dcoords[0]);
