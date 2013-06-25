@@ -66,9 +66,12 @@ bool Connection::Resolve(const char *host, int port) {
 }
 
 bool Connection::Connect() {
-	CHECK_GE(port_, 0);
+	if (port_ <= 0) {
+		ELOG("Bad port");
+		return false;
+	}
 	sock_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if ((intptr_t)sock_ < 0) {
+	if ((intptr_t)sock_ == -1) {
 		ELOG("Bad socket");
 		return false;
 	}
@@ -89,6 +92,10 @@ bool Connection::Connect() {
 		sleep(1);
 #endif
 	}
+
+	// Let's not leak this socket.
+	closesocket(sock_);
+	sock_ = -1;
 	return false;
 }
 
@@ -165,25 +172,52 @@ int Client::GET(const char *resource, Buffer *output) {
 
 	std::string line;
 	readbuf.TakeLineCRLF(&line);
-	int code = atoi(&line[line.find(" ") + 1]);
+
+	int code;
+	size_t code_pos = line.find(' ');
+	if (code_pos != line.npos) {
+		code_pos = line.find_first_not_of(' ', code_pos);
+	}
+	if (code_pos != line.npos) {
+		code = atoi(&line[code_pos]);
+	} else {
+		return -1;
+	}
 
 	bool gzip = false;
+	bool chunked = false;
 	int contentLength = 0;
 	while (true) {
 		int sz = readbuf.TakeLineCRLF(&line);
 		if (!sz)
 			break;
+		// TODO: Case folding.
 		if (startsWith(line, "Content-Length:")) {
-			contentLength = atoi(&line[16]);
+			size_t size_pos = line.find_first_of(' ');
+			if (size_pos != line.npos) {
+				size_pos = line.find_first_not_of(' ', size_pos);
+			}
+			if (size_pos != line.npos) {
+				contentLength = atoi(&line[size_pos]);
+				chunked = false;
+			}
 		} else if (startsWith(line, "Content-Encoding:")) {
 			if (line.find("gzip") != std::string::npos) {
 				gzip = true;
+			}
+		} else if (startsWith(line, "Transfer-Encoding:")) {
+			if (line.find("chunked") != std::string::npos) {
+				chunked = true;
 			}
 		}
 	}
 
 	// output now contains the rest of the reply. Dechunk it.
-	DeChunk(&readbuf, output);
+	if (chunked) {
+		DeChunk(&readbuf, output);
+	} else {
+		output->Append(readbuf);
+	}
 
 	// If it's gzipped, we decompress it and put it back in the buffer.
 	if (gzip) {
