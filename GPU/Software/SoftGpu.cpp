@@ -393,9 +393,9 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				dcoords[0] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[0])));
 				dcoords[1] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[1])));
 				dcoords[2] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[2])));
-				DrawLine(fb_dummy, dcoords[0], dcoords[1]);
-				DrawLine(fb_dummy, dcoords[1], dcoords[2]);
-				DrawLine(fb_dummy, dcoords[2], dcoords[0]);
+				DrawLine(fb, dcoords[0], dcoords[1]);
+				DrawLine(fb, dcoords[1], dcoords[2]);
+				DrawLine(fb, dcoords[2], dcoords[0]);
 			}
 		}
 		break;

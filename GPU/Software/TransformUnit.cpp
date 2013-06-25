@@ -46,27 +46,19 @@ ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
 	float vpy2 = getFloat24(gstate.viewporty2);
 	float vpz1 = getFloat24(gstate.viewportz1);
 	float vpz2 = getFloat24(gstate.viewportz2);
-	float viewport_dx = vpx2 - vpx1; // TODO: -1?
-	float viewport_dy = vpy2 - vpy1; // TODO: -1?
-	float viewport_dz = vpz2 - vpz1; // TODO: -1?
 	// TODO: Check for invalid parameters (x2 < x1, etc)
-
-	ret.x = (coords.x * vpx1 / coords.w + vpx2) * 0xFFFF;
-	ret.y = (coords.y * vpy1 / coords.w + vpy2) * 0xFFFF;
-	ret.z = (coords.z * vpy1 / coords.w + vpz2) * 0xFFFF;
+	ret.x = (coords.x * vpx1 / coords.w + vpx2) / 4095.9375 * 0xFFFF;
+	ret.y = (coords.y * vpy1 / coords.w + vpy2) / 4096.9375 * 0xFFFF;
+	ret.z = (coords.z * vpz1 / coords.w + vpz2) / 4096.9375 * 0xFFFF;
 	return ret;
 }
 
 DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 {
 	DrawingCoords ret;
-/*	ret.x = ((coords.x - gstate.offsetx*16)) & 0x3ff;
-	ret.y = ((coords.y - gstate.offsety*16)) & 0x3ff;
-	ret.x /= 4.f;
-	ret.y /= 4.f;*/
-	ret.x = (((u32)coords.x + (2048<<4) - (gstate.offsetx&0xffff))/16);// & 0x3ff;
-	ret.y = (((u32)coords.y + (2048<<4) - (gstate.offsety&0xffff))/16);// & 0x3ff;
-	ret.x /= 16.f;
-	ret.y /= 16.f;
+	// TODO: What to do when offset > coord?
+	// TODO: Mask can be re-enabled now, I guess.
+	ret.x = (((u32)coords.x - (gstate.offsetx&0xffff))/16);// & 0x3ff;
+	ret.y = (((u32)coords.y - (gstate.offsety&0xffff))/16);// & 0x3ff;
 	return ret;
 }
