@@ -1425,7 +1425,10 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.loopNum = atrac->loopNum;
 	context->info.loopStart = atrac->loopStartSample > 0 ? atrac->loopStartSample : 0;
 	context->info.loopEnd = atrac->loopEndSample > 0 ? atrac->loopEndSample : 0;
-	if (atrac->first.size >= atrac->first.filesize) {
+	if (context->info.endSample > 0) {
+		// do not change info.state if this was not called at first time
+		// In Sol Trigger, it would set info.state = 0x10 outside
+	} else if (atrac->first.size >= atrac->first.filesize) {
 		// state 2, all data loaded
 		context->info.state = 2;
 	} else if (atrac->loopinfoNum == 0) {
@@ -1469,12 +1472,6 @@ int _sceAtracGetContextAddress(int atracID)
 		WARN_LOG(HLE, "%08x=_sceAtracGetContextAddress(%i)", atrac->atracContext.ptr, atracID);
 	if (atrac->atracContext.IsValid())
 		_AtracGenarateContext(atrac, atrac->atracContext);
-	if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
-		// This is a hack method to release those already finished atrac3 voice.
-		// It should be removed after the real issue solved.
-		deleteAtrac(atracID);
-		return 0;
-	}
 	return atrac->atracContext.ptr;
 }
 
