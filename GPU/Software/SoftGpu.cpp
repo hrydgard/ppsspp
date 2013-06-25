@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
-#include "SoftGpu.h"
 #include "../GPUState.h"
 #include "../ge_constants.h"
 #include "../../Core/MemMap.h"
@@ -25,6 +24,9 @@
 #include "../GLES/VertexDecoder.h"
 #include "gfx/gl_common.h"
 
+#include "SoftGpu.h"
+#include "TransformUnit.h"
+
 static GLuint temp_texture = 0;
 
 static GLint attr_pos = -1, attr_tex = -1;
@@ -32,7 +34,9 @@ static GLint uni_tex = -1;
 
 static GLuint program;
 
-u8 fb_dummy[480*272*4]; // TODO: Should replace this one with the actual framebuffer
+#define FB_WIDTH 480
+#define FB_HEIGHT 272
+u8 fb_dummy[FB_WIDTH*FB_HEIGHT*4]; // TODO: Should replace this one with the actual framebuffer
 u8* fb = fb_dummy;
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
@@ -187,7 +191,11 @@ void SoftGPU::CopyDisplayToOutput()
 //	for (unsigned int i = 0; i < sizeof(fb_dummy); ++i)
 //		fb_dummy[i] = ((i%4)==2) ? i*255/sizeof(fb_dummy) : 0xff;
 
-	CopyToCurrentFboFromRam(fb, 480, 272, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+	CopyToCurrentFboFromRam(fb, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+
+	// dummy clear
+	for (unsigned int i = 0; i < sizeof(fb_dummy); ++i)
+		fb_dummy[i] = 0;
 }
 
 u32 SoftGPU::DrawSync(int mode)
@@ -248,7 +256,10 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				"TRIANGLE_FAN=5,",
 				"RECTANGLES=6,",
 			};
-			DEBUG_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+			if (type != 3)
+				break;
+
+			ERROR_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
@@ -264,7 +275,23 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			vdecoder.DecodeVerts(buf, verts, 0, count - 1);
 
 			VertexReader vreader(buf, vtxfmt, gstate.vertType);
-			PrintDecodedVertex(vreader);
+
+			for (int vtx = 0; vtx < count; ++vtx)
+			{
+				vreader.Goto(vtx);
+
+				float pos[3];
+				vreader.ReadPos(pos);
+
+				ModelCoords mcoords(pos[0], pos[1], pos[2]);
+				DrawingCoords dcoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords))))));
+				if (dcoords.x >= FB_WIDTH) break;
+				if (dcoords.y >= FB_HEIGHT) break;
+				fb_dummy[dcoords.x*4 + dcoords.y * FB_WIDTH * 4] = 0xff;
+				fb_dummy[dcoords.x*4 + dcoords.y * FB_WIDTH * 4+1] = 0xff;
+				fb_dummy[dcoords.x*4 + dcoords.y * FB_WIDTH * 4+2] = 0xff;
+				fb_dummy[dcoords.x*4 + dcoords.y * FB_WIDTH * 4+3] = 0xff;
+			}
 		}
 		break;
 

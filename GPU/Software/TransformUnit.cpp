@@ -40,14 +40,20 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords& coords)
 ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
 {
 	ScreenCoords ret;
-	float viewport_dx = gstate.viewportx2 - gstate.viewportx1; // TODO: -1?
-	float viewport_dy = gstate.viewporty2 - gstate.viewporty1; // TODO: -1?
-	float viewport_dz = gstate.viewportz2 - gstate.viewportz1; // TODO: -1?
+	float vpx1 = getFloat24(gstate.viewportx1);
+	float vpx2 = getFloat24(gstate.viewportx2);
+	float vpy1 = getFloat24(gstate.viewporty1);
+	float vpy2 = getFloat24(gstate.viewporty2);
+	float vpz1 = getFloat24(gstate.viewportz1);
+	float vpz2 = getFloat24(gstate.viewportz2);
+	float viewport_dx = vpx2 - vpx1; // TODO: -1?
+	float viewport_dy = vpy2 - vpy1; // TODO: -1?
+	float viewport_dz = vpz2 - vpz1; // TODO: -1?
 	// TODO: Check for invalid parameters (x2 < x1, etc)
 
-	ret.x = (coords.x * viewport_dx / coords.w + gstate.viewportx1) * 0xFFFF;
-	ret.y = (coords.y * viewport_dy / coords.w + gstate.viewporty1) * 0xFFFF;
-	ret.z = (coords.z * viewport_dz / coords.w + gstate.viewportz1) * 0xFFFF;
+	ret.x = (coords.x * viewport_dx / coords.w + vpx1) * 0xFFFF;
+	ret.y = (coords.y * viewport_dy / coords.w + vpy1) * 0xFFFF;
+	ret.z = (coords.z * viewport_dz / coords.w + vpz1) * 0xFFFF;
 	return ret;
 }
 

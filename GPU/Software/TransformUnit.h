@@ -39,9 +39,10 @@ typedef Vec2<u10> DrawingCoords; // TODO: Keep z component?
 
 class TransformUnit
 {
-	WorldCoords ModelToWorld(const ModelCoords& coords);
-	ViewCoords WorldToView(const WorldCoords& coords);
-	ClipCoords ViewToClip(const ViewCoords& coords);
-	ScreenCoords ClipToScreen(const ClipCoords& coords);
-	DrawingCoords ScreenToDrawing(const ScreenCoords& coords);
+public:
+	static WorldCoords ModelToWorld(const ModelCoords& coords);
+	static ViewCoords WorldToView(const WorldCoords& coords);
+	static ClipCoords ViewToClip(const ViewCoords& coords);
+	static ScreenCoords ClipToScreen(const ClipCoords& coords);
+	static DrawingCoords ScreenToDrawing(const ScreenCoords& coords);
 };
