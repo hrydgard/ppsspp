@@ -263,7 +263,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	memset(cryptedHash,0,0x10);
 	// Encrypt save.
 	// TODO: Is this the correct difference between MAKEDATA and MAKEDATASECURE?
-	if (param->dataBuf.Valid() && g_Config.bEncryptSave && secureMode)
+	if (param->dataBuf.IsValid() && g_Config.bEncryptSave && secureMode)
 	{
 		cryptedSize = param->dataSize;
 		if(cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize)
@@ -329,7 +329,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		else
 			memset(tmpData, 0, FILE_LIST_TOTAL_SIZE);
 
-		if (param->dataBuf.Valid())
+		if (param->dataBuf.IsValid())
 		{
 			char *fName = (char*)tmpData;
 			for(int i = 0; i < FILE_LIST_COUNT_MAX; i++)
@@ -370,7 +370,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	WritePSPFile(sfopath, sfoData, (SceSize)sfoSize);
 	delete[] sfoData;
 
-	if(param->dataBuf.Valid())	// Can launch save without save data in mode 13
+	if(param->dataBuf.IsValid())	// Can launch save without save data in mode 13
 	{
 		std::string filePath = dirPath+"/"+GetFileName(param);
 		u8 *data_ = 0;
@@ -408,26 +408,26 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 
 
 	// SAVE ICON0
-	if (param->icon0FileData.buf.Valid())
+	if (param->icon0FileData.buf.IsValid())
 	{
 		std::string icon0path = dirPath + "/" + ICON0_FILENAME;
 		WritePSPFile(icon0path, param->icon0FileData.buf, param->icon0FileData.bufSize);
 	}
 	// SAVE ICON1
-	if (param->icon1FileData.buf.Valid())
+	if (param->icon1FileData.buf.IsValid())
 	{
 		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
 		WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.bufSize);
 	}
 	// SAVE PIC1
-	if (param->pic1FileData.buf.Valid())
+	if (param->pic1FileData.buf.IsValid())
 	{
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
 		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.bufSize);
 	}
 
 	// Save SND
-	if (param->snd0FileData.buf.Valid())
+	if (param->snd0FileData.buf.IsValid())
 	{
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
 		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.bufSize);
@@ -733,7 +733,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 
 	int ret = 0;
 
-	if (param->msFree.Valid())
+	if (param->msFree.IsValid())
 	{
 		param->msFree->clusterSize = (u32)MemoryStick_SectorSize();
 		param->msFree->freeClusters = (u32)(MemoryStick_FreeSpace() / MemoryStick_SectorSize());
@@ -742,7 +742,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 		memset(param->msFree->freeSpaceStr, 0, sizeof(param->msFree->freeSpaceStr));
 		strncpy(param->msFree->freeSpaceStr, spaceTxt.c_str(), sizeof(param->msFree->freeSpaceStr));
 	}
-	if (param->msData.Valid())
+	if (param->msData.IsValid())
 	{
 		const std::string gameName(param->msData->gameName, strnlen(param->msData->gameName, sizeof(param->msData->gameName)));
 		const std::string saveName(param->msData->saveName, strnlen(param->msData->saveName, sizeof(param->msData->saveName)));
@@ -767,7 +767,7 @@ int SavedataParam::GetSizes(SceUtilitySavedataParam *param)
 			ret = SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
 		}
 	}
-	if (param->utilityData.Valid())
+	if (param->utilityData.IsValid())
 	{
 		int total_size = 0;
 		total_size += getSizeNormalized(1); // SFO;
@@ -799,14 +799,14 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 		return false;
 	}
 
-	if (param->idList.Valid())
+	if (param->idList.IsValid())
 	{
 		u32 maxFile = param->idList->maxCount;
 
 		std::vector<PSPFileInfo> validDir;
 		std::vector<PSPFileInfo> allDir = pspFileSystem.GetDirListing(savePath);
 
-		if (param->idList.Valid())
+		if (param->idList.IsValid())
 		{
 			std::string searchString = GetGameName(param)+GetSaveName(param);
 			for (size_t i = 0; i < allDir.size() && validDir.size() < maxFile; i++)
@@ -844,23 +844,23 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
 	}
 
-	if (!param->fileList.Valid()) {
+	if (!param->fileList.IsValid()) {
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): bad fileList address %08x", param->fileList.ptr);
 		// Should crash.
 		return -1;
 	}
 
 	auto &fileList = param->fileList;
-	if (fileList->secureEntries.Valid() && fileList->maxSecureEntries > 99) {
+	if (fileList->secureEntries.IsValid() && fileList->maxSecureEntries > 99) {
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many secure entries, %d", fileList->maxSecureEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
-	if (fileList->normalEntries.Valid() && fileList->maxNormalEntries > 8192) {
+	if (fileList->normalEntries.IsValid() && fileList->maxNormalEntries > 8192) {
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
 	// TODO: This may depend on sdk version or something?  Not returned by default.
-	if (false && fileList->systemEntries.Valid() && fileList->maxSystemEntries > 5) {
+	if (false && fileList->systemEntries.IsValid() && fileList->maxSystemEntries > 5) {
 		ERROR_LOG_REPORT(HLE, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
@@ -927,11 +927,11 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		SceUtilitySavedataFileListEntry *entry = NULL;
 		int sizeOffset = 0;
 		if (isSystemFile) {
-			if (fileList->systemEntries.Valid() && fileList->resultNumSystemEntries < fileList->maxSystemEntries) {
+			if (fileList->systemEntries.IsValid() && fileList->resultNumSystemEntries < fileList->maxSystemEntries) {
 				entry = &fileList->systemEntries[fileList->resultNumSystemEntries++];
 			}
 		} else if (secureFilenames.find(file->name) != secureFilenames.end()) {
-			if (fileList->secureEntries.Valid() && fileList->resultNumSecureEntries < fileList->maxSecureEntries) {
+			if (fileList->secureEntries.IsValid() && fileList->resultNumSecureEntries < fileList->maxSecureEntries) {
 				entry = &fileList->secureEntries[fileList->resultNumSecureEntries++];
 			}
 			// Secure files are slightly bigger.
@@ -940,7 +940,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 				sizeOffset = -0x10;
 			}
 		} else {
-			if (fileList->normalEntries.Valid() && fileList->resultNumNormalEntries < fileList->maxNormalEntries) {
+			if (fileList->normalEntries.IsValid() && fileList->resultNumNormalEntries < fileList->maxNormalEntries) {
 				entry = &fileList->normalEntries[fileList->resultNumNormalEntries++];
 			}
 		}
@@ -976,7 +976,7 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param)
 	PSPFileInfo info = pspFileSystem.GetFileInfo(saveDir);
 	bool exists = info.exists;
 
-	if (param->sizeInfo.Valid())
+	if (param->sizeInfo.IsValid())
 	{
 		// TODO: Read the entries and count up the size vs. existing size?
 
@@ -1042,7 +1042,7 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param)
 
 	SceUtilitySavedataSaveName *saveNameListData;
 	bool hasMultipleFileName = false;
-	if (param->saveNameList.Valid())
+	if (param->saveNameList.IsValid())
 	{
 		Clear();
 
@@ -1209,7 +1209,7 @@ void SavedataParam::ClearFileInfo(SaveFileInfo &saveInfo, std::string saveName)
 	saveInfo.idx = 0;
 	saveInfo.textureData = 0;
 
-	if (GetPspParam()->newData.Valid() && GetPspParam()->newData->buf.Valid())
+	if (GetPspParam()->newData.IsValid() && GetPspParam()->newData->buf.IsValid())
 	{
 		// We have a png to show
 		if (!noSaveIcon)

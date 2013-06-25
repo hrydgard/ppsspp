@@ -1676,7 +1676,7 @@ u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 	// Always have the first three.
 	for (int i = 0; i < PSP_MIN_FD; ++i) {
 		// TODO: Technically it seems like these are fixed ids > PSP_COUNT_FDS.
-		if (count < outSize && out.Valid()) {
+		if (count < outSize && out.IsValid()) {
 			out[count] = i;
 		}
 		++count;
@@ -1686,7 +1686,7 @@ u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 		if (fds[i] == 0) {
 			continue;
 		}
-		if (count < outSize && out.Valid()) {
+		if (count < outSize && out.IsValid()) {
 			out[count] = i;
 		}
 		++count;
