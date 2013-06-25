@@ -80,17 +80,17 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		// Hiragana
 		{L"あかさたなはまやらわぁゃっ"},
 		{L"いきしちにひみ　り　ぃ　　"},
-		{L"うくすつぬふむゆるをぅゅ˝"},
-		{L"えけせてねへめ　れ　ぇ　˚"},
-		{L"おこそとのほもよるんぉょ　"},
+		{L"うくすつぬふむゆるをぅゅ゛"},
+		{L"えけせてねへめ　れ　ぇ　゜"},
+		{L"おこそとのほもよろんぉょー"},
 	},
 	{
 		// Katakana
 		{L"アカサタナハマヤラワァャッ"},
 		{L"イキシチニヒミ　リ　ィ　　"},
-		{L"ウクスツヌフムユルヲゥュ˝"},
-		{L"エケセテネヘメ　レ　ェ　˚"},
-		{L"オコソトノホモヨルンォョ　"},
+		{L"ウクスツヌフムユルヲゥュ゛"},
+		{L"エケセテネヘメ　レ　ェ　゜"},
+		{L"オコソトノホモヨロンォョー"},
 	},
 	{
 		// Korean(Hangul)
@@ -497,7 +497,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 			i_level = 0;
 		}
 
-		if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˝')
+		if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'゛')
 		{
 			for(u32 i = 0; i < inputChars.size(); i++)
 			{
@@ -524,7 +524,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 				}
 			}
 		}
-		else if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˚')
+		else if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'゜')
 		{
 			for(u32 i = 0; i < inputChars.size(); i++)
 			{
