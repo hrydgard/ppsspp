@@ -335,28 +335,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 			VertexReader vreader(buf, vtxfmt, gstate.vertType);
 
-			for (int vtx = 0; vtx < count; ++vtx)
-			{
-				float pos[3];
-				vreader.Goto(vtx);
-				vreader.ReadPos(pos);
-
-				ModelCoords mcoords;
-				mcoords = ModelCoords(pos[0], pos[1], pos[2]);
-
-				WorldCoords wcoords(TransformUnit::ModelToWorld(mcoords));
-				ViewCoords vcoords(TransformUnit::WorldToView(wcoords));
-				ClipCoords ccoords(TransformUnit::ViewToClip(vcoords));
-				ScreenCoords scoords(TransformUnit::ClipToScreen(ccoords));
-				DrawingCoords dcoords(TransformUnit::ScreenToDrawing(scoords));
-//				ERROR_LOG(G3D, "M%d: %.2f %.2f %.2f", vtx, mcoords.x, mcoords.y, mcoords.z); // 0.00 0.00 -2.50
-//				ERROR_LOG(G3D, "W%d: %.2f %.2f %.2f", vtx, wcoords.x, wcoords.y, wcoords.z); // 0.00 0.00 -2.50
-//				ERROR_LOG(G3D, "V%d: %.2f %.2f %.2f", vtx, vcoords.x, vcoords.y, vcoords.z); // 0.00 0.00 -2.50
-//				ERROR_LOG(G3D, "C%d: %.2f %.2f %.2f %.2f", vtx, ccoords.x, ccoords.y, ccoords.z, ccoords.w); // 0.00 0.00 1.50 2.50
-				ERROR_LOG(G3D, "S%d: %d %d %d", vtx, scoords.x, scoords.y, scoords.z); // 65296 136 6464
-				ERROR_LOG(G3D, "D%d: %d %d", vtx, dcoords.x, dcoords.y); // 528 264
-			}
-
 			for (int vtx = 0; vtx < count; vtx += 3)
 			{
 				float pos[9];
@@ -376,19 +354,22 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				ccoords[2] = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords[2]))));
 				for (unsigned int i = 0; i < 3; ++i) {
 					ClipCoords ccoordss = ccoords[i];
+					// TODO: Split primitives in these cases!
+					// TODO: Check if the equal case needs to be included, too
 					if (ccoordss.x < -ccoordss.w || ccoordss.x > ccoordss.w) {
 						ERROR_LOG(G3D, "X outside view volume!");
-						continue;
+						goto skip;
 					}
 					if (ccoordss.y < -ccoordss.w || ccoordss.y > ccoordss.w) {
 						ERROR_LOG(G3D, "Y outside view volume!");
-						continue;
+						goto skip;
 					}
 					if (ccoordss.z < -ccoordss.w || ccoordss.z > ccoordss.w) {
 						ERROR_LOG(G3D, "Z outside view volume!");
-						continue;
+						goto skip;
 					}
 				}
+				{
 				DrawingCoords dcoords[3];
 				dcoords[0] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[0])));
 				dcoords[1] = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(ccoords[1])));
@@ -396,6 +377,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				DrawLine(fb, dcoords[0], dcoords[1]);
 				DrawLine(fb, dcoords[1], dcoords[2]);
 				DrawLine(fb, dcoords[2], dcoords[0]);
+				}
+skip:;
 			}
 		}
 		break;

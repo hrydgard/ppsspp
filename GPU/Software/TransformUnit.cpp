@@ -58,7 +58,7 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 	DrawingCoords ret;
 	// TODO: What to do when offset > coord?
 	// TODO: Mask can be re-enabled now, I guess.
-	ret.x = (((u32)coords.x - (gstate.offsetx&0xffff))/16);// & 0x3ff;
-	ret.y = (((u32)coords.y - (gstate.offsety&0xffff))/16);// & 0x3ff;
+	ret.x = (((u32)coords.x - (gstate.offsetx&0xffff))/16) & 0x3ff;
+	ret.y = (((u32)coords.y - (gstate.offsety&0xffff))/16) & 0x3ff;
 	return ret;
 }
