@@ -87,25 +87,36 @@ public:
 	// If not downloading to a file, access this to get the result.
 	Buffer &buffer() { return buffer_; }
 
+	void Cancel() {
+		cancelled_ = true;
+	}
+
 private:
 	void Do();  // Actually does the download. Runs on thread.
-
+	void SetFailed(int code);
 	float progress_;
 	Buffer buffer_;
 	std::string url_;
 	std::string outfile_;
 	int resultCode_;
 	bool failed_;
+	volatile bool cancelled_;
 };
 
 using std::shared_ptr;
 
 class Downloader {
 public:
+	~Downloader() {
+		CancelAll();
+	}
 	std::shared_ptr<Download> StartDownload(const std::string &url, const std::string &outfile);
 
 	// Drops finished downloads from the list.
 	void Update();
+
+
+	void CancelAll();
 
 private:
 	std::vector<std::shared_ptr<Download>> downloads_;

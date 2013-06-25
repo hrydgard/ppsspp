@@ -285,13 +285,18 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 }
 
 Download::Download(const std::string &url, const std::string &outfile)
-	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false), resultCode_(0) {
+	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false), resultCode_(0), cancelled_(false) {
 	std::thread th(std::bind(&Download::Do, this));
 	th.detach();
 }
 
 Download::~Download() {
 
+}
+
+void Download::SetFailed(int code) {
+	failed_ = true;
+	progress_ = 1.0f;
 }
 
 void Download::Do() {
@@ -313,6 +318,13 @@ void Download::Do() {
 		net::Shutdown();
 		return;
 	}
+
+	if (cancelled_) {
+		SetFailed(-1);
+		net::Shutdown();
+		return;
+	}
+
 	if (!client.Connect()) {
 		ELOG("Failed connecting to server.");
 		resultCode_ = -1;
@@ -320,6 +332,14 @@ void Download::Do() {
 		progress_ = 1.0f;
 		return;
 	}
+
+	if (cancelled_) {
+		SetFailed(-1);
+		net::Shutdown();
+		return;
+	}
+
+	// TODO: Allow cancelling during a GET somehow...
 	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_);
 	if (resultCode == 200) {
 		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.c_str());
@@ -349,5 +369,12 @@ void Downloader::Update() {
 		}
 	}
 }
+
+void Downloader::CancelAll() {
+	for (size_t i = 0; i < downloads_.size(); i++) {
+		downloads_[i]->Cancel();
+	}
+}
+
 
 }	// http
