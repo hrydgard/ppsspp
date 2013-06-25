@@ -36,6 +36,12 @@ void Buffer::Append(const char *str) {
   memcpy(dest, str, len);
 }
 
+void Buffer::Append(const Buffer &other) {
+	size_t len = other.size();
+	char *dest = Append(len);
+	memcpy(dest, &other.data_[0], len);
+}
+
 void Buffer::AppendValue(int value) {
   char buf[16];
   // This is slow.
@@ -44,8 +50,11 @@ void Buffer::AppendValue(int value) {
 }
 
 void Buffer::Take(size_t length, std::string *dest) {
-  CHECK_LE(length, data_.size());
-  dest->resize(length);
+	if (length > data_.size()) {
+		ELOG("Truncating length in Buffer::Take()");
+		length = data_.size();
+	}
+	dest->resize(length);
 	if (length > 0) {
 		memcpy(&(*dest)[0], &data_[0], length);
 		data_.erase(data_.begin(), data_.begin() + length);
@@ -64,7 +73,11 @@ int Buffer::TakeLineCRLF(std::string *dest) {
 }
 
 void Buffer::Skip(size_t length) {
-  data_.erase(data_.begin(), data_.begin() + length);
+	if (length > data_.size()) {
+		ELOG("Truncating length in Buffer::Skip()");
+		length = data_.size();
+	}
+	data_.erase(data_.begin(), data_.begin() + length);
 }
 
 int Buffer::SkipLineCRLF() {
@@ -87,18 +100,19 @@ int Buffer::OffsetToAfterNextCRLF() {
 }
 
 void Buffer::Printf(const char *fmt, ...) {
-  char buffer[512];
+  char buffer[2048];
   va_list vl;
   va_start(vl, fmt);
   ssize_t retval = vsnprintf(buffer, sizeof(buffer), fmt, vl);
   if (retval >= (ssize_t)sizeof(buffer)) {
     // Output was truncated. TODO: Do something.
-    FLOG("Buffer::Printf truncated output");
+    ELOG("Buffer::Printf truncated output");
   }
-  CHECK_GE(retval, 0);
+  if (retval < 0) {
+    ELOG("Buffer::Printf failed");
+  }
   va_end(vl);
   char *ptr = Append(retval);
-  CHECK(ptr);
   memcpy(ptr, buffer, retval);
 }
 
