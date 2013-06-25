@@ -871,7 +871,7 @@ int sceMpegRingbufferAvailableSize(u32 ringbufferAddr)
 	PSPPointer<SceMpegRingBuffer> ringbuffer;
 	ringbuffer = ringbufferAddr;
 
-	if (!ringbuffer.Valid()) {
+	if (!ringbuffer.IsValid()) {
 		ERROR_LOG(HLE, "sceMpegRingbufferAvailableSize(%08x) - bad address", ringbufferAddr);
 		return -1;
 	}

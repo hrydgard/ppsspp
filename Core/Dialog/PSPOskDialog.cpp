@@ -128,7 +128,7 @@ PSPOskDialog::~PSPOskDialog() {
 
 void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address)
 {
-	if (!em_address.Valid())
+	if (!em_address.IsValid())
 	{
 		_string = "";
 		return;
@@ -198,7 +198,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
-	if (!oskParams->fields.Valid())
+	if (!oskParams->fields.IsValid())
 	{
 		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
@@ -221,7 +221,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 	inputChars = L"";
 
-	if (oskParams->fields[0].intext.Valid()) {
+	if (oskParams->fields[0].intext.IsValid()) {
 		auto src = oskParams->fields[0].intext;
 		int c;
 		while ((c = *src++) != 0)

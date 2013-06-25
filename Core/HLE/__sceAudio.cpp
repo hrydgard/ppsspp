@@ -290,18 +290,18 @@ void __AudioUpdate() {
 		chans[i].sampleQueue.popPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
 
 		if (firstChannel) {
-			for (int s = 0; s < sz1; s++)
+			for (size_t s = 0; s < sz1; s++)
 				mixBuffer[s] = buf1[s];
 			if (buf2) {
-				for (int s = 0; s < sz2; s++)
+				for (size_t s = 0; s < sz2; s++)
 					mixBuffer[s + sz1] = buf2[s];
 			}
 			firstChannel = false;
 		} else {
-			for (int s = 0; s < sz1; s++)
+			for (size_t s = 0; s < sz1; s++)
 				mixBuffer[s] += buf1[s];
 			if (buf2) {
-				for (int s = 0; s < sz2; s++)
+				for (size_t s = 0; s < sz2; s++)
 					mixBuffer[s + sz1] += buf2[s];
 			}
 		}
@@ -317,10 +317,10 @@ void __AudioUpdate() {
 			s16 *buf1 = 0, *buf2 = 0;
 			size_t sz1, sz2;
 			outAudioQueue.pushPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
-			for (int s = 0; s < sz1; s++)
+			for (size_t s = 0; s < sz1; s++)
 				buf1[s] = clamp_s16(mixBuffer[s]);
 			if (buf2) {
-				for (int s = 0; s < sz2; s++)
+				for (size_t s = 0; s < sz2; s++)
 					buf2[s] = clamp_s16(mixBuffer[s + sz1]);
 			}
 		} else {
