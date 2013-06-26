@@ -27,6 +27,7 @@
 #include "MIPSInt.h"
 #include "MIPSTables.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 
 #include "../HLE/HLE.h"
 #include "../System.h"
@@ -191,7 +192,8 @@ namespace MIPSInt
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
 		ERROR_LOG(CPU, "BREAK!");
-		Core_UpdateState(CORE_STEPPING);
+		if (!g_Config.bIgnoreBadMemAccess) 
+			Core_UpdateState(CORE_STEPPING);
 		PC += 4;
 	}
 
