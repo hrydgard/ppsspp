@@ -127,6 +127,12 @@ public:
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 
+	// Debugger
+	int iDisasmWindowX;
+	int iDisasmWindowY;
+	int iDisasmWindowW;
+	int iDisasmWindowH;
+
 	std::string currentDirectory;
 	std::string externalDirectory; 
 	std::string memCardDirectory;

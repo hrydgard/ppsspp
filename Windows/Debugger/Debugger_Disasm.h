@@ -22,6 +22,8 @@ private:
 	DebugInterface *cpu;
 	
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+	void UpdateSize(WORD width, WORD height);
+	void SavePosition();
 
 public:
 	int index; //helper 
