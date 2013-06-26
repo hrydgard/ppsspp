@@ -817,7 +817,7 @@ int PSPOskDialog::Update()
 
 			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
 		}
-		else if (IsButtonPressed(g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE ? CTRL_CROSS : CTRL_CIRCLE))
+		else if (IsButtonPressed(g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE ? CTRL_CIRCLE : CTRL_CROSS))
 		{
 			if (inputChars.size() > 0)
 			{
