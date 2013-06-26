@@ -42,7 +42,7 @@ static inline int getScaleValue(u32 channelsNum) {
 
 u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inputAddr, u32 outputAddr)
 {
-	INFO_LOG(HLE, "sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
+	DEBUG_LOG(HLE, "sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
 	if (Memory::IsValidAddress(inputAddr) && Memory::IsValidAddress(outputAddr)) {
 		int scaleval = getScaleValue(channelsNum);
 		s16* outbuf = (s16*)Memory::GetPointer(outputAddr);
