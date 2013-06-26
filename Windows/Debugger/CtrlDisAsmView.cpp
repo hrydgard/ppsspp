@@ -87,6 +87,9 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
 		break;
+	case WM_KEYUP:
+		ccp->onKeyUp(wParam,lParam);
+		break;
 	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
 	case WM_RBUTTONDOWN: rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
@@ -135,8 +138,11 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	instructionSize=4;
 	showHex=false;
 	hasFocus = false;
+	controlHeld = false;
 
-	jumpIndex = 0;
+	matchAddress = -1;
+	searching = false;
+	searchQuery[0] = 0;
 	windowStart = curAddress;
 	whiteBackground = false;
 	displaySymbols = true;
@@ -304,7 +310,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 			backgroundColor = scaleColor(backgroundColor,1.05f);
 		}
 
-		if (address == curAddress)
+		if (address == curAddress && searching == false)
 		{
 			if (hasFocus)
 			{
@@ -445,14 +451,13 @@ void CtrlDisAsmView::followBranch()
 	const char *dizz = debugger->disasm(curAddress, instructionSize);
 	parseDisasm(dizz,opcode,arguments);
 
-	if (jumpIndex == 256) return;
 	if (branchTarget != -1)
 	{
-		jumpStack[jumpIndex++] = curAddress;
+		jumpStack.push_back(curAddress);
 		gotoAddr(branchTarget);
 	} else if (branchRegister != -1)
 	{
-		jumpStack[jumpIndex++] = curAddress;
+		jumpStack.push_back(curAddress);
 		gotoAddr(debugger->GetRegValue(0,branchRegister));
 	}
 }
@@ -462,60 +467,89 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
 	u32 windowEnd = windowStart+visibleRows*instructionSize;
 
-	switch (wParam & 0xFFFF)
+	if (controlHeld)
 	{
-	case VK_DOWN:
-		if (curAddress == windowEnd-instructionSize)
+		switch (wParam & 0xFFFF)
 		{
-			windowStart += instructionSize;
+		case 'S':
+		case 's':
+			search(false);
+			break;
+		case 'C':
+		case 'c':
+			search(true);
+			break;
 		}
-		curAddress += instructionSize;
-		break;
-	case VK_UP:
-		if (curAddress == windowStart)
+	} else {
+		switch (wParam & 0xFFFF)
 		{
-			windowStart -= instructionSize;
+		case VK_DOWN:
+			if (curAddress == windowEnd-instructionSize)
+			{
+				windowStart += instructionSize;
+			}
+			curAddress += instructionSize;
+			break;
+		case VK_UP:
+			if (curAddress == windowStart)
+			{
+				windowStart -= instructionSize;
+			}
+			curAddress-=instructionSize;
+			break;
+		case VK_NEXT:
+			if (curAddress != windowEnd-instructionSize)
+			{
+				curAddress = windowEnd-instructionSize;
+			} else {
+				windowStart += visibleRows*instructionSize;
+				curAddress += visibleRows*instructionSize;
+			}
+			break;
+		case VK_PRIOR:
+			if (curAddress != windowStart)
+			{
+				curAddress = windowStart;
+			} else {
+				windowStart -= visibleRows*instructionSize;
+				curAddress -= visibleRows*instructionSize;
+			}
+			break;
+		case VK_LEFT:
+			if (jumpStack.empty())
+			{
+				gotoPC();
+			} else {
+				u32 addr = jumpStack[jumpStack.size()-1];
+				jumpStack.pop_back();
+				gotoAddr(addr);
+			}
+			return;
+		case VK_RIGHT:
+			followBranch();
+			return;
+		case VK_TAB:
+			displaySymbols = !displaySymbols;
+			break;
+		case VK_CONTROL:
+			controlHeld = true;
+			break;
+		default:
+			return;
 		}
-		curAddress-=instructionSize;
-		break;
-	case VK_NEXT:
-		if (curAddress != windowEnd-instructionSize)
-		{
-			curAddress = windowEnd-instructionSize;
-		} else {
-			windowStart += visibleRows*instructionSize;
-			curAddress += visibleRows*instructionSize;
-		}
-		break;
-	case VK_PRIOR:
-		if (curAddress != windowStart)
-		{
-			curAddress = windowStart;
-		} else {
-			windowStart -= visibleRows*instructionSize;
-			curAddress -= visibleRows*instructionSize;
-		}
-		break;
-	case VK_LEFT:
-		if (jumpIndex == 0)
-		{
-			gotoPC();
-		} else {
-			gotoAddr(jumpStack[--jumpIndex]);
-		}
-		return;
-	case VK_RIGHT:
-		followBranch();
-		return;
-	case VK_TAB:
-		displaySymbols = !displaySymbols;
-		break;
-	default:
-		return;
 	}
 	redraw();
 }
 
+void CtrlDisAsmView::onKeyUp(WPARAM wParam, LPARAM lParam)
+{
+	switch (wParam & 0xFFFF)
+	{
+	case VK_CONTROL:
+		controlHeld = false;
+		break;
+	}
+}
 
 void CtrlDisAsmView::redraw()
 {
@@ -649,4 +683,65 @@ void CtrlDisAsmView::calculatePixelPositions()
 	pixelPositions.opcodeStart = pixelPositions.addressStart + 18*8;
 	pixelPositions.argumentsStart = pixelPositions.opcodeStart + 9*8;
 	pixelPositions.arrowsStart = pixelPositions.argumentsStart + 30*8;
+}
+
+void CtrlDisAsmView::search(bool continueSearch)
+{
+	u32 searchAddress;
+
+	if (continueSearch == false || searchQuery[0] == 0)
+	{
+		if (InputBox_GetString(MainWindow::GetHInstance(),MainWindow::GetHWND(),"Search for:","",searchQuery) == false)
+		{
+			return;
+		}
+
+		for (int i = 0; searchQuery[i] != 0; i++)
+		{
+			searchQuery[i] = tolower(searchQuery[i]);
+		}
+		SetFocus(wnd);
+		searchAddress = curAddress+instructionSize;
+	} else {
+		searchAddress = matchAddress+instructionSize;
+	}
+
+	searching = true;
+	redraw();	// so the cursor is disabled
+	while (searchAddress < 0xFFFFFFFC)	// there should probably be a more intelligent limitation
+	{
+		char addressText[64],opcode[64],arguments[256];
+		const char *dis = debugger->disasm(searchAddress, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+		getDisasmAddressText(searchAddress,addressText);
+
+		char merged[512];
+		int mergePos = 0;
+
+		// I'm doing it manually to convert everything to lowercase at the same time
+		for (int i = 0; addressText[i] != 0; i++) merged[mergePos++] = tolower(addressText[i]);
+		merged[mergePos++] = ' ';
+		for (int i = 0; opcode[i] != 0; i++) merged[mergePos++] = tolower(opcode[i]);
+		merged[mergePos++] = ' ';
+		for (int i = 0; arguments[i] != 0; i++) merged[mergePos++] = tolower(arguments[i]);
+		merged[mergePos] = 0;
+
+		// match!
+		if (strstr(merged,searchQuery) != NULL)
+		{
+			matchAddress = searchAddress;
+			searching = false;
+			gotoAddr(searchAddress);
+			return;
+		}
+
+		// cancel search
+		if ((searchAddress % 256) == 0 && GetAsyncKeyState(VK_ESCAPE))
+		{
+			searching = false;
+			return;
+		}
+
+		searchAddress += instructionSize;
+	}
 }

@@ -21,6 +21,7 @@
 #include "../../Core/Debugger/DebugInterface.h"
 
 #include <windows.h>
+#include <vector>
 
 class CtrlDisAsmView
 {
@@ -52,9 +53,14 @@ class CtrlDisAsmView
 		int arrowsStart;
 	} pixelPositions;
 
-	u32 jumpStack[256];
-	int jumpIndex;
+	std::vector<u32> jumpStack;
 
+	bool controlHeld;
+	char searchQuery[256];
+	int matchAddress;
+	bool searching;
+
+	void search(bool continueSearch);
 	void followBranch();
 	void calculatePixelPositions();
 	void getDisasmAddressText(u32 address, char* dest);
@@ -70,6 +76,7 @@ public:
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);
+	void onKeyUp(WPARAM wParam, LPARAM lParam);
 	void onMouseDown(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseUp(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseMove(WPARAM wParam, LPARAM lParam, int button);
