@@ -200,12 +200,50 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STEPOVER:
 				{
+					const char* dis = cpu->disasm(cpu->GetPC(),4);
+					const char* pos = strstr(dis,"->$");
+					const char* reg = strstr(dis,"->");
+					
+					ptr->setDontRedraw(true);
+					u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
+					if (memcmp(dis,"jal\t",4) == 0)
+					{
+						// it's a function call with a delay slot - skip that too
+						breakpointAddress += cpu->getInstructionSize(0);
+					} else if (memcmp(dis,"j\t",2) == 0 || memcmp(dis,"b\t",2) == 0)
+					{
+						// in case of absolute branches, set the breakpoint at the branch target
+						sscanf(pos+3,"%08x",&breakpointAddress);
+					} else if (memcmp(dis,"jr\t",3) == 0)
+					{
+						// the same for jumps to registers
+						int regNum = -1;
+						for (int i = 0; i < 32; i++)
+						{
+							if (stricmp(reg+2,cpu->GetRegName(0,i)) == 0)
+							{
+								regNum = i;
+								break;
+							}
+						}
+						if (regNum == -1) break;
+						breakpointAddress = cpu->GetRegValue(0,regNum);
+					} else if (pos != NULL)
+					{
+						// get branch target
+						sscanf(pos+3,"%08x",&breakpointAddress);
+						CBreakPoints::AddBreakPoint(breakpointAddress,true);
+
+						// also add a breakpoint after the delay slot
+						breakpointAddress = cpu->GetPC()+2*cpu->getInstructionSize(0);						
+					}
+
 					SetDebugMode(false);
-					CBreakPoints::AddBreakPoint(cpu->GetPC()+cpu->getInstructionSize(0),true);
+					CBreakPoints::AddBreakPoint(breakpointAddress,true);
 					_dbg_update_();
 					Core_EnableStepping(false);
 					Sleep(1);
-					ptr->gotoPC();
+					ptr->gotoAddr(breakpointAddress);
 					UpdateDialog();
 				}
 				break;
@@ -221,6 +259,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STOP:
 				{				
+					ptr->setDontRedraw(false);
 					SetDebugMode(true);
 					Core_EnableStepping(true);
 					_dbg_update_();
@@ -347,7 +386,15 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_USER+1:
 		NotifyMapLoaded();
 		break;
-
+	case WM_USER+3:		// run to wparam
+	{
+		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+		SetDebugMode(false);
+		CBreakPoints::AddBreakPoint(wParam,true);
+		_dbg_update_();
+		Core_EnableStepping(false);
+		break;
+	}
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));
@@ -407,6 +454,8 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	// Update Dialog Windows
 	if (_bDebug)
 	{
+		CBreakPoints::ClearTemporaryBreakPoints();
+
 		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
@@ -414,6 +463,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_STOP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+		ptr->setDontRedraw(false);
 		ptr->gotoPC();
 		// update the callstack
 		//CDisam::blah blah

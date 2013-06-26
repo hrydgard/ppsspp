@@ -88,10 +88,13 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
 		break;
+	case WM_SYSKEYDOWN:
+		ccp->onKeyDown(wParam,lParam);
+		return 0;		// return a value so that windows doesn't execute the standard syskey action
 	case WM_KEYUP:
 		ccp->onKeyUp(wParam,lParam);
 		break;
-	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
+	case WM_LBUTTONDOWN: lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
 	case WM_RBUTTONDOWN: rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
 	case WM_LBUTTONUP:   lmbDown=false; ccp->onMouseUp(wParam,lParam,1); break;
@@ -106,7 +109,23 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		ccp->redraw();
 		break;
 	case WM_GETDLGCODE:
-		return DLGC_WANTARROWS|DLGC_WANTTAB;
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			switch (wParam)
+			{
+			case VK_LEFT:
+			case VK_RIGHT:
+			case VK_UP:
+			case VK_DOWN:
+			case VK_F9:
+			case VK_F10:
+			case VK_F11:
+			case VK_TAB:
+				return DLGC_WANTMESSAGE;
+			default:
+				return 0;
+			}
+		}
 		break;
     default:
         break;
@@ -140,6 +159,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	showHex=false;
 	hasFocus = false;
 	controlHeld = false;
+	dontRedraw = false;
 
 	matchAddress = -1;
 	searching = false;
@@ -542,6 +562,21 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		case VK_CONTROL:
 			controlHeld = true;
 			break;
+		case VK_F9:
+			if (debugger->GetPC() != curAddress)
+			{
+				SendMessage(GetParent(wnd),WM_USER+3,curAddress,0);
+			}
+			break;
+		case VK_F10:
+			SendMessage(GetParent(wnd),WM_COMMAND,IDC_STEPOVER,0);
+			return;
+		case VK_F11:
+			SendMessage(GetParent(wnd),WM_COMMAND,IDC_STEP,0);
+			return;
+		case VK_SPACE:
+			debugger->toggleBreakpoint(curAddress);
+			break;
 		default:
 			return;
 		}
@@ -561,6 +596,8 @@ void CtrlDisAsmView::onKeyUp(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::redraw()
 {
+	if (dontRedraw == true) return;
+
 	GetClientRect(wnd, &rect);
 	visibleRows = rect.bottom/rowHeight;
 
@@ -577,13 +614,14 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 	int newAddress = yToAddress(y);
 	if (button == 1)
 	{
-		if (newAddress == curAddress)
+		if (newAddress == curAddress && hasFocus)
 		{
 			debugger->toggleBreakpoint(curAddress);
 		}
 	}
 
 	curAddress = newAddress;
+	SetFocus(wnd);
 	redraw();
 }
 
@@ -702,8 +740,10 @@ void CtrlDisAsmView::search(bool continueSearch)
 
 	if (continueSearch == false || searchQuery[0] == 0)
 	{
-		if (InputBox_GetString(MainWindow::GetHInstance(),MainWindow::GetHWND(),"Search for:","",searchQuery) == false)
+		if (InputBox_GetString(MainWindow::GetHInstance(),MainWindow::GetHWND(),"Search for:","",searchQuery) == false
+			|| searchQuery[0] == 0)
 		{
+			SetFocus(wnd);
 			return;
 		}
 
@@ -717,9 +757,18 @@ void CtrlDisAsmView::search(bool continueSearch)
 		searchAddress = matchAddress+instructionSize;
 	}
 
+	// limit address to sensible ranges
+	if (searchAddress < 0x04000000) searchAddress = 0x04000000;
+	if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
+	if (searchAddress >= 0x0A000000)
+	{	
+		MessageBox(wnd,"Not found","Search",MB_OK);
+		return;
+	}
+
 	searching = true;
 	redraw();	// so the cursor is disabled
-	while (searchAddress < 0xFFFFFFFC)	// there should probably be a more intelligent limitation
+	while (searchAddress < 0x0A000000)
 	{
 		char addressText[64],opcode[64],arguments[256];
 		const char *dis = debugger->disasm(searchAddress, instructionSize);
@@ -754,7 +803,11 @@ void CtrlDisAsmView::search(bool continueSearch)
 		}
 
 		searchAddress += instructionSize;
+		if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
 	}
+	
+	MessageBox(wnd,"Not found","Search",MB_OK);
+	searching = false;
 }
 
 void CtrlDisAsmView::disassembleToFile()
