@@ -7,7 +7,10 @@ Prerequisites:
 * Xcode (from the Mac App Store) with command line tools installed
 * MacPorts (from macports.org); easiest to install with their package installers
 * cmake build system (from MacPorts); run "sudo port install cmake" from the command line
-* gas-preprocessor (to compile ffmpeg libs); download the zip from https://github.com/mansr/gas-preprocessor, unzip and from the command line run:
+
+If you need to build ffmpeg yourself too, then you'll also need:
+
+* gas-preprocessor; download the zip from https://github.com/mansr/gas-preprocessor, unzip and from the command line run:
 
         sudo cp gas-preprocessor.pl /usr/bin/
         sudo chmod +rw /usr/bin/gas-preprocessor.pl
@@ -25,7 +28,7 @@ Change directory to the newly created ppsspp directory and run:
 
     git submodule update --init
 
-Change directory into ffmpeg and run (this will take a while):
+The above command will pull in the submodules required by PPSSPP, including the native, ffmpeg, and lang directories.  Included in the ffmpeg directory should be the necessary libs and includes for ffmpeg, so most people can skip the next command.  However, if you need to recompile ffmpeg for some reason, change directory into ffmpeg and run (this will take a while):
 
     ./ios-build.sh
 
