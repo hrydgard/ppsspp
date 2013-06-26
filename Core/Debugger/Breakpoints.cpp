@@ -77,6 +77,7 @@ void CBreakPoints::RemoveBreakPoint(u32 _iAddress)
 		{
 			m_iBreakPoints.remove(m_iBreakPoints[i]);
 			InvalidateJit(_iAddress);
+			host->UpdateDisassembly();	// redraw in order to not show the breakpoint anymore
 			break;
 		}
 	}
@@ -130,6 +131,7 @@ void CBreakPoints::AddBreakPoint(u32 _iAddress, bool temp)
 
 		m_iBreakPoints.insert(pt);
 		InvalidateJit(_iAddress);
+		host->UpdateDisassembly();	// redraw in order to show the breakpoint
 	}
 }
 

@@ -182,6 +182,11 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_GO:
 				{
+					// invalidate jit before continuing, so that any breakpoint changes
+					// can take effect. It's a workaround for temporary breakpoints not
+					// getting disabled correctly when they trigger.
+					CBreakPoints::InvalidateJit();
+					Sleep(1);
 					SetDebugMode(false);
 					Core_EnableStepping(false);
 				}
@@ -200,12 +205,48 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STEPOVER:
 				{
+					const char* dis = cpu->disasm(cpu->GetPC(),4);
+					const char* pos = strstr(dis,"->$");
+					const char* reg = strstr(dis,"->");
+
+					u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
+					if (memcmp(dis,"jal\t",4) == 0)
+					{
+						// it's a function call with a delay slot - skip that too
+						breakpointAddress += cpu->getInstructionSize(0);
+					} else if (memcmp(dis,"j\t",2) == 0 || memcmp(dis,"b\t",2) == 0)
+					{
+						// in case of absolute branches, set the breakpoint at the branch target
+						sscanf(pos+3,"%08x",&breakpointAddress);
+					} else if (memcmp(dis,"jr\t",3) == 0)
+					{
+						// the same for jumps to registers
+						int regNum = -1;
+						for (int i = 0; i < 32; i++)
+						{
+							if (stricmp(reg+2,cpu->GetRegName(0,i)) == 0)
+							{
+								regNum = i;
+								break;
+							}
+						}
+						if (regNum == -1) break;
+						breakpointAddress = cpu->GetRegValue(0,regNum);
+					} else if (pos != NULL || pos != NULL)
+					{
+						// these are all sorts of conditional branches. I'm not sure what to do
+						// for them. It would have to be evaluated if the branch is taken or not.
+						// I'll ignore these cases for now.
+						MessageBox(m_hDlg,"Step over not supported\nfor conditional branches yet!","Sorry",MB_OK);
+						break;
+					}
+
 					SetDebugMode(false);
-					CBreakPoints::AddBreakPoint(cpu->GetPC()+cpu->getInstructionSize(0),true);
+					CBreakPoints::AddBreakPoint(breakpointAddress,true);
 					_dbg_update_();
 					Core_EnableStepping(false);
 					Sleep(1);
-					ptr->gotoPC();
+					ptr->gotoAddr(breakpointAddress);
 					UpdateDialog();
 				}
 				break;
@@ -347,7 +388,15 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_USER+1:
 		NotifyMapLoaded();
 		break;
-
+	case WM_USER+3:		// run to wparam
+	{
+		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+		SetDebugMode(false);
+		CBreakPoints::AddBreakPoint(wParam,true);
+		_dbg_update_();
+		Core_EnableStepping(false);
+		break;
+	}
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));
