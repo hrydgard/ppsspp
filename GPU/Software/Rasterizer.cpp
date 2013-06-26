@@ -57,6 +57,34 @@ u32 SampleNearest(int level, float s, float t)
 		b = (b << 4) | b;
 		a = (a << 4) | a;
 		return (r << 24) | (g << 16) | (b << 8) | a;
+	} else if (texfmt == GE_TFMT_5551) {
+		srcptr += 2 * v * width + 2 * u;
+		u8 r = (*srcptr) & 0x1F;
+		u8 g = (((*srcptr) & 0xE0) >> 5) | (((*(srcptr+1))&0x3) << 3);
+		u8 b = ((*srcptr+1) & 0x7C) >> 2;
+		u8 a = (*(srcptr+1)) >> 7;
+		r = (r << 3) | (r >> 2);
+		g = (g << 3) | (g >> 2);
+		b = (b << 3) | (b >> 2);
+		a = (a) ? 0xff : 0;
+		return (r << 24) | (g << 16) | (b << 8) | a;
+	} else if (texfmt == GE_TFMT_5650) {
+		srcptr += 2 * v * width + 2 * u;
+		u8 r = (*srcptr) & 0x1F;
+		u8 g = (((*srcptr) & 0xE0) >> 5) | (((*(srcptr+1))&0x7) << 3);
+		u8 b = ((*srcptr+1) & 0xF8) >> 3;
+		u8 a = 0xff;
+		r = (r << 3) | (r >> 2);
+		g = (g << 2) | (g >> 4);
+		b = (b << 3) | (b >> 2);
+		return (r << 24) | (g << 16) | (b << 8) | a;
+	} else if (texfmt == GE_TFMT_8888) {
+		srcptr += 4 * v * width + 4 * u;
+		u8 r = *srcptr++;
+		u8 g = *srcptr++;
+		u8 b = *srcptr++;
+		u8 a = *srcptr++;
+		return (r << 24) | (g << 16) | (b << 8) | a;
 	}
 }
 
