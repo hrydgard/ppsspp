@@ -191,3 +191,21 @@ bool WindowsHost::IsDebuggingEnabled()
 	return false;
 #endif
 }
+
+void WindowsHost::SetConsolePosition()
+{
+	HWND console = GetConsoleWindow();
+	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1)
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+void WindowsHost::UpdateConsolePosition()
+{
+	RECT rc;
+	HWND console = GetConsoleWindow();
+	if (console != NULL && GetWindowRect(console, &rc))
+	{
+		g_Config.iConsoleWindowX = rc.left;
+		g_Config.iConsoleWindowY = rc.top;
+	}
+}

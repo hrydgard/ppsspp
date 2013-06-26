@@ -1,6 +1,7 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#include "../../Core/MemMap.h"
+#include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "../Resource.h"
 #include "../InputBox.h"
 
@@ -37,17 +38,24 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	//if (WTL::CTheme::IsThemingSupported())
 		//EnableThemeDialogTexture(m_hDlg ,ETDT_ENABLETAB);
 #endif
-	SetWindowPos(m_hDlg,0,500,200,0,0,SWP_NOSIZE);
+	int x = g_Config.iDisasmWindowX == -1 ? 500 : g_Config.iDisasmWindowX;
+	int y = g_Config.iDisasmWindowY == -1 ? 200 : g_Config.iDisasmWindowY;
+	int w = g_Config.iDisasmWindowW;
+	int h = g_Config.iDisasmWindowH;
+	// Start with the initial size so we have the right minimum size from the rc.
+	SetWindowPos(m_hDlg, 0, x, y, 0, 0, SWP_NOSIZE);
 
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->setDebugger(cpu);
 	ptr->gotoAddr(0x00000000);
 
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
-
-  rl->setCPU(cpu);
+	rl->setCPU(cpu);
 
 	GetWindowRect(m_hDlg,&minRect);
+	// Reduce the minimum size slightly, so they can size it however they like.
+	minRect.right -= 100;
+	minRect.bottom -= 100;
 
 	//symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
 	symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
@@ -82,6 +90,13 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	//
 	// --- activate debug mode ---
 	//
+
+	// Actually resize the window to the proper size (after the above setup.)
+	if (w != -1 && h != -1)
+	{
+		SetWindowPos(m_hDlg, 0, x, y, w, h, 0);
+		UpdateSize(w, h);
+	}
 
 	SetDebugMode(true);
 }
@@ -335,18 +350,14 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 	case WM_SIZE:
 		{
-			HWND disasm = GetDlgItem(m_hDlg, IDC_DISASMVIEW);
-			HWND funclist = GetDlgItem(m_hDlg, IDC_FUNCTIONLIST);
-			HWND regList = GetDlgItem(m_hDlg, IDC_REGLIST);
-			int wf = regRect.right-regRect.left;
-			int top = 138;
-			MoveWindow(regList,8,top,wf,HIWORD(lParam)-top-8,TRUE);
-			MoveWindow(funclist,8,top,wf,HIWORD(lParam)-top-8,TRUE);
-			int w = LOWORD(lParam)-wf;
-			top = 25;
-			MoveWindow(disasm,wf+15,top, w-20,HIWORD(lParam)-top-8,TRUE);
+			UpdateSize(LOWORD(lParam), HIWORD(lParam));
+			SavePosition();
 			return TRUE;
 		}
+
+	case WM_MOVE:
+		SavePosition();
+		break;
 
 	case WM_GETMINMAXINFO:
 		{
@@ -361,6 +372,32 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		return TRUE;
 	}
 	return FALSE;
+}
+
+void CDisasm::UpdateSize(WORD width, WORD height)
+{
+	HWND disasm = GetDlgItem(m_hDlg, IDC_DISASMVIEW);
+	HWND funclist = GetDlgItem(m_hDlg, IDC_FUNCTIONLIST);
+	HWND regList = GetDlgItem(m_hDlg, IDC_REGLIST);
+	int wf = regRect.right - regRect.left;
+	int top = 138;
+	MoveWindow(regList, 8, top, wf, height - top - 8, TRUE);
+	MoveWindow(funclist, 8, top, wf, height - top - 8, TRUE);
+	int w = width - wf;
+	top = 25;
+	MoveWindow(disasm, wf + 15,top, w - 20, height - top - 8, TRUE);
+}
+
+void CDisasm::SavePosition()
+{
+	RECT rc;
+	if (GetWindowRect(m_hDlg, &rc))
+	{
+		g_Config.iDisasmWindowX = rc.left;
+		g_Config.iDisasmWindowY = rc.top;
+		g_Config.iDisasmWindowW = rc.right - rc.left;
+		g_Config.iDisasmWindowH = rc.bottom - rc.top;
+	}
 }
 
 void CDisasm::SetDebugMode(bool _bDebug)
