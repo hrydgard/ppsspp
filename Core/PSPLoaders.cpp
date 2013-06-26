@@ -40,9 +40,11 @@
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
 
-bool Load_PSP_ISO(const char *filename, std::string *error_string)
-{
-	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(filename));
+// We gather the game info before actually loading/booting the ISO
+// to determine if the emulator should enable extra memory and
+// double-sized texture coordinates.
+void InitMemoryForGameISO(std::string fileToStart) {
+	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(fileToStart.c_str()));
 
 	// Parse PARAM.SFO
 
@@ -51,6 +53,40 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	pspFileSystem.Mount("umd1:", umd2);
 	pspFileSystem.Mount("disc0:", umd2);
 	pspFileSystem.Mount("umd:", umd2);
+	std::string gameID;
+
+	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
+	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
+
+	if (fileInfo.exists)
+	{
+		u8 *paramsfo = new u8[(size_t)fileInfo.size];
+		u32 fd = pspFileSystem.OpenFile(sfoPath, FILEACCESS_READ);
+		pspFileSystem.ReadFile(fd, paramsfo, fileInfo.size);
+		pspFileSystem.CloseFile(fd);
+		if (g_paramSFO.ReadSFO(paramsfo, (size_t)fileInfo.size))
+		{
+			gameID = g_paramSFO.GetValueString("DISC_ID");
+
+			for(int i = 0; i < ARRAY_SIZE(g_HDRemasters); i++) {
+				if(g_HDRemasters[i].gameID == gameID) {
+					g_RemasterMode = true;
+					Memory::g_MemoryEnd = g_HDRemasters[i].MemoryEnd;
+					Memory::g_MemorySize = g_HDRemasters[i].MemorySize;
+					if(g_HDRemasters[i].DoubleTextureCoordinates)
+						g_DoubleTextureCoordinates = true;
+					break;
+				}
+			}
+			DEBUG_LOG(LOADER, "HDRemaster mode is %s", g_RemasterMode? "true": "false");
+		}
+		delete [] paramsfo;
+	}
+}
+
+bool Load_PSP_ISO(const char *filename, std::string *error_string)
+{
+	// Mounting stuff relocated to InitMemoryForGameISO due to HD Remaster restructuring of code.
 
 	std::string sfoPath("disc0:/PSP_GAME/PARAM.SFO");
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());

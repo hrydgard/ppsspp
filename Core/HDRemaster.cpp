@@ -1,4 +1,4 @@
-// Copyright (C) 2012 PPSSPP Project
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,12 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+#include "HDRemaster.h"
 
-#include "../Globals.h"
-
-#include "MemMap.h"
-
-bool Load_PSP_ISO(const char *filename, std::string *error_string);
-bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string);
-void InitMemoryForGameISO(std::string fileToStart);
+bool g_RemasterMode;
+bool g_DoubleTextureCoordinates;
