@@ -169,7 +169,7 @@ COLORREF scaleColor(COLORREF color, float factor)
 	return (color & 0xFF000000) | (b << 16) | (g << 8) | r;
 }
 
-void CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest)
+bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels)
 {
 	if (displaySymbols)
 	{
@@ -182,7 +182,7 @@ void CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest)
 			for (int k = 0; addressSymbol[k] != 0; k++)
 			{
 				// abbreviate long names
-				if (k == 16 && addressSymbol[k+1] != 0)
+				if (abbreviateLabels && k == 16 && addressSymbol[k+1] != 0)
 				{
 					*dest++ = '+';
 					break;
@@ -191,11 +191,14 @@ void CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest)
 			}
 			*dest++ = ':';
 			*dest = 0;
+			return true;
 		} else {
 			sprintf(dest,"    %08X",address);
+			return false;
 		}
 	} else {
 		sprintf(dest,"%08X %08X",address,Memory::ReadUnchecked_U32(address));
+		return false;
 	}
 }
 
@@ -342,7 +345,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SetTextColor(hdc,textColor);
 
 		char addressText[64];
-		getDisasmAddressText(address,addressText);
+		getDisasmAddressText(address,addressText,true);
 		TextOut(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
 
 		if (address == debugger->getPC())
@@ -478,6 +481,10 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		case 'C':
 		case 'c':
 			search(true);
+			break;
+		case 'x':
+		case 'X':
+			disassembleToFile();
 			break;
 		}
 	} else {
@@ -658,6 +665,9 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				}
 			}
 			break;
+		case ID_DISASM_DISASSEMBLETOFILE:
+			disassembleToFile();
+			break;
 		}
 		return;
 	}
@@ -713,7 +723,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 		char addressText[64],opcode[64],arguments[256];
 		const char *dis = debugger->disasm(searchAddress, instructionSize);
 		parseDisasm(dis,opcode,arguments);
-		getDisasmAddressText(searchAddress,addressText);
+		getDisasmAddressText(searchAddress,addressText,true);
 
 		char merged[512];
 		int mergePos = 0;
@@ -744,4 +754,59 @@ void CtrlDisAsmView::search(bool continueSearch)
 
 		searchAddress += instructionSize;
 	}
+}
+
+void CtrlDisAsmView::disassembleToFile()
+{
+	char fileName[MAX_PATH];
+	u32 size;
+
+	// get size
+	if (InputBox_GetHex(MainWindow::GetHInstance(), MainWindow::GetHWND(), "New function name",0,size) == false) return;
+	if (size == 0 || size > 10*1024*1024)
+	{
+		MessageBox(wnd,"Invalid size!","Error",MB_OK);
+		return;
+	}
+
+	// get file name
+	OPENFILENAME ofn;
+	ZeroMemory( &ofn , sizeof( ofn));
+	ofn.lStructSize = sizeof ( ofn );
+	ofn.hwndOwner = NULL ;
+	ofn.lpstrFile = fileName ;
+	ofn.lpstrFile[0] = '\0';
+	ofn.nMaxFile = sizeof( fileName );
+	ofn.lpstrFilter = "All files";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL ;
+	ofn.nMaxFileTitle = 0 ;
+	ofn.lpstrInitialDir = NULL ;
+	ofn.Flags = OFN_PATHMUSTEXIST|OFN_FILEMUSTEXIST|OFN_OVERWRITEPROMPT;
+
+	if (GetSaveFileName(&ofn) == false) return;
+
+	FILE* output = fopen(fileName,"w");
+	if (output == NULL) return;
+
+	bool previousLabel = true;
+	for (int i = 0; i < size; i += instructionSize)
+	{
+		char addressText[64],opcode[64],arguments[256];
+		const char *dis = debugger->disasm(curAddress+i, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+		bool isLabel = getDisasmAddressText(curAddress+i,addressText,false);
+
+		if (isLabel)
+		{
+			if (!previousLabel) fprintf(output,"\n");
+			fprintf(output,"%s\n\n",addressText);
+		}
+
+		fprintf(output,"\t%s\t%s\n",opcode,arguments);
+		previousLabel = isLabel;
+	}
+
+	fclose(output);
+	MessageBox(wnd,"Finished!","Done",MB_OK);
 }

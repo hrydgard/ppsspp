@@ -60,10 +60,11 @@ class CtrlDisAsmView
 	int matchAddress;
 	bool searching;
 
+	void disassembleToFile();
 	void search(bool continueSearch);
 	void followBranch();
 	void calculatePixelPositions();
-	void getDisasmAddressText(u32 address, char* dest);
+	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels);
 	void parseDisasm(const char* disasm, char* opcode, char* arguments);
 public:
 	CtrlDisAsmView(HWND _wnd);
