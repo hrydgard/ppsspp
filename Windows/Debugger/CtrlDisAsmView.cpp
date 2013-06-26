@@ -15,6 +15,7 @@
 
 #include <windows.h>
 #include <tchar.h>
+#include <set>
 
 TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
 extern HMENU g_hPopupMenus;
@@ -762,7 +763,7 @@ void CtrlDisAsmView::disassembleToFile()
 	u32 size;
 
 	// get size
-	if (InputBox_GetHex(MainWindow::GetHInstance(), MainWindow::GetHWND(), "New function name",0,size) == false) return;
+	if (InputBox_GetHex(MainWindow::GetHInstance(), MainWindow::GetHWND(), "Size in hex",0,size) == false) return;
 	if (size == 0 || size > 10*1024*1024)
 	{
 		MessageBox(wnd,"Invalid size!","Error",MB_OK);
@@ -787,20 +788,53 @@ void CtrlDisAsmView::disassembleToFile()
 	if (GetSaveFileName(&ofn) == false) return;
 
 	FILE* output = fopen(fileName,"w");
-	if (output == NULL) return;
+	if (output == NULL)
+	{
+		MessageBox(wnd,"Could not open file!","Error",MB_OK);
+		return;
+	}
+
+	// gather all branch targets without labels
+	std::set<u32> branchAddresses;
+	for (int i = 0; i < size; i += instructionSize)
+	{
+		char opcode[64],arguments[256];
+		const char *dis = debugger->disasm(curAddress+i, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+
+		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		{
+			if (branchAddresses.find(branchTarget) == branchAddresses.end())
+			{
+				branchAddresses.insert(branchTarget);
+			}
+		}
+	}
 
 	bool previousLabel = true;
 	for (int i = 0; i < size; i += instructionSize)
 	{
+		u32 disAddress = curAddress+i;
+
 		char addressText[64],opcode[64],arguments[256];
-		const char *dis = debugger->disasm(curAddress+i, instructionSize);
+		const char *dis = debugger->disasm(disAddress, instructionSize);
 		parseDisasm(dis,opcode,arguments);
-		bool isLabel = getDisasmAddressText(curAddress+i,addressText,false);
+		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
 
 		if (isLabel)
 		{
 			if (!previousLabel) fprintf(output,"\n");
 			fprintf(output,"%s\n\n",addressText);
+		} else if (branchAddresses.find(disAddress) != branchAddresses.end())
+		{
+			if (!previousLabel) fprintf(output,"\n");
+			fprintf(output,"pos_%08X:\n\n",disAddress);
+		}
+
+		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		{
+			char* str = strstr(arguments,"0x");
+			sprintf(str,"pos_%08X",branchTarget);
 		}
 
 		fprintf(output,"\t%s\t%s\n",opcode,arguments);
