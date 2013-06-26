@@ -95,6 +95,17 @@ static inline int CalcClipMask(const ClipCoords& v)
 	}																\
 }
 
+void ProcessQuad(VertexData* data)
+{
+	// TODO: Clipping
+
+	VertexData verts[6] = { data[0], data[0], data[1], data[1], data[0], data[0] };
+	verts[1].drawpos.x = data[1].drawpos.x;
+	verts[4].drawpos.x = data[0].drawpos.x;
+	Rasterizer::DrawTriangle(data);
+	Rasterizer::DrawTriangle(data+3);
+}
+
 void ProcessTriangle(VertexData* data)
 {
 	enum { NUM_CLIPPED_VERTICES = 33, NUM_INDICES = NUM_CLIPPED_VERTICES + 3 };
