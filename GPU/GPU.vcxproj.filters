@@ -68,6 +68,9 @@
     <ClInclude Include="GLES\TextureScaler.h">
       <Filter>GLES</Filter>
     </ClInclude>
+    <ClInclude Include="Software\Clipper.h">
+      <Filter>Software</Filter>
+    </ClInclude>
     <ClInclude Include="Software\Rasterizer.h">
       <Filter>Software</Filter>
     </ClInclude>
@@ -125,6 +128,9 @@
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
     <ClCompile Include="GLES\TextureScaler.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\Clipper.cpp">
+      <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\Rasterizer.cpp">
       <Filter>Software</Filter>
