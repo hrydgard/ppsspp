@@ -32,6 +32,19 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/ShaderManager.h"
 
+#if defined(USING_GLES2)
+#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
+#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
+#define GL_RGBA8 GL_RGBA
+#ifndef GL_DEPTH_COMPONENT24
+#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
+#endif
+#ifndef GL_DEPTH24_STENCIL8_OES
+#define GL_DEPTH24_STENCIL8_OES 0x88F0
+#endif
+#endif
+
+
 static const char tex_fs[] =
 	"#ifdef GL_ES\n"
 	"precision mediump float;\n"
@@ -766,8 +779,12 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			// TODO: glReadBuffer and glDrawBuffer should maybe be specifically set here?
 
 			// Then we blit the color buffer using linear filtering
+#ifndef USING_GLES2
 			DEBUG_LOG(HLE, "Blitting FBOs for %08x: %i x %i to %i x %i ", nvfb->fb_address, vfb->renderWidth, vfb->renderHeight, nvfb->renderWidth, nvfb->renderHeight);
 			glBlitFramebuffer(0, 0, vfb->fb_stride * renderWidthFactor, vfb->renderHeight, 0, 0, nvfb->fb_stride, nvfb->height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+#else
+			WARN_LOG(HLE, "Skipping FBO blit, not supported on GLES 2.0. Needs replacing with a real draw (that can also flip y)");
+#endif
 			fbo_unbind();
 			if(gl_extensions.FBO_ARB) {
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
@@ -776,28 +793,46 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 		}
 
 		int pixelType, pixelSize, pixelFormat, align;
+
+		
 		switch (vfb->format) {
 			case GE_FORMAT_4444: // 16 bit ABGR
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_4_4_4_4;
+#else
 				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+#endif
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_5551: // 16 bit ABGR
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
+#else
 				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+#endif
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_565: // 16 bit BGR
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_5_6_5;
+#else
 				pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
+#endif
 				pixelFormat = GL_RGB;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_8888: // 32 bit ABGR
 			default: // And same as above
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_BYTE;
+#else
 				pixelType = GL_UNSIGNED_INT_8_8_8_8_REV;
+#endif
 				pixelFormat = GL_RGBA;
 				pixelSize = 4;
 				align = 4;
