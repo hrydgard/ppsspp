@@ -132,6 +132,8 @@ public:
 	int iDisasmWindowY;
 	int iDisasmWindowW;
 	int iDisasmWindowH;
+	int iConsoleWindowX;
+	int iConsoleWindowY;
 
 	std::string currentDirectory;
 	std::string externalDirectory; 
