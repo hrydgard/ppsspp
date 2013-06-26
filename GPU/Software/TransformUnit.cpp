@@ -50,9 +50,9 @@ ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
 	float vpz1 = getFloat24(gstate.viewportz1);
 	float vpz2 = getFloat24(gstate.viewportz2);
 	// TODO: Check for invalid parameters (x2 < x1, etc)
-	ret.x = (coords.x * vpx1 / coords.w + vpx2) / 4095.9375 * 0xFFFF;
-	ret.y = (coords.y * vpy1 / coords.w + vpy2) / 4096.9375 * 0xFFFF;
-	ret.z = (coords.z * vpz1 / coords.w + vpz2) / 4096.9375 * 0xFFFF;
+	ret.x = (coords.x * vpx1 / coords.w + vpx2) * 16; // 16 = 0xFFFF / 4095.9375;
+	ret.y = (coords.y * vpy1 / coords.w + vpy2) * 16; // 16 = 0xFFFF / 4095.9375;
+	ret.z = (coords.z * vpz1 / coords.w + vpz2) * 16; // 16 = 0xFFFF / 4095.9375;
 	return ret;
 }
 
@@ -240,37 +240,9 @@ void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_co
 			if(indices[i] != SKIP_FLAG)
 			{
 				VertexData data[3] = { *Vertices[indices[i]], *Vertices[indices[i+1]], *Vertices[indices[i+2]] };
-				for (int k = 0; k < 3; ++k)
-				{
-					if (data[k].clippos.x == data[k].clippos.w)
-					{
-						data[k].clippos.x -= data[k].clippos.w / 50.f;
-					}
-					if (data[k].clippos.x == -data[k].clippos.w)
-					{
-						data[k].clippos.x += data[k].clippos.w / 50.f;
-					}
-					if (data[k].clippos.y == data[k].clippos.w)
-					{
-						data[k].clippos.y -= data[k].clippos.w / 50.f;
-					}
-					if (data[k].clippos.y == -data[k].clippos.w)
-					{
-						data[k].clippos.y += data[k].clippos.w / 50.f;
-					}
-					if (data[k].clippos.z == data[k].clippos.w)
-					{
-						data[k].clippos.z -= data[k].clippos.w / 50.f;
-					}
-					if (data[k].clippos.z == -data[k].clippos.w)
-					{
-						data[k].clippos.z += data[k].clippos.w / 50.f;
-					}
-				}
 				data[0].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[0].clippos)));
 				data[1].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos)));
 				data[2].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[2].clippos)));
-
 				Rasterizer::DrawTriangle(data);
 			}
 		}
