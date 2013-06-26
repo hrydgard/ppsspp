@@ -29,7 +29,13 @@ public:
 		displayWindow_ = displayWindow;
 		input = getInputDevices();
 		loadedSymbolMap_ = false;
+		SetConsolePosition();
 	}
+	~WindowsHost()
+	{
+		UpdateConsolePosition();
+	}
+
 	void UpdateMemView();
 	void UpdateDisassembly();
 	void UpdateUI();
@@ -52,6 +58,9 @@ public:
 	void SetWindowTitle(const char *message);
 
 private:
+	void SetConsolePosition();
+	void UpdateConsolePosition();
+
 	HWND displayWindow_;
 	HWND mainWindow_;
 	std::list<std::shared_ptr<InputDevice>> input;
