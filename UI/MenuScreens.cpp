@@ -787,6 +787,11 @@ void GraphicsScreenP1::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Fullscreen"), ALIGN_TOPLEFT, &g_Config.bFullScreen);
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
+	
+	bool memory = !g_Config.bFramebuffersToMem;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Skip Updating PSP Memory"), ALIGN_TOPLEFT, &memory); 
+	g_Config.bFramebuffersToMem = memory ? 0 : 1;
+	
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
 			gpu->Resized();
