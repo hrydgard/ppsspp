@@ -182,11 +182,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_GO:
 				{
-					// invalidate jit before continuing, so that any breakpoint changes
-					// can take effect. It's a workaround for temporary breakpoints not
-					// getting disabled correctly when they trigger.
-					CBreakPoints::InvalidateJit();
-					Sleep(1);
 					SetDebugMode(false);
 					Core_EnableStepping(false);
 				}
@@ -208,7 +203,8 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					const char* dis = cpu->disasm(cpu->GetPC(),4);
 					const char* pos = strstr(dis,"->$");
 					const char* reg = strstr(dis,"->");
-
+					
+					ptr->setDontRedraw(true);
 					u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
 					if (memcmp(dis,"jal\t",4) == 0)
 					{
@@ -232,13 +228,14 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						}
 						if (regNum == -1) break;
 						breakpointAddress = cpu->GetRegValue(0,regNum);
-					} else if (pos != NULL || pos != NULL)
+					} else if (pos != NULL)
 					{
-						// these are all sorts of conditional branches. I'm not sure what to do
-						// for them. It would have to be evaluated if the branch is taken or not.
-						// I'll ignore these cases for now.
-						MessageBox(m_hDlg,"Step over not supported\nfor conditional branches yet!","Sorry",MB_OK);
-						break;
+						// get branch target
+						sscanf(pos+3,"%08x",&breakpointAddress);
+						CBreakPoints::AddBreakPoint(breakpointAddress,true);
+
+						// also add a breakpoint after the delay slot
+						breakpointAddress = cpu->GetPC()+2*cpu->getInstructionSize(0);						
 					}
 
 					SetDebugMode(false);
@@ -262,6 +259,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STOP:
 				{				
+					ptr->setDontRedraw(false);
 					SetDebugMode(true);
 					Core_EnableStepping(true);
 					_dbg_update_();
@@ -456,6 +454,8 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	// Update Dialog Windows
 	if (_bDebug)
 	{
+		CBreakPoints::ClearTemporaryBreakPoints();
+
 		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
@@ -463,6 +463,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_STOP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+		ptr->setDontRedraw(false);
 		ptr->gotoPC();
 		// update the callstack
 		//CDisam::blah blah

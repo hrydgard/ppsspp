@@ -8,7 +8,7 @@ The PC is highlighted by a square left of the opcode. The background is also sli
 Key bindings:
 -TAB toggles between display symbols and displaying addresses + hexadecimal representation of each instruction
 -F9 sets a temporary breakpoint at the cursor address and starts the cpu (Run to cursor)
--F10 Step Over, will execute until the next line, or the next but one in case of a branch. For absolute branches, it will execute until the branch target. Does not work with conditional branches yet.
+-F10 Step Over, will execute until the next line, or the next but one in case of a branch. For absolute branches, it will execute until the branch target.
 -F11 Step Into, will execute the next opcode and then stop
 -Space will also toggle the breakpoint at the cursor
 -the right arrow key follows a branch

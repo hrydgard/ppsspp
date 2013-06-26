@@ -159,6 +159,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	showHex=false;
 	hasFocus = false;
 	controlHeld = false;
+	dontRedraw = false;
 
 	matchAddress = -1;
 	searching = false;
@@ -595,6 +596,8 @@ void CtrlDisAsmView::onKeyUp(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::redraw()
 {
+	if (dontRedraw == true) return;
+
 	GetClientRect(wnd, &rect);
 	visibleRows = rect.bottom/rowHeight;
 
