@@ -116,8 +116,10 @@ public:
 
 	void Step_TcU8() const;
 	void Step_TcU16() const;
+	void Step_TcU16Double() const;
 	void Step_TcFloat() const;
 	void Step_TcU16Through() const;
+	void Step_TcU16ThroughDouble() const;
 	void Step_TcFloatThrough() const;
 
 	// TODO: tcmorph

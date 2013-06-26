@@ -37,6 +37,7 @@ SOURCES += ../Core/CPU.cpp \ # Core
 	../Core/Core.cpp \
 	../Core/CoreTiming.cpp \
 	../Core/CwCheat.cpp \
+	../Core/HDRemaster.cpp \
 	../Core/Host.cpp \
 	../Core/Loaders.cpp \
 	../Core/MemMap.cpp \
@@ -71,6 +72,7 @@ HEADERS += ../Core/CPU.h \
 	../Core/CoreParameter.h \
 	../Core/CoreTiming.h \
 	../Core/CwCheat.h \
+	../Core/HDRemaster.h \
 	../Core/Host.h \
 	../Core/Loaders.h \
 	../Core/MemMap.h \
