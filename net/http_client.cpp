@@ -1,4 +1,5 @@
 #include "net/http_client.h"
+#include "base/timeutil.h"
 
 #ifndef _WIN32
 #include <arpa/inet.h>
@@ -286,12 +287,16 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output) 
 
 Download::Download(const std::string &url, const std::string &outfile)
 	: url_(url), outfile_(outfile), progress_(0.0f), failed_(false), resultCode_(0), cancelled_(false) {
-	std::thread th(std::bind(&Download::Do, this));
-	th.detach();
 }
 
 Download::~Download() {
 
+}
+
+void Download::Start(std::shared_ptr<Download> self)
+{
+	std::thread th(std::bind(&Download::Do, this, self));
+	th.detach();
 }
 
 void Download::SetFailed(int code) {
@@ -299,7 +304,10 @@ void Download::SetFailed(int code) {
 	progress_ = 1.0f;
 }
 
-void Download::Do() {
+void Download::Do(std::shared_ptr<Download> self) {
+	// as long as this is in scope, we won't get destructed.
+	// yeah this is ugly, I need to think about how life time should be managed for these...
+	std::shared_ptr<Download> self_ = self;  
 	resultCode_ = 0;
 
 	Url fileUrl(url_);
@@ -349,6 +357,7 @@ void Download::Do() {
 	} else {
 		ELOG("Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
 	}
+
 	resultCode_ = resultCode;
 	net::Shutdown();
 	progress_ = 1.0f;
@@ -357,6 +366,7 @@ void Download::Do() {
 std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
 	std::shared_ptr<Download> dl(new Download(url, outfile));
 	downloads_.push_back(dl);
+	dl->Start(dl);
 	return dl;
 }
 

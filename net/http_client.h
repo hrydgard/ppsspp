@@ -73,6 +73,10 @@ public:
 	Download(const std::string &url, const std::string &outfile);
 	~Download();
 
+	// Keeps around an instance of the shared_ptr, so that it doesn't get destructed
+	// until done.
+	void Start(std::shared_ptr<Download> self);
+
 	// Returns 1.0 when done. That one value can be compared exactly - or just use Done().
 	float Progress() const { return progress_; }
 	bool Done() const { return progress_ == 1.0f; }
@@ -92,7 +96,7 @@ public:
 	}
 
 private:
-	void Do();  // Actually does the download. Runs on thread.
+	void Do(std::shared_ptr<Download> self);  // Actually does the download. Runs on thread.
 	void SetFailed(int code);
 	float progress_;
 	Buffer buffer_;
