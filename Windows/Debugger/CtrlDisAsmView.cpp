@@ -15,6 +15,7 @@
 
 #include <windows.h>
 #include <tchar.h>
+#include <set>
 
 TCHAR CtrlDisAsmView::szClassName[] = _T("CtrlDisAsmView");
 extern HMENU g_hPopupMenus;
@@ -87,6 +88,9 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
 		break;
+	case WM_KEYUP:
+		ccp->onKeyUp(wParam,lParam);
+		break;
 	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
 	case WM_RBUTTONDOWN: rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
@@ -135,8 +139,11 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	instructionSize=4;
 	showHex=false;
 	hasFocus = false;
+	controlHeld = false;
 
-	jumpIndex = 0;
+	matchAddress = -1;
+	searching = false;
+	searchQuery[0] = 0;
 	windowStart = curAddress;
 	whiteBackground = false;
 	displaySymbols = true;
@@ -163,7 +170,7 @@ COLORREF scaleColor(COLORREF color, float factor)
 	return (color & 0xFF000000) | (b << 16) | (g << 8) | r;
 }
 
-void CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest)
+bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels)
 {
 	if (displaySymbols)
 	{
@@ -176,7 +183,7 @@ void CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest)
 			for (int k = 0; addressSymbol[k] != 0; k++)
 			{
 				// abbreviate long names
-				if (k == 16 && addressSymbol[k+1] != 0)
+				if (abbreviateLabels && k == 16 && addressSymbol[k+1] != 0)
 				{
 					*dest++ = '+';
 					break;
@@ -185,11 +192,14 @@ void CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest)
 			}
 			*dest++ = ':';
 			*dest = 0;
+			return true;
 		} else {
 			sprintf(dest,"    %08X",address);
+			return false;
 		}
 	} else {
 		sprintf(dest,"%08X %08X",address,Memory::ReadUnchecked_U32(address));
+		return false;
 	}
 }
 
@@ -304,7 +314,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 			backgroundColor = scaleColor(backgroundColor,1.05f);
 		}
 
-		if (address == curAddress)
+		if (address == curAddress && searching == false)
 		{
 			if (hasFocus)
 			{
@@ -336,7 +346,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		SetTextColor(hdc,textColor);
 
 		char addressText[64];
-		getDisasmAddressText(address,addressText);
+		getDisasmAddressText(address,addressText,true);
 		TextOut(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
 
 		if (address == debugger->getPC())
@@ -445,14 +455,13 @@ void CtrlDisAsmView::followBranch()
 	const char *dizz = debugger->disasm(curAddress, instructionSize);
 	parseDisasm(dizz,opcode,arguments);
 
-	if (jumpIndex == 256) return;
 	if (branchTarget != -1)
 	{
-		jumpStack[jumpIndex++] = curAddress;
+		jumpStack.push_back(curAddress);
 		gotoAddr(branchTarget);
 	} else if (branchRegister != -1)
 	{
-		jumpStack[jumpIndex++] = curAddress;
+		jumpStack.push_back(curAddress);
 		gotoAddr(debugger->GetRegValue(0,branchRegister));
 	}
 }
@@ -462,60 +471,93 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
 	u32 windowEnd = windowStart+visibleRows*instructionSize;
 
-	switch (wParam & 0xFFFF)
+	if (controlHeld)
 	{
-	case VK_DOWN:
-		if (curAddress == windowEnd-instructionSize)
+		switch (wParam & 0xFFFF)
 		{
-			windowStart += instructionSize;
+		case 'S':
+		case 's':
+			search(false);
+			break;
+		case 'C':
+		case 'c':
+			search(true);
+			break;
+		case 'x':
+		case 'X':
+			disassembleToFile();
+			break;
 		}
-		curAddress += instructionSize;
-		break;
-	case VK_UP:
-		if (curAddress == windowStart)
+	} else {
+		switch (wParam & 0xFFFF)
 		{
-			windowStart -= instructionSize;
+		case VK_DOWN:
+			if (curAddress == windowEnd-instructionSize)
+			{
+				windowStart += instructionSize;
+			}
+			curAddress += instructionSize;
+			break;
+		case VK_UP:
+			if (curAddress == windowStart)
+			{
+				windowStart -= instructionSize;
+			}
+			curAddress-=instructionSize;
+			break;
+		case VK_NEXT:
+			if (curAddress != windowEnd-instructionSize)
+			{
+				curAddress = windowEnd-instructionSize;
+			} else {
+				windowStart += visibleRows*instructionSize;
+				curAddress += visibleRows*instructionSize;
+			}
+			break;
+		case VK_PRIOR:
+			if (curAddress != windowStart)
+			{
+				curAddress = windowStart;
+			} else {
+				windowStart -= visibleRows*instructionSize;
+				curAddress -= visibleRows*instructionSize;
+			}
+			break;
+		case VK_LEFT:
+			if (jumpStack.empty())
+			{
+				gotoPC();
+			} else {
+				u32 addr = jumpStack[jumpStack.size()-1];
+				jumpStack.pop_back();
+				gotoAddr(addr);
+			}
+			return;
+		case VK_RIGHT:
+			followBranch();
+			return;
+		case VK_TAB:
+			displaySymbols = !displaySymbols;
+			break;
+		case VK_CONTROL:
+			controlHeld = true;
+			break;
+		default:
+			return;
 		}
-		curAddress-=instructionSize;
-		break;
-	case VK_NEXT:
-		if (curAddress != windowEnd-instructionSize)
-		{
-			curAddress = windowEnd-instructionSize;
-		} else {
-			windowStart += visibleRows*instructionSize;
-			curAddress += visibleRows*instructionSize;
-		}
-		break;
-	case VK_PRIOR:
-		if (curAddress != windowStart)
-		{
-			curAddress = windowStart;
-		} else {
-			windowStart -= visibleRows*instructionSize;
-			curAddress -= visibleRows*instructionSize;
-		}
-		break;
-	case VK_LEFT:
-		if (jumpIndex == 0)
-		{
-			gotoPC();
-		} else {
-			gotoAddr(jumpStack[--jumpIndex]);
-		}
-		return;
-	case VK_RIGHT:
-		followBranch();
-		return;
-	case VK_TAB:
-		displaySymbols = !displaySymbols;
-		break;
-	default:
-		return;
 	}
 	redraw();
 }
 
+void CtrlDisAsmView::onKeyUp(WPARAM wParam, LPARAM lParam)
+{
+	switch (wParam & 0xFFFF)
+	{
+	case VK_CONTROL:
+		controlHeld = false;
+		break;
+	}
+}
 
 void CtrlDisAsmView::redraw()
 {
@@ -624,6 +666,9 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				}
 			}
 			break;
+		case ID_DISASM_DISASSEMBLETOFILE:
+			disassembleToFile();
+			break;
 		}
 		return;
 	}
@@ -649,4 +694,153 @@ void CtrlDisAsmView::calculatePixelPositions()
 	pixelPositions.opcodeStart = pixelPositions.addressStart + 18*8;
 	pixelPositions.argumentsStart = pixelPositions.opcodeStart + 9*8;
 	pixelPositions.arrowsStart = pixelPositions.argumentsStart + 30*8;
+}
+
+void CtrlDisAsmView::search(bool continueSearch)
+{
+	u32 searchAddress;
+
+	if (continueSearch == false || searchQuery[0] == 0)
+	{
+		if (InputBox_GetString(MainWindow::GetHInstance(),MainWindow::GetHWND(),"Search for:","",searchQuery) == false)
+		{
+			return;
+		}
+
+		for (int i = 0; searchQuery[i] != 0; i++)
+		{
+			searchQuery[i] = tolower(searchQuery[i]);
+		}
+		SetFocus(wnd);
+		searchAddress = curAddress+instructionSize;
+	} else {
+		searchAddress = matchAddress+instructionSize;
+	}
+
+	searching = true;
+	redraw();	// so the cursor is disabled
+	while (searchAddress < 0xFFFFFFFC)	// there should probably be a more intelligent limitation
+	{
+		char addressText[64],opcode[64],arguments[256];
+		const char *dis = debugger->disasm(searchAddress, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+		getDisasmAddressText(searchAddress,addressText,true);
+
+		char merged[512];
+		int mergePos = 0;
+
+		// I'm doing it manually to convert everything to lowercase at the same time
+		for (int i = 0; addressText[i] != 0; i++) merged[mergePos++] = tolower(addressText[i]);
+		merged[mergePos++] = ' ';
+		for (int i = 0; opcode[i] != 0; i++) merged[mergePos++] = tolower(opcode[i]);
+		merged[mergePos++] = ' ';
+		for (int i = 0; arguments[i] != 0; i++) merged[mergePos++] = tolower(arguments[i]);
+		merged[mergePos] = 0;
+
+		// match!
+		if (strstr(merged,searchQuery) != NULL)
+		{
+			matchAddress = searchAddress;
+			searching = false;
+			gotoAddr(searchAddress);
+			return;
+		}
+
+		// cancel search
+		if ((searchAddress % 256) == 0 && GetAsyncKeyState(VK_ESCAPE))
+		{
+			searching = false;
+			return;
+		}
+
+		searchAddress += instructionSize;
+	}
+}
+
+void CtrlDisAsmView::disassembleToFile()
+{
+	char fileName[MAX_PATH];
+	u32 size;
+
+	// get size
+	if (InputBox_GetHex(MainWindow::GetHInstance(), MainWindow::GetHWND(), "Size in hex",0,size) == false) return;
+	if (size == 0 || size > 10*1024*1024)
+	{
+		MessageBox(wnd,"Invalid size!","Error",MB_OK);
+		return;
+	}
+
+	// get file name
+	OPENFILENAME ofn;
+	ZeroMemory( &ofn , sizeof( ofn));
+	ofn.lStructSize = sizeof ( ofn );
+	ofn.hwndOwner = NULL ;
+	ofn.lpstrFile = fileName ;
+	ofn.lpstrFile[0] = '\0';
+	ofn.nMaxFile = sizeof( fileName );
+	ofn.lpstrFilter = "All files";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL ;
+	ofn.nMaxFileTitle = 0 ;
+	ofn.lpstrInitialDir = NULL ;
+	ofn.Flags = OFN_PATHMUSTEXIST|OFN_FILEMUSTEXIST|OFN_OVERWRITEPROMPT;
+
+	if (GetSaveFileName(&ofn) == false) return;
+
+	FILE* output = fopen(fileName,"w");
+	if (output == NULL)
+	{
+		MessageBox(wnd,"Could not open file!","Error",MB_OK);
+		return;
+	}
+
+	// gather all branch targets without labels
+	std::set<u32> branchAddresses;
+	for (int i = 0; i < size; i += instructionSize)
+	{
+		char opcode[64],arguments[256];
+		const char *dis = debugger->disasm(curAddress+i, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+
+		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		{
+			if (branchAddresses.find(branchTarget) == branchAddresses.end())
+			{
+				branchAddresses.insert(branchTarget);
+			}
+		}
+	}
+
+	bool previousLabel = true;
+	for (int i = 0; i < size; i += instructionSize)
+	{
+		u32 disAddress = curAddress+i;
+
+		char addressText[64],opcode[64],arguments[256];
+		const char *dis = debugger->disasm(disAddress, instructionSize);
+		parseDisasm(dis,opcode,arguments);
+		bool isLabel = getDisasmAddressText(disAddress,addressText,false);
+
+		if (isLabel)
+		{
+			if (!previousLabel) fprintf(output,"\n");
+			fprintf(output,"%s\n\n",addressText);
+		} else if (branchAddresses.find(disAddress) != branchAddresses.end())
+		{
+			if (!previousLabel) fprintf(output,"\n");
+			fprintf(output,"pos_%08X:\n\n",disAddress);
+		}
+
+		if (branchTarget != -1 && debugger->findSymbolForAddress(branchTarget) == NULL)
+		{
+			char* str = strstr(arguments,"0x");
+			sprintf(str,"pos_%08X",branchTarget);
+		}
+
+		fprintf(output,"\t%s\t%s\n",opcode,arguments);
+		previousLabel = isLabel;
+	}
+
+	fclose(output);
+	MessageBox(wnd,"Finished!","Done",MB_OK);
 }
