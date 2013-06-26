@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "../GPUState.h"
+
 #include "Clipper.h"
 #include "Rasterizer.h"
 
@@ -97,17 +99,33 @@ static inline int CalcClipMask(const ClipCoords& v)
 
 void ProcessQuad(VertexData* data)
 {
-	// TODO: Clipping
+	if (!gstate.isModeThrough()) {
+		// TODO: Clipping
+	}
 
-	VertexData verts[6] = { data[0], data[0], data[1], data[1], data[0], data[0] };
+	VertexData verts[6] = { data[0], data[0], data[1], data[1], data[1], data[0] };
 	verts[1].drawpos.x = data[1].drawpos.x;
 	verts[4].drawpos.x = data[0].drawpos.x;
-	Rasterizer::DrawTriangle(data);
-	Rasterizer::DrawTriangle(data+3);
+
+	// Color values of second vertex are used for the whole rectangle
+	verts[0].color0 = verts[1].color0;
+	verts[1].color0 = verts[1].color0;
+	verts[5].color0 = verts[1].color0;
+	verts[0].color1 = verts[1].color1;
+	verts[1].color1 = verts[1].color1;
+	verts[5].color1 = verts[1].color1;
+
+	Rasterizer::DrawTriangle(verts);
+	Rasterizer::DrawTriangle(verts+3);
 }
 
 void ProcessTriangle(VertexData* data)
 {
+	if (gstate.isModeThrough()) {
+		Rasterizer::DrawTriangle(data);
+		return;
+	}
+
 	enum { NUM_CLIPPED_VERTICES = 33, NUM_INDICES = NUM_CLIPPED_VERTICES + 3 };
 
 	VertexData* Vertices[NUM_CLIPPED_VERTICES];

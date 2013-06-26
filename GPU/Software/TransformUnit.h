@@ -53,11 +53,22 @@ struct VertexData
 
 		texturecoords.x = LINTERP(t, a.texturecoords.x, b.texturecoords.x);
 		texturecoords.y = LINTERP(t, a.texturecoords.y, b.texturecoords.y);
+
+		color0.x = LINTERP(t, a.color0.x, b.color0.x);
+		color0.y = LINTERP(t, a.color0.y, b.color0.y);
+		color0.z = LINTERP(t, a.color0.z, b.color0.z);
+		color0.w = LINTERP(t, a.color0.w, b.color0.w);
+
+		color1.x = LINTERP(t, a.color1.x, b.color1.x);
+		color1.y = LINTERP(t, a.color1.y, b.color1.y);
+		color1.z = LINTERP(t, a.color1.z, b.color1.z);
 	}
 
 	ClipCoords clippos;
 	DrawingCoords drawpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
+	Vec4<float> color0;
+	Vec3<float> color1;
 };
 
 class TransformUnit

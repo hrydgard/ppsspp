@@ -265,12 +265,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				// TODO: Index support...
 				ERROR_LOG(G3D, "Using indices... fail");
 			}
-			if (gstate.isModeThrough())
-			{
-				// TODO: through mode support...
-				ERROR_LOG(G3D, "Using through mode... fail");
-				break;
-			}
 
 			TransformUnit::SubmitPrimitive(verts, type, count, gstate.vertType);
 		}

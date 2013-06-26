@@ -97,16 +97,32 @@ void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_co
 			vreader.Goto(vtx+i);
 			vreader.ReadPos(pos);
 
-			if (gstate.textureMapEnable && vreader.hasUV())
-			{
+			if (!gstate.isModeClear() && gstate.textureMapEnable && vreader.hasUV()) {
 				float uv[2];
 				vreader.ReadUV(uv);
 				data[i].texturecoords = Vec2<float>(uv[0], uv[1]);
 			}
 
-			ModelCoords mcoords(pos[0], pos[1], pos[2]);
-			data[i].clippos = ClipCoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords)))));
-			data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
+			if (vreader.hasColor0()) {
+				float col[4];
+				vreader.ReadColor0(col);
+				data[i].color0 = Vec4<float>(col[0], col[1], col[2], col[3]);
+			}
+
+			if (vreader.hasColor1()) {
+				float col[3];
+				vreader.ReadColor0(col);
+				data[i].color1 = Vec3<float>(col[0], col[1], col[2]);
+			}
+
+			if (!gstate.isModeThrough()) {
+				ModelCoords mcoords(pos[0], pos[1], pos[2]);
+				data[i].clippos = ClipCoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords)))));
+				data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
+			} else {
+				data[i].drawpos.x = pos[0];
+				data[i].drawpos.y = pos[1];
+			}
 		}
 
 		// TODO: Should do lighting here!

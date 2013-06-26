@@ -122,10 +122,15 @@ void DrawTriangle(VertexData vertexdata[3])
 			// TODO: Should only render when it's on the left of the right edge
 			if (w0 >=0 && w1 >= 0 && w2 >= 0)
 			{
+				// TODO: I fail at barycentric coordinates, I think... this doesn't seem to do what I think it's doing
 				float s = vertexdata[0].texturecoords.s() * w0 / w + vertexdata[1].texturecoords.s() * w1 / w + vertexdata[2].texturecoords.s() * w2 / w;
 				float t = vertexdata[0].texturecoords.t() * w0 / w + vertexdata[1].texturecoords.t() * w1 / w + vertexdata[2].texturecoords.t() * w2 / w;
+				u32 vcol0 = (int)((vertexdata[0].color0.x * w0 / w + vertexdata[1].color0.x * w1 / w + vertexdata[2].color0.x * w2 / w) * 255)*256*256*256 +
+							(int)((vertexdata[0].color0.y * w0 / w + vertexdata[1].color0.y * w1 / w + vertexdata[2].color0.y * w2 / w) * 255)*256*256 +
+							(int)((vertexdata[0].color0.z * w0 / w + vertexdata[1].color0.z * w1 / w + vertexdata[2].color0.z * w2 / w) * 255)*256 +
+							(int)((vertexdata[0].color0.w * w0 / w + vertexdata[1].color0.w * w1 / w + vertexdata[2].color0.w * w2 / w) * 255);
 				u32 color = /*TextureDecoder::*/SampleNearest(0, s, t);
-				*(u32*)&fb[p.x*4+p.y*FB_WIDTH*4] = color | 0xff7f0000;
+				*(u32*)&fb[p.x*4+p.y*FB_WIDTH*4] = color | vcol0;
 			}
 		}
 	}
