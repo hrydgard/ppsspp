@@ -188,6 +188,11 @@ MenuScreen::MenuScreen() : frames_(0) {
 	showAtracShortcut_ = g_Config.bFirstRun && !Atrac3plus_Decoder::IsInstalled();
 }
 
+void MenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	showAtracShortcut_ = showAtracShortcut_ && !Atrac3plus_Decoder::IsInstalled();
+}
+
+
 void MenuScreen::update(InputState &input_state) {
 	globalUIState = UISTATE_MENU;
 	frames_++;
@@ -1184,6 +1189,18 @@ void SystemScreen::render() {
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
+	bool LockCPUSpeed = g_Config.iLockedCPUSpeed != 0;
+	UICheckBox(GEN_ID, x, y += stride, s->T("Lock PSP CPU Speed"), ALIGN_TOPLEFT, &LockCPUSpeed);
+	if(LockCPUSpeed) {
+		if(g_Config.iLockedCPUSpeed <= 0)
+			g_Config.iLockedCPUSpeed = 222;
+		char showCPUSpeed[256];
+		sprintf(showCPUSpeed, "%s %d", s->T("Locked CPU Speed: "), g_Config.iLockedCPUSpeed);
+		ui_draw2d.DrawText(UBUNTU24, showCPUSpeed, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
+	}
+	else {
+		g_Config.iLockedCPUSpeed = 0;
+	}
 	//UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
 
 	const char *buttonPreferenceTitle;
@@ -1511,7 +1528,11 @@ static const char * credits[] = {
 	"mgaver",
 	"jeid3",
 	"cinaera/BeaR",
-	"",
+	"jtraynham",
+	"Kingcom",
+	"aquanull",
+	"arnastia",
+	"lioncash",
 	"Written in C++ for speed and portability",
 	"",
 	"",

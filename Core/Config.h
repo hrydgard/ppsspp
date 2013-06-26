@@ -52,6 +52,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
@@ -79,6 +80,7 @@ public:
 	bool bFullScreen;
 	int iAnisotropyLevel;
 	bool bTrueColor;
+	bool bFramebuffersToMem;
 	bool bMipMap;
 	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid

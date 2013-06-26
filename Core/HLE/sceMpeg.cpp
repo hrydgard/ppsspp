@@ -271,7 +271,11 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 
 	if (ctx->mediaengine && (ctx->mpegStreamSize > 0) && !ctx->isAnalyzed) {
 		// init mediaEngine
-		ctx->mediaengine->loadStream(Memory::GetPointer(buffer_addr), ctx->mpegOffset, ctx->mpegOffset + ctx->mpegStreamSize);
+		SceMpegRingBuffer ringbuffer = {0};
+		if(ctx->mpegRingbufferAddr != 0){
+			Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
+		};
+		ctx->mediaengine->loadStream(Memory::GetPointer(buffer_addr), ctx->mpegOffset, ringbuffer.packets * ringbuffer.packetSize);
 		ctx->mediaengine->setVideoDim();
 	}
 	// When used with scePsmf, some applications attempt to use sceMpegQueryStreamOffset
@@ -643,7 +647,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 	} else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
+	ringbuffer.packetsFree = ctx->mediaengine->getRemainSize() / 2048;
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 
@@ -788,7 +792,7 @@ int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initAddr)
 	}else {
 		ctx->avc.avcFrameStatus = 0;
 	}
-	ringbuffer.packetsFree = std::max(0, ringbuffer.packets - ctx->mediaengine->getBufferedSize() / 2048);
+	ringbuffer.packetsFree = ctx->mediaengine->getRemainSize() / 2048;
 
 	avcAu.pts = ctx->mediaengine->getVideoTimeStamp() + ctx->mpegFirstTimestamp;
 

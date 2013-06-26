@@ -85,6 +85,7 @@ void Config::Load(const char *iniFileName)
 #endif
 	//FastMemory Default set back to True when solve UNIMPL _sceAtracGetContextAddress making game crash
 	cpu->Get("FastMemory", &bFastMemory, false);
+	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &iShowFPSCounter, false);
@@ -114,6 +115,7 @@ void Config::Load(const char *iniFileName)
 #endif
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
+	graphics->Get("FramebuffersToMem", &bFramebuffersToMem, false);
 	graphics->Get("MipMap", &bMipMap, true);
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
@@ -203,6 +205,7 @@ void Config::Save()
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("FastMemory", bFastMemory);
+		cpu->Set("CPUSpeed", iLockedCPUSpeed);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", iShowFPSCounter);
@@ -224,6 +227,7 @@ void Config::Save()
 #endif
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
+		graphics->Set("FramebuffersToMem", bFramebuffersToMem);
 		graphics->Set("MipMap", bMipMap);
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
 		graphics->Set("TexScalingType", iTexScalingType);

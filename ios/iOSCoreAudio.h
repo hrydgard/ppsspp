@@ -1,4 +1,4 @@
-// Copyright (C) 2012 PPSSPP Project
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -6,7 +6,7 @@
 
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
 // GNU General Public License 2.0 for more details.
 
 // A copy of the GPL 2.0 should have been included with the program.
@@ -15,12 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once
+// This code implements the emulated audio using CoreAudio for iOS
+// Originally written by jtraynham
 
-#include "../Globals.h"
-
-#include "MemMap.h"
-
-bool Load_PSP_ISO(const char *filename, std::string *error_string);
-bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string);
-void InitMemoryForGameISO(std::string fileToStart);
+void iOSCoreAudioInit();
+void iOSCoreAudioShutdown();
