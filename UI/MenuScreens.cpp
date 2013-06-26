@@ -188,6 +188,11 @@ MenuScreen::MenuScreen() : frames_(0) {
 	showAtracShortcut_ = g_Config.bFirstRun && !Atrac3plus_Decoder::IsInstalled();
 }
 
+void MenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	showAtracShortcut_ = showAtracShortcut_ && !Atrac3plus_Decoder::IsInstalled();
+}
+
+
 void MenuScreen::update(InputState &input_state) {
 	globalUIState = UISTATE_MENU;
 	frames_++;
