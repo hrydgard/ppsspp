@@ -1,6 +1,8 @@
 #ifndef _ATRAC3PLUS_DECODER_
 #define _ATRAC3PLUS_DECODER_
 
+#include "Common/ChunkFile.h"
+
 namespace Atrac3plus_Decoder {
 	bool IsSupported();
 	bool IsInstalled();
@@ -49,6 +51,10 @@ namespace Atrac3plus_Decoder {
 			return (end + bufQueueSize - start) % bufQueueSize;
 		}
 
+		inline int getRemainSize() {
+			return bufQueueSize - getQueueSize();
+		}
+
 		bool push(unsigned char *buf, int addsize) {
 			int queuesz = getQueueSize();
 			int space = bufQueueSize - queuesz;
@@ -71,6 +77,25 @@ namespace Atrac3plus_Decoder {
 			int bytesgot = getQueueSize();
 			if (wantedsize < bytesgot)
 				bytesgot = wantedsize;
+			if (buf) {
+				if (start + bytesgot <= bufQueueSize) {
+					memcpy(buf, bufQueue + start, bytesgot);
+				} else {
+					int size = bufQueueSize - start;
+					memcpy(buf, bufQueue + start, size);
+					memcpy(buf + size, bufQueue, bytesgot - size);
+				}
+			}
+			start = (start + bytesgot) % bufQueueSize;
+			return bytesgot;
+		}
+
+		int get_front(unsigned char *buf, int wantedsize) {
+			if (wantedsize <= 0)
+				return 0;
+			int bytesgot = getQueueSize();
+			if (wantedsize < bytesgot)
+				bytesgot = wantedsize;
 			if (start + bytesgot <= bufQueueSize) {
 				memcpy(buf, bufQueue + start, bytesgot);
 			} else {
@@ -78,8 +103,15 @@ namespace Atrac3plus_Decoder {
 				memcpy(buf, bufQueue + start, size);
 				memcpy(buf + size, bufQueue, bytesgot - size);
 			}
-			start = (start + bytesgot) % bufQueueSize;
 			return bytesgot;
+		}
+
+		void DoState(PointerWrap &p) {
+			p.Do(bufQueueSize);
+			p.Do(start);
+			p.Do(end);
+			if (bufQueue)
+				p.DoArray(bufQueue, bufQueueSize);
 		}
 
 		unsigned char* bufQueue;
