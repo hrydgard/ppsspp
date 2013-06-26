@@ -1168,7 +1168,29 @@ void SystemScreen::render() {
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
 	//UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
-
+	
+	bool LockCPUSpeed = g_Config.iLockedCPUSpeed != 0;
+	UICheckBox(GEN_ID, x, y += stride, s->T("Unlock CPU Speed"), ALIGN_TOPLEFT, &LockCPUSpeed);
+	if(LockCPUSpeed) {
+		if(g_Config.iLockedCPUSpeed <= 0)
+			g_Config.iLockedCPUSpeed = 222;
+		char showCPUSpeed[256];
+		sprintf(showCPUSpeed, "%s %d", s->T("Clock: "), g_Config.iLockedCPUSpeed);
+		ui_draw2d.DrawText(UBUNTU24, showCPUSpeed, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 250, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, s->T("Auto"), ALIGN_LEFT))
+			g_Config.iLockedCPUSpeed = 333;
+		if (UIButton(GEN_ID, hlinear1, 40, 0, s->T("-"), ALIGN_LEFT))
+			if (g_Config.iLockedCPUSpeed > 111)
+				g_Config.iLockedCPUSpeed -= 111;
+		if (UIButton(GEN_ID, hlinear1, 40, 0, s->T("+"), ALIGN_LEFT))
+			if (g_Config.iLockedCPUSpeed < 666)
+				g_Config.iLockedCPUSpeed += 111;
+		y += 20;
+	}
+	else 
+		g_Config.iLockedCPUSpeed = 0;
+		
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	if (g_Config.bEnableCheats) {
 		HLinear hlinear1(x + 60, y += stride + 10, 20);
