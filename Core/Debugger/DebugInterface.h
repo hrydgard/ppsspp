@@ -58,7 +58,7 @@ public:
 	virtual const char *GetRegName(int cat, int index) {return 0;}
 	virtual void PrintRegValue(int cat, int index, char *out)
 	{
-		sprintf(out,"%08x",GetGPR32Value(index));
+		sprintf(out,"%08X",GetGPR32Value(index));
 	}
 	virtual u32 GetRegValue(int cat, int index) {return 0;}
 	virtual void SetRegValue(int cat, int index, u32 value) {}

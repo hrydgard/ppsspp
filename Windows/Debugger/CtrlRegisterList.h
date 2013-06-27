@@ -43,7 +43,10 @@ class CtrlRegisterList
 	u32 lastPC;
 	u32 *lastCat0Values;
 	bool *changedCat0Regs;
+	bool ctrlDown;
 
+	void copyRegisterValue();
+	void editRegisterValue();
 public:
 	CtrlRegisterList(HWND _wnd);
 	~CtrlRegisterList();
