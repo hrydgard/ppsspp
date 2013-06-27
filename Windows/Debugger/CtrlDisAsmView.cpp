@@ -87,13 +87,13 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		return FALSE;
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
-		break;
+		return 0;
 	case WM_SYSKEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
 		return 0;		// return a value so that windows doesn't execute the standard syskey action
 	case WM_KEYUP:
 		ccp->onKeyUp(wParam,lParam);
-		break;
+		return 0;
 	case WM_LBUTTONDOWN: lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
 	case WM_RBUTTONDOWN: rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
@@ -113,20 +113,16 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		{
 			switch (wParam)
 			{
-			case VK_LEFT:
-			case VK_RIGHT:
-			case VK_UP:
-			case VK_DOWN:
 			case VK_F9:
 			case VK_F10:
 			case VK_F11:
 			case VK_TAB:
 				return DLGC_WANTMESSAGE;
 			default:
-				return 0;
+				return DLGC_WANTCHARS|DLGC_WANTARROWS;
 			}
 		}
-		break;
+		return DLGC_WANTCHARS|DLGC_WANTARROWS;
     default:
         break;
     }

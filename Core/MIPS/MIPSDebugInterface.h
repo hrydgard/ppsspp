@@ -67,7 +67,7 @@ public:
 	{
 		switch (cat)
 		{
-		case 0:	sprintf(out, "%08x", cpu->r[index]); break;
+		case 0:	sprintf(out, "%08X", cpu->r[index]); break;
 		case 1:	sprintf(out, "%f", cpu->f[index]); break;
 		case 2:	sprintf(out, "N/A"); break;
 		}
