@@ -780,14 +780,19 @@ int _PsmfPlayerSetPsmfOffset(PsmfPlayer *psmfplayer, const char * filename, int 
 	psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
 	psmfplayer->fileoffset = offset;
 	if (psmfplayer->filehandle && psmfplayer->tempbuf) {
-		pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
+		if (offset > 0)
+			pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
 		u8* buf = psmfplayer->tempbuf;
 		u32 tempbufSize = sizeof(psmfplayer->tempbuf);
-		int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, tempbufSize);
-		if (size) {
-			psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, (int)tempbufSize));
-			psmfplayer->mediaengine->addStreamData(buf + 2048, size - 2048);
-		}
+		int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
+		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, (int)tempbufSize));
+		do {
+			size = std::min(psmfplayer->mediaengine->getRemainSize(), (int)tempbufSize);
+			if (size <= 0)
+				break;
+			size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, size);
+			psmfplayer->mediaengine->addStreamData(buf, size);
+		} while (size > 0);
 		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 	}
 	return 0;
