@@ -97,10 +97,59 @@ static inline int CalcClipMask(const ClipCoords& v)
 	}																\
 }
 
+#define CLIP_LINE(PLANE_BIT, A, B, C, D)						\
+{																\
+if (mask & PLANE_BIT) {											\
+		float dp0 = CLIP_DOTPROD(0, A, B, C, D );				\
+		float dp1 = CLIP_DOTPROD(1, A, B, C, D );				\
+		int i = 0;												\
+																\
+		if (mask0 & PLANE_BIT) {								\
+			if (dp0 < 0) {										\
+				float t = dp1 / (dp1 - dp0);					\
+				i = 0;											\
+				AddInterpolatedVertex(t, 1, 0, i);				\
+			}													\
+		}														\
+		dp0 = CLIP_DOTPROD(0, A, B, C, D );						\
+																\
+		if (mask1 & PLANE_BIT) {								\
+			if (dp1 < 0) {										\
+				float t = dp1 / (dp1- dp0);						\
+				i = 1;											\
+				AddInterpolatedVertex(t, 1, 0, i);				\
+			}													\
+		}														\
+	}															\
+}
+
 void ProcessQuad(VertexData* data)
 {
 	if (!gstate.isModeThrough()) {
-		// TODO: Clipping
+		// TODO: Not sure if the clipping code works...
+		// TODO: Color of second vertex should be preserved
+		int mask0 = CalcClipMask(data[0].clippos);
+		int mask1 = CalcClipMask(data[1].clippos);
+		int mask = mask0 | mask1;
+
+		if ((mask0&mask1) & CLIP_NEG_X_BIT) return;
+		if ((mask0&mask1) & CLIP_POS_X_BIT) return;
+		if ((mask0&mask1) & CLIP_NEG_Y_BIT) return;
+		if ((mask0&mask1) & CLIP_POS_Y_BIT) return;
+		if ((mask0&mask1) & CLIP_NEG_Z_BIT) return;
+		if ((mask0&mask1) & CLIP_POS_Z_BIT) return;
+
+		VertexData* Vertices[2] = { &data[0], &data[1] };
+
+		CLIP_LINE(CLIP_POS_X_BIT, -1,  0,  0, 1);
+		CLIP_LINE(CLIP_NEG_X_BIT,  1,  0,  0, 1);
+		CLIP_LINE(CLIP_POS_Y_BIT,  0, -1,  0, 1);
+		CLIP_LINE(CLIP_NEG_Y_BIT,  0,  1,  0, 1);
+		CLIP_LINE(CLIP_POS_Z_BIT,  0,  0,  0, 1);
+		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
+
+		data[0].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[0].clippos));
+		data[1].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos));
 	}
 
 	VertexData verts[6] = { data[0], data[0], data[1], data[1], data[1], data[0] };
