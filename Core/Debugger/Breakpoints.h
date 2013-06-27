@@ -87,6 +87,7 @@ public:
 	static void InvalidateJit();
 
 	static int GetNumBreakpoints();
+	static BreakPoint GetBreakpoint(int i);
 	static int GetBreakpointAddress(int i);
 };
 

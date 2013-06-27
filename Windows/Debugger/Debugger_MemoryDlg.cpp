@@ -181,6 +181,7 @@ void CMemoryDlg::Goto(u32 addr)
 	Show(true);
 	CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(CMemoryDlg::m_hDlg,IDC_MEMVIEW));
 	mv->gotoAddr(addr);
+	SetFocus(GetDlgItem(CMemoryDlg::m_hDlg,IDC_MEMVIEW));
 }
 
 

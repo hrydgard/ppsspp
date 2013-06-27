@@ -357,7 +357,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		if (debugger->isBreakpoint(address))
 		{
 			textColor = 0x0000FF;
-			DrawIconEx(hdc,2,rowY1,breakPoint,32,32,0,0,DI_NORMAL);
+			DrawIconEx(hdc,2,rowY1+1,breakPoint,32,32,0,0,DI_NORMAL);
 		}
 		SetTextColor(hdc,textColor);
 
@@ -892,4 +892,13 @@ void CtrlDisAsmView::disassembleToFile()
 
 	fclose(output);
 	MessageBox(wnd,"Finished!","Done",MB_OK);
+}
+
+void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
+{
+	char addressText[64],opcode[64],arguments[256];
+	const char *dis = debugger->disasm(address, instructionSize);
+	parseDisasm(dis,opcode,arguments);
+
+	sprintf(dest,"%s  %s",opcode,arguments);
 }
