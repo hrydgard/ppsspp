@@ -142,7 +142,7 @@ void PathBrowser::SetPath(const std::string &path) {
 	for (size_t i = 0; i < path_.size(); i++) {
 		if (path_[i] == '\\') path_[i] = '/';
 	}
-	if (!path_.size() || (path_.back() != '/'))
+	if (!path_.size() || (path_[path_.size() - 1] != '/'))
 		path_ += "/";
 }
 
@@ -191,7 +191,7 @@ void PathBrowser::Navigate(const std::string &path) {
 			path_ = path;
 		else
 			path_ = path_ + path;
-		if (path_.back() != '/')
+		if (path_[path_.size() - 1] != '/')
 			path_ += "/";
 	}
 }

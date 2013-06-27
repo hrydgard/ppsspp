@@ -45,6 +45,8 @@ HEADERS += ../native/base/QtMain.h
 SOURCES += ../UI/EmuScreen.cpp \
 	../UI/MainScreen.cpp \
 	../UI/MenuScreens.cpp \
+	../UI/GameScreen.cpp \
+	../UI/GameSettingsScreen.cpp \
 	../UI/GamepadEmu.cpp \
 	../UI/GameInfoCache.cpp \
 	../UI/OnScreenDisplay.cpp \
