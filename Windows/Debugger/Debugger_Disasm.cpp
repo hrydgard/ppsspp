@@ -103,10 +103,6 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),&breakpointRect);
 
-	int minWidth = max((regRect.right-regRect.left)+(disRect.right-disRect.left)+24,
-		(breakpointRect.right-breakpointRect.left)+16);
-	if (w < minWidth) w = minWidth;
-
 	int minHeight = max((disRect.bottom-disRect.top)+(breakpointRect.bottom-breakpointRect.top)+37,
 		(regRect.bottom-regRect.top)+(breakpointRect.bottom-breakpointRect.top)+150);
 	if (h < minHeight) h = minHeight;
@@ -359,7 +355,7 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					sprintf(breakpointText,"0x%08X",mem[index].numHits);
+					sprintf(breakpointText,"%d",mem[index].numHits);
 				} else {
 					strcpy(breakpointText,"-");
 				}
@@ -445,6 +441,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						{
 							unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
 							ptr->gotoAddr(addr);
+							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 						}
 					}
 					break;
@@ -460,7 +457,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						int n = ComboBox_GetCurSel(lb);
 						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
 						if (addr != 0xFFFFFFFF)
+						{
 							ptr->gotoAddr(addr);
+							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+						}
 					}
 					break;
 				};
@@ -735,7 +735,16 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	MoveWindow(funclist, 8, regTop, regWidth, height-regTop-breakpointHeight-12, TRUE);
 	MoveWindow(disasm,regWidth+15,disasmTop,disasmWidth-20,height-disasmTop-breakpointHeight-12,TRUE);
 	MoveWindow(breakpointList,8,breakpointTop,width-16,breakpointHeight,TRUE);
+	
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST),&regRect);
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),&breakpointRect);
 
+	int totalListSize = (breakpointRect.right-breakpointRect.left-20);
+	for (int i = 0; i < BPL_COLUMNCOUNT; i++)
+	{
+		ListView_SetColumnWidth(breakpointList,i,breakpointColumnSizes[i] * totalListSize);
+	}		
 }
 
 void CDisasm::SavePosition()
@@ -797,6 +806,7 @@ void CDisasm::Goto(u32 addr)
 {
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->gotoAddr(addr);
+	SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	ptr->redraw();
 	
 }
