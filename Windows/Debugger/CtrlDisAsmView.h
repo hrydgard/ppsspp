@@ -83,7 +83,8 @@ public:
 	void onMouseUp(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseMove(WPARAM wParam, LPARAM lParam, int button);
 	void redraw();
-
+	
+	void getOpcodeText(u32 address, char* dest);
 	int yToAddress(int y);
 
 	void setDontRedraw(bool b) { dontRedraw = b; };

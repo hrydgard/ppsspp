@@ -17,6 +17,10 @@ Key bindings:
 -Ctrl+C will continue the previous search
 -Ctrl+X will disassemble to a file you specify. First you enter the size (in bytes, hexadecimal) of the code to be disassembled, then you select a file name. It will start at the cursor
 
+All breakpoints are listed in the table at the bottom of the disassembly view. Doube clicking an execute breakpoint will move the disassembly view to that position, double clicking a memory breakpoint will open the memory viewer and move it to the start of the breakpoint range. Pressing delete will remove the selected breakpoint.
+If there is a symbol defined for the position of an execute breakpoint, that will also be displayed.
+
+
 ###########
 Memory View
 ###########

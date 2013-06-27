@@ -172,6 +172,11 @@ int CBreakPoints::GetNumBreakpoints()
 	return (int)m_iBreakPoints.size();
 }
 
+BreakPoint CBreakPoints::GetBreakpoint(int i)
+{
+	return m_iBreakPoints[i];
+}
+
 int CBreakPoints::GetBreakpointAddress(int i)
 {
 	return m_iBreakPoints[i].iAddress;
