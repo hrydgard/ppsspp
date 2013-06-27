@@ -759,7 +759,8 @@ void AudioScreen::render() {
 	if (Atrac3plus_Decoder::IsSupported()) {
 		if (Atrac3plus_Decoder::IsInstalled() && g_Config.bEnableSound) {
 			UICheckBox(GEN_ID, x + 60, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
-		}
+		} else
+			g_Config.bEnableAtrac3plus = false;
 
 		VLinear vlinear(30, 200, 20);
 		if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {

@@ -389,6 +389,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_USER+3:		// run to wparam
 	{
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+		ptr->setDontRedraw(true);
 		SetDebugMode(false);
 		CBreakPoints::AddBreakPoint(wParam,true);
 		_dbg_update_();
