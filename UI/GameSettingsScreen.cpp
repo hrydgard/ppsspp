@@ -35,6 +35,9 @@ void GameSettingsScreen::CreateViews() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
+	I18NCategory *c = GetI18NCategory("Controls");
+	I18NCategory *a = GetI18NCategory("Audio");
+	I18NCategory *s = GetI18NCategory("System");
 
 	Margins actionMenuMargins(0, 0, 15, 0);
 
@@ -48,7 +51,6 @@ void GameSettingsScreen::CreateViews() {
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(600, FILL_PARENT, actionMenuMargins));
 	root_->Add(tabHolder);
-
 
 	// TODO: These currently point to global settings, not game specific ones.
 
@@ -65,29 +67,31 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.SSAntiAliasing, gs->T("Anti Aliasing")));
+	graphicsSettings->Add(new CheckBox(&g_Config.SSAntiAliasing, gs->T("Show FPS")));
 	
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *audioSettings = new LinearLayout(ORIENT_VERTICAL);
 	audioSettingsScroll->Add(audioSettings);
 	tabHolder->AddTab("Audio", audioSettingsScroll);
-	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, "Enable Sound"));
-	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, "Enable Atrac3+"));
-	audioSettings->Add(new Choice("Download Atrac3+ plugin"))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
+	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
+	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, a->T("Enable Atrac3+")));
+	audioSettings->Add(new Choice(a->T("Download Atrac3+ plugin")))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
 	
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-		ViewGroup *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
+	ViewGroup *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
 	controlsSettingsScroll->Add(controlsSettings);
 	tabHolder->AddTab("Controls", controlsSettingsScroll);
-	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, "Show Touch Controls"));
-	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, "Show analog stick"));
-	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, "Horizontal tilt to analog"));
+	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
+	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("Large Controls")));
+	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Analog Stick")));
+	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab("System", systemSettingsScroll);
-	systemSettings->Add(new CheckBox(&g_Config.bJit, "Enable JIT (dynarec)"));
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, "Fast Memory (unstable)"));
+	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (unstable)")));
 }
 
 UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {

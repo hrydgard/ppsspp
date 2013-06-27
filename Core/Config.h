@@ -46,6 +46,7 @@ public:
 #endif
 
 	// General
+	bool bNewUI;  // "Hidden" setting, does not get saved to ini file.
 	int iNumWorkerThreads;
 
 	// Core

@@ -58,6 +58,7 @@
 #include "UI/GameScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/PluginScreen.h"
+#include "UI/MainScreen.h"
 
 #include "GameInfoCache.h"
 #include "android/jni/TestRunner.h"
@@ -141,7 +142,10 @@ void LogoScreen::update(InputState &input_state) {
 		if (bootFilename_.size()) {
 			screenManager()->switchScreen(new EmuScreen(bootFilename_));
 		} else {
-			screenManager()->switchScreen(new MenuScreen());
+			if (g_Config.bNewUI)
+				screenManager()->switchScreen(new MainScreen());
+			else
+				screenManager()->switchScreen(new MenuScreen());
 		}
 	}
 }
@@ -256,7 +260,7 @@ void MenuScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, 0, m->T("Credits"), ALIGN_RIGHT)) {
-		screenManager()->switchScreen(new CreditsScreen());
+		screenManager()->push(new CreditsScreen());
 		UIReset();
 	}
 
@@ -1279,6 +1283,7 @@ void SystemScreen::render() {
 		g_Config.iDateFormat = 0;
 	*/
 	
+#ifndef ANDROID
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	if (g_Config.bEnableCheats) {
 		HLinear hlinear1(x + 60, y += stride + 10, 20);
@@ -1286,7 +1291,9 @@ void SystemScreen::render() {
 			g_Config.bReloadCheats = true;
 		y += 10;
 	}
+#endif
 	HLinear hlinear2(x, y += stride + 10, 20);
+
 	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
 		screenManager()->push(new LanguageScreen());
 	} 
@@ -1596,7 +1603,7 @@ void CreditsScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
 	}
 
 	UIEnd();

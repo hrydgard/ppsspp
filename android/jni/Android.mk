@@ -132,6 +132,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MenuScreens.cpp \
+  $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/UIShader.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \

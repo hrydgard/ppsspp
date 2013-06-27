@@ -59,7 +59,7 @@ public:
 
 	// Gets pointers to write to directly.
 	void pushPointers(size_t size, T **dest1, size_t *sz1, T **dest2, size_t *sz2) {
-		if (tail_ + size < N) {
+		if (tail_ + (int)size < N) {
 			*dest1 = &storage_[tail_];
 			*sz1 = size;
 			tail_ += (int)size;
@@ -77,7 +77,7 @@ public:
 	}
 
 	void popPointers(size_t size, const T **src1, size_t *sz1, const T **src2, size_t *sz2) {
-		if (size > count_) size = count_;
+		if ((int)size > count_) size = count_;
 
 		if (head_ + size < N) {
 			*src1 = &storage_[head_];

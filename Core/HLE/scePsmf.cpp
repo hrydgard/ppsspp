@@ -1047,8 +1047,7 @@ u32 scePsmfPlayerGetPsmfInfo(u32 psmfPlayer, u32 psmfInfoAddr)
 		ERROR_LOG(HLE, "scePsmfPlayerGetPsmfInfo(%08x, %08x): not initialized", psmfPlayer, psmfInfoAddr);
 		return ERROR_PSMFPLAYER_NOT_INITIALIZED;
 	}
-
-	WARN_LOG(HLE, "scePsmfPlayerGetPsmfInfo(%08x, %08x)", psmfPlayer, psmfInfoAddr);
+	DEBUG_LOG(HLE, "scePsmfPlayerGetPsmfInfo(%08x, %08x)", psmfPlayer, psmfInfoAddr);
 	if (Memory::IsValidAddress(psmfInfoAddr)) {
 		Memory::Write_U32(psmfplayer->psmfPlayerLastTimestamp, psmfInfoAddr);
 		Memory::Write_U32(psmfplayer->videoStreamNum, psmfInfoAddr + 4);

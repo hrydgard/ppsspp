@@ -867,7 +867,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 		glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, buf1);
 		
 		// We have to flip glReadPixels data upside down
-		int i, j, t;
+		int i, j;
 		for(i = 0; i < bufHeight; i++) {
 			for(j = 0; j < vfb->fb_stride * pixelSize; j++) {
 				buf2[(bufHeight - 1 - i) * vfb->fb_stride * pixelSize + j] = buf1[i * vfb->fb_stride * pixelSize + j];
