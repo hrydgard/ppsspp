@@ -34,6 +34,7 @@ public:
 	// --- tools ---
 	//
 	// Update Dialog
+	virtual void Update() { UpdateDialog(true); };
 	void UpdateDialog(bool _bComplete = false);
 	// SetDebugMode 
 	void SetDebugMode(bool _bDebug);

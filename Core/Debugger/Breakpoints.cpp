@@ -77,6 +77,7 @@ void CBreakPoints::RemoveBreakPoint(u32 _iAddress)
 		{
 			m_iBreakPoints.remove(m_iBreakPoints[i]);
 			InvalidateJit(_iAddress);
+			host->UpdateDisassembly();	// redraw in order to not show the breakpoint anymore
 			break;
 		}
 	}
@@ -86,6 +87,24 @@ void CBreakPoints::ClearAllBreakPoints()
 {
 	m_iBreakPoints.clear();
 	InvalidateJit();
+}
+
+void CBreakPoints::ClearTemporaryBreakPoints()
+{
+	if (m_iBreakPoints.size() == 0) return;
+
+	bool update = false;
+	for (int i = (int)m_iBreakPoints.size()-1; i >= 0; --i)
+	{
+		if (m_iBreakPoints[i].bTemporary)
+		{
+			InvalidateJit(m_iBreakPoints[i].iAddress);
+			m_iBreakPoints.remove(m_iBreakPoints[i]);
+			update = true;
+		}
+	}
+	
+	if (update) host->UpdateDisassembly();	// redraw in order to not show the breakpoint anymore
 }
 
 MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
@@ -130,6 +149,7 @@ void CBreakPoints::AddBreakPoint(u32 _iAddress, bool temp)
 
 		m_iBreakPoints.insert(pt);
 		InvalidateJit(_iAddress);
+		host->UpdateDisassembly();	// redraw in order to show the breakpoint
 	}
 }
 

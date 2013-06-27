@@ -59,6 +59,7 @@ class CtrlDisAsmView
 	char searchQuery[256];
 	int matchAddress;
 	bool searching;
+	bool dontRedraw;
 
 	void disassembleToFile();
 	void search(bool continueSearch);
@@ -85,6 +86,7 @@ public:
 
 	int yToAddress(int y);
 
+	void setDontRedraw(bool b) { dontRedraw = b; };
 	void setDebugger(DebugInterface *deb)
 	{
 		debugger=deb;
