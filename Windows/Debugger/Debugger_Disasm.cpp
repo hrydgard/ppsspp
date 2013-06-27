@@ -29,6 +29,45 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
+char* breakpointColumns[] = {
+	"Type", "Offset", "Size/Label", "Opcode", "Hits", "Enabled"
+};
+
+float breakpointColumnSizes[] = {
+	0.12f, 0.2f, 0.2f, 0.3f, 0.1f, 0.08f
+};
+
+enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
+
+static FAR WNDPROC DefBreakpointListProc;
+
+static LRESULT CALLBACK BreakpointListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch(message)
+	{
+	case WM_KEYDOWN:
+		if(wParam == VK_RETURN)
+		{
+			int index = ListView_GetSelectionMark(hDlg);
+			SendMessage(GetParent(hDlg),WM_USER+4,index,0);
+			return 0;
+		} else if (wParam == VK_DELETE)
+		{
+			int index = ListView_GetSelectionMark(hDlg);
+			SendMessage(GetParent(hDlg),WM_USER+5,index,0);
+			return 0;
+		}
+	default:
+		return (LRESULT)CallWindowProc((WNDPROC)DefBreakpointListProc,hDlg,message,wParam,lParam);
+	};
+
+	return 0;
+}
+
+
+
+
+
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent)
 {
 	cpu = _cpu;
@@ -62,6 +101,11 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST),&regRect);
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),&breakpointRect);
+
+	int minHeight = max((disRect.bottom-disRect.top)+(breakpointRect.bottom-breakpointRect.top)+37,
+		(regRect.bottom-regRect.top)+(breakpointRect.bottom-breakpointRect.top)+150);
+	if (h < minHeight) h = minHeight;
 
 	HWND tabs = GetDlgItem(m_hDlg, IDC_LEFTTABS);
 
@@ -79,23 +123,35 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);
 	SetTimer(m_hDlg,1,1000,0);
-	/*
-	DWORD intAddress[14] =
-	{0x100, 0x200,0x300,0x400,0x500,0x600,0x700,0x800,0x900,0xc00,0xd00,0xf00,0x1300,0x1700};
-	char *intName[14] = 
-	{"100 Reset","200 Mcheck", "300 DSI","400 ISI","500 External",
-	"600 Align","700 Program","800 FPU N/A","900 DEC","C00 SC",
-	"D00 Trace","F00 Perf","1300 Breakpt","1700 Thermal"};*/
 
-	//
-	// --- activate debug mode ---
-	//
+	
+	// subclass the breakpoint list
+	HWND breakpointHwnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
+	DefBreakpointListProc = (WNDPROC)GetWindowLongPtr(breakpointHwnd,GWLP_WNDPROC);
+	SetWindowLongPtr(breakpointHwnd,GWLP_WNDPROC,(LONG_PTR)BreakpointListProc); 
+
+	// create columns for the breakpoint list
+	SendMessage(breakpointHwnd, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
+
+	LVCOLUMN lvc; 
+	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+	lvc.iSubItem = 0;
+	lvc.fmt = LVCFMT_LEFT;
+	
+	int totalListSize = (breakpointRect.right-breakpointRect.left-20);
+	for (int i = 0; i < BPL_COLUMNCOUNT; i++)
+	{
+		lvc.cx = breakpointColumnSizes[i] * totalListSize;
+		lvc.pszText = breakpointColumns[i];
+		ListView_InsertColumn(breakpointHwnd, i, &lvc);
+	}
+
 
 	// Actually resize the window to the proper size (after the above setup.)
 	if (w != -1 && h != -1)
 	{
+		// this will also call UpdateSize
 		SetWindowPos(m_hDlg, 0, x, y, w, h, 0);
-		UpdateSize(w, h);
 	}
 
 	SetDebugMode(true);
@@ -103,6 +159,225 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 
 CDisasm::~CDisasm()
 {
+}
+
+int getTotalBreakpointCount()
+{
+	int count = CBreakPoints::MemChecks.size();
+	for (int i = 0; i < CBreakPoints::GetNumBreakpoints(); i++)
+	{
+		if (!CBreakPoints::GetBreakpoint(i).bTemporary) count++;
+	}
+
+	return count;
+}
+
+void CDisasm::updateBreakpointList()
+{
+	HWND breakpointHwnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
+	int breakpointCount = getTotalBreakpointCount();
+	int items = ListView_GetItemCount(breakpointHwnd);
+
+	while (items < breakpointCount)
+	{
+	    LVITEM lvI;
+		lvI.pszText   = LPSTR_TEXTCALLBACK; // Sends an LVN_GETDISPINFO message.
+		lvI.mask      = LVIF_TEXT | LVIF_IMAGE |LVIF_STATE;
+		lvI.stateMask = 0;
+		lvI.iSubItem  = 0;
+		lvI.state     = 0;
+		lvI.iItem  = items;
+		lvI.iImage = items;
+
+		ListView_InsertItem(breakpointHwnd, &lvI);
+		items++;
+	}
+
+	while (items > breakpointCount)
+	{
+		ListView_DeleteItem(breakpointHwnd,--items);
+	}
+
+	InvalidateRect(breakpointHwnd,NULL,true);
+	UpdateWindow(breakpointHwnd);
+}
+
+int getBreakpointIndex(int itemIndex, bool& isMemory)
+{
+	// memory breakpoints first
+	if (itemIndex < CBreakPoints::MemChecks.size())
+	{
+		isMemory = true;
+		return itemIndex;
+	}
+
+	itemIndex -= CBreakPoints::MemChecks.size();
+
+	int i = 0;
+	while (i < CBreakPoints::GetNumBreakpoints())
+	{
+		if (CBreakPoints::GetBreakpoint(i).bTemporary)
+		{
+			i++;
+			continue;
+		}
+
+		// the index is 0 when there are no more breakpoints to skip
+		if (itemIndex == 0)
+		{
+			isMemory = false;
+			return i;
+		}
+
+		i++;
+		itemIndex--;
+	}
+
+	return -1;
+}
+
+void CDisasm::removeBreakpoint(int itemIndex)
+{
+	bool isMemory;
+	int index = getBreakpointIndex(itemIndex,isMemory);
+	if (index == -1) return;
+
+	if (isMemory)
+	{
+		CBreakPoints::MemChecks.erase(CBreakPoints::MemChecks.begin()+index);
+		CBreakPoints::InvalidateJit();
+		updateBreakpointList();
+	} else {
+		u32 address = CBreakPoints::GetBreakpointAddress(index);
+		CBreakPoints::RemoveBreakPoint(address);
+	}
+}
+
+void CDisasm::gotoBreakpointAddress(int itemIndex)
+{
+	bool isMemory;
+	int index = getBreakpointIndex(itemIndex,isMemory);
+	if (index == -1) return;
+
+	if (isMemory)
+	{
+		u32 address = CBreakPoints::MemChecks[index].iStartAddress;
+			
+		for (int i=0; i<numCPUs; i++)
+			if (memoryWindow[i])
+				memoryWindow[i]->Goto(address);
+	} else {
+		u32 address = CBreakPoints::GetBreakpointAddress(index);
+		Goto(address);
+		SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+	}
+}
+
+static char breakpointText[256];
+
+void CDisasm::handleBreakpointNotify(LPARAM lParam)
+{
+	if (((LPNMHDR)lParam)->code == NM_DBLCLK)
+	{
+		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
+		gotoBreakpointAddress(item->iItem);
+		return;
+	}
+
+	if (((LPNMHDR)lParam)->code == LVN_GETDISPINFO)
+	{
+		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
+		std::vector<MemCheck>& mem = CBreakPoints::MemChecks;
+		
+		bool isMemory;
+		int index = getBreakpointIndex(dispInfo->item.iItem,isMemory);
+		if (index == -1) return;
+		
+		breakpointText[0] = 0;
+		switch (dispInfo->item.iSubItem)
+		{
+		case BPL_TYPE:
+			{
+				if (isMemory)
+				{
+					if (mem[index].bOnRead)
+					{
+						strcpy(breakpointText,"Read");
+						if (mem[index].bOnWrite) strcat(breakpointText,"/");
+					}
+					if (mem[index].bOnWrite) strcat(breakpointText,"Write");
+				} else {
+					strcpy(breakpointText,"Execute");
+				}
+			}
+			break;
+		case BPL_OFFSET:
+			{
+				if (isMemory)
+				{
+					sprintf(breakpointText,"0x%08X",mem[index].iStartAddress);
+				} else {
+					sprintf(breakpointText,"0x%08X",CBreakPoints::GetBreakpointAddress(index));
+				}
+			}
+			break;
+		case BPL_SIZELABEL:
+			{
+				if (isMemory)
+				{
+					if (mem[index].bRange == false) sprintf(breakpointText,"0x%08X",1);
+					else sprintf(breakpointText,"0x%08X",mem[index].iEndAddress-mem[index].iStartAddress);
+				} else {
+					const char* sym = cpu->findSymbolForAddress(CBreakPoints::GetBreakpointAddress(index));
+					if (sym != NULL)
+					{
+						if (memcmp(sym,"z_",2) == 0) sym += 2;
+						if (memcmp(sym,"zz_",3) == 0) sym += 3;
+						strcpy(breakpointText,sym);
+					} else {
+						strcpy(breakpointText,"-");
+					}
+				}
+			}
+			break;
+		case BPL_OPCODE:
+			{
+				if (isMemory)
+				{
+					strcpy(breakpointText,"-");
+				} else {
+					CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+					ptr->getOpcodeText(CBreakPoints::GetBreakpointAddress(index),breakpointText);
+				}
+			}
+			break;
+		case BPL_HITS:
+			{
+				if (isMemory)
+				{
+					sprintf(breakpointText,"%d",mem[index].numHits);
+				} else {
+					strcpy(breakpointText,"-");
+				}
+			}
+			break;
+		case BPL_ENABLED:
+			{
+				if (isMemory)
+				{
+					strcpy(breakpointText,mem[index].bBreak == true ? "True" : "False");
+				} else {
+					strcpy(breakpointText,CBreakPoints::GetBreakpoint(index).bOn ? "True" : "False");
+				}
+			}
+			break;
+		default:
+			return;
+		}
+				
+		if (breakpointText[0] == 0) strcat(breakpointText,"Invalid");
+		dispInfo->item.pszText = breakpointText;
+	}
 }
 
 BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
@@ -125,19 +400,26 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_NOTIFY:
+		switch (wParam)
 		{
-			HWND tabs = GetDlgItem(m_hDlg, IDC_LEFTTABS);
-			NMHDR* pNotifyMessage = NULL;
-			pNotifyMessage = (LPNMHDR)lParam; 		
-			if (pNotifyMessage->hwndFrom == tabs)
+		case IDC_LEFTTABS:
 			{
-				int iPage = TabCtrl_GetCurSel (tabs);
-				ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), iPage?SW_NORMAL:SW_HIDE);
-				ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST),      iPage?SW_HIDE:SW_NORMAL);
+				HWND tabs = GetDlgItem(m_hDlg, IDC_LEFTTABS);
+				NMHDR* pNotifyMessage = NULL;
+				pNotifyMessage = (LPNMHDR)lParam; 		
+				if (pNotifyMessage->hwndFrom == tabs)
+				{
+					int iPage = TabCtrl_GetCurSel (tabs);
+					ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), iPage?SW_NORMAL:SW_HIDE);
+					ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST),      iPage?SW_HIDE:SW_NORMAL);
+				}
 			}
 			break;
+		case IDC_BREAKPOINTLIST:
+			handleBreakpointNotify(lParam);
+			break;
 		}
-
+		break;
 	case WM_COMMAND:
 		{
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
@@ -159,6 +441,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						{
 							unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
 							ptr->gotoAddr(addr);
+							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 						}
 					}
 					break;
@@ -174,7 +457,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						int n = ComboBox_GetCurSel(lb);
 						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
 						if (addr != 0xFFFFFFFF)
+						{
 							ptr->gotoAddr(addr);
+							SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+						}
 					}
 					break;
 				};
@@ -299,6 +585,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						check.bRange = false;
 						CBreakPoints::MemChecks.push_back(check);
 						CBreakPoints::InvalidateJit();
+						updateBreakpointList();
 					}
 
 					if (isRunning)
@@ -353,13 +640,15 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_GOTOPC:
 				{
-					ptr->gotoPC();
+					ptr->gotoPC();	
+					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 					UpdateDialog();
 				}
 				break;
 			case IDC_GOTOLR:
 				{
 					ptr->gotoAddr(cpu->GetLR());
+					SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 				}
 				break;
 
@@ -396,6 +685,12 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		Core_EnableStepping(false);
 		break;
 	}
+	case WM_USER+4:
+		gotoBreakpointAddress(wParam);
+		break;
+	case WM_USER+5:
+		removeBreakpoint(wParam);
+		break;
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));
@@ -427,13 +722,29 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	HWND disasm = GetDlgItem(m_hDlg, IDC_DISASMVIEW);
 	HWND funclist = GetDlgItem(m_hDlg, IDC_FUNCTIONLIST);
 	HWND regList = GetDlgItem(m_hDlg, IDC_REGLIST);
-	int wf = regRect.right - regRect.left;
-	int top = 138;
-	MoveWindow(regList, 8, top, wf, height - top - 8, TRUE);
-	MoveWindow(funclist, 8, top, wf, height - top - 8, TRUE);
-	int w = width - wf;
-	top = 25;
-	MoveWindow(disasm, wf + 15,top, w - 20, height - top - 8, TRUE);
+	HWND breakpointList = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
+	
+	int breakpointHeight = breakpointRect.bottom-breakpointRect.top;
+	int breakpointTop = height-breakpointHeight-8;
+	int regWidth = regRect.right - regRect.left;
+	int regTop = 138;
+	int disasmWidth = width-regWidth;
+	int disasmTop = 25;
+
+	MoveWindow(regList, 8, regTop, regWidth, height-regTop-breakpointHeight-12, TRUE);
+	MoveWindow(funclist, 8, regTop, regWidth, height-regTop-breakpointHeight-12, TRUE);
+	MoveWindow(disasm,regWidth+15,disasmTop,disasmWidth-20,height-disasmTop-breakpointHeight-12,TRUE);
+	MoveWindow(breakpointList,8,breakpointTop,width-16,breakpointHeight,TRUE);
+	
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST),&regRect);
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),&breakpointRect);
+
+	int totalListSize = (breakpointRect.right-breakpointRect.left-20);
+	for (int i = 0; i < BPL_COLUMNCOUNT; i++)
+	{
+		ListView_SetColumnWidth(breakpointList,i,breakpointColumnSizes[i] * totalListSize);
+	}		
 }
 
 void CDisasm::SavePosition()
@@ -456,6 +767,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	if (_bDebug)
 	{
 		CBreakPoints::ClearTemporaryBreakPoints();
+		updateBreakpointList();
 
 		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
@@ -494,6 +806,7 @@ void CDisasm::Goto(u32 addr)
 {
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 	ptr->gotoAddr(addr);
+	SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	ptr->redraw();
 	
 }

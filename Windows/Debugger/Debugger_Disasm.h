@@ -18,13 +18,17 @@ private:
 	RECT minRect;
 	RECT regRect;
 	RECT disRect;
-	
+	RECT breakpointRect;
+
 	DebugInterface *cpu;
 	
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
-
+	void updateBreakpointList();
+	void handleBreakpointNotify(LPARAM lParam);
+	void gotoBreakpointAddress(int itemIndex);
+	void removeBreakpoint(int itemIndex);
 public:
 	int index; //helper 
 
@@ -33,8 +37,12 @@ public:
 	//
 	// --- tools ---
 	//
-	// Update Dialog
-	virtual void Update() { UpdateDialog(true); };
+	
+	virtual void Update()
+	{
+		UpdateDialog(true);
+		updateBreakpointList();
+	};
 	void UpdateDialog(bool _bComplete = false);
 	// SetDebugMode 
 	void SetDebugMode(bool _bDebug);
