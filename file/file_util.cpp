@@ -251,6 +251,10 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	struct dirent_large diren;
 	struct dirent *result = NULL;
 
+	//std::string directoryWithSlash = directory;
+	//if (directoryWithSlash.back() != '/')
+	//	directoryWithSlash += "/";
+
 	DIR *dirp = opendir(directory);
 	if (!dirp)
 		return 0;
@@ -358,3 +362,29 @@ void mkDir(const std::string &path)
 	mkdir(path.c_str(), 0777);
 #endif
 }
+
+#ifdef _WIN32
+// Returns a vector with the device names
+std::vector<std::string> getWindowsDrives()
+{
+	std::vector<std::string> drives;
+
+	const DWORD buffsize = GetLogicalDriveStrings(0, NULL);
+	std::vector<TCHAR> buff(buffsize);
+	if (GetLogicalDriveStrings(buffsize, buff.data()) == buffsize - 1)
+	{
+		auto drive = buff.data();
+		while (*drive)
+		{
+			std::string str(drive);
+			str.pop_back();	// we don't want the final backslash
+			str += "/";
+			drives.push_back(str);
+			
+			// advance to next drive
+			while (*drive++) {}
+		}
+	}
+	return drives;
+}
+#endif

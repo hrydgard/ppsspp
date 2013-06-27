@@ -43,3 +43,7 @@ void deleteDir(const char *file);
 bool exists(const std::string &filename);
 void mkDir(const std::string &path);
 std::string getDir(const std::string &path);
+
+#ifdef _WIN32
+std::vector<std::string> getWindowsDrives();
+#endif

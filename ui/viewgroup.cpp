@@ -682,6 +682,7 @@ void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 		EnableFocusMovement(false);
 
 	root->Update(input_state);
+	DispatchEvents();
 }
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)

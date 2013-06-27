@@ -180,12 +180,14 @@ struct HandlerRegistration {
 
 class Event {
 public:
-	Event() : triggered_(false) {}
-
+	Event() {}
+	~Event() {
+		handlers_.clear();
+	}
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
 	// Call this from UI thread
-	void Update();
+	void Dispatch(EventParams &e);
 
 	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
 	template<class T> 
@@ -198,11 +200,8 @@ public:
 	void Add(std::function<EventReturn(EventParams&)> func);
 
 private:
-	recursive_mutex mutex_;
 	std::vector<HandlerRegistration> handlers_;
-	bool triggered_;
-	EventParams eventParams_;
-
+	
 	DISALLOW_COPY_AND_ASSIGN(Event);
 };
 
@@ -368,6 +367,7 @@ public:
 	
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+	const std::string &GetText() const { return text_; }
 
 private:
 	Style style_;
@@ -583,5 +583,8 @@ private:
 };*/
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
+
+void EventTriggered(Event *e, EventParams params);
+void DispatchEvents();
 
 }  // namespace

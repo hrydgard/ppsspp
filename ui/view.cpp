@@ -1,4 +1,5 @@
-﻿#include "base/display.h"
+﻿#include <queue>
+#include "base/display.h"
 #include "base/mutex.h"
 #include "input/input_state.h"
 #include "gfx_es2/draw_buffer.h"
@@ -13,7 +14,38 @@ namespace UI {
 static View *focusedView;
 static bool focusMovementEnabled;
 
+static recursive_mutex mutex_;
+
 const float ITEM_HEIGHT = 64.f;
+
+
+struct DispatchQueueItem {
+	Event *e;
+	EventParams params;
+};
+
+std::queue<DispatchQueueItem> g_dispatchQueue;
+
+
+void EventTriggered(Event *e, EventParams params) {
+	lock_guard guard(mutex_);
+
+	DispatchQueueItem item;
+	item.e = e;
+	item.params = params;
+	g_dispatchQueue.push(item);
+}
+
+void DispatchEvents() {
+	lock_guard guard(mutex_);
+
+	while (!g_dispatchQueue.empty()) {
+		DispatchQueueItem item = g_dispatchQueue.back();
+		g_dispatchQueue.pop();
+		item.e->Dispatch(item.params);
+	}
+}
+
 
 View *GetFocusedView() {
 	return focusedView;
@@ -58,21 +90,16 @@ void Event::Add(std::function<EventReturn(EventParams&)> func) {
 
 // Call this from input thread or whatever, it doesn't matter
 void Event::Trigger(EventParams &e) {
-	lock_guard guard(mutex_);
-	if (!triggered_) {
-		triggered_ = true;
-		eventParams_ = e;
-	}
+	EventTriggered(this, e);	
 }
 
 // Call this from UI thread
-void Event::Update() {
-	lock_guard guard(mutex_);
-	if (triggered_) {
-		for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
-			(iter->func)(eventParams_);
+void Event::Dispatch(EventParams &e) {
+	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
+		if ((iter->func)(e) == UI::EVENT_DONE) {
+			// Event is handled, stop looping immediately. This event might even have gotten deleted.
+			return;
 		}
-		triggered_ = false;
 	}
 }
 
@@ -128,7 +155,6 @@ void Clickable::Touch(const TouchInput &input) {
 }
 
 void Clickable::Update(const InputState &input_state) {
-	OnClick.Update();
 	if (!HasFocus())
 		return;
 
@@ -182,21 +208,21 @@ void ClickableItem::Draw(UIContext &dc) {
 
 void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+	w += 16;
+	h += 16;
 }
 
 void Choice::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
 
-	int paddingX = 4;
-	int paddingY = 4;
+	int paddingX = 8;
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
-	int paddingX = 4;
-	int paddingY = 4;
+	int paddingX = 8;
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_RIGHT);
 // 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
@@ -209,8 +235,8 @@ void ItemHeader::Draw(UIContext &dc) {
 
 void CheckBox::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
-	int paddingX = 4;
-	int paddingY = 4;
+	int paddingX = 8;
+	int paddingY = 8;
 
 	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 
