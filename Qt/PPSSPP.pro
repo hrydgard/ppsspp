@@ -4,7 +4,7 @@ QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
 win32: QT += multimedia
-VERSION = 0.8.0
+VERSION = 0.8.1
 
 include(Settings.pri)
 mobile_platform: MOBILITY += sensors
@@ -82,26 +82,25 @@ PRE_TARGETDEPS += compiler_lang_make_all
 
 # Packaging
 symbian {
-        # App UID:
-        TARGET.UID3 = 0xE0095B1D
+	# App UID:
+	TARGET.UID3 = 0xE0095B1D
 
-        # App Name:
-        DEPLOYMENT.display_name = PPSSPP
+	# App Name:
+	DEPLOYMENT.display_name = PPSSPP
 
-        # App Vendor:
-        vendorName = "%{\"Qtness\"}" ":\"Qtness\""
-        vendor_deploy.pkg_prerules = vendorName
+	# App Vendor:
+	vendor_deploy.pkg_prerules = "%{\"Qtness\"}" ":\"Qtness\""
 
-        # App Icon:
-        ICON = ../assets/icon.svg
+	# App Icon:
+	ICON = ../assets/icon.svg
 
-        # Folders:
+	# Folders:
 	assets.sources = ../assets/flash ../lang
 	assets.path = E:/PPSSPP
 
-        DEPLOYMENT += vendor_deploy assets
+	DEPLOYMENT += vendor_deploy assets
 
-        # 268 MB maximum
+	# 268 MB maximum
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
