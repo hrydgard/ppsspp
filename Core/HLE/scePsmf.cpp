@@ -793,6 +793,7 @@ int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
 		if (size <= 0)
 			break;
 		size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, size);
+		psmfplayer->readSize += size;
 		psmfplayer->mediaengine->addStreamData(buf, size);
 	} while (size > 0);
 	if (psmfplayer->readSize >= psmfplayer->streamSize && videoLoopStatus == PSMF_PLAYER_CONFIG_LOOP) {
