@@ -67,7 +67,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.SSAntiAliasing, gs->T("Anti Aliasing")));
-	graphicsSettings->Add(new CheckBox(&g_Config.SSAntiAliasing, gs->T("Show FPS")));
+	// graphicsSettings->Add(new CheckBox(&g_Config.iShowFPSCounter, gs->T("Show FPS")));
 	
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *audioSettings = new LinearLayout(ORIENT_VERTICAL);
@@ -82,7 +82,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettingsScroll->Add(controlsSettings);
 	tabHolder->AddTab("Controls", controlsSettingsScroll);
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
-	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("Large Controls")));
+	controlsSettings->Add(new CheckBox(&g_Config.bLargeControls, c->T("Large Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Analog Stick")));
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 
