@@ -1369,25 +1369,25 @@ void KeyMappingScreen::render() {
 	int hlfpad = pad / 2;
 
 	int left = 30;
-	KeyBtn(left, 30, PAD_BUTTON_LBUMPER);
-	KeyBtn(dp_yres, 30, PAD_BUTTON_RBUMPER);
+	KeyBtn(left, 30, CTRL_LTRIGGER);
+	KeyBtn(dp_yres, 30, CTRL_RTRIGGER);
 
 	int top = 100;
-	KeyBtn(left+hlfpad, top, PAD_BUTTON_UP); // ^
-	KeyBtn(left, top+hlfpad, PAD_BUTTON_LEFT);// <
-	KeyBtn(left+pad, top+hlfpad, PAD_BUTTON_RIGHT); // >
-	KeyBtn(left+hlfpad, top+pad, PAD_BUTTON_DOWN); // <
+	KeyBtn(left+hlfpad, top, CTRL_UP); // ^
+	KeyBtn(left, top+hlfpad, CTRL_LEFT);// <
+	KeyBtn(left+pad, top+hlfpad, CTRL_RIGHT); // >
+	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // <
 
 	left = dp_yres;
-	KeyBtn(left+hlfpad, top, PAD_BUTTON_Y); // Triangle
-	KeyBtn(left, top+hlfpad, PAD_BUTTON_X); // Square
-	KeyBtn(left+pad, top+hlfpad, PAD_BUTTON_A); // Circle
-	KeyBtn(left+hlfpad, top+pad, PAD_BUTTON_B); // Cross
+	KeyBtn(left+hlfpad, top, CTRL_TRIANGLE); // Triangle
+	KeyBtn(left, top+hlfpad, CTRL_SQUARE); // Square
+	KeyBtn(left+pad, top+hlfpad, CTRL_CIRCLE); // Circle
+	KeyBtn(left+hlfpad, top+pad, CTRL_CROSS); // Cross
 
 	top += pad;
 	left = dp_yres /2;
-	KeyBtn(left, top, PAD_BUTTON_START);
-	KeyBtn(left + pad, top, PAD_BUTTON_SELECT);
+	KeyBtn(left, top, CTRL_START);
+	KeyBtn(left + pad, top, CTRL_SELECT);
 #undef KeyBtn
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {

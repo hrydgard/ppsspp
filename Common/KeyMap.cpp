@@ -110,7 +110,6 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_ALT_RIGHT, "Alt"},
 	{KEYCODE_SPACE, "Space"},
 	{KEYCODE_WINDOW, "Windows"},
-	{KEYCODE_SPACE, "Space"},
 
 	{KEYCODE_VOLUME_UP, "Vol Up"},
 	{KEYCODE_VOLUME_DOWN, "Vol Down"},
