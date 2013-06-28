@@ -70,6 +70,12 @@ void Process(VertexData& vertex)
 			}
 		}
 
+		// ambient lighting
+		Vec3<int> lac = Vec3<int>(gstate.getLightAmbientColorR(light), gstate.getLightAmbientColorG(light), gstate.getLightAmbientColorB(light));
+		vertex.color0.r() += att * spot * lac.r() * mac.r() / 255;
+		vertex.color0.g() += att * spot * lac.g() * mac.g() / 255;
+		vertex.color0.b() += att * spot * lac.b() * mac.b() / 255;
+
 		// diffuse lighting
 		Vec3<int> ldc = Vec3<int>(gstate.getDiffuseColorR(light), gstate.getDiffuseColorG(light), gstate.getDiffuseColorB(light));
 		Vec3<int> mdc = (gstate.materialupdate&2)
