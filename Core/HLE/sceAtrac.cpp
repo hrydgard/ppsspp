@@ -137,7 +137,7 @@ struct Atrac {
 		Atrac3plus_Decoder::CloseContext(&decoder_context);
 		sampleQueue.clear();
 
-		if (atracContext.Valid())
+		if (atracContext.IsValid())
 			kernelMemory.Free(atracContext.ptr);
 	}
 
@@ -513,7 +513,7 @@ u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd) {
 		atrac->first.size = atrac->first.filesize;
 	atrac->first.fileoffset = atrac->first.size;
 	atrac->first.writableBytes = 0;
-	if (atrac->atracContext.Valid()) {
+	if (atrac->atracContext.IsValid()) {
 		// refresh atracContext
 		_AtracGenarateContext(atrac, atrac->atracContext);
 	}
@@ -670,7 +670,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			*finish = finishFlag;
 			*remains = atrac->getRemainFrames();
 		}
-		if (atrac->atracContext.Valid()) {
+		if (atrac->atracContext.IsValid()) {
 			// refresh atracContext
 			_AtracGenarateContext(atrac, atrac->atracContext);
 		}
@@ -1456,18 +1456,18 @@ int _sceAtracGetContextAddress(int atracID)
 		ERROR_LOG(HLE, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
 		return 0;
 	}
-	if (!atrac->atracContext.Valid()) {
+	if (!atrac->atracContext.IsValid()) {
 		// allocate a new atracContext
 		u32 contextsize = 256;
 		atrac->atracContext = kernelMemory.Alloc(contextsize, false, "Atrac Context");
-		if (atrac->atracContext.Valid())
+		if (atrac->atracContext.IsValid())
 			Memory::Memset(atrac->atracContext.ptr, 0, 256);
 
 		WARN_LOG(HLE, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->atracContext.ptr, atracID);
 	}
 	else
 		WARN_LOG(HLE, "%08x=_sceAtracGetContextAddress(%i)", atrac->atracContext.ptr, atracID);
-	if (atrac->atracContext.Valid())
+	if (atrac->atracContext.IsValid())
 		_AtracGenarateContext(atrac, atrac->atracContext);
 	if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
 		// This is a hack method to release those already finished atrac3 voice.

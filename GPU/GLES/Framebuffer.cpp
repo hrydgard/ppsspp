@@ -57,6 +57,18 @@ static const char basic_vs[] =
 	"  gl_Position = u_viewproj * a_position;\n"
 	"}\n";
 
+static const char blit_fs[] =
+	"#ifdef GL_ES\n"
+	"precision mediump float;\n"
+	"#endif\n"
+	"uniform sampler2D sampler0;\n"
+	"varying vec4 v_color;\n"
+	"varying vec2 v_texcoord0;\n"
+	"void main() {\n"
+	"	v_color = texture2D(sampler0, v_texcoord0).bgra;\n"
+	"	gl_FragColor = v_color;\n"
+	"}\n";
+
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
 	FBO_OLD_AGE = 5,
@@ -65,6 +77,32 @@ enum {
 static bool MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
 }
+
+static u16 RGBA8888toRGB565(u32 px) {
+	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
+}
+
+static u16 BGRA8888toRGB565(u32 px) {
+	return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
+}
+
+static u16 RGBA8888toRGBA4444(u32 px) {
+	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
+}
+
+static u16 BGRA8888toRGBA4444(u32 px) {
+	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
+}
+
+static u16 RGBA8888toRGBA1555(u32 px) {
+	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
+}
+
+static u16 BGRA8888toRGBA1555(u32 px) {
+	return ((px >> 19) & 0x001F) | ((px >> 6) & 0x03E0) | ((px << 7) & 0x7C00) | ((px >> 16) & 0x8000);
+}
+
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format, bool bgra = false);
 
 void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH)
@@ -116,11 +154,19 @@ FramebufferManager::FramebufferManager() :
 	currentRenderVfb_(0),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(-1),
-	convBuf(0)
+	convBuf(0),
+	pixelBufObj_(0),
+	currentPBO_(0)
 {
 	draw2dprogram = glsl_create_source(basic_vs, tex_fs);
 
 	glsl_bind(draw2dprogram);
+	glUniform1i(draw2dprogram->sampler0, 0);
+	glsl_unbind();
+
+	blitprogram = glsl_create_source(basic_vs, blit_fs);
+
+	glsl_bind(blitprogram);
 	glUniform1i(draw2dprogram->sampler0, 0);
 	glsl_unbind();
 
@@ -138,6 +184,9 @@ FramebufferManager::~FramebufferManager() {
 	if (drawPixelsTex_)
 		glDeleteTextures(1, &drawPixelsTex_);
 	glsl_destroy(draw2dprogram);
+	glsl_destroy(blitprogram);
+
+	delete [] pixelBufObj_;
 	delete [] convBuf;
 }
 
@@ -243,27 +292,33 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale) {
+void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, GLSLProgram *program) {
 	float u2 = uscale;
 	float v1 = flip ? 1.0f : 0.0f;
 	float v2 = flip ? 0.0f : 1.0f;
 
 	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
 	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
+	const GLubyte indices[4] = {0,1,3,2};
 
-	glsl_bind(draw2dprogram);
+	if(!program) {
+		program = draw2dprogram;
+	}
+
+	glsl_bind(program);
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0, -1, 1);
-	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
+	glUniformMatrix4fv(program->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glEnableVertexAttribArray(draw2dprogram->a_position);
-	glEnableVertexAttribArray(draw2dprogram->a_texcoord0);
-	glVertexAttribPointer(draw2dprogram->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(draw2dprogram->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);	
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);	// TODO: TRIANGLE_STRIP is more likely to be optimized.
-	glDisableVertexAttribArray(draw2dprogram->a_position);
-	glDisableVertexAttribArray(draw2dprogram->a_texcoord0);
+	glEnableVertexAttribArray(program->a_position);
+	glEnableVertexAttribArray(program->a_texcoord0);
+	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);	
+	//glDrawArrays(GL_TRIANGLE_FAN, 0, 4);	// TODO: TRIANGLE_STRIP is more likely to be optimized.
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices); // Trying glDrawElements with GL_TRIANGLE_STRIP
+	glDisableVertexAttribArray(program->a_position);
+	glDisableVertexAttribArray(program->a_texcoord0);
 	glsl_unbind();
 }
 
@@ -406,6 +461,13 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
 	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
 
+	// Save current render framebuffer to memory
+	if(currentRenderVfb_) {
+		if(g_Config.bFramebuffersToMem) {
+			ReadFramebufferToMemory(currentRenderVfb_);
+		}
+	}
+
 	// None found? Create one.
 	if (!vfb) {
 		gstate_c.textureChanged = true;
@@ -481,7 +543,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
-		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
+		DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
 		vfb->last_frame_used = gpuStats.numFrames;
@@ -580,6 +642,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 	displayFramebuf_ = vfb;
 
+	if(g_Config.bFramebuffersToMem) {
+		ReadFramebufferToMemory(vfb);
+	}
+
 	if (vfb->fbo) {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
@@ -603,6 +669,443 @@ void FramebufferManager::CopyDisplayToOutput() {
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
+}
+
+void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
+	// This only works with buffered rendering
+	if (!useBufferedRendering_) {
+		return;
+	}
+
+	fbo_unbind();
+	if(gl_extensions.FBO_ARB) { // TODO: fbo_unbind should use GL_FRAMEBUFFER to do this? Don't want to change native
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	}
+	if(vfb) {
+		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
+		// For now we'll keep these on the same struct as the ones that can get displayed
+		// (and blatantly copy work already done above while at it).
+		VirtualFramebuffer *nvfb = 0;
+
+		// We maintain a separate vector of framebuffer objects for blitting.
+		for (size_t i = 0; i < bvfbs_.size(); ++i) {
+			VirtualFramebuffer *v = bvfbs_[i];
+			if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
+				if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
+					nvfb = v;
+					v->fb_stride = vfb->fb_stride;
+					v->width = vfb->width;
+					v->height = vfb->height;
+					break;
+				}
+			}
+		}
+
+		// Create a new fbo if none was found for the size
+		if(!nvfb) {
+			nvfb = new VirtualFramebuffer();
+			nvfb->fbo = 0;
+			nvfb->fb_address = vfb->fb_address;
+			nvfb->fb_stride = vfb->fb_stride;
+			nvfb->z_address = vfb->z_address;
+			nvfb->z_stride = vfb->z_stride;
+			nvfb->width = vfb->width;
+			nvfb->height = vfb->height;
+			nvfb->renderWidth = vfb->width;
+			nvfb->renderHeight = vfb->height;
+			nvfb->bufferWidth = vfb->bufferWidth;
+			nvfb->bufferHeight = vfb->bufferHeight;
+			nvfb->format = vfb->format;
+			nvfb->usageFlags = FB_USAGE_RENDERTARGET;
+			nvfb->dirtyAfterDisplay = true;
+
+			if(g_Config.bTrueColor) {
+				nvfb->colorDepth = FBO_8888;
+			} else {
+				switch (vfb->format) {
+					case GE_FORMAT_4444:
+						nvfb->colorDepth = FBO_4444;
+						break;
+					case GE_FORMAT_5551:
+						nvfb->colorDepth = FBO_5551;
+						break;
+					case GE_FORMAT_565: 
+						nvfb->colorDepth = FBO_565;
+						break;
+					case GE_FORMAT_8888:
+					default: 
+						nvfb->colorDepth = FBO_8888;
+						break;
+				}
+			}
+			
+			//#ifdef ANDROID
+			//	nvfb->colorDepth = FBO_8888;
+			//#endif
+
+			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
+			if (!(nvfb->fbo)) {
+				ERROR_LOG(HLE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+			}
+
+			if (useBufferedRendering_) {
+				if (nvfb->fbo) {
+					fbo_bind_as_render_target(nvfb->fbo);
+				} else {
+					fbo_unbind();
+					return;
+				}
+			}
+
+			nvfb->last_frame_used = gpuStats.numFrames;
+			bvfbs_.push_back(nvfb);
+
+			glstate.depthWrite.set(GL_TRUE);
+			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glClearColor(0.0f,0.0f,0.0f,1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+			//glEnable(GL_DITHER);
+		} else {
+			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
+			nvfb->last_frame_used = gpuStats.numFrames;
+			nvfb->dirtyAfterDisplay = true;
+
+			if (useBufferedRendering_) {
+				if (nvfb->fbo) {
+					fbo_bind_as_render_target(nvfb->fbo);
+#ifdef USING_GLES2
+					// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+					// to it. This broke stuff before, so now it only clears on the first use of an
+					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+					if (nvfb->last_frame_used != gpuStats.numFrames)	{
+						glstate.depthWrite.set(GL_TRUE);
+						glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+						glClearColor(0,0,0,1);
+						glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+					}
+#endif
+				} else {
+					fbo_unbind();
+					return;
+				}
+			}
+		}
+
+		BlitFramebuffer_(vfb, nvfb, true);
+
+		PackFramebuffer_(nvfb);
+	}
+}
+
+void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale) {
+	// This only works with buffered rendering
+	if (!useBufferedRendering_) {
+		return;
+	}
+
+	fbo_bind_as_render_target(dst->fbo);
+	
+	if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		ERROR_LOG(HLE, "Incomplete target framebuffer, aborting blit");
+		fbo_unbind();
+		return;
+	}
+
+	if(src->format == GE_FORMAT_565) {
+		// Not sure this should be done
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	} else {
+		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	}
+		
+	glstate.viewport.set(0, 0, dst->width, dst->height);
+	glstate.depthTest.disable();
+	glstate.blend.disable();
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.scissorTest.disable();
+	glstate.stencilTest.disable();
+
+	fbo_bind_color_as_texture(src->fbo, 0);
+
+	float x, y, w, h;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+
+#ifdef USING_GLES2
+	DrawActiveTexture(x, y, w, h, !flip, upscale, draw2dprogram);
+#else
+	if(!g_Config.bAsyncReadback || (g_Config.bCPUConvert && src->format != GE_FORMAT_8888)) {
+		DrawActiveTexture(x, y, w, h, !flip, upscale, draw2dprogram);
+	} else {
+		DrawActiveTexture(x, y, w, h, !flip, upscale, blitprogram);
+	}
+#endif
+	
+	glBindTexture(GL_TEXTURE_2D, 0);
+	fbo_unbind();
+}
+
+void FramebufferManager::PackFramebuffer_(VirtualFramebuffer *vfb) {
+#ifdef USING_GLES2
+	PackFramebufferGLES_(vfb); // synchronous glReadPixels
+#else
+	if(g_Config.bAsyncReadback) {
+		PackFramebufferGL_(vfb); // asynchronous glReadPixels using PBOs
+	} else {
+		PackFramebufferGLES_(vfb); // synchronous glReadPixels
+	}
+#endif
+}
+
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format, bool bgra) {
+	if(format == GE_FORMAT_8888) {
+		return;
+	} else {
+		for (int j = 0; j < height; j++) {
+			const u32 *src32 = (u32 *)(src + stride * j*4);
+			u16 *dst16 = (u16 *)(dst + stride * j*2);
+			switch (format) {
+				case GE_FORMAT_565: // BGR 565
+					for(int i = 0; i < stride; i++) {
+						u32 px = *(src32 + i);
+						*(dst16+i) = (bgra ? BGRA8888toRGB565(px) : RGBA8888toRGB565(px));
+					}
+					break;
+				case GE_FORMAT_5551: // ABGR 1555
+					for(int i = 0; i < stride; i++) {
+						u32 px = *(src32 + i);
+						*(dst16+i) = (bgra ? BGRA8888toRGBA1555(px) : RGBA8888toRGBA1555(px));
+					}
+
+					break;
+				case GE_FORMAT_4444: // ABGR 4444
+					for(int i = 0; i < stride; i++) {
+						u32 px = *(src32 + i);
+						*(dst16+i) = (bgra ? BGRA8888toRGBA4444(px) : RGBA8888toRGBA4444(px));
+					}
+					break;
+				default:
+					break;
+			}
+		}
+	}
+}
+
+void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
+	GLubyte *packed = 0;
+
+	// Order packing/readback of the framebuffer
+	if(vfb) {
+		int pixelType, pixelFormat, pixelSize, align;
+
+		switch (vfb->format) {
+			case GE_FORMAT_4444: // 16 bit ABGR
+				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+				pixelFormat = GL_BGRA;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_5551: // 16 bit ABGR
+				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+				pixelFormat = GL_BGRA;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_565: // 16 bit BGR
+				pixelType = GL_UNSIGNED_SHORT_5_6_5;
+				pixelFormat = GL_BGR;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_8888: // 32 bit ABGR
+			default:
+				pixelType = GL_UNSIGNED_BYTE;
+				pixelFormat = GL_BGRA;
+				pixelSize = 4;
+				align = 4;
+				break;
+		}
+
+		size_t bufSize = vfb->fb_stride * vfb->height * pixelSize;
+		u32 fb_address = (0x44000000) | vfb->fb_address;
+
+		if (useBufferedRendering_) {
+			if (vfb->fbo) {
+				fbo_bind_for_read(vfb->fbo);
+			} else {
+				fbo_unbind();
+				if(gl_extensions.FBO_ARB) {
+					glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+				}
+				return;
+			}
+		}
+
+		if(!pixelBufObj_) {
+			GLuint pbos[2];
+
+			glGenBuffers(2, pbos);
+
+			pixelBufObj_ = new AsyncPBO[2];
+
+			pixelBufObj_[0].handle = pbos[0];
+			pixelBufObj_[0].maxSize = 0;
+			pixelBufObj_[0].reading = false;
+
+			pixelBufObj_[1].handle = pbos[1];
+			pixelBufObj_[1].maxSize = 0;
+			pixelBufObj_[1].reading = false;
+			
+			currentPBO_ = 0;
+		}
+
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
+
+		if(pixelBufObj_[currentPBO_].maxSize < bufSize) {
+			if(g_Config.bCPUConvert && pixelType != GL_UNSIGNED_BYTE) {
+				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize*2, NULL, GL_DYNAMIC_READ);
+			} else {
+				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
+			}
+			pixelBufObj_[currentPBO_].maxSize = bufSize;
+		}
+
+		pixelBufObj_[currentPBO_].fb_address = fb_address;
+		pixelBufObj_[currentPBO_].size = bufSize;
+		pixelBufObj_[currentPBO_].stride = vfb->fb_stride;
+		pixelBufObj_[currentPBO_].height = vfb->height;
+		pixelBufObj_[currentPBO_].format = vfb->format;
+		pixelBufObj_[currentPBO_].reading = true;
+
+		if(g_Config.bCPUConvert) {
+			glPixelStorei(GL_PACK_ALIGNMENT, 4);
+			glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+		} else {
+			glPixelStorei(GL_PACK_ALIGNMENT, align);
+			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
+		}
+	}
+
+	// Receive data from previous framebuffer
+	u8 nextPBO = (currentPBO_ + 1) % 2;
+	if(pixelBufObj_[nextPBO].reading) {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[nextPBO].handle);
+		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+		if(packed) {
+			DEBUG_LOG(HLE, "Reading pbo to mem, bufSize = %u, packed = %08x, fb_address = %08x, pbo = %u", 
+				pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, nextPBO);
+
+			if(g_Config.bCPUConvert) {
+				switch(pixelBufObj_[nextPBO].format) {
+					case GE_FORMAT_565:
+					case GE_FORMAT_5551:
+					case GE_FORMAT_4444: {
+							u8 *processed = (u8 *)malloc(pixelBufObj_[nextPBO].size);
+			
+							if(processed) {
+								ConvertFromRGBA8888(processed, packed, 
+									pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
+									pixelBufObj_[nextPBO].format, true);
+				
+								Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, processed, pixelBufObj_[nextPBO].size);
+
+								free(processed);
+							}
+						}
+						break;
+					default:
+						Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
+				}
+			} else { // we don't need to convert
+				Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
+			}
+			glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+
+			pixelBufObj_[nextPBO].reading = false;
+		}
+	}
+
+	currentPBO_ = nextPBO;
+
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	fbo_unbind();
+	if(gl_extensions.FBO_ARB) {
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	}
+}
+
+void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
+	// Pixel size is always 4 here because data will come in RGBA8888
+	size_t bufSize = vfb->fb_stride * vfb->height * 4; // pixel size always 4 here
+	
+	u8 align = (vfb->format != GE_FORMAT_8888) ? 8 : 4;
+	
+	u32 fb_address = (0x44000000) | vfb->fb_address;
+
+	if (useBufferedRendering_) {
+		if (vfb->fbo) {
+			fbo_bind_for_read(vfb->fbo);
+		} else {
+			fbo_unbind();
+			if(gl_extensions.FBO_ARB) {
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+			}
+			return;
+		}
+	}
+
+	GLubyte *packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
+
+	if(packed) {
+		DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %08x, fb_address = %08x", 
+			bufSize, packed, fb_address);
+
+		glPixelStorei(GL_PACK_ALIGNMENT, 4);
+		glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, packed);
+		GLenum error = glGetError();
+		switch(error) {
+			case 0:
+				break;
+			case GL_INVALID_ENUM: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_ENUM"); 
+				break;
+			case GL_INVALID_VALUE: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_VALUE"); 
+				break;
+			case GL_INVALID_OPERATION: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_OPERATION"); 
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION"); 
+				break;
+			default:
+				ERROR_LOG(HLE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
+				break;
+		}
+
+		if(vfb->format != GE_FORMAT_8888) { // if not RGBA 8888 we need to convert
+			u8 *processed = (u8 *)malloc(vfb->fb_stride * vfb->height * 2);
+			
+			if(processed) {
+				ConvertFromRGBA8888(processed, packed, vfb->fb_stride, vfb->height, vfb->format);
+				
+				Memory::Memcpy(fb_address, processed, vfb->fb_stride * vfb->height * 2);
+
+				free(processed);
+			}
+		} else {
+			Memory::Memcpy(fb_address, packed, bufSize);
+		}
+
+		free(packed);
+	}
+
+	fbo_unbind();
+	if(gl_extensions.FBO_ARB) {
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 	}
 }
 
@@ -684,6 +1187,20 @@ void FramebufferManager::DecimateFBOs() {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			DestroyFramebuf(vfb);
 			vfbs_.erase(vfbs_.begin() + i--);
+		}
+	}
+
+	// Do the same for ReadFramebuffersToMemory's VFBs
+	for (size_t i = 0; i < bvfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = bvfbs_[i];
+		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
+			continue;
+		}
+		int age = frameLastFramebufUsed - vfb->last_frame_used;
+		if (age > FBO_OLD_AGE) {
+			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
+			DestroyFramebuf(vfb);
+			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
 	}
 }
