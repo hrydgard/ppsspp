@@ -42,18 +42,45 @@ void Process(VertexData& vertex)
 		if (!gstate.isLightChanEnabled(light))
 			continue;
 
+		Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3*light]&0xFFFFFF), getFloat24(gstate.lpos[3*light+1]&0xFFFFFF),getFloat24(gstate.lpos[3*light+2]&0xFFFFFF));
+		L -= vertex.worldpos;
+		float d = L.Length();
+
+		float lka = getFloat24(gstate.latt[3*light]&0xFFFFFF);
+		float lkb = getFloat24(gstate.latt[3*light+1]&0xFFFFFF);
+		float lkc = getFloat24(gstate.latt[3*light+2]&0xFFFFFF);
+		float att = 1.f;
+		if (!gstate.isDirectionalLight(light)) {
+			att = 1.f / (lka + lkb * d + lkc * d * d);
+			if (att > 1.f) att = 1.f;
+			if (att < 0.f) att = 0.f;
+		}
+
+		float spot = 1.f;
+		if (gstate.isSpotLight(light)) {
+			Vec3<float> dir = Vec3<float>(getFloat24(gstate.ldir[3*light]&0xFFFFFF), getFloat24(gstate.ldir[3*light+1]&0xFFFFFF),getFloat24(gstate.ldir[3*light+2]&0xFFFFFF));
+			float _spot = Dot(-L,dir) / d / dir.Length();
+			float cutoff = getFloat24(gstate.lcutoff[light]&0xFFFFFF);
+			if (_spot > cutoff) {
+				spot = _spot;
+				float conv = getFloat24(gstate.lconv[light]&0xFFFFFF);
+				spot = pow(_spot, conv);
+			} else {
+				spot = 0.f;
+			}
+		}
+
+		// diffuse lighting
 		Vec3<int> ldc = Vec3<int>(gstate.getDiffuseColorR(light), gstate.getDiffuseColorG(light), gstate.getDiffuseColorB(light));
 		Vec3<int> mdc = (gstate.materialupdate&2)
 							? Vec3<int>(gstate.getMaterialDiffuseR(), gstate.getMaterialDiffuseG(), gstate.getMaterialDiffuseB())
 							: vertex.color0.rgb();
-		Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3*light]&0xFFFFFF), getFloat24(gstate.lpos[3*light+1]&0xFFFFFF),getFloat24(gstate.lpos[3*light+2]&0xFFFFFF));
-		L -= vertex.worldpos;
 
-		float factor = Dot(L,vertex.normal) / L.Length() / vertex.worldpos.Length();
+		float diffuse_factor = Dot(L,vertex.normal) / d / vertex.worldpos.Length();
 
-		vertex.color0.r() += ldc.r() * mdc.r() * factor / 255;
-		vertex.color0.g() += ldc.g() * mdc.g() * factor / 255;
-		vertex.color0.b() += ldc.b() * mdc.b() * factor / 255;
+		vertex.color0.r() += att * spot * ldc.r() * mdc.r() * diffuse_factor / 255;
+		vertex.color0.g() += att * spot * ldc.g() * mdc.g() * diffuse_factor / 255;
+		vertex.color0.b() += att * spot * ldc.b() * mdc.b() * diffuse_factor / 255;
 	}
 
 	// Currently only implementing ambient+diffuse lighting, so secondary color is always zero anyway
