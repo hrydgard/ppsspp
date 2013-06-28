@@ -83,6 +83,10 @@ void Process(VertexData& vertex)
 							: vertex.color0.rgb();
 
 		float diffuse_factor = Dot(L,vertex.normal) / d / vertex.worldpos.Length();
+		if (gstate.isUsingPoweredDiffuseLight(light)) {
+			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
+			diffuse_factor = pow(diffuse_factor, k);
+		}
 
 		vertex.color0.r() += att * spot * ldc.r() * mdc.r() * diffuse_factor / 255;
 		vertex.color0.g() += att * spot * ldc.g() * mdc.g() * diffuse_factor / 255;
