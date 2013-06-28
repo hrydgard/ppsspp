@@ -21,7 +21,8 @@ private:
 	RECT breakpointRect;
 
 	DebugInterface *cpu;
-	
+	u64 lastTicks;
+
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();

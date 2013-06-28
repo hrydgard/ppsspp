@@ -71,6 +71,7 @@ static LRESULT CALLBACK BreakpointListProc(HWND hDlg, UINT message, WPARAM wPara
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent)
 {
 	cpu = _cpu;
+	lastTicks = CoreTiming::GetTicks();
 
 	SetWindowText(m_hDlg,_cpu->GetName());
 #ifdef THEMES
@@ -468,6 +469,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_GO:
 				{
+					lastTicks = CoreTiming::GetTicks();
 					SetDebugMode(false);
 					Core_EnableStepping(false);
 				}
@@ -475,6 +477,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STEP:
 				{
+					if (Core_IsActive()) break;
+					lastTicks = CoreTiming::GetTicks();
+
 					Core_DoSingleStep();		
 					Sleep(1);
 					_dbg_update_();
@@ -486,6 +491,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STEPOVER:
 				{
+					if (Core_IsActive()) break;
+					lastTicks = CoreTiming::GetTicks();
+
 					const char* dis = cpu->disasm(cpu->GetPC(),4);
 					const char* pos = strstr(dis,"->$");
 					const char* reg = strstr(dis,"->");
@@ -677,6 +685,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_USER+3:		// run to wparam
 	{
+		lastTicks = CoreTiming::GetTicks();
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->setDontRedraw(true);
 		SetDebugMode(false);
@@ -831,7 +840,7 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	rl->redraw();						
 	// Update Debug Counter
 	char tempTicks[24];
-	sprintf(tempTicks, "%lld", CoreTiming::GetTicks());
+	sprintf(tempTicks, "%lld", CoreTiming::GetTicks()-lastTicks);
 	SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 
 	// Update Register Dialog
