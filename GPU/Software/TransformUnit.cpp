@@ -124,17 +124,17 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			if (vreader.hasColor0()) {
 				float col[4];
 				vreader.ReadColor0(col);
-				data[i].color0 = Vec4<float>(col[0], col[1], col[2], col[3]);
+				data[i].color0 = Vec4<int>(col[0]*255, col[1]*255, col[2]*255, col[3]*255);
 			} else {
-				data[i].color0 = Vec4<float>((gstate.materialdiffuse&0xFF)/255.f, ((gstate.materialdiffuse>>8)&0xFF)/255.f, ((gstate.materialdiffuse>>16)&0xFF)/255.f, (gstate.materialalpha&0xFF)/255.f);
+				data[i].color0 = Vec4<int>(gstate.materialdiffuse&0xFF, (gstate.materialdiffuse>>8)&0xFF, (gstate.materialdiffuse>>16)&0xFF, gstate.materialalpha&0xFF);
 			}
 
 			if (vreader.hasColor1()) {
 				float col[3];
 				vreader.ReadColor0(col);
-				data[i].color1 = Vec3<float>(col[0], col[1], col[2]);
+				data[i].color1 = Vec3<int>(col[0]*255, col[1]*255, col[2]*255);
 			} else {
-				data[i].color1 = Vec3<float>(0.f, 0.f, 0.f);
+				data[i].color1 = Vec3<int>(0, 0, 0);
 			}
 
 			if (!gstate.isModeThrough()) {
