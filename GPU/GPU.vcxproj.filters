@@ -71,6 +71,9 @@
     <ClInclude Include="Software\Clipper.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Software\Lighting.h">
+      <Filter>Software</Filter>
+    </ClInclude>
     <ClInclude Include="Software\Rasterizer.h">
       <Filter>Software</Filter>
     </ClInclude>
@@ -130,6 +133,9 @@
       <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="Software\Clipper.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\Lighting.cpp">
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\Rasterizer.cpp">

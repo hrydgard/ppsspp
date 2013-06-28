@@ -20,6 +20,7 @@
 
 #include "TransformUnit.h"
 #include "Clipper.h"
+#include "Lighting.h"
 
 WorldCoords TransformUnit::ModelToWorld(const ModelCoords& coords)
 {
@@ -107,25 +108,30 @@ void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_co
 				float col[4];
 				vreader.ReadColor0(col);
 				data[i].color0 = Vec4<float>(col[0], col[1], col[2], col[3]);
+			} else {
+				data[i].color0 = Vec4<float>((gstate.materialdiffuse&0xFF)/255.f, ((gstate.materialdiffuse>>8)&0xFF)/255.f, ((gstate.materialdiffuse>>16)&0xFF)/255.f, (gstate.materialalpha&0xFF)/255.f);
 			}
 
 			if (vreader.hasColor1()) {
 				float col[3];
 				vreader.ReadColor0(col);
 				data[i].color1 = Vec3<float>(col[0], col[1], col[2]);
+			} else {
+				data[i].color1 = Vec3<float>(0.f, 0.f, 0.f);
 			}
 
 			if (!gstate.isModeThrough()) {
 				ModelCoords mcoords(pos[0], pos[1], pos[2]);
 				data[i].clippos = ClipCoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords)))));
 				data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
+
+				Lighting::Process(data[i]);
 			} else {
 				data[i].drawpos.x = pos[0];
 				data[i].drawpos.y = pos[1];
 			}
 		}
 
-		// TODO: Should do lighting here!
 
 		switch (prim_type) {
 		case GE_PRIM_TRIANGLES:

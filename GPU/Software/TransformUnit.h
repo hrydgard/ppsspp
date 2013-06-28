@@ -67,8 +67,8 @@ struct VertexData
 	ClipCoords clippos;
 	DrawingCoords drawpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
-	Vec4<float> color0;
-	Vec3<float> color1;
+	Vec4<float> color0; // TODO: Should be an int vector!
+	Vec3<float> color1; // TODO: Should be an int vector!
 };
 
 class TransformUnit

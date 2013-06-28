@@ -15,6 +15,7 @@ set(SRCS
 	GLES/VertexShaderGenerator.cpp
 	Null/NullGpu.cpp
 	Software/Clipper.cpp
+	Software/Lighting.cpp
 	Software/Rasterizer.cpp
 	Software/SoftGpu.cpp
 	Software/TransformUnit.cpp
