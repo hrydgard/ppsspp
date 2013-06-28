@@ -115,6 +115,12 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				data[i].texturecoords = Vec2<float>(uv[0], uv[1]);
 			}
 
+			if (vreader.hasNormal()) {
+				float normal[3];
+				vreader.ReadNrm(normal);
+				data[i].normal = Vec3<float>(normal[0], normal[1], normal[2]);
+			}
+
 			if (vreader.hasColor0()) {
 				float col[4];
 				vreader.ReadColor0(col);
@@ -133,7 +139,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 			if (!gstate.isModeThrough()) {
 				ModelCoords mcoords(pos[0], pos[1], pos[2]);
-				data[i].clippos = ClipCoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(TransformUnit::ModelToWorld(mcoords)))));
+				data[i].worldpos = WorldCoords(TransformUnit::ModelToWorld(mcoords));
+				data[i].clippos = ClipCoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(data[i].worldpos))));
 				data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
 
 				Lighting::Process(data[i]);

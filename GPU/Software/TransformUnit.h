@@ -43,6 +43,8 @@ struct VertexData
 	{
 		#define LINTERP(T, OUT, IN) (OUT) + ((IN - OUT) * T)
 
+		// World coords only needed for lighting, so we don't Lerp those
+
 		clippos.x = LINTERP(t, a.clippos.x, b.clippos.x);
 		clippos.y = LINTERP(t, a.clippos.y, b.clippos.y);
 		clippos.z = LINTERP(t, a.clippos.z, b.clippos.z);
@@ -54,6 +56,10 @@ struct VertexData
 		texturecoords.x = LINTERP(t, a.texturecoords.x, b.texturecoords.x);
 		texturecoords.y = LINTERP(t, a.texturecoords.y, b.texturecoords.y);
 
+		normal.x = LINTERP(t, a.normal.x, b.normal.x);
+		normal.y = LINTERP(t, a.normal.y, b.normal.y);
+		normal.z = LINTERP(t, a.normal.z, b.normal.z);
+
 		color0.x = LINTERP(t, a.color0.x, b.color0.x);
 		color0.y = LINTERP(t, a.color0.y, b.color0.y);
 		color0.z = LINTERP(t, a.color0.z, b.color0.z);
@@ -64,9 +70,11 @@ struct VertexData
 		color1.z = LINTERP(t, a.color1.z, b.color1.z);
 	}
 
+	WorldCoords worldpos; // TODO: Storing this is dumb, should transform the light to clip space instead
 	ClipCoords clippos;
 	DrawingCoords drawpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
+	Vec3<float> normal;
 	Vec4<float> color0; // TODO: Should be an int vector!
 	Vec3<float> color1; // TODO: Should be an int vector!
 };
