@@ -339,6 +339,12 @@ enum GEComparison
 	GE_COMP_GEQUAL
 };
 
+enum GEShadeMode
+{
+	GE_SHADE_FLAT=0,
+	GE_SHADE_GOURAUD
+};
+
 enum GELightType
 {
 	GE_LIGHTTYPE_DIRECTIONAL = 0,
