@@ -139,13 +139,15 @@ void PSPDialog::DisplayButtons(int flags)
 		x2 = 183.5f;
 	}
 	if (flags & DS_BUTTON_OK) {
+		PPGeDrawImage(okButtonImg, x2, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
 		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Enter"), x2 + 15.5f, 253, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x30000000));
+		PPGeDrawText(d->T("Enter"), x2 + 15.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
 		PPGeDrawText(d->T("Enter"), x2 + 14.5f, 250, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	}
 	if (flags & DS_BUTTON_CANCEL) {
-		PPGeDrawText(d->T("Back"), x1 + 15.5f, 253, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x30000000));
+		PPGeDrawText(d->T("Back"), x1 + 15.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
 		PPGeDrawText(d->T("Back"), x1 + 14.5f, 250, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(cancelButtonImg, x1, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
 		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
 	}
 }
