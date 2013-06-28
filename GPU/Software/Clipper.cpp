@@ -127,7 +127,7 @@ void ProcessQuad(VertexData* data)
 {
 	if (!gstate.isModeThrough()) {
 		// TODO: Not sure if the clipping code works...
-		// TODO: Color of second vertex should be preserved
+/*		// TODO: Color of second vertex should be preserved
 		int mask0 = CalcClipMask(data[0].clippos);
 		int mask1 = CalcClipMask(data[1].clippos);
 		int mask = mask0 | mask1;
@@ -149,7 +149,13 @@ void ProcessQuad(VertexData* data)
 		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
 
 		data[0].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[0].clippos));
-		data[1].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos));
+		data[1].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos));*/
+
+		VertexData newdata[6] = { data[0], data[0], data[1], data[1], data[1], data[0] };
+		newdata[1].clippos.x = data[1].clippos.x;
+		newdata[4].clippos.x = data[0].clippos.x;
+		ProcessTriangle(newdata);
+		ProcessTriangle(newdata+3);
 	}
 
 	VertexData verts[6] = { data[0], data[0], data[1], data[1], data[1], data[0] };
