@@ -655,6 +655,7 @@ void KeyMappingScreen::update(InputState &input) {
 }
 
 void KeyMappingNewKeyDialog::update(InputState &input) {
+	last_kb_key = input.key_queue[0];
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -1423,7 +1424,8 @@ void KeyMappingNewKeyDialog::render() {
 	KeyScale(1.4f);
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);
-	KeyText(right, top + stride, "Y");
+	if (last_kb_key != 0)
+		KeyText(right, top + stride, KeyMap::GetKeyName(last_kb_key).c_str());
 
 	KeyScale(1.0f);
 #undef KeyText

@@ -142,9 +142,11 @@ class KeyMappingNewKeyDialog : public Screen
 {
 private:
 	int pspBtn;
+	int last_kb_key;
 public:
 	KeyMappingNewKeyDialog(int btn) {
 		pspBtn = btn;
+		last_kb_key = 0;
 	}
 	void update(InputState &input);
 	void render();
