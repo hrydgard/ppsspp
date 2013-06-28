@@ -39,4 +39,5 @@ private:
 	UI::EventReturn OnSettings(UI::EventParams &e);
 	UI::EventReturn OnCredits(UI::EventParams &e);
 	UI::EventReturn OnSupport(UI::EventParams &e);
+	UI::EventReturn OnExit(UI::EventParams &e);
 };

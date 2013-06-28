@@ -336,6 +336,7 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice("Load..."))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice("Settings"))->OnClick.Handle(this, &MainScreen::OnSettings);
+	rightColumnItems->Add(new Choice("Exit"))->OnClick.Handle(this, &MainScreen::OnExit);
 	rightColumnItems->Add(new Choice("Credits"))->OnClick.Handle(this, &MainScreen::OnCredits);
 	rightColumnItems->Add(new Choice("Support PPSSPP"))->OnClick.Handle(this, &MainScreen::OnSupport);
 }
@@ -371,5 +372,11 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
+	NativeShutdown();
+	exit(0);
 	return UI::EVENT_DONE;
 }
