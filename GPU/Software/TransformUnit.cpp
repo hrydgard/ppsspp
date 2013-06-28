@@ -66,15 +66,23 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 	return ret;
 }
 
-void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_count, u32 vertex_type)
+void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type)
 {
 	// TODO: Cache VertexDecoder objects
 	VertexDecoder vdecoder;
 	vdecoder.SetVertexType(vertex_type);
 	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
 
-	static u8 buf[1024000]; // yolo
-	vdecoder.DecodeVerts(buf, vertices, 0, vertex_count - 1);
+	static u8 buf[65536 * 48]; // yolo
+	u16 index_lower_bound = 0;
+	u16 index_upper_bound = vertex_count - 1;
+	bool indices_8bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_8BIT;
+	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
+	u8* indices8 = (u8*)indices;
+	u16* indices16 = (u16*)indices;
+	if (indices)
+		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
+	vdecoder.DecodeVerts(buf, vertices, index_lower_bound, index_upper_bound);
 
 	VertexReader vreader(buf, vtxfmt, vertex_type);
 
@@ -95,7 +103,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, u32 prim_type, int vertex_co
 		for (unsigned int i = 0; i < vtcs_per_prim; ++i)
 		{
 			float pos[3];
-			vreader.Goto(vtx+i);
+			if (indices)
+				vreader.Goto(indices_16bit ? indices16[vtx+i] : indices8[vtx+i]);
+			else
+				vreader.Goto(vtx+i);
 			vreader.ReadPos(pos);
 
 			if (!gstate.isModeClear() && gstate.textureMapEnable && vreader.hasUV()) {

@@ -261,12 +261,12 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			ERROR_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				// TODO: Index support...
-				ERROR_LOG(G3D, "Using indices... fail");
+				indices = Memory::GetPointer(gstate_c.indexAddr);
 			}
 
-			TransformUnit::SubmitPrimitive(verts, type, count, gstate.vertType);
+			TransformUnit::SubmitPrimitive(verts, indices, type, count, gstate.vertType);
 		}
 		break;
 

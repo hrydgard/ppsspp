@@ -80,5 +80,5 @@ public:
 	static ScreenCoords ClipToScreen(const ClipCoords& coords);
 	static DrawingCoords ScreenToDrawing(const ScreenCoords& coords);
 
-	static void SubmitPrimitive(void* vertices, u32 prim_type, int vertex_count, u32 vertex_type);
+	static void SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type);
 };
