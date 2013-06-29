@@ -846,7 +846,7 @@ void CtrlDisAsmView::disassembleToFile()
 
 	// gather all branch targets without labels
 	std::set<u32> branchAddresses;
-	for (int i = 0; i < size; i += instructionSize)
+	for (u32 i = 0; i < size; i += instructionSize)
 	{
 		char opcode[64],arguments[256];
 		const char *dis = debugger->disasm(curAddress+i, instructionSize);
@@ -862,7 +862,7 @@ void CtrlDisAsmView::disassembleToFile()
 	}
 
 	bool previousLabel = true;
-	for (int i = 0; i < size; i += instructionSize)
+	for (u32 i = 0; i < size; i += instructionSize)
 	{
 		u32 disAddress = curAddress+i;
 
@@ -897,7 +897,7 @@ void CtrlDisAsmView::disassembleToFile()
 
 void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
 {
-	char addressText[64],opcode[64],arguments[256];
+	char opcode[64],arguments[256];
 	const char *dis = debugger->disasm(address, instructionSize);
 	parseDisasm(dis,opcode,arguments);
 

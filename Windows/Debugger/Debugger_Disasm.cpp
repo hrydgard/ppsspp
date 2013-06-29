@@ -191,7 +191,7 @@ CDisasm::~CDisasm()
 
 int getTotalBreakpointCount()
 {
-	int count = CBreakPoints::MemChecks.size();
+	int count = (int)CBreakPoints::MemChecks.size();
 	for (int i = 0; i < CBreakPoints::GetNumBreakpoints(); i++)
 	{
 		if (!CBreakPoints::GetBreakpoint(i).bTemporary) count++;
@@ -239,7 +239,7 @@ int getBreakpointIndex(int itemIndex, bool& isMemory)
 		return itemIndex;
 	}
 
-	itemIndex -= CBreakPoints::MemChecks.size();
+	itemIndex -= (int)CBreakPoints::MemChecks.size();
 
 	int i = 0;
 	while (i < CBreakPoints::GetNumBreakpoints())
