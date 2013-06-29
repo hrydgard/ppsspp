@@ -146,7 +146,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 				if (vreader.hasNormal()) {
 					data[i].worldnormal = TransformUnit::ModelToWorld(data[i].normal) - Vec3<float>(gstate.worldMatrix[9], gstate.worldMatrix[10], gstate.worldMatrix[11]);
-					data[i].worldnormal /= data[i].worldnormal.Length();
+					data[i].worldnormal /= data[i].worldnormal.Length(); // TODO: Shouldn't be necessary..
 				}
 
 				Lighting::Process(data[i]);

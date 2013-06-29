@@ -94,7 +94,10 @@ void Process(VertexData& vertex)
 
 		if (gstate.isUsingSpecularLight(light)) {
 			Vec3<float> E(0.f, 0.f, 1.f);
-			Vec3<float> H = E / E.Length() + L / d;
+			Mat3x3<float> view_matrix(gstate.viewMatrix);
+			Vec3<float> worldE = view_matrix.Inverse() * (E - Vec3<float>(gstate.viewMatrix[9], gstate.viewMatrix[10], gstate.viewMatrix[11]));
+			Vec3<float> H = worldE / worldE.Length() + L / L.Length();
+
 			Vec3<int> lsc = Vec3<int>(gstate.getSpecularColorR(light), gstate.getSpecularColorG(light), gstate.getSpecularColorB(light));
 			Vec3<int> msc = (gstate.materialupdate&4)
 								? Vec3<int>(gstate.getMaterialSpecularR(), gstate.getMaterialSpecularG(), gstate.getMaterialSpecularB())
@@ -104,7 +107,7 @@ void Process(VertexData& vertex)
 			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
 			specular_factor = pow(specular_factor, k);
 
-			if (specular_factor > 0.f) {
+			/*if (specular_factor > 0.f)*/ {
 				specular_color.r() += att * spot * lsc.r() * msc.r() * specular_factor / 255;
 				specular_color.g() += att * spot * lsc.g() * msc.g() * specular_factor / 255;
 				specular_color.b() += att * spot * lsc.b() * msc.b() * specular_factor / 255;
