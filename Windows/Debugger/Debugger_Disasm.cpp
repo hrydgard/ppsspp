@@ -40,6 +40,9 @@ float breakpointColumnSizes[] = {
 
 enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
 
+// How long (max) to wait for Core to pause before clearing temp breakpoints.
+const int TEMP_BREAKPOINT_WAIT_MS = 100;
+
 static FAR WNDPROC DefBreakpointListProc;
 
 static LRESULT CALLBACK BreakpointListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -191,7 +194,7 @@ CDisasm::~CDisasm()
 
 int getTotalBreakpointCount()
 {
-	int count = CBreakPoints::MemChecks.size();
+	int count = (int)CBreakPoints::MemChecks.size();
 	for (int i = 0; i < CBreakPoints::GetNumBreakpoints(); i++)
 	{
 		if (!CBreakPoints::GetBreakpoint(i).bTemporary) count++;
@@ -239,7 +242,7 @@ int getBreakpointIndex(int itemIndex, bool& isMemory)
 		return itemIndex;
 	}
 
-	itemIndex -= CBreakPoints::MemChecks.size();
+	itemIndex -= (int)CBreakPoints::MemChecks.size();
 
 	int i = 0;
 	while (i < CBreakPoints::GetNumBreakpoints())
@@ -497,6 +500,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			case IDC_GO:
 				{
 					lastTicks = CoreTiming::GetTicks();
+
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
+
 					SetDebugMode(false);
 					Core_EnableStepping(false);
 				}
@@ -506,6 +513,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					if (Core_IsActive()) break;
 					lastTicks = CoreTiming::GetTicks();
+
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
 					Core_DoSingleStep();		
 					Sleep(1);
@@ -520,6 +530,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					if (Core_IsActive()) break;
 					lastTicks = CoreTiming::GetTicks();
+
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
 					const char* dis = cpu->disasm(cpu->GetPC(),4);
 					const char* pos = strstr(dis,"->$");
@@ -571,6 +584,13 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				
 			case IDC_STEPHLE:
 				{
+					if (Core_IsActive())
+						break;
+					lastTicks = CoreTiming::GetTicks();
+
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
+
 					hleDebugBreak();
 					SetDebugMode(false);
 					_dbg_update_();
@@ -732,6 +752,11 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			UpdateDialog();
 		}
 		break;
+
+	case WM_DISASM_SETDEBUG:
+		SetDebugMode(lParam != 0);
+		return TRUE;
+
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));
@@ -812,6 +837,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	// Update Dialog Windows
 	if (_bDebug)
 	{
+		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
 		updateBreakpointList();
 

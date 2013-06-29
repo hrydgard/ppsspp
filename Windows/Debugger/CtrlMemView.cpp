@@ -512,7 +512,7 @@ void CtrlMemView::gotoPoint(int x, int y)
 void CtrlMemView::gotoAddr(unsigned int addr)
 {	
 	int lines=(rect.bottom/rowHeight);
-	int windowEnd = windowStart+lines*rowSize;
+	u32 windowEnd = windowStart+lines*rowSize;
 
 	curAddress = addr;
 	selectedNibble = 0;
@@ -555,7 +555,7 @@ void CtrlMemView::scrollCursor(int bytes)
 
 	curAddress += bytes;
 		
-	int windowEnd = windowStart+visibleRows*rowSize;
+	u32 windowEnd = windowStart+visibleRows*rowSize;
 	if (curAddress < windowStart)
 	{
 		windowStart = curAddress & ~15;
