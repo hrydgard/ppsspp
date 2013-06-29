@@ -183,20 +183,88 @@ void DrawTriangle(VertexData vertexdata[3])
 
 				float s = (vertexdata[0].texturecoords.s() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.s() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.s() * w2 / vertexdata[2].clippos.w) / den;
 				float t = (vertexdata[0].texturecoords.t() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.t() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.t() * w2 / vertexdata[2].clippos.w) / den;
-				u32 color = 0;
+				u32 prim_color = 0;
 				if ((gstate.shademodel&1) == GE_SHADE_GOURAUD)
-					color = (int)((vertexdata[0].color0.r() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.r() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.r() * w2 / vertexdata[2].clippos.w) / den) +
+					prim_color = (int)((vertexdata[0].color0.r() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.r() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.r() * w2 / vertexdata[2].clippos.w) / den) +
 							(int)((vertexdata[0].color0.g() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.g() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.g() * w2 / vertexdata[2].clippos.w) / den)*256 +
 							(int)((vertexdata[0].color0.b() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.b() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.b() * w2 / vertexdata[2].clippos.w) / den)*256*256 +
 							(int)((vertexdata[0].color0.a() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.a() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.a() * w2 / vertexdata[2].clippos.w) / den)*256*256*256;
 				else
-					color = vertexdata[2].color0.r() | (vertexdata[2].color0.g()<<8) | (vertexdata[2].color0.b()<<16) | (vertexdata[2].color0.a()<<24);
+					prim_color = vertexdata[2].color0.r() | (vertexdata[2].color0.g()<<8) | (vertexdata[2].color0.b()<<16) | (vertexdata[2].color0.a()<<24);
 
 				// TODO: Also disable if vertex has no texture coordinates?
-				if (gstate.isTextureMapEnabled() && !gstate.isModeClear())
-					color |= /*TextureDecoder::*/SampleNearest(0, s, t);
+				if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
+					u32 texcolor = /*TextureDecoder::*/SampleNearest(0, s, t);
 
-				SetPixelColor(p.x, p.y, color);
+					bool rgba = (gstate.texfunc & 0x10) != 0;
+
+#define CLAMP_U8(val) (((val) > 255) ? 255 : 0)
+#define GET_R(col) ((col)&0xFF)
+#define GET_G(col) (((col)>>8)&0xFF)
+#define GET_B(col) (((col)>>16)&0xFF)
+#define GET_A(col) (((col)>>24)&0xFF)
+#define SET_R(col, val) (col) = ((col)&0xFFFFFF00)|(val);
+#define SET_G(col, val) (col) = ((col)&0xFFFF00FF)|((val)<<8);
+#define SET_B(col, val) (col) = ((col)&0xFF00FFFF)|((val)<<16);
+#define SET_A(col, val) (col) = ((col)&0x00FFFFFF)|((val)<<24);
+					// texture function
+					switch (gstate.getTextureFunction()) {
+					case GE_TEXFUNC_MODULATE:
+						SET_R(prim_color, GET_R(prim_color) * GET_R(texcolor) / 255);
+						SET_G(prim_color, GET_G(prim_color) * GET_G(texcolor) / 255);
+						SET_B(prim_color, GET_B(prim_color) * GET_B(texcolor) / 255);
+						SET_A(prim_color, (rgba) ? (GET_A(prim_color) * GET_A(texcolor) / 255) : GET_A(prim_color));
+						break;
+
+					case GE_TEXFUNC_DECAL:
+					{
+						int t = (rgba) ? GET_A(texcolor) : 1;
+						int invt = (rgba) ? 255 - t : 0;
+						SET_R(prim_color, (invt * GET_R(prim_color) + t * GET_R(texcolor)) / 255);
+						SET_G(prim_color, (invt * GET_G(prim_color) + t * GET_G(texcolor)) / 255);
+						SET_B(prim_color, (invt * GET_B(prim_color) + t * GET_B(texcolor)) / 255);
+						SET_A(prim_color, GET_A(prim_color));
+						break;
+					}
+
+					case GE_TEXFUNC_BLEND:
+					{
+						SET_R(prim_color, ((255 - GET_R(texcolor)) * GET_R(prim_color) + GET_R(texcolor) * gstate.getTextureEnvColR()) / 255);
+						SET_G(prim_color, ((255 - GET_G(texcolor)) * GET_G(prim_color) + GET_G(texcolor) * gstate.getTextureEnvColG()) / 255);
+						SET_B(prim_color, ((255 - GET_B(texcolor)) * GET_B(prim_color) + GET_B(texcolor) * gstate.getTextureEnvColB()) / 255);
+						SET_A(prim_color, GET_A(prim_color) * ((rgba) ? (GET_A(texcolor)) : 255) / 255);
+						break;
+					}
+
+					case GE_TEXFUNC_REPLACE:
+						SET_R(prim_color, GET_R(texcolor));
+						SET_G(prim_color, GET_G(texcolor));
+						SET_B(prim_color, GET_B(texcolor));
+						SET_A(prim_color, (rgba) ? GET_A(texcolor) : GET_A(prim_color));
+						break;
+
+					case GE_TEXFUNC_ADD:
+						SET_R(prim_color, CLAMP_U8(GET_R(texcolor) + GET_R(prim_color)));
+						SET_G(prim_color, CLAMP_U8(GET_G(texcolor) + GET_G(prim_color)));
+						SET_B(prim_color, CLAMP_U8(GET_B(texcolor) + GET_B(prim_color)));
+						SET_A(prim_color, GET_A(prim_color) * ((rgba) ? GET_A(texcolor) : 255) / 255);
+						break;
+
+					default:
+						ERROR_LOG(G3D, "Unknown texture function %x", gstate.getTextureFunction());
+					}
+#undef CLAMP_U8
+#undef GET_R
+#undef GET_G
+#undef GET_B
+#undef GET_A
+#undef SET_R
+#undef SET_G
+#undef SET_B
+#undef SET_A
+				}
+
+				SetPixelColor(p.x, p.y, prim_color);
 			}
 		}
 	}
