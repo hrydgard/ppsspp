@@ -57,7 +57,7 @@ private:
 	enum { MAX_NUMBER_OF_CALLSTACK_ENTRIES = 16384};
 	enum { MAX_NUMBER_OF_BREAKPOINTS = 16};
 
-	static u32	m_iBreakOnCount;
+	static u32 breakSkipFirstAt_;
 
 public:
 	// WARNING: Not used in interpreter or HLE, only jit CPU memory access.
@@ -89,6 +89,9 @@ public:
 	static int GetNumBreakpoints();
 	static BreakPoint GetBreakpoint(int i);
 	static int GetBreakpointAddress(int i);
+
+	static void SetSkipFirst(u32 pc) { breakSkipFirstAt_ = pc; }
+	static u32 CheckSkipFirst() { u32 pc = breakSkipFirstAt_; breakSkipFirstAt_ = 0; return pc; }
 };
 
 

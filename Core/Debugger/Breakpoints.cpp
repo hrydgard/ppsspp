@@ -28,7 +28,7 @@
 static FixedSizeUnorderedSet<BreakPoint, MAX_BREAKPOINTS> m_iBreakPoints;
 
 std::vector<MemCheck>		CBreakPoints::MemChecks;
-u32 CBreakPoints::m_iBreakOnCount = 0;
+u32 CBreakPoints::breakSkipFirstAt_ = 0;
 
 MemCheck::MemCheck(void)
 {
@@ -127,15 +127,6 @@ MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 
 	//none found
 	return 0;
-}
-
-bool CBreakPoints::IsBreakOnCount(u32 _iCount)
-{
-	if ((_iCount == m_iBreakOnCount) && 
-		(m_iBreakOnCount != 0))
-		return true;
-
-	return false;
 }
 
 void CBreakPoints::AddBreakPoint(u32 _iAddress, bool temp)

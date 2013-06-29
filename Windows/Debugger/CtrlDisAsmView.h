@@ -30,7 +30,7 @@ class CtrlDisAsmView
 	HFONT boldfont;
 	RECT rect;
 
-	int curAddress;
+	u32 curAddress;
 	int rowHeight;
 
 	bool hasFocus;
@@ -38,7 +38,7 @@ class CtrlDisAsmView
 	DebugInterface *debugger;
 	static TCHAR szClassName[];
 
-	int windowStart;
+	u32 windowStart;
 	int visibleRows;
 	int instructionSize;
 	bool whiteBackground;
@@ -115,7 +115,7 @@ public:
 	{
 		gotoAddr(debugger->getPC()&(~(instructionSize-1)));
 	}
-	unsigned int getSelection()
+	u32 getSelection()
 	{
 		return curAddress;
 	}

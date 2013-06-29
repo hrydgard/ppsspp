@@ -33,8 +33,8 @@
 namespace MIPSComp
 {
 
-// This is called when Jit hits a breakpoint.
-void JitBreakpoint();
+// This is called when Jit hits a breakpoint.  Returns 1 when hit.
+u32 JitBreakpoint();
 
 struct JitOptions
 {
