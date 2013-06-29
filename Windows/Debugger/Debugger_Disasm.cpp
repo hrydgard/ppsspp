@@ -92,21 +92,15 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 	rl->setCPU(cpu);
 
-	GetWindowRect(m_hDlg,&minRect);
-	// Reduce the minimum size slightly, so they can size it however they like.
-	minRect.right -= 100;
-	minRect.bottom -= 100;
+	GetWindowRect(m_hDlg, &defaultRect);
 
 	//symbolMap.FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
 	symbolMap.FillSymbolComboBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST),ST_FUNCTION);
 
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST),&regRect);
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
-	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),&breakpointRect);
-
-	int minHeight = max((disRect.bottom-disRect.top)+(breakpointRect.bottom-breakpointRect.top)+37,
-		(regRect.bottom-regRect.top)+(breakpointRect.bottom-breakpointRect.top)+150);
-	if (h < minHeight) h = minHeight;
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST), &regRect);
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW), &disRect);
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST), &breakpointRect);
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST), &defaultBreakpointRect);
 
 	HWND tabs = GetDlgItem(m_hDlg, IDC_LEFTTABS);
 
@@ -714,9 +708,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_GETMINMAXINFO:
 		{
 			MINMAXINFO *m = (MINMAXINFO *)lParam;
-			m->ptMinTrackSize.x=minRect.right-minRect.left;
-			//m->ptMaxTrackSize.x=m->ptMinTrackSize.x;
-			m->ptMinTrackSize.y=minRect.bottom-minRect.top;
+			// Reduce the minimum size slightly, so they can size it however they like.
+			m->ptMinTrackSize.x = defaultRect.right - defaultRect.left - 100;
+			//m->ptMaxTrackSize.x = m->ptMinTrackSize.x;
+			m->ptMinTrackSize.y = defaultRect.bottom - defaultRect.top - 200;
 		}
 		return TRUE;
 	case WM_CLOSE:
@@ -733,7 +728,11 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	HWND regList = GetDlgItem(m_hDlg, IDC_REGLIST);
 	HWND breakpointList = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
 	
-	int breakpointHeight = breakpointRect.bottom-breakpointRect.top;
+	int defaultHeight = defaultRect.bottom - defaultRect.top;
+	int breakpointHeight = defaultBreakpointRect.bottom - defaultBreakpointRect.top;
+	if (height < defaultHeight)
+		breakpointHeight -= defaultHeight - height;
+
 	int breakpointTop = height-breakpointHeight-8;
 	int regWidth = regRect.right - regRect.left;
 	int regTop = 138;
