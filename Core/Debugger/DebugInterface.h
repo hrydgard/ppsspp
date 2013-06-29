@@ -41,6 +41,7 @@ public:
 	virtual int getColor(unsigned int address){return 0xFFFFFFFF;}
 	virtual const char *getDescription(unsigned int address) {return "";}
 	virtual const char *findSymbolForAddress(unsigned int address) { return NULL; };
+	virtual bool getSymbolValue(char* symbol, u32& dest) { return false; };
 
 	virtual const char *GetName() = 0;
 	virtual int GetGPRSize() = 0; //32 or 64

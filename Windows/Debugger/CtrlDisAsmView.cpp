@@ -9,6 +9,7 @@
 
 #include "CtrlDisAsmView.h"
 #include "Debugger_MemoryDlg.h"
+#include "ExpressionParser.h"
 #include "../../Core/Debugger/SymbolMap.h"
 #include "../../globals.h"
 #include "../main.h"
@@ -812,7 +813,7 @@ void CtrlDisAsmView::disassembleToFile()
 	u32 size;
 
 	// get size
-	if (InputBox_GetHex(MainWindow::GetHInstance(), MainWindow::GetHWND(), "Size in hex",0,size) == false) return;
+	if (executeExpressionWindow(wnd,debugger,size) == false) return;
 	if (size == 0 || size > 10*1024*1024)
 	{
 		MessageBox(wnd,"Invalid size!","Error",MB_OK);

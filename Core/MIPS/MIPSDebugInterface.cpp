@@ -86,6 +86,12 @@ const char *MIPSDebugInterface::findSymbolForAddress(unsigned int address)
 	return symbolMap.getDirectSymbol(address);
 }
 
+bool MIPSDebugInterface::getSymbolValue(char* symbol, u32& dest)
+{
+	return symbolMap.getSymbolValue(symbol,dest);
+}
+
+
 void MIPSDebugInterface::runToBreakpoint() 
 {
 

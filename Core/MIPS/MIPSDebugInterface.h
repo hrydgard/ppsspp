@@ -41,6 +41,7 @@ public:
 	virtual int getColor(unsigned int address);
 	virtual const char *getDescription(unsigned int address);
 	virtual const char *findSymbolForAddress(unsigned int address);
+	virtual bool getSymbolValue(char* symbol, u32& dest);
 
 	//overridden functions
 	const char *GetName();

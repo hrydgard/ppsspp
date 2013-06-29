@@ -1022,6 +1022,8 @@ if(WIN32)
 		Windows/Debugger/Debugger_SymbolMap.h
 		Windows/Debugger/Debugger_VFPUDlg.cpp
 		Windows/Debugger/Debugger_VFPUDlg.h
+		Windows/Debugger/ExpressionParser.cpp
+		Windows/Debugger/ExpressionParser.h
 		Windows/Debugger/SimpleELF.h
 #		Windows/DlgDynaView.cpp
 #		Windows/DlgDynaView.h
