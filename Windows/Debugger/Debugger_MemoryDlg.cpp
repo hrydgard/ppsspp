@@ -8,6 +8,7 @@
 #include "Debugger_MemoryDlg.h"
 
 #include "CtrlMemView.h"
+#include "ExpressionParser.h"
 
 #include "../../Core/MIPS/MIPSDebugInterface.h" //	BAD
 
@@ -156,8 +157,13 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		char temp[256];
 		u32 addr;
 		GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),temp,255);
-		sscanf(temp,"%08x",&addr);
-		mv->gotoAddr(addr);
+
+		if (parseExpression(temp,cpu,addr) == false)
+		{
+			displayExpressionError(m_hDlg);
+		} else {
+			mv->gotoAddr(addr);
+		}
 		break;
 	}
 	case WM_INITDIALOG:

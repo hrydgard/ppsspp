@@ -101,6 +101,9 @@
     <ClCompile Include="ControlMapping.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\ExpressionParser.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -178,6 +181,9 @@
     </ClInclude>
     <ClInclude Include="ControlMapping.h">
       <Filter>Windows\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\ExpressionParser.h">
+      <Filter>Windows\Debugger</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
