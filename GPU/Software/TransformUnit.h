@@ -81,6 +81,7 @@ struct VertexData
 	DrawingCoords drawpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
 	Vec3<float> normal;
+	WorldCoords worldnormal;
 	Vec4<int> color0;
 	Vec3<int> color1;
 };

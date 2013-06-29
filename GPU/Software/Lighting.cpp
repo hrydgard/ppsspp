@@ -80,7 +80,7 @@ void Process(VertexData& vertex)
 							? Vec3<int>(gstate.getMaterialDiffuseR(), gstate.getMaterialDiffuseG(), gstate.getMaterialDiffuseB())
 							: vertex.color0.rgb();
 
-		float diffuse_factor = Dot(L,vertex.normal) / d / vertex.worldpos.Length();
+		float diffuse_factor = Dot(L,vertex.worldnormal) / d / vertex.worldnormal.Length();
 		if (gstate.isUsingPoweredDiffuseLight(light)) {
 			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
 			diffuse_factor = pow(diffuse_factor, k);
@@ -101,7 +101,7 @@ void Process(VertexData& vertex)
 								? Vec3<int>(gstate.getMaterialSpecularR(), gstate.getMaterialSpecularG(), gstate.getMaterialSpecularB())
 								: vertex.color0.rgb();
 
-			float specular_factor = Dot(H,vertex.normal) / H.Length() / vertex.normal.Length();
+			float specular_factor = Dot(H,vertex.worldnormal) / H.Length() / vertex.worldnormal.Length();
 			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
 			specular_factor = pow(specular_factor, k);
 

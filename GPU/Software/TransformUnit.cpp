@@ -144,6 +144,11 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				data[i].clippos = ClipCoords(TransformUnit::ViewToClip(data[i].viewpos));
 				data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
 
+				if (vreader.hasNormal()) {
+					data[i].worldnormal = TransformUnit::ModelToWorld(data[i].normal);
+					data[i].worldnormal /= data[i].worldnormal.Length();
+				}
+
 				Lighting::Process(data[i]);
 			} else {
 				data[i].drawpos.x = pos[0];
