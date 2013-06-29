@@ -87,6 +87,60 @@ u32 SampleNearest(int level, float s, float t)
 	}
 }
 
+static inline u32 GetPixelColor(int x, int y)
+{
+	return *(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()];
+}
+
+static inline void SetPixelColor(int x, int y, u32 value)
+{
+	*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = value;
+}
+
+static inline u16 GetPixelDepth(int x, int y)
+{
+	return *(u16*)&depthbuf[2*x + 2*y*gstate.DepthBufStride()];
+}
+
+static inline void SetPixelDepth(int x, int y, u16 value)
+{
+	*(u16*)&depthbuf[2*x + 2*y*gstate.DepthBufStride()] = value;
+}
+
+static inline bool DepthTestPassed(int x, int y, u16 z, const VertexData& v0, const VertexData& v1, const VertexData& v2)
+{
+	u16 reference_z = GetPixelDepth(x, y);
+
+	if (gstate.isModeClear())
+		return true;
+
+	switch (gstate.getDepthTestFunc()) {
+	case GE_COMP_NEVER:
+		return false;
+
+	case GE_COMP_ALWAYS:
+		return true;
+
+	case GE_COMP_EQUAL:
+		return (z == reference_z);
+
+	case GE_COMP_NOTEQUAL:
+		return (z != reference_z);
+
+	case GE_COMP_LESS:
+		return (z < reference_z);
+
+	case GE_COMP_LEQUAL:
+		return (z <= reference_z);
+
+	case GE_COMP_GREATER:
+		return (z > reference_z);
+
+	case GE_COMP_GEQUAL:
+		return (z >= reference_z);
+	}
+}
+
 void DrawTriangle(VertexData vertexdata[3])
 {
 	DrawingCoords vertices[3] = { vertexdata[0].drawpos, vertexdata[1].drawpos, vertexdata[2].drawpos };
@@ -102,18 +156,15 @@ void DrawTriangle(VertexData vertexdata[3])
 	maxY = std::min(maxY, gstate.getScissorY2());
 
 	DrawingCoords p(minX, minY, 0);
-	for (p.y = minY; p.y <= maxY; ++p.y)
-	{
-		for (p.x = minX; p.x <= maxX; ++p.x)
-		{
+	for (p.y = minY; p.y <= maxY; ++p.y) {
+		for (p.x = minX; p.x <= maxX; ++p.x) {
 			int w0 = orient2d(vertices[1], vertices[2], p);
 			int w1 = orient2d(vertices[2], vertices[0], p);
 			int w2 = orient2d(vertices[0], vertices[1], p);
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should only render when it's on the left of the right edge
-			if (w0 >=0 && w1 >= 0 && w2 >= 0)
-			{
+			if (w0 >=0 && w1 >= 0 && w2 >= 0) {
 				float den = 1.0f/vertexdata[0].clippos.w * w0 + 1.0f/vertexdata[1].clippos.w * w1 + 1.0f/vertexdata[2].clippos.w * w2;
 
 				// TODO: Depth range test
@@ -121,49 +172,13 @@ void DrawTriangle(VertexData vertexdata[3])
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
 				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
 					u16 z = (u16)((vertexdata[0].drawpos.z * w0 / vertexdata[0].clippos.w + vertexdata[1].drawpos.z * w1 / vertexdata[1].clippos.w + vertexdata[2].drawpos.z * w2 / vertexdata[2].clippos.w) / den);
-					u16 reference_z = *(u16*)&depthbuf[p.x*2+p.y*(gstate.zbwidth&0x7C0)*2];
-					bool pass = true;
 
-					switch (gstate.getDepthTestFunc()) {
-					case GE_COMP_NEVER:
-						pass = false;
-						break;
-
-					case GE_COMP_ALWAYS:
-						pass = true;
-						break;
-
-					case GE_COMP_EQUAL:
-						pass = (z == reference_z);
-						break;
-
-					case GE_COMP_NOTEQUAL:
-						pass = (z != reference_z);
-						break;
-
-					case GE_COMP_LESS:
-						pass = (z < reference_z);
-						break;
-
-					case GE_COMP_LEQUAL:
-						pass = (z <= reference_z);
-						break;
-
-					case GE_COMP_GREATER:
-						pass = (z > reference_z);
-						break;
-
-					case GE_COMP_GEQUAL:
-						pass = (z >= reference_z);
-						break;
-					}
-
-					// Clear mode forces depth test func to be ALWAYS
-					if (!pass && !gstate.isModeClear())
+					if (!DepthTestPassed(p.x, p.y, z, vertexdata[0], vertexdata[1], vertexdata[2]))
 						continue;
 
-					if (gstate.isDepthWriteEnabled() || (gstate.clearmode&0x40)) // TODO: Correct to enable depth writing in the clearmode case?
-						*(u16*)&depthbuf[p.x*2+p.y*(gstate.zbwidth&0x7C0)*2] = z;
+					// TODO: Is it correct to enable depth writing in the clearmode case?
+					if (gstate.isDepthWriteEnabled() || (gstate.clearmode&0x40))
+						SetPixelDepth(p.x, p.y, z);
 				}
 
 				float s = (vertexdata[0].texturecoords.s() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.s() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.s() * w2 / vertexdata[2].clippos.w) / den;
@@ -181,7 +196,7 @@ void DrawTriangle(VertexData vertexdata[3])
 				if (gstate.isTextureMapEnabled() && !gstate.isModeClear())
 					color |= /*TextureDecoder::*/SampleNearest(0, s, t);
 
-				*(u32*)&fb[p.x*4+p.y*(gstate.fbwidth&0x7C0)*4] = color;
+				SetPixelColor(p.x, p.y, color);
 			}
 		}
 	}
