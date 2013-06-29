@@ -179,7 +179,6 @@ void Jit::CompileDelaySlot(int flags)
 {
 	const u32 addr = js.compilerPC + 4;
 
-	// TODO: If we ever support conditional breakpoints, we need to handle the flags more carefully.
 	// Need to offset the downcount which was already incremented for the branch + delay slot.
 	CheckJitBreakpoint(addr, -2);
 
@@ -444,6 +443,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 {
 	if (CBreakPoints::IsAddressBreakPoint(addr))
 	{
+		SAVE_FLAGS;
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction((void *)&JitBreakpoint);
@@ -452,8 +452,12 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		CMP(32, R(EAX), Imm32(0));
 		FixupBranch skip = J_CC(CC_Z);
 		WriteDowncount(downcountOffset);
+		// Just to fix the stack.
+		LOAD_FLAGS;
 		JMP(asm_.dispatcherCheckCoreState, true);
 		SetJumpTarget(skip);
+
+		LOAD_FLAGS;
 
 		return true;
 	}
