@@ -70,7 +70,7 @@ void Process(VertexData& vertex)
 
 		// ambient lighting
 		Vec3<int> lac = Vec3<int>(gstate.getLightAmbientColorR(light), gstate.getLightAmbientColorG(light), gstate.getLightAmbientColorB(light));
-		final_color.r() += att * spot * lac.r() * mac.r() / 255; // TODO: Brackets
+		final_color.r() += att * spot * lac.r() * mac.r() / 255;
 		final_color.g() += att * spot * lac.g() * mac.g() / 255;
 		final_color.b() += att * spot * lac.b() * mac.b() / 255;
 
@@ -86,12 +86,11 @@ void Process(VertexData& vertex)
 			diffuse_factor = pow(diffuse_factor, k);
 		}
 
-		// TODO: checking for non-negativity doesn't work?
-//		if (diffuse_factor > 0.f) {
+		if (diffuse_factor > 0.f) {
 			final_color.r() += att * spot * ldc.r() * mdc.r() * diffuse_factor / 255;
 			final_color.g() += att * spot * ldc.g() * mdc.g() * diffuse_factor / 255;
 			final_color.b() += att * spot * ldc.b() * mdc.b() * diffuse_factor / 255;
-//		}
+		}
 
 		if (gstate.isUsingSpecularLight(light)) {
 			Vec3<float> E(0.f, 0.f, 1.f);
@@ -105,9 +104,11 @@ void Process(VertexData& vertex)
 			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
 			specular_factor = pow(specular_factor, k);
 
-			specular_color.r() += att * spot * lsc.r() * msc.r() * specular_factor / 255;
-			specular_color.g() += att * spot * lsc.g() * msc.g() * specular_factor / 255;
-			specular_color.b() += att * spot * lsc.b() * msc.b() * specular_factor / 255;
+			if (specular_factor > 0.f) {
+				specular_color.r() += att * spot * lsc.r() * msc.r() * specular_factor / 255;
+				specular_color.g() += att * spot * lsc.g() * msc.g() * specular_factor / 255;
+				specular_color.b() += att * spot * lsc.b() * msc.b() * specular_factor / 255;
+			}
 		}
 	}
 
@@ -127,6 +128,21 @@ void Process(VertexData& vertex)
 
 	int maa = (gstate.materialupdate&1) ? gstate.getMaterialAmbientA() : vertex.color0.a();
 	vertex.color0.a() = gstate.getAmbientA() * maa / 255;
+
+	if (vertex.color0.r() > 255) vertex.color0.r() = 255;
+	if (vertex.color0.g() > 255) vertex.color0.g() = 255;
+	if (vertex.color0.b() > 255) vertex.color0.b() = 255;
+	if (vertex.color0.a() > 255) vertex.color0.a() = 255;
+	if (vertex.color1.r() > 255) vertex.color1.r() = 255;
+	if (vertex.color1.g() > 255) vertex.color1.g() = 255;
+	if (vertex.color1.b() > 255) vertex.color1.b() = 255;
+	if (vertex.color0.r() < 0) vertex.color0.r() = 0;
+	if (vertex.color0.g() < 0) vertex.color0.g() = 0;
+	if (vertex.color0.b() < 0) vertex.color0.b() = 0;
+	if (vertex.color0.a() < 0) vertex.color0.a() = 0;
+	if (vertex.color1.r() < 0) vertex.color1.r() = 0;
+	if (vertex.color1.g() < 0) vertex.color1.g() = 0;
+	if (vertex.color1.b() < 0) vertex.color1.b() = 0;
 }
 
 } // namespace
