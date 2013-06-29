@@ -67,6 +67,62 @@ DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
 	return ret;
 }
 
+static VertexData ReadVertex(VertexReader& vreader)
+{
+	VertexData vertex;
+
+	float pos[3];
+	vreader.ReadPos(pos);
+
+	if (!gstate.isModeClear() && gstate.textureMapEnable && vreader.hasUV()) {
+		float uv[2];
+		vreader.ReadUV(uv);
+		vertex.texturecoords = Vec2<float>(uv[0], uv[1]);
+	}
+
+	if (vreader.hasNormal()) {
+		float normal[3];
+		vreader.ReadNrm(normal);
+		vertex.normal = Vec3<float>(normal[0], normal[1], normal[2]);
+	}
+
+	if (vreader.hasColor0()) {
+		float col[4];
+		vreader.ReadColor0(col);
+		vertex.color0 = Vec4<int>(col[0]*255, col[1]*255, col[2]*255, col[3]*255);
+	} else {
+		vertex.color0 = Vec4<int>(gstate.materialdiffuse&0xFF, (gstate.materialdiffuse>>8)&0xFF, (gstate.materialdiffuse>>16)&0xFF, gstate.materialalpha&0xFF);
+	}
+
+	if (vreader.hasColor1()) {
+		float col[3];
+		vreader.ReadColor0(col);
+		vertex.color1 = Vec3<int>(col[0]*255, col[1]*255, col[2]*255);
+	} else {
+		vertex.color1 = Vec3<int>(0, 0, 0);
+	}
+
+	if (!gstate.isModeThrough()) {
+		ModelCoords mcoords(pos[0], pos[1], pos[2]);
+		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(mcoords));
+		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(vertex.worldpos)));
+		vertex.drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(vertex.clippos)));
+
+		if (vreader.hasNormal()) {
+			vertex.worldnormal = TransformUnit::ModelToWorld(vertex.normal) - Vec3<float>(gstate.worldMatrix[9], gstate.worldMatrix[10], gstate.worldMatrix[11]);
+			vertex.worldnormal /= vertex.worldnormal.Length(); // TODO: Shouldn't be necessary..
+		}
+
+		Lighting::Process(vertex);
+	} else {
+		vertex.drawpos.x = pos[0];
+		vertex.drawpos.y = pos[1];
+		vertex.drawpos.z = 0; // TODO: Not sure if that's what we should do here
+	}
+
+	return vertex;
+}
+
 void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type)
 {
 	// TODO: Cache VertexDecoder objects
@@ -87,6 +143,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 	VertexReader vreader(buf, vtxfmt, vertex_type);
 
+	const int max_vtcs_per_prim = 3;
 	int vtcs_per_prim = 0;
 	if (prim_type == GE_PRIM_POINTS) vtcs_per_prim = 1;
 	else if (prim_type == GE_PRIM_LINES) vtcs_per_prim = 2;
@@ -96,76 +153,46 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 		// TODO: Unsupported
 	}
 
-	// We only support triangle lists, for now.
-	for (int vtx = 0; vtx < vertex_count; vtx += vtcs_per_prim)
-	{
-		VertexData data[3];
+	if (prim_type == GE_PRIM_POINTS || prim_type == GE_PRIM_LINES || prim_type == GE_PRIM_TRIANGLES || prim_type == GE_PRIM_RECTANGLES) {
+		for (int vtx = 0; vtx < vertex_count; vtx += vtcs_per_prim) {
+			VertexData data[max_vtcs_per_prim];
 
-		for (unsigned int i = 0; i < vtcs_per_prim; ++i)
-		{
-			float pos[3];
-			if (indices)
-				vreader.Goto(indices_16bit ? indices16[vtx+i] : indices8[vtx+i]);
-			else
-				vreader.Goto(vtx+i);
-			vreader.ReadPos(pos);
+			for (unsigned int i = 0; i < vtcs_per_prim; ++i) {
+				if (indices)
+					vreader.Goto(indices_16bit ? indices16[vtx+i] : indices8[vtx+i]);
+				else
+					vreader.Goto(vtx+i);
 
-			if (!gstate.isModeClear() && gstate.textureMapEnable && vreader.hasUV()) {
-				float uv[2];
-				vreader.ReadUV(uv);
-				data[i].texturecoords = Vec2<float>(uv[0], uv[1]);
+				data[i] = ReadVertex(vreader);
 			}
 
-			if (vreader.hasNormal()) {
-				float normal[3];
-				vreader.ReadNrm(normal);
-				data[i].normal = Vec3<float>(normal[0], normal[1], normal[2]);
-			}
 
-			if (vreader.hasColor0()) {
-				float col[4];
-				vreader.ReadColor0(col);
-				data[i].color0 = Vec4<int>(col[0]*255, col[1]*255, col[2]*255, col[3]*255);
-			} else {
-				data[i].color0 = Vec4<int>(gstate.materialdiffuse&0xFF, (gstate.materialdiffuse>>8)&0xFF, (gstate.materialdiffuse>>16)&0xFF, gstate.materialalpha&0xFF);
-			}
+			switch (prim_type) {
+			case GE_PRIM_TRIANGLES:
+				Clipper::ProcessTriangle(data);
+				break;
 
-			if (vreader.hasColor1()) {
-				float col[3];
-				vreader.ReadColor0(col);
-				data[i].color1 = Vec3<int>(col[0]*255, col[1]*255, col[2]*255);
-			} else {
-				data[i].color1 = Vec3<int>(0, 0, 0);
-			}
-
-			if (!gstate.isModeThrough()) {
-				ModelCoords mcoords(pos[0], pos[1], pos[2]);
-				data[i].worldpos = WorldCoords(TransformUnit::ModelToWorld(mcoords));
-				data[i].clippos = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(data[i].worldpos)));
-				data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
-
-				if (vreader.hasNormal()) {
-					data[i].worldnormal = TransformUnit::ModelToWorld(data[i].normal) - Vec3<float>(gstate.worldMatrix[9], gstate.worldMatrix[10], gstate.worldMatrix[11]);
-					data[i].worldnormal /= data[i].worldnormal.Length(); // TODO: Shouldn't be necessary..
-				}
-
-				Lighting::Process(data[i]);
-			} else {
-				data[i].drawpos.x = pos[0];
-				data[i].drawpos.y = pos[1];
-				data[i].drawpos.z = 0; // TODO: Not sure if that's what we should do here
+			case GE_PRIM_RECTANGLES:
+				Clipper::ProcessQuad(data);
+				break;
 			}
 		}
+	} else if (prim_type == GE_PRIM_TRIANGLE_STRIP) {
+		VertexData data[3];
 
+		for (int vtx = 0; vtx < vertex_count; ++vtx) {
+			if (indices)
+				vreader.Goto(indices_16bit ? indices16[vtx] : indices8[vtx]);
+			else
+				vreader.Goto(vtx);
 
-		switch (prim_type) {
-		case GE_PRIM_TRIANGLES:
+			data[vtx % 3] = ReadVertex(vreader);
+
+			if (vtx < 2)
+				continue;
+
+			// TODO: Should make sure to draw the vertices in the correct order!
 			Clipper::ProcessTriangle(data);
-			break;
-
-		case GE_PRIM_RECTANGLES:
-			Clipper::ProcessQuad(data);
-			break;
 		}
 	}
 }
