@@ -33,10 +33,8 @@ static GLint uni_tex = -1;
 
 static GLuint program;
 
-const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
-u8 fb_dummy[FB_WIDTH*FB_HEIGHT*4]; // TODO: Should replace this one with the actual framebuffer
-u8* fb = fb_dummy;
+u8* fb = NULL; // TODO: Default address?
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
 {
@@ -136,6 +134,8 @@ SoftGPU::SoftGPU()
 	uni_tex = glGetUniformLocation(program, "Texture");
 	attr_pos = glGetAttribLocation(program, "pos");
 	attr_tex = glGetAttribLocation(program, "TexCoordIn");
+
+	fb = Memory::GetPointer(0x44000000);
 }
 
 SoftGPU::~SoftGPU()
@@ -187,15 +187,8 @@ void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth
 
 void SoftGPU::CopyDisplayToOutput()
 {
-//	//Enable this code to check if stuff is being displayed at all.. :D
-//	for (unsigned int i = 0; i < sizeof(fb_dummy); ++i)
-//		fb_dummy[i] = ((i%4)==2) ? i*255/sizeof(fb_dummy) : 0xff;
-
-	CopyToCurrentFboFromRam(fb, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-
-	// dummy clear
-	for (unsigned int i = 0; i < sizeof(fb_dummy); ++i)
-		fb_dummy[i] = 0;
+	// TODO: How to get the correct dimensions?
+	CopyToCurrentFboFromRam(fb, gstate.fbwidth & 0x3C0, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 }
 
 u32 SoftGPU::DrawSync(int mode)
@@ -404,6 +397,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_FRAMEBUFPTR:
 		{
 			u32 ptr = op & 0xFFE000;
+			fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8));
 			DEBUG_LOG(G3D, "DL FramebufPtr: %08x", ptr);
 		}
 		break;
@@ -411,6 +405,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_FRAMEBUFWIDTH:
 		{
 			u32 w = data & 0xFFFFFF;
+			fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8));
 			DEBUG_LOG(G3D, "DL FramebufWidth: %i", w);
 		}
 		break;

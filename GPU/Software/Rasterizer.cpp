@@ -20,8 +20,6 @@
 
 #include "Rasterizer.h"
 
-const int FB_WIDTH = 480;
-const int FB_HEIGHT = 272;
 extern u8* fb;
 
 namespace Rasterizer {
@@ -131,7 +129,7 @@ void DrawTriangle(VertexData vertexdata[3])
 				if (gstate.isTextureMapEnabled())
 					color |= /*TextureDecoder::*/SampleNearest(0, s, t);
 
-				*(u32*)&fb[p.x*4+p.y*FB_WIDTH*4] = color;
+				*(u32*)&fb[p.x*4+p.y*(gstate.fbwidth&0x3C0)*4] = color;
 			}
 		}
 	}
