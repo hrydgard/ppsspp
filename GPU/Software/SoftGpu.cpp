@@ -34,7 +34,8 @@ static GLint uni_tex = -1;
 static GLuint program;
 
 const int FB_HEIGHT = 272;
-u8* fb = NULL; // TODO: Default address?
+u8* fb = NULL;
+u8* depthbuf = NULL;
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
 {
@@ -135,7 +136,8 @@ SoftGPU::SoftGPU()
 	attr_pos = glGetAttribLocation(program, "pos");
 	attr_tex = glGetAttribLocation(program, "TexCoordIn");
 
-	fb = Memory::GetPointer(0x44000000);
+	fb = Memory::GetPointer(0x44000000); // TODO: correct default address?
+	depthbuf = Memory::GetPointer(0x44000000); // TODO: correct default address?
 }
 
 SoftGPU::~SoftGPU()
@@ -531,6 +533,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_ZBUFPTR:
 		{
 			u32 ptr = op & 0xFFE000;
+			depthbuf = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8));
 			DEBUG_LOG(G3D,"Zbuf Ptr: %06x", ptr);
 		}
 		break;
@@ -538,6 +541,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_ZBUFWIDTH:
 		{
 			u32 w = data & 0xFFFFFF;
+			depthbuf = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8));
 			DEBUG_LOG(G3D,"Zbuf Width: %i", w);
 		}
 		break;

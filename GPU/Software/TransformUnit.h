@@ -35,7 +35,15 @@ struct ScreenCoords
 	u16 z;
 };
 
-typedef Vec2<u10> DrawingCoords; // TODO: Keep z component?
+struct DrawingCoords
+{
+	DrawingCoords() {}
+	DrawingCoords(u10 x, u10 y, u16 z) : x(x), y(y), z(z) {}
+
+	u10 x;
+	u10 y;
+	u16 z;
+};
 
 struct VertexData
 {
@@ -51,8 +59,10 @@ struct VertexData
 		clippos.z = LINTERP(t, a.clippos.z, b.clippos.z);
 		clippos.w = LINTERP(t, a.clippos.w, b.clippos.w);
 
+		// TODO: Should use a LINTERP_INT, too
 		drawpos.x = LINTERP(t, a.drawpos.x, b.drawpos.x);
 		drawpos.y = LINTERP(t, a.drawpos.y, b.drawpos.y);
+		drawpos.z = LINTERP(t, a.drawpos.z, b.drawpos.z);
 
 		texturecoords.x = LINTERP(t, a.texturecoords.x, b.texturecoords.x);
 		texturecoords.y = LINTERP(t, a.texturecoords.y, b.texturecoords.y);

@@ -21,6 +21,7 @@
 #include "Rasterizer.h"
 
 extern u8* fb;
+extern u8* depthbuf;
 
 namespace Rasterizer {
 
@@ -100,7 +101,7 @@ void DrawTriangle(VertexData vertexdata[3])
 	minY = std::max(minY, gstate.getScissorY1());
 	maxY = std::min(maxY, gstate.getScissorY2());
 
-	DrawingCoords p(minX, minY);
+	DrawingCoords p(minX, minY, 0);
 	for (p.y = minY; p.y <= maxY; ++p.y)
 	{
 		for (p.x = minX; p.x <= maxX; ++p.x)
@@ -114,6 +115,57 @@ void DrawTriangle(VertexData vertexdata[3])
 			if (w0 >=0 && w1 >= 0 && w2 >= 0)
 			{
 				float den = 1.0f/vertexdata[0].clippos.w * w0 + 1.0f/vertexdata[1].clippos.w * w1 + 1.0f/vertexdata[2].clippos.w * w2;
+
+				// TODO: Depth range test
+
+				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
+				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
+					u16 z = (u16)((vertexdata[0].drawpos.z * w0 / vertexdata[0].clippos.w + vertexdata[1].drawpos.z * w1 / vertexdata[1].clippos.w + vertexdata[2].drawpos.z * w2 / vertexdata[2].clippos.w) / den);
+					u16 reference_z = *(u16*)&depthbuf[p.x*2+p.y*(gstate.zbwidth&0x7C0)*2];
+					bool pass = true;
+
+					switch (gstate.getDepthTestFunc()) {
+					case GE_COMP_NEVER:
+						pass = false;
+						break;
+
+					case GE_COMP_ALWAYS:
+						pass = true;
+						break;
+
+					case GE_COMP_EQUAL:
+						pass = (z == reference_z);
+						break;
+
+					case GE_COMP_NOTEQUAL:
+						pass = (z != reference_z);
+						break;
+
+					case GE_COMP_LESS:
+						pass = (z < reference_z);
+						break;
+
+					case GE_COMP_LEQUAL:
+						pass = (z <= reference_z);
+						break;
+
+					case GE_COMP_GREATER:
+						pass = (z > reference_z);
+						break;
+
+					case GE_COMP_GEQUAL:
+						pass = (z >= reference_z);
+						break;
+					}
+
+					// Clear mode forces depth test func to be ALWAYS
+					if (!pass && !gstate.isModeClear())
+						continue;
+
+					if (gstate.isDepthWriteEnabled() || (gstate.clearmode&0x40)) // TODO: Correct to enable depth writing in the clearmode case?
+						*(u16*)&depthbuf[p.x*2+p.y*(gstate.zbwidth&0x7C0)*2] = z;
+				}
+
 				float s = (vertexdata[0].texturecoords.s() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.s() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.s() * w2 / vertexdata[2].clippos.w) / den;
 				float t = (vertexdata[0].texturecoords.t() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.t() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.t() * w2 / vertexdata[2].clippos.w) / den;
 				u32 color = 0;
@@ -129,7 +181,7 @@ void DrawTriangle(VertexData vertexdata[3])
 				if (gstate.isTextureMapEnabled())
 					color |= /*TextureDecoder::*/SampleNearest(0, s, t);
 
-				*(u32*)&fb[p.x*4+p.y*(gstate.fbwidth&0x3C0)*4] = color;
+				*(u32*)&fb[p.x*4+p.y*(gstate.fbwidth&0x7C0)*4] = color;
 			}
 		}
 	}

@@ -162,13 +162,16 @@ void ProcessQuad(VertexData* data)
 	verts[1].drawpos.x = data[1].drawpos.x;
 	verts[4].drawpos.x = data[0].drawpos.x;
 
-	// Color values of second vertex are used for the whole rectangle
+	// Color and depth values of second vertex are used for the whole rectangle
 	verts[0].color0 = verts[1].color0;
 	verts[1].color0 = verts[1].color0;
 	verts[5].color0 = verts[1].color0;
 	verts[0].color1 = verts[1].color1;
 	verts[1].color1 = verts[1].color1;
 	verts[5].color1 = verts[1].color1;
+	verts[0].drawpos.z = verts[1].drawpos.z;
+	verts[1].drawpos.z = verts[1].drawpos.z;
+	verts[5].drawpos.z = verts[1].drawpos.z;
 
 	Rasterizer::DrawTriangle(verts);
 	Rasterizer::DrawTriangle(verts+3);
