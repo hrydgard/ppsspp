@@ -163,7 +163,8 @@ public:
 
 	u32 filehandle;
 	u32 fileoffset;
-	u32 filesize;
+	int readSize;
+	int streamSize;
 	u8 tempbuf[0x10000];
 
 	int videoCodec;
@@ -283,7 +284,8 @@ PsmfPlayer::PsmfPlayer(u32 data) {
 	mediaengine = new MediaEngine;
 	filehandle = 0;
 	fileoffset = 0;
-	filesize = 0;
+	readSize = 0;
+	streamSize = 0;
 }
 
 void Psmf::DoState(PointerWrap &p) {
@@ -331,7 +333,8 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	p.DoClass(mediaengine);
 	p.Do(filehandle);
 	p.Do(fileoffset);
-	p.Do(filesize);
+	p.Do(readSize);
+	p.Do(streamSize);
 
 	p.Do(status);
 	p.Do(psmfPlayerAvcAu);
@@ -413,6 +416,8 @@ void __PsmfDoState(PointerWrap &p)
 void __PsmfPlayerDoState(PointerWrap &p)
 {
 	p.Do(psmfPlayerMap);
+	p.Do(videoPixelMode);
+	p.Do(videoLoopStatus);
 
 	p.DoMarker("scePsmfPlayer");
 }
@@ -776,18 +781,43 @@ int scePsmfPlayerBreak(u32 psmfPlayer)
 	return 0;
 }
 
+int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
+	if (!psmfplayer->filehandle || !psmfplayer->tempbuf)
+		return -1;
+	u8* buf = psmfplayer->tempbuf;
+	u32 tempbufSize = sizeof(psmfplayer->tempbuf);
+	int size;
+	do {
+		size = std::min(psmfplayer->mediaengine->getRemainSize(), (int)tempbufSize);
+		size = std::min(psmfplayer->streamSize - psmfplayer->readSize, size);
+		if (size <= 0)
+			break;
+		size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, size);
+		psmfplayer->readSize += size;
+		psmfplayer->mediaengine->addStreamData(buf, size);
+	} while (size > 0);
+	if (psmfplayer->readSize >= psmfplayer->streamSize && videoLoopStatus == PSMF_PLAYER_CONFIG_LOOP) {
+		// start looping
+		psmfplayer->readSize = 0;
+		pspFileSystem.SeekFile(psmfplayer->filehandle, psmfplayer->fileoffset, FILEMOVE_BEGIN);
+	}
+	return 0;
+}
+
 int _PsmfPlayerSetPsmfOffset(PsmfPlayer *psmfplayer, const char * filename, int offset, bool docallback) {
 	psmfplayer->filehandle = pspFileSystem.OpenFile(filename, (FileAccess) FILEACCESS_READ);
-	psmfplayer->fileoffset = offset;
 	if (psmfplayer->filehandle && psmfplayer->tempbuf) {
-		pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
+		if (offset > 0)
+			pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
 		u8* buf = psmfplayer->tempbuf;
 		u32 tempbufSize = sizeof(psmfplayer->tempbuf);
-		int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, tempbufSize);
-		if (size) {
-			psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, (int)tempbufSize));
-			psmfplayer->mediaengine->addStreamData(buf + 2048, size - 2048);
-		}
+		int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
+		int mpegoffset = bswap32(*(u32*)(buf + PSMF_STREAM_OFFSET_OFFSET));
+		psmfplayer->readSize = size - mpegoffset;
+		psmfplayer->streamSize = bswap32(*(u32*)(buf + PSMF_STREAM_SIZE_OFFSET));
+		psmfplayer->fileoffset = offset + mpegoffset;
+		psmfplayer->mediaengine->loadStream(buf, 2048, std::max(2048 * 500, (int)tempbufSize));
+		_PsmfPlayerFillRingbuffer(psmfplayer);
 		psmfplayer->psmfPlayerLastTimestamp = psmfplayer->mediaengine->getLastTimeStamp();
 	}
 	return 0;
@@ -932,7 +962,7 @@ int scePsmfPlayerUpdate(u32 psmfPlayer)
 
 	DEBUG_LOG(HLE, "scePsmfPlayerUpdate(%08x)", psmfPlayer);
 	if (psmfplayer->psmfPlayerAvcAu.pts > 0) {
-		if (psmfplayer->psmfPlayerAvcAu.pts >= psmfplayer->psmfPlayerLastTimestamp) {
+		if (psmfplayer->mediaengine->IsVideoEnd()) {
 			INFO_LOG(HLE, "video end reached");
 			psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;
 		}
@@ -970,14 +1000,7 @@ int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 		Memory::Write_U32(psmfplayer->psmfPlayerAvcAu.pts, videoDataAddr + 8);
 	}
 
-	u32 tempbufSize = sizeof(psmfplayer->tempbuf);
-	int addSize = std::min(psmfplayer->mediaengine->getRemainSize(), (int)tempbufSize);
-	if (psmfplayer->filehandle && psmfplayer->tempbuf && addSize > 0) {
-		u8* buf = psmfplayer->tempbuf;
-		int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, addSize);
-		if (size)
-			psmfplayer->mediaengine->addStreamData(buf, size);
-	}
+	_PsmfPlayerFillRingbuffer(psmfplayer);
 	int ret = psmfplayer->mediaengine->IsVideoEnd() ? ERROR_PSMFPLAYER_NO_MORE_DATA : 0;
 
 	s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
