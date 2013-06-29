@@ -857,26 +857,22 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 		// (maybe it's more efficient to have the GPU flip it in the framebuffer and then flip it back?)
 		int bufHeight = vfb->height;
 		size_t bufSize = vfb->fb_stride * bufHeight;
-		GLubyte *buf1 = (GLubyte *) malloc(bufSize * pixelSize);
-		GLubyte *buf2 = (GLubyte *) malloc(bufSize * pixelSize);
+		GLubyte *flipBuf = (GLubyte *) malloc(bufSize * pixelSize);
 
-		u32 fb_address = (0x44000000) | vfb->fb_address;
+		u32 fb_address = (0x04000000) | vfb->fb_address;
 
-		DEBUG_LOG(HLE, "Reading pixels to mem, bufSize = %u, buf = %08x, fb_address = %08x", bufSize, buf1, fb_address);
+		DEBUG_LOG(HLE, "Reading pixels to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
 		glPixelStorei(GL_PACK_ALIGNMENT, align);
-		glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, buf1);
+		glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, flipBuf);
 		
 		// We have to flip glReadPixels data upside down
-		int i, j;
-		for(i = 0; i < bufHeight; i++) {
-			for(j = 0; j < vfb->fb_stride * pixelSize; j++) {
-				buf2[(bufHeight - 1 - i) * vfb->fb_stride * pixelSize + j] = buf1[i * vfb->fb_stride * pixelSize + j];
-			}
+		int u8_stride = vfb->fb_stride * pixelSize;
+		for (int y = 0; y < bufHeight; y++) {
+			int inverted_y = bufHeight - 1 - y;
+			Memory::Memcpy(fb_address + inverted_y * u8_stride, &flipBuf[u8_stride * y], u8_stride);
 		}
 
-		Memory::Memcpy(fb_address, buf2, bufSize * pixelSize);
-		free(buf1);
-		free(buf2);
+		free(flipBuf);
 		fbo_unbind();
 		if(gl_extensions.FBO_ARB) {
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
