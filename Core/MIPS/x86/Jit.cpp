@@ -59,8 +59,12 @@ std::pair<B,A> flip_pair(const std::pair<A,B> &p)
     return std::pair<B, A>(p.second, p.first);
 }
 
-void JitBreakpoint()
+u32 JitBreakpoint()
 {
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+		return 0;
+
 	Core_EnableStepping(true);
 	host->SetDebugMode(true);
 
@@ -84,6 +88,8 @@ void JitBreakpoint()
 
 		NOTICE_LOG(JIT, "Top ops compiled to interpreter: %s", message.c_str());
 	}
+
+	return 1;
 }
 
 static void JitLogMiss(u32 op)
@@ -442,8 +448,12 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction((void *)&JitBreakpoint);
 
+		// If 0, the conditional breakpoint wasn't taken.
+		CMP(32, R(EAX), Imm32(0));
+		FixupBranch skip = J_CC(CC_Z);
 		WriteDowncount(downcountOffset);
 		JMP(asm_.dispatcherCheckCoreState, true);
+		SetJumpTarget(skip);
 
 		return true;
 	}

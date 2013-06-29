@@ -500,6 +500,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			case IDC_GO:
 				{
 					lastTicks = CoreTiming::GetTicks();
+
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
+
 					SetDebugMode(false);
 					Core_EnableStepping(false);
 				}
@@ -509,6 +513,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					if (Core_IsActive()) break;
 					lastTicks = CoreTiming::GetTicks();
+
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
 					Core_DoSingleStep();		
 					Sleep(1);
@@ -523,6 +530,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				{
 					if (Core_IsActive()) break;
 					lastTicks = CoreTiming::GetTicks();
+
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
 					const char* dis = cpu->disasm(cpu->GetPC(),4);
 					const char* pos = strstr(dis,"->$");
@@ -574,6 +584,13 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				
 			case IDC_STEPHLE:
 				{
+					if (Core_IsActive())
+						break;
+					lastTicks = CoreTiming::GetTicks();
+
+					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+					CBreakPoints::SetSkipFirst(currentMIPS->pc);
+
 					hleDebugBreak();
 					SetDebugMode(false);
 					_dbg_update_();
