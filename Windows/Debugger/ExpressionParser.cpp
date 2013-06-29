@@ -382,9 +382,19 @@ bool parseExpression(char* infix, DebugInterface* cpu, u32& dest)
 				valueStack.push_back(arg[1]*arg[0]);
 				break;
 			case EXOP_DIV:			// a/b
+				if (arg[0] == 0)
+				{
+					sprintf(expressionError,"Division by zero");
+					return false;
+				}
 				valueStack.push_back(arg[1]/arg[0]);
 				break;
 			case EXOP_MOD:			// a%b
+				if (arg[0] == 0)
+				{
+					sprintf(expressionError,"Modulo by zero");
+					return false;
+				}
 				valueStack.push_back(arg[1]%arg[0]);
 				break;
 			case EXOP_ADD:			// a+b
