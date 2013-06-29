@@ -40,6 +40,9 @@ float breakpointColumnSizes[] = {
 
 enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
 
+// How long (max) to wait for Core to pause before clearing temp breakpoints.
+const int TEMP_BREAKPOINT_WAIT_MS = 100;
+
 static FAR WNDPROC DefBreakpointListProc;
 
 static LRESULT CALLBACK BreakpointListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -817,6 +820,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	// Update Dialog Windows
 	if (_bDebug)
 	{
+		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
 		updateBreakpointList();
 
