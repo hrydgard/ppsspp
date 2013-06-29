@@ -184,13 +184,19 @@ void DrawTriangle(VertexData vertexdata[3])
 				float s = (vertexdata[0].texturecoords.s() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.s() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.s() * w2 / vertexdata[2].clippos.w) / den;
 				float t = (vertexdata[0].texturecoords.t() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.t() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.t() * w2 / vertexdata[2].clippos.w) / den;
 				u32 prim_color = 0;
-				if ((gstate.shademodel&1) == GE_SHADE_GOURAUD)
+				u32 sec_color = 0;
+				if ((gstate.shademodel&1) == GE_SHADE_GOURAUD) {
 					prim_color = (int)((vertexdata[0].color0.r() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.r() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.r() * w2 / vertexdata[2].clippos.w) / den) +
 							(int)((vertexdata[0].color0.g() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.g() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.g() * w2 / vertexdata[2].clippos.w) / den)*256 +
 							(int)((vertexdata[0].color0.b() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.b() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.b() * w2 / vertexdata[2].clippos.w) / den)*256*256 +
 							(int)((vertexdata[0].color0.a() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.a() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.a() * w2 / vertexdata[2].clippos.w) / den)*256*256*256;
-				else
+					sec_color = (int)((vertexdata[0].color1.r() * w0 / vertexdata[0].clippos.w + vertexdata[1].color1.r() * w1 / vertexdata[1].clippos.w + vertexdata[2].color1.r() * w2 / vertexdata[2].clippos.w) / den) +
+							(int)((vertexdata[0].color1.g() * w0 / vertexdata[0].clippos.w + vertexdata[1].color1.g() * w1 / vertexdata[1].clippos.w + vertexdata[2].color1.g() * w2 / vertexdata[2].clippos.w) / den)*256 +
+							(int)((vertexdata[0].color1.b() * w0 / vertexdata[0].clippos.w + vertexdata[1].color1.b() * w1 / vertexdata[1].clippos.w + vertexdata[2].color1.b() * w2 / vertexdata[2].clippos.w) / den)*256*256;
+				} else {
 					prim_color = vertexdata[2].color0.r() | (vertexdata[2].color0.g()<<8) | (vertexdata[2].color0.b()<<16) | (vertexdata[2].color0.a()<<24);
+					sec_color = vertexdata[2].color1.r() | (vertexdata[2].color1.g()<<8) | (vertexdata[2].color1.b()<<16);
+				}
 
 				// TODO: Also disable if vertex has no texture coordinates?
 				if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
@@ -198,7 +204,7 @@ void DrawTriangle(VertexData vertexdata[3])
 
 					bool rgba = (gstate.texfunc & 0x10) != 0;
 
-#define CLAMP_U8(val) (((val) > 255) ? 255 : 0)
+#define CLAMP_U8(val) (((val) > 255) ? 255 : val)
 #define GET_R(col) ((col)&0xFF)
 #define GET_G(col) (((col)>>8)&0xFF)
 #define GET_B(col) (((col)>>16)&0xFF)
@@ -253,6 +259,24 @@ void DrawTriangle(VertexData vertexdata[3])
 					default:
 						ERROR_LOG(G3D, "Unknown texture function %x", gstate.getTextureFunction());
 					}
+				}
+
+				if (gstate.isColorDoublingEnabled()) {
+					// TODO: Do we need to clamp here?
+					// TODO: Even if we don't need to clamp, we aren't doing any U8 overflow emulation here
+					SET_R(prim_color, GET_R(prim_color)*2);
+					SET_G(prim_color, GET_G(prim_color)*2);
+					SET_B(prim_color, GET_B(prim_color)*2);
+					SET_R(sec_color, GET_R(sec_color)*2);
+					SET_G(sec_color, GET_G(sec_color)*2);
+					SET_B(sec_color, GET_B(sec_color)*2);
+				}
+
+				SET_R(prim_color, CLAMP_U8(GET_R(prim_color) + GET_R(sec_color)));
+				SET_G(prim_color, CLAMP_U8(GET_G(prim_color) + GET_G(sec_color)));
+				SET_B(prim_color, CLAMP_U8(GET_B(prim_color) + GET_B(sec_color)));
+
+				// TODO: Fogging
 #undef CLAMP_U8
 #undef GET_R
 #undef GET_G
@@ -262,7 +286,6 @@ void DrawTriangle(VertexData vertexdata[3])
 #undef SET_G
 #undef SET_B
 #undef SET_A
-				}
 
 				SetPixelColor(p.x, p.y, prim_color);
 			}
