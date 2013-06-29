@@ -248,7 +248,7 @@ bool SymbolMap::getSymbolValue(char* symbol, u32& dest)
 		if (strcasecmp(entry.name,symbol) == 0)
 #endif
 		{
-			dest = entries[i].address;
+			dest = entries[i].vaddress;
 			return true;
 		}
 	}
