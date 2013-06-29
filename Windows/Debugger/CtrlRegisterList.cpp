@@ -13,6 +13,7 @@
 
 #include "../../globals.h"
 #include "Debugger_Disasm.h"
+#include "ExpressionParser.h"
 
 #include "../main.h"
 
@@ -360,10 +361,18 @@ void CtrlRegisterList::editRegisterValue()
 		return;
 	u32 val = cpu->GetRegValue(cat,reg);
 
-	if (InputBox_GetHex(GetModuleHandle(NULL),wnd,"Set new value",val,val))
+	
+	char temp[256];
+	sprintf(temp,"%08X",val);
+	if (InputBox_GetString(GetModuleHandle(NULL),wnd,"Set new value",temp,temp))
 	{
-		cpu->SetRegValue(cat,reg,val);
-		redraw();
+		if (parseExpression(temp,cpu,val) == false)
+		{
+			displayExpressionError(wnd);
+		} else {
+			cpu->SetRegValue(cat,reg,val);
+			redraw();
+		}
 	}
 }
 

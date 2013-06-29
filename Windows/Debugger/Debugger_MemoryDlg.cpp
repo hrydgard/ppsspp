@@ -8,6 +8,7 @@
 #include "Debugger_MemoryDlg.h"
 
 #include "CtrlMemView.h"
+#include "ExpressionParser.h"
 
 #include "../../Core/MIPS/MIPSDebugInterface.h" //	BAD
 
@@ -20,17 +21,27 @@ LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 {
 	switch(message)
 	{
-	case WM_KEYUP:
+	case WM_KEYDOWN:
 		if( wParam == VK_RETURN )
 		{
 			SendMessage(AddressEditParentHwnd,WM_USER+2,0,0);
 			return 0;
 		}
-	default:
-		return (LRESULT)CallWindowProc((WNDPROC)DefAddressEditProc,hDlg,message,wParam,lParam);
+	case WM_KEYUP:
+		if( wParam == VK_RETURN ) return 0;
+		break;
+	case WM_CHAR:
+		if( wParam == VK_RETURN ) return 0;
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_RETURN) return DLGC_WANTMESSAGE;
+		}
+		break;
 	};
 
-	return 0;
+	return (LRESULT)CallWindowProc((WNDPROC)DefAddressEditProc,hDlg,message,wParam,lParam);
 }
 
 
@@ -156,8 +167,14 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		char temp[256];
 		u32 addr;
 		GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),temp,255);
-		sscanf(temp,"%08x",&addr);
-		mv->gotoAddr(addr);
+
+		if (parseExpression(temp,cpu,addr) == false)
+		{
+			displayExpressionError(m_hDlg);
+		} else {
+			mv->gotoAddr(addr);
+			SetFocus(GetDlgItem(m_hDlg,IDC_MEMVIEW));
+		}
 		break;
 	}
 	case WM_INITDIALOG:

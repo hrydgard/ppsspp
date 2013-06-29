@@ -10,6 +10,7 @@
 #include "Debugger_MemoryDlg.h"
 #include "Debugger_Disasm.h"
 #include "Debugger_VFPUDlg.h"
+#include "ExpressionParser.h"
 
 #include "../main.h"
 #include "CtrlRegisterList.h"
@@ -66,6 +67,35 @@ static LRESULT CALLBACK BreakpointListProc(HWND hDlg, UINT message, WPARAM wPara
 
 
 
+FAR WNDPROC DefGotoEditProc;
+
+LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch(message)
+	{
+	case WM_KEYDOWN:
+		if( wParam == VK_RETURN )
+		{
+			SendMessage(GetParent(hDlg),WM_USER+6,0,0);
+			return 0;
+		}
+		break;
+	case WM_KEYUP:
+		if( wParam == VK_RETURN ) return 0;
+		break;
+	case WM_CHAR:
+		if( wParam == VK_RETURN ) return 0;
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_RETURN) return DLGC_WANTMESSAGE;
+		}
+		break;
+	};
+
+	return (LRESULT)CallWindowProc((WNDPROC)DefGotoEditProc,hDlg,message,wParam,lParam);
+}
 
 
 CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_DISASM, _hInstance, _hParent)
@@ -118,7 +148,11 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);
 	SetTimer(m_hDlg,1,1000,0);
-
+	
+	// subclass the goto edit box
+	HWND editWnd = GetDlgItem(m_hDlg,IDC_ADDRESS);
+	DefGotoEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
+	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)GotoEditProc); 
 	
 	// subclass the breakpoint list
 	HWND breakpointHwnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
@@ -140,7 +174,6 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 		lvc.pszText = breakpointColumns[i];
 		ListView_InsertColumn(breakpointHwnd, i, &lvc);
 	}
-
 
 	// Actually resize the window to the proper size (after the above setup.)
 	if (w != -1 && h != -1)
@@ -578,7 +611,8 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					}
 
 					MemCheck check;
-					if (InputBox_GetHex(GetModuleHandle(NULL), m_hDlg, "JIT (and not HLE) only for now, no delete", 0, check.iStartAddress))
+
+					if (executeExpressionWindow(m_hDlg,cpu,check.iStartAddress))
 					{
 						check.bBreak = true;
 						check.bLog = true;
@@ -597,19 +631,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					}
 				}
 				break;
-
-			case IDC_ADDRESS:
-				{
-					if (HIWORD(wParam) == EN_CHANGE ) 
-					{
-						char szBuffer[32];
-						GetWindowText ((HWND)lParam, szBuffer, 32);
-						ptr->gotoAddr(parseHex(szBuffer));
-						UpdateDialog();
-					}
-				}
-				break;
-
 			case IDC_UPDATECALLSTACK:
 				{
 					HWND hDlg = m_hDlg;
@@ -693,6 +714,23 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		break;
 	case WM_USER+5:
 		removeBreakpoint(wParam);
+		break;
+	case WM_USER+6:		// goto edit
+		{
+			char szBuffer[256];
+			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+			GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),szBuffer,256);
+
+			u32 addr;
+			if (parseExpression(szBuffer,cpu,addr) == false)
+			{
+				displayExpressionError(GetDlgItem(m_hDlg,IDC_ADDRESS));
+			} else {
+				ptr->gotoAddr(addr);
+				SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
+			}
+			UpdateDialog();
+		}
 		break;
 	case WM_SIZE:
 		{
