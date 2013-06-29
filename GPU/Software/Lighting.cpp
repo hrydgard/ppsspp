@@ -107,7 +107,7 @@ void Process(VertexData& vertex)
 			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
 			specular_factor = pow(specular_factor, k);
 
-			/*if (specular_factor > 0.f)*/ {
+			if (specular_factor > 0.f) {
 				specular_color.r() += att * spot * lsc.r() * msc.r() * specular_factor / 255;
 				specular_color.g() += att * spot * lsc.g() * msc.g() * specular_factor / 255;
 				specular_color.b() += att * spot * lsc.b() * msc.b() * specular_factor / 255;
@@ -119,7 +119,7 @@ void Process(VertexData& vertex)
 	vertex.color0.g() = final_color.g();
 	vertex.color0.b() = final_color.b();
 
-	if (!gstate.isUsingSecondaryColor())
+	if (gstate.isUsingSecondaryColor())
 	{
 		vertex.color1 = specular_color;
 	} else {
