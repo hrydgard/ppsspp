@@ -12,6 +12,7 @@
 #include "../../Core/Debugger/SymbolMap.h"
 
 #include "Debugger_Disasm.h"
+#include "ExpressionParser.h"
 
 #include "CtrlMemView.h"
 
@@ -35,6 +36,7 @@ CtrlMemView::CtrlMemView(HWND _wnd)
   mode=MV_NORMAL;
   debugger = 0;
   
+	ctrlDown = false;
 	hasFocus = false;
 	windowStart = curAddress;
 	asciiSelected = false;
@@ -119,10 +121,13 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		return FALSE;
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
-		break;
+		return 0;
 	case WM_CHAR:
 		ccp->onChar(wParam,lParam);
-		break;
+		return 0;
+	case WM_KEYUP:
+		if (wParam == VK_CONTROL) ccp->ctrlDown = false;
+		return 0;
 	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
 	case WM_RBUTTONDOWN: SetFocus(hwnd); rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
@@ -340,6 +345,15 @@ void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
+	if (ctrlDown && tolower(wParam & 0xFFFF) == 'g')
+	{
+		ctrlDown = false;
+		u32 addr;
+		if (executeExpressionWindow(wnd,debugger,addr) == false) return;
+		gotoAddr(addr);
+		return;
+	}
+
 	switch (wParam & 0xFFFF)
 	{
 	case VK_DOWN:
@@ -360,6 +374,9 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	case VK_PRIOR:
 		scrollWindow(-visibleRows);
 		break;
+	case VK_CONTROL:
+		ctrlDown = true;
+		break;
 	default:
 		return;
 	}
@@ -367,6 +384,8 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 {
+	if (ctrlDown) return;
+
 	if (!Memory::IsValidAddress(curAddress))
 	{
 		scrollCursor(1);

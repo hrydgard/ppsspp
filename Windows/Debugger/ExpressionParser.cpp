@@ -222,7 +222,7 @@ bool parseExpression(char* infix, DebugInterface* cpu, u32& dest)
 	while (infixPos < infixLen)
 	{
 		char first = tolower(infix[infixPos]);
-		char subStr[12];
+		char subStr[256];
 		int subPos = 0;
 
 		if (first == ' ' || first == '\t')
