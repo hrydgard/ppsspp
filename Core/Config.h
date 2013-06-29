@@ -65,6 +65,7 @@ public:
 	bool bBufferedRendering;
 	bool bNearestFiltering;
 	bool bLinearFiltering;
+	bool bLinearFilteringCG;
 	bool bUseVBO;
 #ifdef BLACKBERRY
 	bool bPartialStretch;
