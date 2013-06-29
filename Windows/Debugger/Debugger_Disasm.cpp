@@ -732,6 +732,11 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			UpdateDialog();
 		}
 		break;
+
+	case WM_DISASM_SETDEBUG:
+		SetDebugMode(lParam != 0);
+		return TRUE;
+
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));

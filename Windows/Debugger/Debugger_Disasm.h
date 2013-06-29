@@ -12,6 +12,9 @@
 
 #include <windows.h>
 
+// Takes lParam for debug mode, zero or non zero.
+const int WM_DISASM_SETDEBUG = WM_APP + 0;
+
 class CDisasm : public Dialog
 {
 private:

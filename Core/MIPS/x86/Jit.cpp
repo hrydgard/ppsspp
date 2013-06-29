@@ -64,9 +64,6 @@ void JitBreakpoint()
 	Core_EnableStepping(true);
 	host->SetDebugMode(true);
 
-	if (CBreakPoints::IsTempBreakPoint(currentMIPS->pc))
-		CBreakPoints::RemoveBreakPoint(currentMIPS->pc);
-
 	// There's probably a better place for this.
 	if (USE_JIT_MISSMAP)
 	{

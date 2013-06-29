@@ -124,9 +124,11 @@ void WindowsHost::UpdateDisassembly()
 
 void WindowsHost::SetDebugMode(bool mode)
 {
-	for (int i=0; i<numCPUs; i++)
+	for (int i = 0; i < numCPUs; i++)
+	{
 		if (disasmWindow[i])
-			disasmWindow[i]->SetDebugMode(mode);
+			PostMessage(disasmWindow[i]->GetDlgHandle(), WM_DISASM_SETDEBUG, 0, (LPARAM)mode);
+	}
 }
 
 extern BOOL g_bFullScreen;
