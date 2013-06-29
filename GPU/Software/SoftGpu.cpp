@@ -251,6 +251,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				"TRIANGLE_FAN=5,",
 				"RECTANGLES=6,",
 			};
+
 			if (type != GE_PRIM_TRIANGLES && type != GE_PRIM_RECTANGLES)
 				break;
 

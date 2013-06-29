@@ -178,7 +178,7 @@ void DrawTriangle(VertexData vertexdata[3])
 					color = vertexdata[2].color0.r() | (vertexdata[2].color0.g()<<8) | (vertexdata[2].color0.b()<<16) | (vertexdata[2].color0.a()<<24);
 
 				// TODO: Also disable if vertex has no texture coordinates?
-				if (gstate.isTextureMapEnabled())
+				if (gstate.isTextureMapEnabled() && !gstate.isModeClear())
 					color |= /*TextureDecoder::*/SampleNearest(0, s, t);
 
 				*(u32*)&fb[p.x*4+p.y*(gstate.fbwidth&0x7C0)*4] = color;
