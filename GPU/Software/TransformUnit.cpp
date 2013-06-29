@@ -145,7 +145,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
 
 				if (vreader.hasNormal()) {
-					data[i].worldnormal = TransformUnit::ModelToWorld(data[i].normal);
+					data[i].worldnormal = TransformUnit::ModelToWorld(data[i].normal) - Vec3<float>(gstate.worldMatrix[9], gstate.worldMatrix[10], gstate.worldMatrix[11]);
 					data[i].worldnormal /= data[i].worldnormal.Length();
 				}
 
