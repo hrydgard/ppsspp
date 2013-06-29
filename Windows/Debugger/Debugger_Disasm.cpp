@@ -362,8 +362,6 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 					const char* sym = cpu->findSymbolForAddress(CBreakPoints::GetBreakpointAddress(index));
 					if (sym != NULL)
 					{
-						if (memcmp(sym,"z_",2) == 0) sym += 2;
-						if (memcmp(sym,"zz_",3) == 0) sym += 3;
 						strcpy(breakpointText,sym);
 					} else {
 						strcpy(breakpointText,"-");
