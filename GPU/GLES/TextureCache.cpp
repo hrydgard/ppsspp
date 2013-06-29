@@ -38,6 +38,8 @@
 // Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
 
+extern int g_iNumVideos;
+
 u32 RoundUpToPowerOf2(u32 v)
 {
 	v--;
@@ -509,7 +511,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		}
 	}
 
-	if (g_Config.bLinearFiltering && !gstate.isColorTestEnabled()) {
+	if ((g_Config.bLinearFiltering || (g_Config.bLinearFilteringCG && g_iNumVideos)) && !gstate.isColorTestEnabled()) {
 		magFilt |= 1;
 		minFilt |= 1;
 	}

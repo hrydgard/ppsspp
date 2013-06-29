@@ -44,6 +44,7 @@
 #endif
 #endif
 
+extern int g_iNumVideos;
 
 static const char tex_fs[] =
 	"#ifdef GL_ES\n"
@@ -245,7 +246,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	}
 
 	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.bLinearFiltering)
+	if (g_Config.bLinearFiltering || (g_Config.bLinearFilteringCG && g_iNumVideos))
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
