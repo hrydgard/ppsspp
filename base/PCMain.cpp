@@ -365,8 +365,8 @@ int main(int argc, char *argv[]) {
 			pixel_xres = 1024 * zoom;
 			pixel_yres = 768 * zoom;
 		} else {
-			pixel_xres = 800 * zoom;
-			pixel_yres = 480 * zoom;
+			pixel_xres = 960 * zoom;
+			pixel_yres = 544 * zoom;
 		}
 	} else {
 		// PC development hack for more space
