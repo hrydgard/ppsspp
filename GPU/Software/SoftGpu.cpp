@@ -147,6 +147,7 @@ SoftGPU::~SoftGPU()
 // Copies RGBA8 data from RAM to the currently bound render target.
 void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth, int dstheight)
 {
+    glDisable(GL_BLEND);
 	glViewport(0, 0, dstwidth, dstheight);
 	glScissor(0, 0, dstwidth, dstheight);
 

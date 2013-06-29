@@ -131,7 +131,7 @@ void DrawTriangle(VertexData vertexdata[3])
 				if (gstate.isTextureMapEnabled())
 					color |= /*TextureDecoder::*/SampleNearest(0, s, t);
 
-				*(u32*)&fb[p.x*4+p.y*FB_WIDTH*4] = color | 0xff000000; // TODO: Framebuffer management still sucks, remove the alpha=0xff hack once it's done properly
+				*(u32*)&fb[p.x*4+p.y*FB_WIDTH*4] = color;
 			}
 		}
 	}
