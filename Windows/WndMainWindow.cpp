@@ -745,6 +745,9 @@ namespace MainWindow
 				g_Config.bNearestFiltering = false;
 				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
 				break;
+			case ID_OPTIONS_LINEARFILTERING_CG:
+				g_Config.bLinearFilteringCG = !g_Config.bLinearFilteringCG;
+				break;
 			case ID_OPTIONS_TOPMOST:
 				g_Config.bTopMost = !g_Config.bTopMost;
 				W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
@@ -902,6 +905,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_NEARESTFILTERING, g_Config.bNearestFiltering);
 		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
+		CHECKITEM(ID_OPTIONS_LINEARFILTERING_CG, g_Config.bLinearFilteringCG);
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);

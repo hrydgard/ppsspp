@@ -100,6 +100,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("NearestFiltering", &bNearestFiltering, false);
 	graphics->Get("LinearFiltering", &bLinearFiltering, false);
+	graphics->Get("LinearFilteringCG", &bLinearFilteringCG, false);
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
@@ -216,6 +217,7 @@ void Config::Save()
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("NearestFiltering", bNearestFiltering);
 		graphics->Set("LinearFiltering", bLinearFiltering);
+		graphics->Set("LinearFilteringCG", bLinearFilteringCG);
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);

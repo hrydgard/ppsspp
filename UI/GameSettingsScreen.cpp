@@ -60,6 +60,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("Graphics", graphicsSettingsScroll);
 	graphicsSettings->Add(new CheckBox(&g_Config.bNearestFiltering, gs->T("Force Nearest Filtering")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bLinearFiltering, gs->T("Force Linear Filtering")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bLinearFilteringCG, gs->T("Linear Filtering (CG)")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bBufferedRendering, gs->T("Buffered Rendering")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisplayFramebuffer, gs->T("Display Raw Framebuffer")));

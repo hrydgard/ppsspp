@@ -863,6 +863,7 @@ void GraphicsScreenP2::render() {
 	if ( UICheckBox(GEN_ID, x, y += stride, gs->T("Force Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering) ) {
 		g_Config.bNearestFiltering = false; // and vice versa
 	}
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering (CG)"), ALIGN_TOPLEFT, &g_Config.bLinearFilteringCG);
 
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);

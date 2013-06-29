@@ -43,6 +43,8 @@ static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR5551 = 0x01;
 static const int TPSM_PIXEL_STORAGE_MODE_16BIT_ABGR4444 = 0x02;
 static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0x03;
 
+int g_iNumVideos = 0;
+
 #ifdef USE_FFMPEG
 static AVPixelFormat getSwsFormat(int pspFormat)
 {
@@ -95,10 +97,12 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_isAudioEnd = false;
 	m_bufSize = 0x2000;
 	m_mpegheaderReadPos = 0;
+	g_iNumVideos++;
 }
 
 MediaEngine::~MediaEngine() {
 	closeMedia();
+	g_iNumVideos--;
 }
 
 void MediaEngine::closeMedia() {
