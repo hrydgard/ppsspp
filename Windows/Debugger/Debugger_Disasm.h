@@ -15,7 +15,8 @@
 class CDisasm : public Dialog
 {
 private:
-	RECT minRect;
+	RECT defaultRect;
+	RECT defaultBreakpointRect;
 	RECT regRect;
 	RECT disRect;
 	RECT breakpointRect;
