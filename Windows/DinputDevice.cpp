@@ -35,10 +35,10 @@
 unsigned int dinput_ctrl_map[] = {
 	11,     PAD_BUTTON_MENU,         // Open PauseScreen
 	10,     PAD_BUTTON_BACK,         // Toggle PauseScreen & Back Setting Page
-	1,		PAD_BUTTON_A,            // Cross    = XBOX-A
-	2,		PAD_BUTTON_B,            // Circle   = XBOX-B 
-	0,		PAD_BUTTON_X,            // Square   = XBOX-X
-	3,		PAD_BUTTON_Y,            // Triangle = XBOX-Y
+	2,		PAD_BUTTON_A,            // Cross    = XBOX-A
+	1,		PAD_BUTTON_B,            // Circle   = XBOX-B 
+	3,		PAD_BUTTON_X,            // Square   = XBOX-X
+	0,		PAD_BUTTON_Y,            // Triangle = XBOX-Y
 	8,		PAD_BUTTON_SELECT,
 	9,		PAD_BUTTON_START,
 	4,		PAD_BUTTON_LBUMPER,      // LTrigger = XBOX-LBumper
@@ -216,26 +216,26 @@ int DinputDevice::UpdateState(InputState &input_state)
 	case 0:
 		break;
 	case 1:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
-		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
-		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
+		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
+		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
+		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
 		break;
 	case 2:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
-		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
-		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
+		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
 		break;
 	case 3:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
 		break;
 	case 4:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
-		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
-		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
 		break;
 	}
 
