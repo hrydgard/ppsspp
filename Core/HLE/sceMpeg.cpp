@@ -255,7 +255,7 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 	ctx->mpegLastDate = convertTimestampToDate(ctx->mpegLastTimestamp);
 	ctx->avc.avcDetailFrameWidth = (Memory::Read_U8(buffer_addr + 142) * 0x10);
 	ctx->avc.avcDetailFrameHeight = (Memory::Read_U8(buffer_addr + 143) * 0x10);
-	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
+	ctx->avc.avcDecodeResult = 0;
 	ctx->avc.avcFrameStatus = 0;
 
 	ctx->videoFrameCount = 0;
@@ -965,6 +965,11 @@ int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	SceMpegAu sceAu;
 	sceAu.read(auAddr);
 
+	if (ctx->avc.avcDecodeResult == 0) {
+		// return PSP_ERROR_MPEG_NO_DATA at first call before mpegAvcDecode
+		ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
+		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get avc", mpegDecodeErrorDelayMs);
+	}
 	if (mpegRingbuffer.packetsRead == 0 || mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
 		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		sceAu.pts = -1;
