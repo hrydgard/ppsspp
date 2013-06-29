@@ -73,17 +73,28 @@ LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 {
 	switch(message)
 	{
-	case WM_KEYUP:
+	case WM_KEYDOWN:
 		if( wParam == VK_RETURN )
 		{
 			SendMessage(GetParent(hDlg),WM_USER+6,0,0);
 			return 0;
 		}
-	default:
-		return (LRESULT)CallWindowProc((WNDPROC)DefGotoEditProc,hDlg,message,wParam,lParam);
+		break;
+	case WM_KEYUP:
+		if( wParam == VK_RETURN ) return 0;
+		break;
+	case WM_CHAR:
+		if( wParam == VK_RETURN ) return 0;
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_RETURN) return DLGC_WANTMESSAGE;
+		}
+		break;
 	};
 
-	return 0;
+	return (LRESULT)CallWindowProc((WNDPROC)DefGotoEditProc,hDlg,message,wParam,lParam);
 }
 
 
@@ -141,7 +152,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	// subclass the goto edit box
 	HWND editWnd = GetDlgItem(m_hDlg,IDC_ADDRESS);
 	DefGotoEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
-	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)DefGotoEditProc); 
+	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)GotoEditProc); 
 	
 	// subclass the breakpoint list
 	HWND breakpointHwnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
@@ -713,9 +724,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			u32 addr;
 			if (parseExpression(szBuffer,cpu,addr) == false)
 			{
-				displayExpressionError(m_hDlg);
+				displayExpressionError(GetDlgItem(m_hDlg,IDC_ADDRESS));
 			} else {
 				ptr->gotoAddr(addr);
+				SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 			}
 			UpdateDialog();
 		}

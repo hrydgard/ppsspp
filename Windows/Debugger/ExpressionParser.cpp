@@ -160,6 +160,12 @@ bool parseLabel(char* label, DebugInterface* debug, u32& dest)
 		}
 	}
 
+	if (stricmp(label,"pc") == 0)
+	{
+		dest = debug->GetPC();
+		return true;
+	}
+
 	// now check labels
 	return debug->getSymbolValue(label,dest);
 }
