@@ -31,17 +31,15 @@ void Process(VertexData& vertex)
 	Vec3<int> mac = (gstate.materialupdate&1)
 						? Vec3<int>(gstate.getMaterialAmbientR(), gstate.getMaterialAmbientG(), gstate.getMaterialAmbientB())
 						: vertex.color0.rgb();
-	vertex.color0.r() = mec.r() + mac.r() * gstate.getAmbientR()/255;
-	vertex.color0.g() = mec.g() + mac.g() * gstate.getAmbientG()/255;
-	vertex.color0.b() = mec.b() + mac.b() * gstate.getAmbientB()/255;
-
-	int maa = (gstate.materialupdate&1) ? gstate.getMaterialAmbientA() : vertex.color0.a();
-	vertex.color0.a() = gstate.getAmbientA() * maa / 255;
+	Vec3<int> final_color = mec + mac * Vec3<int>(gstate.getAmbientR(), gstate.getAmbientG(), gstate.getAmbientB()) / 255;
+	Vec3<int> specular_color(0, 0, 0);
 
 	for (unsigned int light = 0; light < 4; ++light) {
 		if (!gstate.isLightChanEnabled(light))
 			continue;
 
+		// L =  vector from vertex to light source
+		// TODO: Should transfer the light positions to world/view space for these calculations
 		Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3*light]&0xFFFFFF), getFloat24(gstate.lpos[3*light+1]&0xFFFFFF),getFloat24(gstate.lpos[3*light+2]&0xFFFFFF));
 		L -= vertex.worldpos;
 		float d = L.Length();
@@ -72,9 +70,9 @@ void Process(VertexData& vertex)
 
 		// ambient lighting
 		Vec3<int> lac = Vec3<int>(gstate.getLightAmbientColorR(light), gstate.getLightAmbientColorG(light), gstate.getLightAmbientColorB(light));
-		vertex.color0.r() += att * spot * lac.r() * mac.r() / 255;
-		vertex.color0.g() += att * spot * lac.g() * mac.g() / 255;
-		vertex.color0.b() += att * spot * lac.b() * mac.b() / 255;
+		final_color.r() += att * spot * lac.r() * mac.r() / 255; // TODO: Brackets
+		final_color.g() += att * spot * lac.g() * mac.g() / 255;
+		final_color.b() += att * spot * lac.b() * mac.b() / 255;
 
 		// diffuse lighting
 		Vec3<int> ldc = Vec3<int>(gstate.getDiffuseColorR(light), gstate.getDiffuseColorG(light), gstate.getDiffuseColorB(light));
@@ -88,16 +86,47 @@ void Process(VertexData& vertex)
 			diffuse_factor = pow(diffuse_factor, k);
 		}
 
-		vertex.color0.r() += att * spot * ldc.r() * mdc.r() * diffuse_factor / 255;
-		vertex.color0.g() += att * spot * ldc.g() * mdc.g() * diffuse_factor / 255;
-		vertex.color0.b() += att * spot * ldc.b() * mdc.b() * diffuse_factor / 255;
+		// TODO: checking for non-negativity doesn't work?
+//		if (diffuse_factor > 0.f) {
+			final_color.r() += att * spot * ldc.r() * mdc.r() * diffuse_factor / 255;
+			final_color.g() += att * spot * ldc.g() * mdc.g() * diffuse_factor / 255;
+			final_color.b() += att * spot * ldc.b() * mdc.b() * diffuse_factor / 255;
+//		}
+
+		if (gstate.isUsingSpecularLight(light)) {
+			Vec3<float> E(0.f, 0.f, 1.f);
+			Vec3<float> H = E / E.Length() + L / d;
+			Vec3<int> lsc = Vec3<int>(gstate.getSpecularColorR(light), gstate.getSpecularColorG(light), gstate.getSpecularColorB(light));
+			Vec3<int> msc = (gstate.materialupdate&4)
+								? Vec3<int>(gstate.getMaterialSpecularR(), gstate.getMaterialSpecularG(), gstate.getMaterialSpecularB())
+								: vertex.color0.rgb();
+
+			float specular_factor = Dot(H,vertex.normal) / H.Length() / vertex.normal.Length();
+			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
+			specular_factor = pow(specular_factor, k);
+
+			specular_color.r() += att * spot * lsc.r() * msc.r() * specular_factor / 255;
+			specular_color.g() += att * spot * lsc.g() * msc.g() * specular_factor / 255;
+			specular_color.b() += att * spot * lsc.b() * msc.b() * specular_factor / 255;
+		}
 	}
 
-	// Currently only implementing ambient+diffuse lighting, so secondary color is always zero anyway
-	//if (!gstate.isUsingSecondaryColor())
+	vertex.color0.r() = final_color.r();
+	vertex.color0.g() = final_color.g();
+	vertex.color0.b() = final_color.b();
+
+	if (!gstate.isUsingSecondaryColor())
 	{
+		vertex.color1 = specular_color;
+	} else {
+		vertex.color0.r() += specular_color.r();
+		vertex.color0.g() += specular_color.g();
+		vertex.color0.b() += specular_color.b();
 		vertex.color1 = Vec3<int>(0, 0, 0);
 	}
+
+	int maa = (gstate.materialupdate&1) ? gstate.getMaterialAmbientA() : vertex.color0.a();
+	vertex.color0.a() = gstate.getAmbientA() * maa / 255;
 }
 
 } // namespace

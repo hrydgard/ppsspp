@@ -140,7 +140,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			if (!gstate.isModeThrough()) {
 				ModelCoords mcoords(pos[0], pos[1], pos[2]);
 				data[i].worldpos = WorldCoords(TransformUnit::ModelToWorld(mcoords));
-				data[i].clippos = ClipCoords(ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(data[i].worldpos))));
+				data[i].viewpos = TransformUnit::WorldToView(data[i].worldpos);
+				data[i].clippos = ClipCoords(TransformUnit::ViewToClip(data[i].viewpos));
 				data[i].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[i].clippos)));
 
 				Lighting::Process(data[i]);

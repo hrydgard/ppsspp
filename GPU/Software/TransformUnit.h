@@ -44,7 +44,7 @@ struct VertexData
 		#define LINTERP(T, OUT, IN) (OUT) + ((IN - OUT) * T)
 		#define LINTERP_INT(T, OUT, IN) (OUT) + (((IN - OUT) * T) >> 8)
 
-		// World coords only needed for lighting, so we don't Lerp those
+		// World and view coords only needed for lighting, so we don't Lerp those
 
 		clippos.x = LINTERP(t, a.clippos.x, b.clippos.x);
 		clippos.y = LINTERP(t, a.clippos.y, b.clippos.y);
@@ -76,6 +76,7 @@ struct VertexData
 	}
 
 	WorldCoords worldpos; // TODO: Storing this is dumb, should transform the light to clip space instead
+	ViewCoords viewpos; // TODO: Storing this is dumb, should transform the light to clip space instead
 	ClipCoords clippos;
 	DrawingCoords drawpos; // TODO: Shouldn't store this ?
 	Vec2<float> texturecoords;
