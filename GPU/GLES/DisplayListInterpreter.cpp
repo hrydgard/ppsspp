@@ -255,7 +255,7 @@ void GLES_GPU::DumpNextFrame() {
 void GLES_GPU::BeginFrame() {
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.iVSyncInterval;
-	if (PSP_CoreParameter().unthrottle)
+	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 2) || (PSP_CoreParameter().fpsLimit == 1))
 		desiredVSyncInterval = 0;
 	if (desiredVSyncInterval != lastVsync_) {
 		glstate.SetVSyncInterval(desiredVSyncInterval);
