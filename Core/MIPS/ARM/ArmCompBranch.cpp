@@ -53,7 +53,7 @@ namespace MIPSComp
 void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
 	int offset = (signed short)(op&0xFFFF)<<2;
@@ -113,7 +113,7 @@ void Jit::BranchRSRTComp(u32 op, ArmGen::CCFlags cc, bool likely)
 void Jit::BranchRSZeroComp(u32 op, ArmGen::CCFlags cc, bool andLink, bool likely)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
 	int offset = (signed short)(op&0xFFFF)<<2;
@@ -208,7 +208,7 @@ void Jit::Comp_RelBranchRI(u32 op)
 void Jit::BranchFPFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
 	int offset = (signed short)(op & 0xFFFF) << 2;
@@ -266,7 +266,7 @@ void Jit::Comp_FPUBranch(u32 op)
 void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
 	int offset = (signed short)(op & 0xFFFF) << 2;
@@ -326,7 +326,7 @@ void Jit::Comp_VBranch(u32 op)
 void Jit::Comp_Jump(u32 op)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
 	u32 off = ((op & 0x03FFFFFF) << 2);
@@ -358,7 +358,7 @@ void Jit::Comp_Jump(u32 op)
 void Jit::Comp_JumpReg(u32 op)
 {
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x", js.compilerPC);
+		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
 	int rs = _RS;
