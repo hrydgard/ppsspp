@@ -541,33 +541,19 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 	}
 
-	bool hasSymbols = false;
-	bool dontadd = false;
-
 	SectionID textSection = reader.GetSectionByName(".text");
 
 	if (textSection != -1) {
 		u32 textStart = reader.GetSectionAddr(textSection);
 		u32 textSize = reader.GetSectionSize(textSection);
 
-		if (!host->AttemptLoadSymbolMap())
-		{
-			hasSymbols = reader.LoadSymbols();
-			if (!hasSymbols)
-			{
-				symbolMap.ResetSymbolMap();
-				MIPSAnalyst::ScanForFunctions(textStart, textStart+textSize);
-			}
-		}
-		else
-		{
-			dontadd = true;
-		}
+		host->AttemptLoadSymbolMap();
+
+		if (!reader.LoadSymbols())
+			MIPSAnalyst::ScanForFunctions(textStart, textStart+textSize);
 	}
-	else if (host->AttemptLoadSymbolMap())
-	{
-		dontadd = true;
-	}
+	else
+		host->AttemptLoadSymbolMap();
 
 	INFO_LOG(LOADER,"Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent,modinfo->libstub);
 
@@ -643,11 +629,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 					WARN_LOG_REPORT(LOADER, "Invalid address for syscall stub %s %08x", modulename, nidDataPtr[i]);
 				}
 
-				if (!dontadd) {
-					char temp[256];
-					sprintf(temp,"zz_%s", GetFuncName(modulename, nidDataPtr[i]));
-					symbolMap.AddSymbol(temp, addrToWriteSyscall, 8, ST_FUNCTION);
-				}
+				char temp[256];
+				sprintf(temp,"zz_%s", GetFuncName(modulename, nidDataPtr[i]));
+				symbolMap.AddSymbol(temp, addrToWriteSyscall, 8, ST_FUNCTION);
 			}
 		} else if (entry->numFuncs > 0) {
 			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
