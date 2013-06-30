@@ -447,6 +447,9 @@ u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 	data.headerSize = 0x800;
 	data.streamSize = psmf->streamSize;
 	data.streamNum = psmf->numStreams;
+	auto iter = psmfMap.find(data.headerOffset);
+	if (iter != psmfMap.end())
+		delete iter->second;
 	data.headerOffset = psmf->headerOffset;
 	psmfMap[data.headerOffset] = psmf;
 	Memory::WriteStruct(psmfStruct, &data);
