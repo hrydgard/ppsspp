@@ -18,52 +18,83 @@
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
 
-int sceCccUTF8toUTF16()
-{
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF8toUTF16");
-	return 0;
-}
-
-int sceCccStrlenUTF16(int strUTF16)
-{
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccStrlenUTF16");
-	return 0;
-}
-
-
-int sceCccUTF8toSJIS(int dstAddr, int dstSize, int srcAddr)
-{
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF8toSJIS");
-	return 0;
-}
-
-int sceCccSetTable(int jis2ucs, int ucs2jis)
+int sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 {
 	// Both tables jis2ucs and ucs2jis have a size of 0x20000 bytes
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSetTable");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSetTable(%08x, %08x)", jis2ucs, ucs2jis);
 	return 0;
 }
 
-int sceCccSJIStoUTF16(int dstUTF16, int dstSize, int srcSJIS)
+int sceCccUTF8toUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSJIStoUTF16");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF8toUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	return 0;
 }
 
-int sceCccUTF16toSJIS()
+int sceCccUTF8toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF16toSJIS");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF8toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	Memory::Memcpy(dstAddr, Memory::GetCharPointer(srcAddr), dstSize);
+	return 0;
+}
+
+int sceCccUTF16toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
+{
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF16toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	return 0;
+}
+
+int sceCccSJIStoUTF8(u32 dstAddr, int dstSize, u32 srcAddr)
+{
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSJIStoUTF8(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	// TODO: Use the tables set in sceCccSetTable()?
+	// Some characters are the same, so let's copy which is better than doing nothing.
+	Memory::Memcpy(dstAddr, Memory::GetCharPointer(srcAddr), dstSize);
+	return 0;
+}
+
+int sceCccSJIStoUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
+{
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSJIStoUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	return 0;
+}
+
+int sceCccStrlenUTF16(u32 strUTF16)
+{
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccStrlenUTF16(%08x)", strUTF16);
+	return 0;
+}
+
+int sceCccEncodeUTF8(u32 dstAddr, u32 ucs)
+{
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccEncodeUTF8(%08x, U+%04x)", dstAddr, ucs);
+	return 0;
+}
+
+int sceCccEncodeUTF16(u32 dstAddr, u32 ucs)
+{
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccEncodeUTF8(%08x, U+%04x)", dstAddr, ucs);
+	return 0;
+}
+
+int sceCccDecodeUTF8(u32 dstAddrAddr)
+{
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccDecodeUTF8(%08x)", dstAddrAddr);
 	return 0;
 }
 
 const HLEFunction sceCcc[] =
 {	
-	{0x00D1378F, WrapI_V<sceCccUTF8toUTF16>, "sceCccUTF8toUTF16"},
-	{0x4BDEB2A8, WrapI_I<sceCccStrlenUTF16>, "sceCccStrlenUTF16"},
-	{0x6F82EE03, WrapI_III<sceCccUTF8toSJIS>, "sceCccUTF8toSJIS"},
-	{0xB4D1CBBF, WrapI_II<sceCccSetTable>, "sceCccSetTable"},
-	{0xBEB47224, WrapI_III<sceCccSJIStoUTF16>, "sceCccSJIStoUTF16"},	
-	{0xF1B73D12, WrapI_V<sceCccUTF16toSJIS>, "sceCccUTF16toSJIS"},
+	{0xB4D1CBBF, WrapI_UU<sceCccSetTable>, "sceCccSetTable"},
+	{0x00D1378F, WrapI_UIU<sceCccUTF8toUTF16>, "sceCccUTF8toUTF16"},
+	{0x6F82EE03, WrapI_UIU<sceCccUTF8toSJIS>, "sceCccUTF8toSJIS"},
+	{0xF1B73D12, WrapI_UIU<sceCccUTF16toSJIS>, "sceCccUTF16toSJIS"},
+	{0xA62E6E80, WrapI_UIU<sceCccSJIStoUTF8>, "sceCccSJIStoUTF8"},
+	{0xBEB47224, WrapI_UIU<sceCccSJIStoUTF16>, "sceCccSJIStoUTF16"},
+	{0x4BDEB2A8, WrapI_U<sceCccStrlenUTF16>, "sceCccStrlenUTF16"},
+	{0x92C05851, WrapI_UU<sceCccEncodeUTF8>, "sceCccEncodeUTF8"},
+	{0x8406F469, WrapI_UU<sceCccEncodeUTF16>, "sceCccEncodeUTF16"},
+	{0xc6a8bee2, WrapI_U<sceCccDecodeUTF8>, "sceCccDecodeUTF8"},
 };
 
 void Register_sceCcc()

@@ -1293,6 +1293,7 @@ const HLEFunction scePsmfPlayer[] =
 	{0x2D0E4E0A, WrapI_UUU<scePsmfPlayerSetTempBuf>, "scePsmfPlayerSetTempBuf"},
 	{0x76C0F4AE, WrapI_UCI<scePsmfPlayerSetPsmfOffset>, "scePsmfPlayerSetPsmfOffset"},
 	{0xA72DB4F9, WrapI_UCI<scePsmfPlayerSetPsmfOffsetCB>, "scePsmfPlayerSetPsmfOffsetCB"},
+	{0x340c12cb, 0, "scePsmfPlayer_340C12CB"},
 };
 
 void Register_scePsmf() {
