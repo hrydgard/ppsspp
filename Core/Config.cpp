@@ -105,6 +105,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 60);
+	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 0);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
 #else
@@ -222,6 +223,7 @@ void Config::Save()
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("FrameRate", iFpsLimit);
+		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);

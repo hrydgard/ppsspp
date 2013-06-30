@@ -915,7 +915,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 
 	for (int i = 0; i < 4; i++) {
 		if (gstate.lightEnable[i] & 1)
-			cost += 20;
+			cost += 10;
 	}
 	if (gstate.getUVGenMode() != 0) {
 		cost += 20;
@@ -924,11 +924,6 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 		cost += 5 * dec_->morphcount;
 	}
 
-	if (CoreTiming::GetClockFrequencyMHz() == 333) {
-		// Just brutally double to make God of War happier.
-		// FUDGE FACTORS! Delicious fudge factors!
-		cost *= 2;
-	}
 	return cost;
 }
 

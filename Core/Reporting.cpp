@@ -216,6 +216,7 @@ namespace Reporting
 			float vps, fps;
 			__DisplayGetAveragedFPS(&vps, &fps);
 			postdata.Add("vps", vps);
+			postdata.Add("fps", fps);
 		}
 
 		// TODO: Settings, savestate/savedata status, some measure of speed/fps?
