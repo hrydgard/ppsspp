@@ -688,7 +688,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					while (addr != 0xFFFFFFFF && addr!=0 && count++<20)
 					{
 						DWORD fun = Memory::ReadUnchecked_U32(addr+4);
-						char *str = symbolMap.GetDescription(fun);
+						const char *str = symbolMap.GetDescription(fun);
 						if (strlen(str)==0)
 							str = "(unknown)";
 						ComboBox_SetItemData(list, ComboBox_AddString(list,str), fun);

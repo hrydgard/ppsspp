@@ -28,7 +28,6 @@ public:
 		mainWindow_ = mainWindow;
 		displayWindow_ = displayWindow;
 		input = getInputDevices();
-		loadedSymbolMap_ = false;
 		SetConsolePosition();
 	}
 	~WindowsHost()
@@ -64,5 +63,4 @@ private:
 	HWND displayWindow_;
 	HWND mainWindow_;
 	std::list<std::shared_ptr<InputDevice>> input;
-	bool loadedSymbolMap_;
 };
