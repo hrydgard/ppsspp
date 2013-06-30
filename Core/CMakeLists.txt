@@ -27,6 +27,7 @@ set(SRCS
   HLE/sceAtrac.cpp
   HLE/__sceAudio.cpp
   HLE/sceAudio.cpp
+  HLE/sceCcc.cpp
   HLE/sceChnnlsv.cpp
   HLE/sceCtrl.cpp
   HLE/sceDeflt.cpp

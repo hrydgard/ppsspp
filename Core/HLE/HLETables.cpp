@@ -19,6 +19,7 @@
 
 #include "HLETables.h"
 
+#include "sceCcc.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
 #include "sceHttp.h"
@@ -230,6 +231,7 @@ void RegisterAllModules() {
 	Register_StdioForUser();
 
 	Register_sceHprm();
+	Register_sceCcc();
 	Register_sceCtrl();
 	Register_sceDisplay();
 	Register_sceAudio();
