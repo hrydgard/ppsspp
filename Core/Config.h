@@ -88,6 +88,7 @@ public:
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
 	int iFpsLimit;
+	int iForceGameFPS;
 	int iMaxRecent;
 	bool bEnableCheats;
 	bool bReloadCheats;

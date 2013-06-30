@@ -124,6 +124,7 @@ static size_t fpsHistoryValid = 0;
 static int lastNumFlips = 0;
 static int numFlips = 0;
 static float flips = 0.0f;
+static u64 lastFlipCycles = 0;
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
@@ -142,6 +143,7 @@ void __DisplayInit() {
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
 	framebuf.pspFramebufLinesize = 480; // ??
+	lastFlipCycles = 0;
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
 	leaveVblankEvent = CoreTiming::RegisterEvent("LeaveVBlank", &hleLeaveVblank);
@@ -512,6 +514,14 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 
 	if (topaddr != framebuf.topaddr) {
 		++numFlips;
+		if (g_Config.iForceGameFPS) {
+			u64 now = CoreTiming::GetTicks();
+			u64 expected = msToCycles(1000) / g_Config.iForceGameFPS;
+			u64 actual = now - lastFlipCycles;
+			if (actual < expected)
+				hleEatCycles((int)(expected - actual));
+			lastFlipCycles = CoreTiming::GetTicks();
+		}
 	}
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
