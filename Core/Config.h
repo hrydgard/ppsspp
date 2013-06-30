@@ -63,9 +63,7 @@ public:
 	bool bDisplayFramebuffer;
 	bool bHardwareTransform;
 	bool bBufferedRendering;
-	bool bNearestFiltering;
-	bool bLinearFiltering;
-	bool bLinearFilteringCG;
+	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 	bool bUseVBO;
 #ifdef BLACKBERRY
 	bool bPartialStretch;
