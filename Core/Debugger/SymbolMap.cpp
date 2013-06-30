@@ -173,7 +173,8 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 
 		if (!started) continue;
 		MapEntry e;
-		sscanf(line,"%08x %08x %08x %i %s",&e.address,&e.size,&e.vaddress,(int*)&e.type,e.name);
+		memset(&e, 0, sizeof(e));
+		sscanf(line,"%08x %08x %08x %i %127c",&e.address,&e.size,&e.vaddress,(int*)&e.type,e.name);
 		
 		if (e.type == ST_DATA && e.size==0)
 			e.size=4;
