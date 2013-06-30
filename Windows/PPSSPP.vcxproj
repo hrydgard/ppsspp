@@ -302,6 +302,7 @@
     <ClInclude Include="Debugger\CtrlDisAsmView.h" />
     <ClInclude Include="Debugger\CtrlMemView.h" />
     <ClInclude Include="Debugger\CtrlRegisterList.h" />
+    <ClInclude Include="Debugger\DebuggerShared.h" />
     <ClInclude Include="Debugger\Debugger_Disasm.h" />
     <ClInclude Include="Debugger\Debugger_MemoryDlg.h" />
     <ClInclude Include="Debugger\Debugger_VFPUDlg.h" />

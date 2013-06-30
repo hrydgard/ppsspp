@@ -9,6 +9,7 @@
 
 #include "CtrlMemView.h"
 #include "ExpressionParser.h"
+#include "DebuggerShared.h"
 
 #include "../../Core/MIPS/MIPSDebugInterface.h" //	BAD
 
@@ -24,7 +25,7 @@ LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 	case WM_KEYDOWN:
 		if( wParam == VK_RETURN )
 		{
-			SendMessage(AddressEditParentHwnd,WM_USER+2,0,0);
+			SendMessage(AddressEditParentHwnd,WM_DEB_GOTOADDRESSEDIT,0,0);
 			return 0;
 		}
 	case WM_KEYUP:
@@ -158,10 +159,10 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			}
 		}
 		break;
-	case WM_USER+1:
+	case WM_DEB_MAPLOADED:
 		NotifyMapLoaded();
 		break;
-	case WM_USER+2:	// enter hit on address edit
+	case WM_DEB_GOTOADDRESSEDIT:
 	{
 		CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_MEMVIEW));
 		char temp[256];
