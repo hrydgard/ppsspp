@@ -514,9 +514,9 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 
 	if (topaddr != framebuf.topaddr) {
 		++numFlips;
-		if (g_Config.iForceGameFPS) {
+		if (g_Config.iForceMaxEmulatedFPS) {
 			u64 now = CoreTiming::GetTicks();
-			u64 expected = msToCycles(1000) / g_Config.iForceGameFPS;
+			u64 expected = msToCycles(1000) / g_Config.iForceMaxEmulatedFPS;
 			u64 actual = now - lastFlipCycles;
 			if (actual < expected)
 				hleEatCycles((int)(expected - actual));

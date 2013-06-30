@@ -966,9 +966,9 @@ void GraphicsScreenP3::render() {
 	int stride = 40;
 	int columnw = 400;
 	
-	bool forceGameFPS60 = g_Config.iForceGameFPS == 60;
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Force 60 FPS or less"), ALIGN_TOPLEFT, &forceGameFPS60))
-		g_Config.iForceGameFPS = forceGameFPS60 ? 60 : 0;
+	bool ForceMaxEmulatedFPS60 = g_Config.iForceMaxEmulatedFPS == 60;
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Force 60 FPS or less"), ALIGN_TOPLEFT, &ForceMaxEmulatedFPS60))
+		g_Config.iForceMaxEmulatedFPS = ForceMaxEmulatedFPS60 ? 60 : 0;
 
 	bool ShowCounter = g_Config.iShowFPSCounter > 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Show speed / frames per emusecond"), ALIGN_TOPLEFT, &ShowCounter);
