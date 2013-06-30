@@ -966,51 +966,60 @@ void GraphicsScreenP3::render() {
 	int stride = 40;
 	int columnw = 400;
 	
+	bool ForceMaxEmulatedFPS60 = g_Config.iForceMaxEmulatedFPS == 60;
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Force 60 FPS or less"), ALIGN_TOPLEFT, &ForceMaxEmulatedFPS60))
+		g_Config.iForceMaxEmulatedFPS = ForceMaxEmulatedFPS60 ? 60 : 0;
+
 	bool ShowCounter = g_Config.iShowFPSCounter > 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Show VPS/FPS"), ALIGN_TOPLEFT, &ShowCounter);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Show speed / internal FPS"), ALIGN_TOPLEFT, &ShowCounter);
 	if (ShowCounter) {
+#ifdef _WIN32
+	const int checkboxH = 32;
+#else
+	const int checkboxH = 48;
+#endif
+		ui_draw2d.DrawTextShadow(UBUNTU24, gs->T("(60.0 is full speed, internal FPS depends on game)"), x + UI_SPACE + 29, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+
 		if (g_Config.iShowFPSCounter <= 0)
 			g_Config.iShowFPSCounter = 1;
 
-		char counter[256];
-		std::string type;
-
+		const char *type;
 		switch (g_Config.iShowFPSCounter) {
-		case 1: type = "VPS";break;
-		case 2:	type = "FPS";break;
-		case 3: type = "Both";break;
+		case 1: type = gs->T("Display: Speed"); break;
+		case 2:	type = gs->T("Display: FPS"); break;
+		case 3: type = gs->T("Display: Both"); break;
 		}
-		sprintf(counter, "%s %s", gs->T("Format :"), type.c_str());
-		ui_draw2d.DrawText(UBUNTU24, counter, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 250, y, 20);
-		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("VPS"), ALIGN_LEFT))
+
+		ui_draw2d.DrawText(UBUNTU24, type, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 260, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Speed"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 1;
-		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("FPS"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("FPS"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 2;
-		if (UIButton(GEN_ID, hlinear1, 90, 0, gs->T("Both"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Both"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 3;
 
 		y += 20;
 	} else 
 		g_Config.iShowFPSCounter = 0;
-		
+
 	bool FpsLimit = g_Config.iFpsLimit != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("FPS Limit"), ALIGN_TOPLEFT, &FpsLimit);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Toggled Speed Limit"), ALIGN_TOPLEFT, &FpsLimit);
 	if (FpsLimit) {
 		if (g_Config.iFpsLimit == 0)
 			g_Config.iFpsLimit = 60;
 		
 		char showFps[256];
-		sprintf(showFps, "%s %d", gs->T("FPS :"), g_Config.iFpsLimit);
+		sprintf(showFps, "%s %d", gs->T("Speed :"), g_Config.iFpsLimit);
 		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 250, y, 20);
-		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+		HLinear hlinear1(x + 260, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("-1"), ALIGN_LEFT))
-			if(g_Config.iFpsLimit > 30)
+		if (UIButton(GEN_ID, hlinear1, 50, 0, gs->T("-1"), ALIGN_LEFT))
+			if(g_Config.iFpsLimit > 10)
 				g_Config.iFpsLimit -= 1;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("+1"), ALIGN_LEFT))
-			if(g_Config.iFrameSkip != 120)
+		if (UIButton(GEN_ID, hlinear1, 50, 0, gs->T("+1"), ALIGN_LEFT))
+			if(g_Config.iFrameSkip < 240)
 				g_Config.iFpsLimit += 1;
 
 		y += 20;
