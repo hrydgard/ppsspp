@@ -344,7 +344,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 {
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {
 		I18NCategory *d = GetI18NCategory("Dialog");
-		PPGeDrawText(d->T("New Save"), 180, 136, PPGE_ALIGN_VCENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 	} else {
 		char title[512];
 		char time[512];
