@@ -111,6 +111,7 @@ void SymbolMap::ResetSymbolMap()
 	}
 #endif
 	entries.clear();
+	uniqueEntries.clear();
 }
 
 
@@ -122,7 +123,11 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 	e.vaddress = vaddress;
 	e.size = (u32)size;
 	e.type = st;
-	entries.push_back(e);
+	if (uniqueEntries.find((const MapEntryUniqueInfo)e) == uniqueEntries.end())
+	{
+		entries.push_back(e);
+		uniqueEntries.insert((const MapEntryUniqueInfo)e);
+	}
 }
 
 bool SymbolMap::LoadSymbolMap(const char *filename)
@@ -178,11 +183,11 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 		{ 
 			;
 		} else {
+			e.UndecorateName();
 			entries.push_back(e);
+			uniqueEntries.insert((const MapEntryUniqueInfo)e);
 		}
 	}
-	for (size_t i = 0; i < entries.size(); i++)
-		entries[i].UndecorateName();
 	fclose(f);
 	SymbolMap::SortSymbols();
 //	SymbolMap::AnalyzeBackwards();
@@ -190,25 +195,25 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 }
 
 
-void SymbolMap::SaveSymbolMap(const char *filename)
+void SymbolMap::SaveSymbolMap(const char *filename) const
 {
 	FILE *f = fopen(filename,"w");
 	if (!f)
 		return;
 	fprintf(f,".text\n");
-	for (size_t i = 0; i < entries.size(); i++)
+	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
 	{
-		MapEntry &e = entries[i];
+		const MapEntry &e = *it;
 		fprintf(f,"%08x %08x %08x %i %s\n",e.address,e.size,e.vaddress,e.type,e.name);
 	}
 	fclose(f);
 }
 
-int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
+int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask) const
 {
 	for (size_t i = 0, n = entries.size(); i < n; i++)
 	{
-		MapEntry &entry = entries[i];
+		const MapEntry &entry = entries[i];
 		unsigned int addr = entry.vaddress;
 		if (address >= addr)
 		{
@@ -228,36 +233,36 @@ int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask)
 
 const char* SymbolMap::getDirectSymbol(u32 address)
 {
-	for (size_t i = 0, n = entries.size(); i < n; i++)
+	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
 	{
-		MapEntry &entry = entries[i];
+		const MapEntry &entry = *it;
 		unsigned int addr = entry.vaddress;
-		if (addr == address) return entries[i].name;
+		if (addr == address) return entry.name;
 	}
 	return NULL;
 }
 
 bool SymbolMap::getSymbolValue(char* symbol, u32& dest)
 {
-	for (size_t i = 0, n = entries.size(); i < n; i++)
+	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
 	{
-		MapEntry &entry = entries[i];
+		const MapEntry &entry = *it;
 #ifdef _WIN32
 		if (stricmp(entry.name,symbol) == 0)
 #else
 		if (strcasecmp(entry.name,symbol) == 0)
 #endif
 		{
-			dest = entries[i].vaddress;
+			dest = entry.vaddress;
 			return true;
 		}
 	}
 	return false;
 }
 
-char descriptionTemp[256];
+static char descriptionTemp[256];
 
-char *SymbolMap::GetDescription(unsigned int address)
+const char *SymbolMap::GetDescription(unsigned int address) const
 {
 	int fun = SymbolMap::GetSymbolNum(address);
 	//if (address == entries[fun].vaddress)
@@ -286,7 +291,7 @@ static const char* defaultSymbolsNames[] = {
 
 static const int defaultSymbolsAmount = sizeof(defaultSymbolsAddresses)/sizeof(const int);
 
-void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask)
+void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask) const
 {
 	ShowWindow(listbox,SW_HIDE);
 	ListBox_ResetContent(listbox);
@@ -304,20 +309,21 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask)
 
 	SendMessage(listbox, WM_SETREDRAW, FALSE, 0);
 	SendMessage(listbox, LB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30);
-	for (size_t i = 0; i < entries.size(); i++)
+	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
 	{
-		if (entries[i].type & symmask)
+		const MapEntry &entry = *it;
+		if (entry.type & symmask)
 		{
 			char temp[256];
-			if (entries[i].type & ST_FUNCTION || !(entries[i].type & ST_DATA))
+			if (entry.type & ST_FUNCTION || !(entry.type & ST_DATA))
 			{
-				sprintf(temp,"%s",entries[i].name);
+				sprintf(temp,"%s",entry.name);
 			} else {
-				sprintf(temp,"0x%08X (%s)",entries[i].vaddress,entries[i].name);
+				sprintf(temp,"0x%08X (%s)",entry.vaddress,entry.name);
 			}
 
 			int index = ListBox_AddString(listbox,temp);
-			ListBox_SetItemData(listbox,index,entries[i].vaddress);
+			ListBox_SetItemData(listbox,index,entry.vaddress);
 		}
 	}
 	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
@@ -326,7 +332,7 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask)
 	ShowWindow(listbox,SW_SHOW);
 }
 
-void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask)
+void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask) const
 {
 	ShowWindow(listbox,SW_HIDE);
 	ComboBox_ResetContent(listbox);
@@ -341,14 +347,15 @@ void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask)
 
 	SendMessage(listbox, WM_SETREDRAW, FALSE, 0);
 	SendMessage(listbox, CB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30);
-	for (size_t i = 0; i < entries.size(); i++)
+	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
 	{
-		if (entries[i].type & symmask)
+		const MapEntry &entry = *it;
+		if (entry.type & symmask)
 		{
 			char temp[256];
-			sprintf(temp,"%s (%d)",entries[i].name,entries[i].size);
+			sprintf(temp,"%s (%d)",entry.name,entry.size);
 			int index = ComboBox_AddString(listbox,temp);
-			ComboBox_SetItemData(listbox,index,entries[i].vaddress);
+			ComboBox_SetItemData(listbox,index,entry.vaddress);
 		}
 	}
 	SendMessage(listbox, WM_SETREDRAW, TRUE, 0);
@@ -357,13 +364,13 @@ void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask)
 	ShowWindow(listbox,SW_SHOW);
 }
 
-void SymbolMap::FillListBoxBLinks(HWND listbox, int num)
+void SymbolMap::FillListBoxBLinks(HWND listbox, int num) const
 {	
 	ListBox_ResetContent(listbox);
 		
 	int style = GetWindowLong(listbox,GWL_STYLE);
 
-	MapEntry &e = entries[num];
+	const MapEntry &e = entries[num];
 #ifdef BWLINKS
 	for (int i=0; i<e.backwardLinks.size(); i++)
 	{
@@ -375,35 +382,35 @@ void SymbolMap::FillListBoxBLinks(HWND listbox, int num)
 }
 #endif
 
-int SymbolMap::GetNumSymbols()
+int SymbolMap::GetNumSymbols() const
 {
 	return (int)entries.size();
 }
-SymbolType SymbolMap::GetSymbolType(int i)
+SymbolType SymbolMap::GetSymbolType(int i) const
 {
 	return entries[i].type;
 }
 
-char *SymbolMap::GetSymbolName(int i)
+const char *SymbolMap::GetSymbolName(int i) const
 {
 	return entries[i].name;
 }
 void SymbolMap::SetSymbolName(int i, const char *newname)
 {
-	strcpy(entries[i].name, newname);
+	strncpy(entries[i].name, newname, sizeof(entries[i].name));
 }
 
-u32 SymbolMap::GetSymbolAddr(int i)
+u32 SymbolMap::GetSymbolAddr(int i) const
 {
 	return entries[i].vaddress;
 }
 
-u32 SymbolMap::GetSymbolSize(int i)
+u32 SymbolMap::GetSymbolSize(int i) const
 {
 	return entries[i].size;
 }
 
-int SymbolMap::FindSymbol(const char *name)
+int SymbolMap::FindSymbol(const char *name) const
 {
 	for (size_t i = 0; i < entries.size(); i++)
 		if (strcmp(entries[i].name,name)==0)
@@ -411,7 +418,7 @@ int SymbolMap::FindSymbol(const char *name)
 	return -1;
 }
 
-u32 SymbolMap::GetAddress(int num)
+u32 SymbolMap::GetAddress(int num) const
 {
 	return entries[num].vaddress;
 }
@@ -421,7 +428,7 @@ void SymbolMap::IncreaseRunCount(int num)
 	entries[num].runCount++;
 }
 
-unsigned int SymbolMap::GetRunCount(int num)
+unsigned int SymbolMap::GetRunCount(int num) const
 {
 	if (num>=0)
 		return entries[num].runCount;
@@ -433,23 +440,24 @@ unsigned int SymbolMap::GetRunCount(int num)
 // to make a symbol map, load a dol or somethin without symbols, then apply 
 // the map with SymbolMap::usefuncsignaturesfile.
 
-void SymbolMap::CompileFuncSignaturesFile(const char *filename)
+void SymbolMap::CompileFuncSignaturesFile(const char *filename) const
 {
 	// Store name,length,first instruction,hash into file
 	FILE *f = fopen(filename, "w");
 	fprintf(f,"00000000\n");
 	int count=0;
-	for (size_t i = 0; i < entries.size(); i++)
+	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
 	{
-		int size = entries[i].size;
-		if (size >= 16 && entries[i].type == ST_FUNCTION)
+		const MapEntry &entry = *it;
+		int size = entry.size;
+		if (size >= 16 && entry.type == ST_FUNCTION)
 		{
-			u32 inst = Memory::Read_Instruction(entries[i].vaddress); //try to make a bigger number of different vals sometime
+			u32 inst = Memory::Read_Instruction(entry.vaddress); //try to make a bigger number of different vals sometime
 			if (inst != 0)
 			{
 				char temp[64];
-				strncpy(temp,entries[i].name,63);
-				fprintf(f, "%08x\t%08x\t%08x\t%s\n", inst, size, ComputeHash(entries[i].vaddress,size), temp);    
+				strncpy(temp,entry.name,63);
+				fprintf(f, "%08x\t%08x\t%08x\t%s\n", inst, size, ComputeHash(entry.vaddress,size), temp);    
 				count++;
 			}
 		}
@@ -556,6 +564,7 @@ void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 					strcpy(e.name,sig->name);
 					addr+=sig->size-4; //don't need to check function interior
 					entries.push_back(e);
+					uniqueEntries.insert((const MapEntryUniqueInfo)e);
 					break;
 				}
 				sig++;
