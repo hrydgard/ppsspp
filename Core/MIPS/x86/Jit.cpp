@@ -708,6 +708,10 @@ void Jit::JitSafeMem::Finish()
 
 void JitMemCheck(u32 addr, int size, int isWrite)
 {
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+		return;
+
 	MemCheck *check = CBreakPoints::GetMemCheck(addr, size);
 	if (check)
 		check->Action(addr, isWrite == 1, size, currentMIPS->pc);
