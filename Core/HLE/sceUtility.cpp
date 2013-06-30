@@ -635,6 +635,11 @@ const HLEFunction sceUtility[] =
 	{0xd23665f4, 0, "sceUtility_D23665F4"},
 	{0xd4c2bd73, 0, "sceUtility_D4C2BD73"},
 
+	{0x06A48659, 0, "sceUtilityRssSubscriberShutdownStart"},
+	{0x4B0A8FE5, 0, "sceUtilityRssSubscriberInitStart"},
+	{0xA084E056, 0, "sceUtilityRssSubscriberUpdate"},
+	{0x2B96173B, 0, "sceUtilityRssSubscriberGetStatus"},
+
 	{0x0e0c27af, 0, "sceUtility_0E0C27AF"},
 };
 
