@@ -213,8 +213,8 @@ CDisasm::~CDisasm()
 
 int getTotalBreakpointCount()
 {
-	int count = (int)CBreakPoints::MemChecks.size();
-	for (int i = 0; i < CBreakPoints::GetNumBreakpoints(); i++)
+	int count = (int)CBreakPoints::GetMemChecks().size();
+	for (size_t i = 0; i < CBreakPoints::GetBreakpoints().size(); i++)
 	{
 		if (!CBreakPoints::GetBreakpoint(i).bTemporary) count++;
 	}
@@ -255,13 +255,13 @@ void CDisasm::updateBreakpointList()
 int getBreakpointIndex(int itemIndex, bool& isMemory)
 {
 	// memory breakpoints first
-	if (itemIndex < CBreakPoints::MemChecks.size())
+	if (itemIndex < CBreakPoints::GetMemChecks().size())
 	{
 		isMemory = true;
 		return itemIndex;
 	}
 
-	itemIndex -= (int)CBreakPoints::MemChecks.size();
+	itemIndex -= (int)CBreakPoints::GetMemChecks().size();
 
 	int i = 0;
 	while (i < CBreakPoints::GetNumBreakpoints())
@@ -294,9 +294,8 @@ void CDisasm::removeBreakpoint(int itemIndex)
 
 	if (isMemory)
 	{
-		CBreakPoints::MemChecks.erase(CBreakPoints::MemChecks.begin()+index);
-		CBreakPoints::InvalidateJit();
-		updateBreakpointList();
+		auto memchecks = CBreakPoints::GetMemChecks();
+		CBreakPoints::RemoveMemCheck(memchecks[index].start, memchecks[index].end);
 	} else {
 		u32 address = CBreakPoints::GetBreakpointAddress(index);
 		CBreakPoints::RemoveBreakPoint(address);
@@ -311,7 +310,8 @@ void CDisasm::gotoBreakpointAddress(int itemIndex)
 
 	if (isMemory)
 	{
-		u32 address = CBreakPoints::MemChecks[index].iStartAddress;
+		auto memchecks = CBreakPoints::GetMemChecks();
+		u32 address = memchecks[index].start;
 			
 		for (int i=0; i<numCPUs; i++)
 			if (memoryWindow[i])
@@ -337,7 +337,7 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 	if (((LPNMHDR)lParam)->code == LVN_GETDISPINFO)
 	{
 		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
-		std::vector<MemCheck>& mem = CBreakPoints::MemChecks;
+		auto mem = CBreakPoints::GetMemChecks();
 		
 		bool isMemory;
 		int index = getBreakpointIndex(dispInfo->item.iItem,isMemory);
@@ -350,12 +350,18 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					if (mem[index].bOnRead)
+					switch (mem[index].cond)
 					{
-						strcpy(breakpointText,"Read");
-						if (mem[index].bOnWrite) strcat(breakpointText,"/");
+					case MEMCHECK_READ:
+						strcpy(breakpointText, "Read");
+						break;
+					case MEMCHECK_WRITE:
+						strcpy(breakpointText, "Write");
+						break;
+					case MEMCHECK_READWRITE:
+						strcpy(breakpointText, "Read/Write");
+						break;
 					}
-					if (mem[index].bOnWrite) strcat(breakpointText,"Write");
 				} else {
 					strcpy(breakpointText,"Execute");
 				}
@@ -365,7 +371,7 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					sprintf(breakpointText,"0x%08X",mem[index].iStartAddress);
+					sprintf(breakpointText,"0x%08X",mem[index].start);
 				} else {
 					sprintf(breakpointText,"0x%08X",CBreakPoints::GetBreakpointAddress(index));
 				}
@@ -375,8 +381,8 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					if (mem[index].bRange == false) sprintf(breakpointText,"0x%08X",1);
-					else sprintf(breakpointText,"0x%08X",mem[index].iEndAddress-mem[index].iStartAddress);
+					if (mem[index].end == 0) sprintf(breakpointText,"0x%08X",1);
+					else sprintf(breakpointText,"0x%08X",mem[index].end-mem[index].start);
 				} else {
 					const char* sym = cpu->findSymbolForAddress(CBreakPoints::GetBreakpointAddress(index));
 					if (sym != NULL)
@@ -413,7 +419,7 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					strcpy(breakpointText,mem[index].bBreak == true ? "True" : "False");
+					strcpy(breakpointText,mem[index].result & MEMCHECK_BREAK ? "True" : "False");
 				} else {
 					strcpy(breakpointText,CBreakPoints::GetBreakpoint(index).bOn ? "True" : "False");
 				}
@@ -647,19 +653,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						Core_WaitInactive(200);
 					}
 
-					MemCheck check;
-
-					if (executeExpressionWindow(m_hDlg,cpu,check.iStartAddress))
-					{
-						check.bBreak = true;
-						check.bLog = true;
-						check.bOnRead = true;
-						check.bOnWrite = true;
-						check.bRange = false;
-						CBreakPoints::MemChecks.push_back(check);
-						CBreakPoints::InvalidateJit();
-						updateBreakpointList();
-					}
+					u32 start;
+					if (executeExpressionWindow(m_hDlg,cpu,start))
+						CBreakPoints::AddMemCheck(start, 0, MEMCHECK_READWRITE, MEMCHECK_BOTH);
 
 					if (isRunning)
 					{

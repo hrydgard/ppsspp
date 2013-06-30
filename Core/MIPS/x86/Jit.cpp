@@ -469,7 +469,7 @@ Jit::JitSafeMem::JitSafeMem(Jit *jit, int raddr, s32 offset)
 	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false)
 {
 	// This makes it more instructions, so let's play it safe and say we need a far jump.
-	far_ = !g_Config.bIgnoreBadMemAccess || !CBreakPoints::MemChecks.empty();
+	far_ = !g_Config.bIgnoreBadMemAccess || !CBreakPoints::GetMemChecks().empty();
 	if (jit_->gpr.IsImmediate(raddr_))
 		iaddr_ = jit_->gpr.GetImmediate32(raddr_) + offset_;
 	else
@@ -714,9 +714,9 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
 	if (check)
 	{
-		if (!check->bOnRead && type == MEM_READ)
+		if (!(check->cond & MEMCHECK_READ) && type == MEM_READ)
 			return;
-		if (!check->bOnWrite && type == MEM_WRITE)
+		if (!(check->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
 			return;
 
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
@@ -730,24 +730,25 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 
 void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 {
-	for (auto it = CBreakPoints::MemChecks.begin(), end = CBreakPoints::MemChecks.end(); it != end; ++it)
+	auto memchecks = CBreakPoints::GetMemChecks();
+	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it)
 	{
-		if (!it->bOnRead && type == MEM_READ)
-			continue;
-		if (!it->bOnWrite && type == MEM_WRITE)
-			continue;
+		if (!(it->cond & MEMCHECK_READ) && type == MEM_READ)
+			return;
+		if (!(it->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
+			return;
 
 		FixupBranch skipNext, skipNextRange;
-		if (it->bRange)
+		if (it->end != 0)
 		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress - offset_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_));
 			skipNext = jit_->J_CC(CC_B);
-			jit_->CMP(32, R(xaddr_), Imm32(it->iEndAddress - offset_ - size_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->end - offset_ - size_));
 			skipNextRange = jit_->J_CC(CC_AE);
 		}
 		else
 		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress - offset_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_));
 			skipNext = jit_->J_CC(CC_NE);
 		}
 
@@ -762,7 +763,7 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		jit_->js.afterOp = JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
 
 		jit_->SetJumpTarget(skipNext);
-		if (it->bRange)
+		if (it->end != 0)
 			jit_->SetJumpTarget(skipNextRange);
 	}
 }
