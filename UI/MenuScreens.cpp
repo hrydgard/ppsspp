@@ -655,7 +655,11 @@ void KeyMappingScreen::update(InputState &input) {
 }
 
 void KeyMappingNewKeyDialog::update(InputState &input) {
-	last_kb_key = input.key_queue[0];
+	int new_key = input.key_queue[0];
+
+	if (new_key != 0)
+		last_kb_key = new_key;
+	
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
