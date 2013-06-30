@@ -246,7 +246,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	}
 
 	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.bLinearFiltering || (g_Config.bLinearFilteringCG && g_iNumVideos))
+	if (g_Config.iTexFiltering == 3 || (g_Config.iTexFiltering == 4 && g_iNumVideos))
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}

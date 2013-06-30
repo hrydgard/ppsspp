@@ -510,7 +510,6 @@ void PauseScreen::render() {
 	} else 
 		g_Config.iFrameSkip = 0;
 
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 	ui_draw2d.DrawText(UBUNTU24, gs->T("Save State :"), 30, y += 40, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear4(x + 180 , y , 10);
 	if (UIButton(GEN_ID, hlinear4, 60, 0, "1", ALIGN_LEFT)) {
@@ -857,14 +856,6 @@ void GraphicsScreenP2::render() {
 	int stride = 40;
 	int columnw = 400;
 
-	if ( UICheckBox(GEN_ID, x, y += stride, gs->T("Force Nearest Filtering"), ALIGN_TOPLEFT, &g_Config.bNearestFiltering) ) {
-		g_Config.bLinearFiltering = false; // disable linear filtering if someone turns on nearest
-	}
-	if ( UICheckBox(GEN_ID, x, y += stride, gs->T("Force Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering) ) {
-		g_Config.bNearestFiltering = false; // and vice versa
-	}
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering (CG)"), ALIGN_TOPLEFT, &g_Config.bLinearFilteringCG);
-
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
 	if (AnisotropicFiltering) {
@@ -888,9 +879,34 @@ void GraphicsScreenP2::render() {
 	} else 
 		g_Config.iAnisotropyLevel = 0;
 	
+	bool TexFiltering = g_Config.iTexFiltering > 1;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Texture Filtering"), ALIGN_TOPLEFT, &TexFiltering);
+	if (TexFiltering) {
+		if (g_Config.iTexFiltering <= 1)
+			g_Config.iTexFiltering = 2;
+
+		char showType[256];
+		std::string type;
+		switch (g_Config.iTexFiltering) {
+		case 2:	type = "Nearest";break;
+		case 3: type = "Linear";break;
+		case 4:	type = "Linear(CG)";break;
+		}
+		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
+		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 300, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 120, 0, gs->T("Nearest"), ALIGN_LEFT)) 
+			g_Config.iTexFiltering = 2;
+		if (UIButton(GEN_ID, hlinear1, 120, 0, gs->T("Linear"), ALIGN_LEFT))
+			g_Config.iTexFiltering = 3;
+		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Linear(CG)"), ALIGN_LEFT))
+			g_Config.iTexFiltering = 4;
+		y += 20;
+	} else
+		g_Config.iTexFiltering = 0;
 
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
