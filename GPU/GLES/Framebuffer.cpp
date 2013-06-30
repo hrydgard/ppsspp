@@ -292,9 +292,8 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 			}
 		}
 	}
-	if (match != NULL) {
-		return match;
-	}
+	if (match != NULL) 
+		return match;	
 
 	DEBUG_LOG(HLE, "Finding no FBO matching address %08x", displayFramebufPtr_);
 #if 0  // defined(_DEBUG)
