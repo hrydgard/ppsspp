@@ -699,7 +699,7 @@ void Jit::JitSafeMem::Finish()
 {
 	// Memory::Read_U32/etc. may have tripped coreState.
 	if (needsCheck_ && !g_Config.bIgnoreBadMemAccess)
-		jit_->js.afterOp = JitState::AFTER_CORE_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE;
 	if (needsSkip_)
 		jit_->SetJumpTarget(skip_);
 	for (auto it = skipChecks_.begin(), end = skipChecks_.end(); it != end; ++it)
