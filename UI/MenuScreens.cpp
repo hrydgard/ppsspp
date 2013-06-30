@@ -971,14 +971,14 @@ void GraphicsScreenP3::render() {
 		g_Config.iForceMaxEmulatedFPS = ForceMaxEmulatedFPS60 ? 60 : 0;
 
 	bool ShowCounter = g_Config.iShowFPSCounter > 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Show speed / frames per emusecond"), ALIGN_TOPLEFT, &ShowCounter);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Show speed / internal FPS"), ALIGN_TOPLEFT, &ShowCounter);
 	if (ShowCounter) {
 #ifdef _WIN32
 	const int checkboxH = 32;
 #else
 	const int checkboxH = 48;
 #endif
-		ui_draw2d.DrawTextShadow(UBUNTU24, gs->T("(60.0 is full speed, FPES depends on game)"), x + UI_SPACE + 29, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+		ui_draw2d.DrawTextShadow(UBUNTU24, gs->T("(60.0 is full speed, internal FPS depends on game)"), x + UI_SPACE + 29, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 
 		if (g_Config.iShowFPSCounter <= 0)
 			g_Config.iShowFPSCounter = 1;
@@ -986,7 +986,7 @@ void GraphicsScreenP3::render() {
 		const char *type;
 		switch (g_Config.iShowFPSCounter) {
 		case 1: type = gs->T("Display: Speed"); break;
-		case 2:	type = gs->T("Display: FPES"); break;
+		case 2:	type = gs->T("Display: FPS"); break;
 		case 3: type = gs->T("Display: Both"); break;
 		}
 
@@ -994,7 +994,7 @@ void GraphicsScreenP3::render() {
 		HLinear hlinear1(x + 260, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Speed"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 1;
-		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("FPES"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("FPS"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 2;
 		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Both"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 3;
