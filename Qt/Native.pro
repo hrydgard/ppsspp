@@ -85,6 +85,7 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/input/gesture_detector.cpp \
 	../native/json/json_writer.cpp \
 	../native/math/curves.cpp \
+	../native/math/expression_parser.cpp \
 	../native/math/math_util.cpp \
 	../native/math/lin/*.cpp \
 	../native/midi/midi_input.cpp \
@@ -126,6 +127,7 @@ HEADERS +=  ../native/audio/*.h \
 	../native/input/input_state.h \
 	../native/json/json_writer.h \
 	../native/math/curves.h \
+	../native/math/expression_parser.h \
 	../native/math/lin/*.h \
 	../native/midi/midi_input.h \
 	../native/net/*.h \

@@ -585,6 +585,8 @@ add_library(native STATIC
 	native/json/json_writer.h
 	native/math/curves.cpp
 	native/math/curves.h
+	native/math/expression_parser.cpp
+	native/math/expression_parser.h
 	native/math/lin/aabb.cpp
 	native/math/lin/aabb.h
 	native/math/lin/matrix4x4.cpp
@@ -1011,6 +1013,7 @@ if(WIN32)
 		Windows/Debugger/CtrlRegisterList.cpp
 		Windows/Debugger/CtrlRegisterList.h
 		Windows/Debugger/Debugger.h
+		Windows/Debugger/DebuggerShared.cpp
 		Windows/Debugger/DebuggerShared.h
 		Windows/Debugger/Debugger_Disasm.cpp
 		Windows/Debugger/Debugger_Disasm.h
@@ -1023,8 +1026,6 @@ if(WIN32)
 		Windows/Debugger/Debugger_SymbolMap.h
 		Windows/Debugger/Debugger_VFPUDlg.cpp
 		Windows/Debugger/Debugger_VFPUDlg.h
-		Windows/Debugger/ExpressionParser.cpp
-		Windows/Debugger/ExpressionParser.h
 		Windows/Debugger/SimpleELF.h
 #		Windows/DlgDynaView.cpp
 #		Windows/DlgDynaView.h

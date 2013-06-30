@@ -13,7 +13,7 @@
 
 #include "../../globals.h"
 #include "Debugger_Disasm.h"
-#include "ExpressionParser.h"
+#include "DebuggerShared.h"
 
 #include "../main.h"
 

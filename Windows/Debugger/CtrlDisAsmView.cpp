@@ -9,7 +9,6 @@
 
 #include "CtrlDisAsmView.h"
 #include "Debugger_MemoryDlg.h"
-#include "ExpressionParser.h"
 #include "DebuggerShared.h"
 #include "../../Core/Debugger/SymbolMap.h"
 #include "../../globals.h"

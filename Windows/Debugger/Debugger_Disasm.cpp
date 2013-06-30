@@ -10,7 +10,6 @@
 #include "Debugger_MemoryDlg.h"
 #include "Debugger_Disasm.h"
 #include "Debugger_VFPUDlg.h"
-#include "ExpressionParser.h"
 #include "DebuggerShared.h"
 
 #include "../main.h"
