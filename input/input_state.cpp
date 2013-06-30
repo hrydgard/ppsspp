@@ -1,4 +1,5 @@
 #include "input_state.h"
+#include <iostream>
 
 #define max_queue MAX_KEYQUEUESIZE
 
@@ -53,4 +54,42 @@ void KeyQueueBlank(int queue[])
 {
 	for (int i = 0; i < max_queue; i++)
 		queue[i] = 0;
+}
+
+int AttemptTranslate(const std::map<int, int> trans_table, int plat_key)
+{
+	std::map<int, int>::const_iterator iter;
+	iter = trans_table.find(plat_key);
+	if (iter == trans_table.end())
+		return 0;
+
+	return iter->second;
+}
+
+
+void KeyQueueAttemptTranslatedAdd(int queue[],
+                                  const std::map<int, int> translation_table, 
+                                  int platform_key)
+{
+	int key = AttemptTranslate(translation_table, platform_key);
+
+	if (key == 0) {
+		std::cerr << "Warning: Platform key code translation table missing %d";
+		return;
+	}
+
+	KeyQueueAddKey(queue, key);
+}
+
+
+void KeyQueueAttemptTranslatedRemove(int queue[],
+                                     const std::map<int, int> translation_table, 
+                                     int platform_key)
+{
+	int key = AttemptTranslate(translation_table, platform_key);
+
+	if (key == 0)
+		return;
+
+	KeyQueueRemoveKey(queue, key);
 }

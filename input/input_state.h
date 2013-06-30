@@ -3,6 +3,7 @@
 #include "math/lin/vec3.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
+#include <map>
 
 enum {
 	PAD_BUTTON_A = 1,
@@ -123,3 +124,5 @@ void KeyQueueAddKey(int [], int);
 void KeyQueueRemoveKey(int [], int);
 void KeyQueueCopyQueue(int src[], int dst[]);
 void KeyQueueBlank(int []);
+void KeyQueueAttemptTranslatedAdd(int [], const std::map<int, int>, int);
+void KeyQueueAttemptTranslatedRemove(int [], const std::map<int, int>, int);
