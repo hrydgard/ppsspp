@@ -790,6 +790,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceAudiocodec.cpp
 	Core/HLE/sceAudiocodec.h
 	Core/HLE/sceAudio.h
+	Core/HLE/sceCcc.h
+	Core/HLE/sceCcc.cpp
 	Core/HLE/sceChnnlsv.cpp
 	Core/HLE/sceChnnlsv.h
 	Core/HLE/sceCtrl.cpp
