@@ -20,11 +20,27 @@
 #include "../../Globals.h"
 #include <vector>
 
+// TODO: Replace with expression or something.
+struct BreakPointCond
+{
+	u32 todo;
+
+	u32 Evaluate() const
+	{
+		return 1;
+	}
+};
+
 struct BreakPoint
 {
+	BreakPoint() : hasCond(false) {}
+
 	u32	iAddress;
 	bool bOn;
 	bool bTemporary;
+
+	bool hasCond;
+	BreakPointCond cond;
 
 	bool operator == (const BreakPoint &other) const {
 		return iAddress == other.iAddress;
@@ -86,6 +102,11 @@ public:
 	static void ClearAllBreakPoints();
 	static void ClearTemporaryBreakPoints();
 
+	// Makes a copy.  Temporary breakpoints can't have conditions.
+	static void ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond);
+	static void ChangeBreakPointRemoveCond(u32 addr);
+	static BreakPointCond *GetBreakPointCondition(u32 addr);
+
 	static void AddMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result);
 	static void RemoveMemCheck(u32 start, u32 end);
 	static void ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result);
@@ -93,8 +114,8 @@ public:
 
 	static MemCheck *GetMemCheck(u32 address, int size);
 	static int GetNumBreakpoints();
-	static const BreakPoint GetBreakpoint(int i);
-	static int GetBreakpointAddress(int i);
+	static const BreakPoint GetBreakpoint(size_t i);
+	static int GetBreakpointAddress(size_t i);
 
 	// TODO: MemChecks somehow too?
 	static void SetSkipFirst(u32 pc) { breakSkipFirstAt_ = pc; }

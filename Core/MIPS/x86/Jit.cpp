@@ -65,6 +65,10 @@ u32 JitBreakpoint()
 	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
 		return 0;
 
+	auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
+	if (cond && !cond->Evaluate())
+		return 0;
+
 	Core_EnableStepping(true);
 	host->SetDebugMode(true);
 

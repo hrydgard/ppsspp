@@ -157,6 +157,35 @@ void CBreakPoints::ClearTemporaryBreakPoints()
 		Update();
 }
 
+void CBreakPoints::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
+{
+	size_t bp = FindBreakpoint(addr);
+	if (bp != INVALID_BREAKPOINT)
+	{
+		breakPoints_[bp].hasCond = true;
+		breakPoints_[bp].cond = cond;
+		Update();
+	}
+}
+
+void CBreakPoints::ChangeBreakPointRemoveCond(u32 addr)
+{
+	size_t bp = FindBreakpoint(addr);
+	if (bp != INVALID_BREAKPOINT)
+	{
+		breakPoints_[bp].hasCond = false;
+		Update();
+	}
+}
+
+BreakPointCond *CBreakPoints::GetBreakPointCondition(u32 addr)
+{
+	size_t bp = FindBreakpoint(addr);
+	if (bp != INVALID_BREAKPOINT && breakPoints_[bp].hasCond)
+		return &breakPoints_[bp].cond;
+	return NULL;
+}
+
 void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result)
 {
 	size_t mc = FindMemCheck(start, end);
@@ -236,12 +265,12 @@ int CBreakPoints::GetNumBreakpoints()
 	return (int)breakPoints_.size();
 }
 
-const BreakPoint CBreakPoints::GetBreakpoint(int i)
+const BreakPoint CBreakPoints::GetBreakpoint(size_t i)
 {
 	return breakPoints_[i];
 }
 
-int CBreakPoints::GetBreakpointAddress(int i)
+int CBreakPoints::GetBreakpointAddress(size_t i)
 {
 	return breakPoints_[i].iAddress;
 }
