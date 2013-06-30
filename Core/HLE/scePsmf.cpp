@@ -386,7 +386,11 @@ static std::map<u32, PsmfPlayer *> psmfPlayerMap;
 
 Psmf *getPsmf(u32 psmf)
 {
-	auto iter = psmfMap.find(psmf);
+	PSPPointer<PsmfData> psmfstruct;
+	psmfstruct = psmf;
+	if (!psmfstruct.IsValid())
+		return 0;
+	auto iter = psmfMap.find(psmfstruct->headerOffset);
 	if (iter != psmfMap.end())
 		return iter->second;
 	else
@@ -437,7 +441,6 @@ u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 	INFO_LOG(HLE, "scePsmfSetPsmf(%08x, %08x)", psmfStruct, psmfData);
 
 	Psmf *psmf = new Psmf(psmfData);
-	psmfMap[psmfStruct] = psmf;
 
 	PsmfData data = {0};
 	data.version = psmf->version;
@@ -445,6 +448,7 @@ u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData)
 	data.streamSize = psmf->streamSize;
 	data.streamNum = psmf->numStreams;
 	data.headerOffset = psmf->headerOffset;
+	psmfMap[data.headerOffset] = psmf;
 	Memory::WriteStruct(psmfStruct, &data);
 	return 0;
 }
