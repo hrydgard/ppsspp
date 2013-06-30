@@ -1403,6 +1403,11 @@ const HLEFunction sceMpeg[] =
 	{0xab0e9556,0,"sceMpegAvcDecodeDetailIndex"},
 	{0xcf3547a2,0,"sceMpegAvcDecodeDetail2"},
 	{0x921fcccf,0,"sceMpegGetAvcEsAu"},
+	{0xd4dd6e75,0,"sceMpeg_D4DD6E75"},
+	{0x11cab459,0,"sceMpeg_11CAB459"},
+	{0xc345ded2,0,"sceMpeg_C345DED2"},
+	{0xb27711a8,0,"sceMpeg_B27711A8"},
+	{0x988e9e12,0,"sceMpeg_988E9E12"},
 };
 
 void Register_sceMpeg()

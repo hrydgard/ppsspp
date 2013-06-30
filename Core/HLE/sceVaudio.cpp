@@ -93,6 +93,9 @@ const HLEFunction sceVaudio[] = {
 	{0x67585dfd, WrapU_V<sceVaudioChRelease>, "sceVaudioChRelease"},
 	{0x346FBE94, WrapU_II<sceVaudioSetEffectType>, "sceVaudioSetEffectType"},
 	{0xCBD4AC51, WrapU_I<sceVaudioSetAlcMode>, "sceVaudioSetAlcMode"},
+	{0x504e4745, 0, "sceVaudio_504E4745"},
+	{0x27acc20b, 0, "sceVaudio_27ACC20B"},
+	{0xe8e78dc8, 0, "sceVaudio_E8E78DC8"},
 };
 
 void Register_sceVaudio() {
