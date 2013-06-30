@@ -10,6 +10,7 @@
 #include "CtrlDisAsmView.h"
 #include "Debugger_MemoryDlg.h"
 #include "ExpressionParser.h"
+#include "DebuggerShared.h"
 #include "../../Core/Debugger/SymbolMap.h"
 #include "../../globals.h"
 #include "../main.h"
@@ -562,7 +563,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		case VK_F9:
 			if (debugger->GetPC() != curAddress)
 			{
-				SendMessage(GetParent(wnd),WM_USER+3,curAddress,0);
+				SendMessage(GetParent(wnd),WM_DEB_RUNTOWPARAM,curAddress,0);
 			}
 			break;
 		case VK_F10:
@@ -692,7 +693,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					{
 						symbolMap.SetSymbolName(sym,newname);
 						redraw();
-						SendMessage(GetParent(wnd),WM_USER+1,0,0);
+						SendMessage(GetParent(wnd),WM_DEB_MAPLOADED,0,0);
 					}
 				}
 				else

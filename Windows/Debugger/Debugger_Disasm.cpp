@@ -11,9 +11,11 @@
 #include "Debugger_Disasm.h"
 #include "Debugger_VFPUDlg.h"
 #include "ExpressionParser.h"
+#include "DebuggerShared.h"
 
 #include "../main.h"
 #include "CtrlRegisterList.h"
+#include "CtrlMemView.h"
 
 #include "../../Core/Core.h"
 #include "../../Core/CPU.h"
@@ -53,19 +55,28 @@ static LRESULT CALLBACK BreakpointListProc(HWND hDlg, UINT message, WPARAM wPara
 		if(wParam == VK_RETURN)
 		{
 			int index = ListView_GetSelectionMark(hDlg);
-			SendMessage(GetParent(hDlg),WM_USER+4,index,0);
+			SendMessage(GetParent(hDlg),WM_DEB_GOTOBREAKPOINT,index,0);
 			return 0;
 		} else if (wParam == VK_DELETE)
 		{
 			int index = ListView_GetSelectionMark(hDlg);
-			SendMessage(GetParent(hDlg),WM_USER+5,index,0);
+			SendMessage(GetParent(hDlg),WM_DEB_REMOVEBREAKPOINT,index,0);
+			return 0;
+		} else if (wParam == VK_TAB)
+		{
+			SendMessage(GetParent(hDlg),WM_DEB_TABPRESSED,0,0);
 			return 0;
 		}
-	default:
-		return (LRESULT)CallWindowProc((WNDPROC)DefBreakpointListProc,hDlg,message,wParam,lParam);
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_TAB) return DLGC_WANTMESSAGE;
+		}
+		break;
 	};
 
-	return 0;
+	return (LRESULT)CallWindowProc((WNDPROC)DefBreakpointListProc,hDlg,message,wParam,lParam);;
 }
 
 
@@ -79,7 +90,7 @@ LRESULT CALLBACK GotoEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPa
 	case WM_KEYDOWN:
 		if( wParam == VK_RETURN )
 		{
-			SendMessage(GetParent(hDlg),WM_USER+6,0,0);
+			SendMessage(GetParent(hDlg),WM_DEB_GOTOADDRESSEDIT,0,0);
 			return 0;
 		}
 		break;
@@ -177,6 +188,14 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 		lvc.pszText = breakpointColumns[i];
 		ListView_InsertColumn(breakpointHwnd, i, &lvc);
 	}
+
+	// init memory viewer
+	CtrlMemView *mem = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
+	mem->setDebugger(_cpu);
+
+	// init memory/breakpoint "tab"
+	ShowWindow(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST), SW_NORMAL);
+	ShowWindow(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW), SW_HIDE);
 
 	// Actually resize the window to the proper size (after the above setup.)
 	if (w != -1 && h != -1)
@@ -713,10 +732,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			return TRUE;
 		}
 
-	case WM_USER+1:
+	case WM_DEB_MAPLOADED:
 		NotifyMapLoaded();
 		break;
-	case WM_USER+3:		// run to wparam
+	case WM_DEB_RUNTOWPARAM:
 	{
 		lastTicks = CoreTiming::GetTicks();
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
@@ -727,13 +746,13 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		Core_EnableStepping(false);
 		break;
 	}
-	case WM_USER+4:
+	case WM_DEB_GOTOBREAKPOINT:
 		gotoBreakpointAddress(wParam);
 		break;
-	case WM_USER+5:
+	case WM_DEB_REMOVEBREAKPOINT:
 		removeBreakpoint(wParam);
 		break;
-	case WM_USER+6:		// goto edit
+	case WM_DEB_GOTOADDRESSEDIT:
 		{
 			char szBuffer[256];
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
@@ -754,7 +773,23 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DISASM_SETDEBUG:
 		SetDebugMode(lParam != 0);
 		return TRUE;
-
+	case WM_DEB_TABPRESSED:
+		{
+			HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
+			HWND mem = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
+			
+			if (IsWindowVisible(bp))
+			{
+				ShowWindow(bp,SW_HIDE);
+				ShowWindow(mem,SW_NORMAL);
+				SetFocus(mem);
+			} else {
+				ShowWindow(bp,SW_NORMAL);
+				ShowWindow(mem,SW_HIDE);
+				SetFocus(bp);
+			}
+		}
+		break;
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));
@@ -765,7 +800,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_MOVE:
 		SavePosition();
 		break;
-
 	case WM_GETMINMAXINFO:
 		{
 			MINMAXINFO *m = (MINMAXINFO *)lParam;
@@ -788,7 +822,8 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	HWND funclist = GetDlgItem(m_hDlg, IDC_FUNCTIONLIST);
 	HWND regList = GetDlgItem(m_hDlg, IDC_REGLIST);
 	HWND breakpointList = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
-	
+	HWND memView = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
+
 	int defaultHeight = defaultRect.bottom - defaultRect.top;
 	int breakpointHeight = defaultBreakpointRect.bottom - defaultBreakpointRect.top;
 	if (height < defaultHeight)
@@ -804,7 +839,8 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	MoveWindow(funclist, 8, regTop, regWidth, height-regTop-breakpointHeight-12, TRUE);
 	MoveWindow(disasm,regWidth+15,disasmTop,disasmWidth-20,height-disasmTop-breakpointHeight-12,TRUE);
 	MoveWindow(breakpointList,8,breakpointTop,width-16,breakpointHeight,TRUE);
-	
+	MoveWindow(memView,8,breakpointTop,width-16,breakpointHeight,TRUE);
+
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST),&regRect);
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),&breakpointRect);

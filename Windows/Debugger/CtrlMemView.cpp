@@ -13,7 +13,7 @@
 
 #include "Debugger_Disasm.h"
 #include "ExpressionParser.h"
-
+#include "DebuggerShared.h"
 #include "CtrlMemView.h"
 
 TCHAR CtrlMemView::szClassName[] = _T("CtrlMemView");
@@ -143,7 +143,7 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		ccp->redraw();
 		break;
 	case WM_GETDLGCODE:	// we want to process the arrow keys and all characters ourselves
-		return DLGC_WANTARROWS|DLGC_WANTCHARS;
+		return DLGC_WANTARROWS|DLGC_WANTCHARS|DLGC_WANTTAB;
 		break;
     default:
         break;
@@ -377,6 +377,9 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	case VK_CONTROL:
 		ctrlDown = true;
 		break;
+	case VK_TAB:
+		SendMessage(GetParent(wnd),WM_DEB_TABPRESSED,0,0);
+		break;
 	default:
 		return;
 	}
@@ -384,7 +387,7 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 {
-	if (ctrlDown) return;
+	if (ctrlDown || wParam == VK_TAB) return;
 
 	if (!Memory::IsValidAddress(curAddress))
 	{
