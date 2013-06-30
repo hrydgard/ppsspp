@@ -154,6 +154,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	VFSShutdown();
 
+	EmuThread_Stop();
+
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
 	delete host;

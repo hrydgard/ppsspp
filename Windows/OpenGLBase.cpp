@@ -17,6 +17,8 @@ static int xres, yres;
 // TODO: Make config?
 static bool enableGLDebug = false;
 
+#pragma optimize("", off)
+
 void GL_SetVSyncInterval(int interval=1)
 {
   if( wglSwapIntervalEXT )
@@ -219,7 +221,10 @@ void GL_Shutdown() {
 	}
 
 	if (hDC && !ReleaseDC(hWnd,hDC)) {
-		MessageBox(NULL,"Release Device Context Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+		DWORD err = GetLastError();
+		if (err != ERROR_DC_NOT_FOUND) {
+			MessageBox(NULL,"Release Device Context Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+		}
 		hDC = NULL;
 	}
 	hWnd = NULL;
