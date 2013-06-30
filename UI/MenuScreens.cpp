@@ -966,6 +966,10 @@ void GraphicsScreenP3::render() {
 	int stride = 40;
 	int columnw = 400;
 	
+	bool forceGameFPS60 = g_Config.iForceGameFPS == 60;
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Force 60 FPS or less"), ALIGN_TOPLEFT, &forceGameFPS60))
+		g_Config.iForceGameFPS = forceGameFPS60 ? 60 : 0;
+
 	bool ShowCounter = g_Config.iShowFPSCounter > 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Show speed / frames per emusecond"), ALIGN_TOPLEFT, &ShowCounter);
 	if (ShowCounter) {
@@ -998,7 +1002,7 @@ void GraphicsScreenP3::render() {
 		y += 20;
 	} else 
 		g_Config.iShowFPSCounter = 0;
-		
+
 	bool FpsLimit = g_Config.iFpsLimit != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Toggled Speed Limit"), ALIGN_TOPLEFT, &FpsLimit);
 	if (FpsLimit) {
