@@ -46,13 +46,13 @@ int sceCccSetTable(int jis2ucs, int ucs2jis)
 
 int sceCccSJIStoUTF16(int dstUTF16, int dstSize, int srcSJIS)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF8toSJIS");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSJIStoUTF16");
 	return 0;
 }
 
 int sceCccUTF16toSJIS()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF8toUTF16");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF16toSJIS");
 	return 0;
 }
 
