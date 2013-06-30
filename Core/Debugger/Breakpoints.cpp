@@ -15,16 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../Core.h"
-#include "Breakpoints.h"
-#include "SymbolMap.h"
-#include "FixedSizeUnorderedSet.h"
+#include "Core/Core.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/Host.h"
-#include "../MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/CoreTiming.h"
 #include <cstdio>
 
 std::vector<BreakPoint> CBreakPoints::breakPoints_;
 u32 CBreakPoints::breakSkipFirstAt_ = 0;
+u64 CBreakPoints::breakSkipFirstTicks_ = 0;
 std::vector<MemCheck> CBreakPoints::memChecks_;
 
 MemCheck::MemCheck(void)
@@ -257,6 +258,20 @@ MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 	}
 
 	//none found
+	return 0;
+}
+
+void CBreakPoints::SetSkipFirst(u32 pc)
+{
+	breakSkipFirstAt_ = pc;
+	breakSkipFirstTicks_ = CoreTiming::GetTicks();
+}
+u32 CBreakPoints::CheckSkipFirst()
+{
+	u32 pc = breakSkipFirstAt_;
+	breakSkipFirstAt_ = 0;
+	if (breakSkipFirstTicks_ == CoreTiming::GetTicks())
+		return pc;
 	return 0;
 }
 

@@ -114,9 +114,8 @@ public:
 
 	static MemCheck *GetMemCheck(u32 address, int size);
 
-	// TODO: MemChecks somehow too?
-	static void SetSkipFirst(u32 pc) { breakSkipFirstAt_ = pc; }
-	static u32 CheckSkipFirst() { u32 pc = breakSkipFirstAt_; breakSkipFirstAt_ = 0; return pc; }
+	static void SetSkipFirst(u32 pc);
+	static u32 CheckSkipFirst();
 
 	static const std::vector<MemCheck> GetMemChecks();
 	static const std::vector<BreakPoint> GetBreakpoints();
@@ -130,6 +129,7 @@ private:
 
 	static std::vector<BreakPoint> breakPoints_;
 	static u32 breakSkipFirstAt_;
+	static u64 breakSkipFirstTicks_;
 
 	static std::vector<MemCheck> memChecks_;
 };
