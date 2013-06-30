@@ -159,7 +159,7 @@ void CBreakPoints::ClearTemporaryBreakPoints()
 
 void CBreakPoints::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
 {
-	size_t bp = FindBreakpoint(addr);
+	size_t bp = FindBreakpoint(addr, true, false);
 	if (bp != INVALID_BREAKPOINT)
 	{
 		breakPoints_[bp].hasCond = true;
@@ -170,7 +170,7 @@ void CBreakPoints::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
 
 void CBreakPoints::ChangeBreakPointRemoveCond(u32 addr)
 {
-	size_t bp = FindBreakpoint(addr);
+	size_t bp = FindBreakpoint(addr, true, false);
 	if (bp != INVALID_BREAKPOINT)
 	{
 		breakPoints_[bp].hasCond = false;
@@ -180,7 +180,7 @@ void CBreakPoints::ChangeBreakPointRemoveCond(u32 addr)
 
 BreakPointCond *CBreakPoints::GetBreakPointCondition(u32 addr)
 {
-	size_t bp = FindBreakpoint(addr);
+	size_t bp = FindBreakpoint(addr, true, false);
 	if (bp != INVALID_BREAKPOINT && breakPoints_[bp].hasCond)
 		return &breakPoints_[bp].cond;
 	return NULL;
