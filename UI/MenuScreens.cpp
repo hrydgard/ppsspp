@@ -1365,7 +1365,36 @@ void ControlsScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, c->T("OnScreen", "On-Screen Touch Controls"), ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	if (g_Config.bShowTouchControls) {
-		UICheckBox(GEN_ID, x, y += stride, c->T("Show Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+		UICheckBox(GEN_ID, x, y += stride, c->T("Show Left Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
+		bool rightstick = g_Config.iRightStickBind > 0;
+		UICheckBox(GEN_ID, x, y += stride, c->T("Bind Right Analog Stick"), ALIGN_TOPLEFT, &rightstick);
+		if (rightstick) {
+			if (g_Config.iRightStickBind <= 0 )
+				g_Config.iRightStickBind = 1;
+
+			char showType[256];
+			std::string type;
+			switch (g_Config.iRightStickBind) {
+			case 1:	type = "Arrow Buttons";break;
+			case 2: type = "Face Buttons";break;
+			case 3:	type = "L/R";break;
+			case 4:	type = "L/R + Triangle/Cross";break;
+			}
+			sprintf(showType, "%s %s", c->T("Target :"), type.c_str());
+			ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+			HLinear hlinear1(x + 60 , y+= stride + 5, 10);
+			if (UIButton(GEN_ID, hlinear1, 200, 0, c->T("Arrow Buttons"), ALIGN_LEFT)) 
+				g_Config.iRightStickBind = 1;
+			if (UIButton(GEN_ID, hlinear1, 200, 0, c->T("Face Buttons"), ALIGN_LEFT))
+				g_Config.iRightStickBind = 2;
+			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("L/R"), ALIGN_LEFT))
+				g_Config.iRightStickBind = 3;
+			if (UIButton(GEN_ID, hlinear1, 280, 0, c->T("L/R + Triangle/Cross"), ALIGN_LEFT))
+				g_Config.iRightStickBind = 4;
+			y += 20;
+		} else
+			g_Config.iRightStickBind = 0;
+			
 		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		if (g_Config.bLargeControls) {
 			char scale[256];
