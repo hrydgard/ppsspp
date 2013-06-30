@@ -211,12 +211,12 @@ CDisasm::~CDisasm()
 {
 }
 
-int getTotalBreakpointCount()
+int CDisasm::getTotalBreakpointCount()
 {
 	int count = (int)CBreakPoints::GetMemChecks().size();
 	for (size_t i = 0; i < CBreakPoints::GetBreakpoints().size(); i++)
 	{
-		if (!CBreakPoints::GetBreakpoint(i).bTemporary) count++;
+		if (!displayedBreakPoints_[i].temporary) count++;
 	}
 
 	return count;
@@ -224,6 +224,10 @@ int getTotalBreakpointCount()
 
 void CDisasm::updateBreakpointList()
 {
+	// Update the items we're displaying from the debugger.
+	displayedBreakPoints_ = CBreakPoints::GetBreakpoints();
+	displayedMemChecks_= CBreakPoints::GetMemChecks();
+
 	HWND breakpointHwnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
 	int breakpointCount = getTotalBreakpointCount();
 	int items = ListView_GetItemCount(breakpointHwnd);
@@ -252,21 +256,21 @@ void CDisasm::updateBreakpointList()
 	UpdateWindow(breakpointHwnd);
 }
 
-int getBreakpointIndex(int itemIndex, bool& isMemory)
+int CDisasm::getBreakpointIndex(int itemIndex, bool& isMemory)
 {
 	// memory breakpoints first
-	if (itemIndex < CBreakPoints::GetMemChecks().size())
+	if (itemIndex < (int)displayedMemChecks_.size())
 	{
 		isMemory = true;
 		return itemIndex;
 	}
 
-	itemIndex -= (int)CBreakPoints::GetMemChecks().size();
+	itemIndex -= (int)displayedMemChecks_.size();
 
-	int i = 0;
-	while (i < CBreakPoints::GetNumBreakpoints())
+	size_t i = 0;
+	while (i < displayedBreakPoints_.size())
 	{
-		if (CBreakPoints::GetBreakpoint(i).bTemporary)
+		if (displayedBreakPoints_[i].temporary)
 		{
 			i++;
 			continue;
@@ -276,7 +280,7 @@ int getBreakpointIndex(int itemIndex, bool& isMemory)
 		if (itemIndex == 0)
 		{
 			isMemory = false;
-			return i;
+			return (int)i;
 		}
 
 		i++;
@@ -294,10 +298,10 @@ void CDisasm::removeBreakpoint(int itemIndex)
 
 	if (isMemory)
 	{
-		auto memchecks = CBreakPoints::GetMemChecks();
-		CBreakPoints::RemoveMemCheck(memchecks[index].start, memchecks[index].end);
+		auto mc = displayedMemChecks_[index];
+		CBreakPoints::RemoveMemCheck(mc.start, mc.end);
 	} else {
-		u32 address = CBreakPoints::GetBreakpointAddress(index);
+		u32 address = displayedBreakPoints_[index].addr;
 		CBreakPoints::RemoveBreakPoint(address);
 	}
 }
@@ -310,14 +314,13 @@ void CDisasm::gotoBreakpointAddress(int itemIndex)
 
 	if (isMemory)
 	{
-		auto memchecks = CBreakPoints::GetMemChecks();
-		u32 address = memchecks[index].start;
+		u32 address = displayedMemChecks_[index].start;
 			
 		for (int i=0; i<numCPUs; i++)
 			if (memoryWindow[i])
 				memoryWindow[i]->Goto(address);
 	} else {
-		u32 address = CBreakPoints::GetBreakpointAddress(index);
+		u32 address = displayedBreakPoints_[index].addr;
 		Goto(address);
 		SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
 	}
@@ -337,7 +340,6 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 	if (((LPNMHDR)lParam)->code == LVN_GETDISPINFO)
 	{
 		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
-		auto mem = CBreakPoints::GetMemChecks();
 		
 		bool isMemory;
 		int index = getBreakpointIndex(dispInfo->item.iItem,isMemory);
@@ -350,7 +352,7 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					switch (mem[index].cond)
+					switch (displayedMemChecks_[index].cond)
 					{
 					case MEMCHECK_READ:
 						strcpy(breakpointText, "Read");
@@ -371,9 +373,9 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					sprintf(breakpointText,"0x%08X",mem[index].start);
+					sprintf(breakpointText,"0x%08X",displayedMemChecks_[index].start);
 				} else {
-					sprintf(breakpointText,"0x%08X",CBreakPoints::GetBreakpointAddress(index));
+					sprintf(breakpointText,"0x%08X",displayedBreakPoints_[index].addr);
 				}
 			}
 			break;
@@ -381,10 +383,11 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					if (mem[index].end == 0) sprintf(breakpointText,"0x%08X",1);
-					else sprintf(breakpointText,"0x%08X",mem[index].end-mem[index].start);
+					auto mc = displayedMemChecks_[index];
+					if (mc.end == 0) sprintf(breakpointText,"0x%08X",1);
+					else sprintf(breakpointText,"0x%08X",mc.end-mc.start);
 				} else {
-					const char* sym = cpu->findSymbolForAddress(CBreakPoints::GetBreakpointAddress(index));
+					const char* sym = cpu->findSymbolForAddress(displayedBreakPoints_[index].addr);
 					if (sym != NULL)
 					{
 						strcpy(breakpointText,sym);
@@ -401,7 +404,7 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 					strcpy(breakpointText,"-");
 				} else {
 					CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
-					ptr->getOpcodeText(CBreakPoints::GetBreakpointAddress(index),breakpointText);
+					ptr->getOpcodeText(displayedBreakPoints_[index].addr,breakpointText);
 				}
 			}
 			break;
@@ -409,7 +412,7 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					sprintf(breakpointText,"%d",mem[index].numHits);
+					sprintf(breakpointText,"%d",displayedMemChecks_[index].numHits);
 				} else {
 					strcpy(breakpointText,"-");
 				}
@@ -419,9 +422,9 @@ void CDisasm::handleBreakpointNotify(LPARAM lParam)
 			{
 				if (isMemory)
 				{
-					strcpy(breakpointText,mem[index].result & MEMCHECK_BREAK ? "True" : "False");
+					strcpy(breakpointText,displayedMemChecks_[index].result & MEMCHECK_BREAK ? "True" : "False");
 				} else {
-					strcpy(breakpointText,CBreakPoints::GetBreakpoint(index).bOn ? "True" : "False");
+					strcpy(breakpointText,displayedBreakPoints_[index].enabled ? "True" : "False");
 				}
 			}
 			break;

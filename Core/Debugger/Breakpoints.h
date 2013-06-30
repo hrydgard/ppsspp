@@ -35,18 +35,18 @@ struct BreakPoint
 {
 	BreakPoint() : hasCond(false) {}
 
-	u32	iAddress;
-	bool bOn;
-	bool bTemporary;
+	u32	addr;
+	bool enabled;
+	bool temporary;
 
 	bool hasCond;
 	BreakPointCond cond;
 
 	bool operator == (const BreakPoint &other) const {
-		return iAddress == other.iAddress;
+		return addr == other.addr;
 	}
 	bool operator < (const BreakPoint &other) const {
-		return iAddress < other.iAddress;
+		return addr < other.addr;
 	}
 };
 
@@ -113,9 +113,6 @@ public:
 	static void ClearAllMemChecks();
 
 	static MemCheck *GetMemCheck(u32 address, int size);
-	static int GetNumBreakpoints();
-	static const BreakPoint GetBreakpoint(size_t i);
-	static int GetBreakpointAddress(size_t i);
 
 	// TODO: MemChecks somehow too?
 	static void SetSkipFirst(u32 pc) { breakSkipFirstAt_ = pc; }

@@ -53,7 +53,7 @@ size_t CBreakPoints::FindBreakpoint(u32 addr, bool matchTemp, bool temp)
 {
 	for (size_t i = 0; i < breakPoints_.size(); ++i)
 	{
-		if (breakPoints_[i].iAddress == addr && (!matchTemp || breakPoints_[i].bTemporary == temp))
+		if (breakPoints_[i].addr == addr && (!matchTemp || breakPoints_[i].temporary == temp))
 			return i;
 	}
 
@@ -74,7 +74,7 @@ size_t CBreakPoints::FindMemCheck(u32 start, u32 end)
 bool CBreakPoints::IsAddressBreakPoint(u32 addr)
 {
 	size_t bp = FindBreakpoint(addr);
-	return bp != INVALID_BREAKPOINT && breakPoints_[bp].bOn;
+	return bp != INVALID_BREAKPOINT && breakPoints_[bp].enabled;
 }
 
 bool CBreakPoints::IsTempBreakPoint(u32 addr)
@@ -89,16 +89,16 @@ void CBreakPoints::AddBreakPoint(u32 addr, bool temp)
 	if (bp == INVALID_BREAKPOINT)
 	{
 		BreakPoint pt;
-		pt.bOn = true;
-		pt.bTemporary = temp;
-		pt.iAddress = addr;
+		pt.enabled = true;
+		pt.temporary = temp;
+		pt.addr = addr;
 
 		breakPoints_.push_back(pt);
 		Update(addr);
 	}
-	else if (!breakPoints_[bp].bOn)
+	else if (!breakPoints_[bp].enabled)
 	{
-		breakPoints_[bp].bOn = true;
+		breakPoints_[bp].enabled = true;
 		Update(addr);
 	}
 }
@@ -124,7 +124,7 @@ void CBreakPoints::ChangeBreakPoint(u32 addr, bool status)
 	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT)
 	{
-		breakPoints_[bp].bOn = status;
+		breakPoints_[bp].enabled = status;
 		Update(addr);
 	}
 }
@@ -146,7 +146,7 @@ void CBreakPoints::ClearTemporaryBreakPoints()
 	bool update = false;
 	for (int i = (int)breakPoints_.size()-1; i >= 0; --i)
 	{
-		if (breakPoints_[i].bTemporary)
+		if (breakPoints_[i].temporary)
 		{
 			breakPoints_.erase(breakPoints_.begin() + i);
 			update = true;
@@ -258,21 +258,6 @@ MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 
 	//none found
 	return 0;
-}
-
-int CBreakPoints::GetNumBreakpoints()
-{
-	return (int)breakPoints_.size();
-}
-
-const BreakPoint CBreakPoints::GetBreakpoint(size_t i)
-{
-	return breakPoints_[i];
-}
-
-int CBreakPoints::GetBreakpointAddress(size_t i)
-{
-	return breakPoints_[i].iAddress;
 }
 
 const std::vector<MemCheck> CBreakPoints::GetMemChecks()
