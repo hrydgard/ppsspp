@@ -151,6 +151,13 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 		if(p == NULL)
 			break;
 		
+		// Chop any newlines off.
+		for (size_t i = strlen(line) - 1; i > 0; i--) {
+			if (line[i] == '\r' || line[i] == '\n') {
+				line[i] = '\0';
+			}
+		}
+
 		if (strlen(line) < 4 || sscanf(line, "%s", temp) != 1)
 			continue;
 
@@ -180,8 +187,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 			e.size=4;
 
 		//e.vaddress|=0x80000000;
-		if (strcmp(e.name,".text")==0 || strcmp(e.name,".init")==0 || strlen(e.name)<=1)
-		{ 
+		if (strcmp(e.name,".text")==0 || strcmp(e.name,".init")==0 || strlen(e.name)<=1) { 
 			;
 		} else {
 			e.UndecorateName();
