@@ -36,9 +36,6 @@
 #include "../../Core/HLE/sceKernelInterrupt.h"
 #include "../../Core/HLE/sceGe.h"
 
-extern u32 curTextureWidth;
-extern u32 curTextureHeight;
-
 static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_REGION1,GE_CMD_REGION2,
 	GE_CMD_VERTEXTYPE,
