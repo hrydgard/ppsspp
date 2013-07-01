@@ -460,13 +460,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
 	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
 
-	// Save current render framebuffer to memory
-	if(currentRenderVfb_) {
-		if(g_Config.bFramebuffersToMem) {
-			ReadFramebufferToMemory(currentRenderVfb_);
-		}
-	}
-
 	// None found? Create one.
 	if (!vfb) {
 		gstate_c.textureChanged = true;
@@ -917,7 +910,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 			case GE_FORMAT_8888: // 32 bit ABGR
 			default:
 				pixelType = GL_UNSIGNED_BYTE;
-				pixelFormat = GL_RGBA;
+				pixelFormat = GL_BGRA;
 				pixelSize = 4;
 				align = 4;
 				break;
@@ -1035,8 +1028,6 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 	// Pixel size is always 4 here because data will come in RGBA8888
 	size_t bufSize = vfb->fb_stride * vfb->height * 4; // pixel size always 4 here
-	
-	u8 align = (vfb->format != GE_FORMAT_8888) ? 8 : 4;
 	
 	u32 fb_address = (0x44000000) | vfb->fb_address;
 
@@ -1177,8 +1168,13 @@ void FramebufferManager::DecimateFBOs() {
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;
 		}
+
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
-		if (age > FBO_OLD_AGE) {
+		if(age == 0) {
+			if(g_Config.bFramebuffersToMem) {
+				ReadFramebufferToMemory(vfb);
+			}
+		} else if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			DestroyFramebuf(vfb);
 			vfbs_.erase(vfbs_.begin() + i--);
