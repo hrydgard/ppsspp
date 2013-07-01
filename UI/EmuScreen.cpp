@@ -25,6 +25,8 @@
 #include "ui/ui.h"
 #include "i18n/i18n.h"
 
+#include "Common/KeyMap.h"
+
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
@@ -190,7 +192,18 @@ void EmuScreen::update(InputState &input) {
 	}
 #endif
 
-	/*
+// Daniel:
+// Sorry I know it is pretensious of me to
+// ask platforms to define a "legacy" def
+// just becasue I am changing things on
+// other platforms.
+// Please be patient with me, I will try
+// to migrate other platforms as time goes
+// on.
+// TODO: Migrate all platforms to "modern"
+// key mapping
+#ifdef LEGACY_KEY_MAPPING
+	// Legacy key mapping
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
 		{PAD_BUTTON_A, CTRL_CROSS},
@@ -215,15 +228,21 @@ void EmuScreen::update(InputState &input) {
 			__CtrlButtonUp(mapping[i][1]);
 		}
 	}
-	*/
 
-	// TODO: remove the above dead code
+#else
+	// Modern key mapping
+	__CtrlButtonUp(-1); // blanks all buttons
+	uint32_t pressed = 0;
 	for (int i = 0; i < MAX_KEYQUEUESIZE; i++) {
 		int key = input.key_queue[i];
-		if (key != 0) {
-			// TODO: find proper Ctrl* internal function
-		}
+		if (key == 0)
+			break;
+
+		// TODO: Add virt_sce_* codes for analog sticks
+		pressed |= KeyMap::KeyToPspButton(key);
 	}
+	__CtrlButtonDown(pressed);
+#endif
 
 	float stick_x = input.pad_lstick_x;
 	float stick_y = input.pad_lstick_y;
