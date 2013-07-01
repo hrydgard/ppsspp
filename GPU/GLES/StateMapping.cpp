@@ -215,29 +215,42 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
+
+		// Depth Test
+		bool depthMask = (gstate.clearmode >> 10) & 1;
+		if (gstate.isDepthTestEnabled()) {
+			glstate.depthTest.enable();
+			glstate.depthFunc.set(GL_ALWAYS);
+			glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
+		} else {
+			glstate.depthTest.enable();
+			glstate.depthFunc.set(GL_ALWAYS);
+			glstate.depthWrite.set(GL_TRUE);
+		}
+
+		// Color Test
 		bool colorMask = (gstate.clearmode >> 8) & 1;
 		bool alphaMask = (gstate.clearmode >> 9) & 1;
-		bool depthMask = (gstate.clearmode >> 10) & 1;
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
-		glstate.stencilTest.enable();
-		glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-		glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
-
-		glstate.depthTest.enable();
-		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
+		// Stencil Test
+		if (gstate.isStencilTestEnabled()) {
+			glstate.stencilTest.enable();
+			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
+		} else 
+			glstate.stencilTest.disable();
 
 	} else {
+
+		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
-		} else {
+			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+		} else 
 			glstate.depthTest.disable();
-		}
-
-		glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
-
+		
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
 		bool rmask = (gstate.pmskc & 0xFF) < 128;
@@ -246,17 +259,18 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool amask = (gstate.pmska & 0xFF) < 128;
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 		
+		// Stencil Test
 		if (gstate.isStencilTestEnabled()) {
 			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(ztests[gstate.stenciltest & 0x7],  // func
-				(gstate.stenciltest >> 8) & 0xFF,  // ref
+			glstate.stencilFunc.set(ztests[gstate.stenciltest & 0x7],// comparison function
+				(gstate.stenciltest >> 8) & 0xFF,  // reference value
 				(gstate.stenciltest >> 16) & 0xFF);  // mask
 			glstate.stencilOp.set(stencilOps[gstate.stencilop & 0x7],  // stencil fail
 				stencilOps[(gstate.stencilop >> 8) & 0x7],  // depth fail
 				stencilOps[(gstate.stencilop >> 16) & 0x7]); // depth pass
-		} else {
+		} else 
 			glstate.stencilTest.disable();
-		}
+		
 	}
 
 	float renderWidthFactor, renderHeightFactor;
