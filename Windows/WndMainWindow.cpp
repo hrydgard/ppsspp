@@ -962,10 +962,8 @@ namespace MainWindow
 			ID_OPTIONS_LINEARFILTERING_CG,
 		};
 		for (int i = 0; i < 4; i++) {
-			if(i != 0)
-				CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i == g_Config.iTexFiltering-1) ? MF_CHECKED : MF_UNCHECKED));
-			else
-				CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i == g_Config.iTexFiltering) ? MF_CHECKED : MF_UNCHECKED));
+			int texFilterLevel = i > 0? (g_Config.iTexFiltering - 1) : g_Config.iTexFiltering;
+			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i == texFilterLevel) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		UpdateCommands();
