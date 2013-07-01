@@ -1002,7 +1002,7 @@ void TextureCache::SetTexture() {
 			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 			gstate_c.actualTextureHeight = h;
 			gstate_c.flipTexture = true;
-			gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
+			gstate_c.textureFullAlpha = false;
 			entry->lastFrame = gpuStats.numFrames;
 			return;
 		}
