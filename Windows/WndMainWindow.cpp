@@ -956,6 +956,7 @@ namespace MainWindow
 		}
 
 		static const int texfilteringitems[] = {
+			ID_OPTIONS_TEXTUREFILTERING_OFF,
 			ID_OPTIONS_NEARESTFILTERING,
 			ID_OPTIONS_LINEARFILTERING,
 			ID_OPTIONS_LINEARFILTERING_CG,
