@@ -88,7 +88,7 @@ int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(40000, ringbuf.packets * 700);  // empiric value from JPCSP, thanks!
 }
 
-static u8 mpegheader[2048] = {0x50,0x53,0x4d,0x46,0x30,0x30,0x31,0x35,0x00,0x00,0x08,0x00,0x00,
+const u8 defaultMpegheader[2048] = {0x50,0x53,0x4d,0x46,0x30,0x30,0x31,0x35,0x00,0x00,0x08,0x00,0x00,
 	0x10,0xc8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -118,7 +118,7 @@ typedef std::map<u32, StreamInfo> StreamInfoMap;
 
 // Internal structure
 struct MpegContext {
-	MpegContext() : mediaengine(NULL) {}
+	MpegContext() : mediaengine(NULL) { memcpy(mpegheader, defaultMpegheader, 2048); }
 	~MpegContext() {
 		if (mediaengine != NULL) {
 			delete mediaengine;
@@ -126,6 +126,7 @@ struct MpegContext {
 	}
 
 	void DoState(PointerWrap &p) {
+		p.DoArray(mpegheader, 2048);
 		p.Do(defaultFrameWidth);
 		p.Do(videoFrameCount);
 		p.Do(audioFrameCount);
@@ -157,6 +158,7 @@ struct MpegContext {
 		p.DoMarker("MpegContext");
 	}
 
+	u8 mpegheader[2048];
 	u32 defaultFrameWidth;
 	int videoFrameCount;
 	int audioFrameCount;
@@ -284,8 +286,8 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 	ctx->isAnalyzed = true;
 
 	// copy header struct to mpeg header.
-	memcpy(mpegheader, buffer, 2048);
-	*(u32*)(mpegheader + PSMF_STREAM_OFFSET_OFFSET) = 0x80000;
+	memcpy(ctx->mpegheader, buffer, 2048);
+	*(u32*)(ctx->mpegheader + PSMF_STREAM_OFFSET_OFFSET) = 0x80000;
 
 	INFO_LOG(ME, "Stream offset: %d, Stream size: 0x%X", ctx->mpegOffset, ctx->mpegStreamSize);
 	INFO_LOG(ME, "First timestamp: %lld, Last timestamp: %lld", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
@@ -903,8 +905,8 @@ void PostPutAction::run(MipsCall &call) {
 	int packetsAdded = currentMIPS->r[2];
 	if (ringbuffer.packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
 		// init mediaEngine
-		AnalyzeMpeg(mpegheader, ctx);
-		ctx->mediaengine->loadStream(mpegheader, 2048, ringbuffer.packets * ringbuffer.packetSize);
+		AnalyzeMpeg(ctx->mpegheader, ctx);
+		ctx->mediaengine->loadStream(ctx->mpegheader, 2048, ringbuffer.packets * ringbuffer.packetSize);
 	}
 	if (packetsAdded > 0) {
 		if (packetsAdded > ringbuffer.packetsFree) {
