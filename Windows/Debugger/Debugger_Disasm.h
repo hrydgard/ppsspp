@@ -5,10 +5,12 @@
 
 #include "../W32Util/DialogManager.h"
 #include "CtrlDisasmView.h"
-#include "../../Core/MIPS/MIPSDebugInterface.h"
 #include "CPURegsInterface.h"
-#include "../../Globals.h"
-#include "../../Core/CPU.h"
+#include "Globals.h"
+#include "Core/CPU.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/Debugger/Breakpoints.h"
+#include <vector>
 
 #include <windows.h>
 
@@ -27,6 +29,9 @@ private:
 	DebugInterface *cpu;
 	u64 lastTicks;
 
+	std::vector<BreakPoint> displayedBreakPoints_;
+	std::vector<MemCheck> displayedMemChecks_;
+
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
@@ -34,6 +39,8 @@ private:
 	void handleBreakpointNotify(LPARAM lParam);
 	void gotoBreakpointAddress(int itemIndex);
 	void removeBreakpoint(int itemIndex);
+	int getTotalBreakpointCount();
+	int getBreakpointIndex(int itemIndex, bool& isMemory);
 public:
 	int index; //helper 
 

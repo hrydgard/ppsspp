@@ -15,20 +15,18 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../Core.h"
-#include "Breakpoints.h"
-#include "SymbolMap.h"
-#include "FixedSizeUnorderedSet.h"
+#include "Core/Core.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/Host.h"
-#include "../MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/CoreTiming.h"
 #include <cstdio>
 
-#define MAX_BREAKPOINTS 16
-
-static FixedSizeUnorderedSet<BreakPoint, MAX_BREAKPOINTS> m_iBreakPoints;
-
-std::vector<MemCheck>		CBreakPoints::MemChecks;
+std::vector<BreakPoint> CBreakPoints::breakPoints_;
 u32 CBreakPoints::breakSkipFirstAt_ = 0;
+u64 CBreakPoints::breakSkipFirstTicks_ = 0;
+std::vector<MemCheck> CBreakPoints::memChecks_;
 
 MemCheck::MemCheck(void)
 {
@@ -37,13 +35,14 @@ MemCheck::MemCheck(void)
 
 void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 {
-	if ((write && bOnWrite) || (!write && bOnRead))
+	int mask = write ? MEMCHECK_WRITE : MEMCHECK_READ;
+	if (cond & mask)
 	{
 		++numHits;
 
-		if (bLog)
+		if (result & MEMCHECK_LOG)
 			NOTICE_LOG(MEMMAP, "CHK %s%i at %08x (%s), PC=%08x (%s)", write ? "Write" : "Read", size * 8, addr, symbolMap.GetDescription(addr), pc, symbolMap.GetDescription(pc));
-		if (bBreak)
+		if (result & MEMCHECK_BREAK)
 		{
 			Core_EnableStepping(true);
 			host->SetDebugMode(true);
@@ -51,76 +50,209 @@ void MemCheck::Action(u32 addr, bool write, int size, u32 pc)
 	}
 }
 
-bool CBreakPoints::IsAddressBreakPoint(u32 _iAddress)
+size_t CBreakPoints::FindBreakpoint(u32 addr, bool matchTemp, bool temp)
 {
-	for (size_t i = 0; i < m_iBreakPoints.size(); i++)
-		if (m_iBreakPoints[i].iAddress == _iAddress)
-			return true;
-
-	return false;
-}
-
-bool CBreakPoints::IsTempBreakPoint(u32 _iAddress)
-{
-	for (size_t i = 0; i < m_iBreakPoints.size(); i++)
-		if (m_iBreakPoints[i].iAddress == _iAddress && m_iBreakPoints[i].bTemporary)
-			return true;
-
-	return false;
-}
-
-void CBreakPoints::RemoveBreakPoint(u32 _iAddress)
-{
-	for (size_t i = 0; i < m_iBreakPoints.size(); i++)
+	for (size_t i = 0; i < breakPoints_.size(); ++i)
 	{
-		if (m_iBreakPoints[i].iAddress == _iAddress)
-		{
-			m_iBreakPoints.remove(m_iBreakPoints[i]);
-			InvalidateJit(_iAddress);
-			host->UpdateDisassembly();	// redraw in order to not show the breakpoint anymore
-			break;
-		}
+		if (breakPoints_[i].addr == addr && (!matchTemp || breakPoints_[i].temporary == temp))
+			return i;
+	}
+
+	return INVALID_BREAKPOINT;
+}
+
+size_t CBreakPoints::FindMemCheck(u32 start, u32 end)
+{
+	for (size_t i = 0; i < memChecks_.size(); ++i)
+	{
+		if (memChecks_[i].start == start && memChecks_[i].end == end)
+			return i;
+	}
+
+	return INVALID_MEMCHECK;
+}
+
+bool CBreakPoints::IsAddressBreakPoint(u32 addr)
+{
+	size_t bp = FindBreakpoint(addr);
+	return bp != INVALID_BREAKPOINT && breakPoints_[bp].enabled;
+}
+
+bool CBreakPoints::IsTempBreakPoint(u32 addr)
+{
+	size_t bp = FindBreakpoint(addr, true, true);
+	return bp != INVALID_BREAKPOINT;
+}
+
+void CBreakPoints::AddBreakPoint(u32 addr, bool temp)
+{
+	size_t bp = FindBreakpoint(addr, true, temp);
+	if (bp == INVALID_BREAKPOINT)
+	{
+		BreakPoint pt;
+		pt.enabled = true;
+		pt.temporary = temp;
+		pt.addr = addr;
+
+		breakPoints_.push_back(pt);
+		Update(addr);
+	}
+	else if (!breakPoints_[bp].enabled)
+	{
+		breakPoints_[bp].enabled = true;
+		Update(addr);
+	}
+}
+
+void CBreakPoints::RemoveBreakPoint(u32 addr)
+{
+	size_t bp = FindBreakpoint(addr);
+	if (bp != INVALID_BREAKPOINT)
+	{
+		breakPoints_.erase(breakPoints_.begin() + bp);
+
+		// Check again, there might've been an overlapping temp breakpoint.
+		bp = FindBreakpoint(addr);
+		if (bp != INVALID_BREAKPOINT)
+			breakPoints_.erase(breakPoints_.begin() + bp);
+
+		Update(addr);
+	}
+}
+
+void CBreakPoints::ChangeBreakPoint(u32 addr, bool status)
+{
+	size_t bp = FindBreakpoint(addr);
+	if (bp != INVALID_BREAKPOINT)
+	{
+		breakPoints_[bp].enabled = status;
+		Update(addr);
 	}
 }
 
 void CBreakPoints::ClearAllBreakPoints()
 {
-	m_iBreakPoints.clear();
-	InvalidateJit();
+	if (!breakPoints_.empty())
+	{
+		breakPoints_.clear();
+		Update();
+	}
 }
 
 void CBreakPoints::ClearTemporaryBreakPoints()
 {
-	if (m_iBreakPoints.size() == 0) return;
+	if (breakPoints_.empty())
+		return;
 
 	bool update = false;
-	for (int i = (int)m_iBreakPoints.size()-1; i >= 0; --i)
+	for (int i = (int)breakPoints_.size()-1; i >= 0; --i)
 	{
-		if (m_iBreakPoints[i].bTemporary)
+		if (breakPoints_[i].temporary)
 		{
-			InvalidateJit(m_iBreakPoints[i].iAddress);
-			m_iBreakPoints.remove(m_iBreakPoints[i]);
+			breakPoints_.erase(breakPoints_.begin() + i);
 			update = true;
 		}
 	}
 	
-	if (update) host->UpdateDisassembly();	// redraw in order to not show the breakpoint anymore
+	if (update)
+		Update();
+}
+
+void CBreakPoints::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
+{
+	size_t bp = FindBreakpoint(addr, true, false);
+	if (bp != INVALID_BREAKPOINT)
+	{
+		breakPoints_[bp].hasCond = true;
+		breakPoints_[bp].cond = cond;
+		Update();
+	}
+}
+
+void CBreakPoints::ChangeBreakPointRemoveCond(u32 addr)
+{
+	size_t bp = FindBreakpoint(addr, true, false);
+	if (bp != INVALID_BREAKPOINT)
+	{
+		breakPoints_[bp].hasCond = false;
+		Update();
+	}
+}
+
+BreakPointCond *CBreakPoints::GetBreakPointCondition(u32 addr)
+{
+	size_t bp = FindBreakpoint(addr, true, false);
+	if (bp != INVALID_BREAKPOINT && breakPoints_[bp].hasCond)
+		return &breakPoints_[bp].cond;
+	return NULL;
+}
+
+void CBreakPoints::AddMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result)
+{
+	size_t mc = FindMemCheck(start, end);
+	if (mc == INVALID_MEMCHECK)
+	{
+		MemCheck check;
+		check.start = start;
+		check.end = end;
+		check.cond = cond;
+		check.result = result;
+
+		memChecks_.push_back(check);
+		Update();
+	}
+	else
+	{
+		memChecks_[mc].cond = (MemCheckCondition)(memChecks_[mc].cond | cond);
+		memChecks_[mc].result = (MemCheckResult)(memChecks_[mc].result | result);
+		Update();
+	}
+}
+
+void CBreakPoints::RemoveMemCheck(u32 start, u32 end)
+{
+	size_t mc = FindMemCheck(start, end);
+	if (mc != INVALID_MEMCHECK)
+	{
+		memChecks_.erase(memChecks_.begin() + mc);
+		Update();
+	}
+}
+
+void CBreakPoints::ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result)
+{
+	size_t mc = FindMemCheck(start, end);
+	if (mc != INVALID_MEMCHECK)
+	{
+		memChecks_[mc].cond = cond;
+		memChecks_[mc].result = result;
+		Update();
+	}
+}
+
+void CBreakPoints::ClearAllMemChecks()
+{
+	if (!memChecks_.empty())
+	{
+		memChecks_.clear();
+		Update();
+	}
 }
 
 MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 {
 	std::vector<MemCheck>::iterator iter;
-	for (iter = MemChecks.begin(); iter != MemChecks.end(); ++iter)
+	for (iter = memChecks_.begin(); iter != memChecks_.end(); ++iter)
 	{
 		MemCheck &check = *iter;
-		if (check.bRange)
+		if (check.end != 0)
 		{
-			if (address >= check.iStartAddress && address + size < check.iEndAddress)
+			if (address >= check.start && address + size < check.end)
 				return &check;
 		}
 		else
 		{
-			if (check.iStartAddress==address)
+			if (check.start==address)
 				return &check;
 		}
 	}
@@ -129,46 +261,40 @@ MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 	return 0;
 }
 
-void CBreakPoints::AddBreakPoint(u32 _iAddress, bool temp)
+void CBreakPoints::SetSkipFirst(u32 pc)
 {
-	if (!IsAddressBreakPoint(_iAddress))
+	breakSkipFirstAt_ = pc;
+	breakSkipFirstTicks_ = CoreTiming::GetTicks();
+}
+u32 CBreakPoints::CheckSkipFirst()
+{
+	u32 pc = breakSkipFirstAt_;
+	breakSkipFirstAt_ = 0;
+	if (breakSkipFirstTicks_ == CoreTiming::GetTicks())
+		return pc;
+	return 0;
+}
+
+const std::vector<MemCheck> CBreakPoints::GetMemChecks()
+{
+	return memChecks_;
+}
+
+const std::vector<BreakPoint> CBreakPoints::GetBreakpoints()
+{
+	return breakPoints_;
+}
+
+void CBreakPoints::Update(u32 addr)
+{
+	if (MIPSComp::jit && Core_IsInactive())
 	{
-		BreakPoint pt;
-		pt.bOn=true;
-		pt.bTemporary=temp;
-		pt.iAddress = _iAddress;
-
-		m_iBreakPoints.insert(pt);
-		InvalidateJit(_iAddress);
-		host->UpdateDisassembly();	// redraw in order to show the breakpoint
+		if (addr != 0)
+			MIPSComp::jit->ClearCacheAt(addr);
+		else
+			MIPSComp::jit->ClearCache();
 	}
-}
 
-void CBreakPoints::InvalidateJit(u32 _iAddress)
-{
-	// Don't want to clear cache while running, I think?
-	if (MIPSComp::jit && Core_IsInactive())
-		MIPSComp::jit->ClearCacheAt(_iAddress);
-}
-
-void CBreakPoints::InvalidateJit()
-{
-	// Don't want to clear cache while running, I think?
-	if (MIPSComp::jit && Core_IsInactive())
-		MIPSComp::jit->ClearCache();
-}
-
-int CBreakPoints::GetNumBreakpoints()
-{
-	return (int)m_iBreakPoints.size();
-}
-
-BreakPoint CBreakPoints::GetBreakpoint(int i)
-{
-	return m_iBreakPoints[i];
-}
-
-int CBreakPoints::GetBreakpointAddress(int i)
-{
-	return m_iBreakPoints[i].iAddress;
+	// Redraw in order to show the breakpoint.
+	host->UpdateDisassembly();
 }
