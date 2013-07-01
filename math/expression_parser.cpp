@@ -1,6 +1,7 @@
 #include "expression_parser.h"
 #include <ctype.h>
 #include <string.h>
+#include <stdio.h>
 
 typedef enum {
 	EXOP_BRACKETL, EXOP_BRACKETR, EXOP_SIGNPLUS, EXOP_SIGNMINUS,
