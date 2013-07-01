@@ -257,10 +257,11 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale) {
+void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
 	float u2 = uscale;
-	float v1 = flip ? 1.0f : 0.0f;
-	float v2 = flip ? 0.0f : 1.0f;
+	// Since we're flipping, 0 is down.  That's where the scale goes.
+	float v1 = flip ? 1.0f : 1.0f - vscale;
+	float v2 = flip ? 1.0f - vscale : 1.0f;
 
 	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
 	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
@@ -615,7 +616,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(x, y, w, h, true);
+		DrawActiveTexture(x, y, w, h, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
