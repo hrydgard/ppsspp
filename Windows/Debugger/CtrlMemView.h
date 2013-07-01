@@ -44,13 +44,10 @@ class CtrlMemView
 	int asciiStart;
 	bool asciiSelected;
 	int selectedNibble;
+	bool ctrlDown;
 
 	int visibleRows;
 
-	int selection;
-	int oldSelection;
-	bool selectionChanged;
-	bool selecting;
 	bool hasFocus;
 	static TCHAR szClassName[];
 	DebugInterface *debugger;

@@ -316,8 +316,8 @@ void SasInstance::SetGrainSize(int newGrainSize) {
 		delete [] resampleBuffer;
 
 	// 2 samples padding at the start, that's where we copy the two last samples from the channel
-	// so that we can do bicubic resampling if necessary.
-	resampleBuffer = new s16[grainSize * 4 + 2];
+	// so that we can do bicubic resampling if necessary.  Plus 1 for smoothness hackery.
+	resampleBuffer = new s16[grainSize * 4 + 3];
 }
 
 static inline s16 clamp_s16(int i) {
@@ -509,7 +509,7 @@ void SasInstance::DoState(PointerWrap &p) {
 		p.DoArray(sendBuffer, grainSize * 2);
 	}
 	if (resampleBuffer != NULL && grainSize > 0) {
-		p.DoArray(resampleBuffer, grainSize * 4 + 2);
+		p.DoArray(resampleBuffer, grainSize * 4 + 3);
 	}
 
 	int n = PSP_SAS_VOICES_MAX;

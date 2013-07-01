@@ -73,8 +73,7 @@ void EmuThread_Stop()
 	Core_WaitInactive(800);
 	if (WAIT_TIMEOUT == WaitForSingleObject(emuThread, 800))
 	{
-		MessageBox(MainWindow::GetHWND(),"Wait for emuthread timed out! :(\n"
-			"please alert the developer to possible deadlock or infinite loop in emuthread!", 0, 0);
+		_dbg_assert_msg_(COMMON, false, "Wait for EmuThread timed out.");
 	}
 	{
 		EmuThreadLockGuard lock;

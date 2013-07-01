@@ -21,6 +21,7 @@
 #include "../../Core/Debugger/DebugInterface.h"
 
 #include <windows.h>
+#include <vector>
 
 class CtrlDisAsmView
 {
@@ -29,20 +30,43 @@ class CtrlDisAsmView
 	HFONT boldfont;
 	RECT rect;
 
-	int curAddress;
-	int align;
+	u32 curAddress;
 	int rowHeight;
 
-	int selection;
-	int marker;
-	int oldSelection;
-	bool selectionChanged;
-	bool selecting;
 	bool hasFocus;
 	bool showHex;
 	DebugInterface *debugger;
 	static TCHAR szClassName[];
 
+	u32 windowStart;
+	int visibleRows;
+	int instructionSize;
+	bool whiteBackground;
+	bool displaySymbols;
+	u32 branchTarget;
+	int branchRegister;
+
+	struct {
+		int addressStart;
+		int opcodeStart;
+		int argumentsStart;
+		int arrowsStart;
+	} pixelPositions;
+
+	std::vector<u32> jumpStack;
+
+	bool controlHeld;
+	char searchQuery[256];
+	int matchAddress;
+	bool searching;
+	bool dontRedraw;
+
+	void disassembleToFile();
+	void search(bool continueSearch);
+	void followBranch();
+	void calculatePixelPositions();
+	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels);
+	void parseDisasm(const char* disasm, char* opcode, char* arguments);
 public:
 	CtrlDisAsmView(HWND _wnd);
 	~CtrlDisAsmView();
@@ -54,22 +78,21 @@ public:
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);
+	void onKeyUp(WPARAM wParam, LPARAM lParam);
 	void onMouseDown(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseUp(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseMove(WPARAM wParam, LPARAM lParam, int button);
 	void redraw();
-
-	void setAlign(int l)
-	{
-		align=l;
-	}
+	
+	void getOpcodeText(u32 address, char* dest);
 	int yToAddress(int y);
 
+	void setDontRedraw(bool b) { dontRedraw = b; };
 	void setDebugger(DebugInterface *deb)
 	{
 		debugger=deb;
 		curAddress=debugger->getPC();
-		align=debugger->getInstructionSize(0);
+		instructionSize=debugger->getInstructionSize(0);
 	}
 	DebugInterface *getDebugger()
 	{
@@ -77,15 +100,22 @@ public:
 	}
 	void gotoAddr(unsigned int addr)
 	{
-		curAddress=addr&(~(align-1));
+		u32 windowEnd = windowStart+visibleRows*instructionSize;
+		u32 newAddress = addr&(~(instructionSize-1));
+
+		if (newAddress < windowStart || newAddress >= windowEnd)
+		{
+			windowStart = newAddress-visibleRows/2*instructionSize;
+		}
+
+		curAddress = newAddress;
 		redraw();
 	}
 	void gotoPC()
 	{
-		curAddress=debugger->getPC()&(~(align-1));
-		redraw();
+		gotoAddr(debugger->getPC()&(~(instructionSize-1)));
 	}
-	unsigned int getSelection()
+	u32 getSelection()
 	{
 		return curAddress;
 	}
@@ -98,6 +128,13 @@ public:
 	void toggleBreakpoint()
 	{
 		debugger->toggleBreakpoint(curAddress);
+		redraw();
+	}
+
+	void scrollWindow(int lines)
+	{
+		windowStart += lines*instructionSize;
+		curAddress += lines*instructionSize;
 		redraw();
 	}
 };

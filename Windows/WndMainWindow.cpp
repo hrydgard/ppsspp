@@ -203,13 +203,20 @@ namespace MainWindow
 		g_Config.iTexScalingLevel = num;
 		if(gpu) gpu->ClearCacheNextFrame();
 	}
+
+	void setTexFiltering(int num) {
+		g_Config.iTexFiltering = num;
+	}
+
 	void setTexScalingType(int num) {
 		g_Config.iTexScalingType = num;
 		if(gpu) gpu->ClearCacheNextFrame();
 	}
+
 	void setFpsLimit(int fps) {
 		g_Config.iFpsLimit = fps;
 	}
+
 	void enableCheats(bool cheats){
 		g_Config.bEnableCheats = cheats;
 	}
@@ -738,12 +745,13 @@ namespace MainWindow
 				g_Config.bUseVBO = !g_Config.bUseVBO;
 				break;
 			case ID_OPTIONS_NEARESTFILTERING:
-				g_Config.bNearestFiltering = !g_Config.bNearestFiltering;
-				g_Config.bLinearFiltering = false;
+				setTexFiltering(2) ;
 				break;
 			case ID_OPTIONS_LINEARFILTERING:
-				g_Config.bNearestFiltering = false;
-				g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
+				setTexFiltering(3) ;
+				break;
+			case ID_OPTIONS_LINEARFILTERING_CG:
+				setTexFiltering(4) ;
 				break;
 			case ID_OPTIONS_TOPMOST:
 				g_Config.bTopMost = !g_Config.bTopMost;
@@ -900,8 +908,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
-		CHECKITEM(ID_OPTIONS_NEARESTFILTERING, g_Config.bNearestFiltering);
-		CHECKITEM(ID_OPTIONS_LINEARFILTERING, g_Config.bLinearFiltering);
 		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
@@ -944,6 +950,15 @@ namespace MainWindow
 		};
 		for (int i = 0; i < 4; i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));
+		}
+
+		static const int texfilteringitems[] = {
+			ID_OPTIONS_NEARESTFILTERING,
+			ID_OPTIONS_LINEARFILTERING,
+			ID_OPTIONS_LINEARFILTERING_CG,
+		};
+		for (int i = 0; i < 3; i++) {
+			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i == g_Config.iTexFiltering-2) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		UpdateCommands();

@@ -131,8 +131,6 @@ ViewController* sharedViewController;
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
     
-    if (g_Config.bEnableSound)
-		self.audioEngine = [[[AudioEngine alloc] init] autorelease];
 /*
 	UISwipeGestureRecognizer* gesture = [[[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)] autorelease];
 	[self.view addGestureRecognizer:gesture];

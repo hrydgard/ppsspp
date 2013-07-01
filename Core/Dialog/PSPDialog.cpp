@@ -20,8 +20,8 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
-#define FADE_TIME 0.5
-const float FONT_SCALE = 0.65f;
+#define FADE_TIME 1.0
+const float FONT_SCALE = 0.55f;
 
 PSPDialog::PSPDialog() : status(SCE_UTILITY_STATUS_SHUTDOWN)
 , lastButtons(0)
@@ -46,7 +46,7 @@ PSPDialog::DialogStatus PSPDialog::GetStatus()
 void PSPDialog::StartDraw()
 {
 	PPGeBegin();
-	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x80000000));
+	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x20000000));
 }
 
 void PSPDialog::EndDraw()
@@ -139,13 +139,15 @@ void PSPDialog::DisplayButtons(int flags)
 		x2 = 183.5f;
 	}
 	if (flags & DS_BUTTON_OK) {
+		PPGeDrawImage(okButtonImg, x2, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
 		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Enter"), x2 + 15.5f, 253, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x30000000));
-		PPGeDrawText(d->T("Enter"), x2 + 14.5f, 250, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Enter"), x2 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T("Enter"), x2 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	}
 	if (flags & DS_BUTTON_CANCEL) {
-		PPGeDrawText(d->T("Back"), x1 + 15.5f, 253, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x30000000));
-		PPGeDrawText(d->T("Back"), x1 + 14.5f, 250, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("Back"), x1 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T("Back"), x1 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(cancelButtonImg, x1, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
 		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
 	}
 }

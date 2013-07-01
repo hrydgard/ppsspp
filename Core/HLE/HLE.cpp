@@ -264,7 +264,7 @@ const char *GetFuncName(int moduleIndex, int func)
 	if (moduleIndex >= 0 && moduleIndex < (int)moduleDB.size())
 	{
 		const HLEModule &module = moduleDB[moduleIndex];
-		if (func>=0 && func <= module.numFunctions)
+		if (func >= 0 && func < module.numFunctions)
 		{
 			return module.funcTable[func].name;
 		}

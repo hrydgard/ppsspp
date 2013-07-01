@@ -893,8 +893,7 @@ void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces)
 {
 	if (op == 0)
 	{
-		//ANDEQ R0,R0,R0 is probably not used for legitimate purposes :P
-		sprintf(out,"---\t---");
+		sprintf(out,"nop");
 	}
 	else
 	{

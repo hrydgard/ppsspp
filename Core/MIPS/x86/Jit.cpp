@@ -59,13 +59,18 @@ std::pair<B,A> flip_pair(const std::pair<A,B> &p)
     return std::pair<B, A>(p.second, p.first);
 }
 
-void JitBreakpoint()
+u32 JitBreakpoint()
 {
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+		return 0;
+
+	auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
+	if (cond && !cond->Evaluate())
+		return 0;
+
 	Core_EnableStepping(true);
 	host->SetDebugMode(true);
-
-	if (CBreakPoints::IsTempBreakPoint(currentMIPS->pc))
-		CBreakPoints::RemoveBreakPoint(currentMIPS->pc);
 
 	// There's probably a better place for this.
 	if (USE_JIT_MISSMAP)
@@ -87,6 +92,8 @@ void JitBreakpoint()
 
 		NOTICE_LOG(JIT, "Top ops compiled to interpreter: %s", message.c_str());
 	}
+
+	return 1;
 }
 
 static void JitLogMiss(u32 op)
@@ -176,7 +183,6 @@ void Jit::CompileDelaySlot(int flags)
 {
 	const u32 addr = js.compilerPC + 4;
 
-	// TODO: If we ever support conditional breakpoints, we need to handle the flags more carefully.
 	// Need to offset the downcount which was already incremented for the branch + delay slot.
 	CheckJitBreakpoint(addr, -2);
 
@@ -441,12 +447,21 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 {
 	if (CBreakPoints::IsAddressBreakPoint(addr))
 	{
+		SAVE_FLAGS;
 		FlushAll();
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		ABI_CallFunction((void *)&JitBreakpoint);
 
+		// If 0, the conditional breakpoint wasn't taken.
+		CMP(32, R(EAX), Imm32(0));
+		FixupBranch skip = J_CC(CC_Z);
 		WriteDowncount(downcountOffset);
+		// Just to fix the stack.
+		LOAD_FLAGS;
 		JMP(asm_.dispatcherCheckCoreState, true);
+		SetJumpTarget(skip);
+
+		LOAD_FLAGS;
 
 		return true;
 	}
@@ -458,7 +473,7 @@ Jit::JitSafeMem::JitSafeMem(Jit *jit, int raddr, s32 offset)
 	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false)
 {
 	// This makes it more instructions, so let's play it safe and say we need a far jump.
-	far_ = !g_Config.bIgnoreBadMemAccess || !CBreakPoints::MemChecks.empty();
+	far_ = !g_Config.bIgnoreBadMemAccess || !CBreakPoints::GetMemChecks().empty();
 	if (jit_->gpr.IsImmediate(raddr_))
 		iaddr_ = jit_->gpr.GetImmediate32(raddr_) + offset_;
 	else
@@ -684,7 +699,7 @@ void Jit::JitSafeMem::Finish()
 {
 	// Memory::Read_U32/etc. may have tripped coreState.
 	if (needsCheck_ && !g_Config.bIgnoreBadMemAccess)
-		jit_->js.afterOp = JitState::AFTER_CORE_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE;
 	if (needsSkip_)
 		jit_->SetJumpTarget(skip_);
 	for (auto it = skipChecks_.begin(), end = skipChecks_.end(); it != end; ++it)
@@ -693,6 +708,10 @@ void Jit::JitSafeMem::Finish()
 
 void JitMemCheck(u32 addr, int size, int isWrite)
 {
+	// Should we skip this breakpoint?
+	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
+		return;
+
 	MemCheck *check = CBreakPoints::GetMemCheck(addr, size);
 	if (check)
 		check->Action(addr, isWrite == 1, size, currentMIPS->pc);
@@ -703,9 +722,9 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
 	if (check)
 	{
-		if (!check->bOnRead && type == MEM_READ)
+		if (!(check->cond & MEMCHECK_READ) && type == MEM_READ)
 			return;
-		if (!check->bOnWrite && type == MEM_WRITE)
+		if (!(check->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
 			return;
 
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
@@ -719,24 +738,25 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 
 void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 {
-	for (auto it = CBreakPoints::MemChecks.begin(), end = CBreakPoints::MemChecks.end(); it != end; ++it)
+	auto memchecks = CBreakPoints::GetMemChecks();
+	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it)
 	{
-		if (!it->bOnRead && type == MEM_READ)
-			continue;
-		if (!it->bOnWrite && type == MEM_WRITE)
-			continue;
+		if (!(it->cond & MEMCHECK_READ) && type == MEM_READ)
+			return;
+		if (!(it->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
+			return;
 
 		FixupBranch skipNext, skipNextRange;
-		if (it->bRange)
+		if (it->end != 0)
 		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress - offset_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_));
 			skipNext = jit_->J_CC(CC_B);
-			jit_->CMP(32, R(xaddr_), Imm32(it->iEndAddress - offset_ - size_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->end - offset_ - size_));
 			skipNextRange = jit_->J_CC(CC_AE);
 		}
 		else
 		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->iStartAddress - offset_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_));
 			skipNext = jit_->J_CC(CC_NE);
 		}
 
@@ -751,7 +771,7 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		jit_->js.afterOp = JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
 
 		jit_->SetJumpTarget(skipNext);
-		if (it->bRange)
+		if (it->end != 0)
 			jit_->SetJumpTarget(skipNextRange);
 	}
 }

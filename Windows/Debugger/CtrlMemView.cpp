@@ -12,7 +12,7 @@
 #include "../../Core/Debugger/SymbolMap.h"
 
 #include "Debugger_Disasm.h"
-
+#include "DebuggerShared.h"
 #include "CtrlMemView.h"
 
 TCHAR CtrlMemView::szClassName[] = _T("CtrlMemView");
@@ -32,10 +32,10 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 		"Lucida Console");
   curAddress=0;
   rowHeight=12;
-  selecting=false;
   mode=MV_NORMAL;
   debugger = 0;
   
+	ctrlDown = false;
 	hasFocus = false;
 	windowStart = curAddress;
 	asciiSelected = false;
@@ -120,12 +120,15 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		return FALSE;
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
-		break;
+		return 0;
 	case WM_CHAR:
 		ccp->onChar(wParam,lParam);
-		break;
+		return 0;
+	case WM_KEYUP:
+		if (wParam == VK_CONTROL) ccp->ctrlDown = false;
+		return 0;
 	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
-	case WM_RBUTTONDOWN: rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
+	case WM_RBUTTONDOWN: SetFocus(hwnd); rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
 	case WM_LBUTTONUP:   lmbDown=false; ccp->onMouseUp(wParam,lParam,1); break;
 	case WM_RBUTTONUP:   rmbDown=false; ccp->onMouseUp(wParam,lParam,2); break;
@@ -139,7 +142,7 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 		ccp->redraw();
 		break;
 	case WM_GETDLGCODE:	// we want to process the arrow keys and all characters ourselves
-		return DLGC_WANTARROWS|DLGC_WANTCHARS;
+		return DLGC_WANTARROWS|DLGC_WANTCHARS|DLGC_WANTTAB;
 		break;
     default:
         break;
@@ -341,6 +344,15 @@ void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
+	if (ctrlDown && tolower(wParam & 0xFFFF) == 'g')
+	{
+		ctrlDown = false;
+		u32 addr;
+		if (executeExpressionWindow(wnd,debugger,addr) == false) return;
+		gotoAddr(addr);
+		return;
+	}
+
 	switch (wParam & 0xFFFF)
 	{
 	case VK_DOWN:
@@ -361,6 +373,12 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 	case VK_PRIOR:
 		scrollWindow(-visibleRows);
 		break;
+	case VK_CONTROL:
+		ctrlDown = true;
+		break;
+	case VK_TAB:
+		SendMessage(GetParent(wnd),WM_DEB_TABPRESSED,0,0);
+		break;
 	default:
 		return;
 	}
@@ -368,6 +386,8 @@ void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
 {
+	if (ctrlDown || wParam == VK_TAB) return;
+
 	if (!Memory::IsValidAddress(curAddress))
 	{
 		scrollCursor(1);
@@ -449,7 +469,16 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_MEMVIEW_COPYVALUE:
 			{
 				char temp[24];
-				sprintf(temp,"%08x",Memory::ReadUnchecked_U32(selection));
+
+				// it's admittedly not really useful like this
+				if (asciiSelected)
+				{
+					unsigned char c = Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : '.';
+					if (c < 32 || c >= 128) c = '.';
+					sprintf(temp,"%c",c);
+				} else {
+					sprintf(temp,"%02X",Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : 0xFF);
+				}
 				W32Util::CopyTextToClipboard(wnd,temp);
 			}
 			break;
@@ -504,7 +533,7 @@ void CtrlMemView::gotoPoint(int x, int y)
 void CtrlMemView::gotoAddr(unsigned int addr)
 {	
 	int lines=(rect.bottom/rowHeight);
-	int windowEnd = windowStart+lines*rowSize;
+	u32 windowEnd = windowStart+lines*rowSize;
 
 	curAddress = addr;
 	selectedNibble = 0;
@@ -547,7 +576,7 @@ void CtrlMemView::scrollCursor(int bytes)
 
 	curAddress += bytes;
 		
-	int windowEnd = windowStart+visibleRows*rowSize;
+	u32 windowEnd = windowStart+visibleRows*rowSize;
 	if (curAddress < windowStart)
 	{
 		windowStart = curAddress & ~15;

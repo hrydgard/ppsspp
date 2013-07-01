@@ -40,6 +40,10 @@ public:
 	virtual void runToBreakpoint();
 	virtual int getColor(unsigned int address);
 	virtual const char *getDescription(unsigned int address);
+	virtual const char *findSymbolForAddress(unsigned int address);
+	virtual bool getSymbolValue(char* symbol, u32& dest);
+	virtual bool initExpression(char* exp, PostfixExpression& dest);
+	virtual bool parseExpression(PostfixExpression& exp, u32& dest);
 
 	//overridden functions
 	const char *GetName();
@@ -66,7 +70,7 @@ public:
 	{
 		switch (cat)
 		{
-		case 0:	sprintf(out, "%08x", cpu->r[index]); break;
+		case 0:	sprintf(out, "%08X", cpu->r[index]); break;
 		case 1:	sprintf(out, "%f", cpu->f[index]); break;
 		case 2:	sprintf(out, "N/A"); break;
 		}

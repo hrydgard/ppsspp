@@ -165,6 +165,9 @@
     <ClCompile Include="HLE\sceAudio.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceCcc.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceCtrl.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -436,6 +439,9 @@
     <ClCompile Include="HLE\sceAudiocodec.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HDRemaster.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -541,6 +547,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceAudio.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceCcc.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceCtrl.h">
@@ -806,6 +815,9 @@
     </ClInclude>
     <ClInclude Include="HLE\sceAudiocodec.h">
       <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HDRemaster.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -13,6 +13,7 @@
 
 #include "../../globals.h"
 #include "Debugger_Disasm.h"
+#include "DebuggerShared.h"
 
 #include "../main.h"
 
@@ -34,7 +35,7 @@ void CtrlRegisterList::init()
     wc.hIcon          = 0;
     wc.lpszMenuName   = 0;
     wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
-    wc.style          = 0;
+    wc.style          = CS_DBLCLKS;
     wc.cbClsExtra     = 0;
 	wc.cbWndExtra     = sizeof( CtrlRegisterList * );
     wc.hIconSm        = 0;
@@ -83,12 +84,16 @@ LRESULT CALLBACK CtrlRegisterList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, L
 		return FALSE;
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
-		break;
+		return 0;
+	case WM_KEYUP:
+		if (wParam == VK_CONTROL) ccp->ctrlDown = false;
+		return 0;
 	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
 	case WM_RBUTTONDOWN: rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
 	case WM_LBUTTONUP:   lmbDown=false; ccp->onMouseUp(wParam,lParam,1); break;
 	case WM_RBUTTONUP:   rmbDown=false; ccp->onMouseUp(wParam,lParam,2); break;
+	case WM_LBUTTONDBLCLK:	ccp->editRegisterValue(); break;
 	case WM_SETFOCUS:
 		SetFocus(hwnd);
 		ccp->hasFocus=true;
@@ -98,6 +103,8 @@ LRESULT CALLBACK CtrlRegisterList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, L
 		ccp->hasFocus=false;
 		ccp->redraw();
 		break;
+	case WM_GETDLGCODE:	// want chars so that we can return 0 on key press and supress the beeping sound
+		return DLGC_WANTARROWS|DLGC_WANTCHARS;
     default:
         break;
     }
@@ -297,6 +304,12 @@ void CtrlRegisterList::onKeyDown(WPARAM wParam, LPARAM lParam)
 	GetClientRect(this->wnd, &rect);
 	int page=(rect.bottom/rowHeight)/2-1;
 
+	if (ctrlDown && tolower(wParam) == 'c')
+	{
+		copyRegisterValue();
+		return;
+	}
+
 	switch (wParam & 0xFFFF)
 	{
 	case VK_DOWN:
@@ -311,6 +324,9 @@ void CtrlRegisterList::onKeyDown(WPARAM wParam, LPARAM lParam)
 	case VK_PRIOR:
 		selection-=4;
 		break;
+	case VK_CONTROL:
+		ctrlDown = true;
+		break;
 	default:
 		return;
 	}
@@ -324,6 +340,41 @@ void CtrlRegisterList::redraw()
 	UpdateWindow(wnd); 
 }
 
+void CtrlRegisterList::copyRegisterValue()
+{
+	int cat = category;
+	int reg = selection;
+	if (selection >= cpu->GetNumRegsInCategory(cat))
+		return;
+	u32 val = cpu->GetRegValue(cat,reg);	
+	
+	char temp[24];
+	sprintf(temp,"%08X",val);
+	W32Util::CopyTextToClipboard(wnd,temp);
+}
+
+void CtrlRegisterList::editRegisterValue()
+{
+	int cat = category;
+	int reg = selection;
+	if (selection >= cpu->GetNumRegsInCategory(cat))
+		return;
+	u32 val = cpu->GetRegValue(cat,reg);
+
+	
+	char temp[256];
+	sprintf(temp,"%08X",val);
+	if (InputBox_GetString(GetModuleHandle(NULL),wnd,"Set new value",temp,temp))
+	{
+		if (parseExpression(temp,cpu,val) == false)
+		{
+			displayExpressionError(wnd);
+		} else {
+			cpu->SetRegValue(cat,reg,val);
+			redraw();
+		}
+	}
+}
 
 void CtrlRegisterList::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
@@ -387,20 +438,10 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					disasmWindow[i]->Goto(val);
 			break;
 		case ID_REGLIST_COPYVALUE:
-			{
-				char temp[24];
-				sprintf(temp,"%08x",val);
-				W32Util::CopyTextToClipboard(wnd,temp);
-			}
+			copyRegisterValue();
 			break;
 		case ID_REGLIST_CHANGE:
-			{
-				if (InputBox_GetHex(GetModuleHandle(NULL),wnd,"Set new value",val,val))
-				{
-					cpu->SetRegValue(cat,reg,val);
-					redraw();
-				}
-			}
+			editRegisterValue();
 			break;
 		}
 		return;

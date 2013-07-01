@@ -18,6 +18,7 @@
 #pragma once
 #include <cstdio>
 #include "Common/CommonTypes.h"
+#include "native/math/expression_parser.h"
 
 struct MemMap;
 
@@ -40,6 +41,10 @@ public:
 	virtual void runToBreakpoint() {}
 	virtual int getColor(unsigned int address){return 0xFFFFFFFF;}
 	virtual const char *getDescription(unsigned int address) {return "";}
+	virtual const char *findSymbolForAddress(unsigned int address) { return NULL; };
+	virtual bool getSymbolValue(char* symbol, u32& dest) { return false; };
+	virtual bool initExpression(char* exp, PostfixExpression& dest) { return false; };
+	virtual bool parseExpression(PostfixExpression& exp, u32& dest) { return false; };
 
 	virtual const char *GetName() = 0;
 	virtual int GetGPRSize() = 0; //32 or 64
@@ -57,7 +62,7 @@ public:
 	virtual const char *GetRegName(int cat, int index) {return 0;}
 	virtual void PrintRegValue(int cat, int index, char *out)
 	{
-		sprintf(out,"%08x",GetGPR32Value(index));
+		sprintf(out,"%08X",GetGPR32Value(index));
 	}
 	virtual u32 GetRegValue(int cat, int index) {return 0;}
 	virtual void SetRegValue(int cat, int index, u32 value) {}

@@ -19,6 +19,7 @@
 
 #include "HLETables.h"
 
+#include "sceCcc.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
 #include "sceHttp.h"
@@ -179,9 +180,9 @@ const HLEFunction KDebugForKernel[] =
 	{0xE6554FDA, 0, "sceKernelRegisterDebugRead"},
 	{0xB9C643C9, 0, "sceKernelDebugEcho"},
 	{0x7D1C74F0, 0, "sceKernelDebugEchoSet"},
-	{0x24C32559, 0, "KDebugForKernel_24C32559"},
+	{0x24C32559, 0, "sceKernelDipsw"},
 	{0xD636B827, 0, "sceKernelRemoveByDebugSection"},
-	{0x5282DD5E, 0, "KDebugForKernel_5282DD5E"},
+	{0x5282DD5E, 0, "sceKernelDipswSet"},
 	{0x9F8703E4, 0, "KDebugForKernel_9F8703E4"},
 	{0x333DCEC7, 0, "KDebugForKernel_333DCEC7"},
 	{0xE892D9A1, 0, "KDebugForKernel_E892D9A1"},
@@ -230,6 +231,7 @@ void RegisterAllModules() {
 	Register_StdioForUser();
 
 	Register_sceHprm();
+	Register_sceCcc();
 	Register_sceCtrl();
 	Register_sceDisplay();
 	Register_sceAudio();

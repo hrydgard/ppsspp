@@ -58,6 +58,7 @@
 #include "UI/GameScreen.h"
 #include "UI/EmuScreen.h"
 #include "UI/PluginScreen.h"
+#include "UI/MainScreen.h"
 
 #include "GameInfoCache.h"
 #include "android/jni/TestRunner.h"
@@ -141,7 +142,10 @@ void LogoScreen::update(InputState &input_state) {
 		if (bootFilename_.size()) {
 			screenManager()->switchScreen(new EmuScreen(bootFilename_));
 		} else {
-			screenManager()->switchScreen(new MenuScreen());
+			if (g_Config.bNewUI)
+				screenManager()->switchScreen(new MainScreen());
+			else
+				screenManager()->switchScreen(new MenuScreen());
 		}
 	}
 }
@@ -163,12 +167,16 @@ void LogoScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(alpha);
+	
+	I18NCategory *c = GetI18NCategory("PSPCredits");
+	char temp[256];
+	sprintf(temp, "%s Henrik Rydgård", c->T("created", "Created by"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
 	ui_draw2d.DrawText(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
-	ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydgård", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	ui_draw2d.DrawText(UBUNTU24, "Free Software under GPL 2.0", dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawText(UBUNTU24, c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (bootFilename_.size()) {
 		ui_draw2d.DrawText(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
@@ -184,7 +192,14 @@ void LogoScreen::render() {
 // ==================
 
 MenuScreen::MenuScreen() : frames_(0) {
+	// If first run, let's show the user an easy way to access the atrac3plus download screen.
+	showAtracShortcut_ = g_Config.bFirstRun && !Atrac3plus_Decoder::IsInstalled();
 }
+
+void MenuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	showAtracShortcut_ = showAtracShortcut_ && !Atrac3plus_Decoder::IsInstalled();
+}
+
 
 void MenuScreen::update(InputState &input_state) {
 	globalUIState = UISTATE_MENU;
@@ -249,7 +264,7 @@ void MenuScreen::render() {
 	}
 
 	if (UIButton(GEN_ID, vlinear, w, 0, m->T("Credits"), ALIGN_RIGHT)) {
-		screenManager()->switchScreen(new CreditsScreen());
+		screenManager()->push(new CreditsScreen());
 		UIReset();
 	}
 
@@ -275,6 +290,12 @@ void MenuScreen::render() {
 		}
 	}
 
+	if (showAtracShortcut_) {
+		if (UIButton(GEN_ID, Pos(10,dp_yres - 10), 500, 50, "Download audio plugin", ALIGN_BOTTOMLEFT)) {
+			screenManager()->push(new PluginScreen());
+		}
+	}
+
 	int recentW = 350;
 	if (g_Config.recentIsos.size()) {
 		ui_draw2d.DrawText(UBUNTU24, m->T("Recent"), -xoff, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
@@ -287,13 +308,19 @@ void MenuScreen::render() {
 
 	if (dp_yres < 480)
 		spacing = 8;
+
+	int extraSpace = 0;
+	if (showAtracShortcut_)
+		extraSpace = 60;
+
+	if (showAtracShortcut_)
 	// On small screens, we can't fit four vertically.
 	if (100 + spacing * 6 + textureButtonHeight * 4 > dp_yres) {
 		textureButtonHeight = (dp_yres - 100 - spacing * 6) / 4;
 		textureButtonWidth = (textureButtonHeight / 80) * 144;
 	}
 
-	VGrid vgrid_recent(-xoff, 100, std::min(dp_yres-spacing*2, 480), spacing, spacing);
+	VGrid vgrid_recent(-xoff, 100, std::min(dp_yres-spacing*2-extraSpace, 480), spacing, spacing);
 
 	for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
 		std::string filename;
@@ -487,7 +514,6 @@ void PauseScreen::render() {
 	} else 
 		g_Config.iFrameSkip = 0;
 
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering);
 	ui_draw2d.DrawText(UBUNTU24, gs->T("Save State :"), 30, y += 40, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear4(x + 180 , y , 10);
 	if (UIButton(GEN_ID, hlinear4, 60, 0, "1", ALIGN_LEFT)) {
@@ -736,7 +762,8 @@ void AudioScreen::render() {
 	if (Atrac3plus_Decoder::IsSupported()) {
 		if (Atrac3plus_Decoder::IsInstalled() && g_Config.bEnableSound) {
 			UICheckBox(GEN_ID, x + 60, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
-		}
+		} else
+			g_Config.bEnableAtrac3plus = false;
 
 		VLinear vlinear(30, 200, 20);
 		if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
@@ -754,9 +781,12 @@ void GraphicsScreenP1::render() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
+	
+	char temp[256];
+	sprintf(temp, "%s 1/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
@@ -811,9 +841,12 @@ void GraphicsScreenP2::render() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
+	
+	char temp[256];
+	sprintf(temp, "%s 2/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -833,13 +866,6 @@ void GraphicsScreenP2::render() {
 	int stride = 40;
 	int columnw = 400;
 
-	if ( UICheckBox(GEN_ID, x, y += stride, gs->T("Force Nearest Filtering"), ALIGN_TOPLEFT, &g_Config.bNearestFiltering) ) {
-		g_Config.bLinearFiltering = false; // disable linear filtering if someone turns on nearest
-	}
-	if ( UICheckBox(GEN_ID, x, y += stride, gs->T("Force Linear Filtering"), ALIGN_TOPLEFT, &g_Config.bLinearFiltering) ) {
-		g_Config.bNearestFiltering = false; // and vice versa
-	}
-
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
 	if (AnisotropicFiltering) {
@@ -850,11 +876,11 @@ void GraphicsScreenP2::render() {
 		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
 		ui_draw2d.DrawText(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250, y , 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("4x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 4;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("8x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("8x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 8;
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("16x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 16;
@@ -863,9 +889,34 @@ void GraphicsScreenP2::render() {
 	} else 
 		g_Config.iAnisotropyLevel = 0;
 	
+	bool TexFiltering = g_Config.iTexFiltering > 1;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Texture Filtering"), ALIGN_TOPLEFT, &TexFiltering);
+	if (TexFiltering) {
+		if (g_Config.iTexFiltering <= 1)
+			g_Config.iTexFiltering = 2;
+
+		char showType[256];
+		std::string type;
+		switch (g_Config.iTexFiltering) {
+		case 2:	type = "Nearest";break;
+		case 3: type = "Linear";break;
+		case 4:	type = "Linear(CG)";break;
+		}
+		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
+		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 300, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 170, 0, gs->T("Nearest"), ALIGN_LEFT)) 
+			g_Config.iTexFiltering = 2;
+		if (UIButton(GEN_ID, hlinear1, 170, 0, gs->T("Linear"), ALIGN_LEFT))
+			g_Config.iTexFiltering = 3;
+		if (UIButton(GEN_ID, hlinear1, 170, 0, gs->T("Linear(CG)"), ALIGN_LEFT))
+			g_Config.iTexFiltering = 4;
+		y += 20;
+	} else
+		g_Config.iTexFiltering = 0;
 
 	bool TexScaling = g_Config.iTexScalingLevel > 1;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("xBRZ Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Texture Scaling"), ALIGN_TOPLEFT, &TexScaling);
 	if (TexScaling) {
 		if (g_Config.iTexScalingLevel <= 1)
 			g_Config.iTexScalingLevel = 2;
@@ -919,9 +970,12 @@ void GraphicsScreenP3::render() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
+	
+	char temp[256];
+	sprintf(temp, "%s 3/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -941,51 +995,60 @@ void GraphicsScreenP3::render() {
 	int stride = 40;
 	int columnw = 400;
 	
+	bool ForceMaxEmulatedFPS60 = g_Config.iForceMaxEmulatedFPS == 60;
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Force 60 FPS or less"), ALIGN_TOPLEFT, &ForceMaxEmulatedFPS60))
+		g_Config.iForceMaxEmulatedFPS = ForceMaxEmulatedFPS60 ? 60 : 0;
+
 	bool ShowCounter = g_Config.iShowFPSCounter > 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Show VPS/FPS"), ALIGN_TOPLEFT, &ShowCounter);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Show speed / internal FPS"), ALIGN_TOPLEFT, &ShowCounter);
 	if (ShowCounter) {
+#ifdef _WIN32
+	const int checkboxH = 32;
+#else
+	const int checkboxH = 48;
+#endif
+		ui_draw2d.DrawTextShadow(UBUNTU24, gs->T("(60.0 is full speed, internal FPS depends on game)"), x + UI_SPACE + 29, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+
 		if (g_Config.iShowFPSCounter <= 0)
 			g_Config.iShowFPSCounter = 1;
 
-		char counter[256];
-		std::string type;
-
+		const char *type;
 		switch (g_Config.iShowFPSCounter) {
-		case 1: type = "VPS";break;
-		case 2:	type = "FPS";break;
-		case 3: type = "Both";break;
+		case 1: type = gs->T("Display: Speed"); break;
+		case 2:	type = gs->T("Display: FPS"); break;
+		case 3: type = gs->T("Display: Both"); break;
 		}
-		sprintf(counter, "%s %s", gs->T("Format :"), type.c_str());
-		ui_draw2d.DrawText(UBUNTU24, counter, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 250, y, 20);
-		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("VPS"), ALIGN_LEFT))
+
+		ui_draw2d.DrawText(UBUNTU24, type, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 260, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Speed"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 1;
-		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("FPS"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("FPS"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 2;
-		if (UIButton(GEN_ID, hlinear1, 90, 0, gs->T("Both"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Both"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 3;
 
 		y += 20;
 	} else 
 		g_Config.iShowFPSCounter = 0;
-		
+
 	bool FpsLimit = g_Config.iFpsLimit != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("FPS Limit"), ALIGN_TOPLEFT, &FpsLimit);
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Toggled Speed Limit"), ALIGN_TOPLEFT, &FpsLimit);
 	if (FpsLimit) {
 		if (g_Config.iFpsLimit == 0)
 			g_Config.iFpsLimit = 60;
 		
 		char showFps[256];
-		sprintf(showFps, "%s %d", gs->T("FPS :"), g_Config.iFpsLimit);
+		sprintf(showFps, "%s %d", gs->T("Speed :"), g_Config.iFpsLimit);
 		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 250, y, 20);
-		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+		HLinear hlinear1(x + 260, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("-1"), ALIGN_LEFT))
-			if(g_Config.iFpsLimit > 30)
+		if (UIButton(GEN_ID, hlinear1, 50, 0, gs->T("-1"), ALIGN_LEFT))
+			if(g_Config.iFpsLimit > 10)
 				g_Config.iFpsLimit -= 1;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, gs->T("+1"), ALIGN_LEFT))
-			if(g_Config.iFrameSkip != 120)
+		if (UIButton(GEN_ID, hlinear1, 50, 0, gs->T("+1"), ALIGN_LEFT))
+			if(g_Config.iFrameSkip < 240)
 				g_Config.iFpsLimit += 1;
 
 		y += 20;
@@ -1170,6 +1233,18 @@ void SystemScreen::render() {
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
+	bool LockCPUSpeed = g_Config.iLockedCPUSpeed != 0;
+	UICheckBox(GEN_ID, x, y += stride, s->T("Lock PSP CPU Speed"), ALIGN_TOPLEFT, &LockCPUSpeed);
+	if(LockCPUSpeed) {
+		if(g_Config.iLockedCPUSpeed <= 0)
+			g_Config.iLockedCPUSpeed = 222;
+		char showCPUSpeed[256];
+		sprintf(showCPUSpeed, "%s %d", s->T("Locked CPU Speed:"), g_Config.iLockedCPUSpeed);
+		ui_draw2d.DrawText(UBUNTU24, showCPUSpeed, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
+	}
+	else {
+		g_Config.iLockedCPUSpeed = 0;
+	}
 	//UICheckBox(GEN_ID, x, y += stride, s->T("Daylight Savings"), ALIGN_TOPLEFT, &g_Config.bDayLightSavings);
 
 	const char *buttonPreferenceTitle;
@@ -1248,6 +1323,7 @@ void SystemScreen::render() {
 		g_Config.iDateFormat = 0;
 	*/
 	
+#ifndef ANDROID
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	if (g_Config.bEnableCheats) {
 		HLinear hlinear1(x + 60, y += stride + 10, 20);
@@ -1255,7 +1331,9 @@ void SystemScreen::render() {
 			g_Config.bReloadCheats = true;
 		y += 10;
 	}
+#endif
 	HLinear hlinear2(x, y += stride + 10, 20);
+
 	if (UIButton(GEN_ID, hlinear2, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
 		screenManager()->push(new LanguageScreen());
 	} 
@@ -1462,82 +1540,93 @@ void CreditsScreen::update(InputState &input_state) {
 	frames_++;
 }
 
-static const char * credits[] = {
-	"PPSSPP",
-	"",
-	"",
-	"A fast and portable PSP emulator",
-	"",
-	"Created by Henrik Rydgård",
-	"(aka hrydgard, ector)"
-	"",
-	"",
-	"Contributors:",
-	"unknownbrackets",
-	"oioitff",
-	"xsacha",
-	"raven02",
-	"tpunix",
-	"orphis",
-	"sum2012",
-	"mikusp",
-	"aquanull",
-	"The Dax",
-	"tmaul",
-	"artart78",
-	"ced2911",
-	"soywiz",
-	"kovensky",
-	"xele",
-	"chaserhjk",
-	"evilcorn",
-	"daniel dressler",
-	"makotech222",
-	"CPkmn",
-	"mgaver",
-	"jeid3",
-	"cinaera/BeaR",
-	"",
-	"Written in C++ for speed and portability",
-	"",
-	"",
-	"Free tools used:",
-#ifdef ANDROID
-	"Android SDK + NDK",
-#elif defined(BLACKBERRY)
-	"Blackberry NDK",
-#endif
-#if defined(USING_QT_UI)
-	"Qt",
-#else
-	"SDL",
-#endif
-	"CMake",
-	"freetype2",
-	"zlib",
-	"PSP SDK",
-	"",
-	"",
-	"Check out the website:",
-	"www.ppsspp.org",
-	"compatibility lists, forums, and development info",
-	"",
-	"",
-	"Also check out Dolphin, the best Wii/GC emu around:",
-	"http://www.dolphin-emu.org",
-	"",
-	"",
-	"PPSSPP is intended for educational purposes only.",
-	"",
-	"Please make sure that you own the rights to any games",
-	"you play by owning the UMD or by buying the digital",
-	"download from the PSN store on your real PSP.",
-	"",
-	"",
-	"PSP is a trademark by Sony, Inc.",
-};
 
 void CreditsScreen::render() {
+	
+	I18NCategory *c = GetI18NCategory("PSPCredits");
+
+	const char * credits[] = {
+		"PPSSPP",
+		"",
+		"",
+		c->T("title", "A fast and portable PSP emulator"),	
+		"",
+		c->T("created", "Created by"),
+		"Henrik Rydgård",
+		"(aka hrydgard, ector)",
+		"",
+		"",
+		c->T("contributors", "Contributors:"),
+		"unknownbrackets",
+		"oioitff",
+		"xsacha",
+		"raven02",
+		"tpunix",
+		"orphis",
+		"sum2012",
+		"mikusp",
+		"aquanull",
+		"The Dax",
+		"tmaul",
+		"artart78",
+		"ced2911",
+		"soywiz",
+		"kovensky",
+		"xele",
+		"chaserhjk",
+		"evilcorn",
+		"daniel dressler",
+		"makotech222",
+		"CPkmn",
+		"mgaver",
+		"jeid3",
+		"cinaera/BeaR",
+		"jtraynham",
+		"Kingcom",
+		"aquanull",
+		"arnastia",
+		"lioncash",
+		"JulianoAmaralChaves",
+		"",
+		c->T("written", "Written in C++ for speed and portability"),
+		"",
+		"",
+		c->T("tools", "Free tools used:"),
+	#ifdef ANDROID
+		"Android SDK + NDK",
+	#elif defined(BLACKBERRY)
+		"Blackberry NDK",
+	#endif
+	#if defined(USING_QT_UI)
+		"Qt",
+	#else
+		"SDL",
+	#endif
+		"CMake",
+		"freetype2",
+		"zlib",
+		"PSP SDK",
+		"",
+		"",
+		c->T("website", "Check out the website:"),
+		"www.ppsspp.org",
+		c->T("list", "compatibility lists, forums, and development info"),
+		"",
+		"",
+		c->T("check", "Also check out Dolphin, the best Wii/GC emu around:"),
+		"http://www.dolphin-emu.org",
+		"",
+		"",
+		c->T("info1", "PPSSPP is intended for educational purposes only."),
+		"",
+		c->T("info2", "Please make sure that you own the rights to any games"),
+		c->T("info3", "you play by owning the UMD or by buying the digital"),
+		c->T("info4", "download from the PSN store on your real PSP."),
+		"",	
+		"",
+		c->T("info5", "PSP is a trademark by Sony, Inc."),
+	};
+	
 	// TODO: This is kinda ugly, done on every frame...
 	char temp[256];
 	sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
@@ -1561,7 +1650,7 @@ void CreditsScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
 	}
 
 	UIEnd();

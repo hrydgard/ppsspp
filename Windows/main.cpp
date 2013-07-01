@@ -154,10 +154,12 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	VFSShutdown();
 
-	LogManager::Shutdown();
+	EmuThread_Stop();
+
 	DialogManager::DestroyAll();
 	timeEndPeriod(1);
-	g_Config.Save();
 	delete host;
+	g_Config.Save();
+	LogManager::Shutdown();
 	return 0;
 }

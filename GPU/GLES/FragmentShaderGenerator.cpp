@@ -104,7 +104,7 @@ static bool CanDoubleSrcBlendMode() {
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
 	memset(&id->d[0], 0, sizeof(id->d));
-	if (gstate.clearmode & 1) {
+	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id->d[0] = 1;
 	} else {
@@ -219,7 +219,7 @@ void GenerateFragmentShader(char *buffer) {
 			secondary = "";
 		}
 
-		if (gstate.textureMapEnable & 1) {
+		if (gstate.isTextureMapEnabled()) {
 			if (doTextureProjection) {
 				WRITE(p, "  vec4 t = texture2DProj(tex, v_texcoord);\n");
 			} else {

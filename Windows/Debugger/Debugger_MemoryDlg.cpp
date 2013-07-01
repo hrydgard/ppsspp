@@ -8,6 +8,7 @@
 #include "Debugger_MemoryDlg.h"
 
 #include "CtrlMemView.h"
+#include "DebuggerShared.h"
 
 #include "../../Core/MIPS/MIPSDebugInterface.h" //	BAD
 
@@ -20,17 +21,27 @@ LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 {
 	switch(message)
 	{
-	case WM_KEYUP:
+	case WM_KEYDOWN:
 		if( wParam == VK_RETURN )
 		{
-			SendMessage(AddressEditParentHwnd,WM_USER+2,0,0);
+			SendMessage(AddressEditParentHwnd,WM_DEB_GOTOADDRESSEDIT,0,0);
 			return 0;
 		}
-	default:
-		return (LRESULT)CallWindowProc((WNDPROC)DefAddressEditProc,hDlg,message,wParam,lParam);
+	case WM_KEYUP:
+		if( wParam == VK_RETURN ) return 0;
+		break;
+	case WM_CHAR:
+		if( wParam == VK_RETURN ) return 0;
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_RETURN) return DLGC_WANTMESSAGE;
+		}
+		break;
 	};
 
-	return 0;
+	return (LRESULT)CallWindowProc((WNDPROC)DefAddressEditProc,hDlg,message,wParam,lParam);
 }
 
 
@@ -51,14 +62,8 @@ CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu
 
 	// subclass the edit box
 	HWND editWnd = GetDlgItem(m_hDlg,IDC_ADDRESS);
-	// TODO: GWL_WNDPROC isn't defined for 64 bits windows, GWLP_WNDPROC is instead
-#if defined( _WIN64 )
-	DefAddressEditProc = (WNDPROC)GetWindowLong(editWnd,GWLP_WNDPROC);
-	SetWindowLong(editWnd,GWLP_WNDPROC,(long)AddressEditProc); 
-#else
-	DefAddressEditProc = (WNDPROC)GetWindowLong(editWnd,GWL_WNDPROC);
-	SetWindowLong(editWnd,GWL_WNDPROC,(long)AddressEditProc); 
-#endif
+	DefAddressEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
+	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)AddressEditProc); 
 	AddressEditParentHwnd = m_hDlg;
 
 	Size();
@@ -153,17 +158,23 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			}
 		}
 		break;
-	case WM_USER+1:
+	case WM_DEB_MAPLOADED:
 		NotifyMapLoaded();
 		break;
-	case WM_USER+2:	// enter hit on address edit
+	case WM_DEB_GOTOADDRESSEDIT:
 	{
 		CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_MEMVIEW));
 		char temp[256];
 		u32 addr;
 		GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),temp,255);
-		sscanf(temp,"%08x",&addr);
-		mv->gotoAddr(addr);
+
+		if (parseExpression(temp,cpu,addr) == false)
+		{
+			displayExpressionError(m_hDlg);
+		} else {
+			mv->gotoAddr(addr);
+			SetFocus(GetDlgItem(m_hDlg,IDC_MEMVIEW));
+		}
 		break;
 	}
 	case WM_INITDIALOG:
@@ -187,6 +198,7 @@ void CMemoryDlg::Goto(u32 addr)
 	Show(true);
 	CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(CMemoryDlg::m_hDlg,IDC_MEMVIEW));
 	mv->gotoAddr(addr);
+	SetFocus(GetDlgItem(CMemoryDlg::m_hDlg,IDC_MEMVIEW));
 }
 
 

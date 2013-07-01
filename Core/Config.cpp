@@ -48,6 +48,7 @@ void Config::Load(const char *iniFileName)
 
 	bSpeedLimit = false;
 	general->Get("FirstRun", &bFirstRun, true);
+	general->Get("NewUI", &bNewUI, false);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
@@ -85,6 +86,7 @@ void Config::Load(const char *iniFileName)
 #endif
 	//FastMemory Default set back to True when solve UNIMPL _sceAtracGetContextAddress making game crash
 	cpu->Get("FastMemory", &bFastMemory, false);
+	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &iShowFPSCounter, false);
@@ -96,12 +98,12 @@ void Config::Load(const char *iniFileName)
 #endif
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
-	graphics->Get("NearestFiltering", &bNearestFiltering, false);
-	graphics->Get("LinearFiltering", &bLinearFiltering, false);
+	graphics->Get("TextureFiltering", &iTexFiltering, false);
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 60);
+	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 0);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
 #else
@@ -115,7 +117,6 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
 	graphics->Get("FramebuffersToMem", &bFramebuffersToMem, false);
-	graphics->Get("AsyncReadback", &bAsyncReadback, true);
 	graphics->Get("CPUConvert", &bCPUConvert, false);
 	graphics->Get("MipMap", &bMipMap, true);
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
@@ -156,6 +157,14 @@ void Config::Load(const char *iniFileName)
 	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
 	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
 	pspConfig->Get("EncryptSave", &bEncryptSave, true);
+
+	IniFile::Section *debugConfig = iniFile.GetOrCreateSection("Debugger");
+	debugConfig->Get("DisasmWindowX", &iDisasmWindowX, -1);
+	debugConfig->Get("DisasmWindowY", &iDisasmWindowY, -1);
+	debugConfig->Get("DisasmWindowW", &iDisasmWindowW, -1);
+	debugConfig->Get("DisasmWindowH", &iDisasmWindowH, -1);
+	debugConfig->Get("ConsoleWindowX", &iConsoleWindowX, -1);
+	debugConfig->Get("ConsoleWindowY", &iConsoleWindowY, -1);
 
 	CleanRecent();
 }
@@ -198,6 +207,7 @@ void Config::Save()
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
 		cpu->Set("FastMemory", bFastMemory);
+		cpu->Set("CPUSpeed", iLockedCPUSpeed);
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", iShowFPSCounter);
@@ -205,12 +215,12 @@ void Config::Save()
 		graphics->Set("ResolutionScale", iWindowZoom);
 		graphics->Set("BufferedRendering", bBufferedRendering);
 		graphics->Set("HardwareTransform", bHardwareTransform);
-		graphics->Set("NearestFiltering", bNearestFiltering);
-		graphics->Set("LinearFiltering", bLinearFiltering);
+		graphics->Set("TextureFiltering", iTexFiltering);
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("FrameRate", iFpsLimit);
+		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
 		graphics->Set("FullScreen", bFullScreen);
@@ -220,7 +230,6 @@ void Config::Save()
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("FramebuffersToMem", bFramebuffersToMem);
-		graphics->Set("AsyncReadback", bAsyncReadback);
 		graphics->Set("CPUConvert", bCPUConvert);
 		graphics->Set("MipMap", bMipMap);
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
@@ -255,6 +264,14 @@ void Config::Save()
 		pspConfig->Set("WlanAdhocChannel", iWlanAdhocChannel);
 		pspConfig->Set("WlanPowerSave", bWlanPowerSave);
 		pspConfig->Set("EncryptSave", bEncryptSave);
+
+		IniFile::Section *debugConfig = iniFile.GetOrCreateSection("Debugger");
+		debugConfig->Set("DisasmWindowX", iDisasmWindowX);
+		debugConfig->Set("DisasmWindowY", iDisasmWindowY);
+		debugConfig->Set("DisasmWindowW", iDisasmWindowW);
+		debugConfig->Set("DisasmWindowH", iDisasmWindowH);
+		debugConfig->Set("ConsoleWindowX", iConsoleWindowX);
+		debugConfig->Set("ConsoleWindowY", iConsoleWindowY);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());

@@ -43,6 +43,7 @@
 #include "UI/GamepadEmu.h"
 #include "UI/UIShader.h"
 
+#include "UI/MainScreen.h"
 #include "UI/MenuScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
@@ -114,7 +115,10 @@ EmuScreen::~EmuScreen() {
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK) {
-		screenManager()->switchScreen(new MenuScreen());
+		if (g_Config.bNewUI)
+			screenManager()->switchScreen(new MainScreen());
+		else
+			screenManager()->switchScreen(new MenuScreen());
 	}
 }
 
@@ -123,13 +127,19 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "pause")) {
 		screenManager()->push(new PauseScreen());
 	} else if (!strcmp(message, "stop")) {
-		screenManager()->switchScreen(new MenuScreen());
+		if (g_Config.bNewUI)
+			screenManager()->switchScreen(new MainScreen());
+		else
+			screenManager()->switchScreen(new MenuScreen());
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
 		std::string resetError;
 		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
-			screenManager()->switchScreen(new MenuScreen());
+			if (g_Config.bNewUI)
+				screenManager()->switchScreen(new MainScreen());
+			else
+				screenManager()->switchScreen(new MenuScreen());
 			return;
 		}
 		host->BootDone();
@@ -298,7 +308,10 @@ void EmuScreen::render() {
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_POWERDOWN)	{
 		ILOG("SELF-POWERDOWN!");
-		screenManager()->switchScreen(new MenuScreen());
+		if (g_Config.bNewUI)
+			screenManager()->switchScreen(new MainScreen());
+		else
+			screenManager()->switchScreen(new MenuScreen());
 	}
 
 	if (invalid_)
@@ -343,11 +356,11 @@ void EmuScreen::render() {
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
 		case 1:
-			sprintf(fpsbuf, "VPS: %0.1f", vps); break;
+			sprintf(fpsbuf, "Speed: %0.1f", vps); break;
 		case 2:
 			sprintf(fpsbuf, "FPS: %0.1f", fps); break;
 		case 3:
-			sprintf(fpsbuf, "VPS: %0.1f\nFPS: %0.1f", vps, fps); break;
+			sprintf(fpsbuf, "Speed: %5.1f\nFPS: %0.1f", vps, fps); break;
 		}
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);

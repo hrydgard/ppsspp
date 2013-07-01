@@ -433,13 +433,13 @@ void ShaderManager::DirtyUniform(u32 what) {
 }
 
 void ShaderManager::Clear() {
-	for (LinkedShaderCache::iterator iter = linkedShaderCache.begin(); iter != linkedShaderCache.end(); ++iter) {
+	for (auto iter = linkedShaderCache.begin(); iter != linkedShaderCache.end(); ++iter) {
+		delete iter->ls;
+	}
+	for (auto iter = fsCache.begin(); iter != fsCache.end(); ++iter)	{
 		delete iter->second;
 	}
-	for (FSCache::iterator iter = fsCache.begin(); iter != fsCache.end(); ++iter)	{
-		delete iter->second;
-	}
-	for (VSCache::iterator iter = vsCache.begin(); iter != vsCache.end(); ++iter)	{
+	for (auto iter = vsCache.begin(); iter != vsCache.end(); ++iter)	{
 		delete iter->second;
 	}
 	linkedShaderCache.clear();
@@ -494,12 +494,6 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 		lastShader->stop();
 	}
 
-	// Deferred dirtying! Let's see if we can make this even more clever later.
-	for (LinkedShaderCache::iterator iter = linkedShaderCache.begin(); iter != linkedShaderCache.end(); ++iter) {
-		iter->second->dirtyUniforms |= shaderSwitchDirty;
-	}
-	shaderSwitchDirty = 0;
-
 	lastVSID = VSID;
 	lastFSID = FSID;
 
@@ -541,15 +535,23 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	}
 
 	// Okay, we have both shaders. Let's see if there's a linked one.
-	std::pair<Shader*, Shader*> linkedID(vs, fs);
+	LinkedShader *ls = NULL;
 
-	LinkedShaderCache::iterator iter = linkedShaderCache.find(linkedID);
-	LinkedShader *ls;
-	if (iter == linkedShaderCache.end()) {
+	for (auto iter = linkedShaderCache.begin(); iter != linkedShaderCache.end(); ++iter) {
+		// Deferred dirtying! Let's see if we can make this even more clever later.
+		iter->ls->dirtyUniforms |= shaderSwitchDirty;
+
+		if (iter->vs == vs && iter->fs == fs) {
+			ls = iter->ls;
+		}
+	}
+	shaderSwitchDirty = 0;
+
+	if (ls == NULL) {
 		ls = new LinkedShader(vs, fs, vs->UseHWTransform());	// This does "use" automatically
-		linkedShaderCache[linkedID] = ls;
+		const LinkedShaderCacheEntry entry(vs, fs, ls);
+		linkedShaderCache.push_back(entry);
 	} else {
-		ls = iter->second;
 		ls->use();
 	}
 

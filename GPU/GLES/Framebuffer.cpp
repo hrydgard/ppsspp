@@ -32,6 +32,20 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/ShaderManager.h"
 
+#if defined(USING_GLES2)
+#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
+#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
+#define GL_RGBA8 GL_RGBA
+#ifndef GL_DEPTH_COMPONENT24
+#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
+#endif
+#ifndef GL_DEPTH24_STENCIL8_OES
+#define GL_DEPTH24_STENCIL8_OES 0x88F0
+#endif
+#endif
+
+extern int g_iNumVideos;
+
 static const char tex_fs[] =
 	"#ifdef GL_ES\n"
 	"precision mediump float;\n"
@@ -280,7 +294,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	}
 
 	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.bLinearFiltering)
+	if (g_Config.iTexFiltering == 3 || (g_Config.iTexFiltering == 4 && g_iNumVideos))
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
@@ -291,14 +305,14 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, GLSLProgram *program) {
+void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale, GLSLProgram *program) {
 	float u2 = uscale;
-	float v1 = flip ? 1.0f : 0.0f;
-	float v2 = flip ? 0.0f : 1.0f;
+	// Since we're flipping, 0 is down.  That's where the scale goes.
+	float v1 = flip ? 1.0f : 1.0f - vscale;
+	float v2 = flip ? 1.0f - vscale : 1.0f;
 
-	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
-	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
-	const GLubyte indices[4] = {0,1,3,2};
+	const float pos[12] = {x,y,0, x+w,y,0, x,y+h,0, x+w,y+h,0};
+	const float texCoords[8] = {0,v1, u2,v1, 0,v2, u2,v2};
 
 	if(!program) {
 		program = draw2dprogram;
@@ -314,8 +328,7 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	glEnableVertexAttribArray(program->a_texcoord0);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
 	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);	
-	//glDrawArrays(GL_TRIANGLE_FAN, 0, 4);	// TODO: TRIANGLE_STRIP is more likely to be optimized.
-	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices); // Trying glDrawElements with GL_TRIANGLE_STRIP
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
 	glsl_unbind();
@@ -648,7 +661,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(x, y, w, h, true);
+		DrawActiveTexture(x, y, w, h, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
 		if(g_Config.bFramebuffersToMem) {
@@ -787,11 +800,15 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 
 		BlitFramebuffer_(vfb, nvfb, true);
 
-		PackFramebuffer_(nvfb);
+#ifdef USING_GLES2
+		PackFramebufferGLES_(vfb); // synchronous glReadPixels
+#else
+		PackFramebufferGL_(vfb); // asynchronous glReadPixels using PBOs
+#endif
 	}
 }
 
-void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale) {
+void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
 	// This only works with buffered rendering
 	if (!useBufferedRendering_) {
 		return;
@@ -826,25 +843,17 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
 #ifdef USING_GLES2
-	DrawActiveTexture(x, y, w, h, !flip, upscale, draw2dprogram);
+	DrawActiveTexture(x, y, w, h, !flip, upscale, vscale, draw2dprogram);
 #else
 	if(dst->format != GE_FORMAT_8888) {
-		DrawActiveTexture(x, y, w, h, !flip, upscale, draw2dprogram);
+		DrawActiveTexture(x, y, w, h, !flip, upscale, vscale, draw2dprogram);
 	} else {
-		DrawActiveTexture(x, y, w, h, !flip, upscale, blitprogram);
+		DrawActiveTexture(x, y, w, h, !flip, upscale, vscale, blitprogram);
 	}
 #endif
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();
-}
-
-void FramebufferManager::PackFramebuffer_(VirtualFramebuffer *vfb) {
-#ifdef USING_GLES2
-	PackFramebufferGLES_(vfb); // synchronous glReadPixels
-#else
-	PackFramebufferGL_(vfb); // asynchronous glReadPixels using PBOs
-#endif
 }
 
 void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format, bool bgra) {
@@ -886,7 +895,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 
 	// Order packing/readback of the framebuffer
 	if(vfb) {
-		int pixelType, pixelFormat, pixelSize, align;
+		int pixelType, pixelSize, pixelFormat, align;
 
 		switch (vfb->format) {
 			case GE_FORMAT_4444: // 16 bit ABGR
