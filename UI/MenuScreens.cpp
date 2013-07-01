@@ -818,13 +818,21 @@ void GraphicsScreenP1::render() {
 	bool Vsync = g_Config.iVSyncInterval != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("VSync"), ALIGN_TOPLEFT, &Vsync);
 	g_Config.iVSyncInterval = Vsync ? 1 : 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Fullscreen"), ALIGN_TOPLEFT, &g_Config.bFullScreen); 
 #endif
+
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
 			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
+		bool memory = !g_Config.bFramebuffersToMem;
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Skip Updating PSP Memory"), ALIGN_TOPLEFT, &memory)) { 
+			if (gpu)
+				gpu->Resized();
+		}
+		g_Config.bFramebuffersToMem = memory ? 0 : 1;
 		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
