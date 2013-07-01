@@ -122,7 +122,11 @@ void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
 	addr &= 0xFFFFFFF;
 	u32 addr_end = addr + size;
 
-	for (TexCache::iterator iter = cache.begin(), end = cache.end(); iter != end; ++iter) {
+	// They could invalidate inside the texture, let's just give a bit of leeway.
+	const int LARGEST_TEXTURE_SIZE = 512 * 512 * 4;
+	u64 startKey = addr - LARGEST_TEXTURE_SIZE;
+	u64 endKey = addr + size + LARGEST_TEXTURE_SIZE;
+	for (TexCache::iterator iter = cache.lower_bound(startKey), end = cache.upper_bound(endKey); iter != end; ++iter) {
 		u32 texAddr = iter->second.addr;
 		u32 texEnd = iter->second.addr + iter->second.sizeInRAM;
 
@@ -159,8 +163,8 @@ void TextureCache::ClearNextFrame() {
 
 
 TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
-	// If no CLUT, as in framebuffer textures, cache key is simply texaddr.
-	auto iter = cache.find(texaddr);
+	// If no CLUT, as in framebuffer textures, cache key is simply texaddr shifted up.
+	auto iter = cache.find((u64)texaddr << 32);
 	if (iter != cache.end() && iter->second.addr == texaddr)
 		return &iter->second;
 	else
@@ -940,7 +944,7 @@ void TextureCache::SetTexture() {
 	// GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
 	bool hasClut = (format & 4) != 0;
 
-	u64 cachekey = texaddr;
+	u64 cachekey = (u64)texaddr << 32;
 
 	u32 clutformat, cluthash;
 	if (hasClut) {
@@ -950,7 +954,7 @@ void TextureCache::SetTexture() {
 			UpdateCurrentClut();
 		}
 		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
-		cachekey |= (u64)cluthash << 32;
+		cachekey |= cluthash;
 	} else {
 		clutformat = 0;
 		cluthash = 0;
@@ -1302,14 +1306,13 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			int len = std::max(bufw, w) * h;
 			tmpTexBuf16.resize(len);
 			tmpTexBufRearrange.resize(len);
-			Memory::Memcpy(tmpTexBuf16.data(), texaddr, len * sizeof(u16));
 			finalBuf = tmpTexBuf16.data();
-		}
-		else {
+			ConvertColors(finalBuf, Memory::GetPointer(texaddr), dstFmt, bufw * h);
+		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
+			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_8888:
