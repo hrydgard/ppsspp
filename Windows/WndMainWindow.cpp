@@ -744,6 +744,9 @@ namespace MainWindow
 			case ID_OPTIONS_USEVBO:
 				g_Config.bUseVBO = !g_Config.bUseVBO;
 				break;
+			case ID_OPTIONS_TEXTUREFILTERING_OFF:
+				setTexFiltering(1);
+				break;
 			case ID_OPTIONS_NEARESTFILTERING:
 				setTexFiltering(2) ;
 				break;
