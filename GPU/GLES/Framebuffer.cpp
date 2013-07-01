@@ -39,7 +39,7 @@ static const char tex_fs[] =
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
-	"	gl_FragColor = texture2D(sampler0, v_texcoord0);\n"
+	"	gl_FragColor.rgb = texture2D(sampler0, v_texcoord0).rgb;\n"
 	"	gl_FragColor.a = 1.0;\n"
 	"}\n";
 
@@ -62,11 +62,10 @@ static const char blit_fs[] =
 	"precision mediump float;\n"
 	"#endif\n"
 	"uniform sampler2D sampler0;\n"
-	"varying vec4 v_color;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
-	"	v_color = texture2D(sampler0, v_texcoord0).bgra;\n"
-	"	gl_FragColor = v_color;\n"
+	"	gl_FragColor.rgb = texture2D(sampler0, v_texcoord0).bgr;\n"
+	"	gl_FragColor.a = 1.0;\n"
 	"}\n";
 
 // Aggressively delete unused FBO:s to save gpu memory.
@@ -78,27 +77,27 @@ static bool MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
 }
 
-static u16 RGBA8888toRGB565(u32 px) {
+inline u16 RGBA8888toRGB565(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
 }
 
-static u16 BGRA8888toRGB565(u32 px) {
+inline u16 BGRA8888toRGB565(u32 px) {
 	return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
 }
 
-static u16 RGBA8888toRGBA4444(u32 px) {
+inline u16 RGBA8888toRGBA4444(u32 px) {
 	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
 }
 
-static u16 BGRA8888toRGBA4444(u32 px) {
+inline u16 BGRA8888toRGBA4444(u32 px) {
 	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
 }
 
-static u16 RGBA8888toRGBA1555(u32 px) {
+inline u16 RGBA8888toRGBA1555(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 }
 
-static u16 BGRA8888toRGBA1555(u32 px) {
+inline u16 BGRA8888toRGBA1555(u32 px) {
 	return ((px >> 19) & 0x001F) | ((px >> 6) & 0x03E0) | ((px << 7) & 0x7C00) | ((px >> 16) & 0x8000);
 }
 
@@ -642,10 +641,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 	displayFramebuf_ = vfb;
 
-	if(g_Config.bFramebuffersToMem) {
-		ReadFramebufferToMemory(vfb);
-	}
-
 	if (vfb->fbo) {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
@@ -662,6 +657,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 		DrawActiveTexture(x, y, w, h, true);
 		glBindTexture(GL_TEXTURE_2D, 0);
+
+		if(g_Config.bFramebuffersToMem) {
+			ReadFramebufferToMemory(vfb);
+		}
 	}
 
 	if (resized_) {
@@ -678,10 +677,10 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 		return;
 	}
 
-	fbo_unbind();
-	if(gl_extensions.FBO_ARB) { // TODO: fbo_unbind should use GL_FRAMEBUFFER to do this? Don't want to change native
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-	}
+	//fbo_unbind();
+	//if(gl_extensions.FBO_ARB) { // TODO: fbo_unbind should use GL_FRAMEBUFFER to do this? Don't want to change native
+	//	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	//}
 	if(vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
 		// For now we'll keep these on the same struct as the ones that can get displayed
@@ -836,7 +835,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 #ifdef USING_GLES2
 	DrawActiveTexture(x, y, w, h, !flip, upscale, draw2dprogram);
 #else
-	if(!g_Config.bAsyncReadback || (g_Config.bCPUConvert && src->format != GE_FORMAT_8888)) {
+	if(dst->format != GE_FORMAT_8888) {
 		DrawActiveTexture(x, y, w, h, !flip, upscale, draw2dprogram);
 	} else {
 		DrawActiveTexture(x, y, w, h, !flip, upscale, blitprogram);
@@ -851,11 +850,7 @@ void FramebufferManager::PackFramebuffer_(VirtualFramebuffer *vfb) {
 #ifdef USING_GLES2
 	PackFramebufferGLES_(vfb); // synchronous glReadPixels
 #else
-	if(g_Config.bAsyncReadback) {
-		PackFramebufferGL_(vfb); // asynchronous glReadPixels using PBOs
-	} else {
-		PackFramebufferGLES_(vfb); // synchronous glReadPixels
-	}
+	PackFramebufferGL_(vfb); // asynchronous glReadPixels using PBOs
 #endif
 }
 
@@ -903,26 +898,26 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		switch (vfb->format) {
 			case GE_FORMAT_4444: // 16 bit ABGR
 				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-				pixelFormat = GL_BGRA;
+				pixelFormat = GL_RGBA; // ATIs don't seem to care about pixel format, just type
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_5551: // 16 bit ABGR
 				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-				pixelFormat = GL_BGRA;
+				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_565: // 16 bit BGR
-				pixelType = GL_UNSIGNED_SHORT_5_6_5;
-				pixelFormat = GL_BGR;
+				pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
+				pixelFormat = GL_RGB;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_8888: // 32 bit ABGR
 			default:
 				pixelType = GL_UNSIGNED_BYTE;
-				pixelFormat = GL_BGRA;
+				pixelFormat = GL_RGBA;
 				pixelSize = 4;
 				align = 4;
 				break;
