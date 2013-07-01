@@ -279,15 +279,22 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 			textureColor = 0xFF777777;
 
 		// Calc save image position on screen
-		float w = 144;
-		float h = 80;
-		float x = 27;
+		float w, h , x, b;
+		float y = 97;
 		if (displayCount != currentSelectedSave) {
 			w = 81;
 			h = 45;
 			x = 58.5f;
+		} else {
+			w = 144;
+			h = 80;
+			x = 27;
+			b = 1.2;
+			PPGeDrawRect(x-b, y-b, x+w+b, y, CalcFadedColor(0xD0FFFFFF)); // top border
+			PPGeDrawRect(x-b, y, x, y+h, CalcFadedColor(0xD0FFFFFF)); // left border
+			PPGeDrawRect(x-b, y+h, x+w+b, y+h+b, CalcFadedColor(0xD0FFFFFF)); //bottom border
+			PPGeDrawRect(x-b, y, x+w+b, y+h, CalcFadedColor(0xD0FFFFFF)); //right border
 		}
-		float y = 97;
 		if (displayCount < currentSelectedSave)
 			y -= 13 + 45 * (currentSelectedSave - displayCount);
 		else if (displayCount > currentSelectedSave)
@@ -299,9 +306,9 @@ void PSPSaveDialog::DisplaySaveList(bool canMove)
 			tw = param.GetFileInfo(i).textureWidth;
 			th = param.GetFileInfo(i).textureHeight;
 			PPGeSetTexture(param.GetFileInfo(i).textureData, param.GetFileInfo(i).textureWidth, param.GetFileInfo(i).textureHeight);
+			PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
 		} else
 			PPGeDisableTexture();
-		PPGeDrawImage(x, y, w, h, 0, 0, 1, 1, tw, th, textureColor);
 		PPGeSetDefaultTexture();
 		displayCount++;
 	}
