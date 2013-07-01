@@ -1418,7 +1418,8 @@ void KeyMappingNewKeyDialog::render() {
 	int left = 10;
 	int stride = 70;
 	KeyScale(1.6f);
-	KeyText(left, top, keyI18N->T("Set a new key mapping"));
+	KeyText(left, top, keyI18N->T("Map a new key for button: "));
+	KeyText(left, top += stride, (KeyMap::GetPspButtonName(this->pspBtn)).c_str());
 	KeyScale(1.3f);
 	KeyText(left, top += stride, keyI18N->T("Current key"));
 	KeyScale(2.0f);
@@ -1428,8 +1429,16 @@ void KeyMappingNewKeyDialog::render() {
 	KeyScale(1.4f);
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);
-	if (last_kb_key != 0)
-		KeyText(right, top + stride, KeyMap::GetKeyName(last_kb_key).c_str());
+	if (last_kb_key != 0) {
+		bool key_used = KeyMap::IsMappedKey(last_kb_key);
+		if (!key_used) {
+			KeyText(right, top + stride, KeyMap::GetKeyName(last_kb_key).c_str());
+		} else {
+			KeyScale(1.0f);
+			KeyText(left + stride, top + 2*stride, 
+			        keyI18N->T("Error: Key is already used"));
+		}
+	}
 
 	KeyScale(1.0f);
 #undef KeyText
@@ -1437,6 +1446,8 @@ void KeyMappingNewKeyDialog::render() {
 
 	// Save & cancel buttons
 	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Save Mapping"), ALIGN_LEFT | ALIGN_BOTTOM)) {
+		KeyMap::SetKeyMapping(this->last_kb_key, this->pspBtn);
+		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
 	}
 

@@ -25,12 +25,7 @@ using namespace KeyMap;
 // default
 std::map<int,int> *platform_keymap = NULL;
 
-// Default key mapping
-// Ugly, yet the cleanest way
-// I could find to create a
-// static map.
-// Still nicer than what
-// I once did in C.
+// TODO: Make use const_map.h from native
 struct DefaultKeyMap {
 	static std::map<int,int> init()
 	{
