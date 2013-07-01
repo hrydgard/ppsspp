@@ -372,7 +372,7 @@ void Psmf::setStreamNum(int num) {
 
 bool Psmf::setStreamWithType(int type, int channel) {
 	for (PsmfStreamMap::iterator iter = streamMap.begin(); iter != streamMap.end(); ++iter) {
-		if (iter->second->type == type) {
+		if (iter->second->type == type && iter->second->channel == channel) {
 			setStreamNum(iter->first);
 			return true;
 		}
@@ -491,7 +491,7 @@ u32 scePsmfSpecifyStreamWithStreamType(u32 psmfStruct, u32 streamType, u32 chann
 		ERROR_LOG(HLE, "scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i): invalid psmf", psmfStruct, streamType, channel);
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	ERROR_LOG(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i)", psmfStruct, streamType, channel);
+	INFO_LOG(HLE, "scePsmfSpecifyStreamWithStreamType(%08x, %08x, %i)", psmfStruct, streamType, channel);
 	if (!psmf->setStreamWithType(streamType, channel)) {
 		psmf->setStreamNum(-1);
 	}
@@ -505,7 +505,11 @@ u32 scePsmfSpecifyStreamWithStreamTypeNumber(u32 psmfStruct, u32 streamType, u32
 		ERROR_LOG(HLE, "scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x): invalid psmf", psmfStruct, streamType, typeNum);
 		return ERROR_PSMF_NOT_FOUND;
 	}
-	ERROR_LOG_REPORT(HLE, "UNIMPL scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
+	INFO_LOG_REPORT(HLE, "scePsmfSpecifyStreamWithStreamTypeNumber(%08x, %08x, %08x)", psmfStruct, streamType, typeNum);
+	// right now typeNum and channel are the same...
+	if (!psmf->setStreamWithType(streamType, typeNum)) {
+		psmf->setStreamNum(-1);
+	}
 	return 0;
 }
 
