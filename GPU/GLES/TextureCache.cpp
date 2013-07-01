@@ -1302,14 +1302,13 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			int len = std::max(bufw, w) * h;
 			tmpTexBuf16.resize(len);
 			tmpTexBufRearrange.resize(len);
-			Memory::Memcpy(tmpTexBuf16.data(), texaddr, len * sizeof(u16));
 			finalBuf = tmpTexBuf16.data();
-		}
-		else {
+			ConvertColors(finalBuf, Memory::GetPointer(texaddr), dstFmt, bufw * h);
+		} else {
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
+			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
-		ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_8888:
