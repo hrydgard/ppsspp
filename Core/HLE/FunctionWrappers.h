@@ -77,8 +77,8 @@ template<u32 func(u32, u64, u32, u32)> void WrapU_UU64UU() {
 }
 
 template<int func(int, int, const char*, u64)> void WrapI_IICU64() {
-	u64 param_three = currentMIPS->r[7];
-	param_three |= (u64)(currentMIPS->r[8]) << 32;
+	u64 param_three = currentMIPS->r[8];
+	param_three |= (u64)(currentMIPS->r[9]) << 32;
 	int retval = func(PARAM(0), PARAM(1), Memory::GetCharPointer(PARAM(2)), param_three);
 	RETURN(retval);
 }
