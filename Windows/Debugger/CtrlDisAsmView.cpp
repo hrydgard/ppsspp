@@ -9,7 +9,6 @@
 
 #include "CtrlDisAsmView.h"
 #include "Debugger_MemoryDlg.h"
-#include "ExpressionParser.h"
 #include "DebuggerShared.h"
 #include "../../Core/Debugger/SymbolMap.h"
 #include "../../globals.h"
@@ -262,7 +261,7 @@ void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* argumen
 			disasm += 2;
 			for (int i = 0; i < 32; i++)
 			{
-				if (stricmp(jumpRegister+2,debugger->GetRegName(0,i)) == 0)
+				if (strcasecmp(jumpRegister+2,debugger->GetRegName(0,i)) == 0)
 				{
 					branchRegister = i;
 					break;

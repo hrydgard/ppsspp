@@ -12,7 +12,6 @@
 #include "../../Core/Debugger/SymbolMap.h"
 
 #include "Debugger_Disasm.h"
-#include "ExpressionParser.h"
 #include "DebuggerShared.h"
 #include "CtrlMemView.h"
 
