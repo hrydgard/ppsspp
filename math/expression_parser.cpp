@@ -77,7 +77,7 @@ bool parseNumber(char* str, int defaultrad, int len, uint32& result)
 	} else {
 		if (!(str[0] >= '0' && str[0] <= '9')) return false;
 
-		if (tolower(str[len-1]) == 'b')
+		if (tolower(str[len-1]) == 'b' && defaultrad != 16)
 		{
 			r = 2;
 			len--;
