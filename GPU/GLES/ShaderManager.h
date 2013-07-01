@@ -166,7 +166,15 @@ public:
 private:
 	void Clear();
 
-	typedef std::map<std::pair<Shader *, Shader *>, LinkedShader *> LinkedShaderCache;
+	struct LinkedShaderCacheEntry {
+		LinkedShaderCacheEntry(Shader *vs_, Shader *fs_, LinkedShader *ls_)
+			: vs(vs_), fs(fs_), ls(ls_) { }
+
+		Shader *vs;
+		Shader *fs;
+		LinkedShader *ls;
+	};
+	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
 	LinkedShaderCache linkedShaderCache;
 	FragmentShaderID lastFSID;
