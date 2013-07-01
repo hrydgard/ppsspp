@@ -18,6 +18,7 @@
 #pragma once
 #include <cstdio>
 #include "Common/CommonTypes.h"
+#include "native/math/expression_parser.h"
 
 struct MemMap;
 
@@ -42,6 +43,8 @@ public:
 	virtual const char *getDescription(unsigned int address) {return "";}
 	virtual const char *findSymbolForAddress(unsigned int address) { return NULL; };
 	virtual bool getSymbolValue(char* symbol, u32& dest) { return false; };
+	virtual bool initExpression(char* exp, PostfixExpression& dest) { return false; };
+	virtual bool parseExpression(PostfixExpression& exp, u32& dest) { return false; };
 
 	virtual const char *GetName() = 0;
 	virtual int GetGPRSize() = 0; //32 or 64

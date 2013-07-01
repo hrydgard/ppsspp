@@ -10,7 +10,6 @@
 #include "Debugger_MemoryDlg.h"
 #include "Debugger_Disasm.h"
 #include "Debugger_VFPUDlg.h"
-#include "ExpressionParser.h"
 #include "DebuggerShared.h"
 
 #include "../main.h"
@@ -580,7 +579,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						int regNum = -1;
 						for (int i = 0; i < 32; i++)
 						{
-							if (stricmp(reg+2,cpu->GetRegName(0,i)) == 0)
+							if (strcasecmp(reg+2,cpu->GetRegName(0,i)) == 0)
 							{
 								regNum = i;
 								break;

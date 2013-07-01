@@ -8,7 +8,6 @@
 #include "Debugger_MemoryDlg.h"
 
 #include "CtrlMemView.h"
-#include "ExpressionParser.h"
 #include "DebuggerShared.h"
 
 #include "../../Core/MIPS/MIPSDebugInterface.h" //	BAD
