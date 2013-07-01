@@ -167,12 +167,16 @@ void LogoScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(alpha);
+	
+	I18NCategory *c = GetI18NCategory("PSPCredits");
+	char temp[256];
+	sprintf(temp, "%s Henrik Rydgård", c->T("created", "Created by"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
 	ui_draw2d.DrawText(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
-	ui_draw2d.DrawText(UBUNTU24, "Created by Henrik Rydgård", dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	ui_draw2d.DrawText(UBUNTU24, "Free Software under GPL 2.0", dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawText(UBUNTU24, c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (bootFilename_.size()) {
 		ui_draw2d.DrawText(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
@@ -777,9 +781,12 @@ void GraphicsScreenP1::render() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
+	
+	char temp[256];
+	sprintf(temp, "%s 1/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
@@ -834,9 +841,12 @@ void GraphicsScreenP2::render() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
+	
+	char temp[256];
+	sprintf(temp, "%s 2/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -866,11 +876,11 @@ void GraphicsScreenP2::render() {
 		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
 		ui_draw2d.DrawText(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250, y , 20);
-		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("2x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("4x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("4x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 4;
-		if (UIButton(GEN_ID, hlinear1, 45, 0, gs->T("8x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("8x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 8;
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("16x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 16;
@@ -895,11 +905,11 @@ void GraphicsScreenP2::render() {
 		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
 		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 300, y, 20);
-		if (UIButton(GEN_ID, hlinear1, 120, 0, gs->T("Nearest"), ALIGN_LEFT)) 
+		if (UIButton(GEN_ID, hlinear1, 170, 0, gs->T("Nearest"), ALIGN_LEFT)) 
 			g_Config.iTexFiltering = 2;
-		if (UIButton(GEN_ID, hlinear1, 120, 0, gs->T("Linear"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 170, 0, gs->T("Linear"), ALIGN_LEFT))
 			g_Config.iTexFiltering = 3;
-		if (UIButton(GEN_ID, hlinear1, 150, 0, gs->T("Linear(CG)"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 170, 0, gs->T("Linear(CG)"), ALIGN_LEFT))
 			g_Config.iTexFiltering = 4;
 		y += 20;
 	} else
@@ -960,9 +970,12 @@ void GraphicsScreenP3::render() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
+	
+	char temp[256];
+	sprintf(temp, "%s 3/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Graphics Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -1226,7 +1239,7 @@ void SystemScreen::render() {
 		if(g_Config.iLockedCPUSpeed <= 0)
 			g_Config.iLockedCPUSpeed = 222;
 		char showCPUSpeed[256];
-		sprintf(showCPUSpeed, "%s %d", s->T("Locked CPU Speed: "), g_Config.iLockedCPUSpeed);
+		sprintf(showCPUSpeed, "%s %d", s->T("Locked CPU Speed:"), g_Config.iLockedCPUSpeed);
 		ui_draw2d.DrawText(UBUNTU24, showCPUSpeed, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
 	}
 	else {
@@ -1572,7 +1585,8 @@ void CreditsScreen::render() {
 		"Kingcom",
 		"aquanull",
 		"arnastia",
-		"lioncash",		
+		"lioncash",
+		"JulianoAmaralChaves",
 		"",
 		c->T("written", "Written in C++ for speed and portability"),
 		"",
