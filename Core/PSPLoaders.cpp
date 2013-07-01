@@ -44,7 +44,11 @@
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
 void InitMemoryForGameISO(std::string fileToStart) {
-	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(fileToStart.c_str()));
+	auto bd = constructBlockDevice(fileToStart.c_str());
+	// Can't init anything without a block device...
+	if (!bd)
+		return;
+	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
 
 	// Parse PARAM.SFO
 
@@ -174,11 +178,14 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 	// This is really just for headless, might need tweaking later.
 	if (!PSP_CoreParameter().mountIso.empty())
 	{
-		ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, constructBlockDevice(PSP_CoreParameter().mountIso.c_str()));
+		auto bd = constructBlockDevice(PSP_CoreParameter().mountIso.c_str());
+		if (bd != NULL) {
+			ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
 
-		pspFileSystem.Mount("umd1:", umd2);
-		pspFileSystem.Mount("disc0:", umd2);
-		pspFileSystem.Mount("umd:", umd2);
+			pspFileSystem.Mount("umd1:", umd2);
+			pspFileSystem.Mount("disc0:", umd2);
+			pspFileSystem.Mount("umd:", umd2);
+		}
 	}
 
 	std::string full_path = filename;
