@@ -46,7 +46,7 @@ public:
 			}
 		}
 
-		if (stricmp(str,"pc") == 0)
+		if (strcasecmp(str,"pc") == 0)
 		{
 			referenceIndex = 32;
 			return true;
