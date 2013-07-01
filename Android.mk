@@ -37,6 +37,7 @@ LOCAL_SRC_FILES :=\
 	input/gesture_detector.cpp \
     math/math_util.cpp \
     math/curves.cpp \
+    math/expression_parser.cpp \
     math/lin/aabb.cpp.arm \
     math/lin/plane.cpp.arm \
     math/lin/quat.cpp.arm \
