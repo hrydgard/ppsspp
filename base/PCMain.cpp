@@ -289,10 +289,12 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
+	/*
 	for (int b = 0; b < 14; b++) {
 		if (keys[buttonMappings[b]])
 			input->pad_buttons |= (1<<b);
 	}
+	*/
 
 #ifdef PANDORA
 	if ((ljoy)||(rjoy)) {

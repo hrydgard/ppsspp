@@ -74,7 +74,8 @@ void KeyQueueAttemptTranslatedAdd(int queue[],
 	int key = AttemptTranslate(translation_table, platform_key);
 
 	if (key == 0) {
-		std::cerr << "Warning: Platform key code translation table missing %d";
+		std::cerr << "Warning: Platform key code translation table missing "
+		          << "(" << platform_key << ")\n";
 		return;
 	}
 
