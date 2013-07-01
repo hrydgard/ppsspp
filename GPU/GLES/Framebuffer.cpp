@@ -64,7 +64,6 @@ static const char basic_vs[] =
 	"attribute vec4 a_position;\n"
 	"attribute vec2 a_texcoord0;\n"
 	"uniform mat4 u_viewproj;\n"
-	"varying vec4 v_color;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
 	"  v_texcoord0 = a_texcoord0;\n"
@@ -95,27 +94,29 @@ inline u16 RGBA8888toRGB565(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
 }
 
-inline u16 BGRA8888toRGB565(u32 px) {
-	return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
-}
-
 inline u16 RGBA8888toRGBA4444(u32 px) {
 	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
-}
-
-inline u16 BGRA8888toRGBA4444(u32 px) {
-	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
 }
 
 inline u16 RGBA8888toRGBA1555(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 }
 
-inline u16 BGRA8888toRGBA1555(u32 px) {
-	return ((px >> 19) & 0x001F) | ((px >> 6) & 0x03E0) | ((px << 7) & 0x7C00) | ((px >> 16) & 0x8000);
-}
+// Unused right now, testing performance of handling RGBA vs BGRA
+//
+//inline u16 BGRA8888toRGB565(u32 px) {
+//	return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
+//}
+//
+//inline u16 BGRA8888toRGBA4444(u32 px) {
+//	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
+//}
+//
+//inline u16 BGRA8888toRGBA1555(u32 px) {
+//	return ((px >> 19) & 0x001F) | ((px >> 6) & 0x03E0) | ((px << 7) & 0x7C00) | ((px >> 16) & 0x8000);
+//}
 
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format, bool bgra = false);
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format);
 
 void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH)
@@ -311,8 +312,9 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	float v1 = flip ? 1.0f : 1.0f - vscale;
 	float v2 = flip ? 1.0f - vscale : 1.0f;
 
-	const float pos[12] = {x,y,0, x+w,y,0, x,y+h,0, x+w,y+h,0};
-	const float texCoords[8] = {0,v1, u2,v1, 0,v2, u2,v2};
+	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
+	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
+	const GLubyte indices[4] = {0,1,3,2};
 
 	if(!program) {
 		program = draw2dprogram;
@@ -327,8 +329,9 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	glEnableVertexAttribArray(program->a_position);
 	glEnableVertexAttribArray(program->a_texcoord0);
 	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);	
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	//glDrawArrays(GL_TRIANGLE_FAN, 0, 4); // glDrawElements tested slightly faster on OpenGL atleast
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
 	glDisableVertexAttribArray(program->a_position);
 	glDisableVertexAttribArray(program->a_texcoord0);
 	glsl_unbind();
@@ -798,12 +801,12 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			}
 		}
 
-		BlitFramebuffer_(vfb, nvfb, true);
+		BlitFramebuffer_(vfb, nvfb, false);
 
 #ifdef USING_GLES2
-		PackFramebufferGLES_(vfb); // synchronous glReadPixels
+		PackFramebufferGLES_(nvfb); // synchronous glReadPixels
 #else
-		PackFramebufferGL_(vfb); // asynchronous glReadPixels using PBOs
+		PackFramebufferGL_(nvfb); // asynchronous glReadPixels using PBOs
 #endif
 	}
 }
@@ -821,14 +824,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 		fbo_unbind();
 		return;
 	}
-
-	if(src->format == GE_FORMAT_565) {
-		// Not sure this should be done
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	} else {
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	}
-		
+	
 	glstate.viewport.set(0, 0, dst->width, dst->height);
 	glstate.depthTest.disable();
 	glstate.blend.disable();
@@ -843,20 +839,16 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
 #ifdef USING_GLES2
-	DrawActiveTexture(x, y, w, h, !flip, upscale, vscale, draw2dprogram);
+	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, draw2dprogram);
 #else
-	if(dst->format != GE_FORMAT_8888) {
-		DrawActiveTexture(x, y, w, h, !flip, upscale, vscale, draw2dprogram);
-	} else {
-		DrawActiveTexture(x, y, w, h, !flip, upscale, vscale, blitprogram);
-	}
+	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, blitprogram);
 #endif
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();
 }
 
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format, bool bgra) {
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 	if(format == GE_FORMAT_8888) {
 		return;
 	} else {
@@ -867,20 +859,20 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format, b
 				case GE_FORMAT_565: // BGR 565
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = (bgra ? BGRA8888toRGB565(px) : RGBA8888toRGB565(px));
+						*(dst16+i) = RGBA8888toRGB565(px);
 					}
 					break;
 				case GE_FORMAT_5551: // ABGR 1555
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = (bgra ? BGRA8888toRGBA1555(px) : RGBA8888toRGBA1555(px));
+						*(dst16+i) = RGBA8888toRGBA1555(px);
 					}
 
 					break;
 				case GE_FORMAT_4444: // ABGR 4444
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = (bgra ? BGRA8888toRGBA4444(px) : RGBA8888toRGBA4444(px));
+						*(dst16+i) = RGBA8888toRGBA4444(px);
 					}
 					break;
 				default:
@@ -900,19 +892,19 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		switch (vfb->format) {
 			case GE_FORMAT_4444: // 16 bit ABGR
 				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-				pixelFormat = GL_RGBA; // ATIs don't seem to care about pixel format, just type
+				pixelFormat = GL_BGRA; // ATIs don't seem to care about pixel format, just type
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_5551: // 16 bit ABGR
 				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-				pixelFormat = GL_RGBA;
+				pixelFormat = GL_BGRA;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_565: // 16 bit BGR
 				pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
-				pixelFormat = GL_RGB;
+				pixelFormat = GL_BGR;
 				pixelSize = 2;
 				align = 8;
 				break;
@@ -925,7 +917,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 				break;
 		}
 
-		size_t bufSize = vfb->fb_stride * vfb->height * pixelSize;
+		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
 		u32 fb_address = (0x44000000) | vfb->fb_address;
 
 		if (useBufferedRendering_) {
@@ -1005,7 +997,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 							if(processed) {
 								ConvertFromRGBA8888(processed, packed, 
 									pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
-									pixelBufObj_[nextPBO].format, true);
+									pixelBufObj_[nextPBO].format);
 				
 								Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, processed, pixelBufObj_[nextPBO].size);
 

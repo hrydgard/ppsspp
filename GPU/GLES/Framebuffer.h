@@ -80,12 +80,12 @@ void CenterRect(float *x, float *y, float *w, float *h,
 // Simple struct for asynchronous PBO readbacks
 struct AsyncPBO {
 	GLuint handle;
-	size_t maxSize;
+	u32 maxSize;
 
 	u32 fb_address;
 	u32 stride;
 	u32 height;
-	size_t size;
+	u32 size;
 	int format;
 	bool reading;
 };
