@@ -20,7 +20,7 @@
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
 
-#define FADE_TIME 0.5
+#define FADE_TIME 1.0
 const float FONT_SCALE = 0.55f;
 
 PSPDialog::PSPDialog() : status(SCE_UTILITY_STATUS_SHUTDOWN)
@@ -46,7 +46,7 @@ PSPDialog::DialogStatus PSPDialog::GetStatus()
 void PSPDialog::StartDraw()
 {
 	PPGeBegin();
-	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x80000000));
+	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x20000000));
 }
 
 void PSPDialog::EndDraw()
