@@ -274,6 +274,9 @@
     </ClInclude>
     <ClInclude Include="android\app-android.h" />
     <ClInclude Include="ext\jpge\jpge.h" />
+    <ClInclude Include="math\expression_parser.h">
+      <Filter>math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -486,6 +489,9 @@
       <Filter>data</Filter>
     </ClCompile>
     <ClCompile Include="ext\jpge\jpge.cpp" />
+    <ClCompile Include="math\expression_parser.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
