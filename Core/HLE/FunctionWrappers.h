@@ -34,6 +34,13 @@ template<u64 func(u32)> void WrapU64_U() {
 	currentMIPS->r[3] = (retval >> 32) & 0xFFFFFFFF;
 }
 
+template<int func(int, u64)> void WrapI_IU64() {
+	u64 param_one = currentMIPS->r[6];
+	param_one |= (u64)(currentMIPS->r[7]) << 32;
+	int retval = func(PARAM(0), param_one);
+	RETURN(retval);
+}
+
 template<int func(u32, u64)> void WrapI_UU64() {
 	u64 param_one = currentMIPS->r[6];
 	param_one |= (u64)(currentMIPS->r[7]) << 32;
@@ -66,6 +73,13 @@ template<u32 func(u32, u64, u32, u32)> void WrapU_UU64UU() {
 	u64 param_one = currentMIPS->r[6];
 	param_one |= (u64)(currentMIPS->r[7]) << 32;
 	u32 retval = func(PARAM(0), param_one, PARAM(4), PARAM(5));
+	RETURN(retval);
+}
+
+template<int func(int, int, const char*, u64)> void WrapI_IICU64() {
+	u64 param_three = currentMIPS->r[7];
+	param_three |= (u64)(currentMIPS->r[8]) << 32;
+	int retval = func(PARAM(0), PARAM(1), Memory::GetCharPointer(PARAM(2)), param_three);
 	RETURN(retval);
 }
 
@@ -629,5 +643,30 @@ template<u32 func(u32, u32, u32, u32, u32, u32, u32)> void WrapU_UUUUUUU() {
 
 template<int func(u32, int, u32, u32)> void WrapI_UIUU() {
 	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
+	RETURN(retval);
+}
+
+template<int func(int, const char *)> void WrapI_IC() {
+	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)));
+	RETURN(retval);
+}
+
+template <int func(int, const char *, const char *, u32, int)> void WrapI_ICCUI() {
+	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), Memory::GetCharPointer(PARAM(2)), PARAM(3), PARAM(4));
+	RETURN(retval);
+}
+
+template <int func(int, const char *, const char *, int)> void WrapI_ICCI() {
+	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), Memory::GetCharPointer(PARAM(2)), PARAM(3));
+	RETURN(retval);
+}
+
+template <int func(const char *, int, int)> void WrapI_CII() {
+	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2));
+	RETURN(retval);
+}
+
+template <int func(int, const char *, int)> void WrapI_ICI() {
+	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2));
 	RETURN(retval);
 }
