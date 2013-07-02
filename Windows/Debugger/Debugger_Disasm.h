@@ -17,6 +17,8 @@
 // Takes lParam for debug mode, zero or non zero.
 const int WM_DISASM_SETDEBUG = WM_APP + 0;
 
+class CtrlThreadList;
+
 class CDisasm : public Dialog
 {
 private:
@@ -29,6 +31,7 @@ private:
 	DebugInterface *cpu;
 	u64 lastTicks;
 
+	CtrlThreadList* threadList;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
 
