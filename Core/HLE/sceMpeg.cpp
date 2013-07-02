@@ -88,6 +88,17 @@ int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
 	return std::max(40000, ringbuf.packets * 700);  // empiric value from JPCSP, thanks!
 }
 
+const u8 defaultMpegheader[2048] = {0x50,0x53,0x4d,0x46,0x30,0x30,0x31,0x35,0x00,0x00,0x08,0x00,0x00,
+	0x10,0xc8,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x4e,0x00,
+	0x00,0x00,0x01,0x5f,0x90,0x00,0x00,0x00,0x0d,0xbe,0xca,0x00,0x00,0x61,0xa8,0x00,0x01,0x5f,
+	0x90,0x02,0x01,0x00,0x00,0x00,0x34,0x00,0x00,0x00,0x01,0x5f,0x90,0x00,0x00,0x00,0x0d,0xbe,
+	0xca,0x00,0x01,0x00,0x00,0x00,0x22,0x00,0x02,0xe0,0x00,0x20,0xfb,0x00,0x00,0x00,0x00,0x00,
+	0x00,0x00,0x00,0x1e,0x11,0x00,0x00,0xbd,0x00,0x20,0x04,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+0x00,0x00,0x00,0x02,0x02};
+
 // Internal structure
 struct AvcContext {
 	int avcDetailFrameWidth;
@@ -107,7 +118,7 @@ typedef std::map<u32, StreamInfo> StreamInfoMap;
 
 // Internal structure
 struct MpegContext {
-	MpegContext() : mediaengine(NULL) {}
+	MpegContext() : mediaengine(NULL) { memcpy(mpegheader, defaultMpegheader, 2048); }
 	~MpegContext() {
 		if (mediaengine != NULL) {
 			delete mediaengine;
@@ -115,6 +126,7 @@ struct MpegContext {
 	}
 
 	void DoState(PointerWrap &p) {
+		p.DoArray(mpegheader, 2048);
 		p.Do(defaultFrameWidth);
 		p.Do(videoFrameCount);
 		p.Do(audioFrameCount);
@@ -131,7 +143,6 @@ struct MpegContext {
 		p.Do(mpegFirstDate);
 		p.Do(mpegLastDate);
 		p.Do(mpegRingbufferAddr);
-		p.Do(mpegStreamAddr);
 		p.DoArray(esBuffers, NUM_ES_BUFFERS);
 		p.Do(avc);
 		p.Do(avcRegistered);
@@ -147,6 +158,7 @@ struct MpegContext {
 		p.DoMarker("MpegContext");
 	}
 
+	u8 mpegheader[2048];
 	u32 defaultFrameWidth;
 	int videoFrameCount;
 	int audioFrameCount;
@@ -163,7 +175,6 @@ struct MpegContext {
 	u32 mpegFirstDate;
 	u32 mpegLastDate;
 	u32 mpegRingbufferAddr;
-	u32 mpegStreamAddr;
 	bool esBuffers[NUM_ES_BUFFERS];
 	AvcContext avc;
 
@@ -226,10 +237,9 @@ u32 convertTimestampToDate(u32 ts) {
 	return ts;  // TODO
 }
 
-void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
-	ctx->mpegStreamAddr = buffer_addr;
-	ctx->mpegMagic = Memory::Read_U32(buffer_addr);
-	ctx->mpegRawVersion = Memory::Read_U32(buffer_addr + PSMF_STREAM_VERSION_OFFSET);
+void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
+	ctx->mpegMagic = *(u32*)buffer;
+	ctx->mpegRawVersion = *(u32*)(buffer + PSMF_STREAM_VERSION_OFFSET);
 	switch (ctx->mpegRawVersion) {
 	case PSMF_VERSION_0012:
 		ctx->mpegVersion = MPEG_VERSION_0012;
@@ -247,14 +257,14 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 		ctx->mpegVersion = -1;
 		break;
 	}
-	ctx->mpegOffset = bswap32(Memory::Read_U32(buffer_addr + PSMF_STREAM_OFFSET_OFFSET));
-	ctx->mpegStreamSize = bswap32(Memory::Read_U32(buffer_addr + PSMF_STREAM_SIZE_OFFSET));
-	ctx->mpegFirstTimestamp = getMpegTimeStamp(Memory::GetPointer(buffer_addr + PSMF_FIRST_TIMESTAMP_OFFSET));
-	ctx->mpegLastTimestamp = getMpegTimeStamp(Memory::GetPointer(buffer_addr + PSMF_LAST_TIMESTAMP_OFFSET));
+	ctx->mpegOffset = bswap32(*(u32*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
+	ctx->mpegStreamSize = bswap32(*(u32*)(buffer + PSMF_STREAM_SIZE_OFFSET));
+	ctx->mpegFirstTimestamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
+	ctx->mpegLastTimestamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
 	ctx->mpegFirstDate = convertTimestampToDate(ctx->mpegFirstTimestamp);
 	ctx->mpegLastDate = convertTimestampToDate(ctx->mpegLastTimestamp);
-	ctx->avc.avcDetailFrameWidth = (Memory::Read_U8(buffer_addr + 142) * 0x10);
-	ctx->avc.avcDetailFrameHeight = (Memory::Read_U8(buffer_addr + 143) * 0x10);
+	ctx->avc.avcDetailFrameWidth = (*(u8*)(buffer + 142)) * 0x10;
+	ctx->avc.avcDetailFrameHeight = (*(u8*)(buffer + 143)) * 0x10;
 	ctx->avc.avcDecodeResult = 0;
 	ctx->avc.avcFrameStatus = 0;
 
@@ -269,20 +279,15 @@ void AnalyzeMpeg(u32 buffer_addr, MpegContext *ctx) {
 		return;
 	}
 
-	if (ctx->mediaengine && (ctx->mpegStreamSize > 0) && !ctx->isAnalyzed) {
-		// init mediaEngine
-		SceMpegRingBuffer ringbuffer = {0};
-		if(ctx->mpegRingbufferAddr != 0){
-			Memory::ReadStruct(ctx->mpegRingbufferAddr, &ringbuffer);
-		};
-		ctx->mediaengine->loadStream(Memory::GetPointer(buffer_addr), ctx->mpegOffset, ringbuffer.packets * ringbuffer.packetSize);
-		ctx->mediaengine->setVideoDim();
-	}
 	// When used with scePsmf, some applications attempt to use sceMpegQueryStreamOffset
 	// and sceMpegQueryStreamSize, which forces a packet overwrite in the Media Engine and in
 	// the MPEG ringbuffer.
 	// Mark the current MPEG as analyzed to filter this, and restore it at sceMpegFinish.
 	ctx->isAnalyzed = true;
+
+	// copy header struct to mpeg header.
+	memcpy(ctx->mpegheader, buffer, 2048);
+	*(u32*)(ctx->mpegheader + PSMF_STREAM_OFFSET_OFFSET) = 0x80000;
 
 	INFO_LOG(ME, "Stream offset: %d, Stream size: 0x%X", ctx->mpegOffset, ctx->mpegStreamSize);
 	INFO_LOG(ME, "First timestamp: %lld, Last timestamp: %lld", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
@@ -473,7 +478,7 @@ int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 	DEBUG_LOG(HLE, "sceMpegQueryStreamOffset(%08x, %08x, %08x)", mpeg, bufferAddr, offsetAddr);
 
 	// Kinda destructive, no?
-	AnalyzeMpeg(bufferAddr, ctx);
+	AnalyzeMpeg(Memory::GetPointer(bufferAddr), ctx);
 
 	if (ctx->mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamOffset: Bad PSMF magic");
@@ -500,7 +505,7 @@ u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	MpegContext ctx;
 	ctx.mediaengine = 0;
 
-	AnalyzeMpeg(bufferAddr, &ctx);
+	AnalyzeMpeg(Memory::GetPointer(bufferAddr), &ctx);
 
 	if (ctx.mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "sceMpegQueryStreamSize: Bad PSMF magic");
@@ -898,6 +903,11 @@ void PostPutAction::run(MipsCall &call) {
 	MpegContext *ctx = getMpegCtx(ringbuffer.mpeg);
 
 	int packetsAdded = currentMIPS->r[2];
+	if (ringbuffer.packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
+		// init mediaEngine
+		AnalyzeMpeg(ctx->mpegheader, ctx);
+		ctx->mediaengine->loadStream(ctx->mpegheader, 2048, ringbuffer.packets * ringbuffer.packetSize);
+	}
 	if (packetsAdded > 0) {
 		if (packetsAdded > ringbuffer.packetsFree) {
 			WARN_LOG(HLE, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer.packetsFree);
