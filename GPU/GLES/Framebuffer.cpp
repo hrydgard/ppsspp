@@ -652,10 +652,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 		DrawActiveTexture(x, y, w, h, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		glBindTexture(GL_TEXTURE_2D, 0);
-
-		if(g_Config.bFramebuffersToMem) {
-			ReadFramebufferToMemory(vfb);
-		}
 	}
 
 	if (resized_) {
@@ -1060,6 +1056,11 @@ void FramebufferManager::EndFrame() {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		resized_ = false;
 	}
+
+#ifndef USING_GLES2
+	// We flush last packed framebuffer, if any
+	PackFramebufferGL_(NULL);
+#endif
 }
 
 void FramebufferManager::DeviceLost() {
@@ -1124,16 +1125,19 @@ void FramebufferManager::DecimateFBOs() {
 	currentRenderVfb_ = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
+		int age = frameLastFramebufUsed - vfb->last_frame_used;
+
+		if(g_Config.bFramebuffersToMem) {
+			if((gpuStats.numFrames % 3 == 0) && age < 3) {
+				ReadFramebufferToMemory(vfb);
+			}
+		}
+
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;
 		}
 
-		int age = frameLastFramebufUsed - vfb->last_frame_used;
-		if(age == 0) {
-			if(g_Config.bFramebuffersToMem) {
-				ReadFramebufferToMemory(vfb);
-			}
-		} else if (age > FBO_OLD_AGE) {
+		if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			DestroyFramebuf(vfb);
 			vfbs_.erase(vfbs_.begin() + i--);
