@@ -266,6 +266,7 @@
     <ClCompile Include="Debugger\CtrlRegisterList.cpp" />
     <ClCompile Include="Debugger\DebuggerShared.cpp" />
     <ClCompile Include="Debugger\Debugger_Disasm.cpp" />
+    <ClCompile Include="Debugger\Debugger_Lists.cpp" />
     <ClCompile Include="Debugger\Debugger_MemoryDlg.cpp" />
     <ClCompile Include="Debugger\Debugger_VFPUDlg.cpp" />
     <ClCompile Include="DinputDevice.cpp" />
@@ -306,6 +307,7 @@
     <ClInclude Include="Debugger\CtrlRegisterList.h" />
     <ClInclude Include="Debugger\DebuggerShared.h" />
     <ClInclude Include="Debugger\Debugger_Disasm.h" />
+    <ClInclude Include="Debugger\Debugger_Lists.h" />
     <ClInclude Include="Debugger\Debugger_MemoryDlg.h" />
     <ClInclude Include="Debugger\Debugger_VFPUDlg.h" />
     <ClInclude Include="DinputDevice.h" />

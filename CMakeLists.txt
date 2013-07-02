@@ -1023,6 +1023,8 @@ if(WIN32)
 		Windows/Debugger/Debugger_Disasm.h
 		Windows/Debugger/Debugger_MemoryDlg.cpp
 		Windows/Debugger/Debugger_MemoryDlg.h
+		Windows/Debugger/Debugger_Lists.cpp
+		Windows/Debugger/Debugger_Lists.h
 		Windows/Debugger/Debugger_Misc.cpp
 		Windows/Debugger/Debugger_Misc.h
 #		Windows/Debugger/Debugger_Profiler.cpp
