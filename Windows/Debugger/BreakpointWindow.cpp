@@ -196,15 +196,15 @@ void BreakpointWindow::addBreakpoint()
 		CBreakPoints::AddMemCheck(address,address+size,cond,result);
 	} else {
 		// add breakpoint
+		CBreakPoints::AddBreakPoint(address,false);
+
 		if (condition[0] != 0)
 		{
 			BreakPointCond cond;
 			cond.debug = cpu;
 			strcpy(cond.expressionString,condition);
 			cond.expression = compiledCondition;
-			CBreakPoints::AddBreakPoint(address,cond);
-		} else {
-			CBreakPoints::AddBreakPoint(address,false);
+			CBreakPoints::ChangeBreakPointAddCond(address,cond);
 		}
 
 		if (enabled == false)

@@ -105,31 +105,6 @@ void CBreakPoints::AddBreakPoint(u32 addr, bool temp)
 	}
 }
 
-void CBreakPoints::AddBreakPoint(u32 addr, BreakPointCond cond)
-{
-	size_t bp = FindBreakpoint(addr);
-	if (bp == INVALID_BREAKPOINT)
-	{
-		BreakPoint pt;
-		pt.enabled = true;
-		pt.temporary = false;
-		pt.addr = addr;
-		pt.hasCond = true;
-		pt.cond = cond;
-
-		breakPoints_.push_back(pt);
-		Update(addr);
-	}
-	else if (!breakPoints_[bp].enabled)
-	{
-		breakPoints_[bp].enabled = true;
-		breakPoints_[bp].temporary = false;
-		breakPoints_[bp].hasCond = true;
-		breakPoints_[bp].cond = cond;
-		Update(addr);
-	}
-}
-
 void CBreakPoints::RemoveBreakPoint(u32 addr)
 {
 	size_t bp = FindBreakpoint(addr);

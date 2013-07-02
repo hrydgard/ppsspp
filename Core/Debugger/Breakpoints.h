@@ -102,7 +102,6 @@ public:
 	static bool IsAddressBreakPoint(u32 addr);
 	static bool IsTempBreakPoint(u32 addr);
 	static void AddBreakPoint(u32 addr, bool temp = false);
-	static void AddBreakPoint(u32 addr, BreakPointCond cond);	// conditional breakpoints aren't temporary
 	static void RemoveBreakPoint(u32 addr);
 	static void ChangeBreakPoint(u32 addr, bool enable);
 	static void ClearAllBreakPoints();
