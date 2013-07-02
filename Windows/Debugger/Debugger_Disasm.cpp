@@ -11,6 +11,7 @@
 #include "Debugger_Disasm.h"
 #include "Debugger_VFPUDlg.h"
 #include "DebuggerShared.h"
+#include "BreakpointWindow.h"
 
 #include "../main.h"
 #include "CtrlRegisterList.h"
@@ -655,9 +656,8 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						Core_WaitInactive(200);
 					}
 
-					u32 start;
-					if (executeExpressionWindow(m_hDlg,cpu,start))
-						CBreakPoints::AddMemCheck(start, 0, MEMCHECK_READWRITE, MEMCHECK_BOTH);
+					BreakpointWindow bpw(m_hDlg,cpu);
+					if (bpw.exec()) bpw.addBreakpoint();
 
 					if (isRunning)
 					{

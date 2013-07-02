@@ -18,16 +18,21 @@
 #pragma once
 
 #include "../../Globals.h"
+#include "DebugInterface.h"
 #include <vector>
 
 // TODO: Replace with expression or something.
 struct BreakPointCond
 {
-	u32 todo;
+	DebugInterface* debug;
+	PostfixExpression expression;
+	char expressionString[128];
 
-	u32 Evaluate() const
+	u32 Evaluate()
 	{
-		return 1;
+		u32 result;
+		if (debug->parseExpression(expression,result) == false) return 0;
+		return result;
 	}
 };
 
