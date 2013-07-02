@@ -657,15 +657,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					}
 
 					BreakpointWindow bpw(m_hDlg,cpu);
-					if (bpw.exec())
-					{
-						if (bpw.isMemoryBreakpoint())
-						{
-							bpw.addMemcheck();
-						} else {
-							bpw.addBreakpoint();
-						}
-					}
+					if (bpw.exec()) bpw.addBreakpoint();
 
 					if (isRunning)
 					{

@@ -15,15 +15,18 @@ INT_PTR CALLBACK BreakpointWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 		SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_MEMORY),BM_SETCHECK,bp->memory ? BST_CHECKED : BST_UNCHECKED,0);
 		SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_READ),BM_SETCHECK, bp->read ? BST_CHECKED : BST_UNCHECKED,0);
 		SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_WRITE),BM_SETCHECK, bp->write ? BST_CHECKED : BST_UNCHECKED,0);
+		SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),BM_SETCHECK, bp->onChange ? BST_CHECKED : BST_UNCHECKED,0);
 		SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ENABLED),BM_SETCHECK, bp->enabled ? BST_CHECKED : BST_UNCHECKED,0);
 		SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),BM_SETCHECK, bp->log ? BST_CHECKED : BST_UNCHECKED,0);
 
 		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_READ),bp->memory);
 		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_WRITE),bp->memory);
+		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),bp->memory);
 		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),bp->memory);
 		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),!bp->memory);
 		EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),bp->memory);
 
+		
 		if (bp->address != -1)
 		{
 			sprintf(str,"0x%08X",bp->address);
@@ -45,6 +48,7 @@ INT_PTR CALLBACK BreakpointWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 				bp->memory = false;
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_READ),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_WRITE),bp->memory);
+				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),!bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),bp->memory);
@@ -58,6 +62,7 @@ INT_PTR CALLBACK BreakpointWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 				bp->memory = true;
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_READ),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_WRITE),bp->memory);
+				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),!bp->memory);
 				EnableWindow(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),bp->memory);
@@ -112,6 +117,7 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	write = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_WRITE),BM_GETCHECK,0,0);
 	enabled = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ENABLED),BM_GETCHECK,0,0);
 	log = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),BM_GETCHECK,0,0);
+	onChange = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),BM_GETCHECK,0,0);
 
 	// parse address
 	GetWindowText(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str,256);
@@ -171,56 +177,41 @@ bool BreakpointWindow::exec()
 	return result;
 }
 
-void BreakpointWindow::addMemcheck()
-{
-	MemCheckCondition cond;
-	if (read && write) cond = MEMCHECK_READWRITE;
-	else if (read) cond = MEMCHECK_READ;
-	else cond = MEMCHECK_WRITE;
-
-	MemCheckResult result;
-	if (log && enabled) result = MEMCHECK_BOTH;
-	else if (log) result = MEMCHECK_LOG;
-	else if (enabled) result = MEMCHECK_BREAK;
-	else result = MEMCHECK_IGNORE;
-
-	CBreakPoints::AddMemCheck(address,address+size,cond,result);
-}
-
 void BreakpointWindow::addBreakpoint()
 {
-	// todo: condition, enabled
-	CBreakPoints::AddBreakPoint(address,false);
-}
+	if (memory)
+	{
+		// add memcheck
+		MemCheckCondition cond;
+		if (read && write) cond = MEMCHECK_READWRITE;
+		else if (read) cond = MEMCHECK_READ;
+		else cond = MEMCHECK_WRITE;
 
-void BreakpointWindow::editMemcheck(MemCheck& memcheck)
-{
-	MemCheckCondition cond;
-	if (read && write) cond = MEMCHECK_READWRITE;
-	else if (read) cond = MEMCHECK_READ;
-	else cond = MEMCHECK_WRITE;
+		MemCheckResult result;
+		if (log && enabled) result = MEMCHECK_BOTH;
+		else if (log) result = MEMCHECK_LOG;
+		else if (enabled) result = MEMCHECK_BREAK;
+		else result = MEMCHECK_IGNORE;
 
-	MemCheckResult result;
-	if (log && enabled) result = MEMCHECK_BOTH;
-	else if (log) result = MEMCHECK_LOG;
-	else if (enabled) result = MEMCHECK_BREAK;
-	else result = MEMCHECK_IGNORE;
+		CBreakPoints::AddMemCheck(address,address+size,cond,result);
+	} else {
+		// add breakpoint
+		if (condition[0] != 0)
+		{
+			BreakPointCond cond;
+			cond.debug = cpu;
+			strcpy(cond.expressionString,condition);
+			cond.expression = compiledCondition;
+			CBreakPoints::AddBreakPoint(address,cond);
+		} else {
+			CBreakPoints::AddBreakPoint(address,false);
+		}
 
-	memcheck.cond = cond;
-	memcheck.result = result;
-	memcheck.start = address;
-	memcheck.end = address+size;
-	CBreakPoints::Update();
-}
-
-void BreakpointWindow::editBreakpoint(BreakPoint& memcheck)
-{
-	memcheck.addr = address;
-	memcheck.enabled = enabled;
-
-	// todo
-	memcheck.hasCond = false;
-	CBreakPoints::Update();
+		if (enabled == false)
+		{
+			CBreakPoints::ChangeBreakPoint(address,false);
+		}
+	}
 }
 
 void BreakpointWindow::loadFromMemcheck(MemCheck& memcheck)

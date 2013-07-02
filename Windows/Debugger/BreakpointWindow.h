@@ -8,13 +8,13 @@ class BreakpointWindow
 {
 	HWND parentHwnd;
 	DebugInterface* cpu;
-	bool ctrlDown;
 
 	bool memory;
 	bool read;
 	bool write;
 	bool enabled;
 	bool log;
+	bool onChange;
 	u32 address;
 	u32 size;
 	char condition[128];
@@ -26,14 +26,13 @@ public:
 	BreakpointWindow(HWND parent, DebugInterface* cpu): cpu(cpu)
 	{
 		parentHwnd = parent;
-		memory = false;
+		memory = true;
+		onChange = false;
 		read = write = true;
 		enabled = log = true;
 		address = -1;
 		size = 1;
 		condition[0] = 0;
-
-		ctrlDown = false;
 	};
 
 
@@ -41,10 +40,7 @@ public:
 	bool exec();
 	bool isMemoryBreakpoint() { return memory; };
 
-	void addMemcheck();
 	void addBreakpoint();
-	void editMemcheck(MemCheck& memcheck);
-	void editBreakpoint(BreakPoint& memcheck);
 	void loadFromMemcheck(MemCheck& memcheck);
 	void loadFromBreakpoint(BreakPoint& memcheck);
 
