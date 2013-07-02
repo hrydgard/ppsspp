@@ -744,6 +744,9 @@ namespace MainWindow
 			case ID_OPTIONS_USEVBO:
 				g_Config.bUseVBO = !g_Config.bUseVBO;
 				break;
+			case ID_OPTIONS_TEXTUREFILTERING_AUTO:
+				setTexFiltering(0);
+				break;
 			case ID_OPTIONS_NEARESTFILTERING:
 				setTexFiltering(2) ;
 				break;
@@ -953,12 +956,14 @@ namespace MainWindow
 		}
 
 		static const int texfilteringitems[] = {
+			ID_OPTIONS_TEXTUREFILTERING_AUTO,
 			ID_OPTIONS_NEARESTFILTERING,
 			ID_OPTIONS_LINEARFILTERING,
 			ID_OPTIONS_LINEARFILTERING_CG,
 		};
-		for (int i = 0; i < 3; i++) {
-			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i == g_Config.iTexFiltering-2) ? MF_CHECKED : MF_UNCHECKED));
+		for (int i = 0; i < 4; i++) {
+			int texFilterLevel = i > 0? (g_Config.iTexFiltering - 1) : g_Config.iTexFiltering;
+			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i == texFilterLevel) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		UpdateCommands();
