@@ -368,7 +368,7 @@ void Debugger_Disasm::UpdateBreakpointsGUI()
 	ui->breakpointsList->clear();
 
 	EmuThread_LockDraw(true);
-	auto breakpoints = CBreakPoints::GetBreakPoints();
+	auto breakpoints = CBreakPoints::GetBreakpoints();
 	for(size_t i = 0; i < breakpoints.size(); i++)
 	{
 		u32 addr_ = breakpoints[i].addr;
