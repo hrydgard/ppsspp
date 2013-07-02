@@ -452,6 +452,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2()
 		switch (g_Config.iDateFormat) {
 		case 1:
 			snprintf(date, 256, "%d/%02d/%02d", year, month, day);
+			break;
 		case 2:
 			snprintf(date, 256, "%02d/%02d/%d", month, day, year);
 			break;
