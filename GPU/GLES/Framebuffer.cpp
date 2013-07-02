@@ -90,31 +90,17 @@ static bool MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
 }
 
-inline u16 RGBA8888toRGB565(u32 px) {
+inline u16 ARGB8888toBGR565(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
 }
 
-inline u16 RGBA8888toRGBA4444(u32 px) {
+inline u16 ARGB8888toABGR4444(u32 px) {
 	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
 }
 
-inline u16 RGBA8888toRGBA1555(u32 px) {
+inline u16 ARGB8888toABGR1555(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 }
-
-// Unused right now, testing performance of handling RGBA vs BGRA
-//
-//inline u16 BGRA8888toRGB565(u32 px) {
-//	return ((px >> 19) & 0x001F) | ((px >> 5) & 0x07E0) | ((px << 8) & 0xF800);
-//}
-//
-//inline u16 BGRA8888toRGBA4444(u32 px) {
-//	return ((px >> 20) & 0x000F) | ((px >> 8) & 0x00F0) | ((px << 4) & 0x0F00) | ((px >> 16) & 0xF000);
-//}
-//
-//inline u16 BGRA8888toRGBA1555(u32 px) {
-//	return ((px >> 19) & 0x001F) | ((px >> 6) & 0x03E0) | ((px << 7) & 0x7C00) | ((px >> 16) & 0x8000);
-//}
 
 void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format);
 
@@ -686,10 +672,6 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 		return;
 	}
 
-	//fbo_unbind();
-	//if(gl_extensions.FBO_ARB) { // TODO: fbo_unbind should use GL_FRAMEBUFFER to do this? Don't want to change native
-	//	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-	//}
 	if(vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
 		// For now we'll keep these on the same struct as the ones that can get displayed
@@ -849,9 +831,13 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 }
 
 void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
-	if(format == GE_FORMAT_8888) {
-		return;
-	} else {
+	if(format == GE_FORMAT_8888) { // Here lets assume they don't intersect
+		if(src == dst) {
+			return;
+		} else {
+			memcpy(dst, src, stride * height * 4);
+		}
+	} else { // But here it shouldn't matter if they do
 		for (int j = 0; j < height; j++) {
 			const u32 *src32 = (u32 *)(src + stride * j*4);
 			u16 *dst16 = (u16 *)(dst + stride * j*2);
@@ -859,20 +845,20 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 				case GE_FORMAT_565: // BGR 565
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = RGBA8888toRGB565(px);
+						*(dst16+i) = ARGB8888toBGR565(px);
 					}
 					break;
 				case GE_FORMAT_5551: // ABGR 1555
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = RGBA8888toRGBA1555(px);
+						*(dst16+i) = ARGB8888toABGR1555(px);
 					}
 
 					break;
 				case GE_FORMAT_4444: // ABGR 4444
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = RGBA8888toRGBA4444(px);
+						*(dst16+i) = ARGB8888toABGR4444(px);
 					}
 					break;
 				default:
@@ -884,6 +870,23 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 
 void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
+	bool unbind = false;
+
+	if(!pixelBufObj_) {
+		GLuint pbos[2];
+
+		glGenBuffers(2, pbos);
+
+		pixelBufObj_ = new AsyncPBO[2];
+
+		pixelBufObj_[0].handle = pbos[0];
+		pixelBufObj_[0].maxSize = 0;
+		pixelBufObj_[0].reading = false;
+
+		pixelBufObj_[1].handle = pbos[1];
+		pixelBufObj_[1].maxSize = 0;
+		pixelBufObj_[1].reading = false;
+	}
 
 	// Order packing/readback of the framebuffer
 	if(vfb) {
@@ -892,7 +895,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		switch (vfb->format) {
 			case GE_FORMAT_4444: // 16 bit ABGR
 				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-				pixelFormat = GL_BGRA; // ATIs don't seem to care about pixel format, just type
+				pixelFormat = GL_BGRA;
 				pixelSize = 2;
 				align = 8;
 				break;
@@ -932,28 +935,10 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 			}
 		}
 
-		if(!pixelBufObj_) {
-			GLuint pbos[2];
-
-			glGenBuffers(2, pbos);
-
-			pixelBufObj_ = new AsyncPBO[2];
-
-			pixelBufObj_[0].handle = pbos[0];
-			pixelBufObj_[0].maxSize = 0;
-			pixelBufObj_[0].reading = false;
-
-			pixelBufObj_[1].handle = pbos[1];
-			pixelBufObj_[1].maxSize = 0;
-			pixelBufObj_[1].reading = false;
-			
-			currentPBO_ = 0;
-		}
-
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
 
 		if(pixelBufObj_[currentPBO_].maxSize < bufSize) {
-			if(g_Config.bCPUConvert && pixelType != GL_UNSIGNED_BYTE) {
+			if(g_Config.bFramebuffersCPUConvert && pixelType != GL_UNSIGNED_BYTE) {
 				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize*2, NULL, GL_DYNAMIC_READ);
 			} else {
 				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
@@ -968,13 +953,15 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		pixelBufObj_[currentPBO_].format = vfb->format;
 		pixelBufObj_[currentPBO_].reading = true;
 
-		if(g_Config.bCPUConvert) {
+		if(g_Config.bFramebuffersCPUConvert) {
 			glPixelStorei(GL_PACK_ALIGNMENT, 4);
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 		} else {
 			glPixelStorei(GL_PACK_ALIGNMENT, align);
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
+
+		unbind = true;
 	}
 
 	// Receive data from previous framebuffer
@@ -987,27 +974,10 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 			DEBUG_LOG(HLE, "Reading pbo to mem, bufSize = %u, packed = %08x, fb_address = %08x, pbo = %u", 
 				pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, nextPBO);
 
-			if(g_Config.bCPUConvert) {
-				switch(pixelBufObj_[nextPBO].format) {
-					case GE_FORMAT_565:
-					case GE_FORMAT_5551:
-					case GE_FORMAT_4444: {
-							u8 *processed = (u8 *)malloc(pixelBufObj_[nextPBO].size);
-			
-							if(processed) {
-								ConvertFromRGBA8888(processed, packed, 
-									pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
-									pixelBufObj_[nextPBO].format);
-				
-								Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, processed, pixelBufObj_[nextPBO].size);
-
-								free(processed);
-							}
-						}
-						break;
-					default:
-						Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
-				}
+			if(g_Config.bFramebuffersCPUConvert) {
+				ConvertFromRGBA8888(Memory::GetPointer(pixelBufObj_[nextPBO].fb_address), packed, 
+								pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
+								pixelBufObj_[nextPBO].format);
 			} else { // we don't need to convert
 				Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
 			}
@@ -1015,36 +985,38 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 
 			pixelBufObj_[nextPBO].reading = false;
 		}
+
+		unbind = true;
 	}
 
 	currentPBO_ = nextPBO;
 
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-	fbo_unbind();
-	if(gl_extensions.FBO_ARB) {
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	if(unbind) {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+		fbo_unbind();
+		if(gl_extensions.FBO_ARB) {
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+		}
 	}
 }
 
 void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
-	// Pixel size is always 4 here because data will come in RGBA8888
-	size_t bufSize = vfb->fb_stride * vfb->height * 4; // pixel size always 4 here
-	
-	u32 fb_address = (0x44000000) | vfb->fb_address;
-
-	if (useBufferedRendering_) {
-		if (vfb->fbo) {
-			fbo_bind_for_read(vfb->fbo);
-		} else {
-			fbo_unbind();
-			if(gl_extensions.FBO_ARB) {
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			}
-			return;
-		}
+	if (useBufferedRendering_ && vfb->fbo) {
+		fbo_bind_for_read(vfb->fbo);
+	} else {
+		fbo_unbind();
+		return;
 	}
 
-	GLubyte *packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
+	size_t bufSize = vfb->fb_stride * vfb->height * 4; // pixel size always 4 here
+	u32 fb_address = (0x44000000) | vfb->fb_address;
+
+	GLubyte *packed = 0;
+	if(vfb->format == GE_FORMAT_8888) {
+		packed = (GLubyte *)Memory::GetPointer(fb_address);
+	} else { // end result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
+		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
+	}
 
 	if(packed) {
 		DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %08x, fb_address = %08x", 
@@ -1074,26 +1046,12 @@ void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 		}
 
 		if(vfb->format != GE_FORMAT_8888) { // if not RGBA 8888 we need to convert
-			u8 *processed = (u8 *)malloc(vfb->fb_stride * vfb->height * 2);
-			
-			if(processed) {
-				ConvertFromRGBA8888(processed, packed, vfb->fb_stride, vfb->height, vfb->format);
-				
-				Memory::Memcpy(fb_address, processed, vfb->fb_stride * vfb->height * 2);
-
-				free(processed);
-			}
-		} else {
-			Memory::Memcpy(fb_address, packed, bufSize);
+			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
+			free(packed);
 		}
-
-		free(packed);
 	}
 
 	fbo_unbind();
-	if(gl_extensions.FBO_ARB) {
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-	}
 }
 
 void FramebufferManager::EndFrame() {

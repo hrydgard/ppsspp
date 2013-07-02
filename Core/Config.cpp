@@ -117,7 +117,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
 	graphics->Get("FramebuffersToMem", &bFramebuffersToMem, false);
-	graphics->Get("CPUConvert", &bCPUConvert, false);
+	graphics->Get("FramebuffersCPUConvert", &bFramebuffersCPUConvert, false);
 	graphics->Get("MipMap", &bMipMap, true);
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
@@ -230,7 +230,7 @@ void Config::Save()
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
 		graphics->Set("FramebuffersToMem", bFramebuffersToMem);
-		graphics->Set("CPUConvert", bCPUConvert);
+		graphics->Set("FramebuffersCPUConvert", bFramebuffersCPUConvert);
 		graphics->Set("MipMap", bMipMap);
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
 		graphics->Set("TexScalingType", iTexScalingType);
