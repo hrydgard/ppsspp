@@ -71,7 +71,7 @@ public:
 	s64 getLastTimeStamp();
 
 	bool IsVideoEnd() { return m_isVideoEnd; }
-	bool IsAudioEnd() { return m_isAudioEnd; }
+	bool IsNoAudioData() { return m_noAudioData; }
 
 	void DoState(PointerWrap &p);
 
@@ -106,7 +106,7 @@ public:
 	s64 m_lastTimeStamp;
 
 	bool m_isVideoEnd;
-	bool m_isAudioEnd;
+	bool m_noAudioData;
 
 	int m_ringbuffersize;
 	u8 m_mpegheader[0x10000];

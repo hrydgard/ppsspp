@@ -1063,7 +1063,7 @@ int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	}
 
 	// The audio can end earlier than the video does.
-	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets || (ctx->mediaengine->IsAudioEnd() && !ctx->mediaengine->IsVideoEnd())) {
+	if (mpegRingbuffer.packetsFree == mpegRingbuffer.packets) {
 		DEBUG_LOG(HLE, "PSP_ERROR_MPEG_NO_DATA=sceMpegGetAtracAu(%08x, %08x, %08x, %08x)", mpeg, streamId, auAddr, attrAddr);
 		// TODO: Does this really delay?
 		return hleDelayResult(PSP_ERROR_MPEG_NO_DATA, "mpeg get atrac", mpegDecodeErrorDelayMs);
