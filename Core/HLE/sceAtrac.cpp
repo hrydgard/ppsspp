@@ -1091,7 +1091,11 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 
 
 	if (atrac->codeType == PSP_MODE_AT_3) {
-		WARN_LOG(HLE, "This is an atrac3 audio");
+		if (atrac->atracChannels == 1) {
+			WARN_LOG(HLE, "This is an atrac3 mono audio");
+		} else {
+			WARN_LOG(HLE, "This is an atrac3 stereo audio");
+		}
 
 #ifdef USE_FFMPEG
 		atrac->data_buf = new u8[atrac->first.filesize];
@@ -1579,7 +1583,11 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 			atrac->atracChannels, atrac->atracOutputChannels, atrac->atracBytesPerFrame);
 #ifdef USE_FFMPEG
 		if (atrac->codeType == PSP_MODE_AT_3) {
-			WARN_LOG(HLE, "This is an atrac3 audio (low level)");
+			if (atrac->atracChannels == 1) {
+				WARN_LOG(HLE, "This is an atrac3 mono audio (low level)");
+			} else {
+				WARN_LOG(HLE, "This is an atrac3 stereo audio (low level)");
+			}
 			int headersize = sizeof(at3Header);
 			initAT3Decoder(atrac);
 			atrac->firstSampleoffset = headersize;
@@ -1594,6 +1602,11 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 #endif // USE_FFMPEG
 
 		if (atrac->codeType == PSP_MODE_AT_3_PLUS){
+			if (atrac->atracChannels == 1) {
+				WARN_LOG(HLE, "This is an atrac3+ mono audio (low level)");
+			} else {
+				WARN_LOG(HLE, "This is an atrac3+ stereo audio (low level)");
+			}
 			atrac->data_buf = new u8[atrac->atracBytesPerFrame];
 			__AtracSetContext(atrac);
 			return 0;
