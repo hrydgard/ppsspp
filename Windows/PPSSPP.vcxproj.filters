@@ -104,6 +104,9 @@
     <ClCompile Include="Debugger\DebuggerShared.cpp">
       <Filter>Windows\Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\BreakpointWindow.cpp">
+      <Filter>Windows\Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -183,6 +186,9 @@
       <Filter>Windows\Input</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\DebuggerShared.h">
+      <Filter>Windows\Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\BreakpointWindow.h">
       <Filter>Windows\Debugger</Filter>
     </ClInclude>
   </ItemGroup>

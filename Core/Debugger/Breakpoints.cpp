@@ -100,6 +100,7 @@ void CBreakPoints::AddBreakPoint(u32 addr, bool temp)
 	else if (!breakPoints_[bp].enabled)
 	{
 		breakPoints_[bp].enabled = true;
+		breakPoints_[bp].hasCond = false;
 		Update(addr);
 	}
 }
