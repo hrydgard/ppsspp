@@ -368,9 +368,10 @@ void Debugger_Disasm::UpdateBreakpointsGUI()
 	ui->breakpointsList->clear();
 
 	EmuThread_LockDraw(true);
-	for(int i = 0; i < CBreakPoints::GetNumBreakpoints(); i++)
+	auto breakpoints = CBreakPoints::GetBreakPoints();
+	for(size_t i = 0; i < breakpoints.size(); i++)
 	{
-		u32 addr_ = CBreakPoints::GetBreakpointAddress(i);
+		u32 addr_ = breakpoints[i].addr;
 		if(!CBreakPoints::IsTempBreakPoint(addr_))
 		{
 			QTreeWidgetItem* item = new QTreeWidgetItem();
