@@ -14,6 +14,7 @@
 #endif
 
 #include <string>
+#include <map>
 #ifdef _WIN32
 #include "SDL/SDL.h"
 #include "SDL/SDL_timer.h"
@@ -32,9 +33,11 @@
 #include "gfx_es2/glsl_program.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
+#include "input/keycodes.h"
+#include "base/KeyCodeTranslationFromSDL.h"
 #include "base/NativeApp.h"
 #include "net/resolve.h"
-
+#include "util/const_map.h"
 
 #if defined(MAEMO) || defined(PANDORA)
 #define EGL
@@ -247,6 +250,7 @@ void LaunchEmail(const char *email_address)
 
 InputState input_state;
 
+
 const int buttonMappings[14] = {
 #ifdef PANDORA
 	SDLK_PAGEDOWN,  //X => cross
@@ -285,10 +289,12 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	input->pad_lstick_y = 0;
 	input->pad_rstick_x = 0;
 	input->pad_rstick_y = 0;
+	/*
 	for (int b = 0; b < 14; b++) {
 		if (keys[buttonMappings[b]])
 			input->pad_buttons |= (1<<b);
 	}
+	*/
 
 #ifdef PANDORA
 	if ((ljoy)||(rjoy)) {
@@ -532,6 +538,14 @@ int main(int argc, char *argv[]) {
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
 					quitRequested = 1;
 				}
+
+				KeyQueueAttemptTranslatedAdd(input_state.key_queue,
+				                             KeyMapRawSDLtoNative,
+											 event.key.keysym.sym);
+			} else if (event.type == SDL_KEYUP) {
+				KeyQueueAttemptTranslatedRemove(input_state.key_queue,
+				                                KeyMapRawSDLtoNative,
+											    event.key.keysym.sym);
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					input_state.pointer_x[0] = mx;
