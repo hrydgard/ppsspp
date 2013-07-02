@@ -94,7 +94,7 @@ MediaEngine::MediaEngine(): m_pdata(0) {
 	m_demux = 0;
 	m_audioContext = 0;
 	m_isVideoEnd = false;
-	m_isAudioEnd = false;
+	m_noAudioData = false;
 	m_bufSize = 0x2000;
 	m_mpegheaderReadPos = 0;
 	g_iNumVideos++;
@@ -136,7 +136,7 @@ void MediaEngine::closeMedia() {
 	m_demux = 0;
 	Atrac3plus_Decoder::CloseContext(&m_audioContext);
 	m_isVideoEnd = false;
-	m_isAudioEnd = false;
+	m_noAudioData = false;
 }
 
 void MediaEngine::DoState(PointerWrap &p){
@@ -164,7 +164,7 @@ void MediaEngine::DoState(PointerWrap &p){
 	p.Do(m_audiopts);
 
 	p.Do(m_isVideoEnd);
-	p.Do(m_isAudioEnd);
+	p.Do(m_noAudioData);
 	p.DoMarker("MediaEngine");
 }
 
@@ -249,7 +249,7 @@ bool MediaEngine::openContext() {
 	setVideoDim();
 	m_audioContext = Atrac3plus_Decoder::OpenContext();
 	m_isVideoEnd = false;
-	m_isAudioEnd = false;
+	m_noAudioData = false;
 	m_mpegheaderReadPos++;
 	av_seek_frame(m_pFormatCtx, m_videoStream, 0, 0);
 #endif // USE_FFMPEG
@@ -584,8 +584,10 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	u8 *audioFrame = 0;
 	int headerCode1, headerCode2;
 	int frameSize = m_demux->getNextaudioFrame(&audioFrame, &headerCode1, &headerCode2);
-	if (frameSize == 0)
+	if (frameSize == 0) {
+		m_noAudioData = true;
 		return 0;
+	}
 	int outbytes = 0;
 	Atrac3plus_Decoder::Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer);
 	if (headerCode1 == 0x24) {
@@ -599,6 +601,7 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 		}
 	}
 	m_audiopts += 4180;
+	m_noAudioData = false;
 	return 0x2000;
 }
 
