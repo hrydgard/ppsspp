@@ -25,6 +25,8 @@
 #include "ui/ui.h"
 #include "i18n/i18n.h"
 
+#include "Common/KeyMap.h"
+
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
@@ -200,6 +202,11 @@ void EmuScreen::update(InputState &input) {
 	}
 #endif
 
+	// Set Keys ---- 
+	__CtrlButtonUp(-1); // blanks all buttons
+	uint32_t pressed = 0;
+
+	// Legacy key mapping
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
 		{PAD_BUTTON_A, CTRL_CROSS},
@@ -217,13 +224,20 @@ void EmuScreen::update(InputState &input) {
 	};
 
 	for (int i = 0; i < 12; i++) {
-		if (input.pad_buttons_down & mapping[i][0]) {
-			__CtrlButtonDown(mapping[i][1]);
-		}
-		if (input.pad_buttons_up & mapping[i][0]) {
-			__CtrlButtonUp(mapping[i][1]);
-		}
+		pressed |= input.pad_buttons_down & mapping[i][0];
 	}
+
+	// Modern key mapping
+	for (int i = 0; i < MAX_KEYQUEUESIZE; i++) {
+		int key = input.key_queue[i];
+		if (key == 0)
+			break;
+
+		// TODO: Add virt_sce_* codes for analog sticks
+		pressed |= KeyMap::KeyToPspButton(key);
+	}
+	__CtrlButtonDown(pressed);
+	// End Set Keys --
 
 	float stick_x = input.pad_lstick_x;
 	float stick_y = input.pad_lstick_y;

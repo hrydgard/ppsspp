@@ -581,7 +581,9 @@ add_library(native STATIC
 	native/input/gesture_detector.cpp
 	native/input/gesture_detector.h
 	native/input/input_state.cpp
+	native/input/keycodes.h
 	native/input/input_state.h
+	native/input/input_state.cpp
 	native/json/json_writer.cpp
 	native/json/json_writer.h
 	native/math/curves.cpp
@@ -643,6 +645,7 @@ add_library(native STATIC
 	native/util/random/rng.h
 	native/util/text/utf8.h
 	native/util/text/utf8.cpp
+	native/util/const_map.h
 	native/ext/rapidxml/rapidxml.hpp
 	native/ext/rapidxml/rapidxml_iterators.hpp
 	native/ext/rapidxml/rapidxml_print.hpp

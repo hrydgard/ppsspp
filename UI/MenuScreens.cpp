@@ -42,6 +42,7 @@
 #include "UIShader.h"
 
 #include "Common/StringUtils.h"
+#include "Common/KeyMap.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "Core/HW/atrac3plus.h"
@@ -622,6 +623,7 @@ void SettingsScreen::render() {
 	UIEnd();
 }
 
+// TODO: Move these into a superclass
 void DeveloperScreen::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
@@ -665,6 +667,25 @@ void SystemScreen::update(InputState &input) {
 }
 
 void ControlsScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void KeyMappingScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void KeyMappingNewKeyDialog::update(InputState &input) {
+	int new_key = input.key_queue[0];
+
+	if (new_key != 0)
+		last_kb_key = new_key;
+	
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -1485,6 +1506,117 @@ void ControlsScreen::render() {
 			g_Config.iTouchButtonOpacity = bTransparent ? 15 : 65;
 	}
 
+	// Button to KeyMapping screen
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Key Mapping"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->push(new KeyMappingScreen());
+	}
+
+	UIEnd();
+}
+
+void KeyMappingScreen::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	I18NCategory *generalI18N = GetI18NCategory("General");
+
+
+#define KeyBtn(x, y, symbol) \
+	if (UIButton(GEN_ID, Pos(x, y), 50, 0, (KeyMap::GetPspButtonName(symbol)).c_str(), \
+ 															ALIGN_TOPLEFT)) {\
+		screenManager()->push(new KeyMappingNewKeyDialog(symbol), 0); \
+		UIReset(); \
+	}
+
+	KeyMap::DeregisterPlatformDefaultKeyMap();
+
+	int pad = 150;
+	int hlfpad = pad / 2;
+
+	int left = 30;
+	KeyBtn(left, 30, CTRL_LTRIGGER);
+	KeyBtn(dp_yres, 30, CTRL_RTRIGGER);
+
+	int top = 100;
+	KeyBtn(left+hlfpad, top, CTRL_UP); // ^
+	KeyBtn(left, top+hlfpad, CTRL_LEFT);// <
+	KeyBtn(left+pad, top+hlfpad, CTRL_RIGHT); // >
+	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // <
+
+	left = dp_yres;
+	KeyBtn(left+hlfpad, top, CTRL_TRIANGLE); // Triangle
+	KeyBtn(left, top+hlfpad, CTRL_SQUARE); // Square
+	KeyBtn(left+pad, top+hlfpad, CTRL_CIRCLE); // Circle
+	KeyBtn(left+hlfpad, top+pad, CTRL_CROSS); // Cross
+
+	top += pad;
+	left = dp_yres /2;
+	KeyBtn(left, top, CTRL_START);
+	KeyBtn(left + pad, top, CTRL_SELECT);
+#undef KeyBtn
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+	UIEnd();
+}
+
+void KeyMappingNewKeyDialog::render() {
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
+	I18NCategory *generalI18N = GetI18NCategory("General");
+
+#define KeyText(x, y, sentence) \
+	ui_draw2d.DrawText(UBUNTU24, (sentence), x, y, 0xFFFFFFFF, ALIGN_TOPLEFT);
+#define KeyScale(width) \
+	ui_draw2d.SetFontScale(width, width);
+
+	int top = 10;
+	int left = 10;
+	int stride = 70;
+	KeyScale(1.6f);
+	KeyText(left, top, keyI18N->T("Map a new key for button: "));
+	KeyText(left, top += stride, (KeyMap::GetPspButtonName(this->pspBtn)).c_str());
+	KeyScale(1.3f);
+	KeyText(left, top += stride, keyI18N->T("Current key"));
+	KeyScale(2.0f);
+	KeyText(left, top + stride, (KeyMap::NameKeyFromPspButton(this->pspBtn)).c_str());
+
+	int right = dp_yres;
+	KeyScale(1.4f);
+	KeyText(right, top, keyI18N->T("New Key"));
+	KeyScale(2.0f);
+	if (last_kb_key != 0) {
+		bool key_used = KeyMap::IsMappedKey(last_kb_key);
+		if (!key_used) {
+			KeyText(right, top + stride, KeyMap::GetKeyName(last_kb_key).c_str());
+		} else {
+			KeyScale(1.0f);
+			KeyText(left + stride, top + 2*stride, 
+			        keyI18N->T("Error: Key is already used"));
+		}
+	}
+
+	KeyScale(1.0f);
+#undef KeyText
+#undef KeyScale
+
+	// Save & cancel buttons
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Save Mapping"), ALIGN_LEFT | ALIGN_BOTTOM)) {
+		KeyMap::SetKeyMapping(this->last_kb_key, this->pspBtn);
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Cancel"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
 	UIEnd();
 }
 
