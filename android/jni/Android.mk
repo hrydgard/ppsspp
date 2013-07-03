@@ -152,6 +152,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/snappy/snappy.cpp \
   $(SRC)/ext/xbrz/xbrz.cpp \
   $(SRC)/Common/Crypto/md5.cpp \
+  $(SRC)/Common/KeyMap.cpp \
   $(SRC)/Common/LogManager.cpp \
   $(SRC)/Common/MemArena.cpp \
   $(SRC)/Common/MemoryUtil.cpp \
