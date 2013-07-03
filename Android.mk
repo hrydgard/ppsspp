@@ -34,7 +34,8 @@ LOCAL_SRC_FILES :=\
     file/zip_read.cpp \
     json/json_writer.cpp \
     i18n/i18n.cpp \
-	input/gesture_detector.cpp \
+    input/gesture_detector.cpp \
+    input/input_state.cpp \
     math/math_util.cpp \
     math/curves.cpp \
     math/expression_parser.cpp \
