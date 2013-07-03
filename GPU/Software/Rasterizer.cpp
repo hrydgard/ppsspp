@@ -275,26 +275,112 @@ void DrawTriangle(VertexData vertexdata[3])
 
 				// TODO: Fogging
 
-				// TODO: Finish alpha blending support
-//				if (!gstate.isAlphaBlendEnabled())
-					SetPixelColor(p.x, p.y, Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), prim_color_a).ToRGBA());
-/*				else {
-					u32 dst = GetPixelColor(p.x, p.y);
-					u32 A, B;
-					SET_R(A, GET_A(prim_color));
-					SET_G(A, GET_A(prim_color));
-					SET_B(A, GET_A(prim_color));
-					SET_A(A, GET_A(prim_color));
-					SET_R(B, 255 - GET_A(prim_color));
-					SET_G(B, 255 - GET_A(prim_color));
-					SET_B(B, 255 - GET_A(prim_color));
-					SET_A(B, 255 - GET_A(prim_color));
-					SET_R(prim_color, (GET_R(prim_color)*GET_R(A)+GET_R(dst)*GET_R(B))/255);
-					SET_G(prim_color, (GET_G(prim_color)*GET_G(A)+GET_G(dst)*GET_G(B))/255);
-					SET_B(prim_color, (GET_B(prim_color)*GET_B(A)+GET_B(dst)*GET_B(B))/255);
-					SET_A(prim_color, (GET_A(prim_color)*GET_A(A)+GET_A(dst)*GET_A(B))/255);
-					SetPixelColor(p.x, p.y, prim_color.Compactify());
-				}*/
+				if (gstate.isAlphaBlendEnabled()) {
+					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
+
+					Vec3<int> srccol(0, 0, 0);
+					Vec3<int> dstcol(0, 0, 0);
+
+					switch (gstate.getBlendFuncA()) {
+					case GE_SRCBLEND_DSTCOLOR:
+						srccol = dst.rgb();
+						break;
+					case GE_SRCBLEND_INVDSTCOLOR:
+						srccol = Vec3<int>::AssignToAll(255) - dst.rgb();
+						break;
+					case GE_SRCBLEND_SRCALPHA:
+						srccol = Vec3<int>::AssignToAll(prim_color_a);
+						break;
+					case GE_SRCBLEND_INVSRCALPHA:
+						srccol = Vec3<int>::AssignToAll(255 - prim_color_a);
+						break;
+					case GE_SRCBLEND_DSTALPHA:
+						srccol = Vec3<int>::AssignToAll(dst.a());
+						break;
+					case GE_SRCBLEND_INVDSTALPHA:
+						srccol = Vec3<int>::AssignToAll(255 - dst.a());
+						break;
+					case GE_SRCBLEND_DOUBLESRCALPHA:
+						srccol = 2 * Vec3<int>::AssignToAll(prim_color_a);
+						break;
+					case GE_SRCBLEND_DOUBLEINVSRCALPHA:
+						srccol = 2 * Vec3<int>::AssignToAll(255 - prim_color_a);
+						break;
+					case GE_SRCBLEND_DOUBLEDSTALPHA:
+						srccol = 2 * Vec3<int>::AssignToAll(dst.a());
+						break;
+					case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+						srccol = 2 * Vec3<int>::AssignToAll(255 - dst.a());
+						break;
+					case GE_SRCBLEND_FIXA:
+						srccol = Vec4<int>::FromRGBA(gstate.getFixA()).rgb();
+						break;
+					}
+
+					switch (gstate.getBlendFuncB()) {
+					GE_DSTBLEND_SRCCOLOR:
+						dstcol = prim_color_rgb;
+						break;
+					GE_DSTBLEND_INVSRCCOLOR:
+						dstcol = Vec3<int>::AssignToAll(255) - prim_color_rgb;
+						break;
+					GE_DSTBLEND_SRCALPHA:
+						dstcol = Vec3<int>::AssignToAll(prim_color_a);
+						break;
+					GE_DSTBLEND_INVSRCALPHA:
+						dstcol = Vec3<int>::AssignToAll(255 - prim_color_a);
+						break;
+					GE_DSTBLEND_DSTALPHA:
+						dstcol = Vec3<int>::AssignToAll(dst.a());
+						break;
+					GE_DSTBLEND_INVDSTALPHA:
+						dstcol = Vec3<int>::AssignToAll(255 - dst.a());
+						break;
+					GE_DSTBLEND_DOUBLESRCALPHA:
+						dstcol = 2 * Vec3<int>::AssignToAll(prim_color_a);
+						break;
+					GE_DSTBLEND_DOUBLEINVSRCALPHA:
+						dstcol = 2 * Vec3<int>::AssignToAll(255 - prim_color_a);
+						break;
+					GE_DSTBLEND_DOUBLEDSTALPHA:
+						dstcol = 2 * Vec3<int>::AssignToAll(dst.a());
+						break;
+					GE_DSTBLEND_DOUBLEINVDSTALPHA:
+						dstcol = 2 * Vec3<int>::AssignToAll(255 - dst.a());
+						break;
+					GE_DSTBLEND_FIXB:
+						dstcol = Vec4<int>::FromRGBA(gstate.getFixB()).rgb();
+						break;
+					}
+
+					switch (gstate.getBlendEq()) {
+					case GE_BLENDMODE_MUL_AND_ADD:
+						prim_color_rgb = (prim_color_rgb * srccol + dst.rgb() * dstcol) / 255;
+						break;
+					case GE_BLENDMODE_MUL_AND_SUBTRACT:
+						prim_color_rgb = (prim_color_rgb * srccol - dst.rgb() * dstcol) / 255;
+						break;
+					case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
+						prim_color_rgb = (dst.rgb() * dstcol - prim_color_rgb * srccol) / 255;
+						break;
+					case GE_BLENDMODE_MIN:
+						prim_color_rgb.r() = std::min(prim_color_rgb.r(), dst.r());
+						prim_color_rgb.g() = std::min(prim_color_rgb.g(), dst.g());
+						prim_color_rgb.b() = std::min(prim_color_rgb.b(), dst.b());
+						break;
+					case GE_BLENDMODE_MAX:
+						prim_color_rgb.r() = std::max(prim_color_rgb.r(), dst.r());
+						prim_color_rgb.g() = std::max(prim_color_rgb.g(), dst.g());
+						prim_color_rgb.b() = std::max(prim_color_rgb.b(), dst.b());
+						break;
+					case GE_BLENDMODE_ABSDIFF:
+						prim_color_rgb.r() = ::abs(prim_color_rgb.r() - dst.r());
+						prim_color_rgb.g() = ::abs(prim_color_rgb.g() - dst.g());
+						prim_color_rgb.b() = ::abs(prim_color_rgb.b() - dst.b());
+						break;
+					}
+				}
+				SetPixelColor(p.x, p.y, Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), prim_color_a).ToRGBA());
 			}
 		}
 	}
