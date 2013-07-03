@@ -118,6 +118,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 		vertex.drawpos.x = pos[0];
 		vertex.drawpos.y = pos[1];
 		vertex.drawpos.z = 0; // TODO: Not sure if that's what we should do here
+		vertex.clippos.w = 1.f;
 	}
 
 	return vertex;
