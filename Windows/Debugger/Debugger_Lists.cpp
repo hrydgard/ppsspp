@@ -83,7 +83,20 @@ void CtrlThreadList::handleNotify(LPARAM lParam)
 	if (mhdr->code == NM_DBLCLK)
 	{
 		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
-		SendMessage(GetParent(wnd),WM_DEB_GOTOWPARAM,threads[item->iItem].curPC,0);
+
+		u32 address;
+		switch (threads[item->iItem].status)
+		{
+		case THREADSTATUS_DORMANT:
+		case THREADSTATUS_DEAD:
+			address = threads[item->iItem].entrypoint;
+			break;
+		default:
+			address = threads[item->iItem].curPC;
+			break;
+		}
+
+		SendMessage(GetParent(wnd),WM_DEB_GOTOWPARAM,address,0);
 		return;
 	}
 
@@ -99,7 +112,16 @@ void CtrlThreadList::handleNotify(LPARAM lParam)
 			strcpy(stringBuffer,threads[index].name);
 			break;
 		case TL_PROGRAMCOUNTER:
-			sprintf(stringBuffer,"0x%08X",threads[index].curPC);
+			switch (threads[index].status)
+			{
+			case THREADSTATUS_DORMANT:
+			case THREADSTATUS_DEAD:
+				sprintf(stringBuffer,"N/A");
+				break;
+			default:
+				sprintf(stringBuffer,"0x%08X",threads[index].curPC);
+				break;
+			};
 			break;
 		case TL_ENTRYPOINT:
 			sprintf(stringBuffer,"0x%08X",threads[index].entrypoint);
@@ -167,4 +189,14 @@ void CtrlThreadList::reloadThreads()
 
 	InvalidateRect(wnd,NULL,true);
 	UpdateWindow(wnd);
+}
+
+const char* CtrlThreadList::getCurrentThreadName()
+{
+	for (int i = 0; i < threads.size(); i++)
+	{
+		if (threads[i].isCurrent) return threads[i].name;
+	}
+
+	return "N/A";
 }

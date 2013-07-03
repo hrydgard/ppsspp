@@ -558,6 +558,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					ptr->gotoPC();
 					UpdateDialog();
 					vfpudlg->Update();
+
+					CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW))->redraw();
+					threadList->reloadThreads();
+					updateThreadLabel(false);
 				}
 				break;
 
@@ -575,7 +579,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					
 					ptr->setDontRedraw(true);
 					u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
-					if (memcmp(dis,"jal\t",4) == 0)
+					if (memcmp(dis,"jal\t",4) == 0 || memcmp(dis,"jalr\t",5) == 0)
 					{
 						// it's a function call with a delay slot - skip that too
 						breakpointAddress += cpu->getInstructionSize(0);
@@ -844,6 +848,19 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	return FALSE;
 }
 
+void CDisasm::updateThreadLabel(bool clear)
+{
+	char label[512];
+	if (clear)
+	{
+		sprintf(label,"Thread: -");
+	} else {
+		sprintf(label,"Thread: %s",threadList->getCurrentThreadName());
+	}
+
+	SetDlgItemText(m_hDlg, IDC_THREADNAME,label);
+}
+
 void CDisasm::UpdateSize(WORD width, WORD height)
 {
 	HWND disasm = GetDlgItem(m_hDlg, IDC_DISASMVIEW);
@@ -905,6 +922,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		CBreakPoints::ClearTemporaryBreakPoints();
 		updateBreakpointList();
 		threadList->reloadThreads();
+		updateThreadLabel(false);
 
 		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
@@ -915,12 +933,18 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->setDontRedraw(false);
 		ptr->gotoPC();
+		
+		CtrlMemView *mem = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
+		mem->redraw();
+
 		// update the callstack
 		//CDisam::blah blah
 		UpdateDialog();
 	}
 	else
 	{
+		updateThreadLabel(true);
+
 		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
