@@ -16,6 +16,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/Font/PGF.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/Config.h"
 
 enum {
 	ERROR_FONT_INVALID_LIBID                            = 0x80460002,
@@ -458,7 +459,7 @@ void __LoadInternalFonts() {
 		// Fonts already loaded.
 		return;
 	}
-	std::string fontPath = "flash0:/font/";
+	std::string fontPath = g_Config.flashDirectory;
 	if (!pspFileSystem.GetFileInfo(fontPath).exists) {
 		pspFileSystem.MkDir(fontPath);
 	}
