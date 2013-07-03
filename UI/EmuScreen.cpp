@@ -192,17 +192,10 @@ void EmuScreen::update(InputState &input) {
 	}
 #endif
 
-// Daniel:
-// Sorry I know it is pretensious of me to
-// ask platforms to define a "legacy" def
-// just becasue I am changing things on
-// other platforms.
-// Please be patient with me, I will try
-// to migrate other platforms as time goes
-// on.
-// TODO: Migrate all platforms to "modern"
-// key mapping
-#ifdef LEGACY_KEY_MAPPING
+	// Set Keys ---- 
+	__CtrlButtonUp(-1); // blanks all buttons
+	uint32_t pressed = 0;
+
 	// Legacy key mapping
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
@@ -221,18 +214,10 @@ void EmuScreen::update(InputState &input) {
 	};
 
 	for (int i = 0; i < 12; i++) {
-		if (input.pad_buttons_down & mapping[i][0]) {
-			__CtrlButtonDown(mapping[i][1]);
-		}
-		if (input.pad_buttons_up & mapping[i][0]) {
-			__CtrlButtonUp(mapping[i][1]);
-		}
+		pressed |= input.pad_buttons_down & mapping[i][0];
 	}
 
-#else
 	// Modern key mapping
-	__CtrlButtonUp(-1); // blanks all buttons
-	uint32_t pressed = 0;
 	for (int i = 0; i < MAX_KEYQUEUESIZE; i++) {
 		int key = input.key_queue[i];
 		if (key == 0)
@@ -242,7 +227,7 @@ void EmuScreen::update(InputState &input) {
 		pressed |= KeyMap::KeyToPspButton(key);
 	}
 	__CtrlButtonDown(pressed);
-#endif
+	// End Set Keys --
 
 	float stick_x = input.pad_lstick_x;
 	float stick_y = input.pad_lstick_y;
