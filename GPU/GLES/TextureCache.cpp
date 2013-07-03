@@ -994,18 +994,16 @@ void TextureCache::SetTexture() {
 					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 				}
 				UpdateSamplingParams(*entry, false);
+				// This isn't right.
+				gstate_c.curTextureWidth = entry->framebuffer->width;
+				gstate_c.curTextureHeight = entry->framebuffer->height;
+				gstate_c.flipTexture = true;
+				gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
+				entry->lastFrame = gpuStats.numFrames;
+				return;
 			}
 
-			// This isn't right.
-			gstate_c.curTextureWidth = entry->framebuffer->width;
-			gstate_c.curTextureHeight = entry->framebuffer->height;
-			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-			gstate_c.actualTextureHeight = h;
-			gstate_c.flipTexture = true;
-			gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-			entry->lastFrame = gpuStats.numFrames;
-			return;
-		}
+	}
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
