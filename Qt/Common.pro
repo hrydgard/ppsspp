@@ -57,7 +57,7 @@ HEADERS += ../Common/ChunkFile.h \
 	../Common/FileUtil.h \
 	../Common/Hash.h \
 	../Common/LogManager.h \
-	../Common/KeyMap.cpp \
+	../Common/KeyMap.h \
 	../Common/MathUtil.h \
 	../Common/MemArena.h \
 	../Common/MemoryUtil.h \
