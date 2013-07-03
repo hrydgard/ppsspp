@@ -126,7 +126,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// Set cull
 	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 	glstate.cullFace.set(wantCull);
-	if (wantCull) 
+	if (wantCull)
 		glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
 
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
@@ -234,9 +234,13 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		// Stencil Test
-		glstate.stencilTest.enable();
-		glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-		glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
+		if (alphaMask) {
+			glstate.stencilTest.enable();
+			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
+		} else {
+			glstate.stencilTest.disable();
+		}
 
 	} else {
 
