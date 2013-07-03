@@ -39,8 +39,9 @@ u32 SampleNearest(int level, float s, float t)
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
 
-	int u = s * width; // TODO: -1?
-	int v = t * height; // TODO: -1?
+	// TODO: Not sure if that through mode treatment is correct..
+	int u = (gstate.isModeThrough()) ? s : s * width; // TODO: -1?
+	int v = (gstate.isModeThrough()) ? t : t * height; // TODO: -1?
 
 	// TODO: Assert tmode.hsm == 0 (normal storage mode)
 	// TODO: Assert tmap.tmn == 0 (uv texture mapping mode)
@@ -84,6 +85,8 @@ u32 SampleNearest(int level, float s, float t)
 		u8 b = *srcptr++;
 		u8 a = *srcptr++;
 		return (r << 24) | (g << 16) | (b << 8) | a;
+	} else {
+		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
 	}
 }
 
@@ -107,7 +110,7 @@ static inline void SetPixelDepth(int x, int y, u16 value)
 	*(u16*)&depthbuf[2*x + 2*y*gstate.DepthBufStride()] = value;
 }
 
-static inline bool DepthTestPassed(int x, int y, u16 z, const VertexData& v0, const VertexData& v1, const VertexData& v2)
+static inline bool DepthTestPassed(int x, int y, u16 z)
 {
 	u16 reference_z = GetPixelDepth(x, y);
 
@@ -165,6 +168,7 @@ void DrawTriangle(VertexData vertexdata[3])
 			// If p is on or inside all edges, render pixel
 			// TODO: Should only render when it's on the left of the right edge
 			if (w0 >=0 && w1 >= 0 && w2 >= 0) {
+				// TODO: Make sure this is not ridiculously small?
 				float den = 1.0f/vertexdata[0].clippos.w * w0 + 1.0f/vertexdata[1].clippos.w * w1 + 1.0f/vertexdata[2].clippos.w * w2;
 
 				// TODO: Depth range test
@@ -173,11 +177,11 @@ void DrawTriangle(VertexData vertexdata[3])
 				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
 					u16 z = (u16)((vertexdata[0].drawpos.z * w0 / vertexdata[0].clippos.w + vertexdata[1].drawpos.z * w1 / vertexdata[1].clippos.w + vertexdata[2].drawpos.z * w2 / vertexdata[2].clippos.w) / den);
 
-					if (!DepthTestPassed(p.x, p.y, z, vertexdata[0], vertexdata[1], vertexdata[2]))
+					if (!DepthTestPassed(p.x, p.y, z))
 						continue;
 
-					// TODO: Is it correct to enable depth writing in the clearmode case?
-					if (gstate.isDepthWriteEnabled() || (gstate.clearmode&0x40))
+					// TODO: Is this condition correct?
+					if (gstate.isDepthWriteEnabled() || ((gstate.clearmode&0x40) && gstate.isModeClear()))
 						SetPixelDepth(p.x, p.y, z);
 				}
 
@@ -264,6 +268,7 @@ void DrawTriangle(VertexData vertexdata[3])
 				if (gstate.isColorDoublingEnabled()) {
 					// TODO: Do we need to clamp here?
 					// TODO: Even if we don't need to clamp, we aren't doing any U8 overflow emulation here
+					// TODO: Even if the intermediate registers are wieder than 8 bits, we /are/ overflowing here
 					SET_R(prim_color, GET_R(prim_color)*2);
 					SET_G(prim_color, GET_G(prim_color)*2);
 					SET_B(prim_color, GET_B(prim_color)*2);
@@ -277,6 +282,28 @@ void DrawTriangle(VertexData vertexdata[3])
 				SET_B(prim_color, CLAMP_U8(GET_B(prim_color) + GET_B(sec_color)));
 
 				// TODO: Fogging
+
+				// TODO: Finish alpha blending support
+//				if (!gstate.isAlphaBlendEnabled())
+					SetPixelColor(p.x, p.y, prim_color);
+/*				else {
+					u32 dst = GetPixelColor(p.x, p.y);
+					u32 A, B;
+					SET_R(A, GET_A(prim_color));
+					SET_G(A, GET_A(prim_color));
+					SET_B(A, GET_A(prim_color));
+					SET_A(A, GET_A(prim_color));
+					SET_R(B, 255 - GET_A(prim_color));
+					SET_G(B, 255 - GET_A(prim_color));
+					SET_B(B, 255 - GET_A(prim_color));
+					SET_A(B, 255 - GET_A(prim_color));
+					SET_R(prim_color, (GET_R(prim_color)*GET_R(A)+GET_R(dst)*GET_R(B))/255);
+					SET_G(prim_color, (GET_G(prim_color)*GET_G(A)+GET_G(dst)*GET_G(B))/255);
+					SET_B(prim_color, (GET_B(prim_color)*GET_B(A)+GET_B(dst)*GET_B(B))/255);
+					SET_A(prim_color, (GET_A(prim_color)*GET_A(A)+GET_A(dst)*GET_A(B))/255);
+					SetPixelColor(p.x, p.y, prim_color);
+				}*/
+
 #undef CLAMP_U8
 #undef GET_R
 #undef GET_G
@@ -286,8 +313,6 @@ void DrawTriangle(VertexData vertexdata[3])
 #undef SET_G
 #undef SET_B
 #undef SET_A
-
-				SetPixelColor(p.x, p.y, prim_color);
 			}
 		}
 	}
