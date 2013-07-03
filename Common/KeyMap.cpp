@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "input/input_state.h"
-#include "Core/Config.h"
+#include "../Core/Config.h"
 #include "KeyMap.h"
 
 using namespace KeyMap;

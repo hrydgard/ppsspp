@@ -46,6 +46,7 @@
     <ClInclude Include="Crypto\md5.h">
       <Filter>Crypto</Filter>
     </ClInclude>
+    <ClInclude Include="KeyMap.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -76,6 +77,7 @@
     <ClCompile Include="Crypto\md5.cpp">
       <Filter>Crypto</Filter>
     </ClCompile>
+    <ClCompile Include="KeyMap.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

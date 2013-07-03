@@ -37,6 +37,7 @@ SOURCES += ../Common/ColorUtil.cpp \
 	../Common/FileUtil.cpp \
 	../Common/Hash.cpp \
 	../Common/LogManager.cpp \
+	../Common/KeyMap.cpp \
 	../Common/MathUtil.cpp \
 	../Common/MemArena.cpp \
 	../Common/MemoryUtil.cpp \
@@ -56,6 +57,7 @@ HEADERS += ../Common/ChunkFile.h \
 	../Common/FileUtil.h \
 	../Common/Hash.h \
 	../Common/LogManager.h \
+	../Common/KeyMap.cpp \
 	../Common/MathUtil.h \
 	../Common/MemArena.h \
 	../Common/MemoryUtil.h \
