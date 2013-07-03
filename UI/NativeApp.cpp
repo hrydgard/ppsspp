@@ -34,7 +34,7 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "ext/jpge/jpge.h"
+#include "native/ext/jpge/jpge.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
@@ -77,6 +77,10 @@ static UI::Theme ui_theme;
 
 #if defined(__APPLE__) && !defined(IOS)
 #include <mach-o/dyld.h>
+#endif
+
+#ifdef IOS
+#include "ios/iOSCoreAudio.h"
 #endif
 
 Texture *uiTexture;
@@ -171,9 +175,17 @@ std::string boot_filename = "";
 
 void NativeHost::InitSound(PMixer *mixer) {
 	g_mixer = mixer;
+    
+#ifdef IOS
+    iOSCoreAudioInit();
+#endif
 }
 
 void NativeHost::ShutdownSound() {
+#ifdef IOS
+    iOSCoreAudioShutdown();
+#endif
+    
 	g_mixer = 0;
 }
 
@@ -373,13 +385,8 @@ void NativeInitGraphics() {
 #if (defined(_WIN32) && (defined(_M_IX86) || defined(_M_X64))) || defined(ARMEABI) || defined(ARMEABI_V7A) || (defined(MACOSX) && defined(_M_IX64))
 		if (Atrac3plus_Decoder::CanAutoInstall()) {
 			Atrac3plus_Decoder::DoAutoInstall();
-			screenManager->switchScreen(new LogoScreen(boot_filename));
-		} else {
-			screenManager->switchScreen(new LogoScreen(boot_filename));
-			// If first run and can't autoinstall, let's send the user to the atrac3plus download screen.
-			if (g_Config.bFirstRun && !Atrac3plus_Decoder::IsInstalled())
-				screenManager->push(new PluginScreen());
 		}
+		screenManager->switchScreen(new LogoScreen(boot_filename));
 #else
 		screenManager->switchScreen(new LogoScreen(boot_filename));
 #endif

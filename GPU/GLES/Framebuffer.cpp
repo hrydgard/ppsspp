@@ -32,6 +32,20 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/ShaderManager.h"
 
+#if defined(USING_GLES2)
+#define GL_READ_FRAMEBUFFER GL_FRAMEBUFFER
+#define GL_DRAW_FRAMEBUFFER GL_FRAMEBUFFER
+#define GL_RGBA8 GL_RGBA
+#ifndef GL_DEPTH_COMPONENT24
+#define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
+#endif
+#ifndef GL_DEPTH24_STENCIL8_OES
+#define GL_DEPTH24_STENCIL8_OES 0x88F0
+#endif
+#endif
+
+extern int g_iNumVideos;
+
 static const char tex_fs[] =
 	"#ifdef GL_ES\n"
 	"precision mediump float;\n"
@@ -232,7 +246,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	}
 
 	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.bLinearFiltering)
+	if (g_Config.iTexFiltering == 3 || (g_Config.iTexFiltering == 4 && g_iNumVideos))
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
@@ -243,10 +257,11 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale) {
+void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
 	float u2 = uscale;
-	float v1 = flip ? 1.0f : 0.0f;
-	float v2 = flip ? 0.0f : 1.0f;
+	// Since we're flipping, 0 is down.  That's where the scale goes.
+	float v1 = flip ? 1.0f : 1.0f - vscale;
+	float v2 = flip ? 1.0f - vscale : 1.0f;
 
 	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
 	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
@@ -406,6 +421,13 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
 	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
 
+	// Save current render framebuffer to memory
+	if(currentRenderVfb_) {
+		if(g_Config.bFramebuffersToMem) {
+			ReadFramebufferToMemory(currentRenderVfb_);
+		}
+	}
+
 	// None found? Create one.
 	if (!vfb) {
 		gstate_c.textureChanged = true;
@@ -481,7 +503,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 		// Use it as a render target.
-		DEBUG_LOG(HLE, "Switching render target to FBO for %08x", vfb->fb_address);
+		DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
 		vfb->last_frame_used = gpuStats.numFrames;
@@ -594,8 +616,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 	// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(x, y, w, h, true);
+		DrawActiveTexture(x, y, w, h, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	if(g_Config.bFramebuffersToMem) {
+		ReadFramebufferToMemory(vfb);
 	}
 
 	if (resized_) {
@@ -603,6 +629,256 @@ void FramebufferManager::CopyDisplayToOutput() {
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
+}
+
+void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
+	// This only works with buffered rendering
+	if (!useBufferedRendering_) {
+		return;
+	}
+
+	fbo_unbind();
+	if(gl_extensions.FBO_ARB) { // TODO: fbo_unbind should use GL_FRAMEBUFFER to do this? Don't want to change native
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	}
+	if(vfb) {
+		float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
+		float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+
+		// If render resolution different we blit a new framebuffer and copy that one to memory
+		// (assuming rendering a smaller resolution than the PSP isn't done on any device, but not sure on that)
+		// A more accurate (and probably costly) solution would be to draw a framebuffer at native resolution 
+		// parallel to the rendering one?
+		if(renderWidthFactor > 1.0f || renderHeightFactor > 1.0f) {
+			// For now we'll also keep these framebuffer objects on the same struct as the ones that can get displayed
+			// (and blatantly copy work already done above while at it)
+			VirtualFramebuffer *nvfb = 0;
+
+			// We maintain a separate vector of framebuffer objects for blitting (guessing the point is saving on FBOs?)
+			for (size_t i = 0; i < bvfbs_.size(); ++i) {
+				VirtualFramebuffer *v = bvfbs_[i];
+				if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
+					if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
+						nvfb = v;
+						v->fb_stride = vfb->fb_stride;
+						v->width = vfb->width;
+						v->height = vfb->height;
+						break;
+					}
+				}
+			}
+
+			// Create a new fbo if none was found for the size
+			if(!nvfb) {
+				nvfb = new VirtualFramebuffer();
+				nvfb->fbo = 0;
+				nvfb->fb_address = vfb->fb_address;
+				nvfb->fb_stride = vfb->fb_stride;
+				nvfb->z_address = vfb->z_address;
+				nvfb->z_stride = vfb->z_stride;
+				nvfb->width = vfb->width;
+				nvfb->height = vfb->height;
+				nvfb->renderWidth = vfb->width;
+				nvfb->renderHeight = vfb->height;
+				nvfb->bufferWidth = vfb->bufferWidth;
+				nvfb->bufferHeight = vfb->bufferHeight;
+				nvfb->format = vfb->format;
+				nvfb->usageFlags = FB_USAGE_RENDERTARGET;
+				nvfb->dirtyAfterDisplay = true;
+
+				if (g_Config.bTrueColor) {
+					nvfb->colorDepth = FBO_8888;
+				} else { 
+					switch (vfb->format) {
+						case GE_FORMAT_4444: 
+							nvfb->colorDepth = FBO_4444; 
+							break;
+						case GE_FORMAT_5551: 
+							nvfb->colorDepth = FBO_5551; 
+							break;
+						case GE_FORMAT_565: 
+							nvfb->colorDepth = FBO_565; 
+							break;
+						case GE_FORMAT_8888: 
+							nvfb->colorDepth = FBO_8888; 
+							break;
+						default: 
+							nvfb->colorDepth = FBO_8888; 
+							break;
+					}
+				}
+			
+				//#ifdef ANDROID
+				//	nvfb->colorDepth = FBO_8888;
+				//#endif
+
+				nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
+				if (useBufferedRendering_) {
+					if (nvfb->fbo) {
+						fbo_bind_as_render_target(nvfb->fbo);
+					} else {
+						ERROR_LOG(HLE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
+					}
+				}
+
+				nvfb->last_frame_used = gpuStats.numFrames;
+				bvfbs_.push_back(nvfb);
+			} else {
+				// We already have one, so we set it as a render target.
+				//DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", nvfb->fb_address, nvfb->width, nvfb->height, nvfb->format);
+				nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
+				nvfb->last_frame_used = gpuStats.numFrames;
+				nvfb->dirtyAfterDisplay = true;
+
+				if (useBufferedRendering_) {
+					if (nvfb->fbo) {
+						fbo_bind_as_render_target(nvfb->fbo);
+					} else {
+						fbo_unbind();
+						if(gl_extensions.FBO_ARB) {
+							glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+						}
+					}
+				}
+#ifdef USING_GLES2
+				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+				// to it. This broke stuff before, so now it only clears on the first use of an
+				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+				if (nvfb->last_frame_used != gpuStats.numFrames)	{
+					glstate.depthWrite.set(GL_TRUE);
+					glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+					glClearColor(0,0,0,1);
+					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+				}
+#endif
+			}
+
+			// We bind the resized fbo for reading
+			if (useBufferedRendering_) {
+				if (vfb->fbo) {
+					fbo_bind_for_read(vfb->fbo);
+				} else {
+					fbo_unbind();
+					if(gl_extensions.FBO_ARB) {
+						glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+					}
+				}
+			}
+
+			// And we check both framebuffers for completeness
+			if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE 
+				|| glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+					DEBUG_LOG(HLE, "Incomplete FBOs pre-blitting");
+					fbo_unbind();
+					if(gl_extensions.FBO_ARB) {
+						glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+					}
+					return;
+			}
+
+			// TODO: glReadBuffer and glDrawBuffer should maybe be specifically set here?
+
+			// Then we blit the color buffer using linear filtering
+#ifndef USING_GLES2
+			DEBUG_LOG(HLE, "Blitting FBOs for %08x: %i x %i to %i x %i ", nvfb->fb_address, vfb->renderWidth, vfb->renderHeight, nvfb->renderWidth, nvfb->renderHeight);
+			glBlitFramebuffer(0, 0, vfb->fb_stride * renderWidthFactor, vfb->renderHeight, 0, 0, nvfb->fb_stride, nvfb->height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+#else
+			WARN_LOG(HLE, "Skipping FBO blit, not supported on GLES 2.0. Needs replacing with a real draw (that can also flip y)");
+#endif
+			fbo_unbind();
+			if(gl_extensions.FBO_ARB) {
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+			}
+			vfb = nvfb;
+		}
+
+		int pixelType, pixelSize, pixelFormat, align;
+
+		
+		switch (vfb->format) {
+			case GE_FORMAT_4444: // 16 bit ABGR
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_4_4_4_4;
+#else
+				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+#endif
+				pixelFormat = GL_RGBA;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_5551: // 16 bit ABGR
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
+#else
+				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+#endif
+				pixelFormat = GL_RGBA;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_565: // 16 bit BGR
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_SHORT_5_6_5;
+#else
+				pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
+#endif
+				pixelFormat = GL_RGB;
+				pixelSize = 2;
+				align = 8;
+				break;
+			case GE_FORMAT_8888: // 32 bit ABGR
+			default: // And same as above
+#ifdef USING_GLES2
+				pixelType = GL_UNSIGNED_BYTE;
+#else
+				pixelType = GL_UNSIGNED_INT_8_8_8_8_REV;
+#endif
+				pixelFormat = GL_RGBA;
+				pixelSize = 4;
+				align = 4;
+				break;
+		}
+
+		if (useBufferedRendering_) {
+			if (vfb->fbo) {
+				fbo_bind_for_read(vfb->fbo);
+			} else {
+				fbo_unbind();
+				if(gl_extensions.FBO_ARB) {
+					glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+				}
+				return;
+			}
+		}
+
+		// Prepare buffers to read the pixel data into
+		// Ideally we'd apply the image flip inplace and only need one, 
+		// but right now this is simpler 
+		// (maybe it's more efficient to have the GPU flip it in the framebuffer and then flip it back?)
+		int bufHeight = vfb->height;
+		size_t bufSize = vfb->fb_stride * bufHeight;
+		GLubyte *flipBuf = (GLubyte *) malloc(bufSize * pixelSize);
+
+		u32 fb_address = (0x04000000) | vfb->fb_address;
+
+		DEBUG_LOG(HLE, "Reading pixels to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
+		glPixelStorei(GL_PACK_ALIGNMENT, align);
+		glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, flipBuf);
+		
+		// We have to flip glReadPixels data upside down
+		int u8_stride = vfb->fb_stride * pixelSize;
+		for (int y = 0; y < bufHeight; y++) {
+			int inverted_y = bufHeight - 1 - y;
+			Memory::Memcpy(fb_address + inverted_y * u8_stride, &flipBuf[u8_stride * y], u8_stride);
+		}
+
+		free(flipBuf);
+		fbo_unbind();
+		if(gl_extensions.FBO_ARB) {
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+		}
 	}
 }
 

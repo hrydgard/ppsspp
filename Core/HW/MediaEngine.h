@@ -48,8 +48,7 @@ public:
 	~MediaEngine();
 
 	void closeMedia();
-	bool loadStream(u8* buffer, int readSize, int StreamSize);
-	bool loadFile(const char* filename);
+	bool loadStream(u8* buffer, int readSize, int RingbufferSize);
 	// open the mpeg context
 	bool openContext();
 	// Returns number of packets actually added.
@@ -58,8 +57,7 @@ public:
 	void setVideoStream(int streamNum) { m_videoStream = streamNum; }
 	void setAudioStream(int streamNum) { m_audioStream = streamNum; }
 
-	int getRemainSize() { return m_streamSize - m_readSize;}
-	int getBufferedSize();
+	int getRemainSize();
 
 	bool stepVideo(int videoPixelMode);
 	int writeVideoImage(u8* buffer, int frameWidth = 512, int videoPixelMode = 3);
@@ -73,13 +71,9 @@ public:
 	s64 getLastTimeStamp();
 
 	bool IsVideoEnd() { return m_isVideoEnd; }
-	bool IsAudioEnd() { return m_isAudioEnd; }
+	bool IsNoAudioData() { return m_noAudioData; }
 
-	void DoState(PointerWrap &p) {
-		p.Do(m_streamSize);
-		p.Do(m_readSize);
-		p.DoMarker("MediaEngine");
-	}
+	void DoState(PointerWrap &p);
 
 private:
 	void updateSwsFormat(int videoPixelMode);
@@ -99,19 +93,22 @@ public:
 
 	int  m_desWidth;
 	int  m_desHeight;
-	int m_streamSize;
-	int m_readSize;
-	int m_decodeNextPos;
-	s64 m_decodedPos;
+	int m_decodingsize;
 	int m_bufSize;
 	s64 m_videopts;
-	u8* m_pdata;
+	Atrac3plus_Decoder::BufferQueue *m_pdata;
 	
 	MpegDemux *m_demux;
-	int m_audioPos;
 	void* m_audioContext;
 	s64 m_audiopts;
 
+	s64 m_firstTimeStamp;
+	s64 m_lastTimeStamp;
+
 	bool m_isVideoEnd;
-	bool m_isAudioEnd;
+	bool m_noAudioData;
+
+	int m_ringbuffersize;
+	u8 m_mpegheader[0x10000];
+	int m_mpegheaderReadPos;
 };

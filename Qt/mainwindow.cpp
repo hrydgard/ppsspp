@@ -138,7 +138,7 @@ void MainWindow::UpdateMenus()
 	ui->action_AF16x->setChecked(g_Config.iAnisotropyLevel == 16);
 
 	ui->action_OptionsBufferedRendering->setChecked(g_Config.bBufferedRendering);
-	ui->action_OptionsLinearFiltering->setChecked(g_Config.bLinearFiltering);
+	ui->action_OptionsLinearFiltering->setChecked(3 == g_Config.iTexFiltering);
 	ui->action_Simple_2xAA->setChecked(g_Config.SSAntiAliasing);
 
 	ui->action_OptionsScreen1x->setChecked(0 == (g_Config.iWindowZoom - 1));
@@ -500,7 +500,10 @@ void MainWindow::on_action_OptionsBufferedRendering_triggered()
 
 void MainWindow::on_action_OptionsLinearFiltering_triggered()
 {
-	g_Config.bLinearFiltering = !g_Config.bLinearFiltering;
+	if (g_Config.iTexFiltering == 0)
+		g_Config.iTexFiltering = 3;
+	else
+		g_Config.iTexFiltering = 0;
 	UpdateMenus();
 }
 

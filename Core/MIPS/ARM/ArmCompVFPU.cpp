@@ -216,12 +216,24 @@ namespace MIPSComp
 					}
 					ADD(R0, R0, R11);
 				}
+#ifdef __ARM_ARCH_7S__
+                FixupBranch skip;
+                if (doCheck) {
+                    skip = B_CC(CC_EQ);
+                }
+                VLDR(fpr.V(vt), R0, 0);
+                if (doCheck) {
+                    SetJumpTarget(skip);
+                    SetCC(CC_AL);
+                }
+#else
 				VLDR(fpr.V(vt), R0, 0);
 				if (doCheck) {
 					SetCC(CC_EQ);
 					MOVI2F(fpr.V(vt), 0.0f, R0);
 					SetCC(CC_AL);
 				}
+#endif
 			}
 			break;
 
@@ -243,10 +255,22 @@ namespace MIPSComp
 					}
 					ADD(R0, R0, R11);
 				}
+#ifdef __ARM_ARCH_7S__
+                FixupBranch skip;
+                if (doCheck) {
+                    skip = B_CC(CC_EQ);
+                }
+                VSTR(fpr.V(vt), R0, 0);
+                if (doCheck) {
+                    SetJumpTarget(skip);
+                    SetCC(CC_AL);
+                }
+#else
 				VSTR(fpr.V(vt), R0, 0);
 				if (doCheck) {
 					SetCC(CC_AL);
 				}
+#endif
 			}
 			break;
 
@@ -289,6 +313,20 @@ namespace MIPSComp
 					ADD(R0, R0, R11);
 				}
 
+#ifdef __ARM_ARCH_7S__
+                FixupBranch skip;
+                if (doCheck) {
+                    skip = B_CC(CC_EQ);
+                }
+                
+				for (int i = 0; i < 4; i++)
+					VLDR(fpr.V(vregs[i]), R0, i * 4);
+                
+                if (doCheck) {
+                    SetJumpTarget(skip);
+                    SetCC(CC_AL);
+                }
+#else
 				for (int i = 0; i < 4; i++)
 					VLDR(fpr.V(vregs[i]), R0, i * 4);
 
@@ -299,6 +337,7 @@ namespace MIPSComp
 						VMOV(fpr.V(vregs[i]), R0);
 					SetCC(CC_AL);
 				}
+#endif
 			}
 			break;
 
@@ -324,12 +363,27 @@ namespace MIPSComp
 					ADD(R0, R0, R11);
 				}
 
+#ifdef __ARM_ARCH_7S__
+                FixupBranch skip;
+                if (doCheck) {
+                    skip = B_CC(CC_EQ);
+                }
+                
+				for (int i = 0; i < 4; i++)
+					VSTR(fpr.V(vregs[i]), R0, i * 4);
+
+                if (doCheck) {
+                    SetJumpTarget(skip);
+                    SetCC(CC_AL);
+                }
+#else
 				for (int i = 0; i < 4; i++)
 					VSTR(fpr.V(vregs[i]), R0, i * 4);
 
 				if (doCheck) {
 					SetCC(CC_AL);
 				}
+#endif
 			}
 			break;
 

@@ -22,6 +22,7 @@
 
 #include "scePower.h"
 #include "sceKernelThread.h"
+#include "Core/Config.h"
 
 const int PSP_POWER_ERROR_TAKEN_SLOT = 0x80000020;
 const int PSP_POWER_ERROR_SLOTS_FULL = 0x80000022;
@@ -52,6 +53,12 @@ static int busFreq = 111;
 void __PowerInit() {
 	memset(powerCbSlots, 0, sizeof(powerCbSlots));
 	volatileMemLocked = false;
+
+	if(g_Config.iLockedCPUSpeed > 0) {
+		CoreTiming::SetClockFrequencyMHz(g_Config.iLockedCPUSpeed);
+		pllFreq = g_Config.iLockedCPUSpeed;
+		busFreq = g_Config.iLockedCPUSpeed / 2;
+	}
 }
 
 void __PowerDoState(PointerWrap &p) {
@@ -226,22 +233,37 @@ int sceKernelVolatileMemLock(int type, int paddr, int psize) {
 
 
 u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
-	CoreTiming::SetClockFrequencyMHz(cpufreq);
-	pllFreq = pllfreq;
-	busFreq = busfreq;
-	INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
+	if(g_Config.iLockedCPUSpeed > 0) {
+		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i): locked by user config at %i, %i, %i", pllfreq, cpufreq, busfreq, g_Config.iLockedCPUSpeed, g_Config.iLockedCPUSpeed, busFreq);
+	}
+	else {
+		CoreTiming::SetClockFrequencyMHz(cpufreq);
+		pllFreq = pllfreq;
+		busFreq = busfreq;
+		INFO_LOG(HLE,"scePowerSetClockFrequency(%i,%i,%i)", pllfreq, cpufreq, busfreq);
+	}
 	return 0;
 }
 
 u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
-	CoreTiming::SetClockFrequencyMHz(cpufreq);
-	DEBUG_LOG(HLE,"scePowerSetCpuClockFrequency(%i)", cpufreq);
+	if(g_Config.iLockedCPUSpeed > 0) {
+		DEBUG_LOG(HLE,"scePowerSetCpuClockFrequency(%i): locked by user config at %i", cpufreq, g_Config.iLockedCPUSpeed);
+	}
+	else {
+		CoreTiming::SetClockFrequencyMHz(cpufreq);
+		DEBUG_LOG(HLE,"scePowerSetCpuClockFrequency(%i)", cpufreq);
+	}
 	return 0;
 }
 
 u32 scePowerSetBusClockFrequency(u32 busfreq) {
-	busFreq = busfreq;
-	DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
+	if(g_Config.iLockedCPUSpeed > 0) {
+		DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i): locked by user config at %i", busfreq, busFreq);
+	}
+	else {
+		busFreq = busfreq;
+		DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
+	}
 	return 0;
 }
 

@@ -80,17 +80,17 @@ static const wchar_t oskKeys[OSK_KEYBOARD_COUNT][5][14] =
 		// Hiragana
 		{L"あかさたなはまやらわぁゃっ"},
 		{L"いきしちにひみ　り　ぃ　　"},
-		{L"うくすつぬふむゆるをぅゅ˝"},
-		{L"えけせてねへめ　れ　ぇ　˚"},
-		{L"おこそとのほもよるんぉょ　"},
+		{L"うくすつぬふむゆるをぅゅ゛"},
+		{L"えけせてねへめ　れ　ぇ　゜"},
+		{L"おこそとのほもよろんぉょー"},
 	},
 	{
 		// Katakana
 		{L"アカサタナハマヤラワァャッ"},
 		{L"イキシチニヒミ　リ　ィ　　"},
-		{L"ウクスツヌフムユルヲゥュ˝"},
-		{L"エケセテネヘメ　レ　ェ　˚"},
-		{L"オコソトノホモヨルンォョ　"},
+		{L"ウクスツヌフムユルヲゥュ゛"},
+		{L"エケセテネヘメ　レ　ェ　゜"},
+		{L"オコソトノホモヨロンォョー"},
 	},
 	{
 		// Korean(Hangul)
@@ -128,7 +128,7 @@ PSPOskDialog::~PSPOskDialog() {
 
 void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address)
 {
-	if (!em_address.Valid())
+	if (!em_address.IsValid())
 	{
 		_string = "";
 		return;
@@ -198,7 +198,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
-	if (!oskParams->fields.Valid())
+	if (!oskParams->fields.IsValid())
 	{
 		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
@@ -221,7 +221,7 @@ int PSPOskDialog::Init(u32 oskPtr)
 
 	inputChars = L"";
 
-	if (oskParams->fields[0].intext.Valid()) {
+	if (oskParams->fields[0].intext.IsValid()) {
 		auto src = oskParams->fields[0].intext;
 		int c;
 		while ((c = *src++) != 0)
@@ -497,7 +497,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 			i_level = 0;
 		}
 
-		if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˝')
+		if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'゛')
 		{
 			for(u32 i = 0; i < inputChars.size(); i++)
 			{
@@ -524,7 +524,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 				}
 			}
 		}
-		else if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'˚')
+		else if(oskKeys[currentKeyboard][selectedRow][selectedCol] == L'゜')
 		{
 			for(u32 i = 0; i < inputChars.size(); i++)
 			{
@@ -817,7 +817,7 @@ int PSPOskDialog::Update()
 
 			selectedChar = selectedRow * numKeyCols[currentKeyboard] + selectedExtra;
 		}
-		else if (IsButtonPressed(g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE ? CTRL_CROSS : CTRL_CIRCLE))
+		else if (IsButtonPressed(g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE ? CTRL_CIRCLE : CTRL_CROSS))
 		{
 			if (inputChars.size() > 0)
 			{

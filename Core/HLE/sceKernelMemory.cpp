@@ -1584,11 +1584,17 @@ const HLEFunction SysMemUserForUser[] = {
 	{0x1b4217bc,&WrapV_I<sceKernelSetCompiledSdkVersion603_605>,"sceKernelSetCompiledSdkVersion603_605"},
 	{0x358ca1bb,&WrapV_I<sceKernelSetCompiledSdkVersion606>,"sceKernelSetCompiledSdkVersion606"},
 	{0xfc114573,&WrapI_V<sceKernelGetCompiledSdkVersion>,"sceKernelGetCompiledSdkVersion"},
+	{0x2a3e5280,0,"sceKernelQueryMemoryInfo"},
+	{0xacbd88ca,0,"SysMemUserForUser_ACBD88CA"},
+	{0x945e45da,0,"SysMemUserForUser_945E45DA"},
+	{0xa6848df8,0,"sceKernelSetUsersystemLibWork"},
+	{0x6231a71d,0,"sceKernelSetPTRIG"},
+	{0x39f49610,0,"sceKernelGetPTRIG"},
 	// Obscure raw block API
 	{0xDB83A952,WrapU_UU<GetMemoryBlockPtr>,"SysMemUserForUser_DB83A952"},  // GetMemoryBlockAddr
 	{0x50F61D8A,WrapU_U<FreeMemoryBlock>,"SysMemUserForUser_50F61D8A"},  // FreeMemoryBlock
 	{0xFE707FDF,WrapU_CUUU<AllocMemoryBlock>,"SysMemUserForUser_FE707FDF"},  // AllocMemoryBlock
-	{0xD8DE5C1E,WrapU_V<SysMemUserForUser_D8DE5C1E>,"SysMemUserForUser_D8DE5C1E"}
+	{0xD8DE5C1E,WrapU_V<SysMemUserForUser_D8DE5C1E>,"SysMemUserForUser_D8DE5C1E"},
 };
 
 

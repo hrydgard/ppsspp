@@ -92,7 +92,7 @@ public:
 	}
 
 	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
-	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f);
+	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f, float vscale = 1.0f);
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();
@@ -104,6 +104,8 @@ public:
 	void CopyDisplayToOutput();
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size);
+
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb);
 
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetDisplayFBO();
@@ -140,6 +142,9 @@ private:
 	std::vector<VirtualFramebuffer *> vfbs_;
 
 	VirtualFramebuffer *currentRenderVfb_;
+
+	// Used by ReadFramebufferToMemory
+	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;

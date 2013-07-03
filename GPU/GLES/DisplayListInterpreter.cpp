@@ -36,9 +36,6 @@
 #include "../../Core/HLE/sceKernelInterrupt.h"
 #include "../../Core/HLE/sceGe.h"
 
-extern u32 curTextureWidth;
-extern u32 curTextureHeight;
-
 static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_REGION1,GE_CMD_REGION2,
 	GE_CMD_VERTEXTYPE,
@@ -255,7 +252,7 @@ void GLES_GPU::DumpNextFrame() {
 void GLES_GPU::BeginFrame() {
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.iVSyncInterval;
-	if (PSP_CoreParameter().unthrottle)
+	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 2) || (PSP_CoreParameter().fpsLimit == 1))
 		desiredVSyncInterval = 0;
 	if (desiredVSyncInterval != lastVsync_) {
 		glstate.SetVSyncInterval(desiredVSyncInterval);
@@ -510,22 +507,26 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TEXSCALEU:
 		gstate_c.uScale = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXSCALEV:
 		gstate_c.vScale = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXOFFSETU:
 		gstate_c.uOff = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_TEXOFFSETV:
 		gstate_c.vOff = getFloat24(data);
-		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		break;
 
 	case GE_CMD_SCISSOR1:
@@ -794,7 +795,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_COLORTEST:
 	case GE_CMD_COLORTESTMASK:
-		shaderManager_->DirtyUniform(DIRTY_COLORMASK);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_COLORMASK);
 		break;
 
 	case GE_CMD_ALPHATEST:
@@ -803,11 +805,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			WARN_LOG_REPORT_ONCE(alphatestmask, HLE, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 #endif
 	case GE_CMD_COLORREF:
-		shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_ALPHACOLORREF);
 		break;
 
 	case GE_CMD_TEXENVCOLOR:
-		shaderManager_->DirtyUniform(DIRTY_TEXENV);
+		if (diff)
+			shaderManager_->DirtyUniform(DIRTY_TEXENV);
 		break;
 
 	case GE_CMD_TEXFUNC:

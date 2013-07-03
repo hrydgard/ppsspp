@@ -12,7 +12,7 @@
 #include "../../Core/Debugger/SymbolMap.h"
 
 #include "Debugger_Disasm.h"
-
+#include "DebuggerShared.h"
 #include "CtrlMemView.h"
 
 TCHAR CtrlMemView::szClassName[] = _T("CtrlMemView");
@@ -24,15 +24,28 @@ CtrlMemView::CtrlMemView(HWND _wnd)
   SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
   SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
   SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
-  font = CreateFont(12,0,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-    "Lucida Console");
+  font =
+	  CreateFont(12,8,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+		"Lucida Console");
+  underlineFont =
+	  CreateFont(12,8,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+		"Lucida Console");
   curAddress=0;
   rowHeight=12;
-  align=4;
-  alignMul=4;
-  selecting=false;
   mode=MV_NORMAL;
   debugger = 0;
+  
+	ctrlDown = false;
+	hasFocus = false;
+	windowStart = curAddress;
+	asciiSelected = false;
+
+	selectedNibble = 0;
+	charWidth = 8;
+	rowSize = 16;
+	addressStart = charWidth;
+	hexStart = addressStart + 9*charWidth;
+	asciiStart = hexStart + (rowSize*3+1)*charWidth;
 }
 
 CtrlMemView::~CtrlMemView()
@@ -95,13 +108,27 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 	case WM_VSCROLL:
 		ccp->onVScroll(wParam,lParam);
 		break;
+	case WM_MOUSEWHEEL:
+		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
+		{
+			ccp->scrollWindow(-3);
+		} else if (GET_WHEEL_DELTA_WPARAM(wParam) < 0) {
+			ccp->scrollWindow(3);
+		}
+		break;
 	case WM_ERASEBKGND:
 		return FALSE;
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
-		break;
+		return 0;
+	case WM_CHAR:
+		ccp->onChar(wParam,lParam);
+		return 0;
+	case WM_KEYUP:
+		if (wParam == VK_CONTROL) ccp->ctrlDown = false;
+		return 0;
 	case WM_LBUTTONDOWN: SetFocus(hwnd); lmbDown=true; ccp->onMouseDown(wParam,lParam,1); break;
-	case WM_RBUTTONDOWN: rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
+	case WM_RBUTTONDOWN: SetFocus(hwnd); rmbDown=true; ccp->onMouseDown(wParam,lParam,2); break;
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
 	case WM_LBUTTONUP:   lmbDown=false; ccp->onMouseUp(wParam,lParam,1); break;
 	case WM_RBUTTONUP:   rmbDown=false; ccp->onMouseUp(wParam,lParam,2); break;
@@ -113,6 +140,9 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 	case WM_KILLFOCUS:
 		ccp->hasFocus=false;
 		ccp->redraw();
+		break;
+	case WM_GETDLGCODE:	// we want to process the arrow keys and all characters ourselves
+		return DLGC_WANTARROWS|DLGC_WANTCHARS|DLGC_WANTTAB;
 		break;
     default:
         break;
@@ -130,57 +160,42 @@ CtrlMemView *CtrlMemView::getFrom(HWND hwnd)
 
 
 
-//Yeah this truly turned into a mess with the latest additions.. but it sure looks nice ;)
 void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-  if (!debugger)
-    return;
-	GetClientRect(wnd, &rect);
-	PAINTSTRUCT ps;
-	HDC hdc;
-	hdc = BeginPaint(wnd, &ps);
-	int width = rect.right;
-	int numRows=(rect.bottom/rowHeight)/2+1;
-	SetBkMode(hdc, TRANSPARENT);
-	HPEN nullPen=CreatePen(0,0,0xFFFFFF);
-	HPEN currentPen=CreatePen(0,0,0);
-	HPEN selPen=CreatePen(0,0,0x808080);
-	LOGBRUSH lbr;
-	lbr.lbHatch=0; lbr.lbStyle=0; 
-	lbr.lbColor=0xFFFFFF;
-	HBRUSH nullBrush=CreateBrushIndirect(&lbr);
-	lbr.lbColor=0xFFEfE8;
-	HBRUSH currentBrush=CreateBrushIndirect(&lbr);
-	lbr.lbColor=0x70FF70;
-	HBRUSH pcBrush=CreateBrushIndirect(&lbr);
-	HPEN oldPen=(HPEN)SelectObject(hdc,nullPen);
-	HBRUSH oldBrush=(HBRUSH)SelectObject(hdc,nullBrush);
-   	HFONT oldFont = (HFONT)SelectObject(hdc,(HGDIOBJ)font);
+	if (!debugger) return;
 
-	int i;
-	curAddress&=~(align-1);
-	for (i=-numRows; i<=numRows; i++)
+	// draw to a bitmap for double buffering
+	PAINTSTRUCT ps;	
+	HDC actualHdc = BeginPaint(wnd, &ps);
+	HDC hdc = CreateCompatibleDC(actualHdc);
+	HBITMAP hBM = CreateCompatibleBitmap(actualHdc, rect.right-rect.left, rect.bottom-rect.top);
+	SelectObject(hdc, hBM);
+
+	SetBkMode(hdc,OPAQUE);
+	HPEN standardPen = CreatePen(0,0,0xFFFFFF);
+	HBRUSH standardBrush = CreateSolidBrush(0xFFFFFF);
+
+	HPEN oldPen = (HPEN) SelectObject(hdc,standardPen);
+	HBRUSH oldBrush = (HBRUSH) SelectObject(hdc,standardBrush);
+   	HFONT oldFont = (HFONT) SelectObject(hdc,(HGDIOBJ)font);
+
+	// white background
+	SelectObject(hdc,standardPen);
+	SelectObject(hdc,standardBrush);
+	Rectangle(hdc,0,0,rect.right,rect.bottom);
+
+	// draw one extra row that may be partially visible
+	for (int i = 0; i < visibleRows+1; i++)
 	{
-		unsigned int address=curAddress + i*align*alignMul;
+		char temp[32];
 
-		int rowY1 = rect.bottom/2 + rowHeight*i - rowHeight/2;
-		int rowY2 = rect.bottom/2 + rowHeight*i + rowHeight/2;
-
-		char temp[256];
-		sprintf(temp,"%08x",address);
-
-		SelectObject(hdc,currentBrush);
-
-		if (selecting && address == selection)
-			SelectObject(hdc,selPen);
-		else
-			SelectObject(hdc,i==0 ? currentPen : nullPen);
-		Rectangle(hdc,0,rowY1,16,rowY2);
-
-		Rectangle(hdc,16,rowY1,width,rowY2);
-		SelectObject(hdc,nullBrush);
+		unsigned int address=windowStart + i*rowSize;
+		int rowY = rowHeight*i;
+		
+		sprintf(temp,"%08X",address);
 		SetTextColor(hdc,0x600000);
-		TextOut(hdc,17,rowY1,temp,(int)strlen(temp));
+		TextOut(hdc,addressStart,rowY,temp,(int)strlen(temp));
+
 		SetTextColor(hdc,0x000000);
 		if (debugger->isAlive())
 		{
@@ -188,33 +203,70 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 			switch(mode) {
 			case MV_NORMAL:
 				{
-					const char *m = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
+					u32 memory[4];
 					if (Memory::IsValidAddress(address))
 					{
-					  u32 memory[4] = {
-						  debugger->readMemory(address),
-						  debugger->readMemory(address+4),
-						  debugger->readMemory(address+8),
-						  debugger->readMemory(address+12)
-					  };
-					  m = (const char*)memory;
-					  sprintf(temp, "%08x %08x %08x %08x  ................", 
-						  memory[0],memory[1],memory[2],memory[3]);
+						memory[0] = debugger->readMemory(address);
+						memory[1] = debugger->readMemory(address+4);
+						memory[2] = debugger->readMemory(address+8);
+						memory[3] = debugger->readMemory(address+12);
 					}
-					for (int j=0; j<16; ++j)
+					else
 					{
-						int c = (unsigned char)m[j];
-						if (c>=32 && c<255)
-							temp[j+37]=c;
+						memory[0] = memory[1] = memory[2] = memory[3] = 0xFFFFFFFF;
+					}
+
+					u8* m = (u8*) memory;
+					for (int j = 0; j < rowSize; j++)
+					{
+						sprintf(temp,"%02X",m[j]);
+						unsigned char c = m[j];
+						if (c < 32 || c >= 128) c = '.';
+
+						if (address+j == curAddress)
+						{
+							COLORREF oldBkColor = GetBkColor(hdc);
+							COLORREF oldTextColor = GetTextColor(hdc);
+
+							if (hasFocus && !asciiSelected)
+							{
+								SetTextColor(hdc,0xFFFFFF);
+								SetBkColor(hdc,0xFF9933);
+								if (selectedNibble == 0) SelectObject(hdc,(HGDIOBJ)underlineFont);
+							} else {
+								SetTextColor(hdc,0);
+								SetBkColor(hdc,0xC0C0C0);
+							}
+							TextOut(hdc,hexStart+j*3*charWidth,rowY,&temp[0],1);
+							
+							if (hasFocus && !asciiSelected)
+							{
+								if (selectedNibble == 1) SelectObject(hdc,(HGDIOBJ)underlineFont);
+								else SelectObject(hdc,(HGDIOBJ)font);
+							}
+							TextOut(hdc,hexStart+j*3*charWidth+charWidth,rowY,&temp[1],1);
+
+							if (hasFocus && asciiSelected)
+							{
+								SetTextColor(hdc,0xFFFFFF);
+								SetBkColor(hdc,0xFF9933);
+							} else {
+								SetTextColor(hdc,0);
+								SetBkColor(hdc,0xC0C0C0);
+								SelectObject(hdc,(HGDIOBJ)font);
+							}
+							TextOut(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
+
+							SetTextColor(hdc,oldTextColor);
+							SetBkColor(hdc,oldBkColor);
+						} else {
+							TextOut(hdc,hexStart+j*3*charWidth,rowY,temp,2);
+							TextOut(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
+						}
 					}
 				}
-//				if (align == 16)
-//				else
-//					sprintf(temp, "%04x %04x %04x %04x", ReadMem16Unchecked(address),ReadMem16Unchecked(address+2), ReadMem16Unchecked(address+4), ReadMem16Unchecked(address+6))
-				TextOut(hdc,80,rowY1,temp,(int)strlen(temp));
 				break;
-
-			case MV_SYMBOLS:
+/*			case MV_SYMBOLS:
 				{
 					SetTextColor(hdc,0x0000FF);
 					int fn = symbolMap.GetSymbolNum(address);
@@ -249,7 +301,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 
 					TextOut(hdc,70,rowY1,temp,(int)strlen(temp));
 					break;
-				}
+				}*/
 			}
 		}
 	}
@@ -258,93 +310,135 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 	SelectObject(hdc,oldPen);
 	SelectObject(hdc,oldBrush);
 	
-	DeleteObject(nullPen);
-	DeleteObject(currentPen);
-	DeleteObject(selPen);
+	// copy bitmap to the actual hdc
+	BitBlt(actualHdc,0,0,rect.right,rect.bottom,hdc,0,0,SRCCOPY);
+	DeleteObject(hBM);
+	DeleteDC(hdc);
 
-	DeleteObject(nullBrush);
-	DeleteObject(pcBrush);
-	DeleteObject(currentBrush);
+	DeleteObject(standardPen);
+	DeleteObject(standardBrush);
 	
 	EndPaint(wnd, &ps);
 }
 
-
-
 void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam)
 {
-	RECT rect;
-	GetClientRect(this->wnd, &rect);
-	int page=(rect.bottom/rowHeight)/2-1;
-
 	switch (wParam & 0xFFFF)
 	{
 	case SB_LINEDOWN:
-		curAddress+=align*alignMul;
+		scrollWindow(1);
 		break;
 	case SB_LINEUP:
-		curAddress-=align*alignMul;
+		scrollWindow(-1);
 		break;
 	case SB_PAGEDOWN:
-		curAddress+=page*align*alignMul;
+		scrollWindow(visibleRows);
 		break;
 	case SB_PAGEUP:
-		curAddress-=page*align*alignMul;
+		scrollWindow(-visibleRows);
 		break;
 	default:
 		return;
 	}
-	redraw();
 }
 
 void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
-	RECT rect;
-	GetClientRect(this->wnd, &rect);
-	int page=(rect.bottom/rowHeight)/2-1;
+	if (ctrlDown && tolower(wParam & 0xFFFF) == 'g')
+	{
+		ctrlDown = false;
+		u32 addr;
+		if (executeExpressionWindow(wnd,debugger,addr) == false) return;
+		gotoAddr(addr);
+		return;
+	}
 
 	switch (wParam & 0xFFFF)
 	{
 	case VK_DOWN:
-		curAddress+=align*alignMul;
+		scrollCursor(rowSize);
 		break;
 	case VK_UP:
-		curAddress-=align*alignMul;
+		scrollCursor(-rowSize);
+		break;
+	case VK_LEFT:
+		scrollCursor(-1);
+		break;
+	case VK_RIGHT:
+		scrollCursor(1);
 		break;
 	case VK_NEXT:
-		curAddress+=page*align*alignMul;
+		scrollWindow(visibleRows);
 		break;
 	case VK_PRIOR:
-		curAddress-=page*align*alignMul;
+		scrollWindow(-visibleRows);
+		break;
+	case VK_CONTROL:
+		ctrlDown = true;
+		break;
+	case VK_TAB:
+		SendMessage(GetParent(wnd),WM_DEB_TABPRESSED,0,0);
 		break;
 	default:
 		return;
 	}
-	redraw();
 }
 
+void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam)
+{
+	if (ctrlDown || wParam == VK_TAB) return;
+
+	if (!Memory::IsValidAddress(curAddress))
+	{
+		scrollCursor(1);
+		return;
+	}
+
+	bool active = Core_IsActive();
+	if (active) Core_EnableStepping(true);
+
+	if (asciiSelected)
+	{
+		u8 newValue = wParam;
+		Memory::WriteUnchecked_U8(newValue,curAddress);
+		scrollCursor(1);
+	} else {
+		wParam = tolower(wParam);
+		int inputValue = -1;
+
+		if (wParam >= '0' && wParam <= '9') inputValue = wParam - '0';
+		if (wParam >= 'a' && wParam <= 'f') inputValue = wParam -'a' + 10;
+
+		if (inputValue >= 0)
+		{
+			int shiftAmount = (1-selectedNibble)*4;
+
+			u8 oldValue = Memory::ReadUnchecked_U8(curAddress);
+			oldValue &= ~(0xF << shiftAmount);
+			u8 newValue = oldValue | (inputValue << shiftAmount);
+			Memory::WriteUnchecked_U8(newValue,curAddress);
+			scrollCursor(1);
+		}
+	}
+
+	if (active) Core_EnableStepping(false);
+}
 
 void CtrlMemView::redraw()
 {
+	GetClientRect(wnd, &rect);
+	visibleRows = (rect.bottom/rowHeight);
+
 	InvalidateRect(wnd, NULL, FALSE);
 	UpdateWindow(wnd); 
 }
 
-
 void CtrlMemView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {	
 	int x = LOWORD(lParam); 
-	int y = HIWORD(lParam); 
-	if (x>16)
-	{
-		oldSelection=selection;
-		selection=yToAddress(y);
-		SetCapture(wnd);
-		bool oldselecting=selecting;
-		selecting=true;
-		if (!oldselecting || (selection!=oldSelection))
-			redraw();
-	}
+	int y = HIWORD(lParam);
+
+	gotoPoint(x,y);
 }
 
 void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
@@ -375,52 +469,121 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_MEMVIEW_COPYVALUE:
 			{
 				char temp[24];
-				sprintf(temp,"%08x",Memory::ReadUnchecked_U32(selection));
+
+				// it's admittedly not really useful like this
+				if (asciiSelected)
+				{
+					unsigned char c = Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : '.';
+					if (c < 32 || c >= 128) c = '.';
+					sprintf(temp,"%c",c);
+				} else {
+					sprintf(temp,"%02X",Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : 0xFF);
+				}
 				W32Util::CopyTextToClipboard(wnd,temp);
 			}
 			break;
 		}
 		return;
 	}
+
 	int x = LOWORD(lParam); 
-	int y = HIWORD(lParam); 
-	if (x>16)
-	{
-		curAddress=yToAddress(y);
-		selecting=false;
-		ReleaseCapture();
-		redraw();
-	}
+	int y = HIWORD(lParam);
+	ReleaseCapture();
+	gotoPoint(x,y);
 }
 
 void CtrlMemView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 {
-	if (button&1)
-	{
-		int x = LOWORD(lParam); 
-		int y = (signed short)HIWORD(lParam); 
-		if (x>16)
-		{
-			if (y<0)
-			{
-				curAddress-=align*alignMul;
-				redraw();
-			}
-			else if (y>rect.bottom)
-			{
-				curAddress+=align*alignMul;
-				redraw();
-			}
-			else
-				onMouseDown(wParam,lParam,1);
-		}
-	}
+
 }	
 
 
-int CtrlMemView::yToAddress(int y)
+void CtrlMemView::gotoPoint(int x, int y)
 {
-	int ydiff=y-rect.bottom/2-rowHeight/2;
-	ydiff=(int)(floorf((float)ydiff / (float)rowHeight))+1;
-	return curAddress + ydiff * align*alignMul;
+	int line = y/rowHeight;
+	int lineAddress = windowStart+line*rowSize;
+
+	if (x >= asciiStart)
+	{
+		int col = (x-asciiStart) / (charWidth+2);
+		if (col >= rowSize) return;
+		
+		asciiSelected = true;
+		curAddress = lineAddress+col;
+		selectedNibble = 0;
+		redraw();
+	} else if (x >= hexStart)
+	{
+		int col = (x-hexStart) / charWidth;
+		if ((col/3) >= rowSize) return;
+
+		switch (col % 3)
+		{
+		case 0: selectedNibble = 0; break;
+		case 1: selectedNibble = 1; break;
+		case 2: return;		// don't change position when clicking on the space
+		}
+
+		asciiSelected = false;
+		curAddress = lineAddress+col/3;
+		redraw();
+	}
+}
+
+void CtrlMemView::gotoAddr(unsigned int addr)
+{	
+	int lines=(rect.bottom/rowHeight);
+	u32 windowEnd = windowStart+lines*rowSize;
+
+	curAddress = addr;
+	selectedNibble = 0;
+
+	if (curAddress < windowStart || curAddress >= windowEnd)
+	{
+		windowStart = curAddress & ~15;
+	}
+	redraw();
+}
+
+void CtrlMemView::scrollWindow(int lines)
+{
+	windowStart += lines*rowSize;
+	curAddress += lines*rowSize;
+	redraw();
+}
+
+void CtrlMemView::scrollCursor(int bytes)
+{
+	if (!asciiSelected && bytes == 1)
+	{
+		if (selectedNibble == 0)
+		{
+			selectedNibble = 1;
+			bytes = 0;
+		} else {
+			selectedNibble = 0;
+		}
+	} else if (!asciiSelected && bytes == -1)
+	{
+		if (selectedNibble == 0)
+		{
+			selectedNibble = 1;
+		} else {
+			selectedNibble = 0;
+			bytes = 0;
+		}
+	} 
+
+	curAddress += bytes;
+		
+	u32 windowEnd = windowStart+visibleRows*rowSize;
+	if (curAddress < windowStart)
+	{
+		windowStart = curAddress & ~15;
+	} else if (curAddress >= windowEnd)
+	{
+		windowStart = (curAddress-(visibleRows-1)*rowSize) & ~15;
+	}
+
+	redraw();
 }

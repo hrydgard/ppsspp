@@ -132,6 +132,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MenuScreens.cpp \
+  $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/UIShader.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
@@ -193,6 +194,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/CoreTiming.cpp \
   $(SRC)/Core/CPU.cpp \
   $(SRC)/Core/CwCheat.cpp \
+  $(SRC)/Core/HDRemaster.cpp \
   $(SRC)/Core/Host.cpp \
   $(SRC)/Core/Loaders.cpp \
   $(SRC)/Core/PSPLoaders.cpp \
@@ -218,6 +220,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceAudio.cpp \
   $(SRC)/Core/HLE/sceAudiocodec.cpp \
   $(SRC)/Core/HLE/sceChnnlsv.cpp \
+  $(SRC)/Core/HLE/sceCcc.cpp \
   $(SRC)/Core/HLE/sceCtrl.cpp \
   $(SRC)/Core/HLE/sceDeflt.cpp \
   $(SRC)/Core/HLE/sceDisplay.cpp \

@@ -173,6 +173,9 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 	else
 		WRITE(p, "attribute vec4 a_position;\n");  // need to pass the fog coord in w
 
+	if (useHWTransform && hasNormal)
+		WRITE(p, "attribute mediump vec3 a_normal;\n");
+
 	if (doTexture) {
 		if (!useHWTransform && doTextureProjection)
 			WRITE(p, "attribute vec3 a_texcoord;\n");
@@ -184,9 +187,6 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
 			WRITE(p, "attribute lowp vec3 a_color1;\n");
 	}
-
-	if (useHWTransform && hasNormal)
-		WRITE(p, "attribute mediump vec3 a_normal;\n");
 
 	if (gstate.isModeThrough())	{
 		WRITE(p, "uniform mat4 u_proj_through;\n");
@@ -211,6 +211,8 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			}
 #endif
 		}
+		if (gstate.getUVGenMode() == 0)
+			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
 				// This is needed for shade mapping
@@ -244,8 +246,6 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, "uniform lowp vec4 u_matspecular;\n");  // Specular coef is contained in alpha
 			WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 		}
-		if (gstate.getUVGenMode() == 0)
-			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 	}
 
 	if (useHWTransform || !hasColor)
@@ -376,16 +376,10 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			}
 		}
 
-		if (enableFog) {
-			WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
-			// Final view and projection transforms.
-			WRITE(p, "  gl_Position = u_proj * viewPos;\n");
-			// Compute fogdepth
-			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
-		} else {
-			// Final view and projection transforms.
-			WRITE(p, "  gl_Position = u_proj * (u_view * vec4(worldpos, 1.0));\n");
-		}
+		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
+
+		// Final view and projection transforms.
+		WRITE(p, "  gl_Position = u_proj * viewPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -435,25 +429,22 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
 			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
 
-			char toLight[20];
 			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
 				// We prenormalize light positions for directional lights.
-				// WRITE(p, "  toLight = u_lightpos%i;\n", i);
-				sprintf(toLight, "u_lightpos%i", i);
+				WRITE(p, "  toLight = u_lightpos%i;\n", i);
 			} else {
 				WRITE(p, "  toLight = u_lightpos%i - worldpos;\n", i);
 				WRITE(p, "  distance = length(toLight);\n");
 				WRITE(p, "  toLight /= distance;\n");
-				strcpy(toLight, "toLight");
 			}
 
 			bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
 			if (poweredDiffuse) {
-				WRITE(p, "  mediump float dot%i = pow(dot(%s, worldnormal), u_matspecular.a);\n", i, toLight);
+				WRITE(p, "  mediump float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i);
 			} else {
-				WRITE(p, "  mediump float dot%i = dot(%s, worldnormal);\n", i, toLight);
+				WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
 			}
 
 			const char *timesLightScale = " * lightScale";
@@ -561,13 +552,13 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				break;
 			}
 
-			if (flipV) {
-				if (throughmode)
-					WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");
-				else
-					WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y * 2.0;\n");
-			}
+			if (flipV) 
+				WRITE(p, "  v_texcoord.y = 1.0 - v_texcoord.y;\n");	
 		}
+
+		// Compute fogdepth
+		if (enableFog)
+			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
 	}
 	WRITE(p, "}\n");
 }

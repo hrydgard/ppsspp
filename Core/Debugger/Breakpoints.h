@@ -17,76 +17,126 @@
 
 #pragma once
 
-
 #include "../../Globals.h"
+#include "DebugInterface.h"
+#include <vector>
+
+// TODO: Replace with expression or something.
+struct BreakPointCond
+{
+	DebugInterface* debug;
+	PostfixExpression expression;
+	char expressionString[128];
+
+	u32 Evaluate()
+	{
+		u32 result;
+		if (debug->parseExpression(expression,result) == false) return 0;
+		return result;
+	}
+};
 
 struct BreakPoint
 {
-	u32	iAddress;
-	bool bOn;
-	bool bTemporary;
+	BreakPoint() : hasCond(false) {}
 
-	bool operator == (const BreakPoint &other) const	{
-		return iAddress == other.iAddress && bOn == other.bOn && bTemporary == other.bTemporary;
+	u32	addr;
+	bool enabled;
+	bool temporary;
+
+	bool hasCond;
+	BreakPointCond cond;
+
+	bool operator == (const BreakPoint &other) const {
+		return addr == other.addr;
 	}
+	bool operator < (const BreakPoint &other) const {
+		return addr < other.addr;
+	}
+};
+
+enum MemCheckCondition
+{
+	MEMCHECK_READ = 0x01,
+	MEMCHECK_WRITE = 0x02,
+
+	MEMCHECK_READWRITE = 0x03,
+};
+
+enum MemCheckResult
+{
+	MEMCHECK_IGNORE = 0x00,
+	MEMCHECK_LOG = 0x01,
+	MEMCHECK_BREAK = 0x02,
+
+	MEMCHECK_BOTH = 0x03,
 };
 
 struct MemCheck
 {
 	MemCheck();
-	u32 iStartAddress;
-	u32 iEndAddress;
+	u32 start;
+	u32 end;
 
-	bool	bRange;
-
-	bool	bOnRead;
-	bool	bOnWrite;
-
-	bool	bLog;
-	bool	bBreak;
+	MemCheckCondition cond;
+	MemCheckResult result;
 
 	u32 numHits;
 
 	void Action(u32 addr, bool write, int size, u32 pc);
+
+	bool operator == (const MemCheck &other) const {
+		return start == other.start && end == other.end;
+	}
 };
 
+// BreakPoints cannot overlap, only one is allowed per address.
+// MemChecks can overlap, as long as their ends are different.
+// WARNING: MemChecks are not used in the interpreter or HLE currently.
 class CBreakPoints
 {
-private:
-
-	enum { MAX_NUMBER_OF_CALLSTACK_ENTRIES = 16384};
-	enum { MAX_NUMBER_OF_BREAKPOINTS = 16};
-
-	static u32	m_iBreakOnCount;
-
 public:
-	// WARNING: Not used in interpreter or HLE, only jit CPU memory access.
-	static std::vector<MemCheck> MemChecks;
+	static const size_t INVALID_BREAKPOINT = -1;
+	static const size_t INVALID_MEMCHECK = -1;
 
-	// is address breakpoint
-	static bool IsAddressBreakPoint(u32 _iAddress);
+	static bool IsAddressBreakPoint(u32 addr);
+	static bool IsTempBreakPoint(u32 addr);
+	static void AddBreakPoint(u32 addr, bool temp = false);
+	static void RemoveBreakPoint(u32 addr);
+	static void ChangeBreakPoint(u32 addr, bool enable);
+	static void ClearAllBreakPoints();
+	static void ClearTemporaryBreakPoints();
 
-	// WARNING: Not used in interpreter or HLE, only jit CPU memory access.
+	// Makes a copy.  Temporary breakpoints can't have conditions.
+	static void ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond);
+	static void ChangeBreakPointRemoveCond(u32 addr);
+	static BreakPointCond *GetBreakPointCondition(u32 addr);
+
+	static void AddMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result);
+	static void RemoveMemCheck(u32 start, u32 end);
+	static void ChangeMemCheck(u32 start, u32 end, MemCheckCondition cond, MemCheckResult result);
+	static void ClearAllMemChecks();
+
 	static MemCheck *GetMemCheck(u32 address, int size);
 
-	// is break on count
-	static bool IsBreakOnCount(u32 _iAddress);
+	static void SetSkipFirst(u32 pc);
+	static u32 CheckSkipFirst();
 
-	static bool IsTempBreakPoint(u32 _iAddress);
+	static const std::vector<MemCheck> GetMemChecks();
+	static const std::vector<BreakPoint> GetBreakpoints();
 
-	// AddBreakPoint
-	static void AddBreakPoint(u32 _iAddress, bool temp=false);
+	static void Update(u32 addr = 0);
 
-	// Remove Breakpoint
-	static void RemoveBreakPoint(u32 _iAddress);
+private:
+	static size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);
+	// Finds exactly, not using a range check.
+	static size_t FindMemCheck(u32 start, u32 end);
 
-	static void ClearAllBreakPoints();
+	static std::vector<BreakPoint> breakPoints_;
+	static u32 breakSkipFirstAt_;
+	static u64 breakSkipFirstTicks_;
 
-	static void InvalidateJit(u32 _iAddress);
-	static void InvalidateJit();
-
-	static int GetNumBreakpoints();
-	static int GetBreakpointAddress(int i);
+	static std::vector<MemCheck> memChecks_;
 };
 
 

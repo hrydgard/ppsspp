@@ -107,14 +107,14 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 				// Unsigned int
 				const u32 *data = (const u32 *)(data_start + indexTables[i].data_table_offset);
 				SetValue(key,*data,indexTables[i].param_max_len);
-				DEBUG_LOG(LOADER, "%s %08x", key, *data);
+				VERBOSE_LOG(LOADER, "%s %08x", key, *data);
 			}
 			break;
 		case 0x0004:
 			// Special format UTF-8
 			{
 				const u8 *utfdata = (const u8 *)(data_start + indexTables[i].data_table_offset);
-				DEBUG_LOG(LOADER, "%s %s", key, utfdata);
+				VERBOSE_LOG(LOADER, "%s %s", key, utfdata);
 				SetValue(key, utfdata, indexTables[i].param_len, indexTables[i].param_max_len);
 			}
 			break;
@@ -122,7 +122,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size)
 			// Regular UTF-8
 			{
 				const char *utfdata = (const char *)(data_start + indexTables[i].data_table_offset);
-				DEBUG_LOG(LOADER, "%s %s", key, utfdata);
+				VERBOSE_LOG(LOADER, "%s %s", key, utfdata);
 				SetValue(key,std::string(utfdata /*, indexTables[i].param_len*/), indexTables[i].param_max_len);
 			}
 			break;

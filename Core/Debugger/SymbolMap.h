@@ -19,6 +19,7 @@
 
 #include "../../Globals.h"
 #include <vector>
+#include <set>
 
 enum SymbolType
 {
@@ -36,60 +37,64 @@ class SymbolMap
 public:
 	SymbolMap() {}
 	bool LoadSymbolMap(const char *filename);
-	void SaveSymbolMap(const char *filename);
+	void SaveSymbolMap(const char *filename) const;
 	void AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType symbol);
 	void ResetSymbolMap();
 	void AnalyzeBackwards();
-	int GetSymbolNum(unsigned int address, SymbolType symmask=ST_FUNCTION);
-	char *GetDescription(unsigned int address);
+	int GetSymbolNum(unsigned int address, SymbolType symmask=ST_FUNCTION) const;
+	const char *GetDescription(unsigned int address) const;
 #ifdef _WIN32
-	void FillSymbolListBox(HWND listbox, SymbolType symmask=ST_FUNCTION);
-	void FillSymbolComboBox(HWND listbox,SymbolType symmask=ST_FUNCTION);
-	void FillListBoxBLinks(HWND listbox, int num);
+	void FillSymbolListBox(HWND listbox, SymbolType symmask=ST_FUNCTION) const;
+	void FillSymbolComboBox(HWND listbox,SymbolType symmask=ST_FUNCTION) const;
+	void FillListBoxBLinks(HWND listbox, int num) const;
 #endif
-	int GetNumSymbols();
-	char *GetSymbolName(int i);
+	int GetNumSymbols() const;
+	const char *GetSymbolName(int i) const;
 	void SetSymbolName(int i, const char *newname);
-	u32 GetSymbolSize(int i);
-	u32 GetSymbolAddr(int i);
-	SymbolType GetSymbolType(int i);
-	int FindSymbol(const char *name);
-	u32	GetAddress(int num);
+	u32 GetSymbolSize(int i) const;
+	u32 GetSymbolAddr(int i) const;
+	SymbolType GetSymbolType(int i) const;
+	int FindSymbol(const char *name) const;
+	u32	GetAddress(int num) const;
 	void IncreaseRunCount(int num);
-	unsigned int GetRunCount(int num);
+	unsigned int GetRunCount(int num) const;
 	void SortSymbols();
+	const char* getDirectSymbol(u32 address);
+	bool getSymbolValue(char* symbol, u32& dest);
 
 	void UseFuncSignaturesFile(const char *filename, u32 maxAddress);
-	void CompileFuncSignaturesFile(const char *filename);
+	void CompileFuncSignaturesFile(const char *filename) const;
 
 private:
-	struct MapEntry
+	struct MapEntryUniqueInfo
 	{
 		u32 address;
 		u32 vaddress;
 		u32 size;
-		u32 unknown;
-
-		u32 runCount;
-
 		SymbolType type;
+
+		bool operator <(const MapEntryUniqueInfo &other) const {
+			return vaddress < other.vaddress;
+		}
+	};
+
+	struct MapEntry : public MapEntryUniqueInfo
+	{
+		char name[128];
+		u32 unknown;
+		u32 runCount;
 
 #ifdef BWLINKS
 		std::vector <u32> backwardLinks;
 #endif
 
-		char name[128];
-
 		void UndecorateName()
 		{
 			// TODO
 		}
-
-		bool operator <(const MapEntry &other) const {
-			return vaddress < other.vaddress;
-		}
 	};
 
+	std::set<MapEntryUniqueInfo> uniqueEntries;
 	std::vector<MapEntry> entries;
 };
 

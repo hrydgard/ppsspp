@@ -1,0 +1,32 @@
+#################
+Disassembly view
+#################
+
+You can change the cursor with the up/down arrow keys, the mouse wheel or by clicking on a line. You can scroll by a whole page with page up/down. Clicking on the cursor will toggle a breakpoint at that position. Addresses in opcodes are replaced by a label if there is one for the respective address.
+The PC is highlighted by a square left of the opcode. The background is also slighly brighter.
+
+Key bindings:
+-TAB toggles between display symbols and displaying addresses + hexadecimal representation of each instruction
+-F9 sets a temporary breakpoint at the cursor address and starts the cpu (Run to cursor)
+-F10 Step Over, will execute until the next line, or the next but one in case of a branch. For absolute branches, it will execute until the branch target.
+-F11 Step Into, will execute the next opcode and then stop
+-Space will also toggle the breakpoint at the cursor
+-the right arrow key follows a branch
+-the left arrow key undoes one level of following. If there is nothing to un-follow, it will jump to the PC
+-Ctrl+S will start a text search. It will search through the displayed text until it matches the entered text or reaches the end of the user memory. Escape can be used to cancel the search. Any gaps on screen are represented by a single space, ie "addiu a0". The search starts on the first instruction after the cursor
+-Ctrl+C will continue the previous search
+-Ctrl+X will disassemble to a file you specify. First you enter the size (in bytes, hexadecimal) of the code to be disassembled, then you select a file name. It will start at the cursor
+
+All breakpoints are listed in the table at the bottom of the disassembly view. Doube clicking an execute breakpoint will move the disassembly view to that position, double clicking a memory breakpoint will open the memory viewer and move it to the start of the breakpoint range. Pressing delete will remove the selected breakpoint.
+If there is a symbol defined for the position of an execute breakpoint, that will also be displayed.
+
+
+###########
+Memory View
+###########
+
+The lines are always 16 byte aligned. You can click anywhere on screen or use the arrow keys to move the cursor. You can also use the mouse wheel or the page up/down keys for scrolling.
+The active column will have a blue cursor, the inactive one a grey one.
+In the hex column, the currently selected nibble is underlined. You can type A-F and 0-9 to change the data. Using the left and right arrow keys in the hex column will move the cursor one nibble at a time.
+In the ascii column, you can type all letters to change the data.
+Double clicking on an entry in the list will move the cursor to that position. Hitting enter in the goto edit box will do the same.

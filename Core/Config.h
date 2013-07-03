@@ -46,12 +46,14 @@ public:
 #endif
 
 	// General
+	bool bNewUI;  // "Hidden" setting, does not get saved to ini file.
 	int iNumWorkerThreads;
 
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
 	std::vector<std::string> recentIsos;
@@ -61,7 +63,7 @@ public:
 	bool bDisplayFramebuffer;
 	bool bHardwareTransform;
 	bool bBufferedRendering;
-	bool bLinearFiltering;
+	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 	bool bUseVBO;
 #ifdef BLACKBERRY
 	bool bPartialStretch;
@@ -78,11 +80,13 @@ public:
 	bool bFullScreen;
 	int iAnisotropyLevel;
 	bool bTrueColor;
+	bool bFramebuffersToMem;
 	bool bMipMap;
 	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
 	int iFpsLimit;
+	int iForceMaxEmulatedFPS;
 	int iMaxRecent;
 	bool bEnableCheats;
 	bool bReloadCheats;
@@ -125,6 +129,14 @@ public:
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+
+	// Debugger
+	int iDisasmWindowX;
+	int iDisasmWindowY;
+	int iDisasmWindowW;
+	int iDisasmWindowH;
+	int iConsoleWindowX;
+	int iConsoleWindowY;
 
 	std::string currentDirectory;
 	std::string externalDirectory; 

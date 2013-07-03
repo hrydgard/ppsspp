@@ -124,9 +124,11 @@ void WindowsHost::UpdateDisassembly()
 
 void WindowsHost::SetDebugMode(bool mode)
 {
-	for (int i=0; i<numCPUs; i++)
+	for (int i = 0; i < numCPUs; i++)
+	{
 		if (disasmWindow[i])
-			disasmWindow[i]->SetDebugMode(mode);
+			PostMessage(disasmWindow[i]->GetDlgHandle(), WM_DISASM_SETDEBUG, 0, (LPARAM)mode);
+	}
 }
 
 extern BOOL g_bFullScreen;
@@ -166,16 +168,12 @@ static std::string SymbolMapFilename(const char *currentFilename)
 
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	if (loadedSymbolMap_)
-		return true;
-	loadedSymbolMap_ = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
-	return loadedSymbolMap_;
+	return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
 }
 
 void WindowsHost::SaveSymbolMap()
 {
 	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
-	loadedSymbolMap_ = false;
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 
@@ -190,4 +188,22 @@ bool WindowsHost::IsDebuggingEnabled()
 #else
 	return false;
 #endif
+}
+
+void WindowsHost::SetConsolePosition()
+{
+	HWND console = GetConsoleWindow();
+	if (console != NULL && g_Config.iConsoleWindowX != -1 && g_Config.iConsoleWindowY != -1)
+		SetWindowPos(console, NULL, g_Config.iConsoleWindowX, g_Config.iConsoleWindowY, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+}
+
+void WindowsHost::UpdateConsolePosition()
+{
+	RECT rc;
+	HWND console = GetConsoleWindow();
+	if (console != NULL && GetWindowRect(console, &rc))
+	{
+		g_Config.iConsoleWindowX = rc.left;
+		g_Config.iConsoleWindowY = rc.top;
+	}
 }

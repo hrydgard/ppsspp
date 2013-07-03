@@ -88,7 +88,7 @@ public:
 
 	virtual bool MkDir(const std::string &dirname);
 	virtual bool RmDir(const std::string &dirname);
-	virtual bool RenameFile(const std::string &from, const std::string &to);
+	virtual int  RenameFile(const std::string &from, const std::string &to);
 	virtual bool RemoveFile(const std::string &filename);
 
 	// TODO: void IoCtl(...)

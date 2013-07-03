@@ -137,7 +137,7 @@ struct Atrac {
 		Atrac3plus_Decoder::CloseContext(&decoder_context);
 		sampleQueue.clear();
 
-		if (atracContext.Valid())
+		if (atracContext.IsValid())
 			kernelMemory.Free(atracContext.ptr);
 	}
 
@@ -513,7 +513,7 @@ u32 _AtracAddStreamData(int atracID, u8 *buf, u32 bytesToAdd) {
 		atrac->first.size = atrac->first.filesize;
 	atrac->first.fileoffset = atrac->first.size;
 	atrac->first.writableBytes = 0;
-	if (atrac->atracContext.Valid()) {
+	if (atrac->atracContext.IsValid()) {
 		// refresh atracContext
 		_AtracGenarateContext(atrac, atrac->atracContext);
 	}
@@ -670,7 +670,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			*finish = finishFlag;
 			*remains = atrac->getRemainFrames();
 		}
-		if (atrac->atracContext.Valid()) {
+		if (atrac->atracContext.IsValid()) {
 			// refresh atracContext
 			_AtracGenarateContext(atrac, atrac->atracContext);
 		}
@@ -1091,7 +1091,11 @@ int _AtracSetData(Atrac *atrac, u32 buffer, u32 bufferSize)
 
 
 	if (atrac->codeType == PSP_MODE_AT_3) {
-		WARN_LOG(HLE, "This is an atrac3 audio");
+		if (atrac->atracChannels == 1) {
+			WARN_LOG(HLE, "This is an atrac3 mono audio");
+		} else {
+			WARN_LOG(HLE, "This is an atrac3 stereo audio");
+		}
 
 #ifdef USE_FFMPEG
 		atrac->data_buf = new u8[atrac->first.filesize];
@@ -1425,7 +1429,10 @@ void _AtracGenarateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.loopNum = atrac->loopNum;
 	context->info.loopStart = atrac->loopStartSample > 0 ? atrac->loopStartSample : 0;
 	context->info.loopEnd = atrac->loopEndSample > 0 ? atrac->loopEndSample : 0;
-	if (atrac->first.size >= atrac->first.filesize) {
+	if (context->info.endSample > 0) {
+		// do not change info.state if this was not called at first time
+		// In Sol Trigger, it would set info.state = 0x10 outside
+	} else if (atrac->first.size >= atrac->first.filesize) {
 		// state 2, all data loaded
 		context->info.state = 2;
 	} else if (atrac->loopinfoNum == 0) {
@@ -1456,25 +1463,19 @@ int _sceAtracGetContextAddress(int atracID)
 		ERROR_LOG(HLE, "_sceAtracGetContextAddress(%i): bad atrac id", atracID);
 		return 0;
 	}
-	if (!atrac->atracContext.Valid()) {
+	if (!atrac->atracContext.IsValid()) {
 		// allocate a new atracContext
 		u32 contextsize = 256;
 		atrac->atracContext = kernelMemory.Alloc(contextsize, false, "Atrac Context");
-		if (atrac->atracContext.Valid())
+		if (atrac->atracContext.IsValid())
 			Memory::Memset(atrac->atracContext.ptr, 0, 256);
 
 		WARN_LOG(HLE, "%08x=_sceAtracGetContextAddress(%i): allocated new context", atrac->atracContext.ptr, atracID);
 	}
 	else
 		WARN_LOG(HLE, "%08x=_sceAtracGetContextAddress(%i)", atrac->atracContext.ptr, atracID);
-	if (atrac->atracContext.Valid())
+	if (atrac->atracContext.IsValid())
 		_AtracGenarateContext(atrac, atrac->atracContext);
-	if (atrac->currentSample >= atrac->endSample && atrac->loopNum == 0) {
-		// This is a hack method to release those already finished atrac3 voice.
-		// It should be removed after the real issue solved.
-		deleteAtrac(atracID);
-		return 0;
-	}
 	return atrac->atracContext.ptr;
 }
 
@@ -1582,7 +1583,11 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 			atrac->atracChannels, atrac->atracOutputChannels, atrac->atracBytesPerFrame);
 #ifdef USE_FFMPEG
 		if (atrac->codeType == PSP_MODE_AT_3) {
-			WARN_LOG(HLE, "This is an atrac3 audio (low level)");
+			if (atrac->atracChannels == 1) {
+				WARN_LOG(HLE, "This is an atrac3 mono audio (low level)");
+			} else {
+				WARN_LOG(HLE, "This is an atrac3 stereo audio (low level)");
+			}
 			int headersize = sizeof(at3Header);
 			initAT3Decoder(atrac);
 			atrac->firstSampleoffset = headersize;
@@ -1597,6 +1602,11 @@ int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr)
 #endif // USE_FFMPEG
 
 		if (atrac->codeType == PSP_MODE_AT_3_PLUS){
+			if (atrac->atracChannels == 1) {
+				WARN_LOG(HLE, "This is an atrac3+ mono audio (low level)");
+			} else {
+				WARN_LOG(HLE, "This is an atrac3+ stereo audio (low level)");
+			}
 			atrac->data_buf = new u8[atrac->atracBytesPerFrame];
 			__AtracSetContext(atrac);
 			return 0;

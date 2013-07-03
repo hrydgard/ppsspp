@@ -1223,9 +1223,10 @@ u32 sceIoRename(const char *from, const char *to) {
 	if (!pspFileSystem.GetFileInfo(from).exists)
 		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file renamed", 1000);
 
-	if (!pspFileSystem.RenameFile(from, to))
+	int result = pspFileSystem.RenameFile(from, to);
+	if (result < 0)
 		WARN_LOG(HLE, "Could not move %s to %s", from, to);
-	return hleDelayResult(0, "file renamed", 1000);
+	return hleDelayResult(result, "file renamed", 1000);
 }
 
 u32 sceIoChdir(const char *dirname) {
@@ -1675,7 +1676,7 @@ u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 	// Always have the first three.
 	for (int i = 0; i < PSP_MIN_FD; ++i) {
 		// TODO: Technically it seems like these are fixed ids > PSP_COUNT_FDS.
-		if (count < outSize && out.Valid()) {
+		if (count < outSize && out.IsValid()) {
 			out[count] = i;
 		}
 		++count;
@@ -1685,7 +1686,7 @@ u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 		if (fds[i] == 0) {
 			continue;
 		}
-		if (count < outSize && out.Valid()) {
+		if (count < outSize && out.IsValid()) {
 			out[count] = i;
 		}
 		++count;

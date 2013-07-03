@@ -23,6 +23,8 @@
 #include "Common.h"
 #include "CommonTypes.h"
 
+#include "HDRemaster.h"
+
 // Enable memory checks in the Debug/DebugFast builds, but NOT in release
 #if defined(_DEBUG) || defined(DEBUGFAST)
 #define ENABLE_MEM_CHECK
@@ -55,22 +57,6 @@ typedef void (*readFn16)(u16&, const u32);
 typedef void (*readFn32)(u32&, const u32);
 typedef void (*readFn64)(u64&, const u32);
 
-inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
-inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
-
-inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
-inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;} 
-// "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
-// game through sceKernelVolatileMemTryLock.
-
-inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
-inline u32 PSP_GetUserMemoryEnd()  { return 0x0A000000;}
-
-inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
-//inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
-inline u32 PSP_GetVidMemBase() { return 0x04000000;}
-inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
-
 namespace Memory
 {
 // Base is a pointer to the base of the memory map. Yes, some MMU tricks
@@ -97,12 +83,12 @@ extern u8 *m_pUncachedRAM;
 extern u8 *m_pPhysicalVRAM;
 extern u8 *m_pUncachedVRAM;
 
-// TODO: Later PSP models got more RAM.
+extern u32 g_MemoryEnd;  // End of PSP Userspace
+extern u32 g_MemorySize; // Replaces RAM_SIZE
+extern u32 g_MemoryMask; // Replaces RAM_MASK
+
 enum
 {
-	RAM_SIZE        = 0x2000000,  // 32 MB - although only the upper 24 are available for the user.
-	RAM_MASK        = RAM_SIZE - 1,
-
 	VRAM_SIZE       = 0x200000,
 	VRAM_MASK       = VRAM_SIZE - 1,
 
@@ -349,11 +335,27 @@ struct PSPPointer
 		return (T *)(Memory::base + ptr);
 	}
 
-	bool Valid() const
+	bool IsValid() const
 	{
 		return Memory::IsValidAddress(ptr);
 	}
 };
+
+inline u32 PSP_GetUserMemoryEnd()  { return Memory::g_MemoryEnd;}
+inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
+inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
+
+inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
+inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;} 
+// "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
+// game through sceKernelVolatileMemTryLock.
+
+inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
+
+inline u32 PSP_GetDefaultLoadAddress() { return 0x08804000;}
+//inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
+inline u32 PSP_GetVidMemBase() { return 0x04000000;}
+inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
 
 template <typename T>
 inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)

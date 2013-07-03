@@ -4,7 +4,7 @@ QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
 win32: QT += multimedia
-VERSION = 0.7.6
+VERSION = 0.8.1
 
 include(Settings.pri)
 mobile_platform: MOBILITY += sensors
@@ -13,8 +13,8 @@ symbian: MOBILITY += systeminfo
 # Libs
 symbian {
 	LIBS += -lCore.lib -lCommon.lib -lNative.lib
-	# For now you have to copy these to the Symbian lib dir. Better solution coming later.
-	LIBS += -lavutil.lib -lavformat.lib -lavcodec.lib -lswresample.lib -lswscale.lib
+	# For now you have to copy these to the Symbian lib dir using ffmpeg/symbian-install.sh
+	LIBS += -lavformat.lib -lavcodec.lib -lavutil.lib -lswresample.lib -lswscale.lib
 }
 qnx: LIBS += -L. -lCore -lCommon -lNative -lscreen -lz
 win32 {
@@ -43,7 +43,10 @@ HEADERS += ../native/base/QtMain.h
 
 # Native
 SOURCES += ../UI/EmuScreen.cpp \
+	../UI/MainScreen.cpp \
 	../UI/MenuScreens.cpp \
+	../UI/GameScreen.cpp \
+	../UI/GameSettingsScreen.cpp \
 	../UI/GamepadEmu.cpp \
 	../UI/GameInfoCache.cpp \
 	../UI/OnScreenDisplay.cpp \
@@ -82,12 +85,25 @@ PRE_TARGETDEPS += compiler_lang_make_all
 
 # Packaging
 symbian {
-	deploy.pkg_prerules = "$${LITERAL_HASH}{\"PPSSPP\"}, (0xE0095B1D), 0, 7, 6, TYPE=SA" "%{\"Qtness\"}" ":\"Qtness\""
+	# App UID:
+	TARGET.UID3 = 0xE0095B1D
+
+	# App Name:
+	DEPLOYMENT.display_name = PPSSPP
+
+	# App Vendor:
+	vendor_deploy.pkg_prerules = "%{\"Qtness\"}" ":\"Qtness\""
+
+	# App Icon:
+	ICON = ../assets/icon.svg
+
+	# Folders:
 	assets.sources = ../assets/flash ../lang
 	assets.path = E:/PPSSPP
-	DEPLOYMENT += deploy assets
-	ICON = ../assets/icon.svg
-	# 268MB maximum
+
+	DEPLOYMENT += vendor_deploy assets
+
+	# 268 MB maximum
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
 	TARGET.EPOCSTACKSIZE = 0x10000
 }
