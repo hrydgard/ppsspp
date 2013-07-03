@@ -784,9 +784,14 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
-	case WM_DISASM_SETDEBUG:
+	case WM_DEB_SETDEBUGLPARAM:
 		SetDebugMode(lParam != 0);
 		return TRUE;
+
+	case WM_DEB_UPDATE:
+		Update();
+		return TRUE;
+
 	case WM_DEB_TABPRESSED:
 		{
 			HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);

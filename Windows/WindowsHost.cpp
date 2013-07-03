@@ -25,9 +25,10 @@
 #include "WndMainWindow.h"
 #include "OpenGLBase.h"
 
-#include "../Windows/Debugger/Debugger_Disasm.h"
-#include "../Windows/Debugger/Debugger_MemoryDlg.h"
-#include "../Core/Debugger/SymbolMap.h"
+#include "Windows/Debugger/DebuggerShared.h"
+#include "Windows/Debugger/Debugger_Disasm.h"
+#include "Windows/Debugger/Debugger_MemoryDlg.h"
+#include "Core/Debugger/SymbolMap.h"
 
 #include "main.h"
 
@@ -43,6 +44,11 @@ int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
 		memset(buffer,0,numSamples*sizeof(short)*2);
 		return numSamples;
 	}
+}
+
+static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0)
+{
+	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
 }
 
 bool WindowsHost::InitGL(std::string *error_message)
@@ -112,14 +118,14 @@ void WindowsHost::UpdateMemView()
 {
 	for (int i=0; i<numCPUs; i++)
 		if (memoryWindow[i])
-			memoryWindow[i]->Update();
+			PostDialogMessage(memoryWindow[i], WM_DEB_UPDATE);
 }
 
 void WindowsHost::UpdateDisassembly()
 {
 	for (int i=0; i<numCPUs; i++)
 		if (disasmWindow[i])
-			disasmWindow[i]->Update();
+			PostDialogMessage(disasmWindow[i], WM_DEB_UPDATE);
 }
 
 void WindowsHost::SetDebugMode(bool mode)
@@ -127,7 +133,7 @@ void WindowsHost::SetDebugMode(bool mode)
 	for (int i = 0; i < numCPUs; i++)
 	{
 		if (disasmWindow[i])
-			PostMessage(disasmWindow[i]->GetDlgHandle(), WM_DISASM_SETDEBUG, 0, (LPARAM)mode);
+			PostDialogMessage(disasmWindow[i], WM_DEB_SETDEBUGLPARAM, 0, (LPARAM)mode);
 	}
 }
 
