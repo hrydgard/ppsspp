@@ -177,6 +177,11 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	}
+
+	case WM_DEB_UPDATE:
+		Update();
+		return TRUE;
+
 	case WM_INITDIALOG:
 		{
 			return TRUE;
