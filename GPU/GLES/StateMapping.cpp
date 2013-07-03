@@ -234,12 +234,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		// Stencil Test
-		if (gstate.isStencilTestEnabled()) {
-			glstate.stencilTest.enable();
-			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
-		} else 
-			glstate.stencilTest.disable();
+		glstate.stencilTest.enable();
+		glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+		glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
 
 	} else {
 
