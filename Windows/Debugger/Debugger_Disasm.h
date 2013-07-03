@@ -41,6 +41,7 @@ private:
 	void removeBreakpoint(int itemIndex);
 	int getTotalBreakpointCount();
 	int getBreakpointIndex(int itemIndex, bool& isMemory);
+	void updateThreadLabel(bool clear);
 public:
 	int index; //helper 
 

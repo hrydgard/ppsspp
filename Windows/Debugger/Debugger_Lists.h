@@ -15,4 +15,5 @@ public:
 	void reloadThreads();
 	void handleNotify(LPARAM lParam);
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+	const char* getCurrentThreadName();
 };
