@@ -378,25 +378,12 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jcl
 	switch (key) {
 	case 1: AsyncDown (PAD_BUTTON_BACK); break; // Back
 	case 2: AsyncDown (PAD_BUTTON_MENU); break; // Menu
-	case 3: AsyncDown (PAD_BUTTON_A); break; // Search
-	case KEYCODE_BUTTON_CROSS:
 	case KEYCODE_BUTTON_CROSS_PS3:
 		AsyncDown(PAD_BUTTON_A);
 		break;
-	case KEYCODE_BUTTON_CIRCLE:
 	case KEYCODE_BUTTON_CIRCLE_PS3:
 		AsyncDown (PAD_BUTTON_B);
 		break;
-	case KEYCODE_BUTTON_SQUARE: AsyncDown (PAD_BUTTON_X); break;
-	case KEYCODE_BUTTON_TRIANGLE: AsyncDown (PAD_BUTTON_Y); break;
-	case KEYCODE_DPAD_LEFT: AsyncDown (PAD_BUTTON_LEFT); break;
-	case KEYCODE_DPAD_UP: AsyncDown (PAD_BUTTON_UP); break;
-	case KEYCODE_DPAD_RIGHT: AsyncDown (PAD_BUTTON_RIGHT); break;
-	case KEYCODE_DPAD_DOWN: AsyncDown (PAD_BUTTON_DOWN); break;
-	case KEYCODE_BUTTON_L1: AsyncDown (PAD_BUTTON_LBUMPER); break;
-	case KEYCODE_BUTTON_R1: AsyncDown (PAD_BUTTON_RBUMPER); break;
-	case KEYCODE_BUTTON_START: AsyncDown (PAD_BUTTON_START); break;
-	case KEYCODE_BUTTON_SELECT: AsyncDown (PAD_BUTTON_SELECT); break;
 	default: break;
 	}
 }
@@ -407,25 +394,12 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclas
 	switch (key) {
 	case 1: AsyncUp (PAD_BUTTON_BACK); break; // Back
 	case 2: AsyncUp (PAD_BUTTON_MENU); break; // Menu
-	case 3: AsyncUp (PAD_BUTTON_A); break; // Search
-	case KEYCODE_BUTTON_CROSS:
 	case KEYCODE_BUTTON_CROSS_PS3:
 		AsyncUp(PAD_BUTTON_A);
 		break;
-	case KEYCODE_BUTTON_CIRCLE:
 	case KEYCODE_BUTTON_CIRCLE_PS3:
 		AsyncUp (PAD_BUTTON_B);
 		break;
-	case KEYCODE_BUTTON_SQUARE: AsyncUp (PAD_BUTTON_X); break;
-	case KEYCODE_BUTTON_TRIANGLE: AsyncUp (PAD_BUTTON_Y); break;
-	case KEYCODE_DPAD_LEFT: AsyncUp (PAD_BUTTON_LEFT); break;
-	case KEYCODE_DPAD_UP: AsyncUp (PAD_BUTTON_UP); break;
-	case KEYCODE_DPAD_RIGHT: AsyncUp (PAD_BUTTON_RIGHT); break;
-	case KEYCODE_DPAD_DOWN: AsyncUp (PAD_BUTTON_DOWN); break;
-	case KEYCODE_BUTTON_L1: AsyncUp (PAD_BUTTON_LBUMPER); break;
-	case KEYCODE_BUTTON_R1: AsyncUp (PAD_BUTTON_RBUMPER); break;
-	case KEYCODE_BUTTON_START: AsyncUp (PAD_BUTTON_START); break;
-	case KEYCODE_BUTTON_SELECT: AsyncUp (PAD_BUTTON_SELECT); break;
 	default: break;
 	}
 }
