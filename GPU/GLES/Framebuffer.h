@@ -161,7 +161,6 @@ private:
 	void PackFramebufferGL_(VirtualFramebuffer *vfb);
 	void PackFramebufferGLES_(VirtualFramebuffer *vfb);
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
-	GLSLProgram *blitprogram;
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
 

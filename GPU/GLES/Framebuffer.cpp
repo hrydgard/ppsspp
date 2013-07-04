@@ -70,17 +70,6 @@ static const char basic_vs[] =
 	"  gl_Position = u_viewproj * a_position;\n"
 	"}\n";
 
-static const char blit_fs[] =
-	"#ifdef GL_ES\n"
-	"precision mediump float;\n"
-	"#endif\n"
-	"uniform sampler2D sampler0;\n"
-	"varying vec2 v_texcoord0;\n"
-	"void main() {\n"
-	"	gl_FragColor.rgb = texture2D(sampler0, v_texcoord0).bgr;\n"
-	"	gl_FragColor.a = 1.0;\n"
-	"}\n";
-
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
 	FBO_OLD_AGE = 5,
@@ -90,15 +79,15 @@ static bool MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
 }
 
-inline u16 ARGB8888toBGR565(u32 px) {
+inline u16 RGBA8888toRGB565(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
 }
 
-inline u16 ARGB8888toABGR4444(u32 px) {
+inline u16 RGBA8888toRGBA4444(u32 px) {
 	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
 }
 
-inline u16 ARGB8888toABGR1555(u32 px) {
+inline u16 RGBA8888toRGBA5551(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 }
 
@@ -164,12 +153,6 @@ FramebufferManager::FramebufferManager() :
 	glUniform1i(draw2dprogram->sampler0, 0);
 	glsl_unbind();
 
-	blitprogram = glsl_create_source(basic_vs, blit_fs);
-
-	glsl_bind(blitprogram);
-	glUniform1i(draw2dprogram->sampler0, 0);
-	glsl_unbind();
-
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
 	glstate.depthWrite.set(GL_TRUE);
@@ -184,7 +167,6 @@ FramebufferManager::~FramebufferManager() {
 	if (drawPixelsTex_)
 		glDeleteTextures(1, &drawPixelsTex_);
 	glsl_destroy(draw2dprogram);
-	glsl_destroy(blitprogram);
 
 	delete [] pixelBufObj_;
 	delete [] convBuf;
@@ -725,10 +707,6 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 						break;
 				}
 			}
-			
-			//#ifdef ANDROID
-			//	nvfb->colorDepth = FBO_8888;
-			//#endif
 
 			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
 			if (!(nvfb->fbo)) {
@@ -751,7 +729,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 			glClearColor(0.0f,0.0f,0.0f,1.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-			//glEnable(GL_DITHER);
+			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
 			nvfb->last_frame_used = gpuStats.numFrames;
@@ -816,21 +794,17 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
-#ifdef USING_GLES2
 	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, draw2dprogram);
-#else
-	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, blitprogram);
-#endif
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
 	fbo_unbind();
 }
 
 void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
-	if(format == GE_FORMAT_8888) { // Here lets assume they don't intersect
+	if(format == GE_FORMAT_8888) {
 		if(src == dst) {
 			return;
-		} else {
+		} else { // Here lets assume they don't intersect
 			memcpy(dst, src, stride * height * 4);
 		}
 	} else { // But here it shouldn't matter if they do
@@ -841,20 +815,20 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 				case GE_FORMAT_565: // BGR 565
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = ARGB8888toBGR565(px);
+						*(dst16+i) = RGBA8888toRGB565(px);
 					}
 					break;
 				case GE_FORMAT_5551: // ABGR 1555
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = ARGB8888toABGR1555(px);
+						*(dst16+i) = RGBA8888toRGBA5551(px);
 					}
 
 					break;
 				case GE_FORMAT_4444: // ABGR 4444
 					for(int i = 0; i < stride; i++) {
 						u32 px = *(src32 + i);
-						*(dst16+i) = ARGB8888toABGR4444(px);
+						*(dst16+i) = RGBA8888toRGBA4444(px);
 					}
 					break;
 				default:
@@ -868,6 +842,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	bool unbind = false;
 
+	// We'll prepare two PBOs to switch between readying and reading
 	if(!pixelBufObj_) {
 		GLuint pbos[2];
 
@@ -889,28 +864,31 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		int pixelType, pixelSize, pixelFormat, align;
 
 		switch (vfb->format) {
-			case GE_FORMAT_4444: // 16 bit ABGR
+			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
+			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
+			// We want R G B A, so we use *_REV for 16-bit formats and GL_UNSIGNED_BYTE for 32-bit
+			case GE_FORMAT_4444: // 16 bit RGBA
 				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-				pixelFormat = GL_BGRA;
+				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
-			case GE_FORMAT_5551: // 16 bit ABGR
+			case GE_FORMAT_5551: // 16 bit RGBA
 				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-				pixelFormat = GL_BGRA;
+				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
-			case GE_FORMAT_565: // 16 bit BGR
+			case GE_FORMAT_565: // 16 bit RGB
 				pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
-				pixelFormat = GL_BGR;
+				pixelFormat = GL_RGB;
 				pixelSize = 2;
 				align = 8;
 				break;
-			case GE_FORMAT_8888: // 32 bit ABGR
+			case GE_FORMAT_8888: // 32 bit RGBA
 			default:
 				pixelType = GL_UNSIGNED_BYTE;
-				pixelFormat = GL_BGRA;
+				pixelFormat = GL_RGBA;
 				pixelSize = 4;
 				align = 4;
 				break;
@@ -934,7 +912,9 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
 
 		if(pixelBufObj_[currentPBO_].maxSize < bufSize) {
+			// We reserve a buffer big enough to fit all those pixels
 			if(g_Config.bFramebuffersCPUConvert && pixelType != GL_UNSIGNED_BYTE) {
+				 // Wnd result may be 16-bit but we are reading 32-bit, so we need double the space on the buffer
 				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize*2, NULL, GL_DYNAMIC_READ);
 			} else {
 				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
@@ -950,17 +930,24 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		pixelBufObj_[currentPBO_].reading = true;
 
 		if(g_Config.bFramebuffersCPUConvert) {
+			// If converting pixel formats on the CPU we'll always request RGBA8888
 			glPixelStorei(GL_PACK_ALIGNMENT, 4);
-			glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+			glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		} else {
+			// Otherwise we'll directly request the format we need and let the GPU sort it out
 			glPixelStorei(GL_PACK_ALIGNMENT, align);
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
+		}
+
+		fbo_unbind();
+		if(gl_extensions.FBO_ARB) {
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 		}
 
 		unbind = true;
 	}
 
-	// Receive data from previous framebuffer
+	// Receive previously requested data from a PBO
 	u8 nextPBO = (currentPBO_ + 1) % 2;
 	if(pixelBufObj_[nextPBO].reading) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[nextPBO].handle);
@@ -974,7 +961,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 				ConvertFromRGBA8888(Memory::GetPointer(pixelBufObj_[nextPBO].fb_address), packed, 
 								pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
 								pixelBufObj_[nextPBO].format);
-			} else { // we don't need to convert
+			} else { // We don't need to convert, GPU already did (or should have)
 				Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
 			}
 			glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
@@ -989,10 +976,6 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 
 	if(unbind) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-		fbo_unbind();
-		if(gl_extensions.FBO_ARB) {
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-		}
 	}
 }
 
@@ -1004,13 +987,14 @@ void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 		return;
 	}
 
-	size_t bufSize = vfb->fb_stride * vfb->height * 4; // pixel size always 4 here
+	// Pixel size always 4 here because we always request RGBA8888
+	size_t bufSize = vfb->fb_stride * vfb->height * 4;
 	u32 fb_address = (0x44000000) | vfb->fb_address;
 
 	GLubyte *packed = 0;
 	if(vfb->format == GE_FORMAT_8888) {
 		packed = (GLubyte *)Memory::GetPointer(fb_address);
-	} else { // end result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
+	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
 		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
 	}
 
@@ -1041,7 +1025,7 @@ void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 				break;
 		}
 
-		if(vfb->format != GE_FORMAT_8888) { // if not RGBA 8888 we need to convert
+		if(vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
 			free(packed);
 		}
@@ -1058,7 +1042,7 @@ void FramebufferManager::EndFrame() {
 	}
 
 #ifndef USING_GLES2
-	// We flush last packed framebuffer, if any
+	// We flush to memory last requested framebuffer, if any
 	PackFramebufferGL_(NULL);
 #endif
 }
@@ -1123,12 +1107,14 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
+	bool thirdFrame = (gpuStats.numFrames % 3 == 0);
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 
 		if(g_Config.bFramebuffersToMem) {
-			if((gpuStats.numFrames % 3 == 0) && age < 3) {
+			// Every third frame we'll commit framebuffers to memory
+			if(thirdFrame && age <= FBO_OLD_AGE) {
 				ReadFramebufferToMemory(vfb);
 			}
 		}
@@ -1147,9 +1133,6 @@ void FramebufferManager::DecimateFBOs() {
 	// Do the same for ReadFramebuffersToMemory's VFBs
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = bvfbs_[i];
-		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
-			continue;
-		}
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
