@@ -646,6 +646,10 @@ add_library(native STATIC
 	native/util/text/utf8.h
 	native/util/text/utf8.cpp
 	native/util/const_map.h
+	native/ext/jpge/jpgd.cpp
+	native/ext/jpge/jpgd.h
+	native/ext/jpge/jpge.cpp
+	native/ext/jpge/jpge.h
 	native/ext/rapidxml/rapidxml.hpp
 	native/ext/rapidxml/rapidxml_iterators.hpp
 	native/ext/rapidxml/rapidxml_print.hpp
