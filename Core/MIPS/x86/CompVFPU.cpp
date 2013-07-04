@@ -347,8 +347,8 @@ void Jit::Comp_SVQ(u32 op)
 			}
 			safe.Finish();
 
-			fpr.ReleaseSpillLocks();
 			gpr.UnlockAll();
+			fpr.ReleaseSpillLocks();
 		}
 		break;
 

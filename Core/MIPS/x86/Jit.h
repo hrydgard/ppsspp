@@ -292,7 +292,7 @@ private:
 	class JitSafeMem
 	{
 	public:
-		JitSafeMem(Jit *jit, int raddr, s32 offset);
+		JitSafeMem(Jit *jit, int raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);
 
 		// Emit code necessary for a memory write, returns true if MOV to dest is needed.
 		bool PrepareWrite(OpArg &dest, int size);
@@ -336,6 +336,7 @@ private:
 		bool needsCheck_;
 		bool needsSkip_;
 		bool far_;
+		u32 alignMask_;
 		u32 iaddr_;
 		X64Reg xaddr_;
 		FixupBranch tooLow_, tooHigh_, skip_;
