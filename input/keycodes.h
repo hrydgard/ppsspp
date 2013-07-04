@@ -1,4 +1,6 @@
 #pragma once
+#include <climits>
+#define NEWKEY (INT_MAX - __LINE__)
 
 typedef enum _keycode_t {
 	KEYCODE_BUTTON_CROSS = 23, // trackpad or X button(Xperia Play) is pressed
@@ -211,5 +213,25 @@ typedef enum _keycode_t {
 	KEYCODE_BUTTON_14 = 201,
 	KEYCODE_BUTTON_15 = 202,
 	KEYCODE_BUTTON_16 = 203,
+
+	// == Extended Keys ====
+	// Not native to android
+
+	// Xbox 360 controller
+	KEYCODE_XBOX_A = NEWKEY,
+	KEYCODE_XBOX_B = NEWKEY,
+	KEYCODE_XBOX_X = NEWKEY,
+	KEYCODE_XBOX_Y = NEWKEY,
+	KEYCODE_XBOX_START = NEWKEY,
+	KEYCODE_XBOX_SELECT = NEWKEY,
+	KEYCODE_XBOX_TRIGGER_R = NEWKEY,
+	KEYCODE_XBOX_TRIGGER_L = NEWKEY,
+	KEYCODE_XBOX_BUMPER_R = NEWKEY,
+	KEYCODE_XBOX_BUMPER_L = NEWKEY,
+	KEYCODE_XBOX_DPAD_UP = NEWKEY,
+	KEYCODE_XBOX_DPAD_LEFT = NEWKEY,
+	KEYCODE_XBOX_DPAD_RIGHT = NEWKEY,
+	KEYCODE_XBOX_DPAD_DOWN = NEWKEY,
+	KEYCODE_XBOX_HOME = NEWKEY,
 } keycode_t;
 
