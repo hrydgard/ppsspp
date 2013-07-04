@@ -493,6 +493,18 @@ void PauseScreen::render() {
 		if (gpu)
 			gpu->Resized();
 	}
+	if (g_Config.bBufferedRendering) {
+		bool memory = !g_Config.bFramebuffersToMem;
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Skip Updating PSP Memory"), ALIGN_TOPLEFT, &memory)) { 
+			if (gpu)
+				gpu->Resized();
+		}
+		g_Config.bFramebuffersToMem = memory ? 0 : 1; 
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
+			if (gpu)
+				gpu->Resized();
+		}
+	}
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
 	UICheckBox(GEN_ID, x, y += stride , gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
 	if (enableFrameSkip) {
@@ -514,7 +526,8 @@ void PauseScreen::render() {
 		y+=20;
 	} else 
 		g_Config.iFrameSkip = 0;
-
+	
+	y+=10;
 	ui_draw2d.DrawText(UBUNTU24, gs->T("Save State :"), 30, y += 40, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear4(x + 180 , y , 10);
 	if (UIButton(GEN_ID, hlinear4, 60, 0, "1", ALIGN_LEFT)) {
@@ -751,10 +764,6 @@ void DeveloperScreen::render() {
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Dump next frame"), ALIGN_LEFT)) {
 		gpu->DumpNextFrame();
 	}
-
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Cleanup Recents"), ALIGN_LEFT)) {
-		g_Config.recentIsos.clear();
-	}
 	
 	UIEnd();
 }
@@ -848,12 +857,12 @@ void GraphicsScreenP1::render() {
 	}
 	if (g_Config.bBufferedRendering) {
 		bool memory = !g_Config.bFramebuffersToMem;
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Skip updating PSP Memory"), ALIGN_TOPLEFT, &memory)) { 
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Skip Updating PSP Memory"), ALIGN_TOPLEFT, &memory)) { 
 			if (gpu)
 				gpu->Resized();
 		}
 		g_Config.bFramebuffersToMem = memory ? 0 : 1; 
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti-aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
 		}
@@ -1262,36 +1271,65 @@ void SystemScreen::render() {
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
 	bool LockCPUSpeed = g_Config.iLockedCPUSpeed != 0;
-	UICheckBox(GEN_ID, x, y += stride, s->T("Unlock CPU Speed"), ALIGN_TOPLEFT, &LockCPUSpeed);
+	UICheckBox(GEN_ID, x, y += stride, s->T("Unlock CPU Clock"), ALIGN_TOPLEFT, &LockCPUSpeed);
 	if(LockCPUSpeed) {
 		if(g_Config.iLockedCPUSpeed <= 0)
 			g_Config.iLockedCPUSpeed = 222;
 		char showCPUSpeed[256];
-		sprintf(showCPUSpeed, "%s %d", s->T("Clock: "), g_Config.iLockedCPUSpeed);
-		ui_draw2d.DrawText(UBUNTU24, showCPUSpeed, x + 60, (y += stride) - 5, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 250, y, 20);
+		sprintf(showCPUSpeed, "%s %d", s->T("Frequency :"), g_Config.iLockedCPUSpeed);
+		ui_draw2d.DrawText(UBUNTU24, showCPUSpeed, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 300, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, s->T("Auto"), ALIGN_LEFT))
-			g_Config.iLockedCPUSpeed = 333;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, s->T("-"), ALIGN_LEFT))
-			if (g_Config.iLockedCPUSpeed > 111)
-				g_Config.iLockedCPUSpeed -= 111;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, s->T("+"), ALIGN_LEFT))
+			g_Config.iLockedCPUSpeed = 222;
+		if (UIButton(GEN_ID, hlinear1, 40, 0, s->T("-1"), ALIGN_LEFT))
+			if (g_Config.iLockedCPUSpeed > 1)
+				g_Config.iLockedCPUSpeed -= 1;
+		if (UIButton(GEN_ID, hlinear1, 40, 0, s->T("+1"), ALIGN_LEFT))
 			if (g_Config.iLockedCPUSpeed < 666)
-				g_Config.iLockedCPUSpeed += 111;
-		y += 20;
+				g_Config.iLockedCPUSpeed += 1;
+		if (UIButton(GEN_ID, hlinear1, 60, 0, s->T("-10"), ALIGN_LEFT))
+			if (g_Config.iLockedCPUSpeed > 1)
+				g_Config.iLockedCPUSpeed -= 10;
+		if (UIButton(GEN_ID, hlinear1, 60, 0, s->T("+10"), ALIGN_LEFT))
+			if (g_Config.iLockedCPUSpeed < 666)
+				g_Config.iLockedCPUSpeed += 10;
+		y += 10;
 	}
 	else 
 		g_Config.iLockedCPUSpeed = 0;
 		
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	if (g_Config.bEnableCheats) {
-		HLinear hlinear1(x + 60, y += stride + 10, 20);
+		HLinear hlinear1(x + 60, y += stride, 20);
 		if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH + 50, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) 
 			g_Config.bReloadCheats = true;
 		y += 10;
 	}
+	y += 10;
 
-	y += 20;
+	char lang[256];
+	std::string type;
+	switch (g_Config.ilanguage) {
+				case 0:	type = "日本語";break;
+				case 1: type = "English";break;
+				case 2:	type = "Français";break;
+				case 3: type = "Castellano";break;
+				case 4:	type = "Deutsch";break;
+				case 5: type = "Italiano";break;
+				case 6:	type = "Nederlands";break;
+				case 7: type = "Português";break;
+				case 8: type = "Русский";break;
+				case 9:	type = "한국어";break;
+				case 10: type = "繁體中文";break;
+				case 11: type = "简体中文";break;
+	}
+	sprintf(lang, "%s %s", s->T("System Language :"), type.c_str());
+	ui_draw2d.DrawText(UBUNTU24, lang, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear3(x + 400, y, 20);
+	if (UIButton(GEN_ID, hlinear3, 220, 0, s->T("Language"), ALIGN_TOPLEFT)) {
+		screenManager()->push(new LanguageScreen());
+	} 
+	y+=20;
 
 	const char *buttonPreferenceTitle;
 	switch (g_Config.iButtonPreference) {
@@ -1311,53 +1349,27 @@ void SystemScreen::render() {
 #endif
 	ui_draw2d.DrawTextShadow(UBUNTU24, buttonPreferenceTitle, x, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 	// 29 is the width of the checkbox, new UI will replace.
-	HLinear hlinearButtonPref(x + 400, y, 20);
-	if (UIButton(GEN_ID, hlinearButtonPref, 90, 0, s->T("Use O"), ALIGN_LEFT))
+	HLinear hlinearButtonPref(x + 400, y, 10);
+	if (UIButton(GEN_ID, hlinearButtonPref, 105, 0, s->T("Use O"), ALIGN_LEFT))
 		g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
-	if (UIButton(GEN_ID, hlinearButtonPref, 90, 0, s->T("Use X"), ALIGN_LEFT))
+	if (UIButton(GEN_ID, hlinearButtonPref, 105, 0, s->T("Use X"), ALIGN_LEFT))
 		g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
-
 	y += 20;
 
 	char recents[256];
 	sprintf(recents, "%s %i", s->T("Max. No of Recents :"), g_Config.iMaxRecent);
 	ui_draw2d.DrawText(UBUNTU24, recents, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-	HLinear hlinear2(x + 400, y, 20);
+	HLinear hlinear2(x + 400, y, 10);
 	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("-1"), ALIGN_LEFT))
 		if (g_Config.iMaxRecent > 4)
 			g_Config.iMaxRecent -= 1;
 	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("+1"), ALIGN_LEFT))
 		if (g_Config.iMaxRecent < 40)
 			g_Config.iMaxRecent += 1;
-	if (UIButton(GEN_ID, hlinear2, 80, 0, s->T("Clear"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear2, 100, 0, s->T("Clear"), ALIGN_LEFT)) {
 		g_Config.recentIsos.clear();
 	}
 	y += 20;
-
-
-
-	char lang[256];
-	std::string type;
-	switch (g_Config.ilanguage) {
-				case 0:	type = "日本語";break;
-				case 1: type = "English";break;
-				case 2:	type = "Français";break;
-				case 3: type = "Castellano";break;
-				case 4:	type = "Deutsch";break;
-				case 5: type = "Italiano";break;
-				case 6:	type = "Nederlands";break;
-				case 7: type = "Português";break;
-				case 8:	type = "한국어";break;
-				case 9: type = "Русский";break;
-				case 10: type = "繁體中文";break;
-				case 11: type = "简体中文";break;
-	}
-	sprintf(lang, "%s %s", s->T("System Language :"), type.c_str());
-	ui_draw2d.DrawText(UBUNTU24, lang, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-	HLinear hlinear3(x + 400, y, 20);
-	if (UIButton(GEN_ID, hlinear3, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
-		screenManager()->push(new LanguageScreen());
-	} 
 
 	/*
 	bool time = g_Config.iTimeFormat > 0 ;
@@ -1505,10 +1517,10 @@ void ControlsScreen::render() {
 		if (bTransparent != prev)
 			g_Config.iTouchButtonOpacity = bTransparent ? 15 : 65;
 	}
-
+	y += 10;
 	// Button to KeyMapping screen
-	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
-	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Key Mapping"), ALIGN_BOTTOMLEFT)) {
+	HLinear hlinear(x, y += stride, 20);
+	if (UIButton(GEN_ID, hlinear, 250, 0, c->T("Key Mapping"), ALIGN_LEFT)) {
 		screenManager()->push(new KeyMappingScreen());
 	}
 
