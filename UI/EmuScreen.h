@@ -38,5 +38,5 @@ private:
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
 	std::string errorMessage_;
-	uint32_t pressedLastFrame;
+	uint32_t pressedLastUpdate;
 };

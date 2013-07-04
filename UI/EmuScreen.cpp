@@ -106,7 +106,7 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
 #endif
-	pressedLastFrame = 0;
+	pressedLastUpdate = 0;
 }
 
 EmuScreen::~EmuScreen() {
@@ -242,8 +242,8 @@ void EmuScreen::update(InputState &input) {
 		pressed |= KeyMap::KeyToPspButton(key);
 	}
 	__CtrlButtonDown(pressed);
-	__CtrlButtonUp(pressedLastFrame & ~pressed);
-	pressedLastFrame = pressed;
+	__CtrlButtonUp(pressedLastUpdate & ~pressed);
+	pressedLastUpdate = pressed;
 	// End Set Keys --
 
 	float stick_x = input.pad_lstick_x;
