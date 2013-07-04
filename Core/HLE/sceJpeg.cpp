@@ -19,9 +19,7 @@
 #include "Core/Reporting.h"
 #include "Common.h"
 #include "native/ext/cityhash/city.h"
-
-// http://keyj.emphy.de/nanojpeg/
-#include "native\ext\njpeg\nanojpeg.h"
+#include "native/ext/jpgd/jpgd.h"
 
 int jpegWidth, jpegHeight;
 
@@ -30,59 +28,54 @@ int jpegWidth, jpegHeight;
 
 int sceJpegDecompressAllImage()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecompressAllImage");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecompressAllImage()");
 	return 0;
 }
 
-int sceJpegMJpegCsc()
+int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegMJpegCsc");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegMJpegCsc(%i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	return 0;
 }
 
-int sceJpegDecodeMJpeg()
+int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpeg");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
 	return 0;
 }
 
-int sceJpegDecodeMJpegYCbCrSuccessively()
+int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 	return 0;
 }
 
 int sceJpegDeleteMJpeg()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDeleteMJpeg");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDeleteMJpeg()");
 	return 0;
 }
 
-int sceJpegDecodeMJpegSuccessively()
+int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegSuccessively");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegSuccessively(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
 	return 0;
 }
 
-int sceJpegCsc()
+int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegCsc");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 	return 0;
 }
 
 int sceJpegFinishMJpeg()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegFinishMJpeg");
-
-	njDone();
-
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegFinishMJpeg()");
 	return 0;
 }
 
-int getYCbCrBufferSize()
+int getYCbCrBufferSize(int w, int h)
 {
-	int w = njGetWidth();
-	int h = njGetHeight();
 	// Return necessary buffer size for conversion: 12 bits per pixel
 	return ((w * h) >> 1) * 3;
 }
@@ -99,6 +92,8 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 	if (Memory::IsValidAddress(colourInfoAddr))
 		Memory::Write_U32(0x00020202, colourInfoAddr);
 
+	int w = 0, h = 0, actual_components = 0;
+
 	if (!Memory::IsValidAddress(jpegAddr))
 	{
 		ERROR_LOG(HLE, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
@@ -108,8 +103,14 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 	{
 		// But data may not be...so check it
 		u8 *buf = Memory::GetPointer(jpegAddr);
-		int result = njDecode(buf, jpegSize);
-		if (result != 0) // (0 = success)
+		unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &w, &h, &actual_components, 3);
+		if (actual_components != 3)
+		{
+			// The assumption that the 
+			int components = actual_components;
+			jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &w, &h, &actual_components, components);
+		}
+		if (jpegBuf == NULL)
 		{
 			ERROR_LOG(HLE, "sceJpegGetOutputInfo: Bad JPEG data");
 			return 0xC000;
@@ -126,7 +127,7 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 		fclose(wfp);
 #endif //JPEG_DEBUG
 
-	return getYCbCrBufferSize();
+	return getYCbCrBufferSize(w, h);
 }
 
 int getWidthHeight(int width, int height)
@@ -143,16 +144,16 @@ int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCr
 		return getWidthHeight(0, 0);
 	}
 
-	u8 *jpegBuf = Memory::GetPointer(jpegAddr);
-	int result = njDecode(jpegBuf, jpegSize);
-
-	if (result != 0) // (0 = success)
+	u8 *buf = Memory::GetPointer(jpegAddr);
+	int width, height, actual_components;
+	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
+	if (actual_components != 3)
 	{
-		return getWidthHeight(0, 0);
+		int components = actual_components;
+		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
 	}
-
-	int width = njGetWidth();
-	int height = njGetHeight();
+	if (jpegBuf == NULL)
+		return getWidthHeight(0, 0);
 	
 	// TODO: There's more...
 
@@ -161,7 +162,7 @@ int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCr
 
 int sceJpeg_9B36444C()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpeg_9B36444C");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpeg_9B36444C()");
 	return 0;
 }
 
@@ -177,16 +178,13 @@ int sceJpegCreateMJpeg(int width, int height)
 
 int sceJpegInitMJpeg()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegInitMJpeg");
-
-	njInit();
-
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegInitMJpeg()");
 	return 0;
 }
 
 int sceJpeg_A06A75C4()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpeg_A06A75C4");
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpeg_A06A75C4()");
 	return 0;
 }
 
@@ -194,12 +192,12 @@ int sceJpeg_A06A75C4()
 const HLEFunction sceJpeg[] =
 {
 	{0x0425B986, WrapI_V<sceJpegDecompressAllImage>, "sceJpegDecompressAllImage"},
-	{0x04B5AE02, WrapI_V<sceJpegMJpegCsc>, "sceJpegMJpegCsc"},
-	{0x04B93CEF, WrapI_V<sceJpegDecodeMJpeg>, "sceJpegDecodeMJpeg"},
-	{0x227662D7, WrapI_V<sceJpegDecodeMJpegYCbCrSuccessively>, "sceJpegDecodeMJpegYCbCrSuccessively"},
+	{0x04B5AE02, WrapI_UUII<sceJpegMJpegCsc>, "sceJpegMJpegCsc"},
+	{0x04B93CEF, WrapI_UIUI<sceJpegDecodeMJpeg>, "sceJpegDecodeMJpeg"},
+	{0x227662D7, WrapI_UIUII<sceJpegDecodeMJpegYCbCrSuccessively>, "sceJpegDecodeMJpegYCbCrSuccessively"},
 	{0x48B602B7, WrapI_V<sceJpegDeleteMJpeg>, "sceJpegDeleteMJpeg"},
-	{0x64B6F978, WrapI_V<sceJpegDecodeMJpegSuccessively>, "sceJpegDecodeMJpegSuccessively"},
-	{0x67F0ED84, WrapI_V<sceJpegCsc>, "sceJpegCsc"},
+	{0x64B6F978, WrapI_UIUI<sceJpegDecodeMJpegSuccessively>, "sceJpegDecodeMJpegSuccessively"},
+	{0x67F0ED84, WrapI_UUIII<sceJpegCsc>, "sceJpegCsc"},
 	{0x7D2F3D7F, WrapI_V<sceJpegFinishMJpeg>, "sceJpegFinishMJpeg"},
 	{0x8F2BB012, WrapI_UIUI<sceJpegGetOutputInfo>, "sceJpegGetOutputInfo"},
 	{0x91EED83C, WrapI_UIUII<sceJpegDecodeMJpegYCbCr>, "sceJpegDecodeMJpegYCbCr"},
