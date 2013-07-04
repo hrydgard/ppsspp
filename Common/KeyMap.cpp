@@ -214,6 +214,15 @@ bool KeyMap::IsMappedKey(int key)
 }
 
 
+bool KeyMap::IsUserDefined(int key)
+{
+	int layer = 0;
+	int ignored;
+	FindKeyMapping(key, &layer, &ignored);
+	return layer == 0; // key found in user settings
+}
+
+
 std::string KeyMap::NamePspButtonFromKey(int key)
 {
 	return KeyMap::GetPspButtonName(KeyMap::KeyToPspButton(key));

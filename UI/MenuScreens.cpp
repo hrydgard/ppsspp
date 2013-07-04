@@ -1593,13 +1593,15 @@ void KeyMappingNewKeyDialog::render() {
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);
 	if (last_kb_key != 0) {
-		bool key_used = KeyMap::IsMappedKey(last_kb_key);
+		bool key_used = KeyMap::IsMapped(last_kb_key);
 		if (!key_used) {
 			KeyText(right, top + stride, KeyMap::GetKeyName(last_kb_key).c_str());
 		} else {
 			KeyScale(1.0f);
 			KeyText(left + stride, top + 2*stride, 
-			        keyI18N->T("Error: Key is already used"));
+			        keyI18N->T("Error: Key is already used by"));
+			KeyText(left + stride, top + 3*stride, 
+			        (KeyMap::NamePspButtonFromKey(last_kb_key)).c_str());
 		}
 	}
 
