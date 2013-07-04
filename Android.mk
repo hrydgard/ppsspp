@@ -19,6 +19,7 @@ LOCAL_SRC_FILES :=\
     data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
+    ext/jpgd/jpgd.cpp \
     ext/jpge/jpge.cpp \
     ext/sha1/sha1.cpp \
     ext/stb_image/stb_image.c \

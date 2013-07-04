@@ -277,6 +277,7 @@
     <ClInclude Include="math\expression_parser.h">
       <Filter>math</Filter>
     </ClInclude>
+    <ClInclude Include="ext\jpge\jpgd.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -495,6 +496,7 @@
     <ClCompile Include="input\input_state.cpp">
       <Filter>input</Filter>
     </ClCompile>
+    <ClCompile Include="ext\jpge\jpgd.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

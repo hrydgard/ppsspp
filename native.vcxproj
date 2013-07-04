@@ -198,6 +198,7 @@
     <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\cityhash\city.h" />
     <ClInclude Include="ext\cityhash\citycrc.h" />
+    <ClInclude Include="ext\jpge\jpgd.h" />
     <ClInclude Include="ext\jpge\jpge.h" />
     <ClInclude Include="ext\rg_etc1\rg_etc1.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
@@ -323,6 +324,7 @@
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Default</BasicRuntimeChecks>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="ext\jpge\jpgd.cpp" />
     <ClCompile Include="ext\jpge\jpge.cpp" />
     <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
