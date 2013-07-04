@@ -492,6 +492,9 @@
     <ClCompile Include="math\expression_parser.cpp">
       <Filter>math</Filter>
     </ClCompile>
+    <ClCompile Include="input\input_state.cpp">
+      <Filter>input</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

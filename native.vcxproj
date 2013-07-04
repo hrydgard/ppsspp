@@ -352,6 +352,7 @@
     <ClCompile Include="image\zim_load.cpp" />
     <ClCompile Include="image\zim_save.cpp" />
     <ClCompile Include="input\gesture_detector.cpp" />
+    <ClCompile Include="input\input_state.cpp" />
     <ClCompile Include="json\json_writer.cpp" />
     <ClCompile Include="math\curves.cpp" />
     <ClCompile Include="math\expression_parser.cpp" />
