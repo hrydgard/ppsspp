@@ -106,7 +106,8 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 		unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &w, &h, &actual_components, 3);
 		if (actual_components != 3)
 		{
-			// The assumption that the 
+			// The assumption that the image was RGB was wrong...
+			// Try again.
 			int components = actual_components;
 			jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &w, &h, &actual_components, components);
 		}
@@ -149,6 +150,8 @@ int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCr
 	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
 	if (actual_components != 3)
 	{
+		// The assumption that the image was RGB was wrong...
+		// Try again.
 		int components = actual_components;
 		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
 	}
