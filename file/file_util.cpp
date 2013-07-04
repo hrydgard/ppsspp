@@ -2,6 +2,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <direct.h>
+#ifndef strcasecmp
+#define strcasecmp _stricmp
+#endif
 #else
 #include <dirent.h>
 #include <unistd.h>
@@ -11,7 +14,7 @@
 #include <string>
 #include <set>
 #include <algorithm>
-#include <stdio.h>
+#include <cstdio>
 #include <sys/stat.h>
 #include <ctype.h>
 
@@ -26,17 +29,17 @@
 // Hack
 #ifdef __SYMBIAN32__
 static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
-    struct dirent *readdir_entry;
+	struct dirent *readdir_entry;
 
-    readdir_entry = readdir(dirp);
-    if (readdir_entry == NULL) {
-        *result = NULL;
-        return errno;
-    }
+	readdir_entry = readdir(dirp);
+	if (readdir_entry == NULL) {
+		*result = NULL;
+		return errno;
+	}
 
-    *entry = *readdir_entry;
-    *result = entry;
-    return 0;
+	*entry = *readdir_entry;
+	*result = entry;
+	return 0;
 }
 #endif
 
@@ -211,6 +214,17 @@ std::string getFileExtension(const std::string &fn) {
 		ext[i] = tolower(ext[i]);
 	}
 	return ext;
+}
+
+bool FileInfo::operator <(const FileInfo &other) const {
+	if (isDirectory && !other.isDirectory)
+		return true;
+	else if (!isDirectory && other.isDirectory)
+		return false;
+	if (strcasecmp(name.c_str(), other.name.c_str()) < 0)
+		return true;
+	else
+		return false;
 }
 
 size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const char *filter) {

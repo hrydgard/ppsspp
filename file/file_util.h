@@ -12,8 +12,7 @@ bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int s
 
 // Beginnings of a directory utility system. TODO: Improve.
 
-struct FileInfo
-{
+struct FileInfo {
 	std::string name;
 	std::string fullName;
 	bool exists;
@@ -21,16 +20,7 @@ struct FileInfo
 	bool isWritable;
 	size_t size;
 
-	bool operator <(const FileInfo &other) const {
-		if (isDirectory && !other.isDirectory)
-			return true;
-		else if (!isDirectory && other.isDirectory)
-			return false;
-		if (name < other.name)
-			return true;
-		else
-			return false;
-	}
+	bool operator <(const FileInfo &other) const;
 };
 
 std::string getFileExtension(const std::string &fn);
