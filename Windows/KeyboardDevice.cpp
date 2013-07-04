@@ -136,11 +136,17 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 		if (!GetAsyncKeyState(key_pad_map[i])) {
 			continue;
 		}
-		// TODO: Escape should eventually work with KeyQueueAttemptTranslatedAdd, but it doesn't
-		// right now.
+
 		if (!doAlternate || key_pad_map[i + 1] > PAD_BUTTON_SELECT) {
-			if(key_pad_map[i] == VK_ESCAPE)
-				input_state.pad_buttons |= key_pad_map[i + 1];
+			// TODO: remove once EmuScreen supports virtual keys
+			switch (key_pad_map[i]) {
+				case VK_ESCAPE:
+				case VK_F3:
+				case VK_PAUSE:
+				case VK_BACK:
+					input_state.pad_buttons |= key_pad_map[i + 1];
+					break;
+			}
 
 			KeyQueueAttemptTranslatedAdd(input_state.key_queue, windowsTransTable, key_pad_map[i]);
 		}

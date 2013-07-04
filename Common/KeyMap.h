@@ -62,6 +62,7 @@ namespace KeyMap {
 		int KeyToPspButton(int);
 
 		bool IsMappedKey(int);
+		bool IsUserDefined(int);
 
 		// Might be usful if you want
 		// to provide hints to users

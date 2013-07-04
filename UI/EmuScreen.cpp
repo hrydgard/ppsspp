@@ -106,6 +106,7 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
 #endif
+	pressedLastUpdate = 0;
 }
 
 EmuScreen::~EmuScreen() {
@@ -203,8 +204,6 @@ void EmuScreen::update(InputState &input) {
 #endif
 
 	// Set Keys ---- 
-	__CtrlButtonUp(-1); // blanks all buttons
-	uint32_t pressed = 0;
 
 	// Legacy key mapping
 	// Then translate pad input into PSP pad input. Also, add in tilt.
@@ -224,10 +223,16 @@ void EmuScreen::update(InputState &input) {
 	};
 
 	for (int i = 0; i < 12; i++) {
-		pressed |= input.pad_buttons_down & mapping[i][0];
+		if (input.pad_buttons_down & mapping[i][0]) {
+			__CtrlButtonDown(mapping[i][1]);
+		}
+		if (input.pad_buttons_up & mapping[i][0]) {
+			__CtrlButtonUp(mapping[i][1]);
+		}
 	}
 
 	// Modern key mapping
+	uint32_t pressed = 0;
 	for (int i = 0; i < MAX_KEYQUEUESIZE; i++) {
 		int key = input.key_queue[i];
 		if (key == 0)
@@ -237,6 +242,8 @@ void EmuScreen::update(InputState &input) {
 		pressed |= KeyMap::KeyToPspButton(key);
 	}
 	__CtrlButtonDown(pressed);
+	__CtrlButtonUp(pressedLastUpdate & ~pressed);
+	pressedLastUpdate = pressed;
 	// End Set Keys --
 
 	float stick_x = input.pad_lstick_x;
