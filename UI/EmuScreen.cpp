@@ -223,9 +223,9 @@ void EmuScreen::update(InputState &input) {
 		{PAD_BUTTON_SELECT, CTRL_SELECT},
 	};
 
-	for (int i = 0; i < 12; i++) {
-		pressed |= input.pad_buttons_down & mapping[i][0];
-	}
+	for (int i = 0; i < 12; i++)
+		if (input.pad_buttons_down & mapping[i][0])
+			pressed |= mapping[i][1];
 
 	// Modern key mapping
 	for (int i = 0; i < MAX_KEYQUEUESIZE; i++) {
