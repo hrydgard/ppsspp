@@ -18,7 +18,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
 #include "Common.h"
-#include "native\ext\cityhash\city.h"
+#include "native/ext/cityhash/city.h"
 
 // http://keyj.emphy.de/nanojpeg/
 #include "native\ext\njpeg\nanojpeg.h"
