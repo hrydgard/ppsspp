@@ -1011,6 +1011,8 @@ void __KernelFireThreadEnd(SceUID threadID)
 // TODO: Use __KernelChangeThreadState instead?  It has other affects...
 void __KernelChangeReadyState(Thread *thread, SceUID threadID, bool ready)
 {
+	// Passing the id as a parameter is just an optimization, if it's wrong it will cause havoc.
+	_dbg_assert_msg_(HLE, thread->GetUID() == threadID, "Incorrect threadID");
 	int prio = thread->nt.currentPriority;
 
 	if (thread->isReady())
@@ -1101,7 +1103,7 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 	{
 		Thread *current = __GetCurrentThread();
 		if (current && current->isRunning())
-			__KernelChangeReadyState(current, threadID, true);
+			__KernelChangeReadyState(current, currentThread, true);
 
 		__KernelSwitchContext(t, reason);
 		return true;
