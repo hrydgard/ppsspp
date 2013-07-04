@@ -1599,7 +1599,9 @@ void KeyMappingNewKeyDialog::render() {
 		} else {
 			KeyScale(1.0f);
 			KeyText(left + stride, top + 2*stride, 
-			        keyI18N->T("Error: Key is already used"));
+			        keyI18N->T("Error: Key is already used by"));
+			KeyText(left + stride, top + 3*stride, 
+			        (KeyMap::NamePspButtonFromKey(last_kb_key)).c_str());
 		}
 	}
 
