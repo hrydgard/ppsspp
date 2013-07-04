@@ -1593,7 +1593,7 @@ void KeyMappingNewKeyDialog::render() {
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);
 	if (last_kb_key != 0) {
-		bool key_used = KeyMap::IsMapped(last_kb_key);
+		bool key_used = KeyMap::IsMappedKey(last_kb_key);
 		if (!key_used) {
 			KeyText(right, top + stride, KeyMap::GetKeyName(last_kb_key).c_str());
 		} else {
