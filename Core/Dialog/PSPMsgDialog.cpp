@@ -181,7 +181,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 		I18NCategory *d = GetI18NCategory("Dialog");
 		float x, w;
 		x = 240.0f;
-		w = w / 2.0f + 16.0f;
+		w = 15.0f;
 		h /= 2.0f;
 		float y2 = y + h2 + 10.0f;
 		h2 += h + 4.0f;

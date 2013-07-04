@@ -186,6 +186,7 @@
     <ClInclude Include="FixedSizeQueue.h" />
     <ClInclude Include="FixedSizeUnorderedSet.h" />
     <ClInclude Include="Hash.h" />
+    <ClInclude Include="KeyMap.h" />
     <ClInclude Include="LinearDiskCache.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
@@ -225,6 +226,7 @@
     <ClCompile Include="FileSearch.cpp" />
     <ClCompile Include="FileUtil.cpp" />
     <ClCompile Include="Hash.cpp" />
+    <ClCompile Include="KeyMap.cpp" />
     <ClCompile Include="LogManager.cpp" />
     <ClCompile Include="MathUtil.cpp" />
     <ClCompile Include="MemArena.cpp" />

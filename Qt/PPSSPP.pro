@@ -34,6 +34,8 @@ linux {
 			DEFINES += QT_HAS_SDL
 			PKGCONFIG += sdl
 		}
+		FFMPEG_DIR=../ffmpeg/linux/x86_64/lib/
+		LIBS += $${FFMPEG_DIR}libavformat.a $${FFMPEG_DIR}libavcodec.a $${FFMPEG_DIR}libavutil.a $${FFMPEG_DIR}libswresample.a $${FFMPEG_DIR}libswscale.a
 	}
 }
 

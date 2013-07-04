@@ -979,13 +979,7 @@ void TextureCache::SetTexture() {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-			if (!g_Config.bBufferedRendering) {
-				if (entry->framebuffer->fbo)
-					entry->framebuffer->fbo = 0;
-				glBindTexture(GL_TEXTURE_2D, 0);
-				lastBoundTexture = -1;
-				entry->lastFrame = gpuStats.numFrames;
-			} else {
+			if (g_Config.bBufferedRendering) {
 				if (entry->framebuffer->fbo) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 				} else {
@@ -994,19 +988,23 @@ void TextureCache::SetTexture() {
 					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 				}
 				UpdateSamplingParams(*entry, false);
+				// This isn't right.
+				gstate_c.curTextureWidth = entry->framebuffer->width;
+				gstate_c.curTextureHeight = entry->framebuffer->height;
+				gstate_c.flipTexture = true;
+				gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
+				entry->lastFrame = gpuStats.numFrames;
+				return;
+			} else {
+				if (entry->framebuffer->fbo)
+					entry->framebuffer->fbo = 0;
+				glBindTexture(GL_TEXTURE_2D, 0);
+				lastBoundTexture = -1;
+				entry->lastFrame = gpuStats.numFrames;
 			}
-
-			// This isn't right.
-			gstate_c.curTextureWidth = entry->framebuffer->width;
-			gstate_c.curTextureHeight = entry->framebuffer->height;
-			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-			gstate_c.actualTextureHeight = h;
-			gstate_c.flipTexture = true;
-			gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-			entry->lastFrame = gpuStats.numFrames;
-			return;
 		}
-		//Validate the texture here (width, height etc)
+
+		// Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
 		bool match = entry->Matches(dim, format, maxLevel);

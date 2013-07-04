@@ -35,6 +35,10 @@ contains(MEEGO_EDITION,harmattan)|!count(gleslib,0) {
 
 # Platform specific
 contains(MEEGO_EDITION,harmattan): DEFINES += MEEGO_EDITION_HARMATTAN "_SYS_UCONTEXT_H=1"
+linux:!mobile_platform: {
+	DEFINES += USE_FFMPEG
+	INCLUDEPATH += ../ffmpeg/linux/x86_64/include
+}
 qnx {
 	# Use mkspec: unsupported/qws/qnx-armv7-g++
 	DEFINES += BLACKBERRY "_QNX_SOURCE=1" "_C99=1"

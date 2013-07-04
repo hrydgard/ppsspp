@@ -20,7 +20,7 @@
 #include <string>
 #include <map>
 #include "input/keycodes.h"     // keyboard keys
-#include "Core/HLE/sceCtrl.h"   // psp keys
+#include "../Core/HLE/sceCtrl.h"   // psp keys
 
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
