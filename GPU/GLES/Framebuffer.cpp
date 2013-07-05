@@ -161,6 +161,32 @@ FramebufferManager::FramebufferManager() :
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	useBufferedRendering_ = g_Config.bBufferedRendering;
+
+	// Check vendor string to try and guess GPU
+	const char *cvendor = (char *)glGetString(GL_VENDOR);
+	if(cvendor) {
+		const std::string vendor(cvendor);
+
+		if(vendor == "NVIDIA Corporation"
+			|| vendor == "Nouveau"
+			|| vendor == "nouveau") {
+				gpuVendor = GPU_VENDOR_NVIDIA;
+		} else if(vendor == "Advanced Micro Devices, Inc."
+			|| vendor == "ATI Technologies Inc.") {
+				gpuVendor = GPU_VENDOR_AMD;
+		} else if(vendor == "Intel"
+			|| vendor == "Intel Inc."
+			|| vendor == "Intel Corporation"
+			|| vendor == "Tungsten Graphics, Inc") { // We'll assume this last one means Intel
+				gpuVendor = GPU_VENDOR_INTEL;
+		} else if(vendor == "ARM") {
+			gpuVendor = GPU_VENDOR_ARM;
+		} else {
+			gpuVendor = GPU_VENDOR_UNKNOWN;
+		}
+	} else {
+		gpuVendor = GPU_VENDOR_UNKNOWN;
+	}
 }
 
 FramebufferManager::~FramebufferManager() {
@@ -808,32 +834,28 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 			memcpy(dst, src, stride * height * 4);
 		}
 	} else { // But here it shouldn't matter if they do
-		for (int j = 0; j < height; j++) {
-			const u32 *src32 = (u32 *)(src + stride * j*4);
-			u16 *dst16 = (u16 *)(dst + stride * j*2);
-			switch (format) {
-				case GE_FORMAT_565: // BGR 565
-					for(int i = 0; i < stride; i++) {
-						u32 px = *(src32 + i);
-						*(dst16+i) = RGBA8888toRGB565(px);
-					}
-					break;
-				case GE_FORMAT_5551: // ABGR 1555
-					for(int i = 0; i < stride; i++) {
-						u32 px = *(src32 + i);
-						*(dst16+i) = RGBA8888toRGBA5551(px);
-					}
+		u32 size = height * stride;
+		u32 *src32 = (u32 *)src;
+		u16 *dst16 = (u16 *)dst;
+		switch (format) {
+			case GE_FORMAT_565: // BGR 565
+				for(int i = 0; i < size; i++) {
+					dst16[i] = RGBA8888toRGB565(src32[i]);
+				}
+				break;
+			case GE_FORMAT_5551: // ABGR 1555
+				for(int i = 0; i < size; i++) {
+					dst16[i] = RGBA8888toRGBA5551(src32[i]);
+				}
 
-					break;
-				case GE_FORMAT_4444: // ABGR 4444
-					for(int i = 0; i < stride; i++) {
-						u32 px = *(src32 + i);
-						*(dst16+i) = RGBA8888toRGBA4444(px);
-					}
-					break;
-				default:
-					break;
-			}
+				break;
+			case GE_FORMAT_4444: // ABGR 4444
+				for(int i = 0; i < size; i++) {
+					dst16[i] = RGBA8888toRGBA4444(src32[i]);
+				}
+				break;
+			default:
+				break;
 		}
 	}
 }
@@ -868,19 +890,20 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
 			// We want R G B A, so we use *_REV for 16-bit formats and GL_UNSIGNED_BYTE for 32-bit
 			case GE_FORMAT_4444: // 16 bit RGBA
-				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
+				// We'll single out Nvidia for now, since that's the only vendor whose glReadPixels behaviour is tested.
+				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_5551: // 16 bit RGBA
-				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_565: // 16 bit RGB
-				pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
+				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
 				pixelFormat = GL_RGB;
 				pixelSize = 2;
 				align = 8;

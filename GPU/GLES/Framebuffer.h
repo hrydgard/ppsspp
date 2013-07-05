@@ -44,6 +44,13 @@ enum {
 	FB_USAGE_TEXTURE = 4,
 };
 
+enum {	
+	GPU_VENDOR_NVIDIA = 1,
+	GPU_VENDOR_AMD = 2,
+	GPU_VENDOR_INTEL = 3,
+	GPU_VENDOR_ARM = 4,
+	GPU_VENDOR_UNKNOWN = 0
+};
 
 struct VirtualFramebuffer {
 	int last_frame_used;
@@ -160,6 +167,7 @@ private:
 	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
 	void PackFramebufferGL_(VirtualFramebuffer *vfb);
 	void PackFramebufferGLES_(VirtualFramebuffer *vfb);
+	int gpuVendor;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
