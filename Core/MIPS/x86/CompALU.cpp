@@ -172,11 +172,43 @@ namespace MIPSComp
 		switch (op & 63)
 		{
 		case 22: //clz
-			DISABLE;
-			break;
+			{
+				gpr.Lock(rd, rs);
+				gpr.BindToRegister(rd, rd == rs, true);
+				BSR(32, EAX, gpr.R(rs));
+				FixupBranch notFound = J_CC(CC_Z);
+
+				MOV(32, gpr.R(rd), Imm32(31));
+				SUB(32, gpr.R(rd), R(EAX));
+				FixupBranch skip = J();
+
+				SetJumpTarget(notFound);
+				MOV(32, gpr.R(rd), Imm32(32));
+
+				SetJumpTarget(skip);
+				gpr.UnlockAll();
+				break;
+			}
 		case 23: //clo
-			DISABLE;
-			break;
+			{
+				gpr.Lock(rd, rs);
+				gpr.BindToRegister(rd, rd == rs, true);
+				MOV(32, R(EAX), gpr.R(rs));
+				NOT(32, R(EAX));
+				BSR(32, EAX, R(EAX));
+				FixupBranch notFound = J_CC(CC_Z);
+
+				MOV(32, gpr.R(rd), Imm32(31));
+				SUB(32, gpr.R(rd), R(EAX));
+				FixupBranch skip = J();
+
+				SetJumpTarget(notFound);
+				MOV(32, gpr.R(rd), Imm32(32));
+
+				SetJumpTarget(skip);
+				gpr.UnlockAll();
+				break;
+			}
 		default:
 			DISABLE;
 		}
