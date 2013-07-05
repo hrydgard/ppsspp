@@ -331,8 +331,8 @@ namespace MIPSInt
 		switch ((op >> 16) & 0xF)
 		{
 		case 3: m=idt; break; //identity   // vmidt
-		case 6: m=zero; break;             // vzero
-		case 7: m=one; break;              // vone
+		case 6: m=zero; break;             // vmzero
+		case 7: m=one; break;              // vmone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			return;

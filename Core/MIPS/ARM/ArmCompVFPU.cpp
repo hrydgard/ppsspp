@@ -431,6 +431,11 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocks();
 	}
 
+	void Jit::Comp_VMatrixInit(u32 op)
+	{
+		CONDITIONAL_DISABLE;
+	}
+
 	void Jit::Comp_VDot(u32 op)
 	{
 		// DISABLE;
