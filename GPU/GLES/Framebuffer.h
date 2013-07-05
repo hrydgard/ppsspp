@@ -44,6 +44,13 @@ enum {
 	FB_USAGE_TEXTURE = 4,
 };
 
+enum {	
+	GPU_VENDOR_NVIDIA = 1,
+	GPU_VENDOR_AMD = 2,
+	GPU_VENDOR_INTEL = 3,
+	GPU_VENDOR_ARM = 4,
+	GPU_VENDOR_UNKNOWN = 0
+};
 
 struct VirtualFramebuffer {
 	int last_frame_used;
@@ -77,6 +84,19 @@ struct VirtualFramebuffer {
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
 
+// Simple struct for asynchronous PBO readbacks
+struct AsyncPBO {
+	GLuint handle;
+	u32 maxSize;
+
+	u32 fb_address;
+	u32 stride;
+	u32 height;
+	u32 size;
+	int format;
+	bool reading;
+};
+
 class ShaderManager;
 
 class FramebufferManager {
@@ -92,7 +112,7 @@ public:
 	}
 
 	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
-	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f, float vscale = 1.0f);
+	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
 
 	void DestroyAllFBOs();
 	void DecimateFBOs();
@@ -144,7 +164,13 @@ private:
 	VirtualFramebuffer *currentRenderVfb_;
 
 	// Used by ReadFramebufferToMemory
+	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
+	void PackFramebufferGL_(VirtualFramebuffer *vfb);
+	void PackFramebufferGLES_(VirtualFramebuffer *vfb);
+	int gpuVendor;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+	AsyncPBO *pixelBufObj_; //this isn't that large
+	u8 currentPBO_;
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
