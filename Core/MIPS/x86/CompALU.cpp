@@ -172,6 +172,19 @@ namespace MIPSComp
 		switch (op & 63)
 		{
 		case 22: //clz
+			if (gpr.IsImmediate(rs))
+			{
+				u32 value = gpr.GetImmediate32(rs);
+				int x = 31;
+				int count = 0;
+				while (!(value & (1 << x)) && x >= 0)
+				{
+					count++;
+					x--;
+				}
+				gpr.SetImmediate32(rd, count);
+			}
+			else
 			{
 				gpr.Lock(rd, rs);
 				gpr.BindToRegister(rd, rd == rs, true);
@@ -187,9 +200,22 @@ namespace MIPSComp
 
 				SetJumpTarget(skip);
 				gpr.UnlockAll();
-				break;
 			}
+			break;
 		case 23: //clo
+			if (gpr.IsImmediate(rs))
+			{
+				u32 value = gpr.GetImmediate32(rs);
+				int x = 31;
+				int count = 0;
+				while ((value & (1 << x)) && x >= 0)
+				{
+					count++;
+					x--;
+				}
+				gpr.SetImmediate32(rd, count);
+			}
+			else
 			{
 				gpr.Lock(rd, rs);
 				gpr.BindToRegister(rd, rd == rs, true);
@@ -207,8 +233,8 @@ namespace MIPSComp
 
 				SetJumpTarget(skip);
 				gpr.UnlockAll();
-				break;
 			}
+			break;
 		default:
 			DISABLE;
 		}
