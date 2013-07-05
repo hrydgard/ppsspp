@@ -354,7 +354,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (gstate.isLightChanEnabled(l))
 		{
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
-			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
+			if (materialUpdate_ & 1)
+				lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
+			else
+				lightSum0 += (lightAmbient + diff) * lightScale;
 		}
 	}
 
