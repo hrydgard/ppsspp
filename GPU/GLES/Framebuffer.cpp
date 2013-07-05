@@ -53,7 +53,7 @@ static const char tex_fs[] =
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
-	"	gl_FragColor = texture2D(sampler0, v_texcoord0);\n"
+	"	gl_FragColor.rgb = texture2D(sampler0, v_texcoord0).rgb;\n"
 	"	gl_FragColor.a = 1.0;\n"
 	"}\n";
 
@@ -64,7 +64,6 @@ static const char basic_vs[] =
 	"attribute vec4 a_position;\n"
 	"attribute vec2 a_texcoord0;\n"
 	"uniform mat4 u_viewproj;\n"
-	"varying vec4 v_color;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
 	"  v_texcoord0 = a_texcoord0;\n"
@@ -79,6 +78,20 @@ enum {
 static bool MaskedEqual(u32 addr1, u32 addr2) {
 	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
 }
+
+inline u16 RGBA8888toRGB565(u32 px) {
+	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
+}
+
+inline u16 RGBA8888toRGBA4444(u32 px) {
+	return ((px >> 4) & 0x000F) | ((px >> 8) & 0x00F0) | ((px >> 12) & 0x0F00) | ((px >> 16) & 0xF000);
+}
+
+inline u16 RGBA8888toRGBA5551(u32 px) {
+	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
+}
+
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format);
 
 void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH)
@@ -130,7 +143,9 @@ FramebufferManager::FramebufferManager() :
 	currentRenderVfb_(0),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(-1),
-	convBuf(0)
+	convBuf(0),
+	pixelBufObj_(0),
+	currentPBO_(0)
 {
 	draw2dprogram = glsl_create_source(basic_vs, tex_fs);
 
@@ -146,12 +161,40 @@ FramebufferManager::FramebufferManager() :
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	useBufferedRendering_ = g_Config.bBufferedRendering;
+
+	// Check vendor string to try and guess GPU
+	const char *cvendor = (char *)glGetString(GL_VENDOR);
+	if(cvendor) {
+		const std::string vendor(cvendor);
+
+		if(vendor == "NVIDIA Corporation"
+			|| vendor == "Nouveau"
+			|| vendor == "nouveau") {
+				gpuVendor = GPU_VENDOR_NVIDIA;
+		} else if(vendor == "Advanced Micro Devices, Inc."
+			|| vendor == "ATI Technologies Inc.") {
+				gpuVendor = GPU_VENDOR_AMD;
+		} else if(vendor == "Intel"
+			|| vendor == "Intel Inc."
+			|| vendor == "Intel Corporation"
+			|| vendor == "Tungsten Graphics, Inc") { // We'll assume this last one means Intel
+				gpuVendor = GPU_VENDOR_INTEL;
+		} else if(vendor == "ARM") {
+			gpuVendor = GPU_VENDOR_ARM;
+		} else {
+			gpuVendor = GPU_VENDOR_UNKNOWN;
+		}
+	} else {
+		gpuVendor = GPU_VENDOR_UNKNOWN;
+	}
 }
 
 FramebufferManager::~FramebufferManager() {
 	if (drawPixelsTex_)
 		glDeleteTextures(1, &drawPixelsTex_);
 	glsl_destroy(draw2dprogram);
+
+	delete [] pixelBufObj_;
 	delete [] convBuf;
 }
 
@@ -257,28 +300,34 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
 }
 
-void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
+void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale, GLSLProgram *program) {
 	float u2 = uscale;
 	// Since we're flipping, 0 is down.  That's where the scale goes.
 	float v1 = flip ? 1.0f : 1.0f - vscale;
 	float v2 = flip ? 1.0f - vscale : 1.0f;
 
 	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
-	const float texCoords[8] = {0, v1, u2, v1, u2, v2, 0, v2};
+	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
+	const GLubyte indices[4] = {0,1,3,2};
 
-	glsl_bind(draw2dprogram);
+	if(!program) {
+		program = draw2dprogram;
+	}
+
+	glsl_bind(program);
 	Matrix4x4 ortho;
 	ortho.setOrtho(0, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0, -1, 1);
-	glUniformMatrix4fv(draw2dprogram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
+	glUniformMatrix4fv(program->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glEnableVertexAttribArray(draw2dprogram->a_position);
-	glEnableVertexAttribArray(draw2dprogram->a_texcoord0);
-	glVertexAttribPointer(draw2dprogram->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
-	glVertexAttribPointer(draw2dprogram->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);	
-	glDrawArrays(GL_TRIANGLE_FAN, 0, 4);	// TODO: TRIANGLE_STRIP is more likely to be optimized.
-	glDisableVertexAttribArray(draw2dprogram->a_position);
-	glDisableVertexAttribArray(draw2dprogram->a_texcoord0);
+	glEnableVertexAttribArray(program->a_position);
+	glEnableVertexAttribArray(program->a_texcoord0);
+	glVertexAttribPointer(program->a_position, 3, GL_FLOAT, GL_FALSE, 12, pos);
+	glVertexAttribPointer(program->a_texcoord0, 2, GL_FLOAT, GL_FALSE, 8, texCoords);
+	//glDrawArrays(GL_TRIANGLE_FAN, 0, 4); // glDrawElements tested slightly faster on OpenGL atleast
+	glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, indices);
+	glDisableVertexAttribArray(program->a_position);
+	glDisableVertexAttribArray(program->a_texcoord0);
 	glsl_unbind();
 }
 
@@ -420,13 +469,6 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
 	float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
-
-	// Save current render framebuffer to memory
-	if(currentRenderVfb_) {
-		if(g_Config.bFramebuffersToMem) {
-			ReadFramebufferToMemory(currentRenderVfb_);
-		}
-	}
 
 	// None found? Create one.
 	if (!vfb) {
@@ -620,10 +662,6 @@ void FramebufferManager::CopyDisplayToOutput() {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	if(g_Config.bFramebuffersToMem) {
-		ReadFramebufferToMemory(vfb);
-	}
-
 	if (resized_) {
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -638,208 +676,249 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 		return;
 	}
 
-	fbo_unbind();
-	if(gl_extensions.FBO_ARB) { // TODO: fbo_unbind should use GL_FRAMEBUFFER to do this? Don't want to change native
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-	}
 	if(vfb) {
-		float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
-		float renderHeightFactor = (float)PSP_CoreParameter().renderHeight / 272.0f;
+		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
+		// For now we'll keep these on the same struct as the ones that can get displayed
+		// (and blatantly copy work already done above while at it).
+		VirtualFramebuffer *nvfb = 0;
 
-		// If render resolution different we blit a new framebuffer and copy that one to memory
-		// (assuming rendering a smaller resolution than the PSP isn't done on any device, but not sure on that)
-		// A more accurate (and probably costly) solution would be to draw a framebuffer at native resolution 
-		// parallel to the rendering one?
-		if(renderWidthFactor > 1.0f || renderHeightFactor > 1.0f) {
-			// For now we'll also keep these framebuffer objects on the same struct as the ones that can get displayed
-			// (and blatantly copy work already done above while at it)
-			VirtualFramebuffer *nvfb = 0;
-
-			// We maintain a separate vector of framebuffer objects for blitting (guessing the point is saving on FBOs?)
-			for (size_t i = 0; i < bvfbs_.size(); ++i) {
-				VirtualFramebuffer *v = bvfbs_[i];
-				if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
-					if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
-						nvfb = v;
-						v->fb_stride = vfb->fb_stride;
-						v->width = vfb->width;
-						v->height = vfb->height;
-						break;
-					}
+		// We maintain a separate vector of framebuffer objects for blitting.
+		for (size_t i = 0; i < bvfbs_.size(); ++i) {
+			VirtualFramebuffer *v = bvfbs_[i];
+			if (MaskedEqual(v->fb_address, vfb->fb_address) && v->format == vfb->format) {
+				if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
+					nvfb = v;
+					v->fb_stride = vfb->fb_stride;
+					v->width = vfb->width;
+					v->height = vfb->height;
+					break;
 				}
 			}
-
-			// Create a new fbo if none was found for the size
-			if(!nvfb) {
-				nvfb = new VirtualFramebuffer();
-				nvfb->fbo = 0;
-				nvfb->fb_address = vfb->fb_address;
-				nvfb->fb_stride = vfb->fb_stride;
-				nvfb->z_address = vfb->z_address;
-				nvfb->z_stride = vfb->z_stride;
-				nvfb->width = vfb->width;
-				nvfb->height = vfb->height;
-				nvfb->renderWidth = vfb->width;
-				nvfb->renderHeight = vfb->height;
-				nvfb->bufferWidth = vfb->bufferWidth;
-				nvfb->bufferHeight = vfb->bufferHeight;
-				nvfb->format = vfb->format;
-				nvfb->usageFlags = FB_USAGE_RENDERTARGET;
-				nvfb->dirtyAfterDisplay = true;
-
-				if (g_Config.bTrueColor) {
-					nvfb->colorDepth = FBO_8888;
-				} else { 
-					switch (vfb->format) {
-						case GE_FORMAT_4444: 
-							nvfb->colorDepth = FBO_4444; 
-							break;
-						case GE_FORMAT_5551: 
-							nvfb->colorDepth = FBO_5551; 
-							break;
-						case GE_FORMAT_565: 
-							nvfb->colorDepth = FBO_565; 
-							break;
-						case GE_FORMAT_8888: 
-							nvfb->colorDepth = FBO_8888; 
-							break;
-						default: 
-							nvfb->colorDepth = FBO_8888; 
-							break;
-					}
-				}
-			
-				//#ifdef ANDROID
-				//	nvfb->colorDepth = FBO_8888;
-				//#endif
-
-				nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
-				if (useBufferedRendering_) {
-					if (nvfb->fbo) {
-						fbo_bind_as_render_target(nvfb->fbo);
-					} else {
-						ERROR_LOG(HLE, "Error creating FBO! %i x %i", vfb->renderWidth, vfb->renderHeight);
-					}
-				}
-
-				nvfb->last_frame_used = gpuStats.numFrames;
-				bvfbs_.push_back(nvfb);
-			} else {
-				// We already have one, so we set it as a render target.
-				//DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", nvfb->fb_address, nvfb->width, nvfb->height, nvfb->format);
-				nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-				nvfb->last_frame_used = gpuStats.numFrames;
-				nvfb->dirtyAfterDisplay = true;
-
-				if (useBufferedRendering_) {
-					if (nvfb->fbo) {
-						fbo_bind_as_render_target(nvfb->fbo);
-					} else {
-						fbo_unbind();
-						if(gl_extensions.FBO_ARB) {
-							glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-						}
-					}
-				}
-#ifdef USING_GLES2
-				// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-				// to it. This broke stuff before, so now it only clears on the first use of an
-				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-				if (nvfb->last_frame_used != gpuStats.numFrames)	{
-					glstate.depthWrite.set(GL_TRUE);
-					glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-					glClearColor(0,0,0,1);
-					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-				}
-#endif
-			}
-
-			// We bind the resized fbo for reading
-			if (useBufferedRendering_) {
-				if (vfb->fbo) {
-					fbo_bind_for_read(vfb->fbo);
-				} else {
-					fbo_unbind();
-					if(gl_extensions.FBO_ARB) {
-						glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-					}
-				}
-			}
-
-			// And we check both framebuffers for completeness
-			if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE 
-				|| glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-					DEBUG_LOG(HLE, "Incomplete FBOs pre-blitting");
-					fbo_unbind();
-					if(gl_extensions.FBO_ARB) {
-						glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-					}
-					return;
-			}
-
-			// TODO: glReadBuffer and glDrawBuffer should maybe be specifically set here?
-
-			// Then we blit the color buffer using linear filtering
-#ifndef USING_GLES2
-			DEBUG_LOG(HLE, "Blitting FBOs for %08x: %i x %i to %i x %i ", nvfb->fb_address, vfb->renderWidth, vfb->renderHeight, nvfb->renderWidth, nvfb->renderHeight);
-			glBlitFramebuffer(0, 0, vfb->fb_stride * renderWidthFactor, vfb->renderHeight, 0, 0, nvfb->fb_stride, nvfb->height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-#else
-			WARN_LOG(HLE, "Skipping FBO blit, not supported on GLES 2.0. Needs replacing with a real draw (that can also flip y)");
-#endif
-			fbo_unbind();
-			if(gl_extensions.FBO_ARB) {
-				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-			}
-			vfb = nvfb;
 		}
 
+		// Create a new fbo if none was found for the size
+		if(!nvfb) {
+			nvfb = new VirtualFramebuffer();
+			nvfb->fbo = 0;
+			nvfb->fb_address = vfb->fb_address;
+			nvfb->fb_stride = vfb->fb_stride;
+			nvfb->z_address = vfb->z_address;
+			nvfb->z_stride = vfb->z_stride;
+			nvfb->width = vfb->width;
+			nvfb->height = vfb->height;
+			nvfb->renderWidth = vfb->width;
+			nvfb->renderHeight = vfb->height;
+			nvfb->bufferWidth = vfb->bufferWidth;
+			nvfb->bufferHeight = vfb->bufferHeight;
+			nvfb->format = vfb->format;
+			nvfb->usageFlags = FB_USAGE_RENDERTARGET;
+			nvfb->dirtyAfterDisplay = true;
+
+			if(g_Config.bTrueColor) {
+				nvfb->colorDepth = FBO_8888;
+			} else {
+				switch (vfb->format) {
+					case GE_FORMAT_4444:
+						nvfb->colorDepth = FBO_4444;
+						break;
+					case GE_FORMAT_5551:
+						nvfb->colorDepth = FBO_5551;
+						break;
+					case GE_FORMAT_565: 
+						nvfb->colorDepth = FBO_565;
+						break;
+					case GE_FORMAT_8888:
+					default: 
+						nvfb->colorDepth = FBO_8888;
+						break;
+				}
+			}
+
+			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
+			if (!(nvfb->fbo)) {
+				ERROR_LOG(HLE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+			}
+
+			if (useBufferedRendering_) {
+				if (nvfb->fbo) {
+					fbo_bind_as_render_target(nvfb->fbo);
+				} else {
+					fbo_unbind();
+					return;
+				}
+			}
+
+			nvfb->last_frame_used = gpuStats.numFrames;
+			bvfbs_.push_back(nvfb);
+
+			glstate.depthWrite.set(GL_TRUE);
+			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+			glClearColor(0.0f,0.0f,0.0f,1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+			glEnable(GL_DITHER);
+		} else {
+			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
+			nvfb->last_frame_used = gpuStats.numFrames;
+			nvfb->dirtyAfterDisplay = true;
+
+			if (useBufferedRendering_) {
+				if (nvfb->fbo) {
+					fbo_bind_as_render_target(nvfb->fbo);
+#ifdef USING_GLES2
+					// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+					// to it. This broke stuff before, so now it only clears on the first use of an
+					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+					if (nvfb->last_frame_used != gpuStats.numFrames)	{
+						glstate.depthWrite.set(GL_TRUE);
+						glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+						glClearColor(0,0,0,1);
+						glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+					}
+#endif
+				} else {
+					fbo_unbind();
+					return;
+				}
+			}
+		}
+
+		BlitFramebuffer_(vfb, nvfb, false);
+
+#ifdef USING_GLES2
+		PackFramebufferGLES_(nvfb); // synchronous glReadPixels
+#else
+		PackFramebufferGL_(nvfb); // asynchronous glReadPixels using PBOs
+#endif
+	}
+}
+
+void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
+	// This only works with buffered rendering
+	if (!useBufferedRendering_) {
+		return;
+	}
+
+	fbo_bind_as_render_target(dst->fbo);
+	
+	if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		ERROR_LOG(HLE, "Incomplete target framebuffer, aborting blit");
+		fbo_unbind();
+		return;
+	}
+	
+	glstate.viewport.set(0, 0, dst->width, dst->height);
+	glstate.depthTest.disable();
+	glstate.blend.disable();
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.scissorTest.disable();
+	glstate.stencilTest.disable();
+
+	fbo_bind_color_as_texture(src->fbo, 0);
+
+	float x, y, w, h;
+	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
+
+	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, draw2dprogram);
+	
+	glBindTexture(GL_TEXTURE_2D, 0);
+	fbo_unbind();
+}
+
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
+	if(format == GE_FORMAT_8888) {
+		if(src == dst) {
+			return;
+		} else { // Here lets assume they don't intersect
+			memcpy(dst, src, stride * height * 4);
+		}
+	} else { // But here it shouldn't matter if they do
+		u32 size = height * stride;
+		u32 *src32 = (u32 *)src;
+		u16 *dst16 = (u16 *)dst;
+		switch (format) {
+			case GE_FORMAT_565: // BGR 565
+				for(int i = 0; i < size; i++) {
+					dst16[i] = RGBA8888toRGB565(src32[i]);
+				}
+				break;
+			case GE_FORMAT_5551: // ABGR 1555
+				for(int i = 0; i < size; i++) {
+					dst16[i] = RGBA8888toRGBA5551(src32[i]);
+				}
+
+				break;
+			case GE_FORMAT_4444: // ABGR 4444
+				for(int i = 0; i < size; i++) {
+					dst16[i] = RGBA8888toRGBA4444(src32[i]);
+				}
+				break;
+			default:
+				break;
+		}
+	}
+}
+
+void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
+	GLubyte *packed = 0;
+	bool unbind = false;
+
+	// We'll prepare two PBOs to switch between readying and reading
+	if(!pixelBufObj_) {
+		GLuint pbos[2];
+
+		glGenBuffers(2, pbos);
+
+		pixelBufObj_ = new AsyncPBO[2];
+
+		pixelBufObj_[0].handle = pbos[0];
+		pixelBufObj_[0].maxSize = 0;
+		pixelBufObj_[0].reading = false;
+
+		pixelBufObj_[1].handle = pbos[1];
+		pixelBufObj_[1].maxSize = 0;
+		pixelBufObj_[1].reading = false;
+	}
+
+	// Order packing/readback of the framebuffer
+	if(vfb) {
 		int pixelType, pixelSize, pixelFormat, align;
 
-		
 		switch (vfb->format) {
-			case GE_FORMAT_4444: // 16 bit ABGR
-#ifdef USING_GLES2
-				pixelType = GL_UNSIGNED_SHORT_4_4_4_4;
-#else
-				pixelType = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-#endif
+			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
+			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
+			// We want R G B A, so we use *_REV for 16-bit formats and GL_UNSIGNED_BYTE for 32-bit
+			case GE_FORMAT_4444: // 16 bit RGBA
+				// We'll single out Nvidia for now, since that's the only vendor whose glReadPixels behaviour is tested.
+				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
-			case GE_FORMAT_5551: // 16 bit ABGR
-#ifdef USING_GLES2
-				pixelType = GL_UNSIGNED_SHORT_5_5_5_1;
-#else
-				pixelType = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-#endif
+			case GE_FORMAT_5551: // 16 bit RGBA
+				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
-			case GE_FORMAT_565: // 16 bit BGR
-#ifdef USING_GLES2
-				pixelType = GL_UNSIGNED_SHORT_5_6_5;
-#else
-				pixelType = GL_UNSIGNED_SHORT_5_6_5_REV;
-#endif
+			case GE_FORMAT_565: // 16 bit RGB
+				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
 				pixelFormat = GL_RGB;
 				pixelSize = 2;
 				align = 8;
 				break;
-			case GE_FORMAT_8888: // 32 bit ABGR
-			default: // And same as above
-#ifdef USING_GLES2
+			case GE_FORMAT_8888: // 32 bit RGBA
+			default:
 				pixelType = GL_UNSIGNED_BYTE;
-#else
-				pixelType = GL_UNSIGNED_INT_8_8_8_8_REV;
-#endif
 				pixelFormat = GL_RGBA;
 				pixelSize = 4;
 				align = 4;
 				break;
 		}
+
+		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
+		u32 fb_address = (0x44000000) | vfb->fb_address;
 
 		if (useBufferedRendering_) {
 			if (vfb->fbo) {
@@ -853,33 +932,129 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			}
 		}
 
-		// Prepare buffers to read the pixel data into
-		// Ideally we'd apply the image flip inplace and only need one, 
-		// but right now this is simpler 
-		// (maybe it's more efficient to have the GPU flip it in the framebuffer and then flip it back?)
-		int bufHeight = vfb->height;
-		size_t bufSize = vfb->fb_stride * bufHeight;
-		GLubyte *flipBuf = (GLubyte *) malloc(bufSize * pixelSize);
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
 
-		u32 fb_address = (0x04000000) | vfb->fb_address;
-
-		DEBUG_LOG(HLE, "Reading pixels to mem, bufSize = %u, fb_address = %08x", bufSize, fb_address);
-		glPixelStorei(GL_PACK_ALIGNMENT, align);
-		glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, flipBuf);
-		
-		// We have to flip glReadPixels data upside down
-		int u8_stride = vfb->fb_stride * pixelSize;
-		for (int y = 0; y < bufHeight; y++) {
-			int inverted_y = bufHeight - 1 - y;
-			Memory::Memcpy(fb_address + inverted_y * u8_stride, &flipBuf[u8_stride * y], u8_stride);
+		if(pixelBufObj_[currentPBO_].maxSize < bufSize) {
+			// We reserve a buffer big enough to fit all those pixels
+			if(g_Config.bFramebuffersCPUConvert && pixelType != GL_UNSIGNED_BYTE) {
+				 // Wnd result may be 16-bit but we are reading 32-bit, so we need double the space on the buffer
+				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize*2, NULL, GL_DYNAMIC_READ);
+			} else {
+				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize, NULL, GL_DYNAMIC_READ);
+			}
+			pixelBufObj_[currentPBO_].maxSize = bufSize;
 		}
 
-		free(flipBuf);
+		pixelBufObj_[currentPBO_].fb_address = fb_address;
+		pixelBufObj_[currentPBO_].size = bufSize;
+		pixelBufObj_[currentPBO_].stride = vfb->fb_stride;
+		pixelBufObj_[currentPBO_].height = vfb->height;
+		pixelBufObj_[currentPBO_].format = vfb->format;
+		pixelBufObj_[currentPBO_].reading = true;
+
+		if(g_Config.bFramebuffersCPUConvert) {
+			// If converting pixel formats on the CPU we'll always request RGBA8888
+			glPixelStorei(GL_PACK_ALIGNMENT, 4);
+			glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+		} else {
+			// Otherwise we'll directly request the format we need and let the GPU sort it out
+			glPixelStorei(GL_PACK_ALIGNMENT, align);
+			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
+		}
+
 		fbo_unbind();
 		if(gl_extensions.FBO_ARB) {
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 		}
+
+		unbind = true;
 	}
+
+	// Receive previously requested data from a PBO
+	u8 nextPBO = (currentPBO_ + 1) % 2;
+	if(pixelBufObj_[nextPBO].reading) {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[nextPBO].handle);
+		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+		if(packed) {
+			DEBUG_LOG(HLE, "Reading pbo to mem, bufSize = %u, packed = %08x, fb_address = %08x, pbo = %u", 
+				pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, nextPBO);
+
+			if(g_Config.bFramebuffersCPUConvert) {
+				ConvertFromRGBA8888(Memory::GetPointer(pixelBufObj_[nextPBO].fb_address), packed, 
+								pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
+								pixelBufObj_[nextPBO].format);
+			} else { // We don't need to convert, GPU already did (or should have)
+				Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
+			}
+			glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+
+			pixelBufObj_[nextPBO].reading = false;
+		}
+
+		unbind = true;
+	}
+
+	currentPBO_ = nextPBO;
+
+	if(unbind) {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	}
+}
+
+void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
+	if (useBufferedRendering_ && vfb->fbo) {
+		fbo_bind_for_read(vfb->fbo);
+	} else {
+		fbo_unbind();
+		return;
+	}
+
+	// Pixel size always 4 here because we always request RGBA8888
+	size_t bufSize = vfb->fb_stride * vfb->height * 4;
+	u32 fb_address = (0x44000000) | vfb->fb_address;
+
+	GLubyte *packed = 0;
+	if(vfb->format == GE_FORMAT_8888) {
+		packed = (GLubyte *)Memory::GetPointer(fb_address);
+	} else { // End result may be 16-bit but we are reading 32-bit, so there may not be enough space at fb_address
+		packed = (GLubyte *)malloc(bufSize * sizeof(GLubyte));
+	}
+
+	if(packed) {
+		DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %08x, fb_address = %08x", 
+			bufSize, packed, fb_address);
+
+		glPixelStorei(GL_PACK_ALIGNMENT, 4);
+		glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, packed);
+		GLenum error = glGetError();
+		switch(error) {
+			case 0:
+				break;
+			case GL_INVALID_ENUM: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_ENUM"); 
+				break;
+			case GL_INVALID_VALUE: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_VALUE"); 
+				break;
+			case GL_INVALID_OPERATION: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_OPERATION"); 
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION"); 
+				break;
+			default:
+				ERROR_LOG(HLE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
+				break;
+		}
+
+		if(vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
+			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
+			free(packed);
+		}
+	}
+
+	fbo_unbind();
 }
 
 void FramebufferManager::EndFrame() {
@@ -888,6 +1063,11 @@ void FramebufferManager::EndFrame() {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		resized_ = false;
 	}
+
+#ifndef USING_GLES2
+	// We flush to memory last requested framebuffer, if any
+	PackFramebufferGL_(NULL);
+#endif
 }
 
 void FramebufferManager::DeviceLost() {
@@ -950,16 +1130,37 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
+	bool thirdFrame = (gpuStats.numFrames % 3 == 0);
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
+		int age = frameLastFramebufUsed - vfb->last_frame_used;
+
+		if(g_Config.bFramebuffersToMem) {
+			// Every third frame we'll commit framebuffers to memory
+			if(thirdFrame && age <= FBO_OLD_AGE) {
+				ReadFramebufferToMemory(vfb);
+			}
+		}
+
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
 			continue;
 		}
-		int age = frameLastFramebufUsed - vfb->last_frame_used;
+
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			DestroyFramebuf(vfb);
 			vfbs_.erase(vfbs_.begin() + i--);
+		}
+	}
+
+	// Do the same for ReadFramebuffersToMemory's VFBs
+	for (size_t i = 0; i < bvfbs_.size(); ++i) {
+		VirtualFramebuffer *vfb = bvfbs_[i];
+		int age = frameLastFramebufUsed - vfb->last_frame_used;
+		if (age > FBO_OLD_AGE) {
+			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
+			DestroyFramebuf(vfb);
+			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
 	}
 }
