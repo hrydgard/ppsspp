@@ -84,6 +84,7 @@ struct VirtualFramebuffer {
 void CenterRect(float *x, float *y, float *w, float *h,
 								float origW, float origH, float frameW, float frameH);
 
+#ifndef USING_GLES2
 // Simple struct for asynchronous PBO readbacks
 struct AsyncPBO {
 	GLuint handle;
@@ -96,6 +97,8 @@ struct AsyncPBO {
 	int format;
 	bool reading;
 };
+
+#endif
 
 class ShaderManager;
 
@@ -165,12 +168,17 @@ private:
 
 	// Used by ReadFramebufferToMemory
 	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
+#ifndef USING_GLES2
 	void PackFramebufferGL_(VirtualFramebuffer *vfb);
+#endif
 	void PackFramebufferGLES_(VirtualFramebuffer *vfb);
 	int gpuVendor;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
+
+#ifndef USING_GLES2
 	AsyncPBO *pixelBufObj_; //this isn't that large
 	u8 currentPBO_;
+#endif
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;

@@ -143,9 +143,12 @@ FramebufferManager::FramebufferManager() :
 	currentRenderVfb_(0),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(-1),
-	convBuf(0),
+	convBuf(0)
+#ifndef USING_GLES2
+	,
 	pixelBufObj_(0),
 	currentPBO_(0)
+#endif
 {
 	draw2dprogram = glsl_create_source(basic_vs, tex_fs);
 
@@ -194,7 +197,9 @@ FramebufferManager::~FramebufferManager() {
 		glDeleteTextures(1, &drawPixelsTex_);
 	glsl_destroy(draw2dprogram);
 
+#ifndef USING_GLES2
 	delete [] pixelBufObj_;
+#endif
 	delete [] convBuf;
 }
 
@@ -860,6 +865,8 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 	}
 }
 
+#ifndef USING_GLES2
+
 void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	bool unbind = false;
@@ -1001,6 +1008,8 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	}
 }
+
+#endif
 
 void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 	if (useBufferedRendering_ && vfb->fbo) {
