@@ -80,7 +80,7 @@ public:
 
 		if (address % size)
 		{
-			sprintf(error,"Invalid memory access");
+			sprintf(error,"Invalid memory access (unaligned)");
 			return false;
 		}
 
