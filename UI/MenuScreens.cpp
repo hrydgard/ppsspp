@@ -789,17 +789,46 @@ void AudioScreen::render() {
 	int stride = 40;
 	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
-	if (Atrac3plus_Decoder::IsSupported()) {
-		if (Atrac3plus_Decoder::IsInstalled() && g_Config.bEnableSound) {
-			UICheckBox(GEN_ID, x + 60, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
-		} else
-			g_Config.bEnableAtrac3plus = false;
-
-		VLinear vlinear(30, 200, 20);
-		if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
-			screenManager()->push(new PluginScreen());
+	if (g_Config.bEnableSound) {
+		if (Atrac3plus_Decoder::IsInstalled()) {
+			UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
+		} else {
+			VLinear vlinear(30, 250, 20);
+			if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
+				screenManager()->push(new PluginScreen());
+			}
 		}
-	}
+
+		y+=10;
+		char bgmvol[256];
+		sprintf(bgmvol, "%s %i", a->T("BGM Volume :"), g_Config.iBGMVolume);
+		ui_draw2d.DrawText(UBUNTU24, bgmvol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 250, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, a->T("Auto"), ALIGN_LEFT))
+			g_Config.iBGMVolume = 3;
+		if (UIButton(GEN_ID, hlinear1, 50, 0, a->T("-1"), ALIGN_LEFT))
+			if (g_Config.iBGMVolume > 1)
+				g_Config.iBGMVolume -= 1;
+		if (UIButton(GEN_ID, hlinear1, 50, 0, a->T("+1"), ALIGN_LEFT))
+			if (g_Config.iBGMVolume < 5)
+				g_Config.iBGMVolume += 1;
+		y+=20;
+		char sevol[256];
+		sprintf(sevol, "%s %i", a->T("SE Volume     :"), g_Config.iSEVolume);
+		ui_draw2d.DrawText(UBUNTU24, sevol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear2(x + 250, y, 20);
+		if (UIButton(GEN_ID, hlinear2, 80, 0, a->T("Auto"), ALIGN_LEFT))
+			g_Config.iSEVolume = 3;
+		if (UIButton(GEN_ID, hlinear2, 50, 0, a->T("-1"), ALIGN_LEFT))
+			if (g_Config.iSEVolume > 1)
+				g_Config.iSEVolume -= 1;
+		if (UIButton(GEN_ID, hlinear2, 50, 0, a->T("+1"), ALIGN_LEFT))
+			if (g_Config.iSEVolume < 5)
+				g_Config.iSEVolume += 1;
+		y+=10;
+
+	} else
+		g_Config.bEnableAtrac3plus = false;
 
 	UIEnd();
 }

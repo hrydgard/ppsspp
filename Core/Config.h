@@ -94,6 +94,8 @@ public:
 	// Sound
 	bool bEnableSound;
 	bool bEnableAtrac3plus;
+	int iSEVolume;
+	int iBGMVolume;
 
 	// UI
 	bool bShowTouchControls;
