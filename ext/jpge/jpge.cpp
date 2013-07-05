@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <malloc.h>
+// Higher level wrappers/examples (optional).
+#include <stdio.h>
 
 #define JPGE_MAX(a,b) (((a)>(b))?(a):(b))
 #define JPGE_MIN(a,b) (((a)<(b))?(a):(b))
@@ -894,9 +896,6 @@ bool jpeg_encoder::process_scanline(const void* pScanline)
   }
   return m_all_stream_writes_succeeded;
 }
-
-// Higher level wrappers/examples (optional).
-#include <stdio.h>
 
 class cfile_stream : public output_stream
 {
