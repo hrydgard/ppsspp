@@ -29,6 +29,11 @@ SOURCES += ../native/ext/cityhash/city.cpp
 HEADERS += ../native/ext/cityhash/*.h
 INCLUDEPATH += ../native/ext/cityhash
 
+# JPGE
+SOURCES += ../native/ext/jpge/*.cpp
+HEADERS += ../native/ext/jpge/*.h
+INCLUDEPATH += ../native/ext/jpge
+
 # VJSON
 
 SOURCES += ../native/ext/vjson/json.cpp \
