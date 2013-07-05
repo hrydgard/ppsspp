@@ -107,7 +107,14 @@ public:
 	void render();
 };
 
-class SystemScreen : public Screen
+class SystemScreenP1 : public Screen
+{
+public:
+	void update(InputState &input);
+	void render();
+};
+
+class SystemScreenP2 : public Screen
 {
 public:
 	void update(InputState &input);
