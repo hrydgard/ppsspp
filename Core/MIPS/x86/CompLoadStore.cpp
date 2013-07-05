@@ -104,6 +104,9 @@ namespace MIPSComp
 
 	void Jit::CompITypeMemUnpairedLR(u32 op, bool isStore)
 	{
+		// TODO: ECX getting overwritten?  Why?
+		DISABLE;
+
 		CONDITIONAL_DISABLE;
 		int o = op>>26;
 		int offset = (signed short)(op&0xFFFF);

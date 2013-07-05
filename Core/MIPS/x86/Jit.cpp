@@ -549,7 +549,7 @@ OpArg Jit::JitSafeMem::NextFastAddress(int suboffset)
 #endif
 	}
 
-	_dbg_assert_msg_(HLE, (suboffset 0xFFFFFFFF) == suboffset, "suboffset must be aligned");
+	_dbg_assert_msg_(HLE, (suboffset & alignMask_) == suboffset, "suboffset must be aligned");
 
 #ifdef _M_IX86
 	return MDisp(xaddr_, (u32) Memory::base + offset_ + suboffset);
