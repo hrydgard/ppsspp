@@ -216,30 +216,66 @@ int DinputDevice::UpdateState(InputState &input_state)
 	case 0:
 		break;
 	case 1:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
-		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
-		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
+		if(!g_Config.iSwapRightAxes) {
+			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
+			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
+		}
+		else {
+			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
+			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
+		}
 		break;
 	case 2:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
-		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
-		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		if(!g_Config.iSwapRightAxes) {
+			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
+			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
+			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		}
+		else {
+			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
+			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
+			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		}
 		break;
 	case 3:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+		if(!g_Config.iSwapRightAxes) {
+			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+		}
+		else {
+			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+		}
 		break;
 	case 4:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
-		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
-		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		if(!g_Config.iSwapRightAxes) {
+			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		}
+		else {
+			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
+			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
+			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
+			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
+		}
 		break;
 	case 5:
-		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
-		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+		if(!g_Config.iSwapRightAxes) {
+			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+		}
+		else {
+			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+		}
 		break;
 	}
 
