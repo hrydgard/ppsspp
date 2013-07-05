@@ -4,11 +4,11 @@
 #include <stdio.h>
 
 typedef enum {
-	EXOP_BRACKETL, EXOP_BRACKETR, EXOP_SIGNPLUS, EXOP_SIGNMINUS,
+	EXOP_BRACKETL, EXOP_BRACKETR, EXOP_MEML, EXOP_MEMR, EXOP_MEMSIZE, EXOP_SIGNPLUS, EXOP_SIGNMINUS,
 	EXOP_BITNOT, EXOP_LOGNOT, EXOP_MUL, EXOP_DIV, EXOP_MOD, EXOP_ADD, EXOP_SUB,
 	EXOP_SHL, EXOP_SHR, EXOP_GREATEREQUAL, EXOP_GREATER, EXOP_LOWEREQUAL, EXOP_LOWER,
 	EXOP_EQUAL, EXOP_NOTEQUAL, EXOP_BITAND, EXOP_XOR, EXOP_BITOR, EXOP_LOGAND,
-	EXOP_LOGOR, EXOP_TERTIF, EXOP_TERTELSE, EXOP_NUMBER, EXOP_NONE, EXOP_COUNT
+	EXOP_LOGOR, EXOP_TERTIF, EXOP_TERTELSE, EXOP_NUMBER, EXOP_MEM, EXOP_NONE, EXOP_COUNT
 } ExpressionOpcodeType;
 
 typedef enum { EXCOMM_CONST, EXCOMM_REF, EXCOMM_OP } ExpressionCommand;
@@ -24,33 +24,37 @@ typedef struct {
 } ExpressionOpcode;
 
 const ExpressionOpcode ExpressionOpcodes[] = {
-	{ "(",	15,	1,	0,	false },	// EXOP_BRACKETL
-	{ ")",	15,	1,	0,	false },	// EXOP_BRACKETR
-	{ "+",	12,	1,	1,	true  },	// EXOP_SIGNPLUS
-	{ "-",	12,	1,	1,	true  },	// EXOP_SIGNMINUS
-	{ "~",	12,	1,	1,	false },	// EXOP_BITNOT
-	{ "!",	12,	1,	1,	false },	// EXOP_LOGNOT
-	{ "*",	11,	1,	2,	false },	// EXOP_MUL
-	{ "/",	11,	1,	2,	false },	// EXOP_DIV
-	{ "%",	11,	1,	2,	false },	// EXOP_MOD
-	{ "+",	10,	1,	2,	false },	// EXOP_ADD
-	{ "-",	10,	1,	2,	false },	// EXOP_SUB
-	{ "<<",	9,	2,	2,	false },	// EXOP_SHL
-	{ ">>",	9,	2,	2,	false },	// EXOP_SHR
-	{ ">=",	8,	2,	2,	false },	// EXOP_GREATEREQUAL
-	{ ">",	8,	1,	2,	false },	// EXOP_GREATER
-	{ "<=",	8,	2,	2,	false },	// EXOP_LOWEREQUAL
-	{ "<",	8,	1,	2,	false },	// EXOP_LOWER
-	{ "==",	7,	2,	2,	false },	// EXOP_EQUAL
-	{ "!=",	7,	2,	2,	false },	// EXOP_NOTEQUAL
-	{ "&",	6,	1,	2,	false },	// EXOP_BITAND
-	{ "^",	5,	1,	2,	false },	// EXOP_XOR
-	{ "|",	4,	1,	2,	false },	// EXOP_BITOR
-	{ "&&",	3,	2,	2,	false },	// EXOP_LOGAND
-	{ "||",	2,	2,	2,	false },	// EXOP_LOGOR
-	{ "?",	0,	1,	0,	false },	// EXOP_TERTIF
-	{ ":",	1,	1,	3,	false },	// EXOP_TERTELSE
+	{ "(",	25,	1,	0,	false },	// EXOP_BRACKETL
+	{ ")",	25,	1,	0,	false },	// EXOP_BRACKETR
+	{ "[",	4,	1,	0,	false },	// EXOP_MEML
+	{ "]",	4,	1,	0,	false },	// EXOP_MEMR
+	{ ",",	5,	1,	2,	false },	// EXOP_MEMSIZE
+	{ "+",	22,	1,	1,	true  },	// EXOP_SIGNPLUS
+	{ "-",	22,	1,	1,	true  },	// EXOP_SIGNMINUS
+	{ "~",	22,	1,	1,	false },	// EXOP_BITNOT
+	{ "!",	22,	1,	1,	false },	// EXOP_LOGNOT
+	{ "*",	21,	1,	2,	false },	// EXOP_MUL
+	{ "/",	21,	1,	2,	false },	// EXOP_DIV
+	{ "%",	21,	1,	2,	false },	// EXOP_MOD
+	{ "+",	20,	1,	2,	false },	// EXOP_ADD
+	{ "-",	20,	1,	2,	false },	// EXOP_SUB
+	{ "<<",	19,	2,	2,	false },	// EXOP_SHL
+	{ ">>",	19,	2,	2,	false },	// EXOP_SHR
+	{ ">=",	18,	2,	2,	false },	// EXOP_GREATEREQUAL
+	{ ">",	18,	1,	2,	false },	// EXOP_GREATER
+	{ "<=",	18,	2,	2,	false },	// EXOP_LOWEREQUAL
+	{ "<",	18,	1,	2,	false },	// EXOP_LOWER
+	{ "==",	17,	2,	2,	false },	// EXOP_EQUAL
+	{ "!=",	17,	2,	2,	false },	// EXOP_NOTEQUAL
+	{ "&",	16,	1,	2,	false },	// EXOP_BITAND
+	{ "^",	15,	1,	2,	false },	// EXOP_XOR
+	{ "|",	14,	1,	2,	false },	// EXOP_BITOR
+	{ "&&",	13,	2,	2,	false },	// EXOP_LOGAND
+	{ "||",	12,	2,	2,	false },	// EXOP_LOGOR
+	{ "?",	10,	1,	0,	false },	// EXOP_TERTIF
+	{ ":",	11,	1,	3,	false },	// EXOP_TERTELSE
 	{ "",	0,	0,	0,	false },	// EXOP_NUMBER
+	{ "[]",	0,	0,	1,	false },	// EXOP_MEM
 	{ "",	0,	0,	0,	false }		// EXOP_NONE
 };
 
@@ -257,6 +261,7 @@ bool initPostfixExpression(char* infix, IExpressionFunctions* funcs, PostfixExpr
 			switch (type)
 			{
 			case EXOP_BRACKETL:
+			case EXOP_MEML:
 				opcodeStack.push_back(type);
 				break;
 			case EXOP_BRACKETR:
@@ -273,6 +278,25 @@ bool initPostfixExpression(char* infix, IExpressionFunctions* funcs, PostfixExpr
 					dest.push_back(ExpressionPair(EXCOMM_OP,t));
 				}
 				break;
+			case EXOP_MEMR:
+				while (true)
+				{
+					if (opcodeStack.empty())
+					{		
+						sprintf(expressionError,"Closing bracket without opening one");
+						return false;
+					}
+					ExpressionOpcodeType t = opcodeStack[opcodeStack.size()-1];
+					opcodeStack.pop_back();
+					if (t == EXOP_MEML)
+					{
+						dest.push_back(ExpressionPair(EXCOMM_OP,EXOP_MEM));
+						break;
+					}
+					dest.push_back(ExpressionPair(EXCOMM_OP,t));
+				}
+				type = EXOP_NUMBER;
+				break;
 			default:
 				if (opcodeStack.empty() == false)
 				{
@@ -282,7 +306,7 @@ bool initPostfixExpression(char* infix, IExpressionFunctions* funcs, PostfixExpr
 						ExpressionOpcodeType t = opcodeStack[opcodeStack.size()-1];
 						opcodeStack.pop_back();
 
-						if (t == EXOP_BRACKETL)
+						if (t == EXOP_BRACKETL || t == EXOP_MEML)
 						{
 							opcodeStack.push_back(t);
 							break;
@@ -317,6 +341,26 @@ bool initPostfixExpression(char* infix, IExpressionFunctions* funcs, PostfixExpr
 		}
 		dest.push_back(ExpressionPair(EXCOMM_OP,t));
 	}
+
+#if 0			// only for testing
+	char test[1024];
+	int testPos = 0;
+	for (int i = 0; i < dest.size(); i++)
+	{
+		switch (dest[i].first)
+		{
+		case EXCOMM_CONST:
+			testPos += sprintf(&test[testPos],"0x%04X ",dest[i].second);
+			break;
+		case EXCOMM_REF:
+			testPos += sprintf(&test[testPos],"r%d ",dest[i].second);
+			break;
+		case EXCOMM_OP:
+			testPos += sprintf(&test[testPos],"%s ",ExpressionOpcodes[dest[i].second].Name);
+			break;
+		};
+	}
+#endif
 
 	return true;
 }
@@ -354,6 +398,30 @@ bool parsePostfixExpression(PostfixExpression& exp, IExpressionFunctions* funcs,
 
 			switch (opcode)
 			{
+			case EXOP_MEMSIZE:	// must be followed by EXOP_MEM
+				if (exp[num++].second != EXOP_MEM)
+				{
+					sprintf(expressionError,"Invalid memsize operator");
+					return false;
+				}
+
+				uint32 val;
+				if(funcs->getMemoryValue(arg[1],arg[0],val,expressionError) == false)
+				{
+					return false;
+				}
+				valueStack.push_back(val);
+				break;
+			case EXOP_MEM:
+				{
+					uint32 val;
+					if (funcs->getMemoryValue(arg[0],4,val,expressionError) == false)
+					{
+						return false;
+					}
+					valueStack.push_back(val);
+				}
+				break;
 			case EXOP_SIGNPLUS:		// keine aktion nötig
 				break;
 			case EXOP_SIGNMINUS:	// -0
