@@ -142,6 +142,7 @@ void Config::Load(const char *iniFileName)
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
 	control->Get("ForceInputDevice", &iForceInputDevice, -1);
 	control->Get("RightStickBind", &iRightStickBind, 0);
+	control->Get("SwapDInputRightAxes", &iSwapRightAxes, 0);
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
 	control->Get("ButtonScale", &fButtonScale, 1.15);
 
