@@ -42,6 +42,7 @@
 #include "sceFont.h"
 #include "sceGe.h"
 #include "sceIo.h"
+#include "sceJpeg.h"
 #include "sceKernel.h"
 #include "sceKernelAlarm.h"
 #include "sceKernelInterrupt.h"
@@ -102,6 +103,7 @@ void __KernelInit()
 	__KernelMutexInit();
 	__KernelSemaInit();
 	__IoInit();
+	__JpegInit();
 	__AudioInit();
 	__SasInit();
 	__AtracInit();
@@ -206,6 +208,7 @@ void __KernelDoState(PointerWrap &p)
 	__GeDoState(p);
 	__ImposeDoState(p);
 	__IoDoState(p);
+	__JpegDoState(p);
 	__MpegDoState(p);
 	__NetDoState(p);
 	__PowerDoState(p);

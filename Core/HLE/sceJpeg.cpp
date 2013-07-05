@@ -21,7 +21,18 @@
 #include "native/ext/cityhash/city.h"
 #include "native/ext/jpge/jpgd.h"
 
-int jpegWidth, jpegHeight;
+static int mjpegWidth, mjpegHeight;
+
+void __JpegInit() {
+	mjpegWidth = 0;
+	mjpegHeight = 0;
+}
+
+void __JpegDoState(PointerWrap &p) {
+	p.Do(mjpegWidth);
+	p.Do(mjpegHeight);
+	p.DoMarker("sceJpeg");
+}
 
 //Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
 //#define JPEG_DEBUG
@@ -173,8 +184,8 @@ int sceJpegCreateMJpeg(int width, int height)
 {
 	ERROR_LOG_REPORT(HLE, "sceJpegCreateMJpeg(%i, %i)", width, height);
 
-	jpegWidth = width;
-	jpegHeight = height;
+	mjpegWidth = width;
+	mjpegHeight = height;
 
 	return 0;
 }
