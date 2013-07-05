@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -473,7 +473,6 @@ void PauseScreen::render() {
 	int x = 30;
 	int y = 60;
 	int stride = 40;
-	int columnw = 400;
 
 	// Shared with settings
 	I18NCategory *ss = GetI18NCategory("System");
@@ -607,7 +606,7 @@ void SettingsScreen::render() {
 	ui_draw2d.DrawText(UBUNTU24, ms->T("GraphicsDesc", "Change graphics options"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("System"), ALIGN_BOTTOMLEFT)) {
-		screenManager()->push(new SystemScreen());
+		screenManager()->push(new SystemScreenP1());
 	}
 	ui_draw2d.DrawText(UBUNTU24, ms->T("SystemDesc", "Turn on Dynarec (JIT), Fast Memory"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
@@ -659,7 +658,14 @@ void GraphicsScreenP3::update(InputState &input) {
 	}
 }
 
-void SystemScreen::update(InputState &input) {
+void SystemScreenP1::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
+void SystemScreenP2::update(InputState &input) {
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -715,7 +721,6 @@ void DeveloperScreen::render() {
 	int x = 50;
 	int y = 40;
 	const int stride = 40;
-	const int w = 400;
 
 	UICheckBox(GEN_ID, x, y += stride, s->T("Show Debug Statistics"), ALIGN_TOPLEFT, &g_Config.bShowDebugStats);
 
@@ -778,7 +783,7 @@ void AudioScreen::render() {
 	int x = 30;
 	int y = 35;
 	int stride = 40;
-	int columnw = 400;
+
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	if (Atrac3plus_Decoder::IsSupported()) {
 		if (Atrac3plus_Decoder::IsInstalled() && g_Config.bEnableSound) {
@@ -825,7 +830,6 @@ void GraphicsScreenP1::render() {
 	int x = 30;
 	int y = 35;
 	int stride = 40;
-	int columnw = 400;
 
 #ifndef __SYMBIAN32__
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Hardware Transform"), ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
@@ -892,7 +896,6 @@ void GraphicsScreenP2::render() {
 	int x = 30;
 	int y = 35;
 	int stride = 40;
-	int columnw = 400;
 
 	bool AnisotropicFiltering = g_Config.iAnisotropyLevel != 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
@@ -1021,7 +1024,6 @@ void GraphicsScreenP3::render() {
 	int x = 30;
 	int y = 35;
 	int stride = 40;
-	int columnw = 400;
 	
 	bool ForceMaxEmulatedFPS60 = g_Config.iForceMaxEmulatedFPS == 60;
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Force 60 FPS or less"), ALIGN_TOPLEFT, &ForceMaxEmulatedFPS60))
@@ -1226,7 +1228,7 @@ void LanguageScreen::render() {
 	UIEnd();
 }
 
-void SystemScreen::render() {
+void SystemScreenP1::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
@@ -1234,18 +1236,28 @@ void SystemScreen::render() {
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *g = GetI18NCategory("General");
 
+	char temp[256];
+	sprintf(temp, "%s 1/2", s->T("System Settings"));
+
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, s->T("System Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
+	HLinear hlinear(10, dp_yres - 10, 20.0f);
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new SystemScreenP2());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new SystemScreenP2());
+	}
+
 	int x = 30;
 	int y = 35;
 	int stride = 40;
-	int columnw = 400;
 
 #ifdef IOS
 	if(!isJailed)
@@ -1272,10 +1284,10 @@ void SystemScreen::render() {
 		HLinear hlinear1(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, s->T("Auto"), ALIGN_LEFT))
 			g_Config.iLockedCPUSpeed = 333;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, s->T("-"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 50, 0, s->T("-"), ALIGN_LEFT))
 			if (g_Config.iLockedCPUSpeed > 111)
 				g_Config.iLockedCPUSpeed -= 111;
-		if (UIButton(GEN_ID, hlinear1, 40, 0, s->T("+"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear1, 50, 0, s->T("+"), ALIGN_LEFT))
 			if (g_Config.iLockedCPUSpeed < 666)
 				g_Config.iLockedCPUSpeed += 111;
 		y += 20;
@@ -1286,78 +1298,10 @@ void SystemScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, s->T("Enable Cheats"), ALIGN_TOPLEFT, &g_Config.bEnableCheats);
 	if (g_Config.bEnableCheats) {
 		HLinear hlinear1(x + 60, y += stride + 10, 20);
-		if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH + 50, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) 
+		if (UIButton(GEN_ID, hlinear1, LARGE_BUTTON_WIDTH + 80, 0, s->T("Reload Cheats"), ALIGN_TOPLEFT)) 
 			g_Config.bReloadCheats = true;
 		y += 10;
-	}
-
-	y += 20;
-
-	const char *buttonPreferenceTitle;
-	switch (g_Config.iButtonPreference) {
-	case PSP_SYSTEMPARAM_BUTTON_CIRCLE:
-		buttonPreferenceTitle = s->T("Button Pref : O to Confirm");
-		break;
-	case PSP_SYSTEMPARAM_BUTTON_CROSS:
-	default:
-		buttonPreferenceTitle = s->T("Button Pref : X to Confirm");
-		break;
-	}
-
-#ifdef _WIN32
-	const int checkboxH = 32;
-#else
-	const int checkboxH = 48;
-#endif
-	ui_draw2d.DrawTextShadow(UBUNTU24, buttonPreferenceTitle, x, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
-	// 29 is the width of the checkbox, new UI will replace.
-	HLinear hlinearButtonPref(x + 400, y, 20);
-	if (UIButton(GEN_ID, hlinearButtonPref, 90, 0, s->T("Use O"), ALIGN_LEFT))
-		g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
-	if (UIButton(GEN_ID, hlinearButtonPref, 90, 0, s->T("Use X"), ALIGN_LEFT))
-		g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
-
-	y += 20;
-
-	char recents[256];
-	sprintf(recents, "%s %i", s->T("Max. No of Recents :"), g_Config.iMaxRecent);
-	ui_draw2d.DrawText(UBUNTU24, recents, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-	HLinear hlinear2(x + 400, y, 20);
-	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("-1"), ALIGN_LEFT))
-		if (g_Config.iMaxRecent > 4)
-			g_Config.iMaxRecent -= 1;
-	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("+1"), ALIGN_LEFT))
-		if (g_Config.iMaxRecent < 40)
-			g_Config.iMaxRecent += 1;
-	if (UIButton(GEN_ID, hlinear2, 80, 0, s->T("Clear"), ALIGN_LEFT)) {
-		g_Config.recentIsos.clear();
-	}
-	y += 20;
-
-
-
-	char lang[256];
-	std::string type;
-	switch (g_Config.ilanguage) {
-				case 0:	type = "日本語";break;
-				case 1: type = "English";break;
-				case 2:	type = "Français";break;
-				case 3: type = "Castellano";break;
-				case 4:	type = "Deutsch";break;
-				case 5: type = "Italiano";break;
-				case 6:	type = "Nederlands";break;
-				case 7: type = "Português";break;
-				case 8:	type = "한국어";break;
-				case 9: type = "Русский";break;
-				case 10: type = "繁體中文";break;
-				case 11: type = "简体中文";break;
-	}
-	sprintf(lang, "%s %s", s->T("System Language :"), type.c_str());
-	ui_draw2d.DrawText(UBUNTU24, lang, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-	HLinear hlinear3(x + 400, y, 20);
-	if (UIButton(GEN_ID, hlinear3, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
-		screenManager()->push(new LanguageScreen());
-	} 
+	}	 
 
 	/*
 	bool time = g_Config.iTimeFormat > 0 ;
@@ -1413,6 +1357,109 @@ void SystemScreen::render() {
 	UIEnd();
 }
 
+void SystemScreenP2::render(){
+	UIShader_Prepare();
+	UIBegin(UIShader_Get());
+	DrawBackground(1.0f);
+
+	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *g = GetI18NCategory("General");
+
+	char temp[256];
+	sprintf(temp, "%s 2/2", s->T("System Settings"));
+
+	ui_draw2d.SetFontScale(1.5f, 1.5f);
+	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.SetFontScale(1.0f, 1.0f);
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+	HLinear hlinear(10, dp_yres - 10, 20.0f);
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Prev Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new SystemScreenP1());
+	}
+	if (UIButton(GEN_ID, hlinear, LARGE_BUTTON_WIDTH + 10, 0, g->T("Next Page"), ALIGN_BOTTOMLEFT)) {
+		screenManager()->switchScreen(new SystemScreenP1());
+	}
+
+	int x = 30;
+	int y = 35;
+	int stride = 40;
+	int columnw = 460;
+
+	const char *buttonPreferenceTitle;
+	switch (g_Config.iButtonPreference) {
+	case PSP_SYSTEMPARAM_BUTTON_CIRCLE:
+		buttonPreferenceTitle = s->T("Button Pref : O to Confirm");
+		break;
+	case PSP_SYSTEMPARAM_BUTTON_CROSS:
+	default:
+		buttonPreferenceTitle = s->T("Button Pref : X to Confirm");
+		break;
+	}
+
+#ifdef _WIN32
+	const int checkboxH = 32;
+#else
+	const int checkboxH = 48;
+#endif
+	ui_draw2d.DrawTextShadow(UBUNTU24, buttonPreferenceTitle, x, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+	// 29 is the width of the checkbox, new UI will replace.
+	HLinear hlinearButtonPref(x + columnw, y, 20);
+	if (UIButton(GEN_ID, hlinearButtonPref, 90, 0, s->T("Use O"), ALIGN_LEFT))
+		g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CIRCLE;
+	if (UIButton(GEN_ID, hlinearButtonPref, 90, 0, s->T("Use X"), ALIGN_LEFT))
+		g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
+
+	y += 20;
+
+	char recents[256];
+	sprintf(recents, "%s %i", s->T("Max. No of Recents :"), g_Config.iMaxRecent);
+	ui_draw2d.DrawText(UBUNTU24, recents, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear2(x + columnw, y, 20);
+	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("-1"), ALIGN_LEFT))
+		if (g_Config.iMaxRecent > 4)
+			g_Config.iMaxRecent -= 1;
+	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("+1"), ALIGN_LEFT))
+		if (g_Config.iMaxRecent < 40)
+			g_Config.iMaxRecent += 1;
+	if (UIButton(GEN_ID, hlinear2, 100, 0, s->T("Clear"), ALIGN_LEFT)) {
+		g_Config.recentIsos.clear();
+	}
+	y += 20;
+
+
+
+	char lang[256];
+	std::string type;
+	switch (g_Config.ilanguage) {
+				case 0:	type = "日本語";break;
+				case 1: type = "English";break;
+				case 2:	type = "Français";break;
+				case 3: type = "Castellano";break;
+				case 4:	type = "Deutsch";break;
+				case 5: type = "Italiano";break;
+				case 6:	type = "Nederlands";break;
+				case 7: type = "Português";break;
+				case 8:	type = "한국어";break;
+				case 9: type = "Русский";break;
+				case 10: type = "繁體中文";break;
+				case 11: type = "简体中文";break;
+	}
+	sprintf(lang, "%s %s", s->T("System Language :"), type.c_str());
+	ui_draw2d.DrawText(UBUNTU24, lang, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear3(x + columnw, y, 20);
+	if (UIButton(GEN_ID, hlinear3, LARGE_BUTTON_WIDTH, 0, s->T("Language"), ALIGN_TOPLEFT)) {
+		screenManager()->push(new LanguageScreen());
+	}
+
+
+	UIEnd();
+
+}
+
 void ControlsScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
@@ -1432,7 +1479,6 @@ void ControlsScreen::render() {
 	int x = 30;
 	int y = 35;
 	int stride = 40;
-	int columnw = 440;
 
 	UICheckBox(GEN_ID, x, y += stride, c->T("OnScreen", "On-Screen Touch Controls"), ALIGN_TOPLEFT, &g_Config.bShowTouchControls);
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
