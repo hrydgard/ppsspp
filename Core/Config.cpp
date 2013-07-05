@@ -250,6 +250,7 @@ void Config::Save()
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("ForceInputDevice", iForceInputDevice);
 		control->Set("RightStickBind", iRightStickBind);
+		control->Set("SwapDInputRightAxes", iSwapRightAxes);
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
 		control->Set("ButtonScale", fButtonScale);
 
