@@ -66,6 +66,13 @@ public:
 		if (referenceIndex == 32) return cpu->GetPC();
 		return -1;
 	}
+
+	// Need to implement all pure virtuals in order to instantiate it (like done in initExpression):
+	virtual bool getMemoryValue(uint32 address, int size, uint32& dest, char* error) {
+		return false;
+	}
+
+
 private:
 	DebugInterface* cpu;
 };
