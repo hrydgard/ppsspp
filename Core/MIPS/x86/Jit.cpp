@@ -732,7 +732,7 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 
 		jit_->CMP(32, M((void*)&coreState), Imm32(0));
 		skipChecks_.push_back(jit_->J_CC(CC_NE, true));
-		jit_->js.afterOp = JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
 	}
 }
 
@@ -749,9 +749,9 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		FixupBranch skipNext, skipNextRange;
 		if (it->end != 0)
 		{
-			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_ - size_));
 			skipNext = jit_->J_CC(CC_B);
-			jit_->CMP(32, R(xaddr_), Imm32(it->end - offset_ - size_));
+			jit_->CMP(32, R(xaddr_), Imm32(it->end - offset_));
 			skipNextRange = jit_->J_CC(CC_AE);
 		}
 		else
@@ -768,7 +768,7 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 
 		jit_->CMP(32, M((void*)&coreState), Imm32(0));
 		skipChecks_.push_back(jit_->J_CC(CC_NE, true));
-		jit_->js.afterOp = JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
 
 		jit_->SetJumpTarget(skipNext);
 		if (it->end != 0)
