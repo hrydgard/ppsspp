@@ -712,6 +712,10 @@ void JitMemCheck(u32 addr, int size, int isWrite)
 	if (CBreakPoints::CheckSkipFirst() == currentMIPS->pc)
 		return;
 
+	// Did we already hit one?
+	if (coreState != CORE_RUNNING)
+		return;
+
 	MemCheck *check = CBreakPoints::GetMemCheck(addr, size);
 	if (check)
 		check->Action(addr, isWrite == 1, size, currentMIPS->pc);
@@ -738,13 +742,16 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 
 void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 {
-	auto memchecks = CBreakPoints::GetMemChecks();
+	const auto memchecks = CBreakPoints::GetMemChecks();
+	bool possible = false;
 	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it)
 	{
 		if (!(it->cond & MEMCHECK_READ) && type == MEM_READ)
 			continue;
 		if (!(it->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
 			continue;
+
+		possible = true;
 
 		FixupBranch skipNext, skipNextRange;
 		if (it->end != 0)
@@ -766,13 +773,16 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		jit_->ABI_CallFunctionACC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 3), R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
 		jit_->POP(xaddr_);
 
-		jit_->CMP(32, M((void*)&coreState), Imm32(0));
-		skipChecks_.push_back(jit_->J_CC(CC_NE, true));
-		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
-
 		jit_->SetJumpTarget(skipNext);
 		if (it->end != 0)
 			jit_->SetJumpTarget(skipNextRange);
+	}
+
+	if (possible)
+	{
+		jit_->CMP(32, M((void*)&coreState), Imm32(0));
+		skipChecks_.push_back(jit_->J_CC(CC_NE, true));
+		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
 	}
 }
 
