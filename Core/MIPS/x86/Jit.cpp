@@ -742,9 +742,9 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it)
 	{
 		if (!(it->cond & MEMCHECK_READ) && type == MEM_READ)
-			return;
+			continue;
 		if (!(it->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
-			return;
+			continue;
 
 		FixupBranch skipNext, skipNextRange;
 		if (it->end != 0)
