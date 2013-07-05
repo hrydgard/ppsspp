@@ -705,7 +705,6 @@ void sceDisplayGetBrightness(u32 levelAddr,u32 unk1) {
 		Memory::Write_U32(Java_com_henrikrydgard_libnative_NativeRenderer_displayGetBrightness(jniEnvUI, jniClass), levelAddr);
 	if(Memory::IsValidAddress(unk1))
 		Memory::Write_U32(0, unk1);
-
 }
 
 void sceDisplaySetBrightness(int level,int unk1) {
