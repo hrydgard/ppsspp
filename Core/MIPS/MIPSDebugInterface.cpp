@@ -66,12 +66,39 @@ public:
 		if (referenceIndex == 32) return cpu->GetPC();
 		return -1;
 	}
+	
+	virtual bool getMemoryValue(uint32 address, int size, uint32& dest, char* error)
+	{
+		switch (size)
+		{
+		case 1: case 2: case 4:
+			break;
+		default:
+			sprintf(error,"Invalid memory access size %d",size);
+			return false;
+		}
 
-	// Need to implement all pure virtuals in order to instantiate it (like done in initExpression):
-	virtual bool getMemoryValue(uint32 address, int size, uint32& dest, char* error) {
-		return false;
+		if (address % size)
+		{
+			sprintf(error,"Invalid memory access (unaligned)");
+			return false;
+		}
+
+		switch (size)
+		{
+		case 1:
+			dest = Memory::Read_U8(address);
+			break;
+		case 2:
+			dest = Memory::Read_U16(address);
+			break;
+		case 4:
+			dest = Memory::Read_U32(address);
+			break;
+		}
+
+		return true;
 	}
-
 
 private:
 	DebugInterface* cpu;
