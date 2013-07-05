@@ -48,9 +48,11 @@ struct HLEModule
 	const HLEFunction *funcTable;
 };
 
+typedef char SyscallModuleName[32];
+
 struct Syscall
 {
-	char moduleName[32];
+	SyscallModuleName moduleName;
 	u32 symAddr;
 	u32 nid;
 };
