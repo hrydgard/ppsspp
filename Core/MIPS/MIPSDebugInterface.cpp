@@ -87,13 +87,13 @@ public:
 		switch (size)
 		{
 		case 1:
-			dest = Memory::ReadUnchecked_U8(address);
+			dest = Memory::Read_U8(address);
 			break;
 		case 2:
-			dest = Memory::ReadUnchecked_U16(address);
+			dest = Memory::Read_U16(address);
 			break;
 		case 4:
-			dest = Memory::ReadUnchecked_U32(address);
+			dest = Memory::Read_U32(address);
 			break;
 		}
 
