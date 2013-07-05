@@ -347,8 +347,8 @@ void Jit::Comp_SVQ(u32 op)
 			}
 			safe.Finish();
 
-			fpr.ReleaseSpillLocks();
 			gpr.UnlockAll();
+			fpr.ReleaseSpillLocks();
 		}
 		break;
 
@@ -822,6 +822,49 @@ void Jit::Comp_Vmtvc(u32 op) {
 			js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 		}
 	}
+}
+
+void Jit::Comp_VMatrixInit(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	MatrixSize sz = GetMtxSize(op);
+	int n = GetMatrixSide(sz);
+
+	u8 dregs[16];
+	GetMatrixRegs(dregs, sz, _VD);
+
+	switch ((op >> 16) & 0xF) {
+	case 3: // vmidt
+		MOVSS(XMM0, M((void *) &zero));
+		MOVSS(XMM1, M((void *) &one));
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				MOVSS(fpr.V(dregs[a * 4 + b]), a == b ? XMM1 : XMM0);
+			}
+		}
+		break;
+	case 6: // vmzero
+		MOVSS(XMM0, M((void *) &zero));
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				MOVSS(fpr.V(dregs[a * 4 + b]), XMM0);
+			}
+		}
+		break;
+	case 7: // vmone
+		MOVSS(XMM0, M((void *) &one));
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				MOVSS(fpr.V(dregs[a * 4 + b]), XMM0);
+			}
+		}
+		break;
+	}
+
+	fpr.ReleaseSpillLocks();
 }
 
 void Jit::Comp_Vmmov(u32 op) {

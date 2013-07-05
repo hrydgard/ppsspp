@@ -201,6 +201,7 @@ public:
 	void Comp_SVQ(u32 op);
 	void Comp_VPFX(u32 op);
 	void Comp_VVectorInit(u32 op);
+	void Comp_VMatrixInit(u32 op);
 	void Comp_VDot(u32 op);
 	void Comp_VecDo3(u32 op);
 	void Comp_VV2Op(u32 op);
@@ -273,6 +274,8 @@ private:
 	void CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32));
 	void CompITypeMemRead(u32 op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc);
 	void CompITypeMemWrite(u32 op, u32 bits, void *safeFunc);
+	void CompITypeMemUnpairedLR(u32 op, bool isStore);
+	void CompITypeMemUnpairedLRInner(u32 op);
 
 	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
@@ -292,7 +295,7 @@ private:
 	class JitSafeMem
 	{
 	public:
-		JitSafeMem(Jit *jit, int raddr, s32 offset);
+		JitSafeMem(Jit *jit, int raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);
 
 		// Emit code necessary for a memory write, returns true if MOV to dest is needed.
 		bool PrepareWrite(OpArg &dest, int size);
@@ -336,6 +339,7 @@ private:
 		bool needsCheck_;
 		bool needsSkip_;
 		bool far_;
+		u32 alignMask_;
 		u32 iaddr_;
 		X64Reg xaddr_;
 		FixupBranch tooLow_, tooHigh_, skip_;
