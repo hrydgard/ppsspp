@@ -672,12 +672,12 @@ const MIPSInstruction tableVFPUMatrixSet1[16] = //111100 11100 0xxxx   (rm x is 
 	INSTR("vmmov",&Jit::Comp_Vmmov, Dis_MatrixSet2, Int_Vmmov, IS_VFPU|OUT_EAT_PREFIX),
 	{-2},
 	{-2},
-	INSTR("vmidt",&Jit::Comp_Generic, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmidt",&Jit::Comp_VMatrixInit, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),
 
 	{-2},
 	{-2},
-	INSTR("vmzero", &Jit::Comp_Generic, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vmone",  &Jit::Comp_Generic, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmzero", &Jit::Comp_VMatrixInit, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vmone",  &Jit::Comp_VMatrixInit, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),
 
 	{-2},{-2},{-2},{-2},
   {-2},{-2},{-2},{-2},

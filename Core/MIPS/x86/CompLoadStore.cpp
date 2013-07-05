@@ -102,6 +102,134 @@ namespace MIPSComp
 		gpr.UnlockAll();
 	}
 
+	void Jit::CompITypeMemUnpairedLR(u32 op, bool isStore)
+	{
+		CONDITIONAL_DISABLE;
+		int o = op>>26;
+		int offset = (signed short)(op&0xFFFF);
+		int rt = _RT;
+		int rs = _RS;
+
+		gpr.FlushLockX(ECX, EDX);
+
+		gpr.Lock(rt);
+		gpr.BindToRegister(rt, true, !isStore);
+
+		// Grab the offset from alignment for shifting (<< 3 for bytes -> bits.)
+		MOV(32, R(ECX), gpr.R(rs));
+		ADD(32, R(ECX), Imm32(offset));
+		AND(32, R(ECX), Imm32(3));
+		SHL(32, R(ECX), Imm8(3));
+
+		{
+			JitSafeMem safe(this, rs, offset, ~3);
+			safe.SetFar();
+			OpArg src;
+			if (safe.PrepareRead(src, 4))
+			{
+				if (!src.IsSimpleReg(EAX))
+					MOV(32, R(EAX), src);
+
+				CompITypeMemUnpairedLRInner(op);
+			}
+			if (safe.PrepareSlowRead((void *) &Memory::Read_U32))
+				CompITypeMemUnpairedLRInner(op);
+			safe.Finish();
+		}
+
+		// For store ops, write EDX back to memory.
+		if (isStore)
+		{
+			JitSafeMem safe(this, rs, offset, ~3);
+			OpArg dest;
+			if (safe.PrepareWrite(dest, 4))
+				MOV(32, dest, R(EDX));
+			if (safe.PrepareSlowWrite())
+				safe.DoSlowWrite((void *) &Memory::Write_U32, R(EDX));
+			safe.Finish();
+		}
+
+		gpr.UnlockAll();
+		gpr.UnlockAllX();
+	}
+
+	void Jit::CompITypeMemUnpairedLRInner(u32 op)
+	{
+		CONDITIONAL_DISABLE;
+		int o = op>>26;
+		int rt = _RT;
+
+		switch (o)
+		{
+		case 34: //lwl
+			// First clear the target bits.
+			MOV(32, R(EDX), Imm32(0x00ffffff));
+			SHR(32, R(EDX), R(CL));
+			AND(32, gpr.R(rt), R(EDX));
+
+			// Adjust the shift to the bits we want.
+			MOV(32, R(EDX), Imm32(24));
+			SUB(32, R(EDX), R(ECX));
+			MOV(32, R(ECX), R(EDX));
+			SHL(32, R(EAX), R(CL));
+
+			OR(32, gpr.R(rt), R(EAX));
+			break;
+
+		case 38: //lwr
+			// Adjust the shift to the bits we want.
+			SHR(32, R(EAX), R(CL));
+
+			// Clear the target bits we're replacing.
+			MOV(32, R(EDX), Imm32(24));
+			SUB(32, R(EDX), R(ECX));
+			MOV(32, R(ECX), R(EDX));
+			MOV(32, R(EDX), Imm32(0xffffff00));
+			SHL(32, R(EDX), R(CL));
+			AND(32, gpr.R(rt), R(EDX));
+
+			OR(32, gpr.R(rt), R(EAX));
+			break;
+
+		case 42: //swl
+			// First clear the target memory bits.
+			MOV(32, R(EDX), Imm32(0xffffff00));
+			SHL(32, R(EDX), R(CL));
+			AND(32, R(EAX), R(EDX));
+
+			// Flip the shift, and adjust the shift in a temporary.
+			MOV(32, R(EDX), Imm32(24));
+			SUB(32, R(EDX), R(ECX));
+			MOV(32, R(ECX), R(EDX));
+			MOV(32, R(EDX), gpr.R(rt));
+			SHR(32, R(EDX), R(CL));
+
+			OR(32, R(EDX), R(EAX));
+			break;
+
+		case 46: //swr
+			// Adjust the shift to the bits we want.
+			MOV(32, R(EDX), gpr.R(rt));
+			SHL(32, R(EDX), R(CL));
+			PUSH(EDX);
+
+			// Clear the target bits we're replacing.
+			MOV(32, R(EDX), Imm32(24));
+			SUB(32, R(EDX), R(ECX));
+			MOV(32, R(ECX), R(EDX));
+			MOV(32, R(EDX), Imm32(0x00ffffff));
+			SHR(32, R(EDX), R(CL));
+			AND(32, R(EAX), R(EDX));
+
+			POP(EDX);
+			OR(32, R(EDX), R(EAX));
+			break;
+
+		default:
+			_dbg_assert_msg_(JIT, 0, "Unsupported left/right load/store instruction.");
+		}
+	}
+
 	void Jit::Comp_ITypeMem(u32 op)
 	{
 		CONDITIONAL_DISABLE;
@@ -160,7 +288,7 @@ namespace MIPSComp
 					CompITypeMemRead(nextOp, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U32);
 				}
 				else
-					Comp_Generic(op);
+					CompITypeMemUnpairedLR(op, false);
 			}
 			break;
 
@@ -176,7 +304,7 @@ namespace MIPSComp
 					CompITypeMemRead(op, 32, &XEmitter::MOVZX, (void *) &Memory::Read_U32);
 				}
 				else
-					Comp_Generic(op);
+					CompITypeMemUnpairedLR(op, false);
 			}
 			break;
 
@@ -192,7 +320,7 @@ namespace MIPSComp
 					CompITypeMemWrite(nextOp, 32, (void *) &Memory::Write_U32);
 				}
 				else
-					Comp_Generic(op);
+					CompITypeMemUnpairedLR(op, true);
 			}
 			break;
 
@@ -208,7 +336,7 @@ namespace MIPSComp
 					CompITypeMemWrite(op, 32, (void *) &Memory::Write_U32);
 				}
 				else
-					Comp_Generic(op);
+					CompITypeMemUnpairedLR(op, true);
 			}
 			break;
 
