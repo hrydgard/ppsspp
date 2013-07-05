@@ -237,6 +237,10 @@ int DinputDevice::UpdateState(InputState &input_state)
 		if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
 		else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
 		break;
+	case 5:
+		if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
+		else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
+		break;
 	}
 
 	return UPDATESTATE_SKIP_PAD;
