@@ -273,7 +273,7 @@ private:
 	void CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32));
 	void CompITypeMemRead(u32 op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc);
 	void CompITypeMemWrite(u32 op, u32 bits, void *safeFunc);
-	void CompITypeMemUnpairedLR(u32 op);
+	void CompITypeMemUnpairedLR(u32 op, bool isStore);
 	void CompITypeMemUnpairedLRInner(u32 op);
 
 	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
