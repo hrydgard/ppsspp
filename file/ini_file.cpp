@@ -57,6 +57,10 @@ static bool ParseLine(const std::string& line, std::string* keyOut, std::string*
 	return false;
 }
 
+void IniFile::Section::Clear() {
+	lines.clear();
+}
+
 std::string* IniFile::Section::GetLine(const char* key, std::string* valueOut, std::string* commentOut)
 {
 	for (std::vector<std::string>::iterator iter = lines.begin(); iter != lines.end(); ++iter)

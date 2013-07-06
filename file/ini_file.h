@@ -24,6 +24,8 @@ public:
 		bool Exists(const char *key) const;
 		bool Delete(const char *key);
 
+		void Clear();
+
 		std::map<std::string, std::string> ToMap() const;
 
 		std::string* GetLine(const char* key, std::string* valueOut, std::string* commentOut);
