@@ -203,8 +203,16 @@ void EmuScreen::update(InputState &input) {
 	}
 #endif
 
-	// Set Keys ---- 
-
+	// Special Keys & State ----------
+	float stick_x = input.pad_lstick_x;
+	float stick_y = input.pad_lstick_y;
+	float rightstick_x = input.pad_rstick_x;
+	float rightstick_y = input.pad_rstick_y;
+	bool leave_emu_screen = false;
+	bool unthrottle = false;
+	bool cycle_throttles = false;
+	
+	// Set Keys ----------------------
 	// Legacy key mapping
 	// Then translate pad input into PSP pad input. Also, add in tilt.
 	static const int mapping[12][2] = {
@@ -231,26 +239,56 @@ void EmuScreen::update(InputState &input) {
 		}
 	}
 
-	// Modern key mapping
+	// Modern key mapping --------------
 	uint32_t pressed = 0;
 	for (int i = 0; i < MAX_KEYQUEUESIZE; i++) {
 		int key = input.key_queue[i];
 		if (key == 0)
 			break;
 
-		// TODO: Add virt_sce_* codes for analog sticks
-		pressed |= KeyMap::KeyToPspButton(key);
+		if (key & CTRL_BTN_MASK) {
+			// Regular keys
+			pressed |= KeyMap::KeyToPspButton(key);
+
+		} else {
+			// Special keys
+			switch (key) {
+			case VIRT_UNTHROTTLE:
+				unthrottle = true;
+				break;
+
+			case VIRT_CYCLE_THROTTLE:
+				cycle_throttles = true;
+				break;
+
+			case VIRT_BACK:
+				leave_emu_screen = true;
+				break;
+
+			case VIRT_ANALOG_UP:
+				stick_y = 1;
+				break;
+
+			case VIRT_ANALOG_DOWN:
+				stick_y = -1;
+				break;
+
+			case VIRT_ANALOG_LEFT:
+				stick_x = 1;
+				break;
+
+			case VIRT_ANALOG_RIGHT:
+				stick_x = -1;
+				break;
+			}
+		}
 	}
 	__CtrlButtonDown(pressed);
 	__CtrlButtonUp(pressedLastUpdate & ~pressed);
 	pressedLastUpdate = pressed;
-	// End Set Keys --
 
-	float stick_x = input.pad_lstick_x;
-	float stick_y = input.pad_lstick_y;
-	float rightstick_x = input.pad_rstick_x;
-	float rightstick_y = input.pad_rstick_y;
-	
+
+	// Act on Speical keys ------------
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
 	// Apply tilt to left stick
@@ -263,44 +301,37 @@ void EmuScreen::update(InputState &input) {
 	__CtrlSetAnalog(stick_x, stick_y, 0);
 	__CtrlSetAnalog(rightstick_x, rightstick_x, 1);
 
-	if (PSP_CoreParameter().fpsLimit != 2) {
-		// Don't really need to show these, it's pretty obvious what unthrottle does,
-		// in contrast to the three state toggle
-		/*
-		if (input.pad_buttons_down & PAD_BUTTON_UNTHROTTLE) {
-			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
-		}
-		if (input.pad_buttons_up & PAD_BUTTON_UNTHROTTLE) {
-			osm.Show(s->T("standard", "Speed: standard"), 1.0);
-		}*/
-	}
-	if (input.pad_buttons & PAD_BUTTON_UNTHROTTLE) {
+	if (unthrottle || (input.pad_buttons & PAD_BUTTON_UNTHROTTLE)) {
 		PSP_CoreParameter().unthrottle = true;
 	} else {
 		PSP_CoreParameter().unthrottle = false;
 	}
+
 	// Make sure fpsLimit starts at 0
-	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1 && PSP_CoreParameter().fpsLimit != 2) {
+	if (PSP_CoreParameter().fpsLimit < 0 || PSP_CoreParameter().fpsLimit > 2) {
 		PSP_CoreParameter().fpsLimit = 0;
 	}
 
-	//Toggle between 3 different states of fpsLimit
-	if (input.pad_buttons_down & PAD_BUTTON_LEFT_THUMB) {
-		if (PSP_CoreParameter().fpsLimit == 0) {
-			PSP_CoreParameter().fpsLimit = 1;
+	// Toggle between 3 different states of fpsLimit
+	if (cycle_throttles || (input.pad_buttons_down & PAD_BUTTON_LEFT_THUMB)) {
+		int fpsLimit = PSP_CoreParameter().fpsLimit;
+
+		if (fpsLimit == 0) {
 			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
 		}
-		else if (PSP_CoreParameter().fpsLimit == 1) {
-			PSP_CoreParameter().fpsLimit = 2;
+		else if (fpsLimit == 1) {
 			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
 		}
-		else if (PSP_CoreParameter().fpsLimit == 2) {
-			PSP_CoreParameter().fpsLimit = 0;
+		else if (fpsLimit == 2) {
 			osm.Show(s->T("standard", "Speed: standard"), 1.0);
 		}
+
+		PSP_CoreParameter().fpsLimit = (fpsLimit + 1) % 3;
 	}
 
-	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB)) {
+	if (leave_emu_screen || (input.pad_buttons_down & 
+	          (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB))) {
+
 		if (g_Config.bBufferedRendering)
 			fbo_unbind();
 		screenManager()->push(new PauseScreen());

@@ -22,6 +22,35 @@
 #include "input/keycodes.h"     // keyboard keys
 #include "../Core/HLE/sceCtrl.h"   // psp keys
 
+
+// sceCtrl does not use all 32 bits
+// We will use some bits to define
+// our virtual buttons.
+// Provides room for 2^7 virt keys
+#define VIRTBIT1        0x0002
+#define VIRTBIT2        0x0004
+#define VIRTBIT3        0x0040
+#define VIRTBIT4        0x0080
+#define VIRTBIT5        0x0400
+#define VIRTBIT6        0x0800
+#define VIRT_BTN_MASK \
+	(VIRTBIT1 | VIRTBIT2 | VIRTBIT3 | VIRTBIT4 |\
+	 VIRTBIT5 | VIRTBIT6)
+#define CTRL_BTN_MASK (~VIRT_BTN_MASK)
+
+// Virtual PSP Buttons
+// Can be mapped to
+// but are never sent
+// Core
+#define VIRT_UNTHROTTLE        (VIRTBIT1)
+#define VIRT_CYCLE_THROTTLE    (VIRTBIT1 | VIRTBIT2)
+#define VIRT_ANALOG_UP         (VIRTBIT1 | VIRTBIT3)
+#define VIRT_ANALOG_DOWN       (VIRTBIT1 | VIRTBIT4)
+#define VIRT_ANALOG_LEFT       (VIRTBIT1 | VIRTBIT5)
+#define VIRT_ANALOG_RIGHT      (VIRTBIT1 | VIRTBIT6)
+#define VIRT_BACK              (VIRTBIT2 | VIRTBIT3)
+
+// KeyMap error codes
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
 
