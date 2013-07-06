@@ -413,7 +413,9 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 
 			// Resample to the correct pitch, writing exactly "grainSize" samples.
 			u32 sampleFrac = voice.sampleFrac;
-			const int MAX_CONFIG_VOLUME = 17; 
+			const int MAX_CONFIG_VOLUME = 17;  // 12 + 5
+			int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iSEVolume);
+			if (volumeShift < 0) volumeShift = 0;
 			for (int i = 0; i < grainSize; i++) {
 				// For now: nearest neighbour, not even using the resample history at all.
 				int sample = resampleBuffer[sampleFrac / PSP_SAS_PITCH_BASE + 2];
@@ -431,8 +433,8 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 				// We mix into this 32-bit temp buffer and clip in a second loop
 				// Ideally, the shift right should be there too but for now I'm concerned about
 				// not overflowing.
-				mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> (MAX_CONFIG_VOLUME - g_Config.iSEVolume); // Max = 16 and Min = 12(default)
-				mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> (MAX_CONFIG_VOLUME - g_Config.iSEVolume); // Max = 16 and Min = 12(default)
+				mixBuffer[i * 2] += (sample * voice.volumeLeft ) >> volumeShift; // Max = 16 and Min = 12(default)
+				mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> volumeShift; // Max = 16 and Min = 12(default)
 				sendBuffer[i * 2] += sample * voice.volumeLeftSend >> 12;
 				sendBuffer[i * 2 + 1] += sample * voice.volumeRightSend >> 12;
 				voice.envelope.Step();

@@ -820,6 +820,7 @@ void AudioScreen::render() {
 		if (UIButton(GEN_ID, hlinear2, 50, 0, a->T("+1"), ALIGN_LEFT))
 			if (g_Config.iSEVolume < 5)
 				g_Config.iSEVolume += 1;
+
 		y+=10;
 
 	} else
