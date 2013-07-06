@@ -39,7 +39,8 @@ static float left_joystick_x_async;
 static float left_joystick_y_async;
 static float right_joystick_x_async;
 static float right_joystick_y_async;
-static int key_queue_async[MAX_KEYQUEUESIZE];
+static float hat_joystick_x_async;
+static float hat_joystick_y_async;
 
 static uint32_t pad_buttons_down;
 
@@ -117,10 +118,11 @@ extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isLandscape(JNIEn
 
 // For the Back button to work right.
 extern "C" jboolean Java_com_henrikrydgard_libnative_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
+	bool isAtTop = NativeIsAtTopLevel();
 	if (extraLog) {
-		ILOG("isAtTopLevel");
+		ILOG("isAtTopLevel %i", (int)isAtTop);
 	}
-	return NativeIsAtTopLevel();
+	return isAtTop;
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
@@ -148,8 +150,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	left_joystick_y_async = 0;
 	right_joystick_x_async = 0;
 	right_joystick_y_async = 0;
-
-	KeyQueueBlank(key_queue_async);
+	hat_joystick_x_async = 0;
+	hat_joystick_y_async = 0;
 
 	std::string apkPath = GetJavaString(env, japkpath);
 	ILOG("NativeApp::Init: APK path: %s", apkPath.c_str());
@@ -262,8 +264,9 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 			lock_guard guard(input_state.lock);
 			pad_buttons_down |= pad_buttons_async_set;
 			pad_buttons_down &= ~pad_buttons_async_clear;
+
 			input_state.pad_buttons = pad_buttons_down;
-			KeyQueueCopyQueue(key_queue_async, input_state.key_queue);
+
 			UpdateInputState(&input_state);
 		}
 
@@ -271,6 +274,8 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 			lock_guard guard(input_state.lock);
 			input_state.pad_lstick_x = left_joystick_x_async;
 			input_state.pad_lstick_y = left_joystick_y_async;
+			input_state.pad_rstick_x = right_joystick_x_async;
+			input_state.pad_rstick_y = right_joystick_y_async;
 		}
 		NativeUpdate(input_state);
 
@@ -372,48 +377,95 @@ static inline void AsyncUp(int padbutton) {
 	pad_buttons_async_clear |= padbutton;
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint key) {
-	KeyQueueAddKey(key_queue_async, key);
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key) {
+	KeyInput keyInput;
+	keyInput.deviceId = deviceId;
+	keyInput.keyCode = key;
+	keyInput.flags = KEY_DOWN;
+	NativeKey(keyInput);
 
+	// Pad mapping
 	switch (key) {
-	case 1: AsyncDown (PAD_BUTTON_BACK); break; // Back
-	case 2: AsyncDown (PAD_BUTTON_MENU); break; // Menu
+	case KEYCODE_BACK: AsyncDown(PAD_BUTTON_BACK); break; // Back
+	case KEYCODE_MENU: AsyncDown(PAD_BUTTON_MENU); break; // Menu
 	case KEYCODE_BUTTON_CROSS_PS3:
 		AsyncDown(PAD_BUTTON_A);
 		break;
 	case KEYCODE_BUTTON_CIRCLE_PS3:
-		AsyncDown (PAD_BUTTON_B);
+		AsyncDown(PAD_BUTTON_B);
 		break;
 	default: break;
 	}
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint key) {
-	KeyQueueRemoveKey(key_queue_async, key);
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
+	KeyInput keyInput;
+	keyInput.deviceId = deviceId;
+	keyInput.keyCode = key;
+	keyInput.flags = KEY_UP;
+	NativeKey(keyInput);
 
+	// Pad mapping
 	switch (key) {
-	case 1: AsyncUp (PAD_BUTTON_BACK); break; // Back
-	case 2: AsyncUp (PAD_BUTTON_MENU); break; // Menu
+	case KEYCODE_BACK:
+		AsyncUp(PAD_BUTTON_BACK);
+		break; // Back
+	case KEYCODE_MENU:
+		AsyncUp(PAD_BUTTON_MENU);
+		break; // Menu
 	case KEYCODE_BUTTON_CROSS_PS3:
 		AsyncUp(PAD_BUTTON_A);
 		break;
 	case KEYCODE_BUTTON_CIRCLE_PS3:
-		AsyncUp (PAD_BUTTON_B);
+		AsyncUp(PAD_BUTTON_B);
 		break;
-	default: break;
+	default:
+		break;
 	}
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickEvent(
-		JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
-	if (stick == 0) {
-		left_joystick_x_async = x;
-		left_joystick_y_async = y;
-	} else if (stick == 1) {
-		right_joystick_x_async = x;
-		right_joystick_y_async = y;
-	}
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_beginJoystickEvent(
+	JNIEnv *env, jclass) {
+	// mutex lock?
 }
+
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickEvent(
+		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
+	switch (axisId) {
+	case JOYSTICK_AXIS_X:
+		left_joystick_x_async = value;
+		break;
+	case JOYSTICK_AXIS_Y:
+		left_joystick_y_async = -value;
+		break;
+	case JOYSTICK_AXIS_Z:
+		right_joystick_x_async = value;
+		break;
+	case JOYSTICK_AXIS_RZ:
+		right_joystick_y_async = -value;
+		break;
+	case JOYSTICK_AXIS_HAT_X:
+		hat_joystick_x_async = value;
+		break;
+	case JOYSTICK_AXIS_HAT_Y:
+		hat_joystick_y_async = -value;
+		break;
+	}
+
+	// Hat is just stupid. Force translate it to dpad events.  TODO
+	
+	AxisInput axis;
+	axis.axisId = axisId;
+	axis.deviceId = deviceId;
+	axis.value = value;
+	NativeAxis(axis);
+}
+
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_endJoystickEvent(
+	JNIEnv *env, jclass) {
+	// mutex unlock?
+}
+
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_mouseWheelEvent(
 	JNIEnv *env, jclass, jint stick, jfloat x, jfloat y) {
@@ -437,4 +489,3 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *e
 	ILOG("Message received: %s %s", msg.c_str(), prm.c_str());
 	NativeMessageReceived(msg.c_str(), prm.c_str());
 }
-

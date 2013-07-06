@@ -11,6 +11,8 @@
 // This is defined in input/input_state.h.
 struct InputState;
 struct TouchInput;
+struct KeyInput;
+struct AxisInput;
 
 // The first function to get called, just write strings to the two pointers.
 // This might get called multiple times in some implementations, you must be able to handle that.
@@ -47,6 +49,8 @@ void NativeUpdate(InputState &input);
 // If you don't care about touch latency, just do a no-op implementation of this.
 // time is not yet implemented. finger can be from 0 to 7, inclusive.
 void NativeTouch(const TouchInput &touch);
+void NativeKey(const KeyInput &key);
+void NativeAxis(const AxisInput &axis);
 
 // Called when it's time to render. If the device can keep up, this
 // will also be called sixty times per second. Main thread.

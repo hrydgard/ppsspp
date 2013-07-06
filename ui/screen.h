@@ -44,6 +44,8 @@ public:
 	virtual void deviceLost() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void touch(const TouchInput &touch) {}
+	virtual void key(const KeyInput &key) {}
+	virtual void axis(const AxisInput &touch) {}
 	virtual void sendMessage(const char *msg, const char *value) {}
 
 	ScreenManager *screenManager() { return screenManager_; }
@@ -91,6 +93,8 @@ public:
 
 	// Instant touch, separate from the update() mechanism.
 	void touch(const TouchInput &touch);
+	void key(const KeyInput &key);
+	void axis(const AxisInput &touch);
 
 	// Generic facility for gross hacks :P
 	void sendMessage(const char *msg, const char *value);

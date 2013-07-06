@@ -278,6 +278,7 @@
       <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="ext\jpge\jpgd.h" />
+    <ClInclude Include="input\keycodes.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">

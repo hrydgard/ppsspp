@@ -15,11 +15,13 @@ public class NativeApp {
 
 	public static native void shutdown();
 
-	public static native void keyDown(int key);
+	public static native void keyDown(int deviceId, int key);
+	public static native void keyUp(int deviceId, int key);
 
-	public static native void keyUp(int key);
-
-	public static native void joystickEvent(int stick, float x, float y);
+	public static native void beginJoystickEvent();
+	public static native void joystickAxis(int deviceId, int axis, float value);
+	public static native void endJoystickEvent();
+	
 	public static native void mouseWheelEvent(float x, float y);
 
 	// will only be called between init() and shutdown()

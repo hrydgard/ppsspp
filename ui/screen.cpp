@@ -54,11 +54,20 @@ void ScreenManager::switchToNext() {
 }
 
 void ScreenManager::touch(const TouchInput &touch) {
-	if (!stack_.empty()) {
+	if (!stack_.empty())
 		stack_.back().screen->touch(touch);
-		return;
-	}
 }
+
+void ScreenManager::key(const KeyInput &key) {
+	if (!stack_.empty())
+		stack_.back().screen->key(key);
+}
+
+void ScreenManager::axis(const AxisInput &axis) {
+	if (!stack_.empty())
+		stack_.back().screen->axis(axis);
+}
+
 
 void ScreenManager::render() {
 	if (!stack_.empty()) {

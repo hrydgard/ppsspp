@@ -230,6 +230,7 @@
     <ClInclude Include="image\zim_save.h" />
     <ClInclude Include="input\gesture_detector.h" />
     <ClInclude Include="input\input_state.h" />
+    <ClInclude Include="input\keycodes.h" />
     <ClInclude Include="json\json_writer.h" />
     <ClInclude Include="math\curves.h" />
     <ClInclude Include="math\expression_parser.h" />

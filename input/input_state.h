@@ -1,9 +1,29 @@
 #pragma once
 
+// InputState is the simple way of getting input. All the input we have is collected
+// to a canonical Xbox360-style pad fully automatically.
+//
+// Recommended for use in game UIs and games that don't have advanced needs.
+//
+// For more detailed and configurable input, implement NativeTouch, NativeKey and NativeAxis and do your
+// own mapping. Might later move the mapping system from PPSSPP to native.
+
 #include "math/lin/vec3.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
 #include <map>
+
+// Default device IDs
+
+enum {
+	DEVICE_ID_DEFAULT = 0,  // Old Android
+	DEVICE_ID_KEYBOARD = 1,  // PC keyboard, android keyboards
+	DEVICE_ID_PAD_0 = 10,  // Generic joypads
+	DEVICE_ID_X360_0 = 20,  // XInput joypads
+	DEVICE_ID_ACCELEROMETER = 30,
+};
+
+const char *GetDeviceName(int deviceId);
 
 enum {
 	PAD_BUTTON_A = 1,
@@ -44,7 +64,7 @@ enum {
 #ifndef MAX_KEYQUEUESIZE
 #define MAX_KEYQUEUESIZE 20
 #endif
-	
+
 // Collection of all possible inputs, and automatically computed
 // deltas where applicable.
 struct InputState {
@@ -60,7 +80,7 @@ struct InputState {
 		memset(pointer_down, 0, sizeof(pointer_down));
 	}
 
-	// Gamepad style input
+	// Gamepad style input. For ease of use.
 	int pad_buttons; // bitfield
 	int pad_last_buttons;
 	int pad_buttons_down;	// buttons just pressed this frame
@@ -83,8 +103,6 @@ struct InputState {
 	// Accelerometer
 	bool accelerometer_valid;
 	Vec3 acc;
-
-	int key_queue[MAX_KEYQUEUESIZE];
 
 private:
 	DISALLOW_COPY_AND_ASSIGN(InputState);
@@ -118,11 +136,20 @@ struct TouchInput {
 	double timestamp;
 };
 
+enum {
+	KEY_DOWN = 1,
+	KEY_UP = 2,
+};
 
-// Key Queue Helpers
-void KeyQueueAddKey(int [], int);
-void KeyQueueRemoveKey(int [], int);
-void KeyQueueCopyQueue(int src[], int dst[]);
-void KeyQueueBlank(int []);
-void KeyQueueAttemptTranslatedAdd(int [], const std::map<int, int>, int);
-void KeyQueueAttemptTranslatedRemove(int [], const std::map<int, int>, int);
+struct KeyInput {
+	int deviceId;
+	int keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
+	int flags;
+};
+
+struct AxisInput {
+	int deviceId;
+	int axisId;  // Android axis Ids are the canonical ones.
+	float value;
+	int flags;
+};

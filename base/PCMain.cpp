@@ -538,14 +538,17 @@ int main(int argc, char *argv[]) {
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
 					quitRequested = 1;
 				}
-
-				KeyQueueAttemptTranslatedAdd(input_state.key_queue,
-				                             KeyMapRawSDLtoNative,
-											 event.key.keysym.sym);
+				KeyInput key;
+				key.flags = KEY_DOWN;
+				key.keyCode = KeyMapRawSDLtoNative[event.key.keysym.sym];
+				key.deviceId = 0;
+				NativeKey(key);
 			} else if (event.type == SDL_KEYUP) {
-				KeyQueueAttemptTranslatedRemove(input_state.key_queue,
-				                                KeyMapRawSDLtoNative,
-											    event.key.keysym.sym);
+				KeyInput key;
+				key.flags = KEY_UP;
+				key.keyCode = KeyMapRawSDLtoNative[event.key.keysym.sym];
+				key.deviceId = 0;
+				NativeKey(key);
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
 					input_state.pointer_x[0] = mx;
