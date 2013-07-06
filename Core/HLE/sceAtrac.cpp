@@ -23,6 +23,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 #include "Common/ChunkFile.h"
 
 #include "sceKernel.h"
@@ -622,16 +623,17 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						atrac->sampleQueue.push(buf, decodebytes);
 					}
 				}
+				const int MAX_CONFIG_VOLUME = 5;
 				s16* out = (s16*)outbuf;
 				memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
 				int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 				numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
 				s16* in = (s16*)buf;
 				for (u32 i = 0; i < numSamples; i++) {
-					s16 sampleL = *in++;
+					s16 sampleL = *in++ >> (MAX_CONFIG_VOLUME - g_Config.iBGMVolume); // Max = 4 and Min = 0(no shift)
 					s16 sampleR = sampleL;
 					if (atrac->atracChannels == 2)
-						sampleR = *in++;
+						sampleR = *in++ >> (MAX_CONFIG_VOLUME - g_Config.iBGMVolume); // Max = 4 and Min = 0(no shift)
 					*out++ = sampleL;
 					if (atrac->atracOutputChannels == 2)
 						*out++ = sampleR;
@@ -1686,16 +1688,17 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 				Atrac3plus_Decoder::Decode(atrac->decoder_context, Memory::GetPointer(sourceAddr), sourcebytes, &decodebytes, buf);
 				atrac->sampleQueue.push(buf, decodebytes);
 			}
+			const int MAX_CONFIG_VOLUME = 5;
 			s16* out = (s16*)Memory::GetPointer(samplesAddr);
 			memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
 			int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 			int numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
 			s16* in = (s16*)buf;
 			for (int i = 0; i < numSamples; i++) {
-				s16 sampleL = *in++;
+				s16 sampleL = *in++ >> (MAX_CONFIG_VOLUME - g_Config.iBGMVolume); // Max = 4 and Min = 0(no shift)
 				s16 sampleR = sampleL;
 				if (atrac->atracChannels == 2)
-					sampleR = *in++;
+					sampleR = *in++ >> (MAX_CONFIG_VOLUME - g_Config.iBGMVolume); // Max = 4 and Min = 0(no shift)
 				*out++ = sampleL;
 				if (atrac->atracOutputChannels == 2)
 					*out++ = sampleR;
