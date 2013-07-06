@@ -167,9 +167,9 @@ void CtrlThreadList::reloadThreads()
 	threads = GetThreadsInfo();
 
 	int items = ListView_GetItemCount(wnd);
-	while (items < threads.size())
+	while (items < (int)threads.size())
 	{
-	    LVITEM lvI;
+		LVITEM lvI;
 		lvI.pszText   = LPSTR_TEXTCALLBACK; // Sends an LVN_GETDISPINFO message.
 		lvI.mask      = LVIF_TEXT | LVIF_IMAGE |LVIF_STATE;
 		lvI.stateMask = 0;

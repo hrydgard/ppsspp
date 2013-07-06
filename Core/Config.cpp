@@ -75,7 +75,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("TopMost", &bTopMost);
 #endif
 
-	if (recentIsos.size() > iMaxRecent)
+	if ((int)recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
@@ -290,13 +290,13 @@ void Config::AddRecent(const std::string &file) {
 		if (*str == file) {
 			recentIsos.erase(str);
 			recentIsos.insert(recentIsos.begin(), file);
-			if (recentIsos.size() > iMaxRecent)
+			if ((int)recentIsos.size() > iMaxRecent)
 				recentIsos.resize(iMaxRecent);
 			return;
 		}
 	}
 	recentIsos.insert(recentIsos.begin(), file);
-	if (recentIsos.size() > iMaxRecent)
+	if ((int)recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);
 }
 

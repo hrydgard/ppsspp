@@ -46,8 +46,8 @@ namespace KeyMap {
 		// These functions are not
 		// fast, do not call them
 		// a million times.
-		std::string GetKeyName(int);
-		std::string GetPspButtonName(int);
+		std::string GetKeyName(int key);
+		std::string GetPspButtonName(int btn);
 
 		// Use if to translate
 		// KeyMap Keys to PSP
@@ -59,19 +59,19 @@ namespace KeyMap {
 		//
 		// Returns KEYMAP_ERROR_UNKNOWN_KEY
 		// for any unmapped key
-		int KeyToPspButton(int);
+		int KeyToPspButton(int key);
 
-		bool IsMappedKey(int);
-		bool IsUserDefined(int);
+		bool IsMappedKey(int key);
+		bool IsUserDefined(int key);
 
 		// Might be usful if you want
 		// to provide hints to users
 		// upon mapping conflicts
-		std::string NamePspButtonFromKey(int);
+		std::string NamePspButtonFromKey(int key);
 
 		// Use for showing the existing
 		// key mapping.
-		std::string NameKeyFromPspButton(int);
+		std::string NameKeyFromPspButton(int btn);
 
 		// Configure the key mapping.
 		// Any configuration will
@@ -91,7 +91,7 @@ namespace KeyMap {
 		// all psp buttons.
 		// Any buttons missing will
 		// fallback to KeyMap's keymap.
-		int RegisterPlatformDefaultKeyMap(std::map<int,int> *);
-		void DeregisterPlatformDefaultKeyMap(void);
+		int RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map);
+		void DeregisterPlatformDefaultKeyMap();
 }
 

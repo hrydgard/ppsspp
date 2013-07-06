@@ -201,7 +201,7 @@ static bool FindKeyMapping(int key, int *map_id, int *psp_button)
 
 
 
-int KeyMap::KeyToPspButton(const int key)
+int KeyMap::KeyToPspButton(int key)
 {
 	int search_start_layer = 0;
 	int psp_button;
@@ -265,7 +265,7 @@ int KeyMap::RegisterPlatformDefaultKeyMap(std::map<int,int> *overriding_map)
 	return 0;
 }
 
-void KeyMap::DeregisterPlatformDefaultKeyMap(void)
+void KeyMap::DeregisterPlatformDefaultKeyMap()
 {
 	platform_keymap = NULL;
 	return;
