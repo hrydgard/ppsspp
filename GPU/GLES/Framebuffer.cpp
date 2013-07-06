@@ -433,6 +433,11 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
 	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
 
+	if (drawing_width > gstate.getScissorX2() + 1)
+		drawing_width = gstate.getScissorX2() + 1;
+	if (drawing_height > gstate.getScissorY2() + 1)
+		drawing_height = gstate.getScissorY2() + 1;
+		
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 	
