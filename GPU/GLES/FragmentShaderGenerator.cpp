@@ -172,7 +172,11 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "uniform sampler2D tex;\n");
 
 	if (enableAlphaTest || enableColorTest) {
-		WRITE(p, "uniform highp vec4 u_alphacolorref;\n");
+#if defined(GLSL_ES_1_0)
+		WRITE(p, "uniform mediump vec4 u_alphacolorref;\n");
+#else
+		WRITE(p, "uniform vec4 u_alphacolorref;\n");
+#endif
 		WRITE(p, "uniform vec4 u_colormask;\n");
 	}
 	if (gstate.isTextureMapEnabled()) 
