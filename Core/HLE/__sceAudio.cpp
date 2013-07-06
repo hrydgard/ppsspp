@@ -36,16 +36,16 @@ int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
 
-const int hwSampleRate = 44100; 
-const int hwBlockSize = 32; // Yes I know, but this is nearly perfect for rhythm games.
-const int hostAttemptBlockSize = 256; // Same here...
+const int hwSampleRate = 44100;
+const int hwBlockSize = 32;
+const int hostAttemptBlockSize = 256;
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
 // High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
 // TODO: Tweak
 const int chanQueueMaxSizeFactor = 0;
-const int chanQueueMinSizeFactor = 1; 
+const int chanQueueMinSizeFactor = 1;
 
 // TODO: Need to replace this with something lockless. Mutexes in the audio pipeline
 // is bad mojo.
