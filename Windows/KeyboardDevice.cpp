@@ -137,6 +137,7 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 			switch (key_pad_map[i + 1]) {
 				case PAD_BUTTON_MENU:
 				case PAD_BUTTON_BACK:
+				case PAD_BUTTON_LEFT_THUMB:
 				case PAD_BUTTON_RIGHT_THUMB:
 					input_state.pad_buttons |= key_pad_map[i + 1];
 					break;
