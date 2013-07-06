@@ -433,7 +433,7 @@ namespace MIPSComp
 
 	void Jit::Comp_VMatrixInit(u32 op)
 	{
-		CONDITIONAL_DISABLE;
+		DISABLE;
 	}
 
 	void Jit::Comp_VDot(u32 op)
