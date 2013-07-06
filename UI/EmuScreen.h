@@ -38,5 +38,7 @@ private:
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
 	std::string errorMessage_;
-	uint32_t pressedLastUpdate;
+	int32_t pressedLastUpdate;
+	bool unthrottle_last_update;
+	bool cycle_throttles_last_update;
 };
