@@ -69,11 +69,11 @@ void Config::Load(const char *iniFileName)
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
-	general->Get("WindowX", &iWindowX, 40);
-	general->Get("WindowY", &iWindowY, 100);
 	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
 #ifdef _WIN32
 	general->Get("TopMost", &bTopMost);
+	general->Get("WindowX", &iWindowX, 40);
+	general->Get("WindowY", &iWindowY, 100);
 #endif
 
 	if ((int)recentIsos.size() > iMaxRecent)
@@ -85,7 +85,6 @@ void Config::Load(const char *iniFileName)
 #else
 	cpu->Get("Jit", &bJit, true);
 #endif
-	//FastMemory Default set back to True when solve UNIMPL _sceAtracGetContextAddress making game crash
 	cpu->Get("FastMemory", &bFastMemory, false);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
@@ -103,7 +102,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
-	graphics->Get("FrameRate", &iFpsLimit, 60);
+	graphics->Get("FrameRate", &iFpsLimit, 0);
 	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 0);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
@@ -111,7 +110,9 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 8);
 #endif
 	graphics->Get("VertexCache", &bVertexCache, true);
+#ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
+#endif
 #ifdef BLACKBERRY
 	graphics->Get("PartialStretch", &bPartialStretch, pixel_xres == pixel_yres);
 #endif
@@ -128,6 +129,8 @@ void Config::Load(const char *iniFileName)
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
 	sound->Get("EnableAtrac3plus", &bEnableAtrac3plus, true);
+	sound->Get("BGMVolume", &iBGMVolume, 8);
+	sound->Get("SEVolume", &iSEVolume, 8);
 	
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
@@ -136,7 +139,7 @@ void Config::Load(const char *iniFileName)
 #elif defined(USING_GLES2)
 	control->Get("ShowTouchControls", &bShowTouchControls, true);
 #else
-	control->Get("ShowTouchControls", &bShowTouchControls,false);
+	control->Get("ShowTouchControls", &bShowTouchControls, false);
 #endif
 	control->Get("LargeControls", &bLargeControls, false);
 	// control->Get("KeyMapping",iMappingMap);
@@ -148,7 +151,7 @@ void Config::Load(const char *iniFileName)
 	control->Get("ButtonScale", &fButtonScale, 1.15);
 
 	IniFile::Section *pspConfig = iniFile.GetOrCreateSection("SystemParam");
-	pspConfig->Get("NickName", &sNickName, "shadow");
+	pspConfig->Get("NickName", &sNickName, "PPSSPP");
 	pspConfig->Get("Language", &ilanguage, PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	pspConfig->Get("TimeFormat", &iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR);
 	pspConfig->Get("DateFormat", &iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD);
@@ -197,11 +200,11 @@ void Config::Save()
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		general->Set("ReportHost", sReportHost);
 		general->Set("Recent", recentIsos);
-		general->Set("WindowX", iWindowX);
-		general->Set("WindowY", iWindowY);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
 #ifdef _WIN32
 		general->Set("TopMost", bTopMost);
+		general->Set("WindowX", iWindowX);
+		general->Set("WindowY", iWindowY);
 #endif
 		general->Set("Language", languageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
@@ -227,7 +230,9 @@ void Config::Save()
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
 		graphics->Set("VertexCache", bVertexCache);
+#ifdef _WIN32
 		graphics->Set("FullScreen", bFullScreen);
+#endif		
 #ifdef BLACKBERRY
 		graphics->Set("PartialStretch", bPartialStretch);
 #endif
@@ -244,7 +249,9 @@ void Config::Save()
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);
 		sound->Set("EnableAtrac3plus", bEnableAtrac3plus);
-		
+		sound->Set("BGMVolume", iBGMVolume);
+		sound->Set("SEVolume", iSEVolume);
+
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
