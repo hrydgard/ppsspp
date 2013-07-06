@@ -42,6 +42,9 @@ struct DefaultKeyMap {
 		m[KEYCODE_DPAD_DOWN] = CTRL_DOWN;
 		m[KEYCODE_DPAD_LEFT] = CTRL_LEFT;
 		m[KEYCODE_DPAD_RIGHT] = CTRL_RIGHT;
+		m[KEYCODE_TAB] = VIRT_UNTHROTTLE;
+		m[KEYCODE_BUTTON_THUMBL] = VIRT_CYCLE_THROTTLE;
+		m[KEYCODE_BACK] = VIRT_BACK;
 		return m;
 	}
 	static std::map<int,int> KeyMap;
