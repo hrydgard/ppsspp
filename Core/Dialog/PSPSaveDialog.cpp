@@ -499,7 +499,7 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 		float y2 = y + h2 + 4.0f;
 		h2 += h + 4.0f;
 		y = 132.0f - h;
-		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x20CFCFCF));
+		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x65636358));
 		PPGeDrawText(d->T("Yes"), 302.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
 		PPGeDrawText(d->T("No"), 366.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
