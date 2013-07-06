@@ -23,6 +23,8 @@
 #include "ControlMapping.h"
 #include "Core/Config.h"
 #include "input/input_state.h"
+#include "base/NativeApp.h"
+#include"input/keycodes.h"
 #include "Core/Reporting.h"
 #include "Xinput.h"
 #pragma comment(lib,"dinput8.lib")
@@ -32,26 +34,33 @@
 #undef max
 #endif
 
-unsigned int dinput_ctrl_map[] = {
-	11,     PAD_BUTTON_MENU,         // Open PauseScreen
-	10,     PAD_BUTTON_BACK,         // Toggle PauseScreen & Back Setting Page
-	1,		PAD_BUTTON_A,            // Cross    = XBOX-A
-	2,		PAD_BUTTON_B,            // Circle   = XBOX-B 
-	0,		PAD_BUTTON_X,            // Square   = XBOX-X
-	3,		PAD_BUTTON_Y,            // Triangle = XBOX-Y
-	8,		PAD_BUTTON_SELECT,
-	9,		PAD_BUTTON_START,
-	4,		PAD_BUTTON_LBUMPER,      // LTrigger = XBOX-LBumper
-	5,		PAD_BUTTON_RBUMPER,      // RTrigger = XBOX-RBumper
-	6,      PAD_BUTTON_LEFT_THUMB,   // Turbo
-	7,      PAD_BUTTON_RIGHT_THUMB,  // Open PauseScreen
-	POV_CODE_UP, PAD_BUTTON_UP,
-	POV_CODE_DOWN, PAD_BUTTON_DOWN,
-	POV_CODE_LEFT, PAD_BUTTON_LEFT,
-	POV_CODE_RIGHT, PAD_BUTTON_RIGHT,
+static const struct {int from, to;} dinput_ctrl_map[] = {
+	{11,     KEYCODE_BUTTON_THUMBR}   ,      // Open PauseScreen
+	{10,     KEYCODE_BACK}         ,// Toggle PauseScreen & Back Setting Page
+	{1,		KEYCODE_BUTTON_A }        ,   // Cross    = XBOX-A
+	{2,		KEYCODE_BUTTON_B }       ,    // Circle   = XBOX-B 
+	{0,		KEYCODE_BUTTON_Y  }     ,     // Square   = XBOX-X
+	{3,		KEYCODE_BUTTON_X  }    ,      // Triangle = XBOX-Y
+	{8,		KEYCODE_BUTTON_SELECT},
+	{9,		KEYCODE_BUTTON_START},
+	{4,		KEYCODE_BUTTON_L1    },  // LTrigger = XBOX-LBumper
+	{5,		KEYCODE_BUTTON_R1   },   // RTrigger = XBOX-RBumper
+	{6,      KEYCODE_BUTTON_THUMBL},   // Turbo
+	{7,      KEYCODE_BUTTON_THUMBR }, // Open PauseScreen
+	{POV_CODE_UP, KEYCODE_DPAD_UP},
+	{POV_CODE_DOWN, KEYCODE_DPAD_DOWN},
+	{POV_CODE_LEFT, KEYCODE_DPAD_LEFT},
+	{POV_CODE_RIGHT, KEYCODE_DPAD_RIGHT},
 };
 
-const unsigned int dinput_ctrl_map_size = sizeof(dinput_ctrl_map);
+struct Stick {
+	float x;
+	float y;
+};
+
+static Stick NormalizedDeadzoneFilter(short x, short y);
+
+const unsigned int dinput_ctrl_map_size = sizeof(dinput_ctrl_map) / sizeof(dinput_ctrl_map[0]);
 
 #define DIFF  (JOY_POVRIGHT - JOY_POVFORWARD) / 2
 #define JOY_POVFORWARD_RIGHT	JOY_POVFORWARD + DIFF
@@ -155,8 +164,8 @@ static inline int getPadCodeFromVirtualPovCode(unsigned int povCode)
 {
 	int mergedCode = 0;
 	for (int i = 0; i < dinput_ctrl_map_size / sizeof(dinput_ctrl_map[0]); i += 2) {
-		if (dinput_ctrl_map[i] != 0xFFFFFFFF && dinput_ctrl_map[i] > 0xFF && dinput_ctrl_map[i] & povCode)
-			mergedCode |= dinput_ctrl_map[i + 1];
+		if (dinput_ctrl_map[i].from != 0xFFFFFFFF && dinput_ctrl_map[i].from > 0xFF && dinput_ctrl_map[i].from & povCode)
+			mergedCode |= dinput_ctrl_map[i + 1].from;
 	}
 	return mergedCode;
 }
@@ -175,7 +184,8 @@ int DinputDevice::UpdateState(InputState &input_state)
 	}
 
 	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
-    return -1;
+		return -1;
+
 	switch (js.rgdwPOV[0])
 	{
 		case JOY_POVFORWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_UP); break;
@@ -190,25 +200,53 @@ int DinputDevice::UpdateState(InputState &input_state)
 
 	if (analog)
 	{
-		float x = (float)js.lX / 10000.f;
-		float y = -((float)js.lY / 10000.f);
+		Stick left = NormalizedDeadzoneFilter(js.lX, js.lY);
+		Stick right = NormalizedDeadzoneFilter(js.lZ, js.lRz);
 
-		// Expand and clamp. Hack to let us reach the corners on most pads.
-		x = std::min(1.0f, std::max(-1.0f, x * 1.2f));
-		y = std::min(1.0f, std::max(-1.0f, y * 1.2f));
+		input_state.pad_lstick_x += left.x;
+		input_state.pad_lstick_y += left.y;
+		input_state.pad_rstick_x += right.x;
+		input_state.pad_rstick_y += right.y;
 
-		input_state.pad_lstick_x += x;
-		input_state.pad_lstick_y += y;
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_PAD_0;
+
+		axis.axisId = JOYSTICK_AXIS_X;
+		axis.value = left.x;
+		NativeAxis(axis);
+
+		axis.axisId = JOYSTICK_AXIS_Y;
+		axis.value = left.y;
+		NativeAxis(axis);
+
+		axis.axisId = JOYSTICK_AXIS_Z;
+		axis.value = right.x;
+		NativeAxis(axis);
+
+		axis.axisId = JOYSTICK_AXIS_RZ;
+		axis.value = right.y;
+		NativeAxis(axis);
 	}
 
 	for (u8 i = 0; i < sizeof(dinput_ctrl_map)/sizeof(dinput_ctrl_map[0]); i += 2)
 	{
 		// DIJOYSTATE2 supported 128 buttons. for exclude the Virtual POV_CODE bit fields.
-		if (dinput_ctrl_map[i] < DIRECTINPUT_RGBBUTTONS_MAX && js.rgbButtons[dinput_ctrl_map[i]] & 0x80)
+		if (dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX && js.rgbButtons[dinput_ctrl_map[i].from] & 0x80)
 		{
-			input_state.pad_buttons |= dinput_ctrl_map[i+1];
+			//input_state.pad_buttons |= dinput_ctrl_map[i].to;
+			KeyInput key;
+			key.deviceId = DEVICE_ID_PAD_0;
+			key.flags = KEY_DOWN;
+			key.keyCode = dinput_ctrl_map[i].to;
+			NativeKey(key);
+
 		}
 	}
+	//u32 downMask = buttons & (~prevState.Gamepad.wButtons);
+	//js.
+	//for(int i = 0; i < dinput_ctrl_map_size; i++) {
+	//	if (
+	//}
 
 	const LONG rthreshold = 8000;
 
@@ -280,6 +318,22 @@ int DinputDevice::UpdateState(InputState &input_state)
 	}
 
 	return UPDATESTATE_SKIP_PAD;
+}
+
+static Stick NormalizedDeadzoneFilter(short x, short y) {
+		Stick s;
+		s.x = (float)x / 10000.f;
+		s.y = -((float)y / 10000.f);
+
+		// Expand and clamp. Hack to let us reach the corners on most pads.
+		s.x = std::min(1.0f, std::max(-1.0f, s.x * 1.2f));
+		s.y = std::min(1.0f, std::max(-1.0f, s.y * 1.2f));
+
+		return s;
+}
+
+void DinputDevice::ApplyButtons(InputState &input_state) {
+
 }
 
 int DinputDevice::UpdateRawStateSingle(RawInputState &rawState)
