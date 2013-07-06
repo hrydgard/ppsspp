@@ -538,16 +538,18 @@ int main(int argc, char *argv[]) {
 				if (event.key.keysym.sym == SDLK_ESCAPE) {
 					quitRequested = 1;
 				}
+				int k = event.key.keysym.sym;
 				KeyInput key;
 				key.flags = KEY_DOWN;
-				key.keyCode = KeyMapRawSDLtoNative[event.key.keysym.sym];
-				key.deviceId = 0;
+				key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
+				key.deviceId = DEVICE_ID_KEYBOARD;
 				NativeKey(key);
 			} else if (event.type == SDL_KEYUP) {
+				int k = event.key.keysym.sym;
 				KeyInput key;
 				key.flags = KEY_UP;
-				key.keyCode = KeyMapRawSDLtoNative[event.key.keysym.sym];
-				key.deviceId = 0;
+				key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
+				key.deviceId = DEVICE_ID_KEYBOARD;
 				NativeKey(key);
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
 				if (event.button.button == SDL_BUTTON_LEFT) {
