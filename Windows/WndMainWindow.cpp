@@ -272,6 +272,8 @@ namespace MainWindow
 		
 		ShowWindow(hwndMain, nCmdShow);
 
+		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
+
 #if ENABLE_TOUCH
 		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
 #endif
