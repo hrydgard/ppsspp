@@ -35,21 +35,21 @@
 #endif
 
 static const struct {int from, to;} dinput_ctrl_map[] = {
-	{11,     KEYCODE_BUTTON_THUMBR}   ,      // Open PauseScreen
-	{10,     KEYCODE_BACK}         ,// Toggle PauseScreen & Back Setting Page
-	{1,		KEYCODE_BUTTON_A }        ,   // Cross    = XBOX-A
-	{2,		KEYCODE_BUTTON_B }       ,    // Circle   = XBOX-B 
-	{0,		KEYCODE_BUTTON_Y  }     ,     // Square   = XBOX-X
-	{3,		KEYCODE_BUTTON_X  }    ,      // Triangle = XBOX-Y
-	{8,		KEYCODE_BUTTON_SELECT},
-	{9,		KEYCODE_BUTTON_START},
-	{4,		KEYCODE_BUTTON_L1    },  // LTrigger = XBOX-LBumper
-	{5,		KEYCODE_BUTTON_R1   },   // RTrigger = XBOX-RBumper
-	{6,      KEYCODE_BUTTON_THUMBL},   // Turbo
-	{7,      KEYCODE_BUTTON_THUMBR }, // Open PauseScreen
-	{POV_CODE_UP, KEYCODE_DPAD_UP},
-	{POV_CODE_DOWN, KEYCODE_DPAD_DOWN},
-	{POV_CODE_LEFT, KEYCODE_DPAD_LEFT},
+	{11,             KEYCODE_BUTTON_THUMBR},      // Open PauseScreen
+	{10,             KEYCODE_BACK},               // Toggle PauseScreen & Back Setting Page
+	{1,		         KEYCODE_BUTTON_A },          // Cross    = XBOX-A
+	{2,		         KEYCODE_BUTTON_B },          // Circle   = XBOX-B 
+	{0,		         KEYCODE_BUTTON_Y  },         // Square   = XBOX-X
+	{3,		         KEYCODE_BUTTON_X  },         // Triangle = XBOX-Y
+	{8,		         KEYCODE_BUTTON_SELECT},
+	{9,		         KEYCODE_BUTTON_START},
+	{4,		         KEYCODE_BUTTON_L1    },      // LTrigger = XBOX-LBumper
+	{5,		         KEYCODE_BUTTON_R1   },       // RTrigger = XBOX-RBumper
+	{6,              KEYCODE_BUTTON_THUMBL},      // Turbo
+	{7,              KEYCODE_BUTTON_THUMBR },     // Open PauseScreen
+	{POV_CODE_UP,    KEYCODE_DPAD_UP},
+	{POV_CODE_DOWN,  KEYCODE_DPAD_DOWN},
+	{POV_CODE_LEFT,  KEYCODE_DPAD_LEFT},
 	{POV_CODE_RIGHT, KEYCODE_DPAD_RIGHT},
 };
 
