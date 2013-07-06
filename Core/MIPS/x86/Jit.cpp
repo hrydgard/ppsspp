@@ -294,15 +294,23 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			FlushAll();
 			CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
 			FixupBranch skipCheck1 = J_CC(CC_E);
-			CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
-			FixupBranch skipCheck2 = J_CC(CC_E);
+
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
+			{
+				// If we're rewinding, CORE_NEXTFRAME should not cause a rewind.
+				// It doesn't really matter either way if we're not rewinding.
+				CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+				FixupBranch skipCheck2 = J_CC(CC_E);
 				MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+				WriteSyscallExit();
+				SetJumpTarget(skipCheck2);
+			}
 			else
+			{
 				MOV(32, M(&mips_->pc), Imm32(js.compilerPC + 4));
-			WriteSyscallExit();
+				WriteSyscallExit();
+			}
 			SetJumpTarget(skipCheck1);
-			SetJumpTarget(skipCheck2);
 
 			js.afterOp = JitState::AFTER_NONE;
 		}
