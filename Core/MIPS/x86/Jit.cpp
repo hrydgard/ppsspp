@@ -788,7 +788,7 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		if (it->end != 0)
 		{
 			jit_->CMP(32, R(xaddr_), Imm32(it->start - offset_ - size_));
-			skipNext = jit_->J_CC(CC_B);
+			skipNext = jit_->J_CC(CC_BE);
 			jit_->CMP(32, R(xaddr_), Imm32(it->end - offset_));
 			skipNextRange = jit_->J_CC(CC_AE);
 		}

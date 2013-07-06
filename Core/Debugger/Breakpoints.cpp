@@ -248,7 +248,7 @@ MemCheck *CBreakPoints::GetMemCheck(u32 address, int size)
 		MemCheck &check = *iter;
 		if (check.end != 0)
 		{
-			if (address + size >= check.start && address < check.end)
+			if (address + size > check.start && address < check.end)
 				return &check;
 		}
 		else
