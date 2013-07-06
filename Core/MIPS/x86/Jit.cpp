@@ -790,11 +790,14 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 			skipNext = jit_->J_CC(CC_NE);
 		}
 
-		jit_->PUSH(xaddr_);
+		// Keep the stack 16-byte aligned, just PUSH/POP 4 times.
+		for (int i = 0; i < 4; ++i)
+			jit_->PUSH(xaddr_);
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
 		jit_->ADD(32, R(xaddr_), Imm32(offset_));
 		jit_->ABI_CallFunctionACC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 3), R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
-		jit_->POP(xaddr_);
+		for (int i = 0; i < 4; ++i)
+			jit_->POP(xaddr_);
 
 		jit_->SetJumpTarget(skipNext);
 		if (it->end != 0)
