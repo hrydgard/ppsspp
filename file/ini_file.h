@@ -170,6 +170,8 @@ public:
 	void SortSections();
 	const std::vector<Section> &Sections() { return sections; }
 
+	bool HasSection(const char *section) { return GetSection(section) != 0; }
+
 	Section* GetOrCreateSection(const char* section);
 
 private:

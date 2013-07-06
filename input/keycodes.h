@@ -212,22 +212,6 @@ typedef enum _keycode_t {
 	KEYCODE_BUTTON_15 = 202,
 	KEYCODE_BUTTON_16 = 203,
 
-	// == Extended Keys ====
-	// Not native to android
-
-	// Xbox 360 controller
-	KEYCODE_XBOX_START = 5005,
-	KEYCODE_XBOX_BACK = 5006,
-	KEYCODE_XBOX_BUMPER_L = 5007,
-	KEYCODE_XBOX_BUMPER_R = 5008,
-	KEYCODE_XBOX_DPAD_UP = 5009,
-	KEYCODE_XBOX_DPAD_LEFT = 5010,
-	KEYCODE_XBOX_DPAD_RIGHT = 5011,
-	KEYCODE_XBOX_DPAD_DOWN = 5012,
-	// These are really axes, not buttons. But good to be able to map them as buttons.
-	KEYCODE_XBOX_TRIGGER_L = 5013,
-	KEYCODE_XBOX_TRIGGER_R = 5014,
-	// KEYCODE_XBOX_HOME = NEWKEY,  // this can't be read on PC, right?
 } keycode_t;
 
 
