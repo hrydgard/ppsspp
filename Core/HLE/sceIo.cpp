@@ -552,7 +552,10 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 	if (result >= 0) {
 		DEBUG_LOG(HLE, "%x=sceIoRead(%d, %08x, %x)", result, id, data_addr, size);
 		// TODO: Timing is probably not very accurate, low estimate.
-		return hleDelayResult(result, "io read", result / 100);
+		int us = result/100;
+		if(us==0)
+			us = 100;
+		return hleDelayResult(result, "io read", us);
 	}
 	else
 		return result;
@@ -564,7 +567,10 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	if (f) {
 		f->asyncResult = __IoRead(id, data_addr, size);
 		// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
-		__IoSchedAsync(f, id, size / 100);
+		int us = f->asyncResult/100;
+		if(us==0)
+			us = 100;
+		__IoSchedAsync(f, id, us);
 		DEBUG_LOG(HLE, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
 		return 0;
 	} else {
@@ -603,8 +609,11 @@ u32 sceIoWrite(int id, u32 data_addr, int size) {
 	if (result >= 0) {
 		DEBUG_LOG(HLE, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
 		// TODO: Timing is probably not very accurate, low estimate.
+		int us = result/100;
+		if(us==0)
+			us = 100;
 		if (__KernelIsDispatchEnabled())
-			return hleDelayResult(result, "io write", result / 100);
+			return hleDelayResult(result, "io write", us);
 		else
 			return result;
 	}
@@ -618,7 +627,10 @@ u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 	if (f) {
 		f->asyncResult = __IoWrite(id, Memory::GetPointer(data_addr), size);
 		// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
-		__IoSchedAsync(f, id, size / 100);
+		int us = f->asyncResult/100;
+		if(us==0)
+			us = 100;
+		__IoSchedAsync(f, id, us);
 		DEBUG_LOG(HLE, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
 		return 0;
 	} else {
