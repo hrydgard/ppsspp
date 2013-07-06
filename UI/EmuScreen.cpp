@@ -107,6 +107,8 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	}
 #endif
 	pressedLastUpdate = 0;
+	unthrottle_last_update = false;
+	cycle_throttles_last_update = false;
 }
 
 EmuScreen::~EmuScreen() {
@@ -208,6 +210,10 @@ void EmuScreen::update(InputState &input) {
 	float stick_y = input.pad_lstick_y;
 	float rightstick_x = input.pad_rstick_x;
 	float rightstick_y = input.pad_rstick_y;
+
+	// TODO: add member *_last_update
+	// then only switch when button
+	// goes false -> true
 	bool pause_emu_screen = false;
 	bool unthrottle = false;
 	bool cycle_throttles = false;
@@ -254,11 +260,13 @@ void EmuScreen::update(InputState &input) {
 			// Special keys
 			switch (key) {
 			case VIRT_UNTHROTTLE:
-				unthrottle = true;
+				if (unthrottle_last_update == false)
+					unthrottle = true;
 				break;
 
 			case VIRT_CYCLE_THROTTLE:
-				cycle_throttles = true;
+				if (cycle_throttles_last_update == false)
+					cycle_throttles = true;
 				break;
 
 			case VIRT_BACK:
@@ -286,7 +294,11 @@ void EmuScreen::update(InputState &input) {
 	}
 	__CtrlButtonDown(pressed);
 	__CtrlButtonUp(pressedLastUpdate & ~pressed);
+
+	// Save state for next update
 	pressedLastUpdate = pressed;
+	unthrottle_last_update = unthrottle;
+	cycle_throttles_last_update = cycle_throttles;
 
 
 	// Act on Speical keys ------------
