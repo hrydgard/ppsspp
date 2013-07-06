@@ -351,10 +351,10 @@ namespace MIPSAnalyst
 		u32 addr;
 		for (addr = startAddr; addr<=endAddr; addr+=4)
 		{
-			int n = symbolMap.GetSymbolNum(addr,ST_FUNCTION);
-			if (n != -1)
+			SymbolInfo syminfo;
+			if (symbolMap.GetSymbolInfo(&syminfo, addr, ST_FUNCTION))
 			{
-				addr = symbolMap.GetSymbolAddr(n) + symbolMap.GetSymbolSize(n);
+				addr = syminfo.address + syminfo.size;
 				continue;
 			}
 
