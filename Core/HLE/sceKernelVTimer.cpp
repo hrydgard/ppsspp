@@ -329,7 +329,8 @@ void __startVTimer(VTimer *vt) {
 	vt->nvt.active = 1;
 	vt->nvt.base = cyclesToUs(CoreTiming::GetTicks());
 
-	if (vt->nvt.schedule != 0 && vt->nvt.handlerAddr != 0)
+	// Checking for zero here breaks audio in Monster Hunter. It still doesn't work well though.
+	if (/*vt->nvt.schedule != 0 &&*/ vt->nvt.handlerAddr != 0)
 		__KernelScheduleVTimer(vt, vt->nvt.schedule);
 }
 
