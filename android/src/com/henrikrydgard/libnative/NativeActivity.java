@@ -34,6 +34,7 @@ import android.view.Gravity;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.EditText;
@@ -191,7 +192,10 @@ public class NativeActivity extends Activity {
         setContentView(mGLSurfaceView);
         if (!useOpenSL)
         	audioPlayer = new NativeAudioPlayer();
-        lightsOut();
+
+		if (Build.VERSION.SDK_INT >= 14) {
+			darkenOnScreenButtons();
+		}
         
         /*
         editText = new EditText(this);
@@ -201,12 +205,11 @@ public class NativeActivity extends Activity {
         */
         // inputBox("Please ener a s", "", "Save");
 		// Toast.makeText(this, "Value: " + input.getText().toString(), Toast.LENGTH_LONG).show();
-    }  
-    
-	public void lightsOut() {
-	     if (Build.VERSION.SDK_INT >= 11) {
-	    	 // mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
-	     }
+    }
+
+	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
+	public void darkenOnScreenButtons() {
+		mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
 	}
 
     private boolean detectOpenGLES20() {
@@ -214,7 +217,6 @@ public class NativeActivity extends Activity {
         ConfigurationInfo info = am.getDeviceConfigurationInfo();
         return info.reqGlEsVersion >= 0x20000;
     }
-         
    
     @Override 
     protected void onPause() {
@@ -230,16 +232,19 @@ public class NativeActivity extends Activity {
     	Log.i(TAG, "onPause returning");
     }
       
-    @Override
-    protected void onResume() {
-    	super.onResume();
-    	Log.i(TAG, "onResume");
-        mGLSurfaceView.onResume();
-        if (audioPlayer != null) {
-        	audioPlayer.play();
-        }
-        NativeApp.resume();
-    }
+	@Override
+	protected void onResume() {
+		super.onResume();
+		Log.i(TAG, "onResume");
+		mGLSurfaceView.onResume();
+		if (audioPlayer != null) {
+			audioPlayer.play();
+		}
+		NativeApp.resume();
+		if (Build.VERSION.SDK_INT >= 14) {
+			darkenOnScreenButtons();
+		}
+	}
 
     @Override
     protected void onStop() {
