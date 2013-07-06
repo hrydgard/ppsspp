@@ -26,15 +26,16 @@ using namespace Gen;
 
 static const int allocationOrder[] = 
 {
-  // R12, when used as base register, for example in a LEA, can generate bad code! Need to look into this.
+	// R12, when used as base register, for example in a LEA, can generate bad code! Need to look into this.
+	// On x64, RCX and RDX are the first args.  CallProtectedFunction() assumes they're not regcached.
 #ifdef _M_X64
 #ifdef _WIN32
-  RSI, RDI, R13, R14, R8, R9, R10, R11, R12, //, RCX
+	RSI, RDI, R13, R14, R8, R9, R10, R11, R12,
 #else
-  RBP, R13, R14, R8, R9, R10, R11, R12, //, RCX
+	RBP, R13, R14, R8, R9, R10, R11, R12,
 #endif
 #elif _M_IX86
-  ESI, EDI, EBP, EDX, ECX,  // Let's try to free up EBX as well.
+	ESI, EDI, EBP, EDX, ECX,  // Let's try to free up EBX as well.
 #endif
 };
 
