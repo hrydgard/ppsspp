@@ -272,6 +272,10 @@ void EmuScreen::update(InputState &input) {
 		memcpy(fakeInputState.pointer_down, input.pointer_down, sizeof(input.pointer_down));
 		memcpy(fakeInputState.pointer_x, input.pointer_x, sizeof(input.pointer_x));
 		memcpy(fakeInputState.pointer_y, input.pointer_y, sizeof(input.pointer_y));
+		fakeInputState.pad_lstick_x = 0.0f;
+		fakeInputState.pad_lstick_y = 0.0f;
+		fakeInputState.pad_rstick_x = 0.0f;
+		fakeInputState.pad_rstick_y = 0.0f;
 		UpdateGamepad(fakeInputState);
 		UpdateInputState(&fakeInputState);
 
