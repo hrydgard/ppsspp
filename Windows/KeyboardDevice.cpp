@@ -144,27 +144,7 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 			}
 		}
 	}
-
-	for (size_t i = 0; i < downKeys.size(); i++) {
-		KeyInput key;
-		key.deviceId = DEVICE_ID_KEYBOARD;
-		key.flags = KEY_DOWN;
-		key.keyCode = windowsTransTable[downKeys[i]];
-		if (key.keyCode)
-			NativeKey(key);
-	}
-	downKeys.clear();
-
-	for (size_t i = 0; i < upKeys.size(); i++) {
-		KeyInput key;
-		key.deviceId = DEVICE_ID_KEYBOARD;
-		key.flags = KEY_UP;
-		key.keyCode = windowsTransTable[upKeys[i]];
-		if (key.keyCode)
-			NativeKey(key);
-	}
-	upKeys.clear();
-
+	
 	return 0;
 }
 

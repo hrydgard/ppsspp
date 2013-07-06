@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <tchar.h>
 
+#include <map>
+
 #include "base/NativeApp.h"
 #include "Globals.h"
 
@@ -46,6 +48,7 @@
 
 #define ENABLE_TOUCH 0
 
+extern std::map<int, int> windowsTransTable;
 BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 extern bool g_TakeScreenshot;
@@ -800,19 +803,23 @@ namespace MainWindow
 
 		case WM_KEYDOWN:
 			{
-				// Ugly
-				WindowsHost *whost = static_cast<WindowsHost *>(host);
-				int vkey = wParam;
-				whost->keyboard->KeyDown(vkey);
+				KeyInput key;
+				key.deviceId = DEVICE_ID_KEYBOARD;
+				key.flags = KEY_DOWN;
+				key.keyCode = windowsTransTable[(int)wParam];
+				if (key.keyCode)
+					NativeKey(key);
 			}
 			return 0;
 
 		case WM_KEYUP:
 			{
-				// Ugly
-				WindowsHost *whost = static_cast<WindowsHost *>(host);
-				int vkey = wParam;
-				whost->keyboard->KeyUp(vkey);
+				KeyInput key;
+				key.deviceId = DEVICE_ID_KEYBOARD;
+				key.flags = KEY_UP;
+				key.keyCode = windowsTransTable[(int)wParam];
+				if (key.keyCode)
+					NativeKey(key);	
 			}
 			return 0;
 
