@@ -49,6 +49,7 @@
 #define VIRT_ANALOG_LEFT       (VIRTBIT1 | VIRTBIT5)
 #define VIRT_ANALOG_RIGHT      (VIRTBIT1 | VIRTBIT6)
 #define VIRT_BACK              (VIRTBIT2 | VIRTBIT3)
+#define VIRT_PAUSE             (VIRTBIT2 | VIRTBIT4)
 
 // KeyMap error codes
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1

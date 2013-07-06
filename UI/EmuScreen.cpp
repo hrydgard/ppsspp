@@ -208,7 +208,7 @@ void EmuScreen::update(InputState &input) {
 	float stick_y = input.pad_lstick_y;
 	float rightstick_x = input.pad_rstick_x;
 	float rightstick_y = input.pad_rstick_y;
-	bool leave_emu_screen = false;
+	bool pause_emu_screen = false;
 	bool unthrottle = false;
 	bool cycle_throttles = false;
 	
@@ -262,7 +262,8 @@ void EmuScreen::update(InputState &input) {
 				break;
 
 			case VIRT_BACK:
-				leave_emu_screen = true;
+			case VIRT_PAUSE:
+				pause_emu_screen = true;
 				break;
 
 			case VIRT_ANALOG_UP:
@@ -329,7 +330,7 @@ void EmuScreen::update(InputState &input) {
 		PSP_CoreParameter().fpsLimit = (fpsLimit + 1) % 3;
 	}
 
-	if (leave_emu_screen || (input.pad_buttons_down & 
+	if (pause_emu_screen || (input.pad_buttons_down & 
 	          (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB))) {
 
 		if (g_Config.bBufferedRendering)
