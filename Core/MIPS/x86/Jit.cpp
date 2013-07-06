@@ -292,14 +292,17 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		{
 			// TODO: Save/restore?
 			FlushAll();
-			CMP(32, M((void*)&coreState), Imm32(0));
-			FixupBranch skipCheck = J_CC(CC_E);
+			CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
+			FixupBranch skipCheck1 = J_CC(CC_E);
+			CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+			FixupBranch skipCheck2 = J_CC(CC_E);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
 				MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 			else
 				MOV(32, M(&mips_->pc), Imm32(js.compilerPC + 4));
 			WriteSyscallExit();
-			SetJumpTarget(skipCheck);
+			SetJumpTarget(skipCheck1);
+			SetJumpTarget(skipCheck2);
 
 			js.afterOp = JitState::AFTER_NONE;
 		}
@@ -355,11 +358,14 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
-		CMP(32, M((void*)&coreState), Imm32(0));
-		FixupBranch skipCheck = J_CC(CC_E);
+		CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
+		FixupBranch skipCheck1 = J_CC(CC_E);
+		CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		FixupBranch skipCheck2 = J_CC(CC_E);
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
-		SetJumpTarget(skipCheck);
+		SetJumpTarget(skipCheck1);
+		SetJumpTarget(skipCheck2);
 
 		js.afterOp = JitState::AFTER_NONE;
 	}
@@ -392,11 +398,14 @@ void Jit::WriteExitDestInEAX()
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
-		CMP(32, M((void*)&coreState), Imm32(0));
-		FixupBranch skipCheck = J_CC(CC_E);
+		CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
+		FixupBranch skipCheck1 = J_CC(CC_E);
+		CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		FixupBranch skipCheck2 = J_CC(CC_E);
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
-		SetJumpTarget(skipCheck);
+		SetJumpTarget(skipCheck1);
+		SetJumpTarget(skipCheck2);
 
 		js.afterOp = JitState::AFTER_NONE;
 	}
@@ -418,13 +427,13 @@ void Jit::WriteExitDestInEAX()
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
 
-		ABI_CallFunctionA(thunks.ProtectFunction((void *) Memory::GetPointer, 1), R(EAX));
+		CallProtectedFunction((void *) Memory::GetPointer, R(EAX));
 		CMP(32, R(EAX), Imm32(0));
 		FixupBranch skip = J_CC(CC_NE);
 
 		// TODO: "Ignore" this so other threads can continue?
 		if (g_Config.bIgnoreBadMemAccess)
-			ABI_CallFunctionA(thunks.ProtectFunction((void *) Core_UpdateState, 1), Imm32(CORE_ERROR));
+			CallProtectedFunction((void *) Core_UpdateState, Imm32(CORE_ERROR));
 
 		SUB(32, M(&currentMIPS->downcount), Imm32(0));
 		JMP(asm_.dispatcherCheckCoreState, true);
@@ -607,7 +616,6 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg(ReadType type)
 		jit_->SUB(32, R(xaddr_), Imm32(offset_));
 	}
 
-
 #ifdef _M_IX86
 	return MDisp(xaddr_, (u32) Memory::base + offset_);
 #else
@@ -657,7 +665,7 @@ void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src, int suboffset
 			jit_->AND(32, R(EAX), Imm32(alignMask_));
 	}
 
-	jit_->ABI_CallFunctionAA(jit_->thunks.ProtectFunction(safeFunc, 2), src, R(EAX));
+	jit_->CallProtectedFunction(safeFunc, src, R(EAX));
 	needsCheck_ = true;
 }
 
@@ -680,7 +688,7 @@ bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 				jit_->AND(32, R(EAX), Imm32(alignMask_));
 		}
 
-		jit_->ABI_CallFunctionA(jit_->thunks.ProtectFunction(safeFunc, 1), R(EAX));
+		jit_->CallProtectedFunction(safeFunc, R(EAX));
 		needsCheck_ = true;
 		return true;
 	}
@@ -710,7 +718,7 @@ void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
 			jit_->AND(32, R(EAX), Imm32(alignMask_));
 	}
 
-	jit_->ABI_CallFunctionA(jit_->thunks.ProtectFunction(safeFunc, 1), R(EAX));
+	jit_->CallProtectedFunction(safeFunc, R(EAX));
 }
 
 bool Jit::JitSafeMem::ImmValid()
@@ -755,7 +763,7 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 			return;
 
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
-		jit_->ABI_CallFunctionCCC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 3), iaddr_, size_, type == MEM_WRITE ? 1 : 0);
+		jit_->CallProtectedFunction((void *)&JitMemCheck, iaddr_, size_, type == MEM_WRITE ? 1 : 0);
 
 		jit_->CMP(32, M((void*)&coreState), Imm32(0));
 		skipChecks_.push_back(jit_->J_CC(CC_NE, true));
@@ -790,11 +798,14 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 			skipNext = jit_->J_CC(CC_NE);
 		}
 
-		jit_->PUSH(xaddr_);
+		// Keep the stack 16-byte aligned, just PUSH/POP 4 times.
+		for (int i = 0; i < 4; ++i)
+			jit_->PUSH(xaddr_);
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
 		jit_->ADD(32, R(xaddr_), Imm32(offset_));
-		jit_->ABI_CallFunctionACC(jit_->thunks.ProtectFunction((void *)&JitMemCheck, 3), R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
-		jit_->POP(xaddr_);
+		jit_->CallProtectedFunction((void *)&JitMemCheck, R(xaddr_), size_, type == MEM_WRITE ? 1 : 0);
+		for (int i = 0; i < 4; ++i)
+			jit_->POP(xaddr_);
 
 		jit_->SetJumpTarget(skipNext);
 		if (it->end != 0)
@@ -807,6 +818,34 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 		skipChecks_.push_back(jit_->J_CC(CC_NE, true));
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
 	}
+}
+
+void Jit::CallProtectedFunction(void *func, const OpArg &arg1)
+{
+	// We don't regcache RCX, so the below is safe (and also faster, maybe branch prediction?)
+	ABI_CallFunctionA(thunks.ProtectFunction(func, 1), arg1);
+}
+
+void Jit::CallProtectedFunction(void *func, const OpArg &arg1, const OpArg &arg2)
+{
+	// We don't regcache RCX/RDX, so the below is safe (and also faster, maybe branch prediction?)
+	ABI_CallFunctionAA(thunks.ProtectFunction(func, 2), arg1, arg2);
+}
+
+void Jit::CallProtectedFunction(void *func, const u32 arg1, const u32 arg2, const u32 arg3)
+{
+	// On x64, we need to save R8, which is caller saved.
+	ABI_CallFunction((void *)thunks.GetSaveRegsFunction());
+	ABI_CallFunctionCCC(func, arg1, arg2, arg3);
+	ABI_CallFunction((void *)thunks.GetLoadRegsFunction());
+}
+
+void Jit::CallProtectedFunction(void *func, const OpArg &arg1, const u32 arg2, const u32 arg3)
+{
+	// On x64, we need to save R8, which is caller saved.
+	ABI_CallFunction((void *)thunks.GetSaveRegsFunction());
+	ABI_CallFunctionACC(func, arg1, arg2, arg3);
+	ABI_CallFunction((void *)thunks.GetLoadRegsFunction());
 }
 
 void Jit::Comp_DoNothing(u32 op) { }
