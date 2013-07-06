@@ -33,8 +33,8 @@ struct RawInputState
 #define POV_CODE_DOWN 0x0200
 #define POV_CODE_LEFT 0x0400
 #define POV_CODE_RIGHT 0x0800
-#define XBOX_CODE_LEFTTRIGER  0x00010000
-#define XBOX_CODE_RIGHTTRIGER 0x00020000
+#define XBOX_CODE_LEFTTRIGGER  0x00010000
+#define XBOX_CODE_RIGHTTRIGGER 0x00020000
 
 #define CONTROLS_KEYBOARD_INDEX        0
 #define CONTROLS_DIRECT_INPUT_INDEX    1
@@ -42,51 +42,3 @@ struct RawInputState
 #define CONTROLS_KEYBOARD_ANALOG_INDEX 3
 #define CONTROLS_DEVICE_NUM            4
 
-
-extern bool saveControlsToFile();
-extern bool loadControlsFromFile();
-
-extern const unsigned int  xinput_ctrl_map_size;
-extern const unsigned int key_pad_map_size;
-extern const unsigned int analog_ctrl_map_size;
-extern const unsigned int dinput_ctrl_map_size;
-
-struct RawInputState;
-class DinputDevice;
-class XinputDevice;
-
-class ControlMapping
-{
-public:
-	static ControlMapping * CreateInstance(UINT nButtons);
-	virtual ~ControlMapping();
-	void UpdateState();
-	void BindToDevices();
-	void SetTargetDevice(UINT deviceIdx);
-	UINT  GetTargetDevice();
-	void SetTargetButton(UINT buttonIdx);
-	UINT  GetTargetButton();
-	void  SetBindCode(UINT newCode);
-	void SetBindCode(UINT newCode, UINT buttonIdx);
-	void SetBindCode(UINT newCode, UINT deviceIdx, UINT buttonIdx);
-	UINT  GetBindCode();
-	UINT  GetBindCode(UINT buttonIdx);
-	UINT  GetBindCode(UINT deviceIdx, UINT buttonIdx);
-	void SetDisableBind();
-	void SetDisableBind(UINT buttonIdx);
-	void SetDisableBind(UINT deviceIdx, UINT buttonIdx);
-
-private:
-	ControlMapping(UINT nButtons);
-	ControlMapping();
-	inline UINT* GetDeviceButtonsMap(UINT curDevice);
-
-private:
-	std::shared_ptr<DinputDevice> dinput;
-	std::shared_ptr<XinputDevice> xinput;
-	UINT  currentDevicePage;
-	UINT  currentButtonIndex;
-	UINT  buttonsCount;
-	RawInputState rawState;
-	UINT *pButtonsMap;
-};

@@ -28,6 +28,11 @@
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
+
+#include "Windows/DinputDevice.h"
+#include "Windows/XinputDevice.h"
+#include "Windows/KeyboardDevice.h"
+
 #include "Core/Debugger/SymbolMap.h"
 
 #include "main.h"
@@ -49,6 +54,21 @@ int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
 static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, LPARAM lParam = 0)
 {
 	return PostMessage(dialog->GetDlgHandle(), message, wParam, lParam);
+}
+
+WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
+{
+	mainWindow_ = mainWindow;
+	displayWindow_ = displayWindow;
+
+#define PUSH_BACK(Cls) do { list.push_back(std::shared_ptr<InputDevice>(new Cls())); } while (0)
+
+	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
+	input.push_back(std::shared_ptr<InputDevice>(new DinputDevice()));
+	keyboard = std::shared_ptr<KeyboardDevice>(new KeyboardDevice());
+	input.push_back(keyboard);
+
+	SetConsolePosition();
 }
 
 bool WindowsHost::InitGL(std::string *error_message)

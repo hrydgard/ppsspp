@@ -253,7 +253,7 @@ void CWCheatEngine::Run() {
 					case 6: // 32-bit
 						value = Memory::Read_U32(addr);
 						code = GetNextCode();
-						if ( code[0] != NULL) {
+						if (code[0] != 0) {
 							increment = code[0];
 						}
 						break;
@@ -307,7 +307,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x5: // Memcpy command
 				code = GetNextCode();
-				if (code[0] != NULL) {
+				if (code[0] != 0) {
 					int destAddr = code[0];
 					if (Memory::IsValidAddress(addr) && Memory::IsValidAddress(destAddr)) {
 						Memory::Memcpy(destAddr, Memory::GetPointer(addr), arg);
@@ -316,7 +316,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x6: // Pointer commands
 				code = GetNextCode();
-				if (code[0] != NULL) {
+				if (code[0] != 0) {
 					int arg2 = code[0];
 					int offset = code[1];
 					int baseOffset = (arg2 >> 20) * 4;

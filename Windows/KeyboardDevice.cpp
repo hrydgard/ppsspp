@@ -1,4 +1,6 @@
+#include "base/NativeApp.h"
 #include "input/input_state.h"
+#include "input/keycodes.h"
 #include "util/const_map.h"
 #include "KeyMap.h"
 #include "ControlMapping.h"
@@ -8,7 +10,8 @@
 #include "../Core/HLE/sceCtrl.h"
 #include "WinUser.h"
 
-unsigned int key_pad_map[] = {
+// TODO: remove. almost not used.
+static unsigned int key_pad_map[] = {
 	VK_ESCAPE,PAD_BUTTON_MENU,        // Open PauseScreen
 	VK_BACK,  PAD_BUTTON_BACK,        // Toggle PauseScreen & Back Setting Page
 	'Z',      PAD_BUTTON_A,
@@ -26,14 +29,8 @@ unsigned int key_pad_map[] = {
 	VK_LEFT,  PAD_BUTTON_LEFT,
 	VK_RIGHT, PAD_BUTTON_RIGHT,
 };
-const unsigned int key_pad_map_size = sizeof(key_pad_map);
 
-unsigned short analog_ctrl_map[] = {
-	'I', CTRL_UP,
-	'K', CTRL_DOWN,
-	'J', CTRL_LEFT,
-	'L', CTRL_RIGHT,
-};
+const unsigned int key_pad_map_size = sizeof(key_pad_map);
 
 // TODO: More keys need to be added, but this is more than
 // a fair start.
@@ -118,12 +115,10 @@ std::map<int, int> windowsTransTable = InitConstMap<int, int>
 	(VK_OEM_6, KEYCODE_RIGHT_BRACKET)
 	(VK_MENU, KEYCODE_MENU);
 
-const unsigned int analog_ctrl_map_size = sizeof(analog_ctrl_map);
-
 int KeyboardDevice::UpdateState(InputState &input_state) {
 	if (MainWindow::GetHWND() != GetForegroundWindow()) return -1;
 	bool alternate = GetAsyncKeyState(VK_SHIFT) != 0;
-	KeyQueueBlank(input_state.key_queue);
+
 	static u32 alternator = 0;
 	bool doAlternate = alternate && (alternator++ % 10) < 5;
 
@@ -132,52 +127,24 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 		input_state.pad_buttons |= PAD_BUTTON_UNTHROTTLE;
 	}
 
+	// TODO: remove
 	for (int i = 0; i < sizeof(key_pad_map)/sizeof(key_pad_map[0]); i += 2) {
 		if (!GetAsyncKeyState(key_pad_map[i])) {
 			continue;
 		}
 
 		if (!doAlternate || key_pad_map[i + 1] > PAD_BUTTON_SELECT) {
-			// TODO: remove once EmuScreen supports virtual keys
-			switch (key_pad_map[i]) {
-				case VK_ESCAPE:
-				case VK_F3:
-				case VK_PAUSE:
-				case VK_BACK:
+			switch (key_pad_map[i + 1]) {
+				case PAD_BUTTON_MENU:
+				case PAD_BUTTON_BACK:
+				case PAD_BUTTON_LEFT_THUMB:
+				case PAD_BUTTON_RIGHT_THUMB:
 					input_state.pad_buttons |= key_pad_map[i + 1];
 					break;
 			}
-
-			KeyQueueAttemptTranslatedAdd(input_state.key_queue, windowsTransTable, key_pad_map[i]);
-		}
-	}
-
-	float analogX = 0;
-	float analogY = 0;
-	for (int i = 0; i < sizeof(analog_ctrl_map)/sizeof(analog_ctrl_map[0]); i += 2) {
-		if (!GetAsyncKeyState(analog_ctrl_map[i])) {
-			continue;
-		}
-
-		switch (analog_ctrl_map[i + 1]) {
-		case CTRL_UP:
-			analogY += 1.0f;
-			break;
-		case CTRL_DOWN:
-			analogY -= 1.0f;
-			break;
-		case CTRL_LEFT:
-			analogX -= 1.0f;
-			break;
-		case CTRL_RIGHT:
-			analogX += 1.0f;
-			break;
 		}
 	}
 	
-	// keyboard device
-	input_state.pad_lstick_x += analogX;
-	input_state.pad_lstick_y += analogY;
 	return 0;
 }
 

@@ -30,11 +30,15 @@ public:
 			float x,y,z;
 		};
 	};
-	Vec3(unsigned int rgb) { x=(rgb&0xFF)/255.0f; y=((rgb>>8)&0xFF)/255.0f; z=((rgb>>16)&0xFF)/255.0f;}
+	Vec3(unsigned int rgb) {
+		x = (rgb & 0xFF) * (1.0f/255.0f);
+		y = ((rgb >> 8) & 0xFF) * (1.0f/255.0f); 
+		z = ((rgb >> 16) & 0xFF) * (1.0f/255.0f);
+	}
 	Vec3(const float a[3]) {
-		v[0]=a[0];
-		v[1]=a[1];
-		v[2]=a[2];
+		v[0] = a[0];
+		v[1] = a[1];
+		v[2] = a[2];
 	}
 	Vec3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 	Vec3() {}
@@ -92,7 +96,6 @@ public:
 	{
 		return Vec3(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x);
 	}
-
 	float Length2() const
 	{
 		return x*x + y*y + z*z;

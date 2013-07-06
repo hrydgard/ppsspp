@@ -275,10 +275,15 @@ private:
 	void CompITypeMemRead(u32 op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc);
 	void CompITypeMemWrite(u32 op, u32 bits, void *safeFunc);
 	void CompITypeMemUnpairedLR(u32 op, bool isStore);
-	void CompITypeMemUnpairedLRInner(u32 op);
+	void CompITypeMemUnpairedLRInner(u32 op, X64Reg shiftReg);
 
 	void CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters);
 	void CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN = false);
+
+	void CallProtectedFunction(void *func, const OpArg &arg1);
+	void CallProtectedFunction(void *func, const OpArg &arg1, const OpArg &arg2);
+	void CallProtectedFunction(void *func, const u32 arg1, const u32 arg2, const u32 arg3);
+	void CallProtectedFunction(void *func, const OpArg &arg1, const u32 arg2, const u32 arg3);
 
 	JitBlockCache blocks;
 	JitOptions jo;

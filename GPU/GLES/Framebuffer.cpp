@@ -135,8 +135,10 @@ void CenterRect(float *x, float *y, float *w, float *h,
 
 FramebufferManager::FramebufferManager() :
 	ramDisplayFramebufPtr_(0),
-	displayFramebuf_(0),
 	displayFramebufPtr_(0),
+	displayStride_(0),
+	displayFormat_(0),
+	displayFramebuf_(0),
 	prevDisplayFramebuf_(0),
 	prevPrevDisplayFramebuf_(0),
 	frameLastFramebufUsed(0),
@@ -428,16 +430,21 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int z_stride = gstate.zbwidth & 0x3C0;
 
 	// Yeah this is not completely right. but it'll do for now.
-	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
-	//int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
+	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
 
+	if (drawing_width > gstate.getScissorX2() + 1)
+		drawing_width = gstate.getScissorX2() + 1;
+	if (drawing_height > gstate.getScissorY2() + 1)
+		drawing_height = gstate.getScissorY2() + 1;
+		
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 	
 	int fmt = gstate.framebufpixformat & 3;
 
-	int drawing_width, drawing_height;
-	GuessDrawingSize(drawing_width, drawing_height);
+	//int drawing_width, drawing_height;
+	//GuessDrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
@@ -831,6 +838,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	fbo_unbind();
 }
 
+// TODO: SSE/NEON
 void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 	if(format == GE_FORMAT_8888) {
 		if(src == dst) {
@@ -839,8 +847,8 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 			memcpy(dst, src, stride * height * 4);
 		}
 	} else { // But here it shouldn't matter if they do
-		u32 size = height * stride;
-		u32 *src32 = (u32 *)src;
+		int size = height * stride;
+		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
 		switch (format) {
 			case GE_FORMAT_565: // BGR 565
@@ -1031,8 +1039,8 @@ void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 	}
 
 	if(packed) {
-		DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %08x, fb_address = %08x", 
-			bufSize, packed, fb_address);
+		DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %p, fb_address = %08x", 
+			(u32)bufSize, packed, fb_address);
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
 		glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, packed);

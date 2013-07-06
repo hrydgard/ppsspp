@@ -17,19 +17,15 @@
 
 #include "../Core/Host.h"
 #include "InputDevice.h"
+#include "KeyboardDevice.h"
 #include <list>
 #include <memory>
 
 class WindowsHost : public Host
 {
 public:
-	WindowsHost(HWND mainWindow, HWND displayWindow)
-	{
-		mainWindow_ = mainWindow;
-		displayWindow_ = displayWindow;
-		input = getInputDevices();
-		SetConsolePosition();
-	}
+	WindowsHost(HWND mainWindow, HWND displayWindow);
+
 	~WindowsHost()
 	{
 		UpdateConsolePosition();
@@ -56,11 +52,14 @@ public:
 	void SaveSymbolMap();
 	void SetWindowTitle(const char *message);
 
+	std::shared_ptr<KeyboardDevice> keyboard;
+
 private:
 	void SetConsolePosition();
 	void UpdateConsolePosition();
 
 	HWND displayWindow_;
 	HWND mainWindow_;
+
 	std::list<std::shared_ptr<InputDevice>> input;
 };

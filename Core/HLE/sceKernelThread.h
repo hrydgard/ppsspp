@@ -68,6 +68,7 @@ struct SceKernelSysClock {
 
 
 // TODO: Map these to PSP wait types.
+// remember to update the waitTypeNames array in sceKernelThread.cpp when changing these
 enum WaitType
 {
 	WAITTYPE_NONE = 0,
@@ -94,6 +95,8 @@ enum WaitType
 
 	NUM_WAITTYPES
 };
+
+char* getWaitTypeName(WaitType type);
 
 // Suspend wait and timeout while a thread enters a callback.
 typedef void (* WaitBeginCallbackFunc)(SceUID threadID, SceUID prevCallbackId);
@@ -311,6 +314,8 @@ struct DebugThreadInfo
 	u32 status;
 	int curPC;
 	int entrypoint;
+	int priority;
+	WaitType waitType;
 	bool isCurrent;
 };
 

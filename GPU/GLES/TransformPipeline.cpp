@@ -717,7 +717,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
 
 		if (gstate_c.flipTexture) 
-				transformed[index].v = 1.0f - transformed[index].v;
+			transformed[index].v = 1.0f - transformed[index].v;
 
 		for (int i = 0; i < 4; i++) {
 			transformed[index].color0[i] = c0[i] * 255.0f;
@@ -778,57 +778,51 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
 		TransformedVertex saved;
-		for (int i = 0; i < vertexCount; i++) {
-			int index = ((u16*)inds)[i];
+		for (int i = 0; i < vertexCount; i += 2) {
+			int index = ((const u16*)inds)[i];
+			saved = transformed[index];
+			int index2 = ((const u16*)inds)[i + 1];
+			TransformedVertex &transVtx = transformed[index2];
+			// We have to turn the rectangle into two triangles, so 6 points. Sigh.
 
-			TransformedVertex &transVtx = transformed[index];
-			if ((i & 1) == 0)
-			{
-				// Save this vertex so we can generate when we get the next one. Color is taken from the last vertex.
-				saved = transVtx;
-			}
-			else
-			{
-				// We have to turn the rectangle into two triangles, so 6 points. Sigh.
+			// bottom right
+			trans[0] = transVtx;
 
-				// bottom right
-				trans[0] = transVtx;
+			// bottom left
+			trans[1] = transVtx;
+			trans[1].y = saved.y;
+			trans[1].v = saved.v;
 
-				// bottom left
-				trans[1] = transVtx;
-				trans[1].y = saved.y;
-				trans[1].v = saved.v;
+			// top left
+			trans[2] = transVtx;
+			trans[2].x = saved.x;
+			trans[2].y = saved.y;
+			trans[2].u = saved.u;
+			trans[2].v = saved.v;
 
-				// top left
-				trans[2] = transVtx;
-				trans[2].x = saved.x;
-				trans[2].y = saved.y;
-				trans[2].u = saved.u;
-				trans[2].v = saved.v;
+			// top right
+			trans[3] = transVtx;
+			trans[3].x = saved.x;
+			trans[3].u = saved.u;
 
-				// top right
-				trans[3] = transVtx;
-				trans[3].x = saved.x;
-				trans[3].u = saved.u;
+			// That's the four corners. Now process UV rotation.
+			if (throughmode)
+				RotateUVThrough(trans);
 
-				// That's the four corners. Now process UV rotation.
-				if (throughmode)
-					RotateUVThrough(trans);
-				// Apparently, non-through RotateUV just breaks things.
-				// If we find a game where it helps, we'll just have to figure out how they differ.
-				// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
-				// else
-				//	RotateUV(trans);
+			// Apparently, non-through RotateUV just breaks things.
+			// If we find a game where it helps, we'll just have to figure out how they differ.
+			// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
+			// else
+			//	RotateUV(trans);
 
-				// bottom right
-				trans[4] = trans[0];
+			// bottom right
+			trans[4] = trans[0];
 
-				// top left
-				trans[5] = trans[2];
-				trans += 6;
+			// top left
+			trans[5] = trans[2];
+			trans += 6;
 
-				numTrans += 6;
-			}
+			numTrans += 6;
 		}
 	}
 

@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <tchar.h>
 
+#include <map>
+
 #include "base/NativeApp.h"
 #include "Globals.h"
 
@@ -26,6 +28,7 @@
 #include "resource.h"
 
 #include "Windows/WndMainWindow.h"
+#include "Windows/WindowsHost.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
 #include "Windows/W32Util/DialogManager.h"
@@ -45,6 +48,7 @@
 
 #define ENABLE_TOUCH 0
 
+extern std::map<int, int> windowsTransTable;
 BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 extern bool g_TakeScreenshot;
@@ -80,7 +84,6 @@ namespace MainWindow
 	LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
-	LRESULT CALLBACK Controls(HWND, UINT, WPARAM, LPARAM);
 
 	HWND GetHWND()
 	{
@@ -272,6 +275,8 @@ namespace MainWindow
 		
 		ShowWindow(hwndMain, nCmdShow);
 
+		W32Util::MakeTopMost(hwndMain, g_Config.bTopMost);
+
 #if ENABLE_TOUCH
 		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
 #endif
@@ -444,7 +449,6 @@ namespace MainWindow
 		switch (message) 
 		{
 		case WM_CREATE:
-			loadControlsFromFile();
 			break;
 
 		case WM_MOVE:
@@ -766,10 +770,9 @@ namespace MainWindow
 				ResizeDisplay(true);
 				break;
 			case ID_OPTIONS_CONTROLS:
-				DialogManager::EnableAll(FALSE);
-				DialogBox(hInst, (LPCTSTR)IDD_CONTROLS, hWnd, (DLGPROC)Controls);
-				DialogManager::EnableAll(TRUE);
+				MessageBox(hWnd, "Control mapping has been moved to the in-window Settings menu.\n", "Sorry", 0);
 				break;
+
 			case ID_EMULATION_SOUND:
 				g_Config.bEnableSound = !g_Config.bEnableSound;
 				break;
@@ -797,7 +800,27 @@ namespace MainWindow
 			}
 			}
 			break;
+
 		case WM_KEYDOWN:
+			{
+				KeyInput key;
+				key.deviceId = DEVICE_ID_KEYBOARD;
+				key.flags = KEY_DOWN;
+				key.keyCode = windowsTransTable[(int)wParam];
+				if (key.keyCode)
+					NativeKey(key);
+			}
+			return 0;
+
+		case WM_KEYUP:
+			{
+				KeyInput key;
+				key.deviceId = DEVICE_ID_KEYBOARD;
+				key.flags = KEY_UP;
+				key.keyCode = windowsTransTable[(int)wParam];
+				if (key.keyCode)
+					NativeKey(key);	
+			}
 			return 0;
 
 		case WM_DROPFILES:
@@ -1000,7 +1023,6 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_EMULATION_STOP, !menuEnable);
 	}
 
-
 	// Message handler for about box.
 	LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	{
@@ -1021,540 +1043,6 @@ namespace MainWindow
 			{
 				EndDialog(hDlg, LOWORD(wParam));
 				return TRUE;
-			}
-			break;
-		}
-		return FALSE;
-	}
-
-#define CONTROLS_IDC_EDIT_BEGIN IDC_EDIT_KEY_MENU
-#define CONTROLS_IDC_EDIT_END   IDC_EDIT_KEY_ANALOG_RIGHT
-#define CONTROLS_BUTTONS_COUNT  (IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BEGIN + 1)
-#define CONTROLS_BUTTONNAME_MAX 16
-// for controls dialog device polling and bind update.
-#define TIMER_CONTROLS_BINDUPDATE 1
-#define BINDUPDATE_INTERVAL_MS 50
-
-	static const char *controllist[] = {
-		"Menu",        // Open PauseScreen
-		"Back",        // Toggle PauseScreen & Back Setting Page.
-		"Triangle",
-		"Rectangle",
-		"Cross",
-		"Circle",
-		"Select",
-		"Start",
-		"Left Trigger",
-		"Right Trigger",
-		"Turbo",       // LBUMPER (Turbo)
-		"Reserved",    // RBUMPER (Open PauseScreen)
-		"Up",
-		"Down",
-		"Left",
-		"Right",
-		"LY+",
-		"LY-",
-		"LX-",
-		"LX+",
-	};
-
-	struct ControlsDlgState {
-		HHOOK    pKeydownHook;
-		HBITMAP  hbmPspImage;
-		HWND     hCtrlTab;
-		UINT_PTR timerId;
-		WNDPROC  orgPSPImageProc;
-		WNDPROC  orgEditProc;
-		ControlMapping *pCtrlMap;
-		HWND     hStaticPspImage;
-	};
-	static ControlsDlgState *pCtrlDlgState;
-
-	RECT getRedrawRect(HWND hWnd) {
-		RECT rc;
-		HWND hDlg = GetParent(hWnd);
-		GetWindowRect(hWnd, &rc);
-		POINT pt = {0, 0};
-		ScreenToClient(hDlg, &pt);
-		rc.left += pt.x;
-		rc.right += pt.x;
-		rc.top += pt.y;
-		rc.bottom += pt.y;
-		
-		return rc;
-	}
-
-	LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
-	{
-		if (pCtrlDlgState->pCtrlMap->GetTargetDevice() == CONTROLS_KEYBOARD_INDEX) {
-			HWND hEdit = GetFocus();
-			UINT nCtrlID = GetDlgCtrlID(hEdit);
-			if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > CONTROLS_IDC_EDIT_END) {
-				return CallNextHookEx(pCtrlDlgState->pKeydownHook, nCode, wParam, lParam);
-			}
-			if (!(lParam&(1<<31))) {
-				// key down
-				HWND hDlg = GetParent(hEdit);
-				const char *str = getVirtualKeyName(wParam);
-				if (str) {
-					if (nCtrlID >= IDC_EDIT_KEY_ANALOG_UP) {
-						pCtrlDlgState->pCtrlMap->SetBindCode(wParam, CONTROLS_KEYBOARD_ANALOG_INDEX,
-							nCtrlID - IDC_EDIT_KEY_ANALOG_UP);
-					} else {
-						pCtrlDlgState->pCtrlMap->SetBindCode(wParam);
-					}
-					SetWindowTextA(hEdit, str);
-					RECT rc = getRedrawRect(hEdit);
-					InvalidateRect(hDlg, &rc, false);
-				}
-				else
-					MessageBoxA(hDlg, "Not supported!", "controller", MB_OK);
-			}
-		}
-		return 1;
-	}
-
-	HBITMAP LoadImageFromResource(HINSTANCE hInstance,LPCTSTR pszResourceName, LPCTSTR lpType)
-	{
-		HRSRC hrsrc = FindResource(hInstance, pszResourceName, lpType);
-		if (!hrsrc)
-			return FALSE;
-		DWORD dwlen = SizeofResource(hInstance, hrsrc);
-		BYTE *lpRsrc = (BYTE*)LoadResource(hInstance, hrsrc);
-		if (!lpRsrc)
-			return FALSE;
-		int width, height;
-		unsigned char *image_data = 0;
-		bool bResult = pngLoadPtr(lpRsrc, dwlen, &width, &height, &image_data, false) != 0;
-		FreeResource(lpRsrc);
-		if (!bResult)
-			return 0;
-		HBITMAP hbm = CreateBitmap(width, height, 1, 32, image_data);
-		free(image_data);
-		return hbm;
-	}
-	void BitBlt(HBITMAP hbm, HDC dstDC, int dstX, int dstY, int width, int height, int srcX, int srcY)
-	{
-		HDC hCompDC = CreateCompatibleDC(dstDC);
-		HBITMAP oldbm = (HBITMAP)SelectObject(hCompDC, hbm);
-		BitBlt(dstDC, dstX, dstY, width, height, hCompDC, srcX, srcY, SRCCOPY);
-		SelectObject(hCompDC, oldbm);
-		DeleteObject(hCompDC);
-	}
-
-	inline void SetWindowTextForButton(HWND hEdit, u32 buttonCode, const char *pszButtonName)
-	{
-		if (buttonCode == 0) {
-			SetWindowTextA(hEdit, "Disable");
-		} else {
-			SetWindowTextA(hEdit, pszButtonName);
-		}
-	}
-
-	// Draw background image of Controls Dialog (pspmode.png) by use static control.
-	LRESULT CALLBACK PSPImageProc(HWND hStatic, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-
-		switch(message) {
-			case WM_PAINT:
-				{
-					PAINTSTRUCT pst;	
-					HDC hdc = BeginPaint(hStatic, &pst);
-					
-					BITMAP bm;
-					GetObject(pCtrlDlgState->hbmPspImage, sizeof(BITMAP), &bm);
-					BitBlt(pCtrlDlgState->hbmPspImage, hdc, 0, 0, bm.bmWidth, bm.bmHeight, 0 , 0);
-					EndPaint(hStatic, &pst);
-					
-					return TRUE;
-				}
-			default:
-				break;
-		}
-		return CallWindowProc(pCtrlDlgState->orgPSPImageProc, hStatic, message, wParam, lParam);
-	}
-
-	LRESULT CALLBACK ButtonsEditProc(HWND hEdit, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-		switch (message) {
-		case WM_RBUTTONUP:
-			{
-				UINT nCtrlID = GetDlgCtrlID(hEdit);
-				int deviceIdx =  TabCtrl_GetCurSel(pCtrlDlgState->hCtrlTab);
-				if (deviceIdx != CONTROLS_KEYBOARD_INDEX && nCtrlID >= IDC_EDIT_KEY_ANALOG_UP)
-					return TRUE;
-
-				HMENU hSubMenu = GetSubMenu(g_hPopupMenus, 4);
-				POINT pos;
-				pos.x = LOWORD(lParam);
-				pos.y = HIWORD(lParam);
-				ClientToScreen(hEdit, &pos);
-				switch(TrackPopupMenuEx(GetSubMenu(g_hPopupMenus, 4), TPM_RETURNCMD, pos.x, pos.y, hEdit, NULL))
-				{
-				case ID_CONTROLS_KEY_DISABLE:
-					{
-						if (nCtrlID < IDC_EDIT_KEY_ANALOG_UP) {
-							pCtrlDlgState->pCtrlMap->SetDisableBind(deviceIdx, nCtrlID - CONTROLS_IDC_EDIT_BEGIN);
-						}
-						else if (deviceIdx == CONTROLS_KEYBOARD_INDEX) {
-							pCtrlDlgState->pCtrlMap->SetDisableBind(
-								CONTROLS_KEYBOARD_ANALOG_INDEX, nCtrlID - IDC_EDIT_KEY_ANALOG_UP);
-						}
-						SetWindowTextA(hEdit, "Disable");
-						RECT rc = getRedrawRect(hEdit);
-						HWND hDlg = GetParent(hEdit);
-						InvalidateRect(hDlg, &rc, false);
-						break;
-					}
-				default:
-					break;
-				}
-				return TRUE;
-			}
-		default :
-			break;
-		}
-		return CallWindowProc(pCtrlDlgState->orgEditProc, hEdit, message, wParam, lParam);
-	}
-
-	// Message handler for control box.
-	LRESULT CALLBACK Controls(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-	{	
-		switch (message)
-		{
-		case WM_INITDIALOG:
-			W32Util::CenterWindow(hDlg);
-			{
-				// IDC_EDIT_xxx is need continuous value to IDC_EDIT_KEY_ANALOG_RIGHT from IDC_EDIT_KEY_MENU.
-				// it is total 16.
-				// it is need the same order as the dinput_ctrl_map(and xinput/keyboard).
-				if (CONTROLS_BUTTONS_COUNT != 16) {
-					char mes[100];
-					snprintf(mes, 100, "CONTROLS_BUTTONS_COUNT(%d) is need 16.", CONTROLS_BUTTONS_COUNT);
-					MessageBoxA(hDlg, mes, "Controls dialog init error.", MB_OK);
-				}
-				pCtrlDlgState = new ControlsDlgState();
-				ZeroMemory(pCtrlDlgState, sizeof(ControlsDlgState));
-				pCtrlDlgState->pCtrlMap = ControlMapping::CreateInstance(CONTROLS_BUTTONS_COUNT);
-				if (!pCtrlDlgState->pCtrlMap) {
-					MessageBoxA(hDlg, "Cannot Created ControlMapping instance.", "Controls dialog init error.", MB_OK);
-				}
-				pCtrlDlgState->pCtrlMap->SetTargetDevice(CONTROLS_KEYBOARD_INDEX);
-
-				pCtrlDlgState->hCtrlTab = GetDlgItem(hDlg, IDC_TAB_INPUT_DEVICE);
-				TCITEM tcItem;
-				ZeroMemory(&tcItem, sizeof(tcItem));
-				tcItem.mask			= TCIF_TEXT;
-				tcItem.dwState		= 0;
-				tcItem.pszText		= "Keyboard";
-				tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
-				tcItem.iImage		= 0;
-				TabCtrl_InsertItem(pCtrlDlgState->hCtrlTab, TabCtrl_GetItemCount(pCtrlDlgState->hCtrlTab),&tcItem);
-				tcItem.pszText		= "DirectInput";
-				tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
-				TabCtrl_InsertItem(pCtrlDlgState->hCtrlTab, TabCtrl_GetItemCount(pCtrlDlgState->hCtrlTab),&tcItem);
-				tcItem.pszText		= "XInput";
-				tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
-				TabCtrl_InsertItem(pCtrlDlgState->hCtrlTab, TabCtrl_GetItemCount(pCtrlDlgState->hCtrlTab),&tcItem);
-				int tp_w = 0, tp_h = 0;
-				// TODO: connect to keyboard device instead
-				{
-					
-					HBITMAP hResBM = LoadImageFromResource(hInst, MAKEINTRESOURCE(IDB_IMAGE_PSP), "IMAGE");
-					pCtrlDlgState->hStaticPspImage = GetDlgItem(hDlg,IDC_STATIC_IMAGE_PSP);
-					RECT clientRect, tabPageRect, imgRect;
-					
-					GetClientRect(hDlg, &clientRect);
-					memcpy(&tabPageRect, &clientRect, sizeof(RECT));
-					TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, FALSE, &tabPageRect);
-					tp_w = tabPageRect.right - tabPageRect.left;
-					tp_h = tabPageRect.bottom - tabPageRect.top;
-					MoveWindow(pCtrlDlgState->hStaticPspImage, tabPageRect.left, tabPageRect.top, tp_w, tp_h, FALSE);
-					
-					HDC hDC = GetDC(pCtrlDlgState->hStaticPspImage);
-					HBITMAP hMemBM = CreateCompatibleBitmap(hDC, tp_w, tp_h);
-					HDC hResDC = CreateCompatibleDC(hDC);
-					HDC hMemDC = CreateCompatibleDC(hDC);
-					SelectObject(hResDC, hResBM);
-					SelectObject(hMemDC, hMemBM);
-
-					BITMAP bm;
-					GetObject(hResBM, sizeof(BITMAP), &bm);
-					SetStretchBltMode(hMemDC, HALFTONE);
-					float scaleX = (float)bm.bmWidth / clientRect.right;
-					float scaleY = (float)bm.bmHeight / clientRect.bottom;
-					imgRect.left = (int)(tabPageRect.left * scaleX);
-					imgRect.top  = (int)(tabPageRect.top * scaleY);
-					imgRect.right= (int)(bm.bmWidth - ((clientRect.right - tabPageRect.right) * scaleX));
-					imgRect.bottom = (int)(bm.bmHeight - ((clientRect.bottom - tabPageRect.bottom) * scaleY));
-					StretchBlt(hMemDC, 0, 0, tp_w, tp_h, hResDC, imgRect.left, imgRect.top,
-						imgRect.right - imgRect.left, imgRect.bottom - imgRect.top, SRCCOPY); 
-					if (pCtrlDlgState->hbmPspImage)
-						DeleteObject(pCtrlDlgState->hbmPspImage);
-					pCtrlDlgState->hbmPspImage = hMemBM;
-
-					DeleteDC(hMemDC);
-					DeleteDC(hResDC);
-					ReleaseDC(pCtrlDlgState->hStaticPspImage, hDC);
-					DeleteObject(hResBM);
-				}
-
-				pCtrlDlgState->orgEditProc = (WNDPROC)GetWindowLongPtr(
-					GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN), GWLP_WNDPROC);
-				for (int i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
-					HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
-					if (i < CONTROLS_BUTTONS_COUNT) {
-						u32 keyCode = pCtrlDlgState->pCtrlMap->GetBindCode(CONTROLS_KEYBOARD_INDEX, i);
-						SetWindowTextForButton(hEdit, keyCode, getVirtualKeyName(keyCode));
-					} else {
-						u32 analogCode = pCtrlDlgState->pCtrlMap->GetBindCode(
-							CONTROLS_KEYBOARD_ANALOG_INDEX, i - CONTROLS_BUTTONS_COUNT);
-						SetWindowTextForButton(hEdit, analogCode, getVirtualKeyName(analogCode));
-					}
-					if (pCtrlDlgState->orgEditProc != (WNDPROC)GetWindowLongPtr(hEdit, GWLP_WNDPROC)) {
-						MessageBoxA(hDlg,
-							"Can not hook to the inherited Edit control. need wndproc of original edit control.",
-							"Controls dialog init error.", MB_OK);
-						break;
-					}
-					SetWindowLongPtr(hEdit, GWLP_WNDPROC, (LONG_PTR)ButtonsEditProc);
-				}
-
-				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "None");
-				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "XInput");
-				ComboBox_AddString(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), "DirectInput");
-				if ((g_Config.iForceInputDevice < 0) || (g_Config.iForceInputDevice > 1))
-				{
-					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), 0);
-				}
-				else
-				{
-					ComboBox_SetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE), (g_Config.iForceInputDevice + 1));
-				}
-				pCtrlDlgState->orgPSPImageProc = (WNDPROC)GetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC);
-				SetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC, (LONG_PTR)PSPImageProc);
-				DWORD dwThreadID = GetWindowThreadProcessId(hDlg, NULL);
-				pCtrlDlgState->pKeydownHook = SetWindowsHookEx(WH_KEYBOARD, KeyboardProc, NULL, dwThreadID);
-			
-				pCtrlDlgState->timerId = SetTimer(hDlg, TIMER_CONTROLS_BINDUPDATE, BINDUPDATE_INTERVAL_MS, 0);
-			}
-			return TRUE;
-		case WM_TIMER:
-			{
-				if (wParam == TIMER_CONTROLS_BINDUPDATE && 
-					pCtrlDlgState->pCtrlMap->GetTargetDevice() != CONTROLS_KEYBOARD_INDEX) {
-					HWND hEdit = GetFocus();
-					UINT nCtrlID = GetDlgCtrlID(hEdit);
-					if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > IDC_EDIT_KEYRIGHT) {
-						break;
-					}
-					// device polling and update.
-					int prevButton = pCtrlDlgState->pCtrlMap->GetBindCode();
-					pCtrlDlgState->pCtrlMap->UpdateState();
-					char str[CONTROLS_BUTTONNAME_MAX];
-					ZeroMemory(str, CONTROLS_BUTTONNAME_MAX * sizeof(char));
-					int buttonCode = pCtrlDlgState->pCtrlMap->GetBindCode();
-					if (buttonCode == -1 || prevButton == buttonCode)
-						break;
-
-					switch(pCtrlDlgState->pCtrlMap->GetTargetDevice())
-					{
-					case CONTROLS_KEYBOARD_INDEX:
-						{
-							; // leave it to KeyboardProc.
-						}
-						break;
-					case CONTROLS_DIRECT_INPUT_INDEX:
-						{
-							if (buttonCode > 0xFF) {
-									int n = 1;
-									for (int i = buttonCode >> 8; i > 1; i >>= 1) {
-										n++;
-									}
-								snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",
-									controllist[(IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN - 1) + n]);
-							} else {
-								snprintf(str, CONTROLS_BUTTONNAME_MAX, "%d", buttonCode + 1);
-							}
-							SetWindowTextA(hEdit, str);
-							RECT rc = getRedrawRect(hEdit);
-							InvalidateRect(hDlg, &rc, FALSE);
-						}
-						break;
-					case CONTROLS_XINPUT_INDEX:
-						{
-							SetWindowTextA(hEdit, getXinputButtonName(buttonCode));
-							RECT rc = getRedrawRect(hEdit);
-							InvalidateRect(hDlg, &rc, FALSE);								
-						}
-						break;
-					}
-				}
-			}
-			break;
-		case WM_NOTIFY:
-			{
-				switch (((NMHDR *)lParam)->code)
-				{
-				case TCN_SELCHANGE:
-					{
-						int cursel =  TabCtrl_GetCurSel(pCtrlDlgState->hCtrlTab);
-						pCtrlDlgState->pCtrlMap->SetTargetDevice(cursel);
-						switch (cursel)
-						{
-						case CONTROLS_KEYBOARD_INDEX:
-							{
-								for (u32 i = 0; i <= IDC_EDIT_KEYRIGHT - CONTROLS_IDC_EDIT_BEGIN; i++) {
-									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
-									u32 keyCode = pCtrlDlgState->pCtrlMap->GetBindCode(i);
-									SetWindowTextForButton(hEdit, keyCode, getVirtualKeyName(keyCode));
-								}
-								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - IDC_EDIT_KEY_ANALOG_UP; i++) {
-									HWND hEdit = GetDlgItem(hDlg, IDC_EDIT_KEY_ANALOG_UP + i);
-									Edit_SetReadOnly(hEdit, FALSE);
-									u32 analogCode = pCtrlDlgState->pCtrlMap->GetBindCode(
-										CONTROLS_KEYBOARD_ANALOG_INDEX, i);
-									SetWindowTextForButton(hEdit, analogCode, getVirtualKeyName(analogCode));
-								}
-								InvalidateRect(hDlg, 0, 0);
-							}
-							break;
-						case CONTROLS_DIRECT_INPUT_INDEX:
-							{
-
-								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
-									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
-									int buttonCode = (int)pCtrlDlgState->pCtrlMap->GetBindCode(i);
-									char str[16];
-									if (i >= IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN) {
-										if (i >= IDC_EDIT_KEY_ANALOG_UP - CONTROLS_IDC_EDIT_BEGIN) {
-											Edit_SetReadOnly(hEdit, TRUE);
-											SetWindowTextA(hEdit, controllist[i]);
-										} else {
-											int n = 1;
-											if (buttonCode != -1) {
-												for (int j = buttonCode >> 8; j > 1; j >>= 1) {
-													n++;
-												}
-												snprintf(str, CONTROLS_BUTTONNAME_MAX, "%s",
-													controllist[(IDC_EDIT_KEYUP - CONTROLS_IDC_EDIT_BEGIN - 1) + n]);
-											}
-											SetWindowTextForButton(hEdit, buttonCode + 1, str);
-										}
-										continue;
-									}
-									snprintf(str, CONTROLS_BUTTONNAME_MAX, "%d", pCtrlDlgState->pCtrlMap->GetBindCode(i) + 1);
-									SetWindowTextForButton(hEdit, buttonCode + 1, str);
-								}
-								InvalidateRect(hDlg, 0, 0);
-							}
-							break;
-						case CONTROLS_XINPUT_INDEX:
-							{
-								for (u32 i = 0; i <= CONTROLS_IDC_EDIT_END - CONTROLS_IDC_EDIT_BEGIN; i++) {
-									HWND hEdit = GetDlgItem(hDlg, CONTROLS_IDC_EDIT_BEGIN + i);
-									if (i >= IDC_EDIT_KEY_ANALOG_UP - CONTROLS_IDC_EDIT_BEGIN) {
-										Edit_SetReadOnly(hEdit, TRUE);
-										SetWindowTextA(hEdit, controllist[i]);
-										continue;
-									}
-									u32 button = pCtrlDlgState->pCtrlMap->GetBindCode(i);
-									SetWindowTextForButton(hEdit, button, getXinputButtonName(button));
-								}
-								InvalidateRect(hDlg, 0, 0);
-							}
-							break;
-						default:
-							break;
-						} // pCtrlDlgState->curDevice
-					} // TCN_SELCHANGING:
-					break;
-				default:
-					break;
-				} // ((NMHDR *)lParam)->code
-			} // WM_NOTIFY:
-			break;
-		case WM_PAINT:
-			{
-				return DefWindowProc(hDlg, message, wParam, lParam);
-			}
-		case WM_CTLCOLORSTATIC:
-			{
-				HDC hdc=(HDC)wParam;
-				HWND hCtrl = (HWND)lParam;
-				SetBkMode(hdc, TRANSPARENT);
-				int ctrlId = GetDlgCtrlID(hCtrl);
-				if (ctrlId >= IDC_EDIT_KEY_ANALOG_UP && ctrlId <= IDC_EDIT_KEY_ANALOG_RIGHT) {
-					SetTextColor(hdc, RGB(128,128,128));
-					RECT rc = getRedrawRect(hCtrl);
-					TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, TRUE, &rc);
-					RECT clientrc;
-					GetClientRect(hCtrl, &clientrc);
-					TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, TRUE, &clientrc);
-					BitBlt(pCtrlDlgState->hbmPspImage, hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
-					char str[11];
-					GetWindowTextA(hCtrl, str, 10);
-					DrawTextA(hdc, str, (int)strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
-				}
-				return (LRESULT)GetStockObject(NULL_BRUSH); 
-			}
-		case WM_CTLCOLOREDIT:
-			{
-				if ((HWND)lParam == GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE))
-					return FALSE;
-				HDC hdc = (HDC)wParam;
-				SetBkMode(hdc, TRANSPARENT);
-				SetTextColor(hdc, RGB(255, 0, 0));
-				HWND hEdit = (HWND)lParam;
-				RECT rc = getRedrawRect(hEdit);
-				TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, TRUE, &rc);
-				RECT clientrc;
-				GetClientRect(hEdit, &clientrc);
-				TabCtrl_AdjustRect(pCtrlDlgState->hCtrlTab, TRUE, &clientrc);
-				BitBlt(pCtrlDlgState->hbmPspImage, hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, rc.left, rc.top);
-				char str[11];
-				GetWindowTextA(hEdit, str, 10);
-				DrawTextA(hdc, str, (int)strlen(str), &clientrc, DT_CENTER|DT_SINGLELINE);
-				return (LRESULT)GetStockObject(NULL_BRUSH);
-			}
-		case WM_COMMAND:
-			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) 
-			{
-				if (LOWORD(wParam) == IDOK) {
-					g_Config.iForceInputDevice = (ComboBox_GetCurSel(GetDlgItem(hDlg, IDC_FORCE_INPUT_DEVICE)) - 1);
-					pCtrlDlgState->pCtrlMap->BindToDevices();
-					saveControlsToFile();
-				}
-				UnhookWindowsHookEx(pCtrlDlgState->pKeydownHook);
-				KillTimer(hDlg, pCtrlDlgState->timerId);
-				SetWindowLongPtr(pCtrlDlgState->hStaticPspImage, GWLP_WNDPROC, (LONG_PTR)pCtrlDlgState->orgPSPImageProc);
-				for (u32 i = CONTROLS_IDC_EDIT_BEGIN; i <= CONTROLS_IDC_EDIT_END; i++) {
-					HWND hEdit = GetDlgItem(hDlg, i);
-					SetWindowLongPtr(hEdit, GWLP_WNDPROC, (LONG_PTR)pCtrlDlgState->orgEditProc);
-				}
-				EndDialog(hDlg, LOWORD(wParam));
-				if (pCtrlDlgState->hbmPspImage) {
-					DeleteObject(pCtrlDlgState->hbmPspImage);
-					pCtrlDlgState->hbmPspImage = 0;
-				}
-				if (pCtrlDlgState->pCtrlMap) {
-					delete pCtrlDlgState->pCtrlMap;
-					pCtrlDlgState->pCtrlMap = NULL;
-				}
-				if (pCtrlDlgState) {
-					delete pCtrlDlgState;
-					pCtrlDlgState = NULL;
-				}
-				return TRUE;
-			} else if (LOWORD(wParam) >= CONTROLS_IDC_EDIT_BEGIN &&
-						LOWORD(wParam) <= IDC_EDIT_KEYRIGHT &&
-						HIWORD(wParam) == EN_SETFOCUS) {
-				// send about buttonsMap-index of current focus Edit-Control to ControlMapping instance.
-				UINT nCtrlID = LOWORD(wParam);
-				if (nCtrlID < CONTROLS_IDC_EDIT_BEGIN || nCtrlID > IDC_EDIT_KEYRIGHT) {
-					break;
-				}
-				pCtrlDlgState->pCtrlMap->SetTargetButton(nCtrlID - CONTROLS_IDC_EDIT_BEGIN);
 			}
 			break;
 		}

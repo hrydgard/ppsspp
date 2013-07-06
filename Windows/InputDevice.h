@@ -14,5 +14,3 @@ public:
 	virtual int UpdateState(InputState &input_state) = 0;
 	virtual bool IsPad() = 0;
 };
-
-std::list<std::shared_ptr<InputDevice>> getInputDevices();

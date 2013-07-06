@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <map>
+
 #include "CommonTypes.h"
 
 extern const char *PPSSPP_GIT_VERSION;
@@ -95,6 +96,8 @@ public:
 	// Sound
 	bool bEnableSound;
 	bool bEnableAtrac3plus;
+	int iSEVolume;
+	int iBGMVolume;
 
 	// UI
 	bool bShowTouchControls;
@@ -111,9 +114,9 @@ public:
 	// 3 = L/R
 	// 4 = L/R + triangle/cross
 	int iRightStickBind;
+	int iSwapRightAxes;
 
 	// Control
-	std::map<int,int> iMappingMap; // Can be used differently depending on systems
 	int iForceInputDevice;
 	int iTouchButtonOpacity;
 	float fButtonScale;

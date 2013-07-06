@@ -112,12 +112,12 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	char str[256],errorMessage[512];
 	PostfixExpression exp;
 
-	memory = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_MEMORY),BM_GETCHECK,0,0);
-	read = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_READ),BM_GETCHECK,0,0);
-	write = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_WRITE),BM_GETCHECK,0,0);
-	enabled = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ENABLED),BM_GETCHECK,0,0);
-	log = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),BM_GETCHECK,0,0);
-	onChange = (bool) SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),BM_GETCHECK,0,0);
+	memory = SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_MEMORY),BM_GETCHECK,0,0) != 0;
+	read = SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_READ),BM_GETCHECK,0,0) != 0;
+	write = SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_WRITE),BM_GETCHECK,0,0) != 0;
+	enabled = SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ENABLED),BM_GETCHECK,0,0) != 0;
+	log = SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_LOG),BM_GETCHECK,0,0) != 0;
+	onChange = SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),BM_GETCHECK,0,0) != 0;
 
 	// parse address
 	GetWindowText(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str,256);
