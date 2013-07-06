@@ -805,7 +805,7 @@ void AudioScreen::render() {
 			if (g_Config.iBGMVolume > 1)
 				g_Config.iBGMVolume -= 1;
 		if (UIButton(GEN_ID, hlinear1, 50, 0, a->T("+1"), ALIGN_LEFT))
-			if (g_Config.iBGMVolume < 10)
+			if (g_Config.iBGMVolume < 8)
 				g_Config.iBGMVolume += 1;
 		y+=20;
 		char sevol[256];
@@ -818,7 +818,7 @@ void AudioScreen::render() {
 			if (g_Config.iSEVolume > 1)
 				g_Config.iSEVolume -= 1;
 		if (UIButton(GEN_ID, hlinear2, 50, 0, a->T("+1"), ALIGN_LEFT))
-			if (g_Config.iSEVolume < 10)
+			if (g_Config.iSEVolume < 8)
 				g_Config.iSEVolume += 1;
 
 		y+=10;
