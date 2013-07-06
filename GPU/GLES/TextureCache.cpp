@@ -972,14 +972,15 @@ void TextureCache::SetTexture() {
 	TexCacheEntry *entry = NULL;
 	gstate_c.flipTexture = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-
+	bool useBufferedRendering_ = g_Config.bBufferedRendering;
 	bool replaceImages = false;
+	
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-			if (g_Config.bBufferedRendering) {
+			if (useBufferedRendering_) {
 				if (entry->framebuffer->fbo) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 				} else {
@@ -994,7 +995,6 @@ void TextureCache::SetTexture() {
 				gstate_c.flipTexture = true;
 				gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
 				entry->lastFrame = gpuStats.numFrames;
-				return;
 			} else {
 				if (entry->framebuffer->fbo)
 					entry->framebuffer->fbo = 0;
@@ -1002,6 +1002,7 @@ void TextureCache::SetTexture() {
 				lastBoundTexture = -1;
 				entry->lastFrame = gpuStats.numFrames;
 			}
+			return;
 		}
 
 		// Validate the texture here (width, height etc)
