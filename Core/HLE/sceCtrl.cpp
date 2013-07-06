@@ -157,14 +157,22 @@ void __CtrlButtonUp(u32 buttonBit)
 	ctrlCurrent.buttons &= ~buttonBit;
 }
 
-void __CtrlSetAnalog(float x, float y, int stick)
+void __CtrlSetAnalogX(float x, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 	if (stick == 0) {
 		ctrlCurrent.analog[0] = (u8)ceilf(x * 127.5f + 127.5f);
-		ctrlCurrent.analog[1] = (u8)ceilf(-y * 127.5f + 127.5f);
 	} else {
 		ctrlCurrent.analogRight[0] = (u8)ceilf(x * 127.5f + 127.5f);
+	}
+}
+
+void __CtrlSetAnalogY(float y, int stick)
+{
+	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	if (stick == 0) {
+		ctrlCurrent.analog[1] = (u8)ceilf(-y * 127.5f + 127.5f);
+	} else {
 		ctrlCurrent.analogRight[1] = (u8)ceilf(-y * 127.5f + 127.5f);
 	}
 }

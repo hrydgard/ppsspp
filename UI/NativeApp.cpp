@@ -542,13 +542,22 @@ void NativeDeviceLost() {
 }
 
 bool NativeIsAtTopLevel() {
-	// TODO
-	return false;
+	return globalUIState == UISTATE_MENU;
 }
 
 void NativeTouch(const TouchInput &touch) {
 	if (screenManager)
 		screenManager->touch(touch);
+}
+
+void NativeKey(const KeyInput &key) {
+	if (screenManager)
+		screenManager->key(key);
+}
+
+void NativeAxis(const AxisInput &key) {
+	if (screenManager)
+		screenManager->axis(key);
 }
 
 void NativeMessageReceived(const char *message, const char *value) {

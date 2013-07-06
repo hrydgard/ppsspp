@@ -686,19 +686,14 @@ void ControlsScreen::update(InputState &input) {
 	}
 }
 
-void KeyMappingScreen::update(InputState &input) {
-	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
-		g_Config.Save();
-		screenManager()->finishDialog(this, DR_OK);
+void KeyMappingNewKeyDialog::key(const KeyInput &key) {
+	if (key.flags & KEY_DOWN) {
+		last_kb_deviceid = key.deviceId;
+		last_kb_key = key.keyCode;
 	}
 }
 
 void KeyMappingNewKeyDialog::update(InputState &input) {
-	int new_key = input.key_queue[0];
-
-	if (new_key != 0)
-		last_kb_key = new_key;
-	
 	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
@@ -1527,6 +1522,13 @@ void ControlsScreen::render() {
 	UIEnd();
 }
 
+void KeyMappingScreen::update(InputState &input) {
+	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
+		g_Config.Save();
+		screenManager()->finishDialog(this, DR_OK);
+	}
+}
+
 void KeyMappingScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
@@ -1537,20 +1539,22 @@ void KeyMappingScreen::render() {
 
 
 #define KeyBtn(x, y, symbol) \
-	if (UIButton(GEN_ID, Pos(x, y), 50, 0, (KeyMap::GetPspButtonName(symbol)).c_str(), \
+	if (UIButton(GEN_ID, Pos(x, y), 60, 0, KeyMap::NameKeyFromPspButton(currentMap_, symbol).c_str(), \
  															ALIGN_TOPLEFT)) {\
-		screenManager()->push(new KeyMappingNewKeyDialog(symbol), 0); \
+		screenManager()->push(new KeyMappingNewKeyDialog(symbol, currentMap_), 0); \
 		UIReset(); \
-	}
+	} \
+	UIText(0, Pos(x+30, y+50), KeyMap::NameDeviceFromPspButton(currentMap_, symbol).c_str(), 0xFFFFFFFF, 0.78f, ALIGN_HCENTER); \
+	UIText(0, Pos(x+30, y+80), KeyMap::GetPspButtonName(symbol).c_str(), 0xFFFFFFFF, 0.5f, ALIGN_HCENTER); \
 
-	KeyMap::DeregisterPlatformDefaultKeyMap();
+	// \
+	// UIText(0, Pos(x, y+50), controllerMaps[currentMap_].name.c_str(), 0xFFFFFFFF, 0.5f, ALIGN_HCENTER);
 
-	int pad = 150;
+	int pad = 130;
 	int hlfpad = pad / 2;
 
 	int left = 30;
 	KeyBtn(left, 30, CTRL_LTRIGGER);
-	KeyBtn(dp_yres, 30, CTRL_RTRIGGER);
 
 	int top = 100;
 	KeyBtn(left+hlfpad, top, CTRL_UP); // ^
@@ -1558,21 +1562,35 @@ void KeyMappingScreen::render() {
 	KeyBtn(left+pad, top+hlfpad, CTRL_RIGHT); // >
 	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // <
 
-	left = dp_yres;
+	left = 500;
 	KeyBtn(left+hlfpad, top, CTRL_TRIANGLE); // Triangle
 	KeyBtn(left, top+hlfpad, CTRL_SQUARE); // Square
 	KeyBtn(left+pad, top+hlfpad, CTRL_CIRCLE); // Circle
 	KeyBtn(left+hlfpad, top+pad, CTRL_CROSS); // Cross
+	KeyBtn(left, 30, CTRL_RTRIGGER);
 
 	top += pad;
-	left = dp_yres /2;
-	KeyBtn(left, top, CTRL_START);
-	KeyBtn(left + pad, top, CTRL_SELECT);
+	left = 250;
+	KeyBtn(left, top, CTRL_SELECT);
+	KeyBtn(left + pad, top, CTRL_START);
 #undef KeyBtn
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
+
+	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Prev"), ALIGN_BOTTOMLEFT)) {
+		currentMap_--;
+		if (currentMap_ < 0)
+			currentMap_ = controllerMaps.size() - 1;
+	}
+	if (UIButton(GEN_ID, Pos(10 + 10 + LARGE_BUTTON_WIDTH, dp_yres-10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Next"), ALIGN_BOTTOMLEFT)) {
+		currentMap_++;
+		if (currentMap_ >= controllerMaps.size())
+			currentMap_ = 0;
+	}
+	UIText(0, Pos(10, dp_yres-170), controllerMaps[currentMap_].name.c_str(), 0xFFFFFFFF, 1.0f, ALIGN_BOTTOMLEFT);
+	UICheckBox(GEN_ID,10, dp_yres - 80, "Mapping Active", ALIGN_BOTTOMLEFT, &controllerMaps[currentMap_].active);
 	UIEnd();
 }
 
@@ -1598,22 +1616,26 @@ void KeyMappingNewKeyDialog::render() {
 	KeyScale(1.3f);
 	KeyText(left, top += stride, keyI18N->T("Current key"));
 	KeyScale(2.0f);
-	KeyText(left, top + stride, (KeyMap::NameKeyFromPspButton(this->pspBtn)).c_str());
+	KeyText(left, top += stride, (KeyMap::NameKeyFromPspButton(currentMap_, this->pspBtn)).c_str());
+	KeyScale(1.4f);
+	KeyText(left, top + stride, (KeyMap::NameDeviceFromPspButton(currentMap_, this->pspBtn)).c_str());
 
 	int right = dp_yres;
 	KeyScale(1.4f);
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);
 	if (last_kb_key != 0) {
-		bool key_used = KeyMap::IsMappedKey(last_kb_key);
+		bool key_used = KeyMap::IsMappedKey(last_kb_deviceid, last_kb_key);
 		if (!key_used) {
-			KeyText(right, top + stride, KeyMap::GetKeyName(last_kb_key).c_str());
+			KeyText(right, top += stride, KeyMap::GetKeyName(last_kb_key).c_str());
+			KeyScale(1.4f);
+			KeyText(right, top + stride, GetDeviceName(last_kb_deviceid));
 		} else {
 			KeyScale(1.0f);
 			KeyText(left + stride, top + 2*stride, 
 			        keyI18N->T("Error: Key is already used by"));
-			KeyText(left + stride, top + 3*stride, 
-			        (KeyMap::NamePspButtonFromKey(last_kb_key)).c_str());
+			//KeyText(left + stride, top + 3*stride, 
+			//        (KeyMap::NamePspButtonFromKey(last_kb_key)).c_str());
 		}
 	}
 
@@ -1623,7 +1645,7 @@ void KeyMappingNewKeyDialog::render() {
 
 	// Save & cancel buttons
 	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Save Mapping"), ALIGN_LEFT | ALIGN_BOTTOM)) {
-		KeyMap::SetKeyMapping(this->last_kb_key, this->pspBtn);
+		KeyMap::SetKeyMapping(currentMap_, this->last_kb_deviceid, this->last_kb_key, this->pspBtn);
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
 	}
@@ -1878,6 +1900,14 @@ void CreditsScreen::render() {
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
+
+#ifdef ANDROID
+#ifndef GOLD
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 200, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
+		sendMessage("launchBrowser", "market://details?id=org.ppsspp.ppssppgold");
+	}
+#endif
+#endif
 
 	UIEnd();
 }

@@ -357,7 +357,7 @@ int __AudioMix(short *outstereo, int numFrames)
 
 	if (sz1 + sz2 < (size_t)numFrames) {
 		underrun = (int)(sz1 + sz2) / 2;
-		DEBUG_LOG(HLE, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
+		VERBOSE_LOG(HLE, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
 	}
 	return underrun >= 0 ? underrun : numFrames;
 }

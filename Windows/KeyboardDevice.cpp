@@ -1,4 +1,6 @@
+#include "base/NativeApp.h"
 #include "input/input_state.h"
+#include "input/keycodes.h"
 #include "util/const_map.h"
 #include "KeyMap.h"
 #include "ControlMapping.h"
@@ -26,6 +28,7 @@ unsigned int key_pad_map[] = {
 	VK_LEFT,  PAD_BUTTON_LEFT,
 	VK_RIGHT, PAD_BUTTON_RIGHT,
 };
+
 const unsigned int key_pad_map_size = sizeof(key_pad_map);
 
 unsigned short analog_ctrl_map[] = {
@@ -123,7 +126,7 @@ const unsigned int analog_ctrl_map_size = sizeof(analog_ctrl_map);
 int KeyboardDevice::UpdateState(InputState &input_state) {
 	if (MainWindow::GetHWND() != GetForegroundWindow()) return -1;
 	bool alternate = GetAsyncKeyState(VK_SHIFT) != 0;
-	KeyQueueBlank(input_state.key_queue);
+
 	static u32 alternator = 0;
 	bool doAlternate = alternate && (alternator++ % 10) < 5;
 
@@ -139,19 +142,37 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 
 		if (!doAlternate || key_pad_map[i + 1] > PAD_BUTTON_SELECT) {
 			// TODO: remove once EmuScreen supports virtual keys
-			switch (key_pad_map[i]) {
-				case VK_ESCAPE:
-				case VK_F3:
-				case VK_PAUSE:
-				case VK_BACK:
+			switch (key_pad_map[i + 1]) {
+				case PAD_BUTTON_MENU:
+				case PAD_BUTTON_BACK:
+				case PAD_BUTTON_RIGHT_THUMB:
 					input_state.pad_buttons |= key_pad_map[i + 1];
 					break;
 			}
-
-			KeyQueueAttemptTranslatedAdd(input_state.key_queue, windowsTransTable, key_pad_map[i]);
 		}
 	}
 
+	for (size_t i = 0; i < downKeys.size(); i++) {
+		KeyInput key;
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		key.flags = KEY_DOWN;
+		key.keyCode = windowsTransTable[downKeys[i]];
+		if (key.keyCode)
+			NativeKey(key);
+	}
+	downKeys.clear();
+
+	for (size_t i = 0; i < upKeys.size(); i++) {
+		KeyInput key;
+		key.deviceId = DEVICE_ID_KEYBOARD;
+		key.flags = KEY_UP;
+		key.keyCode = windowsTransTable[upKeys[i]];
+		if (key.keyCode)
+			NativeKey(key);
+	}
+	upKeys.clear();
+
+	// TODO: Better axis mapping
 	float analogX = 0;
 	float analogY = 0;
 	for (int i = 0; i < sizeof(analog_ctrl_map)/sizeof(analog_ctrl_map[0]); i += 2) {
@@ -175,9 +196,14 @@ int KeyboardDevice::UpdateState(InputState &input_state) {
 		}
 	}
 	
-	// keyboard device
-	input_state.pad_lstick_x += analogX;
-	input_state.pad_lstick_y += analogY;
+	AxisInput axis;
+	axis.deviceId = DEVICE_ID_KEYBOARD;
+	axis.axisId = JOYSTICK_AXIS_X;
+	axis.value = analogX;
+	NativeAxis(axis);
+	axis.axisId = JOYSTICK_AXIS_Y;
+	axis.value = analogY;
+	NativeAxis(axis);
 	return 0;
 }
 

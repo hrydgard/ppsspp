@@ -138,7 +138,7 @@ void Config::Load(const char *iniFileName)
 	control->Get("ShowTouchControls", &bShowTouchControls,false);
 #endif
 	control->Get("LargeControls", &bLargeControls, false);
-	control->Get("KeyMapping",iMappingMap);
+	// control->Get("KeyMapping",iMappingMap);
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
 	control->Get("ForceInputDevice", &iForceInputDevice, -1);
 	control->Get("RightStickBind", &iRightStickBind, 0);
@@ -246,7 +246,7 @@ void Config::Save()
 		control->Set("ShowStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 		control->Set("LargeControls", bLargeControls);
-		control->Set("KeyMapping",iMappingMap);
+		// control->Set("KeyMapping",iMappingMap);
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
 		control->Set("ForceInputDevice", iForceInputDevice);
 		control->Set("RightStickBind", iRightStickBind);

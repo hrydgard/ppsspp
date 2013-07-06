@@ -842,7 +842,7 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 			memcpy(dst, src, stride * height * 4);
 		}
 	} else { // But here it shouldn't matter if they do
-		u32 size = height * stride;
+		int size = height * stride;
 		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
 		switch (format) {
@@ -1034,8 +1034,8 @@ void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 	}
 
 	if(packed) {
-		DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %08x, fb_address = %08x", 
-			bufSize, packed, fb_address);
+		DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %p, fb_address = %08x", 
+			(u32)bufSize, packed, fb_address);
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
 		glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, packed);

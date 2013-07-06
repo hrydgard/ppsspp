@@ -13,9 +13,10 @@ public:
 	virtual bool IsPad() { return true; }
 	int UpdateRawStateSingle(RawInputState &rawState);
 private:
-	void ApplyDiff(XINPUT_STATE &state, InputState &input_state);
+	void ApplyButtons(XINPUT_STATE &state, InputState &input_state);
 	int gamepad_idx;
 	int check_delay;
 	XINPUT_STATE prevState;
+	u32 prevButtons;
 };
 
