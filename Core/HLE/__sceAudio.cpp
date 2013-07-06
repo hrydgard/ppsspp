@@ -37,7 +37,7 @@ int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
 
 const int hwSampleRate = 44100;
-const int hwBlockSize = 32;
+const int hwBlockSize = 16;
 const int hostAttemptBlockSize = 256;
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
