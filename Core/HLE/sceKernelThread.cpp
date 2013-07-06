@@ -38,6 +38,50 @@
 #include "sceKernelModule.h"
 #include "sceKernelInterrupt.h"
 
+typedef struct
+{
+	WaitType type;
+	char* name;
+} WaitTypeNames;
+
+const WaitTypeNames waitTypeNames[] = {
+	{ WAITTYPE_NONE,			"None" },
+	{ WAITTYPE_SLEEP,			"Sleep" },
+	{ WAITTYPE_DELAY,			"Delay" },
+	{ WAITTYPE_SEMA,			"Semaphore" },
+	{ WAITTYPE_EVENTFLAG,		"Event flag", },
+	{ WAITTYPE_MBX,				"MBX" },
+	{ WAITTYPE_VPL,				"VPL" },
+	{ WAITTYPE_FPL,				"FPL" },
+	{ WAITTYPE_MSGPIPE,			"Message pipe" },
+	{ WAITTYPE_THREADEND,		"Thread end" },
+	{ WAITTYPE_AUDIOCHANNEL,	"Audio channel" },
+	{ WAITTYPE_UMD,				"UMD" },
+	{ WAITTYPE_VBLANK,			"VBlank" },
+	{ WAITTYPE_MUTEX,			"Mutex" },
+	{ WAITTYPE_LWMUTEX,			"LwMutex" },
+	{ WAITTYPE_CTRL,			"Control" },
+	{ WAITTYPE_IO,				"IO" },
+	{ WAITTYPE_GEDRAWSYNC,		"GeDrawSync" },
+	{ WAITTYPE_GELISTSYNC,		"GeListSync" },
+	{ WAITTYPE_MODULE,			"Module" },
+	{ WAITTYPE_HLEDELAY,		"HleDelay" }
+};
+
+char* getWaitTypeName(WaitType type)
+{
+	int waitTypeNamesAmount = sizeof(waitTypeNames)/sizeof(WaitTypeNames);
+
+	for (int i = 0; i < waitTypeNamesAmount; i++)
+	{
+		if (waitTypeNames[i].type == type)
+		{
+			return waitTypeNames[i].name;
+		}
+	}
+
+	return "Unknown";
+}
 
 enum {
 	PSP_THREAD_ATTR_KERNEL =           0x00001000,
@@ -3480,6 +3524,8 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 		info.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 		info.status = t->nt.status;
 		info.entrypoint = t->nt.entrypoint;
+		info.priority = t->nt.currentPriority;
+		info.waitType = t->nt.waitType;
 		if(*iter == currentThread)
 			info.curPC = currentMIPS->pc;
 		else

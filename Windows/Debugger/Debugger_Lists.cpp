@@ -4,14 +4,14 @@
 #include <commctrl.h>
 #include "DebuggerShared.h"
 
-enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_STATE, TL_COLUMNCOUNT };
+enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 
 char* threadColumns[] = {
-	"Name", "PC", "Entry Point", "State"
+	"Name", "PC", "Entry Point", "Priority","State", "Wait type"
 };
 
 const float threadColumnSizes[] = {
-	0.25f, 0.25f, 0.25f, 0.25f
+	0.20f, 0.15f, 0.15f, 0.15f, 0.15f, 0.20f
 };
 
 void CtrlThreadList::setDialogItem(HWND hwnd)
@@ -126,6 +126,9 @@ void CtrlThreadList::handleNotify(LPARAM lParam)
 		case TL_ENTRYPOINT:
 			sprintf(stringBuffer,"0x%08X",threads[index].entrypoint);
 			break;
+		case TL_PRIORITY:
+			sprintf(stringBuffer,"%d",threads[index].priority);
+			break;
 		case TL_STATE:
 			switch (threads[index].status)
 			{
@@ -154,6 +157,9 @@ void CtrlThreadList::handleNotify(LPARAM lParam)
 				strcpy(stringBuffer,"Invalid");
 				break;
 			}
+			break;
+		case TL_WAITTYPE:
+			strcpy(stringBuffer,getWaitTypeName(threads[index].waitType));
 			break;
 		}
 
