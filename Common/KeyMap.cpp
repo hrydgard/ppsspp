@@ -456,6 +456,7 @@ void SaveToIni(IniFile &file) {
 
 	for (auto x = controllerMaps.begin(); x != controllerMaps.end(); ++x) {
 		IniFile::Section *map = file.GetOrCreateSection(x->name.c_str());
+		map->Clear();
 		map->Set("Active", x->active);
 		for (auto iter = x->keys.begin(); iter != x->keys.end(); ++iter) {
 			char key[128];
