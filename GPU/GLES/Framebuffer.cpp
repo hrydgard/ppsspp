@@ -430,16 +430,16 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int z_stride = gstate.zbwidth & 0x3C0;
 
 	// Yeah this is not completely right. but it'll do for now.
-	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
-	//int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
+	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
+	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
 
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 	
 	int fmt = gstate.framebufpixformat & 3;
 
-	int drawing_width, drawing_height;
-	GuessDrawingSize(drawing_width, drawing_height);
+	//int drawing_width, drawing_height;
+	//GuessDrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
