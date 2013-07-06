@@ -57,6 +57,14 @@ public:
 		Shutdown();
 	}
 	void *ProtectFunction(void *function, int num_params);
+
+	const u8 *GetSaveRegsFunction() const {
+		return save_regs;
+	}
+	const u8 *GetLoadRegsFunction() const {
+		return load_regs;
+	}
+
 private:
 	void Init();
 	void Shutdown();
