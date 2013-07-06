@@ -108,6 +108,8 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	}
 #endif
 	memset(analog_, 0, sizeof(analog_));
+	memset(&fakeInputState, 0, sizeof(fakeInputState));
+	memset(virtKeys, 0, sizeof(virtKeys));
 }
 
 EmuScreen::~EmuScreen() {
@@ -185,10 +187,17 @@ void EmuScreen::key(const KeyInput &key) {
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
 		return;
 
-	if (key.flags & KEY_DOWN)
-		__CtrlButtonDown(result);
-	if (key.flags & KEY_UP)
-		__CtrlButtonUp(result);
+	if (result >= VIRTKEY_FIRST) {
+		if (key.flags & KEY_DOWN)
+			virtKeys[result - VIRTKEY_FIRST] = true;
+		if (key.flags & KEY_UP)
+			virtKeys[result - VIRTKEY_FIRST] = false;
+	} else {
+		if (key.flags & KEY_DOWN)
+			__CtrlButtonDown(result);
+		if (key.flags & KEY_UP)
+			__CtrlButtonUp(result);
+	}
 }
 
 void EmuScreen::axis(const AxisInput &axis) {
@@ -231,6 +240,21 @@ void EmuScreen::update(InputState &input) {
 	if (invalid_)
 		return;
 
+	float leftstick_x = analog_[0].x;
+	float leftstick_y = analog_[0].y;
+	float rightstick_x = analog_[1].x;
+	float rightstick_y = analog_[1].y;
+
+	// Virtual keys.
+	if (virtKeys[VIRTKEY_AXIS_X_MIN - VIRTKEY_FIRST])
+		leftstick_x -= 1.0f;
+	if (virtKeys[VIRTKEY_AXIS_X_MAX - VIRTKEY_FIRST])
+		leftstick_x += 1.0f;
+	if (virtKeys[VIRTKEY_AXIS_Y_MIN - VIRTKEY_FIRST])
+		leftstick_y -= 1.0f;
+	if (virtKeys[VIRTKEY_AXIS_Y_MAX - VIRTKEY_FIRST])
+		leftstick_y += 1.0f;
+
 	// First translate touches into native pad input.
 	// Do this no matter the value of g_Config.bShowTouchControls, some people
 	// like to use invisible controls...
@@ -257,16 +281,15 @@ void EmuScreen::update(InputState &input) {
 			if (fakeInputState.pad_buttons_up & legacy_touch_mapping[i].from)
 				__CtrlButtonUp(legacy_touch_mapping[i].to);
 		}
+		leftstick_x += fakeInputState.pad_lstick_x;
+		leftstick_y += fakeInputState.pad_lstick_y;
+		rightstick_x += fakeInputState.pad_rstick_x;
+		rightstick_y += fakeInputState.pad_rstick_y;
 
 #ifdef _WIN32
 	}
 #endif
 
-	float leftstick_x = analog_[0].x;
-	float leftstick_y = analog_[0].y;
-	float rightstick_x = analog_[1].x;
-	float rightstick_y = analog_[1].y;
-	
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
 	// Apply tilt to left stick
@@ -276,10 +299,10 @@ void EmuScreen::update(InputState &input) {
 		leftstick_x = clamp1(leftstick_x);
 	}
 
-	__CtrlSetAnalogX(leftstick_x, 0);
-	__CtrlSetAnalogY(leftstick_y, 0);
-	__CtrlSetAnalogX(rightstick_x, 1);
-	__CtrlSetAnalogY(rightstick_y, 1);
+	__CtrlSetAnalogX(clamp1(leftstick_x), 0);
+	__CtrlSetAnalogY(clamp1(leftstick_y), 0);
+	__CtrlSetAnalogX(clamp1(rightstick_x), 1);
+	__CtrlSetAnalogY(clamp1(rightstick_y), 1);
 
 	if (PSP_CoreParameter().fpsLimit != 2) {
 		// Don't really need to show these, it's pretty obvious what unthrottle does,

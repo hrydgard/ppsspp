@@ -17,6 +17,7 @@
 
 
 #include "base/display.h"
+#include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Config.h"
 #include "file/ini_file.h"
@@ -167,6 +168,8 @@ void Config::Load(const char *iniFileName)
 	debugConfig->Get("ConsoleWindowX", &iConsoleWindowX, -1);
 	debugConfig->Get("ConsoleWindowY", &iConsoleWindowY, -1);
 
+	KeyMap::LoadFromIni(iniFile);
+
 	CleanRecent();
 }
 
@@ -274,6 +277,8 @@ void Config::Save()
 		debugConfig->Set("DisasmWindowH", iDisasmWindowH);
 		debugConfig->Set("ConsoleWindowX", iConsoleWindowX);
 		debugConfig->Set("ConsoleWindowY", iConsoleWindowY);
+
+		KeyMap::SaveToIni(iniFile);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());

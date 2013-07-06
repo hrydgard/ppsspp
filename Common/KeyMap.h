@@ -19,11 +19,22 @@
 
 #include <string>
 #include <map>
+#include <vector>
 #include "input/keycodes.h"     // keyboard keys
 #include "../Core/HLE/sceCtrl.h"   // psp keys
 
 #define KEYMAP_ERROR_KEY_ALREADY_USED -1
 #define KEYMAP_ERROR_UNKNOWN_KEY 0
+
+enum {
+	VIRTKEY_FIRST = 0x10000,
+	VIRTKEY_AXIS_X_MIN = 0x10000,
+	VIRTKEY_AXIS_Y_MIN = 0x10001,
+	VIRTKEY_AXIS_X_MAX = 0x10002,
+	VIRTKEY_AXIS_Y_MAX = 0x10003,
+	VIRTKEY_LAST,
+	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
+};
 
 class KeyDef {
 public:
@@ -71,6 +82,8 @@ extern std::vector<ControllerMap> controllerMaps;
 //
 // Then have KeyMap transform those into psp buttons.
 
+class IniFile;
+
 namespace KeyMap {
 	// Use if you need to display the textual name 
 	std::string GetKeyName(int keyCode);
@@ -96,9 +109,9 @@ namespace KeyMap {
 
 	// Configure the key mapping.
 	// Any configuration will be saved to the Core config.
-	// 
-	// Returns KEYMAP_ERROR_KEY_ALREADY_USED
-	// for mapping conflicts. 0 otherwise.
-	int SetKeyMapping(int map, int deviceId, int keyCode, int psp_key);
+	void SetKeyMapping(int map, int deviceId, int keyCode, int psp_key);
+
+	void LoadFromIni(IniFile &iniFile);
+	void SaveToIni(IniFile &iniFile);
 }
 

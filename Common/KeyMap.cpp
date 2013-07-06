@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "file/ini_file.h"
 #include "input/input_state.h"
 #include "../Core/Config.h"
 #include "KeyMap.h"
@@ -42,6 +43,10 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_DPAD_DOWN)] = CTRL_DOWN;
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_DPAD_LEFT)] = CTRL_LEFT;
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_DPAD_RIGHT)] = CTRL_RIGHT;
+		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_I)] = VIRTKEY_AXIS_Y_MAX;
+		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_K)] = VIRTKEY_AXIS_Y_MIN;
+		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_J)] = VIRTKEY_AXIS_X_MIN;
+		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_L)] = VIRTKEY_AXIS_X_MAX;
 		return m;
 	}
 
@@ -81,6 +86,24 @@ struct DefaultKeyMap {
 		return m;
 	}
 
+	static KeyMapping defaultXperiaPlay()
+	{
+		KeyMapping m;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_CROSS)] = CTRL_CROSS;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_CIRCLE)] = CTRL_CIRCLE;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_X)] = CTRL_SQUARE;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_Y)] = CTRL_TRIANGLE;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_DPAD_UP)] = CTRL_UP;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_DPAD_RIGHT)] = CTRL_RIGHT;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_DPAD_DOWN)] = CTRL_DOWN;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_DPAD_LEFT)] = CTRL_LEFT;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_START)] = CTRL_START;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BACK)] = CTRL_SELECT;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_L1)] = CTRL_LTRIGGER;
+		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_R1)] = CTRL_RTRIGGER;
+		return m;
+	}
+
 	static std::vector<ControllerMap> init()
 	{
 		std::vector<ControllerMap> m;
@@ -96,6 +119,15 @@ struct DefaultKeyMap {
 		kbd.keys = defaultKeyboardMap();
 		kbd.name = "Keyboard";
 		m.push_back(kbd);
+
+#ifdef ANDROID
+		ControllerMap xperia;
+		xperia.keys = defaultXperiaPlay();
+		xperia.name = "Xperia Play";
+		xperia.active = false;
+		m.push_back(xperia);
+#endif
+
 #else
 		ControllerMap kbd;
 		kbd.keys = defaultKeyboardMap();
@@ -251,7 +283,7 @@ const KeyMap_IntStrPair key_names[] = {
 };
 
 static int key_names_count = sizeof(key_names) / sizeof(key_names[0]);
-static std::string unknown_key_name = "Unknown";
+static std::string unknown_key_name = "N/A";
 const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_CIRCLE, "O"},
 	{CTRL_CROSS, "X"},
@@ -265,7 +297,13 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_DOWN, "Down"},
 	{CTRL_LEFT, "Left"},
 	{CTRL_RIGHT, "Right"},
+
+	{VIRTKEY_AXIS_X_MIN, "An.Left"},
+	{VIRTKEY_AXIS_X_MAX, "An.Right"},
+	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
+	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
 };
+
 static int psp_button_names_count = sizeof(psp_button_names) / sizeof(psp_button_names[0]);
 
 static std::string FindName(int key, const KeyMap_IntStrPair list[], int size)
@@ -355,16 +393,78 @@ std::string NamePspButtonFromKey(int deviceId, int key)
 	return GetPspButtonName(KeyToPspButton(deviceId, key));
 }
 
-int SetKeyMapping(int map, int deviceId, int key, int btn)
+void RemoveButtonMapping(int map, int btn) {
+	for (auto iter = controllerMaps[map].keys.begin(); iter != controllerMaps[map].keys.end(); ++iter) 	{
+		if (iter->second == btn) {
+			controllerMaps[map].keys.erase(iter);
+			return;
+		}
+	}
+}
+
+void SetKeyMapping(int map, int deviceId, int key, int btn)
 {
-	if (IsMappedKey(deviceId, key)) {
-		// TODO: Remove the existing mapping instead, less annoying.
-		return KEYMAP_ERROR_KEY_ALREADY_USED;
-	} else {
-		controllerMaps[map].keys[KeyDef(deviceId, key)] = btn;
+	RemoveButtonMapping(map, btn);
+	controllerMaps[map].keys[KeyDef(deviceId, key)] = btn;
+}
+
+
+// TODO: Make the ini format nicer.
+void LoadFromIni(IniFile &file) {
+	if (!file.HasSection("ControlMapping")) {
+		controllerMaps = DefaultKeyMap::KeyMap;
+		return;
 	}
 
-	return btn;
+	controllerMaps.clear();
+
+	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
+	std::vector<std::string> maps;
+	controls->Get("ControllerMaps", maps);
+	if (!maps.size()) {
+		controllerMaps = DefaultKeyMap::KeyMap;
+		return;
+	}
+
+	for (auto x = maps.begin(); x != maps.end(); ++x) {
+		ControllerMap newMap;
+		newMap.name = *x;
+		IniFile::Section *map = file.GetOrCreateSection(newMap.name.c_str());
+		map->Get("Active", &newMap.active, true);
+		std::map<std::string, std::string> strmap = map->ToMap();
+
+		for (auto x = strmap.begin(); x != strmap.end(); ++x) {
+			std::vector<std::string> keyParts;
+			SplitString(x->first, '-', keyParts);
+			if (keyParts.size() != 2) 
+				continue;
+			int deviceId = atoi(keyParts[0].c_str());
+			int keyCode = atoi(keyParts[1].c_str());
+			newMap.keys[KeyDef(deviceId, keyCode)] = atoi(x->second.c_str());
+		}
+		controllerMaps.push_back(newMap);
+	}
+}
+
+void SaveToIni(IniFile &file) {
+	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
+	std::vector<std::string> maps;
+	for (auto x = controllerMaps.begin(); x != controllerMaps.end(); ++x) {
+		maps.push_back(x->name);
+	}
+	controls->Set("ControllerMaps", maps);
+
+	for (auto x = controllerMaps.begin(); x != controllerMaps.end(); ++x) {
+		IniFile::Section *map = file.GetOrCreateSection(x->name.c_str());
+		map->Set("Active", x->active);
+		for (auto iter = x->keys.begin(); iter != x->keys.end(); ++iter) {
+			char key[128];
+			sprintf(key, "%i-%i", iter->first.deviceId, iter->first.keyCode);
+			char value[128];
+			sprintf(value, "%i", iter->second);
+			map->Set(key, value);
+		}
+	}
 }
 
 }  // KeyMap
