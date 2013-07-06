@@ -129,8 +129,8 @@ void Config::Load(const char *iniFileName)
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
 	sound->Get("EnableAtrac3plus", &bEnableAtrac3plus, true);
-	sound->Get("BGMVolume", &iBGMVolume, 8);
-	sound->Get("SEVolume", &iSEVolume, 8);
+	sound->Get("BGMVolume", &iBGMVolume, 4);
+	sound->Get("SEVolume", &iSEVolume, 4);
 	
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowStick", &bShowAnalogStick, false);
