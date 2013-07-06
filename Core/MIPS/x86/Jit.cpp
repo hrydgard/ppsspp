@@ -292,14 +292,17 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		{
 			// TODO: Save/restore?
 			FlushAll();
-			CMP(32, M((void*)&coreState), Imm32(0));
-			FixupBranch skipCheck = J_CC(CC_E);
+			CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
+			FixupBranch skipCheck1 = J_CC(CC_E);
+			CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+			FixupBranch skipCheck2 = J_CC(CC_E);
 			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
 				MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 			else
 				MOV(32, M(&mips_->pc), Imm32(js.compilerPC + 4));
 			WriteSyscallExit();
-			SetJumpTarget(skipCheck);
+			SetJumpTarget(skipCheck1);
+			SetJumpTarget(skipCheck2);
 
 			js.afterOp = JitState::AFTER_NONE;
 		}
@@ -355,11 +358,14 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
-		CMP(32, M((void*)&coreState), Imm32(0));
-		FixupBranch skipCheck = J_CC(CC_E);
+		CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
+		FixupBranch skipCheck1 = J_CC(CC_E);
+		CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		FixupBranch skipCheck2 = J_CC(CC_E);
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
-		SetJumpTarget(skipCheck);
+		SetJumpTarget(skipCheck1);
+		SetJumpTarget(skipCheck2);
 
 		js.afterOp = JitState::AFTER_NONE;
 	}
@@ -392,11 +398,14 @@ void Jit::WriteExitDestInEAX()
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
-		CMP(32, M((void*)&coreState), Imm32(0));
-		FixupBranch skipCheck = J_CC(CC_E);
+		CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
+		FixupBranch skipCheck1 = J_CC(CC_E);
+		CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		FixupBranch skipCheck2 = J_CC(CC_E);
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
-		SetJumpTarget(skipCheck);
+		SetJumpTarget(skipCheck1);
+		SetJumpTarget(skipCheck2);
 
 		js.afterOp = JitState::AFTER_NONE;
 	}
