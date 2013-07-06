@@ -1696,11 +1696,13 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 			int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
 			int numSamples = gotsize / sizeof(s16) / atrac->atracChannels;
 			s16* in = (s16*)buf;
+			int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iBGMVolume);
+			if (volumeShift < 0) volumeShift = 0;
 			for (int i = 0; i < numSamples; i++) {
-				s16 sampleL = *in++ >> (MAX_CONFIG_VOLUME - g_Config.iBGMVolume); // Max = 4 and Min = 0(no shift)
+				s16 sampleL = *in++ >> volumeShift; // Max = 4 and Min = 0(no shift)
 				s16 sampleR = sampleL;
 				if (atrac->atracChannels == 2)
-					sampleR = *in++ >> (MAX_CONFIG_VOLUME - g_Config.iBGMVolume); // Max = 4 and Min = 0(no shift)
+					sampleR = *in++ >> volumeShift; // Max = 4 and Min = 0(no shift)
 				*out++ = sampleL;
 				if (atrac->atracOutputChannels == 2)
 					*out++ = sampleR;
