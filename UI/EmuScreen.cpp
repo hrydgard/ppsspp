@@ -248,13 +248,19 @@ void EmuScreen::axis(const AxisInput &axis) {
 
 	switch (result) {
 	case VIRTKEY_AXIS_X_MIN:
+		analog_[0].x = -fabs(axis.value);
+		break;
+
 	case VIRTKEY_AXIS_X_MAX:
-		analog_[0].x = axis.value;
+		analog_[0].x = fabs(axis.value);
 		break;
 
 	case VIRTKEY_AXIS_Y_MIN:
+		analog_[0].y = -fabs(axis.value);
+		break;
+
 	case VIRTKEY_AXIS_Y_MAX:
-		analog_[0].y = axis.value;
+		analog_[0].y = fabs(axis.value);
 		break;
 
 	// TODO: right stick.
