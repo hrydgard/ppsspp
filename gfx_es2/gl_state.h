@@ -207,6 +207,7 @@ struct GLExtensions {
 	bool EXT_discard_framebuffer;
 	bool FBO_ARB;
 	bool FBO_EXT;
+	bool EXT_swap_control_tear;
 };
 
 extern GLExtensions gl_extensions;

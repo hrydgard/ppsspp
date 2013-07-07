@@ -59,6 +59,13 @@ void CheckGLExtensions() {
 
 	const char *extString = (const char *)glGetString(GL_EXTENSIONS);
 
+#ifdef WIN32
+	const char *wglString = wglGetExtensionsStringEXT();
+	gl_extensions.EXT_swap_control_tear = strstr(wglString, "WGL_EXT_swap_control_tear") != 0;
+#elif !defined(USING_GLES2)
+	// const char *glXString = glXQueryExtensionString();
+	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
+#endif
 	gl_extensions.OES_packed_depth_stencil = strstr(extString, "GL_OES_packed_depth_stencil") != 0;
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
