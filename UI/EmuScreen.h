@@ -51,9 +51,6 @@ private:
 	// For the virtual touch buttons, that currently can't send key events.
 	InputState fakeInputState;
 
-	// Analog is still buffered.
-	struct {float x, y;} analog_[2];
-
 	// To track mappable virtual keys. We can have as many as we want.
 	bool virtKeys[VIRTKEY_COUNT];
 };

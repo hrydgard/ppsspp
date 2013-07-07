@@ -107,7 +107,6 @@ EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
 #endif
-	memset(analog_, 0, sizeof(analog_));
 	memset(&fakeInputState, 0, sizeof(fakeInputState));
 	memset(virtKeys, 0, sizeof(virtKeys));
 }
@@ -204,11 +203,54 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		fbo_unbind();
 		screenManager()->push(new PauseScreen());
 		break;
+
+	case VIRTKEY_AXIS_X_MIN:
+		__CtrlSetAnalogX(-1.0f, CTRL_STICK_LEFT);
+		break;
+	case VIRTKEY_AXIS_X_MAX:
+		__CtrlSetAnalogX(1.0f, CTRL_STICK_LEFT);
+		break;
+	case VIRTKEY_AXIS_Y_MIN:
+		__CtrlSetAnalogY(-1.0f, CTRL_STICK_LEFT);
+		break;
+	case VIRTKEY_AXIS_Y_MAX:
+		__CtrlSetAnalogY(1.0f, CTRL_STICK_LEFT);
+		break;
+
+	case VIRTKEY_AXIS_RIGHT_X_MIN:
+		__CtrlSetAnalogX(-1.0f, CTRL_STICK_RIGHT);
+		break;
+	case VIRTKEY_AXIS_RIGHT_X_MAX:
+		__CtrlSetAnalogX(1.0f, CTRL_STICK_RIGHT);
+		break;
+	case VIRTKEY_AXIS_RIGHT_Y_MIN:
+		__CtrlSetAnalogY(-1.0f, CTRL_STICK_RIGHT);
+		break;
+	case VIRTKEY_AXIS_RIGHT_Y_MAX:
+		__CtrlSetAnalogY(1.0f, CTRL_STICK_RIGHT);
+		break;
 	}
 }
 
 void EmuScreen::onVKeyUp(int virtualKeyCode) {
 	switch (virtualKeyCode) {
+	case VIRTKEY_AXIS_X_MIN:
+	case VIRTKEY_AXIS_X_MAX:
+		__CtrlSetAnalogX(0.0f, CTRL_STICK_LEFT);
+		break;
+	case VIRTKEY_AXIS_Y_MIN:
+	case VIRTKEY_AXIS_Y_MAX:
+		__CtrlSetAnalogY(0.0f, CTRL_STICK_LEFT);
+		break;
+
+	case VIRTKEY_AXIS_RIGHT_X_MIN:
+	case VIRTKEY_AXIS_RIGHT_X_MAX:
+		__CtrlSetAnalogX(0.0f, CTRL_STICK_RIGHT);
+		break;
+	case VIRTKEY_AXIS_RIGHT_Y_MIN:
+	case VIRTKEY_AXIS_RIGHT_Y_MAX:
+		__CtrlSetAnalogY(0.0f, CTRL_STICK_RIGHT);
+		break;
 	default:
 		break;
 	}
@@ -248,35 +290,29 @@ void EmuScreen::axis(const AxisInput &axis) {
 
 	switch (result) {
 	case VIRTKEY_AXIS_X_MIN:
-		analog_[0].x = -fabs(axis.value);
+		__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_LEFT);
 		break;
-
 	case VIRTKEY_AXIS_X_MAX:
-		analog_[0].x = fabs(axis.value);
+		__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_LEFT);
 		break;
-
 	case VIRTKEY_AXIS_Y_MIN:
-		analog_[0].y = -fabs(axis.value);
+		__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_LEFT);
 		break;
-
 	case VIRTKEY_AXIS_Y_MAX:
-		analog_[0].y = fabs(axis.value);
+		__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_LEFT);
 		break;
 
 	case VIRTKEY_AXIS_RIGHT_X_MIN:
-		analog_[1].x = -fabs(axis.value);
+		__CtrlSetAnalogX(-fabs(axis.value), CTRL_STICK_RIGHT);
 		break;
-
 	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		analog_[1].x = fabs(axis.value);
+		__CtrlSetAnalogX(fabs(axis.value), CTRL_STICK_RIGHT);
 		break;
-
 	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-		analog_[1].y = -fabs(axis.value);
+		__CtrlSetAnalogY(-fabs(axis.value), CTRL_STICK_RIGHT);
 		break;
-
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		analog_[1].y = fabs(axis.value);
+		__CtrlSetAnalogY(fabs(axis.value), CTRL_STICK_RIGHT);
 		break;
 
 	default:
@@ -323,20 +359,12 @@ void EmuScreen::update(InputState &input) {
 	if (invalid_)
 		return;
 
-	float leftstick_x = analog_[0].x;
-	float leftstick_y = analog_[0].y;
-	float rightstick_x = analog_[1].x;
-	float rightstick_y = analog_[1].y;
+	float leftstick_x = 0.0f;
+	float leftstick_y = 0.0f;
+	float rightstick_x = 0.0f;
+	float rightstick_y = 0.0f;
 
 	// Virtual keys.
-	if (virtKeys[VIRTKEY_AXIS_X_MIN - VIRTKEY_FIRST])
-		leftstick_x -= 1.0f;
-	if (virtKeys[VIRTKEY_AXIS_X_MAX - VIRTKEY_FIRST])
-		leftstick_x += 1.0f;
-	if (virtKeys[VIRTKEY_AXIS_Y_MIN - VIRTKEY_FIRST])
-		leftstick_y -= 1.0f;
-	if (virtKeys[VIRTKEY_AXIS_Y_MAX - VIRTKEY_FIRST])
-		leftstick_y += 1.0f;
 	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
 	// First translate touches into native pad input.
@@ -374,6 +402,13 @@ void EmuScreen::update(InputState &input) {
 		rightstick_x += fakeInputState.pad_rstick_x;
 		rightstick_y += fakeInputState.pad_rstick_y;
 
+		if (g_Config.bShowAnalogStick) {
+			__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
+			__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
+		}
+		__CtrlSetAnalogX(clamp1(rightstick_x), CTRL_STICK_RIGHT);
+		__CtrlSetAnalogY(clamp1(rightstick_y), CTRL_STICK_RIGHT);
+
 		// Also send the special buttons to input, since that's where they're handled.
 		input.pad_buttons_down |= fakeInputState.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
 		input.pad_buttons_up |= fakeInputState.pad_buttons_up & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
@@ -390,13 +425,8 @@ void EmuScreen::update(InputState &input) {
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// TODO: Deadzone, etc.
 		leftstick_x += clamp1(curve1(input.acc.y) * 2.0f);
-		leftstick_x = clamp1(leftstick_x);
+		__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
 	}
-
-	__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
-	__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
-	__CtrlSetAnalogX(clamp1(rightstick_x), CTRL_STICK_RIGHT);
-	__CtrlSetAnalogY(clamp1(rightstick_y), CTRL_STICK_RIGHT);
 
 	// Make sure fpsLimit starts at 0
 	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1 && PSP_CoreParameter().fpsLimit != 2) {
