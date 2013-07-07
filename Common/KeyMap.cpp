@@ -392,6 +392,11 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
 
+	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
+	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
+	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
+	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
+
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
