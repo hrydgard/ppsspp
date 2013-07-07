@@ -112,6 +112,7 @@ void SymbolMap::ResetSymbolMap()
 #endif
 	entries.clear();
 	uniqueEntries.clear();
+	entryRanges.clear();
 }
 
 
@@ -127,6 +128,7 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 	{
 		entries.push_back(e);
 		uniqueEntries.insert((const MapEntryUniqueInfo)e);
+		entryRanges[e.vaddress + e.size] = e.vaddress;
 	}
 }
 
@@ -193,6 +195,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 			e.UndecorateName();
 			entries.push_back(e);
 			uniqueEntries.insert((const MapEntryUniqueInfo)e);
+			entryRanges[e.vaddress + e.size] = e.vaddress;
 		}
 	}
 	fclose(f);
@@ -236,6 +239,41 @@ int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask) const
 			break;
 	}
 	return -1;
+}
+
+bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask) const
+{
+	// entryRanges is indexed by end.  The first entry after address should contain address.
+	// Otherwise, we have no entry that contains it, unless things overlap (which they shouldn't.)
+	const auto containingEntry = entryRanges.upper_bound(address);
+	if (containingEntry == entryRanges.end())
+		return false;
+
+	// The next most common case is a single symbol by start address.
+	// So we optimize for that by looking in our uniqueEntry set.
+	u32 start_address = containingEntry->second;
+	if (start_address <= address)
+	{
+		const MapEntryUniqueInfo searchKey = {start_address, start_address};
+		const auto entry = uniqueEntries.find(searchKey);
+		if (entry != uniqueEntries.end() && (entry->type & symmask) != 0)
+		{
+			info->address = entry->vaddress;
+			info->size = entry->size;
+			return true;
+		}
+	}
+
+	// Fall back to a slower scan.
+	int n = GetSymbolNum(address, symmask);
+	if (n != -1)
+	{
+		info->address = GetSymbolAddr(n);
+		info->size = GetSymbolSize(n);
+		return true;
+	}
+
+	return false;
 }
 
 const char* SymbolMap::getDirectSymbol(u32 address)
@@ -572,6 +610,7 @@ void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 					addr+=sig->size-4; //don't need to check function interior
 					entries.push_back(e);
 					uniqueEntries.insert((const MapEntryUniqueInfo)e);
+					entryRanges[e.vaddress + e.size] = e.vaddress;
 					break;
 				}
 				sig++;

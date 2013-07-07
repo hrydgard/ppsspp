@@ -20,11 +20,18 @@
 #include "../../Globals.h"
 #include <vector>
 #include <set>
+#include <map>
 
 enum SymbolType
 {
 	ST_FUNCTION=1,
 	ST_DATA=2
+};
+
+struct SymbolInfo
+{
+	u32 address;
+	u32 size;
 };
 
 #ifdef _WIN32
@@ -42,6 +49,7 @@ public:
 	void ResetSymbolMap();
 	void AnalyzeBackwards();
 	int GetSymbolNum(unsigned int address, SymbolType symmask=ST_FUNCTION) const;
+	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;
 	const char *GetDescription(unsigned int address) const;
 #ifdef _WIN32
 	void FillSymbolListBox(HWND listbox, SymbolType symmask=ST_FUNCTION) const;
@@ -96,6 +104,7 @@ private:
 
 	std::set<MapEntryUniqueInfo> uniqueEntries;
 	std::vector<MapEntry> entries;
+	std::map<u32, u32> entryRanges;
 };
 
 extern SymbolMap symbolMap;
