@@ -70,15 +70,13 @@ const unsigned int dinput_ctrl_map_size = sizeof(dinput_ctrl_map) / sizeof(dinpu
 #define JOY_POVBACKWARD_LEFT	JOY_POVBACKWARD + DIFF
 #define JOY_POVLEFT_FORWARD		JOY_POVLEFT + DIFF
 
-struct XINPUT_DEVICE_NODE
-{
+struct XINPUT_DEVICE_NODE {
     DWORD dwVidPid;
     XINPUT_DEVICE_NODE* pNext;
 };
 XINPUT_DEVICE_NODE*     g_pXInputDeviceList = NULL;
 
-bool IsXInputDevice( const GUID* pGuidProductFromDirectInput )
-{
+bool IsXInputDevice( const GUID* pGuidProductFromDirectInput ) {
     XINPUT_DEVICE_NODE* pNode = g_pXInputDeviceList;
     while( pNode )
     {
@@ -90,23 +88,20 @@ bool IsXInputDevice( const GUID* pGuidProductFromDirectInput )
     return false;
 }
 
-DinputDevice::DinputDevice()
-{
+DinputDevice::DinputDevice() {
 	pJoystick = NULL;
 	pDI = NULL;
 
 	if(FAILED(DirectInput8Create(GetModuleHandle(NULL),DIRECTINPUT_VERSION,IID_IDirectInput8,(void**)&pDI,NULL)))
 		return;
 
-	if(FAILED(pDI->CreateDevice(GUID_Joystick, &pJoystick, NULL )))
-	{
+	if(FAILED(pDI->CreateDevice(GUID_Joystick, &pJoystick, NULL ))) {
 		pDI->Release();
 		pDI = NULL;
 		return;
 	}
 
-	if(FAILED(pJoystick->SetDataFormat(&c_dfDIJoystick2)))
-	{
+	if(FAILED(pJoystick->SetDataFormat(&c_dfDIJoystick2))) {
 		pJoystick->Release();
 		pJoystick = NULL;
 		return;
@@ -115,8 +110,7 @@ DinputDevice::DinputDevice()
 	// Ignore if device supports XInput
 	DIDEVICEINSTANCE dinfo = {0};
 	pJoystick->GetDeviceInfo(&dinfo);
-	if (IsXInputDevice(&dinfo.guidProduct))
-	{
+	if (IsXInputDevice(&dinfo.guidProduct))	{
 		pDI->Release();
 		pDI = NULL;
 		pJoystick->Release();
@@ -131,7 +125,7 @@ DinputDevice::DinputDevice()
 	diprg.lMin              = -10000; 
 	diprg.lMax              = 10000;
 
-	analog = FAILED(pJoystick->SetProperty(DIPROP_RANGE, &diprg.diph))?false:true;
+	analog = FAILED(pJoystick->SetProperty(DIPROP_RANGE, &diprg.diph)) ? false : true;
 
 	// Other devices suffer if the deadzone is not set. 
 	// TODO: The dead zone will be made configurable in the Control dialog.
@@ -143,33 +137,28 @@ DinputDevice::DinputDevice()
 	// dwData 1000 is deadzone(0% - 10%)
 	dipw.dwData            = 1000;
 
-	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph))?false:true;
+	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph)) ? false : true;
 }
 
-DinputDevice::~DinputDevice()
-{
-	if (pJoystick)
-	{
+DinputDevice::~DinputDevice() {
+	if (pJoystick) {
 		pJoystick->Release();
 		pJoystick = NULL;
 	}
 
-	if (pDI)
-	{
+	if (pDI) {
 		pDI->Release();
 		pDI = NULL;
 	}
 }
 
-int DinputDevice::UpdateState(InputState &input_state)
-{
+int DinputDevice::UpdateState(InputState &input_state) {
 	if (g_Config.iForceInputDevice == 0) return -1;
 	if (!pJoystick) return -1;
 
 	DIJOYSTATE2 js;
 
-	if (FAILED(pJoystick->Poll()))
-	{
+	if (FAILED(pJoystick->Poll())) {
 		if(pJoystick->Acquire() == DIERR_INPUTLOST)
 			return -1;
 	}
@@ -179,8 +168,7 @@ int DinputDevice::UpdateState(InputState &input_state)
 
 	ApplyButtons(js, input_state);
 
-	if (analog)
-	{
+	if (analog)	{
 		Stick left = NormalizedDeadzoneFilter(js.lX, js.lY);
 		Stick right = NormalizedDeadzoneFilter(js.lZ, js.lRz);
 
@@ -551,23 +539,20 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 	}
 }
 
-int DinputDevice::UpdateRawStateSingle(RawInputState &rawState)
-{
+int DinputDevice::UpdateRawStateSingle(RawInputState &rawState) {
 	if (g_Config.iForceInputDevice == 0) return FALSE;
 	if (!pJoystick) return FALSE;
 
 	DIJOYSTATE2 js;
 
-	if (FAILED(pJoystick->Poll()))
-	{
+	if (FAILED(pJoystick->Poll())) {
 		if(pJoystick->Acquire() == DIERR_INPUTLOST)
 			return FALSE;
 	}
 
 	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
     return -1;
-	switch (js.rgdwPOV[0])
-	{
+	switch (js.rgdwPOV[0]) {
 		case JOY_POVFORWARD:		rawState.button = POV_CODE_UP; return TRUE;
 		case JOY_POVBACKWARD:		rawState.button = POV_CODE_DOWN; return TRUE;
 		case JOY_POVLEFT:			rawState.button = POV_CODE_LEFT; return TRUE;
