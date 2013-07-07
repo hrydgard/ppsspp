@@ -210,7 +210,7 @@ void Config::Save()
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
 		general->Set("MaxRecent", iMaxRecent);
 		general->Set("EnableCheats", bEnableCheats);
-		general->Set("ScreenshotsAsPNG", &bScreenshotsAsPNG);
+		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
