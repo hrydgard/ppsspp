@@ -34,8 +34,9 @@ public:
 	virtual bool IsPad() { return true; }
 	int UpdateRawStateSingle(RawInputState &rawState);
 private:
-	void ApplyButtons(InputState &input_state);
+	void ApplyButtons(DIJOYSTATE2 &state, InputState &input_state);
 	LPDIRECTINPUT8			pDI;
 	LPDIRECTINPUTDEVICE8    pJoystick;
 	bool					analog;
+	DIJOYSTATE2 prevState;
 };

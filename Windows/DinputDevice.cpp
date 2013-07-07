@@ -110,7 +110,7 @@ DinputDevice::DinputDevice()
 		return;
 	}
 
-	// ignore if device suppert XInput
+	// Ignore if device supports XInput
 	DIDEVICEINSTANCE dinfo = {0};
 	pJoystick->GetDeviceInfo(&dinfo);
 	if (IsXInputDevice(&dinfo.guidProduct))
@@ -131,8 +131,8 @@ DinputDevice::DinputDevice()
 
 	analog = FAILED(pJoystick->SetProperty(DIPROP_RANGE, &diprg.diph))?false:true;
 
-	// Other devices suffer If do not set the dead zone. 
-	// TODO: the dead zone will make configurable in the Control dialog.
+	// Other devices suffer if the deadzone is not set. 
+	// TODO: The dead zone will be made configurable in the Control dialog.
 	DIPROPDWORD dipw;
 	dipw.diph.dwSize       = sizeof(DIPROPDWORD);
 	dipw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
@@ -142,7 +142,7 @@ DinputDevice::DinputDevice()
 	dipw.dwData            = 1000;
 
 	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph))?false:true;
-
+	ZeroMemory(&this->prevState, sizeof(prevState));
 }
 
 DinputDevice::~DinputDevice()
@@ -150,22 +150,22 @@ DinputDevice::~DinputDevice()
 	if (pJoystick)
 	{
 		pJoystick->Release();
-		pJoystick= NULL;
+		pJoystick = NULL;
 	}
 
 	if (pDI)
 	{
 		pDI->Release();
-		pDI= NULL;
+		pDI = NULL;
 	}
 }
 
 static inline int getPadCodeFromVirtualPovCode(unsigned int povCode)
 {
 	int mergedCode = 0;
-	for (int i = 0; i < dinput_ctrl_map_size / sizeof(dinput_ctrl_map[0]); i += 2) {
+	for (int i = 0; i < dinput_ctrl_map_size / sizeof(dinput_ctrl_map[0]); i++) {
 		if (dinput_ctrl_map[i].from != 0xFFFFFFFF && dinput_ctrl_map[i].from > 0xFF && dinput_ctrl_map[i].from & povCode)
-			mergedCode |= dinput_ctrl_map[i + 1].from;
+			mergedCode |= dinput_ctrl_map[i].to;
 	}
 	return mergedCode;
 }
@@ -186,7 +186,9 @@ int DinputDevice::UpdateState(InputState &input_state)
 	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
 		return -1;
 
-	switch (js.rgdwPOV[0])
+	this->prevState = js;
+
+	/*switch (js.rgdwPOV[0])
 	{
 		case JOY_POVFORWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_UP); break;
 		case JOY_POVBACKWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_DOWN); break;
@@ -196,7 +198,10 @@ int DinputDevice::UpdateState(InputState &input_state)
 		case JOY_POVRIGHT_BACKWARD:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_RIGHT | POV_CODE_DOWN); break;
 		case JOY_POVBACKWARD_LEFT:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_DOWN | POV_CODE_LEFT); break;
 		case JOY_POVLEFT_FORWARD:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_LEFT | POV_CODE_UP); break;
-	}
+	}*/
+
+
+	ApplyButtons(js, input_state);
 
 	if (analog)
 	{
@@ -227,26 +232,6 @@ int DinputDevice::UpdateState(InputState &input_state)
 		axis.value = right.y;
 		NativeAxis(axis);
 	}
-
-	for (u8 i = 0; i < sizeof(dinput_ctrl_map)/sizeof(dinput_ctrl_map[0]); i += 2)
-	{
-		// DIJOYSTATE2 supported 128 buttons. for exclude the Virtual POV_CODE bit fields.
-		if (dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX && js.rgbButtons[dinput_ctrl_map[i].from] & 0x80)
-		{
-			//input_state.pad_buttons |= dinput_ctrl_map[i].to;
-			KeyInput key;
-			key.deviceId = DEVICE_ID_PAD_0;
-			key.flags = KEY_DOWN;
-			key.keyCode = dinput_ctrl_map[i].to;
-			NativeKey(key);
-
-		}
-	}
-	//u32 downMask = buttons & (~prevState.Gamepad.wButtons);
-	//js.
-	//for(int i = 0; i < dinput_ctrl_map_size; i++) {
-	//	if (
-	//}
 
 	const LONG rthreshold = 8000;
 
@@ -332,8 +317,79 @@ static Stick NormalizedDeadzoneFilter(short x, short y) {
 		return s;
 }
 
-void DinputDevice::ApplyButtons(InputState &input_state) {
+void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
+	BYTE *buttons = state.rgbButtons;
+	u32 downMask = 0x80;
 
+	//switch (state.rgdwPOV[0])
+	//{
+	//	case JOY_POVFORWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_UP); break;
+	//	case JOY_POVBACKWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_DOWN); break;
+	//	case JOY_POVLEFT:			input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_LEFT); break;
+	//	case JOY_POVRIGHT:			input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_RIGHT); break;
+	//	case JOY_POVFORWARD_RIGHT:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_UP | POV_CODE_RIGHT); break;
+	//	case JOY_POVRIGHT_BACKWARD:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_RIGHT | POV_CODE_DOWN); break;
+	//	case JOY_POVBACKWARD_LEFT:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_DOWN | POV_CODE_LEFT); break;
+	//	case JOY_POVLEFT_FORWARD:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_LEFT | POV_CODE_UP); break;
+	//}
+
+	for(u8 i = 0; i < dinput_ctrl_map_size; i++) {
+		if (dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX && (state.rgbButtons[dinput_ctrl_map[i].from] & downMask)) {
+			KeyInput key;
+			key.deviceId = DEVICE_ID_PAD_0;
+			key.flags = KEY_DOWN;
+			key.keyCode = dinput_ctrl_map[i].to;
+			NativeKey(key);
+		}
+
+		if (dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX && (state.rgbButtons[dinput_ctrl_map[i].from] == 0)) {
+			KeyInput key;
+			key.deviceId = DEVICE_ID_PAD_0;
+			key.flags = KEY_UP;
+			key.keyCode = dinput_ctrl_map[i].to;
+			NativeKey(key);
+		}
+
+		if(dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX) {
+			KeyInput key;
+			key.deviceId = DEVICE_ID_PAD_0;
+			//key.flags = KEY_UP;
+			switch(state.rgdwPOV[0]) {
+				case JOY_POVFORWARD:
+					key.keyCode =  KEYCODE_DPAD_UP;
+					key.flags = KEY_DOWN;
+					break;
+				case JOY_POVBACKWARD:
+					key.keyCode = KEYCODE_DPAD_DOWN;
+					key.flags = KEY_DOWN;
+					break;
+				case JOY_POVLEFT:
+					key.keyCode = KEYCODE_DPAD_LEFT;
+					key.flags = KEY_DOWN;
+					break;
+				case JOY_POVRIGHT:	
+					key.keyCode = KEYCODE_DPAD_RIGHT;
+					key.flags = KEY_DOWN;
+					break;
+				default:
+					key.keyCode = KEYCODE_DPAD_UP;
+					key.flags = KEY_UP;
+					NativeKey(key);
+					key.keyCode = KEYCODE_DPAD_DOWN;
+					key.flags = KEY_UP;
+					NativeKey(key);
+					key.keyCode = KEYCODE_DPAD_LEFT;
+					key.flags = KEY_UP;
+					NativeKey(key);
+					key.keyCode = KEYCODE_DPAD_RIGHT;
+					key.flags = KEY_UP;
+					NativeKey(key);
+					break;
+			}
+			
+			NativeKey(key);
+		}
+	}
 }
 
 int DinputDevice::UpdateRawStateSingle(RawInputState &rawState)
