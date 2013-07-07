@@ -83,7 +83,6 @@ extern u8 *m_pUncachedRAM;
 extern u8 *m_pPhysicalVRAM;
 extern u8 *m_pUncachedVRAM;
 
-extern u32 g_MemoryEnd;  // End of PSP Userspace
 extern u32 g_MemorySize; // Replaces RAM_SIZE
 extern u32 g_MemoryMask; // Replaces RAM_MASK
 
@@ -341,11 +340,12 @@ struct PSPPointer
 	}
 };
 
-inline u32 PSP_GetUserMemoryEnd()  { return Memory::g_MemoryEnd;}
+
 inline u32 PSP_GetScratchpadMemoryBase() { return 0x00010000;}
 inline u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
 
 inline u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
+inline u32 PSP_GetUserMemoryEnd()  { return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
 inline u32 PSP_GetKernelMemoryEnd()  { return 0x08400000;} 
 // "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the
 // game through sceKernelVolatileMemTryLock.
