@@ -36,17 +36,17 @@
 
 static const struct {int from, to;} dinput_ctrl_map[] = {
 	{11,             KEYCODE_BUTTON_THUMBR},      // Open PauseScreen
-	{10,             KEYCODE_BACK},               // Toggle PauseScreen & Back Setting Page
-	{1,		         KEYCODE_BUTTON_A },          // Cross    = XBOX-A
-	{2,		         KEYCODE_BUTTON_B },          // Circle   = XBOX-B 
-	{0,		         KEYCODE_BUTTON_X  },         // Square   = XBOX-X
-	{3,		         KEYCODE_BUTTON_Y  },         // Triangle = XBOX-Y
+	{10,             KEYCODE_BUTTON_THUMBL},               // Toggle PauseScreen & Back Setting Page
+	{1,		         KEYCODE_BUTTON_B },          // Cross    = XBOX-A
+	{2,		         KEYCODE_BUTTON_A },          // Circle   = XBOX-B 
+	{0,		         KEYCODE_BUTTON_Y  },         // Square   = XBOX-X
+	{3,		         KEYCODE_BUTTON_X  },         // Triangle = XBOX-Y
 	{8,		         KEYCODE_BUTTON_SELECT},
 	{9,		         KEYCODE_BUTTON_START},
-	{4,		         KEYCODE_BUTTON_L1    },      // LTrigger = XBOX-LBumper
-	{5,		         KEYCODE_BUTTON_R1   },       // RTrigger = XBOX-RBumper
-	{6,              KEYCODE_BUTTON_THUMBL},      // Turbo
-	{7,              KEYCODE_BUTTON_THUMBR },     // Open PauseScreen
+	{4,		         KEYCODE_BUTTON_L2    },      // LTrigger = XBOX-LBumper
+	{5,		         KEYCODE_BUTTON_R2   },       // RTrigger = XBOX-RBumper
+	{6,              KEYCODE_BUTTON_L1},      // Turbo
+	{7,              KEYCODE_BUTTON_R1 },     // Open PauseScreen
 	{POV_CODE_UP,    KEYCODE_DPAD_UP},
 	{POV_CODE_DOWN,  KEYCODE_DPAD_DOWN},
 	{POV_CODE_LEFT,  KEYCODE_DPAD_LEFT},
@@ -253,12 +253,12 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 				input_state.pad_buttons |= PAD_BUTTON_LEFT_THUMB;
 				break;
 			case KEYCODE_BUTTON_THUMBR:
-				input_state.pad_buttons |= PAD_BUTTON_RIGHT_THUMB;
+				input_state.pad_buttons |= PAD_BUTTON_BACK; 
 				break;
-			case KEYCODE_BUTTON_L1:
+			case KEYCODE_BUTTON_L2:
 				input_state.pad_buttons |= PAD_BUTTON_LEFT_TRIGGER;
 				break;
-			case KEYCODE_BUTTON_R1:
+			case KEYCODE_BUTTON_R2:
 				input_state.pad_buttons |= PAD_BUTTON_RIGHT_TRIGGER;
 				break;
 			case KEYCODE_BACK:
@@ -380,12 +380,12 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 			}
 			if (state.lZ > rthreshold) {
 				RAS.flags = KEY_DOWN;
-				RAS.keyCode = KEYCODE_DPAD_UP;
+				RAS.keyCode = KEYCODE_DPAD_DOWN;
 				NativeKey(RAS);
 			}
 			else if (state.lZ < -rthreshold) {
 				RAS.flags = KEY_DOWN;
-				RAS.keyCode = KEYCODE_DPAD_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_UP;
 				NativeKey(RAS);
 			}
 		}
@@ -534,12 +534,12 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 		if(!g_Config.iSwapRightAxes) {
 			if (state.lRz >  rthreshold) {
 				RAS.flags = KEY_DOWN;
-				RAS.keyCode = KEYCODE_DPAD_LEFT;
+				RAS.keyCode = KEYCODE_DPAD_RIGHT;
 				NativeKey(RAS);
 			}
 			else if (state.lRz < -rthreshold) {
 				RAS.flags = KEY_DOWN;
-				RAS.keyCode = KEYCODE_DPAD_RIGHT;
+				RAS.keyCode = KEYCODE_DPAD_LEFT;
 				NativeKey(RAS);
 			}
 		}
