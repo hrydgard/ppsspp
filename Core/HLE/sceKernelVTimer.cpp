@@ -441,5 +441,5 @@ u32 sceKernelReferVTimerStatus(u32 uid, u32 statusAddr) {
 
 // Not sure why this is exposed...
 void _sceKernelReturnFromTimerHandler() {
-	ERROR_LOG(HLE,"_sceKernelReturnFromTimerHandler - should not be called!");
+	ERROR_LOG_REPORT(HLE,"_sceKernelReturnFromTimerHandler - should not be called!");
 }

@@ -41,7 +41,7 @@
 typedef struct
 {
 	WaitType type;
-	char* name;
+	const char *name;
 } WaitTypeNames;
 
 const WaitTypeNames waitTypeNames[] = {
@@ -68,7 +68,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_HLEDELAY,		"HleDelay" }
 };
 
-char* getWaitTypeName(WaitType type)
+const char *getWaitTypeName(WaitType type)
 {
 	int waitTypeNamesAmount = sizeof(waitTypeNames)/sizeof(WaitTypeNames);
 
