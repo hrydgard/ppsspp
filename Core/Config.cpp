@@ -144,7 +144,6 @@ void Config::Load(const char *iniFileName)
 	control->Get("LargeControls", &bLargeControls, false);
 	// control->Get("KeyMapping",iMappingMap);
 	control->Get("AccelerometerToAnalogHoriz", &bAccelerometerToAnalogHoriz, false);
-	control->Get("ForceInputDevice", &iForceInputDevice, -1);
 	control->Get("RightStickBind", &iRightStickBind, 0);
 	control->Get("SwapDInputRightAxes", &iSwapRightAxes, 0);
 	control->Get("TouchButtonOpacity", &iTouchButtonOpacity, 65);
@@ -258,7 +257,6 @@ void Config::Save()
 		control->Set("LargeControls", bLargeControls);
 		// control->Set("KeyMapping",iMappingMap);
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
-		control->Set("ForceInputDevice", iForceInputDevice);
 		control->Set("RightStickBind", iRightStickBind);
 		control->Set("SwapDInputRightAxes", iSwapRightAxes);
 		control->Set("TouchButtonOpacity", iTouchButtonOpacity);
