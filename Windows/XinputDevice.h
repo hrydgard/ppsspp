@@ -2,8 +2,6 @@
 #include "InputDevice.h"
 #include "Xinput.h"
 
-struct RawInputState;
-
 class XinputDevice :
 	public InputDevice
 {

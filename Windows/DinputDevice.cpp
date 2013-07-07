@@ -23,6 +23,8 @@
 #include "ControlMapping.h"
 #include "Core/Config.h"
 #include "input/input_state.h"
+#include "base/NativeApp.h"
+#include"input/keycodes.h"
 #include "Core/Reporting.h"
 #include "Xinput.h"
 #pragma comment(lib,"dinput8.lib")
@@ -32,26 +34,29 @@
 #undef max
 #endif
 
-unsigned int dinput_ctrl_map[] = {
-	11,     PAD_BUTTON_MENU,         // Open PauseScreen
-	10,     PAD_BUTTON_BACK,         // Toggle PauseScreen & Back Setting Page
-	1,		PAD_BUTTON_A,            // Cross    = XBOX-A
-	2,		PAD_BUTTON_B,            // Circle   = XBOX-B 
-	0,		PAD_BUTTON_X,            // Square   = XBOX-X
-	3,		PAD_BUTTON_Y,            // Triangle = XBOX-Y
-	8,		PAD_BUTTON_SELECT,
-	9,		PAD_BUTTON_START,
-	4,		PAD_BUTTON_LBUMPER,      // LTrigger = XBOX-LBumper
-	5,		PAD_BUTTON_RBUMPER,      // RTrigger = XBOX-RBumper
-	6,      PAD_BUTTON_LEFT_THUMB,   // Turbo
-	7,      PAD_BUTTON_RIGHT_THUMB,  // Open PauseScreen
-	POV_CODE_UP, PAD_BUTTON_UP,
-	POV_CODE_DOWN, PAD_BUTTON_DOWN,
-	POV_CODE_LEFT, PAD_BUTTON_LEFT,
-	POV_CODE_RIGHT, PAD_BUTTON_RIGHT,
+// In order from 0.  There can be 128, but most controllers do not have that many.
+static const int dinput_buttons[] = {
+	KEYCODE_BUTTON_Y,
+	KEYCODE_BUTTON_A,
+	KEYCODE_BUTTON_B,
+	KEYCODE_BUTTON_X,
+	KEYCODE_BUTTON_L2,
+	KEYCODE_BUTTON_R2,
+	KEYCODE_BUTTON_L1,
+	KEYCODE_BUTTON_R1,
+	KEYCODE_BUTTON_SELECT,
+	KEYCODE_BUTTON_START,
+	KEYCODE_BUTTON_THUMBL,
+	KEYCODE_BUTTON_THUMBR,
+	KEYCODE_BUTTON_Z,
 };
 
-const unsigned int dinput_ctrl_map_size = sizeof(dinput_ctrl_map);
+struct Stick {
+	float x;
+	float y;
+};
+
+static Stick NormalizedDeadzoneFilter(short x, short y);
 
 #define DIFF  (JOY_POVRIGHT - JOY_POVFORWARD) / 2
 #define JOY_POVFORWARD_RIGHT	JOY_POVFORWARD + DIFF
@@ -59,15 +64,13 @@ const unsigned int dinput_ctrl_map_size = sizeof(dinput_ctrl_map);
 #define JOY_POVBACKWARD_LEFT	JOY_POVBACKWARD + DIFF
 #define JOY_POVLEFT_FORWARD		JOY_POVLEFT + DIFF
 
-struct XINPUT_DEVICE_NODE
-{
+struct XINPUT_DEVICE_NODE {
     DWORD dwVidPid;
     XINPUT_DEVICE_NODE* pNext;
 };
 XINPUT_DEVICE_NODE*     g_pXInputDeviceList = NULL;
 
-bool IsXInputDevice( const GUID* pGuidProductFromDirectInput )
-{
+bool IsXInputDevice( const GUID* pGuidProductFromDirectInput ) {
     XINPUT_DEVICE_NODE* pNode = g_pXInputDeviceList;
     while( pNode )
     {
@@ -79,33 +82,31 @@ bool IsXInputDevice( const GUID* pGuidProductFromDirectInput )
     return false;
 }
 
-DinputDevice::DinputDevice()
-{
+DinputDevice::DinputDevice() {
 	pJoystick = NULL;
 	pDI = NULL;
+	memset(lastButtons_, 0, sizeof(lastButtons_));
+	memset(lastPOV_, 0, sizeof(lastPOV_));
 
 	if(FAILED(DirectInput8Create(GetModuleHandle(NULL),DIRECTINPUT_VERSION,IID_IDirectInput8,(void**)&pDI,NULL)))
 		return;
 
-	if(FAILED(pDI->CreateDevice(GUID_Joystick, &pJoystick, NULL )))
-	{
+	if(FAILED(pDI->CreateDevice(GUID_Joystick, &pJoystick, NULL ))) {
 		pDI->Release();
 		pDI = NULL;
 		return;
 	}
 
-	if(FAILED(pJoystick->SetDataFormat(&c_dfDIJoystick2)))
-	{
+	if(FAILED(pJoystick->SetDataFormat(&c_dfDIJoystick2))) {
 		pJoystick->Release();
 		pJoystick = NULL;
 		return;
 	}
 
-	// ignore if device suppert XInput
+	// Ignore if device supports XInput
 	DIDEVICEINSTANCE dinfo = {0};
 	pJoystick->GetDeviceInfo(&dinfo);
-	if (IsXInputDevice(&dinfo.guidProduct))
-	{
+	if (IsXInputDevice(&dinfo.guidProduct))	{
 		pDI->Release();
 		pDI = NULL;
 		pJoystick->Release();
@@ -120,10 +121,10 @@ DinputDevice::DinputDevice()
 	diprg.lMin              = -10000; 
 	diprg.lMax              = 10000;
 
-	analog = FAILED(pJoystick->SetProperty(DIPROP_RANGE, &diprg.diph))?false:true;
+	analog = FAILED(pJoystick->SetProperty(DIPROP_RANGE, &diprg.diph)) ? false : true;
 
-	// Other devices suffer If do not set the dead zone. 
-	// TODO: the dead zone will make configurable in the Control dialog.
+	// Other devices suffer if the deadzone is not set. 
+	// TODO: The dead zone will be made configurable in the Control dialog.
 	DIPROPDWORD dipw;
 	dipw.diph.dwSize       = sizeof(DIPROPDWORD);
 	dipw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
@@ -132,184 +133,334 @@ DinputDevice::DinputDevice()
 	// dwData 1000 is deadzone(0% - 10%)
 	dipw.dwData            = 1000;
 
-	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph))?false:true;
-
+	analog |= FAILED(pJoystick->SetProperty(DIPROP_DEADZONE, &dipw.diph)) ? false : true;
 }
 
-DinputDevice::~DinputDevice()
-{
-	if (pJoystick)
-	{
+DinputDevice::~DinputDevice() {
+	if (pJoystick) {
 		pJoystick->Release();
-		pJoystick= NULL;
+		pJoystick = NULL;
 	}
 
-	if (pDI)
-	{
+	if (pDI) {
 		pDI->Release();
-		pDI= NULL;
+		pDI = NULL;
 	}
 }
 
-static inline int getPadCodeFromVirtualPovCode(unsigned int povCode)
-{
-	int mergedCode = 0;
-	for (int i = 0; i < dinput_ctrl_map_size / sizeof(dinput_ctrl_map[0]); i += 2) {
-		if (dinput_ctrl_map[i] != 0xFFFFFFFF && dinput_ctrl_map[i] > 0xFF && dinput_ctrl_map[i] & povCode)
-			mergedCode |= dinput_ctrl_map[i + 1];
-	}
-	return mergedCode;
-}
-
-int DinputDevice::UpdateState(InputState &input_state)
-{
-	if (g_Config.iForceInputDevice == 0) return -1;
+int DinputDevice::UpdateState(InputState &input_state) {
 	if (!pJoystick) return -1;
 
 	DIJOYSTATE2 js;
 
-	if (FAILED(pJoystick->Poll()))
-	{
+	if (FAILED(pJoystick->Poll())) {
 		if(pJoystick->Acquire() == DIERR_INPUTLOST)
 			return -1;
 	}
 
 	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
-    return -1;
-	switch (js.rgdwPOV[0])
-	{
-		case JOY_POVFORWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_UP); break;
-		case JOY_POVBACKWARD:		input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_DOWN); break;
-		case JOY_POVLEFT:			input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_LEFT); break;
-		case JOY_POVRIGHT:			input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_RIGHT); break;
-		case JOY_POVFORWARD_RIGHT:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_UP | POV_CODE_RIGHT); break;
-		case JOY_POVRIGHT_BACKWARD:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_RIGHT | POV_CODE_DOWN); break;
-		case JOY_POVBACKWARD_LEFT:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_DOWN | POV_CODE_LEFT); break;
-		case JOY_POVLEFT_FORWARD:	input_state.pad_buttons |= getPadCodeFromVirtualPovCode(POV_CODE_LEFT | POV_CODE_UP); break;
-	}
+		return -1;
 
-	if (analog)
-	{
-		float x = (float)js.lX / 10000.f;
-		float y = -((float)js.lY / 10000.f);
+	ApplyButtons(js, input_state);
 
-		// Expand and clamp. Hack to let us reach the corners on most pads.
-		x = std::min(1.0f, std::max(-1.0f, x * 1.2f));
-		y = std::min(1.0f, std::max(-1.0f, y * 1.2f));
+	if (analog)	{
+		Stick left = NormalizedDeadzoneFilter(js.lX, js.lY);
+		Stick right = NormalizedDeadzoneFilter(js.lZ, js.lRz);
 
-		input_state.pad_lstick_x += x;
-		input_state.pad_lstick_y += y;
-	}
+		input_state.pad_lstick_x += left.x;
+		input_state.pad_lstick_y += left.y;
+		input_state.pad_rstick_x += right.x;
+		input_state.pad_rstick_y += right.y;
 
-	for (u8 i = 0; i < sizeof(dinput_ctrl_map)/sizeof(dinput_ctrl_map[0]); i += 2)
-	{
-		// DIJOYSTATE2 supported 128 buttons. for exclude the Virtual POV_CODE bit fields.
-		if (dinput_ctrl_map[i] < DIRECTINPUT_RGBBUTTONS_MAX && js.rgbButtons[dinput_ctrl_map[i]] & 0x80)
-		{
-			input_state.pad_buttons |= dinput_ctrl_map[i+1];
-		}
-	}
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_PAD_0;
 
-	const LONG rthreshold = 8000;
+		axis.axisId = JOYSTICK_AXIS_X;
+		axis.value = left.x;
+		NativeAxis(axis);
 
-	switch (g_Config.iRightStickBind) {
-	case 0:
-		break;
-	case 1:
-		if(!g_Config.iSwapRightAxes) {
-			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
-			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
-			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
-			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
-		}
-		else {
-			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
-			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
-			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_UP;
-			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_DOWN;
-		}
-		break;
-	case 2:
-		if(!g_Config.iSwapRightAxes) {
-			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
-			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
-			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
-			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
-		}
-		else {
-			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_B;
-			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_X;
-			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
-			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
-		}
-		break;
-	case 3:
-		if(!g_Config.iSwapRightAxes) {
-			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
-			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
-		}
-		else {
-			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
-			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
-		}
-		break;
-	case 4:
-		if(!g_Config.iSwapRightAxes) {
-			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
-			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
-			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
-			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
-		}
-		else {
-			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RBUMPER;
-			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LBUMPER;
-			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_Y;
-			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_A;
-		}
-		break;
-	case 5:
-		if(!g_Config.iSwapRightAxes) {
-			if      (js.lRz >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
-			else if (js.lRz < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
-		}
-		else {
-			if      (js.lZ >  rthreshold) input_state.pad_buttons |= PAD_BUTTON_RIGHT;
-			else if (js.lZ < -rthreshold) input_state.pad_buttons |= PAD_BUTTON_LEFT;
-		}
-		break;
+		axis.axisId = JOYSTICK_AXIS_Y;
+		axis.value = left.y;
+		NativeAxis(axis);
+
+		axis.axisId = JOYSTICK_AXIS_Z;
+		axis.value = right.x;
+		NativeAxis(axis);
+
+		axis.axisId = JOYSTICK_AXIS_RZ;
+		axis.value = right.y;
+		NativeAxis(axis);
 	}
 
 	return UPDATESTATE_SKIP_PAD;
 }
 
-int DinputDevice::UpdateRawStateSingle(RawInputState &rawState)
-{
-	if (g_Config.iForceInputDevice == 0) return FALSE;
-	if (!pJoystick) return FALSE;
+static Stick NormalizedDeadzoneFilter(short x, short y) {
+		Stick s;
+		s.x = (float)x / 10000.f;
+		s.y = -((float)y / 10000.f);
 
-	DIJOYSTATE2 js;
+		// Expand and clamp. Hack to let us reach the corners on most pads.
+		s.x = std::min(1.0f, std::max(-1.0f, s.x * 1.2f));
+		s.y = std::min(1.0f, std::max(-1.0f, s.y * 1.2f));
 
-	if (FAILED(pJoystick->Poll()))
-	{
-		if(pJoystick->Acquire() == DIERR_INPUTLOST)
-			return FALSE;
-	}
-
-	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
-    return -1;
-	switch (js.rgdwPOV[0])
-	{
-		case JOY_POVFORWARD:		rawState.button = POV_CODE_UP; return TRUE;
-		case JOY_POVBACKWARD:		rawState.button = POV_CODE_DOWN; return TRUE;
-		case JOY_POVLEFT:			rawState.button = POV_CODE_LEFT; return TRUE;
-		case JOY_POVRIGHT:			rawState.button = POV_CODE_RIGHT; return TRUE;
-	}
-
-	for (int i = 0; i < DIRECTINPUT_RGBBUTTONS_MAX; i++) {
-		if (js.rgbButtons[i] & 0x80) {
-			rawState.button = i;
-			return TRUE;
-		}
-	}
-	return FALSE;
+		return s;
 }
+
+void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
+	BYTE *buttons = state.rgbButtons;
+	u32 downMask = 0x80;
+
+	for (int i = 0; i < ARRAY_SIZE(dinput_buttons); ++i) {
+		if (state.rgbButtons[i] == lastButtons_[i]) {
+			continue;
+		}
+
+		bool down = (state.rgbButtons[i] & downMask) == downMask;
+		KeyInput key;
+		key.deviceId = DEVICE_ID_PAD_0;
+		key.flags = down ? KEY_DOWN : KEY_UP;
+		key.keyCode = dinput_buttons[i];
+		NativeKey(key);
+
+		lastButtons_[i] = state.rgbButtons[i];
+	}
+
+	// Now the POV hat, which can technically go in any degree but usually does not.
+	if (LOWORD(state.rgdwPOV[0]) != lastPOV_[0]) {
+		KeyInput dpad[4];
+		for (int i = 0; i < 4; ++i) {
+			dpad[i].deviceId = DEVICE_ID_PAD_0;
+			dpad[i].flags = KEY_UP;
+		}
+		dpad[0].keyCode = KEYCODE_DPAD_UP;
+		dpad[1].keyCode = KEYCODE_DPAD_LEFT;
+		dpad[2].keyCode = KEYCODE_DPAD_DOWN;
+		dpad[3].keyCode = KEYCODE_DPAD_RIGHT;
+
+		if (LOWORD(state.rgdwPOV[0]) != JOY_POVCENTERED) {
+			// These are the edges, so we use or.
+			if (state.rgdwPOV[0] >= JOY_POVLEFT_FORWARD || state.rgdwPOV[0] <= JOY_POVFORWARD_RIGHT) {
+				dpad[0].flags = KEY_DOWN;
+			}
+			if (state.rgdwPOV[0] >= JOY_POVBACKWARD_LEFT && state.rgdwPOV[0] <= JOY_POVLEFT_FORWARD) {
+				dpad[1].flags = KEY_DOWN;
+			}
+			if (state.rgdwPOV[0] >= JOY_POVRIGHT_BACKWARD && state.rgdwPOV[0] <= JOY_POVBACKWARD_LEFT) {
+				dpad[2].flags = KEY_DOWN;
+			}
+			if (state.rgdwPOV[0] >= JOY_POVFORWARD_RIGHT && state.rgdwPOV[0] <= JOY_POVRIGHT_BACKWARD) {
+				dpad[3].flags = KEY_DOWN;
+			}
+		}
+
+		NativeKey(dpad[0]);
+		NativeKey(dpad[1]);
+		NativeKey(dpad[2]);
+		NativeKey(dpad[3]);
+
+		lastPOV_[0] = LOWORD(state.rgdwPOV[0]);
+	}
+
+	// TODO: Remove this once proper analog stick
+	// binding is implemented.
+	const LONG rthreshold = 8000;
+
+	KeyInput RAS;
+	RAS.deviceId = DEVICE_ID_PAD_0;
+	switch (g_Config.iRightStickBind) {
+	case 0:
+		break;
+	case 1:
+		if(!g_Config.iSwapRightAxes) {
+			if (state.lRz > rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_RIGHT;
+				NativeKey(RAS);
+			}
+			else if (state.lRz < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_LEFT;
+				NativeKey(RAS);
+			}
+			if (state.lZ > rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_DOWN;
+				NativeKey(RAS);
+			}
+			else if (state.lZ < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_UP;
+				NativeKey(RAS);
+			}
+		}
+		else {
+			if (state.lX >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_RIGHT;
+				NativeKey(RAS);
+			}
+			else if (state.lZ < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_LEFT;
+				NativeKey(RAS);
+			}
+			if (state.lRz >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_UP;
+				NativeKey(RAS);
+			}
+			else if (state.lRz < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_DOWN;
+				NativeKey(RAS);
+			}
+		}
+		break;
+	case 2:
+		if(!g_Config.iSwapRightAxes) {
+			if (state.lRz > rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_B;
+				NativeKey(RAS);
+			}
+			else if (state.lRz < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_X;
+				NativeKey(RAS);
+			}
+			if (state.lZ > rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_Y;
+				NativeKey(RAS);
+			}
+			else if (state.lZ < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_A;
+				NativeKey(RAS);
+			}
+		}
+		else {
+			if (state.lZ >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_B;
+				NativeKey(RAS);
+			}
+			else if (state.lZ < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_X;
+				NativeKey(RAS);
+			}
+			if (state.lRz >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_Y;
+				NativeKey(RAS);
+			}
+			else if (state.lRz < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = RAS.keyCode = KEYCODE_BUTTON_A;
+				NativeKey(RAS);
+			}
+		}
+		break;
+	case 3:
+		if(!g_Config.iSwapRightAxes) {
+			if (state.lRz >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_R1;
+				NativeKey(RAS);
+			}
+			else if (state.lRz < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_L1;
+				NativeKey(RAS);
+			}
+		}
+		else {
+			if (state.lZ >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_R1;
+				NativeKey(RAS);
+			}
+			else if (state.lZ < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_L1;
+				NativeKey(RAS);
+			}
+		}
+		break;
+	case 4:
+		if(!g_Config.iSwapRightAxes) {
+			if (state.lRz > rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_R1;
+				NativeKey(RAS);
+			}
+			else if (state.lRz < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_L1;
+				NativeKey(RAS);
+			}
+			if (state.lZ > rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_Y;
+				NativeKey(RAS);
+			}
+			else if (state.lZ < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_A;
+				NativeKey(RAS);
+			}
+		}
+		else {
+			if (state.lZ >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_R1;
+				NativeKey(RAS);
+			}
+			else if (state.lZ < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_L1;
+				NativeKey(RAS);
+			}
+			if (state.lRz >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_BUTTON_Y;
+				NativeKey(RAS);
+			}
+			else if (state.lRz < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = RAS.keyCode = KEYCODE_BUTTON_A;
+				NativeKey(RAS);
+			}
+		}
+		break;
+	case 5:
+		if(!g_Config.iSwapRightAxes) {
+			if (state.lRz >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_RIGHT;
+				NativeKey(RAS);
+			}
+			else if (state.lRz < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_LEFT;
+				NativeKey(RAS);
+			}
+		}
+		else {
+			if (state.lZ >  rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_LEFT;
+				NativeKey(RAS);
+			}
+			else if (state.lZ < -rthreshold) {
+				RAS.flags = KEY_DOWN;
+				RAS.keyCode = KEYCODE_DPAD_RIGHT;
+				NativeKey(RAS);
+			}
+		}
+		break;
+	}
+}
+

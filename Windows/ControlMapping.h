@@ -19,26 +19,6 @@
 
 #include "InputDevice.h"
 
-struct RawInputState
-{
-	UINT button;
-	UINT prevButton;
-	RawInputState() {
-		button = 0;
-		prevButton = 0;
-	}
-};
-
-#define POV_CODE_UP 0x0100
-#define POV_CODE_DOWN 0x0200
-#define POV_CODE_LEFT 0x0400
-#define POV_CODE_RIGHT 0x0800
 #define XBOX_CODE_LEFTTRIGGER  0x00010000
 #define XBOX_CODE_RIGHTTRIGGER 0x00020000
-
-#define CONTROLS_KEYBOARD_INDEX        0
-#define CONTROLS_DIRECT_INPUT_INDEX    1
-#define CONTROLS_XINPUT_INDEX          2
-#define CONTROLS_KEYBOARD_ANALOG_INDEX 3
-#define CONTROLS_DEVICE_NUM            4
 
