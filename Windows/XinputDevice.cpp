@@ -180,8 +180,8 @@ void XinputDevice::ApplyButtons(XINPUT_STATE &state, InputState &input_state) {
 		break;
 	}
 
-	u32 downMask = buttons & (~prevState.Gamepad.wButtons);
-	u32 upMask = (~buttons) & prevState.Gamepad.wButtons;
+	u32 downMask = buttons & (~prevButtons);
+	u32 upMask = (~buttons) & prevButtons;
 	prevButtons = buttons;
 	
 	for (int i = 0; i < xinput_ctrl_map_size; i++) {

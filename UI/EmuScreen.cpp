@@ -183,9 +183,29 @@ void EmuScreen::touch(const TouchInput &touch) {
 }
 
 void EmuScreen::onVKeyDown(int virtualKeyCode) {
+	I18NCategory *s = GetI18NCategory("Screen"); 
+
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
 		PSP_CoreParameter().unthrottle = true;
+		break;
+	case VIRTKEY_SPEED_TOGGLE:
+		if (PSP_CoreParameter().fpsLimit == 0) {
+			PSP_CoreParameter().fpsLimit = 1;
+			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
+		}
+		else if (PSP_CoreParameter().fpsLimit == 1) {
+			PSP_CoreParameter().fpsLimit = 2;
+			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
+		}
+		else if (PSP_CoreParameter().fpsLimit == 2) {
+			PSP_CoreParameter().fpsLimit = 0;
+			osm.Show(s->T("standard", "Speed: standard"), 1.0);
+		}
+		break;
+	case VIRTKEY_PAUSE:
+		fbo_unbind();
+		screenManager()->push(new PauseScreen());
 		break;
 	}
 }
@@ -320,8 +340,6 @@ void EmuScreen::update(InputState &input) {
 	}
 #endif
 
-	I18NCategory *s = GetI18NCategory("Screen"); 
-
 	// Apply tilt to left stick
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// TODO: Deadzone, etc.
@@ -339,23 +357,8 @@ void EmuScreen::update(InputState &input) {
 		PSP_CoreParameter().fpsLimit = 0;
 	}
 
-	//Toggle between 3 different states of fpsLimit
-	if (input.pad_buttons_down & PAD_BUTTON_LEFT_THUMB) {
-		if (PSP_CoreParameter().fpsLimit == 0) {
-			PSP_CoreParameter().fpsLimit = 1;
-			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
-		}
-		else if (PSP_CoreParameter().fpsLimit == 1) {
-			PSP_CoreParameter().fpsLimit = 2;
-			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
-		}
-		else if (PSP_CoreParameter().fpsLimit == 2) {
-			PSP_CoreParameter().fpsLimit = 0;
-			osm.Show(s->T("standard", "Speed: standard"), 1.0);
-		}
-	}
-
-	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB)) {
+	// This is still here to support the iOS on screen back button.
+	if (input.pad_buttons_down & (PAD_BUTTON_BACK)) {
 		fbo_unbind();
 		screenManager()->push(new PauseScreen());
 	}

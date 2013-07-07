@@ -49,6 +49,8 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_L)] = VIRTKEY_AXIS_X_MAX;
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_SHIFT_LEFT)] = VIRTKEY_RAPID_FIRE;
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_TAB)] = VIRTKEY_UNTHROTTLE;
+		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_F3)] = VIRTKEY_SPEED_TOGGLE;
+		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_ESCAPE)] = VIRTKEY_PAUSE;
 		return m;
 	}
 
@@ -68,6 +70,8 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_L1)] = CTRL_LTRIGGER;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_R1)] = CTRL_RTRIGGER;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_R2)] = VIRTKEY_UNTHROTTLE;
+		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_THUMBR)] = VIRTKEY_PAUSE;
+		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_L2)] = VIRTKEY_SPEED_TOGGLE;
 		return m;
 	}
 
@@ -242,6 +246,7 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_DEL, "Del"},
 	{KEYCODE_MOVE_HOME, "Home"},
 	{KEYCODE_MOVE_END, "End"},
+	{KEYCODE_ESCAPE, "Esc"},
 
 	{KEYCODE_VOLUME_UP, "Vol +"},
 	{KEYCODE_VOLUME_DOWN, "Vol -"},
@@ -317,6 +322,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
+	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
+	{VIRTKEY_PAUSE, "Pause"},
 };
 
 static int psp_button_names_count = sizeof(psp_button_names) / sizeof(psp_button_names[0]);

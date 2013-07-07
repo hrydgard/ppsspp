@@ -1621,7 +1621,11 @@ void KeyMappingScreen::render() {
 	top = 10;
 	left = 750;
 	KeyBtn(left, top, VIRTKEY_UNTHROTTLE);
-	top += 150;
+	top += 100;
+	KeyBtn(left, top, VIRTKEY_SPEED_TOGGLE);
+	top += 100;
+	KeyBtn(left, top, VIRTKEY_PAUSE);
+	top += 100;
 	KeyBtn(left, top, VIRTKEY_RAPID_FIRE);
 #undef KeyBtn
 

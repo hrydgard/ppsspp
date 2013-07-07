@@ -10,13 +10,6 @@
 #include "../Core/HLE/sceCtrl.h"
 #include "WinUser.h"
 
-// TODO: remove. almost not used.
-static unsigned int key_pad_map[] = {
-	VK_ESCAPE,PAD_BUTTON_MENU,        // Open PauseScreen
-	VK_BACK,  PAD_BUTTON_BACK,        // Toggle PauseScreen & Back Setting Page
-	VK_F3,    PAD_BUTTON_LEFT_THUMB,  // Toggle Turbo
-	VK_PAUSE, PAD_BUTTON_RIGHT_THUMB, // Open PauseScreen
-};
 
 // TODO: More keys need to be added, but this is more than
 // a fair start.
@@ -116,23 +109,6 @@ std::map<int, int> windowsTransTable = InitConstMap<int, int>
 	(VK_RETURN, KEYCODE_ENTER);
 
 int KeyboardDevice::UpdateState(InputState &input_state) {
-	if (MainWindow::GetHWND() != GetForegroundWindow()) return -1;
-
-	// TODO: remove
-	for (int i = 0; i < sizeof(key_pad_map)/sizeof(key_pad_map[0]); i += 2) {
-		if (!GetAsyncKeyState(key_pad_map[i])) {
-			continue;
-		}
-
-		switch (key_pad_map[i + 1]) {
-			case PAD_BUTTON_MENU:
-			case PAD_BUTTON_BACK:
-			case PAD_BUTTON_LEFT_THUMB:
-			case PAD_BUTTON_RIGHT_THUMB:
-				input_state.pad_buttons |= key_pad_map[i + 1];
-				break;
-		}
-	}
-	
+	// Nothing to do, all done in WM_INPUT
 	return 0;
 }
