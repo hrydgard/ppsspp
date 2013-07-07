@@ -24,7 +24,7 @@ extern "C"
 {
 #include "zlib.h"
 #include "ext/libkirk/amctrl.h"
-
+#include "ext/libkirk/kirk_engine.h"
 };
 
 BlockDevice *constructBlockDevice(const char *filename) {
@@ -221,6 +221,8 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FILE *file)
 	if(readSize!=256){
 		ERROR_LOG(LOADER, "Invalid NPUMDIMG header!");
 	}
+
+	kirk_init();
 
 	// getkey
 	sceDrmBBMacInit(&mkey, 3);
