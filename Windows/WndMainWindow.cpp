@@ -85,18 +85,23 @@ namespace MainWindow
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
-	HWND GetHWND()
-	{
+	HWND GetHWND() {
 		return hwndMain;
 	}
 
-	HWND GetDisplayHWND()
-	{
+	HWND GetDisplayHWND() {
 		return hwndDisplay;
 	}
 
-	void Init(HINSTANCE hInstance)
-	{
+	void SendCheckedNativeKey(KeyInput &key, int vKey) {
+		key.keyCode = windowsTransTable[(int)vKey];
+		if (key.keyCode) {
+			key.flags = GetAsyncKeyState(vKey) ? KEY_DOWN : KEY_UP;
+			NativeKey(key);
+		}
+	}
+
+	void Init(HINSTANCE hInstance) {
 #ifdef THEMES
 		WTL::CTheme::IsThemingSupported();
 #endif
@@ -785,7 +790,7 @@ namespace MainWindow
 				ShellExecute(NULL, "open", "http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
 				break;
 
-      case ID_HELP_ABOUT:
+			case ID_HELP_ABOUT:
 				DialogManager::EnableAll(FALSE);
 				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
 				DialogManager::EnableAll(TRUE);
@@ -806,9 +811,25 @@ namespace MainWindow
 				KeyInput key;
 				key.deviceId = DEVICE_ID_KEYBOARD;
 				key.flags = KEY_DOWN;
-				key.keyCode = windowsTransTable[(int)wParam];
-				if (key.keyCode)
-					NativeKey(key);
+				switch ((int)wParam) {
+				case VK_SHIFT:
+					SendCheckedNativeKey(key, VK_LSHIFT);
+					SendCheckedNativeKey(key, VK_RSHIFT);
+					break;
+				case VK_CONTROL:
+					SendCheckedNativeKey(key, VK_LCONTROL);
+					SendCheckedNativeKey(key, VK_RCONTROL);
+					break;
+				case VK_MENU:
+					SendCheckedNativeKey(key, VK_LMENU);
+					SendCheckedNativeKey(key, VK_RMENU);
+					break;
+				default:
+					key.keyCode = windowsTransTable[(int)wParam];
+					if (key.keyCode)
+						NativeKey(key);
+					break;
+				}
 			}
 			return 0;
 
@@ -817,9 +838,26 @@ namespace MainWindow
 				KeyInput key;
 				key.deviceId = DEVICE_ID_KEYBOARD;
 				key.flags = KEY_UP;
-				key.keyCode = windowsTransTable[(int)wParam];
-				if (key.keyCode)
-					NativeKey(key);	
+				switch ((int)wParam) {
+				case VK_SHIFT:
+					// We have no idea which was released, so just resend both.
+					SendCheckedNativeKey(key, VK_LSHIFT);
+					SendCheckedNativeKey(key, VK_RSHIFT);
+					break;
+				case VK_CONTROL:
+					SendCheckedNativeKey(key, VK_LCONTROL);
+					SendCheckedNativeKey(key, VK_RCONTROL);
+					break;
+				case VK_MENU:
+					SendCheckedNativeKey(key, VK_LMENU);
+					SendCheckedNativeKey(key, VK_RMENU);
+					break;
+				default:
+					key.keyCode = windowsTransTable[(int)wParam];
+					if (key.keyCode)
+						NativeKey(key);
+					break;
+				}
 			}
 			return 0;
 
