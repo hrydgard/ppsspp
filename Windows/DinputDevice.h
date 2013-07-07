@@ -38,4 +38,6 @@ private:
 	LPDIRECTINPUT8			pDI;
 	LPDIRECTINPUTDEVICE8    pJoystick;
 	bool					analog;
+	BYTE                    lastButtons_[128];
+	WORD                    lastPOV_[4];
 };
