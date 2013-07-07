@@ -39,8 +39,8 @@ static const struct {int from, to;} dinput_ctrl_map[] = {
 	{10,             KEYCODE_BACK},               // Toggle PauseScreen & Back Setting Page
 	{1,		         KEYCODE_BUTTON_A },          // Cross    = XBOX-A
 	{2,		         KEYCODE_BUTTON_B },          // Circle   = XBOX-B 
-	{0,		         KEYCODE_BUTTON_Y  },         // Square   = XBOX-X
-	{3,		         KEYCODE_BUTTON_X  },         // Triangle = XBOX-Y
+	{0,		         KEYCODE_BUTTON_X  },         // Square   = XBOX-X
+	{3,		         KEYCODE_BUTTON_Y  },         // Triangle = XBOX-Y
 	{8,		         KEYCODE_BUTTON_SELECT},
 	{9,		         KEYCODE_BUTTON_START},
 	{4,		         KEYCODE_BUTTON_L1    },      // LTrigger = XBOX-LBumper
@@ -247,22 +247,21 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 			NativeKey(key);
 
 			// Hack needed to let the special buttons work..
-			switch(dinput_ctrl_map[i].from)
+			switch(dinput_ctrl_map[i].to)
 			{
-			case 6:
+			case KEYCODE_BUTTON_THUMBL:
 				input_state.pad_buttons |= PAD_BUTTON_LEFT_THUMB;
 				break;
-			case 7:
-			case 11:
+			case KEYCODE_BUTTON_THUMBR:
 				input_state.pad_buttons |= PAD_BUTTON_RIGHT_THUMB;
 				break;
-			case 4:
+			case KEYCODE_BUTTON_L1:
 				input_state.pad_buttons |= PAD_BUTTON_LEFT_TRIGGER;
 				break;
-			case 5:
+			case KEYCODE_BUTTON_R1:
 				input_state.pad_buttons |= PAD_BUTTON_RIGHT_TRIGGER;
 				break;
-			case 10:
+			case KEYCODE_BACK:
 				input_state.pad_buttons |= PAD_BUTTON_BACK;
 				break;
 
