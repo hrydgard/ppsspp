@@ -24,7 +24,7 @@ class PointerWrap;
 void Register_sceCtrl();
 
 const int CTRL_STICK_LEFT = 0;
-// Only supported on HD remasters.
+// The actual PSP only has one, but HD remasters expose this, maybe also the emulator on the PSP/Vita.
 const int CTRL_STICK_RIGHT = 1;
 
 #define CTRL_SQUARE     0x8000
