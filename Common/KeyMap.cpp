@@ -216,6 +216,10 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_F11, "F11"},
 	{KEYCODE_F12, "F12"},
 	
+	{KEYCODE_GRAVE, "`"},
+	{KEYCODE_SLASH, "/"},
+	{KEYCODE_BACKSLASH, "\\"},
+	{KEYCODE_SEMICOLON, ";"},
 	{KEYCODE_COMMA, ","},
 	{KEYCODE_PERIOD, "."},
 
@@ -305,7 +309,9 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_X_MAX, "An.Right"},
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
-	{VIRTKEY_RAPID_FIRE, "Rapid"},
+
+	{VIRTKEY_RAPID_FIRE, "RapidFire"},
+	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
 };
 
 static int psp_button_names_count = sizeof(psp_button_names) / sizeof(psp_button_names[0]);

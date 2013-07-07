@@ -1580,6 +1580,7 @@ void KeyMappingScreen::render() {
 	UIText(0, Pos(x+30, y+50), KeyMap::NameDeviceFromPspButton(currentMap_, symbol).c_str(), 0xFFFFFFFF, 0.78f, ALIGN_HCENTER); \
 	UIText(0, Pos(x+30, y+80), KeyMap::GetPspButtonName(symbol).c_str(), 0xFFFFFFFF, 0.5f, ALIGN_HCENTER); \
 
+
 	// \
 	// UIText(0, Pos(x, y+50), controllerMaps[currentMap_].name.c_str(), 0xFFFFFFFF, 0.5f, ALIGN_HCENTER);
 
@@ -1616,6 +1617,12 @@ void KeyMappingScreen::render() {
 	left = 250;
 	KeyBtn(left, top, CTRL_SELECT);
 	KeyBtn(left + pad, top, CTRL_START);
+
+	top = 10;
+	left = 750;
+	KeyBtn(left, top, VIRTKEY_UNTHROTTLE);
+	top += 150;
+	KeyBtn(left, top, VIRTKEY_RAPID_FIRE);
 #undef KeyBtn
 
 	// TODO: Add rapid fire somewhere?
