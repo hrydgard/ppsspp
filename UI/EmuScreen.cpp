@@ -254,6 +254,7 @@ void EmuScreen::update(InputState &input) {
 		leftstick_y -= 1.0f;
 	if (virtKeys[VIRTKEY_AXIS_Y_MAX - VIRTKEY_FIRST])
 		leftstick_y += 1.0f;
+	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
 	// First translate touches into native pad input.
 	// Do this no matter the value of g_Config.bShowTouchControls, some people
