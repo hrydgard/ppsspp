@@ -34,23 +34,21 @@
 #undef max
 #endif
 
-static const struct {int from, to;} dinput_ctrl_map[] = {
-    { 11,             KEYCODE_BUTTON_THUMBR },
-    { 10,             KEYCODE_BUTTON_THUMBL },
-    { 1,              KEYCODE_BUTTON_B },
-    { 2,              KEYCODE_BUTTON_A },
-    { 0,              KEYCODE_BUTTON_Y  },
-    { 3,              KEYCODE_BUTTON_X  },
-    { 8,              KEYCODE_BUTTON_SELECT },
-    { 9,              KEYCODE_BUTTON_START },
-    { 4,              KEYCODE_BUTTON_L2 },
-    { 5,              KEYCODE_BUTTON_R2 },
-    { 6,              KEYCODE_BUTTON_L1 },
-    { 7,              KEYCODE_BUTTON_R1 },
-    { POV_CODE_UP,    KEYCODE_DPAD_UP },
-    { POV_CODE_DOWN,  KEYCODE_DPAD_DOWN },
-    { POV_CODE_LEFT,  KEYCODE_DPAD_LEFT },
-    { POV_CODE_RIGHT, KEYCODE_DPAD_RIGHT },
+// In order from 0.  There can be 128, but most controllers do not have that many.
+static const int dinput_buttons[] = {
+	KEYCODE_BUTTON_Y,
+	KEYCODE_BUTTON_A,
+	KEYCODE_BUTTON_B,
+	KEYCODE_BUTTON_X,
+	KEYCODE_BUTTON_L2,
+	KEYCODE_BUTTON_R2,
+	KEYCODE_BUTTON_L1,
+	KEYCODE_BUTTON_R1,
+	KEYCODE_BUTTON_SELECT,
+	KEYCODE_BUTTON_START,
+	KEYCODE_BUTTON_THUMBL,
+	KEYCODE_BUTTON_THUMBR,
+	KEYCODE_BUTTON_Z,
 };
 
 struct Stick {
@@ -59,8 +57,6 @@ struct Stick {
 };
 
 static Stick NormalizedDeadzoneFilter(short x, short y);
-
-const unsigned int dinput_ctrl_map_size = sizeof(dinput_ctrl_map) / sizeof(dinput_ctrl_map[0]);
 
 #define DIFF  (JOY_POVRIGHT - JOY_POVFORWARD) / 2
 #define JOY_POVFORWARD_RIGHT	JOY_POVFORWARD + DIFF
@@ -89,6 +85,8 @@ bool IsXInputDevice( const GUID* pGuidProductFromDirectInput ) {
 DinputDevice::DinputDevice() {
 	pJoystick = NULL;
 	pDI = NULL;
+	memset(lastButtons_, 0, sizeof(lastButtons_));
+	memset(lastPOV_, 0, sizeof(lastPOV_));
 
 	if(FAILED(DirectInput8Create(GetModuleHandle(NULL),DIRECTINPUT_VERSION,IID_IDirectInput8,(void**)&pDI,NULL)))
 		return;
@@ -151,7 +149,6 @@ DinputDevice::~DinputDevice() {
 }
 
 int DinputDevice::UpdateState(InputState &input_state) {
-	if (g_Config.iForceInputDevice == 0) return -1;
 	if (!pJoystick) return -1;
 
 	DIJOYSTATE2 js;
@@ -211,10 +208,64 @@ static Stick NormalizedDeadzoneFilter(short x, short y) {
 }
 
 void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
+	BYTE *buttons = state.rgbButtons;
+	u32 downMask = 0x80;
+
+	for (int i = 0; i < ARRAY_SIZE(dinput_buttons); ++i) {
+		if (state.rgbButtons[i] == lastButtons_[i]) {
+			continue;
+		}
+
+		bool down = (state.rgbButtons[i] & downMask) == downMask;
+		KeyInput key;
+		key.deviceId = DEVICE_ID_PAD_0;
+		key.flags = down ? KEY_DOWN : KEY_UP;
+		key.keyCode = dinput_buttons[i];
+		NativeKey(key);
+
+		lastButtons_[i] = state.rgbButtons[i];
+	}
+
+	// Now the POV hat, which can technically go in any degree but usually does not.
+	if (LOWORD(state.rgdwPOV[0]) != lastPOV_[0]) {
+		KeyInput dpad[4];
+		for (int i = 0; i < 4; ++i) {
+			dpad[i].deviceId = DEVICE_ID_PAD_0;
+			dpad[i].flags = KEY_UP;
+		}
+		dpad[0].keyCode = KEYCODE_DPAD_UP;
+		dpad[1].keyCode = KEYCODE_DPAD_LEFT;
+		dpad[2].keyCode = KEYCODE_DPAD_DOWN;
+		dpad[3].keyCode = KEYCODE_DPAD_RIGHT;
+
+		if (LOWORD(state.rgdwPOV[0]) != JOY_POVCENTERED) {
+			// These are the edges, so we use or.
+			if (state.rgdwPOV[0] >= JOY_POVLEFT_FORWARD || state.rgdwPOV[0] <= JOY_POVFORWARD_RIGHT) {
+				dpad[0].flags = KEY_DOWN;
+			}
+			if (state.rgdwPOV[0] >= JOY_POVBACKWARD_LEFT && state.rgdwPOV[0] <= JOY_POVLEFT_FORWARD) {
+				dpad[1].flags = KEY_DOWN;
+			}
+			if (state.rgdwPOV[0] >= JOY_POVRIGHT_BACKWARD && state.rgdwPOV[0] <= JOY_POVBACKWARD_LEFT) {
+				dpad[2].flags = KEY_DOWN;
+			}
+			if (state.rgdwPOV[0] >= JOY_POVFORWARD_RIGHT && state.rgdwPOV[0] <= JOY_POVRIGHT_BACKWARD) {
+				dpad[3].flags = KEY_DOWN;
+			}
+		}
+
+		NativeKey(dpad[0]);
+		NativeKey(dpad[1]);
+		NativeKey(dpad[2]);
+		NativeKey(dpad[3]);
+
+		lastPOV_[0] = LOWORD(state.rgdwPOV[0]);
+	}
+
 	// TODO: Remove this once proper analog stick
 	// binding is implemented.
 	const LONG rthreshold = 8000;
-	
+
 	KeyInput RAS;
 	RAS.deviceId = DEVICE_ID_PAD_0;
 	switch (g_Config.iRightStickBind) {
@@ -411,156 +462,5 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 		}
 		break;
 	}
-
-	u32 downMask = 0x80;
-
-	for(u8 i = 0; i < dinput_ctrl_map_size; i++) {
-		if (dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX && (state.rgbButtons[dinput_ctrl_map[i].from] & downMask)) {
-			KeyInput key;
-			key.deviceId = DEVICE_ID_PAD_0;
-			key.flags = KEY_DOWN;
-			key.keyCode = dinput_ctrl_map[i].to;
-			NativeKey(key);
-
-			// Hack needed to let the special buttons work..
-			// TODO: Is there no better way to handle this with DirectInput?
-			switch(dinput_ctrl_map[i].to) {
-			case KEYCODE_BUTTON_THUMBL:
-				input_state.pad_buttons |= PAD_BUTTON_LEFT_THUMB;
-				break;
-			case KEYCODE_BUTTON_THUMBR:
-				input_state.pad_buttons |= PAD_BUTTON_BACK; 
-				break;
-			case KEYCODE_BUTTON_L2:
-				input_state.pad_buttons |= PAD_BUTTON_LEFT_TRIGGER;
-				break;
-			case KEYCODE_BUTTON_R2:
-				input_state.pad_buttons |= PAD_BUTTON_RIGHT_TRIGGER;
-				break;
-			case KEYCODE_BACK:
-				input_state.pad_buttons |= PAD_BUTTON_BACK;
-				break;
-
-			}
-		}
-
-		if (dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX && (state.rgbButtons[dinput_ctrl_map[i].from] == 0)) {
-			KeyInput key;
-			key.deviceId = DEVICE_ID_PAD_0;
-			key.flags = KEY_UP;
-			key.keyCode = dinput_ctrl_map[i].to;
-			NativeKey(key);
-		}
-
-		// TODO: Is there really no better way to handle the POV buttons?
-		if(dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX) {
-			KeyInput key;
-			key.deviceId = DEVICE_ID_PAD_0;
-			switch(state.rgdwPOV[0]) {
-			case JOY_POVFORWARD:
-				key.keyCode =  KEYCODE_DPAD_UP;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				break;
-
-			case JOY_POVLEFT_FORWARD:
-				key.keyCode =  KEYCODE_DPAD_UP;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				key.keyCode =  KEYCODE_DPAD_LEFT;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				break;
-
-			case JOY_POVFORWARD_RIGHT:
-				key.keyCode =  KEYCODE_DPAD_UP;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				key.keyCode =  KEYCODE_DPAD_RIGHT;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				break;
-
-			case JOY_POVBACKWARD:
-				key.keyCode = KEYCODE_DPAD_DOWN;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				break;
-
-			case JOY_POVBACKWARD_LEFT:
-				key.keyCode =  KEYCODE_DPAD_DOWN;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				key.keyCode =  KEYCODE_DPAD_LEFT;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				break;
-
-			case JOY_POVRIGHT_BACKWARD:
-				key.keyCode =  KEYCODE_DPAD_DOWN;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				key.keyCode =  KEYCODE_DPAD_LEFT;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				break;
-
-			case JOY_POVLEFT:
-				key.keyCode = KEYCODE_DPAD_LEFT;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				break;
-
-			case JOY_POVRIGHT:	
-				key.keyCode = KEYCODE_DPAD_RIGHT;
-				key.flags = KEY_DOWN;
-				NativeKey(key);
-				break;
-
-			default:
-				key.keyCode = KEYCODE_DPAD_UP;
-				key.flags = KEY_UP;
-				NativeKey(key);
-				key.keyCode = KEYCODE_DPAD_DOWN;
-				key.flags = KEY_UP;
-				NativeKey(key);
-				key.keyCode = KEYCODE_DPAD_LEFT;
-				key.flags = KEY_UP;
-				NativeKey(key);
-				key.keyCode = KEYCODE_DPAD_RIGHT;
-				key.flags = KEY_UP;
-				NativeKey(key);
-				break;
-			}
-		}
-	}
 }
 
-int DinputDevice::UpdateRawStateSingle(RawInputState &rawState) {
-	if (g_Config.iForceInputDevice == 0) return FALSE;
-	if (!pJoystick) return FALSE;
-
-	DIJOYSTATE2 js;
-
-	if (FAILED(pJoystick->Poll())) {
-		if(pJoystick->Acquire() == DIERR_INPUTLOST)
-			return FALSE;
-	}
-
-	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
-    return -1;
-	switch (js.rgdwPOV[0]) {
-		case JOY_POVFORWARD:		rawState.button = POV_CODE_UP; return TRUE;
-		case JOY_POVBACKWARD:		rawState.button = POV_CODE_DOWN; return TRUE;
-		case JOY_POVLEFT:			rawState.button = POV_CODE_LEFT; return TRUE;
-		case JOY_POVRIGHT:			rawState.button = POV_CODE_RIGHT; return TRUE;
-	}
-
-	for (int i = 0; i < DIRECTINPUT_RGBBUTTONS_MAX; i++) {
-		if (js.rgbButtons[i] & 0x80) {
-			rawState.button = i;
-			return TRUE;
-		}
-	}
-	return FALSE;
-}

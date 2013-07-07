@@ -117,7 +117,6 @@ public:
 	int iSwapRightAxes;
 
 	// Control
-	int iForceInputDevice;
 	int iTouchButtonOpacity;
 	float fButtonScale;
 
