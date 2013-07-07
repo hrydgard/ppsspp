@@ -23,6 +23,7 @@ LOCAL_SRC_FILES :=\
     ext/jpge/jpge.cpp \
     ext/sha1/sha1.cpp \
     ext/stb_image/stb_image.c \
+    ext/stb_image_write/stb_image_write.c \
     ext/stb_vorbis/stb_vorbis.c.arm \
     ext/vjson/json.cpp \
     ext/vjson/block_allocator.cpp \
