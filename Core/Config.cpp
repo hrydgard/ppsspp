@@ -61,6 +61,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
 	general->Get("EnableCheats", &bEnableCheats, false);
 	general->Get("MaxRecent", &iMaxRecent, 12);
+	general->Get("ScreenshotsAsPNG", &bScreenshotAsPNG, true);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
@@ -210,6 +211,7 @@ void Config::Save()
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
 		general->Set("MaxRecent", iMaxRecent);
 		general->Set("EnableCheats", bEnableCheats);
+		general->Set("ScreenshotsAsPNG", &bScreenshotAsPNG);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
@@ -319,5 +321,4 @@ void Config::CleanRecent() {
 			cleanedRecent.push_back(recentIsos[i]);
 	}
 	recentIsos = cleanedRecent;
-
 }
