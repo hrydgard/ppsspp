@@ -144,7 +144,7 @@ void XinputDevice::ApplyButtons(XINPUT_STATE &state, InputState &input_state) {
 
 	if (state.Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
 		buttons |= XBOX_CODE_LEFTTRIGGER;
-	if (state.Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
+	if (state.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
 		buttons |= XBOX_CODE_RIGHTTRIGGER;
 
 	const SHORT rthreshold = 22000;
