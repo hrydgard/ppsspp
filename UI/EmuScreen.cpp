@@ -262,6 +262,11 @@ void EmuScreen::axis(const AxisInput &axis) {
 	default:
 		if (axis.value >= AXIS_BIND_THRESHOLD || axis.value <= -AXIS_BIND_THRESHOLD) {
 			pspKey(result, KEY_DOWN);
+
+			// Also unpress the other direction.
+			result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? -1 : 1);
+			if (result != KEYMAP_ERROR_UNKNOWN_KEY)
+				pspKey(result, KEY_UP);
 		} else {
 			pspKey(result, KEY_UP);
 		}
