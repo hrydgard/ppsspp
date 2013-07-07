@@ -498,6 +498,7 @@
       <Filter>input</Filter>
     </ClCompile>
     <ClCompile Include="ext\jpge\jpgd.cpp" />
+    <ClCompile Include="ext\stb_image_write\stb_image_write.c" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

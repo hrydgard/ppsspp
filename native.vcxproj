@@ -330,6 +330,7 @@
     <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
     <ClCompile Include="ext\stb_image\stb_image.c" />
+    <ClCompile Include="ext\stb_image_write\stb_image_write.c" />
     <ClCompile Include="ext\stb_vorbis\stb_vorbis.c" />
     <ClCompile Include="ext\vjson\block_allocator.cpp" />
     <ClCompile Include="ext\vjson\json.cpp" />
