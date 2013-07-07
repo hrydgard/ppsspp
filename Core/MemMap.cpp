@@ -57,7 +57,6 @@ u8 *m_pUncachedVRAM;
 
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
-u32 g_MemoryEnd;
 u32 g_MemoryMask;
 u32 g_MemorySize;
 
@@ -101,11 +100,9 @@ void DoState(PointerWrap &p)
 	p.DoMarker("VRAM");
 	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
-	p.Do(g_RemasterMode);
+	p.Do(g_RemasterMode); // TODO: Need to test more if this and MemoryMask need to be saved in the state
 	p.DoMarker("RemasterMode");
-	p.Do(g_MemoryEnd);
-	p.DoMarker("MemoryEnd");
-	p.Do(g_MemoryMask);
+	p.Do(g_MemoryMask); 
 	p.DoMarker("MemoryMask");
 	p.Do(g_DoubleTextureCoordinates); // TODO: Is there a more appropriate place for this?
 	p.DoMarker("DoubleTextureCoordinates");

@@ -29,7 +29,6 @@ extern bool g_DoubleTextureCoordinates;
 struct HDRemaster {
 	std::string gameID;
 	u64 MemorySize;
-	u64 MemoryEnd; //Seems to be different for each game as well
 	bool DoubleTextureCoordinates;
 };
 
@@ -38,13 +37,13 @@ struct HDRemaster {
 // TODO: Do all of the remasters aside from Monster Hunter use double texture coordinates?
 // TODO: Are all remasters happy with this end address?
 const struct HDRemaster g_HDRemasters[] = {
-	{ "NPJB40001", 0x4000000, 0x0BBFFFFF, false }, // MONSTER HUNTER PORTABLE 3rd HD Ver.
-	{ "BLJM85002", 0x4000000, 0x0BBFFFFF, true }, // K-ON Houkago Live HD Ver
-	{ "NPJB40002", 0x4000000, 0x0BBFFFFF, true }, // K-ON Houkago Live HD Ver
-	{ "BLJM85003", 0x4000000, 0x0BBFFFFF, true }, // Shin Sangoku Musou Multi Raid 2 HD Ver
-	{ "NPJB40003", 0x4000000, 0x0BBFFFFF, true }, // Shin Sangoku Musou Multi Raid 2 HD Ver
-	{ "BLJM85004", 0x4000000, 0x0BBFFFFF, true }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
-	{ "NPJB40004", 0x4000000, 0x0BBFFFFF, true }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
-	{ "BLJM85005", 0x4000000, 0x0BBFFFFF, true }, // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
-	{ "NPJB40005", 0x4000000, 0x0BBFFFFF, true }, // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
+	{ "NPJB40001", 0x4000000, false }, // MONSTER HUNTER PORTABLE 3rd HD Ver.
+	{ "BLJM85002", 0x4000000, true }, // K-ON Houkago Live HD Ver
+	{ "NPJB40002", 0x4000000, true }, // K-ON Houkago Live HD Ver
+	{ "BLJM85003", 0x4000000, true }, // Shin Sangoku Musou Multi Raid 2 HD Ver
+	{ "NPJB40003", 0x4000000, true }, // Shin Sangoku Musou Multi Raid 2 HD Ver
+	{ "BLJM85004", 0x4000000, true }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
+	{ "NPJB40004", 0x4000000, true }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition
+	{ "BLJM85005", 0x4000000, true }, // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
+	{ "NPJB40005", 0x4000000, true }, // Eiyuu Densetsu: Sora no Kiseki SC Kai HD Edition
 };

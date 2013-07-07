@@ -76,7 +76,6 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 
 	// Default memory settings
 	// Seems to be the safest place currently..
-	Memory::g_MemoryEnd =  0x0A000000; // End of PSP User space memory
 	Memory::g_MemorySize = 0x2000000; // 32 MB of ram by default
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
