@@ -580,7 +580,6 @@ add_library(native STATIC
 	native/image/zim_save.h
 	native/input/gesture_detector.cpp
 	native/input/gesture_detector.h
-	native/input/input_state.cpp
 	native/input/keycodes.h
 	native/input/input_state.h
 	native/input/input_state.cpp

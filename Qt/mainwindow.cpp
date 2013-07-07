@@ -82,6 +82,12 @@ void MainWindow::ShowMemory(u32 addr)
 		memoryWindow->Goto(addr);
 }
 
+inline float clamp1(float x) {
+	if (x > 1.0f) return 1.0f;
+	if (x < -1.0f) return -1.0f;
+	return x;
+}
+
 void MainWindow::Update()
 {
 	emugl->updateGL();
@@ -94,7 +100,10 @@ void MainWindow::Update()
 		else
 			__CtrlButtonUp(controllist[i].psp_id);
 	}
-	__CtrlSetAnalog(input_state.pad_lstick_x, input_state.pad_lstick_y);
+	__CtrlSetAnalogX(clamp1(input_state.pad_lstick_x), 0);
+	__CtrlSetAnalogY(clamp1(input_state.pad_lstick_y), 0);
+	__CtrlSetAnalogX(clamp1(input_state.pad_rstick_x), 1);
+	__CtrlSetAnalogY(clamp1(input_state.pad_rstick_y), 1);
 
 	if (lastUIState != globalUIState) {
 		lastUIState = globalUIState;

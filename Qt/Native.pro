@@ -88,6 +88,7 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/i18n/*.cpp \
 	../native/image/*.cpp \
 	../native/input/gesture_detector.cpp \
+	../native/input/input_state.cpp \
 	../native/json/json_writer.cpp \
 	../native/math/curves.cpp \
 	../native/math/expression_parser.cpp \
