@@ -465,31 +465,3 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 	}
 }
 
-int DinputDevice::UpdateRawStateSingle(RawInputState &rawState) {
-	if (g_Config.iForceInputDevice == 0) return FALSE;
-	if (!pJoystick) return FALSE;
-
-	DIJOYSTATE2 js;
-
-	if (FAILED(pJoystick->Poll())) {
-		if(pJoystick->Acquire() == DIERR_INPUTLOST)
-			return FALSE;
-	}
-
-	if(FAILED(pJoystick->GetDeviceState(sizeof(DIJOYSTATE2), &js)))
-    return -1;
-	switch (js.rgdwPOV[0]) {
-		case JOY_POVFORWARD:		rawState.button = POV_CODE_UP; return TRUE;
-		case JOY_POVBACKWARD:		rawState.button = POV_CODE_DOWN; return TRUE;
-		case JOY_POVLEFT:			rawState.button = POV_CODE_LEFT; return TRUE;
-		case JOY_POVRIGHT:			rawState.button = POV_CODE_RIGHT; return TRUE;
-	}
-
-	for (int i = 0; i < DIRECTINPUT_RGBBUTTONS_MAX; i++) {
-		if (js.rgbButtons[i] & 0x80) {
-			rawState.button = i;
-			return TRUE;
-		}
-	}
-	return FALSE;
-}
