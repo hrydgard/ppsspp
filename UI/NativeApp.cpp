@@ -34,6 +34,7 @@
 #include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "native/ext/stb_image_write/stb_image_writer.h"
 #include "native/ext/jpge/jpge.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_lost_manager.h"
@@ -465,8 +466,11 @@ void TakeScreenshot() {
 	int i = 0;
 
 	char temp[256];
-	while (i < 10000) {
-		sprintf(temp, "screenshots/screen%05d.jpg", i);
+	while (i < 10000){
+		if(g_Config.bScreenshotAsPNG)
+			sprintf(temp, "screenshots/screen%05d.png", i);
+		else
+			sprintf(temp, "screenshots/screen%05d.jpg", i);
 		FileInfo info;
 		if (!getFileInfo(temp, &info))
 			break;
@@ -484,9 +488,14 @@ void TakeScreenshot() {
 		memcpy(flipbuffer + y * pixel_xres * 4, buffer + (pixel_yres - y - 1) * pixel_xres * 4, pixel_xres * 4);
 	}
 
-	jpge::params params;
-	params.m_quality = 90;
-	compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 4, flipbuffer, params);
+	if(g_Config.bScreenshotAsPNG)
+		stbi_write_png(temp, pixel_xres, pixel_yres, 4, flipbuffer, pixel_xres * 4);
+	else
+	{
+		jpge::params params;
+		params.m_quality = 90;
+		compress_image_to_jpeg_file(temp, pixel_xres, pixel_yres, 4, flipbuffer, params);
+	}
 
 	delete [] buffer;
 	delete [] flipbuffer;
