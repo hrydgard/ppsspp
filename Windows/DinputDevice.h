@@ -38,5 +38,4 @@ private:
 	LPDIRECTINPUT8			pDI;
 	LPDIRECTINPUTDEVICE8    pJoystick;
 	bool					analog;
-	DIJOYSTATE2 prevState;
 };
