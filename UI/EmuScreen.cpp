@@ -291,6 +291,10 @@ void EmuScreen::update(InputState &input) {
 		rightstick_x += fakeInputState.pad_rstick_x;
 		rightstick_y += fakeInputState.pad_rstick_y;
 
+		// Also send the special buttons to input, since that's where they're handled.
+		input.pad_buttons_down |= fakeInputState.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
+		input.pad_buttons_up |= fakeInputState.pad_buttons_up & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
+
 #ifdef _WIN32
 	}
 #endif
