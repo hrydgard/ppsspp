@@ -115,5 +115,6 @@ namespace KeyMap {
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
+	void RestoreDefault();
 }
 

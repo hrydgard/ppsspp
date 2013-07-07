@@ -207,11 +207,11 @@ void EmuScreen::key(const KeyInput &key) {
 		int vk = result - VIRTKEY_FIRST;
 		if (key.flags & KEY_DOWN) {
 			virtKeys[vk] = true;
-			onVKeyDown(key.keyCode);
+			onVKeyDown(result);
 		}
 		if (key.flags & KEY_UP) {
 			virtKeys[vk] = false;
-			onVKeyUp(key.keyCode);
+			onVKeyUp(result);
 		}
 	} else {
 		if (key.flags & KEY_DOWN)

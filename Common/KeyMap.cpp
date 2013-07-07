@@ -412,6 +412,9 @@ void SetKeyMapping(int map, int deviceId, int key, int btn)
 	controllerMaps[map].keys[KeyDef(deviceId, key)] = btn;
 }
 
+void RestoreDefault() {
+	controllerMaps = DefaultKeyMap::KeyMap;
+}
 
 // TODO: Make the ini format nicer.
 void LoadFromIni(IniFile &file) {
