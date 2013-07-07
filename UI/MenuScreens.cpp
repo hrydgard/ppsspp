@@ -690,6 +690,22 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		last_kb_deviceid = key.deviceId;
 		last_kb_key = key.keyCode;
+		last_axis_id = -1;
+	}
+}
+
+void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+	if (axis.value > AXIS_BIND_THRESHOLD) {
+		last_axis_deviceid = axis.deviceId;
+		last_axis_id = axis.axisId;
+		last_axis_direction = 1;
+		last_kb_key = 0;
+	}
+	if (axis.value < -AXIS_BIND_THRESHOLD) {
+		last_axis_deviceid = axis.deviceId;
+		last_axis_id = axis.axisId;
+		last_axis_direction = -1;
+		last_kb_key = 0;
 	}
 }
 
@@ -1682,16 +1698,29 @@ void KeyMappingNewKeyDialog::render() {
 	KeyScale(1.4f);
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);
-	if (last_kb_key != 0) {
+	if (last_axis_id != -1) {
+		const std::string axis_direction_name = KeyMap::GetAxisName(last_axis_id) + (last_axis_direction < 0 ? "-" : "+");
+		KeyText(right, top += stride, axis_direction_name.c_str());
+		KeyScale(1.4f);
+		KeyText(right, top + stride, GetDeviceName(last_axis_deviceid));
+		bool key_used = KeyMap::IsMappedAxis(last_axis_deviceid, last_axis_id, last_axis_direction);
+		if (key_used) {
+			KeyScale(1.0f);
+			KeyText(left + stride, top + 2*stride,
+			keyI18N->T("Warning: Key is already used by"));
+			KeyText(left + stride, top + 3*stride,
+			        (KeyMap::NamePspButtonFromAxis(last_axis_deviceid, last_axis_id, last_axis_direction)).c_str());
+		}
+	} else if (last_kb_key != 0) {
 		KeyText(right, top += stride, KeyMap::GetKeyName(last_kb_key).c_str());
 		KeyScale(1.4f);
 		KeyText(right, top + stride, GetDeviceName(last_kb_deviceid));
 		bool key_used = KeyMap::IsMappedKey(last_kb_deviceid, last_kb_key);
 		if (key_used) {
 			KeyScale(1.0f);
-			KeyText(left + stride, top + 2*stride, 
-		  keyI18N->T("Warning: Key is already used by"));
-			KeyText(left + stride, top + 3*stride, 
+			KeyText(left + stride, top + 2*stride,
+			keyI18N->T("Warning: Key is already used by"));
+			KeyText(left + stride, top + 3*stride,
 			        (KeyMap::NamePspButtonFromKey(last_kb_deviceid, last_kb_key)).c_str());
 		}
 	}
@@ -1702,7 +1731,10 @@ void KeyMappingNewKeyDialog::render() {
 
 	// Save & cancel buttons
 	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Save Mapping"), ALIGN_LEFT | ALIGN_BOTTOM)) {
-		KeyMap::SetKeyMapping(currentMap_, last_kb_deviceid, last_kb_key, pspBtn);
+		if (last_axis_id != -1)
+			KeyMap::SetAxisMapping(currentMap_, last_axis_deviceid, last_axis_id, last_axis_direction, pspBtn);
+		else
+			KeyMap::SetKeyMapping(currentMap_, last_kb_deviceid, last_kb_key, pspBtn);
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
 	}

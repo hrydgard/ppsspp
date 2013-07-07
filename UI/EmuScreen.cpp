@@ -219,31 +219,52 @@ void EmuScreen::key(const KeyInput &key) {
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
 		return;
 
-	if (result >= VIRTKEY_FIRST) {
-		int vk = result - VIRTKEY_FIRST;
-		if (key.flags & KEY_DOWN) {
+	pspKey(result, key.flags);
+}
+
+void EmuScreen::pspKey(int pspKeyCode, int flags) {
+	if (pspKeyCode >= VIRTKEY_FIRST) {
+		int vk = pspKeyCode - VIRTKEY_FIRST;
+		if (flags & KEY_DOWN) {
 			virtKeys[vk] = true;
-			onVKeyDown(result);
+			onVKeyDown(pspKeyCode);
 		}
-		if (key.flags & KEY_UP) {
+		if (flags & KEY_UP) {
 			virtKeys[vk] = false;
-			onVKeyUp(result);
+			onVKeyUp(pspKeyCode);
 		}
 	} else {
-		if (key.flags & KEY_DOWN)
-			__CtrlButtonDown(result);
-		if (key.flags & KEY_UP)
-			__CtrlButtonUp(result);
+		if (flags & KEY_DOWN)
+			__CtrlButtonDown(pspKeyCode);
+		if (flags & KEY_UP)
+			__CtrlButtonUp(pspKeyCode);
 	}
 }
 
 void EmuScreen::axis(const AxisInput &axis) {
-	// TODO: Apply some form of axis mapping
-	switch (axis.axisId) {
-	case JOYSTICK_AXIS_X: analog_[0].x = axis.value; break;
-	case JOYSTICK_AXIS_Y: analog_[0].y = axis.value; break;
-	case JOYSTICK_AXIS_Z: analog_[1].x = axis.value; break;
-	case JOYSTICK_AXIS_RZ: analog_[1].y = axis.value; break;
+	int result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? 1 : -1);
+	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
+		return;
+
+	switch (result) {
+	case VIRTKEY_AXIS_X_MIN:
+	case VIRTKEY_AXIS_X_MAX:
+		analog_[0].x = axis.value;
+		break;
+
+	case VIRTKEY_AXIS_Y_MIN:
+	case VIRTKEY_AXIS_Y_MAX:
+		analog_[0].y = axis.value;
+		break;
+
+	// TODO: right stick.
+
+	default:
+		if (axis.value >= AXIS_BIND_THRESHOLD || axis.value <= -AXIS_BIND_THRESHOLD) {
+			pspKey(result, KEY_DOWN);
+		} else {
+			pspKey(result, KEY_UP);
+		}
 	}
 }
 
