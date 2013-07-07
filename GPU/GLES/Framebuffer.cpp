@@ -377,12 +377,6 @@ void GetViewportDimensions(int &w, int &h) {
 void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	GetViewportDimensions(drawing_width, drawing_height);
 
-	// HACK for first frame where some games don't init things right
-	if (drawing_width <= 1 && drawing_height <= 1) {
-		drawing_width = 480;
-		drawing_height = 272;
-	}
-
 	// Now, cap using scissor. Hm, no, this doesn't work so well.
 	/*
 	if (drawing_width > gstate.getScissorX2() + 1)
@@ -390,9 +384,14 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	if (drawing_height > gstate.getScissorY2() + 1)
 		drawing_height = gstate.getScissorY2() + 1;*/
 	
-	// Cap at maximum texture size for now. Don't see much point in drawing bigger.
-	drawing_width = std::min(drawing_width, 512);
-	drawing_height = std::min(drawing_height, 512);
+	// Bit hacky but it works pretty well
+	if (!g_Config.bBufferedRendering || g_iNumVideos || (drawing_width <= 1 && drawing_height <= 1) ) {
+		drawing_width = 480;
+		drawing_height = 272;
+	} else {
+		drawing_width = std::max(drawing_width, 512);
+		drawing_height = std::max(drawing_height, 512);
+	}
 }
 
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -430,21 +429,16 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int z_stride = gstate.zbwidth & 0x3C0;
 
 	// Yeah this is not completely right. but it'll do for now.
-	int drawing_width = ((gstate.region2) & 0x3FF) + 1;
-	int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
-
-	if (drawing_width > gstate.getScissorX2() + 1)
-		drawing_width = gstate.getScissorX2() + 1;
-	if (drawing_height > gstate.getScissorY2() + 1)
-		drawing_height = gstate.getScissorY2() + 1;
+	//int drawing_width = ((gstate.region2) & 0x3FF) + 1;
+	//int drawing_height = ((gstate.region2 >> 10) & 0x3FF) + 1;
 		
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 	
 	int fmt = gstate.framebufpixformat & 3;
 
-	//int drawing_width, drawing_height;
-	//GuessDrawingSize(drawing_width, drawing_height);
+	int drawing_width, drawing_height;
+	GuessDrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
