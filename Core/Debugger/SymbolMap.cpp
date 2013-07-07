@@ -256,7 +256,8 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 	{
 		const MapEntryUniqueInfo searchKey = {start_address, start_address};
 		const auto entry = uniqueEntries.find(searchKey);
-		if (entry != uniqueEntries.end() && (entry->type & symmask) != 0)
+		// In case there were duplicates at some point, double check the end address.
+		if (entry != uniqueEntries.end() && entry->vaddress + entry->size > address && (entry->type & symmask) != 0)
 		{
 			info->address = entry->vaddress;
 			info->size = entry->size;
