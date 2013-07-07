@@ -383,7 +383,10 @@ u32 sceKernelStopVTimer(u32 uid) {
 }
 
 u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
-	DEBUG_LOG(HLE, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+	if (uid == 0) {
+		WARN_LOG(HLE, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x): invalid vtimer", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
+	}
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
@@ -393,9 +396,12 @@ u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u3
 		return error;
 	}
 
+	DEBUG_LOG(HLE, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+
 	u64 schedule = Memory::Read_U64(scheduleAddr);
 	vt->nvt.handlerAddr = handlerFuncAddr;
-	vt->nvt.commonAddr = commonAddr;
+	if (handlerFuncAddr)
+		vt->nvt.commonAddr = commonAddr;
 
 	__KernelScheduleVTimer(vt, schedule);
 
@@ -403,7 +409,10 @@ u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u3
 }
 
 u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr) {
-	DEBUG_LOG(HLE, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
+	if (uid == 0) {
+		WARN_LOG(HLE, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x): invalid vtimer", uid, schedule, handlerFuncAddr, commonAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
+	}
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
@@ -413,8 +422,11 @@ u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u3
 		return error;
 	}
 
+	DEBUG_LOG(HLE, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
+
 	vt->nvt.handlerAddr = handlerFuncAddr;
-	vt->nvt.commonAddr = commonAddr;
+	if (handlerFuncAddr)
+		vt->nvt.commonAddr = commonAddr;
 
 	__KernelScheduleVTimer(vt, schedule);
 
