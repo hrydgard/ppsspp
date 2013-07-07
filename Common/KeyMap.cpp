@@ -231,6 +231,7 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_APOSTROPHE, "'"},
 	{KEYCODE_MINUS, "-"},
 	{KEYCODE_PLUS, "+"},
+	{KEYCODE_SCROLL_LOCK, "ScrLock"},
 
 	{KEYCODE_BACK, "Back"},
 	{KEYCODE_TAB, "Tab"},
@@ -247,10 +248,14 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_MOVE_HOME, "Home"},
 	{KEYCODE_MOVE_END, "End"},
 	{KEYCODE_ESCAPE, "Esc"},
+	{KEYCODE_CAPS_LOCK, "CapsLock"},
 
 	{KEYCODE_VOLUME_UP, "Vol +"},
 	{KEYCODE_VOLUME_DOWN, "Vol -"},
 	{KEYCODE_HOME, "Home"},
+	{KEYCODE_INSERT, "Ins"},
+	{KEYCODE_PAGE_UP, "PgUp"},
+	{KEYCODE_PAGE_DOWN, "PgDn"},
 	{KEYCODE_CALL, "Call"},
 	{KEYCODE_ENDCALL, "End Call"},
 
@@ -297,10 +302,32 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_BUTTON_THUMBL, "ThumbL"},
 	{KEYCODE_BUTTON_THUMBR, "ThumbR"},
 	{KEYCODE_BUTTON_MODE, "Mode"},
+
+	{KEYCODE_EXT_PIPE, "|"},
+	{KEYCODE_NUMPAD_DIVIDE, "Num/"},
+	{KEYCODE_NUMPAD_MULTIPLY, "Num*"},
+	{KEYCODE_NUMPAD_ADD, "Num+"},
+	{KEYCODE_NUMPAD_SUBTRACT, "Num-"},
+	{KEYCODE_NUMPAD_DOT, "Num."},
+	{KEYCODE_NUMPAD_COMMA, "Num,"},
+	{KEYCODE_NUMPAD_ENTER, "NumEnter"},
+	{KEYCODE_NUMPAD_EQUALS, "Num="},
+	{KEYCODE_NUMPAD_LEFT_PAREN, "Num("},
+	{KEYCODE_NUMPAD_RIGHT_PAREN, "Num)"},
+	{KEYCODE_NUMPAD_0, "Num0"},
+	{KEYCODE_NUMPAD_1, "Num1"},
+	{KEYCODE_NUMPAD_2, "Num2"},
+	{KEYCODE_NUMPAD_3, "Num3"},
+	{KEYCODE_NUMPAD_4, "Num4"},
+	{KEYCODE_NUMPAD_5, "Num5"},
+	{KEYCODE_NUMPAD_6, "Num6"},
+	{KEYCODE_NUMPAD_7, "Num7"},
+	{KEYCODE_NUMPAD_8, "Num8"},
+	{KEYCODE_NUMPAD_9, "Num9"},
 };
 
 static int key_names_count = sizeof(key_names) / sizeof(key_names[0]);
-static std::string unknown_key_name = "N/A";
+static std::string unknown_key_name = "??";
 const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_CIRCLE, "O"},
 	{CTRL_CROSS, "X"},
