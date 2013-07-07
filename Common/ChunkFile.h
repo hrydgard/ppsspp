@@ -201,7 +201,8 @@ public:
 				typename std::map<K, T>::iterator itr = x.begin();
 				while (number > 0)
 				{
-					Do(itr->first);
+					K first = itr->first;
+					Do(first);
 					Do(itr->second);
 					--number;
 					++itr;

@@ -383,7 +383,7 @@ int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 	if (MapFilePath(from, of, &osystem))
 	{
 		// If it's a relative path, it seems to always use from's filesystem.
-		if (to.find(':/') != to.npos)
+		if (to.find(":/") != to.npos)
 		{
 			if (!MapFilePath(to, rf, &rsystem))
 				return -1;
