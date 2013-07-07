@@ -21,6 +21,12 @@
 #include "Core/Config.h"
 #include "ui_atlas.h"
 
+#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
+#define USE_PAUSE_BUTTON 1
+#else
+#define USE_PAUSE_BUTTON 0
+#endif
+
 TouchButton buttonX(&ui_atlas, I_ROUND, I_CROSS, PAD_BUTTON_A);
 TouchButton buttonO(&ui_atlas, I_ROUND, I_CIRCLE, PAD_BUTTON_B);
 TouchButton buttonSq(&ui_atlas, I_ROUND, I_SQUARE, PAD_BUTTON_X);
@@ -32,7 +38,7 @@ TouchButton buttonRShoulder(&ui_atlas, I_SHOULDER, I_R, PAD_BUTTON_RBUMPER, 0, t
 TouchButton buttonTurbo(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_UNTHROTTLE, 180);
 TouchButton buttonVPS(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_LEFT_THUMB, 180);
 TouchCrossPad crossPad(&ui_atlas, I_DIR, I_ARROW);
-#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
+#if USE_PAUSE_BUTTON
 TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
 #endif
 
@@ -77,7 +83,7 @@ void LayoutGamepad(int w, int h)
 	buttonRShoulder.setPos(w - button_spacing - 10 * controlScale, 30 * controlScale, controlScale);
 
 
-#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
+#if USE_PAUSE_BUTTON
 	buttonPause.setPos(halfW, 15 * controlScale, controlScale);
 #endif
 
@@ -105,7 +111,7 @@ void UpdateGamepad(InputState &input_state)
 	else 
 		buttonTurbo.update(input_state);
 
-#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
+#if USE_PAUSE_BUTTON
 	buttonPause.update(input_state);
 #endif
 
@@ -135,7 +141,7 @@ void DrawGamepad(DrawBuffer &db, float opacity)
 	else
 		buttonTurbo.draw(db, color, colorOverlay);
 
-#if defined(__SYMBIAN32__) || defined(IOS) || defined(MEEGO_EDITION_HARMATTAN)
+#if USE_PAUSE_BUTTON
 	buttonPause.draw(db, color, colorOverlay);
 #endif
 
