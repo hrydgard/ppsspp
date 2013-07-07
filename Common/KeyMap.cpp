@@ -222,6 +222,11 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_SEMICOLON, ";"},
 	{KEYCODE_COMMA, ","},
 	{KEYCODE_PERIOD, "."},
+	{KEYCODE_LEFT_BRACKET, "["},
+	{KEYCODE_RIGHT_BRACKET, "]"},
+	{KEYCODE_APOSTROPHE, "'"},
+	{KEYCODE_MINUS, "-"},
+	{KEYCODE_PLUS, "+"},
 
 	{KEYCODE_BACK, "Back"},
 	{KEYCODE_TAB, "Tab"},
