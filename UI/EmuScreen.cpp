@@ -303,10 +303,10 @@ void EmuScreen::update(InputState &input) {
 		leftstick_x = clamp1(leftstick_x);
 	}
 
-	__CtrlSetAnalogX(clamp1(leftstick_x), 0);
-	__CtrlSetAnalogY(clamp1(leftstick_y), 0);
-	__CtrlSetAnalogX(clamp1(rightstick_x), 1);
-	__CtrlSetAnalogY(clamp1(rightstick_y), 1);
+	__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
+	__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
+	__CtrlSetAnalogX(clamp1(rightstick_x), CTRL_STICK_RIGHT);
+	__CtrlSetAnalogY(clamp1(rightstick_y), CTRL_STICK_RIGHT);
 
 	if (PSP_CoreParameter().fpsLimit != 2) {
 		// Don't really need to show these, it's pretty obvious what unthrottle does,

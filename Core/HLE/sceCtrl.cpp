@@ -86,22 +86,35 @@ static int ctrlTimer = -1;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
+// Not savestated, this is emu state.
+// Not related to sceCtrl*RapidFire(), although it may do the same thing.
+static bool emuRapidFire = false;
+static u32 emuRapidFireFrames = 0;
+
+// These buttons are not affected by rapid fire (neither is analog.)
+const u32 CTRL_EMU_RAPIDFIRE_MASK = CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT;
 
 void __CtrlUpdateLatch()
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	
+	// Copy in the current data to the current buffer.
+	ctrlBufs[ctrlBuf] = ctrlCurrent;
+	u32 buttons = ctrlCurrent.buttons;
+	if (emuRapidFire && (emuRapidFireFrames % 10) < 5)
+	{
+		ctrlBufs[ctrlBuf].buttons &= CTRL_EMU_RAPIDFIRE_MASK;
+		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
+	}
 
-	u32 changed = ctrlCurrent.buttons ^ ctrlOldButtons;
-	latch.btnMake |= ctrlCurrent.buttons & changed;
+	u32 changed = buttons ^ ctrlOldButtons;
+	latch.btnMake |= buttons & changed;
 	latch.btnBreak |= ctrlOldButtons & changed;
-	latch.btnPress |= ctrlCurrent.buttons;
-	latch.btnRelease |= (ctrlOldButtons & ~ctrlCurrent.buttons) & changed;
+	latch.btnPress |= buttons;
+	latch.btnRelease |= (ctrlOldButtons & ~buttons) & changed;
 	ctrlLatchBufs++;
 		
-	ctrlOldButtons = ctrlCurrent.buttons;
-
-	// Copy in the current data to the current buffer.
-	memcpy(&ctrlBufs[ctrlBuf], &ctrlCurrent, sizeof(_ctrl_data));
+	ctrlOldButtons = buttons;
 
 	ctrlBufs[ctrlBuf].frame = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
 	if (!analogEnabled)
@@ -177,18 +190,23 @@ void __CtrlSetAnalogY(float y, int stick)
 	}
 }
 
+void __CtrlSetRapidFire(bool state)
+{
+	emuRapidFire = state;
+}
+
 int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
 {
-	_ctrl_data data;
-	if (Memory::IsValidAddress(ctrlDataPtr))
+	PSPPointer<_ctrl_data> data;
+	data = ctrlDataPtr;
+	if (data.IsValid())
 	{
-		memcpy(&data, &ctrlBufs[ctrlBufRead], sizeof(_ctrl_data));
+		*data = ctrlBufs[ctrlBufRead];
 		ctrlBufRead = (ctrlBufRead + 1) % NUM_CTRL_BUFFERS;
 
 		if (negative)
-			data.buttons = ~data.buttons;
+			data->buttons = ~data->buttons;
 
-		Memory::WriteStruct(ctrlDataPtr, &data);
 		return 1;
 	}
 
@@ -253,6 +271,8 @@ retry:
 
 void __CtrlVblank()
 {
+	emuRapidFireFrames++;
+
 	// This always runs, so make sure we're in vblank mode.
 	if (ctrlCycle == 0)
 		__CtrlDoSample();
