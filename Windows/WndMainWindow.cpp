@@ -53,8 +53,6 @@ BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 extern bool g_TakeScreenshot;
 extern InputState input_state;
-extern const char * getVirtualKeyName(unsigned char key);
-extern const char * getXinputButtonName(unsigned int button);
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
@@ -94,14 +92,6 @@ namespace MainWindow
 
 	HWND GetDisplayHWND() {
 		return hwndDisplay;
-	}
-
-	void SendCheckedNativeKey(KeyInput &key, int vKey) {
-		key.keyCode = windowsTransTable[(int)vKey];
-		if (key.keyCode) {
-			key.flags = GetAsyncKeyState(vKey) ? KEY_DOWN : KEY_UP;
-			NativeKey(key);
-		}
 	}
 
 	void Init(HINSTANCE hInstance) {
@@ -459,19 +449,15 @@ namespace MainWindow
 	static int GetTrueVKey(const RAWKEYBOARD &kb) {
 		switch (kb.VKey) {
 		case VK_SHIFT:
-			if (kb.MakeCode == 0x36)  // WTF?
-				return VK_RSHIFT;
-			else
-				return VK_LSHIFT;
+			return MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
 		case VK_CONTROL:
-			if (kb.Flags == 2)  // Seems to contradict some documentation
+			if (kb.Flags & RI_KEY_E0)
 				return VK_RCONTROL;
 			else
 				return VK_LCONTROL;
 
-		// For some reason, we don't receive KEYDOWN for Alt keys, only KEYUP. 
 		case VK_MENU:
-			if (kb.Flags == 3)
+			if (kb.Flags & RI_KEY_E0)
 				return VK_RMENU;  // Right Alt / AltGr
 			else
 				return VK_LMENU;  // Left Alt
@@ -854,10 +840,10 @@ namespace MainWindow
 				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
 				RAWINPUT* raw = (RAWINPUT*)rawInputBuffer;
 
-				if (raw->header.dwType == RIM_TYPEKEYBOARD) 	{
+				if (raw->header.dwType == RIM_TYPEKEYBOARD) {
 					KeyInput key;
 					key.deviceId = DEVICE_ID_KEYBOARD;
-					if (raw->data.keyboard.Message == WM_KEYDOWN) {
+					if (raw->data.keyboard.Message == WM_KEYDOWN || raw->data.keyboard.Message == WM_SYSKEYDOWN) {
 						key.flags = KEY_DOWN;
 						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
 						if (key.keyCode)

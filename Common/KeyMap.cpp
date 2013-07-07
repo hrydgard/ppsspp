@@ -231,7 +231,9 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_APOSTROPHE, "'"},
 	{KEYCODE_MINUS, "-"},
 	{KEYCODE_PLUS, "+"},
+	{KEYCODE_SYSRQ, "Print"},
 	{KEYCODE_SCROLL_LOCK, "ScrLock"},
+	{KEYCODE_BREAK, "Pause"},
 
 	{KEYCODE_BACK, "Back"},
 	{KEYCODE_TAB, "Tab"},
@@ -256,6 +258,7 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_INSERT, "Ins"},
 	{KEYCODE_PAGE_UP, "PgUp"},
 	{KEYCODE_PAGE_DOWN, "PgDn"},
+	{KEYCODE_CLEAR, "Clear"}, // 5 when numlock off
 	{KEYCODE_CALL, "Call"},
 	{KEYCODE_ENDCALL, "End Call"},
 
