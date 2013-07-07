@@ -201,7 +201,6 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 	case VIRTKEY_PAUSE:
-		fbo_unbind();
 		screenManager()->push(new PauseScreen());
 		break;
 	}
@@ -359,7 +358,6 @@ void EmuScreen::update(InputState &input) {
 
 	// This is still here to support the iOS on screen back button.
 	if (input.pad_buttons_down & (PAD_BUTTON_BACK)) {
-		fbo_unbind();
 		screenManager()->push(new PauseScreen());
 	}
 }
