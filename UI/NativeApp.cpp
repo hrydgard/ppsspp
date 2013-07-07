@@ -467,7 +467,7 @@ void TakeScreenshot() {
 
 	char temp[256];
 	while (i < 10000){
-		if(g_Config.bScreenshotAsPNG)
+		if(g_Config.bScreenshotsAsPNG)
 			sprintf(temp, "screenshots/screen%05d.png", i);
 		else
 			sprintf(temp, "screenshots/screen%05d.jpg", i);
@@ -488,7 +488,7 @@ void TakeScreenshot() {
 		memcpy(flipbuffer + y * pixel_xres * 4, buffer + (pixel_yres - y - 1) * pixel_xres * 4, pixel_xres * 4);
 	}
 
-	if(g_Config.bScreenshotAsPNG)
+	if(g_Config.bScreenshotsAsPNG)
 		stbi_write_png(temp, pixel_xres, pixel_yres, 4, flipbuffer, pixel_xres * 4);
 	else
 	{
