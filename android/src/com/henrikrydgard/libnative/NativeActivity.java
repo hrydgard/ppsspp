@@ -359,6 +359,7 @@ public class NativeActivity extends Activity {
 	        if (Build.VERSION.SDK_INT >= 12) {
 	        	InputDeviceState state = getInputDeviceState(event);
 	        	state.onJoystickMotion(event);
+	        	return true;
 	        }
 		}
 
