@@ -35,22 +35,22 @@
 #endif
 
 static const struct {int from, to;} dinput_ctrl_map[] = {
-	{11,             KEYCODE_BUTTON_THUMBR},      // Open PauseScreen
-	{10,             KEYCODE_BUTTON_THUMBL},               // Toggle PauseScreen & Back Setting Page
-	{1,		         KEYCODE_BUTTON_B },          // Cross    = XBOX-A
-	{2,		         KEYCODE_BUTTON_A },          // Circle   = XBOX-B 
-	{0,		         KEYCODE_BUTTON_Y  },         // Square   = XBOX-X
-	{3,		         KEYCODE_BUTTON_X  },         // Triangle = XBOX-Y
-	{8,		         KEYCODE_BUTTON_SELECT},
-	{9,		         KEYCODE_BUTTON_START},
-	{4,		         KEYCODE_BUTTON_L2    },      // LTrigger = XBOX-LBumper
-	{5,		         KEYCODE_BUTTON_R2   },       // RTrigger = XBOX-RBumper
-	{6,              KEYCODE_BUTTON_L1},      // Turbo
-	{7,              KEYCODE_BUTTON_R1 },     // Open PauseScreen
-	{POV_CODE_UP,    KEYCODE_DPAD_UP},
-	{POV_CODE_DOWN,  KEYCODE_DPAD_DOWN},
-	{POV_CODE_LEFT,  KEYCODE_DPAD_LEFT},
-	{POV_CODE_RIGHT, KEYCODE_DPAD_RIGHT},
+    { 11,             KEYCODE_BUTTON_THUMBR },
+    { 10,             KEYCODE_BUTTON_THUMBL },
+    { 1,              KEYCODE_BUTTON_B },
+    { 2,              KEYCODE_BUTTON_A },
+    { 0,              KEYCODE_BUTTON_Y  },
+    { 3,              KEYCODE_BUTTON_X  },
+    { 8,              KEYCODE_BUTTON_SELECT },
+    { 9,              KEYCODE_BUTTON_START },
+    { 4,              KEYCODE_BUTTON_L2 },
+    { 5,              KEYCODE_BUTTON_R2 },
+    { 6,              KEYCODE_BUTTON_L1 },
+    { 7,              KEYCODE_BUTTON_R1 },
+    { POV_CODE_UP,    KEYCODE_DPAD_UP },
+    { POV_CODE_DOWN,  KEYCODE_DPAD_DOWN },
+    { POV_CODE_LEFT,  KEYCODE_DPAD_LEFT },
+    { POV_CODE_RIGHT, KEYCODE_DPAD_RIGHT },
 };
 
 
@@ -161,16 +161,6 @@ DinputDevice::~DinputDevice()
 	}
 }
 
-static inline int getPadCodeFromVirtualPovCode(unsigned int povCode)
-{
-	int mergedCode = 0;
-	for (int i = 0; i < dinput_ctrl_map_size / sizeof(dinput_ctrl_map[0]); i++) {
-		if (dinput_ctrl_map[i].from != 0xFFFFFFFF && dinput_ctrl_map[i].from > 0xFF && dinput_ctrl_map[i].from & povCode)
-			mergedCode |= dinput_ctrl_map[i].to;
-	}
-	return mergedCode;
-}
-
 int DinputDevice::UpdateState(InputState &input_state)
 {
 	if (g_Config.iForceInputDevice == 0) return -1;
@@ -247,6 +237,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 			NativeKey(key);
 
 			// Hack needed to let the special buttons work..
+			// TODO: Is there no better way to handle this with DirectInput?
 			switch(dinput_ctrl_map[i].to)
 			{
 			case KEYCODE_BUTTON_THUMBL:
@@ -359,7 +350,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 		}
 	}
 
-		const LONG rthreshold = 8000;
+	const LONG rthreshold = 8000;
 	
 	KeyInput RAS;
 	RAS.deviceId = DEVICE_ID_PAD_0;
