@@ -85,6 +85,8 @@ DinputDevice::DinputDevice() {
 	last_lX_ = 0;
 	last_lY_ = 0;
 	last_lZ_ = 0;
+	last_lRx_ = 0;
+	last_lRy_ = 0;
 	last_lRz_ = 0;
 
 	if(FAILED(DirectInput8Create(GetModuleHandle(NULL),DIRECTINPUT_VERSION,IID_IDirectInput8,(void**)&pDI,NULL)))
@@ -182,6 +184,8 @@ int DinputDevice::UpdateState(InputState &input_state) {
 		SendNativeAxis(DEVICE_ID_PAD_0, js.lX, last_lX_, JOYSTICK_AXIS_X);
 		SendNativeAxis(DEVICE_ID_PAD_0, js.lY, last_lY_, JOYSTICK_AXIS_Y);
 		SendNativeAxis(DEVICE_ID_PAD_0, js.lZ, last_lZ_, JOYSTICK_AXIS_Z);
+		SendNativeAxis(DEVICE_ID_PAD_0, js.lRx, last_lRx_, JOYSTICK_AXIS_RX);
+		SendNativeAxis(DEVICE_ID_PAD_0, js.lRy, last_lRy_, JOYSTICK_AXIS_RY);
 		SendNativeAxis(DEVICE_ID_PAD_0, js.lRz, last_lRz_, JOYSTICK_AXIS_RZ);
 	}
 

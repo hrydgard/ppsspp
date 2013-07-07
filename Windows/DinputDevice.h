@@ -40,5 +40,7 @@ private:
 	short                   last_lX_;
 	short                   last_lY_;
 	short                   last_lZ_;
+	short                   last_lRx_;
+	short                   last_lRy_;
 	short                   last_lRz_;
 };
