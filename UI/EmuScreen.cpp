@@ -186,9 +186,6 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
 	switch (virtualKeyCode) {
-	case VIRTKEY_UNTHROTTLE:
-		PSP_CoreParameter().unthrottle = true;
-		break;
 	case VIRTKEY_SPEED_TOGGLE:
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
@@ -212,8 +209,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 void EmuScreen::onVKeyUp(int virtualKeyCode) {
 	switch (virtualKeyCode) {
-	case VIRTKEY_UNTHROTTLE:
-		PSP_CoreParameter().unthrottle = false;
+	default:
 		break;
 	}
 }
@@ -259,7 +255,7 @@ static const struct { int from, to; } legacy_touch_mapping[12] = {
 	{PAD_BUTTON_X, CTRL_SQUARE},
 	{PAD_BUTTON_Y, CTRL_TRIANGLE},
 	{PAD_BUTTON_START, CTRL_START},
-	{PAD_BUTTON_BACK, CTRL_SELECT},
+	{PAD_BUTTON_SELECT, CTRL_SELECT},
 	{PAD_BUTTON_LBUMPER, CTRL_LTRIGGER},
 	{PAD_BUTTON_RBUMPER, CTRL_RTRIGGER},
 	{PAD_BUTTON_UP, CTRL_UP},
@@ -335,10 +331,14 @@ void EmuScreen::update(InputState &input) {
 		// Also send the special buttons to input, since that's where they're handled.
 		input.pad_buttons_down |= fakeInputState.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
 		input.pad_buttons_up |= fakeInputState.pad_buttons_up & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
-
+		input.pad_buttons = fakeInputState.pad_buttons;
 #ifdef _WIN32
 	}
 #endif
+
+	// Still checking input.pad_buttons here to support the onscreen throttle button.
+	PSP_CoreParameter().unthrottle = virtKeys[VIRTKEY_UNTHROTTLE - VIRTKEY_FIRST] ||
+		(input.pad_buttons & PAD_BUTTON_UNTHROTTLE) != 0;
 
 	// Apply tilt to left stick
 	if (g_Config.bAccelerometerToAnalogHoriz) {
