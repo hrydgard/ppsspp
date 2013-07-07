@@ -370,8 +370,8 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 		entry.openSize = readSize;
 		// when open as "umd1:/sce_lbn0x0_size0x6B49D200", that mean open umd1 as a block device.
 		// the param in sceIoLseek and sceIoRead is lba mode. we must mark it.
-		if(sectorStart==0 && readSize>=blockDevice->GetNumBlocks()*2048)
-			entry.file = &entireISO;
+		// if(sectorStart==0 && readSize>=blockDevice->GetNumBlocks()*2048)
+		//	entry.file = &entireISO;
 
 		entries[newHandle] = entry;
 		return newHandle;
