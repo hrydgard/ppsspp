@@ -22,6 +22,8 @@
 
 namespace KeyMap {
 
+KeyDef AxisDef(int deviceId, int axisId, int direction);
+
 // TODO: Make use const_map.h from native
 struct DefaultKeyMap {
 	static KeyMapping defaultKeyboardMap()
@@ -72,6 +74,10 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_R2)] = VIRTKEY_UNTHROTTLE;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_THUMBR)] = VIRTKEY_PAUSE;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_L2)] = VIRTKEY_SPEED_TOGGLE;
+		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_X, -1)] = VIRTKEY_AXIS_X_MIN;
+		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_X, +1)] = VIRTKEY_AXIS_X_MAX;
+		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_Y, -1)] = VIRTKEY_AXIS_Y_MIN;
+		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_Y, +1)] = VIRTKEY_AXIS_Y_MAX;
 		return m;
 	}
 
@@ -90,6 +96,10 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BACK)] = CTRL_SELECT;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_L1)] = CTRL_LTRIGGER;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_R1)] = CTRL_RTRIGGER;
+		m[AxisDef(DEVICE_ID_PAD_0, JOYSTICK_AXIS_X, -1)] = VIRTKEY_AXIS_X_MIN;
+		m[AxisDef(DEVICE_ID_PAD_0, JOYSTICK_AXIS_X, +1)] = VIRTKEY_AXIS_X_MAX;
+		m[AxisDef(DEVICE_ID_PAD_0, JOYSTICK_AXIS_Y, -1)] = VIRTKEY_AXIS_Y_MIN;
+		m[AxisDef(DEVICE_ID_PAD_0, JOYSTICK_AXIS_Y, +1)] = VIRTKEY_AXIS_Y_MAX;
 		return m;
 	}
 
@@ -108,6 +118,10 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BACK)] = CTRL_SELECT;
 		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_L1)] = CTRL_LTRIGGER;
 		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_R1)] = CTRL_RTRIGGER;
+		m[AxisDef(DEVICE_ID_DEFAULT, JOYSTICK_AXIS_X, -1)] = VIRTKEY_AXIS_X_MIN;
+		m[AxisDef(DEVICE_ID_DEFAULT, JOYSTICK_AXIS_X, +1)] = VIRTKEY_AXIS_X_MAX;
+		m[AxisDef(DEVICE_ID_DEFAULT, JOYSTICK_AXIS_Y, -1)] = VIRTKEY_AXIS_Y_MIN;
+		m[AxisDef(DEVICE_ID_DEFAULT, JOYSTICK_AXIS_Y, +1)] = VIRTKEY_AXIS_Y_MAX;
 		return m;
 	}
 
@@ -421,6 +435,11 @@ int TranslateKeyCodeFromAxis(int axisId, int direction)
 	direction = direction < 0 ? 1 : 0;
 	return AXIS_BIND_KEYCODE_START + axisId * 2 + direction;
 }
+
+KeyDef AxisDef(int deviceId, int axisId, int direction) {
+	return KeyDef(deviceId, TranslateKeyCodeFromAxis(axisId, direction));
+}
+
 
 static bool FindKeyMapping(int deviceId, int key, int *psp_button)
 {
