@@ -53,7 +53,6 @@ BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 extern bool g_TakeScreenshot;
 extern InputState input_state;
-extern const char * getVirtualKeyName(unsigned char key);
 extern const char * getXinputButtonName(unsigned int button);
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
