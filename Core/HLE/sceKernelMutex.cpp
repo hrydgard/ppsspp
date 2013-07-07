@@ -394,7 +394,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	if (optionsPtr != 0)
 	{
 		u32 size = Memory::Read_U32(optionsPtr);
-		if (size != 0)
+		if (size > 4)
 			WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
@@ -751,7 +751,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	if (optionsPtr != 0)
 	{
 		u32 size = Memory::Read_U32(optionsPtr);
-		if (size != 0)
+		if (size > 4)
 			WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)

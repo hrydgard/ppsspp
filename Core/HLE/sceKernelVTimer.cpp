@@ -177,9 +177,11 @@ void __KernelVTimerInit() {
 }
 
 u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
+	if (!name) {
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateVTimer(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		return SCE_KERNEL_ERROR_ERROR;
+	}
 	DEBUG_LOG(HLE, "sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
-	if (optParamAddr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateVTimer: unsupported options parameter %08x", optParamAddr);
 
 	VTimer *vtimer = new VTimer;
 	SceUID id = kernelObjects.Create(vtimer);
@@ -189,6 +191,12 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	strncpy(vtimer->nvt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	vtimer->nvt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 	vtimer->memoryPtr = 0;
+
+	if (optParamAddr != 0) {
+		u32 size = Memory::Read_U32(optParamAddr);
+		if (size > 4)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
+	}
 
 	return id;
 }
