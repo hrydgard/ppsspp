@@ -212,6 +212,11 @@ typedef enum _keycode_t {
 	KEYCODE_BUTTON_15 = 202,
 	KEYCODE_BUTTON_16 = 203,
 
+
+
+	// Extended keycodes, not available on Android
+	KEYCODE_EXT_PIPE = 1001,  // The key next to Z on euro 102-key keyboards.
+
 } keycode_t;
 
 
