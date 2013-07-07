@@ -1,6 +1,6 @@
 [submodule "native"]
 	path = native
-	url = https://github.com/hrydgard/native.git
+	url = https://github.com/dykebeard/native.git
 [submodule "pspautotests"]
 	path = pspautotests
 	url = https://github.com/hrydgard/pspautotests.git
