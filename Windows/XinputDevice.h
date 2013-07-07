@@ -11,7 +11,6 @@ public:
 	XinputDevice();
 	virtual int UpdateState(InputState &input_state);
 	virtual bool IsPad() { return true; }
-	int UpdateRawStateSingle(RawInputState &rawState);
 private:
 	void ApplyButtons(XINPUT_STATE &state, InputState &input_state);
 	int gamepad_idx;
