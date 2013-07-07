@@ -89,8 +89,7 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 	vt->nvt.schedule = schedule;
 
 	if (vt->nvt.active == 1 && vt->nvt.handlerAddr != 0)
-		// this delay makes the test pass, not sure if it's right
-		CoreTiming::ScheduleEvent(usToCycles(vt->nvt.schedule + 372), vtimerTimer, vt->GetUID());
+		CoreTiming::ScheduleEvent(usToCycles(vt->nvt.schedule), vtimerTimer, vt->GetUID());
 }
 
 void __rescheduleVTimer(SceUID id, int delay) {
