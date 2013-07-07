@@ -1615,6 +1615,8 @@ void KeyMappingScreen::render() {
 	KeyBtn(left + pad, top, CTRL_START);
 #undef KeyBtn
 
+	// TODO: Add rapid fire somewhere?
+
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}

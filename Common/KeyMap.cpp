@@ -47,6 +47,7 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_K)] = VIRTKEY_AXIS_Y_MIN;
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_J)] = VIRTKEY_AXIS_X_MIN;
 		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_L)] = VIRTKEY_AXIS_X_MAX;
+		m[KeyDef(DEVICE_ID_KEYBOARD, KEYCODE_SHIFT_LEFT)] = VIRTKEY_RAPID_FIRE;
 		return m;
 	}
 
@@ -302,6 +303,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_X_MAX, "An.Right"},
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
+	{VIRTKEY_RAPID_FIRE, "Rapid"},
 };
 
 static int psp_button_names_count = sizeof(psp_button_names) / sizeof(psp_button_names[0]);

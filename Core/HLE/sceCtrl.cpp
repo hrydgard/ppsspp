@@ -29,6 +29,7 @@
 /* Index for the two analog directions */
 #define CTRL_ANALOG_X   0
 #define CTRL_ANALOG_Y   1
+#define CTRL_ANALOG_CENTER 128
 
 #define CTRL_MODE_DIGITAL   0
 #define CTRL_MODE_ANALOG    1
@@ -48,8 +49,9 @@ struct _ctrl_data
 {
 	u32 frame;
 	u32 buttons;
-	u8  analog[2];
-	u8  analogRight[2];  // Only present in the PSP emu on the PS3 and maybe Vita
+	// The PSP has only one stick, but has space for more info.
+	// The second stick is populated for HD remasters and possibly in the PSP emulator on PS3/Vita.
+	u8  analog[2][2];
 	u8  unused[4];
 };
 
@@ -86,31 +88,39 @@ static int ctrlTimer = -1;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
+// Not savestated, this is emu state.
+// Not related to sceCtrl*RapidFire(), although it may do the same thing.
+static bool emuRapidFire = false;
+static u32 emuRapidFireFrames = 0;
+
+// These buttons are not affected by rapid fire (neither is analog.)
+const u32 CTRL_EMU_RAPIDFIRE_MASK = CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT;
 
 void __CtrlUpdateLatch()
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
+	
+	// Copy in the current data to the current buffer.
+	ctrlBufs[ctrlBuf] = ctrlCurrent;
+	u32 buttons = ctrlCurrent.buttons;
+	if (emuRapidFire && (emuRapidFireFrames % 10) < 5)
+	{
+		ctrlBufs[ctrlBuf].buttons &= CTRL_EMU_RAPIDFIRE_MASK;
+		buttons &= CTRL_EMU_RAPIDFIRE_MASK;
+	}
 
-	u32 changed = ctrlCurrent.buttons ^ ctrlOldButtons;
-	latch.btnMake |= ctrlCurrent.buttons & changed;
+	u32 changed = buttons ^ ctrlOldButtons;
+	latch.btnMake |= buttons & changed;
 	latch.btnBreak |= ctrlOldButtons & changed;
-	latch.btnPress |= ctrlCurrent.buttons;
-	latch.btnRelease |= (ctrlOldButtons & ~ctrlCurrent.buttons) & changed;
+	latch.btnPress |= buttons;
+	latch.btnRelease |= (ctrlOldButtons & ~buttons) & changed;
 	ctrlLatchBufs++;
 		
-	ctrlOldButtons = ctrlCurrent.buttons;
-
-	// Copy in the current data to the current buffer.
-	memcpy(&ctrlBufs[ctrlBuf], &ctrlCurrent, sizeof(_ctrl_data));
+	ctrlOldButtons = buttons;
 
 	ctrlBufs[ctrlBuf].frame = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
 	if (!analogEnabled)
-	{
-		ctrlBufs[ctrlBuf].analog[0] = 128;
-		ctrlBufs[ctrlBuf].analog[1] = 128;
-	}
-	ctrlBufs[ctrlBuf].analogRight[0] = 128;
-	ctrlBufs[ctrlBuf].analogRight[1] = 128;
+		memset(ctrlBufs[ctrlBuf].analog, CTRL_ANALOG_CENTER, sizeof(ctrlBufs[ctrlBuf].analog));
 
 	ctrlBuf = (ctrlBuf + 1) % NUM_CTRL_BUFFERS;
 
@@ -160,35 +170,32 @@ void __CtrlButtonUp(u32 buttonBit)
 void __CtrlSetAnalogX(float x, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	if (stick == 0) {
-		ctrlCurrent.analog[0] = (u8)ceilf(x * 127.5f + 127.5f);
-	} else {
-		ctrlCurrent.analogRight[0] = (u8)ceilf(x * 127.5f + 127.5f);
-	}
+	ctrlCurrent.analog[stick][CTRL_ANALOG_X] = (u8)ceilf(x * 127.5f + 127.5f);
 }
 
 void __CtrlSetAnalogY(float y, int stick)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
-	if (stick == 0) {
-		ctrlCurrent.analog[1] = (u8)ceilf(-y * 127.5f + 127.5f);
-	} else {
-		ctrlCurrent.analogRight[1] = (u8)ceilf(-y * 127.5f + 127.5f);
-	}
+	ctrlCurrent.analog[stick][CTRL_ANALOG_Y] = (u8)ceilf(-y * 127.5f + 127.5f);
+}
+
+void __CtrlSetRapidFire(bool state)
+{
+	emuRapidFire = state;
 }
 
 int __CtrlReadSingleBuffer(u32 ctrlDataPtr, bool negative)
 {
-	_ctrl_data data;
-	if (Memory::IsValidAddress(ctrlDataPtr))
+	PSPPointer<_ctrl_data> data;
+	data = ctrlDataPtr;
+	if (data.IsValid())
 	{
-		memcpy(&data, &ctrlBufs[ctrlBufRead], sizeof(_ctrl_data));
+		*data = ctrlBufs[ctrlBufRead];
 		ctrlBufRead = (ctrlBufRead + 1) % NUM_CTRL_BUFFERS;
 
 		if (negative)
-			data.buttons = ~data.buttons;
+			data->buttons = ~data->buttons;
 
-		Memory::WriteStruct(ctrlDataPtr, &data);
 		return 1;
 	}
 
@@ -253,6 +260,8 @@ retry:
 
 void __CtrlVblank()
 {
+	emuRapidFireFrames++;
+
 	// This always runs, so make sure we're in vblank mode.
 	if (ctrlCycle == 0)
 		__CtrlDoSample();
@@ -288,10 +297,7 @@ void __CtrlInit()
 	latch.btnRelease = 0xffffffff;
 
 	memset(&ctrlCurrent, 0, sizeof(ctrlCurrent));
-	ctrlCurrent.analog[0] = 128;
-	ctrlCurrent.analog[1] = 128;
-	ctrlCurrent.analogRight[0] = 128;
-	ctrlCurrent.analogRight[1] = 128;
+	memset(ctrlCurrent.analog, CTRL_ANALOG_CENTER, sizeof(ctrlCurrent.analog));
 
 	for (u32 i = 0; i < NUM_CTRL_BUFFERS; i++)
 		memcpy(&ctrlBufs[i], &ctrlCurrent, sizeof(_ctrl_data));

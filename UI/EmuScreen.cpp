@@ -254,6 +254,7 @@ void EmuScreen::update(InputState &input) {
 		leftstick_y -= 1.0f;
 	if (virtKeys[VIRTKEY_AXIS_Y_MAX - VIRTKEY_FIRST])
 		leftstick_y += 1.0f;
+	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
 	// First translate touches into native pad input.
 	// Do this no matter the value of g_Config.bShowTouchControls, some people
@@ -290,6 +291,10 @@ void EmuScreen::update(InputState &input) {
 		rightstick_x += fakeInputState.pad_rstick_x;
 		rightstick_y += fakeInputState.pad_rstick_y;
 
+		// Also send the special buttons to input, since that's where they're handled.
+		input.pad_buttons_down |= fakeInputState.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
+		input.pad_buttons_up |= fakeInputState.pad_buttons_up & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
+
 #ifdef _WIN32
 	}
 #endif
@@ -303,10 +308,10 @@ void EmuScreen::update(InputState &input) {
 		leftstick_x = clamp1(leftstick_x);
 	}
 
-	__CtrlSetAnalogX(clamp1(leftstick_x), 0);
-	__CtrlSetAnalogY(clamp1(leftstick_y), 0);
-	__CtrlSetAnalogX(clamp1(rightstick_x), 1);
-	__CtrlSetAnalogY(clamp1(rightstick_y), 1);
+	__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
+	__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
+	__CtrlSetAnalogX(clamp1(rightstick_x), CTRL_STICK_RIGHT);
+	__CtrlSetAnalogY(clamp1(rightstick_y), CTRL_STICK_RIGHT);
 
 	if (PSP_CoreParameter().fpsLimit != 2) {
 		// Don't really need to show these, it's pretty obvious what unthrottle does,

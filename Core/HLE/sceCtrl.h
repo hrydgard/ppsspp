@@ -23,6 +23,10 @@ class PointerWrap;
 
 void Register_sceCtrl();
 
+const int CTRL_STICK_LEFT = 0;
+// The actual PSP only has one, but HD remasters expose this, maybe also the emulator on the PSP/Vita.
+const int CTRL_STICK_RIGHT = 1;
+
 #define CTRL_SQUARE     0x8000
 #define CTRL_TRIANGLE   0x1000
 #define CTRL_CIRCLE     0x2000
@@ -40,11 +44,21 @@ void __CtrlInit();
 void __CtrlDoState(PointerWrap &p);
 void __CtrlShutdown();
 
+// Call this whenever a button is pressed, using the above CTRL_ constants.
+// Multiple buttons may be sent in one call OR'd together.
+// Resending a currently pressed button is fine but not required.
 void __CtrlButtonDown(u32 buttonBit);
+// Call this whenever a button is released.  Similar to __CtrlButtonDown().
 void __CtrlButtonUp(u32 buttonBit);
-// -1 to 1, try to keep it in the circle
-void __CtrlSetAnalogX(float value, int stick = 0);
-void __CtrlSetAnalogY(float value, int stick = 0);
+
+// Call this to set the position of an analog stick, ideally when it changes.
+// Position value should be from -1 to 1, inclusive, in a square (no need to force to a circle.)
+// No deadzone filtering is done (but note that this applies to the actual PSP as well.)
+void __CtrlSetAnalogX(float value, int stick = CTRL_STICK_LEFT);
+void __CtrlSetAnalogY(float value, int stick = CTRL_STICK_LEFT);
+
+// Call this to enable rapid-fire.  This will cause buttons other than arrows to alternate.
+void __CtrlSetRapidFire(bool state);
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
