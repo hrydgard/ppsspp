@@ -136,6 +136,8 @@ struct TouchInput {
 	double timestamp;
 };
 
+#undef KEY_DOWN
+
 enum {
 	KEY_DOWN = 1,
 	KEY_UP = 2,
