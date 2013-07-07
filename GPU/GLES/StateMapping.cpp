@@ -123,12 +123,6 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		gstate_c.textureChanged = false;
 	}
 
-	// Set cull
-	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-	glstate.cullFace.set(wantCull);
-	if (wantCull)
-		glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
-
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
 	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
 
@@ -244,6 +238,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	} else {
 
+		// Set cull
+		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		glstate.cullFace.set(wantCull);
+		if (wantCull)
+			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
+			
 		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
