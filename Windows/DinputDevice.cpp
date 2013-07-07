@@ -238,8 +238,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 
 			// Hack needed to let the special buttons work..
 			// TODO: Is there no better way to handle this with DirectInput?
-			switch(dinput_ctrl_map[i].to)
-			{
+			switch(dinput_ctrl_map[i].to) {
 			case KEYCODE_BUTTON_THUMBL:
 				input_state.pad_buttons |= PAD_BUTTON_LEFT_THUMB;
 				break;
@@ -267,89 +266,91 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 			NativeKey(key);
 		}
 
-		// TODO: Is there really no better way to do the POV buttons?
+		// TODO: Is there really no better way to handle the POV buttons?
 		if(dinput_ctrl_map[i].from < DIRECTINPUT_RGBBUTTONS_MAX) {
 			KeyInput key;
 			key.deviceId = DEVICE_ID_PAD_0;
 			switch(state.rgdwPOV[0]) {
-				case JOY_POVFORWARD:
-					key.keyCode =  KEYCODE_DPAD_UP;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
+			case JOY_POVFORWARD:
+				key.keyCode =  KEYCODE_DPAD_UP;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				break;
 
-				case JOY_POVLEFT_FORWARD:
-					key.keyCode =  KEYCODE_DPAD_UP;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					key.keyCode =  KEYCODE_DPAD_LEFT;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
+			case JOY_POVLEFT_FORWARD:
+				key.keyCode =  KEYCODE_DPAD_UP;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				key.keyCode =  KEYCODE_DPAD_LEFT;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				break;
 
-				case JOY_POVFORWARD_RIGHT:
-					key.keyCode =  KEYCODE_DPAD_UP;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					key.keyCode =  KEYCODE_DPAD_RIGHT;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
+			case JOY_POVFORWARD_RIGHT:
+				key.keyCode =  KEYCODE_DPAD_UP;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				key.keyCode =  KEYCODE_DPAD_RIGHT;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				break;
 
-				case JOY_POVBACKWARD:
-					key.keyCode = KEYCODE_DPAD_DOWN;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
+			case JOY_POVBACKWARD:
+				key.keyCode = KEYCODE_DPAD_DOWN;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				break;
 
-				case JOY_POVBACKWARD_LEFT:
-					key.keyCode =  KEYCODE_DPAD_DOWN;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					key.keyCode =  KEYCODE_DPAD_LEFT;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
+			case JOY_POVBACKWARD_LEFT:
+				key.keyCode =  KEYCODE_DPAD_DOWN;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				key.keyCode =  KEYCODE_DPAD_LEFT;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				break;
 
-				case JOY_POVRIGHT_BACKWARD:
-					key.keyCode =  KEYCODE_DPAD_DOWN;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					key.keyCode =  KEYCODE_DPAD_LEFT;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
+			case JOY_POVRIGHT_BACKWARD:
+				key.keyCode =  KEYCODE_DPAD_DOWN;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				key.keyCode =  KEYCODE_DPAD_LEFT;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				break;
 
-				case JOY_POVLEFT:
-					key.keyCode = KEYCODE_DPAD_LEFT;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
+			case JOY_POVLEFT:
+				key.keyCode = KEYCODE_DPAD_LEFT;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				break;
 
-				case JOY_POVRIGHT:	
-					key.keyCode = KEYCODE_DPAD_RIGHT;
-					key.flags = KEY_DOWN;
-					NativeKey(key);
-					break;
+			case JOY_POVRIGHT:	
+				key.keyCode = KEYCODE_DPAD_RIGHT;
+				key.flags = KEY_DOWN;
+				NativeKey(key);
+				break;
 
-				default:
-					key.keyCode = KEYCODE_DPAD_UP;
-					key.flags = KEY_UP;
-					NativeKey(key);
-					key.keyCode = KEYCODE_DPAD_DOWN;
-					key.flags = KEY_UP;
-					NativeKey(key);
-					key.keyCode = KEYCODE_DPAD_LEFT;
-					key.flags = KEY_UP;
-					NativeKey(key);
-					key.keyCode = KEYCODE_DPAD_RIGHT;
-					key.flags = KEY_UP;
-					NativeKey(key);
-					break;
+			default:
+				key.keyCode = KEYCODE_DPAD_UP;
+				key.flags = KEY_UP;
+				NativeKey(key);
+				key.keyCode = KEYCODE_DPAD_DOWN;
+				key.flags = KEY_UP;
+				NativeKey(key);
+				key.keyCode = KEYCODE_DPAD_LEFT;
+				key.flags = KEY_UP;
+				NativeKey(key);
+				key.keyCode = KEYCODE_DPAD_RIGHT;
+				key.flags = KEY_UP;
+				NativeKey(key);
+				break;
 			}
 		}
 	}
 
+	// TODO: Remove this once proper analog stick
+	// binding is implemented.
 	const LONG rthreshold = 8000;
 	
 	KeyInput RAS;
