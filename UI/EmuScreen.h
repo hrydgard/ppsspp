@@ -40,6 +40,9 @@ public:
 	virtual void axis(const AxisInput &axis);
 
 private:
+	void onVKeyDown(int virtualKeyCode);
+	void onVKeyUp(int virtualKeyCode);
+
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
 	std::string errorMessage_;

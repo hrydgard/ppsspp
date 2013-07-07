@@ -57,6 +57,8 @@ std::map<int, int> windowsTransTable = InitConstMap<int, int>
 	('7', KEYCODE_7)
 	('8', KEYCODE_8)
 	('9', KEYCODE_9)
+	(VK_OEM_PERIOD, KEYCODE_PERIOD)
+	(VK_OEM_COMMA, KEYCODE_COMMA)
 	(VK_NUMPAD0, KEYCODE_NUMPAD_0)
 	(VK_NUMPAD1, KEYCODE_NUMPAD_1)
 	(VK_NUMPAD2, KEYCODE_NUMPAD_2)
@@ -102,15 +104,16 @@ std::map<int, int> windowsTransTable = InitConstMap<int, int>
 	(VK_OEM_2, KEYCODE_SLASH)
 	(VK_OEM_4, KEYCODE_LEFT_BRACKET)
 	(VK_OEM_6, KEYCODE_RIGHT_BRACKET)
-	(VK_MENU, KEYCODE_MENU);
+	(VK_MENU, KEYCODE_MENU)
+	(VK_LSHIFT, KEYCODE_SHIFT_LEFT)
+	(VK_RSHIFT, KEYCODE_SHIFT_RIGHT)
+	(VK_LCONTROL, KEYCODE_CTRL_LEFT)
+	(VK_RCONTROL, KEYCODE_CTRL_RIGHT)
+	(VK_LMENU, KEYCODE_ALT_LEFT)
+	(VK_RMENU, KEYCODE_ALT_RIGHT);
 
 int KeyboardDevice::UpdateState(InputState &input_state) {
 	if (MainWindow::GetHWND() != GetForegroundWindow()) return -1;
-
-	// This button isn't customizable.  Also, if alt is held, we ignore it (alt-tab is common.)
-	if (GetAsyncKeyState(VK_TAB) && !GetAsyncKeyState(VK_MENU)) {
-		input_state.pad_buttons |= PAD_BUTTON_UNTHROTTLE;
-	}
 
 	// TODO: remove
 	for (int i = 0; i < sizeof(key_pad_map)/sizeof(key_pad_map[0]); i += 2) {

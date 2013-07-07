@@ -182,16 +182,37 @@ void EmuScreen::touch(const TouchInput &touch) {
 
 }
 
+void EmuScreen::onVKeyDown(int virtualKeyCode) {
+	switch (virtualKeyCode) {
+	case VIRTKEY_UNTHROTTLE:
+		PSP_CoreParameter().unthrottle = true;
+		break;
+	}
+}
+
+void EmuScreen::onVKeyUp(int virtualKeyCode) {
+	switch (virtualKeyCode) {
+	case VIRTKEY_UNTHROTTLE:
+		PSP_CoreParameter().unthrottle = false;
+		break;
+	}
+}
+
 void EmuScreen::key(const KeyInput &key) {
 	int result = KeyMap::KeyToPspButton(key.deviceId, key.keyCode);
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
 		return;
 
 	if (result >= VIRTKEY_FIRST) {
-		if (key.flags & KEY_DOWN)
-			virtKeys[result - VIRTKEY_FIRST] = true;
-		if (key.flags & KEY_UP)
-			virtKeys[result - VIRTKEY_FIRST] = false;
+		int vk = result - VIRTKEY_FIRST;
+		if (key.flags & KEY_DOWN) {
+			virtKeys[vk] = true;
+			onVKeyDown(key.keyCode);
+		}
+		if (key.flags & KEY_UP) {
+			virtKeys[vk] = false;
+			onVKeyUp(key.keyCode);
+		}
 	} else {
 		if (key.flags & KEY_DOWN)
 			__CtrlButtonDown(result);
@@ -313,22 +334,6 @@ void EmuScreen::update(InputState &input) {
 	__CtrlSetAnalogX(clamp1(rightstick_x), CTRL_STICK_RIGHT);
 	__CtrlSetAnalogY(clamp1(rightstick_y), CTRL_STICK_RIGHT);
 
-	if (PSP_CoreParameter().fpsLimit != 2) {
-		// Don't really need to show these, it's pretty obvious what unthrottle does,
-		// in contrast to the three state toggle
-		/*
-		if (input.pad_buttons_down & PAD_BUTTON_UNTHROTTLE) {
-			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
-		}
-		if (input.pad_buttons_up & PAD_BUTTON_UNTHROTTLE) {
-			osm.Show(s->T("standard", "Speed: standard"), 1.0);
-		}*/
-	}
-	if (input.pad_buttons & PAD_BUTTON_UNTHROTTLE) {
-		PSP_CoreParameter().unthrottle = true;
-	} else {
-		PSP_CoreParameter().unthrottle = false;
-	}
 	// Make sure fpsLimit starts at 0
 	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1 && PSP_CoreParameter().fpsLimit != 2) {
 		PSP_CoreParameter().fpsLimit = 0;
@@ -351,8 +356,7 @@ void EmuScreen::update(InputState &input) {
 	}
 
 	if (input.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB)) {
-		if (g_Config.bBufferedRendering)
-			fbo_unbind();
+		fbo_unbind();
 		screenManager()->push(new PauseScreen());
 	}
 }

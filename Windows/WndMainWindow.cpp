@@ -53,6 +53,9 @@ BOOL g_bFullScreen = FALSE;
 static RECT g_normalRC = {0};
 extern bool g_TakeScreenshot;
 extern InputState input_state;
+extern const char * getVirtualKeyName(unsigned char key);
+extern const char * getXinputButtonName(unsigned int button);
+
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
 #define CURSORUPDATE_INTERVAL_MS 50
@@ -71,6 +74,8 @@ namespace MainWindow
 	static int prevCursorY = -1;
 	static bool mouseButtonDown = false;
 	static bool hideCursor = false;
+	static void *rawInputBuffer;
+	static size_t rawInputBufferSize;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
@@ -284,6 +289,13 @@ namespace MainWindow
 		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
 #endif
 
+		RAWINPUTDEVICE keyboard;
+		memset(&keyboard, 0, sizeof(keyboard));
+		keyboard.usUsagePage = 1;
+		keyboard.usUsage = 6;
+		keyboard.dwFlags = 0; // RIDEV_NOLEGACY | ;
+		RegisterRawInputDevices(&keyboard, 1, sizeof(RAWINPUTDEVICE));
+
 		SetFocus(hwndDisplay);
 
 		return TRUE;
@@ -444,6 +456,30 @@ namespace MainWindow
 		return 0;
 	}
 
+	static int GetTrueVKey(const RAWKEYBOARD &kb) {
+		switch (kb.VKey) {
+		case VK_SHIFT:
+			if (kb.MakeCode == 0x36)  // WTF?
+				return VK_RSHIFT;
+			else
+				return VK_LSHIFT;
+		case VK_CONTROL:
+			if (kb.Flags == 2)  // Seems to contradict some documentation
+				return VK_RCONTROL;
+			else
+				return VK_LCONTROL;
+
+		// For some reason, we don't receive KEYDOWN for Alt keys, only KEYUP. 
+		case VK_MENU:
+			if (kb.Flags == 3)
+				return VK_RMENU;  // Right Alt / AltGr
+			else
+				return VK_LMENU;  // Left Alt
+		default:
+			return kb.VKey;
+		}
+	}
+	
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 	{
 		int wmId, wmEvent;
@@ -804,57 +840,34 @@ namespace MainWindow
 			}
 			break;
 
-		case WM_KEYDOWN:
+		case WM_INPUT:
 			{
-				KeyInput key;
-				key.deviceId = DEVICE_ID_KEYBOARD;
-				key.flags = KEY_DOWN;
-				switch ((int)wParam) {
-				case VK_SHIFT:
-					SendCheckedNativeKey(key, VK_LSHIFT);
-					SendCheckedNativeKey(key, VK_RSHIFT);
-					break;
-				case VK_CONTROL:
-					SendCheckedNativeKey(key, VK_LCONTROL);
-					SendCheckedNativeKey(key, VK_RCONTROL);
-					break;
-				case VK_MENU:
-					SendCheckedNativeKey(key, VK_LMENU);
-					SendCheckedNativeKey(key, VK_RMENU);
-					break;
-				default:
-					key.keyCode = windowsTransTable[(int)wParam];
-					if (key.keyCode)
-						NativeKey(key);
-					break;
+				UINT dwSize;
+				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
+				if (!rawInputBuffer) {
+					rawInputBuffer = malloc(dwSize);
+					rawInputBufferSize = dwSize;
 				}
-			}
-			return 0;
+				if (dwSize > rawInputBufferSize) {
+					rawInputBuffer = realloc(rawInputBuffer, dwSize);
+				}
+				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
+				RAWINPUT* raw = (RAWINPUT*)rawInputBuffer;
 
-		case WM_KEYUP:
-			{
-				KeyInput key;
-				key.deviceId = DEVICE_ID_KEYBOARD;
-				key.flags = KEY_UP;
-				switch ((int)wParam) {
-				case VK_SHIFT:
-					// We have no idea which was released, so just resend both.
-					SendCheckedNativeKey(key, VK_LSHIFT);
-					SendCheckedNativeKey(key, VK_RSHIFT);
-					break;
-				case VK_CONTROL:
-					SendCheckedNativeKey(key, VK_LCONTROL);
-					SendCheckedNativeKey(key, VK_RCONTROL);
-					break;
-				case VK_MENU:
-					SendCheckedNativeKey(key, VK_LMENU);
-					SendCheckedNativeKey(key, VK_RMENU);
-					break;
-				default:
-					key.keyCode = windowsTransTable[(int)wParam];
-					if (key.keyCode)
-						NativeKey(key);
-					break;
+				if (raw->header.dwType == RIM_TYPEKEYBOARD) 	{
+					KeyInput key;
+					key.deviceId = DEVICE_ID_KEYBOARD;
+					if (raw->data.keyboard.Message == WM_KEYDOWN) {
+						key.flags = KEY_DOWN;
+						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+						if (key.keyCode)
+							NativeKey(key);
+					} else if (raw->data.keyboard.Message == WM_KEYUP) {
+						key.flags = KEY_UP;
+						key.keyCode = windowsTransTable[GetTrueVKey(raw->data.keyboard)];
+						if (key.keyCode)
+							NativeKey(key);	
+					}
 				}
 			}
 			return 0;
