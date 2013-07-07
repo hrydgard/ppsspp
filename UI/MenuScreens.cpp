@@ -590,7 +590,19 @@ void SettingsScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 
@@ -727,7 +739,19 @@ void DeveloperScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *d = GetI18NCategory("Developer");
 	I18NCategory *s = GetI18NCategory("System");
@@ -783,7 +807,19 @@ void AudioScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *a = GetI18NCategory("Audio");
 
@@ -850,7 +886,19 @@ void GraphicsScreenP1::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	
@@ -917,7 +965,19 @@ void GraphicsScreenP2::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	
@@ -1046,7 +1106,19 @@ void GraphicsScreenP3::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	
@@ -1174,7 +1246,19 @@ void LanguageScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *g = GetI18NCategory("General");
 
@@ -1280,7 +1364,19 @@ void SystemScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *g = GetI18NCategory("General");
 
@@ -1470,7 +1566,19 @@ void ControlsScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *c = GetI18NCategory("Controls");
 	I18NCategory *g = GetI18NCategory("General");
 
@@ -1554,7 +1662,19 @@ void KeyMappingScreen::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
 	I18NCategory *generalI18N = GetI18NCategory("General");
 
@@ -1642,7 +1762,19 @@ void KeyMappingNewKeyDialog::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
+	
+	UIContext *ctx = screenManager()->getUIContext();
+	UIFlush();
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
 
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		ui_draw2d.Flush();
+		ctx->RebindTexture();
+	} 
+	
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
 	I18NCategory *generalI18N = GetI18NCategory("General");
 
