@@ -196,6 +196,7 @@ bool GL_Init(HWND window, std::string *error_message) {
 	glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
 
 	glstate.Initialize();
+	CheckGLExtensions();
 	GL_SetVSyncInterval(0);
 	if (enableGLDebug && glewIsSupported("GL_ARB_debug_output")) {
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
