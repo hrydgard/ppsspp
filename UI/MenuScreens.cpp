@@ -423,8 +423,8 @@ void PauseScreen::render() {
 	if (ginfo && ginfo->pic0Texture) {
 		ginfo->pic0Texture->Bind(0);
 		// Pic0 is drawn in the bottom right corner, overlaying pic1.
-		float sizeX = dp_xres / 480 * ginfo->pic0Texture->Width();
-		float sizeY = dp_yres / 272 * ginfo->pic0Texture->Height();
+		float sizeX = dp_xres / 480 * ginfo->pic0Texture->Width() * 0.5;
+		float sizeY = dp_yres / 272 * ginfo->pic0Texture->Height() * 0.5;
 		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 2)) & 0xFFc0c0c0;
 		ui_draw2d.DrawTexRect(dp_xres - sizeX, dp_yres - sizeY, dp_xres, dp_yres, 0,0,1,1,color);
 		ui_draw2d.Flush();
