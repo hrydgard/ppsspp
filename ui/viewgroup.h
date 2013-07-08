@@ -21,6 +21,7 @@ public:
 	virtual ~ViewGroup();
 
 	// Pass through external events to children.
+	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
 
 	// By default, a container will layout to its own bounds.
@@ -171,16 +172,20 @@ public:
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
 
+	void Key(const KeyInput &input);
 	void Touch(const TouchInput &input);
 	void Draw(UIContext &dc);
 
 	void ScrollTo(float newScrollPos);
+	void ScrollRelative(float distance);
 	void Update(const InputState &input_state);
 
 	// Override so that we can scroll to the active one after moving the focus.
 	virtual bool SubviewFocused(View *view);
 
 private:
+	void ClampScrollTarget();
+
 	GestureDetector gesture_;
 	Orientation orientation_;
 	float scrollPos_;

@@ -567,7 +567,7 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_WHEELUP:
 					{
 						KeyInput key;
-						key.deviceId = DEVICE_ID_DEFAULT;
+						key.deviceId = DEVICE_ID_MOUSE;
 						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_UP;
 						key.flags = KEY_DOWN;
 						NativeKey(key);
@@ -576,7 +576,7 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_WHEELDOWN:
 					{
 						KeyInput key;
-						key.deviceId = DEVICE_ID_DEFAULT;
+						key.deviceId = DEVICE_ID_MOUSE;
 						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_DOWN;
 						key.flags = KEY_DOWN;
 						NativeKey(key);

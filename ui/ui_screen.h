@@ -11,6 +11,7 @@ public:
 	virtual void update(InputState &input);
 	virtual void render();
 	virtual void touch(const TouchInput &touch);
+	virtual void key(const KeyInput &touch);
 
 	// Some useful default event handlers
 	UI::EventReturn OnBack(UI::EventParams &e);

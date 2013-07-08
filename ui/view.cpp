@@ -154,6 +154,11 @@ void Clickable::Touch(const TouchInput &input) {
 	}
 }
 
+void Clickable::Key(const KeyInput &input) {
+	// TODO: Replace most of Update with this.
+}
+
+
 void Clickable::Update(const InputState &input_state) {
 	if (!HasFocus())
 		return;

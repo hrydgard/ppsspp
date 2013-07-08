@@ -224,7 +224,6 @@ typedef enum _keycode_t {
 	KEYCODE_EXT_MOUSEWHEEL_DOWN = 1009
 } keycode_t;
 
-
 enum AndroidJoystickAxis {
 	// Field descriptor #15 I
 	JOYSTICK_AXIS_X = 0,

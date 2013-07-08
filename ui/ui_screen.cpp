@@ -41,6 +41,14 @@ void UIScreen::touch(const TouchInput &touch) {
 	}
 }
 
+void UIScreen::key(const KeyInput &key) {
+	if (root_) {
+		root_->Key(key);
+	} else {
+		ELOG("Tried to key without a view root");
+	}
+}
+
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;

@@ -21,6 +21,7 @@
 #include "math/math_util.h"
 #include "math/geom2d.h"
 
+struct KeyInput;
 struct TouchInput;
 struct InputState;
 
@@ -255,6 +256,7 @@ public:
 	// Please note that Touch is called ENTIRELY asynchronously from drawing!
 	// Can even be called on a different thread! This is to really minimize latency, and decouple
 	// touch response from the frame rate.
+	virtual void Key(const KeyInput &input) = 0;
 	virtual void Touch(const TouchInput &input) = 0;
 	virtual void Update(const InputState &input_state) = 0;
 
@@ -332,6 +334,7 @@ public:
 	InertView(LayoutParams *layoutParams)
 		: View(layoutParams) {}
 
+	virtual void Key(const KeyInput &input) {}
 	virtual void Touch(const TouchInput &input) {}
 	virtual bool CanBeFocused() const { return false; }
 	virtual void Update(const InputState &input_state) {}
@@ -344,6 +347,7 @@ public:
 	Clickable(LayoutParams *layoutParams)
 		: View(layoutParams), downCountDown_(0), dragging_(false), down_(false) {}
 
+	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
 	virtual void Update(const InputState &input_state);
 

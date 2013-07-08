@@ -1,6 +1,7 @@
 #include "base/display.h"
 #include "base/functional.h"
 #include "base/logging.h"
+#include "input/keycodes.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -43,6 +44,15 @@ void ViewGroup::Touch(const TouchInput &input) {
 			(*iter)->Touch(input);
 	}
 }
+
+void ViewGroup::Key(const KeyInput &input) {
+	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+		// TODO: If there is a transformation active, transform input coordinates accordingly.
+		if ((*iter)->GetVisibility() == V_VISIBLE)
+			(*iter)->Key(input);
+	}
+}
+
 
 void ViewGroup::Draw(UIContext &dc) {
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
@@ -443,6 +453,19 @@ void ScrollView::Layout() {
 	views_[0]->Layout();
 }
 
+void ScrollView::Key(const KeyInput &input) {
+	if (input.flags  & KEY_DOWN) {
+		switch (input.keyCode) {
+		case KEYCODE_EXT_MOUSEWHEEL_UP:
+			ScrollRelative(-250);
+			break;
+		case KEYCODE_EXT_MOUSEWHEEL_DOWN:
+			ScrollRelative(250);
+			break;
+		}
+	}
+}
+
 void ScrollView::Touch(const TouchInput &input) {
 	if ((input.flags & TOUCH_DOWN) && input.id == 0) {
 		scrollStart_ = scrollPos_;
@@ -508,7 +531,27 @@ bool ScrollView::SubviewFocused(View *view) {
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
+	ClampScrollTarget();
 }
+
+void ScrollView::ScrollRelative(float distance) {
+	scrollTarget_ = scrollPos_ + distance;
+	scrollToTarget_ = true;
+	ClampScrollTarget();
+}
+
+void ScrollView::ClampScrollTarget() {
+	// Clamp scrollTarget.
+	if (scrollTarget_ < 0.0f) {
+		scrollTarget_ = 0.0f;
+	}
+	float childHeight = views_[0]->GetBounds().h;
+	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
+	if (scrollTarget_ > scrollMax) {
+		scrollTarget_ = scrollMax;
+	}
+}
+
 
 void ScrollView::Update(const InputState &input_state) {
 	ViewGroup::Update(input_state);

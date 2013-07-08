@@ -18,6 +18,7 @@
 enum {
 	DEVICE_ID_DEFAULT = 0,  // Old Android
 	DEVICE_ID_KEYBOARD = 1,  // PC keyboard, android keyboards
+	DEVICE_ID_MOUSE = 2,  // PC mouse only (not touchscreen!)
 	DEVICE_ID_PAD_0 = 10,  // Generic joypads
 	DEVICE_ID_X360_0 = 20,  // XInput joypads
 	DEVICE_ID_ACCELEROMETER = 30,
@@ -137,10 +138,12 @@ struct TouchInput {
 };
 
 #undef KEY_DOWN
+#undef KEY_UP
 
 enum {
 	KEY_DOWN = 1,
 	KEY_UP = 2,
+	KEY_HASWHEELDELTA = 4,
 };
 
 struct KeyInput {
