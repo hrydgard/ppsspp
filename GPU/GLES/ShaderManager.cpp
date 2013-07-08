@@ -71,7 +71,7 @@ Shader::~Shader() {
 }
 
 LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
-		: program(0), dirtyUniforms(0), useHWTransform_(useHWTransform) {
+		: useHWTransform_(useHWTransform), program(0), dirtyUniforms(0) {
 	program = glCreateProgram();
 	glAttachShader(program, vs->shader);
 	glAttachShader(program, fs->shader);

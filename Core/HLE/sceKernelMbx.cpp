@@ -398,7 +398,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 		m->AddInitialMessage(packetAddr);
 	else
 	{
-		u32 next = m->nmb.packetListHead, prev;
+		u32 next = m->nmb.packetListHead, prev = 0;
 		for (int i = 0, n = m->nmb.numMessages; i < n; i++)
 		{
 			if (next == packetAddr)

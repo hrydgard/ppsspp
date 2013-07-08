@@ -1389,7 +1389,7 @@ int sceAtracSetMOutHalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfB
 		delete atrac;
 		return atracID;
 	}
-	INFO_LOG(HLE, "sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
+	INFO_LOG(HLE, "%d=sceAtracSetMOutHalfwayBufferAndGetID(%08x, %08x, %08x)", atracID, halfBuffer, readSize, halfBufferSize);
 	int ret = _AtracSetData(atracID, halfBuffer, halfBufferSize, true);
 	if (ret < 0)
 		return ret;
