@@ -289,6 +289,10 @@ public:
 		scrollY = 0.0f;
 		inertiaY = 0.0f;
 	}
+
+	void scrollRelative(float delta) {
+		scrollY += delta;
+	}
 private:
 	// TODO: Migrate to using these directly.
 	void pointerDown(int pointer, float x, float y);

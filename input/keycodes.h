@@ -217,6 +217,11 @@ typedef enum _keycode_t {
 	// Extended keycodes, not available on Android
 	KEYCODE_EXT_PIPE = 1001,  // The key next to Z on euro 102-key keyboards.
 
+	KEYCODE_EXT_MOUSEBUTTON_1 = 1002,
+	KEYCODE_EXT_MOUSEBUTTON_2 = 1003,
+	KEYCODE_EXT_MOUSEBUTTON_3 = 1004,
+	KEYCODE_EXT_MOUSEWHEEL_UP = 1008,
+	KEYCODE_EXT_MOUSEWHEEL_DOWN = 1009
 } keycode_t;
 
 

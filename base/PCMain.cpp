@@ -549,17 +549,39 @@ int main(int argc, char *argv[]) {
 				key.deviceId = DEVICE_ID_KEYBOARD;
 				NativeKey(key);
 			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
-				if (event.button.button == SDL_BUTTON_LEFT) {
-					input_state.pointer_x[0] = mx;
-					input_state.pointer_y[0] = my;
-					//input_state.mouse_buttons_down = 1;
-					input_state.pointer_down[0] = true;
-					TouchInput input;
-					input.x = mx;
-					input.y = my;
-					input.flags = TOUCH_DOWN;
-					input.id = 0;
-					NativeTouch(input);
+				switch (event.button.button) {
+				case SDL_BUTTON_LEFT:
+					{
+						input_state.pointer_x[0] = mx;
+						input_state.pointer_y[0] = my;
+						//input_state.mouse_buttons_down = 1;
+						input_state.pointer_down[0] = true;
+						TouchInput input;
+						input.x = mx;
+						input.y = my;
+						input.flags = TOUCH_DOWN;
+						input.id = 0;
+						NativeTouch(input);
+					}
+					break;
+				case SDL_BUTTON_WHEELUP:
+					{
+						KeyInput key;
+						key.deviceId = DEVICE_ID_DEFAULT;
+						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_UP;
+						key.flags = KEY_DOWN;
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_WHEELDOWN:
+					{
+						KeyInput key;
+						key.deviceId = DEVICE_ID_DEFAULT;
+						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_DOWN;
+						key.flags = KEY_DOWN;
+						NativeKey(key);
+					}
+					break;
 				}
 			} else if (event.type == SDL_MOUSEMOTION) {
 				if (input_state.pointer_down[0]) {
@@ -573,17 +595,39 @@ int main(int argc, char *argv[]) {
 					NativeTouch(input);
 				}
 			} else if (event.type == SDL_MOUSEBUTTONUP) {
-				if (event.button.button == SDL_BUTTON_LEFT) {
-					input_state.pointer_x[0] = mx;
-					input_state.pointer_y[0] = my;
-					input_state.pointer_down[0] = false;
-					//input_state.mouse_buttons_up = 1;
-					TouchInput input;
-					input.x = mx;
-					input.y = my;
-					input.flags = TOUCH_UP;
-					input.id = 0;
-					NativeTouch(input);
+				switch (event.button.button) {
+				case SDL_BUTTON_LEFT:
+					{
+						input_state.pointer_x[0] = mx;
+						input_state.pointer_y[0] = my;
+						input_state.pointer_down[0] = false;
+						//input_state.mouse_buttons_up = 1;
+						TouchInput input;
+						input.x = mx;
+						input.y = my;
+						input.flags = TOUCH_UP;
+						input.id = 0;
+						NativeTouch(input);
+					}
+					break;
+				case SDL_BUTTON_WHEELUP:
+					{
+						KeyInput key;
+						key.deviceId = DEVICE_ID_DEFAULT;
+						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_UP;
+						key.flags = KEY_UP;
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_WHEELDOWN:
+					{
+						KeyInput key;
+						key.deviceId = DEVICE_ID_DEFAULT;
+						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_DOWN;
+						key.flags = KEY_UP;
+						NativeKey(key);
+					}
+					break;
 				}
 			}
 		}
