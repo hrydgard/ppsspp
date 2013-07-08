@@ -316,7 +316,7 @@ void EmuScreen::update(InputState &input) {
 		UpdateGamepad(fakeInputState);
 		UpdateInputState(&fakeInputState);
 
-		for (int i = 0; i < ARRAY_SIZE(legacy_touch_mapping); i++) {
+		for (size_t i = 0; i < ARRAY_SIZE(legacy_touch_mapping); i++) {
 			if (fakeInputState.pad_buttons_down & legacy_touch_mapping[i].from)
 				__CtrlButtonDown(legacy_touch_mapping[i].to);
 			if (fakeInputState.pad_buttons_up & legacy_touch_mapping[i].from)

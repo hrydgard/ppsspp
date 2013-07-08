@@ -319,7 +319,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 	{
 		const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
 		const int FILE_LIST_COUNT_MAX = 99;
-		const int FILE_LIST_TOTAL_SIZE = FILE_LIST_ITEM_SIZE * FILE_LIST_COUNT_MAX;
+		const u32 FILE_LIST_TOTAL_SIZE = FILE_LIST_ITEM_SIZE * FILE_LIST_COUNT_MAX;
 		u32 tmpDataSize = 0;
 		u8 *tmpDataOrig = sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
 		u8 *tmpData = new u8[FILE_LIST_TOTAL_SIZE];
@@ -346,7 +346,7 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 			if (fName + 13 + 16 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
 				memcpy(fName+13, cryptedHash, 16);
 		}
-		sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, FILE_LIST_TOTAL_SIZE, FILE_LIST_TOTAL_SIZE);
+		sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
 		delete[] tmpData;
 	}
 
@@ -892,7 +892,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 		u32 sfoFileListSize = 0;
 		char *sfoFileList = (char *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
 		const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
-		const int FILE_LIST_COUNT_MAX = 99;
+		const u32 FILE_LIST_COUNT_MAX = 99;
 
 		// Filenames are 13 bytes long at most.  Add a NULL so there's no surprises.
 		char temp[14];

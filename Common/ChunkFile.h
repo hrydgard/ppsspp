@@ -170,7 +170,7 @@ public:
 	template<class K, class T>
 	void Do(std::map<K, T> &x)
 	{
-		T dv;
+		T dv = T();
 		DoMap(x, dv);
 	}
 
@@ -230,7 +230,7 @@ public:
 	template<class K, class T>
 	void Do(std::multimap<K, T> &x)
 	{
-		T dv;
+		T dv = T();
 		DoMultimap(x, dv);
 	}
 

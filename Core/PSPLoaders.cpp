@@ -72,7 +72,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 		{
 			gameID = g_paramSFO.GetValueString("DISC_ID");
 
-			for(int i = 0; i < ARRAY_SIZE(g_HDRemasters); i++) {
+			for (size_t i = 0; i < ARRAY_SIZE(g_HDRemasters); i++) {
 				if(g_HDRemasters[i].gameID == gameID) {
 					g_RemasterMode = true;
 					Memory::g_MemorySize = g_HDRemasters[i].MemorySize;

@@ -526,7 +526,7 @@ TextureScaler::TextureScaler() {
 
 bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, GLenum fmt) {
 	int pixelsPerWord = (fmt == GL_UNSIGNED_BYTE) ? 1 : 2;
-	int ref = data[0];
+	u32 ref = data[0];
 	for(int i=0; i<pixels/pixelsPerWord; ++i) {
 		if(data[i]!=ref) return false;
 	}

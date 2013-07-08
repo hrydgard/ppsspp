@@ -255,6 +255,7 @@ namespace SaveState
 
 			default:
 				ERROR_LOG(COMMON, "Savestate failure: unknown operation type %d", op.type);
+				result = false;
 				break;
 			}
 

@@ -437,7 +437,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x8: // 8-bit and 16-bit patch code
 				code = GetNextCode();
-				if (code[0] != NULL) {
+				if (code[0] != 0) {
 					int data = code[0];
 					int dataAdd = code[1];
 
