@@ -23,6 +23,8 @@
 #include "sceKernelThread.h"
 #include "sceUtility.h"
 
+#include "net/resolve.h"
+
 static bool netInited;
 static bool netInetInited;
 static bool netAdhocInited;
@@ -454,7 +456,40 @@ int sceNetApctlDelHandler(u32 handlerID) {
 	return 0;
 }
 
+int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
+	return -1;
+}
 
+int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetRecv(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
+	return -1;
+}
+
+int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
+	return -1;
+}
+
+int sceNetInetGetErrno() {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetGetErrno()");
+	return -1;
+}
+
+int sceNetInetSocket(int domain, int type, int protocol) {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetSocket(%i, %i, %i)", domain, type, protocol);
+	return -1;
+}
+
+int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
+	return -1;
+}
+
+int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
+	ERROR_LOG(HLE, "UNIMPL sceNetInetConnect(%i, %08x, %i)", socket, sockAddrInternetPtr, addressLength);
+	return -1;
+}
 
 const HLEFunction sceNet[] = {
 	{0x39AF39A6, sceNetInit, "sceNetInit"},
@@ -565,36 +600,36 @@ const HLEFunction sceNetResolver[] = {
 
 const HLEFunction sceNetInet[] = {
 	{0x17943399, WrapI_V<sceNetInetInit>, "sceNetInetInit"},
-	{0x2fe71fe7, 0, "sceNetInetSetsockopt"},
-	{0x410b34aa, 0, "sceNetInetConnect"},
-	{0x5be8d595, 0, "sceNetInetSelect"},
-	{0x7aa671bc, 0, "sceNetInetSend"},
-	{0x8b7b220f, 0, "sceNetInetSocket"},
-	{0x8d7284ea, 0, "sceNetInetClose"},
-	{0xb75d5b0a, 0, "sceNetInetInetAddr"},
-	{0xcda85c99, 0, "sceNetInetRecv"},
-	{0xfbabe411, 0, "sceNetInetGetErrno"},
-	{0x05038fc7, 0, "sceNetInetSendto"},
-	{0x1a33f9ae, 0, "sceNetInetBind"},
 	{0x4cfe4e56, 0, "sceNetInetShutdown"},
-	{0xb3888ad4, 0, "sceNetInetGetTcpcbstat"},
-	{0xc91142e4, 0, "sceNetInetRecvfrom"},
-	{0xd0792666, 0, "sceNetInetInetNtop"},
+	{0xa9ed66b9, WrapI_V<sceNetInetTerm>, "sceNetInetTerm"},
+	{0x8b7b220f, WrapI_III<sceNetInetSocket>, "sceNetInetSocket"},
+	{0x2fe71fe7, WrapI_IIIUI<sceNetInetSetsockopt>, "sceNetInetSetsockopt"},
+	{0x4a114c7c, 0, "sceNetInetGetsockopt"}, 
+	{0x410b34aa, WrapI_IUI<sceNetInetConnect>, "sceNetInetConnect"},
+	{0x805502DD, 0, "sceNetInetCloseWithRST"},
 	{0xd10a1a7a, 0, "sceNetInetListen"},
 	{0xdb094e1b, 0, "sceNetInetAccept"},
-	{0x8ca3a97e, 0, "sceNetInetGetPspError"},
-	{0xa9ed66b9, WrapI_V<sceNetInetTerm>, "sceNetInetTerm"},
+	{0xfaabb1dd, 0, "sceNetInetPoll"},
+	{0x5be8d595, 0, "sceNetInetSelect"},
+	{0x8d7284ea, 0, "sceNetInetClose"},
+	{0xcda85c99, WrapI_IUUU<sceNetInetRecv>, "sceNetInetRecv"},
+	{0xc91142e4, 0, "sceNetInetRecvfrom"},
+	{0xeece61d2, 0, "sceNetInetRecvmsg"},
+	{0x7aa671bc, WrapI_IUUU<sceNetInetRecv>, "sceNetInetSend"},
+	{0x05038fc7, 0, "sceNetInetSendto"},
+	{0x774e36f4, 0, "sceNetInetSendmsg"},
+	{0xfbabe411, WrapI_V<sceNetInetGetErrno>, "sceNetInetGetErrno"},
+	{0x1a33f9ae, 0, "sceNetInetBind"},
+	{0xb75d5b0a, 0, "sceNetInetInetAddr"},
+	{0x1BDF5D13, WrapI_CU<sceNetInetInetAton>, "sceNetInetInetAton"},
+	{0xd0792666, 0, "sceNetInetInetNtop"},
 	{0xE30B8C19, 0, "sceNetInetInetPton"},
+	{0x8ca3a97e, 0, "sceNetInetGetPspError"},
 	{0xE247B6D6, 0, "sceNetInetGetpeername"},
 	{0x162e6fd5, 0, "sceNetInetGetsockname"},
-	{0x4a114c7c, 0, "sceNetInetGetsockopt"}, 
-	{0xfaabb1dd, 0, "sceNetInetPoll"},
-	{0x1BDF5D13, 0, "sceNetInetInetAton"},
 	{0x80A21ABD, 0, "sceNetInetSocketAbort"},
-	{0x805502DD, 0, "sceNetInetCloseWithRST"},
-	{0x774e36f4, 0, "sceNetInetSendmsg"},
-	{0xeece61d2, 0, "sceNetInetRecvmsg"},
 	{0x39b0c7d3, 0, "sceNetInetGetUdpcbstat"},
+	{0xb3888ad4, 0, "sceNetInetGetTcpcbstat"},
 };
 
 const HLEFunction sceNetApctl[] = {
