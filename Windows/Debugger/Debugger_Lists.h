@@ -14,6 +14,7 @@ public:
 	void setDialogItem(HWND hwnd);
 	void reloadThreads();
 	void handleNotify(LPARAM lParam);
+	void showMenu(int itemIndex, const POINT &pt);
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	const char* getCurrentThreadName();
 };

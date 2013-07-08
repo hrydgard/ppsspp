@@ -354,9 +354,9 @@ void CDisasm::showBreakpointMenu(int itemIndex, const POINT &pt)
 
 	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_BREAKPOINTLIST);
 	if (isMemory) {
-		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, mcPrev.result & MEMCHECK_BREAK ? MF_CHECKED : MF_UNCHECKED);
+		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.result & MEMCHECK_BREAK ? MF_CHECKED : MF_UNCHECKED));
 	} else {
-		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED);
+		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED));
 	}
 
 	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
