@@ -429,7 +429,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_beginJoystickEvent(
 	// mutex lock?
 }
 
-extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickEvent(
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_joystickAxis(
 		JNIEnv *env, jclass, jint deviceId, jint axisId, jfloat value) {
 	switch (axisId) {
 	case JOYSTICK_AXIS_X:
