@@ -28,12 +28,9 @@ static bool netInetInited;
 static bool netAdhocInited;
 static bool netApctlInited;
 
-static u32 adhocctlHandlerCount;
-static u32 apctlHandlerCount;
-
 // TODO: Determine how many handlers we can actually have
-const u32 MAX_ADHOCCTL_HANDLERS = 32;
-const u32 MAX_APCTL_HANDLERS = 32;
+const size_t MAX_ADHOCCTL_HANDLERS = 32;
+const size_t MAX_APCTL_HANDLERS = 32;
 
 enum {
 	ERROR_NET_BUFFER_TOO_SMALL                   = 0x80400706,
@@ -144,9 +141,7 @@ void __NetDoState(PointerWrap &p) {
 	p.Do(netAdhocInited);
 	p.Do(netApctlInited);
 	p.Do(adhocctlHandlers);
-	p.Do(adhocctlHandlerCount);
 	p.Do(apctlHandlers);
-	p.Do(apctlHandlerCount);
 	p.Do(netMallocStat);
 	p.DoMarker("net");
 }
@@ -205,9 +200,12 @@ u32 sceWlanGetSwitchState() {
 // TODO: Should we allow the same handler to be added more than once?
 u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	bool foundHandler = false;
-	u32 retval = adhocctlHandlerCount;
+	u32 retval = 0;
 	struct AdhocctlHandler handler;
 	memset(&handler, 0, sizeof(handler));
+
+	while (adhocctlHandlers.find(retval) != adhocctlHandlers.end())
+		++retval;
 
 	handler.entryPoint = handlerPtr;
 	handler.argument = handlerArg;
@@ -220,13 +218,13 @@ u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	}
 
 	if(!foundHandler && Memory::IsValidAddress(handlerPtr)) {
-		if(adhocctlHandlerCount >= MAX_ADHOCCTL_HANDLERS) {
+		if(adhocctlHandlers.size() >= MAX_ADHOCCTL_HANDLERS) {
 			ERROR_LOG(HLE, "UNTESTED UNTESTED sceNetAdhocctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
 			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS;
 			return retval;
 		}
-		adhocctlHandlers[adhocctlHandlerCount++] = handler;
-		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, adhocctlHandlerCount);
+		adhocctlHandlers[retval] = handler;
+		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
 	}
 	else
 		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
@@ -247,7 +245,6 @@ u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 	
 	if(adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
 		adhocctlHandlers.erase(handlerID);
-		adhocctlHandlerCount = adhocctlHandlerCount > 0? --adhocctlHandlerCount : 0;
 		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
 	}
 	else
@@ -321,7 +318,7 @@ int sceNetAdhocctlGetParameter(u32 paramAddr) {
 
 // Return -1 packets since we don't have networking yet..
 int sceNetAdhocPdpRecv(int id, const char *mac, u32 port, void *data, void *dataLength, u32 timeout, int nonBlock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpRecv(%d, %d, %d, %x, %x, %d, %d)", id, mac, port, data, dataLength, timeout, nonBlock);
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpRecv(%d, %s, %d, %p, %p, %d, %d)", id, mac, port, data, dataLength, timeout, nonBlock);
 	return -1;
 }
 
@@ -412,9 +409,12 @@ int sceNetApctlTerm() {
 // TODO: Should we allow the same handler to be added more than once?
 u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	bool foundHandler = false;
-	u32 retval = apctlHandlerCount;
+	u32 retval = 0;
 	struct ApctlHandler handler;
 	memset(&handler, 0, sizeof(handler));
+
+	while (apctlHandlers.find(retval) != apctlHandlers.end())
+		++retval;
 
 	handler.entryPoint = handlerPtr;
 	handler.argument = handlerArg;
@@ -427,13 +427,13 @@ u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	}
 
 	if(!foundHandler && Memory::IsValidAddress(handlerPtr)) {
-		if(apctlHandlerCount >= MAX_APCTL_HANDLERS) {
+		if(apctlHandlers.size() >= MAX_APCTL_HANDLERS) {
 			ERROR_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
 			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS; // TODO: What's the proper error code for Apctl's TOO_MANY_HANDLERS?
 			return retval;
 		}
-		apctlHandlers[apctlHandlerCount++] = handler;
-		WARN_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, apctlHandlerCount);
+		apctlHandlers[retval] = handler;
+		WARN_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
 	}
 	else
 		ERROR_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
@@ -444,10 +444,8 @@ u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 }
 
 int sceNetApctlDelHandler(u32 handlerID) {
-	
 	if(apctlHandlers.find(handlerID) != apctlHandlers.end()) {
 		apctlHandlers.erase(handlerID);
-		apctlHandlerCount = apctlHandlerCount > 0? --apctlHandlerCount : 0;
 		WARN_LOG(HLE, "UNTESTED sceNetapctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
 	}
 	else
