@@ -386,7 +386,7 @@ public class NativeActivity extends Activity {
 			if (event.isAltPressed()) {
 				NativeApp.keyDown(0, 1004); // special custom keycode
 			} else if (NativeApp.isAtTopLevel()) {
-				Log.i(TAG, "IsAtTopLevel returned false.");
+				Log.i(TAG, "IsAtTopLevel returned true.");
 				return super.onKeyUp(keyCode, event);
 			} else {
 				NativeApp.keyDown(0, keyCode);
@@ -427,7 +427,7 @@ public class NativeActivity extends Activity {
 			if (event.isAltPressed()) {
 				NativeApp.keyUp(0, 1004); // special custom keycode
 			} else if (NativeApp.isAtTopLevel()) {
-				Log.i(TAG, "IsAtTopLevel returned false.");
+				Log.i(TAG, "IsAtTopLevel returned true.");
 				return super.onKeyUp(keyCode, event);
 			} else {
 				NativeApp.keyUp(0, keyCode);
