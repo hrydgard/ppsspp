@@ -89,8 +89,7 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 	vt->nvt.schedule = schedule;
 
 	if (vt->nvt.active == 1 && vt->nvt.handlerAddr != 0)
-		// this delay makes the test pass, not sure if it's right
-		CoreTiming::ScheduleEvent(usToCycles(vt->nvt.schedule + 372), vtimerTimer, vt->GetUID());
+		CoreTiming::ScheduleEvent(usToCycles(vt->nvt.schedule), vtimerTimer, vt->GetUID());
 }
 
 void __rescheduleVTimer(SceUID id, int delay) {
@@ -103,9 +102,7 @@ void __rescheduleVTimer(SceUID id, int delay) {
 	if (delay < 0)
 		delay = 100;
 
-	u64 schedule = vt->nvt.schedule + delay;
-
-	__KernelScheduleVTimer(vt, schedule);
+	__KernelScheduleVTimer(vt, delay);
 }
 
 class VTimerIntrHandler : public IntrHandler
@@ -177,9 +174,11 @@ void __KernelVTimerInit() {
 }
 
 u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
+	if (!name) {
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateVTimer(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		return SCE_KERNEL_ERROR_ERROR;
+	}
 	DEBUG_LOG(HLE, "sceKernelCreateVTimer(%s, %08x)", name, optParamAddr);
-	if (optParamAddr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateVTimer: unsupported options parameter %08x", optParamAddr);
 
 	VTimer *vtimer = new VTimer;
 	SceUID id = kernelObjects.Create(vtimer);
@@ -189,6 +188,12 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	strncpy(vtimer->nvt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	vtimer->nvt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 	vtimer->memoryPtr = 0;
+
+	if (optParamAddr != 0) {
+		u32 size = Memory::Read_U32(optParamAddr);
+		if (size > 4)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
+	}
 
 	return id;
 }
@@ -329,8 +334,7 @@ void __startVTimer(VTimer *vt) {
 	vt->nvt.active = 1;
 	vt->nvt.base = cyclesToUs(CoreTiming::GetTicks());
 
-	// Checking for zero here breaks audio in Monster Hunter. It still doesn't work well though.
-	if (/*vt->nvt.schedule != 0 &&*/ vt->nvt.handlerAddr != 0)
+	if (vt->nvt.handlerAddr != 0)
 		__KernelScheduleVTimer(vt, vt->nvt.schedule);
 }
 
@@ -375,7 +379,10 @@ u32 sceKernelStopVTimer(u32 uid) {
 }
 
 u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u32 commonAddr) {
-	DEBUG_LOG(HLE, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+	if (uid == 0) {
+		WARN_LOG(HLE, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x): invalid vtimer", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
+	}
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
@@ -385,9 +392,12 @@ u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u3
 		return error;
 	}
 
+	DEBUG_LOG(HLE, "sceKernelSetVTimerHandler(%08x, %08x, %08x, %08x)", uid, scheduleAddr, handlerFuncAddr, commonAddr);
+
 	u64 schedule = Memory::Read_U64(scheduleAddr);
 	vt->nvt.handlerAddr = handlerFuncAddr;
-	vt->nvt.commonAddr = commonAddr;
+	if (handlerFuncAddr)
+		vt->nvt.commonAddr = commonAddr;
 
 	__KernelScheduleVTimer(vt, schedule);
 
@@ -395,7 +405,10 @@ u32 sceKernelSetVTimerHandler(u32 uid, u32 scheduleAddr, u32 handlerFuncAddr, u3
 }
 
 u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u32 commonAddr) {
-	DEBUG_LOG(HLE, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
+	if (uid == 0) {
+		WARN_LOG(HLE, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x): invalid vtimer", uid, schedule, handlerFuncAddr, commonAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_VTID;
+	}
 
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
@@ -405,8 +418,11 @@ u32 sceKernelSetVTimerHandlerWide(u32 uid, u64 schedule, u32 handlerFuncAddr, u3
 		return error;
 	}
 
+	DEBUG_LOG(HLE, "sceKernelSetVTimerHandlerWide(%08x, %llu, %08x, %08x)", uid, schedule, handlerFuncAddr, commonAddr);
+
 	vt->nvt.handlerAddr = handlerFuncAddr;
-	vt->nvt.commonAddr = commonAddr;
+	if (handlerFuncAddr)
+		vt->nvt.commonAddr = commonAddr;
 
 	__KernelScheduleVTimer(vt, schedule);
 

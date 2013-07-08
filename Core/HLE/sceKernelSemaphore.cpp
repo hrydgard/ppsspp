@@ -292,7 +292,7 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	if (optionPtr != 0)
 	{
 		u32 size = Memory::Read_U32(optionPtr);
-		if (size != 0)
+		if (size > 4)
 			WARN_LOG_REPORT(HLE, "sceKernelCreateSema(%s) unsupported options parameter, size = %d", name, size);
 	}
 	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0)
