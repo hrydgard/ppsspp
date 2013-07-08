@@ -28,7 +28,7 @@ extern bool g_DoubleTextureCoordinates;
 
 struct HDRemaster {
 	std::string gameID;
-	u64 MemorySize;
+	u32 MemorySize;
 	bool DoubleTextureCoordinates;
 };
 
