@@ -441,19 +441,15 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 	{
 	case SB_LINEDOWN:
 		windowStart += instructionSize;
-		curAddress += instructionSize;
 		break;
 	case SB_LINEUP:
 		windowStart -= instructionSize;
-		curAddress -= instructionSize;
 		break;
 	case SB_PAGEDOWN:
 		windowStart += visibleRows*instructionSize;
-		curAddress += visibleRows*instructionSize;
 		break;
 	case SB_PAGEUP:
 		windowStart -= visibleRows*instructionSize;
-		curAddress -= visibleRows*instructionSize;
 		break;
 	default:
 		return;
@@ -509,35 +505,29 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		switch (wParam & 0xFFFF)
 		{
 		case VK_DOWN:
-			if (curAddress == windowEnd-instructionSize)
-			{
-				windowStart += instructionSize;
-			}
 			curAddress += instructionSize;
+			scrollAddressIntoView();
 			break;
 		case VK_UP:
-			if (curAddress == windowStart)
-			{
-				windowStart -= instructionSize;
-			}
 			curAddress-=instructionSize;
+			scrollAddressIntoView();
 			break;
 		case VK_NEXT:
-			if (curAddress != windowEnd-instructionSize)
-			{
+			if (curAddress != windowEnd-instructionSize && curAddressIsVisible()) {
 				curAddress = windowEnd-instructionSize;
+				scrollAddressIntoView();
 			} else {
-				windowStart += visibleRows*instructionSize;
 				curAddress += visibleRows*instructionSize;
+				scrollAddressIntoView();
 			}
 			break;
 		case VK_PRIOR:
-			if (curAddress != windowStart)
-			{
+			if (curAddress != windowStart && curAddressIsVisible()) {
 				curAddress = windowStart;
+				scrollAddressIntoView();
 			} else {
-				windowStart -= visibleRows*instructionSize;
 				curAddress -= visibleRows*instructionSize;
+				scrollAddressIntoView();
 			}
 			break;
 		case VK_LEFT:
@@ -589,6 +579,22 @@ void CtrlDisAsmView::onKeyUp(WPARAM wParam, LPARAM lParam)
 		controlHeld = false;
 		break;
 	}
+}
+
+void CtrlDisAsmView::scrollAddressIntoView()
+{
+	u32 windowEnd = windowStart + visibleRows * instructionSize;
+
+	if (curAddress < windowStart)
+		windowStart = curAddress;
+	else if (curAddress >= windowEnd)
+		windowStart = curAddress - visibleRows * instructionSize + instructionSize;
+}
+
+bool CtrlDisAsmView::curAddressIsVisible()
+{
+	u32 windowEnd = windowStart + visibleRows * instructionSize;
+	return curAddress >= windowStart && curAddress < windowEnd;
 }
 
 void CtrlDisAsmView::redraw()

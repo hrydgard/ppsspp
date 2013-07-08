@@ -82,6 +82,8 @@ public:
 	void onMouseDown(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseUp(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseMove(WPARAM wParam, LPARAM lParam, int button);
+	void scrollAddressIntoView();
+	bool curAddressIsVisible();
 	void redraw();
 	
 	void getOpcodeText(u32 address, char* dest);
@@ -134,7 +136,6 @@ public:
 	void scrollWindow(int lines)
 	{
 		windowStart += lines*instructionSize;
-		curAddress += lines*instructionSize;
 		redraw();
 	}
 };
