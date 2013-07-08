@@ -67,9 +67,9 @@ static MemoryView views[] =
 	{NULL,           &m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
 	{&m_pVRAM,       &m_pPhysicalVRAM,        0x04000000, 0x00800000, 0},
 	{NULL,           &m_pUncachedVRAM,        0x44000000, 0x00800000, MV_MIRROR_PREVIOUS},
-	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, g_MemorySize, 0},	// only from 0x08800000 is it usable (last 24 megs)
-	{NULL,           &m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS},
-	{NULL,           &m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS},
+	{&m_pRAM,        &m_pPhysicalRAM,         0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
+	{NULL,           &m_pUncachedRAM,         0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
+	{NULL,           &m_pKernelRAM,           0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
@@ -82,8 +82,8 @@ void Init()
 	int flags = 0;
 	Memory::g_MemoryMask = Memory::g_MemorySize - 1;
 
-	for(int i = 0; i < ARRAY_SIZE(views); i++) {
-		if(views[i].size == 0)
+	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].flags & MV_IS_PRIMARY_RAM)
 			views[i].size = g_MemorySize;
 	}
 	base = MemoryMap_Setup(views, num_views, flags, &g_arena);
