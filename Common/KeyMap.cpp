@@ -22,6 +22,8 @@
 
 namespace KeyMap {
 
+KeyDef AxisDef(int deviceId, int axisId, int direction);
+
 // TODO: Make use const_map.h from native
 struct DefaultKeyMap {
 	static KeyMapping defaultKeyboardMap()
@@ -72,24 +74,32 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_R2)] = VIRTKEY_UNTHROTTLE;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_THUMBR)] = VIRTKEY_PAUSE;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_L2)] = VIRTKEY_SPEED_TOGGLE;
+		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_X, -1)] = VIRTKEY_AXIS_X_MIN;
+		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_X, +1)] = VIRTKEY_AXIS_X_MAX;
+		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_Y, -1)] = VIRTKEY_AXIS_Y_MIN;
+		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_Y, +1)] = VIRTKEY_AXIS_Y_MAX;
 		return m;
 	}
 
 	static KeyMapping defaultPadMap()
 	{
 		KeyMapping m;
-		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_A)] = CTRL_CROSS;
-		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_B)] = CTRL_CIRCLE;
-		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_X)] = CTRL_SQUARE;
-		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_Y)] = CTRL_TRIANGLE;
+		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_2)] = CTRL_CROSS;
+		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_3)] = CTRL_CIRCLE;
+		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_4)] = CTRL_SQUARE;
+		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_1)] = CTRL_TRIANGLE;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_DPAD_UP)] = CTRL_UP;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_DPAD_RIGHT)] = CTRL_RIGHT;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_DPAD_DOWN)] = CTRL_DOWN;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_DPAD_LEFT)] = CTRL_LEFT;
-		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_START)] = CTRL_START;
-		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BACK)] = CTRL_SELECT;
-		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_L1)] = CTRL_LTRIGGER;
-		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_R1)] = CTRL_RTRIGGER;
+		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_10)] = CTRL_START;
+		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_9)] = CTRL_SELECT;
+		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_7)] = CTRL_LTRIGGER;
+		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_8)] = CTRL_RTRIGGER;
+		m[AxisDef(DEVICE_ID_PAD_0, JOYSTICK_AXIS_X, -1)] = VIRTKEY_AXIS_X_MIN;
+		m[AxisDef(DEVICE_ID_PAD_0, JOYSTICK_AXIS_X, +1)] = VIRTKEY_AXIS_X_MAX;
+		m[AxisDef(DEVICE_ID_PAD_0, JOYSTICK_AXIS_Y, +1)] = VIRTKEY_AXIS_Y_MIN;
+		m[AxisDef(DEVICE_ID_PAD_0, JOYSTICK_AXIS_Y, -1)] = VIRTKEY_AXIS_Y_MAX;
 		return m;
 	}
 
@@ -108,6 +118,10 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BACK)] = CTRL_SELECT;
 		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_L1)] = CTRL_LTRIGGER;
 		m[KeyDef(DEVICE_ID_DEFAULT, KEYCODE_BUTTON_R1)] = CTRL_RTRIGGER;
+		m[AxisDef(DEVICE_ID_DEFAULT, JOYSTICK_AXIS_X, -1)] = VIRTKEY_AXIS_X_MIN;
+		m[AxisDef(DEVICE_ID_DEFAULT, JOYSTICK_AXIS_X, +1)] = VIRTKEY_AXIS_X_MAX;
+		m[AxisDef(DEVICE_ID_DEFAULT, JOYSTICK_AXIS_Y, -1)] = VIRTKEY_AXIS_Y_MIN;
+		m[AxisDef(DEVICE_ID_DEFAULT, JOYSTICK_AXIS_Y, +1)] = VIRTKEY_AXIS_Y_MAX;
 		return m;
 	}
 
@@ -329,7 +343,35 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_NUMPAD_9, "Num9"},
 };
 
-static int key_names_count = sizeof(key_names) / sizeof(key_names[0]);
+const KeyMap_IntStrPair axis_names[] = {
+	{JOYSTICK_AXIS_X, "X Axis"},
+	{JOYSTICK_AXIS_Y, "Y Axis"},
+	{JOYSTICK_AXIS_PRESSURE, "Pressure"},
+	{JOYSTICK_AXIS_SIZE, "Size"},
+	{JOYSTICK_AXIS_TOUCH_MAJOR, "Touch Major"},
+	{JOYSTICK_AXIS_TOUCH_MINOR, "Touch Minor"},
+	{JOYSTICK_AXIS_TOOL_MAJOR, "Tool Major"},
+	{JOYSTICK_AXIS_TOOL_MINOR, "Tool Minor"},
+	{JOYSTICK_AXIS_ORIENTATION, "Orient"},
+	{JOYSTICK_AXIS_VSCROLL, "Vert Scroll"},
+	{JOYSTICK_AXIS_HSCROLL, "Horiz Scroll"},
+	{JOYSTICK_AXIS_Z, "Z Axis"},
+	{JOYSTICK_AXIS_RX, "X Rotation"},
+	{JOYSTICK_AXIS_RY, "Y Rotation"},
+	{JOYSTICK_AXIS_RZ, "Z Rotation"},
+	{JOYSTICK_AXIS_HAT_X, "X HAT"},
+	{JOYSTICK_AXIS_HAT_Y, "Y HAT"},
+	{JOYSTICK_AXIS_LTRIGGER, "TriggerL"},
+	{JOYSTICK_AXIS_RTRIGGER, "TriggerR"},
+	{JOYSTICK_AXIS_THROTTLE, "Throttle"},
+	{JOYSTICK_AXIS_RUDDER, "Rudder"},
+	{JOYSTICK_AXIS_WHEEL, "Wheel"},
+	{JOYSTICK_AXIS_GAS, "Gas"},
+	{JOYSTICK_AXIS_BRAKE, "Brake"},
+	{JOYSTICK_AXIS_DISTANCE, "Distance"},
+	{JOYSTICK_AXIS_TILT, "Tilt"}
+};
+
 static std::string unknown_key_name = "??";
 const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_CIRCLE, "O"},
@@ -350,17 +392,22 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
 
+	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
+	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
+	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
+	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
+
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_PAUSE, "Pause"},
 };
 
-static int psp_button_names_count = sizeof(psp_button_names) / sizeof(psp_button_names[0]);
+const int AXIS_BIND_KEYCODE_START = 4000;
 
-static std::string FindName(int key, const KeyMap_IntStrPair list[], int size)
+static std::string FindName(int key, const KeyMap_IntStrPair list[], size_t size)
 {
-	for (int i = 0; i < size; i++)
+	for (size_t i = 0; i < size; i++)
 		if (list[i].key == key)
 			return list[i].name;
 
@@ -369,13 +416,35 @@ static std::string FindName(int key, const KeyMap_IntStrPair list[], int size)
 
 std::string GetKeyName(int keyCode)
 {
-	return FindName(keyCode, key_names, key_names_count);
+	return FindName(keyCode, key_names, ARRAY_SIZE(key_names));
 }
 
 std::string GetPspButtonName(int btn)
 {
-	return FindName(btn, psp_button_names, psp_button_names_count);
+	return FindName(btn, psp_button_names, ARRAY_SIZE(psp_button_names));
 }
+
+int TranslateKeyCodeToAxis(int keyCode, int &direction)
+{
+	if (keyCode < AXIS_BIND_KEYCODE_START)
+		return 0;
+	int v = keyCode - AXIS_BIND_KEYCODE_START;
+
+	// Even/odd for direction.
+	direction = v & 1 ? -1 : 1;
+	return v / 2;
+}
+
+int TranslateKeyCodeFromAxis(int axisId, int direction)
+{
+	direction = direction < 0 ? 1 : 0;
+	return AXIS_BIND_KEYCODE_START + axisId * 2 + direction;
+}
+
+KeyDef AxisDef(int deviceId, int axisId, int direction) {
+	return KeyDef(deviceId, TranslateKeyCodeFromAxis(axisId, direction));
+}
+
 
 static bool FindKeyMapping(int deviceId, int key, int *psp_button)
 {
@@ -417,9 +486,34 @@ bool KeyFromPspButton(int controllerMap, int btn, int *deviceId, int *keyCode)
 	return false;
 }
 
+int AxisToPspButton(int deviceId, int axisId, int direction)
+{
+	int key = TranslateKeyCodeFromAxis(axisId, direction);
+	return KeyToPspButton(deviceId, key);
+}
+
+bool AxisFromPspButton(int controllerMap, int btn, int *deviceId, int *axisId, int *direction)
+{
+	int search_start_layer = 0;
+
+	for (auto iter = controllerMaps[controllerMap].keys.begin(); iter != controllerMaps[controllerMap].keys.end(); ++iter) {
+		if (iter->second == btn && iter->first.keyCode >= AXIS_BIND_KEYCODE_START) {
+			*deviceId = iter->first.deviceId;
+			*axisId = TranslateKeyCodeToAxis(iter->first.keyCode, *direction);
+			return true;
+		}
+	}
+	return false;
+}
+
 std::string NameKeyFromPspButton(int controllerMap, int btn) {
 	int deviceId;
+	int axisId;
+	int direction;
 	int keyCode;
+	if (AxisFromPspButton(controllerMap, btn, &deviceId, &axisId, &direction)) {
+		return GetAxisName(axisId) + (direction < 0 ? "-" : "+");
+	}
 	if (KeyFromPspButton(controllerMap, btn, &deviceId, &keyCode)) {
 		return GetKeyName(keyCode);
 	}
@@ -428,7 +522,12 @@ std::string NameKeyFromPspButton(int controllerMap, int btn) {
 
 std::string NameDeviceFromPspButton(int controllerMap, int btn) {
 	int deviceId;
+	int axisId;
+	int direction;
 	int keyCode;
+	if (AxisFromPspButton(controllerMap, btn, &deviceId, &axisId, &direction)) {
+		return GetDeviceName(deviceId);
+	}
 	if (KeyFromPspButton(controllerMap, btn, &deviceId, &keyCode)) {
 		return GetDeviceName(deviceId);
 	}
@@ -446,7 +545,7 @@ std::string NamePspButtonFromKey(int deviceId, int key)
 }
 
 void RemoveButtonMapping(int map, int btn) {
-	for (auto iter = controllerMaps[map].keys.begin(); iter != controllerMaps[map].keys.end(); ++iter) 	{
+	for (auto iter = controllerMaps[map].keys.begin(); iter != controllerMaps[map].keys.end(); ++iter)	{
 		if (iter->second == btn) {
 			controllerMaps[map].keys.erase(iter);
 			return;
@@ -458,6 +557,29 @@ void SetKeyMapping(int map, int deviceId, int key, int btn)
 {
 	RemoveButtonMapping(map, btn);
 	controllerMaps[map].keys[KeyDef(deviceId, key)] = btn;
+}
+
+std::string GetAxisName(int axisId)
+{
+	return FindName(axisId, axis_names, ARRAY_SIZE(axis_names));
+}
+
+bool IsMappedAxis(int deviceId, int axisId, int direction)
+{
+	int key = TranslateKeyCodeFromAxis(axisId, direction);
+	return KeyToPspButton(deviceId, key) != KEYMAP_ERROR_UNKNOWN_KEY;
+}
+
+std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction)
+{
+	int key = TranslateKeyCodeFromAxis(axisId, direction);
+	return GetPspButtonName(KeyToPspButton(deviceId, key));
+}
+
+void SetAxisMapping(int map, int deviceId, int axisId, int direction, int btn)
+{
+	int key = TranslateKeyCodeFromAxis(axisId, direction);
+	SetKeyMapping(map, deviceId, key, btn);
 }
 
 void RestoreDefault() {
