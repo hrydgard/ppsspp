@@ -690,6 +690,22 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		last_kb_deviceid = key.deviceId;
 		last_kb_key = key.keyCode;
+		last_axis_id = -1;
+	}
+}
+
+void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+	if (axis.value > AXIS_BIND_THRESHOLD) {
+		last_axis_deviceid = axis.deviceId;
+		last_axis_id = axis.axisId;
+		last_axis_direction = 1;
+		last_kb_key = 0;
+	}
+	if (axis.value < -AXIS_BIND_THRESHOLD) {
+		last_axis_deviceid = axis.deviceId;
+		last_axis_id = axis.axisId;
+		last_axis_direction = -1;
+		last_kb_key = 0;
 	}
 }
 
@@ -1474,34 +1490,6 @@ void ControlsScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	if (g_Config.bShowTouchControls) {
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Left Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-		bool rightstick = g_Config.iRightStickBind > 0;
-		UICheckBox(GEN_ID, x, y += stride, c->T("Bind Right Analog Stick"), ALIGN_TOPLEFT, &rightstick);
-		if (rightstick) {
-			if (g_Config.iRightStickBind <= 0 )
-				g_Config.iRightStickBind = 1;
-
-			char showType[256];
-			std::string type;
-			switch (g_Config.iRightStickBind) {
-			case 1:	type = "Arrow Buttons";break;
-			case 2: type = "Face Buttons";break;
-			case 3:	type = "L/R";break;
-			case 4:	type = "L/R + Triangle/Cross";break;
-			}
-			sprintf(showType, "%s %s", c->T("Target :"), type.c_str());
-			ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
-			HLinear hlinear1(x + 60 , y+= stride + 5, 10);
-			if (UIButton(GEN_ID, hlinear1, 200, 0, c->T("Arrow Buttons"), ALIGN_LEFT)) 
-				g_Config.iRightStickBind = 1;
-			if (UIButton(GEN_ID, hlinear1, 200, 0, c->T("Face Buttons"), ALIGN_LEFT))
-				g_Config.iRightStickBind = 2;
-			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("L/R"), ALIGN_LEFT))
-				g_Config.iRightStickBind = 3;
-			if (UIButton(GEN_ID, hlinear1, 280, 0, c->T("L/R + Triangle/Cross"), ALIGN_LEFT))
-				g_Config.iRightStickBind = 4;
-			y += 20;
-		} else
-			g_Config.iRightStickBind = 0;
 			
 		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		if (g_Config.bLargeControls) {
@@ -1681,16 +1669,29 @@ void KeyMappingNewKeyDialog::render() {
 	KeyScale(1.4f);
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);
-	if (last_kb_key != 0) {
+	if (last_axis_id != -1) {
+		const std::string axis_direction_name = KeyMap::GetAxisName(last_axis_id) + (last_axis_direction < 0 ? "-" : "+");
+		KeyText(right, top += stride, axis_direction_name.c_str());
+		KeyScale(1.4f);
+		KeyText(right, top + stride, GetDeviceName(last_axis_deviceid));
+		bool key_used = KeyMap::IsMappedAxis(last_axis_deviceid, last_axis_id, last_axis_direction);
+		if (key_used) {
+			KeyScale(1.0f);
+			KeyText(left + stride, top + 2*stride,
+			keyI18N->T("Warning: Key is already used by"));
+			KeyText(left + stride, top + 3*stride,
+			        (KeyMap::NamePspButtonFromAxis(last_axis_deviceid, last_axis_id, last_axis_direction)).c_str());
+		}
+	} else if (last_kb_key != 0) {
 		KeyText(right, top += stride, KeyMap::GetKeyName(last_kb_key).c_str());
 		KeyScale(1.4f);
 		KeyText(right, top + stride, GetDeviceName(last_kb_deviceid));
 		bool key_used = KeyMap::IsMappedKey(last_kb_deviceid, last_kb_key);
 		if (key_used) {
 			KeyScale(1.0f);
-			KeyText(left + stride, top + 2*stride, 
-		  keyI18N->T("Warning: Key is already used by"));
-			KeyText(left + stride, top + 3*stride, 
+			KeyText(left + stride, top + 2*stride,
+			keyI18N->T("Warning: Key is already used by"));
+			KeyText(left + stride, top + 3*stride,
 			        (KeyMap::NamePspButtonFromKey(last_kb_deviceid, last_kb_key)).c_str());
 		}
 	}
@@ -1701,7 +1702,10 @@ void KeyMappingNewKeyDialog::render() {
 
 	// Save & cancel buttons
 	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Save Mapping"), ALIGN_LEFT | ALIGN_BOTTOM)) {
-		KeyMap::SetKeyMapping(currentMap_, last_kb_deviceid, last_kb_key, pspBtn);
+		if (last_axis_id != -1)
+			KeyMap::SetAxisMapping(currentMap_, last_axis_deviceid, last_axis_id, last_axis_direction, pspBtn);
+		else
+			KeyMap::SetKeyMapping(currentMap_, last_kb_deviceid, last_kb_key, pspBtn);
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
 	}
