@@ -185,7 +185,7 @@ public:
 				x.clear();
 				while (number > 0)
 				{
-					K first = 0;
+					K first = K();
 					Do(first);
 					T second = default_val;
 					Do(second);
