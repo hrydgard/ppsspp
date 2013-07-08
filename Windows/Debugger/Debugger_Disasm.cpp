@@ -46,6 +46,8 @@ enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_HITS, BPL_ENABLED, B
 // How long (max) to wait for Core to pause before clearing temp breakpoints.
 const int TEMP_BREAKPOINT_WAIT_MS = 100;
 
+const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
+
 static FAR WNDPROC DefBreakpointListProc;
 
 static LRESULT CALLBACK BreakpointListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -332,20 +334,64 @@ void CDisasm::gotoBreakpointAddress(int itemIndex)
 	}
 }
 
+void CDisasm::showBreakpointMenu(int itemIndex, const POINT &pt)
+{
+	bool isMemory;
+	int index = getBreakpointIndex(itemIndex, isMemory);
+	if (index == -1) return;
+
+	MemCheck mcPrev;
+	BreakPoint bpPrev;
+	if (isMemory) {
+		mcPrev = displayedMemChecks_[index];
+	} else {
+		bpPrev = displayedBreakPoints_[index];
+	}
+
+	HWND wnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
+	POINT screenPt(pt);
+	ClientToScreen(wnd, &screenPt);
+
+	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_BREAKPOINTLIST);
+	if (isMemory) {
+		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, mcPrev.result & MEMCHECK_BREAK ? MF_CHECKED : MF_UNCHECKED);
+	} else {
+		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED);
+	}
+
+	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
+	{
+	case ID_DISASM_DISABLEBREAKPOINT:
+		if (isMemory) {
+			CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
+		} else {
+			CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
+		}
+		break;
+	}
+}
+
 static char breakpointText[256];
 
 void CDisasm::handleBreakpointNotify(LPARAM lParam)
 {
-	if (((LPNMHDR)lParam)->code == NM_DBLCLK)
+	const LPNMHDR header = (LPNMHDR)lParam;
+	if (header->code == NM_DBLCLK)
 	{
-		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
+		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
 		gotoBreakpointAddress(item->iItem);
 		return;
 	}
-
-	if (((LPNMHDR)lParam)->code == LVN_GETDISPINFO)
+	if (header->code == NM_RCLICK)
 	{
-		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
+		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
+		showBreakpointMenu(item->iItem, item->ptAction);
+		return;
+	}
+
+	if (header->code == LVN_GETDISPINFO)
+	{
+		NMLVDISPINFO *dispInfo = (NMLVDISPINFO *)lParam;
 		
 		bool isMemory;
 		int index = getBreakpointIndex(dispInfo->item.iItem,isMemory);
