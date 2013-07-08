@@ -114,7 +114,7 @@ public:
 	void DoState(PointerWrap &p);
 	
 	bool isValidCurrentStreamNumber() {
-		return currentStreamNum >= 0 && currentStreamNum < streamMap.size();  // urgh, checking size isn't really right here.
+		return currentStreamNum >= 0 && currentStreamNum < (int)streamMap.size();  // urgh, checking size isn't really right here.
 	}
 
 	void setStreamNum(int num);
@@ -467,7 +467,7 @@ u32 scePsmfGetNumberOfStreams(u32 psmfStruct)
 	return psmf->numStreams;
 }
 
-u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, u32 streamType)
+u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType)
 {
 	Psmf *psmf = getPsmf(psmfStruct);
 	if (!psmf) {
@@ -630,7 +630,7 @@ u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 
 u32 scePsmfVerifyPsmf(u32 psmfAddr)
 {
-	int magic = Memory::Read_U32(psmfAddr);
+	u32 magic = Memory::Read_U32(psmfAddr);
 	if (magic != PSMF_MAGIC) {
 		ERROR_LOG(HLE, "scePsmfVerifyPsmf(%08x): bad magic %08x", psmfAddr, magic);
 		return ERROR_PSMF_NOT_FOUND;
@@ -1263,7 +1263,7 @@ const HLEFunction scePsmf[] = {
 	{0x0BA514E5, WrapU_UU<scePsmfGetVideoInfo>, "scePsmfGetVideoInfo"},
 	{0xA83F7113, WrapU_UU<scePsmfGetAudioInfo>, "scePsmfGetAudioInfo"},
 	{0x971A3A90, WrapU_U<scePsmfCheckEPMap>, "scePsmfCheckEPmap"},
-	{0x68d42328, WrapU_UU<scePsmfGetNumberOfSpecificStreams>, "scePsmfGetNumberOfSpecificStreams"},
+	{0x68d42328, WrapU_UI<scePsmfGetNumberOfSpecificStreams>, "scePsmfGetNumberOfSpecificStreams"},
 	{0x5b70fcc1, WrapU_UU<scePsmfQueryStreamOffset>, "scePsmfQueryStreamOffset"},
 	{0x9553cc91, WrapU_UU<scePsmfQueryStreamSize>, "scePsmfQueryStreamSize"},
 	{0xB78EB9E9, WrapU_UU<scePsmfGetHeaderSize>, "scePsmfGetHeaderSize"},
