@@ -1079,6 +1079,7 @@ void GraphicsScreenP3::render() {
 		case 1: type = gs->T("Display: Speed"); break;
 		case 2:	type = gs->T("Display: FPS"); break;
 		case 3: type = gs->T("Display: Both"); break;
+		default: type = ""; break;
 		}
 
 		ui_draw2d.DrawText(UBUNTU24, type, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
@@ -1159,7 +1160,6 @@ void LanguageScreen::render() {
 
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *g = GetI18NCategory("General");
-	I18NCategory *l = GetI18NCategory("Language");
 
 	bool small = dp_xres < 790;
 
@@ -1251,7 +1251,6 @@ void LanguageScreen::render() {
 				// After this, g and s are no longer valid. Let's return, some flicker is okay.
 				g = GetI18NCategory("General");
 				s = GetI18NCategory("System");
-				l = GetI18NCategory("Language");
 			} else {
 				g_Config.languageIni = oldLang;
 			}
