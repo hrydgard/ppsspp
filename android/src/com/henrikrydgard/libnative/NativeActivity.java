@@ -354,7 +354,7 @@ public class NativeActivity extends Activity {
 	@Override
 	@TargetApi(12)
 	public boolean onGenericMotionEvent(MotionEvent event) {
-		Log.d(TAG, "onGenericMotionEvent: " + event);
+		// Log.d(TAG, "onGenericMotionEvent: " + event);
 		if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0) {
 	        if (Build.VERSION.SDK_INT >= 12) {
 	        	InputDeviceState state = getInputDeviceState(event);
