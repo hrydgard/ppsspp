@@ -100,12 +100,6 @@ void DoState(PointerWrap &p)
 	p.DoMarker("VRAM");
 	p.DoArray(m_pScratchPad, SCRATCHPAD_SIZE);
 	p.DoMarker("ScratchPad");
-	p.Do(g_RemasterMode); // TODO: Need to test more if this and MemoryMask need to be saved in the state
-	p.DoMarker("RemasterMode");
-	p.Do(g_MemoryMask); 
-	p.DoMarker("MemoryMask");
-	p.Do(g_DoubleTextureCoordinates); // TODO: Is there a more appropriate place for this?
-	p.DoMarker("DoubleTextureCoordinates");
 }
 
 void Shutdown()
