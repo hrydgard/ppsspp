@@ -540,6 +540,15 @@ const HLEFunction sceNetAdhocctl[] = {
 	{0xb0b80e80, 0, "sceNetAdhocctlCreateEnterGameModeMin"},
 };
 
+const HLEFunction sceNetAdhocDiscover[] = {
+	{0x941B3877, 0, "sceNetAdhocDiscoverInitStart"},
+	{0x52DE1B97, 0, "sceNetAdhocDiscoverUpdate"},
+	{0x944DDBC6, 0, "sceNetAdhocDiscoverGetStatus"},
+	{0xA2246614, 0, "sceNetAdhocDiscoverTerm"},
+	{0xF7D13214, 0, "sceNetAdhocDiscoverStop"},
+	{0xA423A21B, 0, "sceNetAdhocDiscoverRequestSuspend"},
+};
+
 const HLEFunction sceNetResolver[] = {
 	{0x224c5f44, 0, "sceNetResolverStartNtoA"},
 	{0x244172af, 0, "sceNetResolverCreate"},
@@ -612,6 +621,7 @@ void Register_sceNet() {
 	RegisterModule("sceNet", ARRAY_SIZE(sceNet), sceNet);
 	RegisterModule("sceNetAdhoc", ARRAY_SIZE(sceNetAdhoc), sceNetAdhoc);
 	RegisterModule("sceNetAdhocMatching", ARRAY_SIZE(sceNetAdhocMatching), sceNetAdhocMatching);
+	RegisterModule("sceNetAdhocDiscover", ARRAY_SIZE(sceNetAdhocDiscover), sceNetAdhocDiscover);
 	RegisterModule("sceNetAdhocctl", ARRAY_SIZE(sceNetAdhocctl), sceNetAdhocctl);
 	RegisterModule("sceNetResolver", ARRAY_SIZE(sceNetResolver), sceNetResolver);
 	RegisterModule("sceNetInet", ARRAY_SIZE(sceNetInet), sceNetInet);
