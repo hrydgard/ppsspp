@@ -187,6 +187,7 @@ public:
 	// Override these to for example write the current directory to a config file.
 	virtual void onSelectFile() {}
 	virtual void onCancel() {}
+	void key(const KeyInput &key);
 
 private:
 	void updateListing();

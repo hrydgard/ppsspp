@@ -1781,6 +1781,19 @@ FileSelectScreen::FileSelectScreen(const FileSelectScreenOptions &options) : opt
 	updateListing();
 }
 
+void FileSelectScreen::key(const KeyInput &key) {
+	if (key.flags & KEY_DOWN) {
+		switch (key.keyCode) {
+		case KEYCODE_EXT_MOUSEWHEEL_UP:
+			list_.scrollRelative(-50);
+			break;
+		case KEYCODE_EXT_MOUSEWHEEL_DOWN:
+			list_.scrollRelative(50);
+			break;
+		}
+	}
+}
+
 void FileSelectScreen::updateListing() {
 	listing_.clear();
 	getFilesInDir(currentDirectory_.c_str(), &listing_, options_.filter);
@@ -1850,7 +1863,6 @@ void CreditsScreen::update(InputState &input_state) {
 
 
 void CreditsScreen::render() {
-	
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 
 	const char * credits[] = {
