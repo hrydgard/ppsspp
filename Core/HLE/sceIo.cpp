@@ -1607,11 +1607,14 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		break;
 
-	// Get UMD file pointer
+	// Get UMD file offset
 	case 0x01020004:
-		INFO_LOG(HLE, "sceIoIoCtl: Asked for fpointer of file %i", id);
-		if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
-			Memory::Write_U32(f->info.fpointer, outdataPtr);
+		{
+			s32 offset = pspFileSystem.GetSeekPos(f->handle);
+			INFO_LOG(HLE, "sceIoIoCtl: Asked for file offset of file %i", id);
+			if (Memory::IsValidAddress(outdataPtr) && outlen >= 4) {
+				Memory::Write_U32(offset, outdataPtr);
+			}
 		}
 		break;
 
