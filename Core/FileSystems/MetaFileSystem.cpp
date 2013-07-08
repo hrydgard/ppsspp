@@ -252,13 +252,13 @@ void MetaFileSystem::Shutdown()
 	startingDirectory = "";
 }
 
-u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access)
+u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
 {
 	std::string of;
-	IFileSystem *system;
-	if (MapFilePath(filename, of, &system))
+	MountPoint *mount;
+	if (MapFilePath(filename, of, &mount))
 	{
-		return system->OpenFile(of, access);
+		return mount->system->OpenFile(of, access, mount->prefix.c_str());
 	}
 	else
 	{

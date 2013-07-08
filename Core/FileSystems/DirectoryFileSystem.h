@@ -54,7 +54,7 @@ public:
 
 	void DoState(PointerWrap &p);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access);
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
 	void     CloseFile(u32 handle);
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
@@ -104,7 +104,7 @@ public:
 
 	void DoState(PointerWrap &p);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access);
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
 	void     CloseFile(u32 handle);
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
