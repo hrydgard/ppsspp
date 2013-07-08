@@ -437,8 +437,17 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	
 	int fmt = gstate.framebufpixformat & 3;
 
-	int drawing_width, drawing_height;
-	GuessDrawingSize(drawing_width, drawing_height);
+	//GuessDrawingSize(drawing_width, drawing_height);
+
+	// Set default drawing width/height as maximum texture size 512x512
+	int drawing_width = 512;
+	int drawing_height = 512;
+	
+	// Fall back to 480x272 for non-buffered and CG mode 
+	if (!g_Config.bBufferedRendering || g_iNumVideos ) {
+		drawing_width = 480;
+		drawing_height = 272;
+	}
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
