@@ -199,9 +199,14 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 			osm.Show(s->T("standard", "Speed: standard"), 1.0);
 		}
 		break;
+
+	// On Android, this is take care of in update() using input.buttons & back
+	// Should get rid of that but not now.
+#ifndef ANDROID
 	case VIRTKEY_PAUSE:
 		screenManager()->push(new PauseScreen());
 		break;
+#endif
 
 	case VIRTKEY_AXIS_X_MIN:
 		__CtrlSetAnalogX(-1.0f, CTRL_STICK_LEFT);
@@ -379,7 +384,7 @@ void EmuScreen::update(InputState &input) {
 		// Copy over the mouse data from the real inputstate.
 		fakeInputState.mouse_valid = input.mouse_valid;
 		fakeInputState.pad_last_buttons = fakeInputState.pad_buttons;
-		fakeInputState.pad_buttons = 0;
+		fakeInputState.pad_buttons = input.pad_buttons;
 		memcpy(fakeInputState.pointer_down, input.pointer_down, sizeof(input.pointer_down));
 		memcpy(fakeInputState.pointer_x, input.pointer_x, sizeof(input.pointer_x));
 		memcpy(fakeInputState.pointer_y, input.pointer_y, sizeof(input.pointer_y));

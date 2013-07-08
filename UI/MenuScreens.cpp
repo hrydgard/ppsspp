@@ -1583,7 +1583,6 @@ void KeyMappingScreen::render() {
 	KeyBtn(left+pad, top+hlfpad, CTRL_RIGHT); // >
 	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // v
 
-#ifndef ANDROID
 	top = 10;
 	left = 250;
 	KeyBtn(left+hlfpad, top, VIRTKEY_AXIS_Y_MAX); // ^
@@ -1591,7 +1590,6 @@ void KeyMappingScreen::render() {
 	KeyBtn(left+pad, top+hlfpad, VIRTKEY_AXIS_X_MAX); // >
 	KeyBtn(left+hlfpad, top+pad, VIRTKEY_AXIS_Y_MIN); // v
 	top = 100;
-#endif
 
 	left = 500;
 	KeyBtn(left+hlfpad, top, CTRL_TRIANGLE); // Triangle
@@ -1606,7 +1604,7 @@ void KeyMappingScreen::render() {
 	KeyBtn(left + pad, top, CTRL_START);
 
 	top = 10;
-	left = 750;
+	left = 720;
 	KeyBtn(left, top, VIRTKEY_UNTHROTTLE);
 	top += 100;
 	KeyBtn(left, top, VIRTKEY_SPEED_TOGGLE);

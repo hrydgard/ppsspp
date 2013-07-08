@@ -83,6 +83,7 @@ struct DefaultKeyMap {
 
 	static KeyMapping defaultPadMap()
 	{
+		KeyMapping m;
 #ifdef ANDROID
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_A)] = CTRL_CROSS;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_B)] = CTRL_CIRCLE;
@@ -104,7 +105,6 @@ struct DefaultKeyMap {
 		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_Y, -1)] = VIRTKEY_AXIS_Y_MIN;
 		m[AxisDef(DEVICE_ID_X360_0, JOYSTICK_AXIS_Y, +1)] = VIRTKEY_AXIS_Y_MAX;
 #else
-		KeyMapping m;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_2)] = CTRL_CROSS;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_3)] = CTRL_CIRCLE;
 		m[KeyDef(DEVICE_ID_PAD_0, KEYCODE_BUTTON_4)] = CTRL_SQUARE;
