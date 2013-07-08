@@ -108,7 +108,6 @@ public:
 	bool bShowDebugStats;
 	bool bLargeControls;
 	bool bAccelerometerToAnalogHoriz;
-	int iSwapRightAxes;
 
 	// Control
 	int iTouchButtonOpacity;
