@@ -59,6 +59,7 @@ enum {
 	MV_MIRROR_PREVIOUS = 1,
 	// MV_FAKE_VMEM = 2,
 	// MV_WII_ONLY = 4,
+	MV_IS_PRIMARY_RAM = 0x100,
 };
 
 struct MemoryView
