@@ -535,9 +535,6 @@ int main(int argc, char *argv[]) {
 			if (event.type == SDL_QUIT) {
 				quitRequested = 1;
 			} else if (event.type == SDL_KEYDOWN) {
-				if (event.key.keysym.sym == SDLK_ESCAPE) {
-					quitRequested = 1;
-				}
 				int k = event.key.keysym.sym;
 				KeyInput key;
 				key.flags = KEY_DOWN;
@@ -595,8 +592,6 @@ int main(int argc, char *argv[]) {
 			break;
 
 		const uint8 *keys = (const uint8 *)SDL_GetKeyState(NULL);
-		if (keys[SDLK_ESCAPE])
-			break;
 		SimulateGamepad(keys, &input_state);
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
