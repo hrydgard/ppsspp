@@ -22,6 +22,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "Core/Font/PGF.h"
 #include "Core/HLE/HLE.h"
 
@@ -489,6 +490,12 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 					pixelColor |= pixelColor << 4;
 					pixelColor |= pixelColor << 8;
 					pixelColor |= pixelColor << 16;
+					break;
+				case PSP_FONT_PIXELFORMAT_4:
+				case PSP_FONT_PIXELFORMAT_4_REV:
+					break;
+				default:
+					ERROR_LOG_REPORT(HLE, "Unhandled font pixel format: %d", image->pixelFormat);
 					break;
 				}
 

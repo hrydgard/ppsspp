@@ -945,10 +945,8 @@ void TextureCache::SetTexture() {
 	bool hasClut = (format & 4) != 0;
 
 	u64 cachekey = (u64)texaddr << 32;
-
-	u32 clutformat, cluthash;
+	u32 cluthash;
 	if (hasClut) {
-		clutformat = gstate.clutformat & 3;
 		if (clutLastFormat_ != gstate.clutformat) {
 			// We update here because the clut format can be specified after the load.
 			UpdateCurrentClut();
@@ -956,7 +954,6 @@ void TextureCache::SetTexture() {
 		cluthash = GetCurrentClutHash() ^ gstate.clutformat;
 		cachekey |= cluthash;
 	} else {
-		clutformat = 0;
 		cluthash = 0;
 	}
 

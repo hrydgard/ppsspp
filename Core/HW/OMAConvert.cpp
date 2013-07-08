@@ -134,7 +134,7 @@ int convertStreamtoOMA(u8* audioStream, int audioSize, u8** outputStream)
 		return 0;
 	}
 
-	int frameSize = ((headerCode1 & 0x03) << 8) | (headerCode2 & 0xFF) * 8 + 0x10;
+	int frameSize = (((headerCode1 & 0x03) << 8) | ((headerCode2 & 0xFF) * 8)) + 0x10;
 	int numCompleteFrames = audioSize / (frameSize + 8);
 	int lastFrameSize = audioSize - (numCompleteFrames * (frameSize + 8));
 

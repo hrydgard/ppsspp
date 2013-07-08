@@ -20,6 +20,7 @@
 #include "../GPUState.h"
 #include "../Globals.h"
 #include "base/basictypes.h"
+#include "Core/Reporting.h"
 
 // DecVtxFormat - vertex formats for PC
 // Kind of like a D3D VertexDeclaration.
@@ -252,7 +253,8 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG(G3D, "Reader: Unsupported Pos Format");
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
+			memset(pos, 0, sizeof(pos));
 			break;
 		}
 	}
@@ -282,7 +284,8 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG(G3D, "Reader: Unsupported Nrm Format");
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Nrm Format %d", decFmt_.nrmfmt);
+			memset(nrm, 0, sizeof(nrm));
 			break;
 		}
 	}
@@ -321,7 +324,8 @@ public:
 			}
 			break;
 		default:
-			ERROR_LOG(G3D, "Reader: Unsupported UV Format");
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported UV Format %d", decFmt_.uvfmt);
+			memset(uv, 0, sizeof(uv));
 			break;
 		}
 	}
@@ -339,7 +343,8 @@ public:
 			memcpy(color, data_ + decFmt_.c0off, 16); 
 			break;
 		default:
-			ERROR_LOG(G3D, "Reader: Unsupported C0 Format");
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
+			memset(color, 0, sizeof(color));
 			break;
 		}
 	}
@@ -357,7 +362,8 @@ public:
 			memcpy(color, data_ + decFmt_.c1off, 12); 
 			break;
 		default:
-			ERROR_LOG(G3D, "Reader: Unsupported C1 Format");
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c0fmt);
+			memset(color, 0, sizeof(color));
 			break;
 		}
 	}
@@ -383,7 +389,8 @@ public:
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		default:
-			ERROR_LOG(G3D, "Reader: Unsupported W0 Format");
+			ERROR_LOG_REPORT_ONCE(fmt0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
+			weights[0] = 0.0f;
 			break;
 		}
 
@@ -410,7 +417,8 @@ public:
 		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i+4] = s[i]  * (1.f / 32768.f); break;
 		default:
-			ERROR_LOG(G3D, "Reader: Unsupported W1 Format");
+			ERROR_LOG_REPORT_ONCE(fmt1, G3D, "Reader: Unsupported W1 Format %d", decFmt_.w1fmt);
+			weights[4] = 0.0f;
 			break;
 		}
 	}

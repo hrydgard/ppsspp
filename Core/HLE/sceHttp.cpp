@@ -107,7 +107,7 @@ int sceHttpSetSendTimeOut(int id, u32 timeout) {
 }
 
 u32 sceHttpSetProxy(u32 id, u32 activateFlagPtr, u32 mode, u32 newProxyHostPtr, u32 newProxyPort) {
-	ERROR_LOG(HLE, "UNIMPL sceHttpSetProxy(%d, %x, %x, %x, %d, %x)", id, activateFlagPtr, mode, newProxyHostPtr, newProxyPort);
+	ERROR_LOG(HLE, "UNIMPL sceHttpSetProxy(%d, %x, %x, %x, %d)", id, activateFlagPtr, mode, newProxyHostPtr, newProxyPort);
 	return 0;
 }
 
@@ -143,7 +143,7 @@ int sceHttpsEnd() {
 
 // Parameter "method" should be one of PSPHttpMethod's listed entries
 int sceHttpCreateRequest(int connectionID, int method, const char *path, u64 contentLength) {
-	ERROR_LOG(HLE, "UNIMPL sceHttpCreateRequest(%d, %d, %s, %x)", connectionID, method, path, contentLength);
+	ERROR_LOG(HLE, "UNIMPL sceHttpCreateRequest(%d, %d, %s, %llx)", connectionID, method, path, contentLength);
 	return 0;
 }
 
@@ -229,7 +229,7 @@ int sceHttpCreateTemplate(const char *agent, int unknown1, int unknown2) {
 
 // Parameter "method" should be one of PSPHttpMethod's listed entries
 int sceHttpCreateRequestWithURL(int connectionID, int method, const char *url, u64 contentLength) {
-	ERROR_LOG(HLE, "UNIMPL sceHttpCreateRequestWithURL(%d, %d, %s, %x)", connectionID, method, url, contentLength);
+	ERROR_LOG(HLE, "UNIMPL sceHttpCreateRequestWithURL(%d, %d, %s, %llx)", connectionID, method, url, contentLength);
 	return 0;
 }
 
@@ -249,7 +249,7 @@ int sceHttpGetAllHeader(int request, u32 headerPtrToPtr, u32 headerSize) {
 }
 
 int sceHttpGetContentLength(int requestID, u64 contentLengthPtr) {
-	ERROR_LOG(HLE, "UNIMPL sceHttpGetContentLength(%d, %x)", requestID, contentLengthPtr);
+	ERROR_LOG(HLE, "UNIMPL sceHttpGetContentLength(%d, %llx)", requestID, contentLengthPtr);
 	return 0;
 }
 

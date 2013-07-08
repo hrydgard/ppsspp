@@ -314,7 +314,7 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 		readBuf = blockBuf;
 
 	readSize = fread(readBuf, 1, table[block].size, f);
-	if(readSize!=table[block].size){
+	if(readSize != (size_t)table[block].size){
 		if(block==(numBlocks-1))
 			return true;
 		else

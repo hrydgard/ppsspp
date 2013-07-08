@@ -687,14 +687,14 @@ static int getExpCurveAt(int index, int duration) {
 
 ADSREnvelope::ADSREnvelope()
 	: 	attackRate(0),
-		attackType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
 		decayRate(0),
-		decayType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		sustainRate(0),
-		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
 		releaseRate(0),
-		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
+		attackType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
+		decayType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
+		sustainType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_INCREASE),
 		sustainLevel(0x100),
+		releaseType(PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE),
 		state_(STATE_OFF),
 		steps_(0),
 		height_(0) {

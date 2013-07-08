@@ -229,7 +229,7 @@ int MpegDemux::getNextaudioFrame(u8** buf, int *headerCode1, int *headerCode2)
 		return 0;
 	u8 Code1 = m_audioFrame[2];
 	u8 Code2 = m_audioFrame[3];
-	int frameSize = ((Code1 & 0x03) << 8) | (Code2 & 0xFF) * 8 + 0x10;
+	int frameSize = (((Code1 & 0x03) << 8) | ((Code2 & 0xFF) * 8)) + 0x10;
 	if (frameSize > gotsize)
 		return 0;
 	int audioPos = 8;
