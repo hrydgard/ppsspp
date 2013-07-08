@@ -33,56 +33,8 @@
 #include <windowsx.h>
 #include <commctrl.h>
 
-char* breakpointColumns[] = {
-	"Type", "Offset", "Size/Label", "Opcode", "Hits", "Enabled"
-};
-
-float breakpointColumnSizes[] = {
-	0.12f, 0.2f, 0.2f, 0.3f, 0.1f, 0.08f
-};
-
-enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
-
 // How long (max) to wait for Core to pause before clearing temp breakpoints.
 const int TEMP_BREAKPOINT_WAIT_MS = 100;
-
-const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
-
-static FAR WNDPROC DefBreakpointListProc;
-
-static LRESULT CALLBACK BreakpointListProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-	switch(message)
-	{
-	case WM_KEYDOWN:
-		if(wParam == VK_RETURN)
-		{
-			int index = ListView_GetSelectionMark(hDlg);
-			SendMessage(GetParent(hDlg),WM_DEB_GOTOBREAKPOINT,index,0);
-			return 0;
-		} else if (wParam == VK_DELETE)
-		{
-			int index = ListView_GetSelectionMark(hDlg);
-			SendMessage(GetParent(hDlg),WM_DEB_REMOVEBREAKPOINT,index,0);
-			return 0;
-		} else if (wParam == VK_TAB)
-		{
-			SendMessage(GetParent(hDlg),WM_DEB_TABPRESSED,0,0);
-			return 0;
-		}
-		break;
-	case WM_GETDLGCODE:
-		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
-		{
-			if (wParam == VK_TAB) return DLGC_WANTMESSAGE;
-		}
-		break;
-	};
-
-	return (LRESULT)CallWindowProc((WNDPROC)DefBreakpointListProc,hDlg,message,wParam,lParam);;
-}
-
-
 
 FAR WNDPROC DefGotoEditProc;
 
@@ -171,30 +123,15 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	DefGotoEditProc = (WNDPROC)GetWindowLongPtr(editWnd,GWLP_WNDPROC);
 	SetWindowLongPtr(editWnd,GWLP_WNDPROC,(LONG_PTR)GotoEditProc); 
 	
-	// subclass the breakpoint list
-	HWND breakpointHwnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
-	DefBreakpointListProc = (WNDPROC)GetWindowLongPtr(breakpointHwnd,GWLP_WNDPROC);
-	SetWindowLongPtr(breakpointHwnd,GWLP_WNDPROC,(LONG_PTR)BreakpointListProc); 
-
-	// create columns for the breakpoint list
-	SendMessage(breakpointHwnd, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
-
-	LVCOLUMN lvc; 
-	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
-	lvc.iSubItem = 0;
-	lvc.fmt = LVCFMT_LEFT;
-	
-	int totalListSize = (breakpointRect.right-breakpointRect.left-20);
-	for (int i = 0; i < BPL_COLUMNCOUNT; i++)
-	{
-		lvc.cx = breakpointColumnSizes[i] * totalListSize;
-		lvc.pszText = breakpointColumns[i];
-		ListView_InsertColumn(breakpointHwnd, i, &lvc);
-	}
-
 	// init memory viewer
 	CtrlMemView *mem = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
 	mem->setDebugger(_cpu);
+	
+	breakpointList = new CtrlBreakpointList();
+	breakpointList->setCpu(cpu);
+	breakpointList->setDisasm(ptr);
+	breakpointList->setDialogItem(GetDlgItem(m_hDlg,IDC_BREAKPOINTLIST));
+	breakpointList->update();
 
 	threadList = new CtrlThreadList();
 	threadList->setDialogItem(GetDlgItem(m_hDlg,IDC_THREADLIST));
@@ -219,275 +156,6 @@ CDisasm::~CDisasm()
 {
 }
 
-int CDisasm::getTotalBreakpointCount()
-{
-	int count = (int)CBreakPoints::GetMemChecks().size();
-	for (size_t i = 0; i < CBreakPoints::GetBreakpoints().size(); i++)
-	{
-		if (!displayedBreakPoints_[i].temporary) count++;
-	}
-
-	return count;
-}
-
-void CDisasm::updateBreakpointList()
-{
-	// Update the items we're displaying from the debugger.
-	displayedBreakPoints_ = CBreakPoints::GetBreakpoints();
-	displayedMemChecks_= CBreakPoints::GetMemChecks();
-
-	HWND breakpointHwnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
-	int breakpointCount = getTotalBreakpointCount();
-	int items = ListView_GetItemCount(breakpointHwnd);
-
-	while (items < breakpointCount)
-	{
-	    LVITEM lvI;
-		lvI.pszText   = LPSTR_TEXTCALLBACK; // Sends an LVN_GETDISPINFO message.
-		lvI.mask      = LVIF_TEXT | LVIF_IMAGE |LVIF_STATE;
-		lvI.stateMask = 0;
-		lvI.iSubItem  = 0;
-		lvI.state     = 0;
-		lvI.iItem  = items;
-		lvI.iImage = items;
-
-		ListView_InsertItem(breakpointHwnd, &lvI);
-		items++;
-	}
-
-	while (items > breakpointCount)
-	{
-		ListView_DeleteItem(breakpointHwnd,--items);
-	}
-
-	InvalidateRect(breakpointHwnd,NULL,true);
-	UpdateWindow(breakpointHwnd);
-}
-
-int CDisasm::getBreakpointIndex(int itemIndex, bool& isMemory)
-{
-	// memory breakpoints first
-	if (itemIndex < (int)displayedMemChecks_.size())
-	{
-		isMemory = true;
-		return itemIndex;
-	}
-
-	itemIndex -= (int)displayedMemChecks_.size();
-
-	size_t i = 0;
-	while (i < displayedBreakPoints_.size())
-	{
-		if (displayedBreakPoints_[i].temporary)
-		{
-			i++;
-			continue;
-		}
-
-		// the index is 0 when there are no more breakpoints to skip
-		if (itemIndex == 0)
-		{
-			isMemory = false;
-			return (int)i;
-		}
-
-		i++;
-		itemIndex--;
-	}
-
-	return -1;
-}
-
-void CDisasm::removeBreakpoint(int itemIndex)
-{
-	bool isMemory;
-	int index = getBreakpointIndex(itemIndex,isMemory);
-	if (index == -1) return;
-
-	if (isMemory)
-	{
-		auto mc = displayedMemChecks_[index];
-		CBreakPoints::RemoveMemCheck(mc.start, mc.end);
-	} else {
-		u32 address = displayedBreakPoints_[index].addr;
-		CBreakPoints::RemoveBreakPoint(address);
-	}
-}
-
-void CDisasm::gotoBreakpointAddress(int itemIndex)
-{
-	bool isMemory;
-	int index = getBreakpointIndex(itemIndex,isMemory);
-	if (index == -1) return;
-
-	if (isMemory)
-	{
-		u32 address = displayedMemChecks_[index].start;
-			
-		for (int i=0; i<numCPUs; i++)
-			if (memoryWindow[i])
-				memoryWindow[i]->Goto(address);
-	} else {
-		u32 address = displayedBreakPoints_[index].addr;
-		Goto(address);
-		SetFocus(GetDlgItem(m_hDlg, IDC_DISASMVIEW));
-	}
-}
-
-void CDisasm::showBreakpointMenu(int itemIndex, const POINT &pt)
-{
-	bool isMemory;
-	int index = getBreakpointIndex(itemIndex, isMemory);
-	if (index == -1) return;
-
-	MemCheck mcPrev;
-	BreakPoint bpPrev;
-	if (isMemory) {
-		mcPrev = displayedMemChecks_[index];
-	} else {
-		bpPrev = displayedBreakPoints_[index];
-	}
-
-	HWND wnd = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
-	POINT screenPt(pt);
-	ClientToScreen(wnd, &screenPt);
-
-	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_BREAKPOINTLIST);
-	if (isMemory) {
-		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.result & MEMCHECK_BREAK ? MF_CHECKED : MF_UNCHECKED));
-	} else {
-		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED));
-	}
-
-	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
-	{
-	case ID_DISASM_DISABLEBREAKPOINT:
-		if (isMemory) {
-			CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
-		} else {
-			CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
-		}
-		break;
-	}
-}
-
-static char breakpointText[256];
-
-void CDisasm::handleBreakpointNotify(LPARAM lParam)
-{
-	const LPNMHDR header = (LPNMHDR)lParam;
-	if (header->code == NM_DBLCLK)
-	{
-		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
-		gotoBreakpointAddress(item->iItem);
-		return;
-	}
-	if (header->code == NM_RCLICK)
-	{
-		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
-		showBreakpointMenu(item->iItem, item->ptAction);
-		return;
-	}
-
-	if (header->code == LVN_GETDISPINFO)
-	{
-		NMLVDISPINFO *dispInfo = (NMLVDISPINFO *)lParam;
-		
-		bool isMemory;
-		int index = getBreakpointIndex(dispInfo->item.iItem,isMemory);
-		if (index == -1) return;
-		
-		breakpointText[0] = 0;
-		switch (dispInfo->item.iSubItem)
-		{
-		case BPL_TYPE:
-			{
-				if (isMemory)
-				{
-					switch (displayedMemChecks_[index].cond)
-					{
-					case MEMCHECK_READ:
-						strcpy(breakpointText, "Read");
-						break;
-					case MEMCHECK_WRITE:
-						strcpy(breakpointText, "Write");
-						break;
-					case MEMCHECK_READWRITE:
-						strcpy(breakpointText, "Read/Write");
-						break;
-					}
-				} else {
-					strcpy(breakpointText,"Execute");
-				}
-			}
-			break;
-		case BPL_OFFSET:
-			{
-				if (isMemory)
-				{
-					sprintf(breakpointText,"0x%08X",displayedMemChecks_[index].start);
-				} else {
-					sprintf(breakpointText,"0x%08X",displayedBreakPoints_[index].addr);
-				}
-			}
-			break;
-		case BPL_SIZELABEL:
-			{
-				if (isMemory)
-				{
-					auto mc = displayedMemChecks_[index];
-					if (mc.end == 0) sprintf(breakpointText,"0x%08X",1);
-					else sprintf(breakpointText,"0x%08X",mc.end-mc.start);
-				} else {
-					const char* sym = cpu->findSymbolForAddress(displayedBreakPoints_[index].addr);
-					if (sym != NULL)
-					{
-						strcpy(breakpointText,sym);
-					} else {
-						strcpy(breakpointText,"-");
-					}
-				}
-			}
-			break;
-		case BPL_OPCODE:
-			{
-				if (isMemory)
-				{
-					strcpy(breakpointText,"-");
-				} else {
-					CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
-					ptr->getOpcodeText(displayedBreakPoints_[index].addr,breakpointText);
-				}
-			}
-			break;
-		case BPL_HITS:
-			{
-				if (isMemory)
-				{
-					sprintf(breakpointText,"%d",displayedMemChecks_[index].numHits);
-				} else {
-					strcpy(breakpointText,"-");
-				}
-			}
-			break;
-		case BPL_ENABLED:
-			{
-				if (isMemory)
-				{
-					strcpy(breakpointText,displayedMemChecks_[index].result & MEMCHECK_BREAK ? "True" : "False");
-				} else {
-					strcpy(breakpointText,displayedBreakPoints_[index].enabled ? "True" : "False");
-				}
-			}
-			break;
-		default:
-			return;
-		}
-				
-		if (breakpointText[0] == 0) strcat(breakpointText,"Invalid");
-		dispInfo->item.pszText = breakpointText;
-	}
-}
 
 BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -525,7 +193,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			break;
 		case IDC_BREAKPOINTLIST:
-			handleBreakpointNotify(lParam);
+			breakpointList->handleNotify(lParam);
 			break;
 		case IDC_THREADLIST:
 			threadList->handleNotify(lParam);
@@ -810,12 +478,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		SetFocus(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		break;
 	}
-	case WM_DEB_GOTOBREAKPOINT:
-		gotoBreakpointAddress(wParam);
-		break;
-	case WM_DEB_REMOVEBREAKPOINT:
-		removeBreakpoint(wParam);
-		break;
 	case WM_DEB_GOTOADDRESSEDIT:
 		{
 			char szBuffer[256];
@@ -937,12 +599,6 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST),&regRect);
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST),&breakpointRect);
-
-	int totalListSize = (breakpointRect.right-breakpointRect.left-20);
-	for (int i = 0; i < BPL_COLUMNCOUNT; i++)
-	{
-		ListView_SetColumnWidth(breakpointList,i,breakpointColumnSizes[i] * totalListSize);
-	}		
 }
 
 void CDisasm::SavePosition()
@@ -966,7 +622,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
 		CBreakPoints::ClearTemporaryBreakPoints();
-		updateBreakpointList();
+		breakpointList->update();
 		threadList->reloadThreads();
 		updateThreadLabel(false);
 

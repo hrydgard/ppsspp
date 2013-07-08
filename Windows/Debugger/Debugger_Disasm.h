@@ -5,6 +5,7 @@
 
 #include "../W32Util/DialogManager.h"
 #include "CtrlDisasmView.h"
+#include "Debugger_Lists.h"
 #include "CPURegsInterface.h"
 #include "Globals.h"
 #include "Core/CPU.h"
@@ -13,8 +14,6 @@
 #include <vector>
 
 #include <windows.h>
-
-class CtrlThreadList;
 
 class CDisasm : public Dialog
 {
@@ -28,6 +27,7 @@ private:
 	DebugInterface *cpu;
 	u64 lastTicks;
 
+	CtrlBreakpointList* breakpointList;
 	CtrlThreadList* threadList;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
@@ -35,14 +35,7 @@ private:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
-	void updateBreakpointList();
-	void handleBreakpointNotify(LPARAM lParam);
-	void gotoBreakpointAddress(int itemIndex);
-	void removeBreakpoint(int itemIndex);
-	int getTotalBreakpointCount();
-	int getBreakpointIndex(int itemIndex, bool& isMemory);
 	void updateThreadLabel(bool clear);
-	void showBreakpointMenu(int itemIndex, const POINT &pt);
 public:
 	int index; //helper 
 
@@ -55,7 +48,7 @@ public:
 	virtual void Update()
 	{
 		UpdateDialog(true);
-		updateBreakpointList();
+		breakpointList->update();
 	};
 	void UpdateDialog(bool _bComplete = false);
 	// SetDebugMode 
