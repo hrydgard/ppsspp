@@ -383,14 +383,14 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 		drawing_width = gstate.getScissorX2() + 1;
 	if (drawing_height > gstate.getScissorY2() + 1)
 		drawing_height = gstate.getScissorY2() + 1;*/
-	
+
 	// Bit hacky but it works pretty well
 	if (!g_Config.bBufferedRendering || g_iNumVideos || (drawing_width <= 1 && drawing_height <= 1) ) {
 		drawing_width = 480;
 		drawing_height = 272;
 	} else {
-		drawing_width = std::max(drawing_width, 512);
-		drawing_height = std::max(drawing_height, 512);
+		drawing_width = std::min(drawing_width, 512);
+		drawing_height = std::min(drawing_height, 512);
 	}
 }
 
