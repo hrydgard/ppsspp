@@ -642,6 +642,7 @@ void ISOFileSystem::DoState(PointerWrap &p)
 			p.Do(fd);
 			p.Do(of.seekPos);
 			p.Do(of.isRawSector);
+			p.Do(of.isBlockSectorMode);
 			p.Do(of.sectorStart);
 			p.Do(of.openSize);
 
@@ -666,6 +667,7 @@ void ISOFileSystem::DoState(PointerWrap &p)
 			p.Do(it->first);
 			p.Do(of.seekPos);
 			p.Do(of.isRawSector);
+			p.Do(of.isBlockSectorMode);
 			p.Do(of.sectorStart);
 			p.Do(of.openSize);
 
