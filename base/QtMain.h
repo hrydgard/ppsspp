@@ -18,6 +18,7 @@ QTM_USE_NAMESPACE
 #include "base/timeutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
+#include "input/keycodes.h"
 #include "base/NativeApp.h"
 #include "net/resolve.h"
 #include "display.h"
