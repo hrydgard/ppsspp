@@ -181,7 +181,7 @@ void PathBrowser::Navigate(const std::string &path) {
 		if (path_.size() == 3 && path_[1] == ':') {
 			path_ = "/";
 		} else {
-			int slash = path_.rfind('/', path_.size() - 2);
+			size_t slash = path_.rfind('/', path_.size() - 2);
 			if (slash != std::string::npos)
 				path_ = path_.substr(0, slash + 1);
 		}
@@ -212,9 +212,8 @@ private:
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
 	UI::EventReturn NavigateClick(UI::EventParams &e);
 
-
-	bool allowBrowsing_;
 	PathBrowser path_;
+	bool allowBrowsing_;
 };
 
 GameBrowser::GameBrowser(std::string path, bool allowBrowsing, UI::LayoutParams *layoutParams) 
