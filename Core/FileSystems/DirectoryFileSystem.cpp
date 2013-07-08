@@ -287,7 +287,7 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 	return retValue;
 }
 
-u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access) {
+u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
 	{
@@ -667,7 +667,7 @@ bool VFSFileSystem::RemoveFile(const std::string &filename) {
 	return false;
 }
 
-u32 VFSFileSystem::OpenFile(std::string filename, FileAccess access) {
+u32 VFSFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	if (access != FILEACCESS_READ) {
 		ERROR_LOG(HLE, "VFSFileSystem only supports plain reading");
 		return 0;
