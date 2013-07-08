@@ -676,10 +676,20 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						source = Vec3(ruv[0], ruv[1], 0.0f);
 						break;
 					case 2: // Use normalized normal as source
-						source = Vec3(norm).Normalized();
+						if (reader.hasNormal()) {
+							source = Vec3(norm).Normalized();
+						} else {
+							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
+							source = Vec3(0.0f);
+						}
 						break;
 					case 3: // Use non-normalized normal as source!
-						source = Vec3(norm);
+						if (reader.hasNormal()) {
+							source = Vec3(norm);
+						} else {
+							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
+							source = Vec3(0.0f);
+						}
 						break;
 					}
 
