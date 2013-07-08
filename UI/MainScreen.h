@@ -31,6 +31,7 @@ public:
 protected:
 	virtual void CreateViews();
 	virtual void DrawBackground(UIContext &dc);
+	virtual void sendMessage(const char *message, const char *value);
 
 private:
 	UI::EventReturn OnGameSelected(UI::EventParams &e);

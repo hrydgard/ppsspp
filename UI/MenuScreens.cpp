@@ -243,8 +243,8 @@ void MenuScreen::render() {
 			g_Config.Save();
 			screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 		}
-#elif _WIN32
-		MainWindow::BrowseAndBoot("");
+//#elif _WIN32
+//		MainWindow::BrowseAndBoot("");
 #else
 		FileSelectScreenOptions options;
 		options.allowChooseDirectory = true;

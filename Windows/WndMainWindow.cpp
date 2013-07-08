@@ -12,6 +12,7 @@
 #include "commctrl.h"
 
 #include "input/input_state.h"
+#include "input/keycodes.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -403,7 +404,6 @@ namespace MainWindow
 			}
 			break;
 
-
 		// Actual touch! Unfinished
 
 		case WM_TOUCH:
@@ -499,6 +499,26 @@ namespace MainWindow
 				return 0;
 			}
 			break;
+
+		// For some reason, need to catch this here rather than in DisplayProc.
+		case WM_MOUSEWHEEL:
+			{
+				int wheelDelta = (short)(wParam >> 16);
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+
+				if (wheelDelta < 0) {
+					key.keyCode = KEYCODE_EXT_MOUSEWHEEL_DOWN;
+					wheelDelta = -wheelDelta;
+				} else {
+					key.keyCode = KEYCODE_EXT_MOUSEWHEEL_UP;
+				}
+				// There's no separate keyup event for mousewheel events, let's pass them both together.
+				// This also means it really won't work great for key mapping :( Need to build a 1 frame delay or something.
+				key.flags = KEY_DOWN | KEY_UP | KEY_HASWHEELDELTA | (wheelDelta << 16);
+				NativeKey(key);
+				break;
+			}
 
 		case WM_COMMAND:
 			{

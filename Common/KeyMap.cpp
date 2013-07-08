@@ -341,6 +341,12 @@ const KeyMap_IntStrPair key_names[] = {
 	{KEYCODE_NUMPAD_7, "Num7"},
 	{KEYCODE_NUMPAD_8, "Num8"},
 	{KEYCODE_NUMPAD_9, "Num9"},
+
+	{KEYCODE_EXT_MOUSEBUTTON_1, "MB1"},
+	{KEYCODE_EXT_MOUSEBUTTON_2, "MB2"},
+	{KEYCODE_EXT_MOUSEBUTTON_3, "MB3"},
+	{KEYCODE_EXT_MOUSEWHEEL_UP, "MWheelU"},
+	{KEYCODE_EXT_MOUSEWHEEL_DOWN, "MWheelD"},
 };
 
 const KeyMap_IntStrPair axis_names[] = {
@@ -355,10 +361,10 @@ const KeyMap_IntStrPair axis_names[] = {
 	{JOYSTICK_AXIS_ORIENTATION, "Orient"},
 	{JOYSTICK_AXIS_VSCROLL, "Vert Scroll"},
 	{JOYSTICK_AXIS_HSCROLL, "Horiz Scroll"},
-	{JOYSTICK_AXIS_Z, "Z Axis"},
+	{JOYSTICK_AXIS_Z, "Z Axis"},  // Also used as second stick X on many controllers - rename?
 	{JOYSTICK_AXIS_RX, "X Rotation"},
 	{JOYSTICK_AXIS_RY, "Y Rotation"},
-	{JOYSTICK_AXIS_RZ, "Z Rotation"},
+	{JOYSTICK_AXIS_RZ, "Z Rotation"},  // Also used as second stick Y on many controllers - rename?
 	{JOYSTICK_AXIS_HAT_X, "X HAT"},
 	{JOYSTICK_AXIS_HAT_Y, "Y HAT"},
 	{JOYSTICK_AXIS_LTRIGGER, "TriggerL"},
