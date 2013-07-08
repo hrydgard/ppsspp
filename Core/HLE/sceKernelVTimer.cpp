@@ -102,9 +102,7 @@ void __rescheduleVTimer(SceUID id, int delay) {
 	if (delay < 0)
 		delay = 100;
 
-	u64 schedule = vt->nvt.schedule + delay;
-
-	__KernelScheduleVTimer(vt, schedule);
+	__KernelScheduleVTimer(vt, delay);
 }
 
 class VTimerIntrHandler : public IntrHandler
@@ -336,8 +334,7 @@ void __startVTimer(VTimer *vt) {
 	vt->nvt.active = 1;
 	vt->nvt.base = cyclesToUs(CoreTiming::GetTicks());
 
-	// Checking for zero here breaks audio in Monster Hunter. It still doesn't work well though.
-	if (/*vt->nvt.schedule != 0 &&*/ vt->nvt.handlerAddr != 0)
+	if (vt->nvt.handlerAddr != 0)
 		__KernelScheduleVTimer(vt, vt->nvt.schedule);
 }
 
