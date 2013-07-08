@@ -3,6 +3,7 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include "DebuggerShared.h"
+#include "Windows/resource.h"
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 
@@ -13,6 +14,8 @@ char* threadColumns[] = {
 const float threadColumnSizes[] = {
 	0.20f, 0.15f, 0.15f, 0.15f, 0.15f, 0.20f
 };
+
+const int POPUP_SUBMENU_ID_THREADLIST = 6;
 
 void CtrlThreadList::setDialogItem(HWND hwnd)
 {
@@ -76,6 +79,51 @@ LRESULT CALLBACK CtrlThreadList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 	return (LRESULT)CallWindowProc((WNDPROC)tl->oldProc,hwnd,msg,wParam,lParam);
 }
 
+void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
+{
+	auto threadInfo = threads[itemIndex];
+
+	// Can't do it, sorry.  Needs to not be running.
+	if (Core_IsActive())
+		return;
+
+	POINT screenPt(pt);
+	ClientToScreen(wnd, &screenPt);
+
+	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_THREADLIST);
+	switch (threadInfo.status) {
+	case THREADSTATUS_DEAD:
+	case THREADSTATUS_DORMANT:
+	case THREADSTATUS_RUNNING:
+		EnableMenuItem(subMenu, ID_DISASM_THREAD_FORCERUN, MF_BYCOMMAND | MF_DISABLED);
+		EnableMenuItem(subMenu, ID_DISASM_THREAD_KILL, MF_BYCOMMAND | MF_DISABLED);
+		break;
+	case THREADSTATUS_READY:
+		EnableMenuItem(subMenu, ID_DISASM_THREAD_FORCERUN, MF_BYCOMMAND | MF_DISABLED);
+		EnableMenuItem(subMenu, ID_DISASM_THREAD_KILL, MF_BYCOMMAND | MF_ENABLED);
+		break;
+	case THREADSTATUS_SUSPEND:
+	case THREADSTATUS_WAIT:
+	case THREADSTATUS_WAITSUSPEND:
+	default:
+		EnableMenuItem(subMenu, ID_DISASM_THREAD_FORCERUN, MF_BYCOMMAND | MF_ENABLED);
+		EnableMenuItem(subMenu, ID_DISASM_THREAD_KILL, MF_BYCOMMAND | MF_ENABLED);
+		break;
+	}
+
+	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
+	{
+	case ID_DISASM_THREAD_FORCERUN:
+		__KernelResumeThreadFromWait(threadInfo.id, 0);
+		reloadThreads();
+		break;
+	case ID_DISASM_THREAD_KILL:
+		sceKernelTerminateThread(threadInfo.id);
+		reloadThreads();
+		break;
+	}
+}
+
 void CtrlThreadList::handleNotify(LPARAM lParam)
 {
 	LPNMHDR mhdr = (LPNMHDR) lParam;
@@ -97,6 +145,12 @@ void CtrlThreadList::handleNotify(LPARAM lParam)
 		}
 
 		SendMessage(GetParent(wnd),WM_DEB_GOTOWPARAM,address,0);
+		return;
+	}
+	if (mhdr->code == NM_RCLICK)
+	{
+		const LPNMITEMACTIVATE item = (LPNMITEMACTIVATE)lParam;
+		showMenu(item->iItem, item->ptAction);
 		return;
 	}
 
@@ -188,7 +242,7 @@ void CtrlThreadList::reloadThreads()
 		items++;
 	}
 
-	while (items > threads.size())
+	while (items > (int)threads.size())
 	{
 		ListView_DeleteItem(wnd,--items);
 	}
@@ -199,7 +253,7 @@ void CtrlThreadList::reloadThreads()
 
 const char* CtrlThreadList::getCurrentThreadName()
 {
-	for (int i = 0; i < threads.size(); i++)
+	for (size_t i = 0; i < threads.size(); i++)
 	{
 		if (threads[i].isCurrent) return threads[i].name;
 	}
