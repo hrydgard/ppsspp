@@ -350,8 +350,8 @@ namespace MainWindow
 				TouchInput touch;
 				touch.id = 0;
 				touch.flags = TOUCH_DOWN;
-				touch.x = GET_X_LPARAM(lParam);
-				touch.y = GET_Y_LPARAM(lParam);
+				touch.x = input_state.pointer_x[0];
+				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 			}
 			break;
@@ -378,8 +378,8 @@ namespace MainWindow
 					TouchInput touch;
 					touch.id = 0;
 					touch.flags = TOUCH_MOVE;
-					touch.x = GET_X_LPARAM(lParam);
-					touch.y = GET_Y_LPARAM(lParam);
+					touch.x = input_state.pointer_x[0];
+					touch.y = input_state.pointer_y[0];
 					NativeTouch(touch);
 				}
 			}
@@ -398,8 +398,8 @@ namespace MainWindow
 				TouchInput touch;
 				touch.id = 0;
 				touch.flags = TOUCH_UP;
-				touch.x = GET_X_LPARAM(lParam);
-				touch.y = GET_Y_LPARAM(lParam);
+				touch.x = input_state.pointer_x[0];
+				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 			}
 			break;
