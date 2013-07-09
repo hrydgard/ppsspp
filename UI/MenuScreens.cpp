@@ -174,13 +174,13 @@ void LogoScreen::render() {
 	sprintf(temp, "%s Henrik Rydgård", c->T("created", "Created by"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
-	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	ui_draw2d.DrawText(UBUNTU24, c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	ui_draw2d.DrawText(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (bootFilename_.size()) {
-		ui_draw2d.DrawText(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+		ui_draw2d.DrawTextShadow(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
 
 	DrawWatermark();
@@ -299,7 +299,7 @@ void MenuScreen::render() {
 
 	int recentW = 350;
 	if (g_Config.recentIsos.size()) {
-		ui_draw2d.DrawText(UBUNTU24, m->T("Recent"), -xoff, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, m->T("Recent"), -xoff, 80, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
 	}
 
 	int spacing = 15;
@@ -447,7 +447,7 @@ void PauseScreen::render() {
 		ctx->RebindTexture();
 	}
 
-	ui_draw2d.DrawText(UBUNTU24, title.c_str(), 10+144+10, 30, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, title.c_str(), 10+144+10, 30, 0xFFFFFFFF, ALIGN_LEFT);
 
 	I18NCategory *i = GetI18NCategory("Pause");
 
@@ -513,7 +513,7 @@ void PauseScreen::render() {
 
 		char showFrameSkip[256];
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
-		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 220, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFrameSkip = 3;
@@ -528,7 +528,7 @@ void PauseScreen::render() {
 		g_Config.iFrameSkip = 0;
 	
 	y+=10;
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Save State :"), 30, y += 40, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, gs->T("Save State :"), 30, y += 40, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear4(x + 180 , y , 10);
 	if (UIButton(GEN_ID, hlinear4, 60, 0, "1", ALIGN_LEFT)) {
 		SaveState::SaveSlot(0, 0, 0);
@@ -551,7 +551,7 @@ void PauseScreen::render() {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
 
-	ui_draw2d.DrawText(UBUNTU24, gs->T("Load State :"), 30, y += 60, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, gs->T("Load State :"), 30, y += 60, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear3(x + 180 , y + 10 , 10);
 	if (UIButton(GEN_ID, hlinear3, 60, 0, "1", ALIGN_LEFT)) {
 		SaveState::LoadSlot(0, 0, 0);
@@ -607,7 +607,7 @@ void SettingsScreen::render() {
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, ms->T("Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, ms->T("Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	VLinear vlinear(30, 135, 20);
@@ -624,27 +624,27 @@ void SettingsScreen::render() {
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Audio"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new AudioScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("AudioDesc", "Adjust Audio Settings"), s, y, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, ms->T("AudioDesc", "Adjust Audio Settings"), s, y, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Graphics"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new GraphicsScreenP1());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("GraphicsDesc", "Change graphics options"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, ms->T("GraphicsDesc", "Change graphics options"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("System"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new SystemScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("SystemDesc", "Turn on Dynarec (JIT), Fast Memory"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, ms->T("SystemDesc", "Turn on Dynarec (JIT), Fast Memory"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Controls"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new ControlsScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("ControlsDesc", "On Screen Controls, Large Buttons"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, ms->T("ControlsDesc", "On Screen Controls, Large Buttons"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	if (UIButton(GEN_ID, vlinear, w, 0, ms->T("Developer"), ALIGN_BOTTOMLEFT)) {
 		screenManager()->push(new DeveloperScreen());
 	}
-	ui_draw2d.DrawText(UBUNTU24, ms->T("DeveloperDesc", "Run CPU test, Dump Next Frame Log"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, ms->T("DeveloperDesc", "Run CPU test, Dump Next Frame Log"), s, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 	UIEnd();
 }
 
@@ -757,7 +757,7 @@ void DeveloperScreen::render() {
 	I18NCategory *s = GetI18NCategory("System");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, d->T("Developer Tools"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, d->T("Developer Tools"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	int x = 50;
@@ -824,7 +824,7 @@ void AudioScreen::render() {
 	I18NCategory *a = GetI18NCategory("Audio");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, a->T("Audio Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, a->T("Audio Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -850,7 +850,7 @@ void AudioScreen::render() {
 		y+=10;
 		char bgmvol[256];
 		sprintf(bgmvol, "%s %i", a->T("BGM Volume :"), g_Config.iBGMVolume);
-		ui_draw2d.DrawText(UBUNTU24, bgmvol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, bgmvol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, a->T("Auto"), ALIGN_LEFT))
 			g_Config.iBGMVolume = 3;
@@ -863,7 +863,7 @@ void AudioScreen::render() {
 		y+=20;
 		char sevol[256];
 		sprintf(sevol, "%s %i", a->T("SE Volume     :"), g_Config.iSEVolume);
-		ui_draw2d.DrawText(UBUNTU24, sevol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, sevol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 80, 0, a->T("Auto"), ALIGN_LEFT))
 			g_Config.iSEVolume = 3;
@@ -906,7 +906,7 @@ void GraphicsScreenP1::render() {
 	sprintf(temp, "%s 1/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
@@ -985,7 +985,7 @@ void GraphicsScreenP2::render() {
 	sprintf(temp, "%s 2/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -1013,7 +1013,7 @@ void GraphicsScreenP2::render() {
 
 		char showAF[256];
 		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
-		ui_draw2d.DrawText(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250, y , 20);
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
@@ -1042,7 +1042,7 @@ void GraphicsScreenP2::render() {
 		case 4:	type = "Linear(CG)";break;
 		}
 		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
-		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 300, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 170, 0, gs->T("Nearest"), ALIGN_LEFT)) 
 			g_Config.iTexFiltering = 2;
@@ -1070,7 +1070,7 @@ void GraphicsScreenP2::render() {
 		case 3: type = "H+B";break;
 		}
 		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
-		ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("xBRZ"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
@@ -1083,7 +1083,7 @@ void GraphicsScreenP2::render() {
 		y += 20;
 		char showLevel[256];
 		sprintf(showLevel, "%s %dx", gs->T("Level :"), g_Config.iTexScalingLevel);
-		ui_draw2d.DrawText(UBUNTU24, showLevel, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, showLevel, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
@@ -1126,7 +1126,7 @@ void GraphicsScreenP3::render() {
 	sprintf(temp, "%s 3/3", gs->T("Graphics Settings"));
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, temp, dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -1171,7 +1171,7 @@ void GraphicsScreenP3::render() {
 		default: type = ""; break;
 		}
 
-		ui_draw2d.DrawText(UBUNTU24, type, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, type, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 260, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Speed"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 1;
@@ -1192,7 +1192,7 @@ void GraphicsScreenP3::render() {
 		
 		char showFps[256];
 		sprintf(showFps, "%s %d", gs->T("Speed :"), g_Config.iFpsLimit);
-		ui_draw2d.DrawText(UBUNTU24, showFps, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, showFps, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 260, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
@@ -1215,7 +1215,7 @@ void GraphicsScreenP3::render() {
 
 		char showFrameSkip[256];
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
-		ui_draw2d.DrawText(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFrameSkip = 3;
@@ -1266,7 +1266,7 @@ void LanguageScreen::render() {
 
 	if (!small) {
 		ui_draw2d.SetFontScale(1.5f, 1.5f);
-		ui_draw2d.DrawText(UBUNTU24, s->T("Language"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+		ui_draw2d.DrawTextShadow(UBUNTU24, s->T("Language"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 
@@ -1381,7 +1381,7 @@ void SystemScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, s->T("System Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, s->T("System Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -1414,7 +1414,7 @@ void SystemScreen::render() {
 			g_Config.iLockedCPUSpeed = 222;
 		char showCPUSpeed[256];
 		sprintf(showCPUSpeed, "%s %d", s->T("Frequency :"), g_Config.iLockedCPUSpeed);
-		ui_draw2d.DrawText(UBUNTU24, showCPUSpeed, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		ui_draw2d.DrawTextShadow(UBUNTU24, showCPUSpeed, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 300, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, s->T("Auto"), ALIGN_LEFT))
 			g_Config.iLockedCPUSpeed = 222;
@@ -1461,7 +1461,7 @@ void SystemScreen::render() {
 				case 11: type = "简体中文";break;
 	}
 	sprintf(lang, "%s %s", s->T("System Language :"), type.c_str());
-	ui_draw2d.DrawText(UBUNTU24, lang, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, lang, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear3(x + 400, y, 20);
 	if (UIButton(GEN_ID, hlinear3, 220, 0, s->T("Language"), ALIGN_TOPLEFT)) {
 		screenManager()->push(new LanguageScreen());
@@ -1495,7 +1495,7 @@ void SystemScreen::render() {
 
 	char recents[256];
 	sprintf(recents, "%s %i", s->T("Max. No of Recents :"), g_Config.iMaxRecent);
-	ui_draw2d.DrawText(UBUNTU24, recents, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, recents, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear2(x + 400, y, 10);
 	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("-1"), ALIGN_LEFT))
 		if (g_Config.iMaxRecent > 4)
@@ -1522,7 +1522,7 @@ void SystemScreen::render() {
 				case 2: type = "24HR";break;
 			}
 			sprintf(button, "%s %s", s->T("Format :"), type.c_str());
-			ui_draw2d.DrawText(UBUNTU24, button, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			ui_draw2d.DrawTextShadow(UBUNTU24, button, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 			HLinear hlinear1(x + 280, y, 20);
 			if (UIButton(GEN_ID, hlinear1, 80, 0, s->T("12HR"), ALIGN_LEFT))
 					g_Config.iTimeFormat = 1;
@@ -1545,7 +1545,7 @@ void SystemScreen::render() {
 				case 3:	type = "DDMMYYYY";break;
 			}
 			sprintf(button, "%s %s", s->T("Format :"), type.c_str());
-			ui_draw2d.DrawText(UBUNTU24, button, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			ui_draw2d.DrawTextShadow(UBUNTU24, button, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 			HLinear hlinear1(x + 350, y, 10);
 			if (UIButton(GEN_ID, hlinear1, 70, 0, s->T("YMD"), ALIGN_LEFT))
 					g_Config.iDateFormat = 1;
@@ -1583,7 +1583,7 @@ void ControlsScreen::render() {
 	I18NCategory *g = GetI18NCategory("General");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, c->T("Controls Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, c->T("Controls Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -1604,7 +1604,7 @@ void ControlsScreen::render() {
 		if (g_Config.bLargeControls) {
 			char scale[256];
 			sprintf(scale, "%s %0.2f", c->T("Scale :"), g_Config.fButtonScale);
-			ui_draw2d.DrawText(UBUNTU24, scale, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			ui_draw2d.DrawTextShadow(UBUNTU24, scale, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 			HLinear hlinear1(x + 250, y, 20);
 			if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
 				g_Config.fButtonScale = 1.15;
@@ -1623,7 +1623,7 @@ void ControlsScreen::render() {
 		if (bTransparent) {
 			char opacity[256];
 			sprintf(opacity, "%s %d", c->T("Opacity :"), g_Config.iTouchButtonOpacity);
-			ui_draw2d.DrawText(UBUNTU24, opacity, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+			ui_draw2d.DrawTextShadow(UBUNTU24, opacity, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
 			HLinear hlinear1(x + 250, y, 20);
 			if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
 				g_Config.iTouchButtonOpacity = 15;
@@ -1779,7 +1779,7 @@ void KeyMappingNewKeyDialog::render() {
 	I18NCategory *generalI18N = GetI18NCategory("General");
 
 #define KeyText(x, y, sentence) \
-	ui_draw2d.DrawText(UBUNTU24, (sentence), x, y, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, (sentence), x, y, 0xFFFFFFFF, ALIGN_TOPLEFT);
 #define KeyScale(width) \
 	ui_draw2d.SetFontScale(width, width);
 
@@ -2130,10 +2130,10 @@ void ErrorScreen::render()
 	I18NCategory *ge = GetI18NCategory("Error");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawText(UBUNTU24, ge->T(errorTitle_.c_str()), dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, ge->T(errorTitle_.c_str()), dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
 	ui_draw2d.SetFontScale(1.0f, 1.0f);
 
-	ui_draw2d.DrawText(UBUNTU24, ge->T(errorMessage_.c_str()), 40, 120, 0xFFFFFFFF, ALIGN_LEFT);
+	ui_draw2d.DrawTextShadow(UBUNTU24, ge->T(errorMessage_.c_str()), 40, 120, 0xFFFFFFFF, ALIGN_LEFT);
 
 	I18NCategory *g = GetI18NCategory("General");
 
