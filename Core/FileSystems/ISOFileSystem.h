@@ -32,7 +32,7 @@ public:
 	~ISOFileSystem();
 	void DoState(PointerWrap &p);
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access);
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
 	void     CloseFile(u32 handle);
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
 	size_t   SeekFile(u32 handle, s32 position, FileMove type);
@@ -62,7 +62,6 @@ private:
 		u32 startingPosition;
 		s64 size;
 		bool isDirectory;
-		bool isBlockSectorMode;  // "umd:" mode: all sizes and offsets are in 2048 byte chunks
 
 		TreeEntry *parent;
 		std::vector<TreeEntry*> children;
@@ -73,6 +72,7 @@ private:
 		TreeEntry *file;
 		unsigned int seekPos;  // TODO: Make 64-bit?
 		bool isRawSector;   // "/sce_lbn" mode
+		bool isBlockSectorMode;  // "umd:" mode: all sizes and offsets are in 2048 byte chunks
 		u32 sectorStart;
 		u32 openSize;
 	};

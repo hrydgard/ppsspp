@@ -36,9 +36,15 @@ enum {
 	VIRTKEY_UNTHROTTLE = 0x10005,
 	VIRTKEY_PAUSE = 0x10006,
 	VIRTKEY_SPEED_TOGGLE = 0x10007,
+	VIRTKEY_AXIS_RIGHT_X_MIN = 0x10008,
+	VIRTKEY_AXIS_RIGHT_Y_MIN = 0x10009,
+	VIRTKEY_AXIS_RIGHT_X_MAX = 0x1000a,
+	VIRTKEY_AXIS_RIGHT_Y_MAX = 0x1000b,
 	VIRTKEY_LAST,
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
+
+const float AXIS_BIND_THRESHOLD = 0.75f;
 
 class KeyDef {
 public:
@@ -114,6 +120,16 @@ namespace KeyMap {
 	// Configure the key mapping.
 	// Any configuration will be saved to the Core config.
 	void SetKeyMapping(int map, int deviceId, int keyCode, int psp_key);
+
+	std::string GetAxisName(int axisId);
+	int AxisToPspButton(int deviceId, int axisId, int direction);
+	bool AxisFromPspButton(int controllerMap, int btn, int *deviceId, int *axisId, int *direction);
+	bool IsMappedAxis(int deviceId, int axisId, int direction);
+	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
+
+	// Configure an axis mapping, saves the configuration.
+	// Direction is negative or positive.
+	void SetAxisMapping(int map, int deviceId, int axisId, int direction, int btn);
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);

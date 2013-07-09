@@ -243,8 +243,8 @@ void MenuScreen::render() {
 			g_Config.Save();
 			screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
 		}
-#elif _WIN32
-		MainWindow::BrowseAndBoot("");
+//#elif _WIN32
+//		MainWindow::BrowseAndBoot("");
 #else
 		FileSelectScreenOptions options;
 		options.allowChooseDirectory = true;
@@ -690,6 +690,22 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		last_kb_deviceid = key.deviceId;
 		last_kb_key = key.keyCode;
+		last_axis_id = -1;
+	}
+}
+
+void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
+	if (axis.value > AXIS_BIND_THRESHOLD) {
+		last_axis_deviceid = axis.deviceId;
+		last_axis_id = axis.axisId;
+		last_axis_direction = 1;
+		last_kb_key = 0;
+	}
+	if (axis.value < -AXIS_BIND_THRESHOLD) {
+		last_axis_deviceid = axis.deviceId;
+		last_axis_id = axis.axisId;
+		last_axis_direction = -1;
+		last_kb_key = 0;
 	}
 }
 
@@ -1474,34 +1490,6 @@ void ControlsScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	if (g_Config.bShowTouchControls) {
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Left Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-		bool rightstick = g_Config.iRightStickBind > 0;
-		UICheckBox(GEN_ID, x, y += stride, c->T("Bind Right Analog Stick"), ALIGN_TOPLEFT, &rightstick);
-		if (rightstick) {
-			if (g_Config.iRightStickBind <= 0 )
-				g_Config.iRightStickBind = 1;
-
-			char showType[256];
-			std::string type;
-			switch (g_Config.iRightStickBind) {
-			case 1:	type = "Arrow Buttons";break;
-			case 2: type = "Face Buttons";break;
-			case 3:	type = "L/R";break;
-			case 4:	type = "L/R + Triangle/Cross";break;
-			}
-			sprintf(showType, "%s %s", c->T("Target :"), type.c_str());
-			ui_draw2d.DrawText(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
-			HLinear hlinear1(x + 60 , y+= stride + 5, 10);
-			if (UIButton(GEN_ID, hlinear1, 200, 0, c->T("Arrow Buttons"), ALIGN_LEFT)) 
-				g_Config.iRightStickBind = 1;
-			if (UIButton(GEN_ID, hlinear1, 200, 0, c->T("Face Buttons"), ALIGN_LEFT))
-				g_Config.iRightStickBind = 2;
-			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("L/R"), ALIGN_LEFT))
-				g_Config.iRightStickBind = 3;
-			if (UIButton(GEN_ID, hlinear1, 280, 0, c->T("L/R + Triangle/Cross"), ALIGN_LEFT))
-				g_Config.iRightStickBind = 4;
-			y += 20;
-		} else
-			g_Config.iRightStickBind = 0;
 			
 		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
 		if (g_Config.bLargeControls) {
@@ -1595,7 +1583,6 @@ void KeyMappingScreen::render() {
 	KeyBtn(left+pad, top+hlfpad, CTRL_RIGHT); // >
 	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // v
 
-#ifndef ANDROID
 	top = 10;
 	left = 250;
 	KeyBtn(left+hlfpad, top, VIRTKEY_AXIS_Y_MAX); // ^
@@ -1603,7 +1590,6 @@ void KeyMappingScreen::render() {
 	KeyBtn(left+pad, top+hlfpad, VIRTKEY_AXIS_X_MAX); // >
 	KeyBtn(left+hlfpad, top+pad, VIRTKEY_AXIS_Y_MIN); // v
 	top = 100;
-#endif
 
 	left = 500;
 	KeyBtn(left+hlfpad, top, CTRL_TRIANGLE); // Triangle
@@ -1618,7 +1604,7 @@ void KeyMappingScreen::render() {
 	KeyBtn(left + pad, top, CTRL_START);
 
 	top = 10;
-	left = 750;
+	left = 720;
 	KeyBtn(left, top, VIRTKEY_UNTHROTTLE);
 	top += 100;
 	KeyBtn(left, top, VIRTKEY_SPEED_TOGGLE);
@@ -1681,16 +1667,29 @@ void KeyMappingNewKeyDialog::render() {
 	KeyScale(1.4f);
 	KeyText(right, top, keyI18N->T("New Key"));
 	KeyScale(2.0f);
-	if (last_kb_key != 0) {
+	if (last_axis_id != -1) {
+		const std::string axis_direction_name = KeyMap::GetAxisName(last_axis_id) + (last_axis_direction < 0 ? "-" : "+");
+		KeyText(right, top += stride, axis_direction_name.c_str());
+		KeyScale(1.4f);
+		KeyText(right, top + stride, GetDeviceName(last_axis_deviceid));
+		bool key_used = KeyMap::IsMappedAxis(last_axis_deviceid, last_axis_id, last_axis_direction);
+		if (key_used) {
+			KeyScale(1.0f);
+			KeyText(left + stride, top + 2*stride,
+			keyI18N->T("Warning: Key is already used by"));
+			KeyText(left + stride, top + 3*stride,
+			        (KeyMap::NamePspButtonFromAxis(last_axis_deviceid, last_axis_id, last_axis_direction)).c_str());
+		}
+	} else if (last_kb_key != 0) {
 		KeyText(right, top += stride, KeyMap::GetKeyName(last_kb_key).c_str());
 		KeyScale(1.4f);
 		KeyText(right, top + stride, GetDeviceName(last_kb_deviceid));
 		bool key_used = KeyMap::IsMappedKey(last_kb_deviceid, last_kb_key);
 		if (key_used) {
 			KeyScale(1.0f);
-			KeyText(left + stride, top + 2*stride, 
-		  keyI18N->T("Warning: Key is already used by"));
-			KeyText(left + stride, top + 3*stride, 
+			KeyText(left + stride, top + 2*stride,
+			keyI18N->T("Warning: Key is already used by"));
+			KeyText(left + stride, top + 3*stride,
 			        (KeyMap::NamePspButtonFromKey(last_kb_deviceid, last_kb_key)).c_str());
 		}
 	}
@@ -1701,7 +1700,10 @@ void KeyMappingNewKeyDialog::render() {
 
 	// Save & cancel buttons
 	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, keyI18N->T("Save Mapping"), ALIGN_LEFT | ALIGN_BOTTOM)) {
-		KeyMap::SetKeyMapping(currentMap_, last_kb_deviceid, last_kb_key, pspBtn);
+		if (last_axis_id != -1)
+			KeyMap::SetAxisMapping(currentMap_, last_axis_deviceid, last_axis_id, last_axis_direction, pspBtn);
+		else
+			KeyMap::SetKeyMapping(currentMap_, last_kb_deviceid, last_kb_key, pspBtn);
 		g_Config.Save();
 		screenManager()->finishDialog(this, DR_OK);
 	}
@@ -1777,6 +1779,19 @@ FileSelectScreen::FileSelectScreen(const FileSelectScreenOptions &options) : opt
 	updateListing();
 }
 
+void FileSelectScreen::key(const KeyInput &key) {
+	if (key.flags & KEY_DOWN) {
+		switch (key.keyCode) {
+		case KEYCODE_EXT_MOUSEWHEEL_UP:
+			list_.scrollRelative(-50);
+			break;
+		case KEYCODE_EXT_MOUSEWHEEL_DOWN:
+			list_.scrollRelative(50);
+			break;
+		}
+	}
+}
+
 void FileSelectScreen::updateListing() {
 	listing_.clear();
 	getFilesInDir(currentDirectory_.c_str(), &listing_, options_.filter);
@@ -1846,7 +1861,6 @@ void CreditsScreen::update(InputState &input_state) {
 
 
 void CreditsScreen::render() {
-	
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 
 	const char * credits[] = {

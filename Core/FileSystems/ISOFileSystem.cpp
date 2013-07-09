@@ -161,7 +161,6 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	entireISO.isDirectory = false;
 	entireISO.startingPosition = 0;
 	entireISO.size = _blockDevice->GetNumBlocks() * _blockDevice->GetBlockSize();
-	entireISO.isBlockSectorMode = true;
 	entireISO.flags = 0;
 	entireISO.parent = NULL;
 
@@ -178,7 +177,6 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	treeroot->isDirectory = true;
 	treeroot->startingPosition = 0;
 	treeroot->size = 0;
-	treeroot->isBlockSectorMode = false;
 	treeroot->flags = 0;
 	treeroot->parent = NULL;
 
@@ -243,7 +241,6 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 			e->startingPosition = dir.firstDataSectorLE * 2048;
 			e->isDirectory = !isFile;
 			e->flags = dir.flags;
-			e->isBlockSectorMode = false;
 			e->parent = root;
 
 			// Let's not excessively spam the log - I commented this line out.
@@ -338,7 +335,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 	}
 }
 
-u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
+u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
 {
 	// LBN unittest
 	/*
@@ -351,6 +348,9 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 
 
 	OpenFileEntry entry;
+	entry.isRawSector = false;
+	entry.isBlockSectorMode = false;
+
 	if (filename.compare(0,8,"/sce_lbn") == 0)
 	{
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
@@ -370,14 +370,12 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 		entry.openSize = readSize;
 		// when open as "umd1:/sce_lbn0x0_size0x6B49D200", that mean open umd1 as a block device.
 		// the param in sceIoLseek and sceIoRead is lba mode. we must mark it.
-		// if(sectorStart==0 && readSize>=blockDevice->GetNumBlocks()*2048)
-		//	entry.file = &entireISO;
+		if(strncmp(devicename, "umd0:", 5)==0 || strncmp(devicename, "umd1:", 5)==0)
+			entry.isBlockSectorMode = true;
 
 		entries[newHandle] = entry;
 		return newHandle;
 	}
-
-	entry.isRawSector = false;
 
 	if (access & FILEACCESS_WRITE)
 	{
@@ -387,8 +385,12 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access)
 
 	// May return entireISO for "umd0:"
 	entry.file = GetFromPath(filename);
-	if (!entry.file)
+	if (!entry.file){
 		return 0;
+	}
+
+	if (entry.file==&entireISO)
+		entry.isBlockSectorMode = true;
 
 	entry.seekPos = 0;
 
@@ -426,7 +428,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 	{
 		OpenFileEntry &e = iter->second;
 		
-		if (e.file != 0 && e.file->isBlockSectorMode)
+		if (e.isBlockSectorMode)
 		{
 			// Whole sectors! Shortcut to this simple code.
 			for (int i = 0; i < size; i++)
@@ -640,6 +642,7 @@ void ISOFileSystem::DoState(PointerWrap &p)
 			p.Do(fd);
 			p.Do(of.seekPos);
 			p.Do(of.isRawSector);
+			p.Do(of.isBlockSectorMode);
 			p.Do(of.sectorStart);
 			p.Do(of.openSize);
 
@@ -664,6 +667,7 @@ void ISOFileSystem::DoState(PointerWrap &p)
 			p.Do(it->first);
 			p.Do(of.seekPos);
 			p.Do(of.isRawSector);
+			p.Do(of.isBlockSectorMode);
 			p.Do(of.sectorStart);
 			p.Do(of.openSize);
 

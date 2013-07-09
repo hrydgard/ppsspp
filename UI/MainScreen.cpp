@@ -340,6 +340,12 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice("Support PPSSPP"))->OnClick.Handle(this, &MainScreen::OnSupport);
 }
 
+void MainScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "boot")) {
+		screenManager()->switchScreen(new EmuScreen(value));
+	}
+}
+
 void DrawBackground(float alpha);
 
 void MainScreen::DrawBackground(UIContext &dc) {

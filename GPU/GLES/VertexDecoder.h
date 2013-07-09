@@ -254,7 +254,7 @@ public:
 			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Pos Format %d", decFmt_.posfmt);
-			memset(pos, 0, sizeof(pos));
+			memset(pos, 0, sizeof(float) * 3);
 			break;
 		}
 	}
@@ -285,7 +285,7 @@ public:
 			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported Nrm Format %d", decFmt_.nrmfmt);
-			memset(nrm, 0, sizeof(nrm));
+			memset(nrm, 0, sizeof(float) * 3);
 			break;
 		}
 	}
@@ -325,7 +325,7 @@ public:
 			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported UV Format %d", decFmt_.uvfmt);
-			memset(uv, 0, sizeof(uv));
+			memset(uv, 0, sizeof(float) * 2);
 			break;
 		}
 	}
@@ -344,7 +344,7 @@ public:
 			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C0 Format %d", decFmt_.c0fmt);
-			memset(color, 0, sizeof(color));
+			memset(color, 0, sizeof(float) * 4);
 			break;
 		}
 	}
@@ -363,7 +363,7 @@ public:
 			break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c0fmt);
-			memset(color, 0, sizeof(color));
+			memset(color, 0, sizeof(float) * 3);
 			break;
 		}
 	}
@@ -390,7 +390,7 @@ public:
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmt0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
-			weights[0] = 0.0f;
+			memset(weights, 0, sizeof(float) * 4);
 			break;
 		}
 
@@ -418,7 +418,7 @@ public:
 		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i+4] = s[i]  * (1.f / 32768.f); break;
 		default:
 			ERROR_LOG_REPORT_ONCE(fmt1, G3D, "Reader: Unsupported W1 Format %d", decFmt_.w1fmt);
-			weights[4] = 0.0f;
+			memset(weights + 4, 0, sizeof(float) * 4);
 			break;
 		}
 	}

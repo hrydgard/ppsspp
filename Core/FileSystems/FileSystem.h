@@ -107,7 +107,7 @@ public:
 
 	virtual void DoState(PointerWrap &p) = 0;
 	virtual std::vector<PSPFileInfo> GetDirListing(std::string path) = 0;
-	virtual u32      OpenFile(std::string filename, FileAccess access) = 0;
+	virtual u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) = 0;
 	virtual void     CloseFile(u32 handle) = 0;
 	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size) = 0;
 	virtual size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) = 0;
@@ -127,7 +127,7 @@ class EmptyFileSystem : public IFileSystem
 public:
 	virtual void DoState(PointerWrap &p) {}
 	std::vector<PSPFileInfo> GetDirListing(std::string path) {std::vector<PSPFileInfo> vec; return vec;}
-	u32      OpenFile(std::string filename, FileAccess access) {return 0;}
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) {return 0;}
 	void     CloseFile(u32 handle) {}
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) {return 0;}
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) {return 0;}
