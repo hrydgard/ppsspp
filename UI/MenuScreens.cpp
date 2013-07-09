@@ -803,11 +803,12 @@ void AudioScreen::render() {
 	if (g_Config.bEnableSound) {
 		if (Atrac3plus_Decoder::IsInstalled()) {
 			UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
-		} else {
-			VLinear vlinear(30, 250, 20);
-			if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
-				screenManager()->push(new PluginScreen());
-			}
+		} 
+
+		// Show the download button even if not installed - might want to upgrade.
+		VLinear vlinear(30, 250, 20);
+		if (UIButton(GEN_ID, vlinear, 600, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
+			screenManager()->push(new PluginScreen());
 		}
 
 		y+=10;
