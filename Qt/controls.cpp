@@ -29,13 +29,13 @@ Controls::Controls(QWidget *parent) :
 {
 	ui->setupUi(this);
 
-	for(int i = 0; i < controllistCount; i++)
+	/*for(int i = 0; i < controllistCount; i++)
 	{
 		if(g_Config.iMappingMap.find(i) != g_Config.iMappingMap.end())
 		{
 			controllist[i].key = (Qt::Key)g_Config.iMappingMap[i];
 		}
-	}
+	}*/
 }
 
 Controls::~Controls()
@@ -50,7 +50,7 @@ void Controls::showEvent(QShowEvent*)
 	EmuThread_LockDraw(true);
 	QTimer::singleShot(100, this, SLOT(releaseLock()));
 #endif
-
+/*
 	for(int i = 0; i < controllistCount; i++)
 	{
 		if(g_Config.iMappingMap.find(i) != g_Config.iMappingMap.end())
@@ -67,7 +67,7 @@ void Controls::showEvent(QShowEvent*)
 				edit->setText(sec.toString());
 			}
 		}
-	}
+	}*/
 }
 
 void Controls::changeEvent(QEvent *event)
@@ -86,6 +86,7 @@ void Controls::releaseLock()
 
 void Controls::on_buttonBox_accepted()
 {
+/*
 	for(int i = 0; i < controllistCount; i++)
 	{
 		if(controllist[i].editName != "")
@@ -98,5 +99,5 @@ void Controls::on_buttonBox_accepted()
 				g_Config.iMappingMap[i] = sec[0];
 			}
 		}
-	}
+	}*/
 }

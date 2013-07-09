@@ -1268,7 +1268,7 @@ if(IOS)
 
 	file(GLOB IOSAssets ios/assets/*.png)
 	file(INSTALL ${IOSAssets} DESTINATION assets)
-	file(INSTALL flash0 DESTINATION assets)
+	file(INSTALL flash DESTINATION assets)
 	file(INSTALL lang DESTINATION assets)
 	if (IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION assets)
