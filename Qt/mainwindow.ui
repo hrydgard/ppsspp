@@ -184,7 +184,6 @@
       <string>Co&amp;ntrols</string>
      </property>
      <addaction name="action_OptionsControls"/>
-     <addaction name="action_OptionsGamePadControls"/>
     </widget>
     <widget class="QMenu" name="menuCore">
      <property name="title">
@@ -590,11 +589,6 @@
    </property>
    <property name="text">
     <string>Error</string>
-   </property>
-  </action>
-  <action name="action_OptionsGamePadControls">
-   <property name="text">
-    <string>&amp;Gamepad</string>
    </property>
   </action>
   <action name="action_EmulationRunLoad">

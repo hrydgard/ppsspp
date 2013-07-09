@@ -11,7 +11,6 @@
 #include "debugger_memorytex.h"
 #include "debugger_displaylist.h"
 #include "controls.h"
-#include "gamepaddialog.h"
 
 class QtEmuGL;
 namespace Ui {
@@ -82,7 +81,6 @@ private slots:
 
 	// Controls
 	void on_action_OptionsControls_triggered();
-	void on_action_OptionsGamePadControls_triggered();
 
 	// Video
 	void on_action_AFOff_triggered();
@@ -160,7 +158,6 @@ private:
 	Debugger_MemoryTex *memoryTexWindow;
 	Debugger_DisplayList *displaylistWindow;
 	Controls *controls;
-	GamePadDialog *gamePadDlg;
 
 	QSet<int> pressedKeys;
 };

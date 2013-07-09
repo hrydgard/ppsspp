@@ -36,9 +36,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	ui->setupUi(this);
 
 	controls = new Controls(this);
-#if QT_HAS_SDL
-	gamePadDlg = new GamePadDialog(&input_state, this);
-#endif
 
 	host = new QtHost(this);
 	emugl = ui->widget;
@@ -460,15 +457,6 @@ void MainWindow::on_action_OptionsIgnoreIllegalReadsWrites_triggered()
 void MainWindow::on_action_OptionsControls_triggered()
 {
 	controls->show();
-}
-
-void MainWindow::on_action_OptionsGamePadControls_triggered()
-{
-#if QT_HAS_SDL
-	gamePadDlg->show();
-#else
-	QMessageBox::information(this,tr("Gamepad"),tr("You need to compile with SDL to have Gamepad support."), QMessageBox::Ok);
-#endif
 }
 
 void MainWindow::on_action_AFOff_triggered()
