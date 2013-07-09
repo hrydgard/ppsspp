@@ -720,6 +720,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// Illegal
 				break;
 			}
+			uv[0] = uv[0] * widthFactor;
+			uv[1] = uv[1] * heightFactor;
 
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
@@ -731,12 +733,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
 		if (gstate_c.flipTexture) {
-				if (throughmode) {
-					transformed[index].v = 1.0f - transformed[index].v;
-				} else {
-					transformed[index].u = transformed[index].u * (float) widthFactor ;
-					transformed[index].v = 1.0f - transformed[index].v * (float) heightFactor;
-				}
+			transformed[index].v = 1.0f - transformed[index].v;
 		}
 		for (int i = 0; i < 4; i++) {
 			transformed[index].color0[i] = c0[i] * 255.0f;

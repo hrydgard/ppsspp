@@ -595,6 +595,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_TEXMAPMODE:
+		if (diff) {
+			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+		}
+		break;
+
 	case GE_CMD_TEXSHADELS:
 		break;
 

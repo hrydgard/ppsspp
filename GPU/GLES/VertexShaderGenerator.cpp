@@ -211,8 +211,9 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			}
 #endif
 		}
-		if (gstate.getUVGenMode() == 0)
+		if (doTexture) {
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
+		}
 		for (int i = 0; i < 4; i++) {
 			if (doLight[i] != LIGHT_OFF) {
 				// This is needed for shade mapping
@@ -538,13 +539,13 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					}
-					WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz;\n", temp_tc);
+					WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc);
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
 				break;
 
 			case 2:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 - dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", gstate.getUVLS0(), gstate.getUVLS1());
+				WRITE(p, "  v_texcoord = u_uvscaleoffset.xy * vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 - dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", gstate.getUVLS0(), gstate.getUVLS1());
 				break;
 
 			case 3:
