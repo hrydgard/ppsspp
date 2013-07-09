@@ -147,6 +147,8 @@ enum {
 };
 
 struct KeyInput {
+	KeyInput() {}
+	KeyInput(int devId, int code, int fl) : deviceId(devId), keyCode(code), flags(fl) {}
 	int deviceId;
 	int keyCode;  // Android keycodes are the canonical keycodes, everyone else map to them.
 	int flags;

@@ -562,6 +562,14 @@ int main(int argc, char *argv[]) {
 						input.flags = TOUCH_DOWN;
 						input.id = 0;
 						NativeTouch(input);
+						KeyInput key(DEVICE_ID_MOUSE, KEYCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_RIGHT:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, KEYCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
+						NativeKey(key);
 					}
 					break;
 				case SDL_BUTTON_WHEELUP:
@@ -608,6 +616,14 @@ int main(int argc, char *argv[]) {
 						input.flags = TOUCH_UP;
 						input.id = 0;
 						NativeTouch(input);
+						KeyInput key(DEVICE_ID_MOUSE, KEYCODE_EXT_MOUSEBUTTON_1, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_RIGHT:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, KEYCODE_EXT_MOUSEBUTTON_2, KEY_UP);
+						NativeKey(key);
 					}
 					break;
 				case SDL_BUTTON_WHEELUP:
