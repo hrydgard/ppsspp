@@ -521,6 +521,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		vscale /= gstate_c.curTextureHeight;
 	}
 
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
+	float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
+
 	Lighter lighter;
 	float fog_end = getFloat24(gstate.fog1);
 	float fog_slope = getFloat24(gstate.fog2);
@@ -725,20 +730,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		memcpy(&transformed[index].x, v, 3 * sizeof(float));
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
-		int w = 1 << (gstate.texsize[0] & 0xf);
-		int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
-
 		if (gstate_c.flipTexture) {
 				if (throughmode) {
 					transformed[index].v = 1.0f - transformed[index].v;
 				} else {
-					int widthFactor = gstate_c.curTextureWidth/w ;
-					int heightFactor = gstate_c.curTextureHeight/h;
-					transformed[index].u = transformed[index].u / widthFactor ;
-					transformed[index].v = 1.0f - transformed[index].v / heightFactor;
+					transformed[index].u = transformed[index].u * (float) widthFactor ;
+					transformed[index].v = 1.0f - transformed[index].v * (float) heightFactor;
 				}
 		}
-
 		for (int i = 0; i < 4; i++) {
 			transformed[index].color0[i] = c0[i] * 255.0f;
 		}
