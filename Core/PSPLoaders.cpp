@@ -150,6 +150,9 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.Z.Y").exists) {
 		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.Z.Y";
 	}
+	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.LEI").exists) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.LEI";
+	}
 
 	bool hasEncrypted = false;
 	u32 fd;
