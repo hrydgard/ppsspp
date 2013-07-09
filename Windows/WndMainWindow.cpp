@@ -336,16 +336,18 @@ namespace MainWindow
 		// and as asynchronous touch events for minimal latency.
 
 		case WM_LBUTTONDOWN:
-			// Hack: Take the opportunity to show the cursor.
-			mouseButtonDown = true;
 			{
-				lock_guard guard(input_state.lock);
-				input_state.mouse_valid = true;
-				input_state.pointer_down[0] = true;
+				// Hack: Take the opportunity to show the cursor.
+				mouseButtonDown = true;
+				{
+					lock_guard guard(input_state.lock);
+					input_state.mouse_valid = true;
+					input_state.pointer_down[0] = true;
 
-				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+					int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+				}
 
 				TouchInput touch;
 				touch.id = 0;
@@ -353,8 +355,9 @@ namespace MainWindow
 				touch.x = input_state.pointer_x[0];
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
+				SetCapture(hWnd);
+				break;
 			}
-			break;
 
 		case WM_MOUSEMOVE:
 			{
@@ -369,10 +372,12 @@ namespace MainWindow
 				prevCursorX = cursorX;
 				prevCursorY = cursorY;
 
-				lock_guard guard(input_state.lock);
-				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+				{
+					lock_guard guard(input_state.lock);
+					int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+				}
 
 				if (wParam & MK_LBUTTON) {
 					TouchInput touch;
@@ -386,23 +391,25 @@ namespace MainWindow
 			break;
 
 		case WM_LBUTTONUP:
-			// Hack: Take the opportunity to hide the cursor.
-			mouseButtonDown = false;
 			{
-				lock_guard guard(input_state.lock);
-				input_state.pointer_down[0] = false;
-				int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
-				input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
-				input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
-
+				// Hack: Take the opportunity to hide the cursor.
+				mouseButtonDown = false;
+				{
+					lock_guard guard(input_state.lock);
+					input_state.pointer_down[0] = false;
+					int factor = g_Config.iWindowZoom == 1 ? 2 : 1;
+					input_state.pointer_x[0] = GET_X_LPARAM(lParam) * factor; 
+					input_state.pointer_y[0] = GET_Y_LPARAM(lParam) * factor;
+				}
 				TouchInput touch;
 				touch.id = 0;
 				touch.flags = TOUCH_UP;
 				touch.x = input_state.pointer_x[0];
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
+				ReleaseCapture();
+				break;
 			}
-			break;
 
 		// Actual touch! Unfinished
 
