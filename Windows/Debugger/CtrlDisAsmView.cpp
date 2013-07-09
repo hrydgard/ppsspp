@@ -7,6 +7,7 @@
 #include "../WndMainWindow.h"
 #include "../InputBox.h"
 
+#include "Core/Config.h"
 #include "CtrlDisAsmView.h"
 #include "Debugger_MemoryDlg.h"
 #include "DebuggerShared.h"
@@ -146,12 +147,15 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
-	font = CreateFont(12,8,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+
+	charWidth = g_Config.iFontWidth;
+	rowHeight = g_Config.iFontHeight+2;
+
+	font = CreateFont(rowHeight-2,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		"Lucida Console");
-	boldfont = CreateFont(12,8,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
 		"Lucida Console");
 	curAddress=0;
-	rowHeight=14;
 	instructionSize=4;
 	showHex=false;
 	hasFocus = false;
@@ -353,7 +357,8 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		if (debugger->isBreakpoint(address))
 		{
 			textColor = 0x0000FF;
-			DrawIconEx(hdc,2,rowY1+1,breakPoint,32,32,0,0,DI_NORMAL);
+			int yOffset = max(-1,(rowHeight-14+1)/2);
+			DrawIconEx(hdc,2,rowY1+1+yOffset,breakPoint,32,32,0,0,DI_NORMAL);
 		}
 		SetTextColor(hdc,textColor);
 
@@ -732,9 +737,9 @@ int CtrlDisAsmView::yToAddress(int y)
 void CtrlDisAsmView::calculatePixelPositions()
 {
 	pixelPositions.addressStart = 16;
-	pixelPositions.opcodeStart = pixelPositions.addressStart + 18*8;
-	pixelPositions.argumentsStart = pixelPositions.opcodeStart + 9*8;
-	pixelPositions.arrowsStart = pixelPositions.argumentsStart + 30*8;
+	pixelPositions.opcodeStart = pixelPositions.addressStart + 18*charWidth;
+	pixelPositions.argumentsStart = pixelPositions.opcodeStart + 9*charWidth;
+	pixelPositions.arrowsStart = pixelPositions.argumentsStart + 30*charWidth;
 }
 
 void CtrlDisAsmView::search(bool continueSearch)

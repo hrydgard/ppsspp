@@ -168,6 +168,8 @@ void Config::Load(const char *iniFileName)
 	debugConfig->Get("DisasmWindowH", &iDisasmWindowH, -1);
 	debugConfig->Get("ConsoleWindowX", &iConsoleWindowX, -1);
 	debugConfig->Get("ConsoleWindowY", &iConsoleWindowY, -1);
+	debugConfig->Get("FontWidth", &iFontWidth, 8);
+	debugConfig->Get("FontHeight", &iFontHeight, 12);
 
 	KeyMap::LoadFromIni(iniFile);
 
@@ -280,6 +282,8 @@ void Config::Save()
 		debugConfig->Set("DisasmWindowH", iDisasmWindowH);
 		debugConfig->Set("ConsoleWindowX", iConsoleWindowX);
 		debugConfig->Set("ConsoleWindowY", iConsoleWindowY);
+		debugConfig->Set("FontWidth", iFontWidth);
+		debugConfig->Set("FontHeight", iFontHeight);
 
 		KeyMap::SaveToIni(iniFile);
 
