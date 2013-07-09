@@ -32,6 +32,7 @@ class CtrlDisAsmView
 
 	u32 curAddress;
 	int rowHeight;
+	int charWidth;
 
 	bool hasFocus;
 	bool showHex;

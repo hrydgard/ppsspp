@@ -133,6 +133,8 @@ public:
 	int iDisasmWindowH;
 	int iConsoleWindowX;
 	int iConsoleWindowY;
+	int iFontWidth;
+	int iFontHeight;
 
 	std::string currentDirectory;
 	std::string externalDirectory; 
