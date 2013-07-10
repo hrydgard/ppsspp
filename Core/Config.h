@@ -80,6 +80,9 @@ public:
 	bool SSAntiAliasing; // for Windows, too
 	bool bVertexCache;
 	bool bFullScreen;
+#ifdef _WIN32
+	bool bFullScreenOnLaunch;
+#endif
 	int iAnisotropyLevel;
 	bool bTrueColor;
 	bool bFramebuffersToMem;

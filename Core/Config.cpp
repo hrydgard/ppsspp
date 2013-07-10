@@ -113,6 +113,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("VertexCache", &bVertexCache, true);
 #ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
+	graphics->Get("FullScreenOnLaunch", &bFullScreenOnLaunch, false);
 #endif
 #ifdef BLACKBERRY
 	graphics->Get("PartialStretch", &bPartialStretch, pixel_xres == pixel_yres);
@@ -233,6 +234,7 @@ void Config::Save()
 		graphics->Set("VertexCache", bVertexCache);
 #ifdef _WIN32
 		graphics->Set("FullScreen", bFullScreen);
+		graphics->Set("FullScreenOnLaunch", &bFullScreenOnLaunch);
 #endif		
 #ifdef BLACKBERRY
 		graphics->Set("PartialStretch", bPartialStretch);
