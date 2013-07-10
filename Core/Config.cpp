@@ -234,7 +234,7 @@ void Config::Save()
 		graphics->Set("VertexCache", bVertexCache);
 #ifdef _WIN32
 		graphics->Set("FullScreen", bFullScreen);
-		graphics->Set("FullScreenOnLaunch", &bFullScreenOnLaunch);
+		graphics->Set("FullScreenOnLaunch", bFullScreenOnLaunch);
 #endif		
 #ifdef BLACKBERRY
 		graphics->Set("PartialStretch", bPartialStretch);
