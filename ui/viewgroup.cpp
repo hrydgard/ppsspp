@@ -476,21 +476,16 @@ void ScrollView::Touch(const TouchInput &input) {
 	if (gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
 		float info[4];
 		gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info);
-		scrollPos_ = scrollStart_ - info[0];
+
+		float pos = scrollStart_ - info[0];
+		ClampScrollPos(pos);
+		scrollPos_ = pos;
+		scrollTarget_ = pos;
+		scrollToTarget_ = false;
 	}
 	
 	if (!(input.flags & TOUCH_DOWN) || bounds_.Contains(input.x, input.y))
 		ViewGroup::Touch(input2);
-	
-	// Clamp scrollPos_. TODO: flinging, bouncing, etc.
-	if (scrollPos_ < 0.0f) {
-		scrollPos_ = 0.0f;
-	}
-	float childHeight = views_[0]->GetBounds().h;
-	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
-	if (scrollPos_ > scrollMax) {
-		scrollPos_ = scrollMax;
-	}
 }
 
 void ScrollView::Draw(UIContext &dc) {
@@ -531,24 +526,25 @@ bool ScrollView::SubviewFocused(View *view) {
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
-	ClampScrollTarget();
+	ClampScrollPos(scrollTarget_);
 }
 
 void ScrollView::ScrollRelative(float distance) {
 	scrollTarget_ = scrollPos_ + distance;
 	scrollToTarget_ = true;
-	ClampScrollTarget();
+	ClampScrollPos(scrollTarget_);
 }
 
-void ScrollView::ClampScrollTarget() {
+void ScrollView::ClampScrollPos(float &pos) {
 	// Clamp scrollTarget.
-	if (scrollTarget_ < 0.0f) {
-		scrollTarget_ = 0.0f;
-	}
 	float childHeight = views_[0]->GetBounds().h;
 	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
-	if (scrollTarget_ > scrollMax) {
-		scrollTarget_ = scrollMax;
+
+	if (pos < 0.0f) {
+		pos = 0.0f;
+	}
+	if (pos > scrollMax) {
+		pos = scrollMax;
 	}
 }
 
@@ -579,7 +575,7 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	if (!numColumns) numColumns = 1;
 	int numRows = (int)(views_.size() + (numColumns - 1)) / numColumns;
 
-	float estimatedHeight = settings_.rowHeight * numRows;
+	float estimatedHeight = (settings_.rowHeight + settings_.spacing) * numRows;
 
 	MeasureBySpec(layoutParams_->height, estimatedHeight, vert, &measuredHeight_);
 }

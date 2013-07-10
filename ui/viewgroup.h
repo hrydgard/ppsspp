@@ -184,7 +184,7 @@ public:
 	virtual bool SubviewFocused(View *view);
 
 private:
-	void ClampScrollTarget();
+	void ClampScrollPos(float &pos);
 
 	GestureDetector gesture_;
 	Orientation orientation_;
