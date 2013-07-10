@@ -28,6 +28,11 @@
 
 #include <cstdlib>
 #include "base/basictypes.h"
+#include "base/functional.h"
+#include "base/mutex.h"
+#include "profiler/profiler.h"
+#include "thread/thread.h"
+#include "thread/threadutil.h"
 #include "Common/Log.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -69,8 +74,78 @@ enum {
 // No known games use more than one instance of Sas though.
 static SasInstance *sas = NULL;
 
+enum SasThreadState {
+	DISABLED,
+	READY,
+	QUEUED,
+};
+struct SasThreadParams {
+	u32 outAddr;
+	u32 inAddr;
+	int leftVol;
+	int rightVol;
+};
+
+static std::thread *sasThread;
+static recursive_mutex sasWakeMutex;
+static recursive_mutex sasDoneMutex;
+static condition_variable sasWake;
+static condition_variable sasDone;
+static volatile int sasThreadState = SasThreadState::DISABLED;
+static SasThreadParams sasThreadParams;
+
+int __SasThread() {
+	setCurrentThreadName("SAS");
+
+	lock_guard guard(sasWakeMutex);
+	while (sasThreadState != SasThreadState::DISABLED) {
+		sasWake.wait(sasWakeMutex);
+		if (sasThreadState == SasThreadState::QUEUED) {
+			sas->Mix(sasThreadParams.outAddr, sasThreadParams.inAddr, sasThreadParams.leftVol, sasThreadParams.rightVol);
+
+			sasDoneMutex.lock();
+			sasThreadState = SasThreadState::READY;
+			sasDone.notify_one();
+			sasDoneMutex.unlock();
+		}
+	}
+	return 0;
+}
+
+static void __SasEnqueueMix(u32 outAddr, u32 inAddr = 0, int leftVol = 0, int rightVol = 0) {
+	if (sasThreadState == SasThreadState::DISABLED) {
+		// No thread, call it immediately.
+		sas->Mix(outAddr, inAddr, leftVol, rightVol);
+		return;
+	}
+
+	if (sasThreadState == SasThreadState::QUEUED) {
+		// Wait for the queue to drain.
+		sasDoneMutex.lock();
+		while (sasThreadState == SasThreadState::QUEUED)
+			sasDone.wait(sasDoneMutex);
+		sasDoneMutex.unlock();
+	}
+
+	// We're safe to write, since it can't be processing now anymore.
+	// No other thread enqueues.
+	sasThreadParams.outAddr = outAddr;
+	sasThreadParams.inAddr = inAddr;
+	sasThreadParams.leftVol = leftVol;
+	sasThreadParams.rightVol = rightVol;
+
+	// And now, notify.
+	sasWakeMutex.lock();
+	sasThreadState = SasThreadState::QUEUED;
+	sasWake.notify_one();
+	sasWakeMutex.unlock();
+}
+
 void __SasInit() {
 	sas = new SasInstance();
+
+	sasThreadState = SasThreadState::READY;
+	sasThread = new std::thread(__SasThread);
 }
 
 void __SasDoState(PointerWrap &p) {
@@ -82,6 +157,16 @@ void __SasDoState(PointerWrap &p) {
 }
 
 void __SasShutdown() {
+	if (sasThreadState != SasThreadState::DISABLED) {
+		sasWakeMutex.lock();
+		sasThreadState = SasThreadState::DISABLED;
+		sasWake.notify_one();
+		sasWakeMutex.unlock();
+		sasThread->join();
+		delete sasThread;
+		sasThread = nullptr;
+	}
+
 	delete sas;
 	sas = 0;
 }
@@ -135,34 +220,33 @@ static u32 sceSasGetEndFlag(u32 core) {
 
 // Runs the mixer
 static u32 _sceSasCore(u32 core, u32 outAddr) {
+	PROFILE_THIS_SCOPE("mixer");
+
 	if (!Memory::IsValidAddress(outAddr)) {
-		ERROR_LOG_REPORT(SCESAS, "sceSasCore(%08x, %08x): invalid address", core, outAddr);
-		return ERROR_SAS_INVALID_PARAMETER;
+		return hleReportError(SCESAS, ERROR_SAS_INVALID_PARAMETER, "invalid address");
 	}
 
-	DEBUG_LOG(SCESAS, "sceSasCore(%08x, %08x)", core, outAddr);
-	sas->Mix(outAddr);
+	__SasEnqueueMix(outAddr);
 
 	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
-	return hleDelayResult(0, "sas core", 240);
+	return hleLogSuccessI(SCESAS, hleDelayResult(0, "sas core", 240));
 }
 
 // Another way of running the mixer, the inoutAddr should be both input and output
 static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int rightVolume) {
+	PROFILE_THIS_SCOPE("mixer");
+
 	if (!Memory::IsValidAddress(inoutAddr)) {
-		ERROR_LOG_REPORT(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i): invalid address", core, inoutAddr, leftVolume, rightVolume);
-		return ERROR_SAS_INVALID_PARAMETER;
+		return hleReportError(SCESAS, ERROR_SAS_INVALID_PARAMETER, "invalid address");
 	}
 	if (sas->outputMode == PSP_SAS_OUTPUTMODE_RAW) {
-		ERROR_LOG_REPORT(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i): unsupported outputMode", core, inoutAddr, leftVolume, rightVolume);
-		return 0x80000004;
+		return hleReportError(SCESAS, 0x80000004, "unsupported outputMode");
 	}
-	
-	DEBUG_LOG(SCESAS, "sceSasCoreWithMix(%08x, %08x, %i, %i)", core, inoutAddr, leftVolume, rightVolume);
-	sas->Mix(inoutAddr, inoutAddr, leftVolume, rightVolume);
+
+	__SasEnqueueMix(inoutAddr, inoutAddr, leftVolume, rightVolume);
 
 	// Actual delay time seems to between 240 and 1000 us, based on grain and possibly other factors.
-	return hleDelayResult(0, "sas core", 240);
+	return hleLogSuccessI(SCESAS, hleDelayResult(0, "sas core", 240));
 }
 
 static u32 sceSasSetVoice(u32 core, int voiceNum, u32 vagAddr, int size, int loop) {

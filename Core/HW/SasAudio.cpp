@@ -558,8 +558,6 @@ void SasInstance::MixVoice(SasVoice &voice) {
 }
 
 void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
-	PROFILE_THIS_SCOPE("mixer");
-
 	int voicesPlayingCount = 0;
 
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
