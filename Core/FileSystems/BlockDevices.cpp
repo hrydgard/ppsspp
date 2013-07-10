@@ -107,7 +107,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 	}
 	else
 	{
-		DEBUG_LOG(LOADER, "Valid CSO!");
+		VERBOSE_LOG(LOADER, "Valid CSO!");
 	}
 	if (hdr.ver > 1)
 	{
@@ -124,7 +124,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 	indexShift = hdr.align;
 	u64 totalSize = hdr.total_bytes;
 	numBlocks = (u32)(totalSize / blockSize);
-	DEBUG_LOG(LOADER, "hdrSize=%i numBlocks=%i align=%i", hdrSize, numBlocks, indexShift);
+	VERBOSE_LOG(LOADER, "CSO hdrSize=%i numBlocks=%i align=%i", hdrSize, numBlocks, indexShift);
 
 	u32 indexSize = numBlocks + 1;
 
