@@ -1074,6 +1074,14 @@ namespace MainWindow
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu,ID_TOGGLE_PAUSE, ingameEnable);
+		if (globalUIState == UISTATE_INGAME)
+		{
+			if (Core_IsStepping())
+				ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, "Run\tF8");
+			else
+				ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, "Pause\tF8");
+		}
+
 		EnableMenuItem(menu,ID_EMULATION_STOP, ingameEnable);
 		EnableMenuItem(menu,ID_EMULATION_RESET, ingameEnable);
 
