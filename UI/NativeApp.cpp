@@ -239,7 +239,7 @@ void NativeInit(int argc, const char *argv[],
 	VFSRegister("", new DirectoryAssetReader("assets/"));
 #endif
 #endif
-	VFSRegister("", new DirectoryAssetReader(savegame_directory);
+	VFSRegister("", new DirectoryAssetReader(savegame_directory));
 
 	host = new NativeHost();
 
