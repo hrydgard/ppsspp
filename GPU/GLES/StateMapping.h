@@ -1,3 +1,3 @@
 #pragma once
 
-#include "../native/gfx/gl_common.h"
+#include "gfx/gl_common.h"
