@@ -11,6 +11,7 @@
 #include "CtrlRegisterList.h"
 #include "Debugger_MemoryDlg.h"
 
+#include "Core/Config.h"
 #include "../../globals.h"
 #include "Debugger_Disasm.h"
 #include "DebuggerShared.h"
@@ -127,9 +128,11 @@ CtrlRegisterList::CtrlRegisterList(HWND _wnd)
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)this);
 	//SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	//SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
-	font = CreateFont(12,0,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		"Lucida Console");
-	rowHeight=12;
+	
+	rowHeight=g_Config.iFontHeight;
+
+	font = CreateFont(rowHeight,g_Config.iFontWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,
+		DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
 	selecting=false;
 	selection=0;
 	category=0;

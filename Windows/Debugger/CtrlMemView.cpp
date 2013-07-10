@@ -5,6 +5,7 @@
 
 #include "../../globals.h"
 
+#include "Core/Config.h"
 #include "../resource.h"
 #include "../../Core/MemMap.h"
 #include "../W32Util/Misc.h"
@@ -24,14 +25,17 @@ CtrlMemView::CtrlMemView(HWND _wnd)
   SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
   SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
   SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
+
+  rowHeight = g_Config.iFontHeight;
+  charWidth = g_Config.iFontWidth;
+
   font =
-	  CreateFont(12,8,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		"Lucida Console");
+	  CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
+		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
   underlineFont =
-	  CreateFont(12,8,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		"Lucida Console");
+	  CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
+		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
   curAddress=0;
-  rowHeight=12;
   mode=MV_NORMAL;
   debugger = 0;
   
@@ -41,7 +45,6 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 	asciiSelected = false;
 
 	selectedNibble = 0;
-	charWidth = 8;
 	rowSize = 16;
 	addressStart = charWidth;
 	hexStart = addressStart + 9*charWidth;

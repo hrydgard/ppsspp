@@ -100,6 +100,7 @@ public:
 	static const size_t INVALID_MEMCHECK = -1;
 
 	static bool IsAddressBreakPoint(u32 addr);
+	static bool IsAddressBreakPoint(u32 addr, bool* enabled);
 	static bool IsTempBreakPoint(u32 addr);
 	static void AddBreakPoint(u32 addr, bool temp = false);
 	static void RemoveBreakPoint(u32 addr);

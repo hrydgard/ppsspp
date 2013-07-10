@@ -78,6 +78,14 @@ bool CBreakPoints::IsAddressBreakPoint(u32 addr)
 	return bp != INVALID_BREAKPOINT && breakPoints_[bp].enabled;
 }
 
+bool CBreakPoints::IsAddressBreakPoint(u32 addr, bool* enabled)
+{
+	size_t bp = FindBreakpoint(addr);
+	if (bp == INVALID_BREAKPOINT) return false;
+	if (enabled != NULL) *enabled = breakPoints_[bp].enabled;
+	return true;
+}
+
 bool CBreakPoints::IsTempBreakPoint(u32 addr)
 {
 	size_t bp = FindBreakpoint(addr, true, true);
