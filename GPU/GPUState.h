@@ -226,6 +226,11 @@ struct GPUgstate
 	int getScissorX2() const { return scissor2 & 0x3FF; }
 	int getScissorY2() const { return (scissor2 >> 10) & 0x3FF; }
 
+	int getRegionX1() const { return region1 & 0x3FF; }
+	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
+	int getRegionX2() const { return (region2 & 0x3FF); }
+	int getRegionY2() const { return ((region2 >> 10) & 0x3FF); }
+
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	int getNumBoneWeights() const {
