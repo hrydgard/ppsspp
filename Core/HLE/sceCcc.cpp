@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "util/text/utf8.h"
+
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
 
@@ -67,8 +69,8 @@ int sceCccSJIStoUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
 
 int sceCccStrlenUTF8(u32 strAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccStrlenUTF8(%08x)", strAddr);
-	return 0;
+	DEBUG_LOG(HLE, "sceCccStrlenUTF8(%08x)", strAddr);
+	return u8_strlen(Memory::GetCharPointer(strAddr));
 }
 
 int sceCccStrlenUTF16(u32 strAddr)
@@ -103,8 +105,19 @@ int sceCccEncodeSJIS(u32 dstAddr, u32 ucs)
 
 int sceCccDecodeUTF8(u32 dstAddrAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccDecodeUTF8(%08x)", dstAddrAddr);
-	return 0;
+	DEBUG_LOG(HLE, "sceCccDecodeUTF8(%08x)", dstAddrAddr);
+	PSPPointer<const char **> dst;
+	dst = dstAddrAddr;
+
+	int result = 0;
+	if (dst.IsValid())
+	{
+		int size = 0;
+		result = u8_nextchar(**dst, &size);
+		*dst += size;
+	}
+
+	return result;
 }
 
 int sceCccDecodeUTF16(u32 dstAddrAddr)
