@@ -354,11 +354,12 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		DeleteObject(backgroundPen);
 
 		// display address/symbol
-		if (debugger->isBreakpoint(address))
+		bool enabled;
+		if (CBreakPoints::IsAddressBreakPoint(address,&enabled))
 		{
-			textColor = 0x0000FF;
+			if (enabled) textColor = 0x0000FF;
 			int yOffset = max(-1,(rowHeight-14+1)/2);
-			DrawIconEx(hdc,2,rowY1+1+yOffset,breakPoint,32,32,0,0,DI_NORMAL);
+			DrawIconEx(hdc,2,rowY1+1+yOffset,enabled ? breakPoint : breakPointDisable,32,32,0,0,DI_NORMAL);
 		}
 		SetTextColor(hdc,textColor);
 
@@ -613,6 +614,29 @@ void CtrlDisAsmView::redraw()
 	UpdateWindow(wnd); 
 }
 
+void CtrlDisAsmView::toggleBreakpoint()
+{
+	bool enabled;
+	if (CBreakPoints::IsAddressBreakPoint(curAddress,&enabled))
+	{
+		if (!enabled)
+		{
+			// enable disabled breakpoints
+			CBreakPoints::ChangeBreakPoint(curAddress,true);
+		} else if (CBreakPoints::GetBreakPointCondition(curAddress) != NULL)
+		{
+			// don't just delete a breakpoint with a custom condition
+			int ret = MessageBox(wnd,"This breakpoint has a custom condition.\nDo you want to remove it?","Confirmation",MB_YESNO);
+			if (ret != IDYES) return;
+			CBreakPoints::RemoveBreakPoint(curAddress);
+		} else {
+			// otherwise just remove breakpoint
+			CBreakPoints::RemoveBreakPoint(curAddress);
+		}
+	} else {
+		CBreakPoints::AddBreakPoint(curAddress);
+	}
+}
 
 void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
@@ -624,7 +648,7 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 	{
 		if (newAddress == curAddress && hasFocus)
 		{
-			debugger->toggleBreakpoint(curAddress);
+			toggleBreakpoint();
 		}
 	}
 
@@ -650,7 +674,7 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_ADDHLE:
 			break;
 		case ID_DISASM_TOGGLEBREAKPOINT:
-			debugger->toggleBreakpoint(curAddress);
+			toggleBreakpoint();
 			redraw();
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
