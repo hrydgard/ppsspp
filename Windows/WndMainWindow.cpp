@@ -272,6 +272,9 @@ namespace MainWindow
 
 		Update();
 		SetPlaying(0);
+
+		if(g_Config.bFullScreenOnLaunch)
+			_ViewFullScreen(hwndMain);
 		
 		ShowWindow(hwndMain, nCmdShow);
 
