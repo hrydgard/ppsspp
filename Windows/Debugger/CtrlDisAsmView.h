@@ -128,11 +128,7 @@ public:
 		showHex=s;
 	}
 
-	void toggleBreakpoint()
-	{
-		debugger->toggleBreakpoint(curAddress);
-		redraw();
-	}
+	void toggleBreakpoint();
 
 	void scrollWindow(int lines)
 	{
