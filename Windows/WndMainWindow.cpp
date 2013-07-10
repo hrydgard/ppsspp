@@ -557,7 +557,13 @@ namespace MainWindow
 				break;
 
 			case ID_TOGGLE_PAUSE:
-				if (Core_IsStepping()) //If is paused, then continue to run
+				if (globalUIState == UISTATE_PAUSEMENU)
+				{
+					NativeMessageReceived("run", "");
+					if (disasmWindow[0])
+						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+				}
+				else if (Core_IsStepping()) //It is paused, then continue to run
 				{
 					if (disasmWindow[0])
 						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
@@ -587,6 +593,8 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_RESET:
+				if (globalUIState == UISTATE_PAUSEMENU)
+					NativeMessageReceived("run", "");
 				NativeMessageReceived("reset", "");
 				break;
 
@@ -998,6 +1006,7 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
+		CHECKITEM(ID_OPTIONS_SKIPUPDATINGMEMORY, !g_Config.bFramebuffersToMem);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
@@ -1072,16 +1081,11 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
+		const char* pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? "Run\tF8" : "Pause\tF8";
+		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
+
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu,ID_TOGGLE_PAUSE, ingameEnable);
-		if (globalUIState == UISTATE_INGAME)
-		{
-			if (Core_IsStepping())
-				ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, "Run\tF8");
-			else
-				ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, "Pause\tF8");
-		}
-
 		EnableMenuItem(menu,ID_EMULATION_STOP, ingameEnable);
 		EnableMenuItem(menu,ID_EMULATION_RESET, ingameEnable);
 
@@ -1094,7 +1098,9 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE, !menuEnable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC, menuEnable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER, menuEnable);
+		EnableMenuItem(menu,ID_TOGGLE_PAUSE, !menuEnable);
 		EnableMenuItem(menu,ID_EMULATION_STOP, !menuEnable);
+		EnableMenuItem(menu,ID_EMULATION_RESET, !menuEnable);
 	}
 
 	// Message handler for about box.
