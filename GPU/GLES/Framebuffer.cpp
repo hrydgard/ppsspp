@@ -374,24 +374,19 @@ void GetViewportDimensions(int &w, int &h) {
 }
 
 // Heuristics to figure out the size of FBO to create.
-void GuessDrawingSize(int &drawing_width, int &drawing_height) {
+void CalcDrawingSize(int &drawing_width, int &drawing_height) {
 	GetViewportDimensions(drawing_width, drawing_height);
-
-	// Now, cap using scissor. Hm, no, this doesn't work so well.
-	/*
-	if (drawing_width > gstate.getScissorX2() + 1)
-		drawing_width = gstate.getScissorX2() + 1;
-	if (drawing_height > gstate.getScissorY2() + 1)
-		drawing_height = gstate.getScissorY2() + 1;*/
-
-	// Bit hacky but it works pretty well
-	if (!g_Config.bBufferedRendering || g_iNumVideos || (drawing_width <= 1 && drawing_height <= 1) ) {
+	if (!g_Config.bBufferedRendering || g_iNumVideos || g_Config.bFramebuffersToMem) {
 		drawing_width = 480;
 		drawing_height = 272;
-	} else {
-		drawing_width = std::min(drawing_width, 512);
-		drawing_height = std::min(drawing_height, 512);
-	}
+		if (drawing_width > gstate.getScissorX2() + 1)
+			drawing_width = gstate.getScissorX2() + 1;
+		if (drawing_height > gstate.getScissorY2() + 1)
+			drawing_height = gstate.getScissorY2() + 1;
+	} else if ( gstate_c.framebufChanged ) {
+		drawing_width = 512;
+		drawing_height = 512;     
+	} 
 }
 
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -419,7 +414,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		currentRenderVfb_->last_frame_used = gpuStats.numFrames;
 		return;
 	}
-	gstate_c.framebufChanged = false;
+	//gstate_c.framebufChanged = false;
 
 	// Get parameters
 	u32 fb_address = (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8);
@@ -438,7 +433,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int fmt = gstate.framebufpixformat & 3;
 
 	int drawing_width, drawing_height;
-	GuessDrawingSize(drawing_width, drawing_height);
+	CalcDrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
