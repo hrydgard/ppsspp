@@ -80,7 +80,18 @@ static bool MaskedEqual(u32 addr1, u32 addr2) {
 }
 
 inline u16 RGBA8888toRGB565(u32 px) {
-	return ((px >> 3) & 0x001F) | ((px >> 5) & 0x07E0) | ((px >> 8) & 0xF800);
+	u32 x;											// Using 0xAAFFFFFF as a test input...
+													// 10101010111111111111111111111111			
+
+													// Lets try something different and shift those first 3 bits 
+													// into oblivion rather than masking them off
+	x = (px >> 3) & 0x001F001F;						// a = 00010101010111111111111111111111
+													// a = 00000000000111110000000000011111
+
+	return (u16)(((px & 0x0000FC00) | x) >> 5) | x;	// b = 00000000000000001111110000000000
+													// b = 00000000000111111111110000011111	
+													// b = 00000000000000001111111111100000
+													// b = 00000000000111111111111111111111
 }
 
 inline u16 RGBA8888toRGBA4444(u32 px) {
