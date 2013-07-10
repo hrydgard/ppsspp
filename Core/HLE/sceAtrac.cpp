@@ -63,6 +63,8 @@ const int PSP_ATRAC_LOOP_STREAM_DATA_IS_ON_MEMORY = -3;
 const u32 ATRAC3_MAX_SAMPLES = 0x400;
 const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
+static const int atracDecodeDelay = 2300;
+
 #ifdef USE_FFMPEG
 
 // Urgh! Why is this needed?
@@ -699,6 +701,10 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	Memory::Write_U32(numSamples, numSamplesAddr);
 	Memory::Write_U32(finish, finishFlagAddr);
 	Memory::Write_U32(remains, remainAddr);
+	if (!ret) {
+		// decode data successfully, delay thread
+		return hleDelayResult(ret, "atrac decode data", atracDecodeDelay);
+	}
 	return ret;
 }
 
@@ -1677,7 +1683,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 			else
 				atrac->first.writableBytes = 0;
 			Memory::Write_U32(atrac->first.writableBytes, sourceBytesConsumedAddr);
-			return 0;
+			return hleDelayResult(0, "low level atrac decode data", atracDecodeDelay);
 	}
 #endif // USE_FFMPEG
 
@@ -1713,7 +1719,7 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 			else
 				atrac->first.writableBytes = 0;
 			Memory::Write_U32(atrac->first.writableBytes, sourceBytesConsumedAddr);
-			return 0;
+			return hleDelayResult(0, "low level atrac decode data", atracDecodeDelay);
 	}
 
 	return 0;
