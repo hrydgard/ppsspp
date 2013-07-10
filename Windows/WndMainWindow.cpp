@@ -75,6 +75,7 @@ namespace MainWindow
 	static bool hideCursor = false;
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
+	static int currentSavestateSlot = 0;
 
 	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
@@ -562,14 +563,25 @@ namespace MainWindow
 				}
 				break;
 
-			case ID_EMULATION_RUN:
-				if (Core_IsStepping()) {
-					Core_EnableStepping(false);
-				} else {
+			case ID_TOGGLE_PAUSE:
+				if (globalUIState == UISTATE_PAUSEMENU)
+				{
 					NativeMessageReceived("run", "");
+					if (disasmWindow[0])
+						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
 				}
-				if (disasmWindow[0])
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+				else if (Core_IsStepping()) //It is paused, then continue to run
+				{
+					if (disasmWindow[0])
+						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+					else
+						Core_EnableStepping(false);
+				} else {
+					if (disasmWindow[0])
+						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+					else
+						Core_EnableStepping(true);
+				}
 				break;
 
 			case ID_EMULATION_STOP:
@@ -587,16 +599,9 @@ namespace MainWindow
 				Update();
 				break;
 
-			case ID_EMULATION_PAUSE:
-				if (disasmWindow[0])
-				{
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-				} else if (globalUIState == UISTATE_INGAME) {
-					Core_EnableStepping(true);
-				}
-				break;
-
 			case ID_EMULATION_RESET:
+				if (globalUIState == UISTATE_PAUSEMENU)
+					NativeMessageReceived("run", "");
 				NativeMessageReceived("reset", "");
 				break;
 
@@ -607,7 +612,7 @@ namespace MainWindow
 			case ID_FILE_LOADSTATEFILE:
 				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
-					SetCursor(LoadCursor(0,IDC_WAIT));
+					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Load(fn, SaveStateActionFinished);
 				}
 				break;
@@ -615,21 +620,29 @@ namespace MainWindow
 			case ID_FILE_SAVESTATEFILE:
 				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
 				{
-					SetCursor(LoadCursor(0,IDC_WAIT));
+					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Save(fn, SaveStateActionFinished);
 				}
 				break;
 
-			// TODO: Add UI for multiple slots
+			// TODO: Improve UI for multiple slots
+			case ID_FILE_SAVESTATE_NEXT_SLOT:
+			{
+				currentSavestateSlot = (currentSavestateSlot + 1)%5;
+				char msg[30];
+				sprintf(msg, "Using save state slot %d.", currentSavestateSlot + 1);
+				osm.Show(msg);
+				break;
+			}
 
 			case ID_FILE_QUICKLOADSTATE:
-				SetCursor(LoadCursor(0,IDC_WAIT));
-				SaveState::LoadSlot(0, SaveStateActionFinished);
+				SetCursor(LoadCursor(0, IDC_WAIT));
+				SaveState::LoadSlot(currentSavestateSlot, SaveStateActionFinished);
 				break;
 
 			case ID_FILE_QUICKSAVESTATE:
-				SetCursor(LoadCursor(0,IDC_WAIT));
-				SaveState::SaveSlot(0, SaveStateActionFinished);
+				SetCursor(LoadCursor(0, IDC_WAIT));
+				SaveState::SaveSlot(currentSavestateSlot, SaveStateActionFinished);
 				break;
 
 			case ID_OPTIONS_SCREEN1X:
@@ -690,6 +703,13 @@ namespace MainWindow
 			case ID_OPTIONS_BUFFEREDRENDERING:
 				g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
 				osm.ShowOnOff(g->T("Buffered Rendering"), g_Config.bBufferedRendering);
+				if (gpu)
+					gpu->Resized();  // easy way to force a clear...
+				break;
+
+			case ID_OPTIONS_SKIPUPDATINGMEMORY:
+				g_Config.bFramebuffersToMem = !g_Config.bFramebuffersToMem;
+				osm.ShowOnOff(g->T("Skip Updating PSP Memory"), !g_Config.bFramebuffersToMem);
 				if (gpu)
 					gpu->Resized();  // easy way to force a clear...
 				break;
@@ -993,6 +1013,7 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
+		CHECKITEM(ID_OPTIONS_SKIPUPDATINGMEMORY, !g_Config.bFramebuffersToMem);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
@@ -1066,10 +1087,12 @@ namespace MainWindow
 		lastGlobalUIState = globalUIState;
 
 		HMENU menu = GetMenu(GetHWND());
-		EnableMenuItem(menu,ID_EMULATION_RUN, (Core_IsStepping() || globalUIState == UISTATE_PAUSEMENU) ? MF_ENABLED : MF_GRAYED);
+
+		const char* pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? "Run\tF8" : "Pause\tF8";
+		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu,ID_EMULATION_PAUSE, ingameEnable);
+		EnableMenuItem(menu,ID_TOGGLE_PAUSE, ingameEnable);
 		EnableMenuItem(menu,ID_EMULATION_STOP, ingameEnable);
 		EnableMenuItem(menu,ID_EMULATION_RESET, ingameEnable);
 
@@ -1082,7 +1105,9 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE, !menuEnable);
 		EnableMenuItem(menu,ID_CPU_DYNAREC, menuEnable);
 		EnableMenuItem(menu,ID_CPU_INTERPRETER, menuEnable);
+		EnableMenuItem(menu,ID_TOGGLE_PAUSE, !menuEnable);
 		EnableMenuItem(menu,ID_EMULATION_STOP, !menuEnable);
+		EnableMenuItem(menu,ID_EMULATION_RESET, !menuEnable);
 	}
 
 	// Message handler for about box.
@@ -1190,7 +1215,7 @@ namespace MainWindow
 	void SaveStateActionFinished(bool result, void *userdata)
 	{
 		if (!result)
-			MessageBox(0, "Savestate failure.  Using savestates between different PPSSPP versions is not supported.", "Sorry", MB_OK);
+			MessageBox(0, "Savestate failure. Using savestates between different PPSSPP versions is not supported.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
 	}
 
