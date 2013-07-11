@@ -429,7 +429,7 @@ void EmuScreen::update(InputState &input) {
 	}
 
 	// Make sure fpsLimit starts at 0
-	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1 && PSP_CoreParameter().fpsLimit != 2) {
+	if (PSP_CoreParameter().fpsLimit != 0) {
 		PSP_CoreParameter().fpsLimit = 0;
 	}
 
