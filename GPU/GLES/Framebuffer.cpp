@@ -384,18 +384,14 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	if (drawing_height > gstate.getScissorY2() + 1)
 		drawing_height = gstate.getScissorY2() + 1;*/
 
-	// Bit hacky but it works pretty well
+	// New attempt: Use the min of region and scissor. Round to even number as games are highly inconsistent .
 	if (!g_Config.bBufferedRendering || g_iNumVideos || (drawing_width <= 1 && drawing_height <= 1) ) {
-		drawing_width = 480;
-		drawing_height = 272;
+		drawing_width = std::min(480, std::min(scissorX2, regionX2));
+		drawing_height = std::min(272, std::min(scissorY2, regionY2));
 	} else {
-		// New attempt: Use the max of region and scissor. Round to even number as games are highly inconsistent .
-		int scissorX2 = (gstate.getScissorX2() + 1) & ~1;
-		int regionX2 = (gstate.getRegionX2() + 1) & ~1;
-		int scissorY2 = (gstate.getScissorY2() + 1) & ~1;
-		int regionY2 = (gstate.getRegionY2() + 1) & ~1;
-		drawing_width = std::min(512, std::max(scissorX2, regionX2));
-		drawing_height = std::min(512, std::max(scissorY2, regionY2));
+		// Use the min for all to try to generate smallest FBO 
+		drawing_width = std::min(512, std::min(scissorX2, regionX2));
+		drawing_height = std::min(512, std::min(scissorY2, regionY2));
 	}
 }
 
