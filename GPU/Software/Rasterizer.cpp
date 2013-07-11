@@ -299,16 +299,16 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						srccol = Vec3<int>::AssignToAll(255 - dst.a());
 						break;
 					case GE_SRCBLEND_DOUBLESRCALPHA:
-						srccol = 2 * Vec3<int>::AssignToAll(prim_color_a);
+						srccol = Vec3<int>::AssignToAll(2 * prim_color_a);
 						break;
 					case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-						srccol = 2 * Vec3<int>::AssignToAll(255 - prim_color_a);
+						srccol = Vec3<int>::AssignToAll(255 - 2 * prim_color_a);
 						break;
 					case GE_SRCBLEND_DOUBLEDSTALPHA:
-						srccol = 2 * Vec3<int>::AssignToAll(dst.a());
+						srccol = Vec3<int>::AssignToAll(2 * dst.a());
 						break;
 					case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-						srccol = 2 * Vec3<int>::AssignToAll(255 - dst.a());
+						srccol = Vec3<int>::AssignToAll(255 - 2 * dst.a());
 						break;
 					case GE_SRCBLEND_FIXA:
 						srccol = Vec4<int>::FromRGBA(gstate.getFixA()).rgb();
@@ -335,16 +335,16 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						dstcol = Vec3<int>::AssignToAll(255 - dst.a());
 						break;
 					GE_DSTBLEND_DOUBLESRCALPHA:
-						dstcol = 2 * Vec3<int>::AssignToAll(prim_color_a);
+						dstcol = Vec3<int>::AssignToAll(2 * prim_color_a);
 						break;
 					GE_DSTBLEND_DOUBLEINVSRCALPHA:
-						dstcol = 2 * Vec3<int>::AssignToAll(255 - prim_color_a);
+						dstcol = Vec3<int>::AssignToAll(255 - 2 * prim_color_a);
 						break;
 					GE_DSTBLEND_DOUBLEDSTALPHA:
-						dstcol = 2 * Vec3<int>::AssignToAll(dst.a());
+						dstcol = Vec3<int>::AssignToAll(2 * dst.a());
 						break;
 					GE_DSTBLEND_DOUBLEINVDSTALPHA:
-						dstcol = 2 * Vec3<int>::AssignToAll(255 - dst.a());
+						dstcol = Vec3<int>::AssignToAll(255 - 2 * dst.a());
 						break;
 					GE_DSTBLEND_FIXB:
 						dstcol = Vec4<int>::FromRGBA(gstate.getFixB()).rgb();
