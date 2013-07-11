@@ -191,10 +191,6 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 1) {
-			PSP_CoreParameter().fpsLimit = 2;
-			osm.Show(s->T("unlimited", "Speed: unlimited!"), 1.0, 0x50E0FF);
-		}
-		else if (PSP_CoreParameter().fpsLimit == 2) {
 			PSP_CoreParameter().fpsLimit = 0;
 			osm.Show(s->T("standard", "Speed: standard"), 1.0);
 		}
