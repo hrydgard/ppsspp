@@ -173,14 +173,14 @@ void ProcessQuad(VertexData* data)
 	verts[1].drawpos.z = verts[1].drawpos.z;
 	verts[5].drawpos.z = verts[1].drawpos.z;
 
-	Rasterizer::DrawTriangle(verts);
-	Rasterizer::DrawTriangle(verts+3);
+	Rasterizer::DrawTriangle(verts[0], verts[1], verts[2]);
+	Rasterizer::DrawTriangle(verts[3], verts[4], verts[5]);
 }
 
 void ProcessTriangle(VertexData* data)
 {
 	if (gstate.isModeThrough()) {
-		Rasterizer::DrawTriangle(data);
+		Rasterizer::DrawTriangle(data[0], data[1], data[2]);
 		return;
 	}
 
@@ -249,7 +249,7 @@ void ProcessTriangle(VertexData* data)
 			data[0].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[0].clippos)));
 			data[1].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos)));
 			data[2].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[2].clippos)));
-			Rasterizer::DrawTriangle(data);
+			Rasterizer::DrawTriangle(data[0], data[1], data[2]);
 		}
 	}
 }

@@ -144,14 +144,12 @@ static inline bool DepthTestPassed(int x, int y, u16 z)
 	}
 }
 
-void DrawTriangle(VertexData vertexdata[3])
+void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
-	DrawingCoords vertices[3] = { vertexdata[0].drawpos, vertexdata[1].drawpos, vertexdata[2].drawpos };
-
-	int minX = std::min(std::min(vertices[0].x, vertices[1].x), vertices[2].x);
-	int minY = std::min(std::min(vertices[0].y, vertices[1].y), vertices[2].y);
-	int maxX = std::max(std::max(vertices[0].x, vertices[1].x), vertices[2].x);
-	int maxY = std::max(std::max(vertices[0].y, vertices[1].y), vertices[2].y);
+	int minX = std::min(std::min(v0.drawpos.x, v1.drawpos.x), v2.drawpos.x);
+	int minY = std::min(std::min(v0.drawpos.y, v1.drawpos.y), v2.drawpos.y);
+	int maxX = std::max(std::max(v0.drawpos.x, v1.drawpos.x), v2.drawpos.x);
+	int maxY = std::max(std::max(v0.drawpos.y, v1.drawpos.y), v2.drawpos.y);
 
 	minX = std::max(minX, gstate.getScissorX1());
 	maxX = std::min(maxX, gstate.getScissorX2());
@@ -161,21 +159,21 @@ void DrawTriangle(VertexData vertexdata[3])
 	DrawingCoords p(minX, minY, 0);
 	for (p.y = minY; p.y <= maxY; ++p.y) {
 		for (p.x = minX; p.x <= maxX; ++p.x) {
-			int w0 = orient2d(vertices[1], vertices[2], p);
-			int w1 = orient2d(vertices[2], vertices[0], p);
-			int w2 = orient2d(vertices[0], vertices[1], p);
+			int w0 = orient2d(v1.drawpos, v2.drawpos, p);
+			int w1 = orient2d(v2.drawpos, v0.drawpos, p);
+			int w2 = orient2d(v0.drawpos, v1.drawpos, p);
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should only render when it's on the left of the right edge
 			if (w0 >=0 && w1 >= 0 && w2 >= 0) {
 				// TODO: Make sure this is not ridiculously small?
-				float den = 1.0f/vertexdata[0].clippos.w * w0 + 1.0f/vertexdata[1].clippos.w * w1 + 1.0f/vertexdata[2].clippos.w * w2;
+				float den = 1.0f/v0.clippos.w * w0 + 1.0f/v1.clippos.w * w1 + 1.0f/v2.clippos.w * w2;
 
 				// TODO: Depth range test
 
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
 				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
-					u16 z = (u16)((vertexdata[0].drawpos.z * w0 / vertexdata[0].clippos.w + vertexdata[1].drawpos.z * w1 / vertexdata[1].clippos.w + vertexdata[2].drawpos.z * w2 / vertexdata[2].clippos.w) / den);
+					u16 z = (u16)((v0.drawpos.z * w0 / v0.clippos.w + v1.drawpos.z * w1 / v1.clippos.w + v2.drawpos.z * w2 / v2.clippos.w) / den);
 
 					if (!DepthTestPassed(p.x, p.y, z))
 						continue;
@@ -185,27 +183,27 @@ void DrawTriangle(VertexData vertexdata[3])
 						SetPixelDepth(p.x, p.y, z);
 				}
 
-				float s = (vertexdata[0].texturecoords.s() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.s() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.s() * w2 / vertexdata[2].clippos.w) / den;
-				float t = (vertexdata[0].texturecoords.t() * w0 / vertexdata[0].clippos.w + vertexdata[1].texturecoords.t() * w1 / vertexdata[1].clippos.w + vertexdata[2].texturecoords.t() * w2 / vertexdata[2].clippos.w) / den;
+				float s = (v0.texturecoords.s() * w0 / v0.clippos.w + v1.texturecoords.s() * w1 / v1.clippos.w + v2.texturecoords.s() * w2 / v2.clippos.w) / den;
+				float t = (v0.texturecoords.t() * w0 / v0.clippos.w + v1.texturecoords.t() * w1 / v1.clippos.w + v2.texturecoords.t() * w2 / v2.clippos.w) / den;
 				Vec3<int> prim_color_rgb(0, 0, 0);
 				int prim_color_a = 0;
 				Vec3<int> sec_color(0, 0, 0);
 				if ((gstate.shademodel&1) == GE_SHADE_GOURAUD) {
-					prim_color_rgb.r() = (int)((vertexdata[0].color0.r() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.r() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.r() * w2 / vertexdata[2].clippos.w) / den);
-					prim_color_rgb.g() = (int)((vertexdata[0].color0.g() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.g() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.g() * w2 / vertexdata[2].clippos.w) / den);
-					prim_color_rgb.b() = (int)((vertexdata[0].color0.b() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.b() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.b() * w2 / vertexdata[2].clippos.w) / den);
-					prim_color_a = (int)((vertexdata[0].color0.a() * w0 / vertexdata[0].clippos.w + vertexdata[1].color0.a() * w1 / vertexdata[1].clippos.w + vertexdata[2].color0.a() * w2 / vertexdata[2].clippos.w) / den);
-					sec_color.r() = (int)((vertexdata[0].color1.r() * w0 / vertexdata[0].clippos.w + vertexdata[1].color1.r() * w1 / vertexdata[1].clippos.w + vertexdata[2].color1.r() * w2 / vertexdata[2].clippos.w) / den);
-					sec_color.g() = (int)((vertexdata[0].color1.g() * w0 / vertexdata[0].clippos.w + vertexdata[1].color1.g() * w1 / vertexdata[1].clippos.w + vertexdata[2].color1.g() * w2 / vertexdata[2].clippos.w) / den);
-					sec_color.b() = (int)((vertexdata[0].color1.b() * w0 / vertexdata[0].clippos.w + vertexdata[1].color1.b() * w1 / vertexdata[1].clippos.w + vertexdata[2].color1.b() * w2 / vertexdata[2].clippos.w) / den);
+					prim_color_rgb.r() = (int)((v0.color0.r() * w0 / v0.clippos.w + v1.color0.r() * w1 / v1.clippos.w + v2.color0.r() * w2 / v2.clippos.w) / den);
+					prim_color_rgb.g() = (int)((v0.color0.g() * w0 / v0.clippos.w + v1.color0.g() * w1 / v1.clippos.w + v2.color0.g() * w2 / v2.clippos.w) / den);
+					prim_color_rgb.b() = (int)((v0.color0.b() * w0 / v0.clippos.w + v1.color0.b() * w1 / v1.clippos.w + v2.color0.b() * w2 / v2.clippos.w) / den);
+					prim_color_a = (int)((v0.color0.a() * w0 / v0.clippos.w + v1.color0.a() * w1 / v1.clippos.w + v2.color0.a() * w2 / v2.clippos.w) / den);
+					sec_color.r() = (int)((v0.color1.r() * w0 / v0.clippos.w + v1.color1.r() * w1 / v1.clippos.w + v2.color1.r() * w2 / v2.clippos.w) / den);
+					sec_color.g() = (int)((v0.color1.g() * w0 / v0.clippos.w + v1.color1.g() * w1 / v1.clippos.w + v2.color1.g() * w2 / v2.clippos.w) / den);
+					sec_color.b() = (int)((v0.color1.b() * w0 / v0.clippos.w + v1.color1.b() * w1 / v1.clippos.w + v2.color1.b() * w2 / v2.clippos.w) / den);
 				} else {
-					prim_color_rgb.r() = vertexdata[2].color0.r();
-					prim_color_rgb.g() = vertexdata[2].color0.g();
-					prim_color_rgb.b() = vertexdata[2].color0.b();
-					prim_color_a = vertexdata[2].color0.a();
-					sec_color.r() = vertexdata[2].color1.r();
-					sec_color.g() = vertexdata[2].color1.g();
-					sec_color.b() = vertexdata[2].color1.b();
+					prim_color_rgb.r() = v2.color0.r();
+					prim_color_rgb.g() = v2.color0.g();
+					prim_color_rgb.b() = v2.color0.b();
+					prim_color_a = v2.color0.a();
+					sec_color.r() = v2.color1.r();
+					sec_color.g() = v2.color1.g();
+					sec_color.b() = v2.color1.b();
 				}
 
 				// TODO: Also disable if vertex has no texture coordinates?

@@ -21,6 +21,6 @@
 
 namespace Rasterizer {
 
-void DrawTriangle(VertexData vertexdata[3]);
+void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2);
 
 }
