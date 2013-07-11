@@ -533,7 +533,7 @@ void NativeUpdate(InputState &input) {
 
 	UIUpdateMouse(0, input.pointer_x[0], input.pointer_y[0], input.pointer_down[0]);
 	screenManager->update(input);
-} 
+}
 
 void NativeDeviceLost() {
 	g_gameInfoCache.Clear();
@@ -573,6 +573,8 @@ void NativeMessageReceived(const char *message, const char *value) {
 }
 
 void NativeShutdownGraphics() {
+	g_gameInfoCache.Clear();
+
 	delete uiTexture;
 	uiTexture = NULL;
 
