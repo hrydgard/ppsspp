@@ -98,7 +98,7 @@ static const int64 kint64max = static_cast<int64>(0x7FFFFFFFFFFFFFFFLL);
 
 // x86 and PowerPC can simply do these loads and stores native.
 
-#if defined(_M_IX86) && defined(_MSC_VER) && !defined(ARM) && !defined(MIPS)
+#if defined(_M_IX86) && defined(_MSC_VER) && !defined(ARM) && !defined(MIPS) && !defined(__i386__)
 #define __i386__ 1
 #endif
 
