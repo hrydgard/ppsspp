@@ -47,7 +47,7 @@
 
 #include "snappy-stubs-public.h"
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(_M_X64)
 
 // Enable 64-bit optimized versions of some routines.
 #define ARCH_K8 1
@@ -98,7 +98,11 @@ static const int64 kint64max = static_cast<int64>(0x7FFFFFFFFFFFFFFFLL);
 
 // x86 and PowerPC can simply do these loads and stores native.
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__powerpc__)
+#if defined(_M_IX86) && defined(_MSC_VER) && !defined(ARM) && !defined(MIPS)
+#define __i386__ 1
+#endif
+
+#if defined(__i386__) || defined(__x86_64__) || defined(__powerpc__) || defined(_M_X64)
 
 #define UNALIGNED_LOAD16(_p) (*reinterpret_cast<const uint16 *>(_p))
 #define UNALIGNED_LOAD32(_p) (*reinterpret_cast<const uint32 *>(_p))
