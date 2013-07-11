@@ -169,9 +169,15 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 
 
 			switch (prim_type) {
-			case GE_PRIM_TRIANGLES:
+			case GE_PRIM_TRIANGLES: {
+				VertexData temp;
+if (!gstate.getCullMode()) {
+				temp = data[2];
+				data[2] = data[1];
+				data[1] = temp;
+}
 				Clipper::ProcessTriangle(data);
-				break;
+				break;}
 
 			case GE_PRIM_RECTANGLES:
 				Clipper::ProcessQuad(data);

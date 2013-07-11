@@ -36,6 +36,7 @@ static GLuint program;
 const int FB_HEIGHT = 272;
 u8* fb = NULL;
 u8* depthbuf = NULL;
+u32 clut[4096];
 
 GLuint OpenGL_CompileProgram(const char* vertexShader, const char* fragmentShader)
 {
@@ -255,7 +256,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			if (type != GE_PRIM_TRIANGLES && type != GE_PRIM_TRIANGLE_STRIP && type != GE_PRIM_RECTANGLES)
 				break;
 
-			ERROR_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+//			ERROR_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
 			void *indices = NULL;
@@ -449,9 +450,17 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_LOADCLUT:
-		// This could be used to "dirty" textures with clut.
 		{
-			u32 clutAddr = ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF);
+			u32 clutAddr = ((gstate.clutaddr & 0xFFFFF0) | ((gstate.clutaddrupper << 8) & 0xFF000000));
+			u32 clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
+
+			if (Memory::IsValidAddress(clutAddr)) {
+				Memory::Memcpy(clut, clutAddr, clutTotalBytes_);
+			} else {
+				// TODO: Does this make any sense?
+				memset(clut, 0xFF, clutTotalBytes_);
+			}
+
 			if (clutAddr)
 			{
 				DEBUG_LOG(G3D,"DL Clut load: %08x", clutAddr);
@@ -460,7 +469,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			{
 				DEBUG_LOG(G3D,"DL Empty Clut load");
 			}
-			// Should hash and invalidate all paletted textures on use
 		}
 		break;
 

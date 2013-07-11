@@ -23,6 +23,8 @@
 extern u8* fb;
 extern u8* depthbuf;
 
+extern u32 clut[4096];
+
 namespace Rasterizer {
 
 static int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const DrawingCoords& v2)
@@ -35,6 +37,7 @@ u32 SampleNearest(int level, float s, float t)
 	int texfmt = gstate.texformat & 0xF;
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 	u8* srcptr = (u8*)Memory::GetPointer(texaddr); // TODO: not sure if this is the right place to load from...?
+	const u8* baseptr = srcptr;
 
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
@@ -85,6 +88,21 @@ u32 SampleNearest(int level, float s, float t)
 		u8 b = *srcptr++;
 		u8 a = *srcptr++;
 		return (r << 24) | (g << 16) | (b << 8) | a;
+	} else if (texfmt == GE_TFMT_CLUT8) {
+		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
+		srcptr += v * width + u;
+		u16 index = (((u32)*srcptr) >> gstate.getClutIndexShift()) & 0xFF;
+		index &= gstate.getClutIndexMask();
+		index = (index & 0xE) | gstate.getClutIndexStartPos(); // Topmost bit 
+		return clut[index];
+	} else if (texfmt == GE_TFMT_CLUT4) {
+		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
+		srcptr += v * width / 2 + u/2;
+		u8 val = (u%2) ? (*srcptr & 0xF) : (*srcptr >> 4);
+		u16 index = (((u32)val) >> gstate.getClutIndexShift()) & 0xFF;
+		index &= gstate.getClutIndexMask();
+		index = (index & 0xE) | gstate.getClutIndexStartPos(); // Topmost bit 
+		return clut[index];
 	} else {
 		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
 	}
@@ -215,7 +233,6 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				}
 
 				// TODO: Also disable if vertex has no texture coordinates?
-
 				if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
 					Vec4<int> texcolor = Vec4<int>::FromRGBA(/*TextureDecoder::*/SampleNearest(0, s, t));
 					u32 mycolor = (/*TextureDecoder::*/SampleNearest(0, s, t));
