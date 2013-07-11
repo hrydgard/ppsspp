@@ -494,12 +494,10 @@ void PauseScreen::render() {
 			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
-		bool memory = !g_Config.bFramebuffersToMem;
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Skip Updating PSP Memory"), ALIGN_TOPLEFT, &memory)) { 
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Read Framebuffers To Memory"), ALIGN_TOPLEFT, &g_Config.bFramebuffersToMem)) { 
 			if (gpu)
 				gpu->Resized();
 		}
-		g_Config.bFramebuffersToMem = memory ? 0 : 1; 
 		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
@@ -946,12 +944,10 @@ void GraphicsScreenP1::render() {
 			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
-		bool memory = !g_Config.bFramebuffersToMem;
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Skip Updating PSP Memory"), ALIGN_TOPLEFT, &memory)) { 
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Read Framebuffers To Memory"), ALIGN_TOPLEFT, &g_Config.bFramebuffersToMem)) { 
 			if (gpu)
 				gpu->Resized();
 		}
-		g_Config.bFramebuffersToMem = memory ? 0 : 1; 
 		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
@@ -1014,7 +1010,7 @@ void GraphicsScreenP2::render() {
 		char showAF[256];
 		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
 		ui_draw2d.DrawTextShadow(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 250, y , 20);
+		HLinear hlinear1(x + 300, y , 20);
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("4x"), ALIGN_LEFT))
@@ -1071,7 +1067,7 @@ void GraphicsScreenP2::render() {
 		}
 		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
 		ui_draw2d.DrawTextShadow(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 250, y, 20);
+		HLinear hlinear1(x + 300, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, gs->T("xBRZ"), ALIGN_LEFT))
 			g_Config.iTexScalingType = 0;
 		if (UIButton(GEN_ID, hlinear1, 120, 0, gs->T("Hybrid", "(H)ybrid"), ALIGN_LEFT))
@@ -1084,15 +1080,15 @@ void GraphicsScreenP2::render() {
 		char showLevel[256];
 		sprintf(showLevel, "%s %dx", gs->T("Level :"), g_Config.iTexScalingLevel);
 		ui_draw2d.DrawTextShadow(UBUNTU24, showLevel, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 250, y, 20);
-		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("2x"), ALIGN_LEFT))
+		HLinear hlinear2(x + 300, y, 20);
+		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("2x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 2;
-		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("3x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("3x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 3;
 #ifdef _WIN32
-		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("4x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("4x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 4;
-		if (UIButton(GEN_ID, hlinear2, 45, 0, gs->T("5x"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("5x"), ALIGN_LEFT))
 			g_Config.iTexScalingLevel = 5;
 #endif
 		UICheckBox(GEN_ID, x + 60, y += stride + 20, gs->T("Deposterize"), ALIGN_LEFT, &g_Config.bTexDeposterize);
@@ -1172,7 +1168,7 @@ void GraphicsScreenP3::render() {
 		}
 
 		ui_draw2d.DrawTextShadow(UBUNTU24, type, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 260, y, 20);
+		HLinear hlinear1(x + 300, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Speed"), ALIGN_LEFT))
 			g_Config.iShowFPSCounter = 1;
 		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("FPS"), ALIGN_LEFT))
@@ -1191,9 +1187,9 @@ void GraphicsScreenP3::render() {
 			g_Config.iFpsLimit = 60;
 		
 		char showFps[256];
-		sprintf(showFps, "%s %d", gs->T("Speed :"), g_Config.iFpsLimit);
+		sprintf(showFps, "%s %d", gs->T("Speed:"), g_Config.iFpsLimit);
 		ui_draw2d.DrawTextShadow(UBUNTU24, showFps, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear1(x + 260, y, 20);
+		HLinear hlinear1(x + 300, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 100, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFpsLimit = 60;
 		if (UIButton(GEN_ID, hlinear1, 50, 0, gs->T("-1"), ALIGN_LEFT))
@@ -1214,15 +1210,15 @@ void GraphicsScreenP3::render() {
 			g_Config.iFrameSkip = 3;
 
 		char showFrameSkip[256];
-		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
+		sprintf(showFrameSkip, "%s %d", gs->T("Frames:"), g_Config.iFrameSkip);
 		ui_draw2d.DrawTextShadow(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
-		HLinear hlinear2(x + 250, y, 20);
-		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
+		HLinear hlinear2(x + 300, y, 20);
+		if (UIButton(GEN_ID, hlinear2, 100, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFrameSkip = 3;
-		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("-1"), ALIGN_LEFT))
 			if (g_Config.iFrameSkip > 1)
 				g_Config.iFrameSkip -= 1;
-		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
+		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("+1"), ALIGN_LEFT))
 			if (g_Config.iFrameSkip < 9)
 				g_Config.iFrameSkip += 1;
 
@@ -1460,10 +1456,11 @@ void SystemScreen::render() {
 				case 10: type = "繁體中文";break;
 				case 11: type = "简体中文";break;
 	}
+
 	sprintf(lang, "%s %s", s->T("System Language :"), type.c_str());
-	ui_draw2d.DrawTextShadow(UBUNTU24, lang, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-	HLinear hlinear3(x + 400, y, 20);
-	if (UIButton(GEN_ID, hlinear3, 220, 0, s->T("Language"), ALIGN_TOPLEFT)) {
+	ui_draw2d.DrawTextShadow(UBUNTU24, lang, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear2(x + 400, y, 20);
+	if (UIButton(GEN_ID, hlinear2, 220, 0, s->T("Language"), ALIGN_TOPLEFT)) {
 		screenManager()->push(new LanguageScreen());
 	} 
 	y+=20;
@@ -1479,12 +1476,7 @@ void SystemScreen::render() {
 		break;
 	}
 
-#ifdef _WIN32
-	const int checkboxH = 32;
-#else
-	const int checkboxH = 48;
-#endif
-	ui_draw2d.DrawTextShadow(UBUNTU24, buttonPreferenceTitle, x, (y += stride) + checkboxH / 2, 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
+	ui_draw2d.DrawTextShadow(UBUNTU24, buttonPreferenceTitle, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 	// 29 is the width of the checkbox, new UI will replace.
 	HLinear hlinearButtonPref(x + 400, y, 10);
 	if (UIButton(GEN_ID, hlinearButtonPref, 105, 0, s->T("Use O"), ALIGN_LEFT))
@@ -1495,15 +1487,15 @@ void SystemScreen::render() {
 
 	char recents[256];
 	sprintf(recents, "%s %i", s->T("Max. No of Recents :"), g_Config.iMaxRecent);
-	ui_draw2d.DrawTextShadow(UBUNTU24, recents, x, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-	HLinear hlinear2(x + 400, y, 10);
-	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("-1"), ALIGN_LEFT))
+	ui_draw2d.DrawTextShadow(UBUNTU24, recents, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+	HLinear hlinear4(x + 400, y, 10);
+	if (UIButton(GEN_ID, hlinear4, 50, 0, s->T("-1"), ALIGN_LEFT))
 		if (g_Config.iMaxRecent > 4)
 			g_Config.iMaxRecent -= 1;
-	if (UIButton(GEN_ID, hlinear2, 50, 0, s->T("+1"), ALIGN_LEFT))
+	if (UIButton(GEN_ID, hlinear4, 50, 0, s->T("+1"), ALIGN_LEFT))
 		if (g_Config.iMaxRecent < 40)
 			g_Config.iMaxRecent += 1;
-	if (UIButton(GEN_ID, hlinear2, 100, 0, s->T("Clear"), ALIGN_LEFT)) {
+	if (UIButton(GEN_ID, hlinear4, 100, 0, s->T("Clear"), ALIGN_LEFT)) {
 		g_Config.recentIsos.clear();
 	}
 	y += 20;

@@ -710,9 +710,9 @@ namespace MainWindow
 					gpu->Resized();  // easy way to force a clear...
 				break;
 
-			case ID_OPTIONS_SKIPUPDATINGMEMORY:
+			case ID_OPTIONS_READFBOTOMEMORY:
 				g_Config.bFramebuffersToMem = !g_Config.bFramebuffersToMem;
-				osm.ShowOnOff(g->T("Skip Updating PSP Memory"), !g_Config.bFramebuffersToMem);
+				osm.ShowOnOff(g->T("Read Framebuffers To Memory"), g_Config.bFramebuffersToMem);
 				if (gpu)
 					gpu->Resized();  // easy way to force a clear...
 				break;
@@ -1016,7 +1016,7 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
-		CHECKITEM(ID_OPTIONS_SKIPUPDATINGMEMORY, !g_Config.bFramebuffersToMem);
+		CHECKITEM(ID_OPTIONS_READFBOTOMEMORY, g_Config.bFramebuffersToMem);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
