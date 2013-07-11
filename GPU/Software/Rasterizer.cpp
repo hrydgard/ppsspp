@@ -189,21 +189,13 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				int prim_color_a = 0;
 				Vec3<int> sec_color(0, 0, 0);
 				if ((gstate.shademodel&1) == GE_SHADE_GOURAUD) {
-					prim_color_rgb.r() = (int)((v0.color0.r() * w0 / v0.clippos.w + v1.color0.r() * w1 / v1.clippos.w + v2.color0.r() * w2 / v2.clippos.w) / den);
-					prim_color_rgb.g() = (int)((v0.color0.g() * w0 / v0.clippos.w + v1.color0.g() * w1 / v1.clippos.w + v2.color0.g() * w2 / v2.clippos.w) / den);
-					prim_color_rgb.b() = (int)((v0.color0.b() * w0 / v0.clippos.w + v1.color0.b() * w1 / v1.clippos.w + v2.color0.b() * w2 / v2.clippos.w) / den);
+					prim_color_rgb = ((v0.color0.rgb() * w0 / v0.clippos.w + v1.color0.rgb() * w1 / v1.clippos.w + v2.color0.rgb() * w2 / v2.clippos.w) / den).Cast<int>();
 					prim_color_a = (int)((v0.color0.a() * w0 / v0.clippos.w + v1.color0.a() * w1 / v1.clippos.w + v2.color0.a() * w2 / v2.clippos.w) / den);
-					sec_color.r() = (int)((v0.color1.r() * w0 / v0.clippos.w + v1.color1.r() * w1 / v1.clippos.w + v2.color1.r() * w2 / v2.clippos.w) / den);
-					sec_color.g() = (int)((v0.color1.g() * w0 / v0.clippos.w + v1.color1.g() * w1 / v1.clippos.w + v2.color1.g() * w2 / v2.clippos.w) / den);
-					sec_color.b() = (int)((v0.color1.b() * w0 / v0.clippos.w + v1.color1.b() * w1 / v1.clippos.w + v2.color1.b() * w2 / v2.clippos.w) / den);
+					sec_color = ((v0.color1 * w0 / v0.clippos.w + v1.color1 * w1 / v1.clippos.w + v2.color1 * w2 / v2.clippos.w) / den).Cast<int>();
 				} else {
-					prim_color_rgb.r() = v2.color0.r();
-					prim_color_rgb.g() = v2.color0.g();
-					prim_color_rgb.b() = v2.color0.b();
+					prim_color_rgb = v2.color0.rgb();
 					prim_color_a = v2.color0.a();
-					sec_color.r() = v2.color1.r();
-					sec_color.g() = v2.color1.g();
-					sec_color.b() = v2.color1.b();
+					sec_color = v2.color1;
 				}
 
 				// TODO: Also disable if vertex has no texture coordinates?
