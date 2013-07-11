@@ -304,7 +304,8 @@ void GameInfoCache::Decimate() {
 }
 
 void GameInfoCache::Clear() {
-	gameInfoWQ_->Flush();
+	if (gameInfoWQ_)
+		gameInfoWQ_->Flush();
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
 		lock_guard lock(iter->second->lock);
 		if (!iter->second->pic0TextureData.empty()) {
