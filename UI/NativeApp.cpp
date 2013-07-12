@@ -331,13 +331,13 @@ void NativeInit(int argc, const char *argv[],
 	// that for most people, using external memory (SDCard/USB Storage) makes the
 	// most sense.
 	g_Config.memCardDirectory = std::string(external_directory) + "/";
-	g_Config.flashDirectory = std::string(external_directory)+"/flash/";
+	g_Config.flashDirectory = std::string(external_directory)+"/flash0/";
 #elif defined(BLACKBERRY) || defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN) || defined(IOS) || defined(_WIN32)
 	g_Config.memCardDirectory = user_data_path;
-	g_Config.flashDirectory = std::string(external_directory)+"flash/";
+	g_Config.flashDirectory = std::string(external_directory)+"flash0/";
 #else
 	g_Config.memCardDirectory = std::string(getenv("HOME"))+"/.ppsspp/";
-	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
+	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash0/";
 #endif
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)

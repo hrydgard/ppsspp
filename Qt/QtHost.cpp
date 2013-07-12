@@ -305,7 +305,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_directory, co
 	}
 
 	g_Config.memCardDirectory = QDir::homePath().toStdString()+"/.ppsspp/";
-	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash/";
+	g_Config.flashDirectory = g_Config.memCardDirectory+"/flash0/";
 
 	LogManager::Init();
 	if (fileToLog != NULL)

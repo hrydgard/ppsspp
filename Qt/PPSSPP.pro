@@ -100,7 +100,7 @@ symbian {
 	ICON = ../assets/icon.svg
 
 	# Folders:
-	assets.sources = ../assets/flash ../lang
+	assets.sources = ../assets/flash0 ../lang
 	assets.path = E:/PPSSPP
 
 	DEPLOYMENT += vendor_deploy assets
@@ -112,7 +112,7 @@ symbian {
 
 contains(MEEGO_EDITION,harmattan) {
 	target.path = /opt/PPSSPP/bin
-	assets.files = ../assets/flash ../lang
+	assets.files = ../assets/flash0 ../lang
 	assets.path = /opt/PPSSPP
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications

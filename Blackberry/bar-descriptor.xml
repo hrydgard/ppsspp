@@ -21,7 +21,7 @@
     <asset path="../assets/icon-114.png">icon-114.png</asset>
     <asset path="../android/assets">assets</asset>
     <asset path="../lang">assets/lang</asset>
-    <asset path="../flash0">assets/flash</asset>
+    <asset path="../flash0">assets/flash0</asset>
     
     <category>core.games</category>
     <icon>
