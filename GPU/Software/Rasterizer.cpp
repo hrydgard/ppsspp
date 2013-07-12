@@ -144,6 +144,18 @@ static inline bool DepthTestPassed(int x, int y, u16 z)
 	}
 }
 
+bool IsRightSideOrFlatBottomLine(const Vec2<u10>& vertex, const Vec2<u10>& line1, const Vec2<u10>& line2)
+{
+	if (line1.y == line2.y) {
+		// just check if vertex is above us => bottom line parallel to x-axis
+		return vertex.y < line1.y;
+	} else {
+		// check if vertex is on our left => right side
+		return vertex.x < line1.x + (line2.x - line1.x) * (vertex.y - line1.y) / (line2.y - line1.y);
+	}
+}
+
+// Draws triangle, vertices specified in counter-clockwise direction (TODO: Make sure this is actually enforced)
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
 	int minX = std::min(std::min(v0.drawpos.x, v1.drawpos.x), v2.drawpos.x);
@@ -156,12 +168,16 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	minY = std::max(minY, gstate.getScissorY1());
 	maxY = std::min(maxY, gstate.getScissorY2());
 
+	int bias0 = IsRightSideOrFlatBottomLine(v0.drawpos.xy(), v1.drawpos.xy(), v2.drawpos.xy()) ? -1 : 0;
+	int bias1 = IsRightSideOrFlatBottomLine(v1.drawpos.xy(), v2.drawpos.xy(), v0.drawpos.xy()) ? -1 : 0;
+	int bias2 = IsRightSideOrFlatBottomLine(v2.drawpos.xy(), v0.drawpos.xy(), v1.drawpos.xy()) ? -1 : 0;
+
 	DrawingCoords p(minX, minY, 0);
 	for (p.y = minY; p.y <= maxY; ++p.y) {
 		for (p.x = minX; p.x <= maxX; ++p.x) {
-			int w0 = orient2d(v1.drawpos, v2.drawpos, p);
-			int w1 = orient2d(v2.drawpos, v0.drawpos, p);
-			int w2 = orient2d(v0.drawpos, v1.drawpos, p);
+			int w0 = orient2d(v1.drawpos, v2.drawpos, p) + bias0;
+			int w1 = orient2d(v2.drawpos, v0.drawpos, p) + bias1;
+			int w2 = orient2d(v0.drawpos, v1.drawpos, p) + bias2;
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should only render when it's on the left of the right edge

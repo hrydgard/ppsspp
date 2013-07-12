@@ -43,6 +43,8 @@ struct DrawingCoords
 	u10 x;
 	u10 y;
 	u16 z;
+
+	Vec2<u10> xy() const { return Vec2<u10>(x, y); }
 };
 
 struct VertexData
