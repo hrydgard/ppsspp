@@ -216,7 +216,7 @@ void TransformDrawEngine::DrawSpline(int ucount, int vcount, int utype, int vtyp
 class Lighter {
 public:
 	Lighter();
-	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 normal);
+	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f normal);
 
 private:
 	bool disabled_;
@@ -226,7 +226,7 @@ private:
 	Color4 materialDiffuse;
 	Color4 materialSpecular;
 	float specCoef_;
-	// Vec3 viewer_;
+	// Vec3f viewer_;
 	bool doShadeMapping_;
 	int materialUpdate_;
 };
@@ -244,11 +244,11 @@ Lighter::Lighter() {
 	materialSpecular.GetFromRGB(gstate.materialspecular);
 	materialSpecular.a = 1.0f;
 	specCoef_ = getFloat24(gstate.materialspecularcoef);
-	// viewer_ = Vec3(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
+	// viewer_ = Vec3f(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
 	materialUpdate_ = gstate.materialupdate & 7;
 }
 
-void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 norm)
+void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f norm)
 {
 	Color4 in(colorIn);
 
@@ -282,13 +282,13 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		GELightComputation comp = (GELightComputation)(gstate.ltype[l] & 3);
 		GELightType type = (GELightType)((gstate.ltype[l] >> 8) & 3);
 		
-		Vec3 toLight(0,0,0);
-		Vec3 lightDir(0,0,0);
+		Vec3f toLight(0,0,0);
+		Vec3f lightDir(0,0,0);
 		
 		if (type == GE_LIGHTTYPE_DIRECTIONAL)
-			toLight = Vec3(gstate_c.lightpos[l]);  // lightdir is for spotlights
+			toLight = Vec3f(gstate_c.lightpos[l]);  // lightdir is for spotlights
 		else
-			toLight = Vec3(gstate_c.lightpos[l]) - pos;
+			toLight = Vec3f(gstate_c.lightpos[l]) - pos;
 
 		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
 		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
@@ -331,13 +331,13 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		Color4 diff = (lightDiff * *diffuse) * dot;
 
 		// Real PSP specular
-		Vec3 toViewer(0,0,1);
+		Vec3f toViewer(0,0,1);
 		// Better specular
-		// Vec3 toViewer = (viewer - pos).Normalized();
+		// Vec3f toViewer = (viewer - pos).Normalized();
 
 		if (doSpecular)
 		{
-			Vec3 halfVec = (toLight + toViewer);
+			Vec3f halfVec = (toLight + toViewer);
 			halfVec.Normalize();
 
 			dot = Dot(halfVec, norm);
@@ -567,7 +567,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// We do software T&L for now
 			float out[3], norm[3];
 			float pos[3], nrm[3];
-			Vec3 normal(0, 0, 1);
+			Vec3f normal(0, 0, 1);
 			reader.ReadPos(pos);
 			if (reader.hasNormal())
 				reader.ReadNrm(nrm);
@@ -576,24 +576,24 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					Norm3ByMatrix43(norm, nrm, gstate.worldMatrix);
-					normal = Vec3(norm).Normalized();
+					normal = Vec3f(norm).Normalized();
 				}
 			} else {
 				float weights[8];
 				reader.ReadWeights(weights);
 				// Skinning
-				Vec3 psum(0,0,0);
-				Vec3 nsum(0,0,0);
+				Vec3f psum(0,0,0);
+				Vec3f nsum(0,0,0);
 				int nweights = ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT) + 1;
 				for (int i = 0; i < nweights; i++)
 				{
 					if (weights[i] != 0.0f) {
 						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
-						Vec3 tpos(out);
+						Vec3f tpos(out);
 						psum += tpos * weights[i];
 						if (reader.hasNormal()) {
 							Norm3ByMatrix43(norm, nrm, gstate.boneMatrix+i*12);
-							Vec3 tnorm(norm);
+							Vec3f tnorm(norm);
 							nsum += tnorm * weights[i];
 						}
 					}
@@ -603,7 +603,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
 				if (reader.hasNormal()) {
 					Norm3ByMatrix43(norm, nsum.AsArray(), gstate.worldMatrix);
-					normal = Vec3(norm).Normalized();
+					normal = Vec3f(norm).Normalized();
 				}
 			}
 
@@ -671,29 +671,29 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			case 1:
 				{
 					// Projection mapping
-					Vec3 source;
+					Vec3f source;
 					switch (gstate.getUVProjMode())
 					{
 					case 0: // Use model space XYZ as source
 						source = pos;
 						break;
 					case 1: // Use unscaled UV as source
-						source = Vec3(ruv[0], ruv[1], 0.0f);
+						source = Vec3f(ruv[0], ruv[1], 0.0f);
 						break;
 					case 2: // Use normalized normal as source
 						if (reader.hasNormal()) {
-							source = Vec3(norm).Normalized();
+							source = Vec3f(norm).Normalized();
 						} else {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3::AssignToAll(0.0f);
+							source = Vec3f::AssignToAll(0.0f);
 						}
 						break;
 					case 3: // Use non-normalized normal as source!
 						if (reader.hasNormal()) {
-							source = Vec3(norm);
+							source = Vec3f(norm);
 						} else {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3::AssignToAll(0.0f);
+							source = Vec3f::AssignToAll(0.0f);
 						}
 						break;
 					}
@@ -708,8 +708,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			case 2:
 				// Shade mapping - use two light sources to generate U and V.
 				{
-					Vec3 lightpos0 = Vec3(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
-					Vec3 lightpos1 = Vec3(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
+					Vec3f lightpos0 = Vec3f(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
+					Vec3f lightpos1 = Vec3f(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
 
 					uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
 					uv[1] = (1.0f - Dot(lightpos1, normal))/2.0f;

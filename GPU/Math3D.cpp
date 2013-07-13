@@ -17,54 +17,18 @@
 
 #include "Math3D.h"
 
-
-Vec3 Vec3Ref::operator +(const Vec3Ref &other) const
+template<>
+Vec3<float> Vec3<float>::FromRGB(unsigned int rgb)
 {
-	return Vec3(x+other.x, y+other.y, z+other.z);
+	return Vec3((rgb & 0xFF) * (1.0f/255.0f),
+				((rgb >> 8) & 0xFF) * (1.0f/255.0f),
+				((rgb >> 16) & 0xFF) * (1.0f/255.0f));
 }
 
-Vec3 Vec3Ref::operator -(const Vec3Ref &other) const
+template<>
+Vec3<int> Vec3<int>::FromRGB(unsigned int rgb)
 {
-	return Vec3(x-other.x, y-other.y, z-other.z);
-}
-
-Vec3 Vec3Ref::operator -() const
-{
-	return Vec3(-x,-y,-z);
-}
-
-Vec3 Vec3Ref::Mul(const Vec3Ref &other) const
-{
-	return Vec3(x*other.x, y*other.y, z*other.z);
-}
-
-Vec3 Vec3Ref::operator * (const float f) const
-{
-	return Vec3(x*f,y*f,z*f);
-}
-
-Vec3 Vec3Ref::operator / (const float f) const
-{
-	float invf = (1.0f/f);
-	return Vec3(x*invf,y*invf,z*invf);
-}
-
-Vec3 Vec3Ref::WithLength(const float l) const
-{
-	return (*this) * l / Length();
-}
-
-Vec3 Vec3Ref::Normalized() const
-{
-	return (*this) / Length();
-}
-
-Vec3 Vec3Ref::Lerp(const Vec3Ref &other, const float t) const
-{
-	return (*this)*(1-t) + other*t;
-}
-
-float Vec3Ref::Distance2To(Vec3Ref &other) const
-{
-	return (other-(*this)).Length2();
+	return Vec3(rgb & 0xFF,
+				(rgb >> 8) & 0xFF,
+				(rgb >> 16) & 0xFF);
 }
