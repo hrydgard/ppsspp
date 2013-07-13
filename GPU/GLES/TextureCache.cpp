@@ -201,10 +201,10 @@ static u32 GetClutAddr() {
 }
 
 static u32 GetClutIndex(u32 index) {
-    const u32 clutBase = (gstate.clutformat & 0x1f0000) >> 12;
-    const u32 clutMask = (gstate.clutformat >> 8) & 0xff;
-    const u8 clutShift = (gstate.clutformat >> 2) & 0x1f;
-    return ((index >> clutShift) & clutMask) | clutBase;
+	const u32 clutBase = (gstate.clutformat & 0x1F0000) >> 12;
+	const u32 clutMask = (gstate.clutformat >> 8) & 0xFF;
+	const u8 clutShift = (gstate.clutformat >> 2) & 0x1F;
+	return ((index >> clutShift) & clutMask) | clutBase;
 }
 
 void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
@@ -245,8 +245,8 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u
 		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
 		for (int by = 0; by < byc; by++) {
 			for (int n = 0; n < 8; n++, ydest++) {
-				tmpTexBuf32[ydest] = *src++;
-				src += 3;
+				tmpTexBuf32[ydest] = *src;
+				src += 4;
 			}
 		}
 	} else if (rowWidth == 2) {
@@ -815,7 +815,7 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLe
 
 void TextureCache::LoadClut() {
 	u32 clutAddr = GetClutAddr();
-	clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
+	clutTotalBytes_ = (gstate.loadclut & 0x3F) * 0x20;
 	if (Memory::IsValidAddress(clutAddr)) {
 		Memory::Memcpy(clutBufRaw_, clutAddr, clutTotalBytes_);
 	} else {
@@ -827,19 +827,20 @@ void TextureCache::LoadClut() {
 
 void TextureCache::UpdateCurrentClut() {
 	const GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
-	const u32 clutBase = (gstate.clutformat & 0x1f0000) >> 12;
-	const u32 clutBaseBytes = clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
-	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
+	const u32 clutBase = (gstate.clutformat & 0x1F0000) >> 12;
+
+	// Technically, the extra bytes may not have been loaded, but hopefully it was loaded earlier.
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
-	const u32 clutExtendedBytes = clutTotalBytes_ + clutBaseBytes;
+	void *srcPtr = (u8 *)clutBufRaw_ + clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
 
 	// QuickClutHash is not quite good enough apparently.
-	// clutHash_ = QuickClutHash((const u8 *)clutBufRaw_, clutExtendedBytes);
-	clutHash_ = CityHash32((const char *)clutBufRaw_, clutExtendedBytes);
+	// clutHash_ = QuickClutHash((const u8 *)srcPtr, clutTotalBytes_);
+	clutHash_ = CityHash32((const char *)srcPtr, clutTotalBytes_);
 
 	// Avoid a copy when we don't need to convert colors.
 	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		ConvertColors(clutBufConverted_, clutBufRaw_, getClutDestFormat(clutFormat), clutExtendedBytes / sizeof(u16));
+		void *dstPtr = (u16 *)clutBufConverted_ + clutBase;
+		ConvertColors(dstPtr, srcPtr, getClutDestFormat(clutFormat), clutTotalBytes_ / sizeof(u16));
 		clutBuf_ = clutBufConverted_;
 	} else {
 		clutBuf_ = clutBufRaw_;
