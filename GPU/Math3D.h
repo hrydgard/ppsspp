@@ -124,6 +124,10 @@ public:
 	Vec2<X,Y> Normalized() const;
 	Vec2<X,Y> Lerp(const Vec2Ref &other, const float t) const;
 	float Distance2To(const Vec2Ref &other) const;
+
+	// swizzlers - create a subvector of references to specific components
+	Vec2Ref<Y,X> yx() { return Vec2Ref(y, x); }
+	Vec2Ref<Y,X> vu() { return Vec2Ref(v, u); }
 };
 
 template<typename X, typename Y>
@@ -323,6 +327,18 @@ public:
 	Vec3<X,Y,Z> Normalized() const;
 	Vec3<X,Y,Z> Lerp(const Vec3Ref &other, const float t) const;
 	float Distance2To(const Vec3Ref &other) const;
+
+	// swizzlers - create a subvector of references to specific components
+	// e.g. Vec2Ref<X,Y> xy() { return Vec2Ref<X,Y>(x,y); }
+	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
+
+#define _DEFINE_SWIZZLER2(a, b, A, B) Vec2Ref<A, B> a##b() { return Vec2Ref<A,B>(a, b); }
+#define DEFINE_SWIZZLER2(a, b, a2, b2, a3, b3, A, B) _DEFINE_SWIZZLER2(a, b, A, B); _DEFINE_SWIZZLER2(a2, b2, A, B); _DEFINE_SWIZZLER2(a3, b3, A, B); _DEFINE_SWIZZLER2(b, a, B, A); _DEFINE_SWIZZLER2(b2, a2, B, A); _DEFINE_SWIZZLER2(b3, a3, B, A);
+	DEFINE_SWIZZLER2(x, y, r, g, u, v, X, Y);
+	DEFINE_SWIZZLER2(x, z, r, b, u, w, X, Z);
+	DEFINE_SWIZZLER2(y, z, g, b, v, w, Y, Z);
+#undef DEFINE_SWIZZLER2
+#undef _DEFINE_SWIZZLER2
 };
 
 template<typename X, typename Y, typename Z>
@@ -523,6 +539,43 @@ public:
 	Vec4<X,Y,Z,W> Normalized() const;
 	Vec4<X,Y,Z,W> Lerp(const Vec4Ref &other, const float t) const;
 	float Distance2To(const Vec4Ref &other) const;
+
+	// swizzlers - create a subvector of references to specific components
+	// e.g. Vec2Ref<X,Y> xy() { return Vec2Ref<X,Y>(x,y); }
+	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
+
+#define _DEFINE_SWIZZLER2(a, b, A, B) Vec2Ref<A, B> a##b() { return Vec2Ref<A,B>(a, b); }
+#define DEFINE_SWIZZLER2(a, b, a2, b2, A, B) _DEFINE_SWIZZLER2(a, b, A, B); _DEFINE_SWIZZLER2(a2, b2, A, B); _DEFINE_SWIZZLER2(b, a, B, A); _DEFINE_SWIZZLER2(b2, a2, B, A);
+	DEFINE_SWIZZLER2(x, y, r, g, X, Y);
+	DEFINE_SWIZZLER2(x, z, r, b, X, Z);
+	DEFINE_SWIZZLER2(x, w, r, a, X, W);
+	DEFINE_SWIZZLER2(y, z, g, b, Y, Z);
+	DEFINE_SWIZZLER2(y, w, g, a, Y, W);
+	DEFINE_SWIZZLER2(z, w, b, a, Z, W);
+#undef DEFINE_SWIZZLER2
+#undef _DEFINE_SWIZZLER2
+
+#define _DEFINE_SWIZZLER3(a, b, c, A, B, C) Vec3Ref<A, B, C> a##b##c() { return Vec3Ref<A,B,C>(a, b, c); }
+#define DEFINE_SWIZZLER3(a, b, c, a2, b2, c2, A, B, C) \
+	_DEFINE_SWIZZLER3(a, b, c, A, B, C); \
+	_DEFINE_SWIZZLER3(a, c, b, A, C, B); \
+	_DEFINE_SWIZZLER3(b, a, c, B, A, C); \
+	_DEFINE_SWIZZLER3(b, c, a, B, C, A); \
+	_DEFINE_SWIZZLER3(c, a, b, C, A, B); \
+	_DEFINE_SWIZZLER3(c, b, a, C, B, A); \
+	_DEFINE_SWIZZLER3(a2, b2, c2, A, B, C); \
+	_DEFINE_SWIZZLER3(a2, c2, b2, A, C, B); \
+	_DEFINE_SWIZZLER3(b2, a2, c2, B, A, C); \
+	_DEFINE_SWIZZLER3(b2, c2, a2, B, C, A); \
+	_DEFINE_SWIZZLER3(c2, a2, b2, C, A, B); \
+	_DEFINE_SWIZZLER3(c2, b2, a2, C, B, A);
+
+	DEFINE_SWIZZLER3(x, y, z, r, g, b, X, Y, Z);
+	DEFINE_SWIZZLER3(x, y, w, r, g, a, X, Y, W);
+	DEFINE_SWIZZLER3(x, z, w, r, b, a, X, Z, W);
+	DEFINE_SWIZZLER3(y, z, w, g, b, a, Y, Z, W);
+#undef DEFINE_SWIZZLER3
+#undef _DEFINE_SWIZZLER3
 };
 
 template<typename X, typename Y, typename Z, typename W>
