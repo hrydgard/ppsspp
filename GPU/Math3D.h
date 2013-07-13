@@ -20,6 +20,196 @@
 #include <cmath>
 
 /**
+ * Vec2 - two dimensional vector with arbitrary base type
+ */
+template<typename X, typename Y=X>
+class Vec2;
+
+// Like a Vec2, but acts on references
+template<typename X, typename Y=X>
+class Vec2Ref
+{
+public:
+	union
+	{
+		struct
+		{
+			X& x;
+			Y& y;
+		};
+		struct
+		{
+			X& u;
+			Y& v;
+		};
+	};
+
+	X* AsArray() { return &x; }
+
+	Vec2Ref(X& _x, Y& _y) : x(_x), y(_y) {}
+
+	Vec2Ref(X a[2]) : x(a[0]), y(a[1]) {}
+
+	void Write(X a[2])
+	{
+		a[0] = x; a[1] = y;
+	}
+
+	// operators acting on "this"
+	void operator = (const Vec2Ref& other)
+	{
+		x = other.x;
+		y = other.y;
+	}
+	void operator += (const Vec2Ref &other)
+	{
+		x+=other.x; y+=other.y;
+	}
+	void operator -= (const Vec2Ref &other)
+	{
+		x-=other.x; y-=other.y;
+	}
+
+	void operator *= (const X& f)
+	{
+		x*=f; y*=f;
+	}
+	void operator /= (const X& f)
+	{
+		x/=f; y/=f;
+	}
+
+	// operators which require creating a new Vec2 object
+	Vec2<X,Y> operator +(const Vec2Ref &other) const;
+	Vec2<X,Y> operator -(const Vec2Ref &other) const;
+	Vec2<X,Y> operator -() const;
+	Vec2<X,Y> Mul(const Vec2Ref &other) const;
+	Vec2<X,Y> operator * (const X& f) const;
+	Vec2<X,Y> operator / (const X& f) const;
+
+	// methods which don't create new Vec2 objects
+	float Length2() const
+	{
+		return x*x + y*y;
+	}
+	float Length() const
+	{
+		return sqrtf(Length2());
+	}
+	void SetLength(const float l)
+	{
+		(*this) *= l / Length();
+	}
+	float Normalize() //returns the previous length, is often useful
+	{
+		float len = Length();
+		(*this) /= len;
+		return len;
+	}
+	float &operator [] (int i) //allow vector[2] = 3   (vector.z=3)
+	{
+		return (i==0) ? x : y;
+	}
+	float operator [] (const int i) const
+	{
+		return (i==0) ? x : y;
+	}
+	void SetZero()
+	{
+		x=(X)0; y=(Y)0;
+	}
+
+	// methods that create a new Vec2 object
+	Vec2<X,Y> WithLength(const X& l) const;
+	Vec2<X,Y> Normalized() const;
+	Vec2<X,Y> Lerp(const Vec2Ref &other, const float t) const;
+	float Distance2To(const Vec2Ref &other) const;
+};
+
+template<typename X, typename Y>
+class Vec2 : public Vec2Ref<X,Y>
+{
+public:
+	X x;
+	Y y;
+
+	Vec2() : Vec2Ref<X,Y>(x, y) {}
+	Vec2(const X& _x, const Y& _y) : Vec2Ref<X,Y>(x, y), x(_x), y(_y) {}
+	Vec2(const X a[2]) : Vec2Ref<X,Y>(x, y), x(a[0]), y(a[1]) {}
+	Vec2(const Vec2Ref<X,Y>& other) : Vec2Ref<X,Y>(x, y), x(other.x), y(other.y) {}
+
+	static Vec2 AssignToAll(X f)
+	{
+		return Vec2(f, f, f);
+	}
+};
+
+typedef Vec2<float> Vec2f;
+
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::operator +(const Vec2Ref<X,Y> &other) const
+{
+	return Vec2<X,Y>(x+other.x, y+other.y);
+}
+
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::operator -(const Vec2Ref<X,Y> &other) const
+{
+	return Vec2<X,Y>(x-other.x, y-other.y);
+}
+
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::operator -() const
+{
+	return Vec2<X,Y>(-x,-y);
+}
+
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::Mul(const Vec2Ref<X,Y> &other) const
+{
+	return Vec2<X,Y>(x*other.x, y*other.y);
+}
+
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::operator * (const X& f) const
+{
+	return Vec2<X,Y>(x*f,y*f);
+}
+
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::operator / (const X& f) const
+{
+	float invf = (1.0f/f);
+	return Vec2<X,Y>(x*invf,y*invf);
+}
+
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::WithLength(const X& l) const
+{
+	return (*this) * l / Length();
+}
+
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::Normalized() const
+{
+	return (*this) / Length();
+}
+
+// TODO: Shouldn't be using a float parameter for all base types
+template<typename X, typename Y>
+Vec2<X,Y> Vec2Ref<X,Y>::Lerp(const Vec2Ref<X,Y> &other, const float t) const
+{
+	return (*this)*(1-t) + other*t;
+}
+
+template<typename X, typename Y>
+float Vec2Ref<X,Y>::Distance2To(const Vec2Ref<X,Y>& other) const
+{
+	return (other-(*this)).Length2();
+}
+
+
+/**
  * Vec3 - three dimensional vector with arbitrary base type
  */
 template<typename X, typename Y=X, typename Z=X>
@@ -144,9 +334,9 @@ public:
 	Z z;
 
 	Vec3() : Vec3Ref<X,Y,Z>(x, y, z) {}
-	Vec3(const X& _x, const X& _y, const X& _z) : Vec3Ref<X,Y,Z>(x, y, z), x(_x), y(_y), z(_z) {}
+	Vec3(const X& _x, const Y& _y, const Z& _z) : Vec3Ref<X,Y,Z>(x, y, z), x(_x), y(_y), z(_z) {}
 	Vec3(const X a[3]) : Vec3Ref<X,Y,Z>(x, y, z), x(a[0]), y(a[1]), z(a[2]) {}
-	Vec3(const Vec3Ref& other) : Vec3Ref<X,Y,Z>(x, y, z), x(other.x), y(other.y), z(other.z) {}
+	Vec3(const Vec3Ref<X,Y,Z>& other) : Vec3Ref<X,Y,Z>(x, y, z), x(other.x), y(other.y), z(other.z) {}
 
 	// Only defined for X=float and X=int
 	static Vec3 FromRGB(unsigned int rgb);
@@ -346,8 +536,8 @@ public:
 
 	Vec4() : Vec4Ref<X,Y,Z,W>(x, y, z, w) {}
 	Vec4(const X& _x, const Y& _y, const Z& _z, const W& _w) : Vec4Ref<X,Y,Z,W>(x, y, z, w), x(_x), y(_y), z(_z), w(_w) {}
-	Vec4(const X a[4]) : Vec4(a[0], a[1], a[2], a[3]) {}
-	Vec4(const Vec4Ref<X,Y,Z,W>& other) : Vec4(other.x, other.y, other.z, other.w) {}
+	Vec4(const X a[4]) : Vec4Ref<X,Y,Z,W>(x, y, z, w), x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
+	Vec4(const Vec4Ref<X,Y,Z,W>& other) : Vec4Ref<X,Y,Z,W>(x, y, z, w), x(other.x), y(other.y), z(other.z), w(other.w) {}
 
 	// Only defined for X=float and X=int
 	static Vec4 FromRGBA(unsigned int rgba);
@@ -443,6 +633,12 @@ inline float Vec3Dot(const float v1[3], const float v2[3])
 }
 
 // Dot product only really makes sense for same types
+template<typename X>
+inline X Dot(const Vec2Ref<X> &a, const Vec2Ref<X>& b)
+{
+	return a.x*b.x + a.y*b.y;
+}
+
 template<typename X>
 inline X Dot(const Vec3Ref<X> &a, const Vec3Ref<X>& b)
 {
