@@ -24,22 +24,28 @@ class Vec3
 public:
 	union
 	{
-		float v[3];
 		struct
 		{
 			float x,y,z;
 		};
+		struct
+		{
+			float r,g,b;
+		};
+		struct
+		{
+			float u,v,w;
+		};
 	};
+
+	float* AsArray() { return &x; }
+
 	Vec3(unsigned int rgb) {
 		x = (rgb & 0xFF) * (1.0f/255.0f);
 		y = ((rgb >> 8) & 0xFF) * (1.0f/255.0f);
 		z = ((rgb >> 16) & 0xFF) * (1.0f/255.0f);
 	}
-	Vec3(const float a[3]) {
-		v[0] = a[0];
-		v[1] = a[1];
-		v[2] = a[2];
-	}
+	Vec3(const float a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	Vec3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 	Vec3() {}
 	explicit Vec3(float f) : x(f), y(f), z(f) {}
