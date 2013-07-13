@@ -303,7 +303,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		
 		if (distanceToLight > 0.0f) {
 			toLight /= distanceToLight;
-			dot = toLight * norm;
+			dot = Dot(toLight, norm);
 		}
 		// Clamp dot to zero.
 		if (dot < 0.0f) dot = 0.0f;
@@ -321,7 +321,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			break;
 		case GE_LIGHTTYPE_SPOT:
 			lightDir = gstate_c.lightdir[l];
-			angle = toLight.Normalized() * lightDir.Normalized();
+			angle = Dot(toLight.Normalized(), lightDir.Normalized());
 			if (angle >= gstate_c.lightangle[l])
 				lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, gstate_c.lightspotCoef[l]);
 			break;
@@ -343,7 +343,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			Vec3 halfVec = (toLight + toViewer);
 			halfVec.Normalize();
 
-			dot = halfVec * norm;
+			dot = Dot(halfVec, norm);
 			if (dot > 0.0f)
 			{
 				Color4 lightSpec(gstate_c.lightColor[2][l], 0.0f);
@@ -714,8 +714,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					Vec3 lightpos0 = Vec3(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
 					Vec3 lightpos1 = Vec3(gstate_c.lightpos[gstate.getUVLS1()]).Normalized();
 
-					uv[0] = (1.0f + (lightpos0 * normal))/2.0f;
-					uv[1] = (1.0f - (lightpos1 * normal))/2.0f;
+					uv[0] = (1.0f + Dot(lightpos0, normal))/2.0f;
+					uv[1] = (1.0f - Dot(lightpos1, normal))/2.0f;
 					uv[2] = 1.0f;
 				}
 				break;

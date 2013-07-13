@@ -32,7 +32,7 @@ public:
 	};
 	Vec3(unsigned int rgb) {
 		x = (rgb & 0xFF) * (1.0f/255.0f);
-		y = ((rgb >> 8) & 0xFF) * (1.0f/255.0f); 
+		y = ((rgb >> 8) & 0xFF) * (1.0f/255.0f);
 		z = ((rgb >> 16) & 0xFF) * (1.0f/255.0f);
 	}
 	Vec3(const float a[3]) {
@@ -67,10 +67,6 @@ public:
 	{
 		return Vec3(-x,-y,-z);
 	}
-	float operator *(const Vec3 &other) const
-	{
-		return x*other.x + y*other.y + z*other.z;
-	}
 	Vec3 Mul(const Vec3 &other) const
 	{
 		return Vec3(x*other.x, y*other.y, z*other.z);
@@ -91,10 +87,6 @@ public:
 	void operator /= (const float f)
 	{
 		*this = *this / f;
-	}
-	Vec3 operator %(const Vec3 &v) const
-	{
-		return Vec3(y*v.z-z*v.y, z*v.x-x*v.z, x*v.y-y*v.x);
 	}
 	float Length2() const
 	{
@@ -159,4 +151,14 @@ inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]
 inline float Vec3Dot(const float v1[3], const float v2[3])
 {
 	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
+}
+
+inline float Dot(const Vec3 &a, const Vec3& b)
+{
+	return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+inline Vec3 Cross(const Vec3 &a, const Vec3& b)
+{
+	return Vec3(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
 }
