@@ -29,15 +29,22 @@ public:
 
 	float* AsArray() { return &x; }
 
-	Vec3(unsigned int rgb) {
-		x = (rgb & 0xFF) * (1.0f/255.0f);
-		y = ((rgb >> 8) & 0xFF) * (1.0f/255.0f);
-		z = ((rgb >> 16) & 0xFF) * (1.0f/255.0f);
-	}
 	Vec3(const float a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	Vec3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 	Vec3() {}
-	explicit Vec3(float f) : x(f), y(f), z(f) {}
+
+	static Vec3 FromRGB(unsigned int rgb)
+	{
+		return Vec3((rgb & 0xFF) * (1.0f/255.0f),
+					((rgb >> 8) & 0xFF) * (1.0f/255.0f),
+					((rgb >> 16) & 0xFF) * (1.0f/255.0f));
+	}
+
+	static Vec3 AssignToAll(float f)
+	{
+		return Vec3(f, f, f);
+	}
+
 	void Write(float a[3])
 	{
 		a[0] = x; a[1] = y; a[2] = z;
