@@ -22,24 +22,19 @@
 class Vec3
 {
 public:
-	union
+	struct
 	{
-		float v[3];
-		struct
-		{
-			float x,y,z;
-		};
+		float x,y,z;
 	};
+
+	float* AsArray() { return &x; }
+
 	Vec3(unsigned int rgb) {
 		x = (rgb & 0xFF) * (1.0f/255.0f);
 		y = ((rgb >> 8) & 0xFF) * (1.0f/255.0f);
 		z = ((rgb >> 16) & 0xFF) * (1.0f/255.0f);
 	}
-	Vec3(const float a[3]) {
-		v[0] = a[0];
-		v[1] = a[1];
-		v[2] = a[2];
-	}
+	Vec3(const float a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	Vec3(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
 	Vec3() {}
 	explicit Vec3(float f) : x(f), y(f), z(f) {}
@@ -132,6 +127,31 @@ public:
 	{
 		x=0;y=0;z=0;
 	}
+
+	// Common aliases: UVW (texel coordinates), RGB (colors), STQ (texture coordinates)
+	float& u() { return x; }
+	float& v() { return y; }
+	float& w() { return z; }
+
+	float& r() { return x; }
+	float& g() { return y; }
+	float& b() { return z; }
+
+	float& s() { return x; }
+	float& t() { return y; }
+	float& q() { return z; }
+
+	const float& u() const { return x; }
+	const float& v() const { return y; }
+	const float& w() const { return z; }
+
+	const float& r() const { return x; }
+	const float& g() const { return y; }
+	const float& b() const { return z; }
+
+	const float& s() const { return x; }
+	const float& t() const { return y; }
+	const float& q() const { return z; }
 };
 
 inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])

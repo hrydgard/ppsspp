@@ -603,9 +603,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				}
 
 				// Yes, we really must multiply by the world matrix too.
-				Vec3ByMatrix43(out, psum.v, gstate.worldMatrix);
+				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
 				if (reader.hasNormal()) {
-					Norm3ByMatrix43(norm, nsum.v, gstate.worldMatrix);
+					Norm3ByMatrix43(norm, nsum.AsArray(), gstate.worldMatrix);
 					normal = Vec3(norm).Normalized();
 				}
 			}
