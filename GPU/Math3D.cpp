@@ -32,3 +32,21 @@ Vec3<int> Vec3<int>::FromRGB(unsigned int rgb)
 				(rgb >> 8) & 0xFF,
 				(rgb >> 16) & 0xFF);
 }
+
+template<>
+Vec4<float> Vec4<float>::FromRGBA(unsigned int rgba)
+{
+	return Vec4((rgba & 0xFF) * (1.0f/255.0f),
+				((rgba >> 8) & 0xFF) * (1.0f/255.0f),
+				((rgba >> 16) & 0xFF) * (1.0f/255.0f),
+				((rgba >> 24) & 0xFF) * (1.0f/255.0f));
+}
+
+template<>
+Vec4<int> Vec4<int>::FromRGBA(unsigned int rgba)
+{
+	return Vec4(rgba & 0xFF,
+				(rgba >> 8) & 0xFF,
+				(rgba >> 16) & 0xFF,
+				(rgba >> 24) & 0xFF);
+}
