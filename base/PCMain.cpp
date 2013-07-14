@@ -536,17 +536,17 @@ int main(int argc, char *argv[]) {
 	SDLJoyButtonMap[1] = KEYCODE_DPAD_DOWN;
 	SDLJoyButtonMap[2] = KEYCODE_DPAD_LEFT;
 	SDLJoyButtonMap[3] = KEYCODE_DPAD_RIGHT;
-	SDLJoyButtonMap[4] = KEYCODE_BUTTON_START;
-	SDLJoyButtonMap[5] = KEYCODE_BUTTON_SELECT;
-	SDLJoyButtonMap[6] = KEYCODE_BUTTON_THUMBL;
-	SDLJoyButtonMap[7] = KEYCODE_BUTTON_THUMBL;
-	SDLJoyButtonMap[8] = KEYCODE_BUTTON_L1;
-	SDLJoyButtonMap[9] = KEYCODE_BUTTON_R1;
+	SDLJoyButtonMap[4] = KEYCODE_BUTTON_10;
+	SDLJoyButtonMap[5] = KEYCODE_BUTTON_9;
+	SDLJoyButtonMap[6] = KEYCODE_BUTTON_5;
+	SDLJoyButtonMap[7] = KEYCODE_BUTTON_6;
+	SDLJoyButtonMap[8] = KEYCODE_BUTTON_7;
+	SDLJoyButtonMap[9] = KEYCODE_BUTTON_8;
 	SDLJoyButtonMap[10] = KEYCODE_BACK;
-	SDLJoyButtonMap[11] = KEYCODE_BUTTON_A;
-	SDLJoyButtonMap[12] = KEYCODE_BUTTON_B;
-	SDLJoyButtonMap[13] = KEYCODE_BUTTON_X;
-	SDLJoyButtonMap[14] = KEYCODE_BUTTON_Y;
+	SDLJoyButtonMap[11] = KEYCODE_BUTTON_2;
+	SDLJoyButtonMap[12] = KEYCODE_BUTTON_3;
+	SDLJoyButtonMap[13] = KEYCODE_BUTTON_4;
+	SDLJoyButtonMap[14] = KEYCODE_BUTTON_1;
 
 	std::map<int, int> SDLJoyAxisMap;
 	SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
