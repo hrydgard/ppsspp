@@ -382,12 +382,12 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	int scissorY2 = (gstate.getScissorY2() + 1) & ~1;
 	GetViewportDimensions(viewport_width, viewport_height);
 
-	if (!g_Config.bBufferedRendering || g_iNumVideos || viewport_width <= 0 && viewport_height <= 0) { 
+	if (viewport_width != 480 && viewport_height != 272) { 
 		drawing_width = std::min(scissorX2, regionX2);
 		drawing_height = std::min(scissorY2, regionY2);
 	} else {
-		drawing_width = std::min(viewport_width, std::min(scissorX2, regionX2));
-		drawing_height = std::min(viewport_height, std::min(scissorY2, regionY2));
+		drawing_width = viewport_width;
+		drawing_height = viewport_height;
 	} 
 }
 
@@ -454,8 +454,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 				vfb->fb_stride = fb_stride;
 				// Just hack the width/height and we should be fine. also hack renderwidth/renderheight?
 				// This hack gonna breaks Kingdom Heart and causing black bar on the left side.
-				//v->width = drawing_width;
-				//v->height = drawing_height;
+				v->width = drawing_width;
+				v->height = drawing_height;
 				break;
 			} else {
 				INFO_LOG(HLE, "Embiggening framebuffer (%i, %i) -> (%i, %i)", (int)v->width, (int)v->height, drawing_width, drawing_height);
