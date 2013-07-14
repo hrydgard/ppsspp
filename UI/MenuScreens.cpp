@@ -698,9 +698,11 @@ void ControlsScreen::update(InputState &input) {
 
 void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
-		last_kb_deviceid = key.deviceId;
-		last_kb_key = key.keyCode;
-		last_axis_id = -1;
+		if (key.keyCode != KEYCODE_EXT_MOUSEBUTTON_1) {
+			last_kb_deviceid = key.deviceId;
+			last_kb_key = key.keyCode;
+			last_axis_id = -1;
+		}
 	}
 }
 
