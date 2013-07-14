@@ -189,6 +189,8 @@ void EGL_Close() {
 	g_eglSurface = NULL;
 	g_eglContext = NULL;
 }
+#else
+SDL_Joystick *joy = NULL;
 #endif
 
 // Simple implementations of System functions
@@ -300,12 +302,12 @@ void SimulateGamepad(const uint8 *keys, InputState *input) {
 	if ((ljoy)||(rjoy)) {
 		SDL_JoystickUpdate();
 		if (ljoy) {
-			input->pad_lstick_x = max(min(SDL_JoystickGetAxis(ljoy, 0) / 32000.0f, 1.0f, -1.0f);
-			input->pad_lstick_y = max(min(-SDL_JoystickGetAxis(ljoy, 1) / 32000.0f, 1.0f, -1.0f);
+			input->pad_lstick_x = max(min(SDL_JoystickGetAxis(ljoy, 0) / 32000.0f, 1.0f), -1.0f);
+			input->pad_lstick_y = max(min(-SDL_JoystickGetAxis(ljoy, 1) / 32000.0f, 1.0f), -1.0f);
 		}
 		if (rjoy) {
-			input->pad_rstick_x = max(min(SDL_JoystickGetAxis(rjoy, 0) / 32000.0f, 1.0f, -1.0f);
-			input->pad_rstick_y = max(min(SDL_JoystickGetAxis(rjoy, 1) / 32000.0f, 1.0f, -1.0f);
+			input->pad_rstick_x = max(min(SDL_JoystickGetAxis(rjoy, 0) / 32000.0f, 1.0f), -1.0f);
+			input->pad_rstick_y = max(min(SDL_JoystickGetAxis(rjoy, 1) / 32000.0f, 1.0f), -1.0f);
 		}
 	}
 #else
@@ -352,11 +354,13 @@ int main(int argc, char *argv[]) {
 	if (tabletenv) {
 		tablet = atoi(tabletenv) ? true : false;
 	}
-	if (ipad) aspect43 = true;
-	
+	if (ipad) {
+		aspect43 = true;
+	}
+
 	bool landscape;
 	NativeGetAppInfo(&app_name, &app_name_nice, &landscape);
-	
+
 	// Change these to temporarily test other resolutions.
 	aspect43 = false;
 	tablet = false;
@@ -418,7 +422,7 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, 1);
 
-	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0, 
+	if (SDL_SetVideoMode(pixel_xres, pixel_yres, 0,
 #ifdef USING_GLES2
 		SDL_SWSURFACE | SDL_FULLSCREEN
 #else
@@ -509,19 +513,52 @@ int main(int argc, char *argv[]) {
 
 	// Audio must be unpaused _after_ NativeInit()
 	SDL_PauseAudio(0);
+	int numjoys = SDL_NumJoysticks();
 #ifdef PANDORA
 	// Joysticks init, we the nubs if setup as Joystick
-	int numjoys = SDL_NumJoysticks();
-	if (numjoys>0)
-	{
-		ljoy=SDL_JoystickOpen(0);
-		if (numjoys>1) rjoy=SDL_JoystickOpen(1);
+	if (numjoys > 0) {
+		ljoy = SDL_JoystickOpen(0);
+		if (numjoys > 1)
+			rjoy = SDL_JoystickOpen(1);
 	}
 	enable_runfast(); // VFPv2 RunFast
+#else
+	SDL_JoystickEventState(SDL_ENABLE);
+	if (numjoys > 0) {
+		joy = SDL_JoystickOpen(0);
+	}
 #endif
 
+	// This is just a standard mapping that matches the X360 controller on MacOSX. Names will probably be all wrong
+	// on other controllers.
+	std::map<int, int> SDLJoyButtonMap;
+	SDLJoyButtonMap[0] = KEYCODE_DPAD_UP;
+	SDLJoyButtonMap[1] = KEYCODE_DPAD_DOWN;
+	SDLJoyButtonMap[2] = KEYCODE_DPAD_LEFT;
+	SDLJoyButtonMap[3] = KEYCODE_DPAD_RIGHT;
+	SDLJoyButtonMap[4] = KEYCODE_BUTTON_START;
+	SDLJoyButtonMap[5] = KEYCODE_BUTTON_SELECT;
+	SDLJoyButtonMap[6] = KEYCODE_BUTTON_THUMBL;
+	SDLJoyButtonMap[7] = KEYCODE_BUTTON_THUMBL;
+	SDLJoyButtonMap[8] = KEYCODE_BUTTON_L1;
+	SDLJoyButtonMap[9] = KEYCODE_BUTTON_R1;
+	SDLJoyButtonMap[10] = KEYCODE_BACK;
+	SDLJoyButtonMap[11] = KEYCODE_BUTTON_A;
+	SDLJoyButtonMap[12] = KEYCODE_BUTTON_B;
+	SDLJoyButtonMap[13] = KEYCODE_BUTTON_X;
+	SDLJoyButtonMap[14] = KEYCODE_BUTTON_Y;
+
+	std::map<int, int> SDLJoyAxisMap;
+	SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
+	SDLJoyAxisMap[1] = JOYSTICK_AXIS_Y;
+	SDLJoyAxisMap[2] = JOYSTICK_AXIS_Z;
+	SDLJoyAxisMap[3] = JOYSTICK_AXIS_RZ;
+	SDLJoyAxisMap[4] = JOYSTICK_AXIS_LTRIGGER;
+	SDLJoyAxisMap[5] = JOYSTICK_AXIS_RTRIGGER;
+
 	int framecount = 0;
-	float t = 0, lastT = 0;
+	float t = 0;
+	float lastT = 0;
 	while (true) {
 		input_state.accelerometer_valid = false;
 		input_state.mouse_valid = true;
@@ -532,23 +569,66 @@ int main(int argc, char *argv[]) {
 			float mx = event.motion.x * dp_xscale;
 			float my = event.motion.y * dp_yscale;
 
-			if (event.type == SDL_QUIT) {
+			switch (event.type) {
+			case SDL_QUIT:
 				quitRequested = 1;
-			} else if (event.type == SDL_KEYDOWN) {
-				int k = event.key.keysym.sym;
-				KeyInput key;
-				key.flags = KEY_DOWN;
-				key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
-				key.deviceId = DEVICE_ID_KEYBOARD;
-				NativeKey(key);
-			} else if (event.type == SDL_KEYUP) {
-				int k = event.key.keysym.sym;
-				KeyInput key;
-				key.flags = KEY_UP;
-				key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
-				key.deviceId = DEVICE_ID_KEYBOARD;
-				NativeKey(key);
-			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
+				break;
+
+			case SDL_JOYAXISMOTION:
+				{
+					AxisInput axis;
+					axis.axisId = SDLJoyAxisMap[event.jaxis.axis];
+					// 1.2 to try to approximate the PSP's clamped rectangular range.
+					axis.value = 1.2 * event.jaxis.value / 32767.0f;
+					if (axis.value > 1.0f) axis.value = 1.0f;
+					if (axis.value < -1.0f) axis.value = -1.0f;
+					axis.deviceId = DEVICE_ID_PAD_0;
+					axis.flags = 0;
+					NativeAxis(axis);
+					break;
+				}
+
+			case SDL_JOYBUTTONDOWN:
+				{
+					KeyInput key;
+					key.flags = KEY_DOWN;
+					key.keyCode = SDLJoyButtonMap[event.jbutton.button];
+					key.deviceId = DEVICE_ID_PAD_0;
+					NativeKey(key);
+					break;
+				}
+
+			case SDL_JOYBUTTONUP:
+				{
+					KeyInput key;
+					key.flags = KEY_UP;
+					key.keyCode = SDLJoyButtonMap[event.jbutton.button];
+					key.deviceId = DEVICE_ID_PAD_0;
+					NativeKey(key);
+					break;
+				}
+
+			case SDL_KEYDOWN:
+				{
+					int k = event.key.keysym.sym;
+					KeyInput key;
+					key.flags = KEY_DOWN;
+					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
+					key.deviceId = DEVICE_ID_KEYBOARD;
+					NativeKey(key);
+					break;
+				}
+			case SDL_KEYUP:
+				{
+					int k = event.key.keysym.sym;
+					KeyInput key;
+					key.flags = KEY_UP;
+					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
+					key.deviceId = DEVICE_ID_KEYBOARD;
+					NativeKey(key);
+					break;
+				}
+			case SDL_MOUSEBUTTONDOWN:
 				switch (event.button.button) {
 				case SDL_BUTTON_LEFT:
 					{
@@ -591,7 +671,8 @@ int main(int argc, char *argv[]) {
 					}
 					break;
 				}
-			} else if (event.type == SDL_MOUSEMOTION) {
+				break;
+			case SDL_MOUSEMOTION:
 				if (input_state.pointer_down[0]) {
 					input_state.pointer_x[0] = mx;
 					input_state.pointer_y[0] = my;
@@ -602,7 +683,8 @@ int main(int argc, char *argv[]) {
 					input.id = 0;
 					NativeTouch(input);
 				}
-			} else if (event.type == SDL_MOUSEBUTTONUP) {
+				break;
+			case SDL_MOUSEBUTTONUP:
 				switch (event.button.button) {
 				case SDL_BUTTON_LEFT:
 					{
@@ -645,6 +727,7 @@ int main(int argc, char *argv[]) {
 					}
 					break;
 				}
+				break;
 			}
 		}
 
