@@ -375,28 +375,20 @@ void GetViewportDimensions(int &w, int &h) {
 
 // Heuristics to figure out the size of FBO to create.
 void GuessDrawingSize(int &drawing_width, int &drawing_height) {
-	GetViewportDimensions(drawing_width, drawing_height);
+	int viewport_width, viewport_height;
+	int regionX2 = (gstate.getRegionX2() + 1) & ~1;
+	int regionY2 = (gstate.getRegionY2() + 1) & ~1;
+	int scissorX2 = (gstate.getScissorX2() + 1) & ~1;
+	int scissorY2 = (gstate.getScissorY2() + 1) & ~1;
+	GetViewportDimensions(viewport_width, viewport_height);
 
-	// Now, cap using scissor. Hm, no, this doesn't work so well.
-	/*
-	if (drawing_width > gstate.getScissorX2() + 1)
-		drawing_width = gstate.getScissorX2() + 1;
-	if (drawing_height > gstate.getScissorY2() + 1)
-		drawing_height = gstate.getScissorY2() + 1;*/
-
-	// Bit hacky but it works pretty well
-	if (!g_Config.bBufferedRendering || g_iNumVideos || (drawing_width <= 1 && drawing_height <= 1) ) {
-		drawing_width = 480;
-		drawing_height = 272;
+	if (!g_Config.bBufferedRendering || g_iNumVideos || viewport_width <= 0 && viewport_height <= 0) { 
+		drawing_width = std::min(scissorX2, regionX2);
+		drawing_height = std::min(scissorY2, regionY2);
 	} else {
-		// New attempt: Use the max of region and scissor. Round to even number as games are highly inconsistent .
-		int scissorX2 = (gstate.getScissorX2() + 1) & ~1;
-		int regionX2 = (gstate.getRegionX2() + 1) & ~1;
-		int scissorY2 = (gstate.getScissorY2() + 1) & ~1;
-		int regionY2 = (gstate.getRegionY2() + 1) & ~1;
-		drawing_width = std::min(512, std::max(scissorX2, regionX2));
-		drawing_height = std::min(512, std::max(scissorY2, regionY2));
-	}
+		drawing_width = std::min(viewport_width, std::min(scissorX2, regionX2));
+		drawing_height = std::min(viewport_height, std::min(scissorY2, regionY2));
+	} 
 }
 
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
@@ -461,8 +453,9 @@ void FramebufferManager::SetRenderFrameBuffer() {
 				// Update fb stride in case it changed
 				vfb->fb_stride = fb_stride;
 				// Just hack the width/height and we should be fine. also hack renderwidth/renderheight?
-				v->width = drawing_width;
-				v->height = drawing_height;
+				// This hack gonna breaks Kingdom Heart and causing black bar on the left side.
+				//v->width = drawing_width;
+				//v->height = drawing_height;
 				break;
 			} else {
 				INFO_LOG(HLE, "Embiggening framebuffer (%i, %i) -> (%i, %i)", (int)v->width, (int)v->height, drawing_width, drawing_height);
