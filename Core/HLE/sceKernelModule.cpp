@@ -900,8 +900,47 @@ u32 __KernelGetModuleGP(SceUID uid)
 	}
 }
 
-bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::string *error_string)
+class KernelLoadExecParam
 {
+public:
+	KernelLoadExecParam(u32 paramPtr) {
+		if (paramPtr) {
+			Memory::ReadStruct(paramPtr, &param);
+			if (param.args > 0 && param.argp) {
+				u32 argpAddr = (u32) param.argp;
+				param.argp = new u8[param.args];
+				Memory::Memcpy(param.argp, argpAddr, param.args);
+			}
+			if (param.key) {
+				u32 keyAddr = (u32) param.key;
+				int keylen = strlen(Memory::GetCharPointer(keyAddr))+1;
+				param.key = new char[keylen];
+				Memory::Memcpy((void*)param.key, keyAddr, keylen);
+			}
+		}
+		else
+		{
+			memset(&param, 0, sizeof(SceKernelLoadExecParam));
+		}
+	}
+	virtual ~KernelLoadExecParam() {
+		if (param.argp) delete[] param.argp;
+		if (param.key) delete[] param.key;
+	}
+
+	int IsValid() {return param.size >= 16;}
+	const void *GetArg() {return param.argp;}
+	const SceSize GetArgSize() {return param.args;}
+	const char *GetKey() {return param.key;}
+
+private:
+	SceKernelLoadExecParam param;
+};
+
+bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string)
+{
+	KernelLoadExecParam param(paramPtr);
+
 	// Wipe kernel here, loadexec should reset the entire system
 	if (__KernelIsRunning())
 	{
@@ -962,21 +1001,18 @@ bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::
 	if (module->nm.module_start_thread_stacksize != 0)
 		option.stacksize = module->nm.module_start_thread_stacksize;
 
-	__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
+	if (param.IsValid())
+		__KernelStartModule(module, param.GetArgSize(), (const char*)param.GetArg(), &option);
+	else
+		__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
 
 	__KernelStartIdleThreads(module->GetUID());
 	return true;
 }
 
-//TODO: second param
 int sceKernelLoadExec(const char *filename, u32 paramPtr)
 {
 	std::string exec_filename = filename;
-	SceKernelLoadExecParam *param = 0;
-	if (paramPtr) {
-		param = (SceKernelLoadExecParam *)Memory::GetPointer(paramPtr);
-	}
-
 	PSPFileInfo info = pspFileSystem.GetFileInfo(exec_filename);
 
 	// If there's an EBOOT.BIN, redirect to that instead.
@@ -1003,7 +1039,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 
 	DEBUG_LOG(HLE, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
-	if (!__KernelLoadExec(exec_filename.c_str(), param, &error_string)) {
+	if (!__KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
 		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
 		Core_UpdateState(CORE_ERROR);
 		return -1;
