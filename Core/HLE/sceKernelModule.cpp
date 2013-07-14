@@ -900,46 +900,28 @@ u32 __KernelGetModuleGP(SceUID uid)
 	}
 }
 
-class KernelLoadExecParam
-{
-public:
-	KernelLoadExecParam(u32 paramPtr) {
-		if (paramPtr) {
-			Memory::ReadStruct(paramPtr, &param);
-			if (param.args > 0 && param.argp) {
-				u32 argpAddr = (u32) param.argp;
-				param.argp = new u8[param.args];
-				Memory::Memcpy(param.argp, argpAddr, param.args);
-			}
-			if (param.key) {
-				u32 keyAddr = (u32) param.key;
-				int keylen = strlen(Memory::GetCharPointer(keyAddr))+1;
-				param.key = new char[keylen];
-				Memory::Memcpy((void*)param.key, keyAddr, keylen);
-			}
-		}
-		else
-		{
-			memset(&param, 0, sizeof(SceKernelLoadExecParam));
-		}
-	}
-	virtual ~KernelLoadExecParam() {
-		if (param.argp) delete[] param.argp;
-		if (param.key) delete[] param.key;
-	}
-
-	int IsValid() {return param.size >= 16;}
-	const void *GetArg() {return param.argp;}
-	const SceSize GetArgSize() {return param.args;}
-	const char *GetKey() {return param.key;}
-
-private:
-	SceKernelLoadExecParam param;
-};
-
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string)
 {
-	KernelLoadExecParam param(paramPtr);
+	SceKernelLoadExecParam param;
+
+	if (paramPtr)
+		Memory::ReadStruct(paramPtr, &param);
+	else
+		memset(&param, 0, sizeof(SceKernelLoadExecParam));
+
+	if (param.args > 0) {
+		u32 argpAddr = (u32)param.argp;
+		param.argp = new u8[param.args];
+		Memory::Memcpy(param.argp, argpAddr, param.args);
+	} else {
+		param.argp = NULL;
+	}
+	if (param.key) {
+		u32 keyAddr = (u32) param.key;
+		int keylen = strlen(Memory::GetCharPointer(keyAddr))+1;
+		param.key = new char[keylen];
+		Memory::Memcpy((void*)param.key, keyAddr, keylen);
+	}
 
 	// Wipe kernel here, loadexec should reset the entire system
 	if (__KernelIsRunning())
@@ -957,6 +939,10 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	if (!info.exists) {
 		ERROR_LOG(LOADER, "Failed to load executable %s - file doesn't exist", filename);
 		*error_string = "Could not find executable";
+		if (paramPtr) {
+			if (param.argp) delete[] param.argp;
+			if (param.key) delete[] param.key;
+		}
 		return false;
 	}
 
@@ -975,6 +961,10 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
 		*error_string = "Failed to load executable: " + *error_string;
 		delete [] temp;
+		if (paramPtr) {
+			if (param.argp) delete[] param.argp;
+			if (param.key) delete[] param.key;
+		}
 		return false;
 	}
 
@@ -1001,12 +991,17 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	if (module->nm.module_start_thread_stacksize != 0)
 		option.stacksize = module->nm.module_start_thread_stacksize;
 
-	if (param.IsValid())
-		__KernelStartModule(module, param.GetArgSize(), (const char*)param.GetArg(), &option);
+	if (paramPtr)
+		__KernelStartModule(module, param.args, (const char*)param.argp, &option);
 	else
 		__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
 
 	__KernelStartIdleThreads(module->GetUID());
+
+	if (paramPtr) {
+		if (param.argp) delete[] param.argp;
+		if (param.key) delete[] param.key;
+	}
 	return true;
 }
 
