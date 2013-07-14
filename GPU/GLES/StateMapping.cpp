@@ -221,7 +221,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(GL_ALWAYS);
-			glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
+			glstate.depthWrite.set(depthMask || !gstate.isFogEnabled() || !gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
 		} else {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(GL_ALWAYS);
