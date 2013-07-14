@@ -25,7 +25,7 @@ void __KernelModuleDoState(PointerWrap &p);
 void __KernelModuleShutdown();
 
 u32 __KernelGetModuleGP(SceUID module);
-bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param, std::string *error_string);
+bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
 void __KernelReturnFromModuleFunc();
 
 void Register_ModuleMgrForUser();
