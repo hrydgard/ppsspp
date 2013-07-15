@@ -348,10 +348,10 @@ typedef u64 SceIores;
 
 struct SceKernelLoadExecParam
 {
-	SceSize size;  // Size of the structure
-	SceSize args;  // Size of the arg string
-	void *argp;        // Pointer to the arg string
-	const char *key; // Encryption key? Not yet used
+	SceSize size;    // Size of the structure
+	SceSize args;    // Size of the arg string
+	u32 argp;      // Pointer to the arg string
+	u32 keyp; // Encryption key? Not yet used
 };
 
 void __KernelInit();

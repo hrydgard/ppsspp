@@ -1750,7 +1750,7 @@ void KeyMappingScreen::render() {
 			currentMap_ = 0;
 	}
 	char temp[256];
-	sprintf(temp, "%s (%i/%i)", controllerMaps[currentMap_].name.c_str(), currentMap_ + 1, controllerMaps.size());
+	sprintf(temp, "%s (%i/%i)", controllerMaps[currentMap_].name.c_str(), currentMap_ + 1, (int)controllerMaps.size());
 	UIText(0, Pos(10, dp_yres-170), temp, 0xFFFFFFFF, 1.0f, ALIGN_BOTTOMLEFT);
 	UICheckBox(GEN_ID,10, dp_yres - 80, "Mapping Active", ALIGN_BOTTOMLEFT, &controllerMaps[currentMap_].active);
 	UIEnd();
@@ -1760,7 +1760,7 @@ void KeyMappingNewKeyDialog::render() {
 	UIShader_Prepare();
 	UIBegin(UIShader_Get());
 	DrawBackground(1.0f);
-	
+
 	UIContext *ctx = screenManager()->getUIContext();
 	UIFlush();
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(PSP_CoreParameter().fileToStart, true);
@@ -1771,8 +1771,8 @@ void KeyMappingNewKeyDialog::render() {
 		ui_draw2d.DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
 		ui_draw2d.Flush();
 		ctx->RebindTexture();
-	} 
-	
+	}
+
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
 	I18NCategory *generalI18N = GetI18NCategory("General");
 

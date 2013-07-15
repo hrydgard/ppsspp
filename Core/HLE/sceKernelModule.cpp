@@ -909,18 +909,20 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	else
 		memset(&param, 0, sizeof(SceKernelLoadExecParam));
 
+	u8 *param_argp = 0;
+	u8 *param_key = 0;
 	if (param.args > 0) {
-		u32 argpAddr = (u32)param.argp;
-		param.argp = new u8[param.args];
-		Memory::Memcpy(param.argp, argpAddr, param.args);
+		u32 argpAddr = param.argp;
+		param_argp = new u8[param.args];
+		Memory::Memcpy(param_argp, argpAddr, param.args);
 	} else {
 		param.argp = NULL;
 	}
-	if (param.key) {
-		u32 keyAddr = (u32) param.key;
+	if (param.keyp != 0) {
+		u32 keyAddr = param.keyp;
 		int keylen = strlen(Memory::GetCharPointer(keyAddr))+1;
-		param.key = new char[keylen];
-		Memory::Memcpy((void*)param.key, keyAddr, keylen);
+		param_key = new u8[keylen];
+		Memory::Memcpy(param_key, keyAddr, keylen);
 	}
 
 	// Wipe kernel here, loadexec should reset the entire system
@@ -934,14 +936,14 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	__KernelModuleInit();
 	__KernelInit();
-	
+
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (!info.exists) {
 		ERROR_LOG(LOADER, "Failed to load executable %s - file doesn't exist", filename);
 		*error_string = "Could not find executable";
 		if (paramPtr) {
-			if (param.argp) delete[] param.argp;
-			if (param.key) delete[] param.key;
+			if (param_argp) delete[] param_argp;
+			if (param_key) delete[] param_key;
 		}
 		return false;
 	}
@@ -954,16 +956,15 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	Module *module = __KernelLoadModule(temp, 0, error_string);
 
-	if (!module || module->isFake)
-	{
+	if (!module || module->isFake) {
 		if (module)
 			kernelObjects.Destroy<Module>(module->GetUID());
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
 		*error_string = "Failed to load executable: " + *error_string;
 		delete [] temp;
 		if (paramPtr) {
-			if (param.argp) delete[] param.argp;
-			if (param.key) delete[] param.key;
+			if (param_argp) delete[] param_argp;
+			if (param_key) delete[] param_key;
 		}
 		return false;
 	}
@@ -998,10 +999,8 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	__KernelStartIdleThreads(module->GetUID());
 
-	if (paramPtr) {
-		if (param.argp) delete[] param.argp;
-		if (param.key) delete[] param.key;
-	}
+	if (param_argp) delete[] param_argp;
+	if (param_key) delete[] param_key;
 	return true;
 }
 
