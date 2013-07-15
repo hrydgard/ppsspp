@@ -17,7 +17,12 @@
 
 #pragma once
 
+#include <vector>
+#include <map>
+#include <string>
+
 #include "base/functional.h"
+#include "file/file_util.h"
 #include "ui/ui_screen.h"
 
 inline void NoOpVoidBool(bool) {}
@@ -44,3 +49,19 @@ private:
 	std::string noButtonText_;
 	std::function<void(bool)> callback_;
 };
+
+class NewLanguageScreen : public ListPopupScreen {
+public:
+	NewLanguageScreen();
+
+private:
+	virtual void OnCompleted();
+
+	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
+	std::map<std::string, std::string> titleCodeMapping;
+	std::vector<FileInfo> langs_;
+};
+
+
+// Utility functions that create various popup screens
+ListPopupScreen *CreateLanguageScreen();

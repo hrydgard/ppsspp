@@ -17,6 +17,7 @@
 
 #include "base/colorutil.h"
 #include "base/timeutil.h"
+#include "i18n/i18n.h"
 #include "math/curves.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -32,6 +33,9 @@
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
+	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *ga = GetI18NCategory("Game");
+
 	// Information in the top left.
 	// Back button to the bottom left.
 	// Scrolling action menu to the right.
@@ -44,7 +48,7 @@ void GameScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new Choice("Back", "", new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
+	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 		tvTitle_ = leftColumn->Add(new TextView(0, info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 200, NONE, NONE)));
@@ -57,10 +61,10 @@ void GameScreen::CreateViews() {
 	
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
-	rightColumnItems->Add(new Choice("Play"))->OnClick.Handle(this, &GameScreen::OnPlay);
-	rightColumnItems->Add(new Choice("Game Settings"))->OnClick.Handle(this, &GameScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice("Delete Save Data"))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
-	rightColumnItems->Add(new Choice("Delete Game"))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
+	rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
+	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
+	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 }
 
 void DrawBackground(float alpha);
