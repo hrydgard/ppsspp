@@ -25,6 +25,9 @@
     <ClCompile Include="MainScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="MiscScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -48,6 +51,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="MainScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="MiscScreens.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

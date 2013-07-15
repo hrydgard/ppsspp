@@ -26,6 +26,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MenuScreens.h"
+#include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 
 void GameScreen::CreateViews() {
@@ -172,42 +173,3 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 	}
 }
 
-
-void DrawBackground(float alpha);
-
-void PromptScreen::DrawBackground(UIContext &dc) {
-	::DrawBackground(1.0f);
-}
-void PromptScreen::CreateViews() {
-	// Information in the top left.
-	// Back button to the bottom left.
-	// Scrolling action menu to the right.
-	using namespace UI;
-
-	Margins actionMenuMargins(0, 100, 15, 0);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-
-	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
-	root_->Add(leftColumn);
-
-	leftColumn->Add(new TextView(0, message_, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 10, NONE, NONE)));
-
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
-	root_->Add(rightColumnItems);
-	rightColumnItems->Add(new Choice(yesButtonText_))->OnClick.Handle(this, &PromptScreen::OnYes);
-	if (noButtonText_ != "")
-		rightColumnItems->Add(new Choice(noButtonText_))->OnClick.Handle(this, &PromptScreen::OnNo);
-}
-
-UI::EventReturn PromptScreen::OnYes(UI::EventParams &e) {
-	callback_(true);
-	screenManager()->finishDialog(this, DR_OK);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
-	callback_(false);
-	screenManager()->finishDialog(this, DR_CANCEL);
-	return UI::EVENT_DONE;
-}

@@ -52,25 +52,3 @@ private:
 	UI::TextView *tvGameSize_;
 	UI::TextView *tvSaveDataSize_;
 };
-
-inline void NoOpVoidBool(bool) {}
-
-class PromptScreen : public UIScreen {
-public:
-	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
-		: message_(message), yesButtonText_(yesButtonText), noButtonText_(noButtonText), callback_(callback) {}
-
-	virtual void CreateViews();
-protected:
-	virtual void DrawBackground(UIContext &dc);
-
-private:
-	UI::EventReturn OnYes(UI::EventParams &e);
-	UI::EventReturn OnNo(UI::EventParams &e);
-
-
-	std::string message_;
-	std::string yesButtonText_;
-	std::string noButtonText_;
-	std::function<void(bool)> callback_;
-};

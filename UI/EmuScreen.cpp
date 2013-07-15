@@ -50,6 +50,7 @@
 #include "UI/MenuScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/MiscScreens.h"
 
 EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
 	CheckGLExtensions();
@@ -349,9 +350,8 @@ static const struct { int from, to; } legacy_touch_mapping[12] = {
 void EmuScreen::update(InputState &input) {
 	globalUIState = UISTATE_INGAME;
 	if (errorMessage_.size()) {
-		screenManager()->push(new ErrorScreen(
-			"Error loading file",
-			errorMessage_));
+		screenManager()->push(new PromptScreen(
+			"Error loading file: " + errorMessage_, "OK", ""));
 		errorMessage_ = "";
 		return;
 	}

@@ -26,6 +26,7 @@
     <ClCompile Include="GameSettingsScreen.cpp" />
     <ClCompile Include="MainScreen.cpp" />
     <ClCompile Include="MenuScreens.cpp" />
+    <ClCompile Include="MiscScreens.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="PluginScreen.cpp" />
@@ -40,6 +41,7 @@
     <ClInclude Include="GameSettingsScreen.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MenuScreens.h" />
+    <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="PluginScreen.h" />
     <ClInclude Include="UIShader.h" />

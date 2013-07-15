@@ -553,6 +553,7 @@ void NativeTouch(const TouchInput &touch) {
 }
 
 void NativeKey(const KeyInput &key) {
+	g_buttonTracker.Process(key);
 	if (screenManager)
 		screenManager->key(key);
 }

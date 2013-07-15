@@ -1101,6 +1101,7 @@ set(NativeAppSource
 	android/jni/TestRunner.cpp
 	UI/GameInfoCache.cpp
 	UI/MainScreen.cpp
+	UI/MiscScreens.cpp
 	UI/MenuScreens.cpp
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.cpp

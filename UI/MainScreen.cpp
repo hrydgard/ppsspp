@@ -58,7 +58,8 @@ private:
 void GameButton::Draw(UIContext &dc) {
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, false);
 	Texture *texture = 0;
-	u32 color = 0;
+	u32 color = 0, shadowColor = 0;
+
 	if (ginfo->iconTexture) {
 		texture = ginfo->iconTexture;
 	} else {
@@ -72,6 +73,7 @@ void GameButton::Draw(UIContext &dc) {
 
 	if (texture) {
 		color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
+		shadowColor = blackAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
 
 		float tw = texture->Width();
 		float th = texture->Height();
@@ -88,12 +90,17 @@ void GameButton::Draw(UIContext &dc) {
 	// Render button
 	int dropsize = 10;
 	if (texture) {
-		if (txOffset) {
-			dropsize = 3;
-			y += txOffset * 2;
+		if (HasFocus()) {
+			// dc.Draw()->DrawImage4Grid(I_DROP_SHADOW, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 	alphaMul(color, 0.5f), 1.0f);
+			// dc.Draw()->Flush();
+		} else {
+			if (txOffset) {
+				dropsize = 3;
+				y += txOffset * 2;
+			}
+			dc.Draw()->DrawImage4Grid(I_DROP_SHADOW, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 	alphaMul(shadowColor, 0.5f), 1.0f);
+			dc.Draw()->Flush();
 		}
-		dc.Draw()->DrawImage4Grid(I_DROP_SHADOW, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 	alphaMul(color, 0.5f), 1.0f);
-		dc.Draw()->Flush();
 	}
 
 	if (texture) {
@@ -377,6 +384,11 @@ UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
+#ifdef ANDROID
+	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+#else
+	LaunchBrowser("http://central.ppsspp.org/buygold");
+#endif
 	return UI::EVENT_DONE;
 }
 

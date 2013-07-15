@@ -39,7 +39,6 @@ private:
 	int frames_;
 };
 
-
 class MenuScreen : public Screen
 {
 public:
@@ -208,20 +207,5 @@ public:
 private:
 	int frames_;
 };
-
-
-// Dialog box, meant to be pushed
-class ErrorScreen : public Screen
-{
-public:
-	ErrorScreen(const std::string &errorTitle, const std::string &errorMessage) : errorTitle_(errorTitle), errorMessage_(errorMessage) {}
-	void update(InputState &input);
-	void render();
-
-private:
-	std::string errorTitle_;
-	std::string errorMessage_;
-};
-
 
 void DrawWatermark();

@@ -1985,7 +1985,7 @@ void FileSelectScreen::render() {
 void CreditsScreen::update(InputState &input_state) {
 	globalUIState = UISTATE_MENU;
 	if (input_state.pad_buttons_down & PAD_BUTTON_BACK) {
-		screenManager()->switchScreen(new MenuScreen());
+		screenManager()->finishDialog(this, DR_OK);
 	}
 	frames_++;
 }
@@ -2104,40 +2104,17 @@ void CreditsScreen::render() {
 
 #ifdef ANDROID
 #ifndef GOLD
-	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 200, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
-		sendMessage("launchBrowser", "market://details?id=org.ppsspp.ppssppgold");
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
+		LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+	}
+#endif
+#else
+#ifndef GOLD
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
+		LaunchBrowser("http://central.ppsspp.org/buygold");
 	}
 #endif
 #endif
-
-	UIEnd();
-}
-
-void ErrorScreen::update(InputState &input_state) {
-	if (input_state.pad_buttons_down & PAD_BUTTON_BACK) {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-}
-
-void ErrorScreen::render()
-{
-	UIShader_Prepare();
-	UIBegin(UIShader_Get());
-	DrawBackground(1.0f);
-
-	I18NCategory *ge = GetI18NCategory("Error");
-
-	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, ge->T(errorTitle_.c_str()), dp_xres / 2, 30, 0xFFFFFFFF, ALIGN_HCENTER);
-	ui_draw2d.SetFontScale(1.0f, 1.0f);
-
-	ui_draw2d.DrawTextShadow(UBUNTU24, ge->T(errorMessage_.c_str()), 40, 120, 0xFFFFFFFF, ALIGN_LEFT);
-
-	I18NCategory *g = GetI18NCategory("General");
-
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
-		screenManager()->finishDialog(this, DR_OK);
-	}
 
 	UIEnd();
 }
