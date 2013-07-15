@@ -102,8 +102,6 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 	if (destination->GetVisibility() != V_VISIBLE)
 		return 0.0f;
 
-	// Point originPos = origin->GetBounds().Center();
-	// Point destPos = destination->GetBounds().Center();
 	Point originPos = origin->GetFocusPosition(direction);
 	Point destPos = destination->GetFocusPosition(Opposite(direction));
 
@@ -116,24 +114,24 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 
 	switch (direction) {
 	case FOCUS_LEFT:
-		distance = -dirX / distance;
+		distance = -dirX / sqrtf(distance);
 		//if (dirX > 0.0f) return 0.0f;
 		//if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
 		break;
 	case FOCUS_UP:
-		distance = -dirY / distance;
+		distance = -dirY / sqrtf(distance);
 		//if (dirY > 0.0f) return 0.0f;
 		//if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
 		break;
 	case FOCUS_RIGHT:
 		//if (dirX < 0.0f) return 0.0f;
 		//if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
-		distance = dirX / distance;
+		distance = dirX / sqrtf(distance);
 		break;
 	case FOCUS_DOWN:
 		//if (dirY < 0.0f) return 0.0f;
 		//if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
-		distance = dirY / distance;
+		distance = dirY / sqrtf(distance);
 		break;
 	}
 
@@ -524,7 +522,7 @@ bool ScrollView::SubviewFocused(View *view) {
 			ScrollTo(scrollPos_ + vBounds.y2() - bounds_.y2());
 		}
 		if (vBounds.y < bounds_.y) {
-			ScrollTo(scrollPos_ + (vBounds.y - bounds_.y - 30));
+			ScrollTo(scrollPos_ + (vBounds.y - bounds_.y));
 		}
 		break;
 	}

@@ -109,7 +109,7 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(InputState);
 };
 
-void UpdateInputState(InputState *input);
+void UpdateInputState(InputState *input, bool merge = false);
 void EndInputState(InputState *input);
 
 enum {
@@ -165,7 +165,7 @@ public:
 		pad_buttons_async_clear = 0;
 	}
 	void Process(const KeyInput &input);
-	void Update(InputState &input_state);
+	uint32_t Update();
 	uint32_t GetPadButtons() const { return pad_buttons_; }
 
 private:

@@ -40,10 +40,10 @@ int MapPadButtonFixed(int keycode) {
 	}
 }
 
-void ButtonTracker::Update(InputState &input_state) {
+uint32_t ButtonTracker::Update() {
 	pad_buttons_ |= pad_buttons_async_set;
 	pad_buttons_ &= ~pad_buttons_async_clear;
-	input_state.pad_buttons = pad_buttons_;
+	return pad_buttons_;
 }
 
 void ButtonTracker::Process(const KeyInput &input) {
@@ -64,8 +64,9 @@ void ButtonTracker::Process(const KeyInput &input) {
 
 ButtonTracker g_buttonTracker;
 
-void UpdateInputState(InputState *input) {
-	g_buttonTracker.Update(*input);
+void UpdateInputState(InputState *input, bool merge) {
+	uint32_t btns = g_buttonTracker.Update();
+	input->pad_buttons = merge ? (input->pad_buttons | btns) : btns;
 	input->pad_buttons_down = (input->pad_last_buttons ^ input->pad_buttons) & input->pad_buttons;
 	input->pad_buttons_up = (input->pad_last_buttons ^ input->pad_buttons) & input->pad_last_buttons;
 }
