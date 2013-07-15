@@ -534,7 +534,13 @@
     <ClInclude Include="HLE\HLETables.h">
       <Filter>HLE</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\MaiLibFont.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\MaiPrx.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\MaiUSB.h">
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceKernel.h">
