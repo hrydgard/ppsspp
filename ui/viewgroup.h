@@ -199,23 +199,39 @@ class ViewPager : public ScrollView {
 public:
 };
 
+
+class ChoiceStrip : public LinearLayout {
+public:
+	ChoiceStrip(Orientation orientation, LayoutParams *layoutParams = 0)
+		: LinearLayout(orientation, layoutParams), selected_(0) {}
+
+	void AddChoice(const std::string &title);
+	int GetSelection() const { return selected_; }
+	void SetSelection(int sel);
+	Event OnChoice;
+
+private:
+	EventReturn OnChoiceClick(EventParams &e);
+
+	int selected_;
+};
+
+
 class TabHolder : public LinearLayout {
 public:
 	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0)
 		: LinearLayout(Opposite(orientation), layoutParams),
 			orientation_(orientation), stripSize_(stripSize), currentTab_(0) {
-		tabStrip_ = new LinearLayout(orientation, new LinearLayoutParams(stripSize, WRAP_CONTENT));
+		tabStrip_ = new ChoiceStrip(orientation, new LinearLayoutParams(stripSize, WRAP_CONTENT));
 		Add(tabStrip_);
+		tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 	}
 
 	template <class T>
 	T *AddTab(const std::string &title, T *tabContents) {
 		tabContents->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
-		tabTitles_.push_back(title);
 		tabs_.push_back(tabContents);
-		Choice *choice = new Choice(title);
-		tabStrip_->Add(choice)->OnClick.Handle(this, &TabHolder::OnTabClick);
-		tabChoices_.push_back(choice);
+		tabStrip_->AddChoice(title);
 		Add(tabContents);
 		if (tabs_.size() > 1)
 			tabContents->SetVisibility(V_GONE);
@@ -231,13 +247,11 @@ public:
 private:
 	EventReturn OnTabClick(EventParams &e);
 
-	ViewGroup *tabStrip_;
+	ChoiceStrip *tabStrip_;
 
 	Orientation orientation_;
 	float stripSize_;
 	int currentTab_;
-	std::vector<std::string> tabTitles_;
-	std::vector<Choice *> tabChoices_;
 	std::vector<View *> tabs_;
 };
 

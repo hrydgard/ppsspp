@@ -102,8 +102,13 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 	if (destination->GetVisibility() != V_VISIBLE)
 		return 0.0f;
 
-	float dx = destination->GetBounds().centerX() - origin->GetBounds().centerX();
-	float dy = destination->GetBounds().centerY() - origin->GetBounds().centerY();
+	// Point originPos = origin->GetBounds().Center();
+	// Point destPos = destination->GetBounds().Center();
+	Point originPos = origin->GetFocusPosition(direction);
+	Point destPos = destination->GetFocusPosition(Opposite(direction));
+
+	float dx = destPos.x - originPos.x;
+	float dy = destPos.y - originPos.y;
 
 	float distance = sqrtf(dx*dx+dy*dy);
 	float dirX = dx / distance;
@@ -111,24 +116,28 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 
 	switch (direction) {
 	case FOCUS_LEFT:
-		if (dirX > 0.0f) return 0.0f;
-		if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
+		distance = -dirX / distance;
+		//if (dirX > 0.0f) return 0.0f;
+		//if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
 		break;
 	case FOCUS_UP:
-		if (dirY > 0.0f) return 0.0f;
-		if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
+		distance = -dirY / distance;
+		//if (dirY > 0.0f) return 0.0f;
+		//if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
 		break;
 	case FOCUS_RIGHT:
-		if (dirX < 0.0f) return 0.0f;
-		if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
+		//if (dirX < 0.0f) return 0.0f;
+		//if (fabsf(dirY) > fabsf(dirX)) return 0.0f;
+		distance = dirX / distance;
 		break;
 	case FOCUS_DOWN:
-		if (dirY < 0.0f) return 0.0f;
-		if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
+		//if (dirY < 0.0f) return 0.0f;
+		//if (fabsf(dirX) > fabsf(dirY)) return 0.0f;
+		distance = dirY / distance;
 		break;
 	}
 
-	return 100.0f / distance;
+	return distance;
 }
 
 
@@ -674,12 +683,66 @@ void GridLayout::Layout() {
 
 EventReturn TabHolder::OnTabClick(EventParams &e) {
 	tabs_[currentTab_]->SetVisibility(V_GONE);
-	for (int i = 0; i < tabChoices_.size(); i++) {
-		if (e.v == tabChoices_[i]) {
-			currentTab_ = i;
-		}
-	}
+	currentTab_ = e.a;
 	tabs_[currentTab_]->SetVisibility(V_VISIBLE);
+	return EVENT_DONE;
+}
+
+void ChoiceStrip::AddChoice(const std::string &title) {
+	StickyChoice *c = new StickyChoice(title, "", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
+	Add(c);
+	if (selected_ == views_.size() - 1)
+		c->Press();
+}
+
+EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
+	// Unstick the other choices that weren't clicked.
+	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i] != e.v)
+			static_cast<StickyChoice *>(views_[i])->Release();
+		else
+			selected_ = i;
+	}
+
+	EventParams e2;
+	e.a = selected_;
+	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
+	return OnChoice.Dispatch(e);
+}
+
+void ChoiceStrip::SetSelection(int sel) {
+	if (selected_ < views_.size())
+		static_cast<StickyChoice *>(views_[selected_])->Release();
+	selected_ = sel;
+	if (selected_ < views_.size())
+		static_cast<StickyChoice *>(views_[selected_])->Press();
+}
+
+ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
+	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {
+	// Let's not be clever yet, we'll just create them all up front and add them all in.
+	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
+		View * v = Add(adaptor_->CreateItemView(i));
+		adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, placeholder::_1));
+	}
+}
+
+EventReturn ListView::OnItemCallback(int num, EventParams &e) {
+	EventParams ev;
+	ev.v = e.v;
+	ev.a = num;
+	OnChoice.Trigger(ev);
+	return EVENT_DONE;
+}
+
+View *ChoiceListAdaptor::CreateItemView(int index) {
+	return new Choice(items_[index]);
+}
+
+bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) {
+	Choice *choice = (Choice *)view;
+	choice->OnClick.Add(callback);
 	return EVENT_DONE;
 }
 
@@ -723,32 +786,4 @@ void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 	root->Update(input_state);
 	DispatchEvents();
 }
-
-ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
-	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {
-	// Let's not be clever yet, we'll just create them all up front and add them all in.
-	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
-		View * v = Add(adaptor_->CreateItemView(i));
-		adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, placeholder::_1));
-	}
-}
-
-EventReturn ListView::OnItemCallback(int num, EventParams &e) {
-	EventParams ev;
-	ev.v = e.v;
-	ev.a = num;
-	OnChoice.Trigger(ev);
-	return EVENT_DONE;
-}
-
-View *ChoiceListAdaptor::CreateItemView(int index) {
-	return new Choice(items_[index]);
-}
-
-bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) {
-	Choice *choice = (Choice *)view;
-	choice->OnClick.Add(callback);
-	return EVENT_DONE;
-}
-
 }  // namespace UI

@@ -100,13 +100,14 @@ void Event::Trigger(EventParams &e) {
 }
 
 // Call this from UI thread
-void Event::Dispatch(EventParams &e) {
+EventReturn Event::Dispatch(EventParams &e) {
 	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
 		if ((iter->func)(e) == UI::EVENT_DONE) {
 			// Event is handled, stop looping immediately. This event might even have gotten deleted.
-			return;
+			return UI::EVENT_DONE;
 		}
 	}
+	return UI::EVENT_SKIPPED;
 }
 
 void View::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -122,6 +123,19 @@ void View::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	w = 10.0f;
 	h = 10.0f;
 }
+
+Point View::GetFocusPosition(FocusDirection dir) {
+	switch (dir) {
+	case FOCUS_LEFT: return Point(bounds_.x, bounds_.centerY());
+	case FOCUS_RIGHT: return Point(bounds_.x2(), bounds_.centerY());
+	case FOCUS_UP: return Point(bounds_.centerX(), bounds_.y);
+	case FOCUS_DOWN: return Point(bounds_.centerX(), bounds_.y2());
+
+	default:
+		return bounds_.Center();
+	}
+}
+
 
 void Clickable::Click() {
 	UI::EventParams e;
@@ -160,9 +174,9 @@ void Clickable::Touch(const TouchInput &input) {
 	if (input.flags & TOUCH_UP) {
 		if ((input.flags & TOUCH_CANCEL) == 0 && dragging_ && bounds_.Contains(input.x, input.y)) {
 			Click();
-		}	
-		downCountDown_ = 0;
+		}
 		down_ = false;	
+		downCountDown_ = 0;
 		dragging_ = false;
 	}
 }
@@ -185,12 +199,36 @@ void Clickable::Update(const InputState &input_state) {
 		down_ = true;
 	} else if (input_state.pad_buttons_up & PAD_BUTTON_A) {
 		if (down_) {
-			UI::EventParams e;
-			e.v = this;
-			OnClick.Trigger(e);
+			Click();
 		}
 	}
 }
+
+void StickyChoice::Touch(const TouchInput &input) {
+	dragging_ = false;
+	if (!enabled_) {
+		down_ = false;
+		return;
+	}
+
+	if (input.flags & TOUCH_DOWN) {
+		if (bounds_.Contains(input.x, input.y)) {
+			if (IsFocusMovementEnabled())
+				SetFocusedView(this);
+			down_ = true;
+			Click();
+		}
+	}
+}
+
+void StickyChoice::Key(const KeyInput &input) {
+}
+
+void StickyChoice::FocusChanged(int focusFlags) {
+	// Override Clickable's FocusChanged to do nothing.
+}
+
+
 
 Item::Item(LayoutParams *layoutParams) : InertView(layoutParams) {
 	layoutParams_->width = FILL_PARENT;

@@ -138,6 +138,17 @@ inline Orientation Opposite(Orientation o) {
 	if (o == ORIENT_HORIZONTAL) return ORIENT_VERTICAL; else return ORIENT_HORIZONTAL;
 }
 
+inline FocusDirection Opposite(FocusDirection d) {
+	switch (d) {
+	case FOCUS_UP: return FOCUS_DOWN;
+	case FOCUS_DOWN: return FOCUS_UP;
+	case FOCUS_LEFT: return FOCUS_RIGHT;
+	case FOCUS_RIGHT: return FOCUS_LEFT;
+	case FOCUS_PREV: return FOCUS_NEXT;
+	case FOCUS_NEXT: return FOCUS_PREV;
+	}
+}
+
 enum MeasureSpecType {
 	UNSPECIFIED,
 	EXACTLY,
@@ -193,7 +204,7 @@ public:
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
 	// Call this from UI thread
-	void Dispatch(EventParams &e);
+	EventReturn Dispatch(EventParams &e);
 
 	// This is suggested for use in most cases. Autobinds, allowing for neat syntax.
 	template<class T> 
@@ -256,7 +267,7 @@ public:
 			layoutParams_.reset(new LayoutParams());
 	}
 
-	virtual ~View() {}
+	virtual ~View() { if (HasFocus()) SetFocusedView(0); }
 
 	// Please note that Touch is called ENTIRELY asynchronously from drawing!
 	// Can even be called on a different thread! This is to really minimize latency, and decouple
@@ -313,6 +324,8 @@ public:
 
 	// Fake RTTI
 	virtual bool IsViewGroup() const { return false; }
+
+	Point GetFocusPosition(FocusDirection dir);
 
 protected:
 	// Inputs to layout
@@ -439,6 +452,21 @@ public:
 private:
 	std::string text_;
 	std::string smallText_;
+};
+
+// Different key handling.
+class StickyChoice : public Choice {
+public:
+	StickyChoice(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
+		: Choice(text, smallText, layoutParams) {}
+
+	virtual void Key(const KeyInput &input);
+	virtual void Touch(const TouchInput &input);
+	virtual void FocusChanged(int focusFlags);
+
+	void Press() { down_ = true; dragging_ = false; }
+	void Release() { down_ = false; dragging_ = false; }
+	bool IsDown() { return down_; }
 };
 
 class InfoItem : public Item {
