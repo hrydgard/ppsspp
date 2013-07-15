@@ -17,7 +17,7 @@ struct UrlEncoder
 	UrlEncoder() : paramCount(0)
 	{
 		data.reserve(256);
-	};
+	}
 
 	void Add(const std::string &key, const std::string &value)
 	{
@@ -106,7 +106,7 @@ struct UrlEncoder
 
 class Url {
 public:
-	Url(const std::string url) : url_(url), valid_(false) {
+	Url(const std::string url) : valid_(false), url_(url) {
 		Split();
 	}
 
