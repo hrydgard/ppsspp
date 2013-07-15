@@ -83,7 +83,7 @@ public:
 	Vec2<X,Y> operator +(const Vec2Ref &other) const;
 	Vec2<X,Y> operator -(const Vec2Ref &other) const;
 	Vec2<X,Y> operator -() const;
-	Vec2<X,Y> Mul(const Vec2Ref &other) const;
+	Vec2<X,Y> operator *(const Vec2Ref &other) const;
 	Vec2<X,Y> operator * (const X& f) const;
 	Vec2<X,Y> operator / (const X& f) const;
 
@@ -169,7 +169,7 @@ Vec2<X,Y> Vec2Ref<X,Y>::operator -() const
 }
 
 template<typename X, typename Y>
-Vec2<X,Y> Vec2Ref<X,Y>::Mul(const Vec2Ref<X,Y> &other) const
+Vec2<X,Y> Vec2Ref<X,Y>::operator *(const Vec2Ref<X,Y> &other) const
 {
 	return Vec2<X,Y>(x*other.x, y*other.y);
 }
@@ -286,7 +286,7 @@ public:
 	Vec3<X,Y,Z> operator +(const Vec3Ref &other) const;
 	Vec3<X,Y,Z> operator -(const Vec3Ref &other) const;
 	Vec3<X,Y,Z> operator -() const;
-	Vec3<X,Y,Z> Mul(const Vec3Ref &other) const;
+	Vec3<X,Y,Z> operator *(const Vec3Ref &other) const;
 	Vec3<X,Y,Z> operator * (const X& f) const;
 	Vec3<X,Y,Z> operator / (const X& f) const;
 
@@ -384,7 +384,7 @@ Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::operator -() const
 }
 
 template<typename X, typename Y, typename Z>
-Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::Mul(const Vec3Ref<X,Y,Z> &other) const
+Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::operator *(const Vec3Ref<X,Y,Z> &other) const
 {
 	return Vec3<X,Y,Z>(x*other.x, y*other.y, z*other.z);
 }
@@ -498,7 +498,7 @@ public:
 	Vec4<X,Y,Z,W> operator +(const Vec4Ref &other) const;
 	Vec4<X,Y,Z,W> operator -(const Vec4Ref &other) const;
 	Vec4<X,Y,Z,W> operator -() const;
-	Vec4<X,Y,Z,W> Mul(const Vec4Ref &other) const;
+	Vec4<X,Y,Z,W> operator *(const Vec4Ref &other) const;
 	Vec4<X,Y,Z,W> operator * (const X& f) const;
 	Vec4<X,Y,Z,W> operator / (const X& f) const;
 
@@ -622,7 +622,7 @@ Vec4<X,Y,Z,W> Vec4Ref<X,Y,Z,W>::operator -() const
 }
 
 template<typename X, typename Y, typename Z, typename W>
-Vec4<X,Y,Z,W> Vec4Ref<X,Y,Z,W>::Mul(const Vec4Ref<X,Y,Z,W> &other) const
+Vec4<X,Y,Z,W> Vec4Ref<X,Y,Z,W>::operator *(const Vec4Ref<X,Y,Z,W> &other) const
 {
 	return Vec4<X,Y,Z,W>(x*other.x, y*other.y, z*other.z, w*other.w);
 }
