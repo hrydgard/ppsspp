@@ -453,21 +453,6 @@ private:
 	std::string rightText_;
 };
 
-// Not really using the click action, but the background lightup works well.
-class Slider : public ClickableItem {
-public:
-	Slider(const std::string &text, int min, int max, int *value, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), min_(min), max_(max), value_(value) {}
-
-	virtual void Draw(UIContext &dc);
-	virtual void Touch(UIContext &dc);
-
-private:
-	std::string text_;
-	int min_, max_;
-	int *value_;
-};
-
 class ItemHeader : public Item {
 public:
 	ItemHeader(const std::string &text, LayoutParams *layoutParams = 0)

@@ -190,7 +190,6 @@ void Clickable::Update(const InputState &input_state) {
 			OnClick.Trigger(e);
 		}
 	}
-	OnClick.Update();
 }
 
 Item::Item(LayoutParams *layoutParams) : InertView(layoutParams) {
@@ -260,14 +259,6 @@ void CheckBox::Draw(UIContext &dc) {
 
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	dc.Draw()->DrawImage(image, bounds_.x2() - 4, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
-}
-
-void Slider::Draw(UIContext &dc) {
-	// TODO
-}
-
-void Slider::Touch(UIContext &dc) {
-	// TODO
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

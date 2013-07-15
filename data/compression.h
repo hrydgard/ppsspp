@@ -1,8 +1,8 @@
 #pragma once
 
-#include <zlib.h>
+#include <string>
 
-bool compress_string(const std::string& str, std::string *dest, int compressionlevel = Z_BEST_COMPRESSION);
+bool compress_string(const std::string& str, std::string *dest, int compressionlevel = 9);
 bool decompress_string(const std::string& str, std::string *dest);
 
 
