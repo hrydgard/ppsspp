@@ -212,7 +212,23 @@ typedef enum _keycode_t {
 	KEYCODE_BUTTON_15 = 202,
 	KEYCODE_BUTTON_16 = 203,
 
-
+	// Ouya buttons. Just here for reference, they map straight to regular android buttons
+	// and will be mapped the same way.
+	KEYCODE_OUYA_BUTTON_A = 97,
+	KEYCODE_OUYA_BUTTON_DPAD_DOWN = 20,
+	KEYCODE_OUYA_BUTTON_DPAD_LEFT = 21,
+	KEYCODE_OUYA_BUTTON_DPAD_RIGHT = 22,
+	KEYCODE_OUYA_BUTTON_DPAD_UP = 19,
+	KEYCODE_OUYA_BUTTON_L1 = 102,
+	KEYCODE_OUYA_BUTTON_L2 = 104,
+	KEYCODE_OUYA_BUTTON_L3 = 106,
+	KEYCODE_OUYA_BUTTON_MENU = 82,
+	KEYCODE_OUYA_BUTTON_O = 96,
+	KEYCODE_OUYA_BUTTON_R1 = 103,
+	KEYCODE_OUYA_BUTTON_R2 = 105,
+	KEYCODE_OUYA_BUTTON_R3 = 107,
+	KEYCODE_OUYA_BUTTON_U = 99,
+	KEYCODE_OUYA_BUTTON_Y = 100,
 
 	// Extended keycodes, not available on Android
 	KEYCODE_EXT_PIPE = 1001,  // The key next to Z on euro 102-key keyboards.
@@ -252,4 +268,13 @@ enum AndroidJoystickAxis {
 	JOYSTICK_AXIS_BRAKE = 23,
 	JOYSTICK_AXIS_DISTANCE = 24,
 	JOYSTICK_AXIS_TILT = 25,
+
+	// Ouya axises. Just here for reference, they map straight to regular android axises
+	// and will be mapped the same way.
+	JOYSTICK_OUYA_AXIS_L2 = 17,
+	JOYSTICK_OUYA_AXIS_LS_X = 0,
+	JOYSTICK_OUYA_AXIS_LS_Y = 1,
+	JOYSTICK_OUYA_AXIS_R2 = 18,
+	JOYSTICK_OUYA_AXIS_RS_X = 11,
+	JOYSTICK_OUYA_AXIS_RS_Y = 14,
 };
