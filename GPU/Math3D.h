@@ -64,7 +64,7 @@ public:
 	{
 		return Vec2(-x,-y);
 	}
-	Vec2 Mul(const Vec2& other) const
+	Vec2 operator * (const Vec2& other) const
 	{
 		return Vec2(x*other.x, y*other.y);
 	}
@@ -194,7 +194,7 @@ public:
 	{
 		return Vec3(-x,-y,-z);
 	}
-	Vec3 Mul(const Vec3 &other) const
+	Vec3 operator * (const Vec3 &other) const
 	{
 		return Vec3(x*other.x, y*other.y, z*other.z);
 	}
@@ -353,7 +353,7 @@ public:
 	{
 		return Vec4(-x,-y,-z,-w);
 	}
-	Vec4 Mul(const Vec4 &other) const
+	Vec4 operator * (const Vec4 &other) const
 	{
 		return Vec4(x*other.x, y*other.y, z*other.z, w*other.w);
 	}
