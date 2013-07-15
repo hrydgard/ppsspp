@@ -68,7 +68,6 @@ enum {
 	ERROR_NET_ADHOCCTL_DISCONNECTED				 = 0x80410b09,
 	ERROR_NET_ADHOCCTL_BUSY                      = 0x80410b10,
 	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
-
 };
 
 // These might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc..
@@ -150,6 +149,8 @@ void __NetDoState(PointerWrap &p) {
 	p.Do(netInetInited);
 	p.Do(netAdhocInited);
 	p.Do(netApctlInited);
+	p.Do(netAdhocctlInited);
+	p.Do(netAdhocMatchingInited);
 	p.Do(adhocctlHandlers);
 	p.Do(apctlHandlers);
 	p.Do(netMallocStat);
