@@ -104,16 +104,14 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	if (texture) {
+		dc.Draw()->Flush();
 		texture->Bind(0);
 		dc.Draw()->DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
+		dc.RebindTexture();
 	} else {
 		dc.FillRect(dc.theme->buttonStyle.background, bounds_);
-		dc.Draw()->Flush();
-		Texture::Unbind();
 	}
-	
-	dc.RebindTexture();
 }
 
 // Abstraction above path that lets you navigate easily.

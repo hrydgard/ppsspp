@@ -201,6 +201,9 @@ public:
 					}
 				}
 			}
+
+			break;
+
 		case FILETYPE_PSP_ELF:
 			// An elf on its own has no usable information, no icons, no nothing.
 			info_->title = getFilename(filename);
@@ -220,7 +223,7 @@ public:
 				delete [] contents;
 			}
 
-			return;
+			break;
 
 		case FILETYPE_PSP_ISO:
 		case FILETYPE_PSP_ISO_NP:
