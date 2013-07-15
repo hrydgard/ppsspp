@@ -272,6 +272,10 @@ void Choice::Draw(UIContext &dc) {
 
 	int paddingX = 8;
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+
+	if (selected_) {
+		dc.Draw()->DrawImage(dc.theme->checkOn, bounds_.x2() - 40, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+	}
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 

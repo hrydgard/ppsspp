@@ -27,3 +27,41 @@ protected:
 private:
 	bool recreateViews_;
 };
+
+class PopupScreen : public UIScreen {
+public:
+	PopupScreen(const std::string &title);
+
+	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
+	virtual void CreateViews();
+	virtual bool isTransparent() { return true; }
+
+protected:
+	virtual void OnCompleted() {}
+
+private:
+	UI::EventReturn OnOK(UI::EventParams &e);
+	UI::EventReturn OnCancel(UI::EventParams &e);
+
+	std::string title_;
+};
+
+class ListPopupScreen : public PopupScreen {
+public:
+	ListPopupScreen(const std::string &title) : PopupScreen(title) {}
+	ListPopupScreen(const std::string &title, const std::vector<std::string> &items, int selected)
+		: PopupScreen(title), adaptor_(items, selected) {
+	}
+
+	UI::Event OnChoice;
+
+protected:
+	void CreatePopupContents(UI::ViewGroup *parent);
+	UI::StringVectorListAdaptor adaptor_;
+	UI::ListView *listView_;
+
+private:
+	UI::EventReturn OnListChoice(UI::EventParams &e);
+
+	std::function<void(bool, int)> callback_;
+};

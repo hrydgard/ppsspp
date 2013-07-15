@@ -30,6 +30,10 @@ void ApplyGravity(const Bounds outer, const Margins &margins, float w, float h, 
 
 ViewGroup::~ViewGroup() {
 	// Tear down the contents recursively.
+	Clear();
+}
+
+void ViewGroup::Clear() {
 	for (size_t i = 0; i < views_.size(); i++) {
 		delete views_[i];
 		views_[i] = 0;
@@ -55,6 +59,13 @@ void ViewGroup::Key(const KeyInput &input) {
 
 
 void ViewGroup::Draw(UIContext &dc) {
+	if (hasDropShadow_) {
+		// Darken things behind.
+		dc.FillRect(UI::Drawable(0x60000000), Bounds(0,0,dp_xres, dp_yres));
+		// dc.Draw()->DrawImage4Grid(dc.theme->dropShadow, )
+	}
+
+	dc.FillRect(bg_, bounds_);
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() == V_VISIBLE) {
@@ -499,6 +510,18 @@ void ScrollView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	views_[0]->Draw(dc);
 	dc.PopScissor();
+
+	float childHeight = views_[0]->GetBounds().h;
+	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
+
+	float ratio = bounds_.h / views_[0]->GetBounds().h;
+	if (ratio < 1.0f && scrollMax > 0.0f) {
+		float bobHeight = ratio * bounds_.h;
+		float bobOffset = (scrollPos_ / scrollMax) * (bounds_.h - bobHeight);
+
+		Bounds bob(bounds_.x2() - 10, bounds_.y + bobOffset, 5, bobHeight);
+		dc.FillRect(Drawable(0x80FFFFFF), bob);
+	}
 }
 
 bool ScrollView::SubviewFocused(View *view) {
@@ -690,17 +713,18 @@ void ChoiceStrip::AddChoice(const std::string &title) {
 	StickyChoice *c = new StickyChoice(title, "", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
 	Add(c);
-	if (selected_ == views_.size() - 1)
+	if (selected_ == (int)views_.size() - 1)
 		c->Press();
 }
 
 EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i] != e.v)
+	for (int i = 0; i < (int)views_.size(); i++) {
+		if (views_[i] != e.v) {
 			static_cast<StickyChoice *>(views_[i])->Release();
-		else
+		} else {
 			selected_ = i;
+		}
 	}
 
 	EventParams e2;
@@ -719,18 +743,31 @@ void ChoiceStrip::SetSelection(int sel) {
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
 	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {
+
+	linLayout_ = new LinearLayout(ORIENT_VERTICAL);
+	Add(linLayout_);
+	CreateAllItems();
+}
+
+void ListView::CreateAllItems() {
+	linLayout_->Clear();
 	// Let's not be clever yet, we'll just create them all up front and add them all in.
 	for (int i = 0; i < adaptor_->GetNumItems(); i++) {
-		View * v = Add(adaptor_->CreateItemView(i));
+		View * v = linLayout_->Add(adaptor_->CreateItemView(i));
 		adaptor_->AddEventCallback(v, std::bind(&ListView::OnItemCallback, this, i, placeholder::_1));
 	}
 }
 
 EventReturn ListView::OnItemCallback(int num, EventParams &e) {
 	EventParams ev;
-	ev.v = e.v;
+	ev.v = 0;
 	ev.a = num;
+	adaptor_->SetSelected(num);
+	View *focused = GetFocusedView();
 	OnChoice.Trigger(ev);
+	CreateAllItems();
+	if (focused)
+		SetFocusedView(linLayout_->GetViewByIndex(num));
 	return EVENT_DONE;
 }
 
@@ -739,6 +776,17 @@ View *ChoiceListAdaptor::CreateItemView(int index) {
 }
 
 bool ChoiceListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) {
+	Choice *choice = (Choice *)view;
+	choice->OnClick.Add(callback);
+	return EVENT_DONE;
+}
+
+
+View *StringVectorListAdaptor::CreateItemView(int index) {
+	return new Choice(items_[index], "", index == selected_);
+}
+
+bool StringVectorListAdaptor::AddEventCallback(View *view, std::function<EventReturn(EventParams&)> callback) {
 	Choice *choice = (Choice *)view;
 	choice->OnClick.Add(callback);
 	return EVENT_DONE;

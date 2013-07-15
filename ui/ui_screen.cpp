@@ -53,3 +53,56 @@ UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;
 }
+
+
+PopupScreen::PopupScreen(const std::string &title)
+	: title_(title) {}
+
+void PopupScreen::CreateViews() {
+	using namespace UI;
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	ViewGroup *box = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(30, 30, 30, 30));
+	root_->Add(box);
+	box->SetBG(UI::Drawable(0xFF303030));
+	box->SetHasDropShadow(true);
+
+	View *title = new ItemHeader(title_);
+	box->Add(title);
+
+	CreatePopupContents(box);
+
+	// And the two buttons at the bottom.
+	ViewGroup *buttonRow = new LinearLayout(ORIENT_HORIZONTAL);
+	buttonRow->Add(new Button("OK", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
+	buttonRow->Add(new Button("Cancel", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+	box->Add(buttonRow);
+}
+
+UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
+	// callback_(true);
+	OnCompleted();
+	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
+	// callback_(false);
+	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+
+void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	listView_ = parent->Add(new ListView(&adaptor_, new LinearLayoutParams(1.0)));
+	listView_->OnChoice.Handle(this, &ListPopupScreen::OnListChoice);
+}
+
+UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
+	adaptor_.SetSelected(e.a);
+	OnChoice.Dispatch(e);
+	return UI::EVENT_DONE;
+}
+

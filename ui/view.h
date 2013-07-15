@@ -147,6 +147,7 @@ inline FocusDirection Opposite(FocusDirection d) {
 	case FOCUS_PREV: return FOCUS_NEXT;
 	case FOCUS_NEXT: return FOCUS_PREV;
 	}
+	return d;
 }
 
 enum MeasureSpecType {
@@ -443,8 +444,8 @@ public:
 // Use to trigger something or open a submenu screen.
 class Choice : public ClickableItem {
 public:
-	Choice(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText) {}
+	Choice(const std::string &text, const std::string &smallText = "", bool selected = false, LayoutParams *layoutParams = 0)
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText), selected_(selected) {}
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
@@ -452,13 +453,14 @@ public:
 private:
 	std::string text_;
 	std::string smallText_;
+	bool selected_;
 };
 
 // Different key handling.
 class StickyChoice : public Choice {
 public:
 	StickyChoice(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
-		: Choice(text, smallText, layoutParams) {}
+		: Choice(text, smallText, false, layoutParams) {}
 
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);

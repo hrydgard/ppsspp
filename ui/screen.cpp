@@ -73,6 +73,7 @@ void ScreenManager::render() {
 	if (!stack_.empty()) {
 		switch (stack_.back().flags) {
 		case LAYER_SIDEMENU:
+		case LAYER_TRANSPARENT:
 			if (stack_.size() == 1) {
 				ELOG("Can't have sidemenu over nothing");
 				break;
