@@ -615,6 +615,7 @@ int main(int argc, char *argv[]) {
 					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
+					g_buttonTracker.Process(key);
 					break;
 				}
 			case SDL_KEYUP:
@@ -625,6 +626,7 @@ int main(int argc, char *argv[]) {
 					key.keyCode = KeyMapRawSDLtoNative.find(k)->second;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
+					g_buttonTracker.Process(key);
 					break;
 				}
 			case SDL_MOUSEBUTTONDOWN:

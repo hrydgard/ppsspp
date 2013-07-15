@@ -33,16 +33,12 @@ std::string frameCommandParam;
 
 const bool extraLog = true;
 
-static uint32_t pad_buttons_async_set;
-static uint32_t pad_buttons_async_clear;
 static float left_joystick_x_async;
 static float left_joystick_y_async;
 static float right_joystick_x_async;
 static float right_joystick_y_async;
 static float hat_joystick_x_async;
 static float hat_joystick_y_async;
-
-static uint32_t pad_buttons_down;
 
 int optimalFramesPerBuffer = 0;
 int optimalSampleRate = 0;
@@ -142,9 +138,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	renderer_inited = false;
 	first_lost = true;
 
-	pad_buttons_down = 0;
-	pad_buttons_async_set = 0;
-	pad_buttons_async_clear = 0;
+	g_buttonTracker.Reset();
 
 	left_joystick_x_async = 0;
 	left_joystick_y_async = 0;
@@ -262,20 +256,13 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 		// TODO: Look into if these locks are a perf loss
 		{
 			lock_guard guard(input_state.lock);
-			pad_buttons_down |= pad_buttons_async_set;
-			pad_buttons_down &= ~pad_buttons_async_clear;
 
-			input_state.pad_buttons = pad_buttons_down;
-
-			UpdateInputState(&input_state);
-		}
-
-		{
-			lock_guard guard(input_state.lock);
 			input_state.pad_lstick_x = left_joystick_x_async;
 			input_state.pad_lstick_y = left_joystick_y_async;
 			input_state.pad_rstick_x = right_joystick_x_async;
 			input_state.pad_rstick_y = right_joystick_y_async;
+
+			UpdateInputState(&input_state);
 		}
 		NativeUpdate(input_state);
 
@@ -367,15 +354,6 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_touch
 	// ELOG("Touch Exit %i", pointerId);
 }
 
-static inline void AsyncDown(int padbutton) {
-	pad_buttons_async_set |= padbutton;
-	pad_buttons_async_clear &= ~padbutton;
-}
-
-static inline void AsyncUp(int padbutton) {
-	pad_buttons_async_set &= ~padbutton;
-	pad_buttons_async_clear |= padbutton;
-}
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jclass, jint deviceId, jint key) {
 	KeyInput keyInput;
@@ -383,19 +361,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyDown(JNIEnv *, jcl
 	keyInput.keyCode = key;
 	keyInput.flags = KEY_DOWN;
 	NativeKey(keyInput);
-
-	// Pad mapping
-	switch (key) {
-	case KEYCODE_BACK: AsyncDown(PAD_BUTTON_BACK); break; // Back
-	case KEYCODE_MENU: AsyncDown(PAD_BUTTON_MENU); break; // Menu
-	case KEYCODE_BUTTON_CROSS_PS3:
-		AsyncDown(PAD_BUTTON_A);
-		break;
-	case KEYCODE_BUTTON_CIRCLE_PS3:
-		AsyncDown(PAD_BUTTON_B);
-		break;
-	default: break;
-	}
+	g_buttonTracker.Process(keyInput);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclass, jint deviceId, jint key) {
@@ -404,24 +370,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_keyUp(JNIEnv *, jclas
 	keyInput.keyCode = key;
 	keyInput.flags = KEY_UP;
 	NativeKey(keyInput);
-
-	// Pad mapping
-	switch (key) {
-	case KEYCODE_BACK:
-		AsyncUp(PAD_BUTTON_BACK);
-		break; // Back
-	case KEYCODE_MENU:
-		AsyncUp(PAD_BUTTON_MENU);
-		break; // Menu
-	case KEYCODE_BUTTON_CROSS_PS3:
-		AsyncUp(PAD_BUTTON_A);
-		break;
-	case KEYCODE_BUTTON_CIRCLE_PS3:
-		AsyncUp(PAD_BUTTON_B);
-		break;
-	default:
-		break;
-	}
+	g_buttonTracker.Process(keyInput);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_beginJoystickEvent(

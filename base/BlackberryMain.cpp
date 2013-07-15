@@ -51,7 +51,7 @@ void LaunchEmail(const char *email_address)
 
 InputState input_state;
 
-// Input
+// Input - urgh, these may collide with the android keycodes when we bring in input/keycodes.h
 const unsigned int buttonMappings[18] = {
 	KEYCODE_K,          //Cross
 	KEYCODE_L,          //Circle
@@ -131,7 +131,7 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 			if (value == buttonMappings[b] & 0xFF) {
 				if (flags & KEY_DOWN)
 					pad_buttons |= (1<<b);
-				else
+				if (flags & KEY_UP)
 					pad_buttons &= ~(1<<b);
 			}
 		}
@@ -243,6 +243,8 @@ void BlackberryMain::runMain() {
 				}
 			}
 		}
+		// TODO: This is broken. Instead we should just send keyboard events through using NativeKey and not
+		// even bother with these bitfields.
 		input_state.pad_buttons = pad_buttons | controller_buttons;
 		pad_buttons &= ~PAD_BUTTON_MENU;
 		UpdateInputState(&input_state);

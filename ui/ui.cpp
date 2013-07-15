@@ -294,7 +294,7 @@ int UITextureButton(UIContext *ctx, int id, const LayoutManager &layout, float w
 			y += txOffset * 2;
 		}
 		ui_draw2d.DrawImage4Grid(drop_shadow, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 
-			alphaMul(color,0.5f), 1.0f);
+			blackAlpha(0.5f), 1.0f);
 		ui_draw2d.Flush(true);
 	}
 

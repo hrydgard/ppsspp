@@ -109,14 +109,8 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(InputState);
 };
 
-inline void UpdateInputState(InputState *input) {
-	input->pad_buttons_down = (input->pad_last_buttons ^ input->pad_buttons) & input->pad_buttons;
-	input->pad_buttons_up = (input->pad_last_buttons ^ input->pad_buttons) & input->pad_last_buttons;
-}
-
-inline void EndInputState(InputState *input) {
-	input->pad_last_buttons = input->pad_buttons;
-}
+void UpdateInputState(InputState *input);
+void EndInputState(InputState *input);
 
 enum {
 	TOUCH_MOVE = 1,
@@ -160,3 +154,25 @@ struct AxisInput {
 	float value;
 	int flags;
 };
+
+
+class ButtonTracker {
+public:
+	ButtonTracker() { Reset(); }
+	void Reset() { 
+		pad_buttons_ = 0;
+		pad_buttons_async_set = 0;
+		pad_buttons_async_clear = 0;
+	}
+	void Process(const KeyInput &input);
+	void Update(InputState &input_state);
+	uint32_t GetPadButtons() const { return pad_buttons_; }
+
+private:
+	uint32_t pad_buttons_;
+	uint32_t pad_buttons_async_set;
+	uint32_t pad_buttons_async_clear;
+};
+
+// Platforms should call g_buttonTracker.Process().
+extern ButtonTracker g_buttonTracker;
