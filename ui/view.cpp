@@ -52,7 +52,13 @@ View *GetFocusedView() {
 }
 
 void SetFocusedView(View *view) {
+	if (focusedView) {
+		focusedView->FocusChanged(FF_LOSTFOCUS);
+	}
 	focusedView = view;
+	if (focusedView) {
+		focusedView->FocusChanged(FF_GOTFOCUS);
+	}
 }
 
 void EnableFocusMovement(bool enable) {
@@ -123,6 +129,13 @@ void Clickable::Click() {
 	OnClick.Trigger(e);
 };
 
+void Clickable::FocusChanged(int focusFlags) {
+	if (focusFlags & FF_LOSTFOCUS) {
+		down_ = false;
+		dragging_ = false;
+	}
+}
+
 void Clickable::Touch(const TouchInput &input) {
 	if (!enabled_) {
 		dragging_ = false;
@@ -176,8 +189,8 @@ void Clickable::Update(const InputState &input_state) {
 			e.v = this;
 			OnClick.Trigger(e);
 		}
-		down_ = false;
 	}
+	OnClick.Update();
 }
 
 Item::Item(LayoutParams *layoutParams) : InertView(layoutParams) {
@@ -247,6 +260,14 @@ void CheckBox::Draw(UIContext &dc) {
 
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	dc.Draw()->DrawImage(image, bounds_.x2() - 4, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+}
+
+void Slider::Draw(UIContext &dc) {
+	// TODO
+}
+
+void Slider::Touch(UIContext &dc) {
+	// TODO
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

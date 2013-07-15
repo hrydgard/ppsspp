@@ -149,6 +149,11 @@ enum EventReturn {
 	EVENT_SKIPPED,
 };
 
+enum FocusFlags {
+	FF_LOSTFOCUS = 1,
+	FF_GOTFOCUS = 2
+};
+
 class ViewGroup;
 
 void Fill(UIContext &dc, const Bounds &bounds, const Drawable &drawable);
@@ -260,6 +265,8 @@ public:
 	virtual void Touch(const TouchInput &input) = 0;
 	virtual void Update(const InputState &input_state) = 0;
 
+	virtual void FocusChanged(int focusFlags) {}
+
 	void Move(Bounds bounds) {
 		bounds_ = bounds;
 	}
@@ -350,6 +357,8 @@ public:
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
 	virtual void Update(const InputState &input_state);
+
+	virtual void FocusChanged(int focusFlags);
 
 	Event OnClick;
 
@@ -442,6 +451,21 @@ public:
 private:
 	std::string text_;
 	std::string rightText_;
+};
+
+// Not really using the click action, but the background lightup works well.
+class Slider : public ClickableItem {
+public:
+	Slider(const std::string &text, int min, int max, int *value, LayoutParams *layoutParams = 0)
+		: ClickableItem(layoutParams), text_(text), min_(min), max_(max), value_(value) {}
+
+	virtual void Draw(UIContext &dc);
+	virtual void Touch(UIContext &dc);
+
+private:
+	std::string text_;
+	int min_, max_;
+	int *value_;
 };
 
 class ItemHeader : public Item {
