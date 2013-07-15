@@ -791,6 +791,12 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLE.h
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
+	Core/HLE/MaiLibFont.cpp
+	Core/HLE/MaiLibFont.h
+	Core/HLE/MaiPrx.cpp
+	Core/HLE/MaiPrx.h
+	Core/HLE/MaiUSB.cpp
+	Core/HLE/MaiUSB.h
 	Core/HLE/__sceAudio.cpp
 	Core/HLE/__sceAudio.h
 	Core/HLE/sceAtrac.cpp

@@ -132,6 +132,15 @@
     <ClCompile Include="HLE\HLETables.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\MaiLibFont.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\MaiPrx.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\MaiUSB.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceKernel.cpp">
       <Filter>HLE\Kernel</Filter>
     </ClCompile>
@@ -308,6 +317,15 @@
     </ClCompile>
     <ClCompile Include="ELF\ParamSFO.cpp">
       <Filter>ELF</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\MaiLibFont.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\MaiPrx.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\MaiUSB.cpp">
+      <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceOpenPSID.cpp">
       <Filter>HLE\Libraries</Filter>
@@ -514,6 +532,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HLE\HLETables.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\MaiPrx.h">
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceKernel.h">

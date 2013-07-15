@@ -19,6 +19,9 @@
 
 #include "HLETables.h"
 
+#include "MaiLibFont.h"
+#include "MaiPrx.h"
+#include "MaiUSB.h"
 #include "sceCcc.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
@@ -230,6 +233,9 @@ void RegisterAllModules() {
 	Register_ModuleMgrForUser();
 	Register_StdioForUser();
 
+	Register_MaiLibFont();
+	Register_MaiPrx();
+	Register_MaiUSB();
 	Register_sceHprm();
 	Register_sceCcc();
 	Register_sceCtrl();
