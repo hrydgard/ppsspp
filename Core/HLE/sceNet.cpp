@@ -21,6 +21,7 @@
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
+#include "sceKernelMutex.h"
 #include "sceUtility.h"
 
 #include "net/resolve.h"
@@ -28,6 +29,8 @@
 static bool netInited;
 static bool netInetInited;
 static bool netAdhocInited;
+static bool netAdhocctlInited;
+static bool netAdhocMatchingInited;
 static bool netApctlInited;
 
 // TODO: Determine how many handlers we can actually have
@@ -36,6 +39,8 @@ const size_t MAX_APCTL_HANDLERS = 32;
 
 enum {
 	ERROR_NET_BUFFER_TOO_SMALL                   = 0x80400706,
+
+	ERROR_NET_INET_ALREADY_INITIALIZED           = 0x80410201,
 
 	ERROR_NET_RESOLVER_BAD_ID                    = 0x80410408,
 	ERROR_NET_RESOLVER_ALREADY_STOPPED           = 0x8041040a,
@@ -55,12 +60,15 @@ enum {
 	ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED = 0x80410812,
 	ERROR_NET_ADHOC_MATCHING_NOT_INITIALIZED     = 0x80410813,
 
+	ERROR_NET_APCTL_ALREADY_INITIALIZED          = 0x80410a01,
+
 	ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF			 = 0x80410b03,
 	ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED       = 0x80410b07,
 	ERROR_NET_ADHOCCTL_NOT_INITIALIZED           = 0x80410b08,
 	ERROR_NET_ADHOCCTL_DISCONNECTED				 = 0x80410b09,
 	ERROR_NET_ADHOCCTL_BUSY                      = 0x80410b10,
 	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
+
 };
 
 // These might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc..
@@ -162,6 +170,7 @@ void sceNetInit() {
 u32 sceNetTerm() {
 	ERROR_LOG(HLE,"UNIMPL sceNetTerm()");
 	netInited = false;
+
 	return 0;
 }
 
@@ -176,6 +185,10 @@ u32 sceNetAdhocInit() {
 
 u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	ERROR_LOG(HLE,"UNIMPL sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
+	if(netAdhocctlInited)
+		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
+	netAdhocctlInited = true;
+
 	return 0;
 }
 
@@ -257,16 +270,25 @@ u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 int sceNetAdhocMatchingTerm() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingTerm()");
+	netAdhocMatchingInited = false;
+
 	return 0;
 }
 
 int sceNetAdhocctlTerm() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlTerm()");
+	netAdhocctlInited = false;
+
 	return 0;
 }
 
 int sceNetAdhocTerm() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocTerm()");
+	// Seems to return this when called a second time after being terminated without another initialisation
+	if(!netAdhocInited) 
+		return SCE_KERNEL_ERROR_LWMUTEX_NOT_FOUND;
+	netAdhocInited = false;
+
 	return 0;
 }
 
@@ -372,13 +394,17 @@ int sceNetGetMallocStat(u32 statPtr) {
 
 int sceNetAdhocMatchingInit(u32 memsize) {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
+	if(netAdhocMatchingInited) 
+		return ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED;
+	netAdhocMatchingInited = true;
+
 	return 0;
 }
 
 int sceNetInetInit() {
 	ERROR_LOG(HLE, "UNIMPL sceNetInetInit()");
 	if (netInetInited)
-		return ERROR_NET_ADHOC_ALREADY_INITIALIZED; // TODO: What's the proper error for netInet already being inited?
+		return ERROR_NET_INET_ALREADY_INITIALIZED;
 	netInetInited = true;
 
 	return 0;
@@ -394,7 +420,7 @@ int sceNetInetTerm() {
 int sceNetApctlInit() {
 	ERROR_LOG(HLE, "UNIMPL sceNetApctlInit()");
 	if (netAdhocInited)
-		return ERROR_NET_ADHOC_ALREADY_INITIALIZED; // TODO: What's the proper error for apctl already being inited?
+		return ERROR_NET_APCTL_ALREADY_INITIALIZED;
 	netApctlInited = true;
 
 	return 0;
@@ -402,8 +428,8 @@ int sceNetApctlInit() {
 
 int sceNetApctlTerm() {
 	ERROR_LOG(HLE, "UNIMPL sceNeApctlTerm()");
-	netInetInited = false;
-
+	netApctlInited = false;
+	
 	return 0;
 }
 
