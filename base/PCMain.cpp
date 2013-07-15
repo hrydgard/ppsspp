@@ -492,8 +492,7 @@ int main(int argc, char *argv[]) {
 	float dp_xscale = (float)dp_xres / pixel_xres;
 	float dp_yscale = (float)dp_yres / pixel_yres;
 
-	g_dpi_scale = pixel_xres / dp_xres;
-
+	g_dpi_scale = dp_xres / (float)pixel_xres;
 
 	printf("Pixels: %i x %i\n", pixel_xres, pixel_yres);
 	printf("Virtual pixels: %i x %i\n", dp_xres, dp_yres);
