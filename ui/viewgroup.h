@@ -130,7 +130,9 @@ public:
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
-
+	void SetSpacing(float spacing) {
+		spacing_ = spacing;
+	}
 private:
 	Orientation orientation_;
 	Margins defaultMargins_;
@@ -212,7 +214,7 @@ public:
 class ChoiceStrip : public LinearLayout {
 public:
 	ChoiceStrip(Orientation orientation, LayoutParams *layoutParams = 0)
-		: LinearLayout(orientation, layoutParams), selected_(0) {}
+		: LinearLayout(orientation, layoutParams), selected_(0) { SetSpacing(0.0f); }
 
 	void AddChoice(const std::string &title);
 	int GetSelection() const { return selected_; }

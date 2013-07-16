@@ -743,8 +743,8 @@ void ChoiceStrip::SetSelection(int sel) {
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
 	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {
-
 	linLayout_ = new LinearLayout(ORIENT_VERTICAL);
+	linLayout_->SetSpacing(0.0f);
 	Add(linLayout_);
 	CreateAllItems();
 }

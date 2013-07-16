@@ -125,11 +125,13 @@ void View::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 }
 
 Point View::GetFocusPosition(FocusDirection dir) {
+	// The +2/-2 is some extra fudge factor to cover for views sitting right next to each other.
+	// Distance zero yields strange results otherwise.
 	switch (dir) {
-	case FOCUS_LEFT: return Point(bounds_.x, bounds_.centerY());
-	case FOCUS_RIGHT: return Point(bounds_.x2(), bounds_.centerY());
-	case FOCUS_UP: return Point(bounds_.centerX(), bounds_.y);
-	case FOCUS_DOWN: return Point(bounds_.centerX(), bounds_.y2());
+	case FOCUS_LEFT: return Point(bounds_.x + 2, bounds_.centerY());
+	case FOCUS_RIGHT: return Point(bounds_.x2() - 2, bounds_.centerY());
+	case FOCUS_UP: return Point(bounds_.centerX(), bounds_.y + 2);
+	case FOCUS_DOWN: return Point(bounds_.centerX(), bounds_.y2() - 2);
 
 	default:
 		return bounds_.Center();
@@ -288,7 +290,13 @@ void InfoItem::Draw(UIContext &dc) {
 }
 
 void ItemHeader::Draw(UIContext &dc) {
-	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFF707070, ALIGN_LEFT);
+	float scale = 1.0f;
+	if (dc.theme->uiFontSmaller == dc.theme->uiFont) {
+		scale = 0.6f;
+	}
+	dc.Draw()->SetFontScale(scale, scale);
+	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFFa0a0a0, ALIGN_LEFT);
+	dc.Draw()->SetFontScale(1.0f, 1.0f);
 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), 0xFFFFFFFF);
 }
 

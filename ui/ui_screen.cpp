@@ -62,7 +62,8 @@ void PopupScreen::CreateViews() {
 	using namespace UI;
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	ViewGroup *box = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(30, 30, 30, 30));
+	LinearLayout *box = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(30, 30, 30, 30));
+
 	root_->Add(box);
 	box->SetBG(UI::Drawable(0xFF303030));
 	box->SetHasDropShadow(true);
@@ -80,14 +81,12 @@ void PopupScreen::CreateViews() {
 }
 
 UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
-	// callback_(true);
 	OnCompleted();
 	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
-	// callback_(false);
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
@@ -106,3 +105,6 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+void ListPopupScreen::OnCompleted() {
+	callback_(adaptor_.GetSelected());	
+}

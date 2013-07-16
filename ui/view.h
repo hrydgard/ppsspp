@@ -450,9 +450,10 @@ public:
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
 
-private:
+protected:
 	std::string text_;
 	std::string smallText_;
+private:
 	bool selected_;
 };
 
