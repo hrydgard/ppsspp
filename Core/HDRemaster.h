@@ -42,6 +42,7 @@ const struct HDRemaster g_HDRemasters[] = {
 { "NPJB40002", 0x4000000, true }, // K-ON Houkago Live HD Ver
 { "BLJM85003", 0x4000000, false }, // Shin Sangoku Musou Multi Raid 2 HD Ver
 { "NPJB40003", 0x4000000, false }, // Shin Sangoku Musou Multi Raid 2 HD Ver
+{ "NPJB00274", 0x4000000, false }, //Dynasty Warriors Strikeforce 2 HD Edition (JP)
 { "BLJM85004", 0x4000000, true }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition, this one is never used
 // deactivated because it also affects the UMD version of the game
 // TODO: Differentiate between UMD version and HD version (either through reading of UMD_DATA.BIN or ISO size)
@@ -54,4 +55,5 @@ const struct HDRemaster g_HDRemasters[] = {
 // deactivated because it also affects the UMD version of the game
 // TODO: Differentiate between UMD version and HD version (either through reading of UMD_DATA.BIN or ISO size)
 // { "ULJM05353", 0x4C00000, true }, // Eiyuu Densetsu: Sora no Kiseki 3rd Kai HD Edition, game needs 76 MB
+
 };
