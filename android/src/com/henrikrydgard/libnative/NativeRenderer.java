@@ -31,15 +31,18 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
 		displayResize(width, height);
 	}
 	
+	public void onDestroyed() {
+		displayShutdown();
+	}
 	
 	// NATIVE METHODS
 
 	// Note: This also means "device lost" and you should reload
 	// all buffered objects. 
 	public native void displayInit(); 
-	
 	public native void displayResize(int w, int h);
 	public native void displayRender();
+	public native void displayShutdown();
 	
 	// called by the C++ code through JNI. Dispatch anything we can't directly handle
 	// on the gfx thread to the UI thread.

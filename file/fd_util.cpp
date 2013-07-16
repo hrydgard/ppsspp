@@ -105,7 +105,7 @@ void SetNonBlocking(int sock, bool non_blocking) {
 	int opts = fcntl(sock, F_GETFL);
   if (opts < 0) {
 		perror("fcntl(F_GETFL)");
-		exit(EXIT_FAILURE);
+		ELOG("Error getting socket status while changing nonblocking status");
 	}
 	if (non_blocking) {
     opts = (opts | O_NONBLOCK);
@@ -115,7 +115,7 @@ void SetNonBlocking(int sock, bool non_blocking) {
 
 	if (fcntl(sock, F_SETFL, opts) < 0) {
 		perror("fcntl(F_SETFL)");
-		exit(EXIT_FAILURE);
+		ELOG("Error setting socket nonblocking status");
 	}
 #else
   WLOG("NonBlocking mode not supported on Win32");

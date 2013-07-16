@@ -95,6 +95,7 @@ InputState input_state;
 static bool renderer_inited = false;
 static bool first_lost = true;
 static bool use_opensl_audio = false;
+static std::string library_path;
 
 std::string GetJavaString(JNIEnv *env, jstring jstr)
 {
@@ -153,7 +154,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 
 	std::string externalDir = GetJavaString(env, jexternalDir);
 	std::string user_data_path = GetJavaString(env, jdataDir) + "/";
-	std::string library_path = GetJavaString(env, jlibraryDir) + "/";
+	library_path = GetJavaString(env, jlibraryDir) + "/";
 	std::string installID = GetJavaString(env, jinstallID);
 
 	ILOG("NativeApp.init(): External storage path: %s", externalDir.c_str());
@@ -176,14 +177,27 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), installID.c_str());
 
 	use_opensl_audio = juseNativeAudio;
+	ILOG("NativeApp.init() -- end");
+}	
+
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, jclass) {
+	ILOG("NativeApp.audioInit() -- begin");
 	if (use_opensl_audio) {
 		// TODO: PPSSPP doesn't support 48khz yet so let's not use that yet.
 		ILOG("Using OpenSL audio! frames/buffer: %i   optimal sr: %i   actual sr: 44100", optimalFramesPerBuffer, optimalSampleRate);
 		optimalSampleRate = 44100;
 		AndroidAudio_Init(&NativeMix, library_path, optimalFramesPerBuffer, optimalSampleRate);
 	}
-	ILOG("NativeApp.init() -- end");
-}	
+	ILOG("NativeApp.audioShutdown() -- end");
+}
+
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioShutdown(JNIEnv *, jclass) {
+	ILOG("NativeApp.audioShutdown() -- begin");
+	if (use_opensl_audio) {
+		AndroidAudio_Shutdown();
+	}
+	ILOG("NativeApp.audioShutdown() -- end");
+}
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resume(JNIEnv *, jclass) {
 	ILOG("NativeApp.resume() - resuming audio");
@@ -193,22 +207,15 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resume(JNIEnv *, jcla
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_pause(JNIEnv *, jclass) {
-	ILOG("NativeApp.pause() - pausing audio");
+	ILOG("NativeApp.pause() - begin");
 	if (use_opensl_audio) {
 		AndroidAudio_Pause();
 	}
-	ILOG("NativeApp.pause() - paused audio");
+	ILOG("NativeApp.pause() - end");
 }
  
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_shutdown(JNIEnv *, jclass) {
 	ILOG("NativeApp.shutdown() -- begin");
- 	if (use_opensl_audio) {
-		AndroidAudio_Shutdown();
-	}
-	if (renderer_inited) {
-		NativeShutdownGraphics();
-		renderer_inited = false;
-	}
 	NativeShutdown();
 	ILOG("VFSShutdown.");
 	VFSShutdown();
@@ -242,6 +249,16 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIE
 	jclass cls = env->GetObjectClass(obj);
 	postCommand = env->GetMethodID(cls, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	ILOG("MethodID: %i", (int)postCommand);
+}
+
+extern "C" void Java_com_henrikrydgard_libnative_NativeApp_resized
+	(JNIEnv *env, jclass, jint xxres, jint yyres) {
+	pixel_xres = xxres;
+	pixel_yres = yyres;
+	dp_xres = pixel_xres * g_dpi_scale;
+	dp_yres = pixel_yres * g_dpi_scale;
+	dp_xscale = (float)dp_xres / pixel_xres;
+	dp_yscale = (float)dp_yres / pixel_yres;
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayResize(JNIEnv *, jobject clazz, jint w, jint h) {
@@ -293,6 +310,14 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayRender(JN
 		frameCommandParam = "";
 	}
 }
+
+extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayShutdown(JNIEnv *env, jobject obj) {
+	if (renderer_inited) {
+		NativeShutdownGraphics();
+		renderer_inited = false;
+	}
+}
+
 
 // This path is not used if OpenSL ES is available.
 extern "C" jint Java_com_henrikrydgard_libnative_NativeApp_audioRender(JNIEnv*	env, jclass clazz, jshortArray array) {

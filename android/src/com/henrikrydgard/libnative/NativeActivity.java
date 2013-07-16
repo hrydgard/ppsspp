@@ -22,6 +22,7 @@ import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
+import android.graphics.Point;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.opengl.GLSurfaceView;
@@ -84,9 +85,14 @@ public class NativeActivity extends Activity {
 	// Adjust these as necessary
 	private static String TAG = "NativeActivity";
    
+	
+	// Allows us to skip a lot of initialization on secondary calls to onCreate.
+	private static boolean initialized = false;
+	
 	// Graphics and audio interfaces
 	private GLSurfaceView mGLSurfaceView;
 	private NativeAudioPlayer audioPlayer;
+	private NativeRenderer nativeRenderer;
 	
 	boolean useOpenSL = false;
 	
@@ -123,9 +129,24 @@ public class NativeActivity extends Activity {
 	    return libdir;
 	}
 
+	@TargetApi(13)
+	void GetScreenSizeHC(Point size) {
+        WindowManager w = getWindowManager();
+		w.getDefaultDisplay().getSize(size);
+	}
 	
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
+	void GetScreenSize(Point size) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+			GetScreenSizeHC(size);
+		} else {
+	        WindowManager w = getWindowManager();
+	        Display d = w.getDefaultDisplay();
+			size.x = d.getWidth();
+			size.y = d.getHeight();
+		}
+	}
+	
+	public void Initialize() {
         if (Build.VERSION.SDK_INT >= 9) {
         	// Native OpenSL is available. Let's use it!
         	useOpenSL = true;
@@ -135,14 +156,13 @@ public class NativeActivity extends Activity {
         	detectOptimalAudioSettings();
         }
 
+        /*
         if (NativeApp.isLandscape()) {
     		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
     	} else {
     		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-    	}
-		super.onCreate(savedInstanceState); 
+    	}*/
     	Log.i(TAG, "onCreate");
-    	installID = Installation.id(this);
     	// Get system information
 		ApplicationInfo appInfo = null;  
 		PackageManager packMgmr = getPackageManager();
@@ -158,10 +178,11 @@ public class NativeActivity extends Activity {
         Display display = ((WindowManager)this.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
 		@SuppressWarnings("deprecation")
         int scrPixelFormat = display.getPixelFormat();
-        @SuppressWarnings("deprecation")
-        int scrWidth = display.getWidth(); 
-        @SuppressWarnings("deprecation")
-		int scrHeight = display.getHeight();
+        Point size = new Point();
+        GetScreenSize(size);
+        int scrWidth = size.x;
+        int scrHeight = size.y;
+		
         float scrRefreshRate = display.getRefreshRate();
 	    String externalStorageDir = sdcard.getAbsolutePath(); 
 	    String dataDir = this.getFilesDir().getAbsolutePath();
@@ -174,14 +195,9 @@ public class NativeActivity extends Activity {
 		// INIT!
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(scrWidth, scrHeight, dpi, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
+	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat);     
 		
- 		// Keep the screen bright - very annoying if it goes dark when tilting away
-		Window window = this.getWindow();
-		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-		setVolumeControlStream(AudioManager.STREAM_MUSIC);
-        Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat);
-             
-        // Initialize Graphics
+ 		// Initialize Graphics
         
         if (!detectOpenGLES20()) {
         	Log.i(TAG, "OpenGL ES 2.0 NOT detected.");
@@ -189,16 +205,6 @@ public class NativeActivity extends Activity {
         	Log.i(TAG, "OpenGL ES 2.0 detected.");
         }
     
-        mGLSurfaceView = new NativeGLView(this);
-        mGLSurfaceView.setRenderer(new NativeRenderer(this));
-        setContentView(mGLSurfaceView);
-        if (!useOpenSL)
-        	audioPlayer = new NativeAudioPlayer();
-
-		if (Build.VERSION.SDK_INT >= 14) {
-			darkenOnScreenButtons();
-		}
-        
         /*
         editText = new EditText(this);
         editText.setText("Hello world");
@@ -207,8 +213,57 @@ public class NativeActivity extends Activity {
         */
         // inputBox("Please ener a s", "", "Save");
 		// Toast.makeText(this, "Value: " + input.getText().toString(), Toast.LENGTH_LONG).show();
+	
+	}
+	
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState); 
+    	installID = Installation.id(this);
+
+		if (!initialized) {
+			Initialize();
+			initialized = true;
+		}
+		// Keep the screen bright - very annoying if it goes dark when tilting away
+		Window window = this.getWindow();
+		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+		setVolumeControlStream(AudioManager.STREAM_MUSIC);
+
+		if (!useOpenSL)
+        	audioPlayer = new NativeAudioPlayer();
+        NativeApp.audioInit();
+        
+        Point size = new Point();
+        GetScreenSize(size);
+        NativeApp.resized(size.x, size.y);
+        
+        mGLSurfaceView = new NativeGLView(this);
+		nativeRenderer = new NativeRenderer(this);
+        mGLSurfaceView.setRenderer(nativeRenderer);
+        setContentView(mGLSurfaceView);
+
+		if (Build.VERSION.SDK_INT >= 14) {
+			darkenOnScreenButtons();
+		}
     }
 
+    @Override
+    protected void onStop() {
+    	super.onStop(); 
+    	Log.i(TAG, "onStop - do nothing, just let's switch away");
+    } 
+
+    @Override
+	protected void onDestroy() {
+		super.onDestroy();
+		nativeRenderer.onDestroyed();
+      	Log.e(TAG, "onDestroy");
+		NativeApp.audioShutdown();
+		audioPlayer = null;
+		mGLSurfaceView = null;
+	}  
+	
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	public void darkenOnScreenButtons() {
 		mGLSurfaceView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LOW_PROFILE);
@@ -238,7 +293,11 @@ public class NativeActivity extends Activity {
 	protected void onResume() {
 		super.onResume();
 		Log.i(TAG, "onResume");
-		mGLSurfaceView.onResume();
+		if (mGLSurfaceView != null) {
+			mGLSurfaceView.onResume();
+		} else {
+			Log.e(TAG, "mGLSurfaceView really shouldn't be null in onResume");
+		}
 		if (audioPlayer != null) {
 			audioPlayer.play();
 		}
@@ -247,21 +306,6 @@ public class NativeActivity extends Activity {
 			darkenOnScreenButtons();
 		}
 	}
-
-    @Override
-    protected void onStop() {
-    	super.onStop(); 
-    	Log.i(TAG, "onStop - do nothing");
-    } 
-  
-	@Override
-	protected void onDestroy() {
-		super.onDestroy();
-      	Log.e(TAG, "onDestroy");
-		NativeApp.shutdown();
-		audioPlayer = null;
-		mGLSurfaceView = null;
-	}  
      
 	public boolean overrideKeys() {
 		return true;

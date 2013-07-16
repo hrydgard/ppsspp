@@ -24,9 +24,6 @@ bool CompileShader(const char *source, GLuint shader, const char *filename) {
 		ELOG("Error in shader compilation of %s!\n", filename);
 		ELOG("Info log: %s\n", infoLog);
 		ELOG("Shader source:\n%s\n", (const char *)source);
-#if defined(ARM)
-		exit(1);
-#endif
 		return false;
 	}
 	return true;

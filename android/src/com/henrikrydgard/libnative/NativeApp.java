@@ -2,6 +2,11 @@ package com.henrikrydgard.libnative;
 
 public class NativeApp {
 	public static native void init(int xxres, int yyres, int dpi, String apkPath, String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
+	public static native void resized(int xxres, int yyres);
+	
+	
+	public static native void audioInit();
+	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
 	
 	public static native boolean isLandscape();
@@ -10,9 +15,9 @@ public class NativeApp {
 
 	// These have Android semantics: Resume is always called on bootup, after init
 	public static native void pause();
-
 	public static native void resume();
 
+	// There's not really any reason to ever call shutdown as we can recover from a killed activity.
 	public static native void shutdown();
 
 	public static native void keyDown(int deviceId, int key);
