@@ -40,8 +40,8 @@ const struct HDRemaster g_HDRemasters[] = {
 { "NPJB40001", 0x4000000, false }, // MONSTER HUNTER PORTABLE 3rd HD Ver.
 { "BLJM85002", 0x4000000, true }, // K-ON Houkago Live HD Ver
 { "NPJB40002", 0x4000000, true }, // K-ON Houkago Live HD Ver
-{ "BLJM85003", 0x4000000, true }, // Shin Sangoku Musou Multi Raid 2 HD Ver
-{ "NPJB40003", 0x4000000, true }, // Shin Sangoku Musou Multi Raid 2 HD Ver
+{ "BLJM85003", 0x4000000, false }, // Shin Sangoku Musou Multi Raid 2 HD Ver
+{ "NPJB40003", 0x4000000, false }, // Shin Sangoku Musou Multi Raid 2 HD Ver
 { "BLJM85004", 0x4000000, true }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition, this one is never used
 // deactivated because it also affects the UMD version of the game
 // TODO: Differentiate between UMD version and HD version (either through reading of UMD_DATA.BIN or ISO size)
