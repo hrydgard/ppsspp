@@ -199,7 +199,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 	buf += flag_table_size;
 
 	type_table = buf;
-	type_table_size = flag_table[0];
+	type_table_size = type_table[0];
 	buf += type_table_size;
 
 	rel_base = 0;
