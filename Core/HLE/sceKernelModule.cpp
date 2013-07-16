@@ -915,8 +915,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		u32 argpAddr = param.argp;
 		param_argp = new u8[param.args];
 		Memory::Memcpy(param_argp, argpAddr, param.args);
-	} else {
-		param.argp = NULL;
 	}
 	if (param.keyp != 0) {
 		u32 keyAddr = param.keyp;
@@ -993,7 +991,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 		option.stacksize = module->nm.module_start_thread_stacksize;
 
 	if (paramPtr)
-		__KernelStartModule(module, param.args, (const char*)param.argp, &option);
+		__KernelStartModule(module, param.args, (const char*)param_argp, &option);
 	else
 		__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
 
