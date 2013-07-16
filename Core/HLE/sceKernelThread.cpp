@@ -2646,7 +2646,7 @@ int sceKernelSuspendThread(SceUID threadID)
 			return SCE_KERNEL_ERROR_SUSPEND;
 		}
 
-		WARN_LOG(HLE, "sceKernelSuspendThread(%d)", threadID);
+		DEBUG_LOG(HLE, "sceKernelSuspendThread(%d)", threadID);
 		if (t->isReady())
 			__KernelChangeReadyState(t, threadID, false);
 		t->nt.status = (t->nt.status & ~THREADSTATUS_READY) | THREADSTATUS_SUSPEND;
@@ -2664,7 +2664,7 @@ int sceKernelResumeThread(SceUID threadID)
 	// TODO: What about interrupts/callbacks?
 	if (threadID == 0 || threadID == currentThread)
 	{
-		ERROR_LOG(HLE, "sceKernelSuspendThread(%d): cannot suspend current thread", threadID);
+		ERROR_LOG(HLE, "sceKernelResumeThread(%d): cannot suspend current thread", threadID);
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
 	}
 
@@ -2674,10 +2674,10 @@ int sceKernelResumeThread(SceUID threadID)
 	{
 		if (!t->isSuspended())
 		{
-			ERROR_LOG(HLE, "sceKernelSuspendThread(%d): thread not suspended", threadID);
+			ERROR_LOG(HLE, "sceKernelResumeThread(%d): thread not suspended", threadID);
 			return SCE_KERNEL_ERROR_NOT_SUSPEND;
 		}
-		WARN_LOG(HLE, "sceKernelResumeThread(%d)", threadID);
+		DEBUG_LOG(HLE, "sceKernelResumeThread(%d)", threadID);
 		t->nt.status &= ~THREADSTATUS_SUSPEND;
 
 		// If it was dormant, waiting, etc. before we don't flip it's ready state.
