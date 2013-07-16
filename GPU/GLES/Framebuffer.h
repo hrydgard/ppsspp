@@ -152,6 +152,8 @@ public:
 	void DestroyFramebuf(VirtualFramebuffer *vfb);
 
 private:
+	void CompileDraw2DProgram();
+
 	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
 	u32 displayFramebufPtr_;
 	u32 displayStride_;

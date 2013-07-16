@@ -26,7 +26,7 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -O0 -g -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
 # yes, it's really CPPFLAGS for C++
 LOCAL_CPPFLAGS := -std=gnu++11 -fno-rtti
 LOCAL_C_INCLUDES := \

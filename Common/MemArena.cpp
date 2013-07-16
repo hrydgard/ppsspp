@@ -351,7 +351,6 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 	if (!Memory_TryBase(base, views, num_views, flags, arena))
 	{
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
-		exit(0);
 		return 0;
 	}
 #else
@@ -377,7 +376,6 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 	if (!Memory_TryBase(arena->memmap->Base(), views, num_views, flags, arena))
 	{
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
-		exit(0);
 		return 0;
 	}
 	u8* base = arena->memmap->Base();
@@ -387,7 +385,6 @@ u8 *MemoryMap_Setup(const MemoryView *views, int num_views, u32 flags, MemArena 
 	if (!Memory_TryBase(base, views, num_views, flags, arena))
 	{
 		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
-		exit(0);
 		return 0;
 	}
 #endif

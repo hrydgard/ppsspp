@@ -133,6 +133,16 @@ void CenterRect(float *x, float *y, float *w, float *h,
 	}
 }
 
+void FramebufferManager::CompileDraw2DProgram() {
+	if (!draw2dprogram) {
+		draw2dprogram = glsl_create_source(basic_vs, tex_fs);
+
+		glsl_bind(draw2dprogram);
+		glUniform1i(draw2dprogram->sampler0, 0);
+		glsl_unbind();
+	}
+}
+
 FramebufferManager::FramebufferManager() :
 	ramDisplayFramebufPtr_(0),
 	displayFramebufPtr_(0),
@@ -145,18 +155,15 @@ FramebufferManager::FramebufferManager() :
 	currentRenderVfb_(0),
 	drawPixelsTex_(0),
 	drawPixelsTexFormat_(-1),
-	convBuf(0)
+	convBuf(0),
+	draw2dprogram(0)
 #ifndef USING_GLES2
 	,
 	pixelBufObj_(0),
 	currentPBO_(0)
 #endif
 {
-	draw2dprogram = glsl_create_source(basic_vs, tex_fs);
-
-	glsl_bind(draw2dprogram);
-	glUniform1i(draw2dprogram->sampler0, 0);
-	glsl_unbind();
+	CompileDraw2DProgram();
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
@@ -197,7 +204,9 @@ FramebufferManager::FramebufferManager() :
 FramebufferManager::~FramebufferManager() {
 	if (drawPixelsTex_)
 		glDeleteTextures(1, &drawPixelsTex_);
-	glsl_destroy(draw2dprogram);
+	if (draw2dprogram) {
+		glsl_destroy(draw2dprogram);
+	}
 
 #ifndef USING_GLES2
 	delete [] pixelBufObj_;
@@ -316,8 +325,9 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	const float pos[12] = {x,y,0, x+w,y,0, x+w,y+h,0, x,y+h,0};
 	const float texCoords[8] = {0,v1, u2,v1, u2,v2, 0,v2};
 	const GLubyte indices[4] = {0,1,3,2};
-
+	
 	if(!program) {
+		CompileDraw2DProgram();
 		program = draw2dprogram;
 	}
 
@@ -824,6 +834,8 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 
+	CompileDraw2DProgram();
+
 	DrawActiveTexture(x, y, w, h, flip, upscale, vscale, draw2dprogram);
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -1081,6 +1093,8 @@ void FramebufferManager::EndFrame() {
 
 void FramebufferManager::DeviceLost() {
 	DestroyAllFBOs();
+	glsl_destroy(draw2dprogram);
+	draw2dprogram = 0;
 	resized_ = false;
 }
 

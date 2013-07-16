@@ -348,6 +348,12 @@ static const struct { int from, to; } legacy_touch_mapping[12] = {
 };
 
 void EmuScreen::update(InputState &input) {
+	// Simply forcibily update to the current screen size every frame. Doesn't cost much.
+	PSP_CoreParameter().outputWidth = dp_xres;
+	PSP_CoreParameter().outputHeight = dp_yres;
+	PSP_CoreParameter().pixelWidth = pixel_xres;
+	PSP_CoreParameter().pixelHeight = pixel_yres;
+
 	globalUIState = UISTATE_INGAME;
 	if (errorMessage_.size()) {
 		screenManager()->push(new PromptScreen(
