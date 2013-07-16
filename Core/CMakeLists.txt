@@ -24,6 +24,9 @@ set(SRCS
   Font/PGF.cpp
   HLE/HLE.cpp
   HLE/HLETables.cpp
+  HLE/MaiLibFont.cpp
+  HLE/MaiPrx.cpp
+  HLE/MaiUSB.cpp
   HLE/sceAtrac.cpp
   HLE/__sceAudio.cpp
   HLE/sceAudio.cpp
