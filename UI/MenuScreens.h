@@ -30,11 +30,13 @@ class LogoScreen : public Screen
 public:
 	LogoScreen(const std::string &bootFilename)
 		: bootFilename_(bootFilename), frames_(0) {}
+	void key(const KeyInput &key);
 	void update(InputState &input);
 	void render();
 	void sendMessage(const char *message, const char *value);
 
 private:
+	void Next();
 	std::string bootFilename_;
 	int frames_;
 };

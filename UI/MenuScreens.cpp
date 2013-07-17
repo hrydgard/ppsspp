@@ -138,23 +138,33 @@ void DrawWatermark() {
 	// ui_draw2d.DrawTextShadow(UBUNTU24, "PRIVATE BUILD", dp_xres / 2, 10, 0xFF0000FF, ALIGN_HCENTER);
 }
 
+void LogoScreen::Next() {
+	if (bootFilename_.size()) {
+		screenManager()->switchScreen(new EmuScreen(bootFilename_));
+	} else {
+		if (g_Config.bNewUI)
+			screenManager()->switchScreen(new MainScreen());
+		else
+			screenManager()->switchScreen(new MenuScreen());
+	}
+}
+
 void LogoScreen::update(InputState &input_state) {
 	frames_++;
 	if (frames_ > 180 || input_state.pointer_down[0]) {
-		if (bootFilename_.size()) {
-			screenManager()->switchScreen(new EmuScreen(bootFilename_));
-		} else {
-			if (g_Config.bNewUI)
-				screenManager()->switchScreen(new MainScreen());
-			else
-				screenManager()->switchScreen(new MenuScreen());
-		}
+		Next();
 	}
 }
 
 void LogoScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "boot")) {
 		screenManager()->switchScreen(new EmuScreen(value));
+	}
+}
+
+void LogoScreen::key(const KeyInput &key) {
+	if (key.deviceId != INPUT_MOUSE) {
+		Next();
 	}
 }
 
@@ -1008,20 +1018,20 @@ void GraphicsScreenP2::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Anisotropic Filtering"), ALIGN_TOPLEFT, &AnisotropicFiltering);
 	if (AnisotropicFiltering) {
 		if (g_Config.iAnisotropyLevel == 0)
-			g_Config.iAnisotropyLevel = 2;
+			g_Config.iAnisotropyLevel = 1;
 
 		char showAF[256];
-		sprintf(showAF, "%s %dx", gs->T("Level :"), g_Config.iAnisotropyLevel);
+		sprintf(showAF, "%s %dx", gs->T("Level :"), 1 << g_Config.iAnisotropyLevel);
 		ui_draw2d.DrawTextShadow(UBUNTU24, showAF, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 300, y , 20);
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("2x"), ALIGN_LEFT))
-			g_Config.iAnisotropyLevel = 2;
+			g_Config.iAnisotropyLevel = 1;
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("4x"), ALIGN_LEFT))
-			g_Config.iAnisotropyLevel = 4;
+			g_Config.iAnisotropyLevel = 2;
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("8x"), ALIGN_LEFT))
-			g_Config.iAnisotropyLevel = 8;
+			g_Config.iAnisotropyLevel = 3;
 		if (UIButton(GEN_ID, hlinear1, 60, 0, gs->T("16x"), ALIGN_LEFT))
-			g_Config.iAnisotropyLevel = 16;
+			g_Config.iAnisotropyLevel = 4;
 
 		y += 20;
 	} else 

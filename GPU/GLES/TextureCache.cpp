@@ -1183,7 +1183,8 @@ void TextureCache::SetTexture() {
 #endif
 	}
 
-	float anisotropyLevel = (float) g_Config.iAnisotropyLevel > maxAnisotropyLevel ? maxAnisotropyLevel : (float) g_Config.iAnisotropyLevel;
+	int aniso = 1 << g_Config.iAnisotropyLevel;
+	float anisotropyLevel = (float) aniso > maxAnisotropyLevel ? maxAnisotropyLevel : (float) aniso;
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropyLevel);
 
 	UpdateSamplingParams(*entry, true);

@@ -83,7 +83,7 @@ public:
 #ifdef _WIN32
 	bool bFullScreenOnLaunch;
 #endif
-	int iAnisotropyLevel;
+	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
 	bool bTrueColor;
 	bool bFramebuffersToMem;
 	bool bFramebuffersCPUConvert; // for OpenGL devices

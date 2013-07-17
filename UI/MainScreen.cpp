@@ -29,6 +29,7 @@
 #include "UI/GameScreen.h"
 #include "UI/MenuScreens.h"
 #include "UI/GameInfoCache.h"
+#include "UI/GameSettingsScreen.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
 
@@ -372,7 +373,8 @@ UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnSettings(UI::EventParams &e) {
-	screenManager()->push(new SettingsScreen());
+	// screenManager()->push(new SettingsScreen());
+	screenManager()->push(new GlobalSettingsScreen());
 	return UI::EVENT_DONE;
 }
 

@@ -110,6 +110,9 @@ void Config::Load(const char *iniFileName)
 #else
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 8);
 #endif
+	if (iAnisotropyLevel > 4) {
+		iAnisotropyLevel = 4;
+	}
 	graphics->Get("VertexCache", &bVertexCache, true);
 #ifdef _WIN32
 	graphics->Get("FullScreen", &bFullScreen, false);
@@ -191,6 +194,7 @@ void Config::Save()
 		// Need to do this somewhere...
 		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
+		general->Set("NewUI", bNewUI);
 
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);

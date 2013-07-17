@@ -31,7 +31,6 @@ protected:
  	virtual void DrawBackground(UIContext &dc);
 
 private:
-	// Event handlers
 	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
 
 	std::string gamePath_, gameID_;
@@ -39,4 +38,20 @@ private:
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
+};
+
+// TODO: Move to its own file.
+class GlobalSettingsScreen : public UIScreen {
+public:
+	GlobalSettingsScreen() {}
+
+protected:
+	virtual void CreateViews();
+	virtual void DrawBackground(UIContext &dc);
+
+private:
+	// Event handlers
+	UI::EventReturn OnLanguage(UI::EventParams &e);
+	UI::EventReturn OnFactoryReset(UI::EventParams &e);
+	UI::EventReturn OnBack(UI::EventParams &e);
 };
