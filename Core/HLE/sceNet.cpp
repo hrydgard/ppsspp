@@ -62,10 +62,10 @@ enum {
 
 	ERROR_NET_APCTL_ALREADY_INITIALIZED          = 0x80410a01,
 
-	ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF			 = 0x80410b03,
+	ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF           = 0x80410b03,
 	ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED       = 0x80410b07,
 	ERROR_NET_ADHOCCTL_NOT_INITIALIZED           = 0x80410b08,
-	ERROR_NET_ADHOCCTL_DISCONNECTED				 = 0x80410b09,
+	ERROR_NET_ADHOCCTL_DISCONNECTED              = 0x80410b09,
 	ERROR_NET_ADHOCCTL_BUSY                      = 0x80410b10,
 	ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS         = 0x80410b12,
 };
@@ -105,16 +105,24 @@ struct ApctlHandler {
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-void __NetInit() {
+void __ResetInitNetLib() {
 	netInited = false;
 	netAdhocInited = false;
+	netAdhocctlInited = false;
+	netAdhocMatchingInited = false;
 	netApctlInited = false;
 	netInetInited = false;
+	adhocctlHandlers.clear();
+
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
 }
 
-void __NetShutdown() {
+void __NetInit() {
+	__ResetInitNetLib();
+}
 
+void __NetShutdown() {
+	__ResetInitNetLib();
 }
 
 void __UpdateAdhocctlHandlers(int flag, int error) {
@@ -297,7 +305,7 @@ int sceNetAdhocTerm() {
 int sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
 	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
 	if(Memory::IsValidAddress(bufferPtr)) {
-		int len = strlen(mac);
+		size_t len = strlen(mac);
 		for (int i = 0; i < len; i++)
 			Memory::Write_U8(mac[i], bufferPtr + i);
 	}
