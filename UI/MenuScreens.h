@@ -70,7 +70,7 @@ public:
 		const char *value;
 	};
 
-	Message* getMessage() const
+	virtual void *dialogData()
 	{
 		return m_data;
 	}

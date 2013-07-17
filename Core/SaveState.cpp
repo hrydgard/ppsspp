@@ -69,7 +69,6 @@ namespace SaveState
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
-
 		// Gotta do CoreTiming first since we'll restore into it.
 		CoreTiming::DoState(p);
 
