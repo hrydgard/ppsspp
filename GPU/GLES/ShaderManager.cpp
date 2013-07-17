@@ -196,10 +196,10 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
 static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
 	const float col[4] = {
-		(float)((color & 0xFF)),
-		(float)((color & 0xFF00) >> 8),
-		(float)((color & 0xFF0000) >> 16),
-		(float)alpha
+		(float)((color & 0xFF)) * (1.0f / 255.0f),
+		(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
+		(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
+		(float)alpha * (1.0f / 255.0f)
 	};
 	glUniform4fv(uniform, 1, col);
 }
