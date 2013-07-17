@@ -458,18 +458,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_REGION1:
-		{
-			int x1 = data & 0x3ff;
-			int y1 = data >> 10;
-			//topleft
-		}
-		break;
-
 	case GE_CMD_REGION2:
-		{
-			int x2 = data & 0x3ff;
-			int y2 = data >> 10;
-		}
+		if (diff)
+			gstate_c.framebufChanged = true;
 		break;
 
 	case GE_CMD_CLIPENABLE:
