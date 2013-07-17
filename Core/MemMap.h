@@ -83,8 +83,9 @@ extern u8 *m_pUncachedRAM;
 extern u8 *m_pPhysicalVRAM;
 extern u8 *m_pUncachedVRAM;
 
-extern u32 g_MemorySize; // Replaces RAM_SIZE
-extern u32 g_MemoryMask; // Replaces RAM_MASK
+// These replace RAM_SIZE and RAM_MASK, respectively.
+extern u32 g_MemorySize;
+extern u32 g_MemoryMask;
 
 enum
 {
@@ -394,4 +395,3 @@ inline bool operator>=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
 }
 
 #endif
-

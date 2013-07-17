@@ -57,6 +57,7 @@ u8 *m_pUncachedVRAM;
 
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
+// These replace RAM_SIZE and RAM_MASK, respectively.
 u32 g_MemoryMask;
 u32 g_MemorySize;
 
