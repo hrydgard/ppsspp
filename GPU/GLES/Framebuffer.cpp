@@ -386,19 +386,26 @@ void GetViewportDimensions(int &w, int &h) {
 // Heuristics to figure out the size of FBO to create.
 void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	int viewport_width, viewport_height;
-	int regionX2 = (gstate.getRegionX2() + 1) & ~1;
-	int regionY2 = (gstate.getRegionY2() + 1) & ~1;
-	int scissorX2 = (gstate.getScissorX2() + 1) & ~1;
-	int scissorY2 = (gstate.getScissorY2() + 1) & ~1;
+	int default_width = 480; 
+	int default_height = 272;
+	int regionX2 = (gstate.getRegionX2() + 1) ;
+	int regionY2 = (gstate.getRegionY2() + 1) ;
+	int fb_stride = gstate.fbwidth & 0x3C0;
 	GetViewportDimensions(viewport_width, viewport_height);
 
-	if (viewport_width != 480 && viewport_height != 272) { 
-		drawing_width = std::min(scissorX2, regionX2);
-		drawing_height = std::min(scissorY2, regionY2);
+	// Generated FBO shouldn't greate than 512x512
+	if ( viewport_width > 512 && viewport_height > 512 ) {
+		viewport_width = default_width;
+		viewport_height = default_height;
+	}
+
+	if (fb_stride < 512) {
+		drawing_width = std::min(viewport_width, regionX2);
+		drawing_height = std::min(viewport_height, regionY2);
 	} else {
-		drawing_width = viewport_width;
-		drawing_height = viewport_height;
-	} 
+		drawing_width = std::max(viewport_width, default_width);
+		drawing_height = std::max(viewport_height, default_height);
+	}
 }
 
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
