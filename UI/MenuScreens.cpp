@@ -60,6 +60,7 @@
 #include "UI/EmuScreen.h"
 #include "UI/PluginScreen.h"
 #include "UI/MainScreen.h"
+#include "UI/MiscScreens.h"
 
 #include "GameInfoCache.h"
 #include "android/jni/TestRunner.h"
@@ -1469,7 +1470,10 @@ void SystemScreen::render() {
 	ui_draw2d.DrawTextShadow(UBUNTU24, lang, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear2(x + 400, y, 20);
 	if (UIButton(GEN_ID, hlinear2, 220, 0, s->T("Language"), ALIGN_TOPLEFT)) {
-		screenManager()->push(new LanguageScreen());
+		if (g_Config.bNewUI)
+			screenManager()->push(new NewLanguageScreen());
+		else
+			screenManager()->push(new LanguageScreen());
 	} 
 	y+=20;
 

@@ -367,11 +367,7 @@ void NativeInit(int argc, const char *argv[],
 		SaveState::Load(stateToLoad);
 	
 	g_gameInfoCache.Init();
-}
 
-void NativeInitGraphics() {
-	gl_lost_manager_init();
-	ui_draw2d.SetAtlas(&ui_atlas);
 
 	screenManager = new ScreenManager();
 
@@ -388,6 +384,12 @@ void NativeInitGraphics() {
 		// Go directly into the game.
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	}
+}
+
+void NativeInitGraphics() {
+	gl_lost_manager_init();
+	ui_draw2d.SetAtlas(&ui_atlas);
+
 
 	UIShader_Init();
 
@@ -448,6 +450,25 @@ void NativeInitGraphics() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 
 	glstate.viewport.set(0, 0, pixel_xres, pixel_yres);
+}
+
+void NativeShutdownGraphics() {
+	screenManager->deviceLost();
+
+	g_gameInfoCache.Clear();
+
+	delete uiTexture;
+	uiTexture = NULL;
+
+	delete uiContext;
+	uiContext = NULL;
+
+	ui_draw2d.Shutdown();
+	ui_draw2d_front.Shutdown();
+
+	UIShader_Shutdown();
+
+	gl_lost_manager_shutdown();
 }
 
 void TakeScreenshot() {
@@ -573,25 +594,12 @@ void NativeMessageReceived(const char *message, const char *value) {
 	}
 }
 
-void NativeShutdownGraphics() {
-	g_gameInfoCache.Clear();
 
-	delete uiTexture;
-	uiTexture = NULL;
-
+void NativeShutdown() {
 	screenManager->shutdown();
 	delete screenManager;
 	screenManager = 0;
 
-	ui_draw2d.Shutdown();
-	ui_draw2d_front.Shutdown();
-
-	UIShader_Shutdown();
-
-	gl_lost_manager_shutdown();
-}
-
-void NativeShutdown() {
 	g_gameInfoCache.Shutdown();
 
 	delete host;
@@ -604,6 +612,7 @@ void NativeShutdown() {
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
 #ifdef ANDROID
+	ELOG("NativeShutdown called");
 	exit(0);
 #endif
 }

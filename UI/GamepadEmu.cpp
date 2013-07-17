@@ -90,8 +90,7 @@ void LayoutGamepad(int w, int h)
 	leftStick.setPos(stickX, stickY, controlScale);
 }
 
-void UpdateGamepad(InputState &input_state)
-{
+void UpdateGamepad(InputState &input_state) {
 	LayoutGamepad(dp_xres, dp_yres);
 
 	buttonO.update(input_state);
@@ -119,8 +118,7 @@ void UpdateGamepad(InputState &input_state)
 		leftStick.update(input_state);
 }
 
-void DrawGamepad(DrawBuffer &db, float opacity)
-{
+void DrawGamepad(DrawBuffer &db, float opacity) {
 	uint32_t color = colorAlpha(0xc0b080, opacity);
 	uint32_t colorOverlay = colorAlpha(0xFFFFFF, opacity);
 

@@ -460,6 +460,8 @@ void ShaderManager::Clear() {
 	fsCache.clear();
 	vsCache.clear();
 	globalDirty = 0xFFFFFFFF;
+	lastFSID.clear();
+	lastVSID.clear();
 	DirtyShader();
 }
 
@@ -473,6 +475,8 @@ void ShaderManager::DirtyShader() {
 	lastFSID.clear();
 	lastVSID.clear();
 	lastShader = 0;
+	globalDirty = 0xFFFFFFFF;
+	shaderSwitchDirty = 0;
 }
 
 void ShaderManager::EndFrame() { // disables vertex arrays

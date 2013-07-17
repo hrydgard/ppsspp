@@ -32,21 +32,7 @@ win32 {
 	HEADERS += ../Windows/OpenGLBase.h
 }
 
-SOURCES += ../Core/CPU.cpp \ # Core
-	../Core/Config.cpp \
-	../Core/Core.cpp \
-	../Core/CoreTiming.cpp \
-	../Core/CwCheat.cpp \
-	../Core/HDRemaster.cpp \
-	../Core/Host.cpp \
-	../Core/Loaders.cpp \
-	../Core/MemMap.cpp \
-	../Core/MemMapFunctions.cpp \
-	../Core/PSPLoaders.cpp \
-	../Core/PSPMixer.cpp \
-	../Core/Reporting.cpp \
-	../Core/SaveState.cpp \
-	../Core/System.cpp \
+SOURCES += ../Core/*.cpp \ # Core
 	../Core/Debugger/*.cpp \
 	../Core/Dialog/*.cpp \
 	../Core/ELF/*.cpp \
@@ -66,21 +52,7 @@ SOURCES += ../Core/CPU.cpp \ # Core
 	../ext/libkirk/*.c \ # Kirk
 	../ext/xbrz/*.cpp # XBRZ
 
-HEADERS += ../Core/CPU.h \
-	../Core/Config.h \
-	../Core/Core.h \
-	../Core/CoreParameter.h \
-	../Core/CoreTiming.h \
-	../Core/CwCheat.h \
-	../Core/HDRemaster.h \
-	../Core/Host.h \
-	../Core/Loaders.h \
-	../Core/MemMap.h \
-	../Core/PSPLoaders.h \
-	../Core/PSPMixer.h \
-	../Core/Reporting.h \
-	../Core/SaveState.h \
-	../Core/System.h \
+HEADERS += ../Core/*.h \
 	../Core/Debugger/*.h \
 	../Core/Dialog/*.h \
 	../Core/ELF/*.h \

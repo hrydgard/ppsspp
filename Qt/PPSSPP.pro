@@ -43,20 +43,17 @@ linux {
 SOURCES += ../native/base/QtMain.cpp
 HEADERS += ../native/base/QtMain.h
 
-# Native
-SOURCES += ../UI/EmuScreen.cpp \
-	../UI/MainScreen.cpp \
-	../UI/MenuScreens.cpp \
-	../UI/GameScreen.cpp \
-	../UI/GameSettingsScreen.cpp \
+# UI
+SOURCES += ../UI/*Screen.cpp \
+	../UI/*Screens.cpp \
 	../UI/GamepadEmu.cpp \
 	../UI/GameInfoCache.cpp \
 	../UI/OnScreenDisplay.cpp \
-	../UI/PluginScreen.cpp \
-	../android/jni/TestRunner.cpp \
 	../UI/UIShader.cpp \
-	../UI/ui_atlas.cpp
+	../UI/ui_atlas.cpp \
+	../android/jni/TestRunner.cpp
 
+HEADERS += ../UI/*.h
 INCLUDEPATH += .. ../Common ../native
 
 # Temporarily only use new UI for Linux desktop
@@ -70,6 +67,7 @@ linux:!mobile_platform {
 	RESOURCES += resources.qrc
 	INCLUDEPATH += ../Qt
 } else {
+	# Desktop handles the Init separately
 	SOURCES += ../UI/NativeApp.cpp
 }
 RESOURCES += assets.qrc
