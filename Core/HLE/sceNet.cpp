@@ -106,15 +106,23 @@ struct ApctlHandler {
 static std::map<int, ApctlHandler> apctlHandlers;
 
 void __NetInit() {
-	netInited = false;
-	netAdhocInited = false;
-	netApctlInited = false;
-	netInetInited = false;
-	memset(&netMallocStat, 0, sizeof(netMallocStat));
+	__ResetInitNetLib();
 }
 
 void __NetShutdown() {
+	__ResetInitNetLib();
+}
 
+void __ResetInitNetLib() {
+	netInited = false;
+	netAdhocInited = false;
+	netAdhocctlInited = false;
+	netAdhocMatchingInited = false;
+	netApctlInited = false;
+	netInetInited = false;
+	adhocctlHandlers.clear();
+
+	memset(&netMallocStat, 0, sizeof(netMallocStat));
 }
 
 void __UpdateAdhocctlHandlers(int flag, int error) {
