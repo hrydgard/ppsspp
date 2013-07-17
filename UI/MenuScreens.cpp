@@ -163,7 +163,7 @@ void LogoScreen::sendMessage(const char *message, const char *value) {
 }
 
 void LogoScreen::key(const KeyInput &key) {
-	if (key.deviceId != INPUT_MOUSE) {
+	if (key.deviceId != DEVICE_ID_MOUSE) {
 		Next();
 	}
 }
