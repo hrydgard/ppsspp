@@ -105,14 +105,6 @@ struct ApctlHandler {
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-void __NetInit() {
-	__ResetInitNetLib();
-}
-
-void __NetShutdown() {
-	__ResetInitNetLib();
-}
-
 void __ResetInitNetLib() {
 	netInited = false;
 	netAdhocInited = false;
@@ -123,6 +115,14 @@ void __ResetInitNetLib() {
 	adhocctlHandlers.clear();
 
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
+}
+
+void __NetInit() {
+	__ResetInitNetLib();
+}
+
+void __NetShutdown() {
+	__ResetInitNetLib();
 }
 
 void __UpdateAdhocctlHandlers(int flag, int error) {
@@ -305,7 +305,7 @@ int sceNetAdhocTerm() {
 int sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
 	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
 	if(Memory::IsValidAddress(bufferPtr)) {
-		int len = strlen(mac);
+		size_t len = strlen(mac);
 		for (int i = 0; i < len; i++)
 			Memory::Write_U8(mac[i], bufferPtr + i);
 	}
