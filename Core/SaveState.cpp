@@ -69,6 +69,7 @@ namespace SaveState
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
+
 		// Gotta do CoreTiming first since we'll restore into it.
 		CoreTiming::DoState(p);
 
@@ -141,19 +142,25 @@ namespace SaveState
 	void LoadSlot(int slot, Callback callback, void *cbUserData)
 	{
 		std::string fn = GenerateSaveSlotFilename(slot);
-		if (!fn.empty())
+		if (!fn.empty()) {
 			Load(fn, callback, cbUserData);
-		else
+		} else {
+			I18NCategory *s = GetI18NCategory("Screen");
+			osm.Show("Failed to load state. Error in the file system.", 2.0);
 			(*callback)(false, cbUserData);
+		}
 	}
 
 	void SaveSlot(int slot, Callback callback, void *cbUserData)
 	{
 		std::string fn = GenerateSaveSlotFilename(slot);
-		if (!fn.empty())
+		if (!fn.empty()) {
 			Save(fn, callback, cbUserData);
-		else
+		} else {
+			I18NCategory *s = GetI18NCategory("Screen");
+			osm.Show("Failed to save state. Error in the file system.", 2.0);
 			(*callback)(false, cbUserData);
+		}
 	}
 
 	bool HasSaveInSlot(int slot)

@@ -24,8 +24,8 @@ namespace SaveState
 	typedef void (*Callback)(bool status, void *cbUserData);
 
 	// TODO: Better place for this?
-	const int REVISION = 2;
-	const int SAVESTATESLOTS = 4;
+	const int REVISION = 3;
+	const int SAVESTATESLOTS = 5;
 
 	void Init();
 

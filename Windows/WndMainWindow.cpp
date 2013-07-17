@@ -307,8 +307,22 @@ namespace MainWindow
 				filter[i] = '\0';
 		}
 
+		// pause if a game is being played
+		bool isPaused = false;
+		if (globalUIState == UISTATE_INGAME)
+		{
+			isPaused = Core_IsStepping();
+			if (!isPaused)
+				Core_EnableStepping(true);
+		}
+
 		if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
 		{
+			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU)
+			{
+				Core_EnableStepping(false);
+			}
+
 			// decode the filename with fullpath
 			std::string fullpath = fn;
 			char drive[MAX_PATH];
@@ -319,6 +333,11 @@ namespace MainWindow
 
 			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
 			NativeMessageReceived("boot", executable.c_str());
+		}
+		else
+		{
+			if (!isPaused)
+				Core_EnableStepping(false);
 		}
 	}
 
@@ -603,8 +622,6 @@ namespace MainWindow
 				break;
 
 			case ID_EMULATION_RESET:
-				if (globalUIState == UISTATE_PAUSEMENU)
-					NativeMessageReceived("run", "");
 				NativeMessageReceived("reset", "");
 				break;
 
@@ -631,7 +648,7 @@ namespace MainWindow
 			// TODO: Improve UI for multiple slots
 			case ID_FILE_SAVESTATE_NEXT_SLOT:
 			{
-				currentSavestateSlot = (currentSavestateSlot + 1)%5;
+				currentSavestateSlot = (currentSavestateSlot + 1)%SaveState::SAVESTATESLOTS;
 				char msg[30];
 				sprintf(msg, "Using save state slot %d.", currentSavestateSlot + 1);
 				osm.Show(msg);
@@ -1102,8 +1119,6 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_EMULATION_RESET, ingameEnable);
 
 		UINT menuEnable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu,ID_FILE_LOAD, menuEnable);
-		EnableMenuItem(menu,ID_FILE_LOAD_MEMSTICK, menuEnable);
 		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE, !menuEnable);
 		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE, !menuEnable);
 		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE, !menuEnable);
@@ -1219,8 +1234,6 @@ namespace MainWindow
 
 	void SaveStateActionFinished(bool result, void *userdata)
 	{
-		if (!result)
-			MessageBox(0, "Savestate failure. Using savestates between different PPSSPP versions is not supported.", "Sorry", MB_OK);
 		SetCursor(LoadCursor(0, IDC_ARROW));
 	}
 
