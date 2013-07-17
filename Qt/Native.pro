@@ -87,8 +87,7 @@ SOURCES +=  ../native/audio/*.cpp \
 	../native/gfx_es2/*.cpp \
 	../native/i18n/*.cpp \
 	../native/image/*.cpp \
-	../native/input/gesture_detector.cpp \
-	../native/input/input_state.cpp \
+	../native/input/*.cpp \
 	../native/json/json_writer.cpp \
 	../native/math/curves.cpp \
 	../native/math/expression_parser.cpp \
@@ -121,27 +120,19 @@ HEADERS +=  ../native/audio/*.h \
 	../native/base/timeutil.h \
 	../native/data/compression.h \
 	../native/file/*.h \
-	../native/gfx/gl_debug_log.h \
-	../native/gfx/gl_lost_manager.h \
-	../native/gfx/texture.h \
-	../native/gfx/texture_atlas.h \
-	../native/gfx/texture_gen.h \
+	../native/gfx/*.h \
 	../native/gfx_es2/*.h \
 	../native/i18n/*.h \
 	../native/image/*.h \
-	../native/input/gesture_detector.h \
-	../native/input/input_state.h \
+	../native/input/*.h \
 	../native/json/json_writer.h \
-	../native/math/curves.h \
-	../native/math/expression_parser.h \
+	../native/math/*.h \
 	../native/math/lin/*.h \
 	../native/midi/midi_input.h \
 	../native/net/*.h \
 	../native/profiler/profiler.h \
 	../native/thread/*.h \
-	../native/ui/ui.h \
-	../native/ui/screen.h \
-	../native/ui/virtual_input.h \
+	../native/ui/*.h \
 	../native/util/bits/*.h \
 	../native/util/hash/hash.h \
 	../native/util/random/*.h \
