@@ -1046,9 +1046,9 @@ void GraphicsScreenP2::render() {
 		char showType[256];
 		std::string type;
 		switch (g_Config.iTexFiltering) {
-		case 2:	type = "Nearest";break;
-		case 3: type = "Linear";break;
-		case 4:	type = "Linear(CG)";break;
+		case 2:	type = "Nearest"; break;
+		case 3: type = "Linear"; break;
+		case 4:	type = "Linear(CG)"; break;
 		}
 		sprintf(showType, "%s %s", gs->T("Type :"), type.c_str());
 		ui_draw2d.DrawTextShadow(UBUNTU24, showType, x + 60, (y += stride) , 0xFFFFFFFF, ALIGN_LEFT);

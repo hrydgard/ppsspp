@@ -38,6 +38,9 @@ private:
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
+
+	// Temporaries to convert bools to int settings
+	bool cap60FPS_;
 };
 
 // TODO: Move to its own file.
