@@ -16,3 +16,61 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Math3D.h"
+
+template<>
+Vec3<float> Vec3<float>::FromRGB(unsigned int rgb)
+{
+	return Vec3((rgb & 0xFF) * (1.0f/255.0f),
+				((rgb >> 8) & 0xFF) * (1.0f/255.0f),
+				((rgb >> 16) & 0xFF) * (1.0f/255.0f));
+}
+
+template<>
+Vec3<int> Vec3<int>::FromRGB(unsigned int rgb)
+{
+	return Vec3(rgb & 0xFF,
+				(rgb >> 8) & 0xFF,
+				(rgb >> 16) & 0xFF);
+}
+
+template<>
+unsigned int Vec3Ref<float>::ToRGB() const
+{
+	return r*255.f + g*255.f*256.f + b*255.f*256.f*256.f;
+}
+
+template<>
+unsigned int Vec3Ref<int>::ToRGB() const
+{
+	return (r&0xFF) | ((g&0xFF)<<8) | ((b&0xFF)<<16);
+}
+
+template<>
+Vec4<float> Vec4<float>::FromRGBA(unsigned int rgba)
+{
+	return Vec4((rgba & 0xFF) * (1.0f/255.0f),
+				((rgba >> 8) & 0xFF) * (1.0f/255.0f),
+				((rgba >> 16) & 0xFF) * (1.0f/255.0f),
+				((rgba >> 24) & 0xFF) * (1.0f/255.0f));
+}
+
+template<>
+Vec4<int> Vec4<int>::FromRGBA(unsigned int rgba)
+{
+	return Vec4(rgba & 0xFF,
+				(rgba >> 8) & 0xFF,
+				(rgba >> 16) & 0xFF,
+				(rgba >> 24) & 0xFF);
+}
+
+template<>
+unsigned int Vec4Ref<float>::ToRGBA() const
+{
+	return r*255.f + g*255.f*256.f + b*255.f*256.f*256.f + a*255.f*256.f*256.f*256.f;
+}
+
+template<>
+unsigned int Vec4Ref<int>::ToRGBA() const
+{
+	return (r&0xFF) | ((g&0xFF)<<8) | ((b&0xFF)<<16) | ((a&0xFF)<<24);
+}
