@@ -820,14 +820,14 @@ inline Vec3<X,Y,Z> Cross(const Vec3Ref<X,Y,Z> &a, const Vec3Ref<X,Y,Z>& b)
 
 // linear interpolation via float: 0.0=begin, 1.0=end
 template<typename X>
-X Lerp(const X& begin, const X& end, const float t)
+inline X Lerp(const X& begin, const X& end, const float t)
 {
 	return begin*(1.f-t) + end*t;
 }
 
 // linear interpolation via int: 0=begin, base=end
 template<typename X, int base>
-X LerpInt(const X& begin, const X& end, const int t)
+inline X LerpInt(const X& begin, const X& end, const int t)
 {
 	return (begin*(base-t) + end*t) / base;
 }
