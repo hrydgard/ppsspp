@@ -42,6 +42,11 @@ public:
 			X& u;
 			Y& v;
 		};
+		struct
+		{
+			X& s;
+			Y& t;
+		};
 	};
 
 	X* AsArray() { return &x; }
