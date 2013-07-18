@@ -163,6 +163,7 @@ public:
 
 	// Only implemented for T=int and T=float
 	static Vec3 FromRGB(unsigned int rgb);
+	unsigned int ToRGB() const; // alpha bits set to zero
 
 	static Vec3 AssignToAll(const T& f)
 	{
@@ -322,6 +323,7 @@ public:
 
 	// Only implemented for T=int and T=float
 	static Vec4 FromRGBA(unsigned int rgba);
+	unsigned int ToRGBA() const;
 
 	static Vec4 AssignToAll(const T& f)
 	{
