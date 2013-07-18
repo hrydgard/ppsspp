@@ -71,7 +71,7 @@ public:
 	bool bPartialStretch;
 #endif
 	bool bStretchToDisplay;
-	int iVSyncInterval;
+	bool bVSync;
 	int iFrameSkip;
 
 	int iWindowX;
@@ -100,7 +100,7 @@ public:
 	// Sound
 	bool bEnableSound;
 	bool bEnableAtrac3plus;
-	int iSEVolume;
+	int iSFXVolume;
 	int iBGMVolume;
 
 	// UI
@@ -109,7 +109,6 @@ public:
 	bool bShowAnalogStick;
 	int iShowFPSCounter;
 	bool bShowDebugStats;
-	bool bLargeControls;
 	bool bAccelerometerToAnalogHoriz;
 
 	// Control
