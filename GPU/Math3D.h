@@ -257,6 +257,9 @@ public:
 		a[0] = x; a[1] = y; a[2] = z;
 	}
 
+	// Only defined for X=float and X=int; alpha bits set to zero
+	unsigned int ToRGB() const;
+
 	// operators acting on "this"
 	void operator = (const Vec3Ref& other)
 	{
@@ -467,6 +470,9 @@ public:
 	{
 		a[0] = x; a[1] = y; a[2] = z; a[3] = w;
 	}
+
+	// Only defined for X=float and X=int
+	unsigned int ToRGBA() const;
 
 	// operators acting on "this"
 	void operator = (const Vec4Ref& other)
