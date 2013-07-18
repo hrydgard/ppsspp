@@ -18,6 +18,26 @@
 #include "Math3D.h"
 
 template<>
+float Vec2Ref<float>::Length() const
+{
+	return sqrtf(Length2());
+}
+
+template<>
+void Vec2Ref<float>::SetLength(const float l)
+{
+	(*this) *= l / Length();
+}
+
+template<>
+float Vec2Ref<float>::Normalize() //returns the previous length, is often useful
+{
+	float len = Length();
+	(*this) /= len;
+	return len;
+}
+
+template<>
 Vec3<float> Vec3<float>::FromRGB(unsigned int rgb)
 {
 	return Vec3((rgb & 0xFF) * (1.0f/255.0f),
@@ -45,6 +65,26 @@ template<>
 unsigned int Vec3Ref<int>::ToRGB() const
 {
 	return (r&0xFF) | ((g&0xFF)<<8) | ((b&0xFF)<<16);
+}
+
+template<>
+float Vec3Ref<float>::Length() const
+{
+	return sqrtf(Length2());
+}
+
+template<>
+void Vec3Ref<float>::SetLength(const float l)
+{
+	(*this) *= l / Length();
+}
+
+template<>
+float Vec3Ref<float>::Normalize() //returns the previous length, is often useful
+{
+	float len = Length();
+	(*this) /= len;
+	return len;
 }
 
 template<>
@@ -78,4 +118,24 @@ template<>
 unsigned int Vec4Ref<int>::ToRGBA() const
 {
 	return (r&0xFF) | ((g&0xFF)<<8) | ((b&0xFF)<<16) | ((a&0xFF)<<24);
+}
+
+template<>
+float Vec4Ref<float>::Length() const
+{
+	return sqrtf(Length2());
+}
+
+template<>
+void Vec4Ref<float>::SetLength(const float l)
+{
+	(*this) *= l / Length();
+}
+
+template<>
+float Vec4Ref<float>::Normalize() //returns the previous length, is often useful
+{
+	float len = Length();
+	(*this) /= len;
+	return len;
 }

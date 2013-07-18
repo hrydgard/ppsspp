@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cmath>
+#include <type_traits>
 
 /**
  * Vec2 - two dimensional vector with arbitrary base type
@@ -99,32 +100,13 @@ public:
 	Vec2<X,Y> operator / (const X& f) const;
 
 	// methods which don't create new Vec2 objects
-	float Length2() const
-	{
-		return x*x + y*y;
-	}
-	float Length() const
-	{
-		return sqrtf(Length2());
-	}
-	void SetLength(const float l)
-	{
-		(*this) *= l / Length();
-	}
-	float Normalize() //returns the previous length, is often useful
-	{
-		float len = Length();
-		(*this) /= len;
-		return len;
-	}
-	float &operator [] (int i) //allow vector[2] = 3   (vector.z=3)
-	{
-		return (i==0) ? x : y;
-	}
-	float operator [] (const int i) const
-	{
-		return (i==0) ? x : y;
-	}
+	// Length, SetLength and Normalize are only implemented for X=Y=Z=float
+	X Length2() const;
+	float Length() const;
+	void SetLength(const float l);
+	float Normalize(); // returns the previous length, is often useful
+	X &operator [] (int i); // allow vector[2] = 3   (vector.z=3)
+	X operator [] (const int i) const;
 	void SetZero()
 	{
 		x=(X)0; y=(Y)0;
@@ -218,7 +200,29 @@ Vec2<X,Y> Vec2Ref<X,Y>::Normalized() const
 	return (*this) / Length();
 }
 
-// TODO: Shouldn't be using a float parameter for all base types
+// Template specializations below
+// Many functions only really make sense for floating point vectors and/or when the base types for each component are equal.
+template<typename X, typename Y>
+X Vec2Ref<X,Y>::Length2() const
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	return x*x + y*y;
+}
+
+template<typename X, typename Y>
+X& Vec2Ref<X,Y>::operator [] (int i) //allow vector[1] = 3   (vector.y=3)
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	return (i==0) ? x : y;
+}
+
+template<typename X, typename Y>
+X Vec2Ref<X,Y>::operator [] (const int i) const
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	return (i==0) ? x : y;
+}
+
 template<typename X, typename Y>
 Vec2<X,Y> Vec2Ref<X,Y>::Lerp(const Vec2Ref<X,Y> &other, const float t) const
 {
@@ -319,32 +323,13 @@ public:
 	Vec3<X,Y,Z> operator / (const X& f) const;
 
 	// methods which don't create new Vec3 objects
-	float Length2() const
-	{
-		return x*x + y*y + z*z;
-	}
-	float Length() const
-	{
-		return sqrtf(Length2());
-	}
-	void SetLength(const float l)
-	{
-		(*this) *= l / Length();
-	}
-	float Normalize() //returns the previous length, is often useful
-	{
-		float len = Length();
-		(*this) /= len;
-		return len;
-	}
-	float &operator [] (int i) //allow vector[2] = 3   (vector.z=3)
-	{
-		return (i==0) ? x : (i==1) ? y : z;
-	}
-	float operator [] (const int i) const
-	{
-		return (i==0) ? x : (i==1) ? y : z;
-	}
+	// Length, SetLength and Normalize are only implemented for X=Y=Z=float
+	X Length2() const;
+	float Length() const;
+	void SetLength(const float l);
+	float Normalize(); // returns the previous length, is often useful
+	X &operator [] (int i); // allow vector[2] = 3   (vector.z=3)
+	X operator [] (const int i) const;
 	void SetZero()
 	{
 		x=(X)0; y=(Y)0; z=(Z)0;
@@ -449,6 +434,32 @@ Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::Normalized() const
 	return (*this) / Length();
 }
 
+// Template specializations below
+// Many functions only really make sense for floating point vectors and/or when the base types for each component are equal.
+template<typename X, typename Y, typename Z>
+X Vec3Ref<X,Y,Z>::Length2() const
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	static_assert(std::is_same<X,Z>::value, "base types need to be equal");
+	return x*x + y*y + z*z;
+}
+
+template<typename X, typename Y, typename Z>
+X& Vec3Ref<X,Y,Z>::operator [] (int i) //allow vector[1] = 3   (vector.y=3)
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	static_assert(std::is_same<X,Z>::value, "base types need to be equal");
+	return (i==0) ? x : (i==1) ? y : z;
+}
+
+template<typename X, typename Y, typename Z>
+X Vec3Ref<X,Y,Z>::operator [] (const int i) const
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	static_assert(std::is_same<X,Z>::value, "base types need to be equal");
+	return (i==0) ? x : (i==1) ? y : z;
+}
+
 // TODO: Shouldn't be using a float parameter for all base types
 template<typename X, typename Y, typename Z>
 Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::Lerp(const Vec3Ref<X,Y,Z> &other, const float t) const
@@ -547,32 +558,13 @@ public:
 	Vec4<X,Y,Z,W> operator / (const X& f) const;
 
 	// methods which don't create new Vec4 objects
-	float Length2() const
-	{
-		return x*x + y*y + z*z + w*w;
-	}
-	float Length() const
-	{
-		return sqrtf(Length2());
-	}
-	void SetLength(const float l)
-	{
-		(*this) *= l / Length();
-	}
-	float Normalize() //returns the previous length, is often useful
-	{
-		float len = Length();
-		(*this) /= len;
-		return len;
-	}
-	float &operator [] (int i) //allow vector[2] = 3   (vector.z=3)
-	{
-		return (i==0) ? x : (i==1) ? y : (i==2) ? z : w;
-	}
-	float operator [] (const int i) const
-	{
-		return (i==0) ? x : (i==1) ? y : (i==2) ? z : w;
-	}
+	// Length, SetLength and Normalize are only implemented for X=Y=Z=float
+	X Length2() const;
+	float Length() const;
+	void SetLength(const float l);
+	float Normalize(); //returns the previous length, is often useful
+	X &operator [] (int i); // allow vector[2] = 3   (vector.z=3)
+	X operator [] (const int i) const;
 	void SetZero()
 	{
 		x=(X)0; y=(Y)0; z=(Z)0; w=(W)0;
@@ -701,6 +693,35 @@ template<typename X, typename Y, typename Z, typename W>
 Vec4<X,Y,Z,W> Vec4Ref<X,Y,Z,W>::Normalized() const
 {
 	return (*this) / Length();
+}
+
+// Template specializations below
+// Many functions only really make sense for floating point vectors and/or when the base types for each component are equal.
+template<typename X, typename Y, typename Z, typename W>
+X Vec4Ref<X,Y,Z,W>::Length2() const
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	static_assert(std::is_same<X,Z>::value, "base types need to be equal");
+	static_assert(std::is_same<X,W>::value, "base types need to be equal");
+	return x*x + y*y + z*z + w*w;
+}
+
+template<typename X, typename Y, typename Z, typename W>
+X& Vec4Ref<X,Y,Z,W>::operator [] (int i) //allow vector[1] = 3   (vector.y=3)
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	static_assert(std::is_same<X,Z>::value, "base types need to be equal");
+	static_assert(std::is_same<X,W>::value, "base types need to be equal");
+	return (i==0) ? x : (i==1) ? y : (i==2) ? z : w;
+}
+
+template<typename X, typename Y, typename Z, typename W>
+X Vec4Ref<X,Y,Z,W>::operator [] (const int i) const
+{
+	static_assert(std::is_same<X,Y>::value, "base types need to be equal");
+	static_assert(std::is_same<X,Z>::value, "base types need to be equal");
+	static_assert(std::is_same<X,W>::value, "base types need to be equal");
+	return (i==0) ? x : (i==1) ? y : (i==2) ? z : w;
 }
 
 // TODO: Shouldn't be using a float parameter for all base types
