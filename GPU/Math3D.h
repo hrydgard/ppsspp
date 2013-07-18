@@ -55,6 +55,12 @@ public:
 
 	Vec2Ref(X a[2]) : x(a[0]), y(a[1]) {}
 
+	template<typename X2, typename Y2>
+	Vec2<X2,Y2> Cast() const
+	{
+		return Vec2<X2,Y2>((X2)x, (Y2)y);
+	}
+
 	void Write(X a[2])
 	{
 		a[0] = x; a[1] = y;
@@ -133,6 +139,8 @@ public:
 	// swizzlers - create a subvector of references to specific components
 	Vec2Ref<Y,X> yx() { return Vec2Ref(y, x); }
 	Vec2Ref<Y,X> vu() { return Vec2Ref(v, u); }
+	const Vec2Ref<Y,X> yx() const { return Vec2Ref(y, x); }
+	const Vec2Ref<Y,X> vu() const { return Vec2Ref(v, u); }
 };
 
 template<typename X, typename Y>
@@ -257,6 +265,12 @@ public:
 
 	Vec3Ref(X a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 
+	template<typename X2, typename Y2, typename Z2>
+	Vec3<X2,Y2,Z2> Cast() const
+	{
+		return Vec3<X2,Y2,Z2>((X2)x, (Y2)y, (Z2)z);
+	}
+
 	void Write(X a[3])
 	{
 		a[0] = x; a[1] = y; a[2] = z;
@@ -338,9 +352,10 @@ public:
 
 	// swizzlers - create a subvector of references to specific components
 	// e.g. Vec2Ref<X,Y> xy() { return Vec2Ref<X,Y>(x,y); }
-	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
+	// _DEFINE_SWIZZLER2 defines a single such function (and its "const" version)
+	// DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
 
-#define _DEFINE_SWIZZLER2(a, b, A, B) Vec2Ref<A, B> a##b() { return Vec2Ref<A,B>(a, b); }
+#define _DEFINE_SWIZZLER2(a, b, A, B) Vec2Ref<A,B> a##b() { return Vec2Ref<A,B>(a,b); }; const Vec2Ref<A,B> a##b() const { return Vec2Ref<A,B>(a,b); }
 #define DEFINE_SWIZZLER2(a, b, a2, b2, a3, b3, A, B) _DEFINE_SWIZZLER2(a, b, A, B); _DEFINE_SWIZZLER2(a2, b2, A, B); _DEFINE_SWIZZLER2(a3, b3, A, B); _DEFINE_SWIZZLER2(b, a, B, A); _DEFINE_SWIZZLER2(b2, a2, B, A); _DEFINE_SWIZZLER2(b3, a3, B, A);
 	DEFINE_SWIZZLER2(x, y, r, g, u, v, X, Y);
 	DEFINE_SWIZZLER2(x, z, r, b, u, w, X, Z);
@@ -471,6 +486,12 @@ public:
 
 	Vec4Ref(X a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
 
+	template<typename X2, typename Y2, typename Z2, typename W2>
+	Vec4<X2,Y2,Z2,W2> Cast() const
+	{
+		return Vec4<X2,Y2,Z2,W2>((X2)x, (Y2)y, (Z2)z, (W2)w);
+	}
+
 	void Write(X a[4])
 	{
 		a[0] = x; a[1] = y; a[2] = z; a[3] = w;
@@ -553,9 +574,10 @@ public:
 
 	// swizzlers - create a subvector of references to specific components
 	// e.g. Vec2Ref<X,Y> xy() { return Vec2Ref<X,Y>(x,y); }
-	// _DEFINE_SWIZZLER2 defines a single such function, DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
+	// _DEFINE_SWIZZLER2 defines a single such function (and its "const" version)
+	// DEFINE_SWIZZLER2 defines all of them for all component names (x<->r) and permutations (xy<->yx)
 
-#define _DEFINE_SWIZZLER2(a, b, A, B) Vec2Ref<A, B> a##b() { return Vec2Ref<A,B>(a, b); }
+#define _DEFINE_SWIZZLER2(a, b, A, B) Vec2Ref<A,B> a##b() { return Vec2Ref<A,B>(a,b); }; const Vec2Ref<A,B> a##b() const { return Vec2Ref<A,B>(a,b); }
 #define DEFINE_SWIZZLER2(a, b, a2, b2, A, B) _DEFINE_SWIZZLER2(a, b, A, B); _DEFINE_SWIZZLER2(a2, b2, A, B); _DEFINE_SWIZZLER2(b, a, B, A); _DEFINE_SWIZZLER2(b2, a2, B, A);
 	DEFINE_SWIZZLER2(x, y, r, g, X, Y);
 	DEFINE_SWIZZLER2(x, z, r, b, X, Z);
@@ -566,7 +588,7 @@ public:
 #undef DEFINE_SWIZZLER2
 #undef _DEFINE_SWIZZLER2
 
-#define _DEFINE_SWIZZLER3(a, b, c, A, B, C) Vec3Ref<A, B, C> a##b##c() { return Vec3Ref<A,B,C>(a, b, c); }
+#define _DEFINE_SWIZZLER3(a, b, c, A, B, C) Vec3Ref<A,B,C> a##b##c() { return Vec3Ref<A,B,C>(a,b,c); }; const Vec3Ref<A,B,C> a##b##c() const { return Vec3Ref<A,B,C>(a,b,c); }
 #define DEFINE_SWIZZLER3(a, b, c, a2, b2, c2, A, B, C) \
 	_DEFINE_SWIZZLER3(a, b, c, A, B, C); \
 	_DEFINE_SWIZZLER3(a, c, b, A, C, B); \
