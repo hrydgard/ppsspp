@@ -411,6 +411,7 @@ void NativeInitGraphics() {
 	ui_theme.checkOn = I_CHECKEDBOX;
 	ui_theme.checkOff = I_SQUARE;
 	ui_theme.whiteImage = SOLIDWHITE;
+	ui_theme.sliderKnob = I_CIRCLE;
 	ui_theme.buttonStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON);
 	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.buttonStyle.image = I_BUTTON;

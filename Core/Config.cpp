@@ -99,7 +99,7 @@ void Config::Load(const char *iniFileName)
 #endif
 	graphics->Get("BufferedRendering", &bBufferedRendering, true);
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
-	graphics->Get("TextureFiltering", &iTexFiltering, false);
+	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);

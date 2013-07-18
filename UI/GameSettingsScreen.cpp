@@ -36,6 +36,7 @@ public:
 		I18NCategory *category, ScreenManager *screenManager, LayoutParams *layoutParams = 0)
 		: Choice(text, "", false, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices), 
 		category_(category), screenManager_(screenManager) {
+		if (*value < minVal) *value = minVal;
 		OnClick.Handle(this, &PopupMultiChoice::HandleClick);
 		UpdateText();
 	}
@@ -83,8 +84,38 @@ void PopupMultiChoice::Draw(UIContext &dc) {
 	dc.Draw()->DrawText(dc.theme->uiFont, valueText_.c_str(), bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
+class PopupSliderChoice : public Choice {
+public:
+	PopupSliderChoice(int *value, int minValue, int maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0)
+		: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
+		OnClick.Handle(this, &PopupSliderChoice::HandleClick);
+	}
+
+	void Draw(UIContext &dc);
+
+private:
+	EventReturn HandleClick(EventParams &e);
+
+	int *value_;
+	int minValue_;
+	int maxValue_;
+	ScreenManager *screenManager_;
+};
+
+EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
+	Screen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_);
+	screenManager_->push(popupScreen);
+	return EVENT_DONE;
 }
 
+void PopupSliderChoice::Draw(UIContext &dc) {
+	Choice::Draw(dc);
+	char temp[4];
+	sprintf(temp, "%i", *value_);
+	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+}
+
+}
 
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
@@ -167,6 +198,8 @@ void GameSettingsScreen::CreateViews() {
 	audioSettingsScroll->Add(audioSettings);
 	tabHolder->AddTab("Audio", audioSettingsScroll);
 	audioSettings->Add(new Choice(a->T("Download Atrac3+ plugin")))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
+	audioSettings->Add(new PopupSliderChoice(&g_Config.iSEVolume, 0, 8, a->T("FX volume"), screenManager()));
+	audioSettings->Add(new PopupSliderChoice(&g_Config.iBGMVolume, 0, 8, a->T("BGM volume"), screenManager()));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, a->T("Enable Atrac3+")));
 	
