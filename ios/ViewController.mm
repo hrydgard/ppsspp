@@ -266,15 +266,31 @@ ViewController* sharedViewController;
 	
 	float scaledX = (int)(x * dp_xscale) * scale;
 	float scaledY = (int)(y * dp_yscale) * scale;
+    
+    TouchInput input;
 	
 	input_state.pointer_x[pointerId] = scaledX;
 	input_state.pointer_y[pointerId] = scaledY;
-	if (code == 1) {
-		input_state.pointer_down[pointerId] = true;
-	} else if (code == 2) {
-		input_state.pointer_down[pointerId] = false;
-	}
+    input.x = scaledX;
+    input.y = scaledY;
+    switch (code) {
+        case 1 :
+            input_state.pointer_down[pointerId] = true;
+            input.flags = TOUCH_DOWN;
+            break;
+            
+        case 2 :
+            input_state.pointer_down[pointerId] = false;
+            input.flags = TOUCH_UP;
+            break;
+            
+        default :
+            input.flags = TOUCH_MOVE;
+            break;
+    }
 	input_state.mouse_valid = true;
+    input.id = pointerId;
+    NativeTouch(input);
 }
 
 - (NSDictionary*)touchDictBy:(UITouch*)touch
