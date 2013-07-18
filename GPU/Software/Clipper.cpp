@@ -154,6 +154,8 @@ void ProcessQuad(VertexData* data)
 		VertexData newdata[6] = { data[0], data[0], data[1], data[1], data[1], data[0] };
 		newdata[1].clippos.x = data[1].clippos.x;
 		newdata[4].clippos.x = data[0].clippos.x;
+		newdata[1].texturecoords.u() = data[1].texturecoords.u();
+		newdata[4].texturecoords.u() = data[0].texturecoords.u();
 		ProcessTriangle(newdata);
 		ProcessTriangle(newdata+3);
 	}
@@ -161,6 +163,8 @@ void ProcessQuad(VertexData* data)
 	VertexData verts[6] = { data[0], data[0], data[1], data[1], data[1], data[0] };
 	verts[1].drawpos.x = data[1].drawpos.x;
 	verts[4].drawpos.x = data[0].drawpos.x;
+	verts[1].texturecoords.s() = data[1].texturecoords.s();
+	verts[4].texturecoords.s() = data[0].texturecoords.s();
 
 	// Color and depth values of second vertex are used for the whole rectangle
 	verts[0].color0 = verts[1].color0;
