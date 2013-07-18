@@ -39,7 +39,7 @@ public:
 		screenManager_ = 0;
 	}
 
-	virtual void update(InputState &input) = 0;
+	virtual void update(InputState &input) {}
 	virtual void render() {}
 	virtual void deviceLost() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
