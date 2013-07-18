@@ -2,6 +2,7 @@
 #include "base/display.h"
 #include "base/mutex.h"
 #include "input/input_state.h"
+#include "input/keycodes.h"
 #include "gfx_es2/draw_buffer.h"
 #include "gfx/texture.h"
 #include "gfx/texture_atlas.h"
@@ -416,6 +417,50 @@ void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h
 	const AtlasImage &image = dc.Draw()->GetAtlas()->images[imageBackground_];
 	w = image.w;
 	h = image.h;
+}
+
+void Slider::Key(const KeyInput &input) {
+	if (HasFocus() && input.flags & KEY_DOWN) {
+		switch (input.keyCode) {
+		case KEYCODE_DPAD_LEFT:
+		case KEYCODE_MINUS:
+		case KEYCODE_NUMPAD_SUBTRACT:
+			*value_ -= 1;
+			break;
+		case KEYCODE_DPAD_RIGHT:
+		case KEYCODE_PLUS:
+		case KEYCODE_NUMPAD_ADD:
+			*value_ -= 1;
+			break;
+		}
+		Clamp();
+	}
+}
+
+void Slider::Touch(const TouchInput &input) {
+	if (dragging_ || bounds_.Contains(input.x, input.y)) {
+		float relativeX = (input.x - bounds_.x) / bounds_.w;
+		*value_ = floorf(relativeX * (maxValue_ - minValue_) + minValue_ + 0.5f);
+		Clamp();
+	}
+}
+
+void Slider::Clamp() {
+	if (*value_ < minValue_) *value_ = minValue_;
+	else if (*value_ > maxValue_) *value_ = maxValue_;
+}
+
+void Slider::Draw(UIContext &dc) {
+	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * bounds_.w + bounds_.x;
+	dc.FillRect(Drawable(0xFFFFFFFF), Bounds(bounds_.x, bounds_.centerY() - 2, knobX - bounds_.x, 4));
+	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, bounds_.x + bounds_.w - knobX, 4));
+	dc.Draw()->DrawImage(dc.theme->sliderKnob, knobX, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+}
+
+void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	// TODO
+	w = 100;
+	h = 50;
 }
 
 

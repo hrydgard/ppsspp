@@ -79,6 +79,7 @@ struct Theme {
 	int uiFontSmaller;
 	int checkOn;
 	int checkOff;
+	int sliderKnob;
 	int whiteImage;
 
 	Style buttonStyle;
@@ -401,6 +402,23 @@ private:
 	std::string text_;
 };
 
+class Slider : public Clickable {
+public:
+	Slider(int *value, int minValue, int maxValue, LayoutParams *layoutParams = 0)
+		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	virtual void Draw(UIContext &dc);
+	virtual void Key(const KeyInput &input);
+	virtual void Touch(const TouchInput &input);
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+
+private:
+	void Clamp();
+	int *value_;
+	int minValue_;
+	int maxValue_;
+};
+
+
 // Basic button that modifies a bitfield based on the pressed status. Supports multitouch.
 // Suitable for controller simulation (ABXY etc).
 class TriggerButton : public View {
@@ -516,7 +534,6 @@ private:
 	std::string text_;
 	std::string smallText_;
 };
-
 
 // These are for generic use.
 

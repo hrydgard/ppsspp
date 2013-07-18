@@ -108,3 +108,9 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 void ListPopupScreen::OnCompleted() {
 	callback_(adaptor_.GetSelected());	
 }
+
+
+void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	slider_ = parent->Add(new Slider(value_, minValue_, maxValue_));
+}

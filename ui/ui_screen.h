@@ -66,3 +66,15 @@ private:
 
 	std::function<void(int)> callback_;
 };
+
+class SliderPopupScreen : public PopupScreen {
+public:
+	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title) : PopupScreen(title), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	void CreatePopupContents(UI::ViewGroup *parent);
+
+private:
+	UI::Slider *slider_;
+	int *value_;
+	int minValue_;
+	int maxValue_;
+};
