@@ -30,9 +30,22 @@ typedef Vec4<float> ClipCoords; // Range: -w <= x/y/z <= w
 
 struct ScreenCoords
 {
+	ScreenCoords() {}
+	ScreenCoords(fixed16 x, fixed16 y, u16 z) : x(x), y(y), z(z) {}
+
 	fixed16 x;
 	fixed16 y;
 	u16 z;
+
+	ScreenCoords operator * (const float t) const
+	{
+		return ScreenCoords(x * t, y * t, z * t);
+	}
+
+	ScreenCoords operator + (const ScreenCoords& oth) const
+	{
+		return ScreenCoords(x + oth.x, y + oth.y, z + oth.z);
+	}
 };
 
 struct DrawingCoords
@@ -45,46 +58,32 @@ struct DrawingCoords
 	u16 z;
 
 	Vec2<u10> xy() const { return Vec2<u10>(x, y); }
+
+	DrawingCoords operator * (const float t) const
+	{
+		return DrawingCoords(x * t, y * t, z * t);
+	}
+
+	DrawingCoords operator + (const DrawingCoords& oth) const
+	{
+		return DrawingCoords(x + oth.x, y + oth.y, z + oth.z);
+	}
 };
 
 struct VertexData
 {
 	void Lerp(float t, const VertexData& a, const VertexData& b)
 	{
-		#define LINTERP(T, OUT, IN) (OUT) + ((IN - OUT) * T)
-		#define LINTERP_INT(T, OUT, IN) (OUT) + (((IN - OUT) * T) >> 8)
-
 		// World coords only needed for lighting, so we don't Lerp those
 
-		clippos.x = LINTERP(t, a.clippos.x, b.clippos.x);
-		clippos.y = LINTERP(t, a.clippos.y, b.clippos.y);
-		clippos.z = LINTERP(t, a.clippos.z, b.clippos.z);
-		clippos.w = LINTERP(t, a.clippos.w, b.clippos.w);
-
-		// TODO: Should use a LINTERP_INT, too
-		drawpos.x = LINTERP(t, a.drawpos.x, b.drawpos.x);
-		drawpos.y = LINTERP(t, a.drawpos.y, b.drawpos.y);
-		drawpos.z = LINTERP(t, a.drawpos.z, b.drawpos.z);
-
-		texturecoords.x = LINTERP(t, a.texturecoords.x, b.texturecoords.x);
-		texturecoords.y = LINTERP(t, a.texturecoords.y, b.texturecoords.y);
-
-		normal.x = LINTERP(t, a.normal.x, b.normal.x);
-		normal.y = LINTERP(t, a.normal.y, b.normal.y);
-		normal.z = LINTERP(t, a.normal.z, b.normal.z);
+		clippos = ::Lerp(a.clippos, b.clippos, t);
+		drawpos = ::Lerp(a.drawpos, b.drawpos, t);  // TODO: Should use a LerpInt (?)
+		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
+		normal = ::Lerp(a.normal, b.normal, t);
 
 		u16 t_int =(u16)(t*256);
-		color0.x = LINTERP_INT(t_int, a.color0.x, b.color0.x);
-		color0.y = LINTERP_INT(t_int, a.color0.y, b.color0.y);
-		color0.z = LINTERP_INT(t_int, a.color0.z, b.color0.z);
-		color0.w = LINTERP_INT(t_int, a.color0.w, b.color0.w);
-
-		color1.x = LINTERP_INT(t_int, a.color1.x, b.color1.x);
-		color1.y = LINTERP_INT(t_int, a.color1.y, b.color1.y);
-		color1.z = LINTERP_INT(t_int, a.color1.z, b.color1.z);
-
-		#undef LINTERP
-		#undef LINTERP_INT
+		color0 = LerpInt<Vec4<int>,256>(a.color0, b.color0, t_int);
+		color1 = LerpInt<Vec3<int>,256>(a.color1, b.color1, t_int);
 	}
 
 	WorldCoords worldpos; // TODO: Storing this is dumb, should transform the light to clip space instead
