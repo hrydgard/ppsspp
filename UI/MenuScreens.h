@@ -62,6 +62,25 @@ public:
 	void update(InputState &input);
 	void render();
 	virtual void sendMessage(const char *msg, const char *value);
+
+	struct Message
+	{
+		Message(const char *m, const char *v)
+			: msg(m), value(v) {}
+
+		const char *msg;
+		const char *value;
+	};
+
+	virtual void *dialogData()
+	{
+		return m_data;
+	}
+
+	PauseScreen() : m_data(NULL) {}
+
+private:
+	Message* m_data;
 };
 
 

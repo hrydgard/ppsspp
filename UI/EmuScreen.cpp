@@ -52,7 +52,12 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 
+
 EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
+	bootGame(filename);
+}
+
+void EmuScreen::bootGame(const std::string &filename) {
 	CheckGLExtensions();
 	std::string fileToStart = filename;
 	// This is probably where we should start up the emulated PSP.
@@ -120,11 +125,23 @@ EmuScreen::~EmuScreen() {
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+
+	// TODO: improve the way with which we got commands from PauseMenu.
+	// DR_CANCEL means clicked on "continue", DR_OK means clicked on "back to menu",
+	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
 	if (result == DR_OK) {
 		if (g_Config.bNewUI)
 			screenManager()->switchScreen(new MainScreen());
 		else
 			screenManager()->switchScreen(new MenuScreen());
+	}
+	else if (result == DR_YES) {
+		PauseScreen::Message* msg = (PauseScreen::Message*)((Screen*)dialog)->dialogData();
+		if (msg != NULL)
+		{
+			NativeMessageReceived(msg->msg, msg->value);
+			delete msg;
+		}
 	}
 }
 
@@ -157,6 +174,10 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			Core_EnableStepping(true);
 		}
 #endif
+	}
+	else if (!strcmp(message, "boot")) {
+		PSP_Shutdown();
+		bootGame(value);
 	}
 }
 
