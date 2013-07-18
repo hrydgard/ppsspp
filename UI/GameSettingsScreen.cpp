@@ -26,6 +26,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "Core/Config.h"
+#include "android/jni/TestRunner.h"
 
 namespace UI {
 
@@ -237,12 +238,15 @@ void GlobalSettingsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
+	enableReports_ = g_Config.sReportHost != "";
+
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader("General"));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("New UI")));
+	list->Add(new CheckBox(&enableReports_, gs->T("Enable error reporting")));
 
 	static const char *fpsChoices[] = {
 		"None", "Speed", "FPS", "Both"
@@ -250,7 +254,7 @@ void GlobalSettingsScreen::CreateViews() {
 
 	list->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS"), fpsChoices, 0, 4, gs, screenManager()));
 	list->Add(new Choice(gs->T("Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
-
+	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
 }
 
@@ -264,12 +268,46 @@ UI::EventReturn GlobalSettingsScreen::OnLanguage(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GlobalSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
+	screenManager()->push(new DeveloperToolsScreen());
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GlobalSettingsScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
+	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "";
 	g_Config.Save();
 	return UI::EVENT_DONE;
 }
 
 void GlobalSettingsScreen::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
+}
+
+void DeveloperToolsScreen::DrawBackground(UIContext &dc) {
+	::DrawBackground(1.0f);
+}
+
+void DeveloperToolsScreen::CreateViews() {
+	using namespace UI;
+	root_ = new ScrollView(ORIENT_VERTICAL);
+
+	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *d = GetI18NCategory("Developer");
+
+	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	list->Add(new ItemHeader(g->T("General")));
+	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+
+	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
+}
+
+UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
+	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
+	RunTests();
+	return UI::EVENT_DONE;
 }
