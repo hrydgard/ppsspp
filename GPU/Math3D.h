@@ -193,6 +193,12 @@ Vec2<X,Y> Vec2Ref<X,Y>::operator * (const X& f) const
 	return Vec2<X,Y>(x*f,y*f);
 }
 
+template<typename X, typename Y=X>
+Vec2<X,Y> operator * (const X& f, const Vec2Ref<X,Y>& vec)
+{
+	return Vec2<X,Y>(f*vec.x, f*vec.y);
+}
+
 template<typename X, typename Y>
 Vec2<X,Y> Vec2Ref<X,Y>::operator / (const X& f) const
 {
@@ -416,6 +422,12 @@ template<typename X, typename Y, typename Z>
 Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::operator * (const X& f) const
 {
 	return Vec3<X,Y,Z>(x*f,y*f,z*f);
+}
+
+template<typename X, typename Y=X, typename Z=X>
+Vec3<X,Y,Z> operator * (const X& f, const Vec3Ref<X,Y,Z>& vec)
+{
+	return Vec3<X,Y,Z>(f*vec.x, f*vec.y, f*vec.z);
 }
 
 template<typename X, typename Y, typename Z>
@@ -664,6 +676,12 @@ template<typename X, typename Y, typename Z, typename W>
 Vec4<X,Y,Z,W> Vec4Ref<X,Y,Z,W>::operator * (const X& f) const
 {
 	return Vec4<X,Y,Z,W>(x*f,y*f,z*f,w*f);
+}
+
+template<typename X, typename Y=X, typename Z=X, typename W=X>
+Vec4<X,Y,Z,W> operator * (const X& f, const Vec4Ref<X,Y,Z,W>& vec)
+{
+	return Vec4<X,Y,Z,W>(f*vec.x, f*vec.y, f*vec.z, f*vec.w);
 }
 
 template<typename X, typename Y, typename Z, typename W>
