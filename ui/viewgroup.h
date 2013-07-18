@@ -156,7 +156,7 @@ struct GridLayoutSettings {
 class GridLayout : public ViewGroup {
 public:
 	GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams = 0)
-		: ViewGroup(layoutParams), settings_(settings) {
+		: ViewGroup(layoutParams), settings_(settings), numColumns_(1) {
 		if (settings.orientation != ORIENT_HORIZONTAL)
 			ELOG("GridLayout: Vertical layouts not yet supported");
 	}
@@ -166,6 +166,7 @@ public:
 
 private:
 	GridLayoutSettings settings_;
+	int numColumns_;
 };
 
 // A scrollview usually contains just a single child - a linear layout or similar.
