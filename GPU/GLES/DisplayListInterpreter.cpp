@@ -292,11 +292,9 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
 }
 
 bool GLES_GPU::FramebufferDirty() {
-	if (!g_Config.bBufferedRendering) {
-		VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
-		if (vfb)
-			return vfb->dirtyAfterDisplay;
-	}
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
+	if (vfb)
+		return vfb->dirtyAfterDisplay;
 	return true;
 }
 
