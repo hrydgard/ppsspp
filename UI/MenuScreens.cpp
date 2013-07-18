@@ -396,8 +396,10 @@ void PauseScreen::update(InputState &input) {
 void PauseScreen::sendMessage(const char *msg, const char *value) {
 	if (!strcmp(msg, "run")) {
 		screenManager()->finishDialog(this, DR_CANCEL);
-	} else if (!strcmp(msg, "stop")) {
-		screenManager()->finishDialog(this, DR_OK);
+	} else if (!strcmp(msg, "stop") || !strcmp(msg, "reset") || !strcmp(msg, "boot")) {
+		// Close the menu and send the events to EmuScreen
+		m_data = new PauseScreen::Message(msg, value);
+		screenManager()->finishDialog(this, DR_YES);
 	}
 }
 

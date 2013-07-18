@@ -40,6 +40,8 @@ public:
 	virtual void axis(const AxisInput &axis);
 
 private:
+	void bootGame(const std::string &filename);
+
 	void pspKey(int pspKeyCode, int flags);
 	void onVKeyDown(int virtualKeyCode);
 	void onVKeyUp(int virtualKeyCode);
