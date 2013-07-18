@@ -115,7 +115,6 @@ public:
 	// methods that create a new Vec2 object
 	Vec2<X,Y> WithLength(const X& l) const;
 	Vec2<X,Y> Normalized() const;
-	Vec2<X,Y> Lerp(const Vec2Ref &other, const float t) const;
 	float Distance2To(const Vec2Ref &other) const;
 
 	// swizzlers - create a subvector of references to specific components
@@ -224,17 +223,10 @@ X Vec2Ref<X,Y>::operator [] (const int i) const
 }
 
 template<typename X, typename Y>
-Vec2<X,Y> Vec2Ref<X,Y>::Lerp(const Vec2Ref<X,Y> &other, const float t) const
-{
-	return (*this)*(1-t) + other*t;
-}
-
-template<typename X, typename Y>
 float Vec2Ref<X,Y>::Distance2To(const Vec2Ref<X,Y>& other) const
 {
 	return (other-(*this)).Length2();
 }
-
 
 /**
  * Vec3 - three dimensional vector with arbitrary base type
@@ -338,7 +330,6 @@ public:
 	// methods that create a new Vec3 object
 	Vec3<X,Y,Z> WithLength(const X& l) const;
 	Vec3<X,Y,Z> Normalized() const;
-	Vec3<X,Y,Z> Lerp(const Vec3Ref &other, const float t) const;
 	float Distance2To(const Vec3Ref &other) const;
 
 	// swizzlers - create a subvector of references to specific components
@@ -460,19 +451,11 @@ X Vec3Ref<X,Y,Z>::operator [] (const int i) const
 	return (i==0) ? x : (i==1) ? y : z;
 }
 
-// TODO: Shouldn't be using a float parameter for all base types
-template<typename X, typename Y, typename Z>
-Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::Lerp(const Vec3Ref<X,Y,Z> &other, const float t) const
-{
-	return (*this)*(1-t) + other*t;
-}
-
 template<typename X, typename Y, typename Z>
 float Vec3Ref<X,Y,Z>::Distance2To(const Vec3Ref<X,Y,Z>& other) const
 {
 	return (other-(*this)).Length2();
 }
-
 
 /**
  * Vec4 - four dimensional vector with arbitrary base type
@@ -573,7 +556,6 @@ public:
 	// methods that create a new Vec4 object
 	Vec4<X,Y,Z,W> WithLength(const X& l) const;
 	Vec4<X,Y,Z,W> Normalized() const;
-	Vec4<X,Y,Z,W> Lerp(const Vec4Ref &other, const float t) const;
 	float Distance2To(const Vec4Ref &other) const;
 
 	// swizzlers - create a subvector of references to specific components
@@ -724,13 +706,6 @@ X Vec4Ref<X,Y,Z,W>::operator [] (const int i) const
 	return (i==0) ? x : (i==1) ? y : (i==2) ? z : w;
 }
 
-// TODO: Shouldn't be using a float parameter for all base types
-template<typename X, typename Y, typename Z, typename W>
-Vec4<X,Y,Z,W> Vec4Ref<X,Y,Z,W>::Lerp(const Vec4Ref<X,Y,Z,W> &other, const float t) const
-{
-	return (*this)*(1-t) + other*t;
-}
-
 template<typename X, typename Y, typename Z, typename W>
 float Vec4Ref<X,Y,Z,W>::Distance2To(const Vec4Ref<X,Y,Z,W>& other) const
 {
@@ -780,4 +755,19 @@ template<typename X, typename Y=X, typename Z=X>
 inline Vec3<X,Y,Z> Cross(const Vec3Ref<X,Y,Z> &a, const Vec3Ref<X,Y,Z>& b)
 {
 	return Vec3<X,Y,Z>(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
+}
+
+
+// linear interpolation via float: 0.0=begin, 1.0=end
+template<typename X>
+inline X Lerp(const X& begin, const X& end, const float t)
+{
+	return begin*(1.f-t) + end*t;
+}
+
+// linear interpolation via int: 0=begin, base=end
+template<typename X, int base>
+inline X LerpInt(const X& begin, const X& end, const int t)
+{
+	return (begin*(base-t) + end*t) / base;
 }
