@@ -29,6 +29,8 @@
 #include "FixedSizeQueue.h"
 #include "Common/Thread.h"
 
+#define LOW_LATENCY_AUDIO false
+
 // Should be used to lock anything related to the outAudioQueue.
 recursive_mutex section;
 
@@ -37,15 +39,27 @@ int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
 
 const int hwSampleRate = 44100;
+
+#ifdef LOW_LATENCY_AUDIO
+const int hwBlockSize = 16;
+const int hostAttemptBlockSize = 256;
+#else
 const int hwBlockSize = 64;
 const int hostAttemptBlockSize = 512;
+#endif;
+
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
 // High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
 // TODO: Tweak
+#ifdef LOW_LATENCY_AUDIO
+const int chanQueueMaxSizeFactor = 0;
+const int chanQueueMinSizeFactor = 1;
+#else
 const int chanQueueMaxSizeFactor = 2;
 const int chanQueueMinSizeFactor = 1;
+#endif
 
 // TODO: Need to replace this with something lockless. Mutexes in the audio pipeline
 // is bad mojo.

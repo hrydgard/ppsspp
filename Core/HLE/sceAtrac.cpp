@@ -625,7 +625,7 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						atrac->sampleQueue.push(buf, decodebytes);
 					}
 				}
-				const int MAX_CONFIG_VOLUME = 5;
+				const int MAX_CONFIG_VOLUME = 8;
 				s16* out = (s16*)outbuf;
 				memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
 				int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
