@@ -29,7 +29,7 @@
 #include "FixedSizeQueue.h"
 #include "Common/Thread.h"
 
-#define LOW_LATENCY_AUDIO false
+// #define LOW_LATENCY_AUDIO
 
 // Should be used to lock anything related to the outAudioQueue.
 recursive_mutex section;
