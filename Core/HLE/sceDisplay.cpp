@@ -460,9 +460,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Check first though, might've just quit / been paused.
 		if (coreState == CORE_RUNNING && gpu->FramebufferDirty()) {
 			coreState = CORE_NEXTFRAME;
+			gpu->CopyDisplayToOutput();
 		}
-
-		gpu->CopyDisplayToOutput();
 	}
 
 	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
