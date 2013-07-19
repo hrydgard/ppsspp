@@ -954,13 +954,17 @@ void GraphicsScreenP1::render() {
 	g_Config.iVSyncInterval = Vsync ? 1 : 0;
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Fullscreen"), ALIGN_TOPLEFT, &g_Config.bFullScreen);
 #endif
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
+	
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
 			gpu->Resized();
 	}
 	if (g_Config.bBufferedRendering) {
 		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Read Framebuffers To Memory"), ALIGN_TOPLEFT, &g_Config.bFramebuffersToMem)) { 
+			if (gpu)
+				gpu->Resized();
+		}
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Convert Framebuffers using CPU"), ALIGN_TOPLEFT, &g_Config.bFramebuffersCPUConvert)) { 
 			if (gpu)
 				gpu->Resized();
 		}
@@ -1245,7 +1249,9 @@ void GraphicsScreenP3::render() {
 		y += 20;
 	} else 
 		g_Config.iFrameSkip = 0;
-	
+
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
+
 	UIEnd();
 }
 

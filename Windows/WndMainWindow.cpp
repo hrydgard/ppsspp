@@ -734,6 +734,13 @@ namespace MainWindow
 					gpu->Resized();  // easy way to force a clear...
 				break;
 
+			case ID_OPTIONS_FBOCPUCONVERT:
+				g_Config.bFramebuffersCPUConvert = !g_Config.bFramebuffersCPUConvert;
+				osm.ShowOnOff(g->T("Convert Framebuffer using CPU"), g_Config.bFramebuffersCPUConvert);
+				if(gpu)
+					gpu->Resized(); // easy way to force a clear...
+				break;
+
 			case ID_OPTIONS_SHOWDEBUGSTATISTICS:
 				g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
 				break;
@@ -1036,6 +1043,7 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_OPTIONS_BUFFEREDRENDERING, g_Config.bBufferedRendering);
 		CHECKITEM(ID_OPTIONS_READFBOTOMEMORY, g_Config.bFramebuffersToMem);
+		CHECKITEM(ID_OPTIONS_FBOCPUCONVERT, g_Config.bFramebuffersCPUConvert);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
