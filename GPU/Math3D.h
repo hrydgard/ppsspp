@@ -31,9 +31,16 @@ template<typename X, typename Y=X>
 class Vec2Ref
 {
 private:
-	// This one usually leads to confusing results and shouldn't be necessary anyway
+	// This one usually leads to confusing results and shouldn't be necessary outside the swizzlers anyway
 	// (why would one create a reference to something that is already accessible as a reference?)
-	Vec2Ref(const Vec2Ref& other);
+	Vec2Ref(const Vec2Ref& other) : x(other.x), y(other.y),
+									s(other.x), t(other.y),
+									u(other.x), v(other.y) {}
+
+	template<typename X2, typename Y2, typename Z2>
+	friend class Vec3Ref;
+	template<typename X2, typename Y2, typename Z2, typename W2>
+	friend class Vec4Ref;
 
 public:
 	struct
@@ -250,9 +257,14 @@ template<typename X, typename Y=X, typename Z=X>
 class Vec3Ref
 {
 private:
-	// This one usually leads to confusing results and shouldn't be necessary anyway
+	// This one usually leads to confusing results and shouldn't be necessary outside the swizzlers anyway
 	// (why would one create a reference to something that is already accessible as a reference?)
-	Vec3Ref(const Vec3Ref& other);
+	Vec3Ref(const Vec3Ref& other) : x(other.x), y(other.y), z(other.z),
+									r(other.x), g(other.y), b(other.z),
+									u(other.x), v(other.y), w(other.z) {}
+
+	template<typename X2, typename Y2, typename Z2, typename W2>
+	friend class Vec4Ref;
 
 public:
 	struct
@@ -495,7 +507,7 @@ template<typename X, typename Y=X, typename Z=X, typename W=X>
 class Vec4Ref
 {
 private:
-	// This one usually leads to confusing results and shouldn't be necessary anyway
+	// This one usually leads to confusing results and shouldn't be necessary outside the swizzlers anyway
 	// (why would one create a reference to something that is already accessible as a reference?)
 	Vec4Ref(const Vec4Ref& other);
 
