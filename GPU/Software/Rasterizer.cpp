@@ -226,9 +226,15 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				int prim_color_a = 0;
 				Vec3<int> sec_color(0, 0, 0);
 				if ((gstate.shademodel&1) == GE_SHADE_GOURAUD) {
-					prim_color_rgb = ((v0.color0.rgb() * w0 / v0.clippos.w + v1.color0.rgb() * w1 / v1.clippos.w + v2.color0.rgb() * w2 / v2.clippos.w) / den).Cast<int>();
+					// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
+					// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
+					prim_color_rgb = ((v0.color0.rgb().Cast<float>() * w0 / v0.clippos.w +
+									v1.color0.rgb().Cast<float>() * w1 / v1.clippos.w +
+									v2.color0.rgb().Cast<float>() * w2 / v2.clippos.w) / den).Cast<int>();
 					prim_color_a = (int)((v0.color0.a() * w0 / v0.clippos.w + v1.color0.a() * w1 / v1.clippos.w + v2.color0.a() * w2 / v2.clippos.w) / den);
-					sec_color = ((v0.color1 * w0 / v0.clippos.w + v1.color1 * w1 / v1.clippos.w + v2.color1 * w2 / v2.clippos.w) / den).Cast<int>();
+					sec_color = ((v0.color1.Cast<float>() * w0 / v0.clippos.w +
+									v1.color1.Cast<float>() * w1 / v1.clippos.w +
+									v2.color1.Cast<float>() * w2 / v2.clippos.w) / den).Cast<int>();
 				} else {
 					prim_color_rgb = v2.color0.rgb();
 					prim_color_a = v2.color0.a();
