@@ -205,7 +205,7 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "float roundTo255th(in float x) { float y = x + (0.49/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 	}
 	if (enableColorTest) {
-		WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.49/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
+		WRITE(p, "vec3 roundTo255thv(in vec3 x) { vec3 y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 	}
 
 	WRITE(p, "void main() {\n");
