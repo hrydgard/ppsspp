@@ -43,6 +43,8 @@ int GetPixelDataOffset(int texel_size_bits, int u, int v, int width)
 	int block_height_in_tiles = 8; // 8 tiles = 8 texels
 	int tiles_per_block = block_width_in_tiles * block_height_in_tiles;
 	int block_stride_bits = tiles_per_block * tile_size_bits;
+
+	// TODO: Individual texels inside tiles are propably laid out incorrectly
 	return u / (texels_per_tile * block_width_in_tiles) * (block_stride_bits/8) + 
 			(u % (texels_per_tile * block_width_in_tiles)) * (texel_size_bits / 8) +
 			(v % block_height_in_tiles) * (block_width_in_tiles * tile_size_bits / 8) +
@@ -132,8 +134,10 @@ u32 SampleNearest(int level, float s, float t)
 	}
 }
 
+// NOTE: These likely aren't endian safe
 static inline u32 GetPixelColor(int x, int y)
 {
+	// TODO: Fix for other pixel formats!
 	return *(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()];
 }
 
@@ -150,6 +154,16 @@ static inline u16 GetPixelDepth(int x, int y)
 static inline void SetPixelDepth(int x, int y, u16 value)
 {
 	*(u16*)&depthbuf[2*x + 2*y*gstate.DepthBufStride()] = value;
+}
+
+static inline u8 GetPixelStencil(int x, int y)
+{
+	return (((*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()]) & 0x80000000) != 0) ? 0xFF : 0;
+}
+
+static inline void SetPixelStencil(int x, int y, u8 value)
+{
+	*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = (*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] & ~0x80000000) | ((value&0x80)<<24);
 }
 
 static inline bool DepthTestPassed(int x, int y, u16 z)
@@ -200,6 +214,39 @@ bool IsRightSideOrFlatBottomLine(const Vec2<u10>& vertex, const Vec2<u10>& line1
 	}
 }
 
+void ApplyStencilOp(int op, int x, int y)
+{
+	u8 old_stencil = GetPixelStencil(x, y); // TODO: Apply mask?
+	u8 reference_stencil = gstate.getStencilTestRef(); // TODO: Apply mask?
+
+	switch (op) {
+		case GE_STENCILOP_KEEP:
+			return;
+
+		case GE_STENCILOP_ZERO:
+			SetPixelStencil(x, y, 0);
+			return;
+
+		case GE_STENCILOP_REPLACE:
+			SetPixelStencil(x, y, reference_stencil);
+			break;
+
+		case GE_STENCILOP_INVERT:
+			SetPixelStencil(x, y, ~old_stencil);
+			break;
+
+		case GE_STENCILOP_INCR:
+			// TODO: Does this overflow?
+			SetPixelStencil(x, y, old_stencil+1);
+			break;
+
+		case GE_STENCILOP_DECR:
+			// TODO: Does this underflow?
+			SetPixelStencil(x, y, old_stencil-1);
+			break;
+	}
+}
+
 // Draws triangle, vertices specified in counter-clockwise direction (TODO: Make sure this is actually enforced)
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
@@ -235,13 +282,55 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Depth range test
 
+				if (gstate.isStencilTestEnabled() && !gstate.isModeClear()) {
+					bool pass = false;
+					u8 stencil = GetPixelStencil(p.x, p.y) & gstate.getStencilTestMask(); // TODO: Magic?
+					u8 ref = gstate.getStencilTestRef() & gstate.getStencilTestMask();
+					switch (gstate.getStencilTestFunction()) {
+						case GE_COMP_NEVER:
+							pass = false;
+							break;
+						case GE_COMP_ALWAYS:
+							pass = true;
+							break;
+						case GE_COMP_EQUAL:
+							pass = (stencil == ref);
+							break;
+						case GE_COMP_NOTEQUAL:
+							pass = (stencil != ref);
+							break;
+						case GE_COMP_LESS:
+							pass = (stencil < ref);
+							break;
+						case GE_COMP_LEQUAL:
+							pass = (stencil <= ref);
+							break;
+						case GE_COMP_GREATER:
+							pass = (stencil > ref);
+							break;
+						case GE_COMP_GEQUAL:
+							pass = (stencil >= ref);
+							break;
+					}
+
+					if (!pass) {
+						ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
+						continue;
+					}
+				}
+
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
 				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
 					// TODO: Is that the correct way to interpolate?
 					u16 z = (u16)((v0.drawpos.z * w0 + v1.drawpos.z * w1 + v2.drawpos.z * w2) / (w0+w1+w2));
 
-					if (!DepthTestPassed(p.x, p.y, z))
+					// TODO: Verify that stencil op indeed needs to be applied here even if stencil testing is disabled
+					if (!DepthTestPassed(p.x, p.y, z)) {
+						ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
 						continue;
+					} else {
+						ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
+					}
 
 					// TODO: Is this condition correct?
 					if (gstate.isDepthWriteEnabled() || ((gstate.clearmode&0x40) && gstate.isModeClear()))
@@ -335,7 +424,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Fogging
 
-				if (gstate.isAlphaBlendEnabled()) {
+				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 
 					Vec3<int> srccol(0, 0, 0);
