@@ -31,30 +31,27 @@ template<typename X, typename Y=X>
 class Vec2Ref
 {
 public:
-	union
+	struct
 	{
-		struct
-		{
-			X& x;
-			Y& y;
-		};
-		struct
-		{
-			X& u;
-			Y& v;
-		};
-		struct
-		{
-			X& s;
-			Y& t;
-		};
+		X& x;
+		Y& y;
+	};
+	struct
+	{
+		X& u;
+		Y& v;
+	};
+	struct
+	{
+		X& s;
+		Y& t;
 	};
 
 	X* AsArray() { return &x; }
 
-	Vec2Ref(X& _x, Y& _y) : x(_x), y(_y) {}
+	Vec2Ref(X& _x, Y& _y) : x(_x), y(_y), u(_x), v(_y), s(_x), t(_y) {}
 
-	Vec2Ref(X a[2]) : x(a[0]), y(a[1]) {}
+	Vec2Ref(X a[2]) : x(a[0]), y(a[1]), u(a[0]), v(a[1]), s(a[0]), t(a[1]) {}
 
 	template<typename X2, typename Y2>
 	Vec2<X2,Y2> Cast() const
@@ -174,7 +171,7 @@ Vec2<X,Y> Vec2Ref<X,Y>::operator * (const X& f) const
 	return Vec2<X,Y>(x*f,y*f);
 }
 
-template<typename X, typename Y=X>
+template<typename X, typename Y>
 Vec2<X,Y> operator * (const X& f, const Vec2Ref<X,Y>& vec)
 {
 	return Vec2<X,Y>(f*vec.x, f*vec.y);
@@ -239,33 +236,34 @@ template<typename X, typename Y=X, typename Z=X>
 class Vec3Ref
 {
 public:
-	union
+	struct
 	{
-		struct
-		{
-			X& x;
-			Y& y;
-			Z& z;
-		};
-		struct
-		{
-			X& r;
-			Y& g;
-			Z& b;
-		};
-		struct
-		{
-			X& u;
-			Y& v;
-			Z& w;
-		};
+		X& x;
+		Y& y;
+		Z& z;
+	};
+	struct
+	{
+		X& r;
+		Y& g;
+		Z& b;
+	};
+	struct
+	{
+		X& u;
+		Y& v;
+		Z& w;
 	};
 
 	X* AsArray() { return &x; }
 
-	Vec3Ref(X& _x, Y& _y, Z& _z) : x(_x), y(_y), z(_z) {}
+	Vec3Ref(X& _x, Y& _y, Z& _z) : x(_x), y(_y), z(_z),
+									r(_x), g(_y), b(_z),
+									u(_x), v(_y), w(_z) {}
 
-	Vec3Ref(X a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
+	Vec3Ref(X a[3]) : x(a[0]), y(a[1]), z(a[2]),
+						r(a[0]), g(a[1]), b(a[2]),
+						u(a[0]), v(a[1]), w(a[2]) {}
 
 	template<typename X2, typename Y2, typename Z2>
 	Vec3<X2,Y2,Z2> Cast() const
@@ -400,7 +398,7 @@ Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::operator * (const X& f) const
 	return Vec3<X,Y,Z>(x*f,y*f,z*f);
 }
 
-template<typename X, typename Y=X, typename Z=X>
+template<typename X, typename Y, typename Z>
 Vec3<X,Y,Z> operator * (const X& f, const Vec3Ref<X,Y,Z>& vec)
 {
 	return Vec3<X,Y,Z>(f*vec.x, f*vec.y, f*vec.z);
@@ -468,29 +466,28 @@ template<typename X, typename Y=X, typename Z=X, typename W=X>
 class Vec4Ref
 {
 public:
-	union
+	struct
 	{
-		struct
-		{
-			X& x;
-			Y& y;
-			Z& z;
-			W& w;
-		};
-		struct
-		{
-			X& r;
-			Y& g;
-			Z& b;
-			W& a;
-		};
+		X& x;
+		Y& y;
+		Z& z;
+		W& w;
+	};
+	struct
+	{
+		X& r;
+		Y& g;
+		Z& b;
+		W& a;
 	};
 
 	X* AsArray() { return &x; }
 
-	Vec4Ref(X& _x, Y& _y, Z& _z, W& _w) : x(_x), y(_y), z(_z), w(_w) {}
+	Vec4Ref(X& _x, Y& _y, Z& _z, W& _w) : x(_x), y(_y), z(_z), w(_w),
+											r(_x), g(_y), b(_z), a(_w) {}
 
-	Vec4Ref(X a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
+	Vec4Ref(X a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]),
+						r(a[0]), g(a[1]), b(a[2]), a(a[3]) {}
 
 	template<typename X2, typename Y2, typename Z2, typename W2>
 	Vec4<X2,Y2,Z2,W2> Cast() const
@@ -652,7 +649,7 @@ Vec4<X,Y,Z,W> Vec4Ref<X,Y,Z,W>::operator * (const X& f) const
 	return Vec4<X,Y,Z,W>(x*f,y*f,z*f,w*f);
 }
 
-template<typename X, typename Y=X, typename Z=X, typename W=X>
+template<typename X, typename Y, typename Z, typename W>
 Vec4<X,Y,Z,W> operator * (const X& f, const Vec4Ref<X,Y,Z,W>& vec)
 {
 	return Vec4<X,Y,Z,W>(f*vec.x, f*vec.y, f*vec.z, f*vec.w);
@@ -751,7 +748,7 @@ inline X Dot(const Vec4Ref<X> &a, const Vec4Ref<X>& b)
 	return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
 }
 
-template<typename X, typename Y=X, typename Z=X>
+template<typename X, typename Y, typename Z>
 inline Vec3<X,Y,Z> Cross(const Vec3Ref<X,Y,Z> &a, const Vec3Ref<X,Y,Z>& b)
 {
 	return Vec3<X,Y,Z>(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
