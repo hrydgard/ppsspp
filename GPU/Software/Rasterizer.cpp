@@ -37,7 +37,6 @@ u32 SampleNearest(int level, float s, float t)
 	int texfmt = gstate.texformat & 0xF;
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 	u8* srcptr = (u8*)Memory::GetPointer(texaddr); // TODO: not sure if this is the right place to load from...?
-	const u8* baseptr = srcptr;
 
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
@@ -105,6 +104,7 @@ u32 SampleNearest(int level, float s, float t)
 		return clut[index];
 	} else {
 		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
+		return 0;
 	}
 }
 
@@ -159,6 +159,9 @@ static inline bool DepthTestPassed(int x, int y, u16 z)
 
 	case GE_COMP_GEQUAL:
 		return (z >= reference_z);
+
+	default:
+		return 0;
 	}
 }
 
@@ -235,7 +238,6 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				// TODO: Also disable if vertex has no texture coordinates?
 				if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
 					Vec4<int> texcolor = Vec4<int>::FromRGBA(/*TextureDecoder::*/SampleNearest(0, s, t));
-					u32 mycolor = (/*TextureDecoder::*/SampleNearest(0, s, t));
 
 					bool rgba = (gstate.texfunc & 0x10) != 0;
 
