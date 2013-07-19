@@ -203,6 +203,9 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should only render when it's on the left of the right edge
 			if (w0 >=0 && w1 >= 0 && w2 >= 0) {
+				if (w0 == w1 && w1 == w2 && w2 == 0)
+					continue;
+
 				// TODO: Make sure this is not ridiculously small?
 				float den = 1.0f/v0.clippos.w * w0 + 1.0f/v1.clippos.w * w1 + 1.0f/v2.clippos.w * w2;
 
@@ -210,7 +213,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
 				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
-					u16 z = (u16)((v0.drawpos.z * w0 / v0.clippos.w + v1.drawpos.z * w1 / v1.clippos.w + v2.drawpos.z * w2 / v2.clippos.w) / den);
+					// TODO: Is that the correct way to interpolate?
+					u16 z = (u16)((v0.drawpos.z * w0 + v1.drawpos.z * w1 + v2.drawpos.z * w2) / (w0+w1+w2));
 
 					if (!DepthTestPassed(p.x, p.y, z))
 						continue;
@@ -228,13 +232,14 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				if ((gstate.shademodel&1) == GE_SHADE_GOURAUD) {
 					// NOTE: When not casting color0 and color1 to float vectors, this code suffers from severe overflow issues.
 					// Not sure if that should be regarded as a bug or if casting to float is a valid fix.
-					prim_color_rgb = ((v0.color0.rgb().Cast<float>() * w0 / v0.clippos.w +
-									v1.color0.rgb().Cast<float>() * w1 / v1.clippos.w +
-									v2.color0.rgb().Cast<float>() * w2 / v2.clippos.w) / den).Cast<int>();
-					prim_color_a = (int)((v0.color0.a() * w0 / v0.clippos.w + v1.color0.a() * w1 / v1.clippos.w + v2.color0.a() * w2 / v2.clippos.w) / den);
-					sec_color = ((v0.color1.Cast<float>() * w0 / v0.clippos.w +
-									v1.color1.Cast<float>() * w1 / v1.clippos.w +
-									v2.color1.Cast<float>() * w2 / v2.clippos.w) / den).Cast<int>();
+					// TODO: Is that the correct way to interpolate?
+					prim_color_rgb = ((v0.color0.rgb().Cast<float>() * w0 +
+									v1.color0.rgb().Cast<float>() * w1 +
+									v2.color0.rgb().Cast<float>() * w2) / (w0+w1+w2)).Cast<int>();
+					prim_color_a = (int)((v0.color0.a() * w0 + v1.color0.a() * w1 + v2.color0.a() * w2) / (w0+w1+w2));
+					sec_color = ((v0.color1.Cast<float>() * w0 +
+									v1.color1.Cast<float>() * w1 +
+									v2.color1.Cast<float>() * w2) / (w0+w1+w2)).Cast<int>();
 				} else {
 					prim_color_rgb = v2.color0.rgb();
 					prim_color_a = v2.color0.a();
