@@ -290,7 +290,7 @@ void CWCheatEngine::Run() {
 				}
 			case 0x4: // 32-bit patch code
 				code = GetNextCode();
-				if (code[0] != 0) {
+				if (true) {
 					int data = code[0];
 					int dataAdd = code[1];
 
@@ -307,7 +307,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x5: // Memcpy command
 				code = GetNextCode();
-				if (code[0] != 0) {
+				if (true) {
 					int destAddr = code[0];
 					if (Memory::IsValidAddress(addr) && Memory::IsValidAddress(destAddr)) {
 						Memory::Memcpy(destAddr, Memory::GetPointer(addr), arg);
@@ -316,7 +316,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x6: // Pointer commands
 				code = GetNextCode();
-				if (code[0] != 0) {
+				if (true) {
 					int arg2 = code[0];
 					int offset = code[1];
 					int baseOffset = (arg2 >> 20) * 4;
@@ -437,7 +437,7 @@ void CWCheatEngine::Run() {
 				break;
 			case 0x8: // 8-bit and 16-bit patch code
 				code = GetNextCode();
-				if (code[0] != 0) {
+				if (true) {
 					int data = code[0];
 					int dataAdd = code[1];
 
