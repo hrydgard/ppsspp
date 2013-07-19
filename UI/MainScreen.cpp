@@ -295,7 +295,7 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	Margins actionMenuMargins(0, 100, 15, 0);
+	Margins actionMenuMargins(0, 80, 15, 0);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -322,7 +322,7 @@ void MainScreen::CreateViews() {
 	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelected);
 
-/*
+	/*
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 		tvTitle_ = leftColumn->Add(new TextView(0, info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 200, NONE, NONE)));

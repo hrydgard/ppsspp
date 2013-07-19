@@ -58,20 +58,7 @@ private:
 	UI::EventReturn OnFactoryReset(UI::EventParams &e);
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
-
-	// Temporaries to convert bools to other kinds of settings
-	bool enableReports_;
-};
-
-class DeveloperToolsScreen : public UIScreen {
-public:
-	DeveloperToolsScreen() {}
-
-protected:
-	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
-
-private:
-	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
+	
+	bool enableReports_;
 };

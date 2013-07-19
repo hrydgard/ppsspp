@@ -499,8 +499,6 @@ void PauseScreen::render() {
 	if (pixel_xres == pixel_yres)
 		UICheckBox(GEN_ID, x, y += stride, gs->T("Partial Vertical Stretch"), ALIGN_TOPLEFT, &g_Config.bPartialStretch);
 #endif
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Stretch to Display"), ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
-
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Hardware Transform"), ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
 		if (gpu)
@@ -876,17 +874,17 @@ void AudioScreen::render() {
 				g_Config.iBGMVolume += 1;
 		y+=20;
 		char sevol[256];
-		sprintf(sevol, "%s %i", a->T("SE Volume     :"), g_Config.iSEVolume);
+		sprintf(sevol, "%s %i", a->T("SE Volume     :"), g_Config.iSFXVolume);
 		ui_draw2d.DrawTextShadow(UBUNTU24, sevol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 80, 0, a->T("Auto"), ALIGN_LEFT))
-			g_Config.iSEVolume = 3;
+			g_Config.iSFXVolume = 3;
 		if (UIButton(GEN_ID, hlinear2, 50, 0, a->T("-1"), ALIGN_LEFT))
-			if (g_Config.iSEVolume > 1)
-				g_Config.iSEVolume -= 1;
+			if (g_Config.iSFXVolume > 1)
+				g_Config.iSFXVolume -= 1;
 		if (UIButton(GEN_ID, hlinear2, 50, 0, a->T("+1"), ALIGN_LEFT))
-			if (g_Config.iSEVolume < 8)
-				g_Config.iSEVolume += 1;
+			if (g_Config.iSFXVolume < 8)
+				g_Config.iSFXVolume += 1;
 
 		y+=10;
 
@@ -949,9 +947,7 @@ void GraphicsScreenP1::render() {
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
 #ifdef _WIN32
-	bool Vsync = g_Config.iVSyncInterval != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("VSync"), ALIGN_TOPLEFT, &Vsync);
-	g_Config.iVSyncInterval = Vsync ? 1 : 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("VSync"), ALIGN_TOPLEFT, &g_Config.bVSync);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Fullscreen"), ALIGN_TOPLEFT, &g_Config.bFullScreen);
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
@@ -1614,9 +1610,9 @@ void ControlsScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, c->T("Tilt", "Tilt to Analog (horizontal)"), ALIGN_TOPLEFT, &g_Config.bAccelerometerToAnalogHoriz);
 	if (g_Config.bShowTouchControls) {
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Left Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
-			
-		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
-		if (g_Config.bLargeControls) {
+		bool bScaling = g_Config.fButtonScale < 2.05;	
+		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &bScaling);
+		if (bScaling) {
 			char scale[256];
 			sprintf(scale, "%s %0.2f", c->T("Scale :"), g_Config.fButtonScale);
 			ui_draw2d.DrawTextShadow(UBUNTU24, scale, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
