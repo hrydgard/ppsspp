@@ -25,6 +25,12 @@
 
 struct VirtualFramebuffer;
 
+enum TextureFiltering {
+	nearest = 2,
+	linear = 3,   
+	linearFMV = 4,
+};
+
 class TextureCache 
 {
 public:
