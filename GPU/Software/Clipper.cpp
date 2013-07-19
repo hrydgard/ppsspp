@@ -151,34 +151,79 @@ void ProcessQuad(VertexData* data)
 		data[0].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[0].clippos));
 		data[1].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos));*/
 
-		VertexData newdata[6] = { data[0], data[0], data[1], data[1], data[1], data[0] };
-		newdata[1].clippos.x = data[1].clippos.x;
-		newdata[4].clippos.x = data[0].clippos.x;
-		newdata[1].texturecoords.u() = data[1].texturecoords.u();
-		newdata[4].texturecoords.u() = data[0].texturecoords.u();
-		ProcessTriangle(newdata);
-		ProcessTriangle(newdata+3);
+
+		VertexData buf[4];
+		buf[0].clippos = ClipCoords(data[0].clippos.x, data[0].clippos.y, data[1].clippos.z, data[1].clippos.w);
+		buf[0].texturecoords = data[0].texturecoords;
+
+		buf[1].clippos = ClipCoords(data[0].clippos.x, data[1].clippos.y, data[1].clippos.z, data[1].clippos.w);
+		buf[1].texturecoords = Vec2<float>(data[0].texturecoords.x, data[1].texturecoords.y);
+
+		buf[2].clippos = ClipCoords(data[1].clippos.x, data[0].clippos.y, data[1].clippos.z, data[1].clippos.w);
+		buf[2].texturecoords = Vec2<float>(data[1].texturecoords.x, data[0].texturecoords.y);
+
+		buf[3] = data[1];
+
+		// Color and depth values of second vertex are used for the whole rectangle
+		buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
+		buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;
+
+		VertexData* topleft = &buf[0];
+		VertexData* topright = &buf[1];
+		VertexData* bottomleft = &buf[2];
+		VertexData* bottomright = &buf[3];
+
+		for (int i = 0; i < 4; ++i) {
+			if (buf[i].clippos.x < topleft->clippos.x && buf[i].clippos.y < topleft->clippos.y)
+				topleft = &buf[i];
+			if (buf[i].clippos.x > topright->clippos.x && buf[i].clippos.y < topright->clippos.y)
+				topright = &buf[i];
+			if (buf[i].clippos.x < bottomleft->clippos.x && buf[i].clippos.y > bottomleft->clippos.y)
+				bottomleft = &buf[i];
+			if (buf[i].clippos.x > bottomright->clippos.x && buf[i].clippos.y > bottomright->clippos.y)
+				bottomright = &buf[i];
+		}
+
+		Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
+		Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
 	}
 
-	VertexData verts[6] = { data[0], data[0], data[1], data[1], data[1], data[0] };
-	verts[1].drawpos.x = data[1].drawpos.x;
-	verts[4].drawpos.x = data[0].drawpos.x;
-	verts[1].texturecoords.s() = data[1].texturecoords.s();
-	verts[4].texturecoords.s() = data[0].texturecoords.s();
+	// through mode handling
+	VertexData buf[4];
+	buf[0].drawpos = DrawingCoords(data[0].drawpos.x, data[0].drawpos.y, data[1].drawpos.z);
+	buf[0].texturecoords = data[0].texturecoords;
+
+	buf[1].drawpos = DrawingCoords(data[0].drawpos.x, data[1].drawpos.y, data[1].drawpos.z);
+	buf[1].texturecoords = Vec2<float>(data[0].texturecoords.x, data[1].texturecoords.y);
+
+	buf[2].drawpos = DrawingCoords(data[1].drawpos.x, data[0].drawpos.y, data[1].drawpos.z);
+	buf[2].texturecoords = Vec2<float>(data[1].texturecoords.x, data[0].texturecoords.y);
+
+	buf[3] = data[1];
 
 	// Color and depth values of second vertex are used for the whole rectangle
-	verts[0].color0 = verts[1].color0;
-	verts[1].color0 = verts[1].color0;
-	verts[5].color0 = verts[1].color0;
-	verts[0].color1 = verts[1].color1;
-	verts[1].color1 = verts[1].color1;
-	verts[5].color1 = verts[1].color1;
-	verts[0].drawpos.z = verts[1].drawpos.z;
-	verts[1].drawpos.z = verts[1].drawpos.z;
-	verts[5].drawpos.z = verts[1].drawpos.z;
+	buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
+	buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;
+	buf[0].clippos.w = buf[1].clippos.w = buf[2].clippos.w = buf[3].clippos.w = 1.0f;
 
-	Rasterizer::DrawTriangle(verts[0], verts[1], verts[2]);
-	Rasterizer::DrawTriangle(verts[3], verts[4], verts[5]);
+	VertexData* topleft = &buf[0];
+	VertexData* topright = &buf[1];
+	VertexData* bottomleft = &buf[2];
+	VertexData* bottomright = &buf[3];
+
+	for (int i = 0; i < 4; ++i) {
+		if (buf[i].drawpos.x < topleft->drawpos.x && buf[i].drawpos.y < topleft->drawpos.y)
+			topleft = &buf[i];
+		if (buf[i].drawpos.x > topright->drawpos.x && buf[i].drawpos.y < topright->drawpos.y)
+			topright = &buf[i];
+		if (buf[i].drawpos.x < bottomleft->drawpos.x && buf[i].drawpos.y > bottomleft->drawpos.y)
+			bottomleft = &buf[i];
+		if (buf[i].drawpos.x > bottomright->drawpos.x && buf[i].drawpos.y > bottomright->drawpos.y)
+			bottomright = &buf[i];
+	}
+
+	Rasterizer::DrawTriangle(*topleft, *topright, *bottomright);
+	Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
 }
 
 void ProcessTriangle(VertexData* data)
