@@ -15,22 +15,18 @@
 #include "input/input_state.h"
 #include "net/resolve.h"
 #include "ui/screen.h"
+#include "input/keycodes.h"
 
 #include "Core/Config.h"
 #include "gfx_es2/fbo.h"
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 
-extern void UIUpdateMouse(int i, float x, float y, bool down);
-
 float dp_xscale = 1.0f;
 float dp_yscale = 1.0f;
 
-static uint32_t pad_buttons_async_set = 0;
-static uint32_t pad_buttons_async_clear = 0;
-static uint32_t pad_buttons_down = 0;
-
 double lastSelectPress = 0.0f;
+double lastStartPress = 0.0f;
 bool simulateAnalog = false;
 
 extern ScreenManager *screenManager;
@@ -42,6 +38,9 @@ extern bool isJailed;
 ViewController* sharedViewController;
 
 @interface ViewController ()
+{
+	std::map<uint16_t, uint16_t> iCadeToKeyMap;
+}
 
 @property (strong, nonatomic) EAGLContext *context;
 @property (nonatomic,retain) NSString* documentsPath;
@@ -66,30 +65,39 @@ ViewController* sharedViewController;
 		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 
 		memset(&input_state, 0, sizeof(input_state));
-		pad_buttons_async_clear = 0;
-		pad_buttons_async_set = 0;
-		pad_buttons_down = 0;
 
 		net::Init();
 
 		ram_temp_file = [[NSTemporaryDirectory() stringByAppendingPathComponent:@"ram_tmp.file"] fileSystemRepresentation];
 		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
-		
+
 		isJailed = true;
-		
+
 		NSArray *jailPath = [NSArray arrayWithObjects:
 							@"/Applications/Cydia.app",
 							@"/private/var/lib/apt" ,
 							@"/private/var/stash" ,
 							@"/usr/sbin/sshd" ,
 							@"/usr/bin/sshd" , nil];
-		
+
 		for(NSString *string in jailPath)
 		{
 			if ([[NSFileManager defaultManager] fileExistsAtPath:string])
 				isJailed = false;
 		}
-		
+
+		iCadeToKeyMap[iCadeJoystickUp]		= KEYCODE_DPAD_UP;
+		iCadeToKeyMap[iCadeJoystickRight]	= KEYCODE_DPAD_RIGHT;
+		iCadeToKeyMap[iCadeJoystickDown]	= KEYCODE_DPAD_DOWN;
+		iCadeToKeyMap[iCadeJoystickLeft]	= KEYCODE_DPAD_LEFT;
+		iCadeToKeyMap[iCadeButtonA]			= KEYCODE_BUTTON_9; // Select
+		iCadeToKeyMap[iCadeButtonB]			= KEYCODE_BUTTON_7; // LTrigger
+		iCadeToKeyMap[iCadeButtonC]			= KEYCODE_BUTTON_10; // Start
+		iCadeToKeyMap[iCadeButtonD]			= KEYCODE_BUTTON_8; // RTrigger
+		iCadeToKeyMap[iCadeButtonE]			= KEYCODE_BUTTON_4; // Square
+		iCadeToKeyMap[iCadeButtonF]			= KEYCODE_BUTTON_2; // Cross
+		iCadeToKeyMap[iCadeButtonG]			= KEYCODE_BUTTON_1; // Triangle
+		iCadeToKeyMap[iCadeButtonH]			= KEYCODE_BUTTON_3; // Circle
 	}
 	return self;
 }
@@ -130,22 +138,22 @@ ViewController* sharedViewController;
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
-    
+
 /*
 	UISwipeGestureRecognizer* gesture = [[[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)] autorelease];
 	[self.view addGestureRecognizer:gesture];
 */
-    
-    self.iCadeView = [[iCadeReaderView alloc] init];
-    [self.view addSubview:self.iCadeView];
-    self.iCadeView.delegate = self;
-    self.iCadeView.active = YES;
+
+	self.iCadeView = [[iCadeReaderView alloc] init];
+	[self.view addSubview:self.iCadeView];
+	self.iCadeView.delegate = self;
+	self.iCadeView.active = YES;
 }
 
 - (void)viewDidUnload
 {
 	[super viewDidUnload];
-	
+
 	if ([EAGLContext currentContext] == self.context) {
 		[EAGLContext setCurrentContext:nil];
 	}
@@ -160,8 +168,8 @@ ViewController* sharedViewController;
 - (void)dealloc
 {
 	[self viewDidUnload];
-    
-    self.iCadeView = nil;
+
+	self.iCadeView = nil;
 	self.audioEngine = nil;
 	self.touches = nil;
 	self.documentsPath = nil;
@@ -183,53 +191,12 @@ ViewController* sharedViewController;
 	return UIInterfaceOrientationMaskLandscape;
 }
 
-//static BOOL menuDown = NO;
-
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
 	{
 		lock_guard guard(input_state.lock);
-		pad_buttons_down |= pad_buttons_async_set;
-		pad_buttons_down &= ~pad_buttons_async_clear;
-        
-        float analogX = 0;
-        float analogY = 0;
-        
-        if (simulateAnalog) {
-            if (pad_buttons_down & PAD_BUTTON_UP) {
-                analogY = 1.0f;
-                pad_buttons_down &= ~PAD_BUTTON_UP;
-            }
-            if (pad_buttons_down & PAD_BUTTON_DOWN) {
-                analogY = -1.0f;
-                pad_buttons_down &= ~PAD_BUTTON_DOWN;
-            }
-            if (pad_buttons_down & PAD_BUTTON_LEFT) {
-                analogX = -1.0f;
-                pad_buttons_down &= ~PAD_BUTTON_LEFT;
-            }
-            if (pad_buttons_down & PAD_BUTTON_RIGHT) {
-                analogX = 1.0f;
-                pad_buttons_down &= ~PAD_BUTTON_RIGHT;
-            }
-        }
-        
-        input_state.pad_lstick_x = analogX;
-        input_state.pad_lstick_y = analogY;
-		input_state.pad_rstick_x = 0;
-		input_state.pad_rstick_y = 0;
-		input_state.pad_buttons = pad_buttons_down;
 		UpdateInputState(&input_state);
-	}
-
-	{
-		lock_guard guard(input_state.lock);
-		UIUpdateMouse(0, input_state.pointer_x[0], input_state.pointer_y[0], input_state.pointer_down[0]);
-		screenManager->update(input_state);
-	}
-
-	{
-		lock_guard guard(input_state.lock);
+		NativeUpdate(input_state);
 		EndInputState(&input_state);
 	}
 
@@ -240,80 +207,64 @@ ViewController* sharedViewController;
 - (void)swipeGesture:(id)sender
 {
 	// TODO: Use a swipe gesture to handle BACK
-/*
-	pad_buttons_async_set |= PAD_BUTTON_MENU;
-	pad_buttons_async_clear &= PAD_BUTTON_MENU;
-
-	int64_t delayInSeconds = 1.5;
-	dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, delayInSeconds * NSEC_PER_SEC);
-	dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
-		pad_buttons_async_set &= PAD_BUTTON_MENU;
-		pad_buttons_async_clear |= PAD_BUTTON_MENU;
-	});
-
-	if (g_Config.bBufferedRendering)
-		fbo_unbind();
-
-	screenManager->push(new InGameMenuScreen());
-*/
 }
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
 {
 	lock_guard guard(input_state.lock);
-	
+
 	float scale = [UIScreen mainScreen].scale;
-	
+
 	float scaledX = (int)(x * dp_xscale) * scale;
 	float scaledY = (int)(y * dp_yscale) * scale;
-    
-    TouchInput input;
-	
+
+	TouchInput input;
+
 	input_state.pointer_x[pointerId] = scaledX;
 	input_state.pointer_y[pointerId] = scaledY;
-    input.x = scaledX;
-    input.y = scaledY;
-    switch (code) {
-        case 1 :
-            input_state.pointer_down[pointerId] = true;
-            input.flags = TOUCH_DOWN;
-            break;
-            
-        case 2 :
-            input_state.pointer_down[pointerId] = false;
-            input.flags = TOUCH_UP;
-            break;
-            
-        default :
-            input.flags = TOUCH_MOVE;
-            break;
-    }
+	input.x = scaledX;
+	input.y = scaledY;
+	switch (code) {
+		case 1 :
+			input_state.pointer_down[pointerId] = true;
+			input.flags = TOUCH_DOWN;
+			break;
+
+		case 2 :
+			input_state.pointer_down[pointerId] = false;
+			input.flags = TOUCH_UP;
+			break;
+
+		default :
+			input.flags = TOUCH_MOVE;
+			break;
+	}
 	input_state.mouse_valid = true;
-    input.id = pointerId;
-    NativeTouch(input);
+	input.id = pointerId;
+	NativeTouch(input);
 }
 
 - (NSDictionary*)touchDictBy:(UITouch*)touch
 {
-    for (NSDictionary* dict in self.touches) {
-        if ([dict objectForKey:@"touch"] == touch)
-            return dict;
-    }
-    return nil;
+	for (NSDictionary* dict in self.touches) {
+		if ([dict objectForKey:@"touch"] == touch)
+			return dict;
+	}
+	return nil;
 }
 
 - (int)freeTouchIndex
 {
-    int index = 0;
+	int index = 0;
 
-    for (NSDictionary* dict in self.touches)
-    {
-        int i = [[dict objectForKey:@"index"] intValue];
-        if (index == i)
-            index = i+1;
-    }
+	for (NSDictionary* dict in self.touches)
+	{
+		int i = [[dict objectForKey:@"index"] intValue];
+		if (index == i)
+			index = i+1;
+	}
 
-    return index;
+	return index;
 }
 
 - (void)touchesBegan:(NSSet *)_touches withEvent:(UIEvent *)event
@@ -365,142 +316,112 @@ void DisableFZ(){};
 
 - (void)buttonDown:(iCadeState)button
 {
-    switch (button) {
-        case iCadeJoystickUp :
-            pad_buttons_async_set |= PAD_BUTTON_UP;
-            pad_buttons_async_clear &= ~PAD_BUTTON_UP;
-            break;
-            
-        case iCadeJoystickRight :
-            pad_buttons_async_set |= PAD_BUTTON_RIGHT;
-            pad_buttons_async_clear &= ~PAD_BUTTON_RIGHT;
-            break;
-            
-        case iCadeJoystickDown :
-            pad_buttons_async_set |= PAD_BUTTON_DOWN;
-            pad_buttons_async_clear &= ~PAD_BUTTON_DOWN;
-            break;
-            
-        case iCadeJoystickLeft :
-            pad_buttons_async_set |= PAD_BUTTON_LEFT;
-            pad_buttons_async_clear &= ~PAD_BUTTON_LEFT;
-            break;
-            
-        case iCadeButtonA :
-            pad_buttons_async_set |= PAD_BUTTON_SELECT;
-            pad_buttons_async_clear &= ~PAD_BUTTON_SELECT;
-            break;
-            
-        case iCadeButtonB :
-            pad_buttons_async_set |= PAD_BUTTON_LBUMPER;
-            pad_buttons_async_clear &= ~PAD_BUTTON_LBUMPER;
-            break;
-            
-        case iCadeButtonC :
-            pad_buttons_async_set |= PAD_BUTTON_START;
-            pad_buttons_async_clear &= ~PAD_BUTTON_START;
-            break;
-            
-        case iCadeButtonD :
-            pad_buttons_async_set |= PAD_BUTTON_RBUMPER;
-            pad_buttons_async_clear &= ~PAD_BUTTON_RBUMPER;
-            break;
-            
-        case iCadeButtonE :
-            pad_buttons_async_set |= PAD_BUTTON_X;
-            pad_buttons_async_clear &= ~PAD_BUTTON_X;
-            break;
-            
-        case iCadeButtonF :
-            pad_buttons_async_set |= PAD_BUTTON_A;
-            pad_buttons_async_clear &= ~PAD_BUTTON_A;
-            break;
-            
-        case iCadeButtonG :
-            pad_buttons_async_set |= PAD_BUTTON_Y;
-            pad_buttons_async_clear &= ~PAD_BUTTON_Y;
-            break;
-            
-        case iCadeButtonH :
-            pad_buttons_async_set |= PAD_BUTTON_B;
-            pad_buttons_async_clear &= ~PAD_BUTTON_B;
-            break;
-            
-        default :
-            break;
-    }
+	if (simulateAnalog &&
+		((button == iCadeJoystickUp) ||
+		 (button == iCadeJoystickDown) ||
+		 (button == iCadeJoystickLeft) ||
+		 (button == iCadeJoystickRight))) {
+			AxisInput axis;
+			switch (button) {
+				case iCadeJoystickUp :
+					axis.axisId = JOYSTICK_AXIS_Y;
+					axis.value = -1.0f;
+					break;
+					
+				case iCadeJoystickDown :
+					axis.axisId = JOYSTICK_AXIS_Y;
+					axis.value = 1.0f;
+					break;
+					
+				case iCadeJoystickLeft :
+					axis.axisId = JOYSTICK_AXIS_X;
+					axis.value = -1.0f;
+					break;
+					
+				case iCadeJoystickRight :
+					axis.axisId = JOYSTICK_AXIS_X;
+					axis.value = 1.0f;
+					break;
+					
+				default:
+					break;
+			}
+			axis.deviceId = DEVICE_ID_PAD_0;
+			axis.flags = 0;
+			NativeAxis(axis);
+		} else {
+			KeyInput key;
+			key.flags = KEY_DOWN;
+			key.keyCode = iCadeToKeyMap[button];
+			key.deviceId = DEVICE_ID_PAD_0;
+			NativeKey(key);
+		}
 }
 
 - (void)buttonUp:(iCadeState)button
 {
-    switch (button) {
-        case iCadeJoystickUp :
-            pad_buttons_async_set &= ~PAD_BUTTON_UP;
-            pad_buttons_async_clear |= PAD_BUTTON_UP;
-            break;
-            
-        case iCadeJoystickRight :
-            pad_buttons_async_set &= ~PAD_BUTTON_RIGHT;
-            pad_buttons_async_clear |= PAD_BUTTON_RIGHT;
-            break;
-            
-        case iCadeJoystickDown :
-            pad_buttons_async_set &= ~PAD_BUTTON_DOWN;
-            pad_buttons_async_clear |= PAD_BUTTON_DOWN;
-            break;
-            
-        case iCadeJoystickLeft :
-            pad_buttons_async_set &= ~PAD_BUTTON_LEFT;
-            pad_buttons_async_clear |= PAD_BUTTON_LEFT;
-            break;
-            
-        case iCadeButtonA :
-            pad_buttons_async_set &= ~PAD_BUTTON_SELECT;
-            pad_buttons_async_clear |= PAD_BUTTON_SELECT;
-            
-            if ((lastSelectPress + 1.0f) > time_now_d())
-                simulateAnalog = !simulateAnalog;
-            lastSelectPress = time_now_d();
-            break;
-            
-        case iCadeButtonB :
-            pad_buttons_async_set &= ~PAD_BUTTON_LBUMPER;
-            pad_buttons_async_clear |= PAD_BUTTON_LBUMPER;
-            break;
-            
-        case iCadeButtonC :
-            pad_buttons_async_set &= ~PAD_BUTTON_START;
-            pad_buttons_async_clear |= PAD_BUTTON_START;
-            break;
-            
-        case iCadeButtonD :
-            pad_buttons_async_set &= ~PAD_BUTTON_RBUMPER;
-            pad_buttons_async_clear |= PAD_BUTTON_RBUMPER;
-            break;
-            
-        case iCadeButtonE :
-            pad_buttons_async_set &= ~PAD_BUTTON_X;
-            pad_buttons_async_clear |= PAD_BUTTON_X;
-            break;
-            
-        case iCadeButtonF :
-            pad_buttons_async_set &= ~PAD_BUTTON_A;
-            pad_buttons_async_clear |= PAD_BUTTON_A;
-            break;
-            
-        case iCadeButtonG :
-            pad_buttons_async_set &= ~PAD_BUTTON_Y;
-            pad_buttons_async_clear |= PAD_BUTTON_Y;
-            break;
-            
-        case iCadeButtonH :
-            pad_buttons_async_set &= ~PAD_BUTTON_B;
-            pad_buttons_async_clear |= PAD_BUTTON_B;
-            break;
-            
-        default :
-            break;
-    }
+	if (button == iCadeButtonA) {
+		// Pressing Select twice within 1 second toggles the DPad between
+		//     normal operation and simulating the Analog stick.
+		if ((lastSelectPress + 1.0f) > time_now_d())
+			simulateAnalog = !simulateAnalog;
+		lastSelectPress = time_now_d();
+	}
+	
+	if (button == iCadeButtonC) {
+		// Pressing Start twice within 1 second will take to the Emu menu
+		if ((lastStartPress + 1.0f) > time_now_d()) {
+			KeyInput key;
+			key.flags = KEY_DOWN;
+			key.keyCode = KEYCODE_ESCAPE;
+			key.deviceId = DEVICE_ID_KEYBOARD;
+			NativeKey(key);
+			return;
+		}
+		lastStartPress = time_now_d();
+	}
+	
+	if (simulateAnalog &&
+		((button == iCadeJoystickUp) ||
+		 (button == iCadeJoystickDown) ||
+		 (button == iCadeJoystickLeft) ||
+		 (button == iCadeJoystickRight))) {
+		AxisInput axis;
+		switch (button) {
+			case iCadeJoystickUp :
+				axis.axisId = JOYSTICK_AXIS_Y;
+				axis.value = 0.0f;
+				break;
+				
+			case iCadeJoystickDown :
+				axis.axisId = JOYSTICK_AXIS_Y;
+				axis.value = 0.0f;
+				break;
+				
+			case iCadeJoystickLeft :
+				axis.axisId = JOYSTICK_AXIS_X;
+				axis.value = 0.0f;
+				break;
+				
+			case iCadeJoystickRight :
+				axis.axisId = JOYSTICK_AXIS_X;
+				axis.value = 0.0f;
+				break;
+				
+			default:
+				break;
+		}
+		axis.deviceId = DEVICE_ID_PAD_0;
+		axis.flags = 0;
+		NativeAxis(axis);
+	} else {
+		KeyInput key;
+		key.flags = KEY_UP;
+		key.keyCode = iCadeToKeyMap[button];
+		key.deviceId = DEVICE_ID_PAD_0;
+		NativeKey(key);
+	}
+	
 }
 
 @end

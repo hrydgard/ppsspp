@@ -58,7 +58,11 @@ namespace Atrac3plus_Decoder {
 		return "at3plusdecoder.dll";
 #endif
 #elif defined(__APPLE__)
+#ifdef IOS
+		return g_Config.memCardDirectory + "libat3plusdecoder.dylib";
+#else
 		return "libat3plusdecoder.dylib";
+#endif
 #else
 		return "libat3plusdecoder.so";
 #endif
