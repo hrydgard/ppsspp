@@ -34,8 +34,8 @@ private:
 	// This one usually leads to confusing results and shouldn't be necessary outside the swizzlers anyway
 	// (why would one create a reference to something that is already accessible as a reference?)
 	Vec2Ref(const Vec2Ref& other) : x(other.x), y(other.y),
-									s(other.x), t(other.y),
-									u(other.x), v(other.y) {}
+									u(other.x), v(other.y),
+									s(other.x), t(other.y) {}
 
 	template<typename X2, typename Y2, typename Z2>
 	friend class Vec3Ref;
