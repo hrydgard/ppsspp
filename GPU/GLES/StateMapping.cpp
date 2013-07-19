@@ -215,14 +215,14 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		
 		// Depth Test
 		bool depthMask = (gstate.clearmode >> 10) & 1;
-		if (gstate.isDepthTestEnabled()) {
-			glstate.depthTest.enable();
-			glstate.depthFunc.set(GL_ALWAYS);
-			glstate.depthWrite.set(depthMask || !gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
-		} else {
+		if (gstate_c.framebufChanged) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(GL_ALWAYS);
 			glstate.depthWrite.set(GL_TRUE);
+		} else {
+			glstate.depthTest.enable();
+			glstate.depthFunc.set(GL_ALWAYS);
+			glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
 		}
 
 		// Color Test
