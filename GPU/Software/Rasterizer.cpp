@@ -32,23 +32,23 @@ static int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const Draw
 	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
 }
 
-int GetPixelDataOffset(int texel_size_bits, int u, int v, int width)
+int GetPixelDataOffset(int texel_size_bits, int row_pitch_bits, int u, int v)
 {
 	if (!(gstate.texmode & 1))
-		return v * width * texel_size_bits / 8 + u * texel_size_bits / 8;
+		return v * row_pitch_bits / 8 + u * texel_size_bits / 8;
 
 	int tile_size_bits = 32;
-	int texels_per_tile = tile_size_bits / texel_size_bits; // 32/8
-	int block_width_in_tiles = 4; // 4 tiles (generally != 4 texels)
-	int block_height_in_tiles = 8; // 8 tiles = 8 texels
-	int tiles_per_block = block_width_in_tiles * block_height_in_tiles;
-	int block_stride_bits = tiles_per_block * tile_size_bits;
+	int tiles_in_block_horizontal = 4;
+	int tiles_in_block_vertical = 8;
 
-	// TODO: Individual texels inside tiles are propably laid out incorrectly
-	return u / (texels_per_tile * block_width_in_tiles) * (block_stride_bits/8) + 
-			(u % (texels_per_tile * block_width_in_tiles)) * (texel_size_bits / 8) +
-			(v % block_height_in_tiles) * (block_width_in_tiles * tile_size_bits / 8) +
-			(v / block_height_in_tiles) * (width * texel_size_bits * block_height_in_tiles / 8);
+	int texels_per_tile = tile_size_bits / texel_size_bits;
+	int tile_u = u / texels_per_tile;
+
+	int tile_idx = (v % tiles_in_block_vertical) * (tiles_in_block_horizontal) +
+					(v / tiles_in_block_vertical) * ((row_pitch_bits/tile_size_bits)*tiles_in_block_vertical) +
+					(tile_u % tiles_in_block_horizontal) + 
+					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
+	return tile_idx * tile_size_bits/8 + ((u % (tile_size_bits / texel_size_bits)));
 }
 
 u32 SampleNearest(int level, float s, float t)
@@ -59,6 +59,9 @@ u32 SampleNearest(int level, float s, float t)
 
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+
+	// Special rules for kernel textures (PPGe), TODO: Verify!
+	int texbufwidth = (texaddr < PSP_GetUserMemoryBase()) ? gstate.texbufwidth[level] & 0x1FFF : gstate.texbufwidth[level] & 0x7FF;
 
 	// TODO: Should probably check if textures are aligned properly...
 
@@ -71,7 +74,7 @@ u32 SampleNearest(int level, float s, float t)
 	// TODO: Assert tmap.tmn == 0 (uv texture mapping mode)
 
 	if (texfmt == GE_TFMT_4444) {
-		srcptr += GetPixelDataOffset(16, u, v, width);
+		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		u8 r = (*srcptr) >> 4;
 		u8 g = (*srcptr) & 0xF;
 		u8 b = (*(srcptr+1)) >> 4;
@@ -82,7 +85,7 @@ u32 SampleNearest(int level, float s, float t)
 		a = (a << 4) | a;
 		return (r << 24) | (g << 16) | (b << 8) | a;
 	} else if (texfmt == GE_TFMT_5551) {
-		srcptr += GetPixelDataOffset(16, u, v, width);
+		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		u8 r = (*srcptr) & 0x1F;
 		u8 g = (((*srcptr) & 0xE0) >> 5) | (((*(srcptr+1))&0x3) << 3);
 		u8 b = ((*srcptr+1) & 0x7C) >> 2;
@@ -93,7 +96,7 @@ u32 SampleNearest(int level, float s, float t)
 		a = (a) ? 0xff : 0;
 		return (r << 24) | (g << 16) | (b << 8) | a;
 	} else if (texfmt == GE_TFMT_5650) {
-		srcptr += GetPixelDataOffset(16, u, v, width);
+		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		u8 r = (*srcptr) & 0x1F;
 		u8 g = (((*srcptr) & 0xE0) >> 5) | (((*(srcptr+1))&0x7) << 3);
 		u8 b = ((*srcptr+1) & 0xF8) >> 3;
@@ -103,14 +106,14 @@ u32 SampleNearest(int level, float s, float t)
 		b = (b << 3) | (b >> 2);
 		return (r << 24) | (g << 16) | (b << 8) | a;
 	} else if (texfmt == GE_TFMT_8888) {
-		srcptr += GetPixelDataOffset(32, u, v, width);
+		srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
 		u8 r = *srcptr++;
 		u8 g = *srcptr++;
 		u8 b = *srcptr++;
 		u8 a = *srcptr++;
 		return (r << 24) | (g << 16) | (b << 8) | a;
 	} else if (texfmt == GE_TFMT_CLUT8) {
-		srcptr += GetPixelDataOffset(8, u, v, width);
+		srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
 
 		u16 index = (((u32)*srcptr) >> gstate.getClutIndexShift()) & 0xFF;
 		index &= gstate.getClutIndexMask();
@@ -119,9 +122,9 @@ u32 SampleNearest(int level, float s, float t)
 		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
 		return clut[index];
 	} else if (texfmt == GE_TFMT_CLUT4) {
-		srcptr += GetPixelDataOffset(4, u, v, width);
+		srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
 
-		u8 val = (u%2) ? (*srcptr & 0xF) : (*srcptr >> 4);
+		u8 val = (u%2) ? (*srcptr & 0xF) : (*srcptr >> 4); // TODO: Check if order is correct
 		u16 index = (((u32)val) >> gstate.getClutIndexShift()) & 0xFF;
 		index &= gstate.getClutIndexMask();
 		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
