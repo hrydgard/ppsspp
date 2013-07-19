@@ -115,6 +115,8 @@ void PluginScreen::update(InputState &input) {
 			abi = "armeabi";
 #elif defined(ARMEABI_V7A)
 			abi = "armeabi-v7a";
+#elif defined(IOS)
+			abi = "ios";
 #elif defined(MACOSX)
 			abi = "MacOSX64";
 #endif
