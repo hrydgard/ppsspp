@@ -173,12 +173,17 @@ TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
 
 void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer) {
 	// Must be in VRAM so | 0x04000000 it is.
+	gstate_c.framebufChanged = false;
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
 	if (entry) {
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer)
+		if (!entry->framebuffer) {
 			entry->framebuffer = framebuffer;
-		// TODO: Delete the original non-fbo texture too.
+		} else {
+			glBindTexture(GL_TEXTURE_2D, 0);
+			lastBoundTexture = -1;
+		}
+		gstate_c.framebufChanged = true;
 	}
 }
 
