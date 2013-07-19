@@ -30,6 +30,11 @@ class Vec2;
 template<typename X, typename Y=X>
 class Vec2Ref
 {
+private:
+	// This one usually leads to confusing results and shouldn't be necessary anyway
+	// (why would one create a reference to something that is already accessible as a reference?)
+	Vec2Ref(const Vec2Ref& other);
+
 public:
 	struct
 	{
@@ -52,6 +57,7 @@ public:
 	Vec2Ref(X& _x, Y& _y) : x(_x), y(_y), u(_x), v(_y), s(_x), t(_y) {}
 
 	Vec2Ref(X a[2]) : x(a[0]), y(a[1]), u(a[0]), v(a[1]), s(a[0]), t(a[1]) {}
+	Vec2Ref(const Vec2<X,Y>& other);
 
 	template<typename X2, typename Y2>
 	Vec2<X2,Y2> Cast() const
@@ -131,6 +137,7 @@ public:
 	Vec2() : Vec2Ref<X,Y>(x, y) {}
 	Vec2(const X& _x, const Y& _y) : Vec2Ref<X,Y>(x, y), x(_x), y(_y) {}
 	Vec2(const X a[2]) : Vec2Ref<X,Y>(x, y), x(a[0]), y(a[1]) {}
+	Vec2(const Vec2& other) : Vec2Ref<X,Y>(x, y), x(other.x), y(other.y) {}
 	Vec2(const Vec2Ref<X,Y>& other) : Vec2Ref<X,Y>(x, y), x(other.x), y(other.y) {}
 
 	static Vec2 AssignToAll(X f)
@@ -140,6 +147,13 @@ public:
 };
 
 typedef Vec2<float> Vec2f;
+
+template<typename X, typename Y>
+Vec2Ref<X,Y>::Vec2Ref(const Vec2<X,Y>& other) : x(other.x), y(other.y),
+												s(other.x), t(other.y),
+												u(other.x), v(other.y)
+{
+}
 
 template<typename X, typename Y>
 Vec2<X,Y> Vec2Ref<X,Y>::operator +(const Vec2Ref<X,Y> &other) const
@@ -235,6 +249,11 @@ class Vec3;
 template<typename X, typename Y=X, typename Z=X>
 class Vec3Ref
 {
+private:
+	// This one usually leads to confusing results and shouldn't be necessary anyway
+	// (why would one create a reference to something that is already accessible as a reference?)
+	Vec3Ref(const Vec3Ref& other);
+
 public:
 	struct
 	{
@@ -264,6 +283,8 @@ public:
 	Vec3Ref(X a[3]) : x(a[0]), y(a[1]), z(a[2]),
 						r(a[0]), g(a[1]), b(a[2]),
 						u(a[0]), v(a[1]), w(a[2]) {}
+
+	Vec3Ref(const Vec3<X,Y,Z>& other);
 
 	template<typename X2, typename Y2, typename Z2>
 	Vec3<X2,Y2,Z2> Cast() const
@@ -355,6 +376,7 @@ public:
 	Vec3() : Vec3Ref<X,Y,Z>(x, y, z) {}
 	Vec3(const X& _x, const Y& _y, const Z& _z) : Vec3Ref<X,Y,Z>(x, y, z), x(_x), y(_y), z(_z) {}
 	Vec3(const X a[3]) : Vec3Ref<X,Y,Z>(x, y, z), x(a[0]), y(a[1]), z(a[2]) {}
+	Vec3(const Vec3& other) : Vec3Ref<X,Y,Z>(x, y, z), x(other.x), y(other.y), z(other.z) {}
 	Vec3(const Vec3Ref<X,Y,Z>& other) : Vec3Ref<X,Y,Z>(x, y, z), x(other.x), y(other.y), z(other.z) {}
 
 	// Only defined for X=float and X=int
@@ -367,6 +389,13 @@ public:
 };
 
 typedef Vec3<float> Vec3f;
+
+template<typename X, typename Y, typename Z>
+Vec3Ref<X,Y,Z>::Vec3Ref(const Vec3<X,Y,Z>& other) : x(other.x), y(other.y), z(other.z),
+													r(other.x), g(other.y), b(other.z),
+													u(other.x), v(other.y), w(other.z)
+{
+}
 
 template<typename X, typename Y, typename Z>
 Vec3<X,Y,Z> Vec3Ref<X,Y,Z>::operator +(const Vec3Ref<X,Y,Z> &other) const
@@ -465,6 +494,11 @@ class Vec4;
 template<typename X, typename Y=X, typename Z=X, typename W=X>
 class Vec4Ref
 {
+private:
+	// This one usually leads to confusing results and shouldn't be necessary anyway
+	// (why would one create a reference to something that is already accessible as a reference?)
+	Vec4Ref(const Vec4Ref& other);
+
 public:
 	struct
 	{
@@ -488,6 +522,8 @@ public:
 
 	Vec4Ref(X a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]),
 						r(a[0]), g(a[1]), b(a[2]), a(a[3]) {}
+
+	Vec4Ref(const Vec4<X,Y,Z,W>& other);
 
 	template<typename X2, typename Y2, typename Z2, typename W2>
 	Vec4<X2,Y2,Z2,W2> Cast() const
@@ -606,6 +642,7 @@ public:
 	Vec4() : Vec4Ref<X,Y,Z,W>(x, y, z, w) {}
 	Vec4(const X& _x, const Y& _y, const Z& _z, const W& _w) : Vec4Ref<X,Y,Z,W>(x, y, z, w), x(_x), y(_y), z(_z), w(_w) {}
 	Vec4(const X a[4]) : Vec4Ref<X,Y,Z,W>(x, y, z, w), x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
+	Vec4(const Vec4& other) : Vec4Ref<X,Y,Z,W>(x, y, z, w), x(other.x), y(other.y), z(other.z), w(other.w) {}
 	Vec4(const Vec4Ref<X,Y,Z,W>& other) : Vec4Ref<X,Y,Z,W>(x, y, z, w), x(other.x), y(other.y), z(other.z), w(other.w) {}
 
 	// Only defined for X=float and X=int
@@ -618,6 +655,12 @@ public:
 };
 
 typedef Vec4<float> Vec4f;
+
+template<typename X, typename Y, typename Z, typename W>
+Vec4Ref<X,Y,Z,W>::Vec4Ref(const Vec4<X,Y,Z,W>& other) : x(other.x), y(other.y), z(other.z), w(other.w),
+														r(other.x), g(other.y), b(other.z), a(other.w)
+{
+}
 
 template<typename X, typename Y, typename Z, typename W>
 Vec4<X,Y,Z,W> Vec4Ref<X,Y,Z,W>::operator +(const Vec4Ref<X,Y,Z,W> &other) const
