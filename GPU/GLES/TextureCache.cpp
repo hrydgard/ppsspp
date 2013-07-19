@@ -499,7 +499,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	bool sClamp = gstate.texwrap & 1;
 	bool tClamp = (gstate.texwrap>>8) & 1;
 
-	// bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001;  // Fix texlevel at 0
+	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001 ;  // Fix texlevel at 0
 
 	if (entry.maxLevel == 0) {
 		// Enforce no mip filtering, for safety.
@@ -525,7 +525,7 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		minFilt &= ~1;
 	}
 
-	if (!g_Config.bMipMap) {
+	if (!g_Config.bMipMap || noMip) {
 		magFilt &= 1;
 		minFilt &= 1;
 	}
