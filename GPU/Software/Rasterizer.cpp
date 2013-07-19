@@ -483,6 +483,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						srccol = Vec3<int>::AssignToAll(2 * dst.a());
 						break;
 					case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+						// TODO: Clamping?
 						srccol = Vec3<int>::AssignToAll(255 - 2 * dst.a());
 						break;
 					case GE_SRCBLEND_FIXA:
