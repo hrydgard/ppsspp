@@ -178,7 +178,10 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer)
 			entry->framebuffer = framebuffer;
-		// TODO: Delete the original non-fbo texture too.
+		 else {
+			glBindTexture(GL_TEXTURE_2D, 0);
+			lastBoundTexture = -1;
+		 }
 	}
 }
 
