@@ -35,7 +35,7 @@ static int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const Draw
 int GetPixelDataOffset(int texel_size_bits, int row_pitch_bits, int u, int v)
 {
 	if (!(gstate.texmode & 1))
-		return v * row_pitch_bits / 8 + u * texel_size_bits / 8;
+		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
 
 	int tile_size_bits = 32;
 	int tiles_in_block_horizontal = 4;
@@ -45,7 +45,8 @@ int GetPixelDataOffset(int texel_size_bits, int row_pitch_bits, int u, int v)
 	int tile_u = u / texels_per_tile;
 
 	int tile_idx = (v % tiles_in_block_vertical) * (tiles_in_block_horizontal) +
-					(v / tiles_in_block_vertical) * ((row_pitch_bits/tile_size_bits)*tiles_in_block_vertical) +
+	// TODO: not sure if the *texel_size_bits/8 factor is correct
+					(v / tiles_in_block_vertical) * ((row_pitch_bits*texel_size_bits/8/tile_size_bits)*tiles_in_block_vertical) +
 					(tile_u % tiles_in_block_horizontal) + 
 					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
 	return tile_idx * tile_size_bits/8 + ((u % (tile_size_bits / texel_size_bits)));
