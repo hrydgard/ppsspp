@@ -34,6 +34,7 @@
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/TransformPipeline.h"
 #include "UI/OnScreenDisplay.h"
+#include "Framebuffer.h"
 
 Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
@@ -195,13 +196,23 @@ static void SetColorUniform3Alpha(int uniform, u32 color, u8 alpha) {
 
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
 static void SetColorUniform3Alpha255(int uniform, u32 color, u8 alpha) {
-	const float col[4] = {
-		(float)((color & 0xFF)) * (1.0f / 255.0f),
-		(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-		(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-		(float)alpha * (1.0f / 255.0f)
-	};
-	glUniform4fv(uniform, 1, col);
+	if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) {
+		const float col[4] = {
+			(float)((color & 0xFF)) * (1.0f / 255.0f),
+			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
+			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
+			(float)alpha * (1.0f / 255.0f)
+		};
+		glUniform4fv(uniform, 1, col);
+	} else {
+		const float col[4] = {
+			(float)((color & 0xFF)) ,
+			(float)((color & 0xFF00) >> 8) ,
+			(float)((color & 0xFF0000) >> 16) ,
+			(float)alpha 
+		};
+		glUniform4fv(uniform, 1, col);
+	}
 }
 
 static void SetColorUniform3ExtraFloat(int uniform, u32 color, float extra) {
