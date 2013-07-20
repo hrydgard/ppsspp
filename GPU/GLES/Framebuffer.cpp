@@ -191,14 +191,17 @@ FramebufferManager::FramebufferManager() :
 			|| vendor == "Intel Corporation"
 			|| vendor == "Tungsten Graphics, Inc") { // We'll assume this last one means Intel
 				gpuVendor = GPU_VENDOR_INTEL;
-		} else if(vendor == "ARM") {
+		} else if(vendor == "ARM") 
 			gpuVendor = GPU_VENDOR_ARM;
-		} else {
+		else if(vendor == "Imagination Technologies") 
+			gpuVendor = GPU_VENDOR_POWERVR;
+		else if(vendor == "Qualcomm") 
+			gpuVendor = GPU_VENDOR_ADRENO;
+		else 
 			gpuVendor = GPU_VENDOR_UNKNOWN;
-		}
-	} else {
+	} else 
 		gpuVendor = GPU_VENDOR_UNKNOWN;
-	}
+	gstate_c.gpuVendor = gpuVendor;
 }
 
 FramebufferManager::~FramebufferManager() {
