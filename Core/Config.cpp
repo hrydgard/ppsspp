@@ -124,7 +124,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
 	graphics->Get("FramebuffersToMem", &bFramebuffersToMem, false);
-	graphics->Get("FramebuffersCPUConvert", &bFramebuffersCPUConvert, false);
+	graphics->Get("FramebuffersCPUConvert", &bFramebuffersCPUConvert, true);
 	graphics->Get("MipMap", &bMipMap, true);
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
