@@ -62,7 +62,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
 	dc.Draw()->DrawImageRotated(bgImg_, bounds_.centerX(), bounds_.centerY(), scale, 0.0f, colorBg, flipImageH_);
-	dc.Draw()->DrawImageRotated(img_, bounds_.centerX(), bounds_.centerY(), scale, 0.0f, color, flipImageH_);
+	dc.Draw()->DrawImageRotated(img_, bounds_.centerX(), bounds_.centerY(), scale, 0.0f, color);
 }
 
 void PSPButton::Touch(const TouchInput &input) {
@@ -77,7 +77,101 @@ void PSPButton::Touch(const TouchInput &input) {
 }
 
 bool PSPButton::IsDown() {
-	return __CtrlPeekButtons() & pspButtonBit_;
+	return (__CtrlPeekButtons() & pspButtonBit_) != 0;
+}
+
+
+PSPCross::PSPCross(int arrowIndex, int overlayIndex, float scale, float radius, UI::LayoutParams *layoutParams)
+	: UI::View(layoutParams), arrowIndex_(arrowIndex), overlayIndex_(overlayIndex), scale_(scale), radius_(radius), dragPointerId_(-1), down_(0) {
+}
+
+void PSPCross::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = radius_ * 2;
+	h = radius_ * 2;
+}
+
+void PSPCross::Touch(const TouchInput &input) {
+	int lastDown = down_;
+
+	if (input.flags & TOUCH_DOWN) {
+		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
+			dragPointerId_ = input.id;
+			ProcessTouch(input.x, input.y, true);
+		}
+	}
+	if (input.flags & TOUCH_MOVE) {
+		if (input.id == dragPointerId_) {
+			ProcessTouch(input.x, input.y, true);
+		}
+	}
+	if (input.flags & TOUCH_UP) {
+		if (input.id == dragPointerId_) {
+			dragPointerId_ == -1;
+			ProcessTouch(input.x, input.y, false);
+		}
+	}
+
+	//int pressed = down_ & ~lastDown;
+	//int released = down_ & ~lastDown;
+	//int ctrls[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
+}
+
+void PSPCross::ProcessTouch(float x, float y, bool down) {
+	float stick_size_ = radius_ * 2;
+	float inv_stick_size = 1.0f / (stick_size_ * scale_);
+	const float deadzone = 0.17f;
+
+	float dx = (x - bounds_.centerX()) * inv_stick_size;
+	float dy = (y - bounds_.centerY()) * inv_stick_size;
+	float rad = sqrtf(dx*dx+dy*dy);
+	if (rad < deadzone || rad > 1.0f)
+		down = false;
+
+	int ctrlMask = 0;
+	int lastDown = down_;
+	if (down) {
+		int direction = (int)(floorf((atan2f(dy, dx) / (2 * M_PI) * 8) + 0.5f)) & 7;
+		switch (direction) {
+		case 0: ctrlMask |= CTRL_RIGHT; break;
+		case 1: ctrlMask |= CTRL_RIGHT | CTRL_DOWN; break;
+		case 2: ctrlMask |= CTRL_DOWN; break;
+		case 3: ctrlMask |= CTRL_DOWN | CTRL_LEFT; break;
+		case 4: ctrlMask |= CTRL_LEFT; break;
+		case 5: ctrlMask |= CTRL_UP | CTRL_LEFT; break;
+		case 6: ctrlMask |= CTRL_UP; break;
+		case 7: ctrlMask |= CTRL_UP | CTRL_RIGHT; break;
+		}
+	}
+
+	down_ = ctrlMask;
+	int pressed = down_ & ~lastDown;
+	int released = (~down_) & lastDown;
+	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
+	for (int i = 0; i < 4; i++) {
+		if (pressed & dir[i]) __CtrlButtonDown(dir[i]);
+		if (released & dir[i]) __CtrlButtonUp(dir[i]);
+	}
+}
+
+void PSPCross::Draw(UIContext &dc) {
+	float opacity = g_Config.iTouchButtonOpacity / 100.0f;
+
+	uint32_t colorBg = colorAlpha(0xc0b080, opacity);
+	uint32_t color = colorAlpha(0xFFFFFF, opacity);
+
+	static const float xoff[4] = {1, 0, -1, 0};
+	static const float yoff[4] = {0, 1, 0, -1};
+	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
+	int buttons = __CtrlPeekButtons();
+	for (int i = 0; i < 4; i++) {
+		float x = bounds_.centerX() + xoff[i] * radius_;
+		float y = bounds_.centerY() + yoff[i] * radius_;
+		float angle = i * M_PI / 2;
+		float imgScale = (buttons & dir[i]) ? scale_ * 2 : scale_;
+		dc.Draw()->DrawImageRotated(arrowIndex_, x, y, imgScale, angle + PI, colorBg, false);
+		if (overlayIndex_ != -1)
+			dc.Draw()->DrawImageRotated(overlayIndex_, x, y, imgScale, angle + PI, color);
+	}
 }
 
 UI::ViewGroup *CreatePadLayout() {
@@ -97,7 +191,10 @@ UI::ViewGroup *CreatePadLayout() {
 
 	const int startX = 170 * scale;
 	const int leftX = 40 * scale;
-	const int bottomStride = 120 * scale;
+	const int leftY = (g_Config.bShowAnalogStick ? 250 : 120) * scale;
+	const int bottomStride = 100 * scale;
+
+	const int crosspadRadius = 40 * scale;
 
 	root->Add(new PSPButton(CTRL_CIRCLE, I_ROUND, I_CIRCLE, scale, new AnchorLayoutParams(NONE, NONE, circleX, circleY, true)));
 	root->Add(new PSPButton(CTRL_CROSS, I_ROUND, I_CROSS, scale, new AnchorLayoutParams(NONE, NONE, circleX + button_spacing, circleY - button_spacing, true)));
@@ -107,14 +204,15 @@ UI::ViewGroup *CreatePadLayout() {
 	root->Add(new PSPButton(CTRL_START, I_RECT, I_START, scale, new AnchorLayoutParams(NONE, NONE, startX, 30, true)));
 	root->Add(new PSPButton(CTRL_SELECT, I_RECT, I_SELECT, scale, new AnchorLayoutParams(NONE, NONE, startX + bottomStride, 30, true)));
 
-	root->Add(new PSPButton(CTRL_LTRIGGER, I_RECT, I_L, scale, new AnchorLayoutParams(10, 10, NONE, NONE, false)));
-	root->Add(new PSPButton(CTRL_RTRIGGER, I_RECT, I_R, scale, new AnchorLayoutParams(NONE, 10, 10, NONE, false)))->FlipImageH(true);
+	root->Add(new PSPButton(CTRL_LTRIGGER, I_SHOULDER, I_L, scale, new AnchorLayoutParams(10, 10, NONE, NONE, false)));
+	root->Add(new PSPButton(CTRL_RTRIGGER, I_SHOULDER, I_R, scale, new AnchorLayoutParams(NONE, 10, 10, NONE, false)))->FlipImageH(true);
+
+	root->Add(new PSPCross(I_DIR, I_ARROW, scale, crosspadRadius, new AnchorLayoutParams(leftX + arrow_spacing, NONE, NONE, leftY, true)));
 
 	return root;
 }
 
 TouchButton buttonTurbo(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_UNTHROTTLE, 180);
-TouchCrossPad crossPad(&ui_atlas, I_DIR, I_ARROW);
 #if USE_PAUSE_BUTTON
 TouchButton buttonPause(&ui_atlas, I_RECT, I_ARROW, PAD_BUTTON_BACK, 90);
 #endif
@@ -143,8 +241,6 @@ void LayoutGamepad(int w, int h)
 
 	const int halfW = w / 2;
 
-	crossPad.setPos(leftX + arrow_spacing, leftY, 40, controlScale);
-
 	//if (g_Config.iFpsLimit)
 	//	buttonVPS.setPos(halfW - button_spacing * 2, h - 20 * controlScale, controlScale);
 	//else
@@ -159,8 +255,6 @@ void LayoutGamepad(int w, int h)
 
 void UpdateGamepad(InputState &input_state) {
 	LayoutGamepad(dp_xres, dp_yres);
-
-	crossPad.update(input_state);
 
 	//if (g_Config.iFpsLimit)
 	//	buttonVPS.update(input_state);
@@ -178,8 +272,6 @@ void UpdateGamepad(InputState &input_state) {
 void DrawGamepad(DrawBuffer &db, float opacity) {
 	uint32_t color = colorAlpha(0xc0b080, opacity);
 	uint32_t colorOverlay = colorAlpha(0xFFFFFF, opacity);
-
-	crossPad.draw(db, color, colorOverlay);
 
 	//if (g_Config.iFpsLimit)
 	//	buttonVPS.draw(db, color, colorOverlay);

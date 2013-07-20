@@ -60,33 +60,30 @@ private:
 	int pspButtonBit_;
 };
 
-
 class PSPCross : public UI::View {
 public:
-	PSPCross(int arrowIndex, int overlayIndex, float scale, UI::LayoutParams *layoutParams);
+	PSPCross(int arrowIndex, int overlayIndex, float scale, float radius, UI::LayoutParams *layoutParams);
 
+	virtual void Key(const KeyInput &input) {}
+	virtual void Update(const InputState &input) {}
 	virtual void Touch(const TouchInput &input);
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 
-	void set(float radius, float scale = 1.0f) {
-		radius_ = radius;
-		scale_ = scale;
-	}
-
 private:
+	void ProcessTouch(float x, float y, bool down);
 	float radius_;
 	float scale_;
 
 	int arrowIndex_;
 	int overlayIndex_;
+
+	int dragPointerId_;
 	int down_;
 };
 
 class PSPStick : public UI::View {
 public:
-
-
 	virtual void Touch(const TouchInput &input);
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;

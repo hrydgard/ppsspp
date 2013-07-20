@@ -62,4 +62,5 @@ void __CtrlSetRapidFire(bool state);
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
+void __CtrlPeekAnalog(int stick, float *x, float *y);
 u32 __CtrlReadLatch();
