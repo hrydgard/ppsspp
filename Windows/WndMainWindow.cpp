@@ -683,7 +683,7 @@ namespace MainWindow
 				break;
 
 			case ID_OPTIONS_VSYNC:
-				g_Config.iVSyncInterval = !g_Config.iVSyncInterval;
+				g_Config.bVSync = !g_Config.bVSync;
 				break;
 
 			case ID_TEXTURESCALING_OFF:
@@ -1055,7 +1055,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
-		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.iVSyncInterval != 0);
+		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
