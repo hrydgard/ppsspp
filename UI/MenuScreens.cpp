@@ -964,7 +964,7 @@ void GraphicsScreenP1::render() {
 			if (gpu)
 				gpu->Resized();
 		}
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Convert Framebuffers using CPU"), ALIGN_TOPLEFT, &g_Config.bFramebuffersCPUConvert)) { 
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Convert Framebuffers Using CPU"), ALIGN_TOPLEFT, &g_Config.bFramebuffersCPUConvert)) { 
 			if (gpu)
 				gpu->Resized();
 		}

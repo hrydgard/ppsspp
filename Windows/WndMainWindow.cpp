@@ -736,7 +736,7 @@ namespace MainWindow
 
 			case ID_OPTIONS_FBOCPUCONVERT:
 				g_Config.bFramebuffersCPUConvert = !g_Config.bFramebuffersCPUConvert;
-				osm.ShowOnOff(g->T("Convert Framebuffers using CPU"), g_Config.bFramebuffersCPUConvert);
+				osm.ShowOnOff(g->T("Convert Framebuffers Using CPU"), g_Config.bFramebuffersCPUConvert);
 				if(gpu)
 					gpu->Resized(); // easy way to force a clear...
 				break;
