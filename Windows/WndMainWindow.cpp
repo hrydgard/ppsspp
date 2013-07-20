@@ -848,7 +848,7 @@ namespace MainWindow
 				g_Config.bUseVBO = !g_Config.bUseVBO;
 				break;
 			case ID_OPTIONS_TEXTUREFILTERING_AUTO:
-				setTexFiltering(0);
+				setTexFiltering(1);
 				break;
 			case ID_OPTIONS_NEARESTFILTERING:
 				setTexFiltering(2) ;
@@ -1098,8 +1098,7 @@ namespace MainWindow
 			ID_OPTIONS_LINEARFILTERING_CG,
 		};
 		for (int i = 0; i < 4; i++) {
-			int texFilterLevel = i > 0? (g_Config.iTexFiltering - 1) : g_Config.iTexFiltering;
-			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ((i == texFilterLevel) ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ( (i + 1) == g_Config.iTexFiltering )? MF_CHECKED : MF_UNCHECKED);
 		}
 
 		UpdateCommands();
