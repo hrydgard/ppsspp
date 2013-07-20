@@ -964,10 +964,12 @@ void GraphicsScreenP1::render() {
 			if (gpu)
 				gpu->Resized();
 		}
+#ifndef USING_GLES2
 		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Convert Framebuffers Using CPU"), ALIGN_TOPLEFT, &g_Config.bFramebuffersCPUConvert)) { 
 			if (gpu)
 				gpu->Resized();
 		}
+#endif
 		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 			if (gpu)
 				gpu->Resized();
