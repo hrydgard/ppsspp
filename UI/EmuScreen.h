@@ -49,6 +49,8 @@ private:
 	void pspKey(int pspKeyCode, int flags);
 	void onVKeyDown(int virtualKeyCode);
 	void onVKeyUp(int virtualKeyCode);
+	void setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax);
+	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
 
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
