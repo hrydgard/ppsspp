@@ -113,8 +113,12 @@ void ListPopupScreen::OnCompleted() {
 	callback_(adaptor_.GetSelected());	
 }
 
-
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	slider_ = parent->Add(new Slider(value_, minValue_, maxValue_));
+}
+
+void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	slider_ = parent->Add(new SliderFloat(value_, minValue_, maxValue_));
 }

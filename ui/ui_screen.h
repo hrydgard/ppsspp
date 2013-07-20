@@ -78,3 +78,15 @@ private:
 	int minValue_;
 	int maxValue_;
 };
+
+class SliderFloatPopupScreen : public PopupScreen {
+public:
+	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title) : PopupScreen(title), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	void CreatePopupContents(UI::ViewGroup *parent);
+
+private:
+	UI::SliderFloat *slider_;
+	float *value_;
+	float minValue_;
+	float maxValue_;
+};

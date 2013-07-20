@@ -418,6 +418,21 @@ private:
 	int maxValue_;
 };
 
+class SliderFloat : public Clickable {
+public:
+	SliderFloat(float *value, float minValue, float maxValue, LayoutParams *layoutParams = 0)
+		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	virtual void Draw(UIContext &dc);
+	virtual void Key(const KeyInput &input);
+	virtual void Touch(const TouchInput &input);
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
+
+private:
+	void Clamp();
+	float *value_;
+	float minValue_;
+	float maxValue_;
+};
 
 // Basic button that modifies a bitfield based on the pressed status. Supports multitouch.
 // Suitable for controller simulation (ABXY etc).
