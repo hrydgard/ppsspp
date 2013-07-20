@@ -31,8 +31,6 @@ protected:
  	virtual void DrawBackground(UIContext &dc);
 
 private:
-	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
-
 	std::string gamePath_, gameID_;
 
 	// As we load metadata in the background, we need to be able to update these after the fact.
@@ -74,4 +72,5 @@ protected:
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
+	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
 };

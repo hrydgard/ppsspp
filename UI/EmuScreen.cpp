@@ -143,6 +143,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 			delete msg;
 		}
 	}
+	RecreateViews();
 }
 
 void EmuScreen::sendMessage(const char *message, const char *value) {
@@ -200,7 +201,7 @@ inline float clamp1(float x) {
 }
 
 void EmuScreen::touch(const TouchInput &touch) {
-
+	root_->Touch(touch);
 }
 
 void EmuScreen::onVKeyDown(int virtualKeyCode) {
@@ -368,7 +369,13 @@ static const struct { int from, to; } legacy_touch_mapping[12] = {
 	{PAD_BUTTON_LEFT, CTRL_LEFT},
 };
 
+void EmuScreen::CreateViews() {
+	root_ = CreatePadLayout();
+}
+
 void EmuScreen::update(InputState &input) {
+	UIScreen::update(input);
+
 	// Simply forcibily update to the current screen size every frame. Doesn't cost much.
 	PSP_CoreParameter().outputWidth = dp_xres;
 	PSP_CoreParameter().outputHeight = dp_yres;
@@ -510,8 +517,15 @@ void EmuScreen::render() {
 	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
 	float touchOpacity = g_Config.iTouchButtonOpacity / 100.0f;
-	if (g_Config.bShowTouchControls)
+	if (g_Config.bShowTouchControls) {
+		// Parts of UIScreen that make sense here.
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+		root_->Draw(*screenManager()->getUIContext());
+		//screenManager()->getUIContext()->Flush();
+
+		// UIScreen::render();
 		DrawGamepad(ui_draw2d, touchOpacity);
+	}
 
 	DrawWatermark();
 

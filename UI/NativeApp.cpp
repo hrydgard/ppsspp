@@ -613,7 +613,7 @@ void NativeShutdown() {
 	// boot up correctly with "dirty" global variables currently, so we hack around that
 	// by simply exiting.
 #ifdef ANDROID
-	ELOG("NativeShutdown called");
+	ILOG("NativeShutdown called");
 	exit(0);
 #endif
 }

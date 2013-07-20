@@ -21,9 +21,10 @@
 #include <list>
 
 #include "ui/screen.h"
+#include "ui/ui_screen.h"
 #include "Common/KeyMap.h"
 
-class EmuScreen : public Screen
+class EmuScreen : public UIScreen
 {
 public:
 	EmuScreen(const std::string &filename);
@@ -38,6 +39,9 @@ public:
 	virtual void touch(const TouchInput &touch);
 	virtual void key(const KeyInput &key);
 	virtual void axis(const AxisInput &axis);
+
+protected:
+	virtual void CreateViews();
 
 private:
 	void bootGame(const std::string &filename);
