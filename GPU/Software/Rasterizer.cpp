@@ -83,7 +83,7 @@ u32 DecodeRGB565(u16 src)
 	u8 r = src & 0x1F;
 	u8 g = (src >> 5) & 0x3F;
 	u8 b = (src >> 11) & 0x1F;
-	u8 a = 0xff; // TODO: Might want to use 0xFF here instead?
+	u8 a = 0xFF;
 	r = (r << 3) | (r >> 2);
 	g = (g << 2) | (g >> 4);
 	b = (b << 3) | (b >> 2);
