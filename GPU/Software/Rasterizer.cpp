@@ -83,7 +83,7 @@ u32 DecodeRGB565(u16 src)
 	u8 r = src & 0x1F;
 	u8 g = (src >> 5) & 0x3F;
 	u8 b = (src >> 11) & 0x1F;
-	u8 a = 0; // TODO: Might want to use 0xFF here instead?
+	u8 a = 0xff; // TODO: Might want to use 0xFF here instead?
 	r = (r << 3) | (r >> 2);
 	g = (g << 2) | (g >> 4);
 	b = (b << 3) | (b >> 2);
@@ -141,7 +141,7 @@ u32 SampleNearest(int level, float s, float t)
 		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
 
 		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
-		return clut[index];
+		return DecodeRGBA8888(bswap32(*(u32*)&clut[index]));
 	} else if (texfmt == GE_TFMT_CLUT4) {
 		srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
 
@@ -151,7 +151,7 @@ u32 SampleNearest(int level, float s, float t)
 		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
 
 		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
-		return clut[index];
+		return DecodeRGBA8888(bswap32(*(u32*)&clut[index])); // TODO: No idea if that bswap is correct
 	} else {
 		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
 		return 0;
@@ -306,61 +306,6 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Depth range test
 
-				if (gstate.isStencilTestEnabled() && !gstate.isModeClear()) {
-					bool pass = false;
-					u8 stencil = GetPixelStencil(p.x, p.y) & gstate.getStencilTestMask(); // TODO: Magic?
-					u8 ref = gstate.getStencilTestRef() & gstate.getStencilTestMask();
-					switch (gstate.getStencilTestFunction()) {
-						case GE_COMP_NEVER:
-							pass = false;
-							break;
-						case GE_COMP_ALWAYS:
-							pass = true;
-							break;
-						case GE_COMP_EQUAL:
-							pass = (stencil == ref);
-							break;
-						case GE_COMP_NOTEQUAL:
-							pass = (stencil != ref);
-							break;
-						case GE_COMP_LESS:
-							pass = (stencil < ref);
-							break;
-						case GE_COMP_LEQUAL:
-							pass = (stencil <= ref);
-							break;
-						case GE_COMP_GREATER:
-							pass = (stencil > ref);
-							break;
-						case GE_COMP_GEQUAL:
-							pass = (stencil >= ref);
-							break;
-					}
-
-					if (!pass) {
-						ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
-						continue;
-					}
-				}
-
-				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
-				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
-					// TODO: Is that the correct way to interpolate?
-					u16 z = (u16)((v0.drawpos.z * w0 + v1.drawpos.z * w1 + v2.drawpos.z * w2) / (w0+w1+w2));
-
-					// TODO: Verify that stencil op indeed needs to be applied here even if stencil testing is disabled
-					if (!DepthTestPassed(p.x, p.y, z)) {
-						ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
-						continue;
-					} else {
-						ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
-					}
-
-					// TODO: Is this condition correct?
-					if (gstate.isDepthWriteEnabled() || ((gstate.clearmode&0x40) && gstate.isModeClear()))
-						SetPixelDepth(p.x, p.y, z);
-				}
-
 				float s = (v0.texturecoords.s() * w0 / v0.clippos.w + v1.texturecoords.s() * w1 / v1.clippos.w + v2.texturecoords.s() * w2 / v2.clippos.w) / den;
 				float t = (v0.texturecoords.t() * w0 / v0.clippos.w + v1.texturecoords.t() * w1 / v1.clippos.w + v2.texturecoords.t() * w2 / v2.clippos.w) / den;
 				Vec3<int> prim_color_rgb(0, 0, 0);
@@ -387,7 +332,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
 					Vec4<int> texcolor = Vec4<int>::FromRGBA(/*TextureDecoder::*/SampleNearest(0, s, t));
 
-					bool rgba = (gstate.texfunc & 0x10) != 0;
+					bool rgba = (gstate.texfunc & 0x100) != 0;
 
 					// texture function
 					switch (gstate.getTextureFunction()) {
@@ -439,14 +384,119 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				}
 
 				prim_color_rgb += sec_color;
-				if (prim_color_rgb.r() > 255) prim_color_rgb.r() = 255;
-				if (prim_color_rgb.g() > 255) prim_color_rgb.g() = 255;
-				if (prim_color_rgb.b() > 255) prim_color_rgb.b() = 255;
-				if (prim_color_rgb.r() < 0) prim_color_rgb.r() = 0;
-				if (prim_color_rgb.g() < 0) prim_color_rgb.g() = 0;
-				if (prim_color_rgb.b() < 0) prim_color_rgb.b() = 0;
 
 				// TODO: Fogging
+
+				if (gstate.isColorTestEnabled()) {
+					bool pass = false;
+					Vec3<int> ref = Vec3<int>::FromRGB(gstate.colorref&(gstate.colormask&0xFFFFFF));
+					Vec3<int> color = Vec3<int>::FromRGB(prim_color_rgb.ToRGB()&(gstate.colormask&0xFFFFFF));
+					switch (gstate.colortest & 0x3) {
+						case GE_COMP_NEVER:
+							pass = false;
+							break;
+						case GE_COMP_ALWAYS:
+							pass = true;
+							break;
+						case GE_COMP_EQUAL:
+							pass = (color.r() == ref.r() && color.g() == ref.g() && color.b() == ref.b());
+							break;
+						case GE_COMP_NOTEQUAL:
+							pass = (color.r() != ref.r() || color.g() != ref.g() || color.b() != ref.b());
+							break;
+					}
+					if (!pass)
+						continue;
+				}
+
+				if (gstate.isAlphaTestEnabled()) {
+					bool pass = false;
+					u8 ref = (gstate.alphatest>>8) & (gstate.alphatest>>16);
+					u8 alpha = prim_color_a & (gstate.alphatest>>16);
+
+					switch (gstate.alphatest & 0x7) {
+						case GE_COMP_NEVER:
+							pass = false;
+							break;
+						case GE_COMP_ALWAYS:
+							pass = true;
+							break;
+						case GE_COMP_EQUAL:
+							pass = (alpha == ref);
+							break;
+						case GE_COMP_NOTEQUAL:
+							pass = (alpha != ref);
+							break;
+						case GE_COMP_LESS:
+							pass = (alpha < ref);
+							break;
+						case GE_COMP_LEQUAL:
+							pass = (alpha <= ref);
+							break;
+						case GE_COMP_GREATER:
+							pass = (alpha > ref);
+							break;
+						case GE_COMP_GEQUAL:
+							pass = (alpha >= ref);
+							break;
+					}
+					if (!pass)
+						continue;
+				}
+
+				if (gstate.isStencilTestEnabled() && !gstate.isModeClear()) {
+					bool pass = false;
+					u8 stencil = GetPixelStencil(p.x, p.y) & gstate.getStencilTestMask(); // TODO: Magic?
+					u8 ref = gstate.getStencilTestRef() & gstate.getStencilTestMask();
+					switch (gstate.getStencilTestFunction()) {
+						case GE_COMP_NEVER:
+							pass = false;
+							break;
+						case GE_COMP_ALWAYS:
+							pass = true;
+							break;
+						case GE_COMP_EQUAL:
+							pass = (stencil == ref);
+							break;
+						case GE_COMP_NOTEQUAL:
+							pass = (stencil != ref);
+							break;
+						case GE_COMP_LESS:
+							pass = (stencil < ref);
+							break;
+						case GE_COMP_LEQUAL:
+							pass = (stencil <= ref);
+							break;
+						case GE_COMP_GREATER:
+							pass = (stencil > ref);
+							break;
+						case GE_COMP_GEQUAL:
+							pass = (stencil >= ref);
+							break;
+					}
+
+					if (!pass) {
+						ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
+						continue;
+					}
+				}
+
+				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
+				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
+					// TODO: Is that the correct way to interpolate?
+					u16 z = (u16)((v0.drawpos.z * w0 + v1.drawpos.z * w1 + v2.drawpos.z * w2) / (w0+w1+w2));
+
+					// TODO: Verify that stencil op indeed needs to be applied here even if stencil testing is disabled
+					if (!DepthTestPassed(p.x, p.y, z)) {
+						ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
+						continue;
+					} else {
+						ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
+					}
+					// TODO: Is this condition correct?
+					if (gstate.isDepthWriteEnabled() || ((gstate.clearmode&0x40) && gstate.isModeClear()))
+						SetPixelDepth(p.x, p.y, z);
+				}
 
 				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
@@ -554,6 +604,14 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						break;
 					}
 				}
+				if (prim_color_rgb.r() > 255) prim_color_rgb.r() = 255;
+				if (prim_color_rgb.g() > 255) prim_color_rgb.g() = 255;
+				if (prim_color_rgb.b() > 255) prim_color_rgb.b() = 255;
+				if (prim_color_a > 255) prim_color_a = 255;
+				if (prim_color_rgb.r() < 0) prim_color_rgb.r() = 0;
+				if (prim_color_rgb.g() < 0) prim_color_rgb.g() = 0;
+				if (prim_color_rgb.b() < 0) prim_color_rgb.b() = 0;
+				if (prim_color_a < 0) prim_color_a = 0;
 				SetPixelColor(p.x, p.y, Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), prim_color_a).ToRGBA());
 			}
 		}
