@@ -26,7 +26,7 @@
 class MultiTouchButton : public UI::View {
 public:
 	MultiTouchButton(int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
-		: UI::View(layoutParams), pointerDownMask_(0), bgImg_(bgImg), img_(img), scale_(scale), flipImageH_(false) {
+		: UI::View(layoutParams), pointerDownMask_(0), bgImg_(bgImg), img_(img), scale_(scale), angle_(0.0f), flipImageH_(false) {
 	}
 
 	virtual void Key(const KeyInput &input) {}
@@ -35,7 +35,9 @@ public:
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual bool IsDown() { return pointerDownMask_ != NULL; }
-	void FlipImageH(bool flip) { flipImageH_ = flip; }
+	// chainable
+	MultiTouchButton *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
+	MultiTouchButton *SetAngle(float angle) { angle_ = angle; return this; }
 
 protected:
 	uint32_t pointerDownMask_;
@@ -44,7 +46,21 @@ private:
 	int bgImg_;
 	int img_;
 	float scale_;
+	float angle_;
 	bool flipImageH_;
+};
+
+class BoolButton : public MultiTouchButton {
+public:
+	BoolButton(bool *value, int bgImg, int img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, img, scale, layoutParams), value_(value) {
+
+	}
+	virtual void Touch(const TouchInput &input);
+	virtual bool IsDown() { return *value_; }
+
+private:
+	bool *value_;
 };
 
 class PSPButton : public MultiTouchButton {
@@ -84,29 +100,25 @@ private:
 
 class PSPStick : public UI::View {
 public:
+	PSPStick(int bgImg, int stickImg, int stick, float scale, UI::LayoutParams *layoutParams);
+
+	virtual void Key(const KeyInput &input) {}
+	virtual void Update(const InputState &input) {}
 	virtual void Touch(const TouchInput &input);
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 
 private:
-	int bgImageIndex_;
+	void ProcessTouch(float x, float y, bool down);
+
+	int dragPointerId_;
+	int bgImg_;
 	int stickImageIndex_;
 	int stick_;
-	int stick_size_;
-	float stick_x_;
-	float stick_y_;
+	float stick_size_;
 	float scale_;
 	bool dragging_[MAX_POINTERS];
 	bool lastPointerDown_[MAX_POINTERS];
-
-	// maintained for drawing only
-	float stick_delta_x_;
-	float stick_delta_y_;
 };
 
-
-void LayoutGamepad(int w, int h);
-void UpdateGamepad(InputState &input_state);
-void DrawGamepad(DrawBuffer &db, float opacity);
-
-UI::ViewGroup *CreatePadLayout();
+UI::ViewGroup *CreatePadLayout(bool *pause);

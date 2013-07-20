@@ -149,8 +149,8 @@ void __CtrlPeekAnalog(int stick, float *x, float *y)
 {
 	std::lock_guard<std::recursive_mutex> guard(ctrlMutex);
 
-	*x = (ctrlCurrent.analog[stick][0] + 0.5f) / 127.5f;
-	*y = (ctrlCurrent.analog[stick][1] + 0.5f) / 127.5f;
+	*x = (ctrlCurrent.analog[stick][0] - 127.5f) / 127.5f;
+	*y = -(ctrlCurrent.analog[stick][1] - 127.5f) / 127.5f;
 }
 
 

@@ -50,18 +50,18 @@ private:
 
 	void ChoiceCallback(int num);
 
-	const char **choices_;
-	int numChoices_;
-	int minVal_;
 	int *value_;
-	ScreenManager *screenManager_;
+	const char **choices_;
+	int minVal_;
+	int numChoices_;
 	I18NCategory *category_;
+	ScreenManager *screenManager_;
 	std::string valueText_;
 };
 
 EventReturn PopupMultiChoice::HandleClick(EventParams &e) {
 	std::vector<std::string> choices;
-	for (size_t i = 0; i < numChoices_; i++) {
+	for (int i = 0; i < numChoices_; i++) {
 		choices.push_back(category_ ? category_->T(choices_[i]) : choices_[i]);
 	}
 
@@ -103,16 +103,48 @@ private:
 	ScreenManager *screenManager_;
 };
 
+class PopupSliderChoiceFloat : public Choice {
+public:
+	PopupSliderChoiceFloat(float *value, float minValue, float maxValue, const std::string &text, ScreenManager *screenManager, LayoutParams *layoutParams = 0)
+		: Choice(text, "", false, layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), screenManager_(screenManager) {
+		OnClick.Handle(this, &PopupSliderChoiceFloat::HandleClick);
+	}
+
+	void Draw(UIContext &dc);
+
+private:
+	EventReturn HandleClick(EventParams &e);
+
+	float *value_;
+	float minValue_;
+	float maxValue_;
+	ScreenManager *screenManager_;
+};
+
 EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	Screen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_);
 	screenManager_->push(popupScreen);
 	return EVENT_DONE;
 }
 
+
 void PopupSliderChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	char temp[4];
 	sprintf(temp, "%i", *value_);
+	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+}
+
+EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
+	Screen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_);
+	screenManager_->push(popupScreen);
+	return EVENT_DONE;
+}
+
+void PopupSliderChoiceFloat::Draw(UIContext &dc) {
+	Choice::Draw(dc);
+	char temp[4];
+	sprintf(temp, "%2.2f", *value_);
 	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
@@ -210,7 +242,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettingsScroll->Add(controlsSettings);
 	tabHolder->AddTab("Controls", controlsSettingsScroll);
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
-	controlsSettings->Add(new CheckBox(&g_Config.bLargeControls, c->T("Large Controls")));
+	audioSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 1.15, 2.0, a->T("Touch Controls Size"), screenManager()));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Analog Stick")));
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 

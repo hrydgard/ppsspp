@@ -53,7 +53,7 @@
 #include "UI/MiscScreens.h"
 
 
-EmuScreen::EmuScreen(const std::string &filename) : invalid_(true) {
+EmuScreen::EmuScreen(const std::string &filename) : invalid_(true), pauseTrigger_(false) {
 	bootGame(filename);
 }
 
@@ -101,8 +101,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 	host->BootDone();
 	host->UpdateDisassembly();
 
-	LayoutGamepad(dp_xres, dp_yres);
-
 	g_gameInfoCache.FlushBGs();
 
 	NOTICE_LOG(BOOT, "Loading %s...", fileToStart.c_str());
@@ -113,7 +111,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
 	}
 #endif
-	memset(&fakeInputState, 0, sizeof(fakeInputState));
 	memset(virtKeys, 0, sizeof(virtKeys));
 }
 
@@ -208,6 +205,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	I18NCategory *s = GetI18NCategory("Screen"); 
 
 	switch (virtualKeyCode) {
+	case VIRTKEY_UNTHROTTLE:
+		PSP_CoreParameter().unthrottle = true;
+		break;
+
 	case VIRTKEY_SPEED_TOGGLE:
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
@@ -257,6 +258,9 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 void EmuScreen::onVKeyUp(int virtualKeyCode) {
 	switch (virtualKeyCode) {
+	case VIRTKEY_UNTHROTTLE:
+		PSP_CoreParameter().unthrottle = false;
+		break;
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
 		__CtrlSetAnalogX(0.0f, CTRL_STICK_LEFT);
@@ -370,7 +374,7 @@ static const struct { int from, to; } legacy_touch_mapping[12] = {
 };
 
 void EmuScreen::CreateViews() {
-	root_ = CreatePadLayout();
+	root_ = CreatePadLayout(&pauseTrigger_);
 }
 
 void EmuScreen::update(InputState &input) {
@@ -401,60 +405,6 @@ void EmuScreen::update(InputState &input) {
 	// Virtual keys.
 	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
-	// First translate touches into native pad input.
-	// Do this no matter the value of g_Config.bShowTouchControls, some people
-	// like to use invisible controls...
-	// Don't force on platforms that likely don't have a touchscreen, like Win32, OSX, and Linux...
-	// TODO: What are good ifdefs for OSX and Linux, without breaking other mobile platforms?
-#ifdef _WIN32
-	if(g_Config.bShowTouchControls) {
-#endif
-		// TODO: Make new better touch buttons so we don't have to do this crap.
-
-		// Copy over the mouse data from the real inputstate.
-		fakeInputState.mouse_valid = input.mouse_valid;
-		fakeInputState.pad_last_buttons = fakeInputState.pad_buttons;
-		fakeInputState.pad_buttons = input.pad_buttons;
-		memcpy(fakeInputState.pointer_down, input.pointer_down, sizeof(input.pointer_down));
-		memcpy(fakeInputState.pointer_x, input.pointer_x, sizeof(input.pointer_x));
-		memcpy(fakeInputState.pointer_y, input.pointer_y, sizeof(input.pointer_y));
-		fakeInputState.pad_lstick_x = 0.0f;
-		fakeInputState.pad_lstick_y = 0.0f;
-		fakeInputState.pad_rstick_x = 0.0f;
-		fakeInputState.pad_rstick_y = 0.0f;
-		UpdateGamepad(fakeInputState);
-		UpdateInputState(&fakeInputState, true);
-
-		for (size_t i = 0; i < ARRAY_SIZE(legacy_touch_mapping); i++) {
-			if (fakeInputState.pad_buttons_down & legacy_touch_mapping[i].from)
-				__CtrlButtonDown(legacy_touch_mapping[i].to);
-			if (fakeInputState.pad_buttons_up & legacy_touch_mapping[i].from)
-				__CtrlButtonUp(legacy_touch_mapping[i].to);
-		}
-		leftstick_x += fakeInputState.pad_lstick_x;
-		leftstick_y += fakeInputState.pad_lstick_y;
-		rightstick_x += fakeInputState.pad_rstick_x;
-		rightstick_y += fakeInputState.pad_rstick_y;
-
-		if (g_Config.bShowAnalogStick) {
-			__CtrlSetAnalogX(clamp1(leftstick_x), CTRL_STICK_LEFT);
-			__CtrlSetAnalogY(clamp1(leftstick_y), CTRL_STICK_LEFT);
-		}
-		__CtrlSetAnalogX(clamp1(rightstick_x), CTRL_STICK_RIGHT);
-		__CtrlSetAnalogY(clamp1(rightstick_y), CTRL_STICK_RIGHT);
-
-		// Also send the special buttons to input, since that's where they're handled.
-		input.pad_buttons_down |= fakeInputState.pad_buttons_down & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
-		input.pad_buttons_up |= fakeInputState.pad_buttons_up & (PAD_BUTTON_MENU | PAD_BUTTON_BACK | PAD_BUTTON_RIGHT_THUMB | PAD_BUTTON_LEFT_THUMB);
-		input.pad_buttons = fakeInputState.pad_buttons;
-#ifdef _WIN32
-	}
-#endif
-
-	// Still checking input.pad_buttons here to support the onscreen throttle button.
-	PSP_CoreParameter().unthrottle = virtKeys[VIRTKEY_UNTHROTTLE - VIRTKEY_FIRST] ||
-		(input.pad_buttons & PAD_BUTTON_UNTHROTTLE) != 0;
-
 	// Apply tilt to left stick
 	if (g_Config.bAccelerometerToAnalogHoriz) {
 		// TODO: Deadzone, etc.
@@ -467,8 +417,9 @@ void EmuScreen::update(InputState &input) {
 		PSP_CoreParameter().fpsLimit = 0;
 	}
 
-	// This is still here to support the iOS on screen back button.
-	if (input.pad_buttons_down & (PAD_BUTTON_BACK)) {
+	// This is here to support the iOS on screen back button.
+	if (pauseTrigger_) {
+		pauseTrigger_ = false;
 		screenManager()->push(new PauseScreen());
 	}
 }
@@ -517,15 +468,9 @@ void EmuScreen::render() {
 	ui_draw2d.Begin(UIShader_Get(), DBMODE_NORMAL);
 
 	float touchOpacity = g_Config.iTouchButtonOpacity / 100.0f;
-	if (g_Config.bShowTouchControls) {
-		// Parts of UIScreen that make sense here.
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
-		root_->Draw(*screenManager()->getUIContext());
-		//screenManager()->getUIContext()->Flush();
 
-		// UIScreen::render();
-		DrawGamepad(ui_draw2d, touchOpacity);
-	}
+	UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+	root_->Draw(*screenManager()->getUIContext());
 
 	DrawWatermark();
 

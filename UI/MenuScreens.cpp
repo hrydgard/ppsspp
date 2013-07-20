@@ -1623,22 +1623,20 @@ void ControlsScreen::render() {
 	if (g_Config.bShowTouchControls) {
 		UICheckBox(GEN_ID, x, y += stride, c->T("Show Left Analog Stick"), ALIGN_TOPLEFT, &g_Config.bShowAnalogStick);
 			
-		UICheckBox(GEN_ID, x, y += stride, c->T("Buttons Scaling"), ALIGN_TOPLEFT, &g_Config.bLargeControls);
-		if (g_Config.bLargeControls) {
-			char scale[256];
-			sprintf(scale, "%s %0.2f", c->T("Scale :"), g_Config.fButtonScale);
-			ui_draw2d.DrawTextShadow(UBUNTU24, scale, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
-			HLinear hlinear1(x + 250, y, 20);
-			if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
-				g_Config.fButtonScale = 1.15;
-			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("-0.1"), ALIGN_LEFT))
-				if (g_Config.fButtonScale > 1.15)
-					g_Config.fButtonScale -= 0.1;
-			if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("+0.1"), ALIGN_LEFT))
-				if (g_Config.fButtonScale < 2.05)
-					g_Config.fButtonScale += 0.1;
-			y += 20;
-		}
+		char scale[256];
+		sprintf(scale, "%s %0.2f", c->T("Buttons Scaling:"), g_Config.fButtonScale);
+		ui_draw2d.DrawTextShadow(UBUNTU24, scale, x + 60, y += stride , 0xFFFFFFFF, ALIGN_LEFT);
+		HLinear hlinear1(x + 400, y, 20);
+		if (UIButton(GEN_ID, hlinear1, 80, 0, c->T("Auto"), ALIGN_LEFT))
+			g_Config.fButtonScale = 1.15;
+		if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("-0.1"), ALIGN_LEFT))
+			if (g_Config.fButtonScale > 1.15)
+				g_Config.fButtonScale -= 0.1;
+		if (UIButton(GEN_ID, hlinear1, 60, 0, c->T("+0.1"), ALIGN_LEFT))
+			if (g_Config.fButtonScale < 2.05)
+				g_Config.fButtonScale += 0.1;
+		y += 20;
+
 		// This will be a slider in the new UI later
 		bool bTransparent = g_Config.iTouchButtonOpacity < 65;
 		bool prev = bTransparent;

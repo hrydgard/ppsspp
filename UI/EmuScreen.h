@@ -50,12 +50,12 @@ private:
 	void onVKeyDown(int virtualKeyCode);
 	void onVKeyUp(int virtualKeyCode);
 
+
+	bool pauseTrigger_;
+
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
 	std::string errorMessage_;
-
-	// For the virtual touch buttons, that currently can't send key events.
-	InputState fakeInputState;
 
 	// To track mappable virtual keys. We can have as many as we want.
 	bool virtKeys[VIRTKEY_COUNT];

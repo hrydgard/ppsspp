@@ -109,7 +109,6 @@ public:
 	bool bShowAnalogStick;
 	int iShowFPSCounter;
 	bool bShowDebugStats;
-	bool bLargeControls;
 	bool bAccelerometerToAnalogHoriz;
 
 	// Control
