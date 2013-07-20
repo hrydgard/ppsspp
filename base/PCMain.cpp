@@ -541,7 +541,7 @@ int main(int argc, char *argv[]) {
 	SDLJoyButtonMap[7] = KEYCODE_BUTTON_6;
 	SDLJoyButtonMap[8] = KEYCODE_BUTTON_7;
 	SDLJoyButtonMap[9] = KEYCODE_BUTTON_8;
-	SDLJoyButtonMap[10] = KEYCODE_BACK;
+	SDLJoyButtonMap[10] = KEYCODE_BUTTON_SELECT;
 	SDLJoyButtonMap[11] = KEYCODE_BUTTON_2;
 	SDLJoyButtonMap[12] = KEYCODE_BUTTON_3;
 	SDLJoyButtonMap[13] = KEYCODE_BUTTON_4;
