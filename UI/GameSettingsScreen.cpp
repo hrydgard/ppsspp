@@ -162,7 +162,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.SSAntiAliasing, gs->T("Anti Aliasing")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bFramebuffersToMem, gs->T("Read Framebuffer to memory")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bFramebuffersCPUConvert, gs->T("Convert Framebuffer using CPU")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bFramebuffersCPUConvert, gs->T("Convert Framebuffers using CPU")));
 
 	// TODO: Does frame rate belong among the graphics settings?
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame rate")));
