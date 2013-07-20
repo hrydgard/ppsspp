@@ -730,9 +730,10 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	}
 
 	EventParams e2;
-	e.a = selected_;
+	e2.v = views_[selected_];
+	e2.a = selected_;
 	// Dispatch immediately (we're already on the UI thread as we're in an event handler).
-	return OnChoice.Dispatch(e);
+	return OnChoice.Dispatch(e2);
 }
 
 void ChoiceStrip::SetSelection(int sel) {

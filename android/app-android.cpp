@@ -188,7 +188,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioInit(JNIEnv *, j
 		optimalSampleRate = 44100;
 		AndroidAudio_Init(&NativeMix, library_path, optimalFramesPerBuffer, optimalSampleRate);
 	}
-	ILOG("NativeApp.audioShutdown() -- end");
+	ILOG("NativeApp.audioInit() -- end");
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioShutdown(JNIEnv *, jclass) {
