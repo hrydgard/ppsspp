@@ -37,6 +37,9 @@ private:
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
 
+	// Event handlers
+	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
+
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
 };
@@ -72,5 +75,4 @@ protected:
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
-	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
 };

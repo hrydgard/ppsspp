@@ -949,9 +949,7 @@ void GraphicsScreenP1::render() {
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
 #ifdef _WIN32
-	bool Vsync = g_Config.iVSyncInterval != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("VSync"), ALIGN_TOPLEFT, &Vsync);
-	g_Config.iVSyncInterval = Vsync ? 1 : 0;
+	UICheckBox(GEN_ID, x, y += stride, gs->T("VSync"), ALIGN_TOPLEFT, &g_Config.bVSync);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Fullscreen"), ALIGN_TOPLEFT, &g_Config.bFullScreen);
 #endif
 	
