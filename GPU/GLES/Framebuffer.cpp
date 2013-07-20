@@ -202,6 +202,7 @@ FramebufferManager::FramebufferManager() :
 	} else 
 		gpuVendor = GPU_VENDOR_UNKNOWN;
 	gstate_c.gpuVendor = gpuVendor;
+	NOTICE_LOG(HLE,"GPU Vendor : %s", cvendor);
 }
 
 FramebufferManager::~FramebufferManager() {
