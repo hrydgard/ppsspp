@@ -34,7 +34,7 @@ public:
 	virtual void Touch(const TouchInput &input);
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
-	virtual bool IsDown() { return pointerDownMask_ != NULL; }
+	virtual bool IsDown() { return pointerDownMask_ != 0; }
 	// chainable
 	MultiTouchButton *FlipImageH(bool flip) { flipImageH_ = flip; return this; }
 	MultiTouchButton *SetAngle(float angle) { angle_ = angle; return this; }
@@ -88,11 +88,11 @@ public:
 
 private:
 	void ProcessTouch(float x, float y, bool down);
-	float radius_;
-	float scale_;
-
 	int arrowIndex_;
 	int overlayIndex_;
+
+	float scale_;
+	float radius_;
 
 	int dragPointerId_;
 	int down_;

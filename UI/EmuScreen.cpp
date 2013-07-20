@@ -284,6 +284,9 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 }
 
 void EmuScreen::key(const KeyInput &key) {
+	if (key.keyCode == KEYCODE_BACK)
+		pauseTrigger_ = true;
+
 	int result = KeyMap::KeyToPspButton(key.deviceId, key.keyCode);
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
 		return;
