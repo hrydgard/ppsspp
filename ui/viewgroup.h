@@ -76,17 +76,18 @@ enum {
 
 class AnchorLayoutParams : public LayoutParams {
 public:
-	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b)
-		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b) {
+	AnchorLayoutParams(Size w, Size h, float l, float t, float r, float b, bool c = false)
+		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {
 
 	}
 
-	AnchorLayoutParams(float l, float t, float r, float b)
-		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_ANCHOR), left(l), top(t), right(r), bottom(b) {}
+	AnchorLayoutParams(float l, float t, float r, float b, bool c = false)
+		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {}
 
 	// These are not bounds, but distances from the container edges.
 	// Set to NONE to not attach this edge to the container.
 	float left, top, right, bottom;
+	bool center;  // If set, only two "sides" can be set, and they refer to the center, not the edge, of the view being layouted.
 };
 
 class AnchorLayout : public ViewGroup {

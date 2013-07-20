@@ -608,11 +608,13 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			width = params->width;
 			height = params->height;
 
-			if (params->left >= 0 && params->right >= 0) 	{
-				width = measuredWidth_ - params->left - params->right;
-			}
-			if (params->top >= 0 && params->bottom >= 0) 	{
-				height = measuredHeight_ - params->top - params->bottom;
+			if (!params->center) {
+				if (params->left >= 0 && params->right >= 0) 	{
+					width = measuredWidth_ - params->left - params->right;
+				}
+				if (params->top >= 0 && params->bottom >= 0) 	{
+					height = measuredHeight_ - params->top - params->bottom;
+				}
 			}
 			specW = width < 0 ? MeasureSpec(UNSPECIFIED) : MeasureSpec(EXACTLY, width);
 			specH = height < 0 ? MeasureSpec(UNSPECIFIED) : MeasureSpec(EXACTLY, height);
@@ -631,24 +633,35 @@ void AnchorLayout::Layout() {
 		vBounds.w = views_[i]->GetMeasuredWidth();
 		vBounds.h = views_[i]->GetMeasuredHeight();
 
-		float left = 0, top = 0, right = 0, bottom = 0;
-
+		float left = 0, top = 0, right = 0, bottom = 0, center = false;
 		if (params) {
 			left = params->left;
 			top = params->top;
 			right = params->right;
 			bottom = params->bottom;
+			center = params->center;
 		}
 
-		if (left >= 0)
+		if (left >= 0) {
 			vBounds.x = bounds_.x + left;
-		else if (right >= 0)
+			if (center)
+				vBounds.x -= vBounds.w * 0.5f;
+		} else if (right >= 0) {
 			vBounds.x = bounds_.x2() - right - vBounds.w;
+			if (center) {
+				vBounds.x += vBounds.w * 0.5f;
+			}
+		}
 
-		if (top >= 0)
+		if (top >= 0) {
 			vBounds.y = bounds_.y + top;
-		else if (bottom >= 0)
+			if (center)
+				vBounds.y -= vBounds.h * 0.5f;
+		} else if (bottom >= 0) {
 			vBounds.y = bounds_.y2() - bottom - vBounds.h;
+			if (center)
+				vBounds.y += vBounds.h * 0.5f;
+		}
 
 		views_[i]->SetBounds(vBounds);
 		views_[i]->Layout();
@@ -796,6 +809,10 @@ bool StringVectorListAdaptor::AddEventCallback(View *view, std::function<EventRe
 }
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
+	if (!root) {
+		ELOG("Tried to layout a view hierarchy from a zero pointer root");
+		return;
+	}
 	Bounds rootBounds;
 	rootBounds.x = 0;
 	rootBounds.y = 0;
@@ -813,6 +830,10 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 }
 
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
+	if (!root) {
+		ELOG("Tried to update a view hierarchy from a zero pointer root");
+		return;
+	}
 	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN)) {
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {

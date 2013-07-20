@@ -16,7 +16,11 @@ void UIScreen::update(InputState &input) {
 		recreateViews_ = false;
 	}
 
-	UpdateViewHierarchy(input, root_);
+	if (root_) {
+		UpdateViewHierarchy(input, root_);
+	} else {
+		ELOG("Tried to update without a view root");
+	}
 }
 
 void UIScreen::render() {
