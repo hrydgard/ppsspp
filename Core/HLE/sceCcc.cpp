@@ -93,20 +93,44 @@ int sceCccSJIStoUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
 
 int sceCccStrlenUTF8(u32 strAddr)
 {
-	DEBUG_LOG(HLE, "sceCccStrlenUTF8(%08x)", strAddr);
-	return u8_strlen(Memory::GetCharPointer(strAddr));
+	PSPCharPointer str;
+	str = strAddr;
+
+	if (!str.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccStrlenUTF8(%08x): invalid pointer", strAddr);
+		return 0;
+	}
+	DEBUG_LOG(HLE, "sceCccStrlenUTF8(%08x): invalid pointer", strAddr);
+	return UTF8(str).length();
 }
 
 int sceCccStrlenUTF16(u32 strAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccStrlenUTF16(%08x)", strAddr);
-	return 0;
+	PSPWCharPointer str;
+	str = strAddr;
+
+	if (!str.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccStrlenUTF16(%08x): invalid pointer", strAddr);
+		return 0;
+	}
+	DEBUG_LOG(HLE, "sceCccStrlenUTF16(%08x): invalid pointer", strAddr);
+	return UTF16LE(str).length();
 }
 
 int sceCccStrlenSJIS(u32 strAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccStrlenSJIS(%08x)", strAddr);
-	return 0;
+	PSPCharPointer str;
+	str = strAddr;
+
+	if (!str.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccStrlenSJIS(%08x): invalid pointer", strAddr);
+		return 0;
+	}
+	DEBUG_LOG(HLE, "sceCccStrlenSJIS(%08x): invalid pointer", strAddr);
+	return ShiftJIS(str).length();
 }
 
 int sceCccEncodeUTF8(u32 dstAddr, u32 ucs)
