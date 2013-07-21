@@ -32,7 +32,8 @@ static inline int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, con
 	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
 }
 
-static inline int GetPixelDataOffset(int texel_size_bits, int row_pitch_bits, int u, int v)
+
+static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
 	if (!(gstate.texmode & 1))
 		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
@@ -54,15 +55,15 @@ static inline int GetPixelDataOffset(int texel_size_bits, int row_pitch_bits, in
 
 static inline u32 DecodeRGBA4444(u16 src)
 {
-	u8 r = src & 0xFF;
-	u8 g = (src>>4) & 0xFF;
-	u8 b = (src>>8) & 0xFF;
-	u8 a = (src>>12) & 0xFF;
+	u8 r = src & 0x0F;
+	u8 g = (src>>4) & 0x0F;
+	u8 b = (src>>8) & 0x0F;
+	u8 a = (src>>12) & 0x0F;
 	r = (r << 4) | r;
 	g = (g << 4) | g;
 	b = (b << 4) | b;
 	a = (a << 4) | a;
-	return (r << 24) | (g << 16) | (b << 8) | a;
+	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
 static inline u32 DecodeRGBA5551(u16 src)
@@ -75,7 +76,7 @@ static inline u32 DecodeRGBA5551(u16 src)
 	g = (g << 3) | (g >> 2);
 	b = (b << 3) | (b >> 2);
 	a = (a) ? 0xff : 0;
-	return (r << 24) | (g << 16) | (b << 8) | a;
+	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
 static inline u32 DecodeRGB565(u16 src)
@@ -87,7 +88,7 @@ static inline u32 DecodeRGB565(u16 src)
 	r = (r << 3) | (r >> 2);
 	g = (g << 2) | (g >> 4);
 	b = (b << 3) | (b >> 2);
-	return (r << 24) | (g << 16) | (b << 8) | a;
+	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
 static inline u32 DecodeRGBA8888(u32 src)
@@ -96,33 +97,44 @@ static inline u32 DecodeRGBA8888(u32 src)
 	u8 g = (src >> 8) & 0xFF;
 	u8 b = (src >> 16) & 0xFF;
 	u8 a = (src >> 24) & 0xFF;
-	return (r << 24) | (g << 16) | (b << 8) | a;
+	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
-static inline u32 LookupColor(u16 index)
+static inline u32 LookupColor(unsigned int index, unsigned int level)
 {
+	const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
+	const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
+
 	 // TODO: No idea if these bswaps are correct
 	switch (gstate.getClutPaletteFormat()) {
 		case GE_TFMT_5650:
-			return DecodeRGB565(bswap16(*(u16*)&clut[index]));
+			return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 		case GE_TFMT_5551:
-			return DecodeRGBA5551(bswap16(*(u16*)&clut[index]));
+			return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 		case GE_TFMT_4444:
-			return DecodeRGBA4444(bswap16(*(u16*)&clut[index]));
+			return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
 		case GE_TFMT_8888:
-			return DecodeRGBA8888(bswap32(*(u32*)&clut[index]));
+			return DecodeRGBA8888(clut[index + clutSharingOffset]);
 
 		default:
+			ERROR_LOG(G3D, "Unsupported palette format: %x", gstate.getClutPaletteFormat());
 			return 0;
 	}
 }
 
+static inline u32 GetClutIndex(u32 index) {
+    const u32 clutBase = gstate.getClutIndexStartPos();
+    const u32 clutMask = gstate.getClutIndexMask();
+    const u8 clutShift = gstate.getClutIndexShift();
+    return ((index >> clutShift) & clutMask) | clutBase;
+}
+
 static inline u32 SampleNearest(int level, float s, float t)
 {
-	int texfmt = gstate.texformat & 0xF;
+	GETextureFormat texfmt = gstate.getTextureFormat();
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 	u8* srcptr = (u8*)Memory::GetPointer(texaddr); // TODO: not sure if this is the right place to load from...?
 
@@ -135,8 +147,8 @@ static inline u32 SampleNearest(int level, float s, float t)
 	// TODO: Should probably check if textures are aligned properly...
 
 	// TODO: Not sure if that through mode treatment is correct..
-	int u = (gstate.isModeThrough()) ? s : s * width; // TODO: -1?
-	int v = (gstate.isModeThrough()) ? t : t * height; // TODO: -1?
+	unsigned int u = (gstate.isModeThrough()) ? s : s * width; // TODO: -1?
+	unsigned int v = (gstate.isModeThrough()) ? t : t * height; // TODO: -1?
 
 	// TODO: texcoord wrapping!!
 
@@ -157,38 +169,27 @@ static inline u32 SampleNearest(int level, float s, float t)
 	} else if (texfmt == GE_TFMT_CLUT32) {
 		srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
 
-		u32 val = *(u32*)srcptr; // TODO: Is this endian correct?
-		u16 index = (val >> gstate.getClutIndexShift()) & 0xFF;
-		index &= gstate.getClutIndexMask();
-		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
+		u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
 
-		return LookupColor(index);
+		return LookupColor(GetClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT16) {
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 
-		u16 val = *(u16*)srcptr; // TODO: Is this endian correct?
-		u16 index = (((u32)val) >> gstate.getClutIndexShift()) & 0xFF;
-		index &= gstate.getClutIndexMask();
-		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
+		u16 val = srcptr[0] + (srcptr[1] << 8);
 
-		return LookupColor(index);
+		return LookupColor(GetClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT8) {
 		srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
 
-		u16 index = (((u32)*srcptr) >> gstate.getClutIndexShift()) & 0xFF;
-		index &= gstate.getClutIndexMask();
-		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
+		u8 val = *srcptr;
 
-		return LookupColor(index);
+		return LookupColor(GetClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT4) {
 		srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
 
-		u8 val = (u%2) ? (*srcptr & 0xF) : (*srcptr >> 4); // TODO: Check if order is correct
-		u16 index = (((u32)val) >> gstate.getClutIndexShift()) & 0xFF;
-		index &= gstate.getClutIndexMask();
-		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
+		u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
 
-		return LookupColor(index);
+		return LookupColor(GetClutIndex(val), level);
 	} else {
 		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
 		return 0;
