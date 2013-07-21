@@ -46,7 +46,7 @@ public:
 	virtual bool IsDebuggingEnabled() {return false;}
 	virtual bool AttemptLoadSymbolMap() {return false;}
 
-	virtual void SendDebugOutput(const std::string &output) { printf("%s", output.c_str()); }
+	virtual void SendDebugOutput(const std::string &output) { fwrite(output.data(), sizeof(char), output.length(), stdout); }
 	virtual void SetComparisonScreenshot(const std::string &filename) {}
 
 

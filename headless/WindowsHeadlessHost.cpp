@@ -88,7 +88,7 @@ void WindowsHeadlessHost::LoadNativeAssets()
 
 void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 {
-	fprintf_s(out, "%s", output.c_str());
+	fwrite(output.data(), sizeof(char), output.length(), out);
 	OutputDebugString(output.c_str());
 }
 
