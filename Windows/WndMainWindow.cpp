@@ -634,6 +634,7 @@ namespace MainWindow
 				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Load(fn, SaveStateActionFinished);
+					SetCursor(LoadCursor(0, IDC_ARROW));
 				}
 				break;
 
@@ -642,6 +643,7 @@ namespace MainWindow
 				{
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::Save(fn, SaveStateActionFinished);
+					SetCursor(LoadCursor(0, IDC_ARROW));
 				}
 				break;
 
@@ -658,11 +660,13 @@ namespace MainWindow
 			case ID_FILE_QUICKLOADSTATE:
 				SetCursor(LoadCursor(0, IDC_WAIT));
 				SaveState::LoadSlot(currentSavestateSlot, SaveStateActionFinished);
+				SetCursor(LoadCursor(0, IDC_ARROW));
 				break;
 
 			case ID_FILE_QUICKSAVESTATE:
 				SetCursor(LoadCursor(0, IDC_WAIT));
 				SaveState::SaveSlot(currentSavestateSlot, SaveStateActionFinished);
+				SetCursor(LoadCursor(0, IDC_ARROW));
 				break;
 
 			case ID_OPTIONS_SCREEN1X:
