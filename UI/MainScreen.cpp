@@ -450,9 +450,7 @@ void GamePauseScreen::CreateViews() {
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
 
-#ifdef _WIN32
 	rightColumnItems->Add(new Choice("Continue"))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
-#endif
 	rightColumnItems->Add(new Choice("Game Settings"))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice("Main Settings"))->OnClick.Handle(this, &GamePauseScreen::OnMainSettings);
 	rightColumnItems->Add(new Choice("Exit to menu"))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
