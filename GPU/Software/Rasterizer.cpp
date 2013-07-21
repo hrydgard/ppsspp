@@ -27,12 +27,12 @@ extern u32 clut[4096];
 
 namespace Rasterizer {
 
-static int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const DrawingCoords& v2)
+static inline int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const DrawingCoords& v2)
 {
 	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
 }
 
-int GetPixelDataOffset(int texel_size_bits, int row_pitch_bits, int u, int v)
+static inline int GetPixelDataOffset(int texel_size_bits, int row_pitch_bits, int u, int v)
 {
 	if (!(gstate.texmode & 1))
 		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
@@ -52,7 +52,7 @@ int GetPixelDataOffset(int texel_size_bits, int row_pitch_bits, int u, int v)
 	return tile_idx * tile_size_bits/8 + ((u % (tile_size_bits / texel_size_bits)));
 }
 
-u32 DecodeRGBA4444(u16 src)
+static inline u32 DecodeRGBA4444(u16 src)
 {
 	u8 r = src & 0xFF;
 	u8 g = (src>>4) & 0xFF;
@@ -65,7 +65,7 @@ u32 DecodeRGBA4444(u16 src)
 	return (r << 24) | (g << 16) | (b << 8) | a;
 }
 
-u32 DecodeRGBA5551(u16 src)
+static inline u32 DecodeRGBA5551(u16 src)
 {
 	u8 r = src & 0x1F;
 	u8 g = (src >> 5) & 0x1F;
@@ -78,7 +78,7 @@ u32 DecodeRGBA5551(u16 src)
 	return (r << 24) | (g << 16) | (b << 8) | a;
 }
 
-u32 DecodeRGB565(u16 src)
+static inline u32 DecodeRGB565(u16 src)
 {
 	u8 r = src & 0x1F;
 	u8 g = (src >> 5) & 0x3F;
@@ -90,7 +90,7 @@ u32 DecodeRGB565(u16 src)
 	return (r << 24) | (g << 16) | (b << 8) | a;
 }
 
-u32 DecodeRGBA8888(u32 src)
+static inline u32 DecodeRGBA8888(u32 src)
 {
 	u8 r = src & 0xFF;
 	u8 g = (src >> 8) & 0xFF;
@@ -99,7 +99,7 @@ u32 DecodeRGBA8888(u32 src)
 	return (r << 24) | (g << 16) | (b << 8) | a;
 }
 
-u32 SampleNearest(int level, float s, float t)
+static inline u32 SampleNearest(int level, float s, float t)
 {
 	int texfmt = gstate.texformat & 0xF;
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
