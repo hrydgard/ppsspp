@@ -189,36 +189,37 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *graphicsSettings = new LinearLayout(ORIENT_VERTICAL);
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab("Graphics", graphicsSettingsScroll);
+
+	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", 
+#ifndef USING_GLES2
+	"Read FBO To Mem(GPU)", 
+#endif
+	"Read FBO To Mem(CPU)"
+	};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Rendering Mode"), renderingMode, 0, 4, gs, screenManager()));
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
-
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read FBO To Mem(GPU)", "Read FBO To Mem(CPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Rendering Mode"), renderingMode, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisplayFramebuffer, gs->T("Display Raw Framebuffer")));
-
 	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisplayFramebuffer, gs->T("Display Raw Framebuffer")));
 #ifdef _WIN32
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
 #endif
-	// TODO: Does frame rate belong among the graphics settings?
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
 	graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFrameSkip, 1, 9, gs->T("Frame Skipping"), screenManager()));
-
-
 	graphicsSettings->Add(new ItemHeader(gs->T("Anisotropic Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, 5, gs, screenManager()));
-	
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 	static const char *texScaleLevels[] = {
 		"Off (1x)", "2x", "3x",
@@ -229,14 +230,9 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 1, 5, gs, screenManager()));
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, 4, gs, screenManager()));
-
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Filtering")));
 	static const char *texFilters[] = { "Default (auto)", "Nearest", "Linear", "Linear on FMV", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Upscale Type"), texFilters, 1, 4, gs, screenManager()));
-
-#ifdef USING_GLES2
-	g_Config.bFramebuffersCPUConvert = g_Config.bFramebuffersToMem;
-#endif
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -266,6 +262,13 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("System", systemSettingsScroll);
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
+	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Day Light Saving")));
+	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 0, 2, gs, screenManager()));
+	static const char *timeFormat[] = { "12HR", "24HR"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 0, 1, gs, screenManager()));
+	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Button Perference"), buttonPref, 0, 1, gs, screenManager()));
 }
 
 void GameSettingsScreen::update(InputState &input) {

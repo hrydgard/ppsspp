@@ -241,8 +241,8 @@ void GLES_GPU::DeviceLost() {
 }
 
 void GLES_GPU::InitClear() {
-	bool useBufferedRendering_ = g_Config.iRenderingMode != 0 ? 1 : 0;
-	if (!useBufferedRendering_) {
+	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
+	if (!useBufferedRendering) {
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);

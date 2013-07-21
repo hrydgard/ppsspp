@@ -172,7 +172,7 @@ FramebufferManager::FramebufferManager() :
 	glClearColor(0,0,0,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	bool useBufferedRendering_ = g_Config.iRenderingMode != 0 ? 1 : 0;
+	useBufferedRendering_ = g_Config.iRenderingMode != 0 ? 1 : 0;
 
 	// Check vendor string to try and guess GPU
 	const char *cvendor = (char *)glGetString(GL_VENDOR);
@@ -893,7 +893,7 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 	GLubyte *packed = 0;
 	bool unbind = false;
-	bool useCPU_ = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU ? 1 : 0;
+	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU ? 1 : 0;
 	// We'll prepare two PBOs to switch between readying and reading
 	if(!pixelBufObj_) {
 		GLuint pbos[2];
@@ -966,7 +966,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 
 		if(pixelBufObj_[currentPBO_].maxSize < bufSize) {
 			// We reserve a buffer big enough to fit all those pixels
-			if(useCPU_ && pixelType != GL_UNSIGNED_BYTE) {
+			if(useCPU && pixelType != GL_UNSIGNED_BYTE) {
 				 // Wnd result may be 16-bit but we are reading 32-bit, so we need double the space on the buffer
 				glBufferData(GL_PIXEL_PACK_BUFFER, bufSize*2, NULL, GL_DYNAMIC_READ);
 			} else {
@@ -982,7 +982,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		pixelBufObj_[currentPBO_].format = vfb->format;
 		pixelBufObj_[currentPBO_].reading = true;
 
-		if(useCPU_) {
+		if(useCPU) {
 			// If converting pixel formats on the CPU we'll always request RGBA8888
 			glPixelStorei(GL_PACK_ALIGNMENT, 4);
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
@@ -1010,7 +1010,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 			DEBUG_LOG(HLE, "Reading pbo to mem, bufSize = %u, packed = %08x, fb_address = %08x, pbo = %u", 
 				pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, nextPBO);
 
-			if(useCPU_) {
+			if(useCPU) {
 				ConvertFromRGBA8888(Memory::GetPointer(pixelBufObj_[nextPBO].fb_address), packed, 
 								pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
 								pixelBufObj_[nextPBO].format);
@@ -1165,13 +1165,13 @@ void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
 	bool thirdFrame = (gpuStats.numFrames % 3 == 0);
-	bool useFramebufferToMem_ = g_Config.iRenderingMode > 1 ? 1 : 0;
+	bool useFramebufferToMem = g_Config.iRenderingMode > 1 ? 1 : 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 
-		if(useFramebufferToMem_) {
+		if(useFramebufferToMem) {
 			// Every third frame we'll commit framebuffers to memory
 			if(thirdFrame && age <= FBO_OLD_AGE) {
 				ReadFramebufferToMemory(vfb);
