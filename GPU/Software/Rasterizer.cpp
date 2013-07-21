@@ -99,6 +99,27 @@ static inline u32 DecodeRGBA8888(u32 src)
 	return (r << 24) | (g << 16) | (b << 8) | a;
 }
 
+static inline u32 LookupColor(u16 index)
+{
+	 // TODO: No idea if these bswaps are correct
+	switch (gstate.getClutPaletteFormat()) {
+		case GE_TFMT_5650:
+			return DecodeRGB565(bswap16(*(u16*)&clut[index]));
+
+		case GE_TFMT_5551:
+			return DecodeRGBA5551(bswap16(*(u16*)&clut[index]));
+
+		case GE_TFMT_4444:
+			return DecodeRGBA4444(bswap16(*(u16*)&clut[index]));
+
+		case GE_TFMT_8888:
+			return DecodeRGBA8888(bswap32(*(u32*)&clut[index]));
+
+		default:
+			return 0;
+	}
+}
+
 static inline u32 SampleNearest(int level, float s, float t)
 {
 	int texfmt = gstate.texformat & 0xF;
@@ -141,8 +162,7 @@ static inline u32 SampleNearest(int level, float s, float t)
 		index &= gstate.getClutIndexMask();
 		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
 
-		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
-		return DecodeRGBA8888(bswap32(*(u32*)&clut[index])); // TODO: No idea if that bswap is correct
+		return LookupColor(index);
 	} else if (texfmt == GE_TFMT_CLUT16) {
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 
@@ -151,8 +171,7 @@ static inline u32 SampleNearest(int level, float s, float t)
 		index &= gstate.getClutIndexMask();
 		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
 
-		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
-		return DecodeRGBA8888(bswap32(*(u32*)&clut[index])); // TODO: No idea if that bswap is correct
+		return LookupColor(index);
 	} else if (texfmt == GE_TFMT_CLUT8) {
 		srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
 
@@ -160,8 +179,7 @@ static inline u32 SampleNearest(int level, float s, float t)
 		index &= gstate.getClutIndexMask();
 		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
 
-		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
-		return DecodeRGBA8888(bswap32(*(u32*)&clut[index]));
+		return LookupColor(index);
 	} else if (texfmt == GE_TFMT_CLUT4) {
 		srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
 
@@ -170,8 +188,7 @@ static inline u32 SampleNearest(int level, float s, float t)
 		index &= gstate.getClutIndexMask();
 		index = (index & 0xFF) | gstate.getClutIndexStartPos(); // Topmost bit is copied from start pos
 
-		// TODO: Assert that we're using GE_CMODE_32BIT_ABGR8888;
-		return DecodeRGBA8888(bswap32(*(u32*)&clut[index])); // TODO: No idea if that bswap is correct
+		return LookupColor(index);
 	} else {
 		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
 		return 0;
