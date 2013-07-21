@@ -66,7 +66,7 @@ public:
 	int Abort();
 
 private :
-	void DisplayMessage(std::string text, bool hasYesNo = false);
+	void DisplayMessage(std::string text, bool hasYesNo = false, bool hasOK = false);
 
 	enum Flags
 	{
