@@ -193,11 +193,11 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", 
 #ifndef USING_GLES2
-	"Read FBO To Mem(GPU)", 
+	"Read Framebuffers To Memory(GPU)", 
 #endif
-	"Read FBO To Mem(CPU)"
+	"Read Framebuffers To Memory"
 	};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Rendering Mode"), renderingMode, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
@@ -262,13 +262,13 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("System", systemSettingsScroll);
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Day Light Saving")));
+	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 0, 2, gs, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
 	static const char *timeFormat[] = { "12HR", "24HR"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 0, 1, gs, screenManager()));
-	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Button Perference"), buttonPref, 0, 1, gs, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
+	static const char *buttonPref[] = { "Use X to confirm", "Use O to confirm"};
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Button Perference"), buttonPref, 1, 2, s, screenManager()));
 }
 
 void GameSettingsScreen::update(InputState &input) {
