@@ -25,11 +25,6 @@
 
 #include "HDRemaster.h"
 
-// Enable memory checks in the Debug/DebugFast builds, but NOT in release
-#if defined(_DEBUG) || defined(DEBUGFAST)
-#define ENABLE_MEM_CHECK
-#endif
-
 // PPSSPP is very aggressive about trying to do memory accesses directly, for speed.
 // This can be a problem when debugging though, as stray memory reads and writes will
 // crash the whole emulator.
@@ -38,11 +33,6 @@
 #if defined(_DEBUG)
 //#define SAFE_MEMORY
 #endif
-
-#ifdef __SYMBIAN32__
-//#define SAFE_MEMORY
-#endif
-
 
 // Global declarations
 class PointerWrap;
