@@ -398,6 +398,42 @@ int sceCccDecodeSJIS(u32 dstAddrAddr)
 	return result;
 }
 
+int sceCccIsValidUTF8(u32 c)
+{
+	WARN_LOG(HLE, "UNIMPL sceCccIsValidUTF8(%08x)", c);
+	return c != 0;
+}
+
+int sceCccIsValidUTF16(u32 c)
+{
+	WARN_LOG(HLE, "UNIMPL sceCccIsValidUTF16(%08x)", c);
+	return c != 0;
+}
+
+int sceCccIsValidSJIS(u32 c)
+{
+	WARN_LOG(HLE, "UNIMPL sceCccIsValidSJIS(%08x)", c);
+	return c != 0;
+}
+
+int sceCccIsValidUCS2(u32 c)
+{
+	WARN_LOG(HLE, "UNIMPL sceCccIsValidUCS2(%08x)", c);
+	return c != 0;
+}
+
+int sceCccIsValidUCS4(u32 c)
+{
+	WARN_LOG(HLE, "UNIMPL sceCccIsValidUCS4(%08x)", c);
+	return c != 0;
+}
+
+int sceCccIsValidJIS(u32 c)
+{
+	WARN_LOG(HLE, "UNIMPL sceCccIsValidJIS(%08x)", c);
+	return c != 0;
+}
+
 u32 sceCccSetErrorCharUTF8(u32 c)
 {
 	DEBUG_LOG(HLE, "sceCccSetErrorCharUTF8(%08x)", c);
@@ -468,12 +504,12 @@ const HLEFunction sceCcc[] =
 	{0xc6a8bee2, WrapI_U<sceCccDecodeUTF8>, "sceCccDecodeUTF8"},
 	{0xe0cf8091, WrapI_U<sceCccDecodeUTF16>, "sceCccDecodeUTF16"},
 	{0x953e6c10, WrapI_U<sceCccDecodeSJIS>, "sceCccDecodeSJIS"},
-	{0x90521ac5, 0, "sceCccIsValidUTF8"},
-	{0xcc0a8bda, 0, "sceCccIsValidUTF16"},
-	{0x67bf0d19, 0, "sceCccIsValidSJIS"},
-	{0x76e33e9c, 0, "sceCccIsValidUCS2"},
-	{0xd2b18485, 0, "sceCccIsValidUCS4"},
-	{0xa2d5d209, 0, "sceCccIsValidJIS"},
+	{0x90521ac5, WrapI_U<sceCccIsValidUTF8>, "sceCccIsValidUTF8"},
+	{0xcc0a8bda, WrapI_U<sceCccIsValidUTF16>, "sceCccIsValidUTF16"},
+	{0x67bf0d19, WrapI_U<sceCccIsValidSJIS>, "sceCccIsValidSJIS"},
+	{0x76e33e9c, WrapI_U<sceCccIsValidUCS2>, "sceCccIsValidUCS2"},
+	{0xd2b18485, WrapI_U<sceCccIsValidUCS4>, "sceCccIsValidUCS4"},
+	{0xa2d5d209, WrapI_U<sceCccIsValidJIS>, "sceCccIsValidJIS"},
 	{0x17e1d813, WrapU_U<sceCccSetErrorCharUTF8>, "sceCccSetErrorCharUTF8"},
 	{0xb8476cf4, WrapU_U<sceCccSetErrorCharUTF16>, "sceCccSetErrorCharUTF16"},
 	{0xc56949ad, WrapU_U<sceCccSetErrorCharSJIS>, "sceCccSetErrorCharSJIS"},
