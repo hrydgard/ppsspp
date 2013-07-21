@@ -467,6 +467,7 @@ void PauseScreen::render() {
 	VLinear vlinear(dp_xres - 10, 100, 20);
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 40, 0, i->T("Continue"), ALIGN_RIGHT)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
+		if (gpu) gpu->Resized();
 	}
 
 	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 40, 0, i->T("Settings"), ALIGN_RIGHT)) {
@@ -935,10 +936,7 @@ void GraphicsScreenP1::render() {
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
 	
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
-		if (gpu)
-			gpu->Resized();
-	}
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) 
 
 #ifdef _WIN32
 	//bool Vsync = g_Config.iVSyncInterval != 0;
@@ -957,13 +955,13 @@ void GraphicsScreenP1::render() {
 	g_Config.iRenderingMode = rendering ? 1 : 0;
 
 	bool useFBO = g_Config.iRenderingMode == 2;
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (GPU)"), ALIGN_TOPLEFT, &useFBO))
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (CPU)"), ALIGN_TOPLEFT, &useFBO))
 	g_Config.iRenderingMode = useFBO ? 2 : 0;
 
 	bool useCPU = g_Config.iRenderingMode == 3;
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (CPU)"), ALIGN_TOPLEFT, &useCPU))
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (GPU)"), ALIGN_TOPLEFT, &useCPU))
 	g_Config.iRenderingMode = useCPU ? 3 : 0;
-
+	
 	UIEnd();
 }
 

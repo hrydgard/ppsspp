@@ -172,7 +172,7 @@ FramebufferManager::FramebufferManager() :
 	glClearColor(0,0,0,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	useBufferedRendering_ = g_Config.iRenderingMode != 0 ? 1 : 0;
+	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE ? 1 : 0;
 
 	// Check vendor string to try and guess GPU
 	const char *cvendor = (char *)glGetString(GL_VENDOR);
@@ -1124,7 +1124,7 @@ void FramebufferManager::BeginFrame() {
 		// TODO: restore state?
 	}
 	currentRenderVfb_ = 0;
-	useBufferedRendering_ = g_Config.iRenderingMode != 0 ? 1 : 0;
+	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE ? 1 : 0;
 }
 
 void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
@@ -1165,7 +1165,7 @@ void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
 	bool thirdFrame = (gpuStats.numFrames % 3 == 0);
-	bool useFramebufferToMem = g_Config.iRenderingMode > 1 ? 1 : 0;
+	bool useFramebufferToMem = g_Config.iRenderingMode != FB_BUFFERED_MODE ? 1 : 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
