@@ -480,7 +480,8 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	if (g_Config.bBufferedRendering)
+	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
+	if (useBufferedRendering)
 		fbo_unbind();
 
 	UIShader_Prepare();

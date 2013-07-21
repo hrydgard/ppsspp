@@ -190,7 +190,7 @@ int main(int argc, const char* argv[])
 	// Never report from tests.
 	g_Config.sReportHost = "";
 	g_Config.bAutoSaveSymbolMap = false;
-	g_Config.bBufferedRendering = true;
+	g_Config.iRenderingMode = true;
 	g_Config.bHardwareTransform = true;
 #ifdef USING_GLES2
 	g_Config.iAnisotropyLevel = 0;
