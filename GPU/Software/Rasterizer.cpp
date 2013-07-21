@@ -530,8 +530,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						SetPixelDepth(p.x, p.y, z);
 				}
 
+				Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
-					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 
 					Vec3<int> srccol(0, 0, 0);
 					Vec3<int> dstcol(0, 0, 0);
@@ -644,7 +644,12 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				if (prim_color_rgb.g() < 0) prim_color_rgb.g() = 0;
 				if (prim_color_rgb.b() < 0) prim_color_rgb.b() = 0;
 				if (prim_color_a < 0) prim_color_a = 0;
-				SetPixelColor(p.x, p.y, Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), prim_color_a).ToRGBA());
+
+				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), prim_color_a).ToRGBA();
+				u32 old_color = GetPixelColor(p.x, p.y);
+				new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
+
+				SetPixelColor(p.x, p.y, new_color);
 			}
 		}
 	}
