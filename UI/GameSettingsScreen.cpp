@@ -193,9 +193,9 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", 
 #ifndef USING_GLES2
-	"Read Framebuffers To Memory(GPU)", 
+	"Read Framebuffers To Memory(CPU)", 
 #endif
-	"Read Framebuffers To Memory"
+	"Read Framebuffers To Memory(GPU)"
 	};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
 
