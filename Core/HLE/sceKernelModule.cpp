@@ -918,9 +918,9 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	}
 	if (param.keyp != 0) {
 		u32 keyAddr = param.keyp;
-		int keylen = strlen(Memory::GetCharPointer(keyAddr))+1;
+		size_t keylen = strlen(Memory::GetCharPointer(keyAddr))+1;
 		param_key = new u8[keylen];
-		Memory::Memcpy(param_key, keyAddr, keylen);
+		Memory::Memcpy(param_key, keyAddr, (u32)keylen);
 	}
 
 	// Wipe kernel here, loadexec should reset the entire system
@@ -938,7 +938,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (!info.exists) {
 		ERROR_LOG(LOADER, "Failed to load executable %s - file doesn't exist", filename);
-		*error_string = "Could not find executable";
+		*error_string = StringFromFormat("Could not find executable %s", filename);
 		if (paramPtr) {
 			if (param_argp) delete[] param_argp;
 			if (param_key) delete[] param_key;
