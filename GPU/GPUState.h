@@ -213,7 +213,7 @@ struct GPUgstate
 
 	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
 	int FrameBufStride() const { return fbwidth&0x7C0; }
-	int DepthBufStride() const { return fbwidth&0x7C0; }
+	int DepthBufStride() const { return zbwidth&0x7C0; }
 
 	// Pixel Pipeline
 	bool isModeClear()   const { return clearmode & 1; }
