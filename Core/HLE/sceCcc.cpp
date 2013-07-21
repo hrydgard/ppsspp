@@ -52,6 +52,26 @@ void __CccDoState(PointerWrap &p)
 	p.DoMarker("sceCcc");
 }
 
+u32 __CccUCStoJIS(u32 c, u32 alt)
+{
+	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
+	alt &= 0xFFFF;
+
+	// If it's outside the table or blank in the table, return alt.
+	if (c > 0xFFFF || ucs2jisTable[c] == 0)
+		return alt;
+	return ucs2jisTable[c];
+}
+
+u32 __CccJIStoUCS(u32 c, u32 alt)
+{
+	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
+	c &= 0xFFFF;
+	if (jis2ucsTable[c] == 0)
+		return alt;
+	return jis2ucsTable[c];
+}
+
 void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 {
 	// Both tables jis2ucs and ucs2jis have a size of 0x20000 bytes.
@@ -62,42 +82,169 @@ void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 
 int sceCccUTF8toUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF8toUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
-	return 0;
+	PSPCharPointer src;
+	PSPWCharPointer dst;
+	dst = dstAddr;
+	src = srcAddr;
+
+	if (!dst.IsValid() || !src.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccUTF8toUTF16(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "sceCccUTF8toUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	UTF8 utf(src);
+	int n = 0;
+	while (u32 c = utf.next())
+	{
+		dst += UTF16LE::encode(dst, c);
+		n++;
+	}
+	return n;
 }
 
 int sceCccUTF8toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF8toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
-	Memory::Memcpy(dstAddr, Memory::GetCharPointer(srcAddr), dstSize);
-	return 0;
+	PSPCharPointer dst, src;
+	dst = dstAddr;
+	src = srcAddr;
+
+	if (!dst.IsValid() || !src.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccUTF8toSJIS(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+	if (!jis2ucsTable.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccUTF8toSJIS(%08x, %d, %08x): table not loaded", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "sceCccUTF8toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	UTF8 utf(src);
+	int n = 0;
+	while (u32 c = utf.next())
+	{
+		dst += ShiftJIS::encode(dst, __CccUCStoJIS(c, errorSJIS));
+		n++;
+	}
+	return n;
 }
 
 int sceCccUTF16toUTF8(u32 dstAddr, int dstSize, u32 srcAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF16toUTF8(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
-	return 0;
+	PSPWCharPointer src;
+	PSPCharPointer dst;
+	dst = dstAddr;
+	src = srcAddr;
+
+	if (!dst.IsValid() || !src.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccUTF16toUTF8(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+	if (!jis2ucsTable.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccUTF16toUTF8(%08x, %d, %08x): table not loaded", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "sceCccUTF16toUTF8(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	UTF16LE utf(src);
+	int n = 0;
+	while (u32 c = utf.next())
+	{
+		dst += UTF8::encode(dst, c);
+		n++;
+	}
+	return n;
 }
 
 int sceCccUTF16toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUTF16toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
-	return 0;
+	PSPWCharPointer src;
+	PSPCharPointer dst;
+	dst = dstAddr;
+	src = srcAddr;
+
+	if (!dst.IsValid() || !src.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccUTF16toSJIS(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+	if (!jis2ucsTable.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccUTF16toSJIS(%08x, %d, %08x): table not loaded", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "sceCccUTF16toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	UTF16LE utf(src);
+	int n = 0;
+	while (u32 c = utf.next())
+	{
+		dst += ShiftJIS::encode(dst, __CccUCStoJIS(c, errorSJIS));
+		n++;
+	}
+	return n;
 }
 
 int sceCccSJIStoUTF8(u32 dstAddr, int dstSize, u32 srcAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSJIStoUTF8(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
-	// TODO: Use the tables set in sceCccSetTable()?
-	// Some characters are the same, so let's copy which is better than doing nothing.
-	Memory::Memcpy(dstAddr, Memory::GetCharPointer(srcAddr), dstSize);
-	return 0;
+	PSPCharPointer dst, src;
+	dst = dstAddr;
+	src = srcAddr;
+
+	if (!dst.IsValid() || !src.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccSJIStoUTF8(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+	if (!jis2ucsTable.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccSJIStoUTF8(%08x, %d, %08x): table not loaded", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "sceCccSJIStoUTF8(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	ShiftJIS sjis(src);
+	int n = 0;
+	while (u32 c = sjis.next())
+	{
+		dst += UTF8::encode(dst, __CccJIStoUCS(c, errorUTF8));
+		n++;
+	}
+	return n;
 }
 
 int sceCccSJIStoUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSJIStoUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
-	return 0;
+	PSPCharPointer src;
+	PSPWCharPointer dst;
+	dst = dstAddr;
+	src = srcAddr;
+
+	if (!dst.IsValid() || !src.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccSJIStoUTF16(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+	if (!jis2ucsTable.IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccSJIStoUTF16(%08x, %d, %08x): table not loaded", dstAddr, dstSize, srcAddr);
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "sceCccSJIStoUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
+	ShiftJIS sjis(src);
+	int n = 0;
+	while (u32 c = sjis.next())
+	{
+		dst += UTF16LE::encode(dst, __CccJIStoUCS(c, errorUTF16));
+		n++;
+	}
+	return n;
 }
 
 int sceCccStrlenUTF8(u32 strAddr)
@@ -277,24 +424,30 @@ u32 sceCccSetErrorCharSJIS(u32 c)
 
 u32 sceCccUCStoJIS(u32 c, u32 alt)
 {
-	DEBUG_LOG(HLE, "sceCccUCStoJIS(%08x, %08x)", c, alt);
-	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
-	alt &= 0xFFFF;
-
-	// If it's outside the table or blank in the table, return alt.
-	if (c > 0xFFFF || ucs2jisTable[c] == 0)
+	if (ucs2jisTable.IsValid())
+	{
+		DEBUG_LOG(HLE, "sceCccUCStoJIS(%08x, %08x)", c, alt);
+		return __CccUCStoJIS(c, alt);
+	}
+	else
+	{
+		ERROR_LOG(HLE, "sceCccUCStoJIS(%08x, %08x): table not loaded", c, alt);
 		return alt;
-	return ucs2jisTable[c];
+	}
 }
 
 u32 sceCccJIStoUCS(u32 c, u32 alt)
 {
-	DEBUG_LOG(HLE, "sceCccUCStoJIS(%08x, %08x)", c, alt);
-	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
-	c &= 0xFFFF;
-	if (jis2ucsTable[c] == 0)
+	if (jis2ucsTable.IsValid())
+	{
+		DEBUG_LOG(HLE, "sceCccUCStoJIS(%08x, %08x)", c, alt);
+		return __CccJIStoUCS(c, alt);
+	}
+	else
+	{
+		ERROR_LOG(HLE, "sceCccUCStoJIS(%08x, %08x): table not loaded", c, alt);
 		return alt;
-	return jis2ucsTable[c];
+	}
 }
 
 const HLEFunction sceCcc[] =
