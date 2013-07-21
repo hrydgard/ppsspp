@@ -88,6 +88,8 @@ namespace MainWindow
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
+	const UINT WM_USER_SAVESTATE_FINISH = WM_USER + 100;
+
 	HWND GetHWND() {
 		return hwndMain;
 	}
@@ -1001,6 +1003,9 @@ namespace MainWindow
 			SetForegroundWindow(hwndMain);
 			break;
 
+		case WM_USER_SAVESTATE_FINISH:
+			SetCursor(LoadCursor(0, IDC_ARROW));
+			break;
 
 		case WM_MENUSELECT:
 			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
@@ -1241,7 +1246,7 @@ namespace MainWindow
 
 	void SaveStateActionFinished(bool result, void *userdata)
 	{
-		SetCursor(LoadCursor(0, IDC_ARROW));
+		PostMessage(hwndMain, WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 
 	HINSTANCE GetHInstance()
