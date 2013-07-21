@@ -289,7 +289,7 @@ int sceCccStrlenSJIS(u32 strAddr)
 	return ShiftJIS(str).length();
 }
 
-int sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
+u32 sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
 {
 	PSPPointer<PSPCharPointer> dstp;
 	dstp = dstAddrAddr;
@@ -304,7 +304,7 @@ int sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
 	return dstp->ptr;
 }
 
-int sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
+void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 {
 	PSPPointer<PSPWCharPointer> dstp;
 	dstp = dstAddrAddr;
@@ -312,14 +312,16 @@ int sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 	if (!dstp.IsValid() || !dstp->IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccEncodeUTF16(%08x, U+%04x): invalid pointer", dstAddrAddr, ucs);
-		return 0;
+		return;
 	}
 	DEBUG_LOG(HLE, "sceCccEncodeUTF16(%08x, U+%04x)", dstAddrAddr, ucs);
+	// Anything above 0x10FFFF is unencodable, and 0xD800 - 0xDFFF are reserved for surrogate pairs.
+	if (ucs > 0x10FFFF || (ucs & 0xD800) == 0xD800)
+		ucs = errorUTF16;
 	*dstp += UTF16LE::encode(*dstp, ucs);
-	return dstp->ptr;
 }
 
-int sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
+u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 {
 	PSPPointer<PSPCharPointer> dstp;
 	dstp = dstAddrAddr;
@@ -498,9 +500,9 @@ const HLEFunction sceCcc[] =
 	{0xb7d3c112, WrapI_U<sceCccStrlenUTF8>, "sceCccStrlenUTF8"},
 	{0x4BDEB2A8, WrapI_U<sceCccStrlenUTF16>, "sceCccStrlenUTF16"},
 	{0xd9392ccb, WrapI_U<sceCccStrlenSJIS>, "sceCccStrlenSJIS"},
-	{0x92C05851, WrapI_UU<sceCccEncodeUTF8>, "sceCccEncodeUTF8"},
-	{0x8406F469, WrapI_UU<sceCccEncodeUTF16>, "sceCccEncodeUTF16"},
-	{0x068c4320, WrapI_UU<sceCccEncodeSJIS>, "sceCccEncodeSJIS"},
+	{0x92C05851, WrapU_UU<sceCccEncodeUTF8>, "sceCccEncodeUTF8"},
+	{0x8406F469, WrapV_UU<sceCccEncodeUTF16>, "sceCccEncodeUTF16"},
+	{0x068c4320, WrapU_UU<sceCccEncodeSJIS>, "sceCccEncodeSJIS"},
 	{0xc6a8bee2, WrapI_U<sceCccDecodeUTF8>, "sceCccDecodeUTF8"},
 	{0xe0cf8091, WrapI_U<sceCccDecodeUTF16>, "sceCccDecodeUTF16"},
 	{0x953e6c10, WrapI_U<sceCccDecodeSJIS>, "sceCccDecodeSJIS"},
