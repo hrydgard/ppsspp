@@ -55,7 +55,7 @@ public:
 	static int encode(uint16_t *dest, uint32_t u) {
 		if (u >= 0x10000) {
 			u -= 0x10000;
-			*dest = UTF16_Swap<is_little>(0xD800 + ((u >> 10) & 0x3FF));
+			*dest++ = UTF16_Swap<is_little>(0xD800 + ((u >> 10) & 0x3FF));
 			*dest = UTF16_Swap<is_little>(0xDC00 + ((u >>  0) & 0x3FF));
 			return 2;
 		} else {
