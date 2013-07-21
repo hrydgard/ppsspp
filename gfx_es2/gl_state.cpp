@@ -5,6 +5,11 @@
 #endif
 
 
+#ifdef USING_GLES2
+PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
+#endif
+
+
 OpenGLState glstate;
 GLExtensions gl_extensions;
 
@@ -49,6 +54,8 @@ void OpenGLState::Restore() {
 	assert(count == state_count && "OpenGLState::Restore is missing some states");
 }
 
+// http://stackoverflow.com/questions/16147700/opengl-es-using-tegra-specific-extensions-gl-ext-texture-array
+
 void CheckGLExtensions() {
 	static bool done = false;
 	if (done)
@@ -70,6 +77,14 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
+
+	// TODO: Change to USING_GLES2 if it works on those other platforms too
+#ifdef ANDROID
+	gl_extensions.QCOM_alpha_test = strstr(extString, "GL_QCOM_alpha_test") != 0;
+	// Load extensions that are not auto-loaded by Android.
+	glAlphaFuncQCOM = (PFNGLALPHAFUNCQCOMPROC)eglGetProcAddress("glAlphaFuncQCOM");
+#endif
+
 #ifdef USING_GLES2
 	gl_extensions.FBO_ARB = true;
 	gl_extensions.FBO_EXT = false;

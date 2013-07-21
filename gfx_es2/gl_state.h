@@ -208,6 +208,7 @@ struct GLExtensions {
 	bool FBO_ARB;
 	bool FBO_EXT;
 	bool EXT_swap_control_tear;
+	bool QCOM_alpha_test;
 };
 
 extern GLExtensions gl_extensions;
