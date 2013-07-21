@@ -974,7 +974,7 @@ void TextureCache::SetTexture() {
 	TexCacheEntry *entry = NULL;
 	gstate_c.flipTexture = false;
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	bool useBufferedRendering_ = g_Config.iRenderingMode != 0 ? 1 : 0;
+	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
 	bool replaceImages = false;
 	
 	if (iter != cache.end()) {
@@ -982,7 +982,7 @@ void TextureCache::SetTexture() {
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-			if (useBufferedRendering_) {
+			if (useBufferedRendering) {
 				if (entry->framebuffer->fbo) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 				} else {
