@@ -16,9 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "util/text/utf8.h"
+#include "util/text/utf16.h"
+#include "util/text/shiftjis.h"
 
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
+
+typedef PSPPointer<const char> PSPCharPointer;
+typedef PSPPointer<const u16> PSPWCharPointer;
 
 static u16 errorUTF8;
 static u16 errorUTF16;
@@ -124,31 +129,66 @@ int sceCccEncodeSJIS(u32 dstAddr, u32 ucs)
 
 int sceCccDecodeUTF8(u32 dstAddrAddr)
 {
-	DEBUG_LOG(HLE, "sceCccDecodeUTF8(%08x)", dstAddrAddr);
-	PSPPointer<const char **> dst;
-	dst = dstAddrAddr;
+	PSPPointer<PSPCharPointer> dstp;
+	dstp = dstAddrAddr;
 
-	int result = 0;
-	if (dst.IsValid())
-	{
-		int size = 0;
-		result = u8_nextchar(**dst, &size);
-		*dst += size;
+	if (!dstp.IsValid() || !dstp->IsValid()) {
+		ERROR_LOG(HLE, "sceCccDecodeUTF8(%08x): invalid pointer", dstAddrAddr);
+		// Should crash?
+		return 0;
 	}
 
+	DEBUG_LOG(HLE, "sceCccDecodeUTF8(%08x)", dstAddrAddr);
+	UTF8 utf(*dstp);
+	int result = utf.next();
+	*dstp += utf.byteIndex();
+
+	if (result == UTF8::INVALID)
+		return errorUTF8;
 	return result;
 }
 
 int sceCccDecodeUTF16(u32 dstAddrAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccDecodeUTF16(%08x)", dstAddrAddr);
-	return 0;
+	PSPPointer<PSPWCharPointer> dstp;
+	dstp = dstAddrAddr;
+
+	if (!dstp.IsValid() || !dstp->IsValid()) {
+		ERROR_LOG(HLE, "sceCccDecodeUTF16(%08x): invalid pointer", dstAddrAddr);
+		// Should crash?
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "sceCccDecodeUTF16(%08x)", dstAddrAddr);
+	// TODO: Does it do any detection of BOM?
+	UTF16LE utf(*dstp);
+	int result = utf.next();
+	*dstp += utf.byteIndex();
+
+	if (result == UTF16LE::INVALID)
+		return errorUTF16;
+	return result;
 }
 
 int sceCccDecodeSJIS(u32 dstAddrAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccDecodeSJIS(%08x)", dstAddrAddr);
-	return 0;
+	PSPPointer<PSPCharPointer> dstp;
+	dstp = dstAddrAddr;
+
+	if (!dstp.IsValid() || !dstp->IsValid()) {
+		ERROR_LOG(HLE, "sceCccDecodeSJIS(%08x): invalid pointer", dstAddrAddr);
+		// Should crash?
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "sceCccDecodeSJIS(%08x)", dstAddrAddr);
+	ShiftJIS sjis(*dstp);
+	int result = sjis.next();
+	*dstp += sjis.byteIndex();
+
+	if (result == ShiftJIS::INVALID)
+		return errorSJIS;
+	return result;
 }
 
 u32 sceCccSetErrorCharUTF8(u32 c)
