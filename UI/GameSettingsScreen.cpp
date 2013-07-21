@@ -193,18 +193,17 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", 
 #ifndef USING_GLES2
-	"Read FBO To Mem(GPU)", 
+	"Read Framebuffers To Memory(CPU)", 
 #endif
-	"Read FBO To Mem(CPU)"
+	"Read Framebuffers To Memory(GPU)"
 	};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Rendering Mode"), renderingMode, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bDisplayFramebuffer, gs->T("Display Raw Framebuffer")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisplayFramebuffer, gs->T("Display Raw Framebuffer")));
@@ -216,7 +215,7 @@ void GameSettingsScreen::CreateViews() {
 	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
-	graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFrameSkip, 1, 9, gs->T("Frame Skipping"), screenManager()));
+	graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFrameSkip, 0, 9, gs->T("Frame Skipping"), screenManager()));
 	graphicsSettings->Add(new ItemHeader(gs->T("Anisotropic Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, 5, gs, screenManager()));
@@ -262,13 +261,14 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("System", systemSettingsScroll);
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Day Light Saving")));
+	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 1, 1000, gs->T("Unlock CPU Clock"), screenManager()));
+	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 0, 2, gs, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
 	static const char *timeFormat[] = { "12HR", "24HR"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 0, 1, gs, screenManager()));
-	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Button Perference"), buttonPref, 0, 1, gs, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
+	static const char *buttonPref[] = { "Use X to confirm", "Use O to confirm"};
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Button Perference"), buttonPref, 1, 2, s, screenManager()));
 }
 
 void GameSettingsScreen::update(InputState &input) {
@@ -289,6 +289,8 @@ void GlobalSettingsScreen::CreateViews() {
 	list->Add(new ItemHeader("General"));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Error Reporting")));
+	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
+	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
