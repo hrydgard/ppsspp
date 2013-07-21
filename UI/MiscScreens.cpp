@@ -29,8 +29,9 @@
 
 void DrawBackground(float alpha);
 
-void PromptScreen::DrawBackground(UIContext &dc) {
+void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
+	dc.Flush();
 }
 
 void PromptScreen::CreateViews() {

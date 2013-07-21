@@ -53,7 +53,9 @@
 #include "UI/MiscScreens.h"
 
 
-EmuScreen::EmuScreen(const std::string &filename) : invalid_(true), pauseTrigger_(false) {
+EmuScreen::EmuScreen(const std::string &filename)
+	: gamePath_(filename), invalid_(true), pauseTrigger_(false) {
+
 	bootGame(filename);
 }
 
@@ -224,7 +226,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	// Should get rid of that but not now.
 #ifndef ANDROID
 	case VIRTKEY_PAUSE:
-		screenManager()->push(new PauseScreen());
+		if (g_Config.bNewUI)
+			screenManager()->push(new GamePauseScreen(gamePath_));
+		else
+			screenManager()->push(new PauseScreen());
 		break;
 #endif
 
@@ -436,7 +441,11 @@ void EmuScreen::update(InputState &input) {
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
-		screenManager()->push(new PauseScreen());
+		if (g_Config.bNewUI) {
+			screenManager()->push(new GamePauseScreen(gamePath_));
+		} else {
+			screenManager()->push(new PauseScreen());
+		}
 	}
 }
 

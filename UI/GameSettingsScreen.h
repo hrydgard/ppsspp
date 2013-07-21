@@ -18,17 +18,18 @@
 #pragma once
 
 #include "ui/ui_screen.h"
-
+#include "UI/MiscScreens.h"
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
-class GameSettingsScreen : public UIScreen {
+class GameSettingsScreen : public UIScreenWithBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID) : gamePath_(gamePath), gameID_(gameID) {}
+	GameSettingsScreen(std::string gamePath, std::string gameID = "") : gamePath_(gamePath), gameID_(gameID) {}
+
+	virtual void update(InputState &input);
 
 protected:
 	virtual void CreateViews();
- 	virtual void DrawBackground(UIContext &dc);
 
 private:
 	std::string gamePath_, gameID_;
@@ -45,13 +46,12 @@ private:
 };
 
 // TODO: Move to its own file.
-class GlobalSettingsScreen : public UIScreen {
+class GlobalSettingsScreen : public UIScreenWithBackground {
 public:
 	GlobalSettingsScreen() {}
 
 protected:
 	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
 
 private:
 	// Event handlers
@@ -64,13 +64,12 @@ private:
 	bool enableReports_;
 };
 
-class DeveloperToolsScreen : public UIScreen {
+class DeveloperToolsScreen : public UIScreenWithBackground {
 public:
 	DeveloperToolsScreen() {}
 
 protected:
 	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
 
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);

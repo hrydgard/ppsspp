@@ -19,18 +19,20 @@
 
 #include "base/functional.h"
 #include "ui/ui_screen.h"
+#include "ui/viewgroup.h"
+#include "UI/MiscScreens.h"
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
 // set game specific settings, etc.
 // Uses GameInfoCache heavily to implement the functionality.
 
-class MainScreen : public UIScreen {
+class MainScreen : public UIScreenWithBackground {
 public:
 	MainScreen() {}
 
 protected:
 	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
+	virtual void update(InputState &input);
 	virtual void sendMessage(const char *message, const char *value);
 
 private:
@@ -41,4 +43,27 @@ private:
 	UI::EventReturn OnCredits(UI::EventParams &e);
 	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnExit(UI::EventParams &e);
+};
+
+class GamePauseScreen : public UIScreen {
+public:
+	GamePauseScreen(const std::string &filename) : UIScreen(), gamePath_(filename) {}
+	~GamePauseScreen();
+protected:
+	virtual void DrawBackground(UIContext &dc);
+	virtual void CreateViews();
+	virtual void update(InputState &input);
+
+private:
+	UI::EventReturn OnMainSettings(UI::EventParams &e);
+	UI::EventReturn OnGameSettings(UI::EventParams &e);
+	UI::EventReturn OnContinue(UI::EventParams &e);
+	UI::EventReturn OnExitToMenu(UI::EventParams &e);
+
+	UI::EventReturn OnSaveState(UI::EventParams &e);
+	UI::EventReturn OnLoadState(UI::EventParams &e);
+
+	std::string gamePath_;
+
+	UI::ChoiceStrip *saveSlots_;
 };

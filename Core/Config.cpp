@@ -62,6 +62,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("EnableCheats", &bEnableCheats, false);
 	general->Get("MaxRecent", &iMaxRecent, 12);
 	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
+	general->Get("StateSlot", &iCurrentStateSlot, 0);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
@@ -215,6 +216,7 @@ void Config::Save()
 		general->Set("MaxRecent", iMaxRecent);
 		general->Set("EnableCheats", bEnableCheats);
 		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
+		general->Set("StateSlot", iCurrentStateSlot);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);

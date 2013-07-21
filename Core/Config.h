@@ -94,6 +94,7 @@ public:
 	int iFpsLimit;
 	int iForceMaxEmulatedFPS;
 	int iMaxRecent;
+	int iCurrentStateSlot;
 	bool bEnableCheats;
 	bool bReloadCheats;
 

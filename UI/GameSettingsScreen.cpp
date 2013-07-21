@@ -266,14 +266,10 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
 }
 
-void DrawBackground(float alpha);
-
-void GameSettingsScreen::DrawBackground(UIContext &dc) {
-	::DrawBackground(1.0f);
-
+void GameSettingsScreen::update(InputState &input) {
+	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 }
-
 
 void GlobalSettingsScreen::CreateViews() {
 	using namespace UI;
@@ -313,14 +309,6 @@ UI::EventReturn GlobalSettingsScreen::OnBack(UI::EventParams &e) {
 	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "";
 	g_Config.Save();
 	return UI::EVENT_DONE;
-}
-
-void GlobalSettingsScreen::DrawBackground(UIContext &dc) {
-	::DrawBackground(1.0f);
-}
-
-void DeveloperToolsScreen::DrawBackground(UIContext &dc) {
-	::DrawBackground(1.0f);
 }
 
 void DeveloperToolsScreen::CreateViews() {
