@@ -38,7 +38,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)
 
 LOCAL_STATIC_LIBRARIES := native libzip
-LOCAL_LDLIBS := -lz -lGLESv2 -ldl -llog
+LOCAL_LDLIBS := -lz -lGLESv2 -lEGL -ldl -llog
 ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavformat.a
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavcodec.a
