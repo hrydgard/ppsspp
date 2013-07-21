@@ -820,7 +820,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 
 void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip, float upscale, float vscale) {
 	// This only works with buffered rendering
-	if (!useBufferedRendering_) {
+	if (!useBufferedRendering_ || !src->fbo) {
 		return;
 	}
 
