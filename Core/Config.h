@@ -64,7 +64,7 @@ public:
 	// GFX
 	bool bDisplayFramebuffer;
 	bool bHardwareTransform;
-	bool bBufferedRendering;
+	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (GPU) 3 = Read Framebuffer to memory (CPU)
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 	bool bUseVBO;
 #ifdef BLACKBERRY
@@ -85,8 +85,6 @@ public:
 #endif
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
 	bool bTrueColor;
-	bool bFramebuffersToMem;
-	bool bFramebuffersCPUConvert; // for OpenGL devices
 	bool bMipMap;
 	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
@@ -97,6 +95,7 @@ public:
 	int iCurrentStateSlot;
 	bool bEnableCheats;
 	bool bReloadCheats;
+	bool bFramebuffersToMem;
 
 	// Sound
 	bool bEnableSound;

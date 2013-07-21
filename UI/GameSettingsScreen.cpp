@@ -177,7 +177,9 @@ void GameSettingsScreen::CreateViews() {
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
 	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(750, FILL_PARENT, actionMenuMargins));
+
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(800, FILL_PARENT, actionMenuMargins));
+
 	root_->Add(tabHolder);
 
 	// TODO: These currently point to global settings, not game specific ones.
@@ -192,12 +194,11 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bBufferedRendering, gs->T("Buffered Rendering")));
-	graphicsSettings->Add(new CheckBox(&g_Config.SSAntiAliasing, gs->T("Anti-Aliasing")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bFramebuffersToMem, gs->T("Read Framebuffer To Memory")));
-#ifdef USING_GLES2
-	g_Config.bFramebuffersCPUConvert = g_Config.bFramebuffersToMem;
-#endif
+
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read FBO To Mem(GPU)", "Read FBO To Mem(CPU)"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Rendering Mode"), renderingMode, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new CheckBox(&g_Config.bDisplayFramebuffer, gs->T("Display Raw Framebuffer")));
+
 	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
@@ -212,6 +213,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
 	graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFrameSkip, 1, 9, gs->T("Frame Skipping"), screenManager()));
+
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Anisotropic Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };

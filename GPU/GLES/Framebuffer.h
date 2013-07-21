@@ -54,6 +54,13 @@ enum {
 	GPU_VENDOR_UNKNOWN = 0
 };
 
+
+enum {	
+	FB_NON_BUFFERED_MODE = 0,
+	FB_BUFFERED_MODE = 1,
+	FB_READFBOMEMORY_GPU = 2,
+	FB_READFBOMEMORY_CPU = 3,
+};
 struct VirtualFramebuffer {
 	int last_frame_used;
 
