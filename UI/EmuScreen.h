@@ -49,13 +49,15 @@ private:
 	void pspKey(int pspKeyCode, int flags);
 	void onVKeyDown(int virtualKeyCode);
 	void onVKeyUp(int virtualKeyCode);
+	void setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax);
+	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
 
-
-	bool pauseTrigger_;
-
+	std::string gamePath_;
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
 	std::string errorMessage_;
+
+	bool pauseTrigger_;
 
 	// To track mappable virtual keys. We can have as many as we want.
 	bool virtKeys[VIRTKEY_COUNT];

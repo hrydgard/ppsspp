@@ -62,6 +62,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("EnableCheats", &bEnableCheats, false);
 	general->Get("MaxRecent", &iMaxRecent, 12);
 	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
+	general->Get("StateSlot", &iCurrentStateSlot, 0);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
@@ -127,7 +128,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
 	graphics->Get("TexDeposterize", &bTexDeposterize, false);
-	graphics->Get("VSyncInterval", &iVSyncInterval, 0);
+	graphics->Get("VSyncInterval", &bVSync, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -213,6 +214,7 @@ void Config::Save()
 		general->Set("MaxRecent", iMaxRecent);
 		general->Set("EnableCheats", bEnableCheats);
 		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
+		general->Set("StateSlot", iCurrentStateSlot);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
@@ -246,7 +248,7 @@ void Config::Save()
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
 		graphics->Set("TexScalingType", iTexScalingType);
 		graphics->Set("TexDeposterize", bTexDeposterize);
-		graphics->Set("VSyncInterval", iVSyncInterval);
+		graphics->Set("VSyncInterval", bVSync);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

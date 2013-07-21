@@ -15,15 +15,17 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Common/FileUtil.h"
-#include "Core/System.h"
-
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+
+#include "Common/FileUtil.h"
+#include "Core/System.h"
+#include "Core/SaveState.h"
+
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameScreen.h"
@@ -352,12 +354,9 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	}
 }
 
-void DrawBackground(float alpha);
-
-void MainScreen::DrawBackground(UIContext &dc) {
+void MainScreen::update(InputState &input) {
+	UIScreen::update(input);
 	globalUIState = UISTATE_MENU;
-	::DrawBackground(1.0f);
-	dc.Flush();
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
@@ -395,5 +394,100 @@ UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
 UI::EventReturn MainScreen::OnExit(UI::EventParams &e) {
 	NativeShutdown();
 	exit(0);
+	return UI::EVENT_DONE;
+}
+
+void GamePauseScreen::update(InputState &input) {
+	globalUIState = UISTATE_PAUSEMENU;
+	UIScreen::update(input);
+}
+
+void GamePauseScreen::DrawBackground(UIContext &dc) {
+	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, true);
+	dc.Flush();
+
+	if (ginfo && ginfo->pic1Texture) {
+		ginfo->pic1Texture->Bind(0);
+		uint32_t color = whiteAlpha(ease((time_now_d() - ginfo->timePic1WasLoaded) * 3)) & 0xFFc0c0c0;
+		dc.Draw()->DrawTexRect(0,0,dp_xres, dp_yres, 0,0,1,1,color);
+		dc.Flush();
+		dc.RebindTexture();
+	}
+}
+
+GamePauseScreen::~GamePauseScreen() {
+	g_Config.iCurrentStateSlot = saveSlots_->GetSelection();
+	g_Config.Save();
+}
+
+void GamePauseScreen::CreateViews() {
+	using namespace UI;
+	Margins actionMenuMargins(0, 100, 15, 0);
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+	root_->Add(leftColumn);
+
+	root_->Add(new Spacer(new LinearLayoutParams(1.0)));
+
+	ViewGroup *leftColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	leftColumn->Add(leftColumnItems);
+
+	saveSlots_ = leftColumnItems->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(300, WRAP_CONTENT)));
+	saveSlots_->AddChoice("1");
+	saveSlots_->AddChoice("2");
+	saveSlots_->AddChoice("3");
+	saveSlots_->AddChoice("4");
+	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
+
+	leftColumnItems->Add(new Choice("Save State"))->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
+	leftColumnItems->Add(new Choice("Load State"))->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
+
+	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+	root_->Add(rightColumn);
+
+	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	rightColumn->Add(rightColumnItems);
+
+#ifdef _WIN32
+	rightColumnItems->Add(new Choice("Continue"))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
+#endif
+	rightColumnItems->Add(new Choice("Game Settings"))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice("Main Settings"))->OnClick.Handle(this, &GamePauseScreen::OnMainSettings);
+	rightColumnItems->Add(new Choice("Exit to menu"))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+}
+
+UI::EventReturn GamePauseScreen::OnMainSettings(UI::EventParams &e) {
+	screenManager()->push(new GlobalSettingsScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
+	screenManager()->push(new GameSettingsScreen(gamePath_));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnContinue(UI::EventParams &e) {
+	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
+	screenManager()->switchScreen(new MainScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnLoadState(UI::EventParams &e) {
+	SaveState::LoadSlot(saveSlots_->GetSelection(), 0, 0);
+
+	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnSaveState(UI::EventParams &e) {
+	SaveState::SaveSlot(saveSlots_->GetSelection(), 0, 0);
+
+	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }

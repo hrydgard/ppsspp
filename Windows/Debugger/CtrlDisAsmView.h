@@ -22,6 +22,13 @@
 
 #include <windows.h>
 #include <vector>
+#include <algorithm>
+
+#undef min
+#undef max
+using std::min;
+using std::max;
+
 
 class CtrlDisAsmView
 {
@@ -31,6 +38,8 @@ class CtrlDisAsmView
 	RECT rect;
 
 	u32 curAddress;
+	u32 selectRangeStart;
+	u32 selectRangeEnd;
 	int rowHeight;
 	int charWidth;
 
@@ -88,7 +97,7 @@ public:
 	void redraw();
 	
 	void getOpcodeText(u32 address, char* dest);
-	int yToAddress(int y);
+	u32 yToAddress(int y);
 
 	void setDontRedraw(bool b) { dontRedraw = b; };
 	void setDebugger(DebugInterface *deb)
@@ -111,7 +120,7 @@ public:
 			windowStart = newAddress-visibleRows/2*instructionSize;
 		}
 
-		curAddress = newAddress;
+		setCurAddress(newAddress);
 		redraw();
 	}
 	void gotoPC()
@@ -134,5 +143,13 @@ public:
 	{
 		windowStart += lines*instructionSize;
 		redraw();
+	}
+
+	void setCurAddress(u32 newAddress, bool extend = false)
+	{
+		u32 after = newAddress + instructionSize;
+		curAddress = newAddress;
+		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
+		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;
 	}
 };

@@ -19,4 +19,8 @@
 
 #include "HLE.h"
 
+class PointerWrap;
+
 void Register_sceCcc();
+void __CccInit();
+void __CccDoState(PointerWrap &p);

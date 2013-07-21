@@ -94,36 +94,33 @@ EmuFileType Identify_File(std::string &filename)
 		{
 			return FILETYPE_PSP_ELF;
 		}
-		else
-			return FILETYPE_UNKNOWN_ELF;
+		return FILETYPE_UNKNOWN_ELF;
 	}
 	else if (id == 'PBP\x00')
 	{
 		if (psar_id == 'MUPN') {
 			return FILETYPE_PSP_ISO_NP;
-		} else {
-			// Let's check if we got pointed to a PBP within such a directory.
-			// If so we just move up and return the directory itself as the game.
-			std::string path = getDir(filename);
-			// If loading from memstick...
-			size_t pos = path.find("/PSP/GAME/");
-			if (pos != std::string::npos) {
-				filename = path;
-				return FILETYPE_PSP_PBP_DIRECTORY;
-			}
 		}
+
+		// Let's check if we got pointed to a PBP within such a directory.
+		// If so we just move up and return the directory itself as the game.
+		std::string path = getDir(filename);
+		// If loading from memstick...
+		size_t pos = path.find("/PSP/GAME/");
+		if (pos != std::string::npos) {
+			filename = path;
+			return FILETYPE_PSP_PBP_DIRECTORY;
+		}
+		return FILETYPE_PSP_PBP;
 	}
-	else
+	else if (!strcasecmp(extension.c_str(),".pbp"))
 	{
-		if (!strcasecmp(extension.c_str(),".pbp"))
-		{
-			ERROR_LOG(LOADER, "A PBP with the wrong magic number?");
-			return FILETYPE_PSP_PBP;
-		}
-		else if (!strcasecmp(extension.c_str(),".bin"))
-		{
-			return FILETYPE_UNKNOWN_BIN;
-		}
+		ERROR_LOG(LOADER, "A PBP with the wrong magic number?");
+		return FILETYPE_PSP_PBP;
+	}
+	else if (!strcasecmp(extension.c_str(),".bin"))
+	{
+		return FILETYPE_UNKNOWN_BIN;
 	}
 	return FILETYPE_UNKNOWN;
 }

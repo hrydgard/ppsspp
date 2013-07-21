@@ -53,7 +53,9 @@
 #include "UI/MiscScreens.h"
 
 
-EmuScreen::EmuScreen(const std::string &filename) : invalid_(true), pauseTrigger_(false) {
+EmuScreen::EmuScreen(const std::string &filename)
+	: gamePath_(filename), invalid_(true), pauseTrigger_(false) {
+
 	bootGame(filename);
 }
 
@@ -224,34 +226,29 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	// Should get rid of that but not now.
 #ifndef ANDROID
 	case VIRTKEY_PAUSE:
-		screenManager()->push(new PauseScreen());
+		if (g_Config.bNewUI)
+			screenManager()->push(new GamePauseScreen(gamePath_));
+		else
+			screenManager()->push(new PauseScreen());
 		break;
 #endif
 
 	case VIRTKEY_AXIS_X_MIN:
-		__CtrlSetAnalogX(-1.0f, CTRL_STICK_LEFT);
-		break;
 	case VIRTKEY_AXIS_X_MAX:
-		__CtrlSetAnalogX(1.0f, CTRL_STICK_LEFT);
+		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
 		break;
 	case VIRTKEY_AXIS_Y_MIN:
-		__CtrlSetAnalogY(-1.0f, CTRL_STICK_LEFT);
-		break;
 	case VIRTKEY_AXIS_Y_MAX:
-		__CtrlSetAnalogY(1.0f, CTRL_STICK_LEFT);
+		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 		break;
 
 	case VIRTKEY_AXIS_RIGHT_X_MIN:
-		__CtrlSetAnalogX(-1.0f, CTRL_STICK_RIGHT);
-		break;
 	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		__CtrlSetAnalogX(1.0f, CTRL_STICK_RIGHT);
+		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		break;
 	case VIRTKEY_AXIS_RIGHT_Y_MIN:
-		__CtrlSetAnalogY(-1.0f, CTRL_STICK_RIGHT);
-		break;
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		__CtrlSetAnalogY(1.0f, CTRL_STICK_RIGHT);
+		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
 	}
 }
@@ -261,29 +258,53 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
 		PSP_CoreParameter().unthrottle = false;
 		break;
+
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
-		__CtrlSetAnalogX(0.0f, CTRL_STICK_LEFT);
+		setVKeyAnalogX(CTRL_STICK_LEFT, VIRTKEY_AXIS_X_MIN, VIRTKEY_AXIS_X_MAX);
 		break;
 	case VIRTKEY_AXIS_Y_MIN:
 	case VIRTKEY_AXIS_Y_MAX:
-		__CtrlSetAnalogY(0.0f, CTRL_STICK_LEFT);
+		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 		break;
 
 	case VIRTKEY_AXIS_RIGHT_X_MIN:
 	case VIRTKEY_AXIS_RIGHT_X_MAX:
-		__CtrlSetAnalogX(0.0f, CTRL_STICK_RIGHT);
+		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		break;
 	case VIRTKEY_AXIS_RIGHT_Y_MIN:
 	case VIRTKEY_AXIS_RIGHT_Y_MAX:
-		__CtrlSetAnalogY(0.0f, CTRL_STICK_RIGHT);
+		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
 		break;
+
 	default:
 		break;
 	}
 }
 
+inline void EmuScreen::setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax) {
+	float axis = 0.0f;
+	// The down events can repeat, so just trust the virtKeys array.
+	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
+		axis -= 1.0f;
+	if (virtKeys[virtualKeyMax - VIRTKEY_FIRST])
+		axis += 1.0f;
+	__CtrlSetAnalogX(axis, stick);
+}
+
+inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax) {
+	float axis = 0.0f;
+	if (virtKeys[virtualKeyMin - VIRTKEY_FIRST])
+		axis -= 1.0f;
+	if (virtKeys[virtualKeyMax - VIRTKEY_FIRST])
+		axis += 1.0f;
+	__CtrlSetAnalogY(axis, stick);
+}
+
 void EmuScreen::key(const KeyInput &key) {
+	if (key.keyCode == KEYCODE_BACK)
+		pauseTrigger_ = true;
+
 	int result = KeyMap::KeyToPspButton(key.deviceId, key.keyCode);
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
 		return;
@@ -420,7 +441,11 @@ void EmuScreen::update(InputState &input) {
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
-		screenManager()->push(new PauseScreen());
+		if (g_Config.bNewUI) {
+			screenManager()->push(new GamePauseScreen(gamePath_));
+		} else {
+			screenManager()->push(new PauseScreen());
+		}
 	}
 }
 

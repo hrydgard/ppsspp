@@ -27,7 +27,15 @@
 
 inline void NoOpVoidBool(bool) {}
 
-class PromptScreen : public UIScreen {
+class UIScreenWithBackground : public UIScreen {
+public:
+	UIScreenWithBackground() : UIScreen() {}
+protected:
+	virtual void DrawBackground(UIContext &dc);
+};
+
+
+class PromptScreen : public UIScreenWithBackground {
 public:
 	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText)
 		: message_(message), yesButtonText_(yesButtonText), noButtonText_(noButtonText) {
@@ -37,8 +45,6 @@ public:
 		: message_(message), yesButtonText_(yesButtonText), noButtonText_(noButtonText), callback_(callback) {}
 
 	virtual void CreateViews();
-protected:
-	virtual void DrawBackground(UIContext &dc);
 
 private:
 	UI::EventReturn OnYes(UI::EventParams &e);

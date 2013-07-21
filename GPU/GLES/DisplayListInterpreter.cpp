@@ -170,12 +170,12 @@ static const u8 flushBeforeCommandList[] = {
 
 GLES_GPU::GLES_GPU()
 : resized_(false) {
-	lastVsync_ = g_Config.iVSyncInterval;
+	lastVsync_ = g_Config.bVSync;
 	if (gl_extensions.EXT_swap_control_tear) {
 		// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
-		glstate.SetVSyncInterval(-g_Config.iVSyncInterval);
+		glstate.SetVSyncInterval(g_Config.bVSync ? -1 :0);
 	} else {
-		glstate.SetVSyncInterval(g_Config.iVSyncInterval);
+		glstate.SetVSyncInterval(g_Config.bVSync ? 1 : 0);
 	}
 
 	shaderManager_ = new ShaderManager();
@@ -257,7 +257,7 @@ void GLES_GPU::DumpNextFrame() {
 
 void GLES_GPU::BeginFrame() {
 	// Turn off vsync when unthrottled
-	int desiredVSyncInterval = g_Config.iVSyncInterval;
+	int desiredVSyncInterval = g_Config.bVSync;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
 		desiredVSyncInterval = 0;
 	if (desiredVSyncInterval != lastVsync_) {

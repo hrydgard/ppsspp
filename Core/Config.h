@@ -71,7 +71,7 @@ public:
 	bool bPartialStretch;
 #endif
 	bool bStretchToDisplay;
-	int iVSyncInterval;
+	bool bVSync;
 	int iFrameSkip;
 
 	int iWindowX;
@@ -92,6 +92,7 @@ public:
 	int iFpsLimit;
 	int iForceMaxEmulatedFPS;
 	int iMaxRecent;
+	int iCurrentStateSlot;
 	bool bEnableCheats;
 	bool bReloadCheats;
 	bool bFramebuffersToMem;

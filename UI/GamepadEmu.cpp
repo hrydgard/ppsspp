@@ -206,7 +206,7 @@ void PSPStick::Draw(UIContext &dc) {
 	__CtrlPeekAnalog(stick_, &dx, &dy);
 
 	dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
-	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY + dy * stick_size_ * scale_, 1.0f * scale_, colorBg, ALIGN_CENTER);
+	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_, colorBg, ALIGN_CENTER);
 }
 
 void PSPStick::Touch(const TouchInput &input) {
@@ -249,7 +249,7 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 		dy = std::min(1.0f, std::max(-1.0f, dy));
 
 		__CtrlSetAnalogX(dx, stick_);
-		__CtrlSetAnalogY(dy, stick_);
+		__CtrlSetAnalogY(-dy, stick_);
 	} else {
 		__CtrlSetAnalogX(0.0f, stick_);
 		__CtrlSetAnalogY(0.0f, stick_);

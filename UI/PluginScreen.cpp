@@ -32,13 +32,6 @@
 #endif
 #endif
 
-void DrawBackground(float alpha);
-
-void PluginScreen::DrawBackground(UIContext &dc)
-{
-	::DrawBackground(1.0f);
-}
-
 PluginScreen::PluginScreen() {
 	// Let's start by downloading the json. We'll find out in Update when it's finished.
 	json_ = downloader_.StartDownload("http://www.ppsspp.org/update/at3plusdecoder.json", "");

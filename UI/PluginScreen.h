@@ -28,12 +28,9 @@
 #include "file/file_util.h"
 #include "net/http_client.h"
 
-// Uses the new UI framework through UIScreen for simplicity.
-// Looks disappointingly like the old UI, right? Don't worry, it's just the theme.
-// A redesign is coming. And note that you can control this new UI with your
-// keyboard or Xbox controller.
+#include "UI/MiscScreens.h"
 
-class PluginScreen : public UIScreen {
+class PluginScreen : public UIScreenWithBackground {
 public:
 	PluginScreen();
 
@@ -41,7 +38,6 @@ public:
 	
 protected:
 	virtual void CreateViews();
-	virtual void DrawBackground(UIContext &dc);
 
 private:
 	// Event handlers
