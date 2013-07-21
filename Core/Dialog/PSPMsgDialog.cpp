@@ -131,13 +131,13 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 	return 0;
 }
 
-void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
+void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 {
 	float WRAP_WIDTH = 300.0f;
 	if (UTF8StringNonASCIICount(text.c_str()) > 3)
 		WRAP_WIDTH = 372.0f;
 	
-	float y = 130.0f;
+	float y = 140.0f;
 	float h;
 	int n;
 	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
@@ -163,7 +163,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 		PPGeMeasureText(&w, &h, 0, choiceText, FONT_SCALE);
 		w = w / 2.0f + 5.0f;
 		h /= 2.0f;
-		float y2 = y + h2 + 10.0f;
+		float y2 = y + h2;
 		h2 += h + 4.0f;
 		y = 132.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
@@ -177,24 +177,27 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo)
 		else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
 			yesnoChoice = 0;
 		}
-	} else {
+	} 
+	
+	if (hasOK) {
 		I18NCategory *d = GetI18NCategory("Dialog");
 		float x, w;
 		x = 240.0f;
 		w = 15.0f;
 		h /= 2.0f;
-		float y2 = y + h2 + 10.0f;
+		float y2 = y + h2;
 		h2 += h + 4.0f;
 		y = 132.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
 		PPGeDrawText(d->T("OK"), 240.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
 		PPGeDrawText(d->T("OK"), 239.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	}
+
 	PPGeDrawTextWrapped(text.c_str(), 241.0f, y+2, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
 	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	float sy = 125.0f - h2, ey = 145.0f + h2;
-	PPGeDrawRect(50.0f, sy, 420.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawRect(50.0f, ey, 420.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(40.0f, sy, 440.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawRect(40.0f, ey, 440.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPMsgDialog::Update()
@@ -235,7 +238,7 @@ int PSPMsgDialog::Update()
 		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0xC0C8B2AC));
 
 		if ((flag & DS_MSG) || (flag & DS_ERRORMSG))
-			DisplayMessage(msgText, (flag & DS_YESNO) != 0);
+			DisplayMessage(msgText, (flag & DS_YESNO) != 0, (flag & DS_OK) != 0);
 
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
 			DisplayButtons(DS_BUTTON_OK);
