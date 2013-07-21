@@ -97,7 +97,7 @@ void Config::Load(const char *iniFileName)
 #else
 	graphics->Get("ResolutionScale", &iWindowZoom, 1);
 #endif
-	graphics->Get("BufferedRendering", &bBufferedRendering, true);
+	graphics->Get("RenderingMode", &iRenderingMode, 1); // default is buffered rendering mode
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
@@ -123,8 +123,6 @@ void Config::Load(const char *iniFileName)
 #endif
 	graphics->Get("StretchToDisplay", &bStretchToDisplay, false);
 	graphics->Get("TrueColor", &bTrueColor, true);
-	graphics->Get("FramebuffersToMem", &bFramebuffersToMem, false);
-	graphics->Get("FramebuffersCPUConvert", &bFramebuffersCPUConvert, true);
 	graphics->Get("MipMap", &bMipMap, true);
 	graphics->Get("TexScalingLevel", &iTexScalingLevel, 1);
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
@@ -225,7 +223,7 @@ void Config::Save()
 		graphics->Set("ShowFPSCounter", iShowFPSCounter);
 		graphics->Set("DisplayFramebuffer", bDisplayFramebuffer);
 		graphics->Set("ResolutionScale", iWindowZoom);
-		graphics->Set("BufferedRendering", bBufferedRendering);
+		graphics->Set("RenderingMode", iRenderingMode);
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("TextureFiltering", iTexFiltering);
 		graphics->Set("SSAA", SSAntiAliasing);
@@ -244,8 +242,6 @@ void Config::Save()
 #endif
 		graphics->Set("StretchToDisplay", bStretchToDisplay);
 		graphics->Set("TrueColor", bTrueColor);
-		graphics->Set("FramebuffersToMem", bFramebuffersToMem);
-		graphics->Set("FramebuffersCPUConvert", bFramebuffersCPUConvert);
 		graphics->Set("MipMap", bMipMap);
 		graphics->Set("TexScalingLevel", iTexScalingLevel);
 		graphics->Set("TexScalingType", iTexScalingType);

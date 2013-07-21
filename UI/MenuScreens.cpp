@@ -502,20 +502,6 @@ void PauseScreen::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Stretch to Display"), ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
 
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Hardware Transform"), ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
-		if (gpu)
-			gpu->Resized();
-	}
-	if (g_Config.bBufferedRendering) {
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Read Framebuffers To Memory"), ALIGN_TOPLEFT, &g_Config.bFramebuffersToMem)) { 
-			if (gpu)
-				gpu->Resized();
-		}
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
-			if (gpu)
-				gpu->Resized();
-		}
-	}
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
 	UICheckBox(GEN_ID, x, y += stride , gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
 	if (enableFrameSkip) {
@@ -948,33 +934,35 @@ void GraphicsScreenP1::render() {
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Stream VBO"), ALIGN_TOPLEFT, &g_Config.bUseVBO);
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
-#ifdef _WIN32
-	bool Vsync = g_Config.iVSyncInterval != 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("VSync"), ALIGN_TOPLEFT, &Vsync);
-	g_Config.iVSyncInterval = Vsync ? 1 : 0;
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Fullscreen"), ALIGN_TOPLEFT, &g_Config.bFullScreen);
-#endif
 	
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &g_Config.bBufferedRendering)) {
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
 		if (gpu)
 			gpu->Resized();
 	}
-	if (g_Config.bBufferedRendering) {
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Read Framebuffers To Memory"), ALIGN_TOPLEFT, &g_Config.bFramebuffersToMem)) { 
-			if (gpu)
-				gpu->Resized();
-		}
-#ifndef USING_GLES2
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Convert Framebuffers Using CPU"), ALIGN_TOPLEFT, &g_Config.bFramebuffersCPUConvert)) { 
-			if (gpu)
-				gpu->Resized();
-		}
+
+#ifdef _WIN32
+	//bool Vsync = g_Config.iVSyncInterval != 0;
+	//UICheckBox(GEN_ID, x, y += stride, gs->T("VSync"), ALIGN_TOPLEFT, &Vsync);
+	//g_Config.iVSyncInterval = Vsync ? 1 : 0;
+	//UICheckBox(GEN_ID, x, y += stride, gs->T("Fullscreen"), ALIGN_TOPLEFT, &g_Config.bFullScreen);
 #endif
-		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) {
-			if (gpu)
-				gpu->Resized();
-		}
-	}
+	y+=20;
+
+	bool nonrendering = g_Config.iRenderingMode == 0;
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Non-Buffered Rendering"), ALIGN_TOPLEFT, &nonrendering))
+	g_Config.iRenderingMode = 0;
+
+	bool rendering = g_Config.iRenderingMode == 1;
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Buffered Rendering"), ALIGN_TOPLEFT, &rendering))
+	g_Config.iRenderingMode = rendering ? 1 : 0;
+
+	bool useFBO = g_Config.iRenderingMode == 2;
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (GPU)"), ALIGN_TOPLEFT, &useFBO))
+	g_Config.iRenderingMode = useFBO ? 2 : 0;
+
+	bool useCPU = g_Config.iRenderingMode == 3;
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (CPU)"), ALIGN_TOPLEFT, &useCPU))
+	g_Config.iRenderingMode = useCPU ? 3 : 0;
 
 	UIEnd();
 }

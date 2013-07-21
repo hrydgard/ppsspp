@@ -176,7 +176,7 @@ void GameSettingsScreen::CreateViews() {
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
 	leftColumn->Add(new Choice("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(600, FILL_PARENT, actionMenuMargins));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(800, FILL_PARENT, actionMenuMargins));
 	root_->Add(tabHolder);
 
 	// TODO: These currently point to global settings, not game specific ones.
@@ -187,17 +187,13 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("Graphics", graphicsSettingsScroll);
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bBufferedRendering, gs->T("Buffered Rendering")));
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read FBO To Mem(GPU)", "Read FBO To Mem(CPU)"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Rendering Mode"), renderingMode, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bDisplayFramebuffer, gs->T("Display Raw Framebuffer")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.SSAntiAliasing, gs->T("Anti Aliasing")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bFramebuffersToMem, gs->T("Read Framebuffer to memory")));
-#ifndef USING_GLES2
-	graphicsSettings->Add(new CheckBox(&g_Config.bFramebuffersCPUConvert, gs->T("Convert Framebuffers Using CPU")));
-#endif
-	// TODO: Does frame rate belong among the graphics settings?
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame rate")));
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Read Framebuffer to memory")));
 
