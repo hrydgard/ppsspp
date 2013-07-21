@@ -41,20 +41,33 @@ ClipCoords TransformUnit::ViewToClip(const ViewCoords& coords)
 	return ClipCoords(projection_matrix * coords4);
 }
 
-ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
+static bool outside_range_flag = false;
+
+// TODO: This is ugly
+static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool set_flag = true)
 {
 	ScreenCoords ret;
+	// TODO: Check for invalid parameters (x2 < x1, etc)
 	float vpx1 = getFloat24(gstate.viewportx1);
 	float vpx2 = getFloat24(gstate.viewportx2);
 	float vpy1 = getFloat24(gstate.viewporty1);
 	float vpy2 = getFloat24(gstate.viewporty2);
 	float vpz1 = getFloat24(gstate.viewportz1);
 	float vpz2 = getFloat24(gstate.viewportz2);
-	// TODO: Check for invalid parameters (x2 < x1, etc)
-	ret.x = (coords.x * vpx1 / coords.w + vpx2) * 16; // 16 = 0xFFFF / 4095.9375;
-	ret.y = (coords.y * vpy1 / coords.w + vpy2) * 16; // 16 = 0xFFFF / 4095.9375;
-	ret.z = (coords.z * vpz1 / coords.w + vpz2) * 16; // 16 = 0xFFFF / 4095.9375;
-	return ret;
+
+	float retx = coords.x * vpx1 / coords.w + vpx2;
+	float rety = coords.y * vpy1 / coords.w + vpy2;
+	float retz = coords.z * vpz1 / coords.w + vpz2;
+	if (set_flag && (retx > 4095.9375f || rety > 4096.9375f || retz > 65535.f || retx < 0 || rety < 0 || retz < 0))
+		outside_range_flag = true;
+
+	// 16 = 0xFFFF / 4095.9375
+	return ScreenCoords(retx * 16, rety * 16, retz);
+}
+
+ScreenCoords TransformUnit::ClipToScreen(const ClipCoords& coords)
+{
+	return ClipToScreenInternal(coords, false);
 }
 
 DrawingCoords TransformUnit::ScreenToDrawing(const ScreenCoords& coords)
@@ -106,7 +119,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 		ModelCoords mcoords(pos[0], pos[1], pos[2]);
 		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(mcoords));
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(vertex.worldpos)));
-		vertex.drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(vertex.clippos)));
+		vertex.drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(ClipToScreenInternal(vertex.clippos)));
 
 		if (vreader.hasNormal()) {
 			vertex.worldnormal = TransformUnit::ModelToWorld(vertex.normal) - Vec3<float>(gstate.worldMatrix[9], gstate.worldMatrix[10], gstate.worldMatrix[11]);
@@ -158,26 +171,31 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 		for (int vtx = 0; vtx < vertex_count; vtx += vtcs_per_prim) {
 			VertexData data[max_vtcs_per_prim];
 
-			for (unsigned int i = 0; i < vtcs_per_prim; ++i) {
+			for (int i = 0; i < vtcs_per_prim; ++i) {
 				if (indices)
 					vreader.Goto(indices_16bit ? indices16[vtx+i] : indices8[vtx+i]);
 				else
 					vreader.Goto(vtx+i);
 
 				data[i] = ReadVertex(vreader);
+				if (outside_range_flag)
+					break;
+			}
+			if (outside_range_flag) {
+				outside_range_flag = false;
+				continue;
 			}
 
 
 			switch (prim_type) {
-			case GE_PRIM_TRIANGLES: {
-				VertexData temp;
-if (!gstate.getCullMode()) {
-				temp = data[2];
-				data[2] = data[1];
-				data[1] = temp;
-}
-				Clipper::ProcessTriangle(data);
-				break;}
+			case GE_PRIM_TRIANGLES:
+			{
+				if (!gstate.getCullMode())
+					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+				else
+					Clipper::ProcessTriangle(data[0], data[1], data[2]);
+				break;
+			}
 
 			case GE_PRIM_RECTANGLES:
 				Clipper::ProcessQuad(data);
@@ -186,6 +204,7 @@ if (!gstate.getCullMode()) {
 		}
 	} else if (prim_type == GE_PRIM_TRIANGLE_STRIP) {
 		VertexData data[3];
+		unsigned int skip_count = 2; // Don't draw a triangle when loading the first two vertices
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
 			if (indices)
@@ -194,12 +213,24 @@ if (!gstate.getCullMode()) {
 				vreader.Goto(vtx);
 
 			data[vtx % 3] = ReadVertex(vreader);
-
-			if (vtx < 2)
+			if (outside_range_flag) {
+				// Drop all primitives containing the current vertex
+				skip_count = 2;
+				outside_range_flag = false;
 				continue;
+			}
 
-			// TODO: Should make sure to draw the vertices in the correct order!
-			Clipper::ProcessTriangle(data);
+			if (skip_count) {
+				--skip_count;
+				continue;
+			}
+
+			// We need to reverse the vertex order for each second primitive,
+			// but we additionally need to do that for every primitive if CCW cullmode is used.
+			if ((!gstate.getCullMode()) ^ (vtx % 2))
+				Clipper::ProcessTriangle(data[2], data[1], data[0]);
+			else
+				Clipper::ProcessTriangle(data[0], data[1], data[2]);
 		}
 	}
 }

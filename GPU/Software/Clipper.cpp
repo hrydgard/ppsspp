@@ -226,24 +226,24 @@ void ProcessQuad(VertexData* data)
 	Rasterizer::DrawTriangle(*bottomright, *bottomleft, *topleft);
 }
 
-void ProcessTriangle(VertexData* data)
+void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 {
 	if (gstate.isModeThrough()) {
-		Rasterizer::DrawTriangle(data[0], data[1], data[2]);
+		Rasterizer::DrawTriangle(v0, v1, v2);
 		return;
 	}
 
 	enum { NUM_CLIPPED_VERTICES = 33, NUM_INDICES = NUM_CLIPPED_VERTICES + 3 };
 
-	VertexData* Vertices[NUM_CLIPPED_VERTICES];
+	VertexData* Vertices[NUM_INDICES];
 	VertexData ClippedVertices[NUM_CLIPPED_VERTICES];
 	for (int i = 0; i < NUM_CLIPPED_VERTICES; ++i)
 		Vertices[i+3] = &ClippedVertices[i];
 
 	// TODO: Change logic when it's a backface
-	Vertices[0] = &data[0];
-	Vertices[1] = &data[1];
-	Vertices[2] = &data[2];
+	Vertices[0] = &v0;
+	Vertices[1] = &v1;
+	Vertices[2] = &v2;
 
 	int indices[NUM_INDICES] = { 0, 1, 2, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG,
 									SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG,
@@ -251,9 +251,9 @@ void ProcessTriangle(VertexData* data)
 	int numIndices = 3;
 
 	int mask = 0;
-	mask |= CalcClipMask(data[0].clippos);
-	mask |= CalcClipMask(data[1].clippos);
-	mask |= CalcClipMask(data[2].clippos);
+	mask |= CalcClipMask(v0.clippos);
+	mask |= CalcClipMask(v1.clippos);
+	mask |= CalcClipMask(v2.clippos);
 
 	if (mask) {
 		for(int i = 0; i < 3; i += 3) {

@@ -396,6 +396,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				float s = (v0.texturecoords.s() * w0 / v0.clippos.w + v1.texturecoords.s() * w1 / v1.clippos.w + v2.texturecoords.s() * w2 / v2.clippos.w) / den;
 				float t = (v0.texturecoords.t() * w0 / v0.clippos.w + v1.texturecoords.t() * w1 / v1.clippos.w + v2.texturecoords.t() * w2 / v2.clippos.w) / den;
+
 				Vec3<int> prim_color_rgb(0, 0, 0);
 				int prim_color_a = 0;
 				Vec3<int> sec_color(0, 0, 0);
