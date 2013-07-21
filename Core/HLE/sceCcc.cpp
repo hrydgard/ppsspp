@@ -20,6 +20,25 @@
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
 
+static u16 errorUTF8;
+static u16 errorUTF16;
+static u16 errorSJIS;
+
+void __CccInit()
+{
+	errorUTF8 = 0;
+	errorUTF16 = 0;
+	errorSJIS = 0;
+}
+
+void __CccDoState(PointerWrap &p)
+{
+	p.Do(errorUTF8);
+	p.Do(errorUTF16);
+	p.Do(errorSJIS);
+	p.DoMarker("sceCcc");
+}
+
 int sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 {
 	// Both tables jis2ucs and ucs2jis have a size of 0x20000 bytes
@@ -132,6 +151,30 @@ int sceCccDecodeSJIS(u32 dstAddrAddr)
 	return 0;
 }
 
+u32 sceCccSetErrorCharUTF8(u32 c)
+{
+	DEBUG_LOG(HLE, "sceCccSetErrorCharUTF8(%08x)", c);
+	int result = errorUTF8;
+	errorUTF8 = c;
+	return result;
+}
+
+u32 sceCccSetErrorCharUTF16(u32 c)
+{
+	DEBUG_LOG(HLE, "sceCccSetErrorCharUTF16(%08x)", c);
+	int result = errorUTF16;
+	errorUTF16 = c;
+	return result;
+}
+
+u32 sceCccSetErrorCharSJIS(u32 c)
+{
+	DEBUG_LOG(HLE, "sceCccSetErrorCharSJIS(%04x)", c);
+	int result = errorSJIS;
+	errorSJIS = c;
+	return result;
+}
+
 int sceCccUCStoJIS()
 {
 	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUCStoJIS(?)");
@@ -168,9 +211,9 @@ const HLEFunction sceCcc[] =
 	{0x76e33e9c, 0, "sceCccIsValidUCS2"},
 	{0xd2b18485, 0, "sceCccIsValidUCS4"},
 	{0xa2d5d209, 0, "sceCccIsValidJIS"},
-	{0x17e1d813, 0, "sceCccSetErrorCharUTF8"},
-	{0xb8476cf4, 0, "sceCccSetErrorCharUTF16"},
-	{0xc56949ad, 0, "sceCccSetErrorCharSJIS"},
+	{0x17e1d813, WrapU_U<sceCccSetErrorCharUTF8>, "sceCccSetErrorCharUTF8"},
+	{0xb8476cf4, WrapU_U<sceCccSetErrorCharUTF16>, "sceCccSetErrorCharUTF16"},
+	{0xc56949ad, WrapU_U<sceCccSetErrorCharSJIS>, "sceCccSetErrorCharSJIS"},
 	{0x70ecaa10, WrapI_V<sceCccUCStoJIS>, "sceCccUCStoJIS"},
 	{0xfb7846e2, WrapI_V<sceCccJIStoUCS>, "sceCccJIStoUCS"},
 };
