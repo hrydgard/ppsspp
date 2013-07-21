@@ -82,7 +82,9 @@ void CheckGLExtensions() {
 #ifdef ANDROID
 	gl_extensions.QCOM_alpha_test = strstr(extString, "GL_QCOM_alpha_test") != 0;
 	// Load extensions that are not auto-loaded by Android.
-	glAlphaFuncQCOM = (PFNGLALPHAFUNCQCOMPROC)eglGetProcAddress("glAlphaFuncQCOM");
+	if (gl_extensions.QCOM_alpha_test) {
+		glAlphaFuncQCOM = (PFNGLALPHAFUNCQCOMPROC)eglGetProcAddress("glAlphaFuncQCOM");
+	}
 #endif
 
 #ifdef USING_GLES2
