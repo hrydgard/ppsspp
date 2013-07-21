@@ -29,11 +29,17 @@ static u16 errorUTF8;
 static u16 errorUTF16;
 static u16 errorSJIS;
 
+// These tables point directly to PSP memory and map all 64k possible u16 values.
+static PSPWCharPointer ucs2jisTable;
+static PSPWCharPointer jis2ucsTable;
+
 void __CccInit()
 {
 	errorUTF8 = 0;
 	errorUTF16 = 0;
 	errorSJIS = 0;
+	ucs2jisTable = 0;
+	jis2ucsTable = 0;
 }
 
 void __CccDoState(PointerWrap &p)
@@ -41,14 +47,17 @@ void __CccDoState(PointerWrap &p)
 	p.Do(errorUTF8);
 	p.Do(errorUTF16);
 	p.Do(errorSJIS);
+	p.Do(ucs2jisTable);
+	p.Do(jis2ucsTable);
 	p.DoMarker("sceCcc");
 }
 
-int sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
+void sceCccSetTable(u32 jis2ucs, u32 ucs2jis)
 {
-	// Both tables jis2ucs and ucs2jis have a size of 0x20000 bytes
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccSetTable(%08x, %08x)", jis2ucs, ucs2jis);
-	return 0;
+	// Both tables jis2ucs and ucs2jis have a size of 0x20000 bytes.
+	DEBUG_LOG(HLE, "sceCccSetTable(%08x, %08x)", jis2ucs, ucs2jis);
+	ucs2jisTable = ucs2jis;
+	jis2ucsTable = jis2ucs;
 }
 
 int sceCccUTF8toUTF16(u32 dstAddr, int dstSize, u32 srcAddr)
@@ -266,21 +275,31 @@ u32 sceCccSetErrorCharSJIS(u32 c)
 	return result;
 }
 
-int sceCccUCStoJIS()
+u32 sceCccUCStoJIS(u32 c, u32 alt)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUCStoJIS(?)");
-	return 0;
+	DEBUG_LOG(HLE, "sceCccUCStoJIS(%08x, %08x)", c, alt);
+	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
+	alt &= 0xFFFF;
+
+	// If it's outside the table or blank in the table, return alt.
+	if (c > 0xFFFF || ucs2jisTable[c] == 0)
+		return alt;
+	return ucs2jisTable[c];
 }
 
-int sceCccJIStoUCS()
+u32 sceCccJIStoUCS(u32 c, u32 alt)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccUCStoJIS(?)");
-	return 0;
+	DEBUG_LOG(HLE, "sceCccUCStoJIS(%08x, %08x)", c, alt);
+	// JIS can only be 16-bit at most, UCS can be 32 (even if the table only supports UCS-2.)
+	c &= 0xFFFF;
+	if (jis2ucsTable[c] == 0)
+		return alt;
+	return jis2ucsTable[c];
 }
 
 const HLEFunction sceCcc[] =
 {	
-	{0xB4D1CBBF, WrapI_UU<sceCccSetTable>, "sceCccSetTable"},
+	{0xB4D1CBBF, WrapV_UU<sceCccSetTable>, "sceCccSetTable"},
 	{0x00D1378F, WrapI_UIU<sceCccUTF8toUTF16>, "sceCccUTF8toUTF16"},
 	{0x6F82EE03, WrapI_UIU<sceCccUTF8toSJIS>, "sceCccUTF8toSJIS"},
 	{0x41B724A5, WrapI_UIU<sceCccUTF16toUTF8>, "sceCccUTF16toUTF8"},
@@ -305,8 +324,8 @@ const HLEFunction sceCcc[] =
 	{0x17e1d813, WrapU_U<sceCccSetErrorCharUTF8>, "sceCccSetErrorCharUTF8"},
 	{0xb8476cf4, WrapU_U<sceCccSetErrorCharUTF16>, "sceCccSetErrorCharUTF16"},
 	{0xc56949ad, WrapU_U<sceCccSetErrorCharSJIS>, "sceCccSetErrorCharSJIS"},
-	{0x70ecaa10, WrapI_V<sceCccUCStoJIS>, "sceCccUCStoJIS"},
-	{0xfb7846e2, WrapI_V<sceCccJIStoUCS>, "sceCccJIStoUCS"},
+	{0x70ecaa10, WrapU_UU<sceCccUCStoJIS>, "sceCccUCStoJIS"},
+	{0xfb7846e2, WrapU_UU<sceCccJIStoUCS>, "sceCccJIStoUCS"},
 };
 
 void Register_sceCcc()
