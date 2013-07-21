@@ -330,11 +330,11 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 			backgroundColor = scaleColor(backgroundColor,1.05f);
 		}
 
-		if (address == curAddress && searching == false)
+		if (address >= selectRangeStart && address < selectRangeEnd && searching == false)
 		{
 			if (hasFocus)
 			{
-				backgroundColor = 0xFF9933;
+				backgroundColor = address == curAddress ? 0xFF8822 : 0xFF9933;
 				textColor = 0xFFFFFF;
 			} else {
 				backgroundColor = 0xC0C0C0;
@@ -511,28 +511,28 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		switch (wParam & 0xFFFF)
 		{
 		case VK_DOWN:
-			curAddress += instructionSize;
+			setCurAddress(curAddress + instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
 			scrollAddressIntoView();
 			break;
 		case VK_UP:
-			curAddress-=instructionSize;
+			setCurAddress(curAddress - instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
 			scrollAddressIntoView();
 			break;
 		case VK_NEXT:
-			if (curAddress != windowEnd-instructionSize && curAddressIsVisible()) {
-				curAddress = windowEnd-instructionSize;
+			if (curAddress != windowEnd - instructionSize && curAddressIsVisible()) {
+				setCurAddress(windowEnd - instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
 				scrollAddressIntoView();
 			} else {
-				curAddress += visibleRows*instructionSize;
+				setCurAddress(curAddress + visibleRows * instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
 				scrollAddressIntoView();
 			}
 			break;
 		case VK_PRIOR:
 			if (curAddress != windowStart && curAddressIsVisible()) {
-				curAddress = windowStart;
+				setCurAddress(windowStart, GetAsyncKeyState(VK_SHIFT) != 0);
 				scrollAddressIntoView();
 			} else {
-				curAddress -= visibleRows*instructionSize;
+				setCurAddress(curAddress - visibleRows * instructionSize, GetAsyncKeyState(VK_SHIFT) != 0);
 				scrollAddressIntoView();
 			}
 			break;
@@ -640,10 +640,11 @@ void CtrlDisAsmView::toggleBreakpoint()
 
 void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
-	int x = LOWORD(lParam); 
+	int x = LOWORD(lParam);
 	int y = HIWORD(lParam);
 
-	int newAddress = yToAddress(y);
+	u32 newAddress = yToAddress(y);
+	bool extend = GetAsyncKeyState(VK_SHIFT) != 0;
 	if (button == 1)
 	{
 		if (newAddress == curAddress && hasFocus)
@@ -651,15 +652,28 @@ void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 			toggleBreakpoint();
 		}
 	}
+	else if (button == 2)
+	{
+		// Maintain the current selection if right clicking into it.
+		if (newAddress >= selectRangeStart && newAddress < selectRangeEnd)
+			extend = true;
+	}
+	setCurAddress(newAddress, extend);
 
-	curAddress = newAddress;
 	SetFocus(wnd);
 	redraw();
 }
 
 void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 {
-	if (button==2)
+	if (button == 1)
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		setCurAddress(yToAddress(y), GetAsyncKeyState(VK_SHIFT) != 0);
+		redraw();
+	}
+	else if (button == 2)
 	{
 		//popup menu?
 		POINT pt;
@@ -679,12 +693,20 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
 			{
-				char temp[256],opcode[64],arguments[256];
-				const char *dizz = debugger->disasm(curAddress, instructionSize);
-				parseDisasm(dizz,opcode,arguments);
-				sprintf(temp,"%s\t%s",opcode,arguments);
+				int space = 256 * (selectRangeEnd - selectRangeStart) / instructionSize;
+				char opcode[64], arguments[256];
+				char *temp = new char[space];
+
+				char *p = temp, *end = temp + space;
+				for (u32 pos = selectRangeStart; pos < selectRangeEnd; pos += instructionSize)
+				{
+					const char *dizz = debugger->disasm(pos, instructionSize);
+					parseDisasm(dizz, opcode, arguments);
+					p += snprintf(p, end - p, "%s\t%s\r\n", opcode, arguments);
+				}
 
 				W32Util::CopyTextToClipboard(wnd, temp);
+				delete [] temp;
 			}
 			break;
 		case ID_DISASM_COPYADDRESS:
@@ -703,9 +725,15 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			break;
 		case ID_DISASM_COPYINSTRUCTIONHEX:
 			{
-				char temp[24];
-				sprintf(temp,"%08X",debugger->readMemory(curAddress));
-				W32Util::CopyTextToClipboard(wnd,temp);
+				int space = 24 * (selectRangeEnd - selectRangeStart) / instructionSize;
+				char *temp = new char[space];
+
+				char *p = temp, *end = temp + space;
+				for (u32 pos = selectRangeStart; pos < selectRangeEnd; pos += instructionSize)
+					p += snprintf(p, end - p, "%08X\r\n", debugger->readMemory(pos));
+
+				W32Util::CopyTextToClipboard(wnd, temp);
+				delete [] temp;
 			}
 			break;
 		case ID_DISASM_RUNTOHERE:
@@ -748,11 +776,18 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 
 void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 {
-
+	if ((button & 1) != 0)
+	{
+		int x = LOWORD(lParam);
+		int y = HIWORD(lParam);
+		setCurAddress(yToAddress(y), GetAsyncKeyState(VK_SHIFT) != 0);
+		// TODO: Perhaps don't do this every time, but on a timer?
+		redraw();
+	}
 }	
 
 
-int CtrlDisAsmView::yToAddress(int y)
+u32 CtrlDisAsmView::yToAddress(int y)
 {
 	int line = y/rowHeight;
 	return windowStart + line*instructionSize;
