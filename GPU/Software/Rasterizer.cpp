@@ -647,6 +647,76 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				u32 new_color = Vec4<int>(prim_color_rgb.r(), prim_color_rgb.g(), prim_color_rgb.b(), prim_color_a).ToRGBA();
 				u32 old_color = GetPixelColor(p.x, p.y);
+
+				// TODO: Is alpha blending still performed if logic ops are enabled?
+				if (gstate.isLogicOpEnabled()) {
+					switch (gstate.getLogicOp()) {
+					case GE_LOGIC_CLEAR:
+						new_color = 0;
+						break;
+
+					case GE_LOGIC_AND:
+						new_color = new_color & old_color;
+						break;
+
+					case GE_LOGIC_AND_REVERSE:
+						new_color = new_color & ~old_color;
+						break;
+
+					case GE_LOGIC_COPY:
+						//new_color = new_color;
+						break;
+
+					case GE_LOGIC_AND_INVERTED:
+						new_color = ~new_color & old_color;
+						break;
+
+					case GE_LOGIC_NOOP:
+						new_color = old_color;
+						break;
+
+					case GE_LOGIC_XOR:
+						new_color = new_color ^ old_color;
+						break;
+
+					case GE_LOGIC_OR:
+						new_color = new_color | old_color;
+						break;
+
+					case GE_LOGIC_NOR:
+						new_color = ~(new_color | old_color);
+						break;
+
+					case GE_LOGIC_EQUIV:
+						new_color = ~(new_color ^ old_color);
+						break;
+
+					case GE_LOGIC_INVERTED:
+						new_color = ~old_color;
+						break;
+
+					case GE_LOGIC_OR_REVERSE:
+						new_color = new_color | ~old_color;
+						break;
+
+					case GE_LOGIC_COPY_INVERTED:
+						new_color = ~new_color;
+						break;
+
+					case GE_LOGIC_OR_INVERTED:
+						new_color = ~new_color | old_color;
+						break;
+
+					case GE_LOGIC_NAND:
+						new_color = ~(new_color & old_color);
+						break;
+
+					case GE_LOGIC_SET:
+						new_color = 0xFFFFFFFF;
+						break;
+					}
+				}
+
 				new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 
 				SetPixelColor(p.x, p.y, new_color);
