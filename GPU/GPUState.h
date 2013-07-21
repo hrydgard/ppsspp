@@ -211,6 +211,7 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
+	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
 	int FrameBufStride() const { return fbwidth&0x7C0; }
 	int DepthBufStride() const { return fbwidth&0x7C0; }
 

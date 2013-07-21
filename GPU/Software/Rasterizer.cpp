@@ -19,6 +19,7 @@
 #include "../GPUState.h"
 
 #include "Rasterizer.h"
+#include "Colors.h"
 
 extern u8* fb;
 extern u8* depthbuf;
@@ -51,53 +52,6 @@ static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int 
 					(tile_u % tiles_in_block_horizontal) + 
 					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
 	return tile_idx * tile_size_bits/8 + ((u % (tile_size_bits / texel_size_bits)));
-}
-
-static inline u32 DecodeRGBA4444(u16 src)
-{
-	u8 r = src & 0x0F;
-	u8 g = (src>>4) & 0x0F;
-	u8 b = (src>>8) & 0x0F;
-	u8 a = (src>>12) & 0x0F;
-	r = (r << 4) | r;
-	g = (g << 4) | g;
-	b = (b << 4) | b;
-	a = (a << 4) | a;
-	return (a << 24) | (b << 16) | (g << 8) | r;
-}
-
-static inline u32 DecodeRGBA5551(u16 src)
-{
-	u8 r = src & 0x1F;
-	u8 g = (src >> 5) & 0x1F;
-	u8 b = (src >> 10) & 0x1F;
-	u8 a = (src >> 15) & 0x1;
-	r = (r << 3) | (r >> 2);
-	g = (g << 3) | (g >> 2);
-	b = (b << 3) | (b >> 2);
-	a = (a) ? 0xff : 0;
-	return (a << 24) | (b << 16) | (g << 8) | r;
-}
-
-static inline u32 DecodeRGB565(u16 src)
-{
-	u8 r = src & 0x1F;
-	u8 g = (src >> 5) & 0x3F;
-	u8 b = (src >> 11) & 0x1F;
-	u8 a = 0xFF;
-	r = (r << 3) | (r >> 2);
-	g = (g << 2) | (g >> 4);
-	b = (b << 3) | (b >> 2);
-	return (a << 24) | (b << 16) | (g << 8) | r;
-}
-
-static inline u32 DecodeRGBA8888(u32 src)
-{
-	u8 r = src & 0xFF;
-	u8 g = (src >> 8) & 0xFF;
-	u8 b = (src >> 16) & 0xFF;
-	u8 a = (src >> 24) & 0xFF;
-	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
 static inline u32 LookupColor(unsigned int index, unsigned int level)
@@ -199,13 +153,41 @@ static inline u32 SampleNearest(int level, float s, float t)
 // NOTE: These likely aren't endian safe
 static inline u32 GetPixelColor(int x, int y)
 {
-	// TODO: Fix for other pixel formats!
-	return *(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()];
+	switch (gstate.FrameBufFormat()) {
+	case GE_FORMAT_565:
+		return DecodeRGB565(*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()]);
+
+	case GE_FORMAT_5551:
+		return DecodeRGBA5551(*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()]);
+
+	case GE_FORMAT_4444:
+		return DecodeRGBA4444(*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()]);
+
+	case GE_FORMAT_8888:
+		return *(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()];
+	}
+	return 0;
 }
 
 static inline void SetPixelColor(int x, int y, u32 value)
 {
-	*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = value;
+	switch (gstate.FrameBufFormat()) {
+	case GE_FORMAT_565:
+		*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()] = RGBA8888To565(value);
+		break;
+
+	case GE_FORMAT_5551:
+		*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()] = RGBA8888To5551(value);
+		break;
+
+	case GE_FORMAT_4444:
+		*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()] = RGBA8888To4444(value);
+		break;
+
+	case GE_FORMAT_8888:
+		*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = value;
+		break;
+	}
 }
 
 static inline u16 GetPixelDepth(int x, int y)
@@ -220,11 +202,13 @@ static inline void SetPixelDepth(int x, int y, u16 value)
 
 static inline u8 GetPixelStencil(int x, int y)
 {
+	// TODO: Fix for other pixel formats ?
 	return (((*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()]) & 0x80000000) != 0) ? 0xFF : 0;
 }
 
 static inline void SetPixelStencil(int x, int y, u8 value)
 {
+	// TODO: Fix for other pixel formats ?
 	*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = (*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] & ~0x80000000) | ((value&0x80)<<24);
 }
 

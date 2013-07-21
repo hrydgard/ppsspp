@@ -163,6 +163,7 @@
     <ClInclude Include="Math3D.h" />
     <ClInclude Include="Null\NullGpu.h" />
     <ClInclude Include="Software\Clipper.h" />
+    <ClInclude Include="Software\Colors.h" />
     <ClInclude Include="Software\Lighting.h" />
     <ClInclude Include="Software\Rasterizer.h" />
     <ClInclude Include="Software\SoftGpu.h" />

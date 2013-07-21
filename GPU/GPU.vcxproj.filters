@@ -68,6 +68,9 @@
     <ClInclude Include="GLES\TextureScaler.h">
       <Filter>GLES</Filter>
     </ClInclude>
+    <ClInclude Include="Software\Colors.h">
+      <Filter>Software</Filter>
+    </ClInclude>
     <ClInclude Include="Software\Clipper.h">
       <Filter>Software</Filter>
     </ClInclude>
