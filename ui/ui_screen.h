@@ -25,6 +25,7 @@ protected:
 	UI::ViewGroup *root_;
 
 private:
+	void DoRecreateViews();
 	bool recreateViews_;
 };
 

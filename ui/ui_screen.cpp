@@ -5,16 +5,19 @@
 
 UIScreen::UIScreen()
 	: Screen(), root_(0), recreateViews_(true) {
-
 }
 
-void UIScreen::update(InputState &input) {
+void UIScreen::DoRecreateViews() {
 	if (recreateViews_) {
 		delete root_;
 		root_ = 0;
 		CreateViews();
 		recreateViews_ = false;
 	}
+}
+
+void UIScreen::update(InputState &input) {
+	DoRecreateViews();
 
 	if (root_) {
 		UpdateViewHierarchy(input, root_);
@@ -24,6 +27,8 @@ void UIScreen::update(InputState &input) {
 }
 
 void UIScreen::render() {
+	DoRecreateViews();
+
 	if (root_) {
 		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
 
