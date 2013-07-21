@@ -22,8 +22,8 @@
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
 
-typedef PSPPointer<const char> PSPCharPointer;
-typedef PSPPointer<const u16> PSPWCharPointer;
+typedef PSPPointer<char> PSPCharPointer;
+typedef PSPPointer<u16> PSPWCharPointer;
 
 static u16 errorUTF8;
 static u16 errorUTF16;
@@ -133,22 +133,49 @@ int sceCccStrlenSJIS(u32 strAddr)
 	return ShiftJIS(str).length();
 }
 
-int sceCccEncodeUTF8(u32 dstAddr, u32 ucs)
+int sceCccEncodeUTF8(u32 dstAddrAddr, u32 ucs)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccEncodeUTF8(%08x, U+%04x)", dstAddr, ucs);
-	return 0;
+	PSPPointer<PSPCharPointer> dstp;
+	dstp = dstAddrAddr;
+
+	if (!dstp.IsValid() || !dstp->IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccEncodeUTF8(%08x, U+%04x): invalid pointer", dstAddrAddr, ucs);
+		return 0;
+	}
+	DEBUG_LOG(HLE, "sceCccEncodeUTF8(%08x, U+%04x)", dstAddrAddr, ucs);
+	*dstp += UTF8::encode(*dstp, ucs);
+	return dstp->ptr;
 }
 
-int sceCccEncodeUTF16(u32 dstAddr, u32 ucs)
+int sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccEncodeUTF8(%08x, U+%04x)", dstAddr, ucs);
-	return 0;
+	PSPPointer<PSPWCharPointer> dstp;
+	dstp = dstAddrAddr;
+
+	if (!dstp.IsValid() || !dstp->IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccEncodeUTF16(%08x, U+%04x): invalid pointer", dstAddrAddr, ucs);
+		return 0;
+	}
+	DEBUG_LOG(HLE, "sceCccEncodeUTF16(%08x, U+%04x)", dstAddrAddr, ucs);
+	*dstp += UTF16LE::encode(*dstp, ucs);
+	return dstp->ptr;
 }
 
-int sceCccEncodeSJIS(u32 dstAddr, u32 ucs)
+int sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceCccEncodeSJIS(%08x, U+%04x)", dstAddr, ucs);
-	return 0;
+	PSPPointer<PSPCharPointer> dstp;
+	dstp = dstAddrAddr;
+
+	if (!dstp.IsValid() || !dstp->IsValid())
+	{
+		ERROR_LOG(HLE, "sceCccEncodeSJIS(%08x, U+%04x): invalid pointer", dstAddrAddr, jis);
+		return 0;
+	}
+	DEBUG_LOG(HLE, "sceCccEncodeSJIS(%08x, U+%04x)", dstAddrAddr, jis);
+	*dstp += ShiftJIS::encode(*dstp, jis);
+	return dstp->ptr;
 }
 
 int sceCccDecodeUTF8(u32 dstAddrAddr)
