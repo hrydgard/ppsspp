@@ -17,10 +17,12 @@
 #include "base/basictypes.h"
 
 uint32_t u8_nextchar(const char *s, int *i);
+int u8_wc_toutf8(char *dest, uint32_t ch);
 int u8_strlen(const char *s);
 
 class UTF8 {
 public:
+	static const uint32_t INVALID = (uint32_t)-1;
 	UTF8(const char *c) : c_(c), index_(0) {}
 	bool end() const { return c_[index_] == 0; }
 	uint32_t next() {
@@ -28,6 +30,12 @@ public:
 	}
 	int length() const {
 		return u8_strlen(c_);
+	}
+	int byteIndex() const {
+		return index_;
+	}
+	static int encode(char *dest, uint32_t ch) {
+		return u8_wc_toutf8(dest, ch);
 	}
 
 private:
