@@ -237,6 +237,8 @@ struct GPUgstate
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
 	GETextureFormat getTextureFormat() const { return static_cast<GETextureFormat>(texformat & 0xF); }
+	// GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
+	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; }
 
 	int getTextureEnvColR() const { return texenvcolor&0xFF; }
 	int getTextureEnvColG() const { return (texenvcolor>>8)&0xFF; }
@@ -246,6 +248,8 @@ struct GPUgstate
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
 	int getClutIndexStartPos() const { return ((clutformat >> 16) & 0x1F) << 4; }
+	// Meaning, no special mask, shift, or start pos.
+	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
