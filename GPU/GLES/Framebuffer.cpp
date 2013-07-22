@@ -461,35 +461,21 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
 
-	// Find a matching framebuffer, same size or bigger
+	// Find a matching framebuffer
 	VirtualFramebuffer *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
-			// Okay, let's check the sizes. If the new one is bigger than the old one, recreate.
-			// If the opposite, just use it and hope that the game sets scissors accordingly.
-			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) {
-				// Let's not be so picky for now. Let's say this is the one.
-				vfb = v;
-				// Update fb stride in case it changed
-				vfb->fb_stride = fb_stride;
-				// Just hack the width/height and we should be fine. also hack renderwidth/renderheight?
-				// This hack gonna breaks Kingdom Heart and causing black bar on the left side.
+		if (MaskedEqual(v->fb_address, fb_address) &&  v->format == fmt) {
+			// Let's not be so picky for now. Let's say this is the one.
+			vfb = v;
+			// Update fb stride in case it changed
+			vfb->fb_stride = fb_stride;
+			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) { 
 				v->width = drawing_width;
 				v->height = drawing_height;
-				break;
-			} else {
-				INFO_LOG(HLE, "Embiggening framebuffer (%i, %i) -> (%i, %i)", (int)v->width, (int)v->height, drawing_width, drawing_height);
-				// drawing_width or drawing_height is bigger. Let's recreate with the max.
-				// To do this right we should copy the data over too, but meh.
-				buffer_width = std::max((int)v->width, drawing_width);
-				buffer_height = std::max((int)v->height, drawing_height);
-
-				DestroyFramebuf(v);
-				vfbs_.erase(vfbs_.begin() + i--);
-				break;
-			}
-		}
+			} 
+			break; 
+		} 
 	}
 
 	float renderWidthFactor = (float)PSP_CoreParameter().renderWidth / 480.0f;
