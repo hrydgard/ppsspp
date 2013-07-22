@@ -234,7 +234,7 @@ struct GPUgstate
 
 	// Texturing
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
-	int getTextureFunction() const { return texfunc & 0x7; }
+	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
 	GETextureFormat getTextureFormat() const { return static_cast<GETextureFormat>(texformat & 0xF); }
 
