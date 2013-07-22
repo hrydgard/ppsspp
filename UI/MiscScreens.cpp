@@ -69,6 +69,11 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 }
 
 NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
+	// Disable annoying encoding warning
+#ifdef _MSC_VER
+#pragma warning(disable:4566)
+#endif
+
 	langValuesMapping["ja_JP"] = std::make_pair("日本語", PSP_SYSTEMPARAM_LANGUAGE_JAPANESE);
 	langValuesMapping["en_US"] = std::make_pair("English",PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["fr_FR"] = std::make_pair("Français", PSP_SYSTEMPARAM_LANGUAGE_FRENCH);

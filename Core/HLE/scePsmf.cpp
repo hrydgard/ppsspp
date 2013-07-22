@@ -477,7 +477,7 @@ u32 scePsmfGetNumberOfSpecificStreams(u32 psmfStruct, int streamType)
 	WARN_LOG(HLE, "scePsmfGetNumberOfSpecificStreams(%08x, %08x)", psmfStruct, streamType);
 	int streamNum = 0;
 	int type = (streamType == PSMF_AUDIO_STREAM ? PSMF_ATRAC_STREAM : streamType);
-	for (int i = psmf->streamMap.size() - 1; i >= 0; i--) {
+	for (int i = (int)psmf->streamMap.size() - 1; i >= 0; i--) {
 		if (psmf->streamMap[i]->type == type)
 			streamNum++;
 	}
@@ -803,7 +803,7 @@ int _PsmfPlayerFillRingbuffer(PsmfPlayer *psmfplayer) {
 		size = std::min(psmfplayer->streamSize - psmfplayer->readSize, size);
 		if (size <= 0)
 			break;
-		size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, size);
+		size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, size);
 		psmfplayer->readSize += size;
 		psmfplayer->mediaengine->addStreamData(buf, size);
 	} while (size > 0);
@@ -822,7 +822,7 @@ int _PsmfPlayerSetPsmfOffset(PsmfPlayer *psmfplayer, const char * filename, int 
 			pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
 		u8* buf = psmfplayer->tempbuf;
 		u32 tempbufSize = sizeof(psmfplayer->tempbuf);
-		int size = pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
+		int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
 		int mpegoffset = bswap32(*(u32*)(buf + PSMF_STREAM_OFFSET_OFFSET));
 		psmfplayer->readSize = size - mpegoffset;
 		psmfplayer->streamSize = bswap32(*(u32*)(buf + PSMF_STREAM_SIZE_OFFSET));

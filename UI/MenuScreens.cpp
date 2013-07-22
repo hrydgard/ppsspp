@@ -1751,7 +1751,7 @@ void KeyMappingScreen::render() {
 	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Prev"), ALIGN_BOTTOMLEFT)) {
 		currentMap_--;
 		if (currentMap_ < 0)
-			currentMap_ = controllerMaps.size() - 1;
+			currentMap_ = (int)controllerMaps.size() - 1;
 	}
 	if (UIButton(GEN_ID, Pos(10 + 10 + LARGE_BUTTON_WIDTH, dp_yres-10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Next"), ALIGN_BOTTOMLEFT)) {
 		currentMap_++;

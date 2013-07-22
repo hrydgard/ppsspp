@@ -733,7 +733,7 @@ void TextureCache::StartFrame() {
 	}
 }
 
-static const u8 bitsPerPixel[11] = {
+static const u8 bitsPerPixel[16] = {
 	16,  //GE_TFMT_5650,
 	16,  //GE_TFMT_5551,
 	16,  //GE_TFMT_4444,
@@ -745,6 +745,11 @@ static const u8 bitsPerPixel[11] = {
 	4,   //GE_TFMT_DXT1,
 	8,   //GE_TFMT_DXT3,
 	8,   //GE_TFMT_DXT5,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
 };
 
 static inline u32 MiniHash(const u32 *ptr) {
@@ -783,7 +788,7 @@ static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 }
 
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
-	const u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h) / 8;
+	const u32 sizeInRAM = (bitsPerPixel[format] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
 
@@ -1136,7 +1141,7 @@ void TextureCache::SetTexture() {
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
-	entry->sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h / 2) / 8;
+	entry->sizeInRAM = (bitsPerPixel[format] * bufw * h / 2) / 8;
 
 	entry->fullhash = fullhash == 0 ? QuickTexHash(texaddr, bufw, w, h, format) : fullhash;
 	entry->cluthash = cluthash;
@@ -1355,7 +1360,6 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 				}
 			}
 			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 			w = (w + 3) & ~3;
 		}
 		break;
@@ -1378,11 +1382,10 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
-	case GE_TFMT_DXT5:  // These work fine now
+	case GE_TFMT_DXT5:
 		dstFmt = GL_UNSIGNED_BYTE;
 		{
 			int minw = std::min(bufw, w);
@@ -1400,7 +1403,6 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
-			ConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
@@ -1519,16 +1521,13 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
 
 	gpuStats.numTexturesDecoded++;
-	// Can restore these and remove the above fixup on some platforms.
+
+	// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
 	// glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 	// glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, texByteAlign);
 	glPixelStorei(GL_PACK_ALIGNMENT, texByteAlign);
-
-	// INFO_LOG(G3D, "Creating texture level %i/%i from %08x: %i x %i (stride: %i). fmt: %i", level, entry.maxLevel, texaddr, w, h, bufw, entry.format);
-
-	u32 *pixelData = (u32 *)finalBuf;
 
 	int scaleFactor = g_Config.iTexScalingLevel;
 
@@ -1536,6 +1535,7 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	if (entry.addr > 0x05000000 && entry.addr < 0x08800000)
 		scaleFactor = 1;
 
+	u32 *pixelData = (u32 *)finalBuf;
 	if (scaleFactor > 1 && entry.numInvalidated == 0) 
 		scaler.Scale(pixelData, dstFmt, w, h, scaleFactor);
 	// Or always?
@@ -1592,50 +1592,50 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	switch (dstFmt)
 	{
 	case GL_UNSIGNED_SHORT_4_4_4_4:
-		for(int x = 0; x < h; x++)
-			for(int y = 0; y < bufw; y++)
+		for(int y = 0; y < h; y++)
+			for(int x = 0; x < bufw; x++)
 			{
-				u32 val = ((u16*)finalBuf)[x*bufw + y];
+				u32 val = ((u16*)finalBuf)[y*bufw + x];
 				u32 r = ((val>>12) & 0xF) * 17;
 				u32 g = ((val>> 8) & 0xF) * 17;
 				u32 b = ((val>> 4) & 0xF) * 17;
 				u32 a = ((val>> 0) & 0xF) * 17;
-				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
+				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
 		break;
 
 	case GL_UNSIGNED_SHORT_5_5_5_1:
-		for(int x = 0; x < h; x++)
-			for(int y = 0; y < bufw; y++)
+		for(int y = 0; y < h; y++)
+			for(int x = 0; x < bufw; x++)
 			{
-				u32 val = ((u16*)finalBuf)[x*bufw + y];
+				u32 val = ((u16*)finalBuf)[y*bufw + x];
 				u32 r = Convert5To8((val>>11) & 0x1F);
 				u32 g = Convert5To8((val>> 6) & 0x1F);
 				u32 b = Convert5To8((val>> 1) & 0x1F);
 				u32 a = (val & 0x1) * 255;
-				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
+				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
 		break;
 
 	case GL_UNSIGNED_SHORT_5_6_5:
-		for(int x = 0; x < h; x++)
-			for(int y = 0; y < bufw; y++)
+		for(int y = 0; y < h; y++)
+			for(int x = 0; x < bufw; x++)
 			{
-				u32 val = ((u16*)finalBuf)[x*bufw + y];
+				u32 val = ((u16*)finalBuf)[y*bufw + x];
 				u32 a = 0xFF;
 				u32 r = Convert5To8((val>>11) & 0x1F);
 				u32 g = Convert6To8((val>> 5) & 0x3F);
 				u32 b = Convert5To8((val    ) & 0x1F);
-				((u32*)output)[x*w + y] = (a << 24) | (r << 16) | (g << 8) | b;
+				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
 			}
 		break;
 
 	default:
-		for(int x = 0; x < h; x++)
-			for(int y = 0; y < bufw; y++)
+		for(int y = 0; y < h; y++)
+			for(int x = 0; x < bufw; x++)
 			{
-				u32 val = ((u32*)finalBuf)[x*bufw + y];
-				((u32*)output)[x*w + y] = ((val & 0xFF000000)) | ((val & 0x00FF0000)>>16) | ((val & 0x0000FF00)) | ((val & 0x000000FF)<<16);
+				u32 val = ((u32*)finalBuf)[y*bufw + x];
+				((u32*)output)[y*w + x] = ((val & 0xFF000000)) | ((val & 0x00FF0000)>>16) | ((val & 0x0000FF00)) | ((val & 0x000000FF)<<16);
 			}
 		break;
 	}
