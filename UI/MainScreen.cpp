@@ -45,7 +45,7 @@ namespace MainWindow {
 class GameButton : public UI::Clickable {
 public:
 	GameButton(const std::string &gamePath, UI::LayoutParams *layoutParams = 0) 
-		: UI::Clickable(layoutParams), gamePath_(gamePath) {}
+		: UI::Clickable(layoutParams), gamePath_(gamePath), holdFrameCount_(0) {}
 
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -53,9 +53,30 @@ public:
 		h = 80;
 	}
 	const std::string &GamePath() const { return gamePath_; }
-	
+	virtual void Touch(const TouchInput &input) {
+		UI::Clickable::Touch(input);
+		if (input.flags & TOUCH_UP) {
+			holdFrameCount_ = 0;
+		}
+	}
+	virtual void Update(const InputState &input_state) {
+		if (down_)
+			holdFrameCount_++;
+		// Hold button for 1.5 seconds to launch the game directly
+		if (holdFrameCount_ > 90) {
+			UI::EventParams e;
+			e.v = this;
+			e.s = gamePath_;
+			OnHoldClick.Trigger(e);
+		}
+	}
+
+	UI::Event OnHoldClick;
+
 private:
 	std::string gamePath_;
+
+	int holdFrameCount_;
 };
 
 void GameButton::Draw(UIContext &dc) {
@@ -109,6 +130,11 @@ void GameButton::Draw(UIContext &dc) {
 	if (texture) {
 		dc.Draw()->Flush();
 		texture->Bind(0);
+		if (holdFrameCount_ > 60) {
+			// Blink before launching by holding
+			if (((holdFrameCount_ >> 3) & 1) == 0)
+				color = darkenColor(color);
+		}
 		dc.Draw()->DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
 		dc.RebindTexture();
@@ -209,6 +235,7 @@ public:
 	GameBrowser(std::string path, bool allowBrowsing, UI::LayoutParams *layoutParams = 0);
 
 	UI::Event OnChoice;
+	UI::Event OnHoldChoice;
 	
 	virtual void Update(const InputState &input_state) {
 		UI::GridLayout::Update(input_state);
@@ -218,6 +245,7 @@ private:
 	void Refresh();
 
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
+	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
 	UI::EventReturn NavigateClick(UI::EventParams &e);
 
 	PathBrowser path_;
@@ -268,7 +296,9 @@ void GameBrowser::Refresh() {
 	}
 
 	for (size_t i = 0; i < gameButtons.size(); i++) {
-		Add(gameButtons[i])->OnClick.Handle(this, &GameBrowser::GameButtonClick);
+		GameButton *b = Add(gameButtons[i]);
+		b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
+		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
 	}
 }
 
@@ -278,6 +308,15 @@ UI::EventReturn GameBrowser::GameButtonClick(UI::EventParams &e) {
 	e2.s = button->GamePath();
 	// Insta-update - here we know we are already on the right thread.
 	OnChoice.Trigger(e2);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::GameButtonHoldClick(UI::EventParams &e) {
+	GameButton *button = static_cast<GameButton *>(e.v);
+	UI::EventParams e2;
+	e2.s = button->GamePath();
+	// Insta-update - here we know we are already on the right thread.
+	OnHoldChoice.Trigger(e2);
 	return UI::EVENT_DONE;
 }
 
@@ -323,6 +362,9 @@ void MainScreen::CreateViews() {
 	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelected);
+	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameHoldSelected);
+	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameHoldSelected);
+	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameHoldSelected);
 
 /*
 	if (info) {
@@ -368,6 +410,12 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
 	screenManager()->push(new GameScreen(e.s));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnGameHoldSelected(UI::EventParams &e) {
+	// Go directly into the game.
+	screenManager()->switchScreen(new EmuScreen(e.s));
 	return UI::EVENT_DONE;
 }
 
