@@ -936,7 +936,7 @@ void GraphicsScreenP1::render() {
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Mipmapping"), ALIGN_TOPLEFT, &g_Config.bMipMap);
 	
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing)) 
+	UICheckBox(GEN_ID, x, y += stride, gs->T("AA", "Anti-Aliasing"), ALIGN_TOPLEFT, &g_Config.SSAntiAliasing);
 
 #ifdef _WIN32
 	//bool Vsync = g_Config.iVSyncInterval != 0;
