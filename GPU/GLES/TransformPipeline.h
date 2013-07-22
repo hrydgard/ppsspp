@@ -77,12 +77,9 @@ public:
 	u32 vbo;
 	u32 ebo;
 
-	// TODO: see if we can avoid having this full thing here.
-	DecVtxFormat decFmt;
-	
 	// Precalculated parameter for drawdrawElements
 	u16 numVerts;
-	u8 prim;
+	s8 prim;
 
 	// ID information
 	u8 numDCs;

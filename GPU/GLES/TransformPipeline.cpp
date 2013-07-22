@@ -1023,6 +1023,13 @@ void TransformDrawEngine::DecodeVerts() {
 			i = lastMatch;
 		}
 	}
+
+	// Sanity check
+	if (indexGen.Prim() < 0) {
+		ERROR_LOG(HLE, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
+		// Force to points (0)
+		indexGen.AddPrim(GE_PRIM_POINTS, 0);
+	}
 }
 
 u32 TransformDrawEngine::ComputeHash() {
@@ -1131,7 +1138,6 @@ void TransformDrawEngine::Flush() {
 				vai = iter->second;
 			} else {
 				vai = new VertexArrayInfo();
-				vai->decFmt = dec_->GetDecVtxFmt();
 				vai_[id] = vai;
 			}
 
@@ -1144,6 +1150,8 @@ void TransformDrawEngine::Flush() {
 					vai->status = VertexArrayInfo::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
+					vai->numVerts = indexGen.VertexCount();
+					vai->prim = indexGen.Prim();
 					goto rotateVBO;
 				}
 
