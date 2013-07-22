@@ -141,21 +141,21 @@ struct GPUgstate
 				texmode,              // 0xC2
 				texformat,            // 0xC3
 				loadclut,             // 0xC4
-				clutformat,
-				texfilter,
-				texwrap,
-				texlevel,
-				texfunc,
-				texenvcolor,
-				texflush,
-				texsync,
-				fog1,
-				fog2,
-				fogcolor,
-				texlodslope,
-				padxxxxxx,
-				framebufpixformat,
-				clearmode,
+				clutformat,           // 0xC5
+				texfilter,            // 0xC6
+				texwrap,              // 0xC7
+				texlevel,             // 0xC8
+				texfunc,              // 0xC9
+				texenvcolor,          // 0xCA
+				texflush,             // 0xCB
+				texsync,              // 0xCC
+				fog1,                 // 0xCD
+				fog2,                 // 0xCE
+				fogcolor,             // 0xCF
+				texlodslope,          // 0xD0
+				padxxxxxx,            // 0xD1
+				framebufpixformat,    // 0xD2
+				clearmode,            // 0xD3
 				scissor1,
 				scissor2,
 				minz,
@@ -174,7 +174,7 @@ struct GPUgstate
 				dith2,
 				dith3,
 				dith4,
-				lop,
+				lop,                  // 0xE6
 				zmsk,
 				pmskc,
 				pmska,
@@ -211,6 +211,10 @@ struct GPUgstate
 	bool isDitherEnabled() const { return ditherEnable & 1; }
 	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
+
+	u32 getColorMask() const { return (pmskc & 0xFFFFFF) | ((pmska & 0xFF) << 24); }
+	bool isLogicOpEnabled() const { return logicOpEnable & 1; }
+	GELogicOp getLogicOp() const { return static_cast<GELogicOp>(lop & 0xF); }
 
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
 	int getStencilTestFunction() const { return stenciltest & 0x7; }
