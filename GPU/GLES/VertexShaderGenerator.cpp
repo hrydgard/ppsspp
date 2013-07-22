@@ -54,7 +54,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool hasBones = (vertType & GE_VTYPE_WEIGHT_MASK) != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	memset(id->d, 0, sizeof(id->d));
 	id->d[0] = lmode & 1;
@@ -142,7 +142,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 #endif
 	const u32 vertType = gstate.vertType;
 
-	int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !useHWTransform;
