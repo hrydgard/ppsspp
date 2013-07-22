@@ -733,7 +733,7 @@ void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u
 		for (int i = 0; i < count; i++) {
 			if (ind8[i] > upperBound)
 				upperBound = ind8[i];
-			else if (ind8[i] < lowerBound)
+			if (ind8[i] < lowerBound)
 				lowerBound = ind8[i];
 		}
 	} else if (idx == GE_VTYPE_IDX_16BIT) {
@@ -741,7 +741,7 @@ void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u
 		for (int i = 0; i < count; i++) {
 			if (ind16[i] > upperBound)
 				upperBound = ind16[i];
-			else if (ind16[i] < lowerBound)
+			if (ind16[i] < lowerBound)
 				lowerBound = ind16[i];
 		}
 	} else {
