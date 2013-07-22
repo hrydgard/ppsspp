@@ -415,8 +415,7 @@ void LinkedShader::updateUniforms() {
 
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
-			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
-			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
+			if (gstate.isDirectionalLight(i)) {
 				// Prenormalize
 				float x = gstate_c.lightpos[i][0];
 				float y = gstate_c.lightpos[i][1];

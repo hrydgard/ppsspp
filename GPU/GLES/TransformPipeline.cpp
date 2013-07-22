@@ -276,11 +276,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	for (int l = 0; l < 4; l++)
 	{
 		// can we skip this light?
-		if ((gstate.lightEnable[l] & 1) == 0)
+		if (!gstate.isLightChanEnabled(l))
 			continue;
 
-		GELightComputation comp = (GELightComputation)(gstate.ltype[l] & 3);
-		GELightType type = (GELightType)((gstate.ltype[l] >> 8) & 3);
+		GELightType type = gstate.getLightType(l);
 		
 		Vec3 toLight(0,0,0);
 		Vec3 lightDir(0,0,0);
@@ -290,8 +289,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		else
 			toLight = Vec3(gstate_c.lightpos[l]) - pos;
 
-		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
-		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+		bool doSpecular = gstate.isUsingSpecularLight(l);
+		bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(l);
 		
 		float distanceToLight = toLight.Length();
 		float dot = 0.0f;
@@ -348,7 +347,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			}
 		}
 
-		if (gstate.lightEnable[l] & 1)
+		if (gstate.isLightChanEnabled(l))
 		{
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
 			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
@@ -922,7 +921,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	}
 
 	for (int i = 0; i < 4; i++) {
-		if (gstate.lightEnable[i] & 1)
+		if (gstate.isLightChanEnabled(i))
 			cost += 10;
 	}
 	if (gstate.getUVGenMode() != 0) {

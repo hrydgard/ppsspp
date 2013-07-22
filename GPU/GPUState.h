@@ -249,13 +249,15 @@ struct GPUgstate
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
-	bool isLightChanEnabled(int chan) const { return lightEnable[chan] & 1;}
-	bool isUsingPoweredDiffuseLight(int chan) const { return (ltype[chan] & 0x3) == 0x2; }
-	bool isUsingSpecularLight(int chan) const { return (ltype[chan] & 0x3) == 0x1 || (ltype[chan] & 0x3) == 0x2; }
+	bool isLightChanEnabled(int chan) const { return lightEnable[chan] & 1; }
+	GELightComputation getLightComputation(int chan) const { return static_cast<GELightComputation>(ltype[chan] & 0x3); }
+	bool isUsingPoweredDiffuseLight(int chan) const { return getLightComputation(chan) == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE; }
+	bool isUsingSpecularLight(int chan) const { return getLightComputation(chan) != GE_LIGHTCOMP_ONLYDIFFUSE; }
 	bool isUsingSecondaryColor() const { return lmode & 1; }
-	bool isDirectionalLight(int chan) const { return ((ltype[chan] & 0x30)>>8) == 0; }
-	bool isPointLight(int chan) const { return ((ltype[chan] & 0x30)>>8) == 1; }
-	bool isSpotLight(int chan) const { return ((ltype[chan] & 0x30)>>8) == 2; }
+	GELightType getLightType(int chan) const { return static_cast<GELightType>((ltype[chan] >> 8) & 3); }
+	bool isDirectionalLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_DIRECTIONAL; }
+	bool isPointLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_POINT; }
+	bool isSpotLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_SPOT; }
 
 	unsigned int getAmbientR() const { return ambientcolor&0xFF; }
 	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
