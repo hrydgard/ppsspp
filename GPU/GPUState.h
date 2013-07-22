@@ -217,11 +217,13 @@ struct GPUgstate
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	int getTextureFunction() const { return texfunc & 0x7; }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
+	GETextureFormat getTextureFormat() const { return static_cast<GETextureFormat>(texformat & 0xF); }
 
 	int getTextureEnvColR() const { return texenvcolor&0xFF; }
 	int getTextureEnvColG() const { return (texenvcolor>>8)&0xFF; }
 	int getTextureEnvColB() const { return (texenvcolor>>16)&0xFF; }
 
+	GEPaletteFormat getClutPaletteFormat() { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
 	int getClutIndexStartPos() const { return ((clutformat >> 16) & 0x1F) << 4; }

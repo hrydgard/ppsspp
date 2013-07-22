@@ -206,9 +206,9 @@ static u32 GetClutAddr() {
 }
 
 static u32 GetClutIndex(u32 index) {
-    const u32 clutBase = (gstate.clutformat & 0x1f0000) >> 12;
-    const u32 clutMask = (gstate.clutformat >> 8) & 0xff;
-    const u8 clutShift = (gstate.clutformat >> 2) & 0x1f;
+    const u32 clutBase = gstate.getClutIndexStartPos();
+    const u32 clutMask = gstate.getClutIndexMask();
+    const u8 clutShift = gstate.getClutIndexShift();
     return ((index >> clutShift) & clutMask) | clutBase;
 }
 
@@ -831,7 +831,7 @@ void TextureCache::LoadClut() {
 }
 
 void TextureCache::UpdateCurrentClut() {
-	const GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	const u32 clutBase = (gstate.clutformat & 0x1f0000) >> 12;
 	const u32 clutBaseBytes = clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
