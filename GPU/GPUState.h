@@ -113,14 +113,14 @@ struct GPUgstate
 				materialspecularcoef, // 0x5B
 				ambientcolor,         // 0x5C
 				ambientalpha,         // 0x5D
-				lmode,
-				ltype[4],
-				lpos[12],
-				ldir[12],
-				latt[12],
-				lconv[4],
-				lcutoff[4],
-				lcolor[12],
+				lmode,                // 0x5E
+				ltype[4],             // 0x5F-0x62
+				lpos[12],             // 0x63-0x6E
+				ldir[12],             // 0x6F-0x7A
+				latt[12],             // 0x7B-0x86
+				lconv[4],             // 0x87-0x8A
+				lcutoff[4],           // 0x8B-0x8E
+				lcolor[12],           // 0x8E-0x99
 				cullmode,
 				fbptr,
 				fbwidth,
@@ -212,9 +212,16 @@ struct GPUgstate
 	bool isDitherEnabled() const { return ditherEnable & 1; }
 	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
-	bool isLightingEnabled() const { return lightingEnable & 1; }
-	bool isUsingSecondaryColor() const { return lmode & 1; }
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
+
+	bool isLightingEnabled() const { return lightingEnable & 1; }
+	bool isLightChanEnabled(int chan) const { return lightEnable[chan] & 1;}
+	bool isUsingPoweredDiffuseLight(int chan) const { return (ltype[chan] & 0x3) == 0x2; }
+	bool isUsingSpecularLight(int chan) const { return (ltype[chan] & 0x3) == 0x1 || (ltype[chan] & 0x3) == 0x2; }
+	bool isUsingSecondaryColor() const { return lmode & 1; }
+	bool isDirectionalLight(int chan) const { return ((ltype[chan] & 0x30)>>8) == 0; }
+	bool isPointLight(int chan) const { return ((ltype[chan] & 0x30)>>8) == 1; }
+	bool isSpotLight(int chan) const { return ((ltype[chan] & 0x30)>>8) == 2; }
 
 	unsigned int getAmbientR() const { return ambientcolor&0xFF; }
 	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
@@ -226,9 +233,17 @@ struct GPUgstate
 	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
 	unsigned int getMaterialAmbientA() const { return materialalpha&0xFF; }
 
+	unsigned int getMaterialDiffuseR() const { return materialdiffuse&0xFF; }
+	unsigned int getMaterialDiffuseG() const { return (materialdiffuse>>8)&0xFF; }
+	unsigned int getMaterialDiffuseB() const { return (materialdiffuse>>16)&0xFF; }
+
 	unsigned int getMaterialEmissiveR() const { return materialemissive&0xFF; }
 	unsigned int getMaterialEmissiveG() const { return (materialemissive>>8)&0xFF; }
 	unsigned int getMaterialEmissiveB() const { return (materialemissive>>16)&0xFF; }
+
+	unsigned int getDiffuseColorR(int chan) const { return lcolor[1+chan*3]&0xFF; }
+	unsigned int getDiffuseColorG(int chan) const { return (lcolor[1+chan*3]>>8)&0xFF; }
+	unsigned int getDiffuseColorB(int chan) const { return (lcolor[1+chan*3]>>16)&0xFF; }
 
 	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
