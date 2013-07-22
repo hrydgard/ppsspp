@@ -25,11 +25,12 @@
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "Core/Config.h"
+#include "Common/CPUDetect.h"
 
 #include "native/ext/cityhash/city.h"
 
 #ifdef _M_SSE
-#include <xmmintrin.h>
+#include <smmintrin.h>
 #endif
 
 // If a texture hasn't been seen for this many frames, get rid of it.
@@ -785,23 +786,41 @@ static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 	u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
-	u32 check = 0x76057811;
+	u32 hash = 2246822519U;
 
-	//for (u32 i = 0; i < sizeInRAM / 8; ++i) {
+#ifdef _M_SSE
+	if(cpu_info.bSSE4_1 && (((u32)checkp)&0x0f)==0){
+		const __m128i mult = _mm_set_epi32(294499921, 131, 17161, 2248091);
+		const __m128i *p = (const __m128i *)checkp;
+		while(sizeInRAM >= 16){
+			__m128i data = _mm_load_si128(p++);
+			int data3 = _mm_extract_epi32(data, 3);
+			sizeInRAM -= 16;
+			data = _mm_insert_epi32(data, hash, 3);
+			data = _mm_mullo_epi32(data, mult);
+			data = _mm_hadd_epi32(data, data);
+			data = _mm_hadd_epi32(data, data);
+			hash = _mm_cvtsi128_si32(data);
+			hash += data3;
+		}
+	}
+#endif
+
 	while(sizeInRAM>=16){
-		check = check*131 + *checkp++;
-		check = check*131 + *checkp++;
-		check = check*131 + *checkp++;
-		check = check*131 + *checkp++;
+		hash = hash*131 + checkp[0];
+		hash = hash*131 + checkp[1];
+		hash = hash*131 + checkp[2];
+		hash = hash*131 + checkp[3];
 		sizeInRAM -= 16;
+		checkp += 4;
 	}
 
 	while(sizeInRAM){
-		check = check*131 + *checkp++;
-		sizeInRAM -= 1;
+		hash = hash*131 + *checkp++;
+		sizeInRAM -= 4;
 	}
 
-	return check;
+	return hash;
 }
 
 inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLevel2) {
