@@ -273,7 +273,7 @@ UI::ViewGroup *CreatePadLayout(bool *pause) {
 	const int circleX = 40 * scale;
 	const int circleY = 120 * scale;
 
-	const int startX = 170 * scale;
+	const int startX = 320 * scale;
 	const int leftX = 40 * scale;
 	const int leftY = (g_Config.bShowAnalogStick ? 250 : 120) * scale;
 	const int stickX = leftX + arrow_spacing;
