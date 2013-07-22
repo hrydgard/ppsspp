@@ -241,9 +241,21 @@ struct GPUgstate
 	unsigned int getMaterialEmissiveG() const { return (materialemissive>>8)&0xFF; }
 	unsigned int getMaterialEmissiveB() const { return (materialemissive>>16)&0xFF; }
 
+	unsigned int getMaterialSpecularR() const { return materialspecular&0xFF; }
+	unsigned int getMaterialSpecularG() const { return (materialspecular>>8)&0xFF; }
+	unsigned int getMaterialSpecularB() const { return (materialspecular>>16)&0xFF; }
+
+	unsigned int getLightAmbientColorR(int chan) const { return lcolor[chan*3]&0xFF; }
+	unsigned int getLightAmbientColorG(int chan) const { return (lcolor[chan*3]>>8)&0xFF; }
+	unsigned int getLightAmbientColorB(int chan) const { return (lcolor[chan*3]>>16)&0xFF; }
+
 	unsigned int getDiffuseColorR(int chan) const { return lcolor[1+chan*3]&0xFF; }
 	unsigned int getDiffuseColorG(int chan) const { return (lcolor[1+chan*3]>>8)&0xFF; }
 	unsigned int getDiffuseColorB(int chan) const { return (lcolor[1+chan*3]>>16)&0xFF; }
+
+	unsigned int getSpecularColorR(int chan) const { return lcolor[2+chan*3]&0xFF; }
+	unsigned int getSpecularColorG(int chan) const { return (lcolor[2+chan*3]>>8)&0xFF; }
+	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
 
 	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
