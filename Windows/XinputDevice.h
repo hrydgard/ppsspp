@@ -1,12 +1,13 @@
 #pragma once
+
 #include "InputDevice.h"
 #include "Xinput.h"
 
-class XinputDevice :
-	public InputDevice
-{
+
+class XinputDevice : public InputDevice {
 public:
 	XinputDevice();
+	~XinputDevice();
 	virtual int UpdateState(InputState &input_state);
 	virtual bool IsPad() { return true; }
 private:
@@ -16,4 +17,3 @@ private:
 	XINPUT_STATE prevState;
 	u32 prevButtons;
 };
-

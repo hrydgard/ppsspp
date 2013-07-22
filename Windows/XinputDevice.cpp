@@ -1,4 +1,5 @@
 ﻿#include <limits.h>
+
 #include "base/NativeApp.h"
 #include "Core/Config.h"
 #include "input/input_state.h"
@@ -6,10 +7,70 @@
 #include "XinputDevice.h"
 #include "ControlMapping.h"
 
+// Utilities to dynamically load XInput. Adapted from SDL.
+
+typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
+typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
+typedef DWORD (WINAPI *XInputGetCapabilities_t) (DWORD dwUserIndex, DWORD dwFlags, XINPUT_CAPABILITIES* pCapabilities);
+
+XInputGetState_t PPSSPP_XInputGetState = NULL;
+XInputSetState_t PPSSPP_XInputSetState = NULL;
+XInputGetCapabilities_t PPSSPP_XInputGetCapabilities = NULL;
+static DWORD PPSSPP_XInputVersion = 0;
+static HMODULE s_pXInputDLL = 0;
+static int s_XInputDLLRefCount = 0;
+
+static void UnloadXInputDLL();
+
+static int LoadXInputDLL() {
+	DWORD version = 0;
+
+	if (s_pXInputDLL) {
+		s_XInputDLLRefCount++;
+		return 0;  /* already loaded */
+	}
+
+	version = (1 << 16) | 4;
+	s_pXInputDLL = LoadLibrary( "XInput1_4.dll" );  // 1.4 Ships with Windows 8.
+	if (!s_pXInputDLL) {
+		version = (1 << 16) | 3;
+		s_pXInputDLL = LoadLibrary( "XInput1_3.dll" );  // 1.3 Ships with Vista and Win7, can be installed as a restributable component.
+	}
+	if (!s_pXInputDLL) {
+		return -1;
+	}
+
+	PPSSPP_XInputVersion = version;
+	s_XInputDLLRefCount = 1;
+
+	/* 100 is the ordinal for _XInputGetStateEx, which returns the same struct as XinputGetState, but with extra data in wButtons for the guide button, we think... */
+	PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, (LPCSTR)100 );
+	PPSSPP_XInputSetState = (XInputSetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputSetState" );
+	PPSSPP_XInputGetCapabilities = (XInputGetCapabilities_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputGetCapabilities" );
+	if ( !PPSSPP_XInputGetState || !PPSSPP_XInputSetState || !PPSSPP_XInputGetCapabilities ) {
+		UnloadXInputDLL();
+		return -1;
+	}
+
+	return 0;
+}
+
+static void UnloadXInputDLL() {
+	if ( s_pXInputDLL ) {
+		if (--s_XInputDLLRefCount == 0) {
+			FreeLibrary( s_pXInputDLL );
+			s_pXInputDLL = NULL;
+		}
+	}
+}
 
 #ifndef XUSER_MAX_COUNT
 #define XUSER_MAX_COUNT 4
 #endif
+
+// Undocumented. Steam annoyingly grabs this button though....
+#define XINPUT_GUIDE_BUTTON 0x400
+
 
 // Permanent map. Actual mapping happens elsewhere.
 static const struct {int from, to;} xinput_ctrl_map[] = {
@@ -29,14 +90,22 @@ static const struct {int from, to;} xinput_ctrl_map[] = {
 	{XINPUT_GAMEPAD_DPAD_DOWN,      KEYCODE_DPAD_DOWN},
 	{XINPUT_GAMEPAD_DPAD_LEFT,      KEYCODE_DPAD_LEFT},
 	{XINPUT_GAMEPAD_DPAD_RIGHT,     KEYCODE_DPAD_RIGHT},
+	{XINPUT_GUIDE_BUTTON,           KEYCODE_HOME},
 };
 
 static const unsigned int xinput_ctrl_map_size = sizeof(xinput_ctrl_map) / sizeof(xinput_ctrl_map[0]);
 
 XinputDevice::XinputDevice() {
+	if (LoadXInputDLL() != 0) {
+		ERROR_LOG(HLE, "Failed to load XInput! DLL missing");
+	}
 	ZeroMemory( &this->prevState, sizeof(this->prevState) );
 	this->check_delay = 0;
 	this->gamepad_idx = -1;
+}
+
+XinputDevice::~XinputDevice() {
+	UnloadXInputDLL();
 }
 
 struct Stick {
@@ -52,11 +121,11 @@ int XinputDevice::UpdateState(InputState &input_state) {
 
 	DWORD dwResult;
 	if (this->gamepad_idx >= 0)
-		dwResult = XInputGetState( this->gamepad_idx, &state );
+		dwResult = PPSSPP_XInputGetState( this->gamepad_idx, &state );
 	else {
 		// use the first gamepad that responds
 		for (int i = 0; i < XUSER_MAX_COUNT; i++) {
-			dwResult = XInputGetState( i, &state );
+			dwResult = PPSSPP_XInputGetState( i, &state );
 			if (dwResult == ERROR_SUCCESS) {
 				this->gamepad_idx = i;
 				break;

@@ -117,7 +117,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>XInput.lib;Winmm.lib;Ws2_32.lib;opengl32.lib;..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avdevice.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;glu32.lib;comctl32.lib;dsound.lib;xinput.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avdevice.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;glu32.lib;comctl32.lib;dsound.lib;xinput.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <TargetMachine>MachineX86</TargetMachine>
@@ -150,7 +150,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>XInput.lib;Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avdevice.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avdevice.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -184,7 +184,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>XInput.lib;Winmm.lib;Ws2_32.lib;opengl32.lib;..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avdevice.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;dsound.lib;glu32.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;..\ffmpeg\Windows\x86\lib\avcodec.lib;..\ffmpeg\Windows\x86\lib\avdevice.lib;..\ffmpeg\Windows\x86\lib\avformat.lib;..\ffmpeg\Windows\x86\lib\avutil.lib;..\ffmpeg\Windows\x86\lib\swresample.lib;..\ffmpeg\Windows\x86\lib\swscale.lib;dsound.lib;glu32.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -225,7 +225,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>XInput.lib;Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avdevice.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avdevice.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
