@@ -209,6 +209,7 @@ struct GLExtensions {
 	bool FBO_EXT;
 	bool EXT_swap_control_tear;
 	bool QCOM_alpha_test;
+	bool OES_mapbuffer;
 };
 
 extern GLExtensions gl_extensions;

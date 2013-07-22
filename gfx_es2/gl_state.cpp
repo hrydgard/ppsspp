@@ -76,7 +76,9 @@ void CheckGLExtensions() {
 	gl_extensions.OES_packed_depth_stencil = strstr(extString, "GL_OES_packed_depth_stencil") != 0;
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
+	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
 	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
+
 
 	// TODO: Change to USING_GLES2 if it works on those other platforms too
 #ifdef ANDROID
