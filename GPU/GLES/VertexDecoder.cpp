@@ -731,18 +731,18 @@ void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u
 	if (idx == GE_VTYPE_IDX_8BIT) {
 		const u8 *ind8 = (const u8 *)inds;
 		for (int i = 0; i < count; i++) {
-			if (ind8[i] < lowerBound)
-				lowerBound = ind8[i];
 			if (ind8[i] > upperBound)
 				upperBound = ind8[i];
+			else if (ind8[i] < lowerBound)
+				lowerBound = ind8[i];
 		}
 	} else if (idx == GE_VTYPE_IDX_16BIT) {
 		const u16 *ind16 = (const u16*)inds;
 		for (int i = 0; i < count; i++) {
-			if (ind16[i] < lowerBound)
-				lowerBound = ind16[i];
 			if (ind16[i] > upperBound)
 				upperBound = ind16[i];
+			else if (ind16[i] < lowerBound)
+				lowerBound = ind16[i];
 		}
 	} else {
 		lowerBound = 0;
@@ -754,14 +754,16 @@ void GetIndexBounds(void *inds, int count, u32 vertType, u16 *indexLowerBound, u
 
 void VertexDecoder::DecodeVerts(u8 *decodedptr, const void *verts, int indexLowerBound, int indexUpperBound) const {
 	// Decode the vertices within the found bounds, once each
-	decoded_ = decodedptr;  // + lowerBound * decFmt.stride;
+	// decoded_ and ptr_ are used in the steps, so can't be turned into locals for speed.
+	decoded_ = decodedptr;
 	ptr_ = (const u8*)verts + indexLowerBound * size;
+	int stride = decFmt.stride;
 	for (int index = indexLowerBound; index <= indexUpperBound; index++) {
 		for (int i = 0; i < numSteps_; i++) {
 			((*this).*steps_[i])();
 		}
 		ptr_ += size;
-		decoded_ += decFmt.stride;
+		decoded_ += stride;
 	}
 }
 
