@@ -215,12 +215,12 @@ struct GPUgstate
 	GELogicOp getLogicOp() const { return static_cast<GELogicOp>(lop & 0xF); }
 
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
-	int getStencilTestFunction() const { return stenciltest & 0x7; }
+	GEComparison getStencilTestFunction() const { return static_cast<GEComparison>(stenciltest & 0x7); }
 	int getStencilTestRef() const { return (stenciltest>>8) & 0xFF; }
 	int getStencilTestMask() const { return (stenciltest>>16) & 0xFF; }
-	int getStencilOpSFail() const { return stencilop & 0x7; }
-	int getStencilOpZFail() const { return (stencilop>>8) & 0x7; }
-	int getStencilOpZPass() const { return (stencilop>>16) & 0x7; }
+	GEStencilOp getStencilOpSFail() const { return static_cast<GEStencilOp>(stencilop & 0x7); }
+	GEStencilOp getStencilOpZFail() const { return static_cast<GEStencilOp>((stencilop>>8) & 0x7); }
+	GEStencilOp getStencilOpZPass() const { return static_cast<GEStencilOp>((stencilop>>16) & 0x7); }
 
 	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
 	GEComparison getAlphaTestFunction() { return static_cast<GEComparison>(alphatest & 0x7); }
