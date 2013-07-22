@@ -27,6 +27,7 @@
 #include "UI/MiscScreens.h"
 #include "Core/Config.h"
 #include "android/jni/TestRunner.h"
+#include "GPU/GPUInterface.h"
 
 namespace UI {
 
@@ -198,7 +199,6 @@ void GameSettingsScreen::CreateViews() {
 	"Read Framebuffers To Memory(GPU)"
 	};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
-
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));

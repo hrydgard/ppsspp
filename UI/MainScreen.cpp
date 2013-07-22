@@ -34,7 +34,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
-
+#include "GPU/GPUInterface.h"
 
 #ifdef _WIN32
 namespace MainWindow {
@@ -468,6 +468,7 @@ UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
 
 UI::EventReturn GamePauseScreen::OnContinue(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_CANCEL);
+	if (gpu) gpu->Resized();
 	return UI::EVENT_DONE;
 }
 

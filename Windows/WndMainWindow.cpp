@@ -220,6 +220,7 @@ namespace MainWindow
 
 	void setRenderingMode(int num) {
 		g_Config.iRenderingMode = num;
+		if (gpu) gpu->Resized();
 	}
 
 	void setFpsLimit(int fps) {
@@ -734,11 +735,11 @@ namespace MainWindow
 				setRenderingMode(1);
 				break;
 
-			case ID_OPTIONS_READFBOTOMEMORYGPU:
+			case ID_OPTIONS_READFBOTOMEMORYCPU:
 				setRenderingMode(2);
 				break;
 
-			case ID_OPTIONS_READFBOTOMEMORYCPU:
+			case ID_OPTIONS_READFBOTOMEMORYGPU:
 				setRenderingMode(3);
 				break;
 
@@ -1105,8 +1106,8 @@ namespace MainWindow
 		static const int renderingmode[] = {
 			ID_OPTIONS_NONBUFFEREDRENDERING,
 			ID_OPTIONS_BUFFEREDRENDERING,
-			ID_OPTIONS_READFBOTOMEMORYGPU,
 			ID_OPTIONS_READFBOTOMEMORYCPU,
+			ID_OPTIONS_READFBOTOMEMORYGPU,
 		};
 		for (int i = 0; i < 4; i++) {
 			CheckMenuItem(menu, renderingmode[i], MF_BYCOMMAND | ( i == g_Config.iRenderingMode )? MF_CHECKED : MF_UNCHECKED);
