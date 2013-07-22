@@ -120,27 +120,27 @@ struct GPUgstate
 				latt[12],             // 0x7B-0x86
 				lconv[4],             // 0x87-0x8A
 				lcutoff[4],           // 0x8B-0x8E
-				lcolor[12],           // 0x8E-0x99
-				cullmode,
-				fbptr,
-				fbwidth,
-				zbptr,
-				zbwidth,
-				texaddr[8],
-				texbufwidth[8],
-				clutaddr,
-				clutaddrupper,
-				transfersrc,
-				transfersrcw,
-				transferdst,
-				transferdstw,
+				lcolor[12],           // 0x8F-0x9A
+				cullmode,             // 0x9B
+				fbptr,                // 0x9C
+				fbwidth,              // 0x9D
+				zbptr,                // 0x9E
+				zbwidth,              // 0x9F
+				texaddr[8],           // 0xA0-0xA7
+				texbufwidth[8],       // 0xA8-0xAF
+				clutaddr,             // 0xB0
+				clutaddrupper,        // 0xB1
+				transfersrc,          // 0xB2
+				transfersrcw,         // 0xB3
+				transferdst,          // 0xB4
+				transferdstw,         // 0xB5
 				padxxx[2],
-				texsize[8],
-				texmapmode,
-				texshade,
-				texmode,
-				texformat,
-				loadclut,
+				texsize[8],           // 0xB8-BF
+				texmapmode,           // 0xC0
+				texshade,             // 0xC1
+				texmode,              // 0xC2
+				texformat,            // 0xC3
+				loadclut,             // 0xC4
 				clutformat,
 				texfilter,
 				texwrap,
@@ -221,6 +221,10 @@ struct GPUgstate
 	int getTextureEnvColR() const { return texenvcolor&0xFF; }
 	int getTextureEnvColG() const { return (texenvcolor>>8)&0xFF; }
 	int getTextureEnvColB() const { return (texenvcolor>>16)&0xFF; }
+
+	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
+	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
+	int getClutIndexStartPos() const { return ((clutformat >> 16) & 0x1F) << 4; }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
