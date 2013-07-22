@@ -78,41 +78,41 @@ struct GPUgstate
 				patchfacing,
 				pad04_a,
 
-				worldmtxnum,  //0x3A
-				worldmtxdata,  //0x3B
-				viewmtxnum,	 //0x3C
-				viewmtxdata,
-				projmtxnum,
-				projmtxdata,
-				texmtxnum,
-				texmtxdata,
+				worldmtxnum,  // 0x3A
+				worldmtxdata, // 0x3B
+				viewmtxnum,   // 0x3C
+				viewmtxdata,  // 0x3D
+				projmtxnum,   // 0x3E
+				projmtxdata,  // 0x3F
+				texmtxnum,    // 0x40
+				texmtxdata,   // 0x41
 
-				viewportx1,
-				viewporty1,
-				viewportz1,
-				viewportx2,
-				viewporty2,
-				viewportz2,
-				texscaleu,
-				texscalev,
-				texoffsetu,
-				texoffsetv,
-				offsetx,
-				offsety,
+				viewportx1,           // 0x42
+				viewporty1,           // 0x43
+				viewportz1,           // 0x44
+				viewportx2,           // 0x45
+				viewporty2,           // 0x46
+				viewportz2,           // 0x47
+				texscaleu,            // 0x48
+				texscalev,            // 0x49
+				texoffsetu,           // 0x4A
+				texoffsetv,           // 0x4B
+				offsetx,              // 0x4C
+				offsety,              // 0x4D
 				pad111[2],
-				shademodel,
-				reversenormals,
+				shademodel,           // 0x50
+				reversenormals,       // 0x51
 				pad222,
-				materialupdate,
-				materialemissive,
-				materialambient,
-				materialdiffuse,
-				materialspecular,
-				materialalpha,
+				materialupdate,       // 0x53
+				materialemissive,     // 0x54
+				materialambient,      // 0x55
+				materialdiffuse,      // 0x56
+				materialspecular,     // 0x57
+				materialalpha,        // 0x58
 				pad333[2],
-				materialspecularcoef,
-				ambientcolor,
-				ambientalpha,
+				materialspecularcoef, // 0x5B
+				ambientcolor,         // 0x5C
+				ambientalpha,         // 0x5D
 				lmode,
 				ltype[4],
 				lpos[12],
@@ -213,7 +213,22 @@ struct GPUgstate
 	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
 	bool isLightingEnabled() const { return lightingEnable & 1; }
+	bool isUsingSecondaryColor() const { return lmode & 1; }
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
+
+	unsigned int getAmbientR() const { return ambientcolor&0xFF; }
+	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
+	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
+	unsigned int getAmbientA() const { return ambientalpha&0xFF; }
+
+	unsigned int getMaterialAmbientR() const { return materialambient&0xFF; }
+	unsigned int getMaterialAmbientG() const { return (materialambient>>8)&0xFF; }
+	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
+	unsigned int getMaterialAmbientA() const { return materialalpha&0xFF; }
+
+	unsigned int getMaterialEmissiveR() const { return materialemissive&0xFF; }
+	unsigned int getMaterialEmissiveG() const { return (materialemissive>>8)&0xFF; }
+	unsigned int getMaterialEmissiveB() const { return (materialemissive>>16)&0xFF; }
 
 	// UV gen
 	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
