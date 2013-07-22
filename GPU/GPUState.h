@@ -207,11 +207,18 @@ struct GPUgstate
 	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
 	int getDepthTestFunc() const { return ztestfunc & 0x7; }
 	bool isFogEnabled() const { return fogEnable & 1; }
-	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
 	bool isDitherEnabled() const { return ditherEnable & 1; }
 	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
+
+	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
+	int getStencilTestFunction() const { return stenciltest & 0x7; }
+	int getStencilTestRef() const { return (stenciltest>>8) & 0xFF; }
+	int getStencilTestMask() const { return (stenciltest>>16) & 0xFF; }
+	int getStencilOpSFail() const { return stencilop & 0x7; }
+	int getStencilOpZFail() const { return (stencilop>>8) & 0x7; }
+	int getStencilOpZPass() const { return (stencilop>>16) & 0x7; }
 
 	// Texturing
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
