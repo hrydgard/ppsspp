@@ -117,7 +117,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged) {
-		if (gstate.textureMapEnable & 1) {
+		if (gstate.isTextureMapEnabled()) {
 			textureCache_->SetTexture();
 		}
 		gstate_c.textureChanged = false;
@@ -267,12 +267,12 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Stencil Test
 		if (gstate.isStencilTestEnabled()) {
 			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(ztests[gstate.stenciltest & 0x7],// comparison function
-				(gstate.stenciltest >> 8) & 0xFF,  // reference value
-				(gstate.stenciltest >> 16) & 0xFF);  // mask
-			glstate.stencilOp.set(stencilOps[gstate.stencilop & 0x7],  // stencil fail
-				stencilOps[(gstate.stencilop >> 8) & 0x7],  // depth fail
-				stencilOps[(gstate.stencilop >> 16) & 0x7]); // depth pass
+			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
+				gstate.getStencilTestRef(),
+				gstate.getStencilTestMask());
+			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
+				stencilOps[gstate.getStencilOpZFail()],  // depth fail
+				stencilOps[gstate.getStencilOpZPass()]); // depth pass
 		} else 
 			glstate.stencilTest.disable();
 		

@@ -301,7 +301,7 @@ void LinkedShader::updateUniforms() {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
 	if (u_alphacolorref != -1 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
-		SetColorUniform3Alpha255(u_alphacolorref, gstate.colorref, (gstate.alphatest >> 8) & 0xFF);
+		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
 	if (u_colormask != -1 && (dirtyUniforms & DIRTY_COLORMASK)) {
 		SetColorUniform3(u_colormask, gstate.colormask);
@@ -398,10 +398,10 @@ void LinkedShader::updateUniforms() {
 
 	// Lighting
 	if (u_ambient != -1 && (dirtyUniforms & DIRTY_AMBIENT)) {
-		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.ambientalpha & 0xFF);
+		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.getAmbientA());
 	}
 	if (u_matambientalpha != -1 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
-		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.materialalpha & 0xFF);
+		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (u_matdiffuse != -1 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
 		SetColorUniform3(u_matdiffuse, gstate.materialdiffuse);
@@ -415,8 +415,7 @@ void LinkedShader::updateUniforms() {
 
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
-			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
-			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
+			if (gstate.isDirectionalLight(i)) {
 				// Prenormalize
 				float x = gstate_c.lightpos[i][0];
 				float y = gstate_c.lightpos[i][1];
