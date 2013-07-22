@@ -944,7 +944,7 @@ void GraphicsScreenP1::render() {
 	//g_Config.iVSyncInterval = Vsync ? 1 : 0;
 	//UICheckBox(GEN_ID, x, y += stride, gs->T("Fullscreen"), ALIGN_TOPLEFT, &g_Config.bFullScreen);
 #endif
-	y+=20;
+	y+=10;
 
 	bool nonrendering = g_Config.iRenderingMode == 0;
 	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Non-Buffered Rendering"), ALIGN_TOPLEFT, &nonrendering))
@@ -955,11 +955,11 @@ void GraphicsScreenP1::render() {
 	g_Config.iRenderingMode = rendering ? 1 : 0;
 
 	bool useFBO = g_Config.iRenderingMode == 2;
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (CPU)"), ALIGN_TOPLEFT, &useFBO))
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (GPU)"), ALIGN_TOPLEFT, &useFBO))
 	g_Config.iRenderingMode = useFBO ? 2 : 0;
 
 	bool useCPU = g_Config.iRenderingMode == 3;
-	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (GPU)"), ALIGN_TOPLEFT, &useCPU))
+	if (UICheckBox(GEN_ID, x, y += stride, gs->T("Read Framebuffers to Memory (CPU)"), ALIGN_TOPLEFT, &useCPU))
 	g_Config.iRenderingMode = useCPU ? 3 : 0;
 	
 	UIEnd();
