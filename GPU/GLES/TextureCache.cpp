@@ -206,9 +206,9 @@ static u32 GetClutAddr() {
 }
 
 static u32 GetClutIndex(u32 index) {
-    const u32 clutBase = (gstate.clutformat & 0x1f0000) >> 12;
-    const u32 clutMask = (gstate.clutformat >> 8) & 0xff;
-    const u8 clutShift = (gstate.clutformat >> 2) & 0x1f;
+    const u32 clutBase = gstate.getClutIndexStartPos();
+    const u32 clutMask = gstate.getClutIndexMask();
+    const u8 clutShift = gstate.getClutIndexShift();
     return ((index >> clutShift) & clutMask) | clutBase;
 }
 
@@ -283,7 +283,7 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u
 template <typename IndexT, typename ClutT>
 inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const ClutT *clut) {
 	// Usually, there is no special offset, mask, or shift.
-	const bool nakedIndex = (gstate.clutformat & ~3) == 0xC500FF00;
+	const bool nakedIndex = gstate.isClutIndexSimple();
 
 	if (nakedIndex) {
 		if (sizeof(IndexT) == 1) {
@@ -311,7 +311,7 @@ inline void DeIndexTexture(ClutT *dest, const u32 texaddr, int length, const Clu
 template <typename ClutT>
 inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const ClutT *clut) {
 	// Usually, there is no special offset, mask, or shift.
-	const bool nakedIndex = (gstate.clutformat & ~3) == 0xC500FF00;
+	const bool nakedIndex = gstate.isClutIndexSimple();
 
 	if (nakedIndex) {
 		for (int i = 0; i < length; i += 2) {
@@ -367,7 +367,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
 	int length = bufw * h;
 	void *buf = NULL;
-	switch ((gstate.clutformat & 3)) {
+	switch (gstate.getClutPaletteFormat()) {
 	case GE_CMODE_16BIT_BGR5650:
 	case GE_CMODE_16BIT_ABGR5551:
 	case GE_CMODE_16BIT_ABGR4444:
@@ -782,7 +782,7 @@ static inline u32 QuickClutHash(const u8 *clut, u32 bytes) {
 	return hash;
 }
 
-static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
+static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat format) {
 	const u32 sizeInRAM = (bitsPerPixel[format < 11 ? format : 0] * bufw * h) / 8;
 	const u32 *checkp = (const u32 *) Memory::GetPointer(addr);
 	u32 check = 0;
@@ -831,8 +831,8 @@ void TextureCache::LoadClut() {
 }
 
 void TextureCache::UpdateCurrentClut() {
-	const GEPaletteFormat clutFormat = (GEPaletteFormat)(gstate.clutformat & 3);
-	const u32 clutBase = (gstate.clutformat & 0x1f0000) >> 12;
+	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	const u32 clutBase = gstate.getClutIndexStartPos();
 	const u32 clutBaseBytes = clutBase * (clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16));
 	// Technically, these extra bytes weren't loaded, but hopefully it was loaded earlier.
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
@@ -853,7 +853,7 @@ void TextureCache::UpdateCurrentClut() {
 	// Special optimization: fonts typically draw clut4 with just alpha values in a single color.
 	clutAlphaLinear_ = false;
 	clutAlphaLinearColor_ = 0;
-	if (gstate.clutformat == (0xC500FF00 | GE_CMODE_16BIT_ABGR4444)) {
+	if (gstate.getClutPaletteFormat() == GE_CMODE_16BIT_ABGR4444 && gstate.isClutIndexSimple()) {
 		const u16 *clut = GetCurrentClut<u16>();
 		clutAlphaLinear_ = true;
 		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
@@ -941,13 +941,13 @@ void TextureCache::SetTexture() {
 		return;
 	}
 
-	u32 format = gstate.texformat & 0xF;
+	GETextureFormat format = gstate.getTextureFormat();
 	if (format >= 11) {
 		ERROR_LOG_REPORT(G3D, "Unknown texture format %i", format);
-		format = 0;
+		// TODO: Better assumption?
+		format = GE_TFMT_5650;
 	}
-	// GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
-	bool hasClut = (format & 4) != 0;
+	bool hasClut = gstate.isTextureFormatIndexed();
 
 	u64 cachekey = (u64)texaddr << 32;
 	u32 cluthash;
@@ -1202,7 +1202,7 @@ void TextureCache::SetTexture() {
 	gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 }
 
-void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 &texByteAlign, GLenum &dstFmt) {
+void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat clutformat, int level, u32 &texByteAlign, GLenum &dstFmt) {
 	void *finalBuf = NULL;
 
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
@@ -1217,7 +1217,7 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 	{
 	case GE_TFMT_CLUT4:
 		{
-		dstFmt = getClutDestFormat((GEPaletteFormat)(clutformat));
+		dstFmt = getClutDestFormat(clutformat);
 
 		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
@@ -1269,28 +1269,28 @@ void *TextureCache::DecodeTextureLevel(u8 format, u8 clutformat, int level, u32 
 			break;
 
 		default:
-			ERROR_LOG(G3D, "Unknown CLUT4 texture mode %d", (gstate.clutformat & 3));
+			ERROR_LOG(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
 			return NULL;
 		}
 		}
 		break;
 
 	case GE_TFMT_CLUT8:
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
+		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 1, dstFmt);
-		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
 		break;
 
 	case GE_TFMT_CLUT16:
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
+		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 2, dstFmt);
-		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
 		break;
 
 	case GE_TFMT_CLUT32:
-		dstFmt = getClutDestFormat((GEPaletteFormat)(gstate.clutformat & 3));
+		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
+		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 4, dstFmt);
-		texByteAlign = texByteAlignMap[(gstate.clutformat & 3)];
 		break;
 
 	case GE_TFMT_4444:
@@ -1509,8 +1509,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	// TODO: Look into using BGRA for 32-bit textures when the GL_EXT_texture_format_BGRA8888 extension is available, as it's faster than RGBA on some chips.
 	GLenum dstFmt = 0;
 
-	u8 clutformat = gstate.clutformat & 3;
-	void *finalBuf = DecodeTextureLevel(entry.format, clutformat, level, texByteAlign, dstFmt);
+	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
+	void *finalBuf = DecodeTextureLevel(GETextureFormat(entry.format), clutformat, level, texByteAlign, dstFmt);
 	if (finalBuf == NULL) {
 		return;
 	}
@@ -1575,8 +1575,8 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 	u32 texByteAlign = 1;
 	GLenum dstFmt = 0;
 
-	u32 format = gstate.texformat & 0xF;
-	u32 clutformat = gstate.clutformat & 3;
+	GETextureFormat format = gstate.getTextureFormat();
+	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 	u8 level = 0;
 
 	int bufw = GetLevelBufw(level, texaddr);

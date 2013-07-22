@@ -54,7 +54,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
 	bool hasBones = (vertType & GE_VTYPE_WEIGHT_MASK) != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
-	bool lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	memset(id->d, 0, sizeof(id->d));
 	id->d[0] = lmode & 1;
@@ -93,12 +93,12 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 		if (gstate.isLightingEnabled() || gstate.getUVGenMode() == 2) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
-				id->d[1] |= (gstate.ltype[i] & 3) << (i * 4);
-				id->d[1] |= ((gstate.ltype[i] >> 8) & 3) << (i * 4 + 2);
+				id->d[1] |= gstate.getLightComputation(i) << (i * 4);
+				id->d[1] |= gstate.getLightType(i) << (i * 4 + 2);
 			}
 			id->d[1] |= (gstate.materialupdate & 7) << 16;
 			for (int i = 0; i < 4; i++) {
-				id->d[1] |= (gstate.lightEnable[i] & 1) << (20 + i);
+				id->d[1] |= (gstate.isLightChanEnabled(i) & 1) << (20 + i);
 			}
 		}
 	}
@@ -142,7 +142,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 #endif
 	const u32 vertType = gstate.vertType;
 
-	int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	int lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0 || !useHWTransform;
@@ -159,7 +159,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		for (int i = 0; i < 4; i++) {
 			if (i == shadeLight0 || i == shadeLight1)
 				doLight[i] = LIGHT_SHADE;
-			if ((gstate.lightingEnable & 1) && (gstate.lightEnable[i] & 1))
+			if (gstate.isLightingEnabled() && gstate.isLightChanEnabled(i))
 				doLight[i] = LIGHT_FULL;
 		}
 	}
@@ -222,7 +222,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			if (doLight[i] == LIGHT_FULL) {
 				// These are needed for the full thing
 				WRITE(p, "uniform mediump vec3 u_lightdir%i;\n", i);
-				GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
+				GELightType type = gstate.getLightType(i);
 
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					WRITE(p, "uniform mediump vec3 u_lightatt%i;\n", i);
@@ -234,8 +234,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
 				WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
 
-				GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+				if (gstate.isUsingSpecularLight(i))
 					WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
 			}
 		}
@@ -399,10 +398,9 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				if (doLight[i] != LIGHT_FULL)
 					continue;
 				diffuseIsZero = false;
-				GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+				if (gstate.isUsingSpecularLight(i))
 					specularIsZero = false;
-				GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
+				GELightType type = gstate.getLightType(i);
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
 			}
@@ -427,8 +425,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			if (doLight[i] != LIGHT_FULL)
 				continue;
 
-			GELightComputation comp = (GELightComputation)(gstate.ltype[i] & 3);
-			GELightType type = (GELightType)((gstate.ltype[i] >> 8) & 3);
+			GELightType type = gstate.getLightType(i);
 
 			if (type == GE_LIGHTTYPE_DIRECTIONAL) {
 				// We prenormalize light positions for directional lights.
@@ -439,8 +436,8 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				WRITE(p, "  toLight /= distance;\n");
 			}
 
-			bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+			bool doSpecular = gstate.isUsingSpecularLight(i);
+			bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(i);
 
 			if (poweredDiffuse) {
 				WRITE(p, "  mediump float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i);

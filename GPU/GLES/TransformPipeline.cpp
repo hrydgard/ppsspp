@@ -276,11 +276,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	for (int l = 0; l < 4; l++)
 	{
 		// can we skip this light?
-		if ((gstate.lightEnable[l] & 1) == 0)
+		if (!gstate.isLightChanEnabled(l))
 			continue;
 
-		GELightComputation comp = (GELightComputation)(gstate.ltype[l] & 3);
-		GELightType type = (GELightType)((gstate.ltype[l] >> 8) & 3);
+		GELightType type = gstate.getLightType(l);
 		
 		Vec3 toLight(0,0,0);
 		Vec3 lightDir(0,0,0);
@@ -290,8 +289,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		else
 			toLight = Vec3(gstate_c.lightpos[l]) - pos;
 
-		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
-		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+		bool doSpecular = gstate.isUsingSpecularLight(l);
+		bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(l);
 		
 		float distanceToLight = toLight.Length();
 		float dot = 0.0f;
@@ -348,7 +347,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			}
 		}
 
-		if (gstate.lightEnable[l] & 1)
+		if (gstate.isLightChanEnabled(l))
 		{
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
 			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
@@ -505,7 +504,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
 
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
-	bool lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
@@ -549,10 +548,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					c1[j] = 0.0f;
 				}
 			} else {
-				c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-				c0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-				c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-				c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				c0[0] = gstate.getMaterialAmbientR() / 255.f;
+				c0[1] = gstate.getMaterialAmbientG() / 255.f;
+				c0[2] = gstate.getMaterialAmbientB() / 255.f;
+				c0[3] = gstate.getMaterialAmbientA() / 255.f;
 			}
 
 			if (reader.hasUV()) {
@@ -612,10 +611,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasColor0()) {
 				reader.ReadColor0(unlitColor);
 			} else {
-				unlitColor[0] = (gstate.materialambient & 0xFF) / 255.f;
-				unlitColor[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-				unlitColor[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-				unlitColor[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				unlitColor[0] = gstate.getMaterialAmbientR() / 255.f;
+				unlitColor[1] = gstate.getMaterialAmbientG() / 255.f;
+				unlitColor[2] = gstate.getMaterialAmbientB() / 255.f;
+				unlitColor[3] = gstate.getMaterialAmbientA() / 255.f;
 			}
 			float litColor0[4];
 			float litColor1[4];
@@ -643,10 +642,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c0[j] = unlitColor[j];
 					}
 				} else {
-					c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
-					c0[2] = ((gstate.materialambient >> 16)& 0xFF) / 255.f;
-					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+					c0[0] = gstate.getMaterialAmbientR() / 255.f;
+					c0[1] = gstate.getMaterialAmbientG() / 255.f;
+					c0[2] = gstate.getMaterialAmbientB() / 255.f;
+					c0[3] = gstate.getMaterialAmbientA() / 255.f;
 				}
 				if (lmode) {
 					for (int j = 0; j < 4; j++) {
@@ -922,7 +921,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	}
 
 	for (int i = 0; i < 4; i++) {
-		if (gstate.lightEnable[i] & 1)
+		if (gstate.isLightChanEnabled(i))
 			cost += 10;
 	}
 	if (gstate.getUVGenMode() != 0) {
