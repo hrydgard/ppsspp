@@ -40,9 +40,10 @@
 // GL_NV_shader_framebuffer_fetch looks interesting....
 
 static bool IsAlphaTestTriviallyTrue() {
-	int alphaTestFunc = gstate.alphatest & 7;
-	int alphaTestRef = (gstate.alphatest >> 8) & 0xFF;
-	
+	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+	int alphaTestRef = gstate.getAlphaTestRef();
+	int alphaTestMask = gstate.getAlphaTestMask();
+
 	switch (alphaTestFunc) {
 	case GE_COMP_ALWAYS:
 		return true;
@@ -52,7 +53,7 @@ static bool IsAlphaTestTriviallyTrue() {
 
 	// This breaks the trees in MotoGP, for example.
 	// case GE_COMP_GREATER:
-	//if (alphaTestRef == 0 && (gstate.alphaBlendEnable & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
+	//if (alphaTestRef == 0 && (gstate.isAlphaBlendEnabled() & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
 	//	return true;
 
 	case GE_COMP_LEQUAL:
@@ -64,7 +65,7 @@ static bool IsAlphaTestTriviallyTrue() {
 }
 
 static bool IsColorTestTriviallyTrue() {
-	int colorTestFunc = gstate.colortest & 3;
+	GEComparison colorTestFunc = gstate.getColorTestFunction();
 	switch (colorTestFunc) {
 	case GE_COMP_ALWAYS:
 		return true;
@@ -123,7 +124,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		if (gstate_c.textureFullAlpha && (gstate.texfunc & 0x7) != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 
-		// id->d[0] |= (gstate.clearmode & 1);
+		// id->d[0] |= (gstate.isModeClear() & 1);
 		if (gstate.isTextureMapEnabled()) {
 			id->d[0] |= 1 << 1;
 			id->d[0] |= (gstate.texfunc & 0x7) << 2;
@@ -132,10 +133,10 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= gstate.isAlphaTestEnabled() << 8;
 		if (enableAlphaTest)
-			id->d[0] |= (gstate.alphatest & 0x7) << 9;	 // alpha test func
+			id->d[0] |= gstate.getAlphaTestFunction() << 9;
 		id->d[0] |= gstate.isColorTestEnabled() << 12;
 		if (enableColorTest)
-			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // color test func
+			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
@@ -276,7 +277,7 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		if (enableAlphaTest) {
-			int alphaTestFunc = gstate.alphatest & 7;
+			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 				if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
@@ -296,9 +297,9 @@ void GenerateFragmentShader(char *buffer) {
 		}
 		
 		if (enableColorTest) {
-			int colorTestFunc = gstate.colortest & 3;
+			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
-			int colorTestMask = gstate.colormask;
+			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
 					WRITE(p, "if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);

@@ -209,8 +209,6 @@ struct GPUgstate
 	bool isFogEnabled() const { return fogEnable & 1; }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
 	bool isDitherEnabled() const { return ditherEnable & 1; }
-	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
-	bool isColorTestEnabled() const { return colorTestEnable & 1; }
 
 	u32 getColorMask() const { return (pmskc & 0xFFFFFF) | ((pmska & 0xFF) << 24); }
 	bool isLogicOpEnabled() const { return logicOpEnable & 1; }
@@ -223,6 +221,16 @@ struct GPUgstate
 	int getStencilOpSFail() const { return stencilop & 0x7; }
 	int getStencilOpZFail() const { return (stencilop>>8) & 0x7; }
 	int getStencilOpZPass() const { return (stencilop>>16) & 0x7; }
+
+	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
+	GEComparison getAlphaTestFunction() { return static_cast<GEComparison>(alphatest & 0x7); }
+	int getAlphaTestRef() const { return (alphatest >> 8) & 0xFF; }
+	int getAlphaTestMask() const { return (alphatest >> 16) & 0xFF; }
+
+	bool isColorTestEnabled() const { return colorTestEnable & 1; }
+	GEComparison getColorTestFunction() { return static_cast<GEComparison>(colortest & 0x3); }
+	u32 getColorTestRef() const { return colorref & 0xFFFFFF; }
+	u32 getColorTestMask() const { return colormask & 0xFFFFFF; }
 
 	// Texturing
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }

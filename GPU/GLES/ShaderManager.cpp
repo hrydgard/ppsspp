@@ -301,7 +301,7 @@ void LinkedShader::updateUniforms() {
 		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
 	if (u_alphacolorref != -1 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
-		SetColorUniform3Alpha255(u_alphacolorref, gstate.colorref, (gstate.alphatest >> 8) & 0xFF);
+		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
 	if (u_colormask != -1 && (dirtyUniforms & DIRTY_COLORMASK)) {
 		SetColorUniform3(u_colormask, gstate.colormask);
