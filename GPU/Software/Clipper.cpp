@@ -123,13 +123,13 @@ if (mask & PLANE_BIT) {											\
 	}															\
 }
 
-void ProcessQuad(VertexData* data)
+void ProcessQuad(const VertexData& v0, const VertexData& v1)
 {
 	if (!gstate.isModeThrough()) {
 		// TODO: Not sure if the clipping code works...
 /*		// TODO: Color of second vertex should be preserved
-		int mask0 = CalcClipMask(data[0].clippos);
-		int mask1 = CalcClipMask(data[1].clippos);
+		int mask0 = CalcClipMask(v0.clippos);
+		int mask1 = CalcClipMask(v1.clippos);
 		int mask = mask0 | mask1;
 
 		if ((mask0&mask1) & CLIP_NEG_X_BIT) return;
@@ -139,7 +139,7 @@ void ProcessQuad(VertexData* data)
 		if ((mask0&mask1) & CLIP_NEG_Z_BIT) return;
 		if ((mask0&mask1) & CLIP_POS_Z_BIT) return;
 
-		VertexData* Vertices[2] = { &data[0], &data[1] };
+		VertexData* Vertices[2] = { &v0, &v1 };
 
 		CLIP_LINE(CLIP_POS_X_BIT, -1,  0,  0, 1);
 		CLIP_LINE(CLIP_NEG_X_BIT,  1,  0,  0, 1);
@@ -148,21 +148,21 @@ void ProcessQuad(VertexData* data)
 		CLIP_LINE(CLIP_POS_Z_BIT,  0,  0,  0, 1);
 		CLIP_LINE(CLIP_NEG_Z_BIT,  0,  0,  1, 1);
 
-		data[0].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[0].clippos));
-		data[1].drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos));*/
+		v0.drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(v0.clippos));
+		v1.drawpos = TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(v1.clippos));*/
 
 
 		VertexData buf[4];
-		buf[0].clippos = ClipCoords(data[0].clippos.x, data[0].clippos.y, data[1].clippos.z, data[1].clippos.w);
-		buf[0].texturecoords = data[0].texturecoords;
+		buf[0].clippos = ClipCoords(v0.clippos.x, v0.clippos.y, v1.clippos.z, v1.clippos.w);
+		buf[0].texturecoords = v0.texturecoords;
 
-		buf[1].clippos = ClipCoords(data[0].clippos.x, data[1].clippos.y, data[1].clippos.z, data[1].clippos.w);
-		buf[1].texturecoords = Vec2<float>(data[0].texturecoords.x, data[1].texturecoords.y);
+		buf[1].clippos = ClipCoords(v0.clippos.x, v1.clippos.y, v1.clippos.z, v1.clippos.w);
+		buf[1].texturecoords = Vec2<float>(v0.texturecoords.x, v1.texturecoords.y);
 
-		buf[2].clippos = ClipCoords(data[1].clippos.x, data[0].clippos.y, data[1].clippos.z, data[1].clippos.w);
-		buf[2].texturecoords = Vec2<float>(data[1].texturecoords.x, data[0].texturecoords.y);
+		buf[2].clippos = ClipCoords(v1.clippos.x, v0.clippos.y, v1.clippos.z, v1.clippos.w);
+		buf[2].texturecoords = Vec2<float>(v1.texturecoords.x, v0.texturecoords.y);
 
-		buf[3] = data[1];
+		buf[3] = v1;
 
 		// Color and depth values of second vertex are used for the whole rectangle
 		buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
@@ -190,16 +190,16 @@ void ProcessQuad(VertexData* data)
 
 	// through mode handling
 	VertexData buf[4];
-	buf[0].drawpos = DrawingCoords(data[0].drawpos.x, data[0].drawpos.y, data[1].drawpos.z);
-	buf[0].texturecoords = data[0].texturecoords;
+	buf[0].drawpos = DrawingCoords(v0.drawpos.x, v0.drawpos.y, v1.drawpos.z);
+	buf[0].texturecoords = v0.texturecoords;
 
-	buf[1].drawpos = DrawingCoords(data[0].drawpos.x, data[1].drawpos.y, data[1].drawpos.z);
-	buf[1].texturecoords = Vec2<float>(data[0].texturecoords.x, data[1].texturecoords.y);
+	buf[1].drawpos = DrawingCoords(v0.drawpos.x, v1.drawpos.y, v1.drawpos.z);
+	buf[1].texturecoords = Vec2<float>(v0.texturecoords.x, v1.texturecoords.y);
 
-	buf[2].drawpos = DrawingCoords(data[1].drawpos.x, data[0].drawpos.y, data[1].drawpos.z);
-	buf[2].texturecoords = Vec2<float>(data[1].texturecoords.x, data[0].texturecoords.y);
+	buf[2].drawpos = DrawingCoords(v1.drawpos.x, v0.drawpos.y, v1.drawpos.z);
+	buf[2].texturecoords = Vec2<float>(v1.texturecoords.x, v0.texturecoords.y);
 
-	buf[3] = data[1];
+	buf[3] = v1;
 
 	// Color and depth values of second vertex are used for the whole rectangle
 	buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;

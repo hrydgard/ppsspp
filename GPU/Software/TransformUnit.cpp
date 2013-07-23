@@ -58,6 +58,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool s
 	float retx = coords.x * vpx1 / coords.w + vpx2;
 	float rety = coords.y * vpy1 / coords.w + vpy2;
 	float retz = coords.z * vpz1 / coords.w + vpz2;
+
 	if (set_flag && (retx > 4095.9375f || rety > 4096.9375f || retz > 65535.f || retx < 0 || rety < 0 || retz < 0))
 		outside_range_flag = true;
 
@@ -147,7 +148,6 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 	static u8 buf[65536 * 48]; // yolo
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = vertex_count - 1;
-	bool indices_8bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_8BIT;
 	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
 	u8* indices8 = (u8*)indices;
 	u16* indices16 = (u16*)indices;
@@ -198,7 +198,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			}
 
 			case GE_PRIM_RECTANGLES:
-				Clipper::ProcessQuad(data);
+				Clipper::ProcessQuad(data[0], data[1]);
 				break;
 			}
 		}

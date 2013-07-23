@@ -22,6 +22,6 @@
 namespace Clipper {
 
 void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2);
-void ProcessQuad(VertexData* data);
+void ProcessQuad(const VertexData& v0, const VertexData& v1);
 
 }
