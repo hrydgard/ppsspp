@@ -190,7 +190,10 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			switch (prim_type) {
 			case GE_PRIM_TRIANGLES:
 			{
-				if (!gstate.getCullMode())
+				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
+					Clipper::ProcessTriangle(data[0], data[1], data[2]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+				} else if (!gstate.getCullMode())
 					Clipper::ProcessTriangle(data[2], data[1], data[0]);
 				else
 					Clipper::ProcessTriangle(data[0], data[1], data[2]);
@@ -225,12 +228,16 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				continue;
 			}
 
-			// We need to reverse the vertex order for each second primitive,
-			// but we additionally need to do that for every primitive if CCW cullmode is used.
-			if ((!gstate.getCullMode()) ^ (vtx % 2))
-				Clipper::ProcessTriangle(data[2], data[1], data[0]);
-			else
+			if (!gstate.isCullEnabled() || gstate.isModeClear()) {
 				Clipper::ProcessTriangle(data[0], data[1], data[2]);
+				Clipper::ProcessTriangle(data[2], data[1], data[0]);
+			} else if ((!gstate.getCullMode()) ^ (vtx % 2)) {
+				// We need to reverse the vertex order for each second primitive,
+				// but we additionally need to do that for every primitive if CCW cullmode is used.
+				Clipper::ProcessTriangle(data[2], data[1], data[0]);
+			} else {
+				Clipper::ProcessTriangle(data[0], data[1], data[2]);
+			}
 		}
 	} else if (prim_type == GE_PRIM_TRIANGLE_FAN) {
 		VertexData data[3];
@@ -261,12 +268,16 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 				continue;
 			}
 
-			// We need to reverse the vertex order for each second primitive,
-			// but we additionally need to do that for every primitive if CCW cullmode is used.
-			if ((!gstate.getCullMode()) ^ (vtx % 2))
-				Clipper::ProcessTriangle(data[2], data[1], data[0]);
-			else
+			if (!gstate.isCullEnabled() || gstate.isModeClear()) {
 				Clipper::ProcessTriangle(data[0], data[1], data[2]);
+				Clipper::ProcessTriangle(data[2], data[1], data[0]);
+			} else if ((!gstate.getCullMode()) ^ (vtx % 2)) {
+				// We need to reverse the vertex order for each second primitive,
+				// but we additionally need to do that for every primitive if CCW cullmode is used.
+				Clipper::ProcessTriangle(data[2], data[1], data[0]);
+			} else {
+				Clipper::ProcessTriangle(data[0], data[1], data[2]);
+			}
 		}
 	}
 }

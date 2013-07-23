@@ -454,7 +454,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
 						continue;
 
-				if (gstate.isColorTestEnabled()) {
+				if (gstate.isColorTestEnabled() && !gstate.isModeClear()) {
 					bool pass = false;
 					Vec3<int> ref = Vec3<int>::FromRGB(gstate.colorref&(gstate.colormask&0xFFFFFF));
 					Vec3<int> color = Vec3<int>::FromRGB(prim_color_rgb.ToRGB()&(gstate.colormask&0xFFFFFF));
@@ -476,10 +476,10 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						continue;
 				}
 
-				if (gstate.isAlphaTestEnabled()) {
+				if (gstate.isAlphaTestEnabled() && !gstate.isModeClear()) {
 					bool pass = false;
-					u8 ref = (gstate.alphatest>>8) & (gstate.alphatest>>16);
-					u8 alpha = prim_color_a & (gstate.alphatest>>16);
+					u8 ref = ((gstate.alphatest>>8) & (gstate.alphatest>>16)) & 0xFF;
+					u8 alpha = (prim_color_a & (gstate.alphatest>>16)) & 0xFF;
 
 					switch (gstate.alphatest & 0x7) {
 						case GE_COMP_NEVER:
@@ -557,8 +557,10 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					} else {
 						ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
 					}
-					// TODO: Is this condition correct?
-					if (gstate.isDepthWriteEnabled() || ((gstate.clearmode&0x40) && gstate.isModeClear()))
+
+					if (gstate.isModeClear() && gstate.isClearModeDepthWriteEnabled())
+						SetPixelDepth(p.x, p.y, z);
+					else if (!gstate.isModeClear() && gstate.isDepthWriteEnabled())
 						SetPixelDepth(p.x, p.y, z);
 				}
 				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
@@ -680,7 +682,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				u32 old_color = GetPixelColor(p.x, p.y);
 
 				// TODO: Is alpha blending still performed if logic ops are enabled?
-				if (gstate.isLogicOpEnabled()) {
+				if (gstate.isLogicOpEnabled() && !gstate.isModeClear()) {
 					switch (gstate.getLogicOp()) {
 					case GE_LOGIC_CLEAR:
 						new_color = 0;
@@ -748,7 +750,11 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					}
 				}
 
-				new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
+				if (gstate.isModeClear()) {
+					new_color = (new_color & gstate.getClearModeColorMask()) | (old_color & ~gstate.getClearModeColorMask());
+				} else {
+					new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
+				}
 
 				SetPixelColor(p.x, p.y, new_color);
 			}
