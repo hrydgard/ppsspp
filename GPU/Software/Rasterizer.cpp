@@ -33,7 +33,6 @@ static inline int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, con
 	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
 }
 
-
 static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
 	if (!(gstate.texmode & 1))
@@ -45,13 +44,14 @@ static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int 
 
 	int texels_per_tile = tile_size_bits / texel_size_bits;
 	int tile_u = u / texels_per_tile;
-
 	int tile_idx = (v % tiles_in_block_vertical) * (tiles_in_block_horizontal) +
 	// TODO: not sure if the *texel_size_bits/8 factor is correct
 					(v / tiles_in_block_vertical) * ((row_pitch_bits*texel_size_bits/8/tile_size_bits)*tiles_in_block_vertical) +
-					(tile_u % tiles_in_block_horizontal) + 
+					(tile_u % tiles_in_block_horizontal) +
 					(tile_u / tiles_in_block_horizontal) * (tiles_in_block_horizontal*tiles_in_block_vertical);
-	return tile_idx * tile_size_bits/8 + ((u % (tile_size_bits / texel_size_bits)));
+
+	// TODO: HACK: for some reason, the second part needs to be diviced by two for CLUT4 textures to work properly.
+	return tile_idx * tile_size_bits/8 + ((u % (tile_size_bits / texel_size_bits)))/((texel_size_bits == 4) ? 2 : 1);
 }
 
 static inline u32 LookupColor(unsigned int index, unsigned int level)
