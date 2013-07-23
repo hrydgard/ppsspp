@@ -225,6 +225,31 @@ public:
 
 			break;
 
+		case FILETYPE_PSP_DISC_DIRECTORY:
+			{
+				info_->fileType = FILETYPE_PSP_ISO;
+				SequentialHandleAllocator handles;
+				DirectoryFileSystem umd(&handles,gamePath_.c_str(),true);
+				
+				// Alright, let's fetch the PARAM.SFO.
+				std::string paramSFOcontents;
+				if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, 0)) {
+					lock_guard lock(info_->lock);
+					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
+					info_->title = info_->paramSFO.GetValueString("TITLE");
+					info_->id = info_->paramSFO.GetValueString("DISC_ID");
+					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
+
+					info_->paramSFOLoaded = true;
+				}
+
+				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
+				if (info_->wantBG) {
+					ReadFileToString(&umd, "/PSP_GAME/PIC0.PNG", &info_->pic0TextureData, &info_->lock);
+				}
+				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
+				break;
+			}
 		case FILETYPE_PSP_ISO:
 		case FILETYPE_PSP_ISO_NP:
 			{
