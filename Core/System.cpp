@@ -83,7 +83,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	std::string filename = coreParam.fileToStart;
 	EmuFileType type = Identify_File(filename);
 
-	if(type == FILETYPE_PSP_ISO || type == FILETYPE_PSP_ISO_NP)
+	if(type == FILETYPE_PSP_ISO || type == FILETYPE_PSP_ISO_NP || type == FILETYPE_PSP_DISC_DIRECTORY)
 		InitMemoryForGameISO(filename);
 
 	Memory::Init();

@@ -57,7 +57,14 @@ EmuFileType Identify_File(std::string &filename)
 			if (ebootInfo.exists) {
 				return FILETYPE_PSP_PBP_DIRECTORY;
 			}
-		} 
+		}
+
+		// check if it's a disc directory
+		if (getFileInfo((filename + "/PSP_GAME").c_str(), &ebootInfo)) {
+			if (ebootInfo.exists) {
+				return FILETYPE_PSP_DISC_DIRECTORY;
+			}
+		}
 	}
 
 	FILE *f = fopen(filename.c_str(), "rb");
@@ -157,6 +164,7 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 
 	case FILETYPE_PSP_ISO:
 	case FILETYPE_PSP_ISO_NP:
+	case FILETYPE_PSP_DISC_DIRECTORY:	// behaves the same as the mounting is already done by now
 		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
 		return Load_PSP_ISO(filename.c_str(), error_string);
 

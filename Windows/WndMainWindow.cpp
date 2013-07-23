@@ -303,7 +303,7 @@ namespace MainWindow
 		return TRUE;
 	}
 
-	void BrowseAndBoot(std::string defaultPath)
+	void BrowseAndBoot(std::string defaultPath, bool browseDirectory)
 	{
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
@@ -323,7 +323,24 @@ namespace MainWindow
 				Core_EnableStepping(true);
 		}
 
-		if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
+		if (browseDirectory)
+		{
+			std::string dir = W32Util::BrowseForFolder(GetHWND(),"Choose directory");
+			if (dir == "" && !isPaused)
+			{
+				Core_EnableStepping(false);
+			}
+			else
+			{
+				if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU)
+				{
+					Core_EnableStepping(false);
+				}
+
+				NativeMessageReceived("boot", dir.c_str());
+			}
+		}
+		else if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
 		{
 			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU)
 			{
@@ -570,6 +587,10 @@ namespace MainWindow
 			{
 			case ID_FILE_LOAD:
 				BrowseAndBoot("");
+				break;
+
+			case ID_FILE_LOAD_DIR:
+				BrowseAndBoot("",true);
 				break;
 
 			case ID_FILE_LOAD_MEMSTICK:

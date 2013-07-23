@@ -49,7 +49,7 @@ typedef void * HANDLE;
 
 class DirectoryFileSystem : public IFileSystem {
 public:
-	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, bool _virtualDisc = false);
 	~DirectoryFileSystem();
 
 	void DoState(PointerWrap &p);
@@ -69,18 +69,34 @@ public:
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 
 private:
+	u32 GetFileLbn(std::string& fileName);
+
 	struct OpenFileEntry {
 #ifdef _WIN32
 		HANDLE hFile;
 #else
 		FILE *hFile;
 #endif
+		bool lbnFile;
+		u32 startOffset;	// only used by lbn files
+		u32 curOffset;		// only used by lbn files;
+		u32 size;			// only used by lbn files
 	};
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;
 	EntryMap entries;
 	std::string basePath;
 	IHandleAllocator *hAlloc;
+	bool virtualDisc;
+
+	typedef struct {
+		std::string fileName;
+		u32 firstBlock;
+		u32 totalSize;
+	} LbnMapEntry;
+	
+	std::vector<LbnMapEntry> fileBlocks;
+	u32 currentBlockIndex;
 
 	// In case of Windows: Translate slashes, etc.
 	std::string GetLocalPath(std::string localpath);

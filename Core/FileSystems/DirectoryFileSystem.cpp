@@ -18,6 +18,7 @@
 #include "ChunkFile.h"
 #include "FileUtil.h"
 #include "DirectoryFileSystem.h"
+#include "ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "file/zip_read.h"
 
@@ -133,7 +134,17 @@ bool DirectoryFileSystem::FixPathCase(std::string &path, FixPathCaseBehavior beh
 
 #endif
 
-DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath) {
+DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, bool _virtualDisc)
+	: basePath(_basePath),virtualDisc(_virtualDisc),currentBlockIndex(0) {
+		
+#ifdef _WIN32
+		if (basePath.size() > 0 && basePath[basePath.size()-1] != '\\')
+			basePath = basePath + "\\";
+#else
+		if (basePath.size() > 0 && basePath[basePath.size()-1] != '/')
+			basePath = basePath + "/";
+#endif
+
 	File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
 }
@@ -288,6 +299,80 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 }
 
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
+
+	if (filename.compare(0,8,"/sce_lbn") == 0)
+	{
+		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
+		parseLBN(filename, &sectorStart, &readSize);
+
+		OpenFileEntry entry;
+		entry.lbnFile = true;
+		entry.size = readSize;
+		entry.curOffset = 0;
+
+		std::string actualFileName = "";
+		for (int i = 0; i < fileBlocks.size(); i++)
+		{
+			if (fileBlocks[i].firstBlock <= sectorStart)
+			{
+				u32 sectorOffset = (sectorStart-fileBlocks[i].firstBlock)*2048;
+				u32 endOffset = sectorOffset+readSize;
+				if (endOffset <= fileBlocks[i].totalSize)
+				{
+					entry.startOffset = sectorOffset;
+					actualFileName = fileBlocks[i].fileName;
+					break;
+				}
+			}
+		}
+
+		// no file info has been gathered? shouldn't happen
+		if (actualFileName == "")
+		{
+			ERROR_LOG(FILESYS, "sce_lbn used without calling fileinfo.");
+			return 0;
+		}
+		
+#if HOST_IS_CASE_SENSITIVE
+		if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
+		{
+			DEBUG_LOG(HLE, "Checking case for path %s", filename.c_str());
+			if ( ! FixPathCase(actualFileName, FPC_PATH_MUST_EXIST) )
+				return 0;  // or go on and attempt (for a better error code than just 0?)
+		}
+		// else we try fopen first (in case we're lucky) before simulating case insensitivity
+#endif
+
+		// now we just need an actual file handle
+		std::string fullName = GetLocalPath(actualFileName);
+
+#ifdef _WIN32
+		entry.hFile = CreateFile(fullName.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+		bool success = entry.hFile != INVALID_HANDLE_VALUE;
+#else
+		entry.hFile = fopen(fullName.c_str(), "rb");
+		bool success = entry.hFile != 0;
+#endif
+
+		if (!success)
+		{
+			ERROR_LOG(HLE, "DiscDirectoryFileSystem::OpenFile: FAILED, %i", GetLastError());
+			return 0;
+		}
+
+		// seek to start
+#ifdef _WIN32
+		DWORD newPos = SetFilePointer(entry.hFile, (LONG)entry.startOffset, 0, FILE_BEGIN);
+#else
+		fseek(entry.hFile, entry.startOffset, SEEK_SET);
+#endif
+
+		u32 newHandle = hAlloc->GetNewHandle();
+		entries[newHandle] = entry;
+
+		return newHandle;
+	}
+
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
 	{
@@ -303,6 +388,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 	INFO_LOG(HLE,"Actually opening %s (%s)", fullNameC, filename.c_str());
 
 	OpenFileEntry entry;
+	entry.lbnFile = false;
 
 	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
 #ifdef _WIN32
@@ -430,6 +516,11 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 #else
 		bytesRead = fread(pointer, 1, size, iter->second.hFile);
 #endif
+		if (iter->second.lbnFile)
+		{
+			iter->second.curOffset += bytesRead;
+		}
+
 		return bytesRead;
 	} else {
 		//This shouldn't happen...
@@ -459,6 +550,23 @@ size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
 size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
+		if (iter->second.lbnFile)
+		{
+			switch (type) {
+			case FILEMOVE_BEGIN:    iter->second.curOffset = position;    break;
+			case FILEMOVE_CURRENT:  iter->second.curOffset += position;  break;
+			case FILEMOVE_END:      iter->second.curOffset = iter->second.size-position;      break;
+			}
+
+#ifdef _WIN32
+			u32 off = iter->second.startOffset+iter->second.curOffset;
+			DWORD newPos = SetFilePointer((*iter).second.hFile, (LONG)off, 0, FILE_BEGIN);
+#else
+			fseek(iter->second.hFile, iter->second.curOffset+iter->second.startOffset, SEEK_SET);
+#endif
+			return iter->second.curOffset;
+		}
+
 #ifdef _WIN32
 		DWORD moveMethod = 0;
 		switch (type) {
@@ -483,6 +591,19 @@ size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 		ERROR_LOG(HLE,"Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
+}
+
+u32 DirectoryFileSystem::GetFileLbn(std::string& fileName)
+{
+	if (!virtualDisc) return -1;
+
+	for (int i = 0; i < fileBlocks.size(); i++)
+	{
+		if (fileBlocks[i].fileName == fileName)
+			return fileBlocks[i].firstBlock;
+	}
+
+	return -1;
 }
 
 PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
@@ -517,6 +638,22 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 #else
 		x.size = s.st_size;
 #endif
+		if (virtualDisc)
+		{
+			x.startSector = GetFileLbn(filename);
+			x.numSectors = (x.size+2047)/2048;
+			if (x.startSector == -1)
+			{
+				x.startSector = currentBlockIndex;
+				currentBlockIndex += x.numSectors;
+
+				LbnMapEntry entry;
+				entry.fileName = filename;
+				entry.firstBlock = x.startSector;
+				entry.totalSize = x.size;
+				fileBlocks.push_back(entry);
+			}
+		}
 		x.access = s.st_mode & 0x1FF;
 		localtime_r((time_t*)&s.st_atime,&x.atime);
 		localtime_r((time_t*)&s.st_ctime,&x.ctime);
