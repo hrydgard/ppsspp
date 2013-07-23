@@ -183,13 +183,13 @@ static inline u32 GetPixelColor(int x, int y)
 {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
-		return DecodeRGB565(*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()]);
+		return DecodeRGB565(*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()]);
 
 	case GE_FORMAT_5551:
-		return DecodeRGBA5551(*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()]);
+		return DecodeRGBA5551(*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()]);
 
 	case GE_FORMAT_4444:
-		return DecodeRGBA4444(*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()]);
+		return DecodeRGBA4444(*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()]);
 
 	case GE_FORMAT_8888:
 		return *(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()];
@@ -201,15 +201,15 @@ static inline void SetPixelColor(int x, int y, u32 value)
 {
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
-		*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()] = RGBA8888To565(value);
+		*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] = RGBA8888To565(value);
 		break;
 
 	case GE_FORMAT_5551:
-		*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()] = RGBA8888To5551(value);
+		*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] = RGBA8888To5551(value);
 		break;
 
 	case GE_FORMAT_4444:
-		*(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()] = RGBA8888To4444(value);
+		*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] = RGBA8888To4444(value);
 		break;
 
 	case GE_FORMAT_8888:
@@ -561,9 +561,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					if (gstate.isDepthWriteEnabled() || ((gstate.clearmode&0x40) && gstate.isModeClear()))
 						SetPixelDepth(p.x, p.y, z);
 				}
-
-				Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
+					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 
 					Vec3<int> srccol(0, 0, 0);
 					Vec3<int> dstcol(0, 0, 0);

@@ -165,7 +165,7 @@ void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth
 		u32* buf = new u32[srcwidth*srcheight];
 		for (int y = 0; y < srcheight; ++y) {
 			for (int x = 0; x < srcwidth; ++x) {
-				u16 src = *(u16*)&fb[4*x + 4*y*gstate.FrameBufStride()];
+				u16 src = *(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()];
 
 				if (gstate.FrameBufFormat() == GE_FORMAT_565)
 					buf[x+y*srcwidth] = DecodeRGB565(src);
