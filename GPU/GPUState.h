@@ -330,6 +330,10 @@ struct GPUgstate
 	int getUVProjMode() const { return (texmapmode >> 8) & 3;}   // 2 bits
 	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
 	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
+
+	bool isTexCoordClampedS() const { return texwrap & 1; }
+	bool isTexCoordClampedT() const { return (texwrap >> 8) & 1; }
+
 	int getScissorX1() const { return scissor1 & 0x3FF; }
 	int getScissorY1() const { return (scissor1 >> 10) & 0x3FF; }
 	int getScissorX2() const { return scissor2 & 0x3FF; }

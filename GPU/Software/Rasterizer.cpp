@@ -100,11 +100,39 @@ static inline u32 SampleNearest(int level, float s, float t)
 
 	// TODO: Should probably check if textures are aligned properly...
 
-	// TODO: Not sure if that through mode treatment is correct..
-	unsigned int u = (gstate.isModeThrough()) ? s : s * width; // TODO: -1?
-	unsigned int v = (gstate.isModeThrough()) ? t : t * height; // TODO: -1?
+	unsigned int u, v;
+	if (gstate.isModeThrough()) {
+		// TODO: Is it really this simple?
+		u = s;
+		v = t;
+	} else {
+		if (gstate.getUVGenMode() == 0) {
+			s *= getFloat24(gstate.texscaleu);
+			t *= getFloat24(gstate.texscalev);
 
-	// TODO: texcoord wrapping!!
+			s += getFloat24(gstate.texoffsetu);
+			t += getFloat24(gstate.texoffsetv);
+
+			// TODO: Is this really only necessary for UV mapping?
+			if (gstate.isTexCoordClampedS()) {
+				if (s > 1.0) s = 1.0;
+				if (s < 0) s = 0;
+			} else {
+				// TODO: Does this work for negative coords?
+				s = fmod(s, 1.0f);
+			}
+			if (gstate.isTexCoordClampedT()) {
+				if (t > 1.0) t = 1.0;
+				if (t < 0.0) t = 0.0;
+			} else {
+				// TODO: Does this work for negative coords?
+				t = fmod(t, 1.0f);
+			}
+		}
+
+		u = s * width; // TODO: width-1 instead?
+		v = t * height; // TODO: width-1 instead?
+	}
 
 	// TODO: Assert tmap.tmn == 0 (uv texture mapping mode)
 
