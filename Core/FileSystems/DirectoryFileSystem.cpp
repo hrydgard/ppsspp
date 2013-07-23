@@ -300,6 +300,12 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 
+	if (filename == "")
+	{
+		ERROR_LOG(FILESYS, "DiscDirectoryFileSystem: Opening entire ISO not supported");
+		return 0;
+	}
+
 	if (filename.compare(0,8,"/sce_lbn") == 0)
 	{
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
@@ -329,7 +335,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 		// no file info has been gathered? shouldn't happen
 		if (actualFileName == "")
 		{
-			ERROR_LOG(FILESYS, "sce_lbn used without calling fileinfo.");
+			ERROR_LOG(FILESYS, "DiscDirectoryFileSystem: sce_lbn used without calling fileinfo.");
 			return 0;
 		}
 		
