@@ -520,12 +520,12 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 		}
 	}
 
-	if ((g_Config.iTexFiltering == linear || (g_Config.iTexFiltering == linearFMV && g_iNumVideos)) && !gstate.isColorTestEnabled()) {
+	if ((g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos)) && !gstate.isColorTestEnabled()) {
 		magFilt |= 1;
 		minFilt |= 1;
 	}
 
-	if (g_Config.iTexFiltering == nearest) {
+	if (g_Config.iTexFiltering == NEAREST) {
 		magFilt &= ~1;
 		minFilt &= ~1;
 	}
