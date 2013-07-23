@@ -1166,7 +1166,7 @@ void TextureCache::SetTexture() {
 			break;
 		}
 	}
-	if (g_Config.bMipMap) {
+	if (if (g_Config.bMipMap && !g_Config.iTexScalingLevel) {) {
 #ifdef USING_GLES2
 		// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 		// don't specify mips all the way down. As a result, we either need to manually generate
