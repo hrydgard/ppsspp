@@ -364,13 +364,14 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	DrawingCoords p(minX, minY, 0);
 	for (p.y = minY; p.y <= maxY; ++p.y) {
 		for (p.x = minX; p.x <= maxX; ++p.x) {
-			int w0 = orient2d(v1.drawpos, v2.drawpos, p) + bias0;
-			int w1 = orient2d(v2.drawpos, v0.drawpos, p) + bias1;
-			int w2 = orient2d(v0.drawpos, v1.drawpos, p) + bias2;
+			int w0 = orient2d(v1.drawpos, v2.drawpos, p);
+			int w1 = orient2d(v2.drawpos, v0.drawpos, p);
+			int w2 = orient2d(v0.drawpos, v1.drawpos, p);
 
 			// If p is on or inside all edges, render pixel
-			// TODO: Should only render when it's on the left of the right edge
-			if (w0 >=0 && w1 >= 0 && w2 >= 0) {
+			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
+			if (w0 + bias0 >=0 && w1 + bias1 >= 0 && w2 + bias2 >= 0) {
+				// TODO: Check if this check is still necessary
 				if (w0 == w1 && w1 == w2 && w2 == 0)
 					continue;
 
