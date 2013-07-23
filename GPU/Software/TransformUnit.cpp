@@ -232,5 +232,41 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type
 			else
 				Clipper::ProcessTriangle(data[0], data[1], data[2]);
 		}
+	} else if (prim_type == GE_PRIM_TRIANGLE_FAN) {
+		VertexData data[3];
+		unsigned int skip_count = 1; // Don't draw a triangle when loading the first two vertices
+
+		if (indices)
+			vreader.Goto(indices_16bit ? indices16[0] : indices8[0]);
+		else
+			vreader.Goto(0);
+		data[0] = ReadVertex(vreader);
+
+		for (int vtx = 1; vtx < vertex_count; ++vtx) {
+			if (indices)
+				vreader.Goto(indices_16bit ? indices16[vtx] : indices8[vtx]);
+			else
+				vreader.Goto(vtx);
+
+			data[2 - (vtx % 2)] = ReadVertex(vreader);
+			if (outside_range_flag) {
+				// Drop all primitives containing the current vertex
+				skip_count = 2;
+				outside_range_flag = false;
+				continue;
+			}
+
+			if (skip_count) {
+				--skip_count;
+				continue;
+			}
+
+			// We need to reverse the vertex order for each second primitive,
+			// but we additionally need to do that for every primitive if CCW cullmode is used.
+			if ((!gstate.getCullMode()) ^ (vtx % 2))
+				Clipper::ProcessTriangle(data[2], data[1], data[0]);
+			else
+				Clipper::ProcessTriangle(data[0], data[1], data[2]);
+		}
 	}
 }

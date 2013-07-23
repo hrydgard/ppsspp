@@ -276,9 +276,10 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				"RECTANGLES=6,",
 			};
 
-			if (type != GE_PRIM_TRIANGLES && type != GE_PRIM_TRIANGLE_STRIP && type != GE_PRIM_RECTANGLES)
+			if (type != GE_PRIM_TRIANGLES && type != GE_PRIM_TRIANGLE_STRIP && type != GE_PRIM_TRIANGLE_FAN && type != GE_PRIM_RECTANGLES) {
+				ERROR_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
 				break;
-//			ERROR_LOG(G3D, "DL DrawPrim type: %s count: %i vaddr= %08x, iaddr= %08x", type<7 ? types[type] : "INVALID", count, gstate_c.vertexAddr, gstate_c.indexAddr);
+			}
 
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
 			void *indices = NULL;
