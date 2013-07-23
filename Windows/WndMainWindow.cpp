@@ -326,9 +326,10 @@ namespace MainWindow
 		if (browseDirectory)
 		{
 			std::string dir = W32Util::BrowseForFolder(GetHWND(),"Choose directory");
-			if (dir == "" && !isPaused)
+			if (dir == "")
 			{
-				Core_EnableStepping(false);
+				if (!isPaused)
+					Core_EnableStepping(false);
 			}
 			else
 			{
