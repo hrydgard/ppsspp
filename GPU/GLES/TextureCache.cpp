@@ -790,29 +790,35 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, u32 format) {
 
 #ifdef _M_SSE
 	if(cpu_info.bSSE4_1 && (((u32)checkp)&0x0f)==0){
-		const __m128i mult = _mm_set_epi32(294499921, 131, 17161, 2248091);
-		const __m128i *p = (const __m128i *)checkp;
+		__m128i mult = _mm_set_epi16(0x0001U, 0x0083U, 0x4309U, 0x4d9bU, 0xb651U, 0x4b73U, 0x9bd9U, 0xc00bU);
+		__m128i update = _mm_set1_epi16(0x2455U);
+		__m128i *p = (__m128i *)checkp;
+		__m128i data, sum;
+		sum = _mm_set1_epi32(0);
 		while(sizeInRAM >= 16){
-			__m128i data = _mm_load_si128(p++);
-			int data3 = _mm_extract_epi32(data, 3);
+			data = _mm_load_si128(p++);
+			data = _mm_mullo_epi16(data, mult);
+			mult = _mm_add_epi16(mult, update);
+			sum  = _mm_add_epi32(sum, data);
 			sizeInRAM -= 16;
-			data = _mm_insert_epi32(data, hash, 3);
-			data = _mm_mullo_epi32(data, mult);
-			data = _mm_hadd_epi32(data, data);
-			data = _mm_hadd_epi32(data, data);
-			hash = _mm_cvtsi128_si32(data);
-			hash += data3;
 		}
+		sum = _mm_hadd_epi32(sum, sum);
+		sum = _mm_hadd_epi32(sum, sum);
+		hash = _mm_cvtsi128_si32(sum);
 	}
 #endif
 
-	while(sizeInRAM>=16){
+	while(sizeInRAM>=32){
 		hash = hash*131 + checkp[0];
 		hash = hash*131 + checkp[1];
 		hash = hash*131 + checkp[2];
 		hash = hash*131 + checkp[3];
-		sizeInRAM -= 16;
-		checkp += 4;
+		hash = hash*131 + checkp[4];
+		hash = hash*131 + checkp[5];
+		hash = hash*131 + checkp[6];
+		hash = hash*131 + checkp[7];
+		sizeInRAM -= 32;
+		checkp += 8;
 	}
 
 	while(sizeInRAM){
