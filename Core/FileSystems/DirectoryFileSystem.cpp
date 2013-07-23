@@ -145,7 +145,7 @@ DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string 
 			basePath = basePath + "/";
 #endif
 
-	File::CreateFullPath(basePath);
+	if (!virtualDisc) File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
 }
 
@@ -176,6 +176,11 @@ std::string DirectoryFileSystem::GetLocalPath(std::string localpath) {
 }
 
 bool DirectoryFileSystem::MkDir(const std::string &dirname) {
+	if (virtualDisc)
+	{
+		ERROR_LOG(HLE,"Cannot create directory on virtual disc");
+		return false;
+	}
 
 #if HOST_IS_CASE_SENSITIVE
 	// Must fix case BEFORE attempting, because MkDir would create
@@ -192,6 +197,12 @@ bool DirectoryFileSystem::MkDir(const std::string &dirname) {
 }
 
 bool DirectoryFileSystem::RmDir(const std::string &dirname) {
+	if (virtualDisc)
+	{
+		ERROR_LOG(HLE,"Cannot remove directory on virtual disc");
+		return false;
+	}
+
 	std::string fullName = GetLocalPath(dirname);
 
 #if HOST_IS_CASE_SENSITIVE
@@ -216,6 +227,12 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 }
 
 int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &to) {
+	if (virtualDisc)
+	{
+		ERROR_LOG(HLE,"Cannot rename file on virtual disc");
+		return false;
+	}
+
 	std::string fullTo = to;
 
 	// Rename ignores the path (even if specified) on to.
@@ -271,6 +288,12 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 }
 
 bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
+	if (virtualDisc)
+	{
+		ERROR_LOG(HLE,"Cannot remove file on virtual disc");
+		return false;
+	}
+
 	std::string fullName = GetLocalPath(filename);
 #ifdef _WIN32
 	bool retValue = (::DeleteFileA(fullName.c_str()) == TRUE);
@@ -300,13 +323,13 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 
-	if (filename == "")
+	if (virtualDisc && filename == "")
 	{
 		ERROR_LOG(FILESYS, "DiscDirectoryFileSystem: Opening entire ISO not supported");
 		return 0;
 	}
 
-	if (filename.compare(0,8,"/sce_lbn") == 0)
+	if (virtualDisc && filename.compare(0,8,"/sce_lbn") == 0)
 	{
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
@@ -536,6 +559,12 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 }
 
 size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
+	if (virtualDisc)
+	{
+		ERROR_LOG(HLE,"Cannot write to file on virtual disc");
+		return 0;
+	}
+
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
