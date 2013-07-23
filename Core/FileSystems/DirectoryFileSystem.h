@@ -70,6 +70,7 @@ public:
 
 private:
 	u32 GetFileLbn(std::string& fileName);
+	bool findVirtualFileData(u32 accessBlock, u32 accessSize, std::string& fileName, u32& firstBlock);
 
 	struct OpenFileEntry {
 #ifdef _WIN32
@@ -77,9 +78,10 @@ private:
 #else
 		FILE *hFile;
 #endif
+		bool wholeIso;
 		bool lbnFile;
 		u32 startOffset;	// only used by lbn files
-		u32 curOffset;		// only used by lbn files;
+		u32 curOffset;		// only used by lbn files and whole iso;
 		u32 size;			// only used by lbn files
 	};
 

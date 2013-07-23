@@ -321,12 +321,38 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 	return retValue;
 }
 
+bool DirectoryFileSystem::findVirtualFileData(u32 accessBlock, u32 accessSize, std::string& fileName, u32& firstBlock)
+{
+	for (int i = 0; i < fileBlocks.size(); i++)
+	{
+		if (fileBlocks[i].firstBlock <= accessBlock)
+		{
+			u32 sectorOffset = (accessBlock-fileBlocks[i].firstBlock)*2048;
+			u32 endOffset = sectorOffset+accessSize;
+			if (endOffset <= fileBlocks[i].totalSize)
+			{
+				firstBlock = fileBlocks[i].firstBlock;
+				fileName = fileBlocks[i].fileName;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 
 	if (virtualDisc && filename == "")
 	{
-		ERROR_LOG(FILESYS, "DiscDirectoryFileSystem: Opening entire ISO not supported");
-		return 0;
+		OpenFileEntry entry;
+		entry.lbnFile = false;
+		entry.wholeIso = true;
+		
+		u32 newHandle = hAlloc->GetNewHandle();
+		entries[newHandle] = entry;
+
+		return newHandle;
 	}
 
 	if (virtualDisc && filename.compare(0,8,"/sce_lbn") == 0)
@@ -336,6 +362,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 
 		OpenFileEntry entry;
 		entry.lbnFile = true;
+		entry.wholeIso = false;
 		entry.size = readSize;
 		entry.curOffset = 0;
 
@@ -418,6 +445,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 
 	OpenFileEntry entry;
 	entry.lbnFile = false;
+	entry.wholeIso = false;
 
 	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
 #ifdef _WIN32
@@ -539,6 +567,51 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
+		// it's the whole iso... it could reference any of the files on the disc.
+		// For now let's just open and close the files on demand. Can certainly be done
+		// better though
+		if (iter->second.wholeIso)
+		{
+			std::string fileName;
+			u32 firstBlock;
+
+			if (findVirtualFileData(iter->second.curOffset,size*2048,fileName,firstBlock) == false)
+			{
+				ERROR_LOG(HLE,"DiscDirectoryFileSystem: Reading from unknown address", handle);
+				return 0;
+			}
+			
+			std::string fullName = GetLocalPath(fileName);
+			
+#ifdef _WIN32
+			HANDLE hFile = CreateFile(fullName.c_str(), GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
+			bool success = hFile != INVALID_HANDLE_VALUE;
+#else
+			FILE* hFile = fopen(fullName.c_str(), "rb");
+			bool success = hFile != 0;
+#endif
+
+			if (!success)
+			{
+				ERROR_LOG(HLE,"DiscDirectoryFileSystem: Error opening file %s", fileName.c_str());
+				return 0;
+			}
+			
+			u32 startOffset = (iter->second.curOffset-firstBlock)*2048;
+			size_t bytesRead;
+#ifdef _WIN32
+			SetFilePointer(hFile, (LONG)startOffset, 0, FILE_BEGIN);
+			::ReadFile(hFile, (LPVOID)pointer, (DWORD)size*2048, (LPDWORD)&bytesRead, 0);
+			CloseHandle(hFile);
+#else
+			fseek(hFile, startOffset, SEEK_SET);
+			bytesRead = fread(pointer, 1, size*2048, hFile);
+			fclose(hFile);
+#endif
+
+			return bytesRead;
+		}
+
 		size_t bytesRead;
 #ifdef _WIN32
 		::ReadFile(iter->second.hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesRead, 0);
@@ -585,6 +658,17 @@ size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
 size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
+		if (iter->second.wholeIso)
+		{
+			switch (type) {
+			case FILEMOVE_BEGIN:    iter->second.curOffset = position;    break;
+			case FILEMOVE_CURRENT:  iter->second.curOffset += position;  break;
+			case FILEMOVE_END:      return -1;	// unsupported
+			}
+
+			return iter->second.curOffset;
+		}
+
 		if (iter->second.lbnFile)
 		{
 			switch (type) {
