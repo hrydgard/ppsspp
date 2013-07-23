@@ -743,6 +743,7 @@ namespace MainWindow
 				setRenderingMode(3);
 				break;
 
+			// Dummy option to let the buffered rendering hotkey cycle through all the options
 			case ID_OPTIONS_BUFFEREDRENDERINGDUMMY:
 				g_Config.iRenderingMode = ++g_Config.iRenderingMode > 3? 0 : g_Config.iRenderingMode;
 
