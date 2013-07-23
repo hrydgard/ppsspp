@@ -406,8 +406,6 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				// TODO: Make sure this is not ridiculously small?
 				float den = 1.0f/v0.clippos.w * w0 + 1.0f/v1.clippos.w * w1 + 1.0f/v2.clippos.w * w2;
 
-				// TODO: Depth range test
-
 				float s = (v0.texturecoords.s() * w0 / v0.clippos.w + v1.texturecoords.s() * w1 / v1.clippos.w + v2.texturecoords.s() * w2 / v2.clippos.w) / den;
 				float t = (v0.texturecoords.t() * w0 / v0.clippos.w + v1.texturecoords.t() * w1 / v1.clippos.w + v2.texturecoords.t() * w2 / v2.clippos.w) / den;
 
@@ -447,6 +445,14 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				prim_color_rgb += sec_color;
 
 				// TODO: Fogging
+
+				// TODO: Is that the correct way to interpolate?
+				u16 z = (u16)((v0.drawpos.z * w0 + v1.drawpos.z * w1 + v2.drawpos.z * w2) / (w0+w1+w2));
+
+				// Depth range test
+				if (!gstate.isModeThrough())
+					if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
+						continue;
 
 				if (gstate.isColorTestEnabled()) {
 					bool pass = false;
@@ -544,9 +550,6 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
 				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
-					// TODO: Is that the correct way to interpolate?
-					u16 z = (u16)((v0.drawpos.z * w0 + v1.drawpos.z * w1 + v2.drawpos.z * w2) / (w0+w1+w2));
-
 					// TODO: Verify that stencil op indeed needs to be applied here even if stencil testing is disabled
 					if (!DepthTestPassed(p.x, p.y, z)) {
 						ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
