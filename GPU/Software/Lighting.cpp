@@ -35,6 +35,20 @@ void Process(VertexData& vertex)
 	Vec3<int> specular_color(0, 0, 0);
 
 	for (unsigned int light = 0; light < 4; ++light) {
+		// Always calculate texture coords from lighting results if environment mapping is active
+		// TODO: specular lighting should affect this, too!
+		if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+			Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3*light]&0xFFFFFF), getFloat24(gstate.lpos[3*light+1]&0xFFFFFF),getFloat24(gstate.lpos[3*light+2]&0xFFFFFF));
+			float diffuse_factor = Dot(L,vertex.worldnormal) / L.Length() / vertex.worldnormal.Length();
+
+			if (gstate.getUVLS0() == light)
+				vertex.texturecoords.s() = (diffuse_factor + 1.f) / 2.f;
+
+			if (gstate.getUVLS1() == light)
+				vertex.texturecoords.t() = (diffuse_factor + 1.f) / 2.f;
+		}
+
+		// Skip other calculations if light chan is disabled
 		if (!gstate.isLightChanEnabled(light))
 			continue;
 

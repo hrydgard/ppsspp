@@ -472,6 +472,15 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 							Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
 
 							uv_map(0, stq.x/stq.z, stq.y/stq.z, u, v);
+						} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+							// environment mapping - ST coordinates are calculated during Lighting
+							float q0 = 1.f / v0.clippos.w;
+							float q1 = 1.f / v1.clippos.w;
+							float q2 = 1.f / v2.clippos.w;
+							float q = q0 * w0 + q1 * w1 + q2 * w2;
+							float s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
+							float t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
+							uv_map(0, s, t, u, v);
 						} else {
 							ERROR_LOG(G3D, "Unsupported texture mapping mode %x!", gstate.getUVGenMode());
 						}
