@@ -390,11 +390,20 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	int bias2 = IsRightSideOrFlatBottomLine(v2.drawpos.xy(), v0.drawpos.xy(), v1.drawpos.xy()) ? -1 : 0;
 
 	DrawingCoords p(minX, minY, 0);
-	for (p.y = minY; p.y <= maxY; ++p.y) {
-		for (p.x = minX; p.x <= maxX; ++p.x) {
-			int w0 = orient2d(v1.drawpos, v2.drawpos, p);
-			int w1 = orient2d(v2.drawpos, v0.drawpos, p);
-			int w2 = orient2d(v0.drawpos, v1.drawpos, p);
+	int w0_base = orient2d(v1.drawpos, v2.drawpos, p);
+	int w1_base = orient2d(v2.drawpos, v0.drawpos, p);
+	int w2_base = orient2d(v0.drawpos, v1.drawpos, p);
+	for (p.y = minY; p.y <= maxY; ++p.y,
+										w0_base += (int)v2.drawpos.x - (int)v1.drawpos.x,
+										w1_base += (int)v0.drawpos.x - (int)v2.drawpos.x,
+										w2_base += (int)v1.drawpos.x - (int)v0.drawpos.x) {
+		int w0 = w0_base;
+		int w1 = w1_base;
+		int w2 = w2_base;
+		for (p.x = minX; p.x <= maxX; ++p.x,
+											w0 -= (int)v2.drawpos.y - (int)v1.drawpos.y,
+											w1 -= (int)v0.drawpos.y - (int)v2.drawpos.y,
+											w2 -= (int)v1.drawpos.y - (int)v0.drawpos.y) {
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
