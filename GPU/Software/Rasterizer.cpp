@@ -33,6 +33,16 @@ static inline int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, con
 	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
 }
 
+static inline int orient2dIncX(int dY01)
+{
+	return dY01;
+}
+
+static inline int orient2dIncY(int dX01)
+{
+	return -dX01;
+}
+
 static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
 	if (!(gstate.texmode & 1))
@@ -376,8 +386,12 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 // Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
-	// Drop primitives which are not in CCW order.
-	if (((int)v1.drawpos.x - (int)v0.drawpos.x) * ((int)v2.drawpos.y - (int)v0.drawpos.y) - ((int)v1.drawpos.y - (int)v0.drawpos.y) * ((int)v2.drawpos.x - (int)v0.drawpos.x) < 0)
+	Vec2<int> d01((int)v0.drawpos.x - (int)v1.drawpos.x, (int)v0.drawpos.y - (int)v1.drawpos.y);
+	Vec2<int> d02((int)v0.drawpos.x - (int)v2.drawpos.x, (int)v0.drawpos.y - (int)v2.drawpos.y);
+	Vec2<int> d12((int)v1.drawpos.x - (int)v2.drawpos.x, (int)v1.drawpos.y - (int)v2.drawpos.y);
+
+	// Drop primitives which are not in CCW order by checking the cross product
+	if (d01.x * d02.y - d01.y * d02.x < 0)
 		return;
 
 	int minX = std::min(std::min(v0.drawpos.x, v1.drawpos.x), v2.drawpos.x);
@@ -399,16 +413,16 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 	int w1_base = orient2d(v2.drawpos, v0.drawpos, p);
 	int w2_base = orient2d(v0.drawpos, v1.drawpos, p);
 	for (p.y = minY; p.y <= maxY; ++p.y,
-										w0_base += (int)v2.drawpos.x - (int)v1.drawpos.x,
-										w1_base += (int)v0.drawpos.x - (int)v2.drawpos.x,
-										w2_base += (int)v1.drawpos.x - (int)v0.drawpos.x) {
+										w0_base += orient2dIncY(d12.x),
+										w1_base += orient2dIncY(-d02.x),
+										w2_base += orient2dIncY(d01.x)) {
 		int w0 = w0_base;
 		int w1 = w1_base;
 		int w2 = w2_base;
 		for (p.x = minX; p.x <= maxX; ++p.x,
-											w0 -= (int)v2.drawpos.y - (int)v1.drawpos.y,
-											w1 -= (int)v0.drawpos.y - (int)v2.drawpos.y,
-											w2 -= (int)v1.drawpos.y - (int)v0.drawpos.y) {
+											w0 += orient2dIncX(d12.y),
+											w1 += orient2dIncX(-d02.y),
+											w2 += orient2dIncX(d01.y)) {
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
