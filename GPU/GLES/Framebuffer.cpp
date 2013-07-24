@@ -1098,7 +1098,7 @@ void FramebufferManager::DeviceLost() {
 void FramebufferManager::BeginFrame() {
 	DecimateFBOs();
 	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
-	if (g_Config.bDisplayFramebuffer && displayFramebufPtr_) {
+	if (displayFramebufPtr_) {
 		INFO_LOG(HLE, "Drawing the framebuffer (%08x)", displayFramebufPtr_);
 		const u8 *pspframebuf = Memory::GetPointer((0x44000000) | (displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
 		glstate.cullFace.disable();

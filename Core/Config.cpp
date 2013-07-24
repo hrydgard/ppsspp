@@ -92,7 +92,6 @@ void Config::Load(const char *iniFileName)
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &iShowFPSCounter, false);
-	graphics->Get("DisplayFramebuffer", &bDisplayFramebuffer, false);
 #ifdef _WIN32
 	graphics->Get("ResolutionScale", &iWindowZoom, 2);
 #else
@@ -223,7 +222,6 @@ void Config::Save()
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", iShowFPSCounter);
-		graphics->Set("DisplayFramebuffer", bDisplayFramebuffer);
 		graphics->Set("ResolutionScale", iWindowZoom);
 		graphics->Set("RenderingMode", iRenderingMode);
 		graphics->Set("HardwareTransform", bHardwareTransform);
