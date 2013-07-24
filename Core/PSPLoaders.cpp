@@ -53,7 +53,7 @@ void InitMemoryForGameISO(std::string fileToStart) {
 
 	if (info.isDirectory)
 	{
-		umd2 = new DirectoryFileSystem(&pspFileSystem, fileToStart,true);
+		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileToStart);
 	}
 	else 
 	{

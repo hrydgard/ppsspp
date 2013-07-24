@@ -229,7 +229,7 @@ public:
 			{
 				info_->fileType = FILETYPE_PSP_ISO;
 				SequentialHandleAllocator handles;
-				DirectoryFileSystem umd(&handles,gamePath_.c_str(),true);
+				VirtualDiscFileSystem umd(&handles,gamePath_.c_str());
 				
 				// Alright, let's fetch the PARAM.SFO.
 				std::string paramSFOcontents;
