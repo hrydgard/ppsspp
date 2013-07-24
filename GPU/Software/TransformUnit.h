@@ -107,5 +107,6 @@ public:
 	static ScreenCoords ClipToScreen(const ClipCoords& coords);
 	static DrawingCoords ScreenToDrawing(const ScreenCoords& coords);
 
+	static void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, u32 prim_type, u32 vertex_type);
 	static void SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type);
 };

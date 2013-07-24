@@ -351,6 +351,8 @@ struct GPUgstate
 	int getWeightMask() const { return vertType & GE_VTYPE_WEIGHT_MASK; }
 	int getNumBoneWeights() const { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 
+	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
+
 // Real data in the context ends here
 };
 

@@ -138,6 +138,89 @@ static VertexData ReadVertex(VertexReader& vreader)
 	return vertex;
 }
 
+#define START_OPEN_U 1
+#define END_OPEN_U 2
+#define START_OPEN_V 4
+#define END_OPEN_V 8
+
+struct SplinePatch {
+	VertexData points[16];
+	int type;
+};
+
+void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, u32 prim_type, u32 vertex_type)
+{
+	VertexDecoder vdecoder;
+	vdecoder.SetVertexType(vertex_type);
+	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
+
+	static u8 buf[65536 * 48]; // yolo
+	u16 index_lower_bound = 0;
+	u16 index_upper_bound = count_u * count_v - 1;
+	bool indices_16bit = (vertex_type & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT;
+	u8* indices8 = (u8*)indices;
+	u16* indices16 = (u16*)indices;
+	if (indices)
+		GetIndexBounds(indices, count_u*count_v, vertex_type, &index_lower_bound, &index_upper_bound);
+	vdecoder.DecodeVerts(buf, control_points, index_lower_bound, index_upper_bound);
+
+	VertexReader vreader(buf, vtxfmt, vertex_type);
+
+	int num_patches_u = count_u - 3;
+	int num_patches_v = count_v - 3;
+
+	// TODO: Do something less idiotic to manage this buffer
+	SplinePatch* patches = new SplinePatch[num_patches_u * num_patches_v];
+
+	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
+		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
+			SplinePatch& patch = patches[patch_u + patch_v * num_patches_u];
+
+			for (int point = 0; point < 16; ++point) {
+				int idx = (patch_u + point%4) + (patch_v + point/4) * count_u;
+                if (indices)
+                    vreader.Goto(indices_16bit ? indices16[idx] : indices8[idx]);
+                else
+                    vreader.Goto(idx);
+
+				patch.points[point] = ReadVertex(vreader);
+			}
+			patch.type = (type_u | (type_v<<2));
+			if (patch_u != 0) patch.type &= ~START_OPEN_U;
+			if (patch_v != 0) patch.type &= ~START_OPEN_V;
+			if (patch_u != num_patches_u-1) patch.type &= ~END_OPEN_U;
+			if (patch_v != num_patches_v-1) patch.type &= ~END_OPEN_V;
+		}
+	}
+
+	for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
+		SplinePatch& patch = patches[patch_idx];
+
+		// TODO: Should do actual patch subdivision instead of just drawing the control points!
+		const int tile_min_u = (patch.type & START_OPEN_U) ? 0 : 1;
+		const int tile_min_v = (patch.type & START_OPEN_V) ? 0 : 1;
+		const int tile_max_u = (patch.type & END_OPEN_U) ? 3 : 2;
+		const int tile_max_v = (patch.type & END_OPEN_V) ? 3 : 2;
+		for (int tile_u = tile_min_u; tile_u < tile_max_u; ++tile_u) {
+			for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
+				int point_index = tile_u + tile_v*4;
+
+				VertexData v0 = patch.points[point_index];
+				VertexData v1 = patch.points[point_index+1];
+				VertexData v2 = patch.points[point_index+4];
+				VertexData v3 = patch.points[point_index+5];
+
+				// TODO: Backface culling etc
+				Clipper::ProcessTriangle(v0, v1, v2);
+				Clipper::ProcessTriangle(v2, v1, v0);
+				Clipper::ProcessTriangle(v2, v1, v3);
+				Clipper::ProcessTriangle(v3, v1, v2);
+			}
+		}
+	}
+	delete[] patches;
+}
+
 void TransformUnit::SubmitPrimitive(void* vertices, void* indices, u32 prim_type, int vertex_count, u32 vertex_type)
 {
 	// TODO: Cache VertexDecoder objects
