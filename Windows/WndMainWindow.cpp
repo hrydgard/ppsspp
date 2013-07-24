@@ -743,6 +743,29 @@ namespace MainWindow
 				setRenderingMode(3);
 				break;
 
+			// Dummy option to let the buffered rendering hotkey cycle through all the options
+			case ID_OPTIONS_BUFFEREDRENDERINGDUMMY:
+				g_Config.iRenderingMode = ++g_Config.iRenderingMode > 3? 0 : g_Config.iRenderingMode;
+
+				switch(g_Config.iRenderingMode) {
+				case 0:
+					osm.Show(g->T("Non-Buffered Rendering"));
+					break;
+				case 1:
+					osm.Show(g->T("Buffered Rendering"));
+					break;
+				case 2:
+					osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
+					break;
+				case 3:
+					osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
+					break;
+				}
+
+				setRenderingMode(g_Config.iRenderingMode);
+
+				break;
+
 			case ID_OPTIONS_SHOWDEBUGSTATISTICS:
 				g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
 				break;
