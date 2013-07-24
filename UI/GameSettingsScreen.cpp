@@ -262,7 +262,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("System", systemSettingsScroll);
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
-	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 1, 1000, gs->T("Unlock CPU Clock"), screenManager()));
+	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Unlock CPU Clock"), screenManager()));
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
