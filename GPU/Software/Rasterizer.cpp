@@ -96,55 +96,47 @@ static inline u32 GetClutIndex(u32 index) {
     return ((index >> clutShift) & clutMask) | clutBase;
 }
 
-static inline u32 SampleNearest(int level, float s, float t)
+static inline void uv_map(int level, float s, float t, unsigned int& u, unsigned int& v)
+{
+	s *= getFloat24(gstate.texscaleu);
+	t *= getFloat24(gstate.texscalev);
+
+	s += getFloat24(gstate.texoffsetu);
+	t += getFloat24(gstate.texoffsetv);
+
+	// TODO: Is this really only necessary for UV mapping?
+	if (gstate.isTexCoordClampedS()) {
+		if (s > 1.0) s = 1.0;
+		if (s < 0) s = 0;
+	} else {
+		// TODO: Does this work for negative coords?
+		s = fmod(s, 1.0f);
+	}
+	if (gstate.isTexCoordClampedT()) {
+		if (t > 1.0) t = 1.0;
+		if (t < 0.0) t = 0.0;
+	} else {
+		// TODO: Does this work for negative coords?
+		t = fmod(t, 1.0f);
+	}
+
+	int width = 1 << (gstate.texsize[level] & 0xf);
+	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
+
+	u = s * width; // TODO: width-1 instead?
+	v = t * height; // TODO: width-1 instead?
+}
+
+static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
 {
 	GETextureFormat texfmt = gstate.getTextureFormat();
 	u32 texaddr = (gstate.texaddr[level] & 0xFFFFF0) | ((gstate.texbufwidth[level] << 8) & 0x0F000000);
 	u8* srcptr = (u8*)Memory::GetPointer(texaddr); // TODO: not sure if this is the right place to load from...?
 
-	int width = 1 << (gstate.texsize[level] & 0xf);
-	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
-
 	// Special rules for kernel textures (PPGe), TODO: Verify!
 	int texbufwidth = (texaddr < PSP_GetUserMemoryBase()) ? gstate.texbufwidth[level] & 0x1FFF : gstate.texbufwidth[level] & 0x7FF;
 
 	// TODO: Should probably check if textures are aligned properly...
-
-	unsigned int u, v;
-	if (gstate.isModeThrough()) {
-		// TODO: Is it really this simple?
-		u = s;
-		v = t;
-	} else {
-		if (gstate.getUVGenMode() == 0) {
-			s *= getFloat24(gstate.texscaleu);
-			t *= getFloat24(gstate.texscalev);
-
-			s += getFloat24(gstate.texoffsetu);
-			t += getFloat24(gstate.texoffsetv);
-
-			// TODO: Is this really only necessary for UV mapping?
-			if (gstate.isTexCoordClampedS()) {
-				if (s > 1.0) s = 1.0;
-				if (s < 0) s = 0;
-			} else {
-				// TODO: Does this work for negative coords?
-				s = fmod(s, 1.0f);
-			}
-			if (gstate.isTexCoordClampedT()) {
-				if (t > 1.0) t = 1.0;
-				if (t < 0.0) t = 0.0;
-			} else {
-				// TODO: Does this work for negative coords?
-				t = fmod(t, 1.0f);
-			}
-		}
-
-		u = s * width; // TODO: width-1 instead?
-		v = t * height; // TODO: width-1 instead?
-	}
-
-	// TODO: Assert tmap.tmn == 0 (uv texture mapping mode)
 
 	if (texfmt == GE_TFMT_4444) {
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
@@ -331,9 +323,8 @@ static inline void ApplyStencilOp(int op, int x, int y)
 	}
 }
 
-static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb, int prim_color_a, float s, float t)
+static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb, int prim_color_a, const Vec4<int>& texcolor, unsigned int u, unsigned int v)
 {
-	Vec4<int> texcolor = Vec4<int>::FromRGBA(/*TextureDecoder::*/SampleNearest(0, s, t));
 	Vec3<int> out_rgb;
 	int out_a;
 
@@ -459,7 +450,21 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 
 				// TODO: Also disable if vertex has no texture coordinates?
 				if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
-					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, s, t);
+					unsigned int u = 0, v = 0;
+					if (gstate.isModeThrough()) {
+						// TODO: Is it really this simple?
+						u = s;
+						v = t;
+					} else {
+						if (gstate.getUVGenMode() == 0) {
+							uv_map(0, s, t, u, v);
+						} else {
+							ERROR_LOG(G3D, "Unknown texture mapping mode!");
+						}
+					}
+
+					Vec4<int> texcolor = Vec4<int>::FromRGBA(SampleNearest(0, u, v));
+					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor, s, t);
 					prim_color_rgb = out.rgb();
 					prim_color_a = out.a();
 				}
