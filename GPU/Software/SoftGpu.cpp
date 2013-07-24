@@ -281,9 +281,18 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				break;
 			}
 
+			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+				ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				break;
+			}
+
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+					ERROR_LOG(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					break;
+				}
 				indices = Memory::GetPointer(gstate_c.indexAddr);
 			}
 
