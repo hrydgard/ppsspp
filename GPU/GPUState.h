@@ -327,8 +327,8 @@ struct GPUgstate
 	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
 
 	// UV gen
-	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
-	int getUVProjMode() const { return (texmapmode >> 8) & 3;}   // 2 bits
+	GETexMapMode getUVGenMode() const { return static_cast<GETexMapMode>(texmapmode & 3);}   // 2 bits
+	GETexProjMapMode getUVProjMode() const { return static_cast<GETexProjMapMode>((texmapmode >> 8) & 3);}   // 2 bits
 	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
 	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
 

@@ -76,6 +76,7 @@ struct VertexData
 	{
 		// World coords only needed for lighting, so we don't Lerp those
 
+		modelpos = ::Lerp(a.modelpos, b.modelpos, t);
 		clippos = ::Lerp(a.clippos, b.clippos, t);
 		drawpos = ::Lerp(a.drawpos, b.drawpos, t);  // TODO: Should use a LerpInt (?)
 		texturecoords = ::Lerp(a.texturecoords, b.texturecoords, t);
@@ -86,6 +87,7 @@ struct VertexData
 		color1 = LerpInt<Vec3<int>,256>(a.color1, b.color1, t_int);
 	}
 
+	ModelCoords modelpos;
 	WorldCoords worldpos; // TODO: Storing this is dumb, should transform the light to clip space instead
 	ClipCoords clippos;
 	DrawingCoords drawpos; // TODO: Shouldn't store this ?

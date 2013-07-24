@@ -117,8 +117,8 @@ static VertexData ReadVertex(VertexReader& vreader)
 	}
 
 	if (!gstate.isModeThrough()) {
-		ModelCoords mcoords(pos[0], pos[1], pos[2]);
-		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(mcoords));
+		vertex.modelpos = ModelCoords(pos[0], pos[1], pos[2]);
+		vertex.worldpos = WorldCoords(TransformUnit::ModelToWorld(vertex.modelpos));
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(TransformUnit::WorldToView(vertex.worldpos)));
 		vertex.drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(ClipToScreenInternal(vertex.clippos)));
 

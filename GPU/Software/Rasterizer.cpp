@@ -422,12 +422,6 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				if (w0 == w1 && w1 == w2 && w2 == 0)
 					continue;
 
-				// TODO: Make sure this is not ridiculously small?
-				float den = 1.0f/v0.clippos.w * w0 + 1.0f/v1.clippos.w * w1 + 1.0f/v2.clippos.w * w2;
-
-				float s = (v0.texturecoords.s() * w0 / v0.clippos.w + v1.texturecoords.s() * w1 / v1.clippos.w + v2.texturecoords.s() * w2 / v2.clippos.w) / den;
-				float t = (v0.texturecoords.t() * w0 / v0.clippos.w + v1.texturecoords.t() * w1 / v1.clippos.w + v2.texturecoords.t() * w2 / v2.clippos.w) / den;
-
 				Vec3<int> prim_color_rgb(0, 0, 0);
 				int prim_color_a = 0;
 				Vec3<int> sec_color(0, 0, 0);
@@ -453,18 +447,38 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					unsigned int u = 0, v = 0;
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
-						u = s;
-						v = t;
+						u = (v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) / (w0+w1+w2);
+						v = (v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) / (w0+w1+w2);
 					} else {
-						if (gstate.getUVGenMode() == 0) {
+						if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS) {
+							float q0 = 1.f / v0.clippos.w;
+							float q1 = 1.f / v1.clippos.w;
+							float q2 = 1.f / v2.clippos.w;
+							float q = q0 * w0 + q1 * w1 + q2 * w2;
+							float s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
+							float t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
+
 							uv_map(0, s, t, u, v);
+						} else if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
+							// projection mapping
+							Vec3<float> source;
+							if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
+								source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
+							} else {
+								ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
+							}
+
+							Mat3x3<float> tgen(gstate.tgenMatrix);
+							Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+
+							uv_map(0, stq.x/stq.z, stq.y/stq.z, u, v);
 						} else {
-							ERROR_LOG(G3D, "Unknown texture mapping mode!");
+							ERROR_LOG(G3D, "Unsupported texture mapping mode %x!", gstate.getUVGenMode());
 						}
 					}
 
 					Vec4<int> texcolor = Vec4<int>::FromRGBA(SampleNearest(0, u, v));
-					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor, s, t);
+					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor, u, v);
 					prim_color_rgb = out.rgb();
 					prim_color_a = out.a();
 				}
