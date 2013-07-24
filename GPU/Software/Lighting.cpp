@@ -29,8 +29,8 @@ void Process(VertexData& vertex)
 	Vec3<int> mec = Vec3<int>(gstate.getMaterialEmissiveR(), gstate.getMaterialEmissiveG(), gstate.getMaterialEmissiveB());
 
 	Vec3<int> mac = (gstate.materialupdate&1)
-						? Vec3<int>(gstate.getMaterialAmbientR(), gstate.getMaterialAmbientG(), gstate.getMaterialAmbientB())
-						: vertex.color0.rgb();
+						? vertex.color0.rgb()
+						: Vec3<int>(gstate.getMaterialAmbientR(), gstate.getMaterialAmbientG(), gstate.getMaterialAmbientB());
 	Vec3<int> final_color = mec + mac * Vec3<int>(gstate.getAmbientR(), gstate.getAmbientG(), gstate.getAmbientB()) / 255;
 	Vec3<int> specular_color(0, 0, 0);
 
@@ -91,8 +91,8 @@ void Process(VertexData& vertex)
 		// diffuse lighting
 		Vec3<int> ldc = Vec3<int>(gstate.getDiffuseColorR(light), gstate.getDiffuseColorG(light), gstate.getDiffuseColorB(light));
 		Vec3<int> mdc = (gstate.materialupdate&2)
-							? Vec3<int>(gstate.getMaterialDiffuseR(), gstate.getMaterialDiffuseG(), gstate.getMaterialDiffuseB())
-							: vertex.color0.rgb();
+							? vertex.color0.rgb()
+							: Vec3<int>(gstate.getMaterialDiffuseR(), gstate.getMaterialDiffuseG(), gstate.getMaterialDiffuseB());
 
 		float diffuse_factor = Dot(L,vertex.worldnormal) / d / vertex.worldnormal.Length();
 		if (gstate.isUsingPoweredDiffuseLight(light)) {
@@ -114,8 +114,8 @@ void Process(VertexData& vertex)
 
 			Vec3<int> lsc = Vec3<int>(gstate.getSpecularColorR(light), gstate.getSpecularColorG(light), gstate.getSpecularColorB(light));
 			Vec3<int> msc = (gstate.materialupdate&4)
-								? Vec3<int>(gstate.getMaterialSpecularR(), gstate.getMaterialSpecularG(), gstate.getMaterialSpecularB())
-								: vertex.color0.rgb();
+								? vertex.color0.rgb()
+								: Vec3<int>(gstate.getMaterialSpecularR(), gstate.getMaterialSpecularG(), gstate.getMaterialSpecularB());
 
 			float specular_factor = Dot(H,vertex.worldnormal) / H.Length() / vertex.worldnormal.Length();
 			float k = getFloat24(gstate.materialspecularcoef&0xFFFFFF);
@@ -143,7 +143,7 @@ void Process(VertexData& vertex)
 		vertex.color1 = Vec3<int>(0, 0, 0);
 	}
 
-	int maa = (gstate.materialupdate&1) ? gstate.getMaterialAmbientA() : vertex.color0.a();
+	int maa = (gstate.materialupdate&1) ? vertex.color0.a() : gstate.getMaterialAmbientA();
 	vertex.color0.a() = gstate.getAmbientA() * maa / 255;
 
 	if (vertex.color0.r() > 255) vertex.color0.r() = 255;
