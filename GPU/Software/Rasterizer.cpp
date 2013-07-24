@@ -372,9 +372,14 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
 }
-// Draws triangle, vertices specified in counter-clockwise direction (TODO: Make sure this is actually enforced)
+
+// Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
+	// Drop primitives which are not in CCW order.
+	if (((int)v1.drawpos.x - (int)v0.drawpos.x) * ((int)v2.drawpos.y - (int)v0.drawpos.y) - ((int)v1.drawpos.y - (int)v0.drawpos.y) * ((int)v2.drawpos.x - (int)v0.drawpos.x) < 0)
+		return;
+
 	int minX = std::min(std::min(v0.drawpos.x, v1.drawpos.x), v2.drawpos.x);
 	int minY = std::min(std::min(v0.drawpos.y, v1.drawpos.y), v2.drawpos.y);
 	int maxX = std::max(std::max(v0.drawpos.x, v1.drawpos.x), v2.drawpos.x);
