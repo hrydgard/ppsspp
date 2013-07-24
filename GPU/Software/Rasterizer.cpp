@@ -96,7 +96,7 @@ static inline u32 GetClutIndex(u32 index) {
     return ((index >> clutShift) & clutMask) | clutBase;
 }
 
-static inline void uv_map(int level, float s, float t, unsigned int& u, unsigned int& v)
+static inline void GetTexelCoordinates(int level, float s, float t, unsigned int& u, unsigned int& v)
 {
 	s *= getFloat24(gstate.texscaleu);
 	t *= getFloat24(gstate.texscalev);
@@ -125,6 +125,35 @@ static inline void uv_map(int level, float s, float t, unsigned int& u, unsigned
 
 	u = s * width; // TODO: width-1 instead?
 	v = t * height; // TODO: width-1 instead?
+}
+
+static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
+{
+	if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+		// TODO: What happens if vertex has no texture coordinates?
+		// Note that for environment mapping, texture coordinates have been calculated during lighting
+		float q0 = 1.f / v0.clippos.w;
+		float q1 = 1.f / v1.clippos.w;
+		float q2 = 1.f / v2.clippos.w;
+		float q = q0 * w0 + q1 * w1 + q2 * w2;
+		s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
+		t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
+	} else if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
+		// projection mapping, TODO: Move this code to TransformUnit!
+		Vec3<float> source;
+		if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
+			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
+		} else {
+			ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
+		}
+
+		Mat3x3<float> tgen(gstate.tgenMatrix);
+		Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+		s = stq.x/stq.z;
+		t = stq.y/stq.z;
+	} else {
+		ERROR_LOG(G3D, "Unsupported texture mapping mode %x!", gstate.getUVGenMode());
+	}
 }
 
 static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
@@ -290,6 +319,38 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<u10>& vertex, const Ve
 	}
 }
 
+static inline bool StencilTestPassed(u8 stencil)
+{
+	// TODO: Does the masking logic make any sense?
+	stencil &= gstate.getStencilTestMask();
+	u8 ref = gstate.getStencilTestRef() & gstate.getStencilTestMask();
+	switch (gstate.getStencilTestFunction()) {
+		case GE_COMP_NEVER:
+			return false;
+
+		case GE_COMP_ALWAYS:
+			return true;
+
+		case GE_COMP_EQUAL:
+			return (stencil == ref);
+
+		case GE_COMP_NOTEQUAL:
+			return (stencil != ref);
+
+		case GE_COMP_LESS:
+			return (stencil < ref);
+
+		case GE_COMP_LEQUAL:
+			return (stencil <= ref);
+
+		case GE_COMP_GREATER:
+			return (stencil > ref);
+
+		case GE_COMP_GEQUAL:
+			return (stencil >= ref);
+	}
+}
+
 static inline void ApplyStencilOp(int op, int x, int y)
 {
 	u8 old_stencil = GetPixelStencil(x, y); // TODO: Apply mask?
@@ -374,6 +435,180 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
 }
 
+static inline bool ColorTestPassed(Vec3<int> color)
+{
+	u32 mask = gstate.colormask&0xFFFFFF;
+	color = Vec3<int>::FromRGB(color.ToRGB() & mask);
+	Vec3<int> ref = Vec3<int>::FromRGB(gstate.colorref & mask);
+	switch (gstate.colortest & 0x3) {
+		case GE_COMP_NEVER:
+			return false;
+
+		case GE_COMP_ALWAYS:
+			return true;
+
+		case GE_COMP_EQUAL:
+			return (color.r() == ref.r() && color.g() == ref.g() && color.b() == ref.b());
+
+		case GE_COMP_NOTEQUAL:
+			return (color.r() != ref.r() || color.g() != ref.g() || color.b() != ref.b());
+	}
+}
+
+static inline bool AlphaTestPassed(int alpha)
+{
+	u8 mask = (gstate.alphatest >> 16) & 0xFF;
+	u8 ref = (gstate.alphatest >> 8) & mask;
+	alpha &= mask;
+
+	switch (gstate.alphatest & 0x7) {
+		case GE_COMP_NEVER:
+			return false;
+
+		case GE_COMP_ALWAYS:
+			return true;
+
+		case GE_COMP_EQUAL:
+			return (alpha == ref);
+
+		case GE_COMP_NOTEQUAL:
+			return (alpha != ref);
+
+		case GE_COMP_LESS:
+			return (alpha < ref);
+
+		case GE_COMP_LEQUAL:
+			return (alpha <= ref);
+
+		case GE_COMP_GREATER:
+			return (alpha > ref);
+
+		case GE_COMP_GEQUAL:
+			return (alpha >= ref);
+	}
+}
+
+static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
+{
+	switch (gstate.getBlendFuncA()) {
+	case GE_SRCBLEND_DSTCOLOR:
+		return dst.rgb();
+
+	case GE_SRCBLEND_INVDSTCOLOR:
+		return Vec3<int>::AssignToAll(255) - dst.rgb();
+
+	case GE_SRCBLEND_SRCALPHA:
+		return Vec3<int>::AssignToAll(source_a);
+
+	case GE_SRCBLEND_INVSRCALPHA:
+		return Vec3<int>::AssignToAll(255 - source_a);
+
+	case GE_SRCBLEND_DSTALPHA:
+		return Vec3<int>::AssignToAll(dst.a());
+
+	case GE_SRCBLEND_INVDSTALPHA:
+		return Vec3<int>::AssignToAll(255 - dst.a());
+
+	case GE_SRCBLEND_DOUBLESRCALPHA:
+		return Vec3<int>::AssignToAll(2 * source_a);
+
+	case GE_SRCBLEND_DOUBLEINVSRCALPHA:
+		return Vec3<int>::AssignToAll(255 - 2 * source_a);
+
+	case GE_SRCBLEND_DOUBLEDSTALPHA:
+		return Vec3<int>::AssignToAll(2 * dst.a());
+
+	case GE_SRCBLEND_DOUBLEINVDSTALPHA:
+		// TODO: Clamping?
+		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
+
+	case GE_SRCBLEND_FIXA:
+		return Vec4<int>::FromRGBA(gstate.getFixA()).rgb();
+
+	default:
+		ERROR_LOG(G3D, "Unknown source factor %x", gstate.getBlendFuncA());
+		return Vec3<int>();
+	}
+}
+
+static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a, const Vec4<int>& dst)
+{
+	switch (gstate.getBlendFuncB()) {
+	case GE_DSTBLEND_SRCCOLOR:
+		return source_rgb;
+
+	case GE_DSTBLEND_INVSRCCOLOR:
+		return Vec3<int>::AssignToAll(255) - source_rgb;
+
+	case GE_DSTBLEND_SRCALPHA:
+		return Vec3<int>::AssignToAll(source_a);
+
+	case GE_DSTBLEND_INVSRCALPHA:
+		return Vec3<int>::AssignToAll(255 - source_a);
+
+	case GE_DSTBLEND_DSTALPHA:
+		return Vec3<int>::AssignToAll(dst.a());
+
+	case GE_DSTBLEND_INVDSTALPHA:
+		return Vec3<int>::AssignToAll(255 - dst.a());
+
+	case GE_DSTBLEND_DOUBLESRCALPHA:
+		return Vec3<int>::AssignToAll(2 * source_a);
+
+	case GE_DSTBLEND_DOUBLEINVSRCALPHA:
+		return Vec3<int>::AssignToAll(255 - 2 * source_a);
+
+	case GE_DSTBLEND_DOUBLEDSTALPHA:
+		return Vec3<int>::AssignToAll(2 * dst.a());
+
+	case GE_DSTBLEND_DOUBLEINVDSTALPHA:
+		return Vec3<int>::AssignToAll(255 - 2 * dst.a());
+
+	case GE_DSTBLEND_FIXB:
+		return Vec4<int>::FromRGBA(gstate.getFixB()).rgb();
+
+	default:
+		ERROR_LOG(G3D, "Unknown dest factor %x", gstate.getBlendFuncB());
+		return Vec3<int>();
+	}
+}
+
+static inline Vec3<int> AlphaBlendingResult(Vec3<int> source_rgb, int source_a, const Vec4<int> dst)
+{
+	Vec3<int> srcfactor = GetSourceFactor(source_a, dst);
+	Vec3<int> dstfactor = GetDestFactor(source_rgb, source_a, dst);
+
+	switch (gstate.getBlendEq()) {
+	case GE_BLENDMODE_MUL_AND_ADD:
+		return (source_rgb * srcfactor + dst.rgb() * dstfactor) / 255;
+
+	case GE_BLENDMODE_MUL_AND_SUBTRACT:
+		return (source_rgb * srcfactor - dst.rgb() * dstfactor) / 255;
+
+	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
+		return (dst.rgb() * dstfactor - source_rgb * srcfactor) / 255;
+
+	case GE_BLENDMODE_MIN:
+		return Vec3<int>(std::min(source_rgb.r(), dst.r()),
+						std::min(source_rgb.g(), dst.g()),
+						std::min(source_rgb.b(), dst.b()));
+
+	case GE_BLENDMODE_MAX:
+		return Vec3<int>(std::max(source_rgb.r(), dst.r()),
+						std::max(source_rgb.g(), dst.g()),
+						std::max(source_rgb.b(), dst.b()));
+
+	case GE_BLENDMODE_ABSDIFF:
+		return Vec3<int>(::abs(source_rgb.r() - dst.r()),
+						::abs(source_rgb.g() - dst.g()),
+						::abs(source_rgb.b() - dst.b()));
+
+	default:
+		ERROR_LOG(G3D, "Unknown blend function %x", gstate.getBlendEq());
+		return Vec3<int>();
+	}
+}
+
 // Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
@@ -442,7 +677,6 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					sec_color = v2.color1;
 				}
 
-				// TODO: Also disable if vertex has no texture coordinates?
 				if (gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
 					unsigned int u = 0, v = 0;
 					if (gstate.isModeThrough()) {
@@ -450,40 +684,9 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 						u = (v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) / (w0+w1+w2);
 						v = (v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) / (w0+w1+w2);
 					} else {
-						if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS) {
-							float q0 = 1.f / v0.clippos.w;
-							float q1 = 1.f / v1.clippos.w;
-							float q2 = 1.f / v2.clippos.w;
-							float q = q0 * w0 + q1 * w1 + q2 * w2;
-							float s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
-							float t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
-
-							uv_map(0, s, t, u, v);
-						} else if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
-							// projection mapping
-							Vec3<float> source;
-							if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
-								source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
-							} else {
-								ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
-							}
-
-							Mat3x3<float> tgen(gstate.tgenMatrix);
-							Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-
-							uv_map(0, stq.x/stq.z, stq.y/stq.z, u, v);
-						} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
-							// environment mapping - ST coordinates are calculated during Lighting
-							float q0 = 1.f / v0.clippos.w;
-							float q1 = 1.f / v1.clippos.w;
-							float q2 = 1.f / v2.clippos.w;
-							float q = q0 * w0 + q1 * w1 + q2 * w2;
-							float s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
-							float t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
-							uv_map(0, s, t, u, v);
-						} else {
-							ERROR_LOG(G3D, "Unsupported texture mapping mode %x!", gstate.getUVGenMode());
-						}
+						float s = 0, t = 0;
+						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);
+						GetTexelCoordinates(0, s, t, u, v);
 					}
 
 					Vec4<int> texcolor = Vec4<int>::FromRGBA(SampleNearest(0, u, v));
@@ -510,95 +713,17 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
 						continue;
 
-				if (gstate.isColorTestEnabled() && !gstate.isModeClear()) {
-					bool pass = false;
-					Vec3<int> ref = Vec3<int>::FromRGB(gstate.colorref&(gstate.colormask&0xFFFFFF));
-					Vec3<int> color = Vec3<int>::FromRGB(prim_color_rgb.ToRGB()&(gstate.colormask&0xFFFFFF));
-					switch (gstate.colortest & 0x3) {
-						case GE_COMP_NEVER:
-							pass = false;
-							break;
-						case GE_COMP_ALWAYS:
-							pass = true;
-							break;
-						case GE_COMP_EQUAL:
-							pass = (color.r() == ref.r() && color.g() == ref.g() && color.b() == ref.b());
-							break;
-						case GE_COMP_NOTEQUAL:
-							pass = (color.r() != ref.r() || color.g() != ref.g() || color.b() != ref.b());
-							break;
-					}
-					if (!pass)
+				if (gstate.isColorTestEnabled() && !gstate.isModeClear())
+					if (!ColorTestPassed(prim_color_rgb))
 						continue;
-				}
 
-				if (gstate.isAlphaTestEnabled() && !gstate.isModeClear()) {
-					bool pass = false;
-					u8 ref = ((gstate.alphatest>>8) & (gstate.alphatest>>16)) & 0xFF;
-					u8 alpha = (prim_color_a & (gstate.alphatest>>16)) & 0xFF;
-
-					switch (gstate.alphatest & 0x7) {
-						case GE_COMP_NEVER:
-							pass = false;
-							break;
-						case GE_COMP_ALWAYS:
-							pass = true;
-							break;
-						case GE_COMP_EQUAL:
-							pass = (alpha == ref);
-							break;
-						case GE_COMP_NOTEQUAL:
-							pass = (alpha != ref);
-							break;
-						case GE_COMP_LESS:
-							pass = (alpha < ref);
-							break;
-						case GE_COMP_LEQUAL:
-							pass = (alpha <= ref);
-							break;
-						case GE_COMP_GREATER:
-							pass = (alpha > ref);
-							break;
-						case GE_COMP_GEQUAL:
-							pass = (alpha >= ref);
-							break;
-					}
-					if (!pass)
+				if (gstate.isAlphaTestEnabled() && !gstate.isModeClear())
+					if (!AlphaTestPassed(prim_color_a))
 						continue;
-				}
 
 				if (gstate.isStencilTestEnabled() && !gstate.isModeClear()) {
-					bool pass = false;
-					u8 stencil = GetPixelStencil(p.x, p.y) & gstate.getStencilTestMask(); // TODO: Magic?
-					u8 ref = gstate.getStencilTestRef() & gstate.getStencilTestMask();
-					switch (gstate.getStencilTestFunction()) {
-						case GE_COMP_NEVER:
-							pass = false;
-							break;
-						case GE_COMP_ALWAYS:
-							pass = true;
-							break;
-						case GE_COMP_EQUAL:
-							pass = (stencil == ref);
-							break;
-						case GE_COMP_NOTEQUAL:
-							pass = (stencil != ref);
-							break;
-						case GE_COMP_LESS:
-							pass = (stencil < ref);
-							break;
-						case GE_COMP_LEQUAL:
-							pass = (stencil <= ref);
-							break;
-						case GE_COMP_GREATER:
-							pass = (stencil > ref);
-							break;
-						case GE_COMP_GEQUAL:
-							pass = (stencil >= ref);
-							break;
-					}
-
-					if (!pass) {
+					u8 stencil = GetPixelStencil(p.x, p.y);
+					if (!StencilTestPassed(stencil)) {
 						ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
 						continue;
 					}
@@ -621,109 +746,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				}
 				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
-
-					Vec3<int> srccol(0, 0, 0);
-					Vec3<int> dstcol(0, 0, 0);
-
-					switch (gstate.getBlendFuncA()) {
-					case GE_SRCBLEND_DSTCOLOR:
-						srccol = dst.rgb();
-						break;
-					case GE_SRCBLEND_INVDSTCOLOR:
-						srccol = Vec3<int>::AssignToAll(255) - dst.rgb();
-						break;
-					case GE_SRCBLEND_SRCALPHA:
-						srccol = Vec3<int>::AssignToAll(prim_color_a);
-						break;
-					case GE_SRCBLEND_INVSRCALPHA:
-						srccol = Vec3<int>::AssignToAll(255 - prim_color_a);
-						break;
-					case GE_SRCBLEND_DSTALPHA:
-						srccol = Vec3<int>::AssignToAll(dst.a());
-						break;
-					case GE_SRCBLEND_INVDSTALPHA:
-						srccol = Vec3<int>::AssignToAll(255 - dst.a());
-						break;
-					case GE_SRCBLEND_DOUBLESRCALPHA:
-						srccol = Vec3<int>::AssignToAll(2 * prim_color_a);
-						break;
-					case GE_SRCBLEND_DOUBLEINVSRCALPHA:
-						srccol = Vec3<int>::AssignToAll(255 - 2 * prim_color_a);
-						break;
-					case GE_SRCBLEND_DOUBLEDSTALPHA:
-						srccol = Vec3<int>::AssignToAll(2 * dst.a());
-						break;
-					case GE_SRCBLEND_DOUBLEINVDSTALPHA:
-						// TODO: Clamping?
-						srccol = Vec3<int>::AssignToAll(255 - 2 * dst.a());
-						break;
-					case GE_SRCBLEND_FIXA:
-						srccol = Vec4<int>::FromRGBA(gstate.getFixA()).rgb();
-						break;
-					}
-
-					switch (gstate.getBlendFuncB()) {
-					case GE_DSTBLEND_SRCCOLOR:
-						dstcol = prim_color_rgb;
-						break;
-					case GE_DSTBLEND_INVSRCCOLOR:
-						dstcol = Vec3<int>::AssignToAll(255) - prim_color_rgb;
-						break;
-					case GE_DSTBLEND_SRCALPHA:
-						dstcol = Vec3<int>::AssignToAll(prim_color_a);
-						break;
-					case GE_DSTBLEND_INVSRCALPHA:
-						dstcol = Vec3<int>::AssignToAll(255 - prim_color_a);
-						break;
-					case GE_DSTBLEND_DSTALPHA:
-						dstcol = Vec3<int>::AssignToAll(dst.a());
-						break;
-					case GE_DSTBLEND_INVDSTALPHA:
-						dstcol = Vec3<int>::AssignToAll(255 - dst.a());
-						break;
-					case GE_DSTBLEND_DOUBLESRCALPHA:
-						dstcol = Vec3<int>::AssignToAll(2 * prim_color_a);
-						break;
-					case GE_DSTBLEND_DOUBLEINVSRCALPHA:
-						dstcol = Vec3<int>::AssignToAll(255 - 2 * prim_color_a);
-						break;
-					case GE_DSTBLEND_DOUBLEDSTALPHA:
-						dstcol = Vec3<int>::AssignToAll(2 * dst.a());
-						break;
-					case GE_DSTBLEND_DOUBLEINVDSTALPHA:
-						dstcol = Vec3<int>::AssignToAll(255 - 2 * dst.a());
-						break;
-					case GE_DSTBLEND_FIXB:
-						dstcol = Vec4<int>::FromRGBA(gstate.getFixB()).rgb();
-						break;
-					}
-
-					switch (gstate.getBlendEq()) {
-					case GE_BLENDMODE_MUL_AND_ADD:
-						prim_color_rgb = (prim_color_rgb * srccol + dst.rgb() * dstcol) / 255;
-						break;
-					case GE_BLENDMODE_MUL_AND_SUBTRACT:
-						prim_color_rgb = (prim_color_rgb * srccol - dst.rgb() * dstcol) / 255;
-						break;
-					case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-						prim_color_rgb = (dst.rgb() * dstcol - prim_color_rgb * srccol) / 255;
-						break;
-					case GE_BLENDMODE_MIN:
-						prim_color_rgb.r() = std::min(prim_color_rgb.r(), dst.r());
-						prim_color_rgb.g() = std::min(prim_color_rgb.g(), dst.g());
-						prim_color_rgb.b() = std::min(prim_color_rgb.b(), dst.b());
-						break;
-					case GE_BLENDMODE_MAX:
-						prim_color_rgb.r() = std::max(prim_color_rgb.r(), dst.r());
-						prim_color_rgb.g() = std::max(prim_color_rgb.g(), dst.g());
-						prim_color_rgb.b() = std::max(prim_color_rgb.b(), dst.b());
-						break;
-					case GE_BLENDMODE_ABSDIFF:
-						prim_color_rgb.r() = ::abs(prim_color_rgb.r() - dst.r());
-						prim_color_rgb.g() = ::abs(prim_color_rgb.g() - dst.g());
-						prim_color_rgb.b() = ::abs(prim_color_rgb.b() - dst.b());
-						break;
-					}
+					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);
 				}
 				if (prim_color_rgb.r() > 255) prim_color_rgb.r() = 255;
 				if (prim_color_rgb.g() > 255) prim_color_rgb.g() = 255;
