@@ -95,7 +95,6 @@ public:
 	int iCurrentStateSlot;
 	bool bEnableCheats;
 	bool bReloadCheats;
-	bool bFramebuffersToMem;
 
 	// Sound
 	bool bEnableSound;
