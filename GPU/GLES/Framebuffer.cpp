@@ -1150,7 +1150,7 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	int num = g_Config.iFrameSkip > 0 ? g_Config.iFrameSkip - 1 : 3;
+	int num = g_Config.iFrameSkip > 0 && g_Config.iFrameSkip != 9 ? g_Config.iFrameSkip : 3;
 	bool skipFrame = (gpuStats.numFrames % num == 0);
 	bool useFramebufferToMem = g_Config.iRenderingMode != FB_BUFFERED_MODE ? 1 : 0;
 
