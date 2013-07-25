@@ -38,7 +38,7 @@
 
 #ifdef _WIN32
 namespace MainWindow {
-	void BrowseAndBoot(std::string defaultPath);
+	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
 }
 #endif
 

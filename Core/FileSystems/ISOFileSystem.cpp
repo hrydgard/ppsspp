@@ -26,7 +26,7 @@
 
 const int sectorSize = 2048;
 
-static bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
+bool parseLBN(std::string filename, u32 *sectorStart, u32 *readSize)
 {
 	// The format of this is: "/sce_lbn" "0x"? HEX* ANY* "_size" "0x"? HEX* ANY*
 	// That means that "/sce_lbn/_size1/" is perfectly valid.

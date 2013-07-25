@@ -47,6 +47,30 @@ typedef void * HANDLE;
 
 #endif
 
+typedef struct sDirectoryFileHandle
+{
+#ifdef _WIN32
+	HANDLE hFile;
+#else
+	FILE* hFile;
+#endif
+	sDirectoryFileHandle()
+	{
+#ifdef _WIN32
+		hFile = (HANDLE)-1;
+#else
+		hFile = 0;
+#endif
+	}
+
+	std::string GetLocalPath(std::string& basePath, std::string localpath);
+	bool Open(std::string& basePath, std::string& fileName, FileAccess access);
+	size_t Read(u8* pointer, s64 size);
+	size_t Write(const u8* pointer, s64 size);
+	size_t Seek(s32 position, FileMove type);
+	void Close();
+} DirectoryFileHandle;
+
 class DirectoryFileSystem : public IFileSystem {
 public:
 	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
@@ -70,11 +94,7 @@ public:
 
 private:
 	struct OpenFileEntry {
-#ifdef _WIN32
-		HANDLE hFile;
-#else
-		FILE *hFile;
-#endif
+		DirectoryFileHandle hFile;
 	};
 
 	typedef std::map<u32, OpenFileEntry> EntryMap;
@@ -84,15 +104,60 @@ private:
 
 	// In case of Windows: Translate slashes, etc.
 	std::string GetLocalPath(std::string localpath);
+};
 
-#if HOST_IS_CASE_SENSITIVE
-	typedef enum {
-		FPC_FILE_MUST_EXIST,  // all path components must exist (rmdir, move from)
-		FPC_PATH_MUST_EXIST,  // all except the last one must exist - still tries to fix last one (fopen, move to)
-		FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
-	} FixPathCaseBehavior;
-	bool FixPathCase(std::string &path, FixPathCaseBehavior behavior);
-#endif
+class VirtualDiscFileSystem: public IFileSystem
+{
+public:
+	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
+	~VirtualDiscFileSystem();
+	
+	void DoState(PointerWrap &p);
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
+	size_t   SeekFile(u32 handle, s32 position, FileMove type);
+	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
+	void     CloseFile(u32 handle);
+	PSPFileInfo GetFileInfo(std::string filename);
+	bool     OwnsHandle(u32 handle);
+	bool GetHostPath(const std::string &inpath, std::string &outpath);
+	std::vector<PSPFileInfo> GetDirListing(std::string path);
+
+	// unsupported operations
+	size_t  WriteFile(u32 handle, const u8 *pointer, s64 size);
+	bool MkDir(const std::string &dirname);
+	bool RmDir(const std::string &dirname);
+	int  RenameFile(const std::string &from, const std::string &to);
+	bool RemoveFile(const std::string &filename);
+
+private:
+	int getFileListIndex(std::string& fileName);
+	int getFileListIndex(u32 accessBlock, u32 accessSize);
+	std::string GetLocalPath(std::string localpath);
+
+	typedef enum { VFILETYPE_NORMAL, VFILETYPE_LBN, VFILETYPE_ISO } VirtualFileType;
+	
+	struct OpenFileEntry {
+		DirectoryFileHandle hFile;
+		VirtualFileType type;
+		u32 fileIndex;
+		u32 curOffset;
+		u32 startOffset;	// only used by lbn files
+		u32 size;			// only used by lbn files
+	};
+	
+	typedef std::map<u32, OpenFileEntry> EntryMap;
+	EntryMap entries;
+	IHandleAllocator *hAlloc;
+	std::string basePath;
+	
+	typedef struct {
+		std::string fileName;
+		u32 firstBlock;
+		u32 totalSize;
+	} FileListEntry;
+	
+	std::vector<FileListEntry> fileList;
+	u32 currentBlockIndex;
 };
 
 // VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.
