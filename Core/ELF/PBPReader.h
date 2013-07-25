@@ -33,8 +33,8 @@ enum PBPSubFile {
 
 struct PBPHeader {
 	char magic[4];
-	u32 version;
-	u32 offsets[8];
+	u32_le version;
+	u32_le offsets[8];
 };
 
 class PBPReader {

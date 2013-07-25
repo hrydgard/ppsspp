@@ -31,13 +31,13 @@
 
 struct NativeMsgPipe
 {
-	SceSize size;
+	SceSize_le size;
 	char name[32];
-	SceUInt attr;
-	int bufSize;
-	int freeSize;
-	int numSendWaitThreads;
-	int numReceiveWaitThreads;
+	SceUInt_le attr;
+	s32_le bufSize;
+	s32_le freeSize;
+	s32_le numSendWaitThreads;
+	s32_le numReceiveWaitThreads;
 };
 
 struct MsgPipeWaitingThread
@@ -46,7 +46,7 @@ struct MsgPipeWaitingThread
 	u32 bufAddr;
 	u32 bufSize;
 	u32 freeSize;
-	int waitMode;
+	s32 waitMode;
 	u32 transferredBytesAddr;
 };
 

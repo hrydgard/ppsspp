@@ -346,12 +346,20 @@ typedef int SceMode;
 typedef s64 SceOff;
 typedef u64 SceIores;
 
+typedef s32_le SceUID_le;
+typedef u32_le SceSize_le;
+typedef s32_le SceSSize_le;
+typedef u32_le SceUInt_le;
+typedef s32_le SceMode_le;
+typedef s64_le SceOff_le;
+typedef s64_le SceIores_le;
+
 struct SceKernelLoadExecParam
 {
-	SceSize size;    // Size of the structure
-	SceSize args;    // Size of the arg string
-	u32 argp;      // Pointer to the arg string
-	u32 keyp; // Encryption key? Not yet used
+	SceSize_le size;    // Size of the structure
+	SceSize_le args;    // Size of the arg string
+	u32_le argp;      // Pointer to the arg string
+	u32_le keyp; // Encryption key? Not yet used
 };
 
 void __KernelInit();

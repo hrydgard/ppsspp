@@ -29,10 +29,10 @@ std::list<SceUID> triggeredAlarm;
 
 struct NativeAlarm
 {
-	SceSize size;
-	u64 schedule;
-	u32 handlerPtr;
-	u32 commonPtr;
+	SceSize_le size;
+	u64_le schedule;
+	u32_le handlerPtr;
+	u32_le commonPtr;
 };
 
 struct Alarm : public KernelObject

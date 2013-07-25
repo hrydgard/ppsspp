@@ -243,7 +243,7 @@ const char *GetAddressName(u32 address);
 template <typename T>
 struct PSPPointer
 {
-	u32 ptr;
+	u32_le ptr;
 
 	inline T &operator*() const
 	{

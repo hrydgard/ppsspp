@@ -49,14 +49,14 @@
 
 struct NativeMutex
 {
-	SceSize size;
+	SceSize_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	SceUInt attr;
-	int initialCount;
-	int lockLevel;
-	SceUID lockThread;
+	SceUInt_le attr;
+	s32_le initialCount;
+	s32_le lockLevel;
+	SceUID_le lockThread;
 	// Not kept up to date.
-	int numWaitThreads;
+	s32_le numWaitThreads;
 };
 
 struct Mutex : public KernelObject
@@ -85,12 +85,12 @@ struct Mutex : public KernelObject
 
 struct NativeLwMutexWorkarea
 {
-	int lockLevel;
-	SceUID lockThread;
-	int attr;
-	int numWaitThreads;
-	SceUID uid;
-	int pad[3];
+	s32_le lockLevel;
+	SceUID_le lockThread;
+	u32_le attr;
+	s32_le numWaitThreads;
+	SceUID_le uid;
+	s32_le pad[3];
 
 	void init()
 	{
@@ -107,18 +107,18 @@ struct NativeLwMutexWorkarea
 
 struct NativeLwMutex
 {
-	SceSize size;
+	SceSize_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	SceUInt attr;
-	SceUID uid;
+	SceUInt_le attr;
+	SceUID_le uid;
 	PSPPointer<NativeLwMutexWorkarea> workarea;
-	int initialCount;
+	s32_le initialCount;
 	// Not kept up to date.
-	int currentCount;
+	s32_le currentCount;
 	// Not kept up to date.
-	SceUID lockThread;
+	SceUID_le lockThread;
 	// Not kept up to date.
-	int numWaitThreads;
+	s32_le numWaitThreads;
 };
 
 struct LwMutex : public KernelObject

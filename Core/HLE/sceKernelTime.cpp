@@ -55,8 +55,8 @@ void __KernelTimeDoState(PointerWrap &p)
 
 struct SceKernelSysClock
 {
-	u32 lo;
-	u32 hi;
+	u32_le lo;
+	u32_le hi;
 };
 
 int sceKernelGetSystemTime(u32 sysclockPtr)
@@ -160,7 +160,7 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 	// TODO: tzAddr?
 	if (Memory::IsValidAddress(timeAddr))
 	{
-		timeval *tv = (timeval *)Memory::GetPointer(timeAddr);
+		PSPTimeval *tv = (PSPTimeval *)Memory::GetPointer(timeAddr);
 		__RtcTimeOfDay(tv);
 	}
 

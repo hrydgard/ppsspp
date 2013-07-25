@@ -17,19 +17,23 @@
 
 #pragma once
 
-struct timeval;
-void __RtcTimeOfDay(timeval *tv);
+struct PSPTimeval {
+	s32_le tv_sec;
+	s32_le tv_usec;
+};
+
+void __RtcTimeOfDay(PSPTimeval *tv);
 
 void Register_sceRtc();
 void __RtcInit();
 void __RtcDoState(PointerWrap &p);
 
 struct ScePspDateTime {
-	unsigned short year;
-	unsigned short month;
-	unsigned short day;
-	unsigned short hour;
-	unsigned short minute;
-	unsigned short second;
-	unsigned int microsecond;
+	s16_le year;
+	s16_le month;
+	s16_le day;
+	s16_le hour;
+	s16_le minute;
+	s16_le second;
+	u32_le microsecond;
 };

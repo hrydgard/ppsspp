@@ -19,7 +19,7 @@
 
 struct NativeMbxPacket
 {
-	u32 next;
+	u32_le next;
 	u8 priority;
 	u8 padding[3];
 };

@@ -43,19 +43,19 @@ typedef u32 FontLibraryHandle;
 typedef u32 FontHandle;
 
 struct FontNewLibParams {
-	u32 userDataAddr;
-	u32 numFonts;
-	u32 cacheDataAddr;
+	u32_le userDataAddr;
+	u32_le numFonts;
+	u32_le cacheDataAddr;
 
 	// Driver callbacks.
-	u32 allocFuncAddr;
-	u32 freeFuncAddr;
-	u32 openFuncAddr;
-	u32 closeFuncAddr;
-	u32 readFuncAddr;
-	u32 seekFuncAddr;
-	u32 errorFuncAddr;
-	u32 ioFinishFuncAddr;
+	u32_le allocFuncAddr;
+	u32_le freeFuncAddr;
+	u32_le openFuncAddr;
+	u32_le closeFuncAddr;
+	u32_le readFuncAddr;
+	u32_le seekFuncAddr;
+	u32_le errorFuncAddr;
+	u32_le ioFinishFuncAddr;
 };
 
 struct FontRegistryEntry {
