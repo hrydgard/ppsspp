@@ -885,9 +885,6 @@ namespace MainWindow
 			case ID_OPTIONS_SHOWFPS:
 				g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
 				break;
-			case ID_OPTIONS_DISPLAYRAWFRAMEBUFFER:
-				g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
-				break;
 			case ID_OPTIONS_FASTMEMORY:
 				g_Config.bFastMemory = !g_Config.bFastMemory;
 				break;
@@ -1087,7 +1084,6 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_SPEEDLIMIT,g_Config.bSpeedLimit);
 //		CHECK(ID_OPTIONS_ENABLEFRAMEBUFFER,g_Config.bEnableFrameBuffer);
 //		CHECK(ID_OPTIONS_EMULATESYSCALL,g_bEmulateSyscall);
-		CHECKITEM(ID_OPTIONS_DISPLAYRAWFRAMEBUFFER, g_Config.bDisplayFramebuffer);
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);

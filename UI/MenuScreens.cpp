@@ -1238,8 +1238,6 @@ void GraphicsScreenP3::render() {
 	} else 
 		g_Config.iFrameSkip = 0;
 
-	UICheckBox(GEN_ID, x, y += stride, gs->T("Display Raw Framebuffer"), ALIGN_TOPLEFT, &g_Config.bDisplayFramebuffer);
-
 	UIEnd();
 }
 
