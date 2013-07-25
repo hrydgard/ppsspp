@@ -115,6 +115,9 @@ struct Stick {
 static Stick NormalizedDeadzoneFilter(short x, short y);
 
 int XinputDevice::UpdateState(InputState &input_state) {
+	if (!s_pXInputDLL)
+		return 0;
+
 	if (this->check_delay-- > 0) return -1;
 	XINPUT_STATE state;
 	ZeroMemory( &state, sizeof(XINPUT_STATE) );
