@@ -38,12 +38,26 @@ void QtEmuGL::mouseDoubleClickEvent(QMouseEvent *)
 
 void QtEmuGL::mousePressEvent(QMouseEvent *e)
 {
+	TouchInput input;
 	input_state->pointer_down[0] = true;
 	input_state->pointer_x[0] = e->x();
 	input_state->pointer_y[0] = e->y();
+
+	input.x = e->x();
+	input.y = e->y();
+	input.flags = TOUCH_DOWN;
+	input.id = 0;
+	NativeTouch(input);
 }
 
 void QtEmuGL::mouseReleaseEvent(QMouseEvent *e)
 {
+	TouchInput input;
 	input_state->pointer_down[0] = false;
+
+	input.x = e->x();
+	input.y = e->y();
+	input.flags = TOUCH_UP;
+	input.id = 0;
+	NativeTouch(input);
 }

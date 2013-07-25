@@ -1150,7 +1150,8 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	bool thirdFrame = (gpuStats.numFrames % 3 == 0);
+	int num = g_Config.iFrameSkip > 0 && g_Config.iFrameSkip != 9 ? g_Config.iFrameSkip : 3;
+	bool skipFrame = (gpuStats.numFrames % num == 0);
 	bool useFramebufferToMem = g_Config.iRenderingMode != FB_BUFFERED_MODE ? 1 : 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
@@ -1158,10 +1159,9 @@ void FramebufferManager::DecimateFBOs() {
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 
 		if(useFramebufferToMem) {
-			// Every third frame we'll commit framebuffers to memory
-			if(thirdFrame && age <= FBO_OLD_AGE) {
+			// Commit framebuffers to memory
+			if(skipFrame && age <= FBO_OLD_AGE) 
 				ReadFramebufferToMemory(vfb);
-			}
 		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
