@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <string>
 
+#include "input/keycodes.h"
+
 #include "BlackberryMain.h"
 
 // Simple implementations of System functions
@@ -91,6 +93,8 @@ void SimulateGamepad(InputState *input) {
 
 void BlackberryMain::handleInput(screen_event_t screen_event)
 {
+	TouchInput input;
+	KeyInput key;
 	int val, buttons, pointerId;
 	int pair[2];
 	screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_TYPE, &val);
@@ -104,9 +108,24 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 	case SCREEN_EVENT_MTOUCH_TOUCH:
 	case SCREEN_EVENT_MTOUCH_RELEASE: 	// Up, down
 		input_state.pointer_down[pointerId] = (val == SCREEN_EVENT_MTOUCH_TOUCH);
+		input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
+		input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
+
+		input.x = pair[0] * dpi_scale;
+		input.y = pair[1] * dpi_scale;
+		input.flags = (val == SCREEN_EVENT_MTOUCH_TOUCH) ? TOUCH_DOWN : TOUCH_UP;
+		input.id = pointerId;
+		NativeTouch(input);
+		break;
 	case SCREEN_EVENT_MTOUCH_MOVE:
 		input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
 		input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
+
+		input.x = pair[0] * dpi_scale;
+		input.y = pair[1] * dpi_scale;
+		input.flags = TOUCH_MOVE;
+		input.id = pointerId;
+		NativeTouch(input);
 		break;
 	// Mouse, Simulator
     case SCREEN_EVENT_POINTER:
@@ -116,10 +135,22 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 			input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
 			input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 			input_state.pointer_down[pointerId] = true;
+
+			input.x = pair[0] * dpi_scale;
+			input.y = pair[1] * dpi_scale;
+			input.flags = TOUCH_DOWN;
+			input.id = pointerId;
+			NativeTouch(input);
 		} else if (input_state.pointer_down[pointerId]) {	// Up
 			input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
 			input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
 			input_state.pointer_down[pointerId] = false;
+
+			input.x = pair[0] * dpi_scale;
+			input.y = pair[1] * dpi_scale;
+			input.flags = TOUCH_UP;
+			input.id = pointerId;
+			NativeTouch(input);
 		}
 		break;
 	// Keyboard
@@ -127,16 +158,10 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 		int flags, value;
 		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_FLAGS, &flags);
 		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_SYM, &value);
-		for (int b = 0; b < 14; b++) {
-			if (value == buttonMappings[b] & 0xFF) {
-				if (flags & KEY_DOWN)
-					pad_buttons |= (1<<b);
-				if (flags & KEY_UP)
-					pad_buttons &= ~(1<<b);
-			}
-		}
+		NativeKey(KeyInput(DEVICE_ID_KEYBOARD, value, flags));
 		break;
 	// Gamepad
+	// TODO: Isn't using new input system yet
 	case SCREEN_EVENT_GAMEPAD:
 	case SCREEN_EVENT_JOYSTICK:
 		char device_id[16];
@@ -249,7 +274,6 @@ void BlackberryMain::runMain() {
 		pad_buttons &= ~PAD_BUTTON_MENU;
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
-		EndInputState(&input_state);
 		// Work in Progress
 		// Currently: Render to HDMI port (eg. 1080p) when in game. Render to device when in menu.
 		// Idea: Render to all displays. Controls go to internal, game goes to external(s).
@@ -262,6 +286,7 @@ void BlackberryMain::runMain() {
 			switchDisplay(screen_ui);
 		}
 		NativeRender();
+		EndInputState(&input_state);
 		time_update();
 		// This handles VSync
 		if (emulating)

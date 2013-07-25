@@ -80,6 +80,7 @@ protected:
 
 	bool event(QEvent *e)
 	{
+		TouchInput input;
 		QList<QTouchEvent::TouchPoint> touchPoints;
 		switch(e->type())
 		{
@@ -94,9 +95,24 @@ protected:
 				case Qt::TouchPointPressed:
 				case Qt::TouchPointReleased:
 					input_state.pointer_down[touchPoint.id()] = (touchPoint.state() == Qt::TouchPointPressed);
+					input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * dpi_scale;
+					input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * dpi_scale;
+
+					input.x = touchPoint.pos().x() * dpi_scale;
+					input.y = touchPoint.pos().y() * dpi_scale;
+					input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
+					input.id = touchPoint.id();
+					NativeTouch(input);
+					break;
 				case Qt::TouchPointMoved:
 					input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * dpi_scale;
 					input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * dpi_scale;
+
+					input.x = touchPoint.pos().x() * dpi_scale;
+					input.y = touchPoint.pos().y() * dpi_scale;
+					input.flags = TOUCH_MOVE;
+					input.id = touchPoint.id();
+					NativeTouch(input);
 					break;
 				default:
 					break;
@@ -106,21 +122,38 @@ protected:
 		case QEvent::MouseButtonPress:
 		case QEvent::MouseButtonRelease:
 			input_state.pointer_down[0] = (e->type() == QEvent::MouseButtonPress);
+			input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * dpi_scale;
+			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+
+			input.x = ((QMouseEvent*)e)->pos().x() * dpi_scale;
+			input.y = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+			input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
+			input.id = 0;
+			NativeTouch(input);
+			break;
 		case QEvent::MouseMove:
 			input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * dpi_scale;
 			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+
+			input.x = ((QMouseEvent*)e)->pos().x() * dpi_scale;
+			input.y = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+			input.flags = TOUCH_MOVE;
+			input.id = 0;
+			NativeTouch(input);
 		break;
 		case QEvent::KeyPress:
 			for (int b = 0; b < 18; b++) {
 				if (((QKeyEvent*)e)->key() == buttonMappings[b])
 					pad_buttons |= (1<<b);
 			}
+			NativeKey(KeyInput(DEVICE_ID_KEYBOARD, ((QKeyEvent*)e)->key(), KEY_DOWN));
 		break;
 		case QEvent::KeyRelease:
 			for (int b = 0; b < 18; b++) {
 				if (((QKeyEvent*)e)->key() == buttonMappings[b])
 					pad_buttons &= ~(1<<b);
 			}
+			NativeKey(KeyInput(DEVICE_ID_KEYBOARD, ((QKeyEvent*)e)->key(), KEY_UP));
 		break;
 		default:
 			return QWidget::event(e);
@@ -144,8 +177,8 @@ protected:
 		updateAccelerometer();
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
-		EndInputState(&input_state);
 		NativeRender();
+		EndInputState(&input_state);
 		time_update();
 		update();
 	}
