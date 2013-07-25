@@ -108,8 +108,7 @@ struct Glyph {
 	u32 ptr;
 };
 
-// Bizarre that we need __APPLE__ here.
-#if defined(__APPLE__) || !defined(BIG_ENDIAN) && !defined(__BIG_ENDIAN__)
+#if !BIG_ENDIAN && !__BIG_ENDIAN__
 typedef FontPixelFormat FontPixelFormat_le;
 #else
 error FIX ME
