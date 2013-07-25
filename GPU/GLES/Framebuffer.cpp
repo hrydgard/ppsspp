@@ -1097,18 +1097,6 @@ void FramebufferManager::DeviceLost() {
 
 void FramebufferManager::BeginFrame() {
 	DecimateFBOs();
-	// NOTE - this is all wrong. At the beginning of the frame is a TERRIBLE time to draw the fb.
-	if (displayFramebufPtr_) {
-		INFO_LOG(HLE, "Drawing the framebuffer (%08x)", displayFramebufPtr_);
-		const u8 *pspframebuf = Memory::GetPointer((0x44000000) | (displayFramebufPtr_ & 0x1FFFFF));	// TODO - check
-		glstate.cullFace.disable();
-		glstate.depthTest.disable();
-		glstate.blend.disable();
-		glstate.scissorTest.disable();
-		glstate.stencilTest.disable();
-		DrawPixels(pspframebuf, displayFormat_, displayStride_);
-		// TODO: restore state?
-	}
 	currentRenderVfb_ = 0;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE ? 1 : 0;
 }
