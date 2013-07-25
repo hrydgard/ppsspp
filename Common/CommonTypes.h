@@ -28,6 +28,17 @@
 #endif
 #endif
 
+
+// Seriously, WTF?
+#ifdef __APPLE__
+#ifdef BIG_ENDIAN
+#undef BIG_ENDIAN
+#endif
+#ifdef __BIG_ENDIAN__
+#undef __BIG_ENDIAN__
+#endif
+#endif
+
 #ifdef _WIN32
 
 typedef unsigned __int8 u8;
