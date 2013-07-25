@@ -421,6 +421,22 @@ void NativeUpdate(InputState &input)
 	screenManager->update(input);
 }
 
+void NativeTouch(const TouchInput &touch) {
+	if (screenManager)
+		screenManager->touch(touch);
+}
+
+void NativeKey(const KeyInput &key) {
+	g_buttonTracker.Process(key);
+	if (screenManager)
+		screenManager->key(key);
+}
+
+void NativeAxis(const AxisInput &key) {
+	if (screenManager)
+		screenManager->axis(key);
+}
+
 void NativeShutdownGraphics()
 {
 	delete uiTexture;
