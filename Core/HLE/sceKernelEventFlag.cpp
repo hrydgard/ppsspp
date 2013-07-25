@@ -31,12 +31,12 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate);
 
 struct NativeEventFlag
 {
-	u32 size;
+	u32_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	u32 attr;
-	u32 initPattern;
-	u32 currentPattern;
-	int numWaitThreads;
+	u32_le attr;
+	u32_le initPattern;
+	u32_le currentPattern;
+	s32_le numWaitThreads;
 };
 
 struct EventFlagTh

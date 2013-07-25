@@ -97,14 +97,14 @@ enum {
 
 struct NativeCallback
 {
-	SceUInt size;
+	SceUInt_le size;
 	char name[32];
-	SceUID threadId;
-	u32 entrypoint;
-	u32 commonArgument;
+	SceUID_le threadId;
+	u32_le entrypoint;
+	u32_le commonArgument;
 
-	int notifyCount;
-	int notifyArg;
+	s32_le notifyCount;
+	s32_le notifyArg;
 };
 
 class Callback : public KernelObject
@@ -149,30 +149,36 @@ public:
 	u32 savedIdRegister;
 };
 
+#if !defined(BIG_ENDIAN) && !defined(__BIG_ENDIAN__)
+typedef WaitType WaitType_le;
+#else
+#error FIX ME
+#endif
+
 // Real PSP struct, don't change the fields
 struct NativeThread
 {
-	u32 nativeSize;
+	u32_le nativeSize;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
 
 	// Threading stuff
-	u32	attr;
-	u32 status;
-	u32 entrypoint;
-	u32 initialStack;
-	u32 stackSize;
-	u32 gpreg;
+	u32_le	attr;
+	u32_le status;
+	u32_le entrypoint;
+	u32_le initialStack;
+	u32_le stackSize;
+	u32_le gpreg;
 
-	int initialPriority;
-	int currentPriority;
+	s32_le initialPriority;
+	s32_le currentPriority;
 	WaitType waitType;
-	SceUID waitID;
-	int wakeupCount;
-	int exitStatus;
+	SceUID_le waitID;
+	s32_le wakeupCount;
+	s32_le exitStatus;
 	SceKernelSysClock runForClocks;
-	int numInterruptPreempts;
-	int numThreadPreempts;
-	int numReleases;
+	s32_le numInterruptPreempts;
+	s32_le numThreadPreempts;
+	s32_le numReleases;
 };
 
 struct ThreadWaitInfo {
@@ -937,7 +943,7 @@ void __KernelThreadingInit()
 	};
 
 	// Yeah, this is straight out of JPCSP, I should be ashamed.
-	const static u32 idleThreadCode[] = {
+	const static u32_le idleThreadCode[] = {
 		MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_ZERO, 0),
 		MIPS_MAKE_LUI(MIPS_REG_RA, 0x0800),
 		MIPS_MAKE_JR_RA(),

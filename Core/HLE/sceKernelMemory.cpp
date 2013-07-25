@@ -49,15 +49,15 @@ int compilerVersion_;
 
 struct NativeFPL
 {
-	u32 size;
+	u32_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	SceUID mpid;
-	u32 attr;
+	SceUID_le mpid;
+	u32_le attr;
 
-	int blocksize;
-	int numBlocks;
-	int numFreeBlocks;
-	int numWaitThreads;
+	s32_le blocksize;
+	s32_le numBlocks;
+	s32_le numFreeBlocks;
+	s32_le numWaitThreads;
 };
 
 //FPL - Fixed Length Dynamic Memory Pool - every item has the same length
@@ -121,12 +121,12 @@ struct VplWaitingThread
 
 struct SceKernelVplInfo
 {
-	SceSize size;
+	SceSize_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	SceUInt attr;
-	int poolSize;
-	int freeSize;
-	int numWaitThreads;
+	SceUInt_le attr;
+	s32_le poolSize;
+	s32_le freeSize;
+	s32_le numWaitThreads;
 };
 
 struct VPL : public KernelObject
@@ -1319,14 +1319,14 @@ enum
 
 struct NativeTls
 {
-	SceSize size;
+	SceSize_le size;
 	char name[32];
-	SceUInt attr;
-	int index;
-	u32 blockSize;
-	u32 totalBlocks;
-	u32 freeBlocks;
-	u32 numWaitThreads;
+	SceUInt_le attr;
+	s32_le index;
+	u32_le blockSize;
+	u32_le totalBlocks;
+	u32_le freeBlocks;
+	u32_le numWaitThreads;
 };
 
 struct TLS : public KernelObject

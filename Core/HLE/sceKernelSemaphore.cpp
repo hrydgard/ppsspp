@@ -35,19 +35,19 @@
 struct NativeSemaphore
 {
 	/** Size of the ::SceKernelSemaInfo structure. */
-	SceSize 	size;
+	SceSize_le 	size;
 	/** NUL-terminated name of the semaphore. */
 	char 		name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	/** Attributes. */
-	SceUInt 	attr;
+	SceUInt_le 	attr;
 	/** The initial count the semaphore was created with. */
-	int 		initCount;
+	s32_le 		initCount;
 	/** The current count. */
-	int 		currentCount;
+	s32_le 		currentCount;
 	/** The maximum count. */
-	int 		maxCount;
+	s32_le 		maxCount;
 	/** The number of threads waiting on the semaphore. */
-	int 		numWaitThreads;
+	s32_le 		numWaitThreads;
 };
 
 

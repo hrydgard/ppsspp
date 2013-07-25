@@ -62,8 +62,8 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter);
 
 struct SceKernelSysClock {
-	u32 lo;
-	u32 hi;
+	u32_le lo;
+	u32_le hi;
 };
 
 
