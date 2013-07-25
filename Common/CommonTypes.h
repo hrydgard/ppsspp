@@ -62,6 +62,9 @@ typedef u64 u64_le;
 typedef s32 s32_le;
 typedef s16 s16_le;
 typedef s64 s64_le;
+
+typedef float float_le;
+typedef double double_le;
 #else
 #error FIX ME
 #endif
