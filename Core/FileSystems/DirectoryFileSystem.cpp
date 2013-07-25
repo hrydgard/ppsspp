@@ -87,7 +87,7 @@ static bool FixFilenameCase(const std::string &path, std::string &filename)
 	return retValue;
 }
 
-bool FixPathCase(std::string &path, FixPathCaseBehavior behavior)
+bool FixPathCase(std::string& basePath, std::string &path, FixPathCaseBehavior behavior)
 {
 	size_t len = path.size();
 
@@ -103,7 +103,8 @@ bool FixPathCase(std::string &path, FixPathCaseBehavior behavior)
 	}
 
 	std::string fullPath;
-	fullPath.reserve(len + 1);
+	fullPath.reserve(basePath.size() + len + 1);
+	fullPath.append(basePath); 
 
 	size_t start = 0;
 	while (start < len)
@@ -137,19 +138,37 @@ bool FixPathCase(std::string &path, FixPathCaseBehavior behavior)
 
 #endif
 
-bool DirectoryFileHandle::Open(std::string& fileName, FileAccess access)
+std::string DirectoryFileHandle::GetLocalPath(std::string& basePath, std::string localpath)
+{
+	if (localpath.empty())
+		return basePath;
+
+	if (localpath[0] == '/')
+		localpath.erase(0,1);
+	//Convert slashes
+#ifdef _WIN32
+	for (size_t i = 0; i < localpath.size(); i++) {
+		if (localpath[i] == '/')
+			localpath[i] = '\\';
+	}
+#endif
+	return basePath + localpath;
+}
+
+bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, FileAccess access)
 {
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
 	{
 		DEBUG_LOG(HLE, "Checking case for path %s", fileName.c_str());
-		if ( ! FixPathCase(fileName, FPC_PATH_MUST_EXIST) )
+		if ( ! FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST) )
 			return false;  // or go on and attempt (for a better error code than just 0?)
 	}
 	// else we try fopen first (in case we're lucky) before simulating case insensitivity
 #endif
 
-	INFO_LOG(HLE,"Actually opening %s", fileName.c_str());
+	std::string fullName = GetLocalPath(basePath,fileName);
+	INFO_LOG(HLE,"Actually opening %s", fullName.c_str());
 
 	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
 #ifdef _WIN32
@@ -171,7 +190,7 @@ bool DirectoryFileHandle::Open(std::string& fileName, FileAccess access)
 		openmode = OPEN_EXISTING;
 	}
 	//Let's do it!
-	hFile = CreateFile(fileName.c_str(), desired, sharemode, 0, openmode, 0, 0);
+	hFile = CreateFile(fullName.c_str(), desired, sharemode, 0, openmode, 0, 0);
 	bool success = hFile != INVALID_HANDLE_VALUE;
 #else
 	// Convert flags in access parameter to fopen access mode
@@ -197,7 +216,7 @@ bool DirectoryFileHandle::Open(std::string& fileName, FileAccess access)
 		mode = "rb";  // read only, don't create
 	}
 
-	hFile = fopen(fileName.c_str(), mode);
+	hFile = fopen(fullName.c_str(), mode);
 	bool success = hFile != 0;
 #endif
 
@@ -207,9 +226,10 @@ bool DirectoryFileHandle::Open(std::string& fileName, FileAccess access)
 	    !(access & FILEACCESS_CREATE) &&
 	    !(access & FILEACCESS_WRITE))
 	{
-		if ( ! FixPathCase(fileName, FPC_PATH_MUST_EXIST) )
+		if ( ! FixPathCase(basePath,fileName, FPC_PATH_MUST_EXIST) )
 			return 0;  // or go on and attempt (for a better error code than just 0?)
-		const char* fullNameC = fileName.c_str();
+		fullName = GetLocalPath(basePath,fileName); 
+		const char* fullNameC = fullName.c_str();
 
 		DEBUG_LOG(HLE, "Case may have been incorrect, second try opening %s (%s)", fullNameC, fileName.c_str());
 
@@ -283,6 +303,19 @@ void DirectoryFileHandle::Close()
 #endif
 }
 
+u64 getFileSize(std::string& fileName)
+{
+#ifdef _WIN32
+	WIN32_FILE_ATTRIBUTE_DATA data;
+	GetFileAttributesEx(fileName.c_str(), GetFileExInfoStandard, &data);
+
+	return data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
+#else
+	struct stat s;
+	stat(fileName.c_str(), &s);
+	return s.st_size;
+#endif
+}
 
 DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath) {
 	File::CreateFullPath(basePath);
@@ -317,7 +350,7 @@ bool DirectoryFileSystem::MkDir(const std::string &dirname) {
 	// duplicate (different case) directories
 
 	std::string fixedCase = dirname;
-	if ( ! FixPathCase(fixedCase, FPC_PARTIAL_ALLOWED) )
+	if ( ! FixPathCase(basePath,fixedCase, FPC_PARTIAL_ALLOWED) )
 		return false;
 
 	return File::CreateFullPath(GetLocalPath(fixedCase));
@@ -336,7 +369,7 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 
 	// Nope, fix case and try again
 	fullName = dirname;
-	if ( ! FixPathCase(fullName, FPC_FILE_MUST_EXIST) )
+	if ( ! FixPathCase(basePath,fullName, FPC_FILE_MUST_EXIST) )
 		return false;  // or go on and attempt (for a better error code than just false?)
 
 	fullName = GetLocalPath(fullName);
@@ -371,7 +404,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 
 #if HOST_IS_CASE_SENSITIVE
 	// In case TO should overwrite a file with different case
-	if ( ! FixPathCase(fullTo, FPC_PATH_MUST_EXIST) )
+	if ( ! FixPathCase(basePath,fullTo, FPC_PATH_MUST_EXIST) )
 		return -1;  // or go on and attempt (for a better error code than just false?)
 #endif
 
@@ -389,7 +422,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 	{
 		// May have failed due to case sensitivity on FROM, so try again
 		fullFrom = from;
-		if ( ! FixPathCase(fullFrom, FPC_FILE_MUST_EXIST) )
+		if ( ! FixPathCase(basePath,fullFrom, FPC_FILE_MUST_EXIST) )
 			return -1;  // or go on and attempt (for a better error code than just false?)
 		fullFrom = GetLocalPath(fullFrom);
 
@@ -418,7 +451,7 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 	{
 		// May have failed due to case sensitivity, so try again
 		fullName = filename;
-		if ( ! FixPathCase(fullName, FPC_FILE_MUST_EXIST) )
+		if ( ! FixPathCase(basePath,fullName, FPC_FILE_MUST_EXIST) )
 			return false;  // or go on and attempt (for a better error code than just false?)
 		fullName = GetLocalPath(fullName);
 
@@ -434,12 +467,8 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 }
 
 u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
-
-	std::string fullName = GetLocalPath(filename);
-	const char *fullNameC  = fullName.c_str();
-
 	OpenFileEntry entry;
-	bool success = entry.hFile.Open(fullName,access);
+	bool success = entry.hFile.Open(basePath,filename,access);
 
 	if (!success) {
 #ifdef _WIN32
@@ -523,7 +552,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	std::string fullName = GetLocalPath(filename);
 	if (! File::Exists(fullName)) {
 #if HOST_IS_CASE_SENSITIVE
-		if (! FixPathCase(filename, FPC_FILE_MUST_EXIST))
+		if (! FixPathCase(basePath,filename, FPC_FILE_MUST_EXIST))
 			return x;
 		fullName = GetLocalPath(filename);
 
@@ -540,15 +569,8 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	{
 		struct stat s;
 		stat(fullName.c_str(), &s);
-#ifdef _WIN32
-		WIN32_FILE_ATTRIBUTE_DATA data;
-		GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
 
-		x.size = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
-#else
-		x.size = s.st_size;
-#endif
-
+		x.size = getFileSize(fullName);
 		x.access = s.st_mode & 0x1FF;
 		localtime_r((time_t*)&s.st_atime,&x.atime);
 		localtime_r((time_t*)&s.st_ctime,&x.ctime);
@@ -621,7 +643,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 	DIR *dp = opendir(localPath.c_str());
 
 #if HOST_IS_CASE_SENSITIVE
-	if(dp == NULL && FixPathCase(path, FPC_FILE_MUST_EXIST)) {
+	if(dp == NULL && FixPathCase(basePath,path, FPC_FILE_MUST_EXIST)) {
 		// May have failed due to case sensitivity, try again
 		localPath = GetLocalPath(path);
 		dp = opendir(localPath.c_str());
@@ -723,11 +745,10 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 			// open file
 			if (of.type != VFILETYPE_ISO)
 			{
-				std::string fullName = GetLocalPath(fileList[of.fileIndex].fileName);
-				bool success = of.hFile.Open(fullName,FILEACCESS_READ);
+				bool success = of.hFile.Open(basePath,fileList[of.fileIndex].fileName,FILEACCESS_READ);
 				if (!success)
 				{
-					ERROR_LOG(FILESYS, "Failed to create file handle for %s.",fullName);
+					ERROR_LOG(FILESYS, "Failed to create file handle for %s.",fileList[of.fileIndex].fileName.c_str());
 				} else {
 					if (of.type == VFILETYPE_LBN)
 					{
@@ -780,7 +801,6 @@ std::string VirtualDiscFileSystem::GetLocalPath(std::string localpath) {
 	return basePath + localpath;
 }
 
-
 int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 {
 	for (int i = 0; i < fileList.size(); i++)
@@ -793,7 +813,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 	std::string fullName = GetLocalPath(fileName);
 	if (! File::Exists(fullName)) {
 #if HOST_IS_CASE_SENSITIVE
-		if (! FixPathCase(fileName, FPC_FILE_MUST_EXIST))
+		if (! FixPathCase(basePath,fileName, FPC_FILE_MUST_EXIST))
 			return -1;
 		fullName = GetLocalPath(fileName);
 
@@ -810,19 +830,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 	
 	FileListEntry entry;
 	entry.fileName = fileName;
-
-	struct stat s;
-
-	stat(fullName.c_str(), &s);
-#ifdef _WIN32
-	WIN32_FILE_ATTRIBUTE_DATA data;
-	GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
-
-	entry.totalSize = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
-#else
-	entry.totalSize = s.st_size;
-#endif
-
+	entry.totalSize = getFileSize(fullName);
 	entry.firstBlock = currentBlockIndex;
 	currentBlockIndex += (entry.totalSize+2047)/2048;
 
@@ -851,10 +859,15 @@ int VirtualDiscFileSystem::getFileListIndex(u32 accessBlock, u32 accessSize)
 
 u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
 {
+	OpenFileEntry entry;
+	entry.curOffset = 0;
+	entry.size = 0;
+	entry.startOffset = 0;
+
 	if (filename == "")
 	{
-		OpenFileEntry entry;
 		entry.type = VFILETYPE_ISO;
+		entry.fileIndex = -1;
 		
 		u32 newHandle = hAlloc->GetNewHandle();
 		entries[newHandle] = entry;
@@ -867,27 +880,28 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
 
-		OpenFileEntry entry;
 		entry.type = VFILETYPE_LBN;
 		entry.size = readSize;
-		entry.curOffset = 0;
 
-		entry.fileIndex= getFileListIndex(sectorStart,readSize);
+		entry.fileIndex = getFileListIndex(sectorStart,readSize);
 		if (entry.fileIndex == -1)
 		{
-			ERROR_LOG(FILESYS, "DiscDirectoryFileSystem: sce_lbn used without calling fileinfo.");
+			ERROR_LOG(FILESYS, "VirtualDiscFileSystem: sce_lbn used without calling fileinfo.");
 			return 0;
 		}
 
 		entry.startOffset = (sectorStart-fileList[entry.fileIndex].firstBlock)*2048;
 
 		// now we just need an actual file handle
-		std::string fullName = GetLocalPath(fileList[entry.fileIndex].fileName);
-		bool success = entry.hFile.Open(fullName,FILEACCESS_READ);
+		bool success = entry.hFile.Open(basePath,fileList[entry.fileIndex].fileName,FILEACCESS_READ);
 
 		if (!success)
 		{
-			ERROR_LOG(HLE, "DiscDirectoryFileSystem::OpenFile: FAILED, %i", GetLastError());
+#ifdef _WIN32
+			ERROR_LOG(HLE, "VirtualDiscFileSystem::OpenFile: FAILED, %i", GetLastError());
+#else
+			ERROR_LOG(HLE, "VirtualDiscFileSystem::OpenFile: FAILED");
+#endif
 			return 0;
 		}
 		
@@ -899,13 +913,9 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 
 		return newHandle;
 	}
-
-	std::string fullName = GetLocalPath(filename);
-	const char *fullNameC  = fullName.c_str();
-
-	OpenFileEntry entry;
+	
 	entry.type = VFILETYPE_NORMAL;
-	bool success = entry.hFile.Open(fullName,access);
+	bool success = entry.hFile.Open(basePath,filename,access);
 
 	if (!success) {
 #ifdef _WIN32
@@ -961,7 +971,7 @@ size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
 		}
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot seek in file that hasn't been opened: %08x", handle);
+		ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -982,9 +992,8 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 				return 0;
 			}
 			
-			std::string fullName = GetLocalPath(fileList[fileIndex].fileName);
 			DirectoryFileHandle hFile;
-			bool success = hFile.Open(fullName,FILEACCESS_READ);
+			bool success = hFile.Open(basePath,fileList[fileIndex].fileName,FILEACCESS_READ);
 
 			if (!success)
 			{
@@ -1007,7 +1016,7 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 		return bytesRead;
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot read file that hasn't been opened: %08x", handle);
+		ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot read file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -1020,7 +1029,7 @@ void VirtualDiscFileSystem::CloseFile(u32 handle) {
 		entries.erase(iter);
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot close file that hasn't been opened: %08x", handle);
+		ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot close file that hasn't been opened: %08x", handle);
 	}
 }
 
@@ -1032,11 +1041,11 @@ bool VirtualDiscFileSystem::OwnsHandle(u32 handle) {
 PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	PSPFileInfo x;
 	x.name = filename;
-
+	
 	std::string fullName = GetLocalPath(filename);
 	if (! File::Exists(fullName)) {
 #if HOST_IS_CASE_SENSITIVE
-		if (! FixPathCase(filename, FPC_FILE_MUST_EXIST))
+		if (! FixPathCase(basePath,filename, FPC_FILE_MUST_EXIST))
 			return x;
 		fullName = GetLocalPath(filename);
 
@@ -1054,14 +1063,8 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	{
 		struct stat s;
 		stat(fullName.c_str(), &s);
-#ifdef _WIN32
-		WIN32_FILE_ATTRIBUTE_DATA data;
-		GetFileAttributesEx(fullName.c_str(), GetFileExInfoStandard, &data);
 
-		x.size = data.nFileSizeLow | ((u64)data.nFileSizeHigh<<32);
-#else
-		x.size = s.st_size;
-#endif
+		x.size = getFileSize(fullName);
 	
 		int fileIndex = getFileListIndex(filename);
 		x.startSector = fileList[fileIndex].firstBlock;
@@ -1078,8 +1081,8 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 
 bool VirtualDiscFileSystem::GetHostPath(const std::string &inpath, std::string &outpath)
 {
-	outpath = GetLocalPath(inpath);
-	return true;
+	ERROR_LOG(HLE,"VirtualDiscFileSystem: Retrieving host path");
+	return false;
 }
 
 std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
@@ -1091,31 +1094,31 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 
 size_t VirtualDiscFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
 {
-	ERROR_LOG(HLE,"Cannot write to file on virtual disc");
+	ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot write to file on virtual disc");
 	return 0;
 }
 
 bool VirtualDiscFileSystem::MkDir(const std::string &dirname)
 {
-	ERROR_LOG(HLE,"Cannot create directory on virtual disc");
+	ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot create directory on virtual disc");
 	return false;
 }
 
 bool VirtualDiscFileSystem::RmDir(const std::string &dirname)
 {
-	ERROR_LOG(HLE,"Cannot remove directory on virtual disc");
+	ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot remove directory on virtual disc");
 	return false;
 }
 
 int VirtualDiscFileSystem::RenameFile(const std::string &from, const std::string &to)
 {
-	ERROR_LOG(HLE,"Cannot rename file on virtual disc");
+	ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot rename file on virtual disc");
 	return -1;
 }
 
 bool VirtualDiscFileSystem::RemoveFile(const std::string &filename)	
 {
-	ERROR_LOG(HLE,"Cannot remove file on virtual disc");
+	ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot remove file on virtual disc");
 	return false;
 }
 

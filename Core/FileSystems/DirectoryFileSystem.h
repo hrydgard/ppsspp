@@ -63,7 +63,8 @@ typedef struct sDirectoryFileHandle
 #endif
 	}
 
-	bool Open(std::string& fileName, FileAccess access);
+	std::string GetLocalPath(std::string& basePath, std::string localpath);
+	bool Open(std::string& basePath, std::string& fileName, FileAccess access);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
 	size_t Seek(s32 position, FileMove type);
