@@ -20,6 +20,128 @@
 #include <cmath>
 
 template<typename T>
+class Vec2
+{
+public:
+	struct
+	{
+		T x,y;
+	};
+
+	T* AsArray() { return &x; }
+
+	Vec2() {}
+	Vec2(const T a[2]) : x(a[0]), y(a[1]) {}
+	Vec2(const T& _x, const T& _y) : x(_x), y(_y) {}
+
+	static Vec2 AssignToAll(const T& f)
+	{
+		return Vec2<T>(f, f);
+	}
+
+	void Write(T a[2])
+	{
+		a[0] = x; a[1] = y;
+	}
+
+	Vec2 operator +(const Vec2& other) const
+	{
+		return Vec2(x+other.x, y+other.y);
+	}
+	void operator += (const Vec2 &other)
+	{
+		x+=other.x; y+=other.y;
+	}
+	Vec2 operator -(const Vec2& other) const
+	{
+		return Vec2(x-other.x, y-other.y);
+	}
+	void operator -= (const Vec2& other)
+	{
+		x-=other.x; y-=other.y;
+	}
+	Vec2 operator -() const
+	{
+		return Vec2(-x,-y);
+	}
+	Vec2 Mul(const Vec2& other) const
+	{
+		return Vec2(x*other.x, y*other.y);
+	}
+	template<typename V>
+	Vec2 operator * (const V& f) const
+	{
+		return Vec2(x*f,y*f);
+	}
+	template<typename V>
+	void operator *= (const V& f)
+	{
+		x*=f; y*=f;
+	}
+	template<typename V>
+	Vec2 operator / (const V& f) const
+	{
+		return Vec2(x/f,y/f);
+	}
+	template<typename V>
+	void operator /= (const V& f)
+	{
+		*this = *this / f;
+	}
+
+	T Length2() const
+	{
+		return x*x + y*y;
+	}
+
+	// Only implemented for T=float
+	float Length() const;
+	void SetLength(const float l);
+	Vec2 WithLength(const float l) const;
+	float Distance2To(Vec2 &other);
+	Vec2 Normalized() const;
+	float Normalize(); // returns the previous length, which is often useful
+
+	T& operator [] (int i) //allow vector[1] = 3   (vector.y=3)
+	{
+		return *((&x) + i);
+	}
+	T operator [] (const int i) const
+	{
+		return *((&x) + i);
+	}
+
+	Vec2 Lerp(const Vec2 &other, const float t) const
+	{
+		return (*this)*(1-t) + other*t;
+	}
+
+	void SetZero()
+	{
+		x=0; y=0;
+	}
+
+	// Common aliases: UV (texel coordinates), ST (texture coordinates)
+	T& u() { return x; }
+	T& v() { return y; }
+	T& s() { return x; }
+	T& t() { return y; }
+
+	const T& u() const { return x; }
+	const T& v() const { return y; }
+	const T& s() const { return x; }
+	const T& t() const { return y; }
+};
+
+template<typename T, typename V>
+Vec2<T> operator * (const V& f, const Vec2<T>& vec)
+{
+	return Vec2<T>(f*vec.x,f*vec.y);
+}
+
+typedef Vec2<float> Vec2f;
+
+template<typename T>
 class Vec3
 {
 public:
@@ -300,6 +422,12 @@ inline void Norm3ByMatrix43(float vecOut[3], const float v[3], const float m[12]
 inline float Vec3Dot(const float v1[3], const float v2[3])
 {
 	return v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
+}
+
+template<typename T>
+inline T Dot(const Vec2<T>& a, const Vec2<T>& b)
+{
+	return a.x*b.x + a.y*b.y;
 }
 
 template<typename T>

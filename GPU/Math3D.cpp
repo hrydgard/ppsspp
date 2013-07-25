@@ -18,6 +18,44 @@
 #include "Math3D.h"
 
 template<>
+float Vec2<float>::Length() const
+{
+	return sqrtf(Length2());
+}
+
+template<>
+void Vec2<float>::SetLength(const float l)
+{
+	(*this) *= l / Length();
+}
+
+template<>
+Vec2<float> Vec2<float>::WithLength(const float l) const
+{
+	return (*this) * l / Length();
+}
+
+template<>
+float Vec2<float>::Distance2To(Vec2<float> &other)
+{
+	return Vec2<float>(other-(*this)).Length2();
+}
+
+template<>
+Vec2<float> Vec2<float>::Normalized() const
+{
+	return (*this) / Length();
+}
+
+template<>
+float Vec2<float>::Normalize()
+{
+	float len = Length();
+	(*this) = (*this)/len;
+	return len;
+}
+
+template<>
 Vec3<float> Vec3<float>::FromRGB(unsigned int rgb)
 {
 	return Vec3((rgb & 0xFF) * (1.0f/255.0f),
