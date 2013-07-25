@@ -34,7 +34,7 @@
 
 // This is a base time that everything is relative to.
 // This way, time doesn't move strangely with savestates, turbo speed, etc.
-static timeval rtcBaseTime;
+static PSPTimeval rtcBaseTime;
 
 // Grabbed from JPSCP
 // This is the # of microseconds between January 1, 0001 and January 1, 1970.
@@ -110,7 +110,10 @@ void __RtcInit()
 {
 	// This is the base time, the only case we use gettimeofday() for.
 	// Everything else is relative to that, "virtual time."
-	gettimeofday(&rtcBaseTime, NULL);
+	timeval tv;
+	gettimeofday(&tv, NULL);
+	rtcBaseTime.tv_sec = tv.tv_sec;
+	rtcBaseTime.tv_usec = tv.tv_usec;
 }
 
 void __RtcDoState(PointerWrap &p)
@@ -120,7 +123,7 @@ void __RtcDoState(PointerWrap &p)
 	p.DoMarker("sceRtc");
 }
 
-void __RtcTimeOfDay(timeval *tv)
+void __RtcTimeOfDay(PSPTimeval *tv)
 {
 	s64 additionalUs = cyclesToUs(CoreTiming::GetTicks());
 	*tv = rtcBaseTime;
@@ -236,7 +239,7 @@ u64 sceRtcGetAcculumativeTime()
 u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 {
 	DEBUG_LOG(HLE, "sceRtcGetCurrentClock(%08x, %d)", pspTimePtr, tz);
-	timeval tv;
+	PSPTimeval tv;
 	__RtcTimeOfDay(&tv);
 
 	time_t sec = (time_t) tv.tv_sec;
@@ -265,7 +268,7 @@ u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz)
 u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr)
 {
 	DEBUG_LOG(HLE, "sceRtcGetCurrentClockLocalTime(%08x)", pspTimePtr);
-	timeval tv;
+	PSPTimeval tv;
 	__RtcTimeOfDay(&tv);
 
 	time_t sec = (time_t) tv.tv_sec;

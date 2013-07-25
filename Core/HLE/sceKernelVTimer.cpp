@@ -28,14 +28,14 @@ static int vtimerTimer = -1;
 static std::list<SceUID> vtimers;
 
 struct NativeVTimer {
-	SceSize size;
+	SceSize_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	int active;
-	u64 base;
-	u64 current;
-	u64 schedule;
-	u32 handlerAddr;
-	u32 commonAddr;
+	s32_le active;
+	u64_le base;
+	u64_le current;
+	u64_le schedule;
+	u32_le handlerAddr;
+	u32_le commonAddr;
 };
 
 struct VTimer : public KernelObject {

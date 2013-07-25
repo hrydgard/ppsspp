@@ -20,8 +20,7 @@
 // other parts of the code. Any definitions that are only used by the core should be
 // placed in "Common.h" instead.
 
-#ifndef _COMMONTYPES_H_
-#define _COMMONTYPES_H_
+#pragma once
 
 #ifdef __arm__
 #if !defined(ARM)
@@ -55,4 +54,17 @@ typedef signed long long s64;
 
 #endif // _WIN32
 
-#endif // _COMMONTYPES_H_
+#if !defined(BIG_ENDIAN) && !defined(__BIG_ENDIAN__)
+typedef u32 u32_le;
+typedef u16 u16_le;
+typedef u64 u64_le;
+
+typedef s32 s32_le;
+typedef s16 s16_le;
+typedef s64 s64_le;
+
+typedef float float_le;
+typedef double double_le;
+#else
+#error FIX ME
+#endif

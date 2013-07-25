@@ -97,57 +97,57 @@ struct VarSymbol {
 };
 
 struct NativeModule {
-	u32 next;
-	u16 attribute;
+	u32_le next;
+	u16_le attribute;
 	u8 version[2];
 	char name[28];
-	u32 status;
-	u32 unk1;
-	u32 usermod_thid;
-	u32 memid;
-	u32 mpidtext;
-	u32 mpiddata;
-	u32 ent_top;
-	u32 ent_size;
-	u32 stub_top;
-	u32 stub_size;
-	u32 module_start_func;
-	u32 module_stop_func;
-	u32 module_bootstart_func;
-	u32 module_reboot_before_func;
-	u32 module_reboot_phase_func;
-	u32 entry_addr;
-	u32 gp_value;
-	u32 text_addr;
-	u32 text_size;
-	u32 data_size;
-	u32 bss_size;
-	u32 nsegment;
-	u32 segmentaddr[4];
-	u32 segmentsize[4];
-	u32 module_start_thread_priority;
-	u32 module_start_thread_stacksize;
-	u32 module_start_thread_attr;
-	u32 module_stop_thread_priority;
-	u32 module_stop_thread_stacksize;
-	u32 module_stop_thread_attr;
-	u32 module_reboot_before_thread_priority;
-	u32 module_reboot_before_thread_stacksize;
-	u32 module_reboot_before_thread_attr;
+	u32_le status;
+	u32_le unk1;
+	u32_le usermod_thid;
+	u32_le memid;
+	u32_le mpidtext;
+	u32_le mpiddata;
+	u32_le ent_top;
+	u32_le ent_size;
+	u32_le stub_top;
+	u32_le stub_size;
+	u32_le module_start_func;
+	u32_le module_stop_func;
+	u32_le module_bootstart_func;
+	u32_le module_reboot_before_func;
+	u32_le module_reboot_phase_func;
+	u32_le entry_addr;
+	u32_le gp_value;
+	u32_le text_addr;
+	u32_le text_size;
+	u32_le data_size;
+	u32_le bss_size;
+	u32_le nsegment;
+	u32_le segmentaddr[4];
+	u32_le segmentsize[4];
+	u32_le module_start_thread_priority;
+	u32_le module_start_thread_stacksize;
+	u32_le module_start_thread_attr;
+	u32_le module_stop_thread_priority;
+	u32_le module_stop_thread_stacksize;
+	u32_le module_stop_thread_attr;
+	u32_le module_reboot_before_thread_priority;
+	u32_le module_reboot_before_thread_stacksize;
+	u32_le module_reboot_before_thread_attr;
 };
 
 // by QueryModuleInfo
 struct ModuleInfo {
-	u32 nsegment;
-	u32 segmentaddr[4];
-	u32 segmentsize[4];
-	u32 entry_addr;
-	u32 gp_value;
-	u32 text_addr;
-	u32 text_size;
-	u32 data_size;
-	u32 bss_size;
-	u16 attribute;
+	u32_le nsegment;
+	u32_le segmentaddr[4];
+	u32_le segmentsize[4];
+	u32_le entry_addr;
+	u32_le gp_value;
+	u32_le text_addr;
+	u32_le text_size;
+	u32_le data_size;
+	u32_le bss_size;
+	u16_le attribute;
 	u8 version[2];
 	char name[28];
 };
@@ -234,29 +234,29 @@ void AfterModuleEntryCall::run(MipsCall &call) {
 //////////////////////////////////////////////////////////////////////////
 struct StartModuleInfo
 {
-	u32 size;
-	u32 mpidtext;
-	u32 mpiddata;
-	u32 threadpriority;
-	u32 threadattributes;
+	u32_le size;
+	u32_le mpidtext;
+	u32_le mpiddata;
+	u32_le threadpriority;
+	u32_le threadattributes;
 };
 
 struct SceKernelLMOption {
-	SceSize size;
-	SceUID mpidtext;
-	SceUID mpiddata;
-	unsigned int flags;
+	SceSize_le size;
+	SceUID_le mpidtext;
+	SceUID_le mpiddata;
+	u32_le flags;
 	char position;
 	char access;
 	char creserved[2];
 };
 
 struct SceKernelSMOption {
-	SceSize size;
-	SceUID mpidstack;
-	SceSize stacksize;
-	int priority;
-	unsigned int attribute;
+	SceSize_le size;
+	SceUID_le mpidstack;
+	SceSize_le stacksize;
+	s32_le priority;
+	u32_le attribute;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -443,11 +443,13 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	memset(&module->nm, 0, sizeof(module->nm));
 
 	u8 *newptr = 0;
-	if (*(u32*)ptr == 0x4543537e) { // "~SCE"
+	u32_le *magicPtr = (u32_le *) ptr;
+	if (*magicPtr == 0x4543537e) { // "~SCE"
 		INFO_LOG(HLE, "~SCE module, skipping header");
 		ptr += *(u32*)(ptr + 4);
+		magicPtr = (u32_le *)ptr;
 	}
-	*magic = *(u32*)ptr;
+	*magic = *magicPtr;
 	if (*magic == 0x5053507e) { // "~PSP"
 		INFO_LOG(HLE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
@@ -459,6 +461,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 		newptr = new u8[head->elf_size + head->psp_size];
 		ptr = newptr;
+		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
 		if (ret == MISSING_KEY) {
 			// This should happen for all "kernel" modules so disabling.
@@ -480,8 +483,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	}
 
 	// DO NOT change to else if, see above.
-	if (*(u32*)ptr != 0x464c457f) {
-		ERROR_LOG_REPORT(HLE, "Wrong magic number %08x", *(u32*)ptr);
+	if (*magicPtr != 0x464c457f) {
+		ERROR_LOG_REPORT(HLE, "Wrong magic number %08x", *magicPtr);
 		*error_string = "File corrupt";
 		if (newptr)
 			delete [] newptr;
@@ -504,15 +507,15 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	struct PspModuleInfo
 	{
 		// 0, 0, 1, 1 ?
-		u16 moduleAttrs; //0x0000 User Mode, 0x1000 Kernel Mode
-		u16 moduleVersion;
+		u16_le moduleAttrs; //0x0000 User Mode, 0x1000 Kernel Mode
+		u16_le moduleVersion;
 		// 28 bytes of module name, packed with 0's.
 		char name[28];
-		u32 gp;					 // ptr to MIPS GOT data	(global offset table)
-		u32 libent;			 // ptr to .lib.ent section 
-		u32 libentend;		// ptr to end of .lib.ent section 
-		u32 libstub;			// ptr to .lib.stub section 
-		u32 libstubend;	 // ptr to end of .lib.stub section 
+		u32_le gp;					 // ptr to MIPS GOT data	(global offset table)
+		u32_le libent;			 // ptr to .lib.ent section 
+		u32_le libentend;		// ptr to end of .lib.ent section 
+		u32_le libstub;			// ptr to .lib.stub section 
+		u32_le libstubend;	 // ptr to end of .lib.stub section 
 	};
 
 	SectionID sceModuleInfoSection = reader.GetSectionByName(".rodata.sceModuleInfo");
@@ -555,12 +558,12 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	struct PspLibStubEntry
 	{
-		u32 name;
-		u16 version;
-		u16 flags;
+		u32_le name;
+		u16_le version;
+		u16_le flags;
 		u8 size;
 		u8 numVars;
-		u16 numFuncs;
+		u16_le numFuncs;
 		// each symbol has an associated nid; nidData is a pointer
 		// (in .rodata.sceNid section) to an array of longs, one
 		// for each function, which identifies the function whose
@@ -569,23 +572,23 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		// The hash is the first 4 bytes of a SHA-1 hash of the function
 		// name.	(Represented as a little-endian long, so the order
 		// of the bytes is reversed.)
-		u32 nidData;
+		u32_le nidData;
 		// the address of the function stubs where the function address jumps
 		// should be filled in
-		u32 firstSymAddr;
+		u32_le firstSymAddr;
 		// Optional, this is where var relocations are.
 		// They use the format: u32 addr, u32 nid, ...
 		// WARNING: May have garbage if size < 6.
-		u32 varData;
+		u32_le varData;
 		// Not sure what this is yet, assume garbage for now.
 		// TODO: Tales of the World: Radiant Mythology 2 has something here?
-		u32 extra;
+		u32_le extra;
 	};
 
 	DEBUG_LOG(LOADER,"===================================================");
 
-	u32 *entryPos = (u32 *)Memory::GetPointer(modinfo->libstub);
-	u32 *entryEnd = (u32 *)Memory::GetPointer(modinfo->libstubend);
+	u32_le *entryPos = (u32_le *)Memory::GetPointer(modinfo->libstub);
+	u32_le *entryEnd = (u32_le *)Memory::GetPointer(modinfo->libstubend);
 
 	bool needReport = false;
 	while (entryPos < entryEnd) {
@@ -614,7 +617,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				continue;
 			}
 
-			u32 *nidDataPtr = (u32 *)Memory::GetPointer(entry->nidData);
+			u32_le *nidDataPtr = (u32_le *)Memory::GetPointer(entry->nidData);
 			for (int i = 0; i < entry->numFuncs; ++i) {
 				u32 addrToWriteSyscall = entry->firstSymAddr + i * 8;
 				DEBUG_LOG(LOADER, "%s : %08x", GetFuncName(modulename, nidDataPtr[i]), addrToWriteSyscall);
@@ -649,7 +652,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 					continue;
 				}
 
-				u32 *varRef = (u32 *)Memory::GetPointer(varRefsPtr);
+				u32_le *varRef = (u32_le *)Memory::GetPointer(varRefsPtr);
 				for (; *varRef != 0; ++varRef) {
 					ImportVarSymbol(modulename, nid, (*varRef & 0x03FFFFFF) << 2, *varRef >> 26);
 				}
@@ -664,7 +667,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	if (needReport) {
 		std::string debugInfo;
-		entryPos = (u32 *)Memory::GetPointer(modinfo->libstub);
+		entryPos = (u32_le *)Memory::GetPointer(modinfo->libstub);
 		while (entryPos < entryEnd) {
 			PspLibStubEntry *entry = (PspLibStubEntry *)entryPos;
 			entryPos += entry->size;
@@ -689,17 +692,17 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	struct PspLibEntEntry
 	{
-		u32 name; /* ent's name (module name) address */
-		u16 version;
-		u16 flags;
+		u32_le name; /* ent's name (module name) address */
+		u16_le version;
+		u16_le flags;
 		u8 size;
 		u8 vcount;
-		u16 fcount;
-		u32 resident;
+		u16_le fcount;
+		u32_le resident;
 	};
 
-	u32 *entPos = (u32 *)Memory::GetPointer(modinfo->libent);
-	u32 *entEnd = (u32 *)Memory::GetPointer(modinfo->libentend);
+	u32_le *entPos = (u32_le *)Memory::GetPointer(modinfo->libent);
+	u32_le *entEnd = (u32_le *)Memory::GetPointer(modinfo->libentend);
 	for (int m = 0; entPos < entEnd; ++m) {
 		PspLibEntEntry *ent = (PspLibEntEntry *)entPos;
 		entPos += ent->size;
@@ -727,8 +730,8 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			continue;
 		}
 
-		u32 *residentPtr = (u32 *)Memory::GetPointer(ent->resident);
-		u32 *exportPtr = residentPtr + ent->fcount + ent->vcount;
+		u32_le *residentPtr = (u32_le *)Memory::GetPointer(ent->resident);
+		u32_le *exportPtr = residentPtr + ent->fcount + ent->vcount;
 
 		for (u32 j = 0; j < ent->fcount; j++) {
 			u32 nid = residentPtr[j];
@@ -850,9 +853,9 @@ Module *__KernelLoadModule(u8 *fileptr, SceKernelLMOption *options, std::string 
 	if (memcmp(fileptr, "\0PBP", 4) == 0)
 	{
 		// PBP!
-		u32 version;
+		u32_le version;
 		memcpy(&version, fileptr + 4, 4);
-		u32 offset0, offsets[16];
+		u32_le offset0, offsets[16];
 		int numfiles;
 
 		memcpy(&offset0, fileptr + 8, 4);

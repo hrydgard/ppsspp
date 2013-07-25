@@ -81,7 +81,7 @@ public:
 	int GetNumSegments() { return (int)(header->e_phnum); }
 	int GetNumSections() { return (int)(header->e_shnum); }
 	const char *GetSectionName(int section);
-	u8 *GetPtr(int offset)
+	u8 *GetPtr(u32 offset)
 	{
 		return (u8*)base + offset;
 	}

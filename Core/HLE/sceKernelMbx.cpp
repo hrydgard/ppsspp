@@ -40,12 +40,12 @@ static int mbxWaitTimer = -1;
 
 struct NativeMbx
 {
-	SceSize size;
+	SceSize_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	SceUInt attr;
-	int numWaitThreads;
-	int numMessages;
-	u32 packetListHead;
+	SceUInt_le attr;
+	s32_le numWaitThreads;
+	s32_le numMessages;
+	u32_le packetListHead;
 };
 
 struct Mbx : public KernelObject
