@@ -71,7 +71,7 @@ public:
 #endif
 	bool bStretchToDisplay;
 	bool bVSync;
-	int iFrameSkip;
+	float iFrameSkip;
 
 	int iWindowX;
 	int iWindowY;
