@@ -158,6 +158,131 @@ Vec3<T> operator * (const V& f, const Vec3<T>& vec)
 
 typedef Vec3<float> Vec3f;
 
+template<typename T>
+class Vec4
+{
+public:
+	struct
+	{
+		T x,y,z,w;
+	};
+
+	T* AsArray() { return &x; }
+
+	Vec4() {}
+	Vec4(const T a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
+	Vec4(const T& _x, const T& _y, const T& _z, const T& _w) : x(_x), y(_y), z(_z), w(_w) {}
+
+	// Only implemented for T=int and T=float
+	static Vec4 FromRGBA(unsigned int rgba);
+
+	static Vec4 AssignToAll(const T& f)
+	{
+		return Vec4<T>(f, f, f, f);
+	}
+
+	void Write(T a[4])
+	{
+		a[0] = x; a[1] = y; a[2] = z; a[3] = w;
+	}
+
+	Vec4 operator +(const Vec4& other) const
+	{
+		return Vec4(x+other.x, y+other.y, z+other.z, w+other.w);
+	}
+	void operator += (const Vec4& other)
+	{
+		x+=other.x; y+=other.y; z+=other.z; w+=other.w;
+	}
+	Vec4 operator -(const Vec4 &other) const
+	{
+		return Vec4(x-other.x, y-other.y, z-other.z, w-other.w);
+	}
+	void operator -= (const Vec4 &other)
+	{
+		x-=other.x; y-=other.y; z-=other.z; w-=other.w;
+	}
+	Vec4 operator -() const
+	{
+		return Vec4(-x,-y,-z,-w);
+	}
+	Vec4 Mul(const Vec4 &other) const
+	{
+		return Vec4(x*other.x, y*other.y, z*other.z, w*other.w);
+	}
+	template<typename V>
+	Vec4 operator * (const V& f) const
+	{
+		return Vec4(x*f,y*f,z*f,w*f);
+	}
+	template<typename V>
+	void operator *= (const V& f)
+	{
+		x*=f; y*=f; z*=f; w*=f;
+	}
+	template<typename V>
+	Vec4 operator / (const V& f) const
+	{
+		return Vec4(x/f,y/f,z/f,w/f);
+	}
+	template<typename V>
+	void operator /= (const V& f)
+	{
+		*this = *this / f;
+	}
+
+	T Length2() const
+	{
+		return x*x + y*y + z*z + w*w;
+	}
+
+	// Only implemented for T=float
+	float Length() const;
+	void SetLength(const float l);
+	Vec4 WithLength(const float l) const;
+	float Distance2To(Vec4 &other);
+	Vec4 Normalized() const;
+	float Normalize(); // returns the previous length, which is often useful
+
+	T& operator [] (int i) //allow vector[2] = 3   (vector.z=3)
+	{
+		return *((&x) + i);
+	}
+	T operator [] (const int i) const
+	{
+		return *((&x) + i);
+	}
+
+	Vec4 Lerp(const Vec4 &other, const float t) const
+	{
+		return (*this)*(1-t) + other*t;
+	}
+
+	void SetZero()
+	{
+		x=0; y=0; z=0;
+	}
+
+	// Common alias: RGBA (colors)
+	T& r() { return x; }
+	T& g() { return y; }
+	T& b() { return z; }
+	T& a() { return w; }
+
+	const T& r() const { return x; }
+	const T& g() const { return y; }
+	const T& b() const { return z; }
+	const T& a() const { return w; }
+};
+
+template<typename T, typename V>
+Vec4<T> operator * (const V& f, const Vec4<T>& vec)
+{
+	return Vec4<T>(f*vec.x,f*vec.y,f*vec.z,f*vec.w);
+}
+
+typedef Vec4<float> Vec4f;
+
 inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 {
 	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9];
@@ -181,6 +306,12 @@ template<typename T>
 inline T Dot(const Vec3<T>& a, const Vec3<T>& b)
 {
 	return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+template<typename T>
+inline T Dot(const Vec4<T>& a, const Vec4<T>& b)
+{
+	return a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w;
 }
 
 template<typename T>

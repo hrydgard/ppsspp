@@ -68,3 +68,56 @@ float Vec3<float>::Normalize()
 	(*this) = (*this)/len;
 	return len;
 }
+
+template<>
+Vec4<float> Vec4<float>::FromRGBA(unsigned int rgba)
+{
+	return Vec4((rgba & 0xFF) * (1.0f/255.0f),
+				((rgba >> 8) & 0xFF) * (1.0f/255.0f),
+				((rgba >> 16) & 0xFF) * (1.0f/255.0f),
+				((rgba >> 24) & 0xFF) * (1.0f/255.0f));
+}
+
+template<>
+Vec4<int> Vec4<int>::FromRGBA(unsigned int rgba)
+{
+	return Vec4(rgba & 0xFF, (rgba >> 8) & 0xFF, (rgba >> 16) & 0xFF, (rgba >> 24) & 0xFF);
+}
+
+template<>
+float Vec4<float>::Length() const
+{
+	return sqrtf(Length2());
+}
+
+template<>
+void Vec4<float>::SetLength(const float l)
+{
+	(*this) *= l / Length();
+}
+
+template<>
+Vec4<float> Vec4<float>::WithLength(const float l) const
+{
+	return (*this) * l / Length();
+}
+
+template<>
+float Vec4<float>::Distance2To(Vec4<float> &other)
+{
+	return Vec4<float>(other-(*this)).Length2();
+}
+
+template<>
+Vec4<float> Vec4<float>::Normalized() const
+{
+	return (*this) / Length();
+}
+
+template<>
+float Vec4<float>::Normalize()
+{
+	float len = Length();
+	(*this) = (*this)/len;
+	return len;
+}
