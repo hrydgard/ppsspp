@@ -23,9 +23,6 @@ namespace Lighting {
 
 void Process(VertexData& vertex)
 {
-	if (!gstate.isLightingEnabled())
-		return;
-
 	Vec3<int> mec = Vec3<int>(gstate.getMaterialEmissiveR(), gstate.getMaterialEmissiveG(), gstate.getMaterialEmissiveB());
 
 	Vec3<int> mac = (gstate.materialupdate&1)
@@ -37,6 +34,7 @@ void Process(VertexData& vertex)
 	for (unsigned int light = 0; light < 4; ++light) {
 		// Always calculate texture coords from lighting results if environment mapping is active
 		// TODO: specular lighting should affect this, too!
+		// TODO: Not sure if this really should be done even if lighting is disabled altogether
 		if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3*light]&0xFFFFFF), getFloat24(gstate.lpos[3*light+1]&0xFFFFFF),getFloat24(gstate.lpos[3*light+2]&0xFFFFFF));
 			float diffuse_factor = Dot(L,vertex.worldnormal) / L.Length() / vertex.worldnormal.Length();
@@ -47,8 +45,12 @@ void Process(VertexData& vertex)
 			if (gstate.getUVLS1() == light)
 				vertex.texturecoords.t() = (diffuse_factor + 1.f) / 2.f;
 		}
+	}
 
-		// Skip other calculations if light chan is disabled
+	if (!gstate.isLightingEnabled())
+		return;
+
+	for (unsigned int light = 0; light < 4; ++light) {
 		if (!gstate.isLightChanEnabled(light))
 			continue;
 
