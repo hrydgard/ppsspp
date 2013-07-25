@@ -72,22 +72,22 @@ enum FontPixelFormat {
 
 
 struct PGFFontStyle {
-	float  fontH;
-	float  fontV;
-	float  fontHRes;
-	float  fontVRes;
-	float  fontWeight;
-	u16    fontFamily;
-	u16    fontStyle;
+	float_le  fontH;
+	float_le  fontV;
+	float_le  fontHRes;
+	float_le  fontVRes;
+	float_le  fontWeight;
+	u16_le    fontFamily;
+	u16_le    fontStyle;
 	// Check.
-	u16    fontStyleSub;
-	u16    fontLanguage;
-	u16    fontRegion;
-	u16    fontCountry;
+	u16_le    fontStyleSub;
+	u16_le    fontLanguage;
+	u16_le    fontRegion;
+	u16_le    fontCountry;
 	char   fontName[64];
 	char   fontFileName[64];
-	u32    fontAttributes;
-	u32    fontExpire;
+	u32_le    fontAttributes;
+	u32_le    fontExpire;
 };
 
 
@@ -108,62 +108,68 @@ struct Glyph {
 	u32 ptr;
 };
 
+#if !defined(BIG_ENDIAN) && !defined(__BIG_ENDIAN__)
+typedef FontPixelFormat FontPixelFormat_le;
+#else
+error FIX ME
+#endif
+
 struct GlyphImage {
-	FontPixelFormat pixelFormat;
-	s32 xPos64;
-	s32 yPos64;
-	u16 bufWidth;
-	u16 bufHeight;
-	u16 bytesPerLine;
-	u16 pad;
-	u32 bufferPtr;
+	FontPixelFormat_le pixelFormat;
+	s32_le xPos64;
+	s32_le yPos64;
+	u16_le bufWidth;
+	u16_le bufHeight;
+	u16_le bytesPerLine;
+	u16_le pad;
+	u32_le bufferPtr;
 };
 
 #pragma pack(push,1)
 struct PGFHeader
 {
-	u16 headerOffset;
-	u16 headerSize;
+	u16_le headerOffset;
+	u16_le headerSize;
 
 	char PGFMagic[4];
-	int revision;
-	int version;
+	s32_le revision;
+	s32_le version;
 
-	int charMapLength;
-	int charPointerLength;
-	int charMapBpe;
-	int charPointerBpe;
+	s32_le charMapLength;
+	s32_le charPointerLength;
+	s32_le charMapBpe;
+	s32_le charPointerBpe;
 
 	u8 pad1[2];
 	u8 bpp;
 	u8 pad2[1];
 
-	int hSize;
-	int vSize;
-	int hResolution;
-	int vResolution;
+	s32_le hSize;
+	s32_le vSize;
+	s32_le hResolution;
+	s32_le vResolution;
 
 	u8 pad3[1];
 	char fontName[64];
 	char fontType[64];
 	u8 pad4[1];
 
-	u16 firstGlyph;
-	u16 lastGlyph;
+	u16_le firstGlyph;
+	u16_le lastGlyph;
 
 	u8 pad5[26];
 
-	int maxAscender;
-	int maxDescender;
-	int maxLeftXAdjust;
-	int maxBaseYAdjust;
-	int minCenterXAdjust;
-	int maxTopYAdjust;
+	s32_le maxAscender;
+	s32_le maxDescender;
+	s32_le maxLeftXAdjust;
+	s32_le maxBaseYAdjust;
+	s32_le minCenterXAdjust;
+	s32_le maxTopYAdjust;
 
-	int maxAdvance[2];
-	int maxSize[2];
-	u16 maxGlyphWidth;
-	u16 maxGlyphHeight;
+	s32_le maxAdvance[2];
+	s32_le maxSize[2];
+	u16_le maxGlyphWidth;
+	u16_le maxGlyphHeight;
 	u8 pad6[2];
 
 	u8 dimTableLength;
@@ -172,75 +178,75 @@ struct PGFHeader
 	u8 advanceTableLength;
 	u8 pad7[102];
 
-	int shadowMapLength;
-	int shadowMapBpe;
-	float unknown1;
-	int shadowScale[2];
+	s32_le shadowMapLength;
+	s32_le shadowMapBpe;
+	float_le unknown1;
+	s32_le shadowScale[2];
 	u8 pad8[8];
 };
 
 struct PGFHeaderRev3Extra {
-	int compCharMapBpe1;
-	int compCharMapLength1;
-	int compCharMapBpe2;
-	int compCharMapLength2;
-	u32 unknown;
+	s32_le compCharMapBpe1;
+	s32_le compCharMapLength1;
+	s32_le compCharMapBpe2;
+	s32_le compCharMapLength2;
+	u32_le unknown;
 };
 
 struct PGFCharInfo {
-	u32 bitmapWidth;
-	u32 bitmapHeight;
-	u32 bitmapLeft;
-	u32 bitmapTop;
+	u32_le bitmapWidth;
+	u32_le bitmapHeight;
+	u32_le bitmapLeft;
+	u32_le bitmapTop;
 	// Glyph metrics (in 26.6 signed fixed-point).
-	u32 sfp26Width;
-	u32 sfp26Height;
-	s32 sfp26Ascender;
-	s32 sfp26Descender;
-	s32 sfp26BearingHX;
-	s32 sfp26BearingHY;
-	s32 sfp26BearingVX;
-	s32 sfp26BearingVY;
-	s32 sfp26AdvanceH;
-	s32 sfp26AdvanceV;
+	u32_le sfp26Width;
+	u32_le sfp26Height;
+	s32_le sfp26Ascender;
+	s32_le sfp26Descender;
+	s32_le sfp26BearingHX;
+	s32_le sfp26BearingHY;
+	s32_le sfp26BearingVX;
+	s32_le sfp26BearingVY;
+	s32_le sfp26AdvanceH;
+	s32_le sfp26AdvanceV;
 	u8 pad[4];
 };
 
 struct PGFFontInfo {
 	// Glyph metrics (in 26.6 signed fixed-point).
-	int maxGlyphWidthI;
-	int maxGlyphHeightI;
-	int maxGlyphAscenderI;
-	int maxGlyphDescenderI;
-	int maxGlyphLeftXI;
-	int maxGlyphBaseYI;
-	int minGlyphCenterXI;
-	int maxGlyphTopYI;
-	int maxGlyphAdvanceXI;
-	int maxGlyphAdvanceYI;
+	s32_le maxGlyphWidthI;
+	s32_le maxGlyphHeightI;
+	s32_le maxGlyphAscenderI;
+	s32_le maxGlyphDescenderI;
+	s32_le maxGlyphLeftXI;
+	s32_le maxGlyphBaseYI;
+	s32_le minGlyphCenterXI;
+	s32_le maxGlyphTopYI;
+	s32_le maxGlyphAdvanceXI;
+	s32_le maxGlyphAdvanceYI;
 
 	// Glyph metrics (replicated as float).
-	float maxGlyphWidthF;
-	float maxGlyphHeightF;
-	float maxGlyphAscenderF;
-	float maxGlyphDescenderF;
-	float maxGlyphLeftXF;
-	float maxGlyphBaseYF;
-	float minGlyphCenterXF;
-	float maxGlyphTopYF;
-	float maxGlyphAdvanceXF;
-	float maxGlyphAdvanceYF;
+	float_le maxGlyphWidthF;
+	float_le maxGlyphHeightF;
+	float_le maxGlyphAscenderF;
+	float_le maxGlyphDescenderF;
+	float_le maxGlyphLeftXF;
+	float_le maxGlyphBaseYF;
+	float_le minGlyphCenterXF;
+	float_le maxGlyphTopYF;
+	float_le maxGlyphAdvanceXF;
+	float_le maxGlyphAdvanceYF;
 
 	// Bitmap dimensions.
-	short maxGlyphWidth;
-	short maxGlyphHeight;
-	int charMapLength;   // Number of elements in the font's charmap.
-	int shadowMapLength; // Number of elements in the font's shadow charmap.
+	s16_le maxGlyphWidth;
+	s16_le maxGlyphHeight;
+	s32_le charMapLength;   // Number of elements in the font's charmap.
+	s32_le shadowMapLength; // Number of elements in the font's shadow charmap.
 
 	// Font style (used by font comparison functions).
 	PGFFontStyle fontStyle;
 
-	int BPP; // Font's BPP.
+	s32_le BPP; // Font's BPP.
 };
 
 #pragma pack(pop)

@@ -113,7 +113,7 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		ptr += sizeof(rev3extra);
 	}
 
-	const u32 *wptr = (const u32 *)ptr;
+	const u32_le *wptr = (const u32_le *)ptr;
 	dimensionTable[0].resize(header.dimTableLength);
 	dimensionTable[1].resize(header.dimTableLength);
 	for (int i = 0; i < header.dimTableLength; i++) {
@@ -150,7 +150,7 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		shadowCharMap[i] = *uptr++;
 	}
 
-	const u16 *sptr = (const u16 *)uptr;
+	const u16_le *sptr = (const u16_le *)uptr;
 	if (header.revision == 3) {
 		charmapCompressionTable1[0].resize(rev3extra.compCharMapLength1);
 		charmapCompressionTable1[1].resize(rev3extra.compCharMapLength1);
