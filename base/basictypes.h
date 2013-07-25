@@ -4,6 +4,17 @@
 #include <stdlib.h>  // for byte swapping
 
 #ifdef _WIN32
+// We need this to compile without hundreds of std::bind errors in Visual Studio 2012
+// since by default VARIADIC_MAX is something low like 3, 4, or 5.
+// It's a good idea to include this file wherever std::bind is being used with more than 3, 4 or 5 args.
+#if _MSC_VER >= 1700
+#undef _VARIADIC_MAX
+#define _VARIADIC_MAX 10
+#endif
+
+#endif
+
+#ifdef _WIN32
 #pragma warning(disable:4244)
 #pragma warning(disable:4996)
 #pragma warning(disable:4305)  // truncation from double to float
