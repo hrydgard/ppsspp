@@ -16,3 +16,55 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Math3D.h"
+
+template<>
+Vec3<float> Vec3<float>::FromRGB(unsigned int rgb)
+{
+	return Vec3((rgb & 0xFF) * (1.0f/255.0f),
+				((rgb >> 8) & 0xFF) * (1.0f/255.0f),
+				((rgb >> 16) & 0xFF) * (1.0f/255.0f));
+}
+
+template<>
+Vec3<int> Vec3<int>::FromRGB(unsigned int rgb)
+{
+	return Vec3(rgb & 0xFF, (rgb >> 8) & 0xFF, (rgb >> 16) & 0xFF);
+}
+
+template<>
+float Vec3<float>::Length() const
+{
+	return sqrtf(Length2());
+}
+
+template<>
+void Vec3<float>::SetLength(const float l)
+{
+	(*this) *= l / Length();
+}
+
+template<>
+Vec3<float> Vec3<float>::WithLength(const float l) const
+{
+	return (*this) * l / Length();
+}
+
+template<>
+float Vec3<float>::Distance2To(Vec3<float> &other)
+{
+	return Vec3<float>(other-(*this)).Length2();
+}
+
+template<>
+Vec3<float> Vec3<float>::Normalized() const
+{
+	return (*this) / Length();
+}
+
+template<>
+float Vec3<float>::Normalize()
+{
+	float len = Length();
+	(*this) = (*this)/len;
+	return len;
+}

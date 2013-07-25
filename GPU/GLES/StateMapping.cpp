@@ -98,7 +98,7 @@ static GLenum blendColor2Func(u32 fix) {
 	if (fix == 0)
 		return GL_ZERO;
 
-	Vec3 fix3 = Vec3::FromRGB(fix);
+	Vec3f fix3 = Vec3f::FromRGB(fix);
 	if (fix3.x >= 0.99 && fix3.y >= 0.99 && fix3.z >= 0.99)
 		return GL_ONE;
 	else if (fix3.x <= 0.01 && fix3.y <= 0.01 && fix3.z <= 0.01)
@@ -106,8 +106,8 @@ static GLenum blendColor2Func(u32 fix) {
 	return GL_INVALID_ENUM;
 }
 
-static bool blendColorSimilar(Vec3 a, Vec3 b, float margin = 0.1f) {
-	Vec3 diff = a - b;
+static bool blendColorSimilar(Vec3f a, Vec3f b, float margin = 0.1f) {
+	Vec3f diff = a - b;
 	if (fabsf(diff.x) <= margin && fabsf(diff.y) <= margin && fabsf(diff.z) <= margin)
 		return true;
 	return false;
@@ -146,8 +146,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		GLuint glBlendFuncA = blendFuncA == GE_SRCBLEND_FIXA ? blendColor2Func(gstate.getFixA()) : aLookup[blendFuncA];
 		GLuint glBlendFuncB = blendFuncB == GE_DSTBLEND_FIXB ? blendColor2Func(gstate.getFixB()) : bLookup[blendFuncB];
 		if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
-			Vec3 fixA = Vec3::FromRGB(gstate.getFixA());
-			Vec3 fixB = Vec3::FromRGB(gstate.getFixB());
+			Vec3f fixA = Vec3f::FromRGB(gstate.getFixA());
+			Vec3f fixB = Vec3f::FromRGB(gstate.getFixB());
 			if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB != GL_INVALID_ENUM) {
 				// Can use blendcolor trivially.
 				const float blendColor[4] = {fixA.x, fixA.y, fixA.z, 1.0f};
@@ -159,7 +159,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 				glstate.blendColor.set(blendColor);
 				glBlendFuncB = GL_CONSTANT_COLOR;
 			} else if (glBlendFuncA == GL_INVALID_ENUM && glBlendFuncB == GL_INVALID_ENUM) {
-				if (blendColorSimilar(fixA, Vec3::AssignToAll(1.0f) - fixB)) {
+				if (blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f) - fixB)) {
 					glBlendFuncA = GL_CONSTANT_COLOR;
 					glBlendFuncB = GL_ONE_MINUS_CONSTANT_COLOR;
 					const float blendColor[4] = {fixA.x, fixA.y, fixA.z, 1.0f};
@@ -177,9 +177,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 					DEBUG_LOG(HLE, "ERROR INVALID blendcolorstate: FixA=%06x FixB=%06x FuncA=%i FuncB=%i", gstate.getFixA(), gstate.getFixB(), gstate.getBlendFuncA(), gstate.getBlendFuncB());
 					// Let's approximate, at least.  Close is better than totally off.
-					const bool nearZeroA = blendColorSimilar(fixA, Vec3::AssignToAll(0.0f), 0.25f);
-					const bool nearZeroB = blendColorSimilar(fixB, Vec3::AssignToAll(0.0f), 0.25f);
-					if (nearZeroA || blendColorSimilar(fixA, Vec3::AssignToAll(1.0f), 0.25f)) {
+					const bool nearZeroA = blendColorSimilar(fixA, Vec3f::AssignToAll(0.0f), 0.25f);
+					const bool nearZeroB = blendColorSimilar(fixB, Vec3f::AssignToAll(0.0f), 0.25f);
+					if (nearZeroA || blendColorSimilar(fixA, Vec3f::AssignToAll(1.0f), 0.25f)) {
 						glBlendFuncA = nearZeroA ? GL_ZERO : GL_ONE;
 						glBlendFuncB = GL_CONSTANT_COLOR;
 						const float blendColor[4] = {fixB.x, fixB.y, fixB.z, 1.0f};
