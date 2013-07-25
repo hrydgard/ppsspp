@@ -111,7 +111,7 @@ struct Glyph {
 #if !BIG_ENDIAN && !__BIG_ENDIAN__
 typedef FontPixelFormat FontPixelFormat_le;
 #else
-error FIX ME
+#error FIX ME
 #endif
 
 struct GlyphImage {
