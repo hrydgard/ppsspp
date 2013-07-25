@@ -384,7 +384,7 @@ static inline void ApplyStencilOp(int op, int x, int y)
 	}
 }
 
-static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb, int prim_color_a, const Vec4<int>& texcolor, unsigned int u, unsigned int v)
+static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb, int prim_color_a, const Vec4<int>& texcolor)
 {
 	Vec3<int> out_rgb;
 	int out_a;
@@ -573,7 +573,7 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 	}
 }
 
-static inline Vec3<int> AlphaBlendingResult(Vec3<int> source_rgb, int source_a, const Vec4<int> dst)
+static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int source_a, const Vec4<int> dst)
 {
 	Vec3<int> srcfactor = GetSourceFactor(source_a, dst);
 	Vec3<int> dstfactor = GetDestFactor(source_rgb, source_a, dst);
@@ -690,7 +690,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					}
 
 					Vec4<int> texcolor = Vec4<int>::FromRGBA(SampleNearest(0, u, v));
-					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor, u, v);
+					Vec4<int> out = GetTextureFunctionOutput(prim_color_rgb, prim_color_a, texcolor);
 					prim_color_rgb = out.rgb();
 					prim_color_a = out.a();
 				}
