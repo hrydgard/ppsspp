@@ -54,6 +54,12 @@ typedef signed long long s64;
 
 #endif // _WIN32
 
+
+#ifdef ANDROID
+#undef BIG_ENDIAN
+#undef __BIG_ENDIAN__
+#endif
+
 #if !BIG_ENDIAN && !__BIG_ENDIAN__
 typedef u32 u32_le;
 typedef u16 u16_le;
