@@ -350,6 +350,7 @@ struct GPUgstate
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	int getWeightMask() const { return vertType & GE_VTYPE_WEIGHT_MASK; }
 	int getNumBoneWeights() const { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
+	bool isSkinningEnabled() const { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
 
 	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
 

@@ -100,6 +100,27 @@ static VertexData ReadVertex(VertexReader& vreader)
 		vertex.normal = Vec3<float>(normal[0], normal[1], normal[2]);
 	}
 
+	if (gstate.isSkinningEnabled() && !gstate.isModeThrough()) {
+		float W[8] = { 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f };
+		vreader.ReadWeights(W);
+
+		Vec3<float> tmppos(0.f, 0.f, 0.f);
+		Vec3<float> tmpnrm(0.f, 0.f, 0.f);
+
+		for (int i = 0; i < gstate.getNumBoneWeights(); ++i) {
+			Mat3x3<float> bone(&gstate.boneMatrix[12*i]);
+			tmppos += W[i] * (bone * ModelCoords(pos[0], pos[1], pos[2]) + Vec3<float>(gstate.boneMatrix[12*i+9], gstate.boneMatrix[12*i+10], gstate.boneMatrix[12*i+11]));
+			if (vreader.hasNormal())
+				tmpnrm += W[i] * (bone * vertex.normal);
+		}
+
+		pos[0] = tmppos.x;
+		pos[1] = tmppos.y;
+		pos[2] = tmppos.z;
+		if (vreader.hasNormal())
+			vertex.normal = tmpnrm;
+	}
+
 	if (vreader.hasColor0()) {
 		float col[4];
 		vreader.ReadColor0(col);
