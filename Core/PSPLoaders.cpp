@@ -27,6 +27,7 @@
 #include "MIPS/MIPSAnalyst.h"
 #include "MIPS/MIPSCodeUtils.h"
 
+#include "file/file_util.h"
 #include "StringUtils.h"
 
 #include "Host.h"
@@ -44,11 +45,24 @@
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
 void InitMemoryForGameISO(std::string fileToStart) {
-	auto bd = constructBlockDevice(fileToStart.c_str());
-	// Can't init anything without a block device...
-	if (!bd)
-		return;
-	ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
+	IFileSystem* umd2;
+
+	// check if it's a disc directory
+	FileInfo info;
+	if (!getFileInfo(fileToStart.c_str(), &info)) return;
+
+	if (info.isDirectory)
+	{
+		umd2 = new VirtualDiscFileSystem(&pspFileSystem, fileToStart);
+	}
+	else 
+	{
+		auto bd = constructBlockDevice(fileToStart.c_str());
+		// Can't init anything without a block device...
+		if (!bd)
+			return;
+		umd2 = new ISOFileSystem(&pspFileSystem, bd);
+	}
 
 	// Parse PARAM.SFO
 
