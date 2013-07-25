@@ -117,11 +117,6 @@ public:
 		return *((&x) + i);
 	}
 
-	Vec2 Lerp(const Vec2 &other, const float t) const
-	{
-		return (*this)*(1-t) + other*t;
-	}
-
 	void SetZero()
 	{
 		x=0; y=0;
@@ -252,11 +247,6 @@ public:
 	T operator [] (const int i) const
 	{
 		return *((&x) + i);
-	}
-
-	Vec3 Lerp(const Vec3 &other, const float t) const
-	{
-		return (*this)*(1-t) + other*t;
 	}
 
 	void SetZero()
@@ -420,11 +410,6 @@ public:
 		return *((&x) + i);
 	}
 
-	Vec4 Lerp(const Vec4 &other, const float t) const
-	{
-		return (*this)*(1-t) + other*t;
-	}
-
 	void SetZero()
 	{
 		x=0; y=0; z=0;
@@ -532,4 +517,18 @@ template<typename T>
 inline Vec3<T> Cross(const Vec3<T>& a, const Vec3<T>& b)
 {
 	return Vec3<T>(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
+}
+
+// linear interpolation via float: 0.0=begin, 1.0=end
+template<typename X>
+inline X Lerp(const X& begin, const X& end, const float t)
+{
+	return begin*(1.f-t) + end*t;
+}
+
+// linear interpolation via int: 0=begin, base=end
+template<typename X, int base>
+inline X LerpInt(const X& begin, const X& end, const int t)
+{
+	return (begin*(base-t) + end*t) / base;
 }
