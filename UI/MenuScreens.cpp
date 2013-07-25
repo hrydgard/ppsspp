@@ -521,6 +521,12 @@ void PauseScreen::render() {
 		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("+1"), ALIGN_LEFT))
 			if (g_Config.iFrameSkip < 9)
 				g_Config.iFrameSkip += 1;
+		if (UIButton(GEN_ID, hlinear2, 65, 0, gs->T("-0.5"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip > 0)
+				g_Config.iFrameSkip -= 0.5;
+		if (UIButton(GEN_ID, hlinear2, 65, 0, gs->T("+0.5"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip < 9)
+				g_Config.iFrameSkip += 0.5;
 		y+=20;
 	} else 
 		g_Config.iFrameSkip = 0;
@@ -1233,6 +1239,12 @@ void GraphicsScreenP3::render() {
 		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("+1"), ALIGN_LEFT))
 			if (g_Config.iFrameSkip < 9)
 				g_Config.iFrameSkip += 1;
+		if (UIButton(GEN_ID, hlinear2, 70, 0, gs->T("-0.5"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip > 0)
+				g_Config.iFrameSkip -= 0.5;
+		if (UIButton(GEN_ID, hlinear2, 70, 0, gs->T("+0.5"), ALIGN_LEFT))
+			if (g_Config.iFrameSkip < 9)
+				g_Config.iFrameSkip += 0.5;
 
 		y += 20;
 	} else 
