@@ -34,6 +34,12 @@ public:
 	Vec2(const T a[2]) : x(a[0]), y(a[1]) {}
 	Vec2(const T& _x, const T& _y) : x(_x), y(_y) {}
 
+	template<typename T2>
+	Vec2<T2> Cast() const
+	{
+		return Vec2<T2>((T2)x, (T2)y);
+	}
+
 	static Vec2 AssignToAll(const T& f)
 	{
 		return Vec2<T>(f, f);
@@ -160,6 +166,12 @@ public:
 	Vec3() {}
 	Vec3(const T a[3]) : x(a[0]), y(a[1]), z(a[2]) {}
 	Vec3(const T& _x, const T& _y, const T& _z) : x(_x), y(_y), z(_z) {}
+
+	template<typename T2>
+	Vec3<T2> Cast() const
+	{
+		return Vec3<T2>((T2)x, (T2)y, (T2)z);
+	}
 
 	// Only implemented for T=int and T=float
 	static Vec3 FromRGB(unsigned int rgb);
@@ -320,6 +332,12 @@ public:
 	Vec4() {}
 	Vec4(const T a[4]) : x(a[0]), y(a[1]), z(a[2]), w(a[3]) {}
 	Vec4(const T& _x, const T& _y, const T& _z, const T& _w) : x(_x), y(_y), z(_z), w(_w) {}
+
+	template<typename T2>
+	Vec4<T2> Cast() const
+	{
+		return Vec4<T2>((T2)x, (T2)y, (T2)z, (T2)w);
+	}
 
 	// Only implemented for T=int and T=float
 	static Vec4 FromRGBA(unsigned int rgba);
