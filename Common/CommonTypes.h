@@ -28,17 +28,6 @@
 #endif
 #endif
 
-
-// Seriously, WTF?
-#ifdef __APPLE__
-#ifdef BIG_ENDIAN
-#undef BIG_ENDIAN
-#endif
-#ifdef __BIG_ENDIAN__
-#undef __BIG_ENDIAN__
-#endif
-#endif
-
 #ifdef _WIN32
 
 typedef unsigned __int8 u8;
@@ -65,7 +54,7 @@ typedef signed long long s64;
 
 #endif // _WIN32
 
-#if !defined(BIG_ENDIAN) && !defined(__BIG_ENDIAN__)
+#if !BIG_ENDIAN && !__BIG_ENDIAN__
 typedef u32 u32_le;
 typedef u16 u16_le;
 typedef u64 u64_le;
