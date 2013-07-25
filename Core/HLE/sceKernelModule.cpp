@@ -447,6 +447,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	if (*magicPtr == 0x4543537e) { // "~SCE"
 		INFO_LOG(HLE, "~SCE module, skipping header");
 		ptr += *(u32*)(ptr + 4);
+		magicPtr = (u32_le *)ptr;
 	}
 	*magic = *magicPtr;
 	if (*magic == 0x5053507e) { // "~PSP"
@@ -460,6 +461,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 		newptr = new u8[head->elf_size + head->psp_size];
 		ptr = newptr;
+		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
 		if (ret == MISSING_KEY) {
 			// This should happen for all "kernel" modules so disabling.
@@ -482,7 +484,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	// DO NOT change to else if, see above.
 	if (*magicPtr != 0x464c457f) {
-		ERROR_LOG_REPORT(HLE, "Wrong magic number %08x", *(u32*)ptr);
+		ERROR_LOG_REPORT(HLE, "Wrong magic number %08x", *magicPtr);
 		*error_string = "File corrupt";
 		if (newptr)
 			delete [] newptr;
