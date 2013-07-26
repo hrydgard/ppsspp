@@ -543,7 +543,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 			DEBUG_LOG(G3D,"Block Transfer Dest: %08x	W: %i", xferDst, xferDstW);
 			break;
 		}
-		
+
 	case GE_CMD_TRANSFERSRCPOS:
 		{
 			u32 x = (data & 1023)+1;
@@ -570,10 +570,30 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_TRANSFERSTART:
 		{
+			u32 srcBasePtr = (gstate.transfersrc & 0xFFFFF0) | ((gstate.transfersrcw & 0xFF0000) << 8);
+			u32 srcStride = gstate.transfersrcw & 0x3F8;
+
+			u32 dstBasePtr = (gstate.transferdst & 0xFFFFF0) | ((gstate.transferdstw & 0xFF0000) << 8);
+			u32 dstStride = gstate.transferdstw & 0x3F8;
+
+			int srcX = gstate.transfersrcpos & 0x3FF;
+			int srcY = (gstate.transfersrcpos >> 10) & 0x3FF;
+
+			int dstX = gstate.transferdstpos & 0x3FF;
+			int dstY = (gstate.transferdstpos >> 10) & 0x3FF;
+
+			int width = (gstate.transfersize & 0x3FF) + 1;
+			int height = ((gstate.transfersize >> 10) & 0x3FF) + 1;
+
+			int bpp = (gstate.transferstart & 1) ? 4 : 2;
+
+			for (int y = 0; y < height; y++) {
+				const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
+				u8 *dst = Memory::GetPointer(dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp);
+				memcpy(dst, src, width * bpp);
+			}
+
 			DEBUG_LOG(G3D, "DL Texture Transfer Start: PixFormat %i", data);
-			// TODO: Here we should check if the transfer overlaps a framebuffer or any textures,
-			// and take appropriate action. If not, this should just be a block transfer within
-			// GPU memory which could be implemented by a copy loop.
 			break;
 		}
 
