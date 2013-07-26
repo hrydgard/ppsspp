@@ -54,13 +54,51 @@ typedef signed long long s64;
 
 #endif // _WIN32
 
+// Android
+#if defined(ANDROID)
+#include <sys/endian.h>
 
-#ifdef ANDROID
-#undef BIG_ENDIAN
-#undef __BIG_ENDIAN__
+#if _BYTE_ORDER == _LITTLE_ENDIAN && !defined(COMMON_LITTLE_ENDIAN)
+#define COMMON_LITTLE_ENDIAN 1
+#elif _BYTE_ORDER == _BIG_ENDIAN && !defined(COMMON_BIG_ENDIAN)
+#define COMMON_BIG_ENDIAN 1
 #endif
 
-#if !BIG_ENDIAN && !__BIG_ENDIAN__
+// GCC 4.6+
+#elif __GNUC__ >= 5 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
+
+#if __BYTE_ORDER__ && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) && !defined(COMMON_LITTLE_ENDIAN)
+#define COMMON_LITTLE_ENDIAN 1
+#elif __BYTE_ORDER__ && (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) && !defined(COMMON_BIG_ENDIAN)
+#define COMMON_BIG_ENDIAN 1
+#endif
+
+// LLVM/clang
+#elif __clang__
+
+#if __LITTLE_ENDIAN__ && !defined(COMMON_LITTLE_ENDIAN)
+#define COMMON_LITTLE_ENDIAN 1
+#elif __BIG_ENDIAN__ && !defined(COMMON_BIG_ENDIAN)
+#define COMMON_BIG_ENDIAN 1
+#endif
+
+// MSVC
+#elif defined(_MSC_VER) && !defined(COMMON_BIG_ENDIAN) && !defined(COMMON_LITTLE_ENDIAN)
+
+#ifdef _XBOX
+#define COMMON_BIG_ENDIAN 1
+#else
+#define COMMON_LITTLE_ENDIAN 1
+#endif
+
+#endif
+
+// Worst case, default to little endian.
+#if !COMMON_BIG_ENDIAN && !COMMON_LITTLE_ENDIAN
+#define COMMON_LITTLE_ENDIAN 1
+#endif
+
+#if COMMON_LITTLE_ENDIAN
 typedef u32 u32_le;
 typedef u16 u16_le;
 typedef u64 u64_le;
