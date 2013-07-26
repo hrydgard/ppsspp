@@ -1270,16 +1270,6 @@ namespace MainWindow
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
 		}
 
-		static const int zoommode[] = {
-			ID_OPTIONS_SCREEN1X,
-			ID_OPTIONS_SCREEN2X,
-			ID_OPTIONS_SCREEN3X,
-			ID_OPTIONS_SCREEN4X,
-		};
-		for (int i = 0; i < 4; i++) {
-			CheckMenuItem(menu, zoommode[i], MF_BYCOMMAND | ( i == g_Config.iWindowZoom )? MF_CHECKED : MF_UNCHECKED);
-		}
-
 		UpdateCommands();
 	}
 
