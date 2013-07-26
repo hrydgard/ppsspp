@@ -2,14 +2,8 @@
 
 #include "base/basictypes.h"
 
-#if defined(__LITTLE_ENDIAN__)
-#define UTF16_IS_LITTLE_ENDIAN 1
-#elif defined(__BIG_ENDIAN__)
-#define UTF16_IS_LITTLE_ENDIAN 0
-#else
 // Should optimize out.
 #define UTF16_IS_LITTLE_ENDIAN (*(const uint16_t *)"\0\xff" >= 0x100)
-#endif
 
 template <bool is_little>
 uint16_t UTF16_Swap(uint16_t u) {
