@@ -21,6 +21,7 @@
 #include <algorithm>
 
 #include "Common/LogManager.h"
+#include "Common/CommonTypes.h"
 #include "HLE.h"
 #include "HLETables.h"
 #include "../MIPS/MIPSInt.h"
@@ -149,7 +150,7 @@ public:
 	u32 savedIdRegister;
 };
 
-#if !defined(BIG_ENDIAN) && !defined(__BIG_ENDIAN__)
+#if COMMON_LITTLE_ENDIAN
 typedef WaitType WaitType_le;
 #else
 #error FIX ME

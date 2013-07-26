@@ -18,8 +18,15 @@
 #pragma once
 
 #ifndef _WIN32_WINNT
-	#define _WIN32_WINNT 0x501
-#endif
+
+#if _MSC_VER < 1700
+#define _WIN32_WINNT 0x501 // Compile for XP on Visual Studio 2010 and below
+#else
+#define _WIN32_WINNT 0x600 // Compile for Vista on Visual Studio 2012 and above
+#endif // #if _MSC_VER < 1700
+
+#endif // #ifndef _WIN32_WINNT
+
 #ifndef _WIN32_IE
 #define _WIN32_IE 0x0500       // Default value is 0x0400
 #endif
