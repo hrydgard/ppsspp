@@ -7,6 +7,9 @@
 
 #if defined(USING_GLES2) && !defined(IOS)
 PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
+PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
+PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
+PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 #endif
 
 
@@ -77,16 +80,34 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
-	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
 
+#ifdef USING_GLES2
+	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer");
+	if (gl_extensions.EXT_discard_framebuffer) {
+		glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC)eglGetProcAddress("glDiscardFramebufferEXT");
+	}
+#endif
 
-	// TODO: Change to USING_GLES2 if it works on those other platforms too
 #ifdef ANDROID
 	gl_extensions.QCOM_alpha_test = strstr(extString, "GL_QCOM_alpha_test") != 0;
 	// Load extensions that are not auto-loaded by Android.
 	if (gl_extensions.QCOM_alpha_test) {
 		glAlphaFuncQCOM = (PFNGLALPHAFUNCQCOMPROC)eglGetProcAddress("glAlphaFuncQCOM");
 	}
+
+	// Look for EGL extensions
+	EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+	
+	const char *eglString = eglQueryString(display, EGL_EXTENSIONS);
+
+	gl_extensions.EGL_NV_system_time = strstr(eglString, "EGL_NV_system_time") != 0;
+	gl_extensions.EGL_NV_coverage_sample = strstr(eglString, "EGL_NV_coverage_sample") != 0;
+
+	if (gl_extensions.EGL_NV_system_time) {
+		eglGetSystemTimeNV = (PFNEGLGETSYSTEMTIMENVPROC) eglGetProcAddress("eglGetSystemTimeNV");
+		eglGetSystemTimeFrequencyNV = (PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC) eglGetProcAddress("eglGetSystemTimeFrequencyNV");
+	}
+
 #endif
 
 #ifdef USING_GLES2

@@ -77,7 +77,7 @@ LOCAL_SRC_FILES :=\
     util/random/perlin.cpp \
     util/text/utf8.cpp
 
-LOCAL_CFLAGS := -O3 -DGL_GLEXT_PROTOTYPES -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
+LOCAL_CFLAGS := -O3 -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -frtti
 LOCAL_LDLIBS := -lz
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext/libzip

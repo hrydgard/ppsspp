@@ -10,24 +10,6 @@
 #include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
 
-// Additional extensions not included in GLES2/gl2ext.h from the NDK
-
-/* GL_QCOM_alpha_test */
-#ifndef GL_QCOM_alpha_test
-#define GL_ALPHA_TEST_QCOM                                      0x0BC0
-#define GL_ALPHA_TEST_FUNC_QCOM                                 0x0BC1
-#define GL_ALPHA_TEST_REF_QCOM                                  0x0BC2
-#endif
-
-#ifndef GL_QCOM_alpha_test
-#define GL_QCOM_alpha_test 1
-#ifdef GL_GLEXT_PROTOTYPES
-//GL_APICALL void GL_APIENTRY glAlphaFuncQCOM (GLenum func, GLclampf ref);
-#endif
-typedef void (GL_APIENTRYP PFNGLALPHAFUNCQCOMPROC) (GLenum func, GLclampf ref);
-extern PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
-#endif
-
 #endif
 #else // OpenGL
 #include <GL/glew.h>

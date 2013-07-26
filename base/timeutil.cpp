@@ -2,6 +2,9 @@
 #include "base/logging.h"
 #include "base/timeutil.h"
 
+// For NV time functions. Ugly!
+#include "gfx_es2/gl_state.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -31,7 +34,23 @@ double real_time_now(){
 
 #else
 
+uint64_t _frequency = 0;
+uint64_t _starttime = 0;
+
 double real_time_now() {
+	if (false && gl_extensions.EGL_NV_system_time) {
+		// This is needed to profile using PerfHUD on Tegra
+		if (_frequency == 0) {
+			_frequency = eglGetSystemTimeFrequencyNV();
+			_starttime = eglGetSystemTimeNV();
+		}
+
+		uint64_t cur = eglGetSystemTimeNV();
+		int64_t diff = cur - _starttime;
+		
+		return (double)diff / (double)_frequency;
+	}
+
 	static time_t start;
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
