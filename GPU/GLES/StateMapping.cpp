@@ -364,6 +364,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		// Flip vpY0 to match the OpenGL coordinate system.
 		vpY0 = renderHeight - (vpY0 + vpHeight);
+		
+		// Clamp vpX0/vpY0 to zero when negative value retured.
+		vpY0 = vpY0 < 0 ? 0 : vpY0;
+		vpX0 = vpX0 < 0 ? 0 : vpX0;
+		
 		glstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight);
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
