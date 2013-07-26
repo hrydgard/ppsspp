@@ -146,16 +146,18 @@ bool glsl_recompile(GLSLProgram *program) {
 
 	GLint linkStatus;
 	glGetProgramiv(prog, GL_LINK_STATUS, &linkStatus);
-	if (linkStatus != GL_TRUE) {
+	if (linkStatus == GL_FALSE) {
 		GLint bufLength = 0;
 		glGetProgramiv(prog, GL_INFO_LOG_LENGTH, &bufLength);
 		if (bufLength) {
 			char* buf = new char[bufLength];
 			glGetProgramInfoLog(prog, bufLength, NULL, buf);
-			FLOG("Could not link program:\n %s", buf);
+			ILOG("vsh: %i   fsh: %i", vsh, fsh);
+			FLOG("Could not link shader program (linkstatus=%i):\n %s  \n", linkStatus, buf);
 			delete [] buf;	// we're dead!
 		} else {
-			FLOG("Could not link program.");
+			ILOG("vsh: %i   fsh: %i", vsh, fsh);
+			FLOG("Could not link shader program (linkstatus=%i). No OpenGL error log was available.", linkStatus);
 		}
 		glDeleteShader(vsh);
 		glDeleteShader(fsh);
