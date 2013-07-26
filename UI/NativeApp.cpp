@@ -299,8 +299,9 @@ void NativeInit(int argc, const char *argv[],
 		} else {
 			if (boot_filename.empty()) {
 				boot_filename = argv[i];
-				if (!File::Exists(boot_filename))
-				{
+
+				FileInfo info;
+				if (!getFileInfo(boot_filename.c_str(), &info) || info.exists == false) {
 					fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
 					exit(1);
 				}
@@ -376,14 +377,10 @@ void NativeInit(int argc, const char *argv[],
 		if (Atrac3plus_Decoder::CanAutoInstall()) {
 			Atrac3plus_Decoder::DoAutoInstall();
 		}
-		screenManager->switchScreen(new LogoScreen(boot_filename));
-#else
-		screenManager->switchScreen(new LogoScreen(boot_filename));
 #endif
-	} else {
-		// Go directly into the game.
-		screenManager->switchScreen(new EmuScreen(boot_filename));
 	}
+	
+	screenManager->switchScreen(new LogoScreen(boot_filename));
 }
 
 void NativeInitGraphics() {
