@@ -469,7 +469,6 @@ void CallSyscall(u32 op)
 	int modulenum = (callno & 0xFF000) >> 12;
 	if (funcnum == 0xfff || op == 0xffff)
 	{
-		_dbg_assert_msg_(HLE,0,"Unknown syscall");
 		ERROR_LOG(HLE,"Unknown syscall: Module: %s", modulenum > (int) moduleDB.size() ? "(unknown)" : moduleDB[modulenum].name); 
 		return;
 	}

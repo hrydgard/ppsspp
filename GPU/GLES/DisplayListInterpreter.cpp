@@ -15,12 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "gfx_es2/gl_state.h"
+
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
-#include "gfx_es2/gl_state.h"
 
 #include "../GPUState.h"
 #include "../ge_constants.h"
@@ -309,6 +310,16 @@ void GLES_GPU::CopyDisplayToOutput() {
 	framebufferManager_.EndFrame();
 
 	shaderManager_->EndFrame();
+
+	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
+#if 0
+#ifdef USING_GLES2
+	if (gl_extensions.EXT_discard_framebuffer && g_Config.iRenderingMode != 0) {
+		GLenum attachments[] = {GL_DEPTH_EXT, GL_STENCIL_EXT};
+		glDiscardFramebufferEXT(GL_FRAMEBUFFER, 2, attachments);
+	}
+#endif
+#endif
 
 	gstate_c.textureChanged = true;
 }
