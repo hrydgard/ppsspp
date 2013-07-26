@@ -5,7 +5,7 @@
 #endif
 
 
-#ifdef USING_GLES2
+#if defined(USING_GLES2) && !defined(IOS)
 PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
 #endif
 
