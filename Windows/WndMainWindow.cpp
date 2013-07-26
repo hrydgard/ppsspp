@@ -180,7 +180,7 @@ namespace MainWindow
 			gpu->Resized();
 	}
 
-	void SetZoom(float zoom) {
+	void setZoom(float zoom) {
 		if (zoom < 5)
 			g_Config.iWindowZoom = (int) zoom;
 		RECT rc, rcOuter;
@@ -204,27 +204,31 @@ namespace MainWindow
 		}
 	}
 
-	void setTexScalingLevel(int num) {
-		g_Config.iTexScalingLevel = num;
+	void setTexScalingLevel(int level) {
+		g_Config.iTexScalingLevel = level;
 		if(gpu) gpu->ClearCacheNextFrame();
 	}
 
-	void setTexFiltering(int num) {
-		g_Config.iTexFiltering = num;
+	void setTexFiltering(int type) {
+		g_Config.iTexFiltering = type;
 	}
 
-	void setTexScalingType(int num) {
-		g_Config.iTexScalingType = num;
+	void setTexScalingType(int type) {
+		g_Config.iTexScalingType = type;
 		if(gpu) gpu->ClearCacheNextFrame();
 	}
 
-	void setRenderingMode(int num) {
-		g_Config.iRenderingMode = num;
+	void setRenderingMode(int mode) {
+		g_Config.iRenderingMode = mode;
 		if (gpu) gpu->Resized();
 	}
 
 	void setFpsLimit(int fps) {
 		g_Config.iFpsLimit = fps;
+	}
+
+	void setFrameSkipping(int frame) {
+		g_Config.iFrameSkip = frame;
 	}
 
 	void enableCheats(bool cheats){
@@ -695,18 +699,39 @@ namespace MainWindow
 				break;
 
 			case ID_OPTIONS_SCREEN1X:
-				SetZoom(1);
+				setZoom(1);
 				break;
 			case ID_OPTIONS_SCREEN2X:
-				SetZoom(2);
+				setZoom(2);
 				break;
 			case ID_OPTIONS_SCREEN3X:
-				SetZoom(3);
+				setZoom(3);
 				break;
 			case ID_OPTIONS_SCREEN4X:
-				SetZoom(4);
+				setZoom(4);
 				break;
 
+			case ID_OPTIONS_SCREENDUMMY:
+				g_Config.iWindowZoom = ++g_Config.iWindowZoom > 4 ? 1 : g_Config.iWindowZoom;
+
+				switch(g_Config.iWindowZoom) {
+				case 1:
+					osm.Show(g->T("1x Rending Resolution"));
+					break;
+				case 2:
+					osm.Show(g->T("2x Rending Resolution"));
+					break;
+				case 3:
+					osm.Show(g->T("3x Rending Resolution"));
+					break;
+				case 4:
+					osm.Show(g->T("4x Rending Resolution"));
+					break;
+				}
+
+				setZoom(g_Config.iWindowZoom);
+
+				break;
 			case ID_OPTIONS_MIPMAP:
 				g_Config.bMipMap = !g_Config.bMipMap;
 				break;
@@ -803,9 +828,84 @@ namespace MainWindow
 					gpu->Resized();  // easy way to force a clear...
 				break;
 
-			case ID_OPTIONS_FRAMESKIP:
-				g_Config.iFrameSkip = g_Config.iFrameSkip == 0 ? 1 : 0;
-				osm.ShowOnOff(g->T("Frame Skipping"), g_Config.iFrameSkip != 0);
+			case ID_OPTIONS_FRAMESKIP_0:
+				setFrameSkipping(0);
+				break;
+
+			case ID_OPTIONS_FRAMESKIP_1:
+				setFrameSkipping(1);
+				break;
+
+			case ID_OPTIONS_FRAMESKIP_2:
+				setFrameSkipping(2);
+				break;
+
+			case ID_OPTIONS_FRAMESKIP_3:
+				setFrameSkipping(3);
+				break;
+				
+			case ID_OPTIONS_FRAMESKIP_4:
+				setFrameSkipping(4);
+				break;
+
+			case ID_OPTIONS_FRAMESKIP_5:
+				setFrameSkipping(5);
+				break;
+
+			case ID_OPTIONS_FRAMESKIP_6:
+				setFrameSkipping(6);
+				break;
+
+			case ID_OPTIONS_FRAMESKIP_7:
+				setFrameSkipping(7);
+				break;
+
+			case ID_OPTIONS_FRAMESKIP_8:
+				setFrameSkipping(8);
+				break;
+
+			case ID_OPTIONS_FRAMESKIP_9:
+				setFrameSkipping(9);
+				break;
+
+			case ID_OPTIONS_FRAMESKIPDUMMY:
+				g_Config.iFrameSkip = ++g_Config.iFrameSkip > 9 ? 0 : g_Config.iFrameSkip;
+
+				switch(g_Config.iFrameSkip) {
+				case 0:
+					osm.Show(g->T("No Frame Skip"));
+					break;
+				case 1:
+					osm.Show(g->T("Skip 1 frame"));
+					break;
+				case 2:
+					osm.Show(g->T("Skip 2 frames"));
+					break;
+				case 3:
+					osm.Show(g->T("Skip 3 frames"));
+					break;
+				case 4:
+					osm.Show(g->T("Skip 4 frames"));
+					break;
+				case 5:
+					osm.Show(g->T("Skip 5 frames"));
+					break;
+				case 6:
+					osm.Show(g->T("Skip 6 frames"));
+					break;
+				case 7:
+					osm.Show(g->T("Skip 7 frames"));
+					break;
+				case 8:
+					osm.Show(g->T("Skip 8 frames"));
+					break;
+				case 9:
+					osm.Show(g->T("Skip 9 frames"));
+					break;
+				}
+
+				setFrameSkipping(g_Config.iFrameSkip);
+
 				break;
 
 			case ID_FILE_EXIT:
@@ -1152,6 +1252,32 @@ namespace MainWindow
 		};
 		for (int i = 0; i < 4; i++) {
 			CheckMenuItem(menu, renderingmode[i], MF_BYCOMMAND | ( i == g_Config.iRenderingMode )? MF_CHECKED : MF_UNCHECKED);
+		}
+
+		static const int frameskipping[] = {
+			ID_OPTIONS_FRAMESKIP_0,
+			ID_OPTIONS_FRAMESKIP_1,
+			ID_OPTIONS_FRAMESKIP_2,
+			ID_OPTIONS_FRAMESKIP_3,
+			ID_OPTIONS_FRAMESKIP_4,
+			ID_OPTIONS_FRAMESKIP_5,
+			ID_OPTIONS_FRAMESKIP_6,
+			ID_OPTIONS_FRAMESKIP_7,
+			ID_OPTIONS_FRAMESKIP_8,
+			ID_OPTIONS_FRAMESKIP_9,
+		};
+		for (int i = 0; i < 9; i++) {
+			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
+		}
+
+		static const int zoommode[] = {
+			ID_OPTIONS_SCREEN1X,
+			ID_OPTIONS_SCREEN2X,
+			ID_OPTIONS_SCREEN3X,
+			ID_OPTIONS_SCREEN4X,
+		};
+		for (int i = 0; i < 4; i++) {
+			CheckMenuItem(menu, zoommode[i], MF_BYCOMMAND | ( i == g_Config.iWindowZoom )? MF_CHECKED : MF_UNCHECKED);
 		}
 
 		UpdateCommands();
