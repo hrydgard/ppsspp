@@ -26,7 +26,13 @@
 //#ifdef WINDOWS
 
 #undef _WIN32_WINNT
-#define _WIN32_WINNT 0x600
+
+#if _MSC_VER < 1700
+#define _WIN32_WINNT 0x501 // Compile for XP on Visual Studio 2010 and below
+#else
+#define _WIN32_WINNT 0x600 // Compile for Vista on Visual Studio 2012 and above
+#endif
+
 #undef WINVER
 #define WINVER 0x0600
 #ifndef _WIN32_IE
