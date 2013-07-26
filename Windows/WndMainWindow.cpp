@@ -1221,7 +1221,7 @@ namespace MainWindow
 			ID_TEXTURESCALING_5X,
 		};
 		for (int i = 0; i < 5; i++) {
-			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel-1) ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel - 1) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int texscalingtypeitems[] = {
@@ -1266,7 +1266,7 @@ namespace MainWindow
 			ID_OPTIONS_FRAMESKIP_8,
 			ID_OPTIONS_FRAMESKIP_9,
 		};
-		for (int i = 0; i < 9; i++) {
+		for (int i = 0; i < 10; i++) {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
 		}
 
