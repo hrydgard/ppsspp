@@ -193,13 +193,13 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("Graphics", graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", 
 #ifndef USING_GLES2
-	"Read Framebuffers To Memory(CPU)", 
-#endif
-	"Read Framebuffers To Memory(GPU)"
-	};
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(CPU)", "Read Framebuffers To Memory(GPU)"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
+#else
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(GPU)"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 3, gs, screenManager()));
+#endif
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
@@ -220,17 +220,18 @@ void GameSettingsScreen::CreateViews() {
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, 5, gs, screenManager()));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
-	static const char *texScaleLevels[] = {
-		"Off (1x)", "2x", "3x",
 #ifndef USING_GLES2
-		"4x", "5x",
-#endif
-	};
+	static const char *texScaleLevels[] = {"Off", "2x", "3x","4x", "5x"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 1, 5, gs, screenManager()));
+#else
+	static const char *texScaleLevels[] = {"Off", "2x", "3x"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 1, 3, gs, screenManager()));
+#endif
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Filtering")));
-	static const char *texFilters[] = { "Default (auto)", "Nearest", "Linear", "Linear on FMV", };
+	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Upscale Type"), texFilters, 1, 4, gs, screenManager()));
 
 	// Audio

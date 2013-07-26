@@ -58,8 +58,12 @@ enum {
 enum {	
 	FB_NON_BUFFERED_MODE = 0,
 	FB_BUFFERED_MODE = 1,
+#ifndef USING_GLES2
 	FB_READFBOMEMORY_CPU = 2,
 	FB_READFBOMEMORY_GPU = 3,
+#else
+	FB_READFBOMEMORY_GPU = 2,
+#endif
 };
 
 struct VirtualFramebuffer {
