@@ -1210,7 +1210,7 @@ namespace MainWindow
 			ID_OPTIONS_SCREEN4X,
 		};
 		for (int i = 0; i < 4; i++) {
-			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iWindowZoom-1) ? MF_CHECKED : MF_UNCHECKED));
+			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iWindowZoom - 1) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int texscalingitems[] = {
