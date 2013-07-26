@@ -46,7 +46,7 @@ const int hostAttemptBlockSize = 256;
 #else
 const int hwBlockSize = 64;
 const int hostAttemptBlockSize = 512;
-#endif;
+#endif
 
 const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
 const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);

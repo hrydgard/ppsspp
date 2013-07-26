@@ -109,12 +109,7 @@ struct Glyph {
 };
 
 
-#ifdef ANDROID
-#undef BIG_ENDIAN
-#undef __BIG_ENDIAN__
-#endif
-
-#if !BIG_ENDIAN && !__BIG_ENDIAN__
+#if COMMON_LITTLE_ENDIAN
 typedef FontPixelFormat FontPixelFormat_le;
 #else
 #error FIX ME
