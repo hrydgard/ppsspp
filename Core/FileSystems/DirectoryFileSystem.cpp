@@ -702,7 +702,7 @@ VirtualDiscFileSystem::VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::str
 
 VirtualDiscFileSystem::~VirtualDiscFileSystem() {
 	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
-		if (!iter->second.type != VFILETYPE_ISO)
+		if (iter->second.type != VFILETYPE_ISO)
 			iter->second.hFile.Close();
 	}
 }
