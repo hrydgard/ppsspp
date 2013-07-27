@@ -375,7 +375,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_CLIPENABLE:
 		DEBUG_LOG(G3D, "DL Clip Enable: %i   (ignoring)", data);
-		//we always clip, this is opengl
 		break;
 
 	case GE_CMD_CULLFACEENABLE: 
@@ -388,8 +387,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_LIGHTINGENABLE:
 		DEBUG_LOG(G3D, "DL Lighting enable: %i", data);
-		data += 1;
-		//We don't use OpenGL lighting
 		break;
 
 	case GE_CMD_FOGENABLE:		
@@ -760,7 +757,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 	//	CLEARING
 	//////////////////////////////////////////////////////////////////
 	case GE_CMD_CLEARMODE:
-		// If it becomes a performance problem, check diff&1
 		DEBUG_LOG(G3D,"DL Clear mode: %06x", data);
 		break;
 
@@ -794,32 +790,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXFUNC:
-		{
-			DEBUG_LOG(G3D,"DL TexFunc %i", data&7);
-			/*
-			int m=GL_MODULATE;
-			switch (data & 7)
-			{
-			case 0: m=GL_MODULATE; break;
-			case 1: m=GL_DECAL; break;
-			case 2: m=GL_BLEND; break;
-			case 3: m=GL_REPLACE; break;
-			case 4: m=GL_ADD; break;
-			}*/
-
-			/*
-			glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-			glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB,			GL_MODULATE);
-			glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB,			GL_CONSTANT);
-			glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB,		 GL_SRC_COLOR);
-			glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB,			GL_TEXTURE);
-			glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND1_RGB,		 GL_SRC_COLOR);
-			glTexEnvi(GL_TEXTURE_ENV, GL_RGB_SCALE, 1);
-
-			glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, m);
-			glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);*/
-			break;
-		}
+		DEBUG_LOG(G3D,"DL TexFunc %i", data&7);
+		break;
 	case GE_CMD_TEXFILTER:
 		{
 			int min = data & 7;
@@ -841,9 +813,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_ZTEST:
-		{
-			DEBUG_LOG(G3D,"DL Z test mode: %i", data);
-		}
+		DEBUG_LOG(G3D,"DL Z test mode: %i", data);
 		break;
 
 	case GE_CMD_MORPHWEIGHT0:
