@@ -329,7 +329,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 		return;
 	}
 	b.invalid = true;
-	if ((int)Memory::ReadUnchecked_U32(b.originalAddress) == GetEmuHackOpForBlock(block_num))
+	if (Memory::ReadUnchecked_U32(b.originalAddress) == GetEmuHackOpForBlock(block_num))
 		Memory::WriteUnchecked_U32(b.originalFirstOpcode, b.originalAddress);
 	b.normalEntry = 0;
 
