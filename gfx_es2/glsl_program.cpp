@@ -223,11 +223,15 @@ int glsl_uniform_loc(const GLSLProgram *program, const char *name) {
 }
 
 void glsl_destroy(GLSLProgram *program) {
-	unregister_gl_resource_holder(program);
-	glDeleteShader(program->vsh_);
-	glDeleteShader(program->fsh_);
-	glDeleteProgram(program->program_);
-	active_programs.erase(program);
+	if (program) {
+		unregister_gl_resource_holder(program);
+		glDeleteShader(program->vsh_);
+		glDeleteShader(program->fsh_);
+		glDeleteProgram(program->program_);
+		active_programs.erase(program);
+	} else {
+		ELOG("Deleting null GLSL program!");
+	}
 	delete program;
 }
 
