@@ -298,7 +298,10 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 			// CORE_RUNNING is <= CORE_NEXTFRAME.
 			CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
 			FixupBranch skipCheck = J_CC(CC_LE);
-			MOV(32, M(&mips_->pc), Imm32(js.compilerPC + 4));
+			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
+				MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
+			else
+				MOV(32, M(&mips_->pc), Imm32(js.compilerPC + 4));
 			WriteSyscallExit();
 			SetJumpTarget(skipCheck);
 
