@@ -390,6 +390,7 @@ void NativeInit(int argc, const char *argv[],
 }
 
 void NativeInitGraphics() {
+	CheckGLExtensions();
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 

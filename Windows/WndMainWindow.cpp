@@ -1209,7 +1209,7 @@ namespace MainWindow
 			ID_OPTIONS_SCREEN3X,
 			ID_OPTIONS_SCREEN4X,
 		};
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < ARRAY_SIZE(zoomitems); i++) {
 			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iWindowZoom - 1) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
@@ -1220,8 +1220,8 @@ namespace MainWindow
 			ID_TEXTURESCALING_4X,
 			ID_TEXTURESCALING_5X,
 		};
-		for (int i = 0; i < 5; i++) {
-			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel-1) ? MF_CHECKED : MF_UNCHECKED));
+		for (int i = 0; i < ARRAY_SIZE(texscalingitems); i++) {
+			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel - 1) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
 		static const int texscalingtypeitems[] = {
@@ -1230,7 +1230,7 @@ namespace MainWindow
 			ID_TEXTURESCALING_BICUBIC,
 			ID_TEXTURESCALING_HYBRID_BICUBIC,
 		};
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < ARRAY_SIZE(texscalingtypeitems); i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
@@ -1240,7 +1240,7 @@ namespace MainWindow
 			ID_OPTIONS_LINEARFILTERING,
 			ID_OPTIONS_LINEARFILTERING_CG,
 		};
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ( (i + 1) == g_Config.iTexFiltering )? MF_CHECKED : MF_UNCHECKED);
 		}
 
@@ -1250,7 +1250,7 @@ namespace MainWindow
 			ID_OPTIONS_READFBOTOMEMORYCPU,
 			ID_OPTIONS_READFBOTOMEMORYGPU,
 		};
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < ARRAY_SIZE(renderingmode); i++) {
 			CheckMenuItem(menu, renderingmode[i], MF_BYCOMMAND | ( i == g_Config.iRenderingMode )? MF_CHECKED : MF_UNCHECKED);
 		}
 
@@ -1266,18 +1266,8 @@ namespace MainWindow
 			ID_OPTIONS_FRAMESKIP_8,
 			ID_OPTIONS_FRAMESKIP_9,
 		};
-		for (int i = 0; i < 9; i++) {
+		for (int i = 0; i < ARRAY_SIZE(frameskipping); i++) {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
-		}
-
-		static const int zoommode[] = {
-			ID_OPTIONS_SCREEN1X,
-			ID_OPTIONS_SCREEN2X,
-			ID_OPTIONS_SCREEN3X,
-			ID_OPTIONS_SCREEN4X,
-		};
-		for (int i = 0; i < 4; i++) {
-			CheckMenuItem(menu, zoommode[i], MF_BYCOMMAND | ( i == g_Config.iWindowZoom )? MF_CHECKED : MF_UNCHECKED);
 		}
 
 		UpdateCommands();

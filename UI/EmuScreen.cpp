@@ -60,7 +60,6 @@ EmuScreen::EmuScreen(const std::string &filename)
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
-	CheckGLExtensions();
 	std::string fileToStart = filename;
 	// This is probably where we should start up the emulated PSP.
 	INFO_LOG(BOOT, "Starting up hardware.");
@@ -548,5 +547,6 @@ void EmuScreen::render() {
 
 void EmuScreen::deviceLost() {
 	ILOG("EmuScreen::deviceLost()");
-	gpu->DeviceLost();
+	if (gpu)
+		gpu->DeviceLost();
 }
