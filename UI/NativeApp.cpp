@@ -379,11 +379,12 @@ void NativeInit(int argc, const char *argv[],
 		}
 #endif
 	}
-	
+
 	screenManager->switchScreen(new LogoScreen(boot_filename));
 }
 
 void NativeInitGraphics() {
+	CheckGLExtensions();
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
 
