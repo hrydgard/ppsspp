@@ -179,6 +179,8 @@ private:
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
+
+	UVScale *uvScale;
 };
 
 // Only used by SW transform

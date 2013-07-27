@@ -68,7 +68,8 @@ TransformDrawEngine::TransformDrawEngine()
 		shaderManager_(0),
 		textureCache_(0),
 		framebufferManager_(0),
-		numDrawCalls(0) {
+		numDrawCalls(0),
+		uvScale(0) {
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -76,6 +77,9 @@ TransformDrawEngine::TransformDrawEngine()
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	if (g_Config.bPrescaleUV) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	}
 	memset(vbo_, 0, sizeof(vbo_));
 	memset(ebo_, 0, sizeof(ebo_));
 	indexGen.Setup(decIndex);
@@ -93,6 +97,7 @@ TransformDrawEngine::~TransformDrawEngine() {
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}
+	delete [] uvScale;
 }
 
 void TransformDrawEngine::InitDeviceObjects() {
@@ -662,8 +667,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			{
 			case 0:	// UV mapping
 				// Texture scale/offset is only performed in this mode.
-				uv[0] = uscale * (ruv[0]*gstate_c.uScale + gstate_c.uOff);
-				uv[1] = vscale * (ruv[1]*gstate_c.vScale + gstate_c.vOff);
+				uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
+				uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
 				uv[2] = 1.0f;
 				break;
 			case 1:
@@ -950,7 +955,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsSubmitted += vertexCount;
 
-	DeferredDrawCall &dc = drawCalls[numDrawCalls++];
+	DeferredDrawCall &dc = drawCalls[numDrawCalls];
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertType = vertType;
@@ -963,6 +968,11 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 		dc.indexLowerBound = 0;
 		dc.indexUpperBound = vertexCount - 1;
 	}
+
+	if (uvScale) {
+		uvScale[numDrawCalls] = gstate_c.uv;
+	}
+	numDrawCalls++;
 }
 
 void TransformDrawEngine::DecodeVerts() {
@@ -976,6 +986,8 @@ void TransformDrawEngine::DecodeVerts() {
 		void *inds = dc.inds;
 		if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 			// Decode the verts and apply morphing. Simple.
+			if (uvScale)
+				gstate_c.uv = uvScale[i];
 			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
 				dc.verts, indexLowerBound, indexUpperBound);
 			collectedVerts += indexUpperBound - indexLowerBound + 1;
@@ -993,6 +1005,9 @@ void TransformDrawEngine::DecodeVerts() {
 			while (j < numDrawCalls) {
 				if (drawCalls[j].verts != dc.verts)
 					break;
+				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0]) != 0))
+					break;
+
 				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
 				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
 				lastMatch = j;
@@ -1013,6 +1028,8 @@ void TransformDrawEngine::DecodeVerts() {
 
 			int vertexCount = indexUpperBound - indexLowerBound + 1;
 			// 3. Decode that range of vertex data.
+			if (uvScale)
+				gstate_c.uv = uvScale[i];
 			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
 				dc.verts, indexLowerBound, indexUpperBound);
 			collectedVerts += vertexCount;

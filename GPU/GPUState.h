@@ -330,6 +330,12 @@ enum SkipDrawReasonFlags {
 
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
+
+struct UVScale {
+	float uScale, vScale;
+	float uOff, vOff;
+};
+
 struct GPUStateCache
 {
 	u32 vertexAddr;
@@ -343,8 +349,7 @@ struct GPUStateCache
 
 	int skipDrawReason;
 
-	float uScale,vScale;
-	float uOff,vOff;
+	UVScale uv;
 	bool flipTexture;
 
 	float zMin, zMax;

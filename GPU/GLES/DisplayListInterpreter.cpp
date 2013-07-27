@@ -518,29 +518,33 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_TEXSCALEU:
 		if (diff) {
-			gstate_c.uScale = getFloat24(data);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			gstate_c.uv.uScale = getFloat24(data);
+			if (!g_Config.bPrescaleUV)
+				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 
 	case GE_CMD_TEXSCALEV:
 		if (diff) {
-			gstate_c.vScale = getFloat24(data);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			gstate_c.uv.vScale = getFloat24(data);
+			if (!g_Config.bPrescaleUV)
+				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 
 	case GE_CMD_TEXOFFSETU:
 		if (diff) {
-			gstate_c.uOff = getFloat24(data);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			gstate_c.uv.uOff = getFloat24(data);
+			if (!g_Config.bPrescaleUV)
+				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 
 	case GE_CMD_TEXOFFSETV:
 		if (diff) {
-			gstate_c.vOff = getFloat24(data);
-			shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
+			gstate_c.uv.vOff = getFloat24(data);
+			if (!g_Config.bPrescaleUV)
+				shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		}
 		break;
 

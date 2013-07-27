@@ -181,23 +181,23 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_TEXSCALEU: 
-		gstate_c.uScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate_c.uScale);
+		gstate_c.uv.uScale = getFloat24(data); 
+		DEBUG_LOG(G3D, "DL Texture U Scale: %f", gstate_c.uv.uScale);
 		break;
 
 	case GE_CMD_TEXSCALEV: 
-		gstate_c.vScale = getFloat24(data); 
-		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate_c.vScale);
+		gstate_c.uv.vScale = getFloat24(data); 
+		DEBUG_LOG(G3D, "DL Texture V Scale: %f", gstate_c.uv.vScale);
 		break;
 
 	case GE_CMD_TEXOFFSETU: 
-		gstate_c.uOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate_c.uOff);
+		gstate_c.uv.uOff = getFloat24(data);	
+		DEBUG_LOG(G3D, "DL Texture U Offset: %f", gstate_c.uv.uOff);
 		break;
 
 	case GE_CMD_TEXOFFSETV: 
-		gstate_c.vOff = getFloat24(data);	
-		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate_c.vOff);
+		gstate_c.uv.vOff = getFloat24(data);	
+		DEBUG_LOG(G3D, "DL Texture V Offset: %f", gstate_c.uv.vOff);
 		break;
 
 	case GE_CMD_SCISSOR1:

@@ -22,11 +22,12 @@
 #include <windows.h>
 #endif
 
-#include "../ge_constants.h"
-#include "../GPUState.h"
-#include "../../Core/Config.h"
+#include "base/stringutil.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
+#include "Core/Config.h"
 
-#include "VertexShaderGenerator.h"
+#include "GPU/GLES/VertexShaderGenerator.h"
 
 // SDL 1.2 on Apple does not have support for OpenGL 3 and hence needs
 // special treatment in the shader generator.
@@ -527,13 +528,17 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 
 			case 1:  // Projection mapping.
 				{
-					const char *temp_tc;
+					std::string temp_tc;
 					switch (gstate.getUVProjMode()) {
 					case 0:  // Use model space XYZ as source
 						temp_tc = "vec4(a_position.xyz, 1.0)";
 						break;
 					case 1:  // Use unscaled UV as source
-						temp_tc = "vec4(a_texcoord.xy * 2.0, 0.0, 1.0)";
+						{
+							static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+							const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+							temp_tc = StringFromFormat("vec4(a_texcoord.xy %s, 0.0, 1.0)", factor);
+						}
 						break;
 					case 2:  // Use normalized transformed normal as source
 						if (hasNormal)
@@ -548,7 +553,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					}
-					WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc);
+					WRITE(p, "  v_texcoord = (u_texmtx * %s).xyz * vec3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
 				break;

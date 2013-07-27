@@ -211,22 +211,22 @@ void VertexDecoder::Step_TcFloatThrough() const
 void VertexDecoder::Step_TcU8Prescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8 *)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 128.f) * gstate_c.uScale + gstate_c.uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 128.f) * gstate_c.vScale + gstate_c.vOff;
+	uv[0] = (float)uvdata[0] * (1.f / 128.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 128.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
 
 void VertexDecoder::Step_TcU16Prescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const u16 *uvdata = (const u16 *)(ptr_ + tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * gstate_c.uScale + gstate_c.uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * gstate_c.vScale + gstate_c.vOff;
+	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
 
 void VertexDecoder::Step_TcFloatPrescale() const {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * gstate_c.uScale + gstate_c.uOff;
-	uv[1] = uvdata[1] * gstate_c.vScale + gstate_c.vOff;
+	uv[0] = uvdata[0] * gstate_c.uv.uScale + gstate_c.uv.uOff;
+	uv[1] = uvdata[1] * gstate_c.uv.vScale + gstate_c.uv.vOff;
 }
 
 void VertexDecoder::Step_Color565() const
