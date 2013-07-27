@@ -94,7 +94,7 @@ extern "C" bool OpenSLWrap_Init(AndroidAudioCallback cb, int _FramesPerBuffer, i
 	result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
 	assert(SL_RESULT_SUCCESS == result);
 
-	int sr = SL_SAMPLINGRATE_44_1;
+	SLuint32 sr = SL_SAMPLINGRATE_44_1;
 	if (sampleRate == 48000) {
 		sr = SL_SAMPLINGRATE_48;
 	}
