@@ -21,6 +21,7 @@
 #include "../ge_constants.h"
 
 #include "VertexDecoder.h"
+#include "VertexShaderGenerator.h"
 
 void PrintDecodedVertex(VertexReader &vtx) {
 	if (vtx.hasNormal())
@@ -118,16 +119,22 @@ void VertexDecoder::Step_WeightsU8() const
 {
 	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
 	const u8 *wdata = (const u8*)(ptr_);
-	for (int j = 0; j < nweights; j++)
+	int j;
+	for (j = 0; j < nweights; j++)
 		wt[j] = wdata[j];
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
 }
 
 void VertexDecoder::Step_WeightsU16() const
 {
 	u16 *wt = (u16 *)(decoded_  + decFmt.w0off);
 	const u16 *wdata = (const u16*)(ptr_);
-	for (int j = 0; j < nweights; j++)
+	int j;
+	for (j = 0; j < nweights; j++)
 		wt[j] = wdata[j];
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
 }
 
 // Float weights should be uncommon, we can live with having to multiply these by 2.0
@@ -137,9 +144,12 @@ void VertexDecoder::Step_WeightsFloat() const
 {
 	float *wt = (float *)(decoded_ + decFmt.w0off);
 	const float *wdata = (const float*)(ptr_);
-	for (int i = 0; i < nweights; i++) {
-		wt[i] = wdata[i] * 0.5f;
+	int j;
+	for (j = 0; j < nweights; j++) {
+		wt[j] = wdata[j] * 0.5f;
 	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0.0f;
 }
 
 void VertexDecoder::Step_TcU8() const
@@ -562,6 +572,10 @@ static const StepFunction posstep_through[4] = {
 };
 
 
+int RoundUp4(int x) {
+	return (x + 3) & ~3;
+}
+
 void VertexDecoder::SetVertexType(u32 fmt) {
 	fmt_ = fmt;
 	throughmode = (fmt & GE_VTYPE_THROUGH) != 0;
@@ -597,18 +611,22 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 			fmtBase = DEC_U8_1;
 		} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
 			fmtBase = DEC_U16_1;
+		} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
+			fmtBase = DEC_FLOAT_1;
 		}
 
-		if (nweights < 5) {
+		int numWeights = TranslateNumBones(nweights);
+
+		if (numWeights <= 4) {
 			decFmt.w0off = decOff;
-			decFmt.w0fmt = fmtBase + nweights - 1;
+			decFmt.w0fmt = fmtBase + numWeights - 1;
 			decOff += DecFmtSize(decFmt.w0fmt);
 		} else {
 			decFmt.w0off = decOff;
 			decFmt.w0fmt = fmtBase + 3;
 			decOff += DecFmtSize(decFmt.w0fmt);
 			decFmt.w1off = decOff;
-			decFmt.w1fmt = fmtBase + nweights - 5;
+			decFmt.w1fmt = fmtBase + numWeights - 5;
 			decOff += DecFmtSize(decFmt.w1fmt);
 		}
 	}

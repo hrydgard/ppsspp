@@ -115,14 +115,14 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
 	if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) != 0)
-		numBones = gstate.getNumBoneWeights();
+		numBones = TranslateNumBones(gstate.getNumBoneWeights());
 	else
 		numBones = 0;
 
 #ifdef USE_BONE_ARRAY
 	u_bone = glGetUniformLocation(program, "u_bone");
 #else
-	for (int i = 0; i < numBones; i++) {
+	for (int i = 0; i < 8; i++) {
 		char name[10];
 		sprintf(name, "u_bone%i", i);
 		u_bone[i] = glGetUniformLocation(program, name);
@@ -366,6 +366,7 @@ void LinkedShader::updateUniforms() {
 
 	// TODO: Could even set all bones in one go if they're all dirty.
 #ifdef USE_BONE_ARRAY
+
 	if (u_bone != -1) {
 		float allBones[8 * 16];
 
@@ -392,8 +393,7 @@ void LinkedShader::updateUniforms() {
 #else
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
-		// I've seen the -1 happen but I don't get it..
-		if ((dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) && u_bone[i] != -1) {
+		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
 			ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, bonetemp);
 			glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
 		}

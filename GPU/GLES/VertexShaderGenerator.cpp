@@ -44,6 +44,13 @@ bool CanUseHardwareTransform(int prim) {
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
+int TranslateNumBones(int bones) {
+	if (!bones) return 0;
+	if (bones < 4) return 4;
+	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
+	return bones;
+}
+
 // prim so we can special case for RECTANGLES :(
 void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 	const u32 vertType = gstate.vertType;
@@ -70,7 +77,6 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 	if (useHWTransform) {
 		id->d[0] |= 1 << 8;
 		id->d[0] |= (hasNormal & 1) << 9;
-		id->d[0] |= (hasBones & 1) << 10;
 
 		// UV generation mode
 		id->d[0] |= gstate.getUVGenMode() << 16;
@@ -84,12 +90,11 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 		}
 
 		// Bones
-		id->d[0] |= (gstate.getNumBoneWeights() - 1) << 22;
+		if (hasBones)
+			id->d[0] |= (TranslateNumBones(gstate.getNumBoneWeights()) - 1) << 22;
 
 		// Okay, d[1] coming up. ==============
 
-		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= ((vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 		if (gstate.isLightingEnabled() || gstate.getUVGenMode() == 2) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
@@ -101,10 +106,13 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 				id->d[1] |= (gstate.isLightChanEnabled(i) & 1) << (20 + i);
 			}
 		}
+		id->d[1] |= gstate.isLightingEnabled() << 24;
+		id->d[1] |= ((vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 	}
 }
 
-static const char * const boneWeightAttrDecl[8] = {
+static const char * const boneWeightAttrDecl[9] = {
+	"#ERROR#",
 	"attribute mediump float a_w1;\n",
 	"attribute mediump vec2 a_w1;\n",
 	"attribute mediump vec3 a_w1;\n",
@@ -112,7 +120,7 @@ static const char * const boneWeightAttrDecl[8] = {
 	"attribute mediump vec4 a_w1;\nattribute mediump float a_w2;\n",
 	"attribute mediump vec4 a_w1;\nattribute mediump vec2 a_w2;\n",
 	"attribute mediump vec4 a_w1;\nattribute mediump vec3 a_w2;\n",
-	"attribute mediump vec4 a_w1;\nattribute mediump vec4 a_w2;\n",
+	"attribute mediump vec4 a_w1, a_w2;\n",
 };
 
 enum DoLightComputation {
@@ -165,7 +173,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 	}
 
 	if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
-		WRITE(p, "%s", boneWeightAttrDecl[gstate.getNumBoneWeights() - 1]);
+		WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(gstate.getNumBoneWeights())]);
 	}
 
 	if (useHWTransform)
@@ -202,7 +210,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		if (gstate.getUVGenMode() == 1)
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 		if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
-			int numBones = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
+			int numBones = TranslateNumBones(gstate.getNumBoneWeights());
 #ifdef USE_BONE_ARRAY
 			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBones);
 #else
@@ -298,7 +306,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			else
 				WRITE(p, "  vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 		} else {
-			int numWeights = 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
+			int numWeights = TranslateNumBones(gstate.getNumBoneWeights());
 
 			static const float rescale[4] = {0, 2*127.5f/128.f, 2*32767.5f/32768.f, 2.0f};
 			float factor = rescale[(vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT];
