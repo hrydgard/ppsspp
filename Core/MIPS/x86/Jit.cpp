@@ -292,25 +292,15 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		{
 			// TODO: Save/restore?
 			FlushAll();
-			CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
-			FixupBranch skipCheck1 = J_CC(CC_E);
 
-			if (js.afterOp & JitState::AFTER_REWIND_PC_BAD_STATE)
-			{
-				// If we're rewinding, CORE_NEXTFRAME should not cause a rewind.
-				// It doesn't really matter either way if we're not rewinding.
-				CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
-				FixupBranch skipCheck2 = J_CC(CC_E);
-				MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
-				WriteSyscallExit();
-				SetJumpTarget(skipCheck2);
-			}
-			else
-			{
-				MOV(32, M(&mips_->pc), Imm32(js.compilerPC + 4));
-				WriteSyscallExit();
-			}
-			SetJumpTarget(skipCheck1);
+			// If we're rewinding, CORE_NEXTFRAME should not cause a rewind.
+			// It doesn't really matter either way if we're not rewinding.
+			// CORE_RUNNING is <= CORE_NEXTFRAME.
+			CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+			FixupBranch skipCheck = J_CC(CC_LE);
+			MOV(32, M(&mips_->pc), Imm32(js.compilerPC + 4));
+			WriteSyscallExit();
+			SetJumpTarget(skipCheck);
 
 			js.afterOp = JitState::AFTER_NONE;
 		}
@@ -366,14 +356,12 @@ void Jit::WriteExit(u32 destination, int exit_num)
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
-		CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
-		FixupBranch skipCheck1 = J_CC(CC_E);
+		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
-		FixupBranch skipCheck2 = J_CC(CC_E);
+		FixupBranch skipCheck = J_CC(CC_LE);
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
-		SetJumpTarget(skipCheck1);
-		SetJumpTarget(skipCheck2);
+		SetJumpTarget(skipCheck);
 
 		js.afterOp = JitState::AFTER_NONE;
 	}
@@ -406,14 +394,12 @@ void Jit::WriteExitDestInEAX()
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))
 	{
-		CMP(32, M((void*)&coreState), Imm32(CORE_RUNNING));
-		FixupBranch skipCheck1 = J_CC(CC_E);
+		// CORE_RUNNING is <= CORE_NEXTFRAME.
 		CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
-		FixupBranch skipCheck2 = J_CC(CC_E);
+		FixupBranch skipCheck = J_CC(CC_LE);
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		WriteSyscallExit();
-		SetJumpTarget(skipCheck1);
-		SetJumpTarget(skipCheck2);
+		SetJumpTarget(skipCheck);
 
 		js.afterOp = JitState::AFTER_NONE;
 	}
@@ -752,7 +738,7 @@ void JitMemCheck(u32 addr, int size, int isWrite)
 		return;
 
 	// Did we already hit one?
-	if (coreState != CORE_RUNNING)
+	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME)
 		return;
 
 	MemCheck *check = CBreakPoints::GetMemCheck(addr, size);
@@ -773,8 +759,9 @@ void Jit::JitSafeMem::MemCheckImm(ReadType type)
 		jit_->MOV(32, M(&jit_->mips_->pc), Imm32(jit_->js.compilerPC));
 		jit_->CallProtectedFunction((void *)&JitMemCheck, iaddr_, size_, type == MEM_WRITE ? 1 : 0);
 
-		jit_->CMP(32, M((void*)&coreState), Imm32(0));
-		skipChecks_.push_back(jit_->J_CC(CC_NE, true));
+		// CORE_RUNNING is <= CORE_NEXTFRAME.
+		jit_->CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		skipChecks_.push_back(jit_->J_CC(CC_G, true));
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
 	}
 }
@@ -822,8 +809,9 @@ void Jit::JitSafeMem::MemCheckAsm(ReadType type)
 
 	if (possible)
 	{
-		jit_->CMP(32, M((void*)&coreState), Imm32(0));
-		skipChecks_.push_back(jit_->J_CC(CC_NE, true));
+		// CORE_RUNNING is <= CORE_NEXTFRAME.
+		jit_->CMP(32, M((void*)&coreState), Imm32(CORE_NEXTFRAME));
+		skipChecks_.push_back(jit_->J_CC(CC_G, true));
 		jit_->js.afterOp |= JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE;
 	}
 }
