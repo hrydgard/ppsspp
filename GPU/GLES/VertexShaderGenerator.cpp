@@ -407,7 +407,6 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 
 			if (!specularIsZero) {
 				WRITE(p, "  lowp vec3 lightSum1 = vec3(0.0);\n");
-				WRITE(p, "  mediump vec3 halfVec;\n");
 			}
 			if (!diffuseIsZero) {
 				WRITE(p, "  vec3 toLight;\n");
@@ -470,8 +469,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 
 			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
 			if (doSpecular) {
-				WRITE(p, "  halfVec = normalize(toLight + vec3(0.0, 0.0, 1.0));\n");
-				WRITE(p, "  dot%i = dot(halfVec, worldnormal);\n", i);
+				WRITE(p, "  dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
 				WRITE(p, "  if (dot%i > 0.0)\n", i);
 				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
 			}
