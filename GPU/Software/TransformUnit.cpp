@@ -59,7 +59,12 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool s
 	float rety = coords.y * vpy1 / coords.w + vpy2;
 	float retz = coords.z * vpz1 / coords.w + vpz2;
 
-	if (set_flag && (retx > 4095.9375f || rety > 4096.9375f || retz > 65535.f || retx < 0 || rety < 0 || retz < 0))
+	if (gstate.clipEnable & 0x1) {
+		if (retz < 0.f) retz = 0.f;
+		if (retz > 65535.f) retz = 65535.f;
+	}
+
+	if (set_flag && (retx > 4095.9375f || rety > 4096.9375f || retx < 0 || rety < 0 || retz < 0 || retz > 65535.f))
 		outside_range_flag = true;
 
 	// 16 = 0xFFFF / 4095.9375

@@ -233,7 +233,11 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 	mask |= CalcClipMask(v1.clippos);
 	mask |= CalcClipMask(v2.clippos);
 
-	if (mask) {
+	if (mask && (gstate.clipEnable & 0x1)) {
+		// discard if any vertex is outside the near clipping plane
+		if (mask & CLIP_NEG_Z_BIT)
+			return;
+
 		for(int i = 0; i < 3; i += 3) {
 			int vlist[2][2*6+1];
 			int *inlist = vlist[0], *outlist = vlist[1];
@@ -266,6 +270,10 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 				indices[numIndices++] = inlist[j];
 			}
 		}
+	} else if (CalcClipMask(v0.clippos) & CalcClipMask(v1.clippos) & CalcClipMask(v2.clippos))  {
+		// If clipping is disabled, only discard the current primitive
+		// if all three vertices lie outside one of the clipping planes
+		return;
 	}
 
 	for(int i = 0; i+3 <= numIndices; i+=3)
