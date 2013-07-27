@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include "PSPDialog.h"
-#include "../Core/MemMap.h"
-
+#include "Core/Dialog/PSPDialog.h"
+#include "Core/MemMap.h"
+#include "Common/CommonTypes.h"
 
 
 /**
@@ -91,37 +91,45 @@ enum SceUtilityOskInputType
 	PSP_UTILITY_OSK_INPUTTYPE_URL =						0x00080000
 };
 
+#if COMMON_LITTLE_ENDIAN
+typedef SceUtilityOskState SceUtilityOskState_le;
+typedef SceUtilityOskInputLanguage SceUtilityOskInputLanguage_le;
+typedef SceUtilityOskResult SceUtilityOskResult_le;
+#else
+#error FIX ME
+#endif
+
 /**
 * OSK Field data
 */
 struct SceUtilityOskData
 {
 	/** Unknown. Pass 0. */
-	int unk_00;
+	s32_le unk_00;
 	/** Unknown. Pass 0. */
-	int unk_04;
+	s32_le unk_04;
 	/** One of ::SceUtilityOskInputLanguage */
-	int language;
+	SceUtilityOskInputLanguage_le language;
 	/** Unknown. Pass 0. */
-	int unk_12;
+	s32_le unk_12;
 	/** One or more of ::SceUtilityOskInputType (types that are selectable by pressing SELECT) */
-	int inputtype;
+	s32_le inputtype;
 	/** Number of lines */
-	int lines;
+	s32_le lines;
 	/** Unknown. Pass 0. */
-	int unk_24;
+	s32_le unk_24;
 	/** Description text */
-	PSPPointer<u16> desc;
+	PSPPointer<u16_le> desc;
 	/** Initial text */
-	PSPPointer<u16> intext;
+	PSPPointer<u16_le> intext;
 	// Length, in unsigned shorts, including the terminator.
-	u32 outtextlength;
+	u32_le outtextlength;
 	/** Pointer to the output text */
-	PSPPointer<u16> outtext;
+	PSPPointer<u16_le> outtext;
 	/** Result. One of ::SceUtilityOskResult */
-	int result;
+	SceUtilityOskResult_le result;
 	// Number of characters to allow, not including terminator (if less than outtextlength - 1.)
-	u32 outtextlimit;
+	u32_le outtextlimit;
 };
 
 // Parameters to sceUtilityOskInitStart
@@ -129,12 +137,12 @@ struct SceUtilityOskParams
 {
 	pspUtilityDialogCommon base;
 	// Number of fields.
-	int fieldCount;
+	s32_le fieldCount;
 	// Pointer to an array of fields (see SceUtilityOskData.)
 	PSPPointer<SceUtilityOskData> fields;
-	SceUtilityOskState state;
+	SceUtilityOskState_le state;
 	// Maybe just padding?
-	int unk_60;
+	s32_le unk_60;
 
 };
 
@@ -165,7 +173,7 @@ public:
 	virtual pspUtilityDialogCommon *GetCommonParam();
 
 private:
-	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address);
+	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le> em_address);
 	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
 	void RenderKeyboard();
 
