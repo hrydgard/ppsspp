@@ -514,9 +514,15 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 
 		// Step 3: UV generation
 		if (doTexture) {
+			bool prescale = g_Config.bPrescaleUV && !throughmode && gstate.getTextureFunction() == 0;
+
 			switch (gstate.getUVGenMode()) {
 			case 0:  // Scale-offset. Easy.
-				WRITE(p, "  v_texcoord = a_texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+				if (prescale) {
+					WRITE(p, "  v_texcoord = a_texcoord;\n");
+				} else {
+					WRITE(p, "  v_texcoord = a_texcoord * u_uvscaleoffset.xy + u_uvscaleoffset.zw;\n");
+				}
 				break;
 
 			case 1:  // Projection mapping.

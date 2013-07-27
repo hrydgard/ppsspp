@@ -172,6 +172,9 @@ void Config::Load(const char *iniFileName)
 	debugConfig->Get("FontWidth", &iFontWidth, 8);
 	debugConfig->Get("FontHeight", &iFontHeight, 12);
 
+	IniFile::Section *gleshacks = iniFile.GetOrCreateSection("GLESHacks");
+	gleshacks->Get("PrescaleUV", &bPrescaleUV, false);
+
 	KeyMap::LoadFromIni(iniFile);
 
 	CleanRecent();

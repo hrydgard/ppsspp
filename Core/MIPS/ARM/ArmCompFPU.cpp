@@ -55,11 +55,11 @@ void Jit::Comp_FPU3op(u32 op)
 	case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
 	case 2: { //F(fd) = F(fs) * F(ft); //mul
 		u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
-		// Optimise possible if destination is the same
-		if (fd == ((nextOp>>6) & 0x1F)) {
+		// Optimization possible if destination is the same
+		if (fd == (int)((nextOp>>6) & 0x1F)) {
 			// VMUL + VNEG -> VNMUL
 			if (!strcmp(MIPSGetName(nextOp), "neg.s")) {
-				if (fd == ((nextOp>>11) & 0x1F)) {
+				if (fd == (int)((nextOp>>11) & 0x1F)) {
 					VNMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft));
 					EatInstruction(nextOp);
 				}

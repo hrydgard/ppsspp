@@ -113,6 +113,19 @@ public:
 	int iTouchButtonOpacity;
 	float fButtonScale;
 
+
+	// GLES backend-specific hacks. Not saved to the ini file, do not add checkboxes. Will be made into
+	// proper options when good enough.
+	// PrescaleUV:
+	//   * Applies UV scale/offset when decoding verts. Get rid of some work in the vertex shader,
+	//     saves a uniform upload and is a prerequisite for future optimized hybrid 
+	//     (SW skinning, HW transform) skinning.
+	//   * Still has major problems so off by default - need to store tex scale/offset per DeferredDrawCall, 
+	//     which currently isn't done so if texscale/offset isn't static (like in Tekken 6) things go wrong.
+	bool bPrescaleUV;
+
+	// End GLES hacks.
+
 	// SystemParam
 	std::string sNickName;
 	int ilanguage;

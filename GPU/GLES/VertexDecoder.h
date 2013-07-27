@@ -83,24 +83,19 @@ enum {
 };
 
 // Right now
-//   - only contains computed information
-//   - does decoding in nasty branchfilled loops
+//   - compiles into list of called functions
 // Future TODO
-//   - should be cached, not recreated every time
-//   - will compile into list of called functions
 //   - will compile into lighting fast specialized x86 and ARM
-//   - will not bother translating components that can be read directly
-//     by OpenGL ES. Will still have to translate 565 colors and things
-//     like that. DecodedVertex will not be a fixed struct. Will have to
-//     do morphing here.
 class VertexDecoder
 {
 public:
 	VertexDecoder() : coloff(0), nrmoff(0), posoff(0) {}
 	~VertexDecoder() {}
 
+	// prim is needed knowledge for a performance hack (PrescaleUV)
 	void SetVertexType(u32 vtype);
 	u32 VertexType() const { return fmt_; }
+
 	const DecVtxFormat &GetDecVtxFmt() { return decFmt; }
 
 	void DecodeVerts(u8 *decoded, const void *verts, int indexLowerBound, int indexUpperBound) const;
@@ -117,8 +112,13 @@ public:
 
 	void Step_TcU8() const;
 	void Step_TcU16() const;
-	void Step_TcU16Double() const;
 	void Step_TcFloat() const;
+
+	void Step_TcU8Prescale() const;
+	void Step_TcU16Prescale() const;
+	void Step_TcFloatPrescale() const;
+
+	void Step_TcU16Double() const;
 	void Step_TcU16Through() const;
 	void Step_TcU16ThroughDouble() const;
 	void Step_TcFloatThrough() const;

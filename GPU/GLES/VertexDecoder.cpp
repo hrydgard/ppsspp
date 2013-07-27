@@ -17,8 +17,9 @@
 
 #include "math/lin/matrix4x4.h"
 
-#include "../../Core/MemMap.h"
-#include "../ge_constants.h"
+#include "Core/Config.h"
+#include "Core/MemMap.h"
+#include "GPU/ge_constants.h"
 
 #include "VertexDecoder.h"
 #include "VertexShaderGenerator.h"
@@ -205,6 +206,27 @@ void VertexDecoder::Step_TcFloatThrough() const
 	const float *uvdata = (const float*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
+}
+
+void VertexDecoder::Step_TcU8Prescale() const {
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u8 *uvdata = (const u8 *)(ptr_ + tcoff);
+	uv[0] = (float)uvdata[0] * (1.f / 128.f) * gstate_c.uScale + gstate_c.uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 128.f) * gstate_c.vScale + gstate_c.vOff;
+}
+
+void VertexDecoder::Step_TcU16Prescale() const {
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u16 *uvdata = (const u16 *)(ptr_ + tcoff);
+	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * gstate_c.uScale + gstate_c.uOff;
+	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * gstate_c.vScale + gstate_c.vOff;
+}
+
+void VertexDecoder::Step_TcFloatPrescale() const {
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const float *uvdata = (const float*)(ptr_ + tcoff);
+	uv[0] = uvdata[0] * gstate_c.uScale + gstate_c.uOff;
+	uv[1] = uvdata[1] * gstate_c.vScale + gstate_c.vOff;
 }
 
 void VertexDecoder::Step_Color565() const
@@ -496,6 +518,13 @@ static const StepFunction tcstep[4] = {
 	&VertexDecoder::Step_TcFloat,
 };
 
+static const StepFunction tcstep_prescale[4] = {
+	0,
+	&VertexDecoder::Step_TcU8Prescale,
+	&VertexDecoder::Step_TcU16Prescale,
+	&VertexDecoder::Step_TcFloatPrescale,
+};
+
 static const StepFunction tcstep_through[4] = {
 	0,
 	&VertexDecoder::Step_TcU8,
@@ -638,21 +667,26 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		if (tcalign[tc] > biggest)
 			biggest = tcalign[tc];
 
-		if(g_DoubleTextureCoordinates)
-			steps_[numSteps_++] = throughmode ? tcstep_through_Remaster[tc] : tcstep_Remaster[tc];
-		else
-			steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
-
-		switch (tc) {
-		case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
-			decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
-			break;
-		case GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT:
-			decFmt.uvfmt = throughmode ? DEC_U16A_2 : DEC_U16_2;
-			break;
-		case GE_VTYPE_TC_FLOAT >> GE_VTYPE_TC_SHIFT:
+		if (g_Config.bPrescaleUV && !throughmode && gstate.getTextureFunction() == 0) {
+			steps_[numSteps_++] = tcstep_prescale[tc];
 			decFmt.uvfmt = DEC_FLOAT_2;
-			break;
+		} else {
+			if (g_DoubleTextureCoordinates)
+				steps_[numSteps_++] = throughmode ? tcstep_through_Remaster[tc] : tcstep_Remaster[tc];
+			else
+				steps_[numSteps_++] = throughmode ? tcstep_through[tc] : tcstep[tc];
+
+			switch (tc) {
+			case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
+				decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
+				break;
+			case GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT:
+				decFmt.uvfmt = throughmode ? DEC_U16A_2 : DEC_U16_2;
+				break;
+			case GE_VTYPE_TC_FLOAT >> GE_VTYPE_TC_SHIFT:
+				decFmt.uvfmt = DEC_FLOAT_2;
+				break;
+			}
 		}
 
 		decFmt.uvoff = decOff;
