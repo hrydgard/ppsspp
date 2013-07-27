@@ -213,6 +213,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 
 void NativeInit(int argc, const char *argv[],
 								const char *savegame_directory, const char *external_directory, const char *installID) {
+	bool skipLogo = false;
 	EnableFZ();
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_directory;
@@ -299,6 +300,7 @@ void NativeInit(int argc, const char *argv[],
 		} else {
 			if (boot_filename.empty()) {
 				boot_filename = argv[i];
+				skipLogo = true;
 
 				FileInfo info;
 				if (!getFileInfo(boot_filename.c_str(), &info) || info.exists == false) {
@@ -380,7 +382,11 @@ void NativeInit(int argc, const char *argv[],
 #endif
 	}
 	
-	screenManager->switchScreen(new LogoScreen(boot_filename));
+	if (skipLogo) {
+		screenManager->switchScreen(new EmuScreen(boot_filename));
+	} else {
+		screenManager->switchScreen(new LogoScreen(boot_filename));
+	}
 }
 
 void NativeInitGraphics() {
