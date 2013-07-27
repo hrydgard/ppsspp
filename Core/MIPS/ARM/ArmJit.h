@@ -36,9 +36,11 @@ struct ArmJitOptions
 	ArmJitOptions()
 	{
 		enableBlocklink = true;
+		downcountInRegister = true;
 	}
 
 	bool enableBlocklink;
+	bool downcountInRegister;
 };
 
 struct ArmJitState
@@ -229,6 +231,9 @@ private:
 	void WriteDownCount(int offset = 0);
 	void MovFromPC(ARMReg r);
 	void MovToPC(ARMReg r);
+
+	void SaveDowncount();
+	void RestoreDowncount();
 
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInR(ARMReg Reg);

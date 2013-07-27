@@ -414,7 +414,9 @@ void Jit::Comp_Syscall(u32 op)
 	js.downcountAmount = -offset;
 
 	MOVI2R(R0, op);
+	SaveDowncount();
 	QuickCallFunction(R1, (void *)&CallSyscall);
+	RestoreDowncount();
 
 	WriteSyscallExit();
 	js.compiling = false;

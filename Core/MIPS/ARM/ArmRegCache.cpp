@@ -17,6 +17,7 @@
 
 #include "ArmRegCache.h"
 #include "ArmEmitter.h"
+#include "ArmJit.h"
 
 #if defined(MAEMO)
 #include "stddef.h"
@@ -24,7 +25,7 @@
 
 using namespace ArmGen;
 
-ArmRegCache::ArmRegCache(MIPSState *mips) : mips_(mips) {
+ArmRegCache::ArmRegCache(MIPSState *mips, MIPSComp::ArmJitOptions *options) : mips_(mips), options_(options) {
 }
 
 void ArmRegCache::Init(ARMXEmitter *emitter) {
@@ -44,18 +45,26 @@ void ArmRegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	}
 }
 
-static const ARMReg *GetMIPSAllocationOrder(int &count) {
+const ARMReg *ArmRegCache::GetMIPSAllocationOrder(int &count) {
 	// Note that R0 is reserved as scratch for now.
 	// R1 could be used as it's only used for scratch outside "regalloc space" now.
 	// R12 is also potentially usable.
 	// R4-R7 are registers we could use for static allocation or downcount.
 	// R8 is used to preserve flags in nasty branches.
 	// R9 and upwards are reserved for jit basics.
-	static const ARMReg allocationOrder[] = {
-		R2, R3, R4, R5, R6, R7, R12,
-	};
-	count = sizeof(allocationOrder) / sizeof(const int);
-	return allocationOrder;
+	if (options_->downcountInRegister) {
+		static const ARMReg allocationOrder[] = {
+			R2, R3, R4, R5, R6, R12,
+		};
+		count = sizeof(allocationOrder) / sizeof(const int);
+		return allocationOrder;
+	} else {
+		static const ARMReg allocationOrder2[] = {
+			R2, R3, R4, R5, R6, R7, R12,
+		};
+		count = sizeof(allocationOrder2) / sizeof(const int);
+		return allocationOrder2;
+	}
 }
 
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do

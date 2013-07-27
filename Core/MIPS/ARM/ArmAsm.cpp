@@ -116,12 +116,14 @@ void Jit::GenerateFixedCode()
 	MOVI2R(R11, (u32)Memory::base);
 	MOVI2R(R10, (u32)mips_);
 	MOVI2R(R9, (u32)GetBasePtr());
-
+	RestoreDowncount();
 	MovFromPC(R0);
 	outerLoopPCInR0 = GetCodePtr();
 	MovToPC(R0);
 	outerLoop = GetCodePtr();
+		SaveDowncount();
 		QuickCallFunction(R0, (void *)&CoreTiming::Advance);
+		RestoreDowncount();
 		FixupBranch skipToRealDispatch = B(); //skip the sync and compare first time
 
 		dispatcherCheckCoreState = GetCodePtr();
@@ -174,7 +176,9 @@ void Jit::GenerateFixedCode()
 			SetCC(CC_AL);
 
 			//Ok, no block, let's jit
+			SaveDowncount();
 			QuickCallFunction(R2, (void *)&JitAt);
+			RestoreDowncount();
 
 			B(dispatcherNoCheck); // no point in special casing this
 
@@ -187,8 +191,8 @@ void Jit::GenerateFixedCode()
 		B_CC(CC_EQ, outerLoop);
 
 	SetJumpTarget(badCoreState);
-
 	breakpointBailout = GetCodePtr();
+	SaveDowncount();
 
 	ADD(_SP, _SP, 4);
 

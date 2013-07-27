@@ -56,7 +56,7 @@ void DisassembleArm(const u8 *data, int size) {
 namespace MIPSComp
 {
 
-Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips), fpr(mips), mips_(mips)
+Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
 { 
 	blocks.Init();
 	gpr.SetEmitter(this);
@@ -286,10 +286,12 @@ void Jit::Comp_Generic(u32 op)
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func)
 	{
+		SaveDowncount();
 		MOVI2R(R0, js.compilerPC);
 		MovToPC(R0);
 		MOVI2R(R0, op);
 		QuickCallFunction(R1, (void *)func);
+		RestoreDowncount();
 	}
 
 	// Might have eaten prefixes, hard to tell...
@@ -305,21 +307,45 @@ void Jit::MovToPC(ARMReg r) {
 	STR(r, CTXREG, offsetof(MIPSState, pc));
 }
 
+void Jit::SaveDowncount() {
+	if (jo.downcountInRegister)
+		STR(R7, CTXREG, offsetof(MIPSState, downcount));
+}
+
+void Jit::RestoreDowncount() {
+	if (jo.downcountInRegister)
+		LDR(R7, CTXREG, offsetof(MIPSState, downcount));
+}
+
 void Jit::WriteDownCount(int offset)
 {
-	int theDowncount = js.downcountAmount + offset;
-	LDR(R1, CTXREG, offsetof(MIPSState, downcount));
-	Operand2 op2;
-	if (TryMakeOperand2(theDowncount, op2)) // We can enlarge this if we used rotations
-	{
-		SUBS(R1, R1, op2);
-		STR(R1, CTXREG, offsetof(MIPSState, downcount));
+	if (jo.downcountInRegister) {
+		int theDowncount = js.downcountAmount + offset;
+		Operand2 op2;
+		if (TryMakeOperand2(theDowncount, op2)) // We can enlarge this if we used rotations
+		{
+			SUBS(R7, R7, op2);
+		} else {
+			// Should be fine to use R2 here, flushed the regcache anyway.
+			// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
+			MOVI2R(R2, theDowncount);
+			SUBS(R7, R7, R2);
+		}
 	} else {
-		// Should be fine to use R2 here, flushed the regcache anyway.
-		// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
-		MOVI2R(R2, theDowncount);
-		SUBS(R1, R1, R2);
-		STR(R1, CTXREG, offsetof(MIPSState, downcount));
+		int theDowncount = js.downcountAmount + offset;
+		LDR(R1, CTXREG, offsetof(MIPSState, downcount));
+		Operand2 op2;
+		if (TryMakeOperand2(theDowncount, op2)) // We can enlarge this if we used rotations
+		{
+			SUBS(R1, R1, op2);
+			STR(R1, CTXREG, offsetof(MIPSState, downcount));
+		} else {
+			// Should be fine to use R2 here, flushed the regcache anyway.
+			// If js.downcountAmount can be expressed as an Imm8, we don't need this anyway.
+			MOVI2R(R2, theDowncount);
+			SUBS(R1, R1, R2);
+			STR(R1, CTXREG, offsetof(MIPSState, downcount));
+		}
 	}
 }
 

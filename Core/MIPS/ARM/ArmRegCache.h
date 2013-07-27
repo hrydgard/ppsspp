@@ -68,10 +68,14 @@ enum {
 	MAP_NOINIT = 2,
 };
 
+namespace MIPSComp {
+	struct ArmJitOptions;
+}
+
 class ArmRegCache
 {
 public:
-	ArmRegCache(MIPSState *mips);
+	ArmRegCache(MIPSState *mips, MIPSComp::ArmJitOptions *options);
 	~ArmRegCache() {}
 
 	void Init(ARMXEmitter *emitter);
@@ -107,7 +111,10 @@ public:
 	int GetMipsRegOffset(MIPSReg r);
 
 private:
+	const ARMReg *GetMIPSAllocationOrder(int &count);
+		
 	MIPSState *mips_;
+	MIPSComp::ArmJitOptions *options_;
 	ARMXEmitter *emit;
 	u32 compilerPC_;
 
