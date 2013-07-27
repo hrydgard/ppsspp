@@ -35,9 +35,9 @@ static int atlasWidth;
 static int atlasHeight;
 
 struct PPGeVertex {
-	u16 u, v;
-	u32 color;
-	float x, y, z;
+	u16_le u, v;
+	u32_le color;
+	float_le x, y, z;
 };
 
 static u32 savedContextPtr;
@@ -52,8 +52,8 @@ static u32 dataPtr;
 static u32 dataWritePtr;
 static u32 dataSize = 0x10000; // should be enough for a frame of gui...
 
-static u32 palettePtr;
-static u32 paletteSize = 2 * 16;
+static PSPPointer<u16_le> palette;
+static u32 paletteSize = sizeof(u16) * 16;
 
 // Vertex collector
 static u32 vertexStart;
@@ -160,10 +160,9 @@ void __PPGeInit()
 	dataPtr = __PPGeDoAlloc(dataSize, false, "PPGe Vertex Data");
 	savedContextPtr = __PPGeDoAlloc(savedContextSize, false, "PPGe Saved Context");
 	atlasPtr = __PPGeDoAlloc(atlasSize, false, "PPGe Atlas Texture");
-	palettePtr = __PPGeDoAlloc(paletteSize, false, "PPGe Texture Palette");
+	palette = __PPGeDoAlloc(paletteSize, false, "PPGe Texture Palette");
 
 	// Generate 16-greyscale palette. All PPGe graphics are greyscale so we can use a tiny paletted texture.
-	u16 *palette = (u16 *)Memory::GetPointer(palettePtr);
 	for (int i = 0; i < 16; i++) {
 		int val = i;
 		palette[i] = (val << 12) | 0xFFF;
@@ -193,7 +192,7 @@ void __PPGeDoState(PointerWrap &p)
 	p.Do(atlasPtr);
 	p.Do(atlasWidth);
 	p.Do(atlasHeight);
-	p.Do(palettePtr);
+	p.Do(palette);
 
 	p.Do(savedContextPtr);
 	p.Do(savedContextSize);
@@ -225,8 +224,8 @@ void __PPGeShutdown()
 		kernelMemory.Free(dlPtr);
 	if (savedContextPtr)
 		kernelMemory.Free(savedContextPtr);
-	if (palettePtr)
-		kernelMemory.Free(palettePtr);
+	if (palette)
+		kernelMemory.Free(palette.ptr);
 
 	atlasPtr = 0;
 	dataPtr = 0;
@@ -728,8 +727,8 @@ void PPGeSetDefaultTexture()
 	WriteCmd(GE_CMD_TEXTUREMAPENABLE, 1);
 	int wp2 = GetPow2(atlasWidth);
 	int hp2 = GetPow2(atlasHeight);
-	WriteCmd(GE_CMD_CLUTADDR, palettePtr & 0xFFFFF0);
-	WriteCmd(GE_CMD_CLUTADDRUPPER, (palettePtr & 0xFF000000) >> 8);
+	WriteCmd(GE_CMD_CLUTADDR, palette.ptr & 0xFFFFF0);
+	WriteCmd(GE_CMD_CLUTADDRUPPER, (palette.ptr & 0xFF000000) >> 8);
 	WriteCmd(GE_CMD_CLUTFORMAT, 0x00FF02);
 	WriteCmd(GE_CMD_LOADCLUT, 2);
 	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));
