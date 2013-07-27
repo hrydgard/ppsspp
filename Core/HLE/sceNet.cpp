@@ -72,21 +72,21 @@ enum {
 
 // These might come in handy in the future, if PPSSPP ever supports wifi/ad-hoc..
 struct SceNetAdhocctlParams {
-	int channel; //which ad-hoc channel to connect to
+	s32_le channel; //which ad-hoc channel to connect to
 	char name[8]; //connection name
 	u8 bssid[6];  //BSSID of the connection?
 	char nickname[128]; //PSP's nickname?
 };
 
 struct ProductStruct {
-	int unknown; // Unknown, set to 0
+	s32_le unknown; // Unknown, set to 0
 	char product[9]; // Game ID (Example: ULUS10000)
 };
 
 struct SceNetMallocStat {
-	int pool; // Pointer to the pool?
-	int maximum; // Maximum size of the pool?
-	int free; // How much memory is free
+	s32_le pool; // Pointer to the pool?
+	s32_le maximum; // Maximum size of the pool?
+	s32_le free; // How much memory is free
 };
 
 static struct SceNetMallocStat netMallocStat;

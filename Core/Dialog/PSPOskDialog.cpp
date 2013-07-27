@@ -126,7 +126,7 @@ PSPOskDialog::PSPOskDialog() : PSPDialog() {
 PSPOskDialog::~PSPOskDialog() {
 }
 
-void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16> em_address)
+void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le> em_address)
 {
 	if (!em_address.IsValid())
 	{
@@ -839,7 +839,7 @@ int PSPOskDialog::Update()
 		status = SCE_UTILITY_STATUS_SHUTDOWN;
 	}
 
-	u16 *outText = oskParams->fields[0].outtext;
+	u16_le *outText = oskParams->fields[0].outtext;
 	for (u32 i = 0, end = oskParams->fields[0].outtextlength; i < end; ++i)
 	{
 		u16 value = 0;

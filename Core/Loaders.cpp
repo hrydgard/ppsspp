@@ -74,7 +74,7 @@ EmuFileType Identify_File(std::string &filename)
 	}
 
 
-	u32 id;
+	u32_le id;
 
 	size_t readSize = fread(&id, 4, 1, f);
 	if (readSize != 1) {

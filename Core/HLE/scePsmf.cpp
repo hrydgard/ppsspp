@@ -67,24 +67,25 @@ enum PsmfPlayerStatus {
 };
 
 struct PsmfData {
-	u32 version;
-	u32 headerSize;
-	u32 headerOffset;
-	u32 streamSize;
-	u32 streamOffset;
-	u32 streamNum;
-	u32 unk1;
-	u32 unk2;
+	u32_le version;
+	u32_le headerSize;
+	u32_le headerOffset;
+	u32_le streamSize;
+	u32_le streamOffset;
+	u32_le streamNum;
+	u32_le unk1;
+	u32_le unk2;
 };
 
 struct PsmfPlayerData {
-	int videoCodec;
-	int videoStreamNum;
-	int audioCodec;
-	int audioStreamNum;
-	int playMode;
-	int playSpeed;
-	long psmfPlayerLastTimestamp;
+	s32_le videoCodec;
+	s32_le videoStreamNum;
+	s32_le audioCodec;
+	s32_le audioStreamNum;
+	s32_le playMode;
+	s32_le playSpeed;
+	// TODO: Was "long", which is 32, but should this be 64?  Not even used?
+	s32_le psmfPlayerLastTimestamp;
 };
 
 struct PsmfEntry {

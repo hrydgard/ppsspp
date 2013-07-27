@@ -30,19 +30,18 @@ const int SCE_ERROR_UTILITY_INVALID_STATUS         = 0x80110001;
 const int SCE_ERROR_UTILITY_INVALID_PARAM_SIZE     = 0x80110004;
 const int SCE_ERROR_UTILITY_WRONG_TYPE             = 0x80110005;
 
-typedef struct
+struct pspUtilityDialogCommon
 {
-	unsigned int size;	/** Size of the structure */
-	int language;		/** Language */
-	int buttonSwap;		/** Set to 1 for X/O button swap */
-	int graphicsThread;	/** Graphics thread priority */
-	int accessThread;	/** Access/fileio thread priority (SceJobThread) */
-	int fontThread;		/** Font thread priority (ScePafThread) */
-	int soundThread;	/** Sound thread priority */
-	int result;			/** Result */
-	int reserved[4];	/** Set to 0 */
-
-} pspUtilityDialogCommon;
+	u32_le size;            /** Size of the structure */
+	s32_le language;        /** Language */
+	s32_le buttonSwap;      /** Set to 1 for X/O button swap */
+	s32_le graphicsThread;  /** Graphics thread priority */
+	s32_le accessThread;    /** Access/fileio thread priority (SceJobThread) */
+	s32_le fontThread;      /** Font thread priority (ScePafThread) */
+	s32_le soundThread;     /** Sound thread priority */
+	s32_le result;          /** Result */
+	s32_le reserved[4];     /** Set to 0 */
+};
 
 
 class PSPDialog

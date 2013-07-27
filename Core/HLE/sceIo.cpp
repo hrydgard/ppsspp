@@ -121,19 +121,19 @@ enum {
 #endif
 
 struct SceIoStat {
-	SceMode st_mode;
-	unsigned int st_attr;
-	SceOff st_size;
+	SceMode_le st_mode;
+	u32_le st_attr;
+	SceOff_le st_size;
 	ScePspDateTime st_ctime;
 	ScePspDateTime st_atime;
 	ScePspDateTime st_mtime;
-	unsigned int st_private[6];
+	u32_le st_private[6];
 };
 
 struct SceIoDirEnt {
 	SceIoStat d_stat;
 	char d_name[256];
-	u32 d_private;
+	u32_le d_private;
 };
 #ifndef __SYMBIAN32__
 struct dirent {
@@ -892,11 +892,11 @@ u32 sceIoSync(const char *devicename, int flag) {
 }
 
 struct DeviceSize {
-	u32 maxClusters;
-	u32 freeClusters;
-	u32 maxSectors;
-	u32 sectorSize;
-	u32 sectorCount;
+	u32_le maxClusters;
+	u32_le freeClusters;
+	u32_le maxSectors;
+	u32_le sectorSize;
+	u32_le sectorCount;
 };
 
 u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
