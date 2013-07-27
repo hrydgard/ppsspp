@@ -38,6 +38,7 @@ uint64_t _frequency = 0;
 uint64_t _starttime = 0;
 
 double real_time_now() {
+#ifdef ANDROID
 	if (false && gl_extensions.EGL_NV_system_time) {
 		// This is needed to profile using PerfHUD on Tegra
 		if (_frequency == 0) {
@@ -47,9 +48,10 @@ double real_time_now() {
 
 		uint64_t cur = eglGetSystemTimeNV();
 		int64_t diff = cur - _starttime;
-		
+
 		return (double)diff / (double)_frequency;
 	}
+#endif
 
 	static time_t start;
 	struct timeval tv;
