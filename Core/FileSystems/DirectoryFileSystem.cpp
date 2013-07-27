@@ -974,6 +974,9 @@ size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
 		ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
+
+	// This shouldn't happen, either...
+	return 0;
 }
 
 size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
