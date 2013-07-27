@@ -935,6 +935,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSTables.h
 	Core/MIPS/MIPSVFPUUtils.cpp
 	Core/MIPS/MIPSVFPUUtils.h
+	Core/MIPS/MIPSAsmTables.cpp
+	Core/MIPS/MIPSAsmTables.h
 	Core/MemMap.cpp
 	Core/MemMap.h
 	Core/MemMapFunctions.cpp

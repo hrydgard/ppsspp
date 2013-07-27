@@ -442,6 +442,9 @@
     <ClCompile Include="HDRemaster.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MIPSAsmTables.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -818,6 +821,9 @@
     </ClInclude>
     <ClInclude Include="HDRemaster.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MIPSAsmTables.h">
+      <Filter>MIPS</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
