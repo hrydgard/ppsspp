@@ -556,7 +556,7 @@ class Spacer : public InertView {
 public:
 	Spacer(LayoutParams *layoutParams = 0)
 		: InertView(layoutParams) {}
-	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) {
+	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 		w = 0.0f; h = 0.0f;
 	}
 	virtual void Draw(UIContext &dc) {}
