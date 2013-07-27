@@ -337,7 +337,7 @@ void LinkedShader::updateUniforms() {
 			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
 			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
 			if ((gstate.texmapmode & 3) == 0) {
-				static const float rescale[4] = {2.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 2.0f};
+				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
 				float factor = rescale[(gstate.vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
 				uvscaleoff[0] = gstate_c.uScale * factor * widthFactor;
 				uvscaleoff[1] = gstate_c.vScale * factor * heightFactor;

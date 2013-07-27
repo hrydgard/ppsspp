@@ -266,7 +266,7 @@ public:
 			{
 				const float *f = (const float *)(data_ + decFmt_.nrmoff);
 				for (int i = 0; i < 3; i++)
-					nrm[i] = f[i] ;
+					nrm[i] = f[i];
 			}
 			break;
 		case DEC_S16_3:
@@ -311,8 +311,8 @@ public:
 		case DEC_FLOAT_2:
 			{
 				const float *f = (const float *)(data_ + decFmt_.uvoff);
-				uv[0] = f[0] * 2.f;
-				uv[1] = f[1] * 2.f;
+				uv[0] = f[0];
+				uv[1] = f[1];
 			}
 			break;
 
@@ -378,7 +378,7 @@ public:
 		case DEC_FLOAT_3:
 		case DEC_FLOAT_4:
 			for (int i = 0; i <= decFmt_.w0fmt - DEC_FLOAT_1; i++)
-				weights[i] = f[i] * 2.f;
+				weights[i] = f[i];
 			break;
 		case DEC_U8_1: weights[0] = b[0] * (1.f / 128.f); break;
 		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = b[i] * (1.f / 128.f); break;
@@ -406,7 +406,7 @@ public:
 		case DEC_FLOAT_3:
 		case DEC_FLOAT_4:
 			for (int i = 0; i <= decFmt_.w1fmt - DEC_FLOAT_1; i++)
-				weights[i+4] = f[i] * 2.f;
+				weights[i+4] = f[i];
 			break;
 		case DEC_U8_1: weights[4] = b[0] * (1.f / 128.f); break;
 		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = b[i] * (1.f / 128.f); break;

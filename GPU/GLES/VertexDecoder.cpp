@@ -146,7 +146,7 @@ void VertexDecoder::Step_WeightsFloat() const
 	const float *wdata = (const float*)(ptr_);
 	int j;
 	for (j = 0; j < nweights; j++) {
-		wt[j] = wdata[j] * 0.5f;
+		wt[j] = wdata[j];
 	}
 	while (j & 3)   // Zero additional weights rounding up to 4.
 		wt[j++] = 0.0f;
@@ -195,16 +195,16 @@ void VertexDecoder::Step_TcFloat() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * 0.5f;
-	uv[1] = uvdata[1] * 0.5f;
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_TcFloatThrough() const
 {
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float *uvdata = (const float*)(ptr_ + tcoff);
-	uv[0] = uvdata[0] * 0.5f;
-	uv[1] = uvdata[1] * 0.5f;
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
 }
 
 void VertexDecoder::Step_Color565() const
