@@ -50,6 +50,7 @@ void Config::Load(const char *iniFileName)
 	bSpeedLimit = false;
 	general->Get("FirstRun", &bFirstRun, true);
 	general->Get("NewUI", &bNewUI, false);
+	general->Get("EnableLogging", &bEnableLogging, true);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
@@ -192,7 +193,7 @@ void Config::Save()
 		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
 		general->Set("NewUI", bNewUI);
-
+		general->Set("EnableLogging", bEnableLogging);
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
 		general->Set("Browse", bBrowse);

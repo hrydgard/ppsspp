@@ -50,6 +50,7 @@ public:
 	bool bNewUI;  // "Hidden" setting, does not get saved to ini file.
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
+	bool bEnableLogging; // Another "hidden" setting.
 
 	// Core
 	bool bIgnoreBadMemAccess;

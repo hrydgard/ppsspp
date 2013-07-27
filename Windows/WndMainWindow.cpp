@@ -963,7 +963,9 @@ namespace MainWindow
 					memoryWindow[0]->Show(true);
 				break;
 			case ID_DEBUG_LOG:
-				LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
+				if(g_Config.bEnableLogging)
+					LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
+				//else LogManager::GetInstance()->GetConsoleListener()->Close();
 				break;
 
 			case ID_OPTIONS_IGNOREILLEGALREADS:
@@ -1304,6 +1306,9 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_TOGGLE_PAUSE, !menuEnable);
 		EnableMenuItem(menu,ID_EMULATION_STOP, !menuEnable);
 		EnableMenuItem(menu,ID_EMULATION_RESET, !menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_LOG, g_Config.bEnableLogging ? MF_ENABLED : MF_GRAYED);
+		if(!g_Config.bEnableLogging && !LogManager::GetInstance()->GetConsoleListener()->Hidden())
+			LogManager::GetInstance()->GetConsoleListener()->Show(false);
 	}
 
 	// Message handler for about box.
