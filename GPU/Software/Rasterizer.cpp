@@ -261,14 +261,25 @@ static inline void SetPixelDepth(int x, int y, u16 value)
 
 static inline u8 GetPixelStencil(int x, int y)
 {
-	// TODO: Fix for other pixel formats ?
-	return (((*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()]) & 0x80000000) != 0) ? 0xFF : 0;
+	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
+		// TODO: Should we return 0xFF instead here?
+		return 0;
+	} else if (gstate.FrameBufFormat() != GE_FORMAT_8888) {
+		return (((*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()]) & 0x8000) != 0) ? 0xFF : 0;
+	} else {
+		return (((*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()]) & 0x80000000) != 0) ? 0xFF : 0;
+	}
 }
 
 static inline void SetPixelStencil(int x, int y, u8 value)
 {
-	// TODO: Fix for other pixel formats ?
-	*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = (*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] & ~0x80000000) | ((value&0x80)<<24);
+	if (gstate.FrameBufFormat() == GE_FORMAT_565) {
+		// Do nothing
+	} else if (gstate.FrameBufFormat() != GE_FORMAT_8888) {
+		*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] = (*(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()] & ~0x8000) | ((value&0x80)<<8);
+	} else {
+		*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] = (*(u32*)&fb[4*x + 4*y*gstate.FrameBufStride()] & ~0x80000000) | ((value&0x80)<<24);
+	}
 }
 
 static inline bool DepthTestPassed(int x, int y, u16 z)
@@ -374,12 +385,14 @@ static inline void ApplyStencilOp(int op, int x, int y)
 
 		case GE_STENCILOP_INCR:
 			// TODO: Does this overflow?
-			SetPixelStencil(x, y, old_stencil+1);
+			if (old_stencil != 0xFF)
+				SetPixelStencil(x, y, old_stencil+1);
 			break;
 
 		case GE_STENCILOP_DECR:
 			// TODO: Does this underflow?
-			SetPixelStencil(x, y, old_stencil-1);
+			if (old_stencil != 0)
+				SetPixelStencil(x, y, old_stencil-1);
 			break;
 	}
 }
