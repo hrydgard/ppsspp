@@ -589,7 +589,10 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 		return 0;
 	}
 	int outbytes = 0;
-	Atrac3plus_Decoder::Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer);
+
+	if(m_audioContext != nullptr)
+		Atrac3plus_Decoder::Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer);
+
 	if (headerCode1 == 0x24) {
 		// it a mono atrac3plus, convert it to stereo
 		s16 *outbuf = (s16*)buffer;
