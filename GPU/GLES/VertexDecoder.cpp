@@ -593,25 +593,24 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		steps_[numSteps_++] = wtstep[weighttype];
 
 		int fmtBase = DEC_FLOAT_1;
-		int weightSize = 4;
 		if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
 			fmtBase = DEC_U8_1;
-			weightSize = 1;
 		} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
 			fmtBase = DEC_U16_1;
-			weightSize = 2;
 		}
 
 		if (nweights < 5) {
 			decFmt.w0off = decOff;
 			decFmt.w0fmt = fmtBase + nweights - 1;
+			decOff += DecFmtSize(decFmt.w0fmt);
 		} else {
 			decFmt.w0off = decOff;
 			decFmt.w0fmt = fmtBase + 3;
-			decFmt.w1off = decOff + 4 * weightSize;
+			decOff += DecFmtSize(decFmt.w0fmt);
+			decFmt.w1off = decOff;
 			decFmt.w1fmt = fmtBase + nweights - 5;
+			decOff += DecFmtSize(decFmt.w1fmt);
 		}
-		decOff += nweights * 4;
 	}
 
 	if (tc) {
