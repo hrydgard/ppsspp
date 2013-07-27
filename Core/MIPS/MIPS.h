@@ -153,3 +153,5 @@ void MIPS_Shutdown();
 
 void MIPS_Irq();
 void MIPS_SWI();
+
+extern const float cst_constants[32];

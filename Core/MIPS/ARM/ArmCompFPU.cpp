@@ -56,10 +56,10 @@ void Jit::Comp_FPU3op(u32 op)
 	case 2: { //F(fd) = F(fs) * F(ft); //mul
 		u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 		// Optimise possible if destination is the same
-		if (fd == (int)((nextOp>>6) & 0x1F)) {
+		if (fd == ((nextOp>>6) & 0x1F)) {
 			// VMUL + VNEG -> VNMUL
 			if (!strcmp(MIPSGetName(nextOp), "neg.s")) {
-				if (fd == (int)((nextOp>>11) & 0x1F)) {
+				if (fd == ((nextOp>>11) & 0x1F)) {
 					VNMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft));
 					EatInstruction(nextOp);
 				}
@@ -106,15 +106,15 @@ void Jit::Comp_FPULS(u32 op)
 			ADD(R0, R0, R11);
 		}
 #ifdef __ARM_ARCH_7S__
-        FixupBranch skip;
-        if (doCheck) {
-            skip = B_CC(CC_EQ);
-        }
-        VLDR(fpr.R(ft), R0, 0);
-        if (doCheck) {
-            SetJumpTarget(skip);
-            SetCC(CC_AL);
-        }
+		FixupBranch skip;
+		if (doCheck) {
+			skip = B_CC(CC_EQ);
+		}
+		VLDR(fpr.R(ft), R0, 0);
+		if (doCheck) {
+			SetJumpTarget(skip);
+			SetCC(CC_AL);
+		}
 #else
 		VLDR(fpr.R(ft), R0, 0);
 		if (doCheck) {
@@ -142,15 +142,15 @@ void Jit::Comp_FPULS(u32 op)
 			ADD(R0, R0, R11);
 		}
 #ifdef __ARM_ARCH_7S__
-        FixupBranch skip2;
-        if (doCheck) {
-            skip2 = B_CC(CC_EQ);
-        }
-        VSTR(fpr.R(ft), R0, 0);
-        if (doCheck) {
-            SetJumpTarget(skip2);
-            SetCC(CC_AL);
-        }
+		FixupBranch skip2;
+		if (doCheck) {
+			skip2 = B_CC(CC_EQ);
+		}
+		VSTR(fpr.R(ft), R0, 0);
+		if (doCheck) {
+			SetJumpTarget(skip2);
+			SetCC(CC_AL);
+		}
 #else
 		VSTR(fpr.R(ft), R0, 0);
 		if (doCheck) {
@@ -169,8 +169,7 @@ void Jit::Comp_FPUComp(u32 op) {
 	CONDITIONAL_DISABLE;
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
-	if (opc == 0)//f, sf (signalling false)
-	{
+	if (opc == 0) {  // f, sf (signalling false)
 		MOVI2R(R0, 0);
 		STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 		return;
@@ -238,7 +237,6 @@ void Jit::Comp_FPU2op(u32 op)
 
 	int fs = _FS;
 	int fd = _FD;
-	// logBlocks = 1;
 
 	switch (op & 0x3f) 
 	{
@@ -314,7 +312,7 @@ void Jit::Comp_mxc1(u32 op)
 	int fs = _FS;
 	int rt = _RT;
 
-	switch((op >> 21) & 0x1f) 
+	switch ((op >> 21) & 0x1f)
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
 		// Let's just go through RAM for now.

@@ -42,4 +42,5 @@
 
 namespace MIPSComp {
 extern Jit *jit;
+extern const float cst_constants[32];
 }

@@ -1497,35 +1497,11 @@ namespace MIPSInt
 
 	void Int_Vcst(u32 op)
 	{
-		static const float constants[32] =
-		{
-			0,
-			std::numeric_limits<float>::max(),  // all these are verified on real PSP
-			sqrtf(2.0f),
-			sqrtf(0.5f),
-			2.0f/sqrtf((float)M_PI),
-			2.0f/(float)M_PI,
-			1.0f/(float)M_PI,
-			(float)M_PI/4,
-			(float)M_PI/2,
-			(float)M_PI,
-			(float)M_E,
-			(float)M_LOG2E,
-			(float)M_LOG10E,
-			(float)M_LN2,
-			(float)M_LN10,
-			2*(float)M_PI,
-			(float)M_PI/6,
-			log10f(2.0f),
-			logf(10.0f)/logf(2.0f),
-			sqrtf(3.0f)/2.0f,
-		};
-
 		int conNum = (op >> 16) & 0x1f;
 		int vd = _VD;
 
 		VectorSize sz = GetVecSize(op);
-		float c = constants[conNum];
+		float c = cst_constants[conNum];
 		float temp[4] = {c,c,c,c};
 		ApplyPrefixD(temp, sz);
 		WriteVector(temp, sz, vd);

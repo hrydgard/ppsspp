@@ -217,15 +217,15 @@ namespace MIPSComp
 					ADD(R0, R0, R11);
 				}
 #ifdef __ARM_ARCH_7S__
-                FixupBranch skip;
-                if (doCheck) {
-                    skip = B_CC(CC_EQ);
-                }
-                VLDR(fpr.V(vt), R0, 0);
-                if (doCheck) {
-                    SetJumpTarget(skip);
-                    SetCC(CC_AL);
-                }
+				FixupBranch skip;
+				if (doCheck) {
+					skip = B_CC(CC_EQ);
+				}
+				VLDR(fpr.V(vt), R0, 0);
+				if (doCheck) {
+					SetJumpTarget(skip);
+					SetCC(CC_AL);
+				}
 #else
 				VLDR(fpr.V(vt), R0, 0);
 				if (doCheck) {
@@ -256,15 +256,15 @@ namespace MIPSComp
 					ADD(R0, R0, R11);
 				}
 #ifdef __ARM_ARCH_7S__
-                FixupBranch skip;
-                if (doCheck) {
-                    skip = B_CC(CC_EQ);
-                }
-                VSTR(fpr.V(vt), R0, 0);
-                if (doCheck) {
-                    SetJumpTarget(skip);
-                    SetCC(CC_AL);
-                }
+				FixupBranch skip;
+				if (doCheck) {
+					skip = B_CC(CC_EQ);
+				}
+				VSTR(fpr.V(vt), R0, 0);
+				if (doCheck) {
+					SetJumpTarget(skip);
+					SetCC(CC_AL);
+				}
 #else
 				VSTR(fpr.V(vt), R0, 0);
 				if (doCheck) {
@@ -314,18 +314,18 @@ namespace MIPSComp
 				}
 
 #ifdef __ARM_ARCH_7S__
-                FixupBranch skip;
-                if (doCheck) {
-                    skip = B_CC(CC_EQ);
-                }
-                
+				FixupBranch skip;
+				if (doCheck) {
+					skip = B_CC(CC_EQ);
+				}
+
 				for (int i = 0; i < 4; i++)
 					VLDR(fpr.V(vregs[i]), R0, i * 4);
-                
-                if (doCheck) {
-                    SetJumpTarget(skip);
-                    SetCC(CC_AL);
-                }
+
+				if (doCheck) {
+					SetJumpTarget(skip);
+					SetCC(CC_AL);
+				}
 #else
 				for (int i = 0; i < 4; i++)
 					VLDR(fpr.V(vregs[i]), R0, i * 4);
@@ -364,18 +364,18 @@ namespace MIPSComp
 				}
 
 #ifdef __ARM_ARCH_7S__
-                FixupBranch skip;
-                if (doCheck) {
-                    skip = B_CC(CC_EQ);
-                }
-                
+				FixupBranch skip;
+				if (doCheck) {
+					skip = B_CC(CC_EQ);
+				}
+
 				for (int i = 0; i < 4; i++)
 					VSTR(fpr.V(vregs[i]), R0, i * 4);
 
-                if (doCheck) {
-                    SetJumpTarget(skip);
-                    SetCC(CC_AL);
-                }
+				if (doCheck) {
+					SetJumpTarget(skip);
+					SetCC(CC_AL);
+				}
 #else
 				for (int i = 0; i < 4; i++)
 					VSTR(fpr.V(vregs[i]), R0, i * 4);

@@ -47,23 +47,6 @@
 #define _SIZE ((op>>11 ) & 0x1F)
 
 
-#ifndef M_LOG2E
-#define M_E        2.71828182845904523536f
-#define M_LOG2E    1.44269504088896340736f
-#define M_LOG10E   0.434294481903251827651f
-#define M_LN2      0.693147180559945309417f
-#define M_LN10     2.30258509299404568402f
-#undef M_PI
-#define M_PI       3.14159265358979323846f
-#define M_PI_2     1.57079632679489661923f
-#define M_PI_4     0.785398163397448309616f
-#define M_1_PI     0.318309886183790671538f
-#define M_2_PI     0.636619772367581343076f
-#define M_2_SQRTPI 1.12837916709551257390f
-#define M_SQRT2    1.41421356237309504880f
-#define M_SQRT1_2  0.707106781186547524401f
-#endif
-
 using namespace Gen;
 
 namespace MIPSComp
@@ -578,29 +561,6 @@ void Jit::Comp_Vi2f(u32 op) {
 	ApplyPrefixD(dregs, sz);
 	fpr.ReleaseSpillLocks();
 }
-
-static const float cst_constants[32] = {
-	0,
-	std::numeric_limits<float>::max(),  // all these are verified on real PSP
-	sqrtf(2.0f),
-	sqrtf(0.5f),
-	2.0f/sqrtf((float)M_PI),
-	2.0f/(float)M_PI,
-	1.0f/(float)M_PI,
-	(float)M_PI/4,
-	(float)M_PI/2,
-	(float)M_PI,
-	(float)M_E,
-	(float)M_LOG2E,
-	(float)M_LOG10E,
-	(float)M_LN2,
-	(float)M_LN10,
-	2*(float)M_PI,
-	(float)M_PI/6,
-	log10f(2.0f),
-	logf(10.0f)/logf(2.0f),
-	sqrtf(3.0f)/2.0f,
-};
 
 void Jit::Comp_Vcst(u32 op) {
 	CONDITIONAL_DISABLE;
