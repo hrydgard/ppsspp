@@ -292,9 +292,7 @@ void GlobalSettingsScreen::CreateViews() {
 	list->Add(new ItemHeader("General"));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&g_Config.bEnableLogging, gs->T("Enable Logging")));
-	if(g_Config.bEnableLogging)
-		 // No reason to show this if we're not logging at all, but it doesn't draw until one exits and re-enters the settings.
-		list->Add(new CheckBox(&enableReports_, gs->T("Enable Error Reporting")));
+	list->Add(new CheckBox(&enableReports_, gs->T("Enable Error Reporting")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
 	list->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GlobalSettingsScreen::OnControlMapping);

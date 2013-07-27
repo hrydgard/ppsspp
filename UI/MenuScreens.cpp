@@ -771,14 +771,11 @@ void DeveloperScreen::render() {
 	const static std::string reportHostOfficial = "report.ppsspp.org";
 
 	UICheckBox(GEN_ID, x, y += stride, d->T("EnableLogging", "Enable Logging"), ALIGN_TOPLEFT, &g_Config.bEnableLogging);
-	if(g_Config.bEnableLogging) {
-		if (UICheckBox(GEN_ID, x, y += stride, d->T("Report","Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
-			g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
-		}
+
+	if (UICheckBox(GEN_ID, x, y += stride, d->T("Report","Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
+		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
 	}
-	else {
-		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : ""; // Shouldn't be necessary, but just including it for safety..
-	}
+
 	UICheckBox(GEN_ID, x, y += stride, d->T("New UI"), ALIGN_TOPLEFT, &g_Config.bNewUI);
 
 	VLinear vlinear(x, y + stride + 12, 16);
