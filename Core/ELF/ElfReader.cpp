@@ -175,7 +175,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 	int flag_bits, seg_bits, type_bits;
 	int cmd, flag, seg, type;
 	int off_seg = 0, addr_seg, rel_base, rel_offset;
-	int relocate_to, last_type, lo16;
+	int relocate_to, last_type, lo16 = 0;
 	u32 op, addr;
 	int rcount = 0;
 

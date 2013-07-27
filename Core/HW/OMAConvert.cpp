@@ -23,6 +23,11 @@ template <typename T> void BigEndianWriteBuf(u8* buf, T x, int &pos)
 	pos += k;
 }
 
+template <> void BigEndianWriteBuf<u8>(u8* buf, u8 x, int &pos)
+{
+	buf[pos++] = x;
+}
+
 template <typename T> inline T getBufValue(T* buf, int offsetbytes)
 {
 	return *(T*)(((u8*)buf) + offsetbytes);

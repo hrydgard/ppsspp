@@ -193,7 +193,7 @@ void ArmRegCache::FlushR(MIPSReg r) {
 		break;
 
 	case ML_ARMREG:
-		if (mr[r].reg == (int)INVALID_REG) {
+		if (mr[r].reg == INVALID_REG) {
 			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {

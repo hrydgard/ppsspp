@@ -803,10 +803,10 @@ std::string VirtualDiscFileSystem::GetLocalPath(std::string localpath) {
 
 int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 {
-	for (int i = 0; i < fileList.size(); i++)
+	for (size_t i = 0; i < fileList.size(); i++)
 	{
 		if (fileList[i].fileName == fileName)
-			return i;
+			return (int)i;
 	}
 
 	// unknown file - add it
@@ -841,7 +841,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 
 int VirtualDiscFileSystem::getFileListIndex(u32 accessBlock, u32 accessSize)
 {
-	for (int i = 0; i < fileList.size(); i++)
+	for (size_t i = 0; i < fileList.size(); i++)
 	{
 		if (fileList[i].firstBlock <= accessBlock)
 		{
@@ -849,7 +849,7 @@ int VirtualDiscFileSystem::getFileListIndex(u32 accessBlock, u32 accessSize)
 			u32 endOffset = sectorOffset+accessSize;
 			if (endOffset <= fileList[i].totalSize)
 			{
-				return i;
+				return (int)i;
 			}
 		}
 	}
@@ -883,12 +883,13 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		entry.type = VFILETYPE_LBN;
 		entry.size = readSize;
 
-		entry.fileIndex = getFileListIndex(sectorStart,readSize);
-		if (entry.fileIndex == -1)
+		int fileIndex = getFileListIndex(sectorStart,readSize);
+		if (fileIndex == -1)
 		{
 			ERROR_LOG(FILESYS, "VirtualDiscFileSystem: sce_lbn used without calling fileinfo.");
 			return 0;
 		}
+		entry.fileIndex = (u32)fileIndex;
 
 		entry.startOffset = (sectorStart-fileList[entry.fileIndex].firstBlock)*2048;
 
@@ -969,6 +970,7 @@ size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
 				return iter->second.curOffset;
 			}
 		}
+		return 0;
 	} else {
 		//This shouldn't happen...
 		ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot seek in file that hasn't been opened: %08x", handle);
@@ -988,7 +990,7 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 			int fileIndex = getFileListIndex(iter->second.curOffset,size*2048);
 			if (fileIndex == -1)
 			{
-				ERROR_LOG(HLE,"VirtualDiscFileSystem: Reading from unknown address", handle);
+				ERROR_LOG(HLE,"VirtualDiscFileSystem: Reading from unknown address %08x", handle);
 				return 0;
 			}
 			
