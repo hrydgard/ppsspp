@@ -988,7 +988,7 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 			int fileIndex = getFileListIndex(iter->second.curOffset,size*2048);
 			if (fileIndex == -1)
 			{
-				ERROR_LOG(HLE,"VirtualDiscFileSystem: Reading from unknown address", handle);
+				ERROR_LOG(HLE,"VirtualDiscFileSystem: Reading from unknown address %08x", handle);
 				return 0;
 			}
 			
