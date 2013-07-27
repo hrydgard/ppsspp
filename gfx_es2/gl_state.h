@@ -17,15 +17,27 @@
 typedef void (GL_APIENTRYP PFNGLALPHAFUNCQCOMPROC) (GLenum func, GLclampf ref);
 extern PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
 
-#endif
-
 typedef uint64_t EGLuint64NV;
 typedef EGLuint64NV (EGLAPIENTRYP PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC) (void);
 typedef EGLuint64NV (EGLAPIENTRYP PFNEGLGETSYSTEMTIMENVPROC) (void);
 extern PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 
+#endif
+
+#if !defined(IOS)
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
+extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
+extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
+extern PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOES;
+extern PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
+#endif
+
+// Rename standard functions to the OES version.
+#define glGenVertexArrays glGenVertexArraysOES
+#define glBindVertexArray glBindVertexArrayOES
+#define glDeleteVertexArrays glDeleteVertexArraysOES
+#define glIsVertexArray glIsVertexArrayOES
 
 #endif /* EGL_NV_system_time */
 
@@ -235,6 +247,7 @@ struct GLExtensions {
 	bool EXT_swap_control_tear;
 	bool QCOM_alpha_test;
 	bool OES_mapbuffer;
+	bool OES_vertex_array_object;
 	
 	// EGL extensions
 
