@@ -114,7 +114,11 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
-	numBones = gstate.getNumBoneWeights();
+	if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) != 0)
+		numBones = gstate.getNumBoneWeights();
+	else
+		numBones = 0;
+
 #ifdef USE_BONE_ARRAY
 	u_bone = glGetUniformLocation(program, "u_bone");
 #else
@@ -278,7 +282,6 @@ void LinkedShader::updateUniforms() {
 
 	// Update any dirty uniforms before we draw
 	if (u_proj != -1 && (dirtyUniforms & DIRTY_PROJMATRIX)) {
-		glUniformMatrix4fv(u_proj, 1, GL_FALSE, gstate.projMatrix);
 		float flippedMatrix[16];
 		memcpy(flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 		if (gstate_c.vpHeight < 0) {
@@ -389,7 +392,8 @@ void LinkedShader::updateUniforms() {
 #else
 	float bonetemp[16];
 	for (int i = 0; i < numBones; i++) {
-		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+		// I've seen the -1 happen but I don't get it..
+		if ((dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) && u_bone[i] != -1) {
 			ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, bonetemp);
 			glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
 		}
