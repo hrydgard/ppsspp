@@ -47,19 +47,19 @@ enum
 // Returned control data
 struct _ctrl_data
 {
-	u32 frame;
-	u32 buttons;
+	u32_le frame;
+	u32_le buttons;
 	// The PSP has only one stick, but has space for more info.
 	// The second stick is populated for HD remasters and possibly in the PSP emulator on PS3/Vita.
-	u8  analog[2][2];
-	u8  unused[4];
+	u8 analog[2][2];
+	u8 unused[4];
 };
 
 struct CtrlLatch {
-	u32 btnMake;
-	u32 btnBreak;
-	u32 btnPress;
-	u32 btnRelease;
+	u32_le btnMake;
+	u32_le btnBreak;
+	u32_le btnPress;
+	u32_le btnRelease;
 };
 
 

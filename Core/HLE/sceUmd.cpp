@@ -47,8 +47,8 @@ static int umdStatChangeEvent = -1;
 static std::vector<UmdWaitingThread> umdWaitingThreads;
 
 struct PspUmdInfo {
-	u32 size;
-	u32 type;
+	u32_le size;
+	u32_le type;
 };
 
 void __UmdStatTimeout(u64 userdata, int cyclesLate);
@@ -146,13 +146,12 @@ u32 sceUmdGetDiscInfo(u32 infoAddr)
 	DEBUG_LOG(HLE, "sceUmdGetDiscInfo(%08x)", infoAddr);
 
 	if (Memory::IsValidAddress(infoAddr)) {
-		PspUmdInfo info;
-		Memory::ReadStruct(infoAddr, &info);
-		if (info.size != 8)
+		PSPPointer<PspUmdInfo> info;
+		info = infoAddr;
+		if (info->size != 8)
 			return PSP_ERROR_UMD_INVALID_PARAM;
 
-		info.type = PSP_UMD_TYPE_GAME;
-		Memory::WriteStruct(infoAddr, &info);
+		info->type = PSP_UMD_TYPE_GAME;
 		return 0;
 	} else
 		return PSP_ERROR_UMD_INVALID_PARAM;

@@ -56,7 +56,7 @@ int PSPSaveDialog::Init(int paramAddr)
 	u32 retval = param.SetPspParam(&request);
 
 	INFO_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
-	INFO_LOG(HLE,"Mode: %i", param.GetPspParam()->mode);
+	INFO_LOG(HLE,"Mode: %i", (SceUtilitySavedataType)param.GetPspParam()->mode);
 
 	yesnoChoice = 1;
 	switch (param.GetPspParam()->focus)
@@ -164,7 +164,7 @@ int PSPSaveDialog::Init(int paramAddr)
 			break;
 		default:
 		{
-			ERROR_LOG_REPORT(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			ERROR_LOG_REPORT(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", (SceUtilitySavedataType)param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->common.result = 0;
 			status = SCE_UTILITY_STATUS_INITIALIZE;
 			display = DS_NONE;

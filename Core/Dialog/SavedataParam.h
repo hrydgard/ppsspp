@@ -21,6 +21,8 @@
 #include "Core/HLE/sceRtc.h"
 #include "Core/System.h"
 #include "Core/Dialog/PSPDialog.h"
+#include "Common/CommonTypes.h"
+
 #undef st_ctime
 #undef st_atime
 #undef st_mtime
@@ -65,6 +67,13 @@ enum SceUtilitySavedataFocus
 	SCE_UTILITY_SAVEDATA_FOCUS_LASTEMPTY  = 8, // last empty (what if no empty?)
 };
 
+#if COMMON_LITTLE_ENDIAN
+typedef SceUtilitySavedataType SceUtilitySavedataType_le;
+typedef SceUtilitySavedataFocus SceUtilitySavedataFocus_le;
+#else
+#error FIX ME
+#endif
+
 typedef char SceUtilitySavedataSaveName[20];
 
 // title, savedataTitle, detail: parts of the unencrypted SFO
@@ -80,34 +89,34 @@ struct PspUtilitySavedataSFOParam
 
 struct PspUtilitySavedataFileData {
 	PSPPointer<u8> buf;
-	SceSize bufSize;  // Size of the buffer pointed to by buf
-	SceSize size;	    // Actual file size to write / was read
-	int unknown;
+	SceSize_le bufSize;     // Size of the buffer pointed to by buf
+	SceSize_le size;        // Actual file size to write / was read
+	s32_le unknown;
 };
 
 struct PspUtilitySavedataSizeEntry {
-	u64 size;
+	u64_le size;
 	char name[16];
 };
 
 struct PspUtilitySavedataSizeInfo {
-	int numSecureEntries;
-	int numNormalEntries;
+	s32_le numSecureEntries;
+	s32_le numNormalEntries;
 	PSPPointer<PspUtilitySavedataSizeEntry> secureEntries;
 	PSPPointer<PspUtilitySavedataSizeEntry> normalEntries;
-	int sectorSize;
-	int freeSectors;
-	int freeKB;
+	s32_le sectorSize;
+	s32_le freeSectors;
+	s32_le freeKB;
 	char freeString[8];
-	int neededKB;
+	s32_le neededKB;
 	char neededString[8];
-	int overwriteKB;
+	s32_le overwriteKB;
 	char overwriteString[8];
 };
 
 struct SceUtilitySavedataIdListEntry
 {
-	int st_mode;
+	s32_le st_mode;
 	ScePspDateTime st_ctime;
 	ScePspDateTime st_atime;
 	ScePspDateTime st_mtime;
@@ -116,15 +125,15 @@ struct SceUtilitySavedataIdListEntry
 
 struct SceUtilitySavedataIdListInfo
 {
-	int maxCount;
-	int resultCount;
+	s32_le maxCount;
+	s32_le resultCount;
 	PSPPointer<SceUtilitySavedataIdListEntry> entries;
 };
 
 struct SceUtilitySavedataFileListEntry
 {
-	int st_mode;
-	u64 st_size;
+	s32_le st_mode;
+	u64_le st_size;
 	ScePspDateTime st_ctime;
 	ScePspDateTime st_atime;
 	ScePspDateTime st_mtime;
@@ -133,12 +142,12 @@ struct SceUtilitySavedataFileListEntry
 
 struct SceUtilitySavedataFileListInfo
 {
-	u32 maxSecureEntries;
-	u32 maxNormalEntries;
-	u32 maxSystemEntries;
-	u32 resultNumSecureEntries;
-	u32 resultNumNormalEntries;
-	u32 resultNumSystemEntries;
+	u32_le maxSecureEntries;
+	u32_le maxNormalEntries;
+	u32_le maxSystemEntries;
+	u32_le resultNumSecureEntries;
+	u32_le resultNumNormalEntries;
+	u32_le resultNumSystemEntries;
 	PSPPointer<SceUtilitySavedataFileListEntry> secureEntries;
 	PSPPointer<SceUtilitySavedataFileListEntry> normalEntries;
 	PSPPointer<SceUtilitySavedataFileListEntry> systemEntries;
@@ -146,18 +155,18 @@ struct SceUtilitySavedataFileListInfo
 
 struct SceUtilitySavedataMsFreeInfo
 {
-	int clusterSize;
-	int freeClusters;
-	int freeSpaceKB;
+	s32_le clusterSize;
+	s32_le freeClusters;
+	s32_le freeSpaceKB;
 	char freeSpaceStr[8];
 };
 
 struct SceUtilitySavedataUsedDataInfo
 {
-	int usedClusters;
-	int usedSpaceKB;
+	s32_le usedClusters;
+	s32_le usedSpaceKB;
 	char usedSpaceStr[8];
-	int usedSpace32KB;
+	s32_le usedSpace32KB;
 	char usedSpace32Str[8];
 };
 
@@ -174,10 +183,10 @@ struct SceUtilitySavedataParam
 {
 	pspUtilityDialogCommon common;
 
-	int mode;  // 0 to load, 1 to save
-	int bind;
+	SceUtilitySavedataType_le mode;  // 0 to load, 1 to save
+	s32_le bind;
 
-	int overwriteMode;   // use 0x10  ?
+	s32_le overwriteMode;   // use 0x10  ?
 
 	/** gameName: name used from the game for saves, equal for all saves */
 	char gameName[13];
@@ -192,8 +201,8 @@ struct SceUtilitySavedataParam
 	/** pointer to a buffer that will contain data file unencrypted data */
 	PSPPointer<u8> dataBuf;
 	/** size of allocated space to dataBuf */
-	SceSize dataBufSize;
-	SceSize dataSize;  // Size of the actual save data
+	SceSize_le dataBufSize;
+	SceSize_le dataSize;  // Size of the actual save data
 
 	PspUtilitySavedataSFOParam sfoParam;
 
@@ -203,8 +212,8 @@ struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData snd0FileData;
 
 	PSPPointer<PspUtilitySavedataFileData> newData;
-	int focus;
-	int abortStatus;
+	SceUtilitySavedataFocus_le focus;
+	s32_le abortStatus;
 
 	// Function SCE_UTILITY_SAVEDATA_TYPE_SIZES
 	PSPPointer<SceUtilitySavedataMsFreeInfo> msFree;
@@ -213,8 +222,8 @@ struct SceUtilitySavedataParam
 
 	u8 key[16];
 
-	int secureVersion;
-	int multiStatus;
+	s32_le secureVersion;
+	s32_le multiStatus;
 
 	// Function 11 LIST
 	PSPPointer<SceUtilitySavedataIdListInfo> idList;

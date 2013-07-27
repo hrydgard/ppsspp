@@ -78,17 +78,17 @@ struct SceMpegAu {
 // As native in PSP ram
 struct SceMpegRingBuffer {
 	// PSP info
-  int packets;
-  int packetsRead;
-  int packetsWritten;
-  int packetsFree; // pspsdk: unk2, noxa: iUnk0
-  int packetSize; // 2048
-  int data; // address, ring buffer
-  u32 callback_addr; // see sceMpegRingbufferPut
-  int callback_args;
-  int dataUpperBound;
-  int semaID; // unused?
-  u32 mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
+	s32_le packets;
+	s32_le packetsRead;
+	s32_le packetsWritten;
+	s32_le packetsFree; // pspsdk: unk2, noxa: iUnk0
+	s32_le packetSize; // 2048
+	s32_le data; // address, ring buffer
+	u32_le callback_addr; // see sceMpegRingbufferPut
+	s32_le callback_args;
+	s32_le dataUpperBound;
+	s32_le semaID; // unused?
+	u32_le mpeg; // pointer to mpeg struct, fixed up in sceMpegCreate
 };
 
 void __MpegInit();
