@@ -219,7 +219,6 @@ public:
 	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 normal);
 
 private:
-	bool disabled_;
 	Color4 globalAmbient;
 	Color4 materialEmissive;
 	Color4 materialAmbient;

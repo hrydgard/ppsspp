@@ -1261,7 +1261,7 @@ u32 AllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 			WARN_LOG(HLE, "AllockMemoryBlock(SysMemUserForUser_FE707FDF) : unknown parameters with length %d", length);
 		}
 	}
-	if (type < 0 || type > 1) {
+	if (type > 1) {
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE;
 	}
 

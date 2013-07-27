@@ -210,7 +210,7 @@ class VertexReader
 public:
 	VertexReader(u8 *base, const DecVtxFormat &decFmt, int vtype) : base_(base), data_(base), decFmt_(decFmt), vtype_(vtype) {}
 
-	void ReadPos(float pos[3]) {
+	void ReadPos(float pos[3]) const {
 		switch (decFmt_.posfmt) {
 		case DEC_FLOAT_3:
 			{
@@ -259,7 +259,7 @@ public:
 		}
 	}
 
-	void ReadNrm(float nrm[3]) {
+	void ReadNrm(float nrm[3]) const {
 		switch (decFmt_.nrmfmt) {
 		case DEC_FLOAT_3:
 			//memcpy(nrm, data_ + decFmt_.nrmoff, 12);
@@ -290,7 +290,7 @@ public:
 		}
 	}
 
-	void ReadUV(float uv[2]) {
+	void ReadUV(float uv[2]) const {
 		switch (decFmt_.uvfmt) {
 		case DEC_U8_2:
 			{
@@ -330,7 +330,7 @@ public:
 		}
 	}
 
-	void ReadColor0(float color[4]) {
+	void ReadColor0(float color[4]) const {
 		switch (decFmt_.c0fmt) {
 		case DEC_U8_4:
 			{
@@ -349,7 +349,7 @@ public:
 		}
 	}
 
-	void ReadColor1(float color[3]) {
+	void ReadColor1(float color[3]) const {
 		switch (decFmt_.c1fmt) {
 		case DEC_U8_4:
 			{
@@ -368,7 +368,7 @@ public:
 		}
 	}
 
-	void ReadWeights(float weights[8]) {
+	void ReadWeights(float weights[8]) const {
 		const float *f = (const float *)(data_ + decFmt_.w0off);
 		const u8 *b = (const u8 *)(data_ + decFmt_.w0off);
 		const u16 *s = (const u16 *)(data_ + decFmt_.w0off);

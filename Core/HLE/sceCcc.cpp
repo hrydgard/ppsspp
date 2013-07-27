@@ -336,7 +336,7 @@ u32 sceCccEncodeSJIS(u32 dstAddrAddr, u32 jis)
 	return dstp->ptr;
 }
 
-int sceCccDecodeUTF8(u32 dstAddrAddr)
+u32 sceCccDecodeUTF8(u32 dstAddrAddr)
 {
 	PSPPointer<PSPCharPointer> dstp;
 	dstp = dstAddrAddr;
@@ -349,7 +349,7 @@ int sceCccDecodeUTF8(u32 dstAddrAddr)
 
 	DEBUG_LOG(HLE, "sceCccDecodeUTF8(%08x)", dstAddrAddr);
 	UTF8 utf(*dstp);
-	int result = utf.next();
+	u32 result = utf.next();
 	*dstp += utf.byteIndex();
 
 	if (result == UTF8::INVALID)
@@ -357,7 +357,7 @@ int sceCccDecodeUTF8(u32 dstAddrAddr)
 	return result;
 }
 
-int sceCccDecodeUTF16(u32 dstAddrAddr)
+u32 sceCccDecodeUTF16(u32 dstAddrAddr)
 {
 	PSPPointer<PSPWCharPointer> dstp;
 	dstp = dstAddrAddr;
@@ -371,7 +371,7 @@ int sceCccDecodeUTF16(u32 dstAddrAddr)
 	DEBUG_LOG(HLE, "sceCccDecodeUTF16(%08x)", dstAddrAddr);
 	// TODO: Does it do any detection of BOM?
 	UTF16LE utf(*dstp);
-	int result = utf.next();
+	u32 result = utf.next();
 	*dstp += utf.byteIndex();
 
 	if (result == UTF16LE::INVALID)
@@ -379,7 +379,7 @@ int sceCccDecodeUTF16(u32 dstAddrAddr)
 	return result;
 }
 
-int sceCccDecodeSJIS(u32 dstAddrAddr)
+u32 sceCccDecodeSJIS(u32 dstAddrAddr)
 {
 	PSPPointer<PSPCharPointer> dstp;
 	dstp = dstAddrAddr;
@@ -392,7 +392,7 @@ int sceCccDecodeSJIS(u32 dstAddrAddr)
 
 	DEBUG_LOG(HLE, "sceCccDecodeSJIS(%08x)", dstAddrAddr);
 	ShiftJIS sjis(*dstp);
-	int result = sjis.next();
+	u32 result = sjis.next();
 	*dstp += sjis.byteIndex();
 
 	if (result == ShiftJIS::INVALID)
@@ -503,9 +503,9 @@ const HLEFunction sceCcc[] =
 	{0x92C05851, WrapU_UU<sceCccEncodeUTF8>, "sceCccEncodeUTF8"},
 	{0x8406F469, WrapV_UU<sceCccEncodeUTF16>, "sceCccEncodeUTF16"},
 	{0x068c4320, WrapU_UU<sceCccEncodeSJIS>, "sceCccEncodeSJIS"},
-	{0xc6a8bee2, WrapI_U<sceCccDecodeUTF8>, "sceCccDecodeUTF8"},
-	{0xe0cf8091, WrapI_U<sceCccDecodeUTF16>, "sceCccDecodeUTF16"},
-	{0x953e6c10, WrapI_U<sceCccDecodeSJIS>, "sceCccDecodeSJIS"},
+	{0xc6a8bee2, WrapU_U<sceCccDecodeUTF8>, "sceCccDecodeUTF8"},
+	{0xe0cf8091, WrapU_U<sceCccDecodeUTF16>, "sceCccDecodeUTF16"},
+	{0x953e6c10, WrapU_U<sceCccDecodeSJIS>, "sceCccDecodeSJIS"},
 	{0x90521ac5, WrapI_U<sceCccIsValidUTF8>, "sceCccIsValidUTF8"},
 	{0xcc0a8bda, WrapI_U<sceCccIsValidUTF16>, "sceCccIsValidUTF16"},
 	{0x67bf0d19, WrapI_U<sceCccIsValidSJIS>, "sceCccIsValidSJIS"},

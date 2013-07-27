@@ -1734,11 +1734,6 @@ int sceAtracSetAA3HalfwayBufferAndGetID(u32 halfBuffer, u32 readSize, u32 halfBu
 		return ATRAC_ERROR_INCORRECT_READ_SIZE;
 	}
 
-	if (readSize < 0 || halfBufferSize < 0) {
-		ERROR_LOG_REPORT(HLE, "sceAtracSetAA3HalfwayBufferAndGetID(%08x, %08x, %08x): invalid buffer size", halfBuffer, readSize, halfBufferSize);
-		return -1;
-	}
-
 	int codecType = getCodecType(halfBuffer);
 	Atrac *atrac = new Atrac();
 	atrac->first.addr = halfBuffer;

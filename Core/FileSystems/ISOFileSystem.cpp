@@ -641,7 +641,7 @@ void ISOFileSystem::DoState(PointerWrap &p)
 			p.Do(of.sectorStart);
 			p.Do(of.openSize);
 
-			bool hasFile;
+			bool hasFile = false;
 			p.Do(hasFile);
 			if (hasFile) {
 				std::string path;
