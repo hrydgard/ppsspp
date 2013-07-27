@@ -590,7 +590,7 @@ int MediaEngine::getAudioSamples(u8* buffer) {
 	}
 	int outbytes = 0;
 
-	if(m_audioContext != nullptr)
+	if(m_audioContext != NULL)
 		Atrac3plus_Decoder::Decode(m_audioContext, audioFrame, frameSize, &outbytes, buffer);
 
 	if (headerCode1 == 0x24) {
