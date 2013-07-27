@@ -54,12 +54,11 @@
 
 
 EmuScreen::EmuScreen(const std::string &filename)
-	: gamePath_(filename), invalid_(true), pauseTrigger_(false) {
-
-	bootGame(filename);
+	: booted_(false), gamePath_(filename), invalid_(true), pauseTrigger_(false) {
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
+	booted_ = true;
 	std::string fileToStart = filename;
 	// This is probably where we should start up the emulated PSP.
 	INFO_LOG(BOOT, "Starting up hardware.");
@@ -398,6 +397,9 @@ void EmuScreen::CreateViews() {
 }
 
 void EmuScreen::update(InputState &input) {
+	if (!booted_)
+		bootGame(gamePath_);
+
 	UIScreen::update(input);
 
 	// Simply forcibily update to the current screen size every frame. Doesn't cost much.

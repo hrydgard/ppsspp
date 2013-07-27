@@ -52,6 +52,7 @@ private:
 	void setVKeyAnalogX(int stick, int virtualKeyMin, int virtualKeyMax);
 	void setVKeyAnalogY(int stick, int virtualKeyMin, int virtualKeyMax);
 
+	bool booted_;
 	std::string gamePath_;
 	// Something invalid was loaded, don't try to emulate
 	bool invalid_;
