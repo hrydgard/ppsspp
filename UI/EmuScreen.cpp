@@ -198,7 +198,8 @@ inline float clamp1(float x) {
 }
 
 void EmuScreen::touch(const TouchInput &touch) {
-	root_->Touch(touch);
+	if (root_)
+		root_->Touch(touch);
 }
 
 void EmuScreen::onVKeyDown(int virtualKeyCode) {
@@ -496,9 +497,10 @@ void EmuScreen::render() {
 
 	float touchOpacity = g_Config.iTouchButtonOpacity / 100.0f;
 
-	UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
-	root_->Draw(*screenManager()->getUIContext());
-
+	if (root_) {
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
+		root_->Draw(*screenManager()->getUIContext());
+	}
 	DrawWatermark();
 
 	if (!osm.IsEmpty()) {
