@@ -103,6 +103,9 @@ static VertexData ReadVertex(VertexReader& vreader)
 		float normal[3];
 		vreader.ReadNrm(normal);
 		vertex.normal = Vec3<float>(normal[0], normal[1], normal[2]);
+
+		if (gstate.reversenormals & 1)
+			vertex.normal = -vertex.normal;
 	}
 
 	if (gstate.isSkinningEnabled() && !gstate.isModeThrough()) {
