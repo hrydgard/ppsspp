@@ -29,12 +29,12 @@
 // TODO : improve, look in the file more
 EmuFileType Identify_File(std::string &filename)
 {
-	if (filename.size() < 5) {
+	if (filename.size() == 0) {
 		ERROR_LOG(LOADER, "invalid filename %s", filename.c_str());
 		return FILETYPE_ERROR;
 	}
 
-	std::string extension = filename.substr(filename.size() - 4);
+	std::string extension = filename.size() >= 5 ? filename.substr(filename.size() - 4) : "";
 	if (!strcasecmp(extension.c_str(),".iso"))
 	{
 		return FILETYPE_PSP_ISO;

@@ -548,5 +548,6 @@ void EmuScreen::render() {
 
 void EmuScreen::deviceLost() {
 	ILOG("EmuScreen::deviceLost()");
-	gpu->DeviceLost();
+	if (gpu)
+		gpu->DeviceLost();
 }
