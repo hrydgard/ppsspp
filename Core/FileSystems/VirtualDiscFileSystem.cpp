@@ -45,6 +45,7 @@ VirtualDiscFileSystem::VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::str
 #endif
 
 	hAlloc = _hAlloc;
+	LoadFileListIndex();
 }
 
 VirtualDiscFileSystem::~VirtualDiscFileSystem() {
@@ -52,6 +53,65 @@ VirtualDiscFileSystem::~VirtualDiscFileSystem() {
 		if (iter->second.type != VFILETYPE_ISO)
 			iter->second.hFile.Close();
 	}
+}
+
+void VirtualDiscFileSystem::LoadFileListIndex() {
+	const std::string filename = basePath + ".ppsspp-index.ini";
+	if (!File::Exists(filename)) {
+		return;
+	}
+
+	std::ifstream in;
+	in.open(filename, std::ios::in);
+	if (in.fail()) {
+		return;
+	}
+
+	std::string line;
+	static const int MAX_LINE_SIZE = 1024;
+	while (!in.eof()) {
+		line.resize(MAX_LINE_SIZE, '\0');
+		in.getline(&line[0], MAX_LINE_SIZE);
+
+		// Ignore any UTF-8 BOM.
+		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
+			line = line.substr(3);
+		}
+
+		if (strlen(line.data()) < 1 || line[0] == ';') {
+			continue;
+		}
+
+		FileListEntry entry;
+
+		// Syntax: HEXPOS filename or HEXPOS filename:handler
+		size_t filename_pos = line.find(' ');
+		if (filename_pos == line.npos) {
+			ERROR_LOG(HLE, "Unexpected line in .ppsspp-index.ini: %s", line.c_str());
+			continue;
+		}
+
+		// Check if there's a handler specified.
+		size_t handler_pos = line.find(':', filename_pos);
+		if (handler_pos != line.npos) {
+			entry.fileName = line.substr(filename_pos + 1, handler_pos - filename_pos);
+			// TODO: Implement handler.
+		} else {
+			entry.fileName = line.substr(filename_pos + 1);
+		}
+
+		entry.firstBlock = strtol(line.c_str(), NULL, 16);
+		entry.totalSize = File::GetSize(GetLocalPath(entry.fileName));
+
+		// Try to keep currentBlockIndex sane, in case there are other files.
+		u32 nextBlock = entry.firstBlock + (entry.totalSize + 2047) / 2048;
+		if (nextBlock > currentBlockIndex)
+			currentBlockIndex = nextBlock;
+
+		fileList.push_back(entry);
+	}
+
+	in.close();
 }
 
 void VirtualDiscFileSystem::DoState(PointerWrap &p)

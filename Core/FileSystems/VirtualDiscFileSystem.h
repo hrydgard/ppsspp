@@ -48,6 +48,7 @@ public:
 	bool RemoveFile(const std::string &filename);
 
 private:
+	void LoadFileListIndex();
 	int getFileListIndex(std::string& fileName);
 	int getFileListIndex(u32 accessBlock, u32 accessSize);
 	std::string GetLocalPath(std::string localpath);
