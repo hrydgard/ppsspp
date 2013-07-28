@@ -20,6 +20,7 @@
 #include "FileSystems/BlockDevices.h"
 #include "FileSystems/DirectoryFileSystem.h"
 #include "FileSystems/ISOFileSystem.h"
+#include "FileSystems/VirtualDiscFileSystem.h"
 
 #include "MemMap.h"
 

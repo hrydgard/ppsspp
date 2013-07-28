@@ -448,6 +448,9 @@
     <ClCompile Include="MIPS\MIPSAsm.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="FileSystems\VirtualDiscFileSystem.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -830,6 +833,9 @@
     </ClInclude>
     <ClInclude Include="MIPS\MIPSAsm.h">
       <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSystems\VirtualDiscFileSystem.h">
+      <Filter>FileSystems</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

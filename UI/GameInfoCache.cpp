@@ -27,6 +27,7 @@
 #include "GameInfoCache.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/System.h"
 
