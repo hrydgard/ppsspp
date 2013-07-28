@@ -6,8 +6,8 @@ namespace MIPSAsm
 typedef struct {
 	char* name;
 	char* encoding;
-	int destencoding;
-	int flags;
+	unsigned int destencoding;
+	unsigned int flags;
 } tMipsOpcode;
 
 typedef struct {
