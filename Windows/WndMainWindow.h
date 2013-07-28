@@ -7,6 +7,10 @@
 
 namespace MainWindow
 {
+	enum {
+		WM_USER_SAVESTATE_FINISH = WM_USER + 100,
+		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200,
+	};
 	void Init(HINSTANCE hInstance);
 	BOOL Show(HINSTANCE hInstance, int nCmdShow);
 	void Close();
