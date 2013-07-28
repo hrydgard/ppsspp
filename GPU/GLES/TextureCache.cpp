@@ -173,16 +173,25 @@ TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
 
 void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer) {
 	// Must be in VRAM so | 0x04000000 it is.
-	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
-	if (entry) {
-		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer) {
-			entry->framebuffer = framebuffer;
-			// TODO: Delete the original non-fbo texture too.
-		}	else {
-			// Force a re-bind, fixes map in Tactics Ogre.
-			glBindTexture(GL_TEXTURE_2D, 0);
-			lastBoundTexture = -1;
+	const u64 cacheKey = (u64)(address | 0x04000000) << 32;
+	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
+	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
+	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height) << 32);
+
+	for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+		auto entry = &it->second;
+
+		// If they match exactly, it's non-CLUT and from the top left.
+		if (it->first == cacheKey) {
+			DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
+			if (!entry->framebuffer) {
+				entry->framebuffer = framebuffer;
+				// TODO: Delete the original non-fbo texture too.
+			} else {
+				// Force a re-bind, fixes map in Tactics Ogre.
+				glBindTexture(GL_TEXTURE_2D, 0);
+				lastBoundTexture = -1;
+			}
 		}
 	}
 }
