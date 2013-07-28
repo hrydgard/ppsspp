@@ -372,6 +372,40 @@ void Jit::Comp_VVectorInit(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
+
+
+void Jit::Comp_VIdt(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	int vd = _VD;
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+	XORPS(XMM0, R(XMM0));
+	MOVSS(XMM1, M((void *) &one));
+	u8 dregs[4];
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+	fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+	switch (sz)
+	{
+	case V_Pair:
+		MOVSS(fpr.VX(dregs[0]), R((vd&1)==0 ? XMM1 : XMM0));
+		MOVSS(fpr.VX(dregs[1]), R((vd&1)==1 ? XMM1 : XMM0));
+		break;
+	case V_Quad:
+		MOVSS(fpr.VX(dregs[0]), R((vd&3)==0 ? XMM1 : XMM0));
+		MOVSS(fpr.VX(dregs[1]), R((vd&3)==1 ? XMM1 : XMM0));
+		MOVSS(fpr.VX(dregs[2]), R((vd&3)==2 ? XMM1 : XMM0));
+		MOVSS(fpr.VX(dregs[3]), R((vd&3)==3 ? XMM1 : XMM0));
+		break;
+	default:
+		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		break;
+	}
+	ApplyPrefixD(dregs, sz);
+	fpr.ReleaseSpillLocks();
+}
+
+
 void Jit::Comp_VDot(u32 op) {
 	CONDITIONAL_DISABLE;
 
@@ -395,8 +429,9 @@ void Jit::Comp_VDot(u32 op) {
 	}
 
 	// Need to start with +0.0f so it doesn't result in -0.0f.
-	XORPS(tempxreg, R(tempxreg));
-	for (int i = 0; i < n; i++)
+	MOVSS(tempxreg, fpr.V(sregs[0]));
+	MULSS(tempxreg, fpr.V(tregs[0]));
+	for (int i = 1; i < n; i++)
 	{
 		// sum += s[i]*t[i];
 		MOVSS(XMM1, fpr.V(sregs[i]));
@@ -1060,10 +1095,10 @@ void Jit::Comp_Vtfm(u32 op) {
 
 	// TODO: test overlap, optimize.
 	u8 tempregs[4];
-	for (int i = 0; i < n; i++)
-	{
-		XORPS(XMM0, R(XMM0));
-		for (int k = 0; k < n; k++)
+	for (int i = 0; i < n; i++) {
+		MOVSS(XMM0, fpr.V(sregs[i * 4]));
+		MULSS(XMM0, fpr.V(tregs[0]));
+		for (int k = 1; k < n; k++)
 		{
 			MOVSS(XMM1, fpr.V(sregs[i * 4 + k]));
 			if (!homogenous || k != n - 1)
@@ -1077,8 +1112,7 @@ void Jit::Comp_Vtfm(u32 op) {
 		fpr.StoreFromRegisterV(temp);
 		tempregs[i] = temp;
 	}
-	for (int i = 0; i < n; i++)
-	{
+	for (int i = 0; i < n; i++) {
 		u8 temp = tempregs[i];
 		fpr.MapRegV(temp, 0);
 		MOVSS(fpr.V(dregs[i]), fpr.VX(temp));
@@ -1116,4 +1150,7 @@ void Jit::Comp_Vhoriz(u32 op) {
 	DISABLE;
 }
 
+void Jit::Comp_VRot(u32 op) {
+	DISABLE;
+}
 }

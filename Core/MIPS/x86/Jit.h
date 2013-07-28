@@ -221,6 +221,8 @@ public:
 	void Comp_Vi2f(u32 op);
 	void Comp_Vcst(u32 op);
 	void Comp_Vhoriz(u32 op);
+	void Comp_VRot(u32 op);
+	void Comp_VIdt(u32 op);
 
 	void Comp_DoNothing(u32 op);
 

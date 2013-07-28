@@ -585,7 +585,7 @@ const MIPSInstruction tableVFPU4[32] =  //110100 00000 xxxxx
 	INSTR("vmov", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op,IS_VFPU|OUT_EAT_PREFIX), 
 	INSTR("vabs", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op,IS_VFPU|OUT_EAT_PREFIX), 
 	INSTR("vneg", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op,IS_VFPU|OUT_EAT_PREFIX), 
-	INSTR("vidt", &Jit::Comp_Generic, Dis_VectorSet1, Int_Vidt,IS_VFPU|OUT_EAT_PREFIX), 
+	INSTR("vidt", &Jit::Comp_VIdt, Dis_VectorSet1, Int_Vidt,IS_VFPU|OUT_EAT_PREFIX), 
 	INSTR("vsat0", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vsat1", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vzero", &Jit::Comp_VVectorInit, Dis_VectorSet1, Int_VVectorInit, IS_VFPU|OUT_EAT_PREFIX),
@@ -662,7 +662,7 @@ const MIPSInstruction tableVFPU6[32] =  //111100 xxx
 	{-2},
 
 	{VFPUMatrix1},
-	INSTR("vrot",&Jit::Comp_Generic, Dis_VRot, Int_Vrot, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vrot",&Jit::Comp_VRot, Dis_VRot, Int_Vrot, IS_VFPU|OUT_EAT_PREFIX),
 	{-2},
 	{-2},
 };

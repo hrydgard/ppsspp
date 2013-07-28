@@ -104,6 +104,8 @@ public:
 
 	void MapRegV(int vreg, int flags = 0);
 
+	void LoadToRegV(ARMReg armReg, int vreg);
+
 	// NOTE: These require you to release spill locks manually!
 	void MapRegsV(int vec, VectorSize vsz, int flags);
 	void MapRegsV(const u8 *v, VectorSize vsz, int flags);

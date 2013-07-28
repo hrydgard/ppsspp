@@ -45,7 +45,7 @@ namespace MIPSComp
 {
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
-	bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
+	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
 	{
 		for (int i = 0; i < sn; ++i)
 		{
@@ -62,7 +62,7 @@ namespace MIPSComp
 		return true;
 	}
 
-	bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
+	static bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] = NULL)
 	{
 		return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 	}
@@ -431,9 +431,87 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocks();
 	}
 
+	void Jit::Comp_VIdt(u32 op) {
+		CONDITIONAL_DISABLE
+
+		// WARNING: No prefix support!
+		if (js.MayHavePrefix()) {
+			DISABLE;
+		}
+
+		int vd = _VD;
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		MOVI2F(S0, 0.0f, R0);
+		MOVI2F(S1, 1.0f, R0);
+		u8 dregs[4];
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+		fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+		switch (sz)
+		{
+		case V_Pair:
+			VMOV(fpr.V(dregs[0]), (vd&1)==0 ? S1 : S0);
+			VMOV(fpr.V(dregs[1]), (vd&1)==1 ? S1 : S0);
+			break;
+		case V_Quad:
+			VMOV(fpr.V(dregs[0]), (vd&3)==0 ? S1 : S0);
+			VMOV(fpr.V(dregs[1]), (vd&3)==1 ? S1 : S0);
+			VMOV(fpr.V(dregs[2]), (vd&3)==2 ? S1 : S0);
+			VMOV(fpr.V(dregs[3]), (vd&3)==3 ? S1 : S0);
+			break;
+		default:
+			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			break;
+		}
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
+	}
+
 	void Jit::Comp_VMatrixInit(u32 op)
 	{
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		MatrixSize sz = GetMtxSize(op);
+		int n = GetMatrixSide(sz);
+
+		u8 dregs[16];
+		GetMatrixRegs(dregs, sz, _VD);
+
+		switch ((op >> 16) & 0xF) {
+		case 3: // vmidt
+			MOVI2F(S0, 0.0f, R0);
+			MOVI2F(S1, 1.0f, R0);
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					fpr.MapRegV(dregs[a * 4 + b], MAP_DIRTY | MAP_NOINIT);
+					VMOV(fpr.V(dregs[a * 4 + b]), a == b ? S1 : S0);
+				}
+			}
+			break;
+		case 6: // vmzero
+			MOVI2F(S0, 0.0f, R0);
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					fpr.MapRegV(dregs[a * 4 + b], MAP_DIRTY | MAP_NOINIT);
+					VMOV(fpr.V(dregs[a * 4 + b]), S0);
+				}
+			}
+			break;
+		case 7: // vmone
+			MOVI2F(S1, 1.0f, R0);
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					fpr.MapRegV(dregs[a * 4 + b], MAP_DIRTY | MAP_NOINIT);
+					VMOV(fpr.V(dregs[a * 4 + b]), S1);
+				}
+			}
+			break;
+		}
+
+		fpr.ReleaseSpillLocks();
 	}
 
 	void Jit::Comp_VDot(u32 op)
@@ -442,9 +520,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		// WARNING: No prefix support!
 		if (js.MayHavePrefix()) {
-			Comp_Generic(op);
-			js.EatPrefix();
-			return;
+			DISABLE;
 		}
 
 		int vd = _VD;
@@ -484,11 +560,8 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		DISABLE;
 		// WARNING: No prefix support!
-		if (js.MayHavePrefix())
-		{
-			Comp_Generic(op);
-			js.EatPrefix();
-			return;
+		if (js.MayHavePrefix()) {
+			DISABLE;
 		}
 
 		int vd = _VD;
@@ -520,6 +593,7 @@ namespace MIPSComp
 				break;
 			}
 			break;
+			// Unfortunately there is no VMIN/VMAX on ARM without NEON.
 		}
 
 		if (!triop) {
@@ -536,29 +610,25 @@ namespace MIPSComp
 
 		MIPSReg tempregs[4];
 		for (int i = 0; i < n; i++) {
-			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs, n, tregs)) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs, n, tregs)) {
 				tempregs[i] = fpr.GetTempV();
+				fpr.MapRegV(tempregs[i], MAP_DIRTY | MAP_NOINIT);
 			} else {
-				fpr.MapRegV(dregs[i], (dregs[i] == sregs[i] || dregs[i] == tregs[i] ? 0 : MAP_NOINIT) | MAP_DIRTY);
+				fpr.SpillLockV(dregs[i]);
+				fpr.MapRegV(dregs[i], MAP_DIRTY);
 				tempregs[i] = dregs[i];
 			}
 		}
 
 		for (int i = 0; i < n; i++) {
-			fpr.SpillLockV(sregs[i]);
-			fpr.SpillLockV(tregs[i]);
-			fpr.MapRegV(sregs[i]);
-			fpr.MapRegV(tregs[i]);
-			fpr.MapRegV(tempregs[i]);
+			fpr.MapInInV(sregs[i], tregs[i]);
 			(this->*triop)(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
-			fpr.ReleaseSpillLockV(sregs[i]);
-			fpr.ReleaseSpillLockV(tregs[i]);
 		}
 
-		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
 		for (int i = 0; i < n; i++) {
-			if (dregs[i] != tempregs[i])
+			if (dregs[i] != tempregs[i]) {
 				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
 		}
 		ApplyPrefixD(dregs, sz);
 		
@@ -609,6 +679,7 @@ namespace MIPSComp
 		// Helps for vmov, hurts for vrcp, etc.
 		for (int i = 0; i < n; ++i)
 		{
+			fpr.MapRegV(sregs[i]);
 			switch ((op >> 16) & 0x1f)
 			{
 			case 0: // d[i] = s[i]; break; //vmov
@@ -625,17 +696,17 @@ namespace MIPSComp
 			case 4: // if (s[i] < 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 				MOVI2F(S0, 0.5f, R0);
 				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
-				VSUB(fpr.V(tempxregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-0.5f) {VABD}
-				VABS(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]));
-				VSUB(fpr.V(tempxregs[i]), S1, fpr.V(tempxregs[i])); // v[i] = S1 - S2 + 0.5f
-				VADD(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]), S0);
+				VSUB(tempxregs[i], fpr.V(sregs[i]), S0);     // S2 = fabs(x-0.5f) {VABD}
+				VABS(tempxregs[i], tempxregs[i]);
+				VSUB(tempxregs[i], S1, fpr.V(tempxregs[i])); // v[i] = S1 - S2 + 0.5f
+				VADD(tempxregs[i], tempxregs[i], S0);
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 				MOVI2F(S0, 1.0f, R0);
 				VABS(S1, fpr.V(sregs[i]));                          // S1 = fabs(x)
-				VSUB(fpr.V(tempxregs[i]), fpr.V(sregs[i]), S0);     // S2 = fabs(x-1.0f) {VABD}
-				VABS(fpr.V(tempxregs[i]), fpr.V(tempxregs[i]));
-				VSUB(fpr.V(tempxregs[i]), S1, fpr.V(tempxregs[i])); // v[i] = S1 - S2
+				VSUB(tempxregs[i], fpr.V(sregs[i]), S0);     // S2 = fabs(x-1.0f) {VABD}
+				VABS(tempxregs[i], tempxregs[i]);
+				VSUB(tempxregs[i], S1, tempxregs[i]); // v[i] = S1 - S2
 				break;
 			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
 				MOVI2F(S0, 1.0f, R0);
@@ -747,6 +818,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmtvc(u32 op) {
+		CONDITIONAL_DISABLE;
 		DISABLE;
 
 		int vs = _VS;
@@ -768,14 +840,49 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmmov(u32 op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		// TODO: This probably ignores prefixes?
+		if (js.MayHavePrefix()) {
+			DISABLE;
+		}
+
+		if (_VS == _VD) {
+			// A lot of these in Wipeout...
+			return;	
+		}
+
+		MatrixSize sz = GetMtxSize(op);
+		int n = GetMatrixSide(sz);
+
+		u8 sregs[16], dregs[16];
+		GetMatrixRegs(sregs, sz, _VS);
+		GetMatrixRegs(dregs, sz, _VD);
+
+		// Rough overlap check.
+		bool overlap = false;
+		if (GetMtx(_VS) == GetMtx(_VD)) {
+			// Potential overlap (guaranteed for 3x3 or more).
+			overlap = true;
+		}
+
+		if (overlap) {
+			// Not so common, fallback.
+			DISABLE;
+		} else {
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					fpr.MapDirtyInV(dregs[a * 4 + b], sregs[a * 4 + b]);
+					VMOV(fpr.V(dregs[a * 4 + b]), fpr.V(sregs[a * 4 + b]));
+				}
+			}
+			fpr.ReleaseSpillLocks();
+		}
 	}
 
 	void Jit::Comp_VScl(u32 op) {
-		DISABLE;  // see todo below
-
 		CONDITIONAL_DISABLE;
-
+		DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -788,16 +895,36 @@ namespace MIPSComp
 		GetVectorRegsPrefixT(&scale, V_Single, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
-		// Move to XMM0 early, so we don't have to worry about overlap with scale.
-		fpr.SpillLockV(scale);
-		fpr.MapRegV(scale);
+		// Move to S0 early, so we don't have to worry about overlap with scale.
+		fpr.LoadToRegV(S0, scale);
 
-		// TODO: need temp registers because of prefixD
-		for (int i = 0; i < n; ++i)
-		{
-			fpr.MapDirtyInV(dregs[i], sregs[i]);
-			VMUL(fpr.V(dregs[i]), fpr.V(sregs[i]), fpr.V(scale));
+		// For prefixes to work, we just have to ensure that none of the output registers spill
+		// and that there's no overlap.
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (sregs[i] == dregs[i] || IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = dregs[i];
+			} else {
+				// Need to use temp regs
+				tempregs[i] = fpr.GetTempV();
+			}
 		}
+
+		// The meat of the function!
+		for (int i = 0; i < n; i++) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			fpr.SpillLockV(tempregs[i]);
+			VMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);
+		}
+
+		for (int i = 0; i < n; i++) {
+			// All must be mapped for prefixes to work.
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			if (tempregs[i] != dregs[i]) {
+				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
 		ApplyPrefixD(dregs, sz);
 
 		fpr.ReleaseSpillLocks();
@@ -914,4 +1041,7 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_VRot(u32 op) {
+		DISABLE;
+	}
 }

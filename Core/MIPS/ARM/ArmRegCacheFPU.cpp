@@ -167,6 +167,15 @@ void ArmRegCacheFPU::MapRegV(int vreg, int flags) {
 	MapReg(vreg + 32, flags);
 }
 
+void ArmRegCacheFPU::LoadToRegV(ARMReg armReg, int vreg) {
+	if (vr[vreg].loc == ML_ARMREG) {
+		emit->VMOV(armReg, vr[vreg].reg);
+	} else {
+		MapRegV(vreg);
+		emit->	VMOV(armReg, V(vreg));
+	}
+}
+
 void ArmRegCacheFPU::MapRegsV(int vec, VectorSize sz, int flags) {
 	u8 v[4];
 	GetVectorRegs(v, sz, vec);
