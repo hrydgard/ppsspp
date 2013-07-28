@@ -503,7 +503,21 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 		return fileInfo;
 	}
 
-	// TODO: Handler?
+	int fileIndex = getFileListIndex(filename);
+	if (fileIndex != -1 && fileList[fileIndex].handler != NULL) {
+		x.type = FILETYPE_NORMAL;
+
+		HandlerFileHandle temp;
+		if (temp.Open(basePath, filename, FILEACCESS_READ))
+		{
+			x.exists = true;
+			x.size = temp.Seek(0, FILEMOVE_END);
+			temp.Close();
+		}
+
+		// TODO: Probably should include dates or something...
+		return x;
+	}
 
 	std::string fullName = GetLocalPath(filename);
 	if (! File::Exists(fullName)) {
