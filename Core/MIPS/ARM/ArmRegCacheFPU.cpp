@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
 #include "Common/ArmEmitter.h"
 #include "Common/CPUDetect.h"
 #include "Core/MIPS/ARM/ArmRegCacheFPU.h"
@@ -180,6 +181,25 @@ void ArmRegCacheFPU::MapRegsV(const u8 *v, VectorSize sz, int flags) {
 	for (int i = 0; i < GetNumVectorElements(sz); i++) {
 		MapRegV(v[i], flags);
 	}
+}
+
+void ArmRegCacheFPU::MapInInV(int vs, int vt) {
+	SpillLockV(vs);
+	SpillLockV(vt);
+	MapRegV(vs);
+	MapRegV(vt);
+	ReleaseSpillLockV(vs);
+	ReleaseSpillLockV(vt);
+}
+
+void ArmRegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
+	bool overlap = avoidLoad && (vd == vs);
+	SpillLockV(vd);
+	SpillLockV(vs);
+	MapRegV(vd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapRegV(vs);
+	ReleaseSpillLockV(vd);
+	ReleaseSpillLockV(vs);
 }
 
 void ArmRegCacheFPU::FlushArmReg(ARMReg r) {

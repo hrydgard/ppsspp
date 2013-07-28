@@ -91,6 +91,7 @@ void Jit::Comp_FPULS(u32 op)
 	switch(op >> 26)
 	{
 	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+		fpr.SpillLock(ft);
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
 		if (gpr.IsImm(rs)) {
 			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
@@ -124,6 +125,7 @@ void Jit::Comp_FPULS(u32 op)
 			SetCC(CC_AL);
 		}
 #endif
+		fpr.ReleaseSpillLock(ft);
 		break;
 
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1

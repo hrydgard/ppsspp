@@ -60,6 +60,11 @@ void ReadVector(float *rd, VectorSize N, int reg);
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
 
+// Returns a number from 0-7, good for checking overlap for 4x4 matrices.
+inline int GetMtx(int matrixReg) {
+	return (matrixReg >> 2) & 7;
+}
+
 VectorSize GetVecSize(u32 op);
 MatrixSize GetMtxSize(u32 op);
 VectorSize GetHalfVectorSize(VectorSize sz);

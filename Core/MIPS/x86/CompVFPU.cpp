@@ -935,36 +935,52 @@ void Jit::Comp_Vmmul(u32 op) {
 	GetMatrixRegs(tregs, sz, _VT);
 	GetMatrixRegs(dregs, sz, _VD);
 
-	// TODO: test overlap, fix non-optimal.
-	u8 tempregs[16];
-	for (int a = 0; a < n; a++)
-	{
-		for (int b = 0; b < n; b++)
-		{
-			XORPS(XMM0, R(XMM0));
-			for (int c = 0; c < n; c++)
-			{
-				MOVSS(XMM1, fpr.V(sregs[b * 4 + c]));
-				MULSS(XMM1, fpr.V(tregs[a * 4 + c]));
-				ADDSS(XMM0, R(XMM1));
-			}
-			u8 temp = (u8) fpr.GetTempV();
-			fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
-			MOVSS(fpr.VX(temp), R(XMM0));
-			fpr.StoreFromRegisterV(temp);
-			tempregs[a * 4 + b] = temp;
-		}
-	}
-	for (int a = 0; a < n; a++)
-	{
-		for (int b = 0; b < n; b++)
-		{
-			u8 temp = tempregs[a * 4 + b];
-			fpr.MapRegV(temp, 0);
-			MOVSS(fpr.V(dregs[a * 4 + b]), fpr.VX(temp));
-		}
+	// Rough overlap check.
+	bool overlap = false;
+	if (GetMtx(_VS) == GetMtx(_VD) || GetMtx(_VT) == GetMtx(_VD)) {
+		// Potential overlap (guaranteed for 3x3 or more).
+		overlap = true;
 	}
 
+	if (overlap) {
+		u8 tempregs[16];
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				MOVSS(XMM0, fpr.V(sregs[b * 4]));
+				MULSS(XMM0, fpr.V(tregs[a * 4]));
+				for (int c = 1; c < n; c++) {
+					MOVSS(XMM1, fpr.V(sregs[b * 4 + c]));
+					MULSS(XMM1, fpr.V(tregs[a * 4 + c]));
+					ADDSS(XMM0, R(XMM1));
+				}
+				u8 temp = (u8) fpr.GetTempV();
+				fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
+				MOVSS(fpr.VX(temp), R(XMM0));
+				fpr.StoreFromRegisterV(temp);
+				tempregs[a * 4 + b] = temp;
+			}
+		}
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				u8 temp = tempregs[a * 4 + b];
+				fpr.MapRegV(temp, 0);
+				MOVSS(fpr.V(dregs[a * 4 + b]), fpr.VX(temp));
+			}
+		}
+	} else {
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				MOVSS(XMM0, fpr.V(sregs[b * 4]));
+				MULSS(XMM0, fpr.V(tregs[a * 4]));
+				for (int c = 1; c < n; c++) {
+					MOVSS(XMM1, fpr.V(sregs[b * 4 + c]));
+					MULSS(XMM1, fpr.V(tregs[a * 4 + c]));
+					ADDSS(XMM0, R(XMM1));
+				}
+				MOVSS(fpr.V(dregs[a * 4 + b]), XMM0);
+			}
+		}
+	}
 	fpr.ReleaseSpillLocks();
 }
 

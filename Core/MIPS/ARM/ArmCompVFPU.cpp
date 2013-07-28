@@ -772,11 +772,77 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VScl(u32 op) {
-		DISABLE;
+		DISABLE;  // see todo below
+
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4], scale;
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		// TODO: Prefixes seem strange...
+		GetVectorRegsPrefixT(&scale, V_Single, _VT);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		// Move to XMM0 early, so we don't have to worry about overlap with scale.
+		fpr.SpillLockV(scale);
+		fpr.MapRegV(scale);
+
+		// TODO: need temp registers because of prefixD
+		for (int i = 0; i < n; ++i)
+		{
+			fpr.MapDirtyInV(dregs[i], sregs[i]);
+			VMUL(fpr.V(dregs[i]), fpr.V(sregs[i]), fpr.V(scale));
+		}
+		ApplyPrefixD(dregs, sz);
+
+		fpr.ReleaseSpillLocks();
 	}
 
 	void Jit::Comp_Vmmul(u32 op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		// TODO: This probably ignores prefixes?
+		if (js.MayHavePrefix()) {
+			DISABLE;
+		}
+
+		MatrixSize sz = GetMtxSize(op);
+		int n = GetMatrixSide(sz);
+
+		u8 sregs[16], tregs[16], dregs[16];
+		GetMatrixRegs(sregs, sz, _VS);
+		GetMatrixRegs(tregs, sz, _VT);
+		GetMatrixRegs(dregs, sz, _VD);
+
+		// Rough overlap check.
+		bool overlap = false;
+		if (GetMtx(_VS) == GetMtx(_VD) || GetMtx(_VT) == GetMtx(_VD)) {
+			// Potential overlap (guaranteed for 3x3 or more).
+			overlap = true;
+		}
+
+		if (overlap) {
+			DISABLE;
+		} else {
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					fpr.MapInInV(sregs[b * 4], tregs[a * 4]);
+					VMUL(S0, fpr.V(sregs[b * 4]), fpr.V(tregs[a * 4]));
+					for (int c = 1; c < n; c++) {
+						fpr.MapInInV(sregs[b * 4 + c], tregs[a * 4 + c]);
+						VMLA(S0, fpr.V(sregs[b * 4 + c]), fpr.V(tregs[a * 4 + c]));
+					}
+					fpr.MapRegV(dregs[a * 4 + b], MAP_DIRTY | MAP_NOINIT);
+					VMOV(fpr.V(dregs[a * 4 + b]), S0);
+				}
+			}
+			fpr.ReleaseSpillLocks();
+		}
 	}
 
 	void Jit::Comp_Vmscl(u32 op) {
@@ -816,7 +882,32 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcst(u32 op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		// TODO: support prefixes properly
+		if (js.MayHavePrefix())
+			DISABLE;
+
+		int conNum = (op >> 16) & 0x1f;
+		int vd = _VD;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 dregs[4];
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+		fpr.MapRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
+
+		MOVI2R(R0, (u32)(void *)&cst_constants[conNum]);
+		VLDR(S0, R0, 0);
+		for (int i = 0; i < n; ++i)
+			VMOV(fpr.V(dregs[i]), S0);
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocks();
 	}
 
 	void Jit::Comp_Vhoriz(u32 op) {
