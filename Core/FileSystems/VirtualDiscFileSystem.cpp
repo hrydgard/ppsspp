@@ -103,7 +103,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 			entry.fileName = line.substr(filename_pos + 1, handler_pos - filename_pos - 1);
 			std::string handler = line.substr(handler_pos + 1);
 			if (handlers.find(handler) == handlers.end())
-				handlers[handler] = new Handler(handler.c_str());
+				handlers[handler] = new Handler(handler.c_str(), this);
 			entry.handler = handlers[handler];
 		} else {
 			entry.fileName = line.substr(filename_pos + 1);
@@ -688,11 +688,26 @@ bool VirtualDiscFileSystem::RemoveFile(const std::string &filename)
 	return false;
 }
 
-void VirtualDiscFileSystem::HandlerLogger(HandlerHandle fd, LogTypes::LOG_LEVELS level, const char *msg) {
-	GENERIC_LOG(LogTypes::FILESYS, level, "%s", msg);
+void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg) {
+	VirtualDiscFileSystem *sys = static_cast<VirtualDiscFileSystem *>(arg);
+
+	// TODO: Probably could do this smarter / use a lookup.
+	const char *filename = NULL;
+	for (auto it = sys->entries.begin(), end = sys->entries.end(); it != end; ++it) {
+		if (it->second.fileIndex != (u32)-1 && it->second.handler.handle == handle) {
+			filename = sys->fileList[it->second.fileIndex].fileName.c_str();
+			break;
+		}
+	}
+
+	if (filename != NULL) {
+		GENERIC_LOG(LogTypes::FILESYS, level, "%s: %s", filename, msg);
+	} else {
+		GENERIC_LOG(LogTypes::FILESYS, level, "%s", msg);
+	}
 }
 
-VirtualDiscFileSystem::Handler::Handler(const char *filename) {
+VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys) {
 #ifdef _WIN32
 	HMODULE mod = LoadLibrary(filename);
 
@@ -709,7 +724,7 @@ VirtualDiscFileSystem::Handler::Handler(const char *filename) {
 			ERROR_LOG(FILESYS, "Unable to find all handler functions: %s", filename);
 			FreeLibrary(mod);
 			library = NULL;
-		} else if (!Init(&HandlerLogger)) {
+		} else if (!Init(&HandlerLogger, sys)) {
 			ERROR_LOG(FILESYS, "Unable to initialize handler: %s", filename);
 			FreeLibrary(mod);
 			library = NULL;

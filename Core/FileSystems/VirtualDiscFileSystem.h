@@ -55,17 +55,17 @@ private:
 	typedef void *HandlerLibrary;
 	typedef int HandlerHandle;
 	typedef s64 HandlerOffset;
-	typedef void (*HandlerLogFunc)(HandlerHandle fd, LogTypes::LOG_LEVELS level, const char *msg);
+	typedef void (*HandlerLogFunc)(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg);
 
-	static void HandlerLogger(HandlerHandle fd, LogTypes::LOG_LEVELS level, const char *msg);
+	static void HandlerLogger(void *arg, HandlerHandle handle, LogTypes::LOG_LEVELS level, const char *msg);
 
 	// The primary purpose of handlers is to make it easier to work with large archives.
 	// However, they have other uses as well, such as patching individual files.
 	struct Handler {
-		Handler(const char *filename);
+		Handler(const char *filename, VirtualDiscFileSystem *const sys);
 		~Handler();
 
-		typedef bool (*InitFunc)(HandlerLogFunc logger);
+		typedef bool (*InitFunc)(HandlerLogFunc logger, void *loggerArg);
 		typedef void (*ShutdownFunc)();
 		typedef HandlerHandle (*OpenFunc)(const char *basePath, const char *filename);
 		typedef HandlerOffset (*SeekFunc)(HandlerHandle handle, HandlerOffset offset, FileMove origin);
