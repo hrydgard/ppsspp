@@ -979,7 +979,63 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vtfm(u32 op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		// TODO: This probably ignores prefixes?  Or maybe uses D?
+		if (js.MayHavePrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		MatrixSize msz = GetMtxSize(op);
+		int n = GetNumVectorElements(sz);
+		int ins = (op >> 23) & 7;
+
+		bool homogenous = false;
+		if (n == ins)
+		{
+			n++;
+			sz = (VectorSize)((int)(sz) + 1);
+			msz = (MatrixSize)((int)(msz) + 1);
+			homogenous = true;
+		}
+		// Otherwise, n should already be ins + 1.
+		else if (n != ins + 1) {
+			DISABLE;
+		}
+
+		u8 sregs[16], dregs[4], tregs[4];
+		GetMatrixRegs(sregs, msz, _VS);
+		GetVectorRegs(tregs, sz, _VT);
+		GetVectorRegs(dregs, sz, _VD);
+
+		// TODO: test overlap, optimize.
+		int tempregs[4];
+		for (int i = 0; i < n; i++) {
+			fpr.MapInInV(sregs[i * 4], tregs[0]);
+			VMUL(S0, fpr.V(sregs[i * 4]), fpr.V(tregs[0]));
+			for (int k = 1; k < n; k++) {
+				if (!homogenous || k != n - 1) {
+					fpr.MapInInV(sregs[i * 4 + k], tregs[k]);
+					VMLA(S0, fpr.V(sregs[i * 4 + k]), fpr.V(tregs[k]));
+				} else {
+					fpr.MapRegV(sregs[i * 4 + k]);
+					VADD(S0, S0, fpr.V(sregs[i * 4 + k]));
+				}
+			}
+
+			int temp = fpr.GetTempV();
+			fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
+			fpr.SpillLockV(temp);
+			VMOV(fpr.V(temp), S0);
+			tempregs[i] = temp;
+		}
+		for (int i = 0; i < n; i++) {
+			u8 temp = tempregs[i];
+			fpr.MapRegV(dregs[i], MAP_NOINIT | MAP_DIRTY);
+			VMOV(fpr.V(dregs[i]), fpr.V(temp));
+		}
+
+		fpr.ReleaseSpillLocks();
 	}
 
 	void Jit::Comp_VHdp(u32 op) {
