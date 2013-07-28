@@ -39,15 +39,15 @@
 struct pspMessageDialog
 {
 	pspUtilityDialogCommon common;
-	int result;
-	int type;
-	unsigned int errorNum;
+	s32_le result;
+	s32_le type;
+	u32_le errorNum;
 	char string[512];
 	// End of request V1 (Size 572)
-	unsigned int options;
-	unsigned int buttonPressed;
+	u32_le options;
+	u32_le buttonPressed;
 	// End of request V2 (Size 580)
-	int unknown[32];
+	s32_le unknown[32];
 	// End of request V3 (Size 708)
 };
 

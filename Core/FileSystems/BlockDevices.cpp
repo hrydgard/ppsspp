@@ -70,23 +70,23 @@ bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr)
 // compressed ISO(9660) header format
 typedef struct ciso_header
 {
-	unsigned char magic[4];			// +00 : 'C','I','S','O'                 
-	u32 header_size;		// +04 : header size (==0x18)            
-	u64 total_bytes;	// +08 : number of original data size    
-	u32 block_size;		// +10 : number of compressed block size 
-	unsigned char ver;				// +14 : version 01                      
-	unsigned char align;			// +15 : align of index value            
-	unsigned char rsv_06[2];		// +16 : reserved                        
+	unsigned char magic[4];         // +00 : 'C','I','S','O'
+	u32_le header_size;             // +04 : header size (==0x18)
+	u64_le total_bytes;             // +08 : number of original data size
+	u32_le block_size;              // +10 : number of compressed block size
+	unsigned char ver;              // +14 : version 01
+	unsigned char align;            // +15 : align of index value
+	unsigned char rsv_06[2];        // +16 : reserved
 #if 0
 	// INDEX BLOCK
-	unsigned int index[0];			// +18 : block[0] index                 
-	unsigned int index[1];			// +1C : block[1] index                  
+	unsigned int index[0];          // +18 : block[0] index
+	unsigned int index[1];          // +1C : block[1] index
 	:
 	:
-	unsigned int index[last];		// +?? : block[last]                     
-	unsigned int index[last+1];		// +?? : end of last data point          
+	unsigned int index[last];       // +?? : block[last]
+	unsigned int index[last+1];     // +?? : end of last data point
 	// DATA BLOCK
-	unsigned char data[];			// +?? : compressed or plain sector data
+	unsigned char data[];           // +?? : compressed or plain sector data
 #endif
 } CISO_H;
 
@@ -128,9 +128,18 @@ CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 
 	u32 indexSize = numBlocks + 1;
 
+#if COMMON_LITTLE_ENDIAN
 	index = new u32[indexSize];
-	if(fread(index, sizeof(u32), indexSize, f) != indexSize)
+	if (fread(index, sizeof(u32), indexSize, f) != indexSize)
 		memset(index, 0, indexSize * sizeof(u32));
+#else
+	index = new u32[indexSize];
+	u32_le *indexTemp = new u32_le[indexSize];
+	if (fread(indexTemp, sizeof(u32), indexSize, f) != indexSize)
+		memset(indexTemp, 0, indexSize * sizeof(u32_le));
+	for (u32 i = 0; i < indexSize; i++)
+		index[i] = indexTemp[i];
+#endif
 }
 
 CISOFileBlockDevice::~CISOFileBlockDevice()

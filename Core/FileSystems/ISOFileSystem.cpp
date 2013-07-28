@@ -81,6 +81,34 @@ struct DirectoryEntry
 	u16 volSeqNumberBE;
 	u8 identifierLength; //identifier comes right after
 	u8 firstIdChar;
+
+#if COMMON_LITTLE_ENDIAN
+	u32 firstDataSector() const
+	{
+		return firstDataSectorLE;
+	}
+	u32 dataLength() const
+	{
+		return dataLengthLE;
+	}
+	u32 volSeqNumber() const
+	{
+		return volSeqNumberLE;
+	}
+#else
+	u32 firstDataSector() const
+	{
+		return firstDataSectorBE;
+	}
+	u32 dataLength() const
+	{
+		return dataLengthBE;
+	}
+	u32 volSeqNumber() const
+	{
+		return volSeqNumberBE;
+	}
+#endif
 };
 struct DirectorySector
 {
@@ -175,8 +203,8 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, BlockDevice *_blockDevic
 	treeroot->flags = 0;
 	treeroot->parent = NULL;
 
-	u32 rootSector = desc.root.firstDataSectorLE;
-	u32 rootSize = desc.root.dataLengthLE;
+	u32 rootSector = desc.root.firstDataSector();
+	u32 rootSize = desc.root.dataLength();
 
 	ReadDirectory(rootSector, rootSize, treeroot, 0);
 }
@@ -232,8 +260,8 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 				relative = false;
 			}
 
-			e->size = dir.dataLengthLE;
-			e->startingPosition = dir.firstDataSectorLE * 2048;
+			e->size = dir.dataLength();
+			e->startingPosition = dir.firstDataSector() * 2048;
 			e->isDirectory = !isFile;
 			e->flags = dir.flags;
 			e->parent = root;
@@ -243,7 +271,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 
 			if (e->isDirectory && !relative)
 			{
-				if (dir.firstDataSectorLE == startsector)
+				if (dir.firstDataSector() == startsector)
 				{
 					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion");
 				}
@@ -254,7 +282,7 @@ void ISOFileSystem::ReadDirectory(u32 startsector, u32 dirsize, TreeEntry *root,
 						doRecurse = level < restrictTree.size() && restrictTree[level] == e->name;
 
 					if (doRecurse)
-						ReadDirectory(dir.firstDataSectorLE, dir.dataLengthLE, e, level + 1);
+						ReadDirectory(dir.firstDataSector(), dir.dataLength(), e, level + 1);
 					else
 						continue;
 				}

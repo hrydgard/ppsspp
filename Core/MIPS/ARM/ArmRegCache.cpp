@@ -290,6 +290,10 @@ void ArmRegCache::ReleaseSpillLocks() {
 	}
 }
 
+void ArmRegCache::ReleaseSpillLock(MIPSReg reg) {
+	mr[reg].spillLock = false;
+}
+
 ARMReg ArmRegCache::R(int mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		return (ARMReg)mr[mipsReg].reg;

@@ -84,6 +84,7 @@ public:
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
 	void SpillLock(MIPSReg reg, MIPSReg reg2 = -1, MIPSReg reg3 = -1, MIPSReg reg4 = -1);
+	void ReleaseSpillLock(MIPSReg reg);
 	void ReleaseSpillLocks();
 
 	void SetImm(MIPSReg reg, u32 immVal);
