@@ -187,6 +187,7 @@
     <ClCompile Include="FileSystems\ISOFileSystem.cpp" />
     <ClCompile Include="FileSystems\MetaFileSystem.cpp" />
     <ClCompile Include="FileSystems\tlzrc.cpp" />
+    <ClCompile Include="FileSystems\VirtualDiscFileSystem.cpp" />
     <ClCompile Include="Font\PGF.cpp" />
     <ClCompile Include="HDRemaster.cpp" />
     <ClCompile Include="HLE\HLE.cpp" />
@@ -371,6 +372,7 @@
     <ClInclude Include="FileSystems\FileSystem.h" />
     <ClInclude Include="FileSystems\ISOFileSystem.h" />
     <ClInclude Include="FileSystems\MetaFileSystem.h" />
+    <ClInclude Include="FileSystems\VirtualDiscFileSystem.h" />
     <ClInclude Include="Font\PGF.h" />
     <ClInclude Include="HDRemaster.h" />
     <ClInclude Include="HLE\FunctionWrappers.h" />
