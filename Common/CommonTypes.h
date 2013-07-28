@@ -110,5 +110,384 @@ typedef s64 s64_le;
 typedef float float_le;
 typedef double double_le;
 #else
-#error FIX ME
+template <typename T, typename F>
+struct swap_struct_t {
+    typedef swap_struct_t<T, F> swapped_t;
+
+protected:
+    T value;
+
+    static T swap(T v) {
+        return F::swap(v);
+    }
+public:
+    T const swap() const {
+        return swap(value);
+
+    }
+    swap_struct_t() :value(0) {}
+    swap_struct_t(const T &v): value(swap(v)) {}
+	
+    template <typename S>
+    swapped_t& operator=(const S &source) {
+        value = swap((T)source);
+        return *this;
+    }
+
+    template <typename S>
+    operator S() const { return (S)swap(); }
+	
+	
+	// v / 5
+    swapped_t operator/(const swapped_t &i) const {
+        return swap() / i.swap();
+    }
+    template <typename S>
+    swapped_t operator/(const S &i) const {
+        return swap() / i;
+    }
+
+    // v * 5
+    swapped_t operator*(const swapped_t &i) const {
+        return swap() * i.swap();
+    }
+    template <typename S>
+    swapped_t operator*(const S &i) const {
+        return swap() * i;
+    }
+
+    // v + 5
+    swapped_t operator+(const swapped_t &i) const {
+        return swap() + i.swap();
+    }
+    template <typename S>
+    swapped_t operator+(const S &i) const {
+        return swap() + (T)i;
+    }
+    // v - 5
+    swapped_t operator-(const swapped_t &i) const {
+        return swap() - i.swap();
+    }
+    template <typename S>
+    swapped_t operator-(const S &i) const {
+        return swap() - (T)i;
+    }
+
+    // v += 5
+    swapped_t operator+=(const swapped_t &i) {
+        value = swap(swap() + i.swap());
+        return *this;
+    }
+    template <typename S>
+    swapped_t& operator+=(const S &i) {
+        value = swap(swap() + (T)i);
+        return *this;
+    }
+    // v -= 5
+    swapped_t operator-=(const swapped_t &i) {
+        value = swap(swap() - i.swap());
+        return *this;
+    }
+    template <typename S>
+    swapped_t& operator-=(const S &i) {
+        value = swap(swap() - (T)i);
+        return *this;
+    }
+
+    // ++v
+    swapped_t operator++()  {
+        value = swap(swap()+1);
+
+        return *this;
+    }
+    // --v
+    swapped_t operator--()  {
+        value = swap(swap()-1);
+        return *this;
+    }
+
+    // v++
+    swapped_t operator++(int)  {
+        swapped_t old = *this;
+        value = swap(swap()+1);
+        return old;
+    }
+    // v--
+    swapped_t operator--(int)  {
+        swapped_t old = *this;
+        value = swap(swap()-1);
+        return old;
+    }
+    // Comparaison
+    // v == i   
+    template <typename S>
+    bool operator==(const S &i) {
+        return swap() == i;
+    }
+
+    // v != i
+    bool operator!=(const swapped_t &i) const {
+        return value != i.value;
+    }
+    template <typename S>
+    bool operator!=(const S &i) const {
+        return swap() != i;
+    }
+
+    // v > i
+    bool operator>(const swapped_t &i) const {
+        return swap() > i.swap();
+    }
+    template <typename S>
+    bool operator>(const S &i) const {
+        return swap() > i;
+    }
+
+    // v < i
+    bool operator<(const swapped_t &i) const {
+        return swap() < i.swap();
+    }
+    template <typename S>
+    bool operator<(const S &i) const {
+        return swap() < i;
+    }
+
+    // v >= i
+    bool operator>=(const swapped_t &i) const {
+        return swap() >= i.swap();
+    }
+    template <typename S>
+    bool operator>=(const S &i) const {
+        return swap() >= i;
+    }
+
+    // v <= i
+    bool operator<=(const swapped_t &i) const {
+        return swap() <= i.swap();
+    }
+    template <typename S>
+    bool operator<=(const S &i) const {
+        return swap() <= i;
+    }
+
+	// logical
+	swapped_t operator !() {
+		return !swap();
+	}
+	
+	template <typename S>
+	swapped_t operator &&(S b) {
+		return swap() && b;
+	}
+	
+	template <typename S>
+	swapped_t operator ||(S b) {
+		return swap() || b;
+	}
+
+	// bitmath
+	T operator ~() {
+		return ~swap();
+	}
+
+	template <typename S>
+	T operator &(S b) {
+		return swap() & b;
+	}
+	template <typename S>
+	swapped_t operator &=(S b) {
+		value = swap(swap() & b);
+		return *this;
+	}
+	
+	template <typename S>
+	T operator |(S b) {
+		return swap() | b;
+	}
+	template <typename S>
+	swapped_t operator |=(S b) {
+		value = swap(swap() | b);
+		return *this;
+	}
+	
+	template <typename S>
+	T operator ^(S b) {
+		return swap() ^ b;
+	}
+	
+	template <typename S>
+	T operator <<(S b) {
+		return swap() << b;
+	}
+	
+	template <typename S>
+	T operator >>(S b) {
+		return swap() >> b;
+	}
+
+	// Member
+	/** todo **/
+
+
+	// Arithmetics
+    template <typename S, typename T, typename F>
+    friend S operator+(const S &p, const swapped_t v);
+
+    template <typename S, typename T, typename F>
+    friend S operator-(const S &p, const swapped_t v);
+
+    template <typename S, typename T, typename F>
+    friend S operator/(const S &p, const swapped_t v);
+	
+    template <typename S, typename T, typename F>
+    friend S operator*(const S &p, const swapped_t v);
+
+    template <typename S, typename T, typename F>
+    friend S operator%(const S &p, const swapped_t v);
+
+	// Arithmetics + assignements
+    template <typename S, typename T, typename F>
+    friend S operator+=(const S &p, const swapped_t v);
+
+    template <typename S, typename T, typename F>
+    friend S operator-=(const S &p, const swapped_t v);
+	
+	// Logical
+    template <typename S, typename T, typename F>
+    friend S operator&(const S &p, const swapped_t v);
+    template <typename S, typename T, typename F>
+    friend S operator&(const swapped_t v, const S &p);
+
+	// bitmath
+	
+	// Comparaison
+    template <typename S, typename T, typename F>
+    friend bool operator<(const S &p, const swapped_t v);
+	
+    template <typename S, typename T, typename F>
+    friend bool operator>(const S &p, const swapped_t v);
+	
+    template <typename S, typename T, typename F>
+    friend bool operator<=(const S &p, const swapped_t v);
+	
+    template <typename S, typename T, typename F>
+    friend bool operator>=(const S &p, const swapped_t v);
+};
+
+
+// Arithmetics
+template <typename S, typename T, typename F>
+S operator+(const S &i, const swap_struct_t<T, F> v) {
+    return i + v.swap();
+}
+
+template <typename S, typename T, typename F>
+S operator-(const S &i, const swap_struct_t<T, F> v) {
+    return i - v.swap();
+}
+
+template <typename S, typename T, typename F>
+S operator/(const S &i, const swap_struct_t<T, F> v) {
+    return i / v.swap();
+}
+
+template <typename S, typename T, typename F>
+S operator*(const S &i, const swap_struct_t<T, F> v) {
+    return i * v.swap();
+}
+
+template <typename S, typename T, typename F>
+S operator%(const S &i, const swap_struct_t<T, F> v) {
+    return i % v.swap();
+}
+
+// Arithmetics + assignements
+template <typename S, typename T, typename F>
+S &operator+=(S &i, const swap_struct_t<T, F> v) {
+    i += v.swap();
+    return i;
+}
+
+template <typename S, typename T, typename F>
+S &operator-=(S &i, const swap_struct_t<T, F> v) {
+    i -= v.swap();
+    return i;
+}
+
+// Logical
+template <typename S, typename T, typename F>
+S operator&(const S &i, const swap_struct_t<T, F> v) {
+    return i & v.swap();
+}
+
+template <typename S, typename T, typename F>
+S operator&(const swap_struct_t<T, F> v, const S &i) {
+    return (S)(v.swap() & i);
+}
+
+
+// Comparaison
+template <typename S, typename T, typename F>
+bool operator<(const S &p, const swap_struct_t<T, F> v) {
+	return p < v.swap();
+}
+template <typename S, typename T, typename F>
+bool operator>(const S &p, const swap_struct_t<T, F> v) {
+	return p > v.swap();
+}
+template <typename S, typename T, typename F>
+bool operator<=(const S &p, const swap_struct_t<T, F> v) {
+	return p < v.swap();
+}
+template <typename S, typename T, typename F>
+bool operator>=(const S &p, const swap_struct_t<T, F> v) {
+	return p > v.swap();
+}
+
+template <typename T>
+struct swap_double_t {
+	static T swap(T x) {
+		return (T)LE_D(x);
+	}
+};
+
+template <typename T>
+struct swap_float_t {
+	static T swap(T x) {
+		return (T)LE_F(x);
+	}
+};
+
+template <typename T>
+struct swap_64_t {
+	static T swap(T x) {
+		return (T)LE_64(x);
+	}
+};
+
+template <typename T>
+struct swap_32_t {
+	static T swap(T x) {
+		return (T)LE_32(x);
+	}
+};
+
+template <typename T>
+struct swap_16_t {
+	static T swap(T x) {
+		return (T)LE_16(x);
+	}
+};
+
+typedef swap_struct_t<u64, swap_64_t<u64>> u64_le;
+typedef swap_struct_t<s64, swap_64_t<s64>> s64_le;
+
+typedef swap_struct_t<u32, swap_32_t<u32>> u32_le;
+typedef swap_struct_t<s32, swap_32_t<s32>> s32_le;
+
+typedef swap_struct_t<u16, swap_16_t<u32>> u16_le;
+typedef swap_struct_t<s16, swap_16_t<s32>> s16_le;
+
+typedef swap_struct_t<float, swap_float_t<float>> float_le;
+typedef swap_struct_t<double, swap_double_t<double>> double_le;
 #endif
