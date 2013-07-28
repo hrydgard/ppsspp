@@ -180,13 +180,13 @@ struct DefaultKeyMap {
 #ifdef _WIN32
 		ControllerMap x360;
 		x360.keys = default360Map();
-		x360.name = "360";
+		x360.name = "Xbox 360 Pad";
 		m.push_back(x360);
 #endif 
 		// Keyboard and pad maps.
 		ControllerMap pad;
 		pad.keys = defaultPadMap();
-		pad.name = "Pad";
+		pad.name = "DirectInput Pad";
 		pad.active = false;
 		m.push_back(pad);
 #endif
