@@ -185,6 +185,9 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 		if (it->first == cacheKey) {
 			DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
 			if (!entry->framebuffer) {
+				if (entry->format != framebuffer->format) {
+					WARN_LOG_REPORT(HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+				}
 				entry->framebuffer = framebuffer;
 				// TODO: Delete the original non-fbo texture too.
 			} else {
