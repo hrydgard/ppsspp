@@ -49,9 +49,13 @@ VirtualDiscFileSystem::VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::str
 }
 
 VirtualDiscFileSystem::~VirtualDiscFileSystem() {
-	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
-		if (iter->second.type != VFILETYPE_ISO)
-			iter->second.hFile.Close();
+	for (auto iter = entries.begin(), end = entries.end(); iter != end; ++iter) {
+		if (iter->second.type != VFILETYPE_ISO) {
+			iter->second.Close();
+		}
+	}
+	for (auto iter = handlers.begin(), end = handlers.end(); iter != end; ++iter) {
+		delete iter->second;
 	}
 }
 
@@ -82,7 +86,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 			continue;
 		}
 
-		FileListEntry entry;
+		FileListEntry entry = {""};
 
 		// Syntax: HEXPOS filename or HEXPOS filename:handler
 		size_t filename_pos = line.find(' ');
@@ -95,19 +99,32 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		size_t handler_pos = line.find(':', filename_pos);
 		if (handler_pos != line.npos) {
 			entry.fileName = line.substr(filename_pos + 1, handler_pos - filename_pos - 1);
-			NOTICE_LOG(HLE, "Handler found: %s", line.substr(handler_pos + 1).c_str());
-			// TODO: Implement handler.
+			std::string handler = line.substr(handler_pos + 1);
+			if (handlers.find(handler) == handlers.end())
+				handlers[handler] = new Handler(handler.c_str());
+			entry.handler = handlers[handler];
 		} else {
 			entry.fileName = line.substr(filename_pos + 1);
 		}
 
 		entry.firstBlock = strtol(line.c_str(), NULL, 16);
-		entry.totalSize = File::GetSize(GetLocalPath(entry.fileName));
+		if (entry.handler != NULL && entry.handler->IsValid()) {
+			HandlerFileHandle temp = entry.handler;
+			if (temp.Open(basePath, entry.fileName, FILEACCESS_READ)) {
+				entry.totalSize = (u32)temp.Seek(0, FILEMOVE_END);
+				temp.Close();
+			} else {
+				ERROR_LOG(FILESYS, "Unable to open virtual file: %s", entry.fileName.c_str());
+			}
+		} else {
+			entry.totalSize = File::GetSize(GetLocalPath(entry.fileName));
+		}
 
 		// Try to keep currentBlockIndex sane, in case there are other files.
 		u32 nextBlock = entry.firstBlock + (entry.totalSize + 2047) / 2048;
-		if (nextBlock > currentBlockIndex)
+		if (nextBlock > currentBlockIndex) {
 			currentBlockIndex = nextBlock;
+		}
 
 		fileList.push_back(entry);
 	}
@@ -151,18 +168,19 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 			p.Do(of.size);
 
 			// open file
-			if (of.type != VFILETYPE_ISO)
-			{
-				bool success = of.hFile.Open(basePath,fileList[of.fileIndex].fileName,FILEACCESS_READ);
-				if (!success)
-				{
-					ERROR_LOG(FILESYS, "Failed to create file handle for %s.",fileList[of.fileIndex].fileName.c_str());
+			if (of.type != VFILETYPE_ISO) {
+				if (fileList[of.fileIndex].handler != NULL) {
+					of.handler = fileList[of.fileIndex].handler;
+				}
+
+				bool success = of.Open(basePath, fileList[of.fileIndex].fileName, FILEACCESS_READ);
+				if (!success) {
+					ERROR_LOG(FILESYS, "Failed to create file handle for %s.", fileList[of.fileIndex].fileName.c_str());
 				} else {
-					if (of.type == VFILETYPE_LBN)
-					{
-						of.hFile.Seek(of.curOffset+of.startOffset,FILEMOVE_BEGIN);
+					if (of.type == VFILETYPE_LBN) {
+						of.Seek(of.curOffset + of.startOffset, FILEMOVE_BEGIN);
 					} else {
-						of.hFile.Seek(of.curOffset,FILEMOVE_BEGIN);
+						of.Seek(of.curOffset, FILEMOVE_BEGIN);
 					}
 				}
 			}
@@ -182,6 +200,8 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 			p.Do(of.size);
 		}
 	}
+
+	// We don't savestate handlers (loaded on fs load), but if they change, it may not load properly.
 
 	p.DoMarker("VirtualDiscFileSystem");
 }
@@ -229,7 +249,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 	if (type == FILETYPE_DIRECTORY)
 		return -1;
 
-	FileListEntry entry;
+	FileListEntry entry = {""};
 	entry.fileName = fileName;
 	entry.totalSize = File::GetSize(fullName);
 	entry.firstBlock = currentBlockIndex;
@@ -297,10 +317,12 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		entry.startOffset = (sectorStart-fileList[entry.fileIndex].firstBlock)*2048;
 
 		// now we just need an actual file handle
-		bool success = entry.hFile.Open(basePath,fileList[entry.fileIndex].fileName,FILEACCESS_READ);
+		if (fileList[entry.fileIndex].handler != NULL) {
+			entry.handler = fileList[entry.fileIndex].handler;
+		}
+		bool success = entry.Open(basePath, fileList[entry.fileIndex].fileName, FILEACCESS_READ);
 
-		if (!success)
-		{
+		if (!success) {
 #ifdef _WIN32
 			ERROR_LOG(HLE, "VirtualDiscFileSystem::OpenFile: FAILED, %i", GetLastError());
 #else
@@ -310,7 +332,7 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		}
 
 		// seek to start
-		entry.hFile.Seek(entry.startOffset,FILEMOVE_BEGIN);
+		entry.Seek(entry.startOffset, FILEMOVE_BEGIN);
 
 		u32 newHandle = hAlloc->GetNewHandle();
 		entries[newHandle] = entry;
@@ -319,7 +341,12 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 	}
 
 	entry.type = VFILETYPE_NORMAL;
-	bool success = entry.hFile.Open(basePath,filename,access);
+	entry.fileIndex = getFileListIndex(filename);
+
+	if (entry.fileIndex != (u32)-1 && fileList[entry.fileIndex].handler != NULL) {
+		entry.handler = fileList[entry.fileIndex].handler;
+	}
+	bool success = entry.Open(basePath, filename, access);
 
 	if (!success) {
 #ifdef _WIN32
@@ -330,8 +357,6 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		//wwwwaaaaahh!!
 		return 0;
 	} else {
-		entry.fileIndex = getFileListIndex(filename);
-
 		u32 newHandle = hAlloc->GetNewHandle();
 		entries[newHandle] = entry;
 
@@ -342,35 +367,36 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
-		switch (iter->second.type)
+		auto &entry = iter->second;
+		switch (entry.type)
 		{
 		case VFILETYPE_NORMAL:
 			{
-				return iter->second.hFile.Seek(position,type);
+				return entry.Seek(position, type);
 			}
 		case VFILETYPE_LBN:
 			{
 				switch (type)
 				{
-				case FILEMOVE_BEGIN:    iter->second.curOffset = position;    break;
-				case FILEMOVE_CURRENT:  iter->second.curOffset += position;  break;
-				case FILEMOVE_END:      iter->second.curOffset = iter->second.size-position;      break;
+				case FILEMOVE_BEGIN:    entry.curOffset = position;                     break;
+				case FILEMOVE_CURRENT:  entry.curOffset += position;                    break;
+				case FILEMOVE_END:      entry.curOffset = entry.size - position;        break;
 				}
 
-				u32 off = iter->second.startOffset+iter->second.curOffset;
-				iter->second.hFile.Seek(off,FILEMOVE_BEGIN);
-				return iter->second.curOffset;
+				u32 off = entry.startOffset + entry.curOffset;
+				entry.Seek(off, FILEMOVE_BEGIN);
+				return entry.curOffset;
 			}
 		case VFILETYPE_ISO:
 			{
 				switch (type)
 				{
-				case FILEMOVE_BEGIN:    iter->second.curOffset = position;    break;
-				case FILEMOVE_CURRENT:  iter->second.curOffset += position;  break;
-				case FILEMOVE_END:      iter->second.curOffset = currentBlockIndex+position;	break;
+				case FILEMOVE_BEGIN:    entry.curOffset = position;                     break;
+				case FILEMOVE_CURRENT:  entry.curOffset += position;                    break;
+				case FILEMOVE_END:      entry.curOffset = currentBlockIndex + position; break;
 				}
 
-				return iter->second.curOffset;
+				return entry.curOffset;
 			}
 		}
 		return 0;
@@ -397,8 +423,11 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 				return 0;
 			}
 
-			DirectoryFileHandle hFile;
-			bool success = hFile.Open(basePath,fileList[fileIndex].fileName,FILEACCESS_READ);
+			OpenFileEntry temp;
+			if (fileList[fileIndex].handler != NULL) {
+				temp.handler = fileList[fileIndex].handler;
+			}
+			bool success = temp.Open(basePath, fileList[fileIndex].fileName, FILEACCESS_READ);
 
 			if (!success)
 			{
@@ -409,26 +438,26 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 			u32 startOffset = (iter->second.curOffset-fileList[fileIndex].firstBlock)*2048;
 			size_t bytesRead;
 
-			hFile.Seek(startOffset,FILEMOVE_BEGIN);
+			temp.Seek(startOffset, FILEMOVE_BEGIN);
 
 			u32 remainingSize = fileList[fileIndex].totalSize-startOffset;
-			if (remainingSize < size*2048)
+			if (remainingSize < size * 2048)
 			{
 				// the file doesn't fill the whole last sector
 				// read what's there and zero fill the rest like on a real disc
-				bytesRead = hFile.Read(pointer,remainingSize);
-				memset(&pointer[bytesRead],0,size*2048-bytesRead);
+				bytesRead = temp.Read(pointer, remainingSize);
+				memset(&pointer[bytesRead], 0, size * 2048 - bytesRead);
 			} else {
-				bytesRead = hFile.Read(pointer,size*2048);
+				bytesRead = temp.Read(pointer, size * 2048);
 			}
 
-			hFile.Close();
+			temp.Close();
 
 			iter->second.curOffset += size;
 			return size;
 		}
 
-		size_t bytesRead = iter->second.hFile.Read(pointer,size);
+		size_t bytesRead = iter->second.Read(pointer, size);
 		iter->second.curOffset += bytesRead;
 		return bytesRead;
 	} else {
@@ -442,7 +471,7 @@ void VirtualDiscFileSystem::CloseFile(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		hAlloc->FreeHandle(handle);
-		iter->second.hFile.Close();
+		iter->second.Close();
 		entries.erase(iter);
 	} else {
 		//This shouldn't happen...
@@ -473,6 +502,8 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 		fileInfo.numSectors = (readSize + 2047) / 2048;
 		return fileInfo;
 	}
+
+	// TODO: Handler?
 
 	std::string fullName = GetLocalPath(filename);
 	if (! File::Exists(fullName)) {
@@ -536,6 +567,8 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 #ifdef _WIN32
 	WIN32_FIND_DATA findData;
 	HANDLE hFind;
+
+	// TODO: Handler files that are virtual might not be listed.
 
 	std::string w32path = GetLocalPath(path) + "\\*.*";
 
@@ -639,10 +672,47 @@ bool VirtualDiscFileSystem::RemoveFile(const std::string &filename)
 	return false;
 }
 
+void VirtualDiscFileSystem::HandlerLogger(HandlerHandle fd, LogTypes::LOG_LEVELS level, const char *msg) {
+	GENERIC_LOG(LogTypes::FILESYS, level, "%s", msg);
+}
+
 VirtualDiscFileSystem::Handler::Handler(const char *filename) {
-	// TODO
+#ifdef _WIN32
+	HMODULE mod = LoadLibrary(filename);
+
+	library = (void *)mod;
+	if (library != NULL) {
+		Init = (InitFunc)GetProcAddress(mod, "Init");
+		Shutdown = (ShutdownFunc)GetProcAddress(mod, "Shutdown");
+		Open = (OpenFunc)GetProcAddress(mod, "Open");
+		Seek = (SeekFunc)GetProcAddress(mod, "Seek");
+		Read = (ReadFunc)GetProcAddress(mod, "Read");
+		Close = (CloseFunc)GetProcAddress(mod, "Close");
+
+		if (Init == NULL || Shutdown == NULL || Open == NULL || Seek == NULL || Read == NULL || Close == NULL) {
+			ERROR_LOG(FILESYS, "Unable to find all handler functions: %s", filename);
+			FreeLibrary(mod);
+			library = NULL;
+		} else if (!Init(&HandlerLogger)) {
+			ERROR_LOG(FILESYS, "Unable to initialize handler: %s", filename);
+			FreeLibrary(mod);
+			library = NULL;
+		}
+	}
+#else
+	ERROR_LOG(FILESYS, "VirtualDiscFileSystem handlers not implemented yet.");
+	library = NULL;
+#endif
 }
 
 VirtualDiscFileSystem::Handler::~Handler() {
-	// TODO
+	if (library != NULL) {
+		Shutdown();
+
+#ifdef _WIN32
+		FreeLibrary((HMODULE)library);
+#else
+		ERROR_LOG(FILESYS, "VirtualDiscFileSystem handlers not implemented yet.");
+#endif
+	}
 }
