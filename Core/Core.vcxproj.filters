@@ -445,6 +445,9 @@
     <ClCompile Include="MIPS\MIPSAsmTables.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MIPSAsm.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -823,6 +826,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSAsmTables.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MIPSAsm.h">
       <Filter>MIPS</Filter>
     </ClInclude>
   </ItemGroup>

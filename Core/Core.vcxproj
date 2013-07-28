@@ -311,6 +311,7 @@
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp" />
     <ClCompile Include="Mips\MIPS.cpp" />
     <ClCompile Include="Mips\MIPSAnalyst.cpp" />
+    <ClCompile Include="MIPS\MIPSAsm.cpp" />
     <ClCompile Include="MIPS\MIPSAsmTables.cpp" />
     <ClCompile Include="Mips\MIPSCodeUtils.cpp" />
     <ClCompile Include="MIPS\MIPSDebugInterface.cpp" />
@@ -464,6 +465,7 @@
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
     <ClInclude Include="Mips\MIPS.h" />
     <ClInclude Include="Mips\MIPSAnalyst.h" />
+    <ClInclude Include="MIPS\MIPSAsm.h" />
     <ClInclude Include="MIPS\MIPSAsmTables.h" />
     <ClInclude Include="Mips\MIPSCodeUtils.h" />
     <ClInclude Include="MIPS\MIPSDebugInterface.h" />
