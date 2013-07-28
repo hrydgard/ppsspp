@@ -1,4 +1,8 @@
+#ifdef _WIN32
 #include "stdafx.h"
+#else
+#include <stddef.h>
+#endif
 #include "MIPSAsmTables.h"
 
 namespace MIPSAsm

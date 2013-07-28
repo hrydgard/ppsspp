@@ -169,10 +169,10 @@ void ArmRegCacheFPU::MapRegV(int vreg, int flags) {
 
 void ArmRegCacheFPU::LoadToRegV(ARMReg armReg, int vreg) {
 	if (vr[vreg].loc == ML_ARMREG) {
-		emit->VMOV(armReg, vr[vreg].reg);
+		emit_->VMOV(armReg, vr[vreg].reg);
 	} else {
 		MapRegV(vreg);
-		emit->	VMOV(armReg, V(vreg));
+		emit_->VMOV(armReg, V(vreg));
 	}
 }
 
