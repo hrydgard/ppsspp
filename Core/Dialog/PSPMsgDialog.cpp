@@ -138,10 +138,12 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 		WRAP_WIDTH = 372.0f;
 	
 	float y = 140.0f;
-	float h;
+	float h, sy ,ey;
 	int n;
 	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
-	float h2 = h * (float)n / 2.0f;
+	float h2 = h * n / 2.0f;
+	ey = y + h2 + 20.0f;
+
 	if (hasYesNo)
 	{
 		I18NCategory *d = GetI18NCategory("Dialog");
@@ -161,22 +163,23 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 			noColor  = 0xFFFFFFFF;
 		}
 		PPGeMeasureText(&w, &h, 0, choiceText, FONT_SCALE);
-		w = w / 2.0f + 5.0f;
-		h /= 2.0f;
-		float y2 = y + h2;
-		h2 += h + 4.0f;
-		y = 132.0f - h;
+		w = 15.0f;
+		h = 8.0f;
+		float y2 = y + h2 + 8.0f;
+		h2 += h + 5.0f;
+		y = 135.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(d->T("Yes"), 204.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("Yes"), 203.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-		PPGeDrawText(d->T("No"), 273.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("No"), 272.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		PPGeDrawText(d->T("Yes"), 204.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T("Yes"), 203.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(d->T("No"), 273.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T("No"), 272.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
 		}
 		else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
 			yesnoChoice = 0;
 		}
+		ey = y2 + 25.0f;
 	} 
 	
 	if (hasOK) {
@@ -184,18 +187,19 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 		float x, w;
 		x = 240.0f;
 		w = 15.0f;
-		h /= 2.0f;
-		float y2 = y + h2;
-		h2 += h + 4.0f;
-		y = 132.0f - h;
+		h = 8.0f;
+		float y2 = y + h2 + 8.0f;
+		h2 += h + 5.0f;
+		y = 135.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(d->T("OK"), 240.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("OK"), 239.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T("OK"), 240.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T("OK"), 239.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		ey = y2 + 25.0f;
 	}
 
 	PPGeDrawTextWrapped(text.c_str(), 241.0f, y+2, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
 	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
-	float sy = 125.0f - h2, ey = 145.0f + h2;
+	sy = 125.0f - h2;
 	PPGeDrawRect(40.0f, sy, 440.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(40.0f, ey, 440.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
