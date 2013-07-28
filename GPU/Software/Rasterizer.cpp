@@ -28,7 +28,8 @@ extern u32 clut[4096];
 
 namespace Rasterizer {
 
-static inline int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const DrawingCoords& v2)
+//static inline int orient2d(const DrawingCoords& v0, const DrawingCoords& v1, const DrawingCoords& v2)
+static inline int orient2d(const ScreenCoords& v0, const ScreenCoords& v1, const ScreenCoords& v2)
 {
 	return ((int)v1.x-(int)v0.x)*((int)v2.y-(int)v0.y) - ((int)v1.y-(int)v0.y)*((int)v2.x-(int)v0.x);
 }
@@ -326,7 +327,7 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<u10>& vertex, const Ve
 		return vertex.y < line1.y;
 	} else {
 		// check if vertex is on our left => right side
-		return vertex.x < line1.x + (line2.x - line1.x) * (vertex.y - line1.y) / (line2.y - line1.y);
+		return vertex.x < line1.x + ((int)line2.x - (int)line1.x) * ((int)vertex.y - (int)line1.y) / ((int)line2.y - (int)line1.y);
 	}
 }
 
@@ -625,43 +626,46 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 // Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
-	Vec2<int> d01((int)v0.drawpos.x - (int)v1.drawpos.x, (int)v0.drawpos.y - (int)v1.drawpos.y);
-	Vec2<int> d02((int)v0.drawpos.x - (int)v2.drawpos.x, (int)v0.drawpos.y - (int)v2.drawpos.y);
-	Vec2<int> d12((int)v1.drawpos.x - (int)v2.drawpos.x, (int)v1.drawpos.y - (int)v2.drawpos.y);
+	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
+	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
+	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
 
 	// Drop primitives which are not in CCW order by checking the cross product
 	if (d01.x * d02.y - d01.y * d02.x < 0)
 		return;
 
-	int minX = std::min(std::min(v0.drawpos.x, v1.drawpos.x), v2.drawpos.x);
-	int minY = std::min(std::min(v0.drawpos.y, v1.drawpos.y), v2.drawpos.y);
-	int maxX = std::max(std::max(v0.drawpos.x, v1.drawpos.x), v2.drawpos.x);
-	int maxY = std::max(std::max(v0.drawpos.y, v1.drawpos.y), v2.drawpos.y);
+	int minX = std::min(std::min(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
+	int minY = std::min(std::min(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
+	int maxX = std::max(std::max(v0.screenpos.x, v1.screenpos.x), v2.screenpos.x) / 16 * 16;
+	int maxY = std::max(std::max(v0.screenpos.y, v1.screenpos.y), v2.screenpos.y) / 16 * 16;
 
-	minX = std::max(minX, gstate.getScissorX1());
-	maxX = std::min(maxX, gstate.getScissorX2());
-	minY = std::max(minY, gstate.getScissorY1());
-	maxY = std::min(maxY, gstate.getScissorY2());
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
+	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
+	minX = std::max(minX, (int)TransformUnit::DrawingToScreen(scissorTL).x);
+	maxX = std::min(maxX, (int)TransformUnit::DrawingToScreen(scissorBR).x);
+	minY = std::max(minY, (int)TransformUnit::DrawingToScreen(scissorTL).y);
+	maxY = std::min(maxY, (int)TransformUnit::DrawingToScreen(scissorBR).y);
 
-	int bias0 = IsRightSideOrFlatBottomLine(v0.drawpos.xy(), v1.drawpos.xy(), v2.drawpos.xy()) ? -1 : 0;
-	int bias1 = IsRightSideOrFlatBottomLine(v1.drawpos.xy(), v2.drawpos.xy(), v0.drawpos.xy()) ? -1 : 0;
-	int bias2 = IsRightSideOrFlatBottomLine(v2.drawpos.xy(), v0.drawpos.xy(), v1.drawpos.xy()) ? -1 : 0;
+	int bias0 = IsRightSideOrFlatBottomLine(v0.screenpos.xy(), v1.screenpos.xy(), v2.screenpos.xy()) ? -1 : 0;
+	int bias1 = IsRightSideOrFlatBottomLine(v1.screenpos.xy(), v2.screenpos.xy(), v0.screenpos.xy()) ? -1 : 0;
+	int bias2 = IsRightSideOrFlatBottomLine(v2.screenpos.xy(), v0.screenpos.xy(), v1.screenpos.xy()) ? -1 : 0;
 
-	DrawingCoords p(minX, minY, 0);
-	int w0_base = orient2d(v1.drawpos, v2.drawpos, p);
-	int w1_base = orient2d(v2.drawpos, v0.drawpos, p);
-	int w2_base = orient2d(v0.drawpos, v1.drawpos, p);
-	for (p.y = minY; p.y <= maxY; ++p.y,
-										w0_base += orient2dIncY(d12.x),
-										w1_base += orient2dIncY(-d02.x),
-										w2_base += orient2dIncY(d01.x)) {
+	ScreenCoords pprime(minX, minY, 0);
+	int w0_base = orient2d(v1.screenpos, v2.screenpos, pprime);
+	int w1_base = orient2d(v2.screenpos, v0.screenpos, pprime);
+	int w2_base = orient2d(v0.screenpos, v1.screenpos, pprime);
+	for (pprime.y = minY; pprime.y <= maxY; pprime.y +=16,
+										w0_base += orient2dIncY(d12.x)*16,
+										w1_base += orient2dIncY(-d02.x)*16,
+										w2_base += orient2dIncY(d01.x)*16) {
 		int w0 = w0_base;
 		int w1 = w1_base;
 		int w2 = w2_base;
-		for (p.x = minX; p.x <= maxX; ++p.x,
-											w0 += orient2dIncX(d12.y),
-											w1 += orient2dIncX(-d02.y),
-											w2 += orient2dIncX(d01.y)) {
+		for (pprime.x = minX; pprime.x <= maxX; pprime.x +=16,
+											w0 += orient2dIncX(d12.y)*16,
+											w1 += orient2dIncX(-d02.y)*16,
+											w2 += orient2dIncX(d01.y)*16) {
+			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
 			// If p is on or inside all edges, render pixel
 			// TODO: Should we render if the pixel is both on the left and the right side? (i.e. degenerated triangle)
@@ -680,7 +684,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					prim_color_rgb = ((v0.color0.rgb().Cast<float>() * w0 +
 									v1.color0.rgb().Cast<float>() * w1 +
 									v2.color0.rgb().Cast<float>() * w2) / (w0+w1+w2)).Cast<int>();
-					prim_color_a = (int)((v0.color0.a() * w0 + v1.color0.a() * w1 + v2.color0.a() * w2) / (w0+w1+w2));
+					prim_color_a = (int)(((float)v0.color0.a() * w0 + (float)v1.color0.a() * w1 + (float)v2.color0.a() * w2) / (w0+w1+w2));
 					sec_color = ((v0.color1.Cast<float>() * w0 +
 									v1.color1.Cast<float>() * w1 +
 									v2.color1.Cast<float>() * w2) / (w0+w1+w2)).Cast<int>();
@@ -719,7 +723,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				// TODO: Fogging
 
 				// TODO: Is that the correct way to interpolate?
-				u16 z = (u16)((v0.drawpos.z * w0 + v1.drawpos.z * w1 + v2.drawpos.z * w2) / (w0+w1+w2));
+				u16 z = (u16)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) / (w0+w1+w2));
 
 				// Depth range test
 				if (!gstate.isModeThrough())
@@ -757,6 +761,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					else if (!gstate.isModeClear() && gstate.isDepthWriteEnabled())
 						SetPixelDepth(p.x, p.y, z);
 				}
+
 				if (gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
 					Vec4<int> dst = Vec4<int>::FromRGBA(GetPixelColor(p.x, p.y));
 					prim_color_rgb = AlphaBlendingResult(prim_color_rgb, prim_color_a, dst);

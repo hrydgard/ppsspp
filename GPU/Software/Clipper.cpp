@@ -165,13 +165,13 @@ void ProcessQuad(const VertexData& v0, const VertexData& v1)
 	} else {
 		// through mode handling
 		VertexData buf[4];
-		buf[0].drawpos = DrawingCoords(v0.drawpos.x, v0.drawpos.y, v1.drawpos.z);
+		buf[0].screenpos = ScreenCoords(v0.screenpos.x, v0.screenpos.y, v1.screenpos.z);
 		buf[0].texturecoords = v0.texturecoords;
 
-		buf[1].drawpos = DrawingCoords(v0.drawpos.x, v1.drawpos.y, v1.drawpos.z);
+		buf[1].screenpos = ScreenCoords(v0.screenpos.x, v1.screenpos.y, v1.screenpos.z);
 		buf[1].texturecoords = Vec2<float>(v0.texturecoords.x, v1.texturecoords.y);
 
-		buf[2].drawpos = DrawingCoords(v1.drawpos.x, v0.drawpos.y, v1.drawpos.z);
+		buf[2].screenpos = ScreenCoords(v1.screenpos.x, v0.screenpos.y, v1.screenpos.z);
 		buf[2].texturecoords = Vec2<float>(v1.texturecoords.x, v0.texturecoords.y);
 
 		buf[3] = v1;
@@ -187,13 +187,13 @@ void ProcessQuad(const VertexData& v0, const VertexData& v1)
 		VertexData* bottomright = &buf[3];
 
 		for (int i = 0; i < 4; ++i) {
-			if (buf[i].drawpos.x < topleft->drawpos.x && buf[i].drawpos.y < topleft->drawpos.y)
+			if (buf[i].screenpos.x < topleft->screenpos.x && buf[i].screenpos.y < topleft->screenpos.y)
 				topleft = &buf[i];
-			if (buf[i].drawpos.x > topright->drawpos.x && buf[i].drawpos.y < topright->drawpos.y)
+			if (buf[i].screenpos.x > topright->screenpos.x && buf[i].screenpos.y < topright->screenpos.y)
 				topright = &buf[i];
-			if (buf[i].drawpos.x < bottomleft->drawpos.x && buf[i].drawpos.y > bottomleft->drawpos.y)
+			if (buf[i].screenpos.x < bottomleft->screenpos.x && buf[i].screenpos.y > bottomleft->screenpos.y)
 				bottomleft = &buf[i];
-			if (buf[i].drawpos.x > bottomright->drawpos.x && buf[i].drawpos.y > bottomright->drawpos.y)
+			if (buf[i].screenpos.x > bottomright->screenpos.x && buf[i].screenpos.y > bottomright->screenpos.y)
 				bottomright = &buf[i];
 		}
 
@@ -281,9 +281,9 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 		if(indices[i] != SKIP_FLAG)
 		{
 			VertexData data[3] = { *Vertices[indices[i]], *Vertices[indices[i+1]], *Vertices[indices[i+2]] };
-			data[0].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[0].clippos)));
-			data[1].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[1].clippos)));
-			data[2].drawpos = DrawingCoords(TransformUnit::ScreenToDrawing(TransformUnit::ClipToScreen(data[2].clippos)));
+			data[0].screenpos = TransformUnit::ClipToScreen(data[0].clippos);
+			data[1].screenpos = TransformUnit::ClipToScreen(data[1].clippos);
+			data[2].screenpos = TransformUnit::ClipToScreen(data[2].clippos);
 			Rasterizer::DrawTriangle(data[0], data[1], data[2]);
 		}
 	}
