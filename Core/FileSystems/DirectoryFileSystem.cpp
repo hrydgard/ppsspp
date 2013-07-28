@@ -568,7 +568,7 @@ bool DirectoryFileSystem::GetHostPath(const std::string &inpath, std::string &ou
 #ifdef _WIN32
 #define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
 
-void tmFromFiletime(tm &dest, FILETIME &src)
+static void tmFromFiletime(tm &dest, FILETIME &src)
 {
 	u64 from_1601_us = (((u64) src.dwHighDateTime << 32ULL) + (u64) src.dwLowDateTime) / 10ULL;
 	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;

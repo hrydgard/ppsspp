@@ -427,11 +427,96 @@ bool VirtualDiscFileSystem::GetHostPath(const std::string &inpath, std::string &
 	return false;
 }
 
+#ifdef _WIN32
+#define FILETIME_FROM_UNIX_EPOCH_US 11644473600000000ULL
+
+static void tmFromFiletime(tm &dest, FILETIME &src)
+{
+	u64 from_1601_us = (((u64) src.dwHighDateTime << 32ULL) + (u64) src.dwLowDateTime) / 10ULL;
+	u64 from_1970_us = from_1601_us - FILETIME_FROM_UNIX_EPOCH_US;
+
+	time_t t = (time_t) (from_1970_us / 1000000UL);
+	localtime_r(&t, &dest);
+}
+#endif
+
 std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 {
-	// todo
-	std::vector<PSPFileInfo> result;
-	return result;
+	std::vector<PSPFileInfo> myVector;
+#ifdef _WIN32
+	WIN32_FIND_DATA findData;
+	HANDLE hFind;
+
+	std::string w32path = GetLocalPath(path) + "\\*.*";
+
+	hFind = FindFirstFile(w32path.c_str(), &findData);
+
+	if (hFind == INVALID_HANDLE_VALUE) {
+		return myVector; //the empty list
+	}
+
+	for (BOOL retval = 1; retval; retval = FindNextFile(hFind, &findData)) {
+		if (!strcmp(findData.cFileName, "..") || !strcmp(findData.cFileName, ".")) {
+			continue;
+		}
+
+		PSPFileInfo entry;
+		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+			entry.type = FILETYPE_DIRECTORY;
+		} else {
+			entry.type = FILETYPE_NORMAL;
+		}
+
+		entry.access = FILEACCESS_READ;
+		entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
+		entry.name = findData.cFileName;
+		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
+		tmFromFiletime(entry.ctime, findData.ftCreationTime);
+		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
+		myVector.push_back(entry);
+	}
+#else
+	dirent *dirp;
+	std::string localPath = GetLocalPath(path);
+	DIR *dp = opendir(localPath.c_str());
+
+#if HOST_IS_CASE_SENSITIVE
+	if(dp == NULL && FixPathCase(basePath,path, FPC_FILE_MUST_EXIST)) {
+		// May have failed due to case sensitivity, try again
+		localPath = GetLocalPath(path);
+		dp = opendir(localPath.c_str());
+	}
+#endif
+
+	if (dp == NULL) {
+		ERROR_LOG(HLE,"Error opening directory %s\n", path.c_str());
+		return myVector;
+	}
+
+	while ((dirp = readdir(dp)) != NULL) {
+		if (!strcmp(dirp->d_name, "..") || !strcmp(dirp->d_name, ".")) {
+			continue;
+		}
+
+		PSPFileInfo entry;
+		struct stat s;
+		std::string fullName = GetLocalPath(path) + "/"+dirp->d_name;
+		stat(fullName.c_str(), &s);
+		if (S_ISDIR(s.st_mode))
+			entry.type = FILETYPE_DIRECTORY;
+		else
+			entry.type = FILETYPE_NORMAL;
+		entry.access = s.st_mode & 0x1FF;
+		entry.name = dirp->d_name;
+		entry.size = s.st_size;
+		localtime_r((time_t*)&s.st_atime,&entry.atime);
+		localtime_r((time_t*)&s.st_ctime,&entry.ctime);
+		localtime_r((time_t*)&s.st_mtime,&entry.mtime);
+		myVector.push_back(entry);
+	}
+	closedir(dp);
+#endif
+	return myVector;
 }
 
 size_t VirtualDiscFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
