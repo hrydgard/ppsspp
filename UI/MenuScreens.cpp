@@ -65,6 +65,7 @@
 #include "GameInfoCache.h"
 #include "android/jni/TestRunner.h"
 
+
 #ifdef USING_QT_UI
 #include <QFileDialog>
 #include <QFile>
@@ -73,6 +74,9 @@
 
 #ifdef _WIN32
 namespace MainWindow {
+	enum {
+		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200
+	};
 	extern HWND hwndMain;
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
 }
@@ -769,9 +773,17 @@ void DeveloperScreen::render() {
 
 	bool reportingEnabled = Reporting::IsEnabled();
 	const static std::string reportHostOfficial = "report.ppsspp.org";
+
+	UICheckBox(GEN_ID, x, y += stride, d->T("Enable Logging"), ALIGN_TOPLEFT, &g_Config.bEnableLogging);
+#ifdef _WIN32
+	// Update the main menu bar.
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
+#endif
+
 	if (UICheckBox(GEN_ID, x, y += stride, d->T("Report","Enable Compatibility Server Reports"), ALIGN_TOPLEFT, &reportingEnabled)) {
 		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
 	}
+
 	UICheckBox(GEN_ID, x, y += stride, d->T("New UI"), ALIGN_TOPLEFT, &g_Config.bNewUI);
 
 	VLinear vlinear(x, y + stride + 12, 16);

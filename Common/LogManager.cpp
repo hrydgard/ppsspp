@@ -22,6 +22,7 @@
 #include "Timer.h"
 #include "Thread.h"
 #include "FileUtil.h"
+#include "../Core/Config.h"
 #ifdef __SYMBIAN32__
 #include <e32debug.h>
 #endif
@@ -36,6 +37,8 @@ const char *hleCurrentThreadName = NULL;
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 		const char *file, int line, const char* fmt, ...)
 {
+	if(!g_Config.bEnableLogging) return;
+
 	va_list args;
 	va_start(args, fmt);
 	if (LogManager::GetInstance())

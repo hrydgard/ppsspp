@@ -88,8 +88,6 @@ namespace MainWindow
 	LRESULT CALLBACK DisplayProc(HWND, UINT, WPARAM, LPARAM);
 	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
 
-	const UINT WM_USER_SAVESTATE_FINISH = WM_USER + 100;
-
 	HWND GetHWND() {
 		return hwndMain;
 	}
@@ -1149,6 +1147,15 @@ namespace MainWindow
 			SetCursor(LoadCursor(0, IDC_ARROW));
 			break;
 
+		case WM_USER_LOG_STATUS_CHANGED:
+			if(!g_Config.bEnableLogging) {
+				LogManager::GetInstance()->GetConsoleListener()->Show(false);
+				EnableMenuItem(menu, ID_DEBUG_LOG, MF_GRAYED);
+			}
+			else
+				EnableMenuItem(menu, ID_DEBUG_LOG, MF_ENABLED);
+			break;
+
 		case WM_MENUSELECT:
 			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
 			// with corresponding menu items.
@@ -1180,7 +1187,6 @@ namespace MainWindow
 	{
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
-
 		CHECKITEM(ID_EMULATION_SPEEDLIMIT,g_Config.bSpeedLimit);
 //		CHECK(ID_OPTIONS_ENABLEFRAMEBUFFER,g_Config.bEnableFrameBuffer);
 //		CHECK(ID_OPTIONS_EMULATESYSCALL,g_bEmulateSyscall);
@@ -1202,7 +1208,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
-		
+
 		static const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
 			ID_OPTIONS_SCREEN2X,
@@ -1304,6 +1310,7 @@ namespace MainWindow
 		EnableMenuItem(menu,ID_TOGGLE_PAUSE, !menuEnable);
 		EnableMenuItem(menu,ID_EMULATION_STOP, !menuEnable);
 		EnableMenuItem(menu,ID_EMULATION_RESET, !menuEnable);
+		EnableMenuItem(menu,ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 
 	// Message handler for about box.
