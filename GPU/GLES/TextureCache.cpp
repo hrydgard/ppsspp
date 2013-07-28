@@ -172,11 +172,14 @@ TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
 }
 
 void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer) {
+	// This is a rough heuristic, because sometimes our framebuffers are too tall.
+	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
+
 	// Must be in VRAM so | 0x04000000 it is.
 	const u64 cacheKey = (u64)(address | 0x04000000) << 32;
 	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
 	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * framebuffer->height) << 32);
+	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
 
 	for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
 		auto entry = &it->second;
@@ -201,16 +204,13 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 				|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
 				|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
 
-			// This is a rough heuristic, because sometimes our framebuffers are too tall.
-			static const u32 MAX_SUBAREA_Y_OFFSET = 32;
-
 			// Is it at least the right stride?
 			if (framebuffer->fb_stride == entry->bufw && compatFormat) {
 				if (framebuffer->format != entry->format) {
 					WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 					// TODO: Use an FBO to translate the palette?
 					entry->framebuffer = framebuffer;
-				} else if ((entry->addr - address) / entry->bufw < MAX_SUBAREA_Y_OFFSET) {
+				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 					WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 					// TODO: Keep track of the y offset.
 					entry->framebuffer = framebuffer;
