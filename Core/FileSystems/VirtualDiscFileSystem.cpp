@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <ctype.h>
+#include <dlfcn.h>
 #endif
 
 const std::string INDEX_FILENAME = ".ppsspp-index.lst";
@@ -73,11 +74,13 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		return;
 	}
 
-	std::string line;
+	std::string buf;
 	static const int MAX_LINE_SIZE = 1024;
 	while (!in.eof()) {
-		line.resize(MAX_LINE_SIZE, '\0');
-		in.getline(&line[0], MAX_LINE_SIZE);
+		buf.resize(MAX_LINE_SIZE, '\0');
+		in.getline(&buf[0], MAX_LINE_SIZE);
+
+		std::string line = buf.data();
 
 		// Ignore any UTF-8 BOM.
 		if (line.substr(0, 3) == "\xEF\xBB\xBF") {
@@ -427,7 +430,7 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 			int fileIndex = getFileListIndex(iter->second.curOffset,size*2048,true);
 			if (fileIndex == -1)
 			{
-				ERROR_LOG(HLE,"VirtualDiscFileSystem: Reading from unknown address %08x", handle);
+				ERROR_LOG(HLE,"VirtualDiscFileSystem: Reading from unknown address in %08x at %08x", handle, iter->second.curOffset);
 				return 0;
 			}
 
@@ -715,30 +718,34 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTy
 
 VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys) {
 #ifdef _WIN32
-	HMODULE mod = LoadLibrary(filename);
+#define dlopen(x, y) (void *)LoadLibrary(x)
+#define dlsym(x, y) GetProcAddress((HMODULE)x, y)
+#define dlclose(x) FreeLibrary((HMODULE)x)
+#endif
 
-	library = (void *)mod;
+	library = dlopen(filename, RTLD_LOCAL | RTLD_NOW);
 	if (library != NULL) {
-		Init = (InitFunc)GetProcAddress(mod, "Init");
-		Shutdown = (ShutdownFunc)GetProcAddress(mod, "Shutdown");
-		Open = (OpenFunc)GetProcAddress(mod, "Open");
-		Seek = (SeekFunc)GetProcAddress(mod, "Seek");
-		Read = (ReadFunc)GetProcAddress(mod, "Read");
-		Close = (CloseFunc)GetProcAddress(mod, "Close");
+		Init = (InitFunc)dlsym(library, "Init");
+		Shutdown = (ShutdownFunc)dlsym(library, "Shutdown");
+		Open = (OpenFunc)dlsym(library, "Open");
+		Seek = (SeekFunc)dlsym(library, "Seek");
+		Read = (ReadFunc)dlsym(library, "Read");
+		Close = (CloseFunc)dlsym(library, "Close");
 
 		if (Init == NULL || Shutdown == NULL || Open == NULL || Seek == NULL || Read == NULL || Close == NULL) {
 			ERROR_LOG(FILESYS, "Unable to find all handler functions: %s", filename);
-			FreeLibrary(mod);
+			dlclose(library);
 			library = NULL;
 		} else if (!Init(&HandlerLogger, sys)) {
 			ERROR_LOG(FILESYS, "Unable to initialize handler: %s", filename);
-			FreeLibrary(mod);
+			dlclose(library);
 			library = NULL;
 		}
 	}
-#else
-	ERROR_LOG(FILESYS, "VirtualDiscFileSystem handlers not implemented yet.");
-	library = NULL;
+#ifdef _WIN32
+#undef dlopen
+#undef dlsym
+#undef dlclose
 #endif
 }
 
@@ -749,7 +756,7 @@ VirtualDiscFileSystem::Handler::~Handler() {
 #ifdef _WIN32
 		FreeLibrary((HMODULE)library);
 #else
-		ERROR_LOG(FILESYS, "VirtualDiscFileSystem handlers not implemented yet.");
+		dlclose(library);
 #endif
 	}
 }
