@@ -33,6 +33,8 @@
 #include <ctype.h>
 #endif
 
+const std::string INDEX_FILENAME = ".ppsspp-index.lst";
+
 VirtualDiscFileSystem::VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::string _basePath)
 	: basePath(_basePath),currentBlockIndex(0) {
 
@@ -60,7 +62,7 @@ VirtualDiscFileSystem::~VirtualDiscFileSystem() {
 }
 
 void VirtualDiscFileSystem::LoadFileListIndex() {
-	const std::string filename = basePath + ".ppsspp-index.ini";
+	const std::string filename = basePath + INDEX_FILENAME;
 	if (!File::Exists(filename)) {
 		return;
 	}
@@ -91,7 +93,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		// Syntax: HEXPOS filename or HEXPOS filename:handler
 		size_t filename_pos = line.find(' ');
 		if (filename_pos == line.npos) {
-			ERROR_LOG(HLE, "Unexpected line in .ppsspp-index.ini: %s", line.c_str());
+			ERROR_LOG(HLE, "Unexpected line in %s: %s", INDEX_FILENAME.c_str(), line.c_str());
 			continue;
 		}
 
