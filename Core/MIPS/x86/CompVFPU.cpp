@@ -1235,8 +1235,18 @@ void Jit::Comp_VRot(u32 op) {
 
 	bool negSin = (imm & 0x10) ? true : false;
 
+#ifdef _M_X64
 	MOVSS(XMM0, fpr.V(sreg));
 	ABI_CallFunction(negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
+#else
+	// Sigh, passing floats with cdecl isn't pretty.
+	MOVSS(XMM0, fpr.V(sreg));
+	SUB(32, R(ESP), Imm32(4));
+	MOVSS(MatR(ESP), XMM0);
+	ABI_CallFunction(negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
+	ADD(32, R(ESP), Imm32(4));
+#endif
+
 	MOVSS(XMM0, M(&sincostemp[0]));
 	MOVSS(XMM1, M(&sincostemp[1]));
 	
