@@ -134,8 +134,15 @@ public:
         return *this;
     }
 
-    template <typename S>
-    operator S() const { return (S)swap(); }
+	operator long() const { return (long)swap(); }
+    operator s16() const { return (s16)swap(); }
+	operator u16() const { return (u16)swap(); }
+	operator s32() const { return (s32)swap(); }
+	operator u32() const { return (u32)swap(); }
+	operator s64() const { return (s64)swap(); }
+	operator u64() const { return (u64)swap(); }
+	operator float() const { return (float)swap(); }
+	operator double() const { return (double)swap(); }
 	
 	
 	// v / 5
