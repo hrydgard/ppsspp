@@ -219,6 +219,7 @@ const tMipsOpcode MipsOpcodes[] = {
 	// OPCODE 09 - ADDIU
 	{ "addiu",	"t,s,i",	0x24000000,	O_RT|O_RS|O_I16 },
 	{ "addiu",	"s,i",		0x24000000,	O_RST|O_I16 },
+	{ "li",		"t,i",		0x24000000,	O_RT|O_I16 },
 	// OPCODE 0A - SLTI
 	{ "slti",	"t,s,i",	0x28000000,	O_RT|O_RS|O_I16 },
 	{ "slti",	"s,i",		0x28000000,	O_RST|O_I16 },

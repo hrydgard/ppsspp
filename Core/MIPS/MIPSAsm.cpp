@@ -28,10 +28,10 @@ void SplitLine(const char* Line, char* Name, char* Arguments)
 	*Arguments = 0;
 }
 
-bool MipsAssembleOpcode(std::string& line, DebugInterface* cpu, u32 address, u32& dest)
+bool MipsAssembleOpcode(char* line, DebugInterface* cpu, u32 address, u32& dest)
 {
 	char name[64],args[256];
-	SplitLine(line.c_str(),name,args);
+	SplitLine(line,name,args);
 
 	CMipsInstruction Opcode(cpu);
 	if (cpu == NULL || Opcode.Load(name,args,(int)address) == false)
