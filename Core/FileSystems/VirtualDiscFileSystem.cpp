@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Common/ChunkFile.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
@@ -36,10 +37,10 @@ VirtualDiscFileSystem::VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::str
 	: basePath(_basePath),currentBlockIndex(0) {
 
 #ifdef _WIN32
-		if (basePath.size() > 0 && basePath[basePath.size()-1] != '\\')
+		if (!endsWith(basePath, "\\"))
 			basePath = basePath + "\\";
 #else
-		if (basePath.size() > 0 && basePath[basePath.size()-1] != '/')
+		if (!endsWith(basePath, "/"))
 			basePath = basePath + "/";
 #endif
 
@@ -55,26 +56,26 @@ VirtualDiscFileSystem::~VirtualDiscFileSystem() {
 
 void VirtualDiscFileSystem::DoState(PointerWrap &p)
 {
-	int fileListSize = fileList.size();
-	int entryCount = entries.size();
+	int fileListSize = (int)fileList.size();
+	int entryCount = (int)entries.size();
 
 	p.Do(fileListSize);
 	p.Do(entryCount);
 	p.Do(currentBlockIndex);
 
+	FileListEntry dummy = {""};
+	fileList.resize(fileListSize, dummy);
+
+	for (int i = 0; i < fileListSize; i++)
+	{
+		p.Do(fileList[i].fileName);
+		p.Do(fileList[i].firstBlock);
+		p.Do(fileList[i].totalSize);
+	}
+
 	if (p.mode == p.MODE_READ)
 	{
-		fileList.clear();
 		entries.clear();
-
-		for (int i = 0; i < fileListSize; i++)
-		{
-			FileListEntry entry;
-			p.Do(entry.fileName);
-			p.Do(entry.firstBlock);
-			p.Do(entry.totalSize);
-			fileList.push_back(entry);
-		}
 
 		for (int i = 0; i < entryCount; i++)
 		{
@@ -108,13 +109,6 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 			entries[fd] = of;
 		}
 	} else {
-		for (int i = 0; i < fileListSize; i++)
-		{
-			p.Do(fileList[i].fileName);
-			p.Do(fileList[i].firstBlock);
-			p.Do(fileList[i].totalSize);
-		}
-
 		for (EntryMap::iterator it = entries.begin(), end = entries.end(); it != end; ++it)
 		{
 			OpenFileEntry &of = it->second;
