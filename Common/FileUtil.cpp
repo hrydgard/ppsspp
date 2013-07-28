@@ -84,6 +84,10 @@ static void StripTailDirSlashes(std::string &fname)
 	if (fname.length() > 1)
 	{
 		size_t i = fname.length() - 1;
+#ifdef _WIN32
+		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
+			return;
+#endif
 		while (strchr(DIR_SEP_CHRS, fname[i]))
 			fname[i--] = '\0';
 	}
