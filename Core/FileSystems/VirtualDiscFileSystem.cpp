@@ -94,7 +94,8 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		// Check if there's a handler specified.
 		size_t handler_pos = line.find(':', filename_pos);
 		if (handler_pos != line.npos) {
-			entry.fileName = line.substr(filename_pos + 1, handler_pos - filename_pos);
+			entry.fileName = line.substr(filename_pos + 1, handler_pos - filename_pos - 1);
+			NOTICE_LOG(HLE, "Handler found: %s", line.substr(handler_pos + 1).c_str());
 			// TODO: Implement handler.
 		} else {
 			entry.fileName = line.substr(filename_pos + 1);
@@ -636,4 +637,12 @@ bool VirtualDiscFileSystem::RemoveFile(const std::string &filename)
 {
 	ERROR_LOG(HLE,"VirtualDiscFileSystem: Cannot remove file on virtual disc");
 	return false;
+}
+
+VirtualDiscFileSystem::Handler::Handler(const char *filename) {
+	// TODO
+}
+
+VirtualDiscFileSystem::Handler::~Handler() {
+	// TODO
 }

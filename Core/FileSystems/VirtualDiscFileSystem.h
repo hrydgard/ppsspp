@@ -24,8 +24,7 @@
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 
-class VirtualDiscFileSystem: public IFileSystem
-{
+class VirtualDiscFileSystem: public IFileSystem {
 public:
 	VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::string _basePath);
 	~VirtualDiscFileSystem();
@@ -53,10 +52,51 @@ private:
 	int getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode = false);
 	std::string GetLocalPath(std::string localpath);
 
+	typedef void *HandlerLibrary;
+	typedef int HandlerHandle;
+	typedef s64 HandlerOffset;
+	typedef void (*HandlerLogFunc)(HandlerHandle fd, int level, const char *msg);
+
+	// The primary purpose of handlers is to make it easier to work with large archives.
+	// However, they have other uses as well, such as patching individual files.
+	struct Handler {
+		Handler(const char *filename);
+		~Handler();
+
+		HandlerLibrary library;
+		bool (*Init)(HandlerLogFunc logger);
+		void (*Shutdown)();
+		HandlerHandle (*Open)(const char *basePath, const char *filename);
+		HandlerOffset (*Seek)(HandlerHandle handle, HandlerOffset offset, FileMove origin);
+		HandlerOffset (*Read)(HandlerHandle handle, void *data, HandlerOffset size);
+		void (*Close)(HandlerHandle handle);
+	};
+
+	struct HandlerFileHandle {
+		Handler *handler;
+		HandlerHandle handle;
+
+		bool Open(std::string& basePath, std::string& fileName, FileAccess access) {
+			// Ignore access, read only.
+			handle = handler->Open(basePath.c_str(), fileName.c_str());
+			return handle > 0;
+		}
+		size_t Read(u8 *data, s64 size) {
+			return (size_t)handler->Read(handle, data, size);
+		}
+		size_t Seek(s32 position, FileMove type) {
+			return (size_t)handler->Seek(handle, position, type);
+		}
+		void Close() {
+			handler->Close(handle);
+		}
+	};
+
 	typedef enum { VFILETYPE_NORMAL, VFILETYPE_LBN, VFILETYPE_ISO } VirtualFileType;
 
 	struct OpenFileEntry {
 		DirectoryFileHandle hFile;
+		HandlerFileHandle handler;
 		VirtualFileType type;
 		u32 fileIndex;
 		u32 curOffset;
@@ -77,4 +117,6 @@ private:
 
 	std::vector<FileListEntry> fileList;
 	u32 currentBlockIndex;
+
+	std::map<std::string, Handler> handlers;
 };
