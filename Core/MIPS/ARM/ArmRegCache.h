@@ -104,7 +104,7 @@ public:
 
 	ARMReg R(int preg); // Returns a cached register
 
-	void SetEmitter(ARMXEmitter *emitter) { emit = emitter; }
+	void SetEmitter(ARMXEmitter *emitter) { emit_ = emitter; }
 
 	// For better log output only.
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
@@ -116,7 +116,7 @@ private:
 		
 	MIPSState *mips_;
 	MIPSComp::ArmJitOptions *options_;
-	ARMXEmitter *emit;
+	ARMXEmitter *emit_;
 	u32 compilerPC_;
 
 	enum {

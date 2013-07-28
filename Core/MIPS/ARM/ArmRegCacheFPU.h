@@ -113,7 +113,7 @@ public:
 	void SpillLockV(const u8 *v, VectorSize vsz);
 	void SpillLockV(int vec, VectorSize vsz);
 
-	void SetEmitter(ARMXEmitter *emitter) { emit = emitter; }
+	void SetEmitter(ARMXEmitter *emitter) { emit_ = emitter; }
 
 	// For better log output only.
 	void SetCompilerPC(u32 compilerPC) { compilerPC_ = compilerPC; }
@@ -125,7 +125,7 @@ public:
 
 private:
 	MIPSState *mips_;
-	ARMXEmitter *emit;
+	ARMXEmitter *emit_;
 	u32 compilerPC_;
 
 	enum {
