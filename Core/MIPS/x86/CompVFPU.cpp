@@ -439,8 +439,55 @@ void Jit::Comp_VDot(u32 op) {
 		ADDSS(tempxreg, R(XMM1));
 	}
 
-	if (!fpr.V(dregs[0]).IsSimpleReg(tempxreg))
+	if (!fpr.V(dregs[0]).IsSimpleReg(tempxreg)) {
+		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+		MOVSS(fpr.V(dregs[0]), tempxreg);
+	}
+
+	ApplyPrefixD(dregs, V_Single);
+
+	fpr.ReleaseSpillLocks();
+}
+
+
+void Jit::Comp_VHdp(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	// TODO: Force read one of them into regs? probably not.
+	u8 sregs[4], tregs[4], dregs[1];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixT(tregs, sz, _VT);
+	GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+	X64Reg tempxreg = XMM0;
+	if (IsOverlapSafe(dregs[0], 0, n, sregs, n, tregs))
 	{
+		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
+		tempxreg = fpr.VX(dregs[0]);
+	}
+
+	// Need to start with +0.0f so it doesn't result in -0.0f.
+	MOVSS(tempxreg, fpr.V(sregs[0]));
+	MULSS(tempxreg, fpr.V(tregs[0]));
+	for (int i = 1; i < n; i++)
+	{
+		// sum += (i == n-1) ? t[i] : s[i]*t[i];
+		if (i == n - 1) {
+			ADDSS(tempxreg, fpr.V(tregs[i]));
+		} else {
+			MOVSS(XMM1, fpr.V(sregs[i]));
+			MULSS(XMM1, fpr.V(tregs[i]));
+			ADDSS(tempxreg, R(XMM1));
+		}
+	}
+
+	if (!fpr.V(dregs[0]).IsSimpleReg(tempxreg)) {
 		fpr.MapRegsV(dregs, V_Single, MAP_NOINIT);
 		MOVSS(fpr.V(dregs[0]), tempxreg);
 	}
@@ -1121,10 +1168,6 @@ void Jit::Comp_Vtfm(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-
-void Jit::Comp_VHdp(u32 op) {
-	DISABLE;
-}
 
 void Jit::Comp_VCrs(u32 op) {
 	DISABLE;
