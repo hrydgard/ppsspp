@@ -290,6 +290,12 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 	char op[256];
 	u32 encoded;
 
+	if (Core_IsStepping() == false)
+	{
+		MessageBox(wnd,"Cannot change code while the core is running!","Error",MB_OK);
+		return;
+	}
+
 	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,"Assemble opcode",(char*)defaultText.c_str(),op);
 	if (result == false) return;
 
