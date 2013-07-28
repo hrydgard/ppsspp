@@ -186,7 +186,7 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 			DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
 			if (!entry->framebuffer) {
 				if (entry->format != framebuffer->format) {
-					WARN_LOG_REPORT(HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+					WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				}
 				entry->framebuffer = framebuffer;
 				// TODO: Delete the original non-fbo texture too.
@@ -194,6 +194,27 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 				// Force a re-bind, fixes map in Tactics Ogre.
 				glBindTexture(GL_TEXTURE_2D, 0);
 				lastBoundTexture = -1;
+			}
+		} else {
+			// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
+			const bool compatFormat = framebuffer->format == entry->format
+				|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
+				|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+
+			// This is a rough heuristic, because sometimes our framebuffers are too tall.
+			static const u32 MAX_SUBAREA_Y_OFFSET = 32;
+
+			// Is it at least the right stride?
+			if (framebuffer->fb_stride == entry->bufw && compatFormat) {
+				if (framebuffer->format != entry->format) {
+					WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+					// TODO: Use an FBO to translate the palette?
+					entry->framebuffer = framebuffer;
+				} else if ((entry->addr - address) / entry->bufw < MAX_SUBAREA_Y_OFFSET) {
+					WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
+					// TODO: Keep track of the y offset.
+					entry->framebuffer = framebuffer;
+				}
 			}
 		}
 	}
