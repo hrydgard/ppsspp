@@ -54,10 +54,10 @@ int MipsGetRegister(char* source, int& RetLen)
 	for (int z = 0; MipsRegister[z].name != NULL; z++)
 	{
 		int len = MipsRegister[z].len;
-		if (strncmp(MipsRegister[z].name,source,len) == 0)	// erstmal in ordnung
+		if (strncmp(MipsRegister[z].name,source,len) == 0)	// fine so far
 		{
 			if (source[len] == ',' || source[len] == '\n'  || source[len] == 0
-				|| source[len] == ')'  || source[len] == '(' || source[len] == '-')	// eins hiervon MUSS nach nem register kommen
+				|| source[len] == ')'  || source[len] == '(' || source[len] == '-')	// one of these HAS TO come after a register
 			{
 				RetLen = len;
 				return MipsRegister[z].num;
@@ -72,10 +72,10 @@ int MipsGetFloatRegister(char* source, int& RetLen)
 	for (int z = 0; MipsFloatRegister[z].name != NULL; z++)
 	{
 		int len = MipsFloatRegister[z].len;
-		if (strncmp(MipsFloatRegister[z].name,source,len) == 0)	// erstmal in ordnung
+		if (strncmp(MipsFloatRegister[z].name,source,len) == 0)	// fine so far
 		{
 			if (source[len] == ',' || source[len] == '\n'  || source[len] == 0
-				|| source[len] == ')'  || source[len] == '(' || source[len] == '-')	// eins hiervon MUSS nach nem register kommen
+				|| source[len] == ')'  || source[len] == '(' || source[len] == '-')	// one of these HAS TO come after a register
 			{
 				RetLen = len;
 				return MipsFloatRegister[z].num;
@@ -90,7 +90,7 @@ bool MipsCheckImmediate(char* Source, char* Dest, int& RetLen)
 	int BufferPos = 0;
 	int l;
 
-	if (MipsGetRegister(Source,l) != -1)	// fehler ende
+	if (MipsGetRegister(Source,l) != -1)	//  there's a register -> no immediate
 	{
 		return false;
 	}
@@ -121,9 +121,9 @@ bool MipsCheckImmediate(char* Source, char* Dest, int& RetLen)
 		}
 
 
-		if (*Source == '(')	// könnte auch durch ne klammer kommen
+		if (*Source == '(')	// could also be part of the opcode, ie (r4)
 		{
-			if (MipsGetRegister(Source+1,l) != -1)	// ende
+			if (MipsGetRegister(Source+1,l) != -1)	// stop if it is
 			{
 				Dest[BufferPos] = 0;
 				break;
@@ -237,7 +237,7 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 				Line += RetLen;
 				SourceEncoding += 2;
 				break;
-			default:	// alles andere
+			default:	// everything else
 				if (*SourceEncoding++ != *Line++) return false;
 				break;
 			}
@@ -245,9 +245,9 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 	}
 
 	while (*Line == ' ' || *Line == '\t') Line++;
-	if (*Line != 0)	return false;	// da ist noch mehr, nicht gut
+	if (*Line != 0)	return false;	// there's something else at the end, bad
 
-	// opcode ist ok - jetzt noch alle weiteren flags setzen
+	// the opcode is fine - now set all remaining flags
 	Opcode = SourceOpcode;
 
 	if (Immediate == true)
@@ -285,7 +285,7 @@ bool CMipsInstruction::Validate()
 		return false;
 	}
 
-	// immediates prüfen
+	// check immediates
 	if (Vars.ImmediateType != MIPS_NOIMMEDIATE)
 	{
 		Vars.OriginalImmediate = Vars.Immediate;
@@ -293,7 +293,7 @@ bool CMipsInstruction::Validate()
 		if (Opcode.flags & O_IPCA)	// absolute value >> 2)
 		{
 			Vars.Immediate = (Vars.Immediate >> 2) & 0x3FFFFFF;
-		} else if (Opcode.flags & O_IPCR)	// relativer 16 bit wert
+		} else if (Opcode.flags & O_IPCR)	// relative 16 bit value
 		{
 			int num = (Vars.Immediate-RamPos-4);
 			
