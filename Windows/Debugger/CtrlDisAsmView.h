@@ -71,6 +71,7 @@ class CtrlDisAsmView
 	bool searching;
 	bool dontRedraw;
 
+	void assembleOpcode(u32 address, std::string defaultText);
 	void disassembleToFile();
 	void search(bool continueSearch);
 	void followBranch();

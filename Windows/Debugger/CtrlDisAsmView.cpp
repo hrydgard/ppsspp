@@ -7,6 +7,7 @@
 #include "../WndMainWindow.h"
 #include "../InputBox.h"
 
+#include "Core/MIPS/MIPSAsm.h"
 #include "Core/Config.h"
 #include "CtrlDisAsmView.h"
 #include "Debugger_MemoryDlg.h"
@@ -284,6 +285,25 @@ void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* argumen
 	*arguments = 0;
 }
 
+void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
+{
+	char op[256];
+	u32 encoded;
+
+	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,"Assemble opcode",(char*)defaultText.c_str(),op);
+	if (result == false) return;
+
+	result = MIPSAsm::MipsAssembleOpcode(op,debugger,address,encoded);
+	if (result == true)
+	{
+		Memory::Write_U32(encoded,address);
+		MIPSComp::jit->ClearCacheAt(address);
+		redraw();
+	} else {
+		MessageBox(wnd,"Couldn''t assemble.","Error",MB_OK);
+	}
+}
+
 void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 {
 	if (!debugger->isAlive()) return;
@@ -498,6 +518,10 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		case 'x':
 			disassembleToFile();
 			break;
+		case 'a':
+			controlHeld = false;
+			assembleOpcode(curAddress,"");
+			break;
 		case 'g':
 			{
 				u32 addr;
@@ -690,6 +714,9 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		case ID_DISASM_TOGGLEBREAKPOINT:
 			toggleBreakpoint();
 			redraw();
+			break;
+		case ID_DISASM_ASSEMBLE:
+			assembleOpcode(curAddress,"");
 			break;
 		case ID_DISASM_COPYINSTRUCTIONDISASM:
 			{
