@@ -1138,6 +1138,7 @@ void TextureCache::SetTexture() {
 	entry->lodBias = 0.0f;
 	
 	entry->dim = gstate.texsize[0] & 0xF0F;
+	entry->bufw = bufw;
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
