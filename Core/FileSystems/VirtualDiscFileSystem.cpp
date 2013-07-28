@@ -239,15 +239,17 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 	return fileList.size()-1;
 }
 
-int VirtualDiscFileSystem::getFileListIndex(u32 accessBlock, u32 accessSize)
+int VirtualDiscFileSystem::getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode)
 {
 	for (size_t i = 0; i < fileList.size(); i++)
 	{
 		if (fileList[i].firstBlock <= accessBlock)
 		{
 			u32 sectorOffset = (accessBlock-fileList[i].firstBlock)*2048;
+			u32 totalFileSize = blockMode ? (fileList[i].totalSize+2047) & ~2047 : fileList[i].totalSize;
+
 			u32 endOffset = sectorOffset+accessSize;
-			if (endOffset <= fileList[i].totalSize)
+			if (endOffset <= totalFileSize)
 			{
 				return (int)i;
 			}
@@ -364,7 +366,7 @@ size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
 				{
 				case FILEMOVE_BEGIN:    iter->second.curOffset = position;    break;
 				case FILEMOVE_CURRENT:  iter->second.curOffset += position;  break;
-				case FILEMOVE_END:      return -1;	// unsupported
+				case FILEMOVE_END:      iter->second.curOffset = currentBlockIndex+position;	break;
 				}
 
 				return iter->second.curOffset;
@@ -387,7 +389,7 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 		// better though
 		if (iter->second.type == VFILETYPE_ISO)
 		{
-			int fileIndex = getFileListIndex(iter->second.curOffset,size*2048);
+			int fileIndex = getFileListIndex(iter->second.curOffset,size*2048,true);
 			if (fileIndex == -1)
 			{
 				ERROR_LOG(HLE,"VirtualDiscFileSystem: Reading from unknown address %08x", handle);
@@ -407,10 +409,22 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 			size_t bytesRead;
 
 			hFile.Seek(startOffset,FILEMOVE_BEGIN);
-			bytesRead = hFile.Read(pointer,size*2048);
+
+			u32 remainingSize = fileList[fileIndex].totalSize-startOffset;
+			if (remainingSize < size*2048)
+			{
+				// the file doesn't fill the whole last sector
+				// read what's there and zero fill the rest like on a real disc
+				bytesRead = hFile.Read(pointer,remainingSize);
+				memset(&pointer[bytesRead],0,size*2048-bytesRead);
+			} else {
+				bytesRead = hFile.Read(pointer,size*2048);
+			}
+
 			hFile.Close();
 
-			return bytesRead;
+			iter->second.curOffset += size;
+			return size;
 		}
 
 		size_t bytesRead = iter->second.hFile.Read(pointer,size);
@@ -443,6 +457,21 @@ bool VirtualDiscFileSystem::OwnsHandle(u32 handle) {
 PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	PSPFileInfo x;
 	x.name = filename;
+
+	if (filename.compare(0,8,"/sce_lbn") == 0)
+	{
+		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
+		parseLBN(filename, &sectorStart, &readSize);
+
+		PSPFileInfo fileInfo;
+		fileInfo.name = filename;
+		fileInfo.exists = true;
+		fileInfo.size = readSize;
+		fileInfo.startSector = sectorStart;
+		fileInfo.isOnSectorSystem = true;
+		fileInfo.numSectors = (readSize + 2047) / 2048;
+		return fileInfo;
+	}
 
 	std::string fullName = GetLocalPath(filename);
 	if (! File::Exists(fullName)) {
