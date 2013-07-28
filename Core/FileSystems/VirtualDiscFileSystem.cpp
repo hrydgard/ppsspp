@@ -380,7 +380,7 @@ size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) 
 				{
 				case FILEMOVE_BEGIN:    entry.curOffset = position;                     break;
 				case FILEMOVE_CURRENT:  entry.curOffset += position;                    break;
-				case FILEMOVE_END:      entry.curOffset = entry.size - position;        break;
+				case FILEMOVE_END:      entry.curOffset = entry.size + position;        break;
 				}
 
 				u32 off = entry.startOffset + entry.curOffset;
