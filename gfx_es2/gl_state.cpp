@@ -10,7 +10,7 @@ PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
 PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 #endif
-#if !defined(IOS)
+#if !defined(IOS) && !defined(__SYMBIAN32__)
 PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
@@ -91,6 +91,10 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
 
+#ifdef __SYMBIAN32__
+	gl_extensions.OES_vertex_array_object = false;
+	gl_extensions.EXT_discard_framebuffer = false;
+#else
 	gl_extensions.OES_vertex_array_object = strstr(extString, "GL_OES_vertex_array_object") != 0;
 	if (gl_extensions.OES_vertex_array_object) {
 		glGenVertexArraysOES = (PFNGLGENVERTEXARRAYSOESPROC)eglGetProcAddress ( "glGenVertexArraysOES" );
@@ -100,10 +104,11 @@ void CheckGLExtensions() {
 		ILOG("VAO available");
 	}
 
-	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer");
+	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
 	if (gl_extensions.EXT_discard_framebuffer) {
 		glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC)eglGetProcAddress("glDiscardFramebufferEXT");
 	}
+#endif
 #endif
 
 #ifdef ANDROID
