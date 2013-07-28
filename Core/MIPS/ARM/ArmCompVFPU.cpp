@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cmath>
+
 #include "../../MemMap.h"
 #include "../MIPSAnalyst.h"
 #include "Common/CPUDetect.h"
@@ -1041,7 +1043,88 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	static float sincostemp[2];
+
+	void SinCos(float angle) {
+#ifndef M_PI_2
+#define M_PI_2     1.57079632679489661923
+#endif
+		angle *= (float)M_PI_2;
+		sincostemp[0] = sinf(angle);
+		sincostemp[1] = cosf(angle);
+	}
+
+	// sincosf is unavailable in the Android NDK:
+	// https://code.google.com/p/android/issues/detail?id=38423
+	void SinCosNegSin(float angle) {
+#ifndef M_PI_2
+#define M_PI_2     1.57079632679489661923
+#endif
+		angle *= (float)M_PI_2;
+		sincostemp[0] = -sinf(angle);
+		sincostemp[1] = cosf(angle);
+	}
+
+	// Very heavily used by FF:CC
 	void Jit::Comp_VRot(u32 op) {
+		// Not sure about the ABI so I disable on non-Android.
+#if !defined(ARMV7) || !defined(ANDROID)
 		DISABLE;
+#endif 
+		CONDITIONAL_DISABLE;
+
+		int vd = _VD;
+		int vs = _VS;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 dregs[4];
+		u8 sreg;
+		GetVectorRegs(dregs, sz, vd);
+		GetVectorRegs(&sreg, V_Single, vs);
+
+		int imm = (op >> 16) & 0x1f;
+
+		gpr.FlushAll();
+		fpr.FlushAll();
+
+		bool negSin = (imm & 0x10) ? true : false;
+
+		fpr.MapRegV(sreg);
+		// Silly Android calling conventions, not passing arguments in float regs! (no hardfloat!)
+		// We should write a custom pure-asm function instead.
+		VMOV(R0, fpr.V(sreg));
+		QuickCallFunction(R1, negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
+		MOVI2R(R0, (u32)(&sincostemp[0]));
+		VLDR(S0, R0, 0);
+		VLDR(S1, R0, 4);
+
+		char what[4] = {'0', '0', '0', '0'};
+		if (((imm >> 2) & 3) == (imm & 3)) {
+			for (int i = 0; i < 4; i++)
+				what[i] = 'S';
+		}
+		what[(imm >> 2) & 3] = 'S';
+		what[imm & 3] = 'C';
+
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fpr.SpillLockV(dregs[i]);
+			switch (what[i]) {
+			case 'C': VMOV(fpr.V(dregs[i]), S1); break;
+			case 'S': VMOV(fpr.V(dregs[i]), S0); break;
+			case '0':
+				{
+					MOVI2F(fpr.V(dregs[i]), 0.0f, R0);
+					break;
+				}
+			default:
+				ERROR_LOG(HLE, "Bad what in vrot");
+				break;
+			}
+		}
+
+		fpr.ReleaseSpillLocks();
 	}
 }

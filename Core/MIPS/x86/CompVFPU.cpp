@@ -1193,7 +1193,78 @@ void Jit::Comp_Vhoriz(u32 op) {
 	DISABLE;
 }
 
-void Jit::Comp_VRot(u32 op) {
-	DISABLE;
+static float sincostemp[2];
+
+void SinCos(float angle) {
+#ifndef M_PI_2
+#define M_PI_2     1.57079632679489661923
+#endif
+	angle *= (float)M_PI_2;
+	sincostemp[0] = sinf(angle);
+	sincostemp[1] = cosf(angle);
 }
+
+void SinCosNegSin(float angle) {
+#ifndef M_PI_2
+#define M_PI_2     1.57079632679489661923
+#endif
+	angle *= (float)M_PI_2;
+	sincostemp[0] = -sinf(angle);
+	sincostemp[1] = cosf(angle);
+}
+// Very heavily used by FF:CC
+void Jit::Comp_VRot(u32 op) {
+	// DISABLE;
+	CONDITIONAL_DISABLE;
+
+	int vd = _VD;
+	int vs = _VS;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	u8 dregs[4];
+	u8 sreg;
+	GetVectorRegs(dregs, sz, vd);
+	GetVectorRegs(&sreg, V_Single, vs);
+
+	int imm = (op >> 16) & 0x1f;
+
+	gpr.Flush();
+	fpr.Flush();
+
+	bool negSin = (imm & 0x10) ? true : false;
+
+	MOVSS(XMM0, fpr.V(sreg));
+	ABI_CallFunction(negSin ? (void *)&SinCosNegSin : (void *)&SinCos);
+	MOVSS(XMM0, M(&sincostemp[0]));
+	MOVSS(XMM1, M(&sincostemp[1]));
+	
+	char what[4] = {'0', '0', '0', '0'};
+	if (((imm >> 2) & 3) == (imm & 3)) {
+		for (int i = 0; i < 4; i++)
+			what[i] = 'S';
+	}
+	what[(imm >> 2) & 3] = 'S';
+	what[imm & 3] = 'C';
+
+	for (int i = 0; i < n; i++) {
+		fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+		switch (what[i]) {
+		case 'C': MOVSS(fpr.V(dregs[i]), XMM1); break;
+		case 'S': MOVSS(fpr.V(dregs[i]), XMM0); break;
+		case '0':
+			{
+				XORPS(fpr.VX(dregs[i]), fpr.V(dregs[i]));
+				break;
+			}
+		default:
+			ERROR_LOG(HLE, "Bad what in vrot");
+			break;
+		}
+	}
+
+	fpr.ReleaseSpillLocks();
+}
+
 }
