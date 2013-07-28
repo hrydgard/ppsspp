@@ -1086,7 +1086,7 @@ namespace MIPSComp
 
 		int imm = (op >> 16) & 0x1f;
 
-		gpr.FlushAll();
+		gpr.FlushBeforeCall();
 		fpr.FlushAll();
 
 		bool negSin = (imm & 0x10) ? true : false;

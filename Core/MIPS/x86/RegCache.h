@@ -64,6 +64,7 @@ public:
 		LockX(reg1); LockX(reg2);
 	}
 	void Flush();
+	void FlushBeforeCall();
 	int SanityCheck() const;
 	void KillImmediate(int preg, bool doLoad, bool makeDirty);
 

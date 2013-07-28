@@ -1230,7 +1230,7 @@ void Jit::Comp_VRot(u32 op) {
 
 	int imm = (op >> 16) & 0x1f;
 
-	gpr.Flush();
+	gpr.FlushBeforeCall();
 	fpr.Flush();
 
 	bool negSin = (imm & 0x10) ? true : false;

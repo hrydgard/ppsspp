@@ -67,6 +67,13 @@ const ARMReg *ArmRegCache::GetMIPSAllocationOrder(int &count) {
 	}
 }
 
+void ArmRegCache::FlushBeforeCall() {
+	// R4-R11 are preserved. Others need flushing.
+	FlushArmReg(R2);
+	FlushArmReg(R3);
+	FlushArmReg(R12);
+}
+
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
 // round robin or FIFO or something.
 ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {

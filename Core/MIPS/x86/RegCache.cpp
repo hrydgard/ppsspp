@@ -39,6 +39,11 @@ static const int allocationOrder[] =
 #endif
 };
 
+void GPRRegCache::FlushBeforeCall() {
+	// TODO: Only flush the non-preserved-by-callee registers.
+	Flush();
+}
+
 GPRRegCache::GPRRegCache() : mips(0), emit(0) {
 	memset(regs, 0, sizeof(regs));
 	memset(xregs, 0, sizeof(xregs));

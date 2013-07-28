@@ -99,7 +99,7 @@ public:
 	void MapDirtyDirtyInIn(MIPSReg rd1, MIPSReg rd2, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
 	void FlushArmReg(ARMReg r);
 	void FlushR(MIPSReg r);
-
+	void FlushBeforeCall();
 	void FlushAll();
 
 	ARMReg R(int preg); // Returns a cached register
