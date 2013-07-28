@@ -273,6 +273,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \
   $(SRC)/Core/FileSystems/DirectoryFileSystem.cpp \
+  $(SRC)/Core/FileSystems/VirtualDiscFileSystem.cpp \
   $(SRC)/Core/FileSystems/tlzrc.cpp \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \

@@ -84,6 +84,10 @@ static void StripTailDirSlashes(std::string &fname)
 	if (fname.length() > 1)
 	{
 		size_t i = fname.length() - 1;
+#ifdef _WIN32
+		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
+			return;
+#endif
 		while (strchr(DIR_SEP_CHRS, fname[i]))
 			fname[i--] = '\0';
 	}
@@ -103,6 +107,12 @@ bool Exists(const std::string &filename)
 	return (result == 0);
 }
 
+// Returns true if stat represents a directory
+bool IsDirectory(const struct stat64 &file_info)
+{
+	return S_ISDIR(file_info.st_mode);
+}
+
 // Returns true if filename is a directory
 bool IsDirectory(const std::string &filename)
 {
@@ -119,7 +129,7 @@ bool IsDirectory(const std::string &filename)
 		return false;
 	}
 
-	return S_ISDIR(file_info.st_mode);
+	return IsDirectory(file_info);
 }
 
 // Deletes a given filename, return true on success
@@ -386,28 +396,23 @@ tm GetModifTime(const std::string &filename)
 // Returns the size of filename (64bit)
 u64 GetSize(const std::string &filename)
 {
-	if (!Exists(filename))
+	struct stat64 file_info;
+
+	int result = stat64(filename.c_str(), &file_info);
+	if (result != 0)
 	{
 		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());
 		return 0;
 	}
 
-	if (IsDirectory(filename))
+	if (IsDirectory(file_info))
 	{
 		WARN_LOG(COMMON, "GetSize: failed %s: is a directory", filename.c_str());
 		return 0;
 	}
-	struct stat64 buf;
-	if (stat64(filename.c_str(), &buf) == 0)
-	{
-		DEBUG_LOG(COMMON, "GetSize: %s: %lld",
-				filename.c_str(), (long long)buf.st_size);
-		return buf.st_size;
-	}
 
-	ERROR_LOG(COMMON, "GetSize: Stat failed %s: %s",
-			filename.c_str(), GetLastErrorMsg());
-	return 0;
+	DEBUG_LOG(COMMON, "GetSize: %s: %lld", filename.c_str(), (long long)file_info.st_size);
+	return file_info.st_size;
 }
 
 // Overloaded GetSize, accepts file descriptor

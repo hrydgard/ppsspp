@@ -81,6 +81,7 @@ set(SRCS
   FileSystems/ISOFileSystem.cpp
   FileSystems/DirectoryFileSystem.cpp
   FileSystems/MetaFileSystem.cpp
+  FileSystems/VirtualDiscFileSystem.cpp
   Util/BlockAllocator.cpp
   Util/ppge_atlas.cpp
   Util/PPGeDraw.cpp
