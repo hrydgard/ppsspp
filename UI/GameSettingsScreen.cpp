@@ -291,7 +291,6 @@ void GlobalSettingsScreen::CreateViews() {
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader("General"));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
-	list->Add(new CheckBox(&g_Config.bEnableLogging, gs->T("Enable Logging")));
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Error Reporting")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
