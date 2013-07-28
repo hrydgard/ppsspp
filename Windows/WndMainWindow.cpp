@@ -961,8 +961,7 @@ namespace MainWindow
 					memoryWindow[0]->Show(true);
 				break;
 			case ID_DEBUG_LOG:
-				if(g_Config.bEnableLogging)
-					LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
+				LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
 				break;
 
 			case ID_OPTIONS_IGNOREILLEGALREADS:
