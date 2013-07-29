@@ -55,7 +55,7 @@ enum {
 };
 
 
-enum BufferedRendering {	
+enum {	
 	FB_NON_BUFFERED_MODE = 0,
 	FB_BUFFERED_MODE = 1,
 #ifndef USING_GLES2
