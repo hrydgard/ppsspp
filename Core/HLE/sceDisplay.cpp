@@ -23,32 +23,24 @@
 // and move everything into native...
 #include "base/timeutil.h"
 
-#include "Thread.h"
-#include "../Core/CoreTiming.h"
-#include "../Core/CoreParameter.h"
+#include "Common/Thread.h"
+#include "Core/CoreTiming.h"
+#include "Core/CoreParameter.h"
 #include "Core/Reporting.h"
-#include "../MIPS/MIPS.h"
-#include "../HLE/HLE.h"
-#include "sceAudio.h"
-#include "../Host.h"
-#include "../Config.h"
-#include "../System.h"
-#include "../Core/Core.h"
-#include "sceDisplay.h"
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceKernelInterrupt.h"
+#include "Core/Config.h"
+#include "Core/System.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 
-// TODO: This file should not depend directly on GLES code.
-#include "../../GPU/GLES/Framebuffer.h"
-#include "../../GPU/GLES/ShaderManager.h"
-#include "../../GPU/GLES/TextureCache.h"
-#include "../../GPU/GPUState.h"
-#include "../../GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
 
 struct FrameBufferState {
 	u32 topaddr;
-	PspDisplayPixelFormat pspFramebufFormat;
+	GEBufferFormat pspFramebufFormat;
 	int pspFramebufLinesize;
 };
 
@@ -135,7 +127,7 @@ void __DisplayInit() {
 	numSkippedFrames = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
-	framebuf.pspFramebufFormat = PSP_DISPLAY_PIXEL_FORMAT_8888;
+	framebuf.pspFramebufFormat = GE_FORMAT_8888;
 	framebuf.pspFramebufLinesize = 480; // ??
 	lastFlipCycles = 0;
 
@@ -501,7 +493,7 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		DEBUG_LOG(HLE,"- screen off");
 	} else {
 		fbstate.topaddr = topaddr;
-		fbstate.pspFramebufFormat = (PspDisplayPixelFormat)pixelformat;
+		fbstate.pspFramebufFormat = (GEBufferFormat)pixelformat;
 		fbstate.pspFramebufLinesize = linesize;
 	}
 
