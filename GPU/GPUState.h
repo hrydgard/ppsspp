@@ -196,24 +196,36 @@ struct GPUgstate
 
 	// Pixel Pipeline
 	bool isModeClear()   const { return clearmode & 1; }
+	bool isFogEnabled() const { return fogEnable & 1; }
+	
+	// Cull 
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
 	int getCullMode()   const { return cullmode & 1; }
+	
+	// Blend
 	int getBlendFuncA() const { return blend & 0xF; }
 	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
 	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
 	int getBlendFuncB() const { return (blend >> 4) & 0xF; }
 	int getBlendEq()    const { return (blend >> 8) & 0x7; }
-	bool isDepthTestEnabled() const { return zTestEnable & 1; }
-	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
-	int getDepthTestFunc() const { return ztestfunc & 0x7; }
-	bool isFogEnabled() const { return fogEnable & 1; }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
+	
+	// Dither
 	bool isDitherEnabled() const { return ditherEnable & 1; }
 
+	// Color Mask
 	u32 getColorMask() const { return (pmskc & 0xFFFFFF) | ((pmska & 0xFF) << 24); }
 	bool isLogicOpEnabled() const { return logicOpEnable & 1; }
 	GELogicOp getLogicOp() const { return static_cast<GELogicOp>(lop & 0xF); }
-
+	
+	// Depth Test
+	bool isDepthTestEnabled() const { return zTestEnable & 1; }
+	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
+	int getDepthTestFunc() const { return ztestfunc & 0x7; }
+	u16 getDepthRangeMin() const { return minz & 0xFFFF; }
+	u16 getDepthRangeMax() const { return maxz & 0xFFFF; }
+	
+	// Stencil Test
 	bool isStencilTestEnabled() const { return stencilTestEnable & 1; }
 	GEComparison getStencilTestFunction() const { return static_cast<GEComparison>(stenciltest & 0x7); }
 	int getStencilTestRef() const { return (stenciltest>>8) & 0xFF; }
@@ -222,11 +234,13 @@ struct GPUgstate
 	GEStencilOp getStencilOpZFail() const { return static_cast<GEStencilOp>((stencilop>>8) & 0x7); }
 	GEStencilOp getStencilOpZPass() const { return static_cast<GEStencilOp>((stencilop>>16) & 0x7); }
 
+	// Alpha Test
 	bool isAlphaTestEnabled() const { return alphaTestEnable & 1; }
 	GEComparison getAlphaTestFunction() { return static_cast<GEComparison>(alphatest & 0x7); }
 	int getAlphaTestRef() const { return (alphatest >> 8) & 0xFF; }
 	int getAlphaTestMask() const { return (alphatest >> 16) & 0xFF; }
-
+	
+	// Color Test
 	bool isColorTestEnabled() const { return colorTestEnable & 1; }
 	GEComparison getColorTestFunction() { return static_cast<GEComparison>(colortest & 0x3); }
 	u32 getColorTestRef() const { return colorref & 0xFFFFFF; }
@@ -237,19 +251,15 @@ struct GPUgstate
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
 	GETextureFormat getTextureFormat() const { return static_cast<GETextureFormat>(texformat & 0xF); }
-	// GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
-	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; }
-
+	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
 	int getTextureEnvColR() const { return texenvcolor&0xFF; }
 	int getTextureEnvColG() const { return (texenvcolor>>8)&0xFF; }
 	int getTextureEnvColB() const { return (texenvcolor>>16)&0xFF; }
-
 	GEPaletteFormat getClutPaletteFormat() { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
 	int getClutIndexStartPos() const { return ((clutformat >> 16) & 0x1F) << 4; }
-	// Meaning, no special mask, shift, or start pos.
-	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; }
+	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
@@ -262,37 +272,29 @@ struct GPUgstate
 	bool isDirectionalLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_DIRECTIONAL; }
 	bool isPointLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_POINT; }
 	bool isSpotLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_SPOT; }
-
 	unsigned int getAmbientR() const { return ambientcolor&0xFF; }
 	unsigned int getAmbientG() const { return (ambientcolor>>8)&0xFF; }
 	unsigned int getAmbientB() const { return (ambientcolor>>16)&0xFF; }
 	unsigned int getAmbientA() const { return ambientalpha&0xFF; }
-
 	unsigned int getMaterialAmbientR() const { return materialambient&0xFF; }
 	unsigned int getMaterialAmbientG() const { return (materialambient>>8)&0xFF; }
 	unsigned int getMaterialAmbientB() const { return (materialambient>>16)&0xFF; }
 	unsigned int getMaterialAmbientA() const { return materialalpha&0xFF; }
-
 	unsigned int getMaterialDiffuseR() const { return materialdiffuse&0xFF; }
 	unsigned int getMaterialDiffuseG() const { return (materialdiffuse>>8)&0xFF; }
 	unsigned int getMaterialDiffuseB() const { return (materialdiffuse>>16)&0xFF; }
-
 	unsigned int getMaterialEmissiveR() const { return materialemissive&0xFF; }
 	unsigned int getMaterialEmissiveG() const { return (materialemissive>>8)&0xFF; }
 	unsigned int getMaterialEmissiveB() const { return (materialemissive>>16)&0xFF; }
-
 	unsigned int getMaterialSpecularR() const { return materialspecular&0xFF; }
 	unsigned int getMaterialSpecularG() const { return (materialspecular>>8)&0xFF; }
 	unsigned int getMaterialSpecularB() const { return (materialspecular>>16)&0xFF; }
-
 	unsigned int getLightAmbientColorR(int chan) const { return lcolor[chan*3]&0xFF; }
 	unsigned int getLightAmbientColorG(int chan) const { return (lcolor[chan*3]>>8)&0xFF; }
 	unsigned int getLightAmbientColorB(int chan) const { return (lcolor[chan*3]>>16)&0xFF; }
-
 	unsigned int getDiffuseColorR(int chan) const { return lcolor[1+chan*3]&0xFF; }
 	unsigned int getDiffuseColorG(int chan) const { return (lcolor[1+chan*3]>>8)&0xFF; }
 	unsigned int getDiffuseColorB(int chan) const { return (lcolor[1+chan*3]>>16)&0xFF; }
-
 	unsigned int getSpecularColorR(int chan) const { return lcolor[2+chan*3]&0xFF; }
 	unsigned int getSpecularColorG(int chan) const { return (lcolor[2+chan*3]>>8)&0xFF; }
 	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
@@ -302,12 +304,10 @@ struct GPUgstate
 	int getUVProjMode() const { return (texmapmode >> 8) & 3;}   // 2 bits
 	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
 	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
-
 	int getScissorX1() const { return scissor1 & 0x3FF; }
 	int getScissorY1() const { return (scissor1 >> 10) & 0x3FF; }
 	int getScissorX2() const { return scissor2 & 0x3FF; }
 	int getScissorY2() const { return (scissor2 >> 10) & 0x3FF; }
-
 	int getRegionX1() const { return region1 & 0x3FF; }
 	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
