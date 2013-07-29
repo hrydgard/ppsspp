@@ -388,7 +388,7 @@ retry:
 	}
 	else
 	{
-		ERROR_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
+		WARN_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
 		return error;
 	}
 }

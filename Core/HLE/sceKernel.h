@@ -451,7 +451,7 @@ public:
 	{
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
-			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
+			WARN_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
 			outError = T::GetMissingErrorCode();
 			return 0;
 		}
@@ -463,7 +463,7 @@ public:
 			T* t = static_cast<T*>(pool[handle - handleOffset]);
 			if (t == 0 || t->GetIDType() != T::GetStaticIDType())
 			{
-				ERROR_LOG(HLE, "Kernel: Wrong object type for %i (%08x)", handle, handle);
+				WARN_LOG(HLE, "Kernel: Wrong object type for %i (%08x)", handle, handle);
 				outError = T::GetMissingErrorCode();
 				return 0;
 			}
@@ -558,3 +558,4 @@ extern u32 registeredExitCbId;
 
 void Register_ThreadManForUser();
 void Register_LoadExecForUser();
+void Register_UtilsForKernel();

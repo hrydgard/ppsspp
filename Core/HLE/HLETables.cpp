@@ -224,6 +224,7 @@ void RegisterAllModules() {
 	Register_Kernel_Library();
 	Register_ThreadManForUser();
 	Register_LoadExecForUser();
+	Register_UtilsForKernel();
 	Register_SysMemUserForUser();
 	Register_InterruptManager();
 	Register_IoFileMgrForUser();
