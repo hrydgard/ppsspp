@@ -548,6 +548,35 @@ private:
 };
 
 
+template<typename BaseType>
+class Mat4x4
+{
+public:
+	// Convention: first four values in arrow = first column
+	Mat4x4(const BaseType values[])
+	{
+		for (unsigned int i = 0; i < 4*4; ++i)
+		{
+			this->values[i] = values[i];
+		}
+	}
+
+	template<typename T>
+	Vec4<T> operator * (const Vec4<T>& vec)
+	{
+		Vec4<T> ret;
+		ret.x = values[0]*vec.x + values[4]*vec.y + values[8]*vec.z + values[12]*vec.w;
+		ret.y = values[1]*vec.x + values[5]*vec.y + values[9]*vec.z + values[13]*vec.w;
+		ret.z = values[2]*vec.x + values[6]*vec.y + values[10]*vec.z + values[14]*vec.w;
+		ret.w = values[3]*vec.x + values[7]*vec.y + values[11]*vec.z + values[15]*vec.w;
+		return ret;
+	}
+
+private:
+	BaseType values[4*4];
+};
+
+
 inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 {
 	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9];
