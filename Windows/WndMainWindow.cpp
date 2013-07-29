@@ -199,6 +199,13 @@ namespace MainWindow
 	void setZoom(float zoom) {
 		if (zoom < 5)
 			g_Config.iWindowZoom = (int) zoom;
+
+		I18NCategory *g = GetI18NCategory("Graphics");
+
+		char message[256];
+		sprintf(message, "%dx Rendering Resolution", g_Config.iWindowZoom);
+		osm.Show(g->T(message));
+
 		RECT rc, rcOuter;
 		GetWindowRectAtZoom((int) zoom, rc, rcOuter);
 		MoveWindow(hwndMain, rcOuter.left, rcOuter.top, rcOuter.right - rcOuter.left, rcOuter.bottom - rcOuter.top, TRUE);
@@ -236,6 +243,27 @@ namespace MainWindow
 
 	void setRenderingMode(int mode) {
 		g_Config.iRenderingMode = mode;
+
+		I18NCategory *g = GetI18NCategory("Graphics");
+
+		switch(g_Config.iRenderingMode) {
+		case FB_NON_BUFFERED_MODE:
+			osm.Show(g->T("Non-Buffered Rendering"));
+			break;
+
+		case FB_BUFFERED_MODE:
+			osm.Show(g->T("Buffered Rendering"));
+			break;
+
+		case FB_READFBOMEMORY_CPU:
+			osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
+			break;
+
+		case FB_READFBOMEMORY_GPU:
+			osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
+			break;
+		}
+
 		if (gpu) gpu->Resized();
 	}
 
@@ -727,26 +755,7 @@ namespace MainWindow
 				case ID_OPTIONS_SCREENDUMMY:
 					g_Config.iWindowZoom = ++g_Config.iWindowZoom > 4 ? 1 : g_Config.iWindowZoom;
 
-					switch(g_Config.iWindowZoom) {
-					case 1:
-						osm.Show(g->T("1x Rendering Resolution"));
-						break;
-
-					case 2:
-						osm.Show(g->T("2x Rendering Resolution"));
-						break;
-
-					case 3:
-						osm.Show(g->T("3x Rendering Resolution"));
-						break;
-
-					case 4:
-						osm.Show(g->T("4x Rendering Resolution"));
-						break;
-					}
-
 					setZoom(g_Config.iWindowZoom);
-
 					break;
 
 				case ID_OPTIONS_MIPMAP:
@@ -818,26 +827,7 @@ namespace MainWindow
 				case ID_OPTIONS_BUFFEREDRENDERINGDUMMY:
 					g_Config.iRenderingMode = ++g_Config.iRenderingMode > 3? 0 : g_Config.iRenderingMode;
 
-					switch(g_Config.iRenderingMode) {
-					case FB_NON_BUFFERED_MODE:
-						osm.Show(g->T("Non-Buffered Rendering"));
-						break;
-
-					case FB_BUFFERED_MODE:
-						osm.Show(g->T("Buffered Rendering"));
-						break;
-
-					case FB_READFBOMEMORY_CPU:
-						osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
-						break;
-
-					case FB_READFBOMEMORY_GPU:
-						osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
-						break;
-					}
-
 					setRenderingMode(g_Config.iRenderingMode);
-
 					break;
 
 				case ID_OPTIONS_SHOWDEBUGSTATISTICS:
