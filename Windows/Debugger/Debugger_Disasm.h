@@ -3,17 +3,17 @@
 #ifndef _DISASM_H
 #define _DISASM_H
 
-#include "../W32Util/DialogManager.h"
-#include "CtrlDisasmView.h"
-#include "Debugger_Lists.h"
-#include "CPURegsInterface.h"
+#include "Windows/W32Util/DialogManager.h"
+#include "Windows/Debugger/CtrlDisasmView.h"
+#include "Windows/Debugger/Debugger_Lists.h"
+#include "Windows/Debugger/CPURegsInterface.h"
 #include "Globals.h"
 #include "Core/CPU.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/Breakpoints.h"
 #include <vector>
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 
 class CDisasm : public Dialog
 {

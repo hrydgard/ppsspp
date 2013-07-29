@@ -1,6 +1,6 @@
-#include <windows.h>
-#include "InputBox.h"
-#include "Resource.h"
+#include "Common/CommonWindows.h"
+#include "Windows/InputBox.h"
+#include "Windows/resource.h"
 
 static TCHAR textBoxContents[256];
 static TCHAR out[256];

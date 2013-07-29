@@ -1,7 +1,7 @@
 #pragma once
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include "Common/CommonTypes.h"
-#include "../../Core/Debugger/DebugInterface.h"
+#include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/Breakpoints.h"
 
 class BreakpointWindow

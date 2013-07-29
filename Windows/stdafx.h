@@ -61,7 +61,7 @@
 
 #endif
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <process.h>
 #include <tchar.h>
@@ -75,7 +75,7 @@
 #include <string>
 #include <fstream>
 
-#include "Log.h"
+#include "Common/Log.h"
 
 #define THEMES
 

@@ -21,7 +21,7 @@
 #include "Debugger/Debugger_Disasm.h"
 #include "Debugger/Debugger_MemoryDlg.h"
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 
 #define MAX_CPUCOUNT 1
 

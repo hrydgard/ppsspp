@@ -1,11 +1,11 @@
-#include "Debugger_Lists.h"
-#include <Windows.h>
+#include "Windows/Debugger/Debugger_Lists.h"
+#include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>
-#include "DebuggerShared.h"
-#include "CtrlDisAsmView.h"
+#include "Windows/Debugger/DebuggerShared.h"
+#include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/resource.h"
-#include "../main.h"
+#include "Windows/main.h"
 
 typedef struct
 {

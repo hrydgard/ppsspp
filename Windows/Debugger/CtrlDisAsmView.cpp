@@ -1,22 +1,22 @@
 ﻿// NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#include "../resource.h"
-#include "../../Core/MemMap.h"
-#include "../../Core/MIPS/JitCommon/JitCommon.h"
-#include "../W32Util/Misc.h"
-#include "../WndMainWindow.h"
-#include "../InputBox.h"
+#include "Windows/resource.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Windows/W32Util/Misc.h"
+#include "Windows/WndMainWindow.h"
+#include "Windows/InputBox.h"
 
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/Config.h"
-#include "CtrlDisAsmView.h"
-#include "Debugger_MemoryDlg.h"
-#include "DebuggerShared.h"
-#include "../../Core/Debugger/SymbolMap.h"
-#include "../../globals.h"
-#include "../main.h"
+#include "Windows/Debugger/CtrlDisAsmView.h"
+#include "Windows/Debugger/Debugger_MemoryDlg.h"
+#include "Windows/Debugger/DebuggerShared.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Globals.h"
+#include "Windows/main.h"
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <tchar.h>
 #include <set>
 
