@@ -180,9 +180,9 @@ inline unsigned int bswap32(unsigned int x) { return _byteswap_ulong(x); }
 inline unsigned int bswap16(unsigned int x) { return _byteswap_ushort(x); }
 #else
 // TODO: speedup
-inline unsigned long long bswap64(unsigned long long x) {return ((unsigned long long)swap32(x) << 32) | swap32(x >> 32); }
-inline unsigned int bswap32(unsigned int x) { return (x >> 24) | ((x & 0xFF0000) >> 8) | ((x & 0xFF00) << 8) | (x << 24);}
 inline unsigned short bswap16(unsigned short x) { return (x << 8) | (x >> 8); }
+inline unsigned int bswap32(unsigned int x) { return (x >> 24) | ((x & 0xFF0000) >> 8) | ((x & 0xFF00) << 8) | (x << 24);}
+inline unsigned long long bswap64(unsigned long long x) {return ((unsigned long long)bswap32(x) << 32) | bswap32(x >> 32); }
 #endif
 
 
