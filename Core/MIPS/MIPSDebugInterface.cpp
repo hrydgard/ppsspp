@@ -153,7 +153,7 @@ int MIPSDebugInterface::getColor(unsigned int address)
 {
 	int colors[6] = {0xe0FFFF,0xFFe0e0,0xe8e8FF,0xFFe0FF,0xe0FFe0,0xFFFFe0};
 	int n=symbolMap.GetSymbolNum(address);
-	if (n==-1) return 0xFFFFFF;
+	if (n==-1 || symbolMap.GetSymbolSize(n) < 4) return 0xFFFFFF;
 	return colors[n%6];
 }
 const char *MIPSDebugInterface::getDescription(unsigned int address) 
