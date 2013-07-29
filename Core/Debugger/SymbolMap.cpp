@@ -240,7 +240,7 @@ bool SymbolMap::LoadNocashSym(const char *filename)
 		{
 			continue;			// not supported yet
 		} else {				// labels
-			AddSymbol(value,address,0,ST_FUNCTION);
+			AddSymbol(value,address,1,ST_FUNCTION);
 		}
 	}
 
@@ -308,6 +308,13 @@ bool SymbolMap::GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask)
 
 const char* SymbolMap::getDirectSymbol(u32 address)
 {
+	SymbolInfo info;
+	if (GetSymbolInfo(&info,address) == false) return NULL;
+	if (info.address != address) return NULL;	// has to be the START of the function
+
+	// now we need the name... which we can't just get from GetSymbolInfo because of the
+	// unique entries. But, there are so many less instances where there actually IS a
+	// label that the speed up is still massive
 	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
 	{
 		const MapEntry &entry = *it;
