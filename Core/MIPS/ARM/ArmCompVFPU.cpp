@@ -885,7 +885,9 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VScl(u32 op) {
-		// Darn, still breaks Tekken 6. Bug could be elsewhere though.
+		// Darn, still breaks stuff. Bug could be elsewhere though.
+		DISABLE;
+
 		fpr.FlushAll();
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix())

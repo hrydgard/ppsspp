@@ -106,12 +106,6 @@ inline float nanclamp(float f, float lower, float upper)
 }
 
 
-#ifndef BLACKBERRY
-double rint(double x){
-return floor(x+.5);
-}
-#endif
-
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
 	// Possible optimization shortcut:
@@ -604,6 +598,11 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
+	inline int round_vfpu_n(float param) {
+		// return floorf(param);
+		return (int)round_ieee_754(param);
+	}
+
 	void Int_Vf2i(u32 op)
 	{
 		float s[4];
@@ -627,7 +626,7 @@ namespace MIPSInt
 			if (sv < (int)0x80000000) sv = (int)0x80000000;
 			switch ((op >> 21) & 0x1f)
 			{
-			case 16: d[i] = (int)rint(sv); break; //n
+			case 16: d[i] = (int)round_vfpu_n(sv); break; //n
 			case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
 			case 18: d[i] = (int)ceil(sv); break; //u
 			case 19: d[i] = (int)floor(sv); break; //d
