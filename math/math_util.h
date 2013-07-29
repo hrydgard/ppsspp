@@ -95,6 +95,27 @@ inline bool my_isnan(float f) {
 	return ((f2u.u & 0x7F800000) == 0x7F800000) && (f2u.u & 0x7FFFFF);
 }
 
+inline int is_even(float d) {
+	float int_part;
+	modff(d / 2.0f, &int_part);
+	return 2.0f * int_part == d;
+}
+
+// Rounds *.5 to closest even number
+inline float round_ieee_754(float d) {
+	float i = floorf(d);
+	d -= i;
+	if(d < 0.5f)
+		return i;
+	if(d > 0.5f)
+		return i + 1.0f;
+	if(is_even(i))
+		return i;
+	return i + 1.0f;
+}
+
+
+
 // FPU control.
 void EnableFZ();
 void DisableFZ();
