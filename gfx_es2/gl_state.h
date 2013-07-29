@@ -25,7 +25,7 @@ extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 
 #endif
 
-#if !defined(IOS) && !defined(__SYMBIAN32__)
+#if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN)
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 extern PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;

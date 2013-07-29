@@ -10,7 +10,7 @@ PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
 PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 #endif
-#if !defined(IOS) && !defined(__SYMBIAN32__)
+#if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN)
 PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
@@ -91,7 +91,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
 	gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
 
-#ifdef __SYMBIAN32__
+#if defined(__SYMBIAN32__) || defined(MEEGO_EDITION_HARMATTAN)
 	gl_extensions.OES_vertex_array_object = false;
 	gl_extensions.EXT_discard_framebuffer = false;
 #else
