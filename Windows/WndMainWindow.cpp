@@ -808,19 +808,19 @@ namespace MainWindow
 					g_Config.iRenderingMode = ++g_Config.iRenderingMode > 3? 0 : g_Config.iRenderingMode;
 
 					switch(g_Config.iRenderingMode) {
-					case 0:
+					case FB_NON_BUFFERED_MODE:
 						osm.Show(g->T("Non-Buffered Rendering"));
 						break;
 
-					case 1:
+					case FB_BUFFERED_MODE:
 						osm.Show(g->T("Buffered Rendering"));
 						break;
 
-					case 2:
+					case FB_READFBOMEMORY_CPU:
 						osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
 						break;
 
-					case 3:
+					case FB_READFBOMEMORY_GPU:
 						osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
 						break;
 					}

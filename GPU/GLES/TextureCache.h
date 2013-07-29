@@ -25,7 +25,7 @@
 
 struct VirtualFramebuffer;
 
-enum TextureFiltering {
+enum {
 	AUTO = 1,
 	NEAREST = 2,
 	LINEAR = 3,   

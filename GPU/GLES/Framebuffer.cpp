@@ -309,7 +309,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	}
 
 	glBindTexture(GL_TEXTURE_2D,drawPixelsTex_);
-	if (g_Config.iTexFiltering == TextureFiltering::LINEAR || (g_Config.iTexFiltering == TextureFiltering::LINEARFMV && g_iNumVideos))
+	if (g_Config.iTexFiltering == LINEAR || (g_Config.iTexFiltering == LINEARFMV && g_iNumVideos))
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
