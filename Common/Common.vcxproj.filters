@@ -47,6 +47,7 @@
       <Filter>Crypto</Filter>
     </ClInclude>
     <ClInclude Include="KeyMap.h" />
+    <ClInclude Include="Swap.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

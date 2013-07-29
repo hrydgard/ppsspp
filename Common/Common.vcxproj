@@ -201,6 +201,7 @@
     <ClInclude Include="StdMutex.h" />
     <ClInclude Include="StdThread.h" />
     <ClInclude Include="StringUtils.h" />
+    <ClInclude Include="Swap.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadPools.h" />

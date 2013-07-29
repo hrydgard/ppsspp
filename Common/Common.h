@@ -204,4 +204,6 @@ enum EMUSTATE_CHANGE
 	EMUSTATE_CHANGE_STOP
 };
 
+#include "Swap.h"
+
 #endif // _COMMON_H_
