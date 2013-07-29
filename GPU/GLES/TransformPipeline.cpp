@@ -68,7 +68,8 @@ TransformDrawEngine::TransformDrawEngine()
 		shaderManager_(0),
 		textureCache_(0),
 		framebufferManager_(0),
-		numDrawCalls(0) {
+		numDrawCalls(0),
+		uvScale(0) {
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -76,6 +77,9 @@ TransformDrawEngine::TransformDrawEngine()
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	if (g_Config.bPrescaleUV) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	}
 	memset(vbo_, 0, sizeof(vbo_));
 	memset(ebo_, 0, sizeof(ebo_));
 	indexGen.Setup(decIndex);
@@ -93,6 +97,7 @@ TransformDrawEngine::~TransformDrawEngine() {
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}
+	delete [] uvScale;
 }
 
 void TransformDrawEngine::InitDeviceObjects() {
@@ -219,7 +224,6 @@ public:
 	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3 pos, Vec3 normal);
 
 private:
-	bool disabled_;
 	Color4 globalAmbient;
 	Color4 materialEmissive;
 	Color4 materialAmbient;
@@ -276,11 +280,10 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	for (int l = 0; l < 4; l++)
 	{
 		// can we skip this light?
-		if ((gstate.lightEnable[l] & 1) == 0)
+		if (!gstate.isLightChanEnabled(l))
 			continue;
 
-		GELightComputation comp = (GELightComputation)(gstate.ltype[l] & 3);
-		GELightType type = (GELightType)((gstate.ltype[l] >> 8) & 3);
+		GELightType type = gstate.getLightType(l);
 		
 		Vec3 toLight(0,0,0);
 		Vec3 lightDir(0,0,0);
@@ -290,8 +293,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		else
 			toLight = Vec3(gstate_c.lightpos[l]) - pos;
 
-		bool doSpecular = (comp != GE_LIGHTCOMP_ONLYDIFFUSE);
-		bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+		bool doSpecular = gstate.isUsingSpecularLight(l);
+		bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(l);
 		
 		float distanceToLight = toLight.Length();
 		float dot = 0.0f;
@@ -348,7 +351,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			}
 		}
 
-		if (gstate.lightEnable[l] & 1)
+		if (gstate.isLightChanEnabled(l))
 		{
 			Color4 lightAmbient(gstate_c.lightColor[0][l], 0.0f);
 			lightSum0 += (lightAmbient * *ambient + diff) * lightScale;
@@ -505,7 +508,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex) {
 
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
-	bool lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
 	// TODO: Split up into multiple draw calls for GLES 2.0 where you can't guarantee support for more than 0x10000 verts.
 
@@ -520,6 +523,11 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		uscale /= gstate_c.curTextureWidth;
 		vscale /= gstate_c.curTextureHeight;
 	}
+
+	int w = 1 << (gstate.texsize[0] & 0xf);
+	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
+	float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
 
 	Lighter lighter;
 	float fog_end = getFloat24(gstate.fog1);
@@ -540,14 +548,18 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			reader.ReadPos(v);
 			if (reader.hasColor0()) {
 				reader.ReadColor0(c0);
-				for (int j = 0; j < 4; j++) {
-					c1[j] = 0.0f;
-				}
 			} else {
-				c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-				c0[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-				c0[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-				c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				c0[0] = gstate.getMaterialAmbientR() / 255.f;
+				c0[1] = gstate.getMaterialAmbientG() / 255.f;
+				c0[2] = gstate.getMaterialAmbientB() / 255.f;
+				c0[3] = gstate.getMaterialAmbientA() / 255.f;
+			}
+
+			if (reader.hasColor1()) {
+				reader.ReadColor1(c1);
+			} else {
+				for (int j = 0; j < 4; j++) 
+					c1[j] = 0.0f;
 			}
 
 			if (reader.hasUV()) {
@@ -607,10 +619,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			if (reader.hasColor0()) {
 				reader.ReadColor0(unlitColor);
 			} else {
-				unlitColor[0] = (gstate.materialambient & 0xFF) / 255.f;
-				unlitColor[1] = ((gstate.materialambient >> 8)  & 0xFF) / 255.f;
-				unlitColor[2] = ((gstate.materialambient >> 16) & 0xFF) / 255.f;
-				unlitColor[3] = (gstate.materialalpha & 0xFF) / 255.f;
+				unlitColor[0] = gstate.getMaterialAmbientR() / 255.f;
+				unlitColor[1] = gstate.getMaterialAmbientG() / 255.f;
+				unlitColor[2] = gstate.getMaterialAmbientB() / 255.f;
+				unlitColor[3] = gstate.getMaterialAmbientA() / 255.f;
 			}
 			float litColor0[4];
 			float litColor1[4];
@@ -638,10 +650,10 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						c0[j] = unlitColor[j];
 					}
 				} else {
-					c0[0] = (gstate.materialambient & 0xFF) / 255.f;
-					c0[1] = ((gstate.materialambient >> 8) & 0xFF) / 255.f;
-					c0[2] = ((gstate.materialambient >> 16)& 0xFF) / 255.f;
-					c0[3] = (gstate.materialalpha & 0xFF) / 255.f;
+					c0[0] = gstate.getMaterialAmbientR() / 255.f;
+					c0[1] = gstate.getMaterialAmbientG() / 255.f;
+					c0[2] = gstate.getMaterialAmbientB() / 255.f;
+					c0[3] = gstate.getMaterialAmbientA() / 255.f;
 				}
 				if (lmode) {
 					for (int j = 0; j < 4; j++) {
@@ -659,8 +671,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			{
 			case 0:	// UV mapping
 				// Texture scale/offset is only performed in this mode.
-				uv[0] = uscale * (ruv[0]*gstate_c.uScale + gstate_c.uOff);
-				uv[1] = vscale * (ruv[1]*gstate_c.vScale + gstate_c.vOff);
+				uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
+				uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
 				uv[2] = 1.0f;
 				break;
 			case 1:
@@ -676,10 +688,20 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						source = Vec3(ruv[0], ruv[1], 0.0f);
 						break;
 					case 2: // Use normalized normal as source
-						source = Vec3(norm).Normalized();
+						if (reader.hasNormal()) {
+							source = Vec3(norm).Normalized();
+						} else {
+							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
+							source = Vec3(0.0f);
+						}
 						break;
 					case 3: // Use non-normalized normal as source!
-						source = Vec3(norm);
+						if (reader.hasNormal()) {
+							source = Vec3(norm);
+						} else {
+							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
+							source = Vec3(0.0f);
+						}
 						break;
 					}
 
@@ -701,10 +723,12 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					uv[2] = 1.0f;
 				}
 				break;
-			case 3:
+			default:
 				// Illegal
 				break;
 			}
+			uv[0] = uv[0] * widthFactor;
+			uv[1] = uv[1] * heightFactor;
 
 			// Transform the coord by the view matrix.
 			Vec3ByMatrix43(v, out, gstate.viewMatrix);
@@ -716,10 +740,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		transformed[index].fog = fogCoef;
 		memcpy(&transformed[index].u, uv, 3 * sizeof(float));
 		if (gstate_c.flipTexture) {
-			if (throughmode)
-				transformed[index].v = 1.0f - transformed[index].v;
-			else 
-				transformed[index].v = 1.0f - transformed[index].v * 2.0f;
+			transformed[index].v = 1.0f - transformed[index].v;
 		}
 		for (int i = 0; i < 4; i++) {
 			transformed[index].color0[i] = c0[i] * 255.0f;
@@ -780,57 +801,51 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		drawBuffer = transformedExpanded;
 		TransformedVertex *trans = &transformedExpanded[0];
 		TransformedVertex saved;
-		for (int i = 0; i < vertexCount; i++) {
-			int index = ((u16*)inds)[i];
+		for (int i = 0; i < vertexCount; i += 2) {
+			int index = ((const u16*)inds)[i];
+			saved = transformed[index];
+			int index2 = ((const u16*)inds)[i + 1];
+			TransformedVertex &transVtx = transformed[index2];
+			// We have to turn the rectangle into two triangles, so 6 points. Sigh.
 
-			TransformedVertex &transVtx = transformed[index];
-			if ((i & 1) == 0)
-			{
-				// Save this vertex so we can generate when we get the next one. Color is taken from the last vertex.
-				saved = transVtx;
-			}
-			else
-			{
-				// We have to turn the rectangle into two triangles, so 6 points. Sigh.
+			// bottom right
+			trans[0] = transVtx;
 
-				// bottom right
-				trans[0] = transVtx;
+			// bottom left
+			trans[1] = transVtx;
+			trans[1].y = saved.y;
+			trans[1].v = saved.v;
 
-				// bottom left
-				trans[1] = transVtx;
-				trans[1].y = saved.y;
-				trans[1].v = saved.v;
+			// top left
+			trans[2] = transVtx;
+			trans[2].x = saved.x;
+			trans[2].y = saved.y;
+			trans[2].u = saved.u;
+			trans[2].v = saved.v;
 
-				// top left
-				trans[2] = transVtx;
-				trans[2].x = saved.x;
-				trans[2].y = saved.y;
-				trans[2].u = saved.u;
-				trans[2].v = saved.v;
+			// top right
+			trans[3] = transVtx;
+			trans[3].x = saved.x;
+			trans[3].u = saved.u;
 
-				// top right
-				trans[3] = transVtx;
-				trans[3].x = saved.x;
-				trans[3].u = saved.u;
+			// That's the four corners. Now process UV rotation.
+			if (throughmode)
+				RotateUVThrough(trans);
 
-				// That's the four corners. Now process UV rotation.
-				if (throughmode)
-					RotateUVThrough(trans);
-				// Apparently, non-through RotateUV just breaks things.
-				// If we find a game where it helps, we'll just have to figure out how they differ.
-				// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
-				// else
-				//	RotateUV(trans);
+			// Apparently, non-through RotateUV just breaks things.
+			// If we find a game where it helps, we'll just have to figure out how they differ.
+			// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
+			// else
+			//	RotateUV(trans);
 
-				// bottom right
-				trans[4] = trans[0];
+			// bottom right
+			trans[4] = trans[0];
 
-				// top left
-				trans[5] = trans[2];
-				trans += 6;
+			// top left
+			trans[5] = trans[2];
+			trans += 6;
 
-				numTrans += 6;
-			}
+			numTrans += 6;
 		}
 	}
 
@@ -914,8 +929,8 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	}
 
 	for (int i = 0; i < 4; i++) {
-		if (gstate.lightEnable[i] & 1)
-			cost += 20;
+		if (gstate.isLightChanEnabled(i))
+			cost += 10;
 	}
 	if (gstate.getUVGenMode() != 0) {
 		cost += 20;
@@ -924,11 +939,6 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 		cost += 5 * dec_->morphcount;
 	}
 
-	if (CoreTiming::GetClockFrequencyMHz() == 333) {
-		// Just brutally double to make God of War happier.
-		// FUDGE FACTORS! Delicious fudge factors!
-		cost *= 2;
-	}
 	return cost;
 }
 
@@ -949,7 +959,7 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 	gpuStats.numDrawCalls++;
 	gpuStats.numVertsSubmitted += vertexCount;
 
-	DeferredDrawCall &dc = drawCalls[numDrawCalls++];
+	DeferredDrawCall &dc = drawCalls[numDrawCalls];
 	dc.verts = verts;
 	dc.inds = inds;
 	dc.vertType = vertType;
@@ -962,6 +972,11 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vert
 		dc.indexLowerBound = 0;
 		dc.indexUpperBound = vertexCount - 1;
 	}
+
+	if (uvScale) {
+		uvScale[numDrawCalls] = gstate_c.uv;
+	}
+	numDrawCalls++;
 }
 
 void TransformDrawEngine::DecodeVerts() {
@@ -975,6 +990,8 @@ void TransformDrawEngine::DecodeVerts() {
 		void *inds = dc.inds;
 		if (indexType == GE_VTYPE_IDX_NONE >> GE_VTYPE_IDX_SHIFT) {
 			// Decode the verts and apply morphing. Simple.
+			if (uvScale)
+				gstate_c.uv = uvScale[i];
 			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
 				dc.verts, indexLowerBound, indexUpperBound);
 			collectedVerts += indexUpperBound - indexLowerBound + 1;
@@ -992,6 +1009,9 @@ void TransformDrawEngine::DecodeVerts() {
 			while (j < numDrawCalls) {
 				if (drawCalls[j].verts != dc.verts)
 					break;
+				if (uvScale && memcmp(&uvScale[j], &uvScale[i], sizeof(uvScale[0]) != 0))
+					break;
+
 				indexLowerBound = std::min(indexLowerBound, (int)drawCalls[j].indexLowerBound);
 				indexUpperBound = std::max(indexUpperBound, (int)drawCalls[j].indexUpperBound);
 				lastMatch = j;
@@ -1012,6 +1032,8 @@ void TransformDrawEngine::DecodeVerts() {
 
 			int vertexCount = indexUpperBound - indexLowerBound + 1;
 			// 3. Decode that range of vertex data.
+			if (uvScale)
+				gstate_c.uv = uvScale[i];
 			dec_->DecodeVerts(decoded + collectedVerts * (int)dec_->GetDecVtxFmt().stride,
 				dc.verts, indexLowerBound, indexUpperBound);
 			collectedVerts += vertexCount;
@@ -1020,6 +1042,13 @@ void TransformDrawEngine::DecodeVerts() {
 			indexGen.Advance(vertexCount);
 			i = lastMatch;
 		}
+	}
+
+	// Sanity check
+	if (indexGen.Prim() < 0) {
+		ERROR_LOG(HLE, "DecodeVerts: Failed to deduce prim: %i", indexGen.Prim());
+		// Force to points (0)
+		indexGen.AddPrim(GE_PRIM_POINTS, 0);
 	}
 }
 
@@ -1129,7 +1158,6 @@ void TransformDrawEngine::Flush() {
 				vai = iter->second;
 			} else {
 				vai = new VertexArrayInfo();
-				vai->decFmt = dec_->GetDecVtxFmt();
 				vai_[id] = vai;
 			}
 
@@ -1142,6 +1170,8 @@ void TransformDrawEngine::Flush() {
 					vai->status = VertexArrayInfo::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
 					DecodeVerts(); // writes to indexGen
+					vai->numVerts = indexGen.VertexCount();
+					vai->prim = indexGen.Prim();
 					goto rotateVBO;
 				}
 
