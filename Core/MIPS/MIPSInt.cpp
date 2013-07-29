@@ -50,26 +50,6 @@
 #define HI currentMIPS->hi
 #define LO currentMIPS->lo
 
-
-inline int is_even(float d) {
-	float int_part;
-	modff(d / 2.0f, &int_part);
-	return 2.0f * int_part == d;
-}
-
-// Rounds *.5 to closest even number
-float round_ieee_754(float d) {
-	float i = floorf(d);
-	d -= i;
-	if(d < 0.5f)
-		return i;
-	if(d > 0.5f)
-		return i + 1.0f;
-	if(is_even(i))
-		return i;
-	return i + 1.0f;
-}
-
 static inline void DelayBranchTo(u32 where)
 {
 	PC += 4;
