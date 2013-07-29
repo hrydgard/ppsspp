@@ -718,9 +718,9 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTy
 
 VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys) {
 #ifdef _WIN32
-#define dlopen(x, y) (void *)LoadLibrary(x)
-#define dlsym(x, y) GetProcAddress((HMODULE)x, y)
-#define dlclose(x) FreeLibrary((HMODULE)x)
+#define dlopen(name, ignore) (void *)LoadLibrary(name)
+#define dlsym(mod, name) GetProcAddress((HMODULE)mod, name)
+#define dlclose(mod) FreeLibrary((HMODULE)mod)
 #endif
 
 	library = dlopen(filename, RTLD_LOCAL | RTLD_NOW);
