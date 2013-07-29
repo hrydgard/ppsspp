@@ -245,7 +245,12 @@ private:
 		void Run() { func(); }
 
 	private:
+// Visual Studio 2012 needs this, or else it complains about losing const-volatile qualifiers.
+#if _MSC_VER >= 1700
 		C func;
+#else
+		C const func;
+#endif
 	};
 
 	template <typename C, typename A>
