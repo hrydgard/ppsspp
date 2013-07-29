@@ -1010,9 +1010,6 @@ namespace MainWindow
 				g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
 				ResizeDisplay(true);
 				break;
-			case ID_OPTIONS_CONTROLS:
-				MessageBox(hWnd, "Control mapping has been moved to the in-window Settings menu.\n", "Sorry", 0);
-				break;
 
 			case ID_EMULATION_SOUND:
 				g_Config.bEnableSound = !g_Config.bEnableSound;
