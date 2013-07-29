@@ -476,6 +476,78 @@ Vec4<T> operator * (const V& f, const Vec4<T>& vec)
 
 typedef Vec4<float> Vec4f;
 
+
+template<typename BaseType>
+class Mat3x3
+{
+public:
+	// Convention: first three values = first column
+	Mat3x3(const BaseType values[])
+	{
+		for (unsigned int i = 0; i < 3*3; ++i)
+		{
+			this->values[i] = values[i];
+		}
+	}
+
+	Mat3x3(BaseType _00, BaseType _01, BaseType _02, BaseType _10, BaseType _11, BaseType _12, BaseType _20, BaseType _21, BaseType _22)
+	{
+		values[0] = _00;
+		values[1] = _01;
+		values[2] = _02;
+		values[3] = _10;
+		values[4] = _11;
+		values[5] = _12;
+		values[6] = _20;
+		values[7] = _21;
+		values[8] = _22;
+	}
+
+	template<typename T>
+	Vec3<T> operator * (const Vec3<T>& vec)
+	{
+		Vec3<T> ret;
+		ret.x = values[0]*vec.x + values[3]*vec.y + values[6]*vec.z;
+		ret.y = values[1]*vec.x + values[4]*vec.y + values[7]*vec.z;
+		ret.z = values[2]*vec.x + values[5]*vec.y + values[8]*vec.z;
+		return ret;
+	}
+
+	Mat3x3 Inverse()
+	{
+		float a = values[0];
+		float b = values[1];
+		float c = values[2];
+		float d = values[3];
+		float e = values[4];
+		float f = values[5];
+		float g = values[6];
+		float h = values[7];
+		float i = values[8];
+		return Mat3x3(e*i-f*h, f*g-d*i, d*h-e*g,
+						c*h-b*i, a*i-c*g, b*g-a*h,
+						b*f-c*e, c*d-a*f, a*e-b*d) / Det();
+	}
+
+	BaseType Det()
+	{
+		return values[0]*values[4]*values[8] + values[3]*values[7]*values[2] +
+				values[6]*values[1]*values[5] - values[2]*values[4]*values[6] -
+				values[5]*values[7]*values[0] - values[8]*values[1]*values[3];
+	}
+
+	Mat3x3 operator / (const BaseType& val) const
+	{
+		return Mat3x3(values[0]/val, values[1]/val, values[2]/val,
+						values[3]/val, values[4]/val, values[5]/val,
+						values[6]/val, values[7]/val, values[8]/val);
+	}
+
+private:
+	BaseType values[3*3];
+};
+
+
 inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12])
 {
 	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9];
