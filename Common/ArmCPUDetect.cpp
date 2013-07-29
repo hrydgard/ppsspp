@@ -18,6 +18,7 @@
 #include "Common.h"
 #include "CPUDetect.h"
 #include "StringUtils.h"
+#include "FileUtil.h"
 
 // Only Linux platforms have /proc/cpuinfo
 #if !defined(BLACKBERRY) && !defined(IOS) && !defined(__SYMBIAN32__)
@@ -51,51 +52,50 @@ char *GetCPUString()
 
 unsigned char GetCPUImplementer()
 {
-        const char marker[] = "CPU implementer\t: ";
-        char *implementer_string = 0;
-        unsigned char implementer = 0;
-        char buf[1024];
+	const char marker[] = "CPU implementer\t: ";
+	char *implementer_string = 0;
+	unsigned char implementer = 0;
+	char buf[1024];
 
-        File::IOFile file(procfile, "r");
-        auto const fp = file.GetHandle();
-        if (!fp)
-                return 0;
+	File::IOFile file(procfile, "r");
+	auto const fp = file.GetHandle();
+	if (!fp)
+		return 0;
 
-        while (fgets(buf, sizeof(buf), fp))
-        {
-                if (strncmp(buf, marker, sizeof(marker) - 1))
-                        continue;
-                implementer_string = buf + sizeof(marker) - 1;
-                implementer_string = strndup(implementer_string, strlen(implementer_string) - 1); // Strip the newline
-                sscanf(implementer_string, "0x%02hhx", &implementer);
-                break;
-        }
-        return implementer;
+	while (fgets(buf, sizeof(buf), fp))
+	{
+		if (strncmp(buf, marker, sizeof(marker) - 1))
+			continue;
+		implementer_string = buf + sizeof(marker) - 1;
+		implementer_string = strndup(implementer_string, strlen(implementer_string) - 1); // Strip the newline
+		sscanf(implementer_string, "0x%02hhx", &implementer);
+		break;
+	}
+	return implementer;
 }
 
 unsigned short GetCPUPart()
 {
-        const char marker[] = "CPU part\t: ";
-        char *part_string = 0;
-        unsigned short part = 0;
-        char buf[1024];
+	const char marker[] = "CPU part\t: ";
+	char *part_string = 0;
+	unsigned short part = 0;
+	char buf[1024];
 
-        File::IOFile file(procfile, "r");
-        auto const fp = file.GetHandle();
-        if (!fp)
-                return 0;
+	File::IOFile file(procfile, "r");
+	auto const fp = file.GetHandle();
+	if (!fp)
+		return 0;
 
-        while (fgets(buf, sizeof(buf), fp))
-        {
-                if (strncmp(buf, marker, sizeof(marker) - 1))
-                        continue;
-                part_string = buf + sizeof(marker) - 1;
-                part_string = strndup(part_string, strlen(part_string) - 1); // Strip the newline
-                sscanf(part_string, "0x%03hx", &part);
-                break;
-        }
-        return part;
-
+	while (fgets(buf, sizeof(buf), fp))
+	{
+		if (strncmp(buf, marker, sizeof(marker) - 1))
+			continue;
+		part_string = buf + sizeof(marker) - 1;
+		part_string = strndup(part_string, strlen(part_string) - 1); // Strip the newline
+		sscanf(part_string, "0x%03hx", &part);
+		break;
+	}
+	return part;
 }
 
 bool CheckCPUFeature(const char *feature)
