@@ -117,17 +117,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// TODO: All this setup is soon so expensive that we'll need dirty flags, or simply do it in the command writes where we detect dirty by xoring. Silly to do all this work on every drawcall.
 
 	if (gstate_c.textureChanged) {
-		if (gstate.textureMapEnable & 1) {
+		if (gstate.isTextureMapEnabled()) {
 			textureCache_->SetTexture();
 		}
 		gstate_c.textureChanged = false;
 	}
-
-	// Set cull
-	bool wantCull = !gstate.isModeClear() && !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-	glstate.cullFace.set(wantCull);
-	if (wantCull) 
-		glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
 
 	// TODO: The top bit of the alpha channel should be written to the stencil bit somehow. This appears to require very expensive multipass rendering :( Alternatively, one could do a
 	// single fullscreen pass that converts alpha to stencil (or 2 passes, to set both the 0 and 1 values) very easily.
@@ -215,29 +209,47 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
-		bool colorMask = (gstate.clearmode >> 8) & 1;
-		bool alphaMask = (gstate.clearmode >> 9) & 1;
+
+		// Set Cull 
+		glstate.cullFace.set(GL_FALSE);
+		
+		// Depth Test
 		bool depthMask = (gstate.clearmode >> 10) & 1;
-		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-
-		glstate.stencilTest.enable();
-		glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-		glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
-
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
 		glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
 
+		// Color Test
+		bool colorMask = (gstate.clearmode >> 8) & 1;
+		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
+
+		// Stencil Test
+		if (alphaMask) {
+			glstate.stencilTest.enable();
+			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
+		} else {
+			glstate.stencilTest.disable();
+		}
+
 	} else {
+		
+		// Set cull
+		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		glstate.cullFace.set(wantCull);
+		if (wantCull)
+			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
+	
+
+		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
-		} else {
+			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+		} else 
 			glstate.depthTest.disable();
-		}
-
-		glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
-
+		
 		// PSP color/alpha mask is per bit but we can only support per byte.
 		// But let's do that, at least. And let's try a threshold.
 		bool rmask = (gstate.pmskc & 0xFF) < 128;
@@ -246,25 +258,27 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		bool amask = (gstate.pmska & 0xFF) < 128;
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 		
+		// Stencil Test
 		if (gstate.isStencilTestEnabled()) {
 			glstate.stencilTest.enable();
-			glstate.stencilFunc.set(ztests[gstate.stenciltest & 0x7],  // func
-				(gstate.stenciltest >> 8) & 0xFF,  // ref
-				(gstate.stenciltest >> 16) & 0xFF);  // mask
-			glstate.stencilOp.set(stencilOps[gstate.stencilop & 0x7],  // stencil fail
-				stencilOps[(gstate.stencilop >> 8) & 0x7],  // depth fail
-				stencilOps[(gstate.stencilop >> 16) & 0x7]); // depth pass
-		} else {
+			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
+				gstate.getStencilTestRef(),
+				gstate.getStencilTestMask());
+			glstate.stencilOp.set(stencilOps[gstate.getStencilOpSFail()],  // stencil fail
+				stencilOps[gstate.getStencilOpZFail()],  // depth fail
+				stencilOps[gstate.getStencilOpZPass()]); // depth pass
+		} else 
 			glstate.stencilTest.disable();
-		}
+		
 	}
 
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;
 	float renderX, renderY;
-	if (g_Config.bBufferedRendering) {
-		renderX = 0;
-		renderY = 0;
+	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
+	if (useBufferedRendering) {
+		renderX = 0.0f;
+		renderY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
 		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
@@ -274,17 +288,17 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
-		renderWidthFactor = renderWidth / 480.f;
-		renderHeightFactor = renderHeight / 272.f;
+		renderWidthFactor = renderWidth / 480.0f;
+		renderHeightFactor = renderHeight / 272.0f;
 	}
 
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// Scissor
-	int scissorX1 = gstate.scissor1 & 0x3FF;
-	int scissorY1 = (gstate.scissor1 >> 10) & 0x3FF;
-	int scissorX2 = gstate.scissor2 & 0x3FF;
-	int scissorY2 = (gstate.scissor2 >> 10) & 0x3FF;
+	int scissorX1 = (gstate.getScissorX1());
+	int scissorY1 = (gstate.getScissorY1());
+	int scissorX2 = (gstate.getScissorX2());
+	int scissorY2 = (gstate.getScissorY2());
 
 	// This is a bit of a hack as the render buffer isn't always that size
 	if (scissorX1 == 0 && scissorY1 == 0 
@@ -337,8 +351,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// This means that to get the analogue glViewport we must:
 		float vpX0 = vpXb - offsetX - vpXa;
 		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
-		gstate_c.vpWidth = vpXa * 2;
-		gstate_c.vpHeight = -vpYa * 2;
+		gstate_c.vpWidth = vpXa * 2.0f;
+		gstate_c.vpHeight = -vpYa * 2.0f;
 
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);
@@ -348,16 +362,20 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		vpWidth *= renderWidthFactor;
 		vpHeight *= renderHeightFactor;
 
+		vpX0 = (vpXb - offsetX - fabsf(vpXa)) * renderWidthFactor;
 		// Flip vpY0 to match the OpenGL coordinate system.
-		vpY0 = renderHeight - (vpY0 + vpHeight);
+		vpY0 = renderHeight - (vpYb - offsetY + fabsf(vpYa)) * renderHeightFactor;		
+		
 		glstate.viewport.set(vpX0 + renderX, vpY0 + renderY, vpWidth, vpHeight);
 		// Sadly, as glViewport takes integers, we will not be able to support sub pixel offsets this way. But meh.
 		// shaderManager_->DirtyUniform(DIRTY_PROJMATRIX);
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
-		float depthRangeMin = zOff - zScale;
-		float depthRangeMax = zOff + zScale;
+		float depthRMin = gstate.getDepthRangeMin();
+		float depthRMax = gstate.getDepthRangeMax();
+		float depthRangeMin = std::max(zOff - zScale, depthRMin);
+		float depthRangeMax = std::min(zOff + zScale, depthRMax);
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
 	}
 }
