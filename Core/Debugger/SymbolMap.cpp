@@ -219,6 +219,35 @@ void SymbolMap::SaveSymbolMap(const char *filename) const
 	fclose(f);
 }
 
+bool SymbolMap::LoadNocashSym(const char *filename)
+{
+	FILE *f = fopen(filename,"r");
+	if (!f)
+		return false;
+
+	while (!feof(f))
+	{
+		char line[256],value[256];
+		char *p = fgets(line,256,f);
+		if(p == NULL)
+			break;
+
+		u32 address;
+		if (sscanf(line,"%08X %s",&address,value) != 2) continue;
+		if (address == 0 && strcmp(value,"0") == 0) continue;
+
+		if (value[0] == '.')	// data directives
+		{
+			continue;			// not supported yet
+		} else {				// labels
+			AddSymbol(value,address,0,ST_FUNCTION);
+		}
+	}
+
+	fclose(f);
+	return true;
+}
+
 int SymbolMap::GetSymbolNum(unsigned int address, SymbolType symmask) const
 {
 	for (size_t i = 0, n = entries.size(); i < n; i++)

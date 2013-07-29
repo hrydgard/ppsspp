@@ -35,6 +35,8 @@
 
 #include "Core/Debugger/SymbolMap.h"
 
+#include "Common/StringUtils.h"
+#include "file/file_util.h"
 #include "main.h"
 
 
@@ -181,25 +183,45 @@ void WindowsHost::BootDone()
 	Core_EnableStepping(!g_Config.bAutoRun);
 }
 
-static std::string SymbolMapFilename(const char *currentFilename)
+static std::string SymbolMapFilename(const char *currentFilename, char* ext)
 {
-	std::string result = currentFilename;
-	size_t dot = result.rfind('.');
-	if (dot == result.npos)
-		return result + ".map";
+	FileInfo info;
 
-	result.replace(dot, result.npos, ".map");
-	return result;
+	std::string result = currentFilename;
+
+	// can't fail, definitely exists if it gets this far
+	getFileInfo(currentFilename, &info);
+	if (info.isDirectory)
+	{
+#ifdef _WIN32
+		char* slash = "\\";
+#else
+		char* slash = "/";
+#endif
+		if (!endsWith(result,slash))
+			result += slash;
+
+		return result + ".ppsspp-symbols" + ext;
+	} else {
+		size_t dot = result.rfind('.');
+		if (dot == result.npos)
+			return result + ext;
+
+		result.replace(dot, result.npos, ext);
+		return result;
+	}
 }
 
 bool WindowsHost::AttemptLoadSymbolMap()
 {
-	return symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
+	bool result1 = symbolMap.LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
+	bool result2 = symbolMap.LoadNocashSym(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".sym").c_str());
+	return result1 || result2;
 }
 
 void WindowsHost::SaveSymbolMap()
 {
-	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str()).c_str());
+	symbolMap.SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart.c_str(),".map").c_str());
 }
 
 void WindowsHost::AddSymbol(std::string name, u32 addr, u32 size, int type=0) 
