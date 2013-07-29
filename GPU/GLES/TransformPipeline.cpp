@@ -548,14 +548,18 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			reader.ReadPos(v);
 			if (reader.hasColor0()) {
 				reader.ReadColor0(c0);
-				for (int j = 0; j < 4; j++) {
-					c1[j] = 0.0f;
-				}
 			} else {
 				c0[0] = gstate.getMaterialAmbientR() / 255.f;
 				c0[1] = gstate.getMaterialAmbientG() / 255.f;
 				c0[2] = gstate.getMaterialAmbientB() / 255.f;
 				c0[3] = gstate.getMaterialAmbientA() / 255.f;
+			}
+
+			if (reader.hasColor1()) {
+				reader.ReadColor1(c1);
+			} else {
+				for (int j = 0; j < 4; j++) 
+					c1[j] = 0.0f;
 			}
 
 			if (reader.hasUV()) {
