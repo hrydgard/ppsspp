@@ -225,8 +225,20 @@ namespace MainWindow
 		g_Config.iFpsLimit = fps;
 	}
 
-	void setFrameSkipping(int frame) {
-		g_Config.iFrameSkip = frame;
+	void setFrameSkipping(int framesToSkip) {
+		I18NCategory *g = GetI18NCategory("Graphics");
+
+		char message[256];
+		if(framesToSkip == 0)
+			sprintf(message, "Frameskipping off");
+		else {
+			if(framesToSkip == 1)
+				sprintf(message, "Skipping %d frame", framesToSkip);
+			else
+				sprintf(message, "Skipping %d frames", framesToSkip);
+		}
+		g_Config.iFrameSkip = framesToSkip;
+		osm.Show(g->T(message));
 	}
 
 	void enableCheats(bool cheats){
@@ -706,19 +718,19 @@ namespace MainWindow
 
 					switch(g_Config.iWindowZoom) {
 					case 1:
-						osm.Show(g->T("1x Rending Resolution"));
+						osm.Show(g->T("1x Rendering Resolution"));
 						break;
 
 					case 2:
-						osm.Show(g->T("2x Rending Resolution"));
+						osm.Show(g->T("2x Rendering Resolution"));
 						break;
 
 					case 3:
-						osm.Show(g->T("3x Rending Resolution"));
+						osm.Show(g->T("3x Rendering Resolution"));
 						break;
 
 					case 4:
-						osm.Show(g->T("4x Rending Resolution"));
+						osm.Show(g->T("4x Rendering Resolution"));
 						break;
 					}
 
@@ -776,19 +788,19 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_NONBUFFEREDRENDERING:
-					setRenderingMode(BufferedRendering::FB_NON_BUFFERED_MODE);
+					setRenderingMode(FB_NON_BUFFERED_MODE);
 					break;
 
 				case ID_OPTIONS_BUFFEREDRENDERING:
-					setRenderingMode(BufferedRendering::FB_BUFFERED_MODE);
+					setRenderingMode(FB_BUFFERED_MODE);
 					break;
 
 				case ID_OPTIONS_READFBOTOMEMORYCPU:
-					setRenderingMode(BufferedRendering::FB_READFBOMEMORY_CPU);
+					setRenderingMode(FB_READFBOMEMORY_CPU);
 					break;
 
 				case ID_OPTIONS_READFBOTOMEMORYGPU:
-					setRenderingMode(BufferedRendering::FB_READFBOMEMORY_GPU);
+					setRenderingMode(FB_READFBOMEMORY_GPU);
 					break;
 
 				// Dummy option to let the buffered rendering hotkey cycle through all the options.
@@ -875,50 +887,7 @@ namespace MainWindow
 				case ID_OPTIONS_FRAMESKIPDUMMY:
 					g_Config.iFrameSkip = ++g_Config.iFrameSkip > 9 ? 0 : g_Config.iFrameSkip;
 
-					switch(g_Config.iFrameSkip) {
-					case 0:
-						osm.Show(g->T("No Frame Skip"));
-						break;
-
-					case 1:
-						osm.Show(g->T("Skip 1 frame"));
-						break;
-
-					case 2:
-						osm.Show(g->T("Skip 2 frames"));
-						break;
-
-					case 3:
-						osm.Show(g->T("Skip 3 frames"));
-						break;
-
-					case 4:
-						osm.Show(g->T("Skip 4 frames"));
-						break;
-
-					case 5:
-						osm.Show(g->T("Skip 5 frames"));
-						break;
-
-					case 6:
-						osm.Show(g->T("Skip 6 frames"));
-						break;
-
-					case 7:
-						osm.Show(g->T("Skip 7 frames"));
-						break;
-
-					case 8:
-						osm.Show(g->T("Skip 8 frames"));
-						break;
-
-					case 9:
-						osm.Show(g->T("Skip 9 frames"));
-						break;
-					}
-
 					setFrameSkipping(g_Config.iFrameSkip);
-
 					break;
 
 				case ID_FILE_EXIT:
@@ -1016,19 +985,19 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_TEXTUREFILTERING_AUTO:
-					setTexFiltering(TextureFiltering::AUTO);
+					setTexFiltering(AUTO);
 					break;
 
 				case ID_OPTIONS_NEARESTFILTERING:
-					setTexFiltering(TextureFiltering::NEAREST);
+					setTexFiltering(NEAREST);
 					break;
 
 				case ID_OPTIONS_LINEARFILTERING:
-					setTexFiltering(TextureFiltering::LINEAR) ;
+					setTexFiltering(LINEAR);
 					break;
 
 				case ID_OPTIONS_LINEARFILTERING_CG:
-					setTexFiltering(TextureFiltering::LINEARFMV);
+					setTexFiltering(LINEARFMV);
 					break;
 
 				case ID_OPTIONS_TOPMOST:
