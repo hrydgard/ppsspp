@@ -68,7 +68,7 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_DPAD_DOWN)] = CTRL_DOWN;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_DPAD_LEFT)] = CTRL_LEFT;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_START)] = CTRL_START;
-		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BACK)] = CTRL_SELECT;
+		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_SELECT)] = CTRL_SELECT;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_L1)] = CTRL_LTRIGGER;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_R1)] = CTRL_RTRIGGER;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_R2)] = VIRTKEY_UNTHROTTLE;
@@ -94,7 +94,7 @@ struct DefaultKeyMap {
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_DPAD_DOWN)] = CTRL_DOWN;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_DPAD_LEFT)] = CTRL_LEFT;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_START)] = CTRL_START;
-		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BACK)] = CTRL_SELECT;
+		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_SELECT)] = CTRL_SELECT;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_L1)] = CTRL_LTRIGGER;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_R1)] = CTRL_RTRIGGER;
 		m[KeyDef(DEVICE_ID_X360_0, KEYCODE_BUTTON_R2)] = VIRTKEY_UNTHROTTLE;
@@ -180,13 +180,13 @@ struct DefaultKeyMap {
 #ifdef _WIN32
 		ControllerMap x360;
 		x360.keys = default360Map();
-		x360.name = "360";
+		x360.name = "Xbox 360 Pad";
 		m.push_back(x360);
 #endif 
 		// Keyboard and pad maps.
 		ControllerMap pad;
 		pad.keys = defaultPadMap();
-		pad.name = "Pad";
+		pad.name = "DirectInput Pad";
 		pad.active = false;
 		m.push_back(pad);
 #endif

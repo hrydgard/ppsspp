@@ -254,9 +254,10 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("Controls", controlsSettingsScroll);
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Left Analog Stick")));
-	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 15, 65, c->T("Button Opacity"), screenManager()));
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
-
+	controlsSettings->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
+	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 15, 65, c->T("Button Opacity"), screenManager()));
+	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
@@ -291,11 +292,10 @@ void GlobalSettingsScreen::CreateViews() {
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader("General"));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
-	list->Add(new CheckBox(&g_Config.bEnableLogging, gs->T("Enable Logging")));
-	list->Add(new CheckBox(&enableReports_, gs->T("Enable Error Reporting")));
+	list->Add(new CheckBox(&g_Config.bEnableLogging, gs->T("Enable Debug Logging")));
+	list->Add(new CheckBox(&enableReports_, gs->T("Enable Errors Reporting")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
-	list->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GlobalSettingsScreen::OnControlMapping);
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
@@ -316,11 +316,10 @@ UI::EventReturn GlobalSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GlobalSettingsScreen::OnControlMapping(UI::EventParams &e) {
-	screenManager()->push(new ControlsScreen());
+UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
+	screenManager()->push(new KeyMappingScreen());
 	return UI::EVENT_DONE;
 }
-
 
 UI::EventReturn GlobalSettingsScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
