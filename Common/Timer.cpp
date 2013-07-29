@@ -19,7 +19,9 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#ifndef _XBOX
 #include <mmsystem.h>
+#endif
 #include <sys/timeb.h>
 #else
 #include <sys/time.h>
@@ -35,7 +37,11 @@ namespace Common
 u32 Timer::GetTimeMs()
 {
 #ifdef _WIN32
+#ifdef _XBOX
+	return GetTickCount();
+#else
 	return timeGetTime();
+#endif
 #else
 	struct timeval t;
 	(void)gettimeofday(&t, NULL);
@@ -145,14 +151,14 @@ std::string Timer::GetTimeElapsedFormatted() const
 // Get current time
 void Timer::IncreaseResolution()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	timeBeginPeriod(1);
 #endif
 }
 
 void Timer::RestoreResolution()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	timeEndPeriod(1);
 #endif
 }

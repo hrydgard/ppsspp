@@ -12,7 +12,7 @@
 //
 // --------------------------------------------------------------------------------------
 
-#if defined(WIN32)
+#if defined(_WIN32) && !defined(_XBOX)
 
 #include "CommonWindows.h"
 #include <stdio.h>

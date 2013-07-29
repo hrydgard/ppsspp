@@ -169,7 +169,7 @@ private:
 # elif defined __SSE3__
 #  define _M_SSE 0x300
 # endif
-#elif (_MSC_VER >= 1500) || __INTEL_COMPILER // Visual Studio 2008
+#elif ((_MSC_VER >= 1500) || __INTEL_COMPILER) && !defined(_XBOX) // Visual Studio 2008
 # define _M_SSE 0x402
 #endif
 
@@ -185,6 +185,61 @@ inline unsigned int bswap32(unsigned int x) { return (x >> 24) | ((x & 0xFF0000)
 inline unsigned long long bswap64(unsigned long long x) {return ((unsigned long long)bswap32(x) << 32) | bswap32(x >> 32); }
 #endif
 
+inline float bswapf( float f )
+{
+  union
+  {
+    float f;
+    unsigned int u32;
+  } dat1, dat2;
+
+  dat1.f = f;
+  dat2.u32 = bswap32(dat1.u32);
+
+  return dat2.f;
+}
+
+#ifdef BIG_ENDIAN
+template<typename T> T LE_F(T x) {
+	return (T)bswapf(x);
+}
+template<typename T> T LE_16(T x) {
+	return (T)bswap16(x);
+}
+template<typename T> T LE_32(T x) {
+	return (T)bswap32(x);
+}
+template<typename T> T LE_64(T x) {
+	return (T)bswap64(x);
+}
+
+inline unsigned char GetLe(unsigned char x) {
+	return x;
+}
+inline unsigned short GetLe(unsigned short x) {
+	return bswap16(x);
+}
+inline unsigned int GetLe(unsigned int x) {
+	return bswap32(x);
+}
+inline unsigned long long GetLe(unsigned long long x) {
+	return bswap64(x);
+}
+#else 
+template<typename T> T LE_F(T x) {
+	return (T)(x);
+}
+template<typename T> T LE_16(T x) {
+	return (T)(x);
+}
+template<typename T> T LE_32(T x) {
+	return (T)(x);
+}
+template<typename T> T LE_64(T x) {
+	return (T)(x);
+}
+#define GetLe(x) (x)
+#endif
 
 // Host communication.
 enum HOST_COMM

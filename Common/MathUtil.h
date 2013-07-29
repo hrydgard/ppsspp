@@ -20,7 +20,7 @@
 
 #include "Common.h"
 
-#if !defined(ARM) && !defined(MIPS)
+#if !defined(ARM) && !defined(MIPS) && !defined(_XBOX)
 #define USE_SSE
 #endif
 

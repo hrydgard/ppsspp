@@ -32,7 +32,7 @@
 #include "ConsoleListener.h" // Common
 #include "Atomics.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 const int LOG_PENDING_MAX = 120 * 10000;
 const int LOG_LATENCY_DELAY_MS = 20;
 const int LOG_SHUTDOWN_DELAY_MS = 250;
@@ -50,7 +50,7 @@ volatile u32 ConsoleListener::logPendingWritePos = 0;
 
 ConsoleListener::ConsoleListener()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	hConsole = NULL;
 	bUseColor = true;
 
@@ -60,6 +60,8 @@ ConsoleListener::ConsoleListener()
 		InitializeCriticalSection(&criticalSection);
 	}
 	++refCount;
+#elif defined(_XBOX)
+	bUseColor = false;
 #else
 	bUseColor = isatty(fileno(stdout));
 #endif
@@ -76,7 +78,7 @@ ConsoleListener::~ConsoleListener()
 void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title)
 {
   bHidden = Hidden;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	if (!GetConsoleWindow())
 	{
 		// Open the console window and create the window handle for GetStdHandle()
@@ -108,7 +110,7 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 
 void ConsoleListener::Show(bool bShow)
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
   if (bShow && bHidden)
   {
     ShowWindow(GetConsoleWindow(), SW_SHOW);
@@ -125,7 +127,7 @@ void ConsoleListener::Show(bool bShow)
 
 void ConsoleListener::UpdateHandle()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 #endif
 }
@@ -133,7 +135,7 @@ void ConsoleListener::UpdateHandle()
 // Close the console window and close the eventual file handle
 void ConsoleListener::Close()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	if (hConsole == NULL)
 		return;
 
@@ -171,7 +173,7 @@ void ConsoleListener::Close()
 
 bool ConsoleListener::IsOpen()
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	return (hConsole != NULL);
 #else
 	return true;
@@ -184,7 +186,7 @@ bool ConsoleListener::IsOpen()
 */
 void ConsoleListener::BufferWidthHeight(int BufferWidth, int BufferHeight, int ScreenWidth, int ScreenHeight, bool BufferFirst)
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	BOOL SB, SW;
 	if (BufferFirst)
 	{
@@ -208,7 +210,7 @@ void ConsoleListener::BufferWidthHeight(int BufferWidth, int BufferHeight, int S
 }
 void ConsoleListener::LetterSpace(int Width, int Height)
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	// Get console info
 	CONSOLE_SCREEN_BUFFER_INFO ConInfo;
 	GetConsoleScreenBufferInfo(hConsole, &ConInfo);
@@ -234,7 +236,7 @@ void ConsoleListener::LetterSpace(int Width, int Height)
 #endif
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 {
 	COORD Ret = {0, 0};
@@ -450,7 +452,7 @@ void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Tex
 
 void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool Resize)
 {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 	// Check size
 	if (Width < 8 || Height < 12) return;
 
@@ -537,7 +539,7 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 
 void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 {
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(_XBOX)
 	if (hThread == NULL)
 		WriteToConsole(Level, Text, strlen(Text));
 	else
@@ -570,7 +572,7 @@ void ConsoleListener::Log(LogTypes::LOG_LEVELS Level, const char *Text)
 // Clear console screen
 void ConsoleListener::ClearScreen(bool Cursor)
 { 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(_XBOX)
 	COORD coordScreen = { 0, 0 }; 
 	DWORD cCharsWritten; 
 	CONSOLE_SCREEN_BUFFER_INFO csbi; 
