@@ -17,8 +17,9 @@
 
 #include <cmath>
 
-#include "../../MemMap.h"
-#include "../MIPSAnalyst.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -120,7 +121,7 @@ namespace MIPSComp
 				// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 				// TODO: But some ops seem to use const 0 instead?
 				if (regnum >= n) {
-					ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
+					WARN_LOG(CPU, "Invalid VFPU swizzle: %08x: %d / %d", prefix, regnum, sz);
 					regnum = 0;
 				}
 				
@@ -561,6 +562,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		DISABLE;
+
 		// WARNING: No prefix support!
 		if (js.MayHavePrefix()) {
 			DISABLE;
@@ -614,21 +616,21 @@ namespace MIPSComp
 		for (int i = 0; i < n; i++) {
 			if (!IsOverlapSafe(dregs[i], i, n, sregs, n, tregs)) {
 				tempregs[i] = fpr.GetTempV();
-				fpr.MapRegV(tempregs[i], MAP_DIRTY | MAP_NOINIT);
 			} else {
-				fpr.SpillLockV(dregs[i]);
-				fpr.MapRegV(dregs[i], MAP_DIRTY);
 				tempregs[i] = dregs[i];
 			}
 		}
 
 		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(tempregs[i], MAP_NOINIT);
+			fpr.SpillLockV(tempregs[i]);
 			fpr.MapInInV(sregs[i], tregs[i]);
 			(this->*triop)(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
 		}
 
 		for (int i = 0; i < n; i++) {
 			if (dregs[i] != tempregs[i]) {
+				fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
 				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
 			}
 		}
@@ -785,7 +787,7 @@ namespace MIPSComp
 					//MOV(32, gpr.R(rt), M(&currentMIPS->vfpuCtrl[imm - 128]));
 				} else {
 					//ERROR - maybe need to make this value too an "interlock" value?
-					_dbg_assert_msg_(CPU,0,"mfv - invalid register");
+					ERROR_LOG(CPU, "mfv - invalid register %i", imm);
 				}
 			}
 			break;
@@ -883,28 +885,28 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VScl(u32 op) {
+		// Darn, still breaks Tekken 6. Bug could be elsewhere though.
+		fpr.FlushAll();
 		CONDITIONAL_DISABLE;
-		DISABLE;
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		u8 sregs[4], dregs[4], scale;
+		u8 sregs[4], dregs[4], treg;
 		GetVectorRegsPrefixS(sregs, sz, _VS);
-		// TODO: Prefixes seem strange...
-		GetVectorRegsPrefixT(&scale, V_Single, _VT);
+		GetVectorRegsPrefixT(&treg, V_Single, _VT);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
 		// Move to S0 early, so we don't have to worry about overlap with scale.
-		fpr.LoadToRegV(S0, scale);
+		fpr.LoadToRegV(S0, treg);
 
 		// For prefixes to work, we just have to ensure that none of the output registers spill
 		// and that there's no overlap.
 		MIPSReg tempregs[4];
 		for (int i = 0; i < n; ++i) {
-			if (sregs[i] == dregs[i] || IsOverlapSafe(dregs[i], i, n, sregs)) {
+			if (sregs[i] != dregs[i] && IsOverlapSafe(dregs[i], i, n, sregs)) {
 				tempregs[i] = dregs[i];
 			} else {
 				// Need to use temp regs
@@ -914,20 +916,20 @@ namespace MIPSComp
 
 		// The meat of the function!
 		for (int i = 0; i < n; i++) {
-			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			fpr.SpillLockV(tempregs[i]);
+			fpr.MapDirtyInV(tempregs[i], sregs[i], false);
 			VMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);
 		}
 
 		for (int i = 0; i < n; i++) {
 			// All must be mapped for prefixes to work.
-			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
 			if (tempregs[i] != dregs[i]) {
+				fpr.MapDirtyInV(dregs[i], sregs[i]);
 				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
 			}
 		}
 
 		ApplyPrefixD(dregs, sz);
+		fpr.FlushAll();
 
 		fpr.ReleaseSpillLocks();
 	}
@@ -1063,6 +1065,22 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vi2f(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vcmp(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vcmov(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Viim(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vfim(u32 op) {
 		DISABLE;
 	}
 

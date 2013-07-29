@@ -136,6 +136,9 @@ public:
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
+
+	// for logging messages only.
+	const char *DisasmAt(u32 compilerPC);
 };
 
 

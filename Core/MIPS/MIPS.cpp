@@ -241,3 +241,8 @@ void MIPSState::SWI()
 {
 }
 
+const char *MIPSState::DisasmAt(u32 compilerPC) {
+	static char temp[256];
+	MIPSDisAsm(Memory::Read_Instruction(compilerPC), 0, temp);
+	return temp;
+}

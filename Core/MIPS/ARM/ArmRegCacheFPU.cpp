@@ -46,7 +46,6 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 
 static const ARMReg *GetMIPSAllocationOrder(int &count) {
 	// We conservatively reserve both S0 and S1 as scratch for now.
-	// Will probably really only need one, if that.
 	static const ARMReg allocationOrder[] = {
 		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15
 	};
@@ -357,7 +356,7 @@ ARMReg ArmRegCacheFPU::R(int mipsReg) {
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	} else {
-		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x", mipsReg, compilerPC_);
+		ERROR_LOG(JIT, "Reg %i not in arm reg. compilerPC = %08x : %s", mipsReg, compilerPC_, currentMIPS->DisasmAt(compilerPC_));
 		return INVALID_REG;  // BAAAD
 	}
 }
