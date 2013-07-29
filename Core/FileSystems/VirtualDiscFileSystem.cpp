@@ -68,7 +68,7 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 	}
 
 	std::ifstream in;
-	in.open(filename, std::ios::in);
+	in.open(filename.c_str(), std::ios::in);
 	if (in.fail()) {
 		return;
 	}
