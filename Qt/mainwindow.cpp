@@ -143,7 +143,7 @@ void MainWindow::UpdateMenus()
 	ui->action_AF8x->setChecked(g_Config.iAnisotropyLevel == 8);
 	ui->action_AF16x->setChecked(g_Config.iAnisotropyLevel == 16);
 
-	ui->action_OptionsBufferedRendering->setChecked(g_Config.bBufferedRendering);
+	ui->action_OptionsBufferedRendering->setChecked(g_Config.iRenderingMode == 1);
 	ui->action_OptionsLinearFiltering->setChecked(3 == g_Config.iTexFiltering);
 	ui->action_Simple_2xAA->setChecked(g_Config.SSAntiAliasing);
 
@@ -156,7 +156,6 @@ void MainWindow::UpdateMenus()
 	ui->action_OptionsHardwareTransform->setChecked(g_Config.bHardwareTransform);
 	ui->action_OptionsUseVBO->setChecked(g_Config.bUseVBO);
 	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
-	ui->action_OptionsDisplayRawFramebuffer->setChecked(g_Config.bDisplayFramebuffer);
 	ui->actionFrameskip->setChecked(g_Config.iFrameSkip != 0);
 
 	ui->action_Sound->setChecked(g_Config.bEnableSound);
@@ -491,7 +490,7 @@ void MainWindow::on_action_AF16x_triggered()
 
 void MainWindow::on_action_OptionsBufferedRendering_triggered()
 {
-	g_Config.bBufferedRendering = !g_Config.bBufferedRendering;
+	g_Config.iRenderingMode = !g_Config.iRenderingMode;
 	UpdateMenus();
 }
 
@@ -557,12 +556,6 @@ void MainWindow::on_action_OptionsUseVBO_triggered()
 void MainWindow::on_action_OptionsVertexCache_triggered()
 {
 	g_Config.bVertexCache = !g_Config.bVertexCache;
-	UpdateMenus();
-}
-
-void MainWindow::on_action_OptionsDisplayRawFramebuffer_triggered()
-{
-	g_Config.bDisplayFramebuffer = !g_Config.bDisplayFramebuffer;
 	UpdateMenus();
 }
 

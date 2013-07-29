@@ -401,14 +401,6 @@
     <string>&amp;Linear Filtering</string>
    </property>
   </action>
-  <action name="action_OptionsDisplayRawFramebuffer">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Display Raw Framebuffer</string>
-   </property>
-  </action>
   <action name="action_OptionsShowDebugStatistics">
    <property name="checkable">
     <bool>true</bool>
