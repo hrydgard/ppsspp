@@ -45,6 +45,7 @@ public:
 	SymbolMap() {}
 	bool LoadSymbolMap(const char *filename);
 	void SaveSymbolMap(const char *filename) const;
+	bool LoadNocashSym(const char *ilename);
 	void AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType symbol);
 	void ResetSymbolMap();
 	void AnalyzeBackwards();
