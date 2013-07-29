@@ -153,7 +153,7 @@ public:
 #if COMMON_LITTLE_ENDIAN
 typedef WaitType WaitType_le;
 #else
-#error FIX ME
+typedef swap_struct_t<WaitType, swap_32_t<WaitType> > WaitType_le;
 #endif
 
 // Real PSP struct, don't change the fields
@@ -1865,7 +1865,9 @@ Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 
 	strncpy(t->nt.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
 	t->nt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
-	t->AllocateStack(t->nt.stackSize);  // can change the stacksize!
+	u32 stackSize = t->nt.stackSize;
+	t->AllocateStack(stackSize);  // can change the stacksize!
+	t->nt.stackSize = stackSize;
 	return t;
 }
 

@@ -71,7 +71,8 @@ enum SceUtilitySavedataFocus
 typedef SceUtilitySavedataType SceUtilitySavedataType_le;
 typedef SceUtilitySavedataFocus SceUtilitySavedataFocus_le;
 #else
-#error FIX ME
+typedef swap_struct_t<SceUtilitySavedataType, swap_32_t<SceUtilitySavedataType> > SceUtilitySavedataType_le;
+typedef swap_struct_t<SceUtilitySavedataFocus, swap_32_t<SceUtilitySavedataFocus> > SceUtilitySavedataFocus_le;
 #endif
 
 typedef char SceUtilitySavedataSaveName[20];

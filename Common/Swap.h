@@ -76,7 +76,7 @@ public:
 		return swap(value);
 
 	}
-	swap_struct_t() :value(0) {}
+	swap_struct_t() : value((T)0) {}
 	swap_struct_t(const T &v): value(swap(v)) {}
 
 	template <typename S>

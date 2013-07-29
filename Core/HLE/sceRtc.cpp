@@ -478,7 +478,7 @@ int sceRtcCheckValid(u32 datePtr)
 		{
 			return PSP_TIME_INVALID_SECONDS;
 		}
-		else if (pt.microsecond >= 1000000)
+		else if (pt.microsecond >= 1000000UL)
 		{
 			return PSP_TIME_INVALID_MICROSECONDS;
 		}

@@ -56,10 +56,10 @@ int PSPSaveDialog::Init(int paramAddr)
 	u32 retval = param.SetPspParam(&request);
 
 	INFO_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
-	INFO_LOG(HLE,"Mode: %i", (SceUtilitySavedataType)param.GetPspParam()->mode);
+	INFO_LOG(HLE,"Mode: %i", (SceUtilitySavedataType)(u32)param.GetPspParam()->mode);
 
 	yesnoChoice = 1;
-	switch (param.GetPspParam()->focus)
+	switch ((SceUtilitySavedataFocus)(u32)param.GetPspParam()->focus)
 	{
 	case SCE_UTILITY_SAVEDATA_FOCUS_NAME:
 		// TODO: This should probably force not using the list?
@@ -95,7 +95,7 @@ int PSPSaveDialog::Init(int paramAddr)
 		break;
 	}
 
-	switch (param.GetPspParam()->mode)
+	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
 	{
 		case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
 			DEBUG_LOG(HLE, "Loading. Title: %s Save: %s File: %s", param.GetGameName(param.GetPspParam()).c_str(), param.GetSaveName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
@@ -164,7 +164,7 @@ int PSPSaveDialog::Init(int paramAddr)
 			break;
 		default:
 		{
-			ERROR_LOG_REPORT(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", (SceUtilitySavedataType)param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			ERROR_LOG_REPORT(HLE, "Load/Save function %d not coded. Title: %s Save: %s File: %s", (SceUtilitySavedataType)(u32)param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->common.result = 0;
 			status = SCE_UTILITY_STATUS_INITIALIZE;
 			display = DS_NONE;
@@ -214,7 +214,7 @@ int PSPSaveDialog::Init(int paramAddr)
 
 const std::string PSPSaveDialog::GetSelectedSaveDirName()
 {
-	switch (param.GetPspParam()->mode)
+	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
 	{
 	case SCE_UTILITY_SAVEDATA_TYPE_LOAD:
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
@@ -879,7 +879,7 @@ int PSPSaveDialog::Update()
 
 		case DS_NONE: // For action which display nothing
 		{
-			switch (param.GetPspParam()->mode)
+			switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode)
 			{
 				case SCE_UTILITY_SAVEDATA_TYPE_LOAD: // Only load and exit
 				case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:

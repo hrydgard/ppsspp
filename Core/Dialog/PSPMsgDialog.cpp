@@ -73,7 +73,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr)
 		unsigned int validOp = SCE_UTILITY_MSGDIALOG_OPTION_TEXT |
 				SCE_UTILITY_MSGDIALOG_OPTION_YESNO |
 				SCE_UTILITY_MSGDIALOG_OPTION_DEFAULT_NO;
-		if((messageDialog.options | validOp) ^ validOp)
+		if (((messageDialog.options | validOp) ^ validOp) != 0)
 		{
 			flag |= DS_ERROR;
 			messageDialog.result = SCE_UTILITY_MSGDIALOG_ERROR_BADOPTION;

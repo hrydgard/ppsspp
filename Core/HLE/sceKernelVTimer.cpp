@@ -60,7 +60,7 @@ KernelObject *__KernelVTimerObject() {
 }
 
 u64 __getVTimerRunningTime(VTimer *vt) {
-	if (!vt->nvt.active)
+	if (vt->nvt.active == 0)
 		return 0;
 
 	return cyclesToUs(CoreTiming::GetTicks()) - vt->nvt.base;
@@ -89,7 +89,7 @@ void __KernelScheduleVTimer(VTimer *vt, u64 schedule) {
 	vt->nvt.schedule = schedule;
 
 	if (vt->nvt.active == 1 && vt->nvt.handlerAddr != 0)
-		CoreTiming::ScheduleEvent(usToCycles(vt->nvt.schedule), vtimerTimer, vt->GetUID());
+		CoreTiming::ScheduleEvent(usToCycles((u64)vt->nvt.schedule), vtimerTimer, vt->GetUID());
 }
 
 void __rescheduleVTimer(SceUID id, int delay) {
@@ -345,7 +345,7 @@ u32 sceKernelStartVTimer(u32 uid) {
 	VTimer *vt = kernelObjects.Get<VTimer>(uid, error);
 
 	if (vt)	{
-		if (vt->nvt.active)
+		if (vt->nvt.active != 0)
 			return 1;
 
 		__startVTimer(vt);

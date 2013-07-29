@@ -280,16 +280,16 @@ void PGF::GetFontInfo(PGFFontInfo *fi) {
 	fi->maxGlyphTopYI = header.maxTopYAdjust;
 	fi->maxGlyphAdvanceXI = header.maxAdvance[0];
 	fi->maxGlyphAdvanceYI = header.maxAdvance[1];
-	fi->maxGlyphWidthF = header.maxSize[0] / 64.0f;
-	fi->maxGlyphHeightF = header.maxSize[1] / 64.0f;
-	fi->maxGlyphAscenderF = header.maxAscender / 64.0f;
-	fi->maxGlyphDescenderF = header.maxDescender / 64.0f;
-	fi->maxGlyphLeftXF = header.maxLeftXAdjust / 64.0f;
-	fi->maxGlyphBaseYF = header.maxBaseYAdjust / 64.0f;
-	fi->minGlyphCenterXF = header.minCenterXAdjust / 64.0f;
-	fi->maxGlyphTopYF = header.maxTopYAdjust / 64.0f;
-	fi->maxGlyphAdvanceXF = header.maxAdvance[0] / 64.0f;
-	fi->maxGlyphAdvanceYF = header.maxAdvance[1] / 64.0f;
+	fi->maxGlyphWidthF = (float)header.maxSize[0] / 64.0f;
+	fi->maxGlyphHeightF = (float)header.maxSize[1] / 64.0f;
+	fi->maxGlyphAscenderF = (float)header.maxAscender / 64.0f;
+	fi->maxGlyphDescenderF = (float)header.maxDescender / 64.0f;
+	fi->maxGlyphLeftXF = (float)header.maxLeftXAdjust / 64.0f;
+	fi->maxGlyphBaseYF = (float)header.maxBaseYAdjust / 64.0f;
+	fi->minGlyphCenterXF = (float)header.minCenterXAdjust / 64.0f;
+	fi->maxGlyphTopYF = (float)header.maxTopYAdjust / 64.0f;
+	fi->maxGlyphAdvanceXF = (float)header.maxAdvance[0] / 64.0f;
+	fi->maxGlyphAdvanceYF = (float)header.maxAdvance[1] / 64.0f;
 
 	fi->maxGlyphWidth = header.maxGlyphWidth;
 	fi->maxGlyphHeight = header.maxGlyphHeight;
@@ -474,7 +474,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 			if (pixelX >= clipX && pixelX < clipX + clipWidth && pixelY >= clipY && pixelY < clipY + clipHeight) {
 				// 4-bit color value
 				int pixelColor = value;
-				switch (image->pixelFormat) {
+				switch ((FontPixelFormat)(u32)image->pixelFormat) {
 				case PSP_FONT_PIXELFORMAT_8:
 					// 8-bit color value
 					pixelColor |= pixelColor << 4;
@@ -495,7 +495,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 				case PSP_FONT_PIXELFORMAT_4_REV:
 					break;
 				default:
-					ERROR_LOG_REPORT(HLE, "Unhandled font pixel format: %d", image->pixelFormat);
+					ERROR_LOG_REPORT(HLE, "Unhandled font pixel format: %d", (u32)image->pixelFormat);
 					break;
 				}
 
