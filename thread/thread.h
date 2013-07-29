@@ -245,7 +245,7 @@ private:
 		void Run() { func(); }
 
 	private:
-		C const func;
+		C func;
 	};
 
 	template <typename C, typename A>
