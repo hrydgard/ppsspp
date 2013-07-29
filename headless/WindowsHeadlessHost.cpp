@@ -19,7 +19,7 @@
 #include "Compare.h"
 
 #include <stdio.h>
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <io.h>
 
 #include "gfx_es2/gl_state.h"

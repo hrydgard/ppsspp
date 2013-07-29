@@ -21,7 +21,7 @@
 #include <sys/types.h>
 #include <dirent.h>
 #else
-#include <windows.h>
+#include "CommonWindows.h"
 #endif
 
 // strcasecmp

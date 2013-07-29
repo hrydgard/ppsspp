@@ -99,7 +99,7 @@ bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 }
 
 #ifdef _WIN32
-#include <windows.h>
+#include "CommonWindows.h"
 #endif
 
 // Default non library dependent panic alert

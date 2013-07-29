@@ -1,6 +1,6 @@
 #pragma once
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 
 namespace W32Util
 {

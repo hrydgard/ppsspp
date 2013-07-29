@@ -1,16 +1,16 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>
-#include "..\resource.h"
+#include "Windows/resource.h"
 
-#include "../../Core/Debugger/SymbolMap.h"
-#include "Debugger_VFPUDlg.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Windows/Debugger/Debugger_VFPUDlg.h"
 
-#include "CtrlMemView.h"
+#include "Windows/Debugger/CtrlMemView.h"
 
-#include "../../Core/MIPS/MIPS.h" //	BAD
+#include "Core/MIPS/MIPS.h" //	BAD
 
 CVFPUDlg *vfpudlg;
 

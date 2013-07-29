@@ -63,10 +63,10 @@ struct DirectoryEntry
 {
 	u8 size;
 	u8 sectorsInExtendedRecord;
-	u32 firstDataSectorLE;	// LBA
-	u32 firstDataSectorBE;
-	u32 dataLengthLE;				// Size
-	u32 dataLengthBE;
+	u32_le firstDataSectorLE;	// LBA
+	u32_be firstDataSectorBE;
+	u32_le dataLengthLE;				// Size
+	u32_be dataLengthBE;
 	u8 years;
 	u8 month;
 	u8 day;
@@ -77,8 +77,8 @@ struct DirectoryEntry
 	u8 flags; // 2 = directory
 	u8 fileUnitSize;
 	u8 interleaveGap;
-	u16 volSeqNumberLE;
-	u16 volSeqNumberBE;
+	u16_le volSeqNumberLE;
+	u16_be volSeqNumberBE;
 	u8 identifierLength; //identifier comes right after
 	u8 firstIdChar;
 
@@ -124,25 +124,25 @@ struct VolDescriptor
 	char sysid[32];
 	char volid[32];
 	char zeros[8];
-	u32 numSectorsLE;
-	u32 numSectoreBE;
+	u32_le numSectorsLE;
+	u32_be numSectoreBE;
 	char morezeros[32];
-	u16 volSetSizeLE;
-	u16 volSetSizeBE;
-	u16 volSeqNumLE;
-	u16 volSeqNumBE;
-	u16 sectorSizeLE;
-	u16 sectorSizeBE;
-	u32 pathTableLengthLE;
-	u32 pathTableLengthBE;
-	u16 firstLETableSectorLE;
-	u16 firstLETableSectorBE;
-	u16 secondLETableSectorLE;
-	u16 secondLETableSectorBE;
-	u16 firstBETableSectorLE;
-	u16 firstBETableSectorBE;
-	u16 secondBETableSectorLE;
-	u16 secondBETableSectorBE;
+	u16_le volSetSizeLE;
+	u16_be volSetSizeBE;
+	u16_le volSeqNumLE;
+	u16_be volSeqNumBE;
+	u16_le sectorSizeLE;
+	u16_be sectorSizeBE;
+	u32_le pathTableLengthLE;
+	u32_be pathTableLengthBE;
+	u16_le firstLETableSectorLE;
+	u16_be firstLETableSectorBE;
+	u16_le secondLETableSectorLE;
+	u16_be secondLETableSectorBE;
+	u16_le firstBETableSectorLE;
+	u16_be firstBETableSectorBE;
+	u16_le secondBETableSectorLE;
+	u16_be secondBETableSectorBE;
 	DirectoryEntry root;
 	char volumeSetIdentifier[128];
 	char publisherIdentifier[128];

@@ -85,7 +85,7 @@ static const int TPSM_PIXEL_STORAGE_MODE_16BIT_BGR5650 = 0X00;
 static const int TPSM_PIXEL_STORAGE_MODE_32BIT_ABGR8888 = 0X03;
 
 int getMaxAheadTimestamp(const SceMpegRingBuffer &ringbuf) {
-	return std::max(40000, ringbuf.packets * 700);  // empiric value from JPCSP, thanks!
+	return std::max(40000, 700 * ringbuf.packets);  // empiric value from JPCSP, thanks!
 }
 
 const u8 defaultMpegheader[2048] = {0x50,0x53,0x4d,0x46,0x30,0x30,0x31,0x35,0x00,0x00,0x08,0x00,0x00,
@@ -947,7 +947,7 @@ u32 sceMpegRingbufferPut(u32 ringbufferAddr, u32 numPackets, u32 available)
 	}
 
 	// Execute callback function as a direct MipsCall, no blocking here so no messing around with wait states etc
-	if (ringbuffer.callback_addr) {
+	if (ringbuffer.callback_addr != 0) {
 		PostPutAction *action = (PostPutAction *)__KernelCreateAction(actionPostPut);
 		action->setRingAddr(ringbufferAddr);
 		// TODO: Should call this multiple times until we get numPackets.

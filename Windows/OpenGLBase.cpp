@@ -1,12 +1,12 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#include <windows.h>
-#include "../native/gfx_es2/gl_state.h"
-#include "../native/gfx/gl_common.h"
+#include "Common/CommonWindows.h"
+#include "native/gfx_es2/gl_state.h"
+#include "native/gfx/gl_common.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 
-#include "OpenGLBase.h"
+#include "Windows/OpenGLBase.h"
 
 static HDC hDC;     // Private GDI Device Context
 static HGLRC hRC;   // Permanent Rendering Context

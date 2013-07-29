@@ -25,7 +25,7 @@
 #include "Common.h"
 
 #ifdef _WIN32
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #endif
 
 #include "Core/Core.h"

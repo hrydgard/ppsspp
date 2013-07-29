@@ -15,7 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#pragma once 
+#pragma once
+
+#include "Common/Common.h"
 
 ///////////////////////
 // ELF Header Constants
@@ -283,7 +285,7 @@ struct Elf32_Rela
 #define ELF32_R_TYPE(i) ((unsigned char)(i))
 #define ELF32_R_INFO(s,t) (((s)<<8 )+(unsigned char)(t))
 
-
+/*
 struct Elf32_Dyn 
 {
 	Elf32_Sword d_tag;
@@ -293,3 +295,4 @@ struct Elf32_Dyn
         Elf32_Addr d_ptr;
     } d_un;
 };
+*/

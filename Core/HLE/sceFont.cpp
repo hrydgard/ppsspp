@@ -130,10 +130,10 @@ public:
 
 	Font(const u8 *data, size_t dataSize) {
 		pgf_.ReadPtr(data, dataSize);
-		style_.fontH = pgf_.header.hSize / 64.0f;
-		style_.fontV = pgf_.header.vSize / 64.0f;
-		style_.fontHRes = pgf_.header.hResolution / 64.0f;
-		style_.fontVRes = pgf_.header.vResolution / 64.0f;
+		style_.fontH = (float)pgf_.header.hSize / 64.0f;
+		style_.fontV = (float)pgf_.header.vSize / 64.0f;
+		style_.fontHRes = (float)pgf_.header.hResolution / 64.0f;
+		style_.fontVRes = (float)pgf_.header.vResolution / 64.0f;
 	}
 
 	Font(const u8 *data, size_t dataSize, const FontRegistryEntry &entry) {

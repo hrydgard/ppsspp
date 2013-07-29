@@ -175,6 +175,7 @@
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonPaths.h" />
     <ClInclude Include="CommonTypes.h" />
+    <ClInclude Include="CommonWindows.h" />
     <ClInclude Include="ConsoleListener.h" />
     <ClInclude Include="CPUDetect.h" />
     <ClInclude Include="Crypto\md5.h" />
@@ -201,6 +202,7 @@
     <ClInclude Include="StdMutex.h" />
     <ClInclude Include="StdThread.h" />
     <ClInclude Include="StringUtils.h" />
+    <ClInclude Include="Swap.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Thread.h" />
     <ClInclude Include="ThreadPools.h" />

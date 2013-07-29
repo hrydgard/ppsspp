@@ -21,7 +21,6 @@
 #include <algorithm>
 #include "CommonTypes.h"
 #include "../ge_constants.h"
-#undef max
 
 class IndexGenerator
 {

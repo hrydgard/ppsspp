@@ -17,8 +17,9 @@
 
 #pragma once
 
-#include "../Globals.h"
-#include "../Config.h"
+#include "Globals.h"
+#include "Common/Common.h"
+#include "Core/Config.h"
 
 class PointerWrap;
 

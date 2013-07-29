@@ -28,8 +28,7 @@
 #if defined(_WIN32)
 // WIN32
 
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include "CommonWindows.h"
 
 #if defined(_MSC_VER) && defined(_MT)
 // When linking with LIBCMT (the multithreaded C library), Microsoft recommends

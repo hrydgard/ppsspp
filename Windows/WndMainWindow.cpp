@@ -1,6 +1,6 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <tchar.h>
 
 #include <map>

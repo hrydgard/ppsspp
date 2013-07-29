@@ -21,7 +21,7 @@
 #include "LogManager.h"
 
 #ifdef _WIN32
-#include <windows.h>
+#include "CommonWindows.h"
 #endif
 
 class ConsoleListener : public LogListener

@@ -1,5 +1,5 @@
 
 #pragma once
 
-#include "../../Core/CPU.h"
+#include "Core/CPU.h"
 

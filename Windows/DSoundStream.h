@@ -1,7 +1,7 @@
 #ifndef __SOUNDSTREAM_H__
 #define __SOUNDSTREAM_H__
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 
 namespace DSound
 {

@@ -20,12 +20,10 @@
 
 #include "../../Core/Debugger/DebugInterface.h"
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <vector>
 #include <algorithm>
 
-#undef min
-#undef max
 using std::min;
 using std::max;
 

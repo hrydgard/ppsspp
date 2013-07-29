@@ -16,7 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef _WIN32
-#include <windows.h>
+#include "Common/CommonWindows.h"
+#include <Winsock2.h>
 #else
 #include <sys/time.h>
 #endif
@@ -478,7 +479,7 @@ int sceRtcCheckValid(u32 datePtr)
 		{
 			return PSP_TIME_INVALID_SECONDS;
 		}
-		else if (pt.microsecond >= 1000000)
+		else if (pt.microsecond >= 1000000UL)
 		{
 			return PSP_TIME_INVALID_MICROSECONDS;
 		}

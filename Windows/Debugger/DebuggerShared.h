@@ -1,6 +1,6 @@
 #pragma once
-#include <Windows.h>
-#include "..\..\Core\Debugger\DebugInterface.h"
+#include "Common/CommonWindows.h"
+#include "Core/Debugger/DebugInterface.h"
 
 extern HMENU g_hPopupMenus;
 

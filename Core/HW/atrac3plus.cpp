@@ -1,5 +1,5 @@
 #ifdef _WIN32
-#include <Windows.h>
+#include "Common/CommonWindows.h"
 #else
 #include <dlfcn.h>
 #include <errno.h>

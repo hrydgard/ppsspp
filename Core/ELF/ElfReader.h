@@ -73,8 +73,8 @@ public:
 	}
 
 	// Quick accessors
-	ElfType GetType() { return (ElfType)(header->e_type); }
-	ElfMachine GetMachine() { return (ElfMachine)(header->e_machine); }
+	ElfType GetType() { return (ElfType)(u16)(header->e_type); }
+	ElfMachine GetMachine() { return (ElfMachine)(u16)(header->e_machine); }
 	u32 GetEntryPoint() { return entryPoint; }
 	u32 GetFlags() { return (u32)(header->e_flags); }
 

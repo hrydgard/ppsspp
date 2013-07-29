@@ -22,7 +22,7 @@
 #undef HEADLESSHOST_CLASS
 #define HEADLESSHOST_CLASS WindowsHeadlessHost
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 
 // TODO: Get rid of this junk
 class WindowsHeadlessHost : public HeadlessHost
