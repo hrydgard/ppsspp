@@ -14,7 +14,7 @@
 
 #if defined(WIN32)
 
-#include <windows.h>
+#include "CommonWindows.h"
 #include <stdio.h>
 #include "ExtendedTrace.h"
 using namespace std;

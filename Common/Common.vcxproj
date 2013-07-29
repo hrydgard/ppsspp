@@ -175,6 +175,7 @@
     <ClInclude Include="CommonFuncs.h" />
     <ClInclude Include="CommonPaths.h" />
     <ClInclude Include="CommonTypes.h" />
+    <ClInclude Include="CommonWindows.h" />
     <ClInclude Include="ConsoleListener.h" />
     <ClInclude Include="CPUDetect.h" />
     <ClInclude Include="Crypto\md5.h" />

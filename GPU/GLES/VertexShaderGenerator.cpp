@@ -19,7 +19,7 @@
 #include <locale.h>
 
 #if defined(_WIN32) && defined(_DEBUG)
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #endif
 
 #include "base/stringutil.h"

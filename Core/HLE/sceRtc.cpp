@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #ifdef _WIN32
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #else
 #include <sys/time.h>
 #endif

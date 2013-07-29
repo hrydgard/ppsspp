@@ -48,6 +48,7 @@
     </ClInclude>
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="Swap.h" />
+    <ClInclude Include="CommonWindows.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

@@ -21,7 +21,7 @@
 #include "StringUtils.h"
 
 #ifdef _WIN32
-#include <windows.h>
+#include "CommonWindows.h"
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName
