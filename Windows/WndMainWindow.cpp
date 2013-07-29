@@ -259,12 +259,11 @@ namespace MainWindow
 		osm.Show(g->T(message));
 	}
 
-	void enableCheats(bool cheats){
+	void enableCheats(bool cheats) {
 		g_Config.bEnableCheats = cheats;
 	}
 
-	BOOL Show(HINSTANCE hInstance, int nCmdShow)
-	{
+	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
 		hInst = hInstance; // Store instance handle in our global variable.
 
 		int zoom = g_Config.iWindowZoom;
@@ -297,8 +296,7 @@ namespace MainWindow
 		info.cyMax = 0;
 		info.dwStyle = MNS_CHECKORBMP;
 		info.fMask = MIM_STYLE;
-		for (int i = 0; i < GetMenuItemCount(menu); i++)
-		{
+		for (int i = 0; i < GetMenuItemCount(menu); i++) {
 			SetMenuInfo(GetSubMenu(menu,i),&info);
 		}
 		UpdateMenus();
@@ -335,38 +333,31 @@ namespace MainWindow
 		return TRUE;
 	}
 
-	void BrowseAndBoot(std::string defaultPath, bool browseDirectory)
-	{
+	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
 		
-		for (int i=0; i<(int)filter.length(); i++)
-		{
+		for (int i=0; i<(int)filter.length(); i++) {
 			if (filter[i] == '|')
 				filter[i] = '\0';
 		}
 
 		// Pause if a game is being played.
 		bool isPaused = false;
-		if (globalUIState == UISTATE_INGAME)
-		{
+		if (globalUIState == UISTATE_INGAME) {
 			isPaused = Core_IsStepping();
 			if (!isPaused)
 				Core_EnableStepping(true);
 		}
 
-		if (browseDirectory)
-		{
+		if (browseDirectory) {
 			std::string dir = W32Util::BrowseForFolder(GetHWND(),"Choose directory");
-			if (dir == "")
-			{
+			if (dir == "") {
 				if (!isPaused)
 					Core_EnableStepping(false);
 			}
-			else
-			{
-				if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU)
-				{
+			else {
+				if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 					Core_EnableStepping(false);
 				}
 
@@ -375,8 +366,7 @@ namespace MainWindow
 		}
 		else if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
 		{
-			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU)
-			{
+			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
 			}
 
@@ -391,26 +381,25 @@ namespace MainWindow
 			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
 			NativeMessageReceived("boot", executable.c_str());
 		}
-		else
-		{
+		else {
 			if (!isPaused)
 				Core_EnableStepping(false);
 		}
 	}
 
-	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-		switch (message) 
-		{
+	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+		switch (message) {
 		case WM_ACTIVATE:
 			break;
+
 		case WM_SETFOCUS:
 			break;
+
 		case WM_SIZE:
 			break;
 
 		case WM_ERASEBKGND:
-	  	return DefWindowProc(hWnd, message, wParam, lParam);
+	  		return DefWindowProc(hWnd, message, wParam, lParam);
 
 		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
 		// and as asynchronous touch events for minimal latency.
@@ -436,8 +425,9 @@ namespace MainWindow
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 				SetCapture(hWnd);
-				break;
+				
 			}
+			break;
 
 		case WM_MOUSEMOVE:
 			{
@@ -488,8 +478,8 @@ namespace MainWindow
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 				ReleaseCapture();
-				break;
 			}
+			break;
 
 		// Actual touch! Unfinished...
 
@@ -524,9 +514,9 @@ namespace MainWindow
 #endif
 			}
 
-
 		case WM_PAINT:
 			return DefWindowProc(hWnd, message, wParam, lParam);
+
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -537,6 +527,7 @@ namespace MainWindow
 		switch (kb.VKey) {
 		case VK_SHIFT:
 			return MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
+
 		case VK_CONTROL:
 			if (kb.Flags & RI_KEY_E0)
 				return VK_RCONTROL;
@@ -548,6 +539,7 @@ namespace MainWindow
 				return VK_RMENU;  // Right Alt / AltGr
 			else
 				return VK_LMENU;  // Left Alt
+
 		default:
 			return kb.VKey;
 		}
@@ -577,6 +569,7 @@ namespace MainWindow
 			case TIMER_CURSORUPDATE:
 				CorrectCursor();
 				return 0;
+
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
@@ -601,8 +594,8 @@ namespace MainWindow
 				// This also means it really won't work great for key mapping :( Need to build a 1 frame delay or something.
 				key.flags = KEY_DOWN | KEY_UP | KEY_HASWHEELDELTA | (wheelDelta << 16);
 				NativeKey(key);
-				break;
 			}
+			break;
 
 		case WM_COMMAND:
 			{
