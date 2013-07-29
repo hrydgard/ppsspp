@@ -1,4 +1,22 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
+// It's improving slowly, though. :)
 
 #include "Common/CommonWindows.h"
 #include <tchar.h>
@@ -39,6 +57,8 @@
 #include "GPU/GPUState.h"
 #include "native/image/png_load.h"
 #include "GPU/GLES/TextureScaler.h"
+#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/Framebuffer.h"
 #include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
 #include "i18n/i18n.h"
@@ -77,7 +97,6 @@ namespace MainWindow
 	static size_t rawInputBufferSize;
 	static int currentSavestateSlot = 0;
 
-	//W32Util::LayeredWindow *layer;
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -127,12 +146,11 @@ namespace MainWindow
 	}
 
 	void GetWindowRectAtZoom(int zoom, RECT &rcInner, RECT &rcOuter) {
-		// GetWindowRect(hwndMain, &rcInner);
 		rcInner.left = 0;
 		rcInner.top = 0;
 
-		rcInner.right=480*zoom;//+client edge
-		rcInner.bottom=272*zoom; //+client edge
+		rcInner.right=480*zoom;
+		rcInner.bottom=272*zoom;
 
 		rcOuter=rcInner;
 		AdjustWindowRect(&rcOuter, WS_OVERLAPPEDWINDOW, TRUE);
@@ -166,7 +184,7 @@ namespace MainWindow
 			MoveWindow(hwndDisplay, 0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, TRUE);
 		}
 
-		// round up to a zoom factor for the render size.
+		// Round up to a zoom factor for the render size.
 		int zoom = (rc.right - rc.left + 479) / 480;
 		if (g_Config.SSAntiAliasing) zoom *= 2;
 		PSP_CoreParameter().renderWidth = 480 * zoom;
@@ -202,7 +220,7 @@ namespace MainWindow
 		}
 	}
 
-	void setTexScalingLevel(int level) {
+	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
 		if(gpu) gpu->ClearCacheNextFrame();
 	}
@@ -225,17 +243,28 @@ namespace MainWindow
 		g_Config.iFpsLimit = fps;
 	}
 
-	void setFrameSkipping(int frame) {
-		g_Config.iFrameSkip = frame;
+	void setFrameSkipping(int framesToSkip) {
+		I18NCategory *g = GetI18NCategory("Graphics");
+
+		char message[256];
+		if(framesToSkip == 0)
+			sprintf(message, "Frameskipping off");
+		else {
+			if(framesToSkip == 1)
+				sprintf(message, "Skipping %d frame", framesToSkip);
+			else
+				sprintf(message, "Skipping %d frames", framesToSkip);
+		}
+		g_Config.iFrameSkip = framesToSkip;
+		osm.Show(g->T(message));
 	}
 
-	void enableCheats(bool cheats){
+	void enableCheats(bool cheats) {
 		g_Config.bEnableCheats = cheats;
 	}
 
-	BOOL Show(HINSTANCE hInstance, int nCmdShow)
-	{
-		hInst = hInstance; // Store instance handle in our global variable
+	BOOL Show(HINSTANCE hInstance, int nCmdShow) {
+		hInst = hInstance; // Store instance handle in our global variable.
 
 		int zoom = g_Config.iWindowZoom;
 		if (zoom < 1) zoom = 1;
@@ -267,13 +296,12 @@ namespace MainWindow
 		info.cyMax = 0;
 		info.dwStyle = MNS_CHECKORBMP;
 		info.fMask = MIM_STYLE;
-		for (int i = 0; i < GetMenuItemCount(menu); i++)
-		{
+		for (int i = 0; i < GetMenuItemCount(menu); i++) {
 			SetMenuInfo(GetSubMenu(menu,i),&info);
 		}
 		UpdateMenus();
 
-		//accept dragged files
+		// Accept dragged files.
 		DragAcceptFiles(hwndMain, TRUE);
 
 		hideCursor = true;
@@ -297,7 +325,7 @@ namespace MainWindow
 		memset(&keyboard, 0, sizeof(keyboard));
 		keyboard.usUsagePage = 1;
 		keyboard.usUsage = 6;
-		keyboard.dwFlags = 0; // RIDEV_NOLEGACY | ;
+		keyboard.dwFlags = 0;
 		RegisterRawInputDevices(&keyboard, 1, sizeof(RAWINPUTDEVICE));
 
 		SetFocus(hwndDisplay);
@@ -305,38 +333,31 @@ namespace MainWindow
 		return TRUE;
 	}
 
-	void BrowseAndBoot(std::string defaultPath, bool browseDirectory)
-	{
+	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
 		
-		for (int i=0; i<(int)filter.length(); i++)
-		{
+		for (int i=0; i<(int)filter.length(); i++) {
 			if (filter[i] == '|')
 				filter[i] = '\0';
 		}
 
-		// pause if a game is being played
+		// Pause if a game is being played.
 		bool isPaused = false;
-		if (globalUIState == UISTATE_INGAME)
-		{
+		if (globalUIState == UISTATE_INGAME) {
 			isPaused = Core_IsStepping();
 			if (!isPaused)
 				Core_EnableStepping(true);
 		}
 
-		if (browseDirectory)
-		{
+		if (browseDirectory) {
 			std::string dir = W32Util::BrowseForFolder(GetHWND(),"Choose directory");
-			if (dir == "")
-			{
+			if (dir == "") {
 				if (!isPaused)
 					Core_EnableStepping(false);
 			}
-			else
-			{
-				if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU)
-				{
+			else {
+				if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 					Core_EnableStepping(false);
 				}
 
@@ -345,12 +366,11 @@ namespace MainWindow
 		}
 		else if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
 		{
-			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU)
-			{
+			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
 			}
 
-			// decode the filename with fullpath
+			// Decode the filename with fullpath.
 			std::string fullpath = fn;
 			char drive[MAX_PATH];
 			char dir[MAX_PATH];
@@ -361,26 +381,25 @@ namespace MainWindow
 			std::string executable = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
 			NativeMessageReceived("boot", executable.c_str());
 		}
-		else
-		{
+		else {
 			if (!isPaused)
 				Core_EnableStepping(false);
 		}
 	}
 
-	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-		switch (message) 
-		{
+	LRESULT CALLBACK DisplayProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+		switch (message) {
 		case WM_ACTIVATE:
 			break;
+
 		case WM_SETFOCUS:
 			break;
+
 		case WM_SIZE:
 			break;
 
 		case WM_ERASEBKGND:
-	  	return DefWindowProc(hWnd, message, wParam, lParam);
+	  		return DefWindowProc(hWnd, message, wParam, lParam);
 
 		// Poor man's touch - mouse input. We send the data both as an input_state pointer,
 		// and as asynchronous touch events for minimal latency.
@@ -406,8 +425,9 @@ namespace MainWindow
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 				SetCapture(hWnd);
-				break;
+				
 			}
+			break;
 
 		case WM_MOUSEMOVE:
 			{
@@ -458,10 +478,10 @@ namespace MainWindow
 				touch.y = input_state.pointer_y[0];
 				NativeTouch(touch);
 				ReleaseCapture();
-				break;
 			}
+			break;
 
-		// Actual touch! Unfinished
+		// Actual touch! Unfinished...
 
 		case WM_TOUCH:
 			{
@@ -482,21 +502,21 @@ namespace MainWindow
 
 					if (!CloseTouchInputHandle((HTOUCHINPUT)lParam))
 					{
-						// error handling
+						// Error handling.
 					}
 				}
 				else
 				{
-					// GetLastError() and error handling
+					// GetLastError() and error handling.
 				}
 				delete [] inputs;
 				return DefWindowProc(hWnd, message, wParam, lParam);
 #endif
 			}
 
-
 		case WM_PAINT:
 			return DefWindowProc(hWnd, message, wParam, lParam);
+
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);
 		}
@@ -507,6 +527,7 @@ namespace MainWindow
 		switch (kb.VKey) {
 		case VK_SHIFT:
 			return MapVirtualKey(kb.MakeCode, MAPVK_VSC_TO_VK_EX);
+
 		case VK_CONTROL:
 			if (kb.Flags & RI_KEY_E0)
 				return VK_RCONTROL;
@@ -518,18 +539,17 @@ namespace MainWindow
 				return VK_RMENU;  // Right Alt / AltGr
 			else
 				return VK_LMENU;  // Left Alt
+
 		default:
 			return kb.VKey;
 		}
 	}
 	
-	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
-	{
+	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
 		int wmId, wmEvent;
 		std::string fn;
 
-		switch (message) 
-		{
+		switch (message) {
 		case WM_CREATE:
 			break;
 
@@ -545,11 +565,11 @@ namespace MainWindow
 
 		case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
-			switch (wParam)
-			{
+			switch (wParam) {
 			case TIMER_CURSORUPDATE:
 				CorrectCursor();
 				return 0;
+
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
@@ -574,468 +594,463 @@ namespace MainWindow
 				// This also means it really won't work great for key mapping :( Need to build a 1 frame delay or something.
 				key.flags = KEY_DOWN | KEY_UP | KEY_HASWHEELDELTA | (wheelDelta << 16);
 				NativeKey(key);
-				break;
 			}
+			break;
 
 		case WM_COMMAND:
 			{
-			if (!EmuThread_Ready())
-				return DefWindowProc(hWnd, message, wParam, lParam);
-			I18NCategory *g = GetI18NCategory("Graphics");
+				if (!EmuThread_Ready())
+					return DefWindowProc(hWnd, message, wParam, lParam);
+				I18NCategory *g = GetI18NCategory("Graphics");
 
-			wmId    = LOWORD(wParam); 
-			wmEvent = HIWORD(wParam); 
-			// Parse the menu selections:
-			switch (wmId)
-			{
-			case ID_FILE_LOAD:
-				BrowseAndBoot("");
-				break;
+				wmId    = LOWORD(wParam); 
+				wmEvent = HIWORD(wParam); 
+				// Parse the menu selections:
+				switch (wmId) {
+				case ID_FILE_LOAD:
+					BrowseAndBoot("");
+					break;
 
-			case ID_FILE_LOAD_DIR:
-				BrowseAndBoot("",true);
-				break;
+				case ID_FILE_LOAD_DIR:
+					BrowseAndBoot("",true);
+					break;
 
-			case ID_FILE_LOAD_MEMSTICK:
-				{
-					std::string memStickDir, flash0dir;
-					GetSysDirectories(memStickDir, flash0dir);
-					memStickDir += "PSP\\GAME\\";
-					BrowseAndBoot(memStickDir);
-				}
-				break;
+				case ID_FILE_LOAD_MEMSTICK:
+					{
+						std::string memStickDir, flash0dir;
+						GetSysDirectories(memStickDir, flash0dir);
+						memStickDir += "PSP\\GAME\\";
+						BrowseAndBoot(memStickDir);
+					}
+					break;
 
-			case ID_FILE_REFRESHGAMELIST:
-				break;
+				case ID_FILE_MEMSTICK:
+					{
+						std::string memStickDir, flash0dir;
+						GetSysDirectories(memStickDir, flash0dir);
+						ShellExecuteA(NULL, "open", memStickDir.c_str(), 0, 0, SW_SHOW);
+					}
+					break;
 
-			case ID_FILE_MEMSTICK:
-				{
-					std::string memStickDir, flash0dir;
-					GetSysDirectories(memStickDir, flash0dir);
-					ShellExecuteA(NULL, "open", memStickDir.c_str(), 0, 0, SW_SHOW);
-				}
-				break;
+				case ID_TOGGLE_PAUSE:
+					if (globalUIState == UISTATE_PAUSEMENU) {
+						NativeMessageReceived("run", "");
+						if (disasmWindow[0])
+							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+					}
+					else if (Core_IsStepping()) { // It is paused, then continue to run.
+						if (disasmWindow[0])
+							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+						else
+							Core_EnableStepping(false);
+					} else {
+						if (disasmWindow[0])
+							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+						else
+							Core_EnableStepping(true);
+					}
+					break;
 
-			case ID_TOGGLE_PAUSE:
-				if (globalUIState == UISTATE_PAUSEMENU)
-				{
-					NativeMessageReceived("run", "");
-					if (disasmWindow[0])
-						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
-				}
-				else if (Core_IsStepping()) //It is paused, then continue to run
-				{
-					if (disasmWindow[0])
-						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
-					else
+				case ID_EMULATION_STOP:
+					if (memoryWindow[0]) {
+						SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
+					}
+					if (disasmWindow[0]) {
+						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
+					}
+					if (Core_IsStepping()) {
 						Core_EnableStepping(false);
-				} else {
-					if (disasmWindow[0])
-						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
-					else
-						Core_EnableStepping(true);
-				}
-				break;
+					}
+					NativeMessageReceived("stop", "");
+					SetPlaying(0);
+					Update();
+					break;
 
-			case ID_EMULATION_STOP:
-				if (memoryWindow[0]) {
-					SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-				}
-				if (disasmWindow[0]) {
-					SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-				}
-				if (Core_IsStepping()) {
-					Core_EnableStepping(false);
-				}
-				NativeMessageReceived("stop", "");
-				SetPlaying(0);
-				Update();
-				break;
+				case ID_EMULATION_RESET:
+					NativeMessageReceived("reset", "");
+					break;
 
-			case ID_EMULATION_RESET:
-				NativeMessageReceived("reset", "");
-				break;
+				case ID_EMULATION_SPEEDLIMIT:
+					g_Config.bSpeedLimit = !g_Config.bSpeedLimit;
+					break;
 
-			case ID_EMULATION_SPEEDLIMIT:
-				g_Config.bSpeedLimit = !g_Config.bSpeedLimit;
-				break;
+				case ID_FILE_LOADSTATEFILE:
+					if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn)) {
+						SetCursor(LoadCursor(0, IDC_WAIT));
+						SaveState::Load(fn, SaveStateActionFinished);
+					}
+					break;
 
-			case ID_FILE_LOADSTATEFILE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
+				case ID_FILE_SAVESTATEFILE:
+					if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn)) {
+						SetCursor(LoadCursor(0, IDC_WAIT));
+						SaveState::Save(fn, SaveStateActionFinished);
+					}
+					break;
+
+				// TODO: Improve UI for multiple slots
+				case ID_FILE_SAVESTATE_NEXT_SLOT:
 				{
+					currentSavestateSlot = (currentSavestateSlot + 1)%SaveState::SAVESTATESLOTS;
+					char msg[30];
+					sprintf(msg, "Using save state slot %d.", currentSavestateSlot + 1);
+					osm.Show(msg);
+					break;
+				}
+
+				case ID_FILE_QUICKLOADSTATE:
 					SetCursor(LoadCursor(0, IDC_WAIT));
-					SaveState::Load(fn, SaveStateActionFinished);
-				}
-				break;
+					SaveState::LoadSlot(currentSavestateSlot, SaveStateActionFinished);
+					break;
 
-			case ID_FILE_SAVESTATEFILE:
-				if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn))
-				{
+				case ID_FILE_QUICKSAVESTATE:
 					SetCursor(LoadCursor(0, IDC_WAIT));
-					SaveState::Save(fn, SaveStateActionFinished);
-				}
-				break;
-
-			// TODO: Improve UI for multiple slots
-			case ID_FILE_SAVESTATE_NEXT_SLOT:
-			{
-				currentSavestateSlot = (currentSavestateSlot + 1)%SaveState::SAVESTATESLOTS;
-				char msg[30];
-				sprintf(msg, "Using save state slot %d.", currentSavestateSlot + 1);
-				osm.Show(msg);
-				break;
-			}
-
-			case ID_FILE_QUICKLOADSTATE:
-				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::LoadSlot(currentSavestateSlot, SaveStateActionFinished);
-				break;
-
-			case ID_FILE_QUICKSAVESTATE:
-				SetCursor(LoadCursor(0, IDC_WAIT));
-				SaveState::SaveSlot(currentSavestateSlot, SaveStateActionFinished);
-				break;
-
-			case ID_OPTIONS_SCREEN1X:
-				setZoom(1);
-				break;
-			case ID_OPTIONS_SCREEN2X:
-				setZoom(2);
-				break;
-			case ID_OPTIONS_SCREEN3X:
-				setZoom(3);
-				break;
-			case ID_OPTIONS_SCREEN4X:
-				setZoom(4);
-				break;
-
-			case ID_OPTIONS_SCREENDUMMY:
-				g_Config.iWindowZoom = ++g_Config.iWindowZoom > 4 ? 1 : g_Config.iWindowZoom;
-
-				switch(g_Config.iWindowZoom) {
-				case 1:
-					osm.Show(g->T("1x Rending Resolution"));
+					SaveState::SaveSlot(currentSavestateSlot, SaveStateActionFinished);
 					break;
-				case 2:
-					osm.Show(g->T("2x Rending Resolution"));
+
+				case ID_OPTIONS_SCREEN1X:
+					setZoom(1);
 					break;
-				case 3:
-					osm.Show(g->T("3x Rending Resolution"));
+
+				case ID_OPTIONS_SCREEN2X:
+					setZoom(2);
 					break;
-				case 4:
-					osm.Show(g->T("4x Rending Resolution"));
+
+				case ID_OPTIONS_SCREEN3X:
+					setZoom(3);
 					break;
-				}
 
-				setZoom(g_Config.iWindowZoom);
-
-				break;
-			case ID_OPTIONS_MIPMAP:
-				g_Config.bMipMap = !g_Config.bMipMap;
-				break;
-
-			case ID_OPTIONS_VSYNC:
-				g_Config.bVSync = !g_Config.bVSync;
-				break;
-
-			case ID_TEXTURESCALING_OFF:
-				setTexScalingLevel(1);
-				break;
-			case ID_TEXTURESCALING_2X:
-				setTexScalingLevel(2);
-				break;
-			case ID_TEXTURESCALING_3X:
-				setTexScalingLevel(3);
-				break;
-			case ID_TEXTURESCALING_4X:
-				setTexScalingLevel(4);
-				break;
-			case ID_TEXTURESCALING_5X:
-				setTexScalingLevel(5);
-				break;
-
-			case ID_TEXTURESCALING_XBRZ:
-				setTexScalingType(TextureScaler::XBRZ);
-				break;
-			case ID_TEXTURESCALING_HYBRID:
-				setTexScalingType(TextureScaler::HYBRID);
-				break;
-			case ID_TEXTURESCALING_BICUBIC:
-				setTexScalingType(TextureScaler::BICUBIC);
-				break;
-			case ID_TEXTURESCALING_HYBRID_BICUBIC:
-				setTexScalingType(TextureScaler::HYBRID_BICUBIC);
-				break;
-
-			case ID_TEXTURESCALING_DEPOSTERIZE:
-				g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
-				if(gpu) gpu->ClearCacheNextFrame();
-				break;
-
-			case ID_OPTIONS_NONBUFFEREDRENDERING:
-				setRenderingMode(0);
-				break;
-
-			case ID_OPTIONS_BUFFEREDRENDERING:
-				setRenderingMode(1);
-				break;
-
-			case ID_OPTIONS_READFBOTOMEMORYCPU:
-				setRenderingMode(2);
-				break;
-
-			case ID_OPTIONS_READFBOTOMEMORYGPU:
-				setRenderingMode(3);
-				break;
-
-			// Dummy option to let the buffered rendering hotkey cycle through all the options
-			case ID_OPTIONS_BUFFEREDRENDERINGDUMMY:
-				g_Config.iRenderingMode = ++g_Config.iRenderingMode > 3? 0 : g_Config.iRenderingMode;
-
-				switch(g_Config.iRenderingMode) {
-				case 0:
-					osm.Show(g->T("Non-Buffered Rendering"));
+				case ID_OPTIONS_SCREEN4X:
+					setZoom(4);
 					break;
-				case 1:
-					osm.Show(g->T("Buffered Rendering"));
+
+				case ID_OPTIONS_SCREENDUMMY:
+					g_Config.iWindowZoom = ++g_Config.iWindowZoom > 4 ? 1 : g_Config.iWindowZoom;
+
+					switch(g_Config.iWindowZoom) {
+					case 1:
+						osm.Show(g->T("1x Rendering Resolution"));
+						break;
+
+					case 2:
+						osm.Show(g->T("2x Rendering Resolution"));
+						break;
+
+					case 3:
+						osm.Show(g->T("3x Rendering Resolution"));
+						break;
+
+					case 4:
+						osm.Show(g->T("4x Rendering Resolution"));
+						break;
+					}
+
+					setZoom(g_Config.iWindowZoom);
+
 					break;
-				case 2:
-					osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
+
+				case ID_OPTIONS_MIPMAP:
+					g_Config.bMipMap = !g_Config.bMipMap;
 					break;
-				case 3:
-					osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
+
+				case ID_OPTIONS_VSYNC:
+					g_Config.bVSync = !g_Config.bVSync;
 					break;
-				}
 
-				setRenderingMode(g_Config.iRenderingMode);
+				case ID_TEXTURESCALING_OFF:
+					setTexScalingMultiplier(1);
+					break;
 
-				break;
+				case ID_TEXTURESCALING_2X:
+					setTexScalingMultiplier(2);
+					break;
 
-			case ID_OPTIONS_SHOWDEBUGSTATISTICS:
-				g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
-				break;
+				case ID_TEXTURESCALING_3X:
+					setTexScalingMultiplier(3);
+					break;
 
-			case ID_OPTIONS_HARDWARETRANSFORM:
-				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-				osm.ShowOnOff(g->T("Hardware Transform"), g_Config.bHardwareTransform);
-				break;
+				case ID_TEXTURESCALING_4X:
+					setTexScalingMultiplier(4);
+					break;
 
-			case ID_OPTIONS_STRETCHDISPLAY:
-				g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
-				if (gpu)
-					gpu->Resized();  // easy way to force a clear...
-				break;
+				case ID_TEXTURESCALING_5X:
+					setTexScalingMultiplier(5);
+					break;
 
-			case ID_OPTIONS_FRAMESKIP_0:
-				setFrameSkipping(0);
-				break;
+				case ID_TEXTURESCALING_XBRZ:
+					setTexScalingType(TextureScaler::XBRZ);
+					break;
 
-			case ID_OPTIONS_FRAMESKIP_1:
-				setFrameSkipping(1);
-				break;
+				case ID_TEXTURESCALING_HYBRID:
+					setTexScalingType(TextureScaler::HYBRID);
+					break;
 
-			case ID_OPTIONS_FRAMESKIP_2:
-				setFrameSkipping(2);
-				break;
+				case ID_TEXTURESCALING_BICUBIC:
+					setTexScalingType(TextureScaler::BICUBIC);
+					break;
 
-			case ID_OPTIONS_FRAMESKIP_3:
-				setFrameSkipping(3);
-				break;
+				case ID_TEXTURESCALING_HYBRID_BICUBIC:
+					setTexScalingType(TextureScaler::HYBRID_BICUBIC);
+					break;
+
+				case ID_TEXTURESCALING_DEPOSTERIZE:
+					g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
+					if(gpu) gpu->ClearCacheNextFrame();
+					break;
+
+				case ID_OPTIONS_NONBUFFEREDRENDERING:
+					setRenderingMode(FB_NON_BUFFERED_MODE);
+					break;
+
+				case ID_OPTIONS_BUFFEREDRENDERING:
+					setRenderingMode(FB_BUFFERED_MODE);
+					break;
+
+				case ID_OPTIONS_READFBOTOMEMORYCPU:
+					setRenderingMode(FB_READFBOMEMORY_CPU);
+					break;
+
+				case ID_OPTIONS_READFBOTOMEMORYGPU:
+					setRenderingMode(FB_READFBOMEMORY_GPU);
+					break;
+
+				// Dummy option to let the buffered rendering hotkey cycle through all the options.
+				case ID_OPTIONS_BUFFEREDRENDERINGDUMMY:
+					g_Config.iRenderingMode = ++g_Config.iRenderingMode > 3? 0 : g_Config.iRenderingMode;
+
+					switch(g_Config.iRenderingMode) {
+					case FB_NON_BUFFERED_MODE:
+						osm.Show(g->T("Non-Buffered Rendering"));
+						break;
+
+					case FB_BUFFERED_MODE:
+						osm.Show(g->T("Buffered Rendering"));
+						break;
+
+					case FB_READFBOMEMORY_CPU:
+						osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
+						break;
+
+					case FB_READFBOMEMORY_GPU:
+						osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
+						break;
+					}
+
+					setRenderingMode(g_Config.iRenderingMode);
+
+					break;
+
+				case ID_OPTIONS_SHOWDEBUGSTATISTICS:
+					g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
+					break;
+
+				case ID_OPTIONS_HARDWARETRANSFORM:
+					g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+					osm.ShowOnOff(g->T("Hardware Transform"), g_Config.bHardwareTransform);
+					break;
+
+				case ID_OPTIONS_STRETCHDISPLAY:
+					g_Config.bStretchToDisplay = !g_Config.bStretchToDisplay;
+					if (gpu)
+						gpu->Resized();  // Easy way to force a clear...
+					break;
+
+				case ID_OPTIONS_FRAMESKIP_0:
+					setFrameSkipping(0);
+					break;
+
+				case ID_OPTIONS_FRAMESKIP_1:
+					setFrameSkipping(1);
+					break;
+
+				case ID_OPTIONS_FRAMESKIP_2:
+					setFrameSkipping(2);
+					break;
+
+				case ID_OPTIONS_FRAMESKIP_3:
+					setFrameSkipping(3);
+					break;
 				
-			case ID_OPTIONS_FRAMESKIP_4:
-				setFrameSkipping(4);
-				break;
-
-			case ID_OPTIONS_FRAMESKIP_5:
-				setFrameSkipping(5);
-				break;
-
-			case ID_OPTIONS_FRAMESKIP_6:
-				setFrameSkipping(6);
-				break;
-
-			case ID_OPTIONS_FRAMESKIP_7:
-				setFrameSkipping(7);
-				break;
-
-			case ID_OPTIONS_FRAMESKIP_8:
-				setFrameSkipping(8);
-				break;
-
-			case ID_OPTIONS_FRAMESKIP_9:
-				setFrameSkipping(9);
-				break;
-
-			case ID_OPTIONS_FRAMESKIPDUMMY:
-				g_Config.iFrameSkip = ++g_Config.iFrameSkip > 9 ? 0 : g_Config.iFrameSkip;
-
-				switch(g_Config.iFrameSkip) {
-				case 0:
-					osm.Show(g->T("No Frame Skip"));
+				case ID_OPTIONS_FRAMESKIP_4:
+					setFrameSkipping(4);
 					break;
-				case 1:
-					osm.Show(g->T("Skip 1 frame"));
-					break;
-				case 2:
-					osm.Show(g->T("Skip 2 frames"));
-					break;
-				case 3:
-					osm.Show(g->T("Skip 3 frames"));
-					break;
-				case 4:
-					osm.Show(g->T("Skip 4 frames"));
-					break;
-				case 5:
-					osm.Show(g->T("Skip 5 frames"));
-					break;
-				case 6:
-					osm.Show(g->T("Skip 6 frames"));
-					break;
-				case 7:
-					osm.Show(g->T("Skip 7 frames"));
-					break;
-				case 8:
-					osm.Show(g->T("Skip 8 frames"));
-					break;
-				case 9:
-					osm.Show(g->T("Skip 9 frames"));
-					break;
-				}
 
-				setFrameSkipping(g_Config.iFrameSkip);
+				case ID_OPTIONS_FRAMESKIP_5:
+					setFrameSkipping(5);
+					break;
 
-				break;
+				case ID_OPTIONS_FRAMESKIP_6:
+					setFrameSkipping(6);
+					break;
 
-			case ID_FILE_EXIT:
-				DestroyWindow(hWnd);
-				break;
+				case ID_OPTIONS_FRAMESKIP_7:
+					setFrameSkipping(7);
+					break;
 
-			case ID_CPU_DYNAREC:
-				g_Config.bJit = true;
-				osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
-				break;	
+				case ID_OPTIONS_FRAMESKIP_8:
+					setFrameSkipping(8);
+					break;
 
-			case ID_CPU_INTERPRETER:
-				g_Config.bJit = false;
-				break;
+				case ID_OPTIONS_FRAMESKIP_9:
+					setFrameSkipping(9);
+					break;
 
-			case ID_EMULATION_RUNONLOAD:
-				g_Config.bAutoRun = !g_Config.bAutoRun;
-				break;
+				case ID_OPTIONS_FRAMESKIPDUMMY:
+					g_Config.iFrameSkip = ++g_Config.iFrameSkip > 9 ? 0 : g_Config.iFrameSkip;
 
-			case ID_DEBUG_DUMPNEXTFRAME:
-				if (gpu)
-					gpu->DumpNextFrame();
-				break;
+					setFrameSkipping(g_Config.iFrameSkip);
+					break;
 
-			case ID_DEBUG_LOADMAPFILE:
-				if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn)) {
-					symbolMap.LoadSymbolMap(fn.c_str());
-//					HLE_PatchFunctions();
-					if (disasmWindow[0])
-						disasmWindow[0]->NotifyMapLoaded();
-					if (memoryWindow[0])
-						memoryWindow[0]->NotifyMapLoaded();
-				}
-				break;
-			case ID_DEBUG_SAVEMAPFILE:
-				if (W32Util::BrowseForFileName(false, hWnd, "Save .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
-					symbolMap.SaveSymbolMap(fn.c_str());
-				break;
+				case ID_FILE_EXIT:
+					DestroyWindow(hWnd);
+					break;
+
+				case ID_CPU_DYNAREC:
+					g_Config.bJit = true;
+					osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
+					break;	
+
+				case ID_CPU_INTERPRETER:
+					g_Config.bJit = false;
+					break;
+
+				case ID_EMULATION_RUNONLOAD:
+					g_Config.bAutoRun = !g_Config.bAutoRun;
+					break;
+
+				case ID_DEBUG_DUMPNEXTFRAME:
+					if (gpu)
+						gpu->DumpNextFrame();
+					break;
+
+				case ID_DEBUG_LOADMAPFILE:
+					if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn)) {
+						symbolMap.LoadSymbolMap(fn.c_str());
+
+						if (disasmWindow[0])
+							disasmWindow[0]->NotifyMapLoaded();
+
+						if (memoryWindow[0])
+							memoryWindow[0]->NotifyMapLoaded();
+					}
+					break;
+
+				case ID_DEBUG_SAVEMAPFILE:
+					if (W32Util::BrowseForFileName(false, hWnd, "Save .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
+						symbolMap.SaveSymbolMap(fn.c_str());
+					break;
 		
-			case ID_DEBUG_RESETSYMBOLTABLE:
-				symbolMap.ResetSymbolMap();
-				for (int i=0; i<numCPUs; i++)
-					if (disasmWindow[i])
-						disasmWindow[i]->NotifyMapLoaded();
-				for (int i=0; i<numCPUs; i++)
-					if (memoryWindow[i])
-						memoryWindow[i]->NotifyMapLoaded();
-				break;
-			case ID_DEBUG_DISASSEMBLY:
-				if (disasmWindow[0])
-					disasmWindow[0]->Show(true);
-				break;
-			case ID_DEBUG_MEMORYVIEW:
-				if (memoryWindow[0])
-					memoryWindow[0]->Show(true);
-				break;
-			case ID_DEBUG_LOG:
-				LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
-				break;
+				case ID_DEBUG_RESETSYMBOLTABLE:
+					symbolMap.ResetSymbolMap();
 
-			case ID_OPTIONS_IGNOREILLEGALREADS:
-				g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
-				break;
+					for (int i=0; i<numCPUs; i++)
+						if (disasmWindow[i])
+							disasmWindow[i]->NotifyMapLoaded();
 
-			case ID_OPTIONS_FULLSCREEN:
-				g_Config.bFullScreen = !g_Config.bFullScreen ;
-				if(g_bFullScreen) {
-					_ViewNormal(hWnd); 
-				} else {
-					_ViewFullScreen(hWnd);
+					for (int i=0; i<numCPUs; i++)
+						if (memoryWindow[i])
+							memoryWindow[i]->NotifyMapLoaded();
+					break;
+
+				case ID_DEBUG_DISASSEMBLY:
+					if (disasmWindow[0])
+						disasmWindow[0]->Show(true);
+					break;
+
+				case ID_DEBUG_MEMORYVIEW:
+					if (memoryWindow[0])
+						memoryWindow[0]->Show(true);
+					break;
+
+				case ID_DEBUG_LOG:
+					LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
+					break;
+
+				case ID_OPTIONS_IGNOREILLEGALREADS:
+					g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
+					break;
+
+				case ID_OPTIONS_FULLSCREEN:
+					g_Config.bFullScreen = !g_Config.bFullScreen ;
+					if(g_bFullScreen) {
+						_ViewNormal(hWnd); 
+					} else {
+						_ViewFullScreen(hWnd);
+					}
+					break;
+
+				case ID_OPTIONS_VERTEXCACHE:
+					g_Config.bVertexCache = !g_Config.bVertexCache;
+					break;
+
+				case ID_OPTIONS_SHOWFPS:
+					g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
+					break;
+
+				case ID_OPTIONS_FASTMEMORY:
+					g_Config.bFastMemory = !g_Config.bFastMemory;
+					break;
+
+				case ID_OPTIONS_USEVBO:
+					g_Config.bUseVBO = !g_Config.bUseVBO;
+					break;
+
+				case ID_OPTIONS_TEXTUREFILTERING_AUTO:
+					setTexFiltering(AUTO);
+					break;
+
+				case ID_OPTIONS_NEARESTFILTERING:
+					setTexFiltering(NEAREST);
+					break;
+
+				case ID_OPTIONS_LINEARFILTERING:
+					setTexFiltering(LINEAR);
+					break;
+
+				case ID_OPTIONS_LINEARFILTERING_CG:
+					setTexFiltering(LINEARFMV);
+					break;
+
+				case ID_OPTIONS_TOPMOST:
+					g_Config.bTopMost = !g_Config.bTopMost;
+					W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
+					break;
+
+				case ID_OPTIONS_SIMPLE2XSSAA:
+					g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
+					ResizeDisplay(true);
+					break;
+
+				case ID_OPTIONS_CONTROLS:
+					MessageBox(hWnd, "Control mapping has been moved to the in-window Settings menu.\n", "Sorry", 0);
+					break;
+
+				case ID_EMULATION_SOUND:
+					g_Config.bEnableSound = !g_Config.bEnableSound;
+					break;
+
+				case ID_HELP_OPENWEBSITE:
+					ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+					break;
+
+				case ID_HELP_OPENFORUM:
+					ShellExecute(NULL, "open", "http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+					break;
+
+				case ID_HELP_ABOUT:
+					DialogManager::EnableAll(FALSE);
+					DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
+					DialogManager::EnableAll(TRUE);
+					break;
+
+				case ID_DEBUG_TAKESCREENSHOT:
+					g_TakeScreenshot = true;
+					break;
+
+				default:
+					MessageBox(hwndMain,"Unimplemented","Sorry",0);
+					break;
 				}
-				break;
-
-			case ID_OPTIONS_VERTEXCACHE:
-				g_Config.bVertexCache = !g_Config.bVertexCache;
-				break;
-			case ID_OPTIONS_SHOWFPS:
-				g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
-				break;
-			case ID_OPTIONS_FASTMEMORY:
-				g_Config.bFastMemory = !g_Config.bFastMemory;
-				break;
-			case ID_OPTIONS_USEVBO:
-				g_Config.bUseVBO = !g_Config.bUseVBO;
-				break;
-			case ID_OPTIONS_TEXTUREFILTERING_AUTO:
-				setTexFiltering(1);
-				break;
-			case ID_OPTIONS_NEARESTFILTERING:
-				setTexFiltering(2) ;
-				break;
-			case ID_OPTIONS_LINEARFILTERING:
-				setTexFiltering(3) ;
-				break;
-			case ID_OPTIONS_LINEARFILTERING_CG:
-				setTexFiltering(4) ;
-				break;
-			case ID_OPTIONS_TOPMOST:
-				g_Config.bTopMost = !g_Config.bTopMost;
-				W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
-				break;
-
-			case ID_OPTIONS_SIMPLE2XSSAA:
-				g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
-				ResizeDisplay(true);
-				break;
-
-			case ID_EMULATION_SOUND:
-				g_Config.bEnableSound = !g_Config.bEnableSound;
-				break;
-
-			case ID_HELP_OPENWEBSITE:
-				ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-				break;
-
-			case ID_HELP_OPENFORUM:
-				ShellExecute(NULL, "open", "http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-				break;
-
-			case ID_HELP_ABOUT:
-				DialogManager::EnableAll(FALSE);
-				DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
-				DialogManager::EnableAll(TRUE);
-				break;
-			case ID_DEBUG_TAKESCREENSHOT:
-				g_TakeScreenshot = true;
-				break;
-
-			default:
-				MessageBox(hwndMain,"Unimplemented","Sorry",0);
-				break;
-			}
 			}
 			break;
 
@@ -1080,8 +1095,7 @@ namespace MainWindow
 
 				HDROP hdrop = (HDROP)wParam;
 				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
-				if (count != 1)
-				{
+				if (count != 1) {
 					MessageBox(hwndMain,"You can only load one file at a time","Error",MB_ICONINFORMATION);
 				}
 				else
@@ -1103,12 +1117,6 @@ namespace MainWindow
 			break;
 
 		case WM_CLOSE:
-			/*
-			if (g_Config.bConfirmOnQuit && __KernelIsRunning())
-				if (IDYES != MessageBox(hwndMain, "A game is in progress. Are you sure you want to exit?",
-					"Are you sure?", MB_YESNO | MB_ICONQUESTION))
-					return 0;
-			//*/
 			EmuThread_Stop();
 
 			return DefWindowProc(hWnd,message,wParam,lParam);
@@ -1164,8 +1172,7 @@ namespace MainWindow
 		// doesn't work on Vista or higher.
 		case WM_SYSCOMMAND:
 			{
-				switch (wParam)
-				{
+				switch (wParam) {
 				case SC_SCREENSAVE:  
 					return 0;
 				case SC_MONITORPOWER:
@@ -1180,13 +1187,10 @@ namespace MainWindow
 		return 0;
 	}
 
-	void UpdateMenus()
-	{
+	void UpdateMenus() {
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_EMULATION_SPEEDLIMIT,g_Config.bSpeedLimit);
-//		CHECK(ID_OPTIONS_ENABLEFRAMEBUFFER,g_Config.bEnableFrameBuffer);
-//		CHECK(ID_OPTIONS_EMULATESYSCALL,g_bEmulateSyscall);
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
@@ -1276,8 +1280,7 @@ namespace MainWindow
 		UpdateCommands();
 	}
 
-	void UpdateCommands()
-	{
+	void UpdateCommands() {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
 
@@ -1311,13 +1314,11 @@ namespace MainWindow
 	}
 
 	// Message handler for about box.
-	LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-	{
-		switch (message)
-		{
+	LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+		switch (message) {
 		case WM_INITDIALOG:
-			W32Util::CenterWindow(hDlg);
 			{
+				W32Util::CenterWindow(hDlg);
 				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
 				char temp[256];
 				sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
@@ -1336,73 +1337,68 @@ namespace MainWindow
 		return FALSE;
 	}
 
-	void Update()
-	{
+	void Update() {
 		InvalidateRect(hwndDisplay,0,0);
 		UpdateWindow(hwndDisplay);
 		SendMessage(hwndMain,WM_SIZE,0,0);
 	}
 
-	void Redraw()
-	{
+	void Redraw() {
 		InvalidateRect(hwndDisplay,0,0);
 	}
 
-	void _ViewNormal(HWND hWnd)
-	{
-		// put caption and border styles back
+	void _ViewNormal(HWND hWnd) {
+		// Put caption and border styles back.
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle | WS_CAPTION | WS_THICKFRAME;
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
-		// put back the menu bar
+		// Put back the menu bar.
 		::SetMenu(hWnd, menu);
 
-		// resize to normal view
-		// NOTE: use SWP_FRAMECHANGED to force redraw non-client
+		// Resize to normal view.
+		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
 		const int x = g_normalRC.left;
 		const int y = g_normalRC.top;
 		const int cx = g_normalRC.right - g_normalRC.left;
 		const int cy = g_normalRC.bottom - g_normalRC.top;
 		::SetWindowPos(hWnd, HWND_NOTOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
-		// reset full screen indicator
+		// Reset full screen indicator.
 		g_bFullScreen = FALSE;
 		CorrectCursor();
 		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, TRUE);
 	}
 
-	void _ViewFullScreen(HWND hWnd)
-	{
-		// keep in mind normal window rectangle
+	void _ViewFullScreen(HWND hWnd) {
+		// Keep in mind normal window rectangle.
 		::GetWindowRect(hWnd, &g_normalRC);
 
-		// remove caption and border styles
+		// Remove caption and border styles.
 		DWORD dwOldStyle = ::GetWindowLong(hWnd, GWL_STYLE);
 		DWORD dwNewStyle = dwOldStyle & ~(WS_CAPTION | WS_THICKFRAME);
 		::SetWindowLong(hWnd, GWL_STYLE, dwNewStyle);
 
-		// remove the menu bar
+		// Remove the menu bar.
 		::SetMenu(hWnd, NULL);
 
-		// resize to full screen view
-		// NOTE: use SWP_FRAMECHANGED to force redraw non-client
+		// Resize to full screen view.
+		// NOTE: Use SWP_FRAMECHANGED to force redraw non-client.
 		const int x = 0;
 		const int y = 0;
 		const int cx = ::GetSystemMetrics(SM_CXSCREEN);
 		const int cy = ::GetSystemMetrics(SM_CYSCREEN);
 		::SetWindowPos(hWnd, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
 
-		// set full screen indicator
+		// Set full screen indicator.
 		g_bFullScreen = TRUE;
 		CorrectCursor();
 		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, FALSE);
 	}
 
-	void SetPlaying(const char *text)
-	{
+	void SetPlaying(const char *text) {
 		char temp[256];
 		if (text == 0)
 			snprintf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
@@ -1412,14 +1408,11 @@ namespace MainWindow
 		SetWindowText(hwndMain, temp);
 	}
 
-	void SaveStateActionFinished(bool result, void *userdata)
-	{
+	void SaveStateActionFinished(bool result, void *userdata) {
 		PostMessage(hwndMain, WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 
-	HINSTANCE GetHInstance()
-	{
+	HINSTANCE GetHInstance() {
 		return hInst;
 	}
 }
-

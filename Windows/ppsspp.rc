@@ -82,8 +82,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,0
- PRODUCTVERSION 1,0,0,0
+ FILEVERSION 1,0,8,1
+ PRODUCTVERSION 1,0,8,1
  FILEFLAGSMASK 0x17L
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -101,13 +101,13 @@ BEGIN
             VALUE "Comments", "PPSSPP PSP emulator"
             VALUE "CompanyName", "Henrik Rydg?rd Inc."
             VALUE "FileDescription", "PPSSPP"
-            VALUE "FileVersion", "1, 0, 8, 0"
-            VALUE "InternalName", "s"
+            VALUE "FileVersion", "1, 0, 8, 1"
+            VALUE "InternalName", "PPSSPPEmu"
             VALUE "LegalCopyright", "Copyright (C) 2006-2013 by Henrik Rydg?rd"
             VALUE "LegalTrademarks", "All product names are trademarks of their respective owners."
             VALUE "OriginalFilename", "PPSSPP.exe"
             VALUE "ProductName", "PPSSPP"
-            VALUE "ProductVersion", "1, 0, 8, 0"
+            VALUE "ProductVersion", "1, 0, 8, 1"
         END
     END
     BLOCK "VarFileInfo"
@@ -448,8 +448,8 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Assemble opcode",            ID_DISASM_ASSEMBLE
         MENUITEM SEPARATOR
-        MENUITEM "&Run to cursor",                ID_DISASM_RUNTOHERE
-        MENUITEM "&Jump to cursor",         ID_DISASM_SETPCTOHERE
+        MENUITEM "&Run to cursor",              ID_DISASM_RUNTOHERE
+        MENUITEM "&Jump to cursor",             ID_DISASM_SETPCTOHERE
         MENUITEM "&Toggle Breakpoint",          ID_DISASM_TOGGLEBREAKPOINT
         MENUITEM "&Follow Branch",              ID_DISASM_FOLLOWBRANCH
         MENUITEM SEPARATOR
