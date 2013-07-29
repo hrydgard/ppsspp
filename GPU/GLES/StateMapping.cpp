@@ -371,8 +371,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 		float zScale = getFloat24(gstate.viewportz1) / 65535.0f;
 		float zOff = getFloat24(gstate.viewportz2) / 65535.0f;
-		float depthRMin = gstate.getDepthRangeMin();
-		float depthRMax = gstate.getDepthRangeMax();
+		float depthRMin = gstate.getDepthRangeMin() / 65535.0f;
+		float depthRMax = gstate.getDepthRangeMax() / 65535.0f;
 		float depthRangeMin = std::max(zOff - zScale, depthRMin);
 		float depthRangeMax = std::min(zOff + zScale, depthRMax);
 		glstate.depthRange.set(depthRangeMin, depthRangeMax);
