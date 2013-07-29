@@ -2,34 +2,34 @@
 
 #include "Core/Config.h"
 #include "Core/MemMap.h"
-#include "../Resource.h"
-#include "../InputBox.h"
+#include "Windows/Resource.h"
+#include "Windows/InputBox.h"
 
-#include "../../Core/Debugger/Breakpoints.h"
-#include "../../Core/Debugger/SymbolMap.h"
-#include "Debugger_MemoryDlg.h"
-#include "Debugger_Disasm.h"
-#include "Debugger_VFPUDlg.h"
-#include "DebuggerShared.h"
-#include "BreakpointWindow.h"
+#include "Core/Debugger/Breakpoints.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Windows/Debugger/Debugger_MemoryDlg.h"
+#include "Windows/Debugger/Debugger_Disasm.h"
+#include "Windows/Debugger/Debugger_VFPUDlg.h"
+#include "Windows/Debugger/DebuggerShared.h"
+#include "Windows/Debugger/BreakpointWindow.h"
 
-#include "../main.h"
-#include "CtrlRegisterList.h"
-#include "CtrlMemView.h"
-#include "Debugger_Lists.h"
+#include "Windows/main.h"
+#include "Windows/Debugger/CtrlRegisterList.h"
+#include "Windows/Debugger/CtrlMemView.h"
+#include "Windows/Debugger/Debugger_Lists.h"
 
-#include "../../Core/Core.h"
-#include "../../Core/CPU.h"
-#include "../../Core/HLE/HLE.h"
-#include "../../Core/CoreTiming.h"
+#include "Core/Core.h"
+#include "Core/CPU.h"
+#include "Core/HLE/HLE.h"
+#include "Core/CoreTiming.h"
 
 #include "base/stringutil.h"
 
 #ifdef THEMES
-#include "../XPTheme.h"
+#include "Windows/XPTheme.h"
 #endif
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>
 

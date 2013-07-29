@@ -1,14 +1,14 @@
 // NOTE: Apologies for the quality of this code, this is really from pre-opensource Dolphin - that is, 2003.
 
 #pragma once
-#include "../W32Util/DialogManager.h"
+#include "Windows/W32Util/DialogManager.h"
 
-#include "../../Core/MemMap.h"
-#include "../../Core/CPU.h"
+#include "Core/MemMap.h"
+#include "Core/CPU.h"
 
-#include "../../Core/Debugger/DebugInterface.h"
+#include "Core/Debugger/DebugInterface.h"
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 
 class CMemoryDlg : public Dialog
 {

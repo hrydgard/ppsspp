@@ -46,12 +46,6 @@
 #include "../../GPU/GPUState.h"
 #include "../../GPU/GPUInterface.h"
 
-#ifdef _WIN32
-// Windows defines min/max which conflict with std::min/std::max.
-#undef min
-#undef max
-#endif
-
 struct FrameBufferState {
 	u32 topaddr;
 	PspDisplayPixelFormat pspFramebufFormat;

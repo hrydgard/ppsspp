@@ -18,7 +18,7 @@
 #include <time.h>
 
 #ifdef _WIN32
-#include <Windows.h>
+#include "CommonWindows.h"
 #include <mmsystem.h>
 #include <sys/timeb.h>
 #else

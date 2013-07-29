@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <dsound.h>
 
 #include "dsoundstream.h"	

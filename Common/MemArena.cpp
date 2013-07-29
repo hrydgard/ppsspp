@@ -19,7 +19,7 @@
 #include "MemArena.h"
 
 #ifdef _WIN32
-#include <windows.h>
+#include "CommonWindows.h"
 #else
 #include <sys/stat.h>
 #include <fcntl.h>

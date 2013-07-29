@@ -22,7 +22,7 @@
 #endif
 
 #ifdef _WIN32
-#include <windows.h>
+#include "CommonWindows.h"
 #endif
 
 // Generic function to get last error message.

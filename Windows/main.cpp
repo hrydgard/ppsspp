@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <windows.h>
+#include "Common/CommonWindows.h"
 
 void LaunchBrowser(const char *url)
 {
@@ -25,14 +25,14 @@ void LaunchBrowser(const char *url)
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
-#include "../Core/Config.h"
-#include "../Core/SaveState.h"
-#include "EmuThread.h"
+#include "Core/Config.h"
+#include "Core/SaveState.h"
+#include "Windows/EmuThread.h"
 #include "ext/disarm.h"
 
-#include "LogManager.h"
-#include "ConsoleListener.h"
-#include "Thread.h"
+#include "Common/LogManager.h"
+#include "Common/ConsoleListener.h"
+#include "Common/Thread.h"
 
 #include "Commctrl.h"
 

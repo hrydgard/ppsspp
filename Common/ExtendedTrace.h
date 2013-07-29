@@ -17,7 +17,7 @@
 
 #if defined(WIN32)
 
-#include <windows.h>
+#include "CommonWindows.h"
 #include <tchar.h>
 
 #include <string>

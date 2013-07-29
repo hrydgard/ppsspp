@@ -1,6 +1,6 @@
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <vector>
-#include "DialogManager.h"
+#include "Windows/W32Util/DialogManager.h"
 
 
 Dialog::Dialog(LPCSTR res, HINSTANCE _hInstance, HWND _hParent) 

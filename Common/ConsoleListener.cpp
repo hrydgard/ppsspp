@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <math.h>
 #ifdef _WIN32
-#include <windows.h>
+#include "CommonWindows.h"
 #include <array>
 #else
 #include <stdarg.h>

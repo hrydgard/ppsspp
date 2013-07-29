@@ -24,7 +24,7 @@
 #include "file/zip_read.h"
 
 #ifdef _WIN32
-#include <windows.h>
+#include "Common/CommonWindows.h"
 #include <sys/stat.h>
 #else
 #include <dirent.h>

@@ -20,7 +20,7 @@
 #include "StringUtils.h"
 
 #ifdef _WIN32
-#include <windows.h>
+#include "CommonWindows.h"
 #include <psapi.h>
 #else
 #include <errno.h>

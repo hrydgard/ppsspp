@@ -129,7 +129,7 @@ KernelObject *__KernelEventFlagObject()
 	return new EventFlag;
 }
 
-bool __KernelEventFlagMatches(u32 *pattern, u32 bits, u8 wait, u32 outAddr)
+bool __KernelEventFlagMatches(u32_le *pattern, u32 bits, u8 wait, u32 outAddr)
 {
 	if ((wait & PSP_EVENT_WAITOR)
 		? (bits & *pattern) /* one or more bits of the mask */

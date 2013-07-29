@@ -96,7 +96,9 @@ typedef SceUtilityOskState SceUtilityOskState_le;
 typedef SceUtilityOskInputLanguage SceUtilityOskInputLanguage_le;
 typedef SceUtilityOskResult SceUtilityOskResult_le;
 #else
-#error FIX ME
+typedef swap_struct_t<SceUtilityOskState, swap_32_t<SceUtilityOskState> > SceUtilityOskState_le;
+typedef swap_struct_t<SceUtilityOskInputLanguage, swap_32_t<SceUtilityOskInputLanguage> > SceUtilityOskInputLanguage_le;
+typedef swap_struct_t<SceUtilityOskResult, swap_32_t<SceUtilityOskResult> > SceUtilityOskResult_le;
 #endif
 
 /**

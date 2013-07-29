@@ -20,7 +20,7 @@
 
 #include "Common.h"
 #include <intrin.h>
-#include <Windows.h>
+#include "CommonWindows.h"
 
 // Atomic operations are performed in a single step by the CPU. It is
 // impossible for other threads to see the operation "half-done."
