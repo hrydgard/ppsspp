@@ -20,7 +20,6 @@
 #endif
 
 #ifdef SHADERLOG
-#define WIN32_LEAN_AND_MEAN
 #include "Common/CommonWindows.h"
 #endif
 

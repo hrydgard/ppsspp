@@ -22,12 +22,6 @@
 #include <nmmintrin.h>
 #endif
 
-#ifdef _WIN32
-// Windows defines min/max which conflict with std::min/std::max.
-#undef min
-#undef max
-#endif
-
 static u64 (*ptrHashFunction)(const u8 *src, int len, u32 samples) = &GetMurmurHash3;
 
 // uint32_t

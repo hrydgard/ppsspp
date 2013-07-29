@@ -1493,8 +1493,6 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-#undef max
-
 	void Int_Vcst(u32 op)
 	{
 		int conNum = (op >> 16) & 0x1f;

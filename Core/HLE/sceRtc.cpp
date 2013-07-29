@@ -17,6 +17,7 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#include <Winsock2.h>
 #else
 #include <sys/time.h>
 #endif
