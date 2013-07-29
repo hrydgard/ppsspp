@@ -424,6 +424,7 @@ public:
 	}
 
 	bool hasColor0() const { return decFmt_.c0fmt != 0; }
+	bool hasColor1() const { return decFmt_.c1fmt != 0; }
 	bool hasNormal() const { return decFmt_.nrmfmt != 0; }
 	bool hasUV() const { return decFmt_.uvfmt != 0; }
 	bool isThrough() const { return (vtype_ & GE_VTYPE_THROUGH) != 0; }

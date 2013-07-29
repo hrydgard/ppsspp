@@ -277,8 +277,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	float renderX, renderY;
 	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
 	if (useBufferedRendering) {
-		renderX = 0;
-		renderY = 0;
+		renderX = 0.0f;
+		renderY = 0.0f;
 		renderWidth = framebufferManager_->GetRenderWidth();
 		renderHeight = framebufferManager_->GetRenderHeight();
 		renderWidthFactor = (float)renderWidth / framebufferManager_->GetTargetWidth();
@@ -288,8 +288,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		CenterRect(&renderX, &renderY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH);
-		renderWidthFactor = renderWidth / 480.f;
-		renderHeightFactor = renderHeight / 272.f;
+		renderWidthFactor = renderWidth / 480.0f;
+		renderHeightFactor = renderHeight / 272.0f;
 	}
 
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
@@ -351,8 +351,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// This means that to get the analogue glViewport we must:
 		float vpX0 = vpXb - offsetX - vpXa;
 		float vpY0 = vpYb - offsetY + vpYa;   // Need to account for sign of Y
-		gstate_c.vpWidth = vpXa * 2;
-		gstate_c.vpHeight = -vpYa * 2;
+		gstate_c.vpWidth = vpXa * 2.0f;
+		gstate_c.vpHeight = -vpYa * 2.0f;
 
 		float vpWidth = fabsf(gstate_c.vpWidth);
 		float vpHeight = fabsf(gstate_c.vpHeight);

@@ -41,7 +41,7 @@ void PrintDecodedVertex(VertexReader &vtx) {
 		vtx.ReadColor0(col0);
 		printf("C0: %f %f %f %f\n", col0[0], col0[1], col0[2], col0[3]);
 	}
-	if (vtx.hasColor0()) {
+	if (vtx.hasColor1()) {
 		float col1[3];
 		vtx.ReadColor1(col1);
 		printf("C1: %f %f %f\n", col1[0], col1[1], col1[2]);
