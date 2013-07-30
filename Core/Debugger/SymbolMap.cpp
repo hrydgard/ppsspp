@@ -17,7 +17,9 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#ifndef _XBOX
 #include <WindowsX.h>
+#endif
 #else
 #include <unistd.h>
 #endif
@@ -361,7 +363,7 @@ const char *SymbolMap::GetDescription(unsigned int address) const
 	//	return "";
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 
 static const int defaultSymbolsAddresses[] = {
 	0x08800000, 0x08804000, 0x04000000, 0x88000000, 0x00010000

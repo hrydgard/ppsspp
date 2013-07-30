@@ -28,7 +28,9 @@
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #ifdef _WIN32
+#ifndef _XBOX
 #include "Windows/OpenGLBase.h"
+#endif
 #include "Windows/InputDevice.h"
 #endif
 
@@ -134,7 +136,7 @@ void Core_RunLoop()
 		NativeRender();
 		time_update();
 		// Simple throttling to not burn the GPU in the menu.
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 		if (globalUIState != UISTATE_INGAME) {
 			double diffTime = time_now_d() - startTime;
 			int sleepTime = (int) (1000000.0 / 60.0) - (int) (diffTime * 1000000.0);
