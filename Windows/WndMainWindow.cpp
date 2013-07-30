@@ -1299,6 +1299,7 @@ namespace MainWindow
 
 		else if(g_Config.iFrameSkip < FRAMESKIP_OFF)
 			g_Config.iFrameSkip = FRAMESKIP_OFF;
+
 		for (int i = 0; i < ARRAY_SIZE(frameskipping); i++) {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
 		}
