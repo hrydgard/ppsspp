@@ -65,6 +65,12 @@ namespace MIPSComp
 	void Jit::Comp_VRot(u32 op){}
 	void Jit::Comp_VIdt(u32 op){}
 
+	
+	void Jit::Comp_Vcmp(u32 op){};
+	void Jit::Comp_Vcmov(u32 op){};
+	void Jit::Comp_Viim(u32 op){};
+	void Jit::Comp_Vfim(u32 op){};
+
 	void Jit::ClearCache(){}
 	void Jit::ClearCacheAt(u32 em_address){}
 }
