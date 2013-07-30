@@ -186,7 +186,7 @@ namespace MainWindow
 
 		// Round up to a zoom factor for the render size.
 		int zoom = (rc.right - rc.left + 479) / 480;
-		if (g_Config.SSAntiAliasing) zoom *= 2;
+		if (g_Config.bAntiAliasing) zoom *= 2;
 		PSP_CoreParameter().renderWidth = 480 * zoom;
 		PSP_CoreParameter().renderHeight = 272 * zoom;
 		PSP_CoreParameter().outputWidth = 480 * zoom;
@@ -1007,7 +1007,7 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_SIMPLE2XSSAA:
-					g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
+					g_Config.bAntiAliasing = !g_Config.bAntiAliasing;
 					ResizeDisplay(true);
 					break;
 
@@ -1187,7 +1187,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
-		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.SSAntiAliasing);
+		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.bAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
