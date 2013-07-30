@@ -193,10 +193,6 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 				}
 				entry->framebuffer = framebuffer;
 				// TODO: Delete the original non-fbo texture too.
-			} else {
-				// Force a re-bind, fixes map in Tactics Ogre.
-				glBindTexture(GL_TEXTURE_2D, 0);
-				lastBoundTexture = -1;
 			}
 		} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
 			// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
@@ -1023,6 +1019,7 @@ void TextureCache::SetTexture() {
 			if (useBufferedRendering) {
 				if (entry->framebuffer->fbo) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+					lastBoundTexture = -1;
 				} else {
 					glBindTexture(GL_TEXTURE_2D, 0);
 					lastBoundTexture = -1;
