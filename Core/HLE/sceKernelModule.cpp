@@ -446,7 +446,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	u32_le *magicPtr = (u32_le *) ptr;
 	if (*magicPtr == 0x4543537e) { // "~SCE"
 		INFO_LOG(HLE, "~SCE module, skipping header");
-		ptr += *(u32*)(ptr + 4);
+		ptr += *(u32_le*)(ptr + 4);
 		magicPtr = (u32_le *)ptr;
 	}
 	*magic = *magicPtr;
