@@ -505,6 +505,11 @@ void CtrlDisAsmView::followBranch()
 	{
 		jumpStack.push_back(curAddress);
 		gotoAddr(info.branchTarget);
+	} else if (info.isDataAccess)
+	{
+		// well, not  exactly a branch, but we can do something anyway
+		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,info.dataAddress,0);
+		SetFocus(wnd);
 	}
 }
 
@@ -821,6 +826,41 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 	}
 }	
 
+void CtrlDisAsmView::updateStatusBarText()
+{
+	char text[512];
+	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,curAddress);
+	
+	text[0] = 0;
+	if (info.isDataAccess)
+	{
+		switch (info.dataSize)
+		{
+		case 1:
+			sprintf(text,"[%08X] = %02X",info.dataAddress,Memory::Read_U8(info.dataAddress));
+			break;
+		case 2:
+			sprintf(text,"[%08X] = %04X",info.dataAddress,Memory::Read_U16(info.dataAddress));
+			break;
+		case 4:
+			sprintf(text,"[%08X] = %08X",info.dataAddress,Memory::Read_U32(info.dataAddress));
+			break;
+		}
+	}
+
+	if (info.isBranch)
+	{
+		const char* addressSymbol = debugger->findSymbolForAddress(info.branchTarget);
+		if (addressSymbol == NULL)
+		{
+			sprintf(text,"%08X",info.branchTarget);
+		} else {
+			sprintf(text,"%08X = %s",info.branchTarget,addressSymbol);
+		}
+	}
+
+	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
+}
 
 u32 CtrlDisAsmView::yToAddress(int y)
 {

@@ -500,6 +500,12 @@ void CtrlMemView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 
 }	
 
+void CtrlMemView::updateStatusBarText()
+{
+	char text[64];
+	sprintf(text,"%08X",curAddress);
+	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
+}
 
 void CtrlMemView::gotoPoint(int x, int y)
 {
@@ -514,6 +520,7 @@ void CtrlMemView::gotoPoint(int x, int y)
 		asciiSelected = true;
 		curAddress = lineAddress+col;
 		selectedNibble = 0;
+		updateStatusBarText();
 		redraw();
 	} else if (x >= hexStart)
 	{
@@ -529,6 +536,7 @@ void CtrlMemView::gotoPoint(int x, int y)
 
 		asciiSelected = false;
 		curAddress = lineAddress+col/3;
+		updateStatusBarText();
 		redraw();
 	}
 }
@@ -545,6 +553,8 @@ void CtrlMemView::gotoAddr(unsigned int addr)
 	{
 		windowStart = curAddress & ~15;
 	}
+
+	updateStatusBarText();
 	redraw();
 }
 
@@ -587,6 +597,7 @@ void CtrlMemView::scrollCursor(int bytes)
 	{
 		windowStart = (curAddress-(visibleRows-1)*rowSize) & ~15;
 	}
-
+	
+	updateStatusBarText();
 	redraw();
 }
