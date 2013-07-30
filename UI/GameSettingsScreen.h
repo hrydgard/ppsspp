@@ -30,6 +30,7 @@ public:
 
 protected:
 	virtual void CreateViews();
+	virtual void DrawBackground(UIContext &dc);
 
 private:
 	std::string gamePath_, gameID_;

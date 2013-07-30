@@ -1697,12 +1697,12 @@ void KeyMappingScreen::render() {
 
 
 #define KeyBtn(x, y, symbol) \
-	if (UIButton(GEN_ID, Pos(x, y), 60, 0, KeyMap::NameKeyFromPspButton(currentMap_, symbol).c_str(), \
+	if (UIButton(GEN_ID, Pos(x, y), 90, 0, KeyMap::NameKeyFromPspButton(currentMap_, symbol).c_str(), \
  															ALIGN_TOPLEFT)) {\
 		screenManager()->push(new KeyMappingNewKeyDialog(symbol, currentMap_), 0); \
 		UIReset(); \
 	} \
-	UIText(0, Pos(x+30, y+50), KeyMap::NameDeviceFromPspButton(currentMap_, symbol).c_str(), 0xFFFFFFFF, 0.78f, ALIGN_HCENTER); \
+	UIText(0, Pos(x+30, y+50), KeyMap::NameDeviceFromPspButton(currentMap_, symbol).c_str(), 0xFFFFFFFF, 0.7f, ALIGN_HCENTER); \
 	UIText(0, Pos(x+30, y+80), KeyMap::GetPspButtonName(symbol).c_str(), 0xFFFFFFFF, 0.5f, ALIGN_HCENTER); \
 
 
@@ -1715,34 +1715,36 @@ void KeyMappingScreen::render() {
 	int left = 30;
 	KeyBtn(left, 30, CTRL_LTRIGGER);
 
-	int top = 100;
-	KeyBtn(left+hlfpad, top, CTRL_UP); // ^
-	KeyBtn(left, top+hlfpad, CTRL_LEFT);// <
-	KeyBtn(left+pad, top+hlfpad, CTRL_RIGHT); // >
-	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // v
+	int top = 120;
+	KeyBtn(left+hlfpad, top, CTRL_UP); // Up
+	KeyBtn(left, top+hlfpad, CTRL_LEFT);// Left
+	KeyBtn(left+pad, top+hlfpad, CTRL_RIGHT); // Right
+	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // Down
 
 	top = 10;
-	left = 250;
-	KeyBtn(left+hlfpad, top, VIRTKEY_AXIS_Y_MAX); // ^
-	KeyBtn(left, top+hlfpad, VIRTKEY_AXIS_X_MIN);// <
-	KeyBtn(left+pad, top+hlfpad, VIRTKEY_AXIS_X_MAX); // >
-	KeyBtn(left+hlfpad, top+pad, VIRTKEY_AXIS_Y_MIN); // v
-	top = 100;
+	left = 300;
+	KeyBtn(left+hlfpad, top, VIRTKEY_AXIS_Y_MAX); // Analog Up
+	KeyBtn(left, top+hlfpad, VIRTKEY_AXIS_X_MIN);// Analog Left
+	KeyBtn(left+pad, top+hlfpad, VIRTKEY_AXIS_X_MAX); // Analog Right
+	KeyBtn(left+hlfpad, top+pad, VIRTKEY_AXIS_Y_MIN); // Analog Down
 
-	left = 500;
+	top = 120;
+	left = 550;
 	KeyBtn(left+hlfpad, top, CTRL_TRIANGLE); // Triangle
 	KeyBtn(left, top+hlfpad, CTRL_SQUARE); // Square
 	KeyBtn(left+pad, top+hlfpad, CTRL_CIRCLE); // Circle
 	KeyBtn(left+hlfpad, top+pad, CTRL_CROSS); // Cross
+
+	left = 680;
 	KeyBtn(left, 30, CTRL_RTRIGGER);
 
-	top += pad;
-	left = 250;
-	KeyBtn(left, top, CTRL_SELECT);
-	KeyBtn(left + pad, top, CTRL_START);
+	top += pad + 50;
+	left = 300;
+	KeyBtn(left, top, CTRL_SELECT); // Select
+	KeyBtn(left + pad, top, CTRL_START); //Start
 
 	top = 10;
-	left = 720;
+	left = 830;
 	KeyBtn(left, top, VIRTKEY_UNTHROTTLE);
 	top += 100;
 	KeyBtn(left, top, VIRTKEY_SPEED_TOGGLE);
