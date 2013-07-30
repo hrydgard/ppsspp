@@ -8,6 +8,7 @@
 #include "Windows/InputBox.h"
 
 #include "Core/MIPS/MIPSAsm.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Config.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -343,6 +344,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	for (int i = 0; i < visibleRows+2; i++)
 	{
 		unsigned int address=windowStart + i*instructionSize;
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,address);
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
@@ -403,6 +405,12 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		const char *dizz = debugger->disasm(address, instructionSize);
 		parseDisasm(dizz,opcode,arguments);
 
+		// display whether the condition of a branch is met
+		if (info.isConditionalBranch && address == debugger->getPC())
+		{
+			strcat(arguments,info.branchConditionMet ? "  ; true" : "  ; false");
+		}
+
 		int length = (int) strlen(arguments);
 		if (length != 0) TextOut(hdc,pixelPositions.argumentsStart,rowY1+2,arguments,length);
 			
@@ -410,7 +418,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		TextOut(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
 
-		if (branchTarget != -1 && strcmp(opcode,"jal") != 0 && opcode[1] != 0) //unconditional 'b/j' branch
+		if (info.isConditionalBranch)
 		{
 			branches[numBranches].src=rowY1 + rowHeight/2;
 			branches[numBranches].srcAddr=address/instructionSize;
@@ -491,18 +499,12 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::followBranch()
 {
-	char opcode[64],arguments[256];
-	const char *dizz = debugger->disasm(curAddress, instructionSize);
-	parseDisasm(dizz,opcode,arguments);
+	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,curAddress);
 
-	if (branchTarget != -1)
+	if (info.isBranch)
 	{
 		jumpStack.push_back(curAddress);
-		gotoAddr(branchTarget);
-	} else if (branchRegister != -1)
-	{
-		jumpStack.push_back(curAddress);
-		gotoAddr(debugger->GetRegValue(0,branchRegister));
+		gotoAddr(info.branchTarget);
 	}
 }
 

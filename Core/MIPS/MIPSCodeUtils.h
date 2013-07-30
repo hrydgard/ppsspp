@@ -36,6 +36,10 @@
 #define MIPS_MAKE_SYSCALL(module, function) GetSyscallOp(module, GetNibByName(module, function))
 #define MIPS_MAKE_BREAK() (13)  // ! :)
 
+#define MIPS_GET_OP(op)   ((op>>26) & 0x3F)
+#define MIPS_GET_FUNC(op) (op & 0x3F)
+#define MIPS_GET_SA(op)   (op>>6 & 0x1F)
+
 #define MIPS_GET_RS(op) ((op>>21) & 0x1F)
 #define MIPS_GET_RT(op) ((op>>16) & 0x1F)
 #define MIPS_GET_RD(op) ((op>>11) & 0x1F)

@@ -22,6 +22,7 @@
 #include "Core/CPU.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 
 #include "base/stringutil.h"
 
@@ -287,42 +288,29 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-					const char* dis = cpu->disasm(cpu->GetPC(),4);
-					const char* pos = strstr(dis,"->$");
-					const char* reg = strstr(dis,"->");
-					
+					MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 					ptr->setDontRedraw(true);
 					u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
-					if (memcmp(dis,"jal\t",4) == 0 || memcmp(dis,"jalr\t",5) == 0)
+					if (info.isBranch)
 					{
-						// it's a function call with a delay slot - skip that too
-						breakpointAddress += cpu->getInstructionSize(0);
-					} else if (memcmp(dis,"j\t",2) == 0 || memcmp(dis,"b\t",2) == 0)
-					{
-						// in case of absolute branches, set the breakpoint at the branch target
-						sscanf(pos+3,"%08x",&breakpointAddress);
-					} else if (memcmp(dis,"jr\t",3) == 0)
-					{
-						// the same for jumps to registers
-						int regNum = -1;
-						for (int i = 0; i < 32; i++)
+						if (info.isConditionalBranch == false)
 						{
-							if (strcasecmp(reg+2,cpu->GetRegName(0,i)) == 0)
+							if (info.isLinkedBranch)	// jal, jalr
 							{
-								regNum = i;
-								break;
+								// it's a function call with a delay slot - skip that too
+								breakpointAddress += cpu->getInstructionSize(0);
+							} else {					// j, ...
+								// in case of absolute branches, set the breakpoint at the branch target
+								breakpointAddress = info.branchTarget;
 							}
-						}
-						if (regNum == -1) break;
-						breakpointAddress = cpu->GetRegValue(0,regNum);
-					} else if (pos != NULL)
-					{
-						// get branch target
-						sscanf(pos+3,"%08x",&breakpointAddress);
-						CBreakPoints::AddBreakPoint(breakpointAddress,true);
+						} else {						// beq, ...
+							// set breakpoint at branch target
+							breakpointAddress = info.branchTarget;
+							CBreakPoints::AddBreakPoint(breakpointAddress,true);
 
-						// also add a breakpoint after the delay slot
-						breakpointAddress = cpu->GetPC()+2*cpu->getInstructionSize(0);						
+							// and after the delay slot
+							breakpointAddress = cpu->GetPC()+2*cpu->getInstructionSize(0);	
+						}
 					}
 
 					SetDebugMode(false);

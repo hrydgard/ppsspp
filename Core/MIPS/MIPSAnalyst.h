@@ -19,6 +19,8 @@
 
 #include "../../Globals.h"
 
+class DebugInterface;
+
 namespace MIPSAnalyst
 {
 	void Analyze(u32 address);
@@ -63,5 +65,29 @@ namespace MIPSAnalyst
 	bool IsSyscall(u32 op);
 
 	void Shutdown();
+	
+	typedef struct
+	{
+		DebugInterface* cpu;
+		u32 opcodeAddress;
+		u32 encodedOpcode;
+
+		// branches
+		u32 branchTarget;
+		bool isBranch;
+		bool isLinkedBranch;
+		bool isLikelyBranch;
+		bool isConditionalBranch;
+		bool branchConditionMet;
+		bool isBranchToRegister;
+		int branchRegisterNum;
+
+		// data access
+		bool isDataAccess;
+		int dataSize;
+		u32 dataAddress;
+	} MipsOpcodeInfo;
+
+	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address);
 
 }	// namespace MIPSAnalyst

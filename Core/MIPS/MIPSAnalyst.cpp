@@ -23,6 +23,7 @@
 #include "MIPSAnalyst.h"
 #include "MIPSCodeUtils.h"
 #include "../Debugger/SymbolMap.h"
+#include "../Debugger/DebugInterface.h"
 
 using namespace MIPSCodeUtils;
 using namespace std;
@@ -529,5 +530,133 @@ namespace MIPSAnalyst
 			if (info & OUT_RA) vec.push_back(MIPS_REG_RA);
 		}
 		return vec;
+	}
+
+	void opInfoSetJump(MipsOpcodeInfo& inf, bool link, u32 target, int reg = -1)
+	{
+		inf.isBranch = true;
+		inf.isLinkedBranch = link;
+		inf.branchTarget = target;
+
+		if (reg != -1)
+		{
+			inf.isBranchToRegister = true;
+			inf.branchRegisterNum = reg;
+		}
+	}
+
+	inline void opInfoSetBranch(MipsOpcodeInfo& inf, u32 target, bool conditionMet)
+	{
+		inf.isBranch = true;
+		inf.isConditionalBranch = true;
+		inf.branchConditionMet = conditionMet;
+		inf.branchTarget = target;
+	}
+
+	inline void opInfoSetDataAccess(MipsOpcodeInfo& inf, int dataSize)
+	{
+		inf.isDataAccess = true;
+		inf.dataSize = dataSize;
+		
+		s16 imm16 = inf.encodedOpcode & 0xFFFF;
+		inf.dataAddress = inf.cpu->GetRegValue(0,MIPS_GET_RS(inf.encodedOpcode)) + imm16;
+	}
+
+	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address)
+	{
+		MipsOpcodeInfo info;
+		memset(&info,0,sizeof(info));
+
+		info.cpu = cpu;
+		info.opcodeAddress = address;
+		info.encodedOpcode = Memory::Read_Instruction(address);
+		u32 op = info.encodedOpcode;
+
+		// read everything that could be used
+		u32 rt = cpu->GetRegValue(0,MIPS_GET_RT(op));
+		u32 rd = cpu->GetRegValue(0,MIPS_GET_RD(op));
+		u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));
+		int rsNum = MIPS_GET_RS(op);
+		int rtNum = MIPS_GET_RT(op);
+		u32 jumpTarget = GetJumpTarget(address);
+		u32 branchTarget = GetBranchTarget(address);
+
+		switch (MIPS_GET_OP(op))
+		{
+		case 0:		// special
+			switch (MIPS_GET_FUNC(op))
+			{
+			case 8:		// jr
+				opInfoSetJump(info,false,rs,rsNum);
+				break;
+			case 9:		// jalr
+				opInfoSetJump(info,true,rs,rsNum);
+				break;
+			}
+			break;
+		case 1:		// regimm
+			switch (rtNum)
+			{
+
+
+			}
+			break;
+		case 2:		// j
+			opInfoSetJump(info,false,jumpTarget);
+			break;
+		case 3:		// jal
+			opInfoSetJump(info,true,jumpTarget);
+			break;
+		case 4:		// beq
+			opInfoSetBranch(info,branchTarget,rt == rs);
+			if (rtNum == rsNum) // pretend to be unconditional when it de facto is
+			{
+				info.isConditionalBranch = false;
+			}
+			break;
+		case 20:	// beql
+			opInfoSetBranch(info,branchTarget,rt == rs);
+			info.isLikelyBranch = true;
+		case 5:		// bne
+			opInfoSetBranch(info,branchTarget,rt != rs);
+			break;
+		case 21:	// bnel
+			opInfoSetBranch(info,branchTarget,rt != rs);
+			info.isLikelyBranch = true;
+		case 6:		// blez
+			opInfoSetBranch(info,branchTarget,((s32)rs) <= 0);
+			break;
+		case 22:	// blezl
+			opInfoSetBranch(info,branchTarget,((s32)rs) <= 0);
+			info.isLikelyBranch = true;
+		case 7:		// bgtz
+			opInfoSetBranch(info,branchTarget,((s32)rs) > 0);
+			break;
+		case 23:	// bgtzl
+			opInfoSetBranch(info,branchTarget,((s32)rs) > 0);
+			info.isLikelyBranch = true;
+			break;
+
+		case 32:	// lb
+		case 36:	// lb
+		case 40:	// sb
+			opInfoSetDataAccess(info,1);
+			break;
+		case 33:	// lh
+		case 37:	// lh
+		case 41:	// sh
+			opInfoSetDataAccess(info,2);
+			break;
+		case 34:	// lwl
+		case 35:	// lw
+		case 38:	// lwr
+		case 42:	// swl
+		case 43:	// sw
+		case 46:	// swr
+			opInfoSetDataAccess(info,4);
+			break;
+		}
+
+		return info;
 	}
 }
