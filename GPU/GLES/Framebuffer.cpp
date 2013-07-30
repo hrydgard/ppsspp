@@ -91,7 +91,7 @@ inline u16 RGBA8888toRGBA5551(u32 px) {
 	return ((px >> 3) & 0x001F) | ((px >> 6) & 0x03E0) | ((px >> 9) & 0x7C00) | ((px >> 16) & 0x8000);
 }
 
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format);
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format);
 
 void CenterRect(float *x, float *y, float *w, float *h,
                 float origW, float origH, float frameW, float frameH)
@@ -147,14 +147,14 @@ FramebufferManager::FramebufferManager() :
 	ramDisplayFramebufPtr_(0),
 	displayFramebufPtr_(0),
 	displayStride_(0),
-	displayFormat_(0),
+	displayFormat_(GE_FORMAT_565),
 	displayFramebuf_(0),
 	prevDisplayFramebuf_(0),
 	prevPrevDisplayFramebuf_(0),
 	frameLastFramebufUsed(0),
 	currentRenderVfb_(0),
 	drawPixelsTex_(0),
-	drawPixelsTexFormat_(-1),
+	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf(0),
 	draw2dprogram(0)
 #ifndef USING_GLES2
@@ -218,7 +218,7 @@ FramebufferManager::~FramebufferManager() {
 	delete [] convBuf;
 }
 
-void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int linesize) {
+void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
 	if (drawPixelsTex_ && drawPixelsTexFormat_ != pixelFormat) {
 		glDeleteTextures(1, &drawPixelsTex_);
 		drawPixelsTex_ = 0;
@@ -234,11 +234,6 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-
-		switch (pixelFormat) {
-		case GE_FORMAT_8888:
-			break;
-		}
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 512, 272, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 		glBindTexture(GL_TEXTURE_2D, 0);
@@ -453,7 +448,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 	
-	int fmt = gstate.framebufpixformat & 3;
+	GEBufferFormat fmt = static_cast<GEBufferFormat>(gstate.framebufpixformat & 3);
 
 	int drawing_width, drawing_height;
 	GuessDrawingSize(drawing_width, drawing_height);
@@ -504,20 +499,20 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb->colorDepth = FBO_8888;
 		} else { 
 			switch (fmt) {
-				case GE_FORMAT_4444: 
-					vfb->colorDepth = FBO_4444; 
+				case GE_FORMAT_4444:
+					vfb->colorDepth = FBO_4444;
 					break;
-				case GE_FORMAT_5551: 
-					vfb->colorDepth = FBO_5551; 
+				case GE_FORMAT_5551:
+					vfb->colorDepth = FBO_5551;
 					break;
-				case GE_FORMAT_565: 
-					vfb->colorDepth = FBO_565; 
+				case GE_FORMAT_565:
+					vfb->colorDepth = FBO_565;
 					break;
-				case GE_FORMAT_8888: 
-					vfb->colorDepth = FBO_8888; 
+				case GE_FORMAT_8888:
+					vfb->colorDepth = FBO_8888;
 					break;
-				default: 
-					vfb->colorDepth = FBO_8888; 
+				default:
+					vfb->colorDepth = FBO_8888;
 					break;
 			}
 		}
@@ -840,7 +835,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 }
 
 // TODO: SSE/NEON
-void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
+void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format) {
 	if(format == GE_FORMAT_8888) {
 		if(src == dst) {
 			return;
@@ -867,6 +862,9 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, int format) {
 				for(int i = 0; i < size; i++) {
 					dst16[i] = RGBA8888toRGBA4444(src32[i]);
 				}
+				break;
+			case GE_FORMAT_8888:
+				// Not possible.
 				break;
 			default:
 				break;
@@ -1101,7 +1099,7 @@ void FramebufferManager::BeginFrame() {
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE ? 1 : 0;
 }
 
-void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
+void FramebufferManager::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 
 	if ((framebuf & 0x04000000) == 0) {
 		DEBUG_LOG(HLE, "Non-VRAM display framebuffer address set: %08x", framebuf);
