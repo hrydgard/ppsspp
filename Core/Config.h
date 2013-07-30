@@ -149,6 +149,7 @@ public:
 	int iConsoleWindowY;
 	int iFontWidth;
 	int iFontHeight;
+	bool bDisplayStatusBar;
 
 	std::string currentDirectory;
 	std::string externalDirectory; 
