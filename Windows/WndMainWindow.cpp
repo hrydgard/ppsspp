@@ -753,7 +753,7 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_SCREENDUMMY:
-					g_Config.iWindowZoom = ++g_Config.iWindowZoom > 4 ? 1 : g_Config.iWindowZoom;
+					g_Config.iWindowZoom = ++g_Config.iWindowZoom > ZOOM_MAX ? 1 : g_Config.iWindowZoom;
 
 					setZoom(g_Config.iWindowZoom);
 					break;
