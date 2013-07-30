@@ -248,7 +248,18 @@ namespace MIPSInt
 			{
 				_dbg_assert_msg_(CPU, 0, "Misaligned lv.q");
 			}
+#ifndef COMMON_BIG_ENDIAN
 			WriteVector((const float*)Memory::GetPointer(addr), V_Quad, vt);
+#else
+			float lvqd[4];
+
+			lvqd[0] = Memory::Read_Float(addr);
+			lvqd[1] = Memory::Read_Float(addr + 4);
+			lvqd[2] = Memory::Read_Float(addr + 8);
+			lvqd[3] = Memory::Read_Float(addr + 12);
+
+			WriteVector(lvqd, V_Quad, vt);
+#endif
 			break;
 
 		case 61: // svl.q/svr.q
@@ -284,7 +295,17 @@ namespace MIPSInt
 			{
 				_dbg_assert_msg_(CPU, 0, "Misaligned sv.q");
 			}
+#ifndef COMMON_BIG_ENDIAN
 			ReadVector((float*)Memory::GetPointer(addr), V_Quad, vt);
+#else
+			float svqd[4];
+			ReadVector(svqd, V_Quad, vt);
+
+			Memory::Write_Float(svqd[0], addr);
+			Memory::Write_Float(svqd[1], addr + 4);
+			Memory::Write_Float(svqd[2], addr + 8);
+			Memory::Write_Float(svqd[3], addr + 12);
+#endif
 			break;
 
 		default:
