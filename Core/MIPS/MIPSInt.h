@@ -22,7 +22,6 @@
 u32 MIPS_GetNextPC();
 void MIPS_ClearDelaySlot();
 int MIPS_SingleStep();
-float round_ieee_754(float num);
 
 namespace MIPSInt
 {

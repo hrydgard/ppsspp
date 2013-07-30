@@ -40,7 +40,7 @@ public:
 	virtual void ExecuteOp(u32 op, u32 diff);
 	virtual u32  DrawSync(int mode);
 
-	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
+	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	virtual void CopyDisplayToOutput();
 	virtual void BeginFrame();
 	virtual void UpdateStats();

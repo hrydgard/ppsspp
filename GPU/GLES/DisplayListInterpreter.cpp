@@ -289,7 +289,7 @@ void GLES_GPU::BeginFrame() {
 	framebufferManager_.BeginFrame();
 }
 
-void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) {
+void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	framebufferManager_.SetDisplayFramebuffer(framebuf, stride, format);
 }
 
@@ -1055,7 +1055,7 @@ void GLES_GPU::DoBlockTransfer() {
 	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
 		  (displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
 			dstStride == 512 && height == 272) {
-		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), 3, 512);
+		framebufferManager_.DrawPixels(Memory::GetPointer(dstBasePtr), GE_FORMAT_8888, 512);
 	}
 }
 
