@@ -176,11 +176,18 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
 	if (entry) {
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer) {
-			entry->framebuffer = framebuffer;
-			// TODO: Delete the original non-fbo texture too.
-		}	else {
-			// Force a re-bind, fixes map in Tactics Ogre.
+		if (g_Config.bBufferedRendering) {
+			if (entry->framebuffer) {
+				// Force a re-bind, fixes map in Tactics Ogre.
+				glBindTexture(GL_TEXTURE_2D, 0);
+				lastBoundTexture = -1;
+			} else {
+				entry->framebuffer = framebuffer;
+				// TODO: Delete the original non-fbo texture too.
+			}
+		} else {
+			if (entry->framebuffer)
+				entry->framebuffer = 0;
 			glBindTexture(GL_TEXTURE_2D, 0);
 			lastBoundTexture = -1;
 		}
