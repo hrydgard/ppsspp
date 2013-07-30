@@ -2,7 +2,7 @@ extern "C"
 {
 #include "ext/libkirk/kirk_engine.h"
 }
-
+#include "Common/Common.h"
 #include "../../Globals.h"
 #include "PrxDecrypter.h"
 
@@ -315,7 +315,7 @@ static void ExtraV2Mangle(u8* buffer1, u8 codeExtra)
 
 	memcpy(buffer2+0x14, buffer1, 0xA0);
 
-	u32* pl2 = (u32*)buffer2;
+	u32_le* pl2 = (u32_le*)buffer2;
 	pl2[0] = 5;
 	pl2[1] = pl2[2] = 0;
 	pl2[3] = codeExtra;
@@ -326,7 +326,7 @@ static void ExtraV2Mangle(u8* buffer1, u8 codeExtra)
 	memcpy(buffer1, buffer2, 0xA0);
 }
 
-static int Scramble(u32 *buf, u32 size, u32 code)
+static int Scramble(u32_le *buf, u32 size, u32 code)
 {
 	buf[0] = 5;
 	buf[1] = buf[2] = 0;
@@ -343,7 +343,8 @@ static int Scramble(u32 *buf, u32 size, u32 code)
 
 static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 {
-	int i, retsize;
+	int i;
+	s32_le retsize;
 	u8 bD0[0x80], b80[0x50], b00[0x80], bB0[0x20];
 
 	const TAG_INFO *pti = GetTagInfo(tag);
@@ -357,7 +358,7 @@ static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 		return MISSING_KEY;
 	}
 
-	retsize = *(u32*)&pbIn[0xB0];
+	retsize = *(s32_le*)&pbIn[0xB0];
 
 	for (i = 0; i < 0x14; i++)
 	{
@@ -373,7 +374,7 @@ static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 	memcpy(key, pti->key, 0x90);
 	if (i == 0x14)
 	{
-		Scramble((u32 *)key, 0x90, pti->code);
+		Scramble((u32_le *)key, 0x90, pti->code);
 	}
 
 	// build conversion into pbOut
@@ -390,7 +391,7 @@ static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 	memset(pbOut, 0x55, 0x40); // first $40 bytes ignored
 
 	// step3 demangle in place
-	u32* pl = (u32*)(pbOut+0x2C);
+	u32_le* pl = (u32_le*)(pbOut+0x2C);
 	pl[0] = 5; // number of ulongs in the header
 	pl[1] = pl[2] = 0;
 	pl[3] = pti->code; // initial seed for PRX
@@ -408,7 +409,11 @@ static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 	int ret;
 	int iXOR;
 	for (iXOR = 0; iXOR < 0x70; iXOR++)
+#ifdef COMMON_BIG_ENDIAN
+		pbOut[0x40+iXOR] = pbOut[0x40+iXOR] ^ key[(0x14+iXOR) ^3];
+#else
 		pbOut[0x40+iXOR] = pbOut[0x40+iXOR] ^ key[0x14+iXOR];
+#endif
 
 	ret = sceUtilsBufferCopyWithRange(pbOut+0x2C, 20+0x70, pbOut+0x2C, 20+0x70, 7);
 	if (ret != 0)
@@ -417,7 +422,11 @@ static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
 	}
 
 	for (iXOR = 0x6F; iXOR >= 0; iXOR--)
+#ifdef COMMON_BIG_ENDIAN
+		pbOut[0x40+iXOR] = pbOut[0x2C+iXOR] ^ key[(0x20+iXOR) ^ 3];
+#else
 		pbOut[0x40+iXOR] = pbOut[0x2C+iXOR] ^ key[0x20+iXOR];
+#endif
 
 	memset(pbOut+0x80, 0, 0x30); // $40 bytes kept, clean up
 	pbOut[0xA0] = 1;
@@ -611,7 +620,7 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 	if(pti->type!=2 && pti->type!=6)
 		return -12;
 
-	int retsize = *(const int *)&inbuf[0xB0];
+	s32_le retsize = *(const s32_le *)&inbuf[0xB0];
 	u8 tmp1[0x150] = {0};
 	u8 tmp2[ROUNDUP16(0x90+0x14)] = {0};
 	u8 tmp3[ROUNDUP16(0x90+0x14)] = {0};
@@ -642,7 +651,7 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 		p[(i << 4)] = i;   // really? this is very odd
 	}
 
-	if (Scramble((u32 *)tmp2, 0x90, pti->code) < 0)
+	if (Scramble((u32_le  *)tmp2, 0x90, pti->code) < 0)
 	{
 		return -5;
 	}
@@ -657,7 +666,7 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 
 	memcpy(tmp3+0x14, outbuf+0x5C, 0x60);
 
-	if (Scramble((u32 *)tmp3, 0x60, pti->code) < 0)
+	if (Scramble((u32_le  *)tmp3, 0x60, pti->code) < 0)
 	{
 		return -6;
 	}
@@ -675,7 +684,7 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 		memset(outbuf+0x18, 0, 0x58);
 
 	memcpy(outbuf+0x04, outbuf, 0x04);
-	*((u32 *)outbuf) = 0x014C;
+	*((u32_le *)outbuf) = 0x014C;
 	memcpy(outbuf+0x08, tmp2, 0x10);
 
 	/* sha-1 */
@@ -695,7 +704,7 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 		tmp3[i+0x14] = outbuf[i+0x80] ^ tmp2[i+0x10];
 	}
 
-	if (Scramble((u32 *)tmp3, 0x40, pti->code) != 0)
+	if (Scramble((u32_le  *)tmp3, 0x40, pti->code) != 0)
 	{
 		return -9;
 	}
@@ -709,13 +718,13 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 	{
 		memcpy(outbuf+0x80, tmp4, 0x20);
 		memset(outbuf+0xA0, 0, 0x10);
-		*(u32*)&outbuf[0xA4] = 1;
-		*(u32*)&outbuf[0xA0] = 1;
+		*(u32_le*)&outbuf[0xA4] = 1;
+		*(u32_le*)&outbuf[0xA0] = 1;
 	}
 	else
 	{
 		memset(outbuf+0x80, 0, 0x30);
-		*(u32*)&outbuf[0xA0] = 1;
+		*(u32_le*)&outbuf[0xA0] = 1;
 	}
 
 	memcpy(outbuf+0xB0, outbuf+0xC0, 0x10);
@@ -740,7 +749,7 @@ static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
 int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size)
 {
 	kirk_init();
-	int retsize = DecryptPRX1(inbuf, outbuf, size, *(u32 *)&inbuf[0xD0]);
+	int retsize = DecryptPRX1(inbuf, outbuf, size, (u32)*(u32_le *)&inbuf[0xD0]);
 	if (retsize == MISSING_KEY)
 	{
 		return MISSING_KEY;
@@ -748,7 +757,7 @@ int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size)
 
 	if (retsize <= 0)
 	{
-		retsize = DecryptPRX2(inbuf, outbuf, size, *(u32 *)&inbuf[0xD0]);
+		retsize = DecryptPRX2(inbuf, outbuf, size, (u32)*(u32_le *)&inbuf[0xD0]);
 	}
 
 	return retsize;
