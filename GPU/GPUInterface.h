@@ -171,7 +171,7 @@ public:
 	virtual bool InterpretList(DisplayList& list) = 0;
 
 	// Framebuffer management
-	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format) = 0;
+	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
 	virtual void BeginFrame() = 0;  // Can be a good place to draw the "memory" framebuffer for accelerated plugins
 	virtual void CopyDisplayToOutput() = 0;
 

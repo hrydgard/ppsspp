@@ -19,6 +19,7 @@
 
 #include <list>
 
+#include "gfx/gl_common.h"
 #include "gfx_es2/fbo.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
@@ -30,13 +31,6 @@
 
 struct GLSLProgram;
 class TextureCache;
-
-enum PspDisplayPixelFormat {
-	PSP_DISPLAY_PIXEL_FORMAT_565 = 0,
-	PSP_DISPLAY_PIXEL_FORMAT_5551 = 1,
-	PSP_DISPLAY_PIXEL_FORMAT_4444 = 2,
-	PSP_DISPLAY_PIXEL_FORMAT_8888 = 3,
-};
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
@@ -88,7 +82,7 @@ struct VirtualFramebuffer {
 
 	u16 usageFlags;
 
-	int format;  // virtual, right now they are all RGBA8888
+	GEBufferFormat format;  // virtual, right now they are all RGBA8888
 	FBOColorDepth colorDepth;
 	FBO *fbo;
 
@@ -108,7 +102,7 @@ struct AsyncPBO {
 	u32 stride;
 	u32 height;
 	u32 size;
-	int format;
+	GEBufferFormat format;
 	bool reading;
 };
 
@@ -128,7 +122,7 @@ public:
 		shaderManager_ = sm;
 	}
 
-	void DrawPixels(const u8 *framebuf, int pixelFormat, int linesize);
+	void DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize);
 	void DrawActiveTexture(float x, float y, float w, float h, bool flip = false, float uscale = 1.0f, float vscale = 1.0f, GLSLProgram *program = 0);
 
 	void DestroyAllFBOs();
@@ -146,7 +140,7 @@ public:
 
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetDisplayFBO();
-	void SetDisplayFramebuffer(u32 framebuf, u32 stride, int format);
+	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format);
 	size_t NumVFBs() const { return vfbs_.size(); }
 
 	std::vector<FramebufferInfo> GetFramebufferList();
@@ -171,7 +165,7 @@ private:
 	u32 ramDisplayFramebufPtr_;  // workaround for MotoGP insanity
 	u32 displayFramebufPtr_;
 	u32 displayStride_;
-	int displayFormat_;
+	GEBufferFormat displayFormat_;
 
 	VirtualFramebuffer *displayFramebuf_;
 	VirtualFramebuffer *prevDisplayFramebuf_;
@@ -198,7 +192,7 @@ private:
 
 	// Used by DrawPixels
 	unsigned int drawPixelsTex_;
-	int drawPixelsTexFormat_;
+	GEBufferFormat drawPixelsTexFormat_;
 
 	u8 *convBuf;
 	GLSLProgram *draw2dprogram;

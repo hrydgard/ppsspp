@@ -19,32 +19,26 @@
 #include "Common/CommonWindows.h"
 #endif
 
-#include "MemMap.h"
+#include "Core/MemMap.h"
 
-#include "MIPS/MIPS.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 
-#include "MIPS/JitCommon/JitCommon.h"
-
-#include "System.h"
-// Bad dependency
-#include "GPU/GLES/Framebuffer.h"
-#include "GPU/GLES/TextureCache.h"
-#include "GPU/GLES/ShaderManager.h"
-
-#include "PSPMixer.h"
-#include "HLE/HLE.h"
-#include "HLE/sceKernel.h"
-#include "HLE/sceKernelMemory.h"
-#include "HLE/sceAudio.h"
-#include "Config.h"
-#include "Core.h"
-#include "CoreTiming.h"
-#include "CoreParameter.h"
-#include "FileSystems/MetaFileSystem.h"
-#include "Loaders.h"
-#include "PSPLoaders.h"
-#include "ELF/ParamSFO.h"
-#include "../Common/LogManager.h"
+#include "Core/System.h"
+#include "Core/PSPMixer.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceAudio.h"
+#include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/CoreParameter.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Loaders.h"
+#include "Core/PSPLoaders.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Common/LogManager.h"
 
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;

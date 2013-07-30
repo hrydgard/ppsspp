@@ -21,6 +21,7 @@
 
 #include "IndexGenerator.h"
 #include "VertexDecoder.h"
+#include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
 
 class LinkedShader;

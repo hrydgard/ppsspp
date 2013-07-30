@@ -28,13 +28,13 @@
 
 // typedef void (*PspGeCallback)(int id, void *arg);
 
-typedef struct PspGeCallbackData
+struct PspGeCallbackData
 {
-	u32 signal_func;
-	u32 signal_arg; //ptr
-	u32 finish_func;  // PspGeCallback
-	u32 finish_arg;
-} PspGeCallbackData;
+	u32_le signal_func;
+	u32_le signal_arg; //ptr
+	u32_le finish_func;  // PspGeCallback
+	u32_le finish_arg;
+};
 
 void Register_sceGe_user();
 

@@ -332,13 +332,13 @@ u32 sceGeSetCallback(u32 structAddr)
 
 	int subIntrBase = __GeSubIntrBase(cbID);
 
-	if (ge_callback_data[cbID].finish_func)
+	if (ge_callback_data[cbID].finish_func != 0)
 	{
 		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH,
 				ge_callback_data[cbID].finish_func, ge_callback_data[cbID].finish_arg);
 		sceKernelEnableSubIntr(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_FINISH);
 	}
-	if (ge_callback_data[cbID].signal_func)
+	if (ge_callback_data[cbID].signal_func != 0)
 	{
 		sceKernelRegisterSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL,
 				ge_callback_data[cbID].signal_func, ge_callback_data[cbID].signal_arg);
