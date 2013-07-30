@@ -498,9 +498,9 @@ bool VirtualDiscFileSystem::OwnsHandle(u32 handle) {
 PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	PSPFileInfo x;
 	x.name = filename;
+	x.access = FILEACCESS_READ;
 
-	if (filename.compare(0,8,"/sce_lbn") == 0)
-	{
+	if (filename.compare(0,8,"/sce_lbn") == 0) {
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
 		parseLBN(filename, &sectorStart, &readSize);
 
@@ -517,10 +517,11 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 	int fileIndex = getFileListIndex(filename);
 	if (fileIndex != -1 && fileList[fileIndex].handler != NULL) {
 		x.type = FILETYPE_NORMAL;
+		x.isOnSectorSystem = true;
+		x.startSector = fileList[fileIndex].firstBlock;
 
 		HandlerFileHandle temp;
-		if (temp.Open(basePath, filename, FILEACCESS_READ))
-		{
+		if (temp.Open(basePath, filename, FILEACCESS_READ)) {
 			x.exists = true;
 			x.size = temp.Seek(0, FILEMOVE_END);
 			temp.Close();
@@ -546,9 +547,12 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 
 	x.type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	x.exists = true;
+	if (fileIndex != -1) {
+		x.isOnSectorSystem = true;
+		x.startSector = fileList[fileIndex].firstBlock;
+	}
 
-	if (x.type != FILETYPE_DIRECTORY)
-	{
+	if (x.type != FILETYPE_DIRECTORY) {
 		struct stat s;
 		stat(fullName.c_str(), &s);
 
@@ -558,7 +562,6 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 		x.startSector = fileList[fileIndex].firstBlock;
 		x.numSectors = (x.size+2047)/2048;
 
-		x.access = s.st_mode & 0x1FF;
 		localtime_r((time_t*)&s.st_atime,&x.atime);
 		localtime_r((time_t*)&s.st_ctime,&x.ctime);
 		localtime_r((time_t*)&s.st_mtime,&x.mtime);
@@ -621,6 +624,10 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
 		tmFromFiletime(entry.ctime, findData.ftCreationTime);
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
+		entry.isOnSectorSystem = true;
+		int fileIndex = getFileListIndex(entry.name);
+		if (fileIndex != -1)
+			entry.startSector = fileList[fileIndex].firstBlock;
 		myVector.push_back(entry);
 	}
 #else
@@ -660,6 +667,10 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 		localtime_r((time_t*)&s.st_atime,&entry.atime);
 		localtime_r((time_t*)&s.st_ctime,&entry.ctime);
 		localtime_r((time_t*)&s.st_mtime,&entry.mtime);
+		entry.isOnSectorSystem = true;
+		int fileIndex = getFileListIndex(entry.name);
+		if (fileIndex != -1)
+			entry.startSector = fileList[fileIndex].firstBlock;
 		myVector.push_back(entry);
 	}
 	closedir(dp);
