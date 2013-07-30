@@ -246,6 +246,8 @@ struct GPUgstate
 	u32 getColorTestMask() const { return colormask & 0xFFFFFF; }
 
 	// Texturing
+	int getTextureWidth() const { return 1 << (texsize[0] & 0xf);}
+	int getTextureHeight() const { return 1 << ((texsize[0] >> 8) & 0xf);}
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }

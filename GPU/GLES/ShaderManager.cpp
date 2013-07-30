@@ -331,8 +331,8 @@ void LinkedShader::updateUniforms() {
 			uvscaleoff[3] = gstate_c.uv.vOff / gstate_c.curTextureHeight;
 			glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 		} else {
-			int w = 1 << (gstate.texsize[0] & 0xf);
-			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+			int w = gstate.getTextureWidth();
+			int h = gstate.getTextureHeight();
 			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
 			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
 			if ((gstate.texmapmode & 3) == 0) {
