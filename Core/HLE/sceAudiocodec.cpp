@@ -29,11 +29,15 @@ int sceAudiocodecDecode(u32 audioCodec, int codeType) {
 	return 0;
 }
 
-const HLEFunction sceAudiocodec[] =
-{
+int sceAudiocodecGetInfo(u32 audioCodec, int codec) {
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceAudiocodecGetInfo(%08x, %i)", audioCodec, codec);
+	return 0;
+}
+
+const HLEFunction sceAudiocodec[] = {
 	{0x70A703F8, WrapI_UI<sceAudiocodecDecode>, "sceAudiocodecDecode"},
 	{0x5B37EB1D, WrapI_UI<sceAudiocodecInit>, "sceAudiocodecInit"},
-	{0x8ACA11D5, 0, "sceAudiocodecGetInfo"},
+	{0x8ACA11D5, WrapI_UI<sceAudiocodecGetInfo>, "sceAudiocodecGetInfo"},
 	{0x3A20A200, 0, "sceAudiocodecGetEDRAM"},
 	{0x29681260, 0, "sceAudiocodecReleaseEDRAM"},
 	{0x9D3F790C, 0, "sceAudiocodecCheckNeedMem"},

@@ -32,8 +32,8 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-#define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
-// #define CONDITIONAL_DISABLE ;
+// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
+#define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
 
 

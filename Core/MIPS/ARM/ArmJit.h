@@ -226,8 +226,7 @@ public:
 	void ClearCache();
 	void ClearCacheAt(u32 em_address);
 
-	// TODO: Eat VFPU prefixes here.
-	void EatPrefix() { }
+	void EatPrefix() { js.EatPrefix(); }
 
 private:
 	void GenerateFixedCode();

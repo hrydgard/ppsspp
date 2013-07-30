@@ -467,7 +467,7 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 	}
 	else
 	{
-		ERROR_LOG(HLE, badSemaMessage, id);
+		WARN_LOG(HLE, badSemaMessage, id);
 		return error;
 	}
 }

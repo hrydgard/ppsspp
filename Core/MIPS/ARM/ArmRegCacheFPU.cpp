@@ -210,6 +210,19 @@ void ArmRegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
 	ReleaseSpillLockV(vs);
 }
 
+void ArmRegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
+	bool overlap = avoidLoad && ((vd == vs) || (vd == vt));
+	SpillLockV(vd);
+	SpillLockV(vs);
+	SpillLockV(vt);
+	MapRegV(vd, MAP_DIRTY | (overlap ? 0 : MAP_NOINIT));
+	MapRegV(vs);
+	MapRegV(vt);
+	ReleaseSpillLockV(vd);
+	ReleaseSpillLockV(vs);
+	ReleaseSpillLockV(vt);
+}
+
 void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 	int reg = r - S0;
 	if (ar[reg].mipsReg == -1) {

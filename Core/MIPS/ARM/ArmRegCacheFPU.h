@@ -81,6 +81,7 @@ public:
 	void MapInIn(MIPSReg rd, MIPSReg rs);
 	void MapInInV(int rt, int rs);
 	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
+	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
 	void MapDirty(MIPSReg rd);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
