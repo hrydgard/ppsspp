@@ -17,7 +17,10 @@
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
+#ifndef _XBOX
+ // timeval already defined in xtl.h
 #include <Winsock2.h>
+#endif
 #else
 #include <sys/time.h>
 #endif

@@ -29,6 +29,7 @@ enum GPUCore {
 	GPU_NULL,
 	GPU_GLES,
 	GPU_SOFTWARE,
+	GPU_DIRECTX9,
 };
 
 struct CoreParameter

@@ -19,7 +19,9 @@
 
 #include "Common/Common.h"
 
-#if defined(ARM)
+#if defined(PPC) 
+#include "../PPC/PpcJit.h"
+#elif defined(ARM)
 #include "../ARM/ArmJit.h"
 #else
 #include "../x86/Jit.h"

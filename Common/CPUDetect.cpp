@@ -22,7 +22,9 @@
 #define _interlockedbittestandreset workaround_ms_header_bug_platform_sdk6_reset
 #define _interlockedbittestandset64 workaround_ms_header_bug_platform_sdk6_set64
 #define _interlockedbittestandreset64 workaround_ms_header_bug_platform_sdk6_reset64
+#ifndef _XBOX
 #include <intrin.h>
+#endif
 #undef _interlockedbittestandset
 #undef _interlockedbittestandreset
 #undef _interlockedbittestandset64
@@ -84,6 +86,7 @@ CPUInfo::CPUInfo() {
 void CPUInfo::Detect()
 {
 	memset(this, 0, sizeof(*this));
+#ifndef _XBOX
 #ifdef _M_IX86
 	Mode64bit = false;
 #elif defined (_M_X64)
@@ -189,6 +192,12 @@ void CPUInfo::Detect()
 			num_cores = (cpu_id[2] & 0xFF) + 1;
 		}
 	} 
+#else
+	Mode64bit = false;
+	OS64bit = false;
+	num_cores = 6;
+	vendor = VENDOR_OTHER;
+#endif
 }
 
 // Turn the cpu info into a string we can show

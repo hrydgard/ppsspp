@@ -75,7 +75,7 @@ LogManager::LogManager()
 	m_Log[LogTypes::ME]         = new LogContainer("ME",      "Media Engine");
 
 	// Remove file logging on small devices
-#if !defined(USING_GLES2) || defined(_DEBUG)
+#if !(defined(USING_GLES2) || defined(_XBOX)) || defined(_DEBUG)
 	m_fileLog = new FileLogListener(File::GetUserPath(F_MAINLOG_IDX).c_str());
 	m_consoleLog = new ConsoleListener();
 	m_debuggerLog = new DebuggerLogListener();
@@ -88,10 +88,10 @@ LogManager::LogManager()
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 	{
 		m_Log[i]->SetEnable(true);
-#if !defined(USING_GLES2) || defined(_DEBUG)
+#if !(defined(USING_GLES2) || defined(_XBOX)) || defined(_DEBUG)
 		m_Log[i]->AddListener(m_fileLog);
 		m_Log[i]->AddListener(m_consoleLog);
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(_XBOX)
 		if (IsDebuggerPresent() && m_debuggerLog != NULL && LOG_MSC_OUTPUTDEBUG)
 			m_Log[i]->AddListener(m_debuggerLog);
 #endif

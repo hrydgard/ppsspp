@@ -49,6 +49,7 @@
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="CommonWindows.h" />
+    <ClInclude Include="Atomic_Xbox360.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

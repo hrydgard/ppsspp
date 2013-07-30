@@ -202,7 +202,7 @@ public:
 	
 	static unsigned hardware_concurrency()
 	{
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 		SYSTEM_INFO sysinfo;
 		GetSystemInfo(&sysinfo);
 		return static_cast<unsigned>(sysinfo.dwNumberOfProcessors);

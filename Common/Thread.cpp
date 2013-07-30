@@ -47,12 +47,16 @@ int CurrentThreadId()
 
 void SetThreadAffinity(std::thread::native_handle_type thread, u32 mask)
 {
+#ifndef _XBOX
 	SetThreadAffinityMask(thread, mask);
+#endif
 }
 
 void SetCurrentThreadAffinity(u32 mask)
-{
+{	
+#ifndef _XBOX
 	SetThreadAffinityMask(GetCurrentThread(), mask);
+#endif
 }
 
 // Supporting functions

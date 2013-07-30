@@ -52,6 +52,9 @@
     <Filter Include="Font">
       <UniqueIdentifier>{1c79e88d-1c48-450b-8af6-f22ce7d40c66}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\PPC">
+      <UniqueIdentifier>{8eaba0de-d1e6-4d65-89e5-e8fdc32f6331}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -450,6 +453,9 @@
     </ClCompile>
     <ClCompile Include="FileSystems\VirtualDiscFileSystem.cpp">
       <Filter>FileSystems</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcJit.cpp">
+      <Filter>MIPS\PPC</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

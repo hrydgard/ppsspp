@@ -22,9 +22,11 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#ifndef _XBOX
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName
+#endif
 #include <io.h>
 #include <direct.h>		// getcwd
 #else
@@ -651,6 +653,7 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 std::string GetCurrentDir()
 {
 	char *dir;
+#ifndef _XBOX
 	// Get the current working directory (getcwd uses malloc) 
 	if (!(dir = __getcwd(NULL, 0))) {
 
@@ -661,12 +664,19 @@ std::string GetCurrentDir()
 	std::string strDir = dir;
 	free(dir);
 	return strDir;
+#else
+	return "game:\\";
+#endif
 }
 
 // Sets the current directory to the given directory
 bool SetCurrentDir(const std::string &directory)
 {
+#ifndef _XBOX
 	return __chdir(directory.c_str()) == 0;
+#else
+	return false;
+#endif
 }
 
 #if defined(__APPLE__)
@@ -688,6 +698,7 @@ std::string GetBundleDirectory()
 #ifdef _WIN32
 std::string &GetExeDirectory()
 {
+#ifndef _XBOX
 	static std::string DolphinPath;
 	if (DolphinPath.empty())
 	{
@@ -697,6 +708,10 @@ std::string &GetExeDirectory()
 		DolphinPath = DolphinPath.substr(0, DolphinPath.find_last_of('\\'));
 	}
 	return DolphinPath;
+#else
+	static std::string DolphinPath = "game:\\";
+	return DolphinPath;
+#endif
 }
 #endif
 
@@ -867,6 +882,7 @@ bool IOFile::Flush()
 
 bool IOFile::Resize(u64 size)
 {
+#ifndef _XBOX
 	if (!IsOpen() || 0 !=
 #ifdef _WIN32
 		// ector: _chsize sucks, not 64-bit safe
@@ -880,6 +896,9 @@ bool IOFile::Resize(u64 size)
 		m_good = false;
 
 	return m_good;
+#else
+	return false;
+#endif
 }
 
 } // namespace
