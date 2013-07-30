@@ -23,6 +23,7 @@
 #include "MIPSAnalyst.h"
 #include "MIPSCodeUtils.h"
 #include "../Debugger/SymbolMap.h"
+#include "../Debugger/DebugInterface.h"
 
 using namespace MIPSCodeUtils;
 using namespace std;
@@ -529,5 +530,125 @@ namespace MIPSAnalyst
 			if (info & OUT_RA) vec.push_back(MIPS_REG_RA);
 		}
 		return vec;
+	}
+
+	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address)
+	{
+		MipsOpcodeInfo info;
+		memset(&info,0,sizeof(info));
+
+		info.cpu = cpu;
+		info.opcodeAddress = address;
+		info.encodedOpcode = Memory::Read_Instruction(address);
+
+		u32 op = info.encodedOpcode;		
+		u32 opInfo = MIPSGetInfo(op);
+		info.isLikelyBranch = (opInfo & LIKELY) != 0;
+		
+		//j , jal, ...
+		if (opInfo & IS_JUMP)
+		{
+			info.isBranch = true;
+			if (opInfo & OUT_RA)	// link
+			{
+				info.isLinkedBranch = true;
+			}
+
+			if (opInfo & IN_RS)		// to register
+			{
+				info.isBranchToRegister = true;
+				info.branchRegisterNum = MIPS_GET_RS(op);
+				info.branchTarget = cpu->GetRegValue(0,info.branchRegisterNum);
+			} else {				// to immediate
+				info.branchTarget = GetJumpTarget(address);
+			}
+		}
+
+		// movn, movz
+		if (opInfo & IS_CONDMOVE)
+		{
+			info.isConditional = true;
+
+			u32 rt = cpu->GetRegValue(0,MIPS_GET_RT(op));
+			switch (opInfo & CONDTYPE_MASK)
+			{
+			case CONDTYPE_EQ:
+				info.conditionMet = (rt == 0);
+				break;
+			case CONDTYPE_NE:
+				info.conditionMet = (rt != 0);
+				break;
+			}
+		}
+
+		// beq, bgtz, ...
+		if (opInfo & IS_CONDBRANCH)
+		{
+			info.isBranch = true;
+			info.isConditional = true;
+			info.branchTarget = GetBranchTarget(address);
+			
+			if (opInfo & OUT_RA)	// link
+			{
+				info.isLinkedBranch = true;
+			}
+
+			u32 rt = cpu->GetRegValue(0,MIPS_GET_RT(op));
+			u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));
+			switch (opInfo & CONDTYPE_MASK)
+			{
+			case CONDTYPE_EQ:
+				info.conditionMet = (rt == rs);
+				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))		// always true
+				{
+					info.isConditional = false;
+				}
+				break;
+			case CONDTYPE_NE:
+				info.conditionMet = (rt != rs);
+				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))		// always true
+				{
+					info.isConditional = false;
+				}
+				break;
+			case CONDTYPE_LEZ:
+				info.conditionMet = (((s32)rs) <= 0);
+				break;
+			case CONDTYPE_GTZ:
+				info.conditionMet = (((s32)rs) > 0);
+				break;
+			case CONDTYPE_LTZ:
+				info.conditionMet = (((s32)rs) < 0);
+				break;
+			case CONDTYPE_GEZ:
+				info.conditionMet = (((s32)rs) >= 0);
+				break;
+			}
+		}
+
+		// lw, sh, ...
+		if ((opInfo & IN_MEM) || (opInfo & OUT_MEM))
+		{
+			info.isDataAccess = true;
+			
+			switch (opInfo & MEMTYPE_MASK)
+			{
+			case MEMTYPE_BYTE:
+				info.dataSize = 1;
+				break;
+			case MEMTYPE_HWORD:
+				info.dataSize = 2;
+				break;
+			case MEMTYPE_WORD:
+				info.dataSize = 4;
+				break;
+			}
+
+			u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));
+			s16 imm16 = op & 0xFFFF;
+			info.dataAddress = rs + imm16;
+		}
+
+		return info;
 	}
 }
