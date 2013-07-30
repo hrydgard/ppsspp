@@ -71,14 +71,16 @@ namespace MIPSAnalyst
 		DebugInterface* cpu;
 		u32 opcodeAddress;
 		u32 encodedOpcode;
+		
+		// shared between branches and conditional moves
+		bool isConditional;
+		bool conditionMet;
 
 		// branches
 		u32 branchTarget;
 		bool isBranch;
 		bool isLinkedBranch;
 		bool isLikelyBranch;
-		bool isConditionalBranch;
-		bool branchConditionMet;
 		bool isBranchToRegister;
 		int branchRegisterNum;
 

@@ -406,9 +406,9 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		parseDisasm(dizz,opcode,arguments);
 
 		// display whether the condition of a branch is met
-		if (info.isConditionalBranch && address == debugger->getPC())
+		if (info.isConditional && address == debugger->getPC())
 		{
-			strcat(arguments,info.branchConditionMet ? "  ; true" : "  ; false");
+			strcat(arguments,info.conditionMet ? "  ; true" : "  ; false");
 		}
 
 		int length = (int) strlen(arguments);
@@ -418,7 +418,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		TextOut(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
 
-		if (info.isConditionalBranch)
+		if (info.isBranch && info.isConditional)
 		{
 			branches[numBranches].src=rowY1 + rowHeight/2;
 			branches[numBranches].srcAddr=address/instructionSize;

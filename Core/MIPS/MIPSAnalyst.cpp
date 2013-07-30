@@ -532,36 +532,6 @@ namespace MIPSAnalyst
 		return vec;
 	}
 
-	void opInfoSetJump(MipsOpcodeInfo& inf, bool link, u32 target, int reg = -1)
-	{
-		inf.isBranch = true;
-		inf.isLinkedBranch = link;
-		inf.branchTarget = target;
-
-		if (reg != -1)
-		{
-			inf.isBranchToRegister = true;
-			inf.branchRegisterNum = reg;
-		}
-	}
-
-	inline void opInfoSetBranch(MipsOpcodeInfo& inf, u32 target, bool conditionMet)
-	{
-		inf.isBranch = true;
-		inf.isConditionalBranch = true;
-		inf.branchConditionMet = conditionMet;
-		inf.branchTarget = target;
-	}
-
-	inline void opInfoSetDataAccess(MipsOpcodeInfo& inf, int dataSize)
-	{
-		inf.isDataAccess = true;
-		inf.dataSize = dataSize;
-		
-		s16 imm16 = inf.encodedOpcode & 0xFFFF;
-		inf.dataAddress = inf.cpu->GetRegValue(0,MIPS_GET_RS(inf.encodedOpcode)) + imm16;
-	}
-
 	MipsOpcodeInfo GetOpcodeInfo(DebugInterface* cpu, u32 address)
 	{
 		MipsOpcodeInfo info;
@@ -570,91 +540,113 @@ namespace MIPSAnalyst
 		info.cpu = cpu;
 		info.opcodeAddress = address;
 		info.encodedOpcode = Memory::Read_Instruction(address);
-		u32 op = info.encodedOpcode;
 
-		// read everything that could be used
-		u32 rt = cpu->GetRegValue(0,MIPS_GET_RT(op));
-		u32 rd = cpu->GetRegValue(0,MIPS_GET_RD(op));
-		u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));
-		int rsNum = MIPS_GET_RS(op);
-		int rtNum = MIPS_GET_RT(op);
-		u32 jumpTarget = GetJumpTarget(address);
-		u32 branchTarget = GetBranchTarget(address);
-
-		switch (MIPS_GET_OP(op))
+		u32 op = info.encodedOpcode;		
+		u32 opInfo = MIPSGetInfo(op);
+		info.isLikelyBranch = (opInfo & LIKELY) != 0;
+		
+		//j , jal, ...
+		if (opInfo & IS_JUMP)
 		{
-		case 0:		// special
-			switch (MIPS_GET_FUNC(op))
+			info.isBranch = true;
+			if (opInfo & OUT_RA)	// link
 			{
-			case 8:		// jr
-				opInfoSetJump(info,false,rs,rsNum);
+				info.isLinkedBranch = true;
+			}
+
+			if (opInfo & IN_RS)		// to register
+			{
+				info.isBranchToRegister = true;
+				info.branchRegisterNum = MIPS_GET_RS(op);
+				info.branchTarget = cpu->GetRegValue(0,info.branchRegisterNum);
+			} else {				// to immediate
+				info.branchTarget = GetJumpTarget(address);
+			}
+		}
+
+		// movn, movz
+		if (opInfo & IS_CONDMOVE)
+		{
+			info.isConditional = true;
+
+			u32 rt = cpu->GetRegValue(0,MIPS_GET_RT(op));
+			switch (opInfo & CONDTYPE_MASK)
+			{
+			case CONDTYPE_EQ:
+				info.conditionMet = (rt == 0);
 				break;
-			case 9:		// jalr
-				opInfoSetJump(info,true,rs,rsNum);
+			case CONDTYPE_NE:
+				info.conditionMet = (rt != 0);
 				break;
 			}
-			break;
-		case 1:		// regimm
-			switch (rtNum)
+		}
+
+		// beq, bgtz, ...
+		if (opInfo & IS_CONDBRANCH)
+		{
+			info.isBranch = true;
+			info.isConditional = true;
+			info.branchTarget = GetBranchTarget(address);
+			
+			if (opInfo & OUT_RA)	// link
 			{
-
-
+				info.isLinkedBranch = true;
 			}
-			break;
-		case 2:		// j
-			opInfoSetJump(info,false,jumpTarget);
-			break;
-		case 3:		// jal
-			opInfoSetJump(info,true,jumpTarget);
-			break;
-		case 4:		// beq
-			opInfoSetBranch(info,branchTarget,rt == rs);
-			if (rtNum == rsNum) // pretend to be unconditional when it de facto is
+
+			u32 rt = cpu->GetRegValue(0,MIPS_GET_RT(op));
+			u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));
+			switch (opInfo & CONDTYPE_MASK)
 			{
-				info.isConditionalBranch = false;
+			case CONDTYPE_EQ:
+				info.conditionMet = (rt == rs);
+				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))		// always true
+				{
+					info.isConditional = false;
+				}
+				break;
+			case CONDTYPE_NE:
+				info.conditionMet = (rt != rs);
+				if (MIPS_GET_RT(op) == MIPS_GET_RS(op))		// always true
+				{
+					info.isConditional = false;
+				}
+				break;
+			case CONDTYPE_LEZ:
+				info.conditionMet = (((s32)rs) <= 0);
+				break;
+			case CONDTYPE_GTZ:
+				info.conditionMet = (((s32)rs) > 0);
+				break;
+			case CONDTYPE_LTZ:
+				info.conditionMet = (((s32)rs) < 0);
+				break;
+			case CONDTYPE_GEZ:
+				info.conditionMet = (((s32)rs) >= 0);
+				break;
 			}
-			break;
-		case 20:	// beql
-			opInfoSetBranch(info,branchTarget,rt == rs);
-			info.isLikelyBranch = true;
-		case 5:		// bne
-			opInfoSetBranch(info,branchTarget,rt != rs);
-			break;
-		case 21:	// bnel
-			opInfoSetBranch(info,branchTarget,rt != rs);
-			info.isLikelyBranch = true;
-		case 6:		// blez
-			opInfoSetBranch(info,branchTarget,((s32)rs) <= 0);
-			break;
-		case 22:	// blezl
-			opInfoSetBranch(info,branchTarget,((s32)rs) <= 0);
-			info.isLikelyBranch = true;
-		case 7:		// bgtz
-			opInfoSetBranch(info,branchTarget,((s32)rs) > 0);
-			break;
-		case 23:	// bgtzl
-			opInfoSetBranch(info,branchTarget,((s32)rs) > 0);
-			info.isLikelyBranch = true;
-			break;
+		}
 
-		case 32:	// lb
-		case 36:	// lb
-		case 40:	// sb
-			opInfoSetDataAccess(info,1);
-			break;
-		case 33:	// lh
-		case 37:	// lh
-		case 41:	// sh
-			opInfoSetDataAccess(info,2);
-			break;
-		case 34:	// lwl
-		case 35:	// lw
-		case 38:	// lwr
-		case 42:	// swl
-		case 43:	// sw
-		case 46:	// swr
-			opInfoSetDataAccess(info,4);
-			break;
+		// lw, sh, ...
+		if ((opInfo & IN_MEM) || (opInfo & OUT_MEM))
+		{
+			info.isDataAccess = true;
+			
+			switch (opInfo & MEMTYPE_MASK)
+			{
+			case MEMTYPE_BYTE:
+				info.dataSize = 1;
+				break;
+			case MEMTYPE_HWORD:
+				info.dataSize = 2;
+				break;
+			case MEMTYPE_WORD:
+				info.dataSize = 4;
+				break;
+			}
+
+			u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));
+			s16 imm16 = op & 0xFFFF;
+			info.dataAddress = rs + imm16;
 		}
 
 		return info;

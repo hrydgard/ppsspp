@@ -19,6 +19,23 @@
 
 #include "../../Globals.h"
 
+#define CONDTYPE_MASK	0x00000007
+#define CONDTYPE_EQ		0x00000001
+#define CONDTYPE_NE		0x00000002
+#define CONDTYPE_LEZ	0x00000003
+#define CONDTYPE_GTZ	0x00000004
+#define CONDTYPE_LTZ	0x00000005
+#define CONDTYPE_GEZ	0x00000006
+
+// as long as the other flags are checked,
+// there is no way to misinterprete these
+// as CONDTYPE_X
+#define MEMTYPE_MASK	0x00000003
+#define MEMTYPE_BYTE	0x00000001
+#define MEMTYPE_HWORD	0x00000002
+#define MEMTYPE_WORD	0x00000003
+
+#define IS_CONDMOVE		0x00000008
 #define DELAYSLOT       0x00000010
 #define BAD_INSTRUCTION 0x00000020
 #define UNCONDITIONAL   0x00000040

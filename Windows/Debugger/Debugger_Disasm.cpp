@@ -293,7 +293,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
 					if (info.isBranch)
 					{
-						if (info.isConditionalBranch == false)
+						if (info.isConditional == false)
 						{
 							if (info.isLinkedBranch)	// jal, jalr
 							{
