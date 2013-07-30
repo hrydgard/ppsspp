@@ -236,7 +236,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
 		switch (pixelFormat) {
-		case PSP_DISPLAY_PIXEL_FORMAT_8888:
+		case GE_FORMAT_8888:
 			break;
 		}
 
@@ -246,13 +246,13 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	}
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
-	if (pixelFormat != PSP_DISPLAY_PIXEL_FORMAT_8888 || linesize != 512) {
+	if (pixelFormat != GE_FORMAT_8888 || linesize != 512) {
 		if (!convBuf) {
 			convBuf = new u8[512 * 272 * 4];
 		}
 		for (int y = 0; y < 272; y++) {
 			switch (pixelFormat) {
-			case PSP_DISPLAY_PIXEL_FORMAT_565:
+			case GE_FORMAT_565:
 				{
 					const u16 *src = (const u16 *)framebuf + linesize * y;
 					u8 *dst = convBuf + 4 * 512 * y;
@@ -267,7 +267,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 				}
 				break;
 
-			case PSP_DISPLAY_PIXEL_FORMAT_5551:
+			case GE_FORMAT_5551:
 				{
 					const u16 *src = (const u16 *)framebuf + linesize * y;
 					u8 *dst = convBuf + 4 * 512 * y;
@@ -282,7 +282,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 				}
 				break;
 
-			case PSP_DISPLAY_PIXEL_FORMAT_4444:
+			case GE_FORMAT_4444:
 				{
 					const u16 *src = (const u16 *)framebuf + linesize * y;
 					u8 *dst = convBuf + 4 * 512 * y;
@@ -297,7 +297,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 				}
 				break;
 
-			case PSP_DISPLAY_PIXEL_FORMAT_8888:
+			case GE_FORMAT_8888:
 				{
 					const u8 *src = framebuf + linesize * 4 * y;
 					u8 *dst = convBuf + 4 * 512 * y;
@@ -313,7 +313,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, int pixelFormat, int lin
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
-	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,512,272, GL_RGBA, GL_UNSIGNED_BYTE, pixelFormat == PSP_DISPLAY_PIXEL_FORMAT_8888 ? framebuf : convBuf);
+	glTexSubImage2D(GL_TEXTURE_2D,0,0,0,512,272, GL_RGBA, GL_UNSIGNED_BYTE, pixelFormat == GE_FORMAT_8888 ? framebuf : convBuf);
 
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
