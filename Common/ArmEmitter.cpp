@@ -920,14 +920,8 @@ void ARMXEmitter::VSUB(IntegerSize Size, ARMReg Vd, ARMReg Vn, ARMReg Vm)
 		| ((Vm & 0x10) << 2) | (Vm & 0xF));
 }
 
-// VFP Specific
-struct VFPEnc
-{
-	s16 opc1;
-	s16 opc2;
-};
 // Double/single, Neon
-const VFPEnc VFPOps[][2] = {
+extern const VFPEnc VFPOps[16][2] = {
 	{{0xE0, 0xA0}, {0x20, 0xD1}}, // 0: VMLA
 	{{0xE1, 0xA4}, {  -1,   -1}}, // 1: VNMLA
 	{{0xE0, 0xA4}, {0x22, 0xD1}}, // 2: VMLS
@@ -944,7 +938,8 @@ const VFPEnc VFPOps[][2] = {
 	{{0xEB, 0xAC}, {  -1,   -1}}, // 13: VCMPE (Vn(0x4 | #0 ? 1 : 0) used for encoding)
 	{{  -1,   -1}, {0x3B, 0x30}}, // 14: VABSi
 	};
-const char *VFPOpNames[] = {
+
+extern const char *VFPOpNames[16] = {
 	"VMLA",
 	"VNMLA",
 	"VMLS",

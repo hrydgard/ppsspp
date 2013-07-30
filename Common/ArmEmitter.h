@@ -656,6 +656,14 @@ public:
 	}
 };
 
+// VFP Specific
+struct VFPEnc {
+	s16 opc1;
+	s16 opc2;
+};
+extern const VFPEnc VFPOps[16][2];
+extern const char *VFPOpNames[16];
+
 }  // namespace
 
 #endif // _DOLPHIN_INTEL_CODEGEN_
