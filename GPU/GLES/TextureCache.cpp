@@ -392,8 +392,8 @@ inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, C
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt) {
 	int bufw = GetLevelBufw(level, texaddr);
-	int w = gstate.getTextureWidth();
-	int h = gstate.getTextureHeight();
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 	int length = bufw * h;
 	void *buf = NULL;
 	switch (gstate.getClutPaletteFormat()) {
@@ -996,8 +996,8 @@ void TextureCache::SetTexture() {
 		cluthash = 0;
 	}
 
-	int w = gstate.getTextureWidth();
-	int h = gstate.getTextureHeight();
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 	int bufw = GetLevelBufw(0, texaddr);
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
