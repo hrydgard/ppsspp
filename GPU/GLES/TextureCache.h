@@ -90,6 +90,7 @@ private:
 		u32 framesUntilNextFullHash;
 		u8 format;
 		u16 dim;
+		u16 bufw;
 		u32 texture;  //GLuint
 		int invalidHint;
 		u32 fullhash;
