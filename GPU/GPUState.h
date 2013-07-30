@@ -246,6 +246,8 @@ struct GPUgstate
 	u32 getColorTestMask() const { return colormask & 0xFFFFFF; }
 
 	// Texturing
+	int getTextureWidth(int level) const { return 1 << (texsize[level] & 0xf);}
+	int getTextureHeight(int level) const { return 1 << ((texsize[level] >> 8) & 0xf);}
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
@@ -314,9 +316,8 @@ struct GPUgstate
 
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
-	int getNumBoneWeights() const {
-		return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
-	}
+	int getWeightMask() const { return vertType & GE_VTYPE_WEIGHT_MASK; }
+	int getNumBoneWeights() const { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 
 // Real data in the context ends here
 };
