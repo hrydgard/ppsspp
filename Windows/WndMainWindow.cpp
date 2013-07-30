@@ -737,19 +737,19 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_SCREEN1X:
-					setZoom(1);
+					setZoom(ZOOM_NATIVE);
 					break;
 
 				case ID_OPTIONS_SCREEN2X:
-					setZoom(2);
+					setZoom(ZOOM_2X);
 					break;
 
 				case ID_OPTIONS_SCREEN3X:
-					setZoom(3);
+					setZoom(ZOOM_3X);
 					break;
 
 				case ID_OPTIONS_SCREEN4X:
-					setZoom(4);
+					setZoom(ZOOM_MAX);
 					break;
 
 				case ID_OPTIONS_SCREENDUMMY:
@@ -767,23 +767,23 @@ namespace MainWindow
 					break;
 
 				case ID_TEXTURESCALING_OFF:
-					setTexScalingMultiplier(1);
+					setTexScalingMultiplier(TEXSCALING_OFF);
 					break;
 
 				case ID_TEXTURESCALING_2X:
-					setTexScalingMultiplier(2);
+					setTexScalingMultiplier(TEXSCALING_2X);
 					break;
 
 				case ID_TEXTURESCALING_3X:
-					setTexScalingMultiplier(3);
+					setTexScalingMultiplier(TEXSCALING_3X);
 					break;
 
 				case ID_TEXTURESCALING_4X:
-					setTexScalingMultiplier(4);
+					setTexScalingMultiplier(TEXSCALING_4X);
 					break;
 
 				case ID_TEXTURESCALING_5X:
-					setTexScalingMultiplier(5);
+					setTexScalingMultiplier(TEXSCALING_MAX);
 					break;
 
 				case ID_TEXTURESCALING_XBRZ:
@@ -846,47 +846,47 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_0:
-					setFrameSkipping(0);
+					setFrameSkipping(FRAMESKIP_OFF);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_1:
-					setFrameSkipping(1);
+					setFrameSkipping(FRAMESKIP_1);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_2:
-					setFrameSkipping(2);
+					setFrameSkipping(FRAMESKIP_2);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_3:
-					setFrameSkipping(3);
+					setFrameSkipping(FRAMESKIP_3);
 					break;
 				
 				case ID_OPTIONS_FRAMESKIP_4:
-					setFrameSkipping(4);
+					setFrameSkipping(FRAMESKIP_4);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_5:
-					setFrameSkipping(5);
+					setFrameSkipping(FRAMESKIP_5);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_6:
-					setFrameSkipping(6);
+					setFrameSkipping(FRAMESKIP_6);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_7:
-					setFrameSkipping(7);
+					setFrameSkipping(FRAMESKIP_7);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_8:
-					setFrameSkipping(8);
+					setFrameSkipping(FRAMESKIP_8);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_9:
-					setFrameSkipping(9);
+					setFrameSkipping(FRAMESKIP_MAX);
 					break;
 
 				case ID_OPTIONS_FRAMESKIPDUMMY:
-					g_Config.iFrameSkip = ++g_Config.iFrameSkip > 9 ? 0 : g_Config.iFrameSkip;
+					g_Config.iFrameSkip = ++g_Config.iFrameSkip > FRAMESKIP_MAX ? 0 : g_Config.iFrameSkip;
 
 					setFrameSkipping(g_Config.iFrameSkip);
 					break;
@@ -1207,6 +1207,12 @@ namespace MainWindow
 			ID_OPTIONS_SCREEN3X,
 			ID_OPTIONS_SCREEN4X,
 		};
+		if(g_Config.iWindowZoom < ZOOM_NATIVE)
+			g_Config.iWindowZoom = ZOOM_NATIVE;
+
+		else if(g_Config.iWindowZoom > ZOOM_MAX)
+			g_Config.iWindowZoom = ZOOM_MAX;
+
 		for (int i = 0; i < ARRAY_SIZE(zoomitems); i++) {
 			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iWindowZoom - 1) ? MF_CHECKED : MF_UNCHECKED));
 		}
@@ -1218,6 +1224,12 @@ namespace MainWindow
 			ID_TEXTURESCALING_4X,
 			ID_TEXTURESCALING_5X,
 		};
+		if(g_Config.iTexScalingLevel < TEXSCALING_OFF)
+			g_Config.iTexScalingLevel = TEXSCALING_OFF;
+
+		else if(g_Config.iTexScalingLevel > TEXSCALING_MAX)
+			g_Config.iTexScalingLevel = TEXSCALING_MAX;
+
 		for (int i = 0; i < ARRAY_SIZE(texscalingitems); i++) {
 			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel - 1) ? MF_CHECKED : MF_UNCHECKED));
 		}
@@ -1228,6 +1240,12 @@ namespace MainWindow
 			ID_TEXTURESCALING_BICUBIC,
 			ID_TEXTURESCALING_HYBRID_BICUBIC,
 		};
+		if(g_Config.iTexScalingType > TextureScaler::HYBRID_BICUBIC)
+			g_Config.iTexScalingType = TextureScaler::HYBRID_BICUBIC;
+
+		else if(g_Config.iTexScalingType < TextureScaler::XBRZ)
+			g_Config.iTexScalingType = TextureScaler::XBRZ;
+
 		for (int i = 0; i < ARRAY_SIZE(texscalingtypeitems); i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));
 		}
@@ -1238,6 +1256,12 @@ namespace MainWindow
 			ID_OPTIONS_LINEARFILTERING,
 			ID_OPTIONS_LINEARFILTERING_CG,
 		};
+		if(g_Config.iTexFiltering < AUTO)
+			g_Config.iTexFiltering = AUTO;
+
+		else if(g_Config.iTexFiltering > LINEARFMV)
+			g_Config.iTexFiltering = LINEARFMV;
+
 		for (int i = 0; i < ARRAY_SIZE(texfilteringitems); i++) {
 			CheckMenuItem(menu, texfilteringitems[i], MF_BYCOMMAND | ( (i + 1) == g_Config.iTexFiltering )? MF_CHECKED : MF_UNCHECKED);
 		}
@@ -1248,6 +1272,12 @@ namespace MainWindow
 			ID_OPTIONS_READFBOTOMEMORYCPU,
 			ID_OPTIONS_READFBOTOMEMORYGPU,
 		};
+		if(g_Config.iRenderingMode > FB_READFBOMEMORY_GPU)
+			g_Config.iRenderingMode = FB_READFBOMEMORY_GPU;
+
+		else if(g_Config.iRenderingMode < FB_NON_BUFFERED_MODE)
+			g_Config.iRenderingMode = FB_NON_BUFFERED_MODE;
+
 		for (int i = 0; i < ARRAY_SIZE(renderingmode); i++) {
 			CheckMenuItem(menu, renderingmode[i], MF_BYCOMMAND | ( i == g_Config.iRenderingMode )? MF_CHECKED : MF_UNCHECKED);
 		}
@@ -1264,6 +1294,11 @@ namespace MainWindow
 			ID_OPTIONS_FRAMESKIP_8,
 			ID_OPTIONS_FRAMESKIP_9,
 		};
+		if(g_Config.iFrameSkip > FRAMESKIP_MAX)
+			g_Config.iFrameSkip = FRAMESKIP_MAX;
+
+		else if(g_Config.iFrameSkip < FRAMESKIP_OFF)
+			g_Config.iFrameSkip = FRAMESKIP_OFF;
 		for (int i = 0; i < ARRAY_SIZE(frameskipping); i++) {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
 		}
