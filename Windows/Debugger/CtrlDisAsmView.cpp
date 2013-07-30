@@ -834,17 +834,31 @@ void CtrlDisAsmView::updateStatusBarText()
 	text[0] = 0;
 	if (info.isDataAccess)
 	{
-		switch (info.dataSize)
+		if (!Memory::IsValidAddress(info.dataAddress))
 		{
-		case 1:
-			sprintf(text,"[%08X] = %02X",info.dataAddress,Memory::Read_U8(info.dataAddress));
-			break;
-		case 2:
-			sprintf(text,"[%08X] = %04X",info.dataAddress,Memory::Read_U16(info.dataAddress));
-			break;
-		case 4:
-			sprintf(text,"[%08X] = %08X",info.dataAddress,Memory::Read_U32(info.dataAddress));
-			break;
+			sprintf(text,"Invalid address %08X",info.dataAddress);
+		} else {
+			switch (info.dataSize)
+			{
+			case 1:
+				sprintf(text,"[%08X] = %02X",info.dataAddress,Memory::Read_U8(info.dataAddress));
+				break;
+			case 2:
+				sprintf(text,"[%08X] = %04X",info.dataAddress,Memory::Read_U16(info.dataAddress));
+				break;
+			case 4:
+				{
+					u32 data = Memory::Read_U32(info.dataAddress);
+					const char* addressSymbol = debugger->findSymbolForAddress(data);
+					if (addressSymbol)
+					{
+						sprintf(text,"[%08X] = %s (%08X)",info.dataAddress,addressSymbol,data);
+					} else {
+						sprintf(text,"[%08X] = %08X",info.dataAddress,data);
+					}
+					break;
+				}
+			}
 		}
 	}
 
