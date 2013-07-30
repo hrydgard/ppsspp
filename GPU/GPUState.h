@@ -18,7 +18,6 @@
 #pragma once
 
 #include "../Globals.h"
-#include "gfx/gl_common.h"
 #include "ge_constants.h"
 
 struct GPUgstate

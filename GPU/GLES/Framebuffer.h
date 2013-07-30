@@ -19,6 +19,7 @@
 
 #include <list>
 
+#include "gfx/gl_common.h"
 #include "gfx_es2/fbo.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw
