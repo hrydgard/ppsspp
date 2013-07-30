@@ -172,17 +172,50 @@ TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
 }
 
 void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer) {
+	// This is a rough heuristic, because sometimes our framebuffers are too tall.
+	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
+
 	// Must be in VRAM so | 0x04000000 it is.
-	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
-	if (entry) {
-		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer) {
-			entry->framebuffer = framebuffer;
-			// TODO: Delete the original non-fbo texture too.
-		}	else {
-			// Force a re-bind, fixes map in Tactics Ogre.
-			glBindTexture(GL_TEXTURE_2D, 0);
-			lastBoundTexture = -1;
+	const u64 cacheKey = (u64)(address | 0x04000000) << 32;
+	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
+	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
+	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
+
+	for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+		auto entry = &it->second;
+
+		// If they match exactly, it's non-CLUT and from the top left.
+		if (it->first == cacheKey) {
+			DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
+			if (!entry->framebuffer) {
+				if (entry->format != framebuffer->format) {
+					WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+				}
+				entry->framebuffer = framebuffer;
+				// TODO: Delete the original non-fbo texture too.
+			} else {
+				// Force a re-bind, fixes map in Tactics Ogre.
+				glBindTexture(GL_TEXTURE_2D, 0);
+				lastBoundTexture = -1;
+			}
+		} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+			// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
+			const bool compatFormat = framebuffer->format == entry->format
+				|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
+				|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+
+			// Is it at least the right stride?
+			if (framebuffer->fb_stride == entry->bufw && compatFormat) {
+				if (framebuffer->format != entry->format) {
+					WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+					// TODO: Use an FBO to translate the palette?
+					entry->framebuffer = framebuffer;
+				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
+					WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
+					// TODO: Keep track of the y offset.
+					entry->framebuffer = framebuffer;
+				}
+			}
 		}
 	}
 }
@@ -1138,6 +1171,7 @@ void TextureCache::SetTexture() {
 	entry->lodBias = 0.0f;
 	
 	entry->dim = gstate.texsize[0] & 0xF0F;
+	entry->bufw = bufw;
 
 	// This would overestimate the size in many case so we underestimate instead
 	// to avoid excessive clearing caused by cache invalidations.
