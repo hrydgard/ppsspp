@@ -143,6 +143,13 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	ShowWindow(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW), SW_NORMAL);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_THREADLIST), SW_HIDE);
 
+	// init status bar
+	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "", m_hDlg, IDC_DISASMSTATUSBAR);
+	if (g_Config.bDisplayStatusBar == false)
+	{
+		ShowWindow(statusBarWnd,SW_HIDE);
+	}
+
 	// Actually resize the window to the proper size (after the above setup.)
 	if (w != -1 && h != -1)
 	{
@@ -518,9 +525,27 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			}
 		}
 		break;
+	case WM_DEB_SETSTATUSBARTEXT:
+		SendMessage(statusBarWnd,WM_SETTEXT,0,lParam);
+		break;
+	case WM_DEB_GOTOHEXEDIT:
+		{
+			CtrlMemView *memory = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
+			memory->gotoAddr(wParam);
+			
+			// display the memory viewer too
+			HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
+			HWND mem = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
+			HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
+			ShowWindow(bp,SW_HIDE);
+			ShowWindow(mem,SW_NORMAL);
+			ShowWindow(threads,SW_HIDE);
+		}
+		break;
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));
+			SendMessage(statusBarWnd,WM_SIZE,0,10);
 			SavePosition();
 			return TRUE;
 		}
@@ -566,20 +591,29 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	HWND memView = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
 	HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
 
+	if (g_Config.bDisplayStatusBar)
+	{
+		RECT statusRect;
+		GetWindowRect(statusBarWnd,&statusRect);
+		height -= (statusRect.bottom-statusRect.top);
+	} else {
+		height -= 2;
+	}
+
 	int defaultHeight = defaultRect.bottom - defaultRect.top;
 	int breakpointHeight = defaultBreakpointRect.bottom - defaultBreakpointRect.top;
 	if (height < defaultHeight)
 		breakpointHeight -= defaultHeight - height;
 
-	int breakpointTop = height-breakpointHeight-8;
+	int breakpointTop = height-breakpointHeight-4;
 	int regWidth = regRect.right - regRect.left;
 	int regTop = 138;
 	int disasmWidth = width-regWidth;
 	int disasmTop = 25;
 
-	MoveWindow(regList, 8, regTop, regWidth, height-regTop-breakpointHeight-12, TRUE);
-	MoveWindow(funclist, 8, regTop, regWidth, height-regTop-breakpointHeight-12, TRUE);
-	MoveWindow(disasm,regWidth+15,disasmTop,disasmWidth-20,height-disasmTop-breakpointHeight-12,TRUE);
+	MoveWindow(regList, 8, regTop, regWidth, height-regTop-breakpointHeight-8, TRUE);
+	MoveWindow(funclist, 8, regTop, regWidth, height-regTop-breakpointHeight-8, TRUE);
+	MoveWindow(disasm,regWidth+15,disasmTop,disasmWidth-20,height-disasmTop-breakpointHeight-8,TRUE);
 	MoveWindow(breakpointList,8,breakpointTop,width-16,breakpointHeight,TRUE);
 	MoveWindow(memView,8,breakpointTop,width-16,breakpointHeight,TRUE);
 	MoveWindow(threads,8,breakpointTop,width-16,breakpointHeight,TRUE);

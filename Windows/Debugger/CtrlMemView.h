@@ -52,6 +52,7 @@ class CtrlMemView
 	static TCHAR szClassName[];
 	DebugInterface *debugger;
 	MemViewMode mode;
+	void updateStatusBarText();
 public:
 	CtrlMemView(HWND _wnd);
 	~CtrlMemView();
