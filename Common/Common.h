@@ -185,6 +185,33 @@ inline unsigned int bswap32(unsigned int x) { return (x >> 24) | ((x & 0xFF0000)
 inline unsigned long long bswap64(unsigned long long x) {return ((unsigned long long)bswap32(x) << 32) | bswap32(x >> 32); }
 #endif
 
+inline float bswapf( float f )
+{
+  union
+  {
+    float f;
+    unsigned int u32;
+  } dat1, dat2;
+
+  dat1.f = f;
+  dat2.u32 = bswap32(dat1.u32);
+
+  return dat2.f;
+}
+
+inline double bswapd( double f )
+{
+  union
+  {
+    double f;
+    unsigned long long u64;
+  } dat1, dat2;
+
+  dat1.f = f;
+  dat2.u64 = bswap64(dat1.u64);
+
+  return dat2.f;
+}
 
 // Host communication.
 enum HOST_COMM
