@@ -316,9 +316,8 @@ struct GPUgstate
 
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
-	int getNumBoneWeights() const {
-		return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT);
-	}
+	int getWeightMask() const { return vertType & GE_VTYPE_WEIGHT_MASK; }
+	int getNumBoneWeights() const { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 
 // Real data in the context ends here
 };

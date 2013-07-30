@@ -113,7 +113,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
-	if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) != 0)
+	if (gstate.getWeightMask() != 0)
 		numBones = TranslateNumBones(gstate.getNumBoneWeights());
 	else
 		numBones = 0;
