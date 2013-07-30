@@ -198,7 +198,7 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 				glBindTexture(GL_TEXTURE_2D, 0);
 				lastBoundTexture = -1;
 			}
-		} else {
+		} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
 			// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
 			const bool compatFormat = framebuffer->format == entry->format
 				|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
