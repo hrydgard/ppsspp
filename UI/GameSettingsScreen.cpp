@@ -272,7 +272,7 @@ void GameSettingsScreen::CreateViews() {
 	static const char *timeFormat[] = { "12HR", "24HR"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
 	static const char *buttonPref[] = { "Use X to confirm", "Use O to confirm"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Button Perference"), buttonPref, 1, 2, s, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Button Preference"), buttonPref, 1, 2, s, screenManager()));
 }
 
 void GameSettingsScreen::update(InputState &input) {
