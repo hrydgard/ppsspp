@@ -24,8 +24,6 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/MemMap.h"
 #include "image/zim_load.h"
-#include "gfx/texture_atlas.h"
-#include "gfx/gl_common.h"
 #include "util/text/utf8.h"
 #include "MathUtil.h"
 #include "Core/System.h"

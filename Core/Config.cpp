@@ -172,6 +172,7 @@ void Config::Load(const char *iniFileName)
 	debugConfig->Get("ConsoleWindowY", &iConsoleWindowY, -1);
 	debugConfig->Get("FontWidth", &iFontWidth, 8);
 	debugConfig->Get("FontHeight", &iFontHeight, 12);
+	debugConfig->Get("DisplayStatusBar", &bDisplayStatusBar, true);
 
 	IniFile::Section *gleshacks = iniFile.GetOrCreateSection("GLESHacks");
 	gleshacks->Get("PrescaleUV", &bPrescaleUV, false);
@@ -288,6 +289,7 @@ void Config::Save()
 		debugConfig->Set("ConsoleWindowY", iConsoleWindowY);
 		debugConfig->Set("FontWidth", iFontWidth);
 		debugConfig->Set("FontHeight", iFontHeight);
+		debugConfig->Set("DisplayStatusBar", bDisplayStatusBar);
 
 		KeyMap::SaveToIni(iniFile);
 

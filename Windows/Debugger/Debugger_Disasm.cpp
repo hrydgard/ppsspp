@@ -22,6 +22,7 @@
 #include "Core/CPU.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 
 #include "base/stringutil.h"
 
@@ -141,6 +142,13 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	ShowWindow(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST), SW_HIDE);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW), SW_NORMAL);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_THREADLIST), SW_HIDE);
+
+	// init status bar
+	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "", m_hDlg, IDC_DISASMSTATUSBAR);
+	if (g_Config.bDisplayStatusBar == false)
+	{
+		ShowWindow(statusBarWnd,SW_HIDE);
+	}
 
 	// Actually resize the window to the proper size (after the above setup.)
 	if (w != -1 && h != -1)
@@ -287,42 +295,29 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
 					CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-					const char* dis = cpu->disasm(cpu->GetPC(),4);
-					const char* pos = strstr(dis,"->$");
-					const char* reg = strstr(dis,"->");
-					
+					MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(cpu,cpu->GetPC());
 					ptr->setDontRedraw(true);
 					u32 breakpointAddress = cpu->GetPC()+cpu->getInstructionSize(0);
-					if (memcmp(dis,"jal\t",4) == 0 || memcmp(dis,"jalr\t",5) == 0)
+					if (info.isBranch)
 					{
-						// it's a function call with a delay slot - skip that too
-						breakpointAddress += cpu->getInstructionSize(0);
-					} else if (memcmp(dis,"j\t",2) == 0 || memcmp(dis,"b\t",2) == 0)
-					{
-						// in case of absolute branches, set the breakpoint at the branch target
-						sscanf(pos+3,"%08x",&breakpointAddress);
-					} else if (memcmp(dis,"jr\t",3) == 0)
-					{
-						// the same for jumps to registers
-						int regNum = -1;
-						for (int i = 0; i < 32; i++)
+						if (info.isConditional == false)
 						{
-							if (strcasecmp(reg+2,cpu->GetRegName(0,i)) == 0)
+							if (info.isLinkedBranch)	// jal, jalr
 							{
-								regNum = i;
-								break;
+								// it's a function call with a delay slot - skip that too
+								breakpointAddress += cpu->getInstructionSize(0);
+							} else {					// j, ...
+								// in case of absolute branches, set the breakpoint at the branch target
+								breakpointAddress = info.branchTarget;
 							}
-						}
-						if (regNum == -1) break;
-						breakpointAddress = cpu->GetRegValue(0,regNum);
-					} else if (pos != NULL)
-					{
-						// get branch target
-						sscanf(pos+3,"%08x",&breakpointAddress);
-						CBreakPoints::AddBreakPoint(breakpointAddress,true);
+						} else {						// beq, ...
+							// set breakpoint at branch target
+							breakpointAddress = info.branchTarget;
+							CBreakPoints::AddBreakPoint(breakpointAddress,true);
 
-						// also add a breakpoint after the delay slot
-						breakpointAddress = cpu->GetPC()+2*cpu->getInstructionSize(0);						
+							// and after the delay slot
+							breakpointAddress = cpu->GetPC()+2*cpu->getInstructionSize(0);	
+						}
 					}
 
 					SetDebugMode(false);
@@ -530,9 +525,27 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			}
 		}
 		break;
+	case WM_DEB_SETSTATUSBARTEXT:
+		SendMessage(statusBarWnd,WM_SETTEXT,0,lParam);
+		break;
+	case WM_DEB_GOTOHEXEDIT:
+		{
+			CtrlMemView *memory = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW));
+			memory->gotoAddr(wParam);
+			
+			// display the memory viewer too
+			HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
+			HWND mem = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
+			HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
+			ShowWindow(bp,SW_HIDE);
+			ShowWindow(mem,SW_NORMAL);
+			ShowWindow(threads,SW_HIDE);
+		}
+		break;
 	case WM_SIZE:
 		{
 			UpdateSize(LOWORD(lParam), HIWORD(lParam));
+			SendMessage(statusBarWnd,WM_SIZE,0,10);
 			SavePosition();
 			return TRUE;
 		}
@@ -578,20 +591,29 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	HWND memView = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
 	HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
 
+	if (g_Config.bDisplayStatusBar)
+	{
+		RECT statusRect;
+		GetWindowRect(statusBarWnd,&statusRect);
+		height -= (statusRect.bottom-statusRect.top);
+	} else {
+		height -= 2;
+	}
+
 	int defaultHeight = defaultRect.bottom - defaultRect.top;
 	int breakpointHeight = defaultBreakpointRect.bottom - defaultBreakpointRect.top;
 	if (height < defaultHeight)
 		breakpointHeight -= defaultHeight - height;
 
-	int breakpointTop = height-breakpointHeight-8;
+	int breakpointTop = height-breakpointHeight-4;
 	int regWidth = regRect.right - regRect.left;
 	int regTop = 138;
 	int disasmWidth = width-regWidth;
 	int disasmTop = 25;
 
-	MoveWindow(regList, 8, regTop, regWidth, height-regTop-breakpointHeight-12, TRUE);
-	MoveWindow(funclist, 8, regTop, regWidth, height-regTop-breakpointHeight-12, TRUE);
-	MoveWindow(disasm,regWidth+15,disasmTop,disasmWidth-20,height-disasmTop-breakpointHeight-12,TRUE);
+	MoveWindow(regList, 8, regTop, regWidth, height-regTop-breakpointHeight-8, TRUE);
+	MoveWindow(funclist, 8, regTop, regWidth, height-regTop-breakpointHeight-8, TRUE);
+	MoveWindow(disasm,regWidth+15,disasmTop,disasmWidth-20,height-disasmTop-breakpointHeight-8,TRUE);
 	MoveWindow(breakpointList,8,breakpointTop,width-16,breakpointHeight,TRUE);
 	MoveWindow(memView,8,breakpointTop,width-16,breakpointHeight,TRUE);
 	MoveWindow(threads,8,breakpointTop,width-16,breakpointHeight,TRUE);

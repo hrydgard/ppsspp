@@ -50,7 +50,6 @@
 #define HI currentMIPS->hi
 #define LO currentMIPS->lo
 
-
 static inline void DelayBranchTo(u32 where)
 {
 	PC += 4;

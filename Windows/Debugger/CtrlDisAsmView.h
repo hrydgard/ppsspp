@@ -76,6 +76,7 @@ class CtrlDisAsmView
 	void calculatePixelPositions();
 	bool getDisasmAddressText(u32 address, char* dest, bool abbreviateLabels);
 	void parseDisasm(const char* disasm, char* opcode, char* arguments);
+	void updateStatusBarText();
 public:
 	CtrlDisAsmView(HWND _wnd);
 	~CtrlDisAsmView();
@@ -150,5 +151,6 @@ public:
 		curAddress = newAddress;
 		selectRangeStart = extend ? std::min(selectRangeStart, newAddress) : newAddress;
 		selectRangeEnd = extend ? std::max(selectRangeEnd, after) : after;
+		updateStatusBarText();
 	}
 };

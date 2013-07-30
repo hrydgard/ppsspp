@@ -8,6 +8,7 @@
 #include "Windows/InputBox.h"
 
 #include "Core/MIPS/MIPSAsm.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/Config.h"
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
@@ -343,6 +344,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	for (int i = 0; i < visibleRows+2; i++)
 	{
 		unsigned int address=windowStart + i*instructionSize;
+		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,address);
 
 		int rowY1 = rowHeight*i;
 		int rowY2 = rowHeight*(i+1);
@@ -403,6 +405,12 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		const char *dizz = debugger->disasm(address, instructionSize);
 		parseDisasm(dizz,opcode,arguments);
 
+		// display whether the condition of a branch is met
+		if (info.isConditional && address == debugger->getPC())
+		{
+			strcat(arguments,info.conditionMet ? "  ; true" : "  ; false");
+		}
+
 		int length = (int) strlen(arguments);
 		if (length != 0) TextOut(hdc,pixelPositions.argumentsStart,rowY1+2,arguments,length);
 			
@@ -410,7 +418,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		TextOut(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
 
-		if (branchTarget != -1 && strcmp(opcode,"jal") != 0 && opcode[1] != 0) //unconditional 'b/j' branch
+		if (info.isBranch && info.isConditional)
 		{
 			branches[numBranches].src=rowY1 + rowHeight/2;
 			branches[numBranches].srcAddr=address/instructionSize;
@@ -491,18 +499,17 @@ void CtrlDisAsmView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlDisAsmView::followBranch()
 {
-	char opcode[64],arguments[256];
-	const char *dizz = debugger->disasm(curAddress, instructionSize);
-	parseDisasm(dizz,opcode,arguments);
+	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,curAddress);
 
-	if (branchTarget != -1)
+	if (info.isBranch)
 	{
 		jumpStack.push_back(curAddress);
-		gotoAddr(branchTarget);
-	} else if (branchRegister != -1)
+		gotoAddr(info.branchTarget);
+	} else if (info.isDataAccess)
 	{
-		jumpStack.push_back(curAddress);
-		gotoAddr(debugger->GetRegValue(0,branchRegister));
+		// well, not  exactly a branch, but we can do something anyway
+		SendMessage(GetParent(wnd),WM_DEB_GOTOHEXEDIT,info.dataAddress,0);
+		SetFocus(wnd);
 	}
 }
 
@@ -819,6 +826,41 @@ void CtrlDisAsmView::onMouseMove(WPARAM wParam, LPARAM lParam, int button)
 	}
 }	
 
+void CtrlDisAsmView::updateStatusBarText()
+{
+	char text[512];
+	MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(debugger,curAddress);
+	
+	text[0] = 0;
+	if (info.isDataAccess)
+	{
+		switch (info.dataSize)
+		{
+		case 1:
+			sprintf(text,"[%08X] = %02X",info.dataAddress,Memory::Read_U8(info.dataAddress));
+			break;
+		case 2:
+			sprintf(text,"[%08X] = %04X",info.dataAddress,Memory::Read_U16(info.dataAddress));
+			break;
+		case 4:
+			sprintf(text,"[%08X] = %08X",info.dataAddress,Memory::Read_U32(info.dataAddress));
+			break;
+		}
+	}
+
+	if (info.isBranch)
+	{
+		const char* addressSymbol = debugger->findSymbolForAddress(info.branchTarget);
+		if (addressSymbol == NULL)
+		{
+			sprintf(text,"%08X",info.branchTarget);
+		} else {
+			sprintf(text,"%08X = %s",info.branchTarget,addressSymbol);
+		}
+	}
+
+	SendMessage(GetParent(wnd),WM_DEB_SETSTATUSBARTEXT,0,(LPARAM)text);
+}
 
 u32 CtrlDisAsmView::yToAddress(int y)
 {

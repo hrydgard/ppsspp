@@ -27,6 +27,7 @@ private:
 	DebugInterface *cpu;
 	u64 lastTicks;
 
+	HWND statusBarWnd;
 	CtrlBreakpointList* breakpointList;
 	CtrlThreadList* threadList;
 	std::vector<BreakPoint> displayedBreakPoints_;
