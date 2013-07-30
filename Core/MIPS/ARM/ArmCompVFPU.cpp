@@ -1097,12 +1097,10 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vfim(u32 op) {
-		DISABLE;
-		/*
-		VectorSize sz = GetVecSize(op);
-		if (sz != V_Single)	{
-			ERROR_LOG(JIT, "vfim: wrong vector size");
-		}
+		CONDITIONAL_DISABLE;
+
+		if (js.MayHavePrefix())
+			DISABLE;
 
 		u8 dreg;
 		GetVectorRegs(&dreg, V_Single, _VT);
@@ -1110,12 +1108,12 @@ namespace MIPSComp
 		FP16 half;
 		half.u = op & 0xFFFF;
 		FP32 fval = half_to_float_fast5(half);
-		MOV(32, R(EAX), Imm32(fval.u));
+		MOVI2F(S0, fval.f, R0);
 		fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
-		MOVD_xmm(fpr.VX(dreg), R(EAX));
+		VMOV(fpr.V(dreg), S0);
 
 		ApplyPrefixD(&dreg, V_Single);
-		fpr.ReleaseSpillLocks();*/
+		fpr.ReleaseSpillLocks();
 	}
 
 	void Jit::Comp_Vcst(u32 op) {

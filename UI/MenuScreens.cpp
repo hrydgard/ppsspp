@@ -803,14 +803,18 @@ void DeveloperScreen::render() {
 		i18nrepo.SaveIni(g_Config.languageIni);
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Run CPU Tests"), ALIGN_LEFT)) {
-		// TODO: Run tests
-		RunTests();
-		// screenManager()->push(new EmuScreen())
+	if (!gpu) {
+		if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Run CPU Tests"), ALIGN_LEFT)) {
+			// TODO: Run tests
+			RunTests();
+			// screenManager()->push(new EmuScreen())
+		}
 	}
 
-	if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Dump next frame"), ALIGN_LEFT)) {
-		gpu->DumpNextFrame();
+	if (gpu) {
+		if (UIButton(GEN_ID, vlinear, LARGE_BUTTON_WIDTH + 80, 0, d->T("Dump next frame"), ALIGN_LEFT)) {
+			gpu->DumpNextFrame();
+		}
 	}
 	
 	UIEnd();

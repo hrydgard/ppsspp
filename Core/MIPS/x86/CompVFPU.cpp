@@ -1208,11 +1208,6 @@ void Jit::Comp_Viim(u32 op) {
 void Jit::Comp_Vfim(u32 op) {
 	CONDITIONAL_DISABLE;
 
-	VectorSize sz = GetVecSize(op);
-	if (sz != V_Single)	{
-		ERROR_LOG(JIT, "vfim: wrong vector size");
-	}
-
 	u8 dreg;
 	GetVectorRegs(&dreg, V_Single, _VT);
 
