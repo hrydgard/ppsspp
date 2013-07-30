@@ -753,7 +753,7 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_SCREENDUMMY:
-					g_Config.iWindowZoom = ++g_Config.iWindowZoom > ZOOM_MAX ? 1 : g_Config.iWindowZoom;
+					g_Config.iWindowZoom = ++g_Config.iWindowZoom > ZOOM_MAX ? ZOOM_NATIVE : g_Config.iWindowZoom;
 
 					setZoom(g_Config.iWindowZoom);
 					break;
@@ -825,7 +825,7 @@ namespace MainWindow
 
 				// Dummy option to let the buffered rendering hotkey cycle through all the options.
 				case ID_OPTIONS_BUFFEREDRENDERINGDUMMY:
-					g_Config.iRenderingMode = ++g_Config.iRenderingMode > 3? 0 : g_Config.iRenderingMode;
+					g_Config.iRenderingMode = ++g_Config.iRenderingMode > FB_READFBOMEMORY_GPU ? FB_NON_BUFFERED_MODE : g_Config.iRenderingMode;
 
 					setRenderingMode(g_Config.iRenderingMode);
 					break;
@@ -886,7 +886,7 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_FRAMESKIPDUMMY:
-					g_Config.iFrameSkip = ++g_Config.iFrameSkip > FRAMESKIP_MAX ? 0 : g_Config.iFrameSkip;
+					g_Config.iFrameSkip = ++g_Config.iFrameSkip > FRAMESKIP_MAX ? FRAMESKIP_OFF : g_Config.iFrameSkip;
 
 					setFrameSkipping(g_Config.iFrameSkip);
 					break;
