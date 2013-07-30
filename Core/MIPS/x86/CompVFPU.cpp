@@ -1206,7 +1206,25 @@ void Jit::Comp_Viim(u32 op) {
 }
 
 void Jit::Comp_Vfim(u32 op) {
-	DISABLE;
+	CONDITIONAL_DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	if (sz != V_Single)	{
+		ERROR_LOG(JIT, "vfim: wrong vector size");
+	}
+
+	u8 dreg;
+	GetVectorRegs(&dreg, V_Single, _VT);
+
+	FP16 half;
+	half.u = op & 0xFFFF;
+	FP32 fval = half_to_float_fast5(half);
+	MOV(32, R(EAX), Imm32(fval.u));
+	fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
+	MOVD_xmm(fpr.VX(dreg), R(EAX));
+
+	ApplyPrefixD(&dreg, V_Single);
+	fpr.ReleaseSpillLocks();
 }
 
 static float sincostemp[2];

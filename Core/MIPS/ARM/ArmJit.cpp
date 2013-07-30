@@ -58,6 +58,8 @@ namespace MIPSComp
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
 { 
+	logBlocks = 0;
+	dontLogBlocks = 0;
 	blocks.Init();
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
@@ -189,8 +191,6 @@ void Jit::RunLoopUntil(u64 globalticks)
 	// TODO: copy globalticks somewhere
 	((void (*)())enterCode)();
 }
-static int dontLogBlocks = 20;
-static int logBlocks = 40;
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
@@ -220,13 +220,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	int numInstructions = 0;
 	int cycles = 0;
 	int partialFlushOffset = 0;
-	if (logBlocks > 0) logBlocks--;
-	if (dontLogBlocks > 0) dontLogBlocks--;
 
-// #define LOGASM
-#ifdef LOGASM
 	char temp[256];
-#endif
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
@@ -248,23 +243,22 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		}
 	}
 	FlushLitPool();
-#ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
 			INFO_LOG(DYNA_REC, "M: %08x   %s", cpc, temp);
 		}
 	}
-#endif
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
 
-#ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(DYNA_REC, "=============== ARM ===============");
 		DisassembleArm(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
-#endif
+	if (logBlocks > 0) logBlocks--;
+	if (dontLogBlocks > 0) dontLogBlocks--;
+
 	AlignCode16();
 
 	// Don't forget to zap the instruction cache!

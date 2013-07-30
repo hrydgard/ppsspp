@@ -537,6 +537,10 @@ namespace MIPSAnalyst
 		MipsOpcodeInfo info;
 		memset(&info,0,sizeof(info));
 
+		if (!Memory::IsValidAddress(address)) {
+			return info;
+		}
+
 		info.cpu = cpu;
 		info.opcodeAddress = address;
 		info.encodedOpcode = Memory::Read_Instruction(address);

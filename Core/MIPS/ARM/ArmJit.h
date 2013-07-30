@@ -284,6 +284,9 @@ private:
 
 	MIPSState *mips_;
 
+	int dontLogBlocks;
+	int logBlocks;
+
 public:
 	// Code pointers
 	const u8 *enterCode;

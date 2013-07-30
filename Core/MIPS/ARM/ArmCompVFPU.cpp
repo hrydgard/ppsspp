@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cmath>
+#include "math/math_util.h"
 
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -72,6 +73,7 @@ namespace MIPSComp
 
 	void Jit::Comp_VPFX(u32 op)
 	{
+		// logBlocks = 1;
 		CONDITIONAL_DISABLE;
 
 		int data = op & 0xFFFFF;
@@ -1096,6 +1098,24 @@ namespace MIPSComp
 
 	void Jit::Comp_Vfim(u32 op) {
 		DISABLE;
+		/*
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Single)	{
+			ERROR_LOG(JIT, "vfim: wrong vector size");
+		}
+
+		u8 dreg;
+		GetVectorRegs(&dreg, V_Single, _VT);
+
+		FP16 half;
+		half.u = op & 0xFFFF;
+		FP32 fval = half_to_float_fast5(half);
+		MOV(32, R(EAX), Imm32(fval.u));
+		fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
+		MOVD_xmm(fpr.VX(dreg), R(EAX));
+
+		ApplyPrefixD(&dreg, V_Single);
+		fpr.ReleaseSpillLocks();*/
 	}
 
 	void Jit::Comp_Vcst(u32 op) {
