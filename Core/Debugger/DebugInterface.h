@@ -46,6 +46,11 @@ public:
 	virtual bool initExpression(char* exp, PostfixExpression& dest) { return false; };
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest) { return false; };
 
+	
+	virtual u32 GetHi() { return 0; };
+	virtual u32 GetLo() { return 0; };
+	virtual void SetHi(u32 val) { };
+	virtual void SetLo(u32 val) { };
 	virtual const char *GetName() = 0;
 	virtual int GetGPRSize() = 0; //32 or 64
 	virtual u32 GetGPR32Value(int reg) {return 0;}
