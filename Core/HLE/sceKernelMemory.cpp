@@ -1490,7 +1490,7 @@ int sceKernelAllocateTls(SceUID uid)
 				// The PSP doesn't give the same block out twice in a row, even if freed.
 				if (tls->usage[tls->next] == 0)
 					allocBlock = tls->next;
-				tls->next = (tls->next + 1) % tls->ntls.blockSize;
+				tls->next = (tls->next + 1) % tls->ntls.totalBlocks;
 			}
 
 			if (allocBlock != -1)
