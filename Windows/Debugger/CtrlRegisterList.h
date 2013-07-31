@@ -69,10 +69,10 @@ public:
 		cpu = deb;
 
 		int regs = cpu->GetNumRegsInCategory(0);
-		lastCat0Values = new u32[regs];
-		changedCat0Regs = new bool[regs];
-		memset(lastCat0Values, 0, regs * sizeof(u32));
-		memset(changedCat0Regs, 0, regs * sizeof(bool));
+		lastCat0Values = new u32[regs+3];
+		changedCat0Regs = new bool[regs+3];
+		memset(lastCat0Values, 0, (regs+3) * sizeof(u32));
+		memset(changedCat0Regs, 0, (regs+3) * sizeof(bool));
 	}
 	DebugInterface *getCPU()
 	{
