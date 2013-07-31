@@ -1343,6 +1343,7 @@ struct TLS : public KernelObject
 	{
 		p.Do(ntls);
 		p.Do(address);
+		p.Do(waitingThreads);
 		p.Do(next);
 		p.Do(usage);
 		p.DoMarker("TLS");
@@ -1350,7 +1351,7 @@ struct TLS : public KernelObject
 
 	NativeTls ntls;
 	u32 address;
-	// TODO: Waiting threads.
+	std::vector<SceUID> waitingThreads;
 	int next;
 	std::vector<SceUID> usage;
 };
@@ -1501,8 +1502,8 @@ int sceKernelAllocateTls(SceUID uid)
 
 		if (allocBlock == -1)
 		{
-			// TODO: Wait here, wake when one is free.
-			ERROR_LOG_REPORT(HLE, "sceKernelAllocateTls: should wait");
+			tls->waitingThreads.push_back(threadID);
+			__KernelWaitCurThread(WAITTYPE_TLS, uid, 1, 0, false, "allocate tls");
 			return -1;
 		}
 
@@ -1522,7 +1523,7 @@ int sceKernelFreeTls(SceUID uid)
 	{
 		SceUID threadID = __KernelGetCurThread();
 
-		// If the thread already has one, return it.
+		// Find the current thread's block.
 		int freeBlock = -1;
 		for (size_t i = 0; i < tls->ntls.totalBlocks; ++i)
 		{
@@ -1535,7 +1536,26 @@ int sceKernelFreeTls(SceUID uid)
 
 		if (freeBlock != -1)
 		{
-			// TODO: Free anyone waiting for a free block.
+			u32 error2;
+			while (!tls->waitingThreads.empty())
+			{
+				// TODO: What order do they wake in?
+				SceUID waitingThreadID = tls->waitingThreads[0];
+				tls->waitingThreads.erase(tls->waitingThreads.begin());
+
+				// This thread must've been woken up.
+				if (__KernelGetWaitID(waitingThreadID, WAITTYPE_TLS, error2) != uid)
+					continue;
+
+				// Otherwise, if there was a thread waiting, we were full, so this newly freed one is theirs.
+				// TODO: Is the block wiped or anything?
+				tls->usage[freeBlock] = waitingThreadID;
+				__KernelResumeThreadFromWait(waitingThreadID, freeBlock);
+				// No need to continue or free it, we're done.
+				return 0;
+			}
+
+			// No one was waiting, so now we can really free it.
 			tls->usage[freeBlock] = 0;
 			++tls->ntls.freeBlocks;
 			return 0;
