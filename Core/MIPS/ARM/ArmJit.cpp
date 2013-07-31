@@ -94,6 +94,8 @@ void Jit::FlushPrefixV()
 {
 	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0)
 	{
+		//if (js.prefixS & 0xF0000000)
+		//	ERROR_LOG(CPU, "Flushing BAD S-flag prefix: %08x", js.prefixS);
 		MOVI2R(R0, js.prefixS);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
 		js.prefixSFlag = (ArmJitState::PrefixState) (js.prefixSFlag & ~ArmJitState::PREFIX_DIRTY);
@@ -101,6 +103,8 @@ void Jit::FlushPrefixV()
 
 	if ((js.prefixTFlag & ArmJitState::PREFIX_DIRTY) != 0)
 	{
+		//if (js.prefixT & 0xF0000000)
+		//	ERROR_LOG(CPU, "Flushing BAD T-flag prefix: %08x", js.prefixS);
 		MOVI2R(R0, js.prefixT);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
 		js.prefixTFlag = (ArmJitState::PrefixState) (js.prefixTFlag & ~ArmJitState::PREFIX_DIRTY);
@@ -108,6 +112,8 @@ void Jit::FlushPrefixV()
 
 	if ((js.prefixDFlag & ArmJitState::PREFIX_DIRTY) != 0)
 	{
+		//if (js.prefixD & 0xF0000000)
+		//	ERROR_LOG(CPU, "Flushing BAD D-flag prefix: %08x", js.prefixS);
 		MOVI2R(R0, js.prefixD);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
 		js.prefixDFlag = (ArmJitState::PrefixState) (js.prefixDFlag & ~ArmJitState::PREFIX_DIRTY);
@@ -288,9 +294,13 @@ void Jit::Comp_Generic(u32 op)
 		RestoreDowncount();
 	}
 
-	// Might have eaten prefixes, hard to tell...
-	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
-		js.PrefixStart();
+	const int info = MIPSGetInfo(op);
+	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
+	{
+		// If it does eat them, it'll happen in MIPSCompileOp().
+		if ((info & OUT_EAT_PREFIX) == 0)
+			js.PrefixUnknown();
+	}
 }
 
 void Jit::MovFromPC(ARMReg r) {

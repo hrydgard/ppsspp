@@ -431,6 +431,7 @@ public:
 	void B (ARMReg src);
 	void BL(const void *fnptr);
 	void BL(ARMReg src);
+	bool BLInRange(const void *fnptr);
 
 	void PUSH(const int num, ...);
 	void POP(const int num, ...);

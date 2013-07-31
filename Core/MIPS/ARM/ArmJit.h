@@ -70,10 +70,9 @@ struct ArmJitState
 	PrefixState prefixTFlag;
 	PrefixState prefixDFlag;
 	void PrefixStart() {
+		PrefixUnknown();
 		if (startDefaultPrefix) {
 			EatPrefix();
-		} else {
-			PrefixUnknown();
 		}
 	}
 	void PrefixUnknown() {
@@ -116,10 +115,12 @@ struct ArmJitState
 			prefixD = 0x0;
 		}
 	}
+
 	u8 VfpuWriteMask() const {
 		_assert_(prefixDFlag & PREFIX_KNOWN);
 		return (prefixD >> 8) & 0xF;
 	}
+
 	bool VfpuWriteMask(int i) const {
 		_assert_(prefixDFlag & PREFIX_KNOWN);
 		return (prefixD >> (8 + i)) & 1;

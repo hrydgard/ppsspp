@@ -954,6 +954,8 @@ void Jit::Comp_Vmmov(u32 op) {
 void Jit::Comp_VScl(u32 op) {
 	CONDITIONAL_DISABLE;
 
+	ERROR_LOG(CPU, "vscl @ %08x", js.compilerPC);
+
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
@@ -972,7 +974,7 @@ void Jit::Comp_VScl(u32 op) {
 	X64Reg tempxregs[4];
 	for (int i = 0; i < n; ++i)
 	{
-		if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs))
+		if (dregs[i] != scale || !IsOverlapSafeAllowS(dregs[i], i, n, sregs))
 		{
 			int reg = fpr.GetTempV();
 			fpr.MapRegV(reg, MAP_NOINIT | MAP_DIRTY);

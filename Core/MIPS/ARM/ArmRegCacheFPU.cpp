@@ -110,7 +110,7 @@ allocate:
 	int bestToSpill = -1;
 	for (int i = 0; i < allocCount; i++) {
 		int reg = allocOrder[i] - S0;
-		if (ar[reg].mipsReg != -1 && mr[ar[reg].mipsReg].spillLock)
+		if (ar[reg].mipsReg != -1 && (mr[ar[reg].mipsReg].spillLock || mr[ar[reg].mipsReg].tempLock))
 			continue;
 		bestToSpill = reg;
 		break;
@@ -172,7 +172,7 @@ void ArmRegCacheFPU::MapRegV(int vreg, int flags) {
 
 void ArmRegCacheFPU::LoadToRegV(ARMReg armReg, int vreg) {
 	if (vr[vreg].loc == ML_ARMREG) {
-		emit_->VMOV(armReg, vr[vreg].reg);
+		emit_->VMOV(armReg, (ARMReg)(S0 + vr[vreg].reg));
 	} else {
 		MapRegV(vreg);
 		emit_->VMOV(armReg, V(vreg));
@@ -325,6 +325,7 @@ int ArmRegCacheFPU::GetTempR() {
 		}
 	}
 
+	ERROR_LOG(CPU, "Out of temp regs! Might need to DiscardR() some");
 	_assert_msg_(DYNA_REC, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
 	return -1;
 }
@@ -347,7 +348,7 @@ void ArmRegCacheFPU::FlushAll() {
 }
 
 int ArmRegCacheFPU::GetMipsRegOffset(MIPSReg r) {
-	// These are offsets within the MIPSState structure. First there are the GPRS, then FPRS, then the "VFPURs".
+	// These are offsets within the MIPSState structure. First there are the GPRS, then FPRS, then the "VFPURs", then the VFPU ctrls.
 	if (r < 32 + 128 + NUM_TEMPS)
 		return (r + 32) << 2;
 	ERROR_LOG(JIT, "bad mips register %i, out of range", r);

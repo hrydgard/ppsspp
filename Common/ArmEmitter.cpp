@@ -265,8 +265,12 @@ void ARMXEmitter::MOVI2R(ARMReg reg, u32 val, bool optimize)
 }
 
 void ARMXEmitter::QuickCallFunction(ARMReg reg, void *func) {
-	MOVI2R(reg, (u32)(func));
-	BL(reg);
+	if (BLInRange(func)) {
+		BL(func);
+	} else {
+		MOVI2R(reg, (u32)(func));
+		BL(reg);
+	}
 }
 
 void ARMXEmitter::SetCodePtr(u8 *ptr)
@@ -431,6 +435,14 @@ void ARMXEmitter::B (const void *fnptr)
 void ARMXEmitter::B(ARMReg src)
 {
 	Write32(condition | 0x12FFF10 | src);
+}
+
+bool ARMXEmitter::BLInRange(const void *fnptr) {
+	s32 distance = (s32)fnptr - (s32(code) + 8);
+	if (distance <= -33554432 || distance > 33554432)
+		return false;
+	else
+		return true;
 }
 
 void ARMXEmitter::BL(const void *fnptr)
