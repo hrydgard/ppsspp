@@ -196,21 +196,27 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 			}
 		} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
 			// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
+			int entry_width = (entry->addr - address) / entry->bufw;
 			const bool compatFormat = framebuffer->format == entry->format
 				|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
 				|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
 
 			// Is it at least the right stride?
 			if (framebuffer->fb_stride == entry->bufw && compatFormat) {
-				if (framebuffer->format != entry->format) {
-					WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-					// TODO: Use an FBO to translate the palette?
+				if (framebuffer->format == entry->format) {
+					WARN_LOG(HLE, "Render to texture with same formats %d == %d at %08x", entry->format, framebuffer->format, address);
+					// Same format , binding to FBO 
 					entry->framebuffer = framebuffer;
-				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
+				} else if (entry_width < framebuffer->height) {
 					WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 					// TODO: Keep track of the y offset.
 					entry->framebuffer = framebuffer;
-				}
+				} 
+			} else {
+				WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+				// TODO: Use an FBO to translate the palette?
+				// Hold on binding to FBO for now , it breaks Kurohyou 2 and DBZ Vs Tag
+				//entry->framebuffer = framebuffer;
 			}
 		}
 	}
