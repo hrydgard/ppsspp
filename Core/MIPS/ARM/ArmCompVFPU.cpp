@@ -185,7 +185,7 @@ namespace MIPSComp
 				MOVI2F(S0, 0.0f, R0);
 				MOVI2F(S1, 1.0f, R0);
 				VCMP(fpr.V(vregs[i]), S0);
-				SetCC(CC_LT);
+				SetCC(CC_LE);
 				VMOV(fpr.V(vregs[i]), S0);
 				SetCC(CC_AL);
 				VCMP(fpr.V(vregs[i]), S1);

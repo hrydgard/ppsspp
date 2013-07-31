@@ -370,7 +370,7 @@ void ArmRegCacheFPU::ReleaseSpillLocksAndDiscardTemps() {
 		DiscardR(i);
 }
 
-ARMReg ArmRegCacheFPU::R(int mipsReg) {
+ARMReg ArmRegCacheFPU::R(int mi psReg) {
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	} else {
