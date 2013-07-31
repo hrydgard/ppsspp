@@ -407,7 +407,7 @@ BEGIN
         MENUITEM "&Vertex Cache",							ID_OPTIONS_VERTEXCACHE
         MENUITEM "&Stream VBO",								ID_OPTIONS_USEVBO
         MENUITEM "&MipMapping",								ID_OPTIONS_MIPMAP
-        MENUITEM "2x SSAA",									ID_OPTIONS_SIMPLE2XSSAA
+        MENUITEM "Anti-Aliasing",							ID_OPTIONS_SIMPLE2XSSAA
         MENUITEM "VS&ync",									ID_OPTIONS_VSYNC
         MENUITEM SEPARATOR
         MENUITEM "Show &FPS",								ID_OPTIONS_SHOWFPS
