@@ -402,6 +402,10 @@ public class NativeActivity extends Activity {
 		if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0) {
 	        if (Build.VERSION.SDK_INT >= 12) {
 	        	InputDeviceState state = getInputDeviceState(event);
+	        	if (state == null) {
+	        		Log.w(TAG, "Joystick event but failed to get input device state.");
+	        		return super.onGenericMotionEvent(event);
+	        	}
 	        	state.onJoystickMotion(event);
 	        	return true;
 	        }
