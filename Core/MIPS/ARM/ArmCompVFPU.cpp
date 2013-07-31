@@ -182,20 +182,46 @@ namespace MIPSComp
 				// clamped = fabs(x) - fabs(x-0.5f) + 0.5f; // [ 0, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 				
-				MOVI2F(S0, 1.0f, R0);
+				MOVI2F(S0, 0.0f, R0);
+				MOVI2F(S1, 1.0f, R0);
+				VCMP(fpr.V(vregs[i]), S0);
+				SetCC(CC_LT);
+				VMOV(fpr.V(vregs[i]), S0);
+				SetCC(CC_AL);
+				VCMP(fpr.V(vregs[i]), S1);
+				SetCC(CC_GT);
+				VMOV(fpr.V(vregs[i]), S1);
+				SetCC(CC_AL);
+
+				/*
 				VABS(S1, fpr.V(vregs[i]));                  // S1 = fabs(x)
 				VSUB(fpr.V(vregs[i]), fpr.V(vregs[i]), S0); // S2 = fabs(x-0.5f) {VABD}
 				VABS(fpr.V(vregs[i]), fpr.V(vregs[i]));
 				VSUB(fpr.V(vregs[i]), S1, fpr.V(vregs[i])); // v[i] = S1 - S2 + 0.5f
-				VADD(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
+				VADD(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);*/
 			} else if (sat == 3) {
+				fpr.MapRegV(vregs[i], MAP_DIRTY);
+
+				MOVI2F(S0, -1.0f, R0);
+				MOVI2F(S1, 1.0f, R0);
+				VCMP(fpr.V(vregs[i]), S0);
+				SetCC(CC_LT);
+				VMOV(fpr.V(vregs[i]), S0);
+				SetCC(CC_AL);
+				VCMP(fpr.V(vregs[i]), S1);
+				SetCC(CC_GT);
+				VMOV(fpr.V(vregs[i]), S1);
+				SetCC(CC_AL);
+
 				// clamped = fabs(x) - fabs(x-1.0f);        // [-1, 1]
+				/*
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 				MOVI2F(S0, 1.0f, R0);
 				VABS(S1, fpr.V(vregs[i]));                  // S1 = fabs(x)
 				VSUB(fpr.V(vregs[i]), fpr.V(vregs[i]), S0); // S2 = fabs(x-1.0f) {VABD}
 				VABS(fpr.V(vregs[i]), fpr.V(vregs[i]));
 				VSUB(fpr.V(vregs[i]), S1, fpr.V(vregs[i])); // v[i] = S1 - S2
+				*/
 			}
 		}
 	}
@@ -407,7 +433,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// WARNING: No prefix support!
-		if (js.MayHavePrefix()) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -442,8 +468,7 @@ namespace MIPSComp
 	void Jit::Comp_VIdt(u32 op) {
 		CONDITIONAL_DISABLE
 
-		// WARNING: No prefix support!
-		if (js.MayHavePrefix()) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -528,8 +553,7 @@ namespace MIPSComp
 	void Jit::Comp_VDot(u32 op)
 	{
 		CONDITIONAL_DISABLE;
-		// WARNING: No prefix support!
-		if (js.MayHavePrefix()) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -565,7 +589,9 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		
 		// WARNING: No prefix support!
-		if (js.MayHavePrefix()) {
+
+		//if (js.MayHavePrefix()) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -641,8 +667,7 @@ namespace MIPSComp
 	void Jit::Comp_VV2Op(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.MayHavePrefix()) {
-		//if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
 
@@ -677,7 +702,6 @@ namespace MIPSComp
 				VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				break;
 			case 1: // d[i] = fabsf(s[i]); break; //vabs
-				//if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 				fpr.MapDirtyInV(tempregs[i], sregs[i]);
 				VABS(fpr.V(tempregs[i]), fpr.V(sregs[i]));
 				break;
@@ -852,9 +876,9 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
-		if (js.MayHavePrefix()) {
-			DISABLE;
-		}
+		//if (js.MayHavePrefix()) {
+		//	DISABLE;
+		//}
 
 		if (_VS == _VD) {
 			// A lot of these in Wipeout... Just drop the instruction entirely.
@@ -892,8 +916,10 @@ namespace MIPSComp
 	void Jit::Comp_VScl(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.MayHavePrefix()) {
-			DISABLE;  // broken!
+		WARN_LOG(CPU, "HERE WE GO 0");
+
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
 		}
 
 		VectorSize sz = GetVecSize(op);
@@ -1087,8 +1113,9 @@ namespace MIPSComp
 	void Jit::Comp_Vfim(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.MayHavePrefix())
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
+		}
 
 		u8 dreg;
 		GetVectorRegs(&dreg, V_Single, _VT);
@@ -1106,12 +1133,9 @@ namespace MIPSComp
 	void Jit::Comp_Vcst(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix()) {
 			DISABLE;
-
-		// TODO: support prefixes properly
-		if (js.MayHavePrefix())
-			DISABLE;
+		}
 
 		int conNum = (op >> 16) & 0x1f;
 		int vd = _VD;
@@ -1165,6 +1189,11 @@ namespace MIPSComp
 		DISABLE;
 #endif 
 		CONDITIONAL_DISABLE;
+		
+		// This op doesn't support prefixes anyway..
+		if (js.HasUnknownPrefix()) {
+			DISABLE;
+		}
 
 		int vd = _VD;
 		int vs = _VS;
