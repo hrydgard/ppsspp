@@ -1202,14 +1202,15 @@ void Jit::Comp_Vcmov(u32 op) {
 }
 
 void Jit::Comp_Viim(u32 op) {
-	DISABLE;
 	CONDITIONAL_DISABLE;
 
 	u8 dreg;
 	GetVectorRegs(&dreg, V_Single, _VT);
 
 	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
-	MOV(32, R(EAX), Imm32(imm));
+	FP32 fp;
+	fp.f = (float)imm;
+	MOV(32, R(EAX), Imm32(fp.u));
 	fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
 	MOVD_xmm(fpr.VX(dreg), R(EAX));
 

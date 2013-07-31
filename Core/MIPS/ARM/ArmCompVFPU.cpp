@@ -1153,7 +1153,17 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Viim(u32 op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		u8 dreg;
+		GetVectorRegs(&dreg, V_Single, _VT);
+
+		s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
+		fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
+		MOVI2F(fpr.V(dreg), (float)imm, R0);
+
+		ApplyPrefixD(&dreg, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Vfim(u32 op) {

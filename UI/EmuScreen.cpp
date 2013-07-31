@@ -344,8 +344,6 @@ void EmuScreen::axis(const AxisInput &axis) {
 }
 
 void EmuScreen::processAxis(const AxisInput &axis, int direction) {
-	// ILOG("axis: %i %i %f", axis.deviceId, axis.axisId, axis.value);
-
 	int result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction);
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
 		return;
