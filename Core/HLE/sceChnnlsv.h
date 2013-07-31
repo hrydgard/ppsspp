@@ -19,18 +19,18 @@
 
 typedef struct _pspChnnlsvContext1 {
 	/** Cipher mode */
-	int	mode;
+	s32_le	mode;
 
 	/** Context data */
 	u8	result[0x10];
 	u8  key[0x10];
-	int	keyLength;
+	s32_le	keyLength;
 } pspChnnlsvContext1;
 
 typedef struct _pspChnnlsvContext2 {
 	/** Context data */
-	int mode;
-	int unkn;
+	s32_le mode;
+	s32_le unkn;
 	u8  cryptedData[0x92];
 } pspChnnlsvContext2;
 
