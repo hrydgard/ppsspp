@@ -498,6 +498,114 @@ void Jit::Comp_VHdp(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
+void Jit::Comp_VCrossQuat(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	u8 sregs[4], tregs[4], dregs[4];
+	GetVectorRegs(sregs, sz, _VS);
+	GetVectorRegs(tregs, sz, _VT);
+	GetVectorRegs(dregs, sz, _VD);
+
+	if (sz == V_Triple) {
+		// Cross product vcrsp.t
+
+		fpr.MapRegsV(sregs, sz, 0);
+	
+		// Compute X
+		MOVSS(XMM0, fpr.V(sregs[1]));
+		MULSS(XMM0, fpr.V(tregs[2]));
+		MOVSS(XMM1, fpr.V(sregs[2]));
+		MULSS(XMM1, fpr.V(tregs[1]));
+		SUBSS(XMM0, R(XMM1));
+		MOVSS(fpr.V(dregs[0]), XMM0);
+
+		// Compute Y
+		MOVSS(XMM0, fpr.V(sregs[2]));
+		MULSS(XMM0, fpr.V(tregs[0]));
+		MOVSS(XMM1, fpr.V(sregs[0]));
+		MULSS(XMM1, fpr.V(tregs[2]));
+		SUBSS(XMM0, R(XMM1));
+		MOVSS(fpr.V(dregs[1]), XMM0);
+
+		// Compute Z
+		MOVSS(XMM0, fpr.V(sregs[0]));
+		MULSS(XMM0, fpr.V(tregs[1]));
+		MOVSS(XMM1, fpr.V(sregs[1]));
+		MULSS(XMM1, fpr.V(tregs[0]));
+		SUBSS(XMM0, R(XMM1));
+		MOVSS(fpr.V(dregs[2]), XMM0);
+	} else if (sz == V_Quad) {
+		// Quaternion product  vqmul.q  untested
+		DISABLE;
+
+		fpr.MapRegsV(sregs, sz, 0);
+
+		// Compute X
+		MOVSS(XMM0, fpr.V(sregs[0]));
+		MULSS(XMM0, fpr.V(tregs[3]));
+		MOVSS(XMM1, fpr.V(sregs[1]));
+		MULSS(XMM1, fpr.V(tregs[2]));
+		ADDSS(XMM0, R(XMM1));
+		MOVSS(XMM1, fpr.V(sregs[2]));
+		MULSS(XMM1, fpr.V(tregs[1]));
+		SUBSS(XMM0, R(XMM1));
+		MOVSS(XMM1, fpr.V(sregs[3]));
+		MULSS(XMM1, fpr.V(tregs[0]));
+		ADDSS(XMM0, R(XMM1));
+		MOVSS(fpr.V(dregs[0]), XMM0);
+
+		// Compute Y
+		MOVSS(XMM0, fpr.V(sregs[1]));
+		MULSS(XMM0, fpr.V(tregs[3]));
+		MOVSS(XMM1, fpr.V(sregs[2]));
+		MULSS(XMM1, fpr.V(tregs[0]));
+		ADDSS(XMM0, R(XMM1));
+		MOVSS(XMM1, fpr.V(sregs[3]));
+		MULSS(XMM1, fpr.V(tregs[1]));
+		ADDSS(XMM0, R(XMM1));
+		MOVSS(XMM1, fpr.V(sregs[0]));
+		MULSS(XMM1, fpr.V(tregs[2]));
+		SUBSS(XMM0, R(XMM1));
+		MOVSS(fpr.V(dregs[1]), XMM0);
+
+		// Compute Z
+		MOVSS(XMM0, fpr.V(sregs[0]));
+		MULSS(XMM0, fpr.V(tregs[1]));
+		MOVSS(XMM1, fpr.V(sregs[1]));
+		MULSS(XMM1, fpr.V(tregs[0]));
+		SUBSS(XMM0, R(XMM1));
+		MOVSS(XMM1, fpr.V(sregs[2]));
+		MULSS(XMM1, fpr.V(tregs[3]));
+		ADDSS(XMM0, R(XMM1));
+		MOVSS(XMM1, fpr.V(sregs[3]));
+		MULSS(XMM1, fpr.V(tregs[2]));
+		ADDSS(XMM0, R(XMM1));
+		MOVSS(fpr.V(dregs[2]), XMM0);
+
+		// Compute W
+		MOVSS(XMM0, fpr.V(sregs[3]));
+		MULSS(XMM0, fpr.V(tregs[3]));
+		MOVSS(XMM1, fpr.V(sregs[1]));
+		MULSS(XMM1, fpr.V(tregs[1]));
+		SUBSS(XMM0, R(XMM1));
+		MOVSS(XMM1, fpr.V(sregs[2]));
+		MULSS(XMM1, fpr.V(tregs[2]));
+		ADDSS(XMM0, R(XMM1));
+		MOVSS(XMM1, fpr.V(sregs[0]));
+		MULSS(XMM1, fpr.V(tregs[0]));
+		SUBSS(XMM0, R(XMM1));
+		MOVSS(fpr.V(dregs[3]), XMM0);
+	}
+
+	fpr.ReleaseSpillLocks();
+}
+
 void Jit::Comp_VecDo3(u32 op) {
 	CONDITIONAL_DISABLE;
 
@@ -660,7 +768,7 @@ void Jit::Comp_Vcmp(u32 op) {
 			break;
 
 		case VC_TR: // c = 1; break;
-			MOV(32, R(ECX), Imm32(1));
+			MOV(32, R(ECX), Imm32(1 << i));
 			break;
 
 		case VC_EQ: // c = s[i] == t[i]; break;
@@ -724,16 +832,14 @@ void Jit::Comp_Vcmp(u32 op) {
 		if (compareTwo || compareToZero) {
 			MOVSS(M((void *) &ssCompareTemp), XMM1);
 			MOV(32, R(ECX), M((void *) &ssCompareTemp));
-			AND(32, R(ECX), Imm32(1));
+			AND(32, R(ECX), Imm32(1 << i));
 		}
 
-		if (i > 0) {
-			SHL(32, R(ECX), Imm8(i));
-		}
 		if (i == 0) 
 			MOV(32, R(EAX), R(ECX));
 		else
 			OR(32, R(EAX), R(ECX));
+
 		affected_bits |= 1 << i;
 	}
 
@@ -1332,7 +1438,6 @@ void Jit::Comp_Vtfm(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-
 void Jit::Comp_VCrs(u32 op) {
 	DISABLE;
 }
@@ -1358,6 +1463,14 @@ void Jit::Comp_Vhoriz(u32 op) {
 }
 
 void Jit::Comp_Vcmov(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vsge(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vslt(u32 op) {
 	DISABLE;
 }
 

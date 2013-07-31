@@ -1144,6 +1144,18 @@ namespace MIPSComp
 		DISABLE;
 	}
 
+	void Jit::Comp_VCrossQuat(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vsge(u32 op) {
+		DISABLE;
+	}
+
+	void Jit::Comp_Vslt(u32 op) {
+		DISABLE;
+	}
+
 	void Jit::Comp_Vcmp(u32 op) {
 		// Not ready yet
 		DISABLE;
