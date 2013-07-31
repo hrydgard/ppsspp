@@ -1722,29 +1722,29 @@ void KeyMappingScreen::render() {
 	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // Down
 
 	top = 10;
-	left = 300;
+	left = 250;
 	KeyBtn(left+hlfpad, top, VIRTKEY_AXIS_Y_MAX); // Analog Up
 	KeyBtn(left, top+hlfpad, VIRTKEY_AXIS_X_MIN);// Analog Left
 	KeyBtn(left+pad, top+hlfpad, VIRTKEY_AXIS_X_MAX); // Analog Right
 	KeyBtn(left+hlfpad, top+pad, VIRTKEY_AXIS_Y_MIN); // Analog Down
 
 	top = 120;
-	left = 550;
+	left = 480;
 	KeyBtn(left+hlfpad, top, CTRL_TRIANGLE); // Triangle
 	KeyBtn(left, top+hlfpad, CTRL_SQUARE); // Square
 	KeyBtn(left+pad, top+hlfpad, CTRL_CIRCLE); // Circle
 	KeyBtn(left+hlfpad, top+pad, CTRL_CROSS); // Cross
 
-	left = 680;
+	left = 610;
 	KeyBtn(left, 30, CTRL_RTRIGGER);
 
 	top += pad + 50;
-	left = 300;
+	left = 250;
 	KeyBtn(left, top, CTRL_SELECT); // Select
 	KeyBtn(left + pad, top, CTRL_START); //Start
 
 	top = 10;
-	left = 830;
+	left = 720;
 	KeyBtn(left, top, VIRTKEY_UNTHROTTLE);
 	top += 100;
 	KeyBtn(left, top, VIRTKEY_SPEED_TOGGLE);
