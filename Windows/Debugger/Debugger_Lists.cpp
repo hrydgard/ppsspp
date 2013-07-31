@@ -14,7 +14,7 @@ typedef struct
 } ListViewColumn;
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
-enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
+enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
 
 ListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 	{ "Name",			0.20f },
@@ -27,10 +27,11 @@ ListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 
 ListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
 	{ "Type",			0.12f },
-	{ "Offset",			0.20f },
-	{ "Size/Label",		0.20f },
-	{ "Opcode",			0.30f },
-	{ "Hits",			0.10f },
+	{ "Offset",			0.12f },
+	{ "Size/Label",		0.18f },
+	{ "Opcode",			0.28f },
+	{ "Condition",		0.17f },
+	{ "Hits",			0.05f },
 	{ "Enabled",		0.08f }
 };
 
@@ -562,6 +563,16 @@ void CtrlBreakpointList::handleNotify(LPARAM lParam)
 					strcpy(breakpointText,"-");
 				} else {
 					disasm->getOpcodeText(displayedBreakPoints_[index].addr,breakpointText);
+				}
+			}
+			break;
+		case BPL_CONDITION:
+			{
+				if (isMemory || displayedBreakPoints_[index].hasCond == false)
+				{
+					strcpy(breakpointText,"-");
+				} else {
+					strcpy(breakpointText,displayedBreakPoints_[index].cond.expressionString);
 				}
 			}
 			break;
