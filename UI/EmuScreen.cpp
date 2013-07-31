@@ -83,7 +83,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
-	if (g_Config.SSAntiAliasing) {
+	if (g_Config.bAntiAliasing) {
 		coreParam.renderWidth *= 2;
 		coreParam.renderHeight *= 2;
 	}

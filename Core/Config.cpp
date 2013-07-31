@@ -101,7 +101,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("RenderingMode", &iRenderingMode, 1); // default is buffered rendering mode
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
-	graphics->Get("SSAA", &SSAntiAliasing, 0);
+	graphics->Get("SSAA", &bAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 0);
@@ -231,7 +231,7 @@ void Config::Save()
 		graphics->Set("RenderingMode", iRenderingMode);
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("TextureFiltering", iTexFiltering);
-		graphics->Set("SSAA", SSAntiAliasing);
+		graphics->Set("SSAA", bAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("FrameRate", iFpsLimit);
