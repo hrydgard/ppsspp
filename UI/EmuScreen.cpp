@@ -83,7 +83,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
-	if (g_Config.SSAntiAliasing) {
+	if (g_Config.bAntiAliasing) {
 		coreParam.renderWidth *= 2;
 		coreParam.renderHeight *= 2;
 	}
@@ -323,6 +323,7 @@ void EmuScreen::pspKey(int pspKeyCode, int flags) {
 			onVKeyUp(pspKeyCode);
 		}
 	} else {
+		ILOG("pspKey %i %i", pspKeyCode, flags);
 		if (flags & KEY_DOWN)
 			__CtrlButtonDown(pspKeyCode);
 		if (flags & KEY_UP)
@@ -331,7 +332,19 @@ void EmuScreen::pspKey(int pspKeyCode, int flags) {
 }
 
 void EmuScreen::axis(const AxisInput &axis) {
-	int result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, axis.value >= 0 ? 1 : -1);
+	if (axis.value > 0) {
+		processAxis(axis, 1);
+	} else if (axis.value < 0) {
+		processAxis(axis, -1);
+	} else if (axis.value == 0) {
+		// Both directions! Prevents sticking for digital input devices that are axises (like HAT)
+		processAxis(axis, 1);
+		processAxis(axis, -1);
+	}
+}
+
+void EmuScreen::processAxis(const AxisInput &axis, int direction) {
+	int result = KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, direction);
 	if (result == KEYMAP_ERROR_UNKNOWN_KEY)
 		return;
 

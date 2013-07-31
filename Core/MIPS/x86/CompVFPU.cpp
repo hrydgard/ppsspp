@@ -601,7 +601,7 @@ void Jit::Comp_VecDo3(u32 op) {
 
 // There are no immediates for floating point, so we need to load these
 // from RAM. Might as well have a table ready.
-static const float mulTable[32] = {
+extern const float mulTableVi2f[32] = {
 	1.0f/(1UL<<0),1.0f/(1UL<<1),1.0f/(1UL<<2),1.0f/(1UL<<3),
 	1.0f/(1UL<<4),1.0f/(1UL<<5),1.0f/(1UL<<6),1.0f/(1UL<<7),
 	1.0f/(1UL<<8),1.0f/(1UL<<9),1.0f/(1UL<<10),1.0f/(1UL<<11),
@@ -622,7 +622,7 @@ void Jit::Comp_Vi2f(u32 op) {
 	int n = GetNumVectorElements(sz);
 
 	int imm = (op >> 16) & 0x1f;
-	const float *mult = &mulTable[imm];
+	const float *mult = &mulTableVi2f[imm];
 
 	u8 sregs[4], dregs[4];
 	GetVectorRegsPrefixS(sregs, sz, _VS);
@@ -972,7 +972,7 @@ void Jit::Comp_VScl(u32 op) {
 	X64Reg tempxregs[4];
 	for (int i = 0; i < n; ++i)
 	{
-		if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs))
+		if (dregs[i] != scale || !IsOverlapSafeAllowS(dregs[i], i, n, sregs))
 		{
 			int reg = fpr.GetTempV();
 			fpr.MapRegV(reg, MAP_NOINIT | MAP_DIRTY);
@@ -1191,6 +1191,48 @@ void Jit::Comp_Vf2i(u32 op) {
 
 void Jit::Comp_Vhoriz(u32 op) {
 	DISABLE;
+}
+
+void Jit::Comp_Vcmp(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vcmov(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Viim(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	u8 dreg;
+	GetVectorRegs(&dreg, V_Single, _VT);
+
+	s32 imm = (s32)(s16)(u16)(op & 0xFFFF);
+	FP32 fp;
+	fp.f = (float)imm;
+	MOV(32, R(EAX), Imm32(fp.u));
+	fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
+	MOVD_xmm(fpr.VX(dreg), R(EAX));
+
+	ApplyPrefixD(&dreg, V_Single);
+	fpr.ReleaseSpillLocks();
+}
+
+void Jit::Comp_Vfim(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	u8 dreg;
+	GetVectorRegs(&dreg, V_Single, _VT);
+
+	FP16 half;
+	half.u = op & 0xFFFF;
+	FP32 fval = half_to_float_fast5(half);
+	MOV(32, R(EAX), Imm32(fval.u));
+	fpr.MapRegV(dreg, MAP_DIRTY | MAP_NOINIT);
+	MOVD_xmm(fpr.VX(dreg), R(EAX));
+
+	ApplyPrefixD(&dreg, V_Single);
+	fpr.ReleaseSpillLocks();
 }
 
 static float sincostemp[2];

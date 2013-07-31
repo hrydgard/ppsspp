@@ -857,3 +857,14 @@ void Register_ExceptionManagerForKernel()
 {
 	RegisterModule("ExceptionManagerForKernel", ARRAY_SIZE(ExceptionManagerForKernel), ExceptionManagerForKernel);
 }
+
+// Seen in some homebrew
+const HLEFunction UtilsForKernel[] = {
+	{0xC2DF770E, 0, "sceKernelIcacheInvalidateRange"},
+};
+
+
+void Register_UtilsForKernel()
+{
+	RegisterModule("UtilsForKernel", ARRAY_SIZE(UtilsForKernel), UtilsForKernel);
+}

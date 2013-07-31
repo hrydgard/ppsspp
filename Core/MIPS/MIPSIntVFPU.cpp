@@ -106,12 +106,6 @@ inline float nanclamp(float f, float lower, float upper)
 }
 
 
-#ifndef BLACKBERRY
-double rint(double x){
-return floor(x+.5);
-}
-#endif
-
 void ApplyPrefixST(float *v, u32 data, VectorSize size)
 {
 	// Possible optimization shortcut:
@@ -138,9 +132,11 @@ void ApplyPrefixST(float *v, u32 data, VectorSize size)
 		{
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
-			if (regnum >= n)
-			{
-				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x / %d", data, size);
+			if (regnum >= n) {
+				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, currentMIPS->DisasmAt(currentMIPS->pc));
+				//for (int i = 0; i < 12; i++) {
+				//	ERROR_LOG(CPU, "  vfpuCtrl[%i] = %08x", i, currentMIPS->vfpuCtrl[i]);
+				//}
 				regnum = 0;
 			}
 
@@ -604,6 +600,11 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
+	inline int round_vfpu_n(float param) {
+		// return floorf(param);
+		return (int)round_ieee_754(param);
+	}
+
 	void Int_Vf2i(u32 op)
 	{
 		float s[4];
@@ -627,7 +628,7 @@ namespace MIPSInt
 			if (sv < (int)0x80000000) sv = (int)0x80000000;
 			switch ((op >> 21) & 0x1f)
 			{
-			case 16: d[i] = (int)rint(sv); break; //n
+			case 16: d[i] = (int)(floor(sv + 0.5f)); break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
 			case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
 			case 18: d[i] = (int)ceil(sv); break; //u
 			case 19: d[i] = (int)floor(sv); break; //d
@@ -659,73 +660,6 @@ namespace MIPSInt
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
-	}
-
-	union FP32 {
-		u32 u;
-		float f;
-	};
-	
-	struct FP16 {
-		u16 u;
-	};
-
-	// magic code from ryg: http://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
-	// See also SSE2 version: https://gist.github.com/rygorous/2144712
-	static FP32 half_to_float_fast5(FP16 h)
-	{
-		static const FP32 magic = { (127 + (127 - 15)) << 23 };
-		static const FP32 was_infnan = { (127 + 16) << 23 };
-		FP32 o;
-		o.u = (h.u & 0x7fff) << 13;     // exponent/mantissa bits
-		o.f *= magic.f;                 // exponent adjust
-		if (o.f >= was_infnan.f)        // make sure Inf/NaN survive
-			o.u |= 255 << 23;
-		o.u |= (h.u & 0x8000) << 16;    // sign bit
-		return o;
-	}
-
-	static float ExpandHalf(u16 half) {
-		FP16 fp16;
-		fp16.u = half;
-		FP32 fp = half_to_float_fast5(fp16);
-		return fp.f;
-	}
-
-	// More magic code: https://gist.github.com/rygorous/2156668
-	static FP16 float_to_half_fast3(FP32 f)
-	{
-		static const FP32 f32infty = { 255 << 23 };
-		static const FP32 f16infty = { 31 << 23 };
-		static const FP32 magic = { 15 << 23 };
-		static const u32 sign_mask = 0x80000000u;
-		static const u32 round_mask = ~0xfffu;
-		FP16 o = { 0 };
-
-		u32 sign = f.u & sign_mask;
-		f.u ^= sign;
-
-		if (f.u >= f32infty.u) // Inf or NaN (all exponent bits set)
-			 o.u = (f.u > f32infty.u) ? 0x7e00 : 0x7c00; // NaN->qNaN and Inf->Inf
-		else // (De)normalized number or zero
-		{
-			f.u &= round_mask;
-			f.f *= magic.f;
-			f.u -= round_mask;
-			if (f.u > f16infty.u) f.u = f16infty.u; // Clamp to signed infinity if overflowed
-
-			 o.u = f.u >> 13; // Take the bits!
-		}
-
-		o.u |= sign >> 16;
-		return o;
-	}
-
-	static u16 ShrinkToHalf(float full) {
-		FP32 fp32;
-		fp32.f = full;
-		FP16 fp = float_to_half_fast3(fp32);
-		return fp.u;
 	}
 
 	void Int_Vh2f(u32 op)

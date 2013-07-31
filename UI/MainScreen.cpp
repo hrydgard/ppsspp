@@ -521,7 +521,7 @@ UI::EventReturn GamePauseScreen::OnContinue(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
-	screenManager()->switchScreen(new MainScreen());
+	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;
 }
 

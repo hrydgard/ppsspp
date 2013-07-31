@@ -388,7 +388,7 @@ retry:
 	}
 	else
 	{
-		ERROR_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
+		WARN_LOG(HLE, "sceKernelSignalSema : Trying to signal invalid semaphore %i", id);
 		return error;
 	}
 }
@@ -467,7 +467,7 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, const char *bad
 	}
 	else
 	{
-		ERROR_LOG(HLE, badSemaMessage, id);
+		WARN_LOG(HLE, badSemaMessage, id);
 		return error;
 	}
 }

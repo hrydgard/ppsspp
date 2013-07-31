@@ -77,7 +77,7 @@ public:
 	int iWindowX;
 	int iWindowY;
 	int iWindowZoom;  // for Windows
-	bool SSAntiAliasing; // for Windows, too
+	bool bAntiAliasing; // for Windows, too
 	bool bVertexCache;
 	bool bFullScreen;
 #ifdef _WIN32

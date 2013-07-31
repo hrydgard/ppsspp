@@ -125,7 +125,7 @@ void Jit::Comp_FPULS(u32 op)
 			SetCC(CC_AL);
 		}
 #endif
-		fpr.ReleaseSpillLock(ft);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 		break;
 
 	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1

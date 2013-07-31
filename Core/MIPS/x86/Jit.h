@@ -82,6 +82,7 @@ struct JitState
 	PrefixState prefixSFlag;
 	PrefixState prefixTFlag;
 	PrefixState prefixDFlag;
+
 	void PrefixStart() {
 		if (startDefaultPrefix) {
 			EatPrefix();
@@ -223,6 +224,10 @@ public:
 	void Comp_Vhoriz(u32 op);
 	void Comp_VRot(u32 op);
 	void Comp_VIdt(u32 op);
+	void Comp_Vcmp(u32 op);
+	void Comp_Vcmov(u32 op);
+	void Comp_Viim(u32 op);
+	void Comp_Vfim(u32 op);
 
 	void Comp_DoNothing(u32 op);
 

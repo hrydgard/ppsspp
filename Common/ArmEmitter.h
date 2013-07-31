@@ -431,6 +431,7 @@ public:
 	void B (ARMReg src);
 	void BL(const void *fnptr);
 	void BL(ARMReg src);
+	bool BLInRange(const void *fnptr);
 
 	void PUSH(const int num, ...);
 	void POP(const int num, ...);
@@ -655,6 +656,14 @@ public:
 		return ptr - region;
 	}
 };
+
+// VFP Specific
+struct VFPEnc {
+	s16 opc1;
+	s16 opc2;
+};
+extern const VFPEnc VFPOps[16][2];
+extern const char *VFPOpNames[16];
 
 }  // namespace
 

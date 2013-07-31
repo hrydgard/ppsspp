@@ -446,7 +446,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	u32_le *magicPtr = (u32_le *) ptr;
 	if (*magicPtr == 0x4543537e) { // "~SCE"
 		INFO_LOG(HLE, "~SCE module, skipping header");
-		ptr += *(u32*)(ptr + 4);
+		ptr += *(u32_le*)(ptr + 4);
 		magicPtr = (u32_le *)ptr;
 	}
 	*magic = *magicPtr;
@@ -605,8 +605,13 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 		DEBUG_LOG(LOADER, "Importing Module %s, stubs at %08x", modulename, entry->firstSymAddr);
 		if (entry->size != 5 && entry->size != 6) {
-			WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d", entry->size);
-			needReport = true;
+			if (entry->size != 7) {
+				WARN_LOG_REPORT(LOADER, "Unexpected module entry size %d", entry->size);
+				needReport = true;
+			} else if (entry->extra != 0) {
+				WARN_LOG_REPORT(LOADER, "Unexpected module entry with non-zero 7th value %08x", entry->extra);
+				needReport = true;
+			}
 		}
 
 		// If nidData is 0, only variables are being imported.

@@ -58,6 +58,8 @@ namespace MIPSComp
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo), fpr(mips), mips_(mips)
 { 
+	logBlocks = 0;
+	dontLogBlocks = 0;
 	blocks.Init();
 	gpr.SetEmitter(this);
 	fpr.SetEmitter(this);
@@ -90,22 +92,19 @@ void Jit::FlushAll()
 
 void Jit::FlushPrefixV()
 {
-	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0)
-	{
+	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixS);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
 		js.prefixSFlag = (ArmJitState::PrefixState) (js.prefixSFlag & ~ArmJitState::PREFIX_DIRTY);
 	}
 
-	if ((js.prefixTFlag & ArmJitState::PREFIX_DIRTY) != 0)
-	{
+	if ((js.prefixTFlag & ArmJitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixT);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
 		js.prefixTFlag = (ArmJitState::PrefixState) (js.prefixTFlag & ~ArmJitState::PREFIX_DIRTY);
 	}
 
-	if ((js.prefixDFlag & ArmJitState::PREFIX_DIRTY) != 0)
-	{
+	if ((js.prefixDFlag & ArmJitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixD);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
 		js.prefixDFlag = (ArmJitState::PrefixState) (js.prefixDFlag & ~ArmJitState::PREFIX_DIRTY);
@@ -189,8 +188,6 @@ void Jit::RunLoopUntil(u64 globalticks)
 	// TODO: copy globalticks somewhere
 	((void (*)())enterCode)();
 }
-static int dontLogBlocks = 20;
-static int logBlocks = 40;
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
@@ -220,13 +217,8 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	int numInstructions = 0;
 	int cycles = 0;
 	int partialFlushOffset = 0;
-	if (logBlocks > 0) logBlocks--;
-	if (dontLogBlocks > 0) dontLogBlocks--;
 
-// #define LOGASM
-#ifdef LOGASM
 	char temp[256];
-#endif
 	while (js.compiling)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
@@ -248,23 +240,22 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		}
 	}
 	FlushLitPool();
-#ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
 			INFO_LOG(DYNA_REC, "M: %08x   %s", cpc, temp);
 		}
 	}
-#endif
 
 	b->codeSize = GetCodePtr() - b->normalEntry;
 
-#ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(DYNA_REC, "=============== ARM ===============");
 		DisassembleArm(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
-#endif
+	if (logBlocks > 0) logBlocks--;
+	if (dontLogBlocks > 0) dontLogBlocks--;
+
 	AlignCode16();
 
 	// Don't forget to zap the instruction cache!
@@ -294,9 +285,13 @@ void Jit::Comp_Generic(u32 op)
 		RestoreDowncount();
 	}
 
-	// Might have eaten prefixes, hard to tell...
-	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
-		js.PrefixStart();
+	const int info = MIPSGetInfo(op);
+	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
+	{
+		// If it does eat them, it'll happen in MIPSCompileOp().
+		if ((info & OUT_EAT_PREFIX) == 0)
+			js.PrefixUnknown();
+	}
 }
 
 void Jit::MovFromPC(ARMReg r) {

@@ -98,6 +98,8 @@ public:
 		float v[128];
 		u32 vi[128];
 	};
+	// Temps don't get flushed so we don't reserve space for them.
+	// If vfpuCtrl (prefixes) get mysterious values, check the VFPU regcache code.
 	u32 vfpuCtrl[16];
 
 	u32 pc;
@@ -136,6 +138,9 @@ public:
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
+
+	// for logging messages only.
+	const char *DisasmAt(u32 compilerPC);
 };
 
 

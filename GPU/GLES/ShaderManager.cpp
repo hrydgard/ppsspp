@@ -113,7 +113,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
-	if ((gstate.vertType & GE_VTYPE_WEIGHT_MASK) != 0)
+	if (gstate.getWeightMask() != 0)
 		numBones = TranslateNumBones(gstate.getNumBoneWeights());
 	else
 		numBones = 0;
@@ -331,11 +331,11 @@ void LinkedShader::updateUniforms() {
 			uvscaleoff[3] = gstate_c.uv.vOff / gstate_c.curTextureHeight;
 			glUniform4fv(u_uvscaleoffset, 1, uvscaleoff);
 		} else {
-			int w = 1 << (gstate.texsize[0] & 0xf);
-			int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+			int w = gstate.getTextureWidth(0);
+			int h = gstate.getTextureHeight(0);
 			float widthFactor = (float)w / (float)gstate_c.curTextureWidth;
 			float heightFactor = (float)h / (float)gstate_c.curTextureHeight;
-			if ((gstate.texmapmode & 3) == 0) {
+			if (gstate.getUVGenMode() == 0) {
 				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
 				float factor = rescale[(gstate.vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
 				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;

@@ -24,6 +24,8 @@
 #include "ui/ui_screen.h"
 #include "Common/KeyMap.h"
 
+struct AxisInput;
+
 class EmuScreen : public UIScreen
 {
 public:
@@ -45,6 +47,7 @@ protected:
 
 private:
 	void bootGame(const std::string &filename);
+	void processAxis(const AxisInput &axis, int direction);
 
 	void pspKey(int pspKeyCode, int flags);
 	void onVKeyDown(int virtualKeyCode);

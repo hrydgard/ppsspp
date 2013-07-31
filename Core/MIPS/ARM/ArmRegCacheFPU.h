@@ -63,7 +63,7 @@ public:
 	void SpillLock(MIPSReg reg, MIPSReg reg2 = -1, MIPSReg reg3 = -1, MIPSReg reg4 = -1);
 	void SpillLockV(MIPSReg r) { SpillLock(r + 32); }
 
-	void ReleaseSpillLocks();
+	void ReleaseSpillLocksAndDiscardTemps();
 	void ReleaseSpillLock(int mipsreg)
 	{
 		mr[mipsreg].spillLock = false;
@@ -81,6 +81,7 @@ public:
 	void MapInIn(MIPSReg rd, MIPSReg rs);
 	void MapInInV(int rt, int rs);
 	void MapDirtyInV(int rd, int rs, bool avoidLoad = true);
+	void MapDirtyInInV(int rd, int rs, int rt, bool avoidLoad = true);
 	void MapDirty(MIPSReg rd);
 	void MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad = true);
 	void MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad = true);
@@ -107,8 +108,8 @@ public:
 	void LoadToRegV(ARMReg armReg, int vreg);
 
 	// NOTE: These require you to release spill locks manually!
-	void MapRegsV(int vec, VectorSize vsz, int flags);
-	void MapRegsV(const u8 *v, VectorSize vsz, int flags);
+	void MapRegsAndSpillLockV(int vec, VectorSize vsz, int flags);
+	void MapRegsAndSpillLockV(const u8 *v, VectorSize vsz, int flags);
 
 	void SpillLockV(const u8 *v, VectorSize vsz);
 	void SpillLockV(int vec, VectorSize vsz);

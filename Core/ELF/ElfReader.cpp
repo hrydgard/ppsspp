@@ -142,7 +142,7 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 			{
 				char temp[256];
 				MIPSDisAsm(op, 0, temp);
-				ERROR_LOG_REPORT(LOADER, "ARGH IT'S A GP!!!!!!!! %08x : %s", addr, temp);
+				WARN_LOG_REPORT(LOADER, "ARGH IT'S A GP!!!!!!!! %08x : %s", addr, temp);
 			}
 			break;
 

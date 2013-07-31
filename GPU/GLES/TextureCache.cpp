@@ -245,7 +245,7 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
 	const int bxc = rowWidth / 16;
-	int byc = ((1 << ((gstate.texsize[level] >> 8) & 0xf)) + 7) / 8;
+	int byc = (gstate.getTextureHeight(level) + 7) / 8;
 	if (byc == 0)
 		byc = 1;
 
@@ -392,8 +392,8 @@ inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, C
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GLuint dstFmt) {
 	int bufw = GetLevelBufw(level, texaddr);
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 	int length = bufw * h;
 	void *buf = NULL;
 	switch (gstate.getClutPaletteFormat()) {
@@ -996,8 +996,8 @@ void TextureCache::SetTexture() {
 		cluthash = 0;
 	}
 
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 	int bufw = GetLevelBufw(0, texaddr);
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
@@ -1019,26 +1019,22 @@ void TextureCache::SetTexture() {
 			if (useBufferedRendering) {
 				if (entry->framebuffer->fbo) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-					lastBoundTexture = -1;
 				} else {
 					glBindTexture(GL_TEXTURE_2D, 0);
-					lastBoundTexture = -1;
 					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 				}
 				UpdateSamplingParams(*entry, false);
-				// This isn't right.
 				gstate_c.curTextureWidth = entry->framebuffer->width;
 				gstate_c.curTextureHeight = entry->framebuffer->height;
 				gstate_c.flipTexture = true;
 				gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-				entry->lastFrame = gpuStats.numFrames;
 			} else {
 				if (entry->framebuffer->fbo)
 					entry->framebuffer->fbo = 0;
 				glBindTexture(GL_TEXTURE_2D, 0);
-				lastBoundTexture = -1;
-				entry->lastFrame = gpuStats.numFrames;
 			}
+			lastBoundTexture = -1;
+			entry->lastFrame = gpuStats.numFrames;
 			return;
 		}
 
@@ -1245,8 +1241,8 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 
 	int bufw = GetLevelBufw(level, texaddr);
 
-	int w = 1 << (gstate.texsize[level] & 0xf);
-	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 	const u8 *texptr = Memory::GetPointer(texaddr);
 
 	switch (format)
@@ -1548,8 +1544,8 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		return;
 	}
 
-	int w = 1 << (gstate.texsize[level] & 0xf);
-	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 
 	gpuStats.numTexturesDecoded++;
 
@@ -1612,8 +1608,8 @@ bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 
 	int bufw = GetLevelBufw(level, texaddr);
 
-	int w = 1 << (gstate.texsize[level] & 0xf);
-	int h = 1 << ((gstate.texsize[level]>>8) & 0xf);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 
 	void *finalBuf = DecodeTextureLevel(format, clutformat, level, texByteAlign, dstFmt);
 	if (finalBuf == NULL) {

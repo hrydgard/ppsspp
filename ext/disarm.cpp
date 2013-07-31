@@ -64,6 +64,194 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "base/basictypes.h"
+#include "Common/ArmEmitter.h"
+
+static const char *CCFlagsStr[] = {
+	"EQ", // Equal
+	"NEQ", // Not equal
+	"CS", // Carry Set
+	"CC", // Carry Clear
+	"MI", // Minus (Negative)
+	"PL", // Plus
+	"VS", // Overflow
+	"VC", // No Overflow
+	"HI", // Unsigned higher
+	"LS", // Unsigned lower or same
+	"GE", // Signed greater than or equal
+	"LT", // Signed less than
+	"GT", // Signed greater than
+	"LE", // Signed less than or equal
+	"", // Always (unconditional) 14
+};
+
+int GetVd(uint32_t op, bool quad = false, bool dbl = false) {
+	if (!quad && !dbl) {
+		return ((op >> 22) & 1) | ((op >> 11) & 0x1E);
+	}
+	return 0;
+}
+
+int GetVn(uint32_t op, bool quad = false, bool dbl = false) {
+	if (!quad && !dbl) {
+		return ((op >> 7) & 1) | ((op >> 15) & 0x1E);
+	} else if (dbl) {
+		return ((op >> 16) & 0xF) | ((op >> 3) & 0x10);
+	}
+	return 0;
+}
+
+int GetVm(uint32_t op, bool quad = false, bool dbl = false) {
+	if (!quad && !dbl) {
+		return ((op >> 5) & 1) | ((op << 1) & 0x1E);
+	}
+	return 0;
+}
+
+
+// Modern VFP disassembler, written entirely separately because I can't figure out the old stuff :P
+// Horrible array of hacks but hey. Can be cleaned up later.
+
+bool DisasmVFP(uint32_t op, char *text) {
+	const char *cond = CCFlagsStr[op >> 28];
+	switch ((op >> 24) & 0xF) {
+	case 0xD:
+		// VLDR/VSTR
+		{
+			int base = (op >> 16) & 0xF;
+			bool add = (op >> 23) & 1;
+			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
+			int offset = (op & 0xFF) << 2;
+			if (!add) offset = -offset;
+			bool vldr = (op >> 20) & 1;
+			bool single_reg = ((op >> 8) & 0xF) == 10;
+
+			sprintf(text, "%s%s s%i, [r%i, #%i]", vldr ? "VLDR" : "VSTR", cond, freg, base, offset);
+			return true;
+		}
+
+	case 0xE:
+		{
+			switch ((op >> 20) & 0xF) {
+			case 0xE: // VMSR
+				if ((op & 0xFFF) != 0xA10)
+					break;
+				sprintf(text, "VMSR%s r%i", cond, (op >> 12) & 0xF);
+				return true;
+			case 0xF: // VMRS
+				if ((op & 0xFFF) != 0xA10)
+					break;
+				if (op == 0xEEF1FA10) {
+					sprintf(text, "VMRS APSR", cond);
+				} else {
+					sprintf(text, "VMRS%s r%i", cond, (op >> 12) & 0xF);
+				}
+				return true;
+			default:
+				break;
+			}
+
+			if (((op >> 19) & 0x7) == 0x7) {
+				// VCVT
+				sprintf(text, "VCVT ...");
+				return true;
+			}
+
+			int part1 = ((op >> 23) & 0x1F);
+			int part2 = ((op >> 9) & 0x7) ;
+			int part3 = ((op >> 20) & 0x3) ;
+			if (part3 == 3 && part2 == 5 && part1 == 0x1D && (op & (1<<6))) {
+				// VMOV
+				int vn = GetVn(op);
+				if (vn != 1 && vn != 3) {
+					int vm = GetVm(op);
+					int vd = GetVd(op);
+					sprintf(text, "VMOV%s s%i, s%i", cond, vd, vm);
+					return true;
+				}
+			}
+
+			// Arithmetic (buggy!)
+
+			bool quad_reg = (op >> 6) & 1;
+			bool double_reg = (op >> 8) & 1;
+			int opnum = -1;
+			int opc1 = (op >> 20) & 0xFB;
+			int opc2 = (op >> 4) & 0xAC;
+			for (int i = 0; i < 16; i++) {
+				if (ArmGen::VFPOps[i][0].opc1 == opc1 && ArmGen::VFPOps[i][0].opc2 == opc2) {
+					opnum = i;
+					break;
+				}
+			}
+			if (opnum < 0)
+				return false;
+			switch (opnum) {
+			case 8:
+			case 10:
+			case 11:
+			case 12:
+			case 13:
+			case 14:
+				{
+					quad_reg = false;
+					int vd = GetVd(op, quad_reg, double_reg);
+					int vn = GetVn(op, quad_reg, true);
+					int vm = GetVm(op, quad_reg, double_reg);
+					if (opnum == 8 && vn == 0x11) opnum += 3;
+					sprintf(text, "%s%s s%i, s%i", ArmGen::VFPOpNames[opnum], cond, vd, vm);
+					return true;
+				}
+			default:
+				{
+					quad_reg = false;
+					int vd = GetVd(op, quad_reg, double_reg);
+					int vn = GetVn(op, quad_reg, double_reg);
+					int vm = GetVm(op, quad_reg, double_reg);
+					sprintf(text, "%s%s s%i, s%i, s%i", ArmGen::VFPOpNames[opnum], cond, vd, vn, vm);
+					return true;
+				}
+			}
+			return true;
+		}
+		break;
+	}
+	return false;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 typedef unsigned int word;
 typedef unsigned int address;
 typedef unsigned int addrdiff;
@@ -489,132 +677,17 @@ lMaybeLDRHetc:
       break;
     case 12:
     case 13:
-      /* STC or LDC */
-      if (CP_is(1)) {
-        /* copro 1: FPU. This is STF or LDF. */
-        mnemonic = "STF\0LDF" + ((instr&Lbit) >> 18);
-        format   = "8,/";
-        *flagp++ = "SDEP"[fpn];
-        poss_tt = (eTargetType)(target_FloatS+fpn);
-      }
-      else if (CP_is(2)) {
-        /* copro 2: this is LFM or SFM. */
-        mnemonic = "SFM\0LFM" + ((instr&Lbit) >> 18);
-        if (!fpn) fpn=4;
-        if (RN_is(13) && BitsDiffer(23,24)) {
-          if ((instr&255)!=fpn) goto lNonStackLFM;
-          /* r13 and U!=P, so treat as stack */
-          if (BitsDiffer(20,24)) {
-            /* L != P, so FD */
-            *flagp++ = 'F'; *flagp++ = 'D';
-          }
-          else {
-            /* L == P, so EA */
-            *flagp++ = 'E'; *flagp++ = 'A';
-          }
-          format = "8,(,[4]'";
-        }
-        else {
-lNonStackLFM:
-          /* not r13 or U=P or wrong offset, so don't treat as stack */
-          format = "8,(,/";
-          poss_tt = target_FloatE;
-        }
-      }
-      else {
-        /* some other copro number: STC or LDC. */
-        mnemonic = "STC\0LDC" + ((instr&Lbit) >> 18);
-        format   = ";,\004,/";
-        if (instr&(1<<22)) *flagp++ = 'L';
-        poss_tt = target_Unknown;
-      }
-      break;
-    case 14:
-      /* CDP or MRC/MCR */
-      if (instr&(1<<4)) {
-        /* MRC/MCR. */
-        if (CP_is(1)) {
-          /* copro 1: FPU. */
-          if ((instr&Lbit) && RD_is(15)) {
-            /* MCR in FPU with Rd=r15: comparison (ugh) */
-            if (!(instr&(1<<23))) goto lUndefined;	/* unused operation */
-            mnemonic = "CMF\0\0CNF\0\0CMFE\0CNFE" + (5*(instr&(3<<21)) >> 21);
-            format   = "9,+";
-            if (instr&((1<<19)+(7<<5)))
-              result.badbits=1;	/* size,rmode reseved */
-          }
-          else {
-            /* normal FPU MCR/MRC */
-            word op20 = instr&(15<<20);
-            if (op20>=6<<20) goto lUndefined;
-            mnemonic = "FLT\0FIX\0WFS\0RFS\0WFC\0RFC" + (op20>>18);
-            if (op20==0) {
-              /* FLT instruction */
-              format = "9,3";
-              { char c = "SDE*"[((instr>>7)&1) + ((instr>>18)&2)];
-                if (c=='*') goto lUndefined; else *flagp++=c;
-              }
-              if (instr&15) result.oddbits=1;	/* Fm and const flag unused */
-            }
-            else {
-              /* not FLT instruction */
-              if (instr&((1<<7)+(1<<19)))
-                result.badbits=1;	/* size bits reserved */
-              if (op20==1<<20) {
-                /* FIX instruction */
-                format = "3,+";
-                if (opts->flags&disopt_FIXS)
-                  *flagp++ = "SDEP"[((instr>>7)&1) + ((instr>>18)&2)];
-                *flagp++ = "\0PMZ"[(instr&(3<<5))>>5];
-                if (instr&(7<<15)) result.oddbits=1;	/* Fn unused */
-                if (instr&(1<<3)) result.badbits=1;	/* no immediate consts */
-              }
-              else {
-                /* neither FLT nor FIX */
-                format = "3";
-                if (instr&(3<<5)) result.badbits=1;	/* rmode reserved */
-                if (instr&(15+(7<<15))) result.oddbits=1;/* iFm, Fn unused */
-              }
-            }
-          }
-        }
-        else {
-          /* some other copro number. Not FPU. */
-          /* NB that ObjAsm documentation gets MCR and MRC the wrong way round!
-           */
-          mnemonic = "MCR\0MRC";
-          mnemonic += (instr&Lbit) >> 18;
-          format = ";,:,3,\005,\001-";
-        }
-      }
-      else {
-        /* CDP. */
-        if (CP_is(1)) {
-          /* copro 1: FPU. */
-          mnemonic = /* dyadics: */
-                     "ADF\0MUF\0SUF\0RSF\0"
-                     "DVF\0RDF\0POW\0RPW\0"
-                     "RMF\0FML\0FDV\0FRD\0"
-                     "POL\0***\0***\0***\0"
-                     /* monadics: */
-                     "MVF\0MNF\0ABS\0RND\0"
-                     "SQT\0LOG\0LGN\0EXP\0"
-                     "SIN\0COS\0TAN\0ASN\0"
-                     "ACS\0ATN\0URD\0NRM\0"
-                     + ((instr&(15<<20)) >> 18)	/* opcode   -> bits 5432 */
-                     + ((instr&(1<<15)) >> 9);	/* monadicP -> bit 6 */
-          format = (instr&(1<<15)) ? "8,+" : "8,9,+";
-          *flagp++ = "SDE*"[((instr>>7)&1) + ((instr>>18)&2)];
-          *flagp++ = "\0PMZ"[(instr&(3<<5))>>5];
-          /* NB that foregoing relies on this being the last flag! */
-          if (*mnemonic=='*' || *flagchars=='*') goto lUndefined;
-        }
-        else {
-          /* some other copro number. Not FPU. */
-          mnemonic = "CDP";
-          format   = ";,),\004,\005,\001-";
-        }
-      }
+    case 14:  // FPU
+			{
+				char text[256];
+				if (!DisasmVFP(instr, text)) {
+					goto lUndefined;
+					break;
+				}
+				strcpy(result.text, text);
+				result.undefined = 0;
+				return &result;
+			}
       break;
     case 15:
       /* SWI */

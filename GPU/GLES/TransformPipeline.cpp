@@ -524,8 +524,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		vscale /= gstate_c.curTextureHeight;
 	}
 
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
 	float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
 

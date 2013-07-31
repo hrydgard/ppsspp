@@ -60,7 +60,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
-	bool hasBones = (vertType & GE_VTYPE_WEIGHT_MASK) != 0;
+	bool hasBones = gstate.getWeightMask() != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -108,7 +108,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 			}
 		}
 		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= ((vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id->d[1] |= (gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 	}
 }
 
@@ -173,7 +173,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		}
 	}
 
-	if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
+	if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
 		WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(gstate.getNumBoneWeights())]);
 	}
 
@@ -210,7 +210,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, "uniform mat4 u_view;\n");
 		if (gstate.getUVGenMode() == 1)
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
-		if ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
+		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
 			int numBones = TranslateNumBones(gstate.getNumBoneWeights());
 #ifdef USE_BONE_ARRAY
 			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBones);
@@ -299,7 +299,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		}
 	} else {
 		// Step 1: World Transform / Skinning
-		if ((vertType & GE_VTYPE_WEIGHT_MASK) == GE_VTYPE_WEIGHT_NONE) {
+		if (gstate.getWeightMask() == GE_VTYPE_WEIGHT_NONE) {
 			// No skinning, just standard T&L.
 			WRITE(p, "  vec3 worldpos = (u_world * vec4(a_position.xyz, 1.0)).xyz;\n");
 			if (hasNormal)
@@ -310,7 +310,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			int numWeights = TranslateNumBones(gstate.getNumBoneWeights());
 
 			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-			const char *factor = rescale[(vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT];
+			const char *factor = rescale[gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT];
 
 			static const char * const boneWeightAttr[8] = {
 				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
