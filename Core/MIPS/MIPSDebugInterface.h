@@ -76,6 +76,26 @@ public:
 		}
 	}
 
+	u32 GetHi()
+	{
+		return cpu->hi;
+	}
+
+	u32 GetLo()
+	{
+		return cpu->lo;
+	}
+	
+	void SetHi(u32 val)
+	{
+		cpu->hi = val;
+	}
+
+	void SetLo(u32 val)
+	{
+		cpu->lo = val;
+	}
+
 	u32 GetRegValue(int cat, int index)
 	{
 		u32 temp;
@@ -83,7 +103,6 @@ public:
 		{
 		case 0:
 			return cpu->r[index];
-
 		case 1:
 			memcpy(&temp, &cpu->f[index], 4);
 			return temp;

@@ -21,6 +21,7 @@
 //#include "DbgHelp.h"
 extern HMENU g_hPopupMenus;
 
+enum { REGISTER_PC = 32, REGISTER_HI, REGISTER_LO, REGISTERS_END };
 
 TCHAR CtrlRegisterList::szClassName[] = _T("CtrlRegisterList");
 
@@ -240,6 +241,14 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				changedCat0Regs[j] = v != lastCat0Values[j];
 				lastCat0Values[j] = v;
 			}
+			
+			changedCat0Regs[REGISTER_PC] = cpu->GetPC() != lastCat0Values[REGISTER_PC];
+			lastCat0Values[REGISTER_PC] = cpu->GetPC();
+			changedCat0Regs[REGISTER_HI] = cpu->GetHi() != lastCat0Values[REGISTER_HI];
+			lastCat0Values[REGISTER_HI] = cpu->GetHi();
+			changedCat0Regs[REGISTER_LO] = cpu->GetLo() != lastCat0Values[REGISTER_LO];
+			lastCat0Values[REGISTER_LO] = cpu->GetLo();
+
 			lastPC = cpu->GetPC();
 		}
 
@@ -259,8 +268,37 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 			else
 				SetTextColor(hdc,0x004000);
 			TextOut(hdc,77,rowY1,temp,(int)strlen(temp));
-		}
+		} else if (category == 0 && i < REGISTERS_END)
+		{
+			char temp[256];
+			int len;
+			u32 value;
 
+			switch (i)
+			{
+			case REGISTER_PC:
+				value = cpu->GetPC();
+				len = sprintf(temp,"pc");
+				break;
+			case REGISTER_HI:
+				value = cpu->GetHi();
+				len = sprintf(temp,"hi");
+				break;
+			case REGISTER_LO:
+				value = cpu->GetLo();
+				len = sprintf(temp,"lo");
+				break;
+			}
+
+			SetTextColor(hdc,0x600000);
+			TextOut(hdc,17,rowY1,temp,len);
+			len = sprintf(temp,"%08X",value);
+			if (changedCat0Regs[i])
+				SetTextColor(hdc, 0x0000FF);
+			else
+				SetTextColor(hdc,0x004000);
+			TextOut(hdc,77,rowY1,temp,(int)strlen(temp));
+		}
 
 		/*
 			}
@@ -345,12 +383,37 @@ void CtrlRegisterList::redraw()
 
 void CtrlRegisterList::copyRegisterValue()
 {
+	if (!Core_IsStepping())
+	{
+		MessageBox(wnd,"Can't copy register values while the core is running.","Error",MB_OK);
+		return;
+	}
+
 	int cat = category;
 	int reg = selection;
+	u32 val;
+
 	if (selection >= cpu->GetNumRegsInCategory(cat))
-		return;
-	u32 val = cpu->GetRegValue(cat,reg);	
-	
+	{
+		if (cat != 0 || selection >= REGISTERS_END)
+			return;
+
+		switch (selection)
+		{
+		case REGISTER_PC:
+			val = cpu->GetPC();
+			break;
+		case REGISTER_HI:
+			val = cpu->GetHi();
+			break;
+		case REGISTER_LO:
+			val = cpu->GetLo();
+			break;
+		}
+	} else {
+		val = cpu->GetRegValue(cat,reg);	
+	}
+
 	char temp[24];
 	sprintf(temp,"%08X",val);
 	W32Util::CopyTextToClipboard(wnd,temp);
@@ -358,13 +421,37 @@ void CtrlRegisterList::copyRegisterValue()
 
 void CtrlRegisterList::editRegisterValue()
 {
+	if (!Core_IsStepping())
+	{
+		MessageBox(wnd,"Can't change registers while the core is running.","Error",MB_OK);
+		return;
+	}
+
 	int cat = category;
 	int reg = selection;
-	if (selection >= cpu->GetNumRegsInCategory(cat))
-		return;
-	u32 val = cpu->GetRegValue(cat,reg);
-
+	u32 val;
 	
+	if (selection >= cpu->GetNumRegsInCategory(cat))
+	{
+		if (cat != 0 || selection >= REGISTERS_END)
+			return;
+
+		switch (selection)
+		{
+		case REGISTER_PC:
+			val = cpu->GetPC();
+			break;
+		case REGISTER_HI:
+			val = cpu->GetHi();
+			break;
+		case REGISTER_LO:
+			val = cpu->GetLo();
+			break;
+		}
+	} else {
+		val = cpu->GetRegValue(cat,reg);	
+	}
+
 	char temp[256];
 	sprintf(temp,"%08X",val);
 	if (InputBox_GetString(GetModuleHandle(NULL),wnd,"Set new value",temp,temp))
@@ -373,8 +460,23 @@ void CtrlRegisterList::editRegisterValue()
 		{
 			displayExpressionError(wnd);
 		} else {
-			cpu->SetRegValue(cat,reg,val);
+			switch (reg)
+			{
+			case REGISTER_PC:
+				cpu->SetPC(val);
+				break;
+			case REGISTER_HI:
+				cpu->SetHi(val);
+				break;
+			case REGISTER_LO:
+				cpu->SetLo(val);
+				break;
+			default:
+				cpu->SetRegValue(cat,reg,val);
+				break;
+			}
 			redraw();
+			SendMessage(GetParent(wnd),WM_DEB_UPDATE,0,0);	// registers changed -> disassembly needs to be updated
 		}
 	}
 }
