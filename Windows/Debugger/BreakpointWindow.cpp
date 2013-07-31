@@ -235,7 +235,7 @@ void BreakpointWindow::loadFromMemcheck(MemCheck& memcheck)
 		read = write = false;
 		break;
 	}
-	
+
 	switch (memcheck.result)
 	{
 	case MEMCHECK_BOTH:
@@ -258,14 +258,19 @@ void BreakpointWindow::loadFromMemcheck(MemCheck& memcheck)
 	size = memcheck.end-address;
 }
 
-void BreakpointWindow::loadFromBreakpoint(BreakPoint& memcheck)
+void BreakpointWindow::loadFromBreakpoint(BreakPoint& breakpoint)
 {
 	memory = false;
 
-	address = memcheck.addr;
-	enabled = memcheck.enabled;
+	enabled = breakpoint.enabled;
+	address = breakpoint.addr;
+	enabled = breakpoint.enabled;
 	size = 1;
 
-	// todo: cond
-	condition[0] = 0;
+	if (breakpoint.hasCond)
+	{
+		strcpy(condition,breakpoint.cond.expressionString);
+	} else {
+		condition[0] = 0;
+	}
 }

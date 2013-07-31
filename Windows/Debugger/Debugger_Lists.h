@@ -32,6 +32,7 @@ class CtrlBreakpointList
 	DebugInterface* cpu;
 	CtrlDisAsmView* disasm;
 
+	void editBreakpoint(int itemIndex);
 	void gotoBreakpointAddress(int itemIndex);
 	void removeBreakpoint(int itemIndex);
 	int getTotalBreakpointCount();

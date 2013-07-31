@@ -6,6 +6,7 @@
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/resource.h"
 #include "Windows/main.h"
+#include "BreakpointWindow.h"
 
 typedef struct
 {
@@ -37,6 +38,7 @@ ListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
 
 const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
 const int POPUP_SUBMENU_ID_THREADLIST = 6;
+const int POPUP_SUBMENU_ID_NEWBREAKPOINT = 7;
 
 //
 // CtrlThreadList
@@ -340,7 +342,7 @@ LRESULT CALLBACK CtrlBreakpointList::wndProc(HWND hwnd, UINT message, WPARAM wPa
 		if(wParam == VK_RETURN)
 		{
 			int index = ListView_GetSelectionMark(hwnd);
-			bp->gotoBreakpointAddress(index);
+			bp->editBreakpoint(index);
 			return 0;
 		} else if (wParam == VK_DELETE)
 		{
@@ -360,7 +362,7 @@ LRESULT CALLBACK CtrlBreakpointList::wndProc(HWND hwnd, UINT message, WPARAM wPa
 	case WM_GETDLGCODE:
 		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
 		{
-			if (wParam == VK_TAB) return DLGC_WANTMESSAGE;
+			if (wParam == VK_TAB || wParam == VK_RETURN) return DLGC_WANTMESSAGE;
 		}
 		break;
 	};
@@ -401,23 +403,44 @@ void CtrlBreakpointList::update()
 	UpdateWindow(wnd);
 }
 
+void CtrlBreakpointList::editBreakpoint(int itemIndex)
+{
+	bool isMemory;
+	int index = getBreakpointIndex(itemIndex, isMemory);
+	if (index == -1) return;
+
+	BreakpointWindow win(wnd,cpu);
+	if (isMemory)
+	{
+		auto mem = displayedMemChecks_[index];
+		win.loadFromMemcheck(mem);
+		if (win.exec())
+		{
+			CBreakPoints::RemoveMemCheck(mem.start,mem.end);
+			win.addBreakpoint();
+		}
+	} else {
+		auto bp = displayedBreakPoints_[index];
+		win.loadFromBreakpoint(bp);
+		if (win.exec())
+		{
+			CBreakPoints::RemoveBreakPoint(bp.addr);
+			win.addBreakpoint();
+		}
+	}
+}
+
 void CtrlBreakpointList::toggleEnabled(int itemIndex)
 {
 	bool isMemory;
 	int index = getBreakpointIndex(itemIndex, isMemory);
 	if (index == -1) return;
 
-	MemCheck mcPrev;
-	BreakPoint bpPrev;
 	if (isMemory) {
-		mcPrev = displayedMemChecks_[index];
-	} else {
-		bpPrev = displayedBreakPoints_[index];
-	}
-
-	if (isMemory) {
+		MemCheck mcPrev = displayedMemChecks_[index];
 		CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
 	} else {
+		BreakPoint bpPrev = displayedBreakPoints_[index];
 		CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
 	}
 }
@@ -632,36 +655,52 @@ void CtrlBreakpointList::handleNotify(LPARAM lParam)
 
 void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 {
-	bool isMemory;
-	int index = getBreakpointIndex(itemIndex, isMemory);
-	if (index == -1) return;
-
-	MemCheck mcPrev;
-	BreakPoint bpPrev;
-	if (isMemory) {
-		mcPrev = displayedMemChecks_[index];
-	} else {
-		bpPrev = displayedBreakPoints_[index];
-	}
-
 	POINT screenPt(pt);
 	ClientToScreen(wnd, &screenPt);
 
-	HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_BREAKPOINTLIST);
-	if (isMemory) {
-		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.result & MEMCHECK_BREAK ? MF_CHECKED : MF_UNCHECKED));
-	} else {
-		CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED));
-	}
-
-	switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
+	bool isMemory;
+	int index = getBreakpointIndex(itemIndex, isMemory);
+	if (index == -1)
 	{
-	case ID_DISASM_DISABLEBREAKPOINT:
-		if (isMemory) {
-			CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
-		} else {
-			CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
+		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_NEWBREAKPOINT);
+		
+		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
+		{
+		case ID_DISASM_ADDNEWBREAKPOINT:
+			{		
+				BreakpointWindow bpw(wnd,cpu);
+				if (bpw.exec()) bpw.addBreakpoint();
+			}
+			break;
 		}
-		break;
+	} else {
+		MemCheck mcPrev;
+		BreakPoint bpPrev;
+		if (isMemory) {
+			mcPrev = displayedMemChecks_[index];
+		} else {
+			bpPrev = displayedBreakPoints_[index];
+		}
+
+		HMENU subMenu = GetSubMenu(g_hPopupMenus, POPUP_SUBMENU_ID_BREAKPOINTLIST);
+		if (isMemory) {
+			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (mcPrev.result & MEMCHECK_BREAK ? MF_CHECKED : MF_UNCHECKED));
+		} else {
+			CheckMenuItem(subMenu, ID_DISASM_DISABLEBREAKPOINT, MF_BYCOMMAND | (bpPrev.enabled ? MF_CHECKED : MF_UNCHECKED));
+		}
+
+		switch (TrackPopupMenuEx(subMenu, TPM_RIGHTBUTTON | TPM_RETURNCMD, screenPt.x, screenPt.y, wnd, 0))
+		{
+		case ID_DISASM_DISABLEBREAKPOINT:
+			if (isMemory) {
+				CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
+			} else {
+				CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
+			}
+			break;
+		case ID_DISASM_EDITBREAKPOINT:
+			editBreakpoint(index);
+			break;
+		}
 	}
 }
