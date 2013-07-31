@@ -37,6 +37,7 @@ class CtrlBreakpointList
 	int getTotalBreakpointCount();
 	int getBreakpointIndex(int itemIndex, bool& isMemory);
 	void showBreakpointMenu(int itemIndex, const POINT &pt);
+	void toggleEnabled(int itemIndex);
 public:
 	void setCpu(DebugInterface* cpu)
 	{

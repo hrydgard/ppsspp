@@ -351,6 +351,10 @@ LRESULT CALLBACK CtrlBreakpointList::wndProc(HWND hwnd, UINT message, WPARAM wPa
 		{
 			SendMessage(GetParent(hwnd),WM_DEB_TABPRESSED,0,0);
 			return 0;
+		} else if (wParam == VK_SPACE)
+		{
+			int index = ListView_GetSelectionMark(hwnd);
+			bp->toggleEnabled(index);
 		}
 		break;
 	case WM_GETDLGCODE:
@@ -395,6 +399,27 @@ void CtrlBreakpointList::update()
 
 	InvalidateRect(wnd,NULL,true);
 	UpdateWindow(wnd);
+}
+
+void CtrlBreakpointList::toggleEnabled(int itemIndex)
+{
+	bool isMemory;
+	int index = getBreakpointIndex(itemIndex, isMemory);
+	if (index == -1) return;
+
+	MemCheck mcPrev;
+	BreakPoint bpPrev;
+	if (isMemory) {
+		mcPrev = displayedMemChecks_[index];
+	} else {
+		bpPrev = displayedBreakPoints_[index];
+	}
+
+	if (isMemory) {
+		CBreakPoints::ChangeMemCheck(mcPrev.start, mcPrev.end, mcPrev.cond, MemCheckResult(mcPrev.result ^ MEMCHECK_BREAK));
+	} else {
+		CBreakPoints::ChangeBreakPoint(bpPrev.addr, !bpPrev.enabled);
+	}
 }
 
 void CtrlBreakpointList::gotoBreakpointAddress(int itemIndex)
