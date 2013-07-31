@@ -166,7 +166,7 @@ void __PPGeInit()
 		palette[i] = (val << 12) | 0xFFF;
 	}
 
-	u16 *imagePtr = (u16 *)imageData;
+	u16_le *imagePtr = (u16_le *)imageData;
 	u8 *ramPtr = (u8 *)Memory::GetPointer(atlasPtr);
 
 	// Palettize to 4-bit, the easy way.
