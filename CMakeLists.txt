@@ -245,8 +245,6 @@ endif()
 
 add_library(Common STATIC
 	${CommonExtra}
-	Common/ColorUtil.cpp
-	Common/ColorUtil.h
 	Common/ConsoleListener.cpp
 	Common/ConsoleListener.h
 	Common/Crypto/aes_cbc.cpp

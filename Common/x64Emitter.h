@@ -263,7 +263,12 @@ private:
 	void WriteNormalOp(XEmitter *emit, int bits, NormalOp op, const OpArg &a1, const OpArg &a2);
 
 protected:
-	inline void Write8(u8 value)   {*code++ = value;}
+	inline void Write8(u8 value)   {
+		//if (value == 0xcc) {
+		//	value = 0xcc;   // set breakpoint here to find where mysterious 0xcc are written
+		//}
+		*code++ = value;
+	}
 	inline void Write16(u16 value) {*(u16*)code = (value); code += 2;}
 	inline void Write32(u32 value) {*(u32*)code = (value); code += 4;}
 	inline void Write64(u64 value) {*(u64*)code = (value); code += 8;}
