@@ -701,6 +701,12 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 		case ID_DISASM_EDITBREAKPOINT:
 			editBreakpoint(index);
 			break;
+		case ID_DISASM_ADDNEWBREAKPOINT:
+			{		
+				BreakpointWindow bpw(wnd,cpu);
+				if (bpw.exec()) bpw.addBreakpoint();
+			}
+			break;
 		}
 	}
 }
