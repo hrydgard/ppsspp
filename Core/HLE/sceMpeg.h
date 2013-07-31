@@ -57,10 +57,10 @@ static const int PSMF_FIRST_TIMESTAMP_OFFSET = 0x54;
 static const int PSMF_LAST_TIMESTAMP_OFFSET = 0x5A;
 
 struct SceMpegAu {
-	s64 pts;  // presentation time stamp
-	s64 dts;  // decode time stamp
-	u32 esBuffer;
-	u32 esSize;
+	s64_le pts;  // presentation time stamp
+	s64_le dts;  // decode time stamp
+	u32_le esBuffer;
+	u32_le esSize;
 
 	void read(u32 addr) {
 		Memory::ReadStruct(addr, this);
