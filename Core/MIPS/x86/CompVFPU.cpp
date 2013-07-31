@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <limits>
+#include "base/logging.h"
 #include "math/math_util.h"
 
 #include "Core/MemMap.h"
@@ -614,12 +615,7 @@ enum
 static float ssCompareTemp;
 
 void Jit::Comp_Vcmp(u32 op) {
-	// Doesn't handle NaN right so disabled for now.
-	// DISABLE;
-	
-	if (ssCompareTemp) {
-		ERROR_LOG(HLE, "ssCompareTemp got set");
-	}
+	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
 		DISABLE;
