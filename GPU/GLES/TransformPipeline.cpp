@@ -55,6 +55,9 @@ enum {
 	TRANSFORMED_VERTEX_BUFFER_SIZE = 65536 * sizeof(TransformedVertex)
 };
 
+
+#define VERTEXCACHE_DECIMATION_INTERVAL 17
+
 inline float clamp(float in, float min, float max) { 
 	return in < min ? min : (in > max ? max : in); 
 }
@@ -70,6 +73,7 @@ TransformDrawEngine::TransformDrawEngine()
 		framebufferManager_(0),
 		numDrawCalls(0),
 		uvScale(0) {
+	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -1095,6 +1099,12 @@ void TransformDrawEngine::ClearTrackedVertexArrays() {
 }
 
 void TransformDrawEngine::DecimateTrackedVertexArrays() {
+	if (--decimationCounter_ <= 0) {
+		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
+	} else {
+		return;
+	}
+
 	int threshold = gpuStats.numFrames - VAI_KILL_AGE;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
 		if (iter->second->lastFrame < threshold) {
