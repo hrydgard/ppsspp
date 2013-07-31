@@ -1145,7 +1145,138 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcmp(u32 op) {
+		// Not ready yet
 		DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		VCondition cond = (VCondition)(op & 0xF);
+
+		u8 sregs[4], tregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+
+		// Some, we just fall back to the interpreter.
+		switch (cond) {
+		case VC_EN: // c = my_isnan(s[i]); break;
+		case VC_EI: // c = my_isinf(s[i]); break;
+		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+		case VC_NN: // c = !my_isnan(s[i]); break;
+		case VC_NI: // c = !my_isinf(s[i]); break;
+		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
+			DISABLE;
+		default:
+			;
+		}
+
+		// First, let's get the trivial ones.
+		int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
+
+		MOVI2R(R0, 0);
+		for (int i = 0; i < n; ++i) {
+			// Let's only handle the easy ones, and fall back on the interpreter for the rest.
+			CCFlags flag = CC_AL;
+			switch (cond) {
+			case VC_FL: // c = 0;
+				break;
+
+			case VC_TR: // c = 1
+				ORR(R0, R0, 1 << n);
+				break;
+
+			case VC_EQ: // c = s[i] == t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_EQ;
+				break;
+
+			case VC_LT: // c = s[i] < t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_LT;
+				break;
+
+			case VC_LE: // c = s[i] <= t[i]; 
+				fpr.MapInInV(sregs[i], tregs[i]);
+				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_LE;
+				break;
+
+			case VC_NE: // c = s[i] != t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_NEQ;
+				break;
+
+			case VC_GE: // c = s[i] >= t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_GE;
+				break;
+
+			case VC_GT: // c = s[i] > t[i]
+				fpr.MapInInV(sregs[i], tregs[i]);
+				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+				flag = CC_GE;
+				break;
+
+			case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f
+				fpr.MapRegV(sregs[i]);
+				VCMP(fpr.V(sregs[i]));
+				flag = CC_EQ;
+				break;
+
+			case VC_NZ: // c = s[i] != 0
+				fpr.MapRegV(sregs[i]);
+				VCMP(fpr.V(sregs[i]));
+				flag = CC_NEQ;
+				break;
+
+			default:
+				DISABLE;
+			}
+			if (flag != CC_AL) {
+				VMRS_APSR();
+				SetCC(flag);
+				if (i == 0) {
+					MOVI2R(R0, 1 << n);
+				} else {
+					ORR(R0, R0, 1 << n);
+				}
+				SetCC(CC_AL);
+			}
+
+			affected_bits |= 1 << i;
+		}
+
+		// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
+		// after all.
+		if (n == 1) {
+			// Use imul to easily duplicate that bit.
+			MOVI2R(R1, 0x31);
+			MUL(R0, R0, R1);
+		} else {
+			CMP(R0, affected_bits & 0xF);
+			SetCC(CC_EQ);
+			ORR(R0, R0, 1 << 5);
+			SetCC(CC_AL);
+			
+			CMP(R0, 0);
+			SetCC(CC_NEQ);
+			ORR(R0, R0, 1 << 4);
+			SetCC(CC_AL);
+		}
+
+		LDR(R1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+		BIC(R1, R1, affected_bits);
+		ORR(R1, R1, R0);
+		STR(R1, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Vcmov(u32 op) {

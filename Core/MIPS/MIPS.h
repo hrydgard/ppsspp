@@ -78,6 +78,26 @@ enum
 	//unknown....
 };
 
+enum VCondition
+{
+	VC_FL,
+	VC_EQ,
+	VC_LT,
+	VC_LE,
+	VC_TR,
+	VC_NE,
+	VC_GE,
+	VC_GT,
+	VC_EZ,
+	VC_EN,
+	VC_EI,
+	VC_ES,
+	VC_NZ,
+	VC_NN,
+	VC_NI,
+	VC_NS
+};
+
 class MIPSState
 {
 public:

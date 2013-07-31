@@ -599,6 +599,174 @@ void Jit::Comp_VecDo3(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
+enum
+{
+	CMPEQSS = 0,
+	CMPLTSS = 1,
+	CMPLESS = 2,
+	CMPUNORDSS = 3,
+	CMPNEQSS = 4,
+	CMPNLTSS = 5,
+	CMPNLESS = 6,
+	CMPORDSS = 7,
+};
+
+static float ssCompareTemp;
+
+void Jit::Comp_Vcmp(u32 op) {
+	// Doesn't handle NaN right so disabled for now.
+	// DISABLE;
+	
+	if (ssCompareTemp) {
+		ERROR_LOG(HLE, "ssCompareTemp got set");
+	}
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	VCondition cond = (VCondition)(op & 0xF);
+
+	u8 sregs[4], tregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixT(tregs, sz, _VT);
+
+	// Some, we just fall back to the interpreter.
+	switch (cond) {
+	case VC_EN: // c = my_isnan(s[i]); break;
+	case VC_EI: // c = my_isinf(s[i]); break;
+	case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
+	case VC_NN: // c = !my_isnan(s[i]); break;
+	case VC_NI: // c = !my_isinf(s[i]); break;
+	case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
+		DISABLE;
+	}
+
+	// First, let's get the trivial ones.
+	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
+
+	gpr.FlushLockX(ECX);
+	XOR(32, R(ECX), R(ECX));
+	if (cond == VC_EZ || cond == VC_NZ)
+		XORPS(XMM0, R(XMM0));
+
+	for (int i = 0; i < n; ++i) {
+		fpr.MapRegV(sregs[i], 0);
+		// Let's only handle the easy ones, and fall back on the interpreter for the rest.
+		bool compareTwo = false;
+		bool compareToZero = false;
+		int comparison = -1;
+		bool flip = false;
+		switch (cond) {
+		case VC_FL: // c = 0; break;
+			break;
+
+		case VC_TR: // c = 1; break;
+			MOV(32, R(ECX), Imm32(1));
+			break;
+
+		case VC_EQ: // c = s[i] == t[i]; break;
+			comparison = CMPEQSS;
+			compareTwo = true;
+			break;
+
+		case VC_LT: // c = s[i] < t[i]; break;
+			comparison = CMPLTSS;
+			compareTwo = true;
+			break;
+
+		case VC_LE: // c = s[i] <= t[i]; break;
+			comparison = CMPLESS;
+			compareTwo = true;
+			break;
+
+		case VC_NE: // c = s[i] != t[i]; break;
+			comparison = CMPNEQSS;
+			compareTwo = true;
+			break;
+
+		case VC_GE: // c = s[i] >= t[i]; break;
+			comparison = CMPLESS;
+			flip = true;
+			compareTwo = true;
+			break;
+
+		case VC_GT: // c = s[i] > t[i]; break;
+			comparison = CMPLTSS;
+			flip = true;
+			compareTwo = true;
+			break;
+
+		case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f; break;
+			comparison = CMPEQSS;
+			compareToZero = true;
+			break;
+
+		case VC_NZ: // c = s[i] != 0; break;
+			comparison = CMPNEQSS;
+			compareToZero = true;
+			break;
+
+		default:
+			DISABLE;
+		}
+
+		if (compareTwo) {
+			if (!flip) {
+				MOVSS(XMM1, fpr.V(sregs[i]));
+				CMPSS(XMM1, fpr.V(tregs[i]), comparison);
+			} else {
+				MOVSS(XMM1, fpr.V(tregs[i]));
+				CMPSS(XMM1, fpr.V(sregs[i]), comparison);
+			}
+		} else if (compareToZero) {
+			MOVSS(XMM1, fpr.V(sregs[i]));
+			CMPSS(XMM1, R(XMM0), comparison);
+		}
+		if (compareTwo || compareToZero) {
+			MOVSS(M((void *) &ssCompareTemp), XMM1);
+			MOV(32, R(ECX), M((void *) &ssCompareTemp));
+			AND(32, R(ECX), Imm32(1));
+		}
+
+		if (i > 0) {
+			SHL(32, R(ECX), Imm8(i));
+		}
+		if (i == 0) 
+			MOV(32, R(EAX), R(ECX));
+		else
+			OR(32, R(EAX), R(ECX));
+		affected_bits |= 1 << i;
+	}
+
+	// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
+	// after all.
+	if (n == 1) {
+		// Use imul to easily duplicate that bit.
+		IMUL(32, EAX, R(EAX), Imm8(0x31));
+	} else {
+		CMP(32, R(EAX), Imm8(affected_bits & 0xF));
+		SETcc(CC_E, R(ECX));
+		SHL(32, R(ECX), Imm8(5));
+		OR(32, R(EAX), R(ECX));
+
+		CMP(32, R(EAX), Imm8(0));
+		SETcc(CC_NZ, R(ECX));
+		SHL(32, R(ECX), Imm8(4));
+		OR(32, R(EAX), R(ECX));
+	}
+
+	MOV(32, R(ECX), M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]));
+	AND(32, R(ECX), Imm32(~affected_bits));
+	OR(32, R(ECX), R(EAX));
+	MOV(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), R(ECX));
+
+	fpr.ReleaseSpillLocks();
+	gpr.UnlockAllX();
+}
+
 // There are no immediates for floating point, so we need to load these
 // from RAM. Might as well have a table ready.
 extern const float mulTableVi2f[32] = {
@@ -1193,16 +1361,15 @@ void Jit::Comp_Vhoriz(u32 op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vcmp(u32 op) {
-	DISABLE;
-}
-
 void Jit::Comp_Vcmov(u32 op) {
 	DISABLE;
 }
 
 void Jit::Comp_Viim(u32 op) {
 	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
 
 	u8 dreg;
 	GetVectorRegs(&dreg, V_Single, _VT);
@@ -1220,6 +1387,9 @@ void Jit::Comp_Viim(u32 op) {
 
 void Jit::Comp_Vfim(u32 op) {
 	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
 
 	u8 dreg;
 	GetVectorRegs(&dreg, V_Single, _VT);
