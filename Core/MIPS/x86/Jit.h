@@ -84,9 +84,10 @@ struct JitState
 	PrefixState prefixDFlag;
 
 	void PrefixStart() {
-		PrefixUnknown();
 		if (startDefaultPrefix) {
 			EatPrefix();
+		} else {
+			PrefixUnknown();
 		}
 	}
 	void PrefixUnknown() {

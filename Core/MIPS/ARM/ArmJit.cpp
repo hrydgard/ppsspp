@@ -92,28 +92,19 @@ void Jit::FlushAll()
 
 void Jit::FlushPrefixV()
 {
-	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0)
-	{
-		//if (js.prefixS & 0xF0000000)
-		//	ERROR_LOG(CPU, "Flushing BAD S-flag prefix: %08x", js.prefixS);
+	if ((js.prefixSFlag & ArmJitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixS);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
 		js.prefixSFlag = (ArmJitState::PrefixState) (js.prefixSFlag & ~ArmJitState::PREFIX_DIRTY);
 	}
 
-	if ((js.prefixTFlag & ArmJitState::PREFIX_DIRTY) != 0)
-	{
-		//if (js.prefixT & 0xF0000000)
-		//	ERROR_LOG(CPU, "Flushing BAD T-flag prefix: %08x", js.prefixS);
+	if ((js.prefixTFlag & ArmJitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixT);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
 		js.prefixTFlag = (ArmJitState::PrefixState) (js.prefixTFlag & ~ArmJitState::PREFIX_DIRTY);
 	}
 
-	if ((js.prefixDFlag & ArmJitState::PREFIX_DIRTY) != 0)
-	{
-		//if (js.prefixD & 0xF0000000)
-		//	ERROR_LOG(CPU, "Flushing BAD D-flag prefix: %08x", js.prefixS);
+	if ((js.prefixDFlag & ArmJitState::PREFIX_DIRTY) != 0) {
 		MOVI2R(R0, js.prefixD);
 		STR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
 		js.prefixDFlag = (ArmJitState::PrefixState) (js.prefixDFlag & ~ArmJitState::PREFIX_DIRTY);

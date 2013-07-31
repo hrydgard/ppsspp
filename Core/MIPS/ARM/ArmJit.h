@@ -70,9 +70,10 @@ struct ArmJitState
 	PrefixState prefixTFlag;
 	PrefixState prefixDFlag;
 	void PrefixStart() {
-		PrefixUnknown();
 		if (startDefaultPrefix) {
 			EatPrefix();
+		} else {
+			PrefixUnknown();
 		}
 	}
 	void PrefixUnknown() {

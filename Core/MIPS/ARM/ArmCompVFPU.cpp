@@ -793,7 +793,55 @@ namespace MIPSComp
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
-	
+
+	void Jit::Comp_Vi2f(u32 op) {
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		int imm = (op >> 16) & 0x1f;
+		const float mult = 1.0f / (float)(1 << imm);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		if (mult != 1.0f)
+			MOVI2F(S0, mult, R0);
+
+		for (int i = 0; i < n; i++) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			VCVT(fpr.V(tempregs[i]), fpr.V(sregs[i]), TO_FLOAT | IS_SIGNED);
+			if (mult != 1.0f) 
+				VMUL(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S0);
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
+
+
+
 	void Jit::Comp_Mftv(u32 op)
 	{
 		CONDITIONAL_DISABLE;
@@ -920,8 +968,6 @@ namespace MIPSComp
 	void Jit::Comp_VScl(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		WARN_LOG(CPU, "HERE WE GO 0");
-
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -941,7 +987,7 @@ namespace MIPSComp
 		// and that there's no overlap.
 		MIPSReg tempregs[4];
 		for (int i = 0; i < n; ++i) {
-			if (dregs[i] == treg || !IsOverlapSafe(dregs[i], i, n, sregs)) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
 				// Need to use temp regs
 				tempregs[i] = fpr.GetTempV();
 			} else {
@@ -1095,10 +1141,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vf2i(u32 op) {
-		DISABLE;
-	}
-
-	void Jit::Comp_Vi2f(u32 op) {
 		DISABLE;
 	}
 
