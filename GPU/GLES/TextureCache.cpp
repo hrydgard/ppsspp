@@ -181,6 +181,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 				WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 			}
 			entry->framebuffer = framebuffer;
+			entry->invalidHint = 0;
 			// TODO: Delete the original non-fbo texture too.
 		}
 	} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
@@ -195,10 +196,12 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 				WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 				// TODO: Use an FBO to translate the palette?
 				entry->framebuffer = framebuffer;
+				entry->invalidHint = -1;
 			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 				WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 				// TODO: Keep track of the y offset.
 				entry->framebuffer = framebuffer;
+				entry->invalidHint = -1;
 			}
 		}
 	}
@@ -1023,7 +1026,9 @@ void TextureCache::SetTexture() {
 		if (entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 			if (useBufferedRendering) {
-				if (entry->framebuffer->fbo) {
+				// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
+				// But let's still not use random memory.
+				if (entry->framebuffer->fbo && entry->invalidHint != -1) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 				} else {
 					glBindTexture(GL_TEXTURE_2D, 0);
