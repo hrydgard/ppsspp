@@ -201,8 +201,8 @@ void GameSettingsScreen::CreateViews() {
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(CPU)", "Read Framebuffers To Memory(GPU)"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
 #else
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(GPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 3, gs, screenManager()));
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering(Native)", "Buffered Rendering(2x)", "Read Framebuffers To Memory(GPU)"};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
 #endif
 	graphicsSettings->Add(new CheckBox(&g_Config.bAntiAliasing, gs->T("Anti-Aliasing")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
