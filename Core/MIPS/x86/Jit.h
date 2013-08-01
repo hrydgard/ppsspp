@@ -228,6 +228,9 @@ public:
 	void Comp_Vcmov(u32 op);
 	void Comp_Viim(u32 op);
 	void Comp_Vfim(u32 op);
+	void Comp_VCrossQuat(u32 op);
+	void Comp_Vsge(u32 op);
+	void Comp_Vslt(u32 op);
 
 	void Comp_DoNothing(u32 op);
 

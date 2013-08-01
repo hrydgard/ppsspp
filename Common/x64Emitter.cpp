@@ -486,7 +486,9 @@ void XEmitter::DEC(int bits, OpArg arg)
 
 //Single byte opcodes
 //There is no PUSHAD/POPAD in 64-bit mode.
-void XEmitter::INT3() {Write8(0xCC);}
+void XEmitter::INT3() {
+	Write8(0xCC);
+}
 void XEmitter::RET()  {Write8(0xC3);}
 void XEmitter::RET_FAST()  {Write8(0xF3); Write8(0xC3);} //two-byte return (rep ret) - recommended by AMD optimization manual for the case of jumping to a ret
 

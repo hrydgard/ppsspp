@@ -181,6 +181,8 @@ private:
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
 
+	int decimationCounter_;
+
 	UVScale *uvScale;
 };
 

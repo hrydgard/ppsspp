@@ -147,5 +147,7 @@ private:
 
 	u32 lastBoundTexture;
 	float maxAnisotropyLevel;
+
+	int decimationCounter_;
 };
 

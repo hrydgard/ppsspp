@@ -506,8 +506,8 @@ const MIPSInstruction tableVFPU3[8] = //011011 xxx
 	INSTR("vmax",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
 	{-2}, 
 	INSTR("vscmp",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vscmp, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsge",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vsge, IS_VFPU|OUT_EAT_PREFIX), 
-	INSTR("vslt",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vslt, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsge",&Jit::Comp_Vsge, Dis_VectorSet3, Int_Vsge, IS_VFPU|OUT_EAT_PREFIX), 
+	INSTR("vslt",&Jit::Comp_Vslt, Dis_VectorSet3, Int_Vslt, IS_VFPU|OUT_EAT_PREFIX),
 };
 
 
@@ -651,10 +651,10 @@ const MIPSInstruction tableVFPU6[32] =  //111100 xxx
 	INSTR("vmscl",&Jit::Comp_Vmscl, Dis_Generic, Int_Vmscl, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vmscl",&Jit::Comp_Vmscl, Dis_Generic, Int_Vmscl, IS_VFPU|OUT_EAT_PREFIX),
 
-	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_Generic, Dis_CrossQuat, Int_CrossQuat, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_VCrossQuat, Dis_CrossQuat, Int_CrossQuat, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_VCrossQuat, Dis_CrossQuat, Int_CrossQuat, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_VCrossQuat, Dis_CrossQuat, Int_CrossQuat, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcrsp.t/vqmul.q",&Jit::Comp_VCrossQuat, Dis_CrossQuat, Int_CrossQuat, IS_VFPU|OUT_EAT_PREFIX),
 //24
 	{-2},
 	{-2},

@@ -38,6 +38,9 @@
 // Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
 
+// Try to be prime to other decimation intervals.
+#define TEXCACHE_DECIMATION_INTERVAL 13
+
 extern int g_iNumVideos;
 
 u32 RoundUpToPowerOf2(u32 v)
@@ -61,6 +64,7 @@ static inline u32 GetLevelBufw(int level, u32 texaddr) {
 
 TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
 	lastBoundTexture = -1;
+	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
@@ -97,6 +101,12 @@ void TextureCache::Clear(bool delete_them) {
 
 // Removes old textures.
 void TextureCache::Decimate() {
+	if (--decimationCounter_ <= 0) {
+		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
+	} else {
+		return;
+	}
+
 	glBindTexture(GL_TEXTURE_2D, 0);
 	lastBoundTexture = -1;
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
