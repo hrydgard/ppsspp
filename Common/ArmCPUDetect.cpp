@@ -72,7 +72,7 @@ unsigned char GetCPUImplementer()
 		break;
 	}
 
-	delete implementer_string;
+	free(implementer_string);
 
 	return implementer;
 }
@@ -99,7 +99,7 @@ unsigned short GetCPUPart()
 		break;
 	}
 
-	delete part_string;
+	free(part_string);
 
 	return part;
 }
