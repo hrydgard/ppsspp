@@ -172,6 +172,20 @@ void TextureCache::ClearNextFrame() {
 }
 
 
+template <typename T>
+inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
+	entry->framebuffer = framebuffer;
+	entry->invalidHint = 0;
+}
+
+template <typename T>
+inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) {
+	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = -1;
+	}
+}
+
 inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
@@ -179,9 +193,11 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 		if (!entry->framebuffer) {
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+				// If it already has one, let's hope that one is correct.
+				AttachFramebufferInvalid(entry, framebuffer);
+			} else {
+				AttachFramebufferValid(entry, framebuffer);
 			}
-			entry->framebuffer = framebuffer;
-			entry->invalidHint = 0;
 			// TODO: Delete the original non-fbo texture too.
 		}
 	} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
@@ -195,13 +211,11 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			if (framebuffer->format != entry->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 				// TODO: Use an FBO to translate the palette?
-				entry->framebuffer = framebuffer;
-				entry->invalidHint = -1;
+				AttachFramebufferInvalid(entry, framebuffer);
 			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 				WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 				// TODO: Keep track of the y offset.
-				entry->framebuffer = framebuffer;
-				entry->invalidHint = -1;
+				AttachFramebufferInvalid(entry, framebuffer);
 			}
 		}
 	}
