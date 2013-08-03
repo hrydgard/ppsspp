@@ -704,6 +704,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u8 vcount;
 		u16_le fcount;
 		u32_le resident;
+		u32_le extra;
 	};
 
 	u32_le *entPos = (u32_le *)Memory::GetPointer(modinfo->libent);
@@ -737,6 +738,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 		u32_le *residentPtr = (u32_le *)Memory::GetPointer(ent->resident);
 		u32_le *exportPtr = residentPtr + ent->fcount + ent->vcount;
+
+		if (ent->size != 4) {
+			WARN_LOG_REPORT(LOADER, "Unexpected export module entry size %d, extra=%08x", ent->size, ent->extra);
+		}
 
 		for (u32 j = 0; j < ent->fcount; j++) {
 			u32 nid = residentPtr[j];
