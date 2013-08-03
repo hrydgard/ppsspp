@@ -278,6 +278,46 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
+		/*
+		if(enableLogicOp) {
+			WRITE(p, "  vec4 p = texture2D(tex, v_texcoord);\n"); // I think it is wrong . How to get framebuffer color/pixel color? 
+			switch (gstate.getLogicOp()) {
+			case GE_LOGIC_CLEAR:
+				WRITE(p, "  v = 0.0;\n"); break;
+			case GE_LOGIC_AND:
+				WRITE(p, "  v = v & p  ;\n"); break;
+			case GE_LOGIC_AND_REVERSE:
+				WRITE(p, "  v = v & ~p ;\n"); break;
+			case GE_LOGIC_COPY:
+				WRITE(p, "  v = v ;\n"); break;
+			case GE_LOGIC_AND_INVERTED:
+				WRITE(p, "  v = ~v & p  ;\n"); break;
+			case GE_LOGIC_NOOP:
+				WRITE(p, "  v = p;\n"); break;
+			case GE_LOGIC_XOR:
+				WRITE(p, "  v = v ^ p ;\n"); break;
+			case GE_LOGIC_OR:
+				WRITE(p, "  v = v | p ;\n"); break;
+			case GE_LOGIC_NOR:
+				WRITE(p, "  v = ~(v | p) ;\n"); break;
+			case GE_LOGIC_EQUIV:
+				WRITE(p, "  v = ~(v ^ p) ;\n"); break;
+			case GE_LOGIC_INVERTED:
+				WRITE(p, "  v = ~p ;\n"); break;
+			case GE_LOGIC_OR_REVERSE:
+				WRITE(p, "  v = v | ~p ;\n"); break;
+			case GE_LOGIC_COPY_INVERTED:
+				WRITE(p, "  v = ~v ;\n"); break;
+			case GE_LOGIC_OR_INVERTED:
+				WRITE(p, "  v = ~v | p ;\n"); break;
+			case GE_LOGIC_NAND:
+				WRITE(p, "  v = ~(v & p) ;\n"); break;
+			case GE_LOGIC_SET:
+				WRITE(p, "  v = 1.0 ;\n"); break;
+			}
+		} 
+		*/
+
 		if (enableAlphaTest) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
@@ -309,12 +349,6 @@ void GenerateFragmentShader(char *buffer) {
 					WRITE(p, "if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 			}
 		}
-
-		/*
-		if(enableLogicOp) {
-			GELogicOp logicOp = gstate.getLogicOp();
-			//TODO
-		}*/
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
