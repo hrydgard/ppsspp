@@ -37,6 +37,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GLES/Framebuffer.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -83,10 +84,17 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.outputHeight = dp_yres;
 	coreParam.pixelWidth = pixel_xres;
 	coreParam.pixelHeight = pixel_yres;
+#ifndef USING_GLES2
 	if (g_Config.bAntiAliasing) {
 		coreParam.renderWidth *= 2;
 		coreParam.renderHeight *= 2;
 	}
+#else
+	if (g_Config.iRenderingMode == FB_BUFFERED_MODE_2X) {
+		coreParam.renderWidth *= 2;
+		coreParam.renderHeight *= 2;
+	}
+#endif
 	std::string error_string;
 	if (PSP_Init(coreParam, &error_string)) {
 		invalid_ = false;
