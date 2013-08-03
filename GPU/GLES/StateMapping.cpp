@@ -214,14 +214,14 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.cullFace.set(GL_FALSE);
 		
 		// Depth Test
-		bool depthMask = (gstate.clearmode >> 10) & 1;
+		bool depthMask = gstate.isClearModeDepthWriteEnabled();
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
 		glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
 
 		// Color Test
-		bool colorMask = (gstate.clearmode >> 8) & 1;
-		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		bool colorMask = gstate.isClearModeColorMask();
+		bool alphaMask = gstate.isClearModeAlphaMask();
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		// Stencil Test
