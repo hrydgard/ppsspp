@@ -71,6 +71,9 @@ unsigned char GetCPUImplementer()
 		sscanf(implementer_string, "0x%02hhx", &implementer);
 		break;
 	}
+
+	free(implementer_string);
+
 	return implementer;
 }
 
@@ -95,6 +98,9 @@ unsigned short GetCPUPart()
 		sscanf(part_string, "0x%03hx", &part);
 		break;
 	}
+
+	free(part_string);
+
 	return part;
 }
 
