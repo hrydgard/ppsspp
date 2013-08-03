@@ -1240,11 +1240,11 @@ namespace MainWindow
 			ID_TEXTURESCALING_BICUBIC,
 			ID_TEXTURESCALING_HYBRID_BICUBIC,
 		};
-		if(g_Config.iTexScalingType > TextureScaler::HYBRID_BICUBIC)
-			g_Config.iTexScalingType = TextureScaler::HYBRID_BICUBIC;
-
-		else if(g_Config.iTexScalingType < TextureScaler::XBRZ)
+		if(g_Config.iTexScalingType < TextureScaler::XBRZ)
 			g_Config.iTexScalingType = TextureScaler::XBRZ;
+
+		else if(g_Config.iTexScalingType > TextureScaler::HYBRID_BICUBIC)
+			g_Config.iTexScalingType = TextureScaler::HYBRID_BICUBIC;
 
 		for (int i = 0; i < ARRAY_SIZE(texscalingtypeitems); i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));
@@ -1272,11 +1272,11 @@ namespace MainWindow
 			ID_OPTIONS_READFBOTOMEMORYCPU,
 			ID_OPTIONS_READFBOTOMEMORYGPU,
 		};
-		if(g_Config.iRenderingMode > FB_READFBOMEMORY_GPU)
-			g_Config.iRenderingMode = FB_READFBOMEMORY_GPU;
-
-		else if(g_Config.iRenderingMode < FB_NON_BUFFERED_MODE)
+		if(g_Config.iRenderingMode < FB_NON_BUFFERED_MODE)
 			g_Config.iRenderingMode = FB_NON_BUFFERED_MODE;
+
+		else if(g_Config.iRenderingMode > FB_READFBOMEMORY_GPU)
+			g_Config.iRenderingMode = FB_READFBOMEMORY_GPU;
 
 		for (int i = 0; i < ARRAY_SIZE(renderingmode); i++) {
 			CheckMenuItem(menu, renderingmode[i], MF_BYCOMMAND | ( i == g_Config.iRenderingMode )? MF_CHECKED : MF_UNCHECKED);
@@ -1294,11 +1294,11 @@ namespace MainWindow
 			ID_OPTIONS_FRAMESKIP_8,
 			ID_OPTIONS_FRAMESKIP_9,
 		};
-		if(g_Config.iFrameSkip > FRAMESKIP_MAX)
-			g_Config.iFrameSkip = FRAMESKIP_MAX;
-
-		else if(g_Config.iFrameSkip < FRAMESKIP_OFF)
+		if(g_Config.iFrameSkip < FRAMESKIP_OFF)
 			g_Config.iFrameSkip = FRAMESKIP_OFF;
+
+		else if(g_Config.iFrameSkip > FRAMESKIP_MAX)
+			g_Config.iFrameSkip = FRAMESKIP_MAX;
 
 		for (int i = 0; i < ARRAY_SIZE(frameskipping); i++) {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
