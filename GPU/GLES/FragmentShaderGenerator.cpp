@@ -114,11 +114,12 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
+		bool enableLogicOp = gstate.isLogicOpEnabled();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled();
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == 1;
-		bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+		bool doTextureAlpha = gstate.isTextureAlpha();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -133,23 +134,23 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= gstate.isAlphaTestEnabled() << 8;
 		if (enableAlphaTest)
-			id->d[0] |= gstate.getAlphaTestFunction() << 9;
+			id->d[0] |= gstate.getAlphaTestFunction() << 9; // alpha test func
 		id->d[0] |= gstate.isColorTestEnabled() << 12;
 		if (enableColorTest)
-			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
+			id->d[0] |= gstate.getColorTestFunction() << 13; // color test func 	
 		id->d[0] |= (enableFog & 1) << 15;
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
+		id->d[0] |= gstate.isLogicOpEnabled() << 19;
+		if (enableLogicOp)
+			id->d[0] |= gstate.getLogicOp() << 20; // logic ops func
 	}
 }
 
-// Missing: Z depth range
-// Also, logic ops etc, of course. Urgh.
 void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
-
-#if defined(GLSL_ES_1_0)
+	#if defined(GLSL_ES_1_0)
 	WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	WRITE(p, "precision lowp float;\n");
 #elif !defined(FORCE_OPENGL_2_0)
@@ -162,10 +163,11 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorDoubling = gstate.isColorDoublingEnabled();
+	bool enableLogicOp = gstate.isLogicOpEnabled();
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
-	bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+	bool doTextureAlpha = gstate.isTextureAlpha();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
@@ -307,6 +309,12 @@ void GenerateFragmentShader(char *buffer) {
 					WRITE(p, "if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
 			}
 		}
+
+		/*
+		if(enableLogicOp) {
+			GELogicOp logicOp = gstate.getLogicOp();
+			//TODO
+		}*/
 
 		if (enableFog) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
