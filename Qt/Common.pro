@@ -29,8 +29,7 @@ win32 {
 	HEADERS += ../Common/stdafx.h
 }
 
-SOURCES += ../Common/ColorUtil.cpp \
-	../Common/ConsoleListener.cpp \
+SOURCES += ../Common/ConsoleListener.cpp \
 	../Common/ExtendedTrace.cpp \
 	../Common/FPURoundModeGeneric.cpp \
 	../Common/FileSearch.cpp \
@@ -50,7 +49,6 @@ SOURCES += ../Common/ColorUtil.cpp \
 	../Common/Version.cpp \
 	../Common/Crypto/*.cpp
 HEADERS += ../Common/ChunkFile.h \
-	../Common/ColorUtil.h \
 	../Common/ConsoleListener.h \
 	../Common/ExtendedTrace.h \
 	../Common/FileSearch.h \
