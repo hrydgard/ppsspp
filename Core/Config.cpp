@@ -104,6 +104,7 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("SSAA", &SSAntiAliasing, 0);
 	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
+	graphics->Get("AutoSkip", &bAutoMinimizeSkip, true);
 	graphics->Get("FrameRate", &iFpsLimit, 0);
 	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 0);
 #ifdef USING_GLES2
@@ -231,6 +232,7 @@ void Config::Save()
 		graphics->Set("SSAA", SSAntiAliasing);
 		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
+		graphics->Set("AutoSkip", bAutoMinimizeSkip);
 		graphics->Set("FrameRate", iFpsLimit);
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
 		graphics->Set("AnisotropyLevel", iAnisotropyLevel);
