@@ -200,6 +200,9 @@ struct GPUgstate
 	// Cull 
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
 	int getCullMode()   const { return cullmode & 1; }
+	bool isClearModeDepthWriteEnabled() const { return (clearmode&0x400) != 0; }
+	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }
+	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
 	
 	// Blend
 	int getBlendFuncA() const { return blend & 0xF; }
