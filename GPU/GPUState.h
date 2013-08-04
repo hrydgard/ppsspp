@@ -254,6 +254,7 @@ struct GPUgstate
 	bool isTextureMapEnabled() const { return textureMapEnable & 1; }
 	GETexFunc getTextureFunction() const { return static_cast<GETexFunc>(texfunc & 0x7); }
 	bool isColorDoublingEnabled() const { return (texfunc & 0x10000) != 0; }
+	bool isTextureAlpha() const { return (texfunc & 0x100) != 0; } 
 	GETextureFormat getTextureFormat() const { return static_cast<GETextureFormat>(texformat & 0xF); }
 	bool isTextureFormatIndexed() const { return (texformat & 4) != 0; } // GE_TFMT_CLUT4 - GE_TFMT_CLUT32 are 0b1xx.
 	int getTextureEnvColR() const { return texenvcolor&0xFF; }

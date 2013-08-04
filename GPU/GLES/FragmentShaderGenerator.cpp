@@ -114,11 +114,12 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
+		bool enableLogicOp = gstate.isLogicOpEnabled();
 		bool enableColorDoubling = gstate.isColorDoublingEnabled();
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == 1;
-		bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+		bool doTextureAlpha = gstate.isTextureAlpha();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -133,23 +134,23 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= gstate.isAlphaTestEnabled() << 8;
 		if (enableAlphaTest)
-			id->d[0] |= gstate.getAlphaTestFunction() << 9;
+			id->d[0] |= gstate.getAlphaTestFunction() << 9; // alpha test func
 		id->d[0] |= gstate.isColorTestEnabled() << 12;
 		if (enableColorTest)
-			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
+			id->d[0] |= gstate.getColorTestFunction() << 13; // color test func 	
 		id->d[0] |= (enableFog & 1) << 15;
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
+		id->d[0] |= gstate.isLogicOpEnabled() << 19;
+		if (enableLogicOp)
+			id->d[0] |= gstate.getLogicOp() << 20; // logic ops func
 	}
 }
 
-// Missing: Z depth range
-// Also, logic ops etc, of course. Urgh.
 void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
-
-#if defined(GLSL_ES_1_0)
+	#if defined(GLSL_ES_1_0)
 	WRITE(p, "#version 100\n");  // GLSL ES 1.0
 	WRITE(p, "precision lowp float;\n");
 #elif !defined(FORCE_OPENGL_2_0)
@@ -162,10 +163,11 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorDoubling = gstate.isColorDoublingEnabled();
+	bool enableLogicOp = gstate.isLogicOpEnabled();
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
-	bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+	bool doTextureAlpha = gstate.isTextureAlpha();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
@@ -276,6 +278,48 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
+#ifndef USING_GLES2
+		/*
+		// Logic Ops only supports on desktop OpenGL but not OpenGL ES
+		if(enableLogicOp) {
+			WRITE(p, "  vec4 p = texture2D(tex, v_texcoord);\n"); // I think it is wrong . How to get framebuffer color/pixel color? 
+			switch (gstate.getLogicOp()) {
+			case GE_LOGIC_CLEAR:
+				WRITE(p, "  v = 0.0;\n"); break;
+			case GE_LOGIC_AND:
+				WRITE(p, "  v = v & p  ;\n"); break;
+			case GE_LOGIC_AND_REVERSE:
+				WRITE(p, "  v = v & ~p ;\n"); break;
+			case GE_LOGIC_COPY:
+				WRITE(p, "  v = v ;\n"); break;
+			case GE_LOGIC_AND_INVERTED:
+				WRITE(p, "  v = ~v & p  ;\n"); break;
+			case GE_LOGIC_NOOP:
+				WRITE(p, "  v = p;\n"); break;
+			case GE_LOGIC_XOR:
+				WRITE(p, "  v = v ^ p ;\n"); break;
+			case GE_LOGIC_OR:
+				WRITE(p, "  v = v | p ;\n"); break;
+			case GE_LOGIC_NOR:
+				WRITE(p, "  v = ~(v | p) ;\n"); break;
+			case GE_LOGIC_EQUIV:
+				WRITE(p, "  v = ~(v ^ p) ;\n"); break;
+			case GE_LOGIC_INVERTED:
+				WRITE(p, "  v = ~p ;\n"); break;
+			case GE_LOGIC_OR_REVERSE:
+				WRITE(p, "  v = v | ~p ;\n"); break;
+			case GE_LOGIC_COPY_INVERTED:
+				WRITE(p, "  v = ~v ;\n"); break;
+			case GE_LOGIC_OR_INVERTED:
+				WRITE(p, "  v = ~v | p ;\n"); break;
+			case GE_LOGIC_NAND:
+				WRITE(p, "  v = ~(v & p) ;\n"); break;
+			case GE_LOGIC_SET:
+				WRITE(p, "  v = 1.0 ;\n"); break;
+			}
+		} 
+		*/
+#endif
 		if (enableAlphaTest) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
