@@ -1386,6 +1386,7 @@ namespace MainWindow
 		CorrectCursor();
 		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, FALSE);
+		UpdateScreenScale();
 	}
 
 	void SetPlaying(const char *text) {
