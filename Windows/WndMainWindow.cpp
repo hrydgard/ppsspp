@@ -1006,7 +1006,7 @@ namespace MainWindow
 					W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
 					break;
 
-				case ID_OPTIONS_SIMPLE2XSSAA:
+				case ID_OPTIONS_ANTIALIASING:
 					g_Config.bAntiAliasing = !g_Config.bAntiAliasing;
 					ResizeDisplay(true);
 					break;
@@ -1188,7 +1188,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
-		CHECKITEM(ID_OPTIONS_SIMPLE2XSSAA, g_Config.bAntiAliasing);
+		CHECKITEM(ID_OPTIONS_ANTIALIASING, g_Config.bAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
