@@ -64,6 +64,7 @@ private:
 
 	// Temporaries to convert bools to other kinds of settings
 	bool enableReports_;
+	bool enableLogging_;
 };
 
 class DeveloperToolsScreen : public UIScreenWithBackground {

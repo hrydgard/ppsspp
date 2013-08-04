@@ -1146,9 +1146,10 @@ namespace MainWindow
 			if(!g_Config.bEnableLogging) {
 				LogManager::GetInstance()->GetConsoleListener()->Show(false);
 				EnableMenuItem(menu, ID_DEBUG_LOG, MF_GRAYED);
-			}
-			else
+			} else {
+				LogManager::GetInstance()->GetConsoleListener()->Show(true);
 				EnableMenuItem(menu, ID_DEBUG_LOG, MF_ENABLED);
+			}
 			break;
 
 		case WM_MENUSELECT:
