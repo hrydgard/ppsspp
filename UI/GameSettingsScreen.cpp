@@ -188,9 +188,9 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(leftColumn);
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
-	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(205, WRAP_CONTENT, 30, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(910, FILL_PARENT, actionMenuMargins));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(750, FILL_PARENT, actionMenuMargins));
 
 	root_->Add(tabHolder);
 
@@ -334,6 +334,7 @@ void GlobalSettingsScreen::CreateViews() {
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
+	list->Add(new CheckBox(&g_Config.bDirectLoad, gs->T("Enable Direct Load")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
 }
