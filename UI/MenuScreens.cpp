@@ -702,7 +702,7 @@ void ControlsScreen::update(InputState &input) {
 
 void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
-		if (key.keyCode != KEYCODE_EXT_MOUSEBUTTON_1) {
+		if (key.keyCode != NKCODE_EXT_MOUSEBUTTON_1) {
 			last_kb_deviceid = key.deviceId;
 			last_kb_key = key.keyCode;
 			last_axis_id = -1;
@@ -1938,10 +1938,10 @@ FileSelectScreen::FileSelectScreen(const FileSelectScreenOptions &options) : opt
 void FileSelectScreen::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		switch (key.keyCode) {
-		case KEYCODE_EXT_MOUSEWHEEL_UP:
+		case NKCODE_EXT_MOUSEWHEEL_UP:
 			list_.scrollRelative(-50);
 			break;
-		case KEYCODE_EXT_MOUSEWHEEL_DOWN:
+		case NKCODE_EXT_MOUSEWHEEL_DOWN:
 			list_.scrollRelative(50);
 			break;
 		}

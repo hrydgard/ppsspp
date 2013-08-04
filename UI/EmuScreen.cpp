@@ -301,7 +301,7 @@ inline void EmuScreen::setVKeyAnalogY(int stick, int virtualKeyMin, int virtualK
 }
 
 void EmuScreen::key(const KeyInput &key) {
-	if (key.keyCode == KEYCODE_BACK)
+	if (key.keyCode == NKCODE_BACK)
 		pauseTrigger_ = true;
 
 	int result = KeyMap::KeyToPspButton(key.deviceId, key.keyCode);
