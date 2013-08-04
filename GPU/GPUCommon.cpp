@@ -517,34 +517,35 @@ inline void GPUCommon::UpdateState(GPUState state)
 		downcount = 0;
 }
 
-bool GPUCommon::ProcessDLQueue()
-{
+int GPUCommon::GetNextListIndex() {
+	auto iter = dlQueue.begin();
+	if (iter != dlQueue.end()) {
+		return *iter;
+	} else {
+		return -1;
+	}
+}
+
+bool GPUCommon::ProcessDLQueue() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 
-	if (startingTicks < busyTicks)
-	{
+	if (startingTicks < busyTicks) {
 		DEBUG_LOG(HLE, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
 		return false;
 	}
 
-	DisplayListQueue::iterator iter = dlQueue.begin();
-	while (iter != dlQueue.end())
-	{
-		DisplayList &l = dls[*iter];
-		DEBUG_LOG(G3D,"Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
-		if (!InterpretList(l))
-		{
+	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
+		DisplayList &l = dls[listIndex];
+		DEBUG_LOG(G3D, "Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
+		if (!InterpretList(l)) {
 			return false;
-		}
-		else
-		{
-			//At the end, we can remove it from the queue and continue
-			dlQueue.erase(iter);
-			//this invalidated the iterator, let's fix it
-			iter = dlQueue.begin();
+		} else {
+			// At the end, we can remove it from the queue and continue.
+			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 		}
 	}
+
 	currentList = NULL;
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;

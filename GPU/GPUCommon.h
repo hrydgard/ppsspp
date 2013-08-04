@@ -38,6 +38,7 @@ protected:
 	void UpdateState(GPUState state);
 	void PopDLQueue();
 	void CheckDrawSync();
+	int  GetNextListIndex();
 
 	typedef std::list<int> DisplayListQueue;
 
