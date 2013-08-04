@@ -8,9 +8,8 @@
 #include <unistd.h>
 #include <string>
 
-#include "input/keycodes.h"
-
 #include "BlackberryMain.h"
+#include "base/KeyCodeTranslationFromBlackberry.h"
 
 // Simple implementations of System functions
 
@@ -52,28 +51,6 @@ void LaunchEmail(const char *email_address)
 }
 
 InputState input_state;
-
-// Input - urgh, these may collide with the android keycodes when we bring in input/keycodes.h
-const unsigned int buttonMappings[18] = {
-	KEYCODE_K,          //Cross
-	KEYCODE_L,          //Circle
-	KEYCODE_J,          //Square
-	KEYCODE_I,          //Triangle
-	KEYCODE_Q,          //LBUMPER
-	KEYCODE_P,          //RBUMPER
-	KEYCODE_SPACE,      //START
-	KEYCODE_ZERO,       //SELECT
-	KEYCODE_W,          //UP
-	KEYCODE_S,          //DOWN
-	KEYCODE_A,          //LEFT
-	KEYCODE_D,          //RIGHT
-	0,                  //MENU (SwipeDown)
-	KEYCODE_BACKSPACE,  //BACK
-	KEYCODE_W,          //JOY UP
-	KEYCODE_S,          //JOY DOWN
-	KEYCODE_A,          //JOY LEFT
-	KEYCODE_D,          //JOY RIGHT
-};
 
 void SimulateGamepad(InputState *input) {
 	input->pad_lstick_x = 0;
@@ -158,7 +135,7 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 		int flags, value;
 		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_FLAGS, &flags);
 		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_KEY_SYM, &value);
-		NativeKey(KeyInput(DEVICE_ID_KEYBOARD, value, flags));
+		NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawBlackberrytoNative.find(value)->second, (flags & KEY_DOWN) ? KEY_DOWN : KEY_UP));
 		break;
 	// Gamepad
 	// TODO: Isn't using new input system yet
@@ -247,7 +224,7 @@ void BlackberryMain::runMain() {
 				{
 				case NAVIGATOR_BACK:
 				case NAVIGATOR_SWIPE_DOWN:
-					pad_buttons |= PAD_BUTTON_MENU;
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE, KEY_DOWN));
 					break;
 				case NAVIGATOR_EXIT:
 					return;
@@ -270,8 +247,7 @@ void BlackberryMain::runMain() {
 		}
 		// TODO: This is broken. Instead we should just send keyboard events through using NativeKey and not
 		// even bother with these bitfields.
-		input_state.pad_buttons = pad_buttons | controller_buttons;
-		pad_buttons &= ~PAD_BUTTON_MENU;
+		input_state.pad_buttons = controller_buttons;
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		// Work in Progress

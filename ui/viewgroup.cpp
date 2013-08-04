@@ -474,10 +474,10 @@ void ScrollView::Layout() {
 void ScrollView::Key(const KeyInput &input) {
 	if (input.flags  & KEY_DOWN) {
 		switch (input.keyCode) {
-		case KEYCODE_EXT_MOUSEWHEEL_UP:
+		case NKCODE_EXT_MOUSEWHEEL_UP:
 			ScrollRelative(-250);
 			break;
-		case KEYCODE_EXT_MOUSEWHEEL_DOWN:
+		case NKCODE_EXT_MOUSEWHEEL_DOWN:
 			ScrollRelative(250);
 			break;
 		}

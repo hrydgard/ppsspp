@@ -16,24 +16,24 @@ const char *GetDeviceName(int deviceId) {
 // Default pad mapping to button bits. Used for UI and stuff that doesn't use PPSSPP's key mapping system.
 int MapPadButtonFixed(int keycode) {
 	switch (keycode) {
-	case KEYCODE_BACK: return PAD_BUTTON_BACK;  // Back
-	case KEYCODE_MENU: return PAD_BUTTON_MENU;  // Menu
+	case NKCODE_BACK: return PAD_BUTTON_BACK;  // Back
+	case NKCODE_MENU: return PAD_BUTTON_MENU;  // Menu
 
-	case KEYCODE_Z:
-	case KEYCODE_SPACE:
-	case KEYCODE_BUTTON_1:
-	case KEYCODE_BUTTON_A: // same as KEYCODE_OUYA_BUTTON_O and KEYCODE_BUTTON_CROSS_PS3
+	case NKCODE_Z:
+	case NKCODE_SPACE:
+	case NKCODE_BUTTON_1:
+	case NKCODE_BUTTON_A: // same as NKCODE_OUYA_BUTTON_O and NKCODE_BUTTON_CROSS_PS3
 		return PAD_BUTTON_A;
 
-	case KEYCODE_ESCAPE:
-	case KEYCODE_BUTTON_2:   
-	case KEYCODE_BUTTON_B: // same as KEYCODE_OUYA_BUTTON_A and KEYCODE_BUTTON_CIRCLE_PS3:
+	case NKCODE_ESCAPE:
+	case NKCODE_BUTTON_2:   
+	case NKCODE_BUTTON_B: // same as NKCODE_OUYA_BUTTON_A and NKCODE_BUTTON_CIRCLE_PS3:
 		return PAD_BUTTON_B;
 
-	case KEYCODE_DPAD_LEFT: return PAD_BUTTON_LEFT;
-	case KEYCODE_DPAD_RIGHT: return PAD_BUTTON_RIGHT;
-	case KEYCODE_DPAD_UP: return PAD_BUTTON_UP;
-	case KEYCODE_DPAD_DOWN: return PAD_BUTTON_DOWN;
+	case NKCODE_DPAD_LEFT: return PAD_BUTTON_LEFT;
+	case NKCODE_DPAD_RIGHT: return PAD_BUTTON_RIGHT;
+	case NKCODE_DPAD_UP: return PAD_BUTTON_UP;
+	case NKCODE_DPAD_DOWN: return PAD_BUTTON_DOWN;
 
 	default:
 		return 0;

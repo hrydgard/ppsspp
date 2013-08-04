@@ -531,21 +531,21 @@ int main(int argc, char *argv[]) {
 	// This is just a standard mapping that matches the X360 controller on MacOSX. Names will probably be all wrong
 	// on other controllers.
 	std::map<int, int> SDLJoyButtonMap;
-	SDLJoyButtonMap[0] = KEYCODE_DPAD_UP;
-	SDLJoyButtonMap[1] = KEYCODE_DPAD_DOWN;
-	SDLJoyButtonMap[2] = KEYCODE_DPAD_LEFT;
-	SDLJoyButtonMap[3] = KEYCODE_DPAD_RIGHT;
-	SDLJoyButtonMap[4] = KEYCODE_BUTTON_10;
-	SDLJoyButtonMap[5] = KEYCODE_BUTTON_9;
-	SDLJoyButtonMap[6] = KEYCODE_BUTTON_5;
-	SDLJoyButtonMap[7] = KEYCODE_BUTTON_6;
-	SDLJoyButtonMap[8] = KEYCODE_BUTTON_7;
-	SDLJoyButtonMap[9] = KEYCODE_BUTTON_8;
-	SDLJoyButtonMap[10] = KEYCODE_BUTTON_SELECT;
-	SDLJoyButtonMap[11] = KEYCODE_BUTTON_2;
-	SDLJoyButtonMap[12] = KEYCODE_BUTTON_3;
-	SDLJoyButtonMap[13] = KEYCODE_BUTTON_4;
-	SDLJoyButtonMap[14] = KEYCODE_BUTTON_1;
+	SDLJoyButtonMap[0] = NKCODE_DPAD_UP;
+	SDLJoyButtonMap[1] = NKCODE_DPAD_DOWN;
+	SDLJoyButtonMap[2] = NKCODE_DPAD_LEFT;
+	SDLJoyButtonMap[3] = NKCODE_DPAD_RIGHT;
+	SDLJoyButtonMap[4] = NKCODE_BUTTON_10;
+	SDLJoyButtonMap[5] = NKCODE_BUTTON_9;
+	SDLJoyButtonMap[6] = NKCODE_BUTTON_5;
+	SDLJoyButtonMap[7] = NKCODE_BUTTON_6;
+	SDLJoyButtonMap[8] = NKCODE_BUTTON_7;
+	SDLJoyButtonMap[9] = NKCODE_BUTTON_8;
+	SDLJoyButtonMap[10] = NKCODE_BUTTON_SELECT;
+	SDLJoyButtonMap[11] = NKCODE_BUTTON_2;
+	SDLJoyButtonMap[12] = NKCODE_BUTTON_3;
+	SDLJoyButtonMap[13] = NKCODE_BUTTON_4;
+	SDLJoyButtonMap[14] = NKCODE_BUTTON_1;
 
 	std::map<int, int> SDLJoyAxisMap;
 	SDLJoyAxisMap[0] = JOYSTICK_AXIS_X;
@@ -643,13 +643,13 @@ int main(int argc, char *argv[]) {
 						input.flags = TOUCH_DOWN;
 						input.id = 0;
 						NativeTouch(input);
-						KeyInput key(DEVICE_ID_MOUSE, KEYCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_DOWN);
 						NativeKey(key);
 					}
 					break;
 				case SDL_BUTTON_RIGHT:
 					{
-						KeyInput key(DEVICE_ID_MOUSE, KEYCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_DOWN);
 						NativeKey(key);
 					}
 					break;
@@ -657,7 +657,7 @@ int main(int argc, char *argv[]) {
 					{
 						KeyInput key;
 						key.deviceId = DEVICE_ID_MOUSE;
-						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_UP;
+						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 						key.flags = KEY_DOWN;
 						NativeKey(key);
 					}
@@ -666,7 +666,7 @@ int main(int argc, char *argv[]) {
 					{
 						KeyInput key;
 						key.deviceId = DEVICE_ID_MOUSE;
-						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_DOWN;
+						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
 						key.flags = KEY_DOWN;
 						NativeKey(key);
 					}
@@ -699,13 +699,13 @@ int main(int argc, char *argv[]) {
 						input.flags = TOUCH_UP;
 						input.id = 0;
 						NativeTouch(input);
-						KeyInput key(DEVICE_ID_MOUSE, KEYCODE_EXT_MOUSEBUTTON_1, KEY_UP);
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_1, KEY_UP);
 						NativeKey(key);
 					}
 					break;
 				case SDL_BUTTON_RIGHT:
 					{
-						KeyInput key(DEVICE_ID_MOUSE, KEYCODE_EXT_MOUSEBUTTON_2, KEY_UP);
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
 						NativeKey(key);
 					}
 					break;
@@ -713,7 +713,7 @@ int main(int argc, char *argv[]) {
 					{
 						KeyInput key;
 						key.deviceId = DEVICE_ID_DEFAULT;
-						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_UP;
+						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 						key.flags = KEY_UP;
 						NativeKey(key);
 					}
@@ -722,7 +722,7 @@ int main(int argc, char *argv[]) {
 					{
 						KeyInput key;
 						key.deviceId = DEVICE_ID_DEFAULT;
-						key.keyCode = KEYCODE_EXT_MOUSEWHEEL_DOWN;
+						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
 						key.flags = KEY_UP;
 						NativeKey(key);
 					}

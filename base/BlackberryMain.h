@@ -12,9 +12,10 @@
 #include <bps/navigator.h>      // Invoke Service
 #include <bps/virtualkeyboard.h>// Keyboard Service
 #include <bps/sensor.h>         // Accelerometer
-#include <sys/keycodes.h>
 #include <bps/dialog.h>         // Dialog Service (Toast=BB10)
 #include <bps/vibration.h>      // Vibrate Service (BB10)
+#include "sys/keycodes.h"
+#include "input/keycodes.h"
 
 // Display
 #include <EGL/egl.h>
@@ -47,7 +48,7 @@ public:
 	BlackberryMain(int argc, char *argv[]) :
 		emulating(false),
 		screen_ui(0), screen_emu(0),
-		pad_buttons(0), controller_buttons(0),
+		controller_buttons(0),
 		egl_cont(EGL_NO_CONTEXT)
 	{
 		startMain(argc, argv);
@@ -79,7 +80,7 @@ private:
 	int ndisplays;
 	int screen_ui, screen_emu;
 	bool emulating;
-	int pad_buttons, controller_buttons;
+	int controller_buttons;
 	EGLDisplay* egl_disp;
 	EGLSurface* egl_surf;
 	EGLContext  egl_cont;

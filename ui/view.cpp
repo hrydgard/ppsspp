@@ -422,14 +422,14 @@ void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h
 void Slider::Key(const KeyInput &input) {
 	if (HasFocus() && input.flags & KEY_DOWN) {
 		switch (input.keyCode) {
-		case KEYCODE_DPAD_LEFT:
-		case KEYCODE_MINUS:
-		case KEYCODE_NUMPAD_SUBTRACT:
+		case NKCODE_DPAD_LEFT:
+		case NKCODE_MINUS:
+		case NKCODE_NUMPAD_SUBTRACT:
 			*value_ -= 1;
 			break;
-		case KEYCODE_DPAD_RIGHT:
-		case KEYCODE_PLUS:
-		case KEYCODE_NUMPAD_ADD:
+		case NKCODE_DPAD_RIGHT:
+		case NKCODE_PLUS:
+		case NKCODE_NUMPAD_ADD:
 			*value_ -= 1;
 			break;
 		}
@@ -466,14 +466,14 @@ void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 void SliderFloat::Key(const KeyInput &input) {
 	if (HasFocus() && input.flags & KEY_DOWN) {
 		switch (input.keyCode) {
-		case KEYCODE_DPAD_LEFT:
-		case KEYCODE_MINUS:
-		case KEYCODE_NUMPAD_SUBTRACT:
+		case NKCODE_DPAD_LEFT:
+		case NKCODE_MINUS:
+		case NKCODE_NUMPAD_SUBTRACT:
 			*value_ -= 1;
 			break;
-		case KEYCODE_DPAD_RIGHT:
-		case KEYCODE_PLUS:
-		case KEYCODE_NUMPAD_ADD:
+		case NKCODE_DPAD_RIGHT:
+		case NKCODE_PLUS:
+		case NKCODE_NUMPAD_ADD:
 			*value_ -= 1;
 			break;
 		}
