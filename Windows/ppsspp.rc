@@ -99,11 +99,11 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "Comments", "PPSSPP PSP emulator"
-            VALUE "CompanyName", "Henrik Rydg?rd Inc."
+            VALUE "CompanyName", "Henrik Rydgård Inc."
             VALUE "FileDescription", "PPSSPP"
             VALUE "FileVersion", "1, 0, 8, 1"
             VALUE "InternalName", "PPSSPPEmu"
-            VALUE "LegalCopyright", "Copyright (C) 2006-2013 by Henrik Rydg?rd"
+            VALUE "LegalCopyright", "Copyright (C) 2006-2013 by Henrik Rydgård"
             VALUE "LegalTrademarks", "All product names are trademarks of their respective owners."
             VALUE "OriginalFilename", "PPSSPP.exe"
             VALUE "ProductName", "PPSSPP"
