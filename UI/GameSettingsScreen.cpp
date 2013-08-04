@@ -326,7 +326,6 @@ void GlobalSettingsScreen::CreateViews() {
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
 	enableReports_ = g_Config.sReportHost != "";
-	enableLogging_ = g_Config.bEnableLogging;
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
@@ -334,7 +333,6 @@ void GlobalSettingsScreen::CreateViews() {
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader("General"));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
-	list->Add(new CheckBox(&enableLogging_, gs->T("Enable Debug Logging")));
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Errors Reporting")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
@@ -366,10 +364,6 @@ UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 UI::EventReturn GlobalSettingsScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
 	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "";
-	g_Config.bEnableLogging = enableLogging_;
-#ifdef _WIN32
-	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
-#endif
 	g_Config.Save();
 	return UI::EVENT_DONE;
 }
@@ -378,6 +372,8 @@ void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
+	enableLogging_ = g_Config.bEnableLogging;
+
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *d = GetI18NCategory("Developer");
 	I18NCategory *a = GetI18NCategory("Audio");
@@ -385,11 +381,19 @@ void DeveloperToolsScreen::CreateViews() {
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+	list->Add(new CheckBox(&enableLogging_, d->T("Enable Debug Logging")));
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
 
 UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
+
+	g_Config.bEnableLogging = enableLogging_;
+#ifdef _WIN32
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
+#endif
+	g_Config.Save();
+
 	return UI::EVENT_DONE;
 }
 

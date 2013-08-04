@@ -64,7 +64,6 @@ private:
 
 	// Temporaries to convert bools to other kinds of settings
 	bool enableReports_;
-	bool enableLogging_;
 };
 
 class DeveloperToolsScreen : public UIScreenWithBackground {
@@ -77,4 +76,7 @@ protected:
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
+
+	// Temporary variable.
+	bool enableLogging_;
 };
