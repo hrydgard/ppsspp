@@ -34,9 +34,6 @@ enum GPUCore {
 struct CoreParameter
 {
 	CoreParameter() : collectEmuLog(0), unthrottle(false), fpsLimit(0), updateRecent(true) {}
-	// 0 = Interpreter
-	// 1 = Jit
-	// 2 = JitIL
 	CPUCore cpuCore;
 	GPUCore gpuCore;
 	bool enableSound;  // there aren't multiple sound cores.
