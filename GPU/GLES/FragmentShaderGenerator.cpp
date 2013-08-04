@@ -278,7 +278,9 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
+#ifndef USING_GLES2
 		/*
+		// Logic Ops only supports on desktop OpenGL but not OpenGL ES
 		if(enableLogicOp) {
 			WRITE(p, "  vec4 p = texture2D(tex, v_texcoord);\n"); // I think it is wrong . How to get framebuffer color/pixel color? 
 			switch (gstate.getLogicOp()) {
@@ -317,7 +319,7 @@ void GenerateFragmentShader(char *buffer) {
 			}
 		} 
 		*/
-
+#endif
 		if (enableAlphaTest) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
