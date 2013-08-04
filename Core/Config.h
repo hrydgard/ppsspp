@@ -33,7 +33,6 @@ public:
 
 	// Whether to save the config on close.
 	bool bSaveSettings;
-
 	bool bFirstRun;
 
 	// These are broken
@@ -47,10 +46,11 @@ public:
 #endif
 
 	// General
-	bool bNewUI;  // "Hidden" setting, does not get saved to ini file.
+	bool bNewUI;
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
+	bool bDirectLoad;
 
 	// Core
 	bool bIgnoreBadMemAccess;
@@ -77,7 +77,7 @@ public:
 	int iWindowX;
 	int iWindowY;
 	int iWindowZoom;  // for Windows
-	bool bAntiAliasing; // for Windows, too
+	bool bAntiAliasing; 
 	bool bVertexCache;
 	bool bFullScreen;
 #ifdef _WIN32
