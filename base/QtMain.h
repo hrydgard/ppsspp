@@ -22,6 +22,7 @@ QTM_USE_NAMESPACE
 #include "base/NativeApp.h"
 #include "net/resolve.h"
 #include "display.h"
+#include "base/NKCodeFromQt.h"
 
 // Input
 const int buttonMappings[18] = {
@@ -56,7 +57,6 @@ public:
 	{
 		setAttribute(Qt::WA_AcceptTouchEvents);
 		setAttribute(Qt::WA_LockLandscapeOrientation);
-		pad_buttons = 0;
 #ifdef USING_GLES2
 		acc = new QAccelerometer(this);
 		acc->start();
@@ -142,18 +142,10 @@ protected:
 			NativeTouch(input);
 		break;
 		case QEvent::KeyPress:
-			for (int b = 0; b < 18; b++) {
-				if (((QKeyEvent*)e)->key() == buttonMappings[b])
-					pad_buttons |= (1<<b);
-			}
-			NativeKey(KeyInput(DEVICE_ID_KEYBOARD, ((QKeyEvent*)e)->key(), KEY_DOWN));
+			NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_DOWN));
 		break;
 		case QEvent::KeyRelease:
-			for (int b = 0; b < 18; b++) {
-				if (((QKeyEvent*)e)->key() == buttonMappings[b])
-					pad_buttons &= ~(1<<b);
-			}
-			NativeKey(KeyInput(DEVICE_ID_KEYBOARD, ((QKeyEvent*)e)->key(), KEY_UP));
+			NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_UP));
 		break;
 		default:
 			return QWidget::event(e);
@@ -172,7 +164,6 @@ protected:
 
 	void paintGL()
 	{
-		input_state.pad_buttons = pad_buttons;
 		SimulateGamepad(&input_state);
 		updateAccelerometer();
 		UpdateInputState(&input_state);
@@ -197,7 +188,6 @@ protected:
 	}
 
 private:
-	int pad_buttons;
 	InputState input_state;
 #ifdef USING_GLES2
 	QAccelerometer* acc;

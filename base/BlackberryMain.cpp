@@ -9,7 +9,7 @@
 #include <string>
 
 #include "BlackberryMain.h"
-#include "base/KeyCodeTranslationFromBlackberry.h"
+#include "base/NKCodeFromBlackberry.h"
 
 // Simple implementations of System functions
 
