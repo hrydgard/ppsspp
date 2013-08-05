@@ -34,7 +34,6 @@
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/System.h"
-#include "Core/MIPS/MIPS.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "Core/HLE/sceCtrl.h"
@@ -477,8 +476,7 @@ void EmuScreen::render() {
 
 	// Run until CORE_NEXTFRAME
 	while (coreState == CORE_RUNNING) {
-		u64 nowTicks = CoreTiming::GetTicks();
-		mipsr4k.RunLoopUntil(nowTicks + blockTicks);
+		PSP_RunLoopFor(blockTicks);
 	}
 	// Hopefully coreState is now CORE_NEXTFRAME
 	if (coreState == CORE_NEXTFRAME) {
