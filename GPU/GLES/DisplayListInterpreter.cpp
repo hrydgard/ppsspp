@@ -326,12 +326,6 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 // Render queue
 
-u32 GLES_GPU::DrawSync(int mode)
-{
-	transformDraw_.Flush();
-	return GPUCommon::DrawSync(mode);
-}
-
 void GLES_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
