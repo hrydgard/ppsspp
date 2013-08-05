@@ -391,8 +391,8 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 void CalcDrawingSize(int &drawing_width, int &drawing_height) {
 	int default_width = 480; 
 	int default_height = 272;
-	int regionX2 = gstate.getRegionX2() + 1 ;
-	int regionY2 = gstate.getRegionY2() + 1 ;
+	int region_width = gstate.getRegionX2() + 1 ;
+	int region_height = gstate.getRegionY2() + 1 ;
 	int viewport_width = (int) gstate.getViewportX1();
 	int viewport_height = (int) gstate.getViewportY1();
 	int fb_stride = gstate.fbwidth & 0x3C0;
@@ -404,8 +404,8 @@ void CalcDrawingSize(int &drawing_width, int &drawing_height) {
 	}
 
 	if (fb_stride < 512) {
-		drawing_width = std::min(viewport_width, regionX2);
-		drawing_height = std::min(viewport_height, regionY2);
+		drawing_width = std::min(viewport_width, region_width);
+		drawing_height = std::min(viewport_height, region_height);
 	} else {
 		drawing_width = std::max(viewport_width, default_width);
 		drawing_height = std::max(viewport_height, default_height);
@@ -544,10 +544,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->last_frame_used = gpuStats.numFrames;
 		frameLastFramebufUsed = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(0,0,0,1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+		fbo_clear();
 		glEnable(GL_DITHER);
 		currentRenderVfb_ = vfb;
 
@@ -762,10 +760,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 					if (nvfb->last_frame_used != gpuStats.numFrames)	{
-						glstate.depthWrite.set(GL_TRUE);
-						glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-						glClearColor(0,0,0,1);
-						glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+						fbo_clear();
 					}
 #endif
 				} else {
