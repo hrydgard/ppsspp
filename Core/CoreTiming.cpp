@@ -337,7 +337,10 @@ s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 		}
 	}
 	if (!tsFirst)
+	{
+		tsLast = NULL;
 		return result;
+	}
 
 	Event *prev = tsFirst;
 	Event *ptr = prev->next;
@@ -348,6 +351,8 @@ s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 			result = ptr->time - globalTimer;
 
 			prev->next = ptr->next;
+			if (ptr == tsLast)
+				tsLast = prev;
 			FreeTsEvent(ptr);
 			ptr = prev->next;
 		}
@@ -439,6 +444,7 @@ void RemoveThreadsafeEvent(int event_type)
 	}
 	if (!tsFirst)
 	{
+		tsLast = NULL;
 		return;
 	}
 	Event *prev = tsFirst;
@@ -448,6 +454,8 @@ void RemoveThreadsafeEvent(int event_type)
 		if (ptr->type == event_type)
 		{	
 			prev->next = ptr->next;
+			if (ptr == tsLast)
+				tsLast = prev;
 			FreeTsEvent(ptr);
 			ptr = prev->next;
 		}
@@ -460,7 +468,7 @@ void RemoveThreadsafeEvent(int event_type)
 }
 
 void RemoveAllEvents(int event_type)
-{	
+{
 	RemoveThreadsafeEvent(event_type);
 	RemoveEvent(event_type);
 }
@@ -491,7 +499,7 @@ void MoveEvents()
 	Common::AtomicStoreRelease(hasTsEvents, 0);
 
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
-		// Move events from async queue into main queue
+	// Move events from async queue into main queue
 	while (tsFirst)
 	{
 		Event *next = tsFirst->next;
