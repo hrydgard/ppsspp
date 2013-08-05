@@ -143,7 +143,7 @@ void FramebufferManager::CompileDraw2DProgram() {
 	}
 }
 
-void fbo_clear() {
+void frame_clearing() {
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0,0,0,1);
@@ -182,7 +182,7 @@ FramebufferManager::FramebufferManager() :
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
-	fbo_clear();
+	frame_clearing();
 
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE ? 1 : 0;
 
@@ -545,7 +545,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		frameLastFramebufUsed = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
 
-		fbo_clear();
+		frame_clearing();
 		glEnable(GL_DITHER);
 		currentRenderVfb_ = vfb;
 
@@ -599,7 +599,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 		if (vfb->last_frame_used != gpuStats.numFrames)	
-			fbo_clear();
+			frame_clearing();
 #endif
 		currentRenderVfb_ = vfb;
 	} else {
@@ -630,7 +630,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		} else {
 			DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
-			fbo_clear();
+			frame_clearing();
 		}
 		return;
 	}
@@ -660,7 +660,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 
 	if (resized_) 
-		fbo_clear();
+		frame_clearing();
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
@@ -744,7 +744,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			nvfb->last_frame_used = gpuStats.numFrames;
 			bvfbs_.push_back(nvfb);
 
-			fbo_clear();
+			frame_clearing();
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -760,7 +760,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 					if (nvfb->last_frame_used != gpuStats.numFrames)	{
-						fbo_clear();
+						frame_clearing();
 					}
 #endif
 				} else {
