@@ -379,22 +379,15 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	return 0;
 }
 
-void GetViewportDimensions(int &w, int &h) {
-	float vpXa = getFloat24(gstate.viewportx1);
-	float vpYa = getFloat24(gstate.viewporty1);
-	w = (int)fabsf(vpXa * 2);
-	h = (int)fabsf(vpYa * 2);
-}
-
 // Heuristics to figure out the size of FBO to create.
-void GuessDrawingSize(int &drawing_width, int &drawing_height) {
-	int viewport_width, viewport_height;
+void CalcDrawingSize(int &drawing_width, int &drawing_height) {
 	int default_width = 480; 
 	int default_height = 272;
-	int regionX2 = (gstate.getRegionX2() + 1) ;
-	int regionY2 = (gstate.getRegionY2() + 1) ;
+	int regionX2 = gstate.getRegionX2() + 1 ;
+	int regionY2 = gstate.getRegionY2() + 1 ;
+	int viewport_width = (int) gstate.getViewportX1();
+	int viewport_height = (int) gstate.getViewportY1();
 	int fb_stride = gstate.fbwidth & 0x3C0;
-	GetViewportDimensions(viewport_width, viewport_height);
 
 	// Generated FBO shouldn't greate than 512x512
 	if ( viewport_width > 512 && viewport_height > 512 ) {
@@ -455,7 +448,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	GEBufferFormat fmt = static_cast<GEBufferFormat>(gstate.framebufpixformat & 3);
 
 	int drawing_width, drawing_height;
-	GuessDrawingSize(drawing_width, drawing_height);
+	CalcDrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
