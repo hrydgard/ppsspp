@@ -149,7 +149,7 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 
 void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	Choice::Draw(dc);
-	char temp[4];
+	char temp[5];
 	sprintf(temp, "%2.2f", *value_);
 	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
@@ -262,6 +262,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 	controlsSettings->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 15, 65, c->T("Button Opacity"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 1.15, 2.05, c->T("Button Scaling"), screenManager()));
 	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -327,8 +328,9 @@ void GlobalSettingsScreen::CreateViews() {
 	list->Add(new ItemHeader("General"));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&g_Config.bEnableLogging, gs->T("Enable Debug Logging")));
-	list->Add(new CheckBox(&enableReports_, gs->T("Enable Errors Reporting")));
+	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Reporting")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
+	list->Add(new CheckBox(&g_Config.bDirectLoad, gs->T("Enable Direct Load")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
