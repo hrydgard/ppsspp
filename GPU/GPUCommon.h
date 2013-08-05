@@ -28,6 +28,7 @@ public:
 	virtual bool FramebufferDirty() { return true; }
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
+	virtual void ReapplyGfxState();
 
 protected:
 	// To avoid virtual calls to PreExecuteOp().
@@ -37,6 +38,7 @@ protected:
 	void UpdateState(GPUState state);
 	void PopDLQueue();
 	void CheckDrawSync();
+	int  GetNextListIndex();
 
 	typedef std::list<int> DisplayListQueue;
 

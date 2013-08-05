@@ -41,8 +41,8 @@ extern GlobalUIState globalUIState;
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_IsInited();
 void PSP_Shutdown();
-void PSP_HWAdvance(int cycles);
-void PSP_SWI();
+void PSP_RunLoopUntil(u64 globalticks);
+void PSP_RunLoopFor(int cycles);
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path);
 

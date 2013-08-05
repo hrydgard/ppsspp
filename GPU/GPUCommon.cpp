@@ -470,6 +470,46 @@ inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC)
 	downcount = 0;
 }
 
+void GPUCommon::ReapplyGfxState()
+{
+	// ShaderManager_DirtyShader();
+	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
+	// To be safe we pass 0xFFFFFFF as the diff.
+	/*
+	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);
+	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);
+	ExecuteOp(gstate.cmdmem[GE_CMD_BLENDMODE], 0xFFFFFFFF);
+	ExecuteOp(gstate.cmdmem[GE_CMD_ZTEST], 0xFFFFFFFF);
+	ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);
+	ExecuteOp(gstate.cmdmem[GE_CMD_CULL], 0xFFFFFFFF);
+	ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);
+	ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
+	ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
+	*/
+
+	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
+	{
+		if (i != GE_CMD_ORIGIN)
+			ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+	}
+
+	// Can't write to bonematrixnumber here
+
+	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++)
+	{
+		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+	}
+
+	// There are a few here in the middle that we shouldn't execute...
+
+	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++)
+	{
+		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+	}
+
+	// TODO: there's more...
+}
+
 inline void GPUCommon::UpdateState(GPUState state)
 {
 	gpuState = state;
@@ -477,34 +517,35 @@ inline void GPUCommon::UpdateState(GPUState state)
 		downcount = 0;
 }
 
-bool GPUCommon::ProcessDLQueue()
-{
+int GPUCommon::GetNextListIndex() {
+	auto iter = dlQueue.begin();
+	if (iter != dlQueue.end()) {
+		return *iter;
+	} else {
+		return -1;
+	}
+}
+
+bool GPUCommon::ProcessDLQueue() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 
-	if (startingTicks < busyTicks)
-	{
+	if (startingTicks < busyTicks) {
 		DEBUG_LOG(HLE, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
 		return false;
 	}
 
-	DisplayListQueue::iterator iter = dlQueue.begin();
-	while (iter != dlQueue.end())
-	{
-		DisplayList &l = dls[*iter];
-		DEBUG_LOG(G3D,"Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
-		if (!InterpretList(l))
-		{
+	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
+		DisplayList &l = dls[listIndex];
+		DEBUG_LOG(G3D, "Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
+		if (!InterpretList(l)) {
 			return false;
-		}
-		else
-		{
-			//At the end, we can remove it from the queue and continue
-			dlQueue.erase(iter);
-			//this invalidated the iterator, let's fix it
-			iter = dlQueue.begin();
+		} else {
+			// At the end, we can remove it from the queue and continue.
+			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 		}
 	}
+
 	currentList = NULL;
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;

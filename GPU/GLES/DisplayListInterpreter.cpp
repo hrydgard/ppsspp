@@ -235,7 +235,7 @@ void GLES_GPU::BuildReportingInfo() {
 
 void GLES_GPU::DeviceLost() {
 	// Simply drop all caches and textures.
-	// FBO:s appear to survive? Or no?
+	// FBOs appear to survive? Or no?
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
 	framebufferManager_.DeviceLost();

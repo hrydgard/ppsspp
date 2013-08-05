@@ -150,6 +150,14 @@ void PSP_Shutdown()
 	currentCPU = 0;
 }
 
+void PSP_RunLoopUntil(u64 globalticks) {
+	mipsr4k.RunLoopUntil(globalticks);
+}
+
+void PSP_RunLoopFor(int cycles) {
+	PSP_RunLoopUntil(CoreTiming::GetTicks() + cycles);
+}
+
 CoreParameter &PSP_CoreParameter()
 {
 	return coreParameter;
