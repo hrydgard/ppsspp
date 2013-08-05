@@ -150,6 +150,14 @@ void fbo_clear() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
+void glstate_disable() {
+	glstate.blend.disable();
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.scissorTest.disable();
+	glstate.stencilTest.disable();
+}
+
 FramebufferManager::FramebufferManager() :
 	ramDisplayFramebufPtr_(0),
 	displayFramebufPtr_(0),
@@ -643,12 +651,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	if (vfb->fbo) {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
-		glstate.blend.disable();
-		glstate.cullFace.disable();
-		glstate.depthTest.disable();
-		glstate.scissorTest.disable();
-		glstate.stencilTest.disable();
-
+		glstate_disable();
 		fbo_bind_color_as_texture(vfb->fbo, 0);
 	
 	// These are in the output display coordinates
@@ -797,12 +800,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	}
 	
 	glstate.viewport.set(0, 0, dst->width, dst->height);
-	glstate.depthTest.disable();
-	glstate.blend.disable();
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
-	glstate.scissorTest.disable();
-	glstate.stencilTest.disable();
+	glstate_disable();
 
 	fbo_bind_color_as_texture(src->fbo, 0);
 
