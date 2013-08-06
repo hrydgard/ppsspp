@@ -197,23 +197,28 @@ public:
 	void Restore();
 
 	// When adding a state here, don't forget to add it to OpenGLState::Restore() too
+
+	// Blend 
 	BoolState<GL_BLEND, false> blend;
 	STATE2(glBlendFunc, GLenum, GLenum, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) blendFunc;
 	STATE1(glBlendEquation, GLenum, GL_FUNC_ADD) blendEquation;
 	STATEFLOAT4(glBlendColor, 1.0f) blendColor;
 
+	// Logic Ops
 #if !defined(USING_GLES2)
 	BoolState<GL_COLOR_LOGIC_OP, false> colorLogicOp;
 	STATE1(glLogicOp, GLenum, GL_COPY) logicOp;
 #endif
 
-	BoolState<GL_SCISSOR_TEST, false> scissorTest;
-
-	BoolState<GL_CULL_FACE, false> cullFace;
+	// Dither
 	BoolState<GL_DITHER, false> dither;
+
+	// Cull Face
+	BoolState<GL_CULL_FACE, false> cullFace;
 	STATE1(glCullFace, GLenum, GL_FRONT) cullFaceMode;
 	STATE1(glFrontFace, GLenum, GL_CCW) frontFace;
 
+	// Depth Test
 	BoolState<GL_DEPTH_TEST, false> depthTest;
 #if defined(USING_GLES2)
 	STATE2(glDepthRangef, float, float, 0.f, 1.f) depthRange;
@@ -223,12 +228,17 @@ public:
 	STATE1(glDepthFunc, GLenum, GL_LESS) depthFunc;
 	STATE1(glDepthMask, GLboolean, GL_TRUE) depthWrite;
 
+	// Color Mask
 	STATE4(glColorMask, bool, bool, bool, bool, true, true, true, true) colorMask;
 
+	// Viewport
 	STATE4(glViewport, GLint, GLint, GLsizei, GLsizei, 0, 0, 128, 128) viewport;
 
+	// Scissor Test
+	BoolState<GL_SCISSOR_TEST, false> scissorTest;
 	STATE4(glScissor, GLint, GLint, GLsizei, GLsizei, 0, 0, 128, 128) scissorRect;
 
+	// Stencil Test
 	BoolState<GL_STENCIL_TEST, false> stencilTest;
 	STATE3(glStencilOp, GLenum, GLenum, GLenum, GL_KEEP, GL_KEEP, GL_KEEP) stencilOp;
 	STATE3(glStencilFunc, GLenum, GLint, GLuint, GL_ALWAYS, 0, 0xFF) stencilFunc;
