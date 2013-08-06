@@ -338,7 +338,7 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 		u32 cmd = op >> 24;
 
 		u32 diff = op ^ gstate.cmdmem[cmd];
-		CheckFlushOp(op, diff);
+		CheckFlushOp(cmd, diff);
 		gstate.cmdmem[cmd] = op;
 		ExecuteOp(op, diff);
 
@@ -346,8 +346,7 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
-inline void GLES_GPU::CheckFlushOp(u32 op, u32 diff) {
-	u32 cmd = op >> 24;
+inline void GLES_GPU::CheckFlushOp(int cmd, u32 diff) {
 	if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
 	{
 		if (dumpThisFrame_) {
@@ -358,7 +357,7 @@ inline void GLES_GPU::CheckFlushOp(u32 op, u32 diff) {
 }
 
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op, diff);
+	CheckFlushOp(op >> 24, diff);
 }
 
 void GLES_GPU::ExecuteOp(u32 op, u32 diff) {

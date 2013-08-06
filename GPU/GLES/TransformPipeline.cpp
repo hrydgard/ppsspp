@@ -1057,6 +1057,7 @@ u32 TransformDrawEngine::ComputeHash() {
 	int vertexSize = dec_->GetDecVtxFmt().stride;
 
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
+	// It is really very expensive to check all the vertex data so often.
 	for (int i = 0; i < numDrawCalls; i++) {
 		if (!drawCalls[i].inds) {
 			fullhash += CityHash32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount);

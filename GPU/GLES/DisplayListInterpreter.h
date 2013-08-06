@@ -73,7 +73,7 @@ protected:
 private:
 	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
-	void CheckFlushOp(u32 op, u32 diff);
+	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 
 	FramebufferManager framebufferManager_;

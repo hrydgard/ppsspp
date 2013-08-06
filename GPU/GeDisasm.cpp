@@ -1074,7 +1074,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		if (data & ~0x7F)
 			sprintf(buffer, "BONE #%i (extra %x)", data & 0x7F, data);
 		else
-			sprintf(buffer, "BONE #%i", data & 0xF);
+			sprintf(buffer, "BONE #%i", data & 0x7F);
 		break;
 
 	case GE_CMD_BONEMATRIXDATA:
