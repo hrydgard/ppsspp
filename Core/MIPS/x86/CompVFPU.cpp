@@ -941,6 +941,15 @@ void Jit::Comp_Vi2f(u32 op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
+	int tempregs[4];
+	for (int i = 0; i < n; ++i) {
+		if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+			tempregs[i] = fpr.GetTempV();
+		} else {
+			tempregs[i] = dregs[i];
+		}
+	}
+
 	if (*mult != 1.0f)
 		MOVSS(XMM1, M((void *)mult));
 	for (int i = 0; i < n; i++) {
@@ -951,8 +960,80 @@ void Jit::Comp_Vi2f(u32 op) {
 		CVTSI2SS(XMM0, R(EAX));
 		if (*mult != 1.0f)
 			MULSS(XMM0, R(XMM1));
-		fpr.MapRegV(dregs[i], MAP_DIRTY);
-		MOVSS(fpr.V(dregs[i]), XMM0);
+		fpr.MapRegV(tempregs[i], MAP_DIRTY);
+		MOVSS(fpr.V(tempregs[i]), XMM0);
+	}
+
+	for (int i = 0; i < n; ++i) {
+		if (dregs[i] != tempregs[i]) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			MOVSS(fpr.VX(dregs[i]), fpr.V(tempregs[i]));
+		}
+	}
+
+	ApplyPrefixD(dregs, sz);
+	fpr.ReleaseSpillLocks();
+}
+
+extern const float mulTableVf2i[32] = {
+	(float)(1UL<<0),(float)(1UL<<1),(float)(1UL<<2),(float)(1UL<<3),
+	(float)(1UL<<4),(float)(1UL<<5),(float)(1UL<<6),(float)(1UL<<7),
+	(float)(1UL<<8),(float)(1UL<<9),(float)(1UL<<10),(float)(1UL<<11),
+	(float)(1UL<<12),(float)(1UL<<13),(float)(1UL<<14),(float)(1UL<<15),
+	(float)(1UL<<16),(float)(1UL<<17),(float)(1UL<<18),(float)(1UL<<19),
+	(float)(1UL<<20),(float)(1UL<<21),(float)(1UL<<22),(float)(1UL<<23),
+	(float)(1UL<<24),(float)(1UL<<25),(float)(1UL<<26),(float)(1UL<<27),
+	(float)(1UL<<28),(float)(1UL<<29),(float)(1UL<<30),(float)(1UL<<31),
+};
+
+static const float half = 0.5f;
+
+void Jit::Comp_Vf2i(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	int imm = (op >> 16) & 0x1f;
+	const float *mult = &mulTableVf2i[imm];
+
+	switch ((op >> 21) & 0x1f)
+	{
+	case 17:
+		break; //z - truncate. Easy to support.
+	case 16:
+	case 18:
+	case 19:
+		DISABLE;
+		break;
+	}
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	if (*mult != 1.0f)
+		MOVSS(XMM1, M((void *)mult));
+
+	for (int i = 0; i < n; i++) {
+		OpArg reg = fpr.V(sregs[i]);
+		if (*mult != 1.0f) {
+			MOVSS(XMM0, fpr.V(sregs[i]));
+			if (*mult != 1.0f)
+				MULSS(XMM0, R(XMM1));
+			reg = R(XMM0);
+		}
+		switch ((op >> 21) & 0x1f) {
+		case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+		case 17: CVTTSS2SI(EAX, reg); break; //z - truncate
+		case 18: /* TODO */ break; //u
+		case 19: /* TODO */ break; //d
+		}
+		fpr.StoreFromRegisterV(dregs[i]);
+		MOV(32, fpr.V(dregs[i]), R(EAX));
 	}
 
 	ApplyPrefixD(dregs, sz);
@@ -1496,10 +1577,6 @@ void Jit::Comp_Vi2x(u32 op) {
 }
 
 void Jit::Comp_Vx2i(u32 op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vf2i(u32 op) {
 	DISABLE;
 }
 

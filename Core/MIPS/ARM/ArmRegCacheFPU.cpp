@@ -45,7 +45,7 @@ void ArmRegCacheFPU::Start(MIPSAnalyst::AnalysisResults &stats) {
 }
 
 static const ARMReg *GetMIPSAllocationOrder(int &count) {
-	// We conservatively reserve both S0-S2 as scratch for now.
+	// We reserve S0-S1 as scratch. Can afford two registers. Maybe even four, which could simplify some things.
 	static const ARMReg allocationOrder[] = {
 		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15
 	};
@@ -54,6 +54,8 @@ static const ARMReg *GetMIPSAllocationOrder(int &count) {
 		S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15,
 		S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31
 	};
+
+	// Disabled the NEON path due to issues so we limit ourselves to 16.
 	if (false && cpu_info.bNEON) {
 		count = sizeof(allocationOrderNEON) / sizeof(const int);
 		return allocationOrderNEON;

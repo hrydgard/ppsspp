@@ -846,6 +846,73 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void Jit::Comp_Vf2i(u32 op) {
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		int imm = (op >> 16) & 0x1f;
+		float mult = (float)(1ULL << imm);
+
+		switch ((op >> 21) & 0x1f)
+		{
+		case 17:
+			break; //z - truncate. Easy to support.
+		case 16:
+		case 18:
+		case 19:
+			DISABLE;
+			break;
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		if (mult != 1.0f)
+			MOVI2F(S1, mult, R0);
+
+		for (int i = 0; i < n; i++) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			switch ((op >> 21) & 0x1f) {
+			case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+			case 17:
+				if (mult != 1.0f) {
+					VMUL(S0, fpr.V(sregs[i]), S1);
+					VCVT(fpr.V(tempregs[i]), S0, TO_INT | ROUND_TO_ZERO);
+				} else {
+					VCVT(fpr.V(tempregs[i]), fpr.V(sregs[i]), TO_INT | ROUND_TO_ZERO);
+				}
+				break;
+			case 18: /* TODO */ break; //u
+			case 19: /* TODO */ break; //d
+			}
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
+
 	void Jit::Comp_Mftv(u32 op)
 	{
 		CONDITIONAL_DISABLE;
@@ -1140,10 +1207,6 @@ namespace MIPSComp
 		DISABLE;
 	}
 
-	void Jit::Comp_Vf2i(u32 op) {
-		DISABLE;
-	}
-
 	void Jit::Comp_VCrossQuat(u32 op) {
 		// This op does not support prefixes.
 		if (js.HasUnknownPrefix() || disablePrefixes)
@@ -1192,8 +1255,6 @@ namespace MIPSComp
 
 	void Jit::Comp_Vsge(u32 op) {
 		DISABLE;
-
-
 	}
 
 	void Jit::Comp_Vslt(u32 op) {
@@ -1337,7 +1398,7 @@ namespace MIPSComp
 	void Jit::Comp_Vcmov(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
