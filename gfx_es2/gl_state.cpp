@@ -39,6 +39,9 @@ void OpenGLState::Restore() {
 	blendFunc.restore(); count++;
 	blendColor.restore(); count++;
 
+	colorLogicOp.restore(); count++;
+	logicOp.restore(); count++;
+	
 	scissorTest.restore(); count++;
 	scissorRect.restore(); count++;
 
