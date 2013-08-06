@@ -740,6 +740,7 @@ void PSPOskDialog::RenderKeyboard()
 	}
 }
 
+#ifdef _WIN32
 // TODO: Why does this have a 2 button press lag/delay when
 // re-opening the dialog box? I don't get it.
 // TODO: Use a wstring to allow Japanese/Russian/etc.. on _WIN32(others?)
@@ -756,7 +757,6 @@ int PSPOskDialog::NativeKeyboard()
 	else if (status == SCE_UTILITY_STATUS_RUNNING)
 	{
 		
-#ifdef _WIN32
 		std::string initial_text;
 		ConvertUCS2ToUTF8(initial_text, oskParams->fields[0].intext);
 
@@ -786,7 +786,6 @@ int PSPOskDialog::NativeKeyboard()
 		if(!InputBox_GetString(0, MainWindow::hwndMain, windowTitle, defaultText, input, maxInputLength)) {
 			strncat(input, "", strlen(""));
 		}
-#endif
 		// TODO: Insert your platform's native keyboard stuff here...
 
 		status = SCE_UTILITY_STATUS_FINISHED;
@@ -813,6 +812,7 @@ int PSPOskDialog::NativeKeyboard()
 
 	return 0;
 }
+#endif
 
 int PSPOskDialog::Update()
 {
