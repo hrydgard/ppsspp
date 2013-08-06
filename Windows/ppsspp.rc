@@ -473,11 +473,18 @@ BEGIN
 	POPUP "breakpointlist"
 	BEGIN
 		MENUITEM "&Enable",                     ID_DISASM_DISABLEBREAKPOINT
+		MENUITEM "E&dit",                       ID_DISASM_EDITBREAKPOINT
+        MENUITEM SEPARATOR
+		MENUITEM "&Add new",                    ID_DISASM_ADDNEWBREAKPOINT
 	END
 	POPUP "threadlist"
 	BEGIN
 		MENUITEM "Force &Resume",               ID_DISASM_THREAD_FORCERUN
 		MENUITEM "&Terminate",                  ID_DISASM_THREAD_KILL
+	END
+	POPUP "newbreakpoint"
+	BEGIN
+		MENUITEM "&Add new",                    ID_DISASM_ADDNEWBREAKPOINT
 	END
 END
 
