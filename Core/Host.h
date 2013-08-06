@@ -65,9 +65,15 @@ public:
 	virtual void SetGPUStep(bool value, int flag = 0, int data = 0) {}
 	virtual void NextGPUStep() {}
 
+#ifdef _WIN32
+	// Used instead of InputBox_GetString in PSPOskDialog.cpp to bypass the onscreen keyboard.
+	virtual bool InputBoxGetString(char *title, char *defaultValue, char *outValue, size_t outlength) { return false; }
+#endif
+
 	// Used for headless.
 	virtual void SendDebugOutput(const std::string &output) {}
 	virtual void SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h) {}
+
 };
 
 extern Host *host;

@@ -28,6 +28,7 @@
 #include "Windows/Debugger/DebuggerShared.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
+#include "Windows/InputBox.h"
 
 #include "Windows/DinputDevice.h"
 #include "Windows/XinputDevice.h"
@@ -38,7 +39,6 @@
 #include "Common/StringUtils.h"
 #include "file/file_util.h"
 #include "main.h"
-
 
 static PMixer *curMixer;
 
@@ -254,4 +254,9 @@ void WindowsHost::UpdateConsolePosition()
 		g_Config.iConsoleWindowX = rc.left;
 		g_Config.iConsoleWindowY = rc.top;
 	}
+}
+
+bool WindowsHost::InputBoxGetString(char *title, char *defaultValue, char *outValue, size_t outLength)
+{
+	return InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), title, defaultValue, outValue, outLength);
 }
