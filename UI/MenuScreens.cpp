@@ -46,10 +46,6 @@
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "Core/HW/atrac3plus.h"
-#include "Core/Dialog/PSPOskDialog.h"
-#ifdef _WIN32
-#include "Windows/InputBox.h"
-#endif
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -74,6 +70,10 @@
 #include <QFileDialog>
 #include <QFile>
 #include <QDir>
+#endif
+
+#ifdef _WIN32
+#include "Windows/InputBox.h"
 #endif
 
 #ifdef _WIN32
