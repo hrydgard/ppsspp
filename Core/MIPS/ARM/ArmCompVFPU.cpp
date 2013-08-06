@@ -1146,8 +1146,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VCrossQuat(u32 op) {
-		DISABLE;
-
 		// This op does not support prefixes.
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
