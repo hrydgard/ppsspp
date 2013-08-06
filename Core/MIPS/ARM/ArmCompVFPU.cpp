@@ -1202,8 +1202,7 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcmp(u32 op) {
-		// Not ready yet
-		// DISABLE;
+		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
@@ -1337,7 +1336,51 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcmov(u32 op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+		int tf = (op >> 19) & 1;
+		int imm3 = (op >> 16) & 7;
+
+		for (int i = 0; i < n; ++i) {
+			// Simplification: Disable if overlap unsafe
+			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
+				DISABLE;
+			}
+		}
+
+		if (imm3 < 6) {
+			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
+			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+			LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+			TST(R0, 1 << imm3);
+			SetCC(tf ? CC_EQ : CC_NEQ);
+			for (int i = 0; i < n; i++) {
+				VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
+			}
+			SetCC(CC_AL);
+		} else {
+			// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
+			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+			LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+			for (int i = 0; i < n; i++) {
+				TST(R0, 1 << i);
+				SetCC(tf ? CC_EQ : CC_NEQ);
+				VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
+				SetCC(CC_AL);
+			}
+		}
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Viim(u32 op) {
