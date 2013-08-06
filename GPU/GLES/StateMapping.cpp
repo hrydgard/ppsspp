@@ -92,6 +92,7 @@ static const GLushort stencilOps[] = {
 	GL_KEEP, // reserved
 };
 
+
 static GLenum blendColor2Func(u32 fix) {
 	if (fix == 0xFFFFFF)
 		return GL_ONE;
@@ -203,8 +204,8 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	bool wantLogicOps = !gstate.isModeClear() && gstate.isLogicOpEnabled();
 	glstate.colorLogicOp.set(wantLogicOps);
 	if(wantLogicOps) {
-		GLuint glLogicOp;
-		int opcode = gstate.getLogicOp();
+		GLushort glLogicOp;
+		GELogicOp opcode = gstate.getLogicOp();
 		if (opcode == GE_LOGIC_CLEAR)
 			glLogicOp = GL_CLEAR;
 		else if (opcode == GE_LOGIC_AND)
