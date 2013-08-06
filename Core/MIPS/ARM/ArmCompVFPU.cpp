@@ -1146,6 +1146,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VCrossQuat(u32 op) {
+		DISABLE;
+
 		// This op does not support prefixes.
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
@@ -1203,7 +1205,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Vcmp(u32 op) {
 		// Not ready yet
-		DISABLE;
+		// DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
@@ -1300,9 +1302,13 @@ namespace MIPSComp
 				VMRS_APSR();
 				SetCC(flag);
 				if (i == 0) {
-					MOVI2R(R0, 1 << n);
+					if (n == 1) {
+						MOVI2R(R0, 0x31);
+					} else {
+						MOVI2R(R0, 1 << i);
+					}
 				} else {
-					ORR(R0, R0, 1 << n);
+					ORR(R0, R0, 1 << i);
 				}
 				SetCC(CC_AL);
 			}
@@ -1312,11 +1318,7 @@ namespace MIPSComp
 
 		// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
 		// after all.
-		if (n == 1) {
-			// Use imul to easily duplicate that bit.
-			MOVI2R(R1, 0x31);
-			MUL(R0, R0, R1);
-		} else {
+		if (n > 1) {
 			CMP(R0, affected_bits & 0xF);
 			SetCC(CC_EQ);
 			ORR(R0, R0, 1 << 5);

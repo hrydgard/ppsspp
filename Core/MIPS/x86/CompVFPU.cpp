@@ -820,7 +820,11 @@ void Jit::Comp_Vcmp(u32 op) {
 		if (compareTwo || compareToZero) {
 			MOVSS(M((void *) &ssCompareTemp), XMM1);
 			MOV(32, R(ECX), M((void *) &ssCompareTemp));
-			AND(32, R(ECX), Imm32(1 << i));
+			if (i == 0 && n == 1) {
+				AND(32, R(ECX), Imm32(0x31));
+			} else {
+				AND(32, R(ECX), Imm32(1 << i));
+			}
 		}
 
 		if (i == 0) 
@@ -833,10 +837,7 @@ void Jit::Comp_Vcmp(u32 op) {
 
 	// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
 	// after all.
-	if (n == 1) {
-		// Use imul to easily duplicate that bit.
-		IMUL(32, EAX, R(EAX), Imm8(0x31));
-	} else {
+	if (n > 1) {
 		CMP(32, R(EAX), Imm8(affected_bits & 0xF));
 		SETcc(CC_E, R(ECX));
 		SHL(32, R(ECX), Imm8(5));
