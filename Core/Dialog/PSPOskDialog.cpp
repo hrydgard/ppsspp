@@ -782,7 +782,6 @@ int PSPOskDialog::NativeKeyboard()
 		if(host->InputBoxGetString(windowTitle, defaultText, input, maxInputLength)) {
 			strncat(input, "", strlen(""));
 		}
-		 // TODO: Insert your platform's native keyboard stuff here...
 
 		status = SCE_UTILITY_STATUS_FINISHED;
 	}

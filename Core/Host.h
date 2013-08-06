@@ -66,7 +66,7 @@ public:
 	virtual void NextGPUStep() {}
 
 #ifdef _WIN32
-	// Used instead of InputBox_GetString in PSPOskDialog.cpp to bypass the onscreen keyboard.
+	// Implement this on your platform to grab text input from the user for whatever purpose.
 	virtual bool InputBoxGetString(char *title, char *defaultValue, char *outValue, size_t outlength) { return false; }
 #endif
 
