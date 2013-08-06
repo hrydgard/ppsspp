@@ -29,7 +29,6 @@ void ScreenManager::switchScreen(Screen *screen) {
 
 void ScreenManager::update(InputState &input) {
 	if (nextScreen_) {
-		ILOG("Screen switch! Top of the stack switches.");
 		switchToNext();
 	}
 
@@ -47,7 +46,6 @@ void ScreenManager::switchToNext() {
 	Layer newLayer = {nextScreen_, 0};
 	stack_.push_back(newLayer);
 	if (temp.screen) {
-		ELOG("Deleting screen");
 		delete temp.screen;
 	}
 	nextScreen_ = 0;

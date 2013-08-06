@@ -1,7 +1,7 @@
 package com.henrikrydgard.libnative;
 
 public class NativeApp {
-	public static native void init(int xxres, int yyres, int dpi, String apkPath, String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
+	public static native void init(int xxres, int yyres, int dpi, String deviceType, String apkPath, String dataDir, String externalDir, String libraryDir, String installID, boolean useOpenSL);
 	public static native void resized(int xxres, int yyres);
 	
 	
@@ -39,3 +39,4 @@ public class NativeApp {
 
 	public static native void sendMessage(String msg, String arg);
 }
+ 

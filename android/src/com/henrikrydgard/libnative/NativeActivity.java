@@ -192,10 +192,13 @@ public class NativeActivity extends Activity {
 		getWindowManager().getDefaultDisplay().getMetrics(metrics);
 		int dpi = metrics.densityDpi;
 		
+		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
+		
 		// INIT!
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(scrWidth, scrHeight, dpi, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
-	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat);     
+		NativeApp.init(scrWidth, scrHeight, dpi, deviceType, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
+	    Log.i(TAG, "Device: " + deviceType);     
+	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat + " dpi: " + dpi);     
 		
  		// Initialize Graphics
         
