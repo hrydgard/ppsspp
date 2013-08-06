@@ -742,7 +742,6 @@ void PSPOskDialog::RenderKeyboard()
 
 // TODO: Why does this have a 2 button press lag/delay when
 // re-opening the dialog box? I don't get it.
-// TODO: Stop crashes when the user enters > 255 characters on _WIN32.
 // TODO: Use a wstring to allow Japanese/Russian/etc.. on _WIN32(others?)
 int PSPOskDialog::NativeKeyboard()
 {
@@ -773,7 +772,7 @@ int PSPOskDialog::NativeKeyboard()
 			sprintf(buf, "VALUE");
 		}
 
-		if(!InputBox_GetString(0, MainWindow::hwndMain, NULL, buf, input, FieldMaxLength() - 1)) {
+		if(!InputBox_GetString(0, MainWindow::hwndMain, NULL, buf, input, FieldMaxLength())) {
 			sprintf(input, "");
 		}
 #endif
