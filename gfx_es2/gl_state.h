@@ -202,9 +202,11 @@ public:
 	STATE1(glBlendEquation, GLenum, GL_FUNC_ADD) blendEquation;
 	STATEFLOAT4(glBlendColor, 1.0f) blendColor;
 
+#if !defined(USING_GLES2)
 	BoolState<GL_COLOR_LOGIC_OP, false> colorLogicOp;
 	STATE1(glLogicOp, GLenum, GL_COPY) logicOp;
-	
+#endif
+
 	BoolState<GL_SCISSOR_TEST, false> scissorTest;
 
 	BoolState<GL_CULL_FACE, false> cullFace;
