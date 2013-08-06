@@ -1146,8 +1146,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VCrossQuat(u32 op) {
-		DISABLE;
-
 		// This op does not support prefixes.
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
@@ -1178,8 +1176,8 @@ namespace MIPSComp
 			VMLS(S1, fpr.V(sregs[0]), fpr.V(tregs[2]));
 
 			// Compute Z
-			VMUL(fpr.V(temp3), fpr.V(sregs[2]), fpr.V(tregs[0]));
-			VMLS(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[2]));
+			VMUL(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[1]));
+			VMLS(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[0]));
 
 			fpr.MapRegsAndSpillLockV(dregs, V_Triple, MAP_DIRTY | MAP_NOINIT);
 			VMOV(fpr.V(dregs[0]), S0);
