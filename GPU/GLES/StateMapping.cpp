@@ -92,6 +92,25 @@ static const GLushort stencilOps[] = {
 	GL_KEEP, // reserved
 };
 
+static const GLushort logicOps[] = {
+	GL_CLEAR,
+	GL_AND,
+	GL_AND_REVERSE,
+	GL_COPY,
+	GL_AND_INVERTED,
+	GL_NOOP,
+	GL_XOR,
+	GL_OR,
+	GL_NOR,
+	GL_EQUIV,
+	GL_INVERT,
+	GL_OR_REVERSE,
+	GL_COPY_INVERTED,
+	GL_OR_INVERTED,
+	GL_NAND,
+	GL_SET,
+};
+
 static GLenum blendColor2Func(u32 fix) {
 	if (fix == 0xFFFFFF)
 		return GL_ONE;
@@ -199,6 +218,11 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.blendFunc.set(glBlendFuncA, glBlendFuncB);
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 	}
+
+	bool wantLogicOps = !gstate.isModeClear() && gstate.isLogicOpEnabled();
+	glstate.colorLogicOp.set(wantLogicOps);
+	if(wantLogicOps) 
+		glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
 
 	// Set Dither
 	if (gstate.isDitherEnabled()) {
