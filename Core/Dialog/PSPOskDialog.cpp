@@ -32,6 +32,14 @@
 #include <math.h>
 #endif
 
+#ifdef _WIN32
+#include "../Windows/InputBox.h"
+namespace MainWindow {
+	extern HWND hwndMain;
+	HINSTANCE GetHinstance();
+};
+#endif
+
 const int numKeyCols[OSK_KEYBOARD_COUNT] = {12, 12, 13, 13, 12, 12, 12};
 const int numKeyRows[OSK_KEYBOARD_COUNT] = {4, 4, 5, 5, 5, 4, 4};
 
@@ -732,11 +740,68 @@ void PSPOskDialog::RenderKeyboard()
 	}
 }
 
+// TODO: Why does this have a 2 button press lag/delay when
+// re-opening the dialog box? I don't get it.
+// TODO: Stop crashes when the user enters > 255 characters on _WIN32.
+// TODO: Use a wstring to allow Japanese/Russian/etc.. on _WIN32(others?)
+int PSPOskDialog::NativeKeyboard()
+{
+	char *input = new char[FieldMaxLength()];
+	memset(input, 0, sizeof(input));
+
+	if (status == SCE_UTILITY_STATUS_INITIALIZE)
+	{
+		status = SCE_UTILITY_STATUS_RUNNING;
+	}
+
+	else if (status == SCE_UTILITY_STATUS_RUNNING)
+	{
+		
+#ifdef _WIN32
+		if(!InputBox_GetString(0, MainWindow::hwndMain, NULL, "VALUE", input))
+			sprintf(input, "");
+#endif
+		// TODO: Insert your platform's native keyboard stuff here...
+
+		status = SCE_UTILITY_STATUS_FINISHED;
+	}
+	else if (status == SCE_UTILITY_STATUS_FINISHED)
+	{
+		status = SCE_UTILITY_STATUS_SHUTDOWN;
+	}
+	
+	u16_le *outText = oskParams->fields[0].outtext;
+	for (u32 i = 0, end = oskParams->fields[0].outtextlength; i < end; ++i)
+	{
+		u16 value = 0;
+		if (i < ARRAY_SIZE(input))
+			value = input[i];
+		outText[i] = value;
+	}
+
+	oskParams->base.result = 0;
+	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
+
+	delete [] input;
+	input = NULL;
+
+	return 0;
+}
+
 int PSPOskDialog::Update()
 {
 	buttons = __CtrlReadLatch();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
+
+	// TODO: Add your platforms here when you have a NativeKeyboard func.
+
+#ifdef _WIN32
+	// Fall back to the OSK/continue normally if we're in fullscreen. The dialog box
+	// doesn't work right if in fullscreen.
+	if(g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
+		return NativeKeyboard();
+#endif
 
 	u32 limit = FieldMaxLength();
 

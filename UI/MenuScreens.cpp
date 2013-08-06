@@ -46,6 +46,10 @@
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "Core/HW/atrac3plus.h"
+#include "Core/Dialog/PSPOskDialog.h"
+#ifdef _WIN32
+#include "Windows/InputBox.h"
+#endif
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
@@ -79,6 +83,7 @@ namespace MainWindow {
 	};
 	extern HWND hwndMain;
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
+	HINSTANCE GetHInstance();
 }
 #endif
 
@@ -1531,6 +1536,23 @@ void SystemScreen::render() {
 	}
 	y += 20;
 
+	// TODO: Come up with a way to display a keyboard for mobile users,
+	// so until then, this is Windows/Desktop only.
+#ifdef _WIN32
+	char nickname[512];
+	sprintf(nickname, "%s %s", s->T("System Nickname: "), g_Config.sNickName);
+	ui_draw2d.DrawTextShadow(UBUNTU24, nickname, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+
+	HLinear hlinearNick(x + 400, y, 10);
+	if(UIButton(GEN_ID, hlinearNick, 110, 0, s->T("Change"), ALIGN_LEFT)) {
+		char name[256];
+		memset(&name, 0, sizeof(name));
+		if(InputBox_GetString(MainWindow::GetHInstance(), MainWindow::hwndMain, NULL, "PPSSPP", name))
+			g_Config.sNickName.assign(name);
+		else
+			g_Config.sNickName.assign("PPSSPP");
+	}
+#endif
 	/*
 	bool time = g_Config.iTimeFormat > 0 ;
 	UICheckBox(GEN_ID, x, y += stride, s->T("Time Format"), ALIGN_TOPLEFT, &time);

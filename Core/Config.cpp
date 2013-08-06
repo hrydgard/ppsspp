@@ -161,6 +161,9 @@ void Config::Load(const char *iniFileName)
 	pspConfig->Get("ButtonPreference", &iButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS);
 	pspConfig->Get("LockParentalLevel", &iLockParentalLevel, 0);
 	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
+#ifdef _WIN32
+	pspConfig->Get("BypassOSKWithKeyboard", &bBypassOSKWithKeyboard, false);
+#endif
 	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
 	pspConfig->Get("EncryptSave", &bEncryptSave, true);
 
@@ -281,6 +284,9 @@ void Config::Save()
 		pspConfig->Set("WlanAdhocChannel", iWlanAdhocChannel);
 		pspConfig->Set("WlanPowerSave", bWlanPowerSave);
 		pspConfig->Set("EncryptSave", bEncryptSave);
+#ifdef _WIN32
+		pspConfig->Set("BypassOSKWithKeyboard", bBypassOSKWithKeyboard);
+#endif
 
 		IniFile::Section *debugConfig = iniFile.GetOrCreateSection("Debugger");
 		debugConfig->Set("DisasmWindowX", iDisasmWindowX);
