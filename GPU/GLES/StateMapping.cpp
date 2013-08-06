@@ -200,6 +200,19 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 	}
 
+	bool wantLogicOps = !gstate.isModeClear() && gstate.isLogicOpEnabled();
+	glstate.colorLogicOp.set(wantLogicOps);
+	if(wantLogicOps) {
+		GLuint glLogicOp;
+		int opcode = gstate.getLogicOp();
+		if (opcode == GE_LOGIC_CLEAR)
+			glLogicOp = GL_CLEAR;
+		else if (opcode == GE_LOGIC_AND)
+			glLogicOp = GL_AND;
+		//TODO
+		glstate.logicOp.set(glLogicOp);
+	}
+	
 	// Set Dither
 	if (gstate.isDitherEnabled()) {
 		glstate.dither.enable();
