@@ -758,8 +758,22 @@ int PSPOskDialog::NativeKeyboard()
 	{
 		
 #ifdef _WIN32
-		if(!InputBox_GetString(0, MainWindow::hwndMain, NULL, "VALUE", input))
+		std::string initial_text;
+		ConvertUCS2ToUTF8(initial_text, oskParams->fields[0].intext);
+
+		const size_t buf_len = 512;
+		char buf[buf_len];
+
+		memset(buf, 0, sizeof(buf));
+
+		if(initial_text.length() < buf_len)
+			sprintf(buf, initial_text.c_str());
+		else
+			ERROR_LOG(HLE, "NativeKeyboard: initial text length is too long");
+
+		if(!InputBox_GetString(0, MainWindow::hwndMain, NULL, buf, input)) {
 			sprintf(input, "");
+		}
 #endif
 		// TODO: Insert your platform's native keyboard stuff here...
 
