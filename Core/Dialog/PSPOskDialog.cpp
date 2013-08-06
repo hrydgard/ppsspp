@@ -772,7 +772,8 @@ int PSPOskDialog::NativeKeyboard()
 			ERROR_LOG(HLE, "NativeKeyboard: initial text length is too long");
 			sprintf(buf, "VALUE");
 		}
-		if(!InputBox_GetString(0, MainWindow::hwndMain, NULL, buf, input)) {
+
+		if(!InputBox_GetString(0, MainWindow::hwndMain, NULL, buf, input, FieldMaxLength() - 1)) {
 			sprintf(input, "");
 		}
 #endif

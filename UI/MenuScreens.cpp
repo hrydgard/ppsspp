@@ -1540,14 +1540,19 @@ void SystemScreen::render() {
 	// so until then, this is Windows/Desktop only.
 #ifdef _WIN32
 	char nickname[512];
-	sprintf(nickname, "%s %s", s->T("System Nickname: "), g_Config.sNickName);
+	memset(nickname, 0, sizeof(nickname));
+
+	sprintf(nickname, "%s %s", s->T("System Nickname: "), g_Config.sNickName.c_str());
 	ui_draw2d.DrawTextShadow(UBUNTU24, nickname, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	HLinear hlinearNick(x + 400, y, 10);
 	if(UIButton(GEN_ID, hlinearNick, 110, 0, s->T("Change"), ALIGN_LEFT)) {
-		char name[256];
-		memset(&name, 0, sizeof(name));
-		if(InputBox_GetString(MainWindow::GetHInstance(), MainWindow::hwndMain, NULL, "PPSSPP", name))
+		const size_t name_len = 256;
+		
+		char name[name_len];
+		memset(name, 0, sizeof(name));
+
+		if(InputBox_GetString(MainWindow::GetHInstance(), MainWindow::hwndMain, NULL, "PPSSPP", name, name_len))
 			g_Config.sNickName.assign(name);
 		else
 			g_Config.sNickName.assign("PPSSPP");

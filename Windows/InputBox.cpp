@@ -49,6 +49,22 @@ bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defa
 		return false;
 }
 
+bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defaultvalue, TCHAR *outvalue, u32 outlength)
+{
+	if (defaultvalue && strlen(defaultvalue)<255)
+		strcpy(textBoxContents,defaultvalue);
+	else
+		strcpy(textBoxContents,"");
+
+	if (IDOK==DialogBox(hInst,(LPCSTR)IDD_INPUTBOX,hParent,InputBoxFunc))
+	{
+		strncpy(outvalue, out, outlength);
+		return true;
+	}
+	else 
+		return false;
+}
+
 bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, TCHAR *title, u32 defaultvalue, u32 &outvalue)
 {
 	sprintf(textBoxContents,"%08x",defaultvalue);
