@@ -941,14 +941,16 @@ void Jit::Comp_Vi2f(u32 op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
-	MOVSS(XMM1, M((void *)mult));
+	if (*mult != 1.0f)
+		MOVSS(XMM1, M((void *)mult));
 	for (int i = 0; i < n; i++) {
 		if (fpr.V(sregs[i]).IsSimpleReg())
 			MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
 		else
 			MOV(32, R(EAX), fpr.V(sregs[i]));
 		CVTSI2SS(XMM0, R(EAX));
-		MULSS(XMM0, R(XMM1));
+		if (*mult != 1.0f)
+			MULSS(XMM0, R(XMM1));
 		fpr.MapRegV(dregs[i], MAP_DIRTY);
 		MOVSS(fpr.V(dregs[i]), XMM0);
 	}

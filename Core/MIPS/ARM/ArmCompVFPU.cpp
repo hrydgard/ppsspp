@@ -802,7 +802,6 @@ namespace MIPSComp
 
 	void Jit::Comp_Vi2f(u32 op) {
 		CONDITIONAL_DISABLE;
-		DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
@@ -811,7 +810,7 @@ namespace MIPSComp
 		int n = GetNumVectorElements(sz);
 
 		int imm = (op >> 16) & 0x1f;
-		const float mult = 1.0f / (float)(1 << imm);
+		const float mult = 1.0f / (float)(1UL << imm);
 
 		u8 sregs[4], dregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
