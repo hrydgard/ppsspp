@@ -139,6 +139,10 @@ public:
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+	// TODO: Make this work with your platform, too!
+#ifdef _WIN32
+	bool bBypassOSKWithKeyboard;
+#endif
 
 	// Debugger
 	int iDisasmWindowX;

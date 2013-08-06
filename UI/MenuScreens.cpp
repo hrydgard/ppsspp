@@ -73,12 +73,17 @@
 #endif
 
 #ifdef _WIN32
+#include "Windows/InputBox.h"
+#endif
+
+#ifdef _WIN32
 namespace MainWindow {
 	enum {
 		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200
 	};
 	extern HWND hwndMain;
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
+	HINSTANCE GetHInstance();
 }
 #endif
 
@@ -1531,6 +1536,28 @@ void SystemScreen::render() {
 	}
 	y += 20;
 
+	// TODO: Come up with a way to display a keyboard for mobile users,
+	// so until then, this is Windows/Desktop only.
+#ifdef _WIN32
+	char nickname[512];
+	memset(nickname, 0, sizeof(nickname));
+
+	sprintf(nickname, "%s %s", s->T("System Nickname: "), g_Config.sNickName.c_str());
+	ui_draw2d.DrawTextShadow(UBUNTU24, nickname, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+
+	HLinear hlinearNick(x + 400, y, 10);
+	if(UIButton(GEN_ID, hlinearNick, 110, 0, s->T("Change"), ALIGN_LEFT)) {
+		const size_t name_len = 256;
+		
+		char name[name_len];
+		memset(name, 0, sizeof(name));
+
+		if(InputBox_GetString(MainWindow::GetHInstance(), MainWindow::hwndMain, "Enter a new PSP nickname", "PPSSPP", name, name_len))
+			g_Config.sNickName.assign(name);
+		else
+			g_Config.sNickName.assign("PPSSPP");
+	}
+#endif
 	/*
 	bool time = g_Config.iTimeFormat > 0 ;
 	UICheckBox(GEN_ID, x, y += stride, s->T("Time Format"), ALIGN_TOPLEFT, &time);
