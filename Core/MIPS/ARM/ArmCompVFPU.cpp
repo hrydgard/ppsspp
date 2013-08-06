@@ -609,38 +609,6 @@ namespace MIPSComp
 		int vs = _VS;
 		int vt = _VT;
 
-		void (ARMXEmitter::*triop)(ARMReg, ARMReg, ARMReg) = 0;
-		switch (op >> 26)
-		{
-		case 24: //VFPU0
-			switch ((op >> 23)&7)
-			{
-			case 0: // d[i] = s[i] + t[i]; break; //vadd
-				triop = &ARMXEmitter::VADD;
-				break;
-			case 1: // d[i] = s[i] - t[i]; break; //vsub
-				triop = &ARMXEmitter::VSUB;
-				break;
-			case 7: // d[i] = s[i] / t[i]; break; //vdiv
-				triop = &ARMXEmitter::VDIV;
-				break;
-			}
-			break;
-		case 25: //VFPU1
-			switch ((op >> 23) & 7)
-			{
-			case 0: // d[i] = s[i] * t[i]; break; //vmul
-				triop = &ARMXEmitter::VMUL;
-				break;
-			}
-			break;
-			// Unfortunately there is no VMIN/VMAX on ARM without NEON.
-		}
-
-		if (!triop) {
-			DISABLE;
-		}
-
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
@@ -660,7 +628,58 @@ namespace MIPSComp
 
 		for (int i = 0; i < n; i++) {
 			fpr.MapDirtyInInV(tempregs[i], sregs[i], tregs[i]);
-			(this->*triop)(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+			switch (op >> 26) {
+			case 24: //VFPU0
+				switch ((op >> 23)&7) {
+				case 0: // d[i] = s[i] + t[i]; break; //vadd
+					VADD(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					break;
+				case 1: // d[i] = s[i] - t[i]; break; //vsub
+					VSUB(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					break;
+				case 7: // d[i] = s[i] / t[i]; break; //vdiv
+					VDIV(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					break;
+				default:
+					DISABLE;
+				}
+				break;
+			case 25: //VFPU1
+				switch ((op >> 23) & 7) {
+				case 0: // d[i] = s[i] * t[i]; break; //vmul
+					VMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					break;
+				default:
+					DISABLE;
+				}
+				break;
+				// Unfortunately there is no VMIN/VMAX on ARM without NEON.
+			case 27: //VFPU3
+				switch ((op >> 23) & 3)	{
+				case 2:  // vmin
+					VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+					VMRS_APSR();
+					SetCC(CC_LT);
+					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+					SetCC(CC_GE);
+					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
+					SetCC(CC_AL);
+					break;
+				case 3:  // vmax
+					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
+					VMRS_APSR();
+					SetCC(CC_LT);
+					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+					SetCC(CC_GE);
+					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
+					SetCC(CC_AL);
+					break;
+				}
+				break;
+
+			default:
+				DISABLE;
+			}
 		}
 
 		for (int i = 0; i < n; i++) {
