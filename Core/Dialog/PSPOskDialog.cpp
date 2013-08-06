@@ -760,19 +760,28 @@ int PSPOskDialog::NativeKeyboard()
 		std::string initial_text;
 		ConvertUCS2ToUTF8(initial_text, oskParams->fields[0].intext);
 
-		const size_t buf_len = 512;
-		char buf[buf_len];
+		const size_t defaultText_len = 512;
+		char defaultText[defaultText_len];
 
-		memset(buf, 0, sizeof(buf));
+		memset(defaultText, 0, sizeof(defaultText));
 
-		if(initial_text.length() < buf_len)
-			sprintf(buf, initial_text.c_str());
+		if(initial_text.length() < defaultText_len)
+			sprintf(defaultText, initial_text.c_str());
 		else {
 			ERROR_LOG(HLE, "NativeKeyboard: initial text length is too long");
-			sprintf(buf, "VALUE");
+			sprintf(defaultText, "VALUE");
 		}
 
-		if(!InputBox_GetString(0, MainWindow::hwndMain, NULL, buf, input, FieldMaxLength())) {
+		char windowTitle[defaultText_len];
+		memset(windowTitle, 0, sizeof(windowTitle));
+
+		std::string description_text;
+		ConvertUCS2ToUTF8(description_text, oskParams->fields[0].desc);
+
+		if(description_text.length() < defaultText_len)
+			sprintf(windowTitle, description_text.c_str());
+
+		if(!InputBox_GetString(0, MainWindow::hwndMain, windowTitle, defaultText, input, FieldMaxLength())) {
 			sprintf(input, "");
 		}
 #endif
