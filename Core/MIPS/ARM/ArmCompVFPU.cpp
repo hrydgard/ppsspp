@@ -29,6 +29,8 @@
 #include "ArmRegCache.h"
 
 
+const bool disablePrefixes = false;
+
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
@@ -78,7 +80,6 @@ namespace MIPSComp
 		int regnum = (op >> 24) & 3;
 		switch (regnum) {
 		case 0:  // S
-			//ERROR_LOG(CPU, "VPFX - S %08x %i", data, regnum);
 			js.prefixS = data;
 			js.prefixSFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
 			break;
@@ -437,7 +438,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// WARNING: No prefix support!
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -472,7 +473,7 @@ namespace MIPSComp
 	void Jit::Comp_VIdt(u32 op) {
 		CONDITIONAL_DISABLE
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -510,7 +511,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -554,10 +555,9 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VDot(u32 op)
-	{
+	void Jit::Comp_VDot(u32 op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -567,9 +567,10 @@ namespace MIPSComp
 		VectorSize sz = GetVecSize(op);
 
 		// TODO: Force read one of them into regs? probably not.
-		u8 sregs[4], tregs[4];
-		GetVectorRegs(sregs, sz, vs);
-		GetVectorRegs(tregs, sz, vt);
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixT(tregs, sz, vt);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
 		// TODO: applyprefixST here somehow (shuffle, etc...)
 		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
@@ -583,19 +584,24 @@ namespace MIPSComp
 		}
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 
-		fpr.MapRegV(vd, MAP_NOINIT | MAP_DIRTY);
+		fpr.MapRegV(dregs[0], MAP_NOINIT | MAP_DIRTY);
 
 		// TODO: applyprefixD here somehow (write mask etc..)
-		VMOV(fpr.V(vd), S0);
+		VMOV(fpr.V(dregs[0]), S0);
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
+
+	void Jit::Comp_VHdp(u32 op) {
+		// Similar to vdot
+		DISABLE;
+	}
+
 
 	void Jit::Comp_VecDo3(u32 op) {
 		CONDITIONAL_DISABLE;
 		
-		// WARNING: No prefix support!
-
-		//if (js.MayHavePrefix()) {
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -671,7 +677,7 @@ namespace MIPSComp
 	void Jit::Comp_VV2Op(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -796,8 +802,9 @@ namespace MIPSComp
 
 	void Jit::Comp_Vi2f(u32 op) {
 		CONDITIONAL_DISABLE;
+		DISABLE;
 
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -839,8 +846,6 @@ namespace MIPSComp
 		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
-
-
 
 	void Jit::Comp_Mftv(u32 op)
 	{
@@ -968,7 +973,7 @@ namespace MIPSComp
 	void Jit::Comp_VScl(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1018,7 +1023,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
-		if (js.MayHavePrefix()) {
+		if (js.MayHavePrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1064,8 +1069,9 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?  Or maybe uses D?
-		if (js.MayHavePrefix())
+		if (js.MayHavePrefix() || disablePrefixes) {
 			DISABLE;
+		}
 
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
@@ -1073,8 +1079,7 @@ namespace MIPSComp
 		int ins = (op >> 23) & 7;
 
 		bool homogenous = false;
-		if (n == ins)
-		{
+		if (n == ins) {
 			n++;
 			sz = (VectorSize)((int)(sz) + 1);
 			msz = (MatrixSize)((int)(msz) + 1);
@@ -1120,10 +1125,6 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VHdp(u32 op) {
-		DISABLE;
-	}
-
 	void Jit::Comp_VCrs(u32 op) {
 		DISABLE;
 	}
@@ -1146,10 +1147,56 @@ namespace MIPSComp
 
 	void Jit::Comp_VCrossQuat(u32 op) {
 		DISABLE;
+
+		// This op does not support prefixes.
+		if (js.HasUnknownPrefix() || disablePrefixes)
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], tregs[4], dregs[4];
+		GetVectorRegs(sregs, sz, _VS);
+		GetVectorRegs(tregs, sz, _VT);
+		GetVectorRegs(dregs, sz, _VD);
+
+		// Map everything into registers.
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
+
+		if (sz == V_Triple) {
+			int temp3 = fpr.GetTempV();
+			fpr.MapRegV(temp3, MAP_DIRTY | MAP_NOINIT);
+			// Cross product vcrsp.t
+
+			// Compute X
+			VMUL(S0, fpr.V(sregs[1]), fpr.V(tregs[2]));
+			VMLS(S0, fpr.V(sregs[2]), fpr.V(tregs[1]));
+
+			// Compute Y
+			VMUL(S1, fpr.V(sregs[2]), fpr.V(tregs[0]));
+			VMLS(S1, fpr.V(sregs[0]), fpr.V(tregs[2]));
+
+			// Compute Z
+			VMUL(fpr.V(temp3), fpr.V(sregs[2]), fpr.V(tregs[0]));
+			VMLS(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[2]));
+
+			fpr.MapRegsAndSpillLockV(dregs, V_Triple, MAP_DIRTY | MAP_NOINIT);
+			VMOV(fpr.V(dregs[0]), S0);
+			VMOV(fpr.V(dregs[1]), S1);
+			VMOV(fpr.V(dregs[2]), fpr.V(temp3));
+		} else if (sz == V_Quad) {
+			// Quaternion product  vqmul.q  untested
+			DISABLE;
+		}
+
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Vsge(u32 op) {
 		DISABLE;
+
+
 	}
 
 	void Jit::Comp_Vslt(u32 op) {
@@ -1160,7 +1207,7 @@ namespace MIPSComp
 		// Not ready yet
 		DISABLE;
 
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -1312,7 +1359,7 @@ namespace MIPSComp
 	void Jit::Comp_Vfim(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1332,7 +1379,7 @@ namespace MIPSComp
 	void Jit::Comp_Vcst(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1390,7 +1437,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		
 		// This op doesn't support prefixes anyway..
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 

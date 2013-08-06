@@ -708,18 +708,6 @@ void Jit::Comp_VecDo3(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-enum
-{
-	CMPEQSS = 0,
-	CMPLTSS = 1,
-	CMPLESS = 2,
-	CMPUNORDSS = 3,
-	CMPNEQSS = 4,
-	CMPNLTSS = 5,
-	CMPNLESS = 6,
-	CMPORDSS = 7,
-};
-
 static float ssCompareTemp;
 
 void Jit::Comp_Vcmp(u32 op) {
@@ -772,44 +760,44 @@ void Jit::Comp_Vcmp(u32 op) {
 			break;
 
 		case VC_EQ: // c = s[i] == t[i]; break;
-			comparison = CMPEQSS;
+			comparison = CMP_EQ;
 			compareTwo = true;
 			break;
 
 		case VC_LT: // c = s[i] < t[i]; break;
-			comparison = CMPLTSS;
+			comparison = CMP_LT;
 			compareTwo = true;
 			break;
 
 		case VC_LE: // c = s[i] <= t[i]; break;
-			comparison = CMPLESS;
+			comparison = CMP_LE;
 			compareTwo = true;
 			break;
 
 		case VC_NE: // c = s[i] != t[i]; break;
-			comparison = CMPNEQSS;
+			comparison = CMP_NEQ;
 			compareTwo = true;
 			break;
 
 		case VC_GE: // c = s[i] >= t[i]; break;
-			comparison = CMPLESS;
+			comparison = CMP_LE;
 			flip = true;
 			compareTwo = true;
 			break;
 
 		case VC_GT: // c = s[i] > t[i]; break;
-			comparison = CMPLTSS;
+			comparison = CMP_LT;
 			flip = true;
 			compareTwo = true;
 			break;
 
 		case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f; break;
-			comparison = CMPEQSS;
+			comparison = CMP_EQ;
 			compareToZero = true;
 			break;
 
 		case VC_NZ: // c = s[i] != 0; break;
-			comparison = CMPNEQSS;
+			comparison = CMP_NEQ;
 			compareToZero = true;
 			break;
 
@@ -867,6 +855,14 @@ void Jit::Comp_Vcmp(u32 op) {
 
 	fpr.ReleaseSpillLocks();
 	gpr.UnlockAllX();
+}
+
+void Jit::Comp_Vsge(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vslt(u32 op) {
+	DISABLE;
 }
 
 // There are no immediates for floating point, so we need to load these
@@ -1463,14 +1459,6 @@ void Jit::Comp_Vhoriz(u32 op) {
 }
 
 void Jit::Comp_Vcmov(u32 op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vsge(u32 op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vslt(u32 op) {
 	DISABLE;
 }
 

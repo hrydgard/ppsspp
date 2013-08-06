@@ -153,18 +153,6 @@ static const u64 GC_ALIGNED16(ssNoSignMask[2]) = {0x7FFFFFFF7FFFFFFFULL, 0x7FFFF
 
 static u32 ssCompareTemp;
 
-enum
-{
-	CMPEQSS = 0,
-	CMPLTSS = 1,
-	CMPLESS = 2,
-	CMPUNORDSS = 3,
-	CMPNEQSS = 4,
-	CMPNLTSS = 5,
-	CMPNLESS = 6,
-	CMPORDSS = 7,
-};
-
 void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 {
 	MOVSS(XMM0, fpr.R(lhs));
@@ -175,7 +163,7 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 	if (allowNaN)
 	{
 		MOVSS(XMM0, fpr.R(lhs));
-		CMPSS(XMM0, fpr.R(rhs), CMPUNORDSS);
+		CMPUNORDSS(XMM0, fpr.R(rhs));
 		MOVSS(M((void *) &ssCompareTemp), XMM0);
 
 		MOV(32, R(EAX), M((void *) &ssCompareTemp));
@@ -199,37 +187,37 @@ void Jit::Comp_FPUComp(u32 op)
 
 	case 1: //un
 	case 9: //ngle
-		CompFPComp(fs, ft, CMPUNORDSS);
+		CompFPComp(fs, ft, CMP_UNORD);
 		break;
 
 	case 2: //eq
 	case 10: //seq
-		CompFPComp(fs, ft, CMPEQSS);
+		CompFPComp(fs, ft, CMP_EQ);
 		break;
 
 	case 3: //ueq
 	case 11: //ngl
-		CompFPComp(fs, ft, CMPEQSS, true);
+		CompFPComp(fs, ft, CMP_EQ, true);
 		break;
 
 	case 4: //olt
 	case 12: //lt
-		CompFPComp(fs, ft, CMPLTSS);
+		CompFPComp(fs, ft, CMP_LT);
 		break;
 
 	case 5: //ult
 	case 13: //nge
-		CompFPComp(ft, fs, CMPNLESS);
+		CompFPComp(ft, fs, CMP_NLE);
 		break;
 
 	case 6: //ole
 	case 14: //le
-		CompFPComp(fs, ft, CMPLESS);
+		CompFPComp(fs, ft, CMP_LE);
 		break;
 
 	case 7: //ule
 	case 15: //ngt
-		CompFPComp(ft, fs, CMPNLTSS);
+		CompFPComp(ft, fs, CMP_NLT);
 		break;
 
 	default:
