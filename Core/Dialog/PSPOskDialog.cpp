@@ -781,7 +781,9 @@ int PSPOskDialog::NativeKeyboard()
 		if(description_text.length() < defaultText_len)
 			sprintf(windowTitle, description_text.c_str());
 
-		if(!InputBox_GetString(0, MainWindow::hwndMain, windowTitle, defaultText, input, FieldMaxLength())) {
+		size_t maxInputLength = FieldMaxLength();
+
+		if(!InputBox_GetString(0, MainWindow::hwndMain, windowTitle, defaultText, input, maxInputLength)) {
 			sprintf(input, "");
 		}
 #endif
