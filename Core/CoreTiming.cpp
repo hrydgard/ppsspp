@@ -204,7 +204,7 @@ void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata
 {
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
 	Event *ne = GetNewTsEvent();
-	ne->time = globalTimer + cyclesIntoFuture;
+	ne->time = GetTicks() + cyclesIntoFuture;
 	ne->type = event_type;
 	ne->next = 0;
 	ne->userdata = userdata;
