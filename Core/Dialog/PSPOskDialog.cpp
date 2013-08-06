@@ -766,10 +766,10 @@ int PSPOskDialog::NativeKeyboard()
 		memset(defaultText, 0, sizeof(defaultText));
 
 		if(initial_text.length() < defaultText_len)
-			sprintf(defaultText, initial_text.c_str());
+			strncat(defaultText, initial_text.c_str(), strlen(initial_text.c_str()));
 		else {
 			ERROR_LOG(HLE, "NativeKeyboard: initial text length is too long");
-			sprintf(defaultText, "VALUE");
+			strncat(defaultText, "VALUE", strlen("VALUE"));
 		}
 
 		char windowTitle[defaultText_len];
@@ -779,12 +779,12 @@ int PSPOskDialog::NativeKeyboard()
 		ConvertUCS2ToUTF8(description_text, oskParams->fields[0].desc);
 
 		if(description_text.length() < defaultText_len)
-			sprintf(windowTitle, description_text.c_str());
+			strncat(windowTitle, description_text.c_str(), strlen(description_text.c_str()));
 
 		size_t maxInputLength = FieldMaxLength();
 
 		if(!InputBox_GetString(0, MainWindow::hwndMain, windowTitle, defaultText, input, maxInputLength)) {
-			sprintf(input, "");
+			strncat(input, "", strlen(""));
 		}
 #endif
 		// TODO: Insert your platform's native keyboard stuff here...
