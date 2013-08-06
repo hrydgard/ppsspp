@@ -92,6 +92,24 @@ static const GLushort stencilOps[] = {
 	GL_KEEP, // reserved
 };
 
+static const GLushort logicOps[] = {
+	GL_CLEAR,
+	GL_SET,
+	GL_COPY,
+	GL_COPY_INVERTED,
+	GL_NOOP,
+	GL_INVERT,
+	GL_AND,
+	GL_NAND,
+	GL_OR,
+	GL_NOR,
+	GL_XOR,
+	GL_EQUIV,
+	GL_AND_REVERSE,
+	GL_AND_INVERTED,
+	GL_OR_REVERSE,
+	GL_OR_INVERTED,
+};
 
 static GLenum blendColor2Func(u32 fix) {
 	if (fix == 0xFFFFFF)
@@ -203,44 +221,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 	bool wantLogicOps = !gstate.isModeClear() && gstate.isLogicOpEnabled();
 	glstate.colorLogicOp.set(wantLogicOps);
-	if(wantLogicOps) {
-		GLushort glLogicOp;
-		GELogicOp opcode = gstate.getLogicOp();
-		if (opcode == GE_LOGIC_CLEAR)
-			glLogicOp = GL_CLEAR;
-		else if (opcode == GE_LOGIC_AND)
-			glLogicOp = GL_AND;
-		else if (opcode == GE_LOGIC_AND_REVERSE)
-			glLogicOp = GL_AND_REVERSE;
-		else if (opcode == GE_LOGIC_COPY)
-			glLogicOp = GL_COPY;
-		else if (opcode == GE_LOGIC_AND_INVERTED)
-			glLogicOp = GL_AND_INVERTED;
-		else if (opcode == GE_LOGIC_NOOP)
-			glLogicOp = GL_NOOP;
-		else if (opcode == GE_LOGIC_XOR)
-			glLogicOp = GL_XOR;
-		else if (opcode == GE_LOGIC_OR)
-			glLogicOp = GL_OR;
-		else if (opcode == GE_LOGIC_NOR)
-			glLogicOp = GL_NOR;
-		else if (opcode == GE_LOGIC_EQUIV)
-			glLogicOp = GL_EQUIV;
-		else if (opcode == GE_LOGIC_INVERTED)
-			glLogicOp = GL_INVERT;
-		else if (opcode == GE_LOGIC_OR_REVERSE)
-			glLogicOp = GL_OR_REVERSE;
-		else if (opcode == GE_LOGIC_COPY_INVERTED)
-			glLogicOp = GL_COPY_INVERTED;
-		else if (opcode == GE_LOGIC_OR_INVERTED)
-			glLogicOp = GL_OR_INVERTED;
-		else if (opcode == GE_LOGIC_NAND)
-			glLogicOp = GL_NAND;
-		else if (opcode == GE_LOGIC_SET)
-			glLogicOp = GL_SET;
-		glstate.logicOp.set(glLogicOp);
-	}
-	
+	if(wantLogicOps) 
+		glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
+
 	// Set Dither
 	if (gstate.isDitherEnabled()) {
 		glstate.dither.enable();
