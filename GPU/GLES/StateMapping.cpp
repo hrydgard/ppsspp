@@ -94,21 +94,21 @@ static const GLushort stencilOps[] = {
 
 static const GLushort logicOps[] = {
 	GL_CLEAR,
-	GL_SET,
-	GL_COPY,
-	GL_COPY_INVERTED,
-	GL_NOOP,
-	GL_INVERT,
 	GL_AND,
-	GL_NAND,
+	GL_AND_REVERSE,
+	GL_COPY,
+	GL_AND_INVERTED,
+	GL_NOOP,
+	GL_XOR,
 	GL_OR,
 	GL_NOR,
-	GL_XOR,
 	GL_EQUIV,
-	GL_AND_REVERSE,
-	GL_AND_INVERTED,
+	GL_INVERT,
 	GL_OR_REVERSE,
+	GL_COPY_INVERTED,
 	GL_OR_INVERTED,
+	GL_NAND,
+	GL_SET,
 };
 
 static GLenum blendColor2Func(u32 fix) {
