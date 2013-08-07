@@ -172,16 +172,62 @@ void TextureCache::ClearNextFrame() {
 }
 
 
-TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
-	// If no CLUT, as in framebuffer textures, cache key is simply texaddr shifted up.
-	auto iter = cache.find((u64)texaddr << 32);
-	if (iter != cache.end() && iter->second.addr == texaddr)
-		return &iter->second;
-	else
-		return 0;
+template <typename T>
+inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
+	entry->framebuffer = framebuffer;
+	entry->invalidHint = 0;
 }
 
-void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer) {
+template <typename T>
+inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) {
+	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = -1;
+	}
+}
+
+inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
+	// If they match exactly, it's non-CLUT and from the top left.
+	if (exactMatch) {
+		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
+		if (!entry->framebuffer) {
+			if (entry->format != framebuffer->format) {
+				WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+				// If it already has one, let's hope that one is correct.
+				AttachFramebufferInvalid(entry, framebuffer);
+			} else {
+				AttachFramebufferValid(entry, framebuffer);
+			}
+			// TODO: Delete the original non-fbo texture too.
+		}
+	} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
+		// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
+		const bool compatFormat = framebuffer->format == entry->format
+			|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
+			|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
+
+		// Is it at least the right stride?
+		if (framebuffer->fb_stride == entry->bufw && compatFormat) {
+			if (framebuffer->format != entry->format) {
+				WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+				// TODO: Use an FBO to translate the palette?
+				AttachFramebufferInvalid(entry, framebuffer);
+			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
+				WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
+				// TODO: Keep track of the y offset.
+				AttachFramebufferInvalid(entry, framebuffer);
+			}
+		}
+	}
+}
+
+inline void TextureCache::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
+	if (entry->framebuffer == framebuffer) {
+		entry->framebuffer = 0;
+	}
+}
+
+void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
 	// This is a rough heuristic, because sometimes our framebuffers are too tall.
 	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
 
@@ -191,52 +237,19 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
 	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
 
-	for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-		auto entry = &it->second;
-
-		// If they match exactly, it's non-CLUT and from the top left.
-		if (it->first == cacheKey) {
-			DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
-			if (!entry->framebuffer) {
-				if (entry->format != framebuffer->format) {
-					WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
-				}
-				entry->framebuffer = framebuffer;
-				// TODO: Delete the original non-fbo texture too.
-			}
-		} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
-			// 3rd Birthday (and possibly other games) render to a 16 bit clut texture.
-			const bool compatFormat = framebuffer->format == entry->format
-				|| (framebuffer->format == GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT32)
-				|| (framebuffer->format != GE_FORMAT_8888 && entry->format == GE_TFMT_CLUT16);
-
-			// Is it at least the right stride?
-			if (framebuffer->fb_stride == entry->bufw && compatFormat) {
-				if (framebuffer->format != entry->format) {
-					WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
-					// TODO: Use an FBO to translate the palette?
-					entry->framebuffer = framebuffer;
-				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
-					WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
-					// TODO: Keep track of the y offset.
-					entry->framebuffer = framebuffer;
-				}
-			}
+	switch (msg) {
+	case NOTIFY_FB_CREATED:
+	case NOTIFY_FB_UPDATED:
+		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+			AttachFramebuffer(&it->second, address, framebuffer, it->first == cacheKey);
 		}
-	}
-}
+		break;
 
-void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *framebuffer) {
-	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
-	if (entry && entry->framebuffer == framebuffer) {
-		// There's at least one. We're going to have to loop through all textures unfortunately to be
-		// 100% safe.
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			if (iter->second.framebuffer == framebuffer) {
-				iter->second.framebuffer = 0;
-			}
+	case NOTIFY_FB_DESTROYED:
+		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+			DetachFramebuffer(&it->second, address, framebuffer);
 		}
-		// entry->framebuffer = 0;
+		break;
 	}
 }
 
@@ -1027,7 +1040,9 @@ void TextureCache::SetTexture() {
 		if (entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 			if (useBufferedRendering) {
-				if (entry->framebuffer->fbo) {
+				// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
+				// But let's still not use random memory.
+				if (entry->framebuffer->fbo && entry->invalidHint != -1) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
 				} else {
 					glBindTexture(GL_TEXTURE_2D, 0);

@@ -408,7 +408,7 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 }
 
 void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
-	textureCache_->NotifyFramebufferDestroyed(v->fb_address, v);
+	textureCache_->NotifyFramebuffer(v->fb_address, v, NOTIFY_FB_DESTROYED);
 	if (v->fbo) {
 		fbo_destroy(v->fbo);
 		v->fbo = 0;
@@ -534,7 +534,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			gstate_c.skipDrawReason |= SKIPDRAW_NON_DISPLAYED_FB;
 		}
 
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
 		vfb->last_frame_used = gpuStats.numFrames;
 		frameLastFramebufUsed = gpuStats.numFrames;
@@ -568,7 +568,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		} else {
 			if (vfb->fbo) {
 				// wtf? This should only happen very briefly when toggling bBufferedRendering
-				textureCache_->NotifyFramebufferDestroyed(vfb->fb_address, vfb);
+				textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_DESTROYED);
 				fbo_destroy(vfb->fbo);
 				vfb->fbo = 0;
 			}
@@ -588,7 +588,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 				gstate_c.skipDrawReason |= ~SKIPDRAW_SKIPNONFB;
 			}*/
 		}
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
 #ifdef USING_GLES2
 		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
