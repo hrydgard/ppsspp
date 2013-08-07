@@ -221,31 +221,26 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 	}
 
-#if !defined(USING_GLES2)
-	bool wantLogicOps = !gstate.isModeClear() && gstate.isLogicOpEnabled();
-	glstate.colorLogicOp.set(wantLogicOps);
-	if(wantLogicOps) 
-		glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
-#endif
-
-	// Set Dither
+	// Dither
 	if (gstate.isDitherEnabled()) {
 		glstate.dither.enable();
 		glstate.dither.set(GL_TRUE);
 	} else
 		glstate.dither.disable();
 
-	// Set ColorMask/Stencil/Depth
 	if (gstate.isModeClear()) {
 
-		// Set Cull 
-		glstate.cullFace.set(GL_FALSE);
+#if !defined(USING_GLES2)
+		// Logic Ops
+		glstate.colorLogicOp.disable();
+#endif
+		// Culling 
+		glstate.cullFace.disable();
 		
 		// Depth Test
-		bool depthMask = gstate.isClearModeDepthWriteEnabled();
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(depthMask ? GL_TRUE : GL_FALSE);
+		glstate.depthWrite.set(gstate.isClearModeDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
 
 		// Color Test
 		bool colorMask = gstate.isClearModeColorMask();
@@ -257,19 +252,27 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilTest.enable();
 			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
-		} else {
+		} else 
 			glstate.stencilTest.disable();
-		}
-
-	} else {
 		
-		// Set cull
-		bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-		glstate.cullFace.set(wantCull);
-		if (wantCull)
-			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
-	
+	} else {
 
+#if !defined(USING_GLES2)
+		// Logic Ops
+		if (gstate.isLogicOpEnabled()) {
+			glstate.colorLogicOp.enable();
+			glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
+		} else
+			glstate.colorLogicOp.disable();
+#endif		
+		// Set cull
+		bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+		if (cullEnabled) {
+			glstate.cullFace.enable();
+			glstate.cullFaceMode.set(cullingMode[gstate.getCullMode()]);
+		} else
+			glstate.cullFace.disable();
+	
 		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
@@ -323,10 +326,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// Scissor
-	int scissorX1 = (gstate.getScissorX1());
-	int scissorY1 = (gstate.getScissorY1());
-	int scissorX2 = (gstate.getScissorX2());
-	int scissorY2 = (gstate.getScissorY2());
+	int scissorX1 = gstate.getScissorX1();
+	int scissorY1 = gstate.getScissorY1();
+	int scissorX2 = gstate.getScissorX2();
+	int scissorY2 = gstate.getScissorY2();
 
 	// This is a bit of a hack as the render buffer isn't always that size
 	if (scissorX1 == 0 && scissorY1 == 0 
