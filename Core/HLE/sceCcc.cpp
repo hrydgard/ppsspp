@@ -115,7 +115,7 @@ int sceCccUTF8toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
 		ERROR_LOG(HLE, "sceCccUTF8toSJIS(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
 		return 0;
 	}
-	if (!jis2ucsTable.IsValid())
+	if (!ucs2jisTable.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccUTF8toSJIS(%08x, %d, %08x): table not loaded", dstAddr, dstSize, srcAddr);
 		return 0;
@@ -144,11 +144,6 @@ int sceCccUTF16toUTF8(u32 dstAddr, int dstSize, u32 srcAddr)
 		ERROR_LOG(HLE, "sceCccUTF16toUTF8(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
 		return 0;
 	}
-	if (!jis2ucsTable.IsValid())
-	{
-		ERROR_LOG(HLE, "sceCccUTF16toUTF8(%08x, %d, %08x): table not loaded", dstAddr, dstSize, srcAddr);
-		return 0;
-	}
 
 	DEBUG_LOG(HLE, "sceCccUTF16toUTF8(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	UTF16LE utf(src);
@@ -173,7 +168,7 @@ int sceCccUTF16toSJIS(u32 dstAddr, int dstSize, u32 srcAddr)
 		ERROR_LOG(HLE, "sceCccUTF16toSJIS(%08x, %d, %08x): invalid pointers", dstAddr, dstSize, srcAddr);
 		return 0;
 	}
-	if (!jis2ucsTable.IsValid())
+	if (!ucs2jisTable.IsValid())
 	{
 		ERROR_LOG(HLE, "sceCccUTF16toSJIS(%08x, %d, %08x): table not loaded", dstAddr, dstSize, srcAddr);
 		return 0;

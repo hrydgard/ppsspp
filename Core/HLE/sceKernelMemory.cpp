@@ -617,7 +617,7 @@ int sceKernelPrintf(const char *formatString)
 			break;
 
 		case '0':
-			if (i + 3 >= n || format[i + 1] != '8' || format[i + 2] != 'x')
+			if (i + 3 > n || format[i + 1] != '8' || format[i + 2] != 'x')
 				supported = false;
 			else
 			{
