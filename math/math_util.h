@@ -102,14 +102,14 @@ inline int is_even(float d) {
 }
 
 // Rounds *.5 to closest even number
-inline float round_ieee_754(float d) {
-	float i = floorf(d);
+inline double round_ieee_754(double d) {
+	float i = floor(d);
 	d -= i;
-	if(d < 0.5f)
+	if (d < 0.5f)
 		return i;
-	if(d > 0.5f)
+	if (d > 0.5f)
 		return i + 1.0f;
-	if(is_even(i))
+	if (is_even(i))
 		return i;
 	return i + 1.0f;
 }
