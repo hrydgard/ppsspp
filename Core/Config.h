@@ -56,6 +56,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	bool bUseCPUThread;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
