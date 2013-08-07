@@ -199,11 +199,11 @@ bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 	s64 future = atTicks - CoreTiming::GetTicks();
 	if (waitType == WAITTYPE_GEDRAWSYNC)
 	{
-		s64 left = CoreTiming::UnscheduleEvent(geSyncEvent, userdata);
+		s64 left = CoreTiming::UnscheduleThreadsafeEvent(geSyncEvent, userdata);
 		if (left > future)
 			future = left;
 	}
-	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
+	CoreTiming::ScheduleEvent_Threadsafe(future, geSyncEvent, userdata);
 	return true;
 }
 
@@ -211,7 +211,7 @@ bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
 {
 	u64 userdata = (u64)listid << 32 | (u64) pc;
-	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
+	CoreTiming::ScheduleEvent_Threadsafe(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
 	return true;
 }
 
@@ -279,7 +279,7 @@ int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
 	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
 	hleEatCycles(190);
-	CoreTiming::AdvanceQuick();
+	CoreTiming::Advance();
 	return gpu->UpdateStall(displayListID, stallAddress);
 }
 

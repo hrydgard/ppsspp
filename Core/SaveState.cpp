@@ -60,22 +60,14 @@ namespace SaveState
 		void *cbUserData;
 	};
 
-	static int timer;
 	static bool needsProcess = false;
 	static std::vector<Operation> pending;
 	static std::recursive_mutex mutex;
-
-	void Process(u64 userdata, int cyclesLate);
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
 		// Gotta do CoreTiming first since we'll restore into it.
 		CoreTiming::DoState(p);
-
-		// This save state even saves its own state.
-		p.Do(timer);
-		CoreTiming::RestoreRegisterEvent(timer, "SaveState", Process);
-		p.DoMarker("SaveState");
 
 		Memory::DoState(p);
 		MemoryStick_DoState(p);
@@ -96,10 +88,8 @@ namespace SaveState
 		if (Core_IsInactive() && __KernelIsRunning())
 		{
 			// Warning: this may run on a different thread.
-			Process(0, 0);
+			Process();
 		}
-		else if (__KernelIsRunning())
-			CoreTiming::ScheduleEvent_Threadsafe(0, timer);
 		else
 			needsProcess = true;
 	}
@@ -210,8 +200,12 @@ namespace SaveState
 		return copy;
 	}
 
-	void Process(u64 userdata, int cyclesLate)
+	void Process()
 	{
+		if (!needsProcess)
+			return;
+		needsProcess = false;
+
 		if (!__KernelIsRunning())
 		{
 			ERROR_LOG(COMMON, "Savestate failure: Unable to load without kernel, this should never happen.");
@@ -272,15 +266,9 @@ namespace SaveState
 
 	void Init()
 	{
-		timer = CoreTiming::RegisterEvent("SaveState", Process);
 		// Make sure there's a directory for save slots
 		pspFileSystem.MkDir("ms0:/PSP/PPSSPP_STATE");
 
 		std::lock_guard<std::recursive_mutex> guard(mutex);
-		if (needsProcess)
-		{
-			CoreTiming::ScheduleEvent(0, timer);
-			needsProcess = false;
-		}
 	}
 }

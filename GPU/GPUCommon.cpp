@@ -186,6 +186,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 	dl.signal = PSP_GE_SIGNAL_NONE;
 	dl.interrupted = false;
 	dl.waitTicks = (u64)-1;
+	dl.interruptsEnabled = interruptsEnabled_;
 
 	if (head) {
 		if (currentList) {
@@ -720,7 +721,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 					break;
 				}
 				// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
-				if (interruptsEnabled_ && trigger) {
+				if (currentList->interruptsEnabled && trigger) {
 					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted))
 						UpdateState(GPUSTATE_INTERRUPT);
 				}
@@ -729,7 +730,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		case GE_CMD_FINISH:
 			switch (currentList->signal) {
 			case PSP_GE_SIGNAL_HANDLER_PAUSE:
-				if (interruptsEnabled_) {
+				if (currentList->interruptsEnabled) {
 					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted))
 						UpdateState(GPUSTATE_INTERRUPT);
 				}
@@ -744,7 +745,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				currentList->subIntrToken = prev & 0xFFFF;
 				currentList->state = PSP_GE_DL_STATE_COMPLETED;
 				UpdateState(GPUSTATE_DONE);
-				if (!interruptsEnabled_ || !__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
+				if (!currentList->interruptsEnabled || !__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
 					currentList->waitTicks = startingTicks + cyclesExecuted;
 					busyTicks = std::max(busyTicks, currentList->waitTicks);
 					__GeTriggerSync(WAITTYPE_GELISTSYNC, currentList->id, currentList->waitTicks);

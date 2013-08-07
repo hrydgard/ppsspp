@@ -130,6 +130,7 @@ struct DisplayList
 	int stackptr;
 	bool interrupted;
 	u64 waitTicks;
+	bool interruptsEnabled;
 };
 
 enum GPUInvalidationType {
