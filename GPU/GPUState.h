@@ -379,8 +379,7 @@ struct GPUStateCache
 };
 
 // TODO: Implement support for these.
-struct GPUStatistics
-{
+struct GPUStatistics {
 	void Reset() {
 		// Never add a vtable :)
 		memset(this, 0, sizeof(*this));
