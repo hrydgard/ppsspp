@@ -52,6 +52,8 @@ public:
 	void SaveSymbolMap();
 	void SetWindowTitle(const char *message);
 
+	bool InputBoxGetString(char *title, char *defaultValue, char *outValue, size_t outlength);
+
 	std::shared_ptr<KeyboardDevice> keyboard;
 
 private:
