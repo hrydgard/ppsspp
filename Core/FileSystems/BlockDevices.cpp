@@ -135,10 +135,18 @@ CISOFileBlockDevice::CISOFileBlockDevice(FILE *file)
 #else
 	index = new u32[indexSize];
 	u32_le *indexTemp = new u32_le[indexSize];
+
 	if (fread(indexTemp, sizeof(u32), indexSize, f) != indexSize)
+	{
 		memset(indexTemp, 0, indexSize * sizeof(u32_le));
+	}
+
 	for (u32 i = 0; i < indexSize; i++)
+	{
 		index[i] = indexTemp[i];
+	}
+
+	delete[] indexTemp;
 #endif
 }
 
