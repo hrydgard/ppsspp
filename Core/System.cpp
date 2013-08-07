@@ -38,6 +38,7 @@
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/SaveState.h"
 #include "Common/LogManager.h"
 
 MetaFileSystem pspFileSystem;
@@ -151,6 +152,7 @@ void PSP_Shutdown()
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {
+	SaveState::Process();
 	mipsr4k.RunLoopUntil(globalticks);
 }
 

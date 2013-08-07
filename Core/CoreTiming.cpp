@@ -204,7 +204,7 @@ void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata
 {
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
 	Event *ne = GetNewTsEvent();
-	ne->time = globalTimer + cyclesIntoFuture;
+	ne->time = GetTicks() + cyclesIntoFuture;
 	ne->type = event_type;
 	ne->next = 0;
 	ne->userdata = userdata;
@@ -337,7 +337,10 @@ s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 		}
 	}
 	if (!tsFirst)
+	{
+		tsLast = NULL;
 		return result;
+	}
 
 	Event *prev = tsFirst;
 	Event *ptr = prev->next;
@@ -348,6 +351,8 @@ s64 UnscheduleThreadsafeEvent(int event_type, u64 userdata)
 			result = ptr->time - globalTimer;
 
 			prev->next = ptr->next;
+			if (ptr == tsLast)
+				tsLast = prev;
 			FreeTsEvent(ptr);
 			ptr = prev->next;
 		}
@@ -439,6 +444,7 @@ void RemoveThreadsafeEvent(int event_type)
 	}
 	if (!tsFirst)
 	{
+		tsLast = NULL;
 		return;
 	}
 	Event *prev = tsFirst;
@@ -448,6 +454,8 @@ void RemoveThreadsafeEvent(int event_type)
 		if (ptr->type == event_type)
 		{	
 			prev->next = ptr->next;
+			if (ptr == tsLast)
+				tsLast = prev;
 			FreeTsEvent(ptr);
 			ptr = prev->next;
 		}
@@ -460,7 +468,7 @@ void RemoveThreadsafeEvent(int event_type)
 }
 
 void RemoveAllEvents(int event_type)
-{	
+{
 	RemoveThreadsafeEvent(event_type);
 	RemoveEvent(event_type);
 }
@@ -491,7 +499,7 @@ void MoveEvents()
 	Common::AtomicStoreRelease(hasTsEvents, 0);
 
 	std::lock_guard<std::recursive_mutex> lk(externalEventSection);
-		// Move events from async queue into main queue
+	// Move events from async queue into main queue
 	while (tsFirst)
 	{
 		Event *next = tsFirst->next;
@@ -511,12 +519,14 @@ void MoveEvents()
 	}
 }
 
-void AdvanceQuick()
+void Advance()
 {
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
 	currentMIPS->downcount = slicelength;
 
+	if (Common::AtomicLoadAcquire(hasTsEvents))
+		MoveEvents();
 	ProcessFifoWaitEvents();
 
 	if (!first)
@@ -533,14 +543,6 @@ void AdvanceQuick()
 	}
 	if (advanceCallback)
 		advanceCallback(cyclesExecuted);
-}
-
-void Advance()
-{
-	if (Common::AtomicLoadAcquire(hasTsEvents))
-		MoveEvents();
-
-	AdvanceQuick();
 }
 
 void LogPendingEvents()
