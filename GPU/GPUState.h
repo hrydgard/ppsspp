@@ -381,10 +381,11 @@ struct GPUStateCache
 // TODO: Implement support for these.
 struct GPUStatistics
 {
-	void reset() {
+	void Reset() {
+		// Never add a vtable :)
 		memset(this, 0, sizeof(*this));
 	}
-	void resetFrame() {
+	void ResetFrame() {
 		numDrawCalls = 0;
 		numCachedDrawCalls = 0;
 		numVertsSubmitted = 0;
@@ -418,7 +419,8 @@ struct GPUStatistics
 	int otherGPUCycles;
 
 	// Total statistics, updated by the GPU core in UpdateStats
-	int numFrames;
+	int numVBlanks;
+	int numFlips;
 	int numTextures;
 	int numVertexShaders;
 	int numFragmentShaders;

@@ -429,7 +429,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
-		currentRenderVfb_->last_frame_used = gpuStats.numFrames;
+		currentRenderVfb_->last_frame_used = gpuStats.numVBlanks;
 		return;
 	}
 	gstate_c.framebufChanged = false;
@@ -536,8 +536,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
-		vfb->last_frame_used = gpuStats.numFrames;
-		frameLastFramebufUsed = gpuStats.numFrames;
+		vfb->last_frame_used = gpuStats.numFlips;
+		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -554,8 +554,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
-		vfb->last_frame_used = gpuStats.numFrames;
-		frameLastFramebufUsed = gpuStats.numFrames;
+		vfb->last_frame_used = gpuStats.numFlips;
+		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 
 		if (useBufferedRendering_) {
@@ -595,7 +595,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_used != gpuStats.numFrames)	{
+		if (vfb->last_frame_used != gpuStats.numFlips)	{
 			glstate.depthWrite.set(GL_TRUE);
 			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 			glClearColor(0,0,0,1);
@@ -604,8 +604,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 #endif
 		currentRenderVfb_ = vfb;
 	} else {
-		vfb->last_frame_used = gpuStats.numFrames;
-		frameLastFramebufUsed = gpuStats.numFrames;
+		vfb->last_frame_used = gpuStats.numFlips;
+		frameLastFramebufUsed = gpuStats.numFlips;
 	}
 
 	// ugly...
@@ -754,7 +754,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 				}
 			}
 
-			nvfb->last_frame_used = gpuStats.numFrames;
+			nvfb->last_frame_used = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 
 			glstate.depthWrite.set(GL_TRUE);
@@ -764,7 +764,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-			nvfb->last_frame_used = gpuStats.numFrames;
+			nvfb->last_frame_used = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
 			if (useBufferedRendering_) {
@@ -775,7 +775,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 					// to it. This broke stuff before, so now it only clears on the first use of an
 					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-					if (nvfb->last_frame_used != gpuStats.numFrames)	{
+					if (nvfb->last_frame_used != gpuStats.numFlips)	{
 						glstate.depthWrite.set(GL_TRUE);
 						glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 						glClearColor(0,0,0,1);
@@ -1137,7 +1137,7 @@ void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
 	int num = g_Config.iFrameSkip > 0 && g_Config.iFrameSkip != 9 ? g_Config.iFrameSkip : 3;
-	bool skipFrame = (gpuStats.numFrames % num == 0);
+	bool skipFrame = (gpuStats.numFlips % num == 0);
 	bool useFramebufferToMem = g_Config.iRenderingMode != FB_BUFFERED_MODE ? 1 : 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {

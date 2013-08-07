@@ -866,6 +866,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		drawBuffer = 0;  // so that the calls use offsets instead.
 	}		
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
@@ -1106,7 +1107,7 @@ void TransformDrawEngine::DecimateTrackedVertexArrays() {
 		return;
 	}
 
-	int threshold = gpuStats.numFrames - VAI_KILL_AGE;
+	int threshold = gpuStats.numFlips - VAI_KILL_AGE;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
 		if (iter->second->lastFrame < threshold) {
 			delete iter->second;
@@ -1143,7 +1144,7 @@ void TransformDrawEngine::Flush() {
 	
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
-	// TODO: This should not be done on every drawcall, we should collect vertex data
+	// This is not done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
 	int prim = prevPrim_;
@@ -1187,7 +1188,7 @@ void TransformDrawEngine::Flush() {
 			case VertexArrayInfo::VAI_HASHING:
 				{
 					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFrames) {
+					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
 					if (vai->drawsUntilNextFullHash == 0) {
@@ -1262,7 +1263,7 @@ void TransformDrawEngine::Flush() {
 			case VertexArrayInfo::VAI_RELIABLE:
 				{
 					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFrames) {
+					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
 					gpuStats.numCachedDrawCalls++;
@@ -1280,7 +1281,7 @@ void TransformDrawEngine::Flush() {
 			case VertexArrayInfo::VAI_UNRELIABLE:
 				{
 					vai->numDraws++;
-					if (vai->lastFrame != gpuStats.numFrames) {
+					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
 					DecodeVerts();
@@ -1288,7 +1289,7 @@ void TransformDrawEngine::Flush() {
 				}
 			}
 
-			vai->lastFrame = gpuStats.numFrames;
+			vai->lastFrame = gpuStats.numFlips;
 		} else {
 			DecodeVerts();
 rotateVBO:

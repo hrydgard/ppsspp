@@ -108,7 +108,6 @@ static double fpsHistory[120];
 static size_t fpsHistoryPos = 0;
 static size_t fpsHistoryValid = 0;
 static int lastNumFlips = 0;
-static int numFlips = 0;
 static float flips = 0.0f;
 static u64 lastFlipCycles = 0;
 
@@ -117,7 +116,7 @@ void hleLeaveVblank(u64 userdata, int cyclesLate);
 void hleAfterFlip(u64 userdata, int cyclesLate);
 
 void __DisplayInit() {
-	gpuStats.reset();
+	gpuStats.Reset();
 	hasSetMode = false;
 	mode = 0;
 	resumeMode = 0;
@@ -231,12 +230,12 @@ void CalculateFPS()
 
 	if (now >= lastFpsTime + 1.0)
 	{
-		double frames = (gpuStats.numFrames - lastFpsFrame);
+		double frames = (gpuStats.numVBlanks - lastFpsFrame);
 		fps = frames / (now - lastFpsTime);
-		flips = 60.0 * (double) (numFlips - lastNumFlips) / frames;
+		flips = 60.0 * (double) (gpuStats.numFlips - lastNumFlips) / frames;
 
-		lastFpsFrame = gpuStats.numFrames;
-		lastNumFlips = numFlips;
+		lastFpsFrame = gpuStats.numVBlanks;
+		lastNumFlips = gpuStats.numFlips;
 		lastFpsTime = now;
 
 		fpsHistory[fpsHistoryPos++] = fps;
@@ -245,8 +244,7 @@ void CalculateFPS()
 	}
 }
 
-void __DisplayGetDebugStats(char stats[2048])
-{
+void __DisplayGetDebugStats(char stats[2048]) {
 	gpu->UpdateStats();
 
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
@@ -270,7 +268,7 @@ void __DisplayGetDebugStats(char stats[2048])
 		"Vertex shaders loaded: %i\n"
 		"Fragment shaders loaded: %i\n"
 		"Combined shaders loaded: %i\n",
-		gpuStats.numFrames,
+		gpuStats.numVBlanks,
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		kernelStats.msInSyscalls * 1000.0f,
 		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
@@ -295,7 +293,7 @@ void __DisplayGetDebugStats(char stats[2048])
 		gpuStats.numShaders
 		);
 
-	gpuStats.resetFrame();
+	gpuStats.ResetFrame();
 	kernelStats.ResetFrame();
 }
 
@@ -407,12 +405,15 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
-		framebuf = latchedFramebuf;
-		framebufIsLatched = false;
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		if (latchedFramebuf.topaddr != framebuf.topaddr) {
+			framebuf = latchedFramebuf;
+			framebufIsLatched = false;
+			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+			gpuStats.numFlips++;
+		}
 	}
 
-	gpuStats.numFrames++;
+	gpuStats.numVBlanks++;
 
 	if (g_Config.iShowFPSCounter) {
 		CalculateFPS();
@@ -498,7 +499,6 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	}
 
 	if (topaddr != framebuf.topaddr) {
-		++numFlips;
 		if (g_Config.iForceMaxEmulatedFPS) {
 			u64 now = CoreTiming::GetTicks();
 			u64 expected = msToCycles(1000) / g_Config.iForceMaxEmulatedFPS;
@@ -512,8 +512,11 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
 		if (topaddr != 0) {
-			framebuf = fbstate;
-			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+			if (topaddr != framebuf.topaddr) {
+				framebuf = fbstate;
+				gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+				gpuStats.numFlips++;
+			}
 		} else {
 			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
 		}

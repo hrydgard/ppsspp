@@ -111,7 +111,7 @@ void TextureCache::Decimate() {
 	lastBoundTexture = -1;
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
 			glDeleteTextures(1, &iter->second.texture);
 			cache.erase(iter++);
 		}
@@ -119,7 +119,7 @@ void TextureCache::Decimate() {
 			++iter;
 	}
 	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
 			glDeleteTextures(1, &iter->second.texture);
 			secondCache.erase(iter++);
 		}
@@ -949,17 +949,17 @@ bool SetDebugTexture() {
 	static int lastFrames = 0;
 	static int mostTextures = 1;
 
-	if (lastFrames != gpuStats.numFrames) {
+	if (lastFrames != gpuStats.numFlips) {
 		mostTextures = std::max(mostTextures, numTextures);
 		numTextures = 0;
-		lastFrames = gpuStats.numFrames;
+		lastFrames = gpuStats.numFlips;
 	}
 
 	static GLuint solidTexture = 0;
 
 	bool changed = false;
-	if (((gpuStats.numFrames / highlightFrames) % mostTextures) == numTextures) {
-		if (gpuStats.numFrames % highlightFrames == 0) {
+	if (((gpuStats.numFlips / highlightFrames) % mostTextures) == numTextures) {
+		if (gpuStats.numFlips % highlightFrames == 0) {
 			NOTICE_LOG(HLE, "Highlighting texture # %d / %d", numTextures, mostTextures);
 		}
 		static const u32 solidTextureData[] = {0x99AA99FF};
@@ -1059,7 +1059,7 @@ void TextureCache::SetTexture() {
 				glBindTexture(GL_TEXTURE_2D, 0);
 			}
 			lastBoundTexture = -1;
-			entry->lastFrame = gpuStats.numFrames;
+			entry->lastFrame = gpuStats.numFlips;
 			return;
 		}
 
@@ -1071,7 +1071,7 @@ void TextureCache::SetTexture() {
 		bool doDelete = true;
 
 		if (match) {
-			if (entry->lastFrame != gpuStats.numFrames) {
+			if (entry->lastFrame != gpuStats.numFlips) {
 				entry->numFrames++;
 			}
 			if (entry->framesUntilNextFullHash == 0) {
@@ -1137,7 +1137,7 @@ void TextureCache::SetTexture() {
 		if (match) {
 			// TODO: Mark the entry reliable if it's been safe for long enough?
 			//got one!
-			entry->lastFrame = gpuStats.numFrames;
+			entry->lastFrame = gpuStats.numFlips;
 			if (entry->texture != lastBoundTexture) {
 				glBindTexture(GL_TEXTURE_2D, entry->texture);
 				lastBoundTexture = entry->texture;
@@ -1183,7 +1183,7 @@ void TextureCache::SetTexture() {
 	entry->addr = texaddr;
 	entry->hash = texhash;
 	entry->format = format;
-	entry->lastFrame = gpuStats.numFrames;
+	entry->lastFrame = gpuStats.numFlips;
 	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;

@@ -691,7 +691,7 @@ void PSPOskDialog::RenderKeyboard()
 
 				if(isCombinated == true)
 				{
-					float animStep = (float)(gpuStats.numFrames % 40) / 20.0f;
+					float animStep = (float)(gpuStats.numVBlanks % 40) / 20.0f;
 					// Fade in and out the next character so they know it's not part of the string yet.
 					u32 alpha = (0.5f - (cosf(animStep * M_PI) / 2.0f)) * 128 + 127;
 					color = CalcFadedColor((alpha << 24) | 0xFFFFFF);
