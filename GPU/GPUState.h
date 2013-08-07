@@ -20,6 +20,23 @@
 #include "../Globals.h"
 #include "ge_constants.h"
 
+// PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
+// This is used for light positions, transform matrices, you name it.
+inline float getFloat24(unsigned int data)
+{
+	data <<= 8;
+	float f;
+	memcpy(&f, &data, 4);
+	return f;
+}
+
+// in case we ever want to generate PSP display lists...
+inline unsigned int toFloat24(float f) {
+	unsigned int i;
+	memcpy(&i, &f, 4);
+	return i >> 8;
+}
+
 struct GPUgstate
 {
 	// Getting rid of this ugly union in favor of the accessor functions
@@ -316,6 +333,8 @@ struct GPUgstate
 	int getRegionY1() const { return (region1 >> 10) & 0x3FF; }
 	int getRegionX2() const { return (region2 & 0x3FF); }
 	int getRegionY2() const { return ((region2 >> 10) & 0x3FF); }
+	float getViewportX1() const { return fabsf(getFloat24(viewportx1) * 2.0f); }
+	float getViewportY1() const { return fabsf(getFloat24(viewporty1) * 2.0f); }
 
 	// Vertex type
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
@@ -429,23 +448,6 @@ struct GPUStatistics
 void InitGfxState();
 void ShutdownGfxState();
 void ReapplyGfxState();
-
-// PSP uses a curious 24-bit float - it's basically the top 24 bits of a regular IEEE754 32-bit float.
-// This is used for light positions, transform matrices, you name it.
-inline float getFloat24(unsigned int data)
-{
-	data <<= 8;
-	float f;
-	memcpy(&f, &data, 4);
-	return f;
-}
-
-// in case we ever want to generate PSP display lists...
-inline unsigned int toFloat24(float f) {
-	unsigned int i;
-	memcpy(&i, &f, 4);
-	return i >> 8;
-}
 
 class GPUInterface;
 

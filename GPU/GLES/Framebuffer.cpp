@@ -143,6 +143,21 @@ void FramebufferManager::CompileDraw2DProgram() {
 	}
 }
 
+void frame_clearing() {
+	glstate.depthWrite.set(GL_TRUE);
+	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glClearColor(0,0,0,1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+}
+
+void glstate_disable() {
+	glstate.blend.disable();
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.scissorTest.disable();
+	glstate.stencilTest.disable();
+}
+
 FramebufferManager::FramebufferManager() :
 	ramDisplayFramebufPtr_(0),
 	displayFramebufPtr_(0),
@@ -167,10 +182,7 @@ FramebufferManager::FramebufferManager() :
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glClearColor(0,0,0,1);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	frame_clearing();
 
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE ? 1 : 0;
 
@@ -375,22 +387,15 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	return 0;
 }
 
-void GetViewportDimensions(int &w, int &h) {
-	float vpXa = getFloat24(gstate.viewportx1);
-	float vpYa = getFloat24(gstate.viewporty1);
-	w = (int)fabsf(vpXa * 2);
-	h = (int)fabsf(vpYa * 2);
-}
-
 // Heuristics to figure out the size of FBO to create.
-void GuessDrawingSize(int &drawing_width, int &drawing_height) {
-	int viewport_width, viewport_height;
+void CalcDrawingSize(int &drawing_width, int &drawing_height) {
 	int default_width = 480; 
 	int default_height = 272;
-	int regionX2 = (gstate.getRegionX2() + 1) ;
-	int regionY2 = (gstate.getRegionY2() + 1) ;
+	int region_width = gstate.getRegionX2() + 1 ;
+	int region_height = gstate.getRegionY2() + 1 ;
+	int viewport_width = (int) gstate.getViewportX1();
+	int viewport_height = (int) gstate.getViewportY1();
 	int fb_stride = gstate.fbwidth & 0x3C0;
-	GetViewportDimensions(viewport_width, viewport_height);
 
 	// Generated FBO shouldn't greate than 512x512
 	if ( viewport_width > 512 && viewport_height > 512 ) {
@@ -399,8 +404,8 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	}
 
 	if (fb_stride < 512) {
-		drawing_width = std::min(viewport_width, regionX2);
-		drawing_height = std::min(viewport_height, regionY2);
+		drawing_width = std::min(viewport_width, region_width);
+		drawing_height = std::min(viewport_height, region_height);
 	} else {
 		drawing_width = std::max(viewport_width, default_width);
 		drawing_height = std::max(viewport_height, default_height);
@@ -451,7 +456,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	GEBufferFormat fmt = static_cast<GEBufferFormat>(gstate.framebufpixformat & 3);
 
 	int drawing_width, drawing_height;
-	GuessDrawingSize(drawing_width, drawing_height);
+	CalcDrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
@@ -539,10 +544,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->last_frame_used = gpuStats.numFrames;
 		frameLastFramebufUsed = gpuStats.numFrames;
 		vfbs_.push_back(vfb);
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(0,0,0,1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+		frame_clearing();
 		glEnable(GL_DITHER);
 		currentRenderVfb_ = vfb;
 
@@ -595,12 +598,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_used != gpuStats.numFrames)	{
-			glstate.depthWrite.set(GL_TRUE);
-			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			glClearColor(0,0,0,1);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		}
+		if (vfb->last_frame_used != gpuStats.numFrames)	
+			frame_clearing();
 #endif
 		currentRenderVfb_ = vfb;
 	} else {
@@ -631,10 +630,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		} else {
 			DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
-			glstate.depthWrite.set(GL_TRUE);
-			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			glClearColor(0,0,0,1);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+			frame_clearing();
 		}
 		return;
 	}
@@ -653,12 +649,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	if (vfb->fbo) {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
-		glstate.blend.disable();
-		glstate.cullFace.disable();
-		glstate.depthTest.disable();
-		glstate.scissorTest.disable();
-		glstate.stencilTest.disable();
-
+		glstate_disable();
 		fbo_bind_color_as_texture(vfb->fbo, 0);
 	
 	// These are in the output display coordinates
@@ -668,12 +659,8 @@ void FramebufferManager::CopyDisplayToOutput() {
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	if (resized_) {
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(0,0,0,1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	}
+	if (resized_) 
+		frame_clearing();
 }
 
 void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
@@ -757,10 +744,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			nvfb->last_frame_used = gpuStats.numFrames;
 			bvfbs_.push_back(nvfb);
 
-			glstate.depthWrite.set(GL_TRUE);
-			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			glClearColor(0.0f,0.0f,0.0f,1.0f);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+			frame_clearing();
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -776,10 +760,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 					if (nvfb->last_frame_used != gpuStats.numFrames)	{
-						glstate.depthWrite.set(GL_TRUE);
-						glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-						glClearColor(0,0,0,1);
-						glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+						frame_clearing();
 					}
 #endif
 				} else {
@@ -814,12 +795,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	}
 	
 	glstate.viewport.set(0, 0, dst->width, dst->height);
-	glstate.depthTest.disable();
-	glstate.blend.disable();
-	glstate.cullFace.disable();
-	glstate.depthTest.disable();
-	glstate.scissorTest.disable();
-	glstate.stencilTest.disable();
+	glstate_disable();
 
 	fbo_bind_color_as_texture(src->fbo, 0);
 
