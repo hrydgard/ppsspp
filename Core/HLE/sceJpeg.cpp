@@ -108,7 +108,7 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 	if (!Memory::IsValidAddress(jpegAddr))
 	{
 		ERROR_LOG(HLE, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
-		return 0xC000;
+		return getYCbCrBufferSize(0, 0);
 	}
 	else // Memory address is good
 	{
@@ -125,7 +125,7 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 		if (jpegBuf == NULL)
 		{
 			ERROR_LOG(HLE, "sceJpegGetOutputInfo: Bad JPEG data");
-			return 0xC000;
+			return getYCbCrBufferSize(0, 0);
 		}
 	}
 
