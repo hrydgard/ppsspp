@@ -975,26 +975,24 @@ void Jit::Comp_Vi2f(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-extern const float mulTableVf2i[32] = {
-	(float)(1ULL<<0),(float)(1ULL<<1),(float)(1ULL<<2),(float)(1ULL<<3),
-	(float)(1ULL<<4),(float)(1ULL<<5),(float)(1ULL<<6),(float)(1ULL<<7),
-	(float)(1ULL<<8),(float)(1ULL<<9),(float)(1ULL<<10),(float)(1ULL<<11),
-	(float)(1ULL<<12),(float)(1ULL<<13),(float)(1ULL<<14),(float)(1ULL<<15),
-	(float)(1ULL<<16),(float)(1ULL<<17),(float)(1ULL<<18),(float)(1ULL<<19),
-	(float)(1ULL<<20),(float)(1ULL<<21),(float)(1ULL<<22),(float)(1ULL<<23),
-	(float)(1ULL<<24),(float)(1ULL<<25),(float)(1ULL<<26),(float)(1ULL<<27),
-	(float)(1ULL<<28),(float)(1ULL<<29),(float)(1ULL<<30),(float)(1ULL<<31),
+extern const double mulTableVf2i[32] = {
+	(1ULL<<0),(1ULL<<1),(1ULL<<2),(1ULL<<3),
+	(1ULL<<4),(1ULL<<5),(1ULL<<6),(1ULL<<7),
+	(1ULL<<8),(1ULL<<9),(1ULL<<10),(1ULL<<11),
+	(1ULL<<12),(1ULL<<13),(1ULL<<14),(1ULL<<15),
+	(1ULL<<16),(1ULL<<17),(1ULL<<18),(1ULL<<19),
+	(1ULL<<20),(1ULL<<21),(1ULL<<22),(1ULL<<23),
+	(1ULL<<24),(1ULL<<25),(1ULL<<26),(1ULL<<27),
+	(1ULL<<28),(1ULL<<29),(1ULL<<30),(1ULL<<31),
 };
 
 static const float half = 0.5f;
 
-static const float maxIntAsFloat = (float)(int)0x7FFFFFFF;
-static const float minIntAsFloat = (float)(int)0x80000000;
+static double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
+static double minIntAsDouble = (double)(int)0x80000000;
 
 void Jit::Comp_Vf2i(u32 op) {
 	CONDITIONAL_DISABLE;
-	DISABLE;  // Broken :(   (KH)
-
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
@@ -1002,7 +1000,7 @@ void Jit::Comp_Vf2i(u32 op) {
 	int n = GetNumVectorElements(sz);
 
 	int imm = (op >> 16) & 0x1f;
-	const float *mult = &mulTableVf2i[imm];
+	const double *mult = &mulTableVf2i[imm];
 
 	switch ((op >> 21) & 0x1f)
 	{
@@ -1029,21 +1027,22 @@ void Jit::Comp_Vf2i(u32 op) {
 	}
 
 	if (*mult != 1.0f)
-		MOVSS(XMM1, M((void *)mult));
+		MOVSD(XMM1, M((void *)mult));
 
 	fpr.MapRegsV(tempregs, sz, MAP_DIRTY | MAP_NOINIT);
 	for (int i = 0; i < n; i++) {
+		// Need to do this in double precision to clamp correctly as float
+		// doesn't have enough precision to represent 0x7fffffff for example exactly.
 		MOVSS(XMM0, fpr.V(sregs[i]));
+		CVTSS2SD(XMM0, R(XMM0)); // convert to double precision
 		if (*mult != 1.0f) {
-			if (*mult != 1.0f)
-				MULSS(XMM0, R(XMM1));
+			MULSD(XMM0, R(XMM1));
 		}
-		// Clamp to max and min
-		MINSS(XMM0, M((void *)&maxIntAsFloat));
-		MAXSS(XMM0, M((void *)&minIntAsFloat));
+		MINSD(XMM0, M((void *)&maxIntAsDouble));
+		MAXSD(XMM0, M((void *)&minIntAsDouble));
 		switch ((op >> 21) & 0x1f) {
 		case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
-		case 17: CVTTSS2SI(EAX, R(XMM0)); break; //z - truncate
+		case 17: CVTTSD2SI(EAX, R(XMM0)); break; //z - truncate
 		case 18: /* TODO */ break; //u
 		case 19: /* TODO */ break; //d
 		}

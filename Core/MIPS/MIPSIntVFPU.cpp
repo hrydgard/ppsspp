@@ -600,13 +600,12 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	inline int round_vfpu_n(float param) {
+	inline int round_vfpu_n(double param) {
 		// return floorf(param);
 		return (int)round_ieee_754(param);
 	}
 
-	void Int_Vf2i(u32 op)
-	{
+	void Int_Vf2i(u32 op) {
 		float s[4];
 		int d[4];
 		int vd = _VD;
@@ -616,23 +615,26 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz); //TODO: and the mask to kill everything but swizzle
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
 			if (my_isnan(s[i])) {
 				d[i] = 0x7FFFFFFF;
 				continue;
 			}
 			double sv = s[i] * mult; // (float)0x7fffffff == (float)0x80000000
 			// Cap/floor it to 0x7fffffff / 0x80000000
-			if (sv > 0x7fffffff) sv = 0x7fffffff;
-			if (sv < (int)0x80000000) sv = (int)0x80000000;
-			switch ((op >> 21) & 0x1f)
-			{
-			case 16: d[i] = (int)(floor(sv + 0.5f)); break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
-			case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
-			case 18: d[i] = (int)ceil(sv); break; //u
-			case 19: d[i] = (int)floor(sv); break; //d
-			default: d[i] = 0x7FFFFFFF; break;
+			if (sv > (double)0x7fffffff) {
+				d[i] = 0x7fffffff;
+			} else if (sv <= (double)(int)0x80000000) {
+				d[i] = 0x80000000;
+			} else {
+				switch ((op >> 21) & 0x1f)
+				{
+				case 16: d[i] = (int)round_vfpu_n(sv); break; //(floor(sv + 0.5f)); break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+				case 17: d[i] = s[i]>=0 ? (int)floor(sv) : (int)ceil(sv); break; //z
+				case 18: d[i] = (int)ceil(sv); break; //u
+				case 19: d[i] = (int)floor(sv); break; //d
+				default: d[i] = 0x7FFFFFFF; break;
+				}
 			}
 		}
 		ApplyPrefixD((float*)d, sz, true);
