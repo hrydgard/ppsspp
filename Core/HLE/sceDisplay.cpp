@@ -336,6 +336,10 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	curFrameTime = time_now_d();
 	if (nextFrameTime == 0.0)
 		nextFrameTime = time_now_d() + 1.0 / 60.0;
+		
+	if (!g_Config.bAutoMinimizeSkip) {
+		skipFrame = true;
+		}
 	
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.

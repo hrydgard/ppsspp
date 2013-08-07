@@ -522,8 +522,9 @@ void PauseScreen::render() {
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames :"), g_Config.iFrameSkip);
 		ui_draw2d.DrawTextShadow(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 220, y, 20);
-		if (UIButton(GEN_ID, hlinear2, 80, 0, gs->T("Auto"), ALIGN_LEFT))
-			g_Config.iFrameSkip = 3;
+		bool enableAutoMinimizeSkip = g_Config.bAutoMinimizeSkip == true;
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Auto-Minimize Skipping"), ALIGN_TOPLEFT, &enableAutoMinimizeSkip))
+			g_Config.bAutoMinimizeSkip = enableAutoMinimizeSkip ? true : false;
 		if (UIButton(GEN_ID, hlinear2, 40, 0, gs->T("-1"), ALIGN_LEFT))
 			if (g_Config.iFrameSkip > 1)
 				g_Config.iFrameSkip -= 1;
@@ -1246,6 +1247,9 @@ void GraphicsScreenP3::render() {
 		sprintf(showFrameSkip, "%s %d", gs->T("Frames:"), g_Config.iFrameSkip);
 		ui_draw2d.DrawTextShadow(UBUNTU24, showFrameSkip, x + 60, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 300, y, 20);
+		bool enableAutoMinimizeSkip = g_Config.bAutoMinimizeSkip == true;
+		if (UICheckBox(GEN_ID, x + 60, y += stride, gs->T("Auto-Minimize Skipping"), ALIGN_TOPLEFT, &enableAutoMinimizeSkip))
+			g_Config.bAutoMinimizeSkip = enableAutoMinimizeSkip ? true : false;
 		if (UIButton(GEN_ID, hlinear2, 100, 0, gs->T("Auto"), ALIGN_LEFT))
 			g_Config.iFrameSkip = 3;
 		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("-1"), ALIGN_LEFT))
@@ -1254,7 +1258,6 @@ void GraphicsScreenP3::render() {
 		if (UIButton(GEN_ID, hlinear2, 50, 0, gs->T("+1"), ALIGN_LEFT))
 			if (g_Config.iFrameSkip < 9)
 				g_Config.iFrameSkip += 1;
-
 		y += 20;
 	} else 
 		g_Config.iFrameSkip = 0;

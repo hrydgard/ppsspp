@@ -73,6 +73,7 @@ public:
 	bool bStretchToDisplay;
 	bool bVSync;
 	int iFrameSkip;
+	bool bAutoMinimizeSkip;
 
 	int iWindowX;
 	int iWindowY;
