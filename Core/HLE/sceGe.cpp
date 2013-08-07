@@ -279,7 +279,7 @@ int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
 	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
 	hleEatCycles(190);
-	CoreTiming::AdvanceQuick();
+	CoreTiming::Advance();
 	return gpu->UpdateStall(displayListID, stallAddress);
 }
 

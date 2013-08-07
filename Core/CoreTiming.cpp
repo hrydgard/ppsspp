@@ -519,12 +519,14 @@ void MoveEvents()
 	}
 }
 
-void AdvanceQuick()
+void Advance()
 {
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
 	currentMIPS->downcount = slicelength;
 
+	if (Common::AtomicLoadAcquire(hasTsEvents))
+		MoveEvents();
 	ProcessFifoWaitEvents();
 
 	if (!first)
@@ -541,14 +543,6 @@ void AdvanceQuick()
 	}
 	if (advanceCallback)
 		advanceCallback(cyclesExecuted);
-}
-
-void Advance()
-{
-	if (Common::AtomicLoadAcquire(hasTsEvents))
-		MoveEvents();
-
-	AdvanceQuick();
 }
 
 void LogPendingEvents()
