@@ -202,4 +202,3 @@ private:
 	int i_level; // for Korean Keyboard support
 	int i_value[3]; // for Korean Keyboard support
 };
-

@@ -73,7 +73,7 @@
 #endif
 
 #ifdef _WIN32
-#include "Windows/InputBox.h"
+#include "Core/Host.h"
 #endif
 
 #ifdef _WIN32
@@ -1552,7 +1552,7 @@ void SystemScreen::render() {
 		char name[name_len];
 		memset(name, 0, sizeof(name));
 
-		if(InputBox_GetString(MainWindow::GetHInstance(), MainWindow::hwndMain, "Enter a new PSP nickname", "PPSSPP", name, name_len))
+		if(host->InputBoxGetString("Enter a new PSP nickname", "PPSSPP", name, name_len))
 			g_Config.sNickName.assign(name);
 		else
 			g_Config.sNickName.assign("PPSSPP");
