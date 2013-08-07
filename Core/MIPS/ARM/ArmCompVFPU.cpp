@@ -867,6 +867,7 @@ namespace MIPSComp
 
 	void Jit::Comp_Vf2i(u32 op) {
 		CONDITIONAL_DISABLE;
+		DISABLE;
 
 		if (js.HasUnknownPrefix())
 			DISABLE;
