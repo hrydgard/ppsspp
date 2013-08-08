@@ -470,8 +470,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 }
 
 // The newPC parameter is used for jumps, we don't count cycles between.
-inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC)
-{
+inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
 	cyclesExecuted += 2 * (currentPC - cycleLastPC) / 4;
 	gpuStats.otherGPUCycles += 2 * (currentPC - cycleLastPC) / 4;
@@ -481,8 +480,11 @@ inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC)
 	downcount = 0;
 }
 
-void GPUCommon::ReapplyGfxState()
-{
+void GPUCommon::ReapplyGfxState() {
+	ScheduleEvent(GPU_EVENT_REAPPLY_GFX_STATE);
+}
+
+void GPUCommon::ReapplyGfxStateInternal() {
 	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFF as the diff.
@@ -498,34 +500,80 @@ void GPUCommon::ReapplyGfxState()
 	ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
 	*/
 
-	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
-	{
-		if (i != GE_CMD_ORIGIN)
+	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++) {
+		if (i != GE_CMD_ORIGIN) {
 			ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+		}
 	}
 
 	// Can't write to bonematrixnumber here
 
-	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++)
-	{
+	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++) {
 		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
 
 	// There are a few here in the middle that we shouldn't execute...
 
-	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++)
-	{
+	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++) {
 		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
 	}
 
 	// TODO: there's more...
 }
 
-inline void GPUCommon::UpdateState(GPUState state)
-{
+inline void GPUCommon::UpdateState(GPUState state) {
 	gpuState = state;
 	if (state != GPUSTATE_RUNNING)
 		downcount = 0;
+}
+
+GPUEvent GPUCommon::GetNextEvent() {
+	lock_guard guard(eventsLock);
+	if (events.empty()) {
+		return GPU_EVENT_INVALID;
+	}
+
+	GPUEvent ev = events.front();
+	events.pop_front();
+	eventsCond.notify_one();
+	return ev;
+}
+
+void GPUCommon::ScheduleEvent(GPUEvent ev) {
+	lock_guard guard(eventsLock);
+	events.push_back(ev);
+	eventsCond.notify_one();
+
+	if (!g_Config.bUseCPUThread) {
+		RunEventsUntil(0);
+	}
+}
+
+void GPUCommon::RunEventsUntil(u64 globalticks) {
+	do {
+		for (GPUEvent ev = GetNextEvent(); ev.type != GPU_EVENT_INVALID; ev = GetNextEvent()) {
+			switch (ev.type) {
+			case GPU_EVENT_PROCESS_QUEUE:
+				ProcessDLQueueInternal();
+				break;
+
+			case GPU_EVENT_REAPPLY_GFX_STATE:
+				ReapplyGfxStateInternal();
+				break;
+
+			default:
+				ProcessEvent(ev);
+			}
+		}
+
+		// Quit the loop if the queue is drained and coreState has tripped.
+		if (coreState != CORE_RUNNING) {
+			return;
+		}
+
+		// coreState changes won't wake us, so recheck periodically.
+		eventsCond.wait_for(eventsLock, 1);
+	} while (CoreTiming::GetTicks() < globalticks);
 }
 
 int GPUCommon::GetNextListIndex() {
@@ -539,19 +587,24 @@ int GPUCommon::GetNextListIndex() {
 }
 
 bool GPUCommon::ProcessDLQueue() {
+	ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
+	return true;
+}
+
+void GPUCommon::ProcessDLQueueInternal() {
 	startingTicks = CoreTiming::GetTicks();
 	cyclesExecuted = 0;
 
 	if (startingTicks < busyTicks) {
 		DEBUG_LOG(HLE, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
-		return false;
+		return;
 	}
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &l = dls[listIndex];
 		DEBUG_LOG(G3D, "Okay, starting DL execution at %08x - stall = %08x", l.pc, l.stall);
 		if (!InterpretList(l)) {
-			return false;
+			return;
 		} else {
 			lock_guard guard(listLock);
 			// At the end, we can remove it from the queue and continue.
@@ -565,8 +618,6 @@ bool GPUCommon::ProcessDLQueue() {
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
 	__GeTriggerSync(WAITTYPE_GEDRAWSYNC, 1, drawCompleteTicks);
-
-	return true; //no more lists!
 }
 
 void GPUCommon::PreExecuteOp(u32 op, u32 diff) {

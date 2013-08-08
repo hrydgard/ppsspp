@@ -140,6 +140,30 @@ enum GPUInvalidationType {
 	GPU_INVALIDATE_SAFE,
 };
 
+enum GPUEventType {
+	GPU_EVENT_INVALID,
+	GPU_EVENT_PROCESS_QUEUE,
+	GPU_EVENT_INIT_CLEAR,
+	GPU_EVENT_BEGIN_FRAME,
+	GPU_EVENT_COPY_DISPLAY_TO_OUTPUT,
+	GPU_EVENT_REAPPLY_GFX_STATE,
+	GPU_EVENT_INVALIDATE_CACHE,
+	GPU_EVENT_FLUSH,
+};
+
+struct GPUEvent {
+	GPUEvent(GPUEventType t) : type(t) {}
+	GPUEventType type;
+	union {
+		// GPU_EVENT_INVALIDATE_CACHE
+		struct {
+			u32 addr;
+			int size;
+			GPUInvalidationType type;
+		} invalidate_cache;
+	};
+};
+
 class GPUInterface
 {
 public:
@@ -149,6 +173,8 @@ public:
 
 	// Initialization
 	virtual void InitClear() = 0;
+
+	virtual void RunEventsUntil(u64 globalticks) = 0;
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;

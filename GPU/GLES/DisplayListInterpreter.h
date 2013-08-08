@@ -67,12 +67,18 @@ public:
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);
+	virtual void ProcessEvent(GPUEvent ev);
 
 private:
 	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
+	void InitClearInternal();
+	void BeginFrameInternal();
+	void CopyDisplayToOutputInternal();
+	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
+	void FlushInternal();
 
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;

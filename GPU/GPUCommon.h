@@ -2,12 +2,15 @@
 
 #include "native/base/mutex.h"
 #include "GPU/GPUInterface.h"
+#include <deque>
 
 class GPUCommon : public GPUInterface
 {
 public:
 	GPUCommon();
 	virtual ~GPUCommon() {}
+
+	virtual void RunEventsUntil(u64 globalticks);
 
 	virtual void InterruptStart(int listid);
 	virtual void InterruptEnd(int listid);
@@ -40,6 +43,11 @@ protected:
 	void PopDLQueue();
 	void CheckDrawSync();
 	int  GetNextListIndex();
+	GPUEvent GetNextEvent();
+	void ScheduleEvent(GPUEvent ev);
+	void ProcessDLQueueInternal();
+	void ReapplyGfxStateInternal();
+	virtual void ProcessEvent(GPUEvent ev) = 0;
 
 	typedef std::list<int> DisplayListQueue;
 
@@ -47,6 +55,10 @@ protected:
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
 	recursive_mutex listLock;
+
+	std::deque<GPUEvent> events;
+	recursive_mutex eventsLock;
+	condition_variable eventsCond;
 
 	bool interruptRunning;
 	GPUState gpuState;

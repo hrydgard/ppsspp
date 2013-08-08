@@ -244,6 +244,10 @@ void GLES_GPU::DeviceLost() {
 }
 
 void GLES_GPU::InitClear() {
+	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
+}
+
+void GLES_GPU::InitClearInternal() {
 	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
 	if (!useBufferedRendering) {
 		glstate.depthWrite.set(GL_TRUE);
@@ -259,6 +263,10 @@ void GLES_GPU::DumpNextFrame() {
 }
 
 void GLES_GPU::BeginFrame() {
+	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
+}
+
+void GLES_GPU::BeginFrameInternal() {
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
@@ -303,6 +311,10 @@ bool GLES_GPU::FramebufferDirty() {
 }
 
 void GLES_GPU::CopyDisplayToOutput() {
+	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
+}
+
+void GLES_GPU::CopyDisplayToOutputInternal() {
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -339,6 +351,33 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 		ExecuteOp(op, diff);
 
 		list.pc += 4;
+	}
+}
+
+void GLES_GPU::ProcessEvent(GPUEvent ev) {
+	switch (ev.type) {
+	case GPU_EVENT_INIT_CLEAR:
+		InitClearInternal();
+		break;
+
+	case GPU_EVENT_BEGIN_FRAME:
+		BeginFrameInternal();
+		break;
+
+	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
+		CopyDisplayToOutputInternal();
+		break;
+
+	case GPU_EVENT_INVALIDATE_CACHE:
+		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
+		break;
+
+	case GPU_EVENT_FLUSH:
+		FlushInternal();
+		break;
+
+	default:
+		ERROR_LOG(G3D, "Unexpected GPU event type: %d", ev);
 	}
 }
 
@@ -1055,6 +1094,14 @@ void GLES_GPU::DoBlockTransfer() {
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
+	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
+	ev.invalidate_cache.addr = addr;
+	ev.invalidate_cache.size = size;
+	ev.invalidate_cache.type = type;
+	ScheduleEvent(ev);
+}
+
+void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
 		textureCache_.Invalidate(addr, size, type);
 	else
@@ -1074,6 +1121,10 @@ void GLES_GPU::ClearCacheNextFrame() {
 
 
 void GLES_GPU::Flush() {
+	ScheduleEvent(GPU_EVENT_FLUSH);
+}
+
+void GLES_GPU::FlushInternal() {
 	transformDraw_.Flush();
 }
 
