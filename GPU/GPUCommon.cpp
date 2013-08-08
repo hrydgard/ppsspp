@@ -1,5 +1,6 @@
 #include <algorithm>
-#include "base/timeutil.h"
+#include "native/base/mutex.h"
+#include "native/base/timeutil.h"
 #include "GeDisasm.h"
 #include "GPUCommon.h"
 #include "GPUState.h"
@@ -31,6 +32,7 @@ GPUCommon::GPUCommon() :
 }
 
 void GPUCommon::PopDLQueue() {
+	lock_guard guard(listLock);
 	if(!dlQueue.empty()) {
 		dlQueue.pop_front();
 		if(!dlQueue.empty()) {
@@ -45,6 +47,7 @@ void GPUCommon::PopDLQueue() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
+	lock_guard guard(listLock);
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -81,6 +84,7 @@ u32 GPUCommon::DrawSync(int mode) {
 
 void GPUCommon::CheckDrawSync()
 {
+	lock_guard guard(listLock);
 	if (dlQueue.empty()) {
 		for (int i = 0; i < DisplayListMaxCount; ++i)
 			dls[i].state = PSP_GE_DL_STATE_NONE;
@@ -89,6 +93,7 @@ void GPUCommon::CheckDrawSync()
 
 int GPUCommon::ListSync(int listid, int mode)
 {
+	lock_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -127,6 +132,7 @@ int GPUCommon::ListSync(int listid, int mode)
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 {
+	lock_guard guard(listLock);
 	// TODO Check the stack values in missing arg and ajust the stack depth
 
 	// Check alignment
@@ -218,6 +224,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 
 u32 GPUCommon::DequeueList(int listid)
 {
+	lock_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -241,6 +248,7 @@ u32 GPUCommon::DequeueList(int listid)
 
 u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 {
+	lock_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -256,6 +264,7 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 
 u32 GPUCommon::Continue()
 {
+	lock_guard guard(listLock);
 	if (!currentList)
 		return 0;
 
@@ -297,6 +306,7 @@ u32 GPUCommon::Continue()
 
 u32 GPUCommon::Break(int mode)
 {
+	lock_guard guard(listLock);
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -519,6 +529,7 @@ inline void GPUCommon::UpdateState(GPUState state)
 }
 
 int GPUCommon::GetNextListIndex() {
+	lock_guard guard(listLock);
 	auto iter = dlQueue.begin();
 	if (iter != dlQueue.end()) {
 		return *iter;
@@ -542,11 +553,13 @@ bool GPUCommon::ProcessDLQueue() {
 		if (!InterpretList(l)) {
 			return false;
 		} else {
+			lock_guard guard(listLock);
 			// At the end, we can remove it from the queue and continue.
 			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 		}
 	}
 
+	lock_guard guard(listLock);
 	currentList = NULL;
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
@@ -574,11 +587,15 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_ORIGIN:
-		gstate_c.offsetAddr = currentList->pc;
+		{
+			lock_guard guard(listLock);
+			gstate_c.offsetAddr = currentList->pc;
+		}
 		break;
 
 	case GE_CMD_JUMP:
 		{
+			lock_guard guard(listLock);
 			u32 target = gstate_c.getRelativeAddress(data);
 			if (Memory::IsValidAddress(target)) {
 				UpdatePC(currentList->pc, target - 4);
@@ -591,6 +608,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_CALL:
 		{
+			lock_guard guard(listLock);
 			// Saint Seiya needs correct support for relative calls.
 			u32 retval = currentList->pc + 4;
 			u32 target = gstate_c.getRelativeAddress(data);
@@ -610,6 +628,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_RET:
 		{
+			lock_guard guard(listLock);
 			if (currentList->stackptr == 0) {
 				ERROR_LOG_REPORT(G3D, "RET: Stack empty!");
 			} else {
@@ -632,6 +651,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_END: {
+		lock_guard guard(listLock);
 		u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 		UpdatePC(currentList->pc);
 		switch (prev >> 24) {
@@ -767,6 +787,8 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPUCommon::DoState(PointerWrap &p) {
+	lock_guard guard(listLock);
+
 	p.Do<int>(dlQueue);
 	p.DoArray(dls, ARRAY_SIZE(dls));
 	int currentID = 0;
@@ -796,6 +818,7 @@ void GPUCommon::InterruptStart(int listid)
 }
 void GPUCommon::InterruptEnd(int listid)
 {
+	lock_guard guard(listLock);
 	interruptRunning = false;
 	isbreak = false;
 
@@ -815,6 +838,7 @@ void GPUCommon::InterruptEnd(int listid)
 // TODO: Maybe cleaner to keep this in GE and trigger the clear directly?
 void GPUCommon::SyncEnd(WaitType waitType, int listid, bool wokeThreads)
 {
+	lock_guard guard(listLock);
 	if (waitType == WAITTYPE_GEDRAWSYNC && wokeThreads)
 	{
 		for (int i = 0; i < DisplayListMaxCount; ++i) {

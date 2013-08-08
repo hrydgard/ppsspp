@@ -1,6 +1,7 @@
 #pragma once
 
-#include "GPUInterface.h"
+#include "native/base/mutex.h"
+#include "GPU/GPUInterface.h"
 
 class GPUCommon : public GPUInterface
 {
@@ -45,6 +46,7 @@ protected:
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
+	recursive_mutex listLock;
 
 	bool interruptRunning;
 	GPUState gpuState;

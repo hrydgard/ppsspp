@@ -234,6 +234,8 @@ void GLES_GPU::BuildReportingInfo() {
 }
 
 void GLES_GPU::DeviceLost() {
+	// Should only be executed on the GL thread.
+
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManager_->ClearCache(false);
