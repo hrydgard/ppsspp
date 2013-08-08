@@ -56,6 +56,7 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	// Definitely cannot be changed while game is running.
 	bool bUseCPUThread;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;

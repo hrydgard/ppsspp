@@ -577,13 +577,16 @@ void GPUCommon::RunEventsUntil(u64 globalticks) {
 		}
 
 		// coreState changes won't wake us, so recheck periodically.
+		if (!g_Config.bUseCPUThread) {
+			return;
+		}
 		eventsCond.wait_for(eventsLock, 1);
 	} while (CoreTiming::GetTicks() < globalticks);
 }
 
 void GPUCommon::SyncThread() {
 	if (!g_Config.bUseCPUThread) {
-		_dbg_assert_msg_(G3D, !HasEvents(), "Should never have pending events when CPU/GPU on same thread.");
+		return;
 	}
 
 	while (HasEvents() && coreState == CORE_RUNNING) {
