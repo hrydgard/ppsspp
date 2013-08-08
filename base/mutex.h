@@ -174,6 +174,8 @@ private:
 #endif
 };
 
+// Win32 CONDITION_VARIABLE is Vista+ only. We thus limit it to our 64-bit builds where
+// we can be almost certain that the user isn't running XP.
 
 class condition_variable {
 public:
@@ -182,14 +184,21 @@ public:
 #endif
 	condition_variable() {
 #ifdef _WIN32
+#ifdef _WIN64
+		InitializeConditionVariable(&cond_);
+#else
 		event_ = CreateEvent(0, FALSE, FALSE, 0);
+#endif
 #else
 		pthread_cond_init(&event_, NULL);
 #endif
 	}
 	~condition_variable() {
 #ifdef _WIN32
+#ifdef _WIN64
+#else
 		CloseHandle(event_);
+#endif
 #else
 		pthread_cond_destroy(&event_);
 #endif
@@ -197,22 +206,31 @@ public:
 
 	void notify_one() {
 #ifdef _WIN32
+#ifdef _M_X64
+		WakeConditionVariable(&cond_);
+#else
 		SetEvent(event_);
+#endif
 #else
 		pthread_cond_signal(&event_);
 #endif
 	}
 
 	// notify_all is not really possible to implement with win32 events?
+	// Can be done just fine using WakeAllConditionVariable though.
 
 	void wait(recursive_mutex &mtx) {
-		// broken
+		// broken http://msdn.microsoft.com/en-us/library/windows/desktop/ms686301(v=vs.85).aspx
 #ifdef _WIN32
+#ifdef _M_X64
+		SleepConditionVariableCS(&cond_, &mtx.native_handle(), INFINITE);
+#else
 		// This has to be horribly racy.
 		mtx.unlock();
 		WaitForSingleObject(event_, INFINITE);
 		ResetEvent(event_); // necessary?
 		mtx.lock();
+#endif
 #else
 		pthread_cond_wait(&event_, &mtx.native_handle());
 #endif
@@ -220,10 +238,15 @@ public:
 
 	void wait_for(recursive_mutex &mtx, int milliseconds) {
 #ifdef _WIN32
+#ifdef _M_X64
+		SleepConditionVariableCS(&cond_, &mtx.native_handle(), milliseconds);
+#else
+
 		//mtx.unlock();
 		WaitForSingleObject(event_, milliseconds);
 		ResetEvent(event_); // necessary?
 		// mtx.lock();
+#endif
 #else
 		timespec timeout;
 #ifdef __APPLE__
@@ -242,7 +265,11 @@ public:
 
 private:
 #ifdef _WIN32
+#ifdef _M_X64
+	CONDITION_VARIABLE cond_;
+#else
 	HANDLE event_;
+#endif
 #else
 	pthread_cond_t event_;
 #endif
