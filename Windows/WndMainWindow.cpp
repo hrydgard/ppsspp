@@ -898,10 +898,14 @@ namespace MainWindow
 				case ID_CPU_DYNAREC:
 					g_Config.bJit = true;
 					osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
-					break;	
+					break;
 
 				case ID_CPU_INTERPRETER:
 					g_Config.bJit = false;
+					break;
+
+				case ID_CPU_MULTITHREADED:
+					g_Config.bSeparateCPUThread = !g_Config.bSeparateCPUThread;
 					break;
 
 				case ID_EMULATION_RUNONLOAD:
@@ -1181,6 +1185,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
+		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
@@ -1318,21 +1323,22 @@ namespace MainWindow
 		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu,ID_TOGGLE_PAUSE, ingameEnable);
-		EnableMenuItem(menu,ID_EMULATION_STOP, ingameEnable);
-		EnableMenuItem(menu,ID_EMULATION_RESET, ingameEnable);
+		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
+		EnableMenuItem(menu, ID_EMULATION_STOP, ingameEnable);
+		EnableMenuItem(menu, ID_EMULATION_RESET, ingameEnable);
 
 		UINT menuEnable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE, !menuEnable);
-		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE, !menuEnable);
-		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE, !menuEnable);
-		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE, !menuEnable);
-		EnableMenuItem(menu,ID_CPU_DYNAREC, menuEnable);
-		EnableMenuItem(menu,ID_CPU_INTERPRETER, menuEnable);
-		EnableMenuItem(menu,ID_TOGGLE_PAUSE, !menuEnable);
-		EnableMenuItem(menu,ID_EMULATION_STOP, !menuEnable);
-		EnableMenuItem(menu,ID_EMULATION_RESET, !menuEnable);
-		EnableMenuItem(menu,ID_DEBUG_LOG, !g_Config.bEnableLogging);
+		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, !menuEnable);
+		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, !menuEnable);
+		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, !menuEnable);
+		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
+		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
+		EnableMenuItem(menu, ID_CPU_INTERPRETER, menuEnable);
+		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
+		EnableMenuItem(menu, ID_TOGGLE_PAUSE, !menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_STOP, !menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_RESET, !menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 
 	// Message handler for about box.
