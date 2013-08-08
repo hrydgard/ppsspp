@@ -539,6 +539,11 @@ GPUEvent GPUCommon::GetNextEvent() {
 	return ev;
 }
 
+bool GPUCommon::HasEvents() {
+	lock_guard guard(eventsLock);
+	return !events.empty();
+}
+
 void GPUCommon::ScheduleEvent(GPUEvent ev) {
 	lock_guard guard(eventsLock);
 	events.push_back(ev);
@@ -574,6 +579,16 @@ void GPUCommon::RunEventsUntil(u64 globalticks) {
 		// coreState changes won't wake us, so recheck periodically.
 		eventsCond.wait_for(eventsLock, 1);
 	} while (CoreTiming::GetTicks() < globalticks);
+}
+
+void GPUCommon::SyncThread() {
+	if (!g_Config.bUseCPUThread) {
+		_dbg_assert_msg_(G3D, !HasEvents(), "Should never have pending events when CPU/GPU on same thread.");
+	}
+
+	while (HasEvents() && coreState == CORE_RUNNING) {
+		eventsCond.wait_for(eventsLock, 1);
+	};
 }
 
 int GPUCommon::GetNextListIndex() {

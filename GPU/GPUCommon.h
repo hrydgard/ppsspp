@@ -33,6 +33,7 @@ public:
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
+	virtual void SyncThread();
 
 protected:
 	// To avoid virtual calls to PreExecuteOp().
@@ -44,6 +45,7 @@ protected:
 	void CheckDrawSync();
 	int  GetNextListIndex();
 	GPUEvent GetNextEvent();
+	bool HasEvents();
 	void ScheduleEvent(GPUEvent ev);
 	void ProcessDLQueueInternal();
 	void ReapplyGfxStateInternal();

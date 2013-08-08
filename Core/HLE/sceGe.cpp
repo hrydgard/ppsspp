@@ -379,6 +379,8 @@ u32 sceGeSaveContext(u32 ctxAddr)
 {
 	DEBUG_LOG(HLE, "sceGeSaveContext(%08x)", ctxAddr);
 	gpu->Flush();
+	gpu->SyncThread();
+
 	if (sizeof(gstate) > 512 * 4)
 	{
 		ERROR_LOG(HLE, "AARGH! sizeof(gstate) has grown too large!");
@@ -400,6 +402,7 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 {
 	DEBUG_LOG(HLE, "sceGeRestoreContext(%08x)", ctxAddr);
 	gpu->Flush();
+	gpu->SyncThread();
 
 	if (sizeof(gstate) > 512 * 4)
 	{
