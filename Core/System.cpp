@@ -210,8 +210,7 @@ void CPU_RunLoop() {
 		default:
 			ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
 			// Begin shutdown, otherwise we'd just spin on this bad state.
-			cpuThreadState = CPU_THREAD_SHUTDOWN;
-			cpuThreadCond.notify_all();
+			CPU_SetState(CPU_THREAD_SHUTDOWN);
 			break;
 		}
 	}
@@ -236,7 +235,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	coreParameter = coreParam;
 	coreParameter.errorString = "";
 
-	if (g_Config.bUseCPUThread) {
+	if (g_Config.bSeparateCPUThread) {
 		CPU_SetState(CPU_THREAD_PENDING);
 		cpuThread = new std::thread(&CPU_RunLoop);
 		CPU_WaitStatus(&CPU_IsReady);
@@ -259,7 +258,7 @@ bool PSP_IsInited() {
 void PSP_Shutdown() {
 	if (coreState == CORE_RUNNING)
 		coreState = CORE_ERROR;
-	if (g_Config.bUseCPUThread) {
+	if (g_Config.bSeparateCPUThread) {
 		CPU_SetState(CPU_THREAD_SHUTDOWN);
 		CPU_WaitStatus(&CPU_IsShutdown);
 	} else {
@@ -271,7 +270,7 @@ void PSP_Shutdown() {
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
 
-	if (g_Config.bUseCPUThread) {
+	if (g_Config.bSeparateCPUThread) {
 		cpuThreadUntil = globalticks;
 		if (CPU_NextState(CPU_THREAD_RUNNING, CPU_THREAD_EXECUTE)) {
 			// The CPU doesn't actually respect cpuThreadUntil well, especially when skipping frames.

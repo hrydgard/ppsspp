@@ -549,7 +549,7 @@ void GPUCommon::ScheduleEvent(GPUEvent ev) {
 	events.push_back(ev);
 	eventsCond.notify_one();
 
-	if (!g_Config.bUseCPUThread) {
+	if (!g_Config.bSeparateCPUThread) {
 		RunEventsUntil(0);
 	}
 }
@@ -577,7 +577,7 @@ void GPUCommon::RunEventsUntil(u64 globalticks) {
 		}
 
 		// coreState changes won't wake us, so recheck periodically.
-		if (!g_Config.bUseCPUThread) {
+		if (!g_Config.bSeparateCPUThread) {
 			return;
 		}
 		eventsCond.wait_for(eventsLock, 1);
@@ -585,7 +585,7 @@ void GPUCommon::RunEventsUntil(u64 globalticks) {
 }
 
 void GPUCommon::SyncThread() {
-	if (!g_Config.bUseCPUThread) {
+	if (!g_Config.bSeparateCPUThread) {
 		return;
 	}
 
