@@ -783,13 +783,22 @@ void Jit::Comp_Vcmp(u32 op) {
 	}
 
 	// First, let's get the trivial ones.
-	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
+
+	static const int true_bits[4] = {0x31, 0x33, 0x37, 0x3f};
+
+	if (cond == VC_TR) {
+		OR(32, M((void*)&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(true_bits[n-1]));
+		return;
+	} else if (cond == VC_FL) {
+		AND(32, M((void*)&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(~true_bits[n-1]));
+		return;
+	}
 
 	gpr.FlushLockX(ECX);
-	XOR(32, R(ECX), R(ECX));
 	if (cond == VC_EZ || cond == VC_NZ)
 		XORPS(XMM0, R(XMM0));
 
+	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
 	for (int i = 0; i < n; ++i) {
 		fpr.MapRegV(sregs[i], 0);
 		// Let's only handle the easy ones, and fall back on the interpreter for the rest.
@@ -798,13 +807,6 @@ void Jit::Comp_Vcmp(u32 op) {
 		int comparison = -1;
 		bool flip = false;
 		switch (cond) {
-		case VC_FL: // c = 0; break;
-			break;
-
-		case VC_TR: // c = 1; break;
-			MOV(32, R(ECX), Imm32(1 << i));
-			break;
-
 		case VC_EQ: // c = s[i] == t[i]; break;
 			comparison = CMP_EQ;
 			compareTwo = true;
@@ -863,21 +865,19 @@ void Jit::Comp_Vcmp(u32 op) {
 			MOVSS(XMM1, fpr.V(sregs[i]));
 			CMPSS(XMM1, R(XMM0), comparison);
 		}
-		if (compareTwo || compareToZero) {
-			MOVSS(M((void *) &ssCompareTemp), XMM1);
+
+		MOVSS(M((void *) &ssCompareTemp), XMM1);
+		if (i == 0 && n == 1) {
+			MOV(32, R(EAX), M((void *) &ssCompareTemp));
+			AND(32, R(EAX), Imm32(0x31));
+		} else if (i == 0) {
+			MOV(32, R(EAX), M((void *) &ssCompareTemp));
+			AND(32, R(EAX), Imm32(1 << i));
+		} else {
 			MOV(32, R(ECX), M((void *) &ssCompareTemp));
-			if (i == 0 && n == 1) {
-				AND(32, R(ECX), Imm32(0x31));
-			} else {
-				AND(32, R(ECX), Imm32(1 << i));
-			}
-		}
-
-		if (i == 0) 
-			MOV(32, R(EAX), R(ECX));
-		else
+			AND(32, R(ECX), Imm32(1 << i));
 			OR(32, R(EAX), R(ECX));
-
+		}
 		affected_bits |= 1 << i;
 	}
 
