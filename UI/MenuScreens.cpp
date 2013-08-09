@@ -873,7 +873,7 @@ void AudioScreen::render() {
 
 		y+=10;
 		char bgmvol[256];
-		sprintf(bgmvol, "%s %i", a->T("BGM Volume :"), g_Config.iBGMVolume);
+		sprintf(bgmvol, "%s: %i", a->T("BGM Volume"), g_Config.iBGMVolume);
 		ui_draw2d.DrawTextShadow(UBUNTU24, bgmvol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear1(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear1, 80, 0, a->T("Auto"), ALIGN_LEFT))
@@ -885,18 +885,18 @@ void AudioScreen::render() {
 			if (g_Config.iBGMVolume < 8)
 				g_Config.iBGMVolume += 1;
 		y+=20;
-		char sevol[256];
-		sprintf(sevol, "%s %i", a->T("SE Volume     :"), g_Config.iSEVolume);
-		ui_draw2d.DrawTextShadow(UBUNTU24, sevol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
+		char sfxvol[256];
+		sprintf(sfxvol, "%s: %i", a->T("SFX Volume"), g_Config.iSFXVolume);
+		ui_draw2d.DrawTextShadow(UBUNTU24, sfxvol, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 		HLinear hlinear2(x + 250, y, 20);
 		if (UIButton(GEN_ID, hlinear2, 80, 0, a->T("Auto"), ALIGN_LEFT))
-			g_Config.iSEVolume = 3;
+			g_Config.iSFXVolume = 3;
 		if (UIButton(GEN_ID, hlinear2, 50, 0, a->T("-1"), ALIGN_LEFT))
-			if (g_Config.iSEVolume > 1)
-				g_Config.iSEVolume -= 1;
+			if (g_Config.iSFXVolume > 1)
+				g_Config.iSFXVolume -= 1;
 		if (UIButton(GEN_ID, hlinear2, 50, 0, a->T("+1"), ALIGN_LEFT))
-			if (g_Config.iSEVolume < 8)
-				g_Config.iSEVolume += 1;
+			if (g_Config.iSFXVolume < 8)
+				g_Config.iSFXVolume += 1;
 
 		y+=10;
 
