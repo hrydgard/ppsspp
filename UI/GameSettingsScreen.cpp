@@ -32,6 +32,7 @@
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"
+#include "Core/HW/atrac3plus.h"
 
 #ifdef _WIN32
 namespace MainWindow {
@@ -251,7 +252,11 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *audioSettings = new LinearLayout(ORIENT_VERTICAL);
 	audioSettingsScroll->Add(audioSettings);
 	tabHolder->AddTab("Audio", audioSettingsScroll);
-	audioSettings->Add(new Choice(a->T("Download Atrac3+ plugin")))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
+
+	std::string atracString;
+	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
+	audioSettings->Add(new Choice(a->T(atracString.c_str())))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
+
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, a->T("Enable Atrac3+")));
 	audioSettings->Add(new PopupSliderChoice(&g_Config.iSEVolume, 0, 8, a->T("FX volume"), screenManager()));
