@@ -149,6 +149,7 @@ enum GPUEventType {
 	GPU_EVENT_REAPPLY_GFX_STATE,
 	GPU_EVENT_INVALIDATE_CACHE,
 	GPU_EVENT_FLUSH,
+	GPU_EVENT_FINISH_EVENT_LOOP,
 };
 
 struct GPUEvent {
@@ -175,6 +176,7 @@ public:
 	virtual void InitClear() = 0;
 
 	virtual void RunEventsUntil(u64 globalticks) = 0;
+	virtual void FinishEventLoop() = 0;
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;

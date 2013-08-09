@@ -11,6 +11,7 @@ public:
 	virtual ~GPUCommon() {}
 
 	virtual void RunEventsUntil(u64 globalticks);
+	virtual void FinishEventLoop();
 
 	virtual void InterruptStart(int listid);
 	virtual void InterruptEnd(int listid);

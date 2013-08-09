@@ -577,6 +577,11 @@ void GPUCommon::RunEventsUntil(u64 globalticks) {
 				ReapplyGfxStateInternal();
 				break;
 
+			case GPU_EVENT_FINISH_EVENT_LOOP:
+				// Stop waiting.
+				globalticks = 0;
+				break;
+
 			default:
 				ProcessEvent(ev);
 			}
@@ -593,6 +598,12 @@ void GPUCommon::RunEventsUntil(u64 globalticks) {
 		}
 		eventsWait.wait_for(eventsWaitLock, 1);
 	} while (CoreTiming::GetTicks() < globalticks);
+}
+
+void GPUCommon::FinishEventLoop() {
+	if (g_Config.bSeparateCPUThread) {
+		ScheduleEvent(GPU_EVENT_FINISH_EVENT_LOOP);
+	}
 }
 
 void GPUCommon::SyncThread() {

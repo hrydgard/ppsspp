@@ -210,6 +210,7 @@ void CPU_RunLoop() {
 		switch (cpuThreadState) {
 		case CPU_THREAD_EXECUTE:
 			mipsr4k.RunLoopUntil(cpuThreadUntil);
+			gpu->FinishEventLoop();
 			CPU_NextState(CPU_THREAD_EXECUTE, CPU_THREAD_RUNNING);
 			break;
 
