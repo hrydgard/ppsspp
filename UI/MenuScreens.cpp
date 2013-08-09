@@ -865,7 +865,9 @@ void AudioScreen::render() {
 
 		// Show the download button even if not installed - might want to upgrade.
 		VLinear vlinear(30, 400, 20);
-		if (UIButton(GEN_ID, vlinear, 400, 0, a->T("Download Atrac3+ plugin"), ALIGN_LEFT)) {
+		std::string atracString;
+		atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
+		if (UIButton(GEN_ID, vlinear, 400, 0, a->T(atracString.c_str()), ALIGN_LEFT)) {
 			screenManager()->push(new PluginScreen());
 		}
 
