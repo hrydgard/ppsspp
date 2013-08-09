@@ -47,6 +47,10 @@ BlockAllocator kernelMemory(256);
 static int vplWaitTimer = -1;
 static int fplWaitTimer = -1;
 static bool tlsplUsedIndexes[TLSPL_NUM_INDEXES];
+
+// Thread -> TLSPL uids for thread end.
+typedef std::multimap<SceUID, SceUID> TlsplMap;
+static TlsplMap tlsplThreadEndChecks;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -418,6 +422,7 @@ struct VPL : public KernelObject
 
 void __KernelVplTimeout(u64 userdata, int cyclesLate);
 void __KernelFplTimeout(u64 userdata, int cyclesLate);
+void __KernelTlsplThreadEnd(SceUID threadID);
 
 void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId);
@@ -438,6 +443,8 @@ void __KernelMemoryInit()
 	compilerVersion_ = 0;
 	memset(tlsplUsedIndexes, 0, sizeof(tlsplUsedIndexes));
 
+	__KernelListenThreadEnd(&__KernelTlsplThreadEnd);
+
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VPL, __KernelVplBeginCallback, __KernelVplEndCallback);
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_FPL, __KernelFplBeginCallback, __KernelFplEndCallback);
 
@@ -449,7 +456,7 @@ void __KernelMemoryInit()
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelMemory", 1);
+	auto s = p.Section("sceKernelMemory", 1, 2);
 	if (!s)
 		return;
 
@@ -464,6 +471,9 @@ void __KernelMemoryDoState(PointerWrap &p)
 	p.Do(sdkVersion_);
 	p.Do(compilerVersion_);
 	p.DoArray(tlsplUsedIndexes, ARRAY_SIZE(tlsplUsedIndexes));
+	if (s >= 2) {
+		p.Do(tlsplThreadEndChecks);
+	}
 }
 
 void __KernelMemoryShutdown()
@@ -478,6 +488,7 @@ void __KernelMemoryShutdown()
 	kernelMemory.ListBlocks();
 #endif
 	kernelMemory.Shutdown();
+	tlsplThreadEndChecks.clear();
 }
 
 enum SceKernelFplAttr
@@ -1898,6 +1909,92 @@ KernelObject *__KernelTlsplObject()
 	return new TLSPL;
 }
 
+int __KernelFreeTls(TLSPL *tls, SceUID threadID)
+{
+	// Find the current thread's block.
+	int freeBlock = -1;
+	for (size_t i = 0; i < tls->ntls.totalBlocks; ++i)
+	{
+		if (tls->usage[i] == threadID)
+		{
+			freeBlock = (int) i;
+			break;
+		}
+	}
+
+	if (freeBlock != -1)
+	{
+		SceUID uid = tls->GetUID();
+
+		// First, let's remove the end check for the freeing thread.
+		auto freeingLocked = tlsplThreadEndChecks.equal_range(threadID);
+		for (TlsplMap::iterator iter = freeingLocked.first; iter != freeingLocked.second; ++iter)
+		{
+			if (iter->second == uid)
+			{
+				tlsplThreadEndChecks.erase(iter);
+				break;
+			}
+		}
+
+		while (!tls->waitingThreads.empty())
+		{
+			// TODO: What order do they wake in?
+			SceUID waitingThreadID = tls->waitingThreads[0];
+			tls->waitingThreads.erase(tls->waitingThreads.begin());
+
+			// This thread must've been woken up.
+			if (!HLEKernel::VerifyWait(waitingThreadID, WAITTYPE_TLSPL, uid))
+				continue;
+
+			// Otherwise, if there was a thread waiting, we were full, so this newly freed one is theirs.
+			// TODO: Is the block wiped or anything?
+			tls->usage[freeBlock] = waitingThreadID;
+			__KernelResumeThreadFromWait(waitingThreadID, freeBlock);
+
+			// Gotta watch the thread to quit as well, since they've allocated now.
+			tlsplThreadEndChecks.insert(std::make_pair(waitingThreadID, uid));
+
+			// No need to continue or free it, we're done.
+			return 0;
+		}
+
+		// No one was waiting, so now we can really free it.
+		tls->usage[freeBlock] = 0;
+		++tls->ntls.freeBlocks;
+		return 0;
+	}
+	// TODO: Correct error code.
+	else
+		return -1;
+}
+
+void __KernelTlsplThreadEnd(SceUID threadID)
+{
+	u32 error;
+
+	// It wasn't waiting, was it?
+	SceUID waitingTlsID = __KernelGetWaitID(threadID, WAITTYPE_TLSPL, error);
+	if (waitingTlsID)
+	{
+		TLSPL *tls = kernelObjects.Get<TLSPL>(waitingTlsID, error);
+		if (tls)
+			tls->waitingThreads.erase(std::remove(tls->waitingThreads.begin(), tls->waitingThreads.end(), threadID), tls->waitingThreads.end());
+	}
+
+	// Unlock all pools the thread had locked.
+	auto locked = tlsplThreadEndChecks.equal_range(threadID);
+	for (TlsplMap::iterator iter = locked.first; iter != locked.second; ++iter)
+	{
+		SceUID tlsID = iter->second;
+		TLSPL *tls = kernelObjects.Get<TLSPL>(tlsID, error);
+
+		if (tls)
+			__KernelFreeTls(tls, threadID);
+	}
+	tlsplThreadEndChecks.erase(locked.first, locked.second);
+}
+
 SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 blockSize, u32 count, u32 optionsPtr)
 {
 	if (!name)
@@ -2043,6 +2140,7 @@ int sceKernelGetTlsAddr(SceUID uid)
 			if (allocBlock != -1)
 			{
 				tls->usage[allocBlock] = threadID;
+				tlsplThreadEndChecks.insert(std::make_pair(threadID, uid));
 				--tls->ntls.freeBlocks;
 			}
 		}
@@ -2069,46 +2167,7 @@ int sceKernelFreeTlspl(SceUID uid)
 	if (tls)
 	{
 		SceUID threadID = __KernelGetCurThread();
-
-		// Find the current thread's block.
-		int freeBlock = -1;
-		for (size_t i = 0; i < tls->ntls.totalBlocks; ++i)
-		{
-			if (tls->usage[i] == threadID)
-			{
-				freeBlock = (int) i;
-				break;
-			}
-		}
-
-		if (freeBlock != -1)
-		{
-			while (!tls->waitingThreads.empty())
-			{
-				// TODO: What order do they wake in?
-				SceUID waitingThreadID = tls->waitingThreads[0];
-				tls->waitingThreads.erase(tls->waitingThreads.begin());
-
-				// This thread must've been woken up.
-				if (!HLEKernel::VerifyWait(waitingThreadID, WAITTYPE_TLSPL, uid))
-					continue;
-
-				// Otherwise, if there was a thread waiting, we were full, so this newly freed one is theirs.
-				// TODO: Is the block wiped or anything?
-				tls->usage[freeBlock] = waitingThreadID;
-				__KernelResumeThreadFromWait(waitingThreadID, freeBlock);
-				// No need to continue or free it, we're done.
-				return 0;
-			}
-
-			// No one was waiting, so now we can really free it.
-			tls->usage[freeBlock] = 0;
-			++tls->ntls.freeBlocks;
-			return 0;
-		}
-		// TODO: Correct error code.
-		else
-			return -1;
+		return __KernelFreeTls(tls, threadID);
 	}
 	else
 		return error;
