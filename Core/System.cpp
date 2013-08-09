@@ -19,6 +19,9 @@
 #include "Common/CommonWindows.h"
 #endif
 
+#include "native/thread/thread.h"
+#include "native/base/mutex.h"
+
 #include "Core/MemMap.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -39,9 +42,7 @@
 #include "Core/PSPLoaders.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
-#include "Common/StdConditionVariable.h"
 #include "Common/Thread.h"
-#include "Common/StdThread.h"
 #include "Common/LogManager.h"
 
 #include "GPU/GPUState.h"
@@ -63,8 +64,8 @@ GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static PSPMixer *mixer;
 static std::thread *cpuThread = NULL;
-static std::mutex cpuThreadLock;
-static std::condition_variable cpuThreadCond;
+static recursive_mutex cpuThreadLock;
+static condition_variable cpuThreadCond;
 static u64 cpuThreadUntil;
 
 // This can be read and written from ANYWHERE.
@@ -76,7 +77,7 @@ static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
 	if (cpuThreadState == from) {
 		cpuThreadState = to;
-		cpuThreadCond.notify_all();
+		cpuThreadCond.notify_one();
 		return true;
 	} else {
 		return false;
@@ -85,7 +86,7 @@ bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
 
 void CPU_SetState(CPUThreadState to) {
 	cpuThreadState = to;
-	cpuThreadCond.notify_all();
+	cpuThreadCond.notify_one();
 }
 
 bool CPU_IsReady() {
@@ -101,8 +102,10 @@ bool CPU_HasPendingAction() {
 }
 
 void CPU_WaitStatus(bool (*pred)()) {
-	std::unique_lock<std::mutex> uniqueLock(cpuThreadLock);
-	cpuThreadCond.wait(uniqueLock, pred);
+	cpuThreadLock.lock();
+	while (!pred())
+		cpuThreadCond.wait(cpuThreadLock);
+	cpuThreadLock.unlock();
 }
 
 void CPU_Init() {
