@@ -148,7 +148,6 @@ enum GPUEventType {
 	GPU_EVENT_COPY_DISPLAY_TO_OUTPUT,
 	GPU_EVENT_REAPPLY_GFX_STATE,
 	GPU_EVENT_INVALIDATE_CACHE,
-	GPU_EVENT_FLUSH,
 	GPU_EVENT_FINISH_EVENT_LOOP,
 };
 
@@ -218,7 +217,6 @@ public:
 	virtual void EnableInterrupts(bool enable) = 0;
 
 	virtual void DeviceLost() = 0;
-	virtual void Flush() = 0;
 	virtual void ReapplyGfxState() = 0;
 	virtual void SyncThread() = 0;
 	virtual void DoState(PointerWrap &p) = 0;

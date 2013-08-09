@@ -37,7 +37,6 @@ public:
 	virtual void InvalidateCache(u32 addr, int size, GPUInvalidationType type);
 	virtual void UpdateMemory(u32 dest, u32 src, int size);
 	virtual void ClearCacheNextFrame() {};
-	virtual void Flush() {}
 
 	virtual void DeviceLost() {}
 	virtual void DumpNextFrame() {}

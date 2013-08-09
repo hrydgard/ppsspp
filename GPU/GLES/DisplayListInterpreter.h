@@ -49,7 +49,6 @@ public:
 	virtual void DeviceLost();  // Only happens on Android. Drop all textures and shaders.
 
 	virtual void DumpNextFrame();
-	virtual void Flush();
 	virtual void DoState(PointerWrap &p);
 	
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
@@ -70,6 +69,7 @@ protected:
 	virtual void ProcessEvent(GPUEvent ev);
 
 private:
+	void Flush();
 	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
@@ -78,7 +78,6 @@ private:
 	void BeginFrameInternal();
 	void CopyDisplayToOutputInternal();
 	void InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type);
-	void FlushInternal();
 
 	FramebufferManager framebufferManager_;
 	TextureCache textureCache_;

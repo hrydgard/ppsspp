@@ -372,10 +372,6 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
 		break;
 
-	case GPU_EVENT_FLUSH:
-		FlushInternal();
-		break;
-
 	default:
 		ERROR_LOG(G3D, "Unexpected GPU event type: %d", ev);
 	}
@@ -1120,15 +1116,7 @@ void GLES_GPU::ClearCacheNextFrame() {
 }
 
 
-void GLES_GPU::Flush() {
-	if (IsOnSeparateCPUThread()) {
-		ScheduleEvent(GPU_EVENT_FLUSH);
-	} else {
-		FlushInternal();
-	}
-}
-
-void GLES_GPU::FlushInternal() {
+inline void GLES_GPU::Flush() {
 	transformDraw_.Flush();
 }
 
