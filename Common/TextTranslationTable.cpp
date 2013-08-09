@@ -184,7 +184,6 @@ std::map<int, std::string> g_TextTranslationTable = InitConstMap<int, std::strin
 	(TR_UP, "Up")
 	(TR_HOME, "Home")
 	(TR_TITLE, "title")
-	(TR_CREATED, "created")
 	(TR_CONTRIB, "contributors")
 	(TR_WRITTEN, "written")
 	(TR_TOOLS, "tools")
