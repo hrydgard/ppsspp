@@ -414,7 +414,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 			// Resample to the correct pitch, writing exactly "grainSize" samples.
 			u32 sampleFrac = voice.sampleFrac;
 			const int MAX_CONFIG_VOLUME = 20;
-			int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iSEVolume);
+			int volumeShift = (MAX_CONFIG_VOLUME - g_Config.iSFXVolume);
 			if (volumeShift < 0) volumeShift = 0;
 			for (int i = 0; i < grainSize; i++) {
 				// For now: nearest neighbour, not even using the resample history at all.
