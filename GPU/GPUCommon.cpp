@@ -369,70 +369,81 @@ u32 GPUCommon::Break(int mode)
 	return currentList->id;
 }
 
-bool GPUCommon::InterpretList(DisplayList &list)
-{
+bool GPUCommon::InterpretList(DisplayList &list) {
 	// Initialized to avoid a race condition with bShowDebugStats changing.
 	double start = 0.0;
-	if (g_Config.bShowDebugStats)
-	{
+	if (g_Config.bShowDebugStats) {
 		time_update();
 		start = time_now_d();
 	}
 
-	// TODO: This has to be right... but it freezes right now?
-	//if (list.state == PSP_GE_DL_STATE_PAUSED)
-	//	return false;
-
-	currentList = &list;
-
-	// I don't know if this is the correct place to zero this, but something
-	// need to do it. See Sol Trigger title screen.
-	// TODO: Maybe this is per list?  Should a stalled list remember the old value?
-	gstate_c.offsetAddr = 0;
-
-	if (!Memory::IsValidAddress(list.pc)) {
-		ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
-		return true;
-	}
-#if defined(USING_QT_UI)
-	if(host->GpuStep())
 	{
-		host->SendGPUStart();
-	}
+		lock_guard guard(listLock);
+
+		// TODO: This has to be right... but it freezes right now?
+		//if (list.state == PSP_GE_DL_STATE_PAUSED)
+		//	return false;
+		currentList = &list;
+
+		// I don't know if this is the correct place to zero this, but something
+		// need to do it. See Sol Trigger title screen.
+		// TODO: Maybe this is per list?  Should a stalled list remember the old value?
+		gstate_c.offsetAddr = 0;
+
+		if (!Memory::IsValidAddress(list.pc)) {
+			ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
+			return true;
+		}
+
+#if defined(USING_QT_UI)
+		if (host->GpuStep()) {
+			host->SendGPUStart();
+		}
 #endif
 
-	cycleLastPC = list.pc;
-	downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
-	list.state = PSP_GE_DL_STATE_RUNNING;
-	list.interrupted = false;
+		cycleLastPC = list.pc;
+		downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
+		list.state = PSP_GE_DL_STATE_RUNNING;
+		list.interrupted = false;
 
-	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
+		gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
+	}
 
 	const bool dumpThisFrame = dumpThisFrame_;
 	// TODO: Add check for displaylist debugger.
 	const bool useFastRunLoop = !dumpThisFrame;
-	while (gpuState == GPUSTATE_RUNNING)
-	{
-		if (list.pc == list.stall)
+	while (gpuState == GPUSTATE_RUNNING) {
 		{
-			gpuState = GPUSTATE_STALL;
-			downcount = 0;
+			lock_guard guard(listLock);
+			if (list.pc == list.stall) {
+				gpuState = GPUSTATE_STALL;
+				downcount = 0;
+			}
 		}
 
-		if (useFastRunLoop)
+		if (useFastRunLoop) {
 			FastRunLoop(list);
-		else
+		} else {
 			SlowRunLoop(list);
+		}
 
-		downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
+		{
+			lock_guard guard(listLock);
+			downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
+
+			if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
+				// Unstalled.
+				gpuState = GPUSTATE_RUNNING;
+			}
+		}
 	}
 
 	// We haven't run the op at list.pc, so it shouldn't count.
-	if (cycleLastPC != list.pc)
+	if (cycleLastPC != list.pc) {
 		UpdatePC(list.pc - 4, list.pc);
+	}
 
-	if (g_Config.bShowDebugStats)
-	{
+	if (g_Config.bShowDebugStats) {
 		time_update();
 		gpuStats.msProcessingDisplayLists += time_now_d() - start;
 	}
