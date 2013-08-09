@@ -2032,6 +2032,9 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
 	}
 
+	// Upalign to a multiple of 4.  Strangely, the ReferTlsStatus value is the original.
+	u32 alignedSize = (blockSize + 3) & ~3;
+
 	int index = -1;
 	for (int i = 0; i < TLSPL_NUM_INDEXES; ++i)
 		if (tlsplUsedIndexes[i] == false)
@@ -2046,7 +2049,7 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		return PSP_ERROR_TOO_MANY_TLSPL;
 	}
 
-	u32 totalSize = blockSize * count;
+	u32 totalSize = alignedSize * count;
 	u32 blockPtr = userMemory.Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, name);
 #ifdef _DEBUG
 	userMemory.ListBlocks();
@@ -2152,7 +2155,8 @@ int sceKernelGetTlsAddr(SceUID uid)
 			return -1;
 		}
 
-		return tls->address + allocBlock * tls->ntls.blockSize;
+		u32 alignedSize = (tls->ntls.blockSize + 3) & ~3;
+		return tls->address + allocBlock * alignedSize;
 	}
 	else
 		return error;
