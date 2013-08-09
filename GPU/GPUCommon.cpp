@@ -410,12 +410,13 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	// TODO: Add check for displaylist debugger.
 	const bool useFastRunLoop = !dumpThisFrame;
 	while (gpuState == GPUSTATE_RUNNING) {
-		guard.lock();
-		if (list.pc == list.stall) {
-			gpuState = GPUSTATE_STALL;
-			downcount = 0;
+		{
+			easy_guard innerGuard(listLock);
+			if (list.pc == list.stall) {
+				gpuState = GPUSTATE_STALL;
+				downcount = 0;
+			}
 		}
-		guard.unlock();
 
 		if (useFastRunLoop) {
 			FastRunLoop(list);
@@ -423,14 +424,15 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 			SlowRunLoop(list);
 		}
 
-		guard.lock();
-		downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
+		{
+			easy_guard innerGuard(listLock);
+			downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
 
-		if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
-			// Unstalled.
-			gpuState = GPUSTATE_RUNNING;
+			if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
+				// Unstalled.
+				gpuState = GPUSTATE_RUNNING;
+			}
 		}
-		guard.unlock();
 	}
 
 	// We haven't run the op at list.pc, so it shouldn't count.

@@ -52,12 +52,12 @@ protected:
 	void ReapplyGfxStateInternal();
 	virtual void ProcessEvent(GPUEvent ev) = 0;
 
+	// Allows early unlocking with a guard.  Do not double unlock.
 	class easy_guard {
 	public:
 		easy_guard(recursive_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
 		~easy_guard() { if (locked_) mtx_.unlock(); }
-		void lock() { if (!locked_) mtx_.lock(); locked_ = true; }
-		void unlock() { if (locked_) mtx_.unlock(); locked_ = false; }
+		void unlock() { if (locked_) mtx_.unlock(); else Crash(); locked_ = false; }
 
 	private:
 		bool locked_;
