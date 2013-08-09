@@ -855,16 +855,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 
 	// these spam the gDebugger log.
 	const int vertexSize = sizeof(transformed[0]);
-
-	bool useVBO = g_Config.bUseVBO;
-	if (useVBO) {
-		//char title[64];
-		//sprintf(title, "upload %i verts for sw", indexGen.VertexCount());
-		//LoggingDeadline deadline(title, 5);
-		glBindBuffer(GL_ARRAY_BUFFER, vbo_[curVbo_]);
-		glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, drawBuffer, GL_STREAM_DRAW);
-		drawBuffer = 0;  // so that the calls use offsets instead.
-	}		
+		
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
@@ -872,27 +863,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	if (program->a_color0 != -1) glVertexAttribPointer(program->a_color0, 4, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 7 * 4);
 	if (program->a_color1 != -1) glVertexAttribPointer(program->a_color1, 3, GL_UNSIGNED_BYTE, GL_TRUE, vertexSize, ((uint8_t*)drawBuffer) + 8 * 4);
 	if (drawIndexed) {
-		if (useVBO) {
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_[curVbo_]);
-			glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, inds, GL_STREAM_DRAW);
-			inds = 0;
-		}
 		glDrawElements(glprim[prim], numTrans, GL_UNSIGNED_SHORT, inds);
-		if (useVBO) {
-			// Attempt to orphan the buffer we used so the GPU can alloc a new one.
-			// glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * numTrans, 0, GL_DYNAMIC_DRAW);
-			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-		}
 	} else {
 		glDrawArrays(glprim[prim], 0, numTrans);
-	}
-	if (useVBO) {
-		// Attempt to orphan the buffer we used so the GPU can alloc a new one.
-		// glBufferData(GL_ARRAY_BUFFER, vertexSize * numTrans, 0, GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, 0);
-		curVbo_++;
-		if (curVbo_ == NUM_VBOS)
-			curVbo_ = 0;
 	}
 }
 
@@ -1299,23 +1272,9 @@ rotateVBO:
 			if (!useElements && indexGen.PureCount()) {
 				vertexCount = indexGen.PureCount();
 			}
-			if (g_Config.bUseVBO) {
-				// Just rotate VBO.
-				vbo = vbo_[curVbo_];
-				ebo = ebo_[curVbo_];
-				curVbo_++;
-				if (curVbo_ == NUM_VBOS)
-					curVbo_ = 0;
-				glBindBuffer(GL_ARRAY_BUFFER, vbo);
-				glBufferData(GL_ARRAY_BUFFER, dec_->GetDecVtxFmt().stride * indexGen.MaxIndex(), decoded, GL_STREAM_DRAW);
-				if (useElements) {
-					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-					glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(short) * vertexCount, (GLvoid *)decIndex, GL_STREAM_DRAW);
-				}
-			} else {
-				glBindBuffer(GL_ARRAY_BUFFER, 0);
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-			}
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
 			prim = indexGen.Prim();
 		}
 		

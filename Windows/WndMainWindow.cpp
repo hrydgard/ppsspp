@@ -981,10 +981,6 @@ namespace MainWindow
 					g_Config.bFastMemory = !g_Config.bFastMemory;
 					break;
 
-				case ID_OPTIONS_USEVBO:
-					g_Config.bUseVBO = !g_Config.bUseVBO;
-					break;
-
 				case ID_OPTIONS_TEXTUREFILTERING_AUTO:
 					setTexFiltering(AUTO);
 					break;
@@ -1191,7 +1187,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_ANTIALIASING, g_Config.bAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
-		CHECKITEM(ID_OPTIONS_USEVBO, g_Config.bUseVBO);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);

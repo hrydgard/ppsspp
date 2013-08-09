@@ -354,7 +354,6 @@ void NativeInit(int argc, const char *argv[],
 	}
 #ifdef __SYMBIAN32__
 	g_Config.bHardwareTransform = true;
-	g_Config.bUseVBO = false;
 #endif
 	// Special hack for G3D as it's very spammy. Need to make a flag for this.
 	if (!gfxLog)
