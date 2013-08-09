@@ -1121,7 +1121,11 @@ void GLES_GPU::ClearCacheNextFrame() {
 
 
 void GLES_GPU::Flush() {
-	ScheduleEvent(GPU_EVENT_FLUSH);
+	if (IsOnSeparateCPUThread()) {
+		ScheduleEvent(GPU_EVENT_FLUSH);
+	} else {
+		FlushInternal();
+	}
 }
 
 void GLES_GPU::FlushInternal() {

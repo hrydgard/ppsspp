@@ -74,6 +74,14 @@ volatile CoreState coreState = CORE_STEPPING;
 volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
+bool IsOnSeparateCPUThread() {
+	if (g_Config.bSeparateCPUThread) {
+		return cpuThread->get_id() == std::this_thread::get_id();
+	} else {
+		return false;
+	}
+}
+
 bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
 	if (cpuThreadState == from) {
 		cpuThreadState = to;

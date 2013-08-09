@@ -32,7 +32,7 @@ GPUCommon::GPUCommon() :
 }
 
 void GPUCommon::PopDLQueue() {
-	lock_guard guard(listLock);
+	easy_guard guard(listLock);
 	if(!dlQueue.empty()) {
 		dlQueue.pop_front();
 		if(!dlQueue.empty()) {
@@ -47,7 +47,7 @@ void GPUCommon::PopDLQueue() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
-	lock_guard guard(listLock);
+	easy_guard guard(listLock);
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -82,18 +82,16 @@ u32 GPUCommon::DrawSync(int mode) {
 	return PSP_GE_LIST_DRAWING;
 }
 
-void GPUCommon::CheckDrawSync()
-{
-	lock_guard guard(listLock);
+void GPUCommon::CheckDrawSync() {
+	easy_guard guard(listLock);
 	if (dlQueue.empty()) {
 		for (int i = 0; i < DisplayListMaxCount; ++i)
 			dls[i].state = PSP_GE_DL_STATE_NONE;
 	}
 }
 
-int GPUCommon::ListSync(int listid, int mode)
-{
-	lock_guard guard(listLock);
+int GPUCommon::ListSync(int listid, int mode) {
+	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -125,14 +123,14 @@ int GPUCommon::ListSync(int listid, int mode)
 	}
 
 	if (dl.waitTicks > CoreTiming::GetTicks()) {
+		guard.unlock();
 		__KernelWaitCurThread(WAITTYPE_GELISTSYNC, listid, 0, 0, false, "GeListSync");
 	}
 	return PSP_GE_LIST_COMPLETED;
 }
 
-u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
-{
-	lock_guard guard(listLock);
+u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) {
+	easy_guard guard(listLock);
 	// TODO Check the stack values in missing arg and ajust the stack depth
 
 	// Check alignment
@@ -216,15 +214,15 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head)
 		drawCompleteTicks = (u64)-1;
 
 		// TODO save context when starting the list if param is set
+		guard.unlock();
 		ProcessDLQueue();
 	}
 
 	return id;
 }
 
-u32 GPUCommon::DequeueList(int listid)
-{
-	lock_guard guard(listLock);
+u32 GPUCommon::DequeueList(int listid) {
+	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -239,6 +237,7 @@ u32 GPUCommon::DequeueList(int listid)
 		dlQueue.remove(listid);
 
 	dls[listid].waitTicks = 0;
+	guard.unlock();
 	__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync");
 
 	CheckDrawSync();
@@ -246,9 +245,8 @@ u32 GPUCommon::DequeueList(int listid)
 	return 0;
 }
 
-u32 GPUCommon::UpdateStall(int listid, u32 newstall)
-{
-	lock_guard guard(listLock);
+u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
+	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
@@ -257,14 +255,14 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall)
 	if (dls[listid].signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 		dls[listid].signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 	
+	guard.unlock();
 	ProcessDLQueue();
 
 	return 0;
 }
 
-u32 GPUCommon::Continue()
-{
-	lock_guard guard(listLock);
+u32 GPUCommon::Continue() {
+	easy_guard guard(listLock);
 	if (!currentList)
 		return 0;
 
@@ -300,13 +298,13 @@ u32 GPUCommon::Continue()
 		return -1;
 	}
 
+	guard.unlock();
 	ProcessDLQueue();
 	return 0;
 }
 
-u32 GPUCommon::Break(int mode)
-{
-	lock_guard guard(listLock);
+u32 GPUCommon::Break(int mode) {
+	easy_guard guard(listLock);
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
@@ -377,49 +375,47 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 		start = time_now_d();
 	}
 
-	{
-		lock_guard guard(listLock);
+	easy_guard guard(listLock);
 
-		// TODO: This has to be right... but it freezes right now?
-		//if (list.state == PSP_GE_DL_STATE_PAUSED)
-		//	return false;
-		currentList = &list;
+	// TODO: This has to be right... but it freezes right now?
+	//if (list.state == PSP_GE_DL_STATE_PAUSED)
+	//	return false;
+	currentList = &list;
 
-		// I don't know if this is the correct place to zero this, but something
-		// need to do it. See Sol Trigger title screen.
-		// TODO: Maybe this is per list?  Should a stalled list remember the old value?
-		gstate_c.offsetAddr = 0;
+	// I don't know if this is the correct place to zero this, but something
+	// need to do it. See Sol Trigger title screen.
+	// TODO: Maybe this is per list?  Should a stalled list remember the old value?
+	gstate_c.offsetAddr = 0;
 
-		if (!Memory::IsValidAddress(list.pc)) {
-			ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
-			return true;
-		}
+	if (!Memory::IsValidAddress(list.pc)) {
+		ERROR_LOG_REPORT(G3D, "DL PC = %08x WTF!!!!", list.pc);
+		return true;
+	}
 
 #if defined(USING_QT_UI)
-		if (host->GpuStep()) {
-			host->SendGPUStart();
-		}
+	if (host->GpuStep()) {
+		host->SendGPUStart();
+	}
 #endif
 
-		cycleLastPC = list.pc;
-		downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
-		list.state = PSP_GE_DL_STATE_RUNNING;
-		list.interrupted = false;
+	cycleLastPC = list.pc;
+	downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
+	list.state = PSP_GE_DL_STATE_RUNNING;
+	list.interrupted = false;
 
-		gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
-	}
+	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
+	guard.unlock();
 
 	const bool dumpThisFrame = dumpThisFrame_;
 	// TODO: Add check for displaylist debugger.
 	const bool useFastRunLoop = !dumpThisFrame;
 	while (gpuState == GPUSTATE_RUNNING) {
-		{
-			lock_guard guard(listLock);
-			if (list.pc == list.stall) {
-				gpuState = GPUSTATE_STALL;
-				downcount = 0;
-			}
+		guard.lock();
+		if (list.pc == list.stall) {
+			gpuState = GPUSTATE_STALL;
+			downcount = 0;
 		}
+		guard.unlock();
 
 		if (useFastRunLoop) {
 			FastRunLoop(list);
@@ -427,15 +423,14 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 			SlowRunLoop(list);
 		}
 
-		{
-			lock_guard guard(listLock);
-			downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
+		guard.lock();
+		downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
 
-			if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
-				// Unstalled.
-				gpuState = GPUSTATE_RUNNING;
-			}
+		if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
+			// Unstalled.
+			gpuState = GPUSTATE_RUNNING;
 		}
+		guard.unlock();
 	}
 
 	// We haven't run the op at list.pc, so it shouldn't count.
@@ -492,7 +487,11 @@ inline void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 }
 
 void GPUCommon::ReapplyGfxState() {
-	ScheduleEvent(GPU_EVENT_REAPPLY_GFX_STATE);
+	if (IsOnSeparateCPUThread()) {
+		ScheduleEvent(GPU_EVENT_REAPPLY_GFX_STATE);
+	} else {
+		ReapplyGfxStateInternal();
+	}
 }
 
 void GPUCommon::ReapplyGfxStateInternal() {
@@ -539,7 +538,7 @@ inline void GPUCommon::UpdateState(GPUState state) {
 }
 
 GPUEvent GPUCommon::GetNextEvent() {
-	lock_guard guard(eventsLock);
+	easy_guard guard(eventsLock);
 	if (events.empty()) {
 		eventsDrain.notify_one();
 		return GPU_EVENT_INVALID;
@@ -551,14 +550,15 @@ GPUEvent GPUCommon::GetNextEvent() {
 }
 
 bool GPUCommon::HasEvents() {
-	lock_guard guard(eventsLock);
+	easy_guard guard(eventsLock);
 	return !events.empty();
 }
 
 void GPUCommon::ScheduleEvent(GPUEvent ev) {
-	lock_guard guard(eventsLock);
+	easy_guard guard(eventsLock);
 	events.push_back(ev);
 	eventsWait.notify_one();
+	guard.unlock();
 
 	if (!g_Config.bSeparateCPUThread) {
 		RunEventsUntil(0);
@@ -606,7 +606,7 @@ void GPUCommon::SyncThread() {
 }
 
 int GPUCommon::GetNextListIndex() {
-	lock_guard guard(listLock);
+	easy_guard guard(listLock);
 	auto iter = dlQueue.begin();
 	if (iter != dlQueue.end()) {
 		return *iter;
@@ -635,14 +635,15 @@ void GPUCommon::ProcessDLQueueInternal() {
 		if (!InterpretList(l)) {
 			return;
 		} else {
-			lock_guard guard(listLock);
+			easy_guard guard(listLock);
 			// At the end, we can remove it from the queue and continue.
 			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 		}
 	}
 
-	lock_guard guard(listLock);
+	easy_guard guard(listLock);
 	currentList = NULL;
+	guard.unlock();
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
@@ -668,14 +669,14 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_ORIGIN:
 		{
-			lock_guard guard(listLock);
+			easy_guard guard(listLock);
 			gstate_c.offsetAddr = currentList->pc;
 		}
 		break;
 
 	case GE_CMD_JUMP:
 		{
-			lock_guard guard(listLock);
+			easy_guard guard(listLock);
 			u32 target = gstate_c.getRelativeAddress(data);
 			if (Memory::IsValidAddress(target)) {
 				UpdatePC(currentList->pc, target - 4);
@@ -688,7 +689,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_CALL:
 		{
-			lock_guard guard(listLock);
+			easy_guard guard(listLock);
 			// Saint Seiya needs correct support for relative calls.
 			u32 retval = currentList->pc + 4;
 			u32 target = gstate_c.getRelativeAddress(data);
@@ -708,7 +709,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_RET:
 		{
-			lock_guard guard(listLock);
+			easy_guard guard(listLock);
 			if (currentList->stackptr == 0) {
 				ERROR_LOG_REPORT(G3D, "RET: Stack empty!");
 			} else {
@@ -731,7 +732,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 		break;
 
 	case GE_CMD_END: {
-		lock_guard guard(listLock);
+		easy_guard guard(listLock);
 		u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
 		UpdatePC(currentList->pc);
 		switch (prev >> 24) {
@@ -867,7 +868,7 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 }
 
 void GPUCommon::DoState(PointerWrap &p) {
-	lock_guard guard(listLock);
+	easy_guard guard(listLock);
 
 	p.Do<int>(dlQueue);
 	p.DoArray(dls, ARRAY_SIZE(dls));
@@ -892,13 +893,11 @@ void GPUCommon::DoState(PointerWrap &p) {
 	p.DoMarker("GPUCommon");
 }
 
-void GPUCommon::InterruptStart(int listid)
-{
+void GPUCommon::InterruptStart(int listid) {
 	interruptRunning = true;
 }
-void GPUCommon::InterruptEnd(int listid)
-{
-	lock_guard guard(listLock);
+void GPUCommon::InterruptEnd(int listid) {
+	easy_guard guard(listLock);
 	interruptRunning = false;
 	isbreak = false;
 
@@ -912,13 +911,13 @@ void GPUCommon::InterruptEnd(int listid)
 	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 		dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 
+	guard.unlock();
 	ProcessDLQueue();
 }
 
 // TODO: Maybe cleaner to keep this in GE and trigger the clear directly?
-void GPUCommon::SyncEnd(WaitType waitType, int listid, bool wokeThreads)
-{
-	lock_guard guard(listLock);
+void GPUCommon::SyncEnd(WaitType waitType, int listid, bool wokeThreads) {
+	easy_guard guard(listLock);
 	if (waitType == WAITTYPE_GEDRAWSYNC && wokeThreads)
 	{
 		for (int i = 0; i < DisplayListMaxCount; ++i) {
