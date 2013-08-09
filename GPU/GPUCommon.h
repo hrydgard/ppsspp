@@ -60,7 +60,10 @@ protected:
 
 	std::deque<GPUEvent> events;
 	recursive_mutex eventsLock;
-	condition_variable eventsCond;
+	recursive_mutex eventsWaitLock;
+	recursive_mutex eventsDrainLock;
+	condition_variable eventsWait;
+	condition_variable eventsDrain;
 
 	bool interruptRunning;
 	GPUState gpuState;

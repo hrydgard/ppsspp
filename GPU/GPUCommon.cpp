@@ -530,12 +530,12 @@ inline void GPUCommon::UpdateState(GPUState state) {
 GPUEvent GPUCommon::GetNextEvent() {
 	lock_guard guard(eventsLock);
 	if (events.empty()) {
+		eventsDrain.notify_one();
 		return GPU_EVENT_INVALID;
 	}
 
 	GPUEvent ev = events.front();
 	events.pop_front();
-	eventsCond.notify_one();
 	return ev;
 }
 
@@ -547,7 +547,7 @@ bool GPUCommon::HasEvents() {
 void GPUCommon::ScheduleEvent(GPUEvent ev) {
 	lock_guard guard(eventsLock);
 	events.push_back(ev);
-	eventsCond.notify_one();
+	eventsWait.notify_one();
 
 	if (!g_Config.bSeparateCPUThread) {
 		RunEventsUntil(0);
@@ -580,7 +580,7 @@ void GPUCommon::RunEventsUntil(u64 globalticks) {
 		if (!g_Config.bSeparateCPUThread) {
 			return;
 		}
-		eventsCond.wait_for(eventsLock, 1);
+		eventsWait.wait_for(eventsWaitLock, 1);
 	} while (CoreTiming::GetTicks() < globalticks);
 }
 
@@ -590,7 +590,7 @@ void GPUCommon::SyncThread() {
 	}
 
 	while (HasEvents() && coreState == CORE_RUNNING) {
-		eventsCond.wait_for(eventsLock, 1);
+		eventsDrain.wait_for(eventsDrainLock, 1);
 	};
 }
 
