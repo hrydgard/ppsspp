@@ -19,6 +19,7 @@
 #include "PSPDialog.h"
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
+#include "../Common/TextTranslationTable.h"
 
 #define FADE_TIME 1.0
 const float FONT_SCALE = 0.55f;
@@ -141,12 +142,12 @@ void PSPDialog::DisplayButtons(int flags)
 	if (flags & DS_BUTTON_OK) {
 		PPGeDrawImage(okButtonImg, x2, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
 		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Enter"), x2 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("Enter"), x2 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_ENTER].c_str()), x2 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_ENTER].c_str()), x2 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	}
 	if (flags & DS_BUTTON_CANCEL) {
-		PPGeDrawText(d->T("Back"), x1 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("Back"), x1 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_BACK].c_str()), x1 + 15.5f, 254, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_BACK].c_str()), x1 + 14.5f, 252, PPGE_ALIGN_LEFT, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawImage(cancelButtonImg, x1, 258, 11.5f, 11.5f, 0, CalcFadedColor(0x80000000));
 		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, 0, CalcFadedColor(0xFFFFFFFF));
 	}

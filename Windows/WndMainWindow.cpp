@@ -42,6 +42,8 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Common/TextTranslationTable.h"
+
 #include "Windows/EmuThread.h"
 
 #include "resource.h"
@@ -248,19 +250,19 @@ namespace MainWindow
 
 		switch(g_Config.iRenderingMode) {
 		case FB_NON_BUFFERED_MODE:
-			osm.Show(g->T("Non-Buffered Rendering"));
+			osm.Show(g->T(g_TextTranslationTable[TR_NON_BUFFERED_RENDERING].c_str()));
 			break;
 
 		case FB_BUFFERED_MODE:
-			osm.Show(g->T("Buffered Rendering"));
+			osm.Show(g->T(g_TextTranslationTable[TR_BUFFERED_RENDERING].c_str()));
 			break;
 
 		case FB_READFBOMEMORY_CPU:
-			osm.Show(g->T("Read Framebuffer to Memory (CPU)"));
+			osm.Show(g->T(g_TextTranslationTable[TR_FBO_MEMORY_CPU].c_str()));
 			break;
 
 		case FB_READFBOMEMORY_GPU:
-			osm.Show(g->T("Read Framebuffer to Memory (GPU)"));
+			osm.Show(g->T(g_TextTranslationTable[TR_FBO_MEMORY_GPU].c_str()));
 			break;
 		}
 
@@ -836,7 +838,7 @@ namespace MainWindow
 
 				case ID_OPTIONS_HARDWARETRANSFORM:
 					g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-					osm.ShowOnOff(g->T("Hardware Transform"), g_Config.bHardwareTransform);
+					osm.ShowOnOff(g->T(g_TextTranslationTable[TR_HW_TRANSFORM].c_str()), g_Config.bHardwareTransform);
 					break;
 
 				case ID_OPTIONS_STRETCHDISPLAY:
@@ -897,7 +899,7 @@ namespace MainWindow
 
 				case ID_CPU_DYNAREC:
 					g_Config.bJit = true;
-					osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
+					osm.ShowOnOff(g->T(g_TextTranslationTable[TR_DYNAREC].c_str(), "Dynarec (JIT)"), g_Config.bJit);
 					break;	
 
 				case ID_CPU_INTERPRETER:

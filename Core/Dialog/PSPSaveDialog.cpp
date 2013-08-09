@@ -23,6 +23,7 @@
 #include "../Config.h"
 #include "Core/Reporting.h"
 #include "Core/HW/MemoryStick.h"
+#include "../Common/TextTranslationTable.h"
 #include "i18n/i18n.h"
 
 const float FONT_SCALE = 0.55f;
@@ -251,13 +252,13 @@ void PSPSaveDialog::DisplayBanner(int which)
 	switch (which)
 	{
 	case DB_SAVE:
-		title = d->T("Save");
+		title = d->T(g_TextTranslationTable[TR_SAVE].c_str());
 		break;
 	case DB_LOAD:
-		title = d->T("Load");
+		title = d->T(g_TextTranslationTable[TR_LOAD].c_str());
 		break;
 	case DB_DELETE:
-		title = d->T("Delete");
+		title = d->T(g_TextTranslationTable[TR_DELETE].c_str());
 		break;
 	default:
 		title = "";
@@ -351,7 +352,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 {
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {
 		I18NCategory *d = GetI18NCategory("Dialog");
-		PPGeDrawText(d->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_NEW_DATA].c_str()), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 	} else {
 		char title[512];
 		char time[512];
@@ -487,13 +488,13 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 		u32 yesColor, noColor;
 		float x, w;
 		if (yesnoChoice == 1) {
-			choiceText = d->T("Yes");
+			choiceText = d->T(g_TextTranslationTable[TR_YES].c_str());
 			x = 302.0f;
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
 		}
 		else {
-			choiceText = d->T("No");
+			choiceText = d->T(g_TextTranslationTable[TR_NO].c_str());
 			x = 366.0f;
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
@@ -505,10 +506,10 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 		h2 += h + 4.0f;
 		y = 132.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x40C0C0C0));
-		PPGeDrawText(d->T("Yes"), 303.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("Yes"), 302.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-		PPGeDrawText(d->T("No"), 367.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("No"), 366.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_YES].c_str()), 303.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_YES].c_str()), 302.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_NO].c_str()), 367.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_NO].c_str()), 366.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
 		}
@@ -604,7 +605,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Confirm Save", "Do you want to save this data?"), true);
+			DisplayMessage(d->T(g_TextTranslationTable[TR_SAVE_CONFIRM].c_str()), true);
 
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
 			DisplayBanner(DB_SAVE);
@@ -631,7 +632,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Do you want to overwrite the data?"), true);
+			DisplayMessage(d->T(g_TextTranslationTable[TR_SAVE_OVERWRITE].c_str()), true);
 
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
 			DisplayBanner(DB_SAVE);
@@ -665,7 +666,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Saving","Saving\nPlease Wait..."));
+			DisplayMessage(d->T(g_TextTranslationTable[TR_SAVING].c_str(),"Saving\nPlease Wait..."));
 
 			DisplayBanner(DB_SAVE);
 
@@ -677,7 +678,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Save completed"));
+			DisplayMessage(d->T(g_TextTranslationTable[TR_SAVE_COMPLETE].c_str()));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_SAVE);
@@ -718,7 +719,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("ConfirmLoad", "Load this data?"), true);
+			DisplayMessage(d->T(g_TextTranslationTable[TR_LOAD_CONFIRM].c_str()), true);
 
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -744,7 +745,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Loading","Loading\nPlease Wait..."));
+			DisplayMessage(d->T(g_TextTranslationTable[TR_LOADING].c_str(),"Loading\nPlease Wait..."));
 
 			DisplayBanner(DB_LOAD);
 
@@ -756,7 +757,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Load completed"));
+			DisplayMessage(d->T(g_TextTranslationTable[TR_LOAD_COMPLETE].c_str()));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -773,7 +774,7 @@ int PSPSaveDialog::Update()
 		case DS_LOAD_NODATA:
 			StartDraw();
 
-			DisplayMessage(d->T("There is no data"));
+			DisplayMessage(d->T(g_TextTranslationTable[TR_NO_DATA].c_str()));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_LOAD);
@@ -811,7 +812,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("DeleteConfirm", 
+			DisplayMessage(d->T(g_TextTranslationTable[TR_DELETE_CONFIRM].c_str(), 
 						"This save data will be deleted.\nAre you sure you want to continue?"), 
 						true);
 
@@ -838,7 +839,7 @@ int PSPSaveDialog::Update()
 		case DS_DELETE_DELETING:
 			StartDraw();
 
-			DisplayMessage(d->T("Deleting","Deleting\nPlease Wait..."));
+			DisplayMessage(d->T(g_TextTranslationTable[TR_DELETING].c_str(),"Deleting\nPlease Wait..."));
 
 			DisplayBanner(DB_DELETE);
 
@@ -847,7 +848,7 @@ int PSPSaveDialog::Update()
 		case DS_DELETE_DONE:
 			StartDraw();
 			
-			DisplayMessage(d->T("Delete completed"));
+			DisplayMessage(d->T(g_TextTranslationTable[TR_DELETE_COMPLETE].c_str()));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_DELETE);
@@ -864,7 +865,7 @@ int PSPSaveDialog::Update()
 		case DS_DELETE_NODATA:
 			StartDraw();
 			
-			DisplayMessage(d->T("There is no data"));
+			DisplayMessage(d->T(g_TextTranslationTable[TR_NO_DATA].c_str()));
 
 			DisplayButtons(DS_BUTTON_CANCEL);
 			DisplayBanner(DB_DELETE);

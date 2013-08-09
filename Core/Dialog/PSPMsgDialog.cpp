@@ -19,6 +19,7 @@
 #include "../Util/PPGeDraw.h"
 #include "../HLE/sceCtrl.h"
 #include "../Core/MemMap.h"
+#include "../Common/TextTranslationTable.h"
 #include "Core/Reporting.h"
 #include "ChunkFile.h"
 #include "i18n/i18n.h"
@@ -151,13 +152,13 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 		u32 yesColor, noColor;
 		float x, w;
 		if (yesnoChoice == 1) {
-			choiceText = d->T("Yes");
+			choiceText = d->T(g_TextTranslationTable[TR_YES].c_str());
 			x = 204.0f;
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
 		}
 		else {
-			choiceText = d->T("No");
+			choiceText = d->T(g_TextTranslationTable[TR_NO].c_str());
 			x = 273.0f;
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
@@ -169,10 +170,10 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 		h2 += h + 5.0f;
 		y = 135.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(d->T("Yes"), 204.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("Yes"), 203.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-		PPGeDrawText(d->T("No"), 273.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("No"), 272.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_YES].c_str()), 204.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_YES].c_str()), 203.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_NO].c_str()), 273.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_NO].c_str()), 272.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
 		}
@@ -192,8 +193,8 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 		h2 += h + 5.0f;
 		y = 135.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(d->T("OK"), 240.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(d->T("OK"), 239.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_OK].c_str()), 240.0f, y2 + 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_OK].c_str()), 239.0f, y2 - 1.0f, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 		ey = y2 + 25.0f;
 	}
 

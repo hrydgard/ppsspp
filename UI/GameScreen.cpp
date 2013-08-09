@@ -29,6 +29,7 @@
 #include "UI/MenuScreens.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
+#include "Common/TextTranslationTable.h"
 
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
@@ -48,7 +49,7 @@ void GameScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
+	leftColumn->Add(new Choice(g->T(g_TextTranslationTable[TR_BACK].c_str()), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 		tvTitle_ = leftColumn->Add(new TextView(0, info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 200, NONE, NONE)));
@@ -61,10 +62,10 @@ void GameScreen::CreateViews() {
 	
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
-	rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
-	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
-	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
+	rightColumnItems->Add(new Choice(ga->T(g_TextTranslationTable[TR_PLAY].c_str())))->OnClick.Handle(this, &GameScreen::OnPlay);
+	rightColumnItems->Add(new Choice(ga->T(g_TextTranslationTable[TR_GAME_SETTINGS].c_str())))->OnClick.Handle(this, &GameScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(ga->T(g_TextTranslationTable[TR_DELETE_SAVEDATA].c_str())))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
+	rightColumnItems->Add(new Choice(ga->T(g_TextTranslationTable[TR_DELETE_GAME].c_str())))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 }
 
 void DrawBackground(float alpha);

@@ -25,6 +25,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
+#include "Common/TextTranslationTable.h"
 #include "GPU/GPUState.h"
 
 #ifdef _WIN32
@@ -851,13 +852,13 @@ int PSPOskDialog::Update()
 		//PPGeDrawImage(I_BUTTON, 350, 220, 55, 20, 0, CalcFadedColor(0xFFFFFFFF));
 
 		I18NCategory *d = GetI18NCategory("Dialog");
-		PPGeDrawText(d->T("Select"), 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Delete"), 180, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Start", 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(d->T("Finish"), 290, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText("Select", 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_SELECT].c_str()), 60, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_DELETE].c_str()), 180, 220, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_START].c_str()), 245, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_FINISH].c_str()), 290, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_SELECT].c_str()), 365, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		// TODO: Show title of next keyboard?
-		PPGeDrawText(d->T("Shift"), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(d->T(g_TextTranslationTable[TR_SHIFT].c_str()), 415, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(CTRL_UP))
 		{
