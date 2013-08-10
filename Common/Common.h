@@ -96,7 +96,7 @@ private:
 	#define CHECK_HEAP_INTEGRITY()
 
 // Alignment
-	#define GC_ALIGNED16(x) __declspec(align(16)) x
+	#define MEMORY_ALIGNED16(x) __declspec(align(16)) x
 	#define GC_ALIGNED32(x) __declspec(align(32)) x
 	#define GC_ALIGNED64(x) __declspec(align(64)) x
 	#define GC_ALIGNED128(x) __declspec(align(128)) x
@@ -137,7 +137,7 @@ private:
 #endif
 
 #define __forceinline inline __attribute__((always_inline))
-#define GC_ALIGNED16(x) __attribute__((aligned(16))) x
+#define MEMORY_ALIGNED16(x) __attribute__((aligned(16))) x
 #define GC_ALIGNED32(x) __attribute__((aligned(32))) x
 #define GC_ALIGNED64(x) __attribute__((aligned(64))) x
 #define GC_ALIGNED128(x) __attribute__((aligned(128))) x

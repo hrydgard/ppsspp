@@ -57,8 +57,9 @@ static const float one = 1.0f;
 static const float minus_one = -1.0f;
 static const float zero = 0.0f;
 
-const u32 GC_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
-const u32 GC_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
+const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
+const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
+const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
 
 void Jit::Comp_VPFX(u32 op)
 {
@@ -195,7 +196,7 @@ bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] 
 	return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 }
 
-static u32 GC_ALIGNED16(ssLoadStoreTemp);
+static u32 MEMORY_ALIGNED16(ssLoadStoreTemp);
 
 void Jit::Comp_SV(u32 op) {
 	CONDITIONAL_DISABLE;
@@ -685,7 +686,6 @@ void Jit::Comp_VecDo3(u32 op) {
 			break;
 		case 6:  // vsge
 		case 7:  // vslt
-			MOVSS(XMM0, M((void *)&one));
 			break;
 		default:
 			DISABLE;
@@ -768,11 +768,11 @@ void Jit::Comp_VecDo3(u32 op) {
 				break;
 			case 6:  // vsge
 				CMPNLTSS(tempxregs[i], fpr.V(tregs[i]));
-				ANDPS(tempxregs[i], R(XMM0));
+				ANDPS(tempxregs[i], M((void *)&oneOneOneOne));
 				break;
 			case 7:  // vslt
 				CMPLTSS(tempxregs[i], fpr.V(tregs[i]));
-				ANDPS(tempxregs[i], R(XMM0));
+				ANDPS(tempxregs[i], M((void *)&oneOneOneOne));
 				break;
 			}
 			break;
