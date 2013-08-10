@@ -273,6 +273,8 @@ void PSP_Shutdown() {
 	if (g_Config.bSeparateCPUThread) {
 		CPU_SetState(CPU_THREAD_SHUTDOWN);
 		CPU_WaitStatus(&CPU_IsShutdown);
+		delete cpuThread;
+		cpuThread = 0;
 	} else {
 		CPU_Shutdown();
 	}
