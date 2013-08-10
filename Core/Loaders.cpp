@@ -27,7 +27,7 @@
 #include "System.h"
 
 // TODO : improve, look in the file more
-EmuFileType Identify_File(std::string &filename)
+IdentifiedFileType Identify_File(std::string &filename)
 {
 	if (filename.size() == 0) {
 		ERROR_LOG(LOADER, "invalid filename %s", filename.c_str());
@@ -73,7 +73,6 @@ EmuFileType Identify_File(std::string &filename)
 		return FILETYPE_ERROR;
 	}
 
-
 	u32_le id;
 
 	size_t readSize = fread(&id, 4, 1, f);
@@ -83,28 +82,33 @@ EmuFileType Identify_File(std::string &filename)
 	}
 
 	u32 psar_offset = 0, psar_id = 0;
-	if (id == 'PBP\x00') {
+	switch (id) {
+	case 'PBP\x00':
 		fseek(f, 0x24, SEEK_SET);
 		fread(&psar_offset, 4, 1, f);
 		fseek(f, psar_offset, SEEK_SET);
 		fread(&psar_id, 4, 1, f);
+		break;
+	case '!raR':
+		return FILETYPE_ARCHIVE_RAR;
+	case '\x04\x03KP':
+	case '\x06\x05KP':
+	case '\x08\x07KP':
+		return FILETYPE_ARCHIVE_ZIP;
 	}
 
 	fclose(f);
 
-	if (id == 'FLE\x7F')
-	{
+	if (id == 'FLE\x7F') {
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that.
 		if (!strcasecmp(extension.c_str(), ".plf") || strstr(filename.c_str(),"BOOT.BIN") ||
 			  !strcasecmp(extension.c_str(), ".elf") || !strcasecmp(extension.c_str(), ".prx") ||
-				!strcasecmp(extension.c_str(), ".pbp"))
-		{
+				!strcasecmp(extension.c_str(), ".pbp")) {
 			return FILETYPE_PSP_ELF;
 		}
 		return FILETYPE_UNKNOWN_ELF;
 	}
-	else if (id == 'PBP\x00')
-	{
+	else if (id == 'PBP\x00') {
 		if (psar_id == 'MUPN') {
 			return FILETYPE_PSP_ISO_NP;
 		}
@@ -120,14 +124,19 @@ EmuFileType Identify_File(std::string &filename)
 		}
 		return FILETYPE_PSP_PBP;
 	}
-	else if (!strcasecmp(extension.c_str(),".pbp"))
-	{
+	else if (!strcasecmp(extension.c_str(),".pbp")) {
 		ERROR_LOG(LOADER, "A PBP with the wrong magic number?");
 		return FILETYPE_PSP_PBP;
-	}
-	else if (!strcasecmp(extension.c_str(),".bin"))
-	{
+	} else if (!strcasecmp(extension.c_str(),".bin")) {
 		return FILETYPE_UNKNOWN_BIN;
+	} else if (!strcasecmp(extension.c_str(),".zip")) {
+		return FILETYPE_ARCHIVE_ZIP;
+	} else if (!strcasecmp(extension.c_str(),".rar")) {
+		return FILETYPE_ARCHIVE_RAR;
+	} else if (!strcasecmp(extension.c_str(),".r00")) {
+		return FILETYPE_ARCHIVE_RAR;
+	} else if (!strcasecmp(extension.c_str(),".r01")) {
+		return FILETYPE_ARCHIVE_RAR;
 	}
 	return FILETYPE_UNKNOWN;
 }
@@ -171,6 +180,14 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 	case FILETYPE_ERROR:
 		ERROR_LOG(LOADER, "Could not read file");
 		*error_string = "Error reading file";
+		break;
+
+	case FILETYPE_ARCHIVE_RAR:
+		*error_string = "File is compressed (RAR).\nPlease decompress first (try WinRAR)";
+		break;
+
+	case FILETYPE_ARCHIVE_ZIP:
+		*error_string = "File is compressed (ZIP).\nPlease decompress first (try WinRAR)";
 		break;
 
 	case FILETYPE_UNKNOWN_BIN:

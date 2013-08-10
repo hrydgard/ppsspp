@@ -127,10 +127,16 @@ void CPU_Init() {
 	g_DoubleTextureCoordinates = false;
 
 	std::string filename = coreParameter.fileToStart;
-	EmuFileType type = Identify_File(filename);
+	IdentifiedFileType type = Identify_File(filename);
 
-	if (type == FILETYPE_PSP_ISO || type == FILETYPE_PSP_ISO_NP || type == FILETYPE_PSP_DISC_DIRECTORY) {
+	switch (type) {
+	case FILETYPE_PSP_ISO:
+	case FILETYPE_PSP_ISO_NP:
+	case FILETYPE_PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(filename);
+		break;
+	default:
+		break;
 	}
 
 	Memory::Init();
@@ -256,7 +262,7 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	}
 
 	bool success = coreParameter.fileToStart != "";
-	*error_string = coreParam.errorString;
+	*error_string = coreParameter.errorString;
 	if (success) {
 		GPU_Init();
 	}
