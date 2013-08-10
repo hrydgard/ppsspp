@@ -278,11 +278,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	fpr.Start(mips_, analysis);
 
 	js.numInstructions = 0;
-	while (js.compiling)
-	{
-		if (js.prefixS & 0xF0000000) {
-			ERROR_LOG(CPU, "GARBAGE prefix S : %08x at %08x : %s", js.prefixS, js.compilerPC, currentMIPS->DisasmAt(js.compilerPC));
-		}
+	while (js.compiling) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckJitBreakpoint(js.compilerPC, 0);
 
@@ -291,8 +287,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 		MIPSCompileOp(inst);
 
-		if (js.afterOp & JitState::AFTER_CORE_STATE)
-		{
+		if (js.afterOp & JitState::AFTER_CORE_STATE) {
 			// TODO: Save/restore?
 			FlushAll();
 
@@ -313,9 +308,6 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 		js.compilerPC += 4;
 		js.numInstructions++;
-	}
-	if (js.prefixS & 0xF0000000) {
-		ERROR_LOG(CPU, "GARBAGE prefix S : %08x at %08x : %s", js.prefixS, js.compilerPC, currentMIPS->DisasmAt(js.compilerPC));
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
