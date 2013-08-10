@@ -149,8 +149,8 @@ protected:
 		void unlock() { if (locked_) mtx_.unlock(); else Crash(); locked_ = false; }
 
 	private:
-		bool locked_;
 		recursive_mutex &mtx_;
+		bool locked_;
 	};
 
 	typedef std::list<int> DisplayListQueue;
