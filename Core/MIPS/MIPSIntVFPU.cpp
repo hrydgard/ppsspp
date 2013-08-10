@@ -1556,12 +1556,7 @@ namespace MIPSInt
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n ; i++) {
 			float a = s[i] - t[i];
-			if (a > 0.0f) 
-				d[i] = 1.0f;
-			else if (a < 0.0f)
-				d[i] = -1.0f;
-			else
-				d[i] = 0.0f;
+			d[i] = (float) ((0.0 < a) - (a < 0.0));
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
