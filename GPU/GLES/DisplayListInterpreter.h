@@ -69,7 +69,9 @@ protected:
 	virtual void ProcessEvent(GPUEvent ev);
 
 private:
-	void Flush();
+	void Flush() {
+		transformDraw_.Flush();
+	}
 	void DoBlockTransfer();
 	void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);

@@ -921,7 +921,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
 			}
 			num++;
-			gstate.worldmtxnum = (gstate.worldmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -939,7 +939,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
 			}
 			num++;
-			gstate.viewmtxnum = (gstate.viewmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -957,7 +957,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX);
 			}
 			num++;
-			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -975,7 +975,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
 			}
 			num++;
-			gstate.texmtxnum = (gstate.texmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -993,7 +993,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 			}
 			num++;
-			gstate.boneMatrixNumber = (gstate.boneMatrixNumber & 0xFF000000) | (num & 0x7F);
+			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 		}
 		break;
 
@@ -1118,11 +1118,6 @@ void GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 
 void GLES_GPU::ClearCacheNextFrame() {
 	textureCache_.ClearNextFrame();
-}
-
-
-inline void GLES_GPU::Flush() {
-	transformDraw_.Flush();
 }
 
 void GLES_GPU::Resized() {
