@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
+#include <algorithm>
 #include "Common/StringUtils.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -228,9 +229,18 @@ void MetaFileSystem::Mount(std::string prefix, IFileSystem *system)
 {
 	lock_guard guard(lock);
 	MountPoint x;
-	x.prefix=prefix;
-	x.system=system;
+	x.prefix = prefix;
+	x.system = system;
 	fileSystems.push_back(x);
+}
+
+void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system)
+{
+	lock_guard guard(lock);
+	MountPoint x;
+	x.prefix = prefix;
+	x.system = system;
+	fileSystems.erase(std::remove(fileSystems.begin(), fileSystems.end(), x), fileSystems.end());
 }
 
 void MetaFileSystem::Shutdown()

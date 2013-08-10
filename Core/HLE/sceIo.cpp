@@ -292,6 +292,13 @@ void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	}
 }
 
+static DirectoryFileSystem *memstickSystem = NULL;
+#ifdef ANDROID
+static VFSFileSystem *flash0System = NULL;
+#else
+static DirectoryFileSystem *flash0System = NULL;
+#endif
+
 void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
 
@@ -303,16 +310,16 @@ void __IoInit() {
 	std::string flash0path;
 	GetSysDirectories(memstickpath, flash0path);
 
-	DirectoryFileSystem *memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
+	memstickSystem = new DirectoryFileSystem(&pspFileSystem, memstickpath);
 #ifdef ANDROID
-	VFSFileSystem *flash0 = new VFSFileSystem(&pspFileSystem, "flash0");
+	flash0System = new VFSFileSystem(&pspFileSystem, "flash0");
 #else
-	DirectoryFileSystem *flash0 = new DirectoryFileSystem(&pspFileSystem, flash0path);
+	flash0System = new DirectoryFileSystem(&pspFileSystem, flash0path);
 #endif
-	pspFileSystem.Mount("ms0:", memstick);
-	pspFileSystem.Mount("fatms0:", memstick);
-	pspFileSystem.Mount("fatms:", memstick);
-	pspFileSystem.Mount("flash0:", flash0);
+	pspFileSystem.Mount("ms0:", memstickSystem);
+	pspFileSystem.Mount("fatms0:", memstickSystem);
+	pspFileSystem.Mount("fatms:", memstickSystem);
+	pspFileSystem.Mount("flash0:", flash0System);
 	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 
@@ -326,6 +333,15 @@ void __IoDoState(PointerWrap &p) {
 }
 
 void __IoShutdown() {
+	pspFileSystem.Unmount("ms0:", memstickSystem);
+	pspFileSystem.Unmount("fatms0:", memstickSystem);
+	pspFileSystem.Unmount("fatms:", memstickSystem);
+	pspFileSystem.Unmount("flash0:", flash0System);
+
+	delete memstickSystem;
+	memstickSystem = NULL;
+	delete flash0System;
+	flash0System = NULL;
 }
 
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError)

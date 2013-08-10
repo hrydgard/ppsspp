@@ -28,6 +28,11 @@ private:
 	{
 		std::string prefix;
 		IFileSystem *system;
+
+		bool operator == (const MountPoint &other) const
+		{
+			return prefix == other.prefix && system == other.system;
+		}
 	};
 	std::vector<MountPoint> fileSystems;
 
@@ -45,7 +50,7 @@ public:
 	}
 
 	void Mount(std::string prefix, IFileSystem *system);
-	void Unmount(IFileSystem *system);
+	void Unmount(std::string prefix, IFileSystem *system);
 
 	void ThreadEnded(int threadID);
 
