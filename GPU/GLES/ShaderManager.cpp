@@ -446,7 +446,7 @@ void LinkedShader::updateUniforms() {
 	dirtyUniforms = 0;
 }
 
-ShaderManager::ShaderManager() : lastShader(NULL), globalDirty(0xFFFFFFFF), shaderSwitchDirty(0) {
+ShaderManager::ShaderManager() : lastShader_(NULL), globalDirty_(0xFFFFFFFF), shaderSwitchDirty_(0) {
 	codeBuffer_ = new char[16384];
 }
 
@@ -454,27 +454,22 @@ ShaderManager::~ShaderManager() {
 	delete [] codeBuffer_;
 }
 
-
-void ShaderManager::DirtyUniform(u32 what) {
-	globalDirty |= what;
-}
-
 void ShaderManager::Clear() {
-	for (auto iter = linkedShaderCache.begin(); iter != linkedShaderCache.end(); ++iter) {
+	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		delete iter->ls;
 	}
-	for (auto iter = fsCache.begin(); iter != fsCache.end(); ++iter)	{
+	for (auto iter = fsCache_.begin(); iter != fsCache_.end(); ++iter)	{
 		delete iter->second;
 	}
-	for (auto iter = vsCache.begin(); iter != vsCache.end(); ++iter)	{
+	for (auto iter = vsCache_.begin(); iter != vsCache_.end(); ++iter)	{
 		delete iter->second;
 	}
-	linkedShaderCache.clear();
-	fsCache.clear();
-	vsCache.clear();
-	globalDirty = 0xFFFFFFFF;
-	lastFSID.clear();
-	lastVSID.clear();
+	linkedShaderCache_.clear();
+	fsCache_.clear();
+	vsCache_.clear();
+	globalDirty_ = 0xFFFFFFFF;
+	lastFSID_.clear();
+	lastVSID_.clear();
 	DirtyShader();
 }
 
@@ -482,29 +477,28 @@ void ShaderManager::ClearCache(bool deleteThem) {
 	Clear();
 }
 
-
 void ShaderManager::DirtyShader() {
 	// Forget the last shader ID
-	lastFSID.clear();
-	lastVSID.clear();
-	lastShader = 0;
-	globalDirty = 0xFFFFFFFF;
-	shaderSwitchDirty = 0;
+	lastFSID_.clear();
+	lastVSID_.clear();
+	lastShader_ = 0;
+	globalDirty_ = 0xFFFFFFFF;
+	shaderSwitchDirty_ = 0;
 }
 
 void ShaderManager::EndFrame() { // disables vertex arrays
-	if (lastShader)
-		lastShader->stop();
-	lastShader = 0;
+	if (lastShader_)
+		lastShader_->stop();
+	lastShader_ = 0;
 }
 
 
 LinkedShader *ShaderManager::ApplyShader(int prim) {
-	if (globalDirty) {
-		if (lastShader)
-			lastShader->dirtyUniforms |= globalDirty;
-		shaderSwitchDirty |= globalDirty;
-		globalDirty = 0;
+	if (globalDirty_) {
+		if (lastShader_)
+			lastShader_->dirtyUniforms |= globalDirty_;
+		shaderSwitchDirty_ |= globalDirty_;
+		globalDirty_ = 0;
 	}
 
 	bool useHWTransform = CanUseHardwareTransform(prim);
@@ -515,22 +509,22 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	ComputeFragmentShaderID(&FSID);
 
 	// Just update uniforms if this is the same shader as last time.
-	if (lastShader != 0 && VSID == lastVSID && FSID == lastFSID) {
-		lastShader->updateUniforms();
-		return lastShader;	// Already all set.
+	if (lastShader_ != 0 && VSID == lastVSID_ && FSID == lastFSID_) {
+		lastShader_->updateUniforms();
+		return lastShader_;	// Already all set.
 	}
 
-	if (lastShader != 0) {
+	if (lastShader_ != 0) {
 		// There was a previous shader and we're switching.
-		lastShader->stop();
+		lastShader_->stop();
 	}
 
-	lastVSID = VSID;
-	lastFSID = FSID;
+	lastVSID_ = VSID;
+	lastFSID_ = FSID;
 
-	VSCache::iterator vsIter = vsCache.find(VSID);
+	VSCache::iterator vsIter = vsCache_.find(VSID);
 	Shader *vs;
-	if (vsIter == vsCache.end())	{
+	if (vsIter == vsCache_.end())	{
 		// Vertex shader not in cache. Let's compile it.
 		GenerateVertexShader(prim, codeBuffer_, useHWTransform);
 		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
@@ -549,18 +543,18 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 			vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, false);
 		}
 
-		vsCache[VSID] = vs;
+		vsCache_[VSID] = vs;
 	} else {
 		vs = vsIter->second;
 	}
 
-	FSCache::iterator fsIter = fsCache.find(FSID);
+	FSCache::iterator fsIter = fsCache_.find(FSID);
 	Shader *fs;
-	if (fsIter == fsCache.end())	{
+	if (fsIter == fsCache_.end())	{
 		// Fragment shader not in cache. Let's compile it.
 		GenerateFragmentShader(codeBuffer_);
 		fs = new Shader(codeBuffer_, GL_FRAGMENT_SHADER, useHWTransform);
-		fsCache[FSID] = fs;
+		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;
 	}
@@ -568,24 +562,24 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 	// Okay, we have both shaders. Let's see if there's a linked one.
 	LinkedShader *ls = NULL;
 
-	for (auto iter = linkedShaderCache.begin(); iter != linkedShaderCache.end(); ++iter) {
+	for (auto iter = linkedShaderCache_.begin(); iter != linkedShaderCache_.end(); ++iter) {
 		// Deferred dirtying! Let's see if we can make this even more clever later.
-		iter->ls->dirtyUniforms |= shaderSwitchDirty;
+		iter->ls->dirtyUniforms |= shaderSwitchDirty_;
 
 		if (iter->vs == vs && iter->fs == fs) {
 			ls = iter->ls;
 		}
 	}
-	shaderSwitchDirty = 0;
+	shaderSwitchDirty_ = 0;
 
 	if (ls == NULL) {
 		ls = new LinkedShader(vs, fs, vs->UseHWTransform());	// This does "use" automatically
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
-		linkedShaderCache.push_back(entry);
+		linkedShaderCache_.push_back(entry);
 	} else {
 		ls->use();
 	}
 
-	lastShader = ls;
+	lastShader_ = ls;
 	return ls;
 }
