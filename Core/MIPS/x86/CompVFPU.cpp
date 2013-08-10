@@ -679,13 +679,12 @@ void Jit::Comp_VecDo3(u32 op) {
 		}
 		break;
 	case 27: //VFPU3
-		switch ((op >> 23) & 3) {
+		switch ((op >> 23) & 7) {
 		case 2:  // vmin
 		case 3:  // vmax
 			break;
 		case 6:  // vsge
 		case 7:  // vslt
-			DISABLE;  // Something is wrong :/
 			MOVSS(XMM0, M((void *)&one));
 			break;
 		default:
@@ -759,7 +758,7 @@ void Jit::Comp_VecDo3(u32 op) {
 			}
 			break;
 		case 27: //VFPU3
-			switch ((op >> 23) & 3)
+			switch ((op >> 23) & 7)
 			{
 			case 2:  // vmin
 				MINSS(tempxregs[i], fpr.V(tregs[i]));
