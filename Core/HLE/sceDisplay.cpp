@@ -77,7 +77,6 @@ static int holdMode;
 static int mode;
 static int width;
 static int height;
-static bool flipped;
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
 static double nextFrameTime;
@@ -413,29 +412,21 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			framebufIsLatched = false;
 			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 			gpuStats.numFlips++;
-			flipped = true;
 		}
 	}
 
 	gpuStats.numVBlanks++;
 
 	numVBlanksSinceFlip++;
-	// GTA hack - it doesn't flip, it stretch blits a secondary buffer on top of a static frame buffer, ugh.
-	if (numVBlanksSinceFlip == 2)
-		flipped = true;
 
 	if (g_Config.iShowFPSCounter) {
 		CalculateFPS();
 	}
 
-	if (flipped) {
-		flipped = false;
-
-		// Draw screen overlays before blitting. Saves and restores the Ge context.
-		// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
-		// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
-		// anything to draw here.
-		
+	// We flip only if the framebuffer was dirty. This eliminates flicker when using
+	// non-buffered rendering. The interaction with frame skipping seems to need
+	// some work.
+	if (gpu->FramebufferDirty()) {
 		bool wasSkipped = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0;
 		gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
@@ -452,7 +443,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Setting CORE_NEXTFRAME causes a swap.
 		// Check first though, might've just quit / been paused.
 		if (!wasSkipped) {
-			if (coreState == CORE_RUNNING) {  // && gpu->FramebufferDirty()) {
+			if (coreState == CORE_RUNNING) {
 				coreState = CORE_NEXTFRAME;
 				gpu->CopyDisplayToOutput();
 			}
@@ -525,7 +516,6 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 				framebuf = fbstate;
 				gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 				gpuStats.numFlips++;
-				flipped = true;
 			}
 		} else {
 			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
