@@ -837,6 +837,9 @@
     <ClInclude Include="FileSystems\VirtualDiscFileSystem.h">
       <Filter>FileSystems</Filter>
     </ClInclude>
+    <ClInclude Include="ThreadEventQueue.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
