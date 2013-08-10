@@ -103,8 +103,6 @@ const int PSP_MIN_FD = 4;
 static int asyncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
 
-u32 ioErrorCode = 0;
-
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
 #define SCE_STM_FLNK 0x4000
@@ -782,7 +780,7 @@ u32 sceIoLseek32Async(int id, int offset, int whence) {
 	return 0;
 }
 
-FileNode *__IoOpen(const char* filename, int flags, int mode) {
+FileNode *__IoOpen(int &error, const char* filename, int flags, int mode) {
 	//memory stick filename
 	int access = FILEACCESS_NONE;
 	if (flags & O_RDONLY)
@@ -796,9 +794,7 @@ FileNode *__IoOpen(const char* filename, int flags, int mode) {
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 
-	ioErrorCode = 0;
-
-	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) access);
+	u32 h = pspFileSystem.OpenWithError(error, filename, (FileAccess) access);
 	if (h == 0) {
 		return NULL;
 	}
@@ -821,11 +817,12 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	if (!__KernelIsDispatchEnabled())
 		return -1;
 
-	FileNode *f = __IoOpen(filename, flags, mode);
+	int error;
+	FileNode *f = __IoOpen(error, filename, flags, mode);
 	if (f == NULL) 
 	{
-		 //Timing is not accurate, aiming low for now.
-		if (ioErrorCode == SCE_KERNEL_ERROR_NOCWD)
+		// Timing is not accurate, aiming low for now.
+		if (error == SCE_KERNEL_ERROR_NOCWD)
 		{
 			ERROR_LOG(HLE, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
 			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 10000);
@@ -1294,7 +1291,8 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	if (!__KernelIsDispatchEnabled())
 		sceKernelResumeDispatchThread(1);
 
-	FileNode *f = __IoOpen(filename, flags, mode);
+	int error;
+	FileNode *f = __IoOpen(error, filename, flags, mode);
 	int fd;
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
@@ -1305,7 +1303,7 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
 		f->fullpath = filename;
-		f->asyncResult = ERROR_ERRNO_FILE_NOT_FOUND;
+		f->asyncResult = error == 0 ? ERROR_ERRNO_FILE_NOT_FOUND : error;
 		f->closePending = true;
 
 		fd = __IoAllocFd(f);

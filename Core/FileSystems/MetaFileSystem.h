@@ -35,6 +35,7 @@ private:
 	currentDir_t currentDir;
 
 	std::string startingDirectory;
+	int lastOpenError;
 	recursive_mutex lock;
 
 public:
@@ -74,7 +75,8 @@ public:
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL);
+	u32      OpenWithError(int &error, std::string filename, FileAccess access, const char *devicename = NULL);
 	void     CloseFile(u32 handle);
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
