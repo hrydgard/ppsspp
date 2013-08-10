@@ -103,8 +103,6 @@ const int PSP_MIN_FD = 4;
 static int asyncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
 
-u32 ioErrorCode = 0;
-
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
 #define SCE_STM_FLNK 0x4000
@@ -294,6 +292,13 @@ void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	}
 }
 
+static DirectoryFileSystem *memstickSystem = NULL;
+#ifdef ANDROID
+static VFSFileSystem *flash0System = NULL;
+#else
+static DirectoryFileSystem *flash0System = NULL;
+#endif
+
 void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
 
@@ -305,16 +310,16 @@ void __IoInit() {
 	std::string flash0path;
 	GetSysDirectories(memstickpath, flash0path);
 
-	DirectoryFileSystem *memstick = new DirectoryFileSystem(&pspFileSystem, memstickpath);
+	memstickSystem = new DirectoryFileSystem(&pspFileSystem, memstickpath);
 #ifdef ANDROID
-	VFSFileSystem *flash0 = new VFSFileSystem(&pspFileSystem, "flash0");
+	flash0System = new VFSFileSystem(&pspFileSystem, "flash0");
 #else
-	DirectoryFileSystem *flash0 = new DirectoryFileSystem(&pspFileSystem, flash0path);
+	flash0System = new DirectoryFileSystem(&pspFileSystem, flash0path);
 #endif
-	pspFileSystem.Mount("ms0:", memstick);
-	pspFileSystem.Mount("fatms0:", memstick);
-	pspFileSystem.Mount("fatms:", memstick);
-	pspFileSystem.Mount("flash0:", flash0);
+	pspFileSystem.Mount("ms0:", memstickSystem);
+	pspFileSystem.Mount("fatms0:", memstickSystem);
+	pspFileSystem.Mount("fatms:", memstickSystem);
+	pspFileSystem.Mount("flash0:", flash0System);
 	
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 
@@ -328,6 +333,15 @@ void __IoDoState(PointerWrap &p) {
 }
 
 void __IoShutdown() {
+	pspFileSystem.Unmount("ms0:", memstickSystem);
+	pspFileSystem.Unmount("fatms0:", memstickSystem);
+	pspFileSystem.Unmount("fatms:", memstickSystem);
+	pspFileSystem.Unmount("flash0:", flash0System);
+
+	delete memstickSystem;
+	memstickSystem = NULL;
+	delete flash0System;
+	flash0System = NULL;
 }
 
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
@@ -782,7 +796,7 @@ u32 sceIoLseek32Async(int id, int offset, int whence) {
 	return 0;
 }
 
-FileNode *__IoOpen(const char* filename, int flags, int mode) {
+FileNode *__IoOpen(int &error, const char* filename, int flags, int mode) {
 	//memory stick filename
 	int access = FILEACCESS_NONE;
 	if (flags & O_RDONLY)
@@ -796,9 +810,7 @@ FileNode *__IoOpen(const char* filename, int flags, int mode) {
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 
-	ioErrorCode = 0;
-
-	u32 h = pspFileSystem.OpenFile(filename, (FileAccess) access);
+	u32 h = pspFileSystem.OpenWithError(error, filename, (FileAccess) access);
 	if (h == 0) {
 		return NULL;
 	}
@@ -821,11 +833,12 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	if (!__KernelIsDispatchEnabled())
 		return -1;
 
-	FileNode *f = __IoOpen(filename, flags, mode);
+	int error;
+	FileNode *f = __IoOpen(error, filename, flags, mode);
 	if (f == NULL) 
 	{
-		 //Timing is not accurate, aiming low for now.
-		if (ioErrorCode == SCE_KERNEL_ERROR_NOCWD)
+		// Timing is not accurate, aiming low for now.
+		if (error == SCE_KERNEL_ERROR_NOCWD)
 		{
 			ERROR_LOG(HLE, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
 			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 10000);
@@ -1294,7 +1307,8 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	if (!__KernelIsDispatchEnabled())
 		sceKernelResumeDispatchThread(1);
 
-	FileNode *f = __IoOpen(filename, flags, mode);
+	int error;
+	FileNode *f = __IoOpen(error, filename, flags, mode);
 	int fd;
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
@@ -1305,7 +1319,7 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
 		f->fullpath = filename;
-		f->asyncResult = ERROR_ERRNO_FILE_NOT_FOUND;
+		f->asyncResult = error == 0 ? ERROR_ERRNO_FILE_NOT_FOUND : error;
 		f->closePending = true;
 
 		fd = __IoAllocFd(f);
