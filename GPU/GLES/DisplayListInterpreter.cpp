@@ -373,7 +373,7 @@ void GLES_GPU::ProcessEvent(GPUEvent ev) {
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unexpected GPU event type: %d", ev);
+		GPUCommon::ProcessEvent(ev);
 	}
 }
 

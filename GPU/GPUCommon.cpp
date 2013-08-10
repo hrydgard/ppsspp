@@ -29,6 +29,7 @@ GPUCommon::GPUCommon() :
 		dls[i].state = PSP_GE_DL_STATE_NONE;
 		dls[i].waitTicks = 0;
 	}
+	SetThreadEnabled(g_Config.bSeparateCPUThread);
 }
 
 void GPUCommon::PopDLQueue() {
@@ -539,90 +540,19 @@ inline void GPUCommon::UpdateState(GPUState state) {
 		downcount = 0;
 }
 
-GPUEvent GPUCommon::GetNextEvent() {
-	easy_guard guard(eventsLock);
-	if (events.empty()) {
-		eventsDrain.notify_one();
-		return GPU_EVENT_INVALID;
+void GPUCommon::ProcessEvent(GPUEvent ev) {
+	switch (ev.type) {
+	case GPU_EVENT_PROCESS_QUEUE:
+		ProcessDLQueueInternal();
+		break;
+
+	case GPU_EVENT_REAPPLY_GFX_STATE:
+		ReapplyGfxStateInternal();
+		break;
+
+	default:
+		ERROR_LOG(G3D, "Unexpected GPU event type: %d", ev);
 	}
-
-	GPUEvent ev = events.front();
-	events.pop_front();
-	return ev;
-}
-
-bool GPUCommon::HasEvents() {
-	easy_guard guard(eventsLock);
-	return !events.empty();
-}
-
-void GPUCommon::ScheduleEvent(GPUEvent ev) {
-	easy_guard guard(eventsLock);
-	events.push_back(ev);
-	eventsWait.notify_one();
-	guard.unlock();
-
-	if (!g_Config.bSeparateCPUThread) {
-		RunEventsUntil(0);
-	}
-}
-
-void GPUCommon::RunEventsUntil(u64 globalticks) {
-	do {
-		for (GPUEvent ev = GetNextEvent(); ev.type != GPU_EVENT_INVALID; ev = GetNextEvent()) {
-			switch (ev.type) {
-			case GPU_EVENT_PROCESS_QUEUE:
-				ProcessDLQueueInternal();
-				break;
-
-			case GPU_EVENT_REAPPLY_GFX_STATE:
-				ReapplyGfxStateInternal();
-				break;
-
-			case GPU_EVENT_FINISH_EVENT_LOOP:
-				// Stop waiting.
-				globalticks = 0;
-				break;
-
-			case GPU_EVENT_SYNC_THREAD:
-				break;
-
-			default:
-				ProcessEvent(ev);
-			}
-		}
-
-		// Quit the loop if the queue is drained and coreState has tripped.
-		if (coreState != CORE_RUNNING) {
-			return;
-		}
-
-		// coreState changes won't wake us, so recheck periodically.
-		if (!g_Config.bSeparateCPUThread) {
-			return;
-		}
-		eventsWait.wait_for(eventsWaitLock, 1);
-	} while (CoreTiming::GetTicks() < globalticks);
-}
-
-void GPUCommon::FinishEventLoop() {
-	if (g_Config.bSeparateCPUThread) {
-		ScheduleEvent(GPU_EVENT_FINISH_EVENT_LOOP);
-	}
-}
-
-void GPUCommon::SyncThread() {
-	if (!g_Config.bSeparateCPUThread) {
-		return;
-	}
-
-	// It could be that we are *currently* processing the last event.
-	// The events queue will be empty (HasEvents() = false), but it's not done.
-	// So we schedule a nothing event and wait for that to finish.
-	ScheduleEvent(GPU_EVENT_SYNC_THREAD);
-	while (HasEvents() && coreState == CORE_RUNNING) {
-		eventsDrain.wait_for(eventsDrainLock, 1);
-	};
 }
 
 int GPUCommon::GetNextListIndex() {

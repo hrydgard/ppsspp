@@ -163,6 +163,10 @@ struct GPUEvent {
 			GPUInvalidationType type;
 		} invalidate_cache;
 	};
+
+	operator GPUEventType() const {
+		return type;
+	}
 };
 
 class GPUInterface

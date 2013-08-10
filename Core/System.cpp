@@ -75,7 +75,7 @@ volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 bool IsOnSeparateCPUThread() {
-	if (g_Config.bSeparateCPUThread) {
+	if (cpuThread != NULL) {
 		return cpuThread->get_id() == std::this_thread::get_id();
 	} else {
 		return false;
@@ -270,7 +270,7 @@ bool PSP_IsInited() {
 void PSP_Shutdown() {
 	if (coreState == CORE_RUNNING)
 		coreState = CORE_ERROR;
-	if (g_Config.bSeparateCPUThread) {
+	if (cpuThread != NULL) {
 		CPU_SetState(CPU_THREAD_SHUTDOWN);
 		CPU_WaitStatus(&CPU_IsShutdown);
 		delete cpuThread;
@@ -284,7 +284,7 @@ void PSP_Shutdown() {
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
 
-	if (g_Config.bSeparateCPUThread) {
+	if (cpuThread != NULL) {
 		cpuThreadUntil = globalticks;
 		if (CPU_NextState(CPU_THREAD_RUNNING, CPU_THREAD_EXECUTE)) {
 			// The CPU doesn't actually respect cpuThreadUntil well, especially when skipping frames.
