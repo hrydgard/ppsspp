@@ -584,6 +584,9 @@ void GPUCommon::RunEventsUntil(u64 globalticks) {
 				globalticks = 0;
 				break;
 
+			case GPU_EVENT_SYNC_THREAD:
+				break;
+
 			default:
 				ProcessEvent(ev);
 			}
@@ -613,6 +616,10 @@ void GPUCommon::SyncThread() {
 		return;
 	}
 
+	// It could be that we are *currently* processing the last event.
+	// The events queue will be empty (HasEvents() = false), but it's not done.
+	// So we schedule a nothing event and wait for that to finish.
+	ScheduleEvent(GPU_EVENT_SYNC_THREAD);
 	while (HasEvents() && coreState == CORE_RUNNING) {
 		eventsDrain.wait_for(eventsDrainLock, 1);
 	};
