@@ -253,10 +253,6 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	}
 }
 
-static u32 GetClutAddr() {
-	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
-}
-
 static u32 GetClutIndex(u32 index) {
     const u32 clutBase = gstate.getClutIndexStartPos();
     const u32 clutMask = gstate.getClutIndexMask();
@@ -876,10 +872,10 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLe
 }
 
 void TextureCache::LoadClut() {
-	u32 clutAddr = GetClutAddr();
+	u32 clutAddr = ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
 	clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
 	if (Memory::IsValidAddress(clutAddr)) {
-		Memory::Memcpy(clutBufRaw_, clutAddr, clutTotalBytes_);
+		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, clutTotalBytes_);
 	} else {
 		memset(clutBufRaw_, 0xFF, clutTotalBytes_);
 	}
