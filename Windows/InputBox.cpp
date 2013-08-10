@@ -4,12 +4,14 @@
 
 static TCHAR textBoxContents[256];
 static TCHAR out[256];
+static TCHAR windowTitle[256];
 
 static INT_PTR CALLBACK InputBoxFunc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message) {
 	case WM_INITDIALOG:
 		SetWindowText(GetDlgItem(hDlg,IDC_INPUTBOX),textBoxContents);
+		SetWindowText(hDlg, windowTitle);
 		return TRUE;
 	case WM_COMMAND:
 		switch (wParam)
@@ -43,6 +45,32 @@ bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defa
 	if (IDOK==DialogBox(hInst,(LPCSTR)IDD_INPUTBOX,hParent,InputBoxFunc))
 	{
 		strcpy(outvalue,out);
+		return true;
+	}
+	else 
+		return false;
+}
+
+bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defaultvalue, TCHAR *outvalue, size_t outlength)
+{
+	const char *defaultTitle = "Input value";
+
+	if (defaultvalue && strlen(defaultvalue)<255)
+		strcpy(textBoxContents,defaultvalue);
+	else
+		strcpy(textBoxContents,"");
+
+
+	if(title && strlen(title) <= 0)
+		strcpy(windowTitle, defaultTitle);
+	else if(title && strlen(title) < 255)
+		strcpy(windowTitle, title);
+	else
+		strcpy(windowTitle, defaultTitle);
+
+	if (IDOK==DialogBox(hInst,(LPCSTR)IDD_INPUTBOX,hParent,InputBoxFunc))
+	{
+		strncpy(outvalue, out, outlength);
 		return true;
 	}
 	else 

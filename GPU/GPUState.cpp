@@ -28,6 +28,25 @@ GPUStateCache gstate_c;
 GPUInterface *gpu;
 GPUStatistics gpuStats;
 
+void GPU_Init() {
+	switch (PSP_CoreParameter().gpuCore) {
+	case GPU_NULL:
+		gpu = new NullGPU();
+		break;
+	case GPU_GLES:
+		gpu = new GLES_GPU();
+		break;
+	case GPU_SOFTWARE:
+		gpu = new NullGPU();
+		break;
+	}
+}
+
+void GPU_Shutdown() {
+	delete gpu;
+	gpu = 0;
+}
+
 void InitGfxState()
 {
 	memset(&gstate, 0, sizeof(gstate));
@@ -56,24 +75,10 @@ void InitGfxState()
 	for (int i = 0; i < 8; i++) {
 		memcpy(gstate.boneMatrix + i * 12, identity4x3, 12 * sizeof(float));
 	}
-
-	switch (PSP_CoreParameter().gpuCore) {
-	case GPU_NULL:
-		gpu = new NullGPU();
-		break;
-	case GPU_GLES:
-		gpu = new GLES_GPU();
-		break;
-	case GPU_SOFTWARE:
-		gpu = new NullGPU();
-		break;
-	}
 }
 
 void ShutdownGfxState()
 {
-	delete gpu;
-	gpu = NULL;
 }
 
 // When you have changed state outside the psp gfx core,
@@ -82,40 +87,5 @@ void ReapplyGfxState()
 {
 	if (!gpu)
 		return;
-	// ShaderManager_DirtyShader();
-	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
-	// To be safe we pass 0xFFFFFFF as the diff.
-	/*
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_BLENDMODE], 0xFFFFFFFF);
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ZTEST], 0xFFFFFFFF);
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_ZTESTENABLE], 0xFFFFFFFF);
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_CULL], 0xFFFFFFFF);
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_CULLFACEENABLE], 0xFFFFFFFF);
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR1], 0xFFFFFFFF);
-	gpu->ExecuteOp(gstate.cmdmem[GE_CMD_SCISSOR2], 0xFFFFFFFF);
-	*/
-
-	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++)
-	{
-		if(i != GE_CMD_ORIGIN)
-		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);		
-	}
-
-	// Can't write to bonematrixnumber here
-
-	for (int i = GE_CMD_MORPHWEIGHT0; i < GE_CMD_PATCHFACING; i++)
-	{
-		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
-	}
-
-	// There are a few here in the middle that we shouldn't execute...
-
-	for (int i = GE_CMD_VIEWPORTX1; i < GE_CMD_TRANSFERSTART; i++)
-	{
-		gpu->ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
-	}
-
-	// TODO: there's more...
+	gpu->ReapplyGfxState();
 }

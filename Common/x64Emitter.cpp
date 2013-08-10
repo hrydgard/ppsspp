@@ -1298,6 +1298,7 @@ void XEmitter::CVTSI2SS(X64Reg xregdest, OpArg arg) {WriteSSEOp(32, 0x2A, false,
 void XEmitter::CVTSS2SI(X64Reg xregdest, OpArg arg) {WriteSSEOp(32, 0x2D, false, xregdest, arg);}
 void XEmitter::CVTTSS2SI(X64Reg xregdest, OpArg arg) {WriteSSEOp(32, 0x2C, false, xregdest, arg);}
 void XEmitter::CVTTPS2DQ(X64Reg xregdest, OpArg arg) {WriteSSEOp(32, 0x5B, false, xregdest, arg);}
+void XEmitter::CVTTSD2SI(X64Reg xregdest, OpArg arg) {WriteSSEOp(64, 0x2C, false, xregdest, arg);}
 
 void XEmitter::MASKMOVDQU(X64Reg dest, X64Reg src)  {WriteSSEOp(64, sseMASKMOVDQU, true, dest, R(src));}
 

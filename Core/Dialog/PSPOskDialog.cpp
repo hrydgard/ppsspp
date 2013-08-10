@@ -27,6 +27,10 @@
 #include "Common/ChunkFile.h"
 #include "GPU/GPUState.h"
 
+#ifdef _WIN32
+#include "Core/Host.h"
+#endif
+
 #ifndef _WIN32
 #include <ctype.h>
 #include <math.h>
@@ -687,7 +691,7 @@ void PSPOskDialog::RenderKeyboard()
 
 				if(isCombinated == true)
 				{
-					float animStep = (float)(gpuStats.numFrames % 40) / 20.0f;
+					float animStep = (float)(gpuStats.numVBlanks % 40) / 20.0f;
 					// Fade in and out the next character so they know it's not part of the string yet.
 					u32 alpha = (0.5f - (cosf(animStep * M_PI) / 2.0f)) * 128 + 127;
 					color = CalcFadedColor((alpha << 24) | 0xFFFFFF);
@@ -732,11 +736,93 @@ void PSPOskDialog::RenderKeyboard()
 	}
 }
 
+#ifdef _WIN32
+// TODO: Why does this have a 2 button press lag/delay when
+// re-opening the dialog box? I don't get it.
+// TODO: Use a wstring to allow Japanese/Russian/etc.. on _WIN32(others?)
+int PSPOskDialog::NativeKeyboard()
+{
+	char *input = new char[FieldMaxLength()];
+	memset(input, 0, sizeof(input));
+
+	if (status == SCE_UTILITY_STATUS_INITIALIZE)
+	{
+		status = SCE_UTILITY_STATUS_RUNNING;
+	}
+
+	else if (status == SCE_UTILITY_STATUS_RUNNING)
+	{
+		
+		std::string initial_text;
+		ConvertUCS2ToUTF8(initial_text, oskParams->fields[0].intext);
+
+		const size_t defaultText_len = 512;
+		char defaultText[defaultText_len];
+
+		memset(defaultText, 0, sizeof(defaultText));
+
+		if(initial_text.length() < defaultText_len)
+			strncat(defaultText, initial_text.c_str(), strlen(initial_text.c_str()));
+		else {
+			ERROR_LOG(HLE, "NativeKeyboard: initial text length is too long");
+			strncat(defaultText, "VALUE", strlen("VALUE"));
+		}
+
+		char windowTitle[defaultText_len];
+		memset(windowTitle, 0, sizeof(windowTitle));
+
+		std::string description_text;
+		ConvertUCS2ToUTF8(description_text, oskParams->fields[0].desc);
+
+		if(description_text.length() < defaultText_len)
+			strncat(windowTitle, description_text.c_str(), strlen(description_text.c_str()));
+
+		size_t maxInputLength = FieldMaxLength();
+
+		if(host->InputBoxGetString(windowTitle, defaultText, input, maxInputLength)) {
+			strncat(input, "", strlen(""));
+		}
+
+		status = SCE_UTILITY_STATUS_FINISHED;
+	}
+	else if (status == SCE_UTILITY_STATUS_FINISHED)
+	{
+		status = SCE_UTILITY_STATUS_SHUTDOWN;
+	}
+	
+	u16_le *outText = oskParams->fields[0].outtext;
+	for (u32 i = 0, end = oskParams->fields[0].outtextlength; i < end; ++i)
+	{
+		u16 value = 0;
+		if (i < ARRAY_SIZE(input))
+			value = input[i];
+		outText[i] = value;
+	}
+
+	oskParams->base.result = 0;
+	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
+
+	delete [] input;
+	input = NULL;
+
+	return 0;
+}
+#endif
+
 int PSPOskDialog::Update()
 {
 	buttons = __CtrlReadLatch();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
+
+	// TODO: Add your platforms here when you have a NativeKeyboard func.
+
+#ifdef _WIN32
+	// Fall back to the OSK/continue normally if we're in fullscreen. The dialog box
+	// doesn't work right if in fullscreen.
+	if(g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
+		return NativeKeyboard();
+#endif
 
 	u32 limit = FieldMaxLength();
 

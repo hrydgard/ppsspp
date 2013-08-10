@@ -1,8 +1,106 @@
 #pragma once
 
-#include "GPUInterface.h"
+#include "native/base/mutex.h"
+#include "GPU/GPUInterface.h"
+#include "Core/CoreTiming.h"
+#include <deque>
 
-class GPUCommon : public GPUInterface
+template <typename B, typename Event, typename EventType, EventType EVENT_INVALID, EventType EVENT_SYNC, EventType EVENT_FINISH>
+struct ThreadEventQueue : public B {
+	void SetThreadEnabled(bool threadEnabled) {
+		threadEnabled_ = threadEnabled;
+	}
+
+	void ScheduleEvent(Event ev) {
+		{
+			lock_guard guard(eventsLock_);
+			events_.push_back(ev);
+			eventsWait_.notify_one();
+		}
+
+		if (!threadEnabled_) {
+			RunEventsUntil(0);
+		}
+	}
+
+	bool HasEvents() {
+		lock_guard guard(eventsLock_);
+		return !events_.empty();
+	}
+
+	Event GetNextEvent() {
+		lock_guard guard(eventsLock_);
+		if (events_.empty()) {
+			eventsDrain_.notify_one();
+			return EVENT_INVALID;
+		}
+
+		Event ev = events_.front();
+		events_.pop_front();
+		return ev;
+	}
+
+	void RunEventsUntil(u64 globalticks) {
+		do {
+			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
+				switch (EventType(ev)) {
+				case EVENT_FINISH:
+					// Stop waiting.
+					globalticks = 0;
+					break;
+
+				case EVENT_SYNC:
+					break;
+
+				default:
+					ProcessEvent(ev);
+				}
+			}
+
+			// Quit the loop if the queue is drained and coreState has tripped, or threading is disabled.
+			if (coreState != CORE_RUNNING || !threadEnabled_) {
+				return;
+			}
+
+			// coreState changes won't wake us, so recheck periodically.
+			eventsWait_.wait_for(eventsWaitLock_, 1);
+		} while (CoreTiming::GetTicks() < globalticks);
+	}
+
+	void SyncThread() {
+		if (!threadEnabled_) {
+			return;
+		}
+
+		// While processing the last event, HasEvents() will be false even while not done.
+		// So we schedule a nothing event and wait for that to finish.
+		ScheduleEvent(EVENT_SYNC);
+		while (HasEvents() && coreState == CORE_RUNNING) {
+			eventsDrain_.wait_for(eventsDrainLock_, 1);
+		}
+	}
+
+	void FinishEventLoop() {
+		if (threadEnabled_) {
+			ScheduleEvent(EVENT_FINISH);
+		}
+	}
+
+protected:
+	virtual void ProcessEvent(Event ev) = 0;
+
+private:
+	bool threadEnabled_;
+	std::deque<Event> events_;
+	recursive_mutex eventsLock_;
+	recursive_mutex eventsWaitLock_;
+	recursive_mutex eventsDrainLock_;
+	condition_variable eventsWait_;
+	condition_variable eventsDrain_;
+};
+typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
+
+class GPUCommon : public GPUThreadEventQueue
 {
 public:
 	GPUCommon();
@@ -28,6 +126,7 @@ public:
 	virtual bool FramebufferDirty() { return true; }
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
+	virtual void ReapplyGfxState();
 
 protected:
 	// To avoid virtual calls to PreExecuteOp().
@@ -37,12 +136,36 @@ protected:
 	void UpdateState(GPUState state);
 	void PopDLQueue();
 	void CheckDrawSync();
+	int  GetNextListIndex();
+	void ProcessDLQueueInternal();
+	void ReapplyGfxStateInternal();
+	virtual void ProcessEvent(GPUEvent ev);
+
+	// Allows early unlocking with a guard.  Do not double unlock.
+	class easy_guard {
+	public:
+		easy_guard(recursive_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
+		~easy_guard() { if (locked_) mtx_.unlock(); }
+		void unlock() { if (locked_) mtx_.unlock(); else Crash(); locked_ = false; }
+
+	private:
+		recursive_mutex &mtx_;
+		bool locked_;
+	};
 
 	typedef std::list<int> DisplayListQueue;
 
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
+	recursive_mutex listLock;
+
+	std::deque<GPUEvent> events;
+	recursive_mutex eventsLock;
+	recursive_mutex eventsWaitLock;
+	recursive_mutex eventsDrainLock;
+	condition_variable eventsWait;
+	condition_variable eventsDrain;
 
 	bool interruptRunning;
 	GPUState gpuState;

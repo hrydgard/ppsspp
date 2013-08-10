@@ -606,55 +606,96 @@ void Jit::Comp_VCrossQuat(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
+void Jit::Comp_Vcmov(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+	int tf = (op >> 19) & 1;
+	int imm3 = (op >> 16) & 7;
+
+	for (int i = 0; i < n; ++i) {
+		// Simplification: Disable if overlap unsafe
+		if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
+			DISABLE;
+		}
+	}
+
+	if (imm3 < 6) {
+		// Test one bit of CC. This bit decides whether none or all subregisters are copied.
+		TEST(32, M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(1 << imm3));
+		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
+		FixupBranch skip = J_CC(tf ? CC_NZ : CC_Z, true);
+		for (int i = 0; i < n; i++) {
+			MOVSS(fpr.VX(dregs[i]), fpr.V(sregs[i]));
+		}
+		SetJumpTarget(skip);
+	} else {
+		// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
+		MOV(32, R(EAX), M(&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]));
+
+		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
+		for (int i = 0; i < n; i++) {
+			TEST(32, R(EAX), Imm32(1 << i));
+			FixupBranch skip = J_CC(tf ? CC_NZ : CC_Z, true);
+			MOVSS(fpr.VX(dregs[i]), fpr.V(sregs[i]));
+			SetJumpTarget(skip);
+		}
+	}
+	fpr.ReleaseSpillLocks();
+}
+
 void Jit::Comp_VecDo3(u32 op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	void (XEmitter::*xmmop)(X64Reg, OpArg) = NULL;
-	switch (op >> 26)
-	{
+	// Check that we can support the ops, and prepare temporary values for ops that need it.
+	switch (op >> 26) {
 	case 24: //VFPU0
-		switch ((op >> 23)&7)
-		{
+		switch ((op >> 23) & 7) {
 		case 0: // d[i] = s[i] + t[i]; break; //vadd
-			xmmop = &XEmitter::ADDSS;
-			break;
 		case 1: // d[i] = s[i] - t[i]; break; //vsub
-			xmmop = &XEmitter::SUBSS;
-			break;
 		case 7: // d[i] = s[i] / t[i]; break; //vdiv
-			xmmop = &XEmitter::DIVSS;
 			break;
+		default:
+			DISABLE;
 		}
 		break;
 	case 25: //VFPU1
-		switch ((op >> 23) & 7)
-		{
+		switch ((op >> 23) & 7) {
 		case 0: // d[i] = s[i] * t[i]; break; //vmul
-			xmmop = &XEmitter::MULSS;
 			break;
+		default:
+			DISABLE;
 		}
 		break;
 	case 27: //VFPU3
-		switch ((op >> 23) & 3)
-		{
+		switch ((op >> 23) & 3) {
 		case 2:  // vmin
-			xmmop = &XEmitter::MINSS;
-			break;
 		case 3:  // vmax
-			xmmop = &XEmitter::MAXSS;
 			break;
+		case 6:  // vsge
+		case 7:  // vslt
+			DISABLE;  // Something is wrong :/
+			MOVSS(XMM0, M((void *)&one));
+			break;
+		default:
+			DISABLE;
 		}
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"invalid VecDo3");
+		DISABLE;
 		break;
 	}
-
-	if (xmmop == NULL)
-		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
@@ -694,8 +735,50 @@ void Jit::Comp_VecDo3(u32 op) {
 			MOVSS(tempxregs[i], fpr.V(sregs[i]));
 	}
 
-	for (int i = 0; i < n; ++i)
-		(this->*xmmop)(tempxregs[i], fpr.V(tregs[i]));
+	for (int i = 0; i < n; ++i) {
+		switch (op >> 26) {
+		case 24: //VFPU0
+			switch ((op >> 23) & 7) {
+			case 0: // d[i] = s[i] + t[i]; break; //vadd
+				ADDSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 1: // d[i] = s[i] - t[i]; break; //vsub
+				SUBSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 7: // d[i] = s[i] / t[i]; break; //vdiv
+				DIVSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			}
+			break;
+		case 25: //VFPU1
+			switch ((op >> 23) & 7)
+			{
+			case 0: // d[i] = s[i] * t[i]; break; //vmul
+				MULSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			}
+			break;
+		case 27: //VFPU3
+			switch ((op >> 23) & 3)
+			{
+			case 2:  // vmin
+				MINSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 3:  // vmax
+				MAXSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 6:  // vsge
+				CMPNLTSS(tempxregs[i], fpr.V(tregs[i]));
+				ANDPS(tempxregs[i], R(XMM0));
+				break;
+			case 7:  // vslt
+				CMPLTSS(tempxregs[i], fpr.V(tregs[i]));
+				ANDPS(tempxregs[i], R(XMM0));
+				break;
+			}
+			break;
+		}
+	}
 
 	for (int i = 0; i < n; ++i)
 	{
@@ -707,18 +790,6 @@ void Jit::Comp_VecDo3(u32 op) {
 
 	fpr.ReleaseSpillLocks();
 }
-
-enum
-{
-	CMPEQSS = 0,
-	CMPLTSS = 1,
-	CMPLESS = 2,
-	CMPUNORDSS = 3,
-	CMPNEQSS = 4,
-	CMPNLTSS = 5,
-	CMPNLESS = 6,
-	CMPORDSS = 7,
-};
 
 static float ssCompareTemp;
 
@@ -749,13 +820,22 @@ void Jit::Comp_Vcmp(u32 op) {
 	}
 
 	// First, let's get the trivial ones.
-	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
+
+	static const int true_bits[4] = {0x31, 0x33, 0x37, 0x3f};
+
+	if (cond == VC_TR) {
+		OR(32, M((void*)&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(true_bits[n-1]));
+		return;
+	} else if (cond == VC_FL) {
+		AND(32, M((void*)&currentMIPS->vfpuCtrl[VFPU_CTRL_CC]), Imm32(~true_bits[n-1]));
+		return;
+	}
 
 	gpr.FlushLockX(ECX);
-	XOR(32, R(ECX), R(ECX));
 	if (cond == VC_EZ || cond == VC_NZ)
 		XORPS(XMM0, R(XMM0));
 
+	int affected_bits = (1 << 4) | (1 << 5);  // 4 and 5
 	for (int i = 0; i < n; ++i) {
 		fpr.MapRegV(sregs[i], 0);
 		// Let's only handle the easy ones, and fall back on the interpreter for the rest.
@@ -764,52 +844,45 @@ void Jit::Comp_Vcmp(u32 op) {
 		int comparison = -1;
 		bool flip = false;
 		switch (cond) {
-		case VC_FL: // c = 0; break;
-			break;
-
-		case VC_TR: // c = 1; break;
-			MOV(32, R(ECX), Imm32(1 << i));
-			break;
-
 		case VC_EQ: // c = s[i] == t[i]; break;
-			comparison = CMPEQSS;
+			comparison = CMP_EQ;
 			compareTwo = true;
 			break;
 
 		case VC_LT: // c = s[i] < t[i]; break;
-			comparison = CMPLTSS;
+			comparison = CMP_LT;
 			compareTwo = true;
 			break;
 
 		case VC_LE: // c = s[i] <= t[i]; break;
-			comparison = CMPLESS;
+			comparison = CMP_LE;
 			compareTwo = true;
 			break;
 
 		case VC_NE: // c = s[i] != t[i]; break;
-			comparison = CMPNEQSS;
+			comparison = CMP_NEQ;
 			compareTwo = true;
 			break;
 
 		case VC_GE: // c = s[i] >= t[i]; break;
-			comparison = CMPLESS;
+			comparison = CMP_LE;
 			flip = true;
 			compareTwo = true;
 			break;
 
 		case VC_GT: // c = s[i] > t[i]; break;
-			comparison = CMPLTSS;
+			comparison = CMP_LT;
 			flip = true;
 			compareTwo = true;
 			break;
 
 		case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f; break;
-			comparison = CMPEQSS;
+			comparison = CMP_EQ;
 			compareToZero = true;
 			break;
 
 		case VC_NZ: // c = s[i] != 0; break;
-			comparison = CMPNEQSS;
+			comparison = CMP_NEQ;
 			compareToZero = true;
 			break;
 
@@ -829,26 +902,25 @@ void Jit::Comp_Vcmp(u32 op) {
 			MOVSS(XMM1, fpr.V(sregs[i]));
 			CMPSS(XMM1, R(XMM0), comparison);
 		}
-		if (compareTwo || compareToZero) {
-			MOVSS(M((void *) &ssCompareTemp), XMM1);
+
+		MOVSS(M((void *) &ssCompareTemp), XMM1);
+		if (i == 0 && n == 1) {
+			MOV(32, R(EAX), M((void *) &ssCompareTemp));
+			AND(32, R(EAX), Imm32(0x31));
+		} else if (i == 0) {
+			MOV(32, R(EAX), M((void *) &ssCompareTemp));
+			AND(32, R(EAX), Imm32(1 << i));
+		} else {
 			MOV(32, R(ECX), M((void *) &ssCompareTemp));
 			AND(32, R(ECX), Imm32(1 << i));
-		}
-
-		if (i == 0) 
-			MOV(32, R(EAX), R(ECX));
-		else
 			OR(32, R(EAX), R(ECX));
-
+		}
 		affected_bits |= 1 << i;
 	}
 
 	// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
 	// after all.
-	if (n == 1) {
-		// Use imul to easily duplicate that bit.
-		IMUL(32, EAX, R(EAX), Imm8(0x31));
-	} else {
+	if (n > 1) {
 		CMP(32, R(EAX), Imm8(affected_bits & 0xF));
 		SETcc(CC_E, R(ECX));
 		SHL(32, R(ECX), Imm8(5));
@@ -867,6 +939,14 @@ void Jit::Comp_Vcmp(u32 op) {
 
 	fpr.ReleaseSpillLocks();
 	gpr.UnlockAllX();
+}
+
+void Jit::Comp_Vsge(u32 op) {
+	DISABLE;
+}
+
+void Jit::Comp_Vslt(u32 op) {
+	DISABLE;
 }
 
 // There are no immediates for floating point, so we need to load these
@@ -898,16 +978,119 @@ void Jit::Comp_Vi2f(u32 op) {
 	GetVectorRegsPrefixS(sregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
-	MOVSS(XMM1, M((void *)mult));
+	int tempregs[4];
+	for (int i = 0; i < n; ++i) {
+		if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+			tempregs[i] = fpr.GetTempV();
+		} else {
+			tempregs[i] = dregs[i];
+		}
+	}
+
+	if (*mult != 1.0f)
+		MOVSS(XMM1, M((void *)mult));
 	for (int i = 0; i < n; i++) {
 		if (fpr.V(sregs[i]).IsSimpleReg())
 			MOVD_xmm(R(EAX), fpr.VX(sregs[i]));
 		else
 			MOV(32, R(EAX), fpr.V(sregs[i]));
 		CVTSI2SS(XMM0, R(EAX));
-		MULSS(XMM0, R(XMM1));
-		fpr.MapRegV(dregs[i], MAP_DIRTY);
-		MOVSS(fpr.V(dregs[i]), XMM0);
+		if (*mult != 1.0f)
+			MULSS(XMM0, R(XMM1));
+		fpr.MapRegV(tempregs[i], MAP_DIRTY);
+		MOVSS(fpr.V(tempregs[i]), XMM0);
+	}
+
+	for (int i = 0; i < n; ++i) {
+		if (dregs[i] != tempregs[i]) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			MOVSS(fpr.VX(dregs[i]), fpr.V(tempregs[i]));
+		}
+	}
+
+	ApplyPrefixD(dregs, sz);
+	fpr.ReleaseSpillLocks();
+}
+
+extern const double mulTableVf2i[32] = {
+	(1ULL<<0),(1ULL<<1),(1ULL<<2),(1ULL<<3),
+	(1ULL<<4),(1ULL<<5),(1ULL<<6),(1ULL<<7),
+	(1ULL<<8),(1ULL<<9),(1ULL<<10),(1ULL<<11),
+	(1ULL<<12),(1ULL<<13),(1ULL<<14),(1ULL<<15),
+	(1ULL<<16),(1ULL<<17),(1ULL<<18),(1ULL<<19),
+	(1ULL<<20),(1ULL<<21),(1ULL<<22),(1ULL<<23),
+	(1ULL<<24),(1ULL<<25),(1ULL<<26),(1ULL<<27),
+	(1ULL<<28),(1ULL<<29),(1ULL<<30),(1ULL<<31),
+};
+
+static const float half = 0.5f;
+
+static double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
+static double minIntAsDouble = (double)(int)0x80000000;
+
+void Jit::Comp_Vf2i(u32 op) {
+	CONDITIONAL_DISABLE;
+	if (js.HasUnknownPrefix())
+		DISABLE;
+
+	VectorSize sz = GetVecSize(op);
+	int n = GetNumVectorElements(sz);
+
+	int imm = (op >> 16) & 0x1f;
+	const double *mult = &mulTableVf2i[imm];
+
+	switch ((op >> 21) & 0x1f)
+	{
+	case 17:
+		break; //z - truncate. Easy to support.
+	case 16:
+	case 18:
+	case 19:
+		DISABLE;
+		break;
+	}
+
+	u8 sregs[4], dregs[4];
+	GetVectorRegsPrefixS(sregs, sz, _VS);
+	GetVectorRegsPrefixD(dregs, sz, _VD);
+
+	u8 tempregs[4];
+	for (int i = 0; i < n; ++i) {
+		if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+			tempregs[i] = fpr.GetTempV();
+		} else {
+			tempregs[i] = dregs[i];
+		}
+	}
+
+	if (*mult != 1.0f)
+		MOVSD(XMM1, M((void *)mult));
+
+	fpr.MapRegsV(tempregs, sz, MAP_DIRTY | MAP_NOINIT);
+	for (int i = 0; i < n; i++) {
+		// Need to do this in double precision to clamp correctly as float
+		// doesn't have enough precision to represent 0x7fffffff for example exactly.
+		MOVSS(XMM0, fpr.V(sregs[i]));
+		CVTSS2SD(XMM0, R(XMM0)); // convert to double precision
+		if (*mult != 1.0f) {
+			MULSD(XMM0, R(XMM1));
+		}
+		MINSD(XMM0, M((void *)&maxIntAsDouble));
+		MAXSD(XMM0, M((void *)&minIntAsDouble));
+		switch ((op >> 21) & 0x1f) {
+		case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+		case 17: CVTTSD2SI(EAX, R(XMM0)); break; //z - truncate
+		case 18: /* TODO */ break; //u
+		case 19: /* TODO */ break; //d
+		}
+		MOVD_xmm(fpr.VX(tempregs[i]), R(EAX));
+	}
+
+	for (int i = 0; i < n; ++i) {
+		if (dregs[i] != tempregs[i]) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			MOVSS(fpr.VX(dregs[i]), fpr.V(tempregs[i]));
+		}
 	}
 
 	ApplyPrefixD(dregs, sz);
@@ -1454,23 +1637,7 @@ void Jit::Comp_Vx2i(u32 op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vf2i(u32 op) {
-	DISABLE;
-}
-
 void Jit::Comp_Vhoriz(u32 op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vcmov(u32 op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vsge(u32 op) {
-	DISABLE;
-}
-
-void Jit::Comp_Vslt(u32 op) {
 	DISABLE;
 }
 

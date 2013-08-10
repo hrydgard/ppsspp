@@ -99,8 +99,7 @@ void RunTests()
 		while (true) {
 			int blockTicks = usToCycles(1000000 / 10);
 			while (coreState == CORE_RUNNING) {
-				u64 nowTicks = CoreTiming::GetTicks();
-				mipsr4k.RunLoopUntil(nowTicks + blockTicks);
+				PSP_RunLoopFor(blockTicks);
 			}
 			// Hopefully coreState is now CORE_NEXTFRAME
 			if (coreState == CORE_NEXTFRAME) {

@@ -145,7 +145,7 @@ void MainWindow::UpdateMenus()
 
 	ui->action_OptionsBufferedRendering->setChecked(g_Config.iRenderingMode == 1);
 	ui->action_OptionsLinearFiltering->setChecked(3 == g_Config.iTexFiltering);
-	ui->action_Simple_2xAA->setChecked(g_Config.SSAntiAliasing);
+	ui->action_Simple_2xAA->setChecked(g_Config.bAntiAliasing);
 
 	ui->action_OptionsScreen1x->setChecked(0 == (g_Config.iWindowZoom - 1));
 	ui->action_OptionsScreen2x->setChecked(1 == (g_Config.iWindowZoom - 1));
@@ -505,7 +505,7 @@ void MainWindow::on_action_OptionsLinearFiltering_triggered()
 
 void MainWindow::on_action_Simple_2xAA_triggered()
 {
-	g_Config.SSAntiAliasing = !g_Config.SSAntiAliasing;
+	g_Config.bAntiAliasing = !g_Config.bAntiAliasing;
 	UpdateMenus();
 }
 
@@ -601,7 +601,7 @@ void MainWindow::on_action_OptionsFullScreen_triggered()
 		PSP_CoreParameter().outputHeight = height;
 
 		int antialias = 1;
-		if (g_Config.SSAntiAliasing) antialias = 2;
+		if (g_Config.bAntiAliasing) antialias = 2;
 		PSP_CoreParameter().renderWidth = width * antialias;
 		PSP_CoreParameter().renderHeight = height * antialias;
 
@@ -748,7 +748,7 @@ void MainWindow::SetZoom(float zoom) {
 	PSP_CoreParameter().outputWidth = pixel_xres;
 	PSP_CoreParameter().outputHeight = pixel_yres;
 
-	if (g_Config.SSAntiAliasing)
+	if (g_Config.bAntiAliasing)
 	{
 		zoom *= 2;
 		PSP_CoreParameter().renderWidth = 480 * zoom;

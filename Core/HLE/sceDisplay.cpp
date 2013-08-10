@@ -80,6 +80,7 @@ static int height;
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
 static double nextFrameTime;
+static int numVBlanksSinceFlip;
 
 static u64 frameStartTicks;
 const float hCountPerVblank = 285.72f; // insprired by jpcsp
@@ -108,7 +109,6 @@ static double fpsHistory[120];
 static size_t fpsHistoryPos = 0;
 static size_t fpsHistoryValid = 0;
 static int lastNumFlips = 0;
-static int numFlips = 0;
 static float flips = 0.0f;
 static u64 lastFlipCycles = 0;
 
@@ -117,7 +117,7 @@ void hleLeaveVblank(u64 userdata, int cyclesLate);
 void hleAfterFlip(u64 userdata, int cyclesLate);
 
 void __DisplayInit() {
-	gpuStats.reset();
+	gpuStats.Reset();
 	hasSetMode = false;
 	mode = 0;
 	resumeMode = 0;
@@ -125,6 +125,7 @@ void __DisplayInit() {
 	width = 480;
 	height = 272;
 	numSkippedFrames = 0;
+	numVBlanksSinceFlip = 0;
 	framebufIsLatched = false;
 	framebuf.topaddr = 0x04000000;
 	framebuf.pspFramebufFormat = GE_FORMAT_8888;
@@ -231,12 +232,12 @@ void CalculateFPS()
 
 	if (now >= lastFpsTime + 1.0)
 	{
-		double frames = (gpuStats.numFrames - lastFpsFrame);
+		double frames = (gpuStats.numVBlanks - lastFpsFrame);
 		fps = frames / (now - lastFpsTime);
-		flips = 60.0 * (double) (numFlips - lastNumFlips) / frames;
+		flips = 60.0 * (double) (gpuStats.numFlips - lastNumFlips) / frames;
 
-		lastFpsFrame = gpuStats.numFrames;
-		lastNumFlips = numFlips;
+		lastFpsFrame = gpuStats.numVBlanks;
+		lastNumFlips = gpuStats.numFlips;
 		lastFpsTime = now;
 
 		fpsHistory[fpsHistoryPos++] = fps;
@@ -245,8 +246,7 @@ void CalculateFPS()
 	}
 }
 
-void __DisplayGetDebugStats(char stats[2048])
-{
+void __DisplayGetDebugStats(char stats[2048]) {
 	gpu->UpdateStats();
 
 	float vertexAverageCycles = gpuStats.numVertsSubmitted > 0 ? (float)gpuStats.vertexGPUCycles / (float)gpuStats.numVertsSubmitted : 0.0f;
@@ -270,7 +270,7 @@ void __DisplayGetDebugStats(char stats[2048])
 		"Vertex shaders loaded: %i\n"
 		"Fragment shaders loaded: %i\n"
 		"Combined shaders loaded: %i\n",
-		gpuStats.numFrames,
+		gpuStats.numVBlanks,
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		kernelStats.msInSyscalls * 1000.0f,
 		kernelStats.slowestSyscallName ? kernelStats.slowestSyscallName : "(none)",
@@ -295,7 +295,7 @@ void __DisplayGetDebugStats(char stats[2048])
 		gpuStats.numShaders
 		);
 
-	gpuStats.resetFrame();
+	gpuStats.ResetFrame();
 	kernelStats.ResetFrame();
 }
 
@@ -306,7 +306,7 @@ enum {
 };
 
 // Let's collect all the throttling and frameskipping logic here.
-void DoFrameTiming(bool &throttle, bool &skipFrame) {
+void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
 	throttle = !PSP_CoreParameter().unthrottle && fpsLimiter != FPS_LIMIT_TURBO;
 	skipFrame = false;
@@ -335,7 +335,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	
 	curFrameTime = time_now_d();
 	if (nextFrameTime == 0.0)
-		nextFrameTime = time_now_d() + 1.0 / 60.0;
+		nextFrameTime = time_now_d() + timestep;
 	
 	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
@@ -347,8 +347,8 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 	if (curFrameTime < nextFrameTime && throttle)
 	{
 		// If time gap is huge just jump (somebody unthrottled)
-		if (nextFrameTime - curFrameTime > 1.0 / 30.0) {
-			nextFrameTime = curFrameTime + 1.0 / 60.0;
+		if (nextFrameTime - curFrameTime > 2*timestep) {
+			nextFrameTime = curFrameTime + timestep;
 		} else {
 			// Wait until we've caught up.
 			while (time_now_d() < nextFrameTime) {
@@ -364,12 +364,12 @@ void DoFrameTiming(bool &throttle, bool &skipFrame) {
 
 	// 3 states of fps limiter
 	if (fpsLimiter == FPS_LIMIT_NORMAL) {
-		nextFrameTime = std::max(nextFrameTime + 1.0 / 60.0, time_now_d() - maxFallBehindFrames / 60.0);
+		nextFrameTime = std::max(nextFrameTime + timestep, time_now_d() - maxFallBehindFrames * timestep);
 	} else if (fpsLimiter == FPS_LIMIT_CUSTOM) {
 		double customLimiter = g_Config.iFpsLimit;
 		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
 	} else {
-		nextFrameTime = nextFrameTime + 1.0 / 60.0;
+		nextFrameTime = nextFrameTime + timestep;
 	}
 
 	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
@@ -407,53 +407,54 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
-		framebuf = latchedFramebuf;
-		framebufIsLatched = false;
-		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+		if (latchedFramebuf.topaddr != framebuf.topaddr) {
+			framebuf = latchedFramebuf;
+			framebufIsLatched = false;
+			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+			gpuStats.numFlips++;
+		}
 	}
 
-	gpuStats.numFrames++;
+	gpuStats.numVBlanks++;
+
+	numVBlanksSinceFlip++;
 
 	if (g_Config.iShowFPSCounter) {
 		CalculateFPS();
 	}
 
-	bool skipFlip = false;
+	// We flip only if the framebuffer was dirty. This eliminates flicker when using
+	// non-buffered rendering. The interaction with frame skipping seems to need
+	// some work.
+	if (gpu->FramebufferDirty()) {
+		bool wasSkipped = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0;
+		gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
-	// This frame was skipped, so no need to flip.
-	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
-		skipFlip = true;
-	}
+		bool throttle, skipFrame;
+		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.0f / 60.0f));
 
-	// Draw screen overlays before blitting. Saves and restores the Ge context.
-	// Yeah, this has to be the right moment to end the frame. Give the graphics backend opportunity
-	// to blit the framebuffer, in order to support half-framerate games that otherwise wouldn't have
-	// anything to draw here.
-	gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
+		if (skipFrame) {
+			gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
+			numSkippedFrames++;
+		} else {
+			numSkippedFrames = 0;
+		}
 
-	bool throttle, skipFrame;
-	DoFrameTiming(throttle, skipFrame);
-
-	if (skipFrame) {
-		gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
-		numSkippedFrames++;
-	} else {
-		numSkippedFrames = 0;
-	}
-
-	if (!skipFlip) {
 		// Setting CORE_NEXTFRAME causes a swap.
 		// Check first though, might've just quit / been paused.
-		if (coreState == CORE_RUNNING && gpu->FramebufferDirty()) {
-			coreState = CORE_NEXTFRAME;
-			gpu->CopyDisplayToOutput();
+		if (!wasSkipped) {
+			if (coreState == CORE_RUNNING) {
+				coreState = CORE_NEXTFRAME;
+				gpu->CopyDisplayToOutput();
+			}
 		}
-	}
 
-	// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
-	// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
-	// place to do housekeeping.
-	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
+		// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
+		// Right after, we regain control for a little bit in hleAfterFlip. I think that's a great
+		// place to do housekeeping.
+		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
+		numVBlanksSinceFlip = 0;
+	}
 }
 
 void hleAfterFlip(u64 userdata, int cyclesLate)
@@ -498,7 +499,6 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	}
 
 	if (topaddr != framebuf.topaddr) {
-		++numFlips;
 		if (g_Config.iForceMaxEmulatedFPS) {
 			u64 now = CoreTiming::GetTicks();
 			u64 expected = msToCycles(1000) / g_Config.iForceMaxEmulatedFPS;
@@ -512,8 +512,11 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
 		if (topaddr != 0) {
-			framebuf = fbstate;
-			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+			if (topaddr != framebuf.topaddr) {
+				framebuf = fbstate;
+				gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
+				gpuStats.numFlips++;
+			}
 		} else {
 			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
 		}

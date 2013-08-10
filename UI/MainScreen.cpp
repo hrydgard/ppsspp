@@ -409,7 +409,13 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
-	screenManager()->push(new GameScreen(e.s));
+	if(g_Config.bDirectLoad) {
+		// Go directly into the game.
+		screenManager()->switchScreen(new EmuScreen(e.s));
+	} else {
+		// Goto Game Menu.
+		screenManager()->push(new GameScreen(e.s));
+	}
 	return UI::EVENT_DONE;
 }
 

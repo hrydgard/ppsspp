@@ -9,7 +9,6 @@
 #include "Core/CoreTiming.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
-#include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
 #include "Log.h"
 #include "LogManager.h"
@@ -229,10 +228,8 @@ int main(int argc, const char* argv[])
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
 	{
-		// Run for a frame at a time, just because.
-		u64 nowTicks = CoreTiming::GetTicks();
-		u64 frameTicks = usToCycles(1000000/60);
-		mipsr4k.RunLoopUntil(nowTicks + frameTicks);
+		int blockTicks = usToCycles(1000000 / 10);
+		PSP_RunLoopFor(blockTicks);
 
 		// If we were rendering, this might be a nice time to do something about it.
 		if (coreState == CORE_NEXTFRAME) {

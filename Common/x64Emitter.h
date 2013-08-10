@@ -112,6 +112,18 @@ enum NormalOp {
 	nrmXCHG,
 };
 
+enum
+{
+	CMP_EQ = 0,
+	CMP_LT = 1,
+	CMP_LE = 2,
+	CMP_UNORD = 3,
+	CMP_NEQ = 4,
+	CMP_NLT = 5,
+	CMP_NLE = 6,
+	CMP_ORD = 7,
+};
+
 class XEmitter;
 
 // RIP addressing does not benefit from micro op fusion on Core arch
@@ -229,18 +241,6 @@ struct FixupBranch
 {
 	u8 *ptr;
 	int type; //0 = 8bit 1 = 32bit
-};
-
-enum SSECompare
-{
-	EQ = 0,
-	LT,
-	LE,
-	UNORD,
-	NEQ,
-	NLT,
-	NLE,
-	ORD,
 };
 
 typedef const u8* JumpTarget;
@@ -468,6 +468,15 @@ public:
 	void CMPSS(X64Reg regOp, OpArg arg, u8 compare);  
 	void CMPSD(X64Reg regOp, OpArg arg, u8 compare);  
 
+	inline void CMPEQSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_EQ); }
+	inline void CMPLTSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_LT); }
+	inline void CMPLESS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_LE); }
+	inline void CMPUNORDSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_UNORD); }
+	inline void CMPNEQSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_NEQ); }
+	inline void CMPNLTSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_NLT); }
+	inline void CMPORDSS(X64Reg regOp, OpArg arg) { CMPSS(regOp, arg, CMP_ORD); }
+
+
 	// I don't think these exist
 	/*
 	void ANDSD(X64Reg regOp, OpArg arg);  
@@ -572,6 +581,7 @@ public:
 	void CVTSI2SS(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
 	void CVTSS2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
 	void CVTTSS2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
+	void CVTTSD2SI(X64Reg xregdest, OpArg arg);  // Yeah, destination really is a GPR like EAX!
 	void CVTTPS2DQ(X64Reg regOp, OpArg arg);
 
 	// SSE2: Packed integer instructions

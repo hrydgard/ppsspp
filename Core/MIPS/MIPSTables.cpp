@@ -506,10 +506,9 @@ const MIPSInstruction tableVFPU3[8] = //011011 xxx
 	INSTR("vmax",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vminmax, IS_VFPU|OUT_EAT_PREFIX),
 	{-2}, 
 	INSTR("vscmp",&Jit::Comp_Generic, Dis_VectorSet3, Int_Vscmp, IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsge",&Jit::Comp_Vsge, Dis_VectorSet3, Int_Vsge, IS_VFPU|OUT_EAT_PREFIX), 
-	INSTR("vslt",&Jit::Comp_Vslt, Dis_VectorSet3, Int_Vslt, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsge",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vsge, IS_VFPU|OUT_EAT_PREFIX), 
+	INSTR("vslt",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vslt, IS_VFPU|OUT_EAT_PREFIX),
 };
-
 
 const MIPSInstruction tableVFPU4Jump[32] = //110100 xxxxx
 {

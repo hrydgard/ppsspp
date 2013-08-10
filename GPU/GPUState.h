@@ -200,6 +200,9 @@ struct GPUgstate
 	// Cull 
 	bool isCullEnabled() const { return cullfaceEnable & 1; }
 	int getCullMode()   const { return cullmode & 1; }
+	bool isClearModeDepthWriteEnabled() const { return (clearmode&0x400) != 0; }
+	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }
+	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
 	
 	// Blend
 	int getBlendFuncA() const { return blend & 0xF; }
@@ -376,12 +379,12 @@ struct GPUStateCache
 };
 
 // TODO: Implement support for these.
-struct GPUStatistics
-{
-	void reset() {
+struct GPUStatistics {
+	void Reset() {
+		// Never add a vtable :)
 		memset(this, 0, sizeof(*this));
 	}
-	void resetFrame() {
+	void ResetFrame() {
 		numDrawCalls = 0;
 		numCachedDrawCalls = 0;
 		numVertsSubmitted = 0;
@@ -415,13 +418,17 @@ struct GPUStatistics
 	int otherGPUCycles;
 
 	// Total statistics, updated by the GPU core in UpdateStats
-	int numFrames;
+	int numVBlanks;
+	int numFlips;
 	int numTextures;
 	int numVertexShaders;
 	int numFragmentShaders;
 	int numShaders;
 	int numFBOs;
 };
+
+void GPU_Init();
+void GPU_Shutdown();
 
 void InitGfxState();
 void ShutdownGfxState();

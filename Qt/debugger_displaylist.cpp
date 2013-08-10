@@ -13,6 +13,7 @@
 #include "base/display.h"
 #include "mainwindow.h"
 #include "GPU/GLES/VertexDecoder.h"
+#include "ext/glew/GL/glew.h"
 
 
 Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, MainWindow* mainWindow_, QWidget *parent) :

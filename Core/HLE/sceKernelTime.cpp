@@ -28,6 +28,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelTime.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceRtc.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -52,12 +53,6 @@ void __KernelTimeDoState(PointerWrap &p)
 	p.DoMarker("sceKernelTime");
 }
 
-struct SceKernelSysClock
-{
-	u32_le lo;
-	u32_le hi;
-};
-
 int sceKernelGetSystemTime(u32 sysclockPtr)
 {
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
@@ -65,6 +60,7 @@ int sceKernelGetSystemTime(u32 sysclockPtr)
 		Memory::Write_U64(t, sysclockPtr);
 	DEBUG_LOG(HLE, "sceKernelGetSystemTime(out:%16llx)", t);
 	hleEatCycles(265);
+	hleReSchedule("system time");
 	return 0;
 }
 
@@ -74,6 +70,7 @@ u32 sceKernelGetSystemTimeLow()
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
 	VERBOSE_LOG(HLE,"%08x=sceKernelGetSystemTimeLow()",(u32)t);
 	hleEatCycles(165);
+	hleReSchedule("system time");
 	return (u32)t;
 }
 
@@ -82,6 +79,7 @@ u64 sceKernelGetSystemTimeWide()
 	u64 t = CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz();
 	DEBUG_LOG(HLE,"%i=sceKernelGetSystemTimeWide()",(u32)t);
 	hleEatCycles(250);
+	hleReSchedule("system time");
 	return t;
 }
 
@@ -135,6 +133,7 @@ u32 sceKernelLibcClock()
 	u32 retVal = (u32) (CoreTiming::GetTicks() / CoreTiming::GetClockFrequencyMHz());
 	DEBUG_LOG(HLE, "%i = sceKernelLibcClock", retVal);
 	hleEatCycles(330);
+	hleReSchedule("libc clock");
 	return retVal;
 }
 
@@ -151,6 +150,7 @@ u32 sceKernelLibcTime(u32 outPtr)
 	else if (outPtr != 0)
 		return 0;
 
+	hleReSchedule("libc time");
 	return t;
 }
 
@@ -165,5 +165,7 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 
 	DEBUG_LOG(HLE,"sceKernelLibcGettimeofday(%08x, %08x)", timeAddr, tzAddr);
 	hleEatCycles(1885);
-    return 0;
+
+	hleReSchedule("libc timeofday");
+	return 0;
 }

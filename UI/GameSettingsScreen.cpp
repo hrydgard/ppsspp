@@ -32,7 +32,14 @@
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"
+#include "Core/HW/atrac3plus.h"
 
+#ifdef _WIN32
+namespace MainWindow {
+	enum { WM_USER_LOG_STATUS_CHANGED = WM_USER + 200 };
+	extern HWND hwndMain;
+}
+#endif
 
 namespace UI {
 
@@ -181,10 +188,9 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(leftColumn);
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
-	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(205, WRAP_CONTENT, 30, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(800, FILL_PARENT, actionMenuMargins));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(910, FILL_PARENT, actionMenuMargins));
 
 	root_->Add(tabHolder);
 
@@ -208,7 +214,6 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bUseVBO, gs->T("Stream VBO")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
@@ -246,10 +251,14 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *audioSettings = new LinearLayout(ORIENT_VERTICAL);
 	audioSettingsScroll->Add(audioSettings);
 	tabHolder->AddTab("Audio", audioSettingsScroll);
-	audioSettings->Add(new Choice(a->T("Download Atrac3+ plugin")))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
+
+	std::string atracString;
+	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
+	audioSettings->Add(new Choice(a->T(atracString.c_str())))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
+
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, a->T("Enable Atrac3+")));
-	audioSettings->Add(new PopupSliderChoice(&g_Config.iSEVolume, 0, 8, a->T("FX volume"), screenManager()));
+	audioSettings->Add(new PopupSliderChoice(&g_Config.iSFXVolume, 0, 8, a->T("SFX volume"), screenManager()));
 	audioSettings->Add(new PopupSliderChoice(&g_Config.iBGMVolume, 0, 8, a->T("BGM volume"), screenManager()));
 
 	// Control
@@ -261,7 +270,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Left Analog Stick")));
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 	controlsSettings->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
-	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 15, 65, c->T("Button Opacity"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 85, c->T("Button Opacity"), screenManager()));
 	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -269,6 +278,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab("System", systemSettingsScroll);
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Unlock CPU Clock"), screenManager()));
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
@@ -309,6 +319,7 @@ void GameSettingsScreen::DrawBackground(UIContext &dc) {
 		dc.RebindTexture();
 	}*/
 }
+
 void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
@@ -326,8 +337,7 @@ void GlobalSettingsScreen::CreateViews() {
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader("General"));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
-	list->Add(new CheckBox(&g_Config.bEnableLogging, gs->T("Enable Debug Logging")));
-	list->Add(new CheckBox(&enableReports_, gs->T("Enable Errors Reporting")));
+	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
@@ -366,6 +376,8 @@ void DeveloperToolsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
+	enableLogging_ = g_Config.bEnableLogging;
+
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *d = GetI18NCategory("Developer");
 	I18NCategory *a = GetI18NCategory("Audio");
@@ -373,11 +385,19 @@ void DeveloperToolsScreen::CreateViews() {
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+	list->Add(new CheckBox(&enableLogging_, d->T("Enable Debug Logging")));
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
 
 UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
+
+	g_Config.bEnableLogging = enableLogging_;
+#ifdef _WIN32
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
+#endif
+	g_Config.Save();
+
 	return UI::EVENT_DONE;
 }
 

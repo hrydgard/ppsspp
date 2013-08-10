@@ -54,6 +54,7 @@ void Config::Load(const char *iniFileName)
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
+	general->Get("DirectLoad", &bDirectLoad, false);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
@@ -88,6 +89,7 @@ void Config::Load(const char *iniFileName)
 #else
 	cpu->Get("Jit", &bJit, true);
 #endif
+	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
 	cpu->Get("FastMemory", &bFastMemory, false);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
@@ -102,7 +104,6 @@ void Config::Load(const char *iniFileName)
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	graphics->Get("SSAA", &bAntiAliasing, 0);
-	graphics->Get("VBO", &bUseVBO, false);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 0);
 	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 0);
@@ -134,10 +135,10 @@ void Config::Load(const char *iniFileName)
 	sound->Get("Enable", &bEnableSound, true);
 	sound->Get("EnableAtrac3plus", &bEnableAtrac3plus, true);
 	sound->Get("VolumeBGM", &iBGMVolume, 7);
-	sound->Get("VolumeSFX", &iSEVolume, 7);
+	sound->Get("VolumeSFX", &iSFXVolume, 7);
 	
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
-	control->Get("ShowStick", &bShowAnalogStick, false);
+	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
 #ifdef BLACKBERRY
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
 #elif defined(USING_GLES2)
@@ -160,6 +161,9 @@ void Config::Load(const char *iniFileName)
 	pspConfig->Get("ButtonPreference", &iButtonPreference, PSP_SYSTEMPARAM_BUTTON_CROSS);
 	pspConfig->Get("LockParentalLevel", &iLockParentalLevel, 0);
 	pspConfig->Get("WlanAdhocChannel", &iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC);
+#ifdef _WIN32
+	pspConfig->Get("BypassOSKWithKeyboard", &bBypassOSKWithKeyboard, false);
+#endif
 	pspConfig->Get("WlanPowerSave", &bWlanPowerSave, PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF);
 	pspConfig->Get("EncryptSave", &bEncryptSave, true);
 
@@ -201,6 +205,7 @@ void Config::Save()
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
 		general->Set("Browse", bBrowse);
+		general->Set("DirectLoad", bDirectLoad);
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
@@ -222,6 +227,7 @@ void Config::Save()
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
+		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
 		cpu->Set("FastMemory", bFastMemory);
 		cpu->Set("CPUSpeed", iLockedCPUSpeed);
 
@@ -232,7 +238,6 @@ void Config::Save()
 		graphics->Set("HardwareTransform", bHardwareTransform);
 		graphics->Set("TextureFiltering", iTexFiltering);
 		graphics->Set("SSAA", bAntiAliasing);
-		graphics->Set("VBO", bUseVBO);
 		graphics->Set("FrameSkip", iFrameSkip);
 		graphics->Set("FrameRate", iFpsLimit);
 		graphics->Set("ForceMaxEmulatedFPS", iForceMaxEmulatedFPS);
@@ -257,7 +262,7 @@ void Config::Save()
 		sound->Set("Enable", bEnableSound);
 		sound->Set("EnableAtrac3plus", bEnableAtrac3plus);
 		sound->Set("VolumeBGM", iBGMVolume);
-		sound->Set("VolumeSFX", iSEVolume);
+		sound->Set("VolumeSFX", iSFXVolume);
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowStick", bShowAnalogStick);
@@ -279,6 +284,9 @@ void Config::Save()
 		pspConfig->Set("WlanAdhocChannel", iWlanAdhocChannel);
 		pspConfig->Set("WlanPowerSave", bWlanPowerSave);
 		pspConfig->Set("EncryptSave", bEncryptSave);
+#ifdef _WIN32
+		pspConfig->Set("BypassOSKWithKeyboard", bBypassOSKWithKeyboard);
+#endif
 
 		IniFile::Section *debugConfig = iniFile.GetOrCreateSection("Debugger");
 		debugConfig->Set("DisasmWindowX", iDisasmWindowX);

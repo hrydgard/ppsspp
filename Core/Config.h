@@ -33,7 +33,6 @@ public:
 
 	// Whether to save the config on close.
 	bool bSaveSettings;
-
 	bool bFirstRun;
 
 	// These are broken
@@ -47,15 +46,18 @@ public:
 #endif
 
 	// General
-	bool bNewUI;  // "Hidden" setting, does not get saved to ini file.
+	bool bNewUI;
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
+	bool bDirectLoad;
 
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	// Definitely cannot be changed while game is running.
+	bool bSeparateCPUThread;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;
@@ -66,7 +68,6 @@ public:
 	bool bHardwareTransform;
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (CPU) 3 = Read Framebuffer to memory (GPU)
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
-	bool bUseVBO;
 #ifdef BLACKBERRY
 	bool bPartialStretch;
 #endif
@@ -77,7 +78,7 @@ public:
 	int iWindowX;
 	int iWindowY;
 	int iWindowZoom;  // for Windows
-	bool bAntiAliasing; // for Windows, too
+	bool bAntiAliasing; 
 	bool bVertexCache;
 	bool bFullScreen;
 #ifdef _WIN32
@@ -99,7 +100,7 @@ public:
 	// Sound
 	bool bEnableSound;
 	bool bEnableAtrac3plus;
-	int iSEVolume;
+	int iSFXVolume;
 	int iBGMVolume;
 
 	// UI
@@ -139,6 +140,10 @@ public:
 	bool bEncryptSave;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+	// TODO: Make this work with your platform, too!
+#ifdef _WIN32
+	bool bBypassOSKWithKeyboard;
+#endif
 
 	// Debugger
 	int iDisasmWindowX;

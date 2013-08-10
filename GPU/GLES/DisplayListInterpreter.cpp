@@ -171,7 +171,7 @@ static const u8 flushBeforeCommandList[] = {
 
 GLES_GPU::GLES_GPU()
 : resized_(false) {
-	lastVsync_ = g_Config.bVSync;
+	lastVsync_ = g_Config.bVSync ? 1 : 0;
 	if (gl_extensions.EXT_swap_control_tear) {
 		// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
 		glstate.SetVSyncInterval(g_Config.bVSync ? -1 :0);
@@ -234,14 +234,20 @@ void GLES_GPU::BuildReportingInfo() {
 }
 
 void GLES_GPU::DeviceLost() {
+	// Should only be executed on the GL thread.
+
 	// Simply drop all caches and textures.
-	// FBO:s appear to survive? Or no?
+	// FBOs appear to survive? Or no?
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
 	framebufferManager_.DeviceLost();
 }
 
 void GLES_GPU::InitClear() {
+	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
+}
+
+void GLES_GPU::InitClearInternal() {
 	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
 	if (!useBufferedRendering) {
 		glstate.depthWrite.set(GL_TRUE);
@@ -257,8 +263,12 @@ void GLES_GPU::DumpNextFrame() {
 }
 
 void GLES_GPU::BeginFrame() {
+	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
+}
+
+void GLES_GPU::BeginFrameInternal() {
 	// Turn off vsync when unthrottled
-	int desiredVSyncInterval = g_Config.bVSync;
+	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
 		desiredVSyncInterval = 0;
 	if (desiredVSyncInterval != lastVsync_) {
@@ -301,6 +311,10 @@ bool GLES_GPU::FramebufferDirty() {
 }
 
 void GLES_GPU::CopyDisplayToOutput() {
+	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
+}
+
+void GLES_GPU::CopyDisplayToOutputInternal() {
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -326,19 +340,13 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 // Render queue
 
-u32 GLES_GPU::DrawSync(int mode)
-{
-	transformDraw_.Flush();
-	return GPUCommon::DrawSync(mode);
-}
-
 void GLES_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
 
 		u32 diff = op ^ gstate.cmdmem[cmd];
-		CheckFlushOp(op, diff);
+		CheckFlushOp(cmd, diff);
 		gstate.cmdmem[cmd] = op;
 		ExecuteOp(op, diff);
 
@@ -346,8 +354,30 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
-inline void GLES_GPU::CheckFlushOp(u32 op, u32 diff) {
-	u32 cmd = op >> 24;
+void GLES_GPU::ProcessEvent(GPUEvent ev) {
+	switch (ev.type) {
+	case GPU_EVENT_INIT_CLEAR:
+		InitClearInternal();
+		break;
+
+	case GPU_EVENT_BEGIN_FRAME:
+		BeginFrameInternal();
+		break;
+
+	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
+		CopyDisplayToOutputInternal();
+		break;
+
+	case GPU_EVENT_INVALIDATE_CACHE:
+		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
+		break;
+
+	default:
+		GPUCommon::ProcessEvent(ev);
+	}
+}
+
+inline void GLES_GPU::CheckFlushOp(int cmd, u32 diff) {
 	if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
 	{
 		if (dumpThisFrame_) {
@@ -358,7 +388,7 @@ inline void GLES_GPU::CheckFlushOp(u32 op, u32 diff) {
 }
 
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op, diff);
+	CheckFlushOp(op >> 24, diff);
 }
 
 void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
@@ -1060,6 +1090,14 @@ void GLES_GPU::DoBlockTransfer() {
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
+	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
+	ev.invalidate_cache.addr = addr;
+	ev.invalidate_cache.size = size;
+	ev.invalidate_cache.type = type;
+	ScheduleEvent(ev);
+}
+
+void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
 		textureCache_.Invalidate(addr, size, type);
 	else
@@ -1078,7 +1116,7 @@ void GLES_GPU::ClearCacheNextFrame() {
 }
 
 
-void GLES_GPU::Flush() {
+inline void GLES_GPU::Flush() {
 	transformDraw_.Flush();
 }
 

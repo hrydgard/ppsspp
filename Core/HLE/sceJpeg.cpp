@@ -95,20 +95,12 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 {
 	ERROR_LOG_REPORT(HLE, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
 
-	// Buffer to store info about the color space in use.
-	// - Bits 24 to 32 (Always empty): 0x00
-	// - Bits 16 to 24 (Color mode): 0x00 (Unknown), 0x01 (Greyscale) or 0x02 (YCbCr) 
-	// - Bits 8 to 16 (Vertical chroma subsampling value): 0x00, 0x01 or 0x02
-	// - Bits 0 to 8 (Horizontal chroma subsampling value): 0x00, 0x01 or 0x02
-	if (Memory::IsValidAddress(colourInfoAddr))
-		Memory::Write_U32(0x00020202, colourInfoAddr);
-
 	int w = 0, h = 0, actual_components = 0;
 
 	if (!Memory::IsValidAddress(jpegAddr))
 	{
 		ERROR_LOG(HLE, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
-		return 0xC000;
+		return getYCbCrBufferSize(0, 0);
 	}
 	else // Memory address is good
 	{
@@ -125,9 +117,17 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 		if (jpegBuf == NULL)
 		{
 			ERROR_LOG(HLE, "sceJpegGetOutputInfo: Bad JPEG data");
-			return 0xC000;
+			return getYCbCrBufferSize(0, 0);
 		}
 	}
+
+	// Buffer to store info about the color space in use.
+	// - Bits 24 to 32 (Always empty): 0x00
+	// - Bits 16 to 24 (Color mode): 0x00 (Unknown), 0x01 (Greyscale) or 0x02 (YCbCr) 
+	// - Bits 8 to 16 (Vertical chroma subsampling value): 0x00, 0x01 or 0x02
+	// - Bits 0 to 8 (Horizontal chroma subsampling value): 0x00, 0x01 or 0x02
+	if (Memory::IsValidAddress(colourInfoAddr))
+		Memory::Write_U32(0x00020202, colourInfoAddr);
 
 #ifdef JPEG_DEBUG
 		char jpeg_fname[256];

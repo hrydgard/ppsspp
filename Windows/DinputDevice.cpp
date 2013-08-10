@@ -36,22 +36,22 @@
 
 // In order from 0.  There can be 128, but most controllers do not have that many.
 static const int dinput_buttons[] = {
-	KEYCODE_BUTTON_1,
-	KEYCODE_BUTTON_2,
-	KEYCODE_BUTTON_3,
-	KEYCODE_BUTTON_4,
-	KEYCODE_BUTTON_5,
-	KEYCODE_BUTTON_6,
-	KEYCODE_BUTTON_7,
-	KEYCODE_BUTTON_8,
-	KEYCODE_BUTTON_9,
-	KEYCODE_BUTTON_10,
-	KEYCODE_BUTTON_11,
-	KEYCODE_BUTTON_12,
-	KEYCODE_BUTTON_13,
-	KEYCODE_BUTTON_14,
-	KEYCODE_BUTTON_15,
-	KEYCODE_BUTTON_16,
+	NKCODE_BUTTON_1,
+	NKCODE_BUTTON_2,
+	NKCODE_BUTTON_3,
+	NKCODE_BUTTON_4,
+	NKCODE_BUTTON_5,
+	NKCODE_BUTTON_6,
+	NKCODE_BUTTON_7,
+	NKCODE_BUTTON_8,
+	NKCODE_BUTTON_9,
+	NKCODE_BUTTON_10,
+	NKCODE_BUTTON_11,
+	NKCODE_BUTTON_12,
+	NKCODE_BUTTON_13,
+	NKCODE_BUTTON_14,
+	NKCODE_BUTTON_15,
+	NKCODE_BUTTON_16,
 };
 
 static float NormalizedDeadzoneFilter(short value);
@@ -230,10 +230,10 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state, InputState &input_state) {
 			dpad[i].deviceId = DEVICE_ID_PAD_0;
 			dpad[i].flags = KEY_UP;
 		}
-		dpad[0].keyCode = KEYCODE_DPAD_UP;
-		dpad[1].keyCode = KEYCODE_DPAD_LEFT;
-		dpad[2].keyCode = KEYCODE_DPAD_DOWN;
-		dpad[3].keyCode = KEYCODE_DPAD_RIGHT;
+		dpad[0].keyCode = NKCODE_DPAD_UP;
+		dpad[1].keyCode = NKCODE_DPAD_LEFT;
+		dpad[2].keyCode = NKCODE_DPAD_DOWN;
+		dpad[3].keyCode = NKCODE_DPAD_RIGHT;
 
 		if (LOWORD(state.rgdwPOV[0]) != JOY_POVCENTERED) {
 			// These are the edges, so we use or.

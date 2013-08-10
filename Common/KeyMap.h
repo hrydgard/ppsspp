@@ -88,7 +88,7 @@ extern std::vector<ControllerMap> controllerMaps;
 // 
 // Does not handle input state managment.
 // 
-// Platform ports should map their platform's keys to KeyMap's keys (KEYCODE_*).
+// Platform ports should map their platform's keys to KeyMap's keys (NKCODE_*).
 //
 // Then have KeyMap transform those into psp buttons.
 

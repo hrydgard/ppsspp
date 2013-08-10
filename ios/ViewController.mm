@@ -86,18 +86,18 @@ ViewController* sharedViewController;
 				isJailed = false;
 		}
 
-		iCadeToKeyMap[iCadeJoystickUp]		= KEYCODE_DPAD_UP;
-		iCadeToKeyMap[iCadeJoystickRight]	= KEYCODE_DPAD_RIGHT;
-		iCadeToKeyMap[iCadeJoystickDown]	= KEYCODE_DPAD_DOWN;
-		iCadeToKeyMap[iCadeJoystickLeft]	= KEYCODE_DPAD_LEFT;
-		iCadeToKeyMap[iCadeButtonA]			= KEYCODE_BUTTON_9; // Select
-		iCadeToKeyMap[iCadeButtonB]			= KEYCODE_BUTTON_7; // LTrigger
-		iCadeToKeyMap[iCadeButtonC]			= KEYCODE_BUTTON_10; // Start
-		iCadeToKeyMap[iCadeButtonD]			= KEYCODE_BUTTON_8; // RTrigger
-		iCadeToKeyMap[iCadeButtonE]			= KEYCODE_BUTTON_4; // Square
-		iCadeToKeyMap[iCadeButtonF]			= KEYCODE_BUTTON_2; // Cross
-		iCadeToKeyMap[iCadeButtonG]			= KEYCODE_BUTTON_1; // Triangle
-		iCadeToKeyMap[iCadeButtonH]			= KEYCODE_BUTTON_3; // Circle
+		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
+		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
+		iCadeToKeyMap[iCadeJoystickDown]	= NKCODE_DPAD_DOWN;
+		iCadeToKeyMap[iCadeJoystickLeft]	= NKCODE_DPAD_LEFT;
+		iCadeToKeyMap[iCadeButtonA]			= NKCODE_BUTTON_9; // Select
+		iCadeToKeyMap[iCadeButtonB]			= NKCODE_BUTTON_7; // LTrigger
+		iCadeToKeyMap[iCadeButtonC]			= NKCODE_BUTTON_10; // Start
+		iCadeToKeyMap[iCadeButtonD]			= NKCODE_BUTTON_8; // RTrigger
+		iCadeToKeyMap[iCadeButtonE]			= NKCODE_BUTTON_4; // Square
+		iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
+		iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
+		iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
 	}
 	return self;
 }
@@ -373,7 +373,7 @@ void DisableFZ(){};
 		if ((lastStartPress + 1.0f) > time_now_d()) {
 			KeyInput key;
 			key.flags = KEY_DOWN;
-			key.keyCode = KEYCODE_ESCAPE;
+			key.keyCode = NKCODE_ESCAPE;
 			key.deviceId = DEVICE_ID_KEYBOARD;
 			NativeKey(key);
 			return;

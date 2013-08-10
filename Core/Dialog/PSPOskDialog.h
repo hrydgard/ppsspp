@@ -178,6 +178,9 @@ private:
 	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le> em_address);
 	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
 	void RenderKeyboard();
+#ifdef _WIN32
+	int NativeKeyboard();
+#endif
 
 	std::wstring CombinationString(bool isInput); // for Japanese, Korean
 	std::wstring CombinationKorean(bool isInput); // for Korea
@@ -199,4 +202,3 @@ private:
 	int i_level; // for Korean Keyboard support
 	int i_value[3]; // for Korean Keyboard support
 };
-

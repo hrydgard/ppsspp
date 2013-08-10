@@ -199,11 +199,11 @@ bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 	s64 future = atTicks - CoreTiming::GetTicks();
 	if (waitType == WAITTYPE_GEDRAWSYNC)
 	{
-		s64 left = CoreTiming::UnscheduleEvent(geSyncEvent, userdata);
+		s64 left = CoreTiming::UnscheduleThreadsafeEvent(geSyncEvent, userdata);
 		if (left > future)
 			future = left;
 	}
-	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
+	CoreTiming::ScheduleEvent_Threadsafe(future, geSyncEvent, userdata);
 	return true;
 }
 
@@ -211,7 +211,7 @@ bool __GeTriggerSync(WaitType waitType, int id, u64 atTicks)
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
 {
 	u64 userdata = (u64)listid << 32 | (u64) pc;
-	CoreTiming::ScheduleEvent(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
+	CoreTiming::ScheduleEvent_Threadsafe(atTicks - CoreTiming::GetTicks(), geInterruptEvent, userdata);
 	return true;
 }
 
@@ -219,9 +219,6 @@ bool __GeHasPendingInterrupt()
 {
 	return !ge_pending_cb.empty();
 }
-
-// The GE is implemented wrong - it should be parallel to the CPU execution instead of
-// synchronous.
 
 u32 sceGeEdramGetAddr()
 {
@@ -279,7 +276,7 @@ int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
 	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
 	hleEatCycles(190);
-	CoreTiming::AdvanceQuick();
+	CoreTiming::Advance();
 	return gpu->UpdateStall(displayListID, stallAddress);
 }
 
@@ -378,7 +375,8 @@ int sceGeUnsetCallback(u32 cbID)
 u32 sceGeSaveContext(u32 ctxAddr)
 {
 	DEBUG_LOG(HLE, "sceGeSaveContext(%08x)", ctxAddr);
-	gpu->Flush();
+	gpu->SyncThread();
+
 	if (sizeof(gstate) > 512 * 4)
 	{
 		ERROR_LOG(HLE, "AARGH! sizeof(gstate) has grown too large!");
@@ -399,7 +397,7 @@ u32 sceGeSaveContext(u32 ctxAddr)
 u32 sceGeRestoreContext(u32 ctxAddr)
 {
 	DEBUG_LOG(HLE, "sceGeRestoreContext(%08x)", ctxAddr);
-	gpu->Flush();
+	gpu->SyncThread();
 
 	if (sizeof(gstate) > 512 * 4)
 	{

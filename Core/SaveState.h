@@ -31,7 +31,9 @@ namespace SaveState
 
 	void SaveSlot(int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(int slot, Callback callback, void *cbUserData = 0);
+	// Checks whether there's an existing save in the specified slot.
 	bool HasSaveInSlot(int slot);
+	// Returns -1 if there's no newest slot.
 	int GetNewestSlot();
 
 	// Load the specified file into the current state (async.)
@@ -45,4 +47,7 @@ namespace SaveState
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
 	void Verify(Callback callback = 0, void *cbUserData = 0);
+
+	// Check if there's any save stating needing to be done.  Normally called once per frame.
+	void Process();
 };

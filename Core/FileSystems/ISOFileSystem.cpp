@@ -306,6 +306,9 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string path, bool catc
 	if (path[0] == '/')
 		path.erase(0,1);
 
+	if (path == "umd0")
+		return &entireISO;
+
 	TreeEntry *e = treeroot;
 	if (path.length() == 0)
 		return e;

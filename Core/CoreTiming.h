@@ -99,7 +99,6 @@ namespace CoreTiming
 	void RemoveAllEvents(int event_type);
 	bool IsScheduled(int event_type);
 	void Advance();
-	void AdvanceQuick();
 	void MoveEvents();
 	void ProcessFifoWaitEvents();
 

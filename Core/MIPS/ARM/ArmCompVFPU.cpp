@@ -29,6 +29,8 @@
 #include "ArmRegCache.h"
 
 
+const bool disablePrefixes = false;
+
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
@@ -78,7 +80,6 @@ namespace MIPSComp
 		int regnum = (op >> 24) & 3;
 		switch (regnum) {
 		case 0:  // S
-			//ERROR_LOG(CPU, "VPFX - S %08x %i", data, regnum);
 			js.prefixS = data;
 			js.prefixSFlag = ArmJitState::PREFIX_KNOWN_DIRTY;
 			break;
@@ -437,7 +438,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// WARNING: No prefix support!
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -472,7 +473,7 @@ namespace MIPSComp
 	void Jit::Comp_VIdt(u32 op) {
 		CONDITIONAL_DISABLE
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -510,7 +511,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -554,10 +555,9 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VDot(u32 op)
-	{
+	void Jit::Comp_VDot(u32 op) {
 		CONDITIONAL_DISABLE;
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -567,9 +567,10 @@ namespace MIPSComp
 		VectorSize sz = GetVecSize(op);
 
 		// TODO: Force read one of them into regs? probably not.
-		u8 sregs[4], tregs[4];
-		GetVectorRegs(sregs, sz, vs);
-		GetVectorRegs(tregs, sz, vt);
+		u8 sregs[4], tregs[4], dregs[1];
+		GetVectorRegsPrefixS(sregs, sz, vs);
+		GetVectorRegsPrefixT(tregs, sz, vt);
+		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
 		// TODO: applyprefixST here somehow (shuffle, etc...)
 		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
@@ -583,57 +584,30 @@ namespace MIPSComp
 		}
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 
-		fpr.MapRegV(vd, MAP_NOINIT | MAP_DIRTY);
+		fpr.MapRegV(dregs[0], MAP_NOINIT | MAP_DIRTY);
 
 		// TODO: applyprefixD here somehow (write mask etc..)
-		VMOV(fpr.V(vd), S0);
+		VMOV(fpr.V(dregs[0]), S0);
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
+
+	void Jit::Comp_VHdp(u32 op) {
+		// Similar to vdot
+		DISABLE;
+	}
+
 
 	void Jit::Comp_VecDo3(u32 op) {
 		CONDITIONAL_DISABLE;
 		
-		// WARNING: No prefix support!
-
-		//if (js.MayHavePrefix()) {
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-
-		void (ARMXEmitter::*triop)(ARMReg, ARMReg, ARMReg) = 0;
-		switch (op >> 26)
-		{
-		case 24: //VFPU0
-			switch ((op >> 23)&7)
-			{
-			case 0: // d[i] = s[i] + t[i]; break; //vadd
-				triop = &ARMXEmitter::VADD;
-				break;
-			case 1: // d[i] = s[i] - t[i]; break; //vsub
-				triop = &ARMXEmitter::VSUB;
-				break;
-			case 7: // d[i] = s[i] / t[i]; break; //vdiv
-				triop = &ARMXEmitter::VDIV;
-				break;
-			}
-			break;
-		case 25: //VFPU1
-			switch ((op >> 23) & 7)
-			{
-			case 0: // d[i] = s[i] * t[i]; break; //vmul
-				triop = &ARMXEmitter::VMUL;
-				break;
-			}
-			break;
-			// Unfortunately there is no VMIN/VMAX on ARM without NEON.
-		}
-
-		if (!triop) {
-			DISABLE;
-		}
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -654,7 +628,78 @@ namespace MIPSComp
 
 		for (int i = 0; i < n; i++) {
 			fpr.MapDirtyInInV(tempregs[i], sregs[i], tregs[i]);
-			(this->*triop)(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+			switch (op >> 26) {
+			case 24: //VFPU0
+				switch ((op >> 23)&7) {
+				case 0: // d[i] = s[i] + t[i]; break; //vadd
+					VADD(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					break;
+				case 1: // d[i] = s[i] - t[i]; break; //vsub
+					VSUB(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					break;
+				case 7: // d[i] = s[i] / t[i]; break; //vdiv
+					VDIV(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					break;
+				default:
+					DISABLE;
+				}
+				break;
+			case 25: //VFPU1
+				switch ((op >> 23) & 7) {
+				case 0: // d[i] = s[i] * t[i]; break; //vmul
+					VMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					break;
+				default:
+					DISABLE;
+				}
+				break;
+				// Unfortunately there is no VMIN/VMAX on ARM without NEON.
+			case 27: //VFPU3
+				switch ((op >> 23) & 3)	{
+				case 2:  // vmin
+					VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+					VMRS_APSR();
+					SetCC(CC_LT);
+					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+					SetCC(CC_GE);
+					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
+					SetCC(CC_AL);
+					break;
+				case 3:  // vmax
+					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
+					VMRS_APSR();
+					SetCC(CC_LT);
+					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+					SetCC(CC_GE);
+					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
+					SetCC(CC_AL);
+					break;
+				case 6:  // vsge
+					DISABLE;  // pending testing
+					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
+					VMRS_APSR();
+					SetCC(CC_GE);
+					MOVI2F(fpr.V(tempregs[i]), 1.0f, R0);
+					SetCC(CC_LT);
+					MOVI2F(fpr.V(tempregs[i]), 0.0f, R0);
+					SetCC(CC_AL);
+					break;
+				case 7:  // vslt
+					DISABLE;  // pending testing
+					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
+					VMRS_APSR();
+					SetCC(CC_LT);
+					MOVI2F(fpr.V(tempregs[i]), 1.0f, R0);
+					SetCC(CC_GE);
+					MOVI2F(fpr.V(tempregs[i]), 0.0f, R0);
+					SetCC(CC_AL);
+					break;
+				}
+				break;
+
+			default:
+				DISABLE;
+			}
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -671,7 +716,7 @@ namespace MIPSComp
 	void Jit::Comp_VV2Op(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -797,14 +842,14 @@ namespace MIPSComp
 	void Jit::Comp_Vi2f(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
 		int imm = (op >> 16) & 0x1f;
-		const float mult = 1.0f / (float)(1 << imm);
+		const float mult = 1.0f / (float)(1UL << imm);
 
 		u8 sregs[4], dregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
@@ -840,7 +885,73 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void Jit::Comp_Vf2i(u32 op) {
+		CONDITIONAL_DISABLE;
+		DISABLE;
 
+		if (js.HasUnknownPrefix())
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		int imm = (op >> 16) & 0x1f;
+		float mult = (float)(1ULL << imm);
+
+		switch ((op >> 21) & 0x1f)
+		{
+		case 17:
+			break; //z - truncate. Easy to support.
+		case 16:
+		case 18:
+		case 19:
+			DISABLE;
+			break;
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		if (mult != 1.0f)
+			MOVI2F(S1, mult, R0);
+
+		for (int i = 0; i < n; i++) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			switch ((op >> 21) & 0x1f) {
+			case 16: /* TODO */ break; //n  (round_vfpu_n causes issue #3011 but seems right according to tests...)
+			case 17:
+				if (mult != 1.0f) {
+					VMUL(S0, fpr.V(sregs[i]), S1);
+					VCVT(fpr.V(tempregs[i]), S0, TO_INT | ROUND_TO_ZERO);
+				} else {
+					VCVT(fpr.V(tempregs[i]), fpr.V(sregs[i]), TO_INT | ROUND_TO_ZERO);
+				}
+				break;
+			case 18: /* TODO */ break; //u
+			case 19: /* TODO */ break; //d
+			}
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				VMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
 
 	void Jit::Comp_Mftv(u32 op)
 	{
@@ -968,7 +1079,7 @@ namespace MIPSComp
 	void Jit::Comp_VScl(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1018,7 +1129,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
-		if (js.MayHavePrefix()) {
+		if (js.MayHavePrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1064,8 +1175,9 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?  Or maybe uses D?
-		if (js.MayHavePrefix())
+		if (js.MayHavePrefix() || disablePrefixes) {
 			DISABLE;
+		}
 
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
@@ -1073,8 +1185,7 @@ namespace MIPSComp
 		int ins = (op >> 23) & 7;
 
 		bool homogenous = false;
-		if (n == ins)
-		{
+		if (n == ins) {
 			n++;
 			sz = (VectorSize)((int)(sz) + 1);
 			msz = (MatrixSize)((int)(msz) + 1);
@@ -1120,10 +1231,6 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VHdp(u32 op) {
-		DISABLE;
-	}
-
 	void Jit::Comp_VCrs(u32 op) {
 		DISABLE;
 	}
@@ -1140,27 +1247,56 @@ namespace MIPSComp
 		DISABLE;
 	}
 
-	void Jit::Comp_Vf2i(u32 op) {
-		DISABLE;
-	}
-
 	void Jit::Comp_VCrossQuat(u32 op) {
-		DISABLE;
-	}
+		// This op does not support prefixes.
+		if (js.HasUnknownPrefix() || disablePrefixes)
+			DISABLE;
 
-	void Jit::Comp_Vsge(u32 op) {
-		DISABLE;
-	}
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
 
-	void Jit::Comp_Vslt(u32 op) {
-		DISABLE;
+		u8 sregs[4], tregs[4], dregs[4];
+		GetVectorRegs(sregs, sz, _VS);
+		GetVectorRegs(tregs, sz, _VT);
+		GetVectorRegs(dregs, sz, _VD);
+
+		// Map everything into registers.
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
+
+		if (sz == V_Triple) {
+			int temp3 = fpr.GetTempV();
+			fpr.MapRegV(temp3, MAP_DIRTY | MAP_NOINIT);
+			// Cross product vcrsp.t
+
+			// Compute X
+			VMUL(S0, fpr.V(sregs[1]), fpr.V(tregs[2]));
+			VMLS(S0, fpr.V(sregs[2]), fpr.V(tregs[1]));
+
+			// Compute Y
+			VMUL(S1, fpr.V(sregs[2]), fpr.V(tregs[0]));
+			VMLS(S1, fpr.V(sregs[0]), fpr.V(tregs[2]));
+
+			// Compute Z
+			VMUL(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[1]));
+			VMLS(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[0]));
+
+			fpr.MapRegsAndSpillLockV(dregs, V_Triple, MAP_DIRTY | MAP_NOINIT);
+			VMOV(fpr.V(dregs[0]), S0);
+			VMOV(fpr.V(dregs[1]), S1);
+			VMOV(fpr.V(dregs[2]), fpr.V(temp3));
+		} else if (sz == V_Quad) {
+			// Quaternion product  vqmul.q  untested
+			DISABLE;
+		}
+
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Vcmp(u32 op) {
-		// Not ready yet
-		DISABLE;
+		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -1255,9 +1391,13 @@ namespace MIPSComp
 				VMRS_APSR();
 				SetCC(flag);
 				if (i == 0) {
-					MOVI2R(R0, 1 << n);
+					if (n == 1) {
+						MOVI2R(R0, 0x31);
+					} else {
+						MOVI2R(R0, 1 << i);
+					}
 				} else {
-					ORR(R0, R0, 1 << n);
+					ORR(R0, R0, 1 << i);
 				}
 				SetCC(CC_AL);
 			}
@@ -1267,11 +1407,7 @@ namespace MIPSComp
 
 		// Aggregate the bits. Urgh, expensive. Can optimize for the case of one comparison, which is the most common
 		// after all.
-		if (n == 1) {
-			// Use imul to easily duplicate that bit.
-			MOVI2R(R1, 0x31);
-			MUL(R0, R0, R1);
-		} else {
+		if (n > 1) {
 			CMP(R0, affected_bits & 0xF);
 			SetCC(CC_EQ);
 			ORR(R0, R0, 1 << 5);
@@ -1292,7 +1428,51 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcmov(u32 op) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		if (js.HasUnknownPrefix() || disablePrefixes)
+			DISABLE;
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+		int tf = (op >> 19) & 1;
+		int imm3 = (op >> 16) & 7;
+
+		for (int i = 0; i < n; ++i) {
+			// Simplification: Disable if overlap unsafe
+			if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs)) {
+				DISABLE;
+			}
+		}
+
+		if (imm3 < 6) {
+			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
+			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+			LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+			TST(R0, 1 << imm3);
+			SetCC(tf ? CC_EQ : CC_NEQ);
+			for (int i = 0; i < n; i++) {
+				VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
+			}
+			SetCC(CC_AL);
+		} else {
+			// Look at the bottom four bits of CC to individually decide if the subregisters should be copied.
+			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
+			fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+			LDR(R0, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_CC]));
+			for (int i = 0; i < n; i++) {
+				TST(R0, 1 << i);
+				SetCC(tf ? CC_EQ : CC_NEQ);
+				VMOV(fpr.V(dregs[i]), fpr.V(sregs[i]));
+				SetCC(CC_AL);
+			}
+		}
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Jit::Comp_Viim(u32 op) {
@@ -1312,7 +1492,7 @@ namespace MIPSComp
 	void Jit::Comp_Vfim(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1332,7 +1512,7 @@ namespace MIPSComp
 	void Jit::Comp_Vcst(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
@@ -1390,7 +1570,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 		
 		// This op doesn't support prefixes anyway..
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
 		}
 
