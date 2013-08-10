@@ -220,9 +220,6 @@ bool __GeHasPendingInterrupt()
 	return !ge_pending_cb.empty();
 }
 
-// The GE is implemented wrong - it should be parallel to the CPU execution instead of
-// synchronous.
-
 u32 sceGeEdramGetAddr()
 {
 	u32 retVal = 0x04000000;
@@ -378,7 +375,8 @@ int sceGeUnsetCallback(u32 cbID)
 u32 sceGeSaveContext(u32 ctxAddr)
 {
 	DEBUG_LOG(HLE, "sceGeSaveContext(%08x)", ctxAddr);
-	gpu->Flush();
+	gpu->SyncThread();
+
 	if (sizeof(gstate) > 512 * 4)
 	{
 		ERROR_LOG(HLE, "AARGH! sizeof(gstate) has grown too large!");
@@ -399,7 +397,7 @@ u32 sceGeSaveContext(u32 ctxAddr)
 u32 sceGeRestoreContext(u32 ctxAddr)
 {
 	DEBUG_LOG(HLE, "sceGeRestoreContext(%08x)", ctxAddr);
-	gpu->Flush();
+	gpu->SyncThread();
 
 	if (sizeof(gstate) > 512 * 4)
 	{

@@ -1,12 +1,17 @@
 #pragma once
 
-#include "GPUInterface.h"
+#include "native/base/mutex.h"
+#include "GPU/GPUInterface.h"
+#include <deque>
 
 class GPUCommon : public GPUInterface
 {
 public:
 	GPUCommon();
 	virtual ~GPUCommon() {}
+
+	virtual void RunEventsUntil(u64 globalticks);
+	virtual void FinishEventLoop();
 
 	virtual void InterruptStart(int listid);
 	virtual void InterruptEnd(int listid);
@@ -29,6 +34,7 @@ public:
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
+	virtual void SyncThread();
 
 protected:
 	// To avoid virtual calls to PreExecuteOp().
@@ -39,12 +45,38 @@ protected:
 	void PopDLQueue();
 	void CheckDrawSync();
 	int  GetNextListIndex();
+	GPUEvent GetNextEvent();
+	bool HasEvents();
+	void ScheduleEvent(GPUEvent ev);
+	void ProcessDLQueueInternal();
+	void ReapplyGfxStateInternal();
+	virtual void ProcessEvent(GPUEvent ev) = 0;
+
+	// Allows early unlocking with a guard.  Do not double unlock.
+	class easy_guard {
+	public:
+		easy_guard(recursive_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
+		~easy_guard() { if (locked_) mtx_.unlock(); }
+		void unlock() { if (locked_) mtx_.unlock(); else Crash(); locked_ = false; }
+
+	private:
+		bool locked_;
+		recursive_mutex &mtx_;
+	};
 
 	typedef std::list<int> DisplayListQueue;
 
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
+	recursive_mutex listLock;
+
+	std::deque<GPUEvent> events;
+	recursive_mutex eventsLock;
+	recursive_mutex eventsWaitLock;
+	recursive_mutex eventsDrainLock;
+	condition_variable eventsWait;
+	condition_variable eventsDrain;
 
 	bool interruptRunning;
 	GPUState gpuState;

@@ -89,6 +89,7 @@ void Config::Load(const char *iniFileName)
 #else
 	cpu->Get("Jit", &bJit, true);
 #endif
+	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
 	cpu->Get("FastMemory", &bFastMemory, false);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
@@ -226,6 +227,7 @@ void Config::Save()
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
+		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
 		cpu->Set("FastMemory", bFastMemory);
 		cpu->Set("CPUSpeed", iLockedCPUSpeed);
 

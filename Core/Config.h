@@ -56,6 +56,8 @@ public:
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
 	bool bJit;
+	// Definitely cannot be changed while game is running.
+	bool bSeparateCPUThread;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;

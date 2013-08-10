@@ -140,6 +140,31 @@ enum GPUInvalidationType {
 	GPU_INVALIDATE_SAFE,
 };
 
+enum GPUEventType {
+	GPU_EVENT_INVALID,
+	GPU_EVENT_PROCESS_QUEUE,
+	GPU_EVENT_INIT_CLEAR,
+	GPU_EVENT_BEGIN_FRAME,
+	GPU_EVENT_COPY_DISPLAY_TO_OUTPUT,
+	GPU_EVENT_REAPPLY_GFX_STATE,
+	GPU_EVENT_INVALIDATE_CACHE,
+	GPU_EVENT_FINISH_EVENT_LOOP,
+	GPU_EVENT_SYNC_THREAD,
+};
+
+struct GPUEvent {
+	GPUEvent(GPUEventType t) : type(t) {}
+	GPUEventType type;
+	union {
+		// GPU_EVENT_INVALIDATE_CACHE
+		struct {
+			u32 addr;
+			int size;
+			GPUInvalidationType type;
+		} invalidate_cache;
+	};
+};
+
 class GPUInterface
 {
 public:
@@ -149,6 +174,9 @@ public:
 
 	// Initialization
 	virtual void InitClear() = 0;
+
+	virtual void RunEventsUntil(u64 globalticks) = 0;
+	virtual void FinishEventLoop() = 0;
 
 	// Draw queue management
 	virtual DisplayList* getList(int listid) = 0;
@@ -190,8 +218,8 @@ public:
 	virtual void EnableInterrupts(bool enable) = 0;
 
 	virtual void DeviceLost() = 0;
-	virtual void Flush() = 0;
 	virtual void ReapplyGfxState() = 0;
+	virtual void SyncThread() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.
