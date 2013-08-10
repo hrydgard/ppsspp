@@ -655,7 +655,7 @@ namespace MIPSComp
 				break;
 				// Unfortunately there is no VMIN/VMAX on ARM without NEON.
 			case 27: //VFPU3
-				switch ((op >> 23) & 3)	{
+				switch ((op >> 23) & 7)	{
 				case 2:  // vmin
 					VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
 					VMRS_APSR();
