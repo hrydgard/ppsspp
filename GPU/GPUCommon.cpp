@@ -48,6 +48,9 @@ void GPUCommon::PopDLQueue() {
 }
 
 u32 GPUCommon::DrawSync(int mode) {
+	// Sync first, because the CPU is usually faster than the emulated GPU.
+	SyncThread();
+
 	easy_guard guard(listLock);
 	if (mode < 0 || mode > 1)
 		return SCE_KERNEL_ERROR_INVALID_MODE;
@@ -92,6 +95,9 @@ void GPUCommon::CheckDrawSync() {
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
+	// Sync first, because the CPU is usually faster than the emulated GPU.
+	SyncThread();
+
 	easy_guard guard(listLock);
 	if (listid < 0 || listid >= DisplayListMaxCount)
 		return SCE_KERNEL_ERROR_INVALID_ID;
