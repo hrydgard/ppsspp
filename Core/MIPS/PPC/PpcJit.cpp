@@ -97,13 +97,13 @@ void Jit::WriteDownCount(int offset)
 	if (jo.downcountInRegister) {		
 		// DCNTREG = DCNTREG - theDowncount;
 		MOVI2R(SREG, theDowncount);	
-		SUBF(DCNTREG, SREG, DCNTREG);
+		SUBF(DCNTREG, SREG, DCNTREG, 1);
 		STW(DCNTREG, CTXREG, offsetof(MIPSState, downcount));
 	} else {
 		// DCNTREG = MIPSState->downcount - theDowncount;
 		MOVI2R(SREG, theDowncount);	
 		LWZ(DCNTREG, CTXREG, offsetof(MIPSState, downcount));
-		SUBF(DCNTREG, SREG, DCNTREG);
+		SUBF(DCNTREG, SREG, DCNTREG, 1);
 		STW(DCNTREG, CTXREG, offsetof(MIPSState, downcount));
 	}
 }

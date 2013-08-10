@@ -52,10 +52,10 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	//Break();
 
 	// Cmp ??
-	//CMPLI(DCNTREG, 0);
-	//BLT((const void *)outerLoopPCInR0);
+	CMPLI(DCNTREG, 0);
+	BLT((const void *)outerLoopPCInR0);
 	// if (currentMIPS->downcount<0)
-	BGT((const void *)outerLoopPCInR0);
+	//BGT((const void *)outerLoopPCInR0);
 
 	b->normalEntry = GetCodePtr();
 	// TODO: this needs work
@@ -163,11 +163,14 @@ void Jit::GenerateFixedCode() {
 	// allocate stack
 	STWU(R1, R1, -stackFrameSize);
 #endif
+
+#if 1
 	
 	// Map fixed register
 	MOVI2R(BASEREG,	(u32)Memory::base);
 	MOVI2R(CTXREG,	(u32)mips_);
 	MOVI2R(CODEREG, (u32)GetBasePtr());
+	Break();
 
 	// Update downcount reg value from memory
 	RestoreDowncount(DCNTREG);
@@ -300,15 +303,28 @@ void Jit::GenerateFixedCode() {
 		// label bailCoreState:
 		SetJumpTarget(bailCoreState);
 
+#if 0
+		// Compare coreState and CORE_RUNNING
+		MOVI2R(SREG, (u32)&coreState);
+		LWZ(SREG, SREG); // SREG = *SREG => SREG = coreState
+		CMPLI(SREG, 0); // compare 0(CORE_RUNNING) and corestate
+				
+		// if (coreState == CORE_RUNNING) check for downcount
+		FixupBranch badcpustates = BNE();
+		
+		//BEQ(outerLoop);
+		CMPLI(DCNTREG, 0);
+		BLT(outerLoop);
+		
+		SetJumpTarget(badcpustates);
+#else
 		// Compare coreState and CORE_RUNNING
 		MOVI2R(SREG, (u32)&coreState);
 		LWZ(SREG, SREG); // SREG = *SREG => SREG = coreState
 		CMPLI(SREG, 0); // compare 0(CORE_RUNNING) and corestate
 
-		// branch to outerLoop if (coreState == CORE_RUNNING)
-		// arm: B_CC(CC_EQ, outerLoop);
-		//Break();
 		BEQ(outerLoop);
+#endif
 	// }
 
 	// badCoreState label:
@@ -319,6 +335,8 @@ void Jit::GenerateFixedCode() {
 
 	// mips->downcount = DCNTREG
 	SaveDowncount(DCNTREG);
+
+#endif
 
 #if 1
 	// Write Epilogue (restore stack frame, return)
@@ -335,8 +353,10 @@ void Jit::GenerateFixedCode() {
 
 	// Restore Lr
 	MTLR(R12);
+	Break();
 
-	//BLR();
+	// Go back to caller
+	BLR();
 #endif
 
 	// Don't forget to zap the instruction cache!
