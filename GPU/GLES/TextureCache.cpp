@@ -194,7 +194,8 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
-				AttachFramebufferInvalid(entry, framebuffer);
+				// Try to not bind FB now as it seems to be attached some strange stuff on top of the original FB.
+				//AttachFramebufferInvalid(entry, framebuffer);
 			} else {
 				AttachFramebufferValid(entry, framebuffer);
 			}

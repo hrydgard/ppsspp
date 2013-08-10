@@ -375,35 +375,40 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	return 0;
 }
 
-void GetViewportDimensions(int &w, int &h) {
-	float vpXa = getFloat24(gstate.viewportx1);
-	float vpYa = getFloat24(gstate.viewporty1);
-	w = (int)fabsf(vpXa * 2);
-	h = (int)fabsf(vpYa * 2);
-}
-
 // Heuristics to figure out the size of FBO to create.
 void GuessDrawingSize(int &drawing_width, int &drawing_height) {
-	int viewport_width, viewport_height;
 	int default_width = 480; 
 	int default_height = 272;
-	int regionX2 = (gstate.getRegionX2() + 1) ;
-	int regionY2 = (gstate.getRegionY2() + 1) ;
-	int fb_stride = gstate.fbwidth & 0x3C0;
-	GetViewportDimensions(viewport_width, viewport_height);
+	int viewport_width = (int) gstate.getViewportX1(); 
+	int viewport_height = (int) gstate.getViewportY1(); 
+	int region_width = (gstate.getRegionX2() + 1) ;
+	int region_height = (gstate.getRegionY2() + 1) ;
+	int fb_width = gstate.fbwidth & 0x3C0;
 
-	// Generated FBO shouldn't greate than 512x512
-	if ( viewport_width > 512 && viewport_height > 512 ) {
-		viewport_width = default_width;
-		viewport_height = default_height;
+	DEBUG_LOG(HLE,"Viewport : %ix%i, Region : %ix%i, Stride: %i", viewport_width,viewport_height, region_width, region_height, fb_width);
+
+	// Just in case viewport return as 0x0 like FF Type-0
+	if (viewport_width <= 1 && viewport_height <=1) {
+			drawing_width = default_width;
+			drawing_height = default_height;
 	}
 
-	if (fb_stride < 512) {
-		drawing_width = std::min(viewport_width, regionX2);
-		drawing_height = std::min(viewport_height, regionY2);
+	if (fb_width < 512) {
+		if (fb_width != viewport_width) {
+			drawing_width = viewport_width;
+			drawing_height = viewport_height;
+		} else {
+			drawing_width = region_width;
+			drawing_height = region_height;
+		}
 	} else {
-		drawing_width = std::max(viewport_width, default_width);
-		drawing_height = std::max(viewport_height, default_height);
+		if (fb_width != region_width) {
+			drawing_width = default_width;
+			drawing_height = default_height;
+		} else {
+			drawing_width = region_width;
+			drawing_height = region_height;
+		}
 	}
 }
 
