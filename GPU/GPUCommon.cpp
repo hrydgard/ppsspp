@@ -130,7 +130,6 @@ int GPUCommon::ListSync(int listid, int mode) {
 	}
 
 	if (dl.waitTicks > CoreTiming::GetTicks()) {
-		guard.unlock();
 		__KernelWaitCurThread(WAITTYPE_GELISTSYNC, listid, 0, 0, false, "GeListSync");
 	}
 	return PSP_GE_LIST_COMPLETED;
@@ -244,7 +243,6 @@ u32 GPUCommon::DequeueList(int listid) {
 		dlQueue.remove(listid);
 
 	dls[listid].waitTicks = 0;
-	guard.unlock();
 	__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync");
 
 	CheckDrawSync();
@@ -599,7 +597,6 @@ void GPUCommon::ProcessDLQueueInternal() {
 
 	easy_guard guard(listLock);
 	currentList = NULL;
-	guard.unlock();
 
 	drawCompleteTicks = startingTicks + cyclesExecuted;
 	busyTicks = std::max(busyTicks, drawCompleteTicks);
