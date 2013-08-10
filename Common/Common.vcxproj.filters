@@ -48,6 +48,7 @@
     <ClInclude Include="KeyMap.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="CommonWindows.h" />
+    <ClInclude Include="TextTranslationTable.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -78,6 +79,7 @@
       <Filter>Crypto</Filter>
     </ClCompile>
     <ClCompile Include="KeyMap.cpp" />
+    <ClCompile Include="TextTranslationTable.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

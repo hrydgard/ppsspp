@@ -280,6 +280,8 @@ add_library(Common STATIC
 	Common/MsgHandler.h
 	Common/StringUtils.cpp
 	Common/StringUtils.h
+	Common/TextTranslationTable.cpp
+	Common/TextTranslationTable.h
 	Common/Thread.cpp
 	Common/Thread.h
 	Common/ThreadPools.cpp

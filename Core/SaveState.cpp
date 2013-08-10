@@ -25,6 +25,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernel.h"
+#include "Common/TextTranslationTable.h"
 #include "HW/MemoryStick.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -231,7 +232,7 @@ namespace SaveState
 				INFO_LOG(COMMON, "Loading state from %s", op.filename.c_str());
 				result = CChunkFileReader::Load(op.filename, REVISION, state, &reason);
 				if(result)
-					osm.Show(s->T("Loaded State"), 2.0);
+					osm.Show(s->T(g_TextTranslationTable[TR_STATE_LOAD_SUCCESS].c_str()), 2.0);
 				else {
 					osm.Show(s->T(reason.c_str(), "Load savestate failed"), 2.0);
 				}
@@ -243,9 +244,9 @@ namespace SaveState
 				INFO_LOG(COMMON, "Saving state to %s", op.filename.c_str());
 				result = CChunkFileReader::Save(op.filename, REVISION, state);
 				if(result)
-					osm.Show(s->T("Saved State"), 2.0);
+					osm.Show(s->T(g_TextTranslationTable[TR_STATE_SAVE_SUCCESS].c_str()), 2.0);
 				else
-					osm.Show(s->T("Save State Failed"), 2.0);
+					osm.Show(s->T(g_TextTranslationTable[TR_STATE_SAVE_FAILURE].c_str()), 2.0);
 				break;
 
 			case SAVESTATE_VERIFY:

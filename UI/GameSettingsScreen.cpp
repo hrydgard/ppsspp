@@ -33,6 +33,7 @@
 #include "base/timeutil.h"
 #include "math/curves.h"
 #include "Core/HW/atrac3plus.h"
+#include "Common/TextTranslationTable.h"
 
 #ifdef _WIN32
 namespace MainWindow {
@@ -189,7 +190,7 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(leftColumn);
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
-	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(205, WRAP_CONTENT, 30, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(g->T(g_TextTranslationTable[TR_BACK].c_str()), "", false, new AnchorLayoutParams(205, WRAP_CONTENT, 30, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(910, FILL_PARENT, actionMenuMargins));
 
@@ -203,49 +204,49 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab("Graphics", graphicsSettingsScroll);
 
-	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
+	graphicsSettings->Add(new ItemHeader(gs->T(g_TextTranslationTable[TR_RENDERING_MODE].c_str())));
 #ifndef USING_GLES2
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(CPU)", "Read Framebuffers To Memory(GPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
+	static const char *renderingMode[] = { g_TextTranslationTable[TR_NON_BUFFERED_RENDERING].c_str(), g_TextTranslationTable[TR_BUFFERED_RENDERING].c_str(), g_TextTranslationTable[TR_FBO_MEMORY_CPU].c_str(), g_TextTranslationTable[TR_FBO_MEMORY_GPU].c_str()};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T(g_TextTranslationTable[TR_MODE].c_str()), renderingMode, 0, 4, gs, screenManager()));
 #else
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(GPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 3, gs, screenManager()));
+	static const char *renderingMode[] = { g_TextTranslationTable[TR_NON_BUFFERED_RENDERING].c_str(), g_TextTranslationTable[TR_BUFFERED_RENDERING].c_str(), g_TextTranslationTable[TR_FBO_MEMORY_GPU].c_str()};
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T(g_TextTranslationTable[TR_MODE].c_str()), renderingMode, 0, 3, gs, screenManager()));
 #endif
-	graphicsSettings->Add(new CheckBox(&g_Config.bAntiAliasing, gs->T("Anti-Aliasing")));
-	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bAntiAliasing, gs->T(g_TextTranslationTable[TR_ANTIALIASING].c_str())));
+	graphicsSettings->Add(new ItemHeader(gs->T(g_TextTranslationTable[TR_FEATURES].c_str())));
+	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T(g_TextTranslationTable[TR_HW_TRANSFORM].c_str())));
+	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T(g_TextTranslationTable[TR_VERTEX_CACHE].c_str())));
+	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T(g_TextTranslationTable[TR_STRETCH_DISPLAY].c_str())));
+	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T(g_TextTranslationTable[TR_MIPMAPPING].c_str())));
+	graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T(g_TextTranslationTable[TR_TRUE_COLOR].c_str())));
 #ifdef _WIN32
-	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T(g_TextTranslationTable[TR_VSYNC].c_str())));
+	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T(g_TextTranslationTable[TR_FULLSCREEN].c_str())));
 #endif
-	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
+	graphicsSettings->Add(new ItemHeader(gs->T(g_TextTranslationTable[TR_FRAMERATE_CONTROL].c_str())));
 	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, 4, gs, screenManager()));
-	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
-	graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFrameSkip, 0, 9, gs->T("Frame Skipping"), screenManager()));
-	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force 60 FPS or less")));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T(g_TextTranslationTable[TR_SHOW_FPS_COUNTER].c_str()), fpsChoices, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T(g_TextTranslationTable[TR_SHOW_DEBUG_STATS].c_str())));
+	graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFrameSkip, 0, 9, gs->T(g_TextTranslationTable[TR_FRAMESKIPPING].c_str()), screenManager()));
+	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T(g_TextTranslationTable[TR_FORCE_60_FPS].c_str())));
 	
-	graphicsSettings->Add(new ItemHeader(gs->T("Anisotropic Filtering")));
+	graphicsSettings->Add(new ItemHeader(gs->T(g_TextTranslationTable[TR_ANISO_FILTERING].c_str())));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, 5, gs, screenManager()));
-	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T(g_TextTranslationTable[TR_ANISO_FILTERING].c_str()), anisoLevels, 0, 5, gs, screenManager()));
+	graphicsSettings->Add(new ItemHeader(gs->T(g_TextTranslationTable[TR_TEX_SCALING].c_str())));
 #ifndef USING_GLES2
 	static const char *texScaleLevels[] = {"Off", "2x", "3x","4x", "5x"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 1, 5, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T(g_TextTranslationTable[TR_UPSCALE_LEVEL].c_str()), texScaleLevels, 1, 5, gs, screenManager()));
 #else
 	static const char *texScaleLevels[] = {"Off", "2x", "3x"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 1, 3, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T(g_TextTranslationTable[TR_UPSCALE_LEVEL].c_str()), texScaleLevels, 1, 3, gs, screenManager()));
 #endif
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, 4, gs, screenManager()));
-	graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
-	graphicsSettings->Add(new ItemHeader(gs->T("Texture Filtering")));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T(g_TextTranslationTable[TR_UPSCALE_TYPE].c_str()), texScaleAlgos, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T(g_TextTranslationTable[TR_DEPOSTERIZE].c_str())));
+	graphicsSettings->Add(new ItemHeader(gs->T(g_TextTranslationTable[TR_TEX_FILTERING].c_str())));
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Upscale Type"), texFilters, 1, 4, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T(g_TextTranslationTable[TR_UPSCALE_TYPE].c_str()), texFilters, 1, 4, gs, screenManager()));
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -254,40 +255,40 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab("Audio", audioSettingsScroll);
 
 	std::string atracString;
-	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
+	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? g_TextTranslationTable[TR_PLUGIN_REDOWNLOAD].c_str() : g_TextTranslationTable[TR_PLUGIN_DOWNLOAD].c_str());
 	audioSettings->Add(new Choice(a->T(atracString.c_str())))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
 
-	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
-	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, a->T("Enable Atrac3+")));
-	audioSettings->Add(new PopupSliderChoice(&g_Config.iSFXVolume, 0, 8, a->T("SFX volume"), screenManager()));
-	audioSettings->Add(new PopupSliderChoice(&g_Config.iBGMVolume, 0, 8, a->T("BGM volume"), screenManager()));
+	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T(g_TextTranslationTable[TR_ENABLE_SOUND].c_str())));
+	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, a->T(g_TextTranslationTable[TR_ENABLE_ATRAC3_PLUS].c_str())));
+	audioSettings->Add(new PopupSliderChoice(&g_Config.iSFXVolume, 0, 8, a->T(g_TextTranslationTable[TR_SFX_VOLUME].c_str()), screenManager()));
+	audioSettings->Add(new PopupSliderChoice(&g_Config.iBGMVolume, 0, 8, a->T(g_TextTranslationTable[TR_BGM_VOLUME].c_str()), screenManager()));
 
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
 	controlsSettingsScroll->Add(controlsSettings);
 	tabHolder->AddTab("Controls", controlsSettingsScroll);
-	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
-	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Left Analog Stick")));
-	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
-	controlsSettings->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
-	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 15, 65, c->T("Button Opacity"), screenManager()));
+	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T(g_TextTranslationTable[TR_ONSCREEN].c_str())));
+	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T(g_TextTranslationTable[TR_SHOW_LEFT_ANALOG].c_str())));
+	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T(g_TextTranslationTable[TR_TILT_ANALOG_HORIZ].c_str())));
+	controlsSettings->Add(new Choice(gs->T(g_TextTranslationTable[TR_CONTROL_MAPPING].c_str())))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
+	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 15, 65, c->T(g_TextTranslationTable[TR_BUTTON_OPACITY].c_str()), screenManager()));
 	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab("System", systemSettingsScroll);
-	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
-	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Unlock CPU Clock"), screenManager()));
-	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
+	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T(g_TextTranslationTable[TR_DYNAREC].c_str(), "Dynarec (JIT)")));
+	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T(g_TextTranslationTable[TR_FAST_MEMORY].c_str(), "Fast Memory (Unstable)")));
+	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T(g_TextTranslationTable[TR_UNLOCK_CPU_CLOCK].c_str()), screenManager()));
+	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T(g_TextTranslationTable[TR_DAYLIGHT_SAVINGS].c_str())));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
-	static const char *timeFormat[] = { "12HR", "24HR"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T(g_TextTranslationTable[TR_DATE_FORMAT].c_str()), dateFormat, 1, 3, s, screenManager()));
+	static const char *timeFormat[] = { g_TextTranslationTable[TR_12HR].c_str(), g_TextTranslationTable[TR_24HR].c_str()};
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T(g_TextTranslationTable[TR_TIME_FORMAT].c_str()), timeFormat, 1, 2, s, screenManager()));
 	static const char *buttonPref[] = { "Use X to confirm", "Use O to confirm"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Button Preference"), buttonPref, 1, 2, s, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T(g_TextTranslationTable[TR_BUTTON_PREF].c_str()), buttonPref, 1, 2, s, screenManager()));
 }
 
 void DrawBackground(float alpha);
@@ -335,13 +336,13 @@ void GlobalSettingsScreen::CreateViews() {
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader("General"));
-	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
-	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
-	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
-	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
-	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
-	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
-	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
+	list->Add(new CheckBox(&g_Config.bNewUI, gs->T(g_TextTranslationTable[TR_USE_NEWUI].c_str())));
+	list->Add(new CheckBox(&enableReports_, gs->T(g_TextTranslationTable[TR_SEND_COMPAT_REPORTS].c_str())));
+	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T(g_TextTranslationTable[TR_ENABLE_CHEATS].c_str())));
+	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T(g_TextTranslationTable[TR_SCREENSHOTS_PNG].c_str())));
+	list->Add(new Choice(gs->T(g_TextTranslationTable[TR_SYSTEM_LANG].c_str())))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
+	list->Add(new Choice(gs->T(g_TextTranslationTable[TR_DEV_TOOLS].c_str())))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
+	list->Add(new Choice(g->T(g_TextTranslationTable[TR_BACK].c_str())))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
 }
 
 UI::EventReturn GlobalSettingsScreen::OnFactoryReset(UI::EventParams &e) {
@@ -382,10 +383,10 @@ void DeveloperToolsScreen::CreateViews() {
 	I18NCategory *a = GetI18NCategory("Audio");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	list->Add(new ItemHeader(g->T("General")));
-	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
-	list->Add(new CheckBox(&enableLogging_, d->T("Enable Debug Logging")));
-	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
+	list->Add(new ItemHeader(g->T(g_TextTranslationTable[TR_GENERAL].c_str())));
+	list->Add(new Choice(d->T(g_TextTranslationTable[TR_RUN_CPU_TESTS].c_str())))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+	list->Add(new CheckBox(&enableLogging_, d->T(g_TextTranslationTable[TR_ENABLE_DEBUG_LOGGING].c_str())));
+	list->Add(new Choice(g->T(g_TextTranslationTable[TR_BACK].c_str())))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
 
 UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {

@@ -165,6 +165,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Common/Timer.cpp \
   $(SRC)/Common/Misc.cpp \
   $(SRC)/Common/MathUtil.cpp \
+  $(SRC)/Common/TextTranslationTable.cpp \
   $(SRC)/GPU/Math3D.cpp \
   $(SRC)/GPU/GPUCommon.cpp \
   $(SRC)/GPU/GPUState.cpp \

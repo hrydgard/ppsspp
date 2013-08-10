@@ -27,6 +27,7 @@
 #include "i18n/i18n.h"
 
 #include "Common/KeyMap.h"
+#include "Common/TextTranslationTable.h"
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -107,7 +108,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 #ifdef _WIN32
 	if (g_Config.bFirstRun) {
-		osm.Show(s->T("PressESC", "Press ESC to open the pause menu"), 3.0f);
+		osm.Show(s->T(g_TextTranslationTable[TR_PRESS_ESCAPE].c_str(), "Press ESC to open the pause menu"), 3.0f);
 	}
 #endif
 	memset(virtKeys, 0, sizeof(virtKeys));
@@ -212,11 +213,11 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_SPEED_TOGGLE:
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
-			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
+			osm.Show(s->T(g_TextTranslationTable[TR_SPEED_FIXED].c_str(), "Speed: fixed"), 1.0);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 1) {
 			PSP_CoreParameter().fpsLimit = 0;
-			osm.Show(s->T("standard", "Speed: standard"), 1.0);
+			osm.Show(s->T(g_TextTranslationTable[TR_SPEED_STANDARD].c_str(), "Speed: standard"), 1.0);
 		}
 		break;
 
