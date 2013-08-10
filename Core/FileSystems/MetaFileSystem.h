@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "FileSystem.h"
+#include "native/base/mutex.h"
+#include "Core/FileSystems/FileSystem.h"
 
 class MetaFileSystem : public IHandleAllocator, public IFileSystem
 {
@@ -34,6 +35,7 @@ private:
 	currentDir_t currentDir;
 
 	std::string startingDirectory;
+	recursive_mutex lock;
 
 public:
 	MetaFileSystem()
@@ -94,6 +96,7 @@ public:
 	// TODO: void IoCtl(...)
 
 	void SetStartingDirectory(const std::string &dir) {
+		lock_guard guard(lock);
 		startingDirectory = dir;
 	}
 };
