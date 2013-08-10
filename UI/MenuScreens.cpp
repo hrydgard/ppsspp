@@ -1436,7 +1436,7 @@ void SystemScreen::render() {
 	if (g_Config.bJit)
 		UICheckBox(GEN_ID, x, y += stride, s->T("Fast Memory", "Fast Memory (unstable)"), ALIGN_TOPLEFT, &g_Config.bFastMemory);
 
-	UICheckBox(GEN_ID, x, y += stride, s->T("Multithreaded"), ALIGN_TOPLEFT, &g_Config.bSeparateCPUThread);
+	UICheckBox(GEN_ID, x, y += stride, s->T("Multithreaded (experimental)"), ALIGN_TOPLEFT, &g_Config.bSeparateCPUThread);
 
 	bool LockCPUSpeed = g_Config.iLockedCPUSpeed != 0;
 	UICheckBox(GEN_ID, x, y += stride, s->T("Unlock CPU Clock"), ALIGN_TOPLEFT, &LockCPUSpeed);
