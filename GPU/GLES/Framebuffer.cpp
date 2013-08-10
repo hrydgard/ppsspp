@@ -429,7 +429,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
-		currentRenderVfb_->last_frame_used = gpuStats.numVBlanks;
+		currentRenderVfb_->last_frame_used = gpuStats.numFlips;
 		return;
 	}
 	gstate_c.framebufChanged = false;
