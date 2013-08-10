@@ -138,7 +138,7 @@ void Config::Load(const char *iniFileName)
 	sound->Get("VolumeSFX", &iSFXVolume, 7);
 	
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
-	control->Get("ShowStick", &bShowAnalogStick, false);
+	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
 #ifdef BLACKBERRY
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
 #elif defined(USING_GLES2)

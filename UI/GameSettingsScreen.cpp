@@ -270,7 +270,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Left Analog Stick")));
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 	controlsSettings->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
-	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 15, 65, c->T("Button Opacity"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 85, c->T("Button Opacity"), screenManager()));
 	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
