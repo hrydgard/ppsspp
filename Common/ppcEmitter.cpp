@@ -312,8 +312,8 @@ namespace PpcGen {
 	}
 
 	
-	void PPCXEmitter::SUBF(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
-		u32 instr = (0x7C000050 | (Rd << 21) | (Ra << 16) |  (Rb << 11));
+	void PPCXEmitter::SUBF(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags) {	
+		u32 instr = (0x7C000050 | (Rd << 21) | (Ra << 16) |  (Rb << 11) | (RCFlags & 1));
 		Write32(instr);
 	}
 

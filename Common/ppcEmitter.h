@@ -220,7 +220,7 @@ public:
 	void ADDI	(PPCReg Rd, PPCReg Ra, unsigned short imm);
 	void ADDIS	(PPCReg Rd, PPCReg Ra, unsigned short imm);
 	void ADDC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
-	void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
+	void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags = 0);
 	void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 
 	// Floating ops
