@@ -221,9 +221,9 @@ void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	// And shadow glyphs.
 	for (size_t i = 0; i < shadowGlyphs.size(); i++) {
 		size_t shadowId = glyphs[i].shadowID;
-		if ((shadowId >= 0) && (shadowId < shadowMap.size()) && (shadowId < shadowGlyphs.size())) {
+		if ((shadowId < shadowMap.size()) && (shadowId < shadowGlyphs.size())) {
 			size_t charId = shadowMap[shadowId];
-			if ((charId >= 0) && (charId < glyphs.size())) {
+			if (charId < glyphs.size()) {
 				// TODO: check for pre existing shadow glyph
 				GetGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, FONT_PGF_SHADOWGLYPH, shadowGlyphs[i]);
 			}
