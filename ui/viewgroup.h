@@ -80,7 +80,9 @@ public:
 		: LayoutParams(w, h, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {
 
 	}
-
+	AnchorLayoutParams(Size w, Size h, bool c = false)
+		: LayoutParams(w, h, LP_ANCHOR), left(0), top(0), right(NONE), bottom(NONE), center(c) {
+	}
 	AnchorLayoutParams(float l, float t, float r, float b, bool c = false)
 		: LayoutParams(WRAP_CONTENT, WRAP_CONTENT, LP_ANCHOR), left(l), top(t), right(r), bottom(b), center(c) {}
 
@@ -191,6 +193,7 @@ public:
 
 	void ScrollTo(float newScrollPos);
 	void ScrollRelative(float distance);
+	bool CanScroll() const;
 	void Update(const InputState &input_state);
 
 	// Override so that we can scroll to the active one after moving the focus.

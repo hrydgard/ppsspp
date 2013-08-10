@@ -38,6 +38,7 @@ public:
 	virtual bool isTransparent() { return true; }
 
 protected:
+	virtual bool FillVertical() { return false; }
 	virtual void OnCompleted() {}
 
 private:
@@ -57,6 +58,7 @@ public:
 	UI::Event OnChoice;
 
 protected:
+	virtual bool FillVertical() { return true; }
 	virtual void OnCompleted();
 	void CreatePopupContents(UI::ViewGroup *parent);
 	UI::StringVectorListAdaptor adaptor_;

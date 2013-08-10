@@ -71,7 +71,9 @@ void PopupScreen::CreateViews() {
 	using namespace UI;
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	LinearLayout *box = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(30, 30, 30, 30));
+
+	LinearLayout *box = new LinearLayout(ORIENT_VERTICAL, 
+		new AnchorLayoutParams(450, FillVertical() ? dp_yres - 30 : WRAP_CONTENT, dp_xres / 2, dp_yres / 2, NONE, NONE, true));
 
 	root_->Add(box);
 	box->SetBG(UI::Drawable(0xFF303030));
@@ -83,7 +85,7 @@ void PopupScreen::CreateViews() {
 	CreatePopupContents(box);
 
 	// And the two buttons at the bottom.
-	ViewGroup *buttonRow = new LinearLayout(ORIENT_HORIZONTAL);
+	ViewGroup *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
 	buttonRow->Add(new Button("OK", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
 	buttonRow->Add(new Button("Cancel", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
 	box->Add(buttonRow);
@@ -99,7 +101,6 @@ UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
-
 
 void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
@@ -120,7 +121,7 @@ void ListPopupScreen::OnCompleted() {
 
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	slider_ = parent->Add(new Slider(value_, minValue_, maxValue_));
+	slider_ = parent->Add(new Slider(value_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 }
 
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {

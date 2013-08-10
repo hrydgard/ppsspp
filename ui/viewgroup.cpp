@@ -323,6 +323,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight), MeasureSpec(EXACTLY, measuredHeight_));
 		}
 	} else {
+		//MeasureBySpec(layoutParams_->height, vert.type == UNSPECIFIED ? sum : weightZeroSum, vert, &measuredHeight_);
 		MeasureBySpec(layoutParams_->height, weightZeroSum, vert, &measuredHeight_);
 		MeasureBySpec(layoutParams_->width, maxOther, horiz, &measuredWidth_);
 
@@ -431,7 +432,7 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 		margins = linLayoutParams->margins;
 	}
 
-	// The scroll view itself simply obeys its parent.
+	// The scroll view itself simply obeys its parent - but also tries to fit the child if possible.
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 
@@ -440,6 +441,8 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	} else {
 		views_[0]->Measure(dc, MeasureSpec(AT_MOST, measuredWidth_ - (margins.left + margins.right)), MeasureSpec(UNSPECIFIED));
 	}
+	if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY && measuredHeight_ < views_[0]->GetBounds().h)
+		measuredHeight_ = views_[0]->GetBounds().h;
 }
 
 void ScrollView::Layout() {
@@ -489,21 +492,26 @@ void ScrollView::Touch(const TouchInput &input) {
 		scrollStart_ = scrollPos_;
 	}
 	
-	TouchInput input2 = gesture_.Update(input, bounds_);
+	TouchInput input2;
+	if (CanScroll()) {
+		input2 = gesture_.Update(input, bounds_);
+		if (gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
+			float info[4];
+			gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info);
 
-	if (gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
-		float info[4];
-		gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info);
-
-		float pos = scrollStart_ - info[0];
-		ClampScrollPos(pos);
-		scrollPos_ = pos;
-		scrollTarget_ = pos;
-		scrollToTarget_ = false;
+			float pos = scrollStart_ - info[0];
+			ClampScrollPos(pos);
+			scrollPos_ = pos;
+			scrollTarget_ = pos;
+			scrollToTarget_ = false;
+		}
+	} else {
+		input2 = input;
 	}
-	
-	if (!(input.flags & TOUCH_DOWN) || bounds_.Contains(input.x, input.y))
+
+	if (!(input.flags & TOUCH_DOWN) || bounds_.Contains(input.x, input.y)) {
 		ViewGroup::Touch(input2);
+	}
 }
 
 void ScrollView::Draw(UIContext &dc) {
@@ -578,6 +586,9 @@ void ScrollView::ClampScrollPos(float &pos) {
 	}
 }
 
+bool ScrollView::CanScroll() const {
+	return views_[0]->GetBounds().h > bounds_.h;
+}
 
 void ScrollView::Update(const InputState &input_state) {
 	ViewGroup::Update(input_state);
@@ -632,6 +643,10 @@ void AnchorLayout::Layout() {
 		Bounds vBounds;
 		vBounds.w = views_[i]->GetMeasuredWidth();
 		vBounds.h = views_[i]->GetMeasuredHeight();
+
+		// Clamp width/height to our own
+		if (vBounds.w > bounds_.w) vBounds.w = bounds_.w;
+		if (vBounds.h > bounds_.h) vBounds.h = bounds_.h;
 
 		float left = 0, top = 0, right = 0, bottom = 0, center = false;
 		if (params) {
