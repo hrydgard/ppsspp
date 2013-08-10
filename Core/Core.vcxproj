@@ -486,6 +486,7 @@
     <ClInclude Include="Reporting.h" />
     <ClInclude Include="SaveState.h" />
     <ClInclude Include="System.h" />
+    <ClInclude Include="ThreadEventQueue.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="Util\ppge_atlas.h" />

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <set>
+#include <algorithm>
 #include "Common/StringUtils.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -162,6 +163,7 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 
 IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 {
+	lock_guard guard(lock);
 	for (size_t i = 0; i < fileSystems.size(); i++)
 	{
 		if (fileSystems[i].system->OwnsHandle(handle))
@@ -171,9 +173,9 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 	return 0;
 }
 
-extern u32 ioErrorCode;
 bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
 {
+	lock_guard guard(lock);
 	std::string realpath;
 
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
@@ -193,7 +195,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 		//Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
 		if (inpath.find(':') == std::string::npos /* means path is relative */) 
 		{
-			ioErrorCode = SCE_KERNEL_ERROR_NOCWD;
+			lastOpenError = SCE_KERNEL_ERROR_NOCWD;
 			WARN_LOG_REPORT(HLE, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
 		}
 	}
@@ -225,14 +227,25 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 
 void MetaFileSystem::Mount(std::string prefix, IFileSystem *system)
 {
+	lock_guard guard(lock);
 	MountPoint x;
-	x.prefix=prefix;
-	x.system=system;
+	x.prefix = prefix;
+	x.system = system;
 	fileSystems.push_back(x);
+}
+
+void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system)
+{
+	lock_guard guard(lock);
+	MountPoint x;
+	x.prefix = prefix;
+	x.system = system;
+	fileSystems.erase(std::remove(fileSystems.begin(), fileSystems.end(), x), fileSystems.end());
 }
 
 void MetaFileSystem::Shutdown()
 {
+	lock_guard guard(lock);
 	current = 6;
 
 	// Ownership is a bit convoluted. Let's just delete everything once.
@@ -252,8 +265,18 @@ void MetaFileSystem::Shutdown()
 	startingDirectory = "";
 }
 
+u32 MetaFileSystem::OpenWithError(int &error, std::string filename, FileAccess access, const char *devicename)
+{
+	lock_guard guard(lock);
+	u32 h = OpenFile(filename, access, devicename);
+	error = lastOpenError;
+	return h;
+}
+
 u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
 {
+	lock_guard guard(lock);
+	lastOpenError = 0;
 	std::string of;
 	MountPoint *mount;
 	if (MapFilePath(filename, of, &mount))
@@ -268,6 +291,7 @@ u32 MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 
 PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 {
+	lock_guard guard(lock);
 	std::string of;
 	IFileSystem *system;
 	if (MapFilePath(filename, of, &system))
@@ -283,6 +307,7 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 
 bool MetaFileSystem::GetHostPath(const std::string &inpath, std::string &outpath)
 {
+	lock_guard guard(lock);
 	std::string of;
 	IFileSystem *system;
 	if (MapFilePath(inpath, of, &system)) {
@@ -294,6 +319,7 @@ bool MetaFileSystem::GetHostPath(const std::string &inpath, std::string &outpath
 
 std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 {
+	lock_guard guard(lock);
 	std::string of;
 	IFileSystem *system;
 	if (MapFilePath(path, of, &system))
@@ -309,11 +335,13 @@ std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 
 void MetaFileSystem::ThreadEnded(int threadID)
 {
+	lock_guard guard(lock);
 	currentDir.erase(threadID);
 }
 
 int MetaFileSystem::ChDir(const std::string &dir)
 {
+	lock_guard guard(lock);
 	// Retain the old path and fail if the arg is 1023 bytes or longer.
 	if (dir.size() >= 1023)
 		return SCE_KERNEL_ERROR_NAMETOOLONG;
@@ -348,6 +376,7 @@ int MetaFileSystem::ChDir(const std::string &dir)
 
 bool MetaFileSystem::MkDir(const std::string &dirname)
 {
+	lock_guard guard(lock);
 	std::string of;
 	IFileSystem *system;
 	if (MapFilePath(dirname, of, &system))
@@ -362,6 +391,7 @@ bool MetaFileSystem::MkDir(const std::string &dirname)
 
 bool MetaFileSystem::RmDir(const std::string &dirname)
 {
+	lock_guard guard(lock);
 	std::string of;
 	IFileSystem *system;
 	if (MapFilePath(dirname, of, &system))
@@ -376,6 +406,7 @@ bool MetaFileSystem::RmDir(const std::string &dirname)
 
 int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 {
+	lock_guard guard(lock);
 	std::string of;
 	std::string rf;
 	IFileSystem *osystem;
@@ -407,6 +438,7 @@ int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 
 bool MetaFileSystem::RemoveFile(const std::string &filename)
 {
+	lock_guard guard(lock);
 	std::string of;
 	IFileSystem *system;
 	if (MapFilePath(filename, of, &system))
@@ -421,6 +453,7 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 
 void MetaFileSystem::CloseFile(u32 handle)
 {
+	lock_guard guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		sys->CloseFile(handle);
@@ -428,6 +461,7 @@ void MetaFileSystem::CloseFile(u32 handle)
 
 size_t MetaFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 {
+	lock_guard guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		return sys->ReadFile(handle,pointer,size);
@@ -437,6 +471,7 @@ size_t MetaFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 
 size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
 {
+	lock_guard guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		return sys->WriteFile(handle,pointer,size);
@@ -446,6 +481,7 @@ size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
 
 size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 {
+	lock_guard guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		return sys->SeekFile(handle,position,type);
@@ -455,6 +491,7 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 
 void MetaFileSystem::DoState(PointerWrap &p)
 {
+	lock_guard guard(lock);
 	p.Do(current);
 
 	// Save/load per-thread current directory map

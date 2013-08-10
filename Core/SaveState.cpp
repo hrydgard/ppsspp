@@ -88,6 +88,7 @@ namespace SaveState
 		if (Core_IsInactive() && __KernelIsRunning())
 		{
 			// Warning: this may run on a different thread.
+			needsProcess = true;
 			Process();
 		}
 		else
