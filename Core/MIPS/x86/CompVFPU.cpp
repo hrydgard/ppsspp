@@ -658,49 +658,44 @@ void Jit::Comp_VecDo3(u32 op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	void (XEmitter::*xmmop)(X64Reg, OpArg) = NULL;
-	switch (op >> 26)
-	{
+	// Check that we can support the ops, and prepare temporary values for ops that need it.
+	switch (op >> 26) {
 	case 24: //VFPU0
-		switch ((op >> 23)&7)
-		{
+		switch ((op >> 23) & 7) {
 		case 0: // d[i] = s[i] + t[i]; break; //vadd
-			xmmop = &XEmitter::ADDSS;
-			break;
 		case 1: // d[i] = s[i] - t[i]; break; //vsub
-			xmmop = &XEmitter::SUBSS;
-			break;
 		case 7: // d[i] = s[i] / t[i]; break; //vdiv
-			xmmop = &XEmitter::DIVSS;
 			break;
+		default:
+			DISABLE;
 		}
 		break;
 	case 25: //VFPU1
-		switch ((op >> 23) & 7)
-		{
+		switch ((op >> 23) & 7) {
 		case 0: // d[i] = s[i] * t[i]; break; //vmul
-			xmmop = &XEmitter::MULSS;
 			break;
+		default:
+			DISABLE;
 		}
 		break;
 	case 27: //VFPU3
-		switch ((op >> 23) & 3)
-		{
+		switch ((op >> 23) & 3) {
 		case 2:  // vmin
-			xmmop = &XEmitter::MINSS;
-			break;
 		case 3:  // vmax
-			xmmop = &XEmitter::MAXSS;
 			break;
+		case 6:  // vsge
+		case 7:  // vslt
+			DISABLE;  // Something is wrong :/
+			MOVSS(XMM0, M((void *)&one));
+			break;
+		default:
+			DISABLE;
 		}
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"invalid VecDo3");
+		DISABLE;
 		break;
 	}
-
-	if (xmmop == NULL)
-		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
@@ -740,8 +735,50 @@ void Jit::Comp_VecDo3(u32 op) {
 			MOVSS(tempxregs[i], fpr.V(sregs[i]));
 	}
 
-	for (int i = 0; i < n; ++i)
-		(this->*xmmop)(tempxregs[i], fpr.V(tregs[i]));
+	for (int i = 0; i < n; ++i) {
+		switch (op >> 26) {
+		case 24: //VFPU0
+			switch ((op >> 23) & 7) {
+			case 0: // d[i] = s[i] + t[i]; break; //vadd
+				ADDSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 1: // d[i] = s[i] - t[i]; break; //vsub
+				SUBSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 7: // d[i] = s[i] / t[i]; break; //vdiv
+				DIVSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			}
+			break;
+		case 25: //VFPU1
+			switch ((op >> 23) & 7)
+			{
+			case 0: // d[i] = s[i] * t[i]; break; //vmul
+				MULSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			}
+			break;
+		case 27: //VFPU3
+			switch ((op >> 23) & 3)
+			{
+			case 2:  // vmin
+				MINSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 3:  // vmax
+				MAXSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 6:  // vsge
+				CMPNLTSS(tempxregs[i], fpr.V(tregs[i]));
+				ANDPS(tempxregs[i], R(XMM0));
+				break;
+			case 7:  // vslt
+				CMPLTSS(tempxregs[i], fpr.V(tregs[i]));
+				ANDPS(tempxregs[i], R(XMM0));
+				break;
+			}
+			break;
+		}
+	}
 
 	for (int i = 0; i < n; ++i)
 	{

@@ -674,6 +674,26 @@ namespace MIPSComp
 					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
 					SetCC(CC_AL);
 					break;
+				case 6:  // vsge
+					DISABLE;  // pending testing
+					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
+					VMRS_APSR();
+					SetCC(CC_GE);
+					MOVI2F(fpr.V(tempregs[i]), 1.0f, R0);
+					SetCC(CC_LT);
+					MOVI2F(fpr.V(tempregs[i]), 0.0f, R0);
+					SetCC(CC_AL);
+					break;
+				case 7:  // vslt
+					DISABLE;  // pending testing
+					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
+					VMRS_APSR();
+					SetCC(CC_LT);
+					MOVI2F(fpr.V(tempregs[i]), 1.0f, R0);
+					SetCC(CC_GE);
+					MOVI2F(fpr.V(tempregs[i]), 0.0f, R0);
+					SetCC(CC_AL);
+					break;
 				}
 				break;
 
@@ -1271,14 +1291,6 @@ namespace MIPSComp
 		}
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
-	}
-
-	void Jit::Comp_Vsge(u32 op) {
-		DISABLE;
-	}
-
-	void Jit::Comp_Vslt(u32 op) {
-		DISABLE;
 	}
 
 	void Jit::Comp_Vcmp(u32 op) {

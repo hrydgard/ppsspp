@@ -1540,6 +1540,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
+	// This doesn't quite pass all the tests :/
 	void Int_Vscmp(u32 op) {
 		int vt = _VT;
 		int vs = _VS;
@@ -1555,7 +1556,12 @@ namespace MIPSInt
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n ; i++) {
 			float a = s[i] - t[i];
-			d[i] = (float) ((0.0 < a) - (a < 0.0));
+			if (a > 0.0f) 
+				d[i] = 1.0f;
+			else if (a < 0.0f)
+				d[i] = -1.0f;
+			else
+				d[i] = 0.0f;
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
