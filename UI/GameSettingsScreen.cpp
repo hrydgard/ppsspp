@@ -179,6 +179,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *c = GetI18NCategory("Controls");
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *ms = GetI18NCategory("MainSettings");
 
 	Margins actionMenuMargins(0, 0, 15, 0);
 
@@ -200,7 +201,7 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *graphicsSettings = new LinearLayout(ORIENT_VERTICAL);
 	graphicsSettingsScroll->Add(graphicsSettings);
-	tabHolder->AddTab("Graphics", graphicsSettingsScroll);
+	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 #ifndef USING_GLES2
@@ -250,7 +251,7 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *audioSettings = new LinearLayout(ORIENT_VERTICAL);
 	audioSettingsScroll->Add(audioSettings);
-	tabHolder->AddTab("Audio", audioSettingsScroll);
+	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
 
 	std::string atracString;
 	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
@@ -265,7 +266,7 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
 	controlsSettingsScroll->Add(controlsSettings);
-	tabHolder->AddTab("Controls", controlsSettingsScroll);
+	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Left Analog Stick")));
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
@@ -276,7 +277,7 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
 	systemSettingsScroll->Add(systemSettings);
-	tabHolder->AddTab("System", systemSettingsScroll);
+	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
