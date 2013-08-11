@@ -74,7 +74,7 @@ struct ThreadEventQueue : public B {
 			}
 
 			// Quit the loop if the queue is drained and coreState has tripped, or threading is disabled.
-			if (coreState != CORE_RUNNING || !threadEnabled_) {
+			if (ShouldExitEventLoop() || !threadEnabled_) {
 				return;
 			}
 
@@ -104,6 +104,7 @@ struct ThreadEventQueue : public B {
 
 protected:
 	virtual void ProcessEvent(Event ev) = 0;
+	virtual bool ShouldExitEventLoop() = 0;
 
 private:
 	bool threadEnabled_;

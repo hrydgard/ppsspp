@@ -48,6 +48,9 @@ protected:
 	void ProcessDLQueueInternal();
 	void ReapplyGfxStateInternal();
 	virtual void ProcessEvent(GPUEvent ev);
+	virtual bool ShouldExitEventLoop() {
+		return coreState != CORE_RUNNING;
+	}
 
 	// Allows early unlocking with a guard.  Do not double unlock.
 	class easy_guard {
