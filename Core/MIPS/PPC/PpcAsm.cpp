@@ -52,7 +52,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	//Break();
 
 	// Cmp ??
-	CMPLI(DCNTREG, 0);
+	CMPI(DCNTREG, 0);
 	BLT((const void *)outerLoopPCInR0);
 	// if (currentMIPS->downcount<0)
 	//BGT((const void *)outerLoopPCInR0);
@@ -313,7 +313,7 @@ void Jit::GenerateFixedCode() {
 		FixupBranch badcpustates = BNE();
 		
 		//BEQ(outerLoop);
-		CMPLI(DCNTREG, 0);
+		CMPI(DCNTREG, 0);
 		BLT(outerLoop);
 		
 		SetJumpTarget(badcpustates);

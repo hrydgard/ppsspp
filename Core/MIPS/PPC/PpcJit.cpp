@@ -91,6 +91,9 @@ void Jit::RestoreDowncount(PPCReg r) {
 }
 
 static void ShowDownCount() {
+	if (0xfffffffa == currentMIPS->downcount) {
+		DebugBreak();
+	}
 	ERROR_LOG(DYNA_REC, "MIPSState, downcount %08x", currentMIPS->downcount);
 }
 
