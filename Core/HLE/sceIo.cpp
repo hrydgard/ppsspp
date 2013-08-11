@@ -17,6 +17,7 @@
 
 #include <cstdlib>
 #include "native/thread/thread.h"
+#include "native/thread/threadutil.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Host.h"
@@ -334,6 +335,7 @@ static DirectoryFileSystem *flash0System = NULL;
 #endif
 
 void __IoManagerThread() {
+	setCurrentThreadName("IOThread");
 	while (ioManagerThreadEnabled) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
