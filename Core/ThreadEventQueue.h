@@ -18,6 +18,7 @@
 #pragma once
 
 #include "native/base/mutex.h"
+#include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include <deque>
 
