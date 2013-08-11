@@ -222,12 +222,20 @@ void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
 
 inline void Memcpy(const u32 to_address, const void *from_data, const u32 len)
 {
-	memcpy(GetPointer(to_address), from_data, len);
+	u8 *to = GetPointer(to_address);
+	if (to) {
+		memcpy(to, from_data, len);
+	}
+	// if not, GetPointer will log.
 }
 
 inline void Memcpy(void *to_data, const u32 from_address, const u32 len)
 {
-	memcpy(to_data, GetPointer(from_address), len);
+	const u8 *from = GetPointer(from_address);
+	if (from) {
+		memcpy(to_data, from, len);
+	}
+	// if not, GetPointer will log.
 }
 
 inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len)

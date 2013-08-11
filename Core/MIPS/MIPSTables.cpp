@@ -162,7 +162,7 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	{VFPU6},
 	INSTR("sv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX), //copU
 	INSTR("sv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX),
-	INSTR("vflush", &Jit::Comp_Generic, Dis_Vflush, Int_Vflush, IS_VFPU|VFPU_NO_PREFIX),
+	INSTR("vflush", &Jit::Comp_DoNothing, Dis_Vflush, Int_Vflush, IS_VFPU|VFPU_NO_PREFIX),
 };
 
 const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxxxxx

@@ -272,6 +272,73 @@ void Jit::Comp_SVQ(u32 op)
 
 	switch (op >> 26)
 	{
+	case 53: //lvl.q/lvr.q
+		{
+			if (!g_Config.bFastMemory) {
+				DISABLE;
+			}
+			DISABLE;
+
+			gpr.BindToRegister(rs, true, true);
+			gpr.FlushLockX(ECX);
+			u8 vregs[4];
+			GetVectorRegs(vregs, V_Quad, vt);
+			MOV(32, R(EAX), gpr.R(rs));
+			ADD(32, R(EAX), Imm32(imm));
+#ifdef _M_IX86
+			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+#endif
+			MOV(32, R(ECX), R(EAX));
+			SHR(32, R(EAX), Imm8(2));
+			AND(32, R(EAX), Imm32(0x3));
+			CMP(32, R(EAX), Imm32(0));
+			FixupBranch next = J_CC(CC_NE);
+
+			fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY);
+
+			// Offset = 0
+			MOVSS(fpr.RX(vregs[3]), MRegSum(RBX, RAX));
+
+			FixupBranch skip0 = J();
+			SetJumpTarget(next);
+			CMP(32, R(EAX), Imm32(1));
+			next = J_CC(CC_NE);
+
+			// Offset = 1
+			MOVSS(fpr.RX(vregs[3]), MComplex(RBX, RAX, 1, 4));
+			MOVSS(fpr.RX(vregs[2]), MComplex(RBX, RAX, 1, 0));
+
+			FixupBranch skip1 = J();
+			SetJumpTarget(next);
+			CMP(32, R(EAX), Imm32(2));
+			next = J_CC(CC_NE);
+
+			// Offset = 2
+			MOVSS(fpr.RX(vregs[3]), MComplex(RBX, RAX, 1, 8));
+			MOVSS(fpr.RX(vregs[2]), MComplex(RBX, RAX, 1, 4));
+			MOVSS(fpr.RX(vregs[1]), MComplex(RBX, RAX, 1, 0));
+
+			FixupBranch skip2 = J();
+			SetJumpTarget(next);
+			CMP(32, R(EAX), Imm32(3));
+			next = J_CC(CC_NE);
+
+			// Offset = 3
+			MOVSS(fpr.RX(vregs[3]), MComplex(RBX, RAX, 1, 12));
+			MOVSS(fpr.RX(vregs[2]), MComplex(RBX, RAX, 1, 8));
+			MOVSS(fpr.RX(vregs[1]), MComplex(RBX, RAX, 1, 4));
+			MOVSS(fpr.RX(vregs[0]), MComplex(RBX, RAX, 1, 0));
+
+			SetJumpTarget(next);
+			SetJumpTarget(skip0);
+			SetJumpTarget(skip1);
+			SetJumpTarget(skip2);
+
+			gpr.UnlockAll();
+			fpr.ReleaseSpillLocks();
+		}
+		break;
+
 	case 54: //lv.q
 		{
 			gpr.BindToRegister(rs, true, true);
@@ -336,6 +403,8 @@ void Jit::Comp_SVQ(u32 op)
 			fpr.ReleaseSpillLocks();
 		}
 		break;
+
+
 
 	default:
 		DISABLE;

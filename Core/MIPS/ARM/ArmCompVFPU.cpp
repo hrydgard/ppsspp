@@ -592,11 +592,21 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	void Jit::Comp_Vhoriz(u32 op) {
+		DISABLE;
+
+		switch ((op >> 16) & 31) {
+		case 6:  // vfad
+			break;
+		case 7:  // vavg
+			break;
+		}
+	}
+
 	void Jit::Comp_VHdp(u32 op) {
 		// Similar to vdot
 		DISABLE;
 	}
-
 
 	void Jit::Comp_VecDo3(u32 op) {
 		CONDITIONAL_DISABLE;
@@ -1533,10 +1543,6 @@ namespace MIPSComp
 
 		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
-	}
-
-	void Jit::Comp_Vhoriz(u32 op) {
-		DISABLE;
 	}
 
 	static float sincostemp[2];
