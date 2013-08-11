@@ -194,7 +194,13 @@ public:
 	void BLT(const void *fnptr);
 	void BGT(const void *fnptr);
 	void BEQ (PPCReg r);
-
+	
+	void BLR();
+	void BGTLR(); // ??? used ?
+	void BLTCTR();
+	void BGTCTR();
+	void BLECTR();
+	void BGECTR();
 	void BCTRL ();
 	void BCTR();
 
@@ -202,8 +208,6 @@ public:
 	void MFLR(PPCReg r);
 	void MTLR(PPCReg r);
 	void MTCTR(PPCReg r);
-	void BLR();
-	void BGTLR();
 
 
 	// Logical Ops	

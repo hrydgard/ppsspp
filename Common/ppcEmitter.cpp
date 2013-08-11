@@ -135,8 +135,12 @@ namespace PpcGen {
 		u32 instr = (0x48000003 | ((s32)((func) & 0x3fffffc)));
 		Write32(instr);
 	}
+
+#define CHECK_JUMP if ((s32(code) - (s32)fnptr) > 0xFFFF) {	DebugBreak();}
 	
 	void PPCXEmitter::BEQ (const void *fnptr) {
+		CHECK_JUMP
+
 		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41820000 | ( func & 0xfffc));
 		Write32(instr);
@@ -144,18 +148,40 @@ namespace PpcGen {
 	
 	
 	void PPCXEmitter::BGT(const void *fnptr) {
+		CHECK_JUMP
+
 		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41810000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
 	}
 
+	
+	void PPCXEmitter::BLTCTR() {
+		Write32((19 << 26) | (12 << 21) | (528 <<1));
+	//	Break();
+	}
+
 	void PPCXEmitter::BLT (const void *fnptr) {
+		//CHECK_JUMP
+		if ((s32(code) - (s32)fnptr) > 0xFFFF) {
+			u32 func_addr = (u32) fnptr;
+			// Load func address
+			MOVI2R(R0, func_addr);
+			// Set it to link register
+			MTCTR(R0);
+			// Branch
+			BLTCTR();
+			return;
+		}
+
 		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41800000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
 	}
 
-	void PPCXEmitter::BLE (const void *fnptr) {
+	void PPCXEmitter::BLE (const void *fnptr) {		
+		CHECK_JUMP
+
 		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x40810000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
@@ -282,7 +308,8 @@ namespace PpcGen {
 		case _BNE:
 			*(u32*)branch.ptr =  (0x40820000 | ((s16)(((distance)+1)) & 0xfffc));
 			break;
-		case _BLT:
+		case _BLT:			
+			printf("fxBLT : %08x - %08x\n", (u32)branch.ptr, distance);
 			*(u32*)branch.ptr =  (0x41800000 | ((s16)(((distance)+1)) & 0xfffc));
 			break;
 		case _BLE:
