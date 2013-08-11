@@ -109,6 +109,9 @@ static AsyncIOManager ioManager;
 static bool ioManagerThreadEnabled = false;
 static std::thread *ioManagerThread;
 
+// TODO: Is it better to just put all on the thread?
+const int IO_THREAD_MIN_DATA_SIZE = 256;
+
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
 #define SCE_STM_FLNK 0x4000
@@ -612,7 +615,7 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 			if (f->npdrm) {
 				result = npdrmRead(f, data, size);
 				return true;
-			} else if (__KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > 256) {
+			} else if (__KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE) {
 				AsyncIOEvent ev = IO_EVENT_READ;
 				ev.handle = f->handle;
 				ev.buf = data;
@@ -693,24 +696,37 @@ u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	}
 }
 
-int __IoWrite(int id, void *data_ptr, int size) {
+bool __IoWrite(int &result, int id, void *data_ptr, int size) {
 	// Let's handle stdout/stderr specially.
 	if (id == 1 || id == 2) {
 		const char *str = (const char *) data_ptr;
 		const int str_size = size == 0 ? 0 : (str[size - 1] == '\n' ? size - 1 : size);
 		INFO_LOG(HLE, "%s: %.*s", id == 1 ? "stdout" : "stderr", str_size, str);
-		return size;
+		result = size;
+		return true;
 	}
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
-		if(!(f->openMode & FILEACCESS_WRITE)) {
-			return ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+		if (!(f->openMode & FILEACCESS_WRITE)) {
+			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+			return true;
 		}
-		return (int) pspFileSystem.WriteFile(f->handle, (u8*) data_ptr, size);
+		if (__KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > IO_THREAD_MIN_DATA_SIZE) {
+			AsyncIOEvent ev = IO_EVENT_WRITE;
+			ev.handle = f->handle;
+			ev.buf = (u8 *) data_ptr;
+			ev.bytes = size;
+			ioManager.ScheduleOperation(ev);
+			return false;
+		} else {
+			result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size);
+		}
+		return true;
 	} else {
 		ERROR_LOG(HLE, "sceIoWrite ERROR: no file open");
-		return (s32) error;
+		result = (s32) error;
+		return true;
 	}
 }
 
@@ -719,33 +735,53 @@ u32 sceIoWrite(int id, u32 data_addr, int size) {
 	if (!__KernelIsDispatchEnabled() && id > 2)
 		return -1;
 
-	int result = __IoWrite(id, Memory::GetPointer(data_addr), size);
-	if (result >= 0) {
-		DEBUG_LOG(HLE, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
-		// TODO: Timing is probably not very accurate, low estimate.
-		int us = result/100;
-		if(us==0)
-			us = 100;
-		if (__KernelIsDispatchEnabled())
-			return hleDelayResult(result, "io write", us);
-		else
-			return result;
+	// TODO: Timing is probably not very accurate, low estimate.
+	int us = size / 100;
+	if (us < 100) {
+		us = 100;
 	}
-	else
+
+	int result;
+	bool complete = __IoWrite(result, id, Memory::GetPointer(data_addr), size);
+	if (!complete) {
+		DEBUG_LOG(HLE, "sceIoWrite(%d, %08x, %x): deferring result", id, data_addr, size);
+
+		u32 error;
+		FileNode *f = __IoGetFd(id, error);
+		__IoSchedSync(f, id, us);
+		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io write");
+		return 0;
+	} else if (result >= 0) {
+		DEBUG_LOG(HLE, "%x=sceIoWrite(%d, %08x, %x)", result, id, data_addr, size);
+		if (__KernelIsDispatchEnabled()) {
+			return hleDelayResult(result, "io write", us);
+		} else {
+			return result;
+		}
+	} else {
 		return result;
+	}
 }
 
 u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
+	// TODO: Not sure what the correct delay is (and technically we shouldn't read from the buffer yet...)
+	int us = size / 100;
+	if (us < 100) {
+		us = 100;
+	}
+
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
-		f->asyncResult = __IoWrite(id, Memory::GetPointer(data_addr), size);
-		// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
-		int us = f->asyncResult/100;
-		if(us==0)
-			us = 100;
+		int result;
+		bool complete = __IoWrite(result, id, Memory::GetPointer(data_addr), size);
+		if (complete) {
+			f->asyncResult = result;
+			DEBUG_LOG(HLE, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
+		} else {
+			DEBUG_LOG(HLE, "sceIoWriteAsync(%d, %08x, %x): deferring result", id, data_addr, size);
+		}
 		__IoSchedAsync(f, id, us);
-		DEBUG_LOG(HLE, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
 		return 0;
 	} else {
 		ERROR_LOG(HLE, "sceIoWriteAsync: bad file %d", id);
