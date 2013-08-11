@@ -328,6 +328,8 @@ namespace MIPSInt
 		case 7: m=one; break;              // vmone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 
@@ -350,6 +352,8 @@ namespace MIPSInt
 		case 7: v=ones; break;   //vone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 		float o[4];
@@ -1529,6 +1533,8 @@ namespace MIPSInt
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"unknown min/max op %d", cond);
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 		ApplyPrefixD(d, sz);
