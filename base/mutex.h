@@ -11,6 +11,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <limits.h>
 
 // Zap stupid windows defines
 // Should move these somewhere clever.
@@ -187,7 +188,7 @@ public:
 #ifdef _WIN64
 		InitializeConditionVariable(&cond_);
 #else
-		event_ = CreateEvent(0, FALSE, FALSE, 0);
+		sema_ = CreateSemaphore(NULL, 0, LONG_MAX, NULL);
 #endif
 #else
 		pthread_cond_init(&event_, NULL);
@@ -197,7 +198,7 @@ public:
 #ifdef _WIN32
 #ifdef _WIN64
 #else
-		CloseHandle(event_);
+		CloseHandle(sema_);
 #endif
 #else
 		pthread_cond_destroy(&event_);
@@ -209,7 +210,7 @@ public:
 #ifdef _M_X64
 		WakeConditionVariable(&cond_);
 #else
-		SetEvent(event_);
+		ReleaseSemaphore(sema_, 1, NULL);
 #endif
 #else
 		pthread_cond_signal(&event_);
@@ -225,10 +226,11 @@ public:
 #ifdef _M_X64
 		SleepConditionVariableCS(&cond_, &mtx.native_handle(), INFINITE);
 #else
-		// This has to be horribly racy.
+		// Since a semaphore keeps a count, the window between unlock and lock won't cause us to deadlock.
+		// However, we could wake early incorrectly (if the semaphore is signalled already.)
+		// That's better than deadlocking or forgetting to wake.
 		mtx.unlock();
-		WaitForSingleObject(event_, INFINITE);
-		ResetEvent(event_); // necessary?
+		WaitForSingleObject(sema_, INFINITE);
 		mtx.lock();
 #endif
 #else
@@ -241,11 +243,12 @@ public:
 #ifdef _M_X64
 		SleepConditionVariableCS(&cond_, &mtx.native_handle(), milliseconds);
 #else
-
-		//mtx.unlock();
-		WaitForSingleObject(event_, milliseconds);
-		ResetEvent(event_); // necessary?
-		// mtx.lock();
+		// Since a semaphore keeps a count, the window between unlock and lock won't cause us to deadlock.
+		// However, we could wake early incorrectly (if the semaphore is signalled already.)
+		// That's better than deadlocking or forgetting to wake.
+		mtx.unlock();
+		WaitForSingleObject(sema_, milliseconds);
+		mtx.lock();
 #endif
 #else
 		timespec timeout;
@@ -268,7 +271,7 @@ private:
 #ifdef _M_X64
 	CONDITION_VARIABLE cond_;
 #else
-	HANDLE event_;
+	HANDLE sema_;
 #endif
 #else
 	pthread_cond_t event_;
