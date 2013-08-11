@@ -112,7 +112,7 @@ bool CPU_HasPendingAction() {
 void CPU_WaitStatus(bool (*pred)()) {
 	cpuThreadLock.lock();
 	while (!pred())
-		cpuThreadCond.wait(cpuThreadLock);
+		cpuThreadCond.wait_for(cpuThreadLock, 16);
 	cpuThreadLock.unlock();
 }
 

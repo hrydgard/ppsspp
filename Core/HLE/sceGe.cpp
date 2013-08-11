@@ -215,6 +215,16 @@ bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
 	return true;
 }
 
+void __GeWaitCurrentThread(WaitType type, SceUID waitId, const char *reason)
+{
+	__KernelWaitCurThread(type, waitId, 0, 0, false, reason);
+}
+
+void __GeTriggerWait(WaitType type, SceUID waitId, const char *reason, bool noSwitch)
+{
+	__KernelTriggerWait(type, waitId, 0, reason, noSwitch);
+}
+
 bool __GeHasPendingInterrupt()
 {
 	return !ge_pending_cb.empty();
