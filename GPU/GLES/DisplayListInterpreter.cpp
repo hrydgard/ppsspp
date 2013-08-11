@@ -304,6 +304,9 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 }
 
 bool GLES_GPU::FramebufferDirty() {
+	// Allow it to process fully before deciding if it's dirty.
+	SyncThread();
+
 	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
 	if (vfb)
 		return vfb->dirtyAfterDisplay;

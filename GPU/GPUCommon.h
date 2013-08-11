@@ -28,7 +28,10 @@ public:
 	virtual int  ListSync(int listid, int mode);
 	virtual u32  DrawSync(int mode);
 	virtual void DoState(PointerWrap &p);
-	virtual bool FramebufferDirty() { return true; }
+	virtual bool FramebufferDirty() {
+		SyncThread();
+		return true;
+	}
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
