@@ -304,6 +304,8 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 }
 
 bool GLES_GPU::FramebufferDirty() {
+	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+	ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
 	// Allow it to process fully before deciding if it's dirty.
 	SyncThread();
 
