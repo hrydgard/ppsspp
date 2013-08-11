@@ -52,7 +52,8 @@ static u32 ComputeHash(u32 start, u32 size)
 
 void SymbolMap::SortSymbols()
 {
-  std::sort(entries.begin(), entries.end());
+	lock_guard guard(lock_);
+	std::sort(entries.begin(), entries.end());
 }
 
 void SymbolMap::AnalyzeBackwards()
@@ -104,6 +105,7 @@ void SymbolMap::AnalyzeBackwards()
 
 void SymbolMap::ResetSymbolMap()
 {
+	lock_guard guard(lock_);
 #ifdef BWLINKS
 	for (int i=0; i<numEntries; i++)
 	{
@@ -118,6 +120,7 @@ void SymbolMap::ResetSymbolMap()
 
 void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t size, SymbolType st)
 {
+	lock_guard guard(lock_);
 	MapEntry e;
 	strncpy(e.name, symbolname, 127);
 	e.name[127] = '\0';
@@ -134,6 +137,7 @@ void SymbolMap::AddSymbol(const char *symbolname, unsigned int vaddress, size_t 
 
 bool SymbolMap::LoadSymbolMap(const char *filename)
 {
+	lock_guard guard(lock_);
 	SymbolMap::ResetSymbolMap();
 	FILE *f = fopen(filename,"r");
 	if (!f)
@@ -207,6 +211,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 
 void SymbolMap::SaveSymbolMap(const char *filename) const
 {
+	lock_guard guard(lock_);
 	FILE *f = fopen(filename,"w");
 	if (!f)
 		return;
@@ -221,6 +226,7 @@ void SymbolMap::SaveSymbolMap(const char *filename) const
 
 bool SymbolMap::LoadNocashSym(const char *filename)
 {
+	lock_guard guard(lock_);
 	FILE *f = fopen(filename,"r");
 	if (!f)
 		return false;
@@ -389,6 +395,8 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask) const
 		}
 	}
 
+	lock_guard guard(lock_);
+
 	SendMessage(listbox, WM_SETREDRAW, FALSE, 0);
 	SendMessage(listbox, LB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30);
 	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
@@ -427,11 +435,13 @@ void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask) const
 	//ListBox_AddString(listbox,"(0x80002000)");
 	//ListBox_SetItemData(listbox,1,0x80002000);
 
+	lock_guard guard(lock_);
+
 	SendMessage(listbox, WM_SETREDRAW, FALSE, 0);
 	SendMessage(listbox, CB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30);
-	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
+	for (size_t i = 0, end = entries.size(); i < end; ++i)
 	{
-		const MapEntry &entry = *it;
+		const MapEntry &entry = entries[i];
 		if (entry.type & symmask)
 		{
 			char temp[256];
@@ -449,6 +459,8 @@ void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask) const
 void SymbolMap::FillListBoxBLinks(HWND listbox, int num) const
 {	
 	ListBox_ResetContent(listbox);
+
+	lock_guard guard(lock_);
 		
 	int style = GetWindowLong(listbox,GWL_STYLE);
 
