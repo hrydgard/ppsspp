@@ -10,9 +10,7 @@
 #include "Core/MemMap.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
-#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
-#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceGe.h"
 
 GPUCommon::GPUCommon() :
@@ -58,7 +56,7 @@ u32 GPUCommon::DrawSync(int mode) {
 	if (mode == 0) {
 		// TODO: What if dispatch / interrupts disabled?
 		if (drawCompleteTicks > CoreTiming::GetTicks()) {
-			__KernelWaitCurThread(WAITTYPE_GEDRAWSYNC, 1, 0, 0, false, "GeDrawSync");
+			__GeWaitCurrentThread(WAITTYPE_GEDRAWSYNC, 1, "GeDrawSync");
 		} else {
 			for (int i = 0; i < DisplayListMaxCount; ++i) {
 				if (dls[i].state == PSP_GE_DL_STATE_COMPLETED) {
@@ -130,7 +128,7 @@ int GPUCommon::ListSync(int listid, int mode) {
 	}
 
 	if (dl.waitTicks > CoreTiming::GetTicks()) {
-		__KernelWaitCurThread(WAITTYPE_GELISTSYNC, listid, 0, 0, false, "GeListSync");
+		__GeWaitCurrentThread(WAITTYPE_GELISTSYNC, listid, "GeListSync");
 	}
 	return PSP_GE_LIST_COMPLETED;
 }
@@ -243,7 +241,7 @@ u32 GPUCommon::DequeueList(int listid) {
 		dlQueue.remove(listid);
 
 	dls[listid].waitTicks = 0;
-	__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync");
+	__GeTriggerWait(WAITTYPE_GELISTSYNC, listid, "GeListSync");
 
 	CheckDrawSync();
 
@@ -858,7 +856,7 @@ void GPUCommon::InterruptEnd(int listid) {
 	// TODO: Unless the signal handler could change it?
 	if (dl.state == PSP_GE_DL_STATE_COMPLETED || dl.state == PSP_GE_DL_STATE_NONE) {
 		dl.waitTicks = 0;
-		__KernelTriggerWait(WAITTYPE_GELISTSYNC, listid, 0, "GeListSync", true);
+		__GeTriggerWait(WAITTYPE_GELISTSYNC, listid, "GeListSync", true);
 	}
 
 	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
