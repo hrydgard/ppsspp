@@ -58,6 +58,7 @@ public:
 	bool bJit;
 	// Definitely cannot be changed while game is running.
 	bool bSeparateCPUThread;
+	bool bSeparateIOThread;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
 	std::string sReportHost;

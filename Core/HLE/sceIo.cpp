@@ -16,33 +16,35 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdlib>
+#include "native/thread/thread.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
-#include "HLE.h"
+#include "Core/HLE/HLE.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/MemoryStick.h"
+#include "Core/HW/AsyncIOManager.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 
-#include "../FileSystems/FileSystem.h"
-#include "../FileSystems/MetaFileSystem.h"
-#include "../FileSystems/ISOFileSystem.h"
-#include "../FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/FileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/DirectoryFileSystem.h"
 
 extern "C" {
 #include "ext/libkirk/amctrl.h"
 };
 
-#include "sceIo.h"
-#include "sceRtc.h"
-#include "sceKernel.h"
-#include "sceKernelMemory.h"
-#include "sceKernelThread.h"
+#include "Core/HLE/sceIo.h"
+#include "Core/HLE/sceRtc.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelThread.h"
 
 // For headless screenshots.
-#include "sceDisplay.h"
+#include "Core/HLE/sceDisplay.h"
 
 const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
 const int ERROR_ERRNO_FILE_ALREADY_EXISTS          = 0x80010011;
@@ -102,6 +104,9 @@ const int PSP_COUNT_FDS = 64;
 const int PSP_MIN_FD = 4;
 static int asyncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
+static AsyncIOManager ioManager;
+static bool ioManagerThreadEnabled = false;
+static std::thread *ioManagerThread;
 
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
@@ -299,6 +304,12 @@ static VFSFileSystem *flash0System = NULL;
 static DirectoryFileSystem *flash0System = NULL;
 #endif
 
+void __IoManagerThread() {
+	while (ioManagerThreadEnabled) {
+		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
+	}
+}
+
 void __IoInit() {
 	INFO_LOG(HLE, "Starting up I/O...");
 
@@ -324,15 +335,31 @@ void __IoInit() {
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 
 	memset(fds, 0, sizeof(fds));
+
+	ioManagerThreadEnabled = g_Config.bSeparateIOThread;
+	ioManager.SetThreadEnabled(ioManagerThreadEnabled);
+	if (ioManagerThreadEnabled) {
+		ioManagerThread = new std::thread(&__IoManagerThread);
+	}
 }
 
 void __IoDoState(PointerWrap &p) {
+	ioManager.DoState(p);
 	p.DoArray(fds, ARRAY_SIZE(fds));
 	p.Do(asyncNotifyEvent);
 	CoreTiming::RestoreRegisterEvent(asyncNotifyEvent, "IoAsyncNotify", __IoAsyncNotify);
+	p.DoMarker("sceIo");
 }
 
 void __IoShutdown() {
+	ioManagerThreadEnabled = false;
+	ioManager.SyncThread();
+	ioManager.FinishEventLoop();
+	if (ioManagerThread != NULL) {
+		delete ioManagerThread;
+		ioManagerThread = NULL;
+	}
+
 	pspFileSystem.Unmount("ms0:", memstickSystem);
 	pspFileSystem.Unmount("fatms0:", memstickSystem);
 	pspFileSystem.Unmount("fatms:", memstickSystem);
