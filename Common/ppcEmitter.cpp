@@ -125,33 +125,39 @@ namespace PpcGen {
 	}
 
 	void PPCXEmitter::BA (const void *fnptr) {
-		s32 func =  (s32)fnptr - s32(code);
+		s32 func =  (s32)fnptr;
 		u32 instr = (0x48000002 | ((s32)((func) & 0x3fffffc)));
 		Write32(instr);
 	}
 	
 	void PPCXEmitter::BLA (const void *fnptr) {
-		s32 func =  (s32)fnptr - s32(code);
+		s32 func =  (s32)fnptr;
 		u32 instr = (0x48000003 | ((s32)((func) & 0x3fffffc)));
 		Write32(instr);
 	}
 	
 	void PPCXEmitter::BEQ (const void *fnptr) {
 		s32 func =  (s32)fnptr - s32(code);
-		u32 instr = (0x41820000 | ( func & 0xffff));
+		u32 instr = (0x41820000 | ( func & 0xfffc));
 		Write32(instr);
 	}
 	
 	
 	void PPCXEmitter::BGT(const void *fnptr) {
 		s32 func =  (s32)fnptr - s32(code);
-		u32 instr = (0x41810000 | (((s16)(((func)+1))) & 0xffff));
+		u32 instr = (0x41810000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::BLT (const void *fnptr) {
 		s32 func =  (s32)fnptr - s32(code);
-		u32 instr = (0x41800000 | (((s16)(((func)+1))) & 0xffff));
+		u32 instr = (0x41800000 | (((s16)(((func)+1))) & 0xfffc));
+		Write32(instr);
+	}
+
+	void PPCXEmitter::BLE (const void *fnptr) {
+		s32 func =  (s32)fnptr - s32(code);
+		u32 instr = (0x40810000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
 	}
 	
@@ -235,6 +241,16 @@ namespace PpcGen {
 		return branch;
 	}
 
+	FixupBranch PPCXEmitter::BLE() {
+		FixupBranch branch;
+		branch.type = _BLE;
+		branch.ptr = code;
+		branch.condition = condition;
+		//We'll write NOP here for now.
+		Write32(0x60000000);
+		return branch;
+	}
+
 	FixupBranch PPCXEmitter::B_Cond(FixupBranchType type) {
 		FixupBranch branch;
 		branch.type = type;
@@ -287,11 +303,16 @@ namespace PpcGen {
 
 	// Compare
 	void PPCXEmitter::CMPLWI(PPCReg dest, unsigned short imm) {
-		Write32((0x28000000 | (dest << 16) | ((imm) & 0xffff)));
+		Write32((10<<26) | (dest << 16) | ((imm) & 0xffff));
+		Break();
 	}
-	
+		
+	void PPCXEmitter::CMPI(PPCReg dest, unsigned short imm) {
+		Write32((11<<26) | (dest << 16) | ((imm) & 0xffff));
+	}
+
 	void PPCXEmitter::CMPLI(PPCReg dest, unsigned short imm) {
-		Write32((0x2C000000 | (dest << 16) | ((imm) & 0xffff)));
+		Write32((10<<26) | (dest << 16) | ((imm) & 0xffff));
 	}
 	
 	void PPCXEmitter::CMP(PPCReg a, PPCReg b) {

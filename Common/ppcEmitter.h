@@ -178,6 +178,7 @@ public:
 	FixupBranch BL();	
 	FixupBranch BNE();
 	FixupBranch BLT();	
+	FixupBranch BLE();	
 
 	FixupBranch B_Cond(FixupBranchType type);
 
@@ -189,6 +190,7 @@ public:
 	void BA (const void *fnptr);
 	void BLA(const void *fnptr);
 	void BEQ(const void *fnptr);
+	void BLE(const void *fnptr);
 	void BLT(const void *fnptr);
 	void BGT(const void *fnptr);
 	void BEQ (PPCReg r);
@@ -263,7 +265,8 @@ public:
 
 	// Compare
 	void CMPLWI	(PPCReg dest, unsigned short imm);
-	void CMPLI	(PPCReg dest, unsigned short imm);
+	void CMPLI	(PPCReg dest, unsigned short imm);	
+	void CMPI	(PPCReg dest, unsigned short imm);
 	void CMP	(PPCReg a, PPCReg b);
 
 	// Debug !
