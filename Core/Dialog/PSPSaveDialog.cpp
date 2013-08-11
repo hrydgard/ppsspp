@@ -631,7 +631,7 @@ int PSPSaveDialog::Update()
 			DisplaySaveIcon();
 			DisplaySaveDataInfo2();
 
-			DisplayMessage(d->T("Do you want to overwrite the data?"), true);
+			DisplayMessage(d->T("Confirm Overwrite","Do you want to overwrite the data?"), true);
 
 			DisplayButtons(DS_BUTTON_OK | DS_BUTTON_CANCEL);
 			DisplayBanner(DB_SAVE);

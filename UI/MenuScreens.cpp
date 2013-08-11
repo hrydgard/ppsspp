@@ -253,6 +253,7 @@ void MenuScreen::render() {
 	VLinear vlinear(dp_xres + xoff, 100, 20);
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
+	I18NCategory *p = GetI18NCategory("Plugin");
 
 	if (UIButton(GEN_ID, vlinear, w, 0, m->T("Load", "Load..."), ALIGN_RIGHT)) {
 #if defined(USING_QT_UI) && !defined(MEEGO_EDITION_HARMATTAN)
@@ -312,7 +313,7 @@ void MenuScreen::render() {
 	}
 
 	if (showAtracShortcut_) {
-		if (UIButton(GEN_ID, Pos(10,dp_yres - 10), 500, 50, "Download audio plugin", ALIGN_BOTTOMLEFT)) {
+		if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 500, 50, p->T("Download audio plugin"), ALIGN_BOTTOMLEFT)) {
 			screenManager()->push(new PluginScreen());
 		}
 	}
@@ -844,6 +845,7 @@ void AudioScreen::render() {
 	
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *a = GetI18NCategory("Audio");
+	I18NCategory *p = GetI18NCategory("Plugin");
 
 	ui_draw2d.SetFontScale(1.5f, 1.5f);
 	ui_draw2d.DrawTextShadow(UBUNTU24, a->T("Audio Settings"), dp_xres / 2, 10, 0xFFFFFFFF, ALIGN_HCENTER);
@@ -866,7 +868,7 @@ void AudioScreen::render() {
 		// Show the download button even if not installed - might want to upgrade.
 		VLinear vlinear(30, 400, 20);
 		std::string atracString;
-		atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
+		atracString.assign(Atrac3plus_Decoder::IsInstalled() ? p->T("Redownload Atrac3+ plugin") : p->T("Download Atrac3+ plugin"));
 		if (UIButton(GEN_ID, vlinear, 400, 0, a->T(atracString.c_str()), ALIGN_LEFT)) {
 			screenManager()->push(new PluginScreen());
 		}
@@ -1544,7 +1546,7 @@ void SystemScreen::render() {
 	char nickname[512];
 	memset(nickname, 0, sizeof(nickname));
 
-	sprintf(nickname, "%s %s", s->T("System Nickname: "), g_Config.sNickName.c_str());
+	sprintf(nickname, "%s %s", s->T("System Nickname:"), g_Config.sNickName.c_str());
 	ui_draw2d.DrawTextShadow(UBUNTU24, nickname, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 
 	HLinear hlinearNick(x + 400, y, 10);
