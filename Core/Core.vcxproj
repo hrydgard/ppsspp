@@ -251,6 +251,7 @@
     <ClCompile Include="HW\MpegDemux.cpp" />
     <ClCompile Include="HW\OMAConvert.cpp" />
     <ClCompile Include="HW\SasAudio.cpp" />
+    <ClCompile Include="HW\AsyncIOManager.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -437,6 +438,7 @@
     <ClInclude Include="HW\OMAConvert.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
+    <ClInclude Include="HW\AsyncIOManager.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
     <ClInclude Include="MIPS\ARM\ArmAsm.h">
