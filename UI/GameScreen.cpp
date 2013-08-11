@@ -100,6 +100,7 @@ void GameScreen::DrawBackground(UIContext &dc) {
 void GameScreen::update(InputState &input) {
 	UIScreen::update(input);
 
+	I18NCategory *g = GetI18NCategory("General");
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	if (tvTitle_)
@@ -112,9 +113,9 @@ void GameScreen::update(InputState &input) {
 
 	if (info->gameSize) {
 		char temp[256];
-		sprintf(temp, "Game: %1.1f MB", (float)(info->gameSize) / 1024.f / 1024.f);
+		sprintf(temp, "%s: %1.1f %s", g->T("Game"), (float) (info->gameSize) / 1024.f / 1024.f, g->T("MB"));
 		tvGameSize_->SetText(temp);
-		sprintf(temp, "SaveData: %1.2f MB", (float)(info->saveDataSize) / 1024.f / 1024.f);
+		sprintf(temp, "%s: %1.2f %s", g->T("SaveData"), (float) (info->saveDataSize) / 1024.f / 1024.f, g->T("MB"));
 		tvSaveDataSize_->SetText(temp);
 	}
 }
