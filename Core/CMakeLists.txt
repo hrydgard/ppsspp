@@ -74,6 +74,7 @@ set(SRCS
   HLE/sceParseHttp.cpp
   HLE/sceVaudio.cpp
   HLE/sceAudiocodec.cpp
+  HW/AsyncIOManager.cpp
   HW/MemoryStick.cpp
   HW/MediaEngine.cpp
   HW/SasAudio.cpp

@@ -898,6 +898,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/scePauth.h
 	Core/HW/atrac3plus.cpp
 	Core/HW/atrac3plus.h
+	Core/HW/AsyncIOManager.cpp
+	Core/HW/AsyncIOManager.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MpegDemux.cpp

@@ -451,6 +451,9 @@
     <ClCompile Include="FileSystems\VirtualDiscFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
+    <ClCompile Include="HW\AsyncIOManager.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -839,6 +842,9 @@
     </ClInclude>
     <ClInclude Include="ThreadEventQueue.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\AsyncIOManager.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
