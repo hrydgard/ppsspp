@@ -431,6 +431,12 @@ int sceCccIsValidJIS(u32 c)
 	return c != 0;
 }
 
+int sceCccIsValidUnicode(u32 c)
+{
+	WARN_LOG(HLE, "UNIMPL sceCccIsValidUnicode(%08x)", c);
+	return c != 0;
+}
+
 u32 sceCccSetErrorCharUTF8(u32 c)
 {
 	DEBUG_LOG(HLE, "sceCccSetErrorCharUTF8(%08x)", c);
@@ -507,6 +513,7 @@ const HLEFunction sceCcc[] =
 	{0x76e33e9c, WrapI_U<sceCccIsValidUCS2>, "sceCccIsValidUCS2"},
 	{0xd2b18485, WrapI_U<sceCccIsValidUCS4>, "sceCccIsValidUCS4"},
 	{0xa2d5d209, WrapI_U<sceCccIsValidJIS>, "sceCccIsValidJIS"},
+	{0xbd11eef3, WrapI_U<sceCccIsValidUnicode>, "sceCccIsValidUnicode"},
 	{0x17e1d813, WrapU_U<sceCccSetErrorCharUTF8>, "sceCccSetErrorCharUTF8"},
 	{0xb8476cf4, WrapU_U<sceCccSetErrorCharUTF16>, "sceCccSetErrorCharUTF16"},
 	{0xc56949ad, WrapU_U<sceCccSetErrorCharSJIS>, "sceCccSetErrorCharSJIS"},

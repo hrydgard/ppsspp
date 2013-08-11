@@ -115,7 +115,7 @@ static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_CLUTFORMAT,
 	GE_CMD_TEXFILTER,
 	GE_CMD_TEXWRAP,
-	GE_CMD_TEXLEVEL,
+	// GE_CMD_TEXLEVEL,  // we don't support this anyway, no need to flush.
 	GE_CMD_TEXFUNC,
 	GE_CMD_TEXENVCOLOR,
 	//GE_CMD_TEXFLUSH,
@@ -304,6 +304,11 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 }
 
 bool GLES_GPU::FramebufferDirty() {
+	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+	ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
+	// Allow it to process fully before deciding if it's dirty.
+	SyncThread();
+
 	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
 	if (vfb)
 		return vfb->dirtyAfterDisplay;

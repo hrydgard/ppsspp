@@ -486,15 +486,15 @@ const MIPSInstruction tableVFPU0[8] =
 	INSTR("vdiv",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU|OUT_EAT_PREFIX),
 };
 
-const MIPSInstruction tableVFPU1[8] = 
+const MIPSInstruction tableVFPU1[8] = // 011001 xxx
 {
 	INSTR("vmul",&Jit::Comp_VecDo3, Dis_VectorSet3, Int_VecDo3, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vdot",&Jit::Comp_VDot, Dis_VectorDot, Int_VDot, IS_VFPU|OUT_EAT_PREFIX), 
 	INSTR("vscl",&Jit::Comp_VScl, Dis_VScl, Int_VScl, IS_VFPU|OUT_EAT_PREFIX),
 	{-2},
 	INSTR("vhdp",&Jit::Comp_VHdp, Dis_Generic, Int_VHdp, IS_VFPU|OUT_EAT_PREFIX), 
-	INSTR("vcrs",&Jit::Comp_VCrs, Dis_Vcrs, Int_Vcrs, IS_VFPU), 
-	INSTR("vdet",&Jit::Comp_VDet, Dis_Generic, Int_Vdet, IS_VFPU), 
+	INSTR("vcrs",&Jit::Comp_VCrs, Dis_Vcrs, Int_Vcrs, IS_VFPU|OUT_EAT_PREFIX), 
+	INSTR("vdet",&Jit::Comp_VDet, Dis_Generic, Int_Vdet, IS_VFPU|OUT_EAT_PREFIX), 
 	{-2},
 };
 
@@ -566,10 +566,10 @@ const MIPSInstruction tableVFPU7[32] =
 	{-2},
 	INSTR("vlgb", &Jit::Comp_Generic, Dis_Generic, Int_Vlgb, IS_VFPU),
 	//24
-	INSTR("vuc2i", &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
-	INSTR("vc2i",  &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU),
-	INSTR("vus2i", &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU),
-	INSTR("vs2i",  &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU),
+	INSTR("vuc2i", &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU|OUT_EAT_PREFIX),  // Seen in BraveStory, initialization  110100 00001110000 000 0001 0000 0000
+	INSTR("vc2i",  &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vus2i", &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vs2i",  &Jit::Comp_Vx2i, Dis_Vs2i, Int_Vx2i, IS_VFPU|OUT_EAT_PREFIX),
 
 	INSTR("vi2uc", &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vi2c",  &Jit::Comp_Vi2x, Dis_Vi2x, Int_Vi2x, IS_VFPU|OUT_EAT_PREFIX),

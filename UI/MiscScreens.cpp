@@ -108,6 +108,7 @@ NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
 	VFSGetFileListing("lang", &langs_, "ini");
 #endif
 	std::vector<std::string> listing;
+	int selected = -1;
 	for (size_t i = 0; i < langs_.size(); i++) {
 		// Skip README
 		if (langs_[i].name.find("README") != std::string::npos) {
@@ -129,10 +130,12 @@ NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
 				buttonTitle = langValuesMapping[code].first;
 			}
 		}
+		if (g_Config.languageIni == code)
+			selected = i;
 		listing.push_back(buttonTitle);
 	}
 
-	adaptor_ = UI::StringVectorListAdaptor(listing, 0);
+	adaptor_ = UI::StringVectorListAdaptor(listing, selected);
 }
 
 void NewLanguageScreen::OnCompleted() {

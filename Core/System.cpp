@@ -112,9 +112,11 @@ bool CPU_HasPendingAction() {
 void CPU_WaitStatus(bool (*pred)()) {
 	cpuThreadLock.lock();
 	while (!pred())
-		cpuThreadCond.wait(cpuThreadLock);
+		cpuThreadCond.wait_for(cpuThreadLock, 16);
 	cpuThreadLock.unlock();
 }
+
+void CPU_Shutdown();
 
 void CPU_Init() {
 	currentCPU = &mipsr4k;
@@ -163,12 +165,7 @@ void CPU_Init() {
 
 	// Why did we check for CORE_POWERDOWN here?
 	if (!LoadFile(filename, &coreParameter.errorString)) {
-		pspFileSystem.Shutdown();
-		CoreTiming::Shutdown();
-		__KernelShutdown();
-		HLEShutdown();
-		host->ShutdownSound();
-		Memory::Shutdown();
+		CPU_Shutdown();
 		coreParameter.fileToStart = "";
 		CPU_SetState(CPU_THREAD_NOT_RUNNING);
 		return;
@@ -182,20 +179,18 @@ void CPU_Init() {
 }
 
 void CPU_Shutdown() {
-	pspFileSystem.Shutdown();
-
-	CoreTiming::Shutdown();
-
 	if (g_Config.bAutoSaveSymbolMap) {
 		host->SaveSymbolMap();
 	}
 
+	CoreTiming::Shutdown();
+	__KernelShutdown();
+	HLEShutdown();
 	if (coreParameter.enableSound) {
 		host->ShutdownSound();
 		mixer = 0;  // deleted in ShutdownSound
 	}
-	__KernelShutdown();
-	HLEShutdown();
+	pspFileSystem.Shutdown();
 	Memory::Shutdown();
 	currentCPU = 0;
 }

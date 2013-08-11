@@ -122,6 +122,8 @@ void GameButton::Draw(UIContext &dc) {
 				dropsize = 3;
 				y += txOffset * 2;
 			}
+			dc.Draw()->Flush();
+			dc.RebindTexture();
 			dc.Draw()->DrawImage4Grid(I_DROP_SHADOW, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 	alphaMul(shadowColor, 0.5f), 1.0f);
 			dc.Draw()->Flush();
 		}
