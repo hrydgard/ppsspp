@@ -103,6 +103,7 @@ const int PSP_COUNT_FDS = 64;
 // TODO: Should be 3, and stdin/stdout/stderr are special values aliased to 0?
 const int PSP_MIN_FD = 4;
 static int asyncNotifyEvent = -1;
+static int syncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
 static AsyncIOManager ioManager;
 static bool ioManagerThreadEnabled = false;
@@ -297,6 +298,31 @@ void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	}
 }
 
+void __IoSyncNotify(u64 userdata, int cyclesLate) {
+	SceUID threadID = userdata >> 32;
+	int fd = (int) (userdata & 0xFFFFFFFF);
+
+	s64 result = -1;
+	u32 error;
+	FileNode *f = __IoGetFd(fd, error);
+	if (f) {
+		f->pendingAsyncResult = false;
+		f->hasAsyncResult = true;
+
+		AsyncIOResult managerResult;
+		if (ioManager.WaitResult(f->handle, managerResult)) {
+			result = managerResult;
+		} else {
+			ERROR_LOG(HLE, "Unable to complete IO operation.");
+		}
+	}
+
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_IO, error);
+	if (waitID == fd && error == 0) {
+		__KernelResumeThreadFromWait(threadID, result);
+	}
+}
+
 static DirectoryFileSystem *memstickSystem = NULL;
 #ifdef ANDROID
 static VFSFileSystem *flash0System = NULL;
@@ -316,6 +342,7 @@ void __IoInit() {
 	MemoryStick_SetFatState(PSP_FAT_MEMORYSTICK_STATE_ASSIGNED);
 
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
+	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
 	std::string memstickpath;
 	std::string flash0path;
@@ -348,6 +375,8 @@ void __IoDoState(PointerWrap &p) {
 	p.DoArray(fds, ARRAY_SIZE(fds));
 	p.Do(asyncNotifyEvent);
 	CoreTiming::RestoreRegisterEvent(asyncNotifyEvent, "IoAsyncNotify", __IoAsyncNotify);
+	p.Do(syncNotifyEvent);
+	CoreTiming::RestoreRegisterEvent(syncNotifyEvent, "IoSyncNotify", __IoSyncNotify);
 	p.DoMarker("sceIo");
 }
 
@@ -427,6 +456,12 @@ void __IoCompleteAsyncIO(int fd) {
 	u32 error;
 	FileNode *f = __IoGetFd(fd, error);
 	if (f) {
+		AsyncIOResult managerResult;
+		if (ioManager.WaitResult(f->handle, managerResult)) {
+			f->asyncResult = managerResult;
+		} else {
+			// It's okay, not all operations are deferred.
+		}
 		if (f->callbackID) {
 			__KernelNotifyCallback(THREAD_CALLBACK_IO, f->callbackID, f->callbackArg);
 		}
@@ -468,6 +503,14 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 void __IoSchedAsync(FileNode *f, int fd, int usec) {
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | fd;
 	CoreTiming::ScheduleEvent(usToCycles(usec), asyncNotifyEvent, param);
+
+	f->pendingAsyncResult = true;
+	f->hasAsyncResult = false;
+}
+
+void __IoSchedSync(FileNode *f, int fd, int usec) {
+	u64 param = ((u64)__KernelGetCurThread()) << 32 | fd;
+	CoreTiming::ScheduleEvent(usToCycles(usec), syncNotifyEvent, param);
 
 	f->pendingAsyncResult = true;
 	f->hasAsyncResult = false;
@@ -552,7 +595,7 @@ u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	return size;
 }
 
-int __IoRead(int id, u32 data_addr, int size) {
+bool __IoRead(int &result, int id, u32 data_addr, int size) {
 	if (id == 3) {
 		DEBUG_LOG(HLE, "sceIoRead STDIN");
 		return 0; //stdin
@@ -561,58 +604,88 @@ int __IoRead(int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
-		if(!(f->openMode & FILEACCESS_READ))
-		{
-			return ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
-		}
-		else if (Memory::IsValidAddress(data_addr)) {
+		if (!(f->openMode & FILEACCESS_READ)) {
+			result = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
+			return true;
+		} else if (Memory::IsValidAddress(data_addr)) {
 			u8 *data = (u8*) Memory::GetPointer(data_addr);
-			if(f->npdrm){
-				return npdrmRead(f, data, size);
-			}else{
-				return (int) pspFileSystem.ReadFile(f->handle, data, size);
+			if (f->npdrm) {
+				result = npdrmRead(f, data, size);
+				return true;
+			} else if (__KernelIsDispatchEnabled() && ioManagerThreadEnabled && size > 256) {
+				AsyncIOEvent ev = IO_EVENT_READ;
+				ev.handle = f->handle;
+				ev.buf = data;
+				ev.bytes = size;
+				ioManager.ScheduleOperation(ev);
+				return false;
+			} else {
+				result = (int) pspFileSystem.ReadFile(f->handle, data, size);
+				return true;
 			}
 		} else {
 			ERROR_LOG(HLE, "sceIoRead Reading into bad pointer %08x", data_addr);
 			// TODO: Returning 0 because it wasn't being sign-extended in async result before.
 			// What should this do?
-			return 0;
+			result = 0;
+			return true;
 		}
 	} else {
 		ERROR_LOG(HLE, "sceIoRead ERROR: no file open");
-		return error;
+		result = error;
+		return true;
 	}
 }
 
 u32 sceIoRead(int id, u32 data_addr, int size) {
 	// TODO: Check id is valid first?
-	if (!__KernelIsDispatchEnabled() && id > 2)
+	if (!__KernelIsDispatchEnabled() && id > 2) {
 		return -1;
-
-	int result = __IoRead(id, data_addr, size);
-	if (result >= 0) {
-		DEBUG_LOG(HLE, "%x=sceIoRead(%d, %08x, %x)", result, id, data_addr, size);
-		// TODO: Timing is probably not very accurate, low estimate.
-		int us = result/100;
-		if(us==0)
-			us = 100;
-		return hleDelayResult(result, "io read", us);
 	}
-	else
+
+	// TODO: Timing is probably not very accurate, low estimate.
+	int us = size / 100;
+	if (us < 100) {
+		us = 100;
+	}
+
+	int result;
+	bool complete = __IoRead(result, id, data_addr, size);
+	if (!complete) {
+		DEBUG_LOG(HLE, "sceIoRead(%d, %08x, %x): deferring result", id, data_addr, size);
+
+		u32 error;
+		FileNode *f = __IoGetFd(id, error);
+		__IoSchedSync(f, id, us);
+		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io read");
+		return 0;
+	} else if (result >= 0) {
+		DEBUG_LOG(HLE, "%x=sceIoRead(%d, %08x, %x)", result, id, data_addr, size);
+		return hleDelayResult(result, "io read", us);
+	} else {
 		return result;
+	}
 }
 
 u32 sceIoReadAsync(int id, u32 data_addr, int size) {
+	// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
+	int us = size / 100;
+	if (us < 100) {
+		us = 100;
+	}
+
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
-		f->asyncResult = __IoRead(id, data_addr, size);
-		// TODO: Not sure what the correct delay is (and technically we shouldn't read into the buffer yet...)
-		int us = f->asyncResult/100;
-		if(us==0)
-			us = 100;
+		int result;
+		bool complete = __IoRead(result, id, data_addr, size);
+		if (complete) {
+			f->asyncResult = result;
+			DEBUG_LOG(HLE, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
+		} else {
+			DEBUG_LOG(HLE, "sceIoReadAsync(%d, %08x, %x): deferring result", id, data_addr, size);
+		}
 		__IoSchedAsync(f, id, us);
-		DEBUG_LOG(HLE, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
 		return 0;
 	} else {
 		ERROR_LOG(HLE, "sceIoReadAsync: bad file %d", id);
