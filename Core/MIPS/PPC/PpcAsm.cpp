@@ -118,7 +118,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	
 	//printf("DoJitend %08x - %08x - %08x\n", mips_->pc, mips_->downcount, js.compilerPC);
 	
-	DumpJit();
+	//DumpJit();
 
 	AlignCode16();
 
@@ -170,7 +170,7 @@ void Jit::GenerateFixedCode() {
 	MOVI2R(BASEREG,	(u32)Memory::base);
 	MOVI2R(CTXREG,	(u32)mips_);
 	MOVI2R(CODEREG, (u32)GetBasePtr());
-	Break();
+	//Break();
 
 	// Update downcount reg value from memory
 	RestoreDowncount(DCNTREG);
@@ -213,7 +213,7 @@ void Jit::GenerateFixedCode() {
 		MOVI2R(SREG, (u32)&coreState);
 		// ??? Compare coreState and CORE_RUNNING
 		LWZ(SREG, SREG); // SREG = *SREG
-		CMPLI(SREG, 0); // compare 0(CORE_RUNNING) and CR0
+		CMPI(SREG, 0); // compare 0(CORE_RUNNING) and CR0
 
 		// branch to badCoreState: (jump if coreState != CORE_RUNNING)
 		FixupBranch badCoreState = BNE(); // B_CC(CC_NEQ)
@@ -267,7 +267,7 @@ void Jit::GenerateFixedCode() {
 			
 			// compare, op == MIPS_EMUHACK_OPCODE 
 			MOVI2R(SREG, MIPS_EMUHACK_OPCODE);
-			CMP(R3, SREG);
+			CMPL(R3, SREG);
 
 			// Branch if func block not found 
 			FixupBranch notfound = BNE();
@@ -314,7 +314,7 @@ void Jit::GenerateFixedCode() {
 		
 		//BEQ(outerLoop);
 		CMPI(DCNTREG, 0);
-		BLT(outerLoop);
+		BLE(outerLoop);
 		
 		SetJumpTarget(badcpustates);
 #else
@@ -353,7 +353,7 @@ void Jit::GenerateFixedCode() {
 
 	// Restore Lr
 	MTLR(R12);
-	Break();
+	//Break();
 
 	// Go back to caller
 	BLR();

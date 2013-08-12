@@ -91,10 +91,10 @@ void Jit::RestoreDowncount(PPCReg r) {
 }
 
 static void ShowDownCount() {
-	if (0xfffffffa == currentMIPS->downcount) {
+	if (currentMIPS->downcount<0) {
+		//ERROR_LOG(DYNA_REC, "MIPSState, downcount %08x", currentMIPS->downcount);
 		DebugBreak();
 	}
-	ERROR_LOG(DYNA_REC, "MIPSState, downcount %08x", currentMIPS->downcount);
 }
 
 void Jit::WriteDownCount(int offset)
@@ -114,7 +114,7 @@ void Jit::WriteDownCount(int offset)
 		STW(DCNTREG, CTXREG, offsetof(MIPSState, downcount));
 	}
 
-	QuickCallFunction(ShowDownCount);
+	//QuickCallFunction(ShowDownCount);
 
 	CMPI(DCNTREG, 0);
 }

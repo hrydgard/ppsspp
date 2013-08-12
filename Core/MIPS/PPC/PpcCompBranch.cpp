@@ -58,23 +58,36 @@ void Jit::BranchRSRTComp(u32 op, PpcGen::FixupBranchType cc, bool likely)
 	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
-	
-	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
-	{
-		gpr.MapReg(rs);
-		CMPLI(gpr.R(rs), 0);
-	}
-	else if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0 && (cc == _BEQ || cc == _BNE))  // only these are easily 'flippable'
-	{
-		gpr.MapReg(rt);
-		CMPLI(gpr.R(rt),0);
-	}
-	else 
-	{
-		gpr.MapInIn(rs, rt);
-		CMP(gpr.R(rs), gpr.R(rt));
-	}
 
+	if (cc == _BEQ || cc == _BNE) {
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
+		{
+			gpr.MapReg(rs);
+			CMPLI(gpr.R(rs), 0);
+		}
+		else if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0)  // only these are easily 'flippable'
+		{
+			gpr.MapReg(rt);
+			CMPLI(gpr.R(rt), 0);
+		}
+		else 
+		{
+			gpr.MapInIn(rs, rt);
+			CMPL(gpr.R(rs), gpr.R(rt));
+		}
+	} else {	
+		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
+		{
+			gpr.MapReg(rs);
+			CMPLI(gpr.R(rs), 0);
+		}
+		else 
+		{
+			gpr.MapInIn(rs, rt);
+			CMPL(gpr.R(rs), gpr.R(rt));
+		}
+	}
+	
 	//if (js.compilerPC == 0x089001c4) {
 	//	Break();
 	//	Break();
