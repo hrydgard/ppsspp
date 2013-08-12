@@ -112,6 +112,10 @@ IdentifiedFileType Identify_File(std::string &filename)
 		if (psar_id == 'MUPN') {
 			return FILETYPE_PSP_ISO_NP;
 		}
+		// PS1 PSAR begins with "PSISOIMG0000"
+		if (psar_id == 'SISP') {
+			return FILETYPE_PSP_PS1_PBP;
+		}
 
 		// Let's check if we got pointed to a PBP within such a directory.
 		// If so we just move up and return the directory itself as the game.
@@ -176,6 +180,10 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 	case FILETYPE_PSP_DISC_DIRECTORY:	// behaves the same as the mounting is already done by now
 		pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
 		return Load_PSP_ISO(filename.c_str(), error_string);
+
+	case FILETYPE_PSP_PS1_PBP:
+		*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
+		break;
 
 	case FILETYPE_ERROR:
 		ERROR_LOG(LOADER, "Could not read file");
