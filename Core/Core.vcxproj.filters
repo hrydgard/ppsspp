@@ -454,6 +454,9 @@
     <ClCompile Include="HW\AsyncIOManager.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MIPSStackWalk.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -845,6 +848,9 @@
     </ClInclude>
     <ClInclude Include="HW\AsyncIOManager.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MIPSStackWalk.h">
+      <Filter>MIPS</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -282,6 +282,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSDisVFPU.cpp \
   $(SRC)/Core/MIPS/MIPSInt.cpp.arm \
   $(SRC)/Core/MIPS/MIPSIntVFPU.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSStackWalk.cpp \
   $(SRC)/Core/MIPS/MIPSTables.cpp.arm \
   $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
