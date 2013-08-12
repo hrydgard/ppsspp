@@ -325,7 +325,9 @@ public class NativeActivity extends Activity {
     public static boolean inputBoxCancelled;
 
     
+    // Allow for two connected joysticks but just consider them the same for now.
     InputDeviceState inputPlayerA;
+    InputDeviceState inputPlayerB;
     String inputPlayerADesc;
     
     // We simply grab the first input device to produce an event and ignore all others that are connected.
@@ -336,6 +338,7 @@ public class NativeActivity extends Activity {
             return null;
         }
         if (inputPlayerA == null) {
+        	Log.i(TAG, "Input player A registered");
             inputPlayerA = new InputDeviceState(device);
             inputPlayerADesc = getInputDesc(device);
         }
@@ -344,14 +347,14 @@ public class NativeActivity extends Activity {
             return inputPlayerA;
         }
 
-        /*
         if (inputPlayerB == null) {
-            inputPlyerB = new InputDeviceStats(device);
+        	Log.i(TAG, "Input player B registered");
+            inputPlayerB = new InputDeviceState(device);
         }
 
         if (inputPlayerB.getDevice() == device) {
             return inputPlayerB;
-        }*/
+        }
 
         return null;
     }

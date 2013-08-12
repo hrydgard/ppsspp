@@ -27,7 +27,7 @@ public class InputDeviceState {
 	          }
 	     }
 
-	     mAxes		= new int[numAxes];
+	     mAxes = new int[numAxes];
 
 	     int i = 0;
 	     for (MotionRange range : device.getMotionRanges()) {

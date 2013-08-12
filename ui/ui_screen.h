@@ -12,6 +12,7 @@ public:
 	virtual void render();
 	virtual void touch(const TouchInput &touch);
 	virtual void key(const KeyInput &touch);
+	virtual void axis(const AxisInput &touch);
 
 	// Some useful default event handlers
 	UI::EventReturn OnBack(UI::EventParams &e);
@@ -27,6 +28,8 @@ protected:
 private:
 	void DoRecreateViews();
 	bool recreateViews_;
+
+	int hatDown_;
 };
 
 class PopupScreen : public UIScreen {
@@ -36,6 +39,7 @@ public:
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	virtual void CreateViews();
 	virtual bool isTransparent() { return true; }
+	virtual void key(const KeyInput &key);
 
 protected:
 	virtual bool FillVertical() { return false; }

@@ -184,25 +184,30 @@ void Clickable::Touch(const TouchInput &input) {
 	}
 }
 
-void Clickable::Key(const KeyInput &input) {
-	// TODO: Replace most of Update with this.
+bool IsAcceptKeyCode(int keyCode) {
+	return keyCode == NKCODE_SPACE || keyCode == NKCODE_ENTER || keyCode == NKCODE_X || keyCode == NKCODE_BUTTON_A;
 }
 
+bool IsEscapeKeyCode(int keyCode) {
+	return keyCode == NKCODE_ESCAPE || keyCode == NKCODE_BACK;
+}
 
-void Clickable::Update(const InputState &input_state) {
-	if (!HasFocus())
-		return;
-
-	if (!enabled_) {
+void Clickable::Key(const KeyInput &key) {
+	if (!HasFocus()) {
 		down_ = false;
 		return;
 	}
-
-	if (input_state.pad_buttons_down & PAD_BUTTON_A) {
-		down_ = true;
-	} else if (input_state.pad_buttons_up & PAD_BUTTON_A) {
-		if (down_) {
-			Click();
+	// TODO: Replace most of Update with this.
+	if (key.flags & KEY_DOWN) {
+		if (IsAcceptKeyCode(key.keyCode)) {
+			down_ = true;
+		}
+	}
+	if (key.flags & KEY_UP) {
+		if (IsAcceptKeyCode(key.keyCode)) {
+			if (down_) {
+				Click();
+			}
 		}
 	}
 }
@@ -224,7 +229,18 @@ void StickyChoice::Touch(const TouchInput &input) {
 	}
 }
 
-void StickyChoice::Key(const KeyInput &input) {
+void StickyChoice::Key(const KeyInput &key) {
+	if (!HasFocus()) {
+		return;
+	}
+
+	// TODO: Replace most of Update with this.
+	if (key.flags & KEY_DOWN) {
+		if (IsAcceptKeyCode(key.keyCode)) {
+			down_ = true;
+			Click();
+		}
+	}
 }
 
 void StickyChoice::FocusChanged(int focusFlags) {

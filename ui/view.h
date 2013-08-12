@@ -23,6 +23,7 @@
 
 struct KeyInput;
 struct TouchInput;
+struct AxisInput;
 struct InputState;
 
 class DrawBuffer;
@@ -276,7 +277,8 @@ public:
 	// touch response from the frame rate.
 	virtual void Key(const KeyInput &input) = 0;
 	virtual void Touch(const TouchInput &input) = 0;
-	virtual void Update(const InputState &input_state) = 0;
+	virtual void Axis(const AxisInput &input) {}
+	virtual void Update(const InputState &input_state) {}
 
 	virtual void FocusChanged(int focusFlags) {}
 
@@ -371,7 +373,6 @@ public:
 
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
-	virtual void Update(const InputState &input_state);
 
 	virtual void FocusChanged(int focusFlags);
 
@@ -662,5 +663,7 @@ void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measure
 
 void EventTriggered(Event *e, EventParams params);
 void DispatchEvents();
+bool IsAcceptKeyCode(int keyCode);
+bool IsEscapeKeyCode(int keyCode);
 
 }  // namespace

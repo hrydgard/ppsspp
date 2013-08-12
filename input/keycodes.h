@@ -7,10 +7,10 @@ typedef enum _keycode_t {
 	NKCODE_BUTTON_CIRCLE_PS3 = 97, // PS3 O button is pressed
 	NKCODE_BUTTON_SQUARE = 99, // Square button(Xperia Play) is pressed
 	NKCODE_BUTTON_TRIANGLE = 100, // 'Triangle button(Xperia Play) is pressed
-	NKCODE_DPAD_LEFT = 21,
 	NKCODE_DPAD_UP = 19,
-	NKCODE_DPAD_RIGHT = 22,
 	NKCODE_DPAD_DOWN = 20,
+	NKCODE_DPAD_LEFT = 21,
+	NKCODE_DPAD_RIGHT = 22,
 	NKCODE_DPAD_CENTER = 23,
 	NKCODE_UNKNOWN = 0,
 	NKCODE_SOFT_LEFT = 1,

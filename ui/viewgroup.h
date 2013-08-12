@@ -23,6 +23,7 @@ public:
 	// Pass through external events to children.
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
+	virtual void Axis(const AxisInput &input);
 
 	// By default, a container will layout to its own bounds.
 	virtual void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) = 0;
@@ -332,5 +333,9 @@ private:
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root);
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root);
+// Hooks arrow keys for navigation
+void KeyEvent(const KeyInput &key, ViewGroup *root);
+void TouchEvent(const TouchInput &touch, ViewGroup *root);
+void AxisEvent(const AxisInput &axis, ViewGroup *root);
 
 }  // namespace UI

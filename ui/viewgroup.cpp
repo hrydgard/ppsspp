@@ -1,6 +1,7 @@
 #include "base/display.h"
 #include "base/functional.h"
 #include "base/logging.h"
+#include "base/mutex.h"
 #include "input/keycodes.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -57,6 +58,13 @@ void ViewGroup::Key(const KeyInput &input) {
 	}
 }
 
+void ViewGroup::Axis(const AxisInput &input) {
+	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+		// TODO: If there is a transformation active, transform input coordinates accordingly.
+		if ((*iter)->GetVisibility() == V_VISIBLE)
+			(*iter)->Axis(input);
+	}
+}
 
 void ViewGroup::Draw(UIContext &dc) {
 	if (hasDropShadow_) {
@@ -475,7 +483,7 @@ void ScrollView::Layout() {
 }
 
 void ScrollView::Key(const KeyInput &input) {
-	if (input.flags  & KEY_DOWN) {
+	if (input.flags & KEY_DOWN) {
 		switch (input.keyCode) {
 		case NKCODE_EXT_MOUSEWHEEL_UP:
 			ScrollRelative(-250);
@@ -485,6 +493,7 @@ void ScrollView::Key(const KeyInput &input) {
 			break;
 		}
 	}
+	ViewGroup::Key(input);
 }
 
 void ScrollView::Touch(const TouchInput &input) {
@@ -844,31 +853,58 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 	root->Layout();
 }
 
+static recursive_mutex focusLock;
+static std::vector<int> focusMoves;
+
+void KeyEvent(const KeyInput &key, ViewGroup *root) {
+	if (key.flags & KEY_DOWN) {
+		ILOG("ke: %i %02x", key.deviceId, key.keyCode);
+		// We ignore the device ID here. Anything with a DPAD is OK.
+		if (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT) {
+			lock_guard lock(focusLock);
+			focusMoves.push_back(key.keyCode);
+		}
+	}
+	root->Key(key);
+}
+
+void TouchEvent(const TouchInput &touch, ViewGroup *root) {
+	EnableFocusMovement(false);
+
+	root->Touch(touch);
+}
+
+void AxisEvent(const AxisInput &axis, ViewGroup *root) {
+	root->Axis(axis);
+}
+
 void UpdateViewHierarchy(const InputState &input_state, ViewGroup *root) {
 	if (!root) {
 		ELOG("Tried to update a view hierarchy from a zero pointer root");
 		return;
 	}
-	if (input_state.pad_buttons_down & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN)) {
+
+	if (focusMoves.size()) {
+		lock_guard lock(focusLock);
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
 			root->SetFocus();
 			root->SubviewFocused(GetFocusedView());
 		} else {
-			if (input_state.pad_buttons_down & PAD_BUTTON_RIGHT)
-				MoveFocus(root, FOCUS_RIGHT);
-			if (input_state.pad_buttons_down & PAD_BUTTON_UP)
-				MoveFocus(root, FOCUS_UP);
-			if (input_state.pad_buttons_down & PAD_BUTTON_LEFT)
-				MoveFocus(root, FOCUS_LEFT);
-			if (input_state.pad_buttons_down & PAD_BUTTON_DOWN)
-				MoveFocus(root, FOCUS_DOWN);
+			for (size_t i = 0; i < focusMoves.size(); i++) {
+				switch (focusMoves[i]) {
+					case NKCODE_DPAD_LEFT: MoveFocus(root, FOCUS_LEFT); break;
+					case NKCODE_DPAD_RIGHT: MoveFocus(root, FOCUS_RIGHT); break;
+					case NKCODE_DPAD_UP: MoveFocus(root, FOCUS_UP); break;
+					case NKCODE_DPAD_DOWN: MoveFocus(root, FOCUS_DOWN); break;
+				}
+			}
 		}
+		focusMoves.clear();
 	}
-	if (input_state.pointer_down[0])
-		EnableFocusMovement(false);
 
 	root->Update(input_state);
 	DispatchEvents();
 }
+
 }  // namespace UI

@@ -1,10 +1,11 @@
-
+#include "input/input_state.h"
+#include "input/keycodes.h"
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"
 #include "ui/screen.h"
 
 UIScreen::UIScreen()
-	: Screen(), root_(0), recreateViews_(true) {
+	: Screen(), root_(0), recreateViews_(true), hatDown_(0) {
 }
 
 void UIScreen::DoRecreateViews() {
@@ -44,7 +45,7 @@ void UIScreen::render() {
 
 void UIScreen::touch(const TouchInput &touch) {
 	if (root_) {
-		root_->Touch(touch);
+		UI::TouchEvent(touch, root_);
 	} else {
 		ELOG("Tried to touch without a view root");
 	}
@@ -52,11 +53,44 @@ void UIScreen::touch(const TouchInput &touch) {
 
 void UIScreen::key(const KeyInput &key) {
 	if (root_) {
-		root_->Key(key);
+		UI::KeyEvent(key, root_);
 	} else {
 		ELOG("Tried to key without a view root");
 	}
 }
+
+void UIScreen::axis(const AxisInput &axis) {
+	// Simple translation of hat to keys for Shield and other modern pads.
+	// TODO: Use some variant of keymap?
+	int flags = 0;
+	if (axis.axisId == JOYSTICK_AXIS_HAT_X) {
+		if (axis.value < -0.7f)
+			flags |= PAD_BUTTON_LEFT;
+		if (axis.value > 0.7f)
+			flags |= PAD_BUTTON_RIGHT;
+	}
+	if (axis.axisId == JOYSTICK_AXIS_HAT_Y) {
+		if (axis.value < -0.7f)
+			flags |= PAD_BUTTON_UP;
+		if (axis.value > 0.7f)
+			flags |= PAD_BUTTON_DOWN;
+	}
+
+	// Yeah yeah, this should be table driven..
+	int pressed = flags & ~hatDown_;
+	int released = ~flags & hatDown_;
+	if (pressed & PAD_BUTTON_LEFT) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_LEFT, KEY_DOWN));
+	if (pressed & PAD_BUTTON_RIGHT) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_RIGHT, KEY_DOWN));
+	if (pressed & PAD_BUTTON_UP) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_UP, KEY_DOWN));
+	if (pressed & PAD_BUTTON_DOWN) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_DOWN, KEY_DOWN));
+	if (released & PAD_BUTTON_LEFT) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_LEFT, KEY_UP));
+	if (released & PAD_BUTTON_RIGHT) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_RIGHT, KEY_UP));
+	if (released & PAD_BUTTON_UP) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_UP, KEY_UP));
+	if (released & PAD_BUTTON_DOWN) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_DOWN, KEY_UP));
+	hatDown_ = flags;
+	UI::AxisEvent(axis, root_);
+}
+
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
@@ -89,6 +123,12 @@ void PopupScreen::CreateViews() {
 	buttonRow->Add(new Button("OK", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
 	buttonRow->Add(new Button("Cancel", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
 	box->Add(buttonRow);
+}
+
+void PopupScreen::key(const KeyInput &key) {
+	if ((key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode))
+		screenManager()->finishDialog(this, DR_CANCEL);
+	UIScreen::key(key);
 }
 
 UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
