@@ -17,7 +17,7 @@ typedef struct
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
-enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_STACKSIZE, SF_COLUMNCOUNT };
+enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
 
 ListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 	{ "Name",			0.20f },
@@ -44,7 +44,7 @@ ListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
 	{ "PC",				0.12f },
 	{ "Opcode",			0.28f },
 	{ "SP",				0.12f },
-	{ "Stack Size",		0.12f }
+	{ "Frame Size",		0.12f }
 };
 
 const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
@@ -830,7 +830,7 @@ void CtrlStackTraceView::handleNotify(LPARAM lParam)
 		case SF_CURSP:
 			sprintf(stringBuffer,"%08X",frames[index].sp);
 			break;
-		case SF_STACKSIZE:
+		case SF_FRAMESIZE:
 			sprintf(stringBuffer,"%08X",frames[index].stackSize);
 			break;
 		}
