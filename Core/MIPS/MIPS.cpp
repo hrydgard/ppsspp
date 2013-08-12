@@ -25,6 +25,7 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
 
@@ -203,6 +204,7 @@ void MIPSState::WriteFCR(int reg, int value)
 	}
 	else
 	{
+		WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", reg, value);
 		// MessageBox(0, "Invalid FCR","...",0);
 	}
 	DEBUG_LOG(CPU, "FCR%i written to, value %08x", reg, value);
@@ -222,6 +224,7 @@ u32 MIPSState::ReadFCR(int reg)
 	}
 	else
 	{
+		WARN_LOG_REPORT(CPU, "ReadFCR: Unexpected reg %d", reg);
 		// MessageBox(0, "Invalid FCR","...",0);
 	}
 	return 0;

@@ -230,6 +230,7 @@ namespace MIPSInt
 		int imm = (signed short)(op&0xFFFF)<<2;
 		u32 addr = PC + imm + 4;
 
+		// x, y, z, w, any, all, (invalid), (invalid)
 		int imm3 = (op>>18)&7;
 		int val = (currentMIPS->vfpuCtrl[VFPU_CTRL_CC] >> imm3) & 1;
 
@@ -290,7 +291,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
 		}
 
-		int rs = (op>>21)&0x1f;
+		int rs = _RS;
 		u32 addr = R(rs);
 		switch (op & 0x3f) 
 		{
@@ -339,10 +340,10 @@ namespace MIPSInt
 
 	void Int_StoreSync(u32 op)
 	{
-		s32 imm = (signed short)(op&0xFFFF);
-		int base = ((op >> 21) & 0x1f);
-		int rt = (op >> 16) & 0x1f;
-		u32 addr = R(base) + imm;
+		int imm = (signed short)(op&0xFFFF);
+		int rt = _RT;
+		int rs = _RS;
+		u32 addr = R(rs) + imm;
 
 		switch (op >> 26)
 		{
@@ -946,7 +947,7 @@ namespace MIPSInt
 		{
 		case 0:
 			if (!reported) {
-				Reporting::ReportMessage("INTERRUPT instruction hit");
+				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op, currentMIPS->pc);
 				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}

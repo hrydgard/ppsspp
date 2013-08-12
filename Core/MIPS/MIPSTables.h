@@ -30,10 +30,12 @@
 // as long as the other flags are checked,
 // there is no way to misinterprete these
 // as CONDTYPE_X
-#define MEMTYPE_MASK	0x00000003
+#define MEMTYPE_MASK	0x00000007
 #define MEMTYPE_BYTE	0x00000001
 #define MEMTYPE_HWORD	0x00000002
 #define MEMTYPE_WORD	0x00000003
+#define MEMTYPE_FLOAT   0x00000004
+#define MEMTYPE_VQUAD   0x00000005
 
 #define IS_CONDMOVE		0x00000008
 #define DELAYSLOT       0x00000010
@@ -43,9 +45,9 @@
 #define IS_CONDBRANCH   0x00000100
 #define IS_JUMP         0x00000200
 
-#define IN_RS_SHIFT     0x00000400
-#define IN_RS_ADDR      0x00000800
-#define IN_RS           0x00001000
+#define IN_RS           0x00000400
+#define IN_RS_ADDR      (0x00000800 | IN_RS)
+#define IN_RS_SHIFT     (0x00001000 | IN_RS)
 #define IN_RT           0x00002000
 #define IN_SA           0x00004000
 #define IN_IMM16        0x00008000
