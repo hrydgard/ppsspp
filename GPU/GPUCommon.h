@@ -37,7 +37,9 @@ public:
 	virtual void ReapplyGfxState();
 
 	virtual u64 GetTickEstimate() {
+#ifndef _M_X64
 		lock_guard guard(curTickEstLock_);
+#endif
 		return curTickEst_;
 	}
 
@@ -96,7 +98,9 @@ protected:
 	recursive_mutex curTickEstLock_;
 
 	virtual void UpdateTickEstimate(u64 value) {
+#ifndef _M_X64
 		lock_guard guard(curTickEstLock_);
+#endif
 		curTickEst_ = value;
 	}
 

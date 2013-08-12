@@ -58,6 +58,7 @@ struct ThreadEventQueue : public B {
 	}
 
 	void RunEventsUntil(u64 globalticks) {
+		lock_guard guard(eventsWaitLock_);
 		do {
 			for (Event ev = GetNextEvent(); EventType(ev) != EVENT_INVALID; ev = GetNextEvent()) {
 				switch (EventType(ev)) {
@@ -89,6 +90,7 @@ struct ThreadEventQueue : public B {
 			return;
 		}
 
+		lock_guard guard(eventsDrainLock_);
 		// While processing the last event, HasEvents() will be false even while not done.
 		// So we schedule a nothing event and wait for that to finish.
 		ScheduleEvent(EVENT_SYNC);
