@@ -128,7 +128,7 @@ void Jit::BranchRSZeroComp(u32 op, PpcGen::FixupBranchType cc, bool andLink, boo
 		CompileDelaySlot(DELAYSLOT_NICE);
 
 	gpr.MapReg(rs);
-	CMPLI(gpr.R(rs), 0);
+	CMPI(gpr.R(rs), 0);
 
 	PpcGen::FixupBranch ptr;
 	if (!likely)
