@@ -781,6 +781,16 @@ void ChoiceStrip::SetSelection(int sel) {
 		static_cast<StickyChoice *>(views_[selected_])->Press();
 }
 
+void ChoiceStrip::Key(const KeyInput &input) {
+	if (input.flags & KEY_DOWN) {
+		if (input.keyCode == NKCODE_BUTTON_L1 && selected_ > 0) {
+			SetSelection(selected_ - 1);
+		} else if (input.keyCode == NKCODE_BUTTON_R1 && selected_ < views_.size() - 1) {
+			SetSelection(selected_ + 1);
+		}
+	}
+}
+
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
 	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {
 	linLayout_ = new LinearLayout(ORIENT_VERTICAL);
@@ -858,7 +868,6 @@ static std::vector<int> focusMoves;
 
 void KeyEvent(const KeyInput &key, ViewGroup *root) {
 	if (key.flags & KEY_DOWN) {
-		ILOG("ke: %i %02x", key.deviceId, key.keyCode);
 		// We ignore the device ID here. Anything with a DPAD is OK.
 		if (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT) {
 			lock_guard lock(focusLock);

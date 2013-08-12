@@ -225,6 +225,8 @@ public:
 	void AddChoice(const std::string &title);
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel);
+	virtual void Key(const KeyInput &input);
+
 	Event OnChoice;
 
 private:

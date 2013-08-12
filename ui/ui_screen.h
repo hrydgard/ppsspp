@@ -32,6 +32,12 @@ private:
 	int hatDown_;
 };
 
+class DialogScreen : public UIScreen {
+public:
+	virtual void key(const KeyInput &key);
+};
+
+
 class PopupScreen : public UIScreen {
 public:
 	PopupScreen(const std::string &title);

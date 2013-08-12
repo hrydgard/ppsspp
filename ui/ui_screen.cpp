@@ -59,6 +59,14 @@ void UIScreen::key(const KeyInput &key) {
 	}
 }
 
+void DialogScreen::key(const KeyInput &key) {
+	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_ESCAPE || key.keyCode == NKCODE_BACK || key.keyCode == NKCODE_BUTTON_B) {
+		screenManager()->finishDialog(this, DR_CANCEL);
+	} else {
+		UIScreen::key(key);
+	}
+}
+
 void UIScreen::axis(const AxisInput &axis) {
 	// Simple translation of hat to keys for Shield and other modern pads.
 	// TODO: Use some variant of keymap?

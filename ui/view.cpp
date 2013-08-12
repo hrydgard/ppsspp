@@ -207,7 +207,10 @@ void Clickable::Key(const KeyInput &key) {
 		if (IsAcceptKeyCode(key.keyCode)) {
 			if (down_) {
 				Click();
+				down_ = false;
 			}
+		} else if (IsEscapeKeyCode(key.keyCode)) {
+			down_ = false;
 		}
 	}
 }
