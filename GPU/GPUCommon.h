@@ -4,7 +4,9 @@
 #include "Core/ThreadEventQueue.h"
 #include "GPU/GPUInterface.h"
 
-#ifdef _M_SSE
+#if defined(ANDROID)
+#include <atomic>
+#elif defined(_M_SSE)
 #include <xmmintrin.h>
 #pragma warning(disable:4799)
 #endif
@@ -43,7 +45,7 @@ public:
 	virtual void ReapplyGfxState();
 
 	virtual u64 GetTickEstimate() {
-#if defined(_M_X64)
+#if defined(_M_X64) || defined(ANDROID)
 		return curTickEst_;
 #elif defined(_M_SSE)
 		__m64 result = *(__m64 *)&curTickEst_;
@@ -105,11 +107,15 @@ protected:
 	bool interruptsEnabled_;
 
 	// For CPU/GPU sync.
+#ifdef ANDROID
+	std::atomic<u64> curTickEst_;
+#else
 	volatile MEMORY_ALIGNED16(u64) curTickEst_;
 	recursive_mutex curTickEstLock_;
+#endif
 
 	virtual void UpdateTickEstimate(u64 value) {
-#if defined(_M_X64)
+#if defined(_M_X64) || defined(ANDROID)
 		curTickEst_ = value;
 #elif defined(_M_SSE)
 		__m64 result = *(__m64 *)&value;
