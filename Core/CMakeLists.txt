@@ -15,6 +15,7 @@ set(SRCS
   MIPS/MIPSDisVFPU.cpp
   MIPS/MIPSInt.cpp
   MIPS/MIPSIntVFPU.cpp
+  MIPS/MIPSStackWalk.cpp
   MIPS/MIPSTables.cpp
   MIPS/MIPSVFPUUtils.cpp
   MIPS/JitCommon/JitCommon.cpp

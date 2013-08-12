@@ -934,6 +934,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSInt.h
 	Core/MIPS/MIPSIntVFPU.cpp
 	Core/MIPS/MIPSIntVFPU.h
+	Core/MIPS/MIPSStackWalk.cpp
+	Core/MIPS/MIPSStackWalk.h
 	Core/MIPS/MIPSTables.cpp
 	Core/MIPS/MIPSTables.h
 	Core/MIPS/MIPSVFPUUtils.cpp

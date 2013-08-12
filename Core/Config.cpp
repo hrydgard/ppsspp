@@ -90,7 +90,7 @@ void Config::Load(const char *iniFileName)
 	cpu->Get("Jit", &bJit, true);
 #endif
 	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
-	cpu->Get("SeparateIOThread", &bSeparateIOThread, true);
+	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
 	cpu->Get("FastMemory", &bFastMemory, false);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
@@ -101,7 +101,14 @@ void Config::Load(const char *iniFileName)
 #else
 	graphics->Get("ResolutionScale", &iWindowZoom, 1);
 #endif
-	graphics->Get("RenderingMode", &iRenderingMode, 1); // default is buffered rendering mode
+	graphics->Get("RenderingMode", &iRenderingMode, 
+		// Many ARMv6 devices have serious problems with buffered rendering.
+#if defined(ARM) && !defined(ARMV7)
+		0
+#else
+		1
+#endif
+		); // default is buffered rendering mode
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	graphics->Get("SSAA", &bAntiAliasing, 0);
