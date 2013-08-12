@@ -640,6 +640,9 @@ namespace MIPSAnalyst
 			case MEMTYPE_FLOAT:
 				info.dataSize = 4;
 				break;
+
+			case MEMTYPE_VQUAD:
+				info.dataSize = 16;
 			}
 
 			u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));

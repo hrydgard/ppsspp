@@ -143,25 +143,26 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	INVALID,
 	INVALID,
 	INSTR("swr", &Jit::Comp_ITypeMem, Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
-	INSTR("cache", &Jit::Comp_Generic, Dis_Generic, Int_Cache, 0),
+	INSTR("cache", &Jit::Comp_Generic, Dis_Generic, Int_Cache, IN_MEM|IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_OTHER),
 	//48
-	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
-	INSTR("lwc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_RT|IN_RS_ADDR),
-	INSTR("lv.s", &Jit::Comp_SV, Dis_SV, Int_SV, IS_VFPU|VFPU_NO_PREFIX),
+	INSTR("ll", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_RT|OUT_OTHER|MEMTYPE_WORD),
+	INSTR("lwc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|MEMTYPE_FLOAT),
+	INSTR("lv.s", &Jit::Comp_SV, Dis_SV, Int_SV, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_FLOAT),
 	INVALID, // HIT THIS IN WIPEOUT
 	ENCODING(VFPU4Jump),
-	INSTR("lv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX),
-	INSTR("lv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX), //copU
+	INSTR("lv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD),
+	INSTR("lv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IN_MEM|IN_IMM16|IN_RS_ADDR|OUT_OTHER|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD), //copU
 	ENCODING(VFPU5),
 	//56
-	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, 0),
-	INSTR("swc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, 0), //copU
-	INSTR("sv.s", &Jit::Comp_SV, Dis_SV, Int_SV,IS_VFPU|VFPU_NO_PREFIX),
+	INSTR("sc", &Jit::Comp_Generic, Dis_Generic, Int_StoreSync, IN_IMM16|IN_RS_ADDR|IN_OTHER|IN_RT|OUT_RT|OUT_MEM|MEMTYPE_WORD),
+	INSTR("swc1", &Jit::Comp_FPULS, Dis_FPULS, Int_FPULS, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|MEMTYPE_FLOAT), //copU
+	INSTR("sv.s", &Jit::Comp_SV, Dis_SV, Int_SV, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_FLOAT),
 	INVALID,
 	//60
 	ENCODING(VFPU6),
-	INSTR("sv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX), //copU
-	INSTR("sv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IS_VFPU|VFPU_NO_PREFIX),
+	INSTR("sv", &Jit::Comp_SVQ, Dis_SVLRQ, Int_SVQ, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD), //copU
+	INSTR("sv.q", &Jit::Comp_SVQ, Dis_SVQ, Int_SVQ, IN_IMM16|IN_RS_ADDR|IN_OTHER|OUT_MEM|IS_VFPU|VFPU_NO_PREFIX|MEMTYPE_VQUAD),
+	// Some call this VFPU7 (vflush/vnop/vsync), but it's not super important.
 	INSTR("vflush", &Jit::Comp_DoNothing, Dis_Vflush, Int_Vflush, IS_VFPU|VFPU_NO_PREFIX),
 };
 
