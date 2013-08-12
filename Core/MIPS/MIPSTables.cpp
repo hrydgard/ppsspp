@@ -91,7 +91,7 @@ using namespace MIPSDis;
 using namespace MIPSInt;
 using namespace MIPSComp;
 //regregreg instructions
-const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
+const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ................
 {
 	//0
 	ENCODING(Spec),
@@ -170,7 +170,7 @@ const MIPSInstruction tableImmediate[64] =  //xxxxxx .....
 	INSTR("vflush", &Jit::Comp_DoNothing, Dis_Vflush, Int_Vflush, IS_VFPU|VFPU_NO_PREFIX),
 };
 
-const MIPSInstruction tableSpecial[64] = // 000000 ...... ...... .......... xxxxxx
+const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ..... xxxxxx
 {
 	INSTR("sll",   &Jit::Comp_ShiftType, Dis_ShiftType, Int_ShiftType, OUT_RD|IN_RT|IN_SA),
 	INVALID,  // copu
@@ -247,7 +247,7 @@ const MIPSInstruction tableSpecial[64] = // 000000 ...... ...... .......... xxxx
 };
 
 // Theoretically should not hit these.
-const MIPSInstruction tableSpecial2[64] = // 011100 ...... ...... .......... xxxxxx
+const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
 {
 	INSTR("halt", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
@@ -267,13 +267,13 @@ const MIPSInstruction tableSpecial2[64] = // 011100 ...... ...... .......... xxx
 	INVALID_X_8,
 };
 
-const MIPSInstruction tableSpecial3[64] = 
+const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ..... xxxxxx
 {
 	INSTR("ext", &Jit::Comp_Special3, Dis_Special3, Int_Special3, IN_RS|OUT_RT),
 	INVALID,
 	INVALID,
 	INVALID,
-	INSTR("ins", &Jit::Comp_Special3, Dis_Special3, Int_Special3, IN_RS|OUT_RT),
+	INSTR("ins", &Jit::Comp_Special3, Dis_Special3, Int_Special3, IN_RS|IN_RT|OUT_RT),
 	INVALID,
 	INVALID,
 	INVALID,
@@ -297,7 +297,7 @@ const MIPSInstruction tableSpecial3[64] =
 };
 
 
-const MIPSInstruction tableRegImm[32] = 
+const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 {
 	INSTR("bltz",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|DELAYSLOT|CONDTYPE_LTZ),
 	INSTR("bgez",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|DELAYSLOT|CONDTYPE_GEZ),
