@@ -136,10 +136,12 @@ namespace PpcGen {
 		Write32(instr);
 	}
 
-#define CHECK_JUMP if ((s32(code) - (s32)fnptr) > 0xFFFF) {	DebugBreak();}
+
+#define IS_SMALL_JUMP (((u32)code - (u32)fnptr)>=-32767 && ((u32)code - (u32)fnptr)<=-32767)
+#define CHECK_SMALL_JUMP { if(IS_SMALL_JUMP) { DebugBreak(); } }
 	
 	void PPCXEmitter::BEQ (const void *fnptr) {
-		CHECK_JUMP
+		CHECK_SMALL_JUMP
 
 		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41820000 | ( func & 0xfffc));
@@ -148,7 +150,7 @@ namespace PpcGen {
 	
 	
 	void PPCXEmitter::BGT(const void *fnptr) {
-		CHECK_JUMP
+		CHECK_SMALL_JUMP
 
 		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41810000 | (((s16)(((func)+1))) & 0xfffc));
@@ -163,7 +165,7 @@ namespace PpcGen {
 
 	void PPCXEmitter::BLT (const void *fnptr) {
 		//CHECK_JUMP
-		if ((s32(code) - (s32)fnptr) > 0xFFFF) {
+		if (!IS_SMALL_JUMP) {
 			u32 func_addr = (u32) fnptr;
 			// Load func address
 			MOVI2R(R0, func_addr);
@@ -180,18 +182,11 @@ namespace PpcGen {
 	}
 
 	void PPCXEmitter::BLE (const void *fnptr) {		
-		CHECK_JUMP
+		CHECK_SMALL_JUMP
 
 		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x40810000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
-	}
-	
-	void PPCXEmitter::BEQ (PPCReg r) {
-		//s32 func = (s32)(fnptr);
-		//u32 instr = (0x48000003 | ((s32)((func) & 0x3fffffc)));
-		//Write32(instr);
-		DebugBreak();
 	}
 
 	void PPCXEmitter::BCTRL() {
@@ -290,8 +285,8 @@ namespace PpcGen {
 	void PPCXEmitter::SetJumpTarget(FixupBranch const &branch)
 	{
 		s32 distance =  s32(code) - (s32)branch.ptr;
-		_assert_msg_(DYNA_REC, distance > -33554432
-			&& distance <=  33554432,
+		_assert_msg_(DYNA_REC, distance > -32767
+			&& distance <=  32767,
 			"SetJumpTarget out of range (%p calls %p)", code,
 			branch.ptr);
 
@@ -309,7 +304,6 @@ namespace PpcGen {
 			*(u32*)branch.ptr =  (0x40820000 | ((s16)(((distance)+1)) & 0xfffc));
 			break;
 		case _BLT:			
-			printf("fxBLT : %08x - %08x\n", (u32)branch.ptr, distance);
 			*(u32*)branch.ptr =  (0x41800000 | ((s16)(((distance)+1)) & 0xfffc));
 			break;
 		case _BLE:
@@ -345,13 +339,14 @@ namespace PpcGen {
 	void PPCXEmitter::CMP(PPCReg a, PPCReg b) {
 		Write32((31 << 26) | (a << 16) | (b << 11));
 	}
+	void PPCXEmitter::CMPL(PPCReg a, PPCReg b) {
+		Write32((31 << 26) | (a << 16) | (b << 11) | (1<<6));
+	}
 
 	// Others operation
-	void PPCXEmitter::ORI(PPCReg src, PPCReg dest, unsigned short imm) {		
-        if (!((imm == 0) && ((src^dest) == 0))) {
-			u32 instr = (0x60000000 | (src << 21) | (dest << 16) | (imm & 0xffff));
-			Write32(instr);
-		}
+	void PPCXEmitter::ORI(PPCReg src, PPCReg dest, unsigned short imm) {
+		u32 instr = (0x60000000 | (src << 21) | (dest << 16) | (imm & 0xffff));
+		Write32(instr);
 	}
 
 	void PPCXEmitter::OR(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	

@@ -271,6 +271,7 @@ public:
 	void CMPLWI	(PPCReg dest, unsigned short imm);
 	void CMPLI	(PPCReg dest, unsigned short imm);	
 	void CMPI	(PPCReg dest, unsigned short imm);
+	void CMPL	(PPCReg a, PPCReg b);
 	void CMP	(PPCReg a, PPCReg b);
 
 	// Debug !
