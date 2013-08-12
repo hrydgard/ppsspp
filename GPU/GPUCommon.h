@@ -36,6 +36,11 @@ public:
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
 
+	virtual u64 GetTickEstimate() {
+		lock_guard guard(curTickEstLock_);
+		return curTickEst_;
+	}
+
 protected:
 	// To avoid virtual calls to PreExecuteOp().
 	virtual void FastRunLoop(DisplayList &list) = 0;
@@ -85,6 +90,15 @@ protected:
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
 	bool interruptsEnabled_;
+
+	// For CPU/GPU sync.
+	volatile u64 curTickEst_;
+	recursive_mutex curTickEstLock_;
+
+	virtual void UpdateTickEstimate(u64 value) {
+		lock_guard guard(curTickEstLock_);
+		curTickEst_ = value;
+	}
 
 public:
 	virtual DisplayList* getList(int listid)

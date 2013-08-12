@@ -40,6 +40,11 @@ struct GeInterruptData
 static std::list<GeInterruptData> ge_pending_cb;
 static int geSyncEvent;
 static int geInterruptEvent;
+static int geCycleEvent;
+
+// Let's try updating 10 times per vblank.
+const int geIntervalUs = 1000000 / (60 * 10);
+const int geBehindThresholdUs = 1000000 / (60 * 10);
 
 class GeIntrHandler : public IntrHandler
 {
@@ -162,6 +167,20 @@ void __GeExecuteInterrupt(u64 userdata, int cyclesLate)
 	__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_GE_INTR, PSP_INTR_SUB_NONE);
 }
 
+void __GeCheckCycles(u64 userdata, int cyclesLate)
+{
+	u64 geTicks = gpu->GetTickEstimate();
+	if (geTicks != 0)
+	{
+		if (CoreTiming::GetTicks() > geTicks + usToCycles(geBehindThresholdUs)) {
+			u64 diff = CoreTiming::GetTicks() - geTicks;
+			gpu->SyncThread();
+			CoreTiming::Advance();
+		}
+	}
+	CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
+}
+
 void __GeInit()
 {
 	memset(&ge_used_callbacks, 0, sizeof(ge_used_callbacks));
@@ -170,6 +189,12 @@ void __GeInit()
 
 	geSyncEvent = CoreTiming::RegisterEvent("GeSyncEvent", &__GeExecuteSync);
 	geInterruptEvent = CoreTiming::RegisterEvent("GeInterruptEvent", &__GeExecuteInterrupt);
+	geCycleEvent = CoreTiming::RegisterEvent("GeCycleEvent", &__GeCheckCycles);
+
+	// When we're using separate CPU/GPU threads, we need to keep them in sync.
+	if (IsOnSeparateCPUThread()) {
+		CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
+	}
 }
 
 void __GeDoState(PointerWrap &p)
@@ -182,6 +207,8 @@ void __GeDoState(PointerWrap &p)
 	CoreTiming::RestoreRegisterEvent(geSyncEvent, "GeSyncEvent", &__GeExecuteSync);
 	p.Do(geInterruptEvent);
 	CoreTiming::RestoreRegisterEvent(geInterruptEvent, "GeInterruptEvent", &__GeExecuteInterrupt);
+	p.Do(geCycleEvent);
+	CoreTiming::RestoreRegisterEvent(geCycleEvent, "GeCycleEvent", &__GeCheckCycles);
 
 	// Everything else is done in sceDisplay.
 	p.DoMarker("sceGe");
