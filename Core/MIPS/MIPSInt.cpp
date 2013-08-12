@@ -230,6 +230,7 @@ namespace MIPSInt
 		int imm = (signed short)(op&0xFFFF)<<2;
 		u32 addr = PC + imm + 4;
 
+		// x, y, z, w, any, all, (invalid), (invalid)
 		int imm3 = (op>>18)&7;
 		int val = (currentMIPS->vfpuCtrl[VFPU_CTRL_CC] >> imm3) & 1;
 

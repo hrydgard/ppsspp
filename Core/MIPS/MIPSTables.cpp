@@ -58,7 +58,7 @@ enum MipsEncoding
 	ALLEGREX0,
 	Emu,
 	Rese,
-	NumEncodings 
+	NumEncodings,
 };
 
 struct MIPSInstruction
@@ -251,17 +251,17 @@ const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxx
 {
 	INSTR("halt", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-//8
+	//8
 	INVALID_X_8,
 	INVALID_X_8,
 	INVALID_X_8,
-//32
+	//32
 	INVALID, INVALID, INVALID, INVALID,
 	INSTR("mfic", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID,
 	INSTR("mtic", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID,
-//40
+	//40
 	INVALID_X_8,
 	INVALID_X_8,
 	INVALID_X_8,
@@ -281,21 +281,20 @@ const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ..... xxxx
 	INVALID_X_8,
 	//16
 	INVALID_X_8,
+	//24
+	ENCODING(ALLEGREX0),
+	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//32
 	ENCODING(ALLEGREX0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//40
-	ENCODING(ALLEGREX0),
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-
 	INVALID_X_8,
 	INVALID_X_8,
-
+	//56
 	INVALID, INVALID, INVALID,
 	INSTR("rdhwr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID,
 };
-
 
 const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 {
@@ -307,7 +306,7 @@ const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 	INVALID,
 	INVALID,
 	INVALID,
-
+	//8
 	INSTR("tgei",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INSTR("tgeiu", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INSTR("tlti",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
@@ -316,8 +315,8 @@ const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 	INVALID,
 	INSTR("tnei",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID,
-
-	INSTR("bltzal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_LTZ),  
+	//16
+	INSTR("bltzal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_LTZ),
 	INSTR("bgezal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_GEZ),
 	INSTR("bltzall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_LTZ), //L = likely
 	INSTR("bgezall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
@@ -325,22 +324,22 @@ const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 	INVALID,
 	INVALID,
 	INVALID,
-
+	//24
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	INSTR("synci", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 };
 
-const MIPSInstruction tableCop2[32] = 
+const MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... ................
 {
 	INSTR("mfc2", &Jit::Comp_Generic, Dis_Generic, 0, OUT_RT),
 	INVALID,
 	INSTR("cfc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mfv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IS_VFPU),
+	INSTR("mfv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IN_OTHER|OUT_RT|IS_VFPU),
 	INSTR("mtc2", &Jit::Comp_Generic, Dis_Generic, 0, IN_RT),
 	INVALID,
 	INSTR("ctc2", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-	INSTR("mtv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IS_VFPU),
-
+	INSTR("mtv", &Jit::Comp_Mftv, Dis_Mftv, Int_Mftv, IN_RT|OUT_OTHER|IS_VFPU),
+	//8
 	ENCODING(Cop2BC2),
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
@@ -349,20 +348,20 @@ const MIPSInstruction tableCop2[32] =
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-
+	//16
 	INVALID_X_8,
 	INVALID_X_8,
 };
 
-const MIPSInstruction tableCop2BC2[4] = 
+const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ................
 {
-	INSTR("bvf", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|DELAYSLOT),
-	INSTR("bvt", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|DELAYSLOT),
-	INSTR("bvfl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|DELAYSLOT|LIKELY),
-	INSTR("bvtl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|DELAYSLOT|LIKELY),
+	INSTR("bvf", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_OTHER|DELAYSLOT|IS_VFPU),
+	INSTR("bvt", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_OTHER|DELAYSLOT|IS_VFPU),
+	INSTR("bvfl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_OTHER|DELAYSLOT|LIKELY|IS_VFPU),
+	INSTR("bvtl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_OTHER|DELAYSLOT|LIKELY|IS_VFPU),
 };
 
-const MIPSInstruction tableCop0[32] = 
+const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
 {
 	INSTR("mfc0", &Jit::Comp_Generic, Dis_Generic, 0, OUT_RT),
 	INVALID,
@@ -372,7 +371,7 @@ const MIPSInstruction tableCop0[32] =
 	INVALID,
 	INVALID,
 	INVALID,
-
+	//8
 	INVALID,
 	INVALID,
 	INSTR("rdpgpr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
@@ -382,13 +381,13 @@ const MIPSInstruction tableCop0[32] =
 	INVALID,
 	INSTR("wrpgpr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID,
-
+	//16
 	ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO),
 	ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO), ENCODING(Cop0CO),
 };
 
 // we won't encounter these since we only do user mode emulation
-const MIPSInstruction tableCop0CO[64] = 
+const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... ..... xxxxxx
 {
 	INVALID,
 	INSTR("tlbr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
@@ -398,24 +397,23 @@ const MIPSInstruction tableCop0CO[64] =
 	INVALID,
 	INSTR("tlbwr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID,
-
+	//8
 	INSTR("tlbp", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	INVALID_X_8,
-
+	//24
 	INSTR("eret", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INSTR("iack", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID,
 	INSTR("deret", &Jit::Comp_Generic, Dis_Generic, 0, 0),
-
+	//32
 	INSTR("wait", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-
+	//40
 	INVALID_X_8,
 	INVALID_X_8,
 	INVALID_X_8,
 };
-
 
 const MIPSInstruction tableCop1[32] = 
 {
@@ -910,7 +908,7 @@ const MIPSInstruction *MIPSGetInstruction(u32 op)
 {
 	MipsEncoding encoding = Imme;
 	const MIPSInstruction *instr = &tableImmediate[op>>26];
-	while (instr->altEncoding != -1) 
+	while (instr->altEncoding != -1)
 	{
 		const MIPSInstruction *table = mipsTables[encoding];
 		int mask = ((1<<encodingBits[encoding][1])-1);
@@ -927,7 +925,7 @@ const MIPSInstruction *MIPSGetInstruction(u32 op)
 			return 0; //invalid instruction
 		}
 		encoding = (MipsEncoding)instr->altEncoding;
-	} 
+	}
 	//alright, we have a valid MIPS instruction!
 	return instr;
 }
@@ -944,7 +942,7 @@ void MIPSCompileOp(u32 op)
 	{
 		if (instr->compile)
 			(MIPSComp::jit->*(instr->compile))(op);   // woohoo, member functions pointers!
-		else 
+		else
 		{
 			ERROR_LOG(CPU,"MIPSCompileOp %08x failed",op);
 			//MessageBox(0,"ARGH2",0,0);//compile an interpreter call
