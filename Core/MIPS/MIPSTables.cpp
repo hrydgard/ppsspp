@@ -24,6 +24,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
 
 #include "JitCommon/JitCommon.h"
@@ -1000,7 +1001,7 @@ void MIPSInterpret(u32 op) //only for those rare ones
 		instr->interpret(op);
 	else
 	{
-		ERROR_LOG(CPU,"Unknown instruction %08x at %08x", op, currentMIPS->pc);
+		ERROR_LOG_REPORT(CPU, "Unknown instruction %08x at %08x", op, currentMIPS->pc);
 		// Try to disassemble it
 		char disasm[256];
 		MIPSDisAsm(op, currentMIPS->pc, disasm);
