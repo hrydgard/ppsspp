@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+
+#include "base/logging.h"
 #include "Core/Reporting.h"
 #include "Core/Dialog/SavedataParam.h"
 #include "Core/Dialog/PSPSaveDialog.h"
@@ -157,6 +159,16 @@ void SavedataParam::Init()
 	{
 		pspFileSystem.MkDir(savePath);
 	}
+	// Create a nomedia file to hide save icons form Android image viewer
+#ifdef ANDROID
+	int handle = pspFileSystem.OpenFile(savePath + ".nomedia", (FileAccess)(FILEACCESS_CREATE | FILEACCESS_WRITE), 0);
+	if (handle) {
+		ILOG("Created .nomedia file");
+		pspFileSystem.CloseFile(handle);
+	} else {
+		ILOG("Failed to create .nomedia file");
+	}
+#endif
 }
 
 std::string SavedataParam::GetSaveDirName(SceUtilitySavedataParam* param, int saveId)
