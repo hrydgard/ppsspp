@@ -21,6 +21,9 @@
 #include <list>
 #include <memory>
 
+extern float mouseDeltaX;
+extern float mouseDeltaY;
+
 class WindowsHost : public Host
 {
 public:

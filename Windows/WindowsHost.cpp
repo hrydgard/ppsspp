@@ -15,6 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
+#include "base/NativeApp.h"
+#include "input/input_state.h"
+#include "input/keycodes.h"
+
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CoreParameter.h"
@@ -42,6 +48,9 @@
 
 static PMixer *curMixer;
 
+float mouseDeltaX = 0;
+float mouseDeltaY = 0;
+
 int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
 {
 	if (curMixer && !Core_IsStepping())
@@ -62,6 +71,8 @@ WindowsHost::WindowsHost(HWND mainWindow, HWND displayWindow)
 {
 	mainWindow_ = mainWindow;
 	displayWindow_ = displayWindow;
+	mouseDeltaX = 0;
+	mouseDeltaY = 0;
 
 #define PUSH_BACK(Cls) do { list.push_back(std::shared_ptr<InputDevice>(new Cls())); } while (0)
 
@@ -172,6 +183,24 @@ void WindowsHost::PollControllers(InputState &input_state)
 		if (device->UpdateState(input_state) == InputDevice::UPDATESTATE_SKIP_PAD)
 			doPad = false;
 	}
+
+	mouseDeltaX *= 0.9f;
+	mouseDeltaY *= 0.9f;
+
+	// TODO: Tweak!
+	float mx = std::max(-1.0f, std::min(1.0f, mouseDeltaX * 0.01f));
+	float my = std::max(-1.0f, std::min(1.0f, mouseDeltaY * 0.01f));
+	AxisInput axisX, axisY;
+	axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+	axisX.deviceId = DEVICE_ID_MOUSE;
+	axisX.value = mx;
+	axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+	axisY.deviceId = DEVICE_ID_MOUSE;
+	axisY.value = my;
+
+	// Disabled for now as it makes the mapping dialog unusable!
+	//if (fabsf(mx) > 0.1f) NativeAxis(axisX);
+	//if (fabsf(my) > 0.1f) NativeAxis(axisY);
 }
 
 void WindowsHost::BootDone()
