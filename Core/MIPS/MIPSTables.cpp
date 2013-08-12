@@ -98,10 +98,10 @@ const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ...............
 	ENCODING(RegI),
 	INSTR("j",    &Jit::Comp_Jump, Dis_JumpType, Int_JumpType, IS_JUMP|IN_IMM26|DELAYSLOT),
 	INSTR("jal",  &Jit::Comp_Jump, Dis_JumpType, Int_JumpType, IS_JUMP|IN_IMM26|OUT_RA|DELAYSLOT),
-	INSTR("beq",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_RS|IN_RT|DELAYSLOT|CONDTYPE_EQ),
-	INSTR("bne",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_RS|IN_RT|DELAYSLOT|CONDTYPE_NE),
-	INSTR("blez", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_RS|DELAYSLOT|CONDTYPE_LEZ),
-	INSTR("bgtz", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_RS|DELAYSLOT|CONDTYPE_GTZ),
+	INSTR("beq",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|CONDTYPE_EQ),
+	INSTR("bne",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|CONDTYPE_NE),
+	INSTR("blez", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_LEZ),
+	INSTR("bgtz", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_GTZ),
 	//8
 	INSTR("addi",  &Jit::Comp_IType, Dis_addi,   Int_IType, IN_RS|IN_IMM16|OUT_RT),
 	INSTR("addiu", &Jit::Comp_IType, Dis_addi,   Int_IType, IN_RS|IN_IMM16|OUT_RT),
@@ -117,10 +117,10 @@ const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ...............
 	ENCODING(Cop2), //cop2
 	INVALID, //copU
 
-	INSTR("beql",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_RS|IN_RT|DELAYSLOT|LIKELY|CONDTYPE_EQ), //L = likely
-	INSTR("bnel",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_RS|IN_RT|DELAYSLOT|LIKELY|CONDTYPE_NE),
-	INSTR("blezl", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_LEZ),
-	INSTR("bgtzl", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_GTZ),
+	INSTR("beql",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|LIKELY|CONDTYPE_EQ), //L = likely
+	INSTR("bnel",  &Jit::Comp_RelBranch, Dis_RelBranch2, Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|IN_RT|DELAYSLOT|LIKELY|CONDTYPE_NE),
+	INSTR("blezl", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_LEZ),
+	INSTR("bgtzl", &Jit::Comp_RelBranch, Dis_RelBranch,  Int_RelBranch, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_GTZ),
 	//24
 	ENCODING(VFPU0),
 	ENCODING(VFPU1),
@@ -299,10 +299,10 @@ const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ..... xxxx
 
 const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 {
-	INSTR("bltz",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|DELAYSLOT|CONDTYPE_LTZ),
-	INSTR("bgez",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|DELAYSLOT|CONDTYPE_GEZ),
-	INSTR("bltzl", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_LTZ),
-	INSTR("bgezl", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
+	INSTR("bltz",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_LTZ),
+	INSTR("bgez",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|CONDTYPE_GEZ),
+	INSTR("bltzl", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_LTZ),
+	INSTR("bgezl", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
 	INVALID,
 	INVALID,
 	INVALID,
@@ -317,10 +317,10 @@ const MIPSInstruction tableRegImm[32] = // 000001 ..... xxxxx ................
 	INSTR("tnei",  &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID,
 	//16
-	INSTR("bltzal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_LTZ),
-	INSTR("bgezal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_GEZ),
-	INSTR("bltzall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_LTZ), //L = likely
-	INSTR("bgezall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
+	INSTR("bltzal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_LTZ),
+	INSTR("bgezal",  &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|CONDTYPE_GEZ),
+	INSTR("bltzall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_LTZ), //L = likely
+	INSTR("bgezall", &Jit::Comp_RelBranchRI, Dis_RelBranch, Int_RelBranchRI, IS_CONDBRANCH|IN_IMM16|IN_RS|OUT_RA|DELAYSLOT|LIKELY|CONDTYPE_GEZ),
 	INVALID,
 	INVALID,
 	INVALID,
@@ -356,10 +356,10 @@ const MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... ................
 
 const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ................
 {
-	INSTR("bvf", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_OTHER|DELAYSLOT|IS_VFPU),
-	INSTR("bvt", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_OTHER|DELAYSLOT|IS_VFPU),
-	INSTR("bvfl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_OTHER|DELAYSLOT|LIKELY|IS_VFPU),
-	INSTR("bvtl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_OTHER|DELAYSLOT|LIKELY|IS_VFPU),
+	INSTR("bvf", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_OTHER|DELAYSLOT|IS_VFPU),
+	INSTR("bvt", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_OTHER|DELAYSLOT|IS_VFPU),
+	INSTR("bvfl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_OTHER|DELAYSLOT|LIKELY|IS_VFPU),
+	INSTR("bvtl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_OTHER|DELAYSLOT|LIKELY|IS_VFPU),
 };
 
 const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
@@ -437,10 +437,10 @@ const MIPSInstruction tableCop1[32] = // 010001 xxxxx ..... ..... ...........
 
 const MIPSInstruction tableCop1BC[32] = // 010001 01000 xxxxx ................
 {
-	INSTR("bc1f",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT),
-	INSTR("bc1t",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT),
-	INSTR("bc1fl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT|LIKELY),
-	INSTR("bc1tl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT|LIKELY),
+	INSTR("bc1f",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT),
+	INSTR("bc1t",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT),
+	INSTR("bc1fl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|LIKELY),
+	INSTR("bc1tl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_IMM16|IN_FPUFLAG|DELAYSLOT|LIKELY),
 	INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID_X_8,
@@ -658,14 +658,14 @@ const MIPSInstruction tableVFPU4[32] = // 110100 00000 xxxxx . ....... . .......
 
 MIPSInstruction tableVFPU5[8] = // 110111 xxx ....... ................
 {
-	INSTR("vpfxs", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, OUT_OTHER|IS_VFPU),
-	INSTR("vpfxs", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, OUT_OTHER|IS_VFPU),
-	INSTR("vpfxt", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, OUT_OTHER|IS_VFPU),
-	INSTR("vpfxt", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, OUT_OTHER|IS_VFPU),
-	INSTR("vpfxd", &Jit::Comp_VPFX, Dis_VPFXD,  Int_VPFX, OUT_OTHER|IS_VFPU),
-	INSTR("vpfxd", &Jit::Comp_VPFX, Dis_VPFXD,  Int_VPFX, OUT_OTHER|IS_VFPU),
-	INSTR("viim.s", &Jit::Comp_Viim, Dis_Viim, Int_Viim, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vfim.s", &Jit::Comp_Vfim, Dis_Viim, Int_Viim, OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vpfxs", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxs", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxt", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxt", &Jit::Comp_VPFX, Dis_VPFXST, Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxd", &Jit::Comp_VPFX, Dis_VPFXD,  Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("vpfxd", &Jit::Comp_VPFX, Dis_VPFXD,  Int_VPFX, IN_IMM16|OUT_OTHER|IS_VFPU),
+	INSTR("viim.s", &Jit::Comp_Viim, Dis_Viim, Int_Viim, IN_IMM16|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vfim.s", &Jit::Comp_Vfim, Dis_Viim, Int_Viim, IN_IMM16|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 };
 
 const MIPSInstruction tableVFPU6[32] = // 111100 xxxxx ..... . ....... . .......
