@@ -1,7 +1,13 @@
 #pragma once
 
+#include "Common/Common.h"
 #include "Core/ThreadEventQueue.h"
 #include "GPU/GPUInterface.h"
+
+#ifdef _M_SSE
+#include <xmmintrin.h>
+#pragma warning(disable:4799)
+#endif
 
 typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
 
@@ -37,10 +43,15 @@ public:
 	virtual void ReapplyGfxState();
 
 	virtual u64 GetTickEstimate() {
-#ifndef _M_X64
-		lock_guard guard(curTickEstLock_);
-#endif
+#if defined(_M_X64)
 		return curTickEst_;
+#elif defined(_M_SSE)
+		__m64 result = *(__m64 *)&curTickEst_;
+		return *(u64 *)&result;
+#else
+		lock_guard guard(curTickEstLock_);
+		return curTickEst_;
+#endif
 	}
 
 protected:
@@ -94,14 +105,19 @@ protected:
 	bool interruptsEnabled_;
 
 	// For CPU/GPU sync.
-	volatile u64 curTickEst_;
+	volatile MEMORY_ALIGNED16(u64) curTickEst_;
 	recursive_mutex curTickEstLock_;
 
 	virtual void UpdateTickEstimate(u64 value) {
-#ifndef _M_X64
-		lock_guard guard(curTickEstLock_);
-#endif
+#if defined(_M_X64)
 		curTickEst_ = value;
+#elif defined(_M_SSE)
+		__m64 result = *(__m64 *)&value;
+		*(__m64 *)&curTickEst_ = result;
+#else
+		lock_guard guard(curTickEstLock_);
+		curTickEst_ = value;
+#endif
 	}
 
 public:
