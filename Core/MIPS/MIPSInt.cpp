@@ -947,7 +947,7 @@ namespace MIPSInt
 		{
 		case 0:
 			if (!reported) {
-				Reporting::ReportMessage("INTERRUPT instruction hit");
+				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op, currentMIPS->pc);
 				WARN_LOG(CPU,"Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}

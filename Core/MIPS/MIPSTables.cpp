@@ -415,133 +415,108 @@ const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... ..... xxxxxx
 	INVALID_X_8,
 };
 
-const MIPSInstruction tableCop1[32] = 
+const MIPSInstruction tableCop1[32] = // 010001 xxxxx ..... ..... ...........
 {
-	INSTR("mfc1",&Jit::Comp_mxc1, Dis_mxc1,Int_mxc1, OUT_RT),
+	INSTR("mfc1",&Jit::Comp_mxc1, Dis_mxc1, Int_mxc1, IN_OTHER|OUT_RT),
 	INVALID,
-	INSTR("cfc1",&Jit::Comp_mxc1, Dis_mxc1,Int_mxc1, 0),
+	INSTR("cfc1",&Jit::Comp_mxc1, Dis_mxc1, Int_mxc1, IN_OTHER|IN_FPUFLAG|OUT_RT),
 	INVALID,
-	INSTR("mtc1",&Jit::Comp_mxc1, Dis_mxc1,Int_mxc1, IN_RT),
+	INSTR("mtc1",&Jit::Comp_mxc1, Dis_mxc1, Int_mxc1, IN_RT|OUT_OTHER),
 	INVALID,
-	INSTR("ctc1",&Jit::Comp_mxc1, Dis_mxc1,Int_mxc1, 0),
+	INSTR("ctc1",&Jit::Comp_mxc1, Dis_mxc1, Int_mxc1, IN_RT|OUT_FPUFLAG|OUT_OTHER),
 	INVALID,
-
+	//8
 	ENCODING(Cop1BC), INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-
+	//16
 	ENCODING(Cop1S), INVALID, INVALID, INVALID,
 	ENCODING(Cop1W), INVALID, INVALID, INVALID,
-
+	//24
 	INVALID_X_8,
 };
 
-const MIPSInstruction tableCop1BC[32] = 
+const MIPSInstruction tableCop1BC[32] = // 010001 01000 xxxxx ................
 {
 	INSTR("bc1f",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT),
 	INSTR("bc1t",  &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT),
 	INSTR("bc1fl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT|LIKELY),
 	INSTR("bc1tl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT|LIKELY),
 	INVALID, INVALID, INVALID, INVALID,
+	//8
 	INVALID_X_8,
 	INVALID_X_8,
 	INVALID_X_8,
 };
 
-const MIPSInstruction tableCop1S[64] =
+const MIPSInstruction tableCop1S[64] = // 010001 10000 ..... ..... ..... xxxxxx
 {
-	INSTR("add.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, 0),
-	INSTR("sub.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, 0),
-	INSTR("mul.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, 0),
-	INSTR("div.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, 0),
-	INSTR("sqrt.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("abs.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("mov.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("neg.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-//8
+	INSTR("add.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, IN_OTHER|OUT_OTHER),
+	INSTR("sub.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, IN_OTHER|OUT_OTHER),
+	INSTR("mul.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, IN_OTHER|OUT_OTHER),
+	INSTR("div.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, IN_OTHER|OUT_OTHER),
+	INSTR("sqrt.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("abs.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("mov.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("neg.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	//8
 	INVALID, INVALID, INVALID, INVALID,
-	INSTR("round.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("trunc.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("ceil.w.s",   &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("floor.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-//16
+	INSTR("round.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("trunc.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("ceil.w.s",   &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	INSTR("floor.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
+	//16
 	INVALID_X_8,
-//24
+	//24
 	INVALID_X_8,
-//32
-	INSTR("cvt.s.w", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INVALID, INVALID, INVALID,
-//36
-	INSTR("cvt.w.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
+	//32
+	INVALID, INVALID, INVALID, INVALID,
+	//36
+	INSTR("cvt.w.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
 	INVALID,
 	INSTR("dis.int", &Jit::Comp_Generic, Dis_Generic, Int_Interrupt, 0),
 	INVALID,
-//40
+	//40
 	INVALID_X_8,
-//48
-	INSTR("c.f",   &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.un",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.eq",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ueq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.olt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ult", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ole", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ule", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.sf",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ngle",&Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.seq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ngl", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.lt",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.nge", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.le",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ngt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	//48
+	INSTR("c.f",   &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.un",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.eq",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.ueq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.olt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.ult", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.ole", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.ule", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.sf",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.ngle",&Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.seq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.ngl", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.lt",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.nge", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.le",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
+	INSTR("c.ngt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, IN_OTHER|OUT_FPUFLAG),
 };
 
-const MIPSInstruction tableCop1W[64] =
+const MIPSInstruction tableCop1W[64] = // 010001 10100 ..... ..... ..... xxxxxx
 {
-	INSTR("add.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, 0),
-	INSTR("sub.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, 0),
-	INSTR("mul.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, 0),
-	INSTR("div.s",  &Jit::Comp_FPU3op, Dis_FPU3op, Int_FPU3op, 0),
-	INSTR("sqrt.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("abs.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("mov.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("neg.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-//8
-	INVALID, INVALID, INVALID, INVALID,
-	INSTR("round.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("trunc.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("ceil.w.s",   &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-	INSTR("floor.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
-//16
 	INVALID_X_8,
-//24
+	//8
 	INVALID_X_8,
-//32
-	INSTR("cvt.s.w", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
+	//16
+	INVALID_X_8,
+	//24
+	INVALID_X_8,
+	//32
+	INSTR("cvt.s.w", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, IN_OTHER|OUT_OTHER),
 	INVALID, INVALID, INVALID,
-//36
-	INSTR("cvt.w.s", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
+	//36
 	INVALID,
-	INSTR("dis.int", &Jit::Comp_Generic, Dis_Generic, Int_Interrupt, 0),
 	INVALID,
-//40
+	INVALID,
+	INVALID,
+	//40
 	INVALID_X_8,
-//48
-	INSTR("c.f",   &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.un",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.eq",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ueq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.olt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ult", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ole", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ule", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.sf",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ngle",&Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.seq", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ngl", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.lt",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.nge", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.le",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
-	INSTR("c.ngt", &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
+	//48
+	INVALID_X_8,
+	INVALID_X_8,
 };
 
 const MIPSInstruction tableVFPU0[8] = 
