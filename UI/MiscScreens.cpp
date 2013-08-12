@@ -34,6 +34,11 @@ void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 	dc.Flush();
 }
 
+void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
+	::DrawBackground(1.0f);
+	dc.Flush();
+}
+
 void PromptScreen::CreateViews() {
 	// Information in the top left.
 	// Back button to the bottom left.

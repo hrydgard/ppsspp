@@ -24,7 +24,7 @@
 // set game specific settings, etc.
 // Uses GameInfoCache heavily to implement the functionality.
 
-class GameScreen : public UIScreen {
+class GameScreen : public DialogScreen {
 public:
 	GameScreen(std::string gamePath) : gamePath_(gamePath) {}
 
