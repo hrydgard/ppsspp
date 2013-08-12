@@ -277,4 +277,8 @@ enum AndroidJoystickAxis {
 	JOYSTICK_OUYA_AXIS_R2 = 18,
 	JOYSTICK_OUYA_AXIS_RS_X = 11,
 	JOYSTICK_OUYA_AXIS_RS_Y = 14,
+
+	// Relative mouse axis for PC.
+	JOYSTICK_AXIS_MOUSE_REL_X = 26,
+	JOYSTICK_AXIS_MOUSE_REL_Y = 27,
 };
