@@ -74,7 +74,7 @@ volatile u32 hasTsEvents = false;
 // as we can already reach that structure through a register.
 int slicelength;
 
-s64 globalTimer;
+MEMORY_ALIGNED16(s64) globalTimer;
 s64 idledCycles;
 
 static std::recursive_mutex externalEventSection;

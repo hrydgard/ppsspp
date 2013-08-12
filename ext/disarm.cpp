@@ -142,7 +142,7 @@ bool DisasmVFP(uint32_t op, char *text) {
 				if ((op & 0xFFF) != 0xA10)
 					break;
 				if (op == 0xEEF1FA10) {
-					sprintf(text, "VMRS APSR", cond);
+					sprintf(text, "VMRS%s APSR", cond);
 				} else {
 					sprintf(text, "VMRS%s r%i", cond, (op >> 12) & 0xF);
 				}
