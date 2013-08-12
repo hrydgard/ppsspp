@@ -3539,6 +3539,8 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 		info.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 		info.status = t->nt.status;
 		info.entrypoint = t->nt.entrypoint;
+		info.initialStack = t->nt.initialStack;
+		info.stackSize = (u32)t->nt.stackSize;
 		info.priority = t->nt.currentPriority;
 		info.waitType = t->nt.waitType;
 		if(*iter == currentThread)

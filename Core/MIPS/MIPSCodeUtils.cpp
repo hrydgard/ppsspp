@@ -117,7 +117,7 @@ namespace MIPSCodeUtils
 				}
 
 				if (sure && takeBranch)
-					return addr + ((signed short)(op&0xFFFF)<<2);
+					return addr + 4 + ((signed short)(op&0xFFFF)<<2);
 				else if (sure && !takeBranch)
 					return addr + 8;
 				else
