@@ -313,8 +313,10 @@ struct DebugThreadInfo
 	SceUID id;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
 	u32 status;
-	int curPC;
-	int entrypoint;
+	u32 curPC;
+	u32 entrypoint;
+	u32 initialStack;
+	int stackSize;
 	int priority;
 	WaitType waitType;
 	bool isCurrent;
