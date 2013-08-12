@@ -72,6 +72,7 @@ struct MIPSInstruction
 };
 
 #define INVALID {-2}
+#define INVALID_X_8 INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID,INVALID
 #define N(a) a
 
 #ifndef FINAL
@@ -183,7 +184,7 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INSTR("jalr",  &Jit::Comp_JumpReg, Dis_JumpRegType, Int_JumpRegType, IS_JUMP|IN_RS|OUT_RA|DELAYSLOT),
 	INSTR("movz",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT|IS_CONDMOVE|CONDTYPE_EQ),
 	INSTR("movn",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, OUT_RD|IN_RS|IN_RT|IS_CONDMOVE|CONDTYPE_NE),
-	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall,0),
+	INSTR("syscall", &Jit::Comp_Syscall, Dis_Syscall, Int_Syscall, IN_MEM|IN_OTHER|OUT_MEM|OUT_OTHER),
 	INSTR("break", &Jit::Comp_Break, Dis_Generic, Int_Break, 0),
 	INVALID,
 	INSTR("sync",  &Jit::Comp_DoNothing, Dis_Generic, Int_Sync, 0),
@@ -195,38 +196,38 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INSTR("mtlo",  &Jit::Comp_MulDivType, Dis_ToHiloTransfer,   Int_MulDivType, IN_RS|OUT_OTHER),
 	INVALID,
 	INVALID,
-	INSTR("clz",   &Jit::Comp_RType2, Dis_RType2, Int_RType2, OUT_RD|IN_RS|IN_RT),
-	INSTR("clo",   &Jit::Comp_RType2, Dis_RType2, Int_RType2, OUT_RD|IN_RS|IN_RT),
+	INSTR("clz",   &Jit::Comp_RType2, Dis_RType2, Int_RType2, OUT_RD|IN_RS),
+	INSTR("clo",   &Jit::Comp_RType2, Dis_RType2, Int_RType2, OUT_RD|IN_RS),
 
 	//24
 	INSTR("mult",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 	INSTR("multu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 	INSTR("div",   &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
 	INSTR("divu",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("madd",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("maddu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("madd",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_OTHER|OUT_OTHER),
+	INSTR("maddu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_OTHER|OUT_OTHER),
 	INVALID,
 	INVALID,
 
 	//32
-	INSTR("add",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("addu", &Jit::Comp_RType3, Dis_addu,   Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("sub",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("subu", &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("and",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("or",   &Jit::Comp_RType3, Dis_addu,   Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("xor",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("nor",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
+	INSTR("add",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("addu", &Jit::Comp_RType3, Dis_addu,   Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("sub",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("subu", &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("and",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("or",   &Jit::Comp_RType3, Dis_addu,   Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("xor",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("nor",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
 
 	//40
 	INVALID,
 	INVALID,
-	INSTR("slt",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("sltu", &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("max",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("min",  &Jit::Comp_RType3, Dis_RType3, Int_RType3,IN_RS|IN_RT|OUT_RD),
-	INSTR("msub",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
-	INSTR("msubu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|OUT_OTHER),
+	INSTR("slt",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("sltu", &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("max",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("min",  &Jit::Comp_RType3, Dis_RType3, Int_RType3, IN_RS|IN_RT|OUT_RD),
+	INSTR("msub",  &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_OTHER|OUT_OTHER),
+	INSTR("msubu", &Jit::Comp_MulDivType, Dis_MulDivType, Int_MulDivType, IN_RS|IN_RT|IN_OTHER|OUT_OTHER),
 
 	//48
 	INSTR("tge",  &Jit::Comp_Generic, Dis_RType3, 0, 0),
@@ -239,11 +240,7 @@ const MIPSInstruction tableSpecial[64] = /// 000000 ...... ...... .......... xxx
 	INVALID,
 
 	//56
-	INVALID, INVALID, INVALID, INVALID, INVALID,
-
-	INVALID,
-	INVALID,
-	INVALID,
+	INVALID_X_8,
 };
 
 const MIPSInstruction tableSpecial2[64] = 
@@ -263,9 +260,9 @@ const MIPSInstruction tableSpecial2[64] =
 	INSTR("ceil.w.s",   &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
 	INSTR("floor.w.s",  &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
 //16
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 //24
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 //32
 	INSTR("cvt.s.w", &Jit::Comp_FPU2op, Dis_FPU2op, Int_FPU2op, 0),
 	INVALID, INVALID, INVALID,
@@ -275,7 +272,7 @@ const MIPSInstruction tableSpecial2[64] =
 	INSTR("dis.int", &Jit::Comp_Generic, Dis_Generic, Int_Interrupt, 0),
 	INVALID,
 //40
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 //48
 	INSTR("c.f",   &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
 	INSTR("c.un",  &Jit::Comp_FPUComp, Dis_FPUComp, Int_FPUComp, OUT_FPUFLAG),
@@ -307,9 +304,9 @@ const MIPSInstruction tableSpecial3[64] =
 	INVALID,
 	INVALID,
 	//8
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 	//16
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 	//32
 	ENCODING(ALLEGREX0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
@@ -317,8 +314,8 @@ const MIPSInstruction tableSpecial3[64] =
 	ENCODING(ALLEGREX0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
+	INVALID_X_8,
 
 	INVALID, INVALID, INVALID,
 	INSTR("rdhwr", &Jit::Comp_Generic, Dis_Generic, 0, 0),
@@ -379,8 +376,8 @@ const MIPSInstruction tableCop2[32] =
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INSTR("??", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
+	INVALID_X_8,
 };
 
 const MIPSInstruction tableCop2BC2[4] = 
@@ -430,7 +427,7 @@ const MIPSInstruction tableCop0CO[64] =
 
 	INSTR("tlbp", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 
 	INSTR("eret", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INSTR("iack", &Jit::Comp_Generic, Dis_Generic, 0, 0),
@@ -440,9 +437,9 @@ const MIPSInstruction tableCop0CO[64] =
 	INSTR("wait", &Jit::Comp_Generic, Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
+	INVALID_X_8,
+	INVALID_X_8,
 };
 
 
@@ -462,7 +459,7 @@ const MIPSInstruction tableCop1[32] =
 	ENCODING(Spe2), INVALID, INVALID, INVALID,
 	ENCODING(Spe2), INVALID, INVALID, INVALID,
 
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 };
 
 const MIPSInstruction tableCop1BC[32] = 
@@ -472,9 +469,9 @@ const MIPSInstruction tableCop1BC[32] =
 	INSTR("bc1fl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT|LIKELY),
 	INSTR("bc1tl", &Jit::Comp_FPUBranch, Dis_FPUBranch, Int_FPUBranch, IS_CONDBRANCH|IN_FPUFLAG|DELAYSLOT|LIKELY),
 	INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
+	INVALID_X_8,
+	INVALID_X_8,
 };
 
 const MIPSInstruction tableVFPU0[8] = 
@@ -520,8 +517,7 @@ const MIPSInstruction tableVFPU4Jump[32] = //110100 xxxxx
 	INVALID, INVALID, INVALID, INVALID,
 
 	//8
-	INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 
 	//16
 	INSTR("vf2in", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IS_VFPU|OUT_EAT_PREFIX),
@@ -591,7 +587,7 @@ const MIPSInstruction tableVFPU4[32] =  //110100 00000 xxxxx
 	INSTR("vzero", &Jit::Comp_VVectorInit, Dis_VectorSet1, Int_VVectorInit, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vone",  &Jit::Comp_VVectorInit, Dis_VectorSet1, Int_VVectorInit, IS_VFPU|OUT_EAT_PREFIX),
 //8
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 //16
 	INSTR("vrcp", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vrsq", &Jit::Comp_VV2Op, Dis_VectorSet2, Int_VV2Op, IS_VFPU|OUT_EAT_PREFIX),
@@ -679,8 +675,7 @@ const MIPSInstruction tableVFPUMatrixSet1[16] = //111100 11100 0xxxx   (rm x is 
 	INSTR("vmzero", &Jit::Comp_VMatrixInit, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vmone",  &Jit::Comp_VMatrixInit, Dis_MatrixSet1, Int_VMatrixInit, IS_VFPU|OUT_EAT_PREFIX),
 
-	INVALID, INVALID, INVALID, INVALID,
-	INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 };
 
 const MIPSInstruction tableVFPU9[32] = //110100 00010 xxxxx
@@ -731,7 +726,7 @@ const MIPSInstruction tableALLEGREX0[32] =  //111111
 	INSTR("wsbw",&Jit::Comp_Allegrex2, Dis_Allegrex2,Int_Allegrex2,0),
 	INVALID, INVALID, INVALID, INVALID,
 //8
-	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
+	INVALID_X_8,
 //16
 	INSTR("seb", &Jit::Comp_Allegrex, Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
 	INVALID,
