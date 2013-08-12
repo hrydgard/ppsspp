@@ -328,6 +328,8 @@ namespace MIPSInt
 		case 7: m=one; break;              // vmone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 
@@ -350,6 +352,8 @@ namespace MIPSInt
 		case 7: v=ones; break;   //vone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 		float o[4];
@@ -1255,7 +1259,7 @@ namespace MIPSInt
 			case 1: d[i] = (float)currentMIPS->rng.R32(); break;  // vrndi - TODO: copy bits instead?
 			case 2: d[i] = 1.0f + ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf1   TODO: make more accurate
 			case 3: d[i] = 2.0f + 2 * ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf2   TODO: make more accurate
-			case 4: d[i] = 0.0f;  // Should not get here
+			default: _dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			}
 		}
 		ApplyPrefixD(d, sz);
@@ -1351,7 +1355,7 @@ namespace MIPSInt
 	{
 		s32 imm = (signed short)(op&0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
-		int rs = (op >> 21) & 0x1f;
+		int rs = _RS;
 		u32 addr = R(rs) + imm;
 
 		switch (op >> 26)
@@ -1529,6 +1533,8 @@ namespace MIPSInt
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"unknown min/max op %d", cond);
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 		ApplyPrefixD(d, sz);

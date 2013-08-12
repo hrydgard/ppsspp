@@ -22,6 +22,7 @@
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
@@ -338,7 +339,7 @@ void Jit::Comp_Generic(u32 op)
 			ABI_CallFunctionC((void *)func, op);
 	}
 	else
-		_dbg_assert_msg_(JIT, 0, "Trying to compile instruction that can't be interpreted");
+		ERROR_LOG_REPORT(JIT, "Trying to compile instruction that can't be interpreted");
 
 	const int info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
@@ -352,7 +353,7 @@ void Jit::Comp_Generic(u32 op)
 void Jit::WriteExit(u32 destination, int exit_num)
 {
 	if (!Memory::IsValidAddress(destination)) {
-		ERROR_LOG(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
+		ERROR_LOG_REPORT(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
 	}
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))

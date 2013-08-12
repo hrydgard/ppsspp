@@ -847,6 +847,7 @@ void CtrlDisAsmView::updateStatusBarText()
 				sprintf(text,"[%08X] = %04X",info.dataAddress,Memory::Read_U16(info.dataAddress));
 				break;
 			case 4:
+				// TODO: Could also be a float...
 				{
 					u32 data = Memory::Read_U32(info.dataAddress);
 					const char* addressSymbol = debugger->findSymbolForAddress(data);
@@ -858,6 +859,9 @@ void CtrlDisAsmView::updateStatusBarText()
 					}
 					break;
 				}
+			case 16:
+				// TODO: vector
+				break;
 			}
 		}
 	}
