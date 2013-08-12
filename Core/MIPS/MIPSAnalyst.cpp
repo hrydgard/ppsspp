@@ -87,75 +87,26 @@ namespace MIPSAnalyst
 		}
 	}
 
-	// Temporary, returns true for common ops which have proper flags in the table.
-	bool IsDelaySlotInfoSafe(u32 op)
-	{
-		const char *safeOps[] = {
-			"addi", "addiu", "slti", "sltiu", "andi", "ori", "xori", "lui",
-			"lb", "lh", "lwl", "lw", "lbu", "lhu", "lwr",
-			"sb", "sh", "swl", "sw", "swr",
-			"sll", "srl", "sra", "sllv", "srlv", "srav",
-			"add", "addu", "sub", "subu", "and", "or", "xor", "nor",
-			"slt", "sltu",
-		};
-		const char *opName = MIPSGetName(op);
-		for (size_t i = 0; i < ARRAY_SIZE(safeOps); ++i)
-		{
-			if (!strcmp(safeOps[i], opName))
-				return true;
-		}
-
-		return false;
-	}
-
 	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2)
 	{
-		// NOOPs are always nice.
-		if (op == 0)
-			return true;
+		// $0 is never an out reg, it's always 0.
+		if (reg1 != 0 && GetOutReg(op) == reg1)
+			return false;
+		if (reg2 != 0 && GetOutReg(op) == reg2)
+			return false;
 
-		// TODO: Once the flags are all correct on the tables, remove this safety.
-		if (IsDelaySlotInfoSafe(op))
-		{
-			// $0 is never an out reg, it's always 0.
-			if (reg1 != 0 && GetOutReg(op) == reg1)
-				return false;
-			if (reg2 != 0 && GetOutReg(op) == reg2)
-				return false;
-
-			return true;
-		}
-
-		return false;
+		return true;
 	}
 
 	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op)
 	{
-		// NOOPs are always nice.
-		if (op == 0)
-			return true;
-
-		// TODO: Once the flags are all correct on the tables, remove this safety.
-		if (IsDelaySlotInfoSafe(op))
-		{
-			// TODO: There may be IS_VFPU cases which are safe...
-			return (MIPSGetInfo(op) & IS_VFPU) == 0;
-		}
-
-		return false;
+		// TODO: There may be IS_VFPU cases which are safe...
+		return (MIPSGetInfo(op) & IS_VFPU) == 0;
 	}
 
 	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op)
 	{
-		// NOOPs are always nice.
-		if (op == 0)
-			return true;
-
-		// TODO: Once the flags are all correct on the tables, remove this safety.
-		if (IsDelaySlotInfoSafe(op))
-			return (MIPSGetInfo(op) & OUT_FPUFLAG) == 0;
-
-		return false;
+		return (MIPSGetInfo(op) & OUT_FPUFLAG) == 0;
 	}
 
 	bool IsSyscall(u32 op)
