@@ -90,7 +90,7 @@ void Config::Load(const char *iniFileName)
 	cpu->Get("Jit", &bJit, true);
 #endif
 	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
-	cpu->Get("SeparateIOThread", &bSeparateIOThread, true);
+	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
 	cpu->Get("FastMemory", &bFastMemory, false);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
