@@ -290,7 +290,7 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
 		}
 
-		int rs = (op>>21)&0x1f;
+		int rs = _RS;
 		u32 addr = R(rs);
 		switch (op & 0x3f) 
 		{
@@ -339,10 +339,10 @@ namespace MIPSInt
 
 	void Int_StoreSync(u32 op)
 	{
-		s32 imm = (signed short)(op&0xFFFF);
-		int base = ((op >> 21) & 0x1f);
-		int rt = (op >> 16) & 0x1f;
-		u32 addr = R(base) + imm;
+		int imm = (signed short)(op&0xFFFF);
+		int rt = _RT;
+		int rs = _RS;
+		u32 addr = R(rs) + imm;
 
 		switch (op >> 26)
 		{

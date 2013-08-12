@@ -1355,7 +1355,7 @@ namespace MIPSInt
 	{
 		s32 imm = (signed short)(op&0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
-		int rs = (op >> 21) & 0x1f;
+		int rs = _RS;
 		u32 addr = R(rs) + imm;
 
 		switch (op >> 26)
