@@ -54,7 +54,7 @@ namespace MIPSAnalyst
 			if (MIPS_GET_RT(opinfo) == reg)
 				return true;
 		}
-		if (opinfo & (IN_RS | IN_RS_ADDR | IN_RS_SHIFT))
+		if (opinfo & IN_RS)
 		{
 			if (MIPS_GET_RS(opinfo) == reg)
 				return true;
@@ -190,8 +190,7 @@ namespace MIPSAnalyst
 				int rd = MIPS_GET_RD(op);
 
 				if (
-					((info & IN_RS) && (rs == reg)) ||
-					((info & IN_RS_SHIFT) && (rs == reg)) ||
+					((info & IN_RS) && !(info & IN_RS_ADDR) && (rs == reg)) ||
 					((info & IN_RT) && (rt == reg)))
 				{
 					if (regAnal[reg].firstRead == -1)
@@ -293,13 +292,7 @@ namespace MIPSAnalyst
 			u32 op = Memory::Read_Instruction(addr);
 			u32 info = MIPSGetInfo(op);
 
-			if (
-				((info & IN_RS) || 
-				(info & IN_RS_SHIFT) || 
-				(info & IN_RS_ADDR)) 
-				&&
-				(MIPS_GET_RS(op) == reg)
-				)
+			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
 				return true;
 			if ((info & IN_RT) && (MIPS_GET_RT(op) == reg))
 				return true;
@@ -644,6 +637,7 @@ namespace MIPSAnalyst
 				info.dataSize = 2;
 				break;
 			case MEMTYPE_WORD:
+			case MEMTYPE_FLOAT:
 				info.dataSize = 4;
 				break;
 			}
