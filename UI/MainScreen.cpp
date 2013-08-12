@@ -35,6 +35,7 @@
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
 #include "GPU/GPUInterface.h"
+#include "i18n/i18n.h"
 
 #ifdef _WIN32
 namespace MainWindow {
@@ -338,6 +339,8 @@ void MainScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
+	I18NCategory *m = GetI18NCategory("MainMenu");
+
 	Margins actionMenuMargins(0, 100, 15, 0);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
@@ -357,9 +360,9 @@ void MainScreen::CreateViews() {
 	scrollAllGames->Add(tabAllGames);
 	scrollHomebrew->Add(tabHomebrew);
 
-	leftColumn->AddTab("Recent", scrollRecentGames);
-	leftColumn->AddTab("Games", scrollAllGames);
-	leftColumn->AddTab("Homebrew & Demos", scrollHomebrew);
+	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
+	leftColumn->AddTab(m->T("Games"), scrollAllGames);
+	leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
 
 	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelected);
 	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelected);
@@ -384,12 +387,12 @@ void MainScreen::CreateViews() {
 	rightColumn->Add(rightColumnItems);
 
 #ifdef _WIN32
-	rightColumnItems->Add(new Choice("Load..."))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
-	rightColumnItems->Add(new Choice("Settings"))->OnClick.Handle(this, &MainScreen::OnSettings);
-	rightColumnItems->Add(new Choice("Exit"))->OnClick.Handle(this, &MainScreen::OnExit);
-	rightColumnItems->Add(new Choice("Credits"))->OnClick.Handle(this, &MainScreen::OnCredits);
-	rightColumnItems->Add(new Choice("Support PPSSPP"))->OnClick.Handle(this, &MainScreen::OnSupport);
+	rightColumnItems->Add(new Choice(m->T("Settings")))->OnClick.Handle(this, &MainScreen::OnSettings);
+	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
+	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	rightColumnItems->Add(new Choice(m->T("Support PPSSPP")))->OnClick.Handle(this, &MainScreen::OnSupport);
 }
 
 void MainScreen::sendMessage(const char *message, const char *value) {
@@ -479,6 +482,8 @@ GamePauseScreen::~GamePauseScreen() {
 void GamePauseScreen::CreateViews() {
 	using namespace UI;
 	Margins actionMenuMargins(0, 100, 15, 0);
+	I18NCategory *gs = GetI18NCategory("Graphics");
+	I18NCategory *i = GetI18NCategory("Pause");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -497,8 +502,8 @@ void GamePauseScreen::CreateViews() {
 	saveSlots_->AddChoice("4");
 	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
 
-	leftColumnItems->Add(new Choice("Save State"))->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
-	leftColumnItems->Add(new Choice("Load State"))->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
+	leftColumnItems->Add(new Choice(gs->T("Save State")))->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
+	leftColumnItems->Add(new Choice(gs->T("Load State")))->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
@@ -506,10 +511,10 @@ void GamePauseScreen::CreateViews() {
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
 
-	rightColumnItems->Add(new Choice("Continue"))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
-	rightColumnItems->Add(new Choice("Game Settings"))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice("Main Settings"))->OnClick.Handle(this, &GamePauseScreen::OnMainSettings);
-	rightColumnItems->Add(new Choice("Exit to menu"))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
+	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(i->T("Main Settings")))->OnClick.Handle(this, &GamePauseScreen::OnMainSettings);
+	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 }
 
 UI::EventReturn GamePauseScreen::OnMainSettings(UI::EventParams &e) {

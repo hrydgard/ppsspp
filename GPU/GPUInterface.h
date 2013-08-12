@@ -224,6 +224,7 @@ public:
 	virtual void DeviceLost() = 0;
 	virtual void ReapplyGfxState() = 0;
 	virtual void SyncThread() = 0;
+	virtual u64  GetTickEstimate() = 0;
 	virtual void DoState(PointerWrap &p) = 0;
 
 	// Called by the window system if the window size changed. This will be reflected in PSPCoreParam.pixel*.

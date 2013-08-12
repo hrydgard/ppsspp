@@ -411,7 +411,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			framebuf = latchedFramebuf;
 			framebufIsLatched = false;
 			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-			gpuStats.numFlips++;
 		}
 	}
 
@@ -427,6 +426,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
 	if (gpu->FramebufferDirty()) {
+		gpuStats.numFlips++;
+
 		bool wasSkipped = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0;
 		gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 
@@ -515,7 +516,6 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 			if (topaddr != framebuf.topaddr) {
 				framebuf = fbstate;
 				gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-				gpuStats.numFlips++;
 			}
 		} else {
 			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);

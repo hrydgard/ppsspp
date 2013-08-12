@@ -20,6 +20,7 @@
 #endif
 
 #include "native/thread/thread.h"
+#include "native/thread/threadutil.h"
 #include "native/base/mutex.h"
 
 #include "Core/MemMap.h"
@@ -42,7 +43,6 @@
 #include "Core/PSPLoaders.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/SaveState.h"
-#include "Common/Thread.h"
 #include "Common/LogManager.h"
 
 #include "GPU/GPUState.h"
@@ -196,7 +196,7 @@ void CPU_Shutdown() {
 }
 
 void CPU_RunLoop() {
-	Common::SetCurrentThreadName("CPUThread");
+	setCurrentThreadName("CPUThread");
 	if (!CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
 		ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
 		return;

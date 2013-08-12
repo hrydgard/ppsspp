@@ -117,6 +117,13 @@ u64 Read_U64(const u32 _Address);
 #define _M_ARM
 #endif
 
+inline u8* GetPointerUnchecked(const u32 address) {
+#if defined(_M_IX86) || defined(_M_ARM32)
+	return (u8 *)(base + (address & MEMVIEW32_MASK));
+#else
+	return (u8 *)(base + address);
+#endif
+}
 
 #ifdef SAFE_MEMORY
 u32 ReadUnchecked_U32(const u32 _Address);
@@ -212,8 +219,30 @@ inline const char* GetCharPointer(const u32 address) {
 }
 
 void Memset(const u32 _Address, const u8 _Data, const u32 _iLength);
-void Memcpy(const u32 to_address, const void *from_data, const u32 len);
-void Memcpy(void *to_data, const u32 from_address, const u32 len);
+
+inline void Memcpy(const u32 to_address, const void *from_data, const u32 len)
+{
+	u8 *to = GetPointer(to_address);
+	if (to) {
+		memcpy(to, from_data, len);
+	}
+	// if not, GetPointer will log.
+}
+
+inline void Memcpy(void *to_data, const u32 from_address, const u32 len)
+{
+	const u8 *from = GetPointer(from_address);
+	if (from) {
+		memcpy(to_data, from, len);
+	}
+	// if not, GetPointer will log.
+}
+
+inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len)
+{
+	memcpy(to_data, GetPointerUnchecked(from_address), len);
+}
+
 
 template<class T>
 void ReadStruct(u32 address, T *ptr)

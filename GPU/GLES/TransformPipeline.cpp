@@ -1109,10 +1109,7 @@ VertexArrayInfo::~VertexArrayInfo() {
 		glDeleteBuffers(1, &ebo);
 }
 
-void TransformDrawEngine::Flush() {
-	if (!numDrawCalls)
-		return;
-
+void TransformDrawEngine::DoFlush() {
 	gpuStats.numFlushes++;
 	
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();

@@ -392,8 +392,9 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 	int fb_stride = gstate.fbwidth & 0x3C0;
 	GetViewportDimensions(viewport_width, viewport_height);
 
-	// Generated FBO shouldn't greate than 512x512
-	if ( viewport_width > 512 && viewport_height > 512 ) {
+	// Generated FBO shouldn't greate than 512x512 
+	// Some games like FF Type-0 inits viewport as 0x0 
+	if ( viewport_width > 512 && viewport_height > 512 || viewport_width <= 1 && viewport_height <= 1 ) {
 		viewport_width = default_width;
 		viewport_height = default_height;
 	}

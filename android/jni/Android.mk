@@ -186,6 +186,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/atrac3plus.cpp \
+  $(SRC)/Core/HW/AsyncIOManager.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
   $(SRC)/Core/HW/OMAConvert.cpp.arm \
