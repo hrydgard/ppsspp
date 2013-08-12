@@ -114,6 +114,9 @@ namespace MIPSCodeUtils
 					sure = _RS == 0;
 					takeBranch = false;
 					break;
+
+				default:
+					sure = false;
 				}
 
 				if (sure && takeBranch)

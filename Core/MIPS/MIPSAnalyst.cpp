@@ -141,7 +141,7 @@ namespace MIPSAnalyst
 				int rd = MIPS_GET_RD(op);
 
 				if (
-					((info & IN_RS) && !(info & IN_RS_ADDR) && (rs == reg)) ||
+					((info & IN_RS) && (info & IN_RS_ADDR) == IN_RS && (rs == reg)) ||
 					((info & IN_RT) && (rt == reg)))
 				{
 					if (regAnal[reg].firstRead == -1)
