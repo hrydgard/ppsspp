@@ -337,49 +337,85 @@ bool PGF::GetGlyph(const u8 *fontdata, size_t charPtr, int glyphType, Glyph &gly
 		glyph.shadowID = getBits(9, fontdata, charPtr);
 		charPtr += 9;
 
-		int dimensionIndex = getBits(8, fontdata, charPtr);
-		charPtr += 8;
+		if ((glyph.flags & FONT_PGF_METRIC_DIMENSION_INDEX) == FONT_PGF_METRIC_DIMENSION_INDEX)
+		{
+			int dimensionIndex = getBits(8, fontdata, charPtr);
+			charPtr += 8;
 
-		int xAdjustIndex = getBits(8, fontdata, charPtr);
-		charPtr += 8;
+			if (dimensionIndex < header.dimTableLength) {
+				glyph.dimensionWidth = dimensionTable[0][dimensionIndex];
+				glyph.dimensionHeight = dimensionTable[1][dimensionIndex];
+			}
 
-		int yAdjustIndex = getBits(8, fontdata, charPtr);
-		charPtr += 8;
+			if (dimensionIndex == 0 && isJPCSPFont(fileName.c_str())) {
+				// Fonts created by ttf2pgf do not contain complete Glyph information.
+				// Provide default values.
+				glyph.dimensionWidth = glyph.w << 6;
+				glyph.dimensionHeight = glyph.h << 6;
+			}
+		}
+		else
+		{
+			glyph.dimensionWidth = getBits(32, fontdata, charPtr);
+			charPtr += 32;
+			glyph.dimensionHeight = getBits(32, fontdata, charPtr);
+			charPtr += 32;
+		}
 
-		charPtr += 
-			((glyph.flags & FONT_PGF_METRIC_FLAG1) ? 0 : 56) +
-			((glyph.flags & FONT_PGF_METRIC_FLAG2) ? 0 : 56) +
-			((glyph.flags & FONT_PGF_METRIC_FLAG3) ? 0 : 56);
+		if ((glyph.flags & FONT_PGF_METRIC_BEARING_X_INDEX) == FONT_PGF_METRIC_BEARING_X_INDEX)
+		{
+			int xAdjustIndex = getBits(8, fontdata, charPtr);
+			charPtr += 8;
+
+			if (xAdjustIndex < header.xAdjustTableLength) {
+				glyph.xAdjustH = xAdjustTable[0][xAdjustIndex];
+				glyph.xAdjustV = xAdjustTable[1][xAdjustIndex];
+			}
+
+			if (xAdjustIndex == 0 && isJPCSPFont(fileName.c_str()))
+			{
+				// Fonts created by ttf2pgf do not contain complete Glyph information.
+				// Provide default values.
+				glyph.xAdjustH = glyph.left << 6;
+				glyph.xAdjustV = glyph.left << 6;
+			}
+		}
+		else
+		{
+			glyph.xAdjustH = getBits(32, fontdata, charPtr);
+			charPtr += 32;
+			glyph.xAdjustV = getBits(32, fontdata, charPtr);
+			charPtr += 32;
+		}
+
+		if ((glyph.flags & FONT_PGF_METRIC_BEARING_Y_INDEX) == FONT_PGF_METRIC_BEARING_Y_INDEX)
+		{
+			int yAdjustIndex = getBits(8, fontdata, charPtr);
+			charPtr += 8;
+
+			if (yAdjustIndex < header.xAdjustTableLength) {
+				glyph.yAdjustH = yAdjustTable[0][yAdjustIndex];
+				glyph.yAdjustV = yAdjustTable[1][yAdjustIndex];
+			}
+
+			if (yAdjustIndex == 0 && isJPCSPFont(fileName.c_str()))
+			{
+				// Fonts created by ttf2pgf do not contain complete Glyph information.
+				// Provide default values.
+				glyph.yAdjustH = glyph.top << 6;
+				glyph.yAdjustV = glyph.top << 6;
+			}
+		}
+		else
+		{
+			glyph.yAdjustH = getBits(32, fontdata, charPtr);
+			charPtr += 32;
+			glyph.yAdjustV = getBits(32, fontdata, charPtr);
+			charPtr += 32;
+		}
 
 		int advanceIndex = getBits(8, fontdata, charPtr);
 		charPtr += 8;
-
-		if (dimensionIndex < header.dimTableLength) {
-			glyph.dimensionWidth = dimensionTable[0][dimensionIndex];
-			glyph.dimensionHeight = dimensionTable[1][dimensionIndex];
-		}
-
-		if (xAdjustIndex < header.xAdjustTableLength) {
-			glyph.xAdjustH = xAdjustTable[0][xAdjustIndex];
-			glyph.xAdjustV = xAdjustTable[1][xAdjustIndex];
-		}
-
-		if (yAdjustIndex < header.xAdjustTableLength) {
-			glyph.yAdjustH = yAdjustTable[0][yAdjustIndex];
-			glyph.yAdjustV = yAdjustTable[1][yAdjustIndex];
-		}
-
-		if (dimensionIndex == 0 && xAdjustIndex == 0 && yAdjustIndex == 0 && isJPCSPFont(fileName.c_str())) {
-			// Fonts created by ttf2pgf do not contain complete Glyph information.
-			// Provide default values.
-			glyph.dimensionWidth = glyph.w << 6;
-			glyph.dimensionHeight = glyph.h << 6;
-			// This stuff doesn't exactly look right.
-			glyph.xAdjustH = glyph.left << 6;
-			glyph.xAdjustV = glyph.left << 6;
-			glyph.yAdjustH = glyph.top << 6;
-			glyph.yAdjustV = glyph.top << 6;
-		}
 
 		if (advanceIndex < header.advanceTableLength) {
 			glyph.advanceH = advanceTable[0][advanceIndex];
