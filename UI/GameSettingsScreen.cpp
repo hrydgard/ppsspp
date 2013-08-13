@@ -337,7 +337,7 @@ void GlobalSettingsScreen::CreateViews() {
 	I18NCategory *gs = GetI18NCategory("Graphics");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	list->Add(new ItemHeader("General"));
+	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
