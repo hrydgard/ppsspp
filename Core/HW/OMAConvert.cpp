@@ -46,7 +46,7 @@ bool isHeader(u8* audioStream, int offset)
 	return (audioStream[offset] == header1) && (audioStream[offset+1] == header2);
 }
 
-// header set to the headerbuf, and return it's size
+// header set to the headerbuf, and return its size
 int getOmaHeader(u8 codecId, u8 headerCode0, u8 headerCode1, u8 headerCode2, u8* headerbuf)
 {
 	int pos = 0;

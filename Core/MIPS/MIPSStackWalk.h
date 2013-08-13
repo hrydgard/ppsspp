@@ -28,7 +28,7 @@ namespace MIPSStackWalk {
 		u32 pc;
 		// Value of SP inside this function (assuming no alloca()...)
 		u32 sp;
-		// Size of stack in bytes.
+		// Size of stack frame in bytes.
 		int stackSize;
 	};
 

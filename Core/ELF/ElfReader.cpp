@@ -146,6 +146,14 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 			}
 			break;
 
+		case R_MIPS_16:
+			{
+				char temp[256];
+				MIPSDisAsm(op, 0, temp);
+				ERROR_LOG_REPORT(LOADER, "WARNING: Unsupported R_MIPS_16 reloc @ %08x : %s", addr, temp);
+			}
+			break;
+
 		case 0: // another GP reloc!
 			{
 				char temp[256];
@@ -158,7 +166,7 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 			{
 				char temp[256];
 				MIPSDisAsm(op, 0, temp);
-				ERROR_LOG_REPORT(LOADER,"ARGH IT'S A UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
+				ERROR_LOG_REPORT(LOADER,"ARGH IT'S AN UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
 			}
 			break;
 		}

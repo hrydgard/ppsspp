@@ -1061,7 +1061,7 @@ int __AtracSetContext(Atrac *atrac)
 	// select the audio stream
 	ret = av_find_best_stream(atrac->pFormatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &pCodec, 0);
 	if (ret < 0) {
-		ERROR_LOG(HLE, "av_find_best_stream: Cannot find a audio stream in the input file %d", ret);
+		ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
 		return -1;
 	}
 	atrac->audio_stream_index = ret;
