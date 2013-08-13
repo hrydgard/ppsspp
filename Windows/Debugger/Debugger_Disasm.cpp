@@ -138,10 +138,17 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	threadList->setDialogItem(GetDlgItem(m_hDlg,IDC_THREADLIST));
 	threadList->reloadThreads();
 
+	stackTraceView = new CtrlStackTraceView();
+	stackTraceView->setCpu(cpu);
+	stackTraceView->setDisasm(ptr);
+	stackTraceView->setDialogItem(GetDlgItem(m_hDlg,IDC_STACKFRAMES));
+	stackTraceView->loadStackTrace();
+	
 	// init memory/breakpoint "tab"
 	ShowWindow(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST), SW_HIDE);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW), SW_NORMAL);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_THREADLIST), SW_HIDE);
+	ShowWindow(GetDlgItem(m_hDlg, IDC_STACKFRAMES), SW_HIDE);
 
 	// init status bar
 	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "", m_hDlg, IDC_DISASMSTATUSBAR);
@@ -205,6 +212,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			break;
 		case IDC_THREADLIST:
 			threadList->handleNotify(lParam);
+			break;
+		case IDC_STACKFRAMES:
+			stackTraceView->handleNotify(lParam);
 			break;
 		}
 		break;
@@ -283,6 +293,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 					CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_DEBUGMEMVIEW))->redraw();
 					threadList->reloadThreads();
+					stackTraceView->loadStackTrace();
 					updateThreadLabel(false);
 				}
 				break;
@@ -504,23 +515,34 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
 			HWND mem = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
 			HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
-			
+			HWND stackFrames = GetDlgItem(m_hDlg, IDC_STACKFRAMES);
+
 			if (IsWindowVisible(bp))
 			{
-				ShowWindow(bp,SW_HIDE);
 				ShowWindow(mem,SW_HIDE);
+				ShowWindow(bp,SW_HIDE);
 				ShowWindow(threads,SW_NORMAL);
+				ShowWindow(stackFrames,SW_HIDE);
 				SetFocus(threads);
 			} else if (IsWindowVisible(threads))
 			{
+				ShowWindow(mem,SW_HIDE);
 				ShowWindow(bp,SW_HIDE);
-				ShowWindow(mem,SW_NORMAL);
 				ShowWindow(threads,SW_HIDE);
+				ShowWindow(stackFrames,SW_NORMAL);
+				SetFocus(stackFrames);
+			} else if (IsWindowVisible(stackFrames))
+			{
+				ShowWindow(mem,SW_NORMAL);
+				ShowWindow(bp,SW_HIDE);
+				ShowWindow(threads,SW_HIDE);
+				ShowWindow(stackFrames,SW_HIDE);
 				SetFocus(mem);
 			} else {
-				ShowWindow(bp,SW_NORMAL);
 				ShowWindow(mem,SW_HIDE);
+				ShowWindow(bp,SW_NORMAL);
 				ShowWindow(threads,SW_HIDE);
+				ShowWindow(stackFrames,SW_HIDE);
 				SetFocus(bp);
 			}
 		}
@@ -590,6 +612,7 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	HWND breakpointList = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
 	HWND memView = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
 	HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
+	HWND stackFrame = GetDlgItem(m_hDlg,IDC_STACKFRAMES);
 
 	if (g_Config.bDisplayStatusBar)
 	{
@@ -617,6 +640,7 @@ void CDisasm::UpdateSize(WORD width, WORD height)
 	MoveWindow(breakpointList,8,breakpointTop,width-16,breakpointHeight,TRUE);
 	MoveWindow(memView,8,breakpointTop,width-16,breakpointHeight,TRUE);
 	MoveWindow(threads,8,breakpointTop,width-16,breakpointHeight,TRUE);
+	MoveWindow(stackFrame,8,breakpointTop,width-16,breakpointHeight,TRUE);
 
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_REGLIST),&regRect);
 	GetWindowRect(GetDlgItem(m_hDlg, IDC_DISASMVIEW),&disRect);
@@ -646,6 +670,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		CBreakPoints::ClearTemporaryBreakPoints();
 		breakpointList->update();
 		threadList->reloadThreads();
+		stackTraceView->loadStackTrace();
 		updateThreadLabel(false);
 
 		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  TRUE);

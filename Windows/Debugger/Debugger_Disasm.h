@@ -30,6 +30,7 @@ private:
 	HWND statusBarWnd;
 	CtrlBreakpointList* breakpointList;
 	CtrlThreadList* threadList;
+	CtrlStackTraceView* stackTraceView;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
 
