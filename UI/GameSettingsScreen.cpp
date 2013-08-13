@@ -156,7 +156,7 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 
 void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	Choice::Draw(dc);
-	char temp[4];
+	char temp[5];
 	sprintf(temp, "%2.2f", *value_);
 	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
@@ -189,9 +189,9 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(leftColumn);
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
-	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(205, WRAP_CONTENT, 30, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(910, FILL_PARENT, actionMenuMargins));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(800, FILL_PARENT, actionMenuMargins));
 
 	root_->Add(tabHolder);
 
@@ -272,6 +272,7 @@ void GameSettingsScreen::CreateViews() {
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 	controlsSettings->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
 	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 85, c->T("Button Opacity"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 1.15, 2.05, c->T("Button Scaling"), screenManager()));
 	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -341,6 +342,7 @@ void GlobalSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
+	list->Add(new CheckBox(&g_Config.bDirectLoad, gs->T("Enable Direct Load")));
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
