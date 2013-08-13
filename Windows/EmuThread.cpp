@@ -3,18 +3,19 @@
 #include "base/display.h"
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
-#include "Log.h"
-#include "StringUtils.h"
+#include "base/mutex.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
 #include "../Globals.h"
-#include "EmuThread.h"
-#include "WndMainWindow.h"
-#include "resource.h"
-#include "../Core/Reporting.h"
-#include "../Core/MemMap.h"
-#include "../Core/Core.h"
-#include "../Core/Host.h"
-#include "../Core/System.h"
-#include "../Core/Config.h"
+#include "Windows/EmuThread.h"
+#include "Windows/WndMainWindow.h"
+#include "Windows/resource.h"
+#include "Core/Reporting.h"
+#include "Core/MemMap.h"
+#include "Core/Core.h"
+#include "Core/Host.h"
+#include "Core/System.h"
+#include "Core/Config.h"
 #include "thread/threadutil.h"
 
 #include <tchar.h>
@@ -22,27 +23,11 @@
 #include <intrin.h>
 #pragma intrinsic(_InterlockedExchange)
 
-class EmuThreadLockGuard
-{
-public:
-	EmuThreadLockGuard() { emuThreadCS_.Enter(); }
-	~EmuThreadLockGuard() { emuThreadCS_.Leave(); }
-private:
-	static struct EmuThreadCS
-	{
-		EmuThreadCS() { InitializeCriticalSection(&TheCS_); }
-		~EmuThreadCS() { DeleteCriticalSection(&TheCS_); }
-		void Enter() { EnterCriticalSection(&TheCS_); }
-		void Leave() { LeaveCriticalSection(&TheCS_); }
-		CRITICAL_SECTION TheCS_;
-	} emuThreadCS_;
-};
-
-EmuThreadLockGuard::EmuThreadCS EmuThreadLockGuard::emuThreadCS_;
+static recursive_mutex emuThreadLock;
 static HANDLE emuThread;
-static long emuThreadReady;
+static volatile long emuThreadReady;
 
-enum EmuTreadStatus : long
+enum EmuThreadStatus : long
 {
 	THREAD_NONE = 0,
 	THREAD_INIT,
@@ -53,7 +38,7 @@ enum EmuTreadStatus : long
 
 HANDLE EmuThread_GetThreadHandle()
 {
-	EmuThreadLockGuard lock;
+	lock_guard guard(emuThreadLock);
 	return emuThread;
 }
 
@@ -61,12 +46,19 @@ unsigned int WINAPI TheThread(void *);
 
 void EmuThread_Start()
 {
-	EmuThreadLockGuard lock;
+	lock_guard guard(emuThreadLock);
 	emuThread = (HANDLE)_beginthreadex(0, 0, &TheThread, 0, 0, 0);
 }
 
 void EmuThread_Stop()
 {
+	// Already stopped?
+	{
+		lock_guard guard(emuThreadLock);
+		if (emuThread == NULL)
+			return;
+	}
+
 	globalUIState = UISTATE_EXIT;
 //	DSound_UpdateSound();
 	Core_Stop();
@@ -76,7 +68,7 @@ void EmuThread_Stop()
 		_dbg_assert_msg_(COMMON, false, "Wait for EmuThread timed out.");
 	}
 	{
-		EmuThreadLockGuard lock;
+		lock_guard guard(emuThreadLock);
 		CloseHandle(emuThread);
 		emuThread = 0;
 	}
@@ -130,10 +122,7 @@ unsigned int WINAPI TheThread(void *)
 	_InterlockedExchange(&emuThreadReady, THREAD_CORE_LOOP);
 
 	if (g_Config.bBrowse)
-	{
 		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
-		//MainWindow::BrowseAndBoot("");
-	}
 
 	Core_EnableStepping(FALSE);
 
@@ -157,8 +146,6 @@ shutdown:
 	
 	_InterlockedExchange(&emuThreadReady, THREAD_END);
 
-	//The CPU should return when a game is stopped and cleanup should be done here, 
-	//so we can restart the plugins (or load new ones) for the next game
 	return 0;
 }
 
