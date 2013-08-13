@@ -9,7 +9,7 @@ namespace DSound
 #define MAXWAIT 20   //ms
 
 	CRITICAL_SECTION soundCriticalSection;
-	HANDLE soundSyncEvent;
+	HANDLE soundSyncEvent = NULL;
 	HANDLE hThread;
 
 	StreamCallback callback;
@@ -183,7 +183,8 @@ namespace DSound
 
 	void DSound_UpdateSound()
 	{
-		SetEvent(soundSyncEvent);
+		if (soundSyncEvent != NULL)
+			SetEvent(soundSyncEvent);
 	}
 
 
@@ -201,6 +202,7 @@ namespace DSound
 			ds->Release();
 
 		CloseHandle(soundSyncEvent);
+		soundSyncEvent = NULL;
 	}
 
 

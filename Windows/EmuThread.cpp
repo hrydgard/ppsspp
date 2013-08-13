@@ -67,6 +67,10 @@ void EmuThread_Start()
 
 void EmuThread_Stop()
 {
+	// Already stopped?
+	if (emuThread == NULL)
+		return;
+
 	globalUIState = UISTATE_EXIT;
 //	DSound_UpdateSound();
 	Core_Stop();
