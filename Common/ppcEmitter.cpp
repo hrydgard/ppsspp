@@ -401,6 +401,20 @@ namespace PpcGen {
 		BCTRL();
 	}
 
+	
+	// sign
+	void PPCXEmitter::EXTSB	(PPCReg dest, PPCReg src) {
+		Write32((0x7C000774 | (src << 21) | (dest << 16)));
+	}
+
+	void PPCXEmitter::EXTSH	(PPCReg dest, PPCReg src) {
+		Write32(0x7C000734 | (src << 21) | (dest << 16));
+	}
+
+	void PPCXEmitter::RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end) {
+		Write32((21<<26) | (src << 21) | (dest << 16) | (shift << 11) | (start << 6) | (end << 1));
+	}
+
 	// Others ...
 
 	void PPCXEmitter::SetCodePtr(u8 *ptr)

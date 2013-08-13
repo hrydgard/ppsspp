@@ -267,6 +267,12 @@ public:
 	// 64 bit
 	void STD	(PPCReg dest, PPCReg src, int offset = 0);
 
+	// sign
+	void EXTSB	(PPCReg dest, PPCReg src);
+	void EXTSH	(PPCReg dest, PPCReg src);
+
+	void RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end);
+
 	// Compare
 	void CMPLI	(PPCReg dest, unsigned short imm);	
 	void CMPI	(PPCReg dest, unsigned short imm);
