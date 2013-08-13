@@ -3,6 +3,7 @@
 #include "../../Core/Debugger/DebugInterface.h"
 #include "../../Core/HLE/sceKernelThread.h"
 #include "../../Core/Debugger/Breakpoints.h"
+#include "../../Core/MIPS/MIPSStackWalk.h"
 
 class CtrlThreadList
 {
@@ -52,5 +53,29 @@ public:
 	void setDialogItem(HWND hwnd);
 	void handleNotify(LPARAM lParam);
 	void showMenu(int itemIndex, const POINT &pt);
+	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+};
+
+class CtrlStackTraceView
+{
+	HWND wnd;
+	WNDPROC oldProc;
+	std::vector<MIPSStackWalk::StackFrame> frames;
+	DebugInterface* cpu;
+	CtrlDisAsmView* disasm;
+	char stringBuffer[256];
+
+public:
+	void setCpu(DebugInterface* cpu)
+	{
+		this->cpu = cpu;
+	};
+	void setDisasm(CtrlDisAsmView* disasm)
+	{
+		this->disasm = disasm;
+	};
+	void setDialogItem(HWND hwnd);
+	void loadStackTrace();
+	void handleNotify(LPARAM lParam);
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 };

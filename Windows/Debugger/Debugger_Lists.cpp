@@ -7,6 +7,7 @@
 #include "Windows/resource.h"
 #include "Windows/main.h"
 #include "BreakpointWindow.h"
+#include "../../Core/HLE/sceKernelThread.h"
 
 typedef struct
 {
@@ -16,6 +17,7 @@ typedef struct
 
 enum { TL_NAME, TL_PROGRAMCOUNTER, TL_ENTRYPOINT, TL_PRIORITY, TL_STATE, TL_WAITTYPE, TL_COLUMNCOUNT };
 enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS, BPL_ENABLED, BPL_COLUMNCOUNT };
+enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
 
 ListViewColumn threadColumns[TL_COLUMNCOUNT] = {
 	{ "Name",			0.20f },
@@ -34,6 +36,15 @@ ListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
 	{ "Condition",		0.17f },
 	{ "Hits",			0.05f },
 	{ "Enabled",		0.08f }
+};
+
+ListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
+	{ "Entry",			0.12f },
+	{ "Name",			0.24f },
+	{ "PC",				0.12f },
+	{ "Opcode",			0.28f },
+	{ "SP",				0.12f },
+	{ "Frame Size",		0.12f }
 };
 
 const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
@@ -709,4 +720,164 @@ void CtrlBreakpointList::showBreakpointMenu(int itemIndex, const POINT &pt)
 			break;
 		}
 	}
+}
+
+//
+// CtrlStackTraceView
+//
+
+void CtrlStackTraceView::setDialogItem(HWND hwnd)
+{
+	wnd = hwnd;
+
+	SetWindowLongPtr(wnd,GWLP_USERDATA,(LONG_PTR)this);
+	oldProc = (WNDPROC) SetWindowLongPtr(wnd,GWLP_WNDPROC,(LONG_PTR)wndProc);
+
+	SendMessage(wnd, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
+
+	LVCOLUMN lvc; 
+	lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+	lvc.iSubItem = 0;
+	lvc.fmt = LVCFMT_LEFT;
+	
+	RECT rect;
+	GetWindowRect(wnd,&rect);
+
+	int totalListSize = (rect.right-rect.left-20);
+	for (int i = 0; i < SF_COLUMNCOUNT; i++)
+	{
+		lvc.cx = stackTraceColumns[i].size * totalListSize;
+		lvc.pszText = stackTraceColumns[i].name;
+		ListView_InsertColumn(wnd, i, &lvc);
+	}
+}
+
+LRESULT CALLBACK CtrlStackTraceView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	CtrlStackTraceView* sv = (CtrlStackTraceView*) GetWindowLongPtr(hwnd,GWLP_USERDATA);
+
+	switch (msg)
+	{
+	case WM_SIZE:
+		{
+			int width = LOWORD(lParam);
+			RECT rect;
+			GetWindowRect(hwnd,&rect);
+
+			int totalListSize = (rect.right-rect.left-20);
+			for (int i = 0; i < SF_COLUMNCOUNT; i++)
+			{
+				ListView_SetColumnWidth(hwnd,i,stackTraceColumns[i].size * totalListSize);
+			}
+		}
+		break;
+	case WM_KEYDOWN:
+		if (wParam == VK_TAB)
+		{
+			SendMessage(GetParent(hwnd),WM_DEB_TABPRESSED,0,0);
+			return 0;
+		}
+		break;
+	case WM_GETDLGCODE:
+		if (lParam && ((MSG*)lParam)->message == WM_KEYDOWN)
+		{
+			if (wParam == VK_TAB) return DLGC_WANTMESSAGE;
+		}
+		break;
+	}
+	return (LRESULT)CallWindowProc((WNDPROC)sv->oldProc,hwnd,msg,wParam,lParam);
+}
+
+void CtrlStackTraceView::handleNotify(LPARAM lParam)
+{
+	LPNMHDR mhdr = (LPNMHDR) lParam;
+
+	if (mhdr->code == NM_DBLCLK)
+	{
+		LPNMITEMACTIVATE item = (LPNMITEMACTIVATE) lParam;
+		SendMessage(GetParent(wnd),WM_DEB_GOTOWPARAM,frames[item->iItem].pc,0);
+		return;
+	}
+
+	if (mhdr->code == LVN_GETDISPINFO)
+	{
+		NMLVDISPINFO* dispInfo = (NMLVDISPINFO*)lParam;
+		int index = dispInfo->item.iItem;
+		
+		stringBuffer[0] = 0;
+		switch (dispInfo->item.iSubItem)
+		{
+		case SF_ENTRY:
+			sprintf(stringBuffer,"%08X",frames[index].entry);
+			break;
+		case SF_ENTRYNAME:
+			{
+				const char* sym = cpu->findSymbolForAddress(frames[index].entry);
+				if (sym != NULL)
+				{
+					strcpy(stringBuffer,sym);
+				} else {
+					strcpy(stringBuffer,"-");
+				}
+			}
+			break;
+		case SF_CURPC:
+			sprintf(stringBuffer,"%08X",frames[index].pc);
+			break;
+		case SF_CUROPCODE:
+			disasm->getOpcodeText(frames[index].pc,stringBuffer);
+			break;
+		case SF_CURSP:
+			sprintf(stringBuffer,"%08X",frames[index].sp);
+			break;
+		case SF_FRAMESIZE:
+			sprintf(stringBuffer,"%08X",frames[index].stackSize);
+			break;
+		}
+
+		if (stringBuffer[0] == 0) strcat(stringBuffer,"Invalid");
+		dispInfo->item.pszText = stringBuffer;
+	}
+}
+
+void CtrlStackTraceView::loadStackTrace()
+{
+	auto threads = GetThreadsInfo();
+
+	u32 entry, stackTop;
+	for (size_t i = 0; i < threads.size(); i++)
+	{
+		if (threads[i].isCurrent)
+		{
+			entry = threads[i].entrypoint;
+			stackTop = threads[i].initialStack;
+			break;
+		}
+	}
+
+	frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
+
+	int items = ListView_GetItemCount(wnd);
+	while (items < (int)frames.size())
+	{
+		LVITEM lvI;
+		lvI.pszText   = LPSTR_TEXTCALLBACK; // Sends an LVN_GETDISPINFO message.
+		lvI.mask      = LVIF_TEXT | LVIF_IMAGE |LVIF_STATE;
+		lvI.stateMask = 0;
+		lvI.iSubItem  = 0;
+		lvI.state     = 0;
+		lvI.iItem  = items;
+		lvI.iImage = items;
+
+		ListView_InsertItem(wnd, &lvI);
+		items++;
+	}
+
+	while (items > (int)frames.size())
+	{
+		ListView_DeleteItem(wnd,--items);
+	}
+
+	InvalidateRect(wnd,NULL,true);
+	UpdateWindow(wnd);
 }
