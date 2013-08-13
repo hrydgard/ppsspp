@@ -967,7 +967,7 @@ FileNode *__IoOpen(int &error, const char* filename, int flags, int mode) {
 	return f;
 }
 
-u32 sceIoOpen(const char* filename, int flags, int mode) {
+u32 sceIoOpen(const char *filename, int flags, int mode) {
 	if (!__KernelIsDispatchEnabled())
 		return -1;
 
@@ -976,7 +976,7 @@ u32 sceIoOpen(const char* filename, int flags, int mode) {
 	if (f == NULL) 
 	{
 		// Timing is not accurate, aiming low for now.
-		if (error == SCE_KERNEL_ERROR_NOCWD)
+		if (error == (int)SCE_KERNEL_ERROR_NOCWD)
 		{
 			ERROR_LOG(HLE, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
 			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD , "no cwd", 10000);

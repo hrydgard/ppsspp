@@ -299,6 +299,10 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 					memcpy(dst, src, 4 * 480);
 				}
 				break;
+
+			case GE_FORMAT_INVALID:
+				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
+				break;
 			}
 		}
 	}
@@ -394,7 +398,7 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 
 	// Generated FBO shouldn't greate than 512x512 
 	// Some games like FF Type-0 inits viewport as 0x0 
-	if ( viewport_width > 512 && viewport_height > 512 || viewport_width <= 1 && viewport_height <= 1 ) {
+	if ((viewport_width > 512 && viewport_height > 512) || (viewport_width <= 1 && viewport_height <= 1)) {
 		viewport_width = default_width;
 		viewport_height = default_height;
 	}
