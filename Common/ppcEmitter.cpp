@@ -322,12 +322,7 @@ namespace PpcGen {
 		}
 	}
 
-	// Compare
-	void PPCXEmitter::CMPLWI(PPCReg dest, unsigned short imm) {
-		Write32((10<<26) | (dest << 16) | ((imm) & 0xffff));
-		Break();
-	}
-		
+	// Compare		
 	void PPCXEmitter::CMPI(PPCReg dest, unsigned short imm) {
 		Write32((11<<26) | (dest << 16) | ((imm) & 0xffff));
 	}

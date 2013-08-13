@@ -268,7 +268,6 @@ public:
 	void STD	(PPCReg dest, PPCReg src, int offset = 0);
 
 	// Compare
-	void CMPLWI	(PPCReg dest, unsigned short imm);
 	void CMPLI	(PPCReg dest, unsigned short imm);	
 	void CMPI	(PPCReg dest, unsigned short imm);
 	void CMPL	(PPCReg a, PPCReg b);
