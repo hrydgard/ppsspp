@@ -220,20 +220,19 @@ void Jit::GenerateFixedCode() {
 			// read op
 			// R3 = mips->pc & Memory::MEMVIEW32_MASK
 			LWZ(R3, CTXREG, offsetof(MIPSState, pc));
-			MOVI2R(SREG, Memory::MEMVIEW32_MASK);
-			AND(R3, R3, SREG);
+			// & Memory::MEMVIEW32_MASK
+			RLWINM(R3, R3, 0, 2, 31);
 
 			// R3 = memory::base[r3];
 			ADD(R3, BASEREG, R3);
 			MOVI2R(R0, 0);
-			LWBRX(R3, R3, R0); // R3 = op now !			
+			LWBRX(R3, R3, R0);
 
 			// R4 = R3 & MIPS_EMUHACK_VALUE_MASK
-			MOVI2R(SREG, MIPS_EMUHACK_VALUE_MASK);
-			AND(R4, R3, SREG);
+			RLWINM(R4, R3, 0, 6, 31);
 
 			// R3 = R3 & MIPS_EMUHACK_MASK
-			ANDIS(R3, R3, (MIPS_EMUHACK_MASK>>16));
+			RLWINM(R3, R3, 0, 0, 6);
 			
 			// compare, op == MIPS_EMUHACK_OPCODE 
 			MOVI2R(SREG, MIPS_EMUHACK_OPCODE);

@@ -220,6 +220,8 @@ namespace MIPSComp
 		void BranchVFPUFlag(u32 op, PpcGen::FixupBranchType cc, bool likely);
 		void BranchRSZeroComp(u32 op, PpcGen::FixupBranchType cc, bool andLink, bool likely);
 		void BranchRSRTComp(u32 op, PpcGen::FixupBranchType cc, bool likely);
+
+		void SetRegToEffectiveAddress(PpcGen::PPCReg r, int rs, s16 offset);
 		
 		// flush regs
 		void FlushAll();
