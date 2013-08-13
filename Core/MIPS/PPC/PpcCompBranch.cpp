@@ -237,15 +237,18 @@ void Jit::BranchFPFlag(u32 op, PpcGen::FixupBranchType cc, bool likely)
 	FlushAll();
 
 	
-	DebugBreak(); // not made !
+	//DebugBreak(); // not made !
 
 	/*
 	LWZ(SREG, CTXREG, offsetof(MIPSState, fpcond));
 	//TST(SREG, Operand2(1, TYPE_IMM)); 
-	// i don't know the equivalent so ...
-	CMP(
-
 	*/
+
+	LWZ(SREG, CTXREG, offsetof(MIPSState, fpcond));
+	// should change CR0
+	ANDI(SREG, SREG, 1);
+
+
 	PpcGen::FixupBranch ptr;
 	if (!likely)
 	{
@@ -309,9 +312,10 @@ void Jit::BranchVFPUFlag(u32 op, PpcGen::FixupBranchType cc, bool likely)
 	LWZ(R0, R0, Operand2(0, TYPE_IMM));
 	TST(R0, Operand2(1 << imm3, TYPE_IMM));
 	*/
-
-
-	DebugBreak(); // not made !
+	MOVI2R(SREG,  (u32)&(mips_->vfpuCtrl[VFPU_CTRL_CC]));
+	LWZ(SREG, SREG, 0);
+	// should change CR0
+	ANDI(SREG, SREG, 1 << imm3);
 
 	PpcGen::FixupBranch ptr;
 	js.inDelaySlot = true;
