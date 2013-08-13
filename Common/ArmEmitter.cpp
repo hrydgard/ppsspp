@@ -951,7 +951,7 @@ extern const VFPEnc VFPOps[16][2] = {
 	{{  -1,   -1}, {0x3B, 0x30}}, // 14: VABSi
 	};
 
-extern const char *VFPOpNames[16] = {
+const char *VFPOpNames[16] = {
 	"VMLA",
 	"VNMLA",
 	"VMLS",

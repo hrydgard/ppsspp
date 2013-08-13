@@ -2690,7 +2690,7 @@ int sceKernelResumeThread(SceUID threadID)
 		DEBUG_LOG(HLE, "sceKernelResumeThread(%d)", threadID);
 		t->nt.status &= ~THREADSTATUS_SUSPEND;
 
-		// If it was dormant, waiting, etc. before we don't flip it's ready state.
+		// If it was dormant, waiting, etc. before we don't flip its ready state.
 		if (t->nt.status == 0)
 			__KernelChangeReadyState(t, threadID, true);
 		return 0;

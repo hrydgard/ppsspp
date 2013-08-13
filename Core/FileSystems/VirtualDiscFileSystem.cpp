@@ -558,7 +558,6 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 
 		x.size = File::GetSize(fullName);
 
-		int fileIndex = getFileListIndex(filename);
 		x.startSector = fileList[fileIndex].firstBlock;
 		x.numSectors = (x.size+2047)/2048;
 

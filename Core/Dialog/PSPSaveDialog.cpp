@@ -159,7 +159,7 @@ int PSPSaveDialog::Init(int paramAddr)
 			display = DS_NONE;
 			break;
 
-		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // This run on PSP display a list of all save on the PSP. Weird. (Not really, it's to let you free up space)
+		case SCE_UTILITY_SAVEDATA_TYPE_DELETE: // When run on a PSP, displays a list of all saves on the PSP. Weird. (Not really, it's to let you free up space)
 			display = DS_DELETE_LIST_CHOICE;
 			break;
 		default:

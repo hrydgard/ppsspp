@@ -271,9 +271,9 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u
 	u32 ydest = 0;
 	if (rowWidth >= 16) {
 		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
-		u32 *ydest = tmpTexBuf32.data();
+		u32 *ydestp = tmpTexBuf32.data();
 		for (int by = 0; by < byc; by++) {
-			u32 *xdest = ydest;
+			u32 *xdest = ydestp;
 			for (int bx = 0; bx < bxc; bx++) {
 				u32 *dest = xdest;
 				for (int n = 0; n < 8; n++) {
@@ -283,7 +283,7 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u
 				}
 				xdest += 4;
 			}
-			ydest += (rowWidth * 8) / 4;
+			ydestp += (rowWidth * 8) / 4;
 		}
 	} else if (rowWidth == 8) {
 		const u32 *src = (u32 *) Memory::GetPointer(texaddr);

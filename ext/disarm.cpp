@@ -679,7 +679,7 @@ lMaybeLDRHetc:
     case 13:
     case 14:  // FPU
 			{
-				char text[256];
+				char text[128];
 				if (!DisasmVFP(instr, text)) {
 					goto lUndefined;
 					break;

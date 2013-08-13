@@ -152,7 +152,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 
 	while (!feof(f))
 	{
-		char line[512],temp[256];
+		char line[512], temp[256] = {0};
 		char *p = fgets(line,512,f);
 		if(p == NULL)
 			break;
@@ -233,7 +233,7 @@ bool SymbolMap::LoadNocashSym(const char *filename)
 
 	while (!feof(f))
 	{
-		char line[256],value[256];
+		char line[256], value[256] = {0};
 		char *p = fgets(line,256,f);
 		if(p == NULL)
 			break;

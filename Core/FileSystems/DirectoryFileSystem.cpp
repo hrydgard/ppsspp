@@ -243,7 +243,7 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 
 size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 {
-	size_t bytesRead;
+	size_t bytesRead = 0;
 #ifdef _WIN32
 	::ReadFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesRead, 0);
 #else
@@ -254,7 +254,7 @@ size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 
 size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 {
-	size_t bytesWritten;
+	size_t bytesWritten = 0;
 #ifdef _WIN32
 	::WriteFile(hFile, (LPVOID)pointer, (DWORD)size, (LPDWORD)&bytesWritten, 0);
 #else

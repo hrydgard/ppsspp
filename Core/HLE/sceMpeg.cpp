@@ -914,7 +914,7 @@ void PostPutAction::run(MipsCall &call) {
 			WARN_LOG(HLE, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAdded, ringbuffer.packetsFree);
 			packetsAdded = ringbuffer.packetsFree;
 		}
-		int actuallyAdded = ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer.data), packetsAdded * 2048) / 2048;
+		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(Memory::GetPointer(ringbuffer.data), packetsAdded * 2048) / 2048;
 		if (actuallyAdded != packetsAdded) {
 			WARN_LOG_REPORT(HLE, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
 		}

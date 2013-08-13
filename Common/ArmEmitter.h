@@ -272,8 +272,8 @@ public:
 
 	u32 Imm12Mod()
 	{
-		// This is a IMM12 with the top four bits being rotation and the
-		// bottom eight being a IMM. This is for instructions that need to
+		// This is an IMM12 with the top four bits being rotation and the
+		// bottom eight being an IMM. This is for instructions that need to
 		// expand a 8bit IMM to a 32bit value and gives you some rotation as
 		// well.
 		// Each rotation rotates to the right by 2 bits

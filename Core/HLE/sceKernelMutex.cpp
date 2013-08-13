@@ -694,7 +694,6 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
 	// Don't write if the size is 0.  Anything else is A-OK, though, apparently.
 	if (Memory::Read_U32(infoAddr) != 0)
 	{
-		u32 error;
 		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
 		{
 			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_MUTEX, error);
@@ -1153,7 +1152,6 @@ int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 	{
 		auto workarea = m->nm.workarea;
 
-		u32 error;
 		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
 		{
 			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_LWMUTEX, error);

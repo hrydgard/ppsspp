@@ -355,7 +355,7 @@ int sceMp3Init(u32 mp3) {
 	/* select the audio stream */
 	ret = av_find_best_stream(ctx->avformat_context, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
 	if (ret < 0) {
-		ERROR_LOG(HLE, "av_find_best_stream: Cannot find a audio stream in the input file %d", ret);
+		ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
 		return -1;
 	}
 	ctx->audio_stream_index = ret;
