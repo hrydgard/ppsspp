@@ -180,6 +180,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
+	I18NCategory *p = GetI18NCategory("Plugin");
 
 	Margins actionMenuMargins(0, 0, 15, 0);
 
@@ -205,10 +206,10 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 #ifndef USING_GLES2
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(CPU)", "Read Framebuffers To Memory(GPU)"};
+	static const char *renderingMode [] = { gs->T("Non-Buffered Rendering"), gs->T("Buffered Rendering"), gs->T("Read Framebuffers to Memory (CPU)"), gs->T("Read Framebuffers to Memory (GPU)") };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
 #else
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(GPU)"};
+	static const char *renderingMode[] = { gs->T("Non-Buffered Rendering"), gs->T("Buffered Rendering"), gs->T("Read Framebuffers To Memory(GPU)")};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 3, gs, screenManager()));
 #endif
 	graphicsSettings->Add(new CheckBox(&g_Config.bAntiAliasing, gs->T("Anti-Aliasing")));
@@ -223,28 +224,28 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
 #endif
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
-	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
+	static const char *fpsChoices [] = { gs->T("None"), gs->T("Speed"), "FPS", gs->T("Both") };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
 	graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFrameSkip, 0, 9, gs->T("Frame Skipping"), screenManager()));
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force 60 FPS or less")));
 	
 	graphicsSettings->Add(new ItemHeader(gs->T("Anisotropic Filtering")));
-	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
+	static const char *anisoLevels [] = { g->T("Off"), "2x", "4x", "8x", "16x" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, 5, gs, screenManager()));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 #ifndef USING_GLES2
-	static const char *texScaleLevels[] = {"Off", "2x", "3x","4x", "5x"};
+	static const char *texScaleLevels [] = { g->T("Off"), "2x", "3x", "4x", "5x" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 1, 5, gs, screenManager()));
 #else
-	static const char *texScaleLevels[] = {"Off", "2x", "3x"};
+	static const char *texScaleLevels[] = {g->T("Off"), "2x", "3x"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gs->T("Upscale Level"), texScaleLevels, 1, 3, gs, screenManager()));
 #endif
-	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
+	static const char *texScaleAlgos[] = { gs->T("xBRZ"), gs->T("Hybrid"), gs->T("Bicubic"), gs->T("Hybrid + Bicubic"), };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Filtering")));
-	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
+	static const char *texFilters [] = { gs->T("Auto"), gs->T("Nearest"), gs->T("Linear"), gs->T("Linear on FMV"), };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Upscale Type"), texFilters, 1, 4, gs, screenManager()));
 
 	// Audio
@@ -254,7 +255,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
 
 	std::string atracString;
-	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
+	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? p->T("Redownload Atrac3+ plugin") : p->T("Download Atrac3+ plugin"));
 	audioSettings->Add(new Choice(a->T(atracString.c_str())))->OnClick.Handle(this, &GameSettingsScreen::OnDownloadPlugin);
 
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
@@ -284,11 +285,11 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Unlock CPU Clock"), screenManager()));
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
-	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
+	static const char *dateFormat [] = {"YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
-	static const char *timeFormat[] = { "12HR", "24HR"};
+	static const char *timeFormat [] = { s->T("12HR"), s->T("24HR") };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
-	static const char *buttonPref[] = { "Use X to confirm", "Use O to confirm"};
+	static const char *buttonPref [] = { s->T("Use X to confirm"), s->T("Use O to confirm") };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Button Preference"), buttonPref, 1, 2, s, screenManager()));
 }
 
