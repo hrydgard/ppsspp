@@ -1808,7 +1808,7 @@ void KeyMappingScreen::render() {
 	char temp[256];
 	sprintf(temp, "%s (%i/%i)", controllerMaps[currentMap_].name.c_str(), currentMap_ + 1, (int)controllerMaps.size());
 	UIText(0, Pos(10, dp_yres-170), temp, 0xFFFFFFFF, 1.0f, ALIGN_BOTTOMLEFT);
-	UICheckBox(GEN_ID,10, dp_yres - 80, "Mapping Active", ALIGN_BOTTOMLEFT, &controllerMaps[currentMap_].active);
+	UICheckBox(GEN_ID,10, dp_yres - 80, keyI18N->T("Mapping Active"), ALIGN_BOTTOMLEFT, &controllerMaps[currentMap_].active);
 	UIEnd();
 }
 
@@ -1841,7 +1841,7 @@ void KeyMappingNewKeyDialog::render() {
 	int left = 10;
 	int stride = 70;
 	KeyScale(1.6f);
-	KeyText(left, top, keyI18N->T("Map a new key for button: "));
+	KeyText(left, top, keyI18N->T("Map a new key for button:"));
 	KeyText(left, top += stride, (KeyMap::GetPspButtonName(this->pspBtn)).c_str());
 	KeyScale(1.3f);
 	KeyText(left, top += stride, keyI18N->T("Current key"));
