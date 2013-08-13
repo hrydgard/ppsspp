@@ -664,7 +664,6 @@ u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr)
 		if (!Memory::IsValidAddress(statusPtr))
 			return -1;
 
-		u32 error;
 		for (auto iter = e->waitingThreads.begin(); iter != e->waitingThreads.end(); ++iter)
 		{
 			SceUID waitID = __KernelGetWaitID(iter->tid, WAITTYPE_EVENTFLAG, error);

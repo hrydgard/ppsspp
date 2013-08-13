@@ -19,6 +19,10 @@
 #include "Common/CommonWindows.h"
 #endif
 
+#include "native/thread/thread.h"
+#include "native/thread/threadutil.h"
+#include "native/base/mutex.h"
+
 #include "Core/MemMap.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -41,29 +45,80 @@
 #include "Core/SaveState.h"
 #include "Common/LogManager.h"
 
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
+
+enum CPUThreadState {
+	CPU_THREAD_NOT_RUNNING,
+	CPU_THREAD_PENDING,
+	CPU_THREAD_STARTING,
+	CPU_THREAD_RUNNING,
+	CPU_THREAD_SHUTDOWN,
+
+	CPU_THREAD_EXECUTE,
+};
+
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static PSPMixer *mixer;
+static std::thread *cpuThread = NULL;
+static recursive_mutex cpuThreadLock;
+static condition_variable cpuThreadCond;
+static u64 cpuThreadUntil;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
 // Note: intentionally not used for CORE_NEXTFRAME.
 volatile bool coreStatePending = false;
+static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
-void Core_UpdateState(CoreState newState)
-{
-	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
-		coreStatePending = true;
-	coreState = newState;
+bool IsOnSeparateCPUThread() {
+	if (cpuThread != NULL) {
+		return cpuThread->get_id() == std::this_thread::get_id();
+	} else {
+		return false;
+	}
 }
 
-bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
-{
-	INFO_LOG(HLE, "PPSSPP %s", PPSSPP_GIT_VERSION);
+bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
+	if (cpuThreadState == from) {
+		cpuThreadState = to;
+		cpuThreadCond.notify_one();
+		return true;
+	} else {
+		return false;
+	}
+}
 
-	coreParameter = coreParam;
+void CPU_SetState(CPUThreadState to) {
+	cpuThreadState = to;
+	cpuThreadCond.notify_one();
+}
+
+bool CPU_IsReady() {
+	return cpuThreadState == CPU_THREAD_RUNNING || cpuThreadState == CPU_THREAD_NOT_RUNNING;
+}
+
+bool CPU_IsShutdown() {
+	return cpuThreadState == CPU_THREAD_NOT_RUNNING;
+}
+
+bool CPU_HasPendingAction() {
+	return cpuThreadState != CPU_THREAD_RUNNING;
+}
+
+void CPU_WaitStatus(bool (*pred)()) {
+	cpuThreadLock.lock();
+	while (!pred())
+		cpuThreadCond.wait_for(cpuThreadLock, 16);
+	cpuThreadLock.unlock();
+}
+
+void CPU_Shutdown();
+
+void CPU_Init() {
 	currentCPU = &mipsr4k;
 	numCPUs = 1;
 
@@ -73,11 +128,18 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
 
-	std::string filename = coreParam.fileToStart;
-	EmuFileType type = Identify_File(filename);
+	std::string filename = coreParameter.fileToStart;
+	IdentifiedFileType type = Identify_File(filename);
 
-	if(type == FILETYPE_PSP_ISO || type == FILETYPE_PSP_ISO_NP || type == FILETYPE_PSP_DISC_DIRECTORY)
+	switch (type) {
+	case FILETYPE_PSP_ISO:
+	case FILETYPE_PSP_ISO_NP:
+	case FILETYPE_PSP_DISC_DIRECTORY:
 		InitMemoryForGameISO(filename);
+		break;
+	default:
+		break;
+	}
 
 	Memory::Init();
 	mipsr4k.Reset();
@@ -85,14 +147,12 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 
 	host->AttemptLoadSymbolMap();
 
-	if (coreParameter.enableSound)
-	{
+	if (coreParameter.enableSound) {
 		mixer = new PSPMixer();
 		host->InitSound(mixer);
 	}
 
-	if (coreParameter.disableG3Dlog)
-	{
+	if (coreParameter.disableG3Dlog) {
 		LogManager::GetInstance()->SetEnable(LogTypes::G3D, false);
 	}
 
@@ -104,64 +164,148 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string)
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
 	// Why did we check for CORE_POWERDOWN here?
-	if (!LoadFile(filename, error_string)) { // || coreState == CORE_POWERDOWN) {
-		pspFileSystem.Shutdown();
-		CoreTiming::Shutdown();
-		__KernelShutdown();
-		HLEShutdown();
-		host->ShutdownSound();
-		Memory::Shutdown();
+	if (!LoadFile(filename, &coreParameter.errorString)) {
+		CPU_Shutdown();
 		coreParameter.fileToStart = "";
-		return false;
+		CPU_SetState(CPU_THREAD_NOT_RUNNING);
+		return;
 	}
 
-	if (coreParam.updateRecent)
+	if (coreParameter.updateRecent) {
 		g_Config.AddRecent(filename);
+	}
 
-	// Setup JIT here.
-	if (coreParameter.startPaused)
-		coreState = CORE_STEPPING;
-	else
-		coreState = CORE_RUNNING;
-	return true;
+	coreState = coreParameter.startPaused ? CORE_STEPPING : CORE_RUNNING;
 }
 
-bool PSP_IsInited()
-{
-	return currentCPU != 0;
-}
-
-void PSP_Shutdown()
-{
-	pspFileSystem.Shutdown();
+void CPU_Shutdown() {
+	if (g_Config.bAutoSaveSymbolMap) {
+		host->SaveSymbolMap();
+	}
 
 	CoreTiming::Shutdown();
-
-	if (g_Config.bAutoSaveSymbolMap)
-		host->SaveSymbolMap();
-
-	if (coreParameter.enableSound)
-	{
+	__KernelShutdown();
+	HLEShutdown();
+	if (coreParameter.enableSound) {
 		host->ShutdownSound();
 		mixer = 0;  // deleted in ShutdownSound
 	}
-	__KernelShutdown();
-	HLEShutdown();
+	pspFileSystem.Shutdown();
 	Memory::Shutdown();
 	currentCPU = 0;
 }
 
+void CPU_RunLoop() {
+	setCurrentThreadName("CPUThread");
+	if (!CPU_NextState(CPU_THREAD_PENDING, CPU_THREAD_STARTING)) {
+		ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
+		return;
+	}
+
+	CPU_Init();
+	CPU_NextState(CPU_THREAD_STARTING, CPU_THREAD_RUNNING);
+
+	while (cpuThreadState != CPU_THREAD_SHUTDOWN)
+	{
+		CPU_WaitStatus(&CPU_HasPendingAction);
+		switch (cpuThreadState) {
+		case CPU_THREAD_EXECUTE:
+			mipsr4k.RunLoopUntil(cpuThreadUntil);
+			gpu->FinishEventLoop();
+			CPU_NextState(CPU_THREAD_EXECUTE, CPU_THREAD_RUNNING);
+			break;
+
+		// These are fine, just keep looping.
+		case CPU_THREAD_RUNNING:
+		case CPU_THREAD_SHUTDOWN:
+			break;
+
+		default:
+			ERROR_LOG(CPU, "CPU thread in unexpected state: %d", cpuThreadState);
+			// Begin shutdown, otherwise we'd just spin on this bad state.
+			CPU_SetState(CPU_THREAD_SHUTDOWN);
+			break;
+		}
+	}
+
+	if (coreState != CORE_ERROR) {
+		coreState = CORE_POWERDOWN;
+	}
+
+	CPU_Shutdown();
+	CPU_SetState(CPU_THREAD_NOT_RUNNING);
+}
+
+void Core_UpdateState(CoreState newState) {
+	if ((coreState == CORE_RUNNING || coreState == CORE_NEXTFRAME) && newState != CORE_RUNNING)
+		coreStatePending = true;
+	coreState = newState;
+}
+
+bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
+	INFO_LOG(HLE, "PPSSPP %s", PPSSPP_GIT_VERSION);
+
+	coreParameter = coreParam;
+	coreParameter.errorString = "";
+
+	if (g_Config.bSeparateCPUThread) {
+		CPU_SetState(CPU_THREAD_PENDING);
+		cpuThread = new std::thread(&CPU_RunLoop);
+		CPU_WaitStatus(&CPU_IsReady);
+	} else {
+		CPU_Init();
+	}
+
+	bool success = coreParameter.fileToStart != "";
+	*error_string = coreParameter.errorString;
+	if (success) {
+		GPU_Init();
+	}
+	return success;
+}
+
+bool PSP_IsInited() {
+	return currentCPU != 0;
+}
+
+void PSP_Shutdown() {
+	if (coreState == CORE_RUNNING)
+		coreState = CORE_ERROR;
+	if (cpuThread != NULL) {
+		CPU_SetState(CPU_THREAD_SHUTDOWN);
+		CPU_WaitStatus(&CPU_IsShutdown);
+		delete cpuThread;
+		cpuThread = 0;
+	} else {
+		CPU_Shutdown();
+	}
+	GPU_Shutdown();
+}
+
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
-	mipsr4k.RunLoopUntil(globalticks);
+
+	if (cpuThread != NULL) {
+		cpuThreadUntil = globalticks;
+		if (CPU_NextState(CPU_THREAD_RUNNING, CPU_THREAD_EXECUTE)) {
+			// The CPU doesn't actually respect cpuThreadUntil well, especially when skipping frames.
+			// TODO: Something smarter?  Or force CPU to bail periodically?
+			while (!CPU_IsReady()) {
+				gpu->RunEventsUntil(CoreTiming::GetTicks() + msToCycles(100));
+			}
+		} else {
+			ERROR_LOG(CPU, "Unable to execute CPU run loop, unexpected state: %d", cpuThreadState);
+		}
+	} else {
+		mipsr4k.RunLoopUntil(globalticks);
+	}
 }
 
 void PSP_RunLoopFor(int cycles) {
 	PSP_RunLoopUntil(CoreTiming::GetTicks() + cycles);
 }
 
-CoreParameter &PSP_CoreParameter()
-{
+CoreParameter &PSP_CoreParameter() {
 	return coreParameter;
 }
 

@@ -58,7 +58,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 	float scale = scale_;
 	if (IsDown()) {
 		scale *= 2.0f;
-		opacity = 100.0f;
+		opacity *= 1.15f;
 	}
 	uint32_t colorBg = colorAlpha(0xc0b080, opacity);
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);

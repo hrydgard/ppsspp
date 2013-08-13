@@ -40,6 +40,7 @@ struct CoreParameter
 
 	std::string fileToStart;
 	std::string mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background.
+	std::string errorString;
 
 	bool startPaused;
 	bool disableG3Dlog;

@@ -704,7 +704,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u8 vcount;
 		u16_le fcount;
 		u32_le resident;
-		u32_le extra;
+		u16_le vcountNew;
+		u8 unknown1;
+		u8 unknown2;
 	};
 
 	u32_le *entPos = (u32_le *)Memory::GetPointer(modinfo->libent);
@@ -718,6 +720,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			continue;
 		}
 
+		u32_le variableCount = ent->size <= 4 ? ent->vcount : std::max((u32)ent->vcount , (u32)ent->vcountNew);
 		const char *name;
 		if (Memory::IsValidAddress(ent->name)) {
 			name = Memory::GetCharPointer(ent->name);
@@ -737,10 +740,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 
 		u32_le *residentPtr = (u32_le *)Memory::GetPointer(ent->resident);
-		u32_le *exportPtr = residentPtr + ent->fcount + ent->vcount;
+		u32_le *exportPtr = residentPtr + ent->fcount + variableCount;
 
 		if (ent->size != 4) {
-			WARN_LOG_REPORT(LOADER, "Unexpected export module entry size %d, extra=%08x", ent->size, ent->extra);
+			WARN_LOG_REPORT(LOADER, "Unexpected export module entry size %d, vcountNew=%08x, unknown1=%08x, unknown2=&08x", ent->size, ent->vcountNew, ent->unknown1, ent->unknown2);
 		}
 
 		for (u32 j = 0; j < ent->fcount; j++) {
@@ -768,7 +771,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			}
 		}
 
-		for (u32 j = 0; j < ent->vcount; j++) {
+		for (u32 j = 0; j < variableCount; j++) {
 			u32 nid = residentPtr[ent->fcount + j];
 			u32 exportAddr = exportPtr[ent->fcount + j];
 

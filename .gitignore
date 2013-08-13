@@ -17,6 +17,7 @@
 *.suo
 *.aps
 *.exp
+*.qdact
 Debug
 Release
 Windows/x64

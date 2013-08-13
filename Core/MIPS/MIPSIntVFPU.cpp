@@ -215,31 +215,29 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 53: //lvl.q/lvr.q
-			if (addr & 0x3)
 			{
-				_dbg_assert_msg_(CPU, 0, "Misaligned lvX.q");
-			}
-			if ((op&2) == 0)
-			{
-				// It's an LVL
-				float d[4];
-				ReadVector(d, V_Quad, vt);
-				int offset = (addr >> 2) & 3;
-				for (int i = 0; i < offset + 1; i++)
+				if (addr & 0x3)
 				{
-					d[3 - i] = Memory::Read_Float(addr - i * 4);
+					_dbg_assert_msg_(CPU, 0, "Misaligned lvX.q");
 				}
-				WriteVector(d, V_Quad, vt);
-			}
-			else
-			{
-				// It's an LVR
 				float d[4];
 				ReadVector(d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
-				for (int i = 0; i < (3 - offset) + 1; i++)
+				if ((op & 2) == 0)
 				{
-					d[i] = Memory::Read_Float(addr + 4 * i);
+					// It's an LVL
+					for (int i = 0; i < offset + 1; i++)
+					{
+						d[3 - i] = Memory::Read_Float(addr - 4 * i);
+					}
+				}
+				else
+				{
+					// It's an LVR
+					for (int i = 0; i < (3 - offset) + 1; i++)
+					{
+						d[i] = Memory::Read_Float(addr + 4 * i);
+					}
 				}
 				WriteVector(d, V_Quad, vt);
 			}
@@ -254,33 +252,32 @@ namespace MIPSInt
 			break;
 
 		case 61: // svl.q/svr.q
-			if (addr & 0x3)
 			{
-				_dbg_assert_msg_(CPU, 0, "Misaligned svX.q");
-			}
-			if ((op&2) == 0)
-			{
-				// It's an SVL
+				if (addr & 0x3)
+				{
+					_dbg_assert_msg_(CPU, 0, "Misaligned svX.q");
+				}
 				float d[4];
 				ReadVector(d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
-				for (int i = 0; i < offset + 1; i++)
+				if ((op&2) == 0)
 				{
-					Memory::Write_Float(d[3 - i], addr - i * 4);
+					// It's an SVL
+					for (int i = 0; i < offset + 1; i++)
+					{
+						Memory::Write_Float(d[3 - i], addr - i * 4);
+					}
 				}
-			}
-			else
-			{
-				// It's an SVR
-				float d[4];
-				ReadVector(d, V_Quad, vt);
-				int offset = (addr >> 2) & 3;
-				for (int i = 0; i < (3 - offset) + 1; i++)
+				else
 				{
-					Memory::Write_Float(d[i], addr + 4 * i);
+					// It's an SVR
+					for (int i = 0; i < (3 - offset) + 1; i++)
+					{
+						Memory::Write_Float(d[i], addr + 4 * i);
+					}
 				}
+				break;
 			}
-			break;
 
 		case 62: //sv.q
 			if (addr & 0xF)
@@ -331,6 +328,8 @@ namespace MIPSInt
 		case 7: m=one; break;              // vmone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 
@@ -353,6 +352,8 @@ namespace MIPSInt
 		case 7: v=ones; break;   //vone
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 		float o[4];
@@ -1258,7 +1259,7 @@ namespace MIPSInt
 			case 1: d[i] = (float)currentMIPS->rng.R32(); break;  // vrndi - TODO: copy bits instead?
 			case 2: d[i] = 1.0f + ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf1   TODO: make more accurate
 			case 3: d[i] = 2.0f + 2 * ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf2   TODO: make more accurate
-			case 4: d[i] = 0.0f;  // Should not get here
+			default: _dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			}
 		}
 		ApplyPrefixD(d, sz);
@@ -1354,7 +1355,7 @@ namespace MIPSInt
 	{
 		s32 imm = (signed short)(op&0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
-		int rs = (op >> 21) & 0x1f;
+		int rs = _RS;
 		u32 addr = R(rs) + imm;
 
 		switch (op >> 26)
@@ -1532,6 +1533,8 @@ namespace MIPSInt
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"unknown min/max op %d", cond);
+			PC += 4;
+			EatPrefixes();
 			return;
 		}
 		ApplyPrefixD(d, sz);
@@ -1540,6 +1543,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
+	// This doesn't quite pass all the tests :/
 	void Int_Vscmp(u32 op) {
 		int vt = _VT;
 		int vs = _VS;

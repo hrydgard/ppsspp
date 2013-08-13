@@ -299,6 +299,10 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 					memcpy(dst, src, 4 * 480);
 				}
 				break;
+
+			case GE_FORMAT_INVALID:
+				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
+				break;
 			}
 		}
 	}

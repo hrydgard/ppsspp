@@ -2690,7 +2690,7 @@ int sceKernelResumeThread(SceUID threadID)
 		DEBUG_LOG(HLE, "sceKernelResumeThread(%d)", threadID);
 		t->nt.status &= ~THREADSTATUS_SUSPEND;
 
-		// If it was dormant, waiting, etc. before we don't flip it's ready state.
+		// If it was dormant, waiting, etc. before we don't flip its ready state.
 		if (t->nt.status == 0)
 			__KernelChangeReadyState(t, threadID, true);
 		return 0;
@@ -3539,6 +3539,8 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 		info.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 		info.status = t->nt.status;
 		info.entrypoint = t->nt.entrypoint;
+		info.initialStack = t->nt.initialStack;
+		info.stackSize = (u32)t->nt.stackSize;
 		info.priority = t->nt.currentPriority;
 		info.waitType = t->nt.waitType;
 		if(*iter == currentThread)

@@ -446,6 +446,9 @@ struct GPUStatistics {
 	int numFBOs;
 };
 
+void GPU_Init();
+void GPU_Shutdown();
+
 void InitGfxState();
 void ShutdownGfxState();
 void ReapplyGfxState();

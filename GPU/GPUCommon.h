@@ -1,8 +1,18 @@
 #pragma once
 
-#include "GPUInterface.h"
+#include "Common/Common.h"
+#include "Core/ThreadEventQueue.h"
+#include "GPU/GPUInterface.h"
 
-class GPUCommon : public GPUInterface
+#if defined(ANDROID)
+#include <atomic>
+#elif defined(_M_SSE)
+#include <xmmintrin.h>
+#endif
+
+typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
+
+class GPUCommon : public GPUThreadEventQueue
 {
 public:
 	GPUCommon();
@@ -25,10 +35,27 @@ public:
 	virtual int  ListSync(int listid, int mode);
 	virtual u32  DrawSync(int mode);
 	virtual void DoState(PointerWrap &p);
-	virtual bool FramebufferDirty() { return true; }
+	virtual bool FramebufferDirty() {
+		SyncThread();
+		return true;
+	}
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();
+
+	virtual u64 GetTickEstimate() {
+#if defined(_M_X64) || defined(ANDROID)
+		return curTickEst_;
+#elif defined(_M_SSE)
+		__m64 result = *(__m64 *)&curTickEst_;
+		u64 safeResult = *(u64 *)&result;
+		_mm_empty();
+		return safeResult;
+#else
+		lock_guard guard(curTickEstLock_);
+		return curTickEst_;
+#endif
+	}
 
 protected:
 	// To avoid virtual calls to PreExecuteOp().
@@ -39,12 +66,31 @@ protected:
 	void PopDLQueue();
 	void CheckDrawSync();
 	int  GetNextListIndex();
+	void ProcessDLQueueInternal();
+	void ReapplyGfxStateInternal();
+	virtual void ProcessEvent(GPUEvent ev);
+	virtual bool ShouldExitEventLoop() {
+		return coreState != CORE_RUNNING;
+	}
+
+	// Allows early unlocking with a guard.  Do not double unlock.
+	class easy_guard {
+	public:
+		easy_guard(recursive_mutex &mtx) : mtx_(mtx), locked_(true) { mtx_.lock(); }
+		~easy_guard() { if (locked_) mtx_.unlock(); }
+		void unlock() { if (locked_) mtx_.unlock(); else Crash(); locked_ = false; }
+
+	private:
+		recursive_mutex &mtx_;
+		bool locked_;
+	};
 
 	typedef std::list<int> DisplayListQueue;
 
 	DisplayList dls[DisplayListMaxCount];
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
+	recursive_mutex listLock;
 
 	bool interruptRunning;
 	GPUState gpuState;
@@ -60,6 +106,27 @@ protected:
 	bool dumpNextFrame_;
 	bool dumpThisFrame_;
 	bool interruptsEnabled_;
+
+	// For CPU/GPU sync.
+#ifdef ANDROID
+	std::atomic<u64> curTickEst_;
+#else
+	volatile MEMORY_ALIGNED16(u64) curTickEst_;
+	recursive_mutex curTickEstLock_;
+#endif
+
+	virtual void UpdateTickEstimate(u64 value) {
+#if defined(_M_X64) || defined(ANDROID)
+		curTickEst_ = value;
+#elif defined(_M_SSE)
+		__m64 result = *(__m64 *)&value;
+		*(__m64 *)&curTickEst_ = result;
+		_mm_empty();
+#else
+		lock_guard guard(curTickEstLock_);
+		curTickEst_ = value;
+#endif
+	}
 
 public:
 	virtual DisplayList* getList(int listid)

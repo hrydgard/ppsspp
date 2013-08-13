@@ -26,14 +26,16 @@ namespace MIPSCodeUtils
 #define FULLOP_JR_RA 0x03e00008
 #define OP_SYSCALL   0x0000000c
 #define OP_SYSCALL_MASK 0xFC00003F
+#define _RS   ((op>>21) & 0x1F)
+#define _RT   ((op>>16) & 0x1F)
 
 	u32 GetJumpTarget(u32 addr)
 	{
 		u32 op = Memory::Read_Instruction(addr);
 		if (op)
 		{
-			u32 maskedOp = op & 0xFC000000;
-			if (maskedOp == 0x0C000000 || maskedOp == 0x08000000) //jal
+			u32 info = MIPSGetInfo(op);
+			if ((info & IS_JUMP) && (info & IN_IMM26))
 			{
 				u32 target = (addr & 0xF0000000) | ((op&0x03FFFFFF) << 2);
 				return target;
@@ -87,9 +89,40 @@ namespace MIPSCodeUtils
 			u32 info = MIPSGetInfo(op);
 			if (info & IS_CONDBRANCH)
 			{
-				//TODO: safer check
-				if ((op & 0xFFFF0000) == 0x10000000)
-					return addr + ((signed short)(op&0xFFFF)<<2);
+				bool sure;
+				bool takeBranch;
+				switch (info & CONDTYPE_MASK)
+				{
+				case CONDTYPE_EQ:
+					sure = _RS == _RT;
+					takeBranch = true;
+					break;
+
+				case CONDTYPE_NE:
+					sure = _RS == _RT;
+					takeBranch = false;
+					break;
+
+				case CONDTYPE_LEZ:
+				case CONDTYPE_GEZ:
+					sure = _RS == 0;
+					takeBranch = true;
+					break;
+
+				case CONDTYPE_LTZ:
+				case CONDTYPE_GTZ:
+					sure = _RS == 0;
+					takeBranch = false;
+					break;
+
+				default:
+					sure = false;
+				}
+
+				if (sure && takeBranch)
+					return addr + 4 + ((signed short)(op&0xFFFF)<<2);
+				else if (sure && !takeBranch)
+					return addr + 8;
 				else
 					return INVALIDTARGET;
 			}

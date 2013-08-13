@@ -896,9 +896,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_TEXLEVEL:
 		if (data & ~0xFF0003)
-			sprintf(buffer, "TexWrap mode: %i Offset: %i (extra %x)", data&3, data >> 16, data);
+			sprintf(buffer, "TexLevel mode: %i Offset: %i (extra %x)", data&3, data >> 16, data);
 		else
-			sprintf(buffer, "TexWrap mode: %i Offset: %i", data&3, data >> 16);
+			sprintf(buffer, "TexLevel mode: %i Offset: %i", data&3, data >> 16);
 		break;
 
 	case GE_CMD_FOG1:

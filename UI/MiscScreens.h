@@ -34,8 +34,14 @@ protected:
 	virtual void DrawBackground(UIContext &dc);
 };
 
+class UIDialogScreenWithBackground : public DialogScreen {
+public:
+	UIDialogScreenWithBackground() : DialogScreen() {}
+protected:
+	virtual void DrawBackground(UIContext &dc);
+};
 
-class PromptScreen : public UIScreenWithBackground {
+class PromptScreen : public UIDialogScreenWithBackground {
 public:
 	PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText)
 		: message_(message), yesButtonText_(yesButtonText), noButtonText_(noButtonText) {

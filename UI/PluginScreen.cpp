@@ -48,7 +48,7 @@ void PluginScreen::CreateViews() {
 	Margins textMargins(20,17);
 	Margins buttonMargins(10,10);
 
-	root_->Add(new TextView(UBUNTU24, "Atrac3+ Audio Support", ALIGN_HCENTER, 1.5f, new LinearLayoutParams(textMargins)));
+	root_->Add(new TextView(UBUNTU24, p->T("Atrac3+ Audio Support"), ALIGN_HCENTER, 1.5f, new LinearLayoutParams(textMargins)));
 
 	ViewGroup *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	LinearLayout *scrollContents = new LinearLayout(ORIENT_VERTICAL);

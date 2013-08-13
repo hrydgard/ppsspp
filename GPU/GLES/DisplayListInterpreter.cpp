@@ -115,7 +115,7 @@ static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_CLUTFORMAT,
 	GE_CMD_TEXFILTER,
 	GE_CMD_TEXWRAP,
-	GE_CMD_TEXLEVEL,
+	// GE_CMD_TEXLEVEL,  // we don't support this anyway, no need to flush.
 	GE_CMD_TEXFUNC,
 	GE_CMD_TEXENVCOLOR,
 	//GE_CMD_TEXFLUSH,
@@ -234,6 +234,8 @@ void GLES_GPU::BuildReportingInfo() {
 }
 
 void GLES_GPU::DeviceLost() {
+	// Should only be executed on the GL thread.
+
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	shaderManager_->ClearCache(false);
@@ -242,6 +244,10 @@ void GLES_GPU::DeviceLost() {
 }
 
 void GLES_GPU::InitClear() {
+	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
+}
+
+void GLES_GPU::InitClearInternal() {
 	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
 	if (!useBufferedRendering) {
 		glstate.depthWrite.set(GL_TRUE);
@@ -257,6 +263,10 @@ void GLES_GPU::DumpNextFrame() {
 }
 
 void GLES_GPU::BeginFrame() {
+	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
+}
+
+void GLES_GPU::BeginFrameInternal() {
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
@@ -294,6 +304,11 @@ void GLES_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 }
 
 bool GLES_GPU::FramebufferDirty() {
+	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+	ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
+	// Allow it to process fully before deciding if it's dirty.
+	SyncThread();
+
 	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
 	if (vfb)
 		return vfb->dirtyAfterDisplay;
@@ -301,6 +316,10 @@ bool GLES_GPU::FramebufferDirty() {
 }
 
 void GLES_GPU::CopyDisplayToOutput() {
+	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
+}
+
+void GLES_GPU::CopyDisplayToOutputInternal() {
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
@@ -337,6 +356,29 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 		ExecuteOp(op, diff);
 
 		list.pc += 4;
+	}
+}
+
+void GLES_GPU::ProcessEvent(GPUEvent ev) {
+	switch (ev.type) {
+	case GPU_EVENT_INIT_CLEAR:
+		InitClearInternal();
+		break;
+
+	case GPU_EVENT_BEGIN_FRAME:
+		BeginFrameInternal();
+		break;
+
+	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
+		CopyDisplayToOutputInternal();
+		break;
+
+	case GPU_EVENT_INVALIDATE_CACHE:
+		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
+		break;
+
+	default:
+		GPUCommon::ProcessEvent(ev);
 	}
 }
 
@@ -879,7 +921,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
 			}
 			num++;
-			gstate.worldmtxnum = (gstate.worldmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -897,7 +939,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
 			}
 			num++;
-			gstate.viewmtxnum = (gstate.viewmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -915,7 +957,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX);
 			}
 			num++;
-			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -933,7 +975,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
 			}
 			num++;
-			gstate.texmtxnum = (gstate.texmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -951,7 +993,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 			}
 			num++;
-			gstate.boneMatrixNumber = (gstate.boneMatrixNumber & 0xFF000000) | (num & 0x7F);
+			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 		}
 		break;
 
@@ -1053,6 +1095,14 @@ void GLES_GPU::DoBlockTransfer() {
 }
 
 void GLES_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
+	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
+	ev.invalidate_cache.addr = addr;
+	ev.invalidate_cache.size = size;
+	ev.invalidate_cache.type = type;
+	ScheduleEvent(ev);
+}
+
+void GLES_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
 		textureCache_.Invalidate(addr, size, type);
 	else
@@ -1068,11 +1118,6 @@ void GLES_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 
 void GLES_GPU::ClearCacheNextFrame() {
 	textureCache_.ClearNextFrame();
-}
-
-
-void GLES_GPU::Flush() {
-	transformDraw_.Flush();
 }
 
 void GLES_GPU::Resized() {

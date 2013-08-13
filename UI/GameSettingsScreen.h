@@ -22,7 +22,7 @@
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
-class GameSettingsScreen : public UIScreenWithBackground {
+class GameSettingsScreen : public UIDialogScreenWithBackground {
 public:
 	GameSettingsScreen(std::string gamePath, std::string gameID = "") : gamePath_(gamePath), gameID_(gameID) {}
 
@@ -48,7 +48,7 @@ private:
 };
 
 // TODO: Move to its own file.
-class GlobalSettingsScreen : public UIScreenWithBackground {
+class GlobalSettingsScreen : public UIDialogScreenWithBackground {
 public:
 	GlobalSettingsScreen() {}
 
@@ -66,7 +66,7 @@ private:
 	bool enableReports_;
 };
 
-class DeveloperToolsScreen : public UIScreenWithBackground {
+class DeveloperToolsScreen : public UIDialogScreenWithBackground {
 public:
 	DeveloperToolsScreen() {}
 

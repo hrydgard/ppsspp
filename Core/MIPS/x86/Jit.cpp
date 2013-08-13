@@ -22,6 +22,7 @@
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
+#include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSInt.h"
@@ -278,11 +279,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	fpr.Start(mips_, analysis);
 
 	js.numInstructions = 0;
-	while (js.compiling)
-	{
-		if (js.prefixS & 0xF0000000) {
-			ERROR_LOG(CPU, "GARBAGE prefix S : %08x at %08x : %s", js.prefixS, js.compilerPC, currentMIPS->DisasmAt(js.compilerPC));
-		}
+	while (js.compiling) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckJitBreakpoint(js.compilerPC, 0);
 
@@ -291,8 +288,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 		MIPSCompileOp(inst);
 
-		if (js.afterOp & JitState::AFTER_CORE_STATE)
-		{
+		if (js.afterOp & JitState::AFTER_CORE_STATE) {
 			// TODO: Save/restore?
 			FlushAll();
 
@@ -313,9 +309,6 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 		js.compilerPC += 4;
 		js.numInstructions++;
-	}
-	if (js.prefixS & 0xF0000000) {
-		ERROR_LOG(CPU, "GARBAGE prefix S : %08x at %08x : %s", js.prefixS, js.compilerPC, currentMIPS->DisasmAt(js.compilerPC));
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
@@ -346,7 +339,7 @@ void Jit::Comp_Generic(u32 op)
 			ABI_CallFunctionC((void *)func, op);
 	}
 	else
-		_dbg_assert_msg_(JIT, 0, "Trying to compile instruction that can't be interpreted");
+		ERROR_LOG_REPORT(JIT, "Trying to compile instruction that can't be interpreted");
 
 	const int info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
@@ -360,7 +353,7 @@ void Jit::Comp_Generic(u32 op)
 void Jit::WriteExit(u32 destination, int exit_num)
 {
 	if (!Memory::IsValidAddress(destination)) {
-		ERROR_LOG(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
+		ERROR_LOG_REPORT(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
 	}
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE))

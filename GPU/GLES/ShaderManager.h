@@ -156,12 +156,14 @@ public:
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
 	LinkedShader *ApplyShader(int prim);
 	void DirtyShader();
-	void DirtyUniform(u32 what);
+	void DirtyUniform(u32 what) {
+		globalDirty_ |= what;
+	}
 	void EndFrame();  // disables vertex arrays
 
-	int NumVertexShaders() const { return (int)vsCache.size(); }
-	int NumFragmentShaders() const { return (int)fsCache.size(); }
-	int NumPrograms() const { return (int)linkedShaderCache.size(); }
+	int NumVertexShaders() const { return (int)vsCache_.size(); }
+	int NumFragmentShaders() const { return (int)fsCache_.size(); }
+	int NumPrograms() const { return (int)linkedShaderCache_.size(); }
 
 private:
 	void Clear();
@@ -176,18 +178,18 @@ private:
 	};
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
-	LinkedShaderCache linkedShaderCache;
-	FragmentShaderID lastFSID;
-	VertexShaderID lastVSID;
+	LinkedShaderCache linkedShaderCache_;
+	FragmentShaderID lastFSID_;
+	VertexShaderID lastVSID_;
 
-	LinkedShader *lastShader;
-	u32 globalDirty;
-	u32 shaderSwitchDirty;
+	LinkedShader *lastShader_;
+	u32 globalDirty_;
+	u32 shaderSwitchDirty_;
 	char *codeBuffer_;
 
 	typedef std::map<FragmentShaderID, Shader *> FSCache;
-	FSCache fsCache;
+	FSCache fsCache_;
 
 	typedef std::map<VertexShaderID, Shader *> VSCache;
-	VSCache vsCache;
+	VSCache vsCache_;
 };

@@ -424,7 +424,9 @@ const KeyMap_IntStrPair axis_names[] = {
 	{JOYSTICK_AXIS_GAS, "Gas"},
 	{JOYSTICK_AXIS_BRAKE, "Brake"},
 	{JOYSTICK_AXIS_DISTANCE, "Distance"},
-	{JOYSTICK_AXIS_TILT, "Tilt"}
+	{JOYSTICK_AXIS_TILT, "Tilt"},
+	{JOYSTICK_AXIS_MOUSE_REL_X, "MouseDX"},
+	{JOYSTICK_AXIS_MOUSE_REL_Y, "MouseDY"},
 };
 
 static std::string unknown_key_name = "??";

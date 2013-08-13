@@ -41,7 +41,6 @@ namespace MainWindow {
 }
 #endif
 
-
 namespace UI {
 
 // Reads and writes value to determine the current selection.
@@ -157,7 +156,7 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 
 void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	Choice::Draw(dc);
-	char temp[4];
+	char temp[5];
 	sprintf(temp, "%2.2f", *value_);
 	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
@@ -180,6 +179,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *c = GetI18NCategory("Controls");
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *ms = GetI18NCategory("MainSettings");
 
 	Margins actionMenuMargins(0, 0, 15, 0);
 
@@ -189,9 +189,9 @@ void GameSettingsScreen::CreateViews() {
 	root_->Add(leftColumn);
 
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
-	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(205, WRAP_CONTENT, 30, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(910, FILL_PARENT, actionMenuMargins));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(800, FILL_PARENT, actionMenuMargins));
 
 	root_->Add(tabHolder);
 
@@ -201,7 +201,7 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *graphicsSettings = new LinearLayout(ORIENT_VERTICAL);
 	graphicsSettingsScroll->Add(graphicsSettings);
-	tabHolder->AddTab("Graphics", graphicsSettingsScroll);
+	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 #ifndef USING_GLES2
@@ -251,7 +251,7 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *audioSettings = new LinearLayout(ORIENT_VERTICAL);
 	audioSettingsScroll->Add(audioSettings);
-	tabHolder->AddTab("Audio", audioSettingsScroll);
+	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
 
 	std::string atracString;
 	atracString.assign(Atrac3plus_Decoder::IsInstalled() ? "Redownload Atrac3+ plugin" : "Download Atrac3+ plugin");
@@ -266,19 +266,21 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
 	controlsSettingsScroll->Add(controlsSettings);
-	tabHolder->AddTab("Controls", controlsSettingsScroll);
+	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
 	controlsSettings->Add(new CheckBox(&g_Config.bShowTouchControls, c->T("OnScreen", "On-Screen Touch Controls")));
 	controlsSettings->Add(new CheckBox(&g_Config.bShowAnalogStick, c->T("Show Left Analog Stick")));
 	controlsSettings->Add(new CheckBox(&g_Config.bAccelerometerToAnalogHoriz, c->T("Tilt", "Tilt to Analog (horizontal)")));
 	controlsSettings->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
-	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 15, 65, c->T("Button Opacity"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoice(&g_Config.iTouchButtonOpacity, 0, 85, c->T("Button Opacity"), screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 1.15, 2.05, c->T("Button Scaling"), screenManager()));
 	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
 	systemSettingsScroll->Add(systemSettings);
-	tabHolder->AddTab("System", systemSettingsScroll);
+	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Unlock CPU Clock"), screenManager()));
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
@@ -319,6 +321,7 @@ void GameSettingsScreen::DrawBackground(UIContext &dc) {
 		dc.RebindTexture();
 	}*/
 }
+
 void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
@@ -334,11 +337,12 @@ void GlobalSettingsScreen::CreateViews() {
 	I18NCategory *gs = GetI18NCategory("Graphics");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	list->Add(new ItemHeader("General"));
+	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
+	list->Add(new CheckBox(&g_Config.bDirectLoad, gs->T("Enable Direct Load")));
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);

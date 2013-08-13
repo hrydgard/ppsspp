@@ -15,6 +15,7 @@ set(SRCS
   MIPS/MIPSDisVFPU.cpp
   MIPS/MIPSInt.cpp
   MIPS/MIPSIntVFPU.cpp
+  MIPS/MIPSStackWalk.cpp
   MIPS/MIPSTables.cpp
   MIPS/MIPSVFPUUtils.cpp
   MIPS/JitCommon/JitCommon.cpp
@@ -74,6 +75,7 @@ set(SRCS
   HLE/sceParseHttp.cpp
   HLE/sceVaudio.cpp
   HLE/sceAudiocodec.cpp
+  HW/AsyncIOManager.cpp
   HW/MemoryStick.cpp
   HW/MediaEngine.cpp
   HW/SasAudio.cpp

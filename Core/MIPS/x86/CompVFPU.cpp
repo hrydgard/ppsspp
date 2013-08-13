@@ -57,8 +57,9 @@ static const float one = 1.0f;
 static const float minus_one = -1.0f;
 static const float zero = 0.0f;
 
-const u32 GC_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
-const u32 GC_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
+const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF};
+const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
+const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
 
 void Jit::Comp_VPFX(u32 op)
 {
@@ -195,7 +196,7 @@ bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] 
 	return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 }
 
-static u32 GC_ALIGNED16(ssLoadStoreTemp);
+static u32 MEMORY_ALIGNED16(ssLoadStoreTemp);
 
 void Jit::Comp_SV(u32 op) {
 	CONDITIONAL_DISABLE;
@@ -271,6 +272,73 @@ void Jit::Comp_SVQ(u32 op)
 
 	switch (op >> 26)
 	{
+	case 53: //lvl.q/lvr.q
+		{
+			if (!g_Config.bFastMemory) {
+				DISABLE;
+			}
+			DISABLE;
+
+			gpr.BindToRegister(rs, true, true);
+			gpr.FlushLockX(ECX);
+			u8 vregs[4];
+			GetVectorRegs(vregs, V_Quad, vt);
+			MOV(32, R(EAX), gpr.R(rs));
+			ADD(32, R(EAX), Imm32(imm));
+#ifdef _M_IX86
+			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
+#endif
+			MOV(32, R(ECX), R(EAX));
+			SHR(32, R(EAX), Imm8(2));
+			AND(32, R(EAX), Imm32(0x3));
+			CMP(32, R(EAX), Imm32(0));
+			FixupBranch next = J_CC(CC_NE);
+
+			fpr.MapRegsV(vregs, V_Quad, MAP_DIRTY);
+
+			// Offset = 0
+			MOVSS(fpr.RX(vregs[3]), MRegSum(RBX, RAX));
+
+			FixupBranch skip0 = J();
+			SetJumpTarget(next);
+			CMP(32, R(EAX), Imm32(1));
+			next = J_CC(CC_NE);
+
+			// Offset = 1
+			MOVSS(fpr.RX(vregs[3]), MComplex(RBX, RAX, 1, 4));
+			MOVSS(fpr.RX(vregs[2]), MComplex(RBX, RAX, 1, 0));
+
+			FixupBranch skip1 = J();
+			SetJumpTarget(next);
+			CMP(32, R(EAX), Imm32(2));
+			next = J_CC(CC_NE);
+
+			// Offset = 2
+			MOVSS(fpr.RX(vregs[3]), MComplex(RBX, RAX, 1, 8));
+			MOVSS(fpr.RX(vregs[2]), MComplex(RBX, RAX, 1, 4));
+			MOVSS(fpr.RX(vregs[1]), MComplex(RBX, RAX, 1, 0));
+
+			FixupBranch skip2 = J();
+			SetJumpTarget(next);
+			CMP(32, R(EAX), Imm32(3));
+			next = J_CC(CC_NE);
+
+			// Offset = 3
+			MOVSS(fpr.RX(vregs[3]), MComplex(RBX, RAX, 1, 12));
+			MOVSS(fpr.RX(vregs[2]), MComplex(RBX, RAX, 1, 8));
+			MOVSS(fpr.RX(vregs[1]), MComplex(RBX, RAX, 1, 4));
+			MOVSS(fpr.RX(vregs[0]), MComplex(RBX, RAX, 1, 0));
+
+			SetJumpTarget(next);
+			SetJumpTarget(skip0);
+			SetJumpTarget(skip1);
+			SetJumpTarget(skip2);
+
+			gpr.UnlockAll();
+			fpr.ReleaseSpillLocks();
+		}
+		break;
+
 	case 54: //lv.q
 		{
 			gpr.BindToRegister(rs, true, true);
@@ -335,6 +403,8 @@ void Jit::Comp_SVQ(u32 op)
 			fpr.ReleaseSpillLocks();
 		}
 		break;
+
+
 
 	default:
 		DISABLE;
@@ -658,49 +728,42 @@ void Jit::Comp_VecDo3(u32 op) {
 	if (js.HasUnknownPrefix())
 		DISABLE;
 
-	void (XEmitter::*xmmop)(X64Reg, OpArg) = NULL;
-	switch (op >> 26)
-	{
+	// Check that we can support the ops, and prepare temporary values for ops that need it.
+	switch (op >> 26) {
 	case 24: //VFPU0
-		switch ((op >> 23)&7)
-		{
+		switch ((op >> 23) & 7) {
 		case 0: // d[i] = s[i] + t[i]; break; //vadd
-			xmmop = &XEmitter::ADDSS;
-			break;
 		case 1: // d[i] = s[i] - t[i]; break; //vsub
-			xmmop = &XEmitter::SUBSS;
-			break;
 		case 7: // d[i] = s[i] / t[i]; break; //vdiv
-			xmmop = &XEmitter::DIVSS;
 			break;
+		default:
+			DISABLE;
 		}
 		break;
 	case 25: //VFPU1
-		switch ((op >> 23) & 7)
-		{
+		switch ((op >> 23) & 7) {
 		case 0: // d[i] = s[i] * t[i]; break; //vmul
-			xmmop = &XEmitter::MULSS;
 			break;
+		default:
+			DISABLE;
 		}
 		break;
 	case 27: //VFPU3
-		switch ((op >> 23) & 3)
-		{
+		switch ((op >> 23) & 7) {
 		case 2:  // vmin
-			xmmop = &XEmitter::MINSS;
-			break;
 		case 3:  // vmax
-			xmmop = &XEmitter::MAXSS;
 			break;
+		case 6:  // vsge
+		case 7:  // vslt
+			break;
+		default:
+			DISABLE;
 		}
 		break;
 	default:
-		_dbg_assert_msg_(CPU,0,"invalid VecDo3");
+		DISABLE;
 		break;
 	}
-
-	if (xmmop == NULL)
-		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
@@ -740,8 +803,50 @@ void Jit::Comp_VecDo3(u32 op) {
 			MOVSS(tempxregs[i], fpr.V(sregs[i]));
 	}
 
-	for (int i = 0; i < n; ++i)
-		(this->*xmmop)(tempxregs[i], fpr.V(tregs[i]));
+	for (int i = 0; i < n; ++i) {
+		switch (op >> 26) {
+		case 24: //VFPU0
+			switch ((op >> 23) & 7) {
+			case 0: // d[i] = s[i] + t[i]; break; //vadd
+				ADDSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 1: // d[i] = s[i] - t[i]; break; //vsub
+				SUBSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 7: // d[i] = s[i] / t[i]; break; //vdiv
+				DIVSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			}
+			break;
+		case 25: //VFPU1
+			switch ((op >> 23) & 7)
+			{
+			case 0: // d[i] = s[i] * t[i]; break; //vmul
+				MULSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			}
+			break;
+		case 27: //VFPU3
+			switch ((op >> 23) & 7)
+			{
+			case 2:  // vmin
+				MINSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 3:  // vmax
+				MAXSS(tempxregs[i], fpr.V(tregs[i]));
+				break;
+			case 6:  // vsge
+				CMPNLTSS(tempxregs[i], fpr.V(tregs[i]));
+				ANDPS(tempxregs[i], M((void *)&oneOneOneOne));
+				break;
+			case 7:  // vslt
+				CMPLTSS(tempxregs[i], fpr.V(tregs[i]));
+				ANDPS(tempxregs[i], M((void *)&oneOneOneOne));
+				break;
+			}
+			break;
+		}
+	}
 
 	for (int i = 0; i < n; ++i)
 	{

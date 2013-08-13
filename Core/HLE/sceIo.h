@@ -19,9 +19,9 @@
 
 #include <string>
 
-#include "../System.h"
-#include "HLE.h"
-#include "sceKernel.h"
+#include "Core/System.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernel.h"
 
 void __IoInit();
 void __IoDoState(PointerWrap &p);

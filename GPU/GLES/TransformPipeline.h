@@ -100,7 +100,6 @@ public:
 	void DrawBezier(int ucount, int vcount);
 	void DrawSpline(int ucount, int vcount, int utype, int vtype);
 	void DecodeVerts();
-	void Flush();
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -122,7 +121,15 @@ public:
 	// This requires a SetupVertexDecoder call first.
 	int EstimatePerVertexCost();
 
+	// So that this can be inlined
+	void Flush() {
+		if (!numDrawCalls)
+			return;
+		DoFlush();
+	}
+
 private:
+	void DoFlush();
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;

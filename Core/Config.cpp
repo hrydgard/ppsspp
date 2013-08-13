@@ -89,6 +89,8 @@ void Config::Load(const char *iniFileName)
 #else
 	cpu->Get("Jit", &bJit, true);
 #endif
+	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
+	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
 	cpu->Get("FastMemory", &bFastMemory, false);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
 
@@ -99,7 +101,14 @@ void Config::Load(const char *iniFileName)
 #else
 	graphics->Get("ResolutionScale", &iWindowZoom, 1);
 #endif
-	graphics->Get("RenderingMode", &iRenderingMode, 1); // default is buffered rendering mode
+	graphics->Get("RenderingMode", &iRenderingMode, 
+		// Many ARMv6 devices have serious problems with buffered rendering.
+#if defined(ARM) && !defined(ARMV7)
+		0
+#else
+		1
+#endif
+		); // default is buffered rendering mode
 	graphics->Get("HardwareTransform", &bHardwareTransform, true);
 	graphics->Get("TextureFiltering", &iTexFiltering, 1);
 	graphics->Get("SSAA", &bAntiAliasing, 0);
@@ -137,7 +146,7 @@ void Config::Load(const char *iniFileName)
 	sound->Get("VolumeSFX", &iSFXVolume, 7);
 	
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
-	control->Get("ShowStick", &bShowAnalogStick, false);
+	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
 #ifdef BLACKBERRY
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
 #elif defined(USING_GLES2)
@@ -226,6 +235,8 @@ void Config::Save()
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
+		cpu->Set("SeparateCPUThread", bSeparateCPUThread);
+		cpu->Set("SeparateIOThread", bSeparateIOThread);
 		cpu->Set("FastMemory", bFastMemory);
 		cpu->Set("CPUSpeed", iLockedCPUSpeed);
 

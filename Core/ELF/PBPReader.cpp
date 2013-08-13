@@ -38,7 +38,7 @@ PBPReader::PBPReader(const char *filename) : header_() {
 		return;
 	}
 
-	INFO_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
+	DEBUG_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
 }
 
 u8 *PBPReader::GetSubFile(PBPSubFile file, size_t *outSize) {

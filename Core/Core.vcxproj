@@ -251,6 +251,7 @@
     <ClCompile Include="HW\MpegDemux.cpp" />
     <ClCompile Include="HW\OMAConvert.cpp" />
     <ClCompile Include="HW\SasAudio.cpp" />
+    <ClCompile Include="HW\AsyncIOManager.cpp" />
     <ClCompile Include="Loaders.cpp" />
     <ClCompile Include="MemMap.cpp" />
     <ClCompile Include="MemmapFunctions.cpp" />
@@ -335,6 +336,7 @@
     <ClCompile Include="PSPMixer.cpp" />
     <ClCompile Include="Reporting.cpp" />
     <ClCompile Include="SaveState.cpp" />
+    <ClCompile Include="MIPS\MIPSStackWalk.cpp" />
     <ClCompile Include="System.cpp" />
     <ClCompile Include="Util\BlockAllocator.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
@@ -437,6 +439,7 @@
     <ClInclude Include="HW\OMAConvert.h" />
     <ClInclude Include="HW\SasAudio.h" />
     <ClInclude Include="HW\MemoryStick.h" />
+    <ClInclude Include="HW\AsyncIOManager.h" />
     <ClInclude Include="Loaders.h" />
     <ClInclude Include="MemMap.h" />
     <ClInclude Include="MIPS\ARM\ArmAsm.h">
@@ -485,7 +488,9 @@
     <ClInclude Include="PSPMixer.h" />
     <ClInclude Include="Reporting.h" />
     <ClInclude Include="SaveState.h" />
+    <ClInclude Include="MIPS\MIPSStackWalk.h" />
     <ClInclude Include="System.h" />
+    <ClInclude Include="ThreadEventQueue.h" />
     <ClInclude Include="Util\BlockAllocator.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="Util\ppge_atlas.h" />

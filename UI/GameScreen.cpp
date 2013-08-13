@@ -100,6 +100,7 @@ void GameScreen::DrawBackground(UIContext &dc) {
 void GameScreen::update(InputState &input) {
 	UIScreen::update(input);
 
+	I18NCategory *g = GetI18NCategory("General");
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	if (tvTitle_)
@@ -112,9 +113,9 @@ void GameScreen::update(InputState &input) {
 
 	if (info->gameSize) {
 		char temp[256];
-		sprintf(temp, "Game: %1.1f MB", (float)(info->gameSize) / 1024.f / 1024.f);
+		sprintf(temp, "%s: %1.1f %s", g->T("Game"), (float) (info->gameSize) / 1024.f / 1024.f, g->T("MB"));
 		tvGameSize_->SetText(temp);
-		sprintf(temp, "SaveData: %1.2f MB", (float)(info->saveDataSize) / 1024.f / 1024.f);
+		sprintf(temp, "%s: %1.2f %s", g->T("SaveData"), (float) (info->saveDataSize) / 1024.f / 1024.f, g->T("MB"));
 		tvSaveDataSize_->SetText(temp);
 	}
 }
@@ -139,10 +140,12 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
+	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *g = GetI18NCategory("General");
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen("Do you really want to delete all\nyour save data for this game?", "Delete Savedata", "Cancel",
+			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), g->T("Delete Savedata"), g->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
 	}
 
@@ -158,10 +161,12 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 }
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
+	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *g = GetI18NCategory("General");
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen("Do you really want to delete all\nthis game entirely? You can't undo this.", "Delete Game", "Cancel",
+			new PromptScreen(d->T("DeleteGame", "Do you really want to delete all\nthis game entirely? You can't undo this."), g->T("Delete Game"), g->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
 	}
 

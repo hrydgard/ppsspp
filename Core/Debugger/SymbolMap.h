@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "../../Globals.h"
+#include "Globals.h"
+#include "native/base/mutex.h"
 #include <vector>
 #include <set>
 #include <map>
@@ -106,6 +107,7 @@ private:
 	std::set<MapEntryUniqueInfo> uniqueEntries;
 	std::vector<MapEntry> entries;
 	std::map<u32, u32> entryRanges;
+	mutable recursive_mutex lock_;
 };
 
 extern SymbolMap symbolMap;

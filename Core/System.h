@@ -44,6 +44,8 @@ void PSP_Shutdown();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
 
+bool IsOnSeparateCPUThread();
+
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path);
 
 // RUNNING must be at 0, NEXTFRAME must be at 1.

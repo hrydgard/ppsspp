@@ -746,6 +746,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/CwCheat.h
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
+	Core/ThreadEventQueue.h
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h
@@ -897,6 +898,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/scePauth.h
 	Core/HW/atrac3plus.cpp
 	Core/HW/atrac3plus.h
+	Core/HW/AsyncIOManager.cpp
+	Core/HW/AsyncIOManager.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MpegDemux.cpp
@@ -931,6 +934,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSInt.h
 	Core/MIPS/MIPSIntVFPU.cpp
 	Core/MIPS/MIPSIntVFPU.h
+	Core/MIPS/MIPSStackWalk.cpp
+	Core/MIPS/MIPSStackWalk.h
 	Core/MIPS/MIPSTables.cpp
 	Core/MIPS/MIPSTables.h
 	Core/MIPS/MIPSVFPUUtils.cpp

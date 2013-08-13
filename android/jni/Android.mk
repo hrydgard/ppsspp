@@ -186,6 +186,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \
   $(SRC)/Core/ELF/ParamSFO.cpp \
   $(SRC)/Core/HW/atrac3plus.cpp \
+  $(SRC)/Core/HW/AsyncIOManager.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
   $(SRC)/Core/HW/OMAConvert.cpp.arm \
@@ -281,6 +282,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSDisVFPU.cpp \
   $(SRC)/Core/MIPS/MIPSInt.cpp.arm \
   $(SRC)/Core/MIPS/MIPSIntVFPU.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSStackWalk.cpp \
   $(SRC)/Core/MIPS/MIPSTables.cpp.arm \
   $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \

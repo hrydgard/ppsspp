@@ -80,6 +80,13 @@ extern InputState input_state;
 #define CURSORUPDATE_INTERVAL_MS 50
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
+#ifndef HID_USAGE_PAGE_GENERIC
+#define HID_USAGE_PAGE_GENERIC         ((USHORT) 0x01)
+#endif
+#ifndef HID_USAGE_GENERIC_MOUSE
+#define HID_USAGE_GENERIC_MOUSE        ((USHORT) 0x02)
+#endif
+
 namespace MainWindow
 {
 	HWND hwndMain;
@@ -349,12 +356,17 @@ namespace MainWindow
 		RegisterTouchWindow(hwndDisplay, TWF_WANTPALM);
 #endif
 
-		RAWINPUTDEVICE keyboard;
-		memset(&keyboard, 0, sizeof(keyboard));
-		keyboard.usUsagePage = 1;
-		keyboard.usUsage = 6;
-		keyboard.dwFlags = 0;
-		RegisterRawInputDevices(&keyboard, 1, sizeof(RAWINPUTDEVICE));
+		RAWINPUTDEVICE dev[2];
+		memset(dev, 0, sizeof(dev));
+
+		dev[0].usUsagePage = 1;
+		dev[0].usUsage = 6;
+		dev[0].dwFlags = 0;
+
+		dev[1].usUsagePage = HID_USAGE_PAGE_GENERIC;
+		dev[1].usUsage = HID_USAGE_GENERIC_MOUSE;
+		dev[1].dwFlags = 0;
+		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
 
 		SetFocus(hwndDisplay);
 
@@ -898,10 +910,14 @@ namespace MainWindow
 				case ID_CPU_DYNAREC:
 					g_Config.bJit = true;
 					osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
-					break;	
+					break;
 
 				case ID_CPU_INTERPRETER:
 					g_Config.bJit = false;
+					break;
+
+				case ID_CPU_MULTITHREADED:
+					g_Config.bSeparateCPUThread = !g_Config.bSeparateCPUThread;
 					break;
 
 				case ID_EMULATION_RUNONLOAD:
@@ -1053,7 +1069,6 @@ namespace MainWindow
 				}
 				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, rawInputBuffer, &dwSize, sizeof(RAWINPUTHEADER));
 				RAWINPUT* raw = (RAWINPUT*)rawInputBuffer;
-
 				if (raw->header.dwType == RIM_TYPEKEYBOARD) {
 					KeyInput key;
 					key.deviceId = DEVICE_ID_KEYBOARD;
@@ -1070,6 +1085,12 @@ namespace MainWindow
 							NativeKey(key);	
 						}
 					}
+				} else if (raw->header.dwType == RIM_TYPEMOUSE) {
+					mouseDeltaX += raw->data.mouse.lLastX;
+					mouseDeltaY += raw->data.mouse.lLastY;
+
+					// TODO : Smooth and translate to an axis every frame.
+					// NativeAxis()
 				}
 			}
 			return 0;
@@ -1181,6 +1202,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
+		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
@@ -1318,21 +1340,22 @@ namespace MainWindow
 		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu,ID_TOGGLE_PAUSE, ingameEnable);
-		EnableMenuItem(menu,ID_EMULATION_STOP, ingameEnable);
-		EnableMenuItem(menu,ID_EMULATION_RESET, ingameEnable);
+		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
+		EnableMenuItem(menu, ID_EMULATION_STOP, ingameEnable);
+		EnableMenuItem(menu, ID_EMULATION_RESET, ingameEnable);
 
 		UINT menuEnable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
-		EnableMenuItem(menu,ID_FILE_SAVESTATEFILE, !menuEnable);
-		EnableMenuItem(menu,ID_FILE_LOADSTATEFILE, !menuEnable);
-		EnableMenuItem(menu,ID_FILE_QUICKSAVESTATE, !menuEnable);
-		EnableMenuItem(menu,ID_FILE_QUICKLOADSTATE, !menuEnable);
-		EnableMenuItem(menu,ID_CPU_DYNAREC, menuEnable);
-		EnableMenuItem(menu,ID_CPU_INTERPRETER, menuEnable);
-		EnableMenuItem(menu,ID_TOGGLE_PAUSE, !menuEnable);
-		EnableMenuItem(menu,ID_EMULATION_STOP, !menuEnable);
-		EnableMenuItem(menu,ID_EMULATION_RESET, !menuEnable);
-		EnableMenuItem(menu,ID_DEBUG_LOG, !g_Config.bEnableLogging);
+		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, !menuEnable);
+		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, !menuEnable);
+		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, !menuEnable);
+		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
+		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
+		EnableMenuItem(menu, ID_CPU_INTERPRETER, menuEnable);
+		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
+		EnableMenuItem(menu, ID_TOGGLE_PAUSE, !menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_STOP, !menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_RESET, !menuEnable);
+		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 	}
 
 	// Message handler for about box.

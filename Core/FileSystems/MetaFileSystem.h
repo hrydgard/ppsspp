@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "FileSystem.h"
+#include "native/base/mutex.h"
+#include "Core/FileSystems/FileSystem.h"
 
 class MetaFileSystem : public IHandleAllocator, public IFileSystem
 {
@@ -27,6 +28,11 @@ private:
 	{
 		std::string prefix;
 		IFileSystem *system;
+
+		bool operator == (const MountPoint &other) const
+		{
+			return prefix == other.prefix && system == other.system;
+		}
 	};
 	std::vector<MountPoint> fileSystems;
 
@@ -34,6 +40,8 @@ private:
 	currentDir_t currentDir;
 
 	std::string startingDirectory;
+	int lastOpenError;
+	recursive_mutex lock;
 
 public:
 	MetaFileSystem()
@@ -42,7 +50,7 @@ public:
 	}
 
 	void Mount(std::string prefix, IFileSystem *system);
-	void Unmount(IFileSystem *system);
+	void Unmount(std::string prefix, IFileSystem *system);
 
 	void ThreadEnded(int threadID);
 
@@ -72,7 +80,8 @@ public:
 	bool GetHostPath(const std::string &inpath, std::string &outpath);
 	
 	std::vector<PSPFileInfo> GetDirListing(std::string path);
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL);
+	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL);
+	u32      OpenWithError(int &error, std::string filename, FileAccess access, const char *devicename = NULL);
 	void     CloseFile(u32 handle);
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size);
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size);
@@ -94,6 +103,7 @@ public:
 	// TODO: void IoCtl(...)
 
 	void SetStartingDirectory(const std::string &dir) {
+		lock_guard guard(lock);
 		startingDirectory = dir;
 	}
 };
