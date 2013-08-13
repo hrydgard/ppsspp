@@ -794,7 +794,7 @@ int PSPOskDialog::NativeKeyboard()
 	for (u32 i = 0, end = oskParams->fields[0].outtextlength; i < end; ++i)
 	{
 		u16 value = 0;
-		if (i < ARRAY_SIZE(input))
+		if (i < FieldMaxLength())
 			value = input[i];
 		outText[i] = value;
 	}
