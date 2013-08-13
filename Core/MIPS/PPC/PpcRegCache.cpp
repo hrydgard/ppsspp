@@ -19,10 +19,6 @@
 #include "PpcRegCache.h"
 #include "PpcJit.h"
 
-#if defined(MAEMO)
-#include "stddef.h"
-#endif
-
 using namespace PpcGen;
 
 PpcRegCache::PpcRegCache(MIPSState *mips, MIPSComp::PpcJitOptions *options) : mips_(mips), options_(options) {

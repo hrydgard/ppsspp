@@ -1,10 +1,10 @@
 #include "Common/ChunkFile.h"
-#include "../../Core.h"
-#include "../../CoreTiming.h"
-#include "../MIPS.h"
-#include "../MIPSCodeUtils.h"
-#include "../MIPSInt.h"
-#include "../MIPSTables.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSTables.h"
 
 #include "PpcRegCache.h"
 #include "ppcEmitter.h"
@@ -23,16 +23,11 @@ static void JitAt()
 
 namespace MIPSComp
 {
-	//Jit * jit=NULL;
-
 static int dontLogBlocks = 20;
 static int logBlocks = 40;
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
-	NOTICE_LOG(CPU, "DoJit %08x - %08x\n", mips_->pc, mips_->downcount);
-
-
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
 	js.downcountAmount = 0;
@@ -44,18 +39,12 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	// We add a check before the block, used when entering from a linked block.
 	b->checkedEntry = GetCodePtr();
 	// Downcount flag check. The last block decremented downcounter, and the flag should still be available.
-	//SetCC(CC_LT);
-
 	
 	MOVI2R(SREG, js.blockStart);
 
-	//Break();
-
-	// Cmp ??
+	// if (currentMIPS->downcount<0)
 	CMPI(DCNTREG, 0);
 	BLT((const void *)outerLoopPCInR0);
-	// if (currentMIPS->downcount<0)
-	//BGT((const void *)outerLoopPCInR0);
 
 	b->normalEntry = GetCodePtr();
 	// TODO: this needs work
@@ -85,16 +74,6 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	
 		js.compilerPC += 4;
 		numInstructions++;
-		/*
-		if (!cpu_info.bArmV7 && (GetCodePtr() - b->checkedEntry - partialFlushOffset) > 4020)
-		{
-			// We need to prematurely flush as we are out of range
-			FixupBranch skip = B_CC(CC_AL);
-			FlushLitPool();
-			SetJumpTarget(skip);
-			partialFlushOffset = GetCodePtr() - b->checkedEntry;
-		}
-		*/
 	}
 	//FlushLitPool();
 #ifdef LOGASM
@@ -113,11 +92,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		INFO_LOG(DYNA_REC, "=============== ARM ===============");
 		DisassembleArm(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
-#endif
-
-	
-	//printf("DoJitend %08x - %08x - %08x\n", mips_->pc, mips_->downcount, js.compilerPC);
-	
+#endif	
 	//DumpJit();
 
 	AlignCode16();
@@ -130,11 +105,13 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 }
 
 void Jit::DumpJit() {
+#ifdef _XBOX
 	u32 len = (u32)GetCodePtr() - (u32)GetBasePtr();
 	FILE * fd;
 	fd = fopen("game:\\jit.bin", "wb");
 	fwrite(GetBasePtr(), len, 1, fd);
 	fclose(fd);
+#endif
 }
 
 void Jit::GenerateFixedCode() {
@@ -144,7 +121,6 @@ void Jit::GenerateFixedCode() {
 	INFO_LOG(HLE, "enterCode: 0x%08p", enterCode);	
 	INFO_LOG(HLE, "GetBasePtr: 0x%08p", GetBasePtr());
 
-#if 1
 	// Write Prologue (setup stack frame etc ...)
 	// Save Lr
 	MFLR(R12);
@@ -162,15 +138,11 @@ void Jit::GenerateFixedCode() {
 
 	// allocate stack
 	STWU(R1, R1, -stackFrameSize);
-#endif
-
-#if 1
 	
 	// Map fixed register
 	MOVI2R(BASEREG,	(u32)Memory::base);
 	MOVI2R(CTXREG,	(u32)mips_);
 	MOVI2R(CODEREG, (u32)GetBasePtr());
-	//Break();
 
 	// Update downcount reg value from memory
 	RestoreDowncount(DCNTREG);
@@ -205,18 +177,16 @@ void Jit::GenerateFixedCode() {
 		// The result of slice decrementation should be in flags if somebody jumped here
 		// IMPORTANT - We jump on negative, not carry!!!
 		// branch to bailCoreState: (jump if(what ??) negative )
-		//FixupBranch bailCoreState = B_CC(CC_MI); // BLT ???
-
 		FixupBranch bailCoreState = BLT(); // BLT ???
 
 		// SREG = coreState
 		MOVI2R(SREG, (u32)&coreState);
-		// ??? Compare coreState and CORE_RUNNING
+		// Compare coreState and CORE_RUNNING
 		LWZ(SREG, SREG); // SREG = *SREG
 		CMPI(SREG, 0); // compare 0(CORE_RUNNING) and CR0
 
 		// branch to badCoreState: (jump if coreState != CORE_RUNNING)
-		FixupBranch badCoreState = BNE(); // B_CC(CC_NEQ)
+		FixupBranch badCoreState = BNE(); 
 
 		// branch to skipToRealDispatch2:
 		FixupBranch skipToRealDispatch2 = B(); //skip the sync and compare first time
@@ -303,28 +273,12 @@ void Jit::GenerateFixedCode() {
 		// label bailCoreState:
 		SetJumpTarget(bailCoreState);
 
-#if 0
-		// Compare coreState and CORE_RUNNING
-		MOVI2R(SREG, (u32)&coreState);
-		LWZ(SREG, SREG); // SREG = *SREG => SREG = coreState
-		CMPLI(SREG, 0); // compare 0(CORE_RUNNING) and corestate
-				
-		// if (coreState == CORE_RUNNING) check for downcount
-		FixupBranch badcpustates = BNE();
-		
-		//BEQ(outerLoop);
-		CMPI(DCNTREG, 0);
-		BLE(outerLoop);
-		
-		SetJumpTarget(badcpustates);
-#else
 		// Compare coreState and CORE_RUNNING
 		MOVI2R(SREG, (u32)&coreState);
 		LWZ(SREG, SREG); // SREG = *SREG => SREG = coreState
 		CMPLI(SREG, 0); // compare 0(CORE_RUNNING) and corestate
 
 		BEQ(outerLoop);
-#endif
 	// }
 
 	// badCoreState label:
@@ -336,9 +290,6 @@ void Jit::GenerateFixedCode() {
 	// mips->downcount = DCNTREG
 	SaveDowncount(DCNTREG);
 
-#endif
-
-#if 1
 	// Write Epilogue (restore stack frame, return)
 	// free stack
 	ADDI(R1, R1, stackFrameSize);	
@@ -353,11 +304,9 @@ void Jit::GenerateFixedCode() {
 
 	// Restore Lr
 	MTLR(R12);
-	//Break();
 
 	// Go back to caller
 	BLR();
-#endif
 
 	// Don't forget to zap the instruction cache!
 	FlushIcache();

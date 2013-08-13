@@ -1,10 +1,10 @@
 #include "Common/ChunkFile.h"
-#include "../../Core.h"
-#include "../../CoreTiming.h"
-#include "../MIPS.h"
-#include "../MIPSCodeUtils.h"
-#include "../MIPSInt.h"
-#include "../MIPSTables.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSTables.h"
 
 #include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
@@ -59,39 +59,21 @@ void Jit::BranchRSRTComp(u32 op, PpcGen::FixupBranchType cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	if (cc == _BEQ || cc == _BNE) {
-		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
-		{
-			gpr.MapReg(rs);
-			CMPLI(gpr.R(rs), 0);
-		}
-		else if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0)  // only these are easily 'flippable'
-		{
-			gpr.MapReg(rt);
-			CMPLI(gpr.R(rt), 0);
-		}
-		else 
-		{
-			gpr.MapInIn(rs, rt);
-			CMPL(gpr.R(rs), gpr.R(rt));
-		}
-	} else {	
-		if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
-		{
-			gpr.MapReg(rs);
-			CMPLI(gpr.R(rs), 0);
-		}
-		else 
-		{
-			gpr.MapInIn(rs, rt);
-			CMPL(gpr.R(rs), gpr.R(rt));
-		}
+	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
+	{
+		gpr.MapReg(rs);
+		CMPLI(gpr.R(rs), 0);
 	}
-	
-	//if (js.compilerPC == 0x089001c4) {
-	//	Break();
-	//	Break();
-	//}
+	else if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0)  // only these are easily 'flippable'
+	{
+		gpr.MapReg(rt);
+		CMPLI(gpr.R(rt), 0);
+	}
+	else 
+	{
+		gpr.MapInIn(rs, rt);
+		CMPL(gpr.R(rs), gpr.R(rt));
+	}
 
 	PpcGen::FixupBranch ptr;
 	if (!likely)
@@ -114,7 +96,6 @@ void Jit::BranchRSRTComp(u32 op, PpcGen::FixupBranchType cc, bool likely)
 	// Take the branch
 	WriteExit(targetAddr, 0);
 
-	// !cond 
 	SetJumpTarget(ptr);
 
 	// Not taken
@@ -170,6 +151,7 @@ void Jit::BranchRSZeroComp(u32 op, PpcGen::FixupBranchType cc, bool andLink, boo
 	WriteExit(targetAddr, 0);
 
 	SetJumpTarget(ptr);
+
 	// Not taken
 	WriteExit(js.compilerPC + 8, 1);
 
@@ -235,19 +217,10 @@ void Jit::BranchFPFlag(u32 op, PpcGen::FixupBranchType cc, bool likely)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
 	FlushAll();
-
 	
-	//DebugBreak(); // not made !
-
-	/*
 	LWZ(SREG, CTXREG, offsetof(MIPSState, fpcond));
-	//TST(SREG, Operand2(1, TYPE_IMM)); 
-	*/
-
-	LWZ(SREG, CTXREG, offsetof(MIPSState, fpcond));
-	// should change CR0
+	// change CR0
 	ANDI(SREG, SREG, 1);
-
 
 	PpcGen::FixupBranch ptr;
 	if (!likely)
@@ -307,14 +280,10 @@ void Jit::BranchVFPUFlag(u32 op, PpcGen::FixupBranchType cc, bool likely)
 
 	int imm3 = (op >> 18) & 7;
 
-	/*
-	MOVI2R(R0, (u32)&(mips_->vfpuCtrl[VFPU_CTRL_CC]));
-	LWZ(R0, R0, Operand2(0, TYPE_IMM));
-	TST(R0, Operand2(1 << imm3, TYPE_IMM));
-	*/
+
 	MOVI2R(SREG,  (u32)&(mips_->vfpuCtrl[VFPU_CTRL_CC]));
 	LWZ(SREG, SREG, 0);
-	// should change CR0
+	// change CR0
 	ANDI(SREG, SREG, 1 << imm3);
 
 	PpcGen::FixupBranch ptr;
@@ -360,11 +329,7 @@ void Jit::Comp_Jump(u32 op) {
 	}
 	u32 off = ((op & 0x03FFFFFF) << 2);
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
-
-	/*if (op == 0x0a240070) {
-		Break();
-	}*/
-
+	
 	switch (op >> 26) 
 	{
 	case 2: //j

@@ -1,10 +1,10 @@
 #include "Common/ChunkFile.h"
-#include "../../Core.h"
-#include "../../CoreTiming.h"
-#include "../MIPS.h"
-#include "../MIPSCodeUtils.h"
-#include "../MIPSInt.h"
-#include "../MIPSTables.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSTables.h"
 
 #include "PpcRegCache.h"
 #include "ppcEmitter.h"
@@ -21,7 +21,6 @@ namespace MIPSComp
 
 static u32 delaySlotFlagsValue;
 
-/** we use a flag non volatile flag (FLAGREG)r18, no need to save it **/
 void Jit::CompileDelaySlot(int flags)
 {
 	// preserve flag around the delay slot! Maybe this is not always necessary on ARM where 
@@ -29,7 +28,6 @@ void Jit::CompileDelaySlot(int flags)
 	// delay slot, we're screwed.
 	if (flags & DELAYSLOT_SAFE) {
 		// Save flags register
-		//Break();
 		MOVI2R(SREG, (u32)&delaySlotFlagsValue);
 		STW(FLAGREG, SREG);
 	}
@@ -44,7 +42,6 @@ void Jit::CompileDelaySlot(int flags)
 
 	if (flags & DELAYSLOT_SAFE) {
 		// Restore flags register
-		//Break();
 		MOVI2R(SREG, (u32)&delaySlotFlagsValue);
 		LWZ(FLAGREG, SREG);
 	}
@@ -93,7 +90,7 @@ void Jit::RestoreDowncount(PPCReg r) {
 static void ShowDownCount() {
 	if (currentMIPS->downcount<0) {
 		//ERROR_LOG(DYNA_REC, "MIPSState, downcount %08x", currentMIPS->downcount);
-		DebugBreak();
+		Crash();
 	}
 }
 
@@ -127,18 +124,14 @@ void Jit::Comp_Generic(u32 op) {
 		// Save mips PC and cycles
 		SaveDowncount(DCNTREG);
 
-		//// Set func param
-		//if (op == 0x00009021) 
-		//	Break();
-
+		// call interpreted function
 		MOVI2R(R3, op);
-
 		QuickCallFunction((void *)func);
 
 		// restore pc and cycles
 		RestoreDowncount(DCNTREG);
 	}
-		// Might have eaten prefixes, hard to tell...
+	// Might have eaten prefixes, hard to tell...
 	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
 		js.PrefixStart();
 }
@@ -188,13 +181,13 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo),mips_(mips)
 	js.startDefaultPrefix = true;
 }
 
-void Jit::RunLoopUntil(u64 globalticks) {
-	// Run the compiled code
-	
-	INFO_LOG(HLE, "enterCode: %08p", enterCode);
-	
+void Jit::RunLoopUntil(u64 globalticks) {	
+#ifdef _XBOX
+	// force stack alinement
 	_alloca(8*1024);
+#endif
 	
+	// Run the compiled code
 	((void (*)())enterCode)();
 }
 
