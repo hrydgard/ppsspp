@@ -1,4 +1,4 @@
-// It can simply convert a at3+ file or stream to oma format
+// It can simply convert an at3+ file or stream to oma format
 // Thanks to JPCSP project
 
 #pragma once
@@ -7,9 +7,9 @@
 
 namespace OMAConvert {
 
-	// output OMA to outputStream, and return it's size. You need to release it by use releaseStream()
+	// output OMA to outputStream, and return its size. You need to release it by use releaseStream()
 	int convertStreamtoOMA(u8* audioStream, int audioSize, u8** outputStream);
-	// output OMA to outputStream, and return it's size. You need to release it by use releaseStream()
+	// output OMA to outputStream, and return its size. You need to release it by use releaseStream()
 	int convertRIFFtoOMA(u8* riff, int riffSize, u8** outputStream, int *readSize = 0);
 
 	void releaseStream(u8** stream);

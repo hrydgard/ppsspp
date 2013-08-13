@@ -31,7 +31,7 @@
 namespace MIPSStackWalk {
 	using namespace MIPSCodeUtils;
 
-	// In the worst case, we scan this far above the pc for a entry.
+	// In the worst case, we scan this far above the pc for an entry.
 	const int MAX_FUNC_SIZE = 32768 * 4;
 	// After this we assume we're stuck.
 	const size_t MAX_DEPTH = 1024;

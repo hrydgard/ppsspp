@@ -1228,7 +1228,6 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferVplStatus(%i, %08x)", uid, infoPtr);
 
-		u32 error;
 		for (auto iter = vpl->waitingThreads.begin(); iter != vpl->waitingThreads.end(); ++iter)
 		{
 			SceUID waitID = __KernelGetWaitID(iter->threadID, WAITTYPE_VPL, error);

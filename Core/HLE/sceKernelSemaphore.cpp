@@ -333,7 +333,6 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 		if (!Memory::IsValidAddress(infoPtr))
 			return -1;
 
-		u32 error;
 		for (auto iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
 		{
 			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_SEMA, error);
