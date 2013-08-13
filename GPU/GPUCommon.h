@@ -8,7 +8,6 @@
 #include <atomic>
 #elif defined(_M_SSE)
 #include <xmmintrin.h>
-#pragma warning(disable:4799)
 #endif
 
 typedef ThreadEventQueue<GPUInterface, GPUEvent, GPUEventType, GPU_EVENT_INVALID, GPU_EVENT_SYNC_THREAD, GPU_EVENT_FINISH_EVENT_LOOP> GPUThreadEventQueue;
@@ -49,7 +48,9 @@ public:
 		return curTickEst_;
 #elif defined(_M_SSE)
 		__m64 result = *(__m64 *)&curTickEst_;
-		return *(u64 *)&result;
+		u64 safeResult = *(u64 *)&result;
+		_mm_empty();
+		return safeResult;
 #else
 		lock_guard guard(curTickEstLock_);
 		return curTickEst_;
@@ -120,6 +121,7 @@ protected:
 #elif defined(_M_SSE)
 		__m64 result = *(__m64 *)&value;
 		*(__m64 *)&curTickEst_ = result;
+		_mm_empty();
 #else
 		lock_guard guard(curTickEstLock_);
 		curTickEst_ = value;
