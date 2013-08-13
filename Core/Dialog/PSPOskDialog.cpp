@@ -401,8 +401,8 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 							}
 						}
 					} else {
-						int tmp = GetIndex(kor_vowel, sw);
-						if(tmp == -1) {
+						int tmp3 = GetIndex(kor_vowel, sw);
+						if (tmp3 == -1) {
 							string += inputChars[i];
 							if (inputChars.size() < FieldMaxLength()) {
 								string += sw;
@@ -431,29 +431,29 @@ std::wstring PSPOskDialog::CombinationKorean(bool isInput)
 									u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C + kor_lconsSpr[tmp2 + 1];
 									string += code;
 
-									code = 0xAC00 + kor_lconsSpr[tmp2 + 2] * 0x24C + tmp * 0x1C;
+									code = 0xAC00 + kor_lconsSpr[tmp2 + 2] * 0x24C + tmp3 * 0x1C;
 									string += code;
 
 									if(isInput == true) {
 										i_value[0] = kor_lconsSpr[tmp2 + 2];
-										i_value[1] = tmp;
+										i_value[1] = tmp3;
 										i_level = 2;
 									}
 								} else {
-									int tmp2 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
+									int tmp4 = GetIndex(kor_cons, kor_lcons[i_value[2]]);
 
-									if(tmp2 != -1) {
+									if (tmp4 != -1) {
 										u16 code = 0xAC00 + i_value[0] * 0x24C + i_value[1] * 0x1C;
 
 										string += code;
 
-										code = 0xAC00 + tmp2 * 0x24C + tmp * 0x1C;
+										code = 0xAC00 + tmp4 * 0x24C + tmp3 * 0x1C;
 
 										string += code;
 
 										if(isInput == true) {
-											i_value[0] = tmp2;
-											i_value[1] = tmp;
+											i_value[0] = tmp4;
+											i_value[1] = tmp3;
 											i_level = 2;
 										}
 									} else {
