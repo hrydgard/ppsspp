@@ -124,9 +124,9 @@ private:
 		HandlerFileHandle handler;
 		VirtualFileType type;
 		u32 fileIndex;
-		u32 curOffset;
-		u32 startOffset;	// only used by lbn files
-		u32 size;			// only used by lbn files
+		u64 curOffset;
+		u64 startOffset;	// only used by lbn files
+		u64 size;			// only used by lbn files
 
 		bool Open(std::string& basePath, std::string& fileName, FileAccess access) {
 			if (handler.IsValid()) {
