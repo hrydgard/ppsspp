@@ -1486,7 +1486,7 @@ void Debugger_DisplayList::UpdateRenderBufferGUI()
 {
 	EmuThread_LockDraw(true);
 
-	gpu->Flush();
+	//gpu->Flush();
 
 	int FRAME_WIDTH;
 	int FRAME_HEIGHT;

@@ -174,7 +174,6 @@
      <addaction name="action_Stretch_to_display"/>
      <addaction name="separator"/>
      <addaction name="action_OptionsHardwareTransform"/>
-     <addaction name="action_OptionsUseVBO"/>
      <addaction name="action_OptionsVertexCache"/>
      <addaction name="action_OptionsDisplayRawFramebuffer"/>
      <addaction name="actionFrameskip"/>
@@ -477,14 +476,6 @@
   <action name="action_HelpAbout">
    <property name="text">
     <string>&amp;About PPSSPP...</string>
-   </property>
-  </action>
-  <action name="action_OptionsUseVBO">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>&amp;Use VBO</string>
    </property>
   </action>
   <action name="actionLogG3DDebug">
