@@ -42,6 +42,7 @@
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+#include "Core/HW/atrac3plus.h"
 #include "Windows/EmuThread.h"
 
 #include "resource.h"
@@ -1029,6 +1030,23 @@ namespace MainWindow
 
 				case ID_EMULATION_SOUND:
 					g_Config.bEnableSound = !g_Config.bEnableSound;
+					if(!g_Config.bEnableSound) {
+						EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_GRAYED);
+						if(!IsAudioInitialised())
+							Audio_Init();
+					}
+					else
+						EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_ENABLED);
+					break;
+
+				case ID_EMULATION_ATRAC3_SOUND:
+					g_Config.bEnableAtrac3plus = !g_Config.bEnableAtrac3plus;
+
+					if(Atrac3plus_Decoder::IsInstalled()) {
+						if(g_Config.bEnableAtrac3plus)
+							Atrac3plus_Decoder::Init();
+						else Atrac3plus_Decoder::Shutdown();
+					}
 					break;
 
 				case ID_HELP_OPENWEBSITE:
@@ -1217,6 +1235,7 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
+		CHECKITEM(ID_EMULATION_ATRAC3_SOUND, g_Config.bEnableAtrac3plus);
 
 		static const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
