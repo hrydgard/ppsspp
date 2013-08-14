@@ -429,6 +429,7 @@ void NativeInitGraphics() {
 	ui_theme.itemFocusedStyle.background = UI::Drawable(0xCC909080);
 	ui_theme.itemDownStyle.background = UI::Drawable(0xFFFFc080);
 	ui_theme.itemDownStyle.fgColor = 0xFF000000;
+	ui_theme.popupTitle.fgColor = 0xFFE5B533;
 
 	ui_draw2d.Init();
 	ui_draw2d_front.Init();
