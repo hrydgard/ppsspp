@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cmath>
 #include "../Globals.h"
 #include "ge_constants.h"
 

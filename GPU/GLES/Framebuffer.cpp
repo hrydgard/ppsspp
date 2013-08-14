@@ -560,7 +560,11 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
-		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU ? 1 : 0;
+#ifndef USING_GLES2
+		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
+#else
+		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU;
+#endif
 		if(useMem && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true);
 		} 
@@ -1186,8 +1190,11 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU ? 1 : 0;
-
+#ifndef USING_GLES2
+	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
+#else
+	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU;
+#endif
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
