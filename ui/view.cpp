@@ -320,6 +320,11 @@ void ItemHeader::Draw(UIContext &dc) {
 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), 0xFFFFFFFF);
 }
 
+void PopupHeader::Draw(UIContext &dc) {
+	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 12, bounds_.centerY(), dc.theme->popupTitle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), 0xFFFFFFFF);
+}
+
 void CheckBox::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
 	int paddingX = 8;

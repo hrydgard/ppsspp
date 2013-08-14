@@ -116,13 +116,13 @@ void PopupScreen::CreateViews() {
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	LinearLayout *box = new LinearLayout(ORIENT_VERTICAL, 
-		new AnchorLayoutParams(450, FillVertical() ? dp_yres - 30 : WRAP_CONTENT, dp_xres / 2, dp_yres / 2, NONE, NONE, true));
+		new AnchorLayoutParams(550, FillVertical() ? dp_yres - 30 : WRAP_CONTENT, dp_xres / 2, dp_yres / 2, NONE, NONE, true));
 
 	root_->Add(box);
 	box->SetBG(UI::Drawable(0xFF303030));
 	box->SetHasDropShadow(true);
 
-	View *title = new ItemHeader(title_);
+	View *title = new PopupHeader(title_);
 	box->Add(title);
 
 	CreatePopupContents(box);
@@ -170,10 +170,20 @@ void ListPopupScreen::OnCompleted() {
 
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	slider_ = parent->Add(new Slider(value_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
+	sliderValue_ = *value_;
+	slider_ = parent->Add(new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 }
 
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	slider_ = parent->Add(new SliderFloat(value_, minValue_, maxValue_));
+	sliderValue_ = *value_;
+	slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_));
+}
+
+void SliderPopupScreen::OnCompleted() {
+	*value_ = sliderValue_;
+}
+
+void SliderFloatPopupScreen::OnCompleted() {
+	*value_ = sliderValue_;
 }

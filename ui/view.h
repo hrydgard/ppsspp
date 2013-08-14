@@ -91,6 +91,8 @@ struct Theme {
 	Style itemStyle;
 	Style itemDownStyle;
 	Style itemFocusedStyle;
+
+	Style popupTitle;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
@@ -524,6 +526,18 @@ public:
 		: Item(layoutParams), text_(text) {
 		layoutParams_->width = FILL_PARENT;
 		layoutParams_->height = 26;
+	}
+	virtual void Draw(UIContext &dc);
+private:
+	std::string text_;
+};
+
+class PopupHeader : public Item {
+public:
+	PopupHeader(const std::string &text, LayoutParams *layoutParams = 0)
+		: Item(layoutParams), text_(text) {
+			layoutParams_->width = FILL_PARENT;
+			layoutParams_->height = 64;
 	}
 	virtual void Draw(UIContext &dc);
 private:

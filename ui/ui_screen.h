@@ -86,8 +86,10 @@ public:
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 private:
+	virtual void OnCompleted();
 	UI::Slider *slider_;
 	int *value_;
+	int sliderValue_;
 	int minValue_;
 	int maxValue_;
 };
@@ -98,7 +100,9 @@ public:
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 private:
+	virtual void OnCompleted();
 	UI::SliderFloat *slider_;
+	float sliderValue_;
 	float *value_;
 	float minValue_;
 	float maxValue_;
