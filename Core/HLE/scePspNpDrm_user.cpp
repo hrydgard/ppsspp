@@ -50,7 +50,7 @@ const HLEFunction sceNpDrm[] =
 	{0x275987D1, WrapI_C<sceNpDrmRenameCheck>, "sceNpDrmRenameCheck"},
 	{0x08d98894, WrapI_U<sceNpDrmEdataSetupKey>, "sceNpDrmEdataSetupKey"},
 	{0x219EF5CC, WrapI_U<sceNpDrmEdataGetDataSize>, "sceNpDrmEdataGetDataSize"},
-	{0x2BAA4294, 0, "sceNpDrmOpen"},
+	{0x2BAA4294, WrapI_V<sceNpDrmOpen>, "sceNpDrmOpen"},
 };
 
 void Register_sceNpDrm()
