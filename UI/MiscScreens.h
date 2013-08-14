@@ -75,5 +75,36 @@ private:
 };
 
 
+class LogoScreen : public UIScreen {
+public:
+	LogoScreen(const std::string &bootFilename)
+		: bootFilename_(bootFilename), frames_(0) {}
+	void key(const KeyInput &key);
+	void update(InputState &input);
+	void render();
+	void sendMessage(const char *message, const char *value);
+	virtual void CreateViews() {}
+
+private:
+	void Next();
+	std::string bootFilename_;
+	int frames_;
+};
+
+
+class CreditsScreen : public UIDialogScreenWithBackground {
+public:
+	CreditsScreen() : frames_(0) {}
+	void update(InputState &input);
+	void render();
+	virtual void CreateViews();
+
+private:
+	UI::EventReturn OnOK(UI::EventParams &e);
+
+	int frames_;
+};
+
+
 // Utility functions that create various popup screens
 ListPopupScreen *CreateLanguageScreen();

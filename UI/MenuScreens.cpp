@@ -142,72 +142,6 @@ void DrawBackground(float alpha) {
 	}
 }
 
-// For private alphas, etc.
-void DrawWatermark() {
-	// ui_draw2d.DrawTextShadow(UBUNTU24, "PRIVATE BUILD", dp_xres / 2, 10, 0xFF0000FF, ALIGN_HCENTER);
-}
-
-void LogoScreen::Next() {
-	if (bootFilename_.size()) {
-		screenManager()->switchScreen(new EmuScreen(bootFilename_));
-	} else {
-		if (g_Config.bNewUI)
-			screenManager()->switchScreen(new MainScreen());
-		else
-			screenManager()->switchScreen(new MenuScreen());
-	}
-}
-
-void LogoScreen::update(InputState &input_state) {
-	frames_++;
-	if (frames_ > 180 || input_state.pointer_down[0]) {
-		Next();
-	}
-}
-
-void LogoScreen::sendMessage(const char *message, const char *value) {
-	if (!strcmp(message, "boot")) {
-		screenManager()->switchScreen(new EmuScreen(value));
-	}
-}
-
-void LogoScreen::key(const KeyInput &key) {
-	if (key.deviceId != DEVICE_ID_MOUSE) {
-		Next();
-	}
-}
-
-void LogoScreen::render() {
-	float t = (float)frames_ / 60.0f;
-
-	float alpha = t;
-	if (t > 1.0f) alpha = 1.0f;
-	float alphaText = alpha;
-	if (t > 2.0f) alphaText = 3.0f - t;
-
-	UIShader_Prepare();
-	UIBegin(UIShader_Get());
-	DrawBackground(alpha);
-	
-	I18NCategory *c = GetI18NCategory("PSPCredits");
-	char temp[256];
-	sprintf(temp, "%s Henrik Rydgård", c->T("created", "Created by"));
-
-	ui_draw2d.SetFontScale(1.5f, 1.5f);
-	ui_draw2d.DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	ui_draw2d.SetFontScale(1.0f, 1.0f);
-	ui_draw2d.DrawTextShadow(UBUNTU24, temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	ui_draw2d.DrawTextShadow(UBUNTU24, c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	ui_draw2d.DrawTextShadow(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	if (bootFilename_.size()) {
-		ui_draw2d.DrawTextShadow(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	}
-
-	DrawWatermark();
-	UIEnd();
-}
-
-
 // ==================
 //		Menu Screen
 // ==================
@@ -389,8 +323,6 @@ void MenuScreen::render() {
 	ui_draw2d.DrawTextShadow(UBUNTU24, temptext, 5, dp_yres-5, 0xFFFFFFFF, ALIGN_BOTTOMLEFT);
 	ui_draw2d.SetFontScale(1.0, 1.0);
 #endif
-
-	DrawWatermark();
 
 	UIEnd();
 }
@@ -582,7 +514,6 @@ void PauseScreen::render() {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	}
 
-	DrawWatermark();
 	UIEnd();
 }
 
@@ -2043,143 +1974,6 @@ void FileSelectScreen::render() {
 		g_Config.Save();
 		screenManager()->switchScreen(new MenuScreen());
 	}
-
-	UIEnd();
-}
-
-void CreditsScreen::update(InputState &input_state) {
-	globalUIState = UISTATE_MENU;
-	if (input_state.pad_buttons_down & PAD_BUTTON_BACK) {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-	frames_++;
-}
-
-
-void CreditsScreen::render() {
-	I18NCategory *c = GetI18NCategory("PSPCredits");
-
-	const char * credits[] = {
-		"PPSSPP",
-		"",
-		"",
-		c->T("title", "A fast and portable PSP emulator"),	
-		"",
-		c->T("created", "Created by"),
-		"Henrik Rydgård",
-		"(aka hrydgard, ector)",
-		"",
-		"",
-		c->T("contributors", "Contributors:"),
-		"unknownbrackets",
-		"oioitff",
-		"xsacha",
-		"raven02",
-		"tpunix",
-		"orphis",
-		"sum2012",
-		"mikusp",
-		"aquanull",
-		"The Dax",
-		"tmaul",
-		"artart78",
-		"ced2911",
-		"soywiz",
-		"kovensky",
-		"xele",
-		"chaserhjk",
-		"evilcorn",
-		"daniel dressler",
-		"makotech222",
-		"CPkmn",
-		"mgaver",
-		"jeid3",
-		"cinaera/BeaR",
-		"jtraynham",
-		"Kingcom",
-		"aquanull",
-		"arnastia",
-		"lioncash",
-		"JulianoAmaralChaves",
-		"",
-		c->T("written", "Written in C++ for speed and portability"),
-		"",
-		"",
-		c->T("tools", "Free tools used:"),
-	#ifdef ANDROID
-		"Android SDK + NDK",
-	#elif defined(BLACKBERRY)
-		"Blackberry NDK",
-	#endif
-	#if defined(USING_QT_UI)
-		"Qt",
-	#else
-		"SDL",
-	#endif
-		"CMake",
-		"freetype2",
-		"zlib",
-		"PSP SDK",
-		"",
-		"",
-		c->T("website", "Check out the website:"),
-		"www.ppsspp.org",
-		c->T("list", "compatibility lists, forums, and development info"),
-		"",
-		"",
-		c->T("check", "Also check out Dolphin, the best Wii/GC emu around:"),
-		"http://www.dolphin-emu.org",
-		"",
-		"",
-		c->T("info1", "PPSSPP is intended for educational purposes only."),
-		"",
-		c->T("info2", "Please make sure that you own the rights to any games"),
-		c->T("info3", "you play by owning the UMD or by buying the digital"),
-		c->T("info4", "download from the PSN store on your real PSP."),
-		"",	
-		"",
-		c->T("info5", "PSP is a trademark by Sony, Inc."),
-	};
-	
-	// TODO: This is kinda ugly, done on every frame...
-	char temp[256];
-	sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
-	credits[0] = (const char *)temp;
-
-	UIShader_Prepare();
-	UIBegin(UIShader_Get());
-	DrawBackground(1.0f);
-
-	const int numItems = ARRAY_SIZE(credits);
-	int itemHeight = 36;
-	int totalHeight = numItems * itemHeight + dp_yres + 200;
-	int y = dp_yres - (frames_ % totalHeight);
-	for (int i = 0; i < numItems; i++) {
-		float alpha = linearInOut(y+32, 64, dp_yres - 192, 64);
-		if (alpha > 0.0f) {
-			UIText(dp_xres/2, y, credits[i], whiteAlpha(alpha), ease(alpha), ALIGN_HCENTER);
-		}
-		y += itemHeight;
-	}
-	I18NCategory *g = GetI18NCategory("General");
-
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
-		screenManager()->finishDialog(this, DR_OK);
-	}
-
-#ifdef ANDROID
-#ifndef GOLD
-	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
-		LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
-	}
-#endif
-#else
-#ifndef GOLD
-	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
-		LaunchBrowser("http://central.ppsspp.org/buygold");
-	}
-#endif
-#endif
 
 	UIEnd();
 }

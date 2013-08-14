@@ -32,6 +32,7 @@
 #include "UI/MenuScreens.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
+#include "UI/MiscScreens.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
 #include "GPU/GPUInterface.h"

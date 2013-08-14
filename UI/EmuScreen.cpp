@@ -512,7 +512,6 @@ void EmuScreen::render() {
 		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
 		root_->Draw(*screenManager()->getUIContext());
 	}
-	DrawWatermark();
 
 	if (!osm.IsEmpty()) {
 		osm.Draw(ui_draw2d);

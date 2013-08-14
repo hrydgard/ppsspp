@@ -15,17 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/display.h"
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "file/vfs.h"
+#include "math/curves.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
+#include "UI/MenuScreens.h"
+#include "UI/EmuScreen.h"
+#include "UI/MainScreen.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
+
+#include "ui_atlas.h"
 
 void DrawBackground(float alpha);
 
@@ -169,4 +177,223 @@ void NewLanguageScreen::OnCompleted() {
 	} else {
 		g_Config.languageIni = oldLang;
 	}
+}
+
+void LogoScreen::Next() {
+	if (bootFilename_.size()) {
+		screenManager()->switchScreen(new EmuScreen(bootFilename_));
+	} else {
+		if (g_Config.bNewUI)
+			screenManager()->switchScreen(new MainScreen());
+		else
+			screenManager()->switchScreen(new MenuScreen());
+	}
+}
+
+void LogoScreen::update(InputState &input_state) {
+	UIScreen::update(input_state);
+	frames_++;
+	if (frames_ > 180 || input_state.pointer_down[0]) {
+		Next();
+	}
+}
+
+void LogoScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "boot")) {
+		screenManager()->switchScreen(new EmuScreen(value));
+	}
+}
+
+void LogoScreen::key(const KeyInput &key) {
+	if (key.deviceId != DEVICE_ID_MOUSE) {
+		Next();
+	}
+}
+
+void LogoScreen::render() {
+	UIScreen::render();
+
+	UIContext &dc = *screenManager()->getUIContext();
+
+	dc.Begin();
+	float t = (float)frames_ / 60.0f;
+
+	float alpha = t;
+	if (t > 1.0f) alpha = 1.0f;
+	float alphaText = alpha;
+	if (t > 2.0f) alphaText = 3.0f - t;
+
+	::DrawBackground(alpha);
+
+	I18NCategory *c = GetI18NCategory("PSPCredits");
+	char temp[256];
+	sprintf(temp, "%s Henrik Rydgård", c->T("created", "Created by"));
+
+	dc.Draw()->SetFontScale(1.5f, 1.5f);
+	dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->SetFontScale(1.0f, 1.0f);
+	dc.Draw()->DrawTextShadow(UBUNTU24, temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawTextShadow(UBUNTU24, c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawTextShadow(UBUNTU24, "www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	if (bootFilename_.size()) {
+		ui_draw2d.DrawTextShadow(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	}
+	
+	dc.End();
+	dc.Flush();
+}
+
+void CreditsScreen::CreateViews() {
+	using namespace UI;
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	root_->Add(new Button("OK", new AnchorLayoutParams(200, 50, NONE, NONE, 10, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnOK);
+}
+
+UI::EventReturn CreditsScreen::OnOK(UI::EventParams &e) {
+	screenManager()->finishDialog(this, DR_OK);
+	return UI::EVENT_DONE;
+}
+
+void CreditsScreen::update(InputState &input_state) {
+	UIScreen::update(input_state);
+	globalUIState = UISTATE_MENU;
+	if (input_state.pad_buttons_down & PAD_BUTTON_BACK) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+	frames_++;
+}
+
+void CreditsScreen::render() {
+	UIScreen::render();
+
+	I18NCategory *c = GetI18NCategory("PSPCredits");
+
+	const char * credits[] = {
+		"PPSSPP",
+		"",
+		"",
+		c->T("title", "A fast and portable PSP emulator"),	
+		"",
+		c->T("created", "Created by"),
+		"Henrik Rydgård",
+		"(aka hrydgard, ector)",
+		"",
+		"",
+		c->T("contributors", "Contributors:"),
+		"unknownbrackets",
+		"oioitff",
+		"xsacha",
+		"raven02",
+		"tpunix",
+		"orphis",
+		"sum2012",
+		"mikusp",
+		"aquanull",
+		"The Dax",
+		"tmaul",
+		"artart78",
+		"ced2911",
+		"soywiz",
+		"kovensky",
+		"xele",
+		"chaserhjk",
+		"evilcorn",
+		"daniel dressler",
+		"makotech222",
+		"CPkmn",
+		"mgaver",
+		"jeid3",
+		"cinaera/BeaR",
+		"jtraynham",
+		"Kingcom",
+		"aquanull",
+		"arnastia",
+		"lioncash",
+		"JulianoAmaralChaves",
+		"",
+		c->T("written", "Written in C++ for speed and portability"),
+		"",
+		"",
+		c->T("tools", "Free tools used:"),
+#ifdef ANDROID
+		"Android SDK + NDK",
+#elif defined(BLACKBERRY)
+		"Blackberry NDK",
+#endif
+#if defined(USING_QT_UI)
+		"Qt",
+#else
+		"SDL",
+#endif
+		"CMake",
+		"freetype2",
+		"zlib",
+		"PSP SDK",
+		"",
+		"",
+		c->T("website", "Check out the website:"),
+		"www.ppsspp.org",
+		c->T("list", "compatibility lists, forums, and development info"),
+		"",
+		"",
+		c->T("check", "Also check out Dolphin, the best Wii/GC emu around:"),
+		"http://www.dolphin-emu.org",
+		"",
+		"",
+		c->T("info1", "PPSSPP is intended for educational purposes only."),
+		"",
+		c->T("info2", "Please make sure that you own the rights to any games"),
+		c->T("info3", "you play by owning the UMD or by buying the digital"),
+		c->T("info4", "download from the PSN store on your real PSP."),
+		"",	
+		"",
+		c->T("info5", "PSP is a trademark by Sony, Inc."),
+	};
+
+	// TODO: This is kinda ugly, done on every frame...
+	char temp[256];
+	sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	credits[0] = (const char *)temp;
+
+	UIContext &dc = *screenManager()->getUIContext();
+	dc.Begin();
+
+	const int numItems = ARRAY_SIZE(credits);
+	int itemHeight = 36;
+	int totalHeight = numItems * itemHeight + dp_yres + 200;
+	int y = dp_yres - (frames_ % totalHeight);
+	for (int i = 0; i < numItems; i++) {
+		float alpha = linearInOut(y+32, 64, dp_yres - 192, 64);
+		if (alpha > 0.0f) {
+			dc.Draw()->SetFontScale(ease(alpha), ease(alpha));
+			dc.Draw()->DrawText(UBUNTU24, credits[i], dp_xres/2, y, whiteAlpha(alpha), ALIGN_HCENTER);
+			dc.Draw()->SetFontScale(1.0f, 1.0f);
+		}
+		y += itemHeight;
+	}
+	/*
+	I18NCategory *g = GetI18NCategory("General");
+
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
+		screenManager()->finishDialog(this, DR_OK);
+	}
+
+#ifdef ANDROID
+#ifndef GOLD
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
+		LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+	}
+#endif
+#else
+#ifndef GOLD
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
+		LaunchBrowser("http://central.ppsspp.org/buygold");
+	}
+#endif
+#endif
+	UIEnd();
+	*/
+
+	dc.End();
+	dc.Flush();
 }
