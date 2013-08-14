@@ -48,7 +48,6 @@ enum {
 	GPU_VENDOR_UNKNOWN = 0,
 };
 
-
 enum {	
 	FB_NON_BUFFERED_MODE = 0,
 	FB_BUFFERED_MODE = 1,
@@ -62,6 +61,7 @@ enum {
 
 struct VirtualFramebuffer {
 	int last_frame_used;
+	bool memoryUpdated; 
 
 	u32 fb_address;
 	u32 z_address;
@@ -136,7 +136,11 @@ public:
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size);
 
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb);
+#ifdef USING_GLES2
+  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
+#else
+  void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = false);
+#endif 
 
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetDisplayFBO();
@@ -179,9 +183,9 @@ private:
 	// Used by ReadFramebufferToMemory
 	void BlitFramebuffer_(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool flip = false, float upscale = 1.0f, float vscale = 1.0f);
 #ifndef USING_GLES2
-	void PackFramebufferGL_(VirtualFramebuffer *vfb);
+	void PackFramebufferAsync_(VirtualFramebuffer *vfb);
 #endif
-	void PackFramebufferGLES_(VirtualFramebuffer *vfb);
+	void PackFramebufferSync_(VirtualFramebuffer *vfb);
 	int gpuVendor;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting FBOs
 

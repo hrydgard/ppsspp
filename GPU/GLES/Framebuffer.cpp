@@ -379,36 +379,40 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 	return 0;
 }
 
-void GetViewportDimensions(int &w, int &h) {
-	float vpXa = getFloat24(gstate.viewportx1);
-	float vpYa = getFloat24(gstate.viewporty1);
-	w = (int)fabsf(vpXa * 2);
-	h = (int)fabsf(vpYa * 2);
-}
-
 // Heuristics to figure out the size of FBO to create.
 void GuessDrawingSize(int &drawing_width, int &drawing_height) {
-	int viewport_width, viewport_height;
 	int default_width = 480; 
 	int default_height = 272;
-	int regionX2 = (gstate.getRegionX2() + 1) ;
-	int regionY2 = (gstate.getRegionY2() + 1) ;
-	int fb_stride = gstate.fbwidth & 0x3C0;
-	GetViewportDimensions(viewport_width, viewport_height);
+	int viewport_width = (int) gstate.getViewportX1(); 
+	int viewport_height = (int) gstate.getViewportY1(); 
+	int region_width = (gstate.getRegionX2() + 1) ;
+	int region_height = (gstate.getRegionY2() + 1) ;
+	int fb_width = gstate.fbwidth & 0x3C0;
 
-	// Generated FBO shouldn't greate than 512x512 
-	// Some games like FF Type-0 inits viewport as 0x0 
-	if ((viewport_width > 512 && viewport_height > 512) || (viewport_width <= 1 && viewport_height <= 1)) {
-		viewport_width = default_width;
-		viewport_height = default_height;
+	DEBUG_LOG(HLE,"viewport : %ix%i, region : %ix%i, stride: %i", viewport_width,viewport_height, region_width, region_height, fb_width);
+
+	// In case viewport return as 0x0 like FF Type-0 
+	if (viewport_width <= 1 && viewport_height <=1) {
+			drawing_width = default_width;
+			drawing_height = default_height;
 	}
 
-	if (fb_stride < 512) {
-		drawing_width = std::min(viewport_width, regionX2);
-		drawing_height = std::min(viewport_height, regionY2);
+	if (fb_width < 512) {
+		if (fb_width != viewport_width) {
+			drawing_width = viewport_width;
+			drawing_height = viewport_height;
+		} else {
+			drawing_width = region_width;
+			drawing_height = region_height;
+		}
 	} else {
-		drawing_width = std::max(viewport_width, default_width);
-		drawing_height = std::max(viewport_height, default_height);
+		if (fb_width != region_width) {
+			drawing_width = default_width;
+			drawing_height = default_height;
+		} else {
+			drawing_width = region_width;
+			drawing_height = region_height;
+		}
 	}
 }
 
@@ -499,6 +503,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;
+		vfb->memoryUpdated = false; 
 
 		if (g_Config.bTrueColor) {
 			vfb->colorDepth = FBO_8888;
@@ -555,6 +560,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 	// We already have it!
 	} else if (vfb != currentRenderVfb_) {
+		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU ? 1 : 0;
+		if(useMem && !vfb->memoryUpdated) {
+			ReadFramebufferToMemory(vfb, true);
+		} 
 		// Use it as a render target.
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -562,6 +571,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->last_frame_used = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
+		vfb->memoryUpdated = false;
 
 		if (useBufferedRendering_) {
 			if (vfb->fbo) {
@@ -681,11 +691,17 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 }
 
-void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
+void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync) {
 	// This only works with buffered rendering
 	if (!useBufferedRendering_) {
 		return;
 	}
+
+#ifndef USING_GLES2
+	if(sync) {
+		PackFramebufferAsync_(NULL); // flush async just in case when we go for synchronous update
+	}
+#endif 
 
 	if(vfb) {
 		// We'll pseudo-blit framebuffers here to get a resized and flipped version of vfb.
@@ -748,19 +764,13 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
 			if (!(nvfb->fbo)) {
 				ERROR_LOG(HLE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
-			}
-
-			if (useBufferedRendering_) {
-				if (nvfb->fbo) {
-					fbo_bind_as_render_target(nvfb->fbo);
-				} else {
-					fbo_unbind();
-					return;
-				}
+				return;
 			}
 
 			nvfb->last_frame_used = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
+
+			fbo_bind_as_render_target(nvfb->fbo); 
 
 			glstate.depthWrite.set(GL_TRUE);
 			glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -772,34 +782,33 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 			nvfb->last_frame_used = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
-			if (useBufferedRendering_) {
-				if (nvfb->fbo) {
-					fbo_bind_as_render_target(nvfb->fbo);
 #ifdef USING_GLES2
-					// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-					// to it. This broke stuff before, so now it only clears on the first use of an
-					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-					if (nvfb->last_frame_used != gpuStats.numFlips)	{
-						glstate.depthWrite.set(GL_TRUE);
-						glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-						glClearColor(0,0,0,1);
-						glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-					}
-#endif
-				} else {
-					fbo_unbind();
-					return;
-				}
+			fbo_bind_as_render_target(nvfb->fbo);
+
+			// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+			// to it. This broke stuff before, so now it only clears on the first use of an
+			// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+			// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+			if (nvfb->last_frame_used != gpuStats.numFlips)	{
+					glstate.depthWrite.set(GL_TRUE);
+					glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+					glClearColor(0,0,0,1);
+					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 			}
+#endif
 		}
 
+		vfb->memoryUpdated = true;
 		BlitFramebuffer_(vfb, nvfb, false);
 
 #ifdef USING_GLES2
-		PackFramebufferGLES_(nvfb); // synchronous glReadPixels
+		PackFramebufferSync_(nvfb); // synchronous glReadPixels
 #else
-		PackFramebufferGL_(nvfb); // asynchronous glReadPixels using PBOs
+		if(!sync) {
+			PackFramebufferAsync_(nvfb); // asynchronous glReadPixels using PBOs
+		} else {
+			PackFramebufferSync_(nvfb); // synchronous glReadPixels
+		}
 #endif
 	}
 }
@@ -879,25 +888,52 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferForma
 
 #ifndef USING_GLES2
 
-void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
+void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
+	const int MAX_PBO = 2;
 	GLubyte *packed = 0;
 	bool unbind = false;
-	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU ? 1 : 0;
+	u8 nextPBO = (currentPBO_ + 1) % MAX_PBO;
+	bool useCPU = g_Config.iRenderingMode == FB_READFBOMEMORY_CPU ? 1 : 0 ;
+
 	// We'll prepare two PBOs to switch between readying and reading
 	if(!pixelBufObj_) {
-		GLuint pbos[2];
+		GLuint pbos[MAX_PBO];
 
-		glGenBuffers(2, pbos);
+		glGenBuffers(MAX_PBO, pbos);
 
-		pixelBufObj_ = new AsyncPBO[2];
+		pixelBufObj_ = new AsyncPBO[MAX_PBO];
 
-		pixelBufObj_[0].handle = pbos[0];
-		pixelBufObj_[0].maxSize = 0;
-		pixelBufObj_[0].reading = false;
+		for(int i = 0; i < MAX_PBO; i++) {
+			pixelBufObj_[i].handle = pbos[i];
+			pixelBufObj_[i].maxSize = 0;
+			pixelBufObj_[i].reading = false;
+		}
+	}
 
-		pixelBufObj_[1].handle = pbos[1];
-		pixelBufObj_[1].maxSize = 0;
-		pixelBufObj_[1].reading = false;
+
+	// Receive previously requested data from a PBO
+	if(pixelBufObj_[nextPBO].reading) {
+		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[nextPBO].handle);
+		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+
+		if(packed) {
+			DEBUG_LOG(HLE, "Reading pbo to mem, bufSize = %u, packed = %08x, fb_address = %08x, stride = %u, pbo = %u", 
+				pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, pixelBufObj_[nextPBO].stride, nextPBO);
+
+			if(useCPU) {
+				ConvertFromRGBA8888(Memory::GetPointer(pixelBufObj_[nextPBO].fb_address), packed, 
+								pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
+								pixelBufObj_[nextPBO].format);
+			} else { // We don't need to convert, GPU already did (or should have)
+				Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
+			}
+
+			pixelBufObj_[nextPBO].reading = false;
+		}
+
+		glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
+
+		unbind = true;
 	}
 
 	// Order packing/readback of the framebuffer
@@ -939,16 +975,23 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 		u32 bufSize = vfb->fb_stride * vfb->height * pixelSize;
 		u32 fb_address = (0x44000000) | vfb->fb_address;
 
-		if (useBufferedRendering_) {
-			if (vfb->fbo) {
-				fbo_bind_for_read(vfb->fbo);
-			} else {
-				fbo_unbind();
-				if(gl_extensions.FBO_ARB) {
-					glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-				}
-				return;
+		if (vfb->fbo) {
+			fbo_bind_for_read(vfb->fbo);
+		} else {
+			fbo_unbind();
+			if(gl_extensions.FBO_ARB) {
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 			}
+			return;
+		}
+
+		if(glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			ERROR_LOG(HLE, "Incomplete source framebuffer, aborting read");
+			fbo_unbind();
+			if(gl_extensions.FBO_ARB) {
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+			}
+			return;
 		}
 
 		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[currentPBO_].handle);
@@ -964,13 +1007,6 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 			pixelBufObj_[currentPBO_].maxSize = bufSize;
 		}
 
-		pixelBufObj_[currentPBO_].fb_address = fb_address;
-		pixelBufObj_[currentPBO_].size = bufSize;
-		pixelBufObj_[currentPBO_].stride = vfb->fb_stride;
-		pixelBufObj_[currentPBO_].height = vfb->height;
-		pixelBufObj_[currentPBO_].format = vfb->format;
-		pixelBufObj_[currentPBO_].reading = true;
-
 		if(useCPU) {
 			// If converting pixel formats on the CPU we'll always request RGBA8888
 			glPixelStorei(GL_PACK_ALIGNMENT, 4);
@@ -981,37 +1017,44 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 			glReadPixels(0, 0, vfb->fb_stride, vfb->height, pixelFormat, pixelType, 0);
 		}
 
+		GLenum error = glGetError();
+		switch(error) {
+			case 0:
+				break;
+			case GL_INVALID_ENUM: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_ENUM"); 
+				break;
+			case GL_INVALID_VALUE: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_VALUE"); 
+				break;
+			case GL_INVALID_OPERATION: 
+				// GL_INVALID_OPERATION will happen sometimes midframe but everything 
+				// seems to work out when actually mapping buffers? 
+				// GL_SAMPLE_BUFFERS, GL_READ_BUFFER, GL_BUFFER_SIZE/MAPPED, 
+				// GL_PIXEL_PACK_BUFFER_BINDING, all have the expected values.
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_OPERATION"); 
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION: 
+				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_FRAMEBUFFER_OPERATION"); 
+				break;
+			default:
+				ERROR_LOG(HLE, "glReadPixels: UNKNOWN OPENGL ERROR %u", error);
+				break;
+		}
+
 		fbo_unbind();
 		if(gl_extensions.FBO_ARB) {
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 		}
 
 		unbind = true;
-	}
 
-	// Receive previously requested data from a PBO
-	u8 nextPBO = (currentPBO_ + 1) % 2;
-	if(pixelBufObj_[nextPBO].reading) {
-		glBindBuffer(GL_PIXEL_PACK_BUFFER, pixelBufObj_[nextPBO].handle);
-		packed = (GLubyte *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-
-		if(packed) {
-			DEBUG_LOG(HLE, "Reading pbo to mem, bufSize = %u, packed = %08x, fb_address = %08x, pbo = %u", 
-				pixelBufObj_[nextPBO].size, packed, pixelBufObj_[nextPBO].fb_address, nextPBO);
-
-			if(useCPU) {
-				ConvertFromRGBA8888(Memory::GetPointer(pixelBufObj_[nextPBO].fb_address), packed, 
-								pixelBufObj_[nextPBO].stride, pixelBufObj_[nextPBO].height, 
-								pixelBufObj_[nextPBO].format);
-			} else { // We don't need to convert, GPU already did (or should have)
-				Memory::Memcpy(pixelBufObj_[nextPBO].fb_address, packed, pixelBufObj_[nextPBO].size);
-			}
-			glUnmapBuffer(GL_PIXEL_PACK_BUFFER);
-
-			pixelBufObj_[nextPBO].reading = false;
-		}
-
-		unbind = true;
+		pixelBufObj_[currentPBO_].fb_address = fb_address;
+		pixelBufObj_[currentPBO_].size = bufSize;
+		pixelBufObj_[currentPBO_].stride = vfb->fb_stride;
+		pixelBufObj_[currentPBO_].height = vfb->height;
+		pixelBufObj_[currentPBO_].format = vfb->format;
+		pixelBufObj_[currentPBO_].reading = true;
 	}
 
 	currentPBO_ = nextPBO;
@@ -1023,7 +1066,7 @@ void FramebufferManager::PackFramebufferGL_(VirtualFramebuffer *vfb) {
 
 #endif
 
-void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
+void FramebufferManager::PackFramebufferSync_(VirtualFramebuffer *vfb) {
 	if (useBufferedRendering_ && vfb->fbo) {
 		fbo_bind_for_read(vfb->fbo);
 	} else {
@@ -1033,7 +1076,7 @@ void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 
 	// Pixel size always 4 here because we always request RGBA8888
 	size_t bufSize = vfb->fb_stride * vfb->height * 4;
-	u32 fb_address = (0x44000000) | vfb->fb_address;
+	u32 fb_address = (0x04000000) | vfb->fb_address;
 
 	GLubyte *packed = 0;
 	if(vfb->format == GE_FORMAT_8888) {
@@ -1058,7 +1101,9 @@ void FramebufferManager::PackFramebufferGLES_(VirtualFramebuffer *vfb) {
 			case GL_INVALID_VALUE: 
 				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_VALUE"); 
 				break;
-			case GL_INVALID_OPERATION: 
+			case GL_INVALID_OPERATION:
+				// GL_INVALID_OPERATION will happen sometimes midframe but everything 
+				// seems to work out when actually reading? 
 				ERROR_LOG(HLE, "glReadPixels: GL_INVALID_OPERATION"); 
 				break;
 			case GL_INVALID_FRAMEBUFFER_OPERATION: 
@@ -1087,7 +1132,7 @@ void FramebufferManager::EndFrame() {
 
 #ifndef USING_GLES2
 	// We flush to memory last requested framebuffer, if any
-	PackFramebufferGL_(NULL);
+	PackFramebufferAsync_(NULL);
 #endif
 }
 
@@ -1141,18 +1186,14 @@ std::vector<FramebufferInfo> FramebufferManager::GetFramebufferList() {
 void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
-	int num = g_Config.iFrameSkip > 0 && g_Config.iFrameSkip != 9 ? g_Config.iFrameSkip : 3;
-	bool skipFrame = (gpuStats.numFlips % num == 0);
-	bool useFramebufferToMem = g_Config.iRenderingMode != FB_BUFFERED_MODE ? 1 : 0;
+	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU ? 1 : 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 
-		if(useFramebufferToMem) {
-			// Commit framebuffers to memory
-			if(skipFrame && age <= FBO_OLD_AGE) 
-				ReadFramebufferToMemory(vfb);
+		if(useMem && !age && !vfb->memoryUpdated) { 
+			ReadFramebufferToMemory(vfb);
 		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
