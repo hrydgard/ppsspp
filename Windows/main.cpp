@@ -124,6 +124,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	EmuThread_Start();
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
+	HACCEL hDebugAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_DEBUGACCELS);
 
 	//so.. we're at the message pump of the GUI thread
 	for (MSG msg; GetMessage(&msg, NULL, 0, 0); )	// for no quit
@@ -141,7 +142,18 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 
 		//Translate accelerators and dialog messages...
-		if (!TranslateAccelerator(hwndMain, hAccelTable, &msg))
+		HWND wnd;
+		HACCEL accel;
+		if (g_debuggerActive)
+		{
+			wnd = disasmWindow[0]->GetDlgHandle();
+			accel = hDebugAccelTable;
+		} else {
+			wnd = hwndMain;
+			accel = hAccelTable;
+		}
+
+		if (!TranslateAccelerator(wnd, accel, &msg))
 		{
 			if (!DialogManager::IsDialogMessage(&msg))
 			{
