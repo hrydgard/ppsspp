@@ -587,6 +587,14 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_CLOSE:
 		Show(false);
 		return TRUE;
+	case WM_ACTIVATE:
+		if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE)
+		{
+			g_debuggerActive = true;
+		} else {
+			g_debuggerActive = false;
+		}
+		break;
 	}
 	return FALSE;
 }

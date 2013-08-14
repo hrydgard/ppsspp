@@ -24,5 +24,6 @@
 
 // Globals
 HMENU g_hPopupMenus;
+bool g_debuggerActive = false;
 #endif
 
