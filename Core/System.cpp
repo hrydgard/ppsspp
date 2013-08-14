@@ -93,8 +93,6 @@ bool IsOnSeparateCPUThread() {
 	}
 }
 
-
-
 bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
 	if (cpuThreadState == from) {
 		cpuThreadState = to;

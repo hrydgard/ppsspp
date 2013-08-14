@@ -331,8 +331,9 @@ void GameSettingsScreen::update(InputState &input) {
 UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
 
-	if(PSP_IsInited() && !IsAudioInitialised()) {
-		Audio_Init();
+	if(g_Config.bEnableSound) {
+		if(PSP_IsInited() && !IsAudioInitialised())
+			Audio_Init();
 	}
 
 	return UI::EVENT_DONE;
