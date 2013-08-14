@@ -136,7 +136,7 @@ NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
 			}
 		}
 		if (g_Config.languageIni == code)
-			selected = i;
+			selected = (int)i;
 		listing.push_back(buttonTitle);
 	}
 

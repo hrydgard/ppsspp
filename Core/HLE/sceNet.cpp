@@ -305,8 +305,8 @@ int sceNetAdhocTerm() {
 int sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
 	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
 	if(Memory::IsValidAddress(bufferPtr)) {
-		size_t len = strlen(mac);
-		for (size_t i = 0; i < len; i++)
+		int len = (int)strlen(mac);
+		for (int i = 0; i < len; i++)
 			Memory::Write_U8(mac[i], bufferPtr + i);
 	}
 	else

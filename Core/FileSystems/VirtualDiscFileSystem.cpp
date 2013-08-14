@@ -268,7 +268,7 @@ int VirtualDiscFileSystem::getFileListIndex(std::string& fileName)
 
 	fileList.push_back(entry);
 
-	return fileList.size()-1;
+	return (int)fileList.size()-1;
 }
 
 int VirtualDiscFileSystem::getFileListIndex(u32 accessBlock, u32 accessSize, bool blockMode)
