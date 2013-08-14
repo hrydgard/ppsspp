@@ -407,11 +407,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
-		if (latchedFramebuf.topaddr != framebuf.topaddr) {
-			framebuf = latchedFramebuf;
-			framebufIsLatched = false;
-			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-		}
+		framebuf = latchedFramebuf;
+		framebufIsLatched = false;
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 	}
 
 	gpuStats.numVBlanks++;
@@ -513,10 +511,8 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters
 		if (topaddr != 0) {
-			if (topaddr != framebuf.topaddr) {
-				framebuf = fbstate;
-				gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-			}
+			framebuf = fbstate;
+			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 		} else {
 			WARN_LOG(HLE, "%s: PSP_DISPLAY_SETBUF_IMMEDIATE without topaddr?", __FUNCTION__);
 		}
