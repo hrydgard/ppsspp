@@ -61,10 +61,13 @@ void GameScreen::CreateViews() {
 	
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
-	rightColumnItems->Add(new Choice(ga->T("Play")))->OnClick.Handle(this, &GameScreen::OnPlay);
+	Choice *play = new Choice(ga->T("Play"));
+	rightColumnItems->Add(play)->OnClick.Handle(this, &GameScreen::OnPlay);
 	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
 	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
+
+	UI::SetFocusedView(play);
 }
 
 void DrawBackground(float alpha);
