@@ -365,6 +365,9 @@ void CWCheatEngine::Run() {
 								base += arg3 & 0x0FFFFFFF;
 								arg += arg4;
 								break;
+							default:
+								break;
+
 							}
 						}
 					}
