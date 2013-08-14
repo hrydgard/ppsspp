@@ -624,7 +624,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 		if (vfb->last_frame_used != gpuStats.numFlips)	{
-			frame_clearing();
+			ClearBuffer();
 		}
 #endif
 		currentRenderVfb_ = vfb;
@@ -785,7 +785,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 			// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 			if (nvfb->last_frame_used != gpuStats.numFlips)	{
-				frame_clearing();
+				ClearBuffer();
 			}
 #endif
 		}
