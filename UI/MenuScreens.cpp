@@ -861,13 +861,18 @@ void AudioScreen::render() {
 	int columnw = 400;
 	UICheckBox(GEN_ID, x, y += stride, a->T("Enable Sound"), ALIGN_TOPLEFT, &g_Config.bEnableSound);
 	if (g_Config.bEnableSound) {
-		if (Atrac3plus_Decoder::IsInstalled()) {
-			UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
-		} 
-
+		
 		if(PSP_IsInited() && !IsAudioInitialised()) {
 			Audio_Init();
 		}
+
+		if (Atrac3plus_Decoder::IsInstalled()) {
+			UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
+
+			if(g_Config.bEnableAtrac3plus)
+				Atrac3plus_Decoder::Init();
+			else Atrac3plus_Decoder::Shutdown();
+		} 
 
 		// Show the download button even if not installed - might want to upgrade.
 		VLinear vlinear(30, 400, 20);

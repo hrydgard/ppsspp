@@ -335,6 +335,14 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 		if(PSP_IsInited() && !IsAudioInitialised())
 			Audio_Init();
 	}
+	// It doesn't matter if audio is inited or not, it'll still output no sound
+	// if the mixer isn't available, so go ahead and init/shutdown at our leisure.
+	if(Atrac3plus_Decoder::IsInstalled()) {
+		if(g_Config.bEnableAtrac3plus)
+			Atrac3plus_Decoder::Init();
+		else Atrac3plus_Decoder::Shutdown();
+	}
+	
 
 	return UI::EVENT_DONE;
 }
