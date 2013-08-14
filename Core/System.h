@@ -44,7 +44,10 @@ void PSP_Shutdown();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
 
+void Audio_Init();
+
 bool IsOnSeparateCPUThread();
+bool IsAudioInitialised();
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path);
 
