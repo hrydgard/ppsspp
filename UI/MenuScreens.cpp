@@ -865,6 +865,10 @@ void AudioScreen::render() {
 			UICheckBox(GEN_ID, x, y += stride, a->T("Enable Atrac3+"), ALIGN_TOPLEFT, &g_Config.bEnableAtrac3plus);
 		} 
 
+		if(PSP_IsInited() && !IsAudioInitialised()) {
+			Audio_Init();
+		}
+
 		// Show the download button even if not installed - might want to upgrade.
 		VLinear vlinear(30, 400, 20);
 		std::string atracString;

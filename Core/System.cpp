@@ -74,6 +74,17 @@ volatile CoreState coreState = CORE_STEPPING;
 volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
+bool IsAudioInitialised() {
+	return mixer != NULL;
+}
+
+void Audio_Init() {
+	if(mixer == NULL) {
+		mixer = new PSPMixer();
+		host->InitSound(mixer);
+	}
+}
+
 bool IsOnSeparateCPUThread() {
 	if (cpuThread != NULL) {
 		return cpuThread->get_id() == std::this_thread::get_id();
@@ -81,6 +92,8 @@ bool IsOnSeparateCPUThread() {
 		return false;
 	}
 }
+
+
 
 bool CPU_NextState(CPUThreadState from, CPUThreadState to) {
 	if (cpuThreadState == from) {
@@ -148,8 +161,7 @@ void CPU_Init() {
 	host->AttemptLoadSymbolMap();
 
 	if (coreParameter.enableSound) {
-		mixer = new PSPMixer();
-		host->InitSound(mixer);
+		Audio_Init();
 	}
 
 	if (coreParameter.disableG3Dlog) {
