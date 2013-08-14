@@ -154,7 +154,6 @@ void MainWindow::UpdateMenus()
 
 	ui->action_Stretch_to_display->setChecked(g_Config.bStretchToDisplay);
 	ui->action_OptionsHardwareTransform->setChecked(g_Config.bHardwareTransform);
-	ui->action_OptionsUseVBO->setChecked(g_Config.bUseVBO);
 	ui->action_OptionsVertexCache->setChecked(g_Config.bVertexCache);
 	ui->actionFrameskip->setChecked(g_Config.iFrameSkip != 0);
 
@@ -544,12 +543,6 @@ void MainWindow::on_action_Stretch_to_display_triggered()
 void MainWindow::on_action_OptionsHardwareTransform_triggered()
 {
 	g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-	UpdateMenus();
-}
-
-void MainWindow::on_action_OptionsUseVBO_triggered()
-{
-	g_Config.bUseVBO = !g_Config.bUseVBO;
 	UpdateMenus();
 }
 
