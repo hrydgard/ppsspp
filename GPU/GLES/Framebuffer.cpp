@@ -133,11 +133,19 @@ void CenterRect(float *x, float *y, float *w, float *h,
 	}
 }
 
-void frame_clearing() {
+void ClearBuffer() {
 	glstate.depthWrite.set(GL_TRUE);
 	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glClearColor(0,0,0,1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+}
+
+void DisableState() {
+	glstate.blend.disable();
+	glstate.cullFace.disable();
+	glstate.depthTest.disable();
+	glstate.scissorTest.disable();
+	glstate.stencilTest.disable();
 }
 
 void FramebufferManager::CompileDraw2DProgram() {
@@ -174,7 +182,7 @@ FramebufferManager::FramebufferManager() :
 
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
-	frame_clearing();
+	ClearBuffer();
 
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
@@ -553,7 +561,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->last_frame_used = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
-		frame_clearing();
+		ClearBuffer();
 		glEnable(GL_DITHER);
 		currentRenderVfb_ = vfb;
 
@@ -565,7 +573,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
 #else
 		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU;
-#endif
+#endif 
 		if(useMem && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true);
 		} 
@@ -648,7 +656,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		} else {
 			DEBUG_LOG(HLE, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
 			// No framebuffer to display! Clear to black.
-			frame_clearing();
+			ClearBuffer();
 		}
 		return;
 	}
@@ -667,11 +675,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	if (vfb->fbo) {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
-		glstate.blend.disable();
-		glstate.cullFace.disable();
-		glstate.depthTest.disable();
-		glstate.scissorTest.disable();
-		glstate.stencilTest.disable();
+		DisableState();
 
 		fbo_bind_color_as_texture(vfb->fbo, 0);
 	
@@ -683,7 +687,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 
 	if (resized_) {
-		frame_clearing();
+		ClearBuffer();
 	}
 }
 
@@ -766,7 +770,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->last_frame_used = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 			fbo_bind_as_render_target(nvfb->fbo); 
-			frame_clearing();
+			ClearBuffer();
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
@@ -816,11 +820,7 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	}
 	
 	glstate.viewport.set(0, 0, dst->width, dst->height);
-	glstate.depthTest.disable();
-	glstate.blend.disable();
-	glstate.cullFace.disable();
-	glstate.scissorTest.disable();
-	glstate.stencilTest.disable();
+	DisableState();
 
 	fbo_bind_color_as_texture(src->fbo, 0);
 
@@ -1178,7 +1178,6 @@ void FramebufferManager::DecimateFBOs() {
 #else
 	bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU;
 #endif
-
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
