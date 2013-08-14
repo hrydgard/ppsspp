@@ -1306,6 +1306,9 @@ namespace MIPSComp
 	void Jit::Comp_Vcmp(u32 op) {
 		CONDITIONAL_DISABLE;
 
+		// Temporary to test what it breaks, it mostly works.
+		DISABLE;
+
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
 
