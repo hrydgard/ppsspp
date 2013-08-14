@@ -306,7 +306,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;
 	float renderX, renderY;
-	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		renderX = 0.0f;
 		renderY = 0.0f;
