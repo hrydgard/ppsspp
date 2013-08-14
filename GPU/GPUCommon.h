@@ -107,6 +107,7 @@ protected:
 	bool dumpThisFrame_;
 	bool interruptsEnabled_;
 
+private:
 	// For CPU/GPU sync.
 #ifdef ANDROID
 	std::atomic<u64> curTickEst_;
@@ -115,7 +116,7 @@ protected:
 	recursive_mutex curTickEstLock_;
 #endif
 
-	virtual void UpdateTickEstimate(u64 value) {
+	inline void UpdateTickEstimate(u64 value) {
 #if defined(_M_X64) || defined(ANDROID)
 		curTickEst_ = value;
 #elif defined(_M_SSE)
