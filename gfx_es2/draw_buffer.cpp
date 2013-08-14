@@ -66,6 +66,10 @@ void DrawBuffer::End() {
 }
 
 void DrawBuffer::Flush(bool set_blend_state) {
+	if (!program_) {
+		ELOG("No program set!");
+		return;
+	}
 	glsl_bind(program_);
 	if (count_ == 0)
 		return;

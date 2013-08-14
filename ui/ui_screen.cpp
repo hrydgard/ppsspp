@@ -39,7 +39,8 @@ void UIScreen::render() {
 		screenManager()->getUIContext()->End();
 		screenManager()->getUIContext()->Flush();
 	} else {
-		ELOG("Tried to render without a view root");
+		// This isn't really an error if you customize the view a bit.
+		// ELOG("Tried to render without a view root");
 	}
 }
 

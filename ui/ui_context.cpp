@@ -84,7 +84,6 @@ Bounds UIContext::GetScissorBounds() {
 		return Bounds(0, 0, dp_xres, dp_yres);
 }
 
-
 void UIContext::ActivateTopScissor() {
 	if (scissorStack_.size()) {
 		const Bounds &bounds = scissorStack_.back();
