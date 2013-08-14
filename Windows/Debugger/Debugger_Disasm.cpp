@@ -17,6 +17,7 @@
 #include "Windows/Debugger/CtrlRegisterList.h"
 #include "Windows/Debugger/CtrlMemView.h"
 #include "Windows/Debugger/Debugger_Lists.h"
+#include "Windows/WndMainWindow.h"
 
 #include "Core/Core.h"
 #include "Core/CPU.h"
@@ -224,6 +225,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 			switch(LOWORD(wParam))
 			{
+			case ID_TOGGLE_PAUSE:
+				SendMessage(MainWindow::GetHWND(),WM_COMMAND,ID_TOGGLE_PAUSE,0);
+				break;
 			case IDC_SHOWVFPU:
 				vfpudlg->Show(true);
 				break;

@@ -142,7 +142,18 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 
 		//Translate accelerators and dialog messages...
-		if (!TranslateAccelerator(hwndMain, g_debuggerActive ? hDebugAccelTable : hAccelTable, &msg))
+		HWND wnd;
+		HACCEL accel;
+		if (g_debuggerActive)
+		{
+			wnd = disasmWindow[0]->GetDlgHandle();
+			accel = hDebugAccelTable;
+		} else {
+			wnd = hwndMain;
+			accel = hAccelTable;
+		}
+
+		if (!TranslateAccelerator(wnd, accel, &msg))
 		{
 			if (!DialogManager::IsDialogMessage(&msg))
 			{
