@@ -69,7 +69,10 @@ void PGF::DoState(PointerWrap &p) {
 	p.Do(header);
 	p.Do(rev3extra);
 
-	p.Do(fontDataSize);
+	// Don't savestate size_t directly, 32-bit and 64-bit are different.
+	u32 fontDataSizeTemp = (u32)fontDataSize;
+	p.Do(fontDataSizeTemp);
+	fontDataSize = (size_t)fontDataSizeTemp;
 	if (p.mode == p.MODE_READ) {
 		if (fontData) {
 			delete [] fontData;
