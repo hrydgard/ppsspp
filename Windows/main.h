@@ -29,3 +29,4 @@ extern CDisasm *disasmWindow[MAX_CPUCOUNT];
 extern CMemoryDlg *memoryWindow[MAX_CPUCOUNT];
 
 extern HMENU g_hPopupMenus;
+extern bool g_debuggerActive;
