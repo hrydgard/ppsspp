@@ -137,7 +137,7 @@ unsigned int WINAPI TheThread(void *)
 
 shutdown:
 	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
-	host->ShutdownSound();
+
 	NativeShutdownGraphics();
 	host = nativeHost;
 	NativeShutdown();
