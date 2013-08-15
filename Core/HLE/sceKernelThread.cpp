@@ -1412,8 +1412,8 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 // Saves the current CPU context
 void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled)
 {
-	memcpy(ctx->r, currentMIPS->r, sizeof(ctx->r));
-	memcpy(ctx->f, currentMIPS->f, sizeof(ctx->f));
+	// r and f are immediately next to each other and must be.
+	memcpy(ctx->r, currentMIPS->r, sizeof(ctx->r) + sizeof(ctx->f));
 
 	if (vfpuEnabled)
 	{
@@ -1421,19 +1421,14 @@ void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled)
 		memcpy(ctx->vfpuCtrl, currentMIPS->vfpuCtrl, sizeof(ctx->vfpuCtrl));
 	}
 
-	ctx->pc = currentMIPS->pc;
-	ctx->hi = currentMIPS->hi;
-	ctx->lo = currentMIPS->lo;
-	ctx->fcr0 = currentMIPS->fcr0;
-	ctx->fcr31 = currentMIPS->fcr31;
-	ctx->fpcond = currentMIPS->fpcond;
+	memcpy(ctx->other, currentMIPS->other, sizeof(ctx->other));
 }
 
 // Loads a CPU context
 void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled)
 {
-	memcpy(currentMIPS->r, ctx->r, sizeof(ctx->r));
-	memcpy(currentMIPS->f, ctx->f, sizeof(ctx->f));
+	// r and f are immediately next to each other and must be.
+	memcpy(currentMIPS->r, ctx->r, sizeof(ctx->r) + sizeof(ctx->f));
 
 	if (vfpuEnabled)
 	{
@@ -1441,12 +1436,7 @@ void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled)
 		memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
 	}
 
-	currentMIPS->pc = ctx->pc;
-	currentMIPS->hi = ctx->hi;
-	currentMIPS->lo = ctx->lo;
-	currentMIPS->fcr0 = ctx->fcr0;
-	currentMIPS->fcr31 = ctx->fcr31;
-	currentMIPS->fpcond = ctx->fpcond;
+	memcpy(currentMIPS->other, ctx->other, sizeof(ctx->other));
 
 	// Reset the llBit, the other thread may have touched memory.
 	currentMIPS->llBit = 0;
