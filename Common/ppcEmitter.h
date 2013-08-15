@@ -227,7 +227,8 @@ public:
 	void ADDIS	(PPCReg Rd, PPCReg Ra, short imm);
 	void ADDC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 	void SUB	(PPCReg Rd, PPCReg Ra, PPCReg Rb) {
-		SUBF(Rd, Ra, Rb);
+		// reverse ?
+		SUBF(Rd, Rb, Ra);
 	}
 	void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags = 0);
 	void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
