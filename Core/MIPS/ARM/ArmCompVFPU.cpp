@@ -1306,9 +1306,6 @@ namespace MIPSComp
 	void Jit::Comp_Vcmp(u32 op) {
 		CONDITIONAL_DISABLE;
 
-		// Temporary to test what it breaks, it mostly works.
-		DISABLE;
-
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
 
@@ -1330,6 +1327,10 @@ namespace MIPSComp
 		case VC_NI: // c = !my_isinf(s[i]); break;
 		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 			DISABLE;
+		case VC_EZ:
+		case VC_NZ:
+			MOVI2F(S0, 0.0f, R0);
+			break;
 		default:
 			;
 		}
@@ -1382,18 +1383,18 @@ namespace MIPSComp
 			case VC_GT: // c = s[i] > t[i]
 				fpr.MapInInV(sregs[i], tregs[i]);
 				VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
-				flag = CC_GE;
+				flag = CC_GT;
 				break;
 
 			case VC_EZ: // c = s[i] == 0.0f || s[i] == -0.0f
 				fpr.MapRegV(sregs[i]);
-				VCMP(fpr.V(sregs[i]));
+				VCMP(fpr.V(sregs[i]), S0);
 				flag = CC_EQ;
 				break;
 
 			case VC_NZ: // c = s[i] != 0
 				fpr.MapRegV(sregs[i]);
-				VCMP(fpr.V(sregs[i]));
+				VCMP(fpr.V(sregs[i]), S0);
 				flag = CC_NEQ;
 				break;
 
