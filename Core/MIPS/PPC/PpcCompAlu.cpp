@@ -131,13 +131,10 @@ void Jit::Comp_RType3(u32 op) {
 			CompType3(rd, rs, rt, &PPCXEmitter::ADD, &EvalAdd);
 		}
 		break;
-		// Crash 
-		/*
 	case 34: //R(rd) = R(rs) - R(rt);           break; //sub
 	case 35: //R(rd) = R(rs) - R(rt);           break; //subu
 		CompType3(rd, rs, rt, &PPCXEmitter::SUB, &EvalSub, true);
 		break;
-		*/
 	case 36: //R(rd) = R(rs) & R(rt);           break; //and
 		CompType3(rd, rs, rt, &PPCXEmitter::AND, &EvalAnd);
 		break;
