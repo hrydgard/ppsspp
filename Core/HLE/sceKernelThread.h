@@ -109,19 +109,27 @@ void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFun
 struct ThreadContext
 {
 	void reset();
+
+	// r must be followed by f.
 	u32 r[32];
 	float f[32];
+
 	float v[128];
 	u32 vfpuCtrl[16];
 
-	u32 pc;
+	union {
+		struct {
+			u32 pc;
 
-	u32 hi;
-	u32 lo;
+			u32 hi;
+			u32 lo;
 
-	u32 fcr0;
-	u32 fcr31;
-	u32 fpcond;
+			u32 fcr0;
+			u32 fcr31;
+			u32 fpcond;
+		};
+		u32 other[6];
+	};
 };
 
 // Internal API, used by implementations of kernel functions
