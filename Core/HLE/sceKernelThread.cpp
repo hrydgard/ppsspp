@@ -1319,6 +1319,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 	}
 
 	hleEatCycles(1220);
+	hleReSchedule("refer thread status");
 	return 0;
 }
 
