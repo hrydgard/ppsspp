@@ -17,16 +17,17 @@
 
 #include "Core/Reporting.h"
 
-#include "../../HLE/HLE.h"
-#include "../../Host.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/Host.h"
 
-#include "../MIPS.h"
-#include "../MIPSCodeUtils.h"
-#include "../MIPSAnalyst.h"
-#include "../MIPSTables.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSTables.h"
 
-#include "Jit.h"
-#include "RegCache.h"
+#include "Core/MIPS/x86/Jit.h"
+#include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
 #define _RS ((op>>21) & 0x1F)
@@ -513,7 +514,11 @@ void Jit::Comp_Syscall(u32 op)
 	WriteDowncount(offset);
 	js.downcountAmount = -offset;
 
-	ABI_CallFunctionC((void *)&CallSyscall, op);
+	// Skip the CallSyscall overhead for __KernelIdle, which is called a lot.
+	if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+		ABI_CallFunction((void *)GetFunc("FakeSysCalls", NID_IDLE)->func);
+	else
+		ABI_CallFunctionC((void *)&CallSyscall, op);
 
 	WriteSyscallExit();
 	js.compiling = false;

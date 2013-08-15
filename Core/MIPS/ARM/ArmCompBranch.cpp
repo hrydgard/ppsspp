@@ -18,6 +18,7 @@
 #include "Core/Reporting.h"
 
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -421,9 +422,15 @@ void Jit::Comp_Syscall(u32 op)
 	WriteDownCount(offset);
 	js.downcountAmount = -offset;
 
-	MOVI2R(R0, op);
 	SaveDowncount();
-	QuickCallFunction(R1, (void *)&CallSyscall);
+	// Skip the CallSyscall overhead for __KernelIdle, which is called a lot.
+	if (op == GetSyscallOp("FakeSysCalls", NID_IDLE))
+		QuickCallFunction(R1, (void *)GetFunc("FakeSysCalls", NID_IDLE)->func);
+	else
+	{
+		MOVI2R(R0, op);
+		QuickCallFunction(R1, (void *)&CallSyscall);
+	}
 	RestoreDowncount();
 
 	WriteSyscallExit();
