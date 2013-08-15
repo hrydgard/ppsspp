@@ -1356,9 +1356,6 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 
 int sceKernelGetThreadExitStatus(SceUID threadID)
 {
-	if (threadID == 0)
-		threadID = __KernelGetCurThread();
-
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
@@ -1370,6 +1367,7 @@ int sceKernelGetThreadExitStatus(SceUID threadID)
 		}
 		else
 		{
+			DEBUG_LOG(HLE,"sceKernelGetThreadExitStatus(%i): not dormant", threadID);
 			return SCE_KERNEL_ERROR_NOT_DORMANT;
 		}
 	}
