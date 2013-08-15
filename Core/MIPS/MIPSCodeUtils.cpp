@@ -132,4 +132,8 @@ namespace MIPSCodeUtils
 		else
 			return INVALIDTARGET;
 	}
+
+	bool IsVFPUBranch(u32 op) {
+		return (MIPSGetInfo(op) & (IS_VFPU | IS_CONDBRANCH)) == (IS_VFPU | IS_CONDBRANCH);
+	}
 }

@@ -273,8 +273,12 @@ void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::ReadUnchecked_U32(js.compilerPC + 4);
-
-	bool delaySlotIsNice = IsDelaySlotNiceVFPU(op, delaySlotOp);
+	
+	// Sometimes there's a VFPU branch in a delay slot (Disgaea 2: Dark Hero Days, Zettai Hero Project, La Pucelle)
+	// The behavior is undefined - the CPU may take the second branch even if the first one passes.
+	// However, it does consistently try each branch, which these games seem to expect.
+	bool delaySlotIsBranch = MIPSCodeUtils::IsVFPUBranch(delaySlotOp);
+	bool delaySlotIsNice = !delaySlotIsBranch && IsDelaySlotNiceVFPU(op, delaySlotOp);
 	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
@@ -291,14 +295,15 @@ void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 	js.inDelaySlot = true;
 	if (!likely)
 	{
-		if (!delaySlotIsNice)
+		if (!delaySlotIsNice && !delaySlotIsBranch)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = B_CC(cc);
 	}
 	else
 	{
 		ptr = B_CC(cc);
-		CompileDelaySlot(DELAYSLOT_FLUSH);
+		if (!delaySlotIsBranch)
+			CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 	js.inDelaySlot = false;
 
@@ -307,7 +312,8 @@ void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 
 	SetJumpTarget(ptr);
 	// Not taken
-	WriteExit(js.compilerPC + 8, 1);
+	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
+	WriteExit(notTakenTarget, 1);
 	js.compiling = false;
 }
 
