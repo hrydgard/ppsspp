@@ -107,7 +107,7 @@ public:
 	void Reset();
 	void DoState(PointerWrap &p);
 
-	// MUST start with r!
+	// MUST start with r and be followed by f!
 	u32 r[32];
 	union {
 		float f[32];
@@ -122,16 +122,22 @@ public:
 	// If vfpuCtrl (prefixes) get mysterious values, check the VFPU regcache code.
 	u32 vfpuCtrl[16];
 
-	u32 pc;
+	union {
+		struct {
+			u32 pc;
+
+			u32 hi;
+			u32 lo;
+
+			u32 fcr0;
+			u32 fcr31; //fpu control register
+			u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
+		};
+		u32 other[6];
+	};
+
 	u32 nextPC;
 	int downcount;  // This really doesn't belong here, it belongs in CoreTiming. But you gotta do what you gotta do, this needs to be reachable in the ARM JIT.
-
-	u32 hi;
-	u32 lo;
-
-	u32 fcr0;
-	u32 fcr31; //fpu control register
-	u32 fpcond;  // cache the cond flag of fcr31  (& 1 << 23)
 
 	bool inDelaySlot;
 	int llBit;  // ll/sc
