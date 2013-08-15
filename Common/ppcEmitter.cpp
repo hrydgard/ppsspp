@@ -9,12 +9,12 @@ namespace PpcGen {
 		Write32(instr);
 	}
 
-	void PPCXEmitter::ADDI	(PPCReg Rd, PPCReg Ra, unsigned short imm) {
+	void PPCXEmitter::ADDI	(PPCReg Rd, PPCReg Ra, short imm) {
 		u32 instr = (0x38000000  | (Rd << 21) | (Ra << 16) | ((imm) & 0xffff));
 		Write32(instr);
 	}
 
-	void PPCXEmitter::ADDIS	(PPCReg Rd, PPCReg Ra, unsigned short imm) {
+	void PPCXEmitter::ADDIS	(PPCReg Rd, PPCReg Ra, short imm) {
 		u32 instr = (0x3C000000  | (Rd << 21) | (Ra << 16) | ((imm) & 0xffff));
 		Write32(instr);
 	}
@@ -49,6 +49,11 @@ namespace PpcGen {
         u32 instr = (0x88000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
+	
+	void PPCXEmitter::LBZX	(PPCReg dest, PPCReg a, PPCReg b) {
+        u32 instr = ((31<<26) | (dest << 21) | (a << 16) | (b << 11) | (87<<1));
+		Write32(instr);
+	}
 
 	void PPCXEmitter::LHZ	(PPCReg dest, PPCReg src, int offset) {
         u32 instr = (0xA0000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
@@ -72,6 +77,11 @@ namespace PpcGen {
 
 	void PPCXEmitter::STB	(PPCReg dest, PPCReg src, int offset) {
         u32 instr = (0x98000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		Write32(instr);
+	}
+
+	void PPCXEmitter::STBX	(PPCReg dest, PPCReg a, PPCReg b) {
+        u32 instr = ((31<<26) | (dest << 21) | (a << 16) | (b << 11) | (215 << 1));
 		Write32(instr);
 	}
 
@@ -400,7 +410,6 @@ namespace PpcGen {
 		// Branch
 		BCTRL();
 	}
-
 	
 	// sign
 	void PPCXEmitter::EXTSB	(PPCReg dest, PPCReg src) {
@@ -413,6 +422,48 @@ namespace PpcGen {
 
 	void PPCXEmitter::RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end) {
 		Write32((21<<26) | (src << 21) | (dest << 16) | (shift << 11) | (start << 6) | (end << 1));
+	}
+
+	// Prologue / epilogue
+
+	void PPCXEmitter::Prologue() {
+		// Save regs
+		u32 regSize = 8; // 4 in 32bit system
+		u32 stackFrameSize = 32*32;//(35 - 12) * regSize;
+
+		// Write Prologue (setup stack frame etc ...)
+		// Save Lr
+		MFLR(R12);
+
+		for(int i = 14; i < 32; i ++) {
+			STD((PPCReg)i, R1, -((33 - i) * regSize));
+		}
+
+		// Save r12
+		STW(R12, R1, -0x8);
+
+		// allocate stack
+		STWU(R1, R1, -stackFrameSize);
+	}
+
+	void PPCXEmitter::Epilogue() {		
+		u32 regSize = 8; // 4 in 32bit system
+		u32 stackFrameSize = 32*32;//(35 - 12) * regSize;
+
+		// Write Epilogue (restore stack frame, return)
+		// free stack
+		ADDI(R1, R1, stackFrameSize);	
+
+		// Restore regs
+		for(int i = 14; i < 32; i ++) {
+			LD((PPCReg)i, R1, -((33 - i) * regSize));
+		}
+
+		// recover r12 (LR saved register)
+		LWZ (R12, R1, -0x8);
+
+		// Restore Lr
+		MTLR(R12);
 	}
 
 	// Others ...

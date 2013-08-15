@@ -223,8 +223,8 @@ public:
 
 	// Arithmetics ops
 	void ADD	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
-	void ADDI	(PPCReg Rd, PPCReg Ra, unsigned short imm);
-	void ADDIS	(PPCReg Rd, PPCReg Ra, unsigned short imm);
+	void ADDI	(PPCReg Rd, PPCReg Ra, short imm);
+	void ADDIS	(PPCReg Rd, PPCReg Ra, short imm);
 	void ADDC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 	void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags = 0);
 	void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
@@ -246,6 +246,8 @@ public:
 
 	// 8bit
 	void LBZ	(PPCReg dest, PPCReg src, int offset = 0);
+	void LBZX	(PPCReg dest, PPCReg a, PPCReg b);
+
 	// 16bit
 	void LHZ	(PPCReg dest, PPCReg src, int offset = 0);
 	void LHBRX	(PPCReg dest, PPCReg src, PPCReg offset);
@@ -257,6 +259,7 @@ public:
 
 	// 8 bit
 	void STB	(PPCReg dest, PPCReg src, int offset = 0);
+	void STBX	(PPCReg dest, PPCReg a, PPCReg b);
 	// 16 bit
 	void STH	(PPCReg dest, PPCReg src, int offset = 0);
 	void STHBRX (PPCReg dest, PPCReg src, PPCReg offset);
@@ -278,6 +281,9 @@ public:
 	void CMPI	(PPCReg dest, unsigned short imm);
 	void CMPL	(PPCReg a, PPCReg b);
 	void CMP	(PPCReg a, PPCReg b);
+
+	void Prologue();
+	void Epilogue();
 
 	// Debug !
 	void Break() {
