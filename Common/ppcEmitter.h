@@ -226,6 +226,9 @@ public:
 	void ADDI	(PPCReg Rd, PPCReg Ra, short imm);
 	void ADDIS	(PPCReg Rd, PPCReg Ra, short imm);
 	void ADDC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
+	void SUB	(PPCReg Rd, PPCReg Ra, PPCReg Rb) {
+		SUBF(Rd, Ra, Rb);
+	}
 	void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags = 0);
 	void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 
