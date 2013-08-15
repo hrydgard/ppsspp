@@ -23,8 +23,8 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-#define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-//#define CONDITIONAL_DISABLE ;
+//#define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+#define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
 
 using namespace PpcGen;
@@ -33,48 +33,14 @@ namespace MIPSComp
 {
 
 void Jit::SetRegToEffectiveAddress(PpcGen::PPCReg r, int rs, s16 offset) {
-	if (offset == 0xa24) {
-		printf("Rs : %02x\n", rs);
-		Break();
-	}
-	/*
 	if (offset) {
-		bool negated;
-		if (TryMakeOperand2_AllowNegation(offset, op2, &negated)) {
-			if (!negated)
-				ADD(R0, gpr.R(rs), op2);
-			else
-				SUB(R0, gpr.R(rs), op2);
-		} else {
-			// Try to avoid using MOVT
-			if (offset < 0) {
-				MOVI2R(R0, (u32)(-offset));
-				SUB(R0, gpr.R(rs), R0);
-			} else {
-				MOVI2R(R0, (u32)offset);
-				ADD(R0, gpr.R(rs), R0);
-			}
-		}
-		BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
-	} else {
-		BIC(R0, gpr.R(rs), Operand2(0xC0, 4));   // &= 0x3FFFFFFF
-	}
-	*/
-	if (offset) {
-		// optimize ...
-		
-		//MOVI2R(SREG, (u32)offset);
-		//ADD(SREG, gpr.R(rs), SREG);
 		ADDI(SREG, gpr.R(rs), offset);
-		
-		//Break();
 		RLWINM(SREG, SREG, 0, 2, 31); // &= 0x3FFFFFFF
 	} else {
 		RLWINM(SREG, gpr.R(rs), 0, 2, 31); // &= 0x3FFFFFFF
 	}
 		
 }
-
 void Jit::Comp_ITypeMem(u32 op) {
 	CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -101,6 +67,7 @@ void Jit::Comp_ITypeMem(u32 op) {
 		case 40: //sb
 		case 41: //sh
 		case 43: //sw
+
 			if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
 				// We can compute the full address at compile time. Kickass.
 				u32 addr = iaddr & 0x3FFFFFFF;
@@ -112,17 +79,13 @@ void Jit::Comp_ITypeMem(u32 op) {
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 				
 				SetRegToEffectiveAddress(SREG, rs, offset);
-				//DISABLE;
 			}
 			switch (o)
 			{
 			// Load
 			case 32:  //lb
-				Break();
-
-				LBZ(gpr.R(rt), BASEREG, SREG); 
+				LBZX(gpr.R(rt), BASEREG, SREG); 
 				EXTSB(gpr.R(rt), gpr.R(rt));
-				
 				break;
 			case 33:  //lh
 				LHBRX(gpr.R(rt), BASEREG, SREG); 
@@ -132,34 +95,23 @@ void Jit::Comp_ITypeMem(u32 op) {
 				LWBRX(gpr.R(rt), BASEREG, SREG); 
 				break;
 			case 36: //lbu
-				LBZ (gpr.R(rt), BASEREG, SREG); 
+				LBZX (gpr.R(rt), BASEREG, SREG); 
 				break;
 			case 37: //lhu
 				LHBRX (gpr.R(rt), BASEREG, SREG); 
 				break;
 			// Store
 			case 40:  //sb
-				Break();
-				STB (gpr.R(rt), BASEREG, SREG); 
+				STBX (gpr.R(rt), BASEREG, SREG); 
 				break;
 			case 41: //sh
-				STHBRX(gpr.R(rt), BASEREG, SREG); 
+				STHBRX(gpr.R(rt), BASEREG, SREG); 		
 				break;
 			case 43: //sw
 				STWBRX(gpr.R(rt), BASEREG, SREG); 
 				break;
 			}
-			/*
-			if (doCheck) {
-				if (load) {
-					SetCC(CC_EQ);
-					MOVI2R(gpr.R(rt), 0);
-				}
-				SetCC(CC_AL);
-			}
-			*/
 			break;
-			/*
 		case 34: //lwl
 		case 38: //lwr
 			load = true;
@@ -182,11 +134,9 @@ void Jit::Comp_ITypeMem(u32 op) {
 
 			DISABLE; // Disabled until crashes are resolved.
 			break;
-			*/
 		default:
 			Comp_Generic(op);
 			return ;
 		}
-
 	}
 }

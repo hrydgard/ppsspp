@@ -117,6 +117,8 @@ void Jit::WriteDownCount(int offset)
 }
 
 void Jit::Comp_Generic(u32 op) {
+	FlushAll();
+
 	// basic jit !!
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func)

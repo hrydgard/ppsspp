@@ -121,23 +121,7 @@ void Jit::GenerateFixedCode() {
 	INFO_LOG(HLE, "enterCode: 0x%08p", enterCode);	
 	INFO_LOG(HLE, "GetBasePtr: 0x%08p", GetBasePtr());
 
-	// Write Prologue (setup stack frame etc ...)
-	// Save Lr
-	MFLR(R12);
-
-	// Save regs
-	u32 regSize = 8; // 4 in 32bit system
-	u32 stackFrameSize = 32*32;//(35 - 12) * regSize;
-
-	for(int i = 14; i < 32; i ++) {
-		STD((PPCReg)i, R1, -((33 - i) * regSize));
-	}
-
-	// Save r12
-	STW(R12, R1, -0x8);
-
-	// allocate stack
-	STWU(R1, R1, -stackFrameSize);
+	Prologue();
 	
 	// Map fixed register
 	MOVI2R(BASEREG,	(u32)Memory::base);
@@ -289,20 +273,7 @@ void Jit::GenerateFixedCode() {
 	// mips->downcount = DCNTREG
 	SaveDowncount(DCNTREG);
 
-	// Write Epilogue (restore stack frame, return)
-	// free stack
-	ADDI(R1, R1, stackFrameSize);	
-
-	// Restore regs
-	for(int i = 14; i < 32; i ++) {
-		LD((PPCReg)i, R1, -((33 - i) * regSize));
-	}
-
-	// recover r12 (LR saved register)
-	LWZ (R12, R1, -0x8);
-
-	// Restore Lr
-	MTLR(R12);
+	Epilogue();
 
 	// Go back to caller
 	BLR();
