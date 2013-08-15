@@ -155,8 +155,10 @@ void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	adaptor_.SetSelected(e.a);
-	callback_(adaptor_.GetSelected());	
+	if (callback_)
+		callback_(adaptor_.GetSelected());	
 	screenManager()->finishDialog(this, DR_OK);
+	OnCompleted();
 	OnChoice.Dispatch(e);
 	return UI::EVENT_DONE;
 }
