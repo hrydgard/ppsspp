@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 
 #include "Core/MemMap.h"
@@ -313,8 +314,31 @@ bool GLES_GPU::FramebufferDirty() {
 	}
 
 	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
-	if (vfb)
-		return vfb->dirtyAfterDisplay;
+	if (vfb) {
+		bool dirty = vfb->dirtyAfterDisplay;
+		vfb->dirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
+}
+
+bool GLES_GPU::FramebufferReallyDirty() {
+	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+	if (g_Config.bSeparateCPUThread) {
+		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
+		// Allow it to process fully before deciding if it's dirty.
+		SyncThread();
+	}
+
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
+	if (vfb) {
+		bool dirty = vfb->reallyDirtyAfterDisplay;
+		vfb->reallyDirtyAfterDisplay = false;
+		return dirty;
+	} else {
+		ILOG("reallydirty: No display FBO");
+	}
 	return true;
 }
 
@@ -354,7 +378,11 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 		u32 cmd = op >> 24;
 
 		u32 diff = op ^ gstate.cmdmem[cmd];
-		CheckFlushOp(cmd, diff);
+		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
+		u8 flushCmd = flushBeforeCommand_[cmd];
+		if (flushCmd == 1 || (diff && flushCmd == 2)) {
+			transformDraw_.Flush();
+		}		
 		gstate.cmdmem[cmd] = op;
 		ExecuteOp(op, diff);
 

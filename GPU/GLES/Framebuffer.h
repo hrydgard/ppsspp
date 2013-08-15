@@ -87,6 +87,7 @@ struct VirtualFramebuffer {
 	FBO *fbo;
 
 	bool dirtyAfterDisplay;
+	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
 };
 
 void CenterRect(float *x, float *y, float *w, float *h,

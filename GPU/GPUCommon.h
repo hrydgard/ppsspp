@@ -39,6 +39,10 @@ public:
 		SyncThread();
 		return true;
 	}
+	virtual bool FramebufferReallyDirty() {
+		SyncThread();
+		return true;
+	}
 	virtual u32  Continue();
 	virtual u32  Break(int mode);
 	virtual void ReapplyGfxState();

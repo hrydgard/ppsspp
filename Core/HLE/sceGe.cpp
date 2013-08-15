@@ -132,7 +132,7 @@ public:
 				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
 				//	ERROR_LOG(HLE, "Weird DL status after signal suspend %x", dl->status);
 				if (newState != PSP_GE_DL_STATE_RUNNING)
-					WARN_LOG_REPORT(HLE, "GE Interrupt: newState might be %d", newState);
+					INFO_LOG_REPORT(HLE, "GE Interrupt: newState might be %d", newState);
 
 				dl->state = PSP_GE_DL_STATE_RUNNING;
 			}

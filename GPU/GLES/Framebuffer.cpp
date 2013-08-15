@@ -451,6 +451,9 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
 		currentRenderVfb_->last_frame_used = gpuStats.numFlips;
+		currentRenderVfb_->dirtyAfterDisplay = true;
+		if (!gstate_c.skipDrawReason)
+			currentRenderVfb_->reallyDirtyAfterDisplay = true;
 		return;
 	}
 	gstate_c.framebufChanged = false;
@@ -515,6 +518,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->format = fmt;
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		vfb->dirtyAfterDisplay = true;
+		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+			vfb->reallyDirtyAfterDisplay = true;
 		vfb->memoryUpdated = false; 
 
 		if (g_Config.bTrueColor) {
@@ -584,6 +589,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		vfb->last_frame_used = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
+		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+			vfb->reallyDirtyAfterDisplay = true;
 		vfb->memoryUpdated = false;
 
 		if (useBufferedRendering_) {
@@ -631,6 +638,9 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	} else {
 		vfb->last_frame_used = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
+		vfb->dirtyAfterDisplay = true;
+		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
+			vfb->reallyDirtyAfterDisplay = true;
 	}
 
 	// ugly...
@@ -663,6 +673,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
 	vfb->dirtyAfterDisplay = false;
+	vfb->reallyDirtyAfterDisplay = false;
 
 	if (prevDisplayFramebuf_ != displayFramebuf_) {
 		prevPrevDisplayFramebuf_ = prevDisplayFramebuf_;
@@ -672,6 +683,10 @@ void FramebufferManager::CopyDisplayToOutput() {
 	}
 	displayFramebuf_ = vfb;
 
+	if (resized_) {
+		ClearBuffer();
+	}
+
 	if (vfb->fbo) {
 		glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
@@ -679,15 +694,11 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 		fbo_bind_color_as_texture(vfb->fbo, 0);
 	
-	// These are in the output display coordinates
+		// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 		DrawActiveTexture(x, y, w, h, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		glBindTexture(GL_TEXTURE_2D, 0);
-	}
-
-	if (resized_) {
-		ClearBuffer();
 	}
 }
 

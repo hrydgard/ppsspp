@@ -57,6 +57,7 @@ public:
 		return textureCache_.DecodeTexture(dest, state);
 	}
 	virtual bool FramebufferDirty();
+	virtual bool FramebufferReallyDirty();
 
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
 		primaryInfo = reportingPrimaryInfo_;

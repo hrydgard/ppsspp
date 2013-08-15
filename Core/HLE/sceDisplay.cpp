@@ -21,6 +21,7 @@
 // TODO: Move the relevant parts into common. Don't want the core
 // to be dependent on "native", I think. Or maybe should get rid of common
 // and move everything into native...
+#include "base/logging.h"
 #include "base/timeutil.h"
 
 #include "Common/Thread.h"
@@ -321,7 +322,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	if (!throttle) {
 		doFrameSkip = true;
 		skipFrame = true;
-		if (numSkippedFrames >= 6) {
+		if (numSkippedFrames >= 7) {
 			skipFrame = false;
 		}
 		return;	
@@ -337,13 +338,21 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	if (nextFrameTime == 0.0)
 		nextFrameTime = time_now_d() + timestep;
 	
-	if (curFrameTime > nextFrameTime && doFrameSkip) {
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
-		skipFrame = true;
-		// INFO_LOG(HLE,"FRAMESKIP %i", numSkippedFrames);
+
+	if (g_Config.iFrameSkip == 1) {
+		// 1 == autoframeskip
+		if (curFrameTime > nextFrameTime && doFrameSkip) {
+			skipFrame = true;
+		}
+	}	else if (g_Config.iFrameSkip > 1)	{
+		// Other values = fixed frameskip
+		if (numSkippedFrames >= g_Config.iFrameSkip - 1)
+			skipFrame = false;
+		else
+			skipFrame = true;
 	}
 
-	
 	if (curFrameTime < nextFrameTime && throttle)
 	{
 		// If time gap is huge just jump (somebody unthrottled)
@@ -370,12 +379,6 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
 	} else {
 		nextFrameTime = nextFrameTime + timestep;
-	}
-
-	// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
-	// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.
-	if (numSkippedFrames >= g_Config.iFrameSkip) {
-		skipFrame = false;
 	}
 }
 
@@ -404,6 +407,15 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount + 1);
 
+	gpuStats.numVBlanks++;
+
+	numVBlanksSinceFlip++;
+
+	if (g_Config.iShowFPSCounter) {
+		CalculateFPS();
+	}
+
+
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
@@ -413,41 +425,38 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 		}
 	}
-
-	gpuStats.numVBlanks++;
-
-	numVBlanksSinceFlip++;
-
-	if (g_Config.iShowFPSCounter) {
-		CalculateFPS();
-	}
-
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
 	if (gpu->FramebufferDirty()) {
-		gpuStats.numFlips++;
+		// Setting CORE_NEXTFRAME causes a swap.
+		// Check first though, might've just quit / been paused.
+		if (gpu->FramebufferReallyDirty()) {
+			if (coreState == CORE_RUNNING) {
+				coreState = CORE_NEXTFRAME;
+				gpu->CopyDisplayToOutput();
+			}
+		}
 
-		bool wasSkipped = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0;
-		gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
+		gpuStats.numFlips++;
 
 		bool throttle, skipFrame;
 		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * (1.0f / 60.0f));
+
+		// Max 4 skipped frames in a row - 15 fps is really the bare minimum for playability.
+		// We check for 3 here so it's 3 skipped frames, 1 non skipped, 3 skipped, etc.
+		int maxFrameskip = throttle ? g_Config.iFrameSkip : 8;
+		if (numSkippedFrames >= maxFrameskip) {
+			skipFrame = false;
+		}
 
 		if (skipFrame) {
 			gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
 			numSkippedFrames++;
 		} else {
+			// bool wasSkipped = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0;
+			gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 			numSkippedFrames = 0;
-		}
-
-		// Setting CORE_NEXTFRAME causes a swap.
-		// Check first though, might've just quit / been paused.
-		if (!wasSkipped) {
-			if (coreState == CORE_RUNNING) {
-				coreState = CORE_NEXTFRAME;
-				gpu->CopyDisplayToOutput();
-			}
 		}
 
 		// Returning here with coreState == CORE_NEXTFRAME causes a buffer flip to happen (next frame).
@@ -456,6 +465,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
 	}
+
 }
 
 void hleAfterFlip(u64 userdata, int cyclesLate)
