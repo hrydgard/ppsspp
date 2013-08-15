@@ -282,6 +282,8 @@ void Jit::BranchVFPUFlag(u32 op, ArmGen::CCFlags cc, bool likely)
 	CONDITIONAL_NICE_DELAYSLOT;
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
+	if (delaySlotIsBranch && (delaySlotOp & 0xFFFF) != offset - 1)
+		ERROR_LOG_REPORT(JIT, "VFPU branch in VFPU delay slot at %08x with different target", js.compilerPC);
 
 	FlushAll();
 
