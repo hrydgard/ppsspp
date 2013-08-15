@@ -22,8 +22,6 @@ void UIScreen::update(InputState &input) {
 
 	if (root_) {
 		UpdateViewHierarchy(input, root_);
-	} else {
-		ELOG("Tried to update without a view root");
 	}
 }
 
@@ -38,25 +36,18 @@ void UIScreen::render() {
 		root_->Draw(*screenManager()->getUIContext());
 		screenManager()->getUIContext()->End();
 		screenManager()->getUIContext()->Flush();
-	} else {
-		// This isn't really an error if you customize the view a bit.
-		// ELOG("Tried to render without a view root");
 	}
 }
 
 void UIScreen::touch(const TouchInput &touch) {
 	if (root_) {
 		UI::TouchEvent(touch, root_);
-	} else {
-		ELOG("Tried to touch without a view root");
 	}
 }
 
 void UIScreen::key(const KeyInput &key) {
 	if (root_) {
 		UI::KeyEvent(key, root_);
-	} else {
-		ELOG("Tried to key without a view root");
 	}
 }
 
