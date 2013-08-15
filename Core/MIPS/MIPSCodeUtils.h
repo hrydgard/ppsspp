@@ -57,5 +57,5 @@ namespace MIPSCodeUtils
 	u32 GetBranchTargetNoRA(u32 addr);
 	u32 GetJumpTarget(u32 addr);
 	u32 GetSureBranchTarget(u32 addr);
-	void RewriteSysCalls(u32 startAddr, u32 endAddr);
+	bool IsVFPUBranch(u32 op);
 }
