@@ -215,13 +215,17 @@ namespace MIPSComp
 		void Comp_Vfim(u32 op);
 
 
-			// Utility compilation functions
+		// Utility compilation functions
 		void BranchFPFlag(u32 op, PpcGen::FixupBranchType cc, bool likely);
 		void BranchVFPUFlag(u32 op, PpcGen::FixupBranchType cc, bool likely);
 		void BranchRSZeroComp(u32 op, PpcGen::FixupBranchType cc, bool andLink, bool likely);
 		void BranchRSRTComp(u32 op, PpcGen::FixupBranchType cc, bool likely);
 
 		void SetRegToEffectiveAddress(PpcGen::PPCReg r, int rs, s16 offset);
+		
+		// Utilities to reduce duplicated code
+		void CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b));
+		void CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arithOp2)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b), bool isSub = false);
 		
 		// flush regs
 		void FlushAll();

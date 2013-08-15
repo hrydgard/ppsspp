@@ -78,8 +78,34 @@ void Jit::Comp_RType2(u32 op) {
 	Comp_Generic(op);
 }
 
+// Utilities to reduce duplicated code
+void Jit::CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b)) {
+	DebugBreak();
+}
+void Jit::CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b), bool isSub) {
+	if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+		gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
+	} else if (gpr.IsImm(rt)) {
+		u32 rtImm = gpr.GetImm(rt);
+		gpr.MapDirtyIn(rd, rs);
+
+		MOVI2R(SREG, rtImm);
+		(this->*arith)(gpr.R(rd), gpr.R(rs), SREG);
+	} else if (gpr.IsImm(rs)) {
+		u32 rsImm = gpr.GetImm(rs);
+		gpr.MapDirtyIn(rd, rt);
+		// TODO: Special case when rsImm can be represented as an Operand2
+		MOVI2R(SREG, rsImm);
+		(this->*arith)(gpr.R(rd), SREG, gpr.R(rt));
+	} else {
+		// Generic solution
+		gpr.MapDirtyInIn(rd, rs, rt);
+		(this->*arith)(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+	}
+}
+
 void Jit::Comp_RType3(u32 op) {
-#if 0
+#if 1
 	CONDITIONAL_DISABLE;
 	int rt = _RT;
 	int rs = _RS;
@@ -102,8 +128,24 @@ void Jit::Comp_RType3(u32 op) {
 			gpr.MapDirtyIn(rd, rs);
 			MR(gpr.R(rd), gpr.R(rs));
 		} else {
-			CompType3(rd, rs, rt, &ARMXEmitter::ADD, &EvalAdd);
+			CompType3(rd, rs, rt, &PPCXEmitter::ADD, &EvalAdd);
 		}
+		break;
+		// Crash 
+		/*
+	case 34: //R(rd) = R(rs) - R(rt);           break; //sub
+	case 35: //R(rd) = R(rs) - R(rt);           break; //subu
+		CompType3(rd, rs, rt, &PPCXEmitter::SUB, &EvalSub, true);
+		break;
+		*/
+	case 36: //R(rd) = R(rs) & R(rt);           break; //and
+		CompType3(rd, rs, rt, &PPCXEmitter::AND, &EvalAnd);
+		break;
+	case 37: //R(rd) = R(rs) | R(rt);           break; //or
+		CompType3(rd, rs, rt, &PPCXEmitter::OR, &EvalOr);
+		break;
+	case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
+		CompType3(rd, rs, rt, &PPCXEmitter::XOR, &EvalEor);
 		break;
 	default:
 		Comp_Generic(op);
