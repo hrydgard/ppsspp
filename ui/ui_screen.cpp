@@ -97,7 +97,9 @@ void UIScreen::axis(const AxisInput &axis) {
 	if (released & PAD_BUTTON_UP) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_UP, KEY_UP));
 	if (released & PAD_BUTTON_DOWN) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_DOWN, KEY_UP));
 	hatDown_ = flags;
-	UI::AxisEvent(axis, root_);
+	if (root_) {
+		UI::AxisEvent(axis, root_);
+	}
 }
 
 
@@ -127,11 +129,13 @@ void PopupScreen::CreateViews() {
 
 	CreatePopupContents(box);
 
-	// And the two buttons at the bottom.
-	ViewGroup *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
-	buttonRow->Add(new Button("OK", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
-	buttonRow->Add(new Button("Cancel", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
-	box->Add(buttonRow);
+	if (ShowButtons()) {
+		// And the two buttons at the bottom.
+		ViewGroup *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
+		buttonRow->Add(new Button("OK", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
+		buttonRow->Add(new Button("Cancel", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+		box->Add(buttonRow);
+	}
 }
 
 void PopupScreen::key(const KeyInput &key) {
@@ -160,12 +164,10 @@ void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	adaptor_.SetSelected(e.a);
+	callback_(adaptor_.GetSelected());	
+	screenManager()->finishDialog(this, DR_OK);
 	OnChoice.Dispatch(e);
 	return UI::EVENT_DONE;
-}
-
-void ListPopupScreen::OnCompleted() {
-	callback_(adaptor_.GetSelected());	
 }
 
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {

@@ -49,6 +49,7 @@ public:
 
 protected:
 	virtual bool FillVertical() { return false; }
+	virtual bool ShowButtons() { return true; }
 	virtual void OnCompleted() {}
 
 private:
@@ -69,7 +70,7 @@ public:
 
 protected:
 	virtual bool FillVertical() { return true; }
-	virtual void OnCompleted();
+	virtual bool ShowButtons() { return false; }
 	void CreatePopupContents(UI::ViewGroup *parent);
 	UI::StringVectorListAdaptor adaptor_;
 	UI::ListView *listView_;
