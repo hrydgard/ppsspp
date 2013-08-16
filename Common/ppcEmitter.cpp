@@ -28,7 +28,7 @@ namespace PpcGen {
 		u32 instr = (0x70000000 | (Rd << 21) | (Ra << 16) | ((imm) & 0xffff));
 		Write32(instr);
 	}
-	
+
 	void PPCXEmitter::ANDIS	(PPCReg Rd, PPCReg Ra, unsigned short imm) {
 		u32 instr = (0x74000000 | (Rd << 21) | (Ra << 16) | ((imm) & 0xffff));
 		Write32(instr);
@@ -36,67 +36,67 @@ namespace PpcGen {
 
 	// Memory load/store operations
 	void PPCXEmitter::LI(PPCReg dest, unsigned short imm) {
-        u32 instr = (0x38000000 | (dest << 21) | ((imm) & 0xffff));
+		u32 instr = (0x38000000 | (dest << 21) | ((imm) & 0xffff));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::LIS(PPCReg dest, unsigned short imm) {
-        u32 instr = (0x3C000000 | (dest << 21) | ((imm) & 0xffff));
+		u32 instr = (0x3C000000 | (dest << 21) | ((imm) & 0xffff));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::LBZ	(PPCReg dest, PPCReg src, int offset) {
-        u32 instr = (0x88000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		u32 instr = (0x88000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
-	
+
 	void PPCXEmitter::LBZX	(PPCReg dest, PPCReg a, PPCReg b) {
-        u32 instr = ((31<<26) | (dest << 21) | (a << 16) | (b << 11) | (87<<1));
+		u32 instr = ((31<<26) | (dest << 21) | (a << 16) | (b << 11) | (87<<1));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::LHZ	(PPCReg dest, PPCReg src, int offset) {
-        u32 instr = (0xA0000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		u32 instr = (0xA0000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::LHBRX	(PPCReg dest, PPCReg src, PPCReg offset) {
-        u32 instr = (0x7C00062C | (dest << 21) | (src << 16) | (offset << 11));
+		u32 instr = (0x7C00062C | (dest << 21) | (src << 16) | (offset << 11));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::LWZ	(PPCReg dest, PPCReg src, int offset) {
-        u32 instr = (0x80000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		u32 instr = (0x80000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::LWBRX	(PPCReg dest, PPCReg src, PPCReg offset) {
-        u32 instr = (0x7C00042C | (dest << 21) | (src << 16) | (offset << 11));
+		u32 instr = (0x7C00042C | (dest << 21) | (src << 16) | (offset << 11));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::STB	(PPCReg dest, PPCReg src, int offset) {
-        u32 instr = (0x98000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		u32 instr = (0x98000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::STBX	(PPCReg dest, PPCReg a, PPCReg b) {
-        u32 instr = ((31<<26) | (dest << 21) | (a << 16) | (b << 11) | (215 << 1));
+		u32 instr = ((31<<26) | (dest << 21) | (a << 16) | (b << 11) | (215 << 1));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::STH	(PPCReg dest, PPCReg src, int offset) {
-        u32 instr = (0xB0000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		u32 instr = (0xB0000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::STHBRX (PPCReg dest, PPCReg src, PPCReg offset) {
-        u32 instr = (0x7C00072C | (dest << 21) | (src << 16) | (offset << 11));
+		u32 instr = (0x7C00072C | (dest << 21) | (src << 16) | (offset << 11));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::STW	(PPCReg dest, PPCReg src, int offset) {
-        u32 instr = (0x90000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		u32 instr = (0x90000000 | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}	
 
@@ -106,18 +106,18 @@ namespace PpcGen {
 	}
 
 	void PPCXEmitter::STWBRX (PPCReg dest, PPCReg src, PPCReg offset) {
-        u32 instr = (0x7C00052C | (dest << 21) | (src << 16) | (offset << 11));
+		u32 instr = (0x7C00052C | (dest << 21) | (src << 16) | (offset << 11));
 		Write32(instr);
 	}
-	
+
 	// use lwz ... can't find good opcode :s
 	void PPCXEmitter::LD	(PPCReg dest, PPCReg src, int offset) {
-        u32 instr = ((58 << 26) | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		u32 instr = ((58 << 26) | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
 	// use stw ... can't find good opcode :s
 	void PPCXEmitter::STD	(PPCReg dest, PPCReg src, int offset) {
-        u32 instr = ((62 << 26) | (dest << 21) | (src << 16) | ((offset) & 0xffff));
+		u32 instr = ((62 << 26) | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
 
@@ -139,7 +139,7 @@ namespace PpcGen {
 		u32 instr = (0x48000002 | ((s32)((func) & 0x3fffffc)));
 		Write32(instr);
 	}
-	
+
 	void PPCXEmitter::BLA (const void *fnptr) {
 		s32 func =  (s32)fnptr;
 		u32 instr = (0x48000003 | ((s32)((func) & 0x3fffffc)));
@@ -149,28 +149,28 @@ namespace PpcGen {
 
 #define IS_SMALL_JUMP (((u32)code - (u32)fnptr)>=-32767 && ((u32)code - (u32)fnptr)<=-32767)
 #define CHECK_SMALL_JUMP { if(IS_SMALL_JUMP) { DebugBreak(); } }
-	
+
 	void PPCXEmitter::BEQ (const void *fnptr) {
 		CHECK_SMALL_JUMP
 
-		s32 func =  (s32)fnptr - s32(code);
+			s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41820000 | ( func & 0xfffc));
 		Write32(instr);
 	}
-	
-	
+
+
 	void PPCXEmitter::BGT(const void *fnptr) {
 		CHECK_SMALL_JUMP
 
-		s32 func =  (s32)fnptr - s32(code);
+			s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x41810000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
 	}
 
-	
+
 	void PPCXEmitter::BLTCTR() {
 		Write32((19 << 26) | (12 << 21) | (528 <<1));
-	//	Break();
+		//	Break();
 	}
 
 	void PPCXEmitter::BLT (const void *fnptr) {
@@ -194,7 +194,7 @@ namespace PpcGen {
 	void PPCXEmitter::BLE (const void *fnptr) {		
 		CHECK_SMALL_JUMP
 
-		s32 func =  (s32)fnptr - s32(code);
+			s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x40810000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
 	}
@@ -250,8 +250,8 @@ namespace PpcGen {
 		Write32(0x60000000);
 		return branch;
 	}
-	
-	
+
+
 	FixupBranch PPCXEmitter::BNE() {
 		FixupBranch branch;
 		branch.type = _BNE;
@@ -340,7 +340,7 @@ namespace PpcGen {
 	void PPCXEmitter::CMPLI(PPCReg dest, unsigned short imm) {
 		Write32((10<<26) | (dest << 16) | ((imm) & 0xffff));
 	}
-	
+
 	void PPCXEmitter::CMP(PPCReg a, PPCReg b) {
 		Write32((31 << 26) | (a << 16) | (b << 11));
 	}
@@ -358,12 +358,12 @@ namespace PpcGen {
 		u32 instr = (0x7C000378 | (Ra << 21) | (Rd << 16) | (Rb << 11));
 		Write32(instr);
 	}
-	
+
 	void PPCXEmitter::XOR(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
 		u32 instr = (0x7C000278 | (Ra << 21) | (Rd << 16) | (Rb << 11));
 		Write32(instr);
 	}
-	
+
 	void PPCXEmitter::SUBF(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags) {	
 		u32 instr = (0x7C000050 | (Rd << 21) | (Ra << 16) |  (Rb << 11) | (RCFlags & 1));
 		Write32(instr);
@@ -374,9 +374,9 @@ namespace PpcGen {
 	void PPCXEmitter::MOVI2R(PPCReg dest, unsigned int imm) {
 		/*
 		if (imm == (unsigned short)imm) {
-			// 16bit
-			LI(dest, imm & 0xFFFF);
-			ANDIS(dest, dest, 0);
+		// 16bit
+		LI(dest, imm & 0xFFFF);
+		ANDIS(dest, dest, 0);
 		} else 
 		*/
 		{	
@@ -395,15 +395,15 @@ namespace PpcGen {
 		u32 func_addr = (u32) func;
 		u32 code_addr = (u32) code;
 		if (func_addr - code_addr > 0x1fffffc) {
-			// Load func address
-			MOVI2R(R0, func_addr);
-			// Set it to link register
-			MTCTR(R0);
-			// Branch
-			BCTRL();
+		// Load func address
+		MOVI2R(R0, func_addr);
+		// Set it to link register
+		MTCTR(R0);
+		// Branch
+		BCTRL();
 		} else {
-			// Direct branch
-			BL(func);
+		// Direct branch
+		BL(func);
 		}
 		*/
 		u32 func_addr = (u32) func;
@@ -414,7 +414,7 @@ namespace PpcGen {
 		// Branch
 		BCTRL();
 	}
-	
+
 	// sign
 	void PPCXEmitter::EXTSB	(PPCReg dest, PPCReg src) {
 		Write32((0x7C000774 | (src << 21) | (dest << 16)));
@@ -496,7 +496,7 @@ namespace PpcGen {
 		Write32(0xE1200070); //bkpt 0
 		*/
 		for (u32 i = 0; i < bytes/4; i++)
-		Write32(0x60000000); //nop
+			Write32(0x60000000); //nop
 	}
 
 	const u8 *PPCXEmitter::AlignCode16()
