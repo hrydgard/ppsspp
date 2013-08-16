@@ -659,8 +659,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 				u32_le *varRef = (u32_le *)Memory::GetPointer(varRefsPtr);
 				for (; *varRef != 0; ++varRef) {
-					u8 type = (u8)(u32)((*varRef) >> 26);
-					ImportVarSymbol(modulename, nid, (*varRef & 0x03FFFFFF) << 2, type);
+					ImportVarSymbol(modulename, nid, (*varRef & 0x03FFFFFF) << 2, (u32)(*varRef) >> 26);
 				}
 			}
 		} else if (entry->numVars > 0) {
