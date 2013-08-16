@@ -100,8 +100,8 @@ UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 }
 
 
-PopupScreen::PopupScreen(const std::string &title)
-	: title_(title) {}
+PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
+	: title_(title), button1_(button1), button2_(button2) {}
 
 void PopupScreen::CreateViews() {
 	using namespace UI;
@@ -123,8 +123,16 @@ void PopupScreen::CreateViews() {
 	if (ShowButtons()) {
 		// And the two buttons at the bottom.
 		ViewGroup *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
-		buttonRow->Add(new Button("OK", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
-		buttonRow->Add(new Button("Cancel", new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+
+		// Adjust button order to the platform default.
+#if defined(_WIN32)
+		buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
+		buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+#else
+		buttonRow->Add(new Button(button2_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnCancel);
+		buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
+#endif
+
 		box->Add(buttonRow);
 	}
 }
@@ -135,13 +143,18 @@ void PopupScreen::key(const KeyInput &key) {
 	UIScreen::key(key);
 }
 
+void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	parent->Add(new UI::TextView(message_));
+}
+
 UI::EventReturn PopupScreen::OnOK(UI::EventParams &e) {
-	OnCompleted();
+	OnCompleted(DR_OK);
 	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn PopupScreen::OnCancel(UI::EventParams &e) {
+	OnCompleted(DR_CANCEL);
 	screenManager()->finishDialog(this, DR_CANCEL);
 	return UI::EVENT_DONE;
 }
@@ -158,7 +171,7 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	if (callback_)
 		callback_(adaptor_.GetSelected());	
 	screenManager()->finishDialog(this, DR_OK);
-	OnCompleted();
+	OnCompleted(DR_OK);
 	OnChoice.Dispatch(e);
 	return UI::EVENT_DONE;
 }
@@ -175,10 +188,12 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_));
 }
 
-void SliderPopupScreen::OnCompleted() {
-	*value_ = sliderValue_;
+void SliderPopupScreen::OnCompleted(DialogResult result) {
+	if (result == DR_OK)
+		*value_ = sliderValue_;
 }
 
-void SliderFloatPopupScreen::OnCompleted() {
-	*value_ = sliderValue_;
+void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
+	if (result == DR_OK)
+		*value_ = sliderValue_;
 }

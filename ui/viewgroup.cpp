@@ -34,6 +34,16 @@ ViewGroup::~ViewGroup() {
 	Clear();
 }
 
+void ViewGroup::RemoveSubview(View *view) {
+	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i] == view) {
+			views_.erase(views_.begin() + i);
+			delete view;
+			return;
+		}
+	}
+}
+
 void ViewGroup::Clear() {
 	for (size_t i = 0; i < views_.size(); i++) {
 		delete views_[i];

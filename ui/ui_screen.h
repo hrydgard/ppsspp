@@ -40,7 +40,7 @@ public:
 
 class PopupScreen : public UIScreen {
 public:
-	PopupScreen(const std::string &title);
+	PopupScreen(std::string title, std::string button1 = "", std::string button2 = "");
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	virtual void CreateViews();
@@ -50,19 +50,21 @@ public:
 protected:
 	virtual bool FillVertical() { return false; }
 	virtual bool ShowButtons() { return true; }
-	virtual void OnCompleted() {}
+	virtual void OnCompleted(DialogResult result) {}
 
 private:
 	UI::EventReturn OnOK(UI::EventParams &e);
 	UI::EventReturn OnCancel(UI::EventParams &e);
 
 	std::string title_;
+	std::string button1_;
+	std::string button2_;
 };
 
 class ListPopupScreen : public PopupScreen {
 public:
-	ListPopupScreen(const std::string &title) : PopupScreen(title) {}
-	ListPopupScreen(const std::string &title, const std::vector<std::string> &items, int selected, std::function<void(int)> callback)
+	ListPopupScreen(std::string title) : PopupScreen(title) {}
+	ListPopupScreen(std::string title, const std::vector<std::string> &items, int selected, std::function<void(int)> callback)
 		: PopupScreen(title), adaptor_(items, selected), callback_(callback) {
 	}
 
@@ -81,13 +83,29 @@ private:
 	std::function<void(int)> callback_;
 };
 
+class MessagePopupScreen : public PopupScreen {
+public:
+	MessagePopupScreen(std::string title, std::string message, std::string button1, std::string button2, std::function<void(int)> callback) : PopupScreen(title) {}
+	UI::Event OnChoice;
+
+protected:
+	virtual bool FillVertical() { return false; }
+	virtual bool ShowButtons() { return true; }
+	void CreatePopupContents(UI::ViewGroup *parent);
+	virtual void OnCompleted(DialogResult result);
+
+private:
+	std::string message_;
+	std::function<void(int)> callback_;
+};
+
 class SliderPopupScreen : public PopupScreen {
 public:
 	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title) : PopupScreen(title), value_(value), minValue_(minValue), maxValue_(maxValue) {}
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 private:
-	virtual void OnCompleted();
+	virtual void OnCompleted(DialogResult result);
 	UI::Slider *slider_;
 	int *value_;
 	int sliderValue_;
@@ -101,7 +119,7 @@ public:
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 private:
-	virtual void OnCompleted();
+	virtual void OnCompleted(DialogResult result);
 	UI::SliderFloat *slider_;
 	float sliderValue_;
 	float *value_;

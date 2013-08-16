@@ -579,8 +579,11 @@ public:
 
 class TextView : public InertView {
 public:
-	TextView(int font, const std::string &text, int textAlign, float textScale, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), font_(font), text_(text), textScaleX_(textScale), textScaleY_(textScale), textAlign_(textAlign) {}
+	TextView(const std::string &text, LayoutParams *layoutParams = 0) 
+		: InertView(layoutParams), text_(text), textScaleX_(1.0f), textScaleY_(1.0f), textAlign_(0) {}
+
+	TextView(const std::string &text, int textAlign, float textScale, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), text_(text), textScaleX_(textScale), textScaleY_(textScale), textAlign_(textAlign) {}
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
@@ -589,7 +592,6 @@ public:
 	void SetTextScale(float scale) { textScaleX_ = scale; textScaleY_ = scale; }
 
 private:
-	int font_;
 	std::string text_;
 	float textScaleX_;
 	float textScaleY_;

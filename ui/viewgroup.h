@@ -42,6 +42,7 @@ public:
 
 	virtual bool SetFocus();
 	virtual bool SubviewFocused(View *view);
+	virtual void RemoveSubview(View *view);
 
 	// Assumes that layout has taken place.
 	NeighborResult FindNeighbor(View *view, FocusDirection direction, NeighborResult best);
