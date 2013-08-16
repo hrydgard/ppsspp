@@ -333,7 +333,7 @@ void GameBrowser::Refresh() {
 #endif
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
 		layoutChoice->AddChoice("Grid");
-		layoutChoice->AddChoice("Linear");
+		layoutChoice->AddChoice("List");
 		layoutChoice->SetSelection(gridStyle_ ? 0 : 1);
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 		Add(topBar);

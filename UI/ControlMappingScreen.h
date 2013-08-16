@@ -28,9 +28,9 @@ private:
 };
 
 // Dialog box, meant to be pushed
-class KeyMappingNewKeyDialog : public Screen {
+class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	KeyMappingNewKeyDialog(int btn, int currentMap) {  // : PopupScreen("Map Key") {
+	KeyMappingNewKeyDialog(int btn, int currentMap) : PopupScreen("Map Key") {
 		pspBtn_ = btn;
 		last_kb_deviceid_ = 0;
 		last_kb_key_ = 0;
@@ -38,14 +38,15 @@ public:
 		last_axis_id_ = -1;
 		currentMap_ = currentMap;
 	}
-	void update(InputState &input);
-	void render();
+
 	void key(const KeyInput &key);
 	void axis(const AxisInput &axis);
 
 protected:
+	void CreatePopupContents(UI::ViewGroup *parent);
+
 	virtual bool FillVertical() { return false; }
-	virtual bool ShowButtons() { return true; }
+	virtual bool ShowButtons() { return false; }
 	virtual void OnCompleted(DialogResult result) {}
 
 private:
