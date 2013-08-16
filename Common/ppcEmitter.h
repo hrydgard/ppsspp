@@ -139,7 +139,7 @@ namespace PpcGen
 		u32 condition;
 
 	protected:
-		// Weite opcode
+		// Write opcode
 		inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
 
 	public:
@@ -230,6 +230,7 @@ namespace PpcGen
 			// reverse ?
 			SUBF(Rd, Rb, Ra);
 		}
+		// if RCFlags update CR0
 		void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags = 0);
 		void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 
@@ -304,7 +305,6 @@ namespace PpcGen
 	};  // class PPCXEmitter
 
 
-	// Everything that needs to generate X86 code should inherit from this.
 	// You get memory management for free, plus, you can use all the MOV etc functions without
 	// having to prefix them with gen-> or something similar.
 	class PPCXCodeBlock : public PPCXEmitter

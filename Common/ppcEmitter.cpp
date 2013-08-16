@@ -110,12 +110,10 @@ namespace PpcGen {
 		Write32(instr);
 	}
 
-	// use lwz ... can't find good opcode :s
 	void PPCXEmitter::LD	(PPCReg dest, PPCReg src, int offset) {
 		u32 instr = ((58 << 26) | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
 	}
-	// use stw ... can't find good opcode :s
 	void PPCXEmitter::STD	(PPCReg dest, PPCReg src, int offset) {
 		u32 instr = ((62 << 26) | (dest << 21) | (src << 16) | ((offset) & 0xffff));
 		Write32(instr);
@@ -332,7 +330,7 @@ namespace PpcGen {
 		}
 	}
 
-	// Compare		
+	// Compare (Only use CR0 atm...)
 	void PPCXEmitter::CMPI(PPCReg dest, unsigned short imm) {
 		Write32((11<<26) | (dest << 16) | ((imm) & 0xffff));
 	}
@@ -372,14 +370,10 @@ namespace PpcGen {
 	// Quick Call
 	// dest = LIS(imm) + ORI(+imm)
 	void PPCXEmitter::MOVI2R(PPCReg dest, unsigned int imm) {
-		/*
 		if (imm == (unsigned short)imm) {
-		// 16bit
-		LI(dest, imm & 0xFFFF);
-		ANDIS(dest, dest, 0);
-		} else 
-		*/
-		{	
+			// 16bit
+			LI(dest, imm & 0xFFFF);
+		} else {	
 			// HI 16bit
 			LIS(dest, imm>>16);
 			if ((imm & 0xFFFF) != 0) {
@@ -390,22 +384,8 @@ namespace PpcGen {
 	}
 
 	void PPCXEmitter::QuickCallFunction(void *func) {
-		/*
-		// Must check if we need to use bctrl or simple branch
-		u32 func_addr = (u32) func;
-		u32 code_addr = (u32) code;
-		if (func_addr - code_addr > 0x1fffffc) {
-		// Load func address
-		MOVI2R(R0, func_addr);
-		// Set it to link register
-		MTCTR(R0);
-		// Branch
-		BCTRL();
-		} else {
-		// Direct branch
-		BL(func);
-		}
-		*/
+		/** TODO : can use simple jump **/
+		
 		u32 func_addr = (u32) func;
 		// Load func address
 		MOVI2R(R0, func_addr);
@@ -471,7 +451,6 @@ namespace PpcGen {
 	}
 
 	// Others ...
-
 	void PPCXEmitter::SetCodePtr(u8 *ptr)
 	{
 		code = ptr;
@@ -491,10 +470,6 @@ namespace PpcGen {
 
 	void PPCXEmitter::ReserveCodeSpace(u32 bytes)
 	{
-		/*
-		for (u32 i = 0; i < bytes/4; i++)
-		Write32(0xE1200070); //bkpt 0
-		*/
 		for (u32 i = 0; i < bytes/4; i++)
 			Write32(0x60000000); //nop
 	}
