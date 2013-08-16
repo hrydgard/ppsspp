@@ -85,6 +85,9 @@ void ViewGroup::Draw(UIContext &dc) {
 	if (hasDropShadow_) {
 		// Darken things behind.
 		dc.FillRect(UI::Drawable(0x60000000), Bounds(0,0,dp_xres, dp_yres));
+		float dropsize = 30;
+		dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, bounds_.x - dropsize, bounds_.y, bounds_.x2() + dropsize, bounds_.y2()+dropsize*1.5, 	0xDF000000, 3.0f);
+
 		// dc.Draw()->DrawImage4Grid(dc.theme->dropShadow, )
 	}
 
@@ -343,8 +346,10 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
 			if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
 
-			if (linLayoutParams && linLayoutParams->weight > 0.0f)
-				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight), MeasureSpec(EXACTLY, measuredHeight_));
+			if (linLayoutParams && linLayoutParams->weight > 0.0f) {
+				int marginSum = linLayoutParams->margins.left + linLayoutParams->margins.right;
+				views_[i]->Measure(dc, MeasureSpec(EXACTLY, unit * linLayoutParams->weight - marginSum), MeasureSpec(EXACTLY, measuredHeight_));
+			}
 		}
 	} else {
 		//MeasureBySpec(layoutParams_->height, vert.type == UNSPECIFIED ? sum : weightZeroSum, vert, &measuredHeight_);
@@ -359,8 +364,10 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams *>(layoutParams);
 			if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
 
-			if (linLayoutParams && linLayoutParams->weight > 0.0f)
-				views_[i]->Measure(dc, MeasureSpec(EXACTLY, measuredWidth_), MeasureSpec(EXACTLY, unit * linLayoutParams->weight));
+			if (linLayoutParams && linLayoutParams->weight > 0.0f) {
+				int marginSum = linLayoutParams->margins.top + linLayoutParams->margins.bottom;
+				views_[i]->Measure(dc, MeasureSpec(EXACTLY, measuredWidth_), MeasureSpec(EXACTLY, unit * linLayoutParams->weight - marginSum));
+			}
 		}
 	}
 }
@@ -548,11 +555,13 @@ void ScrollView::Draw(UIContext &dc) {
 	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
 
 	float ratio = bounds_.h / views_[0]->GetBounds().h;
+
+	float bobWidth = 5;
 	if (ratio < 1.0f && scrollMax > 0.0f) {
 		float bobHeight = ratio * bounds_.h;
 		float bobOffset = (scrollPos_ / scrollMax) * (bounds_.h - bobHeight);
 
-		Bounds bob(bounds_.x2() - 10, bounds_.y + bobOffset, 5, bobHeight);
+		Bounds bob(bounds_.x2() - bobWidth, bounds_.y + bobOffset, bobWidth, bobHeight);
 		dc.FillRect(Drawable(0x80FFFFFF), bob);
 	}
 }
@@ -805,6 +814,7 @@ void ChoiceStrip::Key(const KeyInput &input) {
 			SetSelection(selected_ + 1);
 		}
 	}
+	ViewGroup::Key(input);
 }
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)

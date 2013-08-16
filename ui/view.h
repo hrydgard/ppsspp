@@ -82,6 +82,7 @@ struct Theme {
 	int checkOff;
 	int sliderKnob;
 	int whiteImage;
+	int dropShadow4Grid;
 
 	Style buttonStyle;
 	Style buttonFocusedStyle;
@@ -91,6 +92,9 @@ struct Theme {
 	Style itemStyle;
 	Style itemDownStyle;
 	Style itemFocusedStyle;
+	Style itemDisabledStyle;
+
+	Style headerStyle;
 
 	Style popupTitle;
 };
@@ -480,7 +484,9 @@ public:
 // Use to trigger something or open a submenu screen.
 class Choice : public ClickableItem {
 public:
-	Choice(const std::string &text, const std::string &smallText = "", bool selected = false, LayoutParams *layoutParams = 0)
+	Choice(const std::string &text, LayoutParams *layoutParams = 0)
+		: ClickableItem(layoutParams), text_(text), smallText_(), selected_(false) {}
+	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), text_(text), smallText_(smallText), selected_(selected) {}
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
@@ -499,8 +505,8 @@ public:
 	StickyChoice(const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
 		: Choice(text, smallText, false, layoutParams) {}
 
-	virtual void Key(const KeyInput &input);
-	virtual void Touch(const TouchInput &input);
+	virtual void Key(const KeyInput &key);
+	virtual void Touch(const TouchInput &touch);
 	virtual void FocusChanged(int focusFlags);
 
 	void Press() { down_ = true; dragging_ = false; }

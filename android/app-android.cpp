@@ -456,6 +456,22 @@ extern "C" void JNICALL Java_com_henrikrydgard_libnative_NativeApp_accelerometer
 	input_state.acc.x = x;
 	input_state.acc.y = y;
 	input_state.acc.z = z;
+
+	AxisInput axis;
+	axis.deviceId = DEVICE_ID_ACCELEROMETER;
+	axis.flags = 0;
+	
+	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
+	axis.value = x;
+	NativeAxis(axis);
+
+	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
+	axis.value = y;
+	NativeAxis(axis);
+
+	axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
+	axis.value = z;
+	NativeAxis(axis);
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_sendMessage(JNIEnv *env, jclass, jstring message, jstring param) {

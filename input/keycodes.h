@@ -281,4 +281,9 @@ enum AndroidJoystickAxis {
 	// Relative mouse axis for PC.
 	JOYSTICK_AXIS_MOUSE_REL_X = 26,
 	JOYSTICK_AXIS_MOUSE_REL_Y = 27,
+
+	// Mobile device accelerometer/gyro
+	JOYSTICK_AXIS_ACCELEROMETER_X,
+	JOYSTICK_AXIS_ACCELEROMETER_Y,
+	JOYSTICK_AXIS_ACCELEROMETER_Z,
 };

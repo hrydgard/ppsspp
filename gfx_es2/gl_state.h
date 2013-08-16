@@ -23,6 +23,8 @@ typedef EGLuint64NV (EGLAPIENTRYP PFNEGLGETSYSTEMTIMENVPROC) (void);
 extern PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 
+typedef GLvoid* (GL_APIENTRYP PFNGLMAPBUFFERPROC) (GLenum target, GLenum access);
+extern PFNGLMAPBUFFERPROC glMapBuffer;
 #endif
 
 #if !defined(IOS) && !defined(__SYMBIAN32__) && !defined(MEEGO_EDITION_HARMATTAN)

@@ -250,8 +250,6 @@ void StickyChoice::FocusChanged(int focusFlags) {
 	// Override Clickable's FocusChanged to do nothing.
 }
 
-
-
 Item::Item(LayoutParams *layoutParams) : InertView(layoutParams) {
 	layoutParams_->width = FILL_PARENT;
 	layoutParams_->height = ITEM_HEIGHT;
@@ -275,24 +273,25 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 
 void ClickableItem::Draw(UIContext &dc) {
 	Style style = dc.theme->itemStyle;
-	if (down_) {
-		style = dc.theme->itemDownStyle;
-	} else if (HasFocus()) {
+	if (HasFocus()) {
 		style = dc.theme->itemFocusedStyle;
 	}
+	if (down_) {
+		style = dc.theme->itemDownStyle;
+	} 
 	dc.FillRect(style.background, bounds_);
 }
 
 void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
-	w += 16;
+	w += 24;
 	h += 16;
 }
 
 void Choice::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
 
-	int paddingX = 8;
+	int paddingX = 12;
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 
 	if (selected_) {
@@ -303,7 +302,7 @@ void Choice::Draw(UIContext &dc) {
 
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
-	int paddingX = 8;
+	int paddingX = 12;
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER | ALIGN_RIGHT);
 // 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
@@ -312,28 +311,28 @@ void InfoItem::Draw(UIContext &dc) {
 void ItemHeader::Draw(UIContext &dc) {
 	float scale = 1.0f;
 	if (dc.theme->uiFontSmaller == dc.theme->uiFont) {
-		scale = 0.6f;
+		scale = 0.7f;
 	}
 	dc.Draw()->SetFontScale(scale, scale);
-	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFFa0a0a0, ALIGN_LEFT);
+	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFFFFFFFF, ALIGN_LEFT);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), 0xFFFFFFFF);
 }
 
 void PopupHeader::Draw(UIContext &dc) {
 	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 12, bounds_.centerY(), dc.theme->popupTitle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), 0xFFFFFFFF);
+	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.theme->popupTitle.fgColor);
 }
 
 void CheckBox::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
-	int paddingX = 8;
+	int paddingX = 12;
 	int paddingY = 8;
 
 	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-	dc.Draw()->DrawImage(image, bounds_.x2() - 4, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

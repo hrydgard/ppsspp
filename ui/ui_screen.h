@@ -92,16 +92,17 @@ protected:
 	virtual bool FillVertical() { return false; }
 	virtual bool ShowButtons() { return true; }
 	void CreatePopupContents(UI::ViewGroup *parent);
-	virtual void OnCompleted(DialogResult result);
 
 private:
 	std::string message_;
 	std::function<void(int)> callback_;
 };
 
+// TODO: Need a way to translate OK and Cancel
+
 class SliderPopupScreen : public PopupScreen {
 public:
-	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title) : PopupScreen(title), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title) : PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 private:
@@ -115,7 +116,7 @@ private:
 
 class SliderFloatPopupScreen : public PopupScreen {
 public:
-	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title) : PopupScreen(title), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+	SliderFloatPopupScreen(float *value, float minValue, float maxValue, const std::string &title) : PopupScreen(title, "OK", "Cancel"), value_(value), minValue_(minValue), maxValue_(maxValue) {}
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 private:
