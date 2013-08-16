@@ -20,7 +20,9 @@
 #include "ext/vjson/json.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
+#ifndef _XBOX
 #include "gfx_es2/gpu_features.h"
+#endif
 #include "net/http_client.h"
 #include "util/text/parsers.h"
 

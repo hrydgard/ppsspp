@@ -26,9 +26,11 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
+#ifndef _XBOX
 #include "net/http_client.h"
 #include "net/resolve.h"
 #include "net/url.h"
+#endif
 
 #include "base/buffer.h"
 #include "thread/thread.h"
@@ -36,6 +38,13 @@
 #include <stdlib.h>
 #include <cstdarg>
 
+#ifdef _XBOX
+namespace Reporting
+{
+	bool IsEnabled() { return false;}
+	void ReportMessage(const char *message, ...) { }
+}
+#else
 namespace Reporting
 {
 	const int DEFAULT_PORT = 80;
@@ -293,3 +302,5 @@ namespace Reporting
 	}
 
 }
+
+#endif
