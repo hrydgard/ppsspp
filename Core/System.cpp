@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 #include "Common/CommonWindows.h"
 #include <ShlObj.h>
 #include <string>
