@@ -145,11 +145,8 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	stackTraceView->setDialogItem(GetDlgItem(m_hDlg,IDC_STACKFRAMES));
 	stackTraceView->loadStackTrace();
 	
-	// init memory/breakpoint "tab"
-	ShowWindow(GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST), SW_HIDE);
-	ShowWindow(GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW), SW_NORMAL);
-	ShowWindow(GetDlgItem(m_hDlg, IDC_THREADLIST), SW_HIDE);
-	ShowWindow(GetDlgItem(m_hDlg, IDC_STACKFRAMES), SW_HIDE);
+	// init bottom "tab"
+	changeSubWindow(SUBWIN_FIRST);
 
 	// init status bar
 	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "", m_hDlg, IDC_DISASMSTATUSBAR);
@@ -172,6 +169,62 @@ CDisasm::~CDisasm()
 {
 }
 
+
+void CDisasm::changeSubWindow(SubWindowType type)
+{
+	HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
+	HWND mem = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
+	HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
+	HWND stackFrames = GetDlgItem(m_hDlg, IDC_STACKFRAMES);
+
+	// determine if any of the windows are focused, if not
+	// then leave the focus unchanged
+	HWND focus = GetFocus();
+	bool changeFocus = (focus == bp || focus == mem || focus == threads || focus == stackFrames);
+
+	if (type == SUBWIN_FIRST)
+	{
+		type = SUBWIN_MEM;
+	} else if (type == SUBWIN_NEXT)
+	{
+		if (IsWindowVisible(mem))
+		{
+			type = SUBWIN_BREAKPOINT;
+		} else if (IsWindowVisible(bp))
+		{
+			type = SUBWIN_THREADS;
+		} else if (IsWindowVisible(threads))
+		{
+			type = SUBWIN_STACKFRAMES;
+		} else {
+			type = SUBWIN_MEM;
+		}
+	}
+
+	ShowWindow(mem,type == SUBWIN_MEM ? SW_NORMAL : SW_HIDE);
+	ShowWindow(bp,type == SUBWIN_BREAKPOINT ? SW_NORMAL : SW_HIDE);
+	ShowWindow(threads,type == SUBWIN_THREADS ? SW_NORMAL : SW_HIDE);
+	ShowWindow(stackFrames,type == SUBWIN_STACKFRAMES ? SW_NORMAL : SW_HIDE);
+
+	if (changeFocus)
+	{
+		switch (type)
+		{
+		case SUBWIN_MEM:
+			SetFocus(mem);
+			break;
+		case SUBWIN_BREAKPOINT:
+			SetFocus(bp);
+			break;
+		case SUBWIN_THREADS:
+			SetFocus(threads);
+			break;
+		case SUBWIN_STACKFRAMES:
+			SetFocus(stackFrames);
+			break;
+		}
+	}
+}
 
 BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -228,6 +281,23 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			case ID_TOGGLE_PAUSE:
 				SendMessage(MainWindow::GetHWND(),WM_COMMAND,ID_TOGGLE_PAUSE,0);
 				break;
+				
+			case ID_DEBUG_DISPLAYMEMVIEW:
+				changeSubWindow(SUBWIN_MEM);
+				break;
+
+			case ID_DEBUG_DISPLAYBREAKPOINTLIST:
+				changeSubWindow(SUBWIN_BREAKPOINT);
+				break;
+
+			case ID_DEBUG_DISPLAYTHREADLIST:
+				changeSubWindow(SUBWIN_THREADS);
+				break;
+
+			case ID_DEBUG_DISPLAYSTACKFRAMELIST:
+				changeSubWindow(SUBWIN_STACKFRAMES);
+				break;
+
 			case IDC_SHOWVFPU:
 				vfpudlg->Show(true);
 				break;
@@ -515,41 +585,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		return TRUE;
 
 	case WM_DEB_TABPRESSED:
-		{
-			HWND bp = GetDlgItem(m_hDlg, IDC_BREAKPOINTLIST);
-			HWND mem = GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW);
-			HWND threads = GetDlgItem(m_hDlg, IDC_THREADLIST);
-			HWND stackFrames = GetDlgItem(m_hDlg, IDC_STACKFRAMES);
-
-			if (IsWindowVisible(bp))
-			{
-				ShowWindow(mem,SW_HIDE);
-				ShowWindow(bp,SW_HIDE);
-				ShowWindow(threads,SW_NORMAL);
-				ShowWindow(stackFrames,SW_HIDE);
-				SetFocus(threads);
-			} else if (IsWindowVisible(threads))
-			{
-				ShowWindow(mem,SW_HIDE);
-				ShowWindow(bp,SW_HIDE);
-				ShowWindow(threads,SW_HIDE);
-				ShowWindow(stackFrames,SW_NORMAL);
-				SetFocus(stackFrames);
-			} else if (IsWindowVisible(stackFrames))
-			{
-				ShowWindow(mem,SW_NORMAL);
-				ShowWindow(bp,SW_HIDE);
-				ShowWindow(threads,SW_HIDE);
-				ShowWindow(stackFrames,SW_HIDE);
-				SetFocus(mem);
-			} else {
-				ShowWindow(mem,SW_HIDE);
-				ShowWindow(bp,SW_NORMAL);
-				ShowWindow(threads,SW_HIDE);
-				ShowWindow(stackFrames,SW_HIDE);
-				SetFocus(bp);
-			}
-		}
+		changeSubWindow(SUBWIN_NEXT);
 		break;
 	case WM_DEB_SETSTATUSBARTEXT:
 		SendMessage(statusBarWnd,WM_SETTEXT,0,lParam);
