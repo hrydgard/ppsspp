@@ -41,9 +41,12 @@ struct JitOptions
 	JitOptions()
 	{
 		enableBlocklink = true;
+		// Seems to hurt performance?
+		immBranches = false;
 	}
 
 	bool enableBlocklink;
+	bool immBranches;
 };
 
 struct JitState

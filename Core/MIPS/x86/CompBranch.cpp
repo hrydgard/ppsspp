@@ -143,6 +143,36 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	u32 delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
+
+	if (jo.immBranches && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+	{
+		// The cc flags are opposites: when NOT to take the branch.
+		bool skipBranch;
+		s32 rsImm = (s32)gpr.GetImmediate32(rs);
+		s32 rtImm = (s32)gpr.GetImmediate32(rt);
+
+		switch (cc)
+		{
+		case CC_E: skipBranch = rsImm == rtImm; break;
+		case CC_NE: skipBranch = rsImm != rtImm; break;
+		default: _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
+		}
+
+		if (skipBranch)
+		{
+			// Skip the delay slot if likely, otherwise it'll be the next instruction.
+			if (likely)
+				js.compilerPC += 4;
+			return;
+		}
+
+		// Branch taken.  Always compile the delay slot, and then go to dest.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		// Account for the increment in the loop.
+		js.compilerPC = targetAddr - 4;
+		return;
+	}
+
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
@@ -198,6 +228,42 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	u32 delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
+
+	if (jo.immBranches && gpr.IsImmediate(rs))
+	{
+		// The cc flags are opposites: when NOT to take the branch.
+		bool skipBranch;
+		s32 imm = (s32)gpr.GetImmediate32(rs);
+
+		switch (cc)
+		{
+		case CC_G: skipBranch = imm > 0; break;
+		case CC_GE: skipBranch = imm >= 0; break;
+		case CC_L: skipBranch = imm < 0; break;
+		case CC_LE: skipBranch = imm <= 0; break;
+		default: _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
+		}
+
+		if (skipBranch)
+		{
+			// Skip the delay slot if likely, otherwise it'll be the next instruction.
+			if (likely)
+				js.compilerPC += 4;
+			return;
+		}
+
+		// Branch taken.  Always compile the delay slot, and then go to dest.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		if (andLink)
+		{
+			gpr.BindToRegister(MIPS_REG_RA, false, true);
+			MOV(32, gpr.R(MIPS_REG_RA), Imm32(js.compilerPC + 8));
+		}
+		// Account for the increment in the loop.
+		js.compilerPC = targetAddr - 4;
+		return;
+	}
+
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
