@@ -491,7 +491,9 @@ int sceSdSetMember_(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 	{
 		for(i = 0; alignedLen >= 2048; i += 2048)
 		{
-			int res = sub_0000(kirkData, data + i, 2048, ctx.cryptedData, ctx.unkn, ctx.mode);
+			int ctx_unkn = ctx.unkn;
+			int res = sub_0000(kirkData, data + i, 2048, ctx.cryptedData, ctx_unkn, ctx.mode);
+			ctx.unkn = ctx_unkn;
 			alignedLen -= 2048;
 			if (res)
 				return res;
@@ -501,8 +503,10 @@ int sceSdSetMember_(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 	{
 		return 0;
 	}
-
-	return sub_0000(kirkData, data + i, alignedLen, ctx.cryptedData, ctx.unkn, ctx.mode);
+	int ctx_unkn = ctx.unkn;
+	int res = sub_0000(kirkData, data + i, alignedLen, ctx.cryptedData, ctx_unkn, ctx.mode);
+	ctx.unkn = ctx_unkn;
+	return res;
 }
 
 int sceChnnlsv_21BE78B4(u32 ctxAddr)

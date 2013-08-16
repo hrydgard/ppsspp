@@ -271,7 +271,7 @@ bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 	m_pdata->push(buffer, readSize);
 	m_firstTimeStamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
 	m_lastTimeStamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
-	int mpegoffset = bswap32(*(int*)(buffer + 8));
+	int mpegoffset = (int)(*(s32_be*)(buffer + 8));
 	m_demux = new MpegDemux(RingbufferSize + 2048, mpegoffset);
 	m_demux->addStreamData(buffer, readSize);
 	return true;

@@ -238,8 +238,8 @@ u32 convertTimestampToDate(u32 ts) {
 }
 
 void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
-	ctx->mpegMagic = *(u32*)buffer;
-	ctx->mpegRawVersion = *(u32*)(buffer + PSMF_STREAM_VERSION_OFFSET);
+	ctx->mpegMagic = *(u32_le*)buffer;
+	ctx->mpegRawVersion = *(u32_le*)(buffer + PSMF_STREAM_VERSION_OFFSET);
 	switch (ctx->mpegRawVersion) {
 	case PSMF_VERSION_0012:
 		ctx->mpegVersion = MPEG_VERSION_0012;
@@ -257,8 +257,8 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 		ctx->mpegVersion = -1;
 		break;
 	}
-	ctx->mpegOffset = bswap32(*(u32*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
-	ctx->mpegStreamSize = bswap32(*(u32*)(buffer + PSMF_STREAM_SIZE_OFFSET));
+	ctx->mpegOffset = bswap32(*(u32_le*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
+	ctx->mpegStreamSize = bswap32(*(u32_le*)(buffer + PSMF_STREAM_SIZE_OFFSET));
 	ctx->mpegFirstTimestamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
 	ctx->mpegLastTimestamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
 	ctx->mpegFirstDate = convertTimestampToDate(ctx->mpegFirstTimestamp);
@@ -287,7 +287,7 @@ void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 
 	// copy header struct to mpeg header.
 	memcpy(ctx->mpegheader, buffer, 2048);
-	*(u32*)(ctx->mpegheader + PSMF_STREAM_OFFSET_OFFSET) = 0x80000;
+	*(u32_le*)(ctx->mpegheader + PSMF_STREAM_OFFSET_OFFSET) = 0x80000;
 
 	INFO_LOG(ME, "Stream offset: %d, Stream size: 0x%X", ctx->mpegOffset, ctx->mpegStreamSize);
 	INFO_LOG(ME, "First timestamp: %lld, Last timestamp: %lld", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
