@@ -1252,6 +1252,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 			VirtualFramebuffer *vfb = vfbs_[i];
 			if (MaskedEqual(vfb->fb_address, addr)) {
 				vfb->dirtyAfterDisplay = true;
+				vfb->reallyDirtyAfterDisplay = true;
 				// TODO: This without the fbo_unbind() above would be better than destroying the FBO.
 				// However, it doesn't seem to work for Star Ocean, at least
 				if (useBufferedRendering_) {
