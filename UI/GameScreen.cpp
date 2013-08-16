@@ -169,7 +169,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteGame", "Do you really want to delete all\nthis game entirely? You can't undo this."), g->T("Delete Game"), g->T("Cancel"),
+			new PromptScreen(d->T("DeleteGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), g->T("Delete Game"), g->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
 	}
 
