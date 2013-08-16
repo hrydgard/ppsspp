@@ -18,6 +18,10 @@
 class CDisasm : public Dialog
 {
 private:
+	typedef enum { SUBWIN_MEM, SUBWIN_BREAKPOINT, SUBWIN_THREADS, SUBWIN_STACKFRAMES,
+		// pseudo controls
+		SUBWIN_NEXT, SUBWIN_FIRST } SubWindowType;
+
 	RECT defaultRect;
 	RECT defaultBreakpointRect;
 	RECT regRect;
@@ -38,6 +42,7 @@ private:
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
 	void updateThreadLabel(bool clear);
+	void changeSubWindow(SubWindowType type);
 public:
 	int index; //helper 
 
