@@ -36,8 +36,10 @@
 #define _FS ((op>>11) & 0x1F)
 #define _FT ((op>>16) & 0x1F)
 #define _FD ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
+#define _POS  ((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
+#define _IMM16 (signed short)(op&0xFFFF)
+#define _IMM26 (op & 0x3FFFFFF)
 
 #define LOOPOPTIMIZATION 0
 
@@ -133,7 +135,7 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 		ERROR_LOG_REPORT(JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
-	int offset = (signed short)(op&0xFFFF)<<2;
+	int offset = _IMM16 << 2;
 	int rt = _RT;
 	int rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
@@ -172,12 +174,12 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	}
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
-	WriteExit(targetAddr, 0);
+	WriteExit(targetAddr, js.nextExit++);
 
 	SetJumpTarget(ptr);
 	// Not taken
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
-	WriteExit(js.compilerPC + 8, 1);
+	WriteExit(js.compilerPC + 8, js.nextExit++);
 
 	js.compiling = false;
 }
@@ -189,7 +191,7 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 		ERROR_LOG_REPORT(JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
-	int offset = (signed short)(op&0xFFFF)<<2;
+	int offset = _IMM16 << 2;
 	int rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
@@ -222,12 +224,12 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	if (andLink)
 		MOV(32, M(&mips_->r[MIPS_REG_RA]), Imm32(js.compilerPC + 8));
 	CONDITIONAL_LOG_EXIT(targetAddr);
-	WriteExit(targetAddr, 0);
+	WriteExit(targetAddr, js.nextExit++);
 
 	SetJumpTarget(ptr);
 	// Not taken
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
-	WriteExit(js.compilerPC + 8, 1);
+	WriteExit(js.compilerPC + 8, js.nextExit++);
 
 	js.compiling = false;
 }
@@ -253,7 +255,6 @@ void Jit::Comp_RelBranch(u32 op)
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
 		break;
 	}
-	js.compiling = false;
 }
 
 void Jit::Comp_RelBranchRI(u32 op)
@@ -272,7 +273,6 @@ void Jit::Comp_RelBranchRI(u32 op)
 		_dbg_assert_msg_(CPU,0,"Trying to compile instruction that can't be compiled");
 		break;
 	}
-	js.compiling = false;
 }
 
 
@@ -284,7 +284,7 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 		ERROR_LOG_REPORT(JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
-	int offset = (signed short)(op & 0xFFFF) << 2;
+	int offset = _IMM16 << 2;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
@@ -293,30 +293,31 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	FlushAll();
-
 	TEST(32, M((void *)&(mips_->fpcond)), Imm32(1));
 	Gen::FixupBranch ptr;
 	if (!likely)
 	{
 		if (!delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		else
+			FlushAll();
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
+		FlushAll();
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
-	WriteExit(targetAddr, 0);
+	WriteExit(targetAddr, js.nextExit++);
 
 	SetJumpTarget(ptr);
 	// Not taken
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
-	WriteExit(js.compilerPC + 8, 1);
+	WriteExit(js.compilerPC + 8, js.nextExit++);
 
 	js.compiling = false;
 }
@@ -334,7 +335,6 @@ void Jit::Comp_FPUBranch(u32 op)
 		_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 		break;
 	}
-	js.compiling = false;
 }
 
 // If likely is set, discard the branch slot if NOT taken.
@@ -345,7 +345,7 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 		ERROR_LOG_REPORT(JIT, "Branch in VFPU delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
-	int offset = (signed short)(op & 0xFFFF) << 2;
+	int offset = _IMM16 << 2;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	u32 delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
@@ -361,8 +361,6 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	if (delaySlotIsBranch && (signed short)(delaySlotOp & 0xFFFF) != (signed short)(op & 0xFFFF) - 1)
 		ERROR_LOG(JIT, "VFPU branch in VFPU delay slot at %08x with different target %d / %d", js.compilerPC, (signed short)(delaySlotOp & 0xFFFF), (signed short)(op & 0xFFFF) - 1);
 
-	FlushAll();
-
 	// THE CONDITION
 	int imm3 = (op >> 18) & 7;
 
@@ -373,10 +371,13 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	{
 		if (!delaySlotIsNice && !delaySlotIsBranch)
 			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+		else
+			FlushAll();
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
+		FlushAll();
 		ptr = J_CC(cc, true);
 		if (!delaySlotIsBranch)
 			CompileDelaySlot(DELAYSLOT_FLUSH);
@@ -384,13 +385,13 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 
 	// Take the branch
 	CONDITIONAL_LOG_EXIT(targetAddr);
-	WriteExit(targetAddr, 0);
+	WriteExit(targetAddr, js.nextExit++);
 
 	SetJumpTarget(ptr);
 	// Not taken
 	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
 	CONDITIONAL_LOG_EXIT(notTakenTarget);
-	WriteExit(notTakenTarget, 1);
+	WriteExit(notTakenTarget, js.nextExit++);
 
 	js.compiling = false;
 }
@@ -408,7 +409,6 @@ void Jit::Comp_VBranch(u32 op)
 		_dbg_assert_msg_(CPU,0,"Comp_VBranch: Invalid instruction");
 		break;
 	}
-	js.compiling = false;
 }
 
 void Jit::Comp_Jump(u32 op)
@@ -418,7 +418,7 @@ void Jit::Comp_Jump(u32 op)
 		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
-	u32 off = ((op & 0x3FFFFFF) << 2);
+	u32 off = _IMM26 << 2;
 	u32 targetAddr = (js.compilerPC & 0xF0000000) | off;
 
 	switch (op >> 26) 
@@ -427,7 +427,7 @@ void Jit::Comp_Jump(u32 op)
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
-		WriteExit(targetAddr, 0);
+		WriteExit(targetAddr, js.nextExit++);
 		break;
 
 	case 3: //jal
@@ -436,7 +436,7 @@ void Jit::Comp_Jump(u32 op)
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 		CONDITIONAL_LOG_EXIT(targetAddr);
-		WriteExit(targetAddr, 0);
+		WriteExit(targetAddr, js.nextExit++);
 		break;
 
 	default:

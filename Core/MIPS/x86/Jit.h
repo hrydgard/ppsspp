@@ -65,6 +65,7 @@ struct JitState
 
 	u32 compilerPC;
 	u32 blockStart;
+	int nextExit;
 	bool cancel;
 	bool inDelaySlot;
 	// See JitState::AfterOp for values.
