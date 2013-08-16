@@ -193,6 +193,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
+	js.nextExit = 0;
 	js.downcountAmount = 0;
 	js.curBlock = b;
 	js.compiling = true;
