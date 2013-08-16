@@ -36,6 +36,11 @@ typedef ArmGen::ARMXCodeBlock CodeBlock;
 namespace Gen { class XEmitter; }
 using namespace Gen;
 typedef Gen::XCodeBlock CodeBlock;
+#elif defined(PPC)
+#include "Common/ppcEmitter.h"
+namespace PpcGen { class PPCXEmitter; }
+using namespace PpcGen;
+typedef PpcGen::PPCXCodeBlock CodeBlock;
 #else
 #error "Unsupported arch!"
 #endif
