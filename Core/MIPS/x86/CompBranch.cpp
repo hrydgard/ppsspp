@@ -39,7 +39,7 @@
 #define _POS  ((op>>6 ) & 0x1F)
 #define _SIZE ((op>>11 ) & 0x1F)
 #define _IMM16 (signed short)(op&0xFFFF)
-#define _IMM26 (op & 0x3FFFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 #define LOOPOPTIMIZATION 0
 
