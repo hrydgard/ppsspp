@@ -28,6 +28,9 @@
     <ClCompile Include="MiscScreens.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="ControlMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -54,6 +57,12 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="MiscScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ControlMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="Header.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>

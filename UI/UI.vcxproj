@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ControlMappingScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="GamepadEmu.cpp" />
@@ -34,11 +35,13 @@
     <ClCompile Include="ui_atlas.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="EmuScreen.h" />
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="GameScreen.h" />
     <ClInclude Include="GameSettingsScreen.h" />
+    <ClInclude Include="Header.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MenuScreens.h" />
     <ClInclude Include="MiscScreens.h" />

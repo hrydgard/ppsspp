@@ -146,7 +146,7 @@ void GameButton::Draw(UIContext &dc) {
 		} else {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.Draw()->DrawImage4Grid(I_DROP_SHADOW, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 	alphaMul(shadowColor, 0.5f), 1.0f);
+			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 	alphaMul(shadowColor, 0.5f), 1.0f);
 			dc.Draw()->Flush();
 		}
 	}
@@ -384,7 +384,7 @@ void GameBrowser::Refresh() {
 
 	if (!lastText_.empty()) {
 		Add(new Spacer());
-		Add(new Choice(lastText_))->OnClick.Handle(this, &GameBrowser::LastClick);
+		Add(new Choice(lastText_, new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)))->OnClick.Handle(this, &GameBrowser::LastClick);
 	}
 }
 

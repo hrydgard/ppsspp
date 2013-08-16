@@ -26,6 +26,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
+#include "UI/ControlMappingScreen.h"
 #include "Core/Config.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
@@ -96,7 +97,8 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 
 void PopupMultiChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
-	dc.Draw()->DrawText(dc.theme->uiFont, valueText_.c_str(), bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	int paddingX = 12;
+	dc.Draw()->DrawText(dc.theme->uiFont, valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 class PopupSliderChoice : public Choice {
@@ -146,7 +148,7 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	char temp[4];
 	sprintf(temp, "%i", *value_);
-	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
@@ -159,7 +161,7 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	char temp[5];
 	sprintf(temp, "%2.2f", *value_);
-	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 8, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 }

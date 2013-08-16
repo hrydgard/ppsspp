@@ -336,8 +336,6 @@ bool GLES_GPU::FramebufferReallyDirty() {
 		bool dirty = vfb->reallyDirtyAfterDisplay;
 		vfb->reallyDirtyAfterDisplay = false;
 		return dirty;
-	} else {
-		ILOG("reallydirty: No display FBO");
 	}
 	return true;
 }

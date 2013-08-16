@@ -415,6 +415,8 @@ void NativeInitGraphics() {
 	ui_theme.checkOff = I_SQUARE;
 	ui_theme.whiteImage = SOLIDWHITE;
 	ui_theme.sliderKnob = I_CIRCLE;
+	ui_theme.dropShadow4Grid = I_DROP_SHADOW;
+
 	ui_theme.buttonStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON);
 	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.buttonStyle.image = I_BUTTON;
@@ -424,13 +426,21 @@ void NativeInitGraphics() {
 	ui_theme.buttonDownStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.buttonDisabledStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFF404040);
 	ui_theme.buttonDisabledStyle.fgColor = 0xFF707070;
+
 	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
 	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
-	ui_theme.itemFocusedStyle.background = UI::Drawable(0xCC909080);
-	ui_theme.itemDownStyle.background = UI::Drawable(0xFFFFc080);
+	ui_theme.itemFocusedStyle.background = UI::Drawable(0xe0ECCA6D);
+	ui_theme.itemDownStyle.background = UI::Drawable(0xFFE1B12D);
 	ui_theme.itemDownStyle.fgColor = 0xFF000000;
-	ui_theme.popupTitle.fgColor = 0xFFE5B533;
+	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55E0D4AF);
+	ui_theme.itemDisabledStyle.fgColor = 0xFFcccccc;
 
+	ui_theme.buttonStyle = ui_theme.itemStyle;
+	ui_theme.buttonFocusedStyle = ui_theme.itemFocusedStyle;
+	ui_theme.buttonDownStyle = ui_theme.itemDownStyle;
+	ui_theme.buttonDisabledStyle = ui_theme.itemDisabledStyle;
+
+	ui_theme.popupTitle.fgColor = 0xFFE5B533;
 	ui_draw2d.Init();
 	ui_draw2d_front.Init();
 

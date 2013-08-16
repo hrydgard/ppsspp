@@ -111,6 +111,12 @@ public:
 	void render();
 };
 
+class ControlsScreen : public Screen {
+public:
+	void update(InputState &input);
+	void render();
+};
+
 class SystemScreen : public Screen
 {
 public:
@@ -127,50 +133,6 @@ public:
 private:
 	std::vector<FileInfo> langs_;
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
-};
-
-class ControlsScreen : public Screen
-{
-public:
-	void update(InputState &input);
-	void render();
-};
-
-class KeyMappingScreen : public Screen
-{
-public:
-	KeyMappingScreen() : currentMap_(0) {}
-	void update(InputState &input);
-	void render();
-private:
-	int currentMap_;
-};
-
-// Dialog box, meant to be pushed
-class KeyMappingNewKeyDialog : public Screen
-{
-public:
-	KeyMappingNewKeyDialog(int btn, int currentMap) {
-		pspBtn = btn;
-		last_kb_deviceid = 0;
-		last_kb_key = 0;
-		last_axis_deviceid = 0;
-		last_axis_id = -1;
-		currentMap_ = currentMap;
-	}
-	void update(InputState &input);
-	void render();
-	void key(const KeyInput &key);
-	void axis(const AxisInput &axis);
-
-private:
-	int pspBtn;
-	int last_kb_deviceid;
-	int last_kb_key;
-	int last_axis_deviceid;
-	int last_axis_id;
-	int last_axis_direction;
-	int currentMap_;
 };
 
 struct FileSelectScreenOptions {
