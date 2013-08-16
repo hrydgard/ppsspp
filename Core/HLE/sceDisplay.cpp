@@ -411,11 +411,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	numVBlanksSinceFlip++;
 
-	if (g_Config.iShowFPSCounter) {
-		CalculateFPS();
-	}
-
-
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
@@ -452,7 +447,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			gstate_c.skipDrawReason |= SKIPDRAW_SKIPFRAME;
 			numSkippedFrames++;
 		} else {
-			// bool wasSkipped = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0;
 			gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPFRAME;
 			numSkippedFrames = 0;
 		}
@@ -463,7 +457,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
 	}
-
 }
 
 void hleAfterFlip(u64 userdata, int cyclesLate)
@@ -505,6 +498,10 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		fbstate.topaddr = topaddr;
 		fbstate.pspFramebufFormat = (GEBufferFormat)pixelformat;
 		fbstate.pspFramebufLinesize = linesize;
+	}
+
+	if (g_Config.iShowFPSCounter) {
+		CalculateFPS();
 	}
 
 	if (topaddr != framebuf.topaddr) {
