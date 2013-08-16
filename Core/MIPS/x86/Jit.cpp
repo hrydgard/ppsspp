@@ -194,7 +194,7 @@ void Jit::ClearCacheAt(u32 em_address)
 	ClearCache();
 }
 
-void Jit::CompileDelaySlot(int flags)
+void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 {
 	const u32 addr = js.compilerPC + 4;
 
@@ -210,7 +210,12 @@ void Jit::CompileDelaySlot(int flags)
 	js.inDelaySlot = false;
 
 	if (flags & DELAYSLOT_FLUSH)
-		FlushAll();
+	{
+		if (state != NULL)
+			GetStateAndFlushAll(*state);
+		else
+			FlushAll();
+	}
 	if (flags & DELAYSLOT_SAFE)
 		LOAD_FLAGS; // restore flag!
 }

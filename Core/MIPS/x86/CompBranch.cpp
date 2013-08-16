@@ -188,17 +188,18 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	}
 
 	Gen::FixupBranch ptr;
+	RegCacheState state;
 	if (!likely)
 	{
 		if (!delaySlotIsNice)
-			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH, state);
 		else
-			FlushAll();
+			GetStateAndFlushAll(state);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
-		FlushAll();
+		GetStateAndFlushAll(state);
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
@@ -209,9 +210,18 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	SetJumpTarget(ptr);
 	// Not taken
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
-	WriteExit(js.compilerPC + 8, js.nextExit++);
 
-	js.compiling = false;
+	if (CanContinueBranch())
+	{
+		// Account for the delay slot.
+		js.compilerPC += 4;
+		RestoreState(state);
+	}
+	else
+	{
+		WriteExit(js.compilerPC + 8, js.nextExit++);
+		js.compiling = false;
+	}
 }
 
 void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
@@ -271,17 +281,18 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	CMP(32, gpr.R(rs), Imm32(0));
 
 	Gen::FixupBranch ptr;
+	RegCacheState state;
 	if (!likely)
 	{
 		if (!delaySlotIsNice)
-			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH, state);
 		else
-			FlushAll();
+			GetStateAndFlushAll(state);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
-		FlushAll();
+		GetStateAndFlushAll(state);
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
@@ -295,9 +306,18 @@ void Jit::BranchRSZeroComp(u32 op, Gen::CCFlags cc, bool andLink, bool likely)
 	SetJumpTarget(ptr);
 	// Not taken
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
-	WriteExit(js.compilerPC + 8, js.nextExit++);
 
-	js.compiling = false;
+	if (CanContinueBranch())
+	{
+		// Account for the delay slot.
+		js.compilerPC += 4;
+		RestoreState(state);
+	}
+	else
+	{
+		WriteExit(js.compilerPC + 8, js.nextExit++);
+		js.compiling = false;
+	}
 }
 
 
@@ -361,17 +381,18 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 
 	TEST(32, M((void *)&(mips_->fpcond)), Imm32(1));
 	Gen::FixupBranch ptr;
+	RegCacheState state;
 	if (!likely)
 	{
 		if (!delaySlotIsNice)
-			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH, state);
 		else
-			FlushAll();
+			GetStateAndFlushAll(state);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
-		FlushAll();
+		GetStateAndFlushAll(state);
 		ptr = J_CC(cc, true);
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
@@ -383,9 +404,18 @@ void Jit::BranchFPFlag(u32 op, Gen::CCFlags cc, bool likely)
 	SetJumpTarget(ptr);
 	// Not taken
 	CONDITIONAL_LOG_EXIT(js.compilerPC + 8);
-	WriteExit(js.compilerPC + 8, js.nextExit++);
 
-	js.compiling = false;
+	if (CanContinueBranch())
+	{
+		// Account for the delay slot.
+		js.compilerPC += 4;
+		RestoreState(state);
+	}
+	else
+	{
+		WriteExit(js.compilerPC + 8, js.nextExit++);
+		js.compiling = false;
+	}
 }
 
 
@@ -433,17 +463,18 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	//int val = (mips_->vfpuCtrl[VFPU_CTRL_CC] >> imm3) & 1;
 	TEST(32, M((void *)&(mips_->vfpuCtrl[VFPU_CTRL_CC])), Imm32(1 << imm3));
 	Gen::FixupBranch ptr;
+	RegCacheState state;
 	if (!likely)
 	{
 		if (!delaySlotIsNice && !delaySlotIsBranch)
-			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH, state);
 		else
-			FlushAll();
+			GetStateAndFlushAll(state);
 		ptr = J_CC(cc, true);
 	}
 	else
 	{
-		FlushAll();
+		GetStateAndFlushAll(state);
 		ptr = J_CC(cc, true);
 		if (!delaySlotIsBranch)
 			CompileDelaySlot(DELAYSLOT_FLUSH);
@@ -457,9 +488,18 @@ void Jit::BranchVFPUFlag(u32 op, Gen::CCFlags cc, bool likely)
 	// Not taken
 	u32 notTakenTarget = js.compilerPC + (delaySlotIsBranch ? 4 : 8);
 	CONDITIONAL_LOG_EXIT(notTakenTarget);
-	WriteExit(notTakenTarget, js.nextExit++);
 
-	js.compiling = false;
+	if (CanContinueBranch() && !delaySlotIsBranch)
+	{
+		// Account for the delay slot.
+		js.compilerPC += 4;
+		RestoreState(state);
+	}
+	else
+	{
+		WriteExit(notTakenTarget, js.nextExit++);
+		js.compiling = false;
+	}
 }
 
 

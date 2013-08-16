@@ -43,10 +43,15 @@ struct JitOptions
 		enableBlocklink = true;
 		// Seems to hurt performance?
 		immBranches = false;
+		// Seems to hurt performance also?
+		continueBranches = false;
+		continueMaxInstructions = 100;
 	}
 
 	bool enableBlocklink;
 	bool immBranches;
+	bool continueBranches;
+	int continueMaxInstructions;
 };
 
 struct JitState
@@ -272,7 +277,10 @@ private:
 	void WriteDowncount(int offset = 0);
 
 	// See CompileDelaySlotFlags for flags.
-	void CompileDelaySlot(int flags);
+	void CompileDelaySlot(int flags, RegCacheState *state = NULL);
+	void CompileDelaySlot(int flags, RegCacheState &state) {
+		CompileDelaySlot(flags, &state);
+	}
 	void EatInstruction(u32 op);
 
 	void WriteExit(u32 destination, int exit_num);
@@ -306,6 +314,17 @@ private:
 	void CallProtectedFunction(void *func, const OpArg &arg1, const OpArg &arg2);
 	void CallProtectedFunction(void *func, const u32 arg1, const u32 arg2, const u32 arg3);
 	void CallProtectedFunction(void *func, const OpArg &arg1, const u32 arg2, const u32 arg3);
+
+	bool CanContinueBranch() {
+		if (!jo.continueBranches || js.numInstructions >= jo.continueMaxInstructions) {
+			return false;
+		}
+		// Need at least 2 exits left over.
+		if (js.nextExit >= MAX_JIT_BLOCK_EXITS - 1) {
+			return false;
+		}
+		return true;
+	}
 
 	JitBlockCache blocks;
 	JitOptions jo;
