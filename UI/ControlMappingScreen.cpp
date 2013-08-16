@@ -49,7 +49,6 @@ void KeyMappingScreen::render() {
 	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
 	I18NCategory *generalI18N = GetI18NCategory("General");
 
-
 #define KeyBtn(x, y, symbol) \
 	if (UIButton(GEN_ID, Pos(x, y), 90, 0, KeyMap::NameKeyFromPspButton(symbol).c_str(), \
 	ALIGN_TOPLEFT)) {\
@@ -103,7 +102,6 @@ void KeyMappingScreen::render() {
 	top += 100;
 	KeyBtn(left, top, VIRTKEY_RAPID_FIRE);
 #undef KeyBtn
-
 	// TODO: Add rapid fire somewhere?
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -133,32 +131,20 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
 			return;
 		}
-
-		last_kb_deviceid_ = key.deviceId;
-		last_kb_key_ = key.keyCode;
-		last_axis_id_ = -1;
-
-		KeyMap::SetKeyMapping(last_kb_deviceid_, last_kb_key_, pspBtn_);
+		
+		KeyMap::SetKeyMapping(pspBtn_, KeyDef(key.deviceId, key.keyCode), replace_);
 		screenManager()->finishDialog(this, DR_OK);
 	}
 }
 
 void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value > AXIS_BIND_THRESHOLD) {
-		last_axis_deviceid_ = axis.deviceId;
-		last_axis_id_ = axis.axisId;
-		last_axis_direction_ = 1;
-		last_kb_key_ = 0;
-		KeyMap::SetAxisMapping(last_axis_deviceid_, last_axis_id_, last_axis_direction_, pspBtn_);
+		KeyMap::SetAxisMapping(axis.deviceId, axis.axisId, 1, pspBtn_, replace_);
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
-		last_axis_deviceid_ = axis.deviceId;
-		last_axis_id_ = axis.axisId;
-		last_axis_direction_ = -1;
-		last_kb_key_ = 0;
-		KeyMap::SetAxisMapping(last_axis_deviceid_, last_axis_id_, last_axis_direction_, pspBtn_);
+		KeyMap::SetAxisMapping(axis.deviceId, axis.axisId, -1, pspBtn_, replace_);
 		screenManager()->finishDialog(this, DR_OK);
 	}
 }

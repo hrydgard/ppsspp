@@ -28,12 +28,8 @@ public:
 // Dialog box, meant to be pushed
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn) : PopupScreen("Map Key") {
+	explicit KeyMappingNewKeyDialog(int btn, bool replace = false) : PopupScreen("Map Key") {
 		pspBtn_ = btn;
-		last_kb_deviceid_ = 0;
-		last_kb_key_ = 0;
-		last_axis_deviceid_ = 0;
-		last_axis_id_ = -1;
 	}
 
 	void key(const KeyInput &key);
@@ -45,12 +41,7 @@ protected:
 	virtual bool FillVertical() { return false; }
 	virtual bool ShowButtons() { return false; }
 	virtual void OnCompleted(DialogResult result) {}
-
 private:
 	int pspBtn_;
-	int last_kb_deviceid_;
-	int last_kb_key_;
-	int last_axis_deviceid_;
-	int last_axis_id_;
-	int last_axis_direction_;
+	bool replace_;
 };

@@ -80,7 +80,7 @@ struct AxisPos {
 	}
 };
 
-typedef std::map<int, KeyDef> KeyMapping;
+typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
 
 // These are for speed only, built from the regular ones. For the future.
@@ -125,23 +125,23 @@ namespace KeyMap {
 	// about mapping conflicts
 	std::string NamePspButtonFromKey(int deviceId, int key);
 
-	bool KeyFromPspButton(int btn, int *deviceId, int *keyCode);
+	bool KeyFromPspButton(int btn, std::vector<int> *devices, std::vector<int> *keyCodes);
 	std::string NameKeyFromPspButton(int btn);
 	std::string NameDeviceFromPspButton(int btn);
 
 	// Configure the key mapping.
 	// Any configuration will be saved to the Core config.
-	void SetKeyMapping(int deviceId, int keyCode, int psp_key);
+	void SetKeyMapping(int psp_key, KeyDef key, bool replace);
+
+	// Configure an axis mapping, saves the configuration.
+	// Direction is negative or positive.
+	void SetAxisMapping(int deviceId, int axisId, int direction, int btn, bool replace);
 
 	std::string GetAxisName(int axisId);
 	int AxisToPspButton(int deviceId, int axisId, int direction);
 	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
 	bool IsMappedAxis(int deviceId, int axisId, int direction);
 	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
-
-	// Configure an axis mapping, saves the configuration.
-	// Direction is negative or positive.
-	void SetAxisMapping(int deviceId, int axisId, int direction, int btn);
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
