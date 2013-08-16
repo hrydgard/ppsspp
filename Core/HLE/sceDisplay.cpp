@@ -419,11 +419,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// TODO: Should this be done here or in hleLeaveVblank?
 	if (framebufIsLatched) {
 		DEBUG_LOG(HLE, "Setting latched framebuffer %08x (prev: %08x)", latchedFramebuf.topaddr, framebuf.topaddr);
-		if (latchedFramebuf.topaddr != framebuf.topaddr) { 
-			framebuf = latchedFramebuf;
-			framebufIsLatched = false;
-			gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
-		}
+		framebuf = latchedFramebuf;
+		framebufIsLatched = false;
+		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.pspFramebufLinesize, framebuf.pspFramebufFormat);
 	}
 	// We flip only if the framebuffer was dirty. This eliminates flicker when using
 	// non-buffered rendering. The interaction with frame skipping seems to need
