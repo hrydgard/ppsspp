@@ -51,17 +51,13 @@ void KeyMappingScreen::render() {
 
 
 #define KeyBtn(x, y, symbol) \
-	if (UIButton(GEN_ID, Pos(x, y), 90, 0, KeyMap::NameKeyFromPspButton(currentMap_, symbol).c_str(), \
+	if (UIButton(GEN_ID, Pos(x, y), 90, 0, KeyMap::NameKeyFromPspButton(symbol).c_str(), \
 	ALIGN_TOPLEFT)) {\
-	screenManager()->push(new KeyMappingNewKeyDialog(symbol, currentMap_), 0); \
+	screenManager()->push(new KeyMappingNewKeyDialog(symbol), 0); \
 	UIReset(); \
 	} \
-	UIText(0, Pos(x+30, y+50), KeyMap::NameDeviceFromPspButton(currentMap_, symbol).c_str(), 0xFFFFFFFF, 0.7f, ALIGN_HCENTER); \
+	UIText(0, Pos(x+30, y+50), KeyMap::NameDeviceFromPspButton(symbol).c_str(), 0xFFFFFFFF, 0.7f, ALIGN_HCENTER); \
 	UIText(0, Pos(x+30, y+80), KeyMap::GetPspButtonName(symbol).c_str(), 0xFFFFFFFF, 0.5f, ALIGN_HCENTER); \
-
-
-	// \
-	// UIText(0, Pos(x, y+50), controllerMaps[currentMap_].name.c_str(), 0xFFFFFFFF, 0.5f, ALIGN_HCENTER);
 
 	int pad = 130;
 	int hlfpad = pad / 2;
@@ -114,20 +110,6 @@ void KeyMappingScreen::render() {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
-	if (UIButton(GEN_ID, Pos(10, dp_yres-10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Prev"), ALIGN_BOTTOMLEFT)) {
-		currentMap_--;
-		if (currentMap_ < 0)
-			currentMap_ = (int)controllerMaps.size() - 1;
-	}
-	if (UIButton(GEN_ID, Pos(10 + 10 + LARGE_BUTTON_WIDTH, dp_yres-10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Next"), ALIGN_BOTTOMLEFT)) {
-		currentMap_++;
-		if (currentMap_ >= (int)controllerMaps.size())
-			currentMap_ = 0;
-	}
-	char temp[256];
-	sprintf(temp, "%s (%i/%i)", controllerMaps[currentMap_].name.c_str(), currentMap_ + 1, (int)controllerMaps.size());
-	UIText(0, Pos(10, dp_yres-170), temp, 0xFFFFFFFF, 1.0f, ALIGN_BOTTOMLEFT);
-	UICheckBox(GEN_ID,10, dp_yres - 80, keyI18N->T("Mapping Active"), ALIGN_BOTTOMLEFT, &controllerMaps[currentMap_].active);
 	UIEnd();
 }
 
@@ -141,8 +123,8 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 
 	parent->Add(new TextView(std::string(keyI18N->T("Map a new key for ")) + pspButtonName));
 	
-	std::string buttonKey = KeyMap::NameKeyFromPspButton(currentMap_, this->pspBtn_);
-	std::string buttonDevice = KeyMap::NameDeviceFromPspButton(currentMap_, this->pspBtn_);
+	std::string buttonKey = KeyMap::NameKeyFromPspButton(this->pspBtn_);
+	std::string buttonDevice = KeyMap::NameDeviceFromPspButton(this->pspBtn_);
 	parent->Add(new TextView(std::string(keyI18N->T("Previous:")) + " " + buttonKey + " - " + buttonDevice));
 }
 
@@ -156,7 +138,7 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 		last_kb_key_ = key.keyCode;
 		last_axis_id_ = -1;
 
-		KeyMap::SetKeyMapping(currentMap_, last_kb_deviceid_, last_kb_key_, pspBtn_);
+		KeyMap::SetKeyMapping(last_kb_deviceid_, last_kb_key_, pspBtn_);
 		screenManager()->finishDialog(this, DR_OK);
 	}
 }
@@ -167,7 +149,7 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		last_axis_id_ = axis.axisId;
 		last_axis_direction_ = 1;
 		last_kb_key_ = 0;
-		KeyMap::SetAxisMapping(currentMap_, last_axis_deviceid_, last_axis_id_, last_axis_direction_, pspBtn_);
+		KeyMap::SetAxisMapping(last_axis_deviceid_, last_axis_id_, last_axis_direction_, pspBtn_);
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
@@ -176,7 +158,7 @@ void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 		last_axis_id_ = axis.axisId;
 		last_axis_direction_ = -1;
 		last_kb_key_ = 0;
-		KeyMap::SetAxisMapping(currentMap_, last_axis_deviceid_, last_axis_id_, last_axis_direction_, pspBtn_);
+		KeyMap::SetAxisMapping(last_axis_deviceid_, last_axis_id_, last_axis_direction_, pspBtn_);
 		screenManager()->finishDialog(this, DR_OK);
 	}
 }

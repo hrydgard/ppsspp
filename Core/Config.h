@@ -162,7 +162,7 @@ public:
 	std::string flashDirectory;
 	std::string internalDataDirectory;
 
-	void Load(const char *iniFileName = "ppsspp.ini");
+	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
 	void Save();
 
 	// Utility functions for "recent" management
@@ -171,6 +171,7 @@ public:
 
 private:
 	std::string iniFilename_;
+	std::string controllerIniFilename_;
 };
 
 extern Config g_Config;

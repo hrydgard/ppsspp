@@ -48,6 +48,7 @@ const float AXIS_BIND_THRESHOLD = 0.75f;
 
 class KeyDef {
 public:
+	KeyDef() : deviceId(0), keyCode(0) {}
 	KeyDef(int devId, int k) : deviceId(devId), keyCode(k) {}
 	int deviceId;
 	int keyCode;
@@ -58,29 +59,40 @@ public:
 		if (keyCode < other.keyCode) return true;
 		return false;
 	}
+	bool operator == (const KeyDef &other) const {
+		if (deviceId != other.deviceId) return false;
+		if (keyCode != other.keyCode) return false;
+		return true;
+	}
 };
 
 struct AxisPos {
 	int axis;
 	float position;
+
+	bool operator < (const AxisPos &other) const {
+		if (axis < other.axis) return true;
+		if (axis > other.axis) return false;
+		return position < other.position;
+	}
+	bool operator == (const AxisPos &other) const {
+		return axis == other.axis && position == other.position;
+	}
 };
 
-typedef std::map<KeyDef, int> KeyMapping;
-typedef std::map<KeyDef, AxisPos> AxisMapping;
+typedef std::map<int, KeyDef> KeyMapping;
+
+
+// These are for speed only, built from the regular ones. For the future.
+// typedef std::map<int, KeyDef> KeyMapping;
 
 
 // Multiple maps can be active at the same time.
-class ControllerMap {
-public:
-	ControllerMap() : active(true) {}
-	bool active;
+struct ControllerMap {
 	KeyMapping keys;
-	AxisMapping axis;  // TODO
-	std::string name;
 };
 
-
-extern std::vector<ControllerMap> controllerMaps;
+extern ControllerMap g_controllerMap;
 
 // KeyMap
 // A translation layer for key assignment. Provides
@@ -113,26 +125,28 @@ namespace KeyMap {
 	// about mapping conflicts
 	std::string NamePspButtonFromKey(int deviceId, int key);
 
-	bool KeyFromPspButton(int controllerMap, int btn, int *deviceId, int *keyCode);
-	std::string NameKeyFromPspButton(int controllerMap, int btn);
-	std::string NameDeviceFromPspButton(int controllerMap, int btn);
+	bool KeyFromPspButton(int btn, int *deviceId, int *keyCode);
+	std::string NameKeyFromPspButton(int btn);
+	std::string NameDeviceFromPspButton(int btn);
 
 	// Configure the key mapping.
 	// Any configuration will be saved to the Core config.
-	void SetKeyMapping(int map, int deviceId, int keyCode, int psp_key);
+	void SetKeyMapping(int deviceId, int keyCode, int psp_key);
 
 	std::string GetAxisName(int axisId);
 	int AxisToPspButton(int deviceId, int axisId, int direction);
-	bool AxisFromPspButton(int controllerMap, int btn, int *deviceId, int *axisId, int *direction);
+	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
 	bool IsMappedAxis(int deviceId, int axisId, int direction);
 	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
 
 	// Configure an axis mapping, saves the configuration.
 	// Direction is negative or positive.
-	void SetAxisMapping(int map, int deviceId, int axisId, int direction, int btn);
+	void SetAxisMapping(int deviceId, int axisId, int direction, int btn);
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
+
 	void RestoreDefault();
+	void QuickMap(int device);
 }
 
