@@ -327,8 +327,8 @@ void GameBrowser::Refresh() {
 
 	if (allowBrowsing_) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-#ifdef ANDROID
 		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 1.0f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f)));
+#ifdef ANDROID
 		topBar->Add(new Choice("Home"))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #endif
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
@@ -585,10 +585,10 @@ void GamePauseScreen::CreateViews() {
 	leftColumn->Add(leftColumnItems);
 
 	saveSlots_ = leftColumnItems->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(300, WRAP_CONTENT)));
-	saveSlots_->AddChoice("1");
-	saveSlots_->AddChoice("2");
-	saveSlots_->AddChoice("3");
-	saveSlots_->AddChoice("4");
+	saveSlots_->AddChoice("  1  ");
+	saveSlots_->AddChoice("  2  ");
+	saveSlots_->AddChoice("  3  ");
+	saveSlots_->AddChoice("  4  ");
 	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
 
 	leftColumnItems->Add(new Choice(gs->T("Save State")))->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
