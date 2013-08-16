@@ -35,6 +35,7 @@ ViewGroup::~ViewGroup() {
 }
 
 void ViewGroup::RemoveSubview(View *view) {
+	lock_guard guard(modifyLock_);
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i] == view) {
 			views_.erase(views_.begin() + i);
@@ -45,6 +46,7 @@ void ViewGroup::RemoveSubview(View *view) {
 }
 
 void ViewGroup::Clear() {
+	lock_guard guard(modifyLock_);
 	for (size_t i = 0; i < views_.size(); i++) {
 		delete views_[i];
 		views_[i] = 0;
@@ -53,6 +55,7 @@ void ViewGroup::Clear() {
 }
 
 void ViewGroup::Touch(const TouchInput &input) {
+	lock_guard guard(modifyLock_);
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() == V_VISIBLE)
@@ -61,6 +64,7 @@ void ViewGroup::Touch(const TouchInput &input) {
 }
 
 void ViewGroup::Key(const KeyInput &input) {
+	lock_guard guard(modifyLock_);
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() == V_VISIBLE)
@@ -69,6 +73,7 @@ void ViewGroup::Key(const KeyInput &input) {
 }
 
 void ViewGroup::Axis(const AxisInput &input) {
+	lock_guard guard(modifyLock_);
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
 		if ((*iter)->GetVisibility() == V_VISIBLE)
@@ -103,6 +108,7 @@ void ViewGroup::Update(const InputState &input_state) {
 }
 
 bool ViewGroup::SetFocus() {
+	lock_guard guard(modifyLock_);
 	if (!CanBeFocused() && !views_.empty()) {
 		for (size_t i = 0; i < views_.size(); i++) {
 			if (views_[i]->SetFocus())

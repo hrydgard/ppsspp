@@ -58,6 +58,7 @@ public:
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
 
 protected:
+	recursive_mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
 	Drawable bg_;
 	bool hasDropShadow_;
