@@ -134,6 +134,20 @@ void Jit::DoDummyState(PointerWrap &p)
 	p.DoMarker("Jit");
 }
 
+
+void Jit::GetStateAndFlushAll(RegCacheState &state)
+{
+	gpr.GetState(state.gpr);
+	fpr.GetState(state.fpr);
+	FlushAll();
+}
+
+void Jit::RestoreState(const RegCacheState state)
+{
+	gpr.RestoreState(state.gpr);
+	fpr.RestoreState(state.fpr);
+}
+
 void Jit::FlushAll()
 {
 	gpr.Flush();

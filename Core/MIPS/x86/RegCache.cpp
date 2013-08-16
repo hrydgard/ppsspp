@@ -282,8 +282,7 @@ void GPRRegCache::StoreFromRegister(int i) {
 	}
 }
 
-void GPRRegCache::Flush()
-{
+void GPRRegCache::Flush() {
 	for (int i = 0; i < NUM_X_REGS; i++) {
 		if (xregs[i].allocLocked)
 			PanicAlert("Someone forgot to unlock X64 reg %i.", i);
@@ -305,4 +304,14 @@ void GPRRegCache::Flush()
 			}
 		}
 	}
+}
+
+void GPRRegCache::GetState(GPRRegCacheState &state) const {
+	memcpy(state.regs, regs, sizeof(regs));
+	memcpy(state.xregs, xregs, sizeof(xregs));
+}
+
+void GPRRegCache::RestoreState(const GPRRegCacheState state) {
+	memcpy(regs, state.regs, sizeof(regs));
+	memcpy(xregs, state.xregs, sizeof(xregs));
 }

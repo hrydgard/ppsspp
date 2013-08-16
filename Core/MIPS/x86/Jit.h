@@ -151,6 +151,12 @@ enum CompileDelaySlotFlags
 	DELAYSLOT_SAFE_FLUSH = DELAYSLOT_FLUSH | DELAYSLOT_SAFE,
 };
 
+// TODO: Hmm, humongous.
+struct RegCacheState {
+	GPRRegCacheState gpr;
+	FPURegCacheState fpr;
+};
+
 class Jit : public Gen::XCodeBlock
 {
 public:
@@ -255,6 +261,8 @@ public:
 	void ClearCache();
 	void ClearCacheAt(u32 em_address);
 private:
+	void GetStateAndFlushAll(RegCacheState &state);
+	void RestoreState(const RegCacheState state);
 	void FlushAll();
 	void FlushPrefixV();
 	void WriteDowncount(int offset = 0);

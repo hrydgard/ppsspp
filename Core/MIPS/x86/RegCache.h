@@ -22,6 +22,15 @@
 
 using namespace Gen;
 
+#ifdef _M_X64
+#define NUM_X_REGS 16
+#elif _M_IX86
+#define NUM_X_REGS 8
+#endif
+
+// TODO: Add more cachable regs, like HI, LO
+#define NUM_MIPS_GPRS 32
+
 struct MIPSCachedReg {
 	OpArg location;
 	bool away;  // value not in source register
@@ -35,14 +44,10 @@ struct X64CachedReg {
 	bool allocLocked;
 };
 
-#ifdef _M_X64
-#define NUM_X_REGS 16
-#elif _M_IX86
-#define NUM_X_REGS 8
-#endif
-
-// TODO: Add more cachable regs, like HI, LO
-#define NUM_MIPS_GPRS 32
+struct GPRRegCacheState {
+	MIPSCachedReg regs[NUM_MIPS_GPRS];
+	X64CachedReg xregs[NUM_X_REGS];
+};
 
 class GPRRegCache
 {
@@ -90,6 +95,9 @@ public:
 	void SetImmediate32(int preg, u32 immValue);
 	bool IsImmediate(int preg) const;
 	u32 GetImmediate32(int preg) const;
+
+	void GetState(GPRRegCacheState &state) const;
+	void RestoreState(const GPRRegCacheState state);
 
 	MIPSState *mips;
 
