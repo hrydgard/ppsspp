@@ -192,7 +192,7 @@ namespace PpcGen {
 	void PPCXEmitter::BLE (const void *fnptr) {		
 		CHECK_SMALL_JUMP
 
-			s32 func =  (s32)fnptr - s32(code);
+		s32 func =  (s32)fnptr - s32(code);
 		u32 instr = (0x40810000 | (((s16)(((func)+1))) & 0xfffc));
 		Write32(instr);
 	}
