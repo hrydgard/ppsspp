@@ -50,7 +50,6 @@ public:
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
-	bool bDirectLoad;
 
 	// Core
 	bool bIgnoreBadMemAccess;

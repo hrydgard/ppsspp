@@ -54,7 +54,6 @@ void Config::Load(const char *iniFileName)
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
-	general->Get("DirectLoad", &bDirectLoad, false);
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
@@ -213,7 +212,6 @@ void Config::Save()
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
 		general->Set("Browse", bBrowse);
-		general->Set("DirectLoad", bDirectLoad);
 		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);

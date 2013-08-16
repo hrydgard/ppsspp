@@ -231,9 +231,6 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force 60 FPS or less (helps GoW)")));
 	
-	graphicsSettings->Add(new ItemHeader(gs->T("Anisotropic Filtering")));
-	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, 5, gs, screenManager()));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 #ifndef USING_GLES2
 	static const char *texScaleLevels[] = {"Off", "2x", "3x","4x", "5x"};
@@ -246,8 +243,10 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gs->T("Upscale Type"), texScaleAlgos, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gs->T("Deposterize")));
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Filtering")));
+	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, 5, gs, screenManager()));
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Upscale Type"), texFilters, 1, 4, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Texture Filter"), texFilters, 1, 4, gs, screenManager()));
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -363,7 +362,6 @@ void GlobalSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
-	list->Add(new CheckBox(&g_Config.bDirectLoad, gs->T("Enable Direct Load")));
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);

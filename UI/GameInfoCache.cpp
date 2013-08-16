@@ -274,6 +274,9 @@ public:
 					info_->id_version = info_->paramSFO.GetValueString("DISC_ID") + "_" + info_->paramSFO.GetValueString("DISC_VERSION");
 
 					info_->paramSFOLoaded = true;
+				} else {
+					// Fall back to the filename for title if ISO is broken
+					info_->title = gamePath_;
 				}
 
 				ReadFileToString(&umd, "/PSP_GAME/ICON0.PNG", &info_->iconTextureData, &info_->lock);
@@ -283,6 +286,7 @@ public:
 				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				break;
 			}
+
 		default:
 			;
 		}

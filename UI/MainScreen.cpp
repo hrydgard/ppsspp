@@ -46,14 +46,20 @@ namespace MainWindow {
 
 class GameButton : public UI::Clickable {
 public:
-	GameButton(const std::string &gamePath, UI::LayoutParams *layoutParams = 0) 
-		: UI::Clickable(layoutParams), gamePath_(gamePath), holdFrameCount_(0) {}
+	GameButton(const std::string &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0) 
+		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath), holdFrameCount_(0) {}
 
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-		w = 144;
-		h = 80;
+		if (gridStyle_) {
+			w = 144;
+			h = 80;
+		} else {
+			w = 500;
+			h = 50;
+		}
 	}
+
 	const std::string &GamePath() const { return gamePath_; }
 	virtual void Touch(const TouchInput &input) {
 		UI::Clickable::Touch(input);
@@ -68,9 +74,11 @@ public:
 			holdFrameCount_ = 0;
 		// Hold button for 1.5 seconds to launch the game directly
 		if (holdFrameCount_ > 90) {
+			holdFrameCount_ = 0;
 			UI::EventParams e;
 			e.v = this;
 			e.s = gamePath_;
+			down_ = false;
 			OnHoldClick.Trigger(e);
 		}
 	}
@@ -78,8 +86,9 @@ public:
 	UI::Event OnHoldClick;
 
 private:
+	bool gridStyle_;
 	std::string gamePath_;
-
+	
 	int holdFrameCount_;
 };
 
@@ -90,14 +99,23 @@ void GameButton::Draw(UIContext &dc) {
 
 	if (ginfo->iconTexture) {
 		texture = ginfo->iconTexture;
-	} else {
-		return;
 	}
 
 	int x = bounds_.x;
 	int y = bounds_.y;
-	int w = bounds_.w;
+	int w = 144;
 	int h = bounds_.h;
+
+	UI::Style style = dc.theme->itemStyle;
+
+	if (!gridStyle_ || !texture) {
+		// w = 144 * 80 / 50;
+		h = 50;
+		if (HasFocus())
+			style = down_ ? dc.theme->itemDownStyle : dc.theme->itemFocusedStyle;
+
+		dc.FillRect(style.background, bounds_);
+	}
 
 	if (texture) {
 		color = whiteAlpha(ease((time_now_d() - ginfo->timeIconWasLoaded) * 2));
@@ -144,8 +162,15 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
 		dc.RebindTexture();
+	}
+
+	if (!gridStyle_) {
+		dc.Draw()->DrawText(0, ginfo->title.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 	} else {
-		dc.FillRect(dc.theme->buttonStyle.background, bounds_);
+		dc.PushScissor(bounds_);
+		if (!texture)
+			dc.Draw()->DrawText(0, ginfo->title.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.PopScissor();
 	}
 }
 
@@ -167,6 +192,16 @@ public:
 			return path_;
 		else
 			return "";
+	}
+	std::string GetFriendlyPath() {
+		std::string str = GetPath();
+#ifdef ANDROID
+		if (!memcmp(str.c_str(), g_Config.memCardDirectory.c_str(), g_Config.memCardDirectory.size()))
+		{
+			str = str.substr(g_Config.memCardDirectory.size());
+		}
+#endif
+		return str;
 	}
 
 	std::string path_;
@@ -236,40 +271,80 @@ void PathBrowser::Navigate(const std::string &path) {
 	}
 }
 
-class GameBrowser : public UI::GridLayout {
+class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(std::string path, bool allowBrowsing, UI::LayoutParams *layoutParams = 0);
+	GameBrowser(std::string path, bool allowBrowsing, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = 0);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
 	
-	virtual void Update(const InputState &input_state) {
-		UI::GridLayout::Update(input_state);
-	}
-
 private:
 	void Refresh();
 
 	UI::EventReturn GameButtonClick(UI::EventParams &e);
 	UI::EventReturn GameButtonHoldClick(UI::EventParams &e);
 	UI::EventReturn NavigateClick(UI::EventParams &e);
+	UI::EventReturn LayoutChange(UI::EventParams &e);
+	UI::EventReturn LastClick(UI::EventParams &e);
+	UI::EventReturn HomeClick(UI::EventParams &e);
 
+	UI::ViewGroup *gameList_;
 	PathBrowser path_;
 	bool allowBrowsing_;
+	bool gridStyle_;
+	std::string lastText_;
+	std::string lastLink_; 
 };
 
-GameBrowser::GameBrowser(std::string path, bool allowBrowsing, UI::LayoutParams *layoutParams) 
-	: UI::GridLayout(UI::GridLayoutSettings(150, 85), layoutParams), path_(path), allowBrowsing_(allowBrowsing) {
+GameBrowser::GameBrowser(std::string path, bool allowBrowsing, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams) 
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), allowBrowsing_(allowBrowsing), gameList_(0), lastText_(lastText), lastLink_(lastLink) {
+	using namespace UI;
+	gridStyle_ = true;
 	Refresh();
+}
 
+UI::EventReturn GameBrowser::LayoutChange(UI::EventParams &e) {
+	gridStyle_ = e.a == 0 ? true : false;
+	Refresh();
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
+	LaunchBrowser(lastLink_.c_str());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
+	path_.SetPath(g_Config.memCardDirectory);
+	return UI::EVENT_DONE;
 }
 
 void GameBrowser::Refresh() {
-	// Kill all the buttons
-	for (size_t i = 0; i < views_.size(); i++) {
-		delete views_[i];
+	using namespace UI;
+
+	// Kill all the contents
+	Clear();
+
+	if (allowBrowsing_) {
+		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+#ifdef ANDROID
+		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 1.0f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f)));
+		topBar->Add(new Choice("Home"))->OnClick.Handle(this, &GameBrowser::HomeClick);
+#endif
+		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
+		layoutChoice->AddChoice("Grid");
+		layoutChoice->AddChoice("Linear");
+		layoutChoice->SetSelection(gridStyle_ ? 0 : 1);
+		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
+		Add(topBar);
 	}
-	views_.clear();
+	
+	if (gridStyle_) {
+		gameList_ = new UI::GridLayout(UI::GridLayoutSettings(150, 85), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	} else {
+		gameList_ = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	}
+	Add(gameList_);
 
 	// Find games in the current directory and create new ones.
 	std::vector<UI::Button *> dirButtons;
@@ -277,7 +352,7 @@ void GameBrowser::Refresh() {
 
 	if (path_.GetPath() == "!RECENT") {
 		for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
-			gameButtons.push_back(new GameButton(g_Config.recentIsos[i]));
+			gameButtons.push_back(new GameButton(g_Config.recentIsos[i], gridStyle_));
 		}
 	} else {
 		std::vector<FileInfo> fileInfo;
@@ -288,23 +363,28 @@ void GameBrowser::Refresh() {
 				if (allowBrowsing_)
 					dirButtons.push_back(new UI::Button(fileInfo[i].name.c_str(), new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 			} else {
-				gameButtons.push_back(new GameButton(fileInfo[i].fullName));
+				gameButtons.push_back(new GameButton(fileInfo[i].fullName, gridStyle_, new UI::LinearLayoutParams(gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 			}
 		}
 	}
 
 	if (allowBrowsing_)
-		Add(new UI::Button("..", new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+		gameList_->Add(new UI::Button("..", new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::NavigateClick);
 
 	for (size_t i = 0; i < dirButtons.size(); i++) {
-		Add(dirButtons[i])->OnClick.Handle(this, &GameBrowser::NavigateClick);
+		gameList_->Add(dirButtons[i])->OnClick.Handle(this, &GameBrowser::NavigateClick);
 	}
 
 	for (size_t i = 0; i < gameButtons.size(); i++) {
-		GameButton *b = Add(gameButtons[i]);
+		GameButton *b = gameList_->Add(gameButtons[i]);
 		b->OnClick.Handle(this, &GameBrowser::GameButtonClick);
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
+	}
+
+	if (!lastText_.empty()) {
+		Add(new Spacer());
+		Add(new Choice(lastText_))->OnClick.Handle(this, &GameBrowser::LastClick);
 	}
 }
 
@@ -335,7 +415,6 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-
 void MainScreen::CreateViews() {
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -355,9 +434,15 @@ void MainScreen::CreateViews() {
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
-	GameBrowser *tabRecentGames = new GameBrowser("!RECENT", false, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	GameBrowser *tabHomebrew = new GameBrowser(g_Config.memCardDirectory + "PSP/GAME/", false, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	GameBrowser *tabRecentGames = new GameBrowser(
+		"!RECENT", false, m->T("How to get games"), "http://www.ppsspp.org/faq.html",
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true,
+		m->T("How to get games"), "http://www.ppsspp.org/faq.html",
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	GameBrowser *tabHomebrew = new GameBrowser(g_Config.memCardDirectory + "PSP/GAME/", false,
+		m->T("Download demos (non-affiliated site)"), "http://www.pspdemocenter.com/",
+		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollRecentGames->Add(tabRecentGames);
 	scrollAllGames->Add(tabAllGames);
@@ -367,12 +452,12 @@ void MainScreen::CreateViews() {
 	leftColumn->AddTab(m->T("Games"), scrollAllGames);
 	leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
 
-	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelected);
-	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelected);
-	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelected);
-	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameHoldSelected);
-	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameHoldSelected);
-	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameHoldSelected);
+	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+	tabHomebrew->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
+	tabRecentGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+	tabAllGames->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
+	tabHomebrew->OnHoldChoice.Handle(this, &MainScreen::OnGameSelected);
 
 /*
 	if (info) {
@@ -392,6 +477,7 @@ void MainScreen::CreateViews() {
 #ifdef _WIN32
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
+	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(m->T("Settings")))->OnClick.Handle(this, &MainScreen::OnSettings);
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
@@ -417,19 +503,19 @@ UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSelected(UI::EventParams &e) {
-	if(g_Config.bDirectLoad) {
-		// Go directly into the game.
-		screenManager()->switchScreen(new EmuScreen(e.s));
-	} else {
-		// Goto Game Menu.
-		screenManager()->push(new GameScreen(e.s));
-	}
+	screenManager()->push(new GameScreen(e.s));
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn MainScreen::OnGameHoldSelected(UI::EventParams &e) {
+UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 	// Go directly into the game.
 	screenManager()->switchScreen(new EmuScreen(e.s));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
+	// screenManager()->push(new SettingsScreen());
+	screenManager()->push(new GameSettingsScreen("",""));
 	return UI::EVENT_DONE;
 }
 
