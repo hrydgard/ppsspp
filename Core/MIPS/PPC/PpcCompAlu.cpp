@@ -105,7 +105,6 @@ void Jit::CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arith)(PPCReg Rd
 }
 
 void Jit::Comp_RType3(u32 op) {
-#if 1
 	CONDITIONAL_DISABLE;
 	int rt = _RT;
 	int rs = _RS;
@@ -148,9 +147,6 @@ void Jit::Comp_RType3(u32 op) {
 		Comp_Generic(op);
 		break;
 	}
-#else
-	Comp_Generic(op);
-#endif
 }
 
 void Jit::Comp_ShiftType(u32 op) {
