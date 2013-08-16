@@ -57,6 +57,11 @@ struct MIPSCachedFPReg {
 	bool tempLocked;
 };
 
+struct FPURegCacheState {
+	MIPSCachedFPReg regs[NUM_MIPS_FPRS];
+	X64CachedFPReg xregs[NUM_X_FPREGS];
+};
+
 enum {
 	MAP_DIRTY = 1,
 	MAP_NOINIT = 2,
@@ -128,6 +133,9 @@ public:
 	void ReleaseSpillLockV(int vreg) {
 		ReleaseSpillLock(vreg + 32);
 	}
+
+	void GetState(FPURegCacheState &state) const;
+	void RestoreState(const FPURegCacheState state);
 
 	MIPSState *mips;
 

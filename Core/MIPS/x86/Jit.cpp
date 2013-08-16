@@ -134,6 +134,20 @@ void Jit::DoDummyState(PointerWrap &p)
 	p.DoMarker("Jit");
 }
 
+
+void Jit::GetStateAndFlushAll(RegCacheState &state)
+{
+	gpr.GetState(state.gpr);
+	fpr.GetState(state.fpr);
+	FlushAll();
+}
+
+void Jit::RestoreState(const RegCacheState state)
+{
+	gpr.RestoreState(state.gpr);
+	fpr.RestoreState(state.fpr);
+}
+
 void Jit::FlushAll()
 {
 	gpr.Flush();
@@ -180,7 +194,7 @@ void Jit::ClearCacheAt(u32 em_address)
 	ClearCache();
 }
 
-void Jit::CompileDelaySlot(int flags)
+void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 {
 	const u32 addr = js.compilerPC + 4;
 
@@ -196,7 +210,12 @@ void Jit::CompileDelaySlot(int flags)
 	js.inDelaySlot = false;
 
 	if (flags & DELAYSLOT_FLUSH)
-		FlushAll();
+	{
+		if (state != NULL)
+			GetStateAndFlushAll(*state);
+		else
+			FlushAll();
+	}
 	if (flags & DELAYSLOT_SAFE)
 		LOAD_FLAGS; // restore flag!
 }
@@ -255,6 +274,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 {
 	js.cancel = false;
 	js.blockStart = js.compilerPC = mips_->pc;
+	js.nextExit = 0;
 	js.downcountAmount = 0;
 	js.curBlock = b;
 	js.compiling = true;
@@ -352,6 +372,8 @@ void Jit::Comp_Generic(u32 op)
 
 void Jit::WriteExit(u32 destination, int exit_num)
 {
+	_dbg_assert_msg_(JIT, exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num");
+
 	if (!Memory::IsValidAddress(destination)) {
 		ERROR_LOG_REPORT(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
 	}

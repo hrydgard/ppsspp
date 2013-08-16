@@ -255,3 +255,13 @@ void FPURegCache::FlushX(X64Reg reg) {
 		StoreFromRegister(xregs[reg].mipsReg);
 	}
 }
+
+void FPURegCache::GetState(FPURegCacheState &state) const {
+	memcpy(state.regs, regs, sizeof(regs));
+	memcpy(state.xregs, xregs, sizeof(xregs));
+}
+
+void FPURegCache::RestoreState(const FPURegCacheState state) {
+	memcpy(regs, state.regs, sizeof(regs));
+	memcpy(xregs, state.xregs, sizeof(xregs));
+}
