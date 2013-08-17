@@ -38,7 +38,10 @@
 
 #ifdef _WIN32
 namespace MainWindow {
-	enum { WM_USER_LOG_STATUS_CHANGED = WM_USER + 200 };
+	enum { 
+		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200,
+		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 300,
+	};
 	extern HWND hwndMain;
 }
 #endif
@@ -345,6 +348,9 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 		else Atrac3plus_Decoder::Shutdown();
 	}
 	
+#ifdef _WIN32
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_ATRAC_STATUS_CHANGED, 0, 0);
+#endif
 
 	return UI::EVENT_DONE;
 }
