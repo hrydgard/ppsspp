@@ -185,7 +185,7 @@ void Clickable::Touch(const TouchInput &input) {
 }
 
 bool IsAcceptKeyCode(int keyCode) {
-	return keyCode == NKCODE_SPACE || keyCode == NKCODE_ENTER || keyCode == NKCODE_X || keyCode == NKCODE_BUTTON_A;
+	return keyCode == NKCODE_SPACE || keyCode == NKCODE_ENTER || keyCode == NKCODE_Z || keyCode == NKCODE_BUTTON_A || keyCode == NKCODE_BUTTON_X;
 }
 
 bool IsEscapeKeyCode(int keyCode) {
