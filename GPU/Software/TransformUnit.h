@@ -41,7 +41,7 @@ struct ScreenCoords
 
 	ScreenCoords operator * (const float t) const
 	{
-		return ScreenCoords(x * t, y * t, z * t);
+		return ScreenCoords((fixed16)(x * t), (fixed16)(y * t), (u16)(z * t));
 	}
 
 	ScreenCoords operator / (const int t) const
@@ -68,7 +68,7 @@ struct DrawingCoords
 
 	DrawingCoords operator * (const float t) const
 	{
-		return DrawingCoords(x * t, y * t, z * t);
+		return DrawingCoords((u10)(x * t), (u10)(y * t), (u16)(z * t));
 	}
 
 	DrawingCoords operator + (const DrawingCoords& oth) const

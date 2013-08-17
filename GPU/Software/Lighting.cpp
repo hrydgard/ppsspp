@@ -86,9 +86,9 @@ void Process(VertexData& vertex)
 
 		// ambient lighting
 		Vec3<int> lac = Vec3<int>(gstate.getLightAmbientColorR(light), gstate.getLightAmbientColorG(light), gstate.getLightAmbientColorB(light));
-		final_color.r() += att * spot * lac.r() * mac.r() / 255;
-		final_color.g() += att * spot * lac.g() * mac.g() / 255;
-		final_color.b() += att * spot * lac.b() * mac.b() / 255;
+		final_color.r() += (int)(att * spot * lac.r() * mac.r() / 255);
+		final_color.g() += (int)(att * spot * lac.g() * mac.g() / 255);
+		final_color.b() += (int)(att * spot * lac.b() * mac.b() / 255);
 
 		// diffuse lighting
 		Vec3<int> ldc = Vec3<int>(gstate.getDiffuseColorR(light), gstate.getDiffuseColorG(light), gstate.getDiffuseColorB(light));
@@ -103,9 +103,9 @@ void Process(VertexData& vertex)
 		}
 
 		if (diffuse_factor > 0.f) {
-			final_color.r() += att * spot * ldc.r() * mdc.r() * diffuse_factor / 255;
-			final_color.g() += att * spot * ldc.g() * mdc.g() * diffuse_factor / 255;
-			final_color.b() += att * spot * ldc.b() * mdc.b() * diffuse_factor / 255;
+			final_color.r() += (int)(att * spot * ldc.r() * mdc.r() * diffuse_factor / 255);
+			final_color.g() += (int)(att * spot * ldc.g() * mdc.g() * diffuse_factor / 255);
+			final_color.b() += (int)(att * spot * ldc.b() * mdc.b() * diffuse_factor / 255);
 		}
 
 		if (gstate.isUsingSpecularLight(light)) {
@@ -124,9 +124,9 @@ void Process(VertexData& vertex)
 			specular_factor = pow(specular_factor, k);
 
 			if (specular_factor > 0.f) {
-				specular_color.r() += att * spot * lsc.r() * msc.r() * specular_factor / 255;
-				specular_color.g() += att * spot * lsc.g() * msc.g() * specular_factor / 255;
-				specular_color.b() += att * spot * lsc.b() * msc.b() * specular_factor / 255;
+				specular_color.r() += (int)(att * spot * lsc.r() * msc.r() * specular_factor / 255);
+				specular_color.g() += (int)(att * spot * lsc.g() * msc.g() * specular_factor / 255);
+				specular_color.b() += (int)(att * spot * lsc.b() * msc.b() * specular_factor / 255);
 			}
 		}
 	}
