@@ -244,6 +244,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeRenderer_displayInit(JNIE
 
 		ILOG("Calling NativeInitGraphics(): dpi = %i, dp_xres = %i, dp_yres = %i", g_dpi, dp_xres, dp_yres);
 		NativeInitGraphics();
+		ILOG("NativeInitGraphics() completed");
 
 		dp_xscale = (float)dp_xres / pixel_xres;
 		dp_yscale = (float)dp_yres / pixel_yres;

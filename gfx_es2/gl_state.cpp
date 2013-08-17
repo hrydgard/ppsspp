@@ -22,6 +22,8 @@ PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 
 OpenGLState glstate;
 GLExtensions gl_extensions;
+std::string g_all_gl_extensions;
+std::string g_all_egl_extensions;
 
 int OpenGLState::state_count = 0;
 
@@ -82,12 +84,20 @@ void CheckGLExtensions() {
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
 
 	const char *extString = (const char *)glGetString(GL_EXTENSIONS);
-	gl_extensions.all_gl_extensions = extString;
+	if (extString) {
+		g_all_gl_extensions = extString;
+	} else {
+		g_all_gl_extensions = "";
+	}
 
 #ifdef WIN32
 	const char *wglString = wglGetExtensionsStringEXT();
-	gl_extensions.EXT_swap_control_tear = strstr(wglString, "WGL_EXT_swap_control_tear") != 0;
-	gl_extensions.all_egl_extensions = wglString;
+	if (wglString) {
+		gl_extensions.EXT_swap_control_tear = strstr(wglString, "WGL_EXT_swap_control_tear") != 0;
+		g_all_egl_extensions = wglString;
+	} else {
+		g_all_egl_extensions = "";
+	}
 #elif !defined(USING_GLES2)
 	// const char *glXString = glXQueryExtensionString();
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
@@ -108,7 +118,6 @@ void CheckGLExtensions() {
 		glBindVertexArrayOES = (PFNGLBINDVERTEXARRAYOESPROC)eglGetProcAddress ( "glBindVertexArrayOES" );
 		glDeleteVertexArraysOES = (PFNGLDELETEVERTEXARRAYSOESPROC)eglGetProcAddress ( "glDeleteVertexArraysOES" );
 		glIsVertexArrayOES = (PFNGLISVERTEXARRAYOESPROC)eglGetProcAddress ( "glIsVertexArrayOES" );
-		ILOG("VAO available");
 	}
 
 	gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
@@ -134,14 +143,18 @@ void CheckGLExtensions() {
 	EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
 	const char *eglString = eglQueryString(display, EGL_EXTENSIONS);
-	gl_extensions.all_egl_extensions = eglString;
+	if (eglString) {
+		g_all_egl_extensions = eglString;
 
-	gl_extensions.EGL_NV_system_time = strstr(eglString, "EGL_NV_system_time") != 0;
-	gl_extensions.EGL_NV_coverage_sample = strstr(eglString, "EGL_NV_coverage_sample") != 0;
+		gl_extensions.EGL_NV_system_time = strstr(eglString, "EGL_NV_system_time") != 0;
+		gl_extensions.EGL_NV_coverage_sample = strstr(eglString, "EGL_NV_coverage_sample") != 0;
 
-	if (gl_extensions.EGL_NV_system_time) {
-		eglGetSystemTimeNV = (PFNEGLGETSYSTEMTIMENVPROC) eglGetProcAddress("eglGetSystemTimeNV");
-		eglGetSystemTimeFrequencyNV = (PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC) eglGetProcAddress("eglGetSystemTimeFrequencyNV");
+		if (gl_extensions.EGL_NV_system_time) {
+			eglGetSystemTimeNV = (PFNEGLGETSYSTEMTIMENVPROC) eglGetProcAddress("eglGetSystemTimeNV");
+			eglGetSystemTimeFrequencyNV = (PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC) eglGetProcAddress("eglGetSystemTimeFrequencyNV");
+		}
+	} else {
+		g_all_egl_extensions = "";
 	}
 
 #endif

@@ -255,6 +255,8 @@ public:
 
 extern OpenGLState glstate;
 
+
+// WARNING: This gets memset-d - so no strings please
 struct GLExtensions {
 	bool OES_depth24;
 	bool OES_packed_depth_stencil;
@@ -271,10 +273,12 @@ struct GLExtensions {
 
 	bool EGL_NV_system_time;
 	bool EGL_NV_coverage_sample;
-
-	std::string all_gl_extensions;
-	std::string all_egl_extensions;
 };
+
+
+extern std::string g_all_gl_extensions;
+extern std::string g_all_egl_extensions;
+
 
 extern GLExtensions gl_extensions;
 
