@@ -18,6 +18,7 @@
 *.aps
 *.exp
 *.qdact
+controls.ini
 Debug
 Release
 Windows/x64

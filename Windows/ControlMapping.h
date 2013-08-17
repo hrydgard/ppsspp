@@ -19,6 +19,3 @@
 
 #include "InputDevice.h"
 
-#define XBOX_CODE_LEFTTRIGGER  0x00010000
-#define XBOX_CODE_RIGHTTRIGGER 0x00020000
-

@@ -44,10 +44,19 @@ enum {
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
 
+enum DefaultMaps {
+	DEFAULT_MAPPING_KEYBOARD,
+	DEFAULT_MAPPING_PAD,
+	DEFAULT_MAPPING_X360,
+	DEFAULT_MAPPING_SHIELD,
+	DEFAULT_MAPPING_OUYA,
+};
+
 const float AXIS_BIND_THRESHOLD = 0.75f;
 
 class KeyDef {
 public:
+	KeyDef() : deviceId(0), keyCode(0) {}
 	KeyDef(int devId, int k) : deviceId(devId), keyCode(k) {}
 	int deviceId;
 	int keyCode;
@@ -58,29 +67,28 @@ public:
 		if (keyCode < other.keyCode) return true;
 		return false;
 	}
+	bool operator == (const KeyDef &other) const {
+		if (deviceId != other.deviceId) return false;
+		if (keyCode != other.keyCode) return false;
+		return true;
+	}
 };
 
 struct AxisPos {
 	int axis;
 	float position;
+
+	bool operator < (const AxisPos &other) const {
+		if (axis < other.axis) return true;
+		if (axis > other.axis) return false;
+		return position < other.position;
+	}
+	bool operator == (const AxisPos &other) const {
+		return axis == other.axis && position == other.position;
+	}
 };
 
-typedef std::map<KeyDef, int> KeyMapping;
-typedef std::map<KeyDef, AxisPos> AxisMapping;
-
-
-// Multiple maps can be active at the same time.
-class ControllerMap {
-public:
-	ControllerMap() : active(true) {}
-	bool active;
-	KeyMapping keys;
-	AxisMapping axis;  // TODO
-	std::string name;
-};
-
-
-extern std::vector<ControllerMap> controllerMaps;
+typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
 // KeyMap
 // A translation layer for key assignment. Provides
@@ -95,9 +103,21 @@ extern std::vector<ControllerMap> controllerMaps;
 class IniFile;
 
 namespace KeyMap {
+	extern KeyMapping g_controllerMap;
+
+	// Key & Button names
+	struct KeyMap_IntStrPair {
+		int key;
+		std::string name;
+	};
+
 	// Use if you need to display the textual name 
 	std::string GetKeyName(int keyCode);
+	std::string GetKeyOrAxisName(int keyCode);
+	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);
+
+	std::vector<KeyMap_IntStrPair> GetMappableKeys();
 
 	// Use if to translate KeyMap Keys to PSP
 	// buttons. You should have already translated
@@ -106,33 +126,29 @@ namespace KeyMap {
 	// Returns KEYMAP_ERROR_UNKNOWN_KEY
 	// for any unmapped key
 	int KeyToPspButton(int deviceId, int key);
+	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys);
 
-	bool IsMappedKey(int deviceId, int key);
-
-	// Might be useful if you want to provide hints to users
-	// about mapping conflicts
-	std::string NamePspButtonFromKey(int deviceId, int key);
-
-	bool KeyFromPspButton(int controllerMap, int btn, int *deviceId, int *keyCode);
-	std::string NameKeyFromPspButton(int controllerMap, int btn);
-	std::string NameDeviceFromPspButton(int controllerMap, int btn);
+	int TranslateKeyCodeToAxis(int keyCode, int &direction);
+	int TranslateKeyCodeFromAxis(int axisId, int direction);
 
 	// Configure the key mapping.
 	// Any configuration will be saved to the Core config.
-	void SetKeyMapping(int map, int deviceId, int keyCode, int psp_key);
-
-	std::string GetAxisName(int axisId);
-	int AxisToPspButton(int deviceId, int axisId, int direction);
-	bool AxisFromPspButton(int controllerMap, int btn, int *deviceId, int *axisId, int *direction);
-	bool IsMappedAxis(int deviceId, int axisId, int direction);
-	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
+	void SetKeyMapping(int psp_key, KeyDef key, bool replace);
 
 	// Configure an axis mapping, saves the configuration.
 	// Direction is negative or positive.
-	void SetAxisMapping(int map, int deviceId, int axisId, int direction, int btn);
+	void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace);
+
+	int AxisToPspButton(int deviceId, int axisId, int direction);
+	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
+	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
+
+	void SetDefaultKeyMap(DefaultMaps dmap, bool replace);
+
 	void RestoreDefault();
+	void QuickMap(int device);
 }
 
