@@ -607,9 +607,9 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 	}
 }
 
-int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr)
+int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelPollEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr, timeoutPtr);
+	DEBUG_LOG(HLE, "sceKernelPollEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr);
 
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0)
 	{
