@@ -44,6 +44,14 @@ enum {
 	VIRTKEY_COUNT = VIRTKEY_LAST - VIRTKEY_FIRST
 };
 
+enum DefaultMaps {
+	DEFAULT_MAPPING_KEYBOARD,
+	DEFAULT_MAPPING_PAD,
+	DEFAULT_MAPPING_X360,
+	DEFAULT_MAPPING_SHIELD,
+	DEFAULT_MAPPING_OUYA,
+};
+
 const float AXIS_BIND_THRESHOLD = 0.75f;
 
 class KeyDef {
@@ -82,18 +90,6 @@ struct AxisPos {
 
 typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
-
-// These are for speed only, built from the regular ones. For the future.
-// typedef std::map<int, KeyDef> KeyMapping;
-
-
-// Multiple maps can be active at the same time.
-struct ControllerMap {
-	KeyMapping keys;
-};
-
-extern ControllerMap g_controllerMap;
-
 // KeyMap
 // A translation layer for key assignment. Provides
 // integration with Core's config state.
@@ -107,9 +103,19 @@ extern ControllerMap g_controllerMap;
 class IniFile;
 
 namespace KeyMap {
+	extern KeyMapping g_controllerMap;
+
+	// Key & Button names
+	struct KeyMap_IntStrPair {
+		int key;
+		std::string name;
+	};
+
 	// Use if you need to display the textual name 
 	std::string GetKeyName(int keyCode);
 	std::string GetPspButtonName(int btn);
+
+	std::vector<KeyMap_IntStrPair> GetMappableKeys();
 
 	// Use if to translate KeyMap Keys to PSP
 	// buttons. You should have already translated
@@ -119,13 +125,9 @@ namespace KeyMap {
 	// for any unmapped key
 	int KeyToPspButton(int deviceId, int key);
 
-	bool IsMappedKey(int deviceId, int key);
+	int TranslateKeyCodeFromAxis(int axisId, int direction);
 
-	// Might be useful if you want to provide hints to users
-	// about mapping conflicts
-	std::string NamePspButtonFromKey(int deviceId, int key);
-
-	bool KeyFromPspButton(int btn, std::vector<int> *devices, std::vector<int> *keyCodes);
+	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys);
 	std::string NameKeyFromPspButton(int btn);
 	std::string NameDeviceFromPspButton(int btn);
 
@@ -135,16 +137,17 @@ namespace KeyMap {
 
 	// Configure an axis mapping, saves the configuration.
 	// Direction is negative or positive.
-	void SetAxisMapping(int deviceId, int axisId, int direction, int btn, bool replace);
+	void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace);
 
 	std::string GetAxisName(int axisId);
 	int AxisToPspButton(int deviceId, int axisId, int direction);
 	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
-	bool IsMappedAxis(int deviceId, int axisId, int direction);
 	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
 
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
+
+	void SetDefaultKeyMap(DefaultMaps dmap, bool replace);
 
 	void RestoreDefault();
 	void QuickMap(int device);

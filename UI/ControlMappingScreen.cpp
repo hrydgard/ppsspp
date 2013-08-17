@@ -21,6 +21,8 @@
 #include "input/input_state.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
+#include "ui/view.h"
+#include "ui/viewgroup.h"
 
 #include "Core/HLE/sceCtrl.h"
 #include "Common/KeyMap.h"
@@ -31,84 +33,162 @@
 
 extern void DrawBackground(float alpha);
 
-void KeyMappingScreen::update(InputState &input) {
-	if (input.pad_buttons_down & PAD_BUTTON_BACK) {
-		g_Config.Save();
-		screenManager()->finishDialog(this, DR_OK);
+class ControlMapper : public UI::LinearLayout {
+public:
+	ControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams = 0);
+
+	virtual void Update(const InputState &input);
+
+private:
+	void Refresh();
+
+	UI::EventReturn OnAdd(UI::EventParams &params);
+	UI::EventReturn OnDelete(UI::EventParams &params);
+	UI::EventReturn OnReplace(UI::EventParams &params);
+	UI::EventReturn OnReplaceAll(UI::EventParams &params);
+
+	void MappedCallback(KeyDef key);
+
+	enum Action {
+		NONE,
+		REPLACEONE,
+		REPLACEALL,
+		ADD,
+	};
+
+	Action action_;
+	int actionIndex_;
+	int pspKey_;
+	std::string keyName_;
+	ScreenManager *scrm_;
+	bool refresh_;
+};
+
+ControlMapper::ControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
+	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), action_(NONE), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), refresh_(false) {
+
+	Refresh();
+}
+
+void ControlMapper::Update(const InputState &input) {
+	if (refresh_) {
+		refresh_ = false;
+		Refresh();
 	}
 }
 
-void KeyMappingScreen::render() {
-	UIShader_Prepare();
-	UIBegin(UIShader_Get());
-	DrawBackground(1.0f);
+void ControlMapper::Refresh() {
+	Clear();
 
-	UIContext *ctx = screenManager()->getUIContext();
-	UIFlush();
+	using namespace UI;
 
-	I18NCategory *keyI18N = GetI18NCategory("KeyMapping");
-	I18NCategory *generalI18N = GetI18NCategory("General");
+	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	
+	root->Add(new Choice(keyName_, new LinearLayoutParams(200, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 
-#define KeyBtn(x, y, symbol) \
-	if (UIButton(GEN_ID, Pos(x, y), 90, 0, KeyMap::NameKeyFromPspButton(symbol).c_str(), \
-	ALIGN_TOPLEFT)) {\
-	screenManager()->push(new KeyMappingNewKeyDialog(symbol), 0); \
-	UIReset(); \
-	} \
-	UIText(0, Pos(x+30, y+50), KeyMap::NameDeviceFromPspButton(symbol).c_str(), 0xFFFFFFFF, 0.7f, ALIGN_HCENTER); \
-	UIText(0, Pos(x+30, y+80), KeyMap::GetPspButtonName(symbol).c_str(), 0xFFFFFFFF, 0.5f, ALIGN_HCENTER); \
+	std::vector<KeyDef> mappings;
+	KeyMap::KeyFromPspButton(pspKey_, &mappings);
 
-	int pad = 130;
-	int hlfpad = pad / 2;
+	for (size_t i = 0; i < mappings.size(); i++) {
+		std::string deviceName = GetDeviceName(mappings[i].deviceId);
+		std::string keyName = KeyMap::GetKeyName(mappings[i].keyCode);
+		int image = -1;
 
-	int left = 30;
-	KeyBtn(left, 30, CTRL_LTRIGGER);
+		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	int top = 120;
-	KeyBtn(left+hlfpad, top, CTRL_UP); // Up
-	KeyBtn(left, top+hlfpad, CTRL_LEFT);// Left
-	KeyBtn(left+pad, top+hlfpad, CTRL_RIGHT); // Right
-	KeyBtn(left+hlfpad, top+pad, CTRL_DOWN); // Down
-
-	top = 10;
-	left = 250;
-	KeyBtn(left+hlfpad, top, VIRTKEY_AXIS_Y_MAX); // Analog Up
-	KeyBtn(left, top+hlfpad, VIRTKEY_AXIS_X_MIN);// Analog Left
-	KeyBtn(left+pad, top+hlfpad, VIRTKEY_AXIS_X_MAX); // Analog Right
-	KeyBtn(left+hlfpad, top+pad, VIRTKEY_AXIS_Y_MIN); // Analog Down
-
-	top = 120;
-	left = 480;
-	KeyBtn(left+hlfpad, top, CTRL_TRIANGLE); // Triangle
-	KeyBtn(left, top+hlfpad, CTRL_SQUARE); // Square
-	KeyBtn(left+pad, top+hlfpad, CTRL_CIRCLE); // Circle
-	KeyBtn(left+hlfpad, top+pad, CTRL_CROSS); // Cross
-
-	left = 610;
-	KeyBtn(left, 30, CTRL_RTRIGGER);
-
-	top += pad + 50;
-	left = 250;
-	KeyBtn(left, top, CTRL_SELECT); // Select
-	KeyBtn(left + pad, top, CTRL_START); //Start
-
-	top = 10;
-	left = 720;
-	KeyBtn(left, top, VIRTKEY_UNTHROTTLE);
-	top += 100;
-	KeyBtn(left, top, VIRTKEY_SPEED_TOGGLE);
-	top += 100;
-	KeyBtn(left, top, VIRTKEY_PAUSE);
-	top += 100;
-	KeyBtn(left, top, VIRTKEY_RAPID_FIRE);
-#undef KeyBtn
-	// TODO: Add rapid fire somewhere?
-
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, generalI18N->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
-		screenManager()->finishDialog(this, DR_OK);
+		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(1.0f)));
+		char buf[10];
+		c->SetTag(itoa(i, buf, 10));
+		c->OnClick.Handle(this, &ControlMapper::OnReplace);
+		
+		Choice *d = row->Add(new Choice("X"));
+		d->SetTag(itoa(i, buf, 10));
+		d->OnClick.Handle(this, &ControlMapper::OnDelete);
+		
+		row->Add(new Choice("+"))->OnClick.Handle(this, &ControlMapper::OnAdd);
 	}
 
-	UIEnd();
+	if (mappings.size() == 0) {
+		// look like an empty line
+		rightColumn->Add(new Choice("", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnAdd);
+	}
+}
+
+void ControlMapper::MappedCallback(KeyDef kdf) {
+	switch (action_) {
+	case REPLACEALL:
+		KeyMap::SetKeyMapping(pspKey_, kdf, true);
+		break;
+	case REPLACEONE:
+		KeyMap::g_controllerMap[pspKey_][actionIndex_] = kdf;
+		break;
+	}
+	refresh_ = true;
+}
+
+UI::EventReturn ControlMapper::OnReplace(UI::EventParams &params) {
+	actionIndex_ = atoi(params.v->Tag().c_str());
+	action_ = REPLACEONE;
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, placeholder::_1)));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ControlMapper::OnReplaceAll(UI::EventParams &params) {
+	action_ = REPLACEALL;
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, placeholder::_1)));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
+	KeyMap::g_controllerMap[pspKey_].push_back(KeyDef(0, 0));
+	refresh_ = true;
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn ControlMapper::OnDelete(UI::EventParams &params) {
+	actionIndex_ = atoi(params.v->Tag().c_str());
+	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + actionIndex_);
+	refresh_ = true;
+	return UI::EVENT_DONE;
+}
+
+void ControlMappingScreen::CreateViews() {
+	using namespace UI;
+
+	I18NCategory *k = GetI18NCategory("KeyMapping");
+	I18NCategory *g = GetI18NCategory("General");
+
+	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT));
+	leftColumn->Add(new Choice(k->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
+	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
+	leftColumn->Add(new Choice(g->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	/*
+	ChoiceStrip *mode = leftColumn->Add(new ChoiceStrip(ORIENT_VERTICAL));
+	mode->AddChoice("Replace");
+	mode->AddChoice("Add");
+	*/
+	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	rightScroll->Add(rightColumn);
+
+	root_->Add(leftColumn);
+	root_->Add(rightScroll);
+
+	std::vector<KeyMap::KeyMap_IntStrPair> mappableKeys = KeyMap::GetMappableKeys();
+	for (size_t i = 0; i < mappableKeys.size(); i++) {
+		rightColumn->Add(new ControlMapper(mappableKeys[i].key, mappableKeys[i].name, screenManager(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	}
+}
+
+UI::EventReturn ControlMappingScreen::OnClearMapping(UI::EventParams &params) {
+	KeyMap::g_controllerMap.clear();
+
+	RecreateViews();
+	return UI::EVENT_DONE;
 }
 
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
@@ -120,10 +200,6 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
 	parent->Add(new TextView(std::string(keyI18N->T("Map a new key for ")) + pspButtonName));
-	
-	std::string buttonKey = KeyMap::NameKeyFromPspButton(this->pspBtn_);
-	std::string buttonDevice = KeyMap::NameDeviceFromPspButton(this->pspBtn_);
-	parent->Add(new TextView(std::string(keyI18N->T("Previous:")) + " " + buttonKey + " - " + buttonDevice));
 }
 
 void KeyMappingNewKeyDialog::key(const KeyInput &key) {
@@ -132,19 +208,25 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			return;
 		}
 		
-		KeyMap::SetKeyMapping(pspBtn_, KeyDef(key.deviceId, key.keyCode), replace_);
+		KeyDef kdf(key.deviceId, key.keyCode);
 		screenManager()->finishDialog(this, DR_OK);
+		if (callback_)
+			callback_(kdf);
 	}
 }
 
 void KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (axis.value > AXIS_BIND_THRESHOLD) {
-		KeyMap::SetAxisMapping(axis.deviceId, axis.axisId, 1, pspBtn_, replace_);
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
 		screenManager()->finishDialog(this, DR_OK);
+		if (callback_)
+			callback_(kdf);
 	}
 
 	if (axis.value < -AXIS_BIND_THRESHOLD) {
-		KeyMap::SetAxisMapping(axis.deviceId, axis.axisId, -1, pspBtn_, replace_);
+		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
 		screenManager()->finishDialog(this, DR_OK);
+		if (callback_)
+			callback_(kdf);
 	}
 }

@@ -711,10 +711,11 @@ void ControlsScreen::render() {
 			g_Config.iTouchButtonOpacity = bTransparent ? 15 : 65;
 	}
 	y += 10;
+
 	// Button to KeyMapping screen
 	HLinear hlinear(x, y += stride, 20);
 	if (UIButton(GEN_ID, hlinear, 250, 0, c->T("Key Mapping"), ALIGN_LEFT)) {
-		screenManager()->push(new KeyMappingScreen());
+		screenManager()->push(new ControlMappingScreen());
 	}
 	if (UIButton(GEN_ID, hlinear, 250, 0, c->T("Default Mapping"), ALIGN_LEFT)) {
 		KeyMap::RestoreDefault();

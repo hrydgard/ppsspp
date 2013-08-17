@@ -15,20 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/functional.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
 
-class KeyMappingScreen : public Screen {
+#include "UI/MiscScreens.h"
+
+class ControlMappingScreen : public UIScreenWithBackground {
 public:
-	KeyMappingScreen() : Screen() {}
-	void update(InputState &input);
-	void render();
+	ControlMappingScreen() {}
+protected:
+	virtual void CreateViews();
+
+private:
+	UI::EventReturn OnClearMapping(UI::EventParams &params);
 };
 
-// Dialog box, meant to be pushed
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace = false) : PopupScreen("Map Key") {
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback) : PopupScreen("Map Key"), callback_(callback) {
 		pspBtn_ = btn;
 	}
 
@@ -41,7 +46,9 @@ protected:
 	virtual bool FillVertical() { return false; }
 	virtual bool ShowButtons() { return false; }
 	virtual void OnCompleted(DialogResult result) {}
+
 private:
 	int pspBtn_;
 	bool replace_;
+	std::function<void(KeyDef)> callback_;
 };

@@ -91,8 +91,10 @@ void PopupMultiChoice::UpdateText() {
 }
 
 void PopupMultiChoice::ChoiceCallback(int num) {
-	*value_ = num + minVal_;
-	UpdateText();
+	if (num != -1) {
+		*value_ = num + minVal_;
+		UpdateText();
+	}
 }
 
 void PopupMultiChoice::Draw(UIContext &dc) {
@@ -386,7 +388,7 @@ UI::EventReturn GlobalSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
-	screenManager()->push(new KeyMappingScreen());
+	screenManager()->push(new ControlMappingScreen());
 	return UI::EVENT_DONE;
 }
 
