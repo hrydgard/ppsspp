@@ -156,22 +156,22 @@ u8 Read_U8(const u32 _Address)
 
 u16 Read_U16(const u32 _Address)
 {
-	u16 _var = 0;
-	ReadFromHardware<u16>(_var, _Address);
+	u16_le _var = 0;
+	ReadFromHardware<u16_le>(_var, _Address);
 	return (u16)_var;
 }
 
 u32 Read_U32(const u32 _Address)
 {
-	u32 _var = 0;	
-	ReadFromHardware<u32>(_var, _Address);
+	u32_le _var = 0;
+	ReadFromHardware<u32_le>(_var, _Address);
 	return _var;
 }
 
 u64 Read_U64(const u32 _Address)
 {
-	u64 _var = 0;
-	ReadFromHardware<u64>(_var, _Address);
+	u64_le _var = 0;
+	ReadFromHardware<u64_le>(_var, _Address);
 	return _var;
 }
 
@@ -190,20 +190,19 @@ void Write_U8(const u8 _Data, const u32 _Address)
 	WriteToHardware<u8>(_Address, _Data);
 }
 
-
 void Write_U16(const u16 _Data, const u32 _Address)
 {
-	WriteToHardware<u16>(_Address, _Data);
+	WriteToHardware<u16_le>(_Address, _Data);
 }
 
 void Write_U32(const u32 _Data, const u32 _Address)
 {	
-	WriteToHardware<u32>(_Address, _Data);
+	WriteToHardware<u32_le>(_Address, _Data);
 }
 
 void Write_U64(const u64 _Data, const u32 _Address)
 {
-	WriteToHardware<u64>(_Address, _Data);
+	WriteToHardware<u64_le>(_Address, _Data);
 }
 
 #ifdef SAFE_MEMORY
@@ -217,15 +216,15 @@ u8 ReadUnchecked_U8(const u32 _Address)
 
 u16 ReadUnchecked_U16(const u32 _Address)
 {
-	u16 _var = 0;
-	ReadFromHardware<u16>(_var, _Address);
+	u16_le _var = 0;
+	ReadFromHardware<u16_le>(_var, _Address);
 	return _var;
 }
 
 u32 ReadUnchecked_U32(const u32 _Address)
 {
-	u32 _var = 0;
-	ReadFromHardware<u32>(_var, _Address);
+	u32_le _var = 0;
+	ReadFromHardware<u32_le>(_var, _Address);
 	return _var;
 }
 
@@ -236,12 +235,12 @@ void WriteUnchecked_U8(const u8 _iValue, const u32 _Address)
 
 void WriteUnchecked_U16(const u16 _iValue, const u32 _Address)
 {
-	WriteToHardware<u16>(_Address, _iValue);
+	WriteToHardware<u16_le>(_Address, _iValue);
 }
 
 void WriteUnchecked_U32(const u32 _iValue, const u32 _Address)
 {
-	WriteToHardware<u32>(_Address, _iValue);
+	WriteToHardware<u32_le>(_Address, _iValue);
 }
 
 #endif

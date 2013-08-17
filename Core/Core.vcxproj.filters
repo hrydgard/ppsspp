@@ -457,6 +457,9 @@
     <ClCompile Include="MIPS\MIPSStackWalk.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\xxhash.c">
+      <Filter>Ext</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -777,9 +780,6 @@
     <ClInclude Include="MIPS\ARM\ArmRegCache.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
-    <ClInclude Include="..\Ext\disarm.h">
-      <Filter>Ext</Filter>
-    </ClInclude>
     <ClInclude Include="MIPS\x86\RegCacheFPU.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
@@ -851,6 +851,12 @@
     </ClInclude>
     <ClInclude Include="MIPS\MIPSStackWalk.h">
       <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\disarm.h">
+      <Filter>Ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\xxhash.h">
+      <Filter>Ext</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

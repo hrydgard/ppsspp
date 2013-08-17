@@ -342,7 +342,7 @@ add_library(rg_etc1 STATIC
 include_directories(native/ext/rg_etc1)
 
 add_library(cityhash STATIC
-  native/ext/cityhash/city.cpp
+	native/ext/cityhash/city.cpp
 	native/ext/cityhash/city.h
 	native/ext/cityhash/citycrc.h
 )
@@ -688,6 +688,12 @@ add_library(xbrz STATIC
 )
 include_directories(ext/xbrz)
 
+add_library(xxhash STATIC
+	ext/xxhash.c
+	ext/xxhash.h
+)
+include_directories(ext/xxhash)
+
 set(CoreExtra)
 set(CoreExtraLibs)
 if(ARM)
@@ -966,7 +972,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	$<TARGET_OBJECTS:GPU>
 	Globals.h
 	git-version.cpp)
-target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz
+target_link_libraries(${CoreLibName} Common native kirk cityhash xbrz xxhash
 	${CoreExtraLibs} ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
 setup_target_project(${CoreLibName} Core)
 

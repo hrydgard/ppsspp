@@ -153,6 +153,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/ext/snappy/snappy-c.cpp \
   $(SRC)/ext/snappy/snappy.cpp \
   $(SRC)/ext/xbrz/xbrz.cpp \
+  $(SRC)/ext/xxhash.c \
   $(SRC)/Common/Crypto/md5.cpp \
   $(SRC)/Common/KeyMap.cpp \
   $(SRC)/Common/LogManager.cpp \
