@@ -32,6 +32,16 @@
 #include "AES.h"
 #include "SHA1.h"
 
+#ifdef BIG_ENDIAN
+#define LE_64(x) _byteswap_uint64(x)
+#define LE_32(x) _byteswap_ulong(x)
+#define LE_16(x) _byteswap_ushort(x)
+#else 
+#define LE_64(x) (x)
+#define LE_32(x) (x)
+#define LE_16(x) (x)
+#endif
+
 /* ------------------------- KEY VAULT ------------------------- */
 
 u8 kirk1_key[] =   {0x98, 0xC9, 0x40, 0x97, 0x5C, 0x1D, 0x10, 0xE8, 0x7F, 0xE6, 0x0E, 0xA3, 0xFD, 0x03, 0xA8, 0xBA};
@@ -126,23 +136,23 @@ int kirk_CMD0(u8* outbuff, u8* inbuff, int size, int generate_trash)
 
   memcpy(outbuff, inbuff, size);
    
-  if(header->mode != KIRK_MODE_CMD1) return KIRK_INVALID_MODE;
+  if(LE_32(header->mode) != KIRK_MODE_CMD1) return KIRK_INVALID_MODE;
   
   //FILL PREDATA WITH RANDOM DATA
-  if(generate_trash) kirk_CMD14(outbuff+sizeof(KIRK_CMD1_HEADER), header->data_offset);
+  if(generate_trash) kirk_CMD14(outbuff+sizeof(KIRK_CMD1_HEADER), LE_32(header->data_offset));
   
   //Make sure data is 16 aligned
-  chk_size = header->data_size;
+  chk_size = LE_32(header->data_size);
   if(chk_size % 16) chk_size += 16 - (chk_size % 16);
   
   //ENCRYPT DATA
   AES_set_key(&k1, keys->AES, 128);
-  AES_cbc_encrypt(&k1, inbuff+sizeof(KIRK_CMD1_HEADER)+header->data_offset, (u8*)outbuff+sizeof(KIRK_CMD1_HEADER)+header->data_offset, chk_size);
+  AES_cbc_encrypt(&k1, inbuff+sizeof(KIRK_CMD1_HEADER)+LE_32(header->data_offset), (u8*)outbuff+sizeof(KIRK_CMD1_HEADER)+LE_32(header->data_offset), chk_size);
   
   //CMAC HASHES
   AES_set_key(&cmac_key, keys->CMAC, 128);
   AES_CMAC(&cmac_key, outbuff+0x60, 0x30, cmac_header_hash);
-  AES_CMAC(&cmac_key, outbuff+0x60, 0x30 + chk_size + header->data_offset, cmac_data_hash);
+  AES_CMAC(&cmac_key, outbuff+0x60, 0x30 + chk_size + LE_32(header->data_offset), cmac_data_hash);
   
   memcpy(header->CMAC_header_hash, cmac_header_hash, 16);
   memcpy(header->CMAC_data_hash, cmac_data_hash, 16);
@@ -160,7 +170,7 @@ int kirk_CMD1(u8* outbuff, u8* inbuff, int size)
 	
 	if(size < 0x90) return KIRK_INVALID_SIZE;
   if(is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
-  if(header->mode != KIRK_MODE_CMD1) return KIRK_INVALID_MODE;
+  if(LE_32(header->mode) != KIRK_MODE_CMD1) return KIRK_INVALID_MODE;
   
   AES_cbc_decrypt(&aes_kirk1, inbuff, (u8*)&keys, 16*2); //decrypt AES & CMAC key to temp buffer
   
@@ -196,7 +206,7 @@ int kirk_CMD1(u8* outbuff, u8* inbuff, int size)
   }
   
   AES_set_key(&k1, keys.AES, 128);
-  AES_cbc_decrypt(&k1, inbuff+sizeof(KIRK_CMD1_HEADER)+header->data_offset, outbuff, header->data_size);  
+  AES_cbc_decrypt(&k1, inbuff+sizeof(KIRK_CMD1_HEADER)+LE_32(header->data_offset), outbuff, LE_32(header->data_size));  
   
   return KIRK_OPERATION_SUCCESS;
 }
@@ -208,15 +218,15 @@ int kirk_CMD4(u8* outbuff, u8* inbuff, int size)
   AES_ctx aesKey;
   
   if(is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
-  if(header->mode != KIRK_MODE_ENCRYPT_CBC) return KIRK_INVALID_MODE;
+  if(LE_32(header->mode) != KIRK_MODE_ENCRYPT_CBC) return KIRK_INVALID_MODE;
   if(header->data_size == 0) return KIRK_DATA_SIZE_ZERO;
   
-  key = kirk_4_7_get_key(header->keyseed);
+  key = kirk_4_7_get_key(LE_32(header->keyseed));
   if(key == (u8*)KIRK_INVALID_SIZE) return KIRK_INVALID_SIZE;
   
   //Set the key
   AES_set_key(&aesKey, key, 128);
-  AES_cbc_encrypt(&aesKey, inbuff+sizeof(KIRK_AES128CBC_HEADER), outbuff+sizeof(KIRK_AES128CBC_HEADER), header->data_size);
+  AES_cbc_encrypt(&aesKey, inbuff+sizeof(KIRK_AES128CBC_HEADER), outbuff+sizeof(KIRK_AES128CBC_HEADER), LE_32(header->data_size));
   
   return KIRK_OPERATION_SUCCESS;
 }
@@ -228,15 +238,15 @@ int kirk_CMD7(u8* outbuff, u8* inbuff, int size)
   AES_ctx aesKey;
   
   if(is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
-  if(header->mode != KIRK_MODE_DECRYPT_CBC) return KIRK_INVALID_MODE;
+  if(LE_32(header->mode) != KIRK_MODE_DECRYPT_CBC) return KIRK_INVALID_MODE;
   if(header->data_size == 0) return KIRK_DATA_SIZE_ZERO;
   
-  key = kirk_4_7_get_key(header->keyseed);
+  key = kirk_4_7_get_key(LE_32(header->keyseed));
   if(key == (u8*)KIRK_INVALID_SIZE) return KIRK_INVALID_SIZE;
   
   //Set the key
   AES_set_key(&aesKey, key, 128);
-  AES_cbc_decrypt(&aesKey, inbuff+sizeof(KIRK_AES128CBC_HEADER), outbuff, header->data_size);
+  AES_cbc_decrypt(&aesKey, inbuff+sizeof(KIRK_AES128CBC_HEADER), outbuff, LE_32(header->data_size));
   
   return KIRK_OPERATION_SUCCESS;
 }
@@ -251,19 +261,19 @@ int kirk_CMD10(u8* inbuff, int insize)
   int chk_size;
   
   if(is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
-  if(!(header->mode == KIRK_MODE_CMD1 || header->mode == KIRK_MODE_CMD2 || header->mode == KIRK_MODE_CMD3)) return KIRK_INVALID_MODE;
+  if(!(LE_32(header->mode) == KIRK_MODE_CMD1 || LE_32(header->mode) == KIRK_MODE_CMD2 || LE_32(header->mode) == KIRK_MODE_CMD3)) return KIRK_INVALID_MODE;
   if(header->data_size == 0) return KIRK_DATA_SIZE_ZERO;
   
-  if(header->mode == KIRK_MODE_CMD1)
+  if(LE_32(header->mode) == KIRK_MODE_CMD1)
   {
     AES_cbc_decrypt(&aes_kirk1, inbuff, (u8*)&keys, 32); //decrypt AES & CMAC key to temp buffer
     AES_set_key(&cmac_key, keys.CMAC, 128);
     AES_CMAC(&cmac_key, inbuff+0x60, 0x30, cmac_header_hash);
   
     //Make sure data is 16 aligned
-    chk_size = header->data_size;
+    chk_size = LE_32(header->data_size);
     if(chk_size % 16) chk_size += 16 - (chk_size % 16);
-    AES_CMAC(&cmac_key, inbuff+0x60, 0x30 + chk_size + header->data_offset, cmac_data_hash);
+    AES_CMAC(&cmac_key, inbuff+0x60, 0x30 + chk_size + LE_32(header->data_offset), cmac_data_hash);
   
     if(memcmp(cmac_header_hash, header->CMAC_header_hash, 16) != 0) return KIRK_HEADER_HASH_INVALID;
     if(memcmp(cmac_data_hash, header->CMAC_data_hash, 16) != 0) return KIRK_DATA_HASH_INVALID;
@@ -281,7 +291,7 @@ int kirk_CMD11(u8* outbuff, u8* inbuff, int size)
   if(header->data_size == 0 || size == 0) return KIRK_DATA_SIZE_ZERO;
   
 	SHAInit(&sha);
-	SHAUpdate(&sha, inbuff+sizeof(KIRK_SHA1_HEADER), header->data_size);
+	SHAUpdate(&sha, inbuff+sizeof(KIRK_SHA1_HEADER), LE_32(header->data_size));
 	SHAFinal(outbuff, &sha);
   return KIRK_OPERATION_SUCCESS;
 }
@@ -338,7 +348,7 @@ int kirk_CMD14(u8 * outbuff, int outsize) {
   memcpy(&temp[0x1C], key, 0x10);
   //This leaves the remainder of the 0x100 bytes in temp to whatever remains on the stack 
   // in an uninitialized state. This should add unpredicableness to the results as well
-  header->data_size=0x100;
+  header->data_size=LE_32(0x100);
   kirk_CMD11(PRNG_DATA, temp, 0x104);
   while(outsize)
   {
@@ -554,7 +564,7 @@ int kirk_init2(u8 * rnd_seed, u32 seed_size, u32 fuseid_90, u32 fuseid_94) {
     KIRK_SHA1_HEADER *seedheader;
     seedbuf=(u8*)malloc(seed_size+4);
     seedheader= (KIRK_SHA1_HEADER *) seedbuf;
-    seedheader->data_size = seed_size;
+    seedheader->data_size = LE_32(seed_size);
     kirk_CMD11(PRNG_DATA, seedbuf, seed_size+4);    
     free(seedbuf);
   }
@@ -568,7 +578,7 @@ int kirk_init2(u8 * rnd_seed, u32 seed_size, u32 fuseid_90, u32 fuseid_94) {
   memcpy(&temp[0x1C], key, 0x10);
   //This leaves the remainder of the 0x100 bytes in temp to whatever remains on the stack 
   // in an uninitialized state. This should add unpredicableness to the results as well
-  header->data_size=0x100;
+  header->data_size=LE_32(0x100);
   kirk_CMD11(PRNG_DATA, temp, 0x104); 
   
   //Set Fuse ID
@@ -618,7 +628,7 @@ int kirk_CMD1_ex(u8* outbuff, u8* inbuff, int size, KIRK_CMD1_HEADER* header)
   int ret;
   
   memcpy(buffer, header, sizeof(KIRK_CMD1_HEADER));
-  memcpy(buffer+sizeof(KIRK_CMD1_HEADER), inbuff, header->data_size);
+  memcpy(buffer+sizeof(KIRK_CMD1_HEADER), inbuff, LE_32(header->data_size));
   
   ret = kirk_CMD1(outbuff, buffer, size);
   free(buffer);

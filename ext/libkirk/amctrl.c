@@ -19,6 +19,17 @@
 #pragma optimize( "", off )
 #endif
 #endif 
+
+#ifdef BIG_ENDIAN
+#define LE_64(x) _byteswap_uint64(x)
+#define LE_32(x) _byteswap_ulong(x)
+#define LE_16(x) _byteswap_ushort(x)
+#else 
+#define LE_64(x) (x)
+#define LE_32(x) (x)
+#define LE_16(x) (x)
+#endif
+
 /*************************************************************/
 
 static const u8 loc_1CD4[16] = {0xE3, 0x50, 0xED, 0x1D, 0x91, 0x0A, 0x1F, 0xD0, 0x29, 0xBB, 0x1C, 0x3E, 0xF3, 0x40, 0x77, 0xFB};
@@ -34,11 +45,11 @@ static int kirk4(u8 *buf, int size, int type)
 	int retv;
 	u32 *header = (u32*)buf;
 
-	header[0] = 4;
+	header[0] = LE_32(4);
 	header[1] = 0;
 	header[2] = 0;
-	header[3] = type;
-	header[4] = size;
+	header[3] = LE_32(type);
+	header[4] = LE_32(size);
 
 	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 4);
 
@@ -53,11 +64,11 @@ static int kirk7(u8 *buf, int size, int type)
 	int retv;
 	u32 *header = (u32*)buf;
 
-	header[0] = 5;
+	header[0] = LE_32(5);
 	header[1] = 0;
 	header[2] = 0;
-	header[3] = type;
-	header[4] = size;
+	header[3] = LE_32(type);
+	header[4] = LE_32(size);
 
 	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 7);
 	if(retv)
@@ -71,11 +82,11 @@ static int kirk5(u8 *buf, int size)
 	int retv;
 	u32 *header = (u32*)buf;
 
-	header[0] = 4;
+	header[0] = LE_32(4);
 	header[1] = 0;
 	header[2] = 0;
-	header[3] = 0x0100;
-	header[4] = size;
+	header[3] = LE_32(0x0100);
+	header[4] = LE_32(size);
 
 	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 5);
 	if(retv)
@@ -89,11 +100,11 @@ static int kirk8(u8 *buf, int size)
 	int retv;
 	u32 *header = (u32*)buf;
 
-	header[0] = 5;
+	header[0] = LE_32(5);
 	header[1] = 0;
 	header[2] = 0;
-	header[3] = 0x0100;
-	header[4] = size;
+	header[3] = LE_32(0x0100);
+	header[4] = LE_32(size);
 
 	retv = sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 8);
 	if(retv)
@@ -427,12 +438,12 @@ static int sub_428(u8 *kbuf, u8 *dbuf, int size, CIPHER_KEY *ckey)
 		memset(tmp1, 0, 0x10);
 	}else{
 		memcpy(tmp1, tmp2, 0x10);
-		*(u32*)(tmp1+0x0c) = ckey->seed-1;
+		*(u32*)(tmp1+0x0c) = LE_32(ckey->seed-1);
 	}
 
 	for(i=0; i<size; i+=16){
 		memcpy(kbuf+0x14+i, tmp2, 12);
-		*(u32*)(kbuf+0x14+i+12) = ckey->seed;
+		*(u32*)(kbuf+0x14+i+12) = LE_32(ckey->seed);
 		ckey->seed += 1;
 	}
 
@@ -612,8 +623,8 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	pgd = (PGD_DESC*)malloc(sizeof(PGD_DESC));
 	memset(pgd, 0, sizeof(PGD_DESC));
 
-	pgd->key_index = *(u32*)(pgd_buf+4);
-	pgd->drm_type  = *(u32*)(pgd_buf+8);
+	pgd->key_index = LE_32(*(u32*)(pgd_buf+4));
+	pgd->drm_type  = LE_32(*(u32*)(pgd_buf+8));
 
 	if(pgd->drm_type==1){
 		pgd->mac_type = 1;
@@ -674,9 +685,9 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	sceDrmBBCipherUpdate(&ckey, pgd_buf+0x30, 0x30);
 	sceDrmBBCipherFinal(&ckey);
 
-	pgd->data_size   = *(u32*)(pgd_buf+0x44);
-	pgd->block_size  = *(u32*)(pgd_buf+0x48);
-	pgd->data_offset = *(u32*)(pgd_buf+0x4c);
+	pgd->data_size   = LE_32(*(u32*)(pgd_buf+0x44));
+	pgd->block_size  = LE_32(*(u32*)(pgd_buf+0x48));
+	pgd->data_offset = LE_32(*(u32*)(pgd_buf+0x4c));
 	memcpy(pgd->dkey, pgd_buf+0x30, 16);
 
 	pgd->align_size = (pgd->data_size+15)&~15;
