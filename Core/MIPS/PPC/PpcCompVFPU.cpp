@@ -136,4 +136,14 @@ void Jit::Comp_Viim(u32 op) {
 void Jit::Comp_Vfim(u32 op) {
 	Comp_Generic(op);
 }
+
+void Jit::Comp_VCrossQuat(u32 op) {
+	Comp_Generic(op);
+}
+void Jit::Comp_Vsge(u32 op) {
+	Comp_Generic(op);
+}
+void Jit::Comp_Vslt(u32 op) {
+	Comp_Generic(op);
+}
 }
