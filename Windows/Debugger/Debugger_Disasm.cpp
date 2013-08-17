@@ -499,15 +499,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 
-			case IDC_SKIP:
-				{
-					cpu->SetPC(cpu->GetPC() + cpu->getInstructionSize(0));
-					Sleep(1);
-					ptr->gotoPC();
-					UpdateDialog();
-				}
-				break;
-
 			case IDC_MEMCHECK:
 				SendMessage(m_hDlg,WM_COMMAND,ID_DEBUG_ADDBREAKPOINT,0);
 				break;
@@ -753,7 +744,6 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->setDontRedraw(false);
 		ptr->gotoPC();
@@ -773,7 +763,6 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
-		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), FALSE);		
 		CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 		reglist->redraw();
 	}
