@@ -190,7 +190,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	}
 
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
-	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
+	return KernelLoadExec(bootpath.c_str(), 0, error_string);
 }
 
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
@@ -219,5 +219,5 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = "umd0:/" + file + extension;
-	return __KernelLoadExec(finalName.c_str(), 0, error_string);
+	return KernelLoadExec(finalName.c_str(), 0, error_string);
 }
