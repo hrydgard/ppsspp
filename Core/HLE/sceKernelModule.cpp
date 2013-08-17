@@ -916,7 +916,27 @@ u32 __KernelGetModuleGP(SceUID uid)
 	}
 }
 
-bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string)
+bool KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
+	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
+	if (!info.exists) {
+		ERROR_LOG(LOADER, "Failed to load executable %s - file doesn't exist", filename);
+		*error_string = StringFromFormat("Could not find executable %s", filename);
+		return false;
+	}
+	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+
+	u8 *temp = new u8[(int)info.size + 0x1000000];
+
+	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
+
+	bool succeed = __KernelLoadExec(filename, temp, paramPtr, error_string);
+
+	pspFileSystem.CloseFile(handle);
+
+	return succeed;
+}
+
+bool __KernelLoadExec(const char *filename, u8 *temp, u32 paramPtr, std::string *error_string)
 {
 	SceKernelLoadExecParam param;
 
@@ -951,23 +971,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	__KernelModuleInit();
 	__KernelInit();
 
-	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
-	if (!info.exists) {
-		ERROR_LOG(LOADER, "Failed to load executable %s - file doesn't exist", filename);
-		*error_string = StringFromFormat("Could not find executable %s", filename);
-		if (paramPtr) {
-			if (param_argp) delete[] param_argp;
-			if (param_key) delete[] param_key;
-		}
-		return false;
-	}
-
-	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-
-	u8 *temp = new u8[(int)info.size + 0x1000000];
-
-	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
-
 	Module *module = __KernelLoadModule(temp, 0, error_string);
 
 	if (!module || module->isFake) {
@@ -988,8 +991,6 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	INFO_LOG(LOADER, "Module entry: %08x", mipsr4k.pc);
 
 	delete [] temp;
-
-	pspFileSystem.CloseFile(handle);
 
 	SceKernelSMOption option;
 	option.size = sizeof(SceKernelSMOption);
@@ -1047,7 +1048,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 
 	DEBUG_LOG(HLE, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
-	if (!__KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
+	if (!KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
 		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
 		Core_UpdateState(CORE_ERROR);
 		return -1;
