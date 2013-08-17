@@ -21,7 +21,7 @@
 
 #include "UI/MiscScreens.h"
 
-class ControlMappingScreen : public UIScreenWithBackground {
+class ControlMappingScreen : public UIDialogScreenWithBackground {
 public:
 	ControlMappingScreen() {}
 protected:
