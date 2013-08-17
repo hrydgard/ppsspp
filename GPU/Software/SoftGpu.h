@@ -43,8 +43,8 @@ public:
 
 	virtual void Resized() {}
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
-		primaryInfo = "NULL";
-		fullInfo = "NULL";
+		primaryInfo = "Software";
+		fullInfo = "Software";
 	}
 
 protected:
