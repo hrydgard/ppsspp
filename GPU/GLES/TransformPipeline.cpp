@@ -27,6 +27,7 @@
 
 #include "native/gfx_es2/gl_state.h"
 #include "native/ext/cityhash/city.h"
+#include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -1034,14 +1035,14 @@ u32 TransformDrawEngine::ComputeHash() {
 	// It is really very expensive to check all the vertex data so often.
 	for (int i = 0; i < numDrawCalls; i++) {
 		if (!drawCalls[i].inds) {
-			fullhash += CityHash32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount);
+			fullhash += XXH32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount, 0x1DE8CAC4);
 		} else {
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += CityHash32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
-				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound));
+			fullhash += XXH32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
+				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
-			fullhash += CityHash32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount);
+			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount, 0x955FD1CA);
 		}
 	}
 
