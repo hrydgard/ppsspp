@@ -74,8 +74,6 @@ static void UnloadXInputDLL() {
 
 // Permanent map. Actual mapping happens elsewhere.
 static const struct {int from, to;} xinput_ctrl_map[] = {
-	{XBOX_CODE_LEFTTRIGGER,         NKCODE_BUTTON_L2},
-	{XBOX_CODE_RIGHTTRIGGER,        NKCODE_BUTTON_R2},
 	{XINPUT_GAMEPAD_A,              NKCODE_BUTTON_A},
 	{XINPUT_GAMEPAD_B,              NKCODE_BUTTON_B},
 	{XINPUT_GAMEPAD_X,              NKCODE_BUTTON_X},
@@ -165,6 +163,22 @@ int XinputDevice::UpdateState(InputState &input_state) {
 			NativeAxis(axis);
 		}
 
+		if (prevState.Gamepad.bLeftTrigger != state.Gamepad.bLeftTrigger) {
+			AxisInput axis;
+			axis.deviceId = DEVICE_ID_X360_0;
+			axis.axisId = JOYSTICK_AXIS_LTRIGGER;
+			axis.value = (float)state.Gamepad.bLeftTrigger / 255.0f;
+			NativeAxis(axis);
+		}
+
+		if (prevState.Gamepad.bRightTrigger != state.Gamepad.bRightTrigger) {
+			AxisInput axis;
+			axis.deviceId = DEVICE_ID_X360_0;
+			axis.axisId = JOYSTICK_AXIS_RTRIGGER;
+			axis.value = (float)state.Gamepad.bRightTrigger / 255.0f;
+			NativeAxis(axis);
+		}
+
 		this->prevState = state;
 		this->check_delay = 0;
 
@@ -211,11 +225,6 @@ static Stick NormalizedDeadzoneFilter(short x, short y) {
 
 void XinputDevice::ApplyButtons(XINPUT_STATE &state, InputState &input_state) {
 	u32 buttons = state.Gamepad.wButtons;
-
-	if (state.Gamepad.bLeftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
-		buttons |= XBOX_CODE_LEFTTRIGGER;
-	if (state.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD)
-		buttons |= XBOX_CODE_RIGHTTRIGGER;
 
 	u32 downMask = buttons & (~prevButtons);
 	u32 upMask = (~buttons) & prevButtons;

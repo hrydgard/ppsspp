@@ -15,28 +15,26 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/functional.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
 
-class KeyMappingScreen : public Screen {
+#include "UI/MiscScreens.h"
+
+class ControlMappingScreen : public UIDialogScreenWithBackground {
 public:
-	KeyMappingScreen() : currentMap_(0) {}
-	void update(InputState &input);
-	void render();
+	ControlMappingScreen() {}
+protected:
+	virtual void CreateViews();
+
 private:
-	int currentMap_;
+	UI::EventReturn OnClearMapping(UI::EventParams &params);
 };
 
-// Dialog box, meant to be pushed
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	KeyMappingNewKeyDialog(int btn, int currentMap) : PopupScreen("Map Key") {
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback) : PopupScreen("Map Key"), callback_(callback) {
 		pspBtn_ = btn;
-		last_kb_deviceid_ = 0;
-		last_kb_key_ = 0;
-		last_axis_deviceid_ = 0;
-		last_axis_id_ = -1;
-		currentMap_ = currentMap;
 	}
 
 	void key(const KeyInput &key);
@@ -51,10 +49,6 @@ protected:
 
 private:
 	int pspBtn_;
-	int last_kb_deviceid_;
-	int last_kb_key_;
-	int last_axis_deviceid_;
-	int last_axis_id_;
-	int last_axis_direction_;
-	int currentMap_;
+	bool replace_;
+	std::function<void(KeyDef)> callback_;
 };
