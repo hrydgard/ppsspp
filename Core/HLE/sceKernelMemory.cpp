@@ -470,19 +470,18 @@ public:
 };
 
 
-void sceKernelMaxFreeMemSize() 
+u32 sceKernelMaxFreeMemSize() 
 {
-	// TODO: Fudge factor improvement
-	u32 retVal = userMemory.GetLargestFreeBlockSize()-0x40000;
-	DEBUG_LOG(HLE,"%08x (dec %i)=sceKernelMaxFreeMemSize",retVal,retVal);
-	RETURN(retVal);
+	u32 retVal = userMemory.GetLargestFreeBlockSize();
+	DEBUG_LOG(HLE, "%08x (dec %i)=sceKernelMaxFreeMemSize()", retVal, retVal);
+	return retVal;
 }
 
-void sceKernelTotalFreeMemSize()
+u32 sceKernelTotalFreeMemSize()
 {
-	u32 retVal = userMemory.GetLargestFreeBlockSize()-0x8000;
-	DEBUG_LOG(HLE,"%08x (dec %i)=sceKernelTotalFreeMemSize",retVal,retVal);
-	RETURN(retVal);
+	u32 retVal = userMemory.GetTotalFreeBytes();
+	DEBUG_LOG(HLE, "%08x (dec %i)=sceKernelTotalFreeMemSize()", retVal, retVal);
+	return retVal;
 }
 
 int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
@@ -1584,8 +1583,8 @@ int sceKernelReferTlsStatus(SceUID uid, u32 infoPtr)
 }
 
 const HLEFunction SysMemUserForUser[] = {
-	{0xA291F107,sceKernelMaxFreeMemSize,"sceKernelMaxFreeMemSize"},
-	{0xF919F628,sceKernelTotalFreeMemSize,"sceKernelTotalFreeMemSize"},
+	{0xA291F107,WrapU_V<sceKernelMaxFreeMemSize>,"sceKernelMaxFreeMemSize"},
+	{0xF919F628,WrapU_V<sceKernelTotalFreeMemSize>,"sceKernelTotalFreeMemSize"},
 	{0x3FC9AE6A,WrapU_V<sceKernelDevkitVersion>,"sceKernelDevkitVersion"},
 	{0x237DBD4F,WrapI_ICIUU<sceKernelAllocPartitionMemory>,"sceKernelAllocPartitionMemory"},	//(int size) ?
 	{0xB6D61D02,WrapI_I<sceKernelFreePartitionMemory>,"sceKernelFreePartitionMemory"},	 //(void *ptr) ?
