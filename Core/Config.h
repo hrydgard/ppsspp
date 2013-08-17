@@ -65,7 +65,8 @@ public:
 	std::string languageIni;
 
 	// GFX
-	bool bHardwareTransform;
+	bool bSoftwareRendering;
+	bool bHardwareTransform; // only used in the GLES backend
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering 2 = Read Framebuffer to memory (CPU) 3 = Read Framebuffer to memory (GPU)
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
 #ifdef BLACKBERRY
