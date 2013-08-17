@@ -42,7 +42,7 @@
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
  
-#include < io.h> 
+#include <io.h> 
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
@@ -232,7 +232,12 @@ bool Load_Unpacked_BOOT(const char *filename, u32 paramPtr, std::string *error_s
 		return false;
 	long bootFileSize = filelength(fileno(bootFile));  
 	u8 *temp = new u8[bootFileSize + 0x1000000];
-	fread(temp, sizeof(u8), bootFileSize, bootFile);
+	if (fread(temp, sizeof(u8), bootFileSize, bootFile) != bootFileSize){
+	    ERROR_LOG(LOADER, "Fail to read unpacked boot %s", filename);
+		delete [] temp;
+		fclose(bootFile);
+		return false;
+	}
 	fclose(bootFile);
 	return __KernelLoadExec("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN", temp, 0, error_string); // Load as if from UMD
 }
