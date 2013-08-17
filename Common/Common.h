@@ -213,34 +213,6 @@ inline double bswapd( double f )
   return dat2.f;
 }
 
-#ifdef BIG_ENDIAN
-template<typename T> T LE_F(T x) {
-	return (T)bswapf(x);
-}
-template<typename T> T LE_16(T x) {
-	return (T)bswap16(x);
-}
-template<typename T> T LE_32(T x) {
-	return (T)bswap32(x);
-}
-template<typename T> T LE_64(T x) {
-	return (T)bswap64(x);
-}
-#else 
-template<typename T> T LE_F(T x) {
-	return (T)(x);
-}
-template<typename T> T LE_16(T x) {
-	return (T)(x);
-}
-template<typename T> T LE_32(T x) {
-	return (T)(x);
-}
-template<typename T> T LE_64(T x) {
-	return (T)(x);
-}
-#endif
-
 // Host communication.
 enum HOST_COMM
 {

@@ -137,17 +137,17 @@ void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
 
 inline u32 ReadUnchecked_U32(const u32 address) {
 #if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
-  return LE_32(*(u32 *)(base + (address & MEMVIEW32_MASK)));
+  return *(u32_le *)(base + (address & MEMVIEW32_MASK));
 #else
-  return LE_32(*(u32 *)(base + address));
+  return *(u32_le *)(base + address);
 #endif
 }
 
 inline u16 ReadUnchecked_U16(const u32 address) {
 #if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
-	return LE_16(*(u16 *)(base + (address & MEMVIEW32_MASK)));
+	return *(u16_le *)(base + (address & MEMVIEW32_MASK));
 #else
-	return LE_16(*(u16 *)(base + address));
+	return *(u16_le *)(base + address);
 #endif
 }
 
@@ -161,17 +161,17 @@ inline u8 ReadUnchecked_U8(const u32 address) {
 
 inline void WriteUnchecked_U32(u32 data, u32 address) {
 #if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
-	(*(u32 *)(base + (address & MEMVIEW32_MASK))) = LE_32(data);
+	*(u32_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
-	(*(u32 *)(base + address)) = LE_32(data);
+	*(u32_le *)(base + address) = data;
 #endif
 }
 
 inline void WriteUnchecked_U16(u16 data, u32 address) {
 #if defined(_M_IX86) || defined(_M_ARM32) || defined (_XBOX)
-	(*(u16 *)(base + (address & MEMVIEW32_MASK))) = LE_16(data);
+	*(u16_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else
-	(*(u16 *)(base + address)) = LE_16(data);
+	*(u16_le *)(base + address) = data;
 #endif
 }
 
