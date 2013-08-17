@@ -98,12 +98,13 @@ void ControlMapper::Refresh() {
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(1.0f)));
-		char buf[10];
-		c->SetTag(itoa(i, buf, 10));
+		char tagbuf[16];
+		sprintf(tagbuf, "%i", i);
+		c->SetTag(tagbuf);
 		c->OnClick.Handle(this, &ControlMapper::OnReplace);
 		
 		Choice *d = row->Add(new Choice("X"));
-		d->SetTag(itoa(i, buf, 10));
+		d->SetTag(tagbuf);
 		d->OnClick.Handle(this, &ControlMapper::OnDelete);
 		
 		row->Add(new Choice("+"))->OnClick.Handle(this, &ControlMapper::OnAdd);
@@ -126,6 +127,8 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 	case REPLACEONE:
 		KeyMap::g_controllerMap[pspKey_][actionIndex_] = kdf;
 		break;
+	default:
+		;
 	}
 	refresh_ = true;
 }
