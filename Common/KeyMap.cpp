@@ -632,14 +632,13 @@ void LoadFromIni(IniFile &file) {
 
 	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
 	for (int i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
-		if (!controls->Exists(psp_button_names[i].name.c_str()))
-			continue;
 		std::string value;
 		controls->Get(psp_button_names[i].name.c_str(), &value, "");
-		if (value.empty())
-			continue;
+
 		// Erase default mapping
 		g_controllerMap.erase(psp_button_names[i].key);
+		if (value.empty()) 
+			continue;
 
 		std::vector<std::string> mappings;
 		SplitString(value, ',', mappings);
