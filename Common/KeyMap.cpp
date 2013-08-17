@@ -77,9 +77,10 @@ static const DefMappingStruct default360KeyMap[] = {
 	{CTRL_SELECT         , NKCODE_BUTTON_SELECT},
 	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
 	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
-	{VIRTKEY_UNTHROTTLE  , NKCODE_BUTTON_R2},
+	{VIRTKEY_UNTHROTTLE  , JOYSTICK_AXIS_RTRIGGER, +1},
 	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBR},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_BUTTON_L2},
+	{VIRTKEY_PAUSE,        NKCODE_HOME},
 };
 
 static const DefMappingStruct defaultShieldKeyMap[] = {
@@ -391,33 +392,33 @@ const KeyMap_IntStrPair axis_names[] = {
 static std::string unknown_key_name = "??";
 
 const KeyMap_IntStrPair psp_button_names[] = {
-	{CTRL_CIRCLE, "Circle"},
-	{CTRL_CROSS, "Cross"},
-	{CTRL_SQUARE, "Square"},
-	{CTRL_TRIANGLE, "Triangle"},
-	{CTRL_LTRIGGER, "L"},
-	{CTRL_RTRIGGER, "R"},
-	{CTRL_START, "Start"},
-	{CTRL_SELECT, "Select"},
 	{CTRL_UP, "Up"},
 	{CTRL_DOWN, "Down"},
 	{CTRL_LEFT, "Left"},
 	{CTRL_RIGHT, "Right"},
+	{CTRL_CIRCLE, "Circle"},
+	{CTRL_CROSS, "Cross"},
+	{CTRL_SQUARE, "Square"},
+	{CTRL_TRIANGLE, "Triangle"},
+	{CTRL_START, "Start"},
+	{CTRL_SELECT, "Select"},
+	{CTRL_LTRIGGER, "L"},
+	{CTRL_RTRIGGER, "R"},
 
 	{VIRTKEY_AXIS_X_MIN, "An.Left"},
 	{VIRTKEY_AXIS_X_MAX, "An.Right"},
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
 	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
 
-	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
-	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
-	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
-	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
-
 	{VIRTKEY_RAPID_FIRE, "RapidFire"},
 	{VIRTKEY_UNTHROTTLE, "Unthrottle"},
 	{VIRTKEY_SPEED_TOGGLE, "SpeedToggle"},
 	{VIRTKEY_PAUSE, "Pause"},
+
+	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
+	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
+	{VIRTKEY_AXIS_RIGHT_Y_MIN, "RightAn.Down"},
+	{VIRTKEY_AXIS_RIGHT_Y_MAX, "RightAn.Up"},
 };
 
 const int AXIS_BIND_NKCODE_START = 4000;
@@ -431,6 +432,20 @@ static std::string FindName(int key, const KeyMap_IntStrPair list[], size_t size
 }
 
 std::string GetKeyName(int keyCode) {
+	return FindName(keyCode, key_names, ARRAY_SIZE(key_names));
+}
+
+std::string GetKeyOrAxisName(int keyCode) {
+	if (keyCode >= AXIS_BIND_NKCODE_START) {
+		int direction;
+		int axis = TranslateKeyCodeToAxis(keyCode, direction);
+		std::string temp = GetAxisName(axis);
+		if (direction == 1)
+			temp += "+";
+		else if (direction == -1)
+			temp += "-";
+		return temp;
+	}
 	return FindName(keyCode, key_names, ARRAY_SIZE(key_names));
 }
 

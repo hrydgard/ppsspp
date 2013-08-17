@@ -92,7 +92,7 @@ void ControlMapper::Refresh() {
 
 	for (size_t i = 0; i < mappings.size(); i++) {
 		std::string deviceName = GetDeviceName(mappings[i].deviceId);
-		std::string keyName = KeyMap::GetKeyName(mappings[i].keyCode);
+		std::string keyName = KeyMap::GetKeyOrAxisName(mappings[i].keyCode);
 		int image = -1;
 
 		LinearLayout *row = rightColumn->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -117,6 +117,9 @@ void ControlMapper::Refresh() {
 
 void ControlMapper::MappedCallback(KeyDef kdf) {
 	switch (action_) {
+	case ADD:
+		KeyMap::SetKeyMapping(pspKey_, kdf, false);
+		break;
 	case REPLACEALL:
 		KeyMap::SetKeyMapping(pspKey_, kdf, true);
 		break;
@@ -141,14 +144,14 @@ UI::EventReturn ControlMapper::OnReplaceAll(UI::EventParams &params) {
 }
 
 UI::EventReturn ControlMapper::OnAdd(UI::EventParams &params) {
-	KeyMap::g_controllerMap[pspKey_].push_back(KeyDef(0, 0));
-	refresh_ = true;
+	action_ = ADD;
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, std::bind(&ControlMapper::MappedCallback, this, placeholder::_1)));
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn ControlMapper::OnDelete(UI::EventParams &params) {
-	actionIndex_ = atoi(params.v->Tag().c_str());
-	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + actionIndex_);
+	int index = atoi(params.v->Tag().c_str());
+	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
 	refresh_ = true;
 	return UI::EVENT_DONE;
 }

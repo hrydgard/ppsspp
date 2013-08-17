@@ -113,6 +113,8 @@ namespace KeyMap {
 
 	// Use if you need to display the textual name 
 	std::string GetKeyName(int keyCode);
+	std::string GetKeyOrAxisName(int keyCode);
+	std::string GetAxisName(int axisId);
 	std::string GetPspButtonName(int btn);
 
 	std::vector<KeyMap_IntStrPair> GetMappableKeys();
@@ -124,12 +126,10 @@ namespace KeyMap {
 	// Returns KEYMAP_ERROR_UNKNOWN_KEY
 	// for any unmapped key
 	int KeyToPspButton(int deviceId, int key);
-
-	int TranslateKeyCodeFromAxis(int axisId, int direction);
-
 	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys);
-	std::string NameKeyFromPspButton(int btn);
-	std::string NameDeviceFromPspButton(int btn);
+
+	int TranslateKeyCodeToAxis(int keyCode, int &direction);
+	int TranslateKeyCodeFromAxis(int axisId, int direction);
 
 	// Configure the key mapping.
 	// Any configuration will be saved to the Core config.
@@ -139,7 +139,6 @@ namespace KeyMap {
 	// Direction is negative or positive.
 	void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace);
 
-	std::string GetAxisName(int axisId);
 	int AxisToPspButton(int deviceId, int axisId, int direction);
 	bool AxisFromPspButton(int btn, int *deviceId, int *axisId, int *direction);
 	std::string NamePspButtonFromAxis(int deviceId, int axisId, int direction);
