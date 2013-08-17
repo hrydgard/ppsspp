@@ -799,11 +799,19 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 }
 
 void ChoiceStrip::SetSelection(int sel) {
-	if (selected_ < views_.size())
-		static_cast<StickyChoice *>(views_[selected_])->Release();
-	selected_ = sel;
-	if (selected_ < views_.size())
-		static_cast<StickyChoice *>(views_[selected_])->Press();
+	if (topTabs_) {
+		int prevSelected = selected_;
+		if (selected_ < views_.size())
+			static_cast<StickyChoice *>(views_[selected_])->Release();
+		selected_ = sel;
+		if (selected_ < views_.size())
+			static_cast<StickyChoice *>(views_[selected_])->Press();
+		if (prevSelected != selected_) {
+			EventParams e; 
+			e.v = views_[selected_];
+			static_cast<StickyChoice *>(views_[selected_])->OnClick.Trigger(e);
+		}
+	}
 }
 
 void ChoiceStrip::Key(const KeyInput &input) {

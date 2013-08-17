@@ -222,19 +222,20 @@ public:
 class ChoiceStrip : public LinearLayout {
 public:
 	ChoiceStrip(Orientation orientation, LayoutParams *layoutParams = 0)
-		: LinearLayout(orientation, layoutParams), selected_(0) { SetSpacing(0.0f); }
+		: LinearLayout(orientation, layoutParams), selected_(0), topTabs_(false) { SetSpacing(0.0f); }
 
 	void AddChoice(const std::string &title);
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel);
 	virtual void Key(const KeyInput &input);
-
+	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
 	Event OnChoice;
 
 private:
 	EventReturn OnChoiceClick(EventParams &e);
 
 	int selected_;
+	bool topTabs_;  // Can be controlled with L/R.
 };
 
 
@@ -244,6 +245,7 @@ public:
 		: LinearLayout(Opposite(orientation), layoutParams),
 			orientation_(orientation), stripSize_(stripSize), currentTab_(0) {
 		tabStrip_ = new ChoiceStrip(orientation, new LinearLayoutParams(stripSize, WRAP_CONTENT));
+		tabStrip_->SetTopTabs(true);
 		Add(tabStrip_);
 		tabStrip_->OnChoice.Handle(this, &TabHolder::OnTabClick);
 	}

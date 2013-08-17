@@ -51,8 +51,8 @@ void UIScreen::key(const KeyInput &key) {
 	}
 }
 
-void DialogScreen::key(const KeyInput &key) {
-	if ((key.flags & KEY_DOWN) && key.keyCode == NKCODE_ESCAPE || key.keyCode == NKCODE_BACK || key.keyCode == NKCODE_BUTTON_B) {
+void UIDialogScreen::key(const KeyInput &key) {
+	if ((key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode)) {
 		screenManager()->finishDialog(this, DR_CANCEL);
 	} else {
 		UIScreen::key(key);
@@ -93,12 +93,10 @@ void UIScreen::axis(const AxisInput &axis) {
 	}
 }
 
-
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;
 }
-
 
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
 	: title_(title), button1_(button1), button2_(button2) {}
@@ -139,12 +137,6 @@ void PopupScreen::CreateViews() {
 
 		box->Add(buttonRow);
 	}
-}
-
-void PopupScreen::key(const KeyInput &key) {
-	if ((key.flags & KEY_DOWN) && UI::IsEscapeKeyCode(key.keyCode))
-		screenManager()->finishDialog(this, DR_CANCEL);
-	UIScreen::key(key);
 }
 
 void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {

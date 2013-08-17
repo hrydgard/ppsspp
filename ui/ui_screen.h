@@ -32,20 +32,19 @@ private:
 	int hatDown_;
 };
 
-class DialogScreen : public UIScreen {
+class UIDialogScreen : public UIScreen {
 public:
 	virtual void key(const KeyInput &key);
 };
 
 
-class PopupScreen : public UIScreen {
+class PopupScreen : public UIDialogScreen {
 public:
 	PopupScreen(std::string title, std::string button1 = "", std::string button2 = "");
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	virtual void CreateViews();
 	virtual bool isTransparent() { return true; }
-	virtual void key(const KeyInput &key);
 
 protected:
 	virtual bool FillVertical() { return false; }

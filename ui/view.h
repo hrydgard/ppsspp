@@ -509,7 +509,7 @@ public:
 	virtual void Touch(const TouchInput &touch);
 	virtual void FocusChanged(int focusFlags);
 
-	void Press() { down_ = true; dragging_ = false; }
+	void Press() { down_ = true; dragging_ = false;  }
 	void Release() { down_ = false; dragging_ = false; }
 	bool IsDown() { return down_; }
 };

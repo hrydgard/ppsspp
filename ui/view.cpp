@@ -453,7 +453,7 @@ void Slider::Key(const KeyInput &input) {
 		case NKCODE_DPAD_RIGHT:
 		case NKCODE_PLUS:
 		case NKCODE_NUMPAD_ADD:
-			*value_ -= 1;
+			*value_ += 1;
 			break;
 		}
 		Clamp();
@@ -474,8 +474,9 @@ void Slider::Clamp() {
 }
 
 void Slider::Draw(UIContext &dc) {
+	bool focus = HasFocus();
 	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * bounds_.w + bounds_.x;
-	dc.FillRect(Drawable(0xFFFFFFFF), Bounds(bounds_.x, bounds_.centerY() - 2, knobX - bounds_.x, 4));
+	dc.FillRect(Drawable(focus ? dc.theme->popupTitle.fgColor : 0xFFFFFFFF), Bounds(bounds_.x, bounds_.centerY() - 2, knobX - bounds_.x, 4));
 	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, bounds_.x + bounds_.w - knobX, 4));
 	dc.Draw()->DrawImage(dc.theme->sliderKnob, knobX, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
 }
@@ -492,12 +493,12 @@ void SliderFloat::Key(const KeyInput &input) {
 		case NKCODE_DPAD_LEFT:
 		case NKCODE_MINUS:
 		case NKCODE_NUMPAD_SUBTRACT:
-			*value_ -= 1;
+			*value_ -= (maxValue_ - minValue_) / 20.0f;
 			break;
 		case NKCODE_DPAD_RIGHT:
 		case NKCODE_PLUS:
 		case NKCODE_NUMPAD_ADD:
-			*value_ -= 1;
+			*value_ += (maxValue_ - minValue_) / 20.0f;
 			break;
 		}
 		Clamp();
