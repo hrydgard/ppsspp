@@ -598,6 +598,10 @@ void NativeKey(const KeyInput &key) {
 }
 
 void NativeAxis(const AxisInput &key) {
+	if (key.axisId >= JOYSTICK_AXIS_ACCELEROMETER_X && key.axisId <= JOYSTICK_AXIS_ACCELEROMETER_Z)	{
+		// Disable accelerometer as an axis for now.
+		return;
+	}
 	if (screenManager)
 		screenManager->axis(key);
 }
