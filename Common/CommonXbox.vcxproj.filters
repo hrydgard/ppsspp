@@ -1,0 +1,109 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="targetver.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="ABI.h" />
+    <ClInclude Include="Atomics.h" />
+    <ClInclude Include="Atomic_GCC.h" />
+    <ClInclude Include="Atomic_Win32.h" />
+    <ClInclude Include="ChunkFile.h" />
+    <ClInclude Include="Common.h" />
+    <ClInclude Include="CommonFuncs.h" />
+    <ClInclude Include="CommonPaths.h" />
+    <ClInclude Include="CommonTypes.h" />
+    <ClInclude Include="ConsoleListener.h" />
+    <ClInclude Include="CPUDetect.h" />
+    <ClInclude Include="DebugInterface.h" />
+    <ClInclude Include="ExtendedTrace.h" />
+    <ClInclude Include="FifoQueue.h" />
+    <ClInclude Include="FileSearch.h" />
+    <ClInclude Include="FileUtil.h" />
+    <ClInclude Include="FixedSizeQueue.h" />
+    <ClInclude Include="Hash.h" />
+    <ClInclude Include="LinearDiskCache.h" />
+    <ClInclude Include="Log.h" />
+    <ClInclude Include="LogManager.h" />
+    <ClInclude Include="MathUtil.h" />
+    <ClInclude Include="MemArena.h" />
+    <ClInclude Include="MemoryUtil.h" />
+    <ClInclude Include="MsgHandler.h" />
+    <ClInclude Include="scmrev.h" />
+    <ClInclude Include="Setup.h" />
+    <ClInclude Include="StdConditionVariable.h" />
+    <ClInclude Include="StdMutex.h" />
+    <ClInclude Include="StdThread.h" />
+    <ClInclude Include="StringUtils.h" />
+    <ClInclude Include="Thread.h" />
+    <ClInclude Include="Thunk.h" />
+    <ClInclude Include="Timer.h" />
+    <ClInclude Include="x64Analyzer.h" />
+    <ClInclude Include="x64Emitter.h" />
+    <ClInclude Include="ArmEmitter.h" />
+    <ClInclude Include="FixedSizeUnorderedSet.h" />
+    <ClInclude Include="ThreadPools.h" />
+    <ClInclude Include="Crypto\md5.h">
+      <Filter>Crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="KeyMap.h" />
+    <ClInclude Include="Swap.h" />
+    <ClInclude Include="CommonWindows.h" />
+    <ClInclude Include="Atomic_Xbox360.h" />
+    <ClInclude Include="ppcEmitter.h">
+      <Filter>ppc</Filter>
+    </ClInclude>
+    <ClInclude Include="PowerPC.h">
+      <Filter>ppc</Filter>
+    </ClInclude>
+    <ClInclude Include="ppc_mnemonics.h">
+      <Filter>ppc</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="ABI.cpp" />
+    <ClCompile Include="ConsoleListener.cpp" />
+    <ClCompile Include="CPUDetect.cpp" />
+    <ClCompile Include="ExtendedTrace.cpp" />
+    <ClCompile Include="FileSearch.cpp" />
+    <ClCompile Include="FileUtil.cpp" />
+    <ClCompile Include="Hash.cpp" />
+    <ClCompile Include="LogManager.cpp" />
+    <ClCompile Include="MathUtil.cpp" />
+    <ClCompile Include="MemArena.cpp" />
+    <ClCompile Include="MemoryUtil.cpp" />
+    <ClCompile Include="Misc.cpp" />
+    <ClCompile Include="MsgHandler.cpp" />
+    <ClCompile Include="StringUtils.cpp" />
+    <ClCompile Include="Thread.cpp" />
+    <ClCompile Include="Thunk.cpp" />
+    <ClCompile Include="Timer.cpp" />
+    <ClCompile Include="Version.cpp" />
+    <ClCompile Include="x64Analyzer.cpp" />
+    <ClCompile Include="x64Emitter.cpp" />
+    <ClCompile Include="ArmEmitter.cpp" />
+    <ClCompile Include="ArmCPUDetect.cpp" />
+    <ClCompile Include="ThreadPools.cpp" />
+    <ClCompile Include="Crypto\md5.cpp">
+      <Filter>Crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="KeyMap.cpp" />
+    <ClCompile Include="ppcAbi.cpp">
+      <Filter>ppc</Filter>
+    </ClCompile>
+    <ClCompile Include="ppcEmitter.cpp">
+      <Filter>ppc</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Crypto">
+      <UniqueIdentifier>{1b593f03-7b28-4707-9228-4981796f5589}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ppc">
+      <UniqueIdentifier>{00d7ac48-c0a3-4562-b8f3-4ebe869913d6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
