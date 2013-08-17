@@ -34,7 +34,9 @@ static GLint uni_tex = -1;
 
 static GLuint program;
 
+const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
+
 u8* fb = NULL;
 u8* depthbuf = NULL;
 u32 clut[4096];
@@ -214,7 +216,7 @@ void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth
 void SoftGPU::CopyDisplayToOutput()
 {
 	// TODO: How to get the correct dimensions?
-	CopyToCurrentFboFromRam(fb, gstate.fbwidth & 0x3C0, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+	CopyToCurrentFboFromRam(fb, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 }
 
 u32 SoftGPU::DrawSync(int mode)
