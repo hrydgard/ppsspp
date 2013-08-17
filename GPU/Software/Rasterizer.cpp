@@ -124,8 +124,8 @@ static inline void GetTexelCoordinates(int level, float s, float t, unsigned int
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
 
-	u = s * width; // TODO: width-1 instead?
-	v = t * height; // TODO: width-1 instead?
+	u = (unsigned int)(s * width); // TODO: width-1 instead?
+	v = (unsigned int)(t * height); // TODO: width-1 instead?
 }
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
@@ -361,6 +361,7 @@ static inline bool StencilTestPassed(u8 stencil)
 		case GE_COMP_GEQUAL:
 			return (stencil >= ref);
 	}
+	return true;
 }
 
 static inline void ApplyStencilOp(int op, int x, int y)
@@ -467,6 +468,7 @@ static inline bool ColorTestPassed(Vec3<int> color)
 		case GE_COMP_NOTEQUAL:
 			return (color.r() != ref.r() || color.g() != ref.g() || color.b() != ref.b());
 	}
+	return true;
 }
 
 static inline bool AlphaTestPassed(int alpha)
@@ -500,6 +502,7 @@ static inline bool AlphaTestPassed(int alpha)
 		case GE_COMP_GEQUAL:
 			return (alpha >= ref);
 	}
+	return true;
 }
 
 static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
@@ -698,8 +701,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 					unsigned int u = 0, v = 0;
 					if (gstate.isModeThrough()) {
 						// TODO: Is it really this simple?
-						u = (v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) / (w0+w1+w2);
-						v = (v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) / (w0+w1+w2);
+						u = (int)((v0.texturecoords.s() * w0 + v1.texturecoords.s() * w1 + v2.texturecoords.s() * w2) / (w0+w1+w2));
+						v = (int)((v0.texturecoords.t() * w0 + v1.texturecoords.t() * w1 + v2.texturecoords.t() * w2) / (w0+w1+w2));
 					} else {
 						float s = 0, t = 0;
 						GetTextureCoordinates(v0, v1, v2, w0, w1, w2, s, t);

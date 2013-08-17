@@ -34,9 +34,9 @@ protected:
 	virtual void DrawBackground(UIContext &dc);
 };
 
-class UIDialogScreenWithBackground : public DialogScreen {
+class UIDialogScreenWithBackground : public UIDialogScreen {
 public:
-	UIDialogScreenWithBackground() : DialogScreen() {}
+	UIDialogScreenWithBackground() : UIDialogScreen() {}
 protected:
 	virtual void DrawBackground(UIContext &dc);
 };

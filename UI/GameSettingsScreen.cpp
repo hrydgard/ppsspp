@@ -38,7 +38,10 @@
 
 #ifdef _WIN32
 namespace MainWindow {
-	enum { WM_USER_LOG_STATUS_CHANGED = WM_USER + 200 };
+	enum { 
+		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200,
+		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 300,
+	};
 	extern HWND hwndMain;
 }
 #endif
@@ -186,17 +189,14 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 
-	Margins actionMenuMargins(0, 0, 15, 0);
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0)));
-	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameSettingsScreen::OnBack);
+	root_->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameSettingsScreen::OnBack);
 
-	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new LinearLayoutParams(800, FILL_PARENT, actionMenuMargins));
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 
 	root_->Add(tabHolder);
 
@@ -348,6 +348,9 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 		else Atrac3plus_Decoder::Shutdown();
 	}
 	
+#ifdef _WIN32
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_ATRAC_STATUS_CHANGED, 0, 0);
+#endif
 
 	return UI::EVENT_DONE;
 }
@@ -407,11 +410,13 @@ void DeveloperToolsScreen::CreateViews() {
 
 	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *d = GetI18NCategory("Developer");
+	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *a = GetI18NCategory("Audio");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 	list->Add(new CheckBox(&enableLogging_, d->T("Enable Debug Logging")));
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
