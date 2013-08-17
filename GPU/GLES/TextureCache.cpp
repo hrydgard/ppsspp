@@ -26,6 +26,7 @@
 #include "GPU/GLES/Framebuffer.h"
 #include "Core/Config.h"
 
+#include "ext/xxhash.h"
 #include "native/ext/cityhash/city.h"
 
 #ifdef _M_SSE
@@ -892,9 +893,7 @@ void TextureCache::UpdateCurrentClut() {
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
 	const u32 clutExtendedBytes = clutTotalBytes_ + clutBaseBytes;
 
-	// QuickClutHash is not quite good enough apparently.
-	// clutHash_ = QuickClutHash((const u8 *)clutBufRaw_, clutExtendedBytes);
-	clutHash_ = CityHash32((const char *)clutBufRaw_, clutExtendedBytes);
+	clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
 
 	// Avoid a copy when we don't need to convert colors.
 	if (clutFormat != GE_CMODE_32BIT_ABGR8888) {
