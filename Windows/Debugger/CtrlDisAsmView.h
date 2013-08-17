@@ -68,6 +68,7 @@ class CtrlDisAsmView
 	int matchAddress;
 	bool searching;
 	bool dontRedraw;
+	bool keyTaken;
 
 	void assembleOpcode(u32 address, std::string defaultText);
 	void disassembleToFile();
@@ -85,6 +86,7 @@ public:
 	static LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 	static CtrlDisAsmView * getFrom(HWND wnd);
 	
+	void onChar(WPARAM wParam, LPARAM lParam);
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);

@@ -80,6 +80,7 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		ccp->onVScroll(wParam,lParam);
 		break;
 	case WM_MOUSEWHEEL:
+		ccp->dontRedraw = false;
 		if (GET_WHEEL_DELTA_WPARAM(wParam) > 0)
 		{
 			ccp->scrollWindow(-3);
@@ -91,6 +92,9 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		return FALSE;
 	case WM_KEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
+		return 0;
+	case WM_CHAR:
+		ccp->onChar(wParam,lParam);
 		return 0;
 	case WM_SYSKEYDOWN:
 		ccp->onKeyDown(wParam,lParam);
@@ -161,6 +165,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	hasFocus = false;
 	controlHeld = false;
 	dontRedraw = false;
+	keyTaken = false;
 
 	matchAddress = -1;
 	searching = false;
@@ -295,7 +300,7 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 		return;
 	}
 
-	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,"Assemble opcode",(char*)defaultText.c_str(),op);
+	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,"Assemble opcode",(char*)defaultText.c_str(),op,false);
 	if (result == false) return;
 
 	result = MIPSAsm::MipsAssembleOpcode(op,debugger,address,encoded);
@@ -511,10 +516,21 @@ void CtrlDisAsmView::followBranch()
 	}
 }
 
+void CtrlDisAsmView::onChar(WPARAM wParam, LPARAM lParam)
+{
+	if (keyTaken) return;
+
+	char str[2];
+	str[0] = wParam;
+	str[1] = 0;
+	assembleOpcode(curAddress,str);
+}
 
 void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
+	dontRedraw = false;
 	u32 windowEnd = windowStart+visibleRows*instructionSize;
+	keyTaken = true;
 
 	if (controlHeld)
 	{
@@ -594,6 +610,7 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 			debugger->toggleBreakpoint(curAddress);
 			break;
 		default:
+			keyTaken = false;
 			return;
 		}
 	}
@@ -663,6 +680,7 @@ void CtrlDisAsmView::toggleBreakpoint()
 
 void CtrlDisAsmView::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
+	dontRedraw = false;
 	int x = LOWORD(lParam);
 	int y = HIWORD(lParam);
 

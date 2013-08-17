@@ -5,6 +5,7 @@
 static TCHAR textBoxContents[256];
 static TCHAR out[256];
 static TCHAR windowTitle[256];
+static bool defaultSelected;
 
 static INT_PTR CALLBACK InputBoxFunc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -12,6 +13,7 @@ static INT_PTR CALLBACK InputBoxFunc(HWND hDlg, UINT message, WPARAM wParam, LPA
 	case WM_INITDIALOG:
 		SetWindowText(GetDlgItem(hDlg,IDC_INPUTBOX),textBoxContents);
 		SetWindowText(hDlg, windowTitle);
+		if (defaultSelected == false) PostMessage(GetDlgItem(hDlg,IDC_INPUTBOX),EM_SETSEL,-1,-1);
 		return TRUE;
 	case WM_COMMAND:
 		switch (wParam)
@@ -35,12 +37,18 @@ void InputBoxFunc()
 
 }
 
-bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defaultvalue, TCHAR *outvalue)
+bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defaultvalue, TCHAR *outvalue, bool selected)
 {
+	defaultSelected = selected;
 	if (defaultvalue && strlen(defaultvalue)<255)
 		strcpy(textBoxContents,defaultvalue);
 	else
 		strcpy(textBoxContents,"");
+
+	if (title != NULL)
+		strcpy(windowTitle,title);
+	else
+		strcpy(windowTitle,"");
 
 	if (IDOK==DialogBox(hInst,(LPCSTR)IDD_INPUTBOX,hParent,InputBoxFunc))
 	{
@@ -54,6 +62,7 @@ bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defa
 bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defaultvalue, TCHAR *outvalue, size_t outlength)
 {
 	const char *defaultTitle = "Input value";
+	defaultSelected = true;
 
 	if (defaultvalue && strlen(defaultvalue)<255)
 		strcpy(textBoxContents,defaultvalue);
