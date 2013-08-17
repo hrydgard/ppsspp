@@ -360,6 +360,9 @@ void NativeInit(int argc, const char *argv[],
 		logman->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 	INFO_LOG(BOOT, "Logger inited.");
 #else
+	if (g_Config.currentDirectory.empty()) {
+		g_Config.currentDirectory = File::GetExeDirectory();
+	}
 	g_Config.memCardDirectory = "MemStick/";
 #endif	
 
