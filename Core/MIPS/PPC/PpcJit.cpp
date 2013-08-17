@@ -186,7 +186,7 @@ Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo),mips_(mips)
 void Jit::RunLoopUntil(u64 globalticks) {	
 #ifdef _XBOX
 	// force stack alinement
-	_alloca(8*1024);
+	//_alloca(8*1024);
 #endif
 	
 	// Run the compiled code
