@@ -39,7 +39,7 @@ You can contact the author at :
 // If you know your target CPU supports unaligned memory access, you want to force this option manually to improve performance.
 // You can also enable this parameter if you know your input data will always be aligned (boundaries of 4, for U32).
 #if defined(__ARM_FEATURE_UNALIGNED) || defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
-#  define XXH_USE_UNALIGNED_ACCESS 1
+//#  define XXH_USE_UNALIGNED_ACCESS 1
 #endif
 
 // XXH_ACCEPT_NULL_INPUT_POINTER :
@@ -56,7 +56,7 @@ You can contact the author at :
 // Should endian-independance be of no importance for your application, you may set the #define below to 1.
 // It will improve speed for Big-endian CPU.
 // This option has no impact on Little_Endian CPU.
-#define XXH_FORCE_NATIVE_FORMAT 0
+#define XXH_FORCE_NATIVE_FORMAT 1
 
 
 //**************************************
