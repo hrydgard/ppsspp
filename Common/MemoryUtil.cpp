@@ -58,12 +58,20 @@ void ResetExecutableMemory(void* ptr)
 }
 #endif
 
+#ifdef _XBOX
+// Use balloc from Coz
+extern "C" void* balloc( size_t size );
+extern "C" void bfree( void* ptr );
+#endif
+
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that PPSSPP needs.
 
 void* AllocateExecutableMemory(size_t size, bool low)
 {
-#if defined(_WIN32)
+#ifdef _XBOX
+	void* ptr = balloc(size);
+#elif defined(_WIN32)
 	void* ptr = VirtualAlloc(0, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 #elif defined(__SYMBIAN32__)
 	//This function may be called more than once, and we want to create only one big
@@ -190,7 +198,9 @@ void FreeAlignedMemory(void* ptr)
 {
 	if (ptr)
 	{
-#ifdef _WIN32
+#ifdef _XBOX
+		bfree(ptr);
+#elif defined(_WIN32)
 		_aligned_free(ptr);
 #else
 		free(ptr);
