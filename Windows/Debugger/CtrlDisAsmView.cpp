@@ -109,6 +109,7 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		ccp->redraw();
 		break;
 	case WM_KILLFOCUS:
+		ccp->controlHeld = false;
 		ccp->hasFocus=false;
 		ccp->redraw();
 		break;
@@ -117,9 +118,6 @@ LRESULT CALLBACK CtrlDisAsmView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPA
 		{
 			switch (wParam)
 			{
-			case VK_F9:
-			case VK_F10:
-			case VK_F11:
 			case VK_TAB:
 				return DLGC_WANTMESSAGE;
 			default:
@@ -592,18 +590,6 @@ void CtrlDisAsmView::onKeyDown(WPARAM wParam, LPARAM lParam)
 		case VK_CONTROL:
 			controlHeld = true;
 			break;
-		case VK_F9:
-			if (debugger->GetPC() != curAddress)
-			{
-				SendMessage(GetParent(wnd),WM_DEB_RUNTOWPARAM,curAddress,0);
-			}
-			break;
-		case VK_F10:
-			SendMessage(GetParent(wnd),WM_COMMAND,IDC_STEPOVER,0);
-			return;
-		case VK_F11:
-			SendMessage(GetParent(wnd),WM_COMMAND,IDC_STEP,0);
-			return;
 		case VK_SPACE:
 			debugger->toggleBreakpoint(curAddress);
 			break;
