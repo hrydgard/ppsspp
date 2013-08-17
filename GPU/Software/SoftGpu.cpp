@@ -16,16 +16,17 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
-#include "../GPUState.h"
-#include "../ge_constants.h"
-#include "../../Core/MemMap.h"
-#include "../../Core/HLE/sceKernelInterrupt.h"
-#include "../../Core/HLE/sceGe.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
+#include "Core/MemMap.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceGe.h"
+#include "Core/Reporting.h"
 #include "gfx/gl_common.h"
 
-#include "SoftGpu.h"
-#include "TransformUnit.h"
-#include "Colors.h"
+#include "GPU/Software/SoftGpu.h"
+#include "GPU/Software/TransformUnit.h"
+#include "GPU/Software/Colors.h"
 
 static GLuint temp_texture = 0;
 
@@ -34,6 +35,7 @@ static GLint uni_tex = -1;
 
 static GLuint program;
 
+const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
 u8* fb = NULL;
 u8* depthbuf = NULL;
@@ -157,26 +159,45 @@ void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth
 
 	glBindTexture(GL_TEXTURE_2D, temp_texture);
 
+	GLfloat texvert_u;
 	if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)srcwidth, (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)gstate.FrameBufStride(), (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		texvert_u = (float)srcwidth / gstate.FrameBufStride();
 	} else {
 		// TODO: This should probably be converted in a shader instead..
 		// TODO: Do something less brain damaged to manage this buffer...
-		u32* buf = new u32[srcwidth*srcheight];
+		u32 *buf = new u32[srcwidth * srcheight];
+		u16 *fb16 = (u16 *)fb;
 		for (int y = 0; y < srcheight; ++y) {
-			for (int x = 0; x < srcwidth; ++x) {
-				u16 src = *(u16*)&fb[2*x + 2*y*gstate.FrameBufStride()];
+			u32 *buf_line = &buf[y * srcwidth];
+			u16 *fb_line = &fb16[y * gstate.FrameBufStride()];
 
-				if (gstate.FrameBufFormat() == GE_FORMAT_565)
-					buf[x+y*srcwidth] = DecodeRGB565(src);
-				else if (gstate.FrameBufFormat() == GE_FORMAT_5551)
-					buf[x+y*srcwidth] = DecodeRGBA5551(src);
-				else if (gstate.FrameBufFormat() == GE_FORMAT_4444)
-					buf[x+y*srcwidth] = DecodeRGBA4444(src);
+			switch (gstate.FrameBufFormat()) {
+			case GE_FORMAT_565:
+				for (int x = 0; x < srcwidth; ++x) {
+					buf_line[x] = DecodeRGB565(fb_line[x]);
+				}
+				break;
+
+			case GE_FORMAT_5551:
+				for (int x = 0; x < srcwidth; ++x) {
+					buf_line[x] = DecodeRGBA5551(fb_line[x]);
+				}
+				break;
+
+			case GE_FORMAT_4444:
+				for (int x = 0; x < srcwidth; ++x) {
+					buf_line[x] = DecodeRGBA4444(fb_line[x]);
+				}
+				break;
+
+			default:
+				ERROR_LOG_REPORT(G3D, "Unexpected framebuffer format: %d", gstate.FrameBufFormat());
 			}
 		}
 
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)srcwidth, (GLsizei)srcheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
+		texvert_u = 1.0f;
 
 		delete[] buf;
 	}
@@ -191,11 +212,11 @@ void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth
 		{  1,  1}, // right bottom
 		{  1, -1}  // right top
 	};
-	static const GLfloat texverts[4][2] = {
+	const GLfloat texverts[4][2] = {
 		{0, 1},
 		{0, 0},
-		{1, 0},
-		{1, 1}
+		{texvert_u, 0},
+		{texvert_u, 1}
 	};
 
 	glVertexAttribPointer(attr_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
@@ -213,18 +234,24 @@ void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth
 
 void SoftGPU::CopyDisplayToOutput()
 {
-	// TODO: How to get the correct dimensions?
-	CopyToCurrentFboFromRam(fb, gstate.fbwidth & 0x3C0, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
 }
 
-u32 SoftGPU::DrawSync(int mode)
+void SoftGPU::CopyDisplayToOutputInternal()
 {
-	if (mode == 0)  // Wait for completion
-	{
-		__RunOnePendingInterrupt();
-	}
+	// The display always shows 480x272.
+	CopyToCurrentFboFromRam(fb, FB_WIDTH, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+}
 
-	return GPUCommon::DrawSync(mode);
+void SoftGPU::ProcessEvent(GPUEvent ev) {
+	switch (ev.type) {
+	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
+		CopyDisplayToOutputInternal();
+		break;
+
+	default:
+		GPUCommon::ProcessEvent(ev);
+	}
 }
 
 void SoftGPU::FastRunLoop(DisplayList &list) {

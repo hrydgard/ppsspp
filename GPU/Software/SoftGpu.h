@@ -28,7 +28,6 @@ public:
 	~SoftGPU();
 	virtual void InitClear() {}
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual u32  DrawSync(int mode);
 
 	virtual void BeginFrame() {}
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {}
@@ -43,10 +42,14 @@ public:
 
 	virtual void Resized() {}
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) {
-		primaryInfo = "NULL";
-		fullInfo = "NULL";
+		primaryInfo = "Software";
+		fullInfo = "Software";
 	}
 
 protected:
 	virtual void FastRunLoop(DisplayList &list);
+	virtual void ProcessEvent(GPUEvent ev);
+
+private:
+	void CopyDisplayToOutputInternal();
 };
