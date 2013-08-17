@@ -677,16 +677,16 @@ namespace MainWindow
 					if (globalUIState == UISTATE_PAUSEMENU) {
 						NativeMessageReceived("run", "");
 						if (disasmWindow[0])
-							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 					}
 					else if (Core_IsStepping()) { // It is paused, then continue to run.
 						if (disasmWindow[0])
-							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_GO, 0);
+							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 						else
 							Core_EnableStepping(false);
 					} else {
 						if (disasmWindow[0])
-							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOP, 0);
+							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 						else
 							Core_EnableStepping(true);
 					}

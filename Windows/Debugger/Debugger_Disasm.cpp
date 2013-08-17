@@ -451,15 +451,27 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				};
 				break;
 
-			case IDC_GO:
+			case IDC_STOPGO:
 				{
-					lastTicks = CoreTiming::GetTicks();
+					if (!Core_IsStepping())		// stop
+					{
+						ptr->setDontRedraw(false);
+						SetDebugMode(true);
+						Core_EnableStepping(true);
+						_dbg_update_();
+						Sleep(1); //let cpu catch up
+						ptr->gotoPC();
+						UpdateDialog();
+						vfpudlg->Update();
+					} else {					// go
+						lastTicks = CoreTiming::GetTicks();
 
-					// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-					CBreakPoints::SetSkipFirst(currentMIPS->pc);
+						// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+						CBreakPoints::SetSkipFirst(currentMIPS->pc);
 
-					SetDebugMode(false);
-					Core_EnableStepping(false);
+						SetDebugMode(false);
+						Core_EnableStepping(false);
+					}
 				}
 				break;
 
@@ -484,19 +496,6 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					SetDebugMode(false);
 					_dbg_update_();
 					Core_EnableStepping(false);
-				}
-				break;
-
-			case IDC_STOP:
-				{				
-					ptr->setDontRedraw(false);
-					SetDebugMode(true);
-					Core_EnableStepping(true);
-					_dbg_update_();
-					Sleep(1); //let cpu catch up
-					ptr->gotoPC();
-					UpdateDialog();
-					vfpudlg->Update();
 				}
 				break;
 
@@ -750,11 +749,10 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		stackTraceView->loadStackTrace();
 		updateThreadLabel(false);
 
-		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  TRUE);
+		SetDlgItemText(m_hDlg, IDC_STOPGO, "Go");
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STOP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->setDontRedraw(false);
@@ -770,12 +768,11 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	else
 	{
 		updateThreadLabel(true);
-
-		EnableWindow( GetDlgItem(hDlg, IDC_GO),	  FALSE);
+		
+		SetDlgItemText(m_hDlg, IDC_STOPGO, "Stop");
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
-		EnableWindow( GetDlgItem(hDlg, IDC_STOP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_SKIP), FALSE);		
 		CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 		reglist->redraw();
