@@ -1202,6 +1202,13 @@ namespace MainWindow
 			}
 			break;
 
+		case WM_USER_ATRAC_STATUS_CHANGED:
+			if(g_Config.bEnableAtrac3plus && Atrac3plus_Decoder::IsInstalled())
+				EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_ENABLED);
+			else
+				EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_GRAYED);
+			break;
+
 		case WM_MENUSELECT:
 			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
 			// with corresponding menu items.
