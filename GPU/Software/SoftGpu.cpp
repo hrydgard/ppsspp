@@ -213,6 +213,11 @@ void CopyToCurrentFboFromRam(u8* data, int srcwidth, int srcheight, int dstwidth
 
 void SoftGPU::CopyDisplayToOutput()
 {
+	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
+}
+
+void SoftGPU::CopyDisplayToOutputInternal()
+{
 	// TODO: How to get the correct dimensions?
 	CopyToCurrentFboFromRam(fb, gstate.fbwidth & 0x3C0, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 }
@@ -225,6 +230,17 @@ u32 SoftGPU::DrawSync(int mode)
 	}
 
 	return GPUCommon::DrawSync(mode);
+}
+
+void SoftGPU::ProcessEvent(GPUEvent ev) {
+	switch (ev.type) {
+	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
+		CopyDisplayToOutputInternal();
+		break;
+
+	default:
+		GPUCommon::ProcessEvent(ev);
+	}
 }
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
