@@ -270,6 +270,9 @@ struct GLExtensions {
 
 	bool EGL_NV_system_time;
 	bool EGL_NV_coverage_sample;
+
+	std::string all_gl_extensions;
+	std::string all_egl_extensions;
 };
 
 extern GLExtensions gl_extensions;

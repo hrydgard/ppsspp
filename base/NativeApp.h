@@ -97,3 +97,4 @@ void LaunchBrowser(const char *url);
 void LaunchMarket(const char *url);
 void LaunchEmail(const char *email_address);
 void System_InputBox(const char *title, const char *defaultValue);
+std::string System_GetName();

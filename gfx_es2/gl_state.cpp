@@ -82,10 +82,12 @@ void CheckGLExtensions() {
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
 
 	const char *extString = (const char *)glGetString(GL_EXTENSIONS);
+	gl_extensions.all_gl_extensions = extString;
 
 #ifdef WIN32
 	const char *wglString = wglGetExtensionsStringEXT();
 	gl_extensions.EXT_swap_control_tear = strstr(wglString, "WGL_EXT_swap_control_tear") != 0;
+	gl_extensions.all_egl_extensions = wglString;
 #elif !defined(USING_GLES2)
 	// const char *glXString = glXQueryExtensionString();
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
@@ -132,6 +134,7 @@ void CheckGLExtensions() {
 	EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
 	const char *eglString = eglQueryString(display, EGL_EXTENSIONS);
+	gl_extensions.all_egl_extensions = eglString;
 
 	gl_extensions.EGL_NV_system_time = strstr(eglString, "EGL_NV_system_time") != 0;
 	gl_extensions.EGL_NV_coverage_sample = strstr(eglString, "EGL_NV_coverage_sample") != 0;

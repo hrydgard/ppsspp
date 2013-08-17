@@ -248,6 +248,11 @@ void LaunchEmail(const char *email_address)
 #endif
 }
 
+std::string System_GetName() {
+	// TODO
+	return "SDL";
+}
+
 
 
 InputState input_state;
