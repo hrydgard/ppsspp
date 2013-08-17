@@ -169,6 +169,7 @@ void ControlMappingScreen::CreateViews() {
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT));
 	leftColumn->Add(new Choice(k->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
+	leftColumn->Add(new Choice(k->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
 	leftColumn->Add(new Choice(g->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
@@ -192,10 +193,16 @@ void ControlMappingScreen::CreateViews() {
 
 UI::EventReturn ControlMappingScreen::OnClearMapping(UI::EventParams &params) {
 	KeyMap::g_controllerMap.clear();
-
 	RecreateViews();
 	return UI::EVENT_DONE;
 }
+
+UI::EventReturn ControlMappingScreen::OnDefaultMapping(UI::EventParams &params) {
+	KeyMap::RestoreDefault();
+	RecreateViews();
+	return UI::EVENT_DONE;
+}
+
 
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;

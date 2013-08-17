@@ -252,7 +252,8 @@ void NativeInit(int argc, const char *argv[],
 	ILOG("Logman: %p", logman);
 
 	config_filename = user_data_path + "/ppsspp.ini";
-	g_Config.Load(config_filename.c_str());
+	std::string controls_filename = user_data_path + "/controls.ini";
+	g_Config.Load(config_filename.c_str(), controls_filename.c_str());
 	g_Config.externalDirectory = external_directory;
 #endif
 
@@ -395,7 +396,6 @@ void NativeInitGraphics() {
 	CheckGLExtensions();
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
-
 
 	UIShader_Init();
 

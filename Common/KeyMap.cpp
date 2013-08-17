@@ -18,6 +18,7 @@
 #include "file/ini_file.h"
 #include "input/input_state.h"
 #include "../Core/Config.h"
+#include "base/NativeApp.h"
 #include "KeyMap.h"
 
 namespace KeyMap {
@@ -177,7 +178,7 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
 	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
 	{CTRL_START          , NKCODE_BUTTON_START},
-	{CTRL_SELECT         , NKCODE_BACK},
+	{CTRL_SELECT         , NKCODE_BUTTON_SELECT},
 	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
 	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
 	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
@@ -204,16 +205,16 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		SetDefaultKeyMap(DEVICE_ID_X360_0, default360KeyMap, ARRAY_SIZE(default360KeyMap), replace);
 		break;
 	case DEFAULT_MAPPING_SHIELD:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, defaultShieldKeyMap, ARRAY_SIZE(defaultShieldKeyMap), replace);
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultShieldKeyMap, ARRAY_SIZE(defaultShieldKeyMap), replace);
 		break;
 	case DEFAULT_MAPPING_PAD:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, defaultPadMap, ARRAY_SIZE(defaultPadMap), replace);
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultPadMap, ARRAY_SIZE(defaultPadMap), replace);
 		break;
 	case DEFAULT_MAPPING_OUYA:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, defaultOuyaMap, ARRAY_SIZE(defaultOuyaMap), replace);
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultOuyaMap, ARRAY_SIZE(defaultOuyaMap), replace);
 		break;
 	case DEFAULT_MAPPING_XPERIA_PLAY:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);
+		SetDefaultKeyMap(DEVICE_ID_DEFAULT, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);
 		break;
 	}
 }
@@ -607,7 +608,15 @@ void RestoreDefault() {
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
 #elif defined(ANDROID)
-	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
+	// Autodetect a few common devices
+	std::string name = System_GetName();
+	if (name == "NVIDIA:SHIELD") {
+		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
+	} else if (name == "OUYA:OUYA") {  // TODO: check!
+		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
+	} else if (name == "Sony Ericsson:R800i" || name == "Sony Ericsson:zeus") {
+		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);
+	}
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);

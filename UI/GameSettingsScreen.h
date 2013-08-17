@@ -77,6 +77,7 @@ protected:
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
+	UI::EventReturn OnSysInfo(UI::EventParams &e);
 
 	// Temporary variable.
 	bool enableLogging_;

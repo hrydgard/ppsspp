@@ -19,6 +19,7 @@
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
+#include "gfx_es2/gl_state.h"
 #include "file/vfs.h"
 #include "math/curves.h"
 #include "i18n/i18n.h"
@@ -242,6 +243,35 @@ void LogoScreen::render() {
 	dc.End();
 	dc.Flush();
 }
+
+void SystemInfoScreen::CreateViews() {
+	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
+
+	using namespace UI;
+	root_ = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	
+	LinearLayout *scroll = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+	root_->Add(scroll);
+
+	scroll->Add(new PopupHeader("System Information"));
+
+	scroll->Add(new InfoItem("System Name", System_GetName()));
+
+	scroll->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
+	std::vector<std::string> exts;
+	SplitString(g_all_gl_extensions, ' ', exts);
+	for (size_t i = 0; i < exts.size(); i++) {
+		scroll->Add(new TextView(exts[i]));
+	}
+
+	scroll->Add(new ItemHeader("EGL Extensions"));
+	exts.clear();
+	SplitString(g_all_egl_extensions, ' ', exts);
+	for (size_t i = 0; i < exts.size(); i++) {
+		scroll->Add(new TextView(exts[i]));
+	}
+}
+
 
 void CreditsScreen::CreateViews() {
 	using namespace UI;

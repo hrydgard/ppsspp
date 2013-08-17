@@ -17,11 +17,6 @@
 
 #include "Common/CommonWindows.h"
 
-void LaunchBrowser(const char *url)
-{
-	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
-}
-
 #include "file/vfs.h"
 #include "file/zip_read.h"
 
@@ -53,6 +48,15 @@ void LaunchBrowser(const char *url)
 
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
+
+void LaunchBrowser(const char *url)
+{
+	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+}
+
+std::string System_GetName() {
+	return "PC:Windows";
+}
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {

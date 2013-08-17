@@ -91,7 +91,6 @@ private:
 	int frames_;
 };
 
-
 class CreditsScreen : public UIDialogScreenWithBackground {
 public:
 	CreditsScreen() : frames_(0) {}
@@ -105,6 +104,11 @@ private:
 	int frames_;
 };
 
+class SystemInfoScreen : public UIDialogScreenWithBackground {
+public:
+	SystemInfoScreen() {}
+	virtual void CreateViews();
+};
 
 // Utility functions that create various popup screens
 ListPopupScreen *CreateLanguageScreen();
