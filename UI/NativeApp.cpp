@@ -583,7 +583,7 @@ void NativeDeviceLost() {
 }
 
 bool NativeIsAtTopLevel() {
-	return globalUIState == UISTATE_MENU;
+	return false;
 }
 
 void NativeTouch(const TouchInput &touch) {

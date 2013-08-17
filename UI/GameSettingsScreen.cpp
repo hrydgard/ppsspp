@@ -45,6 +45,9 @@ namespace MainWindow {
 	extern HWND hwndMain;
 }
 #endif
+#ifdef IOS
+extern bool isJailed;
+#endif
 
 namespace UI {
 
@@ -285,7 +288,16 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
+
+#ifdef IOS
+	if (isJailed) {
+		systemSettings->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
+	} else {
+		systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+	}
+#else
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+#endif
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
@@ -368,8 +380,14 @@ void GlobalSettingsScreen::CreateViews() {
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
+#ifndef ANDROID
+	// Need to move the cheat config dir somewhere where it can be read/written on android
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
+#endif
+#ifdef _WIN32
+	// Screenshot functionality is not yet available on non-Windows
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
+#endif
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);

@@ -30,7 +30,7 @@
 
 #include "UI/MiscScreens.h"
 
-class PluginScreen : public UIScreenWithBackground {
+class PluginScreen : public UIDialogScreenWithBackground {
 public:
 	PluginScreen();
 
