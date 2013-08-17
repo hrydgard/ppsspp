@@ -50,6 +50,7 @@ SOURCES += ../Core/*.cpp \ # Core
 	../GPU/Null/NullGpu.cpp \
 	../GPU/GLES/*.cpp \
 	../ext/libkirk/*.c \ # Kirk
+	../ext/xxhash.c \ # xxHash
 	../ext/xbrz/*.cpp # XBRZ
 
 HEADERS += ../Core/*.h \
