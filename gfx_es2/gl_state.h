@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <string.h>
+#include <string>
 #include "gfx/gl_common.h"
 
 #ifdef USING_GLES2
