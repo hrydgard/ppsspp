@@ -45,6 +45,7 @@ private:
 	void changeSubWindow(SubWindowType type);
 	void stepInto();
 	void stepOver();
+	void stepOut();
 	void runToLine();
 public:
 	int index; //helper 

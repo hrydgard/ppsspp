@@ -293,6 +293,40 @@ void CDisasm::stepOver()
 	UpdateDialog();
 }
 
+void CDisasm::stepOut()
+{
+	auto threads = GetThreadsInfo();
+
+	u32 entry, stackTop;
+	for (size_t i = 0; i < threads.size(); i++)
+	{
+		if (threads[i].isCurrent)
+		{
+			entry = threads[i].entrypoint;
+			stackTop = threads[i].initialStack;
+			break;
+		}
+	}
+
+	auto frames = MIPSStackWalk::Walk(cpu->GetPC(),cpu->GetRegValue(0,31),cpu->GetRegValue(0,29),entry,stackTop);
+	if (frames.size() < 2) return;
+	u32 breakpointAddress = frames[1].pc;
+	
+	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+	CBreakPoints::SetSkipFirst(currentMIPS->pc);
+	
+	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
+	ptr->setDontRedraw(true);
+
+	SetDebugMode(false);
+	CBreakPoints::AddBreakPoint(breakpointAddress,true);
+	_dbg_update_();
+	Core_EnableStepping(false);
+	Sleep(1);
+	ptr->gotoAddr(breakpointAddress);
+	UpdateDialog();
+}
+
 void CDisasm::runToLine()
 {
 	CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
@@ -411,6 +445,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) runToLine();
 				break;
 
+			case ID_DEBUG_STEPOUT:
+				if (GetFocus() == GetDlgItem(m_hDlg,IDC_DISASMVIEW)) stepOut();
+				break;
+
 			case IDC_SHOWVFPU:
 				vfpudlg->Show(true);
 				break;
@@ -481,6 +519,10 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 			case IDC_STEPOVER:
 				stepOver();
+				break;
+
+			case IDC_STEPOUT:
+				stepOut();
 				break;
 				
 			case IDC_STEPHLE:
@@ -744,6 +786,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
+		EnableWindow( GetDlgItem(hDlg, IDC_STEPOUT), TRUE);
 		CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 		ptr->setDontRedraw(false);
 		ptr->gotoPC();
@@ -763,6 +806,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
+		EnableWindow( GetDlgItem(hDlg, IDC_STEPOUT), FALSE);
 		CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 		reglist->redraw();
 	}
