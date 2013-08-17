@@ -234,5 +234,5 @@ bool Load_Unpacked_BOOT(const char *filename, u32 paramPtr, std::string *error_s
 	u8 *temp = new u8[bootFileSize + 0x1000000];
 	fread(temp, sizeof(u8), bootFileSize, bootFile);
 	fclose(bootFile);
-	return __KernelLoadExec(filename, temp, 0, error_string);
+	return __KernelLoadExec("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN", temp, 0, error_string); // Load as if from UMD
 }
