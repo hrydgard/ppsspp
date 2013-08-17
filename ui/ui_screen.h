@@ -63,16 +63,16 @@ private:
 
 class ListPopupScreen : public PopupScreen {
 public:
-	ListPopupScreen(std::string title) : PopupScreen(title) {}
-	ListPopupScreen(std::string title, const std::vector<std::string> &items, int selected, std::function<void(int)> callback)
-		: PopupScreen(title), adaptor_(items, selected), callback_(callback) {
+	ListPopupScreen(std::string title) : PopupScreen(title), showButtons_(false) {}
+	ListPopupScreen(std::string title, const std::vector<std::string> &items, int selected, std::function<void(int)> callback, bool showButtons = false)
+		: PopupScreen(title), adaptor_(items, selected), callback_(callback), showButtons_(showButtons) {
 	}
 
 	UI::Event OnChoice;
 
 protected:
 	virtual bool FillVertical() { return true; }
-	virtual bool ShowButtons() { return false; }
+	virtual bool ShowButtons() { return showButtons_; }
 	void CreatePopupContents(UI::ViewGroup *parent);
 	UI::StringVectorListAdaptor adaptor_;
 	UI::ListView *listView_;
@@ -81,6 +81,7 @@ private:
 	UI::EventReturn OnListChoice(UI::EventParams &e);
 
 	std::function<void(int)> callback_;
+	bool showButtons_;
 };
 
 class MessagePopupScreen : public PopupScreen {

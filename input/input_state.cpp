@@ -8,6 +8,7 @@ const char *GetDeviceName(int deviceId) {
 	case DEVICE_ID_PAD_0: return "pad";
 	case DEVICE_ID_X360_0: return "x360";
 	case DEVICE_ID_ACCELEROMETER: return "accelerometer";
+	case DEVICE_ID_MOUSE: return "mouse";
 	default:
 		return "unknown";
 	}

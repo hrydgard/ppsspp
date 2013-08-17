@@ -507,7 +507,7 @@ void SliderFloat::Key(const KeyInput &input) {
 void SliderFloat::Touch(const TouchInput &input) {
 	if (dragging_ || bounds_.Contains(input.x, input.y)) {
 		float relativeX = (input.x - bounds_.x) / bounds_.w;
-		*value_ = floorf(relativeX * (maxValue_ - minValue_) + minValue_ + 0.5f);
+		*value_ = relativeX * (maxValue_ - minValue_) + minValue_;
 		Clamp();
 	}
 }
