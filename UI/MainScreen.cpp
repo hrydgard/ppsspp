@@ -382,7 +382,7 @@ void GameBrowser::Refresh() {
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
 	}
 
-	if (!lastText_.empty()) {
+	if (!lastText_.empty() && gameButtons.empty()) {
 		Add(new Spacer());
 		Add(new Choice(lastText_, new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)))->OnClick.Handle(this, &GameBrowser::LastClick);
 	}
