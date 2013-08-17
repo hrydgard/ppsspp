@@ -436,7 +436,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new Choice(g->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
-	list->Add(new CheckBox(&enableLogging_, d->T("Enable Debug Logging")));
+	list->Add(new CheckBox(&enableLogging_, d->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
 
@@ -449,6 +449,11 @@ UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 #endif
 	g_Config.Save();
 
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
 	return UI::EVENT_DONE;
 }
 
