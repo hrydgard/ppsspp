@@ -43,6 +43,9 @@ private:
 	void SavePosition();
 	void updateThreadLabel(bool clear);
 	void changeSubWindow(SubWindowType type);
+	void stepInto();
+	void stepOver();
+	void runToLine();
 public:
 	int index; //helper 
 
