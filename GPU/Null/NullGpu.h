@@ -28,7 +28,6 @@ public:
 	~NullGPU();
 	virtual void InitClear() {}
 	virtual void ExecuteOp(u32 op, u32 diff);
-	virtual u32  DrawSync(int mode);
 
 	virtual void BeginFrame() {}
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {}

@@ -222,16 +222,6 @@ void SoftGPU::CopyDisplayToOutputInternal()
 	CopyToCurrentFboFromRam(fb, gstate.fbwidth & 0x3C0, FB_HEIGHT, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 }
 
-u32 SoftGPU::DrawSync(int mode)
-{
-	if (mode == 0)  // Wait for completion
-	{
-		__RunOnePendingInterrupt();
-	}
-
-	return GPUCommon::DrawSync(mode);
-}
-
 void SoftGPU::ProcessEvent(GPUEvent ev) {
 	switch (ev.type) {
 	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:

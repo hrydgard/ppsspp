@@ -31,16 +31,6 @@ NullGPU::~NullGPU()
 {
 }
 
-u32 NullGPU::DrawSync(int mode)
-{
-	if (mode == 0)  // Wait for completion
-	{
-		__RunOnePendingInterrupt();
-	}
-
-	return GPUCommon::DrawSync(mode);
-}
-
 void NullGPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
