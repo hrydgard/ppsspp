@@ -148,7 +148,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 
 	if (vreader.hasColor1()) {
 		float col[3];
-		vreader.ReadColor0(col);
+		vreader.ReadColor1(col);
 		vertex.color1 = Vec3<int>(col[0]*255, col[1]*255, col[2]*255);
 	} else {
 		vertex.color1 = Vec3<int>(0, 0, 0);
