@@ -441,7 +441,7 @@ public class NativeActivity extends Activity {
 				NativeApp.keyDown(0, 1004); // special custom keycode
 			} else if (NativeApp.isAtTopLevel()) {
 				Log.i(TAG, "IsAtTopLevel returned true.");
-				return super.onKeyUp(keyCode, event);
+				return super.onKeyDown(keyCode, event);
 			} else {
 				NativeApp.keyDown(0, keyCode);
 			}
@@ -461,7 +461,7 @@ public class NativeActivity extends Activity {
 		case KeyEvent.KEYCODE_DPAD_RIGHT:
 			// Joysticks are supported in Honeycomb MR1 and later via the onGenericMotionEvent method.
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && event.getSource() == InputDevice.SOURCE_JOYSTICK) {
-				return super.onKeyUp(keyCode, event);
+				return super.onKeyDown(keyCode, event);
 			}
 			// Fall through
 		default:
