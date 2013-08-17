@@ -453,7 +453,9 @@ UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 }
 
 UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
+#ifdef _WIN32
 	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
+#endif
 	return UI::EVENT_DONE;
 }
 
