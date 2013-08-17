@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "math/lin/matrix4x4.h"
-
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
@@ -30,6 +29,7 @@
 #include "GPU/Directx9/Framebuffer.h"
 #include "GPU/Directx9/TextureCache.h"
 #include "GPU/Directx9/ShaderManager.h"
+
 
 // Aggressively delete unused FBO:s to save gpu memory.
 enum {
@@ -169,7 +169,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 					const u16 *src = (const u16 *)framebuf + linesize * y;
 					u32 *dst = (u32*)(convBuf + rect.Pitch * y);
 					for (int x = 0; x < 480; x++) {
-						u16 col0 = LE_16(src[x+0]);
+						u16_le col0 = src[x+0];
 						ARGB8From565(col0, &dst[x + 0]);
 					}
 				}
@@ -180,7 +180,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 					const u16 *src = (const u16 *)framebuf + linesize * y;
 					u32 *dst = (u32*)(convBuf + rect.Pitch * y);
 					for (int x = 0; x < 480; x++) {
-						u16 col0 = LE_16(src[x+0]);
+						u16_le col0 = src[x+0];
 						ARGB8From5551(col0, &dst[x + 0]);
 					}
 				}
@@ -192,7 +192,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 					u32 *dst = (u32*)(convBuf + rect.Pitch * y);
 					for (int x = 0; x < 480; x++)
 					{
-						u16 col = LE_16(src[x]);
+						u16_le col = src[x];
 						dst[x * 4 + 0] = (col >> 12) << 4;
 						dst[x * 4 + 1] = ((col >> 8) & 0xf) << 4;
 						dst[x * 4 + 2] = ((col >> 4) & 0xf) << 4;
@@ -333,7 +333,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
-		currentRenderVfb_->last_frame_used = gpuStats.numFrames;
+		currentRenderVfb_->last_frame_used = gpuStats.numFlips;
 		return;
 	}
 	gstate_c.framebufChanged = false;
@@ -440,8 +440,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb);
 
-		vfb->last_frame_used = gpuStats.numFrames;
-		frameLastFramebufUsed = gpuStats.numFrames;
+		vfb->last_frame_used = gpuStats.numFlips;
+		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 
 		dxstate.depthWrite.set(true);
@@ -458,8 +458,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
-		vfb->last_frame_used = gpuStats.numFrames;
-		frameLastFramebufUsed = gpuStats.numFrames;
+		vfb->last_frame_used = gpuStats.numFlips;
+		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 
 		if (useBufferedRendering_) {
@@ -499,7 +499,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_used != gpuStats.numFrames)	{
+		if (vfb->last_frame_used != gpuStats.numFlips)	{
 			dxstate.depthWrite.set(true);
 			dxstate.colorMask.set(true, true, true, true);
 			pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
@@ -507,8 +507,8 @@ void FramebufferManager::SetRenderFrameBuffer() {
 #endif
 		currentRenderVfb_ = vfb;
 	} else {
-		vfb->last_frame_used = gpuStats.numFrames;
-		frameLastFramebufUsed = gpuStats.numFrames;
+		vfb->last_frame_used = gpuStats.numFlips;
+		frameLastFramebufUsed = gpuStats.numFlips;
 	}
 
 	// ugly...
@@ -657,7 +657,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 				}
 			}
 
-			nvfb->last_frame_used = gpuStats.numFrames;
+			nvfb->last_frame_used = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 
 			dxstate.depthWrite.set(true);
@@ -667,7 +667,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-			nvfb->last_frame_used = gpuStats.numFrames;
+			nvfb->last_frame_used = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
 			if (useBufferedRendering_) {
@@ -678,7 +678,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb) {
 					// to it. This broke stuff before, so now it only clears on the first use of an
 					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-					if (nvfb->last_frame_used != gpuStats.numFrames)	{
+					if (nvfb->last_frame_used != gpuStats.numFlips)	{
 						dxstate.depthWrite.set(true);
 						dxstate.colorMask.set(true, true, true, true);
 						pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
@@ -876,7 +876,7 @@ void FramebufferManager::DecimateFBOs() {
 	fbo_unbind();
 	currentRenderVfb_ = 0;
 	int num = g_Config.iFrameSkip > 0 && g_Config.iFrameSkip != 9 ? g_Config.iFrameSkip : 3;
-	bool skipFrame = (gpuStats.numFrames % num == 0);
+	bool skipFrame = (gpuStats.numFlips % num == 0);
 	bool useFramebufferToMem = g_Config.iRenderingMode != FB_BUFFERED_MODE ? 1 : 0;
 
 	for (size_t i = 0; i < vfbs_.size(); ++i) {

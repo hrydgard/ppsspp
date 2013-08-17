@@ -208,7 +208,4 @@
       <Filter>Directx9\helper</Filter>
     </ClCompile>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="CMakeLists.txt" />
-  </ItemGroup>
 </Project>

@@ -102,7 +102,7 @@ void TextureCache::Decimate() {
 	lastBoundTexture = NULL;
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
-		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
 			iter->second.texture->Release();
 			cache.erase(iter++);
 		}
@@ -110,7 +110,7 @@ void TextureCache::Decimate() {
 			++iter;
 	}
 	for (TexCache::iterator iter = secondCache.begin(); iter != secondCache.end(); ) {
-		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFrames) {
+		if (lowMemoryMode_ || iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
 			iter->second.texture->Release();
 			secondCache.erase(iter++);
 		}
@@ -621,19 +621,19 @@ void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 
 struct DXT1Block {
 	u8 lines[4];
-	u16 color1;
-	u16 color2;
+	u16_le color1;
+	u16_le color2;
 };
 
 struct DXT3Block {
 	DXT1Block color;
-	u16 alphaLines[4];
+	u16_le alphaLines[4];
 };
 
 struct DXT5Block {
 	DXT1Block color;
-	u32 alphadata2;
-	u16 alphadata1;
+	u32_le alphadata2;
+	u16_le alphadata1;
 	u8 alpha1; u8 alpha2;
 };
 
@@ -645,8 +645,8 @@ static inline u32 makecol(int r, int g, int b, int a) {
 static void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false) {
 	// S3TC Decoder
 	// Needs more speed and debugging.
-	u16 c1 = LE_16(src->color1);
-	u16 c2 = LE_16(src->color2);
+	u16 c1 = src->color1;
+	u16 c2 = src->color2;
 	int red1 = Convert5To8(c1 & 0x1F);
 	int red2 = Convert5To8(c2 & 0x1F);
 	int green1 = Convert6To8((c1 >> 5) & 0x3F);
@@ -728,7 +728,9 @@ static void decodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch) {
 		alpha[7] = 255;
 	}
 
-	u64 data = ((u64)LE_16(src->alphadata1) << 32) | LE_32(src->alphadata2);
+	u32 a1 = src->alphadata1;
+	u32 a2 = src->alphadata2;
+	u64 data = ((u64)a1 << 32) | a2;
 
 	for (int y = 0; y < 4; y++) {
 		for (int x = 0; x < 4; x++) {
@@ -752,7 +754,7 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 			u16 *dst = (u16 *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
 				// dst[i] = LE_16(src[i]);
-				unsigned short rgb = LE_16(src[i]);
+				u16_le rgb = (src[i]);
 				((uint16_t *)dst)[i] = (rgb & 0x83E0) | ((rgb & 0x1F) << 10) | ((rgb & 0x7C00) >> 10);
 			}
 		}
@@ -760,11 +762,11 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 	case D3DFMT_A4R4G4B4:
 		{
 			const u16 *src = (const u16 *)srcBuf;
-			u16 *dst = (u16 *)dstBuf;
+			u16_le *dst = (u16_le *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
 				// Already good format
-				unsigned short rgb = LE_16(src[i]);
-				dst[i] = LE_16<u16>((rgb & 0xF) | (rgb & 0xF0)<<8 | ( rgb & 0xF00) | ((rgb & 0xF000)>>8)) ;
+				u16_le rgb = src[i];
+				dst[i] = (rgb & 0xF) | (rgb & 0xF0)<<8 | ( rgb & 0xF00) | ((rgb & 0xF000)>>8);
 			}
 		}
 		break;
@@ -773,7 +775,7 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 			const u16 *src = (const u16 *)srcBuf;
 			u16 *dst = (u16 *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
-				unsigned short rgb = LE_16(src[i]);
+				u16_le rgb = src[i];
 				dst[i] = ((rgb & 0x1f) << 11) | ( rgb & 0x7e0)  | ((rgb & 0xF800) >>11 );
 			}
 		}
@@ -983,16 +985,16 @@ void TextureCache::UpdateCurrentClut() {
 	clutAlphaLinear_ = false;
 	clutAlphaLinearColor_ = 0;
 	if (gstate.getClutPaletteFormat() == GE_CMODE_16BIT_ABGR4444 && gstate.isClutIndexSimple()) {
-		const u16 *clut = GetCurrentClut<u16>();
+		const u16_le *clut = (const u16_le*)GetCurrentClut<u16>();
 		clutAlphaLinear_ = true;
-		clutAlphaLinearColor_ = LE_16(clut[15]) & 0xFFF0;
+		clutAlphaLinearColor_ = clut[15] & 0xFFF0;
 		for (int i = 0; i < 16; ++i) {
 			if ((clut[i] & 0xf) != i) {
 				clutAlphaLinear_ = false;
 				break;
 			}
 			// Alpha 0 doesn't matter.
-			if (i != 0 && (LE_16(clut[i]) & 0xFFF0) != clutAlphaLinearColor_) {
+			if (i != 0 && (clut[i] & 0xFFF0) != clutAlphaLinearColor_) {
 				clutAlphaLinear_ = false;
 				break;
 			}
@@ -1126,13 +1128,13 @@ void TextureCache::SetTexture() {
 				gstate_c.curTextureHeight = entry->framebuffer->height;
 				gstate_c.flipTexture = true;
 				gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-				entry->lastFrame = gpuStats.numFrames;
+				entry->lastFrame = gpuStats.numFlips;
 			} else {
 				if (entry->framebuffer->fbo)
 					entry->framebuffer->fbo = 0;
 				pD3Ddevice->SetTexture(0, NULL);
 				lastBoundTexture = NULL;
-				entry->lastFrame = gpuStats.numFrames;
+				entry->lastFrame = gpuStats.numFlips;
 			}
 			return;
 		}
@@ -1144,7 +1146,7 @@ void TextureCache::SetTexture() {
 		bool doDelete = true;
 
 		if (match) {
-			if (entry->lastFrame != gpuStats.numFrames) {
+			if (entry->lastFrame != gpuStats.numFlips) {
 				entry->numFrames++;
 			}
 			if (entry->framesUntilNextFullHash == 0) {
@@ -1210,7 +1212,7 @@ void TextureCache::SetTexture() {
 		if (match) {
 			// TODO: Mark the entry reliable if it's been safe for long enough?
 			//got one!
-			entry->lastFrame = gpuStats.numFrames;
+			entry->lastFrame = gpuStats.numFlips;
 			if (entry->texture != lastBoundTexture) {
 				pD3Ddevice->SetTexture(0, entry->texture);
 				lastBoundTexture = entry->texture;
@@ -1256,7 +1258,7 @@ void TextureCache::SetTexture() {
 	entry->addr = texaddr;
 	entry->hash = texhash;
 	entry->format = format;
-	entry->lastFrame = gpuStats.numFrames;
+	entry->lastFrame = gpuStats.numFlips;
 	entry->framebuffer = 0;
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;

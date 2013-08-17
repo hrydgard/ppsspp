@@ -17,10 +17,16 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#ifndef _XBOX
 #include "GPU/GLES/ShaderManager.h"
 #include "GPU/GLES/GLES_GPU.h"
+#endif
+#ifdef USE_DIRECTX
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
+#ifdef USE_DIRECTX
+#include "Directx9/DisplayListInterpreter.h"
+#endif
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 
@@ -34,16 +40,18 @@ bool GPU_Init() {
 	case GPU_NULL:
 		gpu = new NullGPU();
 		break;
+#ifndef _XBOX	
 	case GPU_GLES:
 		gpu = new GLES_GPU();
 		break;
+#endif		
 	case GPU_SOFTWARE:
-#ifndef __SYMBIAN32__
+#if !(defined(__SYMBIAN32__) || defined(_XBOX))
 		gpu = new SoftGPU();
 #endif
 		break;
 	case GPU_DIRECTX9:
-		// TODO
+		gpu = new DIRECTX9_GPU();
 		break;
 	}
 

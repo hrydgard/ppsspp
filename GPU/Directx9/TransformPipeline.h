@@ -57,7 +57,7 @@ public:
 		prim = -1;
 		numDraws = 0;
 		numFrames = 0;
-		lastFrame = gpuStats.numFrames;
+		lastFrame = gpuStats.numFlips;
 		numVerts = 0;
 		drawsUntilNextFullHash = 0;
 	}

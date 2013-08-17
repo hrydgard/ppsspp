@@ -1051,7 +1051,7 @@ void TransformDrawEngine::ClearTrackedVertexArrays() {
 }
 
 void TransformDrawEngine::DecimateTrackedVertexArrays() {
-	int threshold = gpuStats.numFrames - VAI_KILL_AGE;
+	int threshold = gpuStats.numFlips - VAI_KILL_AGE;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
 		if (iter->second->lastFrame < threshold) {
 			delete iter->second;
