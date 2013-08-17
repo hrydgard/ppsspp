@@ -143,12 +143,12 @@ static VertexData ReadVertex(VertexReader& vreader)
 		vreader.ReadColor0(col);
 		vertex.color0 = Vec4<int>(col[0]*255, col[1]*255, col[2]*255, col[3]*255);
 	} else {
-		vertex.color0 = Vec4<int>(gstate.materialdiffuse&0xFF, (gstate.materialdiffuse>>8)&0xFF, (gstate.materialdiffuse>>16)&0xFF, gstate.materialalpha&0xFF);
+		vertex.color0 = Vec4<int>(gstate.getMaterialAmbientR(), gstate.getMaterialAmbientG(), gstate.getMaterialAmbientB(), gstate.getMaterialAmbientA());
 	}
 
 	if (vreader.hasColor1()) {
 		float col[3];
-		vreader.ReadColor0(col);
+		vreader.ReadColor1(col);
 		vertex.color1 = Vec3<int>(col[0]*255, col[1]*255, col[2]*255);
 	} else {
 		vertex.color1 = Vec3<int>(0, 0, 0);
