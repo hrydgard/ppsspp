@@ -445,6 +445,7 @@ void PauseScreen::render() {
 #endif
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Stretch to Display"), ALIGN_TOPLEFT, &g_Config.bStretchToDisplay);
 
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Software Rendering"), ALIGN_TOPLEFT, &g_Config.bSoftwareRendering);
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Hardware Transform"), ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 	bool enableFrameSkip = g_Config.iFrameSkip != 0;
 	UICheckBox(GEN_ID, x, y += stride , gs->T("Frame Skipping"), ALIGN_TOPLEFT, &enableFrameSkip);
@@ -939,6 +940,7 @@ void GraphicsScreenP1::render() {
 	int stride = 40;
 	int columnw = 400;
 
+	UICheckBox(GEN_ID, x, y += stride, gs->T("Software Rendering"), ALIGN_TOPLEFT, &g_Config.bSoftwareRendering);
 #ifndef __SYMBIAN32__
 	UICheckBox(GEN_ID, x, y += stride, gs->T("Hardware Transform"), ALIGN_TOPLEFT, &g_Config.bHardwareTransform);
 #endif

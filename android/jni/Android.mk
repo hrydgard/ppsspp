@@ -183,6 +183,11 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/GLES/TextureScaler.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
+  $(SRC)/GPU/Software/Clipper.cpp \
+  $(SRC)/GPU/Software/Lighting.cpp \
+  $(SRC)/GPU/Software/Rasterizer.cpp \
+  $(SRC)/GPU/Software/SoftGpu.cpp \
+  $(SRC)/GPU/Software/TransformUnit.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PBPReader.cpp \
   $(SRC)/Core/ELF/PrxDecrypter.cpp \

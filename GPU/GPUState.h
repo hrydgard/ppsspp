@@ -211,6 +211,10 @@ struct GPUgstate
 	float tgenMatrix[12];
 	float boneMatrix[12 * 8];  // Eight bone matrices.
 
+	GEBufferFormat FrameBufFormat() const { return static_cast<GEBufferFormat>(framebufpixformat & 3); }
+	int FrameBufStride() const { return fbwidth&0x7C0; }
+	int DepthBufStride() const { return zbwidth&0x7C0; }
+
 	// Pixel Pipeline
 	bool isModeClear()   const { return clearmode & 1; }
 	bool isFogEnabled() const { return fogEnable & 1; }
@@ -221,6 +225,7 @@ struct GPUgstate
 	bool isClearModeDepthWriteEnabled() const { return (clearmode&0x400) != 0; }
 	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }
 	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
+	u32 getClearModeColorMask() const { return ((clearmode&0x100) ? 0xFFFFFF : 0) | ((clearmode&0x200) ? 0xFF000000 : 0); } // TODO: Different convention than getColorMask, confusing!
 	
 	// Blend
 	int getBlendFuncA() const { return blend & 0xF; }
@@ -322,10 +327,14 @@ struct GPUgstate
 	unsigned int getSpecularColorB(int chan) const { return (lcolor[2+chan*3]>>16)&0xFF; }
 
 	// UV gen
-	int getUVGenMode() const { return texmapmode & 3;}   // 2 bits
-	int getUVProjMode() const { return (texmapmode >> 8) & 3;}   // 2 bits
+	GETexMapMode getUVGenMode() const { return static_cast<GETexMapMode>(texmapmode & 3);}   // 2 bits
+	GETexProjMapMode getUVProjMode() const { return static_cast<GETexProjMapMode>((texmapmode >> 8) & 3);}   // 2 bits
 	int getUVLS0() const { return texshade & 0x3; }  // 2 bits
 	int getUVLS1() const { return (texshade >> 8) & 0x3; }  // 2 bits
+
+	bool isTexCoordClampedS() const { return texwrap & 1; }
+	bool isTexCoordClampedT() const { return (texwrap >> 8) & 1; }
+
 	int getScissorX1() const { return scissor1 & 0x3FF; }
 	int getScissorY1() const { return (scissor1 >> 10) & 0x3FF; }
 	int getScissorX2() const { return scissor2 & 0x3FF; }
@@ -341,6 +350,9 @@ struct GPUgstate
 	bool isModeThrough() const { return (vertType & GE_VTYPE_THROUGH) != 0; }
 	int getWeightMask() const { return vertType & GE_VTYPE_WEIGHT_MASK; }
 	int getNumBoneWeights() const { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
+	bool isSkinningEnabled() const { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
+
+	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
 
 // Real data in the context ends here
 };

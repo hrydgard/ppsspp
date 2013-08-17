@@ -158,6 +158,12 @@
     <ClInclude Include="GPUState.h" />
     <ClInclude Include="Math3D.h" />
     <ClInclude Include="Null\NullGpu.h" />
+    <ClInclude Include="Software\Clipper.h" />
+    <ClInclude Include="Software\Colors.h" />
+    <ClInclude Include="Software\Lighting.h" />
+    <ClInclude Include="Software\Rasterizer.h" />
+    <ClInclude Include="Software\SoftGpu.h" />
+    <ClInclude Include="Software\TransformUnit.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
@@ -179,6 +185,11 @@
     <ClCompile Include="GPUState.cpp" />
     <ClCompile Include="Math3D.cpp" />
     <ClCompile Include="Null\NullGpu.cpp" />
+    <ClCompile Include="Software\Clipper.cpp" />
+    <ClCompile Include="Software\Lighting.cpp" />
+    <ClCompile Include="Software\Rasterizer.cpp" />
+    <ClCompile Include="Software\SoftGpu.cpp" />
+    <ClCompile Include="Software\TransformUnit.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
