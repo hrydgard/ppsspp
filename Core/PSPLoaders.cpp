@@ -41,7 +41,8 @@
 #include "HLE/sceKernelModule.h"
 #include "HLE/sceKernelMemory.h"
 #include "ELF/ParamSFO.h"
-
+ 
+#include <io.h> 
 // We gather the game info before actually loading/booting the ISO
 // to determine if the emulator should enable extra memory and
 // double-sized texture coordinates.
@@ -124,7 +125,10 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 		delete [] paramsfo;
 	}
 
-
+	if (Load_Unpacked_BOOT((g_paramSFO.GetValueString("DISC_ID") + ".BIN").c_str(), 0, error_string)) {
+		INFO_LOG(LOADER,"Unpacked BOOT Loading %s...", (g_paramSFO.GetValueString("DISC_ID") + ".BIN").c_str());
+		return true;
+	}
 	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
 	// bypass patchers
 	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.OLD").exists) {
@@ -171,7 +175,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	if (pspFileSystem.GetFileInfo("disc0:/PSP_GAME/SYSDIR/EBOOT.DNR").exists) {
 		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.DNR";
 	}
-
+	
 	bool hasEncrypted = false;
 	u32 fd;
 	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) != 0)
@@ -190,7 +194,7 @@ bool Load_PSP_ISO(const char *filename, std::string *error_string)
 	}
 
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
-	return __KernelLoadExec(bootpath.c_str(), 0, error_string);
+	return KernelLoadExec(bootpath.c_str(), 0, error_string);
 }
 
 bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
@@ -219,5 +223,21 @@ bool Load_PSP_ELF_PBP(const char *filename, std::string *error_string)
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = "umd0:/" + file + extension;
-	return __KernelLoadExec(finalName.c_str(), 0, error_string);
+	return KernelLoadExec(finalName.c_str(), 0, error_string);
+}
+
+bool Load_Unpacked_BOOT(const char *filename, u32 paramPtr, std::string *error_string) {
+	FILE *bootFile = fopen(filename, "rb");
+	if (bootFile == NULL)
+		return false;
+	long bootFileSize = filelength(fileno(bootFile));  
+	u8 *temp = new u8[bootFileSize + 0x1000000];
+	if (fread(temp, sizeof(u8), bootFileSize, bootFile) != bootFileSize){
+	    ERROR_LOG(LOADER, "Fail to read unpacked boot %s", filename);
+		delete [] temp;
+		fclose(bootFile);
+		return false;
+	}
+	fclose(bootFile);
+	return __KernelLoadExec("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN", temp, 0, error_string); // Load as if from UMD
 }
