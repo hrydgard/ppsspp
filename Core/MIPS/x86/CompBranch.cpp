@@ -176,7 +176,7 @@ void Jit::BranchRSRTComp(u32 op, Gen::CCFlags cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	if (rt == 0)
+	if (gpr.IsImmediate(rt) && gpr.GetImmediate32(rt) == 0)
 	{
 		gpr.KillImmediate(rs, true, false);
 		CMP(32, gpr.R(rs), Imm32(0));
