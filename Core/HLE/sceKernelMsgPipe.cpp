@@ -52,7 +52,7 @@ struct MsgPipeWaitingThread
 	u32 bufSize;
 	u32 freeSize;
 	s32 waitMode;
-	u32 transferredBytesAddr;
+	PSPPointer<u32_le> transferredBytes;
 };
 
 struct MsgPipe : public KernelObject
@@ -113,7 +113,7 @@ struct MsgPipe : public KernelObject
 		{
 			// Put all the data to the buffer
 			Memory::Memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), thread->bufSize);
-			Memory::Write_U32(thread->bufSize, thread->transferredBytesAddr);
+			*thread->transferredBytes = thread->bufSize;
 			nmp.freeSize -= thread->bufSize;
 			__KernelResumeThreadFromWait(thread->id);
 			sendWaitingThreads.erase(sendWaitingThreads.begin());
@@ -123,7 +123,7 @@ struct MsgPipe : public KernelObject
 		{
 			// Put as much data as possible into the buffer
 			Memory::Memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), nmp.freeSize);
-			Memory::Write_U32(nmp.freeSize, thread->transferredBytesAddr);
+			*thread->transferredBytes = nmp.freeSize;
 			nmp.freeSize = 0;
 			__KernelResumeThreadFromWait(thread->id);
 			receiveWaitingThreads.erase(receiveWaitingThreads.begin());
@@ -143,7 +143,7 @@ struct MsgPipe : public KernelObject
 			Memory::Memcpy(thread->bufAddr, Memory::GetPointer(buffer), thread->bufSize);
 			// Put the unused data at the start of the buffer
 			memmove(Memory::GetPointer(buffer), Memory::GetPointer(buffer) + thread->bufSize, nmp.bufSize - nmp.freeSize);
-			Memory::Write_U32(thread->bufSize, thread->transferredBytesAddr);
+			*thread->transferredBytes = thread->bufSize;
 			nmp.freeSize += thread->bufSize;
 			__KernelResumeThreadFromWait(thread->id);
 			receiveWaitingThreads.erase(receiveWaitingThreads.begin());
@@ -153,7 +153,7 @@ struct MsgPipe : public KernelObject
 		{
 			// Get all the data from the buffer
 			Memory::Memcpy(thread->bufAddr, Memory::GetPointer(buffer), nmp.bufSize - nmp.freeSize);
-			Memory::Write_U32(nmp.bufSize - nmp.freeSize, thread->transferredBytesAddr);
+			*thread->transferredBytes = nmp.bufSize - nmp.freeSize;
 			nmp.freeSize = nmp.bufSize;
 			__KernelResumeThreadFromWait(thread->id);
 			receiveWaitingThreads.erase(receiveWaitingThreads.begin());
@@ -262,7 +262,7 @@ void sceKernelDeleteMsgPipe()
 	RETURN(kernelObjects.Destroy<MsgPipe>(uid));
 }
 
-void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool pool)
+void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
 {
 	u32 curSendAddr = sendBufAddr;
 	if (m->nmp.bufSize == 0)
@@ -278,7 +278,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 				sendSize = 0;
 				if (thread->waitMode == SCE_KERNEL_MPW_ASAP)
 				{
-					Memory::Write_U32(thread->bufSize - thread->freeSize, thread->transferredBytesAddr);
+					*thread->transferredBytes = thread->bufSize - thread->freeSize;
 					__KernelResumeThreadFromWait(thread->id);
 					m->receiveWaitingThreads.erase(m->receiveWaitingThreads.begin());
 				}
@@ -287,7 +287,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 			else if (thread->freeSize == sendSize)
 			{
 				Memory::Memcpy(thread->bufAddr + (thread->bufSize - thread->freeSize), Memory::GetPointer(curSendAddr), sendSize);
-				Memory::Write_U32(thread->bufSize, thread->transferredBytesAddr);
+				*thread->transferredBytes = thread->bufSize;
 				__KernelResumeThreadFromWait(thread->id);
 				m->receiveWaitingThreads.erase(m->receiveWaitingThreads.begin());
 				curSendAddr += sendSize;
@@ -299,7 +299,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 				Memory::Memcpy(thread->bufAddr + (thread->bufSize - thread->freeSize), Memory::GetPointer(curSendAddr), thread->freeSize);
 				sendSize -= thread->freeSize;
 				curSendAddr += thread->freeSize;
-				Memory::Write_U32(thread->bufSize, thread->transferredBytesAddr);
+				*thread->transferredBytes = thread->bufSize;
 				__KernelResumeThreadFromWait(thread->id);
 				m->receiveWaitingThreads.erase(m->receiveWaitingThreads.begin());
 			}
@@ -307,7 +307,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 		// If there is still data to send and (we want to send all of it or we didn't send anything)
 		if (sendSize != 0 && (waitMode != SCE_KERNEL_MPW_ASAP || curSendAddr == sendBufAddr))
 		{
-			if (pool)
+			if (poll)
 			{
 				RETURN(SCE_KERNEL_ERROR_MPP_FULL);
 				return;
@@ -339,7 +339,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 		}
 		else
 		{
-			if (pool)
+			if (poll)
 			{
 				RETURN(SCE_KERNEL_ERROR_MPP_FULL);
 				return;
@@ -426,7 +426,7 @@ void sceKernelTrySendMsgPipe()
 	__KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, 0, false, true);
 }
 
-void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool pool)
+void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
 {
 	u32 curReceiveAddr = receiveBufAddr;
 	// MsgPipe buffer size is 0, receiving directly from waiting send threads
@@ -448,7 +448,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 				// The sending thread mode is ASAP: we have sent some data so restart it even though its buffer isn't empty
 				if (thread->waitMode == SCE_KERNEL_MPW_ASAP)
 				{
-					Memory::Write_U32(thread->bufSize - thread->freeSize, thread->transferredBytesAddr);
+					*thread->transferredBytes = thread->bufSize - thread->freeSize;
 					__KernelResumeThreadFromWait(thread->id);
 					m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 				}
@@ -458,7 +458,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 			else if (thread->bufSize - thread->freeSize == receiveSize)
 			{
 				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(thread->bufAddr), receiveSize);
-				Memory::Write_U32(thread->bufSize, thread->transferredBytesAddr);
+				*thread->transferredBytes = thread->bufSize;
 				__KernelResumeThreadFromWait(thread->id);
 				m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 				curReceiveAddr += receiveSize;
@@ -471,7 +471,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(thread->bufAddr), thread->bufSize - thread->freeSize);
 				receiveSize -= thread->bufSize - thread->freeSize;
 				curReceiveAddr += thread->bufSize - thread->freeSize;
-				Memory::Write_U32(thread->bufSize, thread->transferredBytesAddr);
+				*thread->transferredBytes = thread->bufSize;
 				__KernelResumeThreadFromWait(thread->id);
 				m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 			}
@@ -479,7 +479,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 		// All data hasn't been received and (mode isn't ASAP or nothing was received)
 		if (receiveSize != 0 && (waitMode != SCE_KERNEL_MPW_ASAP || curReceiveAddr == receiveBufAddr))
 		{
-			if (pool)
+			if (poll)
 			{
 				RETURN(SCE_KERNEL_ERROR_MPP_EMPTY);
 				return;
@@ -515,7 +515,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 		}
 		else
 		{
-			if (pool)
+			if (poll)
 			{
 				RETURN(SCE_KERNEL_ERROR_MPP_EMPTY);
 				return;
