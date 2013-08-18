@@ -135,7 +135,7 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 	// Skip labels and things like that.
 	if (!destination->CanBeFocused())
 		return 0.0f;
-	if (destination->GetEnabled() == false)
+	if (destination->IsEnabled() == false)
 		return 0.0f;
 	if (destination->GetVisibility() != V_VISIBLE)
 		return 0.0f;
@@ -178,7 +178,7 @@ float GetDirectionScore(View *origin, View *destination, FocusDirection directio
 
 
 NeighborResult ViewGroup::FindNeighbor(View *view, FocusDirection direction, NeighborResult result) {
-	if (!GetEnabled())
+	if (!IsEnabled())
 		return result;
 	if (GetVisibility() != V_VISIBLE)
 		return result;

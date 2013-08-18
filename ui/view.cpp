@@ -293,11 +293,15 @@ void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 void Choice::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
 
+	Style style = dc.theme->itemStyle;
+	if (!IsEnabled())
+		style = dc.theme->itemDisabledStyle;
+
 	int paddingX = 12;
-	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 
 	if (selected_) {
-		dc.Draw()->DrawImage(dc.theme->checkOn, bounds_.x2() - 40, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+		dc.Draw()->DrawImage(dc.theme->checkOn, bounds_.x2() - 40, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 	}
 	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
@@ -333,8 +337,12 @@ void CheckBox::Draw(UIContext &dc) {
 
 	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 
-	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
-	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	Style style = dc.theme->itemStyle;
+	if (!IsEnabled())
+		style = dc.theme->itemDisabledStyle;
+
+	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

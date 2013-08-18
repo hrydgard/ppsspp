@@ -324,7 +324,7 @@ public:
 	}
 
 	void SetEnabled(bool enabled) { enabled_ = enabled; }
-	bool GetEnabled() const { return enabled_; }
+	bool IsEnabled() const { return enabled_; }
 
 	void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
