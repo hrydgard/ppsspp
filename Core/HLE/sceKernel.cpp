@@ -762,9 +762,9 @@ const HLEFunction ThreadManForUser[] =
 	{0x876DBFAD,WrapI_IUUUUU<sceKernelSendMsgPipe>,               "sceKernelSendMsgPipe"},
 	{0x7C41F2C2,WrapI_IUUUUU<sceKernelSendMsgPipeCB>,             "sceKernelSendMsgPipeCB"},
 	{0x884C9F90,WrapI_IUUUU<sceKernelTrySendMsgPipe>,             "sceKernelTrySendMsgPipe"},
-	{0x74829B76,sceKernelReceiveMsgPipe,"sceKernelReceiveMsgPipe"},
-	{0xFBFA697D,sceKernelReceiveMsgPipeCB,"sceKernelReceiveMsgPipeCB"},
-	{0xDF52098F,sceKernelTryReceiveMsgPipe,"sceKernelTryReceiveMsgPipe"},
+	{0x74829B76,WrapI_IUUUUU<sceKernelReceiveMsgPipe>,            "sceKernelReceiveMsgPipe"},
+	{0xFBFA697D,WrapI_IUUUUU<sceKernelReceiveMsgPipeCB>,          "sceKernelReceiveMsgPipeCB"},
+	{0xDF52098F,WrapI_IUUUU<sceKernelTryReceiveMsgPipe>,          "sceKernelTryReceiveMsgPipe"},
 	{0x349B864D,WrapI_IUU<sceKernelCancelMsgPipe>,                "sceKernelCancelMsgPipe"},
 	{0x33BE4024,sceKernelReferMsgPipeStatus,"sceKernelReferMsgPipeStatus"},
 
