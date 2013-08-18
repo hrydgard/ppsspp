@@ -181,7 +181,6 @@ static const int alternateSpeedTable[9] = {
 	0, 15, 30, 45, 60, 75, 90, 120, 180
 };
 
-
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
@@ -227,13 +226,9 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
-#ifndef USING_GLES2
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(CPU)", "Read Framebuffers To Memory(GPU)"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
-#else
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(GPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 3, gs, screenManager()));
-#endif
+
 	graphicsSettings->Add(new CheckBox(&g_Config.bAntiAliasing, gs->T("Anti-Aliasing")));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
@@ -243,7 +238,7 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force 60 FPS or less (helps GoW)")));
 	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
-	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, 8, 0, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, 8, gs, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
 	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
@@ -280,7 +275,10 @@ void GameSettingsScreen::CreateViews() {
 
 	// Developer tools are not accessible ingame, so it goes here
 	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
-	graphicsSettings->Add(new Choice(gs->T("Dump next frame to log")))->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
+	Choice *dump = graphicsSettings->Add(new Choice(gs->T("Dump next frame to log")));
+	dump->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
+	if (!PSP_IsInited())
+		dump->SetEnabled(false);
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -329,7 +327,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 #endif
 
-	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
+	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
+	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
 #ifndef ANDROID
@@ -356,7 +355,9 @@ UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 void DrawBackground(float alpha);
 
 UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
-	gpu->DumpNextFrame();
+	if (gpu) {
+		gpu->DumpNextFrame();
+	}
 	return UI::EVENT_DONE;
 }
 

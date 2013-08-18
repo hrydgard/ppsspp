@@ -579,7 +579,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 #else
 		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU;
 #endif 
-		if(useMem && !vfb->memoryUpdated) {
+		if (useMem && !vfb->memoryUpdated) {
 			ReadFramebufferToMemory(vfb, true);
 		} 
 		// Use it as a render target.
