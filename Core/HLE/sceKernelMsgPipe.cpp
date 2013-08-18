@@ -219,13 +219,17 @@ int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, 
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
-	// We ignore the upalign to 256.
-	u32 allocSize = size;
-	u32 memBlockPtr = userMemory.Alloc(allocSize, (attr & SCE_KERNEL_MPA_HIGHMEM) != 0, "MsgPipe");
-	if (memBlockPtr == (u32)-1)
+	u32 memBlockPtr = 0;
+	if (size != 0)
 	{
-		ERROR_LOG(HLE, "%08x=sceKernelCreateEventFlag(%s): Failed to allocate %i bytes for buffer", SCE_KERNEL_ERROR_NO_MEMORY, name, size);
-		return SCE_KERNEL_ERROR_NO_MEMORY;
+		// We ignore the upalign to 256.
+		u32 allocSize = size;
+		memBlockPtr = userMemory.Alloc(allocSize, (attr & SCE_KERNEL_MPA_HIGHMEM) != 0, "MsgPipe");
+		if (memBlockPtr == (u32)-1)
+		{
+			ERROR_LOG(HLE, "%08x=sceKernelCreateEventFlag(%s): Failed to allocate %i bytes for buffer", SCE_KERNEL_ERROR_NO_MEMORY, name, size);
+			return SCE_KERNEL_ERROR_NO_MEMORY;
+		}
 	}
 
 	MsgPipe *m = new MsgPipe();
