@@ -96,7 +96,27 @@ struct MsgPipeWaitingThread
 	{
 		Complete(waitID, result, 0);
 	}
+
+	void ReadBuffer(u8 *dest, u32 len)
+	{
+		Memory::Memcpy(dest, bufAddr, len);
+		if (transferredBytes.IsValid())
+			*transferredBytes += len;
+	}
+
+	void WriteBuffer(const u8 *src, u32 len)
+	{
+		Memory::Memcpy(bufAddr + (bufSize - freeSize), src, len);
+		freeSize -= len;
+		if (transferredBytes.IsValid())
+			*transferredBytes += len;
+	}
 };
+
+bool __KernelMsgPipeThreadSortPriority(MsgPipeWaitingThread thread1, MsgPipeWaitingThread thread2)
+{
+	return __KernelThreadSortPriority(thread1.id, thread2.id);
+}
 
 struct MsgPipe : public KernelObject
 {
@@ -113,46 +133,30 @@ struct MsgPipe : public KernelObject
 			userMemory.Free(buffer);
 	}
 
-	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr, bool usePrio)
+	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr)
 	{
 		MsgPipeWaitingThread thread = { id, addr, size, size, waitMode, transferredBytesAddr };
 		// Start out with 0 transferred bytes while waiting.
 		if (thread.transferredBytes.IsValid())
 			*thread.transferredBytes = 0;
 
-		if (usePrio)
-		{
-			for (std::vector<MsgPipeWaitingThread>::iterator it = list.begin(); it != list.end(); it++)
-			{
-				if (__KernelGetThreadPrio(id) >= __KernelGetThreadPrio((*it).id))
-				{
-					list.insert(it, thread);
-					return;
-				}
-			}
-
-			list.push_back(thread);
-		}
-		else
-		{
-			list.push_back(thread);
-		}
+		list.push_back(thread);
 	}
 
 	void AddSendWaitingThread(SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr)
 	{
-		bool usePrio = ((nmp.attr & SCE_KERNEL_MPA_THPRI_S) != 0);
-		AddWaitingThread(sendWaitingThreads, id, addr, size, waitMode, transferredBytesAddr, usePrio);
+		AddWaitingThread(sendWaitingThreads, id, addr, size, waitMode, transferredBytesAddr);
 	}
 
 	void AddReceiveWaitingThread(SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr)
 	{
-		bool usePrio = ((nmp.attr & SCE_KERNEL_MPA_THPRI_R) != 0);
-		AddWaitingThread(receiveWaitingThreads, id, addr, size, waitMode, transferredBytesAddr, usePrio);
+		AddWaitingThread(receiveWaitingThreads, id, addr, size, waitMode, transferredBytesAddr);
 	}
 
 	void CheckSendThreads()
 	{
+		SortSendThreads();
+
 		if (sendWaitingThreads.empty())
 			return;
 		MsgPipeWaitingThread *thread = &sendWaitingThreads.front();
@@ -179,6 +183,8 @@ struct MsgPipe : public KernelObject
 	// This function should be only ran when the temporary buffer size is not 0 (otherwise, data is copied directly to the threads)
 	void CheckReceiveThreads()
 	{
+		SortReceiveThreads();
+
 		if (receiveWaitingThreads.empty())
 			return;
 		MsgPipeWaitingThread *thread = &receiveWaitingThreads.front();
@@ -202,6 +208,20 @@ struct MsgPipe : public KernelObject
 			receiveWaitingThreads.erase(receiveWaitingThreads.begin());
 			CheckSendThreads();
 		}
+	}
+
+	void SortReceiveThreads()
+	{
+		bool usePrio = (nmp.attr & SCE_KERNEL_MPA_THPRI_R) != 0;
+		if (usePrio)
+			std::stable_sort(receiveWaitingThreads.begin(), receiveWaitingThreads.end(), __KernelMsgPipeThreadSortPriority);
+	}
+
+	void SortSendThreads()
+	{
+		bool usePrio = (nmp.attr & SCE_KERNEL_MPA_THPRI_S) != 0;
+		if (usePrio)
+			std::stable_sort(sendWaitingThreads.begin(), sendWaitingThreads.end(), __KernelMsgPipeThreadSortPriority);
 	}
 
 	virtual void DoState(PointerWrap &p)
@@ -359,6 +379,8 @@ int sceKernelDeleteMsgPipe(SceUID uid)
 int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
 {
 	u32 curSendAddr = sendBufAddr;
+	SceUID uid = m->GetUID();
+
 	if (m->nmp.bufSize == 0)
 	{
 		while (!m->receiveWaitingThreads.empty())
@@ -404,7 +426,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
 				if (__KernelSetMsgPipeTimeout(timeoutPtr))
-					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+					__KernelWaitCurThread(WAITTYPE_MSGPIPE, uid, 0, timeoutPtr, cbEnabled, "msgpipe send waited");
 				else
 					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
 				return 0;
@@ -435,7 +457,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
 				if (__KernelSetMsgPipeTimeout(timeoutPtr))
-					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+					__KernelWaitCurThread(WAITTYPE_MSGPIPE, uid, 0, timeoutPtr, cbEnabled, "msgpipe send waited");
 				else
 					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
 				return 0;
