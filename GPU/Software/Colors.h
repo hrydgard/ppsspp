@@ -21,39 +21,29 @@
 
 static inline u32 DecodeRGBA4444(u16 src)
 {
-	u8 r = (src>>12) & 0x0F;
-	u8 g = (src>>8) & 0x0F;
-	u8 b = (src>>4) & 0x0F;
-	u8 a = (src>>0) & 0x0F;
-	r = (r << 4) | r;
-	g = (g << 4) | g;
-	b = (b << 4) | b;
-	a = (a << 4) | a;
+	u8 r = Convert4To8((src >> 0) & 0x0f);
+	u8 g = Convert4To8((src >> 4) & 0x0f);
+	u8 b = Convert4To8((src >> 8) & 0x0f);
+	u8 a = Convert4To8((src >> 12) & 0x0f);
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
 static inline u32 DecodeRGBA5551(u16 src)
 {
-	u8 r = src & 0x1F;
-	u8 g = (src >> 5) & 0x1F;
-	u8 b = (src >> 10) & 0x1F;
+	u8 r = Convert5To8((src >> 0) & 0x1F);
+	u8 g = Convert5To8((src >> 5) & 0x1F);
+	u8 b = Convert5To8((src >> 10) & 0x1F);
 	u8 a = (src >> 15) & 0x1;
-	r = (r << 3) | (r >> 2);
-	g = (g << 3) | (g >> 2);
-	b = (b << 3) | (b >> 2);
 	a = (a) ? 0xff : 0;
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
 static inline u32 DecodeRGB565(u16 src)
 {
-	u8 r = src & 0x1F;
-	u8 g = (src >> 5) & 0x3F;
-	u8 b = (src >> 11) & 0x1F;
+	u8 r = Convert5To8((src >> 0) & 0x1F);
+	u8 g = Convert6To8((src >> 5) & 0x3F);
+	u8 b = Convert5To8((src >> 11) & 0x1F);
 	u8 a = 0xFF;
-	r = (r << 3) | (r >> 2);
-	g = (g << 2) | (g >> 4);
-	b = (b << 3) | (b >> 2);
 	return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
