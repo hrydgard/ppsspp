@@ -1034,15 +1034,18 @@ u32 TransformDrawEngine::ComputeHash() {
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
 	for (int i = 0; i < numDrawCalls; i++) {
-		if (!drawCalls[i].inds) {
-			fullhash += XXH32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount, 0x1DE8CAC4);
-		} else {
-			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
-			// we do when drawing.
-			fullhash += XXH32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
-				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 0x029F3EE1);
-			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
-			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount, 0x955FD1CA);
+		// Skip hashing some drawcalls with vertex count <= 5 
+		if (drawCalls[i].vertexCount > 5) {
+			if (!drawCalls[i].inds) {
+				fullhash += XXH32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount, 0x1DE8CAC4);
+			} else {
+				// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
+				// we do when drawing.
+				fullhash += XXH32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
+					vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 0x029F3EE1);
+				int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
+				fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount, 0x955FD1CA);
+			}
 		}
 	}
 
