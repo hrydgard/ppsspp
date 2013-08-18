@@ -50,7 +50,6 @@ SOURCES += ../UI/*Screen.cpp \
 	../UI/GameInfoCache.cpp \
 	../UI/OnScreenDisplay.cpp \
 	../UI/UIShader.cpp \
-	../UI/ui_atlas.cpp \
 	../android/jni/TestRunner.cpp
 
 HEADERS += ../UI/*.h
@@ -70,7 +69,13 @@ linux:!mobile_platform {
 	# Desktop handles the Init separately
 	SOURCES += ../UI/NativeApp.cpp
 }
+symbian {
+RESOURCES += assets_lowmem.qrc
+SOURCES += ../UI/ui_atlas_lowmem.cpp
+} else {
 RESOURCES += assets.qrc
+SOURCES += ../UI/ui_atlas.cpp
+}
 
 # Translations
 TRANSLATIONS = $$files(languages/ppsspp_*.ts)
