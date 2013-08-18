@@ -11,17 +11,15 @@ void UIContext::Begin() {
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
+#if !defined(USING_GLES2)
+	glstate.colorLogicOp.disable();
+#endif
 	if (uishader_)
 		glsl_bind(uishader_);
 	if (uitexture_)
 		uitexture_->Bind(0);
 
 	UIBegin(uishader_);
-	/*
-	if (uidrawbuffer_ && uishader_)
-		uidrawbuffer_->Begin();
-	if (uidrawbufferTop_ && uishader_)
-		uidrawbufferTop_->Begin();*/
 }
 
 void UIContext::BeginNoTex() {
@@ -29,19 +27,16 @@ void UIContext::BeginNoTex() {
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
+#if !defined(USING_GLES2)
+	glstate.colorLogicOp.disable();
+#endif
 	if (uishader_)
 		glsl_bind(uishader_);
 	if (uitexture_)
 		uitexture_->Bind(0);
 
 	UIBegin(uishadernotex_);
-	/*
-	if (uidrawbuffer_ && uishader_)
-		uidrawbuffer_->Begin();
-	if (uidrawbufferTop_ && uishader_)
-		uidrawbufferTop_->Begin();*/
 }
-
 
 void UIContext::RebindTexture() const {
 	if (uitexture_)
