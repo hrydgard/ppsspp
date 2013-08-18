@@ -55,6 +55,7 @@ struct MsgPipeWaitingThread
 	SceUID id;
 	u32 bufAddr;
 	u32 bufSize;
+	// Free space at the end for receive, valid/free to read bytes from end for send.
 	u32 freeSize;
 	s32 waitMode;
 	PSPPointer<u32_le> transferredBytes;
@@ -99,7 +100,8 @@ struct MsgPipeWaitingThread
 
 	void ReadBuffer(u8 *dest, u32 len)
 	{
-		Memory::Memcpy(dest, bufAddr, len);
+		Memory::Memcpy(dest, bufAddr + bufSize - freeSize, len);
+		freeSize -= len;
 		if (transferredBytes.IsValid())
 			*transferredBytes += len;
 	}
@@ -509,7 +511,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 		{
 			if (sendSize <= (u32) m->nmp.freeSize)
 				bytesToSend = sendSize;
-			else if (waitMode == SCE_KERNEL_MPW_ASAP && m->nmp.freeSize != 0)
+			else if (waitMode == SCE_KERNEL_MPW_ASAP)
 				bytesToSend = m->nmp.freeSize;
 		}
 
@@ -613,47 +615,31 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 	// MsgPipe buffer size is 0, receiving directly from waiting send threads
 	if (m->nmp.bufSize == 0)
 	{
+		m->SortSendThreads();
+
 		// While they're still sending waiting threads (which can send data)
-		while (!m->sendWaitingThreads.empty())
+		while (!m->sendWaitingThreads.empty() && receiveSize != 0)
 		{
 			MsgPipeWaitingThread *thread = &m->sendWaitingThreads.front();
-			// Sending thread has more data than we have to receive: retrieve just the amount of data we want
-			if (thread->bufSize - thread->freeSize > receiveSize)
+
+			// For send threads, "freeSize" is "free to be read".
+			u32 bytesToReceive = std::min(thread->freeSize, receiveSize);
+			if (bytesToReceive > 0)
 			{
-				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(thread->bufAddr), receiveSize);
-				thread->freeSize += receiveSize;
-				// Move still available data at the beginning of the sending thread buffer
-				Memory::Memcpy(thread->bufAddr, Memory::GetPointer(thread->bufAddr + receiveSize), thread->bufSize - thread->freeSize);
-				curReceiveAddr += receiveSize;
-				receiveSize = 0;
-				// The sending thread mode is ASAP: we have sent some data so restart it even though its buffer isn't empty
-				if (thread->waitMode == SCE_KERNEL_MPW_ASAP)
+				thread->ReadBuffer(Memory::GetPointer(curReceiveAddr), bytesToReceive);
+				receiveSize -= bytesToReceive;
+				curReceiveAddr += bytesToReceive;
+
+				if (thread->freeSize == 0 || thread->waitMode == SCE_KERNEL_MPW_ASAP)
 				{
-					thread->Complete(uid, 0, thread->bufSize - thread->freeSize);
+					thread->Complete(uid, 0);
 					m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
+					hleReSchedule(cbEnabled, "msgpipe data received");
+					thread = NULL;
 				}
-				break;
-			}
-			// Sending thread wants to send the same amount of data as we want to retrieve: get the data and resume thread
-			else if (thread->bufSize - thread->freeSize == receiveSize)
-			{
-				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(thread->bufAddr), receiveSize);
-				thread->Complete(uid, 0, thread->bufSize);
-				m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
-				curReceiveAddr += receiveSize;
-				receiveSize = 0;
-				break;
-			}
-			// Not enough data in the sending thread: get the data available and restart the sending thread, then loop
-			else
-			{
-				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(thread->bufAddr), thread->bufSize - thread->freeSize);
-				receiveSize -= thread->bufSize - thread->freeSize;
-				curReceiveAddr += thread->bufSize - thread->freeSize;
-				thread->Complete(uid, 0, thread->bufSize);
-				m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 			}
 		}
+
 		// All data hasn't been received and (mode isn't ASAP or nothing was received)
 		if (receiveSize != 0 && (waitMode != SCE_KERNEL_MPW_ASAP || curReceiveAddr == receiveBufAddr))
 		{
@@ -679,24 +665,29 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
 		}
 
-		// Enough data in the buffer: copy just the needed amount of data
-		if (receiveSize <= (u32) m->nmp.bufSize - (u32) m->nmp.freeSize)
+		u32 bytesToReceive = 0;
+		// If others are already waiting, space or not, we have to get in line.
+		m->SortReceiveThreads();
+		if (m->receiveWaitingThreads.empty())
 		{
-			Memory::Memcpy(receiveBufAddr, Memory::GetPointer(m->buffer), receiveSize);
-			m->nmp.freeSize += receiveSize;
-			memmove(Memory::GetPointer(m->buffer), Memory::GetPointer(m->buffer) + receiveSize, m->nmp.bufSize - m->nmp.freeSize);
-			curReceiveAddr = receiveBufAddr + receiveSize;
-			receiveSize = 0;
+			if (receiveSize <= m->GetUsedSize())
+				bytesToReceive = receiveSize;
+			else if (waitMode == SCE_KERNEL_MPW_ASAP)
+				bytesToReceive = m->GetUsedSize();
 		}
-		// Else, if mode is ASAP and there's at list 1 available byte of data: copy all the available data
-		else if (waitMode == SCE_KERNEL_MPW_ASAP && m->nmp.freeSize != m->nmp.bufSize)
+
+		if (bytesToReceive != 0)
 		{
-			Memory::Memcpy(receiveBufAddr, Memory::GetPointer(m->buffer), m->nmp.bufSize - m->nmp.freeSize);
-			receiveSize -= m->nmp.bufSize - m->nmp.freeSize;
-			curReceiveAddr = receiveBufAddr + m->nmp.bufSize - m->nmp.freeSize;
-			m->nmp.freeSize = m->nmp.bufSize;
+			Memory::Memcpy(curReceiveAddr, Memory::GetPointer(m->buffer), bytesToReceive);
+			m->nmp.freeSize += bytesToReceive;
+			memmove(Memory::GetPointer(m->buffer), Memory::GetPointer(m->buffer) + bytesToReceive, m->GetUsedSize());
+			curReceiveAddr += bytesToReceive;
+			receiveSize -= bytesToReceive;
+
+			if (m->CheckSendThreads())
+				hleReSchedule(cbEnabled, "msgpipe data received");
 		}
-		else
+		else if (receiveSize != 0)
 		{
 			if (poll)
 				return SCE_KERNEL_ERROR_MPP_EMPTY;
@@ -709,11 +700,6 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
 				return 0;
 			}
-		}
-
-		if (curReceiveAddr != receiveBufAddr)
-		{
-			m->CheckSendThreads();
 		}
 	}
 
