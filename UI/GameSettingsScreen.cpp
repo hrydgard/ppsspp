@@ -177,8 +177,8 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 
 }
 
-static const int alternateSpeedTable[8] = {
-	15, 30, 45, 60, 75, 90, 120, 180
+static const int alternateSpeedTable[9] = {
+	0, 15, 30, 45, 60, 75, 90, 120, 180
 };
 
 
@@ -242,7 +242,7 @@ void GameSettingsScreen::CreateViews() {
 	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
 
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force 60 FPS or less (helps GoW)")));
-	static const char *customSpeed[] = {"25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
+	static const char *customSpeed[] = {"Unlimited", "25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
 	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, 8, 0, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Features")));

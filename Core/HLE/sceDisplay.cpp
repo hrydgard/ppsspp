@@ -309,6 +309,8 @@ enum {
 void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
 	throttle = !PSP_CoreParameter().unthrottle;
+	if (fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit == 0)
+		throttle = false;
 	skipFrame = false;
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
@@ -340,7 +342,7 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
-	if (g_Config.iFrameSkip == 1 || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM)) {
+	if (g_Config.iFrameSkip == 1 || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
 		// 1 == autoframeskip
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
