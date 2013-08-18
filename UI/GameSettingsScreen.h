@@ -42,6 +42,7 @@ private:
 	// Event handlers
 	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
 	UI::EventReturn OnControlMapping(UI::EventParams &e);
+	UI::EventReturn OnDumpNextFrameToLog(UI::EventParams &e);
 	UI::EventReturn OnBack(UI::EventParams &e);
 	
 	// Temporaries to convert bools to int settings
@@ -80,6 +81,8 @@ private:
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
 	UI::EventReturn OnSysInfo(UI::EventParams &e);
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
+	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
+	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
 
 	// Temporary variable.
 	bool enableLogging_;

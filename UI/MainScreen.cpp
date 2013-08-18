@@ -447,7 +447,7 @@ void MainScreen::CreateViews() {
 		m->T("How to get games"), "http://www.ppsspp.org/faq.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabHomebrew = new GameBrowser(g_Config.memCardDirectory + "PSP/GAME/", false,
-		m->T("Download demos (non-affiliated site)"), "http://www.pspdemocenter.com/",
+		"", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollRecentGames->Add(tabRecentGames);

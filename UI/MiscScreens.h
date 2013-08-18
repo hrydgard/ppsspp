@@ -67,13 +67,12 @@ public:
 	NewLanguageScreen();
 
 private:
-	virtual void OnCompleted();
-
+	virtual void OnCompleted(DialogResult result);
+	virtual bool ShowButtons() const { return true; }
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 	std::map<std::string, std::string> titleCodeMapping;
 	std::vector<FileInfo> langs_;
 };
-
 
 class LogoScreen : public UIScreen {
 public:

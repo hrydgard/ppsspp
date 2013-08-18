@@ -92,7 +92,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
 	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
 	cpu->Get("FastMemory", &bFastMemory, false);
-	cpu->Get("CPUSpeed", &iLockedCPUSpeed, false);
+	cpu->Get("CPUSpeed", &iLockedCPUSpeed, 0);
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &iShowFPSCounter, false);
