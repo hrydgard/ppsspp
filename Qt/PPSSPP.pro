@@ -98,7 +98,7 @@ symbian {
 	ICON = ../assets/icon.svg
 
 	# Folders:
-	assets.sources = ../assets/flash0 ../lang
+	assets.sources = ../flash0 ../lang
 	assets.path = E:/PPSSPP
 
 	DEPLOYMENT += vendor_deploy assets

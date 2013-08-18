@@ -435,7 +435,9 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new Choice(g->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+#ifndef __SYMBIAN32__
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
+#endif
 	list->Add(new CheckBox(&enableLogging_, d->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
