@@ -17,7 +17,7 @@
 
 #pragma once
 
-void sceKernelCreateMsgPipe();
+int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr);
 void sceKernelDeleteMsgPipe();
 void sceKernelSendMsgPipe();
 void sceKernelSendMsgPipeCB();

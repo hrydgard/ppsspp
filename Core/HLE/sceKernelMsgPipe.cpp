@@ -15,16 +15,21 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "sceKernel.h"
-#include "sceKernelMsgPipe.h"
-#include "sceKernelThread.h"
-#include "ChunkFile.h"
+#include "Core/Reporting.h"
+#include "Core/CoreTiming.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMsgPipe.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Common/ChunkFile.h"
 
 #define SCE_KERNEL_MPA_THFIFO_S 0x0000
 #define SCE_KERNEL_MPA_THPRI_S  0x0100
 #define SCE_KERNEL_MPA_THFIFO_R 0x0000
 #define SCE_KERNEL_MPA_THPRI_R  0x1000
+#define SCE_KERNEL_MPA_HIGHMEM  0x4000
+#define SCE_KERNEL_MPA_KNOWN    (SCE_KERNEL_MPA_THPRI_S | SCE_KERNEL_MPA_THPRI_R | SCE_KERNEL_MPA_HIGHMEM)
 
 #define SCE_KERNEL_MPW_FULL 0
 #define SCE_KERNEL_MPW_ASAP 1
@@ -58,11 +63,11 @@ struct MsgPipe : public KernelObject
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mpipe; }
 	int GetIDType() const { return SCE_KERNEL_TMID_Mpipe; }
 
-	MsgPipe() : buffer(NULL) {}
+	MsgPipe() : buffer(0) {}
 	~MsgPipe()
 	{
-		if (buffer != NULL)
-			delete [] buffer;
+		if (buffer != 0)
+			userMemory.Free(buffer);
 	}
 
 	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr, bool usePrio)
@@ -107,7 +112,7 @@ struct MsgPipe : public KernelObject
 		if ((u32) nmp.freeSize >= thread->bufSize)
 		{
 			// Put all the data to the buffer
-			memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), thread->bufSize);
+			Memory::Memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), thread->bufSize);
 			Memory::Write_U32(thread->bufSize, thread->transferredBytesAddr);
 			nmp.freeSize -= thread->bufSize;
 			__KernelResumeThreadFromWait(thread->id);
@@ -117,7 +122,7 @@ struct MsgPipe : public KernelObject
 		else if (thread->waitMode == SCE_KERNEL_MPW_ASAP && nmp.freeSize != 0)
 		{
 			// Put as much data as possible into the buffer
-			memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), nmp.freeSize);
+			Memory::Memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), nmp.freeSize);
 			Memory::Write_U32(nmp.freeSize, thread->transferredBytesAddr);
 			nmp.freeSize = 0;
 			__KernelResumeThreadFromWait(thread->id);
@@ -135,9 +140,9 @@ struct MsgPipe : public KernelObject
 		if ((u32) nmp.bufSize - (u32) nmp.freeSize >= thread->bufSize)
 		{
 			// Get the needed data from the buffer
-			Memory::Memcpy(thread->bufAddr, buffer, thread->bufSize);
+			Memory::Memcpy(thread->bufAddr, Memory::GetPointer(buffer), thread->bufSize);
 			// Put the unused data at the start of the buffer
-			memmove(buffer, buffer + thread->bufSize, nmp.bufSize - nmp.freeSize);
+			memmove(Memory::GetPointer(buffer), Memory::GetPointer(buffer) + thread->bufSize, nmp.bufSize - nmp.freeSize);
 			Memory::Write_U32(thread->bufSize, thread->transferredBytesAddr);
 			nmp.freeSize += thread->bufSize;
 			__KernelResumeThreadFromWait(thread->id);
@@ -147,7 +152,7 @@ struct MsgPipe : public KernelObject
 		else if (thread->waitMode == SCE_KERNEL_MPW_ASAP && nmp.freeSize != nmp.bufSize)
 		{
 			// Get all the data from the buffer
-			Memory::Memcpy(thread->bufAddr, buffer, nmp.bufSize - nmp.freeSize);
+			Memory::Memcpy(thread->bufAddr, Memory::GetPointer(buffer), nmp.bufSize - nmp.freeSize);
 			Memory::Write_U32(nmp.bufSize - nmp.freeSize, thread->transferredBytesAddr);
 			nmp.freeSize = nmp.bufSize;
 			__KernelResumeThreadFromWait(thread->id);
@@ -162,14 +167,7 @@ struct MsgPipe : public KernelObject
 		MsgPipeWaitingThread mpwt1 = {0}, mpwt2 = {0};
 		p.Do(sendWaitingThreads, mpwt1);
 		p.Do(receiveWaitingThreads, mpwt2);
-		bool hasBuffer = buffer != NULL;
-		p.Do(hasBuffer);
-		if (hasBuffer)
-		{
-			if (buffer == NULL)
-				buffer = new u8[nmp.bufSize];
-			p.DoArray(buffer, nmp.bufSize);
-		}
+		p.Do(buffer);
 		p.DoMarker("MsgPipe");
 	}
 
@@ -178,7 +176,7 @@ struct MsgPipe : public KernelObject
 	std::vector<MsgPipeWaitingThread> sendWaitingThreads;
 	std::vector<MsgPipeWaitingThread> receiveWaitingThreads;
 
-	u8 *buffer;
+	u32 buffer;
 };
 
 KernelObject *__KernelMsgPipeObject()
@@ -186,34 +184,59 @@ KernelObject *__KernelMsgPipeObject()
 	return new MsgPipe;
 }
 
-void sceKernelCreateMsgPipe()
+int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
-	int memoryPartition = PARAM(1);
-	SceUInt attr = PARAM(2);
-	int size = PARAM(3);
-	int opt = PARAM(4);
+	if (!name)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMsgPipe(): invalid name", SCE_KERNEL_ERROR_NO_MEMORY);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
+	if (partition < 1 || partition > 9 || partition == 7)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMsgPipe(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, partition);
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+	// We only support user right now.
+	if (partition != 2 && partition != 6)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMsgPipe(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, partition);
+		return SCE_KERNEL_ERROR_ILLEGAL_PERM;
+	}
+	if ((attr & ~SCE_KERNEL_MPA_KNOWN) >= 0x100)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateEventFlag(%s): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, name, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+
+	// We ignore the upalign to 256.
+	u32 allocSize = size;
+	u32 memBlockPtr = userMemory.Alloc(allocSize, (attr & SCE_KERNEL_MPA_HIGHMEM) != 0, "MsgPipe");
+	if (memBlockPtr == (u32)-1)
+	{
+		ERROR_LOG(HLE, "%08x=sceKernelCreateEventFlag(%s): Failed to allocate %i bytes for buffer", SCE_KERNEL_ERROR_NO_MEMORY, name, size);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
 
 	MsgPipe *m = new MsgPipe();
 	SceUID id = kernelObjects.Create(m);
 
 	m->nmp.size = sizeof(NativeMsgPipe);
-	strncpy(m->nmp.name, name, sizeof(m->nmp.name));
+	strncpy(m->nmp.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	m->nmp.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	m->nmp.attr = attr;
 	m->nmp.bufSize = size;
 	m->nmp.freeSize = size;
 	m->nmp.numSendWaitThreads = 0;
 	m->nmp.numReceiveWaitThreads = 0;
 
-	m->buffer = 0;
-	if (size != 0)
-	{
-		m->buffer = new u8[size];
-	}
+	m->buffer = memBlockPtr;
 	
-	DEBUG_LOG(HLE, "%d=sceKernelCreateMsgPipe(%s, part=%d, attr=%08x, size=%d, opt=%08x)", id, name, memoryPartition, attr, size, opt);
+	DEBUG_LOG(HLE, "%d=sceKernelCreateMsgPipe(%s, part=%d, attr=%08x, size=%d, opt=%08x)", id, name, partition, attr, size, optionsPtr);
 
-	RETURN(id);
+	if (optionsPtr != 0)
+		WARN_LOG_REPORT(HLE, "sceKernelCreateMsgPipe(%s) unsupported options parameter: %08x", name, optionsPtr);
+
+	return id;
 }
 
 void sceKernelDeleteMsgPipe()
@@ -302,14 +325,14 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 	{
 		if (sendSize <= (u32) m->nmp.freeSize)
 		{
-			memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), Memory::GetPointer(sendBufAddr), sendSize);
+			Memory::Memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), Memory::GetPointer(sendBufAddr), sendSize);
 			m->nmp.freeSize -= sendSize;
 			curSendAddr = sendBufAddr + sendSize;
 			sendSize = 0;
 		}
 		else if (waitMode == SCE_KERNEL_MPW_ASAP && m->nmp.freeSize != 0)
 		{
-			memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), Memory::GetPointer(sendBufAddr), m->nmp.freeSize);
+			Memory::Memcpy(m->buffer + (m->nmp.bufSize - m->nmp.freeSize), Memory::GetPointer(sendBufAddr), m->nmp.freeSize);
 			curSendAddr = sendBufAddr + m->nmp.freeSize;
 			sendSize -= m->nmp.freeSize;
 			m->nmp.freeSize = 0;
@@ -476,16 +499,16 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 		// Enough data in the buffer: copy just the needed amount of data
 		if (receiveSize <= (u32) m->nmp.bufSize - (u32) m->nmp.freeSize)
 		{
-			Memory::Memcpy(receiveBufAddr, m->buffer, receiveSize);
+			Memory::Memcpy(receiveBufAddr, Memory::GetPointer(m->buffer), receiveSize);
 			m->nmp.freeSize += receiveSize;
-			memmove(m->buffer, m->buffer + receiveSize, m->nmp.bufSize - m->nmp.freeSize);
+			memmove(Memory::GetPointer(m->buffer), Memory::GetPointer(m->buffer) + receiveSize, m->nmp.bufSize - m->nmp.freeSize);
 			curReceiveAddr = receiveBufAddr + receiveSize;
 			receiveSize = 0;
 		}
 		// Else, if mode is ASAP and there's at list 1 available byte of data: copy all the available data
 		else if (waitMode == SCE_KERNEL_MPW_ASAP && m->nmp.freeSize != m->nmp.bufSize)
 		{
-			Memory::Memcpy(receiveBufAddr, m->buffer, m->nmp.bufSize - m->nmp.freeSize);
+			Memory::Memcpy(receiveBufAddr, Memory::GetPointer(m->buffer), m->nmp.bufSize - m->nmp.freeSize);
 			receiveSize -= m->nmp.bufSize - m->nmp.freeSize;
 			curReceiveAddr = receiveBufAddr + m->nmp.bufSize - m->nmp.freeSize;
 			m->nmp.freeSize = m->nmp.bufSize;
@@ -591,10 +614,6 @@ void sceKernelCancelMsgPipe()
 		ERROR_LOG(HLE, "sceKernelCancelMsgPipe(%i) - ERROR %08x", uid, error);
 		RETURN(error);
 		return;
-	}
-	if (m->buffer != 0)
-	{
-		delete [] m->buffer;
 	}
 	u32 count;
 	for (count = 0; count < m->sendWaitingThreads.size(); count++)
