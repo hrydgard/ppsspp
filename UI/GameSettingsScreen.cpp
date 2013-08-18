@@ -37,6 +37,10 @@
 #include "Core/System.h"
 
 #ifdef _WIN32
+#include "Core/Host.h"
+#endif
+
+#ifdef _WIN32
 namespace MainWindow {
 	enum { 
 		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200,
@@ -388,9 +392,30 @@ void GlobalSettingsScreen::CreateViews() {
 	// Screenshot functionality is not yet available on non-Windows
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
 #endif
+
+	// TODO: Come up with a way to display a keyboard for mobile users,
+	// so until then, this is Windows/Desktop only.
+#ifdef _WIN32
+	list->Add(new Choice(g->T("Change Nickname")))->OnClick.Handle(this, &GlobalSettingsScreen::OnChangeNickname);
+#endif
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
+}
+
+UI::EventReturn GlobalSettingsScreen::OnChangeNickname(UI::EventParams &e) {
+	#ifdef _WIN32
+
+	const size_t name_len = 256;
+
+	char name[name_len];
+	memset(name, 0, sizeof(name));
+
+	if (host->InputBoxGetString("Enter a new PSP nickname", "PPSSPP", name, name_len)) {
+		g_Config.sNickName = name;
+	}
+	#endif
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GlobalSettingsScreen::OnFactoryReset(UI::EventParams &e) {

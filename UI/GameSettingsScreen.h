@@ -62,7 +62,7 @@ private:
 	UI::EventReturn OnFactoryReset(UI::EventParams &e);
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
-
+	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	// Temporaries to convert bools to other kinds of settings
 	bool enableReports_;
 };
