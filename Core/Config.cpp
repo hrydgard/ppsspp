@@ -50,7 +50,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	bSpeedLimit = false;
 	general->Get("FirstRun", &bFirstRun, true);
-	general->Get("NewUI", &bNewUI, true);
 	general->Get("Enable Logging", &bEnableLogging, true);
 	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, true);
@@ -218,7 +217,6 @@ void Config::Save()
 		// Need to do this somewhere...
 		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
-		general->Set("NewUI", bNewUI);
 		general->Set("Enable Logging", bEnableLogging);
 		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);

@@ -126,10 +126,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// DR_CANCEL means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by NativeMessageReceived.
 	if (result == DR_OK) {
-		if (g_Config.bNewUI)
-			screenManager()->switchScreen(new MainScreen());
-		else
-			screenManager()->switchScreen(new MenuScreen());
+		screenManager()->switchScreen(new MainScreen());
 	}
 	else if (result == DR_YES) {
 		PauseScreen::Message* msg = (PauseScreen::Message*)((Screen*)dialog)->dialogData();
@@ -147,19 +144,13 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "pause")) {
 		screenManager()->push(new PauseScreen());
 	} else if (!strcmp(message, "stop")) {
-		if (g_Config.bNewUI)
-			screenManager()->switchScreen(new MainScreen());
-		else
-			screenManager()->switchScreen(new MenuScreen());
+		screenManager()->switchScreen(new MainScreen());
 	} else if (!strcmp(message, "reset")) {
 		PSP_Shutdown();
 		std::string resetError;
 		if (!PSP_Init(PSP_CoreParameter(), &resetError)) {
 			ELOG("Error resetting: %s", resetError.c_str());
-			if (g_Config.bNewUI)
-				screenManager()->switchScreen(new MainScreen());
-			else
-				screenManager()->switchScreen(new MenuScreen());
+			screenManager()->switchScreen(new MainScreen());
 			return;
 		}
 		host->BootDone();
@@ -224,10 +215,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	// Should get rid of that but not now.
 #ifndef ANDROID
 	case VIRTKEY_PAUSE:
-		if (g_Config.bNewUI)
-			screenManager()->push(new GamePauseScreen(gamePath_));
-		else
-			screenManager()->push(new PauseScreen());
+		screenManager()->push(new GamePauseScreen(gamePath_));
 		break;
 #endif
 
@@ -455,11 +443,7 @@ void EmuScreen::update(InputState &input) {
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
-		if (g_Config.bNewUI) {
-			screenManager()->push(new GamePauseScreen(gamePath_));
-		} else {
-			screenManager()->push(new PauseScreen());
-		}
+		screenManager()->push(new GamePauseScreen(gamePath_));
 	}
 }
 
@@ -484,10 +468,7 @@ void EmuScreen::render() {
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_POWERDOWN)	{
 		ILOG("SELF-POWERDOWN!");
-		if (g_Config.bNewUI)
-			screenManager()->switchScreen(new MainScreen());
-		else
-			screenManager()->switchScreen(new MenuScreen());
+		screenManager()->switchScreen(new MainScreen());
 	}
 
 	if (invalid_)

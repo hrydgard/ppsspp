@@ -159,10 +159,7 @@ void LogoScreen::Next() {
 	if (bootFilename_.size()) {
 		screenManager()->switchScreen(new EmuScreen(bootFilename_));
 	} else {
-		if (g_Config.bNewUI)
-			screenManager()->switchScreen(new MainScreen());
-		else
-			screenManager()->switchScreen(new MenuScreen());
+		screenManager()->switchScreen(new MainScreen());
 	}
 }
 

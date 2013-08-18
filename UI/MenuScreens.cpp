@@ -768,8 +768,6 @@ void DeveloperScreen::render() {
 		g_Config.sReportHost = reportingEnabled ? reportHostOfficial : "";
 	}
 
-	UICheckBox(GEN_ID, x, y += stride, d->T("New UI"), ALIGN_TOPLEFT, &g_Config.bNewUI);
-
 	VLinear vlinear(x, y + stride + 12, 16);
 
 	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), LARGE_BUTTON_WIDTH, 0, g->T("Back"), ALIGN_RIGHT | ALIGN_BOTTOM)) {
@@ -1490,10 +1488,7 @@ void SystemScreen::render() {
 	ui_draw2d.DrawTextShadow(UBUNTU24, lang, x, y += stride, 0xFFFFFFFF, ALIGN_LEFT);
 	HLinear hlinear2(x + 400, y, 20);
 	if (UIButton(GEN_ID, hlinear2, 220, 0, s->T("Language"), ALIGN_TOPLEFT)) {
-		if (g_Config.bNewUI)
-			screenManager()->push(new NewLanguageScreen());
-		else
-			screenManager()->push(new LanguageScreen());
+		screenManager()->push(new NewLanguageScreen());
 	} 
 	y+=20;
 

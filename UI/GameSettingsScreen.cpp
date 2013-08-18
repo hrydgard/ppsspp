@@ -433,7 +433,6 @@ void GlobalSettingsScreen::CreateViews() {
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader(g->T("General")));
-	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
 #ifndef ANDROID
 	// Need to move the cheat config dir somewhere where it can be read/written on android
