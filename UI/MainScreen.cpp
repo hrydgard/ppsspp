@@ -17,6 +17,7 @@
 
 #include "base/colorutil.h"
 #include "base/timeutil.h"
+#include "gfx_es2/draw_buffer.h"
 #include "math/curves.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -29,7 +30,6 @@
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameScreen.h"
-#include "UI/MenuScreens.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/MiscScreens.h"
