@@ -110,7 +110,7 @@ symbian {
 
 contains(MEEGO_EDITION,harmattan) {
 	target.path = /opt/PPSSPP/bin
-	assets.files = ../assets/flash0 ../lang
+	assets.files = ../flash0 ../lang
 	assets.path = /opt/PPSSPP
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications

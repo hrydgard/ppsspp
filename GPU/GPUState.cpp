@@ -41,8 +41,8 @@ void GPU_Init() {
 	case GPU_SOFTWARE:
 		gpu = new SoftGPU();
 		break;
-	}
 #endif
+	}
 }
 
 void GPU_Shutdown() {
