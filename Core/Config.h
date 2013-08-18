@@ -46,7 +46,6 @@ public:
 #endif
 
 	// General
-	bool bNewUI;
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
