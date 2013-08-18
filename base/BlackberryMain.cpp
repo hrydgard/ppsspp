@@ -13,6 +13,10 @@
 
 // Simple implementations of System functions
 
+std::string System_GetName() {
+	return "Blackberry10";
+}
+
 void SystemToast(const char *text) {
 	dialog_instance_t dialog = 0;
 	dialog_create_toast(&dialog);

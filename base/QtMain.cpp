@@ -19,6 +19,22 @@
 
 InputState* input_state;
 
+std::string System_GetName() {
+#ifdef __SYMBIAN32__
+	return "Qt:Symbian";
+#elif defined(BLACKBERRY)
+	return "Qt:Blackberry10";
+#elif defined(MEEGO_EDITION_HARMATTAN)
+	return "Qt:Meego";
+#elif defined(Q_WS_X11)
+	return "Qt:Linux";
+#elif defined(_WIN32)
+	return "Qt:Windows";
+#else
+	return "Qt";
+#endif
+}
+
 void LaunchBrowser(const char *url)
 {
 	QDesktopServices::openUrl(QUrl(url));
