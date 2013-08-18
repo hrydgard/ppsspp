@@ -61,7 +61,6 @@
 
 #include "ui_atlas.h"
 #include "EmuScreen.h"
-#include "MenuScreens.h"
 #include "GameInfoCache.h"
 #include "UIShader.h"
 

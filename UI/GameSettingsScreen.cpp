@@ -22,7 +22,6 @@
 #include "ui/ui_context.h"
 #include "UI/EmuScreen.h"
 #include "UI/PluginScreen.h"
-#include "UI/MenuScreens.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
