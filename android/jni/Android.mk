@@ -131,7 +131,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ui_atlas.cpp \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/EmuScreen.cpp \
-  $(SRC)/UI/MenuScreens.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
   $(SRC)/UI/UIShader.cpp \

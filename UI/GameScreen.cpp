@@ -17,6 +17,7 @@
 
 #include "base/colorutil.h"
 #include "base/timeutil.h"
+#include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "math/curves.h"
 #include "ui/ui_context.h"
@@ -26,7 +27,6 @@
 #include "UI/GameScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
-#include "UI/MenuScreens.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 
