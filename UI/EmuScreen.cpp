@@ -128,21 +128,13 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (result == DR_OK) {
 		screenManager()->switchScreen(new MainScreen());
 	}
-	else if (result == DR_YES) {
-		PauseScreen::Message* msg = (PauseScreen::Message*)((Screen*)dialog)->dialogData();
-		if (msg != NULL)
-		{
-			NativeMessageReceived(msg->msg, msg->value);
-			delete msg;
-		}
-	}
 	RecreateViews();
 }
 
 void EmuScreen::sendMessage(const char *message, const char *value) {
 	// External commands, like from the Windows UI.
 	if (!strcmp(message, "pause")) {
-		screenManager()->push(new PauseScreen());
+		screenManager()->push(new GamePauseScreen(gamePath_));
 	} else if (!strcmp(message, "stop")) {
 		screenManager()->switchScreen(new MainScreen());
 	} else if (!strcmp(message, "reset")) {

@@ -36,6 +36,11 @@
 
 #include "ui_atlas.h"
 
+#ifdef _MSC_VER
+#define snprintf _snprintf
+#pragma execution_character_set("utf-8")
+#endif
+
 void DrawBackground(float alpha);
 
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
