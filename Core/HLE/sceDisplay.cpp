@@ -303,13 +303,12 @@ void __DisplayGetDebugStats(char stats[2048]) {
 enum {
 	FPS_LIMIT_NORMAL = 0,
 	FPS_LIMIT_CUSTOM = 1,
-	FPS_LIMIT_TURBO = 2,
 };
 
 // Let's collect all the throttling and frameskipping logic here.
 void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	int fpsLimiter = PSP_CoreParameter().fpsLimit;
-	throttle = !PSP_CoreParameter().unthrottle && fpsLimiter != FPS_LIMIT_TURBO;
+	throttle = !PSP_CoreParameter().unthrottle;
 	skipFrame = false;
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
@@ -338,9 +337,10 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	if (nextFrameTime == 0.0)
 		nextFrameTime = time_now_d() + timestep;
 	
-		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
+	// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 
-	if (g_Config.iFrameSkip == 1) {
+	// Auto-frameskip automatically if speed limit is set differently than the default.
+	if (g_Config.iFrameSkip == 1 || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM)) {
 		// 1 == autoframeskip
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
@@ -375,10 +375,8 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	if (fpsLimiter == FPS_LIMIT_NORMAL) {
 		nextFrameTime = std::max(nextFrameTime + timestep, time_now_d() - maxFallBehindFrames * timestep);
 	} else if (fpsLimiter == FPS_LIMIT_CUSTOM) {
-		double customLimiter = g_Config.iFpsLimit;
+		double customLimiter = (g_Config.iFpsLimit / 60.0f) / timestep;
 		nextFrameTime = std::max(nextFrameTime + 1.0 / customLimiter, time_now_d() - maxFallBehindFrames / customLimiter);
-	} else {
-		nextFrameTime = nextFrameTime + timestep;
 	}
 }
 

@@ -178,11 +178,23 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 
 }
 
+static const int alternateSpeedTable[8] = {
+	15, 30, 45, 60, 75, 90, 120, 180
+};
+
 
 void GameSettingsScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
+	
+	iAlternateSpeedPercent_ = 3;
+	for (int i = 0; i < 8; i++) {
+		if (g_Config.iFpsLimit <= alternateSpeedTable[i]) {
+			iAlternateSpeedPercent_ = i;
+			break;
+		}
+	}
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -238,6 +250,10 @@ void GameSettingsScreen::CreateViews() {
 	static const char *frameSkip[] = {"Off", "Auto", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, 9, gs, screenManager()));
 	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
+
+	static const char *customSpeed[] = {"25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
+	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, 8, 0, screenManager()));
+
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force 60 FPS or less (helps GoW)")));
@@ -347,6 +363,7 @@ void GameSettingsScreen::DrawBackground(UIContext &dc) {
 void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
+	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
 }
 
 UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
