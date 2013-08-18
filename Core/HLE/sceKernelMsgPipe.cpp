@@ -84,7 +84,7 @@ struct MsgPipeWaitingThread
 		if (IsStillWaiting(waitID))
 		{
 			WriteCurrentTimeout(waitID);
-			if (transferred != (u32)-1)
+			if (transferred != (u32)-1 && transferredBytes.IsValid())
 				*transferredBytes = transferred;
 			__KernelResumeThreadFromWait(id, result);
 		}
@@ -114,6 +114,10 @@ struct MsgPipe : public KernelObject
 	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr, bool usePrio)
 	{
 		MsgPipeWaitingThread thread = { id, addr, size, size, waitMode, transferredBytesAddr };
+		// Start out with 0 transferred bytes while waiting.
+		if (thread.transferredBytes.IsValid())
+			*thread.transferredBytes = 0;
+
 		if (usePrio)
 		{
 			for (std::vector<MsgPipeWaitingThread>::iterator it = list.begin(); it != list.end(); it++)
