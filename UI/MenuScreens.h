@@ -132,7 +132,6 @@ public:
 	void render();
 private:
 	std::vector<FileInfo> langs_;
-	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
 };
 
 struct FileSelectScreenOptions {
@@ -161,3 +160,5 @@ private:
 	std::string currentDirectory_;
 	std::vector<FileInfo> listing_;
 };
+
+std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
