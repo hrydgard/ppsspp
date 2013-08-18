@@ -246,24 +246,22 @@ void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
 	}
 }
 
-void __KernelSetMsgPipeTimeout(u32 timeoutPtr)
+bool __KernelSetMsgPipeTimeout(u32 timeoutPtr)
 {
 	if (timeoutPtr == 0 || waitTimer == -1)
-		return;
+		return true;
 
 	int micro = (int) Memory::Read_U32(timeoutPtr);
+	if (micro <= 2)
+	{
+		// Don't wait or reschedule, just timeout immediately.
+		return false;
+	}
 
-	// TODO: Correct.
-	// This happens to be how the hardware seems to time things.
-	if (micro <= 5)
-		micro = 10;
-	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
-	else if (micro == 7)
-		micro = 15;
-	else if (micro <= 215)
+	if (micro <= 210)
 		micro = 250;
-
 	CoreTiming::ScheduleEvent(usToCycles(micro), waitTimer, __KernelGetCurThread());
+	return true;
 }
 
 void __KernelMsgPipeInit()
@@ -407,8 +405,10 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelSetMsgPipeTimeout(timeoutPtr);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+				if (__KernelSetMsgPipeTimeout(timeoutPtr))
+					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+				else
+					RETURN(SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 				return;
 			}
 		}
@@ -440,8 +440,10 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelSetMsgPipeTimeout(timeoutPtr);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+				if (__KernelSetMsgPipeTimeout(timeoutPtr))
+					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+				else
+					RETURN(SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 				return;
 			}
 		}
@@ -578,8 +580,10 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelSetMsgPipeTimeout(timeoutPtr);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+				if (__KernelSetMsgPipeTimeout(timeoutPtr))
+					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+				else
+					RETURN(SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 				return;
 			}
 		}
@@ -615,8 +619,10 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelSetMsgPipeTimeout(timeoutPtr);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+				if (__KernelSetMsgPipeTimeout(timeoutPtr))
+					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+				else
+					RETURN(SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 				return;
 			}
 		}
