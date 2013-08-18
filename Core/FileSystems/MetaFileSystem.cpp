@@ -81,8 +81,7 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	size_t inColon = inPath.find(':');
 	if (inColon + 1 == inLen)
 	{
-		WARN_LOG(HLE, "RealPath: inPath is all prefix and no path: \"%s\"", inPath.c_str());
-
+		// There's nothing after the colon, e.g. umd0: - this is perfectly valid.
 		outPath = inPath;
 		return true;
 	}
