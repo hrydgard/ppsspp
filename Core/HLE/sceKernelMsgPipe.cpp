@@ -477,7 +477,12 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 		if (sendSize != 0 && (waitMode != SCE_KERNEL_MPW_ASAP || curSendAddr == sendBufAddr))
 		{
 			if (poll)
+			{
+				// Generally, result is not set to 0 in this case.  But for a 0 size buffer in ASAP mode, it is.
+				if (Memory::IsValidAddress(resultAddr) && waitMode == SCE_KERNEL_MPW_ASAP)
+					Memory::Write_U32(curSendAddr - sendBufAddr, resultAddr);
 				return SCE_KERNEL_ERROR_MPP_FULL;
+			}
 			else
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
