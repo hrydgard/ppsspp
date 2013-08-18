@@ -26,6 +26,7 @@
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
+#include "ui/ui.h"
 #include "UI/MiscScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
@@ -49,7 +50,6 @@
 
 #include "Core/HLE/sceUtility.h"
 #include "UI/ui_atlas.h"
-#include "UI/ui.h"
 
 static const int symbols[4] = {
 	I_CROSS,
