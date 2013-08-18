@@ -103,6 +103,7 @@ void __KernelInit()
 	__KernelMbxInit();
 	__KernelMutexInit();
 	__KernelSemaInit();
+	__KernelMsgPipeInit();
 	__IoInit();
 	__JpegInit();
 	__AudioInit();
@@ -190,6 +191,7 @@ void __KernelDoState(PointerWrap &p)
 	__KernelEventFlagDoState(p);
 	__KernelMbxDoState(p);
 	__KernelModuleDoState(p);
+	__KernelMsgPipeDoState(p);
 	__KernelMutexDoState(p);
 	__KernelSemaDoState(p);
 	__KernelTimeDoState(p);

@@ -17,6 +17,8 @@
 
 #pragma once
 
+class PointerWrap;
+
 int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr);
 int sceKernelDeleteMsgPipe(SceUID uid);
 void sceKernelSendMsgPipe();
@@ -28,4 +30,6 @@ void sceKernelTryReceiveMsgPipe();
 int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThreadsAddr);
 void sceKernelReferMsgPipeStatus();
 
+void __KernelMsgPipeInit();
+void __KernelMsgPipeDoState(PointerWrap &p);
 KernelObject *__KernelMsgPipeObject();

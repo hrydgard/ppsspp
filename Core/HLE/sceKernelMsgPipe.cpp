@@ -34,6 +34,9 @@
 #define SCE_KERNEL_MPW_FULL 0
 #define SCE_KERNEL_MPW_ASAP 1
 
+// State: the timer for MsgPipe timeouts.
+static int waitTimer = -1;
+
 struct NativeMsgPipe
 {
 	SceSize_le size;
@@ -60,6 +63,14 @@ struct MsgPipeWaitingThread
 		int actualWaitID = __KernelGetWaitID(id, WAITTYPE_MSGPIPE, error);
 		if (actualWaitID == waitID)
 		{
+			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(id, error);
+			if (timeoutPtr != 0 && waitTimer != -1)
+			{
+				// Remove any event for this thread.
+				s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, id);
+				Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+			}
+
 			*transferredBytes = 0;
 			__KernelResumeThreadFromWait(id, result);
 		}
@@ -195,6 +206,59 @@ KernelObject *__KernelMsgPipeObject()
 	return new MsgPipe;
 }
 
+void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
+{
+	SceUID threadID = (SceUID) (userdata & 0xFFFFFFFF);
+
+	u32 error;
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	if (timeoutPtr != 0)
+		Memory::Write_U32(0, timeoutPtr);
+
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_MSGPIPE, error);
+	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
+	if (m)
+	{
+		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+		// The reason is, if it times out, but whhile it was waiting on is DELETED prior to it
+		// actually running, it will get a DELETE result instead of a TIMEOUT.
+		// So, we need to remember it or we won't be able to mark it DELETE instead later.
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
+}
+
+void __KernelSetMsgPipeTimeout(u32 timeoutPtr)
+{
+	if (timeoutPtr == 0 || waitTimer == -1)
+		return;
+
+	int micro = (int) Memory::Read_U32(timeoutPtr);
+
+	// TODO: Correct.
+	// This happens to be how the hardware seems to time things.
+	if (micro <= 5)
+		micro = 10;
+	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
+	else if (micro == 7)
+		micro = 15;
+	else if (micro <= 215)
+		micro = 250;
+
+	CoreTiming::ScheduleEvent(usToCycles(micro), waitTimer, __KernelGetCurThread());
+}
+
+void __KernelMsgPipeInit()
+{
+	waitTimer = CoreTiming::RegisterEvent("MsgPipeTimeout", __KernelMsgPipeTimeout);
+}
+
+void __KernelMsgPipeDoState(PointerWrap &p)
+{
+	p.Do(waitTimer);
+	CoreTiming::RestoreRegisterEvent(waitTimer, "MsgPipeTimeout", __KernelMsgPipeTimeout);
+	p.DoMarker("sceKernelMsgPipe");
+}
+
 int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr)
 {
 	if (!name)
@@ -327,7 +391,8 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, 0, cbEnabled, "msgpipe waited");
+				__KernelSetMsgPipeTimeout(timeoutPtr);
+				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
 				return;
 			}
 		}
@@ -359,7 +424,8 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, 0, cbEnabled, "msgpipe waited");
+				__KernelSetMsgPipeTimeout(timeoutPtr);
+				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
 				return;
 			}
 		}
@@ -499,7 +565,8 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, 0, cbEnabled, "msgpipe waited");
+				__KernelSetMsgPipeTimeout(timeoutPtr);
+				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
 				return;
 			}
 		}
@@ -535,7 +602,8 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
 				RETURN(0);
-				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, 0, cbEnabled, "msgpipe waited");
+				__KernelSetMsgPipeTimeout(timeoutPtr);
+				__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
 				return;
 			}
 		}
