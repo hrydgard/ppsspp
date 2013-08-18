@@ -428,14 +428,15 @@ void GlobalSettingsScreen::CreateViews() {
 	enableReports_ = g_Config.sReportHost != "";
 
 	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader(g->T("General")));
-	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
+	list->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
 #ifndef ANDROID
 	// Need to move the cheat config dir somewhere where it can be read/written on android
-	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
+	list->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
 #endif
 #ifdef _WIN32
 	// Screenshot functionality is not yet available on non-Windows
@@ -445,10 +446,10 @@ void GlobalSettingsScreen::CreateViews() {
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
 #ifdef _WIN32
-	list->Add(new Choice(g->T("Change Nickname")))->OnClick.Handle(this, &GlobalSettingsScreen::OnChangeNickname);
+	list->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GlobalSettingsScreen::OnChangeNickname);
 #endif
-	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
-	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
+	list->Add(new Choice(s->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
+	list->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
 }
 
