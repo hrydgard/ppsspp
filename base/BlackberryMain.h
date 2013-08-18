@@ -80,7 +80,7 @@ private:
 	int ndisplays;
 	int screen_ui, screen_emu;
 	bool emulating;
-	int controller_buttons;
+	int old_buttons;
 	EGLDisplay* egl_disp;
 	EGLSurface* egl_surf;
 	EGLContext  egl_cont;

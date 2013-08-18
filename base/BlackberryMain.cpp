@@ -56,22 +56,6 @@ void LaunchEmail(const char *email_address)
 
 InputState input_state;
 
-void SimulateGamepad(InputState *input) {
-	input->pad_lstick_x = 0;
-	input->pad_lstick_y = 0;
-	input->pad_rstick_x = 0;
-	input->pad_rstick_y = 0;
-
-	if (input->pad_buttons & PAD_BUTTON_JOY_UP)
-		input->pad_lstick_y=1;
-	else if (input->pad_buttons & PAD_BUTTON_JOY_DOWN)
-		input->pad_lstick_y=-1;
-	if (input->pad_buttons & PAD_BUTTON_JOY_LEFT)
-		input->pad_lstick_x=-1;
-	else if (input->pad_buttons & PAD_BUTTON_JOY_RIGHT)
-		input->pad_lstick_x=1;
-}
-
 void BlackberryMain::handleInput(screen_event_t screen_event)
 {
 	TouchInput input;
@@ -142,26 +126,19 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 		NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawBlackberrytoNative.find(value)->second, (flags & KEY_DOWN) ? KEY_DOWN : KEY_UP));
 		break;
 	// Gamepad
-	// TODO: Isn't using new input system yet
 	case SCREEN_EVENT_GAMEPAD:
 	case SCREEN_EVENT_JOYSTICK:
 		char device_id[16];
-#define DIR_KEYS SCREEN_DPAD_UP_GAME_BUTTON | SCREEN_DPAD_DOWN_GAME_BUTTON | SCREEN_DPAD_LEFT_GAME_BUTTON | SCREEN_DPAD_RIGHT_GAME_BUTTON
 		screen_device_t device;
 		screen_get_event_property_pv(screen_event, SCREEN_PROPERTY_DEVICE, (void**)&device);
 		screen_get_device_property_cv(device, SCREEN_PROPERTY_ID_STRING, sizeof(device_id), device_id);
 		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS, &buttons);
-		// Map the buttons integer to our mappings
-		if (strstr(device_id, "057E-0306")) // Wiimote
-			controller_buttons = (buttons & (SCREEN_A_GAME_BUTTON | SCREEN_B_GAME_BUTTON)) << 2 |
-			                     (buttons & (SCREEN_X_GAME_BUTTON | SCREEN_Y_GAME_BUTTON)) >> 3;
-		else
-			controller_buttons = (buttons & (SCREEN_A_GAME_BUTTON | SCREEN_B_GAME_BUTTON)) |
-			                     (buttons & (SCREEN_X_GAME_BUTTON | SCREEN_Y_GAME_BUTTON)) >> 1;
-		controller_buttons |= (buttons & (SCREEN_MENU1_GAME_BUTTON | SCREEN_MENU2_GAME_BUTTON)) |
-		                      (buttons & SCREEN_L1_GAME_BUTTON) >> 6 | (buttons & SCREEN_R1_GAME_BUTTON) >> 8 |
-		                      (buttons & DIR_KEYS) >> 8 |
-		                      (buttons & DIR_KEYS) >> 2;
+		for (int i = 0; i < 32; i++) {
+			int mask = 1 << i;
+			if ((old_buttons & mask) != (buttons & mask))
+				NativeKey(KeyInput(DEVICE_ID_PAD_0, KeyMapPadBlackberrytoNative.find(mask)->second, (buttons & mask) ? KEY_DOWN : KEY_UP));
+		}
+		old_buttons = buttons;
 		break;
 	case SCREEN_EVENT_DISPLAY:
 		screen_display_t new_dpy = NULL;
@@ -195,6 +172,7 @@ void BlackberryMain::startMain(int argc, char *argv[]) {
 	// TODO: Enable/disable based on setting
 	sensor_set_rate(SENSOR_TYPE_ACCELEROMETER, 25000);
 	sensor_request_events(SENSOR_TYPE_ACCELEROMETER);
+	old_buttons = 0;
 
 	net::Init();
 	startDisplays();
@@ -213,7 +191,6 @@ void BlackberryMain::runMain() {
 	while (running) {
 		input_state.mouse_valid = false;
 		input_state.accelerometer_valid = false;
-		SimulateGamepad(&input_state);
 		while (true) {
 			// Handle Blackberry events
 			bps_event_t *event = NULL;
@@ -249,9 +226,6 @@ void BlackberryMain::runMain() {
 				}
 			}
 		}
-		// TODO: This is broken. Instead we should just send keyboard events through using NativeKey and not
-		// even bother with these bitfields.
-		input_state.pad_buttons = controller_buttons;
 		UpdateInputState(&input_state);
 		NativeUpdate(input_state);
 		// Work in Progress
