@@ -41,6 +41,8 @@
 
 #include "util/text/utf8.h"
 
+#define HIGH_MEM 1
+
 #define CHECK(x) if (!(x)) { printf("%i: CHECK failed on this line\n", __LINE__); exit(1); }
 
 using namespace std;
@@ -684,6 +686,7 @@ void LearnFile(const char *filename, const char *desc, std::set<u16> &chars, uin
 
 void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 {
+#if HIGH_MEM
 	std::set<u16> kanji;
 	std::set<u16> hangul1, hangul2, hangul3;
 	for (int i = 0; i < sizeof(kanjiFilter)/sizeof(kanjiFilter[0]); i+=2)
@@ -699,6 +702,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 	LearnFile("korean.txt", "Korean", hangul1, 0x1100, 0x11FF);
 	LearnFile("korean.txt", "Korean", hangul2, 0x3130, 0x318F);
 	LearnFile("korean.txt", "Korean", hangul3, 0xAC00, 0xD7A3);
+#endif
 
 	// The end point of a range is now inclusive!
 
@@ -715,6 +719,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 		case 'E':  // Latin-1 Extended A (needed for Hungarian etc)
 			ranges.push_back(range(0x100, 0x17F));
 			break;
+#if HIGH_MEM
 		case 'e':  // Latin-1 Extended B (for some African and latinized asian languages?)
 			ranges.push_back(range(0x180, 0x250));
 			break;
@@ -727,6 +732,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(0x3041, 0x3097));
 			ranges.push_back(range(0x3099, 0x309F));
 			break;
+#endif
 		case 's':  // ShiftJIS symbols
 			ranges.push_back(range(0x2010, 0x2312)); // General Punctuation, Letterlike Symbols, Arrows, 
 			                                         // Mathematical Operators, Miscellaneous Technical
@@ -735,6 +741,8 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(0x3231, 0x3231)); // Co,.Ltd. symbol
 			ranges.push_back(range(0x2116, 0x2116)); // "No." symbol
 			ranges.push_back(range(0x33CD, 0x33CD)); // "K.K." symbol
+			break;
+#if HIGH_MEM
 		case 'H':  // Hebrew
 			ranges.push_back(range(0x0590, 0x05FF));
 			break;
@@ -755,6 +763,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 		case 'K':  // Korean (hangul)
 			ranges.push_back(range(0xAC00, 0xD7A3, hangul3));
 			break;
+#endif
 		}
 	}
 	
