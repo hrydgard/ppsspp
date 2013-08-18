@@ -782,7 +782,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				u32 old_color = GetPixelColor(p.x, p.y);
 
 				// TODO: Is alpha blending still performed if logic ops are enabled?
-				if (gstate.isLogicOpEnabled() && !gstate.isModeClear()) {
+				// Akiba's trip plus may be one of the example 
+				if (gstate.isLogicOpEnabled() && !gstate.isAlphaBlendEnabled() && !gstate.isModeClear()) {
 					switch (gstate.getLogicOp()) {
 					case GE_LOGIC_CLEAR:
 						new_color = 0;
