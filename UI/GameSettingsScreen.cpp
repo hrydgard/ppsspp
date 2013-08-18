@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+﻿// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -236,27 +236,31 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 3, gs, screenManager()));
 #endif
 	graphicsSettings->Add(new CheckBox(&g_Config.bAntiAliasing, gs->T("Anti-Aliasing")));
-	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
-#ifdef _WIN32
-	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
-	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
-#endif
+
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "Auto", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, 9, gs, screenManager()));
 	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
 
+	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force 60 FPS or less (helps GoW)")));
 	static const char *customSpeed[] = {"25%", "50%", "75%", "100%", "125%", "150%", "200%", "300%"};
 	graphicsSettings->Add(new PopupMultiChoice(&iAlternateSpeedPercent_, gs->T("Alternative Speed"), customSpeed, 0, 8, 0, screenManager()));
 
+	graphicsSettings->Add(new ItemHeader(gs->T("Features")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gs->T("Hardware Transform")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gs->T("Vertex Cache")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bStretchToDisplay, gs->T("Stretch to Display")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gs->T("Mipmapping")));
+	// This setting is not really useful for anyone atm.
+	// graphicsSettings->Add(new CheckBox(&g_Config.bTrueColor, gs->T("True Color")));
+#ifdef _WIN32
+	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gs->T("VSync")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gs->T("FullScreen")));
+#endif
+
+	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, 4, gs, screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
-	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force 60 FPS or less (helps GoW)")));
 	
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
 #ifndef USING_GLES2
@@ -274,6 +278,10 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gs->T("Anisotropic Filtering"), anisoLevels, 0, 5, gs, screenManager()));
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Texture Filter"), texFilters, 1, 4, gs, screenManager()));
+
+	// Developer tools are not accessible ingame, so it goes here
+	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
+	graphicsSettings->Add(new Choice(gs->T("Dump next frame to log")))->OnClick.Handle(this, &GameSettingsScreen::OnDumpNextFrameToLog);
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -309,6 +317,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
+	systemSettings->Add(new ItemHeader(s->T("Emulation")));
+	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
+
 #ifdef IOS
 	if (isJailed) {
 		systemSettings->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
@@ -318,9 +329,14 @@ void GameSettingsScreen::CreateViews() {
 #else
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 #endif
-	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
+
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
+
+	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
+	systemSettings->Add(new Choice(s->T("Reload Cheats")))->OnClick.Handle(this, &GameSettingsScreen::OnReloadCheats);
+
+	systemSettings->Add(new ItemHeader(s->T("PSP Settings")));
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
@@ -330,7 +346,18 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Confirmation Button"), buttonPref, 1, 2, s, screenManager()));
 }
 
+UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
+	// Hmm, strange mechanism.
+	g_Config.bReloadCheats = true;
+	return UI::EVENT_DONE;
+}
+
 void DrawBackground(float alpha);
+
+UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
+	gpu->DumpNextFrame();
+	return UI::EVENT_DONE;
+}
 
 void GameSettingsScreen::DrawBackground(UIContext &dc) {
 	GameInfo *ginfo = g_gameInfoCache.GetInfo(gamePath_, true);
@@ -364,6 +391,11 @@ void GameSettingsScreen::update(InputState &input) {
 	UIScreen::update(input);
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
+}
+
+UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {
+	screenManager()->push(new PluginScreen());
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
@@ -481,6 +513,8 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 #endif
 	list->Add(new CheckBox(&enableLogging_, d->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
+	list->Add(new Choice(d->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
+	list->Add(new Choice(d->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
 
@@ -513,7 +547,12 @@ UI::EventReturn DeveloperToolsScreen::OnRunCPUTests(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {
-	screenManager()->push(new PluginScreen());
+UI::EventReturn DeveloperToolsScreen::OnSaveLanguageIni(UI::EventParams &e) {
+	i18nrepo.SaveIni(g_Config.languageIni);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
+	i18nrepo.LoadIni(g_Config.languageIni);
 	return UI::EVENT_DONE;
 }

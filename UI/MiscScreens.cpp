@@ -152,7 +152,9 @@ NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
 	adaptor_ = UI::StringVectorListAdaptor(listing, selected);
 }
 
-void NewLanguageScreen::OnCompleted() {
+void NewLanguageScreen::OnCompleted(DialogResult result) {
+	if (result != DR_OK)
+		return;
 	std::string oldLang = g_Config.languageIni;
 	
 	std::string iniFile = langs_[listView_->GetSelected()].name;
