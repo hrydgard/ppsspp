@@ -95,13 +95,15 @@ void I18NRepo::SaveSection(IniFile &ini, IniFile::Section *section, I18NCategory
 	
 	for (auto iter = missed.begin(); iter != missed.end(); ++iter) {
 		if (!section->Exists(iter->first.c_str())) {
-			section->Set(iter->first, iter->second);
+			std::string text = ReplaceAll(iter->second, "\n", "\\n");
+			section->Set(iter->first, text);
 		}
 	}
 
 	const std::map<std::string, I18NEntry> &entries = cat->GetMap();
 	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
-		section->Set(iter->first, iter->second.text);
+		std::string text = ReplaceAll(iter->second.text, "\n", "\\n");
+		section->Set(iter->first, text);
 	}
 
 	cat->ClearMissed();
