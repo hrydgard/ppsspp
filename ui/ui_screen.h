@@ -64,7 +64,7 @@ class ListPopupScreen : public PopupScreen {
 public:
 	ListPopupScreen(std::string title) : PopupScreen(title), showButtons_(false) {}
 	ListPopupScreen(std::string title, const std::vector<std::string> &items, int selected, std::function<void(int)> callback, bool showButtons = false)
-		: PopupScreen(title), adaptor_(items, selected), callback_(callback), showButtons_(showButtons) {
+		: PopupScreen(title, "OK", "Cancel"), adaptor_(items, selected), callback_(callback), showButtons_(showButtons) {
 	}
 
 	UI::Event OnChoice;
