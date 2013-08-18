@@ -34,10 +34,17 @@ struct DefMappingStruct {
 KeyMapping g_controllerMap;
 
 static const DefMappingStruct defaultKeyboardKeyMap[] = {
+#ifdef BLACKBERRY
+	{CTRL_SQUARE, NKCODE_J},
+	{CTRL_TRIANGLE, NKCODE_I},
+	{CTRL_CIRCLE, NKCODE_L},
+	{CTRL_CROSS, NKCODE_K},
+#else
 	{CTRL_SQUARE, NKCODE_A},
 	{CTRL_TRIANGLE, NKCODE_S},
 	{CTRL_CIRCLE, NKCODE_X},
 	{CTRL_CROSS, NKCODE_Z},
+#endif
 	{CTRL_LTRIGGER, NKCODE_Q},
 	{CTRL_RTRIGGER, NKCODE_W},
 
@@ -47,6 +54,16 @@ static const DefMappingStruct defaultKeyboardKeyMap[] = {
 #else
 	{CTRL_SELECT, NKCODE_ENTER},
 #endif
+#ifdef BLACKBERRY
+	{CTRL_UP   , NKCODE_W},
+	{CTRL_DOWN , NKCODE_S},
+	{CTRL_LEFT , NKCODE_A},
+	{CTRL_RIGHT, NKCODE_D},
+	{VIRTKEY_AXIS_Y_MAX, NKCODE_W},
+	{VIRTKEY_AXIS_Y_MIN, NKCODE_S},
+	{VIRTKEY_AXIS_X_MIN, NKCODE_A},
+	{VIRTKEY_AXIS_X_MAX, NKCODE_D},
+#else
 	{CTRL_UP   , NKCODE_DPAD_UP},
 	{CTRL_DOWN , NKCODE_DPAD_DOWN},
 	{CTRL_LEFT , NKCODE_DPAD_LEFT},
@@ -55,6 +72,7 @@ static const DefMappingStruct defaultKeyboardKeyMap[] = {
 	{VIRTKEY_AXIS_Y_MIN, NKCODE_K},
 	{VIRTKEY_AXIS_X_MIN, NKCODE_J},
 	{VIRTKEY_AXIS_X_MAX, NKCODE_L},
+#endif
 	{VIRTKEY_RAPID_FIRE  , NKCODE_SHIFT_LEFT},
 	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
@@ -106,7 +124,7 @@ static const DefMappingStruct defaultShieldKeyMap[] = {
 };
 
 static const DefMappingStruct defaultPadMap[] = {
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	{CTRL_CROSS          , NKCODE_BUTTON_A},
 	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
 	{CTRL_SQUARE         , NKCODE_BUTTON_X},
