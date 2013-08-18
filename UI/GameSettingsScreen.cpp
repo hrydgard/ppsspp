@@ -356,7 +356,8 @@ UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 void DrawBackground(float alpha);
 
 UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
-	gpu->DumpNextFrame();
+	if(gpu)
+		gpu->DumpNextFrame();
 	return UI::EVENT_DONE;
 }
 
