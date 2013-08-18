@@ -18,6 +18,7 @@
 #include "file/ini_file.h"
 #include "input/input_state.h"
 #include "../Core/Config.h"
+#include "base/NativeApp.h"
 #include "KeyMap.h"
 
 namespace KeyMap {
@@ -33,10 +34,17 @@ struct DefMappingStruct {
 KeyMapping g_controllerMap;
 
 static const DefMappingStruct defaultKeyboardKeyMap[] = {
+#ifdef BLACKBERRY
+	{CTRL_SQUARE, NKCODE_J},
+	{CTRL_TRIANGLE, NKCODE_I},
+	{CTRL_CIRCLE, NKCODE_L},
+	{CTRL_CROSS, NKCODE_K},
+#else
 	{CTRL_SQUARE, NKCODE_A},
 	{CTRL_TRIANGLE, NKCODE_S},
 	{CTRL_CIRCLE, NKCODE_X},
 	{CTRL_CROSS, NKCODE_Z},
+#endif
 	{CTRL_LTRIGGER, NKCODE_Q},
 	{CTRL_RTRIGGER, NKCODE_W},
 
@@ -46,6 +54,16 @@ static const DefMappingStruct defaultKeyboardKeyMap[] = {
 #else
 	{CTRL_SELECT, NKCODE_ENTER},
 #endif
+#ifdef BLACKBERRY
+	{CTRL_UP   , NKCODE_W},
+	{CTRL_DOWN , NKCODE_S},
+	{CTRL_LEFT , NKCODE_A},
+	{CTRL_RIGHT, NKCODE_D},
+	{VIRTKEY_AXIS_Y_MAX, NKCODE_W},
+	{VIRTKEY_AXIS_Y_MIN, NKCODE_S},
+	{VIRTKEY_AXIS_X_MIN, NKCODE_A},
+	{VIRTKEY_AXIS_X_MAX, NKCODE_D},
+#else
 	{CTRL_UP   , NKCODE_DPAD_UP},
 	{CTRL_DOWN , NKCODE_DPAD_DOWN},
 	{CTRL_LEFT , NKCODE_DPAD_LEFT},
@@ -54,6 +72,7 @@ static const DefMappingStruct defaultKeyboardKeyMap[] = {
 	{VIRTKEY_AXIS_Y_MIN, NKCODE_K},
 	{VIRTKEY_AXIS_X_MIN, NKCODE_J},
 	{VIRTKEY_AXIS_X_MAX, NKCODE_L},
+#endif
 	{VIRTKEY_RAPID_FIRE  , NKCODE_SHIFT_LEFT},
 	{VIRTKEY_UNTHROTTLE  , NKCODE_TAB},
 	{VIRTKEY_SPEED_TOGGLE, NKCODE_GRAVE},
@@ -78,8 +97,8 @@ static const DefMappingStruct default360KeyMap[] = {
 	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
 	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
 	{VIRTKEY_UNTHROTTLE  , JOYSTICK_AXIS_RTRIGGER, +1},
-	{VIRTKEY_PAUSE       , NKCODE_BUTTON_THUMBR},
-	{VIRTKEY_SPEED_TOGGLE, NKCODE_BUTTON_L2},
+	{VIRTKEY_SPEED_TOGGLE, NKCODE_BUTTON_THUMBR},
+	{VIRTKEY_PAUSE       , JOYSTICK_AXIS_LTRIGGER, +1},
 	{VIRTKEY_PAUSE,        NKCODE_HOME},
 };
 
@@ -105,7 +124,7 @@ static const DefMappingStruct defaultShieldKeyMap[] = {
 };
 
 static const DefMappingStruct defaultPadMap[] = {
-#ifdef ANDROID
+#if defined(ANDROID) || defined(BLACKBERRY)
 	{CTRL_CROSS          , NKCODE_BUTTON_A},
 	{CTRL_CIRCLE         , NKCODE_BUTTON_B},
 	{CTRL_SQUARE         , NKCODE_BUTTON_X},
@@ -177,7 +196,7 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{CTRL_DOWN           , NKCODE_DPAD_DOWN},
 	{CTRL_LEFT           , NKCODE_DPAD_LEFT},
 	{CTRL_START          , NKCODE_BUTTON_START},
-	{CTRL_SELECT         , NKCODE_BACK},
+	{CTRL_SELECT         , NKCODE_BUTTON_SELECT},
 	{CTRL_LTRIGGER       , NKCODE_BUTTON_L1},
 	{CTRL_RTRIGGER       , NKCODE_BUTTON_R1},
 	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
@@ -204,16 +223,16 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		SetDefaultKeyMap(DEVICE_ID_X360_0, default360KeyMap, ARRAY_SIZE(default360KeyMap), replace);
 		break;
 	case DEFAULT_MAPPING_SHIELD:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, defaultShieldKeyMap, ARRAY_SIZE(defaultShieldKeyMap), replace);
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultShieldKeyMap, ARRAY_SIZE(defaultShieldKeyMap), replace);
 		break;
 	case DEFAULT_MAPPING_PAD:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, defaultPadMap, ARRAY_SIZE(defaultPadMap), replace);
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultPadMap, ARRAY_SIZE(defaultPadMap), replace);
 		break;
 	case DEFAULT_MAPPING_OUYA:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, defaultOuyaMap, ARRAY_SIZE(defaultOuyaMap), replace);
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultOuyaMap, ARRAY_SIZE(defaultOuyaMap), replace);
 		break;
 	case DEFAULT_MAPPING_XPERIA_PLAY:
-		SetDefaultKeyMap(DEVICE_ID_X360_0, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);
+		SetDefaultKeyMap(DEVICE_ID_DEFAULT, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);
 		break;
 	}
 }
@@ -607,7 +626,15 @@ void RestoreDefault() {
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
 #elif defined(ANDROID)
-	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
+	// Autodetect a few common devices
+	std::string name = System_GetName();
+	if (name == "NVIDIA:SHIELD") {
+		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
+	} else if (name == "OUYA:OUYA") {  // TODO: check!
+		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
+	} else if (name == "Sony Ericsson:R800i" || name == "Sony Ericsson:zeus") {
+		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);
+	}
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
@@ -623,14 +650,13 @@ void LoadFromIni(IniFile &file) {
 
 	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
 	for (int i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
-		if (!controls->Exists(psp_button_names[i].name.c_str()))
-			continue;
 		std::string value;
 		controls->Get(psp_button_names[i].name.c_str(), &value, "");
-		if (value.empty())
-			continue;
+
 		// Erase default mapping
 		g_controllerMap.erase(psp_button_names[i].key);
+		if (value.empty()) 
+			continue;
 
 		std::vector<std::string> mappings;
 		SplitString(value, ',', mappings);

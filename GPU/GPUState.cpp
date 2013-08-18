@@ -37,9 +37,11 @@ void GPU_Init() {
 	case GPU_GLES:
 		gpu = new GLES_GPU();
 		break;
+#ifndef __SYMBIAN32__
 	case GPU_SOFTWARE:
 		gpu = new SoftGPU();
 		break;
+#endif
 	}
 }
 

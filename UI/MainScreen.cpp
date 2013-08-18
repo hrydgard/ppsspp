@@ -38,6 +38,12 @@
 #include "GPU/GPUInterface.h"
 #include "i18n/i18n.h"
 
+#ifdef USING_QT_UI
+#include <QFileDialog>
+#include <QFile>
+#include <QDir>
+#endif
+
 #ifdef _WIN32
 namespace MainWindow {
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
@@ -474,7 +480,7 @@ void MainScreen::CreateViews() {
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
@@ -496,7 +502,15 @@ void MainScreen::update(InputState &input) {
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
-#ifdef _WIN32
+#if defined(USING_QT_UI) && !defined(MEEGO_EDITION_HARMATTAN)
+	QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf)");
+	if (QFile::exists(fileName)) {
+		QDir newPath;
+		g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
+		g_Config.Save();
+		screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
+	}
+#elif defined(_WIN32)
 	MainWindow::BrowseAndBoot("");
 #endif
 	return UI::EVENT_DONE;

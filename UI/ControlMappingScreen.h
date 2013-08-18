@@ -28,6 +28,7 @@ protected:
 	virtual void CreateViews();
 
 private:
+	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
 	UI::EventReturn OnClearMapping(UI::EventParams &params);
 };
 

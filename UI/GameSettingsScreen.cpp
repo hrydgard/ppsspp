@@ -37,6 +37,10 @@
 #include "Core/System.h"
 
 #ifdef _WIN32
+#include "Core/Host.h"
+#endif
+
+#ifdef _WIN32
 namespace MainWindow {
 	enum { 
 		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200,
@@ -44,6 +48,9 @@ namespace MainWindow {
 	};
 	extern HWND hwndMain;
 }
+#endif
+#ifdef IOS
+extern bool isJailed;
 #endif
 
 namespace UI {
@@ -285,7 +292,16 @@ void GameSettingsScreen::CreateViews() {
 	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
+
+#ifdef IOS
+	if (isJailed) {
+		systemSettings->Add(new TextView(s->T("DynarecisJailed", "Dynarec (JIT) - (Not jailbroken - JIT not available)")));
+	} else {
+		systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+	}
+#else
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
+#endif
 	systemSettings->Add(new CheckBox(&g_Config.bFastMemory, s->T("Fast Memory", "Fast Memory (Unstable)")));
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")));
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
@@ -368,11 +384,38 @@ void GlobalSettingsScreen::CreateViews() {
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new CheckBox(&g_Config.bNewUI, gs->T("Enable New UI")));
 	list->Add(new CheckBox(&enableReports_, gs->T("Enable Compatibility Server Reports")));
+#ifndef ANDROID
+	// Need to move the cheat config dir somewhere where it can be read/written on android
 	list->Add(new CheckBox(&g_Config.bEnableCheats, gs->T("Enable Cheats")));
+#endif
+#ifdef _WIN32
+	// Screenshot functionality is not yet available on non-Windows
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
+#endif
+
+	// TODO: Come up with a way to display a keyboard for mobile users,
+	// so until then, this is Windows/Desktop only.
+#ifdef _WIN32
+	list->Add(new Choice(g->T("Change Nickname")))->OnClick.Handle(this, &GlobalSettingsScreen::OnChangeNickname);
+#endif
 	list->Add(new Choice(gs->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
 	list->Add(new Choice(gs->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
+}
+
+UI::EventReturn GlobalSettingsScreen::OnChangeNickname(UI::EventParams &e) {
+	#ifdef _WIN32
+
+	const size_t name_len = 256;
+
+	char name[name_len];
+	memset(name, 0, sizeof(name));
+
+	if (host->InputBoxGetString("Enter a new PSP nickname", "PPSSPP", name, name_len)) {
+		g_Config.sNickName = name;
+	}
+	#endif
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GlobalSettingsScreen::OnFactoryReset(UI::EventParams &e) {
@@ -415,9 +458,12 @@ void DeveloperToolsScreen::CreateViews() {
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->Add(new ItemHeader(g->T("General")));
+	list->Add(new Choice(g->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+#ifndef __SYMBIAN32__
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
-	list->Add(new CheckBox(&enableLogging_, d->T("Enable Debug Logging")));
+#endif
+	list->Add(new CheckBox(&enableLogging_, d->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
 
@@ -430,6 +476,18 @@ UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 #endif
 	g_Config.Save();
 
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnLoggingChanged(UI::EventParams &e) {
+#ifdef _WIN32
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnSysInfo(UI::EventParams &e) {
+	screenManager()->push(new SystemInfoScreen());
 	return UI::EVENT_DONE;
 }
 

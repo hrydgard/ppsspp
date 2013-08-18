@@ -1243,6 +1243,7 @@ namespace MainWindow
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
+		CHECKITEM(ID_IO_MULTITHREADED, g_Config.bSeparateIOThread);
 		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);

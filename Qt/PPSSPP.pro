@@ -50,7 +50,6 @@ SOURCES += ../UI/*Screen.cpp \
 	../UI/GameInfoCache.cpp \
 	../UI/OnScreenDisplay.cpp \
 	../UI/UIShader.cpp \
-	../UI/ui_atlas.cpp \
 	../android/jni/TestRunner.cpp
 
 HEADERS += ../UI/*.h
@@ -70,7 +69,13 @@ linux:!mobile_platform {
 	# Desktop handles the Init separately
 	SOURCES += ../UI/NativeApp.cpp
 }
+symbian {
+RESOURCES += assets_lowmem.qrc
+SOURCES += ../UI/ui_atlas_lowmem.cpp
+} else {
 RESOURCES += assets.qrc
+SOURCES += ../UI/ui_atlas.cpp
+}
 
 # Translations
 TRANSLATIONS = $$files(languages/ppsspp_*.ts)
@@ -98,7 +103,7 @@ symbian {
 	ICON = ../assets/icon.svg
 
 	# Folders:
-	assets.sources = ../assets/flash0 ../lang
+	assets.sources = ../flash0 ../lang
 	assets.path = E:/PPSSPP
 
 	DEPLOYMENT += vendor_deploy assets
@@ -110,7 +115,7 @@ symbian {
 
 contains(MEEGO_EDITION,harmattan) {
 	target.path = /opt/PPSSPP/bin
-	assets.files = ../assets/flash0 ../lang
+	assets.files = ../flash0 ../lang
 	assets.path = /opt/PPSSPP
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications
