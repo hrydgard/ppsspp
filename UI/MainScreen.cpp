@@ -120,7 +120,10 @@ void GameButton::Draw(UIContext &dc) {
 		if (HasFocus())
 			style = down_ ? dc.theme->itemDownStyle : dc.theme->itemFocusedStyle;
 
+		dc.Draw()->Flush();
+		dc.RebindTexture();
 		dc.FillRect(style.background, bounds_);
+		dc.Draw()->Flush();
 	}
 
 	if (texture) {
@@ -167,16 +170,24 @@ void GameButton::Draw(UIContext &dc) {
 		}
 		dc.Draw()->DrawTexRect(x, y, x+w, y+h, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
-		dc.RebindTexture();
 	}
 
+	dc.Draw()->Flush();
+	dc.RebindTexture();
 	if (!gridStyle_) {
-		dc.Draw()->DrawText(0, ginfo->title.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-	} else {
+		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		if (!texture)
-			dc.Draw()->DrawText(0, ginfo->title.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.Draw()->DrawText(0, ginfo->title.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.Draw()->Flush();
 		dc.PopScissor();
+	} else if (!texture) {
+		dc.Draw()->Flush();
+		dc.PushScissor(bounds_);
+		dc.Draw()->DrawText(0, ginfo->title.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.Draw()->Flush();
+		dc.PopScissor();
+	} else {
+		dc.Draw()->Flush();
 	}
 }
 
@@ -279,7 +290,7 @@ void PathBrowser::Navigate(const std::string &path) {
 
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(std::string path, bool allowBrowsing, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = 0);
+	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = 0);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
@@ -296,21 +307,20 @@ private:
 
 	UI::ViewGroup *gameList_;
 	PathBrowser path_;
+	bool *gridStyle_;
 	bool allowBrowsing_;
-	bool gridStyle_;
 	std::string lastText_;
 	std::string lastLink_; 
 };
 
-GameBrowser::GameBrowser(std::string path, bool allowBrowsing, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams) 
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), allowBrowsing_(allowBrowsing), gameList_(0), lastText_(lastText), lastLink_(lastLink) {
+GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams) 
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), allowBrowsing_(allowBrowsing), gridStyle_(gridStyle), gameList_(0), lastText_(lastText), lastLink_(lastLink) {
 	using namespace UI;
-	gridStyle_ = true;
 	Refresh();
 }
 
 UI::EventReturn GameBrowser::LayoutChange(UI::EventParams &e) {
-	gridStyle_ = e.a == 0 ? true : false;
+	*gridStyle_ = e.a == 0 ? true : false;
 	Refresh();
 	return UI::EVENT_DONE;
 }
@@ -340,12 +350,12 @@ void GameBrowser::Refresh() {
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
 		layoutChoice->AddChoice("Grid");
 		layoutChoice->AddChoice("List");
-		layoutChoice->SetSelection(gridStyle_ ? 0 : 1);
+		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1);
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 		Add(topBar);
 	}
 	
-	if (gridStyle_) {
+	if (*gridStyle_) {
 		gameList_ = new UI::GridLayout(UI::GridLayoutSettings(150, 85), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	} else {
 		gameList_ = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -358,7 +368,7 @@ void GameBrowser::Refresh() {
 
 	if (path_.GetPath() == "!RECENT") {
 		for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
-			gameButtons.push_back(new GameButton(g_Config.recentIsos[i], gridStyle_));
+			gameButtons.push_back(new GameButton(g_Config.recentIsos[i], *gridStyle_));
 		}
 	} else {
 		std::vector<FileInfo> fileInfo;
@@ -369,7 +379,7 @@ void GameBrowser::Refresh() {
 				if (allowBrowsing_)
 					dirButtons.push_back(new UI::Button(fileInfo[i].name.c_str(), new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 			} else {
-				gameButtons.push_back(new GameButton(fileInfo[i].fullName, gridStyle_, new UI::LinearLayoutParams(gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
+				gameButtons.push_back(new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 			}
 		}
 	}
@@ -441,12 +451,12 @@ void MainScreen::CreateViews() {
 	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	GameBrowser *tabRecentGames = new GameBrowser(
-		"!RECENT", false, m->T("How to get games"), "http://www.ppsspp.org/faq.html",
+		"!RECENT", false, &g_Config.bGridView1, m->T("How to get games"), "http://www.ppsspp.org/faq.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true,
+	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2, 
 		m->T("How to get games"), "http://www.ppsspp.org/faq.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	GameBrowser *tabHomebrew = new GameBrowser(g_Config.memCardDirectory + "PSP/GAME/", false,
+	GameBrowser *tabHomebrew = new GameBrowser(g_Config.memCardDirectory + "PSP/GAME/", false, &g_Config.bGridView3, 
 		"", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 

@@ -111,6 +111,11 @@ public:
 	bool bShowDebugStats;
 	bool bAccelerometerToAnalogHoriz;
 
+	// The three tabs.
+	bool bGridView1;
+	bool bGridView2;
+	bool bGridView3;
+
 	// Control
 	int iTouchButtonOpacity;
 	float fButtonScale;

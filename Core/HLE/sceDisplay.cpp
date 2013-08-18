@@ -353,10 +353,9 @@ void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 			skipFrame = true;
 	}
 
-	if (curFrameTime < nextFrameTime && throttle)
-	{
+	if (curFrameTime < nextFrameTime && throttle) {
 		// If time gap is huge just jump (somebody unthrottled)
-		if (nextFrameTime - curFrameTime > 2*timestep) {
+		if ((nextFrameTime - curFrameTime > 2*timestep) && fpsLimiter == FPS_LIMIT_NORMAL) {
 			nextFrameTime = curFrameTime + timestep;
 		} else {
 			// Wait until we've caught up.
