@@ -64,6 +64,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("MaxRecent", &iMaxRecent, 12);
 	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
 	general->Get("StateSlot", &iCurrentStateSlot, 0);
+	general->Get("GridView1", &bGridView1, true);
+	general->Get("GridView2", &bGridView2, true);
+	general->Get("GridView3", &bGridView3, true);
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
@@ -239,6 +242,9 @@ void Config::Save()
 		general->Set("EnableCheats", bEnableCheats);
 		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
 		general->Set("StateSlot", iCurrentStateSlot);
+		general->Set("GridView1", bGridView1);
+		general->Set("GridView2", bGridView2);
+		general->Set("GridView3", bGridView3);
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
