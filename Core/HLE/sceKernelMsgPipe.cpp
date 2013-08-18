@@ -435,6 +435,18 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
 
+	if (sendSize != 0 && !Memory::IsValidAddress(sendBufAddr))
+	{
+		ERROR_LOG(HLE, "__KernelSendMsgPipe(%d): bad buffer address %08x (should crash?)", uid, sendBufAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+
+	if (waitMode != SCE_KERNEL_MPW_ASAP && waitMode != SCE_KERNEL_MPW_FULL)
+	{
+		ERROR_LOG(HLE, "__KernelSendMsgPipe(%d): invalid wait mode", uid, waitMode);
+		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
+	}
+
 	// If the buffer size is 0, nothing is buffered and all operations wait.
 	if (m->nmp.bufSize == 0)
 	{
@@ -506,7 +518,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 			if (m->CheckReceiveThreads())
 				hleReSchedule(cbEnabled, "msgpipe data sent");
 		}
-		else
+		else if (sendSize != 0)
 		{
 			if (poll)
 				return SCE_KERNEL_ERROR_MPP_FULL;
