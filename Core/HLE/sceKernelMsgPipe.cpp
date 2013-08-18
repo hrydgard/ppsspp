@@ -115,7 +115,7 @@ struct MsgPipe : public KernelObject
 			Memory::Memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), thread->bufSize);
 			*thread->transferredBytes = thread->bufSize;
 			nmp.freeSize -= thread->bufSize;
-			__KernelResumeThreadFromWait(thread->id);
+			__KernelResumeThreadFromWait(thread->id, 0);
 			sendWaitingThreads.erase(sendWaitingThreads.begin());
 			CheckReceiveThreads();
 		}
@@ -125,7 +125,7 @@ struct MsgPipe : public KernelObject
 			Memory::Memcpy(buffer + (nmp.bufSize - nmp.freeSize), Memory::GetPointer(thread->bufAddr), nmp.freeSize);
 			*thread->transferredBytes = nmp.freeSize;
 			nmp.freeSize = 0;
-			__KernelResumeThreadFromWait(thread->id);
+			__KernelResumeThreadFromWait(thread->id, 0);
 			receiveWaitingThreads.erase(receiveWaitingThreads.begin());
 			CheckReceiveThreads();
 		}
@@ -145,7 +145,7 @@ struct MsgPipe : public KernelObject
 			memmove(Memory::GetPointer(buffer), Memory::GetPointer(buffer) + thread->bufSize, nmp.bufSize - nmp.freeSize);
 			*thread->transferredBytes = thread->bufSize;
 			nmp.freeSize += thread->bufSize;
-			__KernelResumeThreadFromWait(thread->id);
+			__KernelResumeThreadFromWait(thread->id, 0);
 			receiveWaitingThreads.erase(receiveWaitingThreads.begin());
 			CheckSendThreads();
 		}
@@ -155,7 +155,7 @@ struct MsgPipe : public KernelObject
 			Memory::Memcpy(thread->bufAddr, Memory::GetPointer(buffer), nmp.bufSize - nmp.freeSize);
 			*thread->transferredBytes = nmp.bufSize - nmp.freeSize;
 			nmp.freeSize = nmp.bufSize;
-			__KernelResumeThreadFromWait(thread->id);
+			__KernelResumeThreadFromWait(thread->id, 0);
 			receiveWaitingThreads.erase(receiveWaitingThreads.begin());
 			CheckSendThreads();
 		}
@@ -250,13 +250,17 @@ void sceKernelDeleteMsgPipe()
 		RETURN(error);
 		return;
 	}
-	for (u32 i = 0; i < m->sendWaitingThreads.size(); i++)
+	for (u32 i = 0; i < (u32)m->sendWaitingThreads.size(); i++)
 	{
-		__KernelResumeThreadFromWait(m->sendWaitingThreads[i].id);
+		auto &waitInfo = m->sendWaitingThreads[i];
+		*waitInfo.transferredBytes = 0;
+		__KernelResumeThreadFromWait(waitInfo.id, SCE_KERNEL_ERROR_WAIT_DELETE);
 	}
-	for (u32 i = 0; i < m->receiveWaitingThreads.size(); i++)
+	for (u32 i = 0; i < (u32)m->receiveWaitingThreads.size(); i++)
 	{
-		__KernelResumeThreadFromWait(m->receiveWaitingThreads[i].id);
+		auto &waitInfo = m->receiveWaitingThreads[i];
+		*waitInfo.transferredBytes = 0;
+		__KernelResumeThreadFromWait(waitInfo.id, SCE_KERNEL_ERROR_WAIT_DELETE);
 	}
 	DEBUG_LOG(HLE, "sceKernelDeleteMsgPipe(%i)", uid);
 	RETURN(kernelObjects.Destroy<MsgPipe>(uid));
@@ -279,7 +283,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 				if (thread->waitMode == SCE_KERNEL_MPW_ASAP)
 				{
 					*thread->transferredBytes = thread->bufSize - thread->freeSize;
-					__KernelResumeThreadFromWait(thread->id);
+					__KernelResumeThreadFromWait(thread->id, 0);
 					m->receiveWaitingThreads.erase(m->receiveWaitingThreads.begin());
 				}
 				break;
@@ -288,7 +292,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 			{
 				Memory::Memcpy(thread->bufAddr + (thread->bufSize - thread->freeSize), Memory::GetPointer(curSendAddr), sendSize);
 				*thread->transferredBytes = thread->bufSize;
-				__KernelResumeThreadFromWait(thread->id);
+				__KernelResumeThreadFromWait(thread->id, 0);
 				m->receiveWaitingThreads.erase(m->receiveWaitingThreads.begin());
 				curSendAddr += sendSize;
 				sendSize = 0;
@@ -300,7 +304,7 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 				sendSize -= thread->freeSize;
 				curSendAddr += thread->freeSize;
 				*thread->transferredBytes = thread->bufSize;
-				__KernelResumeThreadFromWait(thread->id);
+				__KernelResumeThreadFromWait(thread->id, 0);
 				m->receiveWaitingThreads.erase(m->receiveWaitingThreads.begin());
 			}
 		}
@@ -449,7 +453,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 				if (thread->waitMode == SCE_KERNEL_MPW_ASAP)
 				{
 					*thread->transferredBytes = thread->bufSize - thread->freeSize;
-					__KernelResumeThreadFromWait(thread->id);
+					__KernelResumeThreadFromWait(thread->id, 0);
 					m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 				}
 				break;
@@ -459,7 +463,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 			{
 				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(thread->bufAddr), receiveSize);
 				*thread->transferredBytes = thread->bufSize;
-				__KernelResumeThreadFromWait(thread->id);
+				__KernelResumeThreadFromWait(thread->id, 0);
 				m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 				curReceiveAddr += receiveSize;
 				receiveSize = 0;
@@ -472,7 +476,7 @@ void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int
 				receiveSize -= thread->bufSize - thread->freeSize;
 				curReceiveAddr += thread->bufSize - thread->freeSize;
 				*thread->transferredBytes = thread->bufSize;
-				__KernelResumeThreadFromWait(thread->id);
+				__KernelResumeThreadFromWait(thread->id, 0);
 				m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 			}
 		}
@@ -616,14 +620,18 @@ void sceKernelCancelMsgPipe()
 		return;
 	}
 	u32 count;
-	for (count = 0; count < m->sendWaitingThreads.size(); count++)
+	for (count = 0; count < (u32)m->sendWaitingThreads.size(); count++)
 	{
-		__KernelResumeThreadFromWait(m->sendWaitingThreads[count].id);
+		auto &waitInfo = m->sendWaitingThreads[count];
+		*waitInfo.transferredBytes = 0;
+		__KernelResumeThreadFromWait(waitInfo.id, SCE_KERNEL_ERROR_WAIT_CANCEL);
 	}
 	Memory::Write_U32(count, numSendThreadsAddr);
-	for (count = 0; count < m->receiveWaitingThreads.size(); count++)
+	for (count = 0; count < (u32)m->receiveWaitingThreads.size(); count++)
 	{
-		__KernelResumeThreadFromWait(m->receiveWaitingThreads[count].id);
+		auto &waitInfo = m->receiveWaitingThreads[count];
+		*waitInfo.transferredBytes = 0;
+		__KernelResumeThreadFromWait(waitInfo.id, SCE_KERNEL_ERROR_WAIT_CANCEL);
 	}
 	Memory::Write_U32(count, numReceiveThreadsAddr);
 	DEBUG_LOG(HLE, "sceKernelCancelMsgPipe(%i, %i, %i)", uid, numSendThreadsAddr, numReceiveThreadsAddr);
