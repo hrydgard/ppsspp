@@ -232,6 +232,20 @@ struct MsgPipe : public KernelObject
 
 	void SortReceiveThreads()
 	{
+		// Clean up any not waiting at the same time.
+		size_t size = receiveWaitingThreads.size();
+		for (size_t i = 0; i < size; ++i)
+		{
+			if (!receiveWaitingThreads[i].IsStillWaiting(GetUID()))
+			{
+				// Decrement size and swap what was there with i.
+				std::swap(receiveWaitingThreads[i], receiveWaitingThreads[--size]);
+				// Now we haven't checked the new i, so go back and do i again.
+				--i;
+			}
+		}
+		receiveWaitingThreads.resize(size);
+
 		bool usePrio = (nmp.attr & SCE_KERNEL_MPA_THPRI_R) != 0;
 		if (usePrio)
 			std::stable_sort(receiveWaitingThreads.begin(), receiveWaitingThreads.end(), __KernelMsgPipeThreadSortPriority);
@@ -239,6 +253,20 @@ struct MsgPipe : public KernelObject
 
 	void SortSendThreads()
 	{
+		// Clean up any not waiting at the same time.
+		size_t size = sendWaitingThreads.size();
+		for (size_t i = 0; i < size; ++i)
+		{
+			if (!sendWaitingThreads[i].IsStillWaiting(GetUID()))
+			{
+				// Decrement size and swap what was there with i.
+				std::swap(sendWaitingThreads[i], sendWaitingThreads[--size]);
+				// Now we haven't checked the new i, so go back and do i again.
+				--i;
+			}
+		}
+		sendWaitingThreads.resize(size);
+
 		bool usePrio = (nmp.attr & SCE_KERNEL_MPA_THPRI_S) != 0;
 		if (usePrio)
 			std::stable_sort(sendWaitingThreads.begin(), sendWaitingThreads.end(), __KernelMsgPipeThreadSortPriority);
@@ -415,11 +443,6 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 		while (!m->receiveWaitingThreads.empty() && sendSize != 0)
 		{
 			MsgPipeWaitingThread *thread = &m->receiveWaitingThreads.front();
-			if (!thread->IsStillWaiting(uid))
-			{
-				m->receiveWaitingThreads.erase(m->receiveWaitingThreads.begin());
-				continue;
-			}
 
 			u32 bytesToSend = std::min(thread->freeSize, sendSize);
 			if (bytesToSend > 0)
@@ -464,6 +487,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 
 		u32 bytesToSend = 0;
 		// If others are already waiting, space or not, we have to get in line.
+		m->SortSendThreads();
 		if (m->sendWaitingThreads.empty())
 		{
 			if (sendSize <= (u32) m->nmp.freeSize)
