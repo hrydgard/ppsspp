@@ -693,6 +693,9 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// and take appropriate action. This is a block transfer between RAM and VRAM, or vice versa.
 			// Can we skip this on SkipDraw?
 			DoBlockTransfer();
+
+			// Fixes Gran Turismo's funky text issue.
+			gstate_c.textureChanged = true;
 			break;
 		}
 
@@ -1096,7 +1099,7 @@ void GLES_GPU::DoBlockTransfer() {
 
 	int bpp = (gstate.transferstart & 1) ? 4 : 2;
 
-	DEBUG_LOG(G3D, "Block transfer: %08x to %08x, %i x %i , ...", srcBasePtr, dstBasePtr, width, height);
+	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
 	// Do the copy!
 	for (int y = 0; y < height; y++) {
