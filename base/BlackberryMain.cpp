@@ -172,7 +172,6 @@ void BlackberryMain::startMain(int argc, char *argv[]) {
 	// TODO: Enable/disable based on setting
 	sensor_set_rate(SENSOR_TYPE_ACCELEROMETER, 25000);
 	sensor_request_events(SENSOR_TYPE_ACCELEROMETER);
-	old_buttons = 0;
 
 	net::Init();
 	startDisplays();

@@ -48,7 +48,7 @@ public:
 	BlackberryMain(int argc, char *argv[]) :
 		emulating(false),
 		screen_ui(0), screen_emu(0),
-		controller_buttons(0),
+		old_buttons(0),
 		egl_cont(EGL_NO_CONTEXT)
 	{
 		startMain(argc, argv);
