@@ -24,7 +24,7 @@
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "") : gamePath_(gamePath), gameID_(gameID) {}
+	GameSettingsScreen(std::string gamePath, std::string gameID = "") : gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3) {}
 
 	virtual void update(InputState &input);
 
@@ -46,6 +46,7 @@ private:
 	
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
+	int iAlternateSpeedPercent_;
 };
 
 // TODO: Move to its own file.

@@ -212,7 +212,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_SPEED_TOGGLE:
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
-			osm.Show(s->T("fixed", "Speed: fixed"), 1.0);
+			osm.Show(s->T("fixed", "Speed: alternate"), 1.0);
 		}
 		else if (PSP_CoreParameter().fpsLimit == 1) {
 			PSP_CoreParameter().fpsLimit = 0;
