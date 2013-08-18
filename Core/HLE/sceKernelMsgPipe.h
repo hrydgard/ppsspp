@@ -18,14 +18,14 @@
 #pragma once
 
 int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr);
-void sceKernelDeleteMsgPipe();
+int sceKernelDeleteMsgPipe(SceUID uid);
 void sceKernelSendMsgPipe();
 void sceKernelSendMsgPipeCB();
 void sceKernelTrySendMsgPipe();
 void sceKernelReceiveMsgPipe();
 void sceKernelReceiveMsgPipeCB();
 void sceKernelTryReceiveMsgPipe();
-void sceKernelCancelMsgPipe();
+int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThreadsAddr);
 void sceKernelReferMsgPipeStatus();
 
 KernelObject *__KernelMsgPipeObject();
