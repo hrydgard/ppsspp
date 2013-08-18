@@ -62,7 +62,10 @@ void UIContext::End() {
 // TODO: Support transformed bounds using stencil
 void UIContext::PushScissor(const Bounds &bounds) {
 	Flush();
-	scissorStack_.push_back(bounds);
+	Bounds clipped = bounds;
+	if (scissorStack_.size())
+		clipped.Clip(scissorStack_.back());
+	scissorStack_.push_back(clipped);
 	ActivateTopScissor();
 }
 

@@ -456,27 +456,32 @@ void FrameLayout::Layout() {
 void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	// Respect margins
 	Margins margins;
-	const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
-	if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
-
-	if (linLayoutParams) {
-		margins = linLayoutParams->margins;
+	if (views_.size()) {
+		const LinearLayoutParams *linLayoutParams = static_cast<const LinearLayoutParams*>(views_[0]->GetLayoutParams());
+		if (!linLayoutParams->Is(LP_LINEAR)) linLayoutParams = 0;
+		if (linLayoutParams) {
+			margins = linLayoutParams->margins;
+		}
 	}
 
 	// The scroll view itself simply obeys its parent - but also tries to fit the child if possible.
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
 
-	if (orientation_ == ORIENT_HORIZONTAL) {
-		views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(AT_MOST, measuredHeight_ - (margins.top + margins.bottom)));
-	} else {
-		views_[0]->Measure(dc, MeasureSpec(AT_MOST, measuredWidth_ - (margins.left + margins.right)), MeasureSpec(UNSPECIFIED));
+	if (views_.size()) {
+		if (orientation_ == ORIENT_HORIZONTAL) {
+			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(AT_MOST, measuredHeight_ - (margins.top + margins.bottom)));
+		} else {
+			views_[0]->Measure(dc, MeasureSpec(AT_MOST, measuredWidth_ - (margins.left + margins.right)), MeasureSpec(UNSPECIFIED));
+		}
+		if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY && measuredHeight_ < views_[0]->GetBounds().h)
+			measuredHeight_ = views_[0]->GetBounds().h;
 	}
-	if (orientation_ == ORIENT_VERTICAL && vert.type != EXACTLY && measuredHeight_ < views_[0]->GetBounds().h)
-		measuredHeight_ = views_[0]->GetBounds().h;
 }
 
 void ScrollView::Layout() {
+	if (!views_.size())
+		return;
 	Bounds scrolled;
 
 	// Respect margins
@@ -490,12 +495,21 @@ void ScrollView::Layout() {
 	scrolled.w = views_[0]->GetMeasuredWidth() - (margins.left + margins.right);
 	scrolled.h = views_[0]->GetMeasuredHeight() - (margins.top + margins.bottom);
 
+
 	switch (orientation_) {
 	case ORIENT_HORIZONTAL:
+		if (scrolled.w != lastViewSize_) {
+			ScrollTo(0.0f);
+			lastViewSize_ = scrolled.w;
+		}
 		scrolled.x = bounds_.x - scrollPos_;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
+		if (scrolled.h != lastViewSize_) {
+			ScrollTo(0.0f);
+			lastViewSize_ = scrolled.h;
+		}
 		scrolled.x = bounds_.x + margins.left;
 		scrolled.y = bounds_.y - scrollPos_;
 		break;
@@ -547,6 +561,10 @@ void ScrollView::Touch(const TouchInput &input) {
 }
 
 void ScrollView::Draw(UIContext &dc) {
+	if (!views_.size()) {
+		ViewGroup::Draw(dc);
+		return;
+	}
 	dc.PushScissor(bounds_);
 	views_[0]->Draw(dc);
 	dc.PopScissor();
@@ -608,6 +626,8 @@ void ScrollView::ScrollRelative(float distance) {
 }
 
 void ScrollView::ClampScrollPos(float &pos) {
+	if (!views_.size())
+		pos = 0.0f;
 	// Clamp scrollTarget.
 	float childHeight = views_[0]->GetBounds().h;
 	float scrollMax = std::max(0.0f, childHeight - bounds_.h);
@@ -621,6 +641,8 @@ void ScrollView::ClampScrollPos(float &pos) {
 }
 
 bool ScrollView::CanScroll() const {
+	if (!views_.size())
+		return false;
 	return views_[0]->GetBounds().h > bounds_.h;
 }
 

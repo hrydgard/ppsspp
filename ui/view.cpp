@@ -349,7 +349,15 @@ void Button::Draw(UIContext &dc) {
 
 	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
 	dc.FillRect(style.background, bounds_);
+	float tw, th;
+	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &tw, &th);
+	if (tw > bounds_.w) {
+		dc.PushScissor(bounds_);
+	}
 	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
+	if (tw > bounds_.w) {
+		dc.PopScissor();
+	}
 }
 
 void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

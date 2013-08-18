@@ -35,6 +35,23 @@ struct Bounds {
 		return !(x > other.x2() || x2() < other.x || y > other.y2() || y2() < other.y);
 	}
 
+	void Clip(const Bounds &clipTo) {
+		if (x < clipTo.x) {
+			w -= clipTo.x - x;
+			x = clipTo.x;
+		}
+		if (y < clipTo.y) {
+			h -= clipTo.y - y;
+			y = clipTo.y;
+		}
+		if (x2() > clipTo.x2()) {
+			w = clipTo.x2() - x;
+		}
+		if (y2() > clipTo.y2()) {
+			h = clipTo.y2() - y;
+		}
+	}
+
 	float x2() const { return x + w; }
 	float y2() const { return y + h; }
 	float centerX() const { return x + w * 0.5f; }

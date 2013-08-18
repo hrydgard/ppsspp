@@ -57,6 +57,8 @@ public:
 
 	void SetHasDropShadow(bool has) { hasDropShadow_ = has; }
 
+	void Lock() { modifyLock_.lock(); }
+	void Unlock() { modifyLock_.unlock(); }
 protected:
 	recursive_mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
@@ -185,7 +187,8 @@ public:
 		scrollStart_(0),
 		scrollMax_(0),
 		scrollTarget_(0),
-		scrollToTarget_(false) {}
+		scrollToTarget_(false),
+		lastViewSize_(0.0f) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
@@ -212,6 +215,8 @@ private:
 	float scrollMax_;
 	float scrollTarget_;
 	bool scrollToTarget_;
+
+	float lastViewSize_;
 };
 
 class ViewPager : public ScrollView {
