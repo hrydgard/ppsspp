@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "Core/Reporting.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
@@ -354,7 +356,7 @@ int sceKernelDeleteMsgPipe(SceUID uid)
 	return kernelObjects.Destroy<MsgPipe>(uid);
 }
 
-void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
+int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
 {
 	u32 curSendAddr = sendBufAddr;
 	if (m->nmp.bufSize == 0)
@@ -397,19 +399,15 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 		if (sendSize != 0 && (waitMode != SCE_KERNEL_MPW_ASAP || curSendAddr == sendBufAddr))
 		{
 			if (poll)
-			{
-				RETURN(SCE_KERNEL_ERROR_MPP_FULL);
-				return;
-			}
+				return SCE_KERNEL_ERROR_MPP_FULL;
 			else
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
-				RETURN(0);
 				if (__KernelSetMsgPipeTimeout(timeoutPtr))
 					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
 				else
-					RETURN(SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-				return;
+					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+				return 0;
 			}
 		}
 	}
@@ -432,19 +430,15 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 		else
 		{
 			if (poll)
-			{
-				RETURN(SCE_KERNEL_ERROR_MPP_FULL);
-				return;
-			}
+				return SCE_KERNEL_ERROR_MPP_FULL;
 			else
 			{
 				m->AddSendWaitingThread(__KernelGetCurThread(), curSendAddr, sendSize, waitMode, resultAddr);
-				RETURN(0);
 				if (__KernelSetMsgPipeTimeout(timeoutPtr))
 					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
 				else
-					RETURN(SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-				return;
+					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
+				return 0;
 			}
 		}
 
@@ -455,70 +449,48 @@ void __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode
 	}
 	Memory::Write_U32(curSendAddr - sendBufAddr, resultAddr);
 
-	RETURN(0);
+	return 0;
 }
 
-void sceKernelSendMsgPipe()
+int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr)
 {
-	SceUInt uid = PARAM(0);
-	u32 sendBufAddr = PARAM(1);
-	u32 sendSize = PARAM(2);
-	int waitMode = PARAM(3);
-	u32 resultAddr = PARAM(4);
-	u32 timeoutPtr = PARAM(5);
-
 	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelSendMsgPipe(%i) - ERROR %08x", uid, error);
-		RETURN(error);
-		return;
+		return error;
 	}
 
 	DEBUG_LOG(HLE, "sceKernelSendMsgPipe(id=%i, addr=%08x, size=%i, mode=%i, result=%08x, timeout=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
-	__KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr, false, false);
+	return __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr, false, false);
 }
 
-void sceKernelSendMsgPipeCB()
+int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr)
 {
-	SceUInt uid = PARAM(0);
-	u32 sendBufAddr = PARAM(1);
-	u32 sendSize = PARAM(2);
-	int waitMode = PARAM(3);
-	u32 resultAddr = PARAM(4);
-	u32 timeoutPtr = PARAM(5);
-
 	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelSendMsgPipeCB(%i) - ERROR %08x", uid, error);
-		RETURN(error);
-		return;
+		return error;
 	}
 
 	DEBUG_LOG(HLE, "sceKernelSendMsgPipeCB(id=%i, addr=%08x, size=%i, mode=%i, result=%08x, timeout=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr);
-	__KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr, true, false);
-	__KernelCheckCallbacks();
+	// TODO: Verify callback behavior.
+	hleCheckCurrentCallbacks();
+	return __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, timeoutPtr, true, false);
 }
 
-void sceKernelTrySendMsgPipe()
+int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr)
 {
-	SceUInt uid = PARAM(0);
-	u32 sendBufAddr = PARAM(1);
-	u32 sendSize = PARAM(2);
-	int waitMode = PARAM(3);
-	u32 resultAddr = PARAM(4);
-
 	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (!m) {
 		ERROR_LOG(HLE, "sceKernelTrySendMsgPipe(%i) - ERROR %08x", uid, error);
-		RETURN(error);
-		return;
+		return error;
 	}
 
 	DEBUG_LOG(HLE, "sceKernelTrySendMsgPipe(id=%i, addr=%08x, size=%i, mode=%i, result=%08x)", uid, sendBufAddr, sendSize, waitMode, resultAddr);
-	__KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, 0, false, true);
+	return __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, 0, false, true);
 }
 
 void __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)

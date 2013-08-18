@@ -21,9 +21,9 @@ class PointerWrap;
 
 int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr);
 int sceKernelDeleteMsgPipe(SceUID uid);
-void sceKernelSendMsgPipe();
-void sceKernelSendMsgPipeCB();
-void sceKernelTrySendMsgPipe();
+int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr);
+int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr);
+int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr);
 void sceKernelReceiveMsgPipe();
 void sceKernelReceiveMsgPipeCB();
 void sceKernelTryReceiveMsgPipe();

@@ -1168,7 +1168,6 @@ int sceKernelFreeVpl(SceUID uid, u32 addr)
 	{
 		if (vpl->alloc.FreeExact(addr))
 		{
-			// TODO: smallest priority
 			if ((vpl->nv.attr & PSP_VPL_ATTR_PRIORITY) != 0)
 				std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);
 

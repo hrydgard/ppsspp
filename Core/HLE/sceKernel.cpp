@@ -759,9 +759,9 @@ const HLEFunction ThreadManForUser[] =
 
 	{0x7C0DC2A0,WrapI_CIUUU<sceKernelCreateMsgPipe>,              "sceKernelCreateMsgPipe"},
 	{0xF0B7DA1C,WrapI_I<sceKernelDeleteMsgPipe>,                  "sceKernelDeleteMsgPipe"},
-	{0x876DBFAD,sceKernelSendMsgPipe,"sceKernelSendMsgPipe"},
-	{0x7C41F2C2,sceKernelSendMsgPipeCB,"sceKernelSendMsgPipeCB"},
-	{0x884C9F90,sceKernelTrySendMsgPipe,"sceKernelTrySendMsgPipe"},
+	{0x876DBFAD,WrapI_IUUUUU<sceKernelSendMsgPipe>,               "sceKernelSendMsgPipe"},
+	{0x7C41F2C2,WrapI_IUUUUU<sceKernelSendMsgPipeCB>,             "sceKernelSendMsgPipeCB"},
+	{0x884C9F90,WrapI_IUUUU<sceKernelTrySendMsgPipe>,             "sceKernelTrySendMsgPipe"},
 	{0x74829B76,sceKernelReceiveMsgPipe,"sceKernelReceiveMsgPipe"},
 	{0xFBFA697D,sceKernelReceiveMsgPipeCB,"sceKernelReceiveMsgPipeCB"},
 	{0xDF52098F,sceKernelTryReceiveMsgPipe,"sceKernelTryReceiveMsgPipe"},
