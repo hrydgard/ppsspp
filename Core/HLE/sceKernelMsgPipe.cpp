@@ -590,6 +590,26 @@ int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitM
 int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, u32 timeoutPtr, bool cbEnabled, bool poll)
 {
 	u32 curReceiveAddr = receiveBufAddr;
+	SceUID uid = m->GetUID();
+
+	if (receiveSize & 0x80000000)
+	{
+		ERROR_LOG(HLE, "__KernelReceiveMsgPipe(%d): illegal size %d", uid, receiveSize);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+
+	if (receiveSize != 0 && !Memory::IsValidAddress(receiveBufAddr))
+	{
+		ERROR_LOG(HLE, "__KernelReceiveMsgPipe(%d): bad buffer address %08x (should crash?)", uid, receiveBufAddr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+
+	if (waitMode != SCE_KERNEL_MPW_ASAP && waitMode != SCE_KERNEL_MPW_FULL)
+	{
+		ERROR_LOG(HLE, "__KernelReceiveMsgPipe(%d): invalid wait mode", uid, waitMode);
+		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
+	}
+
 	// MsgPipe buffer size is 0, receiving directly from waiting send threads
 	if (m->nmp.bufSize == 0)
 	{
@@ -609,7 +629,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 				// The sending thread mode is ASAP: we have sent some data so restart it even though its buffer isn't empty
 				if (thread->waitMode == SCE_KERNEL_MPW_ASAP)
 				{
-					thread->Complete(m->GetUID(), 0, thread->bufSize - thread->freeSize);
+					thread->Complete(uid, 0, thread->bufSize - thread->freeSize);
 					m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 				}
 				break;
@@ -618,7 +638,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 			else if (thread->bufSize - thread->freeSize == receiveSize)
 			{
 				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(thread->bufAddr), receiveSize);
-				thread->Complete(m->GetUID(), 0, thread->bufSize);
+				thread->Complete(uid, 0, thread->bufSize);
 				m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 				curReceiveAddr += receiveSize;
 				receiveSize = 0;
@@ -630,7 +650,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 				Memory::Memcpy(curReceiveAddr, Memory::GetPointer(thread->bufAddr), thread->bufSize - thread->freeSize);
 				receiveSize -= thread->bufSize - thread->freeSize;
 				curReceiveAddr += thread->bufSize - thread->freeSize;
-				thread->Complete(m->GetUID(), 0, thread->bufSize);
+				thread->Complete(uid, 0, thread->bufSize);
 				m->sendWaitingThreads.erase(m->sendWaitingThreads.begin());
 			}
 		}
@@ -643,7 +663,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
 				if (__KernelSetMsgPipeTimeout(timeoutPtr))
-					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+					__KernelWaitCurThread(WAITTYPE_MSGPIPE, uid, 0, timeoutPtr, cbEnabled, "msgpipe receive waited");
 				else
 					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
 				return 0;
@@ -653,6 +673,12 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 	// Getting data from the MsgPipe buffer
 	else
 	{
+		if (receiveSize > (u32) m->nmp.bufSize)
+		{
+			ERROR_LOG(HLE, "__KernelReceiveMsgPipe(%d): size %d too large for buffer", uid, receiveSize);
+			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
+		}
+
 		// Enough data in the buffer: copy just the needed amount of data
 		if (receiveSize <= (u32) m->nmp.bufSize - (u32) m->nmp.freeSize)
 		{
@@ -678,7 +704,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 			{
 				m->AddReceiveWaitingThread(__KernelGetCurThread(), curReceiveAddr, receiveSize, waitMode, resultAddr);
 				if (__KernelSetMsgPipeTimeout(timeoutPtr))
-					__KernelWaitCurThread(WAITTYPE_MSGPIPE, m->GetUID(), 0, timeoutPtr, cbEnabled, "msgpipe waited");
+					__KernelWaitCurThread(WAITTYPE_MSGPIPE, uid, 0, timeoutPtr, cbEnabled, "msgpipe receive waited");
 				else
 					return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
 				return 0;
@@ -690,7 +716,9 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 			m->CheckSendThreads();
 		}
 	}
-	Memory::Write_U32(curReceiveAddr - receiveBufAddr, resultAddr);
+
+	if (Memory::IsValidAddress(resultAddr))
+		Memory::Write_U32(curReceiveAddr - receiveBufAddr, resultAddr);
 
 	return 0;
 }
