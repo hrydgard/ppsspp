@@ -1002,8 +1002,24 @@ namespace MainWindow
 					g_Config.bVertexCache = !g_Config.bVertexCache;
 					break;
 
-				case ID_OPTIONS_SHOWFPS:
-					g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter;
+				case ID_OPTIONS_SHOWFPS_NONE:
+					g_Config.iShowFPSCounter = FPS_DISPLAY_NONE;
+					break;
+
+				case ID_OPTIONS_SHOWFPS_SPEED:
+					g_Config.iShowFPSCounter = FPS_DISPLAY_SPEED_ONLY;
+					break;
+
+				case ID_OPTIONS_SHOWFPS_FPS:
+					g_Config.iShowFPSCounter = FPS_DISPLAY_FPS_ONLY;
+					break;
+
+				case ID_OPTIONS_SHOWFPS_BOTH:
+					g_Config.iShowFPSCounter = FPS_DISPLAY_BOTH;
+					break;
+
+				case ID_OPTIONS_SHOWFPS_SPEED_PERCENT:
+					g_Config.bShowVPSAsPercent = !g_Config.bShowVPSAsPercent;
 					break;
 
 				case ID_OPTIONS_FASTMEMORY:
@@ -1268,7 +1284,6 @@ namespace MainWindow
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
 		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
-		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
 		CHECKITEM(ID_OPTIONS_MIPMAP, g_Config.bMipMap);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
@@ -1278,6 +1293,7 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_ATRAC3_SOUND, g_Config.bEnableAtrac3plus);
 		CHECKITEM(ID_EMULATION_RENDER_MODE_OGL, g_Config.bSoftwareRendering == false);
 		CHECKITEM(ID_EMULATION_RENDER_MODE_SOFT, g_Config.bSoftwareRendering == true);
+		CHECKITEM(ID_OPTIONS_SHOWFPS_SPEED_PERCENT, g_Config.bShowVPSAsPercent);
 
 		static const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
@@ -1381,6 +1397,23 @@ namespace MainWindow
 		for (int i = 0; i < ARRAY_SIZE(frameskipping); i++) {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
 		}
+
+		static const int showFPSItems [] = {
+			ID_OPTIONS_SHOWFPS_NONE,
+			ID_OPTIONS_SHOWFPS_SPEED,
+			ID_OPTIONS_SHOWFPS_FPS,
+			ID_OPTIONS_SHOWFPS_BOTH
+		};
+
+		if(g_Config.iShowFPSCounter < FPS_DISPLAY_NONE)
+			g_Config.iShowFPSCounter = FPS_DISPLAY_NONE;
+
+		if(g_Config.iShowFPSCounter > FPS_DISPLAY_BOTH)
+			g_Config.iShowFPSCounter = FPS_DISPLAY_BOTH;
+
+		for (int i = 0; i < ARRAY_SIZE(showFPSItems); i++) {
+		  CheckMenuItem(menu, showFPSItems[i], MF_BYCOMMAND | ( i == g_Config.iShowFPSCounter )? MF_CHECKED : MF_UNCHECKED);
+		} 
 
 		UpdateCommands();
 	}

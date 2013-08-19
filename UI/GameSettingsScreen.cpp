@@ -254,6 +254,8 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Overlay Information")));
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gs->T("Show FPS Counter"), fpsChoices, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new CheckBox(&g_Config.bShowVPSAsPercent, gs->T("Show Speed As Percent")));
+	
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gs->T("Show Debug Statistics")));
 	
 	graphicsSettings->Add(new ItemHeader(gs->T("Texture Scaling")));
