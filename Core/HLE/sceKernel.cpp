@@ -766,7 +766,7 @@ const HLEFunction ThreadManForUser[] =
 	{0xFBFA697D,WrapI_IUUUUU<sceKernelReceiveMsgPipeCB>,          "sceKernelReceiveMsgPipeCB"},
 	{0xDF52098F,WrapI_IUUUU<sceKernelTryReceiveMsgPipe>,          "sceKernelTryReceiveMsgPipe"},
 	{0x349B864D,WrapI_IUU<sceKernelCancelMsgPipe>,                "sceKernelCancelMsgPipe"},
-	{0x33BE4024,sceKernelReferMsgPipeStatus,"sceKernelReferMsgPipeStatus"},
+	{0x33BE4024,WrapI_IU<sceKernelReferMsgPipeStatus>,            "sceKernelReferMsgPipeStatus"},
 
 	{0x56C039B5,WrapI_CIUUU<sceKernelCreateVpl>,"sceKernelCreateVpl"},
 	{0x89B3D48C,WrapI_I<sceKernelDeleteVpl>,"sceKernelDeleteVpl"},

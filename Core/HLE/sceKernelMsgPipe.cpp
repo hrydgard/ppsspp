@@ -776,23 +776,33 @@ int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThr
 	return 0;
 }
 
-void sceKernelReferMsgPipeStatus()
+int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr)
 {
-	SceUID uid = PARAM(0);
-	u32 msgPipeStatusAddr = PARAM(1);
-
-	DEBUG_LOG(HLE,"sceKernelReferMsgPipeStatus(%i, %08x)", uid, msgPipeStatusAddr);
 	u32 error;
 	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
 	if (m)
 	{
+		if (!Memory::IsValidAddress(statusPtr))
+		{
+			ERROR_LOG(HLE, "sceKernelReferMsgPipeStatus(%i, %08x): invalid address", uid, statusPtr);
+			return -1;
+		}
+
+		DEBUG_LOG(HLE, "sceKernelReferMsgPipeStatus(%i, %08x)", uid, statusPtr);
+
+		// Clean up any that have timed out.
+		m->SortReceiveThreads();
+		m->SortSendThreads();
+
 		m->nmp.numSendWaitThreads = (int) m->sendWaitingThreads.size();
 		m->nmp.numReceiveWaitThreads = (int) m->receiveWaitingThreads.size();
-		Memory::WriteStruct(msgPipeStatusAddr, &m->nmp);
-		RETURN(0);
+		if (Memory::Read_U32(statusPtr) != 0)
+			Memory::WriteStruct(statusPtr, &m->nmp);
+		return 0;
 	}
 	else
 	{
-		RETURN(error);
+		DEBUG_LOG(HLE, "sceKernelReferMsgPipeStatus(%i, %08x): bad message pipe", uid, statusPtr);
+		return error;
 	}
 }
