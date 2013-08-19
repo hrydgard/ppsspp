@@ -242,6 +242,7 @@ namespace PpcGen
 		void MULHWS(PPCReg dest,	PPCReg src, PPCReg op2);
 
 		void ORI	(PPCReg src, PPCReg dest, unsigned short imm);
+		void XORI	(PPCReg src, PPCReg dest, unsigned short imm);
 
 		// Memory load/store operations
 		void LI		(PPCReg dest, unsigned short imm);

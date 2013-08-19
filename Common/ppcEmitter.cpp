@@ -357,6 +357,11 @@ namespace PpcGen {
 		u32 instr = (0x60000000 | (src << 21) | (dest << 16) | (imm & 0xffff));
 		Write32(instr);
 	}
+	
+	void PPCXEmitter::XORI	(PPCReg src, PPCReg dest, unsigned short imm) {	
+		u32 instr = (0x68000000 | (src << 21) | (dest << 16) | (imm & 0xffff));
+		Write32(instr);
+	}
 
 	void PPCXEmitter::OR(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
 		u32 instr = (0x7C000378 | (Ra << 21) | (Rd << 16) | (Rb << 11));
