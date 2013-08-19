@@ -1,3 +1,4 @@
+#include "native/thread/threadutil.h"
 #include "Common/CommonWindows.h"
 #include <dsound.h>
 
@@ -112,6 +113,7 @@ namespace DSound
 
 	unsigned int WINAPI soundThread(void *)
 	{
+		setCurrentThreadName("DSoundThread");
 		currentPos = 0;
 		lastPos = 0;
 		//writeDataToBuffer(0,realtimeBuffer,bufferSize);
@@ -190,18 +192,27 @@ namespace DSound
 
 	void DSound_StopSound()
 	{
-		threadData=1;
-		WaitForSingleObject(hThread,1000);
-		CloseHandle(hThread);
-		/*
-		while (threadData!=2)
-			;*/
-		if (dsBuffer != NULL)
-			dsBuffer->Release();
-		if (ds != NULL)
-			ds->Release();
+		if (threadData == 0)
+			threadData = 1;
 
-		CloseHandle(soundSyncEvent);
+		if (hThread != NULL)
+		{
+			WaitForSingleObject(hThread, 1000);
+			CloseHandle(hThread);
+		}
+
+		if (threadData == 2)
+		{
+			if (dsBuffer != NULL)
+				dsBuffer->Release();
+			dsBuffer = NULL;
+			if (ds != NULL)
+				ds->Release();
+			ds = NULL;
+		}
+
+		if (soundSyncEvent != NULL)
+			CloseHandle(soundSyncEvent);
 		soundSyncEvent = NULL;
 	}
 
