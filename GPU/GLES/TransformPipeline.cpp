@@ -670,13 +670,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
 			switch (gstate.getUVGenMode())
 			{
-			case 0:	// UV mapping
+			case GE_TEXMAP_TEXTURE_COORDS:	// UV mapping
+			case GE_TEXMAP_UNKNOWN: // Seen in Riviera.  Unsure of meaning, but this works.
 				// Texture scale/offset is only performed in this mode.
 				uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
 				uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
 				uv[2] = 1.0f;
 				break;
-			case 1:
+			case GE_TEXMAP_TEXTURE_MATRIX:
 				{
 					// Projection mapping
 					Vec3f source;
@@ -713,7 +714,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					uv[2] = uvw[2];
 				}
 				break;
-			case 2:
+			case GE_TEXMAP_ENVIRONMENT_MAP:
 				// Shade mapping - use two light sources to generate U and V.
 				{
 					Vec3f lightpos0 = Vec3f(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
@@ -726,6 +727,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				break;
 			default:
 				// Illegal
+				ERROR_LOG_REPORT(G3D, "Impossible UV gen mode? %d", gstate.getUVGenMode());
 				break;
 			}
 			uv[0] = uv[0] * widthFactor;
@@ -857,7 +859,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	// these spam the gDebugger log.
 	const int vertexSize = sizeof(transformed[0]);
 		
-	bool doTextureProjection = gstate.getUVGenMode() == 1;
+	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
@@ -907,7 +909,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 		if (gstate.isLightChanEnabled(i))
 			cost += 10;
 	}
-	if (gstate.getUVGenMode() != 0) {
+	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
 		cost += 20;
 	}
 	if (dec_ && dec_->morphcount > 1) {

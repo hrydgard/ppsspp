@@ -130,7 +130,7 @@ static inline void GetTexelCoordinates(int level, float s, float t, unsigned int
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
 {
-	if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
+	if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
 		// TODO: What happens if vertex has no texture coordinates?
 		// Note that for environment mapping, texture coordinates have been calculated during lighting
 		float q0 = 1.f / v0.clippos.w;
