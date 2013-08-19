@@ -27,8 +27,9 @@
 // GL_NV_shader_framebuffer_fetch looks interesting....
 
 static bool IsAlphaTestTriviallyTrue() {
-	int alphaTestFunc = gstate.alphatest & 7;
-	int alphaTestRef = (gstate.alphatest >> 8) & 0xFF;
+	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
+	int alphaTestRef = gstate.getAlphaTestRef();
+	int alphaTestMask = gstate.getAlphaTestMask();
 	
 	switch (alphaTestFunc) {
 	case GE_COMP_ALWAYS:
@@ -51,7 +52,7 @@ static bool IsAlphaTestTriviallyTrue() {
 }
 
 static bool IsColorTestTriviallyTrue() {
-	int colorTestFunc = gstate.colortest & 3;
+	GEComparison colorTestFunc = gstate.getColorTestFunction();
 	switch (colorTestFunc) {
 	case GE_COMP_ALWAYS:
 		return true;
@@ -92,37 +93,37 @@ static bool CanDoubleSrcBlendMode() {
 // look like, and concatenate them together into an ID.
 void ComputeFragmentShaderID(FragmentShaderID *id) {
 	memset(&id->d[0], 0, sizeof(id->d));
-	if (gstate.clearmode & 1) {
+	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id->d[0] = 1;
 	} else {
-		int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+		bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 		bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 		bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue();
 		bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue();
-		bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
+		bool enableColorDoubling = gstate.isColorDoublingEnabled();
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == 1;
 		bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
-		if (gstate_c.textureFullAlpha && (gstate.texfunc & 0x7) != GE_TEXFUNC_REPLACE)
+		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 			doTextureAlpha = false;
 
-		// id->d[0] |= (gstate.clearmode & 1);
+		// id->d[0] |= (gstate.isModeClear() & 1);
 		if (gstate.isTextureMapEnabled()) {
 			id->d[0] |= 1 << 1;
-			id->d[0] |= (gstate.texfunc & 0x7) << 2;
+			id->d[0] |= gstate.getTextureFunction() << 2;
 			id->d[0] |= (doTextureAlpha & 1) << 5; // rgb or rgba
 		}
 		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= gstate.isAlphaTestEnabled() << 8;
 		if (enableAlphaTest)
-			id->d[0] |= (gstate.alphatest & 0x7) << 9;	 // alpha test func
+			id->d[0] |= gstate.getAlphaTestFunction() << 9;
 		id->d[0] |= gstate.isColorTestEnabled() << 12;
 		if (enableColorTest)
-			id->d[0] |= (gstate.colortest & 0x3) << 13;	 // color test func
+			id->d[0] |= gstate.getColorTestFunction() << 13;	 // color test func
 		id->d[0] |= (enableFog & 1) << 15;
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
@@ -164,13 +165,13 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
 	bool enableColorTest = gstate.isColorTestEnabled() && !IsColorTestTriviallyTrue() && !gstate.isModeClear();
-	bool enableColorDoubling = (gstate.texfunc & 0x10000) != 0;
+	bool enableColorDoubling = gstate.isColorDoublingEnabled();
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == 1;
 	bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
 
-	if (gstate_c.textureFullAlpha && (gstate.texfunc & 0x7) != GE_TEXFUNC_REPLACE)
+	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
 
 	if (doTexture)
@@ -220,7 +221,7 @@ void GenerateFragmentShader(char *buffer) {
 			secondary = "";
 		}
 
-		if (gstate.textureMapEnable & 1) {
+		if (gstate.isTextureMapEnabled()) {
 			if (doTextureProjection) {
 				WRITE(p, "  float4 t = tex2Dproj(tex, In.v_texcoord);\n");
 			} else {
@@ -229,7 +230,7 @@ void GenerateFragmentShader(char *buffer) {
 			WRITE(p, "  float4 p = In.v_color0;\n");
 
 			if (doTextureAlpha) { // texfmt == RGBA
-				switch (gstate.texfunc & 0x7) {
+				switch (gstate.getTextureFunction()) {
 				case GE_TEXFUNC_MODULATE:
 					WRITE(p, "  float4 v = p * t%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
@@ -245,7 +246,7 @@ void GenerateFragmentShader(char *buffer) {
 				}
 
 			} else {	// texfmt == RGB
-				switch (gstate.texfunc & 0x7) {
+				switch (gstate.getTextureFunction()) {
 				case GE_TEXFUNC_MODULATE:
 					WRITE(p, "  float4 v = float4(t.rgb * p.rgb, p.a)%s;\n", secondary); break;
 				case GE_TEXFUNC_DECAL:
@@ -268,7 +269,7 @@ void GenerateFragmentShader(char *buffer) {
 		}
 
 		if (enableAlphaTest) {
-			int alphaTestFunc = gstate.alphatest & 7;
+			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 				// WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
@@ -287,9 +288,9 @@ void GenerateFragmentShader(char *buffer) {
 		}
 		
 		if (enableColorTest) {
-			int colorTestFunc = gstate.colortest & 3;
+			GEComparison colorTestFunc = gstate.getColorTestFunction();
 			const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
-			int colorTestMask = gstate.colormask;
+			u32 colorTestMask = gstate.getColorTestMask();
 			if (colorTestFuncs[colorTestFunc][0] != '#') {
 				//WRITE(p, "clip((roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb)? -1:1);\n", colorTestFuncs[colorTestFunc]);
 				//WRITE(p, "if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb)  clip(-1);\n", colorTestFuncs[colorTestFunc]);

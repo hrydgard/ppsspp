@@ -32,6 +32,13 @@ enum TextureFiltering {
 	LINEAR = 3,   
 	LINEARFMV = 4,
 };
+
+enum FramebufferNotification {
+	NOTIFY_FB_CREATED,
+	NOTIFY_FB_UPDATED,
+	NOTIFY_FB_DESTROYED,
+};
+
 class TextureCache 
 {
 public:
@@ -49,8 +56,7 @@ public:
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory
 	// are being rendered to. This is barebones so far.
-	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer);
-	void NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *framebuffer);
+	void NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 
 	size_t NumLoadedTextures() const {
 		return cache.size();
@@ -119,6 +125,8 @@ private:
 	const T *GetCurrentClut();
 	u32 GetCurrentClutHash();
 	void UpdateCurrentClut();
+	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch);
+	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
@@ -147,5 +155,7 @@ private:
 
 	LPDIRECT3DTEXTURE9 lastBoundTexture;
 	float maxAnisotropyLevel;
+
+	int decimationCounter_;
 };
 

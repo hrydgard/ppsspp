@@ -26,17 +26,19 @@
 #include "GPU/Directx9/Framebuffer.h"
 #include "Core/Config.h"
 
+#include "ext/xxhash.h"
 #include "native/ext/cityhash/city.h"
 
-#ifdef _M_SSE
-#include <xmmintrin.h>
-#endif
+#define INVALID_TEX (LPDIRECT3DTEXTURE9)(-1)
 
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
 #define TEXTURE_KILL_AGE_LOWMEM 60
 // Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
+
+// Try to be prime to other decimation intervals.
+#define TEXCACHE_DECIMATION_INTERVAL 13
 
 extern int g_iNumVideos;
 
@@ -60,7 +62,8 @@ static inline u32 GetLevelBufw(int level, u32 texaddr) {
 }
 
 TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false), clutBuf_(NULL) {
-	lastBoundTexture = NULL;
+	lastBoundTexture = INVALID_TEX;
+	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	// This is 5MB of temporary storage. Might be possible to shrink it.
 	tmpTexBuf32.resize(1024 * 512);  // 2MB
 	tmpTexBuf16.resize(1024 * 512);  // 1MB
@@ -78,7 +81,7 @@ TextureCache::~TextureCache() {
 
 void TextureCache::Clear(bool delete_them) {
 	pD3Ddevice->SetTexture(0, NULL);
-	lastBoundTexture = NULL;
+	lastBoundTexture = INVALID_TEX;
 	if (delete_them) {
 		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
 			DEBUG_LOG(G3D, "Deleting texture %i", iter->second.texture);
@@ -98,8 +101,14 @@ void TextureCache::Clear(bool delete_them) {
 
 // Removes old textures.
 void TextureCache::Decimate() {
+	if (--decimationCounter_ <= 0) {
+		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
+	} else {
+		return;
+	}
+
 	pD3Ddevice->SetTexture(0, NULL);
-	lastBoundTexture = NULL;
+	lastBoundTexture = INVALID_TEX;
 	int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 	for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ) {
 		if (iter->second.lastFrame + TEXTURE_KILL_AGE < gpuStats.numFlips) {
@@ -163,36 +172,33 @@ void TextureCache::ClearNextFrame() {
 }
 
 
-TextureCache::TexCacheEntry *TextureCache::GetEntryAt(u32 texaddr) {
-	// If no CLUT, as in framebuffer textures, cache key is simply texaddr shifted up.
-	auto iter = cache.find((u64)texaddr << 32);
-	if (iter != cache.end() && iter->second.addr == texaddr)
-		return &iter->second;
-	else
-		return 0;
+template <typename T>
+inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
+	entry->framebuffer = framebuffer;
+	entry->invalidHint = 0;
 }
 
-void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer) {
-	// This is a rough heuristic, because sometimes our framebuffers are too tall.
-	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
+template <typename T>
+inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) {
+	if (entry->framebuffer == 0 || entry->framebuffer == framebuffer) {
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = -1;
+	}
+}
 
-	// Must be in VRAM so | 0x04000000 it is.
-	const u64 cacheKey = (u64)(address | 0x04000000) << 32;
-	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
-	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
-	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
-
-	for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-		auto entry = &it->second;
-
+inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
 		// If they match exactly, it's non-CLUT and from the top left.
-		if (it->first == cacheKey) {
+	if (exactMatch) {
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
 			if (!entry->framebuffer) {
 				if (entry->format != framebuffer->format) {
 					WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+				// If it already has one, let's hope that one is correct.
+				// Try to not bind FB now as it seems to be attached some strange stuff on top of the original FB.
+				//AttachFramebufferInvalid(entry, framebuffer);
+			} else {
+				AttachFramebufferValid(entry, framebuffer);
 				}
-			entry->framebuffer = framebuffer;
 		// TODO: Delete the original non-fbo texture too.
 	}
 		} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
@@ -206,28 +212,45 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 				if (framebuffer->format != entry->format) {
 					WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 					// TODO: Use an FBO to translate the palette?
-					entry->framebuffer = framebuffer;
+				AttachFramebufferValid(entry, framebuffer);
 				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 					WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 					// TODO: Keep track of the y offset.
-					entry->framebuffer = framebuffer;
-				}
+				AttachFramebufferInvalid(entry, framebuffer);
 			}
 		}
 	}
 }
 
-void TextureCache::NotifyFramebufferDestroyed(u32 address, VirtualFramebuffer *framebuffer) {
-	TexCacheEntry *entry = GetEntryAt(address | 0x04000000);
-	if (entry && entry->framebuffer == framebuffer) {
-		// There's at least one. We're going to have to loop through all textures unfortunately to be
-		// 100% safe.
-		for (TexCache::iterator iter = cache.begin(); iter != cache.end(); ++iter) {
-			if (iter->second.framebuffer == framebuffer) {
-				iter->second.framebuffer = 0;
-			}
+inline void TextureCache::DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer) {
+	if (entry->framebuffer == framebuffer) {
+		entry->framebuffer = 0;
+	}
+}
+
+void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
+	// This is a rough heuristic, because sometimes our framebuffers are too tall.
+	static const u32 MAX_SUBAREA_Y_OFFSET = 32;
+
+	// Must be in VRAM so | 0x04000000 it is.
+	const u64 cacheKey = (u64)(address | 0x04000000) << 32;
+	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
+	// Also, if it's a subsample of the buffer, it'll also be within the FBO.
+	const u64 cacheKeyEnd = cacheKey + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
+
+	switch (msg) {
+	case NOTIFY_FB_CREATED:
+	case NOTIFY_FB_UPDATED:
+		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+			AttachFramebuffer(&it->second, address, framebuffer, it->first == cacheKey);
 		}
-		// entry->framebuffer = 0;
+		break;
+
+	case NOTIFY_FB_DESTROYED:
+		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
+			DetachFramebuffer(&it->second, address, framebuffer);
+		}
+		break;
 	}
 }
 
@@ -246,16 +269,16 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
 	const int bxc = rowWidth / 16;
-	int byc = ((1 << ((gstate.texsize[level] >> 8) & 0xf)) + 7) / 8;
+	int byc = (gstate.getTextureHeight(level) + 7) / 8;
 	if (byc == 0)
 		byc = 1;
 
 	u32 ydest = 0;
 	if (rowWidth >= 16) {
 		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
-		u32 *ydest = tmpTexBuf32.data();
+		u32 *ydestp = tmpTexBuf32.data();
 		for (int by = 0; by < byc; by++) {
-			u32 *xdest = ydest;
+			u32 *xdest = ydestp;
 			for (int bx = 0; bx < bxc; bx++) {
 				u32 *dest = xdest;
 				for (int n = 0; n < 8; n++) {
@@ -265,7 +288,7 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u
 				}
 				xdest += 4;
 			}
-			ydest += (rowWidth * 8) / 4;
+			ydestp += (rowWidth * 8) / 4;
 		}
 	} else if (rowWidth == 8) {
 		const u32 *src = (u32 *) Memory::GetPointer(texaddr);
@@ -393,8 +416,8 @@ inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, C
 
 void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, u32 dstFmt) {
 	int bufw = GetLevelBufw(level, texaddr);
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 	int length = bufw * h;
 	void *buf = NULL;
 	switch (gstate.getClutPaletteFormat()) {
@@ -629,8 +652,8 @@ static inline u32 makecol(int r, int g, int b, int a) {
 static void decodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, bool ignore1bitAlpha = false) {
 	// S3TC Decoder
 	// Needs more speed and debugging.
-	u16 c1 = src->color1;
-	u16 c2 = src->color2;
+	u16 c1 = (src->color1);
+	u16 c2 = (src->color2);
 	int red1 = Convert5To8(c1 & 0x1F);
 	int red2 = Convert5To8(c2 & 0x1F);
 	int green1 = Convert6To8((c1 >> 5) & 0x3F);
@@ -891,10 +914,10 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLe
 }
 
 void TextureCache::LoadClut() {
-	u32 clutAddr = GetClutAddr();
+	u32 clutAddr = ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
 	clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
 	if (Memory::IsValidAddress(clutAddr)) {
-		Memory::Memcpy(clutBufRaw_, clutAddr, clutTotalBytes_);
+		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, clutTotalBytes_);
 	} else {
 		memset(clutBufRaw_, 0xFF, clutTotalBytes_);
 	}
@@ -910,9 +933,7 @@ void TextureCache::UpdateCurrentClut() {
 	// If not, we're going to hash random data, which hopefully doesn't cause a performance issue.
 	const u32 clutExtendedBytes = clutTotalBytes_ + clutBaseBytes;
 
-	// QuickClutHash is not quite good enough apparently.
-	// clutHash_ = QuickClutHash((const u8 *)clutBufRaw_, clutExtendedBytes);
-	clutHash_ = CityHash32((const char *)clutBufRaw_, clutExtendedBytes);
+	clutHash_ = XXH32((const char *)clutBufRaw_, clutExtendedBytes, 0xC0108888);
 	
 	/*
 	// Avoid a copy when we don't need to convert colors.
@@ -969,17 +990,17 @@ bool SetDebugTexture() {
 	static int lastFrames = 0;
 	static int mostTextures = 1;
 
-	if (lastFrames != gpuStats.numFrames) {
+	if (lastFrames != gpuStats.numFlips) {
 		mostTextures = std::max(mostTextures, numTextures);
 		numTextures = 0;
-		lastFrames = gpuStats.numFrames;
+		lastFrames = gpuStats.numFlips;
 	}
 
 	static GLuint solidTexture = 0;
 
 	bool changed = false;
-	if (((gpuStats.numFrames / highlightFrames) % mostTextures) == numTextures) {
-		if (gpuStats.numFrames % highlightFrames == 0) {
+	if (((gpuStats.numFlips / highlightFrames) % mostTextures) == numTextures) {
+		if (gpuStats.numFlips % highlightFrames == 0) {
 			NOTICE_LOG(HLE, "Highlighting texture # %d / %d", numTextures, mostTextures);
 		}
 		static const u32 solidTextureData[] = {0x99AA99FF};
@@ -1014,7 +1035,7 @@ void TextureCache::SetTexture() {
 	if (!Memory::IsValidAddress(texaddr)) {
 		// Bind a null texture and return.
 		pD3Ddevice->SetTexture(0, NULL);
-		lastBoundTexture = NULL;
+		lastBoundTexture = INVALID_TEX;
 		return;
 	}
 
@@ -1039,8 +1060,8 @@ void TextureCache::SetTexture() {
 		cluthash = 0;
 	}
 
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 	int bufw = GetLevelBufw(0, texaddr);
 	int maxLevel = ((gstate.texmode >> 16) & 0x7);
 
@@ -1060,30 +1081,29 @@ void TextureCache::SetTexture() {
 		if (entry->framebuffer) {
 			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
 			if (useBufferedRendering) {
-				if (entry->framebuffer->fbo) {
+				// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
+				// But let's still not use random memory.
+				if (entry->framebuffer->fbo && entry->invalidHint != -1) {
 					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-					lastBoundTexture = NULL;	
 				} else {
 					pD3Ddevice->SetTexture(0, NULL);
-					lastBoundTexture = NULL;
 					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
 				}
 				UpdateSamplingParams(*entry, false);
-				// This isn't right.
 				gstate_c.curTextureWidth = entry->framebuffer->width;
 				gstate_c.curTextureHeight = entry->framebuffer->height;
 				gstate_c.flipTexture = true;
 				gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-				entry->lastFrame = gpuStats.numFlips;
 			} else {
 				if (entry->framebuffer->fbo)
 					entry->framebuffer->fbo = 0;
 				pD3Ddevice->SetTexture(0, NULL);
-				lastBoundTexture = NULL;
-				entry->lastFrame = gpuStats.numFlips;
 			}
+			lastBoundTexture = INVALID_TEX;
+			entry->lastFrame = gpuStats.numFlips;
 			return;
 		}
+
 		//Validate the texture here (width, height etc)
 
 		int dim = gstate.texsize[0] & 0xF0F;
@@ -1178,7 +1198,7 @@ void TextureCache::SetTexture() {
 					replaceImages = true;
 				} else {
 					if (entry->texture == lastBoundTexture) {
-						lastBoundTexture = NULL;
+						lastBoundTexture = INVALID_TEX;
 					}
 					entry->texture->Release();
 				}
@@ -1268,8 +1288,8 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 
 	int bufw = GetLevelBufw(level, texaddr);
 
-	int w = 1 << (gstate.texsize[level] & 0xf);
-	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 	const u8 *texptr = Memory::GetPointer(texaddr);
 
 	switch (format)
@@ -1632,11 +1652,12 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 		return;
 	}
 
-	int w = 1 << (gstate.texsize[level] & 0xf);
-	int h = 1 << ((gstate.texsize[level] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
 
 	gpuStats.numTexturesDecoded++;
-	// Can restore these and remove the above fixup on some platforms.
+
+	// Can restore these and remove the fixup at the end of DecodeTextureLevel on desktop GL and GLES 3.
 	// glPixelStorei(GL_UNPACK_ROW_LENGTH, bufw);
 	// glPixelStorei(GL_PACK_ROW_LENGTH, bufw);
 

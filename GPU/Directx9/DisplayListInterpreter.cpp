@@ -37,9 +37,6 @@
 #include "../../Core/HLE/sceKernelInterrupt.h"
 #include "../../Core/HLE/sceGe.h"
 
-extern u32 curTextureWidth;
-extern u32 curTextureHeight;
-
 static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_REGION1,GE_CMD_REGION2,
 	GE_CMD_VERTEXTYPE,
@@ -118,7 +115,7 @@ static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_CLUTFORMAT,
 	GE_CMD_TEXFILTER,
 	GE_CMD_TEXWRAP,
-	GE_CMD_TEXLEVEL,
+	// GE_CMD_TEXLEVEL,  // we don't support this anyway, no need to flush.
 	GE_CMD_TEXFUNC,
 	GE_CMD_TEXENVCOLOR,
 	//GE_CMD_TEXFLUSH,
@@ -216,13 +213,16 @@ void DIRECTX9_GPU::BuildReportingInfo() {
 
 void DIRECTX9_GPU::DeviceLost() {
 	// Simply drop all caches and textures.
-	// FBO:s appear to survive? Or no?
+	// FBOs appear to survive? Or no?
 	shaderManager_->ClearCache(false);
 	textureCache_.Clear(false);
 	framebufferManager_.DeviceLost();
 }
 
 void DIRECTX9_GPU::InitClear() {
+	ScheduleEvent(GPU_EVENT_INIT_CLEAR);
+}
+void DIRECTX9_GPU::InitClearInternal() {
 	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
 	if (useBufferedRendering) {
 		dxstate.depthWrite.set(true);
@@ -241,6 +241,10 @@ void DIRECTX9_GPU::DumpNextFrame() {
 }
 
 void DIRECTX9_GPU::BeginFrame() {
+	ScheduleEvent(GPU_EVENT_BEGIN_FRAME);
+}
+
+void DIRECTX9_GPU::BeginFrameInternal() {
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync;
 	if (PSP_CoreParameter().unthrottle)
@@ -273,13 +277,44 @@ void DIRECTX9_GPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferForma
 }
 
 bool DIRECTX9_GPU::FramebufferDirty() {
+	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+	if (g_Config.bSeparateCPUThread) {
+		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
+		// Allow it to process fully before deciding if it's dirty.
+		SyncThread();
+	}
 	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
-	if (vfb)
-		return vfb->dirtyAfterDisplay;
+	if (vfb) {
+		bool dirty = vfb->dirtyAfterDisplay;
+		vfb->dirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
+}
+bool DIRECTX9_GPU::FramebufferReallyDirty() {
+	// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+	if (g_Config.bSeparateCPUThread) {
+		// FIXME: Workaround for displaylists sometimes hanging unprocessed.  Not yet sure of the cause.
+		ScheduleEvent(GPU_EVENT_PROCESS_QUEUE);
+		// Allow it to process fully before deciding if it's dirty.
+		SyncThread();
+	}
+
+	VirtualFramebuffer *vfb = framebufferManager_.GetDisplayFBO();
+	if (vfb) {
+		bool dirty = vfb->reallyDirtyAfterDisplay;
+		vfb->reallyDirtyAfterDisplay = false;
+		return dirty;
+	}
 	return true;
 }
 
 void DIRECTX9_GPU::CopyDisplayToOutput() {
+	ScheduleEvent(GPU_EVENT_COPY_DISPLAY_TO_OUTPUT);
+}
+
+void DIRECTX9_GPU::CopyDisplayToOutputInternal() {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(true, true, true, true);
 
@@ -295,19 +330,17 @@ void DIRECTX9_GPU::CopyDisplayToOutput() {
 
 // Render queue
 
-u32 DIRECTX9_GPU::DrawSync(int mode)
-{
-	transformDraw_.Flush();
-	return GPUCommon::DrawSync(mode);
-}
-
 void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
 
 		u32 diff = op ^ gstate.cmdmem[cmd];
-		CheckFlushOp(op, diff);
+		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
+		u8 flushCmd = flushBeforeCommand_[cmd];
+		if (flushCmd == 1 || (diff && flushCmd == 2)) {
+			transformDraw_.Flush();
+		}		
 		gstate.cmdmem[cmd] = op;
 		ExecuteOp(op, diff);
 
@@ -315,8 +348,30 @@ void DIRECTX9_GPU::FastRunLoop(DisplayList &list) {
 	}
 }
 
-inline void DIRECTX9_GPU::CheckFlushOp(u32 op, u32 diff) {
-	u32 cmd = op >> 24;
+void DIRECTX9_GPU::ProcessEvent(GPUEvent ev) {
+	switch (ev.type) {
+	case GPU_EVENT_INIT_CLEAR:
+		InitClearInternal();
+		break;
+
+	case GPU_EVENT_BEGIN_FRAME:
+		BeginFrameInternal();
+		break;
+
+	case GPU_EVENT_COPY_DISPLAY_TO_OUTPUT:
+		CopyDisplayToOutputInternal();
+		break;
+
+	case GPU_EVENT_INVALIDATE_CACHE:
+		InvalidateCacheInternal(ev.invalidate_cache.addr, ev.invalidate_cache.size, ev.invalidate_cache.type);
+		break;
+
+	default:
+		GPUCommon::ProcessEvent(ev);
+	}
+}
+
+inline void DIRECTX9_GPU::CheckFlushOp(int cmd, u32 diff) {
 	if (flushBeforeCommand_[cmd] == 1 || (diff && flushBeforeCommand_[cmd] == 2))
 	{
 		if (dumpThisFrame_) {
@@ -327,7 +382,7 @@ inline void DIRECTX9_GPU::CheckFlushOp(u32 op, u32 diff) {
 }
 
 void DIRECTX9_GPU::PreExecuteOp(u32 op, u32 diff) {
-	CheckFlushOp(op, diff);
+	CheckFlushOp(op >> 24, diff);
 }
 
 void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
@@ -602,8 +657,8 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 		}
 
 	case GE_CMD_TEXSIZE0:
-		gstate_c.curTextureWidth = 1 << (gstate.texsize[0] & 0xf);
-		gstate_c.curTextureHeight = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+		gstate_c.curTextureWidth = gstate.getTextureWidth(0);
+		gstate_c.curTextureHeight = gstate.getTextureHeight(0);
 		shaderManager_->DirtyUniform(DIRTY_UVSCALEOFFSET);
 		//fall thru - ignoring the mipmap sizes for now
 	case GE_CMD_TEXSIZE1:
@@ -855,7 +910,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_WORLDMATRIX);
 			}
 			num++;
-			gstate.worldmtxnum = (gstate.worldmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -873,7 +928,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_VIEWMATRIX);
 			}
 			num++;
-			gstate.viewmtxnum = (gstate.viewmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -891,7 +946,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX);
 			}
 			num++;
-			gstate.projmtxnum = (gstate.projmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -909,7 +964,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_TEXMATRIX);
 			}
 			num++;
-			gstate.texmtxnum = (gstate.texmtxnum & 0xFF000000) | (num & 0xF);
+			gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0xF);
 		}
 		break;
 
@@ -927,7 +982,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 				shaderManager_->DirtyUniform(DIRTY_BONEMATRIX0 << (num / 12));
 			}
 			num++;
-			gstate.boneMatrixNumber = (gstate.boneMatrixNumber & 0xFF000000) | (num & 0x7F);
+			gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x7F);
 		}
 		break;
 
@@ -1029,6 +1084,14 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 }
 
 void DIRECTX9_GPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
+	GPUEvent ev(GPU_EVENT_INVALIDATE_CACHE);
+	ev.invalidate_cache.addr = addr;
+	ev.invalidate_cache.size = size;
+	ev.invalidate_cache.type = type;
+	ScheduleEvent(ev);
+}
+
+void DIRECTX9_GPU::InvalidateCacheInternal(u32 addr, int size, GPUInvalidationType type) {
 	if (size > 0)
 		textureCache_.Invalidate(addr, size, type);
 	else
@@ -1044,11 +1107,6 @@ void DIRECTX9_GPU::UpdateMemory(u32 dest, u32 src, int size) {
 
 void DIRECTX9_GPU::ClearCacheNextFrame() {
 	textureCache_.ClearNextFrame();
-}
-
-
-void DIRECTX9_GPU::Flush() {
-	transformDraw_.Flush();
 }
 
 void DIRECTX9_GPU::Resized() {

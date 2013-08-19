@@ -46,6 +46,7 @@ enum {
 
 struct VirtualFramebuffer {
 	int last_frame_used;
+	bool memoryUpdated; 
 
 	u32 fb_address;
 	u32 z_address;
@@ -71,6 +72,7 @@ struct VirtualFramebuffer {
 	FBO *fbo;
 
 	bool dirtyAfterDisplay;
+	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
 };
 
 void CenterRect(float *x, float *y, float *w, float *h,
@@ -104,7 +106,7 @@ public:
 	void SetRenderFrameBuffer();  // Uses parameters computed from gstate
 	void UpdateFromMemory(u32 addr, int size);
 
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb);
+	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync = true);
 
 	// TODO: Break out into some form of FBO manager
 	VirtualFramebuffer *GetDisplayFBO();
