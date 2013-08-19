@@ -17,15 +17,19 @@
 
 #pragma once
 
-void sceKernelCreateMsgPipe();
-void sceKernelDeleteMsgPipe();
-void sceKernelSendMsgPipe();
-void sceKernelSendMsgPipeCB();
-void sceKernelTrySendMsgPipe();
-void sceKernelReceiveMsgPipe();
-void sceKernelReceiveMsgPipeCB();
-void sceKernelTryReceiveMsgPipe();
-void sceKernelCancelMsgPipe();
-void sceKernelReferMsgPipeStatus();
+class PointerWrap;
 
+int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr);
+int sceKernelDeleteMsgPipe(SceUID uid);
+int sceKernelSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr);
+int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr);
+int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr);
+int sceKernelReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr);
+int sceKernelReceiveMsgPipeCB(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32 waitMode, u32 resultAddr, u32 timeoutPtr);
+int sceKernelTryReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32 waitMode, u32 resultAddr);
+int sceKernelCancelMsgPipe(SceUID uid, u32 numSendThreadsAddr, u32 numReceiveThreadsAddr);
+int sceKernelReferMsgPipeStatus(SceUID uid, u32 statusPtr);
+
+void __KernelMsgPipeInit();
+void __KernelMsgPipeDoState(PointerWrap &p);
 KernelObject *__KernelMsgPipeObject();

@@ -1070,7 +1070,7 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate)
 	if (vpl)
 	{
 		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
-		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+		// The reason is, if it times out, but while it was waiting on is DELETED prior to it
 		// actually running, it will get a DELETE result instead of a TIMEOUT.
 		// So, we need to remember it or we won't be able to mark it DELETE instead later.
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
@@ -1168,7 +1168,6 @@ int sceKernelFreeVpl(SceUID uid, u32 addr)
 	{
 		if (vpl->alloc.FreeExact(addr))
 		{
-			// TODO: smallest priority
 			if ((vpl->nv.attr & PSP_VPL_ATTR_PRIORITY) != 0)
 				std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);
 
