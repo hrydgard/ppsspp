@@ -2060,7 +2060,7 @@ u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u
 u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 	WARN_LOG(SCEIO, "sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
 
-	PSPPointer<SceUID> out;
+	PSPPointer<SceUID_le> out;
 	out = outAddr;
 	int count = 0;
 
