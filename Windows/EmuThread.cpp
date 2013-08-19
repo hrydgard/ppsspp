@@ -139,6 +139,7 @@ shutdown:
 	_InterlockedExchange(&emuThreadReady, THREAD_SHUTDOWN);
 
 	NativeShutdownGraphics();
+	host->ShutdownSound();
 	host = nativeHost;
 	NativeShutdown();
 	host = oldHost;

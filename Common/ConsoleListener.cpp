@@ -27,6 +27,7 @@
 #include <stdarg.h>
 #endif
 
+#include "thread/threadutil.h"
 #include "Common.h"
 #include "LogManager.h" // Common
 #include "ConsoleListener.h" // Common
@@ -248,6 +249,7 @@ COORD ConsoleListener::GetCoordinates(int BytesRead, int BufferWidth)
 
 unsigned int WINAPI ConsoleListener::RunThread(void *lpParam)
 {
+	setCurrentThreadName("ConsoleThread");
 	ConsoleListener *consoleLog = (ConsoleListener *)lpParam;
 	consoleLog->LogWriterThread();
 	return 0;
