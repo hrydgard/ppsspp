@@ -82,20 +82,18 @@ struct MsgPipeWaitingThread
 		}
 	}
 
-	void Complete(SceUID waitID, int result, u32 transferred = (u32)-1) const
+	void Complete(SceUID waitID, int result) const
 	{
 		if (IsStillWaiting(waitID))
 		{
 			WriteCurrentTimeout(waitID);
-			if (transferred != (u32)-1 && transferredBytes.IsValid())
-				*transferredBytes = transferred;
 			__KernelResumeThreadFromWait(id, result);
 		}
 	}
 
 	void Cancel(SceUID waitID, int result) const
 	{
-		Complete(waitID, result, 0);
+		Complete(waitID, result);
 	}
 
 	void ReadBuffer(u8 *dest, u32 len)
