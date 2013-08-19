@@ -23,6 +23,7 @@ Debug
 Release
 Windows/x64
 Windows/ipch
+ui_atlas.zim.png
 
 # For Mac
 .DS_Store

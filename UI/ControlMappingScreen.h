@@ -34,7 +34,8 @@ private:
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback) : PopupScreen("Map Key"), callback_(callback) {
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback)
+		: PopupScreen("Map Key", "Cancel", ""), callback_(callback) {
 		pspBtn_ = btn;
 	}
 
@@ -45,7 +46,7 @@ protected:
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 	virtual bool FillVertical() { return false; }
-	virtual bool ShowButtons() { return false; }
+	virtual bool ShowButtons() { return true; }
 	virtual void OnCompleted(DialogResult result) {}
 
 private:

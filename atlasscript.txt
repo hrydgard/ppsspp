@@ -1,8 +1,7 @@
 2048
 font UBUNTU24 C:/Windows/Fonts/Roboto-Condensed.ttf UWER 34 -2
 font UBUNTU24 C:/Windows/Fonts/ARIALUNI.ttf UWEhkcRGHK 30 0
-font UBUNTU48 source_assets/font/zrnic.ttf UW 55
-image SOLIDWHITE white.png copy
+image I_SOLIDWHITE white.png copy
 image I_CROSS source_assets/image/cross.png copy
 image I_CIRCLE source_assets/image/circle.png copy
 image I_SQUARE source_assets/image/square.png copy
@@ -17,12 +16,12 @@ image I_SHOULDER source_assets/image/shoulder.png copy
 image I_CHECKEDBOX source_assets/image/checkedbox.png copy
 image I_RECT source_assets/image/rect.png copy
 image I_STICKBG source_assets/image/stick_bg.png copy
-image I_BG source_assets/image/background.png copy
+image I_BG source_assets/image/background2.png copy
 image I_L source_assets/image/L.png copy
 image I_R source_assets/image/R.png copy
-image I_BUTTON source_assets/image/button.png copy
-image I_BUTTON_SELECTED source_assets/image/button_selected.png copy
-image I_ICON_UMD source_assets/image/umd48.png copy
-image I_ICON_FOLDER source_assets/image/folder.png copy
-image I_ICON_EXE source_assets/image/exe.png copy
 image I_DROP_SHADOW source_assets/image/dropshadow.png copy
+image I_LINES source_assets/image/lines.png copy
+image I_GRID source_assets/image/grid.png copy
+image I_LOGO source_assets/image/logo.png copy
+image I_ICON source_assets/image/icon_regular_72.png copy
+image I_ICONGOLD source_assets/image/icon_gold_72.png copy

@@ -293,7 +293,8 @@ void LogoScreen::render() {
 	sprintf(temp, "%s Henrik Rydgård", c->T("created", "Created by"));
 
 	dc.Draw()->SetFontScale(1.5f, 1.5f);
-	dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.Draw()->DrawImage(I_LOGO, dp_xres / 2, dp_yres / 2 - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
 	dc.Draw()->DrawTextShadow(UBUNTU24, temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.Draw()->DrawTextShadow(UBUNTU24, c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
@@ -334,11 +335,41 @@ void SystemInfoScreen::CreateViews() {
 	}
 }
 
-
 void CreditsScreen::CreateViews() {
 	using namespace UI;
+	I18NCategory *g = GetI18NCategory("General");
+
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	root_->Add(new Button("OK", new AnchorLayoutParams(200, 50, NONE, NONE, 10, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnOK);
+	root_->Add(new Button(g->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnOK);
+#ifndef GOLD
+	root_->Add(new Button(g->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
+#endif
+	root_->Add(new Button(g->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
+	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
+#ifdef GOLD
+	root_->Add(new ImageView(I_ICONGOLD, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+#else
+	root_->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+#endif
+}
+
+UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
+#ifdef ANDROID
+	LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
+#else
+	LaunchBrowser("http://central.ppsspp.org/buygold");
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn CreditsScreen::OnPPSSPPOrg(UI::EventParams &e) {
+	LaunchBrowser("http://www.ppsspp.org");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
+	LaunchBrowser("http://forums.ppsspp.org");
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CreditsScreen::OnOK(UI::EventParams &e) {
@@ -407,6 +438,9 @@ void CreditsScreen::render() {
 		c->T("specialthanks", "Special thanks to:"),
 		"Keith Galocy at nVidia (hw, advice)",
 		"Orphis (build server)",
+		"angelxwind (iOS build server)",
+		"solarmystic (testing)",
+		"all the forum mods",
 		"",
 		"",
 		c->T("written", "Written in C++ for speed and portability"),

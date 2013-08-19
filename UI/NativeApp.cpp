@@ -403,8 +403,8 @@ void NativeInitGraphics() {
 	theme.uiFont = UBUNTU24;
 	theme.uiFontSmall = UBUNTU24;
 	theme.uiFontSmaller = UBUNTU24;
-	theme.buttonImage = I_BUTTON;
-	theme.buttonSelected = I_BUTTON_SELECTED;
+	theme.buttonImage = I_SOLIDWHITE;  // not using classic buttons
+	theme.buttonSelected = I_SOLIDWHITE;
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
@@ -415,10 +415,11 @@ void NativeInitGraphics() {
 	ui_theme.uiFontSmaller = UBUNTU24;
 	ui_theme.checkOn = I_CHECKEDBOX;
 	ui_theme.checkOff = I_SQUARE;
-	ui_theme.whiteImage = SOLIDWHITE;
+	ui_theme.whiteImage = I_SOLIDWHITE;
 	ui_theme.sliderKnob = I_CIRCLE;
 	ui_theme.dropShadow4Grid = I_DROP_SHADOW;
 
+	/*
 	ui_theme.buttonStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON);
 	ui_theme.buttonStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.buttonStyle.image = I_BUTTON;
@@ -428,6 +429,7 @@ void NativeInitGraphics() {
 	ui_theme.buttonDownStyle.fgColor = 0xFFFFFFFF;
 	ui_theme.buttonDisabledStyle.background = UI::Drawable(UI::DRAW_4GRID, I_BUTTON, 0xFF404040);
 	ui_theme.buttonDisabledStyle.fgColor = 0xFF707070;
+	*/
 
 	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
 	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;

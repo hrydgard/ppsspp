@@ -221,7 +221,8 @@ void GameSettingsScreen::CreateViews() {
 
 	// Graphics
 	ViewGroup *graphicsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	ViewGroup *graphicsSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *graphicsSettings = new LinearLayout(ORIENT_VERTICAL);
+	graphicsSettings->SetSpacing(0);
 	graphicsSettingsScroll->Add(graphicsSettings);
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
@@ -282,7 +283,8 @@ void GameSettingsScreen::CreateViews() {
 
 	// Audio
 	ViewGroup *audioSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	ViewGroup *audioSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *audioSettings = new LinearLayout(ORIENT_VERTICAL);
+	audioSettings->SetSpacing(0);
 	audioSettingsScroll->Add(audioSettings);
 	tabHolder->AddTab(ms->T("Audio"), audioSettingsScroll);
 
@@ -292,13 +294,14 @@ void GameSettingsScreen::CreateViews() {
 
 	audioSettings->Add(new PopupSliderChoice(&g_Config.iSFXVolume, 0, 8, a->T("SFX volume"), screenManager()));
 	audioSettings->Add(new PopupSliderChoice(&g_Config.iBGMVolume, 0, 8, a->T("BGM volume"), screenManager()));
-
+	 
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, a->T("Enable Atrac3+")));
 
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	ViewGroup *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *controlsSettings = new LinearLayout(ORIENT_VERTICAL);
+	controlsSettings->SetSpacing(0);
 	controlsSettingsScroll->Add(controlsSettings);
 	tabHolder->AddTab(ms->T("Controls"), controlsSettingsScroll);
 	controlsSettings->Add(new Choice(gs->T("Control Mapping")))->OnClick.Handle(this, &GameSettingsScreen::OnControlMapping);
@@ -310,7 +313,8 @@ void GameSettingsScreen::CreateViews() {
 	
 	// System
 	ViewGroup *systemSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	ViewGroup *systemSettings = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *systemSettings = new LinearLayout(ORIENT_VERTICAL);
+	systemSettings->SetSpacing(0);
 	systemSettingsScroll->Add(systemSettings);
 	tabHolder->AddTab(ms->T("System"), systemSettingsScroll);
 
@@ -433,6 +437,7 @@ void GlobalSettingsScreen::CreateViews() {
 	I18NCategory *gs = GetI18NCategory("Graphics");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	list->SetSpacing(0);
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
 #ifndef ANDROID
@@ -508,6 +513,7 @@ void DeveloperToolsScreen::CreateViews() {
 	I18NCategory *a = GetI18NCategory("Audio");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	list->SetSpacing(0);
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new Choice(g->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
@@ -515,6 +521,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 #endif
 	list->Add(new CheckBox(&enableLogging_, d->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
+	list->Add(new ItemHeader(g->T("Language")));
 	list->Add(new Choice(d->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(d->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);

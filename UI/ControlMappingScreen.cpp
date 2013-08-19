@@ -213,12 +213,17 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
-	parent->Add(new TextView(std::string(keyI18N->T("Map a new key for ")) + pspButtonName));
+	parent->Add(new TextView(std::string(keyI18N->T("Map a new key for ")) + pspButtonName, new LinearLayoutParams(Margins(10,0))));
 }
 
 void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 	if (key.flags & KEY_DOWN) {
 		if (key.keyCode == NKCODE_EXT_MOUSEBUTTON_1) {
+			return;
+		}
+
+		if (key.keyCode == NKCODE_ESCAPE) {
+			screenManager()->finishDialog(this, DR_CANCEL);
 			return;
 		}
 		

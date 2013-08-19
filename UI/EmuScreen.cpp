@@ -510,7 +510,7 @@ void EmuScreen::render() {
 		case 2:
 			sprintf(fpsbuf, "FPS: %0.1f", actual_fps); break;
 		case 3:
-			sprintf(fpsbuf, "%0.1f/%0.0f (%0.1f%%)", actual_fps, fps, vps / 60.0f * 100.0f); break;
+			sprintf(fpsbuf, "%0.0f/%0.0f (%0.1f%%)", actual_fps, fps, vps / 60.0f * 100.0f); break;
 		}
 		ui_draw2d.SetFontScale(0.7f, 0.7f);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);

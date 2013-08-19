@@ -5,11 +5,10 @@
 
 // FONTS_ui
 #define UBUNTU24 0
-#define UBUNTU48 1
 
 
 // IMAGES_ui
-#define SOLIDWHITE 0
+#define I_SOLIDWHITE 0
 #define I_CROSS 1
 #define I_CIRCLE 2
 #define I_SQUARE 3
@@ -27,12 +26,12 @@
 #define I_BG 15
 #define I_L 16
 #define I_R 17
-#define I_BUTTON 18
-#define I_BUTTON_SELECTED 19
-#define I_ICON_UMD 20
-#define I_ICON_FOLDER 21
-#define I_ICON_EXE 22
-#define I_DROP_SHADOW 23
+#define I_DROP_SHADOW 18
+#define I_LINES 19
+#define I_GRID 20
+#define I_LOGO 21
+#define I_ICON 22
+#define I_ICONGOLD 23
 
 
 extern const Atlas ui_atlas;

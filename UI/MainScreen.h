@@ -44,6 +44,8 @@ private:
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnCredits(UI::EventParams &e);
 	UI::EventReturn OnSupport(UI::EventParams &e);
+	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
+	UI::EventReturn OnForums(UI::EventParams &e);
 	UI::EventReturn OnExit(UI::EventParams &e);
 };
 

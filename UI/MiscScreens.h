@@ -100,6 +100,10 @@ public:
 private:
 	UI::EventReturn OnOK(UI::EventParams &e);
 
+	UI::EventReturn OnSupport(UI::EventParams &e);
+	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
+	UI::EventReturn OnForums(UI::EventParams &e);
+
 	int frames_;
 };
 

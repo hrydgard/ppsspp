@@ -150,12 +150,14 @@ void GameButton::Draw(UIContext &dc) {
 			y += txOffset * 2;
 		}
 		if (HasFocus()) {
-			// dc.Draw()->DrawImage4Grid(I_DROP_SHADOW, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 	alphaMul(color, 0.5f), 1.0f);
-			// dc.Draw()->Flush();
+			dc.Draw()->Flush();
+			dc.RebindTexture();
+			dc.Draw()->DrawImage4Grid(I_DROP_SHADOW, x - dropsize*1.5f, y - dropsize*1.5f, x+w + dropsize*1.5f, y+h+dropsize*1.5f, alphaMul(color, 1.0f), 1.0f);
+			dc.Draw()->Flush();
 		} else {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize, y, x+w + dropsize, y+h+dropsize*1.5, 	alphaMul(shadowColor, 0.5f), 1.0f);
+			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize, y - dropsize*0.5f, x+w + dropsize, y+h+dropsize*1.5, alphaMul(shadowColor, 0.5f), 1.0f);
 			dc.Draw()->Flush();
 		}
 	}
@@ -332,6 +334,8 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 	path_.SetPath(g_Config.memCardDirectory);
+	g_Config.currentDirectory = path_.GetPath();
+	Refresh();
 	return UI::EVENT_DONE;
 }
 
@@ -343,13 +347,13 @@ void GameBrowser::Refresh() {
 
 	if (allowBrowsing_) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 1.0f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f)));
+		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 0.7f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f)));
 #ifdef ANDROID
 		topBar->Add(new Choice("Home"))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #endif
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
-		layoutChoice->AddChoice("Grid");
-		layoutChoice->AddChoice("List");
+		layoutChoice->AddChoice(I_GRID);
+		layoutChoice->AddChoice(I_LINES);
 		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1);
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 		Add(topBar);
@@ -380,6 +384,18 @@ void GameBrowser::Refresh() {
 					dirButtons.push_back(new UI::Button(fileInfo[i].name.c_str(), new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 			} else {
 				gameButtons.push_back(new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
+			}
+		}
+		// Put RAR/ZIP files at the end to get them out of the way. They're only shown so that people
+		// can click them and get an explanation that they need to unpack them. This is necessary due
+		// to a flood of support email...
+		if (allowBrowsing_) {
+			fileInfo.clear();
+			path_.GetListing(fileInfo, "zip:rar:r01:");
+			for (size_t i = 0; i < fileInfo.size(); i++) {
+				if (!fileInfo[i].isDirectory) {
+					gameButtons.push_back(new GameButton(fileInfo[i].fullName, *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
+				}
 			}
 		}
 	}
@@ -439,7 +455,7 @@ void MainScreen::CreateViews() {
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
-	Margins actionMenuMargins(0, 80, 15, 0);
+	Margins actionMenuMargins(0, 0, 10, 0);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -487,9 +503,21 @@ void MainScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
 	
-	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
 
+	char versionString[256];
+	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
+	rightColumnItems->SetSpacing(0.0f);
+	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
+#ifdef GOLD
+	logos->Add(new ImageView(I_ICONGOLD, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+#else
+	logos->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+#endif
+	logos->Add(new ImageView(I_LOGO, IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
+	rightColumnItems->Add(logos);
+	rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))))->SetTextScale(0.5f);
 #if defined(_WIN32) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
@@ -497,6 +525,7 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(m->T("Main Settings")))->OnClick.Handle(this, &MainScreen::OnSettings);
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
+	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 	rightColumnItems->Add(new Choice(m->T("Support PPSSPP")))->OnClick.Handle(this, &MainScreen::OnSupport);
 }
 
@@ -560,6 +589,16 @@ UI::EventReturn MainScreen::OnSupport(UI::EventParams &e) {
 #else
 	LaunchBrowser("http://central.ppsspp.org/buygold");
 #endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnPPSSPPOrg(UI::EventParams &e) {
+	LaunchBrowser("http://www.ppsspp.org");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnForums(UI::EventParams &e) {
+	LaunchBrowser("http://forums.ppsspp.org");
 	return UI::EVENT_DONE;
 }
 

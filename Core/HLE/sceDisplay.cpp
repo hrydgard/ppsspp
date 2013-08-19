@@ -215,6 +215,7 @@ void __DisplayFireVblank() {
 	}
 }
 
+// TODO: Also average actualFps
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps) {
 	*out_vps = fps;
 	*out_fps = flips;
@@ -240,8 +241,7 @@ void CalculateFPS() {
 	time_update();
 	double now = time_now_d();
 
-	if (now >= lastFpsTime + 1.0)
-	{
+	if (now >= lastFpsTime + 1.0) {
 		double frames = (gpuStats.numVBlanks - lastFpsFrame);
 		actualFps = (actualFlips - lastActualFlips);
 
@@ -433,6 +433,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	// non-buffered rendering. The interaction with frame skipping seems to need
 	// some work.
 	if (gpu->FramebufferDirty()) {
+		if (g_Config.iShowFPSCounter) {
+			CalculateFPS();
+		}
+
 		// Setting CORE_NEXTFRAME causes a swap.
 		// Check first though, might've just quit / been paused.
 		if (gpu->FramebufferReallyDirty()) {
@@ -501,6 +505,7 @@ u32 sceDisplaySetMode(int displayMode, int displayWidth, int displayHeight) {
 	return 0;
 }
 
+// Some games (GTA) never call this during gameplay, so bad place to put a framerate counter.
 u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) {
 	FrameBufferState fbstate;
 	DEBUG_LOG(HLE,"sceDisplaySetFramebuf(topaddr=%08x,linesize=%d,pixelsize=%d,sync=%d)", topaddr, linesize, pixelformat, sync);
@@ -510,10 +515,6 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		fbstate.topaddr = topaddr;
 		fbstate.pspFramebufFormat = (GEBufferFormat)pixelformat;
 		fbstate.pspFramebufLinesize = linesize;
-	}
-
-	if (g_Config.iShowFPSCounter) {
-		CalculateFPS();
 	}
 
 	if (topaddr != framebuf.topaddr) {

@@ -24,6 +24,7 @@
 #include "file/zip_read.h"
 #include "image/png_load.h"
 #include "thread/prioritizedworkqueue.h"
+#include "Common/StringUtils.h"
 #include "GameInfoCache.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
@@ -286,9 +287,14 @@ public:
 				ReadFileToString(&umd, "/PSP_GAME/PIC1.PNG", &info_->pic1TextureData, &info_->lock);
 				break;
 			}
-
+		
 		default:
-			;
+			{
+				std::string fn, ext;
+				SplitPath(gamePath_, 0, &fn, &ext);
+				info_->title = fn + "." + ext;
+			}
+			break;
 		}
 		// probably only want these when we ask for the background image...
 		// should maybe flip the flag to "onlyIcon"

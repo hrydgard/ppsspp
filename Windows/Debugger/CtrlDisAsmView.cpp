@@ -221,7 +221,7 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 			return false;
 		}
 	} else {
-		sprintf(dest,"%08X %08X",address,Memory::ReadUnchecked_U32(address));
+		sprintf(dest,"%08X %08X",address,Memory::Read_U32(address));
 		return false;
 	}
 }
