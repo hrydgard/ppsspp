@@ -512,12 +512,12 @@ void EmuScreen::render() {
 		case 3:
 			sprintf(fpsbuf, "%0.1f/%0.0f (%0.1f%%)", actual_fps, fps, vps / 60.0f * 100.0f); break;
 		}
-		ui_draw2d.SetFontScale(0.6f, 0.6f);
+		ui_draw2d.SetFontScale(0.7f, 0.7f);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
+		ui_draw2d.SetFontScale(1.0f, 1.0f);
 	}
 	
-
 	glsl_bind(UIShader_Get());
 	ui_draw2d.End();
 	ui_draw2d.Flush();
