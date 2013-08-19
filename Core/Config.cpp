@@ -57,7 +57,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
-	general->Get("DebuggerOnLoad", &bShowDebuggerOnLoad, false);
+	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
 	general->Get("Language", &languageIni, "en_US");
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
 	general->Get("EnableCheats", &bEnableCheats, false);
