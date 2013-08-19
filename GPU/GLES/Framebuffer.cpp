@@ -938,25 +938,25 @@ void FramebufferManager::PackFramebufferAsync_(VirtualFramebuffer *vfb) {
 	if(vfb) {
 		int pixelType, pixelSize, pixelFormat, align;
 
+		bool reverseOrder = (gpuVendor == GPU_VENDOR_NVIDIA) || (gpuVendor == GPU_VENDOR_AMD);
 		switch (vfb->format) {
 			// GL_UNSIGNED_INT_8_8_8_8 returns A B G R (little-endian, tested in Nvidia card/x86 PC)
 			// GL_UNSIGNED_BYTE returns R G B A in consecutive bytes ("big-endian"/not treated as 32-bit value)
 			// We want R G B A, so we use *_REV for 16-bit formats and GL_UNSIGNED_BYTE for 32-bit
 			case GE_FORMAT_4444: // 16 bit RGBA
-				// We'll single out Nvidia for now, since that's the only vendor whose glReadPixels behaviour is tested.
-				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
+				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_4_4_4_4_REV : GL_UNSIGNED_SHORT_4_4_4_4);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_5551: // 16 bit RGBA
-				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
+				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_1_5_5_5_REV : GL_UNSIGNED_SHORT_5_5_5_1);
 				pixelFormat = GL_RGBA;
 				pixelSize = 2;
 				align = 8;
 				break;
 			case GE_FORMAT_565: // 16 bit RGB
-				pixelType = ((gpuVendor == GPU_VENDOR_NVIDIA) ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
+				pixelType = (reverseOrder ? GL_UNSIGNED_SHORT_5_6_5_REV : GL_UNSIGNED_SHORT_5_6_5);
 				pixelFormat = GL_RGB;
 				pixelSize = 2;
 				align = 8;
