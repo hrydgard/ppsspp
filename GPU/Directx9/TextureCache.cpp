@@ -879,20 +879,18 @@ static inline u32 QuickTexHash(u32 addr, int bufw, int w, int h, GETextureFormat
 	{
 #endif
 #ifdef _XBOX
-	if (0) {
+	if ((((u32)(intptr_t)checkp | sizeInRAM) & 0x1f) == 0) {
 		__vector4 add, xor;
 		__vector4 cur = __vzero();
 		const __vector4 * ptr = (const __vector4*)checkp;
 		for (u32 i = 0; i < sizeInRAM / 16; i+=2) {
-			add = __loadunalignedvector(&ptr[i]);
-			xor = __loadunalignedvector(&ptr[i+1]);
-			//check += *checkp++;
-			//check ^= *checkp++;
+			add = __lvx(&ptr[i],0);
+			xor = __lvx(&ptr[i+1],0);
 			cur = __vadduwm(cur, add);
-			cur = __vand(cur, add);
+			cur = __vxor(cur, xor);
 		}
-		// Add the four parts into the low i32. // todo
-		check = cur.u[0];
+		// Add the four parts into the low i32. // is it possible with vmx ?
+		check = cur.u[0]+cur.u[1]+cur.u[2]+cur.u[3];
 	} else
 #endif
 		for (u32 i = 0; i < sizeInRAM / 8; ++i) {
