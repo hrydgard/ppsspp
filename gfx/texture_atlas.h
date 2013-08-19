@@ -1,5 +1,7 @@
 #pragma once
 
+typedef int ImageID;
+
 struct AtlasChar {
   // texcoords
   float sx, sy, ex, ey;

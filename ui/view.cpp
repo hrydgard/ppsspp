@@ -274,18 +274,24 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 }
 
 void ClickableItem::Draw(UIContext &dc) {
-	Style style = dc.theme->itemStyle;
+	Style style =	dc.theme->itemStyle;
 	if (HasFocus()) {
 		style = dc.theme->itemFocusedStyle;
 	}
 	if (down_) {
 		style = dc.theme->itemDownStyle;
-	} 
+	}
 	dc.FillRect(style.background, bounds_);
 }
 
 void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+	if (atlasImage_ != -1) {
+		const AtlasImage &img = dc.Draw()->GetAtlas()->images[atlasImage_];
+		w = img.w;
+		h = img.h;
+	} else {
+		dc.Draw()->MeasureText(dc.theme->uiFont, text_.c_str(), &w, &h);
+	}
 	w += 24;
 	h += 16;
 }
@@ -297,8 +303,12 @@ void Choice::Draw(UIContext &dc) {
 	if (!IsEnabled())
 		style = dc.theme->itemDisabledStyle;
 
-	int paddingX = 12;
-	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+	if (atlasImage_ != -1) {
+		dc.Draw()->DrawImage(atlasImage_, bounds_.centerX(), bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+	} else {
+		int paddingX = 12;
+		dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+	}
 
 	if (selected_) {
 		dc.Draw()->DrawImage(dc.theme->checkOn, bounds_.x2() - 40, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
@@ -314,13 +324,19 @@ void InfoItem::Draw(UIContext &dc) {
 // 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y + 2, dc.theme->itemDownStyle.bgColor);
 }
 
+ItemHeader::ItemHeader(const std::string &text, LayoutParams *layoutParams)
+	: Item(layoutParams), text_(text) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = 40;
+}
+
 void ItemHeader::Draw(UIContext &dc) {
 	float scale = 1.0f;
 	if (dc.theme->uiFontSmaller == dc.theme->uiFont) {
 		scale = 0.7f;
 	}
 	dc.Draw()->SetFontScale(scale, scale);
-	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.y, 0xFFFFFFFF, ALIGN_LEFT);
+	dc.Draw()->DrawText(dc.theme->uiFontSmaller, text_.c_str(), bounds_.x + 4, bounds_.centerY(), 0xFFFFFFFF, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->SetFontScale(1.0f, 1.0f);
 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), 0xFFFFFFFF);
 }
@@ -376,8 +392,10 @@ void ImageView::GetContentDimensions(const UIContext &dc, float &w, float &h) co
 }
 
 void ImageView::Draw(UIContext &dc) {
+	const AtlasImage &img = dc.Draw()->GetAtlas()->images[atlasImage_];
 	// TODO: involve sizemode
-	dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFFFFFFFF);
+	float scale = bounds_.w / img.w;
+	dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, scale, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
 void TextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

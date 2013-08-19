@@ -235,6 +235,7 @@ public:
 		: LinearLayout(orientation, layoutParams), selected_(0), topTabs_(false) { SetSpacing(0.0f); }
 
 	void AddChoice(const std::string &title);
+	void AddChoice(ImageID buttonImage);
 	int GetSelection() const { return selected_; }
 	void SetSelection(int sel);
 	virtual void Key(const KeyInput &input);

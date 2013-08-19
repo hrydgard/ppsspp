@@ -174,13 +174,13 @@ void DrawBuffer::Rect(float x, float y, float w, float h,
 		V(x,	   y + h, 0, color, u, v + uh);
 }
 
-void DrawBuffer::MeasureImage(int atlas_image, float *w, float *h) {
+void DrawBuffer::MeasureImage(ImageID atlas_image, float *w, float *h) {
 	const AtlasImage &image = atlas->images[atlas_image];
 	*w = (float)image.w;
 	*h = (float)image.h;
 }
 
-void DrawBuffer::DrawImage(int atlas_image, float x, float y, float scale, Color color, int align) {
+void DrawBuffer::DrawImage(ImageID atlas_image, float x, float y, float scale, Color color, int align) {
 	const AtlasImage &image = atlas->images[atlas_image];
 	float w = (float)image.w * scale;
 	float h = (float)image.h * scale;
@@ -191,7 +191,7 @@ void DrawBuffer::DrawImage(int atlas_image, float x, float y, float scale, Color
 	DrawImageStretch(atlas_image, x, y, x + w, y + h, color);
 }
 
-void DrawBuffer::DrawImageStretch(int atlas_image, float x1, float y1, float x2, float y2, Color color) {
+void DrawBuffer::DrawImageStretch(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color) {
 	const AtlasImage &image = atlas->images[atlas_image];
 	V(x1,	y1, color, image.u1, image.v1);
 	V(x2,	y1, color, image.u2, image.v1);
@@ -215,7 +215,7 @@ inline void rot(float *v, float angle, float xc, float yc) {
 }
 
 
-void DrawBuffer::DrawImageRotated(int atlas_image, float x, float y, float scale, float angle, Color color, bool mirror_h) {
+void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color, bool mirror_h) {
 	const AtlasImage &image = atlas->images[atlas_image];
 	float w = (float)image.w * scale;
 	float h = (float)image.h * scale;
@@ -287,7 +287,7 @@ void DrawBuffer::DrawTexRect(float x1, float y1, float x2, float y2, float u1, f
 	V(x1,	y2, color, u1, v2);
 }
 
-void DrawBuffer::DrawImage4Grid(int atlas_image, float x1, float y1, float x2, float y2, Color color, float corner_scale) {
+void DrawBuffer::DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color, float corner_scale) {
 	const AtlasImage &image = atlas->images[atlas_image];
 
 	float u1 = image.u1, v1 = image.v1, u2 = image.u2, v2 = image.v2;
@@ -313,7 +313,7 @@ void DrawBuffer::DrawImage4Grid(int atlas_image, float x1, float y1, float x2, f
 	DrawTexRect(xb, yb, x2, y2, um, vm, u2, v2, color);
 }
 
-void DrawBuffer::DrawImage2GridH(int atlas_image, float x1, float y1, float x2, Color color, float corner_scale) {
+void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color, float corner_scale) {
 	const AtlasImage &image = atlas->images[atlas_image];
 	float um = (image.u1 + image.u2) * 0.5f;
 	float iw2 = (image.w * 0.5f) * corner_scale;

@@ -803,6 +803,14 @@ void ChoiceStrip::AddChoice(const std::string &title) {
 		c->Press();
 }
 
+void ChoiceStrip::AddChoice(ImageID buttonImage) {
+	StickyChoice *c = new StickyChoice(buttonImage, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	c->OnClick.Handle(this, &ChoiceStrip::OnChoiceClick);
+	Add(c);
+	if (selected_ == (int)views_.size() - 1)
+		c->Press();
+}
+
 EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 	// Unstick the other choices that weren't clicked.
 	for (int i = 0; i < (int)views_.size(); i++) {

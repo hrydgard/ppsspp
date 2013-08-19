@@ -6,6 +6,7 @@
 #include "base/color.h"
 #include "base/display.h"
 #include "gfx/gl_lost_manager.h"
+#include "gfx/texture_atlas.h"
 
 struct Atlas;
 
@@ -98,22 +99,23 @@ public:
 		atlas = _atlas;
 	}
 	const Atlas *GetAtlas() const { return atlas; }
-	void MeasureImage(int atlas_image, float *w, float *h);
-	void DrawImage(int atlas_image, float x, float y, float scale, Color color = COLOR(0xFFFFFF), int align = ALIGN_TOPLEFT);
-	void DrawImageStretch(int atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF));
-	void DrawImageRotated(int atlas_image, float x, float y, float scale, float angle, Color color = COLOR(0xFFFFFF), bool mirror_h = false);	// Always centers
+	void MeasureImage(ImageID atlas_image, float *w, float *h);
+	void DrawImage(ImageID atlas_image, float x, float y, float scale, Color color = COLOR(0xFFFFFF), int align = ALIGN_TOPLEFT);
+	void DrawImageStretch(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF));
+	void DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color = COLOR(0xFFFFFF), bool mirror_h = false);	// Always centers
 	void DrawTexRect(float x1, float y1, float x2, float y2, float u1, float v1, float u2, float v2, Color color);
 	// Results in 18 triangles. Kind of expensive for a button.
-	void DrawImage4Grid(int atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0);
+	void DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0);
 	// This is only 6 triangles, much cheaper.
-	void DrawImage2GridH(int atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
+	void DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
 
 	void MeasureText(int font, const char *text, float *w, float *h);
 	void DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawTextShadow(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 
-	void RotateSprite(int atlas_entry, float x, float y, float angle, float scale, Color color);
+	void RotateSprite(ImageID atlas_image, float x, float y, float angle, float scale, Color color);
+
 	void SetFontScale(float xs, float ys) {
 		fontscalex = xs;
 		fontscaley = ys;
