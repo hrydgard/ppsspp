@@ -1126,13 +1126,14 @@ namespace MainWindow
 					key.deviceId = DEVICE_ID_MOUSE;
 
 					bool mouseRightBtnPressed = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN;
+					bool mouseRightBtnReleased = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP;
 
 					if(mouseRightBtnPressed) {
 						key.flags = KEY_DOWN;
 						key.keyCode = windowsTransTable[VK_RBUTTON];
 						NativeKey(key);
 					}
-					else {
+					else if(mouseRightBtnReleased) {
 						key.flags = KEY_UP;
 						key.keyCode = windowsTransTable[VK_RBUTTON];
 						NativeKey(key);
