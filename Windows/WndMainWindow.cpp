@@ -281,18 +281,7 @@ namespace MainWindow
 
 	void setFrameSkipping(int framesToSkip) {
 		I18NCategory *g = GetI18NCategory("Graphics");
-
-		char message[256];
-		if(framesToSkip == 0)
-			sprintf(message, "Frameskipping off");
-		else {
-			if(framesToSkip == 1)
-				sprintf(message, "Skipping %d frame", framesToSkip);
-			else
-				sprintf(message, "Skipping %d frames", framesToSkip);
-		}
 		g_Config.iFrameSkip = framesToSkip;
-		osm.Show(g->T(message));
 	}
 
 	void enableCheats(bool cheats) {
