@@ -501,17 +501,18 @@ void EmuScreen::render() {
 	}
 
 	if (g_Config.iShowFPSCounter) {
-		float vps, fps;
-		__DisplayGetFPS(&vps, &fps);
+		float vps, fps, actual_fps;
+		__DisplayGetFPS(&vps, &fps, &actual_fps);
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
 		case 1:
 			sprintf(fpsbuf, "Speed: %0.1f%%", vps / 60.0f * 100.0f); break;
 		case 2:
-			sprintf(fpsbuf, "FPS: %0.1f", fps); break;
+			sprintf(fpsbuf, "FPS: %0.1f", actual_fps); break;
 		case 3:
-			sprintf(fpsbuf, "Speed: %0.1f%%\nFPS: %0.1f", vps / 60.0f * 100.0f, fps); break;
+			sprintf(fpsbuf, "%0.1f/%0.0f (%0.1f%%)", actual_fps, fps, vps / 60.0f * 100.0f); break;
 		}
+		ui_draw2d.SetFontScale(0.6f, 0.6f);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);
 	}

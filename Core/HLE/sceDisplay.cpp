@@ -111,6 +111,9 @@ static size_t fpsHistoryPos = 0;
 static size_t fpsHistoryValid = 0;
 static int lastNumFlips = 0;
 static float flips = 0.0f;
+static int actualFlips = 0;  // taking frameskip into account
+static int lastActualFlips = 0;
+static float actualFps = 0;
 static u64 lastFlipCycles = 0;
 
 void hleEnterVblank(u64 userdata, int cyclesLate);
@@ -143,6 +146,12 @@ void __DisplayInit() {
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
 
+	flips = 0;
+	fps = 0.0;
+	actualFlips = 0;
+	lastActualFlips = 0;
+	lastNumFlips = 0;
+	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
 	fpsHistoryValid = 0;
 
@@ -206,9 +215,10 @@ void __DisplayFireVblank() {
 	}
 }
 
-void __DisplayGetFPS(float *out_vps, float *out_fps) {
+void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps) {
 	*out_vps = fps;
 	*out_fps = flips;
+	*out_actual_fps = actualFps;
 }
 
 void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
@@ -226,19 +236,21 @@ void __DisplayGetAveragedFPS(float *out_vps, float *out_fps) {
 	*out_vps = *out_fps = avg;
 }
 
-void CalculateFPS()
-{
+void CalculateFPS() {
 	time_update();
 	double now = time_now_d();
 
 	if (now >= lastFpsTime + 1.0)
 	{
 		double frames = (gpuStats.numVBlanks - lastFpsFrame);
+		actualFps = (actualFlips - lastActualFlips);
+
 		fps = frames / (now - lastFpsTime);
 		flips = 60.0 * (double) (gpuStats.numFlips - lastNumFlips) / frames;
 
 		lastFpsFrame = gpuStats.numVBlanks;
 		lastNumFlips = gpuStats.numFlips;
+		lastActualFlips = actualFlips;
 		lastFpsTime = now;
 
 		fpsHistory[fpsHistoryPos++] = fps;
@@ -427,6 +439,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 			if (coreState == CORE_RUNNING) {
 				coreState = CORE_NEXTFRAME;
 				gpu->CopyDisplayToOutput();
+				actualFlips++;
 			}
 		}
 

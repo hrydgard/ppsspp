@@ -179,6 +179,7 @@ void ControlMappingScreen::CreateViews() {
 	mode->AddChoice("Add");
 	*/
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	rightScroll->SetScrollToTop(false);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 	rightScroll->Add(rightColumn);
 
