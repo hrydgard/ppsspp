@@ -859,7 +859,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	// these spam the gDebugger log.
 	const int vertexSize = sizeof(transformed[0]);
 		
-	bool doTextureProjection = gstate.getUVGenMode() == 1;
+	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glVertexAttribPointer(program->a_position, 4, GL_FLOAT, GL_FALSE, vertexSize, drawBuffer);
 	if (program->a_texcoord != -1) glVertexAttribPointer(program->a_texcoord, doTextureProjection ? 3 : 2, GL_FLOAT, GL_FALSE, vertexSize, ((uint8_t*)drawBuffer) + 4 * 4);
@@ -909,7 +909,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 		if (gstate.isLightChanEnabled(i))
 			cost += 10;
 	}
-	if (gstate.getUVGenMode() != 0) {
+	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
 		cost += 20;
 	}
 	if (dec_ && dec_->morphcount > 1) {
