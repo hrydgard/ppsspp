@@ -56,7 +56,7 @@ int TranslateNumBones(int bones) {
 void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 	const u32 vertType = gstate.vertType;
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
-	bool doTextureProjection = gstate.getUVGenMode() == 1;
+	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
@@ -83,9 +83,9 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 		id->d[0] |= gstate.getUVGenMode() << 16;
 
 		// The next bits are used differently depending on UVgen mode
-		if (gstate.getUVGenMode() == 1) {
+		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
 			id->d[0] |= gstate.getUVProjMode() << 18;
-		} else if (gstate.getUVGenMode() == 2) {
+		} else if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
 			id->d[0] |= gstate.getUVLS0() << 18;
 			id->d[0] |= gstate.getUVLS1() << 20;
 		}
@@ -96,7 +96,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 		// Okay, d[1] coming up. ==============
 
-		if (gstate.isLightingEnabled() || gstate.getUVGenMode() == 2) {
+		if (gstate.isLightingEnabled() || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
 			// Light bits
 			for (int i = 0; i < 4; i++) {
 				id->d[1] |= gstate.getLightComputation(i) << (i * 4);
@@ -159,12 +159,12 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool flipV = gstate_c.flipTexture;
-	bool doTextureProjection = gstate.getUVGenMode() == 1;
+	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 
 	DoLightComputation doLight[4] = {LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF};
 	if (useHWTransform) {
-		int shadeLight0 = gstate.getUVGenMode() == 2 ? gstate.getUVLS0() : -1;
-		int shadeLight1 = gstate.getUVGenMode() == 2 ? gstate.getUVLS1() : -1;
+		int shadeLight0 = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP ? gstate.getUVLS0() : -1;
+		int shadeLight1 = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP ? gstate.getUVLS1() : -1;
 		for (int i = 0; i < 4; i++) {
 			if (i == shadeLight0 || i == shadeLight1)
 				doLight[i] = LIGHT_SHADE;
@@ -208,7 +208,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
 		WRITE(p, "uniform mat4 u_world;\n");
 		WRITE(p, "uniform mat4 u_view;\n");
-		if (gstate.getUVGenMode() == 1)
+		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX)
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
 			int numBones = TranslateNumBones(gstate.getNumBoneWeights());
@@ -518,7 +518,8 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			bool prescale = g_Config.bPrescaleUV && !throughmode && gstate.getTextureFunction() == 0;
 
 			switch (gstate.getUVGenMode()) {
-			case 0:  // Scale-offset. Easy.
+			case GE_TEXMAP_TEXTURE_COORDS:  // Scale-offset. Easy.
+			case GE_TEXMAP_UNKNOWN: // Not sure what this is, but Riviera uses it.  Treating as coords works.
 				if (prescale) {
 					WRITE(p, "  v_texcoord = a_texcoord;\n");
 				} else {
@@ -526,7 +527,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				}
 				break;
 
-			case 1:  // Projection mapping.
+			case GE_TEXMAP_TEXTURE_MATRIX:  // Projection mapping.
 				{
 					std::string temp_tc;
 					switch (gstate.getUVProjMode()) {
@@ -558,7 +559,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
 				break;
 
-			case 2:  // Shade mapping - use dots from light sources.
+			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
 				WRITE(p, "  v_texcoord = u_uvscaleoffset.xy * vec2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 - dot(normalize(u_lightpos%i), worldnormal)) * 0.5;\n", gstate.getUVLS0(), gstate.getUVLS1());
 				break;
 
