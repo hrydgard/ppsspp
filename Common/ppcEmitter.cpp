@@ -345,6 +345,12 @@ namespace PpcGen {
 	void PPCXEmitter::CMPL(PPCReg a, PPCReg b) {
 		Write32((31 << 26) | (a << 16) | (b << 11) | (1<<6));
 	}
+	void PPCXEmitter::MFCR	(PPCReg dest) {
+		Write32(0x7C000026 | (dest << 21));
+	}
+	void PPCXEmitter::MTCR	(PPCReg dest) {
+		Write32(0x7C000120 | (dest << 21) | (0xff<<12));
+	}
 
 	// Others operation
 	void PPCXEmitter::ORI(PPCReg src, PPCReg dest, unsigned short imm) {

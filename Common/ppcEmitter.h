@@ -286,6 +286,8 @@ namespace PpcGen
 		void CMPI	(PPCReg dest, unsigned short imm);
 		void CMPL	(PPCReg a, PPCReg b);
 		void CMP	(PPCReg a, PPCReg b);
+		void MFCR	(PPCReg dest);
+		void MTCR	(PPCReg dest);
 
 		void Prologue();
 		void Epilogue();
