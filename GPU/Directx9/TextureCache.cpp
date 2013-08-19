@@ -310,22 +310,6 @@ void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u
 	return tmpTexBuf32.data();
 }
 
-template<typename T> T LittleEndianSwap(T x) {
-	return (T)(x);
-}
-template<> short LittleEndianSwap<short>(short x) {
-	return (short)bswap16(x);
-}
-template<> u16 LittleEndianSwap<u16>(u16 x) {
-	return (u16)bswap16(x);
-}
-template<> int LittleEndianSwap<int>(int x) {
-	return (int)bswap32(x);
-}
-template<> u32 LittleEndianSwap<u32>(u32 x) {
-	return (u32)bswap32(x);
-}
-
 template <typename IndexT, typename ClutT>
 inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const ClutT *clut) {
 	// Usually, there is no special offset, mask, or shift.
@@ -334,16 +318,16 @@ inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const
 	if (nakedIndex) {
 		if (sizeof(IndexT) == 1) {
 			for (int i = 0; i < length; ++i) {
-				*dest++ = (clut[LittleEndianSwap(*indexed++)]);
+				*dest++ = clut[*indexed++];
 			}
 		} else {
 			for (int i = 0; i < length; ++i) {
-				*dest++ = (clut[LittleEndianSwap(*indexed++) & 0xFF]);
+				*dest++ = clut[(*indexed++) & 0xFF];
 			}
 		}
 	} else {
 		for (int i = 0; i < length; ++i) {
-			*dest++ = (clut[GetClutIndex(LittleEndianSwap(*indexed++))]);
+			*dest++ = clut[GetClutIndex(*indexed++)];
 		}
 	}
 }
@@ -378,18 +362,18 @@ template <typename ClutT>
 inline void DeIndexTexture4Optimal(ClutT *dest, const u8 *indexed, int length, ClutT color) {
 	for (int i = 0; i < length; i += 2) {
 		u8 index = *indexed++;
-		dest[i + 0] = LittleEndianSwap(color) | ((index >> 0) & 0xf);
-		dest[i + 1] = LittleEndianSwap(color) | ((index >> 4) & 0xf);
+		dest[i + 0] = color | ((index >> 0) & 0xf);
+		dest[i + 1] = color | ((index >> 4) & 0xf);
 	}
 }
 
 template <>
 inline void DeIndexTexture4Optimal<u16>(u16 *dest, const u8 *indexed, int length, u16 color) {
-	const u16 *indexed16 = (const u16 *)indexed;
+	const u16_le *indexed16 = (const u16_le *)indexed;
 	const u32 color32 = (color << 16) | color;
 	u32 *dest32 = (u32 *)dest;
 	for (int i = 0; i < length / 2; i += 2) {
-		u16 index = LittleEndianSwap(*indexed16++);
+		u16 index = *indexed16++;
 		dest32[i + 0] = color32 | ((index & 0x00f0) << 12) | ((index & 0x000f) >> 0);
 		dest32[i + 1] = color32 | ((index & 0xf000) <<  4) | ((index & 0x0f00) >> 8);
 	}
@@ -428,11 +412,11 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, u3
 				break;
 
 			case 2:
-				DeIndexTexture<u16>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture<u16_le>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32>(tmpTexBuf16.data(), texaddr, length, clut);
+				DeIndexTexture<u32_le>(tmpTexBuf16.data(), texaddr, length, clut);
 				break;
 			}
 		} else {
@@ -468,11 +452,11 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, u3
 				break;
 
 			case 2:
-				DeIndexTexture<u16>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture<u16_le>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 
 			case 4:
-				DeIndexTexture<u32>(tmpTexBuf32.data(), texaddr, length, clut);
+				DeIndexTexture<u32_le>(tmpTexBuf32.data(), texaddr, length, clut);
 				break;
 			}
 			buf = tmpTexBuf32.data();
