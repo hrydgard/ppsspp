@@ -103,6 +103,7 @@ void __KernelInit()
 	__KernelMbxInit();
 	__KernelMutexInit();
 	__KernelSemaInit();
+	__KernelMsgPipeInit();
 	__IoInit();
 	__JpegInit();
 	__AudioInit();
@@ -190,6 +191,7 @@ void __KernelDoState(PointerWrap &p)
 	__KernelEventFlagDoState(p);
 	__KernelMbxDoState(p);
 	__KernelModuleDoState(p);
+	__KernelMsgPipeDoState(p);
 	__KernelMutexDoState(p);
 	__KernelSemaDoState(p);
 	__KernelTimeDoState(p);
@@ -642,7 +644,7 @@ const HLEFunction ThreadManForUser[] =
 	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,              "sceKernelSetEventFlag"},
 	{0x402FCF22,&WrapI_IUUUU<sceKernelWaitEventFlag>,          "sceKernelWaitEventFlag"},
 	{0x328C546A,&WrapI_IUUUU<sceKernelWaitEventFlagCB>,        "sceKernelWaitEventFlagCB"},
-	{0x30FD48F0,&WrapI_IUUUU<sceKernelPollEventFlag>,          "sceKernelPollEventFlag"},
+	{0x30FD48F0,&WrapI_IUUU<sceKernelPollEventFlag>,           "sceKernelPollEventFlag"},
 	{0xCD203292,&WrapU_IUU<sceKernelCancelEventFlag>,          "sceKernelCancelEventFlag"},
 	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>,      "sceKernelReferEventFlagStatus"},
 
@@ -746,25 +748,25 @@ const HLEFunction ThreadManForUser[] =
 	{0x2A3D44FF,WrapI_I<sceKernelGetCallbackCount>,               "sceKernelGetCallbackCount"},
 	{0x730ED8BC,WrapI_IU<sceKernelReferCallbackStatus>,           "sceKernelReferCallbackStatus"},
 
-	{0x8125221D,&WrapI_CUU<sceKernelCreateMbx>,"sceKernelCreateMbx"},
-	{0x86255ADA,&WrapI_I<sceKernelDeleteMbx>,"sceKernelDeleteMbx"},
-	{0xE9B3061E,&WrapI_IU<sceKernelSendMbx>,"sceKernelSendMbx"},
-	{0x18260574,&WrapI_IUU<sceKernelReceiveMbx>,"sceKernelReceiveMbx"},
-	{0xF3986382,&WrapI_IUU<sceKernelReceiveMbxCB>,"sceKernelReceiveMbxCB"},
-	{0x0D81716A,&WrapI_IU<sceKernelPollMbx>,"sceKernelPollMbx"},
-	{0x87D4DD36,&WrapI_IU<sceKernelCancelReceiveMbx>,"sceKernelCancelReceiveMbx"},
-	{0xA8E8C846,&WrapI_IU<sceKernelReferMbxStatus>,"sceKernelReferMbxStatus"},
+	{0x8125221D,WrapI_CUU<sceKernelCreateMbx>,                    "sceKernelCreateMbx"},
+	{0x86255ADA,WrapI_I<sceKernelDeleteMbx>,                      "sceKernelDeleteMbx"},
+	{0xE9B3061E,WrapI_IU<sceKernelSendMbx>,                       "sceKernelSendMbx"},
+	{0x18260574,WrapI_IUU<sceKernelReceiveMbx>,                   "sceKernelReceiveMbx"},
+	{0xF3986382,WrapI_IUU<sceKernelReceiveMbxCB>,                 "sceKernelReceiveMbxCB"},
+	{0x0D81716A,WrapI_IU<sceKernelPollMbx>,                       "sceKernelPollMbx"},
+	{0x87D4DD36,WrapI_IU<sceKernelCancelReceiveMbx>,              "sceKernelCancelReceiveMbx"},
+	{0xA8E8C846,WrapI_IU<sceKernelReferMbxStatus>,                "sceKernelReferMbxStatus"},
 
-	{0x7C0DC2A0,sceKernelCreateMsgPipe,"sceKernelCreateMsgPipe"},
-	{0xF0B7DA1C,sceKernelDeleteMsgPipe,"sceKernelDeleteMsgPipe"},
-	{0x876DBFAD,sceKernelSendMsgPipe,"sceKernelSendMsgPipe"},
-	{0x7C41F2C2,sceKernelSendMsgPipeCB,"sceKernelSendMsgPipeCB"},
-	{0x884C9F90,sceKernelTrySendMsgPipe,"sceKernelTrySendMsgPipe"},
-	{0x74829B76,sceKernelReceiveMsgPipe,"sceKernelReceiveMsgPipe"},
-	{0xFBFA697D,sceKernelReceiveMsgPipeCB,"sceKernelReceiveMsgPipeCB"},
-	{0xDF52098F,sceKernelTryReceiveMsgPipe,"sceKernelTryReceiveMsgPipe"},
-	{0x349B864D,sceKernelCancelMsgPipe,"sceKernelCancelMsgPipe"},
-	{0x33BE4024,sceKernelReferMsgPipeStatus,"sceKernelReferMsgPipeStatus"},
+	{0x7C0DC2A0,WrapI_CIUUU<sceKernelCreateMsgPipe>,              "sceKernelCreateMsgPipe"},
+	{0xF0B7DA1C,WrapI_I<sceKernelDeleteMsgPipe>,                  "sceKernelDeleteMsgPipe"},
+	{0x876DBFAD,WrapI_IUUUUU<sceKernelSendMsgPipe>,               "sceKernelSendMsgPipe"},
+	{0x7C41F2C2,WrapI_IUUUUU<sceKernelSendMsgPipeCB>,             "sceKernelSendMsgPipeCB"},
+	{0x884C9F90,WrapI_IUUUU<sceKernelTrySendMsgPipe>,             "sceKernelTrySendMsgPipe"},
+	{0x74829B76,WrapI_IUUUUU<sceKernelReceiveMsgPipe>,            "sceKernelReceiveMsgPipe"},
+	{0xFBFA697D,WrapI_IUUUUU<sceKernelReceiveMsgPipeCB>,          "sceKernelReceiveMsgPipeCB"},
+	{0xDF52098F,WrapI_IUUUU<sceKernelTryReceiveMsgPipe>,          "sceKernelTryReceiveMsgPipe"},
+	{0x349B864D,WrapI_IUU<sceKernelCancelMsgPipe>,                "sceKernelCancelMsgPipe"},
+	{0x33BE4024,WrapI_IU<sceKernelReferMsgPipeStatus>,            "sceKernelReferMsgPipeStatus"},
 
 	{0x56C039B5,WrapI_CIUUU<sceKernelCreateVpl>,"sceKernelCreateVpl"},
 	{0x89B3D48C,WrapI_I<sceKernelDeleteVpl>,"sceKernelDeleteVpl"},
