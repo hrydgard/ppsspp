@@ -439,7 +439,7 @@ void MainScreen::CreateViews() {
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
-	Margins actionMenuMargins(0, 100, 15, 0);
+	Margins actionMenuMargins(0, 80, 15, 0);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -494,7 +494,7 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(m->T("Settings")))->OnClick.Handle(this, &MainScreen::OnSettings);
+	rightColumnItems->Add(new Choice(m->T("Main Settings")))->OnClick.Handle(this, &MainScreen::OnSettings);
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 	rightColumnItems->Add(new Choice(m->T("Support PPSSPP")))->OnClick.Handle(this, &MainScreen::OnSupport);
