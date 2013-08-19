@@ -32,10 +32,52 @@ namespace MIPSComp
 {
 
 	static u32 EvalOr(u32 a, u32 b) { return a | b; }
-	static u32 EvalEor(u32 a, u32 b) { return a ^ b; }
+	static u32 EvalXor(u32 a, u32 b) { return a ^ b; }
 	static u32 EvalAnd(u32 a, u32 b) { return a & b; }
 	static u32 EvalAdd(u32 a, u32 b) { return a + b; }
 	static u32 EvalSub(u32 a, u32 b) { return a - b; }
+
+	// Utilities to reduce duplicated code
+	void Jit::CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b), bool isSub) {
+		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+			gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
+		} else if (gpr.IsImm(rt)) {
+			u32 rtImm = gpr.GetImm(rt);
+			gpr.MapDirtyIn(rd, rs);
+			MOVI2R(SREG, rtImm);
+			(this->*arith)(gpr.R(rd), gpr.R(rs), SREG);
+		} else if (gpr.IsImm(rs)) {
+			u32 rsImm = gpr.GetImm(rs);
+			gpr.MapDirtyIn(rd, rt);
+			// TODO: Special case when rsImm can be represented as an Operand2
+			MOVI2R(SREG, rsImm);
+			(this->*arith)(gpr.R(rd), SREG, gpr.R(rt));
+		} else {
+			// Generic solution
+			gpr.MapDirtyInIn(rd, rs, rt);
+			(this->*arith)(gpr.R(rd), gpr.R(rs), gpr.R(rt));
+		}
+	}
+
+	void Jit::CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, unsigned short imm), u32 (*eval)(u32 a, u32 b))
+	{
+		if (gpr.IsImm(rs)) {
+			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
+		} else if(1) {
+
+			gpr.MapDirtyIn(rt, rs);
+			// TODO: Special case when uimm can be represented as an Operand2
+			/*
+			Operand2 op2;
+			if (TryMakeOperand2(uimm, op2)) {
+				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
+			} else 
+			*/
+			{
+				(this->*arith)(gpr.R(rt), gpr.R(rs), uimm);
+			}
+		}
+	}
 
 	void Jit::Comp_IType(u32 op)
 	{
@@ -65,6 +107,12 @@ namespace MIPSComp
 				}
 				break;
 			}
+
+
+		//case 12: CompImmLogic(rs, rt, uimm, &PPCXEmitter::ANDI, &EvalAnd); break;
+		//case 13: CompImmLogic(rs, rt, uimm, &PPCXEmitter::ORI, &EvalOr); break;
+		//case 14: CompImmLogic(rs, rt, uimm, &PPCXEmitter::XORI, &EvalXor); break;
+
 		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);
 			break;
@@ -78,31 +126,6 @@ void Jit::Comp_RType2(u32 op) {
 	Comp_Generic(op);
 }
 
-// Utilities to reduce duplicated code
-void Jit::CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b)) {
-	DebugBreak();
-}
-void Jit::CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b), bool isSub) {
-	if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
-		gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
-	} else if (gpr.IsImm(rt)) {
-		u32 rtImm = gpr.GetImm(rt);
-		gpr.MapDirtyIn(rd, rs);
-
-		MOVI2R(SREG, rtImm);
-		(this->*arith)(gpr.R(rd), gpr.R(rs), SREG);
-	} else if (gpr.IsImm(rs)) {
-		u32 rsImm = gpr.GetImm(rs);
-		gpr.MapDirtyIn(rd, rt);
-		// TODO: Special case when rsImm can be represented as an Operand2
-		MOVI2R(SREG, rsImm);
-		(this->*arith)(gpr.R(rd), SREG, gpr.R(rt));
-	} else {
-		// Generic solution
-		gpr.MapDirtyInIn(rd, rs, rt);
-		(this->*arith)(gpr.R(rd), gpr.R(rs), gpr.R(rt));
-	}
-}
 
 void Jit::Comp_RType3(u32 op) {
 	CONDITIONAL_DISABLE;
@@ -141,7 +164,7 @@ void Jit::Comp_RType3(u32 op) {
 		CompType3(rd, rs, rt, &PPCXEmitter::OR, &EvalOr);
 		break;
 	case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
-		CompType3(rd, rs, rt, &PPCXEmitter::XOR, &EvalEor);
+		CompType3(rd, rs, rt, &PPCXEmitter::XOR, &EvalXor);
 		break;
 	default:
 		Comp_Generic(op);
@@ -150,7 +173,46 @@ void Jit::Comp_RType3(u32 op) {
 }
 
 void Jit::Comp_ShiftType(u32 op) {
-	Comp_Generic(op);
+	CONDITIONAL_DISABLE;
+	int rs = _RS;
+	int rd = _RD;
+	int	fd = _FD;
+	int rt = _RT;
+	int sa = _SA;
+
+	// noop, won't write to ZERO.
+	if (rd == 0)
+		return;
+
+	// WARNING : ROTR
+	switch (op & 0x3f)
+	{
+		/*
+	case 0: CompShiftImm(op, ST_LSL); break; //sll
+	case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR); break;	//srl
+	case 3: CompShiftImm(op, ST_ASR); break; //sra
+	case 4: CompShiftVar(op, ST_LSL); break; //sllv
+	case 6: CompShiftVar(op, fd == 1 ? ST_ROR : ST_LSR); break; //srlv
+	case 7: CompShiftVar(op, ST_ASR); break; //srav
+		*/
+		case 0:  //sll
+			gpr.MapDirtyIn(rd, rt);	
+			RLWINM(gpr.R(rd), gpr.R(rt), sa, 0, (31-sa));
+			break;
+		case 2: //srl
+			gpr.MapDirtyIn(rd, rt);	
+			RLWINM(gpr.R(rd), gpr.R(rt), (32-sa), sa, 31);
+			break;
+/*
+		case 3: //sra
+			gpr.MapDirtyIn(rd, rt);	
+			RLWINM(gpr.R(rd), gpr.R(rt), sa, 0, (31-sa));
+			break;
+			*/
+	default:
+		Comp_Generic(op);
+		break;
+	}
 }
 
 void Jit::Comp_Allegrex(u32 op) {

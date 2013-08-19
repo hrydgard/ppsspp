@@ -233,7 +233,7 @@ namespace MIPSComp
 		void SetRegToEffectiveAddress(PpcGen::PPCReg r, int rs, s16 offset);
 		
 		// Utilities to reduce duplicated code
-		void CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b));
+		void CompImmLogic(int rs, int rt, u32 uimm, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, unsigned short imm), u32 (*eval)(u32 a, u32 b));
 		void CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arithOp2)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b), bool isSub = false);
 		
 		// flush regs
