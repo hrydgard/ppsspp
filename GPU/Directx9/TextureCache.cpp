@@ -750,32 +750,31 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 	switch (dstFmt) {
 	case D3DFMT_A1R5G5B5:
 		{
-			const u16 *src = (const u16 *)srcBuf;
+			const u16_le *src = (const u16_le *)srcBuf;
 			u16 *dst = (u16 *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
-				// dst[i] = LE_16(src[i]);
-				u16_le rgb = (src[i]);
+				u16 rgb = (src[i]);
 				((uint16_t *)dst)[i] = (rgb & 0x83E0) | ((rgb & 0x1F) << 10) | ((rgb & 0x7C00) >> 10);
 			}
 		}
 		break;
 	case D3DFMT_A4R4G4B4:
 		{
-			const u16 *src = (const u16 *)srcBuf;
+			const u16_le *src = (const u16_le *)srcBuf;
 			u16_le *dst = (u16_le *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
 				// Already good format
-				u16_le rgb = src[i];
+				u16 rgb = src[i];
 				dst[i] = (rgb & 0xF) | (rgb & 0xF0)<<8 | ( rgb & 0xF00) | ((rgb & 0xF000)>>8);
 			}
 		}
 		break;
 	case D3DFMT_R5G6B5:
 		{
-			const u16 *src = (const u16 *)srcBuf;
+			const u16_le *src = (const u16_le *)srcBuf;
 			u16 *dst = (u16 *)dstBuf;
 			for (int i = 0; i < numPixels; i++) {
-				u16_le rgb = src[i];
+				u16 rgb = src[i];
 				dst[i] = ((rgb & 0x1f) << 11) | ( rgb & 0x7e0)  | ((rgb & 0xF800) >>11 );
 			}
 		}
@@ -791,41 +790,6 @@ static void ClutConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int 
 		break;
 	}
 }
-
-static void TextureConvertColors(void *dstBuf, const void *srcBuf, u32 dstFmt, int numPixels) {
-#if 0
-	// TODO: All these can be further sped up with SSE or NEON.
-	switch (dstFmt) {
-	case D3DFMT_A1R5G5B5:
-	case D3DFMT_A4R4G4B4:
-	case D3DFMT_R5G6B5:
-		ClutConvertColors(dstBuf, srcBuf, dstFmt, numPixels);
-		break;
-	default:
-		{
-			const u8 *src = (const u8 *)srcBuf;
-			u8 *dst = (u8 *)dstBuf;
-			for (int i = 0; i < numPixels * sizeof(u32); i+=4) {
-				// dst[i] = LE_32(src[i]);
-				/*
-				dst[i + 0] = src[i + 3];
-				dst[i + 1] = src[i + 2];
-				dst[i + 2] = src[i + 1];
-				dst[i + 3] = src[i + 0];
-				*/
-				dst[i + 0] = src[i + 0]; // A ?
-				dst[i + 1] = src[i + 3]; // R
-				dst[i + 2] = src[i + 2]; // G
-				dst[i + 3] = src[i + 1]; // B
-			}
-		}
-		break;
-	}
-#else
-	ClutConvertColors(dstBuf, srcBuf, dstFmt, numPixels);
-#endif
-}
-
 
 void TextureCache::StartFrame() {
 	lastBoundTexture = NULL;
@@ -1428,7 +1392,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 2, level);
 		}
-		TextureConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+		ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_8888:
@@ -1450,7 +1414,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			finalBuf = UnswizzleFromMem(texaddr, bufw, 4, level);
 		}
-		TextureConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
+		ClutConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		break;
 
 	case GE_TFMT_DXT1:
@@ -1612,17 +1576,9 @@ void TextureCache::CheckAlpha(TexCacheEntry &entry, u32 *pixelData, u32 dstFmt, 
 		{
 			const u32 *p = pixelData;
 			for (int i = 0; i < w * h; ++i) {
-				/*
 				u32 a = p[i] & 0xFF000000;
 				hitZeroAlpha |= a ^ 0xFF000000;
 				if (a != 0xFF000000 && a != 0) {
-					hitSomeAlpha = 1;
-					break;
-				}
-				*/
-				u32 a = p[i] & 0x000000FF;
-				hitZeroAlpha |= a ^ 0x000000FF;
-				if (a != 0x000000FF && a != 0) {
 					hitSomeAlpha = 1;
 					break;
 				}
@@ -1649,12 +1605,14 @@ static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch
 			for(int y = 0; y < h; y++) {
 				const u16 *src = (const u16 *)((u8*)pSrc + (w*2) * y);
 				u16 *dst = (u16*)((u8*)pDst + pitch * y);
-
+				/*
 				// todo use memcpy
 				for(int x = 0; x < w; x++) {
 					unsigned short rgb = src[x];
 					dst[x] = rgb;
 				}
+				*/
+				memcpy(dst, src, w * sizeof(u16));
 			}
 			break;
 				
@@ -1663,12 +1621,15 @@ static inline void copyTexture(int xoffset, int yoffset, int w, int h, int pitch
 			for(int y = 0; y < h; y++) {
 				const u32 *src = (const u32 *)((u8*)pSrc + (w*4) * y);
 				u32 *dst = (u32*)((u8*)pDst + pitch * y);
-
+				
+				/*
 				// todo use memcpy
 				for(int x = 0; x < w; x++) {
 					unsigned int rgb = src[x];
 					dst[x] = rgb;
 				}
+				*/
+				memcpy(dst, src, w * sizeof(u32));
 			}
 			break;
 
@@ -1772,85 +1733,5 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 bool TextureCache::DecodeTexture(u8* output, GPUgstate state)
 {
 	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");
-#if 0
-	GPUgstate oldState = gstate;
-	gstate = state;
-
-	u32 texaddr = (gstate.texaddr[0] & 0xFFFFF0) | ((gstate.texbufwidth[0]<<8) & 0x0F000000);
-
-	if (!Memory::IsValidAddress(texaddr)) {
-		return false;
-	}
-
-	u32 texByteAlign = 1;
-	GLenum dstFmt = 0;
-
-	GETextureFormat format = gstate.getTextureFormat();
-	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-	u8 level = 0;
-
-	int bufw = GetLevelBufw(level, texaddr);
-
-	int w = 1 << (gstate.texsize[level] & 0xf);
-	int h = 1 << ((gstate.texsize[level]>>8) & 0xf);
-
-	void *finalBuf = DecodeTextureLevel(format, clutformat, level, texByteAlign, dstFmt);
-	if (finalBuf == NULL) {
-		return false;
-	}
-
-	switch (dstFmt)
-	{
-	case GL_UNSIGNED_SHORT_4_4_4_4:
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < bufw; x++)
-			{
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 r = ((val>>12) & 0xF) * 17;
-				u32 g = ((val>> 8) & 0xF) * 17;
-				u32 b = ((val>> 4) & 0xF) * 17;
-				u32 a = ((val>> 0) & 0xF) * 17;
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
-		break;
-
-	case GL_UNSIGNED_SHORT_5_5_5_1:
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < bufw; x++)
-			{
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert5To8((val>> 6) & 0x1F);
-				u32 b = Convert5To8((val>> 1) & 0x1F);
-				u32 a = (val & 0x1) * 255;
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
-		break;
-
-	case GL_UNSIGNED_SHORT_5_6_5:
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < bufw; x++)
-			{
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 a = 0xFF;
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert6To8((val>> 5) & 0x3F);
-				u32 b = Convert5To8((val    ) & 0x1F);
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
-		break;
-
-	default:
-		for(int y = 0; y < h; y++)
-			for(int x = 0; x < bufw; x++)
-			{
-				u32 val = ((u32*)finalBuf)[y*bufw + x];
-				((u32*)output)[y*w + x] = ((val & 0xFF000000)) | ((val & 0x00FF0000)>>16) | ((val & 0x0000FF00)) | ((val & 0x000000FF)<<16);
-			}
-		break;
-	}
-
-	gstate = oldState;
-#endif
 	return true;
 }
