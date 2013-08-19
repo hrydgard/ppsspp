@@ -455,7 +455,7 @@ if(ANDROID)
 	# No target
 elseif(IOS)
 	set(nativeExtra ${nativeExtra}
-		ios/main.m
+		ios/main.mm
 		ios/AppDelegate.m
 		ios/AppDelegate.h
 		ios/ViewController.mm
