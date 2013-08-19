@@ -188,7 +188,8 @@ public:
 		scrollMax_(0),
 		scrollTarget_(0),
 		scrollToTarget_(false),
-		lastViewSize_(0.0f) {}
+		lastViewSize_(0.0f),
+		scrollToTopOnSizeChange_(true) {}
 
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert);
 	void Layout();
@@ -205,6 +206,9 @@ public:
 	// Override so that we can scroll to the active one after moving the focus.
 	virtual bool SubviewFocused(View *view);
 
+	// Quick hack to prevent scrolling to top in some lists
+	void SetScrollToTop(bool t) { scrollToTopOnSizeChange_ = t; }
+
 private:
 	void ClampScrollPos(float &pos);
 
@@ -217,6 +221,7 @@ private:
 	bool scrollToTarget_;
 
 	float lastViewSize_;
+	bool scrollToTopOnSizeChange_;
 };
 
 class ViewPager : public ScrollView {

@@ -506,7 +506,7 @@ void ScrollView::Layout() {
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
-		if (scrolled.h != lastViewSize_) {
+		if (scrolled.h != lastViewSize_ && scrollToTopOnSizeChange_) {
 			ScrollTo(0.0f);
 			lastViewSize_ = scrolled.h;
 		}
