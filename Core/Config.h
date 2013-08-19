@@ -108,6 +108,7 @@ public:
 	bool bShowDebuggerOnLoad;
 	bool bShowAnalogStick;
 	int iShowFPSCounter;
+	bool bShowVPSAsPercent;
 	bool bShowDebugStats;
 	bool bAccelerometerToAnalogHoriz;
 

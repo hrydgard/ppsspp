@@ -506,11 +506,18 @@ void EmuScreen::render() {
 		char fpsbuf[256];
 		switch (g_Config.iShowFPSCounter) {
 		case 1:
-			sprintf(fpsbuf, "Speed: %0.1f%%", vps / 60.0f * 100.0f); break;
+			if (g_Config.bShowVPSAsPercent)
+				sprintf(fpsbuf, "Speed: %0.1f%%", vps / 60.0f * 100.0f);
+			else
+				sprintf(fpsbuf, "Speed: %0.1f", vps); 
+			break;
 		case 2:
 			sprintf(fpsbuf, "FPS: %0.1f", fps); break;
 		case 3:
-			sprintf(fpsbuf, "Speed: %0.1f%%\nFPS: %0.1f", vps / 60.0f * 100.0f, fps); break;
+			if (g_Config.bShowVPSAsPercent)
+				sprintf(fpsbuf, "Speed: %0.1f%%\nFPS: %0.1f", vps / 60.0f * 100.0f, fps);
+			else
+				sprintf(fpsbuf, "Speed: %0.1f\nFPS: %0.1f", vps, fps);
 		}
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 8, 12, 0xc0000000, ALIGN_TOPRIGHT);
 		ui_draw2d.DrawText(UBUNTU24, fpsbuf, dp_xres - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT);

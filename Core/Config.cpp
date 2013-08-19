@@ -98,6 +98,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 	graphics->Get("ShowFPSCounter", &iShowFPSCounter, false);
+	graphics->Get("ShowSpeedAsPercent", &bShowVPSAsPercent, true);
 #ifdef _WIN32
 	graphics->Get("ResolutionScale", &iWindowZoom, 2);
 #else
@@ -255,6 +256,7 @@ void Config::Save()
 
 		IniFile::Section *graphics = iniFile.GetOrCreateSection("Graphics");
 		graphics->Set("ShowFPSCounter", iShowFPSCounter);
+		graphics->Set("ShowSpeedAsPercent", bShowVPSAsPercent);
 		graphics->Set("ResolutionScale", iWindowZoom);
 		graphics->Set("RenderingMode", iRenderingMode);
 		graphics->Set("SoftwareRendering", bSoftwareRendering);
