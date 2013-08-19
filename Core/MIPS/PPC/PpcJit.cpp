@@ -31,6 +31,7 @@ void Jit::CompileDelaySlot(int flags)
 		// Save flags register
 		MOVI2R(SREG, (u32)&delaySlotFlagsValue);
 		STW(FLAGREG, SREG);
+		MFCR(R19);
 	}
 
 	js.inDelaySlot = true;
@@ -45,6 +46,7 @@ void Jit::CompileDelaySlot(int flags)
 		// Restore flags register
 		MOVI2R(SREG, (u32)&delaySlotFlagsValue);
 		LWZ(FLAGREG, SREG);
+		MTCR(R19);
 	}
 }
 

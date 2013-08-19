@@ -50,7 +50,7 @@ const PPCReg *PpcRegCache::GetMIPSAllocationOrder(int &count) {
 	// R9 and upwards are reserved for jit basics.
 	if (options_->downcountInRegister) {
 		static const PPCReg allocationOrder[] = {
-			/*R14, R15, R16, R17, R18, */R19,
+			/*R14, R15, R16, R17, R18, R19,*/
 			R20, R21, R22, R23, R24, R25, 
 			R26, R27, R28, R29,	R30, R31,
 		};
@@ -58,7 +58,7 @@ const PPCReg *PpcRegCache::GetMIPSAllocationOrder(int &count) {
 		return allocationOrder;
 	} else {
 		static const PPCReg allocationOrder2[] = {
-			/*R14, R15, R16, R17, R18,*/ R19,
+			/*R14, R15, R16, R17, R18, R19,*/
 			R20, R21, R22, R23, R24, R25, 
 			R26, R27, R28, R29,	R30, R31,
 		};

@@ -59,6 +59,7 @@ void Jit::BranchRSRTComp(u32 op, PpcGen::FixupBranchType cc, bool likely)
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
+
 	if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0)
 	{
 		gpr.MapReg(rs);
@@ -87,11 +88,9 @@ void Jit::BranchRSRTComp(u32 op, PpcGen::FixupBranchType cc, bool likely)
 	else
 	{
 		FlushAll();
-		ptr = B_Cond(cc);
+		ptr = B_Cond(cc);		
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
-
-	INFO_LOG(CPU, "targetAddr: %08x,js.compilerPC: %08x offset: %08x, op: %08x\n", targetAddr, js.compilerPC, offset, op);
 
 	// Take the branch
 	WriteExit(targetAddr, 0);
@@ -143,7 +142,6 @@ void Jit::BranchRSZeroComp(u32 op, PpcGen::FixupBranchType cc, bool andLink, boo
 	// Take the branch
 	if (andLink)
 	{
-		//Break();
 		MOVI2R(SREG, js.compilerPC + 8);
 		STW(SREG, CTXREG, MIPS_REG_RA * 4);
 	}
@@ -339,7 +337,6 @@ void Jit::Comp_Jump(u32 op) {
 		break;
 
 	case 3: //jal
-		//Break();
 		gpr.MapReg(MIPS_REG_RA, MAP_NOINIT | MAP_DIRTY);
 		MOVI2R(gpr.R(MIPS_REG_RA), js.compilerPC + 8);
 		CompileDelaySlot(DELAYSLOT_NICE);
@@ -393,7 +390,6 @@ void Jit::Comp_JumpReg(u32 op) {
 		break;
 	case 9: //jalr
 		// mips->reg = js.compilerPC + 8;
-		//Break();
 		MOVI2R(SREG, js.compilerPC + 8);
 		STW(SREG, CTXREG, MIPS_REG_RA * 4);
 		break;
