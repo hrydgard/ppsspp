@@ -1266,11 +1266,12 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	int h = gstate.getTextureHeight(level);
 	const u8 *texptr = Memory::GetPointer(texaddr);
 
-	switch (format)
-	{
+	switch (format) {
 	case GE_TFMT_CLUT4:
 		{
 		dstFmt = getClutDestFormat(clutformat);
+		// Align to 16 bytes (in 4-bit pixels.)
+		bufw = (bufw + 31) & ~31;
 
 		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
@@ -1329,18 +1330,21 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		break;
 
 	case GE_TFMT_CLUT8:
+		bufw = (bufw + 15) & ~15;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 1, dstFmt);
 		break;
 
 	case GE_TFMT_CLUT16:
+		bufw = (bufw + 7) & ~7;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 2, dstFmt);
 		break;
 
 	case GE_TFMT_CLUT32:
+		bufw = (bufw + 3) & ~3;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 4, dstFmt);
@@ -1349,6 +1353,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
+		bufw = (bufw + 7) & ~7;
 		if (format == GE_TFMT_4444)
 			dstFmt = GL_UNSIGNED_SHORT_4_4_4_4;
 		else if (format == GE_TFMT_5551)
@@ -1371,6 +1376,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		break;
 
 	case GE_TFMT_8888:
+		bufw = (bufw + 3) & ~3;
 		dstFmt = GL_UNSIGNED_BYTE;
 		if (!(gstate.texmode & 1)) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
