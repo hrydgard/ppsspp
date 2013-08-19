@@ -1125,8 +1125,8 @@ namespace MainWindow
 					KeyInput key;
 					key.deviceId = DEVICE_ID_MOUSE;
 
-					bool mouseRightBtnPressed = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN;
-					bool mouseRightBtnReleased = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP;
+					int mouseRightBtnPressed = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_DOWN;
+					int mouseRightBtnReleased = raw->data.mouse.usButtonFlags & RI_MOUSE_RIGHT_BUTTON_UP;
 
 					if(mouseRightBtnPressed) {
 						key.flags = KEY_DOWN;
