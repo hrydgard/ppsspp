@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Log.h"
-#include "BlockAllocator.h"
-#include "ChunkFile.h"
+#include "Common/Log.h"
+#include "Common/ChunkFile.h"
+#include "Core/Util/BlockAllocator.h"
+#include "Core/Reporting.h"
 
 // Slow freaking thing but works (eventually) :)
 
@@ -150,11 +151,13 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 	size = (size + grain_ - 1) & ~(grain_ - 1);
 	
 	// check that position is aligned
+	u32 bottomPosition = position;
 	if (position & (grain_ - 1)) {
-		ERROR_LOG(HLE, "Position %08x does not align to grain. Grain will be off.", position);
+		DEBUG_LOG(HLE, "Position %08x does not align to grain.", position);
+		bottomPosition &= ~(grain_ - 1);
 	}
 
-	Block *bp = GetBlockFromAddress(position);
+	Block *bp = GetBlockFromAddress(bottomPosition);
 	if (bp != NULL)
 	{
 		Block &b = *bp;
@@ -166,7 +169,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		else
 		{
 			//good to go
-			if (b.start == position)
+			if (b.start == bottomPosition)
 			{
 				InsertFreeAfter(&b, b.start + size, b.size - size);
 				b.taken = true;
@@ -177,12 +180,12 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 			}
 			else
 			{
-				int size1 = position - b.start;
+				int size1 = bottomPosition - b.start;
 				InsertFreeBefore(&b, b.start, size1);
-				if (b.start + b.size > position + size)
-					InsertFreeAfter(&b, position + size, b.size - (size + size1));
+				if (b.start + b.size > bottomPosition + size)
+					InsertFreeAfter(&b, bottomPosition + size, b.size - (size + size1));
 				b.taken = true;
-				b.start = position;
+				b.start = bottomPosition;
 				b.size = size;
 				b.SetTag(tag);
 				return position;
@@ -376,6 +379,8 @@ u32 BlockAllocator::GetLargestFreeBlockSize() const
 				maxFreeBlock = b.size;
 		}
 	}
+	if (maxFreeBlock & (grain_ - 1))
+		WARN_LOG_REPORT(HLE, "GetLargestFreeBlockSize: free size %08x does not align to grain %08x.", maxFreeBlock, grain_);
 	return maxFreeBlock;
 }
 
@@ -390,6 +395,8 @@ u32 BlockAllocator::GetTotalFreeBytes() const
 			sum += b.size;
 		}
 	}
+	if (sum & (grain_ - 1))
+		WARN_LOG_REPORT(HLE, "GetTotalFreeBytes: free size %08x does not align to grain %08x.", sum, grain_);
 	return sum;
 }
 
