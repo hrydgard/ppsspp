@@ -683,13 +683,13 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 					Vec3f source;
 					switch (gstate.getUVProjMode())
 					{
-					case 0: // Use model space XYZ as source
+					case GE_PROJMAP_POSITION: // Use model space XYZ as source
 						source = pos;
 						break;
-					case 1: // Use unscaled UV as source
+					case GE_PROJMAP_UV: // Use unscaled UV as source
 						source = Vec3f(ruv[0], ruv[1], 0.0f);
 						break;
-					case 2: // Use normalized normal as source
+					case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
 						if (reader.hasNormal()) {
 							source = Vec3f(norm).Normalized();
 						} else {
@@ -697,7 +697,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 							source = Vec3f::AssignToAll(0.0f);
 						}
 						break;
-					case 3: // Use non-normalized normal as source!
+					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
 						if (reader.hasNormal()) {
 							source = Vec3f(norm);
 						} else {
