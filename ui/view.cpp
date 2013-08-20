@@ -498,7 +498,7 @@ void Slider::Key(const KeyInput &input) {
 
 void Slider::Touch(const TouchInput &input) {
 	if (dragging_ || bounds_.Contains(input.x, input.y)) {
-		float relativeX = (input.x - bounds_.x) / bounds_.w;
+		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
 		*value_ = floorf(relativeX * (maxValue_ - minValue_) + minValue_ + 0.5f);
 		Clamp();
 	}
@@ -511,10 +511,16 @@ void Slider::Clamp() {
 
 void Slider::Draw(UIContext &dc) {
 	bool focus = HasFocus();
-	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * bounds_.w + bounds_.x;
-	dc.FillRect(Drawable(focus ? dc.theme->popupTitle.fgColor : 0xFFFFFFFF), Bounds(bounds_.x, bounds_.centerY() - 2, knobX - bounds_.x, 4));
-	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, bounds_.x + bounds_.w - knobX, 4));
+	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
+	dc.FillRect(Drawable(focus ? dc.theme->popupTitle.fgColor : 0xFFFFFFFF), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
+	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, (bounds_.x + bounds_.w - paddingRight_ - knobX), 4));
 	dc.Draw()->DrawImage(dc.theme->sliderKnob, knobX, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+	char temp[64];
+	if (showPercent_)
+		sprintf(temp, "%i%%", *value_);
+	else
+		sprintf(temp, "%i", *value_);
+	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 22, bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
 }
 
 void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -543,8 +549,8 @@ void SliderFloat::Key(const KeyInput &input) {
 
 void SliderFloat::Touch(const TouchInput &input) {
 	if (dragging_ || bounds_.Contains(input.x, input.y)) {
-		float relativeX = (input.x - bounds_.x) / bounds_.w;
-		*value_ = relativeX * (maxValue_ - minValue_) + minValue_;
+		float relativeX = (input.x - (bounds_.x + paddingLeft_)) / (bounds_.w - paddingLeft_ - paddingRight_);
+		*value_ = (relativeX * (maxValue_ - minValue_) + minValue_);
 		Clamp();
 	}
 }
@@ -555,10 +561,14 @@ void SliderFloat::Clamp() {
 }
 
 void SliderFloat::Draw(UIContext &dc) {
-	float knobX = ((float)(*value_) - minValue_) / (maxValue_ - minValue_) * bounds_.w + bounds_.x;
-	dc.FillRect(Drawable(0xFFFFFFFF), Bounds(bounds_.x, bounds_.centerY() - 2, knobX - bounds_.x, 4));
-	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, bounds_.x + bounds_.w - knobX, 4));
+	bool focus = HasFocus();
+	float knobX = (*value_ - minValue_) / (maxValue_ - minValue_) * (bounds_.w - paddingLeft_ - paddingRight_) + (bounds_.x + paddingLeft_);
+	dc.FillRect(Drawable(focus ? dc.theme->popupTitle.fgColor : 0xFFFFFFFF), Bounds(bounds_.x + paddingLeft_, bounds_.centerY() - 2, knobX - (bounds_.x + paddingLeft_), 4));
+	dc.FillRect(Drawable(0xFF808080), Bounds(knobX, bounds_.centerY() - 2, (bounds_.x + bounds_.w - paddingRight_ - knobX), 4));
 	dc.Draw()->DrawImage(dc.theme->sliderKnob, knobX, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
+	char temp[64];
+	sprintf(temp, "%0.2f", *value_);
+	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 22, bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
 }
 
 void SliderFloat::GetContentDimensions(const UIContext &dc, float &w, float &h) const {

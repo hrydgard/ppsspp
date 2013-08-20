@@ -413,23 +413,26 @@ private:
 class Slider : public Clickable {
 public:
 	Slider(int *value, int minValue, int maxValue, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+		: Clickable(layoutParams), value_(value), showPercent_(false), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(50) {}
 	virtual void Draw(UIContext &dc);
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
-
+	void SetShowPercent(bool s) { showPercent_ = s; }
 private:
 	void Clamp();
 	int *value_;
+	bool showPercent_;
 	int minValue_;
 	int maxValue_;
+	float paddingLeft_;
+	float paddingRight_;
 };
 
 class SliderFloat : public Clickable {
 public:
 	SliderFloat(float *value, float minValue, float maxValue, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue) {}
+		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(50) {}
 	virtual void Draw(UIContext &dc);
 	virtual void Key(const KeyInput &input);
 	virtual void Touch(const TouchInput &input);
@@ -440,6 +443,8 @@ private:
 	float *value_;
 	float minValue_;
 	float maxValue_;
+	float paddingLeft_;
+	float paddingRight_;
 };
 
 // Basic button that modifies a bitfield based on the pressed status. Supports multitouch.
