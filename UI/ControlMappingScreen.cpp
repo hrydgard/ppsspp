@@ -99,14 +99,14 @@ void ControlMapper::Refresh() {
 
 		Choice *c = row->Add(new Choice(deviceName + "." + keyName, new LinearLayoutParams(1.0f)));
 		char tagbuf[16];
-		sprintf(tagbuf, "%i", i);
+		sprintf(tagbuf, "%i", (int)i);
 		c->SetTag(tagbuf);
 		c->OnClick.Handle(this, &ControlMapper::OnReplace);
-		
+
 		Choice *d = row->Add(new Choice("X"));
 		d->SetTag(tagbuf);
 		d->OnClick.Handle(this, &ControlMapper::OnDelete);
-		
+
 		row->Add(new Choice("+"))->OnClick.Handle(this, &ControlMapper::OnAdd);
 	}
 
