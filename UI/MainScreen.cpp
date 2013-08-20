@@ -351,6 +351,8 @@ void GameBrowser::Refresh() {
 	// Kill all the contents
 	Clear();
 
+	Add(new Spacer(5.0f));
+
 	if (allowBrowsing_) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER, 0.7f, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 1.0f)));
@@ -466,6 +468,7 @@ void MainScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(1.0));
+	leftColumn->SetClip(true);
 	root_->Add(leftColumn);
 
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
