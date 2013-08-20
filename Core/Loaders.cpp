@@ -51,20 +51,24 @@ IdentifiedFileType Identify_File(std::string &filename)
 	}
 
 	if (info.isDirectory) {
-		FileInfo ebootInfo;
-		// Check for existence of EBOOT.PBP, as required for "Directory games".
-		if (getFileInfo((filename + "/EBOOT.PBP").c_str(), &ebootInfo)) {
-			if (ebootInfo.exists) {
-				return FILETYPE_PSP_PBP_DIRECTORY;
+		if (filename.size() > 4) {
+			FileInfo ebootInfo;
+			// Check for existence of EBOOT.PBP, as required for "Directory games".
+			if (getFileInfo((filename + "/EBOOT.PBP").c_str(), &ebootInfo)) {
+				if (ebootInfo.exists) {
+					return FILETYPE_PSP_PBP_DIRECTORY;
+				}
+			}
+
+			// check if it's a disc directory
+			if (getFileInfo((filename + "/PSP_GAME").c_str(), &ebootInfo)) {
+				if (ebootInfo.exists) {
+					return FILETYPE_PSP_DISC_DIRECTORY;
+				}
 			}
 		}
 
-		// check if it's a disc directory
-		if (getFileInfo((filename + "/PSP_GAME").c_str(), &ebootInfo)) {
-			if (ebootInfo.exists) {
-				return FILETYPE_PSP_DISC_DIRECTORY;
-			}
-		}
+		return FILETYPE_NORMAL_DIRECTORY;
 	}
 
 	FILE *f = fopen(filename.c_str(), "rb");
@@ -196,6 +200,10 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 
 	case FILETYPE_ARCHIVE_ZIP:
 		*error_string = "File is compressed (ZIP).\nPlease decompress first (try WinRAR)";
+		break;
+
+	case FILETYPE_NORMAL_DIRECTORY:
+		ERROR_LOG(LOADER, "Just a directory.");
 		break;
 
 	case FILETYPE_UNKNOWN_BIN:

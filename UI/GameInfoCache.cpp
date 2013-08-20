@@ -288,7 +288,11 @@ public:
 				break;
 			}
 		
-		default:
+			case FILETYPE_NORMAL_DIRECTORY:
+				info_->title = gamePath_;
+				break;
+
+			default:
 			{
 				std::string fn, ext;
 				SplitPath(gamePath_, 0, &fn, &ext);

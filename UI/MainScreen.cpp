@@ -386,7 +386,7 @@ void GameBrowser::Refresh() {
 		std::vector<FileInfo> fileInfo;
 		path_.GetListing(fileInfo, "iso:cso:pbp:elf:prx:");
 		for (size_t i = 0; i < fileInfo.size(); i++) {
-			if (fileInfo[i].isDirectory && !File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP")) {
+			if (fileInfo[i].isDirectory && (path_.GetPath().size() < 4 || !File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))) {
 				// Check if eboot directory
 				if (allowBrowsing_)
 					dirButtons.push_back(new UI::Button(fileInfo[i].name.c_str(), new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
