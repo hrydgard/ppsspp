@@ -17,7 +17,7 @@ struct NeighborResult {
 
 class ViewGroup : public View {
 public:
-	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams), hasDropShadow_(false) {}
+	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams), hasDropShadow_(false), clip_(false) {}
 	virtual ~ViewGroup();
 
 	// Pass through external events to children.
@@ -59,11 +59,15 @@ public:
 
 	void Lock() { modifyLock_.lock(); }
 	void Unlock() { modifyLock_.unlock(); }
+
+	void SetClip(bool clip) { clip_ = clip; }
+
 protected:
 	recursive_mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
 	Drawable bg_;
 	bool hasDropShadow_;
+	bool clip_;
 };
 
 // A frame layout contains a single child view (normally).
@@ -141,8 +145,9 @@ public:
 	void SetSpacing(float spacing) {
 		spacing_ = spacing;
 	}
-private:
+protected:
 	Orientation orientation_;
+private:
 	Margins defaultMargins_;
 	float spacing_;
 };
@@ -241,6 +246,7 @@ public:
 	void SetSelection(int sel);
 	virtual void Key(const KeyInput &input);
 	void SetTopTabs(bool tabs) { topTabs_ = tabs; }
+	void Draw(UIContext &dc);
 	Event OnChoice;
 
 private:
@@ -256,6 +262,7 @@ public:
 	TabHolder(Orientation orientation, float stripSize, LayoutParams *layoutParams = 0)
 		: LinearLayout(Opposite(orientation), layoutParams),
 			orientation_(orientation), stripSize_(stripSize), currentTab_(0) {
+		SetSpacing(0.0f);
 		tabStrip_ = new ChoiceStrip(orientation, new LinearLayoutParams(stripSize, WRAP_CONTENT));
 		tabStrip_->SetTopTabs(true);
 		Add(tabStrip_);

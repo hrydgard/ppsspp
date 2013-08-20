@@ -91,6 +91,10 @@ void ViewGroup::Draw(UIContext &dc) {
 		// dc.Draw()->DrawImage4Grid(dc.theme->dropShadow, )
 	}
 
+	if (clip_) {
+		dc.PushScissor(bounds_);
+	}
+
 	dc.FillRect(bg_, bounds_);
 	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
@@ -99,6 +103,9 @@ void ViewGroup::Draw(UIContext &dc) {
 			if (dc.GetScissorBounds().Intersects((*iter)->GetBounds()))
 				(*iter)->Draw(dc);
 		}
+	}
+	if (clip_) {
+		dc.PopScissor();
 	}
 }
 
@@ -869,6 +876,17 @@ void ChoiceStrip::Key(const KeyInput &input) {
 	}
 	ViewGroup::Key(input);
 }
+
+void ChoiceStrip::Draw(UIContext &dc) {
+	ViewGroup::Draw(dc);
+	if (topTabs_) {
+		if (orientation_ == ORIENT_HORIZONTAL)
+			dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y2() - 4, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
+		else if (orientation_ == ORIENT_VERTICAL)
+			dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x2() - 4, bounds_.y, bounds_.x2(), bounds_.y2(), dc.theme->itemDownStyle.background.color );
+	}
+}
+
 
 ListView::ListView(ListAdaptor *a, LayoutParams *layoutParams)
 	: ScrollView(ORIENT_VERTICAL, layoutParams), adaptor_(a) {

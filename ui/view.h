@@ -579,11 +579,15 @@ private:
 class Spacer : public InertView {
 public:
 	Spacer(LayoutParams *layoutParams = 0)
-		: InertView(layoutParams) {}
+		: InertView(layoutParams), size_(0.0f) {}
+	Spacer(float size, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), size_(size) {}
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-		w = 0.0f; h = 0.0f;
+		w = size_; h = size_;
 	}
 	virtual void Draw(UIContext &dc) {}
+private:
+	float size_;
 };
 
 class TextView : public InertView {
