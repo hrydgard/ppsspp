@@ -655,9 +655,13 @@ void GamePauseScreen::CreateViews() {
 	saveSlots_->AddChoice("  3  ");
 	saveSlots_->AddChoice("  4  ");
 	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
+	saveSlots_->OnChoice.Handle(this, &GamePauseScreen::OnStateSelected);
+	
+	saveStateButton_ = leftColumnItems->Add(new Choice(gs->T("Save State")));
+	saveStateButton_->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
 
-	leftColumnItems->Add(new Choice(gs->T("Save State")))->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
-	leftColumnItems->Add(new Choice(gs->T("Load State")))->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
+	loadStateButton_ = leftColumnItems->Add(new Choice(gs->T("Load State")));
+	loadStateButton_->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	root_->Add(rightColumn);
@@ -668,10 +672,20 @@ void GamePauseScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+
+	UI::EventParams e;
+	e.a = g_Config.iCurrentStateSlot;
+	saveSlots_->OnChoice.Trigger(e);
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
 	screenManager()->push(new GameSettingsScreen(gamePath_));
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GamePauseScreen::OnStateSelected(UI::EventParams &e) {
+	int st = e.a;
+	loadStateButton_->SetEnabled(SaveState::HasSaveInSlot(st));
 	return UI::EVENT_DONE;
 }
 

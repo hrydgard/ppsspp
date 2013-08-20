@@ -65,8 +65,12 @@ private:
 
 	UI::EventReturn OnSaveState(UI::EventParams &e);
 	UI::EventReturn OnLoadState(UI::EventParams &e);
+	
+	UI::EventReturn OnStateSelected(UI::EventParams &e);
 
 	std::string gamePath_;
 
 	UI::ChoiceStrip *saveSlots_;
+	UI::Choice *saveStateButton_;
+	UI::Choice *loadStateButton_;
 };
