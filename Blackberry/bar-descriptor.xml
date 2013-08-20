@@ -30,6 +30,8 @@
 
     <splashscreen>icon-114.png</splashscreen>
 
+    <env var="LD_LIBRARY_PATH" value="app/native/lib:/usr/lib/qt4/lib/:/accounts/1000/shared/misc/"/>
+
     <action system="true">run_native</action>
     <action>access_shared</action>
     <action>play_audio</action>

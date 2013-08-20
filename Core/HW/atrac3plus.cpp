@@ -63,6 +63,8 @@ namespace Atrac3plus_Decoder {
 #else
 		return "libat3plusdecoder.dylib";
 #endif
+#elif defined(BLACKBERRY)
+		return g_Config.memCardDirectory + "libat3plusdecoder.so";
 #else
 		return "libat3plusdecoder.so";
 #endif
