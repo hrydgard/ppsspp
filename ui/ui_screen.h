@@ -45,6 +45,7 @@ public:
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	virtual void CreateViews();
 	virtual bool isTransparent() { return true; }
+	virtual void touch(const TouchInput &touch);
 
 protected:
 	virtual bool FillVertical() { return false; }
@@ -55,6 +56,7 @@ private:
 	UI::EventReturn OnOK(UI::EventParams &e);
 	UI::EventReturn OnCancel(UI::EventParams &e);
 
+	UI::ViewGroup *box_;
 	std::string title_;
 	std::string button1_;
 	std::string button2_;

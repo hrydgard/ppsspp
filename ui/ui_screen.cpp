@@ -99,24 +99,36 @@ UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 }
 
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
-	: title_(title), button1_(button1), button2_(button2) {}
+	: title_(title), button1_(button1), button2_(button2), box_(0) {}
+
+void PopupScreen::touch(const TouchInput &touch) {
+	if (!box_ || (touch.flags & TOUCH_DOWN) == 0 || touch.id != 0) {
+		UIDialogScreen::touch(touch);
+		return;
+	}
+
+	if (!box_->GetBounds().Contains(touch.x, touch.y))
+		screenManager()->finishDialog(this, DR_CANCEL);
+
+	UIDialogScreen::touch(touch);
+}
 
 void PopupScreen::CreateViews() {
 	using namespace UI;
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	LinearLayout *box = new LinearLayout(ORIENT_VERTICAL, 
+	box_ = new LinearLayout(ORIENT_VERTICAL, 
 		new AnchorLayoutParams(550, FillVertical() ? dp_yres - 30 : WRAP_CONTENT, dp_xres / 2, dp_yres / 2, NONE, NONE, true));
 
-	root_->Add(box);
-	box->SetBG(UI::Drawable(0xFF303030));
-	box->SetHasDropShadow(true);
+	root_->Add(box_);
+	box_->SetBG(UI::Drawable(0xFF303030));
+	box_->SetHasDropShadow(true);
 
 	View *title = new PopupHeader(title_);
-	box->Add(title);
+	box_->Add(title);
 
-	CreatePopupContents(box);
+	CreatePopupContents(box_);
 
 	if (ShowButtons()) {
 		// And the two buttons at the bottom.
@@ -135,7 +147,7 @@ void PopupScreen::CreateViews() {
 		buttonRow->Add(new Button(button1_, new LinearLayoutParams(1.0f)))->OnClick.Handle(this, &PopupScreen::OnOK);
 #endif
 
-		box->Add(buttonRow);
+		box_->Add(buttonRow);
 	}
 }
 

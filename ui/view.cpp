@@ -297,7 +297,18 @@ void Choice::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 }
 
 void Choice::Draw(UIContext &dc) {
-	ClickableItem::Draw(dc);
+	if (!IsSticky()) {
+		ClickableItem::Draw(dc);
+	} else {
+		Style style =	dc.theme->itemStyle;
+		if (down_) {
+			style = dc.theme->itemDownStyle;
+		}
+		if (HasFocus()) {
+			style = dc.theme->itemFocusedStyle;
+		}
+		dc.FillRect(style.background, bounds_);
+	}
 
 	Style style = dc.theme->itemStyle;
 	if (!IsEnabled())
@@ -313,7 +324,6 @@ void Choice::Draw(UIContext &dc) {
 	if (selected_) {
 		dc.Draw()->DrawImage(dc.theme->checkOn, bounds_.x2() - 40, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 	}
-	// dc.draw->DrawText(dc.theme->uiFontSmaller, text_.c_str(), paddingX, paddingY, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
 void InfoItem::Draw(UIContext &dc) {

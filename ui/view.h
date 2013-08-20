@@ -502,6 +502,9 @@ public:
 	virtual void Draw(UIContext &dc);
 
 protected:
+	// hackery
+	virtual bool IsSticky() const { return false; }
+
 	std::string text_;
 	std::string smallText_;
 	ImageID atlasImage_;
@@ -524,6 +527,9 @@ public:
 	void Press() { down_ = true; dragging_ = false;  }
 	void Release() { down_ = false; dragging_ = false; }
 	bool IsDown() { return down_; }
+protected:
+	// hackery
+	virtual bool IsSticky() const { return true; }
 };
 
 class InfoItem : public Item {
