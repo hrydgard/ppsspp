@@ -468,7 +468,7 @@ void MainScreen::CreateViews() {
 
 	I18NCategory *m = GetI18NCategory("MainMenu");
 
-	Margins actionMenuMargins(0, 0, 10, 0);
+	Margins actionMenuMargins(0, 20, 10, 0);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
