@@ -15,8 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
 #include "base/display.h"
+#include "base/NativeApp.h"
 #include "Common/KeyMap.h"
 #include "Common/FileUtil.h"
 #include "Config.h"
