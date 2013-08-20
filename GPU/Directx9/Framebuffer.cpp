@@ -156,7 +156,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	drawPixelsTex_->LockRect(0, &rect, NULL, D3DLOCK_NOOVERWRITE);
 
 	convBuf = (u8*)rect.pBits;
-
+	/*
 	// Final format is ARGB(directx)
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
@@ -213,7 +213,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	} else {
 		memcpy(convBuf, framebuf, 4 * 480 * 512);
 	}
-
+	*/
 	drawPixelsTex_->UnlockRect(0);
 	// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 
