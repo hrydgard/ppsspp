@@ -190,7 +190,6 @@ public:
 		orientation_(orientation),
 		scrollPos_(0),
 		scrollStart_(0),
-		scrollMax_(0),
 		scrollTarget_(0),
 		scrollToTarget_(false),
 		inertia_(0),
@@ -222,7 +221,6 @@ private:
 	Orientation orientation_;
 	float scrollPos_;
 	float scrollStart_;
-	float scrollMax_;
 	float scrollTarget_;
 	bool scrollToTarget_;
 	float inertia_;

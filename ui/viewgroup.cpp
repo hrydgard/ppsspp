@@ -538,6 +538,19 @@ void ScrollView::Key(const KeyInput &input) {
 		case NKCODE_EXT_MOUSEWHEEL_DOWN:
 			ScrollRelative(250);
 			break;
+		case NKCODE_PAGE_DOWN:
+			ScrollRelative(bounds_.h - 50);
+			break;
+		case NKCODE_PAGE_UP:
+			ScrollRelative(-bounds_.h + 50);
+			break;
+		case NKCODE_MOVE_HOME:
+			ScrollTo(0);
+			break;
+		case NKCODE_MOVE_END:
+			if (views_.size())
+				ScrollTo(views_[0]->GetBounds().h);
+			break;
 		}
 	}
 	ViewGroup::Key(input);
