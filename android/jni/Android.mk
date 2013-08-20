@@ -171,15 +171,15 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GPUState.cpp \
   $(SRC)/GPU/GeDisasm.cpp \
   $(SRC)/GPU/GLES/Framebuffer.cpp \
-  $(SRC)/GPU/GLES/DisplayListInterpreter.cpp.arm \
+  $(SRC)/GPU/GLES/GLES_GPU.cpp.arm \
   $(SRC)/GPU/GLES/TextureCache.cpp.arm \
   $(SRC)/GPU/GLES/IndexGenerator.cpp.arm \
   $(SRC)/GPU/GLES/TransformPipeline.cpp.arm \
   $(SRC)/GPU/GLES/StateMapping.cpp.arm \
   $(SRC)/GPU/GLES/VertexDecoder.cpp.arm \
-  $(SRC)/GPU/GLES/ShaderManager.cpp \
-  $(SRC)/GPU/GLES/VertexShaderGenerator.cpp \
-  $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp \
+  $(SRC)/GPU/GLES/ShaderManager.cpp.arm \
+  $(SRC)/GPU/GLES/VertexShaderGenerator.cpp.arm \
+  $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp.arm \
   $(SRC)/GPU/GLES/TextureScaler.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \

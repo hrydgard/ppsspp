@@ -24,10 +24,10 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
-#include "DisplayListInterpreter.h"
-#include "ShaderManager.h"
-#include "TextureCache.h"
-#include "Framebuffer.h"
+#include "GPU/GLES/GLES_GPU.h"
+#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/Framebuffer.h"
 
 static const GLushort aLookup[11] = {
 	GL_DST_COLOR,

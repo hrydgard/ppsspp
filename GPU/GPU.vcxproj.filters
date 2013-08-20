@@ -21,9 +21,6 @@
     <ClInclude Include="Math3D.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="GLES\DisplayListInterpreter.h">
-      <Filter>GLES</Filter>
-    </ClInclude>
     <ClInclude Include="GLES\FragmentShaderGenerator.h">
       <Filter>GLES</Filter>
     </ClInclude>
@@ -86,13 +83,13 @@
     <ClInclude Include="Software\TransformUnit.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="GLES\GLES_GPU.h">
+      <Filter>GLES</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
       <Filter>Common</Filter>
-    </ClCompile>
-    <ClCompile Include="GLES\DisplayListInterpreter.cpp">
-      <Filter>GLES</Filter>
     </ClCompile>
     <ClCompile Include="GLES\FragmentShaderGenerator.cpp">
       <Filter>GLES</Filter>
@@ -149,6 +146,9 @@
     </ClCompile>
     <ClCompile Include="Software\TransformUnit.cpp">
       <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="GLES\GLES_GPU.cpp">
+      <Filter>GLES</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

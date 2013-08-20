@@ -20,12 +20,13 @@
 #include <list>
 #include <deque>
 
-#include "../GPUCommon.h"
-#include "Framebuffer.h"
-#include "VertexDecoder.h"
-#include "TransformPipeline.h"
-#include "TextureCache.h"
 #include "gfx_es2/fbo.h"
+
+#include "GPU/GPUCommon.h"
+#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/TextureCache.h"
 
 class ShaderManager;
 class LinkedShader;

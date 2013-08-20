@@ -15,14 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ge_constants.h"
-#include "GPUState.h"
-#include "GLES/ShaderManager.h"
-#include "GLES/DisplayListInterpreter.h"
-#include "Null/NullGpu.h"
-#include "Software/SoftGpu.h"
-#include "../Core/CoreParameter.h"
-#include "../Core/System.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
+#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/GLES_GPU.h"
+#include "GPU/Null/NullGpu.h"
+#include "GPU/Software/SoftGpu.h"
+#include "Core/CoreParameter.h"
+#include "Core/System.h"
 
 GPUgstate gstate;
 GPUStateCache gstate_c;

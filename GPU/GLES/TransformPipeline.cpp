@@ -33,12 +33,12 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
-#include "StateMapping.h"
-#include "TextureCache.h"
-#include "TransformPipeline.h"
-#include "VertexDecoder.h"
-#include "ShaderManager.h"
-#include "DisplayListInterpreter.h"
+#include "GPU/GLES/StateMapping.h"
+#include "GPU/GLES/TextureCache.h"
+#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/VertexDecoder.h"
+#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/GLES_GPU.h"
 
 const GLuint glprim[8] = {
 	GL_POINTS,

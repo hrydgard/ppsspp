@@ -141,7 +141,7 @@
   <ItemGroup>
     <ClInclude Include="..\ext\xbrz\xbrz.h" />
     <ClInclude Include="ge_constants.h" />
-    <ClInclude Include="GLES\DisplayListInterpreter.h" />
+    <ClInclude Include="GLES\GLES_GPU.h" />
     <ClInclude Include="GLES\FragmentShaderGenerator.h" />
     <ClInclude Include="GLES\Framebuffer.h" />
     <ClInclude Include="GLES\IndexGenerator.h" />
@@ -167,7 +167,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ext\xbrz\xbrz.cpp" />
-    <ClCompile Include="GLES\DisplayListInterpreter.cpp" />
+    <ClCompile Include="GLES\GLES_GPU.cpp" />
     <ClCompile Include="GLES\FragmentShaderGenerator.cpp" />
     <ClCompile Include="GLES\Framebuffer.cpp" />
     <ClCompile Include="GLES\IndexGenerator.cpp" />

@@ -24,19 +24,19 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
-#include "../GPUState.h"
-#include "../ge_constants.h"
-#include "../GeDisasm.h"
+#include "GPU/GPUState.h"
+#include "GPU/ge_constants.h"
+#include "GPU/GeDisasm.h"
 
-#include "ShaderManager.h"
-#include "DisplayListInterpreter.h"
-#include "Framebuffer.h"
-#include "TransformPipeline.h"
-#include "TextureCache.h"
+#include "GPU/GLES/ShaderManager.h"
+#include "GPU/GLES/GLES_GPU.h"
+#include "GPU/GLES/Framebuffer.h"
+#include "GPU/GLES/TransformPipeline.h"
+#include "GPU/GLES/TextureCache.h"
 
-#include "../../Core/HLE/sceKernelThread.h"
-#include "../../Core/HLE/sceKernelInterrupt.h"
-#include "../../Core/HLE/sceGe.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceGe.h"
 
 static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_REGION1,GE_CMD_REGION2,
