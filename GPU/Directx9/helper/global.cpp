@@ -200,9 +200,16 @@ void DirectxInit() {
 	pD3D = Direct3DCreate9( D3D_SDK_VERSION );
 
 	D3DRING_BUFFER_PARAMETERS d3dr = {0};
-	d3dr.PrimarySize = 64*1024;
-	d3dr.SecondarySize = 4*1024*1024;
+	d3dr.PrimarySize = 0;  // Direct3D will use the default size of 32KB
+    d3dr.SecondarySize = 4 * 1024 * 1024;
+    d3dr.SegmentCount = 0; // Direct3D will use the default segment count of 32
 
+    // Setting the pPrimary and pSecondary members to NULL means that Direct3D will
+    // allocate the ring buffers itself.  You can optionally provide a buffer that
+    // you allocated yourself (it must be write-combined physical memory, aligned to
+    // GPU_COMMAND_BUFFER_ALIGNMENT).
+    d3dr.pPrimary = NULL;
+    d3dr.pSecondary = NULL;
 
     // Set up the structure used to create the D3DDevice. Most parameters are
     // zeroed out. We set Windowed to TRUE, since we want to do D3D in a
@@ -228,6 +235,9 @@ void DirectxInit() {
 	pD3D->CreateDevice( D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, NULL,
                                       D3DCREATE_HARDWARE_VERTEXPROCESSING,
                                       &d3dpp, &pD3Ddevice);
+
+
+	pD3Ddevice->SetRingBufferParameters( &d3dr );
 
 	CompileShaders();
 

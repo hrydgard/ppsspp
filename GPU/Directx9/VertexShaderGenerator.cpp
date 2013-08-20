@@ -107,14 +107,14 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 }
 
 static const char * const boneWeightAttrDecl[8] = {
-	"attribute mediump float a_w1;\n",
-	"attribute mediump vec2 a_w1;\n",
-	"attribute mediump vec3 a_w1;\n",
-	"attribute mediump vec4 a_w1;\n",
-	"attribute mediump vec4 a_w1;\nattribute mediump float a_w2;\n",
-	"attribute mediump vec4 a_w1;\nattribute mediump vec2 a_w2;\n",
-	"attribute mediump vec4 a_w1;\nattribute mediump vec3 a_w2;\n",
-	"attribute mediump vec4 a_w1;\nattribute mediump vec4 a_w2;\n",
+	"float a_w1;\n",
+	"float2 a_w1;\n",
+	"float3 a_w1;\n",
+	"float4 a_w1;\n",
+	"float4 a_w1;\n float a_w2;\n",
+	"float4 a_w1;\n float a_w2;\n",
+	"float4 a_w1;\n float a_w2;\n",
+	"float4 a_w1;\n float a_w2;\n",
 };
 
 enum DoLightComputation {
@@ -375,11 +375,11 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  float3 skinnedpos = (skinMatrix * float4(a_position, 1.0)).xyz %s;\n", factor);
+			WRITE(p, "  float3 skinnedpos = (skinMatrix * float4(In.ObjPos.xyz, 1.0)).xyz %s;\n", factor);
 			WRITE(p, "  float3 worldpos = (u_world * float4(skinnedpos, 1.0)).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  float3 skinnednormal = (skinMatrix * float4(a_normal, 0.0)).xyz %s;\n", factor);
+				WRITE(p, "  float3 skinnednormal = (skinMatrix * float4(In.Normal, 0.0)).xyz %s;\n", factor);
 				WRITE(p, "  float3 worldnormal = normalize((u_world * float4(skinnednormal, 0.0)).xyz);\n");
 			} else {
 				WRITE(p, "  float3 worldnormal = (u_world * (skinMatrix * float4(0.0, 0.0, 1.0, 0.0))).xyz;\n");
@@ -532,7 +532,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 					std::string temp_tc;
 					switch (gstate.getUVProjMode()) {
 					case 0:  // Use model space XYZ as source
-						temp_tc = "float4(a_position.xyz, 1.0)";
+						temp_tc = "float4(In.ObjPos.xyz, 1.0)";
 						break;
 					case 1:  // Use unscaled UV as source
 						{
@@ -543,18 +543,19 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 						break;
 					case 2:  // Use normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = "float4(normalize(a_normal), 1.0)";
+							temp_tc = "float4(normalize(In.Normal), 1.0)";
 						else
 							temp_tc = "float4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					case 3:  // Use non-normalized transformed normal as source
 						if (hasNormal)
-							temp_tc = "float4(a_normal, 1.0)";
+							temp_tc = "float4(In.Normal, 1.0)";
 						else
 							temp_tc = "float4(0.0, 0.0, 1.0, 1.0)";
 						break;
 					}
-					WRITE(p, "  Out.Uv.xyz = (u_texmtx * %s).xyz * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					//WRITE(p, "  Out.Uv.xyz = (u_texmtx * %s).xyz * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
+					WRITE(p, "  Out.Uv.xyz = mul(%s,u_texmtx).xyz * float3(u_uvscaleoffset.xy, 1.0);\n", temp_tc.c_str());
 				}
 				// Transform by texture matrix. XYZ as we are doing projection mapping.
 				break;

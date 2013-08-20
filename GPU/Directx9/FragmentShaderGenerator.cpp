@@ -215,7 +215,7 @@ void GenerateFragmentShader(char *buffer) {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
-			WRITE(p, "  float4 s = float4(In.v_color1);\n");
+			WRITE(p, "  float4 s = float4(In.v_color1, 0);\n");
 			secondary = " + s";
 		} else {
 			secondary = "";
