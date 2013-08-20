@@ -343,6 +343,11 @@ void GameSettingsScreen::CreateViews() {
 
 	enableReports_ = g_Config.sReportHost != "";
 
+#ifndef ANDROID
+	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
+	systemSettings->Add(new Choice(s->T("Reload Cheats")))->OnClick.Handle(this, &GameSettingsScreen::OnReloadCheats);
+#endif
+
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);
 	systemSettings->Add(new ItemHeader(g->T("General")));
@@ -363,13 +368,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	systemSettings->Add(new Choice(s->T("System Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
-	systemSettings->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GameSettingsScreen::OnBack);
 
-
-#ifndef ANDROID
-	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
-	systemSettings->Add(new Choice(s->T("Reload Cheats")))->OnClick.Handle(this, &GameSettingsScreen::OnReloadCheats);
-#endif
 
 	systemSettings->Add(new ItemHeader(s->T("PSP Settings")));
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, s->T("Day Light Saving")));
