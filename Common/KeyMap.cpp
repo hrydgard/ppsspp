@@ -625,6 +625,7 @@ void RestoreDefault() {
 #if defined(_WIN32)
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
+	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
 #elif defined(ANDROID)
 	// Autodetect a few common devices
 	std::string name = System_GetName();
