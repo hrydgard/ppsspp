@@ -194,7 +194,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	sliderValue_ = *value_;
-	slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_));
+	slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	UI::SetFocusedView(slider_);
 }
 
