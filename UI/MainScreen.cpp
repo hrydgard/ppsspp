@@ -113,6 +113,8 @@ void GameButton::Draw(UIContext &dc) {
 	int h = bounds_.h;
 
 	UI::Style style = dc.theme->itemStyle;
+	if (down_)
+		style = dc.theme->itemDownStyle;
 
 	if (!gridStyle_ || !texture) {
 		// w = 144 * 80 / 50;
@@ -141,6 +143,7 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	int txOffset = down_ ? 4 : 0;
+	if (!gridStyle_) txOffset = 0;
 
 	// Render button
 	int dropsize = 10;
@@ -370,7 +373,9 @@ void GameBrowser::Refresh() {
 	if (*gridStyle_) {
 		gameList_ = new UI::GridLayout(UI::GridLayoutSettings(150, 85), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	} else {
-		gameList_ = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		UI::LinearLayout *gl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		gl->SetSpacing(4.0f);
+		gameList_ = gl;
 	}
 	Add(gameList_);
 
