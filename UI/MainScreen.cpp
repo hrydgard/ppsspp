@@ -290,6 +290,12 @@ void PathBrowser::Navigate(const std::string &path) {
 	}
 }
 
+static std::string GetMemCardDirectory() {
+	std::string memCardDirectory, ignore;
+	GetSysDirectories(memCardDirectory, ignore);
+	return memCardDirectory;
+}
+
 class GameBrowser : public UI::LinearLayout {
 public:
 	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = 0);
@@ -333,7 +339,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
-	path_.SetPath(g_Config.memCardDirectory);
+	path_.SetPath(GetMemCardDirectory());
 	g_Config.currentDirectory = path_.GetPath();
 	Refresh();
 	return UI::EVENT_DONE;
@@ -472,7 +478,7 @@ void MainScreen::CreateViews() {
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2, 
 		m->T("How to get games"), "http://www.ppsspp.org/faq.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-	GameBrowser *tabHomebrew = new GameBrowser(g_Config.memCardDirectory + "PSP/GAME/", false, &g_Config.bGridView3, 
+	GameBrowser *tabHomebrew = new GameBrowser(GetMemCardDirectory() + "PSP/GAME/", false, &g_Config.bGridView3,
 		"", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
