@@ -366,7 +366,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
-	systemSettings->Add(new Choice(s->T("System Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	systemSettings->Add(new Choice(s->T("System Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
 

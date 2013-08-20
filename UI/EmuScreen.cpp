@@ -202,13 +202,9 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		}
 		break;
 
-	// On Android, this is take care of in update() using input.buttons & back
-	// Should get rid of that but not now.
-#ifndef ANDROID
 	case VIRTKEY_PAUSE:
 		screenManager()->push(new GamePauseScreen(gamePath_));
 		break;
-#endif
 
 	case VIRTKEY_AXIS_X_MIN:
 	case VIRTKEY_AXIS_X_MAX:
