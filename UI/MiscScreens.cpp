@@ -179,25 +179,30 @@ NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
 #endif
 	langValuesMapping = GetLangValuesMapping();
 
+	std::vector<FileInfo> tempLangs;
 #ifdef ANDROID
-	VFSGetFileListing("assets/lang", &langs_, "ini");
+	VFSGetFileListing("assets/lang", &tempLangs, "ini");
 #else
-	VFSGetFileListing("lang", &langs_, "ini");
+	VFSGetFileListing("lang", &tempLangs, "ini");
 #endif
 	std::vector<std::string> listing;
 	int selected = -1;
-	for (size_t i = 0; i < langs_.size(); i++) {
+	int counter = 0;
+	for (size_t i = 0; i < tempLangs.size(); i++) {
 		// Skip README
-		if (langs_[i].name.find("README") != std::string::npos) {
+		if (tempLangs[i].name.find("README") != std::string::npos) {
 			continue;
 		}
 
-		std::string code;
-		size_t dot = langs_[i].name.find('.');
-		if (dot != std::string::npos)
-			code = langs_[i].name.substr(0, dot);
+		FileInfo lang = tempLangs[i];
+		langs_.push_back(lang);
 
-		std::string buttonTitle = langs_[i].name;
+		std::string code;
+		size_t dot = lang.name.find('.');
+		if (dot != std::string::npos)
+			code = lang.name.substr(0, dot);
+
+		std::string buttonTitle = lang.name;
 
 		if (!code.empty()) {
 			if (langValuesMapping.find(code) == langValuesMapping.end()) {
@@ -208,8 +213,9 @@ NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
 			}
 		}
 		if (g_Config.languageIni == code)
-			selected = (int)i;
+			selected = counter;
 		listing.push_back(buttonTitle);
+		counter++;
 	}
 
 	adaptor_ = UI::StringVectorListAdaptor(listing, selected);
