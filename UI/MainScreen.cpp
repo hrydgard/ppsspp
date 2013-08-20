@@ -491,7 +491,8 @@ void MainScreen::CreateViews() {
 
 	leftColumn->AddTab(m->T("Recent"), scrollRecentGames);
 	leftColumn->AddTab(m->T("Games"), scrollAllGames);
-	leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
+	if (!g_Config.bHideHomebrew)
+		leftColumn->AddTab(m->T("Homebrew & Demos"), scrollHomebrew);
 
 	tabRecentGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);
 	tabAllGames->OnChoice.Handle(this, &MainScreen::OnGameSelectedInstant);

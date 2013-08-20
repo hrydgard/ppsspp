@@ -49,6 +49,7 @@ public:
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
+	bool bHideHomebrew;
 
 	// Core
 	bool bIgnoreBadMemAccess;
