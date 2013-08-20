@@ -1,5 +1,6 @@
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include <vector>
 
 const char *GetDeviceName(int deviceId) {
 	switch (deviceId) {
@@ -39,6 +40,22 @@ int MapPadButtonFixed(int keycode) {
 	default:
 		return 0;
 	}
+}
+
+std::vector<keycode_t> confirmKeys;
+std::vector<keycode_t> cancelKeys;
+
+void SetConfirmCancelKeys(std::vector<keycode_t> confirm, std::vector<keycode_t> cancel) {
+	confirmKeys = confirm;
+	cancelKeys = cancel;
+}
+
+void AddConfirmKey(keycode_t confirmKey) {
+	confirmKeys.push_back(confirmKey);
+}
+
+void AddCancelKey(keycode_t cancelKey) {
+	cancelKeys.push_back(cancelKey);
 }
 
 uint32_t ButtonTracker::Update() {
