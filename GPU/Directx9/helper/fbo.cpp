@@ -3,6 +3,7 @@
 #include <string.h>
 #include "fbo.h"
 
+static LPDIRECT3DSURFACE9 workingRtt;
 static LPDIRECT3DSURFACE9 deviceRTsurf;
 static LPDIRECT3DSURFACE9 deviceDSsurf;
 
@@ -24,6 +25,8 @@ struct FBO {
 void fbo_init() {
 	pD3Ddevice->GetRenderTarget(0, &deviceRTsurf);
 	pD3Ddevice->GetDepthStencilSurface(&deviceDSsurf);
+
+	//pD3Ddevice->CreateRenderTarget(1280/2, 720/2, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &workingRtt, NULL);
 }
 
 FBO * current_fbo = NULL;
@@ -36,13 +39,13 @@ FBO *fbo_create(int width, int height, int num_color_textures, bool z_stencil, F
 	fbo->colorDepth = colorDepth;
 
 	// only support 32bit surfaces
-	//pD3Ddevice->CreateRenderTarget(fbo->width, fbo->height, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->surf, NULL);
+	//pD3Ddevice->CreateRenderTarget(fbo->width/4, fbo->height/4, D3DFMT_A8R8G8B8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->surf, NULL);
 	
 	/*
 	// Create depth + stencil target | forced to 24-bit Z, 8-bit stencil
 	pD3Ddevice->CreateDepthStencilSurface(fbo->width, fbo->height, D3DFMT_D24S8, D3DMULTISAMPLE_NONE, 0, FALSE, &fbo->depthstencil, NULL);
 	*/
-	// Only needed on xbox :s
+	// Only needed on xbox
 	pD3Ddevice->CreateTexture(fbo->width, fbo->height, 1, 0, D3DFMT_A8R8G8B8, 0, &fbo->tex, NULL);
 
 	fbo->stencil_buffer = 8;
@@ -56,22 +59,30 @@ void * fbo_get_rtt(FBO *fbo) {
 
 void fbo_unbind() {
 	if (current_fbo != NULL) {
-		//pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0, NULL, current_fbo->tex, NULL, 0, 0, NULL, 0.0f, 0, NULL );
+		/*
+		D3DVECTOR4 White = {1.0f, 1.0f, 1.0f, 1.0f};
+		pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS|D3DRESOLVE_CLEARRENDERTARGET|D3DRESOLVE_CLEARDEPTHSTENCIL, NULL, 
+			current_fbo->tex, NULL, 0, 0, &White, 0.0f, 0, NULL );
+			*/
+		pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS, NULL, 
+			current_fbo->tex, NULL, 0, 0, 0, 0.0f, 0, NULL );
+		
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, 0xFFFFFFFF, 0, 0);
 	}
 	current_fbo = NULL;
 
-	//pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
+	pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
 	//pD3Ddevice->SetDepthStencilSurface(deviceDSsurf);
 }
 
 void fbo_resolve(FBO *fbo) {
-	pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS|D3DRESOLVE_CLEARRENDERTARGET|D3DRESOLVE_CLEARDEPTHSTENCIL, NULL, fbo->tex, NULL, 0, 0, NULL, 0.0f, 0, NULL );
+	//pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS, NULL, fbo->tex, NULL, 0, 0, NULL, 0.0f, 0, NULL );
 }
 
 void fbo_bind_as_render_target(FBO *fbo) {
 	current_fbo = fbo;
-
-	//pD3Ddevice->SetRenderTarget(0, fbo->surf);
+	//pD3Ddevice->SetRenderTarget(0, workingRtt);
+	//pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, 0xFFFFFFFF, 0, 0);
 	//pD3Ddevice->SetDepthStencilSurface(fbo->depthstencil);
 }
 
@@ -81,8 +92,8 @@ void fbo_bind_for_read(FBO *fbo) {
 
 void fbo_bind_color_as_texture(FBO *fbo, int color) {
 	//OutputDebugStringA("fbo_bind_color_as_texture: Fix me\r\n");
-	//pD3Ddevice->SetTexture(0, fbo->tex);
-	pD3Ddevice->SetTexture(0, NULL);
+	pD3Ddevice->SetTexture(0, fbo->tex);
+	//pD3Ddevice->SetTexture(0, NULL);
 }
 
 void fbo_destroy(FBO *fbo) {
@@ -103,5 +114,5 @@ void SwapBuffer() {
 	pD3Ddevice->Present(0, 0, 0, 0);
 
 	// :s
-	pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, 0xFFFFFFFF, 0, 0);
+	//pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, 0xFFFFFFFF, 0, 0);
 }

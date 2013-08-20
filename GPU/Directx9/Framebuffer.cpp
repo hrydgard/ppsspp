@@ -55,7 +55,7 @@ inline u16 RGBA8888toRGBA5551(u32 px) {
 void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferFormat format);
 
 void CenterRect(float *x, float *y, float *w, float *h,
-                float origW, float origH, float frameW, float frameH)
+	float origW, float origH, float frameW, float frameH)
 {
 	if (g_Config.bStretchToDisplay)
 	{
@@ -110,7 +110,7 @@ void DisableState() {
 
 
 FramebufferManager::FramebufferManager() :
-	ramDisplayFramebufPtr_(0),
+ramDisplayFramebufPtr_(0),
 	displayFramebufPtr_(0),
 	displayStride_(0),
 	displayFormat_(GE_FORMAT_565),
@@ -123,14 +123,6 @@ FramebufferManager::FramebufferManager() :
 	drawPixelsTexFormat_(GE_FORMAT_INVALID),
 	convBuf(0)
 {
-#if 0
-	draw2dprogram = glsl_create_source(basic_vs, tex_fs);
-
-	glsl_bind(draw2dprogram);
-	glUniform1i(draw2dprogram->sampler0, 0);
-	glsl_unbind();
-
-#endif
 	// And an initial clear. We don't clear per frame as the games are supposed to handle that
 	// by themselves.
 	ClearBuffer();
@@ -141,11 +133,6 @@ FramebufferManager::FramebufferManager() :
 }
 
 FramebufferManager::~FramebufferManager() {
-#if 0
-	if (drawPixelsTex_)
-		glDeleteTextures(1, &drawPixelsTex_);
-	glsl_destroy(draw2dprogram);
-#endif
 	if(drawPixelsTex_) {
 		drawPixelsTex_->Release();
 	}
@@ -176,7 +163,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	if (pixelFormat != GE_FORMAT_8888 || linesize != 512) {
 		for (int y = 0; y < 272; y++) {
 			switch (pixelFormat) {
-			// not tested
+				// not tested
 			case GE_FORMAT_565:
 				{
 					const u16 *src = (const u16 *)framebuf + linesize * y;
@@ -187,7 +174,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 					}
 				}
 				break;
-			// faster
+				// faster
 			case GE_FORMAT_5551:
 				{
 					const u16 *src = (const u16 *)framebuf + linesize * y;
@@ -198,7 +185,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 					}
 				}
 				break;
-			// not tested
+				// not tested
 			case GE_FORMAT_4444:
 				{
 					const u16 *src = (const u16 *)framebuf + linesize * y;
@@ -256,11 +243,11 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 	pD3Ddevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
 	pD3Ddevice->SetVertexShaderConstantF(0, ortho.getReadPtr(), 4);
-	
+
 	pD3Ddevice->SetVertexDeclaration(pFramebufferVertexDecl);
 	pD3Ddevice->SetPixelShader(pFramebufferPixelShader);
 	pD3Ddevice->SetVertexShader(pFramebufferVertexShader);
-	pD3Ddevice->SetTexture(0, drawPixelsTex_);
+	//pD3Ddevice->SetTexture(0, drawPixelsTex_);
 	pD3Ddevice->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 }
 
@@ -306,8 +293,8 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 
 	// In case viewport return as 0x0 like FF Type-0 
 	if (viewport_width <= 1 && viewport_height <=1) {
-			drawing_width = default_width;
-			drawing_height = default_height;
+		drawing_width = default_width;
+		drawing_height = default_height;
 	}
 
 	if (fb_width < 512) {
@@ -317,7 +304,7 @@ void GuessDrawingSize(int &drawing_width, int &drawing_height) {
 		} else {
 			drawing_width = region_width;
 			drawing_height = region_height;
-	}
+		}
 	} else {
 		if (fb_width != region_width) {
 			drawing_width = default_width;
@@ -372,7 +359,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
-	
+
 	GEBufferFormat fmt = static_cast<GEBufferFormat>(gstate.framebufpixformat & 3);
 
 	int drawing_width, drawing_height;
@@ -386,10 +373,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
-				// Let's not be so picky for now. Let's say this is the one.
-				vfb = v;
-				// Update fb stride in case it changed
-				vfb->fb_stride = fb_stride;
+			// Let's not be so picky for now. Let's say this is the one.
+			vfb = v;
+			// Update fb stride in case it changed
+			vfb->fb_stride = fb_stride;
 			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) { 
 				v->width = drawing_width;
 				v->height = drawing_height;
@@ -427,24 +414,24 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			vfb->colorDepth = FBO_8888;
 		} else { 
 			switch (fmt) {
-				case GE_FORMAT_4444: 
-					vfb->colorDepth = FBO_4444; 
-					break;
-				case GE_FORMAT_5551: 
-					vfb->colorDepth = FBO_5551; 
-					break;
-				case GE_FORMAT_565: 
-					vfb->colorDepth = FBO_565; 
-					break;
-				case GE_FORMAT_8888: 
-					vfb->colorDepth = FBO_8888; 
-					break;
-				default: 
-					vfb->colorDepth = FBO_8888; 
-					break;
+			case GE_FORMAT_4444: 
+				vfb->colorDepth = FBO_4444; 
+				break;
+			case GE_FORMAT_5551: 
+				vfb->colorDepth = FBO_5551; 
+				break;
+			case GE_FORMAT_565: 
+				vfb->colorDepth = FBO_565; 
+				break;
+			case GE_FORMAT_8888: 
+				vfb->colorDepth = FBO_8888; 
+				break;
+			default: 
+				vfb->colorDepth = FBO_8888; 
+				break;
 			}
 		}
-			
+
 		//#ifdef ANDROID
 		//	vfb->colorDepth = FBO_8888;
 		//#endif
@@ -473,7 +460,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		INFO_LOG(HLE, "Creating FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 
-	// We already have it!
+		// We already have it!
 	} else if (vfb != currentRenderVfb_) {
 #ifndef USING_GLES2
 		bool useMem = g_Config.iRenderingMode == FB_READFBOMEMORY_GPU || g_Config.iRenderingMode == FB_READFBOMEMORY_CPU;
@@ -518,23 +505,21 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 			/*
 			if (drawing_width == 480 && drawing_height == 272) {
-				gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPNONFB;
-				// OK!
+			gstate_c.skipDrawReason &= ~SKIPDRAW_SKIPNONFB;
+			// OK!
 			} else {
-				gstate_c.skipDrawReason |= ~SKIPDRAW_SKIPNONFB;
+			gstate_c.skipDrawReason |= ~SKIPDRAW_SKIPNONFB;
 			}*/
 		}
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
-#if 1
+#if 0
 		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
 		if (vfb->last_frame_used != gpuStats.numFlips)	{
-			dxstate.depthWrite.set(true);
-			dxstate.colorMask.set(true, true, true, true);
-			pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0, 0);
+			ClearBuffer();
 		}
 #endif
 		currentRenderVfb_ = vfb;
@@ -594,10 +579,9 @@ void FramebufferManager::CopyDisplayToOutput() {
 		dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 		DEBUG_LOG(HLE, "Displaying FBO %08x", vfb->fb_address);
 		DisableState();
-
 		fbo_bind_color_as_texture(vfb->fbo, 0);
-	
-	// These are in the output display coordinates
+
+		// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 		DrawActiveTexture(x, y, w, h, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
@@ -659,27 +643,27 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 				nvfb->colorDepth = FBO_8888;
 			} else {
 				switch (vfb->format) {
-					case GE_FORMAT_4444:
-						nvfb->colorDepth = FBO_4444;
-						break;
-					case GE_FORMAT_5551:
-						nvfb->colorDepth = FBO_5551;
-						break;
-					case GE_FORMAT_565: 
-						nvfb->colorDepth = FBO_565;
-						break;
-					case GE_FORMAT_8888:
-					default: 
-						nvfb->colorDepth = FBO_8888;
-						break;
+				case GE_FORMAT_4444:
+					nvfb->colorDepth = FBO_4444;
+					break;
+				case GE_FORMAT_5551:
+					nvfb->colorDepth = FBO_5551;
+					break;
+				case GE_FORMAT_565: 
+					nvfb->colorDepth = FBO_565;
+					break;
+				case GE_FORMAT_8888:
+				default: 
+					nvfb->colorDepth = FBO_8888;
+					break;
 				}
 			}
 
 			nvfb->fbo = fbo_create(nvfb->width, nvfb->height, 1, true, nvfb->colorDepth);
 			if (!(nvfb->fbo)) {
 				ERROR_LOG(HLE, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
-					return;
-				}
+				return;
+			}
 
 			nvfb->last_frame_used = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
@@ -690,16 +674,16 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			nvfb->last_frame_used = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
-#ifdef USING_GLES2
-					fbo_bind_as_render_target(nvfb->fbo);
+#if 0
+			fbo_bind_as_render_target(nvfb->fbo);
 
-					// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
-					// to it. This broke stuff before, so now it only clears on the first use of an
-					// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
-					// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-					if (nvfb->last_frame_used != gpuStats.numFlips)	{
+			// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
+			// to it. This broke stuff before, so now it only clears on the first use of an
+			// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
+			// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+			if (nvfb->last_frame_used != gpuStats.numFlips)	{
 				ClearBuffer();
-					}
+			}
 #endif
 		}
 
@@ -717,12 +701,12 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	}
 
 	fbo_bind_as_render_target(dst->fbo);
-	
+
 	/*
 	if(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		ERROR_LOG(HLE, "Incomplete target framebuffer, aborting blit");
-		fbo_unbind();
-		return;
+	ERROR_LOG(HLE, "Incomplete target framebuffer, aborting blit");
+	fbo_unbind();
+	return;
 	}
 	*/
 
@@ -733,9 +717,9 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-	
+
 	DrawActiveTexture(x, y, w, h, flip, upscale, vscale);
-	
+
 	pD3Ddevice->SetTexture(0, NULL);
 	fbo_unbind();
 }
@@ -753,27 +737,27 @@ void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 stride, u32 height, GEBufferForma
 		const u32 *src32 = (const u32 *)src;
 		u16 *dst16 = (u16 *)dst;
 		switch (format) {
-			case GE_FORMAT_565: // BGR 565
-				for(int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGB565(src32[i]);
-				}
-				break;
-			case GE_FORMAT_5551: // ABGR 1555
-				for(int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGBA5551(src32[i]);
-				}
+		case GE_FORMAT_565: // BGR 565
+			for(int i = 0; i < size; i++) {
+				dst16[i] = RGBA8888toRGB565(src32[i]);
+			}
+			break;
+		case GE_FORMAT_5551: // ABGR 1555
+			for(int i = 0; i < size; i++) {
+				dst16[i] = RGBA8888toRGBA5551(src32[i]);
+			}
 
-				break;
-			case GE_FORMAT_4444: // ABGR 4444
-				for(int i = 0; i < size; i++) {
-					dst16[i] = RGBA8888toRGBA4444(src32[i]);
-				}
-				break;
-			case GE_FORMAT_8888:
-				// Not possible.
-				break;
-			default:
-				break;
+			break;
+		case GE_FORMAT_4444: // ABGR 4444
+			for(int i = 0; i < size; i++) {
+				dst16[i] = RGBA8888toRGBA4444(src32[i]);
+			}
+			break;
+		case GE_FORMAT_8888:
+			// Not possible.
+			break;
+		default:
+			break;
 		}
 	}
 }
@@ -893,7 +877,7 @@ void FramebufferManager::DecimateFBOs() {
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 
 		if(useMem && !age && !vfb->memoryUpdated) { 
-				ReadFramebufferToMemory(vfb);
+			ReadFramebufferToMemory(vfb);
 		}
 
 		if (vfb == displayFramebuf_ || vfb == prevDisplayFramebuf_ || vfb == prevPrevDisplayFramebuf_) {
@@ -902,7 +886,7 @@ void FramebufferManager::DecimateFBOs() {
 
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
-			DestroyFramebuf(vfb);
+				DestroyFramebuf(vfb);
 			vfbs_.erase(vfbs_.begin() + i--);
 		}
 	}
@@ -913,7 +897,7 @@ void FramebufferManager::DecimateFBOs() {
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
-			DestroyFramebuf(vfb);
+				DestroyFramebuf(vfb);
 			bvfbs_.erase(bvfbs_.begin() + i--);
 		}
 	}
@@ -960,7 +944,7 @@ void FramebufferManager::UpdateFromMemory(u32 addr, int size) {
 					DrawPixels(Memory::GetPointer(addr), vfb->format, vfb->fb_stride);
 				} else {
 					INFO_LOG(HLE, "Invalidating FBO for %08x (%i x %i x %i)", vfb->fb_address, vfb->width, vfb->height, vfb->format)
-					DestroyFramebuf(vfb);
+						DestroyFramebuf(vfb);
 					vfbs_.erase(vfbs_.begin() + i--);
 				}
 			}

@@ -199,6 +199,11 @@ void DirectxInit() {
 
 	pD3D = Direct3DCreate9( D3D_SDK_VERSION );
 
+	D3DRING_BUFFER_PARAMETERS d3dr = {0};
+	d3dr.PrimarySize = 64*1024;
+	d3dr.SecondarySize = 4*1024*1024;
+
+
     // Set up the structure used to create the D3DDevice. Most parameters are
     // zeroed out. We set Windowed to TRUE, since we want to do D3D in a
     // window, and then set the SwapEffect to "discard", which is the most
@@ -218,6 +223,7 @@ void DirectxInit() {
     d3dpp.AutoDepthStencilFormat = D3DFMT_D24S8;
     d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
     d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+	//d3dpp.RingBufferParameters = d3dr;
 	
 	pD3D->CreateDevice( D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, NULL,
                                       D3DCREATE_HARDWARE_VERTEXPROCESSING,
