@@ -11,7 +11,7 @@ const float estimatedInertiaDamping = 0.75f;
 
 GestureDetector::GestureDetector()
 	: active_(0),
-	  estimatedInertiaX_(0.0f),
+		estimatedInertiaX_(0.0f),
 		estimatedInertiaY_(0.0f) {
 	memset(pointers, 0, sizeof(pointers));
 }
@@ -75,7 +75,7 @@ bool GestureDetector::IsGestureActive(Gesture gesture) const {
 
 bool GestureDetector::GetGestureInfo(Gesture gesture, float info[4]) const {
 	if (!(active_ & gesture)) {
-		memset(info, 0, sizeof(info));
+		memset(info, 0, sizeof(float) * 4);
 		return false;
 	}
 
