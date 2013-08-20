@@ -14,7 +14,7 @@
    height="1052.3622047"
    id="svg2"
    version="1.1"
-   inkscape:version="0.48.2 r9819"
+   inkscape:version="0.48.4 r9939"
    sodipodi:docname="buttons.svg">
   <defs
      id="defs4">
@@ -358,8 +358,8 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="2.8"
-     inkscape:cx="292.86292"
-     inkscape:cy="887.21522"
+     inkscape:cx="198.95268"
+     inkscape:cy="892.72876"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -376,7 +376,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -387,8 +387,8 @@
     <rect
        style="fill:#000000;fill-opacity:1;stroke:none"
        id="rect5044"
-       width="185.75505"
-       height="218.68367"
+       width="186.1122"
+       height="240.11224"
        x="1.3355882"
        y="-8.7092419" />
     <g
@@ -732,5 +732,18 @@
            x="208.57143"
            sodipodi:role="line">PSP</tspan></text>
     </g>
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:none"
+       id="rect3093"
+       width="10.678391"
+       height="16.017588"
+       x="121.0386"
+       y="196.85159" />
+    <path
+       style="fill:#ffffff;fill-opacity:1;stroke:none"
+       d="m 126.3778,188.23298 15.10154,15.10153 -30.20307,0 z"
+       id="rect3097"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="cccc" />
   </g>
 </svg>
