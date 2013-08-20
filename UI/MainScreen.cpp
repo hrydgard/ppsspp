@@ -214,12 +214,13 @@ public:
 	}
 	std::string GetFriendlyPath() {
 		std::string str = GetPath();
+		/*
 #ifdef ANDROID
 		if (!memcmp(str.c_str(), g_Config.memCardDirectory.c_str(), g_Config.memCardDirectory.size()))
 		{
 			str = str.substr(g_Config.memCardDirectory.size());
 		}
-#endif
+#endif*/
 		return str;
 	}
 
@@ -245,8 +246,7 @@ void PathBrowser::GetListing(std::vector<FileInfo> &fileInfo, const char *filter
 	if (path_ == "/") {
 		// Special path that means root of file system.
 		std::vector<std::string> drives = getWindowsDrives();
-		for (auto drive = drives.begin(); drive != drives.end(); ++drive) 
-		{
+		for (auto drive = drives.begin(); drive != drives.end(); ++drive) {
 			FileInfo fake;
 			fake.fullName = *drive;
 			fake.name = *drive;
@@ -531,7 +531,6 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(m->T("Game Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(m->T("Main Settings")))->OnClick.Handle(this, &MainScreen::OnSettings);
 	rightColumnItems->Add(new Choice(m->T("Exit")))->OnClick.Handle(this, &MainScreen::OnExit);
 	rightColumnItems->Add(new Choice(m->T("Credits")))->OnClick.Handle(this, &MainScreen::OnCredits);
 	rightColumnItems->Add(new Choice(m->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
@@ -578,12 +577,6 @@ UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
 	// screenManager()->push(new SettingsScreen());
 	screenManager()->push(new GameSettingsScreen("",""));
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn MainScreen::OnSettings(UI::EventParams &e) {
-	// screenManager()->push(new SettingsScreen());
-	screenManager()->push(new GlobalSettingsScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -674,13 +667,7 @@ void GamePauseScreen::CreateViews() {
 
 	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-	rightColumnItems->Add(new Choice(i->T("Main Settings")))->OnClick.Handle(this, &GamePauseScreen::OnMainSettings);
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
-}
-
-UI::EventReturn GamePauseScreen::OnMainSettings(UI::EventParams &e) {
-	screenManager()->push(new GlobalSettingsScreen());
-	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {

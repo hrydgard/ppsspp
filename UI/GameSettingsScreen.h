@@ -24,7 +24,7 @@
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "") : gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3) {}
+	GameSettingsScreen(std::string gamePath, std::string gameID = "") : gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
 
 	virtual void update(InputState &input);
 
@@ -46,12 +46,19 @@ private:
 	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnReloadCheats(UI::EventParams &e);
 
+	// Global settings handlers
+	UI::EventReturn OnLanguage(UI::EventParams &e);
+	UI::EventReturn OnFactoryReset(UI::EventParams &e);
+	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
+	UI::EventReturn OnChangeNickname(UI::EventParams &e);
+
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
+	bool enableReports_;
 	int iAlternateSpeedPercent_;
 };
 
-// TODO: Move to its own file.
+/*
 class GlobalSettingsScreen : public UIDialogScreenWithBackground {
 public:
 	GlobalSettingsScreen() {}
@@ -60,15 +67,9 @@ protected:
 	virtual void CreateViews();
 
 private:
-	// Event handlers
-	UI::EventReturn OnLanguage(UI::EventParams &e);
-	UI::EventReturn OnFactoryReset(UI::EventParams &e);
-	UI::EventReturn OnBack(UI::EventParams &e);
-	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
-	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	// Temporaries to convert bools to other kinds of settings
-	bool enableReports_;
-};
+};*/
+
 
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
 public:

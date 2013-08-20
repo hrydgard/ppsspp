@@ -341,6 +341,31 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
+	enableReports_ = g_Config.sReportHost != "";
+
+	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
+	systemSettings->SetSpacing(0);
+	systemSettings->Add(new ItemHeader(g->T("General")));
+	systemSettings->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
+#ifndef ANDROID
+	// Need to move the cheat config dir somewhere where it can be read/written on android
+	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
+#endif
+#ifdef _WIN32
+	// Screenshot functionality is not yet available on non-Windows
+	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
+#endif
+
+	// TODO: Come up with a way to display a keyboard for mobile users,
+	// so until then, this is Windows/Desktop only.
+#ifdef _WIN32
+	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
+#endif
+	systemSettings->Add(new Choice(s->T("System Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
+	systemSettings->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GameSettingsScreen::OnBack);
+
+
 #ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new Choice(s->T("Reload Cheats")))->OnClick.Handle(this, &GameSettingsScreen::OnReloadCheats);
@@ -424,7 +449,9 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 			Atrac3plus_Decoder::Init();
 		else Atrac3plus_Decoder::Shutdown();
 	}
-	
+	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "";
+	g_Config.Save();
+
 #ifdef _WIN32
 	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_ATRAC_STATUS_CHANGED, 0, 0);
 #endif
@@ -432,40 +459,15 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+/*
 void GlobalSettingsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
 	enableReports_ = g_Config.sReportHost != "";
+}*/
 
-	I18NCategory *g = GetI18NCategory("General");
-	I18NCategory *s = GetI18NCategory("System");
-	I18NCategory *gs = GetI18NCategory("Graphics");
-
-	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-	list->SetSpacing(0);
-	list->Add(new ItemHeader(g->T("General")));
-	list->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
-#ifndef ANDROID
-	// Need to move the cheat config dir somewhere where it can be read/written on android
-	list->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
-#endif
-#ifdef _WIN32
-	// Screenshot functionality is not yet available on non-Windows
-	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
-#endif
-
-	// TODO: Come up with a way to display a keyboard for mobile users,
-	// so until then, this is Windows/Desktop only.
-#ifdef _WIN32
-	list->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GlobalSettingsScreen::OnChangeNickname);
-#endif
-	list->Add(new Choice(s->T("System Language")))->OnClick.Handle(this, &GlobalSettingsScreen::OnLanguage);
-	list->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GlobalSettingsScreen::OnDeveloperTools);
-	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &GlobalSettingsScreen::OnBack);
-}
-
-UI::EventReturn GlobalSettingsScreen::OnChangeNickname(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	#ifdef _WIN32
 
 	const size_t name_len = 256;
@@ -480,30 +482,23 @@ UI::EventReturn GlobalSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GlobalSettingsScreen::OnFactoryReset(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnFactoryReset(UI::EventParams &e) {
 	screenManager()->push(new PluginScreen());
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GlobalSettingsScreen::OnLanguage(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 	screenManager()->push(new NewLanguageScreen());
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GlobalSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
+UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
 	screenManager()->push(new DeveloperToolsScreen());
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnControlMapping(UI::EventParams &e) {
 	screenManager()->push(new ControlMappingScreen());
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GlobalSettingsScreen::OnBack(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
-	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "";
-	g_Config.Save();
 	return UI::EVENT_DONE;
 }
 
