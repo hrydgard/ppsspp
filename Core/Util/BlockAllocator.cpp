@@ -146,18 +146,24 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		ERROR_LOG(HLE, "Clearly bogus size: %08x - failing allocation", size);
 		return -1;
 	}
-
-	// upalign size to grain
-	size = (size + grain_ - 1) & ~(grain_ - 1);
 	
-	// check that position is aligned
-	u32 bottomPosition = position;
+	// Downalign the position so we're allocating full blocks.
+	u32 alignedPosition = position;
+	u32 alignedSize = size;
 	if (position & (grain_ - 1)) {
 		DEBUG_LOG(HLE, "Position %08x does not align to grain.", position);
-		bottomPosition &= ~(grain_ - 1);
+		alignedPosition &= ~(grain_ - 1);
+
+		// Since the position was decreased, size must increase.
+		alignedSize += alignedPosition - position;
 	}
 
-	Block *bp = GetBlockFromAddress(bottomPosition);
+	// Upalign size to grain.
+	alignedSize = (alignedSize + grain_ - 1) & ~(grain_ - 1);
+	// Tell the caller the allocated size from their requested starting position.
+	size = alignedSize - (alignedPosition - position);
+
+	Block *bp = GetBlockFromAddress(alignedPosition);
 	if (bp != NULL)
 	{
 		Block &b = *bp;
@@ -169,24 +175,24 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 		else
 		{
 			//good to go
-			if (b.start == bottomPosition)
+			if (b.start == alignedPosition)
 			{
-				InsertFreeAfter(&b, b.start + size, b.size - size);
+				InsertFreeAfter(&b, b.start + alignedSize, b.size - alignedSize);
 				b.taken = true;
-				b.size = size;
+				b.size = alignedSize;
 				b.SetTag(tag);
 				CheckBlocks();
 				return position;
 			}
 			else
 			{
-				int size1 = bottomPosition - b.start;
+				int size1 = alignedPosition - b.start;
 				InsertFreeBefore(&b, b.start, size1);
-				if (b.start + b.size > bottomPosition + size)
-					InsertFreeAfter(&b, bottomPosition + size, b.size - (size + size1));
+				if (b.start + b.size > alignedPosition + alignedSize)
+					InsertFreeAfter(&b, alignedPosition + alignedSize, b.size - (alignedSize + size1));
 				b.taken = true;
-				b.start = bottomPosition;
-				b.size = size;
+				b.start = alignedPosition;
+				b.size = alignedSize;
 				b.SetTag(tag);
 				return position;
 			}
@@ -200,7 +206,7 @@ u32 BlockAllocator::AllocAt(u32 position, u32 size, const char *tag)
 	
 	//Out of memory :(
 	ListBlocks();
-	ERROR_LOG(HLE, "Block Allocator failed to allocate %i bytes of contiguous memory", size);
+	ERROR_LOG(HLE, "Block Allocator failed to allocate %i bytes of contiguous memory", alignedSize);
 	return -1;
 }
 
