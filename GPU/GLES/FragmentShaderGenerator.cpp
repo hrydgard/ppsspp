@@ -118,7 +118,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-		bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -165,7 +165,7 @@ void GenerateFragmentShader(char *buffer) {
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
 	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
-	bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
