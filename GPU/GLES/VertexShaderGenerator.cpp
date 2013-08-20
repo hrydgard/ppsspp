@@ -236,7 +236,7 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					WRITE(p, "uniform mediump vec3 u_lightatt%i;\n", i);
 
-				if (type == GE_LIGHTTYPE_SPOT) {
+				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) { 
 					WRITE(p, "uniform mediump float u_lightangle%i;\n", i);
 					WRITE(p, "uniform mediump float u_lightspotCoef%i;\n", i);
 				}
