@@ -527,6 +527,9 @@ void ScrollView::Layout() {
 }
 
 void ScrollView::Key(const KeyInput &input) {
+	if (visibility_ != V_VISIBLE)
+		return ViewGroup::Key(input);
+
 	if (input.flags & KEY_DOWN) {
 		switch (input.keyCode) {
 		case NKCODE_EXT_MOUSEWHEEL_UP:
@@ -550,17 +553,15 @@ void ScrollView::Touch(const TouchInput &input) {
 	}
 	if (input.flags & TOUCH_UP) {
 		float info[4];
-		gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info);
-		inertia_ = info[1];
+		if (gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info))
+			inertia_ = info[1];
 	}
 
 	TouchInput input2;
 	if (CanScroll()) {
 		input2 = gesture_.Update(input, bounds_);
-		if (gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
-			float info[4];
-			gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info);
-
+		float info[4];
+		if (gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info)) {
 			float pos = scrollStart_ - info[0];
 			ClampScrollPos(pos);
 			scrollPos_ = pos;

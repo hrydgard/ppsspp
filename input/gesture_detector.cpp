@@ -13,6 +13,7 @@ GestureDetector::GestureDetector()
 	: active_(0),
 	  estimatedInertiaX_(0.0f),
 		estimatedInertiaY_(0.0f) {
+	memset(pointers, 0, sizeof(pointers));
 }
 
 TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds) {
@@ -72,21 +73,23 @@ bool GestureDetector::IsGestureActive(Gesture gesture) const {
 	return (active_ & gesture) != 0;
 }
 
-void GestureDetector::GetGestureInfo(Gesture gesture, float info[4]) {
+bool GestureDetector::GetGestureInfo(Gesture gesture, float info[4]) const {
 	if (!(active_ & gesture)) {
 		memset(info, 0, sizeof(info));
-		return;
+		return false;
 	}
 
 	switch (gesture) {
 	case GESTURE_DRAG_HORIZONTAL:
 		info[0] = pointers[0].lastX - pointers[0].downX;
 		info[1] = estimatedInertiaX_;
-		break;
+		return true;
 	case GESTURE_DRAG_VERTICAL:
 		info[0] = pointers[0].lastY - pointers[0].downY;
 		info[1] = estimatedInertiaY_;
-		break;
+		return true;
+	default:
+		return false;
 	}
 /*
 
