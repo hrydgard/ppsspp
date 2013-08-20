@@ -110,8 +110,7 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	langValuesMapping["ko_KR"] = std::make_pair("한국어", PSP_SYSTEMPARAM_LANGUAGE_KOREAN);
 	langValuesMapping["zh_TW"] = std::make_pair("繁體中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL);
 	langValuesMapping["zh_CN"] = std::make_pair("简体中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED);
-
-	//langValuesMapping["ar_AE"] = std::make_pair("العربية", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+	langValuesMapping["ar_AE"] = std::make_pair("Arbia", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["az_AZ"] = std::make_pair("Azeri", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["ca_ES"] = std::make_pair("Català", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["gr_EL"] = std::make_pair("ελληνικά", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
@@ -124,6 +123,7 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	langValuesMapping["tr_TR"] = std::make_pair("Türk", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["uk_UA"] = std::make_pair("Українська", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["vn_VN"] = std::make_pair("Vietnamese", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+	langValuesMapping["cz_CZ"] = std::make_pair("Czech", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	return langValuesMapping;
 }
 
