@@ -188,6 +188,7 @@ public:
 		scrollMax_(0),
 		scrollTarget_(0),
 		scrollToTarget_(false),
+		inertia_(0),
 		lastViewSize_(0.0f),
 		scrollToTopOnSizeChange_(true) {}
 
@@ -219,7 +220,7 @@ private:
 	float scrollMax_;
 	float scrollTarget_;
 	bool scrollToTarget_;
-
+	float inertia_;
 	float lastViewSize_;
 	bool scrollToTopOnSizeChange_;
 };

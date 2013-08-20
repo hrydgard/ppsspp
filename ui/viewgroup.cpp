@@ -533,11 +533,20 @@ void ScrollView::Key(const KeyInput &input) {
 	ViewGroup::Key(input);
 }
 
+const float friction = 0.92f;
+const float stop_threshold = 0.1f;
+
 void ScrollView::Touch(const TouchInput &input) {
 	if ((input.flags & TOUCH_DOWN) && input.id == 0) {
 		scrollStart_ = scrollPos_;
+		inertia_ = 0.0f;
 	}
-	
+	if (input.flags & TOUCH_UP) {
+		float info[4];
+		gesture_.GetGestureInfo(GESTURE_DRAG_VERTICAL, info);
+		inertia_ = info[1];
+	}
+
 	TouchInput input2;
 	if (CanScroll()) {
 		input2 = gesture_.Update(input, bounds_);
@@ -648,13 +657,21 @@ bool ScrollView::CanScroll() const {
 
 void ScrollView::Update(const InputState &input_state) {
 	ViewGroup::Update(input_state);
+	gesture_.UpdateFrame();
 	if (scrollToTarget_) {
+		inertia_ = 0.0f;
 		if (fabsf(scrollTarget_ - scrollPos_) < 0.5f) {
 			scrollPos_ = scrollTarget_;
 			scrollToTarget_ = false;
 		} else {
 			scrollPos_ += (scrollTarget_ - scrollPos_) * 0.3f;
 		}
+	} else if (inertia_ != 0.0f && !gesture_.IsGestureActive(GESTURE_DRAG_VERTICAL)) {
+		scrollPos_ -= inertia_;
+		inertia_ *= friction;
+		if (fabsf(inertia_) < stop_threshold)
+			inertia_ = 0.0f;
+		ClampScrollPos(scrollPos_);
 	}
 }
 
