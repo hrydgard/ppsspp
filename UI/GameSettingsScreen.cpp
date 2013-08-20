@@ -454,7 +454,7 @@ void GlobalSettingsScreen::CreateViews() {
 	// Screenshot functionality is not yet available on non-Windows
 	list->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, gs->T("Screenshots as PNG")));
 #endif
-
+	list->Add(new CheckBox(&g_Config.bHideHomebrew, gs->T("Hide Homebrew & Demo")));
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
 #ifdef _WIN32
