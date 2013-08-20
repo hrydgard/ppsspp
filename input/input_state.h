@@ -11,9 +11,7 @@
 #include "math/lin/vec3.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
-#include "input/keycodes.h"
 #include <map>
-#include <vector>
 
 // Default device IDs
 
@@ -113,13 +111,6 @@ private:
 
 void UpdateInputState(InputState *input, bool merge = false);
 void EndInputState(InputState *input);
-
-// Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..
-extern std::vector<keycode_t> confirmKeys;
-extern std::vector<keycode_t> cancelKeys;
-void SetConfirmCancelKeys(std::vector<keycode_t> confirm, std::vector<keycode_t> cancel);
-void AddConfirmKey(keycode_t confirmKey);
-void AddCancelKey(keycode_t confirmKey);
 
 enum {
 	TOUCH_MOVE = 1,

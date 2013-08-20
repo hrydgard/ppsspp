@@ -27,6 +27,7 @@ struct DispatchQueueItem {
 
 std::queue<DispatchQueueItem> g_dispatchQueue;
 
+
 void EventTriggered(Event *e, EventParams params) {
 	lock_guard guard(mutex_);
 
@@ -186,11 +187,11 @@ void Clickable::Touch(const TouchInput &input) {
 // TODO: O/X confirm preference for xperia play?
 
 bool IsAcceptKeyCode(int keyCode) {
-	return std::find(confirmKeys.begin(), confirmKeys.end(), (keycode_t)keyCode) != confirmKeys.end();
+	return keyCode == NKCODE_SPACE || keyCode == NKCODE_ENTER || keyCode == NKCODE_Z || keyCode == NKCODE_BUTTON_A || keyCode == NKCODE_BUTTON_CROSS || keyCode == NKCODE_BUTTON_1;
 }
 
 bool IsEscapeKeyCode(int keyCode) {
-	return std::find(cancelKeys.begin(), cancelKeys.end(), (keycode_t)keyCode) != cancelKeys.end();
+	return keyCode == NKCODE_ESCAPE || keyCode == NKCODE_BACK || keyCode == NKCODE_BUTTON_CIRCLE || keyCode == NKCODE_BUTTON_B || keyCode == NKCODE_BUTTON_2;
 }
 
 void Clickable::Key(const KeyInput &key) {
