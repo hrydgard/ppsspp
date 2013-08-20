@@ -99,7 +99,6 @@ public:
 	void DrawBezier(int ucount, int vcount);
 	void DrawSpline(int ucount, int vcount, int utype, int vtype);
 	void DecodeVerts();
-	void Flush();
 	void SetShaderManager(ShaderManager *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -121,8 +120,17 @@ public:
 	// This requires a SetupVertexDecoder call first.
 	int EstimatePerVertexCost();
 
+	// So that this can be inlined
+	void Flush() {
+		if (!numDrawCalls)
+			return;
+		DoFlush();
+	}
+
 private:
+	void DoFlush();
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
+	void MixedTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, LPDIRECT3DVERTEXBUFFER9 vb_, LPDIRECT3DINDEXBUFFER9 ib_);
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
 
@@ -165,10 +173,9 @@ private:
 	std::map<u32, VertexArrayInfo *> vai_;
 
 	// Vertex buffer objects
-	// Element buffer objects
 	enum { NUM_VBOS = 2 };
-	LPDIRECT3DVERTEXBUFFER9 vbo_[NUM_VBOS];
-	LPDIRECT3DINDEXBUFFER9 ebo_[NUM_VBOS];
+	LPDIRECT3DVERTEXBUFFER9 vb[NUM_VBOS];
+	LPDIRECT3DINDEXBUFFER9 ib[NUM_VBOS];
 	int curVbo_;
 
 	// Other
@@ -179,6 +186,9 @@ private:
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls;
+
+	int decimationCounter_;
+
 	UVScale *uvScale;
 };
 

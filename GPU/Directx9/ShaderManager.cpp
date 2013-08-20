@@ -406,7 +406,8 @@ void LinkedShader::updateUniforms() {
 			ConvertMatrix4x3To4x4(gstate.boneMatrix + 12 * i, bonetemp);
 			//glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
 			
-			//m_vs->constant->SetMatrix(pD3Ddevice, u_bone[i], (D3DXMATRIX*)bonetemp);
+			if (u_bone[i] != 0)
+				m_vs->constant->SetMatrix(pD3Ddevice, u_bone[i], (D3DXMATRIX*)bonetemp);
 		}
 	}
 #endif
@@ -427,7 +428,6 @@ void LinkedShader::updateUniforms() {
 	if (u_matspecular != 0 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
 		SetColorUniform3ExtraFloat(m_vs->constant,u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
-	/*
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
 			if (gstate.isDirectionalLight(i)) {
@@ -441,20 +441,33 @@ void LinkedShader::updateUniforms() {
 				else
 					len = 1.0f / len;
 				float vec[3] = { x * len, y * len, z * len };
-				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, vec);
+				if (u_lightpos[i] != 0) 
+					m_vs->constant->SetFloatArray(pD3Ddevice, u_lightpos[i], vec, 3);
 			} else {
-				if (u_lightpos[i] != -1) glUniform3fv(u_lightpos[i], 1, gstate_c.lightpos[i]);
+				if (u_lightpos[i] != 0) 
+					m_vs->constant->SetFloatArray(pD3Ddevice, u_lightpos[i],  gstate_c.lightpos[i], 3);
 			}
-			if (u_lightdir[i] != -1) glUniform3fv(u_lightdir[i], 1, gstate_c.lightdir[i]);
-			if (u_lightatt[i] != -1) glUniform3fv(u_lightatt[i], 1, gstate_c.lightatt[i]);
-			if (u_lightangle[i] != -1) glUniform1f(u_lightangle[i], gstate_c.lightangle[i]);
-			if (u_lightspotCoef[i] != -1) glUniform1f(u_lightspotCoef[i], gstate_c.lightspotCoef[i]);
-			if (u_lightambient[i] != -1) glUniform3fv(u_lightambient[i], 1, gstate_c.lightColor[0][i]);
-			if (u_lightdiffuse[i] != -1) glUniform3fv(u_lightdiffuse[i], 1, gstate_c.lightColor[1][i]);
-			if (u_lightspecular[i] != -1) glUniform3fv(u_lightspecular[i], 1, gstate_c.lightColor[2][i]);
+			if (u_lightdir[i] != 0) 
+				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightdir[i],  gstate_c.lightdir[i], 3);
+			if (u_lightatt[i] != 0) 
+				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightatt[i],  gstate_c.lightatt[i], 3);
+				
+			if (u_lightangle[i] != 0) 				
+				m_vs->constant->SetFloat(pD3Ddevice, u_lightangle[i],  gstate_c.lightangle[i]);
+
+			if (u_lightspotCoef[i] != 0) 
+				m_vs->constant->SetFloat(pD3Ddevice, u_lightspotCoef[i],  gstate_c.lightspotCoef[i]);
+
+			if (u_lightambient[i] != 0) 				
+				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightambient[i],  gstate_c.lightColor[0][i], 3);
+
+			if (u_lightdiffuse[i] != 0) 
+				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightdiffuse[i],  gstate_c.lightColor[1][i], 3);
+				
+			if (u_lightspecular[i] != 0) 
+				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightspecular[i],  gstate_c.lightColor[2][i], 3);
 		}
 	}
-	*/
 
 	dirtyUniforms = 0;
 }

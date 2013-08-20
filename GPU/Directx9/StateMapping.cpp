@@ -266,7 +266,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	float renderWidthFactor, renderHeightFactor;
 	float renderWidth, renderHeight;
 	float renderX, renderY;
-	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	if (useBufferedRendering) {
 		renderX = 0.0f;
 		renderY = 0.0f;
@@ -286,10 +286,10 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
 
 	// Scissor
-	int scissorX1 = (gstate.getScissorX1());
-	int scissorY1 = (gstate.getScissorY1());
-	int scissorX2 = (gstate.getScissorX2());
-	int scissorY2 = (gstate.getScissorY2());
+	int scissorX1 = gstate.getScissorX1();
+	int scissorY1 = gstate.getScissorY1();
+	int scissorX2 = gstate.getScissorX2();
+	int scissorY2 = gstate.getScissorY2();
 
 	// This is a bit of a hack as the render buffer isn't always that size
 	if (scissorX1 == 0 && scissorY1 == 0 

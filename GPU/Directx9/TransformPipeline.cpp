@@ -27,6 +27,7 @@
 
 #include "helper/dx_state.h"
 #include "native/ext/cityhash/city.h"
+#include "ext/xxhash.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -38,6 +39,50 @@
 #include "VertexDecoder.h"
 #include "ShaderManager.h"
 #include "DisplayListInterpreter.h"
+
+
+IDirect3DVertexDeclaration9* pMixedVertexDecl = NULL;
+#pragma pack(push, 1)
+struct MixedVertexFormat {
+	// float 3
+	float position[3];
+
+	// float 1
+	float fog; 
+
+	// float 3	
+	float texcoord[3];
+
+	// float 3
+	float normal[3];
+	
+	// D3DDECLTYPE_D3DCOLOR
+	float color0[4];   // prelit
+	float color1[4];   // prelit
+};
+#pragma pack(pop)
+
+static MixedVertexFormat * mixedVertices = NULL;
+static MixedVertexFormat * mixedVertices_ = NULL;
+static u16 * mixedIndices;
+static u16 * mixedIndices_;
+
+static void CreateVertexDeclaration() {
+
+	const D3DVERTEXELEMENT9  vertexElements[] =
+	{
+		//{ 0,  0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
+		//{ 0, 12, D3DDECLTYPE_FLOAT1, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_FOG,	   0 },
+		{ 0,  0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 }, // merge fog
+		{ 0, 16, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+		{ 0, 28, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_NORMAL,   0 },
+		{ 0, 40, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,  0 },
+		{ 0, 56, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_COLOR,  1 },
+		D3DDECL_END()
+	};
+		
+	pD3Ddevice->CreateVertexDeclaration( vertexElements, &pMixedVertexDecl );
+}
 
 const D3DPRIMITIVETYPE glprim[8] = {
 	D3DPT_POINTLIST,
@@ -56,8 +101,12 @@ int D3DPrimCount(D3DPRIMITIVETYPE prim, int size) {
 enum {
 	DECODED_VERTEX_BUFFER_SIZE = 65536 * 48,
 	DECODED_INDEX_BUFFER_SIZE = 65536 * 20,
-	TRANSFORMED_VERTEX_BUFFER_SIZE = 65536 * sizeof(TransformedVertex)
+	TRANSFORMED_VERTEX_BUFFER_SIZE = 65536 * sizeof(TransformedVertex),
+	MIXED_VERTEX_BUFFER_SIZE = 65536 * sizeof(MixedVertexFormat)
 };
+
+
+#define VERTEXCACHE_DECIMATION_INTERVAL 17
 
 inline float clamp(float in, float min, float max) { 
 	return in < min ? min : (in > max ? max : in); 
@@ -74,6 +123,7 @@ TransformDrawEngine::TransformDrawEngine()
 		framebufferManager_(0),
 		numDrawCalls(0),
 		uvScale(0) {
+	decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
 	// Allocate nicely aligned memory. Maybe graphics drivers will
 	// appreciate it.
 	// All this is a LOT of memory, need to see if we can cut down somehow.
@@ -81,10 +131,15 @@ TransformDrawEngine::TransformDrawEngine()
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE);
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	mixedVertices = (MixedVertexFormat *)AllocateMemoryPages(MIXED_VERTEX_BUFFER_SIZE);
 //	memset(vbo_, 0, sizeof(vbo_));
 //	memset(ebo_, 0, sizeof(ebo_));
+	if (g_Config.bPrescaleUV) {
+		uvScale = new UVScale[MAX_DEFERRED_DRAW_CALLS];
+	}
 	indexGen.Setup(decIndex);
 	InitDeviceObjects();
+	CreateVertexDeclaration();
 	//register_gl_resource_holder(this);
 }
 
@@ -94,40 +149,28 @@ TransformDrawEngine::~TransformDrawEngine() {
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
+	FreeMemoryPages(mixedVertices, MIXED_VERTEX_BUFFER_SIZE);
 	//unregister_gl_resource_holder(this);
 	for (auto iter = decoderMap_.begin(); iter != decoderMap_.end(); iter++) {
 		delete iter->second;
 	}
 	delete [] uvScale;
+
+	pMixedVertexDecl->Release();
 }
 
 void TransformDrawEngine::InitDeviceObjects() {
-	for(size_t i = 0;i < NUM_VBOS; i++) {
-		pD3Ddevice->CreateVertexBuffer(DECODED_VERTEX_BUFFER_SIZE, NULL, NULL, D3DPOOL_DEFAULT, &vbo_[i], NULL);
-		pD3Ddevice->CreateIndexBuffer(DECODED_INDEX_BUFFER_SIZE, NULL, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ebo_[i], NULL);
+	for (int i = 0; i < NUM_VBOS; i++) {
+		pD3Ddevice->CreateVertexBuffer(MIXED_VERTEX_BUFFER_SIZE, NULL, NULL, D3DPOOL_DEFAULT, &vb[i], NULL);
+		pD3Ddevice->CreateIndexBuffer(MIXED_VERTEX_BUFFER_SIZE, NULL, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ib[i], NULL);
 	}
-	/*
-
-	if (!vbo_[0]) {
-		glGenBuffers(NUM_VBOS, &vbo_[0]);
-		glGenBuffers(NUM_VBOS, &ebo_[0]);
-	} else {
-		ERROR_LOG(G3D, "Device objects already initialized!");
-	}
-	*/
 }
 
 void TransformDrawEngine::DestroyDeviceObjects() {
-	/*
-	glDeleteBuffers(NUM_VBOS, &vbo_[0]);
-	glDeleteBuffers(NUM_VBOS, &ebo_[0]);
-	*/
-	for(size_t i = 0;i < NUM_VBOS; i++) {
-		vbo_[i]->Release();
-		ebo_[i]->Release();
+	for (int i = 0; i < NUM_VBOS; i++) {
+		vb[i]->Release();
+		ib[i]->Release();
 	}
-	memset(vbo_, 0, sizeof(vbo_));
-	memset(ebo_, 0, sizeof(ebo_));
 	ClearTrackedVertexArrays();
 }
 /*
@@ -238,7 +281,6 @@ public:
 	void Light(float colorOut0[4], float colorOut1[4], const float colorIn[4], Vec3f pos, Vec3f normal);
 
 private:
-	bool disabled_;
 	Color4 globalAmbient;
 	Color4 materialEmissive;
 	Color4 materialAmbient;
@@ -543,8 +585,8 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		vscale /= gstate_c.curTextureHeight;
 	}
 
-	int w = 1 << (gstate.texsize[0] & 0xf);
-	int h = 1 << ((gstate.texsize[0] >> 8) & 0xf);
+	int w = gstate.getTextureWidth(0);
+	int h = gstate.getTextureHeight(0);
 	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
 	float heightFactor = (float) h / (float) gstate_c.curTextureHeight;
 
@@ -847,6 +889,129 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	}
 }
 
+// Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
+// GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
+void TransformDrawEngine::MixedTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, 
+	int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, LPDIRECT3DVERTEXBUFFER9 vb_, LPDIRECT3DINDEXBUFFER9 ib_
+	) {
+
+#if 0
+	// Get vertices/indices pointer
+	vb_->Lock(0, vertexCount * sizeof(MixedVertexFormat), (void**)&mixedVertices, D3DLOCK_NOOVERWRITE);
+	ib_->Lock(0, maxIndex * sizeof(short), (void**)&mixedIndices, D3DLOCK_NOOVERWRITE);
+#endif
+
+	MixedVertexFormat * _mixedVertices = mixedVertices;
+
+	VertexReader reader(decoded, decVtxFormat, vertType);
+	for (int index = 0; index < maxIndex; index++) {
+		reader.Goto(index);
+
+		_mixedVertices->fog = 1.0f;
+
+		reader.ReadPos(_mixedVertices->position);
+		
+		if (reader.hasUV())
+			reader.ReadUV(_mixedVertices->texcoord);
+		
+		if (reader.hasNormal())
+			reader.ReadNrm(_mixedVertices->normal);
+		
+		if (reader.hasColor0())
+			reader.ReadColor0(_mixedVertices->color0);
+
+		if (reader.hasColor1())
+			reader.ReadColor0(_mixedVertices->color1);
+
+		_mixedVertices++;
+	}
+
+	// Step 2: expand rectangles.
+	int numTrans = 0;
+	bool drawIndexed = true;
+	numTrans = vertexCount;
+
+	/*
+	if (prim != GE_PRIM_RECTANGLES) {
+		// We can simply draw the unexpanded buffer.
+		numTrans = vertexCount;
+		drawIndexed = true;
+	} else {
+		numTrans = 0;
+		drawBuffer = transformedExpanded;
+		TransformedVertex *trans = &transformedExpanded[0];
+		TransformedVertex saved;
+		for (int i = 0; i < vertexCount; i += 2) {
+			int index = ((const u16*)inds)[i];
+			saved = transformed[index];
+			int index2 = ((const u16*)inds)[i + 1];
+			TransformedVertex &transVtx = transformed[index2];
+
+			// We have to turn the rectangle into two triangles, so 6 points. Sigh.
+
+			// bottom right
+			trans[0] = transVtx;
+
+			// bottom left
+			trans[1] = transVtx;
+			trans[1].y = saved.y;
+			trans[1].v = saved.v;
+
+			// top left
+			trans[2] = transVtx;
+			trans[2].x = saved.x;
+			trans[2].y = saved.y;
+			trans[2].u = saved.u;
+			trans[2].v = saved.v;
+
+			// top right
+			trans[3] = transVtx;
+			trans[3].x = saved.x;
+			trans[3].u = saved.u;
+
+			// That's the four corners. Now process UV rotation.
+			if (throughmode)
+				RotateUVThrough(trans);
+			// Apparently, non-through RotateUV just breaks things.
+			// If we find a game where it helps, we'll just have to figure out how they differ.
+			// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
+			// else
+			//	RotateUV(trans);
+
+			// bottom right
+			trans[4] = trans[0];
+
+			// top left
+			trans[5] = trans[2];
+			trans += 6;
+
+			numTrans += 6;
+		}
+	}
+	*/
+
+	// TODO: Add a post-transform cache here for multi-RECTANGLES only.
+	// Might help for text drawing.
+
+	pD3Ddevice->SetVertexDeclaration(pMixedVertexDecl);
+
+	/// Debug !!
+	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+
+#if 0
+	vb_->Unlock();
+	ib_->Unlock();
+#endif
+	if (drawIndexed) {
+		pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, mixedVertices, sizeof(MixedVertexFormat));
+		//pD3Ddevice->SetStreamSource(0, vb_, 0, sizeof(MixedVertexFormat));
+		//pD3Ddevice->SetIndices(ib_);
+		//pD3Ddevice->DrawIndexedPrimitive(glprim[prim], 0, 0, 0, 0, D3DPrimCount(glprim[prim], numTrans));
+	} else {
+		//pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(MixedVertexFormat));
+	}
+}
+
 VertexDecoder *TransformDrawEngine::GetVertexDecoder(u32 vtype) {
 	auto iter = decoderMap_.find(vtype);
 	if (iter != decoderMap_.end())
@@ -1009,16 +1174,17 @@ u32 TransformDrawEngine::ComputeHash() {
 	int vertexSize = dec_->GetDecVtxFmt().stride;
 
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
+	// It is really very expensive to check all the vertex data so often.
 	for (int i = 0; i < numDrawCalls; i++) {
 		if (!drawCalls[i].inds) {
-			fullhash += CityHash32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount);
+			fullhash += XXH32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount, 0x1DE8CAC4);
 		} else {
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
-			fullhash += CityHash32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
-				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound));
+			fullhash += XXH32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
+				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
-			fullhash += CityHash32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount);
+			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount, 0x955FD1CA);
 		}
 	}
 
@@ -1051,6 +1217,12 @@ void TransformDrawEngine::ClearTrackedVertexArrays() {
 }
 
 void TransformDrawEngine::DecimateTrackedVertexArrays() {
+	if (--decimationCounter_ <= 0) {
+		decimationCounter_ = VERTEXCACHE_DECIMATION_INTERVAL;
+	} else {
+		return;
+	}
+
 	int threshold = gpuStats.numFlips - VAI_KILL_AGE;
 	for (auto iter = vai_.begin(); iter != vai_.end(); ) {
 		if (iter->second->lastFrame < threshold) {
@@ -1082,45 +1254,32 @@ VertexArrayInfo::~VertexArrayInfo() {
 	}
 }
 
-void TransformDrawEngine::Flush() {
-	if (!numDrawCalls)
-		return;
-
+void TransformDrawEngine::DoFlush() {
 	gpuStats.numFlushes++;
 	
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
-	// TODO: This should not be done on every drawcall, we should collect vertex data
+	// This is not done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
 	int prim = prevPrim_;
 	ApplyDrawState(prim);
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
-#if 0 // Not tested !
+#if 1 // Not tested !
 	if (program->useHWTransform_) {
-		int vertexCount = 0;
-		bool useElements = true;
-		// Cannot cache vertex data with morph enabled.
 		DecodeVerts();
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
-		useElements = !indexGen.SeenOnlyPurePrims();
-		vertexCount = indexGen.VertexCount();
-		if (!useElements && indexGen.PureCount()) {
-			vertexCount = indexGen.PureCount();
-		}
-
 		prim = indexGen.Prim();
-		
-		DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
-		/*
-		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), decoded);
-		*/
-		if (useElements) {
-			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, sizeof(TransformedVertex));
-		} else {
-			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, sizeof(TransformedVertex));
-		}
+		// Undo the strip optimization, not supported by the SW code yet.
+		if (prim == GE_PRIM_TRIANGLE_STRIP)
+			prim = GE_PRIM_TRIANGLES;
+		DEBUG_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
+
+		MixedTransformAndDraw(
+			prim, decoded, program, indexGen.VertexCount(), 
+			dec_->VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
+			indexGen.MaxIndex(), 0, 0);
 	} else 
 #endif 
 	{

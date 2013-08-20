@@ -199,7 +199,7 @@ void GenerateFragmentShader(char *buffer) {
 	WRITE(p, " {                                          ");
 	WRITE(p, "		float4 v_texcoord: TEXCOORD0;         ");
 	WRITE(p, "		float4 v_color0: COLOR0;              "); 
-	WRITE(p, "		float4 v_color1: COLOR1;              ");    
+	WRITE(p, "		float3 v_color1: COLOR1;              ");    
 	if (enableFog) {
 		WRITE(p, "float v_fogdepth:FOG;\n");
 	}
