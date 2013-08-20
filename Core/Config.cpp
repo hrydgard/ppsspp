@@ -203,16 +203,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	IniFile controllerIniFile;
 	if (!controllerIniFile.Load(controllerIniFilename)) {
 		ERROR_LOG(LOADER, "Failed to read %s. Setting controller config to default.", controllerIniFilename);
+		KeyMap::RestoreDefault();
+	} else {
+		// Continue anyway to initialize the config. It will just restore the defaults.
+		KeyMap::LoadFromIni(controllerIniFile);
 	}
-
-	// Continue anyway to initialize the config. It will just restore the defaults.
-	KeyMap::LoadFromIni(controllerIniFile);
 
 	CleanRecent();
 }
 
-void Config::Save()
-{
+void Config::Save() {
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		CleanRecent();
 		IniFile iniFile;
@@ -336,10 +336,8 @@ void Config::Save()
 		IniFile controllerIniFile;
 		if (!controllerIniFile.Load(controllerIniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", controllerIniFilename_.c_str());
-		} else {
-			KeyMap::SaveToIni(controllerIniFile);
 		}
-
+		KeyMap::SaveToIni(controllerIniFile);
 		if (!controllerIniFile.Save(controllerIniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", controllerIniFilename_.c_str());
 			return;

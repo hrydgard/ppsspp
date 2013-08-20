@@ -622,6 +622,7 @@ void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool repla
 
 // Note that it's easy to add other defaults if desired.
 void RestoreDefault() {
+	g_controllerMap.clear();
 #if defined(_WIN32)
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
@@ -635,6 +636,8 @@ void RestoreDefault() {
 		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
 	} else if (name == "Sony Ericsson:R800i" || name == "Sony Ericsson:zeus") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);
+	} else {
+		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
 	}
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
