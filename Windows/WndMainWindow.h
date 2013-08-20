@@ -50,7 +50,6 @@ namespace MainWindow
 	HWND GetHWND();
 	HINSTANCE GetHInstance();
 	HWND GetDisplayHWND();
-	void SetPlaying(const char*text);
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory = false);
 	void SaveStateActionFinished(bool result, void *userdata);
 	void _ViewFullScreen(HWND hWnd);

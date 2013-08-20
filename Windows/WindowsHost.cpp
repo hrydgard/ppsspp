@@ -96,7 +96,9 @@ void WindowsHost::ShutdownGL()
 
 void WindowsHost::SetWindowTitle(const char *message)
 {
-	std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION + " - " + message;
+	std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION;
+	if (message)
+		title = title + " - " + message;
 
 	int size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), NULL, 0);
 	if (size > 0)

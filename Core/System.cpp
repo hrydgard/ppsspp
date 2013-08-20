@@ -181,6 +181,7 @@ void CPU_Init() {
 		return;
 	}
 
+
 	if (coreParameter.updateRecent) {
 		g_Config.AddRecent(filename);
 	}
@@ -290,6 +291,7 @@ void PSP_Shutdown() {
 		CPU_Shutdown();
 	}
 	GPU_Shutdown();
+	host->SetWindowTitle(0);
 }
 
 void PSP_RunLoopUntil(u64 globalticks) {

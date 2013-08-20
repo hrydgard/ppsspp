@@ -333,7 +333,6 @@ namespace MainWindow
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 
 		Update();
-		SetPlaying(0);
 
 		if(g_Config.bFullScreenOnLaunch)
 			_ViewFullScreen(hwndMain);
@@ -694,7 +693,6 @@ namespace MainWindow
 						Core_EnableStepping(false);
 					}
 					NativeMessageReceived("stop", "");
-					SetPlaying(0);
 					Update();
 					break;
 
@@ -1156,8 +1154,7 @@ namespace MainWindow
 					// Ugly, need to wait for the stop message to process in the EmuThread.
 					Sleep(20);
 					
-					MainWindow::SetPlaying(filename);
-					MainWindow::Update();
+					Update();
 
 					NativeMessageReceived("boot", filename);
 				}
@@ -1495,16 +1492,6 @@ namespace MainWindow
 		ResizeDisplay();
 		ShowOwnedPopups(hwndMain, FALSE);
 		UpdateScreenScale();
-	}
-
-	void SetPlaying(const char *text) {
-		char temp[256];
-		if (text == 0)
-			snprintf(temp, 256, "PPSSPP %s", PPSSPP_GIT_VERSION);
-		else
-			snprintf(temp, 256, "%s - PPSSPP %s", text, PPSSPP_GIT_VERSION);
-		temp[255] = '\0';
-		SetWindowText(hwndMain, temp);
 	}
 
 	void SaveStateActionFinished(bool result, void *userdata) {

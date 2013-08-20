@@ -192,6 +192,9 @@ namespace DSound
 
 	void DSound_StopSound()
 	{
+		if (!dsBuffer)
+			return;
+
 		if (threadData == 0)
 			threadData = 1;
 
@@ -227,11 +230,8 @@ namespace DSound
 		return playCursor;
 	}
 
-
-
 	float DSound_GetTimer()
 	{
 		return (float)DSound_GetCurSample()*(1.0f/(4.0f*44100.0f));
 	}
-
 }
