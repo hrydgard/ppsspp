@@ -76,7 +76,7 @@ void BlackberryMain::startDisplays() {
 			realiseDisplay(i);
 	}
 	screen_get_display_property_iv(screen_dpy[0], SCREEN_PROPERTY_DPI, &dpi); // Only internal display has DPI
-	dpi_scale = ((pixel_xres == pixel_yres) ? 300.0f : 213.6f) / dpi;
+	g_dpi_scale = ((pixel_xres == pixel_yres) ? 300.0f : 213.6f) / dpi;
 	switchDisplay(screen_ui);
 }
 
@@ -121,8 +121,8 @@ void BlackberryMain::switchDisplay(int idx) {
 	if (idx != screen_curr) {
 		pixel_xres = displays[idx].width;
 		pixel_yres = displays[idx].height;
-		dp_xres = (int)(pixel_xres * dpi_scale);
-		dp_yres = (int)(pixel_yres * dpi_scale);
+		dp_xres = (int)(pixel_xres * g_dpi_scale);
+		dp_yres = (int)(pixel_yres * g_dpi_scale);
 		screen_curr = idx;
 		eglMakeCurrent(egl_disp[idx], egl_surf[idx], egl_surf[idx], egl_cont);
 	}

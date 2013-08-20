@@ -73,21 +73,21 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 	case SCREEN_EVENT_MTOUCH_TOUCH:
 	case SCREEN_EVENT_MTOUCH_RELEASE: 	// Up, down
 		input_state.pointer_down[pointerId] = (val == SCREEN_EVENT_MTOUCH_TOUCH);
-		input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
-		input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
+		input_state.pointer_x[pointerId] = pair[0] * g_dpi_scale;
+		input_state.pointer_y[pointerId] = pair[1] * g_dpi_scale;
 
-		input.x = pair[0] * dpi_scale;
-		input.y = pair[1] * dpi_scale;
+		input.x = pair[0] * g_dpi_scale;
+		input.y = pair[1] * g_dpi_scale;
 		input.flags = (val == SCREEN_EVENT_MTOUCH_TOUCH) ? TOUCH_DOWN : TOUCH_UP;
 		input.id = pointerId;
 		NativeTouch(input);
 		break;
 	case SCREEN_EVENT_MTOUCH_MOVE:
-		input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
-		input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
+		input_state.pointer_x[pointerId] = pair[0] * g_dpi_scale;
+		input_state.pointer_y[pointerId] = pair[1] * g_dpi_scale;
 
-		input.x = pair[0] * dpi_scale;
-		input.y = pair[1] * dpi_scale;
+		input.x = pair[0] * g_dpi_scale;
+		input.y = pair[1] * g_dpi_scale;
 		input.flags = TOUCH_MOVE;
 		input.id = pointerId;
 		NativeTouch(input);
@@ -97,22 +97,22 @@ void BlackberryMain::handleInput(screen_event_t screen_event)
 		screen_get_event_property_iv(screen_event, SCREEN_PROPERTY_BUTTONS,
 			&buttons);
 		if (buttons == SCREEN_LEFT_MOUSE_BUTTON) { 			// Down
-			input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
-			input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
+			input_state.pointer_x[pointerId] = pair[0] * g_dpi_scale;
+			input_state.pointer_y[pointerId] = pair[1] * g_dpi_scale;
 			input_state.pointer_down[pointerId] = true;
 
-			input.x = pair[0] * dpi_scale;
-			input.y = pair[1] * dpi_scale;
+			input.x = pair[0] * g_dpi_scale;
+			input.y = pair[1] * g_dpi_scale;
 			input.flags = TOUCH_DOWN;
 			input.id = pointerId;
 			NativeTouch(input);
 		} else if (input_state.pointer_down[pointerId]) {	// Up
-			input_state.pointer_x[pointerId] = pair[0] * dpi_scale;
-			input_state.pointer_y[pointerId] = pair[1] * dpi_scale;
+			input_state.pointer_x[pointerId] = pair[0] * g_dpi_scale;
+			input_state.pointer_y[pointerId] = pair[1] * g_dpi_scale;
 			input_state.pointer_down[pointerId] = false;
 
-			input.x = pair[0] * dpi_scale;
-			input.y = pair[1] * dpi_scale;
+			input.x = pair[0] * g_dpi_scale;
+			input.y = pair[1] * g_dpi_scale;
 			input.flags = TOUCH_UP;
 			input.id = pointerId;
 			NativeTouch(input);

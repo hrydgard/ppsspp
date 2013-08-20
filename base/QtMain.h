@@ -52,8 +52,8 @@ class MainUI : public QGLWidget
 {
 	Q_OBJECT
 public:
-	explicit MainUI(float scale, QWidget *parent = 0):
-		QGLWidget(parent), dpi_scale(scale)
+	explicit MainUI(QWidget *parent = 0):
+		QGLWidget(parent)
 	{
 		setAttribute(Qt::WA_AcceptTouchEvents);
 		setAttribute(Qt::WA_LockLandscapeOrientation);
@@ -74,8 +74,8 @@ protected:
 	{
 		pixel_xres = e->size().width();
 		pixel_yres = e->size().height();
-		dp_xres = pixel_xres * dpi_scale;
-		dp_yres = pixel_yres * dpi_scale;
+		dp_xres = pixel_xres * g_dpi_scale;
+		dp_yres = pixel_yres * g_dpi_scale;
 	}
 
 	bool event(QEvent *e)
@@ -95,21 +95,21 @@ protected:
 				case Qt::TouchPointPressed:
 				case Qt::TouchPointReleased:
 					input_state.pointer_down[touchPoint.id()] = (touchPoint.state() == Qt::TouchPointPressed);
-					input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * dpi_scale;
-					input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * dpi_scale;
+					input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale;
+					input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale;
 
-					input.x = touchPoint.pos().x() * dpi_scale;
-					input.y = touchPoint.pos().y() * dpi_scale;
+					input.x = touchPoint.pos().x() * g_dpi_scale;
+					input.y = touchPoint.pos().y() * g_dpi_scale;
 					input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
 					input.id = touchPoint.id();
 					NativeTouch(input);
 					break;
 				case Qt::TouchPointMoved:
-					input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * dpi_scale;
-					input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * dpi_scale;
+					input_state.pointer_x[touchPoint.id()] = touchPoint.pos().x() * g_dpi_scale;
+					input_state.pointer_y[touchPoint.id()] = touchPoint.pos().y() * g_dpi_scale;
 
-					input.x = touchPoint.pos().x() * dpi_scale;
-					input.y = touchPoint.pos().y() * dpi_scale;
+					input.x = touchPoint.pos().x() * g_dpi_scale;
+					input.y = touchPoint.pos().y() * g_dpi_scale;
 					input.flags = TOUCH_MOVE;
 					input.id = touchPoint.id();
 					NativeTouch(input);
@@ -122,21 +122,21 @@ protected:
 		case QEvent::MouseButtonPress:
 		case QEvent::MouseButtonRelease:
 			input_state.pointer_down[0] = (e->type() == QEvent::MouseButtonPress);
-			input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * dpi_scale;
-			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+			input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale;
+			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale;
 
-			input.x = ((QMouseEvent*)e)->pos().x() * dpi_scale;
-			input.y = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+			input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale;
+			input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale;
 			input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
 			input.id = 0;
 			NativeTouch(input);
 			break;
 		case QEvent::MouseMove:
-			input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * dpi_scale;
-			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+			input_state.pointer_x[0] = ((QMouseEvent*)e)->pos().x() * g_dpi_scale;
+			input_state.pointer_y[0] = ((QMouseEvent*)e)->pos().y() * g_dpi_scale;
 
-			input.x = ((QMouseEvent*)e)->pos().x() * dpi_scale;
-			input.y = ((QMouseEvent*)e)->pos().y() * dpi_scale;
+			input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale;
+			input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale;
 			input.flags = TOUCH_MOVE;
 			input.id = 0;
 			NativeTouch(input);
@@ -192,7 +192,6 @@ private:
 #ifdef USING_GLES2
 	QAccelerometer* acc;
 #endif
-	float dpi_scale;
 };
 
 // Audio

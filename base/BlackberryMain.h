@@ -31,7 +31,7 @@
 #include "base/NativeApp.h"
 #include "input/input_state.h"
 #include "net/resolve.h"
-#include "display.h"
+#include "base/display.h"
 
 #include "BlackberryAudio.h"
 
@@ -76,7 +76,6 @@ private:
 	BlackberryAudio* audio;
 	dispdata_t *displays;
 	int dpi;
-	float dpi_scale;
 	int ndisplays;
 	int screen_ui, screen_emu;
 	bool emulating;

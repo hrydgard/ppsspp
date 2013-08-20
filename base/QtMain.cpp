@@ -78,8 +78,8 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	pixel_xres = res.width();
 	pixel_yres = res.height();
 
-	float dpi_scale = CalculateDPIScale();
-	dp_xres = (int)(pixel_xres * dpi_scale); dp_yres = (int)(pixel_yres * dpi_scale);
+	g_dpi_scale = CalculateDPIScale();
+	dp_xres = (int)(pixel_xres * g_dpi_scale); dp_yres = (int)(pixel_yres * g_dpi_scale);
 	net::Init();
 #ifdef __SYMBIAN32__
 	char* savegame_dir = "E:/PPSSPP/";
@@ -100,7 +100,7 @@ Q_DECL_EXPORT int main(int argc, char *argv[])
 	NativeInit(argc, (const char **)argv, savegame_dir, assets_dir, "BADCOFFEE");
 
 #if !defined(Q_WS_X11) || defined(ARM)
-	MainUI w(dpi_scale);
+	MainUI w;
 	w.resize(pixel_xres, pixel_yres);
 	w.showFullScreen();
 #endif
