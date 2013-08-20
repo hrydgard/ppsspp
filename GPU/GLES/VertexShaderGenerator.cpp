@@ -531,23 +531,23 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				{
 					std::string temp_tc;
 					switch (gstate.getUVProjMode()) {
-					case 0:  // Use model space XYZ as source
+					case GE_PROJMAP_POSITION:  // Use model space XYZ as source
 						temp_tc = "vec4(a_position.xyz, 1.0)";
 						break;
-					case 1:  // Use unscaled UV as source
+					case GE_PROJMAP_UV:  // Use unscaled UV as source
 						{
 							static const char *rescaleuv[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
 							const char *factor = rescaleuv[(vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
 							temp_tc = StringFromFormat("vec4(a_texcoord.xy %s, 0.0, 1.0)", factor);
 						}
 						break;
-					case 2:  // Use normalized transformed normal as source
+					case GE_PROJMAP_NORMALIZED_NORMAL:  // Use normalized transformed normal as source
 						if (hasNormal)
 							temp_tc = "vec4(normalize(a_normal), 1.0)";
 						else
 							temp_tc = "vec4(0.0, 0.0, 1.0, 1.0)";
 						break;
-					case 3:  // Use non-normalized transformed normal as source
+					case GE_PROJMAP_NORMAL:  // Use non-normalized transformed normal as source
 						if (hasNormal)
 							temp_tc = "vec4(a_normal, 1.0)";
 						else
