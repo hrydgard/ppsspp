@@ -123,10 +123,9 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	langValuesMapping["sv_SE"] = std::make_pair("Svenska", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["tr_TR"] = std::make_pair("Türk", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["uk_UA"] = std::make_pair("Українська", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+	langValuesMapping["vn_VN"] = std::make_pair("Vietnamese", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	return langValuesMapping;
 }
-
-
 
 void UIScreenWithBackground::DrawBackground(UIContext &dc) {
 	::DrawBackground(1.0f);
