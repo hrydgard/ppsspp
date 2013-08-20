@@ -316,9 +316,9 @@ void SystemInfoScreen::CreateViews() {
 	LinearLayout *scroll = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
 	root_->Add(scroll);
 
-	scroll->Add(new PopupHeader("System Information"));
-
-	scroll->Add(new InfoItem("System Name", System_GetName()));
+	scroll->Add(new ItemHeader("System Information"));
+	scroll->Add(new InfoItem("System Name :", System_GetName()));
+	scroll->Add(new InfoItem("GPU Vendor :", (char *)glGetString(GL_VENDOR)));
 
 	scroll->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
 	std::vector<std::string> exts;
