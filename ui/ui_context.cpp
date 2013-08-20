@@ -11,6 +11,7 @@ void UIContext::Begin() {
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
+	glstate.dither.enable();
 #if !defined(USING_GLES2)
 	glstate.colorLogicOp.disable();
 #endif
@@ -27,6 +28,7 @@ void UIContext::BeginNoTex() {
 	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
+	glstate.dither.enable();
 #if !defined(USING_GLES2)
 	glstate.colorLogicOp.disable();
 #endif
