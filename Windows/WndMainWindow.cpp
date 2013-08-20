@@ -664,7 +664,9 @@ namespace MainWindow
 
 				case ID_TOGGLE_PAUSE:
 					if (globalUIState == UISTATE_PAUSEMENU) {
-						NativeMessageReceived("run", "");
+						// Causes hang
+						//NativeMessageReceived("run", "");
+
 						if (disasmWindow[0])
 							SendMessage(disasmWindow[0]->GetDlgHandle(), WM_COMMAND, IDC_STOPGO, 0);
 					}
@@ -1403,9 +1405,6 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_CPU_INTERPRETER, menuEnable);
 		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_IO_MULTITHREADED, menuEnable);
-		EnableMenuItem(menu, ID_TOGGLE_PAUSE, !menuEnable);
-		EnableMenuItem(menu, ID_EMULATION_STOP, !menuEnable);
-		EnableMenuItem(menu, ID_EMULATION_RESET, !menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
 		EnableMenuItem(menu, ID_EMULATION_RENDER_MODE_OGL, menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_RENDER_MODE_SOFT, menuEnable);
