@@ -86,7 +86,7 @@ void ControlMapper::Refresh() {
 	
 	root->Add(new Choice(keyName_, new LinearLayoutParams(200, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
-
+	rightColumn->SetSpacing(2.0f);
 	std::vector<KeyDef> mappings;
 	KeyMap::KeyFromPspButton(pspKey_, &mappings);
 

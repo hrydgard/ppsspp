@@ -153,7 +153,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 #ifdef BLACKBERRY
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
 #elif defined(USING_GLES2)
-	control->Get("ShowTouchControls", &bShowTouchControls, true);
+	std::string name = System_GetName();
+	if (name == "NVIDIA:SHIELD" || name == "Sony Ericsson:R800i" || name == "Sony Ericsson:zeus") {
+		control->Get("ShowTouchControls", &bShowTouchControls, false);
+	} else {
+		control->Get("ShowTouchControls", &bShowTouchControls, true);
+	}
 #else
 	control->Get("ShowTouchControls", &bShowTouchControls, false);
 #endif
