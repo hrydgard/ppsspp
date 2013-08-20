@@ -227,7 +227,7 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory(CPU)", "Read Framebuffers To Memory(GPU)"};
+	static const char *renderingMode[] = { gs->T("Non-Buffered Rendering"), gs->T("Buffered Rendering"), gs->T("Read Framebuffers To Memory(CPU)"), gs->T("Read Framebuffers To Memory(GPU)")};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
