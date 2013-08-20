@@ -325,6 +325,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f);
 			break;
 		case GE_LIGHTTYPE_SPOT:
+		case GE_LIGHTTYPE_UNKNOWN:
 			lightDir = gstate_c.lightdir[l];
 			angle = Dot(toLight.Normalized(), lightDir.Normalized());
 			if (angle >= gstate_c.lightangle[l])
