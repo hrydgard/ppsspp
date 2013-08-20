@@ -41,8 +41,6 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		estimatedInertiaX_ *= estimatedInertiaDamping;
 		estimatedInertiaY_ *= estimatedInertiaDamping;
 
-		ILOG("%f %f", estimatedInertiaX_, estimatedInertiaY_);
-
 		p.lastX = touch.x;
 		p.lastY = touch.y;
 	}
