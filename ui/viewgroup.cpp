@@ -663,6 +663,9 @@ bool ScrollView::CanScroll() const {
 }
 
 void ScrollView::Update(const InputState &input_state) {
+	if (visibility_ != V_VISIBLE) {
+		inertia_ = 0.0f;
+	}
 	ViewGroup::Update(input_state);
 	gesture_.UpdateFrame();
 	if (scrollToTarget_) {
