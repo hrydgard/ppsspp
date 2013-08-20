@@ -222,11 +222,6 @@ void KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			return;
 		}
 
-		if (key.keyCode == NKCODE_ESCAPE) {
-			screenManager()->finishDialog(this, DR_CANCEL);
-			return;
-		}
-		
 		KeyDef kdf(key.deviceId, key.keyCode);
 		screenManager()->finishDialog(this, DR_OK);
 		if (callback_)
