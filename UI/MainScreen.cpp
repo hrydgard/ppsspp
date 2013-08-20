@@ -380,7 +380,7 @@ void GameBrowser::Refresh() {
 
 	if (path_.GetPath() == "!RECENT") {
 		for (size_t i = 0; i < g_Config.recentIsos.size(); i++) {
-			gameButtons.push_back(new GameButton(g_Config.recentIsos[i], *gridStyle_));
+			gameButtons.push_back(new GameButton(g_Config.recentIsos[i], *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 		}
 	} else {
 		std::vector<FileInfo> fileInfo;
