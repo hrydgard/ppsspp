@@ -161,7 +161,10 @@ public:
 	virtual void ResetSymbolMap() {}
 	virtual void AddSymbol(std::string name, u32 addr, u32 size, int type=0) {}
 	virtual void SetWindowTitle(const char *message) {
-		game_title = message;
+		if (message)
+			game_title = message;
+		else
+			game_title = "";
 	}
 };
 
