@@ -476,13 +476,13 @@ void MainScreen::CreateViews() {
 	ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
 	GameBrowser *tabRecentGames = new GameBrowser(
-		"!RECENT", false, &g_Config.bGridView1, m->T("How to get games"), "http://www.ppsspp.org/faq.html",
+		"!RECENT", false, &g_Config.bGridView1, "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2, 
-		m->T("How to get games"), "http://www.ppsspp.org/faq.html",
+		m->T("How to get games"), "http://www.ppsspp.org/getgames.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	GameBrowser *tabHomebrew = new GameBrowser(GetMemCardDirectory() + "PSP/GAME/", false, &g_Config.bGridView3,
-		"", "",
+		m->T("How to get homebrew & demos"), "http://www.ppsspp.org/gethomebrew.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollRecentGames->Add(tabRecentGames);
