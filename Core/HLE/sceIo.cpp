@@ -111,7 +111,8 @@ static bool ioManagerThreadEnabled = false;
 static std::thread *ioManagerThread;
 
 // TODO: Is it better to just put all on the thread?
-const int IO_THREAD_MIN_DATA_SIZE = 256;
+// Let's try. (was 256)
+const int IO_THREAD_MIN_DATA_SIZE = 0;
 
 #define SCE_STM_FDIR 0x1000
 #define SCE_STM_FREG 0x2000
