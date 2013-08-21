@@ -283,7 +283,7 @@ namespace MainWindow
 		g_Config.iFrameSkip = framesToSkip;
 
 		I18NCategory *g = GetI18NCategory("Graphics");
-		const char *frameskipStr = g->T("Frameskipping");
+		const char *frameskipStr = g->T("Frame Skipping");
 		const char *offStr = g->T("Off");
 		const char *autoStr = g->T("Auto");
 
