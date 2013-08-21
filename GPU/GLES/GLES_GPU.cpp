@@ -47,6 +47,7 @@ static const u8 flushOnChangedBeforeCommandList[] = {
 	GE_CMD_TEXTUREMAPENABLE,
 	GE_CMD_FOGENABLE,
 	GE_CMD_DITHERENABLE,
+	GE_CMD_ANTIALIASENABLE,
 	GE_CMD_ALPHABLENDENABLE,
 	GE_CMD_ALPHATESTENABLE,
 	GE_CMD_ZTESTENABLE,
@@ -448,7 +449,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
 			u32 count = data & 0xFFFF;
-			u32 type = data >> 16;
+			u32 prim = data >> 16;
+
+			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
+			if ((prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && (gstate.antiAliasEnable & 1))
+				break;
 
 			// This also make skipping drawing very effective.
 			framebufferManager_.SetRenderFrameBuffer();
@@ -466,7 +471,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				break;
 			}
 
-
 			// TODO: Split this so that we can collect sequences of primitives, can greatly speed things up
 			// on platforms where draw calls are expensive like mobile and D3D
 			void *verts = Memory::GetPointer(gstate_c.vertexAddr);
@@ -480,7 +484,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 
 			int bytesRead;
-			transformDraw_.SubmitPrim(verts, inds, type, count, gstate.vertType, -1, &bytesRead);
+			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, -1, &bytesRead);
 
 			int vertexCost = transformDraw_.EstimatePerVertexCost();
 			gpuStats.vertexGPUCycles += vertexCost * count;
