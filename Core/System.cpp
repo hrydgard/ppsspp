@@ -330,11 +330,6 @@ void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 
 	GetModuleFileName(NULL,path_buffer,sizeof(path_buffer));
 
-	char *winpos = strstr(path_buffer, "Windows");
-	if (winpos)
-	*winpos = 0;
-	strcat(path_buffer, "dummy.txt");
-
 	_splitpath_s(path_buffer, drive, dir, file, ext );
 
 	// Mount a couple of filesystems
