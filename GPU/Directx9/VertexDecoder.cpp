@@ -376,6 +376,7 @@ void VertexDecoder::Step_NormalS16() const
 
 void VertexDecoder::Step_NormalFloat() const
 {
+#if 0 // Swapping float is more heavy as swapping u32
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	float multiplier = 1.0f;
 	if (gstate.reversenormals & 1)
@@ -383,6 +384,23 @@ void VertexDecoder::Step_NormalFloat() const
 	const float_le *fv = (const float_le*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
 		normal[j] = fv[j] * multiplier;
+#else
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	const float *fv = (const float*)(ptr_ + nrmoff);
+
+	u32 *v = (u32 *)normal;
+	const u32_le *sv = (const u32_le*)fv;
+
+	for (int j = 0; j < 3; j++) 
+		v[j] = sv[j];
+
+	float multiplier = 1.0f;
+	if (gstate.reversenormals & 1) {
+		multiplier = -multiplier;
+		for (int j = 0; j < 3; j++)
+			normal[j] = normal[j] * multiplier;
+	}
+#endif
 }
 
 void VertexDecoder::Step_NormalS8Morph() const
@@ -455,11 +473,19 @@ void VertexDecoder::Step_PosS16() const
 
 void VertexDecoder::Step_PosFloat() const
 {
+#if 0 // Swapping float is more heavy as swapping u32
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	const float_le *sv = (const float_le*)(ptr_ + posoff);
 	v[0] = sv[0];
 	v[1] = sv[1];
 	v[2] = sv[2];
+#else
+	u32 *v = (u32 *)(decoded_ + decFmt.posoff);
+	const u32_le *sv = (const u32_le*)(ptr_ + posoff);
+	v[0] = sv[0];
+	v[1] = sv[1];
+	v[2] = sv[2];
+#endif
 }
 
 void VertexDecoder::Step_PosS8Through() const
