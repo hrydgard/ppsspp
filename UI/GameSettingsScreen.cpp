@@ -378,8 +378,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, gs->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
 	static const char *timeFormat[] = { "12HR", "24HR"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
-	static const char *buttonPref[] = { "Use X to confirm", "Use O to confirm"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Confirmation Button"), buttonPref, 1, 2, s, screenManager()));
+	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
 }
 
 UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
