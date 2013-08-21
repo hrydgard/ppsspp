@@ -339,7 +339,7 @@ void GameSettingsScreen::CreateViews() {
 
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
 	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
-	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
+	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
 	enableReports_ = g_Config.sReportHost != "";
 
