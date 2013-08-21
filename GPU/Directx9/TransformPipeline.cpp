@@ -495,10 +495,10 @@ static const DeclTypeInfo VComp[] = {
 	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_2,
 	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_3,
 	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_4,
-	D3DDECLTYPE_USHORT4,		// 	DEC_U16_1,
-	D3DDECLTYPE_USHORT4,		// 	DEC_U16_2,
-	D3DDECLTYPE_USHORT4,		// 	DEC_U16_3,
-	D3DDECLTYPE_USHORT4,		// 	DEC_U16_4,
+	D3DDECLTYPE_USHORT4N,		// 	DEC_U16_1,
+	D3DDECLTYPE_USHORT4N,		// 	DEC_U16_2,
+	D3DDECLTYPE_USHORT4N,		// 	DEC_U16_3,
+	D3DDECLTYPE_USHORT4N,		// 	DEC_U16_4,
 	D3DDECLTYPE_BYTE4,			// 	DEC_U8A_2,
 	D3DDECLTYPE_USHORT4,		// 	DEC_U16A_2,
 };
@@ -506,7 +506,11 @@ static const DeclTypeInfo VComp[] = {
 static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offset, u8 usage, u8 usage_index = 0) {
 	memset(VertexElement, 0, sizeof(D3DVERTEXELEMENT9));
 	VertexElement->Offset = offset;
-	VertexElement->Type = VComp[fmt].type;
+	if (usage == D3DDECLUSAGE_COLOR && fmt == DEC_U8_4) {
+		VertexElement->Type = D3DDECLTYPE_D3DCOLOR;	
+	} else {
+		VertexElement->Type = VComp[fmt].type;	
+	}
 	VertexElement->Usage = usage;
 	VertexElement->UsageIndex = usage_index;
 }
@@ -544,6 +548,7 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 		VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLUSAGE_COLOR, 0);
 		VertexElement++;
 	}
+	// Never used ?
 	if (decFmt.c1fmt != 0) {
 		VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLUSAGE_COLOR, 1);
 		VertexElement++;

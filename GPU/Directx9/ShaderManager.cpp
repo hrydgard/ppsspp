@@ -190,14 +190,33 @@ static void SetColorUniform3Alpha(LPD3DXCONSTANTTABLE constant, int uniform, u32
 
 // This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
 static void SetColorUniform3Alpha255(LPD3DXCONSTANTTABLE constant, int uniform, u32 color, u8 alpha) {
+	/*
 	const float col[4] = {
 		(float)((color & 0xFF)),
 		(float)((color & 0xFF00) >> 8),
 		(float)((color & 0xFF0000) >> 16),
 		(float)alpha
 	};
+	*/
+	if (1) {
+		const float col[4] = {
+			(float)((color & 0xFF)) * (1.0f / 255.0f),
+			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
+			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
+			(float)alpha * (1.0f / 255.0f)
+		};
+		constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
+	} else {
+		const float col[4] = {
+			(float)((color & 0xFF)) ,
+			(float)((color & 0xFF00) >> 8) ,
+			(float)((color & 0xFF0000) >> 16) ,
+			(float)alpha 
+		};
+		constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
+	}
 	//glUniform4fv(uniform, 1, col);
-	constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
+	//constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
 }
 
 static void SetColorUniform3ExtraFloat(LPD3DXCONSTANTTABLE constant, int uniform, u32 color, float extra) {

@@ -439,6 +439,7 @@ void VertexDecoder::Step_NormalS16Morph() const
 
 void VertexDecoder::Step_NormalFloatMorph() const
 {
+#if 0 // Swapping float is more heavy as swapping u32
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	memset(normal, 0, sizeof(float)*3);
 	for (int n = 0; n < morphcount; n++)
@@ -451,6 +452,29 @@ void VertexDecoder::Step_NormalFloatMorph() const
 		for (int j = 0; j < 3; j++)
 			normal[j] += fv[j] * multiplier;
 	}
+#else
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	u32 *v = (u32 *)normal;
+	memset(normal, 0, sizeof(float)*3);
+	for (int n = 0; n < morphcount; n++)
+	{
+		float multiplier = gstate_c.morphWeights[n];
+		
+		const float *fv = (const float*)(ptr_ + onesize_*n + nrmoff);
+		const u32_le *sv = (const u32_le*)fv;
+		for (int j = 0; j < 3; j++) {
+			v[j] = sv[j];
+		}
+
+		if (gstate.reversenormals & 1) {
+			multiplier = -multiplier;
+			for (int j = 0; j < 3; j++) {
+				normal[j] += normal[j] * multiplier;
+			}
+		}		
+	}
+
+#endif
 }
 
 void VertexDecoder::Step_PosS8() const
@@ -510,12 +534,21 @@ void VertexDecoder::Step_PosS16Through() const
 
 void VertexDecoder::Step_PosFloatThrough() const
 {
+#if 0// Swapping float is more heavy as swapping u32
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	const float_le *fv = (const float_le*)(ptr_ + posoff);
 	v[0] = fv[0];
 	v[1] = fv[1];
 	v[2] = fv[2];
 	v[3] = 0;
+#else
+	u32 *v = (u32 *)(decoded_ + decFmt.posoff);
+	const u32_le *fv = (const u32_le*)(ptr_ + posoff);
+	v[0] = fv[0];
+	v[1] = fv[1];
+	v[2] = fv[2];
+	v[3] = 0;
+#endif
 }
 
 void VertexDecoder::Step_PosS8Morph() const
@@ -544,6 +577,7 @@ void VertexDecoder::Step_PosS16Morph() const
 
 void VertexDecoder::Step_PosFloatMorph() const
 {
+#if 0 // Swapping float is more heavy as swapping u32
 	float *v = (float *)(decoded_ + decFmt.posoff);
 	memset(v, 0, sizeof(float) * 3);
 	for (int n = 0; n < morphcount; n++) {
@@ -551,6 +585,22 @@ void VertexDecoder::Step_PosFloatMorph() const
 		for (int j = 0; j < 3; j++)
 			v[j] += fv[j] * gstate_c.morphWeights[n];
 	}
+#else
+	float *pos = (float *)(decoded_ + decFmt.posoff);
+	u32 tmp_[4];
+	float * tmpf_ =(float*)tmp_;
+
+	memset(pos, 0, sizeof(float) * 3);
+
+	for (int n = 0; n < morphcount; n++) {
+		const u32_le *spos = (const u32_le*)(ptr_ + onesize_*n + posoff);
+
+		for (int j = 0; j < 3; j++) {
+			tmp_[j] = spos[j];
+			pos[j] += tmpf_[j] * gstate_c.morphWeights[n];
+		}
+	}
+#endif
 }
 
 static const StepFunction wtstep[4] = {

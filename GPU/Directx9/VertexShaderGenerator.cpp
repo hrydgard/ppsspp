@@ -54,7 +54,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
-	bool hasBones = (vertType & GE_VTYPE_WEIGHT_MASK) != 0;
+	bool hasBones = gstate.getWeightMask() != 0;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -102,19 +102,20 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 			}
 		}
 		id->d[1] |= gstate.isLightingEnabled() << 24;
-		id->d[1] |= ((vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT) << 25;
+		id->d[1] |= (gstate.getWeightMask() >> GE_VTYPE_WEIGHT_SHIFT) << 25;
 	}
 }
 
-static const char * const boneWeightAttrDecl[8] = {
+static const char * const boneWeightAttrDecl[9] = {	
+	"#ERROR#",
 	"float a_w1:BLENDWEIGHT0;\n",
 	"float2 a_w1:BLENDWEIGHT0;\n",
 	"float3 a_w1:BLENDWEIGHT0;\n",
 	"float4 a_w1:BLENDWEIGHT0;\n",
 	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n float2 a_w2:BLENDWEIGHT1;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n float3 a_w2:BLENDWEIGHT1;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n float4 a_w2:BLENDWEIGHT1;\n",
 };
 
 enum DoLightComputation {
@@ -122,42 +123,6 @@ enum DoLightComputation {
 	LIGHT_SHADE,
 	LIGHT_FULL,
 };
-
-#if 0 // used for debugging
-void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
-	const char * vscode =
-		" float4x4 u_proj : register(c0);              "
-		"                                              "
-		" struct VS_IN                                 "
-		"                                              "
-		" {                                            "
-		"		float4 ObjPos   : POSITION;            "                 
-		"		float3 Uv   : TEXCOORD0;               "
-		"		float4 C1    : COLOR0;                 "  // Vertex color
-		"		float4 C2    : COLOR1;                 "  // Vertex color
-		" };                                           "
-		"                                              "
-		" struct VS_OUT                                "
-		" {                                            "
-		"		float4 ObjPos   : POSITION;            "                 
-		"		float4 Uv   : TEXCOORD0;               "
-		"		float4 C1    : COLOR0;                 "  // Vertex color
-		"		float4 C2    : COLOR1;                 "  // Vertex color
-		" };                                           "
-		"                                              "
-		" VS_OUT main( VS_IN In )                      "
-		" {                                            "
-		"		VS_OUT Out;                              "
-		"       Out.ObjPos = mul( float4(In.ObjPos.xyz, 1), u_proj );  "  // Transform vertex into
-		"		Out.Uv = float4(In.Uv.xy, 0, In.Uv.z);			"
-		"		Out.C1 = In.C1;			"
-		"		Out.C2 = In.C2;			"
-		"		return Out;                              "  // Transfer color
-		" }                                            ";
-
-	strcpy(buffer, vscode);
-}
-#else
 
 void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 	char *p = buffer;
@@ -257,12 +222,16 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
 			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(gstate.getNumBoneWeights())]);
 		}
-		if (doTexture) 
-			WRITE(p, "		float3 Uv    :  TEXCOORD0;             \n");
+		if (doTexture) {
+			if (doTextureProjection)
+				WRITE(p, "		float2 Uv    :  TEXCOORD0;             \n");
+			else
+				WRITE(p, "		float3 Uv    :  TEXCOORD0;             \n");
+		}
 		if (hasColor) 
 		WRITE(p, "		float4 C1    : COLOR0;                 \n");
 		//WRITE(p, "		float4 C2    : COLOR1;                 \n"); // only software transform supplies color1 as vertex data
-		if (useHWTransform && hasNormal)
+		if (hasNormal)
 			WRITE(p, "		float3 Normal:  NORMAL;                \n");
 		WRITE(p, "		float3 ObjPos: POSITION;			   \n");
 		WRITE(p, " };                                          \n");
@@ -364,15 +333,15 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
 			// WRITE(p, "THIS SHOULD ERROR! #error");
 			if (numWeights == 1)
-				WRITE(p, "  float4x4 skinMatrix = In.a_w1 * u_bone0");
+				WRITE(p, "  float4x4 skinMatrix = mul(In.a_w1, u_bone0)");
 			else
-				WRITE(p, "  float4x4 skinMatrix = In.a_w1.x * u_bone0");
+				WRITE(p, "  float4x4 skinMatrix = mul(In.a_w1.x, u_bone0)");
 			for (int i = 1; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
 				if (numWeights == 1 && i == 0) weightAttr = "a_w1";
 				if (numWeights == 5 && i == 4) weightAttr = "a_w2";
-				WRITE(p, " + In.%s * u_bone%i", weightAttr, i);
+				WRITE(p, " + mul(In.%s, u_bone%i)", weightAttr, i);
 			}
 #endif
 
@@ -606,7 +575,3 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 	}
 	WRITE(p, "}\n");
 }
-
-
-
-#endif
