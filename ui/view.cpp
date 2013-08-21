@@ -191,7 +191,7 @@ bool IsAcceptKeyCode(int keyCode) {
 }
 
 bool IsEscapeKeyCode(int keyCode) {
-	return keyCode == NKCODE_ESCAPE || keyCode == NKCODE_BACK || keyCode == NKCODE_BUTTON_CIRCLE || keyCode == NKCODE_BUTTON_B || keyCode == NKCODE_BUTTON_2;
+	return keyCode == NKCODE_ESCAPE || keyCode == NKCODE_BACK || keyCode == NKCODE_BUTTON_CIRCLE || keyCode == NKCODE_BUTTON_B || keyCode == NKCODE_BUTTON_2 || keyCode == NKCODE_EXT_MOUSEBUTTON_2;
 }
 
 void Clickable::Key(const KeyInput &key) {
