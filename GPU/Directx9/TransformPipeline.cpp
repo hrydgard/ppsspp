@@ -41,6 +41,10 @@
 #include "DisplayListInterpreter.h"
 
 
+#include <map>
+
+
+
 IDirect3DVertexDeclaration9* pMixedVertexDecl = NULL;
 #pragma pack(push, 1)
 struct MixedVertexFormat {
@@ -430,13 +434,13 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 	}
 }
 
+
+#if 0
 struct GlTypeInfo {
 	u16 type;
 	u8 count;
 	u8 normalized;
 };
-
-#if 0
 static const GlTypeInfo GLComp[] = {
 	{0}, // 	DEC_NONE,
 	{GL_FLOAT, 1, GL_FALSE}, // 	DEC_FLOAT_1,
@@ -476,6 +480,95 @@ static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt
 }
 
 #endif
+struct DeclTypeInfo {
+	u32 type;
+};
+static const DeclTypeInfo VComp[] = {
+	{0},						// 	DEC_NONE,
+	D3DDECLTYPE_FLOAT1,			// 	DEC_FLOAT_1,
+	D3DDECLTYPE_FLOAT2,			// 	DEC_FLOAT_2,
+	D3DDECLTYPE_FLOAT3,			// 	DEC_FLOAT_3,
+	D3DDECLTYPE_FLOAT4,			// 	DEC_FLOAT_4,
+	D3DDECLTYPE_BYTE4N,			// 	DEC_S8_3,
+	D3DDECLTYPE_SHORT4N,		// 	DEC_S16_3,
+	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_1,
+	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_2,
+	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_3,
+	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_4,
+	D3DDECLTYPE_USHORT4,		// 	DEC_U16_1,
+	D3DDECLTYPE_USHORT4,		// 	DEC_U16_2,
+	D3DDECLTYPE_USHORT4,		// 	DEC_U16_3,
+	D3DDECLTYPE_USHORT4,		// 	DEC_U16_4,
+	D3DDECLTYPE_BYTE4,			// 	DEC_U8A_2,
+	D3DDECLTYPE_USHORT4,		// 	DEC_U16A_2,
+};
+
+static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offset, u8 usage, u8 usage_index = 0) {
+	memset(VertexElement, 0, sizeof(D3DVERTEXELEMENT9));
+	VertexElement->Offset = offset;
+	VertexElement->Type = VComp[fmt].type;
+	VertexElement->Usage = usage;
+	VertexElement->UsageIndex = usage_index;
+}
+
+
+
+IDirect3DVertexDeclaration9* pHardwareVertexDecl = NULL;
+
+// TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
+static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u8 *vertexData) {
+	D3DVERTEXELEMENT9 VertexElements[8];
+	D3DVERTEXELEMENT9 * VertexElement = &VertexElements[0];
+	int offset = 0;
+
+	// Vertices Elements orders
+	// WEIGHT
+	if (decFmt.w0fmt != 0) {
+		VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_BLENDWEIGHT, 0);
+		VertexElement++;
+	}
+
+	if (decFmt.w1fmt != 0) {
+		VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_BLENDWEIGHT, 1);
+		VertexElement++;
+	}
+
+	// TC
+	if (decFmt.uvfmt != 0) {
+		VertexAttribSetup(VertexElement, decFmt.uvfmt, decFmt.uvoff, D3DDECLUSAGE_TEXCOORD);
+		VertexElement++;
+	}
+
+	// COLOR
+	if (decFmt.c0fmt != 0) {
+		VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLUSAGE_COLOR, 0);
+		VertexElement++;
+	}
+	if (decFmt.c1fmt != 0) {
+		VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLUSAGE_COLOR, 1);
+		VertexElement++;
+	}
+
+	// NORMAL
+	if (decFmt.nrmfmt != 0) {
+		VertexAttribSetup(VertexElement, decFmt.nrmfmt, decFmt.nrmoff, D3DDECLUSAGE_NORMAL, 0);
+		VertexElement++;
+	}
+
+	// POSITION
+	// Always
+	VertexAttribSetup(VertexElement, decFmt.posfmt, decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
+	VertexElement++;
+
+	// End
+	D3DVERTEXELEMENT9 end = D3DDECL_END();
+	memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
+
+	// Create declaration	
+	pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
+}
+
+
 // The verts are in the order:  BR BL TL TR
 static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 	float tempu = a.u;
@@ -889,8 +982,9 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 	}
 }
 
-// Actually again, single quads could be drawn more efficiently using GL_TRIANGLE_STRIP, no need to duplicate verts as for
-// GL_TRIANGLES. Still need to sw transform to compute the extra two corners though.
+/**
+* DirectX can't handle all vertice format, we need to convert them
+*/
 void TransformDrawEngine::MixedTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertType, void *inds, 
 	int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, LPDIRECT3DVERTEXBUFFER9 vb_, LPDIRECT3DINDEXBUFFER9 ib_
 	) {
@@ -931,67 +1025,7 @@ void TransformDrawEngine::MixedTransformAndDraw(int prim, u8 *decoded, LinkedSha
 	bool drawIndexed = true;
 	numTrans = vertexCount;
 
-	/*
-	if (prim != GE_PRIM_RECTANGLES) {
-		// We can simply draw the unexpanded buffer.
-		numTrans = vertexCount;
-		drawIndexed = true;
-	} else {
-		numTrans = 0;
-		drawBuffer = transformedExpanded;
-		TransformedVertex *trans = &transformedExpanded[0];
-		TransformedVertex saved;
-		for (int i = 0; i < vertexCount; i += 2) {
-			int index = ((const u16*)inds)[i];
-			saved = transformed[index];
-			int index2 = ((const u16*)inds)[i + 1];
-			TransformedVertex &transVtx = transformed[index2];
-
-			// We have to turn the rectangle into two triangles, so 6 points. Sigh.
-
-			// bottom right
-			trans[0] = transVtx;
-
-			// bottom left
-			trans[1] = transVtx;
-			trans[1].y = saved.y;
-			trans[1].v = saved.v;
-
-			// top left
-			trans[2] = transVtx;
-			trans[2].x = saved.x;
-			trans[2].y = saved.y;
-			trans[2].u = saved.u;
-			trans[2].v = saved.v;
-
-			// top right
-			trans[3] = transVtx;
-			trans[3].x = saved.x;
-			trans[3].u = saved.u;
-
-			// That's the four corners. Now process UV rotation.
-			if (throughmode)
-				RotateUVThrough(trans);
-			// Apparently, non-through RotateUV just breaks things.
-			// If we find a game where it helps, we'll just have to figure out how they differ.
-			// Possibly, it has something to do with flipped viewport Y axis, which a few games use.
-			// else
-			//	RotateUV(trans);
-
-			// bottom right
-			trans[4] = trans[0];
-
-			// top left
-			trans[5] = trans[2];
-			trans += 6;
-
-			numTrans += 6;
-		}
-	}
-	*/
-
-	// TODO: Add a post-transform cache here for multi-RECTANGLES only.
-	// Might help for text drawing.
+	// TODO
 
 	pD3Ddevice->SetVertexDeclaration(pMixedVertexDecl);
 
@@ -1266,7 +1300,7 @@ void TransformDrawEngine::DoFlush() {
 	ApplyDrawState(prim);
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
-#if 1 // Not tested !
+#if 0 // Colors errors !
 	if (program->useHWTransform_) {
 		DecodeVerts();
 		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
@@ -1280,6 +1314,28 @@ void TransformDrawEngine::DoFlush() {
 			prim, decoded, program, indexGen.VertexCount(), 
 			dec_->VertexType(), (void *)decIndex, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			indexGen.MaxIndex(), 0, 0);
+	} else 
+#endif 
+#if 1
+	if (program->useHWTransform_) {
+		int vertexCount = 0;
+		bool useElements = true;
+		DecodeVerts();
+		prim = indexGen.Prim();
+		gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
+		useElements = !indexGen.SeenOnlyPurePrims();
+		vertexCount = indexGen.VertexCount();
+		if (!useElements && indexGen.PureCount()) {
+			vertexCount = indexGen.PureCount();
+		}
+		SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), decoded);
+
+		pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
+		if (useElements) {
+			pD3Ddevice->DrawIndexedPrimitiveUP(glprim[prim], 0, vertexCount, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+		} else {
+			pD3Ddevice->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+		}
 	} else 
 #endif 
 	{

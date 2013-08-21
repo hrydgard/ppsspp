@@ -107,14 +107,14 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 }
 
 static const char * const boneWeightAttrDecl[8] = {
-	"float a_w1;\n",
-	"float2 a_w1;\n",
-	"float3 a_w1;\n",
-	"float4 a_w1;\n",
-	"float4 a_w1;\n float a_w2;\n",
-	"float4 a_w1;\n float a_w2;\n",
-	"float4 a_w1;\n float a_w2;\n",
-	"float4 a_w1;\n float a_w2;\n",
+	"float a_w1:BLENDWEIGHT0;\n",
+	"float2 a_w1:BLENDWEIGHT0;\n",
+	"float3 a_w1:BLENDWEIGHT0;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
 };
 
 enum DoLightComputation {
@@ -254,11 +254,17 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 		WRITE(p, " struct VS_IN                                \n");
 		WRITE(p, "                                             \n");
 		WRITE(p,  " {                                          \n");
-		WRITE(p, "		float4 ObjPos: POSITION;			   \n");
-		WRITE(p, "		float3 Uv    :  TEXCOORD0;             \n");
-		WRITE(p, "		float3 Normal:  NORMAL;                \n");
+		if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE) {
+			WRITE(p, "%s", boneWeightAttrDecl[TranslateNumBones(gstate.getNumBoneWeights())]);
+		}
+		if (doTexture) 
+			WRITE(p, "		float3 Uv    :  TEXCOORD0;             \n");
+		if (hasColor) 
 		WRITE(p, "		float4 C1    : COLOR0;                 \n");
-		WRITE(p, "		float4 C2    : COLOR1;                 \n");
+		//WRITE(p, "		float4 C2    : COLOR1;                 \n"); // only software transform supplies color1 as vertex data
+		if (useHWTransform && hasNormal)
+			WRITE(p, "		float3 Normal:  NORMAL;                \n");
+		WRITE(p, "		float3 ObjPos: POSITION;			   \n");
 		WRITE(p, " };                                          \n");
 		WRITE(p, "                                             \n");	
 		WRITE(p, " struct VS_OUT                               \n");
@@ -358,15 +364,15 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
 			// WRITE(p, "THIS SHOULD ERROR! #error");
 			if (numWeights == 1)
-				WRITE(p, "  float4x4 skinMatrix = a_w1 * u_bone0");
+				WRITE(p, "  float4x4 skinMatrix = In.a_w1 * u_bone0");
 			else
-				WRITE(p, "  float4x4 skinMatrix = a_w1.x * u_bone0");
+				WRITE(p, "  float4x4 skinMatrix = In.a_w1.x * u_bone0");
 			for (int i = 1; i < numWeights; i++) {
 				const char *weightAttr = boneWeightAttr[i];
 				// workaround for "cant do .x of scalar" issue
 				if (numWeights == 1 && i == 0) weightAttr = "a_w1";
 				if (numWeights == 5 && i == 4) weightAttr = "a_w2";
-				WRITE(p, " + %s * u_bone%i", weightAttr, i);
+				WRITE(p, " + In.%s * u_bone%i", weightAttr, i);
 			}
 #endif
 
@@ -375,14 +381,14 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 			WRITE(p, ";\n");
 
 			// Trying to simplify this results in bugs in LBP...
-			WRITE(p, "  float3 skinnedpos = (skinMatrix * float4(In.ObjPos.xyz, 1.0)).xyz %s;\n", factor);
-			WRITE(p, "  float3 worldpos = (u_world * float4(skinnedpos, 1.0)).xyz;\n");
+			WRITE(p, "  float3 skinnedpos = mul(float4(In.ObjPos.xyz, 1.0), skinMatrix).xyz %s;\n", factor);
+			WRITE(p, "  float3 worldpos = mul(float4(skinnedpos, 1.0), u_world).xyz;\n");
 
 			if (hasNormal) {
-				WRITE(p, "  float3 skinnednormal = (skinMatrix * float4(In.Normal, 0.0)).xyz %s;\n", factor);
-				WRITE(p, "  float3 worldnormal = normalize((u_world * float4(skinnednormal, 0.0)).xyz);\n");
+				WRITE(p, "  float3 skinnednormal = mul(float4(In.Normal, 0.0), skinMatrix).xyz %s;\n", factor);
+				WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world).xyz);\n");
 			} else {
-				WRITE(p, "  float3 worldnormal = (u_world * (skinMatrix * float4(0.0, 0.0, 1.0, 0.0))).xyz;\n");
+				WRITE(p, "  float3 worldnormal = mul( mul( float4(0.0, 0.0, 1.0, 0.0), skinMatrix), u_world).xyz;\n");
 			}
 		}
 
