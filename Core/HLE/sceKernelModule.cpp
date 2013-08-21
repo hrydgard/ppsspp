@@ -742,7 +742,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		u32_le *residentPtr = (u32_le *)Memory::GetPointer(ent->resident);
 		u32_le *exportPtr = residentPtr + ent->fcount + variableCount;
 
-		if (ent->size != 4) {
+		if (ent->size != 4 && ent->unknown1 != 0 && ent->unknown2 != 0) {
 			WARN_LOG_REPORT(LOADER, "Unexpected export module entry size %d, vcountNew=%08x, unknown1=%08x, unknown2=%08x", ent->size, ent->vcountNew, ent->unknown1, ent->unknown2);
 		}
 
