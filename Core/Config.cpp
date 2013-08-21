@@ -233,7 +233,7 @@ void Config::Save() {
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
-		general->Set("ReportHost", sReportHost);
+		general->Set("ReportingHost", sReportHost);
 		general->Set("Recent", recentIsos);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
 #ifdef _WIN32
