@@ -157,7 +157,7 @@ EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 
 void PopupSliderChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
-	char temp[4];
+	char temp[32];
 	sprintf(temp, "%i", *value_);
 	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
@@ -170,7 +170,7 @@ EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
 
 void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	Choice::Draw(dc);
-	char temp[5];
+	char temp[32];
 	sprintf(temp, "%2.2f", *value_);
 	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
