@@ -34,7 +34,6 @@
 #include "math/curves.h"
 #include "Core/HW/atrac3plus.h"
 #include "Core/System.h"
-#include "Common/CPUDetect.h"
 
 #ifdef _WIN32
 #include "Core/Host.h"
@@ -233,7 +232,7 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "Auto", "1", "2", "3", "4", "5", "6", "7", "8"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, 9, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gs->T("Frame Skipping"), frameSkip, 0, 10, gs, screenManager()));
 	static const char *fpsChoices[] = {"None", "Speed", "FPS", "Both"};
 
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gs->T("Force max 60 FPS (helps GoW)")));
@@ -338,6 +337,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 #endif
 
+
 	if (cpu_info.num_cores > 1) {
 		systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
 		systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
@@ -377,9 +377,9 @@ void GameSettingsScreen::CreateViews() {
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, s->T("Date Format"), dateFormat, 1, 3, s, screenManager()));
 	static const char *timeFormat[] = { "12HR", "24HR"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, s->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
-	static const char *buttonPref[] = { "Use X to confirm", "Use O to confirm"};
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 1, 2, s, screenManager()));
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, gs->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
+	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
+	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, gs->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
 }
 
 UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
@@ -476,9 +476,19 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
-	if (host->InputBoxGetString("Enter a new PSP nickname", "PPSSPP", name, name_len)) {
+	size_t default_len = strlen(g_Config.sNickName.c_str());
+
+	char *defaultVal = new char[default_len];
+	memset(defaultVal, 0, sizeof(default_len));
+	strcat(defaultVal, g_Config.sNickName.c_str());
+
+	if (host->InputBoxGetString("Enter a new PSP nickname", defaultVal, name, name_len)) {
 		g_Config.sNickName = name;
 	}
+
+	delete [] defaultVal;
+	defaultVal = NULL;
+
 	#endif
 	return UI::EVENT_DONE;
 }

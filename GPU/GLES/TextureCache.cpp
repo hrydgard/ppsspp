@@ -242,13 +242,13 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	case NOTIFY_FB_CREATED:
 	case NOTIFY_FB_UPDATED:
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			AttachFramebuffer(&it->second, address, framebuffer, it->first == cacheKey);
+			AttachFramebuffer(&it->second, address | 0x04000000, framebuffer, it->first == cacheKey);
 		}
 		break;
 
 	case NOTIFY_FB_DESTROYED:
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			DetachFramebuffer(&it->second, address, framebuffer);
+			DetachFramebuffer(&it->second, address | 0x04000000, framebuffer);
 		}
 		break;
 	}
