@@ -34,6 +34,7 @@
 #include "math/curves.h"
 #include "Core/HW/atrac3plus.h"
 #include "Core/System.h"
+#include "Common/CPUDetect.h"
 
 #ifdef _WIN32
 #include "Core/Host.h"
@@ -337,8 +338,10 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bJit, s->T("Dynarec", "Dynarec (JIT)")));
 #endif
 
-	systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
-	systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
+	if (cpu_info.num_cores > 1) {
+		systemSettings->Add(new CheckBox(&g_Config.bSeparateCPUThread, s->T("Multithreaded (experimental)")))->SetEnabled(!PSP_IsInited());
+		systemSettings->Add(new CheckBox(&g_Config.bSeparateIOThread, s->T("I/O on thread (experimental)")))->SetEnabled(!PSP_IsInited());
+	}
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
 	enableReports_ = g_Config.sReportHost != "";
