@@ -195,7 +195,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 		if (inpath.find(':') == std::string::npos /* means path is relative */) 
 		{
 			lastOpenError = SCE_KERNEL_ERROR_NOCWD;
-			WARN_LOG_REPORT(HLE, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
+			WARN_LOG(HLE, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
 		}
 	}
 	else
