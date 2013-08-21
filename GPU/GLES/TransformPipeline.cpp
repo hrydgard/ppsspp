@@ -134,7 +134,11 @@ void TransformDrawEngine::GLLost() {
 void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	u16 indices[3 * 3 * 6];
 
-	Reporting::ReportMessage("Unsupported bezier curve");
+	static bool reported = false;
+	if (!reported) {
+		Reporting::ReportMessage("Unsupported bezier curve");
+		reported = true;
+	}
 
 	// if (gstate.patchprimitive)
 	// Generate indices for a rectangular mesh.
@@ -180,7 +184,11 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 void TransformDrawEngine::DrawSpline(int ucount, int vcount, int utype, int vtype) {
 	u16 indices[3 * 3 * 6];
 
-	Reporting::ReportMessage("Unsupported spline curve");
+	static bool reported = false;
+	if (!reported) {
+		Reporting::ReportMessage("Unsupported spline curve");
+		reported = true;
+	}
 
 	// Generate indices for a rectangular mesh.
 	int c = 0;

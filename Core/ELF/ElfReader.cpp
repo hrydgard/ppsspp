@@ -139,11 +139,7 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 			break;
 
 		case R_MIPS_GPREL16: //gp
-			{
-				char temp[256];
-				MIPSDisAsm(op, 0, temp);
-				WARN_LOG_REPORT(LOADER, "ARGH IT'S A GP!!!!!!!! %08x : %s", addr, temp);
-			}
+			// It seems safe to ignore this, almost a notification of a gp-relative operation?
 			break;
 
 		case R_MIPS_16:
@@ -154,12 +150,8 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 			}
 			break;
 
-		case 0: // another GP reloc!
-			{
-				char temp[256];
-				MIPSDisAsm(op, 0, temp);
-				ERROR_LOG_REPORT(LOADER, "WARNING: GP reloc? @ %08x : 0 : %s", addr, temp);
-			}
+		case R_MIPS_NONE:
+			// This shouldn't matter, not sure the purpose of it.
 			break;
 
 		default:
