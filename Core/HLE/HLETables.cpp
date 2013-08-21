@@ -124,6 +124,12 @@ const HLEFunction IoFileMgrForKernel[] =
 	{0x8E982A74, 0, "sceIoAddDrv"},
 	{0xC7F35804, 0, "sceIoDelDrv"},
 	{0x3C54E908, 0, "sceIoReopen"},
+	{0xb29ddf9c, 0, "sceIoDopen"},
+	{0xe3eb004c, 0, "sceIoDread"},
+	{0xeb092469, 0, "sceIoDclose"},
+	{0x109f50bc, 0, "sceIoOpen"},
+	{0x810c4bc3, 0, "sceIoClose"},
+	{0x779103a0, 0, "sceIoRename"},
 };
 const HLEFunction StdioForKernel[] = 
 {
