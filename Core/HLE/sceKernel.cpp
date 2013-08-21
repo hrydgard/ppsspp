@@ -863,6 +863,14 @@ void Register_ExceptionManagerForKernel()
 // Seen in some homebrew
 const HLEFunction UtilsForKernel[] = {
 	{0xC2DF770E, 0, "sceKernelIcacheInvalidateRange"},
+	{0x78934841, 0, "sceKernelGzipDecompress"},
+	{0xe8db3ce6, 0, "sceKernelDeflateDecompress"},
+	{0x840259f1, 0, "sceKernelUtilsSha1Digest"},
+	{0x6c6887ee, 0, "UtilsForKernel_6C6887EE"},
+	{0x91e4f6a7, 0, "sceKernelLibcClock"},
+	{0x79d1c3fa, 0, "sceKernelDcacheWritebackAll"},
+	{0x34b9fa9e, 0, "sceKernelDcacheWritebackInvalidateRange"},
+	{0x920f104a, 0, "sceKernelIcacheInvalidateAll"},
 };
 
 
