@@ -9,7 +9,6 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Config.h"
 #include "base/NativeApp.h"
-#include "UI/MenuScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/UIShader.h"
 #include "UI/ui_atlas.h"
