@@ -272,6 +272,7 @@ void sceKernelAllocateFpl()
 			RETURN(0);
 		} else {
 			// TODO: Should block!
+			ERROR_LOG_REPORT(HLE, "sceKernelAllocateFpl: should block");
 			RETURN(0);
 		}
 
@@ -302,6 +303,7 @@ void sceKernelAllocateFplCB()
 			RETURN(0);
 		} else {
 			// TODO: Should block and process callbacks!
+			ERROR_LOG_REPORT(HLE, "sceKernelAllocateFplCB: should block");
 			__KernelCheckCallbacks();
 		}
 

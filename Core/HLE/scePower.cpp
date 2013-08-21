@@ -15,14 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 #include <map>
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "../CoreTiming.h"
-#include "ChunkFile.h"
-
-#include "scePower.h"
-#include "sceKernelThread.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 #include "Core/Config.h"
+
+#include "Core/HLE/scePower.h"
+#include "Core/HLE/sceKernelThread.h"
 
 const int PSP_POWER_ERROR_TAKEN_SLOT = 0x80000020;
 const int PSP_POWER_ERROR_SLOTS_FULL = 0x80000022;
@@ -204,7 +204,7 @@ int sceKernelVolatileMemTryLock(int type, int paddr, int psize) {
 		INFO_LOG(HLE,"sceKernelVolatileMemTryLock(%i, %08x, %i) - success", type, paddr, psize);
 		volatileMemLocked = true;
 	} else {
-		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %i) - already locked!", type, paddr, psize);
+		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %i) - already locked!", type, paddr, psize);
 		return ERROR_POWER_VMEM_IN_USE;
 	}
 
@@ -222,7 +222,7 @@ int sceKernelVolatileMemUnlock(int type) {
 		INFO_LOG(HLE,"sceKernelVolatileMemUnlock(%i)", type);
 		volatileMemLocked = false;
 	} else {
-		ERROR_LOG(HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
+		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
 	}
 	return 0;
 }
