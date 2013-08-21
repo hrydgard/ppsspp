@@ -68,21 +68,21 @@ public class InputDeviceState {
 	public boolean onKeyDown(KeyEvent event) {
 		int keyCode = event.getKeyCode();
 		if (event.getRepeatCount() == 0) {
-			if (isGameKey(keyCode)) {
+			// if (isGameKey(keyCode)) {
 				NativeApp.keyDown(deviceId, keyCode);
 				return true;
-			}
+			// }
 		}
 		return false;
 	}
 	
 	public boolean onKeyUp(KeyEvent event) {
 	     int keyCode = event.getKeyCode();
-	     if (isGameKey(keyCode)) {
+	     // if (isGameKey(keyCode)) {
 	    	 NativeApp.keyUp(deviceId, keyCode);
 	         return true;
-	     }
-	     return false;
+	     // }
+	     //return false;
 	}
 	
 	public boolean onJoystickMotion(MotionEvent event) {
