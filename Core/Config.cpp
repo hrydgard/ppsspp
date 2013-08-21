@@ -297,7 +297,7 @@ void Config::Save() {
 		sound->Set("VolumeSFX", iSFXVolume);
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
-		control->Set("ShowStick", bShowAnalogStick);
+		control->Set("ShowAnalogStick", bShowAnalogStick);
 		control->Set("ShowTouchControls", bShowTouchControls);
 		// control->Set("KeyMapping",iMappingMap);
 		control->Set("AccelerometerToAnalogHoriz", bAccelerometerToAnalogHoriz);
