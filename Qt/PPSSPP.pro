@@ -4,7 +4,7 @@ QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
 win32: QT += multimedia
-VERSION = 0.9
+VERSION = 0.9.1
 
 include(Settings.pri)
 mobile_platform: MOBILITY += sensors
