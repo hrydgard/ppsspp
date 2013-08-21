@@ -92,7 +92,11 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	cpu->Get("Jit", &bJit, true);
 #endif
 	cpu->Get("SeparateCPUThread", &bSeparateCPUThread, false);
+#ifdef __SYMBIAN32__
 	cpu->Get("SeparateIOThread", &bSeparateIOThread, false);
+#else
+	cpu->Get("SeparateIOThread", &bSeparateIOThread, true);
+#endif
 	cpu->Get("FastMemory", &bFastMemory, false);
 	cpu->Get("CPUSpeed", &iLockedCPUSpeed, 0);
 
@@ -117,7 +121,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("SSAA", &bAntiAliasing, 0);
 	graphics->Get("FrameSkip", &iFrameSkip, 0);
 	graphics->Get("FrameRate", &iFpsLimit, 0);
-	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 0);
+	graphics->Get("ForceMaxEmulatedFPS", &iForceMaxEmulatedFPS, 60);
 #ifdef USING_GLES2
 	graphics->Get("AnisotropyLevel", &iAnisotropyLevel, 0);
 #else
