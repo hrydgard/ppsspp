@@ -991,8 +991,8 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
 add_dependencies(${CoreLibName} GitVersion)
 
 add_library(GPU OBJECT
-	GPU/GLES/DisplayListInterpreter.cpp
-	GPU/GLES/DisplayListInterpreter.h
+	GPU/GLES/GLES_GPU.cpp
+	GPU/GLES/GLES_GPU.h
 	GPU/GLES/FragmentShaderGenerator.cpp
 	GPU/GLES/FragmentShaderGenerator.h
 	GPU/GLES/Framebuffer.cpp
