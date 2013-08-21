@@ -286,20 +286,24 @@ namespace MainWindow
 
 		char message[256];
 		memset(message, 0, sizeof(message));
+		const char *frameskipStr = g->T("Frameskipping");
+		const char *offStr = g->T("Off");
+		const char *autoStr = g->T("Auto");
+		const char *framesStr = g->T("Frames");
 
 		switch(g_Config.iFrameSkip) {
 		case 0:
-			sprintf(message, "Frameskipping: Off");
+			sprintf(message, "%s: %s", frameskipStr, offStr);
 			break;
-		case 1:
-			sprintf(message, "Frameskipping: Auto");
+		case 1:	
+			sprintf(message, "%s: %s", frameskipStr, autoStr);
 			break;
 		default:
-			sprintf(message, "Frameskipping: %d frames", g_Config.iFrameSkip);
+			sprintf(message, "%s: %d %s", frameskipStr, g_Config.iFrameSkip, framesStr);
 			break;
 		}
-
-		osm.Show(g->T(message)); 
+		
+		osm.Show(message); 
 	}
 
 	void enableCheats(bool cheats) {
@@ -877,8 +881,8 @@ namespace MainWindow
 					setFrameSkipping(FRAMESKIP_OFF);
 					break;
 
-				case ID_OPTIONS_FRAMESKIP_1:
-					setFrameSkipping(FRAMESKIP_1);
+				case ID_OPTIONS_FRAMESKIP_AUTO:
+					setFrameSkipping(FRAMESKIP_AUTO);
 					break;
 
 				case ID_OPTIONS_FRAMESKIP_2:
