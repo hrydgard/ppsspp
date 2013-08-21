@@ -283,95 +283,27 @@ namespace MainWindow
 		g_Config.iFrameSkip = framesToSkip;
 
 		I18NCategory *g = GetI18NCategory("Graphics");
+		const char *frameskipStr = g->T("Frameskipping");
+		const char *offStr = g->T("Off");
+		const char *autoStr = g->T("Auto");
 
 		char message[256];
 		memset(message, 0, sizeof(message));
-		const char *frameskipStr = g->T("Frameskipping %s");
-		const char *frameskippingStrWithValue = g->T("Frameskipping %d %s");
-		const char *offStr = g->T("Off");
-		const char *autoStr = g->T("Auto");
-		const char *framesStr = g->T("Frames");
-		
-		std::istringstream iss(frameskippingStrWithValue);
-		std::string temp;
-		int valueCount = 0, stringCount = 0;
-
-		bool foundValueFirst = false;
-		while(iss >> temp)
-		{
-			if(temp == "%d") {
-				++valueCount;
-			}
-			else if(temp == "%s") {
-				++stringCount;
-			} 
-			else if(temp.find("%") != std::string::npos) {
-				// If we find an invalid delimiter, exit the loop and report it.
-				valueCount = 2;
-				stringCount = 2;
-				break;
-			}
-		}
-
-		if(valueCount == 0 || stringCount == 0) {
-			ERROR_LOG(COMMON, "setFrameSkipping: Missing string or value delimiter in framesipStrWithValue, check your language's ini file.");
-			return;
-		}
-
-		if((valueCount > 1) || (stringCount > 1)) {
-			ERROR_LOG(COMMON, "setFrameSkipping: More than one string or value delimiter in framesipStrWithValue, or other illegal delimiter found, check your language's ini file.");
-			return;
-		}
-
-		while(iss >> temp)
-		{
-			if(temp == "%d") {
-				foundValueFirst = true;
-				break;
-			}
-			else if(temp == "%s") {
-				foundValueFirst = false;
-				break;
-			}
-			
-		}
-
-		iss.clear();
-		iss.seekg(0, std::ios::beg);
-		iss.str(frameskipStr);
-		stringCount = 0;
-
-		while(iss >> temp) {
-			if(temp == "%s")
-				stringCount++;
-			if(temp.find("%") != std::string::npos) {
-				stringCount = 2;
-				break;
-			}
-		}
-
-		if(stringCount > 1) {
-			ERROR_LOG(COMMON, "setFrameSkipping: More than one string or value delimiter in frameskipStr, or other illegal delimiter found, check your language's ini file.");
-			return;
-		}
 
 		switch(g_Config.iFrameSkip) {
 		case 0:
-			sprintf(message, frameskipStr, offStr);
+			sprintf(message, "%s: %s", frameskipStr, offStr);
 			break;
-		case 1:	
-			sprintf(message, frameskipStr, autoStr);
+		case 1:
+			sprintf(message, "%s: %s", frameskipStr, autoStr);
 			break;
 		default:
-			if(foundValueFirst)
-				sprintf(message, frameskippingStrWithValue,  g_Config.iFrameSkip, framesStr);
-			else
-				sprintf(message, frameskippingStrWithValue, framesStr, g_Config.iFrameSkip);
+			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip);
 			break;
 		}
-		
+
 		osm.Show(message); 
-	}
+	} 
 
 	void enableCheats(bool cheats) {
 		g_Config.bEnableCheats = cheats;
