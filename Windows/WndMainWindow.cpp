@@ -283,28 +283,27 @@ namespace MainWindow
 		g_Config.iFrameSkip = framesToSkip;
 
 		I18NCategory *g = GetI18NCategory("Graphics");
-
-		char message[256];
-		memset(message, 0, sizeof(message));
 		const char *frameskipStr = g->T("Frameskipping");
 		const char *offStr = g->T("Off");
 		const char *autoStr = g->T("Auto");
-		const char *framesStr = g->T("Frames");
+
+		char message[256];
+		memset(message, 0, sizeof(message));
 
 		switch(g_Config.iFrameSkip) {
 		case 0:
 			sprintf(message, "%s: %s", frameskipStr, offStr);
 			break;
-		case 1:	
+		case 1:
 			sprintf(message, "%s: %s", frameskipStr, autoStr);
 			break;
 		default:
-			sprintf(message, "%s: %d %s", frameskipStr, g_Config.iFrameSkip, framesStr);
+			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip);
 			break;
 		}
-		
+
 		osm.Show(message); 
-	}
+	} 
 
 	void enableCheats(bool cheats) {
 		g_Config.bEnableCheats = cheats;
