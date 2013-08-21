@@ -286,20 +286,21 @@ namespace MainWindow
 
 		char message[256];
 		memset(message, 0, sizeof(message));
-		const char *frameskipStr = g->T("Frameskipping");
+		const char *frameskipStr = g->T("Frameskipping %s");
+		const char *frameskippingStrWithValue = g->T("Frameskipping %d %s");
 		const char *offStr = g->T("Off");
 		const char *autoStr = g->T("Auto");
 		const char *framesStr = g->T("Frames");
 
 		switch(g_Config.iFrameSkip) {
 		case 0:
-			sprintf(message, "%s: %s", frameskipStr, offStr);
+			sprintf(message, frameskipStr, offStr);
 			break;
 		case 1:	
-			sprintf(message, "%s: %s", frameskipStr, autoStr);
+			sprintf(message, frameskipStr, autoStr);
 			break;
 		default:
-			sprintf(message, "%s: %d %s", frameskipStr, g_Config.iFrameSkip, framesStr);
+			sprintf(message, frameskippingStrWithValue,  g_Config.iFrameSkip, framesStr);
 			break;
 		}
 		
