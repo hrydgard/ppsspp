@@ -15,7 +15,7 @@ namespace MainWindow
 
 	enum {
 		FRAMESKIP_OFF = 0,
-		FRAMESKIP_1 = 1,
+		FRAMESKIP_AUTO = 1,
 		FRAMESKIP_2 = 2,
 		FRAMESKIP_3 = 3,
 		FRAMESKIP_4 = 4,
@@ -23,8 +23,7 @@ namespace MainWindow
 		FRAMESKIP_6 = 6,
 		FRAMESKIP_7 = 7,
 		FRAMESKIP_8 = 8,
-		FRAMESKIP_9 = 9,
-		FRAMESKIP_MAX = FRAMESKIP_9,
+		FRAMESKIP_MAX = FRAMESKIP_8,
 
 		ZOOM_NATIVE = 1,
 		ZOOM_2X = 2,
