@@ -343,7 +343,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, gs->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
-	enableReports_ = g_Config.sReportHost != "";
+	enableReports_ = g_Config.sReportHost != "default";
 
 #ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
@@ -450,7 +450,7 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 			Atrac3plus_Decoder::Init();
 		else Atrac3plus_Decoder::Shutdown();
 	}
-	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "";
+	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "default";
 	g_Config.Save();
 
 #ifdef _WIN32

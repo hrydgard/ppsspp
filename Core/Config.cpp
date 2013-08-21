@@ -73,7 +73,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 		iMaxRecent = 12;
 
 	// "default" means let emulator decide, "" means disable.
-	general->Get("ReportHost", &sReportHost, "default");
+	general->Get("ReportingHost", &sReportHost, "default");
 	general->Get("Recent", recentIsos);
 	general->Get("AutoSaveSymbolMap", &bAutoSaveSymbolMap, false);
 #ifdef _WIN32
