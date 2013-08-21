@@ -291,9 +291,9 @@ namespace MainWindow
 		const char *offStr = g->T("Off");
 		const char *autoStr = g->T("Auto");
 		const char *framesStr = g->T("Frames");
-
+		
 		std::istringstream iss(frameskippingStrWithValue);
-		std::string temp = "";
+		std::string temp;
 		int valueCount = 0, stringCount = 0;
 
 		bool foundValueFirst = false;
@@ -305,7 +305,7 @@ namespace MainWindow
 			else if(temp == "%s") {
 				++stringCount;
 			} 
-			else if(temp.find("%")) {
+			else if(temp.find("%") != std::string::npos) {
 				// If we find an invalid delimiter, exit the loop and report it.
 				valueCount = 2;
 				stringCount = 2;
@@ -314,17 +314,14 @@ namespace MainWindow
 		}
 
 		if(valueCount == 0 || stringCount == 0) {
-			ERROR_LOG(COMMON, "setFrameSkipping: Missing string or value delimiter, check your language's ini file.");
+			ERROR_LOG(COMMON, "setFrameSkipping: Missing string or value delimiter in framesipStrWithValue, check your language's ini file.");
 			return;
 		}
 
 		if((valueCount > 1) || (stringCount > 1)) {
-			ERROR_LOG(COMMON, "setFrameSkipping: More than one string or value delimiter, or other illegal delimiter found, check your language's ini file.");
+			ERROR_LOG(COMMON, "setFrameSkipping: More than one string or value delimiter in framesipStrWithValue, or other illegal delimiter found, check your language's ini file.");
 			return;
 		}
-
-		iss.clear();
-		iss.seekg(0, std::ios::beg);
 
 		while(iss >> temp)
 		{
@@ -337,6 +334,25 @@ namespace MainWindow
 				break;
 			}
 			
+		}
+
+		iss.clear();
+		iss.seekg(0, std::ios::beg);
+		iss.str(frameskipStr);
+		stringCount = 0;
+
+		while(iss >> temp) {
+			if(temp == "%s")
+				stringCount++;
+			if(temp.find("%") != std::string::npos) {
+				stringCount = 2;
+				break;
+			}
+		}
+
+		if(stringCount > 1) {
+			ERROR_LOG(COMMON, "setFrameSkipping: More than one string or value delimiter in frameskipStr, or other illegal delimiter found, check your language's ini file.");
+			return;
 		}
 
 		switch(g_Config.iFrameSkip) {
