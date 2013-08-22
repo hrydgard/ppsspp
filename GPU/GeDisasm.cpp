@@ -749,9 +749,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 				"unsupported1",
 				"unsupported2",
 			};
-			const char *blendFactors[] = {
-				"a",
-				"1.0 - a",
+			const char *blendFactorsA[16] = {
+				"dst",                       
+				"1.0 - dst",
 				"src.a",
 				"1.0 - src.a",
 				"dst.a",
@@ -765,11 +765,27 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 				"fixed3",
 				"fixed4",
 				"fixed5",
-				"fixed6",
+			};
+			const char *blendFactorsB[16] = {
+				"src",
+				"1.0 - src",
+				"src.a",
+				"1.0 - src.a",
+				"dst.a",
+				"1.0 - dst.a",
+				"2.0 * src.a",
+				"1.0 - 2.0 * src.a",
+				"2.0 * dst.a",
+				"1.0 - 2.0 * dst.a",
+				"fixed",
+				"fixed2",
+				"fixed3",
+				"fixed4",
+				"fixed5",
 			};
 
-			const char *blendFactorA = blendFactors[(data >> 0) & 0xF];
-			const char *blendFactorB = blendFactors[(data >> 4) & 0xF];
+			const char *blendFactorA = blendFactorsA[(data >> 0) & 0xF];
+			const char *blendFactorB = blendFactorsB[(data >> 4) & 0xF];
 			const char *blendMode = blendModes[(data >> 8) & 0x7];
 
 			if (data & ~0xFF0007FF)

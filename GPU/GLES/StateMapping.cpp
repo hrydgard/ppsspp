@@ -217,7 +217,13 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-		glstate.blendFunc.set(glBlendFuncA, glBlendFuncB);
+#if 1
+		// Fixes some Persona 2 issues, may be correct? (that is, don't change dest alpha at all if blending)
+		// If this doesn't break anything else, it's likely to be right.
+		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+#else
+		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
+#endif
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 	}
 

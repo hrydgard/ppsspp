@@ -130,6 +130,7 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 			id->d[0] |= gstate.getTextureFunction() << 2;
 			id->d[0] |= (doTextureAlpha & 1) << 5; // rgb or rgba
 		}
+
 		id->d[0] |= (lmode & 1) << 7;
 		id->d[0] |= gstate.isAlphaTestEnabled() << 8;
 		if (enableAlphaTest)
