@@ -224,16 +224,22 @@ void UpdateConfirmCancelKeys() {
 	}
 
 	// Push several hard-coded keys before submitting to native.
-	if(std::find(confirmKeys.begin(), confirmKeys.end(), NKCODE_ENTER) == confirmKeys.end())
-		confirmKeys.push_back(NKCODE_ENTER);
+	const keycode_t hardcodedConfirmKeys[] = { 
+		NKCODE_SPACE, 
+		NKCODE_ENTER,
+	};
+
+	// If they're not already bound, add them in.
+	for(int i = 0; i < ARRAY_SIZE(hardcodedConfirmKeys); i++) {
+		if(std::find(confirmKeys.begin(), confirmKeys.end(), hardcodedConfirmKeys[i]) == confirmKeys.end())
+			confirmKeys.push_back(hardcodedConfirmKeys[i]);
+	}
 
 	const keycode_t hardcodedCancelKeys[] = { 
-		NKCODE_SPACE, 
 		NKCODE_ESCAPE, 
 		NKCODE_BACK, 
 	};
 
-	// If they're not already bound, add them in.
 	for(int i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
 		if(std::find(cancelKeys.begin(), cancelKeys.end(), hardcodedCancelKeys[i]) == cancelKeys.end())
 			cancelKeys.push_back(hardcodedCancelKeys[i]);
