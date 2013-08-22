@@ -39,7 +39,7 @@ void OpenGLState::Restore() {
 	int count = 0;
 	blend.restore(); count++;
 	blendEquation.restore(); count++;
-	blendFunc.restore(); count++;
+	blendFuncSeparate.restore(); count++;
 	blendColor.restore(); count++;
 
 #if !defined(USING_GLES2)

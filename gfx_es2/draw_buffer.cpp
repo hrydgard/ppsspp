@@ -79,7 +79,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * count_, verts_, GL_STREAM_DRAW);
 	if (set_blend_state) {
 		glstate.blend.enable();
-		glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	glUniform1i(program_->sampler0, 0);
 	glEnableVertexAttribArray(program_->a_position);
@@ -102,7 +102,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 #else
 	if (set_blend_state) {
 		glstate.blend.enable();
-		glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glUniform1i(program_->sampler0, 0);
@@ -450,7 +450,7 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 
 void DrawBuffer::EnableBlend(bool enable) {
 	glstate.blend.set(enable);
-	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void DrawBuffer::SetClipRect(float x, float y, float w, float h)

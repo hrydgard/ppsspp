@@ -126,6 +126,26 @@ private:
 		} \
 	}
 
+#define STATE2_4(func, p1type, p2type, p1def, p2def, p3def, p4def) \
+	class SavedState2_##func { \
+	p1type p1; \
+	p2type p2; \
+	public: \
+	SavedState2_##func() : p1(p1def), p2(p2def) { \
+	OpenGLState::state_count++; \
+	}; \
+	inline void set(p1type newp1, p2type newp2) { \
+	if(newp1 != p1 || newp2 != p2) { \
+	p1 = newp1; \
+	p2 = newp2; \
+	func(p1, p2, p3def, p4def); \
+	} \
+	} \
+	inline void restore() { \
+	func(p1, p2, p3def, p4def); \
+	} \
+	}
+
 	#define STATE3(func, p1type, p2type, p3type, p1def, p2def, p3def) \
 	class SavedState3_##func { \
 		p1type p1; \
@@ -203,7 +223,8 @@ public:
 
 	// Blend 
 	BoolState<GL_BLEND, false> blend;
-	STATE2(glBlendFunc, GLenum, GLenum, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) blendFunc;
+	STATE4(glBlendFuncSeparate, GLenum, GLenum, GLenum, GLenum, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) blendFuncSeparate;
+
 	STATE1(glBlendEquation, GLenum, GL_FUNC_ADD) blendEquation;
 	STATEFLOAT4(glBlendColor, 1.0f) blendColor;
 

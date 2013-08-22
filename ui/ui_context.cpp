@@ -8,7 +8,7 @@
 
 void UIContext::Begin() {
 	glstate.blend.enable();
-	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.dither.enable();
@@ -25,7 +25,7 @@ void UIContext::Begin() {
 
 void UIContext::BeginNoTex() {
 	glstate.blend.enable();
-	glstate.blendFunc.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glstate.blendFuncSeparate.set(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glstate.cullFace.disable();
 	glstate.depthTest.disable();
 	glstate.dither.enable();
