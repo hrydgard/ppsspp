@@ -187,11 +187,11 @@ void Clickable::Touch(const TouchInput &input) {
 // TODO: O/X confirm preference for xperia play?
 
 bool IsAcceptKeyCode(int keyCode) {
-	return keyCode == NKCODE_SPACE || keyCode == NKCODE_ENTER || keyCode == NKCODE_Z || keyCode == NKCODE_BUTTON_A || keyCode == NKCODE_BUTTON_CROSS || keyCode == NKCODE_BUTTON_1;
+	return std::find(confirmKeys.begin(), confirmKeys.end(), (keycode_t)keyCode) != confirmKeys.end();
 }
 
 bool IsEscapeKeyCode(int keyCode) {
-	return keyCode == NKCODE_ESCAPE || keyCode == NKCODE_BACK || keyCode == NKCODE_BUTTON_CIRCLE || keyCode == NKCODE_BUTTON_B || keyCode == NKCODE_BUTTON_2;
+	return std::find(cancelKeys.begin(), cancelKeys.end(), (keycode_t)keyCode) != cancelKeys.end();
 }
 
 void Clickable::Key(const KeyInput &key) {

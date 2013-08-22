@@ -11,7 +11,9 @@
 #include "math/lin/vec3.h"
 #include "base/mutex.h"
 #include "base/basictypes.h"
+#include "input/keycodes.h"
 #include <map>
+#include <vector>
 
 // Default device IDs
 
@@ -176,3 +178,8 @@ private:
 
 // Platforms should call g_buttonTracker.Process().
 extern ButtonTracker g_buttonTracker;
+
+// Is there a nicer place for this stuff? It's here to avoid dozens of linking errors in UnitTest..
+extern std::vector<keycode_t> confirmKeys;
+extern std::vector<keycode_t> cancelKeys;
+void SetConfirmCancelKeys(std::vector<keycode_t> confirm, std::vector<keycode_t> cancel);
