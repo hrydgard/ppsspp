@@ -397,9 +397,15 @@ void EmuScreen::update(InputState &input) {
 	PSP_CoreParameter().pixelHeight = pixel_yres;
 
 	globalUIState = UISTATE_INGAME;
+	
 	if (errorMessage_.size()) {
+		I18NCategory *g = GetI18NCategory("Error");
+		std::string errLoadingFile = g->T("Error loading file");
+		errLoadingFile.append(" ");
+		errLoadingFile.append(g->T(errorMessage_.c_str()));
+
 		screenManager()->push(new PromptScreen(
-			"Error loading file: " + errorMessage_, "OK", ""));
+			errLoadingFile, "OK", ""));
 		errorMessage_ = "";
 		return;
 	}
