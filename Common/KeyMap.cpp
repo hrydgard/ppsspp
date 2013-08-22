@@ -21,6 +21,8 @@
 #include "base/NativeApp.h"
 #include "KeyMap.h"
 #include "../Core/HLE/sceUtility.h"
+#include <algorithm>
+
 
 namespace KeyMap {
 
@@ -207,27 +209,33 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 };
 
 void UpdateConfirmCancelKeys() {
-	std::vector<keycode_t> confirm, cancel;
+	std::vector<keycode_t> confirmKeys, cancelKeys;
 
-	int confirmBtns = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
-	int cancelBtns = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
+	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 
-	for(auto i = g_controllerMap[confirmBtns].begin(); i != g_controllerMap[confirmBtns].end(); ++i)
-	{
-		confirm.push_back((keycode_t)i->keyCode);
+	for(auto i = g_controllerMap[confirmKey].begin(); i != g_controllerMap[confirmKey].end(); ++i) {
+		confirmKeys.push_back((keycode_t)i->keyCode);
 	}
 
-	for(auto i = g_controllerMap[cancelBtns].begin(); i != g_controllerMap[cancelBtns].end(); ++i)
-	{
-		cancel.push_back((keycode_t)i->keyCode);
+	for(auto i = g_controllerMap[cancelKey].begin(); i != g_controllerMap[cancelKey].end(); ++i) {
+		cancelKeys.push_back((keycode_t)i->keyCode);
 	}
 
-	cancel.push_back(NKCODE_SPACE);
-	cancel.push_back(NKCODE_ESCAPE);
-	cancel.push_back(NKCODE_BACK);
-	cancel.push_back(NKCODE_EXT_MOUSEBUTTON_2);
+	const keycode_t hardcodedCancelKeys[] = { 
+		NKCODE_SPACE, 
+		NKCODE_ESCAPE, 
+		NKCODE_BACK, 
+		NKCODE_EXT_MOUSEBUTTON_2 
+	};
 
-	SetConfirmCancelKeys(confirm, cancel);
+	// If they're not already bound, add them in.
+	for(int i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
+		if(std::find(cancelKeys.begin(), cancelKeys.end(), hardcodedCancelKeys[i]) == cancelKeys.end())
+			cancelKeys.push_back(hardcodedCancelKeys[i]);
+	}
+
+	SetConfirmCancelKeys(confirmKeys,cancelKeys);
 }
 
 static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, int count, bool replace) {
