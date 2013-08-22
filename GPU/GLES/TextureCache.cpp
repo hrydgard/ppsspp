@@ -216,7 +216,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 				WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 				// TODO: Keep track of the y offset.
-				AttachFramebufferInvalid(entry, framebuffer);
+				AttachFramebufferValid(entry, framebuffer);
 			}
 		}
 	}
