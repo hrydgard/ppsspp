@@ -34,6 +34,7 @@
 #include "math/curves.h"
 #include "Core/HW/atrac3plus.h"
 #include "Core/System.h"
+#include "Common/KeyMap.h"
 
 #ifdef _WIN32
 #include "Core/Host.h"
@@ -454,6 +455,8 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 #ifdef _WIN32
 	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_ATRAC_STATUS_CHANGED, 0, 0);
 #endif
+
+	KeyMap::UpdateConfirmCancelKeys();
 
 	return UI::EVENT_DONE;
 }

@@ -151,5 +151,6 @@ namespace KeyMap {
 
 	void RestoreDefault();
 	void QuickMap(int device);
-}
 
+	void UpdateConfirmCancelKeys();
+}
