@@ -103,6 +103,7 @@ private:
 	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
 	UI::EventReturn OnForums(UI::EventParams &e);
+	UI::EventReturn OnChineseForum(UI::EventParams &e);
 
 	int frames_;
 };
