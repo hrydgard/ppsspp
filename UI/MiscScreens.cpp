@@ -193,7 +193,10 @@ NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
 		if (tempLangs[i].name.find("README") != std::string::npos) {
 			continue;
 		}
-
+		// Skip ar_AE
+		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
+			continue;
+		}
 		FileInfo lang = tempLangs[i];
 		langs_.push_back(lang);
 
