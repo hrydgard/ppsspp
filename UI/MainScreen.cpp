@@ -671,10 +671,10 @@ void GamePauseScreen::CreateViews() {
 	saveSlots_->SetSelection(g_Config.iCurrentStateSlot);
 	saveSlots_->OnChoice.Handle(this, &GamePauseScreen::OnStateSelected);
 	
-	saveStateButton_ = leftColumnItems->Add(new Choice(gs->T("Save State")));
+	saveStateButton_ = leftColumnItems->Add(new Choice(i->T("Save State")));
 	saveStateButton_->OnClick.Handle(this, &GamePauseScreen::OnSaveState);
 
-	loadStateButton_ = leftColumnItems->Add(new Choice(gs->T("Load State")));
+	loadStateButton_ = leftColumnItems->Add(new Choice(i->T("Load State")));
 	loadStateButton_->OnClick.Handle(this, &GamePauseScreen::OnLoadState);
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
