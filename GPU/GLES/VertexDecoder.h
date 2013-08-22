@@ -104,7 +104,7 @@ public:
 	u32 InjectUVs(u8 *decoded, const void *verts, float *customuv, int count) const;
 
 	bool hasColor() const { return col != 0; }
-	int VertexSize() const { return size; }
+	int VertexSize() const { return size; }  // PSP format size
 
 	void Step_WeightsU8() const;
 	void Step_WeightsU16() const;

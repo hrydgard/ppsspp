@@ -7,6 +7,7 @@ set(SRCS
 	GLES/Framebuffer.cpp
 	GLES/IndexGenerator.cpp
 	GLES/ShaderManager.cpp
+	GLES/Spline.cpp
 	GLES/StateMapping.cpp
 	GLES/TextureCache.cpp
 	GLES/TextureScaler.cpp

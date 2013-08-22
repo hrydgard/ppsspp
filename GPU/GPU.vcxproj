@@ -172,6 +172,7 @@
     <ClCompile Include="GLES\Framebuffer.cpp" />
     <ClCompile Include="GLES\IndexGenerator.cpp" />
     <ClCompile Include="GLES\ShaderManager.cpp" />
+    <ClCompile Include="GLES\Spline.cpp" />
     <ClCompile Include="GLES\StateMapping.cpp" />
     <ClCompile Include="GLES\TextureCache.cpp" />
     <ClCompile Include="GLES\TextureScaler.cpp" />

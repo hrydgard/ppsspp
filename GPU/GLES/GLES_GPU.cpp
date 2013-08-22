@@ -515,11 +515,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	case GE_CMD_SPLINE:
 		{
+			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+			void *indices = Memory::GetPointer(gstate_c.indexAddr);
 			int sp_ucount = data & 0xFF;
 			int sp_vcount = (data >> 8) & 0xFF;
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
-			transformDraw_.DrawSpline(sp_ucount, sp_vcount, sp_utype, sp_vtype);
+			int patchPrim = gstate.patchprimitive & 3;
+			transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
 		}
 		break;
 

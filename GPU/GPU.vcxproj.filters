@@ -150,6 +150,7 @@
     <ClCompile Include="GLES\GLES_GPU.cpp">
       <Filter>GLES</Filter>
     </ClCompile>
+    <ClCompile Include="GLES\Spline.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

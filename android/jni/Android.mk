@@ -181,6 +181,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/GPU/GLES/VertexShaderGenerator.cpp.arm \
   $(SRC)/GPU/GLES/FragmentShaderGenerator.cpp.arm \
   $(SRC)/GPU/GLES/TextureScaler.cpp \
+  $(SRC)/GPU/GLES/Spline.cpp \
   $(SRC)/GPU/Null/NullGpu.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \

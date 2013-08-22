@@ -129,7 +129,7 @@ void VertexDecoder::Step_WeightsU8() const
 
 void VertexDecoder::Step_WeightsU16() const
 {
-	u16 *wt = (u16 *)(decoded_  + decFmt.w0off);
+	u16 *wt = (u16 *)(decoded_ + decFmt.w0off);
 	const u16 *wdata = (const u16*)(ptr_);
 	int j;
 	for (j = 0; j < nweights; j++)
