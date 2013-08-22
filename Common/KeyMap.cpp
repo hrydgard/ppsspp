@@ -20,6 +20,7 @@
 #include "../Core/Config.h"
 #include "base/NativeApp.h"
 #include "KeyMap.h"
+#include "../Core/HLE/sceUtility.h"
 
 namespace KeyMap {
 
@@ -205,6 +206,30 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
 };
 
+void UpdateConfirmCancelKeys() {
+	std::vector<keycode_t> confirm, cancel;
+
+	int confirmBtns = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
+	int cancelBtns = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+
+	for(auto i = g_controllerMap[confirmBtns].begin(); i != g_controllerMap[confirmBtns].end(); ++i)
+	{
+		confirm.push_back((keycode_t)i->keyCode);
+	}
+
+	for(auto i = g_controllerMap[cancelBtns].begin(); i != g_controllerMap[cancelBtns].end(); ++i)
+	{
+		cancel.push_back((keycode_t)i->keyCode);
+	}
+
+	cancel.push_back(NKCODE_SPACE);
+	cancel.push_back(NKCODE_ESCAPE);
+	cancel.push_back(NKCODE_BACK);
+	cancel.push_back(NKCODE_EXT_MOUSEBUTTON_2);
+
+	SetConfirmCancelKeys(confirm, cancel);
+}
+
 static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, int count, bool replace) {
 	for (size_t i = 0; i < count; i++) {
 		if (array[i].direction == 0)
@@ -235,6 +260,8 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		SetDefaultKeyMap(DEVICE_ID_DEFAULT, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);
 		break;
 	}
+
+	UpdateConfirmCancelKeys();
 }
 
 const KeyMap_IntStrPair key_names[] = {
@@ -613,6 +640,8 @@ void SetKeyMapping(int btn, KeyDef key, bool replace) {
 		}
 		g_controllerMap[btn].push_back(key);
 	}
+
+	UpdateConfirmCancelKeys();
 }
 
 void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace) {
@@ -674,7 +703,8 @@ void LoadFromIni(IniFile &file) {
 			SetKeyMapping(psp_button_names[i].key, KeyDef(deviceId, keyCode), false);
 		}
 	}
-	return;
+
+	UpdateConfirmCancelKeys();
 }
 
 void SaveToIni(IniFile &file) {
