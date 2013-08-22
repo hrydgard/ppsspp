@@ -222,11 +222,14 @@ void UpdateConfirmCancelKeys() {
 		cancelKeys.push_back((keycode_t)i->keyCode);
 	}
 
+	// Push several hard-coded keys before submitting to native.
+	if(std::find(cancelKeys.begin(), cancelKeys.end(), NKCODE_ENTER) == cancelKeys.end())
+		confirmKeys.push_back(NKCODE_ENTER);
+
 	const keycode_t hardcodedCancelKeys[] = { 
 		NKCODE_SPACE, 
 		NKCODE_ESCAPE, 
 		NKCODE_BACK, 
-		NKCODE_EXT_MOUSEBUTTON_2 
 	};
 
 	// If they're not already bound, add them in.
