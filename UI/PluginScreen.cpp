@@ -56,6 +56,7 @@ void PluginScreen::CreateViews() {
 	scroll->Add(scrollContents);
 
 	tvDescription_ = scrollContents->Add(new TextView("Looking for download...", ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins)));
+	tvDescription_ = scrollContents->Add(new TextView(p->T("Looking for download..."), ALIGN_LEFT, 1.0f, new LinearLayoutParams(textMargins)));
 
 	const char *legalityNotice =
 		p->T("Origins are dubious", "* Mai's Atrac3+ decoder is currently required\n"
