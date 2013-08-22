@@ -384,7 +384,12 @@ int sceNetAdhocctlGetScanInfo() {
 }
 
 int sceNetAdhocctlConnect(u32 ptrToGroupName) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlConnect(%x)", ptrToGroupName);
+	if (Memory::IsValidAddress(ptrToGroupName))
+	{
+		ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlConnect(groupName=%s)", Memory::GetCharPointer(ptrToGroupName));
+	}
+	else
+		ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlConnect(%x)", ptrToGroupName);
 	__UpdateAdhocctlHandlers(0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF);
 
 	return 0;
