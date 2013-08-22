@@ -21,6 +21,7 @@
 #include "base/NativeApp.h"
 #include "KeyMap.h"
 #include "../Core/HLE/sceUtility.h"
+
 #include <algorithm>
 
 
@@ -223,7 +224,7 @@ void UpdateConfirmCancelKeys() {
 	}
 
 	// Push several hard-coded keys before submitting to native.
-	if(std::find(cancelKeys.begin(), cancelKeys.end(), NKCODE_ENTER) == cancelKeys.end())
+	if(std::find(confirmKeys.begin(), confirmKeys.end(), NKCODE_ENTER) == confirmKeys.end())
 		confirmKeys.push_back(NKCODE_ENTER);
 
 	const keycode_t hardcodedCancelKeys[] = { 
