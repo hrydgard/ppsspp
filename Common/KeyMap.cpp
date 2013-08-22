@@ -20,6 +20,10 @@
 #include "../Core/Config.h"
 #include "base/NativeApp.h"
 #include "KeyMap.h"
+#include "../Core/HLE/sceUtility.h"
+
+#include <algorithm>
+
 
 namespace KeyMap {
 
@@ -205,6 +209,45 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
 };
 
+void UpdateConfirmCancelKeys() {
+	std::vector<keycode_t> confirmKeys, cancelKeys;
+
+	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
+	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
+
+	for(auto i = g_controllerMap[confirmKey].begin(); i != g_controllerMap[confirmKey].end(); ++i) {
+		confirmKeys.push_back((keycode_t)i->keyCode);
+	}
+
+	for(auto i = g_controllerMap[cancelKey].begin(); i != g_controllerMap[cancelKey].end(); ++i) {
+		cancelKeys.push_back((keycode_t)i->keyCode);
+	}
+
+	// Push several hard-coded keys before submitting to native.
+	const keycode_t hardcodedConfirmKeys[] = { 
+		NKCODE_SPACE, 
+		NKCODE_ENTER,
+	};
+
+	// If they're not already bound, add them in.
+	for(int i = 0; i < ARRAY_SIZE(hardcodedConfirmKeys); i++) {
+		if(std::find(confirmKeys.begin(), confirmKeys.end(), hardcodedConfirmKeys[i]) == confirmKeys.end())
+			confirmKeys.push_back(hardcodedConfirmKeys[i]);
+	}
+
+	const keycode_t hardcodedCancelKeys[] = { 
+		NKCODE_ESCAPE, 
+		NKCODE_BACK, 
+	};
+
+	for(int i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
+		if(std::find(cancelKeys.begin(), cancelKeys.end(), hardcodedCancelKeys[i]) == cancelKeys.end())
+			cancelKeys.push_back(hardcodedCancelKeys[i]);
+	}
+
+	SetConfirmCancelKeys(confirmKeys,cancelKeys);
+}
+
 static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, int count, bool replace) {
 	for (size_t i = 0; i < count; i++) {
 		if (array[i].direction == 0)
@@ -235,6 +278,8 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		SetDefaultKeyMap(DEVICE_ID_DEFAULT, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);
 		break;
 	}
+
+	UpdateConfirmCancelKeys();
 }
 
 const KeyMap_IntStrPair key_names[] = {
@@ -613,6 +658,8 @@ void SetKeyMapping(int btn, KeyDef key, bool replace) {
 		}
 		g_controllerMap[btn].push_back(key);
 	}
+
+	UpdateConfirmCancelKeys();
 }
 
 void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool replace) {
@@ -674,7 +721,8 @@ void LoadFromIni(IniFile &file) {
 			SetKeyMapping(psp_button_names[i].key, KeyDef(deviceId, keyCode), false);
 		}
 	}
-	return;
+
+	UpdateConfirmCancelKeys();
 }
 
 void SaveToIni(IniFile &file) {
