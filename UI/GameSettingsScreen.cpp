@@ -477,18 +477,9 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 	char name[name_len];
 	memset(name, 0, sizeof(name));
 
-	size_t default_len = strlen(g_Config.sNickName.c_str());
-
-	char *defaultVal = new char[default_len];
-	memset(defaultVal, 0, sizeof(default_len));
-	strcat(defaultVal, g_Config.sNickName.c_str());
-
-	if (host->InputBoxGetString("Enter a new PSP nickname", defaultVal, name, name_len)) {
+	if (host->InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
 		g_Config.sNickName = name;
 	}
-
-	delete [] defaultVal;
-	defaultVal = NULL;
 
 	#endif
 	return UI::EVENT_DONE;

@@ -59,7 +59,7 @@ bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defa
 		return false;
 }
 
-bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defaultvalue, TCHAR *outvalue, size_t outlength)
+bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, const TCHAR *defaultvalue, TCHAR *outvalue, size_t outlength)
 {
 	const char *defaultTitle = "Input value";
 	defaultSelected = true;
