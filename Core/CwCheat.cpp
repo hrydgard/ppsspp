@@ -10,6 +10,7 @@
 const static std::string CHEATS_DIR = "cheats";
 static int CheatEvent = -1;
 std::string gameTitle;
+std::string activeCheatFile;
 static CWCheatEngine *cheatEngine;
 void hleCheat(u64 userdata, int cyclesLate);
 void trim2(std::string& str);
@@ -73,7 +74,6 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 	initialCodesList = GetCodesList();
 	std::string currentcode, codename;
 	std::vector<std::string> codelist;
-
 	for (size_t i = 0; i < initialCodesList.size(); i ++) {
 		if (initialCodesList[i].substr(0,2) == "_S") {
 			continue; //Line indicates Disc ID, not needed for cheats

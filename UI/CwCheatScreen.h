@@ -21,7 +21,9 @@
 #include "ui/ui_context.h"
 #include "../Core/CwCheat.h"
 #include "UI/MiscScreens.h"
+#include "UI/GameSettingsScreen.h"
 using namespace UI;
+extern std::string activeCheatFile;
 
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
@@ -33,13 +35,15 @@ public:
 	void processFileOff(std::string deactivatedCheat);
 	const char * name;
 	std::string activatedCheat, deactivatedCheat;
+	UI::EventReturn OnBack(UI::EventParams &params);
 protected:
 	virtual void CreateViews();
 
 private:
 	UI::EventReturn OnCheckBox(UI::EventParams &params);
+	
 	bool enableCheat [64];
-	std::vector<std::string> cheatList, formattedList;
+	std::vector<std::string> formattedList;
 	std::vector<int> locations;
 	
 };
@@ -57,12 +61,14 @@ public:
 		if (toggle_) {
 			*toggle_ = !(*toggle_);
 		}
-		if (*toggle_ == true)
+		bool temp;
+		temp = *toggle_;
+		if (temp == 1)
 		{
 			activatedCheat = text_;
 			processFileOn(activatedCheat);
 		}
-		if (*toggle_ == false)
+		if (temp == 0)
 		{
 			deactivatedCheat = text_;
 			processFileOff(deactivatedCheat);
