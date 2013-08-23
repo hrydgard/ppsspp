@@ -1788,7 +1788,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		break;
 
 	//Unknown command, always expects return value of 1 according to JPCSP, used by Pangya Fantasy Golf.
-	case 0x1f30003:
+	case 0x01f30003:
 		INFO_LOG(HLE, "sceIoIoCtl: Unknown cmd %08x always returns 1", cmd);
 		if(inlen != 4 || outlen != 1 || Memory::Read_U32(indataPtr) != outlen) {
 			INFO_LOG(HLE, "sceIoIoCtl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outlen %08x has invalid parameters", id, cmd, indataPtr, inlen, outdataPtr, outlen);
@@ -1936,9 +1936,15 @@ void Register_IoFileMgrForUser() {
 const HLEFunction StdioForUser[] = {
 	{ 0x172D316E, &WrapU_V<sceKernelStdin>, "sceKernelStdin" },
 	{ 0xA6BAB2E9, &WrapU_V<sceKernelStdout>, "sceKernelStdout" },
-	{ 0xF78BA90A, &WrapU_V<sceKernelStderr>, "sceKernelStderr" }, 
+	{ 0xF78BA90A, &WrapU_V<sceKernelStderr>, "sceKernelStderr" },
 	{ 0x432D8F5C, &WrapU_U<sceKernelRegisterStdoutPipe>, "sceKernelRegisterStdoutPipe" },
 	{ 0x6F797E03, &WrapU_U<sceKernelRegisterStderrPipe>, "sceKernelRegisterStderrPipe" },
+	{ 0xa46785c9, 0, "sceKernelStdioSendChar" },
+	{ 0x0cbb0571, 0, "sceKernelStdioLseek" },
+	{ 0x3054d478, 0, "sceKernelStdioRead" },
+	{ 0xa3b931db, 0, "sceKernelStdioWrite" },
+	{ 0x924aba61, 0, "sceKernelStdioOpen" },
+	{ 0x9d061c19, 0, "sceKernelStdioClose" },
 };
 
 void Register_StdioForUser() {

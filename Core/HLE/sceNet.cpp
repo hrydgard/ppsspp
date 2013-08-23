@@ -682,8 +682,11 @@ const HLEFunction sceNetApctl[] = {
 	{0xb3edd0ec, WrapI_V<sceNetApctlTerm>, "sceNetApctlTerm"},
 	{0x2BEFDF23, 0, "sceNetApctlGetInfo"},
 	{0xa3e77e13, 0, "sceNetApctlScanSSID2"},
+	{0xe9b2e5e6, 0, "sceNetApctlScanUser"},
 	{0xf25a5006, 0, "sceNetApctlGetBSSDescIDList2"},
 	{0x2935c45b, 0, "sceNetApctlGetBSSDescEntry2"},
+	{0x04776994, 0, "sceNetApctlGetBSSDescEntryUser"},
+	{0x6bddcb8c, 0, "sceNetApctlGetBSSDescIDListUser"},
 };
 
 const HLEFunction sceWlanDrv[] = {

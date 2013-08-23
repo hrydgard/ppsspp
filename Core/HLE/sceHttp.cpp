@@ -304,6 +304,7 @@ const HLEFunction sceHttp[] = {
 	{0x1F0FC3E3,WrapI_IU<sceHttpSetRecvTimeOut>,"sceHttpSetRecvTimeOut"},
 	{0xDB266CCF,WrapI_IUU<sceHttpGetAllHeader>,"sceHttpGetAllHeader"},
 	{0x0282A3BD,WrapI_IU64<sceHttpGetContentLength>,"sceHttpGetContentLength"},
+	{0x7774bf4c,0,"sceHttpAddCookie"},
 	{0x68AB0F86,0,"sceHttpsInitWithPath"},
 	{0xB3FAF831,0,"sceHttpsDisableOption"},
 	{0x2255551E,0,"sceHttpGetNetworkPspError"},

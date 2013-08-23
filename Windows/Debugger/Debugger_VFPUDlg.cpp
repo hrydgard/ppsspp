@@ -167,7 +167,7 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					for (int row = 0; row<4; row++)
 					{
 						float val = mipsr4k.v[column*32+row+matrix*4];
-						u32 hex = *((u32*)&val);
+						u32 hex = mipsr4k.vi[column*32+row+matrix*4];
 						switch (mode)
 						{
 						case 0: temp_len = sprintf_s(temp,"%f",val); break;

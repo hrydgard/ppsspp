@@ -655,19 +655,19 @@ void sceKernelSetCompiledSdkVersion(int sdkVersion)
 	bool valiSDK = false;
 	switch(sdkMainVersion)
 	{
-	case 0x1000000:
-	case 0x1050000:
-	case 0x2000000:
-	case 0x2050000:
-	case 0x2060000:
-	case 0x2070000:
-	case 0x2080000:
-	case 0x3000000:
-	case 0x3010000:
-	case 0x3030000:
-	case 0x3040000:
-	case 0x3050000:
-	case 0x3060000:
+	case 0x01000000:
+	case 0x01050000:
+	case 0x02000000:
+	case 0x02050000:
+	case 0x02060000:
+	case 0x02070000:
+	case 0x02080000:
+	case 0x03000000:
+	case 0x03010000:
+	case 0x03030000:
+	case 0x03040000:
+	case 0x03050000:
+	case 0x03060000:
 		valiSDK = true;
 		break;
 	default:
@@ -690,7 +690,7 @@ void sceKernelSetCompiledSdkVersion(int sdkVersion)
 void sceKernelSetCompiledSdkVersion370(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x3070000)
+	if(sdkMainVersion == 0x03070000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
@@ -705,7 +705,7 @@ void sceKernelSetCompiledSdkVersion370(int sdkVersion)
 void sceKernelSetCompiledSdkVersion380_390(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x3080000 || sdkMainVersion == 0x3090000)
+	if(sdkMainVersion == 0x03080000 || sdkMainVersion == 0x03090000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
@@ -720,11 +720,11 @@ void sceKernelSetCompiledSdkVersion380_390(int sdkVersion)
 void sceKernelSetCompiledSdkVersion395(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFFFF00;
-	if(sdkMainVersion == 0x4000000
-			|| sdkMainVersion == 0x4000100
-			|| sdkMainVersion == 0x4000500
-			|| sdkMainVersion == 0x3090500
-			|| sdkMainVersion == 0x3090600)
+	if(sdkMainVersion == 0x04000000
+			|| sdkMainVersion == 0x04000100
+			|| sdkMainVersion == 0x04000500
+			|| sdkMainVersion == 0x03090500
+			|| sdkMainVersion == 0x03090600)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
@@ -739,9 +739,9 @@ void sceKernelSetCompiledSdkVersion395(int sdkVersion)
 void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x6010000
-			|| sdkMainVersion == 0x6000000
-			|| sdkMainVersion == 0x6020000)
+	if(sdkMainVersion == 0x06010000
+			|| sdkMainVersion == 0x06000000
+			|| sdkMainVersion == 0x06020000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
@@ -756,8 +756,8 @@ void sceKernelSetCompiledSdkVersion600_602(int sdkVersion)
 void sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x5000000
-			|| sdkMainVersion == 0x5050000)
+	if(sdkMainVersion == 0x05000000
+			|| sdkMainVersion == 0x05050000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
@@ -772,8 +772,8 @@ void sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 void sceKernelSetCompiledSdkVersion401_402(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x4010000
-			|| sdkMainVersion == 0x4020000)
+	if(sdkMainVersion == 0x04010000
+			|| sdkMainVersion == 0x04020000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
@@ -788,7 +788,7 @@ void sceKernelSetCompiledSdkVersion401_402(int sdkVersion)
 void sceKernelSetCompiledSdkVersion507(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x5070000)
+	if(sdkMainVersion == 0x05070000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
@@ -803,9 +803,9 @@ void sceKernelSetCompiledSdkVersion507(int sdkVersion)
 void sceKernelSetCompiledSdkVersion603_605(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x6040000
-			|| sdkMainVersion == 0x6030000
-			|| sdkMainVersion == 0x6050000)
+	if(sdkMainVersion == 0x06040000
+			|| sdkMainVersion == 0x06030000
+			|| sdkMainVersion == 0x06050000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
@@ -820,7 +820,7 @@ void sceKernelSetCompiledSdkVersion603_605(int sdkVersion)
 void sceKernelSetCompiledSdkVersion606(int sdkVersion)
 {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if(sdkMainVersion == 0x6060000)
+	if(sdkMainVersion == 0x06060000)
 	{
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;

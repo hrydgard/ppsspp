@@ -264,7 +264,7 @@ namespace MIPSInt
 		if (mipsr4k.inDelaySlot)
 			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
 
-		u32 off = ((op & 0x3FFFFFF) << 2);
+		u32 off = ((op & 0x03FFFFFF) << 2);
 		u32 addr = (currentMIPS->pc & 0xF0000000) | off;
 
 		switch (op>>26) 

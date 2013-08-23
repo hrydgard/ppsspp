@@ -964,7 +964,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 
-	u8 *temp = new u8[(int)info.size + 0x1000000];
+	u8 *temp = new u8[(int)info.size + 0x01000000];
 
 	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
 
@@ -1514,6 +1514,8 @@ const HLEFunction ModuleMgrForUser[] =
 	{0xfef27dc1,&WrapU_CU<sceKernelLoadModuleDNAS> , "sceKernelLoadModuleDNAS"},
 	{0x644395e2,0,"sceKernelGetModuleIdList"},
 	{0xf2d8d1b4,&WrapU_CUU<sceKernelLoadModuleNpDrm>,"sceKernelLoadModuleNpDrm"},
+	{0xe4c4211c,0,"ModuleMgrForUser_E4C4211C"},
+	{0xfbe27467,0,"ModuleMgrForUser_FBE27467"},
 };
 
 

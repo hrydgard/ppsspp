@@ -128,14 +128,40 @@ const HLEFunction IoFileMgrForKernel[] =
 	{0xe3eb004c, 0, "sceIoDread"},
 	{0xeb092469, 0, "sceIoDclose"},
 	{0x109f50bc, 0, "sceIoOpen"},
+	{0x6a638d83, 0, "sceIoRead"},
+	{0x42ec03ac, 0, "sceIoWrite"},
+	{0x68963324, 0, "sceIoLseek32"},
+	{0x27eb27b8, 0, "sceIoLseek"},
 	{0x810c4bc3, 0, "sceIoClose"},
 	{0x779103a0, 0, "sceIoRename"},
+	{0xf27a9c51, 0, "sceIoRemove"},
+	{0x55f4717d, 0, "sceIoChdir"},
+	{0x06a70004, 0, "sceIoMkdir"},
+	{0x1117c65f, 0, "sceIoRmdir"},
+	{0x54f5fb11, 0, "sceIoDevctl"},
+	{0x63632449, 0, "sceIoIoctl"},
+	{0xab96437f, 0, "sceIoSync"},
+	{0xb2a628c1, 0, "sceIoAssign"},
+	{0x6d08a871, 0, "sceIoUnassign"},
+	{0xace946e8, 0, "sceIoGetstat"},
+	{0xb8a740f4, 0, "sceIoChstat"},
+	{0xa0b5a7c2, 0, "sceIoReadAsync"},
+	{0x3251ea56, 0, "sceIoPollAsync"},
+	{0xe23eec33, 0, "sceIoWaitAsync"},
+	{0x35dbd746, 0, "sceIoWaitAsyncCB"},
+	{0xbd17474f, 0, "IoFileMgrForKernel_BD17474F"},
+	{0x76da16e3, 0, "IoFileMgrForKernel_76DA16E3"},
 };
 const HLEFunction StdioForKernel[] = 
 {
 	{0x98220F3E, 0, "sceKernelStdoutReopen"},
 	{0xFB5380C5, 0, "sceKernelStderrReopen"},
+	{0xcab439df, 0, "printf"},
 	{0x2CCF071A, 0, "fdprintf"},
+	{0xd97c8cb9, 0, "puts"},
+	{0x172D316E, 0, "sceKernelStdin"},
+	{0xA6BAB2E9, 0, "sceKernelStdout"},
+	{0xF78BA90A, 0, "sceKernelStderr"},
 };
 const HLEFunction LoadCoreForKernel[] = 
 {
@@ -169,6 +195,7 @@ const HLEFunction LoadCoreForKernel[] =
 	{0x82CE54ED, 0, "sceKernelModuleCount"},
 	{0xC0584F0C, 0, "sceKernelGetModuleList"},
 	{0xCF8A41B1, WrapU_C<sceKernelFindModuleByName>,"sceKernelFindModuleByName"},
+	{0xb95fa50d, 0, "LoadCoreForKernel_B95FA50D"},
 };
 
 
