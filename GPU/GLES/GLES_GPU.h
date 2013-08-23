@@ -88,7 +88,8 @@ private:
 	TransformDrawEngine transformDraw_;
 	ShaderManager *shaderManager_;
 
-	u8 *flushBeforeCommand_;
+	u8 *commandFlags_;
+
 	bool resized_;
 	int lastVsync_;
 
