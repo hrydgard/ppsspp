@@ -48,9 +48,6 @@
 #include "math.h"
 
 #ifdef PANDORA
-SDL_Joystick    *ljoy = NULL;
-SDL_Joystick    *rjoy = NULL;
-
 void enable_runfast()
 {
 	static const unsigned int x = 0x04086060;
@@ -189,6 +186,12 @@ void EGL_Close() {
 	g_eglSurface = NULL;
 	g_eglContext = NULL;
 }
+#else
+#endif
+
+#ifdef PANDORA
+SDL_Joystick    *ljoy = NULL;
+SDL_Joystick    *rjoy = NULL;
 #else
 SDL_Joystick *joy = NULL;
 #endif

@@ -8,7 +8,9 @@
 #else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#ifndef MAEMO
 #include <EGL/egl.h>
+#endif
 
 #endif
 #else // OpenGL
