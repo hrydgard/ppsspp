@@ -710,7 +710,20 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_SPLINE:
 		{
 			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
-			void *indices = Memory::GetPointer(gstate_c.indexAddr);
+			void *indices = NULL;
+			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+					ERROR_LOG(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					break;
+				}
+				indices = Memory::GetPointer(gstate_c.indexAddr);
+			}
+
+			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+				ERROR_LOG(G3D, "Unsupported patch primitive %x", gstate.patchprimitive&3);
+				break;
+			}
+			
 			int sp_ucount = data & 0xFF;
 			int sp_vcount = (data >> 8) & 0xFF;
 			int sp_utype = (data >> 16) & 0x3;
