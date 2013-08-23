@@ -1002,7 +1002,6 @@ add_library(GPU OBJECT
 	GPU/GLES/ShaderManager.cpp
 	GPU/GLES/ShaderManager.h
 	GPU/GLES/Spline.cpp
-	GPU/GLES/Spline.h
 	GPU/GLES/StateMapping.cpp
 	GPU/GLES/StateMapping.h
 	GPU/GLES/TextureCache.cpp

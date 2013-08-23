@@ -11,11 +11,14 @@
 #include "base/NativeApp.h"
 #include "UI/EmuScreen.h"
 #include "UI/UIShader.h"
+#include "UI/GameInfoCache.h"
+#include "UI/PluginScreen.h"
+#include "UI/OnScreenDisplay.h"
 #include "UI/ui_atlas.h"
+#include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "GPU/ge_constants.h"
 #include "EmuThread.h"
-#include "UI/GameInfoCache.h"
 
 const char *stateToLoad = NULL;
 
@@ -349,8 +352,8 @@ void NativeInitGraphics()
 	theme.uiFont = UBUNTU24;
 	theme.uiFontSmall = UBUNTU24;
 	theme.uiFontSmaller = UBUNTU24;
-	theme.buttonImage = I_BUTTON;
-	theme.buttonSelected = I_BUTTON_SELECTED;
+	theme.buttonImage = I_SOLIDWHITE;  // not using classic buttons
+	theme.buttonSelected = I_SOLIDWHITE;
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
