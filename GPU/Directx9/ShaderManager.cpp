@@ -79,24 +79,36 @@ VSShader::~VSShader() {
 		shader->Release();
 }
 
+
+// Helper
+D3DXHANDLE LinkedShader::GetConstantByName(LPCSTR pName) {
+	D3DXHANDLE ret = NULL;
+	if ((ret = m_fs->constant->GetConstantByName(NULL, pName)) != NULL)  {
+	} else if ((ret = m_vs->constant->GetConstantByName(NULL, pName)) != NULL)  {}
+	return ret;
+}
+
 LinkedShader::LinkedShader(VSShader *vs, PSShader *fs, bool useHWTransform)
 		:dirtyUniforms(0), useHWTransform_(useHWTransform) {
 	
 	INFO_LOG(G3D, "Linked shader: vs %i fs %i", (int)vs->shader, (int)fs->shader);
 
-	u_tex = fs->constant->GetConstantByName(NULL, "tex");
-	u_proj = vs->constant->GetConstantByName(NULL, "u_proj");
-	u_proj_through = vs->constant->GetConstantByName(NULL, "u_proj_through");
-	u_texenv = fs->constant->GetConstantByName(NULL, "u_texenv");
-	u_fogcolor = fs->constant->GetConstantByName(NULL, "u_fogcolor");
-	u_fogcoef = fs->constant->GetConstantByName(NULL, "u_fogcoef");
-	u_alphacolorref = fs->constant->GetConstantByName(NULL, "u_alphacolorref");
-	u_colormask = fs->constant->GetConstantByName(NULL, "u_colormask");
+	m_vs = vs;
+	m_fs = fs;
+
+	u_tex = GetConstantByName("tex");
+	u_proj = GetConstantByName("u_proj");
+	u_proj_through = GetConstantByName("u_proj_through");
+	u_texenv = GetConstantByName("u_texenv");
+	u_fogcolor = GetConstantByName("u_fogcolor");
+	u_fogcoef = GetConstantByName("u_fogcoef");
+	u_alphacolorref = GetConstantByName("u_alphacolorref");
+	u_colormask = GetConstantByName("u_colormask");
 
 	// Transform
-	u_view = vs->constant->GetConstantByName(NULL, "u_view");
-	u_world = vs->constant->GetConstantByName(NULL, "u_world");
-	u_texmtx = vs->constant->GetConstantByName(NULL, "u_texmtx");
+	u_view = GetConstantByName("u_view");
+	u_world = GetConstantByName("u_world");
+	u_texmtx = GetConstantByName("u_texmtx");
 
 	numBones = gstate.getNumBoneWeights();
 #ifdef USE_BONE_ARRAY
@@ -106,36 +118,36 @@ LinkedShader::LinkedShader(VSShader *vs, PSShader *fs, bool useHWTransform)
 		char name[10];
 		sprintf(name, "u_bone%i", i);
 		// u_bone[i] = glGetUniformLocation(program, name);
-		u_bone[i] = vs->constant->GetConstantByName(NULL, name);
+		u_bone[i] = GetConstantByName(name);
 	}
 #endif
 
 	// Lighting, texturing
-	u_ambient = vs->constant->GetConstantByName(NULL, "u_ambient");
-	u_matambientalpha = vs->constant->GetConstantByName(NULL, "u_matambientalpha");
-	u_matdiffuse = vs->constant->GetConstantByName(NULL, "u_matdiffuse");
-	u_matspecular = vs->constant->GetConstantByName(NULL, "u_matspecular");
-	u_matemissive = vs->constant->GetConstantByName(NULL, "u_matemissive");
-	u_uvscaleoffset = vs->constant->GetConstantByName(NULL, "u_uvscaleoffset");
+	u_ambient =			GetConstantByName("u_ambient");
+	u_matambientalpha = GetConstantByName("u_matambientalpha");
+	u_matdiffuse =		GetConstantByName("u_matdiffuse");
+	u_matspecular =		GetConstantByName("u_matspecular");
+	u_matemissive =		GetConstantByName("u_matemissive");
+	u_uvscaleoffset =	GetConstantByName("u_uvscaleoffset");
 
 	for (int i = 0; i < 4; i++) {
 		char temp[64];
 		sprintf(temp, "u_lightpos%i", i);
-		u_lightpos[i] = vs->constant->GetConstantByName(NULL, temp);
+		u_lightpos[i] = GetConstantByName(temp);
 		sprintf(temp, "u_lightdir%i", i);
-		u_lightdir[i] = vs->constant->GetConstantByName(NULL, temp);
+		u_lightdir[i] = GetConstantByName(temp);
 		sprintf(temp, "u_lightatt%i", i);
-		u_lightatt[i] = vs->constant->GetConstantByName(NULL, temp);
+		u_lightatt[i] = GetConstantByName(temp);
 		sprintf(temp, "u_lightangle%i", i);
-		u_lightangle[i] = vs->constant->GetConstantByName(NULL, temp);
+		u_lightangle[i] = GetConstantByName(temp);
 		sprintf(temp, "u_lightspotCoef%i", i);
-		u_lightspotCoef[i] = vs->constant->GetConstantByName(NULL, temp);
+		u_lightspotCoef[i] = GetConstantByName(temp);
 		sprintf(temp, "u_lightambient%i", i);
-		u_lightambient[i] = vs->constant->GetConstantByName(NULL, temp);
+		u_lightambient[i] = GetConstantByName(temp);
 		sprintf(temp, "u_lightdiffuse%i", i);
-		u_lightdiffuse[i] = vs->constant->GetConstantByName(NULL, temp);
+		u_lightdiffuse[i] = GetConstantByName(temp);
 		sprintf(temp, "u_lightspecular%i", i);
-		u_lightspecular[i] = vs->constant->GetConstantByName(NULL, temp);
+		u_lightspecular[i] = GetConstantByName(temp);
 	}
 
 	/*
@@ -153,9 +165,6 @@ LinkedShader::LinkedShader(VSShader *vs, PSShader *fs, bool useHWTransform)
 	pD3Ddevice->SetPixelShader(fs->shader);
 	pD3Ddevice->SetVertexShader(vs->shader);
 
-	m_vs = vs;
-	m_fs = fs;
-
 	// Default uniform values
 	//glUniform1i(u_tex, 0);
 	// The rest, use the "dirty" mechanism.
@@ -167,67 +176,6 @@ LinkedShader::~LinkedShader() {
 //	glDeleteProgram(program);
 }
 
-// Utility
-static void SetColorUniform3(LPD3DXCONSTANTTABLE constant, int uniform, u32 color) {
-	const float col[3] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f
-	};
-	constant->SetFloatArray(pD3Ddevice, uniform, col, 3);
-}
-
-static void SetColorUniform3Alpha(LPD3DXCONSTANTTABLE constant, int uniform, u32 color, u8 alpha) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		alpha/255.0f
-	};
-	//glUniform4fv(uniform, 1, col);
-	constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
-}
-
-// This passes colors unscaled (e.g. 0 - 255 not 0 - 1.)
-static void SetColorUniform3Alpha255(LPD3DXCONSTANTTABLE constant, int uniform, u32 color, u8 alpha) {
-	/*
-	const float col[4] = {
-		(float)((color & 0xFF)),
-		(float)((color & 0xFF00) >> 8),
-		(float)((color & 0xFF0000) >> 16),
-		(float)alpha
-	};
-	*/
-	if (1) {
-		const float col[4] = {
-			(float)((color & 0xFF)) * (1.0f / 255.0f),
-			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
-			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
-			(float)alpha * (1.0f / 255.0f)
-		};
-		constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
-	} else {
-		const float col[4] = {
-			(float)((color & 0xFF)) ,
-			(float)((color & 0xFF00) >> 8) ,
-			(float)((color & 0xFF0000) >> 16) ,
-			(float)alpha 
-		};
-		constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
-	}
-	//glUniform4fv(uniform, 1, col);
-	//constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
-}
-
-static void SetColorUniform3ExtraFloat(LPD3DXCONSTANTTABLE constant, int uniform, u32 color, float extra) {
-	const float col[4] = {
-		((color & 0xFF)) / 255.0f,
-		((color & 0xFF00) >> 8) / 255.0f,
-		((color & 0xFF0000) >> 16) / 255.0f,
-		extra
-	};
-	constant->SetFloatArray(pD3Ddevice, uniform, col, 4);
-}
 
 static void ConvertMatrix4x3To4x4(const float *m4x3, float *m4x4) {
 	m4x4[0] = m4x3[0];
@@ -248,10 +196,83 @@ static void ConvertMatrix4x3To4x4(const float *m4x3, float *m4x4) {
 	m4x4[15] = 1.0f;
 }
 
-static void SetMatrix4x3(LPD3DXCONSTANTTABLE constant, int uniform, const float *m4x3) {
+// Utility
+void LinkedShader::SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3) {
 	float m4x4[16];
 	ConvertMatrix4x3To4x4(m4x3, m4x4);
-	constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4);
+
+	if (m_vs->constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4) == D3D_OK); 
+	else
+		m_fs->constant->SetMatrix(pD3Ddevice, uniform, (D3DXMATRIX*)m4x4);
+}
+
+void LinkedShader::SetMatrix(D3DXHANDLE uniform, const float* pMatrix) {
+	D3DXMATRIX * pDxMat = (D3DXMATRIX*)pMatrix;
+
+	if (m_vs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat) == D3D_OK); 
+	else
+		m_fs->constant->SetMatrix(pD3Ddevice, uniform, pDxMat);
+}
+
+void LinkedShader::SetColorUniform3(D3DXHANDLE uniform, u32 color) {
+	const float col[3] = {
+		((color & 0xFF)) / 255.0f,
+		((color & 0xFF00) >> 8) / 255.0f,
+		((color & 0xFF0000) >> 16) / 255.0f
+	};
+	SetFloatArray(uniform, col, 4);
+}
+
+void LinkedShader::SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra) {
+	const float col[4] = {
+		((color & 0xFF)) / 255.0f,
+		((color & 0xFF00) >> 8) / 255.0f,
+		((color & 0xFF0000) >> 16) / 255.0f,
+		extra
+	};
+	SetFloatArray(uniform, col, 4);
+}
+
+void LinkedShader::SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha) {
+	const float col[4] = {
+		((color & 0xFF)) / 255.0f,
+		((color & 0xFF00) >> 8) / 255.0f,
+		((color & 0xFF0000) >> 16) / 255.0f,
+		alpha/255.0f
+	};
+	SetFloatArray(uniform, col, 4);
+}
+
+void LinkedShader::SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha) {
+	if (1) {
+		const float col[4] = {
+			(float)((color & 0xFF)) * (1.0f / 255.0f),
+			(float)((color & 0xFF00) >> 8) * (1.0f / 255.0f),
+			(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
+			(float)alpha * (1.0f / 255.0f)
+		};
+		SetFloatArray(uniform, col, 4);
+	} else {
+		const float col[4] = {
+			(float)((color & 0xFF)) ,
+			(float)((color & 0xFF00) >> 8) ,
+			(float)((color & 0xFF0000) >> 16) ,
+			(float)alpha 
+		};
+		SetFloatArray(uniform, col, 4);
+	}
+}
+
+void LinkedShader::SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len) {
+	if (m_fs->constant->SetFloatArray(pD3Ddevice, uniform, pArray, len) == D3D_OK); 
+	else
+		m_vs->constant->SetFloatArray(pD3Ddevice, uniform, pArray, len);
+}
+
+void LinkedShader::SetFloat(D3DXHANDLE uniform, float value) {
+	if (m_fs->constant->SetFloat(pD3Ddevice, uniform, value) == D3D_OK); 
+	else
+		m_vs->constant->SetFloat(pD3Ddevice, uniform, value);
 }
 
 void LinkedShader::use() {
@@ -317,7 +338,7 @@ void LinkedShader::updateUniforms() {
 		// Convert matrices !
 		ConvertMatrices(flippedMatrix);
 
-		m_vs->constant->SetMatrix(pD3Ddevice, u_proj, (D3DXMATRIX*)flippedMatrix.getReadPtr());
+		SetMatrix(u_proj, flippedMatrix.getReadPtr());
 	}
 	if (u_proj_through != 0 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX))
 	{
@@ -327,19 +348,19 @@ void LinkedShader::updateUniforms() {
 		// Convert matrices !
 		ConvertMatrices(proj_through);
 
-		m_vs->constant->SetMatrix(pD3Ddevice, u_proj_through, (D3DXMATRIX*)proj_through.getReadPtr());
+		SetMatrix(u_proj_through, proj_through.getReadPtr());
 	}
 	if (u_texenv != 0 && (dirtyUniforms & DIRTY_TEXENV)) {
-		SetColorUniform3(m_fs->constant, u_texenv, gstate.texenvcolor);
+		SetColorUniform3(u_texenv, gstate.texenvcolor);
 	}
 	if (u_alphacolorref != 0 && (dirtyUniforms & DIRTY_ALPHACOLORREF)) {
-		SetColorUniform3Alpha255(m_fs->constant, u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+		SetColorUniform3Alpha255(u_alphacolorref, gstate.getColorTestRef(), gstate.getAlphaTestRef());
 	}
 	if (u_colormask != 0 && (dirtyUniforms & DIRTY_COLORMASK)) {
-		SetColorUniform3(m_fs->constant, u_colormask, gstate.colormask);
+		SetColorUniform3(u_colormask, gstate.colormask);
 	}
 	if (u_fogcolor != 0 && (dirtyUniforms & DIRTY_FOGCOLOR)) {
-		SetColorUniform3(m_fs->constant, u_fogcolor, gstate.fogcolor);
+		SetColorUniform3(u_fogcolor, gstate.fogcolor);
 	}
 	if (u_fogcoef != 0 && (dirtyUniforms & DIRTY_FOGCOEF)) {
 		const float fogcoef[2] = {
@@ -347,7 +368,7 @@ void LinkedShader::updateUniforms() {
 			getFloat24(gstate.fog2),
 		};
 		//glUniform2fv(u_fogcoef, 1, fogcoef);
-		m_fs->constant->SetFloatArray(pD3Ddevice, u_fogcoef, fogcoef, 2);
+		m_vs->constant->SetFloatArray(pD3Ddevice, u_fogcoef, fogcoef, 2);
 	}
 
 	// Texturing
@@ -379,18 +400,18 @@ void LinkedShader::updateUniforms() {
 				uvscaleoff[3] = 0.0f;
 			}
 		}		
-		m_vs->constant->SetFloatArray(pD3Ddevice, u_uvscaleoffset, uvscaleoff, 4);
+		SetFloatArray(u_uvscaleoffset, uvscaleoff, 4);
 	}
 
 	// Transform
 	if (u_world != 0 && (dirtyUniforms & DIRTY_WORLDMATRIX)) {
-		SetMatrix4x3(m_vs->constant, u_world, gstate.worldMatrix);
+		SetMatrix4x3(u_world, gstate.worldMatrix);
 	}
 	if (u_view != 0 && (dirtyUniforms & DIRTY_VIEWMATRIX)) {
-		SetMatrix4x3(m_vs->constant, u_view, gstate.viewMatrix);
+		SetMatrix4x3(u_view, gstate.viewMatrix);
 	}
 	if (u_texmtx != 0 && (dirtyUniforms & DIRTY_TEXMATRIX)) {
-		SetMatrix4x3(m_vs->constant, u_texmtx, gstate.tgenMatrix);
+		SetMatrix4x3(u_texmtx, gstate.tgenMatrix);
 	}
 
 	// TODO: Could even set all bones in one go if they're all dirty.
@@ -426,26 +447,26 @@ void LinkedShader::updateUniforms() {
 			//glUniformMatrix4fv(u_bone[i], 1, GL_FALSE, bonetemp);
 			
 			if (u_bone[i] != 0)
-				m_vs->constant->SetMatrix(pD3Ddevice, u_bone[i], (D3DXMATRIX*)bonetemp);
+				SetMatrix(u_bone[i], bonetemp);
 		}
 	}
 #endif
 
 	// Lighting
 	if (u_ambient != 0 && (dirtyUniforms & DIRTY_AMBIENT)) {
-		SetColorUniform3Alpha(m_vs->constant, u_ambient, gstate.ambientcolor, gstate.getAmbientA());
+		SetColorUniform3Alpha(u_ambient, gstate.ambientcolor, gstate.getAmbientA());
 	}
 	if (u_matambientalpha != 0 && (dirtyUniforms & DIRTY_MATAMBIENTALPHA)) {
-		SetColorUniform3Alpha(m_vs->constant, u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
+		SetColorUniform3Alpha(u_matambientalpha, gstate.materialambient, gstate.getMaterialAmbientA());
 	}
 	if (u_matdiffuse != 0 && (dirtyUniforms & DIRTY_MATDIFFUSE)) {
-		SetColorUniform3(m_vs->constant, u_matdiffuse, gstate.materialdiffuse);
+		SetColorUniform3(u_matdiffuse, gstate.materialdiffuse);
 	}
 	if (u_matemissive != 0 && (dirtyUniforms & DIRTY_MATEMISSIVE)) {
-		SetColorUniform3(m_vs->constant,u_matemissive, gstate.materialemissive);
+		SetColorUniform3(u_matemissive, gstate.materialemissive);
 	}
 	if (u_matspecular != 0 && (dirtyUniforms & DIRTY_MATSPECULAR)) {
-		SetColorUniform3ExtraFloat(m_vs->constant,u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		SetColorUniform3ExtraFloat(u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
 	}
 	for (int i = 0; i < 4; i++) {
 		if (dirtyUniforms & (DIRTY_LIGHT0 << i)) {
@@ -461,30 +482,30 @@ void LinkedShader::updateUniforms() {
 					len = 1.0f / len;
 				float vec[3] = { x * len, y * len, z * len };
 				if (u_lightpos[i] != 0) 
-					m_vs->constant->SetFloatArray(pD3Ddevice, u_lightpos[i], vec, 3);
+					SetFloatArray(u_lightpos[i], vec, 3);
 			} else {
 				if (u_lightpos[i] != 0) 
-					m_vs->constant->SetFloatArray(pD3Ddevice, u_lightpos[i],  gstate_c.lightpos[i], 3);
+					SetFloatArray(u_lightpos[i],  gstate_c.lightpos[i], 3);
 			}
 			if (u_lightdir[i] != 0) 
-				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightdir[i],  gstate_c.lightdir[i], 3);
+				SetFloatArray(u_lightdir[i],  gstate_c.lightdir[i], 3);
 			if (u_lightatt[i] != 0) 
-				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightatt[i],  gstate_c.lightatt[i], 3);
+				SetFloatArray(u_lightatt[i],  gstate_c.lightatt[i], 3);
 				
 			if (u_lightangle[i] != 0) 				
-				m_vs->constant->SetFloat(pD3Ddevice, u_lightangle[i],  gstate_c.lightangle[i]);
+				SetFloat(u_lightangle[i],  gstate_c.lightangle[i]);
 
 			if (u_lightspotCoef[i] != 0) 
-				m_vs->constant->SetFloat(pD3Ddevice, u_lightspotCoef[i],  gstate_c.lightspotCoef[i]);
+				SetFloat(u_lightspotCoef[i],  gstate_c.lightspotCoef[i]);
 
 			if (u_lightambient[i] != 0) 				
-				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightambient[i],  gstate_c.lightColor[0][i], 3);
+				SetFloatArray(u_lightambient[i],  gstate_c.lightColor[0][i], 3);
 
 			if (u_lightdiffuse[i] != 0) 
-				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightdiffuse[i],  gstate_c.lightColor[1][i], 3);
+				SetFloatArray(u_lightdiffuse[i],  gstate_c.lightColor[1][i], 3);
 				
 			if (u_lightspecular[i] != 0) 
-				m_vs->constant->SetFloatArray(pD3Ddevice, u_lightspecular[i],  gstate_c.lightColor[2][i], 3);
+				SetFloatArray(u_lightspecular[i],  gstate_c.lightColor[2][i], 3);
 		}
 	}
 

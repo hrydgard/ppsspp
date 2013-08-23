@@ -28,6 +28,17 @@ class VSShader;
 
 class LinkedShader
 {
+protected:		
+	// Helper
+	D3DXHANDLE GetConstantByName(LPCSTR pName);
+	void SetMatrix4x3(D3DXHANDLE uniform, const float *m4x3);
+	void SetColorUniform3(D3DXHANDLE uniform, u32 color);
+	void SetColorUniform3ExtraFloat(D3DXHANDLE uniform, u32 color, float extra);
+	void SetColorUniform3Alpha(D3DXHANDLE uniform, u32 color, u8 alpha);
+	void SetColorUniform3Alpha255(D3DXHANDLE uniform, u32 color, u8 alpha);
+	void SetMatrix(D3DXHANDLE uniform, const float* pMatrix);
+	void SetFloatArray(D3DXHANDLE uniform, const float* pArray, int len);
+	void SetFloat(D3DXHANDLE uniform, float value);
 public:
 	LinkedShader(VSShader *vs, PSShader *fs, bool useHWTransform);
 	~LinkedShader();
@@ -45,51 +56,51 @@ public:
 	u32 dirtyUniforms;
 
 	// Pre-fetched attrs and uniforms
-	int a_position;
-	int a_color0;
-	int a_color1;
-	int a_texcoord;
-	int a_normal;
-	int a_weight0123;
-	int a_weight4567;
+	D3DXHANDLE a_position;
+	D3DXHANDLE a_color0;
+	D3DXHANDLE a_color1;
+	D3DXHANDLE a_texcoord;
+	D3DXHANDLE a_normal;
+	D3DXHANDLE a_weight0123;
+	D3DXHANDLE a_weight4567;
 
-	int u_tex;
-	int u_proj;
-	int u_proj_through;
-	int u_texenv;
-	int u_view;
-	int u_texmtx;
-	int u_world;
+	D3DXHANDLE u_tex;
+	D3DXHANDLE u_proj;
+	D3DXHANDLE u_proj_through;
+	D3DXHANDLE u_texenv;
+	D3DXHANDLE u_view;
+	D3DXHANDLE u_texmtx;
+	D3DXHANDLE u_world;
 #ifdef USE_BONE_ARRAY
-	int u_bone;  // array, size is numBones
+	D3DXHANDLE u_bone;  // array, size is numBones
 #else
-	int u_bone[8];
+	D3DXHANDLE u_bone[8];
 #endif
-	int numBones;
+	D3DXHANDLE numBones;
 	
 	// Fragment processing inputs
-	int u_alphacolorref;
-	int u_colormask;
-	int u_fogcolor;
-	int u_fogcoef;
+	D3DXHANDLE u_alphacolorref;
+	D3DXHANDLE u_colormask;
+	D3DXHANDLE u_fogcolor;
+	D3DXHANDLE u_fogcoef;
 
 	// Texturing
-	int u_uvscaleoffset;
+	D3DXHANDLE u_uvscaleoffset;
 
 	// Lighting
-	int u_ambient;
-	int u_matambientalpha;
-	int u_matdiffuse;
-	int u_matspecular;
-	int u_matemissive;
-	int u_lightpos[4];
-	int u_lightdir[4];
-	int u_lightatt[4];  // attenuation
-	int u_lightangle[4]; // spotlight cone angle (cosine)
-	int u_lightspotCoef[4]; // spotlight dropoff
-	int u_lightdiffuse[4];  // each light consist of vec4[3]
-	int u_lightspecular[4];  // attenuation
-	int u_lightambient[4];  // attenuation
+	D3DXHANDLE u_ambient;
+	D3DXHANDLE u_matambientalpha;
+	D3DXHANDLE u_matdiffuse;
+	D3DXHANDLE u_matspecular;
+	D3DXHANDLE u_matemissive;
+	D3DXHANDLE u_lightpos[4];
+	D3DXHANDLE u_lightdir[4];
+	D3DXHANDLE u_lightatt[4];  // attenuation
+	D3DXHANDLE u_lightangle[4]; // spotlight cone angle (cosine)
+	D3DXHANDLE u_lightspotCoef[4]; // spotlight dropoff
+	D3DXHANDLE u_lightdiffuse[4];  // each light consist of vec4[3]
+	D3DXHANDLE u_lightspecular[4];  // attenuation
+	D3DXHANDLE u_lightambient[4];  // attenuation
 };
 
 // Will reach 32 bits soon :P
@@ -195,6 +206,7 @@ private:
 		VSShader *vs;
 		PSShader *fs;
 		LinkedShader *ls;
+
 	};
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
@@ -212,4 +224,5 @@ private:
 
 	typedef std::map<VertexShaderID, VSShader *> VSCache;
 	VSCache vsCache;
+
 };
