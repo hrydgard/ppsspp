@@ -130,7 +130,6 @@ public:
 private:
 	void DoFlush();
 	void SoftwareTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex);
-	void MixedTransformAndDraw(int prim, u8 *decoded, LinkedShader *program, int vertexCount, u32 vertexType, void *inds, int indexType, const DecVtxFormat &decVtxFormat, int maxIndex, LPDIRECT3DVERTEXBUFFER9 vb_, LPDIRECT3DINDEXBUFFER9 ib_);
 	void ApplyDrawState(int prim);
 	bool IsReallyAClear(int numVerts) const;
 
@@ -171,13 +170,7 @@ private:
 	TransformedVertex *transformedExpanded;
 
 	std::map<u32, VertexArrayInfo *> vai_;
-
-	// Vertex buffer objects
-	enum { NUM_VBOS = 2 };
-	LPDIRECT3DVERTEXBUFFER9 vb[NUM_VBOS];
-	LPDIRECT3DINDEXBUFFER9 ib[NUM_VBOS];
-	int curVbo_;
-
+	
 	// Other
 	ShaderManager *shaderManager_;
 	TextureCache *textureCache_;
