@@ -281,7 +281,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
                         sprintf(temp, "%s (0x%x b)", symbolMap.GetSymbolName(fn),symbolMap.GetSymbolSize(fn));
 					TextOut(hdc,200,rowY1,temp,(int)strlen(temp));
 
-					SetTextColor(hdc,0x0000000);
+					SetTextColor(hdc,0x000000);
 					
 					if (align==4)
 					{
@@ -464,7 +464,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			else
 			{
 				outputfile = fopen("Ram.dump","wb");		// Could also dump Vram, but not useful for now.
-				fwrite(Memory::GetPointer(0x08800000), 1, 0x1800000, outputfile); 
+				fwrite(Memory::GetPointer(0x08800000), 1, 0x01800000, outputfile);
 				fclose(outputfile);
 				break;
 			}

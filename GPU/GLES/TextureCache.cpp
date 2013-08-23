@@ -130,7 +130,7 @@ void TextureCache::Decimate() {
 }
 
 void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
-	addr &= 0xFFFFFFF;
+	addr &= 0x0FFFFFFF;
 	u32 addr_end = addr + size;
 
 	// They could invalidate inside the texture, let's just give a bit of leeway.

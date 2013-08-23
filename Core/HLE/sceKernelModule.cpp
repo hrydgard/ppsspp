@@ -964,7 +964,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
 
-	u8 *temp = new u8[(int)info.size + 0x1000000];
+	u8 *temp = new u8[(int)info.size + 0x01000000];
 
 	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
 

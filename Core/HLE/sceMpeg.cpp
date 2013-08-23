@@ -617,7 +617,7 @@ u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 i
 		return 0;
 	}
 
-	if (frameWidth == 0) {  // wtf, go sudoku passes in 0xccccccccc
+	if (frameWidth == 0) {  // wtf, go sudoku passes in 0xcccccccc
 		if (!ctx->defaultFrameWidth) {
 			frameWidth = ctx->avc.avcDetailFrameWidth;
 		} else {
