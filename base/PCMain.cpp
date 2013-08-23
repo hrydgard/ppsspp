@@ -387,8 +387,13 @@ int main(int argc, char *argv[]) {
 			pixel_xres = 1024 * zoom;
 			pixel_yres = 768 * zoom;
 		} else {
+#ifdef MAEMO
+			pixel_xres = 800 * zoom;
+			pixel_yres = 480 * zoom;
+#else
 			pixel_xres = 960 * zoom;
 			pixel_yres = 544 * zoom;
+#endif
 		}
 	} else {
 		// PC development hack for more space
@@ -401,8 +406,13 @@ int main(int argc, char *argv[]) {
 			pixel_xres = 768 * zoom;
 			pixel_yres = 1024 * zoom;
 		} else {
+#ifdef MAEMO
 			pixel_xres = 480 * zoom;
 			pixel_yres = 800 * zoom;
+#else
+			pixel_xres = 544 * zoom;
+			pixel_yres = 960 * zoom;
+#endif
 		}
 	}
 
