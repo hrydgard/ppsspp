@@ -1936,9 +1936,15 @@ void Register_IoFileMgrForUser() {
 const HLEFunction StdioForUser[] = {
 	{ 0x172D316E, &WrapU_V<sceKernelStdin>, "sceKernelStdin" },
 	{ 0xA6BAB2E9, &WrapU_V<sceKernelStdout>, "sceKernelStdout" },
-	{ 0xF78BA90A, &WrapU_V<sceKernelStderr>, "sceKernelStderr" }, 
+	{ 0xF78BA90A, &WrapU_V<sceKernelStderr>, "sceKernelStderr" },
 	{ 0x432D8F5C, &WrapU_U<sceKernelRegisterStdoutPipe>, "sceKernelRegisterStdoutPipe" },
 	{ 0x6F797E03, &WrapU_U<sceKernelRegisterStderrPipe>, "sceKernelRegisterStderrPipe" },
+	{ 0xa46785c9, 0, "sceKernelStdioSendChar" },
+	{ 0x0cbb0571, 0, "sceKernelStdioLseek" },
+	{ 0x3054d478, 0, "sceKernelStdioRead" },
+	{ 0xa3b931db, 0, "sceKernelStdioWrite" },
+	{ 0x924aba61, 0, "sceKernelStdioOpen" },
+	{ 0x9d061c19, 0, "sceKernelStdioClose" },
 };
 
 void Register_StdioForUser() {

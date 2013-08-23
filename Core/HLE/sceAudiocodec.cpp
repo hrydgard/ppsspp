@@ -41,6 +41,7 @@ const HLEFunction sceAudiocodec[] = {
 	{0x3A20A200, 0, "sceAudiocodecGetEDRAM"},
 	{0x29681260, 0, "sceAudiocodecReleaseEDRAM"},
 	{0x9D3F790C, 0, "sceAudiocodecCheckNeedMem"},
+	{0x59176a0f, 0, "sceAudiocodec_59176A0F"},
 };
 
 void Register_sceAudiocodec()
