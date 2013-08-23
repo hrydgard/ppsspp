@@ -579,6 +579,11 @@ const HLEFunction sceUtility[] =
 	{0xf5ce1134, 0, "sceUtilityHtmlViewerShutdownStart"},
 	{0x05afb9e4, 0, "sceUtilityHtmlViewerUpdate"},
 
+	{0x16a1a8d8, 0, "sceUtilityAuthDialogGetStatus"},
+	{0x943cba46, 0, "sceUtilityAuthDialogInitStart"},
+	{0x0f3eeaac, 0, "sceUtilityAuthDialogShutdownStart"},
+	{0x147f7c85, 0, "sceUtilityAuthDialogUpdate"},
+
 	{0xc629af26, &WrapU_U<sceUtilityLoadAvModule>, "sceUtilityLoadAvModule"},
 	{0xf7d8d092, &WrapU_U<sceUtilityUnloadAvModule>, "sceUtilityUnloadAvModule"},
 
@@ -639,6 +644,32 @@ const HLEFunction sceUtility[] =
 	{0x4B0A8FE5, 0, "sceUtilityRssSubscriberInitStart"},
 	{0xA084E056, 0, "sceUtilityRssSubscriberUpdate"},
 	{0x2B96173B, 0, "sceUtilityRssSubscriberGetStatus"},
+
+	{0x149a7895, 0, "sceUtilityDNASShutdownStart"},
+	{0xdde5389d, 0, "sceUtilityDNASInitStart"},
+	{0x4a833ba4, 0, "sceUtilityDNASUpdate"},
+	{0xa50e5b30, 0, "sceUtilityDNASGetStatus"},
+
+	{0xe7b778d8, 0, "sceUtilityRssReaderShutdownStart"},
+	{0x81c44706, 0, "sceUtilityRssReaderInitStart"},
+	{0x6f56f9cf, 0, "sceUtilityRssReaderUpdate"},
+	{0x8326ab05, 0, "sceUtilityRssReaderGetStatus"},
+	{0xb0fb7ff5, 0, "sceUtilityRssReaderContStart"},
+
+	{0xbc6b6296, 0, "sceNetplayDialogShutdownStart"},
+	{0x3ad50ae7, 0, "sceNetplayDialogInitStart"},
+	{0x417bed54, 0, "sceNetplayDialogUpdate"},
+	{0xb6cee597, 0, "sceNetplayDialogGetStatus"},
+
+	{0x28d35634, 0, "sceUtility_28D35634"},
+	{0x6f56f9cf, 0, "sceUtility_6F56F9CF"},
+	{0x70267adf, 0, "sceUtility_70267ADF"},
+	{0x81c44706, 0, "sceUtility_81C44706"},
+	{0x8326ab05, 0, "sceUtility_8326AB05"},
+	{0xb0fb7ff5, 0, "sceUtility_B0fB7FF5"},
+	{0xe7b778d8, 0, "sceUtility_E7B778D8"},
+	{0xece1d3e5, 0, "sceUtility_ECE1D3E5"},
+	{0xef3582b2, 0, "sceUtility_EF3582B2"},
 
 	{0x0e0c27af, 0, "sceUtility_0E0C27AF"},
 };

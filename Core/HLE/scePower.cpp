@@ -345,6 +345,7 @@ static const HLEFunction scePower[] = {
 	{0x28E12023,&WrapI_V<scePowerGetBatteryTemp>,"scePowerGetBatteryTemp"},
 	{0x862AE1A6,0,"scePowerGetBatteryElec"},
 	{0x483CE86B,0,"scePowerGetBatteryVolt"},
+	{0xcb49f5ce,0,"scePowerGetBatteryChargeCycle"},
 	{0x23436A4A,0,"scePowerGetInnerTemp"},
 	{0x0CD21B1F,0,"scePowerSetPowerSwMode"},
 	{0x165CE085,0,"scePowerGetPowerSwMode"},
@@ -370,9 +371,17 @@ static const HLEFunction scePower[] = {
 	{0x34f9c463,WrapU_V<scePowerGetPllClockFrequencyInt>,"scePowerGetPllClockFrequencyInt"},
 	{0xea382a27,WrapF_V<scePowerGetPllClockFrequencyFloat>,"scePowerGetPllClockFrequencyFloat"},
 	{0xebd177d6,WrapU_UUU<scePowerSetClockFrequency>,"scePower_EBD177D6"}, // This is also the same as SetClockFrequency
-	{0x469989ad,WrapU_UUU<scePowerSetClockFrequency>,"scePower_469989ad"},  // This is also the same as SetClockFrequency
+	{0x469989ad,WrapU_UUU<scePowerSetClockFrequency>,"scePower_469989ad"}, // This is also the same as SetClockFrequency
+	{0x545a7f3c,0,"scePower_545A7F3C"}, // TODO: Supposedly the same as SetClockFrequency also?
+	{0xa4e93389,0,"scePower_A4E93389"}, // TODO: Supposedly the same as SetClockFrequency also?
 	{0xa85880d0,WrapU_V<IsPSPNonFat>,"scePower_a85880d0_IsPSPNonFat"},
 	{0x3951af53,0,"scePowerWaitRequestCompletion"},
+	{0x0442d852,0,"scePowerRequestColdReset"},
+	{0xbafa3df0,0,"scePowerGetCallbackMode"},
+	{0xa9d22232,0,"scePowerSetCallbackMode"},
+	{0x23c31ffe,0,"scePowerVolatileMemLock"},
+	{0xfa97a599,0,"scePowerVolatileMemTryLock"},
+	{0xb3edd801,0,"scePowerVolatileMemUnlock"},
 };
 
 //890129c in tyshooter looks bogus

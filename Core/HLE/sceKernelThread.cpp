@@ -1291,7 +1291,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 
 	u32 wantedSize = Memory::Read_U32(statusPtr);
 
-	if (sceKernelGetCompiledSdkVersion() > 0x2060010)
+	if (sceKernelGetCompiledSdkVersion() > 0x02060010)
 	{
 		if (wantedSize > THREADINFO_SIZE_AFTER_260)
 		{

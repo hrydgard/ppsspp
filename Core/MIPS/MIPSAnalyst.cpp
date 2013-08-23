@@ -276,7 +276,7 @@ namespace MIPSAnalyst
 				if (flags & IN_IMM16)
 					validbits&=~0xFFFF;
 				if (flags & IN_IMM26)
-					validbits&=~0x3FFFFFF;
+					validbits&=~0x03FFFFFF;
 				hash = __rotl(hash,13);
 				hash ^= (instr&validbits);
 			}

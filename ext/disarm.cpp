@@ -535,7 +535,7 @@ instr_disassemble(word instr, address addr, pDisOptions opts) {
 				mnemonic = "B";
 				format = "0";
 				break;
-			} else if ((instr & 0x0FFFFFF0) == 0x12FFF30) {
+			} else if ((instr & 0x0FFFFFF0) == 0x012FFF30) {
 				mnemonic = "BL";
 				format = "0";
 				break;

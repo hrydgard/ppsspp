@@ -318,7 +318,7 @@ namespace MIPSDis
 
 	void Dis_JumpType(u32 op, char *out)
 	{
-		u32 off = ((op & 0x3FFFFFF) << 2);
+		u32 off = ((op & 0x03FFFFFF) << 2);
 		u32 addr = (disPC & 0xF0000000) | off;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t->$%08x",name,addr);

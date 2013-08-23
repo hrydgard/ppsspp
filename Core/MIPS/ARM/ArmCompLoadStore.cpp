@@ -200,7 +200,7 @@ namespace MIPSComp
 				                      : (op - (4<<26) + 3)))
 				{
 					EatInstruction(nextOp);
-					nextOp = ((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x3FFFFFF); //lw, sw
+					nextOp = ((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x03FFFFFF); //lw, sw
 					Comp_ITypeMem(nextOp);
 					return;
 				}

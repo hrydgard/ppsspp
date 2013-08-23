@@ -50,6 +50,7 @@ const HLEFunction sceUsb[] =
 	{0x586db82c, WrapU_V<sceUsbActivate>, "sceUsbActivate"},
 	{0xc572a9c8, 0, "sceUsbDeactivate"},
 	{0x5be0e002, 0, "sceUsbWaitState"},
+	{0x616f2b61, 0, "sceUsbWaitStateCB"},
 	{0x1c360735, 0, "sceUsbWaitCancel"},
 };
 

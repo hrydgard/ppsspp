@@ -126,17 +126,17 @@ namespace
 
 	int GetSDKMainVersion(int sdkVersion)
 	{
-		if(sdkVersion > 0x307FFFF)
+		if(sdkVersion > 0x0307FFFF)
 			return 6;
-		if(sdkVersion > 0x300FFFF)
+		if(sdkVersion > 0x0300FFFF)
 			return 5;
-		if(sdkVersion > 0x206FFFF)
+		if(sdkVersion > 0x0206FFFF)
 			return 4;
-		if(sdkVersion > 0x205FFFF)
+		if(sdkVersion > 0x0205FFFF)
 			return 3;
-		if(sdkVersion >= 0x2000000)
+		if(sdkVersion >= 0x02000000)
 			return 2;
-		if(sdkVersion >= 0x1000000)
+		if(sdkVersion >= 0x01000000)
 			return 1;
 		return 0;
 	};

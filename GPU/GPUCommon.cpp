@@ -196,9 +196,9 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) {
 
 	DisplayList &dl = dls[id];
 	dl.id = id;
-	dl.startpc = listpc & 0xFFFFFFF;
-	dl.pc = listpc & 0xFFFFFFF;
-	dl.stall = stall & 0xFFFFFFF;
+	dl.startpc = listpc & 0x0FFFFFFF;
+	dl.pc = listpc & 0x0FFFFFFF;
+	dl.stall = stall & 0x0FFFFFFF;
 	dl.subIntrBase = std::max(subIntrBase, -1);
 	dl.stackptr = 0;
 	dl.signal = PSP_GE_SIGNAL_NONE;
@@ -263,7 +263,7 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall) {
 	if (listid < 0 || listid >= DisplayListMaxCount || dls[listid].state == PSP_GE_DL_STATE_NONE)
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
-	dls[listid].stall = newstall & 0xFFFFFFF;
+	dls[listid].stall = newstall & 0x0FFFFFFF;
 
 	if (dls[listid].signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 		dls[listid].signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
@@ -412,7 +412,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 #endif
 
 	cycleLastPC = list.pc;
-	downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
+	downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
 	list.state = PSP_GE_DL_STATE_RUNNING;
 	list.interrupted = false;
 
@@ -439,7 +439,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 
 		{
 			easy_guard innerGuard(listLock);
-			downcount = list.stall == 0 ? 0xFFFFFFF : (list.stall - list.pc) / 4;
+			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
 
 			if (gpuState == GPUSTATE_STALL && list.stall != list.pc) {
 				// Unstalled.
@@ -512,7 +512,7 @@ void GPUCommon::ReapplyGfxState() {
 void GPUCommon::ReapplyGfxStateInternal() {
 	// ShaderManager_DirtyShader();
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
-	// To be safe we pass 0xFFFFFFF as the diff.
+	// To be safe we pass 0xFFFFFFFF as the diff.
 	/*
 	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHABLENDENABLE], 0xFFFFFFFF);
 	ExecuteOp(gstate.cmdmem[GE_CMD_ALPHATESTENABLE], 0xFFFFFFFF);

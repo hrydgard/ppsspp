@@ -127,7 +127,7 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 		// VFP Encoding for Imms: <7> Not(<6>) Repeat(<6>,5) <5:0> Zeros(19)
 		bool bit6 = (conv.u & 0x40000000) == 0x40000000;
 		bool canEncode = true;
-		for (u32 mask = 0x20000000; mask >= 0x2000000; mask >>= 1)
+		for (u32 mask = 0x20000000; mask >= 0x02000000; mask >>= 1)
 		{
 			if (((conv.u & mask) == mask) == bit6)
 				canEncode = false;
@@ -136,7 +136,7 @@ void ARMXEmitter::MOVI2F(ARMReg dest, float val, ARMReg tempReg, bool negate)
 		{
 			u32 imm8 = (conv.u & 0x80000000) >> 24; // sign bit
 			imm8 |= (!bit6 << 6);
-			imm8 |= (conv.u & 0x1F80000) >> 19;
+			imm8 |= (conv.u & 0x01F80000) >> 19;
 			VMOV(dest, IMM(imm8));
 			return;
 		}
@@ -434,7 +434,7 @@ void ARMXEmitter::B (const void *fnptr)
 
 void ARMXEmitter::B(ARMReg src)
 {
-	Write32(condition | 0x12FFF10 | src);
+	Write32(condition | 0x012FFF10 | src);
 }
 
 bool ARMXEmitter::BLInRange(const void *fnptr) {
@@ -455,7 +455,7 @@ void ARMXEmitter::BL(const void *fnptr)
 }
 void ARMXEmitter::BL(ARMReg src)
 {
-	Write32(condition | 0x12FFF30 | src);
+	Write32(condition | 0x012FFF30 | src);
 }
 void ARMXEmitter::PUSH(const int num, ...)
 {
@@ -1104,7 +1104,7 @@ void ARMXEmitter::VSTR(ARMReg Src, ARMReg Base, s16 offset)
 }
 
 void ARMXEmitter::VMRS_APSR() {
-	Write32(condition | 0xEF10A10 | (15 << 12));
+	Write32(condition | 0x0EF10A10 | (15 << 12));
 }
 void ARMXEmitter::VMRS(ARMReg Rt) {
 	Write32(condition | (0xEF << 20) | (1 << 16) | (Rt << 12) | 0xA10);

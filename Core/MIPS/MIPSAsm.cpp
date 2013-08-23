@@ -294,7 +294,7 @@ bool CMipsInstruction::Validate()
  
 		if (Opcode.flags & O_IPCA)	// absolute value >> 2)
 		{
-			Vars.Immediate = (Vars.Immediate >> 2) & 0x3FFFFFF;
+			Vars.Immediate = (Vars.Immediate >> 2) & 0x03FFFFFF;
 		} else if (Opcode.flags & O_IPCR)	// relative 16 bit value
 		{
 			int num = (Vars.Immediate-RamPos-4);
@@ -319,28 +319,28 @@ bool CMipsInstruction::Validate()
 			Vars.Immediate &= 0x1F;
 			break;
 		case MIPS_IMMEDIATE16:
-			if (abs(Vars.Immediate) > 0xFFFF)
+			if (abs(Vars.Immediate) > 0x0000FFFF)
 			{
 			//	QueueError(ERROR_ERROR,"Immediate value %04X out of range",Vars.OriginalImmediate);
 				return false;
 			}
-			Vars.Immediate &= 0xFFFF;
+			Vars.Immediate &= 0x0000FFFF;
 			break;
 		case MIPS_IMMEDIATE20:
-			if (abs(Vars.Immediate) > 0xFFFFF)
+			if (abs(Vars.Immediate) > 0x000FFFFF)
 			{
 			//	QueueError(ERROR_ERROR,"Immediate value %08X out of range",Vars.OriginalImmediate);
 				return false;
 			}
-			Vars.Immediate &= 0xFFFFF;
+			Vars.Immediate &= 0x000FFFFF;
 			break;
 		case MIPS_IMMEDIATE26:
-			if (abs(Vars.Immediate) > 0x3FFFFFF)
+			if (abs(Vars.Immediate) > 0x03FFFFFF)
 			{
 		//		QueueError(ERROR_ERROR,"Immediate value %08X out of range",Vars.OriginalImmediate);
 				return false;
 			}
-			Vars.Immediate &= 0x3FFFFFF;
+			Vars.Immediate &= 0x03FFFFFF;
 			break;
 		}
 	}
@@ -393,16 +393,16 @@ void CMipsInstruction::Encode()
 	switch (Vars.ImmediateType)
 	{
 	case MIPS_IMMEDIATE5:
-		encoding |= ((Vars.Immediate & 0x1F) << 6);
+		encoding |= (Vars.Immediate & 0x0000001F) << 6;
 		break;
 	case MIPS_IMMEDIATE16:
-		encoding |= (Vars.Immediate & 0xFFFF);
+		encoding |= (Vars.Immediate & 0x0000FFFF);
 		break;
 	case MIPS_IMMEDIATE20:
-		encoding |= (Vars.Immediate & 0xFFFFF) << 6;
+		encoding |= (Vars.Immediate & 0x000FFFFF) << 6;
 		break;
 	case MIPS_IMMEDIATE26:
-		encoding |= Vars.Immediate & 0x3FFFFFF;
+		encoding |= (Vars.Immediate & 0x03FFFFFF);
 		break;
 	}
 }
