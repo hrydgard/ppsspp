@@ -259,8 +259,6 @@ bool MediaEngine::openContext() {
 bool MediaEngine::loadStream(u8* buffer, int readSize, int RingbufferSize)
 {
 	closeMedia();
-	// force to clear the useless FBO
-	gpu->Resized();
 
 	m_videopts = 0;
 	m_audiopts = 0;
