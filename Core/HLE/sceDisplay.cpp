@@ -274,6 +274,7 @@ void __DisplayGetDebugStats(char stats[2048]) {
 		"Cached Draw calls: %i\n"
 		"Num Tracked Vertex Arrays: %i\n"
 		"Cycles executed: %d (%f per vertex)\n"
+		"Commands per call level: %i %i %i %i\n"
 		"Vertices Submitted: %i\n"
 		"Cached Vertices Drawn: %i\n"
 		"Uncached Vertices Drawn: %i\n"
@@ -296,6 +297,7 @@ void __DisplayGetDebugStats(char stats[2048]) {
 		gpuStats.numTrackedVertexArrays,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles,
+		gpuStats.gpuCommandsAtCallLevel[0],gpuStats.gpuCommandsAtCallLevel[1],gpuStats.gpuCommandsAtCallLevel[2],gpuStats.gpuCommandsAtCallLevel[3],
 		gpuStats.numVertsSubmitted,
 		gpuStats.numCachedVertsDrawn,
 		gpuStats.numUncachedVertsDrawn,

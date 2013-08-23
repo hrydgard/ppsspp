@@ -432,6 +432,7 @@ struct GPUStatistics {
 		msProcessingDisplayLists = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
+		memset(gpuCommandsAtCallLevel, 0, sizeof(gpuCommandsAtCallLevel));
 	}
 
 	// Per frame statistics
@@ -449,6 +450,7 @@ struct GPUStatistics {
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;
+	int gpuCommandsAtCallLevel[4];
 
 	// Total statistics, updated by the GPU core in UpdateStats
 	int numVBlanks;
