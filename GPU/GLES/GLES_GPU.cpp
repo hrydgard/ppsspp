@@ -311,7 +311,7 @@ static const CommandTableEntry commandTable[] = {
 
 	// These two are actually processed in CMD_END.
 	{GE_CMD_SIGNAL, FLAG_EXECUTE},
-	{GE_CMD_FINISH, FLAG_EXECUTE},
+	{GE_CMD_FINISH, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
