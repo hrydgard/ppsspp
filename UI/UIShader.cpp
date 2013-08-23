@@ -95,6 +95,9 @@ void UIShader_Prepare()
 	glstate.depthTest.disable();
 	glstate.scissorTest.disable();
 	glstate.stencilTest.disable();
+#if !defined(USING_GLES2)
+  	glstate.colorLogicOp.disable();
+#endif 
 	glstate.dither.enable();
 
 	glstate.blend.enable();
