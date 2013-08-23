@@ -287,7 +287,7 @@ void WindowsHost::UpdateConsolePosition()
 	}
 }
 
-bool WindowsHost::InputBoxGetString(char *title, char *defaultValue, char *outValue, size_t outLength)
+bool WindowsHost::InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
 {
 	return InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), title, defaultValue, outValue, outLength);
 }
