@@ -276,16 +276,12 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_CLIPENABLE, 0},
 	{GE_CMD_TEXFLUSH, 0},
 	{GE_CMD_TEXLODSLOPE, 0},
-	{GE_CMD_BJUMP, 0},  // EXECUTE
-	{GE_CMD_BOUNDINGBOX, 0}, // EXECUTE
 	{GE_CMD_TEXLEVEL, 0},  // we don't support this anyway, no need to flush.
-	{GE_CMD_ORIGIN, 0},  // Really?
 	{GE_CMD_TEXSYNC, 0},
 
 	// These are just nop or part of other later commands.
 	{GE_CMD_NOP, 0},
 	{GE_CMD_BASE, 0},
-	{GE_CMD_OFFSETADDR, 0},
 	{GE_CMD_TRANSFERSRC, 0},
 	{GE_CMD_TRANSFERSRCW, 0},
 	{GE_CMD_TRANSFERDST, 0},
@@ -294,21 +290,28 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TRANSFERDSTPOS, 0},
 	{GE_CMD_TRANSFERSIZE, 0},
 
-	// These don't need flushing.
+	// From Common. No flushing but definitely need execute.
+	{GE_CMD_OFFSETADDR, FLAG_EXECUTE},
+	{GE_CMD_ORIGIN, FLAG_EXECUTE},  // Really?
 	{GE_CMD_PRIM, FLAG_EXECUTE},
+	{GE_CMD_JUMP, FLAG_EXECUTE},
 	{GE_CMD_CALL, FLAG_EXECUTE},
 	{GE_CMD_RET, FLAG_EXECUTE},
-	{GE_CMD_END, FLAG_EXECUTE},
+	{GE_CMD_END, FLAG_EXECUTE},  // Flush?
 	{GE_CMD_VADDR, FLAG_EXECUTE},
 	{GE_CMD_IADDR, FLAG_EXECUTE},
+	{GE_CMD_BJUMP, FLAG_EXECUTE},  // EXECUTE
+	{GE_CMD_BOUNDINGBOX, FLAG_EXECUTE}, // + FLUSHBEFORE when we implement
 
 	// Changing the vertex type requires us to flush.
 	{GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
 	{GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
 	{GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
-	{GE_CMD_SIGNAL, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
-	{GE_CMD_FINISH, FLAG_FLUSHBEFORE | FLAG_EXECUTE},
+
+	// These two are actually processed in CMD_END.
+	{GE_CMD_SIGNAL, FLAG_EXECUTE},
+	{GE_CMD_FINISH, FLAG_EXECUTE},
 
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
@@ -334,7 +337,6 @@ static const CommandTableEntry commandTable[] = {
 
 	// "Missing" commands (gaps in the sequence)
 	{0x03},
-	{0x08},
 	{0x0d},
 	{0x11},
 	{0x29},
@@ -561,8 +563,7 @@ void GLES_GPU::CopyDisplayToOutputInternal() {
 	gstate_c.textureChanged = true;
 }
 
-// Render queue
-
+// Maybe should write this in ASM...
 void GLES_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
@@ -575,7 +576,8 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 			transformDraw_.Flush();
 		}
 		gstate.cmdmem[cmd] = op;
-		ExecuteOp(op, diff);
+		if (cmdFlags & FLAG_EXECUTE)
+			ExecuteOp(op, diff);
 
 		list.pc += 4;
 	}
