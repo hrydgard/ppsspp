@@ -90,7 +90,7 @@ private:
 	public:
 		DxState3() : _state1(state1),_state2(state2), _state3(state3), 
 			p1(p1def), p2(p2def), p3(p3def) {
-			DirectxState::state_count++;
+		//	DirectxState::state_count++;
         }
 
 		inline void set(DWORD newp1, DWORD newp2, DWORD newp3) {
@@ -99,55 +99,16 @@ private:
 			p3 = newp3;
 			pD3Ddevice->SetRenderState(_state1, p1);
 			pD3Ddevice->SetRenderState(_state2, p2);
-			pD3Ddevice->SetRenderState(_state3, p2);
+			pD3Ddevice->SetRenderState(_state3, p3);
 		}
 		void restore() {
-			pD3Ddevice->SetRenderState(_state1, p1);
-			pD3Ddevice->SetRenderState(_state2, p2);
-			pD3Ddevice->SetRenderState(_state3, p2);
+		//	pD3Ddevice->SetRenderState(_state1, p1);
+		//	pD3Ddevice->SetRenderState(_state2, p2);
+		//	pD3Ddevice->SetRenderState(_state3, p2);
 		}
 	};
 	
-	#define STATE4(func, p1type, p2type, p3type, p4type, p1def, p2def, p3def, p4def) \
-	class SavedState4_##func { \
-		p1type p1; \
-		p2type p2; \
-		p3type p3; \
-		p4type p4; \
-	public: \
-		SavedState4_##func() : p1(p1def), p2(p2def), p3(p3def), p4(p4def) { \
-			DirectxState::state_count++; \
-        }; \
-		inline void set(p1type newp1, p2type newp2, p3type newp3, p4type newp4) { \
-			p1 = newp1; \
-			p2 = newp2; \
-			p3 = newp3; \
-			p4 = newp4; \
-			func(p1, p2, p3, p4); \
-		} \
-		inline void restore() { \
-			func(p1, p2, p3, p4); \
-		} \
-	}
-
-#define STATEFLOAT4(func, def) \
-	class SavedState4_##func { \
-		float p[4]; \
-	public: \
-		SavedState4_##func() { \
-			for (int i = 0; i < 4; i++) {p[i] = def;} \
-			DirectxState::state_count++; \
-		}; \
-		inline void set(const float v[4]) { \
-			if(memcmp(p,v,sizeof(float)*4)) { \
-				memcpy(p,v,sizeof(float)*4); \
-				func(p[0], p[1], p[2], p[3]); \
-			} \
-		} \
-		inline void restore() { \
-			func(p[0], p[1], p[2], p[3]); \
-		} \
-	}
+	
 	class SavedBlendFactor {
 		DWORD c;
 	public:
@@ -248,7 +209,7 @@ private:
 	public:
 		inline void set(int x1, int y1, int x2, int y2)  {
 			RECT rect = {x1, y1, x2, y2};
-			//pD3Ddevice->SetScissorRect(&rect);
+			pD3Ddevice->SetScissorRect(&rect);
 		}
 
 		inline void restore() {
@@ -306,6 +267,7 @@ public:
 	StateScissor scissorRect;
 
 	BoolState<D3DRS_STENCILENABLE, false> stencilTest;
+
 	DxState3<D3DRS_STENCILFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILZFAIL, D3DSTENCILOP_KEEP, D3DRS_STENCILPASS, D3DSTENCILOP_KEEP> stencilOp;
 	DxState3<D3DRS_STENCILFUNC, D3DCMP_ALWAYS, D3DRS_STENCILREF, 0, D3DRS_STENCILMASK, 0xFFFFFFFF> stencilFunc;
 
