@@ -1193,7 +1193,7 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 
-		if(useMem && !age && !vfb->memoryUpdated) { 
+		if(useMem && age == 0 && !vfb->memoryUpdated) { 
 			ReadFramebufferToMemory(vfb);
 		}
 
