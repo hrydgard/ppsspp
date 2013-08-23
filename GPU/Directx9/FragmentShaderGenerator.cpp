@@ -197,8 +197,8 @@ void GenerateFragmentShader(char *buffer) {
 		WRITE(p, "float3 roundTo255thv(float3 x) { float3 y = x + (0.5/255.0); return y - frac(y * 255.0) * (1.0 / 255.0); }\n");
 	}
 
-	WRITE(p, " struct PS_IN                               ");
-	WRITE(p, " {                                          ");
+	WRITE(p, " struct PS_IN                               \n");
+	WRITE(p, " {                                          \n");
 	if (doTexture)
 	{
 		//if (doTextureProjection)	
@@ -206,16 +206,16 @@ void GenerateFragmentShader(char *buffer) {
 		//else
 		//	WRITE(p, "float2 v_texcoord: TEXCOORD0;\n");
 	}
-	WRITE(p, "		float4 v_texcoord: TEXCOORD0;         ");
-	WRITE(p, "		float4 v_color0: COLOR0;              "); 
-	WRITE(p, "		float3 v_color1: COLOR1;              ");    
+	WRITE(p, "		float4 v_texcoord: TEXCOORD0;         \n");
+	WRITE(p, "		float4 v_color0: COLOR0;              \n"); 
+	WRITE(p, "		float3 v_color1: COLOR1;              \n");    
 	if (enableFog) {
 		WRITE(p, "float v_fogdepth:FOG;\n");
 	}
-	WRITE(p, " };                                         "); 
-	WRITE(p, "                                            ");
-	WRITE(p, " float4 main( PS_IN In ) : COLOR            ");
-	WRITE(p, " {									      ");
+	WRITE(p, " };                                         \n"); 
+	WRITE(p, "                                            \n");
+	WRITE(p, " float4 main( PS_IN In ) : COLOR            \n");
+	WRITE(p, " {									      \n");
 
 	if (gstate.isModeClear()) {
 		// Clear mode does not allow any fancy shading.
