@@ -146,6 +146,9 @@ void DisableState() {
 	glstate.depthTest.disable();
 	glstate.scissorTest.disable();
 	glstate.stencilTest.disable();
+#if !defined(USING_GLES2)
+	glstate.colorLogicOp.disable();
+#endif
 }
 
 void FramebufferManager::CompileDraw2DProgram() {
