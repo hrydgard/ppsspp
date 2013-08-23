@@ -156,7 +156,7 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	drawPixelsTex_->LockRect(0, &rect, NULL, D3DLOCK_NOOVERWRITE);
 
 	convBuf = (u8*)rect.pBits;
-	/*
+
 	// Final format is ARGB(directx)
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
@@ -211,9 +211,9 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 			}
 		}
 	} else {
-		memcpy(convBuf, framebuf, 4 * 480 * 512);
+		memcpy(convBuf, framebuf, 4 * 512 * 272);
 	}
-	*/
+
 	drawPixelsTex_->UnlockRect(0);
 	// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 
@@ -584,7 +584,7 @@ void FramebufferManager::CopyDisplayToOutput() {
 		// These are in the output display coordinates
 		float x, y, w, h;
 		CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
-		DrawActiveTexture(x, y, w, h, true, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
+		DrawActiveTexture(x, y, w, h, false, 480.0f / (float)vfb->width, 272.0f / (float)vfb->height);
 		pD3Ddevice->SetTexture(0, NULL);
 	}
 }
@@ -774,7 +774,7 @@ static void Resolve(u8* data, VirtualFramebuffer *vfb) {
 	rtt->UnlockRect(0);
 
 	// vfb->fbo->tex is tilled !!!!
-	XGUntileTextureLevel(vfb->width, vfb->height, 0, D3DFMT_LIN_A8R8G8B8, XGTILE_NONPACKED, data, p.Pitch, NULL, p.pBits, NULL);
+	XGUntileTextureLevel(vfb->width/2, vfb->height/2, 0,  XGGetGpuFormat(D3DFMT_LIN_A8R8G8B8), XGTILE_NONPACKED, data, p.Pitch, NULL, p.pBits, NULL);
 #endif
 }
 
@@ -788,7 +788,7 @@ void FramebufferManager::PackFramebufferDirectx9_(VirtualFramebuffer *vfb) {
 
 	// Pixel size always 4 here because we always request RGBA8888
 	size_t bufSize = vfb->fb_stride * vfb->height * 4;
-	u32 fb_address = (0x44000000) | vfb->fb_address;
+	u32 fb_address = (0x04000000) | vfb->fb_address;
 
 	u8 *packed = 0;
 	if(vfb->format == GE_FORMAT_8888) {
