@@ -866,11 +866,21 @@ const HLEFunction UtilsForKernel[] = {
 	{0x78934841, 0, "sceKernelGzipDecompress"},
 	{0xe8db3ce6, 0, "sceKernelDeflateDecompress"},
 	{0x840259f1, 0, "sceKernelUtilsSha1Digest"},
+	{0x9e5c5086, 0, "sceKernelUtilsMd5BlockInit"},
+	{0x61e1e525, 0, "sceKernelUtilsMd5BlockUpdate"},
+	{0xb8d24e78, 0, "sceKernelUtilsMd5BlockResult"},
+	{0xc8186a58, 0, "sceKernelUtilsMd5Digest"},
 	{0x6c6887ee, 0, "UtilsForKernel_6C6887EE"},
 	{0x91e4f6a7, 0, "sceKernelLibcClock"},
+	{0x27cc57f0, 0, "sceKernelLibcTime"},
 	{0x79d1c3fa, 0, "sceKernelDcacheWritebackAll"},
+	{0x3ee30821, 0, "sceKernelDcacheWritebackRange"},
 	{0x34b9fa9e, 0, "sceKernelDcacheWritebackInvalidateRange"},
+	{0xb435dec5, 0, "sceKernelDcacheWritebackInvalidateAll"},
+	{0xbfa98062, 0, "sceKernelDcacheInvalidateRange"},
 	{0x920f104a, 0, "sceKernelIcacheInvalidateAll"},
+	{0xe860e75e, 0, "sceKernelUtilsMt19937Init"},
+	{0x06fb8a63, 0, "sceKernelUtilsMt19937UInt"},
 };
 
 
