@@ -11,7 +11,7 @@
 
 void __CheatInit();
 void __CheatShutdown();
-
+static std::string activeCheatFile;
 std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList);
 
 class CWCheatEngine {
@@ -24,7 +24,9 @@ public:
 	void Exit();
 	void Run();
 	std::vector<int> GetNextCode();
+	static std::string gActiveCheatFile;
 	
+	void ActiveFileCopy();
 
 private:
 	void SkipCodes(int count);

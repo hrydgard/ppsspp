@@ -8,12 +8,9 @@
 #include "Core/Config.h"
 
 const static std::string CHEATS_DIR = "cheats";
-
-static std::string activeCheatFile;
 static int CheatEvent = -1;
 std::string gameTitle;
 static CWCheatEngine *cheatEngine;
-
 void hleCheat(u64 userdata, int cyclesLate);
 void trim2(std::string& str);
 
@@ -23,7 +20,7 @@ void __CheatInit() {
 	// Cheats aren't working on Android yet - need to figure out the directory structure
 #ifndef ANDROID
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
-	activeCheatFile = CHEATS_DIR + "/" + gameTitle +".ini";
+	activeCheatFile = CHEATS_DIR + "/" + gameTitle + ".ini";
 
 	File::CreateFullPath(CHEATS_DIR);
 	if (g_Config.bEnableCheats) {
@@ -60,6 +57,7 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		g_Config.bReloadCheats = false;
 	}
 	if (g_Config.bEnableCheats) {
+		
 		cheatEngine->Run();
 	}
 }

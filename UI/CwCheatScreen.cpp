@@ -50,20 +50,20 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/CwCheatScreen.h"
+#include "UI/view.h"
 
 
 extern void DrawBackground(float alpha);
 static CWCheatEngine *cheatEngine2;
 
 std::vector<std::string> CwCheatScreen::CreateCodeList() {
-	std::vector<std::string> cheatList, formattedList;
 	cheatEngine2 = new CWCheatEngine();
 	cheatList = cheatEngine2->GetCodesList();
-
 	for (size_t i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(0, 3) == "_C1") {
 			formattedList.push_back(cheatList[i].substr(3));
 			enableCheat[i] = true;
+			locations.push_back(i);
 		}
 		if (cheatList[i].substr(0, 3) == "_C0") {
 			formattedList.push_back(cheatList[i].substr(3));
@@ -94,10 +94,50 @@ void CwCheatScreen::CreateViews() {
 	root_->Add(rightScroll);
 	rightColumn->Add(new ItemHeader(k->T("Cheats")));
 	for (size_t i = 0; i < formattedList.size(); i++) {
-		const char * name = formattedList[i].c_str();
-		rightColumn->Add(new CheckBox(&enableCheat[i], k->T(name)))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);;
+		name = formattedList[i].c_str();
+		rightColumn->Add(new CheatCheckBox(&enableCheat[i], k->T(name)))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
 		}
+	
 }
 UI::EventReturn CwCheatScreen::OnCheckBox(UI::EventParams &params) {
 	return UI::EVENT_DONE;
+}
+void CwCheatScreen::processFileOn(std::string activatedCheat) {
+	//visible test
+	//bool check;
+	//LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	//rightColumn->Add(new CheatCheckBox(&check, "name"));
+
+	is.open(activeCheatFile.c_str());
+	for (int i = 0; i < cheatList.size(); i++) {
+		if (cheatList[i].substr(4) == activatedCheat) {
+			cheatList[i] = "_C1 " + activatedCheat;
+		}
+	}
+	is.close();
+	os.open(activeCheatFile.c_str());
+	for (int j = 0; j < cheatList.size(); j++) {
+		os << cheatList[j];
+	}
+	os.close();
+
+}
+void CwCheatScreen::processFileOff(std::string deactivatedString) {
+	is.open(activeCheatFile.c_str());
+
+}
+
+void CheatCheckBox::Draw(UIContext &dc) {
+	ClickableItem::Draw(dc);
+	int paddingX = 12;
+	int paddingY = 8;
+
+	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
+
+	Style style = dc.theme->itemStyle;
+	if (!IsEnabled())
+		style = dc.theme->itemDisabledStyle;
+
+	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }

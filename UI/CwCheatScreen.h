@@ -18,18 +18,60 @@
 #include "base/functional.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
+#include "ui/ui_context.h"
 #include "../Core/CwCheat.h"
 #include "UI/MiscScreens.h"
+using namespace UI;
 
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
 	CwCheatScreen() {}
 	std::vector<std::string> CreateCodeList();
+	std::ifstream is;
+	std::ofstream os;
+	void processFileOn(std::string activatedCheat);
+	void processFileOff(std::string deactivatedCheat);
+	const char * name;
+	std::string activatedCheat, deactivatedCheat;
 protected:
 	virtual void CreateViews();
 
 private:
 	UI::EventReturn OnCheckBox(UI::EventParams &params);
 	bool enableCheat [64];
+	std::vector<std::string> cheatList, formattedList;
+	std::vector<int> locations;
+	
+};
+
+class CheatCheckBox : public ClickableItem, public CwCheatScreen {
+public:
+	CheatCheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = 0)
+		: ClickableItem(layoutParams), toggle_(toggle), text_(text) {
+			OnClick.Handle(this, &CheatCheckBox::OnClicked);
+	}
+
+	virtual void Draw(UIContext &dc);
+
+	EventReturn OnClicked(EventParams &e) {
+		if (toggle_) {
+			*toggle_ = !(*toggle_);
+		}
+		if (*toggle_ == true)
+		{
+			activatedCheat = text_;
+			processFileOn(activatedCheat);
+		}
+		if (*toggle_ == false)
+		{
+			deactivatedCheat = text_;
+			processFileOff(deactivatedCheat);
+		}
+		return EVENT_DONE;
+	}
+private:
+	bool *toggle_;
+	std::string text_;
+	std::string smallText_;
 
 };
