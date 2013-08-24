@@ -347,12 +347,9 @@ void GameSettingsScreen::CreateViews() {
 
 	enableReports_ = g_Config.sReportHost != "default";
 
-#ifndef ANDROID
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	// Need to move the cheat config dir somewhere where it can be read/written on android
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
-	systemSettings->Add(new Choice(s->T("Reload Cheats")))->OnClick.Handle(this, &GameSettingsScreen::OnReloadCheats);
-#endif
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);

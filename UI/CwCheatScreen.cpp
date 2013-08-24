@@ -39,6 +39,7 @@ bool enableAll = false;
 static std::vector<std::string> cheatList;
 extern void DrawBackground(float alpha);
 static CWCheatEngine *cheatEngine2;
+static bool enableCheat [64];
 
 std::vector<std::string> CwCheatScreen::CreateCodeList() {
 	cheatEngine2 = new CWCheatEngine();
@@ -93,6 +94,14 @@ void CwCheatScreen::CreateViews() {
 UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params)
 {
 	screenManager()->finishDialog(this, DR_OK);
+	os.open(activeCheatFile.c_str());
+	for (int j = 0; j < cheatList.size(); j++) {
+		os << cheatList[j];
+		if (j < cheatList.size() - 1) {
+			os << "\n";
+		}
+	}
+	os.close();
 	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
 }
@@ -104,19 +113,17 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 	for (int j = 0; j < temp.size(); j++) {
 		if (enableAll == 1 && temp[j].substr(0, 3) == "_C0"){
 			temp[j].replace(0,3,"_C1");
-			for (int x = 0; x < sizeof(enableCheat); x++) {
-				enableCheat[x] = true;
-			}
 			
 		}
 		else if (enableAll == 0 && temp[j].substr(0, 3) == "_C1") {
 			temp[j].replace(0, 3, "_C0");
-			for (int x = 0; x < 64; x++) {
-				enableCheat[x] = false;
-			}
+			
 
 		}
 	}
+	for (int y = 0; y < 64; y++) {
+				enableCheat[y] = enableAll;
+			}
 	for (int i = 0; i < temp.size(); i++) {
 		os << temp[i];
 		if (i < temp.size() - 1) {
@@ -124,6 +131,7 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 		}
 	}
 	os.close();
+	
 	return UI::EVENT_DONE;
 }
 UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params)
