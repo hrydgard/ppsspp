@@ -451,7 +451,6 @@ void CreditsScreen::render() {
 		"cinaera/BeaR",
 		"jtraynham",
 		"Kingcom",
-		"aquanull",
 		"arnastia",
 		"lioncash",
 		"JulianoAmaralChaves",
