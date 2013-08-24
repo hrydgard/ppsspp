@@ -445,10 +445,10 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 
 static inline bool ColorTestPassed(Vec3<int> color)
 {
-	u32 mask = gstate.colormask&0xFFFFFF;
-	color = Vec3<int>::FromRGB(color.ToRGB() & mask);
-	Vec3<int> ref = Vec3<int>::FromRGB(gstate.colorref & mask);
-	switch (gstate.colortest & 0x3) {
+	const u32 mask = gstate.getColorTestMask();
+	const u32 c = color.ToRGB() & mask;
+	const u32 ref = gstate.getColorTestRef() & mask;
+	switch (gstate.getColorTestFunction()) {
 		case GE_COMP_NEVER:
 			return false;
 
@@ -456,21 +456,21 @@ static inline bool ColorTestPassed(Vec3<int> color)
 			return true;
 
 		case GE_COMP_EQUAL:
-			return (color.r() == ref.r() && color.g() == ref.g() && color.b() == ref.b());
+			return c == ref;
 
 		case GE_COMP_NOTEQUAL:
-			return (color.r() != ref.r() || color.g() != ref.g() || color.b() != ref.b());
+			return c != ref;
 	}
 	return true;
 }
 
 static inline bool AlphaTestPassed(int alpha)
 {
-	u8 mask = (gstate.alphatest >> 16) & 0xFF;
-	u8 ref = (gstate.alphatest >> 8) & mask;
+	const u8 mask = gstate.getAlphaTestMask() & 0xFF;
+	const u8 ref = gstate.getAlphaTestRef() & mask;
 	alpha &= mask;
 
-	switch (gstate.alphatest & 0x7) {
+	switch (gstate.getAlphaTestFunction()) {
 		case GE_COMP_NEVER:
 			return false;
 
