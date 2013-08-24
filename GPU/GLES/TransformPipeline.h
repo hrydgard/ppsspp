@@ -98,7 +98,7 @@ public:
 	virtual ~TransformDrawEngine();
 	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertexType, int forceIndexType, int *bytesRead);
 	void DrawBezier(int ucount, int vcount);
-	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, u32 prim_type, u32 vertex_type);
+	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type);
 
 	void DecodeVerts();
 	void SetShaderManager(ShaderManager *shaderManager) {

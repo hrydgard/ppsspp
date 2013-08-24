@@ -729,7 +729,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			int sp_vcount = (data >> 8) & 0xFF;
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
-			int patchPrim = gstate.patchprimitive & 3;
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 			transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
 		}
 		break;

@@ -225,6 +225,7 @@ struct GPUgstate
 	bool isClearModeDepthWriteEnabled() const { return (clearmode&0x400) != 0; }
 	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }
 	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
+	bool isClearModeDepthMask() const { return (clearmode&0x400) != 0; }
 	u32 getClearModeColorMask() const { return ((clearmode&0x100) ? 0xFFFFFF : 0) | ((clearmode&0x200) ? 0xFF000000 : 0); } // TODO: Different convention than getColorMask, confusing!
 	
 	// Blend

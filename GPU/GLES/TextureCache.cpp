@@ -550,8 +550,8 @@ static const GLuint MagFiltGL[2] = {
 void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = (gstate.texfilter>>8) & 1;
-	bool sClamp = gstate.texwrap & 1;
-	bool tClamp = (gstate.texwrap>>8) & 1;
+	bool sClamp = gstate.isTexCoordClampedS();
+	bool tClamp = gstate.isTexCoordClampedT();
 
 	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001 ;  // Fix texlevel at 0
 

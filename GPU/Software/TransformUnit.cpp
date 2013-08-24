@@ -102,7 +102,7 @@ static VertexData ReadVertex(VertexReader& vreader)
 	float pos[3];
 	vreader.ReadPos(pos);
 
-	if (!gstate.isModeClear() && gstate.textureMapEnable && vreader.hasUV()) {
+	if (!gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV()) {
 		float uv[2];
 		vreader.ReadUV(uv);
 		vertex.texturecoords = Vec2<float>(uv[0], uv[1]);
@@ -186,7 +186,7 @@ struct SplinePatch {
 	int type;
 };
 
-void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, u32 prim_type, u32 vertex_type)
+void TransformUnit::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type)
 {
 	VertexDecoder vdecoder;
 	vdecoder.SetVertexType(vertex_type);
