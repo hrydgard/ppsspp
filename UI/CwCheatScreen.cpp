@@ -34,7 +34,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/CwCheatScreen.h"
-#include "UI/view.h"
+
 bool enableAll = false;
 static std::vector<std::string> cheatList;
 extern void DrawBackground(float alpha);

@@ -28,6 +28,9 @@
     <ClCompile Include="ControlMappingScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="CwCheatScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -56,7 +59,7 @@
     <ClInclude Include="ControlMappingScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="Header.h">
+    <ClInclude Include="CwCheatScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>
