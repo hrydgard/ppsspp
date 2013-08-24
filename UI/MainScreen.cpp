@@ -32,6 +32,7 @@
 #include "UI/GameScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
+#include "UI/CwCheatScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/ui_atlas.h"
 #include "Core/Config.h"
@@ -685,6 +686,7 @@ void GamePauseScreen::CreateViews() {
 
 	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 
 	UI::EventParams e;
@@ -725,5 +727,9 @@ UI::EventReturn GamePauseScreen::OnSaveState(UI::EventParams &e) {
 	SaveState::SaveSlot(saveSlots_->GetSelection(), 0, 0);
 
 	screenManager()->finishDialog(this, DR_CANCEL);
+	return UI::EVENT_DONE;
+}
+UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
+	screenManager()->push(new CwCheatScreen());
 	return UI::EVENT_DONE;
 }

@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ControlMappingScreen.cpp" />
+    <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="GamepadEmu.cpp" />
@@ -40,7 +41,7 @@
     <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="GameScreen.h" />
     <ClInclude Include="GameSettingsScreen.h" />
-    <ClInclude Include="Header.h" />
+    <ClInclude Include="CwCheatScreen.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="OnScreenDisplay.h" />
