@@ -19,9 +19,12 @@ void __CheatInit() {
 	//Moved createFullPath to CheatInit from the constructor because it spams the log and constantly checks if exists. In here, only checks once.
 
 	// Cheats aren't working on Android yet - need to figure out the directory structure
-#ifndef ANDROID
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
+#ifdef ANDROID
+	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
+#else
 	activeCheatFile = CHEATS_DIR + "/" + gameTitle + ".ini";
+#endif
 
 	File::CreateFullPath(CHEATS_DIR);
 	if (g_Config.bEnableCheats) {
@@ -36,7 +39,6 @@ void __CheatInit() {
 		CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
 		CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
 	}
-#endif
 }
 
 void __CheatShutdown() {

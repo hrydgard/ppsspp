@@ -35,7 +35,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/CwCheatScreen.h"
 #include "UI/view.h"
-
+bool enableAll = false;
 static std::vector<std::string> cheatList;
 extern void DrawBackground(float alpha);
 static CWCheatEngine *cheatEngine2;
@@ -65,14 +65,20 @@ void CwCheatScreen::CreateViews() {
 	I18NCategory *k = GetI18NCategory("CwCheats");
 	formattedList = CreateCodeList();
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	Margins actionMenuMargins(50, 100, 100, 50);
 
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
+	leftColumn->Add(new ItemHeader(k->T("Options")));
 	leftColumn->Add(new Choice(k->T("Back")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnBack);
+	//leftColumn->Add(new Choice(k->T("Add Cheat")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnAddCheat);
+	leftColumn->Add(new Choice(k->T("Import from cheat.db")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnImportCheat);
+	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnEnableAll);
 
 
-	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
 	rightScroll->SetScrollToTop(false);
-	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
+	LayoutParams *layout = new LayoutParams(500, 50, LP_PLAIN);
 	rightScroll->Add(rightColumn);
 	
 	root_->Add(leftColumn);
@@ -80,7 +86,7 @@ void CwCheatScreen::CreateViews() {
 	rightColumn->Add(new ItemHeader(k->T("Cheats")));
 	for (size_t i = 0; i < formattedList.size(); i++) {
 		name = formattedList[i].c_str();
-		rightColumn->Add(new CheatCheckBox(&enableCheat[i], k->T(name)))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
+		rightColumn->Add(new CheatCheckBox(&enableCheat[i], k->T(name), "" ))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
 		}
 	
 }
@@ -88,6 +94,110 @@ UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params)
 {
 	screenManager()->finishDialog(this, DR_OK);
 	g_Config.bReloadCheats = true;
+	return UI::EVENT_DONE;
+}
+UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
+{
+	std::vector<std::string> temp = cheatList;
+	enableAll = !enableAll;
+	os.open(activeCheatFile.c_str());
+	for (int j = 0; j < temp.size(); j++) {
+		if (enableAll == 1 && temp[j].substr(0, 3) == "_C0"){
+			temp[j].replace(0,3,"_C1");
+			for (int x = 0; x < sizeof(enableCheat); x++) {
+				enableCheat[x] = true;
+			}
+			
+		}
+		else if (enableAll == 0 && temp[j].substr(0, 3) == "_C1") {
+			temp[j].replace(0, 3, "_C0");
+			for (int x = 0; x < 64; x++) {
+				enableCheat[x] = false;
+			}
+
+		}
+	}
+	for (int i = 0; i < temp.size(); i++) {
+		os << temp[i];
+		if (i < temp.size() - 1) {
+			os << "\n";
+		}
+	}
+	os.close();
+	return UI::EVENT_DONE;
+}
+UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params)
+{
+	screenManager()->finishDialog(this, DR_OK);
+	g_Config.bReloadCheats = true;
+	return UI::EVENT_DONE;
+}
+UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
+{
+	std::string line;
+	bool finished = false, skip = false;
+	std::vector<std::string> newList;
+#ifdef ANDROID
+	is.open (g_Config.memCardDirectory + "PSP/Cheats/cheat.db";
+#else
+	is.open("cheats/cheat.db");
+#endif
+	os.open(activeCheatFile.c_str(),std::ios::app);
+	while (is.good())
+	{
+		getline(is, line); // get line from file
+		if (line == "_S " + gameTitle.substr(0, 4) + "-" + gameTitle.substr(4))
+		{
+			getline(is, line);
+			getline(is, line);
+			
+			
+			
+			do {
+				if (finished == false){
+					getline(is, line);
+				}
+				if (line.substr(0, 3) == "_C0")
+				{
+					//Test if cheat already exists in cheatList
+					for (int j = 0; j < formattedList.size(); j++) {
+						if (line.substr(4) == formattedList[j]) {
+							finished = false;
+							goto loop;
+						}
+					}
+					
+					newList.push_back(line);
+					getline(is, line);
+					do {
+						newList.push_back(line);
+						getline(is, line);
+					} while (line.substr(0, 2) == "_L");
+					finished = true;
+				}
+				else { continue; }
+			loop:;
+			} while (line.substr(0, 2) != "_S");
+			finished = true;
+			}
+		if (finished == true)
+			break;
+		}
+	if (newList.size() != 0)
+	{
+		os << "\n";
+	}
+	for (int i = 0; i < newList.size(); i++) {
+		os << newList[i];
+		if (i < newList.size() - 1) {
+			os << "\n";
+		}
+	}
+	os.close();
+	is.close();
+	g_Config.bReloadCheats = true;
+	//Need a better way to refresh the screen, rather than exiting and having to re-enter.
+	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;
 }
 UI::EventReturn CwCheatScreen::OnCheckBox(UI::EventParams &params) {
@@ -133,8 +243,8 @@ void CwCheatScreen::processFileOff(std::string deactivatedCheat) {
 
 void CheatCheckBox::Draw(UIContext &dc) {
 	ClickableItem::Draw(dc);
-	int paddingX = 12;
-	int paddingY = 8;
+	int paddingX = 16;
+	int paddingY = 12;
 
 	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 

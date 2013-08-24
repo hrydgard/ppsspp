@@ -24,6 +24,7 @@
 #include "UI/GameSettingsScreen.h"
 using namespace UI;
 extern std::string activeCheatFile;
+extern std::string gameTitle;
 
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
@@ -36,6 +37,9 @@ public:
 	const char * name;
 	std::string activatedCheat, deactivatedCheat;
 	UI::EventReturn OnBack(UI::EventParams &params);
+	UI::EventReturn OnAddCheat(UI::EventParams &params);
+	UI::EventReturn OnImportCheat(UI::EventParams &params);
+	UI::EventReturn OnEnableAll(UI::EventParams &params);
 protected:
 	virtual void CreateViews();
 
