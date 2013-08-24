@@ -37,7 +37,7 @@ enum {
 };
 
 static bool MaskedEqual(u32 addr1, u32 addr2) {
-	return (addr1 & 0x3FFFFFF) == (addr2 & 0x3FFFFFF);
+	return (addr1 & 0x03FFFFFF) == (addr2 & 0x03FFFFFF);
 }
 
 inline u16 RGBA8888toRGB565(u32 px) {
@@ -876,7 +876,7 @@ void FramebufferManager::DecimateFBOs() {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		int age = frameLastFramebufUsed - vfb->last_frame_used;
 
-		if(useMem && !age && !vfb->memoryUpdated) { 
+		if(useMem && age == 0 && !vfb->memoryUpdated) { 
 			ReadFramebufferToMemory(vfb);
 		}
 

@@ -208,10 +208,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		dxstate.cullMode.set(false, false);
 		
 		// Depth Test
-		bool depthMask = (gstate.clearmode >> 10) & 1;
 		dxstate.depthTest.enable();
 		dxstate.depthFunc.set(D3DCMP_ALWAYS);
-		dxstate.depthWrite.set(depthMask);
+		dxstate.depthWrite.set(gstate.isClearModeDepthWriteEnabled());
 
 		// Color Test
 		bool colorMask = (gstate.clearmode >> 8) & 1;
@@ -288,13 +287,13 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
 	int scissorY1 = gstate.getScissorY1();
-	int scissorX2 = gstate.getScissorX2();
-	int scissorY2 = gstate.getScissorY2();
+	int scissorX2 = gstate.getScissorX2() + 1;
+	int scissorY2 = gstate.getScissorY2() + 1;
 
 	// This is a bit of a hack as the render buffer isn't always that size
 	if (scissorX1 == 0 && scissorY1 == 0 
-		&& scissorX2 >= (int) (gstate_c.curRTWidth - 1) 
-		&& scissorY2 >= (int) (gstate_c.curRTHeight - 1)) {
+		&& scissorX2 >= (int) gstate_c.curRTWidth
+		&& scissorY2 >= (int) gstate_c.curRTHeight) {
 		dxstate.scissorTest.disable();
 	} else {
 		dxstate.scissorTest.enable();

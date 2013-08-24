@@ -129,7 +129,7 @@ void TextureCache::Decimate() {
 }
 
 void TextureCache::Invalidate(u32 addr, int size, GPUInvalidationType type) {
-	addr &= 0xFFFFFFF;
+	addr &= 0x0FFFFFFF;
 	u32 addr_end = addr + size;
 
 	// They could invalidate inside the texture, let's just give a bit of leeway.
@@ -194,11 +194,10 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 				if (entry->format != framebuffer->format) {
 					WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
-				// Try to not bind FB now as it seems to be attached some strange stuff on top of the original FB.
-				//AttachFramebufferInvalid(entry, framebuffer);
+				AttachFramebufferInvalid(entry, framebuffer);
 			} else {
 				AttachFramebufferValid(entry, framebuffer);
-				}
+			}
 		// TODO: Delete the original non-fbo texture too.
 	}
 		} else if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE || g_Config.iRenderingMode == FB_BUFFERED_MODE) {
@@ -212,11 +211,11 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 				if (framebuffer->format != entry->format) {
 					WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 					// TODO: Use an FBO to translate the palette?
-				AttachFramebufferValid(entry, framebuffer);
+					AttachFramebufferValid(entry, framebuffer);
 				} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 					WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 					// TODO: Keep track of the y offset.
-				AttachFramebufferInvalid(entry, framebuffer);
+					AttachFramebufferValid(entry, framebuffer);
 			}
 		}
 	}
@@ -242,20 +241,16 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	case NOTIFY_FB_CREATED:
 	case NOTIFY_FB_UPDATED:
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			AttachFramebuffer(&it->second, address, framebuffer, it->first == cacheKey);
+			AttachFramebuffer(&it->second, address | 0x04000000, framebuffer, it->first == cacheKey);
 		}
 		break;
 
 	case NOTIFY_FB_DESTROYED:
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
-			DetachFramebuffer(&it->second, address, framebuffer);
+			DetachFramebuffer(&it->second, address | 0x04000000, framebuffer);
 		}
 		break;
 	}
-}
-
-static u32 GetClutAddr() {
-	return ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
 }
 
 static u32 GetClutIndex(u32 index) {
@@ -1297,6 +1292,9 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_CLUT4:
 		{
 		dstFmt = getClutDestFormat(clutformat);
+		// Don't allow this to be less than 16 bytes (32 * 4 / 8 = 16.)
+		if (bufw < 32)
+			bufw = 32;
 
 		const bool mipmapShareClut = (gstate.texmode & 0x100) == 0;
 		const int clutSharingOffset = mipmapShareClut ? 0 : level * 16;
@@ -1355,18 +1353,24 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		break;
 
 	case GE_TFMT_CLUT8:
+		if (bufw < 8)
+			bufw = 8;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 1, dstFmt);
 		break;
 
 	case GE_TFMT_CLUT16:
+		if (bufw < 8)
+			bufw = 8;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 2, dstFmt);
 		break;
 
 	case GE_TFMT_CLUT32:
+		if (bufw < 4)
+			bufw = 4;
 		dstFmt = getClutDestFormat(gstate.getClutPaletteFormat());
 		texByteAlign = texByteAlignMap[gstate.getClutPaletteFormat()];
 		finalBuf = readIndexedTex(level, texaddr, 4, dstFmt);
@@ -1375,6 +1379,8 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_4444:
 	case GE_TFMT_5551:
 	case GE_TFMT_5650:
+		if (bufw < 8)
+			bufw = 8;
 		if (format == GE_TFMT_4444)
 			dstFmt = D3DFMT_A4R4G4B4;
 		else if (format == GE_TFMT_5551)
@@ -1398,6 +1404,8 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		break;
 
 	case GE_TFMT_8888:
+		if (bufw < 4)
+			bufw = 4;
 		dstFmt = D3DFMT_A8R8G8B8;
 		if (!(gstate.texmode & 1)) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
@@ -1459,7 +1467,6 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
-			//TextureConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 
@@ -1481,7 +1488,6 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			}
 			w = (w + 3) & ~3;
 			finalBuf = tmpTexBuf32.data();
-			//TextureConvertColors(finalBuf, finalBuf, dstFmt, bufw * h);
 		}
 		break;
 

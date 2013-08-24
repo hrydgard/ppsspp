@@ -35,17 +35,16 @@ static bool IsAlphaTestTriviallyTrue() {
 	case GE_COMP_ALWAYS:
 		return true;
 	case GE_COMP_GEQUAL:
-		if (alphaTestRef == 0)
-			return true;
+		return alphaTestRef == 0;
 
 	// This breaks the trees in MotoGP, for example.
 	// case GE_COMP_GREATER:
-	//if (alphaTestRef == 0 && (gstate.alphaBlendEnable & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
+	//if (alphaTestRef == 0 && (gstate.isAlphaBlendEnabled() & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
 	//	return true;
 
 	case GE_COMP_LEQUAL:
-		if (alphaTestRef == 255)
-			return true;
+		return alphaTestRef == 255;
+
 	default:
 		return false;
 	}
@@ -104,8 +103,8 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		bool enableColorDoubling = gstate.isColorDoublingEnabled();
 		// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 		bool enableAlphaDoubling = CanDoubleSrcBlendMode();
-		bool doTextureProjection = gstate.getUVGenMode() == 1;
-		bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+		bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 
 		// All texfuncs except replace are the same for RGB as for RGBA with full alpha.
 		if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
@@ -133,34 +132,10 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 
 // Missing: Z depth range
 // Also, logic ops etc, of course. Urgh.
-#if 0
-void GenerateFragmentShader(char *buffer) {
-	//--------------------------------------------------------------------------------------
-	// Pixel shader
-	//--------------------------------------------------------------------------------------
-	const char * pscode =
-		" sampler s: register(s0);					   "
-		" struct PS_IN                                 "
-		" {                                            "
-		"		float3 Uv   : TEXCOORD0;              "
-		"		float4 C1    : COLOR0;                 "  // Vertex color
-		"		float4 C2    : COLOR1;                 "  // Vertex color                     
-		" };                                           " 
-		"                                              "
-		" float4 main( PS_IN In ) : COLOR              "
-		" {                                            "
-		//"   float4 c = In.C1;							"
-		"	float4 c = tex2D(s, In.Uv.xy);			"
-		"   return c;								   "
-		" }                                            ";
-
-	strcpy(buffer, pscode);
-}
-#else
 void GenerateFragmentShader(char *buffer) {
 	char *p = buffer;
 
-	int lmode = (gstate.lmode & 1) && gstate.isLightingEnabled();
+	int lmode = lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 	int doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool enableAlphaTest = gstate.isAlphaTestEnabled() && !IsAlphaTestTriviallyTrue() && !gstate.isModeClear();
@@ -168,8 +143,8 @@ void GenerateFragmentShader(char *buffer) {
 	bool enableColorDoubling = gstate.isColorDoublingEnabled();
 	// This isn't really correct, but it's a hack to get doubled blend modes to work more correctly.
 	bool enableAlphaDoubling = CanDoubleSrcBlendMode();
-	bool doTextureProjection = gstate.getUVGenMode() == 1;
-	bool doTextureAlpha = (gstate.texfunc & 0x100) != 0;
+	bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
+	bool doTextureAlpha = gstate.isTextureAlphaUsed();
 
 	if (gstate_c.textureFullAlpha && gstate.getTextureFunction() != GE_TEXFUNC_REPLACE)
 		doTextureAlpha = false;
@@ -179,7 +154,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (enableAlphaTest || enableColorTest) {
 		WRITE(p, "float4 u_alphacolorref;\n");
-		WRITE(p, "float3 u_colormask;\n");
+		WRITE(p, "float4 u_colormask;\n");
 	}
 	if (gstate.isTextureMapEnabled()) 
 		WRITE(p, "float3 u_texenv;\n");
@@ -324,4 +299,3 @@ void GenerateFragmentShader(char *buffer) {
 	}
 	WRITE(p, "}\n");
 }
-#endif
