@@ -39,6 +39,7 @@ bool enableAll = false;
 static std::vector<std::string> cheatList;
 extern void DrawBackground(float alpha);
 static CWCheatEngine *cheatEngine2;
+static bool enableCheat [64];
 
 std::vector<std::string> CwCheatScreen::CreateCodeList() {
 	cheatEngine2 = new CWCheatEngine();
@@ -101,22 +102,21 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 	std::vector<std::string> temp = cheatList;
 	enableAll = !enableAll;
 	os.open(activeCheatFile.c_str());
+	int size = sizeof(enableCheat) / sizeof(bool) ;
 	for (int j = 0; j < temp.size(); j++) {
 		if (enableAll == 1 && temp[j].substr(0, 3) == "_C0"){
 			temp[j].replace(0,3,"_C1");
-			for (int x = 0; x < sizeof(enableCheat); x++) {
-				enableCheat[x] = true;
-			}
 			
 		}
 		else if (enableAll == 0 && temp[j].substr(0, 3) == "_C1") {
 			temp[j].replace(0, 3, "_C0");
-			for (int x = 0; x < sizeof(enableCheat); x++) {
-				enableCheat[x] = false;
-			}
+			
 
 		}
 	}
+	for (int y = 0; y < size; y++) {
+				enableCheat[y] = enableAll;
+			}
 	for (int i = 0; i < temp.size(); i++) {
 		os << temp[i];
 		if (i < temp.size() - 1) {
