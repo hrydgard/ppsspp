@@ -73,7 +73,7 @@ namespace MIPSComp
 		return IsOverlapSafeAllowS(dreg, di, sn, sregs, tn, tregs) && sregs[di] != dreg;
 	}
 
-	void Jit::Comp_VPFX(u32 op)
+	void Jit::Comp_VPFX(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int data = op & 0xFFFFF;
@@ -231,7 +231,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_SV(u32 op) {
+	void Jit::Comp_SV(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		s32 imm = (signed short)(op&0xFFFC);
@@ -321,7 +321,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_SVQ(u32 op)
+	void Jit::Comp_SVQ(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 
@@ -433,7 +433,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VVectorInit(u32 op)
+	void Jit::Comp_VVectorInit(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 
@@ -470,7 +470,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VIdt(u32 op) {
+	void Jit::Comp_VIdt(MIPSOpcode op) {
 		CONDITIONAL_DISABLE
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -507,7 +507,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VMatrixInit(u32 op)
+	void Jit::Comp_VMatrixInit(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 
@@ -555,7 +555,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VDot(u32 op) {
+	void Jit::Comp_VDot(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		if (js.HasUnknownPrefix() || disablePrefixes) {
 			DISABLE;
@@ -592,7 +592,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vhoriz(u32 op) {
+	void Jit::Comp_Vhoriz(MIPSOpcode op) {
 		DISABLE;
 
 		switch ((op >> 16) & 31) {
@@ -603,12 +603,12 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_VHdp(u32 op) {
+	void Jit::Comp_VHdp(MIPSOpcode op) {
 		// Similar to vdot
 		DISABLE;
 	}
 
-	void Jit::Comp_VecDo3(u32 op) {
+	void Jit::Comp_VecDo3(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -723,7 +723,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VV2Op(u32 op) {
+	void Jit::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -849,7 +849,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vi2f(u32 op) {
+	void Jit::Comp_Vi2f(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes)
@@ -895,7 +895,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vf2i(u32 op) {
+	void Jit::Comp_Vf2i(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		DISABLE;
 
@@ -963,7 +963,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Mftv(u32 op)
+	void Jit::Comp_Mftv(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 
@@ -1024,7 +1024,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vmtvc(u32 op) {
+	void Jit::Comp_Vmtvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		int vs = _VS;
@@ -1045,7 +1045,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Vmmov(u32 op) {
+	void Jit::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
@@ -1086,7 +1086,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_VScl(u32 op) {
+	void Jit::Comp_VScl(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -1135,7 +1135,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vmmul(u32 op) {
+	void Jit::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
@@ -1177,11 +1177,11 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Vmscl(u32 op) {
+	void Jit::Comp_Vmscl(MIPSOpcode op) {
 		DISABLE;
 	}
 
-	void Jit::Comp_Vtfm(u32 op) {
+	void Jit::Comp_Vtfm(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?  Or maybe uses D?
@@ -1241,23 +1241,23 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_VCrs(u32 op) {
+	void Jit::Comp_VCrs(MIPSOpcode op) {
 		DISABLE;
 	}
 
-	void Jit::Comp_VDet(u32 op) {
+	void Jit::Comp_VDet(MIPSOpcode op) {
 		DISABLE;
 	}
 
-	void Jit::Comp_Vi2x(u32 op) {
+	void Jit::Comp_Vi2x(MIPSOpcode op) {
 		DISABLE;
 	}
 
-	void Jit::Comp_Vx2i(u32 op) {
+	void Jit::Comp_Vx2i(MIPSOpcode op) {
 		DISABLE;
 	}
 
-	void Jit::Comp_VCrossQuat(u32 op) {
+	void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 		// This op does not support prefixes.
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
@@ -1303,7 +1303,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vcmp(u32 op) {
+	void Jit::Comp_Vcmp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes)
@@ -1441,7 +1441,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vcmov(u32 op) {
+	void Jit::Comp_Vcmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes)
@@ -1489,7 +1489,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Viim(u32 op) {
+	void Jit::Comp_Viim(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		u8 dreg;
@@ -1503,7 +1503,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vfim(u32 op) {
+	void Jit::Comp_Vfim(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -1523,7 +1523,7 @@ namespace MIPSComp
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
-	void Jit::Comp_Vcst(u32 op) {
+	void Jit::Comp_Vcst(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -1572,7 +1572,7 @@ namespace MIPSComp
 	}
 
 	// Very heavily used by FF:CC
-	void Jit::Comp_VRot(u32 op) {
+	void Jit::Comp_VRot(MIPSOpcode op) {
 		// Not sure about the ABI so I disable on non-Android.
 #if !defined(ARMV7) || !defined(ANDROID)
 		DISABLE;

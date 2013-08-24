@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "../../Globals.h"
+#include "Globals.h"
+#include "Core/MIPS/MIPS.h"
 
 class DebugInterface;
 
@@ -75,16 +76,15 @@ namespace MIPSAnalyst
 	void ScanForFunctions(u32 startAddr, u32 endAddr);
 	void CompileLeafs();
 
-	std::vector<int> GetInputRegs(u32 op);
-	std::vector<int> GetOutputRegs(u32 op);
+	std::vector<int> GetInputRegs(MIPSOpcode op);
+	std::vector<int> GetOutputRegs(MIPSOpcode op);
 
-	int GetOutGPReg(u32 op);
-	bool ReadsFromGPReg(u32 op, u32 reg);
-	bool IsDelaySlotNice(u32 branch, u32 delayslot);
-	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2 = 0);
-	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op);
-	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op);
-	bool IsSyscall(u32 op);
+	int GetOutGPReg(MIPSOpcode op);
+	bool ReadsFromGPReg(MIPSOpcode op, u32 reg);
+	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, int reg1, int reg2 = 0);
+	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op);
+	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op);
+	bool IsSyscall(MIPSOpcode op);
 
 	void Shutdown();
 	
@@ -92,7 +92,7 @@ namespace MIPSAnalyst
 	{
 		DebugInterface* cpu;
 		u32 opcodeAddress;
-		u32 encodedOpcode;
+		MIPSOpcode encodedOpcode;
 		
 		// shared between branches and conditional moves
 		bool isConditional;

@@ -65,7 +65,7 @@ struct JitBlock {
 	u32 exitAddress[MAX_JIT_BLOCK_EXITS];   // 0xFFFFFFFF == unknown
 
 	u32 originalAddress;
-	u32 originalFirstOpcode; //to be able to restore
+	MIPSOpcode originalFirstOpcode; //to be able to restore
 	u16 codeSize; 
 	u16 originalSize;
 	u16 blockNum;
@@ -107,9 +107,9 @@ public:
 	// Returns a list of block numbers - only one block can start at a particular address, but they CAN overlap.
 	// This one is slow so should only be used for one-shots from the debugger UI, not for anything during runtime.
 	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers);
-	int GetBlockNumberFromEmuHackOp(u32 inst) const;
+	int GetBlockNumberFromEmuHackOp(MIPSOpcode inst) const;
 
-	u32 GetOriginalFirstOp(int block_num);
+	MIPSOpcode GetOriginalFirstOp(int block_num);
 
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
@@ -120,7 +120,7 @@ private:
 	void LinkBlock(int i);
 	void UnlinkBlock(int i);
 
-	u32 GetEmuHackOpForBlock(int block_num) const;
+	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
 
 	MIPSState *mips;
 	CodeBlock *codeBlock_;

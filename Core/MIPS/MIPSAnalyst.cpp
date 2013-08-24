@@ -35,7 +35,7 @@ namespace MIPSAnalyst
 	RegisterAnalysisResults gprAnal[NUM_MIPS_GPRS];
 
 	// Only can ever output a single reg.
-	int GetOutGPReg(u32 op) {
+	int GetOutGPReg(MIPSOpcode op) {
 		MIPSInfo opinfo = MIPSGetInfo(op);
 		if ((opinfo & IS_VFPU) == 0) {
 			if (opinfo & OUT_RT) {
@@ -51,7 +51,7 @@ namespace MIPSAnalyst
 		return -1;
 	}
 
-	bool ReadsFromGPReg(u32 op, u32 reg) {
+	bool ReadsFromGPReg(MIPSOpcode op, u32 reg) {
 		MIPSInfo info = MIPSGetInfo(op);
 		if ((info & IS_VFPU) == 0) {
 			if ((info & IN_RS) != 0 && MIPS_GET_RS(op) == reg) {
@@ -64,7 +64,7 @@ namespace MIPSAnalyst
 		return false;
 	}
 
-	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2) {
+	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, int reg1, int reg2) {
 		// $0 is never an out reg, it's always 0.
 		if (reg1 != 0 && GetOutGPReg(op) == reg1) {
 			return false;
@@ -76,16 +76,16 @@ namespace MIPSAnalyst
 		return true;
 	}
 
-	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op) {
+	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op) {
 		// TODO: There may be IS_VFPU cases which are safe...
 		return (MIPSGetInfo(op) & IS_VFPU) == 0;
 	}
 
-	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op) {
+	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op) {
 		return (MIPSGetInfo(op) & OUT_FPUFLAG) == 0;
 	}
 
-	bool IsSyscall(u32 op) {
+	bool IsSyscall(MIPSOpcode op) {
 		// Syscalls look like this: 0000 00-- ---- ---- ---- --00 1100
 		return (op >> 26) == 0 && (op & 0x3f) == 12;
 	}
@@ -103,7 +103,7 @@ namespace MIPSAnalyst
 		}
 
 		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
-			u32 op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
 			MIPSInfo info = MIPSGetInfo(op);
 
 			int rs = MIPS_GET_RS(op);
@@ -188,7 +188,7 @@ namespace MIPSAnalyst
 	{
 		while (true)
 		{
-			u32 op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
 			MIPSInfo info = MIPSGetInfo(op);
 
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
@@ -219,7 +219,7 @@ namespace MIPSAnalyst
 			for (u32 addr = f.start; addr <= f.end; addr += 4)
 			{
 				u32 validbits = 0xFFFFFFFF;
-				u32 instr = Memory::Read_Instruction(addr);
+				MIPSOpcode instr = Memory::Read_Instruction(addr);
 				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
 					validbits&=~0xFFFF;
@@ -251,7 +251,7 @@ namespace MIPSAnalyst
 				continue;
 			}
 
-			u32 op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
 			u32 target = GetBranchTargetNoRA(addr);
 			if (target != INVALIDTARGET)
 			{
@@ -400,7 +400,7 @@ namespace MIPSAnalyst
 		LOG(CPU,"Precompiled %i straight leaf functions",count);*/
 	}
 
-	std::vector<int> GetInputRegs(u32 op)
+	std::vector<int> GetInputRegs(MIPSOpcode op)
 	{
 		std::vector<int> vec;
 		MIPSInfo info = MIPSGetInfo(op);
@@ -411,7 +411,7 @@ namespace MIPSAnalyst
 		}
 		return vec;
 	}
-	std::vector<int> GetOutputRegs(u32 op)
+	std::vector<int> GetOutputRegs(MIPSOpcode op)
 	{
 		std::vector<int> vec;
 		MIPSInfo info = MIPSGetInfo(op);
@@ -437,7 +437,7 @@ namespace MIPSAnalyst
 		info.opcodeAddress = address;
 		info.encodedOpcode = Memory::Read_Instruction(address);
 
-		u32 op = info.encodedOpcode;		
+		MIPSOpcode op = info.encodedOpcode;
 		MIPSInfo opInfo = MIPSGetInfo(op);
 		info.isLikelyBranch = (opInfo & LIKELY) != 0;
 		

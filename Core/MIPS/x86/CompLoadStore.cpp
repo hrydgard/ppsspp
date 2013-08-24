@@ -41,7 +41,7 @@
 
 namespace MIPSComp
 {
-	void Jit::CompITypeMemRead(u32 op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc)
+	void Jit::CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -62,7 +62,7 @@ namespace MIPSComp
 		gpr.UnlockAll();
 	}
 
-	void Jit::CompITypeMemWrite(u32 op, u32 bits, void *safeFunc)
+	void Jit::CompITypeMemWrite(MIPSOpcode op, u32 bits, void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -102,7 +102,7 @@ namespace MIPSComp
 		gpr.UnlockAll();
 	}
 
-	void Jit::CompITypeMemUnpairedLR(u32 op, bool isStore)
+	void Jit::CompITypeMemUnpairedLR(MIPSOpcode op, bool isStore)
 	{
 		CONDITIONAL_DISABLE;
 		int o = op>>26;
@@ -159,7 +159,7 @@ namespace MIPSComp
 		gpr.UnlockAllX();
 	}
 
-	void Jit::CompITypeMemUnpairedLRInner(u32 op, X64Reg shiftReg)
+	void Jit::CompITypeMemUnpairedLRInner(MIPSOpcode op, X64Reg shiftReg)
 	{
 		CONDITIONAL_DISABLE;
 		int o = op>>26;
@@ -251,7 +251,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_ITypeMem(u32 op)
+	void Jit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -299,9 +299,9 @@ namespace MIPSComp
 
 		case 34: //lwl
 			{
-				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 				// Looking for lwr rd, offset-3(rs) which makes a pair.
-				u32 desiredOp = ((op + (4 << 26)) & 0xFFFF0000) + (offset - 3);
+				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
 				if (!js.inDelaySlot && nextOp == desiredOp)
 				{
 					EatInstruction(nextOp);
@@ -315,9 +315,9 @@ namespace MIPSComp
 
 		case 38: //lwr
 			{
-				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 				// Looking for lwl rd, offset+3(rs) which makes a pair.
-				u32 desiredOp = ((op - (4 << 26)) & 0xFFFF0000) + (offset + 3);
+				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
 				if (!js.inDelaySlot && nextOp == desiredOp)
 				{
 					EatInstruction(nextOp);
@@ -331,9 +331,9 @@ namespace MIPSComp
 
 		case 42: //swl
 			{
-				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 				// Looking for swr rd, offset-3(rs) which makes a pair.
-				u32 desiredOp = ((op + (4 << 26)) & 0xFFFF0000) + (offset - 3);
+				u32 desiredOp = ((op & 0xFFFF0000) + (4 << 26)) + (offset - 3);
 				if (!js.inDelaySlot && nextOp == desiredOp)
 				{
 					EatInstruction(nextOp);
@@ -347,9 +347,9 @@ namespace MIPSComp
 
 		case 46: //swr
 			{
-				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 				// Looking for swl rd, offset+3(rs) which makes a pair.
-				u32 desiredOp = ((op - (4 << 26)) & 0xFFFF0000) + (offset + 3);
+				u32 desiredOp = ((op & 0xFFFF0000) - (4 << 26)) + (offset + 3);
 				if (!js.inDelaySlot && nextOp == desiredOp)
 				{
 					EatInstruction(nextOp);

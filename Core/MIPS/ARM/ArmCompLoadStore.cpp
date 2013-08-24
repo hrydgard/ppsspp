@@ -121,7 +121,7 @@ namespace MIPSComp
 		SetCC(CC_GT);
 	}
 
-	void Jit::Comp_ITypeMem(u32 op)
+	void Jit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
@@ -194,13 +194,13 @@ namespace MIPSComp
 			if (!js.inDelaySlot) {
 				// Optimisation: Combine to single unaligned load/store
 				bool isLeft = (o == 34 || o == 42);
-				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 				// Find a matching shift in opposite direction with opposite offset.
-				if (nextOp == (isLeft ? (op + (4<<26) - 3)
-				                      : (op - (4<<26) + 3)))
+				if (nextOp == (isLeft ? (op.encoding + (4<<26) - 3)
+				                      : (op.encoding - (4<<26) + 3)))
 				{
 					EatInstruction(nextOp);
-					nextOp = ((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x03FFFFFF); //lw, sw
+					nextOp = MIPSOpcode(((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x03FFFFFF)); //lw, sw
 					Comp_ITypeMem(nextOp);
 					return;
 				}

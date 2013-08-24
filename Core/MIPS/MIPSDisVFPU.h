@@ -23,38 +23,38 @@ extern u32 disPC;
 
 namespace MIPSDis
 {
-	void Dis_Mftv(u32 op, char *out);
+	void Dis_Mftv(MIPSOpcode op, char *out);
 
-	void Dis_SV(u32 op, char *out);
-	void Dis_SVQ(u32 op, char *out);
-	void Dis_SVLRQ(u32 op, char *out);
+	void Dis_SV(MIPSOpcode op, char *out);
+	void Dis_SVQ(MIPSOpcode op, char *out);
+	void Dis_SVLRQ(MIPSOpcode op, char *out);
 
-	void Dis_MatrixSet1(u32 op, char *out);
-	void Dis_MatrixSet2(u32 op, char *out);
-	void Dis_MatrixSet3(u32 op, char *out);
-	void Dis_MatrixMult(u32 op, char *out);
+	void Dis_MatrixSet1(MIPSOpcode op, char *out);
+	void Dis_MatrixSet2(MIPSOpcode op, char *out);
+	void Dis_MatrixSet3(MIPSOpcode op, char *out);
+	void Dis_MatrixMult(MIPSOpcode op, char *out);
 
-	void Dis_VectorDot(u32 op, char *out);
-	void Dis_Vfad(u32 op, char *out);
-	void Dis_VectorSet1(u32 op, char *out);
-	void Dis_VectorSet2(u32 op, char *out);
-	void Dis_VectorSet3(u32 op, char *out);
-	void Dis_VRot(u32 op, char *out);
-	void Dis_VScl(u32 op, char *out);
+	void Dis_VectorDot(MIPSOpcode op, char *out);
+	void Dis_Vfad(MIPSOpcode op, char *out);
+	void Dis_VectorSet1(MIPSOpcode op, char *out);
+	void Dis_VectorSet2(MIPSOpcode op, char *out);
+	void Dis_VectorSet3(MIPSOpcode op, char *out);
+	void Dis_VRot(MIPSOpcode op, char *out);
+	void Dis_VScl(MIPSOpcode op, char *out);
 
-	void Dis_VPFXST(u32 op, char *out);
-	void Dis_VPFXD(u32 op, char *out);
-	void Dis_Vcrs(u32 op, char *out);
-	void Dis_Viim(u32 op, char *out);
-	void Dis_Vcst(u32 op, char *out);
-	void Dis_CrossQuat(u32 op, char *out);
-	void Dis_Vtfm(u32 op, char *out);
-	void Dis_Vcmp(u32 op, char *out);
-	void Dis_Vcmov(u32 op, char *out);
-	void Dis_Vflush(u32 op, char *out);
-	void Dis_Vbfy(u32 op, char *out);
-	void Dis_Vf2i(u32 op, char *out);
-	void Dis_Vi2x(u32 op, char *out);
-	void Dis_Vs2i(u32 op, char *out);
-	void Dis_VBranch(u32 op, char *out);
+	void Dis_VPFXST(MIPSOpcode op, char *out);
+	void Dis_VPFXD(MIPSOpcode op, char *out);
+	void Dis_Vcrs(MIPSOpcode op, char *out);
+	void Dis_Viim(MIPSOpcode op, char *out);
+	void Dis_Vcst(MIPSOpcode op, char *out);
+	void Dis_CrossQuat(MIPSOpcode op, char *out);
+	void Dis_Vtfm(MIPSOpcode op, char *out);
+	void Dis_Vcmp(MIPSOpcode op, char *out);
+	void Dis_Vcmov(MIPSOpcode op, char *out);
+	void Dis_Vflush(MIPSOpcode op, char *out);
+	void Dis_Vbfy(MIPSOpcode op, char *out);
+	void Dis_Vf2i(MIPSOpcode op, char *out);
+	void Dis_Vi2x(MIPSOpcode op, char *out);
+	void Dis_Vs2i(MIPSOpcode op, char *out);
+	void Dis_VBranch(MIPSOpcode op, char *out);
 }

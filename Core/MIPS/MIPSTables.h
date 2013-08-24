@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Globals.h"
+#include "Core/MIPS/MIPS.h"
 
 struct MIPSInfo {
 	MIPSInfo() {
@@ -85,19 +86,19 @@ struct MIPSInfo {
 #define CDECL
 #endif
 
-typedef void (CDECL *MIPSDisFunc)(u32 opcode, char *out);
-typedef void (CDECL *MIPSInterpretFunc)(u32 opcode);
+typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, char *out);
+typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
 
 
-void MIPSCompileOp(u32 op);
-void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces = false);
-MIPSInfo MIPSGetInfo(u32 op);
-void MIPSInterpret(u32 op); //only for those rare ones
+void MIPSCompileOp(MIPSOpcode op);
+void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces = false);
+MIPSInfo MIPSGetInfo(MIPSOpcode op);
+void MIPSInterpret(MIPSOpcode op); //only for those rare ones
 int MIPSInterpret_RunUntil(u64 globalTicks);
-MIPSInterpretFunc MIPSGetInterpretFunc(u32 op);
+MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 
-int MIPSGetInstructionCycleEstimate(u32 op);
-const char *MIPSGetName(u32 op);
+int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
+const char *MIPSGetName(MIPSOpcode op);
 
 
 void FillMIPSTables();

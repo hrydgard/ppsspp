@@ -39,7 +39,7 @@ using namespace MIPSAnalyst;
 
 namespace MIPSComp
 {
-	void Jit::CompImmLogic(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &))
+	void Jit::CompImmLogic(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &))
 	{
 		u32 uimm = (u16)(op & 0xFFFF);
 		int rt = _RT;
@@ -52,7 +52,7 @@ namespace MIPSComp
 		gpr.UnlockAll();
 	}
 
-	void Jit::Comp_IType(u32 op)
+	void Jit::Comp_IType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
@@ -159,7 +159,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_RType2(u32 op)
+	void Jit::Comp_RType2(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
@@ -266,7 +266,7 @@ namespace MIPSComp
 	}
 
 	//rd = rs X rt
-	void Jit::CompTriArith(u32 op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32))
+	void Jit::CompTriArith(MIPSOpcode op, void (XEmitter::*arith)(int, const OpArg &, const OpArg &), u32 (*doImm)(const u32, const u32))
 	{
 		int rt = _RT;
 		int rs = _RS;
@@ -323,7 +323,7 @@ namespace MIPSComp
 		gpr.UnlockAll();
 	}
 
-	void Jit::Comp_RType3(u32 op)
+	void Jit::Comp_RType3(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE
 		
@@ -507,7 +507,7 @@ namespace MIPSComp
 		return (a >> sa) | (a << (32 - sa));
 	}
 
-	void Jit::CompShiftImm(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32))
+	void Jit::CompShiftImm(MIPSOpcode op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32))
 	{
 		int rd = _RD;
 		int rt = _RT;
@@ -528,7 +528,7 @@ namespace MIPSComp
 	}
 
 	// "over-shifts" work the same as on x86 - only bottom 5 bits are used to get the shift value
-	void Jit::CompShiftVar(u32 op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32))
+	void Jit::CompShiftVar(MIPSOpcode op, void (XEmitter::*shift)(int, OpArg, OpArg), u32 (*doImm)(const u32, const u32))
 	{
 		int rd = _RD;
 		int rt = _RT;
@@ -563,7 +563,7 @@ namespace MIPSComp
 		gpr.UnlockAll();
 	}
 
-	void Jit::Comp_ShiftType(u32 op)
+	void Jit::Comp_ShiftType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
@@ -591,7 +591,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Special3(u32 op)
+	void Jit::Comp_Special3(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
@@ -659,7 +659,7 @@ namespace MIPSComp
 	}
 
 
-	void Jit::Comp_Allegrex(u32 op)
+	void Jit::Comp_Allegrex(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE
 		int rt = _RT;
@@ -769,7 +769,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Allegrex2(u32 op)
+	void Jit::Comp_Allegrex2(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE
 		int rt = _RT;
@@ -799,7 +799,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_MulDivType(u32 op)
+	void Jit::Comp_MulDivType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rt = _RT;

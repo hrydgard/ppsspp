@@ -68,7 +68,7 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 
 		addr += segmentVAddr[readwrite];
 
-		u32 op = Memory::ReadUnchecked_U32(addr);
+		u32 op = Memory::Read_Instruction(addr).encoding;
 
 		const bool log = false;
 		//log=true;
@@ -145,7 +145,7 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		case R_MIPS_16:
 			{
 				char temp[256];
-				MIPSDisAsm(op, 0, temp);
+				MIPSDisAsm(MIPSOpcode(op), 0, temp);
 				ERROR_LOG_REPORT(LOADER, "WARNING: Unsupported R_MIPS_16 reloc @ %08x : %s", addr, temp);
 			}
 			break;
@@ -157,7 +157,7 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 		default:
 			{
 				char temp[256];
-				MIPSDisAsm(op, 0, temp);
+				MIPSDisAsm(MIPSOpcode(op), 0, temp);
 				ERROR_LOG_REPORT(LOADER,"ARGH IT'S AN UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
 			}
 			break;
