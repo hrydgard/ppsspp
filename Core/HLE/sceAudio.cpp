@@ -421,6 +421,8 @@ const HLEFunction sceAudio[] =
 	{0x63f2889c, WrapU_U<sceAudioOutput2ChangeLength>, "sceAudioOutput2ChangeLength"},
 	{0x647cef33, WrapU_V<sceAudioOutput2GetRestSample>, "sceAudioOutput2GetRestSample"},
 	{0x43196845, WrapU_V<sceAudioOutput2Release>, "sceAudioOutput2Release"},
+
+	// "Traditional" audio channel interface
 	{0x80F1F7E0, WrapU_V<sceAudioInit>, "sceAudioInit"},
 	{0x210567F7, WrapU_V<sceAudioEnd>, "sceAudioEnd"},
 	{0xA2BEAA6C, WrapU_U<sceAudioSetFrequency>, "sceAudioSetFrequency"},
@@ -436,6 +438,8 @@ const HLEFunction sceAudio[] =
 	{0xCB2E439E, WrapU_UU<sceAudioSetChannelDataLen>, "sceAudioSetChannelDataLen"},
 	{0x95FD0C2D, WrapU_UU<sceAudioChangeChannelConfig>, "sceAudioChangeChannelConfig"},
 	{0xB7E1D8E7, WrapU_UUU<sceAudioChangeChannelVolume>, "sceAudioChangeChannelVolume"},
+
+	// Not sure about the point of these, maybe like traditional but with ability to do sample rate conversion?
 	{0x38553111, WrapU_UUU<sceAudioSRCChReserve>, "sceAudioSRCChReserve"},
 	{0x5C37C0AE, WrapU_V<sceAudioSRCChRelease>, "sceAudioSRCChRelease"},
 	{0xE0727056, WrapU_UU<sceAudioSRCOutputBlocking>, "sceAudioSRCOutputBlocking"},
