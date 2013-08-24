@@ -46,7 +46,7 @@ static inline int orient2dIncY(int dX01)
 
 static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
-	if (!(gstate.texmode & 1))
+	if (!gstate.isTextureSwizzled())
 		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
 
 	int tile_size_bits = 32;
@@ -88,13 +88,6 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 			ERROR_LOG(G3D, "Unsupported palette format: %x", gstate.getClutPaletteFormat());
 			return 0;
 	}
-}
-
-static inline u32 GetClutIndex(u32 index) {
-    const u32 clutBase = gstate.getClutIndexStartPos();
-    const u32 clutMask = gstate.getClutIndexMask();
-    const u8 clutShift = gstate.getClutIndexShift();
-    return ((index >> clutShift) & clutMask) | clutBase;
 }
 
 static inline void GetTexelCoordinates(int level, float s, float t, unsigned int& u, unsigned int& v)
@@ -185,25 +178,25 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
 
 		u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
 
-		return LookupColor(GetClutIndex(val), level);
+		return LookupColor(gstate.transformClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT16) {
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 
 		u16 val = srcptr[0] + (srcptr[1] << 8);
 
-		return LookupColor(GetClutIndex(val), level);
+		return LookupColor(gstate.transformClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT8) {
 		srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
 
 		u8 val = *srcptr;
 
-		return LookupColor(GetClutIndex(val), level);
+		return LookupColor(gstate.transformClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT4) {
 		srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
 
 		u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
 
-		return LookupColor(GetClutIndex(val), level);
+		return LookupColor(gstate.transformClutIndex(val), level);
 	} else {
 		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
 		return 0;
@@ -404,7 +397,7 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 	Vec3<int> out_rgb;
 	int out_a;
 
-	bool rgba = (gstate.texfunc & 0x100) != 0;
+	bool rgba = gstate.isTextureAlphaUsed();
 
 	switch (gstate.getTextureFunction()) {
 	case GE_TEXFUNC_MODULATE:
@@ -452,10 +445,10 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 
 static inline bool ColorTestPassed(Vec3<int> color)
 {
-	u32 mask = gstate.colormask&0xFFFFFF;
-	color = Vec3<int>::FromRGB(color.ToRGB() & mask);
-	Vec3<int> ref = Vec3<int>::FromRGB(gstate.colorref & mask);
-	switch (gstate.colortest & 0x3) {
+	const u32 mask = gstate.getColorTestMask();
+	const u32 c = color.ToRGB() & mask;
+	const u32 ref = gstate.getColorTestRef() & mask;
+	switch (gstate.getColorTestFunction()) {
 		case GE_COMP_NEVER:
 			return false;
 
@@ -463,21 +456,21 @@ static inline bool ColorTestPassed(Vec3<int> color)
 			return true;
 
 		case GE_COMP_EQUAL:
-			return (color.r() == ref.r() && color.g() == ref.g() && color.b() == ref.b());
+			return c == ref;
 
 		case GE_COMP_NOTEQUAL:
-			return (color.r() != ref.r() || color.g() != ref.g() || color.b() != ref.b());
+			return c != ref;
 	}
 	return true;
 }
 
 static inline bool AlphaTestPassed(int alpha)
 {
-	u8 mask = (gstate.alphatest >> 16) & 0xFF;
-	u8 ref = (gstate.alphatest >> 8) & mask;
+	const u8 mask = gstate.getAlphaTestMask() & 0xFF;
+	const u8 ref = gstate.getAlphaTestRef() & mask;
 	alpha &= mask;
 
-	switch (gstate.alphatest & 0x7) {
+	switch (gstate.getAlphaTestFunction()) {
 		case GE_COMP_NEVER:
 			return false;
 
@@ -726,7 +719,7 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				// TODO: Fogging
 
 				// TODO: Is that the correct way to interpolate?
-				// With the (u32), this causes an ICE in some versions of gcc.
+				// Without the (u32), this causes an ICE in some versions of gcc.
 				u16 z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) / (w0+w1+w2));
 
 				// Depth range test

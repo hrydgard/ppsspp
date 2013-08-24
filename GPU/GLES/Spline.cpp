@@ -57,7 +57,7 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 		}
 	}
 
-	if (!(gstate.vertType & GE_VTYPE_TC_MASK)) {
+	if (!gstate.getTexCoordMask()) {
 		VertexDecoder *dec = GetVertexDecoder(gstate.vertType);
 		dec->SetVertexType(gstate.vertType);
 		u32 newVertType = dec->InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);
@@ -92,7 +92,7 @@ void CopyTriangle(u8 *&dest, u8 *v1, u8 *v2, u8 * v3, int vertexSize) {
 	dest += vertexSize;
 }
 
-void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, u32 prim_type, u32 vertex_type)
+void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type)
 {
 	Flush();
 

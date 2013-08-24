@@ -150,7 +150,7 @@ private:
 };
 
 Lighter::Lighter() {
-	doShadeMapping_ = (gstate.texmapmode & 0x3) == 2;
+	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 	materialEmissive.GetFromRGB(gstate.materialemissive);
 	materialEmissive.a = 0.0f;
 	globalAmbient.GetFromRGB(gstate.ambientcolor);
@@ -677,16 +677,17 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			((clearColor & 0xFF0000) >> 16) / 255.0f,
 			((clearColor & 0xFF000000) >> 24) / 255.0f,
 		};
-		int target = 0;
-		if ((gstate.clearmode >> 8) & 3) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
-		if ((gstate.clearmode >> 10) & 1) target |= GL_DEPTH_BUFFER_BIT;
 
-		bool colorMask = (gstate.clearmode >> 8) & 1;
-		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		bool colorMask = gstate.isClearModeColorMask();
+		bool alphaMask = gstate.isClearModeAlphaMask();
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 		glstate.stencilTest.set(false);
 		glstate.scissorTest.set(false);
-		bool depthMask = (gstate.clearmode >> 10) & 1;
+		bool depthMask = gstate.isClearModeDepthMask();
+
+		int target = 0;
+		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
 		glClearColor(col[0], col[1], col[2], col[3]);
 #ifdef USING_GLES2
