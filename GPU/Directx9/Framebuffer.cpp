@@ -149,6 +149,10 @@ static inline void ARGB8From5551(u16 c, u32 * dst) {
 	*dst = ((c & 0x001f) << 19) | (((c >> 5) & 0x001f) << 11) | ((((c >> 10) & 0x001f) << 3)) | 0xFF000000;
 }
 
+static inline u32 ABGR2RGBA(u32 src) {
+	return (src >> 8) | (src << 24); 
+}
+
 void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelFormat, int linesize) {
 	u8 * convBuf = NULL;
 	D3DLOCKED_RECT rect;
@@ -203,15 +207,25 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 
 			case GE_FORMAT_8888:
 				{
-					const u8 *src = framebuf + linesize * 4 * y;
-					u8 *dst = convBuf + rect.Pitch * y;
-					memcpy(dst, src, 4 * 480);
+					const u32 *src = (const u32 *)framebuf + linesize * y;
+					u32 *dst = (u32*)(convBuf + rect.Pitch * y);
+					for (int x = 0; x < 480; x++)
+					{
+						dst[x] = ABGR2RGBA(src[x]);
+					}
 				}
 				break;
 			}
 		}
 	} else {
-		memcpy(convBuf, framebuf, 4 * 512 * 272);
+		for (int y = 0; y < 272; y++) {
+			const u32 *src = (const u32 *)framebuf + linesize * y;
+			u32 *dst = (u32*)(convBuf + rect.Pitch * y);
+			for (int x = 0; x < 512; x++)
+			{
+				dst[x] = ABGR2RGBA(src[x]);
+			}
+		}
 	}
 
 	drawPixelsTex_->UnlockRect(0);
@@ -222,6 +236,20 @@ void FramebufferManager::DrawPixels(const u8 *framebuf, GEBufferFormat pixelForm
 	float x, y, w, h;
 	CenterRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight);
 	DrawActiveTexture(x, y, w, h, false, 480.0f / 512.0f);
+}
+
+// Depth in ogl is between -1;1 we need between 0;1
+static void ConvertMatrices(Matrix4x4 & in) {
+	/*
+	in.zz *= 0.5f;
+	in.wz += 1.f;
+	*/
+	Matrix4x4 s;
+	Matrix4x4 t;
+	s.setScaling(Vec3(1, 1, 0.5f));
+	t.setTranslation(Vec3(0, 0, 0.5f));
+	in = in * s;
+	in = in * t;
 }
 
 void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
@@ -238,6 +266,8 @@ void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, b
 	}; 
 
 	Matrix4x4 ortho;
+	ConvertMatrices(ortho);
+
 	ortho.setOrtho(0, (float)PSP_CoreParameter().pixelWidth, (float)PSP_CoreParameter().pixelHeight, 0, -1, 1);
 
 	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
@@ -338,6 +368,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
+		
 		currentRenderVfb_->last_frame_used = gpuStats.numFlips;
 		currentRenderVfb_->dirtyAfterDisplay = true;
 		if (!gstate_c.skipDrawReason)
@@ -512,7 +543,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 			}*/
 		}
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
-
+					
 #if 0
 		// Some tiled mobile GPUs benefit IMMENSELY from clearing an FBO before rendering
 		// to it. This broke stuff before, so now it only clears on the first use of an
@@ -540,7 +571,22 @@ void FramebufferManager::SetRenderFrameBuffer() {
 }
 
 void FramebufferManager::CopyDisplayToOutput() {
+
+#ifdef _XBOX
+	//if (currentRenderVfb_ && (!currentRenderVfb_->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER))
+	if (currentRenderVfb_ && (currentRenderVfb_->usageFlags == FB_USAGE_RENDERTARGET || currentRenderVfb_->usageFlags & FB_USAGE_TEXTURE))
+	//if (currentRenderVfb_ && (currentRenderVfb_->fb_address == 0))
+	{
+		if (currentRenderVfb_->fbo) {
+			fbo_resolve(currentRenderVfb_->fbo);
+		}
+	}
+	
+#endif
+
+	
 	fbo_unbind();
+	
 	currentRenderVfb_ = 0;
 
 	VirtualFramebuffer *vfb = GetDisplayFBO();

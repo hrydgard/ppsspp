@@ -53,6 +53,7 @@ PSShader::PSShader(const char *code, bool useHWTransform) : failed_(false), useH
 }
 
 PSShader::~PSShader() {
+	pD3Ddevice->SetPixelShader(NULL);
 	if (shader)
 		shader->Release();
 }
@@ -75,6 +76,7 @@ VSShader::VSShader(const char *code, bool useHWTransform) : failed_(false), useH
 }
 
 VSShader::~VSShader() {
+	pD3Ddevice->SetVertexShader(NULL);
 	if (shader)
 		shader->Release();
 }
