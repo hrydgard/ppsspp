@@ -16,182 +16,130 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
-#include "../../Globals.h"
+#include "Globals.h"
 
-#include "MIPS.h"
-#include "MIPSTables.h"
-#include "MIPSAnalyst.h"
-#include "MIPSCodeUtils.h"
-#include "../Debugger/SymbolMap.h"
-#include "../Debugger/DebugInterface.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/DebugInterface.h"
 
 using namespace MIPSCodeUtils;
 using namespace std;
 
+#define NUM_MIPS_GPRS 32
+
 namespace MIPSAnalyst
 {
-	RegisterAnalysisResults regAnal[32];
-	RegisterAnalysisResults total[32];
-	int numAnalysisDone=0;
+	RegisterAnalysisResults gprAnal[NUM_MIPS_GPRS];
 
-	int GetOutReg(u32 op)
-	{
+	// Only can ever output a single reg.
+	int GetOutGPReg(u32 op) {
 		MIPSInfo opinfo = MIPSGetInfo(op);
-		if (opinfo & OUT_RT)
-			return MIPS_GET_RT(op);
-		if (opinfo & OUT_RD)
-			return MIPS_GET_RD(op);
-		if (opinfo & OUT_RA)
-			return MIPS_REG_RA;
+		if ((opinfo & IS_VFPU) == 0) {
+			if (opinfo & OUT_RT) {
+				return MIPS_GET_RT(op);
+			}
+			if (opinfo & OUT_RD) {
+				return MIPS_GET_RD(op);
+			}
+			if (opinfo & OUT_RA) {
+				return MIPS_REG_RA;
+			}
+		}
 		return -1;
 	}
 
-	bool ReadsFromReg(u32 op, u32 reg)
-	{
-		MIPSInfo opinfo = MIPSGetInfo(op);
-		if (opinfo & IN_RT)
-		{
-			if (MIPS_GET_RT(op) == reg)
+	bool ReadsFromGPReg(u32 op, u32 reg) {
+		MIPSInfo info = MIPSGetInfo(op);
+		if ((info & IS_VFPU) == 0) {
+			if ((info & IN_RS) != 0 && MIPS_GET_RS(op) == reg) {
 				return true;
-		}
-		if (opinfo & IN_RS)
-		{
-			if (MIPS_GET_RS(op) == reg)
-				return true;
-		}
-		return false; //TODO: there are more cases!
-	}
-
-	// TODO: Remove me?
-	bool IsDelaySlotNice(u32 branch, u32 delayslot)
-	{
-		int outReg = GetOutReg(delayslot);
-		if (outReg != -1)
-		{
-			if (ReadsFromReg(branch, outReg))
-			{
-				return false; //evil :(
 			}
-			else
-			{
-				return false; //aggh this should be true but doesn't work
+			if ((info & IN_RT) != 0 && MIPS_GET_RT(op) == reg) {
+				return true;
 			}
 		}
-		else
-		{
-			// Check for FPU flag
-			if ((MIPSGetInfo(delayslot) & OUT_FPUFLAG) && (MIPSGetInfo(branch) & IN_FPUFLAG))
-				return false;
-
-			return true; //nice :)
-		}
+		return false;
 	}
 
-	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2)
-	{
+	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2) {
 		// $0 is never an out reg, it's always 0.
-		if (reg1 != 0 && GetOutReg(op) == reg1)
+		if (reg1 != 0 && GetOutGPReg(op) == reg1) {
 			return false;
-		if (reg2 != 0 && GetOutReg(op) == reg2)
+		}
+		if (reg2 != 0 && GetOutGPReg(op) == reg2) {
 			return false;
+		}
 
 		return true;
 	}
 
-	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op)
-	{
+	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op) {
 		// TODO: There may be IS_VFPU cases which are safe...
 		return (MIPSGetInfo(op) & IS_VFPU) == 0;
 	}
 
-	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op)
-	{
+	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op) {
 		return (MIPSGetInfo(op) & OUT_FPUFLAG) == 0;
 	}
 
-	bool IsSyscall(u32 op)
-	{
+	bool IsSyscall(u32 op) {
 		// Syscalls look like this: 0000 00-- ---- ---- ---- --00 1100
 		return (op >> 26) == 0 && (op & 0x3f) == 12;
 	}
 
-	void Analyze(u32 address)
-	{
+	void Analyze(u32 address) {
+		const int MAX_ANALYZE = 10000;
+
 		//set everything to -1 (FF)
-		memset(regAnal, 255, sizeof(AnalysisResults)*32); 
-		for (int i=0; i<32; i++)
-		{
-			regAnal[i].used=false;
-			regAnal[i].readCount=0;
-			regAnal[i].writeCount=0;
-			regAnal[i].readAsAddrCount=0;
+		memset(gprAnal, 255, sizeof(AnalysisResults) * NUM_MIPS_GPRS);
+		for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+			gprAnal[i].used = false;
+			gprAnal[i].readCount = 0;
+			gprAnal[i].writeCount = 0;
+			gprAnal[i].readAsAddrCount = 0;
 		}
 
-		u32 addr = address;
-		bool exitFlag = false;
-		while (true)
-		{
+		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
 			u32 op = Memory::Read_Instruction(addr);
 			MIPSInfo info = MIPSGetInfo(op);
 
-			for (int reg=0; reg < 32; reg++)
-			{
-				int rs = MIPS_GET_RS(op);
-				int rt = MIPS_GET_RT(op);
-				int rd = MIPS_GET_RD(op);
+			int rs = MIPS_GET_RS(op);
+			int rt = MIPS_GET_RT(op);
 
-				if (
-					((info & IN_RS) && (info & IN_RS_ADDR) == IN_RS && (rs == reg)) ||
-					((info & IN_RT) && (rt == reg)))
-				{
-					if (regAnal[reg].firstRead == -1)
-						regAnal[reg].firstRead = addr;
-					regAnal[reg].lastRead = addr;
-					regAnal[reg].readCount++;
-					regAnal[reg].used=true;
-				}
-				if (
-					((info & IN_RS_ADDR) && (rs == reg))
-					)
-				{
-					if (regAnal[reg].firstReadAsAddr == -1)
-						regAnal[reg].firstReadAsAddr = addr;
-					regAnal[reg].lastReadAsAddr = addr;
-					regAnal[reg].readAsAddrCount++;
-					regAnal[reg].used=true;
-				}
-				if (
-					((info & OUT_RT) && (rt == reg)) ||
-					((info & OUT_RD) && (rd == reg)) ||
-					((info & OUT_RA) && (reg == MIPS_REG_RA))
-					)
-				{
-					if (regAnal[reg].firstWrite == -1)
-						regAnal[reg].firstWrite = addr;
-					regAnal[reg].lastWrite = addr;
-					regAnal[reg].writeCount++;
-					regAnal[reg].used=true;
+			if (info & IN_RS) {
+				if ((info & IN_RS_ADDR) == IN_RS_ADDR) {
+					gprAnal[rs].MarkReadAsAddr(addr);
+				} else {
+					gprAnal[rs].MarkRead(addr);
 				}
 			}
 
-			if (exitFlag) //delay slot done, let's quit!
-				break;
-
-			if ((info & IS_JUMP) || (info & IS_CONDBRANCH))
-			{
-				exitFlag = true; // now do the delay slot
+			if (info & IN_RT) {
+				gprAnal[rt].MarkRead(addr);
 			}
 
-			addr += 4;
+			int outReg = GetOutGPReg(op);
+			if (outReg != -1) {
+				gprAnal[outReg].MarkWrite(addr);
+			}
+
+			if (info & DELAYSLOT)
+			{
+				// Let's just finish the delay slot before bailing.
+				endAddr = addr + 4;
+			}
 		}
 
 		int numUsedRegs=0;
 		static int totalUsedRegs=0;
 		static int numAnalyzings=0;
-		for (int i=0; i<32; i++)
-		{
-			if (regAnal[i].used) 
+		for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+			if (gprAnal[i].used) {
 				numUsedRegs++;
+			}
 		}
 		totalUsedRegs+=numUsedRegs;
 		numAnalyzings++;

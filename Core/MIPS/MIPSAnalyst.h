@@ -24,8 +24,7 @@ class DebugInterface;
 namespace MIPSAnalyst
 {
 	void Analyze(u32 address);
-	struct RegisterAnalysisResults
-	{
+	struct RegisterAnalysisResults {
 		bool used;
 		int firstRead;
 		int lastRead;
@@ -41,6 +40,30 @@ namespace MIPSAnalyst
 		int TotalReadCount() {return readCount + readAsAddrCount;}
 		int FirstRead() {return firstReadAsAddr < firstRead ? firstReadAsAddr : firstRead;}
 		int LastRead() {return lastReadAsAddr > lastRead ? lastReadAsAddr : lastRead;}
+
+		void MarkRead(u32 addr) {
+			if (firstRead == -1)
+				firstRead = addr;
+			lastRead = addr;
+			readCount++;
+			used = true;
+		}
+
+		void MarkReadAsAddr(u32 addr) {
+			if (firstReadAsAddr == -1)
+				firstReadAsAddr = addr;
+			lastReadAsAddr = addr;
+			readAsAddrCount++;
+			used = true;
+		}
+
+		void MarkWrite(u32 addr) {
+			if (firstWrite == -1)
+				firstWrite = addr;
+			lastWrite = addr;
+			writeCount++;
+			used = true;
+		}
 	};
 
 	struct AnalysisResults
@@ -55,8 +78,8 @@ namespace MIPSAnalyst
 	std::vector<int> GetInputRegs(u32 op);
 	std::vector<int> GetOutputRegs(u32 op);
 
-	int GetOutReg(u32 op);
-	bool ReadsFromReg(u32 op, u32 reg);
+	int GetOutGPReg(u32 op);
+	bool ReadsFromGPReg(u32 op, u32 reg);
 	bool IsDelaySlotNice(u32 branch, u32 delayslot);
 	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2 = 0);
 	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op);
