@@ -424,7 +424,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 		tmpTexBuf16.resize(std::max(bufw, w) * h);
 		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 		const u16 *clut = GetCurrentClut<u16>();
-		if (!(gstate.texmode & 1)) {
+		if (!gstate.isTextureSwizzled()) {
 			switch (bytesPerIndex) {
 			case 1:
 				DeIndexTexture<u8>(tmpTexBuf16.data(), texaddr, length, clut);
@@ -464,7 +464,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 		tmpTexBuf32.resize(std::max(bufw, w) * h);
 		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 		const u32 *clut = GetCurrentClut<u32>();
-		if (!(gstate.texmode & 1)) {
+		if (!gstate.isTextureSwizzled()) {
 			switch (bytesPerIndex) {
 			case 1:
 				DeIndexTexture<u8>(tmpTexBuf32.data(), texaddr, length, clut);
@@ -1285,7 +1285,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 			texByteAlign = 2;
-			if (!(gstate.texmode & 1)) {
+			if (!gstate.isTextureSwizzled()) {
 				if (clutAlphaLinear_ && mipmapShareClut) {
 					DeIndexTexture4Optimal(tmpTexBuf16.data(), texaddr, bufw * h, clutAlphaLinearColor_);
 				} else {
@@ -1309,7 +1309,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
-			if (!(gstate.texmode & 1)) {
+			if (!gstate.isTextureSwizzled()) {
 				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut);
 				finalBuf = tmpTexBuf32.data();
 			} else {
@@ -1366,7 +1366,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
 		texByteAlign = 2;
 
-		if (!(gstate.texmode & 1)) {
+		if (!gstate.isTextureSwizzled()) {
 			int len = std::max(bufw, w) * h;
 			tmpTexBuf16.resize(len);
 			tmpTexBufRearrange.resize(len);
@@ -1383,7 +1383,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		if (bufw < 4)
 			bufw = 4;
 		dstFmt = GL_UNSIGNED_BYTE;
-		if (!(gstate.texmode & 1)) {
+		if (!gstate.isTextureSwizzled()) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
 			if (w == bufw) {
 				finalBuf = Memory::GetPointer(texaddr);

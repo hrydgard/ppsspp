@@ -46,7 +46,7 @@ static inline int orient2dIncY(int dX01)
 
 static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
-	if (!(gstate.texmode & 1))
+	if (!gstate.isTextureSwizzled())
 		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
 
 	int tile_size_bits = 32;

@@ -721,7 +721,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 
 			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.patchprimitive&3);
+				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 				break;
 			}
 			
