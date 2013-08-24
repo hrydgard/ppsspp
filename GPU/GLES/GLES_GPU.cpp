@@ -568,10 +568,9 @@ void GLES_GPU::FastRunLoop(DisplayList &list) {
 	for (; downcount > 0; --downcount) {
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
-
+		u8 cmdFlags = commandFlags_[cmd];
 		u32 diff = op ^ gstate.cmdmem[cmd];
 		// Inlined CheckFlushOp here to get rid of the dumpThisFrame_ check.
-		u8 cmdFlags = commandFlags_[cmd];
 		if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 			transformDraw_.Flush();
 		}

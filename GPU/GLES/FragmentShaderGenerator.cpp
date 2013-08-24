@@ -48,8 +48,7 @@ static bool IsAlphaTestTriviallyTrue() {
 	case GE_COMP_ALWAYS:
 		return true;
 	case GE_COMP_GEQUAL:
-		if (alphaTestRef == 0)
-			return true;
+		return alphaTestRef == 0;
 
 	// This breaks the trees in MotoGP, for example.
 	// case GE_COMP_GREATER:
@@ -57,8 +56,8 @@ static bool IsAlphaTestTriviallyTrue() {
 	//	return true;
 
 	case GE_COMP_LEQUAL:
-		if (alphaTestRef == 255)
-			return true;
+		return alphaTestRef == 255;
+
 	default:
 		return false;
 	}
