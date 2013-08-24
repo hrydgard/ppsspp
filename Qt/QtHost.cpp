@@ -20,6 +20,8 @@
 #include "GPU/ge_constants.h"
 #include "EmuThread.h"
 
+static UI::Theme ui_theme;
+
 const char *stateToLoad = NULL;
 
 std::string boot_filename = "";
@@ -357,6 +359,30 @@ void NativeInitGraphics()
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
+	ui_theme.uiFont = UBUNTU24;
+	ui_theme.uiFontSmall = UBUNTU24;
+	ui_theme.uiFontSmaller = UBUNTU24;
+	ui_theme.checkOn = I_CHECKEDBOX;
+	ui_theme.checkOff = I_SQUARE;
+	ui_theme.whiteImage = I_SOLIDWHITE;
+	ui_theme.sliderKnob = I_CIRCLE;
+	ui_theme.dropShadow4Grid = I_DROP_SHADOW;
+
+	ui_theme.itemStyle.background = UI::Drawable(0x55000000);
+	ui_theme.itemStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.itemFocusedStyle.background = UI::Drawable(0xFFedc24c);
+	ui_theme.itemDownStyle.background = UI::Drawable(0xFFbd9939);
+	ui_theme.itemDownStyle.fgColor = 0xFFFFFFFF;
+	ui_theme.itemDisabledStyle.background = UI::Drawable(0x55E0D4AF);
+	ui_theme.itemDisabledStyle.fgColor = 0xFFcccccc;
+
+	ui_theme.buttonStyle = ui_theme.itemStyle;
+	ui_theme.buttonFocusedStyle = ui_theme.itemFocusedStyle;
+	ui_theme.buttonDownStyle = ui_theme.itemDownStyle;
+	ui_theme.buttonDisabledStyle = ui_theme.itemDisabledStyle;
+
+	ui_theme.popupTitle.fgColor = 0xFFE3BE59;
+
 	ui_draw2d.Init();
 	ui_draw2d_front.Init();
 
@@ -370,6 +396,7 @@ void NativeInitGraphics()
 	uiTexture->Bind(0);
 
 	uiContext = new UIContext();
+	uiContext->theme = &ui_theme;
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
 
 	screenManager->setUIContext(uiContext);
