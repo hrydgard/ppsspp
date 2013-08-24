@@ -566,7 +566,7 @@ void GPUCommon::ProcessEvent(GPUEvent ev) {
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unexpected GPU event type: %d", (int)ev);
+		ERROR_LOG_REPORT(G3D, "Unexpected GPU event type: %d", (int)ev);
 	}
 }
 

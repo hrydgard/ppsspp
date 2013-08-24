@@ -662,7 +662,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 				break;
 			}
 
@@ -672,11 +672,17 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
 				inds = Memory::GetPointer(gstate_c.indexAddr);
 			}
+
+#ifndef USING_GLES2
+			if (prim > GE_PRIM_RECTANGLES) {
+				ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
+			}
+#endif
 
 			int bytesRead;
 			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, -1, &bytesRead);
