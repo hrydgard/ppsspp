@@ -20,6 +20,7 @@
 
 #include "input/input_state.h"
 #include "ui/ui.h"
+#include "ui/view.h"
 #include "i18n/i18n.h"
 
 #include "Core/Core.h"
@@ -34,7 +35,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/CwCheatScreen.h"
-#include "UI/view.h"
+
 bool enableAll = false;
 static std::vector<std::string> cheatList;
 extern void DrawBackground(float alpha);
