@@ -302,6 +302,7 @@ void GameSettingsScreen::CreateViews() {
 	 
 	audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
 	audioSettings->Add(new CheckBox(&g_Config.bEnableAtrac3plus, a->T("Enable Atrac3+")));
+	audioSettings->Add(new CheckBox(&g_Config.bLowLatencyAudio, a->T("Low latency (may stutter)")));
 
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));

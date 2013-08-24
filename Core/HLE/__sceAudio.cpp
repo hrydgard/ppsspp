@@ -40,16 +40,13 @@ int mixFrequency = 44100;
 
 const int hwSampleRate = 44100;
 
-#ifdef LOW_LATENCY_AUDIO
-const int hwBlockSize = 16;
-const int hostAttemptBlockSize = 256;
-#else
-const int hwBlockSize = 64;
-const int hostAttemptBlockSize = 512;
-#endif
+int hwBlockSize = 64;
+int hostAttemptBlockSize = 512;
 
-const int audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
-const int audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
+static int audioIntervalUs;
+static int audioHostIntervalUs;
+
+static s32 *mixBuffer;
 
 // High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
 // TODO: Tweak
@@ -63,7 +60,7 @@ const int chanQueueMinSizeFactor = 1;
 
 // TODO: Need to replace this with something lockless. Mutexes in the audio pipeline
 // is bad mojo.
-FixedSizeQueue<s16, hostAttemptBlockSize * 16> outAudioQueue;
+FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 
 static inline s16 clamp_s16(int i) {
 	if (i > 32767)
@@ -77,24 +74,32 @@ static inline s16 adjustvolume(s16 sample, int vol) {
 	return clamp_s16((sample * vol) >> 15);
 }
 
-void hleAudioUpdate(u64 userdata, int cyclesLate)
-{
+void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	__AudioUpdate();
 
 	CoreTiming::ScheduleEvent(usToCycles(audioIntervalUs) - cyclesLate, eventAudioUpdate, 0);
 }
 
-void hleHostAudioUpdate(u64 userdata, int cyclesLate)
-{
+void hleHostAudioUpdate(u64 userdata, int cyclesLate) {
 	// Not all hosts need this call to poke their audio system once in a while, but those that don't
 	// can just ignore it.
 	host->UpdateSound();
 	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs) - cyclesLate, eventHostAudioUpdate, 0);
 }
 
-void __AudioInit()
-{
+void __AudioInit() {
 	mixFrequency = 44100;
+
+	if (g_Config.bLowLatencyAudio) {
+		hwBlockSize = 16;
+		hostAttemptBlockSize = 256;
+	} else {
+		hwBlockSize = 64;
+		hostAttemptBlockSize = 512;
+	}
+
+	audioIntervalUs = (int)(1000000ULL * hwBlockSize / hwSampleRate);
+	audioHostIntervalUs = (int)(1000000ULL * hostAttemptBlockSize / hwSampleRate);
 
 	eventAudioUpdate = CoreTiming::RegisterEvent("AudioUpdate", &hleAudioUpdate);
 	eventHostAudioUpdate = CoreTiming::RegisterEvent("AudioUpdateHost", &hleHostAudioUpdate);
@@ -103,6 +108,9 @@ void __AudioInit()
 	CoreTiming::ScheduleEvent(usToCycles(audioHostIntervalUs), eventHostAudioUpdate, 0);
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 		chans[i].clear();
+
+	mixBuffer = new s32[hwBlockSize * 2];
+	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 }
 
 void __AudioDoState(PointerWrap &p)
@@ -132,14 +140,14 @@ void __AudioDoState(PointerWrap &p)
 	p.DoMarker("sceAudio");
 }
 
-void __AudioShutdown()
-{
+void __AudioShutdown() {
+	delete [] mixBuffer;
+	mixBuffer = 0;
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)
 		chans[i].clear();
 }
 
-u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking)
-{
+u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 	u32 ret = chan.sampleCount;
 
 	if (chan.sampleAddress == 0) {
@@ -281,7 +289,6 @@ void __AudioUpdate() {
 	// Audio throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
-	s32 mixBuffer[hwBlockSize * 2];
 	bool firstChannel = true;
 
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
@@ -340,7 +347,6 @@ void __AudioUpdate() {
 		} else {
 			// This happens quite a lot. There's still something slightly off
 			// about the amount of audio we produce.
-			DEBUG_LOG(HLE, "Audio outbuffer overrun! room = %i / %i", outAudioQueue.room(), (u32)outAudioQueue.capacity());
 		}
 	}
 }

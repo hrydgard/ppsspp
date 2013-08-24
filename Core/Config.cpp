@@ -151,7 +151,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	sound->Get("EnableAtrac3plus", &bEnableAtrac3plus, true);
 	sound->Get("VolumeBGM", &iBGMVolume, 7);
 	sound->Get("VolumeSFX", &iSFXVolume, 7);
-	
+	sound->Get("LowLatency", &bLowLatencyAudio, false);
+
 	IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 	control->Get("ShowAnalogStick", &bShowAnalogStick, true);
 #ifdef BLACKBERRY
@@ -295,6 +296,7 @@ void Config::Save() {
 		sound->Set("EnableAtrac3plus", bEnableAtrac3plus);
 		sound->Set("VolumeBGM", iBGMVolume);
 		sound->Set("VolumeSFX", iSFXVolume);
+		sound->Set("LowLatency", bLowLatencyAudio);
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
 		control->Set("ShowAnalogStick", bShowAnalogStick);

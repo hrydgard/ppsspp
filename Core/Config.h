@@ -25,8 +25,7 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-struct Config
-{
+struct Config {
 public:
 	Config();
 	~Config();
@@ -100,6 +99,7 @@ public:
 	// Sound
 	bool bEnableSound;
 	bool bEnableAtrac3plus;
+	bool bLowLatencyAudio;
 	int iSFXVolume;
 	int iBGMVolume;
 
