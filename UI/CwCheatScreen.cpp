@@ -20,7 +20,6 @@
 
 #include "input/input_state.h"
 #include "ui/ui.h"
-#include "ui/view.h"
 #include "i18n/i18n.h"
 
 #include "Core/Core.h"
