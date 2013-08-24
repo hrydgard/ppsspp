@@ -720,7 +720,7 @@ namespace MainWindow
 				case ID_EMULATION_RESET:
 					NativeMessageReceived("reset", "");
 					break;
-				case ID_CHEAT:
+				case ID_EMULATION_CHEATS:
 					NativeMessageReceived("reset", "");
 					break;
 				case ID_EMULATION_SPEEDLIMIT:
@@ -1410,14 +1410,14 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
 		EnableMenuItem(menu, ID_EMULATION_STOP, ingameEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, ingameEnable);
-		EnableMenuItem(menu, ID_CHEAT, ingameEnable);
+		EnableMenuItem(menu, ID_EMULATION_CHEATS, ingameEnable);
 
 		UINT menuEnable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
-		EnableMenuItem(menu, ID_CHEAT, !menuEnable);
+		EnableMenuItem(menu, ID_EMULATION_CHEATS, !menuEnable);
 		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
 		EnableMenuItem(menu, ID_CPU_INTERPRETER, menuEnable);
 		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
