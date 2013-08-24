@@ -107,7 +107,7 @@ void GameScreen::update(InputState &input) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	if (tvTitle_)
-		tvTitle_->SetText(info->title);
+		tvTitle_->SetText(info->title + " (" + info->id + ")");
 	if (info->iconTexture && texvGameIcon_)	{
 		texvGameIcon_->SetTexture(info->iconTexture);
 		uint32_t color = whiteAlpha(ease((time_now_d() - info->timeIconWasLoaded) * 3));
