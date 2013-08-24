@@ -94,6 +94,14 @@ void CwCheatScreen::CreateViews() {
 UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params)
 {
 	screenManager()->finishDialog(this, DR_OK);
+	os.open(activeCheatFile.c_str());
+	for (int j = 0; j < cheatList.size(); j++) {
+		os << cheatList[j];
+		if (j < cheatList.size() - 1) {
+			os << "\n";
+		}
+	}
+	os.close();
 	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
 }
@@ -102,7 +110,6 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 	std::vector<std::string> temp = cheatList;
 	enableAll = !enableAll;
 	os.open(activeCheatFile.c_str());
-	int size = sizeof(enableCheat) / sizeof(bool) ;
 	for (int j = 0; j < temp.size(); j++) {
 		if (enableAll == 1 && temp[j].substr(0, 3) == "_C0"){
 			temp[j].replace(0,3,"_C1");
@@ -114,7 +121,7 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 
 		}
 	}
-	for (int y = 0; y < size; y++) {
+	for (int y = 0; y < 64; y++) {
 				enableCheat[y] = enableAll;
 			}
 	for (int i = 0; i < temp.size(); i++) {
@@ -124,6 +131,7 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 		}
 	}
 	os.close();
+	
 	return UI::EVENT_DONE;
 }
 UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params)
