@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "x64Emitter.h"
-#include "../MIPSAnalyst.h"
+#include "Common/x64Emitter.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 
 using namespace Gen;
 

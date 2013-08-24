@@ -292,8 +292,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 	b->normalEntry = GetCodePtr();
 
-	// TODO: this needs work
-	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
+	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
 
 	gpr.Start(mips_, analysis);
 	fpr.Start(mips_, analysis);

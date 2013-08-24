@@ -28,12 +28,8 @@
 using namespace MIPSCodeUtils;
 using namespace std;
 
-#define NUM_MIPS_GPRS 32
-
 namespace MIPSAnalyst
 {
-	RegisterAnalysisResults gprAnal[NUM_MIPS_GPRS];
-
 	// Only can ever output a single reg.
 	int GetOutGPReg(MIPSOpcode op) {
 		MIPSInfo opinfo = MIPSGetInfo(op);
@@ -90,16 +86,18 @@ namespace MIPSAnalyst
 		return (op >> 26) == 0 && (op & 0x3f) == 12;
 	}
 
-	void Analyze(u32 address) {
+	AnalysisResults Analyze(u32 address) {
 		const int MAX_ANALYZE = 10000;
 
+		AnalysisResults results;
+
 		//set everything to -1 (FF)
-		memset(gprAnal, 255, sizeof(AnalysisResults) * NUM_MIPS_GPRS);
-		for (int i = 0; i < NUM_MIPS_GPRS; i++) {
-			gprAnal[i].used = false;
-			gprAnal[i].readCount = 0;
-			gprAnal[i].writeCount = 0;
-			gprAnal[i].readAsAddrCount = 0;
+		memset(&results, 255, sizeof(AnalysisResults));
+		for (int i = 0; i < MIPS_NUM_GPRS; i++) {
+			results.r[i].used = false;
+			results.r[i].readCount = 0;
+			results.r[i].writeCount = 0;
+			results.r[i].readAsAddrCount = 0;
 		}
 
 		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
@@ -111,19 +109,19 @@ namespace MIPSAnalyst
 
 			if (info & IN_RS) {
 				if ((info & IN_RS_ADDR) == IN_RS_ADDR) {
-					gprAnal[rs].MarkReadAsAddr(addr);
+					results.r[rs].MarkReadAsAddr(addr);
 				} else {
-					gprAnal[rs].MarkRead(addr);
+					results.r[rs].MarkRead(addr);
 				}
 			}
 
 			if (info & IN_RT) {
-				gprAnal[rt].MarkRead(addr);
+				results.r[rt].MarkRead(addr);
 			}
 
 			int outReg = GetOutGPReg(op);
 			if (outReg != -1) {
-				gprAnal[outReg].MarkWrite(addr);
+				results.r[outReg].MarkWrite(addr);
 			}
 
 			if (info & DELAYSLOT)
@@ -136,14 +134,16 @@ namespace MIPSAnalyst
 		int numUsedRegs=0;
 		static int totalUsedRegs=0;
 		static int numAnalyzings=0;
-		for (int i = 0; i < NUM_MIPS_GPRS; i++) {
-			if (gprAnal[i].used) {
+		for (int i = 0; i < MIPS_NUM_GPRS; i++) {
+			if (results.r[i].used) {
 				numUsedRegs++;
 			}
 		}
 		totalUsedRegs+=numUsedRegs;
 		numAnalyzings++;
 		DEBUG_LOG(CPU,"[ %08x ] Used regs: %i	 Average: %f",address,numUsedRegs,(float)totalUsedRegs/(float)numAnalyzings);
+
+		return results;
 	}
 
 

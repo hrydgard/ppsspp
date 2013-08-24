@@ -24,7 +24,8 @@ class DebugInterface;
 
 namespace MIPSAnalyst
 {
-	void Analyze(u32 address);
+	const int MIPS_NUM_GPRS = 32;
+
 	struct RegisterAnalysisResults {
 		bool used;
 		int firstRead;
@@ -38,9 +39,9 @@ namespace MIPSAnalyst
 		int writeCount;
 		int readAsAddrCount;
 
-		int TotalReadCount() {return readCount + readAsAddrCount;}
-		int FirstRead() {return firstReadAsAddr < firstRead ? firstReadAsAddr : firstRead;}
-		int LastRead() {return lastReadAsAddr > lastRead ? lastReadAsAddr : lastRead;}
+		int TotalReadCount() const { return readCount + readAsAddrCount; }
+		int FirstRead() const { return firstReadAsAddr < firstRead ? firstReadAsAddr : firstRead; }
+		int LastRead() const { return lastReadAsAddr > lastRead ? lastReadAsAddr : lastRead; }
 
 		void MarkRead(u32 addr) {
 			if (firstRead == -1)
@@ -67,10 +68,12 @@ namespace MIPSAnalyst
 		}
 	};
 
-	struct AnalysisResults
-	{
-		int x;
+	struct AnalysisResults {
+		RegisterAnalysisResults r[MIPS_NUM_GPRS];
 	};
+
+	AnalysisResults Analyze(u32 address);
+
 
 	bool IsRegisterUsed(u32 reg, u32 addr);
 	void ScanForFunctions(u32 startAddr, u32 endAddr);
