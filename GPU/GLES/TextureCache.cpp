@@ -254,13 +254,6 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	}
 }
 
-static u32 GetClutIndex(u32 index) {
-    const u32 clutBase = gstate.getClutIndexStartPos();
-    const u32 clutMask = gstate.getClutIndexMask();
-    const u8 clutShift = gstate.getClutIndexShift();
-    return ((index >> clutShift) & clutMask) | clutBase;
-}
-
 void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
@@ -346,7 +339,7 @@ inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const
 		}
 	} else {
 		for (int i = 0; i < length; ++i) {
-			*dest++ = clut[GetClutIndex(*indexed++)];
+			*dest++ = clut[gstate.transformClutIndex(*indexed++)];
 		}
 	}
 }
@@ -371,8 +364,8 @@ inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const Cl
 	} else {
 		for (int i = 0; i < length; i += 2) {
 			u8 index = *indexed++;
-			dest[i + 0] = clut[GetClutIndex((index >> 0) & 0xf)];
-			dest[i + 1] = clut[GetClutIndex((index >> 4) & 0xf)];
+			dest[i + 0] = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
+			dest[i + 1] = clut[gstate.transformClutIndex((index >> 4) & 0xf)];
 		}
 	}
 }
@@ -424,7 +417,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 		tmpTexBuf16.resize(std::max(bufw, w) * h);
 		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 		const u16 *clut = GetCurrentClut<u16>();
-		if (!(gstate.texmode & 1)) {
+		if (!gstate.isTextureSwizzled()) {
 			switch (bytesPerIndex) {
 			case 1:
 				DeIndexTexture<u8>(tmpTexBuf16.data(), texaddr, length, clut);
@@ -464,7 +457,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 		tmpTexBuf32.resize(std::max(bufw, w) * h);
 		tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 		const u32 *clut = GetCurrentClut<u32>();
-		if (!(gstate.texmode & 1)) {
+		if (!gstate.isTextureSwizzled()) {
 			switch (bytesPerIndex) {
 			case 1:
 				DeIndexTexture<u8>(tmpTexBuf32.data(), texaddr, length, clut);
@@ -550,8 +543,8 @@ static const GLuint MagFiltGL[2] = {
 void TextureCache::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	int minFilt = gstate.texfilter & 0x7;
 	int magFilt = (gstate.texfilter>>8) & 1;
-	bool sClamp = gstate.texwrap & 1;
-	bool tClamp = (gstate.texwrap>>8) & 1;
+	bool sClamp = gstate.isTexCoordClampedS();
+	bool tClamp = gstate.isTexCoordClampedT();
 
 	bool noMip = (gstate.texlevel & 0xFFFFFF) == 0x000001 || (gstate.texlevel & 0xFFFFFF) == 0x100001 ;  // Fix texlevel at 0
 
@@ -873,8 +866,8 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLe
 }
 
 void TextureCache::LoadClut() {
-	u32 clutAddr = ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
-	clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
+	u32 clutAddr = gstate.getClutAddress();
+	clutTotalBytes_ = gstate.getClutLoadBytes();
 	if (Memory::IsValidAddress(clutAddr)) {
 		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, clutTotalBytes_);
 	} else {
@@ -1285,7 +1278,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 			texByteAlign = 2;
-			if (!(gstate.texmode & 1)) {
+			if (!gstate.isTextureSwizzled()) {
 				if (clutAlphaLinear_ && mipmapShareClut) {
 					DeIndexTexture4Optimal(tmpTexBuf16.data(), texaddr, bufw * h, clutAlphaLinearColor_);
 				} else {
@@ -1309,7 +1302,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			tmpTexBuf32.resize(std::max(bufw, w) * h);
 			tmpTexBufRearrange.resize(std::max(bufw, w) * h);
 			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
-			if (!(gstate.texmode & 1)) {
+			if (!gstate.isTextureSwizzled()) {
 				DeIndexTexture4(tmpTexBuf32.data(), texaddr, bufw * h, clut);
 				finalBuf = tmpTexBuf32.data();
 			} else {
@@ -1366,7 +1359,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			dstFmt = GL_UNSIGNED_SHORT_5_6_5;
 		texByteAlign = 2;
 
-		if (!(gstate.texmode & 1)) {
+		if (!gstate.isTextureSwizzled()) {
 			int len = std::max(bufw, w) * h;
 			tmpTexBuf16.resize(len);
 			tmpTexBufRearrange.resize(len);
@@ -1383,7 +1376,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 		if (bufw < 4)
 			bufw = 4;
 		dstFmt = GL_UNSIGNED_BYTE;
-		if (!(gstate.texmode & 1)) {
+		if (!gstate.isTextureSwizzled()) {
 			// Special case: if we don't need to deal with packing, we don't need to copy.
 			if (w == bufw) {
 				finalBuf = Memory::GetPointer(texaddr);

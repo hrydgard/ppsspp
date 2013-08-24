@@ -60,7 +60,7 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasNormal = (vertType & GE_VTYPE_NRM_MASK) != 0;
-	bool hasBones = gstate.getWeightMask() != 0;
+	bool hasBones = gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE;
 	bool enableFog = gstate.isFogEnabled() && !gstate.isModeThrough() && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 

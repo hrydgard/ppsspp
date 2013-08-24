@@ -475,7 +475,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 	
-	GEBufferFormat fmt = static_cast<GEBufferFormat>(gstate.framebufpixformat & 3);
+	GEBufferFormat fmt = gstate.FrameBufFormat();
 
 	int drawing_width, drawing_height;
 	GuessDrawingSize(drawing_width, drawing_height);

@@ -662,7 +662,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 				break;
 			}
 
@@ -672,11 +672,17 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
 				inds = Memory::GetPointer(gstate_c.indexAddr);
 			}
+
+#ifndef USING_GLES2
+			if (prim > GE_PRIM_RECTANGLES) {
+				ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
+			}
+#endif
 
 			int bytesRead;
 			transformDraw_.SubmitPrim(verts, inds, prim, count, gstate.vertType, -1, &bytesRead);
@@ -714,14 +720,14 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
 				indices = Memory::GetPointer(gstate_c.indexAddr);
 			}
 
 			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG(G3D, "Unsupported patch primitive %x", gstate.patchprimitive&3);
+				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 				break;
 			}
 			
@@ -729,7 +735,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			int sp_vcount = (data >> 8) & 0xFF;
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
-			int patchPrim = gstate.patchprimitive & 3;
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 			transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
 		}
 		break;
@@ -1300,22 +1306,22 @@ void GLES_GPU::DoBlockTransfer() {
 	//
 	// etc....
 
-	u32 srcBasePtr = (gstate.transfersrc & 0xFFFFF0) | ((gstate.transfersrcw & 0xFF0000) << 8);
-	u32 srcStride = gstate.transfersrcw & 0x3F8;
+	u32 srcBasePtr = gstate.getTransferSrcAddress();
+	u32 srcStride = gstate.getTransferSrcStride();
 
-	u32 dstBasePtr = (gstate.transferdst & 0xFFFFF0) | ((gstate.transferdstw & 0xFF0000) << 8);
-	u32 dstStride = gstate.transferdstw & 0x3F8;
+	u32 dstBasePtr = gstate.getTransferDstAddress();
+	u32 dstStride = gstate.getTransferDstStride();
 
-	int srcX = gstate.transfersrcpos & 0x3FF;
-	int srcY = (gstate.transfersrcpos >> 10) & 0x3FF;
+	int srcX = gstate.getTransferSrcX();
+	int srcY = gstate.getTransferSrcY();
 
-	int dstX = gstate.transferdstpos & 0x3FF;
-	int dstY = (gstate.transferdstpos >> 10) & 0x3FF;
+	int dstX = gstate.getTransferDstX();
+	int dstY = gstate.getTransferDstY();
 
-	int width = (gstate.transfersize & 0x3FF) + 1;
-	int height = ((gstate.transfersize >> 10) & 0x3FF) + 1;
+	int width = gstate.getTransferWidth();
+	int height = gstate.getTransferHeight();
 
-	int bpp = (gstate.transferstart & 1) ? 4 : 2;
+	int bpp = gstate.getTransferBpp();
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 

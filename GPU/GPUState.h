@@ -225,6 +225,7 @@ struct GPUgstate
 	bool isClearModeDepthWriteEnabled() const { return (clearmode&0x400) != 0; }
 	bool isClearModeColorMask() const { return (clearmode&0x100) != 0; }
 	bool isClearModeAlphaMask() const { return (clearmode&0x200) != 0; }
+	bool isClearModeDepthMask() const { return (clearmode&0x400) != 0; }
 	u32 getClearModeColorMask() const { return ((clearmode&0x100) ? 0xFFFFFF : 0) | ((clearmode&0x200) ? 0xFF000000 : 0); } // TODO: Different convention than getColorMask, confusing!
 	
 	// Blend
@@ -283,11 +284,15 @@ struct GPUgstate
 	int getTextureEnvColR() const { return texenvcolor&0xFF; }
 	int getTextureEnvColG() const { return (texenvcolor>>8)&0xFF; }
 	int getTextureEnvColB() const { return (texenvcolor>>16)&0xFF; }
+	u32 getClutAddress() const { return (clutaddr & 0x00FFFFFF) | ((clutaddrupper << 8) & 0x0F000000); }
+	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
 	GEPaletteFormat getClutPaletteFormat() { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
 	int getClutIndexStartPos() const { return ((clutformat >> 16) & 0x1F) << 4; }
+	int transformClutIndex(int index) const { return ((index >> getClutIndexShift()) & getClutIndexMask()) | getClutIndexStartPos(); }
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
+	bool isTextureSwizzled() const { return texmode & 1; }
 
 	// Lighting
 	bool isLightingEnabled() const { return lightingEnable & 1; }
@@ -352,8 +357,23 @@ struct GPUgstate
 	int getWeightMask() const { return vertType & GE_VTYPE_WEIGHT_MASK; }
 	int getNumBoneWeights() const { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
 	bool isSkinningEnabled() const { return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE); }
+	int getTexCoordMask() const { return vertType & GE_VTYPE_TC_MASK; }
+	bool areNormalsReversed() const { return reversenormals & 1; }
 
 	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
+
+	// Transfers
+	u32 getTransferSrcAddress() const { return (transfersrc & 0xFFFFF0) | ((transfersrcw & 0xFF0000) << 8); }
+	u32 getTransferSrcStride() const { return transfersrcw & 0x3F8; }
+	int getTransferSrcX() const { return (transfersrcpos >> 0) & 0x3FF; }
+	int getTransferSrcY() const { return (transfersrcpos >> 10) & 0x3FF; }
+	u32 getTransferDstAddress() const { return (transferdst & 0xFFFFF0) | ((transferdstw & 0xFF0000) << 8); }
+	u32 getTransferDstStride() const { return transferdstw & 0x3F8; }
+	int getTransferDstX() const { return (transferdstpos >> 0) & 0x3FF; }
+	int getTransferDstY() const { return (transferdstpos >> 10) & 0x3FF; }
+	int getTransferWidth() const { return ((transfersize >> 0) & 0x3FF) + 1; }
+	int getTransferHeight() const { return ((transfersize >> 10) & 0x3FF) + 1; }
+	int getTransferBpp() const { return (transferstart & 1) ? 4 : 2; }
 
 // Real data in the context ends here
 };
