@@ -8,12 +8,10 @@
 #include "Core/Config.h"
 
 const static std::string CHEATS_DIR = "cheats";
-
-static std::string activeCheatFile;
 static int CheatEvent = -1;
 std::string gameTitle;
+std::string activeCheatFile;
 static CWCheatEngine *cheatEngine;
-
 void hleCheat(u64 userdata, int cyclesLate);
 void trim2(std::string& str);
 
@@ -21,9 +19,12 @@ void __CheatInit() {
 	//Moved createFullPath to CheatInit from the constructor because it spams the log and constantly checks if exists. In here, only checks once.
 
 	// Cheats aren't working on Android yet - need to figure out the directory structure
-#ifndef ANDROID
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
-	activeCheatFile = CHEATS_DIR + "/" + gameTitle +".ini";
+#ifdef ANDROID
+	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
+#else
+	activeCheatFile = CHEATS_DIR + "/" + gameTitle + ".ini";
+#endif
 
 	File::CreateFullPath(CHEATS_DIR);
 	if (g_Config.bEnableCheats) {
@@ -38,7 +39,6 @@ void __CheatInit() {
 		CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
 		CoreTiming::ScheduleEvent(msToCycles(77), CheatEvent, 0);
 	}
-#endif
 }
 
 void __CheatShutdown() {
@@ -60,6 +60,7 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		g_Config.bReloadCheats = false;
 	}
 	if (g_Config.bEnableCheats) {
+		
 		cheatEngine->Run();
 	}
 }
@@ -75,7 +76,6 @@ void CWCheatEngine::CreateCodeList() { //Creates code list to be used in functio
 	initialCodesList = GetCodesList();
 	std::string currentcode, codename;
 	std::vector<std::string> codelist;
-
 	for (size_t i = 0; i < initialCodesList.size(); i ++) {
 		if (initialCodesList[i].substr(0,2) == "_S") {
 			continue; //Line indicates Disc ID, not needed for cheats
