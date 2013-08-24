@@ -44,15 +44,15 @@ namespace MIPSStackWalk {
 		return INVALIDTARGET;
 	}
 
-	bool IsSWInstr(u32 op) {
+	bool IsSWInstr(MIPSOpcode op) {
 		return (op & MIPSTABLE_IMM_MASK) == 0xAC000000;
 	}
 
-	bool IsAddImmInstr(u32 op) {
+	bool IsAddImmInstr(MIPSOpcode op) {
 		return (op & MIPSTABLE_IMM_MASK) == 0x20000000 || (op & MIPSTABLE_IMM_MASK) == 0x24000000;
 	}
 
-	bool IsMovRegsInstr(u32 op) {
+	bool IsMovRegsInstr(MIPSOpcode op) {
 		// TODO: There are more options here.  Let's assume addu for now.
 		if ((op & MIPSTABLE_SPECIAL_MASK) == 0x00000021) {
 			return _RS == 0 || _RT == 0;
@@ -67,7 +67,7 @@ namespace MIPSStackWalk {
 		// It ought to be pretty close.
 		u32 stop = pc - 32 * 4;
 		for (; Memory::IsValidAddress(pc) && pc >= stop; pc -= 4) {
-			u32 op = Memory::Read_Instruction(pc);
+			MIPSOpcode op = Memory::Read_Instruction(pc);
 
 			// We're looking for a "mov fp, sp" close by a "addiu sp, sp, -N".
 			if (IsMovRegsInstr(op) && _RD == MIPS_REG_FP && (_RS == MIPS_REG_SP || _RT == MIPS_REG_SP)) {
@@ -83,7 +83,7 @@ namespace MIPSStackWalk {
 		int ra_offset = -1;
 		u32 stop = entry == INVALIDTARGET ? 0 : entry;
 		for (u32 pc = frame.pc; Memory::IsValidAddress(pc) && pc >= stop; pc -= 4) {
-			u32 op = Memory::Read_Instruction(pc);
+			MIPSOpcode op = Memory::Read_Instruction(pc);
 
 			// Here's where they store the ra address.
 			if (IsSWInstr(op) && _RT == MIPS_REG_RA && _RS == MIPS_REG_SP) {

@@ -140,7 +140,7 @@ struct MsgPipe : public KernelObject
 
 	void AddWaitingThread(std::vector<MsgPipeWaitingThread> &list, SceUID id, u32 addr, u32 size, int waitMode, u32 transferredBytesAddr)
 	{
-		MsgPipeWaitingThread thread = { id, addr, size, size, waitMode, transferredBytesAddr };
+		MsgPipeWaitingThread thread = { id, addr, size, size, waitMode, { transferredBytesAddr } };
 		// Start out with 0 transferred bytes while waiting.
 		// TODO: for receive, it might be a different (partial) number.
 		if (thread.transferredBytes.IsValid())
@@ -442,7 +442,7 @@ int __KernelSendMsgPipe(MsgPipe *m, u32 sendBufAddr, u32 sendSize, int waitMode,
 
 	if (waitMode != SCE_KERNEL_MPW_ASAP && waitMode != SCE_KERNEL_MPW_FULL)
 	{
-		ERROR_LOG(HLE, "__KernelSendMsgPipe(%d): invalid wait mode", uid, waitMode);
+		ERROR_LOG(HLE, "__KernelSendMsgPipe(%d): invalid wait mode %d", uid, waitMode);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 
@@ -605,7 +605,7 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 
 	if (waitMode != SCE_KERNEL_MPW_ASAP && waitMode != SCE_KERNEL_MPW_FULL)
 	{
-		ERROR_LOG(HLE, "__KernelReceiveMsgPipe(%d): invalid wait mode", uid, waitMode);
+		ERROR_LOG(HLE, "__KernelReceiveMsgPipe(%d): invalid wait mode %d", uid, waitMode);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 

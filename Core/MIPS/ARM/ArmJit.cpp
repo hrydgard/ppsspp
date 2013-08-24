@@ -126,13 +126,13 @@ void Jit::ClearCacheAt(u32 em_address)
 
 void Jit::CompileAt(u32 addr)
 {
-	u32 op = Memory::Read_Instruction(addr);
+	MIPSOpcode op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
 }
 
-void Jit::EatInstruction(u32 op)
+void Jit::EatInstruction(MIPSOpcode op)
 {
-	u32 info = MIPSGetInfo(op);
+	MIPSInfo info = MIPSGetInfo(op);
 	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
 	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
 
@@ -149,7 +149,7 @@ void Jit::CompileDelaySlot(int flags)
 		MRS(R8);  // Save flags register. R8 is preserved through function calls and is not allocated.
 	
 	js.inDelaySlot = true;
-	u32 op = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode op = Memory::Read_Instruction(js.compilerPC + 4);
 	MIPSCompileOp(op);
 	js.inDelaySlot = false;
 
@@ -224,7 +224,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		fpr.SetCompilerPC(js.compilerPC);
-		u32 inst = Memory::Read_Instruction(js.compilerPC);
+		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -266,13 +266,13 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	return b->normalEntry;
 }
 
-void Jit::Comp_RunBlock(u32 op)
+void Jit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(DYNA_REC, "Comp_RunBlock should never be reached!");
 }
 
-void Jit::Comp_Generic(u32 op)
+void Jit::Comp_Generic(MIPSOpcode op)
 {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
@@ -281,12 +281,12 @@ void Jit::Comp_Generic(u32 op)
 		SaveDowncount();
 		MOVI2R(R0, js.compilerPC);
 		MovToPC(R0);
-		MOVI2R(R0, op);
+		MOVI2R(R0, op.encoding);
 		QuickCallFunction(R1, (void *)func);
 		RestoreDowncount();
 	}
 
-	const int info = MIPSGetInfo(op);
+	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
 	{
 		// If it does eat them, it'll happen in MIPSCompileOp().
@@ -383,7 +383,7 @@ void Jit::WriteSyscallExit()
 	B((const void *)dispatcherCheckCoreState);
 }
 
-void Jit::Comp_DoNothing(u32 op) { }
+void Jit::Comp_DoNothing(MIPSOpcode op) { }
 
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)

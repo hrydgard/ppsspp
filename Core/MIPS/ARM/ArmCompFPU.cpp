@@ -40,7 +40,7 @@
 namespace MIPSComp
 {
 
-void Jit::Comp_FPU3op(u32 op)
+void Jit::Comp_FPU3op(MIPSOpcode op)
 { 
 	CONDITIONAL_DISABLE;
 
@@ -54,7 +54,7 @@ void Jit::Comp_FPU3op(u32 op)
 	case 0: VADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
 	case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
 	case 2: { //F(fd) = F(fs) * F(ft); //mul
-		u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+		MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 		// Optimization possible if destination is the same
 		if (fd == (int)((nextOp>>6) & 0x1F)) {
 			// VMUL + VNEG -> VNMUL
@@ -78,7 +78,7 @@ void Jit::Comp_FPU3op(u32 op)
 
 extern int logBlocks;
 
-void Jit::Comp_FPULS(u32 op)
+void Jit::Comp_FPULS(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
@@ -167,7 +167,7 @@ void Jit::Comp_FPULS(u32 op)
 	}
 }
 
-void Jit::Comp_FPUComp(u32 op) {
+void Jit::Comp_FPUComp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
@@ -233,7 +233,7 @@ void Jit::Comp_FPUComp(u32 op) {
 	STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 }
 
-void Jit::Comp_FPU2op(u32 op)
+void Jit::Comp_FPU2op(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
@@ -307,7 +307,7 @@ void Jit::Comp_FPU2op(u32 op)
 	}
 }
 
-void Jit::Comp_mxc1(u32 op)
+void Jit::Comp_mxc1(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 

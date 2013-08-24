@@ -61,7 +61,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_IType(u32 op)
+	void Jit::Comp_IType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
@@ -127,7 +127,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_RType2(u32 op)
+	void Jit::Comp_RType2(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
@@ -180,7 +180,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_RType3(u32 op)
+	void Jit::Comp_RType3(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rt = _RT;
@@ -325,7 +325,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompShiftImm(u32 op, ArmGen::ShiftType shiftType)
+	void Jit::CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType)
 	{
 		int rd = _RD;
 		int rt = _RT;
@@ -335,7 +335,7 @@ namespace MIPSComp
 		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 	}
 
-	void Jit::CompShiftVar(u32 op, ArmGen::ShiftType shiftType)
+	void Jit::CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType)
 	{
 		int rd = _RD;
 		int rt = _RT;
@@ -352,7 +352,7 @@ namespace MIPSComp
 		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, R0));
 	}
 
-	void Jit::Comp_ShiftType(u32 op)
+	void Jit::Comp_ShiftType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
@@ -379,7 +379,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Special3(u32 op)
+	void Jit::Comp_Special3(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 
@@ -447,7 +447,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Allegrex(u32 op)
+	void Jit::Comp_Allegrex(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rt = _RT;
@@ -505,7 +505,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Allegrex2(u32 op)
+	void Jit::Comp_Allegrex2(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rt = _RT;
@@ -538,7 +538,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_MulDivType(u32 op)
+	void Jit::Comp_MulDivType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int rt = _RT;

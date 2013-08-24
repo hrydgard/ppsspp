@@ -65,8 +65,8 @@ inline int GetMtx(int matrixReg) {
 	return (matrixReg >> 2) & 7;
 }
 
-VectorSize GetVecSize(u32 op);
-MatrixSize GetMtxSize(u32 op);
+VectorSize GetVecSize(MIPSOpcode op);
+MatrixSize GetMtxSize(MIPSOpcode op);
 VectorSize GetHalfVectorSize(VectorSize sz);
 int GetNumVectorElements(VectorSize sz);
 int GetMatrixSide(MatrixSize sz);

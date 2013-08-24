@@ -61,7 +61,7 @@ const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFF
 const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
 
-void Jit::Comp_VPFX(u32 op)
+void Jit::Comp_VPFX(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 	int data = op & 0xFFFFF;
@@ -198,7 +198,7 @@ bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] 
 
 static u32 MEMORY_ALIGNED16(ssLoadStoreTemp);
 
-void Jit::Comp_SV(u32 op) {
+void Jit::Comp_SV(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	s32 imm = (signed short)(op&0xFFFC);
@@ -262,7 +262,7 @@ void Jit::Comp_SV(u32 op) {
 	}
 }
 
-void Jit::Comp_SVQ(u32 op)
+void Jit::Comp_SVQ(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
@@ -412,7 +412,7 @@ void Jit::Comp_SVQ(u32 op)
 	}
 }
 
-void Jit::Comp_VVectorInit(u32 op) {
+void Jit::Comp_VVectorInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -445,7 +445,7 @@ void Jit::Comp_VVectorInit(u32 op) {
 
 
 
-void Jit::Comp_VIdt(u32 op) {
+void Jit::Comp_VIdt(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int vd = _VD;
@@ -477,7 +477,7 @@ void Jit::Comp_VIdt(u32 op) {
 }
 
 
-void Jit::Comp_VDot(u32 op) {
+void Jit::Comp_VDot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -521,7 +521,7 @@ void Jit::Comp_VDot(u32 op) {
 }
 
 
-void Jit::Comp_VHdp(u32 op) {
+void Jit::Comp_VHdp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -568,7 +568,7 @@ void Jit::Comp_VHdp(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VCrossQuat(u32 op) {
+void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -676,7 +676,7 @@ void Jit::Comp_VCrossQuat(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vcmov(u32 op) {
+void Jit::Comp_Vcmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -722,7 +722,7 @@ void Jit::Comp_Vcmov(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VecDo3(u32 op) {
+void Jit::Comp_VecDo3(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -861,7 +861,7 @@ void Jit::Comp_VecDo3(u32 op) {
 
 static float ssCompareTemp;
 
-void Jit::Comp_Vcmp(u32 op) {
+void Jit::Comp_Vcmp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1009,11 +1009,11 @@ void Jit::Comp_Vcmp(u32 op) {
 	gpr.UnlockAllX();
 }
 
-void Jit::Comp_Vsge(u32 op) {
+void Jit::Comp_Vsge(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vslt(u32 op) {
+void Jit::Comp_Vslt(MIPSOpcode op) {
 	DISABLE;
 }
 
@@ -1030,7 +1030,7 @@ extern const float mulTableVi2f[32] = {
 	1.0f/(1UL<<28),1.0f/(1UL<<29),1.0f/(1UL<<30),1.0f/(1UL<<31),
 };
 
-void Jit::Comp_Vi2f(u32 op) {
+void Jit::Comp_Vi2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1096,7 +1096,7 @@ static const float half = 0.5f;
 static double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
 static double minIntAsDouble = (double)(int)0x80000000;
 
-void Jit::Comp_Vf2i(u32 op) {
+void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
 		DISABLE;
@@ -1165,7 +1165,7 @@ void Jit::Comp_Vf2i(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vcst(u32 op) {
+void Jit::Comp_Vcst(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1189,7 +1189,7 @@ void Jit::Comp_Vcst(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VV2Op(u32 op) {
+void Jit::Comp_VV2Op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1313,7 +1313,7 @@ void Jit::Comp_VV2Op(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Mftv(u32 op) {
+void Jit::Comp_Mftv(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int imm = op & 0xFF;
@@ -1368,7 +1368,7 @@ void Jit::Comp_Mftv(u32 op) {
 	}
 }
 
-void Jit::Comp_Vmtvc(u32 op) {
+void Jit::Comp_Vmtvc(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	int vs = _VS;
 	int imm = op & 0xFF;
@@ -1387,7 +1387,7 @@ void Jit::Comp_Vmtvc(u32 op) {
 	}
 }
 
-void Jit::Comp_VMatrixInit(u32 op) {
+void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1430,7 +1430,7 @@ void Jit::Comp_VMatrixInit(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vmmov(u32 op) {
+void Jit::Comp_Vmmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
@@ -1472,7 +1472,7 @@ void Jit::Comp_Vmmov(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VScl(u32 op) {
+void Jit::Comp_VScl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1523,7 +1523,7 @@ void Jit::Comp_VScl(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vmmul(u32 op) {
+void Jit::Comp_Vmmul(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
@@ -1587,7 +1587,7 @@ void Jit::Comp_Vmmul(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vmscl(u32 op) {
+void Jit::Comp_Vmscl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
@@ -1632,7 +1632,7 @@ void Jit::Comp_Vmscl(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vtfm(u32 op) {
+void Jit::Comp_Vtfm(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?  Or maybe uses D?
@@ -1689,27 +1689,27 @@ void Jit::Comp_Vtfm(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VCrs(u32 op) {
+void Jit::Comp_VCrs(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_VDet(u32 op) {
+void Jit::Comp_VDet(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vi2x(u32 op) {
+void Jit::Comp_Vi2x(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vx2i(u32 op) {
+void Jit::Comp_Vx2i(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vhoriz(u32 op) {
+void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Viim(u32 op) {
+void Jit::Comp_Viim(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1729,7 +1729,7 @@ void Jit::Comp_Viim(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vfim(u32 op) {
+void Jit::Comp_Vfim(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1769,7 +1769,7 @@ void SinCosNegSin(float angle) {
 	sincostemp[1] = cosf(angle);
 }
 // Very heavily used by FF:CC
-void Jit::Comp_VRot(u32 op) {
+void Jit::Comp_VRot(MIPSOpcode op) {
 	// DISABLE;
 	CONDITIONAL_DISABLE;
 

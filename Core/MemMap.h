@@ -97,13 +97,40 @@ void Shutdown();
 void DoState(PointerWrap &p);
 void Clear();
 
+struct Opcode {
+	Opcode() {
+		encoding = 0;
+	}
+
+	explicit Opcode(u32 v) : encoding (v) {
+	}
+
+	u32 operator & (const u32 &arg) const {
+		return encoding & arg;
+	}
+
+	u32 operator >> (const u32 &arg) const {
+		return encoding >> arg;
+	}
+
+	bool operator == (const u32 &arg) const {
+		return encoding == arg;
+	}
+
+	bool operator != (const u32 &arg) const {
+		return encoding != arg;
+	}
+
+	u32 encoding;
+};
+
 // used by JIT to read instructions
-u32 Read_Opcode_JIT(const u32 _Address);
+Opcode Read_Opcode_JIT(const u32 _Address);
 // used by JIT. uses iCacheJIT. Reads in the "Locked cache" mode
-void Write_Opcode_JIT(const u32 _Address, const u32 _Value);
+void Write_Opcode_JIT(const u32 _Address, const Opcode _Value);
 // this is used by Debugger a lot. 
 // For now, just reads from memory!
-u32 Read_Instruction(const u32 _Address);
+Opcode Read_Instruction(const u32 _Address);
 
 
 // For use by emulator
