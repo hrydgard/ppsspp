@@ -69,6 +69,7 @@ private:
 	UI::EventReturn OnLoadState(UI::EventParams &e);
 	
 	UI::EventReturn OnStateSelected(UI::EventParams &e);
+	UI::EventReturn OnCwCheat(UI::EventParams &e);
 
 	std::string gamePath_;
 

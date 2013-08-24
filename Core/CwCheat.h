@@ -11,7 +11,6 @@
 
 void __CheatInit();
 void __CheatShutdown();
-
 std::vector<std::string> makeCodeParts(std::vector<std::string> CodesList);
 
 class CWCheatEngine {
