@@ -1138,6 +1138,7 @@ set(NativeAppSource
 	UI/OnScreenDisplay.cpp
 	UI/PluginScreen.cpp
 	UI/ControlMappingScreen.cpp
+	UI/CwCheatScreen.cpp
 	UI/ui_atlas.cpp)
 if(ANDROID)
 	set(NativeAppSource ${NativeAppSource} android/jni/ArmEmitterTest.cpp)
