@@ -356,6 +356,19 @@ struct GPUgstate
 
 	GEPatchPrimType getPatchPrimitiveType() const { return static_cast<GEPatchPrimType>(patchprimitive & 3); }
 
+	// Transfers
+	u32 getTransferSrcAddress() const { return (transfersrc & 0xFFFFF0) | ((transfersrcw & 0xFF0000) << 8); }
+	u32 getTransferSrcStride() const { return transfersrcw & 0x3F8; }
+	int getTransferSrcX() const { return (transfersrcpos >> 0) & 0x3FF; }
+	int getTransferSrcY() const { return (transfersrcpos >> 10) & 0x3FF; }
+	u32 getTransferDstAddress() const { return (transferdst & 0xFFFFF0) | ((transferdstw & 0xFF0000) << 8); }
+	u32 getTransferDstStride() const { return transferdstw & 0x3F8; }
+	int getTransferDstX() const { return (transferdstpos >> 0) & 0x3FF; }
+	int getTransferDstY() const { return (transferdstpos >> 10) & 0x3FF; }
+	int getTransferWidth() const { return ((transfersize >> 0) & 0x3FF) + 1; }
+	int getTransferHeight() const { return ((transfersize >> 10) & 0x3FF) + 1; }
+	int getTransferBpp() const { return (transferstart & 1) ? 4 : 2; }
+
 // Real data in the context ends here
 };
 

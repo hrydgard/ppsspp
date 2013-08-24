@@ -282,8 +282,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_TRANSFERSRCW:
 		{
-			u32 xferSrc = gstate.transfersrc | ((data&0xFF0000)<<8);
-			u32 xferSrcW = gstate.transfersrcw & 1023;
+			u32 xferSrc = (gstate.transfersrc & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
+			u32 xferSrcW = data & 0x3FF;
 			DEBUG_LOG(G3D,"Block Transfer Src: %08x	W: %i", xferSrc, xferSrcW);
 			break;
 		}
@@ -291,8 +291,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_TRANSFERDSTW:
 		{
-			u32 xferDst= gstate.transferdst | ((data&0xFF0000)<<8);
-			u32 xferDstW = gstate.transferdstw & 1023;
+			u32 xferDst = (gstate.transferdst & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
+			u32 xferDstW = data & 0x3FF;
 			DEBUG_LOG(G3D,"Block Transfer Dest: %08x	W: %i", xferDst, xferDstW);
 			break;
 		}

@@ -549,67 +549,36 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		}
 		break;
 
-//case GE_CMD_TRANSFERSRC:
-
+	// Don't need to do anything, just state for transferstart.
+	case GE_CMD_TRANSFERSRC:
 	case GE_CMD_TRANSFERSRCW:
-		{
-			u32 xferSrc = gstate.transfersrc | ((data&0xFF0000)<<8);
-			u32 xferSrcW = gstate.transfersrcw & 1023;
-			DEBUG_LOG(G3D,"Block Transfer Src: %08x	W: %i", xferSrc, xferSrcW);
-			break;
-		}
-//		case GE_CMD_TRANSFERDST:
-
+	case GE_CMD_TRANSFERDST:
 	case GE_CMD_TRANSFERDSTW:
-		{
-			u32 xferDst= gstate.transferdst | ((data&0xFF0000)<<8);
-			u32 xferDstW = gstate.transferdstw & 1023;
-			DEBUG_LOG(G3D,"Block Transfer Dest: %08x	W: %i", xferDst, xferDstW);
-			break;
-		}
-
 	case GE_CMD_TRANSFERSRCPOS:
-		{
-			u32 x = (data & 1023)+1;
-			u32 y = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D, "DL Block Transfer Src Rect TL: %i, %i", x, y);
-			break;
-		}
-
 	case GE_CMD_TRANSFERDSTPOS:
-		{
-			u32 x = (data & 1023)+1;
-			u32 y = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D, "DL Block Transfer Dest Rect TL: %i, %i", x, y);
-			break;
-		}
-
 	case GE_CMD_TRANSFERSIZE:
-		{
-			u32 w = (data & 1023)+1;
-			u32 h = ((data>>10) & 1023)+1;
-			DEBUG_LOG(G3D, "DL Block Transfer Rect Size: %i x %i", w, h);
-			break;
-		}
+		break;
 
 	case GE_CMD_TRANSFERSTART:
 		{
-			u32 srcBasePtr = (gstate.transfersrc & 0xFFFFF0) | ((gstate.transfersrcw & 0xFF0000) << 8);
-			u32 srcStride = gstate.transfersrcw & 0x3F8;
+			u32 srcBasePtr = gstate.getTransferSrcAddress();
+			u32 srcStride = gstate.getTransferSrcStride();
 
-			u32 dstBasePtr = (gstate.transferdst & 0xFFFFF0) | ((gstate.transferdstw & 0xFF0000) << 8);
-			u32 dstStride = gstate.transferdstw & 0x3F8;
+			u32 dstBasePtr = gstate.getTransferDstAddress();
+			u32 dstStride = gstate.getTransferDstStride();
 
-			int srcX = gstate.transfersrcpos & 0x3FF;
-			int srcY = (gstate.transfersrcpos >> 10) & 0x3FF;
+			int srcX = gstate.getTransferSrcX();
+			int srcY = gstate.getTransferSrcY();
 
-			int dstX = gstate.transferdstpos & 0x3FF;
-			int dstY = (gstate.transferdstpos >> 10) & 0x3FF;
+			int dstX = gstate.getTransferDstX();
+			int dstY = gstate.getTransferDstY();
 
-			int width = (gstate.transfersize & 0x3FF) + 1;
-			int height = ((gstate.transfersize >> 10) & 0x3FF) + 1;
+			int width = gstate.getTransferWidth();
+			int height = gstate.getTransferHeight();
 
-			int bpp = (gstate.transferstart & 1) ? 4 : 2;
+			int bpp = gstate.getTransferBpp();
+
+			DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
 			for (int y = 0; y < height; y++) {
 				const u8 *src = Memory::GetPointer(srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp);
@@ -617,7 +586,6 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 				memcpy(dst, src, width * bpp);
 			}
 
-			DEBUG_LOG(G3D, "DL Texture Transfer Start: PixFormat %i", data);
 			break;
 		}
 
