@@ -1032,10 +1032,14 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 #if defined(_DEBUG)
 				if (CBreakPoints::IsAddressBreakPoint(curMips->pc))
 				{
-					Core_EnableStepping(true);
-					if (CBreakPoints::IsTempBreakPoint(curMips->pc))
-						CBreakPoints::RemoveBreakPoint(curMips->pc);
-					break;
+					auto cond = CBreakPoints::GetBreakPointCondition(currentMIPS->pc);
+					if (!cond || cond->Evaluate())
+					{
+						Core_EnableStepping(true);
+						if (CBreakPoints::IsTempBreakPoint(curMips->pc))
+							CBreakPoints::RemoveBreakPoint(curMips->pc);
+						break;
+					}
 				}
 #endif
 
