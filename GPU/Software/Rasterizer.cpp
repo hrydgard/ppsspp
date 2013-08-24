@@ -726,7 +726,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				// TODO: Fogging
 
 				// TODO: Is that the correct way to interpolate?
-				u16 z = (u16)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) / (w0+w1+w2));
+				// With the (u32), this causes an ICE in some versions of gcc.
+				u16 z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) / (w0+w1+w2));
 
 				// Depth range test
 				if (!gstate.isModeThrough())
