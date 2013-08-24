@@ -254,13 +254,6 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	}
 }
 
-static u32 GetClutIndex(u32 index) {
-    const u32 clutBase = gstate.getClutIndexStartPos();
-    const u32 clutMask = gstate.getClutIndexMask();
-    const u8 clutShift = gstate.getClutIndexShift();
-    return ((index >> clutShift) & clutMask) | clutBase;
-}
-
 void *TextureCache::UnswizzleFromMem(u32 texaddr, u32 bufw, u32 bytesPerPixel, u32 level) {
 	const u32 rowWidth = (bytesPerPixel > 0) ? (bufw * bytesPerPixel) : (bufw / 2);
 	const u32 pitch = rowWidth / 4;
@@ -346,7 +339,7 @@ inline void DeIndexTexture(ClutT *dest, const IndexT *indexed, int length, const
 		}
 	} else {
 		for (int i = 0; i < length; ++i) {
-			*dest++ = clut[GetClutIndex(*indexed++)];
+			*dest++ = clut[gstate.transformClutIndex(*indexed++)];
 		}
 	}
 }
@@ -371,8 +364,8 @@ inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const Cl
 	} else {
 		for (int i = 0; i < length; i += 2) {
 			u8 index = *indexed++;
-			dest[i + 0] = clut[GetClutIndex((index >> 0) & 0xf)];
-			dest[i + 1] = clut[GetClutIndex((index >> 4) & 0xf)];
+			dest[i + 0] = clut[gstate.transformClutIndex((index >> 0) & 0xf)];
+			dest[i + 1] = clut[gstate.transformClutIndex((index >> 4) & 0xf)];
 		}
 	}
 }
@@ -873,8 +866,8 @@ inline bool TextureCache::TexCacheEntry::Matches(u16 dim2, u8 format2, int maxLe
 }
 
 void TextureCache::LoadClut() {
-	u32 clutAddr = ((gstate.clutaddr & 0xFFFFFF) | ((gstate.clutaddrupper << 8) & 0x0F000000));
-	clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
+	u32 clutAddr = gstate.getClutAddress();
+	clutTotalBytes_ = gstate.getClutLoadBytes();
 	if (Memory::IsValidAddress(clutAddr)) {
 		Memory::MemcpyUnchecked(clutBufRaw_, clutAddr, clutTotalBytes_);
 	} else {

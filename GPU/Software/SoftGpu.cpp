@@ -528,14 +528,14 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 
 	case GE_CMD_LOADCLUT:
 		{
-			u32 clutAddr = ((gstate.clutaddr & 0xFFFFF0) | ((gstate.clutaddrupper << 8) & 0xFF000000));
-			u32 clutTotalBytes_ = (gstate.loadclut & 0x3f) * 32;
+			u32 clutAddr = gstate.getClutAddress();
+			u32 clutTotalBytes = gstate.getClutLoadBytes();
 
 			if (Memory::IsValidAddress(clutAddr)) {
-				Memory::Memcpy(clut, clutAddr, clutTotalBytes_);
+				Memory::MemcpyUnchecked(clut, clutAddr, clutTotalBytes);
 			} else {
 				// TODO: Does this make any sense?
-				memset(clut, 0xFF, clutTotalBytes_);
+				memset(clut, 0xFF, clutTotalBytes);
 			}
 
 			if (clutAddr)

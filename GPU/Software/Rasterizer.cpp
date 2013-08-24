@@ -90,13 +90,6 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 	}
 }
 
-static inline u32 GetClutIndex(u32 index) {
-    const u32 clutBase = gstate.getClutIndexStartPos();
-    const u32 clutMask = gstate.getClutIndexMask();
-    const u8 clutShift = gstate.getClutIndexShift();
-    return ((index >> clutShift) & clutMask) | clutBase;
-}
-
 static inline void GetTexelCoordinates(int level, float s, float t, unsigned int& u, unsigned int& v)
 {
 	s *= getFloat24(gstate.texscaleu);
@@ -185,25 +178,25 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
 
 		u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
 
-		return LookupColor(GetClutIndex(val), level);
+		return LookupColor(gstate.transformClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT16) {
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 
 		u16 val = srcptr[0] + (srcptr[1] << 8);
 
-		return LookupColor(GetClutIndex(val), level);
+		return LookupColor(gstate.transformClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT8) {
 		srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
 
 		u8 val = *srcptr;
 
-		return LookupColor(GetClutIndex(val), level);
+		return LookupColor(gstate.transformClutIndex(val), level);
 	} else if (texfmt == GE_TFMT_CLUT4) {
 		srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
 
 		u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
 
-		return LookupColor(GetClutIndex(val), level);
+		return LookupColor(gstate.transformClutIndex(val), level);
 	} else {
 		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
 		return 0;
@@ -404,7 +397,7 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 	Vec3<int> out_rgb;
 	int out_a;
 
-	bool rgba = (gstate.texfunc & 0x100) != 0;
+	bool rgba = gstate.isTextureAlphaUsed();
 
 	switch (gstate.getTextureFunction()) {
 	case GE_TEXFUNC_MODULATE:

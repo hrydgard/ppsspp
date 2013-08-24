@@ -265,7 +265,7 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 	case GE_CMD_LOADCLUT:
 		// This could be used to "dirty" textures with clut.
 		{
-			u32 clutAddr = ((gstate.clutaddrupper & 0xFF0000)<<8) | (gstate.clutaddr & 0xFFFFFF);
+			u32 clutAddr = gstate.getClutAddress();
 			if (clutAddr)
 			{
 				DEBUG_LOG(G3D,"DL Clut load: %08x", clutAddr);

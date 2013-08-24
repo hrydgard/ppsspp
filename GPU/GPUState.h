@@ -284,10 +284,13 @@ struct GPUgstate
 	int getTextureEnvColR() const { return texenvcolor&0xFF; }
 	int getTextureEnvColG() const { return (texenvcolor>>8)&0xFF; }
 	int getTextureEnvColB() const { return (texenvcolor>>16)&0xFF; }
+	u32 getClutAddress() const { return (clutaddr & 0x00FFFFFF) | ((clutaddrupper << 8) & 0x0F000000); }
+	int getClutLoadBytes() const { return (loadclut & 0x3F) * 32; }
 	GEPaletteFormat getClutPaletteFormat() { return static_cast<GEPaletteFormat>(clutformat & 3); }
 	int getClutIndexShift() const { return (clutformat >> 2) & 0x1F; }
 	int getClutIndexMask() const { return (clutformat >> 8) & 0xFF; }
 	int getClutIndexStartPos() const { return ((clutformat >> 16) & 0x1F) << 4; }
+	int transformClutIndex(int index) const { return ((index >> getClutIndexShift()) & getClutIndexMask()) | getClutIndexStartPos(); }
 	bool isClutIndexSimple() const { return (clutformat & ~3) == 0xC500FF00; } // Meaning, no special mask, shift, or start pos.
 	bool isTextureSwizzled() const { return texmode & 1; }
 
