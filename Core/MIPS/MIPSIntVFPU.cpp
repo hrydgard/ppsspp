@@ -196,7 +196,7 @@ void EatPrefixes()
 
 namespace MIPSInt
 {
-	void Int_VPFX(u32 op)
+	void Int_VPFX(MIPSOpcode op)
 	{
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;
@@ -204,7 +204,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_SVQ(u32 op)
+	void Int_SVQ(MIPSOpcode op)
 	{
 		int imm = (signed short)(op&0xFFFC);
 		int rs = _RS;
@@ -315,7 +315,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_VMatrixInit(u32 op)
+	void Int_VMatrixInit(MIPSOpcode op)
 	{
 		static const float idt[16] = 
 		{
@@ -359,7 +359,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VVectorInit(u32 op)
+	void Int_VVectorInit(MIPSOpcode op)
 	{
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
@@ -387,7 +387,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Viim(u32 op)
+	void Int_Viim(MIPSOpcode op)
 	{
 		int vt = _VT;
 		s32 imm = (s16)(op&0xFFFF);
@@ -408,7 +408,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vidt(u32 op)
+	void Int_Vidt(MIPSOpcode op)
 	{
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
@@ -435,7 +435,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	// The test really needs some work.
-	void Int_Vmmul(u32 op)
+	void Int_Vmmul(MIPSOpcode op)
 	{
 		float s[16];
 		float t[16];
@@ -468,7 +468,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vmscl(u32 op)
+	void Int_Vmscl(MIPSOpcode op)
 	{
 		float d[16];
 		float s[16];
@@ -496,7 +496,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vmmov(u32 op)
+	void Int_Vmmov(MIPSOpcode op)
 	{
 		float s[16];
 		int vd = _VD;
@@ -509,13 +509,13 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vflush(u32 op)
+	void Int_Vflush(MIPSOpcode op)
 	{
 		// DEBUG_LOG(CPU,"vflush");
 		PC += 4;
 	}
 
-	void Int_VV2Op(u32 op)
+	void Int_VV2Op(MIPSOpcode op)
 	{
 		float s[4], d[4];
 		int vd = _VD;
@@ -555,7 +555,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vocp(u32 op)
+	void Int_Vocp(MIPSOpcode op)
 	{
 		float s[4], d[4];
 		int vd = _VD;
@@ -573,7 +573,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vsocp(u32 op)
+	void Int_Vsocp(MIPSOpcode op)
 	{
 		float s[4], d[4];
 		int vd = _VD;
@@ -596,7 +596,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsgn(u32 op)
+	void Int_Vsgn(MIPSOpcode op)
 	{
 		float s[4], d[4];
 		int vd = _VD;
@@ -627,7 +627,7 @@ namespace MIPSInt
 		return (int)round_ieee_754(param);
 	}
 
-	void Int_Vf2i(u32 op) {
+	void Int_Vf2i(MIPSOpcode op) {
 		float s[4];
 		int d[4];
 		int vd = _VD;
@@ -665,7 +665,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vi2f(u32 op)
+	void Int_Vi2f(MIPSOpcode op)
 	{
 		int s[4];
 		float d[4];
@@ -686,7 +686,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vh2f(u32 op)
+	void Int_Vh2f(MIPSOpcode op)
 	{
 		u32 s[4];
 		float d[4];
@@ -721,7 +721,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vf2h(u32 op)
+	void Int_Vf2h(MIPSOpcode op)
 	{
 		float s[4];
 		u32 d[4];
@@ -753,7 +753,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vx2i(u32 op)
+	void Int_Vx2i(MIPSOpcode op)
 	{
 		u32 s[4];
 		u32 d[4] = {0};
@@ -845,7 +845,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vi2x(u32 op)
+	void Int_Vi2x(MIPSOpcode op)
 	{
 		int s[4];
 		u32 d[2] = {0};
@@ -920,7 +920,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_ColorConv(u32 op) 
+	void Int_ColorConv(MIPSOpcode op)
 	{
 		int vd = _VD;
 		int vs = _VS;
@@ -969,7 +969,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VDot(u32 op)
+	void Int_VDot(MIPSOpcode op)
 	{
 		float s[4], t[4];
 		float d;
@@ -994,7 +994,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VHdp(u32 op)
+	void Int_VHdp(MIPSOpcode op)
 	{
 		float s[4], t[4];
 		float d;
@@ -1019,7 +1019,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vbfy(u32 op)
+	void Int_Vbfy(MIPSOpcode op)
 	{
 		float s[4];
 		float d[4];
@@ -1051,7 +1051,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vsrt1(u32 op)
+	void Int_Vsrt1(MIPSOpcode op)
 	{
 		float s[4];
 		float d[4];
@@ -1074,7 +1074,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsrt2(u32 op)
+	void Int_Vsrt2(MIPSOpcode op)
 	{
 		float s[4];
 		float d[4];
@@ -1097,7 +1097,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsrt3(u32 op)
+	void Int_Vsrt3(MIPSOpcode op)
 	{
 		float s[4];
 		float d[4];
@@ -1120,7 +1120,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsrt4(u32 op)
+	void Int_Vsrt4(MIPSOpcode op)
 	{
 		float s[4];
 		float d[4];
@@ -1143,7 +1143,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vcrs(u32 op)
+	void Int_Vcrs(MIPSOpcode op)
 	{
 		//half a cross product
 		float s[4], t[4];
@@ -1167,7 +1167,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vdet(u32 op)
+	void Int_Vdet(MIPSOpcode op)
 	{
 		float s[4], t[4];
 		float d[4];
@@ -1187,7 +1187,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vfad(u32 op)
+	void Int_Vfad(MIPSOpcode op)
 	{
 		float s[4];
 		float d;
@@ -1209,7 +1209,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vavg(u32 op)
+	void Int_Vavg(MIPSOpcode op)
 	{
 		float s[4];
 		float d;
@@ -1231,7 +1231,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VScl(u32 op)
+	void Int_VScl(MIPSOpcode op)
 	{
 		float s[4];
 		float d[4];
@@ -1258,7 +1258,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vrnds(u32 op)
+	void Int_Vrnds(MIPSOpcode op)
 	{
 		int vd = _VD;
 		int seed = VI(vd);
@@ -1267,7 +1267,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VrndX(u32 op)
+	void Int_VrndX(MIPSOpcode op)
 	{
 		float d[4];
 		int vd = _VD;
@@ -1290,7 +1290,7 @@ namespace MIPSInt
 	}
 
 	// Generates one line of a rotation matrix around one of the three axes
-	void Int_Vrot(u32 op)
+	void Int_Vrot(MIPSOpcode op)
 	{
 		int vd = _VD;
 		int vs = _VS;
@@ -1315,7 +1315,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vtfm(u32 op)
+	void Int_Vtfm(MIPSOpcode op)
 	{
 		int vd = _VD;
 		int vs = _VS;
@@ -1372,7 +1372,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
  
-	void Int_SV(u32 op)
+	void Int_SV(MIPSOpcode op)
 	{
 		s32 imm = (signed short)(op&0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
@@ -1395,7 +1395,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_Mftv(u32 op)
+	void Int_Mftv(MIPSOpcode op)
 	{
 		int imm = op & 0xFF;
 		int rt = _RT;
@@ -1433,7 +1433,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Vmfvc(u32 op) {
+	void Int_Vmfvc(MIPSOpcode op) {
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
@@ -1442,7 +1442,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Vmtvc(u32 op) {
+	void Int_Vmtvc(MIPSOpcode op) {
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
@@ -1451,7 +1451,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Vcst(u32 op)
+	void Int_Vcst(MIPSOpcode op)
 	{
 		int conNum = (op >> 16) & 0x1f;
 		int vd = _VD;
@@ -1465,7 +1465,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vcmp(u32 op)
+	void Int_Vcmp(MIPSOpcode op)
 	{
 		int vs = _VS;
 		int vt = _VT;
@@ -1527,7 +1527,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vminmax(u32 op) {
+	void Int_Vminmax(MIPSOpcode op) {
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
@@ -1565,7 +1565,7 @@ namespace MIPSInt
 	}
 	
 	// This doesn't quite pass all the tests :/
-	void Int_Vscmp(u32 op) {
+	void Int_Vscmp(MIPSOpcode op) {
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
@@ -1588,7 +1588,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsge(u32 op) {
+	void Int_Vsge(MIPSOpcode op) {
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
@@ -1614,7 +1614,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vslt(u32 op) {
+	void Int_Vslt(MIPSOpcode op) {
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
@@ -1641,7 +1641,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_Vcmov(u32 op)
+	void Int_Vcmov(MIPSOpcode op)
 	{
 		int vs = _VS;
 		int vd = _VD;
@@ -1683,7 +1683,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VecDo3(u32 op)
+	void Int_VecDo3(MIPSOpcode op)
 	{
 		int vd = _VD;
 		int vs = _VS;
@@ -1729,7 +1729,7 @@ bad:
 	}
 
 	
-	void Int_CrossQuat(u32 op)
+	void Int_CrossQuat(MIPSOpcode op)
 	{
 		int vd = _VD;
 		int vs = _VS;
@@ -1764,7 +1764,7 @@ bad:
 		EatPrefixes();
 	}
 
-	void Int_Vlgb(u32 op)
+	void Int_Vlgb(MIPSOpcode op)
 	{
 		// S & D valid
 		Reporting::ReportMessage("vlgb not implemented");
@@ -1775,7 +1775,7 @@ bad:
 
 	// There has to be a concise way of expressing this in terms of
 	// bit manipulation on the raw floats.
-	void Int_Vwbn(u32 op) {
+	void Int_Vwbn(MIPSOpcode op) {
 		Reporting::ReportMessage("vwbn not implemented");
 		_dbg_assert_msg_(CPU,0,"vwbn not implemented");
 		PC += 4;
@@ -1807,7 +1807,7 @@ bad:
 		EatPrefixes();*/
 	}
 
-	void Int_Vsbn(u32 op)
+	void Int_Vsbn(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("vsbn not implemented");
 		_dbg_assert_msg_(CPU,0,"vsbn not implemented");
@@ -1815,7 +1815,7 @@ bad:
 		EatPrefixes();
 	}
 
-	void Int_Vsbz(u32 op)
+	void Int_Vsbz(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("vsbz not implemented");
 		_dbg_assert_msg_(CPU,0,"vsbz not implemented");

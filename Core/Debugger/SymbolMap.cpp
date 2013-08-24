@@ -46,7 +46,7 @@ static u32 ComputeHash(u32 start, u32 size)
 {
 	u32 hash=0;
 	for (unsigned int i=start; i<start+size; i+=4)
-		hash = hasher(hash, Memory::Read_Instruction(i));			
+		hash = hasher(hash, Memory::Read_Instruction(i).encoding);
 	return hash;
 }
 
@@ -546,7 +546,7 @@ void SymbolMap::CompileFuncSignaturesFile(const char *filename) const
 		int size = entry.size;
 		if (size >= 16 && entry.type == ST_FUNCTION)
 		{
-			u32 inst = Memory::Read_Instruction(entry.vaddress); //try to make a bigger number of different vals sometime
+			u32 inst = Memory::Read_Instruction(entry.vaddress).encoding; //try to make a bigger number of different vals sometime
 			if (inst != 0)
 			{
 				char temp[64];
@@ -633,7 +633,7 @@ void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 			sprintf(temp,"Scanning: %08x",addr);
 			lastAddr=addr;
 		}
-		u32 inst = Memory::Read_Instruction(addr);
+		u32 inst = Memory::Read_Instruction(addr).encoding;
 		if (!inst) 
 			continue;
 

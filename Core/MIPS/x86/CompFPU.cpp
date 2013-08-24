@@ -41,7 +41,7 @@
 namespace MIPSComp
 {
 
-void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters)
+void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpArg), bool orderMatters)
 {
 	int ft = _FT;
 	int fs = _FS;
@@ -72,7 +72,7 @@ void Jit::CompFPTriArith(u32 op, void (XEmitter::*arith)(X64Reg reg, OpArg), boo
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_FPU3op(u32 op)
+void Jit::Comp_FPU3op(MIPSOpcode op)
 { 
 	CONDITIONAL_DISABLE;
 	switch (op & 0x3f) 
@@ -89,7 +89,7 @@ void Jit::Comp_FPU3op(u32 op)
 
 static u32 MEMORY_ALIGNED16(ssLoadStoreTemp);
 
-void Jit::Comp_FPULS(u32 op)
+void Jit::Comp_FPULS(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 	s32 offset = (s16)(op&0xFFFF);
@@ -171,7 +171,7 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN)
 	}
 }
 
-void Jit::Comp_FPUComp(u32 op)
+void Jit::Comp_FPUComp(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
@@ -225,7 +225,7 @@ void Jit::Comp_FPUComp(u32 op)
 	}
 }
 
-void Jit::Comp_FPU2op(u32 op) {
+void Jit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	
 	int fs = _FS;
@@ -290,7 +290,7 @@ void Jit::Comp_FPU2op(u32 op) {
 	}
 }
 
-void Jit::Comp_mxc1(u32 op)
+void Jit::Comp_mxc1(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 

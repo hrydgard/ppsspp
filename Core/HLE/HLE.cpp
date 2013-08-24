@@ -456,7 +456,7 @@ inline void updateSyscallStats(int modulenum, int funcnum, double total)
 	}
 }
 
-void CallSyscall(u32 op)
+void CallSyscall(MIPSOpcode op)
 {
 	double start = 0.0;  // need to initialize to fix the race condition where g_Config.bShowDebugStats is enabled in the middle of this func.
 	if (g_Config.bShowDebugStats)

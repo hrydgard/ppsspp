@@ -97,7 +97,7 @@ u32 JitBreakpoint()
 	return 1;
 }
 
-static void JitLogMiss(u32 op)
+static void JitLogMiss(MIPSOpcode op)
 {
 	if (USE_JIT_MISSMAP)
 		notJitOps[MIPSGetName(op)]++;
@@ -205,7 +205,7 @@ void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 		SAVE_FLAGS; // preserve flag around the delay slot!
 
 	js.inDelaySlot = true;
-	u32 op = Memory::Read_Instruction(addr);
+	MIPSOpcode op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
 	js.inDelaySlot = false;
 
@@ -223,13 +223,13 @@ void Jit::CompileDelaySlot(int flags, RegCacheState *state)
 void Jit::CompileAt(u32 addr)
 {
 	CheckJitBreakpoint(addr, 0);
-	u32 op = Memory::Read_Instruction(addr);
+	MIPSOpcode op = Memory::Read_Instruction(addr);
 	MIPSCompileOp(op);
 }
 
-void Jit::EatInstruction(u32 op)
+void Jit::EatInstruction(MIPSOpcode op)
 {
-	u32 info = MIPSGetInfo(op);
+	MIPSInfo info = MIPSGetInfo(op);
 	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
 	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
 
@@ -292,8 +292,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 	b->normalEntry = GetCodePtr();
 
-	// TODO: this needs work
-	MIPSAnalyst::AnalysisResults analysis; // = MIPSAnalyst::Analyze(em_address);
+	MIPSAnalyst::AnalysisResults analysis = MIPSAnalyst::Analyze(em_address);
 
 	gpr.Start(mips_, analysis);
 	fpr.Start(mips_, analysis);
@@ -303,7 +302,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckJitBreakpoint(js.compilerPC, 0);
 
-		u32 inst = Memory::Read_Instruction(js.compilerPC);
+		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);
@@ -338,13 +337,13 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	return b->normalEntry;
 }
 
-void Jit::Comp_RunBlock(u32 op)
+void Jit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(DYNA_REC, "Comp_RunBlock");
 }
 
-void Jit::Comp_Generic(u32 op)
+void Jit::Comp_Generic(MIPSOpcode op)
 {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
@@ -354,14 +353,14 @@ void Jit::Comp_Generic(u32 op)
 	{
 		MOV(32, M(&mips_->pc), Imm32(js.compilerPC));
 		if (USE_JIT_MISSMAP)
-			ABI_CallFunctionC((void *)&JitLogMiss, op);
+			ABI_CallFunctionC((void *)&JitLogMiss, op.encoding);
 		else
-			ABI_CallFunctionC((void *)func, op);
+			ABI_CallFunctionC((void *)func, op.encoding);
 	}
 	else
 		ERROR_LOG_REPORT(JIT, "Trying to compile instruction that can't be interpreted");
 
-	const int info = MIPSGetInfo(op);
+	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
 	{
 		// If it does eat them, it'll happen in MIPSCompileOp().
@@ -868,6 +867,6 @@ void Jit::CallProtectedFunction(void *func, const OpArg &arg1, const u32 arg2, c
 	ABI_CallFunction((void *)thunks.GetLoadRegsFunction());
 }
 
-void Jit::Comp_DoNothing(u32 op) { }
+void Jit::Comp_DoNothing(MIPSOpcode op) { }
 
 } // namespace

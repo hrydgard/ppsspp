@@ -17,9 +17,12 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "../CPU.h"
+#include "Globals.h"
+#include "Core/MemMap.h"
+#include "Core/CPU.h"
 #include "util/random/rng.h"
+
+typedef Memory::Opcode MIPSOpcode;
 
 enum
 {

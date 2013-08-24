@@ -31,10 +31,10 @@ namespace MIPSCodeUtils
 
 	u32 GetJumpTarget(u32 addr)
 	{
-		u32 op = Memory::Read_Instruction(addr);
-		if (op)
+		MIPSOpcode op = Memory::Read_Instruction(addr);
+		if (op != 0)
 		{
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_JUMP) && (info & IN_IMM26))
 			{
 				u32 target = (addr & 0xF0000000) | ((op&0x03FFFFFF) << 2);
@@ -49,10 +49,10 @@ namespace MIPSCodeUtils
 
 	u32 GetBranchTarget(u32 addr)
 	{
-		u32 op = Memory::Read_Instruction(addr);
-		if (op)
+		MIPSOpcode op = Memory::Read_Instruction(addr);
+		if (op != 0)
 		{
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 			if (info & IS_CONDBRANCH)
 			{
 				return addr + 4 + ((signed short)(op&0xFFFF)<<2);
@@ -66,10 +66,10 @@ namespace MIPSCodeUtils
 
 	u32 GetBranchTargetNoRA(u32 addr)
 	{
-		u32 op = Memory::Read_Instruction(addr);
-		if (op)
+		MIPSOpcode op = Memory::Read_Instruction(addr);
+		if (op != 0)
 		{
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_CONDBRANCH) && !(info & OUT_RA))
 			{
 				return addr + 4 + ((signed short)(op&0xFFFF)<<2);
@@ -83,10 +83,10 @@ namespace MIPSCodeUtils
 
 	u32 GetSureBranchTarget(u32 addr)
 	{
-		u32 op = Memory::Read_Instruction(addr);
-		if (op)
+		MIPSOpcode op = Memory::Read_Instruction(addr);
+		if (op != 0)
 		{
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 			if (info & IS_CONDBRANCH)
 			{
 				bool sure;
@@ -133,7 +133,7 @@ namespace MIPSCodeUtils
 			return INVALIDTARGET;
 	}
 
-	bool IsVFPUBranch(u32 op) {
+	bool IsVFPUBranch(MIPSOpcode op) {
 		return (MIPSGetInfo(op) & (IS_VFPU | IS_CONDBRANCH)) == (IS_VFPU | IS_CONDBRANCH);
 	}
 }

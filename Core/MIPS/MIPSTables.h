@@ -17,7 +17,23 @@
 
 #pragma once
 
-#include "../../Globals.h"
+#include "Globals.h"
+#include "Core/MIPS/MIPS.h"
+
+struct MIPSInfo {
+	MIPSInfo() {
+		value = 0;
+	}
+
+	explicit MIPSInfo(u32 v) : value(v) {
+	}
+
+	u32 operator & (const u32 &arg) const {
+		return value & arg;
+	}
+
+	u32 value;
+};
 
 #define CONDTYPE_MASK	0x00000007
 #define CONDTYPE_EQ		0x00000001
@@ -40,50 +56,49 @@
 #define IS_CONDMOVE		0x00000008
 #define DELAYSLOT       0x00000010
 #define BAD_INSTRUCTION 0x00000020
-#define UNCONDITIONAL   0x00000040
-#define LIKELY          0x00000080
-#define IS_CONDBRANCH   0x00000100
-#define IS_JUMP         0x00000200
+#define LIKELY          0x00000040
+#define IS_CONDBRANCH   0x00000080
+#define IS_JUMP         0x00000100
 
-#define IN_RS           0x00000400
-#define IN_RS_ADDR      (0x00000800 | IN_RS)
-#define IN_RS_SHIFT     (0x00001000 | IN_RS)
-#define IN_RT           0x00002000
-#define IN_SA           0x00004000
-#define IN_IMM16        0x00008000
-#define IN_IMM26        0x00010000
-#define IN_MEM          0x00020000
-#define IN_OTHER        0x00040000
-#define IN_FPUFLAG      0x00080000
+#define IN_RS           0x00000200
+#define IN_RS_ADDR      (0x00000400 | IN_RS)
+#define IN_RS_SHIFT     (0x00000800 | IN_RS)
+#define IN_RT           0x00001000
+#define IN_SA           0x00002000
+#define IN_IMM16        0x00004000
+#define IN_IMM26        0x00008000
+#define IN_MEM          0x00010000
+#define IN_OTHER        0x00020000
+#define IN_FPUFLAG      0x00040000
 
-#define OUT_RT          0x00100000
-#define OUT_RD          0x00200000
-#define OUT_RA          0x00400000
-#define OUT_MEM         0x00800000
-#define OUT_OTHER       0x01000000
-#define OUT_FPUFLAG     0x02000000
-#define OUT_EAT_PREFIX  0x04000000
+#define OUT_RT          0x00080000
+#define OUT_RD          0x00100000
+#define OUT_RA          0x00200000
+#define OUT_MEM         0x00400000
+#define OUT_OTHER       0x00800000
+#define OUT_FPUFLAG     0x01000000
+#define OUT_EAT_PREFIX  0x02000000
 
-#define VFPU_NO_PREFIX  0x08000000
-#define IS_VFPU         0x80000000
+#define VFPU_NO_PREFIX  0x04000000
+#define IS_VFPU         0x08000000
 
 #ifndef CDECL
 #define CDECL
 #endif
 
-typedef void (CDECL *MIPSDisFunc)(u32 opcode, char *out);
-typedef void (CDECL *MIPSInterpretFunc)(u32 opcode);
+typedef void (CDECL *MIPSDisFunc)(MIPSOpcode opcode, char *out);
+typedef void (CDECL *MIPSInterpretFunc)(MIPSOpcode opcode);
 
 
-void MIPSCompileOp(u32 op);
-void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces = false);
-u32  MIPSGetInfo(u32 op);
-void MIPSInterpret(u32 op); //only for those rare ones
+void MIPSCompileOp(MIPSOpcode op);
+void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces = false);
+MIPSInfo MIPSGetInfo(MIPSOpcode op);
+void MIPSInterpret(MIPSOpcode op); //only for those rare ones
 int MIPSInterpret_RunUntil(u64 globalTicks);
-MIPSInterpretFunc MIPSGetInterpretFunc(u32 op);
+MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 
-int MIPSGetInstructionCycleEstimate(u32 op);
-const char *MIPSGetName(u32 op);
+int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
+const char *MIPSGetName(MIPSOpcode op);
 
 
 void FillMIPSTables();

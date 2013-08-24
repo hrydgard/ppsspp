@@ -71,7 +71,7 @@ struct MIPSInstruction
 #endif
 	MIPSInterpretFunc interpret;
 	//MIPSInstructionInfo information;
-	u32 flags;
+	MIPSInfo flags;
 };
 
 #define INVALID {-2}
@@ -80,7 +80,7 @@ struct MIPSInstruction
 
 #ifndef FINAL
 #define ENCODING(a) {a}
-#define INSTR(name, comp, dis, inter, flags) {-1, N(name), comp, dis, inter, flags}
+#define INSTR(name, comp, dis, inter, flags) {-1, N(name), comp, dis, inter, MIPSInfo(flags)}
 #else
 #define ENCODING(a) {a}
 #define INSTR(name, comp, dis, inter, flags) {-1, comp, inter, flags}
@@ -891,7 +891,7 @@ const MIPSInstruction *mipsTables[NumEncodings] =
 //Todo : generate dispatcher functions from above tables
 //instead of this horribly slow abomination
 
-const MIPSInstruction *MIPSGetInstruction(u32 op)
+const MIPSInstruction *MIPSGetInstruction(MIPSOpcode op)
 {
 	MipsEncoding encoding = Imme;
 	const MIPSInstruction *instr = &tableImmediate[op>>26];
@@ -919,19 +919,19 @@ const MIPSInstruction *MIPSGetInstruction(u32 op)
 
 
 
-void MIPSCompileOp(u32 op)
+void MIPSCompileOp(MIPSOpcode op)
 {
 	if (op==0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	const int info = MIPSGetInfo(op);
+	const MIPSInfo info = MIPSGetInfo(op);
 	if (instr)
 	{
 		if (instr->compile)
 			(MIPSComp::jit->*(instr->compile))(op);   // woohoo, member functions pointers!
 		else
 		{
-			ERROR_LOG_REPORT(CPU,"MIPSCompileOp %08x failed",op);
+			ERROR_LOG_REPORT(CPU,"MIPSCompileOp %08x failed",op.encoding);
 			//MessageBox(0,"ARGH2",0,0);//compile an interpreter call
 		}
 
@@ -940,12 +940,12 @@ void MIPSCompileOp(u32 op)
 	}
 	else
 	{
-		ERROR_LOG_REPORT(CPU, "MIPSCompileOp: Invalid instruction %08x", op);
+		ERROR_LOG_REPORT(CPU, "MIPSCompileOp: Invalid instruction %08x", op.encoding);
 	}
 }
 
 
-void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces)
+void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, bool tabsToSpaces)
 {
 	if (op == 0)
 	{
@@ -973,7 +973,7 @@ void MIPSDisAsm(u32 op, u32 pc, char *out, bool tabsToSpaces)
 }
 
 
-void MIPSInterpret(u32 op) //only for those rare ones
+void MIPSInterpret(MIPSOpcode op) //only for those rare ones
 {
 	//if ((op&0xFFFFF000) == 0xd0110000)
 	//	Crash();
@@ -986,7 +986,7 @@ void MIPSInterpret(u32 op) //only for those rare ones
 		instr->interpret(op);
 	else
 	{
-		ERROR_LOG_REPORT(CPU, "Unknown instruction %08x at %08x", op, currentMIPS->pc);
+		ERROR_LOG_REPORT(CPU, "Unknown instruction %08x at %08x", op.encoding, currentMIPS->pc);
 		// Try to disassemble it
 		char disasm[256];
 		MIPSDisAsm(op, currentMIPS->pc, disasm);
@@ -1014,11 +1014,11 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 			// int cycles = 0;
 			{
 				again:
-				u32 op = Memory::Read_U32(curMips->pc);
-				//u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
+				MIPSOpcode op = MIPSOpcode(Memory::Read_U32(curMips->pc));
+				//MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);
 				/*
 				// Choke on VFPU
-				u32 info = MIPSGetInfo(op);
+				MIPSInfo info = MIPSGetInfo(op);
 				if (info & IS_VFPU)
 				{
 					if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))
@@ -1079,7 +1079,7 @@ static inline void DelayBranchTo(MIPSState *curMips, u32 where)
 	curMips->inDelaySlot = true;
 }
 
-const char *MIPSGetName(u32 op)
+const char *MIPSGetName(MIPSOpcode op)
 {
 	static const char *noname = "unk";
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
@@ -1089,17 +1089,17 @@ const char *MIPSGetName(u32 op)
 		return instr->name;
 }
 
-u32 MIPSGetInfo(u32 op)
+MIPSInfo MIPSGetInfo(MIPSOpcode op)
 {
 	//	int crunch = CRUNCH_MIPS_OP(op);
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	if (instr)
 		return instr->flags;
 	else
-		return 0;
+		return MIPSInfo(BAD_INSTRUCTION);
 }
 
-MIPSInterpretFunc MIPSGetInterpretFunc(u32 op)
+MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op)
 {
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	if (instr->interpret)
@@ -1109,9 +1109,9 @@ MIPSInterpretFunc MIPSGetInterpretFunc(u32 op)
 }
 
 // TODO: Do something that makes sense here.
-int MIPSGetInstructionCycleEstimate(u32 op)
+int MIPSGetInstructionCycleEstimate(MIPSOpcode op)
 {
-	u32 info = MIPSGetInfo(op);
+	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT)
 		return 2;
 	else
