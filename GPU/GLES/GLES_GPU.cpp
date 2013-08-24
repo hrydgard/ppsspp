@@ -468,7 +468,9 @@ void GLES_GPU::BeginFrameInternal() {
 	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
 		desiredVSyncInterval = 0;
 	if (desiredVSyncInterval != lastVsync_) {
-		if (gl_extensions.EXT_swap_control_tear) {
+		// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
+		// so it just keeps tearing. Not what I hoped for...
+		if (false && gl_extensions.EXT_swap_control_tear) {
 			// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
 			glstate.SetVSyncInterval(-desiredVSyncInterval);
 		} else {

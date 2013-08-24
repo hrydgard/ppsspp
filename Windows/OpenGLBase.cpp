@@ -19,12 +19,6 @@ static bool enableGLDebug = false;
 
 #pragma optimize("", off)
 
-void GL_SetVSyncInterval(int interval=1)
-{
-  if( wglSwapIntervalEXT )
-    wglSwapIntervalEXT(interval);
-}
-
 void GL_Resized() {
 	if (!hWnd)
 		return;
@@ -197,7 +191,8 @@ bool GL_Init(HWND window, std::string *error_message) {
 
 	glstate.Initialize();
 	CheckGLExtensions();
-	GL_SetVSyncInterval(0);
+	if( wglSwapIntervalEXT )
+		wglSwapIntervalEXT(0);
 	if (enableGLDebug && glewIsSupported("GL_ARB_debug_output")) {
 		glDebugMessageCallbackARB((GLDEBUGPROCARB)&DebugCallbackARB, 0); // print debug output to stderr
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
