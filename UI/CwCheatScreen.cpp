@@ -111,7 +111,7 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 		}
 		else if (enableAll == 0 && temp[j].substr(0, 3) == "_C1") {
 			temp[j].replace(0, 3, "_C0");
-			for (int x = 0; x < 64; x++) {
+			for (int x = 0; x < sizeof(enableCheat); x++) {
 				enableCheat[x] = false;
 			}
 
