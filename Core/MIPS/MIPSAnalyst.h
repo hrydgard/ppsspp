@@ -37,7 +37,6 @@ namespace MIPSAnalyst
 		int readCount;
 		int writeCount;
 		int readAsAddrCount;
-		bool usesVFPU;
 
 		int TotalReadCount() {return readCount + readAsAddrCount;}
 		int FirstRead() {return firstReadAsAddr < firstRead ? firstReadAsAddr : firstRead;}

@@ -229,7 +229,7 @@ void Jit::CompileAt(u32 addr)
 
 void Jit::EatInstruction(u32 op)
 {
-	u32 info = MIPSGetInfo(op);
+	MIPSInfo info = MIPSGetInfo(op);
 	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
 	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
 
@@ -361,7 +361,7 @@ void Jit::Comp_Generic(u32 op)
 	else
 		ERROR_LOG_REPORT(JIT, "Trying to compile instruction that can't be interpreted");
 
-	const int info = MIPSGetInfo(op);
+	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
 	{
 		// If it does eat them, it'll happen in MIPSCompileOp().

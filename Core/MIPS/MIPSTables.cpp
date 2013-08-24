@@ -71,7 +71,7 @@ struct MIPSInstruction
 #endif
 	MIPSInterpretFunc interpret;
 	//MIPSInstructionInfo information;
-	u32 flags;
+	MIPSInfo flags;
 };
 
 #define INVALID {-2}
@@ -80,7 +80,7 @@ struct MIPSInstruction
 
 #ifndef FINAL
 #define ENCODING(a) {a}
-#define INSTR(name, comp, dis, inter, flags) {-1, N(name), comp, dis, inter, flags}
+#define INSTR(name, comp, dis, inter, flags) {-1, N(name), comp, dis, inter, MIPSInfo(flags)}
 #else
 #define ENCODING(a) {a}
 #define INSTR(name, comp, dis, inter, flags) {-1, comp, inter, flags}
@@ -924,7 +924,7 @@ void MIPSCompileOp(u32 op)
 	if (op==0)
 		return;
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
-	const int info = MIPSGetInfo(op);
+	const MIPSInfo info = MIPSGetInfo(op);
 	if (instr)
 	{
 		if (instr->compile)
@@ -1018,7 +1018,7 @@ int MIPSInterpret_RunUntil(u64 globalTicks)
 				//u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
 				/*
 				// Choke on VFPU
-				u32 info = MIPSGetInfo(op);
+				MIPSInfo info = MIPSGetInfo(op);
 				if (info & IS_VFPU)
 				{
 					if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))
@@ -1089,14 +1089,14 @@ const char *MIPSGetName(u32 op)
 		return instr->name;
 }
 
-u32 MIPSGetInfo(u32 op)
+MIPSInfo MIPSGetInfo(u32 op)
 {
 	//	int crunch = CRUNCH_MIPS_OP(op);
 	const MIPSInstruction *instr = MIPSGetInstruction(op);
 	if (instr)
 		return instr->flags;
 	else
-		return 0;
+		return MIPSInfo(BAD_INSTRUCTION);
 }
 
 MIPSInterpretFunc MIPSGetInterpretFunc(u32 op)
@@ -1111,7 +1111,7 @@ MIPSInterpretFunc MIPSGetInterpretFunc(u32 op)
 // TODO: Do something that makes sense here.
 int MIPSGetInstructionCycleEstimate(u32 op)
 {
-	u32 info = MIPSGetInfo(op);
+	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT)
 		return 2;
 	else

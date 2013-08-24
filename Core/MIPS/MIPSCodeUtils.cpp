@@ -34,7 +34,7 @@ namespace MIPSCodeUtils
 		u32 op = Memory::Read_Instruction(addr);
 		if (op)
 		{
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_JUMP) && (info & IN_IMM26))
 			{
 				u32 target = (addr & 0xF0000000) | ((op&0x03FFFFFF) << 2);
@@ -52,7 +52,7 @@ namespace MIPSCodeUtils
 		u32 op = Memory::Read_Instruction(addr);
 		if (op)
 		{
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 			if (info & IS_CONDBRANCH)
 			{
 				return addr + 4 + ((signed short)(op&0xFFFF)<<2);
@@ -69,7 +69,7 @@ namespace MIPSCodeUtils
 		u32 op = Memory::Read_Instruction(addr);
 		if (op)
 		{
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_CONDBRANCH) && !(info & OUT_RA))
 			{
 				return addr + 4 + ((signed short)(op&0xFFFF)<<2);
@@ -86,7 +86,7 @@ namespace MIPSCodeUtils
 		u32 op = Memory::Read_Instruction(addr);
 		if (op)
 		{
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 			if (info & IS_CONDBRANCH)
 			{
 				bool sure;

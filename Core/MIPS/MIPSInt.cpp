@@ -72,7 +72,7 @@ int MIPS_SingleStep()
 #endif
 	/*
 	// Choke on VFPU
-	u32 info = MIPSGetInfo(op);
+	MIPSInfo info = MIPSGetInfo(op);
 	if (info & IS_VFPU)
 	{
 		if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))

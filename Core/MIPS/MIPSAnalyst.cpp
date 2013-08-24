@@ -36,7 +36,7 @@ namespace MIPSAnalyst
 
 	int GetOutReg(u32 op)
 	{
-		u32 opinfo = MIPSGetInfo(op);
+		MIPSInfo opinfo = MIPSGetInfo(op);
 		if (opinfo & OUT_RT)
 			return MIPS_GET_RT(op);
 		if (opinfo & OUT_RD)
@@ -48,15 +48,15 @@ namespace MIPSAnalyst
 
 	bool ReadsFromReg(u32 op, u32 reg)
 	{
-		u32 opinfo = MIPSGetInfo(op);
+		MIPSInfo opinfo = MIPSGetInfo(op);
 		if (opinfo & IN_RT)
 		{
-			if (MIPS_GET_RT(opinfo) == reg)
+			if (MIPS_GET_RT(op) == reg)
 				return true;
 		}
 		if (opinfo & IN_RS)
 		{
-			if (MIPS_GET_RS(opinfo) == reg)
+			if (MIPS_GET_RS(op) == reg)
 				return true;
 		}
 		return false; //TODO: there are more cases!
@@ -132,7 +132,7 @@ namespace MIPSAnalyst
 		while (true)
 		{
 			u32 op = Memory::Read_Instruction(addr);
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 
 			for (int reg=0; reg < 32; reg++)
 			{
@@ -241,7 +241,7 @@ namespace MIPSAnalyst
 		while (true)
 		{
 			u32 op = Memory::Read_Instruction(addr);
-			u32 info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
 
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
 				return true;
@@ -272,7 +272,7 @@ namespace MIPSAnalyst
 			{
 				u32 validbits = 0xFFFFFFFF;
 				u32 instr = Memory::Read_Instruction(addr);
-				u32 flags = MIPSGetInfo(instr);
+				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
 					validbits&=~0xFFFF;
 				if (flags & IN_IMM26)
@@ -455,7 +455,7 @@ namespace MIPSAnalyst
 	std::vector<int> GetInputRegs(u32 op)
 	{
 		std::vector<int> vec;
-		u32 info = MIPSGetInfo(op);
+		MIPSInfo info = MIPSGetInfo(op);
 		if ((info & IS_VFPU) == 0)
 		{
 			if (info & IN_RS) vec.push_back(MIPS_GET_RS(op));
@@ -466,7 +466,7 @@ namespace MIPSAnalyst
 	std::vector<int> GetOutputRegs(u32 op)
 	{
 		std::vector<int> vec;
-		u32 info = MIPSGetInfo(op);
+		MIPSInfo info = MIPSGetInfo(op);
 		if ((info & IS_VFPU) == 0)
 		{
 			if (info & OUT_RD) vec.push_back(MIPS_GET_RD(op));
@@ -490,7 +490,7 @@ namespace MIPSAnalyst
 		info.encodedOpcode = Memory::Read_Instruction(address);
 
 		u32 op = info.encodedOpcode;		
-		u32 opInfo = MIPSGetInfo(op);
+		MIPSInfo opInfo = MIPSGetInfo(op);
 		info.isLikelyBranch = (opInfo & LIKELY) != 0;
 		
 		//j , jal, ...
