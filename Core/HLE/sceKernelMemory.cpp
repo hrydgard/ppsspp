@@ -594,16 +594,14 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 	}
 }
 
-void sceKernelReferFplStatus()
+int sceKernelReferFplStatus(SceUID uid, u32 statusPtr)
 {
-	SceUID id = PARAM(0);
-	u32 statusAddr = PARAM(1);
-	DEBUG_LOG(HLE,"sceKernelReferFplStatus(%i, %08x)", id, statusAddr);
 	u32 error;
-	FPL *fpl = kernelObjects.Get<FPL>(id, error);
+	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
-		// Refresh free block count.
+		DEBUG_LOG(HLE, "sceKernelReferFplStatus(%i, %08x)", uid, statusPtr);
+		// Refresh waiting threads and free block count.
 		fpl->nf.numWaitThreads = (int) fpl->waitingThreads.size();
 		fpl->nf.numFreeBlocks = 0;
 		for (int i = 0; i < (int)fpl->nf.numBlocks; ++i)
@@ -611,12 +609,14 @@ void sceKernelReferFplStatus()
 			if (!fpl->blocks[i])
 				++fpl->nf.numFreeBlocks;
 		}
-		Memory::WriteStruct(statusAddr, &fpl->nf);
-		RETURN(0);
+		if (Memory::Read_U32(statusPtr) != 0)
+			Memory::WriteStruct(statusPtr, &fpl->nf);
+		return 0;
 	}
 	else
 	{
-		RETURN(error);
+		DEBUG_LOG(HLE, "sceKernelReferFplStatus(%i, %08x): invalid fpl", uid, statusPtr);
+		return error;
 	}
 }
 
