@@ -257,9 +257,9 @@ const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxx
 	INVALID_X_8,
 	//32
 	INVALID, INVALID, INVALID, INVALID,
-	INSTR("mfic", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("mfic", &Jit::Comp_Generic, Dis_Generic, Int_Special2, 0),
 	INVALID,
-	INSTR("mtic", &Jit::Comp_Generic, Dis_Generic, 0, 0),
+	INSTR("mtic", &Jit::Comp_Generic, Dis_Generic, Int_Special2, 0),
 	INVALID,
 	//40
 	INVALID_X_8,
