@@ -14,21 +14,26 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
 #include "Core/Config.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
 
-#include "ArmJit.h"
-#include "ArmRegCache.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
 
-#define _RS   ((op>>21) & 0x1F)
-#define _RT   ((op>>16) & 0x1F)
-#define _RD   ((op>>11) & 0x1F)
-#define _FS   ((op>>11) & 0x1F)
-#define _FT   ((op>>16) & 0x1F)
-#define _FD   ((op>>6 ) & 0x1F)
-#define _POS  ((op>>6 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -84,7 +89,7 @@ void Jit::Comp_FPULS(MIPSOpcode op)
 
 	s32 offset = (s16)(op & 0xFFFF);
 	int ft = _FT;
-	int rs = _RS;
+	MIPSGPReg rs = _RS;
 	// u32 addr = R(rs) + offset;
 	// logBlocks = 1;
 	bool doCheck = false;
@@ -312,7 +317,7 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
-	int rt = _RT;
+	MIPSGPReg rt = _RT;
 
 	switch ((op >> 21) & 0x1f)
 	{

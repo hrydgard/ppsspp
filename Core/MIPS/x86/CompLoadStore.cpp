@@ -15,22 +15,25 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../../MemMap.h"
-#include "../MIPSAnalyst.h"
-#include "../../Config.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/Config.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/x86/Jit.h"
+#include "Core/MIPS/x86/RegCache.h"
 
-#include "Jit.h"
-#include "RegCache.h"
 
-
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -44,9 +47,9 @@ namespace MIPSComp
 	void Jit::CompITypeMemRead(MIPSOpcode op, u32 bits, void (XEmitter::*mov)(int, int, X64Reg, OpArg), void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;
-		int offset = (signed short)(op&0xFFFF);
-		int rt = _RT;
-		int rs = _RS;
+		int offset = _IMM16;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
 		gpr.BindToRegister(rt, rt == rs, true);
@@ -65,9 +68,9 @@ namespace MIPSComp
 	void Jit::CompITypeMemWrite(MIPSOpcode op, u32 bits, void *safeFunc)
 	{
 		CONDITIONAL_DISABLE;
-		int offset = (signed short)(op&0xFFFF);
-		int rt = _RT;
-		int rs = _RS;
+		int offset = _IMM16;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 
 		gpr.Lock(rt, rs);
 		gpr.BindToRegister(rt, true, false);
@@ -106,9 +109,9 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		int o = op>>26;
-		int offset = (signed short)(op&0xFFFF);
-		int rt = _RT;
-		int rs = _RS;
+		int offset = _IMM16;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 
 		X64Reg shiftReg = ECX;
 		gpr.FlushLockX(ECX, EDX);
@@ -163,7 +166,7 @@ namespace MIPSComp
 	{
 		CONDITIONAL_DISABLE;
 		int o = op>>26;
-		int rt = _RT;
+		MIPSGPReg rt = _RT;
 
 		// Make sure we have the shift for the target in ECX.
 		if (shiftReg != ECX)
@@ -254,11 +257,11 @@ namespace MIPSComp
 	void Jit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
-		int offset = (signed short)(op&0xFFFF);
-		int rt = _RT;
-		int rs = _RS;
+		int offset = _IMM16;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 		int o = op>>26;
-		if (((op >> 29) & 1) == 0 && rt == 0) {
+		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
 			return;
 		}

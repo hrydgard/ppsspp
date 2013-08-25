@@ -24,7 +24,7 @@
 
 typedef Memory::Opcode MIPSOpcode;
 
-enum
+enum MIPSGPReg
 {
 	MIPS_REG_ZERO=0,
 	MIPS_REG_COMPILER_SCRATCH=1,
@@ -56,6 +56,7 @@ enum
 
 	// ID for mipscall "callback" is stored here - from JPCSP
 	MIPS_REG_CALL_ID=MIPS_REG_S0,
+	MIPS_REG_INVALID=-1,
 };
 
 enum

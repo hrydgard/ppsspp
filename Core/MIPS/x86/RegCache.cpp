@@ -57,11 +57,12 @@ void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 		xregs[i].allocLocked = false;
 	}
 	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
-		regs[i].location = GetDefaultLocation(i);
+		const MIPSGPReg r = MIPSGPReg(i);
+		regs[i].location = GetDefaultLocation(r);
 		regs[i].away = false;
 		regs[i].locked = false;
 	}
-	
+
 	// todo: sort to find the most popular regs
 	/*
 	int maxPreload = 2;
@@ -81,11 +82,11 @@ void GPRRegCache::Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats) {
 
 
 // these are MIPS reg indices
-void GPRRegCache::Lock(int p1, int p2, int p3, int p4) {
+void GPRRegCache::Lock(MIPSGPReg p1, MIPSGPReg p2, MIPSGPReg p3, MIPSGPReg p4) {
 	regs[p1].locked = true;
-	if (p2 != 0xFF) regs[p2].locked = true;
-	if (p3 != 0xFF) regs[p3].locked = true;
-	if (p4 != 0xFF) regs[p4].locked = true;
+	if (p2 != MIPS_REG_INVALID) regs[p2].locked = true;
+	if (p3 != MIPS_REG_INVALID) regs[p3].locked = true;
+	if (p4 != MIPS_REG_INVALID) regs[p4].locked = true;
 }
 
 // these are x64 reg indices
@@ -129,7 +130,7 @@ X64Reg GPRRegCache::GetFreeXReg()
 		X64Reg xr = (X64Reg)aOrder[i];
 		if (xregs[xr].allocLocked) 
 			continue;
-		int preg = xregs[xr].mipsReg;
+		MIPSGPReg preg = xregs[xr].mipsReg;
 		if (!regs[preg].locked)
 		{
 			StoreFromRegister(preg);
@@ -151,12 +152,13 @@ void GPRRegCache::FlushR(X64Reg reg)
 
 int GPRRegCache::SanityCheck() const {
 	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+		const MIPSGPReg r = MIPSGPReg(i);
 		if (regs[i].away) {
 			if (regs[i].location.IsSimpleReg()) {
 				Gen::X64Reg simple = regs[i].location.GetSimpleReg();
 				if (xregs[simple].allocLocked)
 					return 1;
-				if (xregs[simple].mipsReg != i)
+				if (xregs[simple].mipsReg != r)
 					return 2;
 			}
 			else if (regs[i].location.IsImm())
@@ -166,21 +168,21 @@ int GPRRegCache::SanityCheck() const {
 	return 0;
 }
 
-void GPRRegCache::DiscardRegContentsIfCached(int preg) {
+void GPRRegCache::DiscardRegContentsIfCached(MIPSGPReg preg) {
 	if (regs[preg].away && regs[preg].location.IsSimpleReg()) {
 		X64Reg xr = regs[preg].location.GetSimpleReg();
 		xregs[xr].free = true;
 		xregs[xr].dirty = false;
-		xregs[xr].mipsReg = -1;
+		xregs[xr].mipsReg = MIPS_REG_INVALID;
 		regs[preg].away = false;
 		regs[preg].location = GetDefaultLocation(preg);
 	}
 }
 
 
-void GPRRegCache::SetImmediate32(int preg, u32 immValue) {
+void GPRRegCache::SetImmediate32(MIPSGPReg preg, u32 immValue) {
 	// ZERO is always zero.  Let's just make sure.
-	if (preg == 0)
+	if (preg == MIPS_REG_ZERO)
 		immValue = 0;
 
 	DiscardRegContentsIfCached(preg);
@@ -188,17 +190,17 @@ void GPRRegCache::SetImmediate32(int preg, u32 immValue) {
 	regs[preg].location = Imm32(immValue);
 }
 
-bool GPRRegCache::IsImmediate(int preg) const {
+bool GPRRegCache::IsImmediate(MIPSGPReg preg) const {
 	// Always say yes for ZERO, even if it's in a temp reg.
-	if (preg == 0)
+	if (preg == MIPS_REG_ZERO)
 		return true;
 	return regs[preg].location.IsImm();
 }
 
-u32 GPRRegCache::GetImmediate32(int preg) const {
+u32 GPRRegCache::GetImmediate32(MIPSGPReg preg) const {
 	_dbg_assert_msg_(JIT, IsImmediate(preg), "Reg %d must be an immediate.", preg);
 	// Always 0 for ZERO.
-	if (preg == 0)
+	if (preg == MIPS_REG_ZERO)
 		return 0;
 	return regs[preg].location.GetImmValue();
 }
@@ -209,12 +211,12 @@ const int *GPRRegCache::GetAllocationOrder(int &count) {
 }
 
 
-OpArg GPRRegCache::GetDefaultLocation(int reg) const {
+OpArg GPRRegCache::GetDefaultLocation(MIPSGPReg reg) const {
 	return M(&mips->r[reg]);
 }
 
 
-void GPRRegCache::KillImmediate(int preg, bool doLoad, bool makeDirty) {
+void GPRRegCache::KillImmediate(MIPSGPReg preg, bool doLoad, bool makeDirty) {
 	if (regs[preg].away) {
 		if (regs[preg].location.IsImm())
 			BindToRegister(preg, doLoad, makeDirty);
@@ -223,7 +225,7 @@ void GPRRegCache::KillImmediate(int preg, bool doLoad, bool makeDirty) {
 	}
 }
 
-void GPRRegCache::BindToRegister(int i, bool doLoad, bool makeDirty) {
+void GPRRegCache::BindToRegister(MIPSGPReg i, bool doLoad, bool makeDirty) {
 	if (!regs[i].away && regs[i].location.IsImm())
 		PanicAlert("Bad immediate");
 
@@ -237,13 +239,13 @@ void GPRRegCache::BindToRegister(int i, bool doLoad, bool makeDirty) {
 		OpArg newloc = ::Gen::R(xr);
 		if (doLoad) {
 			// Force ZERO to be 0.
-			if (i == 0)
+			if (i == MIPS_REG_ZERO)
 				emit->MOV(32, newloc, Imm32(0));
 			else
 				emit->MOV(32, newloc, regs[i].location);
 		}
 		for (int j = 0; j < 32; j++) {
-			if (i != j && regs[j].location.IsSimpleReg() && regs[j].location.GetSimpleReg() == xr) {
+			if (i != MIPSGPReg(j) && regs[j].location.IsSimpleReg() && regs[j].location.GetSimpleReg() == xr) {
 				ERROR_LOG(JIT, "BindToRegister: Strange condition");
 				Crash();
 			}
@@ -260,13 +262,13 @@ void GPRRegCache::BindToRegister(int i, bool doLoad, bool makeDirty) {
 	}
 }
 
-void GPRRegCache::StoreFromRegister(int i) {
+void GPRRegCache::StoreFromRegister(MIPSGPReg i) {
 	if (regs[i].away) {
 		bool doStore;
 		if (regs[i].location.IsSimpleReg()) {
 			X64Reg xr = RX(i);
 			xregs[xr].free = true;
-			xregs[xr].mipsReg = -1;
+			xregs[xr].mipsReg = MIPS_REG_INVALID;
 			doStore = xregs[xr].dirty;
 			xregs[xr].dirty = false;
 		} else {
@@ -275,7 +277,7 @@ void GPRRegCache::StoreFromRegister(int i) {
 		}
 		OpArg newLoc = GetDefaultLocation(i);
 		// But never store to ZERO.
-		if (doStore && i != 0)
+		if (doStore && i != MIPS_REG_ZERO)
 			emit->MOV(32, newLoc, regs[i].location);
 		regs[i].location = newLoc;
 		regs[i].away = false;
@@ -288,17 +290,18 @@ void GPRRegCache::Flush() {
 			PanicAlert("Someone forgot to unlock X64 reg %i.", i);
 	}
 	for (int i = 0; i < NUM_MIPS_GPRS; i++) {
+		const MIPSGPReg r = MIPSGPReg(i);
 		if (regs[i].locked) {
 			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
 		}
 		if (regs[i].away) {
 			if (regs[i].location.IsSimpleReg()) {
-				X64Reg xr = RX(i);
-				StoreFromRegister(i);
+				X64Reg xr = RX(r);
+				StoreFromRegister(r);
 				xregs[xr].dirty = false;
 			}
 			else if (regs[i].location.IsImm()) {
-				StoreFromRegister(i);
+				StoreFromRegister(r);
 			} else {
 				_assert_msg_(DYNA_REC,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
 			}
