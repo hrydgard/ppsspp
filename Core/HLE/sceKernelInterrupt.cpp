@@ -407,9 +407,9 @@ void __KernelReturnFromInterrupt()
 	{
 		// Otherwise, we reschedule when dispatch was enabled, or switch back otherwise.
 		if (__KernelIsDispatchEnabled())
-			__KernelReSchedule("return from interrupt");
+			__KernelReSchedule("left interrupt");
 		else
-			__KernelSwitchToThread(threadBeforeInterrupt, "return from interrupt");
+			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
 	}
 }
 
