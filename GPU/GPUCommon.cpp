@@ -590,9 +590,10 @@ void GPUCommon::ProcessDLQueueInternal() {
 	cyclesExecuted = 0;
 	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 
+	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
 		DEBUG_LOG(HLE, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
-		return;
+		//return;
 	}
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
