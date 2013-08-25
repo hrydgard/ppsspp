@@ -46,7 +46,7 @@ int sceKernelFreeVpl(SceUID uid, u32 addr);
 int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr);
 int sceKernelReferVplStatus(SceUID uid, u32 infoPtr);
 
-void sceKernelCreateFpl();
+int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blocksize, u32 numBlocks, u32 optPtr);
 void sceKernelDeleteFpl();
 void sceKernelAllocateFpl();
 void sceKernelAllocateFplCB();

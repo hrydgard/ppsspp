@@ -51,7 +51,6 @@ struct NativeFPL
 {
 	u32_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH+1];
-	SceUID_le mpid;
 	u32_le attr;
 
 	s32_le blocksize;
@@ -195,15 +194,13 @@ void __KernelMemoryShutdown()
 	kernelMemory.Shutdown();
 }
 
-//sceKernelCreateFpl(const char *name, SceUID mpid, SceUint attr, SceSize blocksize, int numBlocks, optparam)
-void sceKernelCreateFpl()
+int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr)
 {
-	const char *name = Memory::GetCharPointer(PARAM(0));
-
-	u32 mpid = PARAM(1);
-	u32 attr = PARAM(2);
-	u32 blockSize = PARAM(3);
-	u32 numBlocks = PARAM(4);
+	if (!name)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateFpl(): invalid name", SCE_KERNEL_ERROR_NO_MEMORY);
+		return SCE_KERNEL_ERROR_NO_MEMORY;
+	}
 
 	u32 totalSize = blockSize * numBlocks;
 
@@ -214,20 +211,21 @@ void sceKernelCreateFpl()
 	{
 		DEBUG_LOG(HLE,"sceKernelCreateFpl(\"%s\", partition=%i, attr=%i, bsize=%i, nb=%i) FAILED - out of ram", 
 			name, mpid, attr, blockSize, numBlocks);
-		RETURN(SCE_KERNEL_ERROR_NO_MEMORY);
-		return;
+		return SCE_KERNEL_ERROR_NO_MEMORY;
 	}
 
 	FPL *fpl = new FPL;
 	SceUID id = kernelObjects.Create(fpl);
-	strncpy(fpl->nf.name, name, 32);
 
-	fpl->nf.size = sizeof(fpl->nf);
-	fpl->nf.mpid = mpid;  // partition
+	strncpy(fpl->nf.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	fpl->nf.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	fpl->nf.attr = attr;
+	fpl->nf.size = sizeof(fpl->nf);
 	fpl->nf.blocksize = blockSize;
 	fpl->nf.numBlocks = numBlocks;
+	fpl->nf.numFreeBlocks = numBlocks;
 	fpl->nf.numWaitThreads = 0;
+
 	fpl->blocks = new bool[fpl->nf.numBlocks];
 	memset(fpl->blocks, 0, fpl->nf.numBlocks * sizeof(bool));
 	fpl->address = address;
@@ -235,7 +233,7 @@ void sceKernelCreateFpl()
 	DEBUG_LOG(HLE,"%i=sceKernelCreateFpl(\"%s\", partition=%i, attr=%i, bsize=%i, nb=%i)", 
 		id, name, mpid, attr, blockSize, numBlocks);
 
-	RETURN(id);
+	return id;
 }
 
 void sceKernelDeleteFpl()
@@ -392,6 +390,13 @@ void sceKernelReferFplStatus()
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
+		// Refresh free block count.
+		fpl->nf.numFreeBlocks = 0;
+		for (int i = 0; i < (int)fpl->nf.numBlocks; ++i)
+		{
+			if (!fpl->blocks[i])
+				++fpl->nf.numFreeBlocks;
+		}
 		Memory::WriteStruct(statusAddr, &fpl->nf);
 		RETURN(0);
 	}
