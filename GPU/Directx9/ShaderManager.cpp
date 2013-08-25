@@ -633,6 +633,11 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
 	} else {
+		// If shader changed we need to update all uniforms
+		if (lastShader_ != ls) {
+			ls->dirtyUniforms = DIRTY_ALL;
+		}
+
 		ls->use();
 	}
 
