@@ -104,12 +104,14 @@ struct FPL : public KernelObject
 			blocks = new bool[nf.numBlocks];
 		p.DoArray(blocks, nf.numBlocks);
 		p.Do(address);
+		p.Do(alignedSize);
 		p.DoMarker("FPL");
 	}
 
 	NativeFPL nf;
 	bool *blocks;
 	u32 address;
+	int alignedSize;
 };
 
 struct VplWaitingThread
@@ -238,7 +240,27 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
 	}
 
-	u32 totalSize = blockSize * numBlocks;
+	int alignment = 4;
+	if (optPtr != 0)
+	{
+		u32 size = Memory::Read_U32(optPtr);
+		if (size > 8)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateFpl(): unsupported extra options, size = %d", size);
+		if (size >= 4)
+			alignment = Memory::Read_U32(optPtr + 4);
+		// Must be a power of 2 to be valid.
+		if ((alignment & (alignment - 1)) != 0)
+		{
+			WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateFpl(): invalid alignment %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, alignment);
+			return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		}
+	}
+
+	if (alignment < 4)
+		alignment = 4;
+
+	int alignedSize = ((int)blockSize + alignment - 1) & ~(alignment - 1);
+	u32 totalSize = alignedSize * numBlocks;
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
 	u32 address = userMemory.Alloc(totalSize, atEnd, "FPL");
 	if (address == (u32)-1)
@@ -263,6 +285,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	fpl->blocks = new bool[fpl->nf.numBlocks];
 	memset(fpl->blocks, 0, fpl->nf.numBlocks * sizeof(bool));
 	fpl->address = address;
+	fpl->alignedSize = alignedSize;
 
 	DEBUG_LOG(HLE, "%i=sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i)", 
 		id, name, mpid, attr, blockSize, numBlocks);
@@ -299,7 +322,7 @@ void sceKernelAllocateFpl()
 
 		int blockNum = fpl->allocateBlock();
 		if (blockNum >= 0) {
-			u32 blockPtr = fpl->address + fpl->nf.blocksize * blockNum;
+			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 			Memory::Write_U32(blockPtr, blockPtrAddr);
 			RETURN(0);
 		} else {
@@ -330,7 +353,7 @@ void sceKernelAllocateFplCB()
 
 		int blockNum = fpl->allocateBlock();
 		if (blockNum >= 0) {
-			u32 blockPtr = fpl->address + fpl->nf.blocksize * blockNum;
+			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 			Memory::Write_U32(blockPtr, blockPtrAddr);
 			RETURN(0);
 		} else {
@@ -360,7 +383,7 @@ void sceKernelTryAllocateFpl()
 
 		int blockNum = fpl->allocateBlock();
 		if (blockNum >= 0) {
-			u32 blockPtr = fpl->address + fpl->nf.blocksize * blockNum;
+			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
 			Memory::Write_U32(blockPtr, blockPtrAddr);
 			RETURN(0);
 		} else {
@@ -383,7 +406,7 @@ void sceKernelFreeFpl()
 	u32 error;
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl) {
-		int blockNum = (blockAddr - fpl->address) / fpl->nf.blocksize;
+		int blockNum = (blockAddr - fpl->address) / fpl->alignedSize;
 		if (blockNum < 0 || blockNum >= fpl->nf.numBlocks) {
 			RETURN(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK);
 		} else {
@@ -1021,7 +1044,7 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 	u32 memBlockPtr = userMemory.Alloc(allocSize, (attr & PSP_VPL_ATTR_HIGHMEM) != 0, "VPL");
 	if (memBlockPtr == (u32)-1)
 	{
-		ERROR_LOG(HLE, "sceKernelCreateVpl: Failed to allocate %i bytes of pool data", vplSize);
+		ERROR_LOG(HLE, "sceKernelCreateVpl(): Failed to allocate %i bytes of pool data", vplSize);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 	}
 
@@ -1042,6 +1065,13 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 
 	DEBUG_LOG(HLE, "%x=sceKernelCreateVpl(\"%s\", block=%i, attr=%i, size=%i)", 
 		id, name, partition, vpl->nv.attr, vpl->nv.poolSize);
+
+	if (optPtr != 0)
+	{
+		u32 size = Memory::Read_U32(optPtr);
+		if (size > 4)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
+	}
 
 	return id;
 }
