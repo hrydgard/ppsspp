@@ -648,6 +648,12 @@ int ThreadManForKernel_f475845d(SceUID threadToStartID, int argSize, u32 argBloc
 	return sceKernelStartThread(threadToStartID,argSize,argBlockPtr);
 }
 
+int ThreadManForKernel_ceadeb47(u32 usec)
+{	
+	WARN_LOG(HLE,"Not support this patcher");
+	return sceKernelDelayThread(usec);
+}
+
 const HLEFunction ThreadManForUser[] =
 {
 	{0x55C20A00,&WrapI_CUUU<sceKernelCreateEventFlag>,         "sceKernelCreateEventFlag"},
@@ -834,7 +840,7 @@ const HLEFunction ThreadManForUser[] =
 
 const HLEFunction ThreadManForKernel[] =
 {
-	{0xceadeb47, 0, "ThreadManForKernel_ceadeb47"},
+	{0xceadeb47, WrapI_U<ThreadManForKernel_ceadeb47>, "ThreadManForKernel_ceadeb47"},
 	{0x446d8de6, WrapI_CUUIUU<ThreadManForKernel_446d8de6>, "ThreadManForKernel_446d8de6"},//Not sure right
 	{0xf475845d, &WrapI_IIU<ThreadManForKernel_f475845d>, "ThreadManForKernel_f475845d"},//Not sure right
 };
