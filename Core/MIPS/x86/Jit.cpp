@@ -328,6 +328,14 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 		js.compilerPC += 4;
 		js.numInstructions++;
+
+		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
+		if (GetSpaceLeft() < 0x800)
+		{
+			FlushAll();
+			WriteExit(js.compilerPC, js.nextExit++);
+			js.compiling = false;
+		}
 	}
 
 	b->codeSize = (u32)(GetCodePtr() - b->normalEntry);
