@@ -48,6 +48,7 @@ namespace MIPSInt
 	void Int_FPUComp(MIPSOpcode op);
 	void Int_FPUBranch(MIPSOpcode op);
 	void Int_Emuhack(MIPSOpcode op);
+	void Int_Special2(MIPSOpcode op);
 	void Int_Special3(MIPSOpcode op);
 	void Int_Interrupt(MIPSOpcode op);
 	void Int_Cache(MIPSOpcode op);
