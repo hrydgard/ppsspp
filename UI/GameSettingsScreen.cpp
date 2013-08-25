@@ -365,6 +365,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
+	systemSettings->Add(new Choice(s->T("Clear Recent Section")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 	systemSettings->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
@@ -377,6 +378,12 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iTimeFormat, s->T("Time Format"), timeFormat, 1, 2, s, screenManager()));
 	static const char *buttonPref[] = { "Use O to confirm", "Use X to confirm" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iButtonPreference, s->T("Confirmation Button"), buttonPref, 0, 2, s, screenManager()));
+}
+
+UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
+	g_Config.recentIsos.clear();
+
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
