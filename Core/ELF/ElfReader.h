@@ -135,7 +135,8 @@ public:
 	// More indepth stuff:)
 	bool LoadInto(u32 vaddr);
 	bool LoadSymbols();
-	void LoadRelocations(Elf32_Rel *rels, int numRelocs);
+	bool mustRelocate(Elf32_Shdr *shdr);
+	void LoadRelocations(Elf32_Rel *rels, int numRelocs, bool pspRelocationFormat);
 	void LoadRelocations2(int rel_seg);
 
 

@@ -51,32 +51,40 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 	}
 }
 
-void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
+void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs, bool pspRelocationFormat)
 {
 	for (int r = 0; r < numRelocs; r++)
 	{
+		
+		u32 offset = 0;
+		u32 relocateTo = 0;
+
 		u32 info = rels[r].r_info;
 		u32 addr = rels[r].r_offset;
 
 		int type = info & 0xf;
 
+		const bool log = false;
+	if (pspRelocationFormat) {
 		int readwrite = (info>>8) & 0xff; 
 		int relative  = (info>>16) & 0xff;
 
 		//0 = code
 		//1 = data
 
-		addr += segmentVAddr[readwrite];
+		offset = segmentVAddr[readwrite];
 
-		u32 op = Memory::Read_Instruction(addr).encoding;
-
-		const bool log = false;
 		//log=true;
 		if (log)
 		{
 			DEBUG_LOG(LOADER,"rel at: %08x  type: %08x",addr,info);
 		}
-		u32 relocateTo = segmentVAddr[relative];
+		relocateTo = segmentVAddr[relative];
+	}
+
+		addr += offset;
+		u32 op = Memory::Read_Instruction(addr).encoding;
+
 
 		switch (type) 
 		{
@@ -106,7 +114,7 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs)
 				{
 					if ((rels[t].r_info & 0xF) == R_MIPS_LO16) 
 					{
-						u32 corrLoAddr = rels[t].r_offset + segmentVAddr[readwrite];
+						u32 corrLoAddr = rels[t].r_offset + offset;
 						if (log)
 						{
 							DEBUG_LOG(LOADER,"Corresponding lo found at %08x", corrLoAddr);
@@ -310,7 +318,16 @@ void ElfReader::LoadRelocations2(int rel_seg)
 	}
 
 }
-
+bool ElfReader::mustRelocate(Elf32_Shdr *shdr) {
+	if (shdr->sh_type == SHT_PSPREL)
+    	return true;
+	if (shdr->sh_type == SHT_REL) {
+    	Elf32_Shdr* relatedShdr = &sections[shdr->sh_info];
+    	if (relatedShdr && relatedShdr->sh_flags != SHT_NULL)
+    		return true;
+    }
+    	return false;
+}
 
 bool ElfReader::LoadInto(u32 loadAddress)
 {
@@ -383,7 +400,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	// First pass : Get the damn bits into RAM
 	u32 baseAddress = bRelocate?vaddr:0;
 
-	for (int i=0; i<header->e_phnum; i++)
+	for (int i = 0; i<header->e_phnum; i++)
 	{
 		Elf32_Phdr *p = segments + i;
 		DEBUG_LOG(LOADER, "Type: %08x Vaddr: %08x Filesz: %08x Memsz: %08x ", (int)p->p_type, (u32)p->p_vaddr, (int)p->p_filesz, (int)p->p_memsz);
@@ -433,12 +450,12 @@ bool ElfReader::LoadInto(u32 loadAddress)
 	DEBUG_LOG(LOADER,"Relocations:");
 
 	// Second pass: Do necessary relocations
-	for (int i=0; i<GetNumSections(); i++)
+	for (int i = 0; i < GetNumSections(); i++)
 	{
 		Elf32_Shdr *s = &sections[i];
 		const char *name = GetSectionName(i);
 
-		if (s->sh_type == SHT_PSPREL)
+		if (mustRelocate(s))
 		{
 			//We have a relocation table!
 			int sectionToModify = s->sh_info;
@@ -456,14 +473,14 @@ bool ElfReader::LoadInto(u32 loadAddress)
 				Elf32_Rel *rels = (Elf32_Rel *)GetSectionDataPtr(i);
 
 				DEBUG_LOG(LOADER,"%s: Performing %i relocations on %s",name,numRelocs,GetSectionName(sectionToModify));
-				LoadRelocations(rels, numRelocs);
+				LoadRelocations(rels, numRelocs, s->sh_type != SHT_REL);
 			}
 			else
 			{
 				WARN_LOG_REPORT(LOADER, "sectionToModify = %i - ignoring PSP relocation sector %i", sectionToModify, i);
 			}
 		}
-		else if (s->sh_type == SHT_REL)
+		/*else if (s->sh_type == SHT_REL)
 		{
 			DEBUG_LOG(LOADER, "Traditional relocation section found.");
 			if (!bRelocate)
@@ -488,13 +505,13 @@ bool ElfReader::LoadInto(u32 loadAddress)
 				}
 				ERROR_LOG_REPORT(LOADER, "Traditional relocations unsupported.");
 			}
-		}
+		}*/
 	}
 
 	// Segment relocations (a few games use them)
 	if (GetNumSections() == 0)
 	{
-		for (int i=0; i<header->e_phnum; i++)
+		for (int i = 0; i < header->e_phnum; i++)
 		{
 			Elf32_Phdr *p = &segments[i];
 			if (p->p_type == 0x700000A0)
@@ -504,7 +521,7 @@ bool ElfReader::LoadInto(u32 loadAddress)
 				int numRelocs = p->p_filesz / sizeof(Elf32_Rel);
 
 				Elf32_Rel *rels = (Elf32_Rel *)GetSegmentPtr(i);
-				LoadRelocations(rels, numRelocs);
+				LoadRelocations(rels, numRelocs, true);
 			} else if (p->p_type == 0x700000A1)
 			{
 				INFO_LOG(LOADER,"Loading segment relocations2");
