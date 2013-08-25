@@ -1496,6 +1496,18 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 	return 0;
 }
 
+u32 ModuleMgrForKernel_977de386(const char *name, u32 flags, u32 optionAddr)
+{
+	WARN_LOG(HLE,"Not support this patcher");
+	return sceKernelLoadModule(name, flags, optionAddr);
+}
+
+void ModuleMgrForKernel_50f0c1ec(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
+{
+	WARN_LOG(HLE,"Not support this patcher");
+	sceKernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr);
+}
+
 const HLEFunction ModuleMgrForUser[] = 
 {
 	{0x977DE386,&WrapU_CUU<sceKernelLoadModule>,"sceKernelLoadModule"},
@@ -1519,7 +1531,22 @@ const HLEFunction ModuleMgrForUser[] =
 };
 
 
+const HLEFunction ModuleMgrForKernel[] =
+{
+	{0x50f0c1ec,&WrapV_UUUUU<ModuleMgrForKernel_50f0c1ec>, "ModuleMgrForKernel_50f0c1ec"},//Not sure right
+	{0x977de386, &WrapU_CUU<ModuleMgrForKernel_977de386>, "ModuleMgrForKernel_977de386"},//Not sure right
+	{0xa1a78c58, 0, "ModuleMgrForKernel_a1a78c58"},
+};
+
+
+
 void Register_ModuleMgrForUser()
 {
 	RegisterModule("ModuleMgrForUser", ARRAY_SIZE(ModuleMgrForUser), ModuleMgrForUser);
 }
+
+void Register_ModuleMgrForKernel()
+{
+	RegisterModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);		
+
+};
