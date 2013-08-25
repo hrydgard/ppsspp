@@ -194,6 +194,14 @@ void __KernelMemoryShutdown()
 	kernelMemory.Shutdown();
 }
 
+enum SceKernelFplAttr
+{
+	PSP_FPL_ATTR_FIFO = 0x0000,
+	PSP_FPL_ATTR_PRIORITY = 0x0100,
+	PSP_FPL_ATTR_HIGHMEM = 0x4000,
+	PSP_FPL_ATTR_KNOWN = PSP_FPL_ATTR_FIFO | PSP_FPL_ATTR_PRIORITY | PSP_FPL_ATTR_HIGHMEM,
+};
+
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr)
 {
 	if (!name)
@@ -201,15 +209,41 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateFpl(): invalid name", SCE_KERNEL_ERROR_NO_MEMORY);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 	}
+	if (mpid < 1 || mpid > 9 || mpid == 7)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateFpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, mpid);
+		return SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
+	// We only support user right now.
+	if (mpid != 2 && mpid != 6)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateFpl(): invalid partition %d", SCE_KERNEL_ERROR_ILLEGAL_PERM, mpid);
+		return SCE_KERNEL_ERROR_ILLEGAL_PERM;
+	}
+	if (((attr & ~PSP_FPL_ATTR_KNOWN) & ~0xFF) != 0)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateFpl(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
+	}
+	// There's probably a simpler way to get this same basic formula...
+	// This is based on results from a PSP.
+	bool illegalMemSize = blockSize == 0 || numBlocks == 0;
+	if (!illegalMemSize && (u64) blockSize > ((0x100000000ULL / (u64) numBlocks) - 4ULL))
+		illegalMemSize = true;
+	if (!illegalMemSize && (u64) numBlocks >= 0x100000000ULL / (((u64) blockSize + 3ULL) & ~3ULL))
+		illegalMemSize = true;
+	if (illegalMemSize)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateFpl(): invalid blockSize/count", SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE);
+		return SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE;
+	}
 
 	u32 totalSize = blockSize * numBlocks;
-
-	bool atEnd = false;   // attr can change this I think
-
+	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
 	u32 address = userMemory.Alloc(totalSize, atEnd, "FPL");
 	if (address == (u32)-1)
 	{
-		DEBUG_LOG(HLE,"sceKernelCreateFpl(\"%s\", partition=%i, attr=%i, bsize=%i, nb=%i) FAILED - out of ram", 
+		DEBUG_LOG(HLE, "sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i) FAILED - out of ram", 
 			name, mpid, attr, blockSize, numBlocks);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 	}
@@ -230,7 +264,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	memset(fpl->blocks, 0, fpl->nf.numBlocks * sizeof(bool));
 	fpl->address = address;
 
-	DEBUG_LOG(HLE,"%i=sceKernelCreateFpl(\"%s\", partition=%i, attr=%i, bsize=%i, nb=%i)", 
+	DEBUG_LOG(HLE, "%i=sceKernelCreateFpl(\"%s\", partition=%i, attr=%08x, bsize=%i, nb=%i)", 
 		id, name, mpid, attr, blockSize, numBlocks);
 
 	return id;
