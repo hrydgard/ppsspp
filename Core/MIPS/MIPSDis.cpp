@@ -73,7 +73,7 @@ namespace MIPSDis
 	{
 		int ft = _FT;
 		int fs = _FS;
-		int fd = _FD;;
+		int fd = _FD;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s, %s",name,FN(fd),FN(fs),FN(ft));
 	}
@@ -81,7 +81,7 @@ namespace MIPSDis
 	void Dis_FPU2op(MIPSOpcode op, char *out)
 	{
 		int fs = _FS;
-		int fd = _FD;;
+		int fd = _FD;
 		const char *name = MIPSGetName(op);
 		sprintf(out, "%s\t%s, %s",name,FN(fd),FN(fs));
 	}

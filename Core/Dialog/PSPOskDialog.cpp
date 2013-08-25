@@ -600,7 +600,7 @@ void PSPOskDialog::RemoveKorean()
 		else
 		{
 			i_level = 1;
-			inputChars += kor_cons[i_value[0]];;
+			inputChars += kor_cons[i_value[0]];
 		}
 	}
 	else if(i_level == 3)
