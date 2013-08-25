@@ -519,13 +519,15 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		fbstate.pspFramebufLinesize = linesize;
 	}
 
+	s64 delayCycles = 0;
 	if (topaddr != framebuf.topaddr) {
 		if (g_Config.iForceMaxEmulatedFPS) {
 			u64 now = CoreTiming::GetTicks();
 			u64 expected = msToCycles(1000) / g_Config.iForceMaxEmulatedFPS;
 			u64 actual = now - lastFlipCycles;
-			if (actual < expected)
-				hleEatCycles((int)(expected - actual));
+			if (actual < expected) {
+				delayCycles = expected - actual;
+			}
 			lastFlipCycles = CoreTiming::GetTicks();
 		}
 	}
@@ -543,7 +545,14 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		latchedFramebuf = fbstate;
 		framebufIsLatched = true;
 	}
-	return 0;
+
+	if (delayCycles > 0) {
+		// Okay, the game is going at too high a frame rate.  God of War and Fat Princess both do this.
+		// Simply eating the cycles works and is fast, but breaks other games (like Jeanne d'Arc.)
+		return hleDelayResult(0, "set framebuf", cyclesToUs(delayCycles));
+	} else {
+		return 0;
+	}
 }
 
 bool __DisplayGetFramebuf(u8 **topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
