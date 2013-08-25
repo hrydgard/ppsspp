@@ -41,11 +41,9 @@ struct JitOptions
 	JitOptions()
 	{
 		enableBlocklink = true;
-		// Seems to hurt performance?
 		immBranches = false;
-		// Seems to hurt performance also?
 		continueBranches = false;
-		continueMaxInstructions = 100;
+		continueMaxInstructions = 300;
 	}
 
 	bool enableBlocklink;

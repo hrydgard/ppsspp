@@ -144,7 +144,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rt, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 
-	if (jo.immBranches && gpr.IsImmediate(rs) && gpr.IsImmediate(rt))
+	if (jo.immBranches && gpr.IsImmediate(rs) && gpr.IsImmediate(rt) && js.numInstructions < jo.continueMaxInstructions)
 	{
 		// The cc flags are opposites: when NOT to take the branch.
 		bool skipBranch;
@@ -170,6 +170,8 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		CompileDelaySlot(DELAYSLOT_NICE);
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
+		// In case the delay slot was a break or something.
+		js.compiling = true;
 		return;
 	}
 
@@ -216,6 +218,8 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		// Account for the delay slot.
 		js.compilerPC += 4;
 		RestoreState(state);
+		// In case the delay slot was a break or something.
+		js.compiling = true;
 	}
 	else
 	{
@@ -239,7 +243,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);
 	CONDITIONAL_NICE_DELAYSLOT;
 
-	if (jo.immBranches && gpr.IsImmediate(rs))
+	if (jo.immBranches && gpr.IsImmediate(rs) && js.numInstructions < jo.continueMaxInstructions)
 	{
 		// The cc flags are opposites: when NOT to take the branch.
 		bool skipBranch;
@@ -271,6 +275,8 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		}
 		// Account for the increment in the loop.
 		js.compilerPC = targetAddr - 4;
+		// In case the delay slot was a break or something.
+		js.compiling = true;
 		return;
 	}
 
@@ -312,6 +318,8 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		// Account for the delay slot.
 		js.compilerPC += 4;
 		RestoreState(state);
+		// In case the delay slot was a break or something.
+		js.compiling = true;
 	}
 	else
 	{
@@ -410,6 +418,8 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		// Account for the delay slot.
 		js.compilerPC += 4;
 		RestoreState(state);
+		// In case the delay slot was a break or something.
+		js.compiling = true;
 	}
 	else
 	{
@@ -494,6 +504,8 @@ void Jit::BranchVFPUFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		// Account for the delay slot.
 		js.compilerPC += 4;
 		RestoreState(state);
+		// In case the delay slot was a break or something.
+		js.compiling = true;
 	}
 	else
 	{
