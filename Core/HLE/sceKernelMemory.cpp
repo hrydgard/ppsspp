@@ -69,7 +69,7 @@ struct NativeFPL
 //FPL - Fixed Length Dynamic Memory Pool - every item has the same length
 struct FPL : public KernelObject
 {
-	FPL() : blocks(NULL) {}
+	FPL() : blocks(NULL), nextBlock(0) {}
 	~FPL() {
 		if (blocks != NULL) {
 			delete [] blocks;
@@ -83,8 +83,10 @@ struct FPL : public KernelObject
 
 	int findFreeBlock() {
 		for (int i = 0; i < nf.numBlocks; i++) {
-			if (!blocks[i])
-				return i;
+			int b = nextBlock++ % nf.numBlocks;
+			if (!blocks[b]) {
+				return b;
+			}
 		}
 		return -1;
 	}
@@ -112,6 +114,7 @@ struct FPL : public KernelObject
 		p.DoArray(blocks, nf.numBlocks);
 		p.Do(address);
 		p.Do(alignedSize);
+		p.Do(nextBlock);
 		FplWaitingThread dv = {0};
 		p.Do(waitingThreads, dv);
 		p.DoMarker("FPL");
@@ -121,6 +124,7 @@ struct FPL : public KernelObject
 	bool *blocks;
 	u32 address;
 	int alignedSize;
+	int nextBlock;
 	std::vector<FplWaitingThread> waitingThreads;
 };
 
