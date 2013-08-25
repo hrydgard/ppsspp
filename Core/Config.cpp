@@ -70,7 +70,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
-		iMaxRecent = 12;
+		iMaxRecent = 30;
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportingHost", &sReportHost, "default");
@@ -248,7 +248,6 @@ void Config::Save() {
 #endif
 		general->Set("Language", languageIni);
 		general->Set("NumWorkerThreads", iNumWorkerThreads);
-		general->Set("MaxRecent", iMaxRecent);
 		general->Set("EnableCheats", bEnableCheats);
 		general->Set("ScreenshotsAsPNG", bScreenshotsAsPNG);
 		general->Set("StateSlot", iCurrentStateSlot);
