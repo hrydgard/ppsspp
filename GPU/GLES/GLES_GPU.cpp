@@ -644,7 +644,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
 			u32 count = data & 0xFFFF;
-			u32 prim = data >> 16;
+			GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
 
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 			if ((prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && (gstate.antiAliasEnable & 1))
