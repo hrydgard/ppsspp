@@ -357,6 +357,7 @@
     <ClCompile Include="Directx9\helper\global.cpp" />
     <ClCompile Include="Directx9\IndexGenerator.cpp" />
     <ClCompile Include="Directx9\ShaderManager.cpp" />
+    <ClCompile Include="Directx9\Spline.cpp" />
     <ClCompile Include="Directx9\StateMapping.cpp" />
     <ClCompile Include="Directx9\TextureCache.cpp" />
     <ClCompile Include="Directx9\TextureScaler.cpp" />

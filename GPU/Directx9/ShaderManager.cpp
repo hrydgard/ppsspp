@@ -328,7 +328,7 @@ void LinkedShader::updateUniforms() {
 		// Convert matrices !
 		ConvertMatrices(flippedMatrix);
 
-		//SetMatrix(u_proj, flippedMatrix.getReadPtr());
+		SetMatrix(u_proj, flippedMatrix.getReadPtr());
 	}
 	if (u_proj_through != 0 && (dirtyUniforms & DIRTY_PROJTHROUGHMATRIX))
 	{

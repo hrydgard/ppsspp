@@ -155,9 +155,9 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 	}
 
 	if (gstate.isModeThrough())	{
-		WRITE(p, "float4x4 u_proj_through;\n");
+		WRITE(p, "float4x4 u_proj_through:register(c0);\n");
 	} else {
-		WRITE(p, "float4x4 u_proj;\n");
+		WRITE(p, "float4x4 u_proj:register(c8);\n");
 		// Add all the uniforms we'll need to transform properly.
 	}
 	if (useHWTransform || !hasColor)

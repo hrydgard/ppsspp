@@ -207,5 +207,8 @@
     <ClCompile Include="Directx9\helper\global.cpp">
       <Filter>Directx9\helper</Filter>
     </ClCompile>
+    <ClCompile Include="Directx9\Spline.cpp">
+      <Filter>Directx9</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
