@@ -822,6 +822,9 @@ int actionAfterMipsCall;
 // Doesn't need state saving.
 WaitTypeFuncs waitTypeFuncs[NUM_WAITTYPES];
 
+// Doesn't really need state saving, just for logging purposes.
+static u64 lastSwitchCycles = 0;
+
 //////////////////////////////////////////////////////////////////////////
 //STATE END
 //////////////////////////////////////////////////////////////////////////
@@ -971,6 +974,7 @@ void __KernelThreadingInit()
 	g_inCbCount = 0;
 	currentCallbackThreadID = 0;
 	readyCallbacksCount = 0;
+	lastSwitchCycles = 0;
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
 
 	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode));
@@ -1025,6 +1029,7 @@ void __KernelThreadingDoState(PointerWrap &p)
 	__KernelRestoreActionType(actionAfterCallback, ActionAfterCallback::Create);
 
 	hleCurrentThreadName = __KernelGetThreadName(currentThread);
+	lastSwitchCycles = CoreTiming::GetTicks();
 
 	p.DoMarker("sceKernelThread");
 }
@@ -3010,7 +3015,7 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 {
 	u32 oldPC = 0;
 	SceUID oldUID = 0;
-	const char *oldName = "(none)";
+	const char *oldName = hleCurrentThreadName != NULL ? hleCurrentThreadName : "(none)";
 
 	Thread *cur = __GetCurrentThread();
 	if (cur)  // It might just have been deleted.
@@ -3018,10 +3023,6 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		__KernelSaveContext(&cur->context, (cur->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);
 		oldPC = currentMIPS->pc;
 		oldUID = cur->GetUID();
-
-		// Profile on Windows shows this takes time, skip it.
-		if (DEBUG_LEVEL <= MAX_LOGLEVEL)
-			oldName = cur->GetName();
 
 		// Normally this is taken care of in __KernelNextThread().
 		if (cur->isRunning())
@@ -3043,15 +3044,23 @@ void __KernelSwitchContext(Thread *target, const char *reason)
 		hleCurrentThreadName = NULL;
 	}
 
+#if DEBUG_LEVEL <= MAX_LOGLEVEL || DEBUG_LOG == NOTICE_LOG
 	bool fromIdle = oldUID == threadIdleID[0] || oldUID == threadIdleID[1];
 	bool toIdle = currentThread == threadIdleID[0] || currentThread == threadIdleID[1];
 	if (!(fromIdle && toIdle))
 	{
-		DEBUG_LOG(HLE,"Context switched: %s -> %s (%s) (%i - pc: %08x -> %i - pc: %08x)",
+		u64 nowCycles = CoreTiming::GetTicks();
+		s64 consumedCycles = nowCycles - lastSwitchCycles;
+		lastSwitchCycles = nowCycles;
+
+		DEBUG_LOG(HLE, "Context switch: %s -> %s (%i->%i, pc: %08x->%08x, %s) +%lldus",
 			oldName, hleCurrentThreadName,
+			oldUID, currentThread,
+			oldPC, currentMIPS->pc,
 			reason,
-			oldUID, oldPC, currentThread, currentMIPS->pc);
+			cyclesToUs(consumedCycles));
 	}
+#endif
 
 	if (target)
 	{
