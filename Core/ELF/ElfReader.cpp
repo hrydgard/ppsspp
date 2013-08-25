@@ -253,7 +253,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				buf += 2;
 				rel_base += rel_offset;
 			}else if((flag&0x06)==0x04){
-				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);;
+				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);
 				buf += 4;
 			}else{
 				ERROR_LOG_REPORT(LOADER, "Rel2: invalid relocat size flag! %x", flag);
