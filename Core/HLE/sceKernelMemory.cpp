@@ -1700,9 +1700,13 @@ SceUID sceKernelCreateTls(const char *name, u32 partition, u32 attr, u32 blockSi
 
 	// TODO: just alignment?
 	if (optionsPtr != 0)
-		WARN_LOG(HLE, "sceKernelCreateTls(%s) unsupported options parameter: %08x", name, optionsPtr);
+	{
+		u32 size = Memory::Read_U32(optionsPtr);
+		if (size > 4)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateTls(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((attr & PSP_TLS_ATTR_PRIORITY) != 0)
-		WARN_LOG(HLE, "sceKernelCreateTls(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG_REPORT(HLE, "sceKernelCreateTls(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }
