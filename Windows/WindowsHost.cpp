@@ -100,22 +100,23 @@ void WindowsHost::SetWindowTitle(const char *message)
 	if (message)
 		title = title + " - " + message;
 
-	int size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), NULL, 0);
+	int size = MultiByteToWideChar(GetACP(),0,title.c_str(),-1,NULL,0); // to support non-unicode wchar ANSI to UNICODE (e.g, chinese)
 	if (size > 0)
 	{
 		// VC++6.0 any more?
-		wchar_t *utf16_title = new(std::nothrow) wchar_t[size + 1];
-		if (utf16_title)
-			size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), utf16_title, size);
+		wchar_t *uni_title = new(std::nothrow) wchar_t[size + 1];
+		if (uni_title)
+			//ANSI to UNICODE (don't use UTF8 since it cannot be dispalyed correctly in window's title for chinese)
+			size = MultiByteToWideChar(CP_ACP, 0, title.c_str(), -1, uni_title, size); 	
 		else
 			size = 0;
 
 		if (size > 0)
 		{
-			utf16_title[size] = 0;
+			uni_title[size] = 0;
 			// Don't use SetWindowTextW because it will internally use DefWindowProcA.
-			DefWindowProcW(mainWindow_, WM_SETTEXT, 0, (LPARAM) utf16_title);
-			delete[] utf16_title;
+			DefWindowProcW(mainWindow_, WM_SETTEXT, 0, (LPARAM) uni_title);
+			delete[] uni_title;
 		}
 	}
 
