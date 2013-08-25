@@ -65,7 +65,7 @@ inline float clamp(float in, float min, float max) {
 
 TransformDrawEngine::TransformDrawEngine()
 	: collectedVerts(0),
-		prevPrim_(-1),
+		prevPrim_(GE_PRIM_INVALID),
 		dec_(0),
 		lastVType_(-1),
 		curVbo_(0),
@@ -830,7 +830,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	return cost;
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
@@ -1031,7 +1031,7 @@ void TransformDrawEngine::DoFlush() {
 	// This is not done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
-	int prim = prevPrim_;
+	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
@@ -1139,7 +1139,7 @@ void TransformDrawEngine::DoFlush() {
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					vertexCount = vai->numVerts;
-					prim = vai->prim;
+					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
 
@@ -1158,7 +1158,7 @@ void TransformDrawEngine::DoFlush() {
 					if (ebo)
 						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 					vertexCount = vai->numVerts;
-					prim = vai->prim;
+					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
 
@@ -1219,5 +1219,5 @@ rotateVBO:
 	indexGen.Reset();
 	collectedVerts = 0;
 	numDrawCalls = 0;
-	prevPrim_ = -1;
+	prevPrim_ = GE_PRIM_INVALID;
 }
