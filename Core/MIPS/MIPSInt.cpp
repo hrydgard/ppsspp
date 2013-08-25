@@ -798,6 +798,29 @@ namespace MIPSInt
 		PC += 4;
 	}
 
+	void Int_Special2(MIPSOpcode op)
+	{
+		static int reported = 0;
+		switch (op & 0x3F)
+		{
+		case 36:
+			if (!reported) {
+				Reporting::ReportMessage("MFIC instruction hit (%08x) at %08x", op, currentMIPS->pc);
+				WARN_LOG(CPU,"MFIC Disable/Enable Interrupt CPU instruction");
+				reported = 1;
+			}
+			break;
+		case 38:
+			if (!reported) {
+				Reporting::ReportMessage("MTIC instruction hit (%08x) at %08x", op, currentMIPS->pc);
+				WARN_LOG(CPU,"MTIC Disable/Enable Interrupt CPU instruction");
+				reported = 1;
+			}
+			break;
+		}
+		PC += 4;
+	}
+
 	void Int_Special3(MIPSOpcode op)
 	{
 		int rs = _RS;

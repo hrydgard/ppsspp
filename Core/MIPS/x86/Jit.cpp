@@ -366,7 +366,7 @@ void Jit::Comp_Generic(MIPSOpcode op)
 			ABI_CallFunctionC((void *)func, op.encoding);
 	}
 	else
-		ERROR_LOG_REPORT(JIT, "Trying to compile instruction that can't be interpreted");
+		ERROR_LOG_REPORT(JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
 
 	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
