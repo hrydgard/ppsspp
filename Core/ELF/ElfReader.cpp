@@ -65,22 +65,22 @@ void ElfReader::LoadRelocations(Elf32_Rel *rels, int numRelocs, bool pspRelocati
 		int type = info & 0xf;
 
 		const bool log = false;
-	if (pspRelocationFormat) {
-		int readwrite = (info>>8) & 0xff; 
-		int relative  = (info>>16) & 0xff;
+		if (pspRelocationFormat) {
+			int readwrite = (info>>8) & 0xff; 
+			int relative  = (info>>16) & 0xff;
 
-		//0 = code
-		//1 = data
+			//0 = code
+			//1 = data
 
-		offset = segmentVAddr[readwrite];
+			offset = segmentVAddr[readwrite];
 
-		//log=true;
-		if (log)
-		{
-			DEBUG_LOG(LOADER,"rel at: %08x  type: %08x",addr,info);
+			//log=true;
+			if (log)
+			{
+				DEBUG_LOG(LOADER,"rel at: %08x  type: %08x",addr,info);
+			}
+			relocateTo = segmentVAddr[relative];
 		}
-		relocateTo = segmentVAddr[relative];
-	}
 
 		addr += offset;
 		u32 op = Memory::Read_Instruction(addr).encoding;
@@ -480,32 +480,6 @@ bool ElfReader::LoadInto(u32 loadAddress)
 				WARN_LOG_REPORT(LOADER, "sectionToModify = %i - ignoring PSP relocation sector %i", sectionToModify, i);
 			}
 		}
-		/*else if (s->sh_type == SHT_REL)
-		{
-			DEBUG_LOG(LOADER, "Traditional relocation section found.");
-			if (!bRelocate)
-			{
-				DEBUG_LOG(LOADER, "Binary is prerelocated. Skipping relocations.");
-			}
-			else
-			{
-				//We have a relocation table!
-				int sectionToModify = s->sh_info;
-				if (sectionToModify >= 0)
-				{
-					if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
-					{
-						ERROR_LOG_REPORT(LOADER, "Trying to relocate non-loaded section %s, ignoring", GetSectionName(sectionToModify));
-						continue;
-					}
-				}
-				else
-				{
-					WARN_LOG_REPORT(LOADER, "sectionToModify = %i - ignoring relocation sector %i", sectionToModify, i);
-				}
-				ERROR_LOG_REPORT(LOADER, "Traditional relocations unsupported.");
-			}
-		}*/
 	}
 
 	// Segment relocations (a few games use them)
