@@ -60,7 +60,7 @@ MIPSDebugInterface *currentDebugMIPS = &debugr4k;
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
-extern const float cst_constants[32] = {
+const float cst_constants[32] = {
 	0,
 	std::numeric_limits<float>::max(),  // all these are verified on real PSP
 	sqrtf(2.0f),

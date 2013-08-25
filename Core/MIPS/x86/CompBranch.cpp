@@ -30,15 +30,16 @@
 #include "Core/MIPS/x86/RegCache.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS  ((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
-#define _IMM16 (signed short)(op&0xFFFF)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
 #define _IMM26 (op & 0x03FFFFFF)
 
 #define LOOPOPTIMIZATION 0
@@ -136,8 +137,8 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		return;
 	}
 	int offset = _IMM16 << 2;
-	int rt = _RT;
-	int rs = _RS;
+	MIPSGPReg rt = _RT;
+	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC+4);
@@ -186,7 +187,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 	else
 	{
 		gpr.BindToRegister(rs, true, false);
-		CMP(32, gpr.R(rs), rt == 0 ? Imm32(0) : gpr.R(rt));
+		CMP(32, gpr.R(rs), rt == MIPS_REG_ZERO ? Imm32(0) : gpr.R(rt));
 	}
 
 	Gen::FixupBranch ptr;
@@ -236,7 +237,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		return;
 	}
 	int offset = _IMM16 << 2;
-	int rs = _RS;
+	MIPSGPReg rs = _RS;
 	u32 targetAddr = js.compilerPC + offset + 4;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
@@ -573,7 +574,7 @@ void Jit::Comp_JumpReg(MIPSOpcode op)
 		ERROR_LOG_REPORT(JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", js.compilerPC, js.blockStart);
 		return;
 	}
-	int rs = _RS;
+	MIPSGPReg rs = _RS;
 
 	MIPSOpcode delaySlotOp = Memory::Read_Instruction(js.compilerPC + 4);
 	bool delaySlotIsNice = IsDelaySlotNiceReg(op, delaySlotOp, rs);

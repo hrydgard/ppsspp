@@ -503,7 +503,7 @@ bool Jit::CheckJitBreakpoint(u32 addr, int downcountOffset)
 	return false;
 }
 
-Jit::JitSafeMem::JitSafeMem(Jit *jit, int raddr, s32 offset, u32 alignMask)
+Jit::JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask)
 	: jit_(jit), raddr_(raddr), offset_(offset), needsCheck_(false), needsSkip_(false), alignMask_(alignMask)
 {
 	// This makes it more instructions, so let's play it safe and say we need a far jump.

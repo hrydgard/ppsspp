@@ -15,21 +15,24 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../MIPS.h"
-
-#include "../../Config.h"
+#include "Core/Config.h"
 #include "Common/Common.h"
-#include "Jit.h"
-#include "RegCache.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/x86/Jit.h"
+#include "Core/MIPS/x86/RegCache.h"
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -92,9 +95,9 @@ static u32 MEMORY_ALIGNED16(ssLoadStoreTemp);
 void Jit::Comp_FPULS(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
-	s32 offset = (s16)(op&0xFFFF);
+	s32 offset = _IMM16;
 	int ft = _FT;
-	int rs = _RS;
+	MIPSGPReg rs = _RS;
 
 	switch(op >> 26)
 	{
@@ -295,12 +298,12 @@ void Jit::Comp_mxc1(MIPSOpcode op)
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
-	int rt = _RT;
+	MIPSGPReg rt = _RT;
 
 	switch((op >> 21) & 0x1f) 
 	{
 	case 0: // R(rt) = FI(fs); break; //mfc1
-		if (rt != 0)
+		if (rt != MIPS_REG_ZERO)
 		{
 			// Cross move! slightly tricky
 			fpr.StoreFromRegister(fs);
