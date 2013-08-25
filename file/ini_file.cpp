@@ -454,8 +454,6 @@ bool IniFile::Load(std::istream &in) {
 		}
 #endif
 
-		if (in.eof()) break;
-
 		if (line.size() > 0)
 		{
 			if (line[0] == '[')
