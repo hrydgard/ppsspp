@@ -61,15 +61,16 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("Language", &languageIni, "en_US");
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
 	general->Get("EnableCheats", &bEnableCheats, false);
+	general->Get("MaxRecent", &iMaxRecent, 30);
 	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
 	general->Get("StateSlot", &iCurrentStateSlot, 0);
 	general->Get("GridView1", &bGridView1, true);
 	general->Get("GridView2", &bGridView2, true);
 	general->Get("GridView3", &bGridView3, true);
 
-	// No reason to really make this configurable when
-	// the list can scroll in NewUI.
-	iMaxRecent = 30;
+	// Fix issue from switching from uint (hex in .ini) to int (dec)
+	if (iMaxRecent == 0)
+		iMaxRecent = 30; 
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportingHost", &sReportHost, "default");
