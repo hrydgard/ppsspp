@@ -21,12 +21,13 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 
-#include "ArmJit.h"
-#include "ArmRegCache.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
 
 
 const bool disablePrefixes = false;
@@ -38,14 +39,17 @@ const bool disablePrefixes = false;
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS  ((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 namespace MIPSComp
 {
@@ -236,7 +240,7 @@ namespace MIPSComp
 
 		s32 imm = (signed short)(op&0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
-		int rs = _RS;
+		MIPSGPReg rs = _RS;
 
 		bool doCheck = false;
 		switch (op >> 26)
@@ -327,7 +331,7 @@ namespace MIPSComp
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
-		int rs = _RS;
+		MIPSGPReg rs = _RS;
 
 		bool doCheck = false;
 		switch (op >> 26)
@@ -968,7 +972,7 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE;
 
 		int imm = op & 0xFF;
-		int rt = _RT;
+		MIPSGPReg rt = _RT;
 		switch ((op >> 21) & 0x1f)
 		{
 		case 3: //mfv / mfvc

@@ -79,12 +79,12 @@ namespace MIPSAnalyst
 	void ScanForFunctions(u32 startAddr, u32 endAddr);
 	void CompileLeafs();
 
-	std::vector<int> GetInputRegs(MIPSOpcode op);
-	std::vector<int> GetOutputRegs(MIPSOpcode op);
+	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op);
+	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op);
 
-	int GetOutGPReg(MIPSOpcode op);
-	bool ReadsFromGPReg(MIPSOpcode op, u32 reg);
-	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, int reg1, int reg2 = 0);
+	MIPSGPReg GetOutGPReg(MIPSOpcode op);
+	bool ReadsFromGPReg(MIPSOpcode op, MIPSGPReg reg);
+	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, MIPSGPReg reg1, MIPSGPReg reg2 = MIPS_REG_ZERO);
 	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op);
 	bool IsSyscall(MIPSOpcode op);

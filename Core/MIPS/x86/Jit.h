@@ -41,11 +41,9 @@ struct JitOptions
 	JitOptions()
 	{
 		enableBlocklink = true;
-		// Seems to hurt performance?
 		immBranches = false;
-		// Seems to hurt performance also?
 		continueBranches = false;
-		continueMaxInstructions = 100;
+		continueMaxInstructions = 300;
 	}
 
 	bool enableBlocklink;
@@ -341,7 +339,7 @@ private:
 	class JitSafeMem
 	{
 	public:
-		JitSafeMem(Jit *jit, int raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);
+		JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask = 0xFFFFFFFF);
 
 		// Emit code necessary for a memory write, returns true if MOV to dest is needed.
 		bool PrepareWrite(OpArg &dest, int size);
@@ -379,7 +377,7 @@ private:
 		bool ImmValid();
 
 		Jit *jit_;
-		int raddr_;
+		MIPSGPReg raddr_;
 		s32 offset_;
 		int size_;
 		bool needsCheck_;
