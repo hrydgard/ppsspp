@@ -36,6 +36,7 @@ BlockAllocator userMemory(256);
 BlockAllocator kernelMemory(256);
 
 static int vplWaitTimer = -1;
+static int fplWaitTimer = -1;
 static bool tlsUsedIndexes[TLS_NUM_INDEXES];
 // STATE END
 //////////////////////////////////////////////////////////////////////////
@@ -46,6 +47,12 @@ static bool tlsUsedIndexes[TLS_NUM_INDEXES];
 int flags_ = 0;
 int sdkVersion_;
 int compilerVersion_;
+
+struct FplWaitingThread
+{
+	SceUID threadID;
+	u32 addrPtr;
+};
 
 struct NativeFPL
 {
@@ -105,6 +112,8 @@ struct FPL : public KernelObject
 		p.DoArray(blocks, nf.numBlocks);
 		p.Do(address);
 		p.Do(alignedSize);
+		FplWaitingThread dv = {0};
+		p.Do(waitingThreads, dv);
 		p.DoMarker("FPL");
 	}
 
@@ -112,6 +121,7 @@ struct FPL : public KernelObject
 	bool *blocks;
 	u32 address;
 	int alignedSize;
+	std::vector<FplWaitingThread> waitingThreads;
 };
 
 struct VplWaitingThread
@@ -157,6 +167,7 @@ struct VPL : public KernelObject
 };
 
 void __KernelVplTimeout(u64 userdata, int cyclesLate);
+void __KernelFplTimeout(u64 userdata, int cyclesLate);
 
 void __KernelMemoryInit()
 {
@@ -165,6 +176,7 @@ void __KernelMemoryInit()
 	INFO_LOG(HLE, "Kernel and user memory pools initialized");
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
+	fplWaitTimer = CoreTiming::RegisterEvent("FplTimeout", __KernelFplTimeout);
 
 	flags_ = 0;
 	sdkVersion_ = 0;
@@ -179,6 +191,8 @@ void __KernelMemoryDoState(PointerWrap &p)
 
 	p.Do(vplWaitTimer);
 	CoreTiming::RestoreRegisterEvent(vplWaitTimer, "VplTimeout", __KernelVplTimeout);
+	p.Do(fplWaitTimer);
+	CoreTiming::RestoreRegisterEvent(fplWaitTimer, "FplTimeout", __KernelFplTimeout);
 	p.Do(flags_);
 	p.Do(sdkVersion_);
 	p.Do(compilerVersion_);
@@ -203,6 +217,70 @@ enum SceKernelFplAttr
 	PSP_FPL_ATTR_HIGHMEM = 0x4000,
 	PSP_FPL_ATTR_KNOWN = PSP_FPL_ATTR_FIFO | PSP_FPL_ATTR_PRIORITY | PSP_FPL_ATTR_HIGHMEM,
 };
+
+bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads)
+{
+	const SceUID threadID = threadInfo.threadID;
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_FPL, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+
+	// The waitID may be different after a timeout.
+	if (waitID != fpl->GetUID())
+		return true;
+
+	// If result is an error code, we're just letting it go.
+	if (result == 0)
+	{
+		int blockNum = fpl->allocateBlock();
+		if (blockNum >= 0)
+		{
+			u32 blockPtr = fpl->address + fpl->alignedSize * blockNum;
+			Memory::Write_U32(blockPtr, threadInfo.addrPtr);
+		}
+		else
+			return false;
+	}
+
+	if (timeoutPtr != 0 && fplWaitTimer != -1)
+	{
+		// Remove any event for this thread.
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(fplWaitTimer, threadID);
+		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+	}
+
+	__KernelResumeThreadFromWait(threadID, result);
+	wokeThreads = true;
+	return true;
+}
+
+void __KernelFplRemoveThread(FPL *fpl, SceUID threadID)
+{
+	for (size_t i = 0; i < fpl->waitingThreads.size(); i++)
+	{
+		FplWaitingThread *t = &fpl->waitingThreads[i];
+		if (t->threadID == threadID)
+		{
+			fpl->waitingThreads.erase(fpl->waitingThreads.begin() + i);
+			break;
+		}
+	}
+}
+
+bool __FplThreadSortPriority(FplWaitingThread thread1, FplWaitingThread thread2)
+{
+	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
+}
+
+bool __KernelClearFplThreads(FPL *fpl, int reason)
+{
+	u32 error;
+	bool wokeThreads = false;
+	for (auto iter = fpl->waitingThreads.begin(), end = fpl->waitingThreads.end(); iter != end; ++iter)
+		__KernelUnlockFplForThread(fpl, *iter, error, reason, wokeThreads);
+	fpl->waitingThreads.clear();
+
+	return wokeThreads;
+}
 
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr)
 {
@@ -300,6 +378,10 @@ void sceKernelDeleteFpl()
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
+		bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_DELETE);
+		if (wokeThreads)
+			hleReSchedule("fpl deleted");
+
 		userMemory.Free(fpl->address);
 		DEBUG_LOG(HLE,"sceKernelDeleteFpl(%i)", id);
 		RETURN(kernelObjects.Destroy<FPL>(id));
@@ -308,6 +390,47 @@ void sceKernelDeleteFpl()
 	{
 		RETURN(error);
 	}
+}
+
+void __KernelFplTimeout(u64 userdata, int cyclesLate)
+{
+	SceUID threadID = (SceUID) userdata;
+
+	u32 error;
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	if (timeoutPtr != 0)
+		Memory::Write_U32(0, timeoutPtr);
+
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_FPL, error);
+	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
+	if (fpl)
+	{
+		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+		// The reason is, if it times out, but while it was waiting on is DELETED prior to it
+		// actually running, it will get a DELETE result instead of a TIMEOUT.
+		// So, we need to remember it or we won't be able to mark it DELETE instead later.
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
+}
+
+void __KernelSetFplTimeout(u32 timeoutPtr)
+{
+	if (timeoutPtr == 0 || fplWaitTimer == -1)
+		return;
+
+	int micro = (int) Memory::Read_U32(timeoutPtr);
+
+	// TODO: test for fpls.
+	// This happens to be how the hardware seems to time things.
+	if (micro <= 5)
+		micro = 10;
+	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
+	else if (micro == 7)
+		micro = 15;
+	else if (micro <= 215)
+		micro = 250;
+
+	CoreTiming::ScheduleEvent(usToCycles(micro), fplWaitTimer, __KernelGetCurThread());
 }
 
 void sceKernelAllocateFpl()
@@ -326,9 +449,14 @@ void sceKernelAllocateFpl()
 			Memory::Write_U32(blockPtr, blockPtrAddr);
 			RETURN(0);
 		} else {
-			// TODO: Should block!
-			ERROR_LOG_REPORT(HLE, "sceKernelAllocateFpl: should block");
-			RETURN(0);
+			SceUID threadID = __KernelGetCurThread();
+			__KernelFplRemoveThread(fpl, threadID);
+			FplWaitingThread waiting = {threadID, blockPtrAddr};
+			fpl->waitingThreads.push_back(waiting);
+
+			__KernelSetFplTimeout(timeOut);
+			__KernelWaitCurThread(WAITTYPE_FPL, id, 0, timeOut, false, "fpl waited");
+			return;
 		}
 
 		DEBUG_LOG(HLE,"sceKernelAllocateFpl(%i, %08x, %i)", id, blockPtrAddr, timeOut);
@@ -357,9 +485,14 @@ void sceKernelAllocateFplCB()
 			Memory::Write_U32(blockPtr, blockPtrAddr);
 			RETURN(0);
 		} else {
-			// TODO: Should block and process callbacks!
-			ERROR_LOG_REPORT(HLE, "sceKernelAllocateFplCB: should block");
-			__KernelCheckCallbacks();
+			SceUID threadID = __KernelGetCurThread();
+			__KernelFplRemoveThread(fpl, threadID);
+			FplWaitingThread waiting = {threadID, blockPtrAddr};
+			fpl->waitingThreads.push_back(waiting);
+
+			__KernelSetFplTimeout(timeOut);
+			__KernelWaitCurThread(WAITTYPE_FPL, id, 0, timeOut, true, "fpl waited");
+			return;
 		}
 
 		DEBUG_LOG(HLE,"sceKernelAllocateFpl(%i, %08x, %i)", id, PARAM(1), timeOut);
@@ -410,10 +543,25 @@ void sceKernelFreeFpl()
 		if (blockNum < 0 || blockNum >= fpl->nf.numBlocks) {
 			RETURN(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK);
 		} else {
-			if (fpl->freeBlock(blockNum)) {
-				// TODO: If there are waiting threads, wake them up
-			}
 			RETURN(0);
+			if (fpl->freeBlock(blockNum)) {
+				if ((fpl->nf.attr & PSP_FPL_ATTR_PRIORITY) != 0)
+					std::stable_sort(fpl->waitingThreads.begin(), fpl->waitingThreads.end(), __FplThreadSortPriority);
+
+				bool wokeThreads = false;
+retry:
+				for (auto iter = fpl->waitingThreads.begin(), end = fpl->waitingThreads.end(); iter != end; ++iter)
+				{
+					if (__KernelUnlockFplForThread(fpl, *iter, error, 0, wokeThreads))
+					{
+						fpl->waitingThreads.erase(iter);
+						goto retry;
+					}
+				}
+
+				if (wokeThreads)
+					hleReSchedule("fpl freed");
+			}
 		}
 	}
 	else
@@ -430,7 +578,11 @@ void sceKernelCancelFpl()
 	FPL *fpl = kernelObjects.Get<FPL>(id, error);
 	if (fpl)
 	{
+		// TODO: numWaitThreads param?
 		RETURN(0);
+		bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
+		if (wokeThreads)
+			hleReSchedule("fpl canceled");
 	}
 	else
 	{
@@ -448,6 +600,7 @@ void sceKernelReferFplStatus()
 	if (fpl)
 	{
 		// Refresh free block count.
+		fpl->nf.numWaitThreads = (int) fpl->waitingThreads.size();
 		fpl->nf.numFreeBlocks = 0;
 		for (int i = 0; i < (int)fpl->nf.numBlocks; ++i)
 		{
@@ -1072,6 +1225,8 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 		if (size > 4)
 			WARN_LOG_REPORT(HLE, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
 	}
+	if (attr & PSP_VPL_ATTR_SMALLEST)
+		WARN_LOG_REPORT(HLE, "sceKernelCreateVpl(): unsupported SMALLEST wake priority attr");
 
 	return id;
 }
@@ -1202,8 +1357,6 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		{
 			if (vpl)
 			{
-				vpl->nv.numWaitThreads++;
-
 				SceUID threadID = __KernelGetCurThread();
 				__KernelVplRemoveThread(vpl, threadID);
 				VplWaitingThread waiting = {threadID, addrPtr};
