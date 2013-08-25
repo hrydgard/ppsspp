@@ -557,5 +557,6 @@ extern KernelStats kernelStats;
 extern u32 registeredExitCbId;
 
 void Register_ThreadManForUser();
+void Register_ThreadManForKernel();
 void Register_LoadExecForUser();
 void Register_UtilsForKernel();
