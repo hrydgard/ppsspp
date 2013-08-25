@@ -797,9 +797,9 @@ const HLEFunction ThreadManForUser[] =
 
 	{0xC07BB470,WrapI_CUUUUU<sceKernelCreateFpl>,              "sceKernelCreateFpl"},
 	{0xED1410E0,WrapI_I<sceKernelDeleteFpl>,                   "sceKernelDeleteFpl"},
-	{0xD979E9BF,sceKernelAllocateFpl,"sceKernelAllocateFpl"},
-	{0xE7282CB6,sceKernelAllocateFplCB,"sceKernelAllocateFplCB"},
-	{0x623AE665,sceKernelTryAllocateFpl,"sceKernelTryAllocateFpl"},
+	{0xD979E9BF,WrapI_IUU<sceKernelAllocateFpl>,               "sceKernelAllocateFpl"},
+	{0xE7282CB6,WrapI_IUU<sceKernelAllocateFplCB>,             "sceKernelAllocateFplCB"},
+	{0x623AE665,WrapI_IU<sceKernelTryAllocateFpl>,             "sceKernelTryAllocateFpl"},
 	{0xF6414A71,sceKernelFreeFpl,"sceKernelFreeFpl"},
 	{0xA8AA591F,WrapI_IU<sceKernelCancelFpl>,                  "sceKernelCancelFpl"},
 	{0xD8199E4C,WrapI_IU<sceKernelReferFplStatus>,             "sceKernelReferFplStatus"},
