@@ -143,6 +143,7 @@ void VertexDecoder::Step_WeightsU16() const
 // (PSP uses 0.0-2.0 fixed point numbers for weights)
 void VertexDecoder::Step_WeightsFloat() const
 {
+#if 0
 	float *wt = (float *)(decoded_ + decFmt.w0off);
 	const float_le *wdata = (const float_le*)(ptr_);
 	int j;
@@ -151,6 +152,17 @@ void VertexDecoder::Step_WeightsFloat() const
 	}
 	while (j & 3)   // Zero additional weights rounding up to 4.
 		wt[j++] = 0.0f;
+#else
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	u32 *st = (u32 *)wt;
+	const u32_le *wdata = (const u32_le*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++) {
+		st[j] = wdata[j];
+	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0.0f;
+#endif
 }
 
 void VertexDecoder::Step_TcU8() const
@@ -196,18 +208,32 @@ void VertexDecoder::Step_TcU16ThroughDouble() const
 
 void VertexDecoder::Step_TcFloat() const
 {
+#if 0 // Swapping float is more heavy as swapping u32
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float_le *uvdata = (const float_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
+#else
+	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
+	const u32_le *uvdata = (const u32_le*)(ptr_ + tcoff);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
+#endif
 }
 
 void VertexDecoder::Step_TcFloatThrough() const
 {
+#if 0 // Swapping float is more heavy as swapping u32
 	float *uv = (float *)(decoded_ + decFmt.uvoff);
 	const float_le *uvdata = (const float_le*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
+#else
+	u32 *uv = (u32 *)(decoded_ + decFmt.uvoff);
+	const u32_le *uvdata = (const u32_le*)(ptr_ + tcoff);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
+#endif
 }
 
 void VertexDecoder::Step_TcU8Prescale() const {
