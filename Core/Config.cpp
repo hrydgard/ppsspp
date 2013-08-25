@@ -70,7 +70,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	// Fix issue from switching from uint (hex in .ini) to int (dec)
 	if (iMaxRecent == 0)
-		iMaxRecent = 30; 
+		iMaxRecent = 30;
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportingHost", &sReportHost, "default");

@@ -245,7 +245,7 @@ void UpdateConfirmCancelKeys() {
 			cancelKeys.push_back(hardcodedCancelKeys[i]);
 	}
 
-	SetConfirmCancelKeys(confirmKeys,cancelKeys);
+	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 }
 
 static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, int count, bool replace) {
