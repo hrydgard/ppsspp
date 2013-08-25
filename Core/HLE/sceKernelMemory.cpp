@@ -543,21 +543,23 @@ int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr)
 	}
 }
 
-void sceKernelFreeFpl()
+int sceKernelFreeFpl(SceUID uid, u32 blockPtr)
 {
-	SceUID id = PARAM(0);
-	u32 blockAddr = PARAM(1);
+	if (blockPtr > PSP_GetUserMemoryEnd()) {
+		WARN_LOG(HLE, "%08x=sceKernelFreeFpl(%i, %08x): invalid address", SCE_KERNEL_ERROR_ILLEGAL_ADDR, uid, blockPtr);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
 
-	DEBUG_LOG(HLE,"sceKernelFreeFpl(%i, %08x)", id, blockAddr);
 	u32 error;
-	FPL *fpl = kernelObjects.Get<FPL>(id, error);
+	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl) {
-		int blockNum = (blockAddr - fpl->address) / fpl->alignedSize;
+		int blockNum = (blockPtr - fpl->address) / fpl->alignedSize;
 		if (blockNum < 0 || blockNum >= fpl->nf.numBlocks) {
-			RETURN(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK);
+			DEBUG_LOG(HLE, "sceKernelFreeFpl(%i, %08x): bad block ptr", uid, blockPtr);
+			return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK;
 		} else {
-			RETURN(0);
 			if (fpl->freeBlock(blockNum)) {
+				DEBUG_LOG(HLE, "sceKernelFreeFpl(%i, %08x)", uid, blockPtr);
 				__KernelSortFplThreads(fpl);
 
 				bool wokeThreads = false;
@@ -573,12 +575,17 @@ retry:
 
 				if (wokeThreads)
 					hleReSchedule("fpl freed");
+				return 0;
+			} else {
+				DEBUG_LOG(HLE, "sceKernelFreeFpl(%i, %08x): already free", uid, blockPtr);
+				return SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCK;
 			}
 		}
 	}
 	else
 	{
-		RETURN(error);
+		DEBUG_LOG(HLE, "sceKernelFreeFpl(%i, %08x): invalid fpl", uid, blockPtr);
+		return error;
 	}
 }
 

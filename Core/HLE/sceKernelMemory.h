@@ -51,7 +51,7 @@ int sceKernelDeleteFpl(SceUID uid);
 int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr);
 int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr);
 int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr);
-void sceKernelFreeFpl();
+int sceKernelFreeFpl(SceUID uid, u32 blockPtr);
 int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr);
 int sceKernelReferFplStatus(SceUID uid, u32 statusPtr);
 
