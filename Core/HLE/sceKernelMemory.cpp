@@ -282,6 +282,25 @@ bool __KernelClearFplThreads(FPL *fpl, int reason)
 	return wokeThreads;
 }
 
+void __KernelSortFplThreads(FPL *fpl)
+{
+	// Remove any that are no longer waiting.
+	u32 error;
+	SceUID uid = fpl->GetUID();
+	for (size_t i = 0; i < fpl->waitingThreads.size(); i++)
+	{
+		SceUID waitID = __KernelGetWaitID(fpl->waitingThreads[i].threadID, WAITTYPE_FPL, error);
+		if (waitID != uid)
+		{
+			fpl->waitingThreads.erase(fpl->waitingThreads.begin() + i);
+			--i;
+		}
+	}
+
+	if ((fpl->nf.attr & PSP_FPL_ATTR_PRIORITY) != 0)
+		std::stable_sort(fpl->waitingThreads.begin(), fpl->waitingThreads.end(), __FplThreadSortPriority);
+}
+
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr)
 {
 	if (!name)
@@ -546,8 +565,7 @@ void sceKernelFreeFpl()
 		} else {
 			RETURN(0);
 			if (fpl->freeBlock(blockNum)) {
-				if ((fpl->nf.attr & PSP_FPL_ATTR_PRIORITY) != 0)
-					std::stable_sort(fpl->waitingThreads.begin(), fpl->waitingThreads.end(), __FplThreadSortPriority);
+				__KernelSortFplThreads(fpl);
 
 				bool wokeThreads = false;
 retry:
@@ -602,6 +620,7 @@ int sceKernelReferFplStatus(SceUID uid, u32 statusPtr)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferFplStatus(%i, %08x)", uid, statusPtr);
 		// Refresh waiting threads and free block count.
+		__KernelSortFplThreads(fpl);
 		fpl->nf.numWaitThreads = (int) fpl->waitingThreads.size();
 		fpl->nf.numFreeBlocks = 0;
 		for (int i = 0; i < (int)fpl->nf.numBlocks; ++i)
@@ -1156,6 +1175,25 @@ bool __KernelClearVplThreads(VPL *vpl, int reason)
 	return wokeThreads;
 }
 
+void __KernelSortFplThreads(VPL *vpl)
+{
+	// Remove any that are no longer waiting.
+	u32 error;
+	SceUID uid = vpl->GetUID();
+	for (size_t i = 0; i < vpl->waitingThreads.size(); i++)
+	{
+		SceUID waitID = __KernelGetWaitID(vpl->waitingThreads[i].threadID, WAITTYPE_VPL, error);
+		if (waitID != uid)
+		{
+			vpl->waitingThreads.erase(vpl->waitingThreads.begin() + i);
+			--i;
+		}
+	}
+
+	if ((vpl->nv.attr & PSP_VPL_ATTR_PRIORITY) != 0)
+		std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);
+}
+
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr)
 {
 	if (!name)
@@ -1396,8 +1434,7 @@ int sceKernelFreeVpl(SceUID uid, u32 addr)
 	{
 		if (vpl->alloc.FreeExact(addr))
 		{
-			if ((vpl->nv.attr & PSP_VPL_ATTR_PRIORITY) != 0)
-				std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);
+			__KernelSortFplThreads(vpl);
 
 			bool wokeThreads = false;
 retry:
@@ -1457,14 +1494,7 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr)
 	{
 		DEBUG_LOG(HLE, "sceKernelReferVplStatus(%i, %08x)", uid, infoPtr);
 
-		for (auto iter = vpl->waitingThreads.begin(); iter != vpl->waitingThreads.end(); ++iter)
-		{
-			SceUID waitID = __KernelGetWaitID(iter->threadID, WAITTYPE_VPL, error);
-			// The thread is no longer waiting for this, clean it up.
-			if (waitID != uid)
-				vpl->waitingThreads.erase(iter--);
-		}
-
+		__KernelSortFplThreads(vpl);
 		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		vpl->nv.freeSize = vpl->alloc.GetTotalFreeBytes();
 		if (Memory::IsValidAddress(infoPtr) && Memory::Read_U32(infoPtr))
