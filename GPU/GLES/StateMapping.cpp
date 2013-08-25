@@ -217,11 +217,21 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-#if 1
+
 		// Fixes some Persona 2 issues, may be correct? (that is, don't change dest alpha at all if blending)
 		// If this doesn't break anything else, it's likely to be right.
 		// I guess an alternative solution would be to simply disable alpha writes if alpha blending is enabled.
-		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+#if 1
+		// A further attempt: Let's not have source alpha contribute at all to alpha, but the destination alpha
+		// blend factor is still applied to the alpha channel. Not entirely sure what the purpose of this behaviour
+		// is if it works this way, but seems to keep the Persona fix while also allowing shadows to appear in FF:CC.
+
+		// This hackery will soon embarrass me enough to go fix those GPU tests.
+#if 1
+		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, glBlendFuncB);
+#else
+		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, glBlendFuncB);
+#endif
 #else
 		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
 #endif
