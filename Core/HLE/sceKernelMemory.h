@@ -53,7 +53,7 @@ void sceKernelAllocateFplCB();
 void sceKernelTryAllocateFpl();
 void sceKernelFreeFpl();
 int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr);
-void sceKernelReferFplStatus();
+int sceKernelReferFplStatus(SceUID uid, u32 statusPtr);
 
 int sceKernelGetCompiledSdkVersion();
 
