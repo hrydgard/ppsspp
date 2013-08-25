@@ -636,6 +636,18 @@ int sceKernelReferGlobalProfiler(u32 statusPtr) {
 	return 0;
 }
 
+int ThreadManForKernel_446d8de6(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
+{
+	WARN_LOG(HLE,"Not support this patcher");
+	return sceKernelCreateThread(threadName, entry, prio, stacksize,  attr, optionAddr);
+}
+
+int ThreadManForKernel_f475845d(SceUID threadToStartID, int argSize, u32 argBlockPtr)
+{	
+	WARN_LOG(HLE,"Not support this patcher");
+	return sceKernelStartThread(threadToStartID,argSize,argBlockPtr);
+}
+
 const HLEFunction ThreadManForUser[] =
 {
 	{0x55C20A00,&WrapI_CUUU<sceKernelCreateEventFlag>,         "sceKernelCreateEventFlag"},
@@ -820,6 +832,13 @@ const HLEFunction ThreadManForUser[] =
 	// {0x6E9EA350, _sceKernelReturnFromCallback,"_sceKernelReturnFromCallback"},
 };
 
+const HLEFunction ThreadManForKernel[] =
+{
+	{0xceadeb47, 0, "ThreadManForKernel_ceadeb47"},
+	{0x446d8de6, WrapI_CUUIUU<ThreadManForKernel_446d8de6>, "ThreadManForKernel_446d8de6"},//Not sure right
+	{0xf475845d, &WrapI_IIU<ThreadManForKernel_f475845d>, "ThreadManForKernel_f475845d"},//Not sure right
+};
+
 void Register_ThreadManForUser()
 {
 	RegisterModule("ThreadManForUser", ARRAY_SIZE(ThreadManForUser), ThreadManForUser);
@@ -840,8 +859,6 @@ void Register_LoadExecForUser()
 {
 	RegisterModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
-
-
 
 const HLEFunction ExceptionManagerForKernel[] =
 {
@@ -887,4 +904,10 @@ const HLEFunction UtilsForKernel[] = {
 void Register_UtilsForKernel()
 {
 	RegisterModule("UtilsForKernel", ARRAY_SIZE(UtilsForKernel), UtilsForKernel);
+}
+
+void Register_ThreadManForKernel()
+{
+	RegisterModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);		
+
 }

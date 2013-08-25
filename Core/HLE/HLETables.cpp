@@ -256,12 +256,14 @@ static const int numModules = sizeof(moduleList)/sizeof(HLEModule);
 void RegisterAllModules() {
 	Register_Kernel_Library();
 	Register_ThreadManForUser();
+	Register_ThreadManForKernel();
 	Register_LoadExecForUser();
 	Register_UtilsForKernel();
 	Register_SysMemUserForUser();
 	Register_InterruptManager();
 	Register_IoFileMgrForUser();
 	Register_ModuleMgrForUser();
+	Register_ModuleMgrForKernel();
 	Register_StdioForUser();
 
 	Register_sceHprm();
