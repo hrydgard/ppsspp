@@ -85,7 +85,7 @@ void __AudioInit() {
 
 	if (g_Config.bLowLatencyAudio) {
 		chanQueueMaxSizeFactor = 1;
-		chanQueueMinSizeFactor = 0;
+		chanQueueMinSizeFactor = 1;
 		hwBlockSize = 16;
 		hostAttemptBlockSize = 256;
 	} else {
