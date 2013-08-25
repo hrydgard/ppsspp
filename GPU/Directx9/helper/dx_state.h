@@ -196,7 +196,7 @@ private:
 			viewport.MinZ=n;
 			viewport.MaxZ=f;
 
-			pD3Ddevice->SetViewport(&viewport);
+			//pD3Ddevice->SetViewport(&viewport);
 		}
 
 		inline void restore() {
@@ -209,7 +209,7 @@ private:
 	public:
 		inline void set(int x1, int y1, int x2, int y2)  {
 			RECT rect = {x1, y1, x2, y2};
-			pD3Ddevice->SetScissorRect(&rect);
+			//pD3Ddevice->SetScissorRect(&rect);
 		}
 
 		inline void restore() {

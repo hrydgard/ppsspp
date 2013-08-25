@@ -255,6 +255,7 @@ static void ConvertMatrices(Matrix4x4 & in) {
 void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
 	float u2 = uscale;
 	// Since we're flipping, 0 is down.  That's where the scale goes.
+	
 	float v1 = flip ? 1.0f : 1.0f - vscale;
 	float v2 = flip ? 1.0f - vscale : 1.0f;
 
@@ -574,10 +575,12 @@ void FramebufferManager::CopyDisplayToOutput() {
 
 #ifdef _XBOX
 	//if (currentRenderVfb_ && (!currentRenderVfb_->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER))
-	if (currentRenderVfb_ && (currentRenderVfb_->usageFlags == FB_USAGE_RENDERTARGET || currentRenderVfb_->usageFlags & FB_USAGE_TEXTURE))
+	//if (currentRenderVfb_ && (currentRenderVfb_->usageFlags == FB_USAGE_RENDERTARGET))
 	//if (currentRenderVfb_ && (currentRenderVfb_->fb_address == 0))
+
+	if (currentRenderVfb_)
 	{
-		if (currentRenderVfb_->fbo) {
+		if (currentRenderVfb_->fbo && currentRenderVfb_->usageFlags == FB_USAGE_RENDERTARGET) {
 			fbo_resolve(currentRenderVfb_->fbo);
 		}
 	}
@@ -767,6 +770,10 @@ void FramebufferManager::BlitFramebuffer_(VirtualFramebuffer *src, VirtualFrameb
 	DrawActiveTexture(x, y, w, h, flip, upscale, vscale);
 
 	pD3Ddevice->SetTexture(0, NULL);
+
+#ifdef _XBOX
+	fbo_resolve(dst->fbo);
+#endif
 	fbo_unbind();
 }
 
@@ -847,7 +854,7 @@ void FramebufferManager::PackFramebufferDirectx9_(VirtualFramebuffer *vfb) {
 		DEBUG_LOG(HLE, "Reading framebuffer to mem, bufSize = %u, packed = %p, fb_address = %08x", 
 			(u32)bufSize, packed, fb_address);
 
-		Resolve(packed, vfb);
+		// Resolve(packed, vfb);
 
 		if(vfb->format != GE_FORMAT_8888) { // If not RGBA 8888 we need to convert
 			ConvertFromRGBA8888(Memory::GetPointer(fb_address), packed, vfb->fb_stride, vfb->height, vfb->format);
