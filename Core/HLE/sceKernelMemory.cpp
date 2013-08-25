@@ -371,24 +371,25 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	return id;
 }
 
-void sceKernelDeleteFpl()
+int sceKernelDeleteFpl(SceUID uid)
 {
-	SceUID id = PARAM(0);
 	u32 error;
-	FPL *fpl = kernelObjects.Get<FPL>(id, error);
+	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
+		DEBUG_LOG(HLE, "sceKernelDeleteFpl(%i)", uid);
+
 		bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_DELETE);
 		if (wokeThreads)
 			hleReSchedule("fpl deleted");
 
 		userMemory.Free(fpl->address);
-		DEBUG_LOG(HLE,"sceKernelDeleteFpl(%i)", id);
-		RETURN(kernelObjects.Destroy<FPL>(id));
+		return kernelObjects.Destroy<FPL>(uid);
 	}
 	else
 	{
-		RETURN(error);
+		DEBUG_LOG(HLE, "sceKernelDeleteFpl(%i): invalid fpl", uid);
+		return error;
 	}
 }
 
@@ -570,23 +571,26 @@ retry:
 	}
 }
 
-void sceKernelCancelFpl()
+int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr)
 {
-	SceUID id = PARAM(0);
-	DEBUG_LOG(HLE,"UNIMPL: sceKernelCancelFpl(%i)", id);
 	u32 error;
-	FPL *fpl = kernelObjects.Get<FPL>(id, error);
+	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
 	if (fpl)
 	{
-		// TODO: numWaitThreads param?
-		RETURN(0);
+		DEBUG_LOG(HLE, "sceKernelCancelFpl(%i, %08x)", uid, numWaitThreadsPtr);
+		fpl->nf.numWaitThreads = (int) fpl->waitingThreads.size();
+		if (Memory::IsValidAddress(numWaitThreadsPtr))
+			Memory::Write_U32(fpl->nf.numWaitThreads, numWaitThreadsPtr);
+
 		bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
 		if (wokeThreads)
 			hleReSchedule("fpl canceled");
+		return 0;
 	}
 	else
 	{
-		RETURN(error);
+		DEBUG_LOG(HLE, "sceKernelCancelFpl(%i, %08x): invalid fpl", uid, numWaitThreadsPtr);
+		return error;
 	}
 }
 
@@ -1423,11 +1427,11 @@ retry:
 
 int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelCancelVpl(%i, %08x)", uid, numWaitThreadsPtr);
 	u32 error;
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl)
 	{
+		DEBUG_LOG(HLE, "sceKernelCancelVpl(%i, %08x)", uid, numWaitThreadsPtr);
 		vpl->nv.numWaitThreads = (int) vpl->waitingThreads.size();
 		if (Memory::IsValidAddress(numWaitThreadsPtr))
 			Memory::Write_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
@@ -1439,7 +1443,10 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 		return 0;
 	}
 	else
+	{
+		DEBUG_LOG(HLE, "sceKernelCancelVpl(%i, %08x): invalid vpl", uid, numWaitThreadsPtr);
 		return error;
+	}
 }
 
 int sceKernelReferVplStatus(SceUID uid, u32 infoPtr)

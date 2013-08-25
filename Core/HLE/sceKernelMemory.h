@@ -47,12 +47,12 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr);
 int sceKernelReferVplStatus(SceUID uid, u32 infoPtr);
 
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blocksize, u32 numBlocks, u32 optPtr);
-void sceKernelDeleteFpl();
+int sceKernelDeleteFpl(SceUID uid);
 void sceKernelAllocateFpl();
 void sceKernelAllocateFplCB();
 void sceKernelTryAllocateFpl();
 void sceKernelFreeFpl();
-void sceKernelCancelFpl();
+int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr);
 void sceKernelReferFplStatus();
 
 int sceKernelGetCompiledSdkVersion();
