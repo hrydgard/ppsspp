@@ -736,7 +736,7 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
-	//if (pos)  - there's always a position
+	if (pos)  // there's always a position
 	{
 		size = align(size, posalign[pos]);
 		posoff = size;
