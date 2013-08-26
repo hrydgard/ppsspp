@@ -16,7 +16,7 @@ void I18NRepo::Clear() {
 }
 
 const char *I18NCategory::T(const char *key, const char *def) {
-	// Replace the \n's with \\n's so that we can use newlines in ini key values.
+	// Replace the \n's with \\n's so that key values with newlines will be found correctly.
 	std::string modifiedKey = key;
 	modifiedKey = ReplaceAll(modifiedKey, "\n", "\\n");
 
