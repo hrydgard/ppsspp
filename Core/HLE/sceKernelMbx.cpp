@@ -316,7 +316,11 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 	DEBUG_LOG(HLE, "%i=sceKernelCreateMbx(%s, %08x, %08x)", id, name, attr, optAddr);
 
 	if (optAddr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateMbx(%s) unsupported options parameter: %08x", name, optAddr);
+	{
+		u32 size = Memory::Read_U32(optAddr);
+		if (size > 4)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateMbx(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateMbx(%s) unsupported attr parameter: %08x", name, attr);
 

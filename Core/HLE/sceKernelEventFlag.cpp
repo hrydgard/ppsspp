@@ -324,7 +324,11 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	DEBUG_LOG(HLE, "%i=sceKernelCreateEventFlag(\"%s\", %08x, %08x, %08x)", id, e->nef.name, e->nef.attr, e->nef.currentPattern, optPtr);
 
 	if (optPtr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateEventFlag(%s) unsupported options parameter: %08x", name, optPtr);
+	{
+		u32 size = Memory::Read_U32(optPtr);
+		if (size > 4)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
 
