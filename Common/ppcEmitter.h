@@ -141,7 +141,6 @@ namespace PpcGen
 	protected:
 		// Write opcode
 		inline void Write32(u32 value) {*(u32*)code = value; code+=4;}
-
 	public:
 		PPCXEmitter() : code(0), startcode(0), lastCacheFlushEnd(0) {
 		}
@@ -212,13 +211,14 @@ namespace PpcGen
 
 		// Logical Ops	
 		void AND  (PPCReg Rs, PPCReg Ra, PPCReg Rb);
-		void ANDI (PPCReg Rs, PPCReg Ra, unsigned short imm);
-		void ANDIS(PPCReg Rs, PPCReg Ra, unsigned short imm);
+		void ANDI (PPCReg Rdest, PPCReg Ra, unsigned short imm);
+		void ANDIS(PPCReg Rdest, PPCReg Ra, unsigned short imm);
 		void NAND (PPCReg Rs, PPCReg Ra, PPCReg Rb);
 		void OR   (PPCReg Rs, PPCReg Ra, PPCReg Rb);
-		void ORC  (PPCReg Rs, PPCReg Ra, PPCReg Rb);
+		void ORI  (PPCReg Rdest, PPCReg Ra, unsigned short imm);
 		void NOR  (PPCReg Rs, PPCReg Ra, PPCReg Rb);
 		void XOR  (PPCReg Rs, PPCReg Ra, PPCReg Rb);
+		void XORI (PPCReg Rdest, PPCReg Ra, unsigned short imm);
 		void NEG  (PPCReg Rs, PPCReg Ra, PPCReg Rb);
 
 		// Arithmetics ops
@@ -240,9 +240,6 @@ namespace PpcGen
 		void MULLW(PPCReg dest,	PPCReg src, PPCReg op2);
 		void MULHW (PPCReg dest,	PPCReg src, PPCReg op2);
 		void MULHWS(PPCReg dest,	PPCReg src, PPCReg op2);
-
-		void ORI	(PPCReg src, PPCReg dest, unsigned short imm);
-		void XORI	(PPCReg src, PPCReg dest, unsigned short imm);
 
 		// Memory load/store operations
 		void LI		(PPCReg dest, unsigned short imm);
@@ -280,7 +277,18 @@ namespace PpcGen
 		void EXTSB	(PPCReg dest, PPCReg src);
 		void EXTSH	(PPCReg dest, PPCReg src);
 
+		// 
 		void RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end);
+
+		// Shift Instructions
+		void SRAW	(PPCReg dest, PPCReg src, PPCReg shift);
+		void SRAWI	(PPCReg dest, PPCReg src, unsigned short imm);
+		
+		void SLW	(PPCReg dest, PPCReg src, PPCReg shift);
+		void SLWI	(PPCReg dest, PPCReg src, unsigned short imm);
+
+		void SRW	(PPCReg dest, PPCReg src, PPCReg shift);
+		void SRWI	(PPCReg dest, PPCReg src, unsigned short imm);
 
 		// Compare
 		void CMPLI	(PPCReg dest, unsigned short imm);	

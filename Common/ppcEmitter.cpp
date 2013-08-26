@@ -1,6 +1,12 @@
 #include <xtl.h>
 #include "ppcEmitter.h"
 
+// Helper
+#define X_FORM(OPCD, D, A, B, XO, Rc) { \
+    int a = (A), b = (B), d = (D); \
+    Write32((OPCD << 26) | (d << 21) | (a << 16) | (b << 11) | (((XO) & 0x3ff) << 1) | (Rc)); \
+}
+
 namespace PpcGen {
 
 	// Arithmetics ops
@@ -24,13 +30,13 @@ namespace PpcGen {
 		Write32(instr);
 	}
 
-	void PPCXEmitter::ANDI	(PPCReg Rd, PPCReg Ra, unsigned short imm) {
-		u32 instr = (0x70000000 | (Rd << 21) | (Ra << 16) | ((imm) & 0xffff));
+	void PPCXEmitter::ANDI	(PPCReg Rdest, PPCReg Ra, unsigned short imm) {
+		u32 instr = (0x70000000 | (Ra << 21) | (Rdest << 16) | ((imm) & 0xffff));
 		Write32(instr);
 	}
 
-	void PPCXEmitter::ANDIS	(PPCReg Rd, PPCReg Ra, unsigned short imm) {
-		u32 instr = (0x74000000 | (Rd << 21) | (Ra << 16) | ((imm) & 0xffff));
+	void PPCXEmitter::ANDIS	(PPCReg Rdest, PPCReg Ra, unsigned short imm) {
+		u32 instr = (0x74000000 | (Ra << 21) | (Rdest << 16) | ((imm) & 0xffff));
 		Write32(instr);
 	}
 
@@ -353,23 +359,29 @@ namespace PpcGen {
 	}
 
 	// Others operation
-	void PPCXEmitter::ORI(PPCReg src, PPCReg dest, unsigned short imm) {
-		u32 instr = (0x60000000 | (src << 21) | (dest << 16) | (imm & 0xffff));
+	void PPCXEmitter::ORI(PPCReg Rd, PPCReg Ra, unsigned short imm) {
+		u32 instr = (0x60000000 | (Ra << 21) | (Rd << 16) | (imm & 0xffff));
 		Write32(instr);
 	}
 	
-	void PPCXEmitter::XORI	(PPCReg src, PPCReg dest, unsigned short imm) {	
-		u32 instr = (0x68000000 | (src << 21) | (dest << 16) | (imm & 0xffff));
+	void PPCXEmitter::XORI	(PPCReg Rdest, PPCReg Ra, unsigned short imm) {	
+		u32 instr = (0x68000000 | (Ra << 21) | (Rdest << 16) | (imm & 0xffff));
 		Write32(instr);
 	}
 
-	void PPCXEmitter::OR(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
-		u32 instr = (0x7C000378 | (Ra << 21) | (Rd << 16) | (Rb << 11));
+	void PPCXEmitter::OR(PPCReg Rdest, PPCReg Ra, PPCReg Rb) {	
+		u32 instr = (0x7C000378 | (Ra << 21) | (Rdest << 16) | (Rb << 11));
 		Write32(instr);
 	}
 
 	void PPCXEmitter::XOR(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
 		u32 instr = (0x7C000278 | (Ra << 21) | (Rd << 16) | (Rb << 11));
+		Write32(instr);
+	}
+	
+
+	void PPCXEmitter::NOR(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
+		u32 instr = (0x7C0000f8 | (Ra << 21) | (Rd << 16) | (Rb << 11));
 		Write32(instr);
 	}
 
@@ -417,6 +429,28 @@ namespace PpcGen {
 
 	void PPCXEmitter::RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end) {
 		Write32((21<<26) | (src << 21) | (dest << 16) | (shift << 11) | (start << 6) | (end << 1));
+	}
+
+	// Shift Instructions
+	void PPCXEmitter::SRAW	(PPCReg dest, PPCReg src, PPCReg shift) {
+		X_FORM(31, src, dest, shift, 792, 0);
+	}
+	void PPCXEmitter::SRAWI	(PPCReg dest, PPCReg src, unsigned short imm) {
+		X_FORM(31, src, dest, imm, 824, 0);
+	}
+
+	void PPCXEmitter::SLW	(PPCReg dest, PPCReg src, PPCReg shift) {
+		X_FORM(31, src, dest, shift, 24, 0);
+	}
+	void PPCXEmitter::SLWI	(PPCReg dest, PPCReg src, unsigned short imm) {
+		RLWINM(dest, src, imm, 0, (31-imm));
+	}
+
+	void PPCXEmitter::SRW	(PPCReg dest, PPCReg src, PPCReg shift) {
+		X_FORM(31, src, dest, shift, 536, 0);
+	}
+	void PPCXEmitter::SRWI	(PPCReg dest, PPCReg src, unsigned short imm) {
+		RLWINM(dest, src, (32-imm), imm, 31);
 	}
 
 	// Prologue / epilogue
