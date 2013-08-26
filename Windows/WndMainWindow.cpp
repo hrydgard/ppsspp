@@ -386,12 +386,12 @@ namespace MainWindow
 	void CreateDebugWindows() {
 		disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(disasmWindow[0]);
-		EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
+		EnableWindow (disasmWindow[0]->GetDlgHandle(),FALSE);
 		disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
 
 		memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(memoryWindow[0]);
-		EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
+		EnableWindow (memoryWindow[0]->GetDlgHandle(),TRUE);
 	}
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
@@ -735,6 +735,9 @@ namespace MainWindow
 					break;
 				case ID_EMULATION_CHEATS:
 					NativeMessageReceived("reset", "");
+					break;
+				case ID_EMULATION_SPEEDLIMIT:
+					g_Config.bSpeedLimit = !g_Config.bSpeedLimit;
 					break;
 
 				case ID_EMULATION_RENDER_MODE_OGL:
@@ -1268,6 +1271,7 @@ namespace MainWindow
 	void UpdateMenus() {
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
+		CHECKITEM(ID_EMULATION_SPEEDLIMIT,g_Config.bSpeedLimit);
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
