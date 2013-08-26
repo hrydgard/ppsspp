@@ -43,7 +43,7 @@ public:
 	virtual const char *getDescription(unsigned int address) {return "";}
 	virtual const char *findSymbolForAddress(unsigned int address) { return NULL; };
 	virtual bool getSymbolValue(char* symbol, u32& dest) { return false; };
-	virtual bool initExpression(char* exp, PostfixExpression& dest) { return false; };
+	virtual bool initExpression(const char* exp, PostfixExpression& dest) { return false; };
 	virtual bool parseExpression(PostfixExpression& exp, u32& dest) { return false; };
 
 	

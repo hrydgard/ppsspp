@@ -22,6 +22,7 @@
 #include "Common/CommonWindows.h"
 #include <io.h>
 
+#include "base/logging.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_lost_manager.h"
@@ -48,13 +49,13 @@ HWND CreateHiddenWindow()
 		LoadCursor(NULL, IDC_ARROW),
 		(HBRUSH) GetStockObject(BLACK_BRUSH),
 		NULL,
-		"PPSSPPHeadless",
+		_T("PPSSPPHeadless"),
 		NULL,
 	};
 	RegisterClassEx(&wndClass);
 
 	DWORD style = WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_POPUP;
-	return CreateWindowEx(0, "PPSSPPHeadless", "PPSSPPHeadless", style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
+	return CreateWindowEx(0, _T("PPSSPPHeadless"), _T("PPSSPPHeadless"), style, CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_WIDTH, WINDOW_HEIGHT, NULL, NULL, NULL, NULL);
 }
 
 void SetVSync(int value)
@@ -89,7 +90,7 @@ void WindowsHeadlessHost::LoadNativeAssets()
 void WindowsHeadlessHost::SendDebugOutput(const std::string &output)
 {
 	fwrite(output.data(), sizeof(char), output.length(), out);
-	OutputDebugString(output.c_str());
+	OutputDebugStringUTF8(output.c_str());
 }
 
 void WindowsHeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)

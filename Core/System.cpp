@@ -22,6 +22,7 @@
 #include "native/thread/thread.h"
 #include "native/thread/threadutil.h"
 #include "native/base/mutex.h"
+#include "util/text/utf8.h"
 
 #include "Core/MemMap.h"
 
@@ -324,13 +325,16 @@ CoreParameter &PSP_CoreParameter() {
 
 void GetSysDirectories(std::string &memstickpath, std::string &flash0path) {
 #ifdef _WIN32
-	char path_buffer[_MAX_PATH], drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
+	wchar_t path_buffer[_MAX_PATH];
+	char drive[_MAX_DRIVE] ,dir[_MAX_DIR], file[_MAX_FNAME], ext[_MAX_EXT];
 	char memstickpath_buf[_MAX_PATH];
 	char flash0path_buf[_MAX_PATH];
 
-	GetModuleFileName(NULL,path_buffer,sizeof(path_buffer));
+	GetModuleFileName(NULL, path_buffer, sizeof(path_buffer));
 
-	_splitpath_s(path_buffer, drive, dir, file, ext );
+	std::string path = ConvertWStringToUTF8(path_buffer);
+
+	_splitpath_s(path.c_str(), drive, dir, file, ext );
 
 	// Mount a couple of filesystems
 	sprintf(memstickpath_buf, "%s%smemstick\\", drive, dir);

@@ -22,6 +22,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "file/zip_read.h"
+#include "util/text/utf8.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -599,14 +600,14 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 
 	std::string w32path = GetLocalPath(path) + "\\*.*";
 
-	hFind = FindFirstFile(w32path.c_str(), &findData);
+	hFind = FindFirstFile(ConvertUTF8ToWString(w32path).c_str(), &findData);
 
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return myVector; //the empty list
 	}
 
 	for (BOOL retval = 1; retval; retval = FindNextFile(hFind, &findData)) {
-		if (!strcmp(findData.cFileName, "..") || !strcmp(findData.cFileName, ".")) {
+		if (!wcscmp(findData.cFileName, L"..") || !wcscmp(findData.cFileName, L".")) {
 			continue;
 		}
 
@@ -619,7 +620,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 
 		entry.access = FILEACCESS_READ;
 		entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
-		entry.name = findData.cFileName;
+		entry.name = ConvertWStringToUTF8(findData.cFileName);
 		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
 		tmFromFiletime(entry.ctime, findData.ftCreationTime);
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
@@ -728,7 +729,7 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTy
 
 VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys) {
 #ifdef _WIN32
-#define dlopen(name, ignore) (void *)LoadLibrary(name)
+#define dlopen(name, ignore) (void *)LoadLibrary(ConvertUTF8ToWString(name).c_str())
 #define dlsym(mod, name) GetProcAddress((HMODULE)mod, name)
 #define dlclose(mod) FreeLibrary((HMODULE)mod)
 #endif

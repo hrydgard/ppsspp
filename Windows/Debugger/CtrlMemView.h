@@ -42,7 +42,7 @@ class CtrlMemView
 	int visibleRows;
 
 	bool hasFocus;
-	static TCHAR szClassName[];
+	static wchar_t szClassName[];
 	DebugInterface *debugger;
 	void updateStatusBarText();
 public:

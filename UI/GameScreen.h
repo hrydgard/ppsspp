@@ -22,7 +22,9 @@
 
 // Game screen: Allows you to start a game, delete saves, delete the game,
 // set game specific settings, etc.
+
 // Uses GameInfoCache heavily to implement the functionality.
+// Should possibly merge this with the PauseScreen.
 
 class GameScreen : public UIDialogScreen {
 public:
@@ -43,6 +45,7 @@ private:
 	UI::EventReturn OnDeleteSaveData(UI::EventParams &e);
 	UI::EventReturn OnDeleteGame(UI::EventParams &e);
 	UI::EventReturn OnSwitchBack(UI::EventParams &e);
+	UI::EventReturn OnCreateShortcut(UI::EventParams &e);
 
 	std::string gamePath_;
 

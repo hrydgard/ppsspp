@@ -26,6 +26,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 
 #include "base/stringutil.h"
+#include "util/text/utf8.h"
 
 #ifdef THEMES
 #include "Windows/XPTheme.h"
@@ -74,7 +75,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	cpu = _cpu;
 	lastTicks = CoreTiming::GetTicks();
 
-	SetWindowText(m_hDlg,_cpu->GetName());
+	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
 #ifdef THEMES
 	//if (WTL::CTheme::IsThemingSupported())
 		//EnableThemeDialogTexture(m_hDlg ,ETDT_ENABLETAB);
@@ -109,12 +110,12 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	ZeroMemory (&tcItem,sizeof (tcItem));
 	tcItem.mask			= TCIF_TEXT;
 	tcItem.dwState		= 0;
-	tcItem.pszText		= "Regs";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Regs";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	tcItem.iImage		= 0;
 	int result1 = TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= "Funcs";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Funcs";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	int result2 = TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);
@@ -149,7 +150,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	changeSubWindow(SUBWIN_FIRST);
 
 	// init status bar
-	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "", m_hDlg, IDC_DISASMSTATUSBAR);
+	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, L"", m_hDlg, IDC_DISASMSTATUSBAR);
 	if (g_Config.bDisplayStatusBar == false)
 	{
 		ShowWindow(statusBarWnd,SW_HIDE);
@@ -621,12 +622,12 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_DEB_GOTOADDRESSEDIT:
 		{
-			char szBuffer[256];
+			wchar_t szBuffer[256];
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 			GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),szBuffer,256);
 
 			u32 addr;
-			if (parseExpression(szBuffer,cpu,addr) == false)
+			if (parseExpression(ConvertWStringToUTF8(szBuffer).c_str(),cpu,addr) == false)
 			{
 				displayExpressionError(GetDlgItem(m_hDlg,IDC_ADDRESS));
 			} else {
@@ -649,7 +650,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		changeSubWindow(SUBWIN_NEXT);
 		break;
 	case WM_DEB_SETSTATUSBARTEXT:
-		SendMessage(statusBarWnd,WM_SETTEXT,0,lParam);
+		SendMessage(statusBarWnd,WM_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
@@ -710,7 +711,7 @@ void CDisasm::updateThreadLabel(bool clear)
 		sprintf(label,"Thread: %s",threadList->getCurrentThreadName());
 	}
 
-	SetDlgItemText(m_hDlg, IDC_THREADNAME,label);
+	SetDlgItemText(m_hDlg, IDC_THREADNAME, ConvertUTF8ToWString(label).c_str());
 }
 
 void CDisasm::UpdateSize(WORD width, WORD height)
@@ -782,7 +783,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		stackTraceView->loadStackTrace();
 		updateThreadLabel(false);
 
-		SetDlgItemText(m_hDlg, IDC_STOPGO, "Go");
+		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
@@ -802,7 +803,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	{
 		updateThreadLabel(true);
 		
-		SetDlgItemText(m_hDlg, IDC_STOPGO, "Stop");
+		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
@@ -847,8 +848,8 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 	rl->redraw();						
 	// Update Debug Counter
-	char tempTicks[24];
-	sprintf(tempTicks, "%lld", CoreTiming::GetTicks()-lastTicks);
+	wchar_t tempTicks[24];
+	wsprintf(tempTicks, L"%lld", CoreTiming::GetTicks()-lastTicks);
 	SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 
 	// Update Register Dialog
