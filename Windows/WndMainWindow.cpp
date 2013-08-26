@@ -386,12 +386,12 @@ namespace MainWindow
 	void CreateDebugWindows() {
 		disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(disasmWindow[0]);
-		EnableWindow (disasmWindow[0]->GetDlgHandle(),FALSE);
+		EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
 		disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
 
 		memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
 		DialogManager::AddDlg(memoryWindow[0]);
-		EnableWindow (memoryWindow[0]->GetDlgHandle(),TRUE);
+		EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
 	}
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
