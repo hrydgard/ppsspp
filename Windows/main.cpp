@@ -136,6 +136,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	host = new WindowsHost(hwndMain, hwndDisplay);
 	host->SetWindowTitle(0);
 
+	MainWindow::CreateDebugWindows();
+
 	// Emu thread is always running!
 	EmuThread_Start();
 
