@@ -462,22 +462,6 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-char * ANSI2UTF8(char *string){
-	// ANSI to UNICODE
-	int size = MultiByteToWideChar(GetACP(),0,string,-1,NULL,0);
-	wchar_t *uni_wchars = new(std::nothrow) wchar_t[size + 1];
-	size = MultiByteToWideChar(CP_ACP, 0, string, -1, uni_wchars, size);
-	uni_wchars[size]=0;
-
-	// UNICODE to UTF8 Multibyte string
-	size = WideCharToMultiByte(CP_UTF8,0,uni_wchars,-1,NULL,0,NULL,NULL);
-	char *utf8_string = new(std::nothrow) char[size + 1];
-	size = WideCharToMultiByte(CP_UTF8,0,uni_wchars, -1, utf8_string, size,NULL,NULL);
-	utf8_string[size]=0;
-
-	return utf8_string;
-}
-
 void MainScreen::CreateViews() {
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -538,9 +522,8 @@ void MainScreen::CreateViews() {
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 	rightColumn->Add(rightColumnItems);
 
-	char *versionString=new char[256];
+	char versionString[256];
 	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
-	versionString = ANSI2UTF8(versionString);
 	rightColumnItems->SetSpacing(0.0f);
 	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
 #ifdef GOLD
@@ -551,7 +534,6 @@ void MainScreen::CreateViews() {
 	logos->Add(new ImageView(I_LOGO, IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
 	rightColumnItems->Add(logos);
 	rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))))->SetTextScale(0.5f);
-	delete[] versionString;
 #if defined(_WIN32) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
