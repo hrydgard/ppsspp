@@ -51,6 +51,8 @@ static PMixer *curMixer;
 float mouseDeltaX = 0;
 float mouseDeltaY = 0;
 
+extern char * ANSI2UTF8(char*);
+
 int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
 {
 	if (curMixer && !Core_IsStepping())
@@ -96,18 +98,17 @@ void WindowsHost::ShutdownGL()
 
 void WindowsHost::SetWindowTitle(const char *message)
 {
-	std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION;
+	std::string title = std::string("PPSSPP ") + ANSI2UTF8((char*)PPSSPP_GIT_VERSION); // to support non-unicode wchar (e.g, chinese)
 	if (message)
 		title = title + " - " + message;
 
-	int size = MultiByteToWideChar(GetACP(),0,title.c_str(),-1,NULL,0); // to support non-unicode wchar ANSI to UNICODE (e.g, chinese)
+	int size = MultiByteToWideChar(CP_UTF8,0,title.c_str(),-1,NULL,0); 
 	if (size > 0)
 	{
 		// VC++6.0 any more?
 		wchar_t *uni_title = new(std::nothrow) wchar_t[size + 1];
 		if (uni_title)
-			//ANSI to UNICODE (don't use UTF8 since it cannot be dispalyed correctly in window's title for chinese)
-			size = MultiByteToWideChar(CP_ACP, 0, title.c_str(), -1, uni_title, size); 	
+			size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), -1, uni_title, size); 	
 		else
 			size = 0;
 
