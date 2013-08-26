@@ -25,7 +25,7 @@ bool compress_string(const std::string& str, std::string *dest, int compressionl
 	}
 
 	zs.next_in = (Bytef*)str.data();
-	zs.avail_in = str.size();           // set the z_stream's input
+	zs.avail_in = (uInt)str.size();           // set the z_stream's input
 
 	int ret;
 	char outbuffer[32768];
@@ -72,7 +72,7 @@ bool decompress_string(const std::string& str, std::string *dest) {
 	}
 
 	zs.next_in = (Bytef*)str.data();
-	zs.avail_in = str.size();
+	zs.avail_in = (uInt)str.size();
 
 	int ret;
 	char outbuffer[32768];

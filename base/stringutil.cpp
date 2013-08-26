@@ -1,5 +1,7 @@
 #ifdef _WIN32
 #include <windows.h>
+#undef min
+#undef max
 #endif
 #include <string.h>
 #include <stdarg.h>
@@ -8,6 +10,7 @@
 #include <sstream>
 #include <limits.h>
 
+#include <algorithm>
 #include <iomanip>
 
 #include "base/buffer.h"
@@ -17,9 +20,14 @@
 // Function Cross-Compatibility
 #define strcasecmp _stricmp
 
-void __ods__(const char *p) {
-	OutputDebugString(p);
+void OutputDebugStringUTF8(const char *p) {
+	wchar_t temp[2048];
+	int len = std::min(2047, (int)strlen(p));
+	int size = (int)MultiByteToWideChar(CP_UTF8, 0, p, len, NULL, 0);
+	MultiByteToWideChar(CP_UTF8, 0, p, len, temp, size);
+	OutputDebugString(temp);
 }
+
 #endif
 
 unsigned int parseHex(const char *_szValue)

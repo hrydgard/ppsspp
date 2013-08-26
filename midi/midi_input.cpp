@@ -11,14 +11,16 @@
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "midi/midi_input.h"
+#include "util/text/utf8.h"
 
 std::vector<std::string> MidiInGetDevices() {
   int numDevs = midiInGetNumDevs();
+
   std::vector<std::string> devices;
   for (int i = 0; i < numDevs; i++) {
     MIDIINCAPS caps;
     midiInGetDevCaps(i, &caps, sizeof(caps));
-    devices.push_back(caps.szPname);
+    devices.push_back(ConvertWStringToUTF8(caps.szPname));
   }
   return devices;
 }

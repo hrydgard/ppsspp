@@ -11,10 +11,20 @@
   with these routines reserved for higher performance on data known to be
   valid.
 */
+
+#ifdef _WIN32
+#include <windows.h>
+#undef min
+#undef max
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+
+#include <algorithm>
+#include <string>
 
 #include "base/basictypes.h"
 #include "utf8.h"
@@ -408,3 +418,46 @@ int UTF8StringNonASCIICount(const char *utf8string) {
 bool UTF8StringHasNonASCII(const char *utf8string) {
 	return UTF8StringNonASCIICount(utf8string) > 0;
 }
+
+#ifdef _WIN32
+
+std::string ConvertWStringToUTF8(const wchar_t *wstr) {
+	int len = (int)wcslen(wstr);
+	int size = (int)WideCharToMultiByte(CP_UTF8, 0, wstr, len, 0, 0, NULL, NULL);
+	std::string s;
+	s.resize(size);
+	if (size > 0) {
+		WideCharToMultiByte(CP_UTF8, 0, wstr, len, &s[0], size, NULL, NULL);
+	}
+	return s;
+}
+
+std::string ConvertWStringToUTF8(const std::wstring &wstr) {
+	int len = (int)wstr.size();
+	int size = (int)WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), len, 0, 0, NULL, NULL);
+	std::string s;
+	s.resize(size);
+	if (size > 0) {
+		WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), len, &s[0], size, NULL, NULL);
+	}
+	return s;
+}
+
+void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source) {
+	int len = (int)source.size();
+	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, NULL, 0);
+	MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, dest, std::min((int)destSize, size));
+}
+
+std::wstring ConvertUTF8ToWString(const std::string &source) {
+	int len = (int)source.size();
+	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, NULL, 0);
+	std::wstring str;
+	str.resize(size);
+	if (size > 0) {
+		MultiByteToWideChar(CP_UTF8, 0, source.c_str(), len, &str[0], size);
+	}
+	return str;
+}
+
+#endif

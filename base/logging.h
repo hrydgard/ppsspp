@@ -64,12 +64,12 @@ inline void Crash() {
 
 #ifdef _WIN32
 
-void __ods__(const char *p);
+void OutputDebugStringUTF8(const char *p);
 
-#define ILOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "I: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "I: " __VA_ARGS__); p += sprintf(p, "\n"); __ods__(temp);}
-#define WLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "W: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "W: " __VA_ARGS__); p += sprintf(p, "\n"); __ods__(temp);}
-#define ELOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "E: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "E: " __VA_ARGS__); p += sprintf(p, "\n"); __ods__(temp);}
-#define FLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "F: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "F: " __VA_ARGS__); p += sprintf(p, "\n"); __ods__(temp); Crash();}
+#define ILOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "I: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "I: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
+#define WLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "W: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "W: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
+#define ELOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "E: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "E: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp);}
+#define FLOG(...) {char temp[512]; char *p = temp; p += sprintf(p, "F: %s:%i: ", __FILE__, __LINE__); p += sprintf(p, "F: " __VA_ARGS__); p += sprintf(p, "\n"); OutputDebugStringUTF8(temp); Crash();}
 
 // TODO: Win32 version using OutputDebugString
 #else

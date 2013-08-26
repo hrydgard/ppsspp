@@ -21,6 +21,7 @@
 #include "base/logging.h"
 #include "base/basictypes.h"
 #include "file/file_util.h"
+#include "util/text/utf8.h"
 
 #if defined(__FreeBSD__) || defined(__APPLE__) || defined(__SYMBIAN32__)
 #define stat64 stat
@@ -110,8 +111,7 @@ bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int s
 	if (!f)
 		return false;
 	size_t len = (size_t)GetSize(f);
-	if(len < size)
-	{
+	if(len < size) {
 		fclose(f);
 		return false;
 	}
@@ -140,10 +140,10 @@ static void stripTailDirSlashes(std::string &fname)
 }
 
 // Returns true if file filename exists
-bool exists(const std::string &filename)
-{
+bool exists(const std::string &filename) {
 #ifdef _WIN32
-	return GetFileAttributes(filename.c_str()) != 0xFFFFFFFF;
+	std::wstring wstr = ConvertUTF8ToWString(filename);
+	return GetFileAttributes(wstr.c_str()) != 0xFFFFFFFF;
 #else
 	struct stat64 file_info;
 
@@ -157,15 +157,13 @@ bool exists(const std::string &filename)
 }
 
 // Returns true if filename is a directory
-bool isDirectory(const std::string &filename)
-{
+bool isDirectory(const std::string &filename) {
 	FileInfo info;
 	getFileInfo(filename.c_str(), &info);
 	return info.isDirectory;
 }
 
-bool getFileInfo(const char *path, FileInfo *fileInfo)
-{
+bool getFileInfo(const char *path, FileInfo *fileInfo) {
 	// TODO: Expand relative paths?
 	fileInfo->fullName = path;
 
@@ -207,7 +205,7 @@ bool getFileInfo(const char *path, FileInfo *fileInfo)
 }
 
 std::string getFileExtension(const std::string &fn) {
-	int pos = fn.rfind(".");
+	int pos = (int)fn.rfind(".");
 	if (pos < 0) return "";
 	std::string ext = fn.substr(pos+1);
 	for (size_t i = 0; i < ext.size(); i++) {
@@ -248,7 +246,8 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
 #ifdef UNICODE
-	HANDLE hFind = FindFirstFile((std::wstring(directory) + "\\*").c_str(), &ffd);
+
+	HANDLE hFind = FindFirstFile((ConvertUTF8ToWString(directory) + L"\\*").c_str(), &ffd);
 #else
 	HANDLE hFind = FindFirstFile((std::string(directory) + "\\*").c_str(), &ffd);
 #endif
@@ -259,7 +258,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	// windows loop
 	do
 	{
-		const std::string virtualName(ffd.cFileName);
+		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 #else
 	struct dirent_large { struct dirent entry; char padding[FILENAME_MAX+1]; };
 	struct dirent_large diren;
@@ -316,7 +315,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 void deleteFile(const char *file)
 {
 #ifdef _WIN32
-	if (!DeleteFile(file)) {
+	if (!DeleteFile(ConvertUTF8ToWString(file).c_str())) {
 		ELOG("Error deleting %s: %i", file, GetLastError());
 	}
 #else
@@ -330,7 +329,7 @@ void deleteFile(const char *file)
 void deleteDir(const char *dir)
 {
 #ifdef _WIN32
-	if (!RemoveDirectory(dir)) {
+	if (!RemoveDirectory(ConvertUTF8ToWString(dir).c_str())) {
 		ELOG("Error deleting directory %s: %i", dir, GetLastError());
 	}
 #else
@@ -390,7 +389,7 @@ std::vector<std::string> getWindowsDrives()
 		auto drive = buff.data();
 		while (*drive)
 		{
-			std::string str(drive);
+			std::string str(ConvertWStringToUTF8(drive));
 			str.pop_back();	// we don't want the final backslash
 			str += "/";
 			drives.push_back(str);

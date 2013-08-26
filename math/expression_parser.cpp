@@ -147,7 +147,7 @@ bool parseNumber(char* str, int defaultrad, int len, uint32& result)
 	return true;
 }
 
-ExpressionOpcodeType getExpressionOpcode(char* str, int& ReturnLen, ExpressionOpcodeType LastOpcode)
+ExpressionOpcodeType getExpressionOpcode(const char* str, int& ReturnLen, ExpressionOpcodeType LastOpcode)
 {
 	int longestlen = 0;
 	ExpressionOpcodeType result = EXOP_NONE;
@@ -185,12 +185,12 @@ bool isAlphaNum(char c)
 	}
 }
 
-bool initPostfixExpression(char* infix, IExpressionFunctions* funcs, PostfixExpression& dest)
+bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, PostfixExpression& dest)
 {
 	expressionError[0] = 0;
 
 	int infixPos = 0;
-	int infixLen = strlen(infix);
+	int infixLen = (int)strlen(infix);
 	ExpressionOpcodeType lastOpcode = EXOP_NONE;
 	std::vector<ExpressionOpcodeType> opcodeStack;
 	dest.clear();

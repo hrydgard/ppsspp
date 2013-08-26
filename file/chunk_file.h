@@ -57,7 +57,8 @@ private:
 	int numLevels;
 
 	uint8_t *data;
-	int pos, eof;
+	int pos;
+	int eof;
 	bool fastMode;
 	bool read;
 	bool didFail;

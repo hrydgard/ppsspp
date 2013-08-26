@@ -214,23 +214,17 @@ void ChunkFile::writeWString(String str) {
 }
 */
 
+// Takes utf-8
 void ChunkFile::writeWString(const std::string &str) {
 	unsigned short *text;
 	size_t len = str.length();
-#ifdef UNICODE
-#error
-	text = str.c_str();
-#else
 	text = new unsigned short[len+1];
 	for (int i=0; i<len; i++)
 		text[i]=str[i];
 	text[len]=0;
-#endif
 	writeInt(len);
 	writeData((char *)text, len * sizeof(unsigned short));
-#ifndef UNICODE
 	delete [] text;
-#endif
 }
 
 static void toUnicode(const std::string &str, uint16 *t) {
