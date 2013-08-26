@@ -147,13 +147,6 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					}
 					break;
 				};
-				break;		
-			case IDC_MODENORMAL:
-				mv->setMode(MV_NORMAL);
-				break;
-			case IDC_MODESYMBOLS:
-				mv->setMode(MV_NORMAL);
-	//			mv->setMode(MV_SYMBOLS);
 				break;
 			}
 		}
