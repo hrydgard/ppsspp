@@ -16,14 +16,18 @@ void I18NRepo::Clear() {
 }
 
 const char *I18NCategory::T(const char *key, const char *def) {
-	auto iter = map_.find(key);
+	// Replace the \n's with \\n's so that we can use newlines in ini key values.
+	std::string modifiedKey = key;
+	modifiedKey = ReplaceAll(modifiedKey, "\n", "\\n");
+
+	auto iter = map_.find(modifiedKey);
 	if (iter != map_.end()) {
 		return iter->second.text.c_str();
 	} else {
 		if (def)
 			missedKeyLog_[key] = def;
 		else
-			missedKeyLog_[key] = key;
+			missedKeyLog_[key] = modifiedKey.c_str();
 		return def ? def : key;
 	}
 }
