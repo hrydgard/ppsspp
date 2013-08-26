@@ -196,17 +196,17 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 
 	case FILETYPE_ARCHIVE_RAR:
 #ifdef WIN32
-		*error_string = "File is compressed (RAR).\nPlease decompress first (try WinRAR)";
+		*error_string = "File is compressed (RAR). Please decompress first (try WinRAR)";
 #else
-		*error_string = "File is compressed (RAR).\nPlease decompress first (try UnRAR)";
+		*error_string = "File is compressed (RAR). Please decompress first (try UnRAR)";
 #endif
 		break;
 
 	case FILETYPE_ARCHIVE_ZIP:
 #ifdef WIN32
-		*error_string = "File is compressed (ZIP).\nPlease decompress first (try WinRAR)";
+		*error_string = "File is compressed (ZIP). Please decompress first (try WinRAR)";
 #else
-		*error_string = "File is compressed (ZIP).\nPlease decompress first (try UnRAR)";
+		*error_string = "File is compressed (ZIP). Please decompress first (try UnRAR)";
 #endif
 		break;
 
