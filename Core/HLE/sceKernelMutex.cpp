@@ -405,11 +405,11 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 
 int sceKernelDeleteMutex(SceUID id)
 {
-	DEBUG_LOG(HLE,"sceKernelDeleteMutex(%i)", id);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (mutex)
 	{
+		DEBUG_LOG(HLE, "sceKernelDeleteMutex(%i)", id);
 		bool wokeThreads = false;
 		std::vector<SceUID>::iterator iter, end;
 		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
@@ -425,7 +425,10 @@ int sceKernelDeleteMutex(SceUID id)
 		return kernelObjects.Destroy<Mutex>(id);
 	}
 	else
+	{
+		DEBUG_LOG(HLE, "sceKernelDeleteMutex(%i): invalid mutex", id);
 		return error;
+	}
 }
 
 bool __KernelLockMutexCheck(Mutex *mutex, int count, u32 &error)
@@ -565,6 +568,65 @@ void __KernelWaitMutex(Mutex *mutex, u32 timeoutPtr)
 
 	// This should call __KernelMutexTimeout() later, unless we cancel it.
 	CoreTiming::ScheduleEvent(usToCycles(micro), mutexWaitTimer, __KernelGetCurThread());
+}
+
+int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
+{
+	u32 error;
+	Mutex *mutex = kernelObjects.Get<Mutex>(uid, error);
+	if (mutex)
+	{
+		bool lockable = count <= 0 || __KernelLockMutexCheck(mutex, count, error);
+		if (!lockable)
+		{
+			// May still be okay.  As long as the count/etc. are valid.
+			if (error != 0 && error != PSP_MUTEX_ERROR_LOCK_OVERFLOW && error != PSP_MUTEX_ERROR_ALREADY_LOCKED)
+			{
+				DEBUG_LOG(HLE, "sceKernelCancelMutex(%i, %d, %08x): invalid count", uid, count, numWaitThreadsPtr);
+				return error;
+			}
+		}
+
+		DEBUG_LOG(HLE, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
+
+		// Remove threads no longer waiting on this first (so the numWaitThreads value is correct.)
+		for (auto iter = mutex->waitingThreads.begin(); iter != mutex->waitingThreads.end(); ++iter)
+		{
+			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_MUTEX, error);
+			// The thread is no longer waiting for this, clean it up.
+			if (waitID != uid)
+				mutex->waitingThreads.erase(iter--);
+		}
+
+		if (Memory::IsValidAddress(numWaitThreadsPtr))
+			Memory::Write_U32((u32)mutex->waitingThreads.size(), numWaitThreadsPtr);
+
+		bool wokeThreads = false;
+		for (auto iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
+			wokeThreads |= __KernelUnlockMutexForThread(mutex, *iter, error, SCE_KERNEL_ERROR_WAIT_CANCEL);
+
+		if (mutex->nm.lockThread != -1)
+			__KernelMutexEraseLock(mutex);
+		mutex->waitingThreads.clear();
+
+		if (count <= 0)
+		{
+			mutex->nm.lockLevel = 0;
+			mutex->nm.lockThread = -1;
+		}
+		else
+			__KernelMutexAcquireLock(mutex, count);
+
+		if (wokeThreads)
+			hleReSchedule("mutex canceled");
+
+		return 0;
+	}
+	else
+	{
+		DEBUG_LOG(HLE, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
+		return error;
+	}
 }
 
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
