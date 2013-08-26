@@ -107,7 +107,11 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 	}
 
 	if (result != 0) {
+#ifdef _WIN32
 		error = gai_strerrorA(result);
+#else
+		error = gai_strerror(result);
+#endif
 		if (*res != NULL)
 			freeaddrinfo(*res);
 		*res = NULL;
