@@ -68,6 +68,7 @@ const WaitTypeNames waitTypeNames[] = {
 	{ WAITTYPE_MODULE,          "Module" },
 	{ WAITTYPE_HLEDELAY,        "HleDelay" },
 	{ WAITTYPE_TLS,             "TLS" },
+	{ WAITTYPE_VMEM,            "Volatile Mem" },
 };
 
 const char *getWaitTypeName(WaitType type)
