@@ -30,13 +30,13 @@ INT_PTR CALLBACK BreakpointWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 		if (bp->address != -1)
 		{
 			sprintf(str,"0x%08X",bp->address);
-			SetWindowText(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str);
+			SetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str);
 		}
 
 		sprintf(str,"0x%08X",bp->size);
-		SetWindowText(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),str);
+		SetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),str);
 		
-		SetWindowText(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),bp->condition);
+		SetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),bp->condition);
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam))
@@ -120,49 +120,49 @@ bool BreakpointWindow::fetchDialogData(HWND hwnd)
 	onChange = SendMessage(GetDlgItem(hwnd,IDC_BREAKPOINT_ONCHANGE),BM_GETCHECK,0,0) != 0;
 
 	// parse address
-	GetWindowText(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str,256);
+	GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_ADDRESS),str,256);
 	if (cpu->initExpression(str,exp) == false)
 	{
 		sprintf(errorMessage,"Invalid expression \"%s\".",str);
-		MessageBox(hwnd,errorMessage,"Error",MB_OK);
+		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
 
 	if (cpu->parseExpression(exp,address) == false)
 	{
 		sprintf(errorMessage,"Invalid expression \"%s\".",str);
-		MessageBox(hwnd,errorMessage,"Error",MB_OK);
+		MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 		return false;
 	}
 
 	if (memory)
 	{
 		// parse size
-		GetWindowText(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),str,256);
+		GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_SIZE),str,256);
 		if (cpu->initExpression(str,exp) == false)
 		{
 			sprintf(errorMessage,"Invalid expression \"%s\".",str);
-			MessageBox(hwnd,errorMessage,"Error",MB_OK);
+			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}
 
 		if (cpu->parseExpression(exp,size) == false)
 		{
 			sprintf(errorMessage,"Invalid expression \"%s\".",str);
-			MessageBox(hwnd,errorMessage,"Error",MB_OK);
+			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}
 	}
 
 	// condition
-	GetWindowText(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),condition,128);
+	GetWindowTextA(GetDlgItem(hwnd,IDC_BREAKPOINT_CONDITION),condition,128);
 	compiledCondition.clear();
 	if (condition[0] != 0)
 	{
 		if (cpu->initExpression(condition,compiledCondition) == false)
 		{
 			sprintf(errorMessage,"Invalid expression \"%s\".",str);
-			MessageBox(hwnd,errorMessage,"Error",MB_OK);
+			MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 			return false;
 		}
 	}

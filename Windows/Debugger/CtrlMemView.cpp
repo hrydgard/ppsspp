@@ -16,7 +16,7 @@
 #include "DebuggerShared.h"
 #include "CtrlMemView.h"
 
-TCHAR CtrlMemView::szClassName[] = _T("CtrlMemView");
+wchar_t CtrlMemView::szClassName[] = L"CtrlMemView";
 extern HMENU g_hPopupMenus;
 
 CtrlMemView::CtrlMemView(HWND _wnd)
@@ -31,10 +31,10 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 
   font =
 	  CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
+		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
   underlineFont =
 	  CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
+		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
   curAddress=0;
   mode=MV_NORMAL;
   debugger = 0;
@@ -197,7 +197,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 		
 		sprintf(temp,"%08X",address);
 		SetTextColor(hdc,0x600000);
-		TextOut(hdc,addressStart,rowY,temp,(int)strlen(temp));
+		TextOutA(hdc,addressStart,rowY,temp,(int)strlen(temp));
 
 		SetTextColor(hdc,0x000000);
 		if (debugger->isAlive())
@@ -240,14 +240,14 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 								SetTextColor(hdc,0);
 								SetBkColor(hdc,0xC0C0C0);
 							}
-							TextOut(hdc,hexStart+j*3*charWidth,rowY,&temp[0],1);
+							TextOutA(hdc,hexStart+j*3*charWidth,rowY,&temp[0],1);
 							
 							if (hasFocus && !asciiSelected)
 							{
 								if (selectedNibble == 1) SelectObject(hdc,(HGDIOBJ)underlineFont);
 								else SelectObject(hdc,(HGDIOBJ)font);
 							}
-							TextOut(hdc,hexStart+j*3*charWidth+charWidth,rowY,&temp[1],1);
+							TextOutA(hdc,hexStart+j*3*charWidth+charWidth,rowY,&temp[1],1);
 
 							if (hasFocus && asciiSelected)
 							{
@@ -258,13 +258,13 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 								SetBkColor(hdc,0xC0C0C0);
 								SelectObject(hdc,(HGDIOBJ)font);
 							}
-							TextOut(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
+							TextOutA(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
 
 							SetTextColor(hdc,oldTextColor);
 							SetBkColor(hdc,oldBkColor);
 						} else {
-							TextOut(hdc,hexStart+j*3*charWidth,rowY,temp,2);
-							TextOut(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
+							TextOutA(hdc,hexStart+j*3*charWidth,rowY,temp,2);
+							TextOutA(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
 						}
 					}
 				}
@@ -458,7 +458,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
      
 			if (!Core_IsStepping()) // If emulator isn't paused
 			{
-				MessageBox(wnd,"You have to pause the emulator first","Sorry",0);
+				MessageBox(wnd,L"You have to pause the emulator first",0,0);
 				break;
 			}
 			else

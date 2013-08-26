@@ -19,6 +19,7 @@
 
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "util/text/utf8.h"
 
 #include "Core/Config.h"
 #include "Core/SaveState.h"
@@ -49,9 +50,8 @@
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
-void LaunchBrowser(const char *url)
-{
-	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+void LaunchBrowser(const char *url) {
+	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
 std::string System_GetName() {
@@ -107,7 +107,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	timeBeginPeriod(1);
 	MainWindow::Init(_hInstance);
 
-	g_hPopupMenus = LoadMenu(_hInstance, (LPCSTR)IDR_POPUPMENUS);
+	g_hPopupMenus = LoadMenu(_hInstance, (LPCWSTR)IDR_POPUPMENUS);
 
 	MainWindow::Show(_hInstance, iCmdShow);
 

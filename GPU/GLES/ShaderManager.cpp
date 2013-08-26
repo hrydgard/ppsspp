@@ -25,6 +25,8 @@
 
 #include <map>
 
+
+#include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 
 #include "Core/Reporting.h"
@@ -38,7 +40,7 @@
 Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
-	OutputDebugString(code);
+	OutputDebugStringUTF8(code);
 #endif
 	shader = glCreateShader(shaderType);
  	glShaderSource(shader, 1, &code, 0);
@@ -56,7 +58,7 @@ Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : fai
 		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
 		Reporting::ReportMessage("Error in shader compilation: info: %s / code: %s", infoLog, (const char *)code);
 #ifdef SHADERLOG
-		OutputDebugString(infoLog);
+		OutputDebugStringUTF8(infoLog);
 #endif
 		failed_ = true;
 		shader = 0;
@@ -89,9 +91,9 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
 			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
 #ifdef SHADERLOG
-			OutputDebugString(buf);
-			OutputDebugString(vs->source().c_str());
-			OutputDebugString(fs->source().c_str());
+			OutputDebugStringUTF8(buf);
+			OutputDebugStringUTF8(vs->source().c_str());
+			OutputDebugStringUTF8(fs->source().c_str());
 #endif
 			delete [] buf;	// we're dead!
 		}

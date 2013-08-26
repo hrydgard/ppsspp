@@ -17,9 +17,21 @@
 
 #include <algorithm>
 
+// For shell links
+#include "windows.h"
+#include "winnls.h"
+#include "shobjidl.h"
+#include "objbase.h"
+#include "objidl.h"
+#include "shlguid.h"
+#include "shlobj.h"
+
+// native stuff
 #include "base/NativeApp.h"
+#include "file/file_util.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "util/text/utf8.h"
 
 #include "Core/Core.h"
 #include "Core/Config.h"
@@ -43,7 +55,6 @@
 #include "Core/Debugger/SymbolMap.h"
 
 #include "Common/StringUtils.h"
-#include "file/file_util.h"
 #include "main.h"
 
 static PMixer *curMixer;
@@ -289,5 +300,77 @@ void WindowsHost::UpdateConsolePosition()
 
 bool WindowsHost::InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outLength)
 {
-	return InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), title, defaultValue, outValue, outLength);
+	std::string out;
+	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
+		strcpy(outValue, out.c_str());
+		return true;
+	} else {
+		return false;
+	}
+}
+
+
+// http://msdn.microsoft.com/en-us/library/aa969393.aspx
+HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
+	HRESULT hres; 
+	IShellLink* psl; 
+	CoInitialize(0);
+
+	// Get a pointer to the IShellLink interface. It is assumed that CoInitialize
+	// has already been called.
+	hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLink, (LPVOID*)&psl); 
+	if (SUCCEEDED(hres)) { 
+		IPersistFile* ppf; 
+
+		// Set the path to the shortcut target and add the description. 
+		psl->SetPath(lpszPathObj); 
+		psl->SetArguments(lpszArguments);
+		psl->SetDescription(lpszDesc); 
+
+		// Query IShellLink for the IPersistFile interface, used for saving the 
+		// shortcut in persistent storage. 
+		hres = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf); 
+
+		if (SUCCEEDED(hres)) { 
+			// Save the link by calling IPersistFile::Save. 
+			hres = ppf->Save(lpszPathLink, TRUE); 
+			ppf->Release(); 
+		} 
+		psl->Release(); 
+	}
+	CoUninitialize();
+
+	return hres; 
+}
+
+bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string gameTitle) {
+	// TODO: not working correctly
+	return false;
+
+
+	// Get the desktop folder
+	wchar_t *pathbuf = new wchar_t[MAX_PATH + gameTitle.size() + 100];
+	SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf);
+	
+	// Sanitize the game title for banned characters.
+	const char bannedChars[] = "<>:\"/\\|?*";
+	for (size_t i = 0; i < gameTitle.size(); i++) {
+		for (int c = 0; c < strlen(bannedChars); c++) {
+			if (gameTitle[i] == bannedChars[c]) {
+				gameTitle[i] = '_';
+				break;
+			}
+		}
+	}
+
+	wcscat(pathbuf, L"\\");
+	wcscat(pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
+
+	wchar_t module[MAX_PATH];
+	GetModuleFileName(NULL, module, MAX_PATH);
+
+	CreateLink(module, ConvertUTF8ToWString(argumentPath).c_str(), pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
+
+	delete [] pathbuf;
+	return false;
 }

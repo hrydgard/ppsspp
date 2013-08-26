@@ -10,7 +10,7 @@ class CtrlThreadList
 	HWND wnd;
 	WNDPROC oldProc;
 	std::vector<DebugThreadInfo> threads;
-	char stringBuffer[256];
+	wchar_t stringBuffer[256];
 
 public:
 	void setDialogItem(HWND hwnd);
@@ -29,7 +29,7 @@ class CtrlBreakpointList
 	WNDPROC oldProc;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
-	char breakpointText[256];
+	std::wstring breakpointText;
 	DebugInterface* cpu;
 	CtrlDisAsmView* disasm;
 
@@ -63,7 +63,7 @@ class CtrlStackTraceView
 	std::vector<MIPSStackWalk::StackFrame> frames;
 	DebugInterface* cpu;
 	CtrlDisAsmView* disasm;
-	char stringBuffer[256];
+	wchar_t stringBuffer[256];
 
 public:
 	void setCpu(DebugInterface* cpu)

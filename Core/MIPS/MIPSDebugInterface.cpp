@@ -171,7 +171,7 @@ bool MIPSDebugInterface::getSymbolValue(char* symbol, u32& dest)
 	return symbolMap.getSymbolValue(symbol,dest);
 }
 
-bool MIPSDebugInterface::initExpression(char* exp, PostfixExpression& dest)
+bool MIPSDebugInterface::initExpression(const char* exp, PostfixExpression& dest)
 {
 	MipsExpressionFunctions funcs(this);
 	return initPostfixExpression(exp,&funcs,dest);

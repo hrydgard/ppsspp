@@ -18,6 +18,9 @@
 #include "Windows/main.h"
 
 #include "Common/CommonWindows.h"
+#include "util/text/utf8.h"
+
+#include <CommDlg.h>
 #include <tchar.h>
 #include <set>
 
@@ -156,9 +159,9 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	rowHeight = g_Config.iFontHeight+2;
 
 	font = CreateFont(rowHeight-2,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		"Lucida Console");
+		L"Lucida Console");
 	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		"Lucida Console");
+		L"Lucida Console");
 	curAddress=0;
 	instructionSize=4;
 	showHex=false;
@@ -169,7 +172,7 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 
 	matchAddress = -1;
 	searching = false;
-	searchQuery[0] = 0;
+	searchQuery = "";
 	windowStart = curAddress;
 	whiteBackground = false;
 	displaySymbols = true;
@@ -291,26 +294,25 @@ void CtrlDisAsmView::parseDisasm(const char* disasm, char* opcode, char* argumen
 
 void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 {
-	char op[256];
 	u32 encoded;
 
-	if (Core_IsStepping() == false)
-	{
-		MessageBox(wnd,"Cannot change code while the core is running!","Error",MB_OK);
+	if (Core_IsStepping() == false) {
+		MessageBox(wnd,L"Cannot change code while the core is running!",L"Error",MB_OK);
 		return;
 	}
+	std::string op;
+	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,L"Assemble opcode",defaultText, op, false);
+	if (!result)
+		return;
 
-	bool result = InputBox_GetString(MainWindow::GetHInstance(),wnd,"Assemble opcode",(char*)defaultText.c_str(),op,false);
-	if (result == false) return;
-
-	result = MIPSAsm::MipsAssembleOpcode(op,debugger,address,encoded);
+	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address,encoded);
 	if (result == true)
 	{
 		Memory::Write_U32(encoded,address);
 		MIPSComp::jit->ClearCacheAt(address);
 		redraw();
 	} else {
-		MessageBox(wnd,"Couldn''t assemble.","Error",MB_OK);
+		MessageBox(wnd,L"Couldn't assemble.",L"Error",MB_OK);
 	}
 }
 
@@ -341,8 +343,8 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	HPEN oldPen=(HPEN)SelectObject(hdc,nullPen);
 	HBRUSH oldBrush=(HBRUSH)SelectObject(hdc,nullBrush);
 	HFONT oldFont = (HFONT)SelectObject(hdc,(HGDIOBJ)font);
-	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCSTR)IDI_STOP);
-	HICON breakPointDisable = (HICON)LoadIcon(GetModuleHandle(0),(LPCSTR)IDI_STOPDISABLE);
+	HICON breakPoint = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOP);
+	HICON breakPointDisable = (HICON)LoadIcon(GetModuleHandle(0),(LPCWSTR)IDI_STOPDISABLE);
 
 	for (int i = 0; i < visibleRows+2; i++)
 	{
@@ -396,11 +398,11 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 
 		char addressText[64];
 		getDisasmAddressText(address,addressText,true);
-		TextOut(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
+		TextOutA(hdc,pixelPositions.addressStart,rowY1+2,addressText,(int)strlen(addressText));
 
 		if (address == debugger->getPC())
 		{
-			TextOutW(hdc,pixelPositions.opcodeStart-8,rowY1,L"■",1);
+			TextOut(hdc,pixelPositions.opcodeStart-8,rowY1,L"■",1);
 		}
 
 		// display opcode
@@ -415,10 +417,10 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 		}
 
 		int length = (int) strlen(arguments);
-		if (length != 0) TextOut(hdc,pixelPositions.argumentsStart,rowY1+2,arguments,length);
+		if (length != 0) TextOutA(hdc,pixelPositions.argumentsStart,rowY1+2,arguments,length);
 			
 		SelectObject(hdc,boldfont);
-		TextOut(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
+		TextOutA(hdc,pixelPositions.opcodeStart,rowY1+2,opcode,(int)strlen(opcode));
 		SelectObject(hdc,font);
 
 		if (info.isBranch && info.isConditional)
@@ -460,7 +462,7 @@ void CtrlDisAsmView::onPaint(WPARAM wParam, LPARAM lParam)
 	SelectObject(hdc,oldBrush);
 
 	// copy bitmap to the actual hdc
-	BitBlt(actualHdc,0,0,rect.right,rect.bottom,hdc,0,0,SRCCOPY);
+	BitBlt(actualHdc, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);
 	DeleteObject(hBM);
 	DeleteDC(hdc);
 
@@ -666,7 +668,7 @@ void CtrlDisAsmView::toggleBreakpoint()
 		} else if (CBreakPoints::GetBreakPointCondition(curAddress) != NULL)
 		{
 			// don't just delete a breakpoint with a custom condition
-			int ret = MessageBox(wnd,"This breakpoint has a custom condition.\nDo you want to remove it?","Confirmation",MB_YESNO);
+			int ret = MessageBox(wnd,L"This breakpoint has a custom condition.\nDo you want to remove it?",L"Confirmation",MB_YESNO);
 			if (ret != IDYES) return;
 			CBreakPoints::RemoveBreakPoint(curAddress);
 		} else {
@@ -793,18 +795,18 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				if (sym != -1)
 				{
 					char name[256];
-					char newname[256];
+					std::string newname;
 					strncpy_s(name, symbolMap.GetSymbolName(sym),_TRUNCATE);
-					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), "New function name", name, newname))
+					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname))
 					{
-						symbolMap.SetSymbolName(sym,newname);
+						symbolMap.SetSymbolName(sym, newname.c_str());
 						redraw();
 						SendMessage(GetParent(wnd),WM_DEB_MAPLOADED,0,0);
 					}
 				}
 				else
 				{
-					MessageBox(MainWindow::GetHWND(),"No symbol selected",0,0);
+					MessageBox(MainWindow::GetHWND(), L"No symbol selected",0,0);
 				}
 			}
 			break;
@@ -904,7 +906,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 
 	if (continueSearch == false || searchQuery[0] == 0)
 	{
-		if (InputBox_GetString(MainWindow::GetHInstance(),MainWindow::GetHWND(),"Search for:","",searchQuery) == false
+		if (InputBox_GetString(MainWindow::GetHInstance(),MainWindow::GetHWND(),L"Search for:","",searchQuery) == false
 			|| searchQuery[0] == 0)
 		{
 			SetFocus(wnd);
@@ -924,9 +926,8 @@ void CtrlDisAsmView::search(bool continueSearch)
 	// limit address to sensible ranges
 	if (searchAddress < 0x04000000) searchAddress = 0x04000000;
 	if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
-	if (searchAddress >= 0x0A000000)
-	{	
-		MessageBox(wnd,"Not found","Search",MB_OK);
+	if (searchAddress >= 0x0A000000) {	
+		MessageBox(wnd,L"Not found",L"Search",MB_OK);
 		return;
 	}
 
@@ -951,7 +952,7 @@ void CtrlDisAsmView::search(bool continueSearch)
 		merged[mergePos] = 0;
 
 		// match!
-		if (strstr(merged,searchQuery) != NULL)
+		if (strstr(merged, searchQuery.c_str()) != NULL)
 		{
 			matchAddress = searchAddress;
 			searching = false;
@@ -970,20 +971,20 @@ void CtrlDisAsmView::search(bool continueSearch)
 		if (searchAddress >= 0x04200000 && searchAddress < 0x08000000) searchAddress = 0x08000000;
 	}
 	
-	MessageBox(wnd,"Not found","Search",MB_OK);
+	MessageBox(wnd,L"Not found",L"Search",MB_OK);
 	searching = false;
 }
 
 void CtrlDisAsmView::disassembleToFile()
 {
-	char fileName[MAX_PATH];
+	wchar_t fileName[MAX_PATH];
 	u32 size;
 
 	// get size
 	if (executeExpressionWindow(wnd,debugger,size) == false) return;
 	if (size == 0 || size > 10*1024*1024)
 	{
-		MessageBox(wnd,"Invalid size!","Error",MB_OK);
+		MessageBox(wnd,L"Invalid size!",L"Error",MB_OK);
 		return;
 	}
 
@@ -995,7 +996,7 @@ void CtrlDisAsmView::disassembleToFile()
 	ofn.lpstrFile = fileName ;
 	ofn.lpstrFile[0] = '\0';
 	ofn.nMaxFile = sizeof( fileName );
-	ofn.lpstrFilter = "All files";
+	ofn.lpstrFilter = L"All files";
 	ofn.nFilterIndex = 1;
 	ofn.lpstrFileTitle = NULL ;
 	ofn.nMaxFileTitle = 0 ;
@@ -1004,10 +1005,9 @@ void CtrlDisAsmView::disassembleToFile()
 
 	if (GetSaveFileName(&ofn) == false) return;
 
-	FILE* output = fopen(fileName,"w");
-	if (output == NULL)
-	{
-		MessageBox(wnd,"Could not open file!","Error",MB_OK);
+	FILE* output = fopen(ConvertWStringToUTF8(fileName).c_str(),"w");
+	if (output == NULL) {
+		MessageBox(wnd,L"Could not open file!",L"Error",MB_OK);
 		return;
 	}
 
@@ -1059,14 +1059,14 @@ void CtrlDisAsmView::disassembleToFile()
 	}
 
 	fclose(output);
-	MessageBox(wnd,"Finished!","Done",MB_OK);
+	MessageBox(wnd,L"Finished!",L"Done",MB_OK);
 }
 
 void CtrlDisAsmView::getOpcodeText(u32 address, char* dest)
 {
-	char opcode[64],arguments[256];
+	char opcode[64];
+	char arguments[256];
 	const char *dis = debugger->disasm(address, instructionSize);
 	parseDisasm(dis,opcode,arguments);
-
 	sprintf(dest,"%s  %s",opcode,arguments);
 }

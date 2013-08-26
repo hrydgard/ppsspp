@@ -19,7 +19,6 @@
 // It's improving slowly, though. :)
 
 #include "Common/CommonWindows.h"
-#include <tchar.h>
 
 #include <map>
 
@@ -29,8 +28,11 @@
 #include "shellapi.h"
 #include "commctrl.h"
 
+#include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "util/text/utf8.h"
+
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -56,13 +58,11 @@
 #include "Windows/W32Util/Misc.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "native/image/png_load.h"
 #include "GPU/GLES/TextureScaler.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
-#include "i18n/i18n.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -138,7 +138,7 @@ namespace MainWindow
 		wcex.hIcon			= LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP); 
 		wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
 		wcex.hbrBackground	= (HBRUSH)GetStockObject(BLACK_BRUSH);
-		wcex.lpszMenuName	= (LPCSTR)IDR_MENU1;
+		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName	= szWindowClass;
 		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16,16,LR_SHARED);
 		RegisterClassEx(&wcex);
@@ -321,12 +321,12 @@ namespace MainWindow
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
-		hwndMain = CreateWindowEx(0,szWindowClass, "", style,
+		hwndMain = CreateWindowEx(0,szWindowClass, L"", style,
 			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
 		if (!hwndMain)
 			return FALSE;
 
-		hwndDisplay = CreateWindowEx(0, szDisplayClass, TEXT(""), WS_CHILD | WS_VISIBLE,
+		hwndDisplay = CreateWindowEx(0, szDisplayClass, L"", WS_CHILD | WS_VISIBLE,
 			rcOrig.left, rcOrig.top, rcOrig.right - rcOrig.left, rcOrig.bottom - rcOrig.top, hwndMain, 0, hInstance, 0);
 		if (!hwndDisplay)
 			return FALSE;
@@ -1045,7 +1045,7 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_CONTROLS:
-					MessageBox(hWnd, "Control mapping has been moved to the in-window Settings menu.\n", "Sorry", 0);
+					MessageBox(hWnd, L"Control mapping has been moved to the in-window Settings menu.\n", L"Sorry", 0);
 					break;
 
 				case ID_EMULATION_SOUND:
@@ -1073,11 +1073,15 @@ namespace MainWindow
 					break;
 
 				case ID_HELP_OPENWEBSITE:
-					ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+					ShellExecute(NULL, L"open", L"http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+					break;
+
+				case ID_HELP_BUYGOLD:
+					ShellExecute(NULL, L"open", L"http://central.ppsspp.org/buygold", NULL, NULL, SW_SHOWNORMAL);
 					break;
 
 				case ID_HELP_OPENFORUM:
-					ShellExecute(NULL, "open", "http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+					ShellExecute(NULL, L"open", L"http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
 					break;
 
 				case ID_HELP_ABOUT:
@@ -1091,7 +1095,7 @@ namespace MainWindow
 					break;
 
 				default:
-					MessageBox(hwndMain,"Unimplemented","Sorry",0);
+					MessageBox(hwndMain, L"Unimplemented", L"Sorry",0);
 					break;
 				}
 			}
@@ -1161,7 +1165,7 @@ namespace MainWindow
 				HDROP hdrop = (HDROP)wParam;
 				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
 				if (count != 1) {
-					MessageBox(hwndMain,"You can only load one file at a time","Error",MB_ICONINFORMATION);
+					MessageBox(hwndMain,L"You can only load one file at a time",L"Error",MB_ICONINFORMATION);
 				}
 				else
 				{
@@ -1175,7 +1179,7 @@ namespace MainWindow
 					
 					Update();
 
-					NativeMessageReceived("boot", filename);
+					NativeMessageReceived("boot", ConvertWStringToUTF8(filename).c_str());
 				}
 			}
 			break;
@@ -1403,7 +1407,7 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
-		const char* pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? "Run\tF8" : "Pause\tF8";
+		const wchar_t * pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? L"Run\tF8" : L"Pause\tF8";
 		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
@@ -1437,7 +1441,7 @@ namespace MainWindow
 				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
 				char temp[256];
 				sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
-				SetWindowText(versionBox, temp);
+				SetWindowTextA(versionBox, temp);
 			}
 			return TRUE;
 

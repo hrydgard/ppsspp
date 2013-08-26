@@ -20,6 +20,7 @@
 
 #include "Common.h" // Local
 #include "StringUtils.h"
+#include "util/text/utf8.h"
 
 bool DefaultMsgHandler(const char* caption, const char* text, bool yes_no, int Style);
 static MsgAlertHandler msg_handler = DefaultMsgHandler;
@@ -106,15 +107,18 @@ bool MsgAlert(bool yes_no, int Style, const char* format, ...)
 bool DefaultMsgHandler(const char* caption, const char* text, bool yes_no, int Style)
 {
 #ifdef _WIN32
-    int STYLE = MB_ICONINFORMATION;
-    if (Style == QUESTION) STYLE = MB_ICONQUESTION;
-    if (Style == WARNING) STYLE = MB_ICONWARNING;
-    
-    return IDYES == MessageBox(0, text, caption, STYLE | (yes_no ? MB_YESNO : MB_OK));
-    
+	int STYLE = MB_ICONINFORMATION;
+	if (Style == QUESTION) STYLE = MB_ICONQUESTION;
+	if (Style == WARNING) STYLE = MB_ICONWARNING;
+
+	std::wstring wtext = ConvertUTF8ToWString(text);
+	std::wstring wcaption = ConvertUTF8ToWString(caption);
+
+	return IDYES == MessageBox(0, wtext.c_str(), wcaption.c_str(), STYLE | (yes_no ? MB_YESNO : MB_OK));
+
 #else
-    printf("%s\n", text);
-    return true;
+	printf("%s\n", text);
+	return true;
 #endif
 }
 
