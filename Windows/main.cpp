@@ -62,6 +62,17 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 {
 	Common::EnableCrashingOnCrashes();
 
+	wchar_t modulePath[MAX_PATH];
+	GetModuleFileName(NULL, modulePath, MAX_PATH);
+	for (int i = wcslen(modulePath) - 1; i > 0; i--) {
+		if (modulePath[i] == '\\') {
+			modulePath[i] = 0;
+			break;
+		}
+	}
+	SetCurrentDirectory(modulePath);
+	// GetCurrentDirectory(MAX_PATH, modulePath);  // for checking in the debugger
+
 	bool hideLog = true;
 
 #ifdef _DEBUG
