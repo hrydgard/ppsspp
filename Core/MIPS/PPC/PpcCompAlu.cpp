@@ -36,6 +36,7 @@ namespace MIPSComp
 	static u32 EvalAnd(u32 a, u32 b) { return a & b; }
 	static u32 EvalAdd(u32 a, u32 b) { return a + b; }
 	static u32 EvalSub(u32 a, u32 b) { return a - b; }
+	static u32 EvalNor(u32 a, u32 b) { return ~(a | b); }
 
 	// Utilities to reduce duplicated code
 	void Jit::CompType3(int rd, int rs, int rt, void (PPCXEmitter::*arith)(PPCReg Rd, PPCReg Ra, PPCReg Rb), u32 (*eval)(u32 a, u32 b), bool isSub) {
@@ -63,19 +64,9 @@ namespace MIPSComp
 	{
 		if (gpr.IsImm(rs)) {
 			gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
-		} else if(1) {
-
+		} else {
 			gpr.MapDirtyIn(rt, rs);
-			// TODO: Special case when uimm can be represented as an Operand2
-			/*
-			Operand2 op2;
-			if (TryMakeOperand2(uimm, op2)) {
-				(this->*arith)(gpr.R(rt), gpr.R(rs), op2);
-			} else 
-			*/
-			{
-				(this->*arith)(gpr.R(rt), gpr.R(rs), uimm);
-			}
+			(this->*arith)(gpr.R(rt), gpr.R(rs), uimm);
 		}
 	}
 
@@ -88,6 +79,8 @@ namespace MIPSComp
 
 		int rt = _RT;
 		int rs = _RS;
+
+		u8 o = op>>26;
 
 		// noop, won't write to ZERO.
 		if (rt == 0)
@@ -108,14 +101,63 @@ namespace MIPSComp
 				break;
 			}
 
-
-		//case 12: CompImmLogic(rs, rt, uimm, &PPCXEmitter::ANDI, &EvalAnd); break;
-		//case 13: CompImmLogic(rs, rt, uimm, &PPCXEmitter::ORI, &EvalOr); break;
-		//case 14: CompImmLogic(rs, rt, uimm, &PPCXEmitter::XORI, &EvalXor); break;
-
+		// Use with caution can change CR0 !
+		case 12: CompImmLogic(rs, rt, uimm, &PPCXEmitter::ANDI, &EvalAnd); break;
+		// Safe
+		case 13: CompImmLogic(rs, rt, uimm, &PPCXEmitter::ORI, &EvalOr); break;
+		case 14: CompImmLogic(rs, rt, uimm, &PPCXEmitter::XORI, &EvalXor); break;
 		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);
 			break;
+
+		case 10: // slti
+			{
+				if (gpr.IsImm(rs))
+				{
+					gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm);
+					break;
+				}
+				/*
+				//Break();
+				gpr.MapDirtyIn(rt, rs);
+
+				// Can't find better :s
+				CMPI(gpr.R(rs), uimm);
+
+				PpcGen::FixupBranch ptr = B_Cond(_BLT);
+
+				ptr = B_Cond(_BLT);
+
+				MOVI2R(gpr.R(rt), 1);
+				SetJumpTarget(ptr);
+				MOVI2R(gpr.R(rt), 0);
+				break;
+				*/
+			}
+
+		case 11: //sltiu
+			{
+				if (gpr.IsImm(rs))
+				{
+					gpr.SetImm(rt, gpr.GetImm(rs) < uimm);
+					break;
+				}
+				/*
+				//Break();
+				gpr.MapDirtyIn(rt, rs);
+
+				// Can't find better :s
+				CMPLI(gpr.R(rs), uimm);
+
+				PpcGen::FixupBranch ptr = B_Cond(_BLT);
+
+				MOVI2R(gpr.R(rt), 1);
+				SetJumpTarget(ptr);
+				MOVI2R(gpr.R(rt), 0);
+				break;
+				*/
+			}
+
 		default:
 			Comp_Generic(op);
 			break;
@@ -166,6 +208,10 @@ void Jit::Comp_RType3(u32 op) {
 	case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
 		CompType3(rd, rs, rt, &PPCXEmitter::XOR, &EvalXor);
 		break;
+	// Not tested !
+	case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
+		CompType3(rd, rs, rt, &PPCXEmitter::NOR, &EvalNor);
+		break;
 	default:
 		Comp_Generic(op);
 		break;
@@ -187,14 +233,6 @@ void Jit::Comp_ShiftType(u32 op) {
 	// WARNING : ROTR
 	switch (op & 0x3f)
 	{
-		/*
-	case 0: CompShiftImm(op, ST_LSL); break; //sll
-	case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR); break;	//srl
-	case 3: CompShiftImm(op, ST_ASR); break; //sra
-	case 4: CompShiftVar(op, ST_LSL); break; //sllv
-	case 6: CompShiftVar(op, fd == 1 ? ST_ROR : ST_LSR); break; //srlv
-	case 7: CompShiftVar(op, ST_ASR); break; //srav
-		*/
 		case 0:  //sll
 			gpr.MapDirtyIn(rd, rt);	
 			RLWINM(gpr.R(rd), gpr.R(rt), sa, 0, (31-sa));
@@ -203,12 +241,47 @@ void Jit::Comp_ShiftType(u32 op) {
 			gpr.MapDirtyIn(rd, rt);	
 			RLWINM(gpr.R(rd), gpr.R(rt), (32-sa), sa, 31);
 			break;
-/*
 		case 3: //sra
 			gpr.MapDirtyIn(rd, rt);	
-			RLWINM(gpr.R(rd), gpr.R(rt), sa, 0, (31-sa));
+			SRAWI(gpr.R(rd), gpr.R(rt), sa);
 			break;
-			*/
+
+		case 4: //sllv
+			if (gpr.IsImm(rs))
+			{
+				int sa = gpr.GetImm(rs) & 0x1F;
+				gpr.MapDirtyIn(rd, rt);
+				RLWINM(gpr.R(rd), gpr.R(rt), sa, 0, (31-sa));
+				break;
+			}
+			gpr.MapDirtyInIn(rd, rs, rt);
+			ANDI(SREG, gpr.R(rs), 0x1F);
+			SLW(gpr.R(rd), gpr.R(rt), SREG);
+			break;
+		case 6: //srlv
+			if (gpr.IsImm(rs))
+			{
+				int sa = gpr.GetImm(rs) & 0x1F;
+				gpr.MapDirtyIn(rd, rt);
+				RLWINM(gpr.R(rd), gpr.R(rt), (32-sa), sa, 31);
+				break;
+			}
+			gpr.MapDirtyInIn(rd, rs, rt);
+			ANDI(SREG, gpr.R(rs), 0x1F);
+			SRW(gpr.R(rd), gpr.R(rt), SREG);
+			break;
+		case 7: //srav
+			if (gpr.IsImm(rs))
+			{
+				int sa = gpr.GetImm(rs) & 0x1F;
+				gpr.MapDirtyIn(rd, rt);
+				SRAWI(gpr.R(rd), gpr.R(rt), sa);
+				break;
+			}
+			gpr.MapDirtyInIn(rd, rs, rt);
+			ANDI(SREG, gpr.R(rs), 0x1F);
+			SRAW(gpr.R(rd), gpr.R(rt), SREG);
+			break;
 	default:
 		Comp_Generic(op);
 		break;

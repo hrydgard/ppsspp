@@ -128,6 +128,8 @@ void Jit::Comp_Generic(u32 op) {
 	{
 		// Save mips PC and cycles
 		SaveDowncount(DCNTREG);
+		MOVI2R(SREG, js.compilerPC);
+		MovToPC(SREG);
 
 		// call interpreted function
 		MOVI2R(R3, op);
