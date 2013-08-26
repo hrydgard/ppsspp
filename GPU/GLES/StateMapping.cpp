@@ -266,7 +266,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 #if !defined(USING_GLES2)
 		// Logic Ops
-		if (gstate.isLogicOpEnabled() && !gstate.isAlphaBlendEnabled()) {
+		if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
 			glstate.colorLogicOp.enable();
 			glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
 		} else
