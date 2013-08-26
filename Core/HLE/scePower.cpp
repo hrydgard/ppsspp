@@ -228,7 +228,7 @@ int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 }
 
 int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
-	int error = __KernelVolatileMemLock(type, paddr, psize);
+	u32 error = __KernelVolatileMemLock(type, paddr, psize);
 
 	switch (error) {
 	case 0:
@@ -283,7 +283,7 @@ int sceKernelVolatileMemUnlock(int type) {
 }
 
 int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
-	int error = __KernelVolatileMemLock(type, paddr, psize);
+	u32 error = __KernelVolatileMemLock(type, paddr, psize);
 
 	switch (error) {
 	case 0:
