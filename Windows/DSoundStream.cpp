@@ -96,7 +96,7 @@ namespace DSound
 		 {
 		 char temp[8];
 		 sprintf(temp,"%i\n",hr);
-		 OutputDebugString(temp);
+		 OutputDebugStringUTF8(temp);
 		 }*/
 		return false; 
 	} 

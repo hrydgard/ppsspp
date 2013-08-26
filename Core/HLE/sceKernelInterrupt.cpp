@@ -89,6 +89,7 @@ void sceKernelCpuResumeIntr(u32 enable)
 	{
 		__EnableInterrupts();
 		hleRunInterrupts();
+		hleReSchedule("interrupts resumed");
 	}
 	else
 	{

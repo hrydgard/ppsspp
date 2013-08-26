@@ -30,7 +30,7 @@ void SplitLine(const char* Line, char* Name, char* Arguments)
 	*Arguments = 0;
 }
 
-bool MipsAssembleOpcode(char* line, DebugInterface* cpu, u32 address, u32& dest)
+bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address, u32& dest)
 {
 	char name[64],args[256];
 	SplitLine(line,name,args);
@@ -51,7 +51,7 @@ bool MipsAssembleOpcode(char* line, DebugInterface* cpu, u32 address, u32& dest)
 	return true;
 }
 
-int MipsGetRegister(char* source, int& RetLen)
+int MipsGetRegister(const char* source, int& RetLen)
 {
 	for (int z = 0; MipsRegister[z].name != NULL; z++)
 	{
@@ -69,7 +69,7 @@ int MipsGetRegister(char* source, int& RetLen)
 	return -1;
 }
 
-int MipsGetFloatRegister(char* source, int& RetLen)
+int MipsGetFloatRegister(const char* source, int& RetLen)
 {
 	for (int z = 0; MipsFloatRegister[z].name != NULL; z++)
 	{
@@ -87,7 +87,7 @@ int MipsGetFloatRegister(char* source, int& RetLen)
 	return -1;
 }
 
-bool MipsCheckImmediate(char* Source, char* Dest, int& RetLen)
+bool MipsCheckImmediate(const char* Source, char* Dest, int& RetLen)
 {
 	int BufferPos = 0;
 	int l;

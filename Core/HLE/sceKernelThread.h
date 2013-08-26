@@ -67,7 +67,7 @@ struct SceKernelSysClock {
 };
 
 
-// TODO: Map these to PSP wait types.
+// TODO: Map these to PSP wait types.  Most of these are wrong.
 // remember to update the waitTypeNames array in sceKernelThread.cpp when changing these
 enum WaitType
 {
@@ -93,6 +93,7 @@ enum WaitType
 	WAITTYPE_MODULE = 19,
 	WAITTYPE_HLEDELAY = 20,
 	WAITTYPE_TLS = 21,
+	WAITTYPE_VMEM = 22,
 
 	NUM_WAITTYPES
 };

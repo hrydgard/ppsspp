@@ -16,28 +16,27 @@
 #include "DebuggerShared.h"
 #include "CtrlMemView.h"
 
-TCHAR CtrlMemView::szClassName[] = _T("CtrlMemView");
+wchar_t CtrlMemView::szClassName[] = L"CtrlMemView";
 extern HMENU g_hPopupMenus;
 
 CtrlMemView::CtrlMemView(HWND _wnd)
 {
-  wnd=_wnd;
-  SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
-  SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
-  SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
+	wnd=_wnd;
+	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
+	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
+	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
 
-  rowHeight = g_Config.iFontHeight;
-  charWidth = g_Config.iFontWidth;
+	rowHeight = g_Config.iFontHeight;
+	charWidth = g_Config.iFontWidth;
 
-  font =
-	  CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
-  underlineFont =
-	  CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
-  curAddress=0;
-  mode=MV_NORMAL;
-  debugger = 0;
+	font =
+		CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
+	underlineFont =
+		CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
+	curAddress=0;
+	debugger = 0;
   
 	ctrlDown = false;
 	hasFocus = false;
@@ -165,8 +164,6 @@ CtrlMemView *CtrlMemView::getFrom(HWND hwnd)
 
 void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	if (!debugger) return;
-
 	// draw to a bitmap for double buffering
 	PAINTSTRUCT ps;	
 	HDC actualHdc = BeginPaint(wnd, &ps);
@@ -197,114 +194,68 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 		
 		sprintf(temp,"%08X",address);
 		SetTextColor(hdc,0x600000);
-		TextOut(hdc,addressStart,rowY,temp,(int)strlen(temp));
+		TextOutA(hdc,addressStart,rowY,temp,(int)strlen(temp));
 
 		SetTextColor(hdc,0x000000);
-		if (debugger->isAlive())
+
+		u32 memory[4];
+		bool valid = debugger != NULL && debugger->isAlive() && Memory::IsValidAddress(address);
+		if (valid)
 		{
+			memory[0] = debugger->readMemory(address);
+			memory[1] = debugger->readMemory(address+4);
+			memory[2] = debugger->readMemory(address+8);
+			memory[3] = debugger->readMemory(address+12);
+		}
 
-			switch(mode) {
-			case MV_NORMAL:
+		u8* m = (u8*) memory;
+		for (int j = 0; j < rowSize; j++)
+		{
+			if (valid) sprintf(temp,"%02X",m[j]);
+			else strcpy(temp,"??");
+
+			unsigned char c = m[j];
+			if (c < 32 || c >= 128 || valid == false) c = '.';
+
+			if (address+j == curAddress)
+			{
+				COLORREF oldBkColor = GetBkColor(hdc);
+				COLORREF oldTextColor = GetTextColor(hdc);
+
+				if (hasFocus && !asciiSelected)
 				{
-					u32 memory[4];
-					if (Memory::IsValidAddress(address))
-					{
-						memory[0] = debugger->readMemory(address);
-						memory[1] = debugger->readMemory(address+4);
-						memory[2] = debugger->readMemory(address+8);
-						memory[3] = debugger->readMemory(address+12);
-					}
-					else
-					{
-						memory[0] = memory[1] = memory[2] = memory[3] = 0xFFFFFFFF;
-					}
-
-					u8* m = (u8*) memory;
-					for (int j = 0; j < rowSize; j++)
-					{
-						sprintf(temp,"%02X",m[j]);
-						unsigned char c = m[j];
-						if (c < 32 || c >= 128) c = '.';
-
-						if (address+j == curAddress)
-						{
-							COLORREF oldBkColor = GetBkColor(hdc);
-							COLORREF oldTextColor = GetTextColor(hdc);
-
-							if (hasFocus && !asciiSelected)
-							{
-								SetTextColor(hdc,0xFFFFFF);
-								SetBkColor(hdc,0xFF9933);
-								if (selectedNibble == 0) SelectObject(hdc,(HGDIOBJ)underlineFont);
-							} else {
-								SetTextColor(hdc,0);
-								SetBkColor(hdc,0xC0C0C0);
-							}
-							TextOut(hdc,hexStart+j*3*charWidth,rowY,&temp[0],1);
-							
-							if (hasFocus && !asciiSelected)
-							{
-								if (selectedNibble == 1) SelectObject(hdc,(HGDIOBJ)underlineFont);
-								else SelectObject(hdc,(HGDIOBJ)font);
-							}
-							TextOut(hdc,hexStart+j*3*charWidth+charWidth,rowY,&temp[1],1);
-
-							if (hasFocus && asciiSelected)
-							{
-								SetTextColor(hdc,0xFFFFFF);
-								SetBkColor(hdc,0xFF9933);
-							} else {
-								SetTextColor(hdc,0);
-								SetBkColor(hdc,0xC0C0C0);
-								SelectObject(hdc,(HGDIOBJ)font);
-							}
-							TextOut(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
-
-							SetTextColor(hdc,oldTextColor);
-							SetBkColor(hdc,oldBkColor);
-						} else {
-							TextOut(hdc,hexStart+j*3*charWidth,rowY,temp,2);
-							TextOut(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
-						}
-					}
+					SetTextColor(hdc,0xFFFFFF);
+					SetBkColor(hdc,0xFF9933);
+					if (selectedNibble == 0) SelectObject(hdc,(HGDIOBJ)underlineFont);
+				} else {
+					SetTextColor(hdc,0);
+					SetBkColor(hdc,0xC0C0C0);
 				}
-				break;
-/*			case MV_SYMBOLS:
+				TextOutA(hdc,hexStart+j*3*charWidth,rowY,&temp[0],1);
+							
+				if (hasFocus && !asciiSelected)
 				{
-					SetTextColor(hdc,0x0000FF);
-					int fn = symbolMap.GetSymbolNum(address);
-					if (fn==-1)
-					{
-						sprintf(temp, "%s (ns)", Memory::GetAddressName(address));
-					}
-					else
-                        sprintf(temp, "%s (0x%x b)", symbolMap.GetSymbolName(fn),symbolMap.GetSymbolSize(fn));
-					TextOut(hdc,200,rowY1,temp,(int)strlen(temp));
+					if (selectedNibble == 1) SelectObject(hdc,(HGDIOBJ)underlineFont);
+					else SelectObject(hdc,(HGDIOBJ)font);
+				}
+				TextOutA(hdc,hexStart+j*3*charWidth+charWidth,rowY,&temp[1],1);
 
-					SetTextColor(hdc,0x000000);
-					
-					if (align==4)
-					{
-						u32 value = Memory::ReadUnchecked_U32(address);
-						int num = symbolMap.GetSymbolNum(value);
-						if (num != -1)
-							sprintf(temp, "%08x [%s]", value, symbolMap.GetSymbolName(num));
-						else
-							sprintf(temp, "%08x", value);
-					}
-					else if (align==2)
-					{
-						u16 value = Memory::ReadUnchecked_U16(address);
-						int num = symbolMap.GetSymbolNum(value);
-						if (num != -1)
-							sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(num));
-						else
-							sprintf(temp, "%04x", value);
-					}
+				if (hasFocus && asciiSelected)
+				{
+					SetTextColor(hdc,0xFFFFFF);
+					SetBkColor(hdc,0xFF9933);
+				} else {
+					SetTextColor(hdc,0);
+					SetBkColor(hdc,0xC0C0C0);
+					SelectObject(hdc,(HGDIOBJ)font);
+				}
+				TextOutA(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
 
-					TextOut(hdc,70,rowY1,temp,(int)strlen(temp));
-					break;
-				}*/
+				SetTextColor(hdc,oldTextColor);
+				SetBkColor(hdc,oldBkColor);
+			} else {
+				TextOutA(hdc,hexStart+j*3*charWidth,rowY,temp,2);
+				TextOutA(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
 			}
 		}
 	}
@@ -458,7 +409,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
      
 			if (!Core_IsStepping()) // If emulator isn't paused
 			{
-				MessageBox(wnd,"You have to pause the emulator first","Sorry",0);
+				MessageBox(wnd,L"You have to pause the emulator first",0,0);
 				break;
 			}
 			else

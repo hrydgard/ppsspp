@@ -346,12 +346,10 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
 	enableReports_ = g_Config.sReportHost != "default";
-#ifndef ANDROID 
+//#ifndef ANDROID 
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
-	// Need to move the cheat config dir somewhere where it can be read/written on android
-
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
-#endif
+//#endif
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);
 	systemSettings->Add(new ItemHeader(g->T("General")));

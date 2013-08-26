@@ -16,4 +16,4 @@ enum { WM_DEB_GOTOWPARAM = WM_USER+2,
 
 bool executeExpressionWindow(HWND hwnd, DebugInterface* cpu, u32& dest);
 void displayExpressionError(HWND hwnd);
-bool parseExpression(char* exp, DebugInterface* cpu, u32& dest);
+bool parseExpression(const char* exp, DebugInterface* cpu, u32& dest);

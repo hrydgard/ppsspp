@@ -46,14 +46,14 @@ int sceKernelFreeVpl(SceUID uid, u32 addr);
 int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr);
 int sceKernelReferVplStatus(SceUID uid, u32 infoPtr);
 
-void sceKernelCreateFpl();
-void sceKernelDeleteFpl();
-void sceKernelAllocateFpl();
-void sceKernelAllocateFplCB();
-void sceKernelTryAllocateFpl();
-void sceKernelFreeFpl();
-void sceKernelCancelFpl();
-void sceKernelReferFplStatus();
+int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blocksize, u32 numBlocks, u32 optPtr);
+int sceKernelDeleteFpl(SceUID uid);
+int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr);
+int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr);
+int sceKernelTryAllocateFpl(SceUID uid, u32 blockPtrAddr);
+int sceKernelFreeFpl(SceUID uid, u32 blockPtr);
+int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr);
+int sceKernelReferFplStatus(SceUID uid, u32 statusPtr);
 
 int sceKernelGetCompiledSdkVersion();
 

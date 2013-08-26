@@ -18,7 +18,7 @@ Dialog::~Dialog()
 
 void Dialog::Create()
 {
-	m_hDlg = CreateDialogParam(m_hInstance, (LPCSTR)m_hResource, m_hParent, DlgProcStatic, (LPARAM)this);
+	m_hDlg = CreateDialogParam(m_hInstance, (LPCWSTR)m_hResource, m_hParent, DlgProcStatic, (LPARAM)this);
 	SetWindowLongPtr(m_hDlg, GWLP_USERDATA, (LONG_PTR)this);
 }
 

@@ -32,6 +32,7 @@
 #include "FileSearch.h"
 
 #include "StringUtils.h"
+#include "util/text/utf8.h"
 
 
 CFileSearch::CFileSearch(const CFileSearch::XStringVector& _rSearchStrings, const CFileSearch::XStringVector& _rDirectories)
@@ -53,7 +54,8 @@ void CFileSearch::FindFiles(const std::string& _searchString, const std::string&
 	BuildCompleteFilename(GCMSearchPath, _strPath, _searchString);
 #ifdef _WIN32
 	WIN32_FIND_DATA findData;
-	HANDLE FindFirst = FindFirstFile(GCMSearchPath.c_str(), &findData);
+	std::wstring searchPathW = ConvertUTF8ToWString(GCMSearchPath);
+	HANDLE FindFirst = FindFirstFile(searchPathW.c_str(), &findData);
 
 	if (FindFirst != INVALID_HANDLE_VALUE)
 	{
@@ -64,7 +66,7 @@ void CFileSearch::FindFiles(const std::string& _searchString, const std::string&
 			if (findData.cFileName[0] != '.')
 			{
 				std::string strFilename;
-				BuildCompleteFilename(strFilename, _strPath, findData.cFileName);
+				BuildCompleteFilename(strFilename, _strPath, ConvertWStringToUTF8(findData.cFileName));
 				m_FileNames.push_back(strFilename);
 			}
 

@@ -28,6 +28,7 @@
 #endif
 
 #include "thread/threadutil.h"
+#include "util/text/utf8.h"
 #include "Common.h"
 #include "LogManager.h" // Common
 #include "ConsoleListener.h" // Common
@@ -89,7 +90,9 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 		// Save the window handle that AllocConsole() created
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 		// Set the console window title
-		SetConsoleTitle(Title);
+		SetConsoleTitle(ConvertUTF8ToWString(Title).c_str());
+		SetConsoleCP(CP_UTF8);
+
 		// Set letter space
 		LetterSpace(Width, LOG_MAX_DISPLAY_LINES);
 		//MoveWindow(GetConsoleWindow(), 200,200, 800,800, true);
@@ -415,6 +418,7 @@ void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Tex
 	*/
 	DWORD cCharsWritten;
 	WORD Color;
+	static wchar_t tempBuf[2048];
 
 	switch (Level)
 	{
@@ -441,12 +445,16 @@ void ConsoleListener::WriteToConsole(LogTypes::LOG_LEVELS Level, const char *Tex
 	{
 		// First 10 chars white
 		SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-		WriteConsole(hConsole, Text, 10, &cCharsWritten, NULL);
+		int wlen = MultiByteToWideChar(CP_UTF8, 0, Text, (int)Len, NULL, NULL);
+		MultiByteToWideChar(CP_UTF8, 0, Text, (int)Len, tempBuf, wlen);
+		WriteConsole(hConsole, tempBuf, 10, &cCharsWritten, NULL);
 		Text += 10;
 		Len -= 10;
 	}
 	SetConsoleTextAttribute(hConsole, Color);
-	WriteConsole(hConsole, Text, (DWORD)Len, &cCharsWritten, NULL);
+	int wlen = MultiByteToWideChar(CP_UTF8, 0, Text, (int)Len, NULL, NULL);
+	MultiByteToWideChar(CP_UTF8, 0, Text, (int)Len, tempBuf, wlen);
+	WriteConsole(hConsole, tempBuf, (DWORD)Len, &cCharsWritten, NULL);
 }
 #endif
 
@@ -476,7 +484,7 @@ void ConsoleListener::PixelSpace(int Left, int Top, int Width, int Height, bool 
 
 	static const int MAX_BYTES = 1024 * 16;
 
-	std::vector<std::array<CHAR, MAX_BYTES>> Str;
+	std::vector<std::array<wchar_t, MAX_BYTES>> Str;
 	std::vector<std::array<WORD, MAX_BYTES>> Attr;
 
 	// ReadConsoleOutputAttribute seems to have a limit at this level

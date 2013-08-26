@@ -206,12 +206,12 @@ void GL_Shutdown() {
 	if (hRC) {
 		// Are We Able To Release The DC And RC Contexts?
 		if (!wglMakeCurrent(NULL,NULL)) {
-			MessageBox(NULL,"Release Of DC And RC Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release Of DC And RC Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 
 		// Are We Able To Delete The RC?
 		if (!wglDeleteContext(hRC)) {
-			MessageBox(NULL,"Release Rendering Context Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release Rendering Context Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 		hRC = NULL;
 	}
@@ -219,7 +219,7 @@ void GL_Shutdown() {
 	if (hDC && !ReleaseDC(hWnd,hDC)) {
 		DWORD err = GetLastError();
 		if (err != ERROR_DC_NOT_FOUND) {
-			MessageBox(NULL,"Release Device Context Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release Device Context Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 		hDC = NULL;
 	}

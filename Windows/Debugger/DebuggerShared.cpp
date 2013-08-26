@@ -1,7 +1,9 @@
+#include "util/text/utf8.h"
+
 #include "DebuggerShared.h"
 #include "../InputBox.h"
 
-bool parseExpression(char* exp, DebugInterface* cpu, u32& dest)
+bool parseExpression(const char* exp, DebugInterface* cpu, u32& dest)
 {
 	PostfixExpression postfix;
 	if (cpu->initExpression(exp,postfix) == false) return false;
@@ -10,18 +12,18 @@ bool parseExpression(char* exp, DebugInterface* cpu, u32& dest)
 
 void displayExpressionError(HWND hwnd)
 {
-	MessageBox(hwnd,getExpressionError(),"Invalid expression",MB_OK);
+	MessageBox(hwnd,ConvertUTF8ToWString(getExpressionError()).c_str(),L"Invalid expression",MB_OK);
 }
 
 bool executeExpressionWindow(HWND hwnd, DebugInterface* cpu, u32& dest)
 {
-	char expression[1024];
-	if (InputBox_GetString(GetModuleHandle(NULL), hwnd, "Expression", "",expression) == false)
+	std::string expression;
+	if (InputBox_GetString(GetModuleHandle(NULL), hwnd, L"Expression", "",expression) == false)
 	{
 		return false;
 	}
 
-	if (parseExpression(expression,cpu,dest) == false)
+	if (parseExpression(expression.c_str(), cpu, dest) == false)
 	{
 		displayExpressionError(hwnd);
 		return false;
