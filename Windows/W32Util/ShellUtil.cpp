@@ -36,8 +36,8 @@ namespace W32Util
 	//---------------------------------------------------------------------------------------------------
 	// function WinBrowseForFileName
 	//---------------------------------------------------------------------------------------------------
-	bool BrowseForFileName (bool _bLoad, HWND _hParent, const char *_pTitle,
-		const char *_pInitialFolder,const char *_pFilter,const char *_pExtension, 
+	bool BrowseForFileName (bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
+		const wchar_t *_pInitialFolder,const wchar_t *_pFilter,const wchar_t *_pExtension, 
 		std::string& _strFileName)
 	{
 		wchar_t szFile [MAX_PATH+1] = {0};
@@ -48,18 +48,18 @@ namespace W32Util
 		ZeroMemory (&ofn,sizeof (ofn));
 
 		ofn.lStructSize		= sizeof (OPENFILENAME);
-		ofn.lpstrInitialDir = ConvertUTF8ToWString(_pInitialFolder).c_str();
-		ofn.lpstrFilter		= ConvertUTF8ToWString(_pFilter).c_str();
+		ofn.lpstrInitialDir = _pInitialFolder;
+		ofn.lpstrFilter		= _pFilter;
 		ofn.nMaxFile		= sizeof (szFile);
 		ofn.lpstrFile		= szFile;
 		ofn.lpstrFileTitle	= szFileTitle;
 		ofn.nMaxFileTitle	= sizeof (szFileTitle);
-		ofn.lpstrDefExt     = ConvertUTF8ToWString(_pExtension).c_str();
+		ofn.lpstrDefExt     = _pExtension;
 		ofn.hwndOwner		= _hParent;
 		ofn.Flags			= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
 
 		if (_strFileName.size () != 0)
-			ofn.lpstrFile = (wchar_t  *)_strFileName.c_str();
+			wcscpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str());
 
 		if (((_bLoad) ? GetOpenFileName(&ofn) : GetSaveFileName (&ofn)))
 		{
@@ -70,8 +70,8 @@ namespace W32Util
 			return false;
 	}
 	
-	std::vector<std::string> BrowseForFileNameMultiSelect(bool _bLoad, HWND _hParent, const char *_pTitle,
-		const char *_pInitialFolder,const char *_pFilter,const char *_pExtension)
+	std::vector<std::string> BrowseForFileNameMultiSelect(bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
+		const wchar_t *_pInitialFolder,const wchar_t *_pFilter,const wchar_t *_pExtension)
 	{
 		wchar_t szFile [MAX_PATH+1+2048*2] = {0};
 		wchar_t szFileTitle [MAX_PATH+1] = {0};
@@ -81,13 +81,13 @@ namespace W32Util
 		ZeroMemory (&ofn,sizeof (ofn));
 
 		ofn.lStructSize		= sizeof (OPENFILENAME);
-		ofn.lpstrInitialDir = ConvertUTF8ToWString(_pInitialFolder).c_str();
-		ofn.lpstrFilter		= ConvertUTF8ToWString(_pFilter).c_str();
+		ofn.lpstrInitialDir = _pInitialFolder;
+		ofn.lpstrFilter		= _pFilter;
 		ofn.nMaxFile		= sizeof (szFile);
 		ofn.lpstrFile		= szFile;
 		ofn.lpstrFileTitle	= szFileTitle;
 		ofn.nMaxFileTitle	= sizeof (szFileTitle);
-		ofn.lpstrDefExt     = ConvertUTF8ToWString(_pExtension).c_str();
+		ofn.lpstrDefExt     = _pExtension;
 		ofn.hwndOwner		= _hParent;
 		ofn.Flags			= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT ;
 
@@ -116,10 +116,5 @@ namespace W32Util
 		}
 		else
 			return std::vector<std::string>(); // empty vector;
-
 	}
-	
-
-
-
 }

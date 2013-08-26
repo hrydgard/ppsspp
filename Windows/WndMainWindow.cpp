@@ -414,7 +414,7 @@ namespace MainWindow
 				NativeMessageReceived("boot", dir.c_str());
 			}
 		}
-		else if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
+		else if (W32Util::BrowseForFileName(true, GetHWND(), L"Load File", defaultPath.size() ? ConvertUTF8ToWString(defaultPath).c_str() : 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;",fn))
 		{
 			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
@@ -736,14 +736,14 @@ namespace MainWindow
 					break;
 
 				case ID_FILE_LOADSTATEFILE:
-					if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn)) {
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load state",0,L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0",L"ppst",fn)) {
 						SetCursor(LoadCursor(0, IDC_WAIT));
 						SaveState::Load(fn, SaveStateActionFinished);
 					}
 					break;
 
 				case ID_FILE_SAVESTATEFILE:
-					if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn)) {
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save state",0,L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0",L"ppst",fn)) {
 						SetCursor(LoadCursor(0, IDC_WAIT));
 						SaveState::Save(fn, SaveStateActionFinished);
 					}
@@ -951,7 +951,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_LOADMAPFILE:
-					if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn)) {
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn)) {
 						symbolMap.LoadSymbolMap(fn.c_str());
 
 						if (disasmWindow[0])
@@ -963,7 +963,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_SAVEMAPFILE:
-					if (W32Util::BrowseForFileName(false, hWnd, "Save .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
 					break;
 		

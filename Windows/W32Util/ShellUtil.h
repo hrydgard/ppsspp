@@ -7,9 +7,9 @@
 namespace W32Util
 {
 	std::string BrowseForFolder(HWND parent, char *title);
-	bool BrowseForFileName (bool _bLoad, HWND _hParent, const char *_pTitle,
-		const char *_pInitialFolder,const char *_pFilter,const char *_pExtension, 
+	bool BrowseForFileName (bool _bLoad, HWND _hParent, const wchar_t*_pTitle,
+		const wchar_t *_pInitialFolder,const wchar_t *_pFilter,const wchar_t*_pExtension, 
 		std::string& _strFileName);
-	std::vector<std::string> BrowseForFileNameMultiSelect(bool _bLoad, HWND _hParent, const char *_pTitle,
-		const char *_pInitialFolder,const char *_pFilter,const char *_pExtension);
+	std::vector<std::string> BrowseForFileNameMultiSelect(bool _bLoad, HWND _hParent, const wchar_t*_pTitle,
+		const wchar_t*_pInitialFolder,const wchar_t*_pFilter,const wchar_t*_pExtension);
 }
