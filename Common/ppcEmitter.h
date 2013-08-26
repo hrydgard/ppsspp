@@ -219,13 +219,15 @@ namespace PpcGen
 		void NOR  (PPCReg Rs, PPCReg Ra, PPCReg Rb);
 		void XOR  (PPCReg Rs, PPCReg Ra, PPCReg Rb);
 		void XORI (PPCReg Rdest, PPCReg Ra, unsigned short imm);
-		void NEG  (PPCReg Rs, PPCReg Ra, PPCReg Rb);
+		void NEG  (PPCReg Rs, PPCReg Ra);
+		void EQV	(PPCReg a, PPCReg b, PPCReg c);
 
 		// Arithmetics ops
 		void ADD	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 		void ADDI	(PPCReg Rd, PPCReg Ra, short imm);
 		void ADDIS	(PPCReg Rd, PPCReg Ra, short imm);
 		void ADDC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
+		void ADDZE	(PPCReg Rd, PPCReg Ra);
 		void SUB	(PPCReg Rd, PPCReg Ra, PPCReg Rb) {
 			// reverse ?
 			SUBF(Rd, Rb, Ra);
@@ -233,6 +235,7 @@ namespace PpcGen
 		// if RCFlags update CR0
 		void SUBF	(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags = 0);
 		void SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
+		void SUBFE	(PPCReg Rd, PPCReg Ra, PPCReg Rb);
 
 		// Floating ops
 		void DIVW(PPCReg dest, PPCReg dividend, PPCReg divisor);

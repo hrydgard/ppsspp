@@ -2,14 +2,28 @@
 #include "ppcEmitter.h"
 
 // Helper
+
+//   0 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+//  |      OPCD      |       D      |       A      |       B      |              XO             |Rc|
 #define X_FORM(OPCD, D, A, B, XO, Rc) { \
     int a = (A), b = (B), d = (D); \
     Write32((OPCD << 26) | (d << 21) | (a << 16) | (b << 11) | (((XO) & 0x3ff) << 1) | (Rc)); \
 }
 
+//   0 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+//  |      OPCD      |       D      |       A      |       B      |OE|            XO            |Rc|
+#define XO_FORM(OPCD, D, A, B, OE, XO, Rc) { \
+    int a = (A), b = (B), d = (D); \
+    Write32((OPCD << 26) | (d << 21) | (a << 16) | (b << 11) | (OE << 10) | (((XO) & 0x1ff) << 1) | (Rc)); \
+}
+
 namespace PpcGen {
 
-	// Arithmetics ops
+	// Arithmetics ops	
+	void PPCXEmitter::ADDZE	(PPCReg Rd, PPCReg Ra) {
+		XO_FORM(31, Rd, Ra, 0, 0, 202, 0); 
+	}
+
 	void PPCXEmitter::ADD	(PPCReg Rd, PPCReg Ra, PPCReg Rb) {
 		u32 instr = (0x7C000214 | (Rd << 21) | (Ra << 16) |  (Rb << 11));
 		Write32(instr);
@@ -378,6 +392,10 @@ namespace PpcGen {
 		u32 instr = (0x7C000278 | (Ra << 21) | (Rd << 16) | (Rb << 11));
 		Write32(instr);
 	}
+
+	void PPCXEmitter::NEG(PPCReg Rd, PPCReg Ra) {	
+		XO_FORM(31, Rd, Ra, 0, 0, 104, 0);
+	}
 	
 
 	void PPCXEmitter::NOR(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
@@ -388,6 +406,15 @@ namespace PpcGen {
 	void PPCXEmitter::SUBF(PPCReg Rd, PPCReg Ra, PPCReg Rb, int RCFlags) {	
 		u32 instr = (0x7C000050 | (Rd << 21) | (Ra << 16) |  (Rb << 11) | (RCFlags & 1));
 		Write32(instr);
+	}
+		
+	void PPCXEmitter::SUBFC	(PPCReg Rd, PPCReg Ra, PPCReg Rb) {
+		XO_FORM(31, Rd, Ra, Rb, 0, 8, 0);
+	}
+
+	
+	void PPCXEmitter::SUBFE(PPCReg Rd, PPCReg Ra, PPCReg Rb) {	
+		XO_FORM(31, Rd, Ra, Rb, 0, 136, 0);
 	}
 
 	// Quick Call
@@ -425,6 +452,10 @@ namespace PpcGen {
 
 	void PPCXEmitter::EXTSH	(PPCReg dest, PPCReg src) {
 		Write32(0x7C000734 | (src << 21) | (dest << 16));
+	}
+
+	void PPCXEmitter::EQV	(PPCReg dst, PPCReg a, PPCReg b) {
+		X_FORM(31, a, dst, b, 284, 0);
 	}
 
 	void PPCXEmitter::RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end) {
