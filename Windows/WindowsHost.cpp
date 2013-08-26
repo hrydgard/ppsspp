@@ -62,6 +62,8 @@ static PMixer *curMixer;
 float mouseDeltaX = 0;
 float mouseDeltaY = 0;
 
+extern char * ANSI2UTF8(char*);
+
 int MyMix(short *buffer, int numSamples, int bits, int rate, int channels)
 {
 	if (curMixer && !Core_IsStepping())
@@ -107,26 +109,26 @@ void WindowsHost::ShutdownGL()
 
 void WindowsHost::SetWindowTitle(const char *message)
 {
-	std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION;
+	std::string title = std::string("PPSSPP ") + ANSI2UTF8((char*)PPSSPP_GIT_VERSION); // to support non-unicode wchar (e.g, chinese)
 	if (message)
 		title = title + " - " + message;
 
-	int size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), NULL, 0);
+	int size = MultiByteToWideChar(CP_UTF8,0,title.c_str(),-1,NULL,0); 
 	if (size > 0)
 	{
 		// VC++6.0 any more?
-		wchar_t *utf16_title = new(std::nothrow) wchar_t[size + 1];
-		if (utf16_title)
-			size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), (int) title.size(), utf16_title, size);
+		wchar_t *uni_title = new(std::nothrow) wchar_t[size + 1];
+		if (uni_title)
+			size = MultiByteToWideChar(CP_UTF8, 0, title.c_str(), -1, uni_title, size); 	
 		else
 			size = 0;
 
 		if (size > 0)
 		{
-			utf16_title[size] = 0;
+			uni_title[size] = 0;
 			// Don't use SetWindowTextW because it will internally use DefWindowProcA.
-			DefWindowProcW(mainWindow_, WM_SETTEXT, 0, (LPARAM) utf16_title);
-			delete[] utf16_title;
+			DefWindowProcW(mainWindow_, WM_SETTEXT, 0, (LPARAM) uni_title);
+			delete[] uni_title;
 		}
 	}
 
