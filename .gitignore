@@ -25,6 +25,9 @@ Windows/x64
 Windows/ipch
 ui_atlas.zim.png
 
+#*.vcxproj
+#*.gitignore
+
 # For Mac
 .DS_Store
 
