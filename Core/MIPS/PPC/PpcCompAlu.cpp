@@ -110,52 +110,45 @@ namespace MIPSComp
 			gpr.SetImm(rt, uimm << 16);
 			break;
 
-		case 10: // slti
+		/* https://github.com/gligli/mupen64-360/blob/master/source/r4300/ppc/MIPS-to-PPC.c#L1794 **/
+		case 10: // slti - R(rt) = (s32)R(rs) < simm
+			if (gpr.IsImm(rs))
 			{
-				if (gpr.IsImm(rs))
-				{
-					gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm);
-					break;
-				}
-				/*
-				//Break();
+				gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm);
+				break;
+			} else {
+				DISABLE; // ! Not Working !
 				gpr.MapDirtyIn(rt, rs);
 
-				// Can't find better :s
-				CMPI(gpr.R(rs), uimm);
+				PPCReg ppc_rt = gpr.R(rt);
+				PPCReg ppc_rs = gpr.R(rs);
 
-				PpcGen::FixupBranch ptr = B_Cond(_BLT);
-
-				ptr = B_Cond(_BLT);
-
-				MOVI2R(gpr.R(rt), 1);
-				SetJumpTarget(ptr);
-				MOVI2R(gpr.R(rt), 0);
+				MOVI2R(R0, 0);
+				ADDI(SREG, R0, uimm);
+				SUBFC(R0, SREG, ppc_rs);
+				EQV(ppc_rt, SREG, ppc_rs);
+				SRWI(ppc_rt, ppc_rt, 31);
+				ADDZE(ppc_rt, ppc_rt);
+				RLWINM(ppc_rt, ppc_rt, 0, 31, 31);
 				break;
-				*/
 			}
-
 		case 11: //sltiu
+			if (gpr.IsImm(rs))
 			{
-				if (gpr.IsImm(rs))
-				{
-					gpr.SetImm(rt, gpr.GetImm(rs) < uimm);
-					break;
-				}
-				/*
-				//Break();
+				gpr.SetImm(rt, gpr.GetImm(rs) < uimm);
+				break;
+			} else {
+				//DISABLE;
 				gpr.MapDirtyIn(rt, rs);
 
-				// Can't find better :s
-				CMPLI(gpr.R(rs), uimm);
+				PPCReg ppc_rt = gpr.R(rt);
 
-				PpcGen::FixupBranch ptr = B_Cond(_BLT);
+				ADDI(SREG, R0, uimm);
+				SUBFC(ppc_rt, SREG, gpr.R(rs));
+				SUBFE(ppc_rt, ppc_rt, ppc_rt);
+				NEG(ppc_rt, ppc_rt);
 
-				MOVI2R(gpr.R(rt), 1);
-				SetJumpTarget(ptr);
-				MOVI2R(gpr.R(rt), 0);
 				break;
-				*/
 			}
 
 		default:
