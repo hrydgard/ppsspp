@@ -123,31 +123,43 @@ static inline void GetTexelCoordinates(int level, float s, float t, unsigned int
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
 {
-	if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
-		// TODO: What happens if vertex has no texture coordinates?
-		// Note that for environment mapping, texture coordinates have been calculated during lighting
-		float q0 = 1.f / v0.clippos.w;
-		float q1 = 1.f / v1.clippos.w;
-		float q2 = 1.f / v2.clippos.w;
-		float q = q0 * w0 + q1 * w1 + q2 * w2;
-		s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
-		t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
-	} else if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
-		// projection mapping, TODO: Move this code to TransformUnit!
-		Vec3<float> source;
-		if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
-			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
-		} else {
-			ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
+	switch (gstate.getUVGenMode()) 
+	{
+	case GE_TEXMAP_TEXTURE_COORDS:
+	case GE_TEXMAP_UNKNOWN:
+	case GE_TEXMAP_ENVIRONMENT_MAP:
+		{
+			// TODO: What happens if vertex has no texture coordinates?
+			// Note that for environment mapping, texture coordinates have been calculated during lighting
+			float q0 = 1.f / v0.clippos.w;
+			float q1 = 1.f / v1.clippos.w;
+			float q2 = 1.f / v2.clippos.w;
+			float q = q0 * w0 + q1 * w1 + q2 * w2;
+			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
+			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
 		}
+		break;
+	case GE_TEXMAP_TEXTURE_MATRIX:
+		{
+			// projection mapping, TODO: Move this code to TransformUnit!
+			Vec3<float> source;
+			if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
+			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
+			} else {
+			ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
+			}
 
-		Mat3x3<float> tgen(gstate.tgenMatrix);
-		Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-		s = stq.x/stq.z;
-		t = stq.y/stq.z;
-	} else {
+			Mat3x3<float> tgen(gstate.tgenMatrix);
+			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+			s = stq.x/stq.z;
+			t = stq.y/stq.z;
+		}
+		break;
+	default:
 		ERROR_LOG(G3D, "Unsupported texture mapping mode %x!", gstate.getUVGenMode());
-	}
+		break;
+
+	}	
 }
 
 static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
