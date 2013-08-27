@@ -51,7 +51,7 @@ int UTF8StringNonASCIICount(const char *utf8string);
 bool UTF8StringHasNonASCII(const char *utf8string);
 
 
-// UTF8 to Win32 UCS-16
+// UTF8 to Win32 UTF-16
 // Should be used when calling Win32 api calls
 #ifdef _WIN32
 
