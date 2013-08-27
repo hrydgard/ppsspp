@@ -17,6 +17,13 @@
     Write32((OPCD << 26) | (d << 21) | (a << 16) | (b << 11) | (OE << 10) | (((XO) & 0x1ff) << 1) | (Rc)); \
 }
 
+//   0 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+//  |      OPCD      |       D      |       A      |      B       |       C      |      XO      |Rc|
+#define A_FORM(OPCD, D, A, B, C, XO, Rc) { \
+    int a = (A), b = (B), c = (C), d = (D); \
+    Write32((OPCD << 26) | (d << 21) | (a << 16) | (b << 11) | (c << 6) | (XO << 1) | (Rc)); \
+}
+
 namespace PpcGen {
 
 	// Arithmetics ops	
@@ -359,10 +366,10 @@ namespace PpcGen {
 		Write32((10<<26) | (dest << 16) | ((imm) & 0xffff));
 	}
 
-	void PPCXEmitter::CMP(PPCReg a, PPCReg b) {
+	void PPCXEmitter::CMP(PPCReg a, PPCReg b, CONDITION_REGISTER cr) {
 		Write32((31 << 26) | (a << 16) | (b << 11));
 	}
-	void PPCXEmitter::CMPL(PPCReg a, PPCReg b) {
+	void PPCXEmitter::CMPL(PPCReg a, PPCReg b, CONDITION_REGISTER cr) {
 		Write32((31 << 26) | (a << 16) | (b << 11) | (1<<6));
 	}
 	void PPCXEmitter::MFCR	(PPCReg dest) {
@@ -371,13 +378,18 @@ namespace PpcGen {
 	void PPCXEmitter::MTCR	(PPCReg dest) {
 		Write32(0x7C000120 | (dest << 21) | (0xff<<12));
 	}
+	
+	void PPCXEmitter::ISEL	(PPCReg Rt, PPCReg Ra, PPCReg Rb, CONDITION_REGISTER cr) {
+		// Not working !!
+		A_FORM(31, Rt, Ra, Rb, cr, 15, 0);
+		Break();
+	}
 
 	// Others operation
 	void PPCXEmitter::ORI(PPCReg Rd, PPCReg Ra, unsigned short imm) {
 		u32 instr = (0x60000000 | (Ra << 21) | (Rd << 16) | (imm & 0xffff));
 		Write32(instr);
-	}
-	
+	}	
 	void PPCXEmitter::XORI	(PPCReg Rdest, PPCReg Ra, unsigned short imm) {	
 		u32 instr = (0x68000000 | (Ra << 21) | (Rdest << 16) | (imm & 0xffff));
 		Write32(instr);
@@ -454,8 +466,8 @@ namespace PpcGen {
 		Write32(0x7C000734 | (src << 21) | (dest << 16));
 	}
 
-	void PPCXEmitter::EQV	(PPCReg dst, PPCReg a, PPCReg b) {
-		X_FORM(31, a, dst, b, 284, 0);
+	void PPCXEmitter::EQV	(PPCReg Ra, PPCReg Rs, PPCReg Rb) {
+		X_FORM(31, Rs, Ra, Rb, 284, 0);
 	}
 
 	void PPCXEmitter::RLWINM (PPCReg dest, PPCReg src, int shift, int start, int end) {

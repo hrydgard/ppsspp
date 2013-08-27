@@ -294,12 +294,25 @@ namespace PpcGen
 		void SRWI	(PPCReg dest, PPCReg src, unsigned short imm);
 
 		// Compare
+		enum CONDITION_REGISTER{
+			CR0,
+			CR1,
+			CR2,
+			CR3,
+			CR4,
+			CR5,
+			CR6,
+			CR7
+		};
+
 		void CMPLI	(PPCReg dest, unsigned short imm);	
 		void CMPI	(PPCReg dest, unsigned short imm);
-		void CMPL	(PPCReg a, PPCReg b);
-		void CMP	(PPCReg a, PPCReg b);
+		void CMPL	(PPCReg a, PPCReg b, CONDITION_REGISTER cr = CR0);
+		void CMP	(PPCReg a, PPCReg b, CONDITION_REGISTER cr = CR0);
 		void MFCR	(PPCReg dest);
 		void MTCR	(PPCReg dest);
+
+		void ISEL	(PPCReg Rt, PPCReg Ra, PPCReg Rb, CONDITION_REGISTER cr = CR0);
 
 		void Prologue();
 		void Epilogue();
