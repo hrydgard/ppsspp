@@ -167,20 +167,15 @@ void GetWideStringFromPSPPointer(std::wstring& _string, const PSPPointer<u16_le>
 		_string = L"";
 		return;
 	}
-	const size_t maxLength = 2048;
 
-	wchar_t stringBuffer[maxLength];
+	wchar_t stringBuffer[2048];
 	wchar_t *string = stringBuffer;
 
 	auto input = em_address;
 	int c;
-	u32 count = 0;
 	while ((c = *input++) != 0)
 	{
-		if ( !(++count >= maxLength) )
-			*string++ = c;
-		else
-			break;
+		*string++ = c;
 	}
 	*string++ = '\0';
 	_string = stringBuffer;
@@ -765,6 +760,7 @@ void PSPOskDialog::RenderKeyboard()
 #ifdef _WIN32
 // TODO: Why does this have a 2 button press lag/delay when
 // re-opening the dialog box? I don't get it.
+// TODO: Use a wstring to allow Japanese/Russian/etc.. on _WIN32(others?)
 int PSPOskDialog::NativeKeyboard()
 {
 	wchar_t *input = new wchar_t[FieldMaxLength()];
@@ -802,8 +798,8 @@ int PSPOskDialog::NativeKeyboard()
 			}
 			else 
 			{
-				ERROR_LOG(HLE, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxInputLength);
-				wcsncat(input, inputWide.c_str(), maxInputLength);
+				ERROR_LOG(HLE, "NativeKeyboard: input text too long. Try again.");
+				wcsncat(input, L"", wcslen(L""));
 			}
 		}
 		status = SCE_UTILITY_STATUS_FINISHED;
