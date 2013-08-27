@@ -27,6 +27,7 @@ ui_atlas.zim.png
 
 #*.vcxproj
 #*.gitignore
+dist
 
 # For Mac
 .DS_Store
