@@ -23,12 +23,12 @@
 #endif
 
 #include <algorithm>
-
-#include "../../Globals.h"
-#include "../../Core/MemMap.h"
-#include "SymbolMap.h"
-
 #include <map>
+
+#include "Common/FileUtil.h"
+#include "Globals.h"
+#include "Core/MemMap.h"
+#include "Core/Debugger/SymbolMap.h"
 
 SymbolMap symbolMap;
 
@@ -139,7 +139,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 {
 	lock_guard guard(lock_);
 	SymbolMap::ResetSymbolMap();
-	FILE *f = fopen(filename,"r");
+	FILE *f = File::OpenCFile(filename, "r");
 	if (!f)
 		return false;
 	//char temp[256];
@@ -212,7 +212,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 void SymbolMap::SaveSymbolMap(const char *filename) const
 {
 	lock_guard guard(lock_);
-	FILE *f = fopen(filename,"w");
+	FILE *f = File::OpenCFile(filename, "w");
 	if (!f)
 		return;
 	fprintf(f,".text\n");
@@ -227,7 +227,7 @@ void SymbolMap::SaveSymbolMap(const char *filename) const
 bool SymbolMap::LoadNocashSym(const char *filename)
 {
 	lock_guard guard(lock_);
-	FILE *f = fopen(filename,"r");
+	FILE *f = File::OpenCFile(filename, "r");
 	if (!f)
 		return false;
 
@@ -336,7 +336,7 @@ bool SymbolMap::getSymbolValue(char* symbol, u32& dest)
 	{
 		const MapEntry &entry = *it;
 #ifdef _WIN32
-		if (stricmp(entry.name,symbol) == 0)
+		if (_stricmp(entry.name,symbol) == 0)
 #else
 		if (strcasecmp(entry.name,symbol) == 0)
 #endif
@@ -388,8 +388,8 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask) const
 	{
 		for (int i = 0; i < defaultSymbolsAmount; i++)
 		{
-			char temp[256];
-			sprintf(temp,"0x%08X (%s)",defaultSymbolsAddresses[i],defaultSymbolsNames[i]);
+			wchar_t temp[256];
+			wsprintf(temp, L"0x%08X (%S)", defaultSymbolsAddresses[i], defaultSymbolsNames[i]);
 			int index = ListBox_AddString(listbox,temp);
 			ListBox_SetItemData(listbox,index,defaultSymbolsAddresses[i]);
 		}
@@ -404,12 +404,12 @@ void SymbolMap::FillSymbolListBox(HWND listbox,SymbolType symmask) const
 		const MapEntry &entry = *it;
 		if (entry.type & symmask)
 		{
-			char temp[256];
+			wchar_t temp[256];
 			if (entry.type & ST_FUNCTION || !(entry.type & ST_DATA))
 			{
-				sprintf(temp,"%s",entry.name);
+				wsprintf(temp, L"%S", entry.name);
 			} else {
-				sprintf(temp,"0x%08X (%s)",entry.vaddress,entry.name);
+				wsprintf(temp, L"0x%08X (%S)", entry.vaddress, entry.name);
 			}
 
 			int index = ListBox_AddString(listbox,temp);
@@ -429,23 +429,23 @@ void SymbolMap::FillSymbolComboBox(HWND listbox,SymbolType symmask) const
 
 	//int style = GetWindowLong(listbox,GWL_STYLE);
 
-	ComboBox_AddString(listbox,"(0x02000000)");
-	ComboBox_SetItemData(listbox,0,0x02000000);
+	ComboBox_AddString(listbox, L"(0x02000000)");
+	ComboBox_SetItemData(listbox, 0, 0x02000000);
 
-	//ListBox_AddString(listbox,"(0x80002000)");
-	//ListBox_SetItemData(listbox,1,0x80002000);
+	//ListBox_AddString(listbox, L"(0x80002000)");
+	//ListBox_SetItemData(listbox, 1, 0x80002000);
 
 	lock_guard guard(lock_);
 
 	SendMessage(listbox, WM_SETREDRAW, FALSE, 0);
-	SendMessage(listbox, CB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30);
+	SendMessage(listbox, CB_INITSTORAGE, (WPARAM)entries.size(), (LPARAM)entries.size() * 30 * sizeof(wchar_t));
 	for (size_t i = 0, end = entries.size(); i < end; ++i)
 	{
 		const MapEntry &entry = entries[i];
 		if (entry.type & symmask)
 		{
-			char temp[256];
-			sprintf(temp,"%s (%d)",entry.name,entry.size);
+			wchar_t temp[256];
+			wsprintf(temp, L"%S (%d)", entry.name, entry.size);
 			int index = ComboBox_AddString(listbox,temp);
 			ComboBox_SetItemData(listbox,index,entry.vaddress);
 		}
@@ -469,6 +469,7 @@ void SymbolMap::FillListBoxBLinks(HWND listbox, int num) const
 	for (int i=0; i<e.backwardLinks.size(); i++)
 	{
 		u32 addr = e.backwardLinks[i];
+		// TODO: wchar_t
 		int index = ListBox_AddString(listbox,SymbolMap::GetSymbolName(SymbolMap::GetSymbolNum(addr)));
 		ListBox_SetItemData(listbox,index,addr);
 	}
@@ -537,7 +538,7 @@ unsigned int SymbolMap::GetRunCount(int num) const
 void SymbolMap::CompileFuncSignaturesFile(const char *filename) const
 {
 	// Store name,length,first instruction,hash into file
-	FILE *f = fopen(filename, "w");
+	FILE *f = File::OpenCFile(filename, "w");
 	fprintf(f,"00000000\n");
 	int count=0;
 	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
@@ -588,7 +589,7 @@ void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 	sigs.clear();
 	//SymbolMap::ResetSymbolMap();
 	//#1: Read the signature file and put them in a fast data structure
-	FILE *f = fopen(filename, "r");
+	FILE *f = File::OpenCFile(filename, "r");
 	int count;
 	if (fscanf(f, "%08x\n", &count) != 1)
 		count = 0;

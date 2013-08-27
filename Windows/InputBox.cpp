@@ -85,6 +85,28 @@ bool InputBox_GetString(HINSTANCE hInst, HWND hParent, const wchar_t *title, con
 		return false;
 }
 
+bool InputBox_GetWString(HINSTANCE hInst, HWND hParent, const wchar_t *title, const std::wstring &defaultValue, std::wstring &outvalue)
+{
+	const wchar_t *defaultTitle = L"Input value";
+	defaultSelected = true;
+
+	textBoxContents = defaultValue;
+
+	if (title && wcslen(title) <= 0)
+		windowTitle = defaultTitle;
+	else if (title && wcslen(title) < 255)
+		windowTitle = title;
+	else
+		windowTitle = defaultTitle;
+
+	if (IDOK == DialogBox(hInst, (LPCWSTR)IDD_INPUTBOX, hParent, InputBoxFunc)) {
+		outvalue = out;
+		return true;
+	}
+	else 
+		return false;
+}
+
 bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, const wchar_t *title, u32 defaultvalue, u32 &outvalue)
 {
 	wchar_t temp[256];

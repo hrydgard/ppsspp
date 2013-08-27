@@ -1005,7 +1005,7 @@ void CtrlDisAsmView::disassembleToFile()
 
 	if (GetSaveFileName(&ofn) == false) return;
 
-	FILE* output = fopen(ConvertWStringToUTF8(fileName).c_str(),"w");
+	FILE* output = _wfopen(fileName, L"w");
 	if (output == NULL) {
 		MessageBox(wnd,L"Could not open file!",L"Error",MB_OK);
 		return;

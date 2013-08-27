@@ -19,7 +19,7 @@ CVFPUDlg::CVFPUDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu_) : 
 {
 	cpu = cpu_;
 	wchar_t temp[256];
-	wsprintf(temp,L"VFPU - %s",ConvertUTF8ToWString(cpu->GetName()).c_str());
+	wsprintf(temp, L"VFPU - %S", cpu->GetName());
 	SetWindowText(m_hDlg,temp);
 
 	ShowWindow(m_hDlg,SW_HIDE);
