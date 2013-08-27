@@ -383,6 +383,17 @@ namespace MainWindow
 		return TRUE;
 	}
 
+	void CreateDebugWindows() {
+		disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+		DialogManager::AddDlg(disasmWindow[0]);
+		EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
+		disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
+
+		memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+		DialogManager::AddDlg(memoryWindow[0]);
+		EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
+	}
+
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
 		std::string fn;
 		std::string filter = "PSP ROMs (*.iso *.cso *.pbp *.elf)|*.pbp;*.elf;*.iso;*.cso;*.prx|All files (*.*)|*.*||";
@@ -704,12 +715,9 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_STOP:
-					if (memoryWindow[0]) {
-						SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-					}
-					if (disasmWindow[0]) {
-						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-					}
+					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
+					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
+
 					if (Core_IsStepping()) {
 						Core_EnableStepping(false);
 					}
@@ -718,6 +726,11 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_RESET:
+					if (Core_IsStepping()) {
+						Core_EnableStepping(false);
+					}
+					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
+					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
 					NativeMessageReceived("reset", "");
 					break;
 				case ID_EMULATION_CHEATS:
@@ -980,13 +993,11 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DISASSEMBLY:
-					if (disasmWindow[0])
-						disasmWindow[0]->Show(true);
+					disasmWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_MEMORYVIEW:
-					if (memoryWindow[0])
-						memoryWindow[0]->Show(true);
+					memoryWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_LOG:
@@ -1196,22 +1207,16 @@ namespace MainWindow
 			break;
 
 		case WM_USER+1:
-			if (disasmWindow[0])
-				SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-			if (memoryWindow[0])
-				SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-
-			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-			DialogManager::AddDlg(disasmWindow[0]);
-			disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
 			if (g_Config.bFullScreen)
 				_ViewFullScreen(hWnd);
-			memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-			DialogManager::AddDlg(memoryWindow[0]);
-			if (disasmWindow[0])
-				disasmWindow[0]->NotifyMapLoaded();
-			if (memoryWindow[0])
-				memoryWindow[0]->NotifyMapLoaded();
+			
+			EnableWindow (disasmWindow[0]->GetDlgHandle(),TRUE);
+			EnableWindow (memoryWindow[0]->GetDlgHandle(),TRUE);
+
+			disasmWindow[0]->NotifyMapLoaded();
+			memoryWindow[0]->NotifyMapLoaded();
+
+			disasmWindow[0]->UpdateDialog();
 
 			SetForegroundWindow(hwndMain);
 			break;
