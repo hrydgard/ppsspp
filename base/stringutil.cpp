@@ -25,6 +25,7 @@ void OutputDebugStringUTF8(const char *p) {
 	int len = std::min(2047, (int)strlen(p));
 	int size = (int)MultiByteToWideChar(CP_UTF8, 0, p, len, NULL, 0);
 	MultiByteToWideChar(CP_UTF8, 0, p, len, temp, size);
+	temp[size] = 0;
 	OutputDebugString(temp);
 }
 

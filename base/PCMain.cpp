@@ -645,6 +645,7 @@ int main(int argc, char *argv[]) {
 						input_state.pointer_y[0] = my;
 						//input_state.mouse_buttons_down = 1;
 						input_state.pointer_down[0] = true;
+						input_state.mouse_valid = true;
 						TouchInput input;
 						input.x = mx;
 						input.y = my;
@@ -685,6 +686,7 @@ int main(int argc, char *argv[]) {
 				if (input_state.pointer_down[0]) {
 					input_state.pointer_x[0] = mx;
 					input_state.pointer_y[0] = my;
+					input_state.mouse_valid = true;
 					TouchInput input;
 					input.x = mx;
 					input.y = my;
@@ -700,6 +702,7 @@ int main(int argc, char *argv[]) {
 						input_state.pointer_x[0] = mx;
 						input_state.pointer_y[0] = my;
 						input_state.pointer_down[0] = false;
+						input_state.mouse_valid = true;
 						//input_state.mouse_buttons_up = 1;
 						TouchInput input;
 						input.x = mx;

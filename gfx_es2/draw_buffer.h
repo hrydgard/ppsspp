@@ -7,6 +7,7 @@
 #include "base/display.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture_atlas.h"
+#include "math/geom2d.h"
 
 struct Atlas;
 
@@ -102,6 +103,9 @@ public:
 	void MeasureImage(ImageID atlas_image, float *w, float *h);
 	void DrawImage(ImageID atlas_image, float x, float y, float scale, Color color = COLOR(0xFFFFFF), int align = ALIGN_TOPLEFT);
 	void DrawImageStretch(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF));
+	void DrawImageStretch(int atlas_image, const Bounds &bounds, Color color = COLOR(0xFFFFFF)) {
+		DrawImageStretch(atlas_image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color);
+	}
 	void DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color = COLOR(0xFFFFFF), bool mirror_h = false);	// Always centers
 	void DrawTexRect(float x1, float y1, float x2, float y2, float u1, float v1, float u2, float v2, Color color);
 	// Results in 18 triangles. Kind of expensive for a button.

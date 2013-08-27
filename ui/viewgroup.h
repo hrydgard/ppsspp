@@ -284,6 +284,8 @@ public:
 		tabs_[currentTab_]->SetVisibility(V_VISIBLE);
 	}
 
+	int GetCurrentTab() const { return currentTab_; }
+
 private:
 	EventReturn OnTabClick(EventParams &e);
 

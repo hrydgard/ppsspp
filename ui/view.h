@@ -281,9 +281,9 @@ public:
 
 	// Please note that Touch is called ENTIRELY asynchronously from drawing!
 	// Can even be called on a different thread! This is to really minimize latency, and decouple
-	// touch response from the frame rate.
-	virtual void Key(const KeyInput &input) = 0;
-	virtual void Touch(const TouchInput &input) = 0;
+	// touch response from the frame rate. Same with Key and Axis.
+	virtual void Key(const KeyInput &input) {}
+	virtual void Touch(const TouchInput &input) {}
 	virtual void Axis(const AxisInput &input) {}
 	virtual void Update(const InputState &input_state) {}
 
@@ -400,7 +400,7 @@ class Button : public Clickable {
 public:
 	Button(const std::string &text, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), text_(text) {}
-	
+
 	virtual void Draw(UIContext &dc);
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	const std::string &GetText() const { return text_; }

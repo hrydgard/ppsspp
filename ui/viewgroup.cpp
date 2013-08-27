@@ -871,10 +871,10 @@ EventReturn ChoiceStrip::OnChoiceClick(EventParams &e) {
 
 void ChoiceStrip::SetSelection(int sel) {
 	int prevSelected = selected_;
-	if (selected_ < views_.size())
+	if (selected_ < (int)views_.size())
 		static_cast<StickyChoice *>(views_[selected_])->Release();
 	selected_ = sel;
-	if (selected_ < views_.size())
+	if (selected_ < (int)views_.size())
 		static_cast<StickyChoice *>(views_[selected_])->Press();
 	if (topTabs_ && prevSelected != selected_) {
 		EventParams e; 
@@ -887,7 +887,7 @@ void ChoiceStrip::Key(const KeyInput &input) {
 	if (input.flags & KEY_DOWN) {
 		if (input.keyCode == NKCODE_BUTTON_L1 && selected_ > 0) {
 			SetSelection(selected_ - 1);
-		} else if (input.keyCode == NKCODE_BUTTON_R1 && selected_ < views_.size() - 1) {
+		} else if (input.keyCode == NKCODE_BUTTON_R1 && selected_ < (int)views_.size() - 1) {
 			SetSelection(selected_ + 1);
 		}
 	}

@@ -61,7 +61,7 @@ enum {
 };
 
 #ifndef MAX_POINTERS
-#define MAX_POINTERS 8
+#define MAX_POINTERS 10
 #endif
 
 #ifndef MAX_KEYQUEUESIZE

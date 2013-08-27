@@ -48,6 +48,7 @@ public:
 	void ActivateTopScissor();
 
 	DrawBuffer *Draw() const { return uidrawbuffer_; }
+	DrawBuffer *DrawTop() const { return uidrawbufferTop_; }
 
 	const UI::Theme *theme;
 
