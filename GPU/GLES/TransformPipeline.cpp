@@ -604,7 +604,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 							source = Vec3f(norm).Normalized();
 						} else {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f::AssignToAll(0.0f);
+							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
@@ -612,7 +612,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 							source = Vec3f(norm);
 						} else {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f::AssignToAll(0.0f);
+							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
 					}
