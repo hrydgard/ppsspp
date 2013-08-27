@@ -44,9 +44,18 @@ static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **res
 }
 #endif
 
+FILE *openCFile(const std::string &filename, const char *mode)
+{
+#if defined(_WIN32) && defined(UNICODE)
+	return _wfopen(ConvertUTF8ToWString(filename).c_str(), ConvertUTF8ToWString(mode).c_str());
+#else
+	return fopen(filename.c_str(), mode);
+#endif
+}
+
 bool writeStringToFile(bool text_file, const std::string &str, const char *filename)
 {
-	FILE *f = fopen(filename, text_file ? "w" : "wb");
+	FILE *f = openCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
 	size_t len = str.size();
@@ -61,7 +70,7 @@ bool writeStringToFile(bool text_file, const std::string &str, const char *filen
 
 bool writeDataToFile(bool text_file, const void* data, const unsigned int size, const char *filename)
 {
-	FILE *f = fopen(filename, text_file ? "w" : "wb");
+	FILE *f = openCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
 	size_t len = size;
@@ -92,7 +101,7 @@ uint64_t GetSize(FILE *f)
 
 bool ReadFileToString(bool text_file, const char *filename, std::string &str)
 {
-	FILE *f = fopen(filename, text_file ? "r" : "rb");
+	FILE *f = openCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
 	size_t len = (size_t)GetSize(f);
@@ -107,7 +116,7 @@ bool ReadFileToString(bool text_file, const char *filename, std::string &str)
 
 bool readDataFromFile(bool text_file, unsigned char* &data, const unsigned int size, const char *filename)
 {
-	FILE *f = fopen(filename, text_file ? "r" : "rb");
+	FILE *f = openCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
 	size_t len = (size_t)GetSize(f);
@@ -169,7 +178,7 @@ bool getFileInfo(const char *path, FileInfo *fileInfo) {
 
 #ifdef _WIN32
 	WIN32_FILE_ATTRIBUTE_DATA attrs;
-	if (!GetFileAttributesExA(path, GetFileExInfoStandard, &attrs)) {
+	if (!GetFileAttributesExW(ConvertUTF8ToWString(path).c_str(), GetFileExInfoStandard, &attrs)) {
 		fileInfo->size = 0;
 		fileInfo->isDirectory = false;
 		fileInfo->exists = false;
