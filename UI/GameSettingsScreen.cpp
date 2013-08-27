@@ -364,7 +364,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
-	systemSettings->Add(new Choice(s->T("Clear Recent Section")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
+	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 	systemSettings->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
