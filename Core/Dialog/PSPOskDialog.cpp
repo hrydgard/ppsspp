@@ -803,8 +803,8 @@ int PSPOskDialog::NativeKeyboard()
 			}
 			else 
 			{
-				ERROR_LOG(HLE, "NativeKeyboard: input text too long. Try again.");
-				wcsncat(input, L"", wcslen(L""));
+				ERROR_LOG(HLE, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxInputLength);
+				wcsncat(input, inputWide.c_str(), maxInputLength);
 			}
 		}
 		status = SCE_UTILITY_STATUS_FINISHED;
