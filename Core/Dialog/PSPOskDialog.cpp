@@ -162,13 +162,14 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_
 
 void GetWideStringFromPSPPointer(std::wstring& _string, const PSPPointer<u16_le> em_address)
 {
-	if (!em_address.IsValid())
+	const size_t maxLength = 2048;
+	if (!em_address.IsValid() || _string.length() >= maxLength)
 	{
 		_string = L"";
 		return;
 	}
 
-	wchar_t stringBuffer[2048];
+	wchar_t stringBuffer[maxLength];
 	wchar_t *string = stringBuffer;
 
 	auto input = em_address;
