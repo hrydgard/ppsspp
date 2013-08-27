@@ -444,8 +444,8 @@ void GLES_GPU::InitClear() {
 }
 
 void GLES_GPU::InitClearInternal() {
-	bool useBufferedRendering = g_Config.iRenderingMode != 0 ? 1 : 0;
-	if (!useBufferedRendering) {
+	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
+	if (useNonBufferedRendering) {
 		glstate.depthWrite.set(GL_TRUE);
 		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 		glClearColor(0,0,0,1);
