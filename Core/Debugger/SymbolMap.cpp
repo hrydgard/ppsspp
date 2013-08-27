@@ -23,12 +23,12 @@
 #endif
 
 #include <algorithm>
-
-#include "../../Globals.h"
-#include "../../Core/MemMap.h"
-#include "SymbolMap.h"
-
 #include <map>
+
+#include "Common/FileUtil.h"
+#include "Globals.h"
+#include "Core/MemMap.h"
+#include "Core/Debugger/SymbolMap.h"
 
 SymbolMap symbolMap;
 
@@ -139,7 +139,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 {
 	lock_guard guard(lock_);
 	SymbolMap::ResetSymbolMap();
-	FILE *f = fopen(filename,"r");
+	FILE *f = File::OpenCFile(filename, "r");
 	if (!f)
 		return false;
 	//char temp[256];
@@ -212,7 +212,7 @@ bool SymbolMap::LoadSymbolMap(const char *filename)
 void SymbolMap::SaveSymbolMap(const char *filename) const
 {
 	lock_guard guard(lock_);
-	FILE *f = fopen(filename,"w");
+	FILE *f = File::OpenCFile(filename, "w");
 	if (!f)
 		return;
 	fprintf(f,".text\n");
@@ -227,7 +227,7 @@ void SymbolMap::SaveSymbolMap(const char *filename) const
 bool SymbolMap::LoadNocashSym(const char *filename)
 {
 	lock_guard guard(lock_);
-	FILE *f = fopen(filename,"r");
+	FILE *f = File::OpenCFile(filename, "r");
 	if (!f)
 		return false;
 
@@ -538,7 +538,7 @@ unsigned int SymbolMap::GetRunCount(int num) const
 void SymbolMap::CompileFuncSignaturesFile(const char *filename) const
 {
 	// Store name,length,first instruction,hash into file
-	FILE *f = fopen(filename, "w");
+	FILE *f = File::OpenCFile(filename, "w");
 	fprintf(f,"00000000\n");
 	int count=0;
 	for (auto it = entries.begin(), end = entries.end(); it != end; ++it)
@@ -589,7 +589,7 @@ void SymbolMap::UseFuncSignaturesFile(const char *filename, u32 maxAddress)
 	sigs.clear();
 	//SymbolMap::ResetSymbolMap();
 	//#1: Read the signature file and put them in a fast data structure
-	FILE *f = fopen(filename, "r");
+	FILE *f = File::OpenCFile(filename, "r");
 	int count;
 	if (fscanf(f, "%08x\n", &count) != 1)
 		count = 0;

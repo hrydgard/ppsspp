@@ -59,6 +59,9 @@ struct FSTEntry
 	std::vector<FSTEntry> children;
 };
 
+// Mostly to handle utf-8 filenames better on Windows.
+FILE *OpenCFile(const std::string &filename, const char *mode);
+
 // Returns true if file filename exists
 bool Exists(const std::string &filename);
 

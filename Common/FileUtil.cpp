@@ -79,6 +79,15 @@ static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **res
 namespace File
 {
 
+FILE *OpenCFile(const std::string &filename, const char *mode)
+{
+#if defined(_WIN32) && defined(UNICODE)
+	return _wfopen(ConvertUTF8ToWString(filename).c_str(), ConvertUTF8ToWString(mode).c_str());
+#else
+	return fopen(filename.c_str(), mode);
+#endif
+}
+
 // Remove any ending forward slashes from directory paths
 // Modifies argument.
 static void StripTailDirSlashes(std::string &fname)
@@ -453,7 +462,7 @@ bool CreateEmptyFile(const std::string &filename)
 {
 	INFO_LOG(COMMON, "CreateEmptyFile: %s", filename.c_str()); 
 
-	FILE *pFile = fopen(filename.c_str(), "wb");
+	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
 		ERROR_LOG(COMMON, "CreateEmptyFile: failed %s: %s",
 				  filename.c_str(), GetLastErrorMsg());
@@ -679,7 +688,7 @@ std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath)
 
 bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
 {
-	FILE *f = fopen(filename, text_file ? "w" : "wb");
+	FILE *f = OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
 	size_t len = str.size();
@@ -694,7 +703,7 @@ bool WriteStringToFile(bool text_file, const std::string &str, const char *filen
 
 bool ReadFileToString(bool text_file, const char *filename, std::string &str)
 {
-	FILE *f = fopen(filename, text_file ? "r" : "rb");
+	FILE *f = OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
 	size_t len = (size_t)GetSize(f);
@@ -728,8 +737,8 @@ IOFile::~IOFile()
 bool IOFile::Open(const std::string& filename, const char openmode[])
 {
 	Close();
-#ifdef _WIN32
-	fopen_s(&m_file, filename.c_str(), openmode);
+#if defined(_WIN32) && defined(UNICODE)
+	_wfopen_s(&m_file, ConvertUTF8ToWString(filename).c_str(), ConvertUTF8ToWString(openmode).c_str());
 #else
 	m_file = fopen(filename.c_str(), openmode);
 #endif

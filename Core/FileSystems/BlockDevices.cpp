@@ -16,7 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
-#include "BlockDevices.h"
+#include "Common/FileUtil.h"
+#include "Core/FileSystems/BlockDevices.h"
 #include <cstdio>
 #include <cstring>
 
@@ -29,7 +30,7 @@ extern "C"
 
 BlockDevice *constructBlockDevice(const char *filename) {
 	// Check for CISO
-	FILE *f = fopen(filename, "rb");
+	FILE *f = File::OpenCFile(filename, "rb");
 	if (!f)
 		return 0;
 	char buffer[4];
