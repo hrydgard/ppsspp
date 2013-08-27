@@ -174,11 +174,13 @@ void GetWideStringFromPSPPointer(std::wstring& _string, const PSPPointer<u16_le>
 
 	auto input = em_address;
 	int c;
-	u32_le count;
+	u32_le count = 0;
 	while ((c = *input++) != 0)
 	{
 		if ( !(++count >= maxLength) )
 			*string++ = c;
+		else
+			break;
 	}
 	*string++ = '\0';
 	_string = stringBuffer;
