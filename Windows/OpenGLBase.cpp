@@ -91,6 +91,8 @@ bool GL_Init(HWND window, std::string *error_message) {
 	hWnd = window;
 	GLuint PixelFormat;
 
+	// TODO: Change to use WGL_ARB_pixel_format instead
+
 	static const PIXELFORMATDESCRIPTOR pfd = {
 		sizeof(PIXELFORMATDESCRIPTOR),							// Size Of This Pixel Format Descriptor
 			1,														// Version Number
@@ -98,9 +100,9 @@ bool GL_Init(HWND window, std::string *error_message) {
 			PFD_SUPPORT_OPENGL |									// Format Must Support OpenGL
 			PFD_DOUBLEBUFFER,										// Must Support Double Buffering
 			PFD_TYPE_RGBA,											// Request An RGBA Format
-			32,														// Select Our Color Depth
+			24,														// Select Our Color Depth
 			0, 0, 0, 0, 0, 0,										// Color Bits Ignored
-			0,														// No Alpha Buffer
+			8,														// No Alpha Buffer
 			0,														// Shift Bit Ignored
 			0,														// No Accumulation Buffer
 			0, 0, 0, 0,										// Accumulation Bits Ignored
