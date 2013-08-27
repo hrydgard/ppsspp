@@ -229,10 +229,10 @@ struct GPUgstate
 	u32 getClearModeColorMask() const { return ((clearmode&0x100) ? 0xFFFFFF : 0) | ((clearmode&0x200) ? 0xFF000000 : 0); } // TODO: Different convention than getColorMask, confusing!
 	
 	// Blend
-	int getBlendFuncA() const { return blend & 0xF; }
+	GEBlendSrcFactor getBlendFuncA() const { return (GEBlendSrcFactor)(blend & 0xF); }
 	u32 getFixA() const { return blendfixa & 0xFFFFFF; }
 	u32 getFixB() const { return blendfixb & 0xFFFFFF; }
-	int getBlendFuncB() const { return (blend >> 4) & 0xF; }
+	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
 	int getBlendEq()    const { return (blend >> 8) & 0x7; }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
 	

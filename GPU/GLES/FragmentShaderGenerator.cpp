@@ -39,6 +39,23 @@
 
 // GL_NV_shader_framebuffer_fetch looks interesting....
 
+
+// Dest factors where it's safe to eliminate the alpha test under certain conditions
+const bool safeDestFactors[16] = {
+	true, // GE_DSTBLEND_SRCCOLOR,
+	true, // GE_DSTBLEND_INVSRCCOLOR,
+	false, // GE_DSTBLEND_SRCALPHA,
+	true, // GE_DSTBLEND_INVSRCALPHA,
+	true, // GE_DSTBLEND_DSTALPHA,
+	true, // GE_DSTBLEND_INVDSTALPHA,
+	false, // GE_DSTBLEND_DOUBLESRCALPHA,
+	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
+	true, // GE_DSTBLEND_DOUBLEDSTALPHA,
+	true, // GE_DSTBLEND_DOUBLEINVDSTALPHA,
+	true, //GE_DSTBLEND_FIXB,
+};
+
+
 static bool IsAlphaTestTriviallyTrue() {
 	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 	int alphaTestRef = gstate.getAlphaTestRef();
@@ -49,9 +66,20 @@ static bool IsAlphaTestTriviallyTrue() {
 		return true;
 	case GE_COMP_GEQUAL:
 		return alphaTestRef == 0;
+		
+	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
+	// Speeds up Lumines by a LOT on PowerVR.
+	case GE_COMP_NOTEQUAL:
+	case GE_COMP_GREATER:
+		{
+			bool depthTest = gstate.isDepthTestEnabled();
+			GEBlendSrcFactor src = gstate.getBlendFuncA();
+			GEBlendDstFactor dst = gstate.getBlendFuncB();
+			if (depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
+				return true;
+			return false;
+		}
 
-	// This breaks the trees in MotoGP, for example.
-	// case GE_COMP_GREATER:
 	//if (alphaTestRef == 0 && (gstate.isAlphaBlendEnabled() & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
 	//	return true;
 
