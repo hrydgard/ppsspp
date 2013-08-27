@@ -2951,8 +2951,7 @@ void Thread::resumeFromWait()
 	if (action)
 	{
 		action->status &= ~THREADSTATUS_WAIT;
-		// TODO: What if DORMANT or DEAD?
-		if (!(action->status & THREADSTATUS_WAITSUSPEND))
+		if (!(action->status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
 			action->status = THREADSTATUS_READY;
 
 		// Non-waiting threads do not process callbacks.
@@ -2961,8 +2960,7 @@ void Thread::resumeFromWait()
 	else
 	{
 		this->nt.status &= ~THREADSTATUS_WAIT;
-		// TODO: What if DORMANT or DEAD?
-		if (!(this->nt.status & THREADSTATUS_WAITSUSPEND))
+		if (!(this->nt.status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
 			__KernelChangeReadyState(this, this->GetUID(), true);
 
 		// Non-waiting threads do not process callbacks.
