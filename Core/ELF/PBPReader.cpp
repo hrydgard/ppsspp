@@ -20,10 +20,11 @@
 #include <cstring>
 
 #include "Common/Log.h"
+#include "Common/FileUtil.h"
 #include "Core/ELF/PBPReader.h"
 
 PBPReader::PBPReader(const char *filename) : header_() {
-	file_ = fopen(filename, "rb");
+	file_ = File::OpenCFile(filename, "rb");
 	if (!file_) {
 		return;
 	}

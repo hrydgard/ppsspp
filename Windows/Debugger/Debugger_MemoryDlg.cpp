@@ -49,16 +49,16 @@ LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 
 CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_MEMORY, _hInstance,_hParent)
 {
-  cpu = _cpu;
+	cpu = _cpu;
 	wchar_t temp[256];
-	wsprintf(temp,L"Memory Viewer - %s",cpu->GetName());
+	wsprintf(temp,L"Memory Viewer - %S",cpu->GetName());
 	SetWindowText(m_hDlg,temp);
 
 	ShowWindow(m_hDlg,SW_HIDE);
 	CtrlMemView *ptr = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_MEMVIEW));
-  ptr->setDebugger(_cpu);
+	ptr->setDebugger(_cpu);
 
-  Button_SetCheck(GetDlgItem(m_hDlg,IDC_RAM), TRUE);
+	Button_SetCheck(GetDlgItem(m_hDlg,IDC_RAM), TRUE);
 	Button_SetCheck(GetDlgItem(m_hDlg,IDC_MODESYMBOLS), TRUE);
 
 	GetWindowRect(GetDlgItem(m_hDlg,IDC_SYMBOLS),&slRect);
@@ -99,6 +99,7 @@ void CMemoryDlg::NotifyMapLoaded()
     /*
 		for (int i = 0; i < cpu->getMemMap()->numRegions; i++)
 		{
+			// TODO: wchar_t
 			int n = ComboBox_AddString(lb,cpu->getMemMap()->regions[i].name);
 			ComboBox_SetItemData(lb,n,cpu->getMemMap()->regions[i].start);
 		}*/

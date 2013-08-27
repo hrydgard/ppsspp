@@ -59,7 +59,7 @@ public:
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title);
 
 	bool InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength);
-
+	bool InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue);
 	std::shared_ptr<KeyboardDevice> keyboard;
 
 private:

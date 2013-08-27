@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "file/file_util.h"
+#include "Common/FileUtil.h"
 #include "MIPS/MIPS.h"
 #include "MIPS/MIPSCodeUtils.h"
 
@@ -71,7 +72,7 @@ IdentifiedFileType Identify_File(std::string &filename)
 		return FILETYPE_NORMAL_DIRECTORY;
 	}
 
-	FILE *f = fopen(filename.c_str(), "rb");
+	FILE *f = File::OpenCFile(filename.c_str(), "rb");
 	if (!f)	{
 		// File does not exists
 		return FILETYPE_ERROR;

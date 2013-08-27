@@ -72,21 +72,21 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 
 	 // TODO: No idea if these bswaps are correct
 	switch (gstate.getClutPaletteFormat()) {
-		case GE_TFMT_5650:
-			return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+	case GE_TFMT_5650:
+		return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-		case GE_TFMT_5551:
-			return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+	case GE_TFMT_5551:
+		return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-		case GE_TFMT_4444:
-			return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+	case GE_TFMT_4444:
+		return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-		case GE_TFMT_8888:
-			return DecodeRGBA8888(clut[index + clutSharingOffset]);
+	case GE_TFMT_8888:
+		return DecodeRGBA8888(clut[index + clutSharingOffset]);
 
-		default:
-			ERROR_LOG(G3D, "Unsupported palette format: %x", gstate.getClutPaletteFormat());
-			return 0;
+	default:
+		ERROR_LOG(G3D, "Unsupported palette format: %x", gstate.getClutPaletteFormat());
+		return 0;
 	}
 }
 
@@ -123,31 +123,41 @@ static inline void GetTexelCoordinates(int level, float s, float t, unsigned int
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
 {
-	if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
-		// TODO: What happens if vertex has no texture coordinates?
-		// Note that for environment mapping, texture coordinates have been calculated during lighting
-		float q0 = 1.f / v0.clippos.w;
-		float q1 = 1.f / v1.clippos.w;
-		float q2 = 1.f / v2.clippos.w;
-		float q = q0 * w0 + q1 * w1 + q2 * w2;
-		s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
-		t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
-	} else if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
-		// projection mapping, TODO: Move this code to TransformUnit!
-		Vec3<float> source;
-		if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
-			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
-		} else {
-			ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
+	switch (gstate.getUVGenMode()) {
+	case GE_TEXMAP_TEXTURE_COORDS:
+	case GE_TEXMAP_UNKNOWN:
+	case GE_TEXMAP_ENVIRONMENT_MAP:
+		{
+			// TODO: What happens if vertex has no texture coordinates?
+			// Note that for environment mapping, texture coordinates have been calculated during lighting
+			float q0 = 1.f / v0.clippos.w;
+			float q1 = 1.f / v1.clippos.w;
+			float q2 = 1.f / v2.clippos.w;
+			float q = q0 * w0 + q1 * w1 + q2 * w2;
+			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
+			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
 		}
+		break;
+	case GE_TEXMAP_TEXTURE_MATRIX:
+		{
+			// projection mapping, TODO: Move this code to TransformUnit!
+			Vec3<float> source;
+			if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
+			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
+			} else {
+			ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
+			}
 
-		Mat3x3<float> tgen(gstate.tgenMatrix);
-		Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-		s = stq.x/stq.z;
-		t = stq.y/stq.z;
-	} else {
+			Mat3x3<float> tgen(gstate.tgenMatrix);
+			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+			s = stq.x/stq.z;
+			t = stq.y/stq.z;
+		}
+		break;
+	default:
 		ERROR_LOG(G3D, "Unsupported texture mapping mode %x!", gstate.getUVGenMode());
-	}
+		break;
+	}	
 }
 
 static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
@@ -161,43 +171,48 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
 
 	// TODO: Should probably check if textures are aligned properly...
 
-	if (texfmt == GE_TFMT_4444) {
+	switch (texfmt) {
+	case GE_TFMT_4444:
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		return DecodeRGBA4444(*(u16*)srcptr);
-	} else if (texfmt == GE_TFMT_5551) {
+	
+	case GE_TFMT_5551:
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		return DecodeRGBA5551(*(u16*)srcptr);
-	} else if (texfmt == GE_TFMT_5650) {
+
+	case GE_TFMT_5650:
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		return DecodeRGB565(*(u16*)srcptr);
-	} else if (texfmt == GE_TFMT_8888) {
+
+	case GE_TFMT_8888:
 		srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
 		return DecodeRGBA8888(*(u32*)srcptr);
-	} else if (texfmt == GE_TFMT_CLUT32) {
-		srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
 
-		u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
-
-		return LookupColor(gstate.transformClutIndex(val), level);
-	} else if (texfmt == GE_TFMT_CLUT16) {
-		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
-
-		u16 val = srcptr[0] + (srcptr[1] << 8);
-
-		return LookupColor(gstate.transformClutIndex(val), level);
-	} else if (texfmt == GE_TFMT_CLUT8) {
-		srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
-
-		u8 val = *srcptr;
-
-		return LookupColor(gstate.transformClutIndex(val), level);
-	} else if (texfmt == GE_TFMT_CLUT4) {
-		srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
-
-		u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
-
-		return LookupColor(gstate.transformClutIndex(val), level);
-	} else {
+	case GE_TFMT_CLUT32:
+		{
+			srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
+			u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
+			return LookupColor(gstate.transformClutIndex(val), level);
+		}
+	case GE_TFMT_CLUT16:
+		{
+			srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
+			u16 val = srcptr[0] + (srcptr[1] << 8);
+			return LookupColor(gstate.transformClutIndex(val), level);
+		}
+	case GE_TFMT_CLUT8:
+		{
+			srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
+			u8 val = *srcptr;
+			return LookupColor(gstate.transformClutIndex(val), level);
+		}
+	case GE_TFMT_CLUT4:
+		{
+			srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
+			u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
+			return LookupColor(gstate.transformClutIndex(val), level);
+		}
+	default:
 		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
 		return 0;
 	}

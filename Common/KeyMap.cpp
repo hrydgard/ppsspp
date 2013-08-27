@@ -679,7 +679,7 @@ void RestoreDefault() {
 	std::string name = System_GetName();
 	if (name == "NVIDIA:SHIELD") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
-	} else if (name == "OUYA:OUYA") {  // TODO: check!
+	} else if (name == "OUYA:OUYA Console") {  // TODO: check!
 		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
 	} else if (name == "Sony Ericsson:R800i" || name == "Sony Ericsson:zeus") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);

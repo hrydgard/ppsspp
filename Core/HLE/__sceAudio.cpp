@@ -311,7 +311,7 @@ void __AudioUpdate() {
 	}
 
 	if (firstChannel) {
-		memset(mixBuffer, 0, sizeof(mixBuffer));
+		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 	}
 
 	if (g_Config.bEnableSound) {
