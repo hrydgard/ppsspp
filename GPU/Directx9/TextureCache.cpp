@@ -1691,12 +1691,18 @@ void TextureCache::LoadTextureLevel(TexCacheEntry &entry, int level, bool replac
 	// Ignore mip map atm
 	if (level == 0) { 
 		if (replaceImages) {	
+			// Unset texture
+			pD3Ddevice->SetTexture(0, NULL);
+
 			D3DLOCKED_RECT rect;
 			entry.texture->LockRect(level, &rect, NULL, 0);
 
 			copyTexture(0, 0, w, h, rect.Pitch, entry.format, dstFmt, pixelData, rect.pBits);
 
 			entry.texture->UnlockRect(level);
+
+			// Rebind texture
+			pD3Ddevice->SetTexture(0, entry.texture);
 		} else {
 			// Create texture
 			pD3Ddevice->CreateTexture(w, h, 1, 0, (D3DFORMAT)D3DFMT(dstFmt), NULL, &entry.texture, NULL);
