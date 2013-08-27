@@ -555,19 +555,19 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					u32 ra = currentMIPS->r[MIPS_REG_RA];
 					DWORD addr = Memory::ReadUnchecked_U32(pc);
 					int count=1;
-					ComboBox_SetItemData(list,ComboBox_AddString(list,symbolMap.GetDescription(pc)),pc);
+					ComboBox_SetItemData(list, ComboBox_AddString(list, ConvertUTF8ToWString(symbolMap.GetDescription(pc)).c_str()), pc);
 					if (symbolMap.GetDescription(pc) != symbolMap.GetDescription(ra))
 					{
-						ComboBox_SetItemData(list,ComboBox_AddString(list,symbolMap.GetDescription(ra)),ra);
+						ComboBox_SetItemData(list, ComboBox_AddString(list, ConvertUTF8ToWString(symbolMap.GetDescription(ra)).c_str()), ra);
 						count++;
 					}
 					//walk the stack chain
 					while (addr != 0xFFFFFFFF && addr!=0 && count++<20)
 					{
 						DWORD fun = Memory::ReadUnchecked_U32(addr+4);
-						const char *str = symbolMap.GetDescription(fun);
-						if (strlen(str)==0)
-							str = "(unknown)";
+						const wchar_t *str = ConvertUTF8ToWString(symbolMap.GetDescription(fun)).c_str();
+						if (wcslen(str) == 0)
+							str = L"(unknown)";
 						ComboBox_SetItemData(list, ComboBox_AddString(list,str), fun);
 						addr = Memory::ReadUnchecked_U32(addr);
 					}
@@ -836,6 +836,7 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	ComboBox_ResetContent(gotoInt);
 	for (int i=0; i<numRegions; i++)
 	{
+		// TODO: wchar_t
 		int n = ComboBox_AddString(gotoInt,regions[i].name);
 		ComboBox_SetItemData(gotoInt,n,regions[i].start);
 	}
