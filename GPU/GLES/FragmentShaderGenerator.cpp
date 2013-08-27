@@ -75,7 +75,7 @@ static bool IsAlphaTestTriviallyTrue() {
 			bool depthTest = gstate.isDepthTestEnabled();
 			GEBlendSrcFactor src = gstate.getBlendFuncA();
 			GEBlendDstFactor dst = gstate.getBlendFuncB();
-			if (depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
+			if (!depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
 				return true;
 			return false;
 		}
