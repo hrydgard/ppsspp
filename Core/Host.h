@@ -68,6 +68,7 @@ public:
 #ifdef _WIN32
 	// Implement this on your platform to grab text input from the user for whatever purpose.
 	virtual bool InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength) { return false; }
+	virtual bool InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 #endif
 
 	// Used for headless.
