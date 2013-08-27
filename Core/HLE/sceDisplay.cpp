@@ -275,6 +275,8 @@ void __DisplayGetDebugStats(char stats[2048]) {
 		"Most active syscall: %s : %0.2f ms\n"
 		"Draw calls: %i, flushes %i\n"
 		"Cached Draw calls: %i\n"
+		"Alpha Tested draws: %i\n"
+		"Non Alpha Tested draws: %i\n"
 		"Num Tracked Vertex Arrays: %i\n"
 		"Cycles executed: %d (%f per vertex)\n"
 		"Commands per call level: %i %i %i %i\n"
@@ -297,6 +299,8 @@ void __DisplayGetDebugStats(char stats[2048]) {
 		gpuStats.numDrawCalls,
 		gpuStats.numFlushes,
 		gpuStats.numCachedDrawCalls,
+		gpuStats.numAlphaTestedDraws,
+		gpuStats.numNonAlphaTestedDraws,
 		gpuStats.numTrackedVertexArrays,
 		gpuStats.vertexGPUCycles + gpuStats.otherGPUCycles,
 		vertexAverageCycles,
