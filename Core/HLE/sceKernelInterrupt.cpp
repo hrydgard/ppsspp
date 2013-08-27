@@ -166,7 +166,7 @@ void IntrHandler::enable(int subIntrNum)
 }
 void IntrHandler::disable(int subIntrNum)
 {
-	subIntrHandlers[subIntrNum].enabled = true;
+	subIntrHandlers[subIntrNum].enabled = false;
 }
 SubIntrHandler* IntrHandler::get(int subIntrNum)
 {
