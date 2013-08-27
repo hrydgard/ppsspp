@@ -309,6 +309,15 @@ bool WindowsHost::InputBoxGetString(char *title, const char *defaultValue, char 
 	}
 }
 
+bool WindowsHost::InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue)
+{
+	if (InputBox_GetWString(MainWindow::GetHInstance(), MainWindow::GetHWND(), title, defaultvalue, outvalue)) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 
 // http://msdn.microsoft.com/en-us/library/aa969393.aspx
 HRESULT CreateLink(LPCWSTR lpszPathObj, LPCWSTR lpszArguments, LPCWSTR lpszPathLink, LPCWSTR lpszDesc) { 
