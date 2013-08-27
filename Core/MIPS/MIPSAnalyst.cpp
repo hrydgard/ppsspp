@@ -18,6 +18,7 @@
 #include <map>
 #include "Globals.h"
 
+#include "Common/FileUtil.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -326,7 +327,7 @@ namespace MIPSAnalyst
 
 	void StoreHashMap(const char *filename)
 	{
-		FILE *file = fopen(filename,"wb");
+		FILE *file = File::OpenCFile(filename,"wb");
 		u32 num = 0;
 		if(fwrite(&num,4,1,file) != 1) //fill in later
 			WARN_LOG(CPU, "Could not store hash map %s", filename);
@@ -360,7 +361,7 @@ namespace MIPSAnalyst
 		HashFunctions();
 		UpdateHashToFunctionMap();
 
-		FILE *file = fopen(filename, "rb");
+		FILE *file = File::OpenCFile(filename, "rb");
 		int num;
 		if(fread(&num,4,1,file) == 1) {
 			for (int i=0; i<num; i++)
