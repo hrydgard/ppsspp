@@ -477,10 +477,12 @@ void CallSyscall(MIPSOpcode op)
 	{
 		// TODO: Move to jit/interp.
 		u32 flags = moduleDB[modulenum].funcTable[funcnum].flags;
-		if (flags & HLE_NOT_DISPATCH_SUSPENDED)
+		if (flags != 0)
 		{
-			if (!__KernelIsDispatchEnabled())
+			if ((flags & HLE_NOT_DISPATCH_SUSPENDED) && !__KernelIsDispatchEnabled())
 				RETURN(SCE_KERNEL_ERROR_CAN_NOT_WAIT);
+			else if ((flags & HLE_NOT_IN_INTERRUPT) && __IsInInterrupt())
+				RETURN(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
 			else
 				func();
 		}

@@ -2130,7 +2130,10 @@ void sceKernelExitDeleteThread(int exitStatus)
 u32 sceKernelSuspendDispatchThread()
 {
 	if (!__InterruptsEnabled())
+	{
+		DEBUG_LOG(HLE, "sceKernelSuspendDispatchThread(): interrupts disabled");
 		return SCE_KERNEL_ERROR_CPUDI;
+	}
 
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
@@ -2141,7 +2144,10 @@ u32 sceKernelSuspendDispatchThread()
 u32 sceKernelResumeDispatchThread(u32 enabled)
 {
 	if (!__InterruptsEnabled())
+	{
+		DEBUG_LOG(HLE, "sceKernelResumeDispatchThread(%i): interrupts disabled", enabled);
 		return SCE_KERNEL_ERROR_CPUDI;
+	}
 
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = enabled != 0;
