@@ -292,6 +292,12 @@ namespace PpcGen
 
 		void SRW	(PPCReg dest, PPCReg src, PPCReg shift);
 		void SRWI	(PPCReg dest, PPCReg src, unsigned short imm);
+		
+		void ROTRW	(PPCReg dest, PPCReg src, PPCReg shift);
+		void ROTRWI	(PPCReg dest, PPCReg src, unsigned short imm);
+
+		void ROTLW	(PPCReg dest, PPCReg src, PPCReg shift);
+		void ROTLWI	(PPCReg dest, PPCReg src, unsigned short imm);
 
 		// Compare
 		enum CONDITION_REGISTER{

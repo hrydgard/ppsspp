@@ -485,6 +485,7 @@ namespace PpcGen {
 	void PPCXEmitter::SLW	(PPCReg dest, PPCReg src, PPCReg shift) {
 		X_FORM(31, src, dest, shift, 24, 0);
 	}
+
 	void PPCXEmitter::SLWI	(PPCReg dest, PPCReg src, unsigned short imm) {
 		RLWINM(dest, src, imm, 0, (31-imm));
 	}
@@ -492,8 +493,23 @@ namespace PpcGen {
 	void PPCXEmitter::SRW	(PPCReg dest, PPCReg src, PPCReg shift) {
 		X_FORM(31, src, dest, shift, 536, 0);
 	}
+
 	void PPCXEmitter::SRWI	(PPCReg dest, PPCReg src, unsigned short imm) {
 		RLWINM(dest, src, (32-imm), imm, 31);
+	}
+	
+	void PPCXEmitter::ROTRW	(PPCReg dest, PPCReg src, PPCReg shift) {
+		
+	}
+
+	void PPCXEmitter::ROTRWI(PPCReg dest, PPCReg src, unsigned short imm) {
+		RLWINM(dest, src, (32-imm), 0, 31);
+	}
+
+	void  PPCXEmitter::ROTLW	(PPCReg dest, PPCReg src, PPCReg shift) {
+	}
+
+	void  PPCXEmitter::ROTLWI	(PPCReg dest, PPCReg src, unsigned short imm) {
 	}
 
 	// Prologue / epilogue
