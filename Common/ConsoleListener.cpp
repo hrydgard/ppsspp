@@ -72,6 +72,29 @@ ConsoleListener::~ConsoleListener()
 	Close();
 }
 
+// Handle console event
+bool WINAPI ConsoleHandler(DWORD msgType)
+{
+    if (msgType == CTRL_C_EVENT)
+    {
+		OutputDebugString(L"Ctrl-C!\n");
+        return TRUE;
+    }
+    else if (msgType == CTRL_CLOSE_EVENT)
+    {
+        OutputDebugString(L"Close console window!\n");
+		return TRUE;
+    }
+    /*
+        Other messages:
+        CTRL_BREAK_EVENT         Ctrl-Break pressed
+        CTRL_LOGOFF_EVENT        User log off
+        CTRL_SHUTDOWN_EVENT      System shutdown
+    */
+    return FALSE;
+}
+
+
 // 100, 100, "Dolphin Log Console"
 // Open console window - width and height is the size of console window
 // Name is the window title
@@ -85,10 +108,15 @@ void ConsoleListener::Open(bool Hidden, int Width, int Height, const char *Title
 		AllocConsole();
 		HWND hConWnd = GetConsoleWindow();
 		ShowWindow(hConWnd, SW_SHOWDEFAULT);
+		// disable console close button
+		HMENU hMenu=GetSystemMenu(hConWnd,false);
+		EnableMenuItem(hMenu,SC_CLOSE,MF_GRAYED|MF_BYCOMMAND);
 		// Hide
 		if (Hidden) ShowWindow(hConWnd, SW_HIDE);
 		// Save the window handle that AllocConsole() created
 		hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+		// Set console handler
+		if(SetConsoleCtrlHandler((PHANDLER_ROUTINE)ConsoleHandler, TRUE)){OutputDebugString(L"Console handler is installed!\n");}
 		// Set the console window title
 		SetConsoleTitle(ConvertUTF8ToWString(Title).c_str());
 		SetConsoleCP(CP_UTF8);
