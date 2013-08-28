@@ -109,6 +109,11 @@ struct AsyncPBO {
 
 #endif
 
+// Overrides for GL_ARB_pixel_buffer_object if the device doesn't support OpenGL 2.1
+#if !defined(GL_PIXEL_PACK_BUFFER) && defined(GL_PIXEL_PACK_BUFFER_ARB)
+#define GL_PIXEL_PACK_BUFFER GL_PIXEL_PACK_BUFFER_ARB
+#endif
+
 class ShaderManager;
 
 class FramebufferManager {
