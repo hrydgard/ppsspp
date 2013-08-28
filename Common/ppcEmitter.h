@@ -67,7 +67,7 @@ namespace PpcGen
 
 		// FPRs (32)
 		// Scratch 
-		FPR0,	
+		FPR0 = 0,	
 		// Used to pass double word function parameters and return values 
 		FPR1,	FPR2,	FPR3,	FPR4,	
 		FPR5,	FPR6,	FPR7,	FPR8,
@@ -82,7 +82,7 @@ namespace PpcGen
 
 
 		// Vmx (128)
-		VR0, 
+		VR0 = 0, 
 		// Used to pass vector function parameters and return values 
 		VR1,	VR2,	VR3,	VR4,	
 		VR5,	VR6,	VR7,	VR8,	
@@ -331,6 +331,43 @@ namespace PpcGen
 		void MR		(PPCReg to, PPCReg from) {
 			OR(to, from, from);
 		}
+
+		// Fpu
+		void LFS	(PPCReg FRt, PPCReg Ra, unsigned short offset = 0);
+		void LFD	(PPCReg FRt, PPCReg Ra, unsigned short offset = 0);
+		void SFS	(PPCReg FRt, PPCReg Ra, unsigned short offset = 0);
+		void SFD	(PPCReg FRt, PPCReg Ra, unsigned short offset = 0);
+		void SaveFloatSwap(PPCReg FRt, PPCReg Ra, PPCReg offset);
+		void LoadFloatSwap(PPCReg FRt, PPCReg Ra, PPCReg offset);
+
+		// Fpu move instruction
+		void FMR	(PPCReg FRt, PPCReg FRb);
+		void FNEG	(PPCReg FRt, PPCReg FRb);
+		void FABS	(PPCReg FRt, PPCReg FRb);
+		void FNABS	(PPCReg FRt, PPCReg FRb);
+		void FCPSGN	(PPCReg FRt, PPCReg FRb);
+
+		// Fpu arith
+		void FADD	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+		void FSUB	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+		void FMUL	(PPCReg FRt, PPCReg FRa, PPCReg FRc);
+		void FMULS	(PPCReg FRt, PPCReg FRa, PPCReg FRc);
+		void FDIV	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+		void FDIVS	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+		void FSQRT	(PPCReg FRt, PPCReg FRb);
+		void FSQRTS	(PPCReg FRt, PPCReg FRb);
+		void FSQRTE	(PPCReg FRt, PPCReg FRb);
+		void FSQRTES(PPCReg FRt, PPCReg FRb);
+		void FRE	(PPCReg FRt, PPCReg FRb);
+		void FRES	(PPCReg FRt, PPCReg FRb);
+
+		// Fpu mul add
+		void FMADD	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
+		void FMSUB	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
+		void FMADDS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
+		void FMSUBS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
+
+		
 
 		void QuickCallFunction(void *func);
 	protected:

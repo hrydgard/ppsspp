@@ -24,6 +24,20 @@
     Write32((OPCD << 26) | (d << 21) | (a << 16) | (b << 11) | (c << 6) | (XO << 1) | (Rc)); \
 }
 
+//   0 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+//  |      OPCD      |       D      |       A      |                 d/UIMM/SIMM                   |
+#define D_FORM(OPCD, RD, RA, IMM) { \
+    int _ra = (RA), _rd = (RD); \
+    Write32((OPCD << 26) | (_rd << 21) | (_ra << 16) | ((IMM) & 0xffff)); \
+}
+
+//   0 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+//  |      OPCD      |       D      |       A      |      B       |       C      |      XO      |Rc|
+#define A_FORM(OPCD, D, A, B, C, XO, Rc) { \
+    int a = (A), b = (B), c = (C), d = (D); \
+    Write32((OPCD << 26) | (d << 21) | (a << 16) | (b << 11) | (c << 6) | (XO << 1) | (Rc)); \
+}
+
 namespace PpcGen {
 
 	// Arithmetics ops	
@@ -510,6 +524,128 @@ namespace PpcGen {
 	}
 
 	void  PPCXEmitter::ROTLWI	(PPCReg dest, PPCReg src, unsigned short imm) {
+	}
+
+	// Fpu
+	void PPCXEmitter::LFS	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
+		D_FORM(48, FRt, Ra, offset);
+	}
+	void PPCXEmitter::LFD	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
+		Break();
+		D_FORM(50, FRt, Ra, offset);
+	}
+	void PPCXEmitter::SFS	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
+		D_FORM(52, FRt, Ra, offset);
+	}
+	void PPCXEmitter::SFD	(PPCReg FRt, PPCReg Ra, unsigned short offset) {
+		Break();
+		D_FORM(54, FRt, Ra, offset);
+	}
+	
+	void PPCXEmitter::SaveFloatSwap(PPCReg FRt, PPCReg Base, PPCReg offset) {
+		// used for swapping float ...
+		u32 tmp;
+
+		// Save Value in tmp	
+		MOVI2R(R7, (u32)&tmp);	
+		SFS(FRt, R7, 0);
+
+		// Load the value in R6
+		LWZ(R6, R7); 
+		
+		// Save the final value
+		STWBRX(R6, Base, offset); 
+	}
+
+	void PPCXEmitter::LoadFloatSwap(PPCReg FRt, PPCReg Base, PPCReg offset) {
+		// used for swapping float ...
+		u32 tmp;
+		
+		// Load Value into a temp REG
+		LWBRX(R6, Base, offset); 
+
+		// Save it in tmp
+		MOVI2R(R7, (u32)&tmp);
+		STW(R6, R7);
+
+		// Load the final value
+		LFS(FRt, R7, 0);
+	}
+
+	// Fpu move instruction
+	void PPCXEmitter::FMR	(PPCReg FRt, PPCReg FRb) {
+		Break();
+		X_FORM(63, FRt, 0, FRb, 72, 0);
+	}
+	void PPCXEmitter::FNEG	(PPCReg FRt, PPCReg FRb) {
+		Break();
+		X_FORM(63, FRt, 0, FRb, 40, 0);
+	}
+	void PPCXEmitter::FABS	(PPCReg FRt, PPCReg FRb) {
+		Break();
+		X_FORM(63, FRt, 0, FRb, 264, 0);
+	}
+	void PPCXEmitter::FNABS	(PPCReg FRt, PPCReg FRb) {
+		Break();
+		X_FORM(63, FRt, 0, FRb, 136, 0);
+	}
+	void PPCXEmitter::FCPSGN	(PPCReg FRt, PPCReg FRb) {
+		Break();
+		X_FORM(63, FRt, 0, FRb, 8, 0);
+	}
+
+	// Fpu arith
+	void PPCXEmitter::FADD	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		A_FORM(63, FRt, FRa, FRb, 0, 21, 0);
+	}
+	void PPCXEmitter::FSUB	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		A_FORM(63, FRt, FRa, FRb, 0, 20, 0);
+	}
+	void PPCXEmitter::FMUL	(PPCReg FRt, PPCReg FRa, PPCReg FRc) {
+		A_FORM(63, FRt, FRa, 0, FRc, 25, 0);
+	}
+	void PPCXEmitter::FMULS	(PPCReg FRt, PPCReg FRa, PPCReg FRc) {
+		Break();
+		A_FORM(59, FRt, FRa, 0, FRc, 25, 0);
+	}
+	void PPCXEmitter::FDIV	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		A_FORM(63, FRt, FRa, FRb, 0, 18, 0);
+	}
+	void PPCXEmitter::FDIVS	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {		
+		Break();
+		A_FORM(59, FRt, FRa, FRb, 0, 18, 0);
+	}
+	void PPCXEmitter::FSQRT	(PPCReg FRt, PPCReg FRb) {
+		Break();
+	}
+	void PPCXEmitter::FSQRTS	(PPCReg FRt, PPCReg FRb) {
+		Break();
+	}
+	void PPCXEmitter::FSQRTE	(PPCReg FRt, PPCReg FRb) {
+		Break();
+	}
+	void PPCXEmitter::FSQRTES(PPCReg FRt, PPCReg FRb) {
+		Break();
+	}
+	void PPCXEmitter::FRE	(PPCReg FRt, PPCReg FRb) {
+		Break();
+	}
+	void PPCXEmitter::FRES	(PPCReg FRt, PPCReg FRb) {
+		Break();
+	}
+
+	// Fpu mul add
+	void PPCXEmitter::FMADD	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {
+		Break();
+	}
+	void PPCXEmitter::FMSUB	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {
+		Break();
+	}
+	void PPCXEmitter::FMADDS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {
+		Break();
+	}
+	void PPCXEmitter::FMSUBS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {
+		Break();
 	}
 
 	// Prologue / epilogue
