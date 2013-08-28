@@ -2541,6 +2541,9 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 	if (threadID == 0 || threadID == currentThread)
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
 
+	if (!__KernelIsDispatchEnabled())
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
@@ -2566,6 +2569,9 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 	DEBUG_LOG(HLE, "sceKernelWaitThreadEndCB(%i, 0x%X)", threadID, timeoutPtr);
 	if (threadID == 0 || threadID == currentThread)
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+
+	if (!__KernelIsDispatchEnabled())
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);

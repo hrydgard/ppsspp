@@ -1731,6 +1731,10 @@ int sceKernelAllocateTls(SceUID uid)
 {
 	// TODO: Allocate downward if PSP_TLS_ATTR_HIGHMEM?
 	DEBUG_LOG(HLE, "sceKernelAllocateTls(%08x)", uid);
+
+	if (!__KernelIsDispatchEnabled())
+		return 0;
+
 	u32 error;
 	TLS *tls = kernelObjects.Get<TLS>(uid, error);
 	if (tls)
