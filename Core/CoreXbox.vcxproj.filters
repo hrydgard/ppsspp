@@ -481,6 +481,9 @@
     <ClCompile Include="HW\AsyncIOManager.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcRegCacheFPU.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -875,6 +878,9 @@
     </ClInclude>
     <ClInclude Include="HW\AsyncIOManager.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\PPC\PpcRegCacheFPU.h">
+      <Filter>MIPS\PPC</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
