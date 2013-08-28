@@ -29,8 +29,8 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
 int sceKernelDelayThreadCB(u32 usec);
-void sceKernelDelaySysClockThread();
-void sceKernelDelaySysClockThreadCB();
+int sceKernelDelaySysClockThread(u32 sysclockAddr);
+int sceKernelDelaySysClockThreadCB(u32 sysclockAddr);
 int sceKernelDeleteThread(int threadHandle);
 void sceKernelExitDeleteThread(int exitStatus);
 void sceKernelExitThread(int exitStatus);

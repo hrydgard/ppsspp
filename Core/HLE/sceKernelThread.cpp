@@ -2410,44 +2410,42 @@ int sceKernelDelayThread(u32 usec)
 	return 0;
 }
 
-void sceKernelDelaySysClockThreadCB()
+int sceKernelDelaySysClockThreadCB(u32 sysclockAddr)
 {
-	u32 sysclockAddr = PARAM(0);
-	if (!Memory::IsValidAddress(sysclockAddr)) {
-		ERROR_LOG(HLE, "sceKernelDelaySysClockThread(%08x) - bad pointer", sysclockAddr);
-		RETURN(-1);
-		return;
+	PSPPointer<SceKernelSysClock> sysclock;
+	sysclock = sysclockAddr;
+	if (!sysclock.IsValid()) {
+		ERROR_LOG(HLE, "sceKernelDelaySysClockThreadCB(%08x) - bad pointer", sysclockAddr);
+		return -1;
 	}
-	SceKernelSysClock sysclock;
-	Memory::ReadStruct(sysclockAddr, &sysclock);
 
 	// TODO: Which unit?
-	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
-	DEBUG_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
+	u64 usec = sysclock->lo | ((u64)sysclock->hi << 32);
+	DEBUG_LOG(HLE, "sceKernelDelaySysClockThreadCB(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
+	return 0;
 }
 
-void sceKernelDelaySysClockThread()
+int sceKernelDelaySysClockThread(u32 sysclockAddr)
 {
-	u32 sysclockAddr = PARAM(0);
-	if (!Memory::IsValidAddress(sysclockAddr)) {
+	PSPPointer<SceKernelSysClock> sysclock;
+	sysclock = sysclockAddr;
+	if (!sysclock.IsValid()) {
 		ERROR_LOG(HLE, "sceKernelDelaySysClockThread(%08x) - bad pointer", sysclockAddr);
-		RETURN(-1);
-		return;
+		return -1;
 	}
-	SceKernelSysClock sysclock;
-	Memory::ReadStruct(sysclockAddr, &sysclock);
 
 	// TODO: Which unit?
-	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
+	u64 usec = sysclock->lo | ((u64)sysclock->hi << 32);
 	DEBUG_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
+	return 0;
 }
 
 u32 __KernelGetThreadPrio(SceUID id)
