@@ -164,8 +164,29 @@ void Jit::Comp_DoNothing(u32 op) {
 void Jit::FlushAll()
 {
 	gpr.FlushAll();
-	//fpr.FlushAll();
-	//FlushPrefixV();
+	fpr.FlushAll();
+	FlushPrefixV();
+}
+
+void Jit::FlushPrefixV()
+{
+	if ((js.prefixSFlag & PpcJitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(SREG, js.prefixS);
+		STW(SREG, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_SPREFIX]));
+		js.prefixSFlag = (PpcJitState::PrefixState) (js.prefixSFlag & ~PpcJitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixTFlag & PpcJitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(SREG, js.prefixT);
+		STW(SREG, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_TPREFIX]));
+		js.prefixTFlag = (PpcJitState::PrefixState) (js.prefixTFlag & ~PpcJitState::PREFIX_DIRTY);
+	}
+
+	if ((js.prefixDFlag & PpcJitState::PREFIX_DIRTY) != 0) {
+		MOVI2R(SREG, js.prefixD);
+		STW(SREG, CTXREG, offsetof(MIPSState, vfpuCtrl[VFPU_CTRL_DPREFIX]));
+		js.prefixDFlag = (PpcJitState::PrefixState) (js.prefixDFlag & ~PpcJitState::PREFIX_DIRTY);
+	}
 }
 
 void Jit::ClearCache() {
@@ -178,10 +199,11 @@ void Jit::ClearCacheAt(u32 em_address, int length) {
 	blocks.InvalidateICache(em_address, length);
 }
 
-Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo),mips_(mips)
+Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo),fpr(mips),mips_(mips)
 { 
 	blocks.Init();
 	gpr.SetEmitter(this);
+	fpr.SetEmitter(this);
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 

@@ -123,7 +123,7 @@ namespace MIPSComp
 				gpr.SetImm(rt, (s32)gpr.GetImm(rs) < simm);
 				break;
 			} else {
-				DISABLE;
+				//DISABLE;
 				gpr.MapDirtyIn(rt, rs);
 
 				PPCReg ppc_rt = gpr.R(rt);
@@ -147,7 +147,7 @@ namespace MIPSComp
 				gpr.SetImm(rt, gpr.GetImm(rs) < uimm);
 				break;
 			} else {
-				DISABLE;
+				//DISABLE;
 				gpr.MapDirtyIn(rt, rs);
 
 				PPCReg ppc_rt = gpr.R(rt);

@@ -21,6 +21,7 @@
 
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/PPC/PpcRegCache.h"
+#include "Core/MIPS/PPC/PpcRegCacheFpu.h"
 
 #include "Core/MIPS/MIPS.h"
 #include <ppcEmitter.h>
@@ -158,7 +159,7 @@ namespace MIPSComp
 		void Comp_RunBlock(u32 op);
 
 		// TODO: Eat VFPU prefixes here.
-		void EatPrefix() { }
+		void EatPrefix() { js.EatPrefix(); }
 
 		// Ops
 		void Comp_ITypeMem(u32 op);
@@ -238,6 +239,7 @@ namespace MIPSComp
 		
 		// flush regs
 		void FlushAll();
+		void FlushPrefixV();
 
 		void WriteDownCount(int offset = 0);
 		void MovFromPC(PpcGen::PPCReg r);
@@ -266,7 +268,7 @@ namespace MIPSComp
 		PpcJitState js;
 
 		PpcRegCache gpr;
-		//PpcRegCacheFPU fpr;
+		PpcRegCacheFPU fpr;
 
 		MIPSState *mips_;
 
