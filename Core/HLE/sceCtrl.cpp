@@ -216,6 +216,9 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 	if (nBufs > NUM_CTRL_BUFFERS)
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 
+	if (!peek && !__KernelIsDispatchEnabled())
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+
 	u32 resetRead = ctrlBufRead;
 
 	u32 availBufs;
