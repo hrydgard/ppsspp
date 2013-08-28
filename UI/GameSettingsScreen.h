@@ -78,6 +78,7 @@ public:
 
 protected:
 	virtual void CreateViews();
+	void CallbackRestoreDefaults(bool yes);
 
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
@@ -86,6 +87,7 @@ private:
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
+	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 
 	// Temporary variable.
 	bool enableLogging_;

@@ -165,6 +165,7 @@ public:
 
 	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
 	void Save();
+	void RestoreDefaults();
 
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);
