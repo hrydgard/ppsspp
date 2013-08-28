@@ -2130,7 +2130,10 @@ void sceKernelExitDeleteThread(int exitStatus)
 u32 sceKernelSuspendDispatchThread()
 {
 	if (!__InterruptsEnabled())
+	{
+		DEBUG_LOG(HLE, "sceKernelSuspendDispatchThread(): interrupts disabled");
 		return SCE_KERNEL_ERROR_CPUDI;
+	}
 
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = false;
@@ -2141,7 +2144,10 @@ u32 sceKernelSuspendDispatchThread()
 u32 sceKernelResumeDispatchThread(u32 enabled)
 {
 	if (!__InterruptsEnabled())
+	{
+		DEBUG_LOG(HLE, "sceKernelResumeDispatchThread(%i): interrupts disabled", enabled);
 		return SCE_KERNEL_ERROR_CPUDI;
+	}
 
 	u32 oldDispatchEnabled = dispatchEnabled;
 	dispatchEnabled = enabled != 0;
@@ -2410,44 +2416,42 @@ int sceKernelDelayThread(u32 usec)
 	return 0;
 }
 
-void sceKernelDelaySysClockThreadCB()
+int sceKernelDelaySysClockThreadCB(u32 sysclockAddr)
 {
-	u32 sysclockAddr = PARAM(0);
-	if (!Memory::IsValidAddress(sysclockAddr)) {
-		ERROR_LOG(HLE, "sceKernelDelaySysClockThread(%08x) - bad pointer", sysclockAddr);
-		RETURN(-1);
-		return;
+	PSPPointer<SceKernelSysClock> sysclock;
+	sysclock = sysclockAddr;
+	if (!sysclock.IsValid()) {
+		ERROR_LOG(HLE, "sceKernelDelaySysClockThreadCB(%08x) - bad pointer", sysclockAddr);
+		return -1;
 	}
-	SceKernelSysClock sysclock;
-	Memory::ReadStruct(sysclockAddr, &sysclock);
 
 	// TODO: Which unit?
-	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
-	DEBUG_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
+	u64 usec = sysclock->lo | ((u64)sysclock->hi << 32);
+	DEBUG_LOG(HLE, "sceKernelDelaySysClockThreadCB(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, true, "thread delayed");
+	return 0;
 }
 
-void sceKernelDelaySysClockThread()
+int sceKernelDelaySysClockThread(u32 sysclockAddr)
 {
-	u32 sysclockAddr = PARAM(0);
-	if (!Memory::IsValidAddress(sysclockAddr)) {
+	PSPPointer<SceKernelSysClock> sysclock;
+	sysclock = sysclockAddr;
+	if (!sysclock.IsValid()) {
 		ERROR_LOG(HLE, "sceKernelDelaySysClockThread(%08x) - bad pointer", sysclockAddr);
-		RETURN(-1);
-		return;
+		return -1;
 	}
-	SceKernelSysClock sysclock;
-	Memory::ReadStruct(sysclockAddr, &sysclock);
 
 	// TODO: Which unit?
-	u64 usec = sysclock.lo | ((u64)sysclock.hi << 32);
+	u64 usec = sysclock->lo | ((u64)sysclock->hi << 32);
 	DEBUG_LOG(HLE, "sceKernelDelaySysClockThread(%08x (%llu))", sysclockAddr, usec);
 
 	SceUID curThread = __KernelGetCurThread();
 	__KernelScheduleWakeup(curThread, __KernelDelayThreadUs(usec));
 	__KernelWaitCurThread(WAITTYPE_DELAY, curThread, 0, 0, false, "thread delayed");
+	return 0;
 }
 
 u32 __KernelGetThreadPrio(SceUID id)
@@ -2543,6 +2547,9 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 	if (threadID == 0 || threadID == currentThread)
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
 
+	if (!__KernelIsDispatchEnabled())
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
@@ -2568,6 +2575,9 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 	DEBUG_LOG(HLE, "sceKernelWaitThreadEndCB(%i, 0x%X)", threadID, timeoutPtr);
 	if (threadID == 0 || threadID == currentThread)
 		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+
+	if (!__KernelIsDispatchEnabled())
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
@@ -2951,8 +2961,7 @@ void Thread::resumeFromWait()
 	if (action)
 	{
 		action->status &= ~THREADSTATUS_WAIT;
-		// TODO: What if DORMANT or DEAD?
-		if (!(action->status & THREADSTATUS_WAITSUSPEND))
+		if (!(action->status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
 			action->status = THREADSTATUS_READY;
 
 		// Non-waiting threads do not process callbacks.
@@ -2961,8 +2970,7 @@ void Thread::resumeFromWait()
 	else
 	{
 		this->nt.status &= ~THREADSTATUS_WAIT;
-		// TODO: What if DORMANT or DEAD?
-		if (!(this->nt.status & THREADSTATUS_WAITSUSPEND))
+		if (!(this->nt.status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
 			__KernelChangeReadyState(this, this->GetUID(), true);
 
 		// Non-waiting threads do not process callbacks.
