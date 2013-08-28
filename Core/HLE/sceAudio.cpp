@@ -79,7 +79,7 @@ u32 sceAudioOutputBlocking(u32 chan, int vol, u32 samplePtr) {
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
 		ERROR_LOG(HLE,"sceAudioOutputBlocking() - channel not reserved");
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
 	} else {
 		DEBUG_LOG(HLE, "sceAudioOutputBlocking(%08x, %08x, %08x)", chan, vol, samplePtr);
 		if (vol >= 0) {
@@ -100,7 +100,7 @@ u32 sceAudioOutputPannedBlocking(u32 chan, int leftvol, int rightvol, u32 sample
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
 		ERROR_LOG(HLE,"sceAudioOutputPannedBlocking() - channel not reserved");
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
 	} else {
 		DEBUG_LOG(HLE, "sceAudioOutputPannedBlocking(%08x, %08x, %08x, %08x)", chan, leftvol, rightvol, samplePtr);
 		if (leftvol >= 0) {
@@ -123,7 +123,7 @@ u32 sceAudioOutput(u32 chan, int vol, u32 samplePtr) {
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved)	{
 		ERROR_LOG(HLE,"sceAudioOutput(%08x, %08x, %08x) - channel not reserved", chan, vol, samplePtr);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
 	} else {
 		DEBUG_LOG(HLE, "sceAudioOutputPanned(%08x, %08x, %08x)", chan, vol, samplePtr);
 		if (vol >= 0) {
@@ -144,7 +144,7 @@ u32 sceAudioOutputPanned(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
 		return SCE_ERROR_AUDIO_INVALID_CHANNEL;
 	} else if (!chans[chan].reserved) {
 		ERROR_LOG(HLE,"sceAudioOutputPanned(%08x, %08x, %08x, %08x) - channel not reserved", chan, leftvol, rightvol, samplePtr);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
 	} else {
 		DEBUG_LOG(HLE,"sceAudioOutputPanned(%08x, %08x, %08x, %08x)", chan, leftvol, rightvol, samplePtr);
 		if (leftvol >= 0) {
