@@ -221,7 +221,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			// Fixes some Persona 2 issues, may be correct? (that is, don't change dest alpha at all if blending)
 			// If this doesn't break anything else, it's likely to be right.
 			// I guess an alternative solution would be to simply disable alpha writes if alpha blending is enabled.
-			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, glBlendFuncB);
 		} else {
 			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
 		}
