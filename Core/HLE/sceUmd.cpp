@@ -270,45 +270,80 @@ void __UmdWaitStat(u32 timeout)
 */
 int sceUmdWaitDriveStat(u32 stat)
 {
-	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
-
-	if ((stat & __KernelUmdGetState()) == 0) {
-		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
-		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
+	if (stat == 0) {
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x): bad status", stat);
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 	}
 
+	if (!__KernelIsDispatchEnabled()) {
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x): dispatch disabled", stat);
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+
+	if ((stat & __KernelUmdGetState()) == 0) {
+		DEBUG_LOG(HLE,"sceUmdWaitDriveStat(stat = %08x): waiting", stat);
+		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
+		return 0;
+	}
+
+	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
 	return 0;
 }
 
 int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 {
-	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
+	if (stat == 0) {
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): bad status", stat, timeout);
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+
+	if (!__KernelIsDispatchEnabled()) {
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): dispatch disabled", stat, timeout);
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
 
 	if ((stat & __KernelUmdGetState()) == 0) {
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited with timer");
-	} else
-		hleReSchedule("umd stat waited with timer");
+		return 0;
+	} else {
+		hleReSchedule("umd stat checked");
+	}
 
+	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
 	return 0;
 }
 
 int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
-	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
+	if (stat == 0) {
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): bad status", stat, timeout);
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+
+	if (!__KernelIsDispatchEnabled()) {
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): dispatch disabled", stat, timeout);
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
 
 	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0) {
-		if (timeout == 0)
+		DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
+		if (timeout == 0) {
 			timeout = 8000;
+		}
 
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true, "umd stat waited");
-	} else
+	} else {
 		hleReSchedule("umd stat waited");
+	}
 
+	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
 	return 0;
 }
 

@@ -644,9 +644,11 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 }
 
 u32 sceIoRead(int id, u32 data_addr, int size) {
-	// TODO: Check id is valid first?
-	if (!__KernelIsDispatchEnabled() && id > 2) {
-		return -1;
+	u32 error;
+	FileNode *f = __IoGetFd(id, error);
+	if (!__KernelIsDispatchEnabled() && id > 2 && f != NULL) {
+		DEBUG_LOG(HLE, "sceIoRead(%d, %08x, %x): dispatch disabled", id, data_addr, size);
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 	}
 
 	// TODO: Timing is probably not very accurate, low estimate.
@@ -660,8 +662,6 @@ u32 sceIoRead(int id, u32 data_addr, int size) {
 	if (!complete) {
 		DEBUG_LOG(HLE, "sceIoRead(%d, %08x, %x): deferring result", id, data_addr, size);
 
-		u32 error;
-		FileNode *f = __IoGetFd(id, error);
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io read");
 		return 0;
@@ -734,9 +734,12 @@ bool __IoWrite(int &result, int id, void *data_ptr, int size) {
 }
 
 u32 sceIoWrite(int id, u32 data_addr, int size) {
-	// TODO: Check id is valid first?
-	if (!__KernelIsDispatchEnabled() && id > 2)
-		return -1;
+	u32 error;
+	FileNode *f = __IoGetFd(id, error);
+	if (!__KernelIsDispatchEnabled() && id > 2 && f != NULL) {
+		DEBUG_LOG(HLE, "sceIoWrite(%d, %08x, %x): dispatch disabled", id, data_addr, size);
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
 
 	// TODO: Timing is probably not very accurate, low estimate.
 	int us = size / 100;
@@ -749,8 +752,6 @@ u32 sceIoWrite(int id, u32 data_addr, int size) {
 	if (!complete) {
 		DEBUG_LOG(HLE, "sceIoWrite(%d, %08x, %x): deferring result", id, data_addr, size);
 
-		u32 error;
-		FileNode *f = __IoGetFd(id, error);
 		__IoSchedSync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io write");
 		return 0;
@@ -1496,13 +1497,20 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
 				DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): not ready", f->asyncResult, id, poll, address);
 				return 1;
 			} else {
-				if (!__KernelIsDispatchEnabled())
+				if (!__KernelIsDispatchEnabled()) {
+					DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): dispatch disabled", f->asyncResult, id, poll, address);
 					return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+				}
 
 				DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): waiting", f->asyncResult, id, poll, address);
 				__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
 			}
 		} else if (f->hasAsyncResult) {
+			if (!__KernelIsDispatchEnabled()) {
+				DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): dispatch disabled", f->asyncResult, id, poll, address);
+				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+			}
+
 			DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x)", f->asyncResult, id, poll, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
@@ -1528,9 +1536,17 @@ int sceIoWaitAsync(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->pendingAsyncResult) {
+			if (!__KernelIsDispatchEnabled()) {
+				DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
+				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+			}
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): waiting", f->asyncResult, id, address);
 			__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
 		} else if (f->hasAsyncResult) {
+			if (!__KernelIsDispatchEnabled()) {
+				DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
+				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+			}
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
@@ -1557,6 +1573,7 @@ int sceIoWaitAsyncCB(int id, u32 address) {
 		hleCheckCurrentCallbacks();
 		if (f->pendingAsyncResult) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x): waiting", f->asyncResult, id, address);
+			// TODO: This seems to re-enable dispatch or something?
 			__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
 		} else if (f->hasAsyncResult) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x)", f->asyncResult, id, address);
@@ -1923,8 +1940,8 @@ const HLEFunction IoFileMgrForUser[] = {
 	{ 0x6d08a871, &WrapU_C<sceIoUnassign>, "sceIoUnassign" },
 	{ 0x42EC03AC, &WrapU_IUI<sceIoWrite>, "sceIoWrite" }, //(int fd, void *data, int size);
 	{ 0x0facab19, &WrapU_IUI<sceIoWriteAsync>, "sceIoWriteAsync" },
-	{ 0x35dbd746, &WrapI_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB", HLE_NOT_DISPATCH_SUSPENDED },
-	{ 0xe23eec33, &WrapI_IU<sceIoWaitAsync>, "sceIoWaitAsync", HLE_NOT_DISPATCH_SUSPENDED },
+	{ 0x35dbd746, &WrapI_IU<sceIoWaitAsyncCB>, "sceIoWaitAsyncCB" },
+	{ 0xe23eec33, &WrapI_IU<sceIoWaitAsync>, "sceIoWaitAsync" },
 	{ 0x5C2BE2CC, &WrapU_UIU<sceIoGetFdList>, "sceIoGetFdList"},
 };
 
