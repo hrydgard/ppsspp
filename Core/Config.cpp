@@ -372,3 +372,11 @@ void Config::CleanRecent() {
 	}
 	recentIsos = cleanedRecent;
 }
+
+void Config::RestoreDefaults() {
+	if(File::Exists("ppsspp.ini"))
+		File::Delete("ppsspp.ini");
+	recentIsos.clear();
+	currentDirectory = "";
+	Load();
+}
