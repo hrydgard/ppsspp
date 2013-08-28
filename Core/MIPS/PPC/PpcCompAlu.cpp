@@ -10,6 +10,13 @@
 #include "ppcEmitter.h"
 #include "PpcJit.h"
 
+/***************************************************************************************************
+*	Current issues:
+*		Comp_RType3(min/max): Can't select start in disgaea
+*		Comp_ShiftType(srl/srlv?): Crash ridge racer 2
+***************************************************************************************************/
+
+
 using namespace MIPSAnalyst;
 #define _RS ((op>>21) & 0x1F)
 #define _RT ((op>>16) & 0x1F)
@@ -88,7 +95,7 @@ namespace MIPSComp
 
 		switch (op >> 26) 
 		{
-			
+
 		case 8:	// same as addiu?
 		case 9:	// R(rt) = R(rs) + simm; break;	//addiu
 			{
@@ -101,31 +108,15 @@ namespace MIPSComp
 				break;
 			}
 
-		// Use with caution can change CR0 !
+			// Use with caution can change CR0 !
 		case 12: CompImmLogic(rs, rt, uimm, &PPCXEmitter::ANDI, &EvalAnd); break;
-		// Safe
+			// Safe
 		case 13: CompImmLogic(rs, rt, uimm, &PPCXEmitter::ORI, &EvalOr); break;
 		case 14: CompImmLogic(rs, rt, uimm, &PPCXEmitter::XORI, &EvalXor); break;
 		case 15: // R(rt) = uimm << 16;	 //lui
 			gpr.SetImm(rt, uimm << 16);
 			break;
 
-		/* https://github.com/gligli/mupen64-360/blob/master/source/r4300/ppc/MIPS-to-PPC.c#L1794 **/
-
-/*
-case 10: R(rt) = (s32)R(rs) < simm; break; //slti
-821ECC64 80EA0EB0             lwz r7,0EB0h(r10) 
-821ECC68 5529103A             slwi r9,r9,2 
-821ECC6C 7D29382E             lwzx r9,r9,r7 
-821ECC70 7CC84810             subfc r6,r8,r9 
-821ECC74 7D094A38             eqv r9,r8,r9 
-821ECC78 55290FFE             srwi r9,r9,31 
-821ECC7C 7D290194             addze r9,r9 
-821ECC80 556B103A             slwi r11,r11,2 
-821ECC84 552907FE             clrlwi r9,r9,31 
-821ECC88 7D2B392E             stwx r9,r11,r7 
-821ECC8C 48000070             b MIPSInt::Int_IType + 010ch (821eccfch) 
-*/
 		case 10: // slti - R(rt) = (s32)R(rs) < simm
 			if (gpr.IsImm(rs))
 			{
@@ -149,15 +140,7 @@ case 10: R(rt) = (s32)R(rs) < simm; break; //slti
 				//Break();
 				break;
 			}
-/*
-case 11: R(rt) = R(rs) < suimm; break; //sltiu
-821ECC90 80EA0EB0             lwz r7,0EB0h(r10) 
-821ECC94 5529103A             slwi r9,r9,2 
-821ECC98 7D29382E             lwzx r9,r9,r7 
-821ECC9C 7D284810             subfc r9,r8,r9 
-821ECCA0 7D294910             subfe r9,r9,r9 
-821ECCA4 4BFFFFDC             b MIPSInt::Int_IType + 0090h (821ecc80h) 
-*/
+
 		case 11: //sltiu
 			if (gpr.IsImm(rs))
 			{
@@ -183,267 +166,288 @@ case 11: R(rt) = R(rs) < suimm; break; //sltiu
 		}
 	}
 
-void Jit::Comp_RType2(u32 op) {
-	Comp_Generic(op);
-}
-
-
-void Jit::Comp_RType3(u32 op) {
-	CONDITIONAL_DISABLE;
-	int rt = _RT;
-	int rs = _RS;
-	int rd = _RD;
-
-	// noop, won't write to ZERO.
-	if (rd == 0)
-		return;
-
-	u8 o = op & 63;
-
-	switch (op & 63) 
-	{
-	case 10: // if (R(rt) == 0) R(rd) = R(rs); break; //movz
-		if (rd == rs)
-			break;
-		if (!gpr.IsImm(rt))
-		{
-			gpr.MapDirtyInIn(rd, rt, rs, false);
-			CMPI(gpr.R(rt), 0);
-			PpcGen::FixupBranch ptr;
-
-			ptr = B_Cond(_BNE);
-
-			MR(gpr.R(rd), gpr.R(rs));
-
-			SetJumpTarget(ptr);
-
-		}
-		else if (gpr.GetImm(rt) == 0)
-		{
-			// Yes, this actually happens.
-			if (gpr.IsImm(rs))
-				gpr.SetImm(rd, gpr.GetImm(rs));
-			else
-			{
-				gpr.MapDirtyIn(rd, rs);
-				MR(gpr.R(rd), gpr.R(rs));
-			}
-		}
-		break;
-
-	case 11:// if (R(rt) != 0) R(rd) = R(rs); break; //movn
-		if (rd == rs)
-			break;
-		if (!gpr.IsImm(rt))
-		{
-			gpr.MapDirtyInIn(rd, rt, rs, false);
-			CMPI(gpr.R(rt), 0);
-
-			PpcGen::FixupBranch ptr;
-
-			ptr = B_Cond(_BEQ);
-
-			MR(gpr.R(rd), gpr.R(rs));
-
-			SetJumpTarget(ptr);
-		}
-		else if (gpr.GetImm(rt) != 0)
-		{
-			// Yes, this actually happens.
-			if (gpr.IsImm(rs))
-				gpr.SetImm(rd, gpr.GetImm(rs));
-			else
-			{
-				gpr.MapDirtyIn(rd, rs);
-				MR(gpr.R(rd), gpr.R(rs));
-			}
-		}
-		break;
-
-	case 32: //R(rd) = R(rs) + R(rt);           break; //add
-	case 33: //R(rd) = R(rs) + R(rt);           break; //addu
-		// Some optimized special cases
-		if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
-			gpr.MapDirtyIn(rd, rt);
-			MR(gpr.R(rd), gpr.R(rt));
-		} else if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-			gpr.MapDirtyIn(rd, rs);
-			MR(gpr.R(rd), gpr.R(rs));
-		} else {
-			CompType3(rd, rs, rt, &PPCXEmitter::ADD, &EvalAdd);
-		}
-		break;
-	case 34: //R(rd) = R(rs) - R(rt);           break; //sub
-	case 35: //R(rd) = R(rs) - R(rt);           break; //subu
-		CompType3(rd, rs, rt, &PPCXEmitter::SUB, &EvalSub, true);
-		break;
-	case 36: //R(rd) = R(rs) & R(rt);           break; //and
-		CompType3(rd, rs, rt, &PPCXEmitter::AND, &EvalAnd);
-		break;
-	case 37: //R(rd) = R(rs) | R(rt);           break; //or
-		CompType3(rd, rs, rt, &PPCXEmitter::OR, &EvalOr);
-		break;
-	case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
-		CompType3(rd, rs, rt, &PPCXEmitter::XOR, &EvalXor);
-		break;
-	// Not tested !
-	case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
-		CompType3(rd, rs, rt, &PPCXEmitter::NOR, &EvalNor);
-		break;
-
-	case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
-		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
-			gpr.SetImm(rd, (s32)gpr.GetImm(rs) < (s32)gpr.GetImm(rt));
-		} else {
-			gpr.MapDirtyInIn(rd, rs, rt);
-						
-			PPCReg ppc_rd = gpr.R(rd);			
-			PPCReg ppc_rs = gpr.R(rs);			
-			PPCReg ppc_rt = gpr.R(rt);
-
-			SUBFC(R0, ppc_rt, ppc_rs);
-			EQV(ppc_rd, ppc_rt, ppc_rs);
-			SRWI(ppc_rd, ppc_rd, 31);
-			ADDZE(ppc_rd, ppc_rd);
-			RLWINM(ppc_rd, ppc_rd, 0, 31, 31);
-		}
-
-		break; 
-
-	case 43: //R(rd) = R(rs) < R(rt);           break; //sltu
-		if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
-			gpr.SetImm(rd, gpr.GetImm(rs) < gpr.GetImm(rt));
-		} else {
-			gpr.MapDirtyInIn(rd, rs, rt);
-
-			PPCReg ppc_rd = gpr.R(rd);
-
-			SUBFC(ppc_rd, gpr.R(rt), gpr.R(rs));
-			SUBFE(ppc_rd, ppc_rd, ppc_rd);
-			NEG(ppc_rd, ppc_rd);
-		}
-		break;
-
-
-	case 44:// R(rd) = ((s32)R(rs) > (s32)R(rt)) ? R(rs) : R(rt); break; //max
-	//	DISABLE;
-		if (gpr.IsImm(rs) && gpr.IsImm(rt))
-			gpr.SetImm(rd, std::max((s32)gpr.GetImm(rs), (s32)gpr.GetImm(rt)));
-		else
-		{
-			gpr.MapDirtyInIn(rd, rs, rt);
-			PpcGen::FixupBranch end;
-			
-			// by default rd = rs
-			MR(gpr.R(rd), gpr.R(rs));
-			
-			// if rs > rt => end
-			CMP(gpr.R(rs), gpr.R(rt));
-			end = B_Cond(_BGT);	
-
-			// rd = rt
-			MR(gpr.R(rd), gpr.R(rt));
-
-			SetJumpTarget(end);
-
-			//Break();
-		}
-		break;
-
-		case 45:
-		//DISABLE;
-		if (gpr.IsImm(rs) && gpr.IsImm(rt))
-			gpr.SetImm(rd, std::min((s32)gpr.GetImm(rs), (s32)gpr.GetImm(rt)));
-		else
-		{
-			gpr.MapDirtyInIn(rd, rs, rt);
-			PpcGen::FixupBranch end;
-			
-			// by default rd = rs
-			MR(gpr.R(rd), gpr.R(rs));
-			
-			// if rs < rt => end
-			CMP(gpr.R(rs), gpr.R(rt));
-			end = B_Cond(_BLT);	
-
-			// rd = rt
-			MR(gpr.R(rd), gpr.R(rt));
-
-			SetJumpTarget(end);
-		}
-		break;
-
-
-	default:
+	void Jit::Comp_RType2(u32 op) {
 		Comp_Generic(op);
-		break;
 	}
-}
 
-void Jit::Comp_ShiftType(u32 op) {
-	
-	DISABLE;
-	CONDITIONAL_DISABLE;
-	int rs = _RS;
-	int rd = _RD;
-	int	fd = _FD;
-	int rt = _RT;
-	int sa = _SA;
 
-	// noop, won't write to ZERO.
-	if (rd == 0)
-		return;
+	void Jit::Comp_RType3(u32 op) {
+		CONDITIONAL_DISABLE;
+		int rt = _RT;
+		int rs = _RS;
+		int rd = _RD;
 
-	// WARNING : ROTR
-	switch (op & 0x3f)
-	{
+		// noop, won't write to ZERO.
+		if (rd == 0)
+			return;
+
+		u8 o = op & 63;
+
+		switch (op & 63) 
+		{
+		case 10: // if (R(rt) == 0) R(rd) = R(rs); break; //movz
+			if (rd == rs)
+				break;
+			if (!gpr.IsImm(rt))
+			{
+				gpr.MapDirtyInIn(rd, rt, rs, false);
+				CMPI(gpr.R(rt), 0);
+				PpcGen::FixupBranch ptr;
+
+				ptr = B_Cond(_BNE);
+
+				MR(gpr.R(rd), gpr.R(rs));
+
+				SetJumpTarget(ptr);
+
+			}
+			else if (gpr.GetImm(rt) == 0)
+			{
+				// Yes, this actually happens.
+				if (gpr.IsImm(rs))
+					gpr.SetImm(rd, gpr.GetImm(rs));
+				else
+				{
+					gpr.MapDirtyIn(rd, rs);
+					MR(gpr.R(rd), gpr.R(rs));
+				}
+			}
+			break;
+
+		case 11:// if (R(rt) != 0) R(rd) = R(rs); break; //movn
+			if (rd == rs)
+				break;
+			if (!gpr.IsImm(rt))
+			{
+				gpr.MapDirtyInIn(rd, rt, rs, false);
+				CMPI(gpr.R(rt), 0);
+
+				PpcGen::FixupBranch ptr;
+
+				ptr = B_Cond(_BEQ);
+
+				MR(gpr.R(rd), gpr.R(rs));
+
+				SetJumpTarget(ptr);
+			}
+			else if (gpr.GetImm(rt) != 0)
+			{
+				// Yes, this actually happens.
+				if (gpr.IsImm(rs))
+					gpr.SetImm(rd, gpr.GetImm(rs));
+				else
+				{
+					gpr.MapDirtyIn(rd, rs);
+					MR(gpr.R(rd), gpr.R(rs));
+				}
+			}
+			break;
+
+		case 32: //R(rd) = R(rs) + R(rt);           break; //add
+		case 33: //R(rd) = R(rs) + R(rt);           break; //addu
+			// Some optimized special cases
+			if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0) {
+				gpr.MapDirtyIn(rd, rt);
+				MR(gpr.R(rd), gpr.R(rt));
+			} else if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
+				gpr.MapDirtyIn(rd, rs);
+				MR(gpr.R(rd), gpr.R(rs));
+			} else {
+				CompType3(rd, rs, rt, &PPCXEmitter::ADD, &EvalAdd);
+			}
+			break;
+		case 34: //R(rd) = R(rs) - R(rt);           break; //sub
+		case 35: //R(rd) = R(rs) - R(rt);           break; //subu
+			CompType3(rd, rs, rt, &PPCXEmitter::SUB, &EvalSub, true);
+			break;
+		case 36: //R(rd) = R(rs) & R(rt);           break; //and
+			CompType3(rd, rs, rt, &PPCXEmitter::AND, &EvalAnd);
+			break;
+		case 37: //R(rd) = R(rs) | R(rt);           break; //or
+			CompType3(rd, rs, rt, &PPCXEmitter::OR, &EvalOr);
+			break;
+		case 38: //R(rd) = R(rs) ^ R(rt);           break; //xor/eor	
+			CompType3(rd, rs, rt, &PPCXEmitter::XOR, &EvalXor);
+			break;
+			// Not tested !
+		case 39: // R(rd) = ~(R(rs) | R(rt));       break; //nor
+			CompType3(rd, rs, rt, &PPCXEmitter::NOR, &EvalNor);
+			break;
+
+		case 42: //R(rd) = (int)R(rs) < (int)R(rt); break; //slt
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, (s32)gpr.GetImm(rs) < (s32)gpr.GetImm(rt));
+			} else {
+				gpr.MapDirtyInIn(rd, rs, rt);
+
+				PPCReg ppc_rd = gpr.R(rd);			
+				PPCReg ppc_rs = gpr.R(rs);			
+				PPCReg ppc_rt = gpr.R(rt);
+
+				SUBFC(R0, ppc_rt, ppc_rs);
+				EQV(ppc_rd, ppc_rt, ppc_rs);
+				SRWI(ppc_rd, ppc_rd, 31);
+				ADDZE(ppc_rd, ppc_rd);
+				RLWINM(ppc_rd, ppc_rd, 0, 31, 31);
+			}
+
+			break; 
+
+		case 43: //R(rd) = R(rs) < R(rt);           break; //sltu
+			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
+				gpr.SetImm(rd, gpr.GetImm(rs) < gpr.GetImm(rt));
+			} else {
+				gpr.MapDirtyInIn(rd, rs, rt);
+
+				PPCReg ppc_rd = gpr.R(rd);
+
+				SUBFC(ppc_rd, gpr.R(rt), gpr.R(rs));
+				SUBFE(ppc_rd, ppc_rd, ppc_rd);
+				NEG(ppc_rd, ppc_rd);
+			}
+			break;
+
+
+		case 44:// R(rd) = ((s32)R(rs) > (s32)R(rt)) ? R(rs) : R(rt); break; //max
+			DISABLE;
+			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+				gpr.SetImm(rd, std::max((s32)gpr.GetImm(rs), (s32)gpr.GetImm(rt)));
+			else
+			{
+				gpr.MapDirtyInIn(rd, rs, rt);
+				PpcGen::FixupBranch end;
+
+				// by default rd = rt
+				MR(gpr.R(rd), gpr.R(rt));
+
+				// if rs > rt => end
+				CMP(gpr.R(rs), gpr.R(rt));
+				end = B_Cond(_BLE);	
+
+				// rd = rs
+				MR(gpr.R(rd), gpr.R(rs));
+
+				SetJumpTarget(end);
+			}
+			break;
+
+		case 45: //min
+			DISABLE;
+			if (gpr.IsImm(rs) && gpr.IsImm(rt))
+				gpr.SetImm(rd, std::min((s32)gpr.GetImm(rs), (s32)gpr.GetImm(rt)));
+			else
+			{
+				gpr.MapDirtyInIn(rd, rs, rt);
+				PpcGen::FixupBranch end;
+				
+				// by default rd = rt
+				MR(gpr.R(rd), gpr.R(rt));
+
+				// if rs < rt => end
+				CMP(gpr.R(rs), gpr.R(rt));
+				end = B_Cond(_BGE);	
+				
+				// rd = rs
+				MR(gpr.R(rd), gpr.R(rs));
+
+				SetJumpTarget(end);
+			}
+			break;
+
+
+		default:
+			Comp_Generic(op);
+			break;
+		}
+	}
+
+	/**
+	*	srl/srlv are disabled because they crash rr2
+	**/
+	void Jit::Comp_ShiftType(u32 op) {
+		CONDITIONAL_DISABLE;
+		int rs = _RS;
+		int rd = _RD;
+		int	fd = _FD;
+		int rt = _RT;
+		int sa = _SA;
+
+		// noop, won't write to ZERO.
+		if (rd == 0)
+			return;
+
+		// WARNING : ROTR
+		switch (op & 0x3f)
+		{
 		case 0:  //sll
-			//DISABLE;
 			gpr.MapDirtyIn(rd, rt);	
-			//RLWINM(gpr.R(rd), gpr.R(rt), sa, 0, (31-sa));
 			SLWI(gpr.R(rd), gpr.R(rt), sa);
-		//	Break();
 			break;
-		case 2: //srl
-			//DISABLE;
-			gpr.MapDirtyIn(rd, rt);	
-			SRWI(gpr.R(rd), gpr.R(rt), sa);
-		//	Break();
-			break;
+
+		case 2:
+			DISABLE;
+			if (rs == 0) // srl
+			{ 
+				gpr.MapDirtyIn(rd, rt);	
+				SRWI(gpr.R(rd), gpr.R(rt), sa); 
+				//Break();
+				break;
+			} 
+			else // rotr
+			{
+				gpr.MapDirtyIn(rd, rt);	
+				ROTRWI(gpr.R(rd), gpr.R(rt), sa); 
+				Break();
+				break;
+			}
+
 		case 3: //sra
-			//DISABLE;
 			gpr.MapDirtyIn(rd, rt);	
 			SRAWI(gpr.R(rd), gpr.R(rt), sa);
 			break;
 
 		case 4: //sllv
-			//DISABLE;
 			if (gpr.IsImm(rs))
 			{
 				int sa = gpr.GetImm(rs) & 0x1F;
 				gpr.MapDirtyIn(rd, rt);
-				RLWINM(gpr.R(rd), gpr.R(rt), sa, 0, (31-sa));
+				SLWI(gpr.R(rd), gpr.R(rt), sa);
 				break;
 			}
 			gpr.MapDirtyInIn(rd, rs, rt);
 			ANDI(SREG, gpr.R(rs), 0x1F);
 			SLW(gpr.R(rd), gpr.R(rt), SREG);
 			break;
-		case 6: //srlv
-		//	DISABLE;
-			if (gpr.IsImm(rs))
-			{
-				int sa = gpr.GetImm(rs) & 0x1F;
-				gpr.MapDirtyIn(rd, rt);
-				RLWINM(gpr.R(rd), gpr.R(rt), (32-sa), sa, 31);
-				break;
+
+		case 6: 			
+			DISABLE;
+			if ( fd == 0) { //srlv				
+				if (gpr.IsImm(rs))
+				{
+					int sa = gpr.GetImm(rs) & 0x1F;
+					gpr.MapDirtyIn(rd, rt);
+					SRWI(gpr.R(rd), gpr.R(rt), sa);
+					break;
+				} else {
+					gpr.MapDirtyInIn(rd, rs, rt);
+					ANDI(SREG, gpr.R(rs), 0x1F);
+					SRW(gpr.R(rd), gpr.R(rt), SREG);
+					break;
+				}
+			} else { // rotrv
+				if (gpr.IsImm(rs))
+				{
+					int sa = gpr.GetImm(rs) & 0x1F;
+					gpr.MapDirtyIn(rd, rt);
+					ROTRWI(gpr.R(rd), gpr.R(rt), sa);
+					break;
+				}
+				// Not made
+				DISABLE;
 			}
-			gpr.MapDirtyInIn(rd, rs, rt);
-			ANDI(SREG, gpr.R(rs), 0x1F);
-			SRW(gpr.R(rd), gpr.R(rt), SREG);
 			break;
+
 		case 7: //srav
-		//	DISABLE;
 			if (gpr.IsImm(rs))
 			{
 				int sa = gpr.GetImm(rs) & 0x1F;
@@ -455,26 +459,27 @@ void Jit::Comp_ShiftType(u32 op) {
 			ANDI(SREG, gpr.R(rs), 0x1F);
 			SRAW(gpr.R(rd), gpr.R(rt), SREG);
 			break;
-	default:
-		Comp_Generic(op);
-		break;
+
+		default:
+			Comp_Generic(op);
+			break;
+		}
 	}
-}
 
-void Jit::Comp_Allegrex(u32 op) {
-	Comp_Generic(op);
-}
+	void Jit::Comp_Allegrex(u32 op) {
+		Comp_Generic(op);
+	}
 
-void Jit::Comp_Allegrex2(u32 op) {
-	Comp_Generic(op);
-}
+	void Jit::Comp_Allegrex2(u32 op) {
+		Comp_Generic(op);
+	}
 
-void Jit::Comp_MulDivType(u32 op) {
-	Comp_Generic(op);
-}
+	void Jit::Comp_MulDivType(u32 op) {
+		Comp_Generic(op);
+	}
 
-void Jit::Comp_Special3(u32 op) {
-	Comp_Generic(op);
-}
+	void Jit::Comp_Special3(u32 op) {
+		Comp_Generic(op);
+	}
 
 }
