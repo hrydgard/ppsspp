@@ -62,8 +62,12 @@ static bool IsAlphaTestTriviallyTrue() {
 	int alphaTestMask = gstate.getAlphaTestMask();
 
 	switch (alphaTestFunc) {
+	case GE_COMP_NEVER:
+		return false;
+
 	case GE_COMP_ALWAYS:
 		return true;
+
 	case GE_COMP_GEQUAL:
 		return alphaTestRef == 0;
 		
@@ -94,8 +98,12 @@ static bool IsAlphaTestTriviallyTrue() {
 static bool IsColorTestTriviallyTrue() {
 	GEComparison colorTestFunc = gstate.getColorTestFunction();
 	switch (colorTestFunc) {
+	case GE_COMP_NEVER:
+		return false;
+
 	case GE_COMP_ALWAYS:
 		return true;
+
 	default:
 		return false;
 	}
