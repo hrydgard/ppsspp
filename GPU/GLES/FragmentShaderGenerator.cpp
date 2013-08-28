@@ -90,6 +90,8 @@ static bool IsAlphaTestTriviallyTrue() {
 	case GE_COMP_LEQUAL:
 		return alphaTestRef == 255;
 
+	default:
+		return false;
 	}
 }
 
@@ -102,6 +104,8 @@ static bool IsColorTestTriviallyTrue() {
 	case GE_COMP_ALWAYS:
 		return true;
 
+	default:
+		return false;
 	}
 }
 
