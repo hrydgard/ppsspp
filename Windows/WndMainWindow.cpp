@@ -408,9 +408,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, graphics);
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, graphics);
 		TranslateMenuItem(ID_TEXTURESCALING_OFF, graphics);
-		// Skip texture scaling 2x/3x..
-		TranslateMenuItem(ID_TEXTURESCALING_4X, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_5X, desktopUI);
+		// Skip texture scaling 2x-5x...
 		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, graphics);
 		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, graphics);
 		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, graphics);
