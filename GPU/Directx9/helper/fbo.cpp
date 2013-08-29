@@ -69,20 +69,21 @@ void * fbo_get_rtt(FBO *fbo) {
 
 void fbo_unbind() {
 	if (current_fbo != NULL) {
-		/*
+		
 		D3DVECTOR4 White = {1.0f, 1.0f, 1.0f, 1.0f};
 		pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS|D3DRESOLVE_CLEARRENDERTARGET|D3DRESOLVE_CLEARDEPTHSTENCIL, NULL, 
 			current_fbo->tex, NULL, 0, 0, &White, 0.0f, 0, NULL );
-			*/
 		/*
 		pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS, NULL, 
 			current_fbo->tex, NULL, 0, 0, 0, 0.0f, 0, NULL );
 		*/
 		//pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, 0xFFFFFFFF, 0, 0);
 	}
+	
+	//pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, 0xFFFFFFFF, 0, 0);
 	current_fbo = NULL;
 
-	//pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
+	pD3Ddevice->SetRenderTarget(0, deviceRTsurf);
 	//pD3Ddevice->SetDepthStencilSurface(deviceDSsurf);
 
 	currentRtt = deviceRTsurf;
@@ -107,7 +108,7 @@ void fbo_resolve(FBO *fbo) {
 
 void fbo_bind_as_render_target(FBO *fbo) {
 	current_fbo = fbo;
-	//pD3Ddevice->SetRenderTarget(0, workingRtt);
+	pD3Ddevice->SetRenderTarget(0, workingRtt);
 	currentRtt = workingRtt;
 	//pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET |D3DCLEAR_ZBUFFER, 0xFFFFFFFF, 0, 0);
 	//pD3Ddevice->SetDepthStencilSurface(fbo->depthstencil);
