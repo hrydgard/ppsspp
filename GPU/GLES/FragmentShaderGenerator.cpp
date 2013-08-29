@@ -93,6 +93,8 @@ static bool IsAlphaTestTriviallyTrue() {
 	case GE_COMP_LESS:
 	case GE_COMP_NOTEQUAL:
 		return false;
+	default:
+		return false;
 	}
 }
 
@@ -107,6 +109,8 @@ static bool IsColorTestTriviallyTrue() {
 
 	case GE_COMP_EQUAL:
 	case GE_COMP_NOTEQUAL:
+		return false;
+	default:
 		return false;
 	}
 }
