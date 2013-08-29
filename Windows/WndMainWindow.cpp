@@ -79,6 +79,7 @@ extern InputState input_state;
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
 #define TIMER_TRANSLATE 3
+#define TRANSLATE_INTERVAL_MS 100
 #define CURSORUPDATE_INTERVAL_MS 50
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
@@ -255,7 +256,9 @@ namespace MainWindow
 		return retVal;
 	}
 
-	enum {
+	// These are used as an offset
+	// to determine which menu item to change.
+	enum MenuID{
 		MENU_FILE = 0,
 		MENU_EMULATION = 1,
 		MENU_DEBUG = 2,
@@ -271,66 +274,25 @@ namespace MainWindow
 		SUBMENU_TEXTURE_SCALING = 8,
 	};
 
-	void TranslateMenuHeaders() {
-		I18NCategory *d = GetI18NCategory("DesktopUI");
-		I18NCategory *g = GetI18NCategory("Graphics");
-		I18NCategory *p = GetI18NCategory("Pause");
+	void TranslateMenuHeader(HMENU menu, const char *category, const char *key, const MenuID id, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string s_key = c->T(key);
+		std::wstring translated = ConvertUTF8ToWString(s_key);
+		translated.append(accelerator);
+		ModifyMenu(menu, id, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+	}
 
-		std::string key = d->T("File");
-		std::wstring translated = ConvertUTF8ToWString(key);
-		
-		ModifyMenu(menu, MENU_FILE, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		key = d->T("Emulation");
-		translated = ConvertUTF8ToWString(key);
-		ModifyMenu(menu, MENU_EMULATION, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		key = g->T("Debugging");
-		translated = ConvertUTF8ToWString(key);
-		ModifyMenu(menu, MENU_DEBUG, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		key = p->T("Game Settings");
-		translated = ConvertUTF8ToWString(key);
-		ModifyMenu(menu, MENU_OPTIONS, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		key = d->T("Help");
-		translated = ConvertUTF8ToWString(key);
-		ModifyMenu(menu, MENU_HELP, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		// Now do submenu(popups) headers.
+	void TranslateSubMenuHeader(HMENU menu, const char *category, const char *key, MenuID mainMenuID, MenuID subMenuID, const std::wstring& accelerator = L"") {
 		HMENU subMenu;
-		subMenu = GetSubMenu(menu, MENU_DEBUG);
-		key = d->T("Rendering Backend");
-		translated = ConvertUTF8ToWString(key);
-		ModifyMenu(subMenu, SUBMENU_RENDERING_BACKEND, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-		
-		subMenu = GetSubMenu(menu, MENU_OPTIONS);
-		key = g->T("Rendering Resolution");
-		translated = ConvertUTF8ToWString(key);
-		translated.append(L"\tCtrl+1");
-		ModifyMenu(subMenu, SUBMENU_FRAME_SKIPPING, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		key = g->T("Frame Skipping");
-		translated = ConvertUTF8ToWString(key);
-		translated.append(L"\tF7");
-		ModifyMenu(subMenu, SUBMENU_FRAME_SKIPPING, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		key = g->T("Rendering Mode");
-		translated = ConvertUTF8ToWString(key);
-		translated.append(L"\tF5");
-		ModifyMenu(subMenu, SUBMENU_RENDERING_MODE, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		key = g->T("Texture Filtering");
-		translated = ConvertUTF8ToWString(key);
-		ModifyMenu(subMenu, SUBMENU_TEXTURE_FILTERING, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
-
-		key = g->T("Texture Scaling");
-		translated = ConvertUTF8ToWString(key);
-		ModifyMenu(subMenu, SUBMENU_TEXTURE_SCALING, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+		subMenu = GetSubMenu(menu, mainMenuID);
+		I18NCategory *c = GetI18NCategory(category);
+		std::string s_key = c->T(key);
+		std::wstring translated = ConvertUTF8ToWString(s_key);
+		translated.append(accelerator);
+		ModifyMenu(subMenu, subMenuID, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
 	}
 
 	void TranslateMenuItem(const int menuID, const char *category, const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
-		if(menusAreTranslated) return;
 		I18NCategory *c = GetI18NCategory(category);
 		std::string key = c->T(GetMenuItemText(menuID).c_str());
 		std::wstring translated = ConvertUTF8ToWString(key);
@@ -430,7 +392,18 @@ namespace MainWindow
 		TranslateMenuItem(ID_HELP_BUYGOLD, general);
 		TranslateMenuItem(ID_HELP_ABOUT, desktopUI);
 
-		TranslateMenuHeaders();
+		// Now do the menu headers and a few submenus...
+		TranslateMenuHeader(menu, desktopUI, "File", MENU_FILE);
+		TranslateMenuHeader(menu, desktopUI, "Emulation", MENU_EMULATION);
+		TranslateMenuHeader(menu, graphics, "Debugging", MENU_DEBUG);
+		TranslateMenuHeader(menu, pause, "Game Settings", MENU_OPTIONS);
+		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
+
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_DEBUG, SUBMENU_RENDERING_BACKEND, L"\tCtrl+1");
+		TranslateSubMenuHeader(menu, graphics, "Frame Skipping", MENU_DEBUG, SUBMENU_FRAME_SKIPPING, L"\tF7");
+		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_DEBUG, SUBMENU_TEXTURE_FILTERING, L"\tF5");
+		TranslateSubMenuHeader(menu, graphics, "Texture Scaling", MENU_DEBUG, SUBMENU_TEXTURE_SCALING);
+
 		menusAreTranslated = true;
 		DrawMenuBar(hwndMain);
 	}
@@ -532,6 +505,7 @@ namespace MainWindow
 			return FALSE;
 
 		menu = GetMenu(hwndMain);
+
 #ifdef FINAL
 		RemoveMenu(menu,2,MF_BYPOSITION);
 		RemoveMenu(menu,2,MF_BYPOSITION);
@@ -579,7 +553,7 @@ namespace MainWindow
 		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
 
 		SetFocus(hwndDisplay);
-		SetTimer(hwndMain, TIMER_TRANSLATE, CURSORUPDATE_INTERVAL_MS, 0);
+		SetTimer(hwndMain, TIMER_TRANSLATE, TRANSLATE_INTERVAL_MS, 0);
 
 		return TRUE;
 	}
@@ -836,6 +810,7 @@ namespace MainWindow
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 				return 0;
+
 			case TIMER_TRANSLATE:
 				KillTimer(hWnd, TIMER_TRANSLATE);
 				TranslateMenus();
@@ -1140,12 +1115,7 @@ namespace MainWindow
 					break;
 
 				case ID_CPU_DYNAREC:
-					g_Config.bJit = true;
-					osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
-					break;
-
-				case ID_CPU_INTERPRETER:
-					g_Config.bJit = false;
+					g_Config.bJit = !g_Config.bJit;
 					break;
 
 				case ID_CPU_MULTITHREADED:
