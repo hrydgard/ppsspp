@@ -74,7 +74,7 @@ namespace W32Util
 		wcscpy(lptstrCopy, wtext.c_str()); 
 		lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character 
 		GlobalUnlock(hglbCopy); 
-		SetClipboardData(CF_TEXT, hglbCopy);
+		SetClipboardData(CF_UNICODETEXT, hglbCopy);
 		CloseClipboard();
 		return TRUE;
 	}

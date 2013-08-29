@@ -113,6 +113,10 @@ int GetVm(uint32_t op, bool quad = false, bool dbl = false) {
 // Horrible array of hacks but hey. Can be cleaned up later.
 
 bool DisasmVFP(uint32_t op, char *text) {
+#if defined(ANDROID) && defined(_M_IX86)
+	// Prevent linking errors with ArmEmitter which I've excluded on x86 android.
+	strcpy(text, "ARM disasm not available");
+#else
 	const char *cond = CCFlagsStr[op >> 28];
 	switch ((op >> 24) & 0xF) {
 	case 0xD:
@@ -216,6 +220,7 @@ bool DisasmVFP(uint32_t op, char *text) {
 		}
 		break;
 	}
+#endif
 	return false;
 }
 

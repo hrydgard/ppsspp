@@ -248,7 +248,7 @@ void UpdateConfirmCancelKeys() {
 	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 }
 
-static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, int count, bool replace) {
+static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
 	for (size_t i = 0; i < count; i++) {
 		if (array[i].direction == 0)
 			SetKeyMapping(array[i].pspKey, KeyDef(deviceId, array[i].key), replace);

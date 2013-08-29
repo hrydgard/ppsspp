@@ -48,13 +48,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 
 	IniFile::Section *general = iniFile.GetOrCreateSection("General");
 
-	bSpeedLimit = false;
 	general->Get("FirstRun", &bFirstRun, true);
 	general->Get("Enable Logging", &bEnableLogging, true);
-	general->Get("AutoLoadLast", &bAutoLoadLast, false);
 	general->Get("AutoRun", &bAutoRun, true);
 	general->Get("Browse", &bBrowse, false);
-	general->Get("ConfirmOnQuit", &bConfirmOnQuit, false);
 	general->Get("IgnoreBadMemAccess", &bIgnoreBadMemAccess, true);
 	general->Get("CurrentDirectory", &currentDirectory, "");
 	general->Get("ShowDebuggerOnLoad", &bShowDebuggerOnLoad, false);
@@ -231,10 +228,8 @@ void Config::Save() {
 		bFirstRun = false;
 		general->Set("FirstRun", bFirstRun);
 		general->Set("Enable Logging", bEnableLogging);
-		general->Set("AutoLoadLast", bAutoLoadLast);
 		general->Set("AutoRun", bAutoRun);
 		general->Set("Browse", bBrowse);
-		general->Set("ConfirmOnQuit", bConfirmOnQuit);
 		general->Set("IgnoreBadMemAccess", bIgnoreBadMemAccess);
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
@@ -376,4 +371,12 @@ void Config::CleanRecent() {
 			cleanedRecent.push_back(recentIsos[i]);
 	}
 	recentIsos = cleanedRecent;
+}
+
+void Config::RestoreDefaults() {
+	if(File::Exists("ppsspp.ini"))
+		File::Delete("ppsspp.ini");
+	recentIsos.clear();
+	currentDirectory = "";
+	Load();
 }

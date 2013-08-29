@@ -17,16 +17,17 @@
 
 #include <algorithm>
 #include <string>
-#include "HLE.h"
-#include "../System.h"
-#include "../MIPS/MIPS.h"
-#include "../MemMap.h"
+#include "Core/HLE/HLE.h"
+#include "Core/System.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MemMap.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceKernelMemory.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelMemory.h"
 
 const int TLS_NUM_INDEXES = 16;
 
@@ -1731,6 +1732,10 @@ int sceKernelAllocateTls(SceUID uid)
 {
 	// TODO: Allocate downward if PSP_TLS_ATTR_HIGHMEM?
 	DEBUG_LOG(HLE, "sceKernelAllocateTls(%08x)", uid);
+
+	if (!__KernelIsDispatchEnabled() || __IsInInterrupt())
+		return 0;
+
 	u32 error;
 	TLS *tls = kernelObjects.Get<TLS>(uid, error);
 	if (tls)

@@ -44,7 +44,6 @@
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "ui/screen.h"
-#include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 
@@ -403,16 +402,6 @@ void NativeInitGraphics() {
 
 	UIShader_Init();
 
-	// Old style theme, to be removed later
-	UITheme theme = {0};
-	theme.uiFont = UBUNTU24;
-	theme.uiFontSmall = UBUNTU24;
-	theme.uiFontSmaller = UBUNTU24;
-	theme.buttonImage = I_SOLIDWHITE;  // not using classic buttons
-	theme.buttonSelected = I_SOLIDWHITE;
-	theme.checkOn = I_CHECKEDBOX;
-	theme.checkOff = I_SQUARE;
-
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
 	ui_theme.uiFont = UBUNTU24;
@@ -452,8 +441,6 @@ void NativeInitGraphics() {
 	ui_theme.popupTitle.fgColor = 0xFFE3BE59;
 	ui_draw2d.Init();
 	ui_draw2d_front.Init();
-
-	UIInit(&ui_atlas, theme);
 
 	uiTexture = new Texture();
 	if (!uiTexture->Load("ui_atlas.zim")) {

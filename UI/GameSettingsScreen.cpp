@@ -364,7 +364,7 @@ void GameSettingsScreen::CreateViews() {
 #ifdef _WIN32
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
-	systemSettings->Add(new Choice(s->T("Clear Recent Section")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
+	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 	systemSettings->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
@@ -525,6 +525,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(g->T("General")));
 	list->Add(new Choice(d->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
+	list->Add(new Choice(d->T("Restore PPSSPP Default Settings")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRestoreDefaultSettings);
 #ifndef __SYMBIAN32__
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 #endif
@@ -543,6 +544,21 @@ UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
 	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_LOG_STATUS_CHANGED, 0, 0);
 #endif
 	g_Config.Save();
+
+	return UI::EVENT_DONE;
+}
+
+void DeveloperToolsScreen::CallbackRestoreDefaults(bool yes) {
+	if(yes)
+		g_Config.RestoreDefaults();
+}
+
+UI::EventReturn DeveloperToolsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
+	I18NCategory *d = GetI18NCategory("Dialog");
+	I18NCategory *g = GetI18NCategory("General");
+	screenManager()->push(
+	new PromptScreen(d->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping) back to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), g->T("OK"), g->T("Cancel"),
+	std::bind(&DeveloperToolsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 
 	return UI::EVENT_DONE;
 }

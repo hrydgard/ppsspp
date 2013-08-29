@@ -15,7 +15,14 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#ifdef ANDROID
+#include <sys/stat.h> 
+#include <fcntl.h>
+#endif
+
 #include <memory.h>
+#include "base/logging.h"
+#include "base/basictypes.h"
 
 #ifdef _WIN32
 #define _interlockedbittestandset workaround_ms_header_bug_platform_sdk6_set
@@ -39,6 +46,17 @@
 #elif !defined(MIPS)
 void __cpuid(int regs[4], int cpuid_leaf)
 {
+#ifdef ANDROID
+	// Use the /dev/cpu/%i/cpuid interface
+	int f = open("/dev/cpu/0/cpuid", O_RDONLY);
+	if (f) {
+		lseek(f, (uint32_t)cpuid_leaf, SEEK_SET);
+		read(f, (void *)regs, 16);
+		close(f);
+	} else {
+		ELOG("CPUID %08x failed!", cpuid_leaf);
+	}
+#else
 	int eax, ebx, ecx, edx;
 	asm volatile (
 #if defined(__i386__)
@@ -60,11 +78,11 @@ void __cpuid(int regs[4], int cpuid_leaf)
 		"%ebx",
 #endif
 		"%ecx", "%edx");
-
 	regs[0] = eax;
 	regs[1] = ebx;
 	regs[2] = ecx;
 	regs[3] = edx;
+#endif
 }
 
 #endif

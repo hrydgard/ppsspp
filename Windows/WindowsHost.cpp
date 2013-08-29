@@ -364,7 +364,7 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 	// Sanitize the game title for banned characters.
 	const char bannedChars[] = "<>:\"/\\|?*";
 	for (size_t i = 0; i < gameTitle.size(); i++) {
-		for (int c = 0; c < strlen(bannedChars); c++) {
+		for (size_t c = 0; c < strlen(bannedChars); c++) {
 			if (gameTitle[i] == bannedChars[c]) {
 				gameTitle[i] = '_';
 				break;

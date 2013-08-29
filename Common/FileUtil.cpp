@@ -105,16 +105,39 @@ static void StripTailDirSlashes(std::string &fname)
 	return;
 }
 
+// _WIN32 only since std::strings are used everywhere else.
+#if defined(_WIN32) && defined(UNICODE)
+static void StripTailDirSlashes(std::wstring &fname)
+{
+	if (fname.length() > 1)
+	{
+		size_t i = fname.length() - 1;
+
+		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
+			return;
+
+		while (wcschr(_T(DIR_SEP_CHRS), fname[i]))
+			fname[i--] = '\0';
+	}
+	return;
+}
+#endif
+
 // Returns true if file filename exists
 bool Exists(const std::string &filename)
 {
 	struct stat64 file_info;
+#if defined(_WIN32) && defined(UNICODE)
+	std::wstring copy = ConvertUTF8ToWString(filename);
+	StripTailDirSlashes(copy);
 
+	int result = _wstat64(copy.c_str(), &file_info);
+#else
 	std::string copy(filename);
 	StripTailDirSlashes(copy);
 
 	int result = stat64(copy.c_str(), &file_info);
-
+#endif
 	return (result == 0);
 }
 
@@ -128,12 +151,17 @@ bool IsDirectory(const struct stat64 &file_info)
 bool IsDirectory(const std::string &filename)
 {
 	struct stat64 file_info;
+#if defined(_WIN32) && defined(UNICODE)
+	std::wstring copy = ConvertUTF8ToWString(filename);
+	StripTailDirSlashes(copy);
 
+	int result = _wstat64(copy.c_str(), &file_info);
+#else
 	std::string copy(filename);
 	StripTailDirSlashes(copy);
 
 	int result = stat64(copy.c_str(), &file_info);
-
+#endif
 	if (result < 0) {
 		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", 
 				 filename.c_str(), GetLastErrorMsg());
@@ -408,8 +436,11 @@ tm GetModifTime(const std::string &filename)
 u64 GetSize(const std::string &filename)
 {
 	struct stat64 file_info;
-
+#if defined(_WIN32) && defined(UNICODE)
+	int result = _wstat64(ConvertUTF8ToWString(filename).c_str(), &file_info);
+#else
 	int result = stat64(filename.c_str(), &file_info);
+#endif
 	if (result != 0)
 	{
 		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());

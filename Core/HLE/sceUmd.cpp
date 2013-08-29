@@ -15,12 +15,13 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "ChunkFile.h"
-#include "sceUmd.h"
-#include "sceKernelThread.h"
+#include "Core/HLE/sceUmd.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 
 const u64 MICRO_DELAY_ACTIVATE = 4000;
 
@@ -270,51 +271,98 @@ void __UmdWaitStat(u32 timeout)
 */
 int sceUmdWaitDriveStat(u32 stat)
 {
-	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStat(stat = %08x)", stat);
-
-	if ((stat & __KernelUmdGetState()) == 0) {
-		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
-		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
+	if (stat == 0) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStat(stat = %08x): bad status", stat);
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 	}
 
+	if (!__KernelIsDispatchEnabled()) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStat(stat = %08x): dispatch disabled", stat);
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+	if (__IsInInterrupt()) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStat(stat = %08x): inside interrupt", stat);
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+	}
+
+	if ((stat & __KernelUmdGetState()) == 0) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStat(stat = %08x): waiting", stat);
+		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited");
+		return 0;
+	}
+
+	DEBUG_LOG(HLE, "0=sceUmdWaitDriveStat(stat = %08x)", stat);
 	return 0;
 }
 
 int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 {
-	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
+	if (stat == 0) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): bad status", stat, timeout);
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+
+	if (!__KernelIsDispatchEnabled()) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): dispatch disabled", stat, timeout);
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+	if (__IsInInterrupt()) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): inside interrupt", stat, timeout);
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+	}
 
 	if ((stat & __KernelUmdGetState()) == 0) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited with timer");
-	} else
-		hleReSchedule("umd stat waited with timer");
+		return 0;
+	} else {
+		hleReSchedule("umd stat checked");
+	}
 
+	DEBUG_LOG(HLE, "0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
 	return 0;
 }
 
 int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
 {
-	DEBUG_LOG(HLE,"0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
+	if (stat == 0) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): bad status", stat, timeout);
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+
+	if (!__KernelIsDispatchEnabled()) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): dispatch disabled", stat, timeout);
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+	if (__IsInInterrupt()) {
+		DEBUG_LOG(HLE, "sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): inside interrupt", stat, timeout);
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+	}
 
 	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0) {
-		if (timeout == 0)
+		DEBUG_LOG(HLE, "0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d): waiting", stat, timeout);
+		if (timeout == 0) {
 			timeout = 8000;
+		}
 
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(UmdWaitingThread::Make(__KernelGetCurThread(), stat));
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true, "umd stat waited");
-	} else
+	} else {
 		hleReSchedule("umd stat waited");
+	}
 
+	DEBUG_LOG(HLE, "0=sceUmdWaitDriveStatCB(stat = %08x, timeout = %d)", stat, timeout);
 	return 0;
 }
 
 u32 sceUmdCancelWaitDriveStat()
 {
-	DEBUG_LOG(HLE,"0=sceUmdCancelWaitDriveStat()");
+	DEBUG_LOG(HLE, "0=sceUmdCancelWaitDriveStat()");
 
 	__KernelTriggerWait(WAITTYPE_UMD, 1, SCE_KERNEL_ERROR_WAIT_CANCEL, "umd stat ready", true);
 	// TODO: We should call UnscheduleEvent() event here?
