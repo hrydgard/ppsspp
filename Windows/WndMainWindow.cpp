@@ -259,7 +259,15 @@ namespace MainWindow
 		MENU_EMULATION = 1,
 		MENU_DEBUG = 2,
 		MENU_OPTIONS = 3,
-		MENU_HELP = 4
+		MENU_HELP = 4,
+
+		SUBMENU_RENDERING_BACKEND = 7,
+
+		SUBMENU_RENDERING_RESOLUTION = 4,
+		SUBMENU_RENDERING_MODE = 5,
+		SUBMENU_FRAME_SKIPPING = 6,
+		SUBMENU_TEXTURE_FILTERING = 7,
+		SUBMENU_TEXTURE_SCALING = 8,
 	};
 
 	void TranslateMenuHeaders() {
@@ -287,6 +295,37 @@ namespace MainWindow
 		key = d->T("Help");
 		translated = ConvertUTF8ToWString(key);
 		ModifyMenu(menu, MENU_HELP, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		// Now do submenu(popups) headers.
+		HMENU subMenu;
+		subMenu = GetSubMenu(menu, MENU_DEBUG);
+		key = d->T("Rendering Backend");
+		translated = ConvertUTF8ToWString(key);
+		ModifyMenu(subMenu, SUBMENU_RENDERING_BACKEND, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+		
+		subMenu = GetSubMenu(menu, MENU_OPTIONS);
+		key = g->T("Rendering Resolution");
+		translated = ConvertUTF8ToWString(key);
+		translated.append(L"\tCtrl+1");
+		ModifyMenu(subMenu, SUBMENU_FRAME_SKIPPING, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		key = g->T("Frame Skipping");
+		translated = ConvertUTF8ToWString(key);
+		translated.append(L"\tF7");
+		ModifyMenu(subMenu, SUBMENU_FRAME_SKIPPING, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		key = g->T("Rendering Mode");
+		translated = ConvertUTF8ToWString(key);
+		translated.append(L"\tF5");
+		ModifyMenu(subMenu, SUBMENU_RENDERING_MODE, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		key = g->T("Texture Filtering");
+		translated = ConvertUTF8ToWString(key);
+		ModifyMenu(subMenu, SUBMENU_TEXTURE_FILTERING, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		key = g->T("Texture Scaling");
+		translated = ConvertUTF8ToWString(key);
+		ModifyMenu(subMenu, SUBMENU_TEXTURE_SCALING, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
 	}
 
 	void TranslateMenuItem(const int menuID, const char *category, const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
@@ -329,7 +368,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
 		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
 		TranslateMenuItem(ID_EMULATION_SOUND, audio, true, true);
-		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, audio);
+		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, audio, true, false);
 		TranslateMenuItem(ID_EMULATION_CHEATS, system);
 		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, graphics, true, true);
 		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, graphics);
@@ -343,23 +382,23 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, graphics);
-		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, "\tF12");
-		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, "\tCtrl+D");
-		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, "\tCtrl+L");
-		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, "\tCtrl+M");
+		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, true, false, L"\tF12");
+		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, true, false, L"\tCtrl+D");
+		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, true, false, L"\tCtrl+L");
+		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
 
 		// Options menu
 		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, graphics, true, false, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, graphics);
-		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false, L"\tCtrl+1");
-		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true, L"\tCtrl+1");
-		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false, L"\tCtrl+1");
-		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false, L"\tCtrl+1");
-		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, graphics, true, false, L"\tF5");
-		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, graphics, true, true, L"\tF5");
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, graphics, true, false, L"\tF5");
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, graphics, true, false, L"\tF5");
+		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true);
+		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, graphics, true, false);
+		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, graphics, true, true);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, graphics, true, false);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, graphics, true, false);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, graphics);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, graphics);
 		// Skip frameskipping 2-8..
@@ -1277,7 +1316,6 @@ namespace MainWindow
 				// Hack: I can't seem to get the menu to translate without an event occurring.
 				// This seems like the best spot to guarantee translation...
 				TranslateMenus();
-
 				UINT dwSize;
 				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 				if (!rawInputBuffer) {
