@@ -11,6 +11,7 @@
 #include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
 GPUCommon::GPUCommon() :
@@ -60,7 +61,13 @@ u32 GPUCommon::DrawSync(int mode) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
 	if (mode == 0) {
-		// TODO: What if dispatch / interrupts disabled?
+		if (!__KernelIsDispatchEnabled()) {
+			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		}
+		if (__IsInInterrupt()) {
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
+
 		if (drawCompleteTicks > CoreTiming::GetTicks()) {
 			__GeWaitCurrentThread(WAITTYPE_GEDRAWSYNC, 1, "GeDrawSync");
 		} else {
@@ -135,6 +142,13 @@ int GPUCommon::ListSync(int listid, int mode) {
 		default:
 			return SCE_KERNEL_ERROR_INVALID_ID;
 		}
+	}
+
+	if (!__KernelIsDispatchEnabled()) {
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+	if (__IsInInterrupt()) {
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 	}
 
 	if (dl.waitTicks > CoreTiming::GetTicks()) {
