@@ -399,10 +399,12 @@ namespace MainWindow
 		TranslateMenuHeader(menu, pause, "Game Settings", MENU_OPTIONS);
 		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
 
-		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_DEBUG, SUBMENU_RENDERING_BACKEND, L"\tCtrl+1");
-		TranslateSubMenuHeader(menu, graphics, "Frame Skipping", MENU_DEBUG, SUBMENU_FRAME_SKIPPING, L"\tF7");
-		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_DEBUG, SUBMENU_TEXTURE_FILTERING, L"\tF5");
-		TranslateSubMenuHeader(menu, graphics, "Texture Scaling", MENU_DEBUG, SUBMENU_TEXTURE_SCALING);
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND, L"\tCtrl+1");
+		TranslateSubMenuHeader(menu, graphics, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION);
+		TranslateSubMenuHeader(menu, graphics, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE);
+		TranslateSubMenuHeader(menu, graphics, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
+		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING, L"\tF5");
+		TranslateSubMenuHeader(menu, graphics, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 
 		menusAreTranslated = true;
 		DrawMenuBar(hwndMain);
