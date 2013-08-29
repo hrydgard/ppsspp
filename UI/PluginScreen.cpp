@@ -108,6 +108,8 @@ void PluginScreen::update(InputState &input) {
 			abi = "armeabi";
 #elif defined(ARMEABI_V7A)
 			abi = "armeabi-v7a";
+#elif defined(ANDROID) && defined(_M_IX86)
+			abi = "android-x86";
 #elif defined(BLACKBERRY)
 			abi = "blackberry10";
 #elif defined(IOS)
