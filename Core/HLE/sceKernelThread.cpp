@@ -1064,7 +1064,8 @@ bool __KernelCheckResumeThreadEnd(Thread *t, SceUID waitingThreadID, u32 &error,
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThreadID);
 		if (timeoutPtr != 0)
 			Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-		__KernelResumeThreadFromWait(waitingThreadID, t->nt.exitStatus);
+		s32 exitStatus = t->nt.exitStatus;
+		__KernelResumeThreadFromWait(waitingThreadID, exitStatus);
 		return true;
 	}
 
@@ -3305,7 +3306,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, co
 		after->chainedAction = afterAction;
 		after->threadID = thread->GetUID();
 		after->status = thread->nt.status;
-		after->waitType = thread->nt.waitType;
+		after->waitType = (WaitType)(u32)thread->nt.waitType;
 		after->waitID = thread->nt.waitID;
 		after->waitInfo = thread->waitInfo;
 		after->isProcessingCallbacks = thread->isProcessingCallbacks;
@@ -3681,7 +3682,7 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 		info.initialStack = t->nt.initialStack;
 		info.stackSize = (u32)t->nt.stackSize;
 		info.priority = t->nt.currentPriority;
-		info.waitType = t->nt.waitType;
+		info.waitType = (WaitType)(u32)t->nt.waitType;
 		if(*iter == currentThread)
 			info.curPC = currentMIPS->pc;
 		else
