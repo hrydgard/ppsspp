@@ -564,7 +564,7 @@ void CtrlBreakpointList::handleNotify(LPARAM lParam)
 		int index = getBreakpointIndex(dispInfo->item.iItem,isMemory);
 		if (index == -1) return;
 		
-		breakpointText[0] = 0;
+		breakpointText = L"";
 		switch (dispInfo->item.iSubItem)
 		{
 		case BPL_TYPE:
