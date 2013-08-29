@@ -574,15 +574,12 @@ namespace PpcGen {
 
 	// Fpu move instruction
 	void PPCXEmitter::FMR	(PPCReg FRt, PPCReg FRb) {
-		Break();
 		X_FORM(63, FRt, 0, FRb, 72, 0);
 	}
 	void PPCXEmitter::FNEG	(PPCReg FRt, PPCReg FRb) {
-		Break();
 		X_FORM(63, FRt, 0, FRb, 40, 0);
 	}
 	void PPCXEmitter::FABS	(PPCReg FRt, PPCReg FRb) {
-		Break();
 		X_FORM(63, FRt, 0, FRb, 264, 0);
 	}
 	void PPCXEmitter::FNABS	(PPCReg FRt, PPCReg FRb) {
@@ -594,7 +591,13 @@ namespace PpcGen {
 		X_FORM(63, FRt, 0, FRb, 8, 0);
 	}
 
-	// Fpu arith
+	// Fpu arith	
+	void PPCXEmitter::FADDS	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		A_FORM(59, FRt, FRa, FRb, 0, 21, 0);
+	}
+	void PPCXEmitter::FSUBS	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		A_FORM(59, FRt, FRa, FRb, 0, 20, 0);
+	}
 	void PPCXEmitter::FADD	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
 		A_FORM(63, FRt, FRa, FRb, 0, 21, 0);
 	}
@@ -605,21 +608,19 @@ namespace PpcGen {
 		A_FORM(63, FRt, FRa, 0, FRc, 25, 0);
 	}
 	void PPCXEmitter::FMULS	(PPCReg FRt, PPCReg FRa, PPCReg FRc) {
-		Break();
 		A_FORM(59, FRt, FRa, 0, FRc, 25, 0);
 	}
 	void PPCXEmitter::FDIV	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
 		A_FORM(63, FRt, FRa, FRb, 0, 18, 0);
 	}
 	void PPCXEmitter::FDIVS	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {		
-		Break();
 		A_FORM(59, FRt, FRa, FRb, 0, 18, 0);
 	}
-	void PPCXEmitter::FSQRT	(PPCReg FRt, PPCReg FRb) {
-		Break();
+	void PPCXEmitter::FSQRT	(PPCReg FRt, PPCReg FRb) {		
+		A_FORM(63, FRt, 0, FRb, 0, 22, 0);
 	}
-	void PPCXEmitter::FSQRTS	(PPCReg FRt, PPCReg FRb) {
-		Break();
+	void PPCXEmitter::FSQRTS	(PPCReg FRt, PPCReg FRb) {		
+		A_FORM(59, FRt, 0, FRb, 0, 22, 0);
 	}
 	void PPCXEmitter::FSQRTE	(PPCReg FRt, PPCReg FRb) {
 		Break();

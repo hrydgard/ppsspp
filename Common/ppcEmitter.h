@@ -350,6 +350,8 @@ namespace PpcGen
 		// Fpu arith
 		void FADD	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
 		void FSUB	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+		void FADDS	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+		void FSUBS	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
 		void FMUL	(PPCReg FRt, PPCReg FRa, PPCReg FRc);
 		void FMULS	(PPCReg FRt, PPCReg FRa, PPCReg FRc);
 		void FDIV	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
