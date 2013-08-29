@@ -78,6 +78,7 @@ extern InputState input_state;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
+#define TIMER_TRANSLATE 3
 #define CURSORUPDATE_INTERVAL_MS 50
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
@@ -288,7 +289,7 @@ namespace MainWindow
 		translated = ConvertUTF8ToWString(key);
 		ModifyMenu(menu, MENU_DEBUG, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
 
-		key = p->T("Settings");
+		key = p->T("Game Settings");
 		translated = ConvertUTF8ToWString(key);
 		ModifyMenu(menu, MENU_OPTIONS, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
 
@@ -407,8 +408,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, graphics);
 		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, graphics);
 		TranslateMenuItem(ID_TEXTURESCALING_OFF, graphics);
-		TranslateMenuItem(ID_TEXTURESCALING_2X, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_3X, desktopUI);
+		// Skip texture scaling 2x/3x..
 		TranslateMenuItem(ID_TEXTURESCALING_4X, desktopUI);
 		TranslateMenuItem(ID_TEXTURESCALING_5X, desktopUI);
 		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, graphics);
@@ -554,7 +554,7 @@ namespace MainWindow
 
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-
+		
 		Update();
 
 		if(g_Config.bFullScreenOnLaunch)
@@ -581,6 +581,7 @@ namespace MainWindow
 		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
 
 		SetFocus(hwndDisplay);
+		SetTimer(hwndMain, TIMER_TRANSLATE, CURSORUPDATE_INTERVAL_MS, 0);
 
 		return TRUE;
 	}
@@ -836,6 +837,10 @@ namespace MainWindow
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
+				return 0;
+			case TIMER_TRANSLATE:
+				KillTimer(hWnd, TIMER_TRANSLATE);
+				TranslateMenus();
 				return 0;
 			}
 			break;
@@ -1313,9 +1318,6 @@ namespace MainWindow
 
 		case WM_INPUT:
 			{
-				// Hack: I can't seem to get the menu to translate without an event occurring.
-				// This seems like the best spot to guarantee translation...
-				TranslateMenus();
 				UINT dwSize;
 				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 				if (!rawInputBuffer) {
