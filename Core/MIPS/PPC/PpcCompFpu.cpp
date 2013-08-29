@@ -41,8 +41,8 @@ void Jit::Comp_FPU3op(u32 op) {
 	fpr.MapDirtyInIn(fd, fs, ft);
 	switch (op & 0x3f) 
 	{
-	case 0: FADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
-	case 1: FSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
+	case 0: FADDS(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
+	case 1: FSUBS(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
 	case 2: { //F(fd) = F(fs) * F(ft); //mul
 		/*
 		u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
@@ -58,10 +58,10 @@ void Jit::Comp_FPU3op(u32 op) {
 			}
 		}
 		*/
-		FMUL(fpr.R(fd), fpr.R(fs), fpr.R(ft));
+		FMULS(fpr.R(fd), fpr.R(fs), fpr.R(ft));
 		break;
 	}
-	case 3: FDIV(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) / F(ft); //div
+	case 3: FDIVS(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) / F(ft); //div
 	default:
 		DISABLE;
 		return;
@@ -121,7 +121,33 @@ void Jit::Comp_FPUComp(u32 op) {
 }
 
 void Jit::Comp_FPU2op(u32 op) {
+	CONDITIONAL_DISABLE;
+
+	int fs = _FS;
+	int fd = _FD;
+
+	switch (op & 0x3f) 
+	{
+	case 4:	//F(fd)	   = sqrtf(F(fs));            break; //sqrt
+		fpr.MapDirtyIn(fd, fs);
+		FSQRTS(fpr.R(fd), fpr.R(fs));
+		break;
+	case 5:	//F(fd)    = fabsf(F(fs));            break; //abs
+		fpr.MapDirtyIn(fd, fs);
+		FABS(fpr.R(fd), fpr.R(fs));
+		break;
+	case 6:	//F(fd)	   = F(fs);                   break; //mov
+		fpr.MapDirtyIn(fd, fs);
+		FMR(fpr.R(fd), fpr.R(fs));
+		break;
+	case 7:	//F(fd)	   = -F(fs);                  break; //neg
+		fpr.MapDirtyIn(fd, fs);
+		FNEG(fpr.R(fd), fpr.R(fs));
+		break;
+	default:
 	Comp_Generic(op);
+		break;
+	}
 }
 
 void Jit::Comp_mxc1(u32 op) {
