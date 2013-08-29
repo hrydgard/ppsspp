@@ -32,7 +32,7 @@
 #ifdef _M_SSE
 #include <xmmintrin.h>
 #endif
-
+ 
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
 #define TEXTURE_KILL_AGE_LOWMEM 60
@@ -191,7 +191,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer) {
+		if (!entry->framebuffer && g_Config.iRenderingMode == FB_BUFFERED_MODE) {
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
