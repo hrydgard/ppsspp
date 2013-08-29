@@ -33,12 +33,12 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	int c = 0;
 	for (int y = 0; y < 3; y++) {
 		for (int x = 0; x < 3; x++) {
-			indices[c++] = y * 4 + x;
-			indices[c++] = y * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x;
-			indices[c++] = y * 4 + x;
+			indices[c++] = y * 3 + x;
+			indices[c++] = y * 3 + x + 1;
+			indices[c++] = (y + 1) * 3 + x + 1;
+			indices[c++] = (y + 1) * 3 + x + 1;
+			indices[c++] = (y + 1) * 3 + x;
+			indices[c++] = y * 3 + x;
 		}
 	}
 
