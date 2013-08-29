@@ -72,6 +72,9 @@ TextureCache::TextureCache() : clearCacheNextFrame_(false), lowMemoryMode_(false
 	clutBufRaw_ = new u32[4096];  // 16KB
 	// glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel);
 	maxAnisotropyLevel = 16;
+#ifdef _XBOX
+	lowMemoryMode_ = true;
+#endif
 }
 
 TextureCache::~TextureCache() {

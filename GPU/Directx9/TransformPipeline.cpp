@@ -973,7 +973,11 @@ u32 TransformDrawEngine::ComputeFastDCID() {
 	return hash;
 }
 
+#ifdef _XBOX
+enum { VAI_KILL_AGE = 60 };
+#else
 enum { VAI_KILL_AGE = 120 };
+#endif
 
 void TransformDrawEngine::ClearTrackedVertexArrays() {
 	for (auto vai = vai_.begin(); vai != vai_.end(); vai++) {
