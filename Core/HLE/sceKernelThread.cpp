@@ -2549,6 +2549,8 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 
 	if (!__KernelIsDispatchEnabled())
 		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	if (__IsInInterrupt())
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
@@ -2578,6 +2580,8 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 
 	if (!__KernelIsDispatchEnabled())
 		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	if (__IsInInterrupt())
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);

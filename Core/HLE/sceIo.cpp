@@ -43,6 +43,7 @@ extern "C" {
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 
 // For headless screenshots.
 #include "Core/HLE/sceDisplay.h"
@@ -646,9 +647,15 @@ bool __IoRead(int &result, int id, u32 data_addr, int size) {
 u32 sceIoRead(int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (!__KernelIsDispatchEnabled() && id > 2 && f != NULL) {
-		DEBUG_LOG(HLE, "sceIoRead(%d, %08x, %x): dispatch disabled", id, data_addr, size);
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	if (id > 2 && f != NULL) {
+		if (!__KernelIsDispatchEnabled()) {
+			DEBUG_LOG(HLE, "sceIoRead(%d, %08x, %x): dispatch disabled", id, data_addr, size);
+			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		}
+		if (__IsInInterrupt()) {
+			DEBUG_LOG(HLE, "sceIoRead(%d, %08x, %x): inside interrupt", id, data_addr, size);
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
 	}
 
 	// TODO: Timing is probably not very accurate, low estimate.
@@ -736,9 +743,15 @@ bool __IoWrite(int &result, int id, void *data_ptr, int size) {
 u32 sceIoWrite(int id, u32 data_addr, int size) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (!__KernelIsDispatchEnabled() && id > 2 && f != NULL) {
-		DEBUG_LOG(HLE, "sceIoWrite(%d, %08x, %x): dispatch disabled", id, data_addr, size);
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	if (id > 2 && f != NULL) {
+		if (!__KernelIsDispatchEnabled()) {
+			DEBUG_LOG(HLE, "sceIoWrite(%d, %08x, %x): dispatch disabled", id, data_addr, size);
+			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		}
+		if (__IsInInterrupt()) {
+			DEBUG_LOG(HLE, "sceIoWrite(%d, %08x, %x): inside interrupt", id, data_addr, size);
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
 	}
 
 	// TODO: Timing is probably not very accurate, low estimate.
@@ -1486,12 +1499,14 @@ u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	return fd;
 }
 
-u32 sceIoGetAsyncStat(int id, u32 poll, u32 address)
-{
+u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (f)
-	{
+	if (f) {
+		if (__IsInInterrupt()) {
+			DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): illegal context", f->asyncResult, id, poll, address);
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
 		if (f->pendingAsyncResult) {
 			if (poll) {
 				DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): not ready", f->asyncResult, id, poll, address);
@@ -1535,6 +1550,10 @@ int sceIoWaitAsync(int id, u32 address) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (__IsInInterrupt()) {
+			DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): illegal context", f->asyncResult, id, address);
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
 		if (f->pendingAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
 				DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
@@ -1570,6 +1589,11 @@ int sceIoWaitAsyncCB(int id, u32 address) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (__IsInInterrupt()) {
+			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x): illegal context", f->asyncResult, id, address);
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
+
 		hleCheckCurrentCallbacks();
 		if (f->pendingAsyncResult) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x): waiting", f->asyncResult, id, address);
