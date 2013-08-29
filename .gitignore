@@ -25,6 +25,9 @@ Windows/x64
 Windows/ipch
 ui_atlas.zim.png
 
+# ignore external native update
+native
+
 #*.vcxproj
 #*.gitignore
 dist
