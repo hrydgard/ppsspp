@@ -69,6 +69,7 @@ enum {
 static const char *lieAboutSuccessModules[] = {
 	"flash0:/kd/audiocodec.prx",
 	"flash0:/kd/libatrac3plus.prx",
+	"disc0:/PSP_GAME/SYSDIR/UPDATE/EBOOT.BIN",
 };
 
 static const char *blacklistedModules[] = {
@@ -1409,6 +1410,12 @@ u32 sceKernelGetModuleId()
 u32 sceKernelFindModuleByName(const char *name)
 {
 	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelFindModuleByName(%s)", name);
+	
+	int index = GetModuleIndex(name);
+
+	if (index == -1)
+		return 0;
+	
 	return 1;
 }
 
