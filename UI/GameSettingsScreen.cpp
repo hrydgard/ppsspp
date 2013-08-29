@@ -557,7 +557,7 @@ UI::EventReturn DeveloperToolsScreen::OnRestoreDefaultSettings(UI::EventParams &
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *g = GetI18NCategory("General");
 	screenManager()->push(
-	new PromptScreen(d->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping) back to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), g->T("OK"), g->T("Cancel"),
+	new PromptScreen(d->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), g->T("OK"), g->T("Cancel"),
 	std::bind(&DeveloperToolsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 
 	return UI::EVENT_DONE;
