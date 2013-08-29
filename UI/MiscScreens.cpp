@@ -354,7 +354,7 @@ void CreditsScreen::CreateViews() {
 #ifndef GOLD
 	root_->Add(new Button(g->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
 #endif
-	if(g_Config.languageIni == "zh_CN") {
+	if(g_Config.languageIni == "zh_CN" ||g_Config.languageIni == "zh_TW") {
 	  root_->Add(new Button(g->T("PPSSPP Chinese Forum"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnChineseForum);
 	  root_->Add(new Button(g->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 	  root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 228, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
