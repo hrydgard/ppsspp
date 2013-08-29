@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -104,6 +104,7 @@ namespace MainWindow
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static int currentSavestateSlot = 0;
+	static bool menusAreTranslated = false;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
@@ -233,6 +234,168 @@ namespace MainWindow
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
 			}
 		}
+	}
+
+	std::string GetMenuItemText(int menuID) {
+		MENUITEMINFO menuInfo;
+		menuInfo.cbSize = sizeof(MENUITEMINFO);
+		menuInfo.fMask = MIIM_STRING;
+		//menuInfo.fType = MFT_STRING;
+		menuInfo.dwTypeData = 0;
+
+		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
+		wchar_t *buffer = new wchar_t[++menuInfo.cch];
+		//memset(buffer, 0, ARRAY_SIZE(buffer));
+		menuInfo.dwTypeData = buffer;
+		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
+		std::string retVal(ConvertWStringToUTF8(menuInfo.dwTypeData));
+		delete [] buffer;
+
+		return retVal;
+	}
+
+	enum {
+		MENU_FILE = 0,
+		MENU_EMULATION = 1,
+		MENU_DEBUG = 2,
+		MENU_OPTIONS = 3,
+		MENU_HELP = 4
+	};
+
+	void TranslateMenuHeaders() {
+		I18NCategory *d = GetI18NCategory("DesktopUI");
+		I18NCategory *g = GetI18NCategory("Graphics");
+		I18NCategory *p = GetI18NCategory("Pause");
+
+		std::string key = d->T("File");
+		std::wstring translated = ConvertUTF8ToWString(key);
+		
+		ModifyMenu(menu, MENU_FILE, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		key = d->T("Emulation");
+		translated = ConvertUTF8ToWString(key);
+		ModifyMenu(menu, MENU_EMULATION, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		key = g->T("Debugging");
+		translated = ConvertUTF8ToWString(key);
+		ModifyMenu(menu, MENU_DEBUG, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		key = p->T("Settings");
+		translated = ConvertUTF8ToWString(key);
+		ModifyMenu(menu, MENU_OPTIONS, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+
+		key = d->T("Help");
+		translated = ConvertUTF8ToWString(key);
+		ModifyMenu(menu, MENU_HELP, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+	}
+
+	void TranslateMenuItem(const int menuID, const char *category, const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+		if(menusAreTranslated) return;
+		I18NCategory *c = GetI18NCategory(category);
+		std::string key = c->T(GetMenuItemText(menuID).c_str());
+		std::wstring translated = ConvertUTF8ToWString(key);
+		translated.append(accelerator);
+		ModifyMenu(menu, menuID, MF_STRING 
+								| enabled? MF_ENABLED : MF_GRAYED 
+								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+								menuID, translated.c_str());
+	}
+
+	void TranslateMenus() {
+		if(menusAreTranslated) return;
+		
+		const char *desktopUI = "DesktopUI";
+		const char *mainMenu = "MainMenu";
+		const char *graphics = "Graphics";
+		const char *system = "System";
+		const char *audio = "Audio";
+		const char *general = "General";
+		const char *pause = "Pause";
+
+		// File menu
+		TranslateMenuItem(ID_FILE_LOAD, mainMenu);
+		TranslateMenuItem(ID_FILE_LOAD_DIR, desktopUI);
+		TranslateMenuItem(ID_FILE_LOAD_MEMSTICK, desktopUI);
+		TranslateMenuItem(ID_FILE_MEMSTICK, desktopUI);
+		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, pause, false, false, L"\tF4");
+		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, pause, false, false, L"\tF2");
+		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI, false, false);
+		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI, false, false);
+		TranslateMenuItem(ID_FILE_EXIT, mainMenu);
+
+		// Emulation menu
+		TranslateMenuItem(ID_TOGGLE_PAUSE, desktopUI, false, false, L"\tF8");
+		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, false, false, L"\tCtrl+W");
+		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
+		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
+		TranslateMenuItem(ID_EMULATION_SOUND, audio, true, true);
+		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, audio);
+		TranslateMenuItem(ID_EMULATION_CHEATS, system);
+		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, graphics, true, true);
+		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, graphics);
+		TranslateMenuItem(ID_CPU_INTERPRETER, desktopUI);
+		TranslateMenuItem(ID_CPU_DYNAREC, system);
+		TranslateMenuItem(ID_CPU_MULTITHREADED, system);
+		TranslateMenuItem(ID_IO_MULTITHREADED, system);
+
+		// Debug menu
+		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, graphics);
+		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, "\tF12");
+		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, "\tCtrl+D");
+		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, "\tCtrl+L");
+		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, "\tCtrl+M");
+
+		// Options menu
+		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, graphics, true, false, L"\tAlt+Return, F11");
+		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, graphics);
+		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false, L"\tCtrl+1");
+		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true, L"\tCtrl+1");
+		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false, L"\tCtrl+1");
+		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false, L"\tCtrl+1");
+		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, graphics, true, false, L"\tF5");
+		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, graphics, true, true, L"\tF5");
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, graphics, true, false, L"\tF5");
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, graphics, true, false, L"\tF5");
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, graphics);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, graphics);
+		// Skip frameskipping 2-8..
+		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, graphics);
+		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, graphics);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, graphics);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_OFF, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_2X, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_3X, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_4X, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_5X, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, graphics);
+		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, graphics, true, true, L"\tF6");
+		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, graphics);
+		TranslateMenuItem(ID_OPTIONS_MIPMAP, graphics);
+		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, graphics);
+		TranslateMenuItem(ID_OPTIONS_VSYNC, graphics);
+		TranslateMenuItem(ID_OPTIONS_SHOWFPS, graphics);
+		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, graphics);
+		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, system);
+		TranslateMenuItem(ID_OPTIONS_IGNOREILLEGALREADS, desktopUI);
+
+		// Help menu
+		TranslateMenuItem(ID_HELP_OPENWEBSITE, desktopUI);
+		TranslateMenuItem(ID_HELP_OPENFORUM, general);
+		TranslateMenuItem(ID_HELP_BUYGOLD, general);
+		TranslateMenuItem(ID_HELP_ABOUT, desktopUI);
+
+		TranslateMenuHeaders();
+		menusAreTranslated = true;
+		DrawMenuBar(hwndMain);
 	}
 
 	void setTexScalingMultiplier(int level) {
@@ -1111,6 +1274,10 @@ namespace MainWindow
 
 		case WM_INPUT:
 			{
+				// Hack: I can't seem to get the menu to translate without an event occurring.
+				// This seems like the best spot to guarantee translation...
+				TranslateMenus();
+
 				UINT dwSize;
 				GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
 				if (!rawInputBuffer) {
