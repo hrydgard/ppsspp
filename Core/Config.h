@@ -44,6 +44,7 @@ public:
 	bool bEnableLogging;
 #ifdef _WIN32
 	bool bTopMost;
+	std::string sFont;
 #endif
 	// Core
 	bool bIgnoreBadMemAccess;
