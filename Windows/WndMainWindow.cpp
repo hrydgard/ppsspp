@@ -400,7 +400,7 @@ namespace MainWindow
 		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
 
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND);
-		TranslateSubMenuHeader(menu, graphics, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
 		TranslateSubMenuHeader(menu, graphics, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
 		TranslateSubMenuHeader(menu, graphics, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
 		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
