@@ -1408,7 +1408,7 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
-		const wchar_t * pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? L"Run\tF8" : L"Pause\tF8";
+		const wchar_t * pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? L"‘À––\tF8" : L"‘›Õ£\tF8";
 		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
