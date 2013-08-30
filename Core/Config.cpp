@@ -58,16 +58,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("Language", &languageIni, "en_US");
 	general->Get("NumWorkerThreads", &iNumWorkerThreads, cpu_info.num_cores);
 	general->Get("EnableCheats", &bEnableCheats, false);
-	general->Get("MaxRecent", &iMaxRecent, 30);
 	general->Get("ScreenshotsAsPNG", &bScreenshotsAsPNG, false);
 	general->Get("StateSlot", &iCurrentStateSlot, 0);
 	general->Get("GridView1", &bGridView1, true);
 	general->Get("GridView2", &bGridView2, true);
 	general->Get("GridView3", &bGridView3, true);
 
-	// Fix issue from switching from uint (hex in .ini) to int (dec)
-	if (iMaxRecent == 0)
-		iMaxRecent = 30;
 
 	// "default" means let emulator decide, "" means disable.
 	general->Get("ReportingHost", &sReportHost, "default");
@@ -79,8 +75,23 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	general->Get("WindowY", &iWindowY, 100);
 #endif
 
-	if ((int)recentIsos.size() > iMaxRecent)
-		recentIsos.resize(iMaxRecent);
+	IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
+	recent->Get("MaxRecent", &iMaxRecent, 30);
+	
+	// Fix issue from switching from uint (hex in .ini) to int (dec)
+	if (iMaxRecent == 0)
+		iMaxRecent = 30;
+
+	recentIsos.clear();
+	for (int i = 0; i < iMaxRecent; i++)
+	{
+		char keyName[64];
+		std::string fileName;
+
+		sprintf(keyName,"FileName%d",i);
+		if (!recent->Get(keyName,&fileName,"") || fileName.length() == 0) break;
+		recentIsos.push_back(fileName);
+	}
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 #ifdef IOS
@@ -234,7 +245,6 @@ void Config::Save() {
 		general->Set("CurrentDirectory", currentDirectory);
 		general->Set("ShowDebuggerOnLoad", bShowDebuggerOnLoad);
 		general->Set("ReportingHost", sReportHost);
-		general->Set("Recent", recentIsos);
 		general->Set("AutoSaveSymbolMap", bAutoSaveSymbolMap);
 #ifdef _WIN32
 		general->Set("TopMost", bTopMost);
@@ -249,6 +259,17 @@ void Config::Save() {
 		general->Set("GridView1", bGridView1);
 		general->Set("GridView2", bGridView2);
 		general->Set("GridView3", bGridView3);
+		
+		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
+		recent->Set("MaxRecent", iMaxRecent);
+	
+		for (int i = 0; i < recentIsos.size(); i++)
+		{
+			char keyName[64];
+			
+			sprintf(keyName,"FileName%d",i);
+			recent->Set(keyName,recentIsos[i]);
+		}
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
 		cpu->Set("Jit", bJit);
