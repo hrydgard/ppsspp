@@ -1,4 +1,5 @@
 #include "base/logging.h"
+#include "base/stringutil.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/draw_text.h"
 #include "util/hash/hash.h"
@@ -11,7 +12,7 @@
 
 enum {
 	MAX_TEXT_WIDTH = 1024,
-	MAX_TEXT_HEIGHT = 128
+	MAX_TEXT_HEIGHT = 256
 };
 
 struct TextDrawerFontContext {
@@ -108,7 +109,7 @@ void TextDrawer::MeasureString(const char *str, float *w, float *h) {
 	}
 
 	SIZE size;
-	std::wstring wstr = ConvertUTF8ToWString(str);
+	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 	GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
 	*w = size.cx * fontScaleX_;
 	*h = size.cy * fontScaleY_;
@@ -129,7 +130,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		glBindTexture(GL_TEXTURE_2D, entry->textureHandle);
 	} else {
 		// Render the string to our bitmap and save to a GL texture.
-		std::wstring wstr = ConvertUTF8ToWString(str);
+		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 		SIZE size;
 
 		auto iter = fontMap_.find(fontHash_);
@@ -141,12 +142,18 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		SetBkColor(ctx_->hDC, 0);
 		SetTextAlign(ctx_->hDC, TA_TOP);
 
-		GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
+		RECT textRect = {0};
+		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), wstr.size(), &textRect, DT_HIDEPREFIX|DT_TOP|DT_LEFT|DT_CALCRECT, 0);
+		size.cx = textRect.right;
+		size.cy = textRect.bottom;
+
+		// GetTextExtentPoint32(ctx_->hDC, wstr.c_str(), (int)wstr.size(), &size);
 		RECT rc = {0};
 		rc.right = size.cx + 4;
 		rc.bottom = size.cy + 4;
 		FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
-		ExtTextOut(ctx_->hDC, 0, 0, ETO_OPAQUE | ETO_CLIPPED, NULL, wstr.c_str(), (int)wstr.size(), NULL);
+		//ExtTextOut(ctx_->hDC, 0, 0, ETO_OPAQUE | ETO_CLIPPED, NULL, wstr.c_str(), (int)wstr.size(), NULL);
+		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), wstr.size(), &rc, DT_HIDEPREFIX|DT_TOP|DT_LEFT, 0);
 
 		entry = new TextStringEntry();
 		glGenTextures(1, &entry->textureHandle);
