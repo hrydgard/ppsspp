@@ -432,7 +432,7 @@ int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int w
 {
 	if (sendSize & 0x80000000)
 	{
-		ERROR_LOG(HLE, "__KernelSendMsgPipe(%d): illegal size %d", uid, sendSize);
+		ERROR_LOG(HLE, "__KernelSendMsgPipe(%d, %i, ...): illegal size %d", uid, sendSize);
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 	}
 
@@ -444,7 +444,7 @@ int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int w
 
 	if (waitMode != SCE_KERNEL_MPW_ASAP && waitMode != SCE_KERNEL_MPW_FULL)
 	{
-		ERROR_LOG(HLE, "__KernelSendMsgPipe(%d): invalid wait mode %d", uid, waitMode);
+		ERROR_LOG(HLE, "__KernelSendMsgPipe(%d, waitmode=%i): invalid wait mode %d", uid, waitMode);
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 
@@ -452,12 +452,12 @@ int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int w
 	{
 		if (!__KernelIsDispatchEnabled())
 		{
-			WARN_LOG(HLE, "__KernelSendMsgPipe(%d): dispatch disabled", uid, waitMode);
+			WARN_LOG(HLE, "__KernelSendMsgPipe(%d, waitmode=%i): dispatch disabled", uid, waitMode);
 			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 		}
 		if (__IsInInterrupt())
 		{
-			WARN_LOG(HLE, "__KernelSendMsgPipe(%d): in interrupt", uid, waitMode);
+			WARN_LOG(HLE, "__KernelSendMsgPipe(%d, waitmode=%i): in interrupt", uid, waitMode);
 			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 		}
 	}

@@ -5,9 +5,9 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := native_audio
-LOCAL_CFLAGS := -O3 -fsigned-char -ffast-math -Wall -Wno-multichar -Wno-psabi
+LOCAL_CFLAGS := -O3 -fsigned-char -ffast-math -Wall -Wno-multichar -Wno-psabi -Wno-literal-suffix
 # yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -std=gnu++11 -fno-rtti
+LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti
 NATIVE := ../../native
 LOCAL_SRC_FILES := \
 		$(NATIVE)/android/native-audio-so.cpp
@@ -26,9 +26,9 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DUSING_GLES2 -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing -ffast-math
+LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DUSING_GLES2 -O3 -ffast-math -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing
 # yes, it's really CPPFLAGS for C++
-LOCAL_CPPFLAGS := -std=gnu++11 -fno-rtti
+LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder -Wno-literal-suffix
 LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../Common \
   $(LOCAL_PATH)/../.. \
@@ -64,7 +64,6 @@ LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libswresample.a
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libswscale.a
 LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavutil.a
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86/include
-LOCAL_CFLAGS += -DARMEABI
 endif
 
 #  $(SRC)/Core/EmuThread.cpp \
@@ -74,7 +73,7 @@ endif
 
 ifeq ($(TARGET_ARCH_ABI),x86) 
 
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86 -fomit-frame-pointer
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86 -fomit-frame-pointer -mtune=atom -mssse3
 
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \

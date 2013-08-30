@@ -464,6 +464,7 @@ void CreditsScreen::render() {
 		"solarmystic (testing)",
 		"all the forum mods",
 		"",
+		c->T("this translation by", ""),   // Empty string as this is the original :)
 		"",
 		c->T("written", "Written in C++ for speed and portability"),
 		"",

@@ -308,7 +308,9 @@ namespace MainWindow
 
 	void TranslateMenus() {
 		if(menusAreTranslated) return;
-		
+		menusAreTranslated = true;
+
+
 		const char *desktopUI = "DesktopUI";
 		const char *mainMenu = "MainMenu";
 		const char *graphics = "Graphics";
@@ -316,6 +318,7 @@ namespace MainWindow
 		const char *audio = "Audio";
 		const char *general = "General";
 		const char *pause = "Pause";
+		return;
 
 		// File menu
 		TranslateMenuItem(ID_FILE_LOAD, mainMenu);
@@ -409,7 +412,6 @@ namespace MainWindow
 		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
 		TranslateSubMenuHeader(menu, graphics, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 
-		menusAreTranslated = true;
 		DrawMenuBar(hwndMain);
 	}
 
@@ -1575,7 +1577,19 @@ namespace MainWindow
 
 		UpdateCommands();
 	}
+	
+	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string key = c->T(menuText);
+		std::wstring translated = ConvertUTF8ToWString(key);
+		translated.append(accelerator);
+		ModifyMenu(menu, menuID, MF_STRING 
+								| enabled? MF_ENABLED : MF_GRAYED 
+								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+								menuID, translated.c_str());
 
+	}
+	
 	void UpdateCommands() {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
@@ -1588,8 +1602,8 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
-		const wchar_t * pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? L"Run\tF8" : L"Pause\tF8";
-		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
+		(Core_IsStepping() || globalUIState != UISTATE_INGAME) ? 
+			TranslateMenuItembyText(ID_TOGGLE_PAUSE, "Run", "DesktopUI", false, false, L"\tF8") : TranslateMenuItembyText(ID_TOGGLE_PAUSE, "Pause", "DesktopUI", false, false, L"\tF8");
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
