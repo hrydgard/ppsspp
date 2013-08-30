@@ -308,7 +308,9 @@ namespace MainWindow
 
 	void TranslateMenus() {
 		if(menusAreTranslated) return;
-		
+		menusAreTranslated = true;
+
+
 		const char *desktopUI = "DesktopUI";
 		const char *mainMenu = "MainMenu";
 		const char *graphics = "Graphics";
@@ -316,6 +318,7 @@ namespace MainWindow
 		const char *audio = "Audio";
 		const char *general = "General";
 		const char *pause = "Pause";
+		return;
 
 		// File menu
 		TranslateMenuItem(ID_FILE_LOAD, mainMenu);
@@ -409,7 +412,6 @@ namespace MainWindow
 		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
 		TranslateSubMenuHeader(menu, graphics, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 
-		menusAreTranslated = true;
 		DrawMenuBar(hwndMain);
 	}
 
