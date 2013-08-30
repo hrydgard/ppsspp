@@ -64,7 +64,7 @@ private:
 
 class NewLanguageScreen : public ListPopupScreen {
 public:
-	NewLanguageScreen();
+	NewLanguageScreen(const std::string &title);
 
 private:
 	virtual void OnCompleted(DialogResult result);
