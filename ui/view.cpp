@@ -320,7 +320,11 @@ void Choice::Draw(UIContext &dc) {
 	} else {
 		int paddingX = 12;
 		dc.SetFontStyle(dc.theme->uiFont);
-		dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		if (centered_) {
+			dc.DrawText(text_.c_str(), bounds_.centerX(), bounds_.centerY(), style.fgColor, ALIGN_CENTER);
+		} else {
+			dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		}
 	}
 
 	if (selected_) {

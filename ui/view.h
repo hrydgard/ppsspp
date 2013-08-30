@@ -504,15 +504,18 @@ public:
 class Choice : public ClickableItem {
 public:
 	Choice(const std::string &text, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), smallText_(), atlasImage_(-1), selected_(false) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(), atlasImage_(-1), selected_(false), centered_(false) {}
 	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = 0)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(-1), selected_(selected) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(-1), selected_(selected), centered_(false) {}
 	
 	Choice(ImageID image, LayoutParams *layoutParams = 0)
 		: ClickableItem(layoutParams), atlasImage_(image), selected_(false) {}
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
+	virtual void SetCentered(bool c) {
+		centered_ = c;
+	}
 
 protected:
 	// hackery
@@ -521,6 +524,7 @@ protected:
 	std::string text_;
 	std::string smallText_;
 	ImageID atlasImage_;
+	bool centered_;
 
 private:
 	bool selected_;
