@@ -3,6 +3,7 @@
 #include "ui/ui_screen.h"
 #include "ui/ui_context.h"
 #include "ui/screen.h"
+#include "i18n/i18n.h"
 
 UIScreen::UIScreen()
 	: Screen(), root_(0), recreateViews_(true), hatDown_(0) {
@@ -99,7 +100,11 @@ UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
 }
 
 PopupScreen::PopupScreen(std::string title, std::string button1, std::string button2)
-	: title_(title), button1_(button1), button2_(button2), box_(0) {}
+	: title_(title), box_(0) {
+	I18NCategory *d = GetI18NCategory("Dialog");
+	button1_ = d->T(button1.c_str());
+	button2_ = d->T(button2.c_str());
+}
 
 void PopupScreen::touch(const TouchInput &touch) {
 	if (!box_ || (touch.flags & TOUCH_DOWN) == 0 || touch.id != 0) {
