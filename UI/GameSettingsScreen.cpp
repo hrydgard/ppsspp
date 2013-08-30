@@ -209,7 +209,6 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
-	I18NCategory *k = GetI18NCategory("CwCheats");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -351,7 +350,7 @@ void GameSettingsScreen::CreateViews() {
 
 	enableReports_ = g_Config.sReportHost != "default";
 //#ifndef ANDROID 
-	systemSettings->Add(new ItemHeader(k->T("Cheats")));
+	systemSettings->Add(new ItemHeader(s->T("Cheats")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
 //#endif
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
