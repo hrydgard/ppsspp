@@ -649,11 +649,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 			
 			// Discard AA lines in DOA
-			if ((prim == GE_PRIM_LINE_STRIP) && (gstate.antiAliasEnable & 1))
+			if ((prim == GE_PRIM_LINE_STRIP) && gstate.isAntiAliasEnabled())
 				break;
 
 			// Discard AA lines in Summon Night 5
-			if ((prim == GE_PRIM_LINES) && (gstate.antiAliasEnable & 1) && gstate.isSkinningEnabled())
+			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && gstate.isSkinningEnabled())
 				break;
 
 			// This also make skipping drawing very effective.
