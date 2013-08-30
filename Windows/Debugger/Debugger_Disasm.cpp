@@ -74,6 +74,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 {
 	cpu = _cpu;
 	lastTicks = CoreTiming::GetTicks();
+	keepStatusBarText = false;
 
 	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
 #ifdef THEMES
@@ -413,8 +414,21 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				changeSubWindow(SUBWIN_STACKFRAMES);
 				break;
 
+			case ID_DEBUG_DSIPLAYREGISTERLIST:
+				TabCtrl_SetCurSel(GetDlgItem(m_hDlg, IDC_LEFTTABS),0);
+				ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
+				ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);
+				break;
+				
+			case ID_DEBUG_DSIPLAYFUNCTIONLIST:
+				TabCtrl_SetCurSel(GetDlgItem(m_hDlg, IDC_LEFTTABS),1);
+				ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_HIDE);
+				ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_NORMAL);
+				break;
+
 			case ID_DEBUG_ADDBREAKPOINT:
 				{
+					keepStatusBarText = true;
 					bool isRunning = Core_IsActive();
 					if (isRunning)
 					{
@@ -431,6 +445,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						SetDebugMode(false);
 						Core_EnableStepping(false);
 					}
+					keepStatusBarText = false;
 				}
 				break;
 
@@ -650,7 +665,8 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		changeSubWindow(SUBWIN_NEXT);
 		break;
 	case WM_DEB_SETSTATUSBARTEXT:
-		SendMessage(statusBarWnd,WM_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
+		if (!keepStatusBarText)
+			SendMessage(statusBarWnd,WM_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{

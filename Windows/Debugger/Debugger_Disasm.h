@@ -37,6 +37,7 @@ private:
 	CtrlStackTraceView* stackTraceView;
 	std::vector<BreakPoint> displayedBreakPoints_;
 	std::vector<MemCheck> displayedMemChecks_;
+	bool keepStatusBarText;
 
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 	void UpdateSize(WORD width, WORD height);
