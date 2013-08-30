@@ -35,6 +35,7 @@ enum {
 	// Avoids using system font drawing as it's too slow.
 	// Not actually used here but is reserved for whatever system wraps DrawBuffer.
 	FLAG_DYNAMIC_ASCII = 2048,
+	FLAG_NO_PREFIX = 4096  // means to not process ampersands
 };
 
 struct GLSLProgram;

@@ -344,6 +344,9 @@ void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
 			wacc = 0;
 			lines++;
 			continue;
+		} else if (cval == '&' && utf.peek() != '&') {
+			// Ignore lone ampersands
+			continue;
 		}
 		const AtlasChar *c = atlasfont.getChar(cval);
 		if (c) {
@@ -413,6 +416,9 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 		if (cval == '\n') {
 			y += atlasfont.height * fontscaley;
 			x = sx;
+			continue;
+		} else if (cval == '&' && utf.peek() != '&') {
+			// Ignore lone ampersands
 			continue;
 		}
 		const AtlasChar *ch = atlasfont.getChar(cval);

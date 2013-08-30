@@ -31,6 +31,10 @@ public:
 	uint32_t next() {
 		return u8_nextchar(c_, &index_);
 	}
+	uint32_t peek() {
+		int tempIndex = index_;
+		return u8_nextchar(c_, &tempIndex);
+	}
 	int length() const {
 		return u8_strlen(c_);
 	}
