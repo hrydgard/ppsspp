@@ -240,6 +240,7 @@ namespace MainWindow
 
 	std::string GetMenuItemText(int menuID) {
 		MENUITEMINFO menuInfo;
+		memset(&menuInfo, 0, sizeof(menuInfo));
 		menuInfo.cbSize = sizeof(MENUITEMINFO);
 		menuInfo.fMask = MIIM_STRING;
 		//menuInfo.fType = MFT_STRING;
