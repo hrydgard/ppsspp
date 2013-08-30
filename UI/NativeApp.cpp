@@ -373,6 +373,9 @@ void NativeInit(int argc, const char *argv[],
 
 	i18nrepo.LoadIni(g_Config.languageIni);
 	I18NCategory *d = GetI18NCategory("DesktopUI");
+	// Note to translators: do not translate this/add this to PPSSPP-lang's files. 
+	// It's intended to be custom for every user. 
+	// Only add it to your own personal copies of PPSSPP.
 	g_Config.sFont = d->T("Font", "Trebuchet MS");
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
