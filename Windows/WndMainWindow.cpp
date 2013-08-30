@@ -1575,7 +1575,19 @@ namespace MainWindow
 
 		UpdateCommands();
 	}
+	
+	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string key = c->T(menuText);
+		std::wstring translated = ConvertUTF8ToWString(key);
+		translated.append(accelerator);
+		ModifyMenu(menu, menuID, MF_STRING 
+								| enabled? MF_ENABLED : MF_GRAYED 
+								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+								menuID, translated.c_str());
 
+	}
+	
 	void UpdateCommands() {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
@@ -1588,8 +1600,8 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
-		const wchar_t * pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? L"Run\tF8" : L"Pause\tF8";
-		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
+		(Core_IsStepping() || globalUIState != UISTATE_INGAME) ? 
+			TranslateMenuItembyText(ID_TOGGLE_PAUSE, "Run", "DesktopUI", false, false, L"\tF8") : TranslateMenuItembyText(ID_TOGGLE_PAUSE, "Pause", "DesktopUI", false, false, L"\tF8");
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
