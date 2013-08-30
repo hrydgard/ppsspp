@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -78,6 +78,8 @@ extern InputState input_state;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
+#define TIMER_TRANSLATE 3
+#define TRANSLATE_INTERVAL_MS 100
 #define CURSORUPDATE_INTERVAL_MS 50
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
@@ -104,6 +106,7 @@ namespace MainWindow
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static int currentSavestateSlot = 0;
+	static bool menusAreTranslated = false;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
@@ -235,6 +238,178 @@ namespace MainWindow
 		}
 	}
 
+	std::string GetMenuItemText(int menuID) {
+		MENUITEMINFO menuInfo;
+		menuInfo.cbSize = sizeof(MENUITEMINFO);
+		menuInfo.fMask = MIIM_STRING;
+		//menuInfo.fType = MFT_STRING;
+		menuInfo.dwTypeData = 0;
+
+		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
+		wchar_t *buffer = new wchar_t[++menuInfo.cch];
+		//memset(buffer, 0, ARRAY_SIZE(buffer));
+		menuInfo.dwTypeData = buffer;
+		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
+		std::string retVal(ConvertWStringToUTF8(menuInfo.dwTypeData));
+		delete [] buffer;
+
+		return retVal;
+	}
+
+	// These are used as an offset
+	// to determine which menu item to change.
+	enum MenuID{
+		MENU_FILE = 0,
+		MENU_EMULATION = 1,
+		MENU_DEBUG = 2,
+		MENU_OPTIONS = 3,
+		MENU_HELP = 4,
+
+		SUBMENU_RENDERING_BACKEND = 7,
+
+		SUBMENU_RENDERING_RESOLUTION = 4,
+		SUBMENU_RENDERING_MODE = 5,
+		SUBMENU_FRAME_SKIPPING = 6,
+		SUBMENU_TEXTURE_FILTERING = 7,
+		SUBMENU_TEXTURE_SCALING = 8,
+	};
+
+	void TranslateMenuHeader(HMENU menu, const char *category, const char *key, const MenuID id, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string s_key = c->T(key);
+		std::wstring translated = ConvertUTF8ToWString(s_key);
+		translated.append(accelerator);
+		ModifyMenu(menu, id, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+	}
+
+	void TranslateSubMenuHeader(HMENU menu, const char *category, const char *key, MenuID mainMenuID, MenuID subMenuID, const std::wstring& accelerator = L"") {
+		HMENU subMenu;
+		subMenu = GetSubMenu(menu, mainMenuID);
+		I18NCategory *c = GetI18NCategory(category);
+		std::string s_key = c->T(key);
+		std::wstring translated = ConvertUTF8ToWString(s_key);
+		translated.append(accelerator);
+		ModifyMenu(subMenu, subMenuID, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+	}
+
+	void TranslateMenuItem(const int menuID, const char *category, const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string key = c->T(GetMenuItemText(menuID).c_str());
+		std::wstring translated = ConvertUTF8ToWString(key);
+		translated.append(accelerator);
+		ModifyMenu(menu, menuID, MF_STRING 
+								| enabled? MF_ENABLED : MF_GRAYED 
+								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+								menuID, translated.c_str());
+	}
+
+	void TranslateMenus() {
+		if(menusAreTranslated) return;
+		
+		const char *desktopUI = "DesktopUI";
+		const char *mainMenu = "MainMenu";
+		const char *graphics = "Graphics";
+		const char *system = "System";
+		const char *audio = "Audio";
+		const char *general = "General";
+		const char *pause = "Pause";
+
+		// File menu
+		TranslateMenuItem(ID_FILE_LOAD, mainMenu);
+		TranslateMenuItem(ID_FILE_LOAD_DIR, desktopUI);
+		TranslateMenuItem(ID_FILE_LOAD_MEMSTICK, desktopUI);
+		TranslateMenuItem(ID_FILE_MEMSTICK, desktopUI);
+		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, pause, false, false, L"\tF4");
+		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, pause, false, false, L"\tF2");
+		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI, false, false);
+		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI, false, false);
+		TranslateMenuItem(ID_FILE_EXIT, mainMenu);
+
+		// Emulation menu
+		TranslateMenuItem(ID_TOGGLE_PAUSE, desktopUI, false, false, L"\tF8");
+		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, false, false, L"\tCtrl+W");
+		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
+		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
+		TranslateMenuItem(ID_EMULATION_SOUND, audio, true, true);
+		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, audio, true, false);
+		TranslateMenuItem(ID_EMULATION_CHEATS, system);
+		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, graphics, true, true);
+		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, graphics);
+		TranslateMenuItem(ID_CPU_INTERPRETER, desktopUI);
+		TranslateMenuItem(ID_CPU_DYNAREC, system);
+		TranslateMenuItem(ID_CPU_MULTITHREADED, system);
+		TranslateMenuItem(ID_IO_MULTITHREADED, system);
+
+		// Debug menu
+		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, graphics);
+		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, true, false, L"\tF12");
+		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, true, false, L"\tCtrl+D");
+		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, true, false, L"\tCtrl+L");
+		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
+
+		// Options menu
+		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, graphics, true, false, L"\tAlt+Return, F11");
+		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, graphics);
+		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true);
+		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, graphics, true, false);
+		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, graphics, true, true);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, graphics, true, false);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, graphics, true, false);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, graphics);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, graphics);
+		// Skip frameskipping 2-8..
+		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, graphics);
+		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, graphics);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, graphics);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_OFF, graphics);
+		// Skip texture scaling 2x-5x...
+		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, graphics);
+		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, graphics);
+		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, graphics, true, true, L"\tF6");
+		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, graphics);
+		TranslateMenuItem(ID_OPTIONS_MIPMAP, graphics);
+		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, graphics);
+		TranslateMenuItem(ID_OPTIONS_VSYNC, graphics);
+		TranslateMenuItem(ID_OPTIONS_SHOWFPS, graphics);
+		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, graphics);
+		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, system);
+		TranslateMenuItem(ID_OPTIONS_IGNOREILLEGALREADS, desktopUI);
+
+		// Help menu
+		TranslateMenuItem(ID_HELP_OPENWEBSITE, desktopUI);
+		TranslateMenuItem(ID_HELP_OPENFORUM, general);
+		TranslateMenuItem(ID_HELP_BUYGOLD, general);
+		TranslateMenuItem(ID_HELP_ABOUT, desktopUI);
+
+		// Now do the menu headers and a few submenus...
+		TranslateMenuHeader(menu, desktopUI, "File", MENU_FILE);
+		TranslateMenuHeader(menu, desktopUI, "Emulation", MENU_EMULATION);
+		TranslateMenuHeader(menu, graphics, "Debugging", MENU_DEBUG);
+		TranslateMenuHeader(menu, pause, "Game Settings", MENU_OPTIONS);
+		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
+
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND, L"\tCtrl+1");
+		TranslateSubMenuHeader(menu, graphics, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION);
+		TranslateSubMenuHeader(menu, graphics, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE);
+		TranslateSubMenuHeader(menu, graphics, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
+		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING, L"\tF5");
+		TranslateSubMenuHeader(menu, graphics, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
+
+		menusAreTranslated = true;
+		DrawMenuBar(hwndMain);
+	}
+
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
 		if(gpu) gpu->ClearCacheNextFrame();
@@ -332,6 +507,7 @@ namespace MainWindow
 			return FALSE;
 
 		menu = GetMenu(hwndMain);
+
 #ifdef FINAL
 		RemoveMenu(menu,2,MF_BYPOSITION);
 		RemoveMenu(menu,2,MF_BYPOSITION);
@@ -352,7 +528,7 @@ namespace MainWindow
 
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-
+		
 		Update();
 
 		if(g_Config.bFullScreenOnLaunch)
@@ -379,6 +555,7 @@ namespace MainWindow
 		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
 
 		SetFocus(hwndDisplay);
+		SetTimer(hwndMain, TIMER_TRANSLATE, TRANSLATE_INTERVAL_MS, 0);
 
 		return TRUE;
 	}
@@ -634,6 +811,11 @@ namespace MainWindow
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
+				return 0;
+
+			case TIMER_TRANSLATE:
+				KillTimer(hWnd, TIMER_TRANSLATE);
+				TranslateMenus();
 				return 0;
 			}
 			break;
@@ -935,12 +1117,7 @@ namespace MainWindow
 					break;
 
 				case ID_CPU_DYNAREC:
-					g_Config.bJit = true;
-					osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
-					break;
-
-				case ID_CPU_INTERPRETER:
-					g_Config.bJit = false;
+					g_Config.bJit = !g_Config.bJit;
 					break;
 
 				case ID_CPU_MULTITHREADED:
