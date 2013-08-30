@@ -373,10 +373,7 @@ void NativeInit(int argc, const char *argv[],
 
 	i18nrepo.LoadIni(g_Config.languageIni);
 	I18NCategory *d = GetI18NCategory("DesktopUI");
-	g_Config.sFont = d->T("Font");
-
-	if(g_Config.sFont == "Font")
-		g_Config.sFont = "Trebuchet MS";
+	g_Config.sFont = d->T("Font", "Trebuchet MS");
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
