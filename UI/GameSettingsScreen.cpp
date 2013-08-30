@@ -522,6 +522,7 @@ void DeveloperToolsScreen::CreateViews() {
 	I18NCategory *d = GetI18NCategory("Developer");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *a = GetI18NCategory("Audio");
+	I18NCategory *s = GetI18NCategory("System");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
