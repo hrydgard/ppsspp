@@ -301,18 +301,69 @@ int sceNetAdhocTerm() {
 	return 0;
 }
 
-// Homebrew SDK claims it's a void function, but tests seem to indicate otherwise
-int sceNetEtherNtostr(const char *mac, u32 bufferPtr) {
-	DEBUG_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x)", mac, bufferPtr);
-	if(Memory::IsValidAddress(bufferPtr)) {
-		int len = (int)strlen(mac);
-		for (int i = 0; i < len; i++)
-			Memory::Write_U8(mac[i], bufferPtr + i);
-	}
-	else
-		ERROR_LOG(HLE, "UNTESTED sceNetEtherNtostr(%s, %x): Tried to write to an invalid pointer", mac, bufferPtr);
+// Probably a void function, but often returns a useful value.
+int sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
+	DEBUG_LOG(HLE, "sceNetEtherNtostr(%s, %x)", macPtr, bufferPtr);
 
-	return 0;
+	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
+		char *buffer = (char *)Memory::GetPointer(bufferPtr);
+		const u8 *mac = Memory::GetPointer(macPtr);
+
+		// MAC address is always 6 bytes / 48 bits.
+		return sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
+			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	} else {
+		// Possibly a void function, seems to return this on bad args.
+		return 0x09d40000;
+	}
+}
+
+static int hex_to_digit(int c) {
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	if (c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	if (c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+	return -1;
+}
+
+// Probably a void function, but sometimes returns a useful-ish value.
+int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
+	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
+		const char *buffer = (char *)Memory::GetPointer(bufferPtr);
+		u8 *mac = Memory::GetPointer(macPtr);
+
+		// MAC address is always 6 pairs of hex digits.
+		// TODO: Funny stuff happens if it's too short.
+		u8 value = 0;
+		for (int i = 0; i < 6 && *buffer != 0; ++i) {
+			value = 0;
+
+			int c = hex_to_digit(*buffer++);
+			if (c != -1) {
+				value |= c << 4;
+			}
+			c = hex_to_digit(*buffer++);
+			if (c != -1) {
+				value |= c;
+			}
+
+			*mac++ = value;
+
+			// Skip a single character in between.
+			// TODO: Strange behavior on the PSP, let's just null check.
+			if (*buffer++ == 0) {
+				break;
+			}
+		}
+
+		// Seems to maybe kinda return the last value.  Probably returns void.
+		return value;
+	} else {
+		// Possibly a void function, seems to return this on bad args (or crash.)
+		return 0;
+	}
 }
 
 // Seems to always return 0, and write 0 to the pointer..
@@ -534,10 +585,10 @@ int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
 const HLEFunction sceNet[] = {
 	{0x39AF39A6, sceNetInit, "sceNetInit"},
 	{0x281928A9, WrapU_V<sceNetTerm>, "sceNetTerm"},
-	{0x89360950, WrapI_CU<sceNetEtherNtostr>, "sceNetEtherNtostr"}, 
-	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"}, 
-	{0xd27961c9, 0, "sceNetEtherStrton"}, 
-	{0x50647530, 0, "sceNetFreeThreadinfo"}, 
+	{0x89360950, WrapI_UU<sceNetEtherNtostr>, "sceNetEtherNtostr"},
+	{0xd27961c9, WrapI_UU<sceNetEtherStrton>, "sceNetEtherStrton"},
+	{0x0bf0a3ae, 0, "sceNetGetLocalEtherAddr"},
+	{0x50647530, 0, "sceNetFreeThreadinfo"},
 	{0xcc393e48, WrapI_U<sceNetGetMallocStat>, "sceNetGetMallocStat"},
 	{0xad6844c6, 0, "sceNetThreadAbort"},
 };
