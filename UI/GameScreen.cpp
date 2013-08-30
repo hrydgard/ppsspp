@@ -152,7 +152,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("Delete Savedata"), ga->T("Cancel"),
+			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("DeleteSaveData"), ga->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
 	}
 
@@ -173,7 +173,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("Delete Game"), ga->T("Cancel"),
+			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("DeleteGame"), ga->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
 	}
 
