@@ -455,7 +455,8 @@ void NativeInitGraphics() {
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
-	uiContext->Text()->SetFont("Tahoma", 20, 0);
+	if (uiContext->Text())
+		uiContext->Text()->SetFont("Tahoma", 20, 0);
 	screenManager->setUIContext(uiContext);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -551,7 +552,8 @@ void NativeRender() {
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
 	screenManager->render();
-	screenManager->getUIContext()->Text()->OncePerFrame();
+	if (screenManager->getUIContext()->Text())
+		screenManager->getUIContext()->Text()->OncePerFrame();
 
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
