@@ -277,6 +277,18 @@ namespace MainWindow
 		SUBMENU_TEXTURE_SCALING = 8,
 	};
 
+	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string key = c->T(menuText);
+		std::wstring translated = ConvertUTF8ToWString(key);
+		translated.append(accelerator);
+		ModifyMenu(menu, menuID, MF_STRING 
+								| enabled? MF_ENABLED : MF_GRAYED 
+								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+								menuID, translated.c_str());
+
+	}
+
 	void TranslateMenuHeader(HMENU menu, const char *category, const char *key, const MenuID id, const std::wstring& accelerator = L"") {
 		I18NCategory *c = GetI18NCategory(category);
 		std::string s_key = c->T(key);
@@ -310,7 +322,6 @@ namespace MainWindow
 		if(menusAreTranslated) return;
 		menusAreTranslated = true;
 
-
 		const char *desktopUI = "DesktopUI";
 		const char *mainMenu = "MainMenu";
 		const char *graphics = "Graphics";
@@ -318,6 +329,7 @@ namespace MainWindow
 		const char *audio = "Audio";
 		const char *general = "General";
 		const char *pause = "Pause";
+		const char *credits = "PSPCredits";
 
 		// File menu
 		TranslateMenuItem(ID_FILE_LOAD, mainMenu);
@@ -393,15 +405,15 @@ namespace MainWindow
 
 		// Help menu
 		TranslateMenuItem(ID_HELP_OPENWEBSITE, desktopUI);
-		TranslateMenuItem(ID_HELP_OPENFORUM, general);
-		TranslateMenuItem(ID_HELP_BUYGOLD, general);
+		TranslateMenuItem(ID_HELP_OPENFORUM, credits);
+		TranslateMenuItem(ID_HELP_BUYGOLD, credits);
 		TranslateMenuItem(ID_HELP_ABOUT, desktopUI);
 
 		// Now do the menu headers and a few submenus...
 		TranslateMenuHeader(menu, desktopUI, "File", MENU_FILE);
-		TranslateMenuHeader(menu, desktopUI, "Emulation", MENU_EMULATION);
+		TranslateMenuHeader(menu, system, "Emulation", MENU_EMULATION);
 		TranslateMenuHeader(menu, graphics, "Debugging", MENU_DEBUG);
-		TranslateMenuHeader(menu, pause, "Game Settings", MENU_OPTIONS);
+		TranslateMenuHeader(menu, mainMenu, "Game Settings", MENU_OPTIONS);
 		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
 
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND);
@@ -1575,18 +1587,6 @@ namespace MainWindow
 		}
 
 		UpdateCommands();
-	}
-	
-	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
-		I18NCategory *c = GetI18NCategory(category);
-		std::string key = c->T(menuText);
-		std::wstring translated = ConvertUTF8ToWString(key);
-		translated.append(accelerator);
-		ModifyMenu(menu, menuID, MF_STRING 
-								| enabled? MF_ENABLED : MF_GRAYED 
-								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
-								menuID, translated.c_str());
-
 	}
 	
 	void UpdateCommands() {
