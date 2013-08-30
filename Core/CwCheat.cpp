@@ -16,9 +16,6 @@ void hleCheat(u64 userdata, int cyclesLate);
 void trim2(std::string& str);
 
 void __CheatInit() {
-	//Moved createFullPath to CheatInit from the constructor because it spams the log and constantly checks if exists. In here, only checks once.
-
-	// Cheats aren't working on Android yet - need to figure out the directory structure
 	gameTitle = g_paramSFO.GetValueString("DISC_ID");
 #ifdef ANDROID
 	activeCheatFile = g_Config.memCardDirectory + "PSP/Cheats/" + gameTitle + ".ini";
@@ -195,7 +192,9 @@ std::vector<std::string> CWCheatEngine::GetCodesList() { //Reads the entire chea
 	std::ifstream list(activeCheatFile.c_str());
 	for (int i = 0; !list.eof(); i ++) {
 		getline(list, line, '\n');
-		codesList.push_back(line);
+		if (line.length() > 8){
+			codesList.push_back(line);
+		}
 	}
 	for(size_t i = 0; i < codesList.size(); i++) {
 		trim2(codesList[i]);
@@ -504,6 +503,10 @@ void CWCheatEngine::Run() {
 							SkipCodes(skip);
 						}
 					}
+					break;
+				}
+			default:
+				{
 					break;
 				}
 			}
