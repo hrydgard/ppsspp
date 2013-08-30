@@ -355,7 +355,7 @@ void GameSettingsScreen::CreateViews() {
 //#endif
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);
-	systemSettings->Add(new ItemHeader(g->T("General")));
+	systemSettings->Add(new ItemHeader(s->T("General")));
 	systemSettings->Add(new Choice(s->T("System Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 #ifdef _WIN32
 	// Screenshot functionality is not yet available on non-Windows
@@ -525,7 +525,7 @@ void DeveloperToolsScreen::CreateViews() {
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
-	list->Add(new ItemHeader(g->T("General")));
+	list->Add(new ItemHeader(s->T("General")));
 	list->Add(new Choice(d->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
 	list->Add(new Choice(d->T("Restore Default Settings")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRestoreDefaultSettings);
