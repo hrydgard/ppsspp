@@ -70,9 +70,8 @@ void DialogManager::AddDlg(Dialog *dialog)
 bool DialogManager::IsDialogMessage(LPMSG message)
 {
 	WindowList::iterator iter;
-	for (iter=dialogs.begin(); iter!=dialogs.end(); iter++)
-	{
-		if (::IsDialogMessage((*iter)->GetDlgHandle(),message))
+	for (iter = dialogs.begin(); iter != dialogs.end(); iter++) {
+		if (::IsDialogMessage((*iter)->GetDlgHandle(), message))
 			return true;
 	}
 	return false;

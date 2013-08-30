@@ -162,8 +162,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		//Translate accelerators and dialog messages...
 		HWND wnd;
 		HACCEL accel;
-		if (g_debuggerActive)
-		{
+		if (g_debuggerActive) {
 			wnd = disasmWindow[0]->GetDlgHandle();
 			accel = hDebugAccelTable;
 		} else {

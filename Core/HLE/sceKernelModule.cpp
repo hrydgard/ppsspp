@@ -1144,7 +1144,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 	u32 stacksize = 0x40000; 
 	u32 attr = 0;
 	int stackPartition = 0;
-	SceKernelSMOption smoption;
+	SceKernelSMOption smoption = {0};
 	if (optionAddr) {
 		Memory::ReadStruct(optionAddr, &smoption);
 	}
