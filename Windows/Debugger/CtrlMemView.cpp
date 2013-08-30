@@ -436,6 +436,14 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				W32Util::CopyTextToClipboard(wnd,temp);
 			}
 			break;
+
+		case ID_MEMVIEW_COPYADDRESS:
+			{
+				char temp[24];
+				sprintf(temp,"0x%08X",curAddress);
+				W32Util::CopyTextToClipboard(wnd,temp);
+			}
+			break;
 		}
 		return;
 	}
