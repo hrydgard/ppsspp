@@ -329,6 +329,7 @@ void SystemInfoScreen::CreateViews() {
 	scroll->Add(new InfoItem("System Name :", System_GetName()));
 	scroll->Add(new InfoItem("GPU Vendor :", (char *)glGetString(GL_VENDOR)));
 	scroll->Add(new InfoItem("GPU Model :", (char *)glGetString(GL_RENDERER)));
+	scroll->Add(new InfoItem("OpenGL Version Supported :", (char *)glGetString(GL_VERSION)));
 	
 	scroll->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
 	std::vector<std::string> exts;
