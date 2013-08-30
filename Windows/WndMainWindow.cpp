@@ -318,7 +318,6 @@ namespace MainWindow
 		const char *audio = "Audio";
 		const char *general = "General";
 		const char *pause = "Pause";
-		return;
 
 		// File menu
 		TranslateMenuItem(ID_FILE_LOAD, mainMenu);
