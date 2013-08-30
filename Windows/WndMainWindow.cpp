@@ -265,7 +265,7 @@ namespace MainWindow
 		MENU_OPTIONS = 3,
 		MENU_HELP = 4,
 
-		SUBMENU_RENDERING_BACKEND = 7,
+		SUBMENU_RENDERING_BACKEND = 11,
 
 		SUBMENU_RENDERING_RESOLUTION = 4,
 		SUBMENU_RENDERING_MODE = 5,
@@ -399,11 +399,11 @@ namespace MainWindow
 		TranslateMenuHeader(menu, pause, "Game Settings", MENU_OPTIONS);
 		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
 
-		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND, L"\tCtrl+1");
-		TranslateSubMenuHeader(menu, graphics, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION);
-		TranslateSubMenuHeader(menu, graphics, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE);
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND);
+		TranslateSubMenuHeader(menu, graphics, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
+		TranslateSubMenuHeader(menu, graphics, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
 		TranslateSubMenuHeader(menu, graphics, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
-		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING, L"\tF5");
+		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
 		TranslateSubMenuHeader(menu, graphics, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 
 		menusAreTranslated = true;
