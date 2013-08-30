@@ -57,6 +57,15 @@ LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv6/lib/libavutil.a
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv6/include
 LOCAL_CFLAGS += -DARMEABI
 endif
+ifeq ($(TARGET_ARCH_ABI),x86)
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavformat.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavcodec.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libswresample.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libswscale.a
+LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86/lib/libavutil.a
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86/include
+LOCAL_CFLAGS += -DARMEABI
+endif
 
 #  $(SRC)/Core/EmuThread.cpp \
 
@@ -65,7 +74,7 @@ endif
 
 ifeq ($(TARGET_ARCH_ABI),x86) 
 
-LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86
+LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_IX86 -fomit-frame-pointer
 
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \

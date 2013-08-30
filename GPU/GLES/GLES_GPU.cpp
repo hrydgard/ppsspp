@@ -116,7 +116,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE},
@@ -140,6 +139,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Uniform changes
+	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_COLORREF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
@@ -647,7 +647,13 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
 
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-			if ((prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && (gstate.antiAliasEnable & 1))
+			
+			// Discard AA lines in DOA
+			if ((prim == GE_PRIM_LINE_STRIP) && gstate.isAntiAliasEnabled())
+				break;
+
+			// Discard AA lines in Summon Night 5
+			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && gstate.isSkinningEnabled())
 				break;
 
 			// This also make skipping drawing very effective.
@@ -708,9 +714,29 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
+			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+			void *indices = NULL;
+			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					break;
+				}
+				indices = Memory::GetPointer(gstate_c.indexAddr);
+			}
+
+			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
+				break;
+			}
+
+			// TODO: Get rid of this old horror...
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
 			transformDraw_.DrawBezier(bz_ucount, bz_vcount);
+
+			// And instead use this.
+			// GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+			// transformDraw_.SubmitBezier(control_points, indices, sp_ucount, sp_vcount, patchPrim, gstate.vertType);
 		}
 		break;
 
@@ -1112,11 +1138,11 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			shaderManager_->DirtyUniform(DIRTY_COLORMASK);
 		break;
 
-#ifndef USING_GLES2
 	case GE_CMD_ALPHATEST:
+#ifndef USING_GLES2
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, HLE, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
-		break;
+		// Intentional fallthrough.
 #endif
 
 	case GE_CMD_COLORREF:
@@ -1335,7 +1361,6 @@ void GLES_GPU::DoBlockTransfer() {
 	// TODO: Notify all overlapping FBOs that they need to reload.
 
 	textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
-
 	
 	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.

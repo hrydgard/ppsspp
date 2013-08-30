@@ -15,8 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "MediaEngine.h"
-#include "../MemMap.h"
+#include "Core/HW/MediaEngine.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
 #include "GPU/GPUInterface.h"
 #include "Core/HW/atrac3plus.h"
 
@@ -220,6 +221,11 @@ bool MediaEngine::openContext() {
 
 	if(avformat_find_stream_info(m_pFormatCtx, NULL) < 0)
 		return false;
+
+	if (m_videoStream >= (int)m_pFormatCtx->nb_streams) {
+		WARN_LOG_REPORT(ME, "Bad video stream %d", m_videoStream);
+		m_videoStream = -1;
+	}
 
 	if (m_videoStream == -1) {
 		// Find the first video stream

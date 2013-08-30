@@ -110,7 +110,8 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 void PopupMultiChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	int paddingX = 12;
-	dc.Draw()->DrawText(dc.theme->uiFont, valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 class PopupSliderChoice : public Choice {
@@ -160,7 +161,8 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	char temp[32];
 	sprintf(temp, "%i", *value_);
-	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
@@ -173,7 +175,8 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	char temp[32];
 	sprintf(temp, "%2.2f", *value_);
-	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 }
@@ -352,7 +355,7 @@ void GameSettingsScreen::CreateViews() {
 //#endif
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);
-	systemSettings->Add(new ItemHeader(g->T("General")));
+	systemSettings->Add(new ItemHeader(s->T("General")));
 	systemSettings->Add(new Choice(s->T("System Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 #ifdef _WIN32
 	// Screenshot functionality is not yet available on non-Windows
@@ -519,10 +522,11 @@ void DeveloperToolsScreen::CreateViews() {
 	I18NCategory *d = GetI18NCategory("Developer");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *a = GetI18NCategory("Audio");
+	I18NCategory *s = GetI18NCategory("System");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
-	list->Add(new ItemHeader(g->T("General")));
+	list->Add(new ItemHeader(s->T("General")));
 	list->Add(new Choice(d->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
 	list->Add(new Choice(d->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
 	list->Add(new Choice(d->T("Restore Default Settings")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRestoreDefaultSettings);
@@ -530,7 +534,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 #endif
 	list->Add(new CheckBox(&enableLogging_, d->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
-	list->Add(new ItemHeader(g->T("Language")));
+	list->Add(new ItemHeader(d->T("Language")));
 	list->Add(new Choice(d->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(d->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
 	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
@@ -557,7 +561,7 @@ UI::EventReturn DeveloperToolsScreen::OnRestoreDefaultSettings(UI::EventParams &
 	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *g = GetI18NCategory("General");
 	screenManager()->push(
-	new PromptScreen(d->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping) back to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), g->T("OK"), g->T("Cancel"),
+	new PromptScreen(d->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), g->T("OK"), g->T("Cancel"),
 	std::bind(&DeveloperToolsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 
 	return UI::EVENT_DONE;

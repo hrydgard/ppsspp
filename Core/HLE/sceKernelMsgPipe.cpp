@@ -23,6 +23,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMsgPipe.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Common/ChunkFile.h"
 
@@ -427,7 +428,7 @@ int sceKernelDeleteMsgPipe(SceUID uid)
 	return kernelObjects.Destroy<MsgPipe>(uid);
 }
 
-int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr)
+int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int waitMode, u32 resultAddr, bool tryMode = false)
 {
 	if (sendSize & 0x80000000)
 	{
@@ -447,10 +448,18 @@ int __KernelValidateSendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, int w
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 
-	if (!__KernelIsDispatchEnabled())
+	if (!tryMode)
 	{
-		WARN_LOG(HLE, "__KernelSendMsgPipe(%d): dispatch disabled", uid, waitMode);
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		if (!__KernelIsDispatchEnabled())
+		{
+			WARN_LOG(HLE, "__KernelSendMsgPipe(%d): dispatch disabled", uid, waitMode);
+			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		}
+		if (__IsInInterrupt())
+		{
+			WARN_LOG(HLE, "__KernelSendMsgPipe(%d): in interrupt", uid, waitMode);
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
 	}
 
 	return 0;
@@ -596,7 +605,7 @@ int sceKernelSendMsgPipeCB(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMo
 
 int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitMode, u32 resultAddr)
 {
-	u32 error = __KernelValidateSendMsgPipe(uid, sendBufAddr, sendSize, waitMode, resultAddr);
+	u32 error = __KernelValidateSendMsgPipe(uid, sendBufAddr, sendSize, waitMode, resultAddr, true);
 	if (error != 0) {
 		return error;
 	}
@@ -610,7 +619,7 @@ int sceKernelTrySendMsgPipe(SceUID uid, u32 sendBufAddr, u32 sendSize, u32 waitM
 	return __KernelSendMsgPipe(m, sendBufAddr, sendSize, waitMode, resultAddr, 0, false, true);
 }
 
-int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr)
+int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, int waitMode, u32 resultAddr, bool tryMode = false)
 {
 	if (receiveSize & 0x80000000)
 	{
@@ -630,10 +639,18 @@ int __KernelValidateReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSi
 		return SCE_KERNEL_ERROR_ILLEGAL_MODE;
 	}
 
-	if (!__KernelIsDispatchEnabled())
+	if (!tryMode)
 	{
-		WARN_LOG(HLE, "__KernelReceiveMsgPipe(%d): dispatch disabled", uid, waitMode);
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		if (!__KernelIsDispatchEnabled())
+		{
+			WARN_LOG(HLE, "__KernelReceiveMsgPipe(%d): dispatch disabled", uid, waitMode);
+			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		}
+		if (__IsInInterrupt())
+		{
+			WARN_LOG(HLE, "__KernelReceiveMsgPipe(%d): in interrupt", uid, waitMode);
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
 	}
 
 	return 0;
@@ -777,7 +794,7 @@ int sceKernelReceiveMsgPipeCB(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u
 
 int sceKernelTryReceiveMsgPipe(SceUID uid, u32 receiveBufAddr, u32 receiveSize, u32 waitMode, u32 resultAddr)
 {
-	u32 error = __KernelValidateReceiveMsgPipe(uid, receiveBufAddr, receiveSize, waitMode, resultAddr);
+	u32 error = __KernelValidateReceiveMsgPipe(uid, receiveBufAddr, receiveSize, waitMode, resultAddr, true);
 	if (error != 0) {
 		return error;
 	}

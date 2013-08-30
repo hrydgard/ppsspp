@@ -235,6 +235,9 @@ struct GPUgstate
 	GEBlendDstFactor getBlendFuncB() const { return (GEBlendDstFactor)((blend >> 4) & 0xF); }
 	int getBlendEq()    const { return (blend >> 8) & 0x7; }
 	bool isAlphaBlendEnabled() const { return alphaBlendEnable & 1; }
+
+	// AntiAlias
+	bool isAntiAliasEnabled() const { return antiAliasEnable & 1; }
 	
 	// Dither
 	bool isDitherEnabled() const { return ditherEnable & 1; }

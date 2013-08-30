@@ -37,6 +37,7 @@
 #include "native/ext/stb_image_write/stb_image_writer.h"
 #include "native/ext/jpge/jpge.h"
 #include "gfx_es2/gl_state.h"
+#include "gfx_es2/draw_text.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "i18n/i18n.h"
@@ -399,14 +400,16 @@ void NativeInitGraphics() {
 	CheckGLExtensions();
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
+	ui_draw2d_front.SetAtlas(&ui_atlas);
 
 	UIShader_Init();
 
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
-	ui_theme.uiFont = UBUNTU24;
-	ui_theme.uiFontSmall = UBUNTU24;
-	ui_theme.uiFontSmaller = UBUNTU24;
+	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "Trebuchet MS", 20);
+	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "Trebuchet MS", 14);
+	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, "Trebuchet MS", 11);
+
 	ui_theme.checkOn = I_CHECKEDBOX;
 	ui_theme.checkOff = I_SQUARE;
 	ui_theme.whiteImage = I_SOLIDWHITE;
@@ -452,7 +455,8 @@ void NativeInitGraphics() {
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
-
+	if (uiContext->Text())
+		uiContext->Text()->SetFont("Tahoma", 20, 0);
 	screenManager->setUIContext(uiContext);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -548,6 +552,8 @@ void NativeRender() {
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
 	screenManager->render();
+	if (screenManager->getUIContext()->Text())
+		screenManager->getUIContext()->Text()->OncePerFrame();
 
 	if (g_TakeScreenshot) {
 		TakeScreenshot();

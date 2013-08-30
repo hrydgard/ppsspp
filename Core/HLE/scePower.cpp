@@ -446,7 +446,7 @@ static const HLEFunction scePower[] = {
 	{0xa9d22232,0,"scePowerSetCallbackMode"},
 
 	// These seem to be aliases.
-	{0x23c31ffe,&WrapI_IUU<sceKernelVolatileMemLock>,"scePowerVolatileMemLock"},
+	{0x23c31ffe,&WrapI_IUU<sceKernelVolatileMemLock>,"scePowerVolatileMemLock", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 	{0xfa97a599,&WrapI_IUU<sceKernelVolatileMemTryLock>,"scePowerVolatileMemTryLock"},
 	{0xb3edd801,&WrapI_I<sceKernelVolatileMemUnlock>,"scePowerVolatileMemUnlock"},
 };
@@ -461,7 +461,7 @@ const HLEFunction sceSuspendForUser[] = {
 	// let you grab it.
 	{0xa14f40b2,&WrapI_IUU<sceKernelVolatileMemTryLock>,"sceKernelVolatileMemTryLock"},
 	{0xa569e425,&WrapI_I<sceKernelVolatileMemUnlock>,"sceKernelVolatileMemUnlock"},
-	{0x3e0271d3,&WrapI_IUU<sceKernelVolatileMemLock>,"sceKernelVolatileMemLock"}, //when "acquiring mem pool" (fired up)
+	{0x3e0271d3,&WrapI_IUU<sceKernelVolatileMemLock>,"sceKernelVolatileMemLock", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED}, //when "acquiring mem pool" (fired up)
 };
 
 

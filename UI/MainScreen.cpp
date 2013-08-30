@@ -180,21 +180,23 @@ void GameButton::Draw(UIContext &dc) {
 
 	dc.Draw()->Flush();
 	dc.RebindTexture();
+	dc.SetFontStyle(dc.theme->uiFont);
 	if (!gridStyle_) {
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.Draw()->DrawText(0, ginfo->title.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText(ginfo->title.c_str(), bounds_.x + 150, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else if (!texture) {
 		dc.Draw()->Flush();
 		dc.PushScissor(bounds_);
-		dc.Draw()->DrawText(0, ginfo->title.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+		dc.DrawText(ginfo->title.c_str(), bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		dc.Draw()->Flush();
 		dc.PopScissor();
 	} else {
 		dc.Draw()->Flush();
 	}
+	dc.RebindTexture();
 }
 
 // Abstraction above path that lets you navigate easily.
@@ -533,7 +535,7 @@ void MainScreen::CreateViews() {
 #endif
 	logos->Add(new ImageView(I_LOGO, IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
 	rightColumnItems->Add(logos);
-	rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))))->SetTextScale(0.5f);
+	rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))))->SetSmall(true);
 #if defined(_WIN32) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(m->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif

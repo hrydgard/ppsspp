@@ -69,6 +69,7 @@ enum {
 static const char *lieAboutSuccessModules[] = {
 	"flash0:/kd/audiocodec.prx",
 	"flash0:/kd/libatrac3plus.prx",
+	"disc0:/PSP_GAME/SYSDIR/UPDATE/EBOOT.BIN",
 };
 
 static const char *blacklistedModules[] = {
@@ -1409,6 +1410,12 @@ u32 sceKernelGetModuleId()
 u32 sceKernelFindModuleByName(const char *name)
 {
 	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelFindModuleByName(%s)", name);
+	
+	int index = GetModuleIndex(name);
+
+	if (index == -1)
+		return 0;
+	
 	return 1;
 }
 
@@ -1512,9 +1519,9 @@ const HLEFunction ModuleMgrForUser[] =
 {
 	{0x977DE386,&WrapU_CUU<sceKernelLoadModule>,"sceKernelLoadModule"},
 	{0xb7f46618,&WrapU_UUU<sceKernelLoadModuleByID>,"sceKernelLoadModuleByID"},
-	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule", HLE_NOT_DISPATCH_SUSPENDED},
+	{0x50F0C1EC,&WrapV_UUUUU<sceKernelStartModule>,"sceKernelStartModule", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 	{0xD675EBB8,&sceKernelExitGame,"sceKernelSelfStopUnloadModule"}, //HACK
-	{0xd1ff982a,&WrapU_UUUUU<sceKernelStopModule>,"sceKernelStopModule", HLE_NOT_DISPATCH_SUSPENDED},
+	{0xd1ff982a,&WrapU_UUUUU<sceKernelStopModule>,"sceKernelStopModule", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 	{0x2e0911aa,WrapU_U<sceKernelUnloadModule>,"sceKernelUnloadModule"},
 	{0x710F61B5,0,"sceKernelLoadModuleMs"},
 	{0xF9275D98,0,"sceKernelLoadModuleBufferUsbWlan"}, ///???

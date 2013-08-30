@@ -65,6 +65,8 @@ const u32 ATRAC3PLUS_MAX_SAMPLES = 0x800;
 
 static const int atracDecodeDelay = 2300;
 
+static const int MAX_CONFIG_VOLUME = 8;
+
 #ifdef USE_FFMPEG
 
 // Urgh! Why is this needed?
@@ -625,7 +627,6 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 						atrac->sampleQueue.push(buf, decodebytes);
 					}
 				}
-				const int MAX_CONFIG_VOLUME = 8;
 				s16* out = (s16*)outbuf;
 				memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
 				int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
@@ -1696,7 +1697,6 @@ int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedA
 				Atrac3plus_Decoder::Decode(atrac->decoder_context, Memory::GetPointer(sourceAddr), sourcebytes, &decodebytes, buf);
 				atrac->sampleQueue.push(buf, decodebytes);
 			}
-			const int MAX_CONFIG_VOLUME = 5;
 			s16* out = (s16*)Memory::GetPointer(samplesAddr);
 			memset(out, 0, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracOutputChannels);
 			int gotsize = atrac->sampleQueue.pop_front(buf, ATRAC3PLUS_MAX_SAMPLES * sizeof(s16) * atrac->atracChannels);
