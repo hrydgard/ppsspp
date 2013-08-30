@@ -331,7 +331,11 @@ void SystemInfoScreen::CreateViews() {
 	scroll->Add(new InfoItem("GPU Model :", (char *)glGetString(GL_RENDERER)));
 	scroll->Add(new InfoItem("OpenGL Version Supported :", (char *)glGetString(GL_VERSION)));
 	
+#ifdef _WIN32
+	scroll->Add(new ItemHeader("OpenGL Extensions"));
+#else
 	scroll->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
+#endif
 	std::vector<std::string> exts;
 	SplitString(g_all_gl_extensions, ' ', exts);
 	for (size_t i = 0; i < exts.size(); i++) {
