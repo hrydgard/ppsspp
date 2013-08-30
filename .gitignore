@@ -30,6 +30,7 @@ native
 
 #*.vcxproj
 #*.gitignore
+dist
 
 # For Mac
 .DS_Store
