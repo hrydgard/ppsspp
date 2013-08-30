@@ -243,12 +243,10 @@ namespace MainWindow
 		memset(&menuInfo, 0, sizeof(menuInfo));
 		menuInfo.cbSize = sizeof(MENUITEMINFO);
 		menuInfo.fMask = MIIM_STRING;
-		//menuInfo.fType = MFT_STRING;
 		menuInfo.dwTypeData = 0;
 
 		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
 		wchar_t *buffer = new wchar_t[++menuInfo.cch];
-		//memset(buffer, 0, ARRAY_SIZE(buffer));
 		menuInfo.dwTypeData = buffer;
 		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
 		std::string retVal(ConvertWStringToUTF8(menuInfo.dwTypeData));
@@ -259,15 +257,19 @@ namespace MainWindow
 
 	// These are used as an offset
 	// to determine which menu item to change.
+	// Make sure to count(from 0) the separators too, when dealing with submenus!!
 	enum MenuID{
+		// Main menus
 		MENU_FILE = 0,
 		MENU_EMULATION = 1,
 		MENU_DEBUG = 2,
 		MENU_OPTIONS = 3,
 		MENU_HELP = 4,
 
+		// Emulation submenus
 		SUBMENU_RENDERING_BACKEND = 11,
 
+		// Game Settings submenus
 		SUBMENU_RENDERING_RESOLUTION = 4,
 		SUBMENU_RENDERING_MODE = 5,
 		SUBMENU_FRAME_SKIPPING = 6,
