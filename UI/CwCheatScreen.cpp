@@ -72,7 +72,7 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new ItemHeader(k->T("Options")));
 	leftColumn->Add(new Choice(k->T("Back")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnBack);
 	//leftColumn->Add(new Choice(k->T("Add Cheat")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnAddCheat);
-	leftColumn->Add(new Choice(k->T("Import from cheat.db")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnImportCheat);
+	leftColumn->Add(new Choice(k->T("Import Cheats")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnImportCheat);
 	leftColumn->Add(new Choice(k->T("Enable/Disable All")))->OnClick.Handle<CwCheatScreen>(this, &CwCheatScreen::OnEnableAll);
 
 
