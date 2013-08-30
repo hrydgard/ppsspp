@@ -73,25 +73,23 @@ static bool IsAlphaTestTriviallyTrue() {
 		
 	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
 	// Speeds up Lumines by a LOT on PowerVR.
+	case GE_COMP_NOTEQUAL:
 	case GE_COMP_GREATER:
 		{
 			bool depthTest = gstate.isDepthTestEnabled();
+			bool stencilTest = gstate.isStencilTestEnabled();
 			GEBlendSrcFactor src = gstate.getBlendFuncA();
 			GEBlendDstFactor dst = gstate.getBlendFuncB();
-			if (!depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
+			if (!stencilTest && !depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
 				return true;
 			return false;
 		}
-
-	//if (alphaTestRef == 0 && (gstate.isAlphaBlendEnabled() & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
-	//	return true;
 
 	case GE_COMP_LEQUAL:
 		return alphaTestRef == 255;
 
 	case GE_COMP_EQUAL:
 	case GE_COMP_LESS:
-	case GE_COMP_NOTEQUAL:
 		return false;
 	default:
 		return false;
