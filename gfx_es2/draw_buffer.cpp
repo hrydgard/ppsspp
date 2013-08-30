@@ -8,6 +8,7 @@
 #include "base/logging.h"
 #include "math/math_util.h"
 #include "gfx_es2/draw_buffer.h"
+#include "gfx_es2/draw_text.h"
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
 #include "gfx/texture_atlas.h"
@@ -370,11 +371,8 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 	}
 }
 
-// TODO: Unicode support.
-// U+4E00–U+9FBF Kanji
-// U+3040–U+309F Hiragana
-// U+30A0–U+30FF Katakana
 
+// TODO: Actually use the rect properly, take bounds.
 void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color, int align) {
 	if (align & ALIGN_HCENTER) {
 		x += w / 2;

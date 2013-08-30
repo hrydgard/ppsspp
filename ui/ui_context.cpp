@@ -3,8 +3,34 @@
 #include "ui/ui_context.h"
 #include "gfx/texture.h"
 #include "gfx_es2/draw_buffer.h"
+#include "gfx_es2/draw_text.h"
 #include "gfx_es2/glsl_program.h"
 #include "gfx_es2/gl_state.h"
+
+UIContext::UIContext()
+	: uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {
+	fontScaleX_ = 1.0f;
+	fontScaleY_ = 1.0f;
+	fontStyle_ = new UI::FontStyle();
+}
+
+UIContext::~UIContext() {
+	delete fontStyle_;
+	delete textDrawer_;
+}
+
+void UIContext::Init(const GLSLProgram *uishader, const GLSLProgram *uishadernotex, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
+	uishader_ = uishader;
+	uishadernotex_ = uishadernotex;
+	uitexture_ = uitexture;
+	uidrawbuffer_ = uidrawbuffer;
+	uidrawbufferTop_ = uidrawbufferTop;
+#ifdef _WIN32
+	textDrawer_ = new TextDrawer();
+#else
+	textDrawer_ = 0;
+#endif
+}
 
 void UIContext::Begin() {
 	glstate.blend.enable();
@@ -97,6 +123,52 @@ void UIContext::ActivateTopScissor() {
 		glstate.scissorTest.enable();
 	} else {
 		glstate.scissorTest.disable();
+	}
+}
+
+void UIContext::SetFontScale(float scaleX, float scaleY) {
+	fontScaleX_ = scaleX;
+	fontScaleY_ = scaleY;
+}
+
+void UIContext::SetFontStyle(const UI::FontStyle &fontStyle) {
+	*fontStyle_ = fontStyle;
+	if (textDrawer_) {
+		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
+		Text()->SetFont(fontStyle.fontName.c_str(), fontStyle.sizePts, fontStyle.flags);
+	}
+}
+
+void UIContext::MeasureText(const UI::FontStyle &style, const char *str, float *x, float *y, int align) const {
+	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
+		float sizeFactor = (float)style.sizePts / 24.0f;
+		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
+		Draw()->MeasureText(style.atlasFont, str, x, y);
+	} else {
+		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
+		textDrawer_->MeasureString(str, x, y);
+	}
+}
+
+void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int align) {
+	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
+		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
+		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
+		Draw()->DrawText(fontStyle_->atlasFont, str, x, y, color, align);
+	} else {
+		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
+		textDrawer_->DrawString(*Draw(), str, x, y, color, align);
+		RebindTexture();
+	}
+}
+
+void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
+	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
+		Draw()->DrawTextRect(fontStyle_->atlasFont, str, bounds.x, bounds.y, bounds.w, bounds.h, color, align);
+	} else {
+		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
+		textDrawer_->DrawStringRect(*Draw(), str, bounds, color, align);
+		RebindTexture();
 	}
 }
 

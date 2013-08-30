@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "base/basictypes.h"
 #include "math/geom2d.h"
 #include "gfx/texture_atlas.h"
 
@@ -11,27 +12,22 @@
 struct GLSLProgram;
 class Texture;
 class DrawBuffer;
+class TextDrawer;
 
-// Kind of ugly connection to UI.
 namespace UI {
 	struct Drawable;
 	struct Theme;
+	struct FontStyle;
 }
 
 class DrawBuffer;
 
-// Who should own this? Really not sure.
 class UIContext {
 public:
-	UIContext() : uishader_(0), uitexture_(0), uidrawbuffer_(0), uidrawbufferTop_(0) {}
+	UIContext();
+	~UIContext();
 
-	void Init(const GLSLProgram *uishader, const GLSLProgram *uishadernotex, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop) {
-		uishader_ = uishader;
-		uishadernotex_ = uishadernotex;
-		uitexture_ = uitexture;
-		uidrawbuffer_ = uidrawbuffer;
-		uidrawbufferTop_ = uidrawbufferTop;
-	}
+	void Init(const GLSLProgram *uishader, const GLSLProgram *uishadernotex, Texture *uitexture, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
 	void Begin();
 	void BeginNoTex();
@@ -49,16 +45,24 @@ public:
 
 	DrawBuffer *Draw() const { return uidrawbuffer_; }
 	DrawBuffer *DrawTop() const { return uidrawbufferTop_; }
-
 	const UI::Theme *theme;
 
-	
 	// Utility methods
+
+	TextDrawer *Text() const { return textDrawer_; }
+
+	void SetFontStyle(const UI::FontStyle &style);
+	void SetFontScale(float scaleX, float scaleY);
+	void MeasureText(const UI::FontStyle &style, const char *str, float *x, float *y, int align = 0) const;
+	void DrawText(const char *str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align = 0);
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 
-
-
 private:
+	float fontScaleX_;
+	float fontScaleY_;
+	UI::FontStyle *fontStyle_;
+	TextDrawer *textDrawer_;
 	// TODO: Collect these into a UIContext
 	const GLSLProgram *uishader_;
 	const GLSLProgram *uishadernotex_;

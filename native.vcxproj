@@ -220,6 +220,7 @@
     <ClInclude Include="gfx\texture.h" />
     <ClInclude Include="gfx\texture_atlas.h" />
     <ClInclude Include="gfx_es2\draw_buffer.h" />
+    <ClInclude Include="gfx_es2\draw_text.h" />
     <ClInclude Include="gfx_es2\fbo.h" />
     <ClInclude Include="gfx_es2\glsl_program.h" />
     <ClInclude Include="gfx_es2\gl_state.h" />
@@ -347,6 +348,7 @@
     <ClCompile Include="gfx\texture_atlas.cpp" />
     <ClCompile Include="gfx\texture_gen.cpp" />
     <ClCompile Include="gfx_es2\draw_buffer.cpp" />
+    <ClCompile Include="gfx_es2\draw_text.cpp" />
     <ClCompile Include="gfx_es2\fbo.cpp" />
     <ClCompile Include="gfx_es2\glsl_program.cpp" />
     <ClCompile Include="gfx_es2\gl_state.cpp" />
@@ -382,6 +384,7 @@
     <ClCompile Include="ui\viewgroup.cpp" />
     <ClCompile Include="ui\virtual_input.cpp" />
     <ClCompile Include="util\bits\bits.cpp" />
+    <ClCompile Include="util\hash\hash.cpp" />
     <ClCompile Include="util\random\perlin.cpp">
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AssemblyAndSourceCode</AssemblerOutput>
       <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AssemblyAndSourceCode</AssemblerOutput>

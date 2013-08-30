@@ -57,6 +57,7 @@ LOCAL_SRC_FILES :=\
     gfx_es2/glsl_program.cpp \
     gfx_es2/gl_state.cpp \
     gfx_es2/draw_buffer.cpp.arm \
+    gfx_es2/draw_text.cpp \
     gfx_es2/vertex_format.cpp \
     gfx_es2/fbo.cpp \
     gfx/gl_debug_log.cpp \
@@ -75,7 +76,8 @@ LOCAL_SRC_FILES :=\
     ui/screen.cpp \
     ui/virtual_input.cpp \
     util/random/perlin.cpp \
-    util/text/utf8.cpp
+    util/text/utf8.cpp \
+    util/hash/hash.cpp
 
 LOCAL_CFLAGS := -O3 -DUSING_GLES2 -fsigned-char -fno-strict-aliasing
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -frtti

@@ -4,9 +4,9 @@
 namespace hash {
 
 // uint32_t
-// WARNING - may read one more byte!
+// WARNING - may read one more byte! Fine if the input is a null-terminated string.
 // Implementation from Wikipedia.
-uint32 HashFletcher(const uint8 *data_uint8, size_t length) {
+uint32 Fletcher(const uint8 *data_uint8, size_t length) {
   const uint16 *data = (const uint16 *)data_uint8;
   size_t len = (length + 1) / 2;
   uint32 sum1 = 0xffff, sum2 = 0xffff;
@@ -34,7 +34,7 @@ uint32 HashFletcher(const uint8 *data_uint8, size_t length) {
 // Slightly slower than Fletcher above, but slighly more reliable.
 #define MOD_ADLER 65521
 // data: Pointer to the data to be summed; len is in bytes
-uint32 HashAdler32(const uint8 *data, size_t len) {
+uint32 Adler32(const uint8 *data, size_t len) {
   uint32 a = 1, b = 0;
   while (len) {
     size_t tlen = len > 5550 ? 5550 : len;

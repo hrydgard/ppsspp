@@ -30,6 +30,11 @@ enum {
 	ROTATE_90DEG_LEFT = 256,
 	ROTATE_90DEG_RIGHT = 512,
 	ROTATE_180DEG = 1024,
+
+	// For "uncachable" text like debug log.
+	// Avoids using system font drawing as it's too slow.
+	// Not actually used here but is reserved for whatever system wraps DrawBuffer.
+	FLAG_DYNAMIC_ASCII = 2048,
 };
 
 struct GLSLProgram;
@@ -44,6 +49,8 @@ struct GradientStop {
 	uint32_t color;
 };
 
+class TextDrawer;
+
 class DrawBuffer : public GfxResourceHolder {
 public:
 	DrawBuffer();
@@ -55,6 +62,7 @@ public:
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
 	void Init(bool registerAsHolder = true);
 	void Shutdown();
+
 	virtual void GLLost();
 
 	int Count() const { return count_; }
@@ -114,6 +122,8 @@ public:
 	void DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
 
 	void MeasureText(int font, const char *text, float *w, float *h);
+	
+	
 	void DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 	void DrawTextShadow(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
@@ -133,8 +143,9 @@ public:
 	void SetClipRect(float x1, float y1, float x2, float y2);
 	void NoClip();
 
+	static void DoAlign(int flags, float *x, float *y, float *w, float *h);
+
 private:
-	void DoAlign(int flags, float *x, float *y, float *w, float *h);
 	struct Vertex {
 		float x, y, z;
 		uint32_t rgba;

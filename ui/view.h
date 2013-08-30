@@ -74,11 +74,24 @@ struct Style {
 	int image;  // where applicable.
 };
 
+struct FontStyle {
+	FontStyle() : atlasFont(0), sizePts(0), flags(0) {}
+	FontStyle(const char *name, int size) : atlasFont(0), fontName(name), sizePts(size), flags(0) {}
+	FontStyle(int atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size), flags(0) {}
+
+	int atlasFont;
+	// For native fonts:
+	std::string fontName;
+	int sizePts;
+	int flags;
+};
+
+
 // To use with an UI atlas.
 struct Theme {
-	int uiFont;
-	int uiFontSmall;
-	int uiFontSmaller;
+	FontStyle uiFont;
+	FontStyle uiFontSmall;
+	FontStyle uiFontSmaller;
 	int checkOn;
 	int checkOff;
 	int sliderKnob;
@@ -508,6 +521,7 @@ protected:
 	std::string text_;
 	std::string smallText_;
 	ImageID atlasImage_;
+
 private:
 	bool selected_;
 };
@@ -604,21 +618,18 @@ private:
 class TextView : public InertView {
 public:
 	TextView(const std::string &text, LayoutParams *layoutParams = 0) 
-		: InertView(layoutParams), text_(text), textScaleX_(1.0f), textScaleY_(1.0f), textAlign_(0) {}
+		: InertView(layoutParams), text_(text), textAlign_(0), small_(false) {}
 
-	TextView(const std::string &text, int textAlign, float textScale, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), text_(text), textScaleX_(textScale), textScaleY_(textScale), textAlign_(textAlign) {}
+	TextView(const std::string &text, int textAlign, bool small, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), text_(text), textAlign_(textAlign), small_(small) {}
 
 	virtual void GetContentDimensions(const UIContext &dc, float &w, float &h) const;
 	virtual void Draw(UIContext &dc);
 	void SetText(const std::string &text) { text_ = text; }
-	void SetTextScaleXY(float sx, float sy) { textScaleX_ = sx; textScaleY_ = sy; }
-	void SetTextScale(float scale) { textScaleX_ = scale; textScaleY_ = scale; }
-
+	void SetSmall(bool small) { small_ = small; }
 private:
+	bool small_;
 	std::string text_;
-	float textScaleX_;
-	float textScaleY_;
 	int textAlign_;
 };
 

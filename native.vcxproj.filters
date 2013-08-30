@@ -279,6 +279,9 @@
     </ClInclude>
     <ClInclude Include="ext\jpge\jpgd.h" />
     <ClInclude Include="input\keycodes.h" />
+    <ClInclude Include="gfx_es2\draw_text.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -499,6 +502,12 @@
     </ClCompile>
     <ClCompile Include="ext\jpge\jpgd.cpp" />
     <ClCompile Include="ext\stb_image_write\stb_image_write.c" />
+    <ClCompile Include="gfx_es2\draw_text.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
+    <ClCompile Include="util\hash\hash.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
