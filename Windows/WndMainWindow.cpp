@@ -243,10 +243,12 @@ namespace MainWindow
 		memset(&menuInfo, 0, sizeof(menuInfo));
 		menuInfo.cbSize = sizeof(MENUITEMINFO);
 		menuInfo.fMask = MIIM_STRING;
+		//menuInfo.fType = MFT_STRING;
 		menuInfo.dwTypeData = 0;
 
 		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
 		wchar_t *buffer = new wchar_t[++menuInfo.cch];
+		//memset(buffer, 0, ARRAY_SIZE(buffer));
 		menuInfo.dwTypeData = buffer;
 		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
 		std::string retVal(ConvertWStringToUTF8(menuInfo.dwTypeData));
@@ -257,19 +259,15 @@ namespace MainWindow
 
 	// These are used as an offset
 	// to determine which menu item to change.
-	// Make sure to count(from 0) the separators too, when dealing with submenus!!
 	enum MenuID{
-		// Main menus
 		MENU_FILE = 0,
 		MENU_EMULATION = 1,
 		MENU_DEBUG = 2,
 		MENU_OPTIONS = 3,
 		MENU_HELP = 4,
 
-		// Emulation submenus
 		SUBMENU_RENDERING_BACKEND = 11,
 
-		// Game Settings submenus
 		SUBMENU_RENDERING_RESOLUTION = 4,
 		SUBMENU_RENDERING_MODE = 5,
 		SUBMENU_FRAME_SKIPPING = 6,
@@ -306,9 +304,7 @@ namespace MainWindow
 								menuID, translated.c_str());
 	}
 
-	void TranslateMenus() {
-		if(menusAreTranslated) return;
-		
+		// define Menu catalogues
 		const char *desktopUI = "DesktopUI";
 		const char *mainMenu = "MainMenu";
 		const char *graphics = "Graphics";
@@ -316,6 +312,9 @@ namespace MainWindow
 		const char *audio = "Audio";
 		const char *general = "General";
 		const char *pause = "Pause";
+
+	void TranslateMenus() {
+		if(menusAreTranslated) return;
 
 		// File menu
 		TranslateMenuItem(ID_FILE_LOAD, mainMenu);
@@ -1576,6 +1575,18 @@ namespace MainWindow
 		UpdateCommands();
 	}
 
+	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string key = c->T(menuText);
+		std::wstring translated = ConvertUTF8ToWString(key);
+		translated.append(accelerator);
+		ModifyMenu(menu, menuID, MF_STRING 
+								| enabled? MF_ENABLED : MF_GRAYED 
+								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+								menuID, translated.c_str());
+
+	}
+
 	void UpdateCommands() {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
@@ -1588,8 +1599,9 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
-		const wchar_t * pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? L"Run\tF8" : L"Pause\tF8";
-		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
+		
+		(Core_IsStepping() || globalUIState != UISTATE_INGAME) ? 
+			TranslateMenuItembyText(ID_TOGGLE_PAUSE, "Run", "DesktopUI", false, false, L"\tF8") : TranslateMenuItembyText(ID_TOGGLE_PAUSE, "Pause", "DesktopUI", false, false, L"\tF8");
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
