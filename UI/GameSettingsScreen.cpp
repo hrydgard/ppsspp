@@ -350,7 +350,7 @@ void GameSettingsScreen::CreateViews() {
 
 	enableReports_ = g_Config.sReportHost != "default";
 //#ifndef ANDROID 
-	systemSettings->Add(new ItemHeader(s->T("Cheats")));
+	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
 //#endif
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
