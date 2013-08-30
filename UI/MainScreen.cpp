@@ -655,6 +655,7 @@ void GamePauseScreen::CreateViews() {
 	Margins actionMenuMargins(0, 100, 15, 0);
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *i = GetI18NCategory("Pause");
+	I18NCategory *k = GetI18NCategory("CwCheats");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -689,7 +690,7 @@ void GamePauseScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(i->T("Continue")))->OnClick.Handle(this, &GamePauseScreen::OnContinue);
 	rightColumnItems->Add(new Choice(i->T("Game Settings")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 	if (g_Config.bEnableCheats) {
-		rightColumnItems->Add(new Choice(i->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
+		rightColumnItems->Add(new Choice(k->T("Cheats")))->OnClick.Handle(this, &GamePauseScreen::OnCwCheat);
 	}
 	rightColumnItems->Add(new Choice(i->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 
