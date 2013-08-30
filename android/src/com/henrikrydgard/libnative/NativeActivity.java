@@ -356,7 +356,7 @@ public class NativeActivity extends Activity {
             return inputPlayerB;
         }
 
-        return null;
+        return inputPlayerA;
     }
 
     // We grab the keys before onKeyDown/... even see them. This is also better because it lets us
