@@ -110,7 +110,8 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 void PopupMultiChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	int paddingX = 12;
-	dc.Draw()->DrawText(dc.theme->uiFont, valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 class PopupSliderChoice : public Choice {
@@ -160,7 +161,8 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	char temp[32];
 	sprintf(temp, "%i", *value_);
-	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
@@ -173,7 +175,8 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	Choice::Draw(dc);
 	char temp[32];
 	sprintf(temp, "%2.2f", *value_);
-	dc.Draw()->DrawText(dc.theme->uiFont, temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
 }

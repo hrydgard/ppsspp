@@ -208,10 +208,11 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 	screenManager()->finishDialog(this, DR_OK);
 	return UI::EVENT_DONE;
 }
-UI::EventReturn CwCheatScreen::OnCheckBox(UI::EventParams &params) {
 
+UI::EventReturn CwCheatScreen::OnCheckBox(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
+
 void CwCheatScreen::processFileOn(std::string activatedCheat) {
 	
 	for (int i = 0; i < cheatList.size(); i++) {
@@ -228,10 +229,9 @@ void CwCheatScreen::processFileOn(std::string activatedCheat) {
 		}
 	}
 	os.close();
-	
 }
+
 void CwCheatScreen::processFileOff(std::string deactivatedCheat) {
-	
 	for (int i = 0; i < cheatList.size(); i++) {
 		if (cheatList[i].substr(4) == deactivatedCheat) {
 			cheatList[i] = "_C0 " + deactivatedCheat;
@@ -260,6 +260,7 @@ void CheatCheckBox::Draw(UIContext &dc) {
 	if (!IsEnabled())
 		style = dc.theme->itemDisabledStyle;
 
-	dc.Draw()->DrawText(dc.theme->uiFont, text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
