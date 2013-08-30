@@ -172,7 +172,7 @@ UI::EventReturn PromptScreen::OnNo(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-NewLanguageScreen::NewLanguageScreen() : ListPopupScreen("Language") {
+NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen(title) {
 	// Disable annoying encoding warning
 #ifdef _MSC_VER
 #pragma warning(disable:4566)

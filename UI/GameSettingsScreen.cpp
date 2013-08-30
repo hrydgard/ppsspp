@@ -498,7 +498,8 @@ UI::EventReturn GameSettingsScreen::OnFactoryReset(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
-	screenManager()->push(new NewLanguageScreen());
+	I18NCategory *d = GetI18NCategory("Developer");
+	screenManager()->push(new NewLanguageScreen(d->T("Language")));
 	return UI::EVENT_DONE;
 }
 
