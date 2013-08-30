@@ -48,10 +48,6 @@ public:
 	void OncePerFrame();
 
 private:
-	enum {
-		MAX_TEXT_WIDTH = 512,
-		MAX_TEXT_HEIGHT = 128
-	};
 	int frameCount_;
 	float fontScaleX_;
 	float fontScaleY_;

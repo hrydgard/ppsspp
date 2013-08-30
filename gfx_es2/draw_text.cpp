@@ -9,6 +9,11 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+enum {
+	MAX_TEXT_WIDTH = 1024,
+	MAX_TEXT_HEIGHT = 128
+};
+
 struct TextDrawerFontContext {
 	HFONT hFont;
 };
