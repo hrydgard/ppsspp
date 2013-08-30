@@ -628,9 +628,9 @@ public:
 	void SetText(const std::string &text) { text_ = text; }
 	void SetSmall(bool small) { small_ = small; }
 private:
-	bool small_;
 	std::string text_;
 	int textAlign_;
+	bool small_;
 };
 
 enum ImageSizeMode {

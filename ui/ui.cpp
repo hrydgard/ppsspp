@@ -471,7 +471,6 @@ int UIList::Do(int id, int x, int y, int w, int h, UIListAdapter *adapter) {
 	if (inertiaY > 20) inertiaY = 20;
 	if (inertiaY < -20) inertiaY = -20;
 
-	float mouseY = uistate.mousey[0];
 	if (!uistate.mousedown[0]) {
 		// Let it slide if the pointer is not down
 		scrollY += inertiaY;
