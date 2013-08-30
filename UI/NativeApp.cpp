@@ -372,6 +372,11 @@ void NativeInit(int argc, const char *argv[],
 #endif	
 
 	i18nrepo.LoadIni(g_Config.languageIni);
+	I18NCategory *d = GetI18NCategory("DesktopUI");
+	g_Config.sFont = d->T("Font");
+
+	if(g_Config.sFont == "Font")
+		g_Config.sFont = "Trebuchet MS";
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
@@ -406,9 +411,9 @@ void NativeInitGraphics() {
 
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
-	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "Trebuchet MS", 20);
-	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "Trebuchet MS", 14);
-	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, "Trebuchet MS", 11);
+	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 20);
+	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 14);
+	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 11);
 
 	ui_theme.checkOn = I_CHECKEDBOX;
 	ui_theme.checkOff = I_SQUARE;
