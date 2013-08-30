@@ -100,7 +100,9 @@ void ControlMapper::Refresh() {
 		root->Add(new Choice(iter->second, new LinearLayoutParams(200, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
 	} else {
 		// No image? Let's translate.
-		root->Add(new Choice(c->T(keyName_.c_str()), new LinearLayoutParams(200, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+		Choice *choice = new Choice(c->T(keyName_.c_str()), new LinearLayoutParams(200, WRAP_CONTENT));
+		choice->SetCentered(true);
+		root->Add(choice)->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
 	}
 
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
