@@ -183,7 +183,7 @@ void ControlMappingScreen::CreateViews() {
 	using namespace UI;
 
 	I18NCategory *k = GetI18NCategory("KeyMapping");
-	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *d = GetI18NCategory("Dialog");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -191,7 +191,7 @@ void ControlMappingScreen::CreateViews() {
 	leftColumn->Add(new Choice(k->T("Clear All")))->OnClick.Handle(this, &ControlMappingScreen::OnClearMapping);
 	leftColumn->Add(new Choice(k->T("Default All")))->OnClick.Handle(this, &ControlMappingScreen::OnDefaultMapping);
 	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	leftColumn->Add(new Choice(g->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(d->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	/*
 	ChoiceStrip *mode = leftColumn->Add(new ChoiceStrip(ORIENT_VERTICAL));
