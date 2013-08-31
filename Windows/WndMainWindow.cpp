@@ -243,12 +243,14 @@ namespace MainWindow
 		menuInfo.fMask = MIIM_STRING;
 		menuInfo.dwTypeData = 0;
 
-		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
-		wchar_t *buffer = new wchar_t[++menuInfo.cch];
-		menuInfo.dwTypeData = buffer;
-		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
-		std::string retVal(ConvertWStringToUTF8(menuInfo.dwTypeData));
-		delete [] buffer;
+		std::string retVal;
+		if (GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo) != FALSE) {
+			wchar_t *buffer = new wchar_t[++menuInfo.cch];
+			menuInfo.dwTypeData = buffer;
+			GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
+			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);
+			delete [] buffer;
+		}
 
 		return retVal;
 	}
@@ -350,7 +352,6 @@ namespace MainWindow
 		TranslateMenuItem(ID_EMULATION_CHEATS, system);
 		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, graphics, true, true);
 		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, graphics);
-		TranslateMenuItem(ID_CPU_INTERPRETER, desktopUI);
 		TranslateMenuItem(ID_CPU_DYNAREC, system);
 		TranslateMenuItem(ID_CPU_MULTITHREADED, system);
 		TranslateMenuItem(ID_IO_MULTITHREADED, system);
@@ -1454,7 +1455,6 @@ namespace MainWindow
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
 		CHECKITEM(ID_IO_MULTITHREADED, g_Config.bSeparateIOThread);
@@ -1609,7 +1609,6 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_CHEATS, !menuEnable);
 		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
-		EnableMenuItem(menu, ID_CPU_INTERPRETER, menuEnable);
 		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_IO_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
