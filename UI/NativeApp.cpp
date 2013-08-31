@@ -377,7 +377,10 @@ void NativeInit(int argc, const char *argv[],
 	// It's intended to be custom for every user. 
 	// Only add it to your own personal copies of PPSSPP.
 #ifdef _WIN32
-	g_Config.sFont = d->T("Font", "Trebuchet MS");
+	// TODO: Could allow a setting to specify a font file to load?
+	// TODO: Make this a constant if we can sanely load the font on other systems?
+	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
+	g_Config.sFont = d->T("Font", "Roboto");
 #endif
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
@@ -414,9 +417,9 @@ void NativeInitGraphics() {
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
 #ifdef _WIN32
-	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 20);
-	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 14);
-	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 11);
+	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
+	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
+	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
 #else
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "", 20);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "", 14);
@@ -648,5 +651,9 @@ void NativeShutdown() {
 #ifdef ANDROID
 	ILOG("NativeShutdown called");
 	exit(0);
+#endif
+
+#ifdef _WIN32
+	RemoveFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
 #endif
 }
