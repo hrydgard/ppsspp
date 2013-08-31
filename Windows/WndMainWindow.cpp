@@ -78,8 +78,6 @@ extern InputState input_state;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
-#define TIMER_TRANSLATE 3
-#define TRANSLATE_INTERVAL_MS 100
 #define CURSORUPDATE_INTERVAL_MS 50
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
@@ -245,12 +243,14 @@ namespace MainWindow
 		menuInfo.fMask = MIIM_STRING;
 		menuInfo.dwTypeData = 0;
 
-		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
-		wchar_t *buffer = new wchar_t[++menuInfo.cch];
-		menuInfo.dwTypeData = buffer;
-		GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
-		std::string retVal(ConvertWStringToUTF8(menuInfo.dwTypeData));
-		delete [] buffer;
+		std::string retVal;
+		if (GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo) != FALSE) {
+			wchar_t *buffer = new wchar_t[++menuInfo.cch];
+			menuInfo.dwTypeData = buffer;
+			GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
+			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);
+			delete [] buffer;
+		}
 
 		return retVal;
 	}
@@ -282,9 +282,9 @@ namespace MainWindow
 		std::string key = c->T(menuText);
 		std::wstring translated = ConvertUTF8ToWString(key);
 		translated.append(accelerator);
-		ModifyMenu(menu, menuID, MF_STRING 
-								| enabled? MF_ENABLED : MF_GRAYED 
-								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+		ModifyMenu(menu, menuID, MF_STRING
+								| (enabled? MF_ENABLED : MF_GRAYED)
+								| (checked? MF_CHECKED : MF_UNCHECKED),
 								menuID, translated.c_str());
 
 	}
@@ -313,8 +313,8 @@ namespace MainWindow
 		std::wstring translated = ConvertUTF8ToWString(key);
 		translated.append(accelerator);
 		ModifyMenu(menu, menuID, MF_STRING 
-								| enabled? MF_ENABLED : MF_GRAYED 
-								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+								| (enabled? MF_ENABLED : MF_GRAYED)
+								| (checked? MF_CHECKED : MF_UNCHECKED),
 								menuID, translated.c_str());
 	}
 
@@ -323,105 +323,98 @@ namespace MainWindow
 		menusAreTranslated = true;
 
 		const char *desktopUI = "DesktopUI";
-		const char *mainMenu = "MainMenu";
-		const char *graphics = "Graphics";
-		const char *system = "System";
-		const char *audio = "Audio";
-		const char *general = "General";
-		const char *pause = "Pause";
-		const char *credits = "PSPCredits";
 
 		// File menu
-		TranslateMenuItem(ID_FILE_LOAD, mainMenu);
+		TranslateMenuItem(ID_FILE_LOAD, desktopUI);
 		TranslateMenuItem(ID_FILE_LOAD_DIR, desktopUI);
 		TranslateMenuItem(ID_FILE_LOAD_MEMSTICK, desktopUI);
 		TranslateMenuItem(ID_FILE_MEMSTICK, desktopUI);
-		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, pause, false, false, L"\tF4");
-		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, pause, false, false, L"\tF2");
+		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, desktopUI, false, false, L"\tF4");
+		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, desktopUI, false, false, L"\tF2");
 		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI, false, false);
 		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI, false, false);
-		TranslateMenuItem(ID_FILE_EXIT, mainMenu);
+		TranslateMenuItem(ID_FILE_EXIT, desktopUI);
 
 		// Emulation menu
-		TranslateMenuItem(ID_TOGGLE_PAUSE, desktopUI, false, false, L"\tF8");
+		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
 		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, false, false, L"\tCtrl+W");
 		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
 		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
-		TranslateMenuItem(ID_EMULATION_SOUND, audio, true, true);
-		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, audio, true, false);
-		TranslateMenuItem(ID_EMULATION_CHEATS, system);
-		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, graphics, true, true);
-		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, graphics);
-		TranslateMenuItem(ID_CPU_INTERPRETER, desktopUI);
-		TranslateMenuItem(ID_CPU_DYNAREC, system);
-		TranslateMenuItem(ID_CPU_MULTITHREADED, system);
-		TranslateMenuItem(ID_IO_MULTITHREADED, system);
+		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI, true, true);
+		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, desktopUI, true, false);
+		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI);
+		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, desktopUI, true, true);
+		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, desktopUI);
+		TranslateMenuItem(ID_CPU_DYNAREC, desktopUI);
+		TranslateMenuItem(ID_CPU_MULTITHREADED, desktopUI);
+		TranslateMenuItem(ID_IO_MULTITHREADED, desktopUI);
 
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
-		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, graphics);
+		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, desktopUI);
 		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, true, false, L"\tF12");
 		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, true, false, L"\tCtrl+D");
 		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, true, false, L"\tCtrl+L");
 		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
 
 		// Options menu
-		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, graphics, true, false, L"\tAlt+Return, F11");
+		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, true, false, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, graphics);
+		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true);
 		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, graphics, true, false);
-		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, graphics, true, true);
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, graphics, true, false);
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, graphics, true, false);
-		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, graphics);
-		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, graphics);
+		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, desktopUI, true, true);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, desktopUI);
 		// Skip frameskipping 2-8..
-		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, graphics);
-		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, graphics);
-		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, graphics);
-		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, graphics);
-		TranslateMenuItem(ID_TEXTURESCALING_OFF, graphics);
+		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_OFF, desktopUI);
 		// Skip texture scaling 2x-5x...
-		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, graphics);
-		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, graphics);
-		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, graphics);
-		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, graphics);
-		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, graphics);
-		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, graphics, true, true, L"\tF6");
-		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, graphics);
-		TranslateMenuItem(ID_OPTIONS_MIPMAP, graphics);
-		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, graphics);
-		TranslateMenuItem(ID_OPTIONS_VSYNC, graphics);
-		TranslateMenuItem(ID_OPTIONS_SHOWFPS, graphics);
-		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, graphics);
-		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, system);
+		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, desktopUI, true, true, L"\tF6");
+		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_MIPMAP, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_VSYNC, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_SHOWFPS, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_IGNOREILLEGALREADS, desktopUI);
 
 		// Help menu
 		TranslateMenuItem(ID_HELP_OPENWEBSITE, desktopUI);
-		TranslateMenuItem(ID_HELP_OPENFORUM, credits);
-		TranslateMenuItem(ID_HELP_BUYGOLD, credits);
+		TranslateMenuItem(ID_HELP_OPENFORUM, desktopUI);
+		TranslateMenuItem(ID_HELP_BUYGOLD, desktopUI);
 		TranslateMenuItem(ID_HELP_ABOUT, desktopUI);
 
 		// Now do the menu headers and a few submenus...
 		TranslateMenuHeader(menu, desktopUI, "File", MENU_FILE);
-		TranslateMenuHeader(menu, system, "Emulation", MENU_EMULATION);
-		TranslateMenuHeader(menu, graphics, "Debugging", MENU_DEBUG);
-		TranslateMenuHeader(menu, mainMenu, "Game Settings", MENU_OPTIONS);
+		TranslateMenuHeader(menu, desktopUI, "Emulation", MENU_EMULATION);
+		TranslateMenuHeader(menu, desktopUI, "Debugging", MENU_DEBUG);
+		TranslateMenuHeader(menu, desktopUI, "Game Settings", MENU_OPTIONS);
 		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
 
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND);
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
-		TranslateSubMenuHeader(menu, graphics, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
-		TranslateSubMenuHeader(menu, graphics, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
-		TranslateSubMenuHeader(menu, graphics, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
-		TranslateSubMenuHeader(menu, graphics, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
+		TranslateSubMenuHeader(menu, desktopUI, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
+		TranslateSubMenuHeader(menu, desktopUI, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
+		TranslateSubMenuHeader(menu, desktopUI, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 
 		DrawMenuBar(hwndMain);
 	}
@@ -571,7 +564,6 @@ namespace MainWindow
 		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
 
 		SetFocus(hwndDisplay);
-		SetTimer(hwndMain, TIMER_TRANSLATE, TRANSLATE_INTERVAL_MS, 0);
 
 		return TRUE;
 	}
@@ -827,11 +819,6 @@ namespace MainWindow
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-				return 0;
-
-			case TIMER_TRANSLATE:
-				KillTimer(hWnd, TIMER_TRANSLATE);
-				TranslateMenus();
 				return 0;
 			}
 			break;
@@ -1462,7 +1449,6 @@ namespace MainWindow
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
 		CHECKITEM(ID_IO_MULTITHREADED, g_Config.bSeparateIOThread);
@@ -1601,8 +1587,8 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
-		(Core_IsStepping() || globalUIState != UISTATE_INGAME) ? 
-			TranslateMenuItembyText(ID_TOGGLE_PAUSE, "Run", "DesktopUI", false, false, L"\tF8") : TranslateMenuItembyText(ID_TOGGLE_PAUSE, "Pause", "DesktopUI", false, false, L"\tF8");
+		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
@@ -1617,7 +1603,6 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_CHEATS, !menuEnable);
 		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
-		EnableMenuItem(menu, ID_CPU_INTERPRETER, menuEnable);
 		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_IO_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
