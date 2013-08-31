@@ -59,6 +59,15 @@ enum {
 #endif
 };
 
+typedef struct
+{
+	unsigned int major;
+	unsigned int minor;
+	unsigned int revision;
+} OGLVersion;
+
+static OGLVersion _OGLDriverVersion = {0, 0, 0};
+
 struct VirtualFramebuffer {
 	int last_frame_used;
 	bool memoryUpdated; 

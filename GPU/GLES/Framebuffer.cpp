@@ -220,6 +220,72 @@ FramebufferManager::FramebufferManager() :
 	NOTICE_LOG(HLE,"GPU Vendor : %s", cvendor);
 }
 
+      //Try guessing the supported OpenGL version this time; inspired by desmume
+	void OGLGetDriverVersion(const char *oglVersionString,
+								unsigned int *versionMajor,
+								unsigned int *versionMinor,
+								unsigned int *versionRevision)
+{
+	size_t versionStringLength = 0;
+	
+	if (oglVersionString == NULL)
+	{
+		return;
+	}
+	
+	// check for the dot in the revision string.
+	const char *versionStrEnd = strstr(oglVersionString, ".");
+	if (versionStrEnd == NULL)
+	{
+		return;
+	}
+	
+	// check for the space before the vendor-specific info.
+	versionStrEnd = strstr(oglVersionString, " ");
+	if (versionStrEnd == NULL)
+	{
+		// If a space was not found, then the vendor-specific info is not present,
+		// and therefore the entire string must be the version number.
+		versionStringLength = strlen(oglVersionString);
+	}
+	else
+	{
+		// If a space was found, then the vendor-specific info is present,
+		// and therefore the version number is everything before the space.
+		versionStringLength = versionStrEnd - oglVersionString;
+	}
+	
+	// Copy the version substring and parse it.
+	char *versionSubstring = (char *)malloc(versionStringLength * sizeof(char));
+	strncpy(versionSubstring, oglVersionString, versionStringLength);
+	
+	unsigned int major = 0;
+	unsigned int minor = 0;
+	unsigned int revision = 0;
+	
+	sscanf(versionSubstring, "%u.%u.%u", &major, &minor, &revision);
+	
+	free(versionSubstring);
+	versionSubstring = NULL;
+	
+	if (versionMajor != NULL)
+	{
+		*versionMajor = major;
+	}
+	
+	if (versionMinor != NULL)
+	{
+		*versionMinor = minor;
+	}
+	
+	if (versionRevision != NULL)
+	{
+		*versionRevision = revision;
+	}
+	return;
+	
+}
+
 FramebufferManager::~FramebufferManager() {
 	if (drawPixelsTex_)
 		glDeleteTextures(1, &drawPixelsTex_);
