@@ -280,9 +280,9 @@ namespace MainWindow
 		std::string key = c->T(menuText);
 		std::wstring translated = ConvertUTF8ToWString(key);
 		translated.append(accelerator);
-		ModifyMenu(menu, menuID, MF_STRING 
-								| enabled? MF_ENABLED : MF_GRAYED 
-								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+		ModifyMenu(menu, menuID, MF_STRING
+								| (enabled? MF_ENABLED : MF_GRAYED)
+								| (checked? MF_CHECKED : MF_UNCHECKED),
 								menuID, translated.c_str());
 
 	}
@@ -311,8 +311,8 @@ namespace MainWindow
 		std::wstring translated = ConvertUTF8ToWString(key);
 		translated.append(accelerator);
 		ModifyMenu(menu, menuID, MF_STRING 
-								| enabled? MF_ENABLED : MF_GRAYED 
-								| checked? MF_UNCHECKED : MF_CHECKED, // Have to use reverse logic here for some reason
+								| (enabled? MF_ENABLED : MF_GRAYED)
+								| (checked? MF_CHECKED : MF_UNCHECKED),
 								menuID, translated.c_str());
 	}
 
