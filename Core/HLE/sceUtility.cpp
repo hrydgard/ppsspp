@@ -43,6 +43,8 @@ enum UtilityDialogType {
 	UTILITY_DIALOG_MSG,
 	UTILITY_DIALOG_OSK,
 	UTILITY_DIALOG_NET,
+	UTILITY_DIALOG_SCREENSHOT,
+	UTILITY_DIALOG_GAMESHARING,
 };
 
 // Only a single dialog is allowed at a time.
@@ -384,33 +386,60 @@ int sceUtilityNetconfGetStatus()
 //but it requires more investigation
 u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
 {
+	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SCREENSHOT)
+	{
+		WARN_LOG(HLE, "sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x): wrong dialog type", unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogType = UTILITY_DIALOG_SCREENSHOT;
+	currentDialogActive = true;
+
 	u32 retval = screenshotDialog.Init();
-	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	WARN_LOG_REPORT(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
 	return retval;
 }
 
 u32 sceUtilityScreenshotShutdownStart()
 {
+	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
+	{
+		WARN_LOG(HLE, "sceUtilityScreenshotShutdownStart(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogActive = false;
+
 	WARN_LOG(HLE, "UNTESTED sceUtilityScreenshotShutdownStart()");
 	return screenshotDialog.Shutdown();
 }
 
 u32 sceUtilityScreenshotUpdate(u32 unknown)
 {
+	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
+	{
+		WARN_LOG(HLE, "sceUtilityScreenshotUpdate(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+
 	ERROR_LOG(HLE, "UNIMPL sceUtilityScreenshotUpdate(%d)", unknown);
 	return screenshotDialog.Update();
 }
 
 int sceUtilityScreenshotGetStatus()
 {
+	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
+	{
+		DEBUG_LOG(HLE, "sceUtilityScreenshotGetStatus(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+
 	u32 retval = screenshotDialog.GetStatus(); 
 	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
 	return retval;
 }
 
-void sceUtilityGamedataInstallInitStart(u32 unkown)
+void sceUtilityGamedataInstallInitStart(u32 unknown)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceUtilityGamedataInstallInitStart(%i)", unkown);
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceUtilityGamedataInstallInitStart(%i)", unknown);
 }
 
 int sceUtilityGamedataInstallGetStatus()
@@ -423,7 +452,7 @@ int sceUtilityGamedataInstallGetStatus()
 //TODO: should save to config file
 u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
-	WARN_LOG(HLE, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
+	WARN_LOG_REPORT(HLE, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
 	return 0;
 }
 
@@ -506,7 +535,7 @@ u32 sceUtilityUnloadNetModule(u32 module)
 
 void sceUtilityInstallInitStart(u32 unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityInstallInitStart()");
+	WARN_LOG_REPORT(HLE, "UNIMPL sceUtilityInstallInitStart()");
 }
 
 int sceUtilityStoreCheckoutShutdownStart()
@@ -530,6 +559,57 @@ int sceUtilityStoreCheckoutUpdate(int drawSpeed)
 int sceUtilityStoreCheckoutGetStatus()
 {
 	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
+	return 0;
+}
+
+int sceUtilityGameSharingShutdownStart()
+{
+	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
+	{
+		WARN_LOG(HLE, "sceUtilityGameSharingShutdownStart(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogActive = false;
+
+	ERROR_LOG(HLE, "UNIMPL sceUtilityGameSharingShutdownStart()");
+	return 0;
+}
+
+int sceUtilityGameSharingInitStart(u32 paramsPtr)
+{
+	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_GAMESHARING)
+	{
+		WARN_LOG(HLE, "sceUtilityGameSharingInitStart(%08x)", paramsPtr);
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	currentDialogType = UTILITY_DIALOG_GAMESHARING;
+	currentDialogActive = true;
+
+	ERROR_LOG_REPORT(HLE, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
+	return 0;
+}
+
+int sceUtilityGameSharingUpdate(int drawSpeed)
+{
+	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
+	{
+		WARN_LOG(HLE, "sceUtilityScreenshotUpdate(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+
+	ERROR_LOG(HLE, "UNIMPL sceUtilityGameSharingUpdate(%d)", drawSpeed);
+	return 0;
+}
+
+int sceUtilityGameSharingGetStatus()
+{
+	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
+	{
+		DEBUG_LOG(HLE, "sceUtilityGameSharingGetStatus(): wrong dialog type");
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+
+	ERROR_LOG(HLE, "UNIMPL sceUtilityGameSharingGetStatus()");
 	return 0;
 }
 
@@ -569,10 +649,10 @@ const HLEFunction sceUtility[] =
 	{0xA5DA2406, &WrapU_UU<sceUtilityGetSystemParamInt>, "sceUtilityGetSystemParamInt"},
 
 
-	{0xc492f751, 0, "sceUtilityGameSharingInitStart"},
-	{0xefc6f80f, 0, "sceUtilityGameSharingShutdownStart"},
-	{0x7853182d, 0, "sceUtilityGameSharingUpdate"},
-	{0x946963f3, 0, "sceUtilityGameSharingGetStatus"},
+	{0xc492f751, &WrapI_U<sceUtilityGameSharingInitStart>, "sceUtilityGameSharingInitStart"},
+	{0xefc6f80f, &WrapI_V<sceUtilityGameSharingShutdownStart>, "sceUtilityGameSharingShutdownStart"},
+	{0x7853182d, &WrapI_I<sceUtilityGameSharingUpdate>, "sceUtilityGameSharingUpdate"},
+	{0x946963f3, &WrapI_V<sceUtilityGameSharingGetStatus>, "sceUtilityGameSharingGetStatus"},
 
 	{0x2995d020, 0, "sceUtilitySavedataErrInitStart"},
 	{0xb62a4061, 0, "sceUtilitySavedataErrShutdownStart"},
@@ -667,12 +747,7 @@ const HLEFunction sceUtility[] =
 	{0xb6cee597, 0, "sceNetplayDialogGetStatus"},
 
 	{0x28d35634, 0, "sceUtility_28D35634"},
-	{0x6f56f9cf, 0, "sceUtility_6F56F9CF"},
 	{0x70267adf, 0, "sceUtility_70267ADF"},
-	{0x81c44706, 0, "sceUtility_81C44706"},
-	{0x8326ab05, 0, "sceUtility_8326AB05"},
-	{0xb0fb7ff5, 0, "sceUtility_B0fB7FF5"},
-	{0xe7b778d8, 0, "sceUtility_E7B778D8"},
 	{0xece1d3e5, 0, "sceUtility_ECE1D3E5"},
 	{0xef3582b2, 0, "sceUtility_EF3582B2"},
 
