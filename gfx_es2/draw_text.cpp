@@ -143,7 +143,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		SetTextAlign(ctx_->hDC, TA_TOP);
 
 		RECT textRect = {0};
-		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), wstr.size(), &textRect, DT_HIDEPREFIX|DT_TOP|DT_LEFT|DT_CALCRECT, 0);
+		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &textRect, DT_HIDEPREFIX|DT_TOP|DT_LEFT|DT_CALCRECT, 0);
 		size.cx = textRect.right;
 		size.cy = textRect.bottom;
 
@@ -153,7 +153,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 		rc.bottom = size.cy + 4;
 		FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
 		//ExtTextOut(ctx_->hDC, 0, 0, ETO_OPAQUE | ETO_CLIPPED, NULL, wstr.c_str(), (int)wstr.size(), NULL);
-		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), wstr.size(), &rc, DT_HIDEPREFIX|DT_TOP|DT_LEFT, 0);
+		DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_HIDEPREFIX|DT_TOP|DT_LEFT, 0);
 
 		entry = new TextStringEntry();
 		glGenTextures(1, &entry->textureHandle);
