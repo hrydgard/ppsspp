@@ -54,4 +54,5 @@ namespace MainWindow
 	void SaveStateActionFinished(bool result, void *userdata);
 	void _ViewFullScreen(HWND hWnd);
 	void _ViewNormal(HWND hWnd);
+	void TranslateMenus();
 }

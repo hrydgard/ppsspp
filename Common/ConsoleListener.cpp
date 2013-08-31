@@ -72,6 +72,7 @@ ConsoleListener::~ConsoleListener()
 	Close();
 }
 
+#ifdef _WIN32
 // Handle console event
 bool WINAPI ConsoleHandler(DWORD msgType)
 {
@@ -93,6 +94,7 @@ bool WINAPI ConsoleHandler(DWORD msgType)
     */
     return FALSE;
 }
+#endif
 
 
 // 100, 100, "Dolphin Log Console"
