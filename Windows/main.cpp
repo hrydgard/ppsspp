@@ -64,7 +64,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	wchar_t modulePath[MAX_PATH];
 	GetModuleFileName(NULL, modulePath, MAX_PATH);
-	for (int i = wcslen(modulePath) - 1; i > 0; i--) {
+	for (size_t i = wcslen(modulePath) - 1; i > 0; i--) {
 		if (modulePath[i] == '\\') {
 			modulePath[i] = 0;
 			break;

@@ -563,6 +563,8 @@ add_library(native STATIC
 	native/gfx/texture_gen.h
 	native/gfx_es2/draw_buffer.cpp
 	native/gfx_es2/draw_buffer.h
+	native/gfx_es2/draw_text.cpp
+	native/gfx_es2/draw_text.h
 	native/gfx_es2/fbo.cpp
 	native/gfx_es2/fbo.h
 	native/gfx_es2/gl_state.cpp
