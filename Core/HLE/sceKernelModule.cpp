@@ -90,12 +90,41 @@ static const char *blacklistedModules[] = {
 	"sceSsl_Module",
 };
 
-struct VarSymbol {
-	char moduleName[32];
-	u32 symAddr;
+struct VarSymbolImport {
+	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
 	u32 nid;
+	u32 stubAddr;
 	u8 type;
 };
+
+struct VarSymbolExport {
+	bool Matches(const VarSymbolImport &other) const {
+		return !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && nid == other.nid;
+	}
+
+	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	u32 nid;
+	u32 symAddr;
+};
+
+struct FuncSymbolImport {
+	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	u32 stubAddr;
+	u32 nid;
+};
+
+struct FuncSymbolExport {
+	bool Matches(const FuncSymbolImport &other) const {
+		return !strncmp(moduleName, other.moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && nid == other.nid;
+	}
+
+	char moduleName[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	u32 symAddr;
+	u32 nid;
+};
+
+void ImportVarSymbol(const VarSymbolImport &var);
+void ExportVarSymbol(const VarSymbolExport &var);
 
 struct NativeModule {
 	u32_le next;
@@ -192,11 +221,58 @@ public:
 		p.Do(isStarted);
 		ModuleWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
+		FuncSymbolExport fsx = {0};
+		p.Do(exportedFuncs, fsx);
+		FuncSymbolImport fsi = {0};
+		p.Do(importedFuncs, fsi);
+		VarSymbolExport vsx = {0};
+		p.Do(exportedVars, vsx);
+		VarSymbolImport vsi = {0};
+		p.Do(importedVars, vsi);
 		p.DoMarker("Module");
 	}
 
 	NativeModule nm;
 	std::vector<ModuleWaitingThread> waitingThreads;
+
+	std::vector<FuncSymbolExport> exportedFuncs;
+	std::vector<FuncSymbolImport> importedFuncs;
+	std::vector<VarSymbolExport> exportedVars;
+	std::vector<VarSymbolImport> importedVars;
+
+	void ImportFunc(const FuncSymbolImport &func) {
+		if (!Memory::IsValidAddress(func.stubAddr)) {
+			WARN_LOG_REPORT(LOADER, "Invalid address for syscall stub %s %08x", func.moduleName, func.nid);
+			return;
+		}
+
+		DEBUG_LOG(LOADER, "Importing %s : %08x", GetFuncName(func.moduleName, func.nid), func.stubAddr);
+
+		// Add the symbol to the symbol map for debugging.
+		char temp[256];
+		sprintf(temp,"zz_%s", GetFuncName(func.moduleName, func.nid));
+		symbolMap.AddSymbol(temp, func.stubAddr, 8, ST_FUNCTION);
+
+		// Keep track and actually hook it up if possible.
+		importedFuncs.push_back(func);
+		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
+	}
+
+	void ImportVar(const VarSymbolImport &var) {
+		// Keep track and actually hook it up if possible.
+		importedVars.push_back(var);
+		ImportVarSymbol(var);
+	}
+
+	void ExportFunc(const FuncSymbolExport &func) {
+		exportedFuncs.push_back(func);
+		ResolveSyscall(func.moduleName, func.nid, func.symAddr);
+	}
+
+	void ExportVar(const VarSymbolExport &var) {
+		exportedVars.push_back(var);
+		ExportVarSymbol(var);
+	}
 
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
@@ -264,8 +340,8 @@ struct SceKernelSMOption {
 // STATE BEGIN
 static int actionAfterModule;
 
-static std::vector<VarSymbol> unresolvedVars;
-static std::vector<VarSymbol> exportedVars;
+static std::vector<VarSymbolImport> unresolvedVars;
+static std::vector<VarSymbolExport> exportedVars;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -278,9 +354,10 @@ void __KernelModuleDoState(PointerWrap &p)
 {
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
-	VarSymbol vs = {""};
-	p.Do(unresolvedVars, vs);
-	p.Do(exportedVars, vs);
+	VarSymbolImport vsi = {""};
+	p.Do(unresolvedVars, vsi);
+	VarSymbolExport vsx = {""};
+	p.Do(exportedVars, vsx);
 	p.DoMarker("sceKernelModule");
 }
 
@@ -385,55 +462,49 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 	Memory::Write_U32(relocData, relocAddress);
 }
 
-void ImportVarSymbol(const char *moduleName, u32 nid, u32 address, u8 type)
+void ImportVarSymbol(const VarSymbolImport &var)
 {
 	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
 
-	if (nid == 0)
+	if (var.nid == 0)
 	{
 		// TODO: What's the right thing for this?
-		ERROR_LOG_REPORT(LOADER, "Var import with nid = 0, type = %d", type);
+		ERROR_LOG_REPORT(LOADER, "Var import with nid = 0, type = %d", var.type);
 		return;
 	}
 
-	if (!Memory::IsValidAddress(address))
+	if (!Memory::IsValidAddress(var.stubAddr))
 	{
-		ERROR_LOG_REPORT(LOADER, "Invalid address for var import nid = %08x, type = %d, addr = %08x", nid, type, address);
+		ERROR_LOG_REPORT(LOADER, "Invalid address for var import nid = %08x, type = %d, addr = %08x", var.nid, var.type, var.stubAddr);
 		return;
 	}
 
 	for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it)
 	{
-		if (!strncmp(it->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) && it->nid == nid)
+		if (it->Matches(var))
 		{
-			WriteVarSymbol(it->symAddr, address, type);
+			WriteVarSymbol(it->symAddr, var.stubAddr, var.type);
 			return;
 		}
 	}
 
 	// It hasn't been exported yet, but hopefully it will later.
-	INFO_LOG(LOADER, "Variable (%s,%08x) unresolved, storing for later resolving", moduleName, nid);
-	VarSymbol vs = {"", address, nid, type};
-	strncpy(vs.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
-	vs.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-	unresolvedVars.push_back(vs);
+	INFO_LOG(LOADER, "Variable (%s,%08x) unresolved, storing for later resolving", var.moduleName, var.nid);
+	unresolvedVars.push_back(var);
 }
 
-void ExportVarSymbol(const char *moduleName, u32 nid, u32 address)
+void ExportVarSymbol(const VarSymbolExport &var)
 {
 	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
 
-	VarSymbol ex = {"", address, nid};
-	strncpy(ex.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
-	ex.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-	exportedVars.push_back(ex);
+	exportedVars.push_back(var);
 
 	for (auto it = unresolvedVars.begin(), end = unresolvedVars.end(); it != end; ++it)
 	{
-		if (strncmp(it->moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH) == 0 && it->nid == nid)
+		if (var.Matches(*it))
 		{
-			INFO_LOG(HLE,"Resolving var %s/%08x", moduleName, nid);
-			WriteVarSymbol(address, it->symAddr, it->type);
+			INFO_LOG(HLE, "Resolving var %s/%08x", var.moduleName, var.nid);
+			WriteVarSymbol(var.symAddr, it->stubAddr, it->type);
 		}
 	}
 }
@@ -623,20 +694,17 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				continue;
 			}
 
+			FuncSymbolImport func;
+			strncpy(func.moduleName, modulename, KERNELOBJECT_MAX_NAME_LENGTH);
+			func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+
 			u32_le *nidDataPtr = (u32_le *)Memory::GetPointer(entry->nidData);
 			for (int i = 0; i < entry->numFuncs; ++i) {
-				u32 addrToWriteSyscall = entry->firstSymAddr + i * 8;
-				DEBUG_LOG(LOADER, "%s : %08x", GetFuncName(modulename, nidDataPtr[i]), addrToWriteSyscall);
-				//write a syscall here
-				if (Memory::IsValidAddress(addrToWriteSyscall)) {
-					WriteSyscall(modulename, nidDataPtr[i], addrToWriteSyscall);
-				} else {
-					WARN_LOG_REPORT(LOADER, "Invalid address for syscall stub %s %08x", modulename, nidDataPtr[i]);
-				}
-
-				char temp[256];
-				sprintf(temp,"zz_%s", GetFuncName(modulename, nidDataPtr[i]));
-				symbolMap.AddSymbol(temp, addrToWriteSyscall, 8, ST_FUNCTION);
+				// This is the id of the import.
+				func.nid = nidDataPtr[i];
+				// This is the address to write the j abnd delay slot to.
+				func.stubAddr = entry->firstSymAddr + i * 8;
+				module->ImportFunc(func);
 			}
 		} else if (entry->numFuncs > 0) {
 			WARN_LOG_REPORT(LOADER, "Module entry with %d imports but no valid address", entry->numFuncs);
@@ -650,6 +718,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				continue;
 			}
 
+			VarSymbolImport var;
+			strncpy(var.moduleName, modulename, KERNELOBJECT_MAX_NAME_LENGTH);
+			var.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
+
 			for (int i = 0; i < entry->numVars; ++i) {
 				u32 varRefsPtr = Memory::Read_U32(entry->varData + i * 8);
 				u32 nid = Memory::Read_U32(entry->varData + i * 8 + 4);
@@ -660,7 +732,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 				u32_le *varRef = (u32_le *)Memory::GetPointer(varRefsPtr);
 				for (; *varRef != 0; ++varRef) {
-					ImportVarSymbol(modulename, nid, (*varRef & 0x03FFFFFF) << 2, *varRef >> 26);
+					var.nid = nid;
+					var.stubAddr = (*varRef & 0x03FFFFFF) << 2;
+					var.type = *varRef >> 26;
+					module->ImportVar(var);
 				}
 			}
 		} else if (entry->numVars > 0) {
@@ -734,7 +809,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		INFO_LOG(HLE, "Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
 
 		if (!Memory::IsValidAddress(ent->resident)) {
-			if (ent->fcount + ent->vcount > 0) {
+			if (ent->fcount + variableCount > 0) {
 				WARN_LOG_REPORT(LOADER, "Invalid export resident address %08x", ent->resident);
 			}
 			continue;
@@ -746,6 +821,10 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		if (ent->size != 4 && ent->unknown1 != 0 && ent->unknown2 != 0) {
 			WARN_LOG_REPORT(LOADER, "Unexpected export module entry size %d, vcountNew=%08x, unknown1=%08x, unknown2=%08x", ent->size, ent->vcountNew, ent->unknown1, ent->unknown2);
 		}
+
+		FuncSymbolExport func;
+		strncpy(func.moduleName, name, KERNELOBJECT_MAX_NAME_LENGTH);
+		func.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
 		for (u32 j = 0; j < ent->fcount; j++) {
 			u32 nid = residentPtr[j];
@@ -768,9 +847,15 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				module->nm.module_bootstart_func = exportAddr;
 				break;
 			default:
-				ResolveSyscall(name, nid, exportAddr);
+				func.nid = nid;
+				func.symAddr = exportAddr;
+				module->ExportFunc(func);
 			}
 		}
+
+		VarSymbolExport var;
+		strncpy(var.moduleName, name, KERNELOBJECT_MAX_NAME_LENGTH);
+		var.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
 		for (u32 j = 0; j < variableCount; j++) {
 			u32 nid = residentPtr[ent->fcount + j];
@@ -814,7 +899,9 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 				DEBUG_LOG(LOADER, "Module SDK: %08x", Memory::Read_U32(exportAddr));
 				break;
 			default:
-				ExportVarSymbol(name, nid, exportAddr);
+				var.nid = nid;
+				var.symAddr = exportAddr;
+				module->ExportVar(var);
 				break;
 			}
 		}

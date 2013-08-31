@@ -272,10 +272,11 @@ void ResolveSyscall(const char *moduleName, u32 nib, u32 address)
 			const Syscall *sysc = &syscalls[i];
 			if (sysc->nid == nib)
 			{
-				INFO_LOG(HLE,"Resolving %s/%08x",moduleName,nib);
-				// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
+				INFO_LOG(HLE, "Resolving function symbol %s/%08x", moduleName, nib);
 				// Note that this should be J not JAL, as otherwise control will return to the stub..
 				Memory::Write_U32(MIPS_MAKE_J(address), sysc->symAddr);
+				// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
+				// Perhaps a syscall here (and verify support in jit), marking the module by uid?
 				Memory::Write_U32(MIPS_MAKE_NOP(), sysc->symAddr + 4);
 			}
 		}
