@@ -1515,6 +1515,13 @@ void ModuleMgrForKernel_50f0c1ec(u32 moduleId, u32 argsize, u32 argAddr, u32 ret
 	sceKernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr);
 }
 
+//fix for tiger x dragon
+u32 ModuleMgrForKernel_a1a78c58(const char *name, u32 flags, u32 optionAddr)
+{
+	WARN_LOG(HLE,"Not support this patcher");
+	return sceKernelLoadModule(name, flags, optionAddr);
+}
+
 const HLEFunction ModuleMgrForUser[] = 
 {
 	{0x977DE386,&WrapU_CUU<sceKernelLoadModule>,"sceKernelLoadModule"},
@@ -1542,10 +1549,8 @@ const HLEFunction ModuleMgrForKernel[] =
 {
 	{0x50f0c1ec,&WrapV_UUUUU<ModuleMgrForKernel_50f0c1ec>, "ModuleMgrForKernel_50f0c1ec"},//Not sure right
 	{0x977de386, &WrapU_CUU<ModuleMgrForKernel_977de386>, "ModuleMgrForKernel_977de386"},//Not sure right
-	{0xa1a78c58, 0, "ModuleMgrForKernel_a1a78c58"},
+	{0xa1a78c58, &WrapU_CUU<ModuleMgrForKernel_a1a78c58>, "ModuleMgrForKernel_a1a78c58"}, //fix for tiger x dragon
 };
-
-
 
 void Register_ModuleMgrForUser()
 {
