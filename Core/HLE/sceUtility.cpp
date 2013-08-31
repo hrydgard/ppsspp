@@ -385,7 +385,7 @@ int sceUtilityNetconfGetStatus()
 u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 unknown4, u32 unknown5, u32 unknown6)
 {
 	u32 retval = screenshotDialog.Init();
-	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	WARN_LOG_REPORT(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
 	return retval;
 }
 
@@ -423,7 +423,7 @@ int sceUtilityGamedataInstallGetStatus()
 //TODO: should save to config file
 u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
-	WARN_LOG(HLE, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
+	WARN_LOG_REPORT(HLE, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
 	return 0;
 }
 
@@ -506,7 +506,7 @@ u32 sceUtilityUnloadNetModule(u32 module)
 
 void sceUtilityInstallInitStart(u32 unknown)
 {
-	DEBUG_LOG(HLE,"FAKE sceUtilityInstallInitStart()");
+	WARN_LOG_REPORT(HLE, "UNIMPL sceUtilityInstallInitStart()");
 }
 
 int sceUtilityStoreCheckoutShutdownStart()
@@ -667,12 +667,7 @@ const HLEFunction sceUtility[] =
 	{0xb6cee597, 0, "sceNetplayDialogGetStatus"},
 
 	{0x28d35634, 0, "sceUtility_28D35634"},
-	{0x6f56f9cf, 0, "sceUtility_6F56F9CF"},
 	{0x70267adf, 0, "sceUtility_70267ADF"},
-	{0x81c44706, 0, "sceUtility_81C44706"},
-	{0x8326ab05, 0, "sceUtility_8326AB05"},
-	{0xb0fb7ff5, 0, "sceUtility_B0fB7FF5"},
-	{0xe7b778d8, 0, "sceUtility_E7B778D8"},
 	{0xece1d3e5, 0, "sceUtility_ECE1D3E5"},
 	{0xef3582b2, 0, "sceUtility_EF3582B2"},
 
