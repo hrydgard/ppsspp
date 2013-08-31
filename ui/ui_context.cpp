@@ -164,6 +164,8 @@ void UIContext::DrawText(const char *str, float x, float y, uint32_t color, int 
 
 void UIContext::DrawTextRect(const char *str, const Bounds &bounds, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
+		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
+		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
 		Draw()->DrawTextRect(fontStyle_->atlasFont, str, bounds.x, bounds.y, bounds.w, bounds.h, color, align);
 	} else {
 		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
