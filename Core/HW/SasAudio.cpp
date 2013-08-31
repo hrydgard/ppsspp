@@ -250,7 +250,7 @@ static int getReleaseRate(int bitfield2) {
 	if (getReleaseType(bitfield2) == PSP_SAS_ADSR_CURVE_MODE_LINEAR_DECREASE) {
 		return (0x40000000 >> (n + 2));
 	}
-	return (0x08000000 >> n);
+	return (0x40000000 >> n);
 }
 
 static int getSustainLevel(int bitfield1) {
