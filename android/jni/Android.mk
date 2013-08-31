@@ -5,7 +5,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := native_audio
-LOCAL_CFLAGS := -O3 -fsigned-char -ffast-math -Wall -Wno-multichar -Wno-psabi -Wno-literal-suffix
+LOCAL_CFLAGS := -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-literal-suffix
 # yes, it's really CPPFLAGS for C++
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti
 NATIVE := ../../native
@@ -26,7 +26,7 @@ LOCAL_MODULE := ppsspp_jni
 NATIVE := ../../native
 SRC := ../..
 
-LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DUSING_GLES2 -O3 -ffast-math -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing
+LOCAL_CFLAGS := -DUSE_FFMPEG -DUSE_PROFILER -DUSING_GLES2 -O3 -fsigned-char -Wall -Wno-multichar -Wno-psabi -Wno-unused-variable -fno-strict-aliasing
 # yes, it's really CPPFLAGS for C++
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder -Wno-literal-suffix
 LOCAL_C_INCLUDES := \
