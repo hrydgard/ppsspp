@@ -538,7 +538,7 @@ namespace MainWindow
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
 		
-		Update();
+		UpdateMenus();
 
 		if(g_Config.bFullScreenOnLaunch)
 			_ViewFullScreen(hwndMain);
@@ -564,6 +564,7 @@ namespace MainWindow
 		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
 
 		SetFocus(hwndDisplay);
+
 
 		return TRUE;
 	}
