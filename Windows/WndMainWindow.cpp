@@ -78,8 +78,6 @@ extern InputState input_state;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
-#define TIMER_TRANSLATE 3
-#define TRANSLATE_INTERVAL_MS 100
 #define CURSORUPDATE_INTERVAL_MS 50
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
 
@@ -571,7 +569,6 @@ namespace MainWindow
 		RegisterRawInputDevices(dev, 2, sizeof(RAWINPUTDEVICE));
 
 		SetFocus(hwndDisplay);
-		SetTimer(hwndMain, TIMER_TRANSLATE, TRANSLATE_INTERVAL_MS, 0);
 
 		return TRUE;
 	}
@@ -827,11 +824,6 @@ namespace MainWindow
 			case TIMER_CURSORMOVEUPDATE:
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
-				return 0;
-
-			case TIMER_TRANSLATE:
-				KillTimer(hWnd, TIMER_TRANSLATE);
-				TranslateMenus();
 				return 0;
 			}
 			break;
