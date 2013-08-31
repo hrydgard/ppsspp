@@ -318,6 +318,7 @@ void LogoScreen::render() {
 
 void SystemInfoScreen::CreateViews() {
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
+	I18NCategory *g = GetI18NCategory("General");
 
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -326,10 +327,11 @@ void SystemInfoScreen::CreateViews() {
 	root_->Add(scroll);
 
 	scroll->Add(new ItemHeader("System Information"));
-	scroll->Add(new InfoItem("System Name :", System_GetName()));
-	scroll->Add(new InfoItem("GPU Vendor :", (char *)glGetString(GL_VENDOR)));
-	scroll->Add(new InfoItem("GPU Model :", (char *)glGetString(GL_RENDERER)));
-	scroll->Add(new InfoItem("OpenGL Version Supported :", (char *)glGetString(GL_VERSION)));
+	scroll->Add(new InfoItem("System Name", System_GetName()));
+	scroll->Add(new InfoItem("GPU Vendor", (char *)glGetString(GL_VENDOR)));
+	scroll->Add(new InfoItem("GPU Model", (char *)glGetString(GL_RENDERER)));
+	scroll->Add(new InfoItem("OpenGL Version Supported", (char *)glGetString(GL_VERSION)));
+	scroll->Add(new Choice(g->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	
 #ifdef _WIN32
 	scroll->Add(new ItemHeader("OpenGL Extensions"));
