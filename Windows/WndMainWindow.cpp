@@ -336,7 +336,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_FILE_EXIT, desktopUI);
 
 		// Emulation menu
-		TranslateMenuItem(ID_TOGGLE_PAUSE, desktopUI, false, false, L"\tF8");
+		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
 		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, false, false, L"\tCtrl+W");
 		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
 		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
@@ -1586,8 +1587,8 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
-		bool isPaused = Core_IsStepping() || globalUIState != UISTATE_INGAME;
-		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Pause" : "Run", "DesktopUI", false, false, L"\tF8");
+		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
