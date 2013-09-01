@@ -177,7 +177,6 @@ u32 GetSyscallOp(const char *moduleName, u32 nib)
 		else
 		{
 			INFO_LOG(HLE, "Syscall (%s, %08x) unknown", moduleName, nib);
-			Reporting::ReportMessage("Unknown syscall in known module: %s 0x%08x", moduleName, nib);
 			return (0x0003FFCC | (modindex<<18));  // invalid syscall
 		}
 	}

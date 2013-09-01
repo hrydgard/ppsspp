@@ -266,7 +266,7 @@ public:
 	AsmRoutineManager &Asm() { return asm_; }
 
 	void ClearCache();
-	void ClearCacheAt(u32 em_address);
+	void ClearCacheAt(u32 em_address, int length = 4);
 private:
 	void GetStateAndFlushAll(RegCacheState &state);
 	void RestoreState(const RegCacheState state);

@@ -308,8 +308,10 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 	result = MIPSAsm::MipsAssembleOpcode(op.c_str(),debugger,address,encoded);
 	if (result == true)
 	{
-		Memory::Write_U32(encoded,address);
-		MIPSComp::jit->ClearCacheAt(address);
+		Memory::Write_U32(encoded, address);
+		// In case this is a delay slot or combined instruction, clear cache above it too.
+		if (MIPSComp::jit)
+			MIPSComp::jit->ClearCacheAt(address - 4, 8);
 		redraw();
 	} else {
 		MessageBox(wnd,L"Couldn't assemble.",L"Error",MB_OK);

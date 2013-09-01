@@ -867,8 +867,6 @@ void GPUCommon::DoState(PointerWrap &p) {
 		currentList = &dls[currentID];
 	}
 	p.Do(interruptRunning);
-	u32 prev;  // TODO: kill. just didn't want to break states right now...
-	p.Do(prev);
 	p.Do(gpuState);
 	p.Do(isbreak);
 	p.Do(drawCompleteTicks);

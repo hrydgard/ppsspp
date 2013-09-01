@@ -52,6 +52,9 @@
     <Filter Include="Font">
       <UniqueIdentifier>{1c79e88d-1c48-450b-8af6-f22ce7d40c66}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\PPC">
+      <UniqueIdentifier>{ac0e396a-6e16-4796-a0a0-b8ebf46ea74c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -460,6 +463,30 @@
     <ClCompile Include="..\ext\xxhash.c">
       <Filter>Ext</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcCompLoadStore.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcCompVFPU.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcJit.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcRegCache.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcCompAlu.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcCompBranch.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcCompFpu.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\PPC\PpcAsm.cpp">
+      <Filter>MIPS\PPC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -857,6 +884,12 @@
     </ClInclude>
     <ClInclude Include="..\ext\xxhash.h">
       <Filter>Ext</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\PPC\PpcJit.h">
+      <Filter>MIPS\PPC</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\PPC\PpcRegCache.h">
+      <Filter>MIPS\PPC</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

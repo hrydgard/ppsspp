@@ -188,10 +188,9 @@ void Jit::ClearCache()
 	ClearCodeSpace();
 }
 
-void Jit::ClearCacheAt(u32 em_address)
+void Jit::ClearCacheAt(u32 em_address, int length)
 {
-	// TODO: Properly.
-	ClearCache();
+	blocks.InvalidateICache(em_address, length);
 }
 
 void Jit::CompileDelaySlot(int flags, RegCacheState *state)
