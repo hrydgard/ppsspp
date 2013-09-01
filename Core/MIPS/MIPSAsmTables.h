@@ -4,14 +4,14 @@ namespace MIPSAsm
 {
 
 typedef struct {
-	char* name;
-	char* encoding;
+	const char *name;
+	const char *encoding;
 	unsigned int destencoding;
 	unsigned int flags;
 } tMipsOpcode;
 
 typedef struct {
-	char* name;
+	const char *name;
 	short num;
 	short len;
 } tMipsRegister;
