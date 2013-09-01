@@ -20,31 +20,31 @@
 #include <set>
 
 #include "native/base/stringutil.h"
+#include "Common/FileUtil.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/Reporting.h"
-#include "Common/FileUtil.h"
-#include "../Host.h"
+#include "Core/Host.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/ELF/ElfReader.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/PrxDecrypter.h"
-#include "../Debugger/SymbolMap.h"
-#include "../FileSystems/FileSystem.h"
-#include "../FileSystems/MetaFileSystem.h"
-#include "../Util/BlockAllocator.h"
+#include "Core/FileSystems/FileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Util/BlockAllocator.h"
 #include "Core/CoreTiming.h"
 #include "Core/PSPLoaders.h"
 #include "Core/System.h"
 #include "Core/MemMap.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/MIPS/MIPS.h"
 
-#include "sceKernel.h"
-#include "sceKernelModule.h"
-#include "sceKernelThread.h"
-#include "sceKernelMemory.h"
-#include "sceIo.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceIo.h"
 
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
@@ -500,6 +500,7 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse =
 	}
 
 	Memory::Write_U32(relocData, relocAddress);
+	currentMIPS->InvalidateICache(relocAddress, 4);
 }
 
 void ImportVarSymbol(const VarSymbolImport &var) {
@@ -575,6 +576,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func) {
 	// TODO: Or not?
 	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
 		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
+		currentMIPS->InvalidateICache(func.stubAddr, 8);
 		return;
 	}
 
@@ -589,6 +591,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func) {
 		for (auto it = module->exportedFuncs.begin(), end = module->exportedFuncs.end(); it != end; ++it) {
 			if (it->Matches(func)) {
 				WriteFuncStub(func.stubAddr, it->symAddr);
+				currentMIPS->InvalidateICache(func.stubAddr, 8);
 				return;
 			}
 		}
@@ -601,6 +604,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func) {
 		INFO_LOG(LOADER, "Function (%s,%08x) unresolved, storing for later resolving", func.moduleName, func.nid);
 	}
 	WriteFuncMissingStub(func.stubAddr, func.nid);
+	currentMIPS->InvalidateICache(func.stubAddr, 8);
 }
 
 void ExportFuncSymbol(const FuncSymbolExport &func) {
@@ -622,6 +626,7 @@ void ExportFuncSymbol(const FuncSymbolExport &func) {
 			if (func.Matches(*it)) {
 				INFO_LOG(LOADER, "Resolving function %s/%08x", func.moduleName, func.nid);
 				WriteFuncStub(it->stubAddr, func.symAddr);
+				currentMIPS->InvalidateICache(it->stubAddr, 8);
 			}
 		}
 	}
@@ -645,6 +650,7 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 			if (func.Matches(*it)) {
 				INFO_LOG(LOADER, "Unresolving function %s/%08x", func.moduleName, func.nid);
 				WriteFuncMissingStub(it->stubAddr, it->nid);
+				currentMIPS->InvalidateICache(it->stubAddr, 8);
 			}
 		}
 	}

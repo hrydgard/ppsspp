@@ -116,6 +116,5 @@ u32 GetSyscallOp(const char *module, u32 nib);
 bool FuncImportIsSyscall(const char *module, u32 nib);
 bool WriteSyscall(const char *module, u32 nib, u32 address);
 void CallSyscall(MIPSOpcode op);
-void ResolveSyscall(const char *moduleName, u32 nib, u32 address);
 void WriteFuncStub(u32 stubAddr, u32 symAddr);
 void WriteFuncMissingStub(u32 stubAddr, u32 nid);
