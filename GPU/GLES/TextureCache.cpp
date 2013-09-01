@@ -969,6 +969,31 @@ bool SetDebugTexture() {
 }
 #endif
 
+void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
+{
+	entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	if (useBufferedRendering) {
+		// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
+		// But let's still not use random memory.
+		if (entry->framebuffer->fbo && entry->invalidHint != -1) {
+			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+		} else {
+			glBindTexture(GL_TEXTURE_2D, 0);
+			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		}
+		UpdateSamplingParams(*entry, false);
+		gstate_c.curTextureWidth = entry->framebuffer->width;
+		gstate_c.curTextureHeight = entry->framebuffer->height;
+		gstate_c.flipTexture = true;
+		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
+	} else {
+		if (entry->framebuffer->fbo)
+			entry->framebuffer->fbo = 0;
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+}
+
 void TextureCache::SetTexture() {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
@@ -1026,26 +1051,7 @@ void TextureCache::SetTexture() {
 		entry = &iter->second;
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
-			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-			if (useBufferedRendering) {
-				// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
-				// But let's still not use random memory.
-				if (entry->framebuffer->fbo && entry->invalidHint != -1) {
-					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-				} else {
-					glBindTexture(GL_TEXTURE_2D, 0);
-					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-				}
-				UpdateSamplingParams(*entry, false);
-				gstate_c.curTextureWidth = entry->framebuffer->width;
-				gstate_c.curTextureHeight = entry->framebuffer->height;
-				gstate_c.flipTexture = true;
-				gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-			} else {
-				if (entry->framebuffer->fbo)
-					entry->framebuffer->fbo = 0;
-				glBindTexture(GL_TEXTURE_2D, 0);
-			}
+			SetTextureFramebuffer(entry);
 			lastBoundTexture = -1;
 			entry->lastFrame = gpuStats.numFlips;
 			return;

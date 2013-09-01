@@ -126,6 +126,7 @@ private:
 	void UpdateCurrentClut();
 	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+	void SetTextureFramebuffer(TexCacheEntry *entry);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
