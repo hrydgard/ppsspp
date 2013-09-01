@@ -272,26 +272,29 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 
 struct DeclTypeInfo {
 	u32 type;
+	const char * name;
 };
 
+
+
 static const DeclTypeInfo VComp[] = {
-	{0},						// 	DEC_NONE,
-	D3DDECLTYPE_FLOAT1,			// 	DEC_FLOAT_1,
-	D3DDECLTYPE_FLOAT2,			// 	DEC_FLOAT_2,
-	D3DDECLTYPE_FLOAT3,			// 	DEC_FLOAT_3,
-	D3DDECLTYPE_FLOAT4,			// 	DEC_FLOAT_4,
-	D3DDECLTYPE_BYTE4N,			// 	DEC_S8_3,
-	D3DDECLTYPE_SHORT4N,		// 	DEC_S16_3,
-	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_1,
-	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_2,
-	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_3,
-	D3DDECLTYPE_UBYTE4N,		// 	DEC_U8_4,
-	D3DDECLTYPE_USHORT4N,		// 	DEC_U16_1,
-	D3DDECLTYPE_USHORT4N,		// 	DEC_U16_2,
-	D3DDECLTYPE_USHORT4N,		// 	DEC_U16_3,
-	D3DDECLTYPE_USHORT4N,		// 	DEC_U16_4,
-	D3DDECLTYPE_BYTE4,			// 	DEC_U8A_2,
-	D3DDECLTYPE_USHORT4,		// 	DEC_U16A_2,
+	{0, "NULL"},						// 	DEC_NONE,
+	{D3DDECLTYPE_FLOAT1		,"D3DDECLTYPE_FLOAT1	"},	// 	DEC_FLOAT_1,
+	{D3DDECLTYPE_FLOAT2		,"D3DDECLTYPE_FLOAT2	"},	// 	DEC_FLOAT_2,
+	{D3DDECLTYPE_FLOAT3		,"D3DDECLTYPE_FLOAT3	"},	// 	DEC_FLOAT_3,
+	{D3DDECLTYPE_FLOAT4		,"D3DDECLTYPE_FLOAT4	"},	// 	DEC_FLOAT_4,
+	{D3DDECLTYPE_BYTE4N		,"D3DDECLTYPE_BYTE4N	"},	// 	DEC_S8_3,
+	{D3DDECLTYPE_SHORT4N	,"D3DDECLTYPE_SHORT4N	"},	// 	DEC_S16_3,
+	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_1,
+	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_2,
+	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_3,
+	{D3DDECLTYPE_UBYTE4N	,"D3DDECLTYPE_UBYTE4N	"},	// 	DEC_U8_4,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N	"},	// 	DEC_U16_1,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N	"},	// 	DEC_U16_2,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N	"},	// 	DEC_U16_3,
+	{D3DDECLTYPE_USHORT4N	,"D3DDECLTYPE_USHORT4N	"},	// 	DEC_U16_4,
+	{D3DDECLTYPE_BYTE4		,"D3DDECLTYPE_BYTE4		"},	// 	DEC_U8A_2,
+	{D3DDECLTYPE_USHORT4	,"D3DDECLTYPE_USHORT4	"},	// 	DEC_U16A_2,
 };
 
 static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offset, u8 usage, u8 usage_index = 0) {
@@ -308,60 +311,108 @@ static void VertexAttribSetup(D3DVERTEXELEMENT9 * VertexElement, u8 fmt, u8 offs
 
 
 
-IDirect3DVertexDeclaration9* pHardwareVertexDecl = NULL;
+static IDirect3DVertexDeclaration9* pHardwareVertexDecl = NULL;
+static std::map<u32, IDirect3DVertexDeclaration9 *> vertexDeclMap;
+static D3DVERTEXELEMENT9 VertexElements[8];
 
 // TODO: Use VBO and get rid of the vertexData pointers - with that, we will supply only offsets
-static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt) {
-	D3DVERTEXELEMENT9 VertexElements[8];
-	D3DVERTEXELEMENT9 * VertexElement = &VertexElements[0];
-	int offset = 0;
-
+static void LogDecFmtForDraw(const DecVtxFormat &decFmt) {
 	// Vertices Elements orders
 	// WEIGHT
 	if (decFmt.w0fmt != 0) {
-		VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_BLENDWEIGHT, 0);
-		VertexElement++;
+		printf("decFmt.w0fmt -> %s (%d)\n", VComp[decFmt.w0fmt].name, decFmt.w0off);
 	}
 
 	if (decFmt.w1fmt != 0) {
-		VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_BLENDWEIGHT, 1);
-		VertexElement++;
+		printf("decFmt.w1fmt -> %s (%d)\n", VComp[decFmt.w1fmt].name, decFmt.w1off);
 	}
 
 	// TC
 	if (decFmt.uvfmt != 0) {
-		VertexAttribSetup(VertexElement, decFmt.uvfmt, decFmt.uvoff, D3DDECLUSAGE_TEXCOORD);
-		VertexElement++;
+		printf("decFmt.uvfmt -> %s (%d)\n", VComp[decFmt.uvfmt].name, decFmt.uvoff);
 	}
 
 	// COLOR
 	if (decFmt.c0fmt != 0) {
-		VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLUSAGE_COLOR, 0);
-		VertexElement++;
-	}
-	// Never used ?
-	if (decFmt.c1fmt != 0) {
-		VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLUSAGE_COLOR, 1);
-		VertexElement++;
+		printf("decFmt.c0fmt -> %s (%d)\n", VComp[decFmt.c0fmt].name, decFmt.c0off);
 	}
 
 	// NORMAL
 	if (decFmt.nrmfmt != 0) {
-		VertexAttribSetup(VertexElement, decFmt.nrmfmt, decFmt.nrmoff, D3DDECLUSAGE_NORMAL, 0);
-		VertexElement++;
+		printf("decFmt.nrmfmt -> %s (%d)\n", VComp[decFmt.nrmfmt].name, decFmt.nrmoff);
 	}
 
 	// POSITION
 	// Always
-	VertexAttribSetup(VertexElement, decFmt.posfmt, decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
-	VertexElement++;
+	printf("decFmt.posfmt -> %s (%d)\n", VComp[decFmt.posfmt].name, decFmt.posoff);
 
-	// End
-	D3DVERTEXELEMENT9 end = D3DDECL_END();
-	memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
+	printf("decFmt.stride => %d\n", decFmt.stride);
 
-	// Create declaration	
-	pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
+	//pD3Ddevice->SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+}
+static void SetupDecFmtForDraw(LinkedShader *program, const DecVtxFormat &decFmt, u32 pspFmt) {
+	auto vertexDeclCached = vertexDeclMap.find(pspFmt);
+
+	if (vertexDeclCached==vertexDeclMap.end()) {
+		D3DVERTEXELEMENT9 * VertexElement = &VertexElements[0];
+		int offset = 0;
+
+		// Vertices Elements orders
+		// WEIGHT
+		if (decFmt.w0fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_BLENDWEIGHT, 0);
+			VertexElement++;
+		}
+
+		if (decFmt.w1fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_BLENDWEIGHT, 1);
+			VertexElement++;
+		}
+
+		// TC
+		if (decFmt.uvfmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.uvfmt, decFmt.uvoff, D3DDECLUSAGE_TEXCOORD);
+			VertexElement++;
+		}
+
+		// COLOR
+		if (decFmt.c0fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.c0fmt, decFmt.c0off, D3DDECLUSAGE_COLOR, 0);
+			VertexElement++;
+		}
+		// Never used ?
+		if (decFmt.c1fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.c1fmt, decFmt.c1off, D3DDECLUSAGE_COLOR, 1);
+			VertexElement++;
+		}
+
+		// NORMAL
+		if (decFmt.nrmfmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.nrmfmt, decFmt.nrmoff, D3DDECLUSAGE_NORMAL, 0);
+			VertexElement++;
+		}
+
+		// POSITION
+		// Always
+		VertexAttribSetup(VertexElement, decFmt.posfmt, decFmt.posoff, D3DDECLUSAGE_POSITION, 0);
+		VertexElement++;
+
+		// End
+		D3DVERTEXELEMENT9 end = D3DDECL_END();
+		memcpy(VertexElement, &end, sizeof(D3DVERTEXELEMENT9));
+	
+		// Create declaration	
+		pD3Ddevice->CreateVertexDeclaration( VertexElements, &pHardwareVertexDecl );
+
+		// Add it to map
+		vertexDeclMap[pspFmt] = pHardwareVertexDecl;
+
+		// Log
+		//LogDecFmtForDraw(decFmt);
+	} else {
+		// Set it from map
+		pHardwareVertexDecl = vertexDeclCached->second;
+	}
 }
 
 
@@ -1193,7 +1244,7 @@ rotateVBO:
 
 			DEBUG_LOG(G3D, "Flush prim %i! %i verts in one go", prim, vertexCount);
 
-			SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
+			SetupDecFmtForDraw(program, dec_->GetDecVtxFmt(), dec_->VertexType());
 			pD3Ddevice->SetVertexDeclaration(pHardwareVertexDecl);
 
 			if (vb_ == NULL) {

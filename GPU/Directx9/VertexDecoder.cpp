@@ -24,6 +24,12 @@
 #include "VertexDecoder.h"
 #include "VertexShaderGenerator.h"
 
+
+// Always use float for decoding data
+#define USE_WEIGHT_HACK
+#define USE_TC_HACK
+
+
 void PrintDecodedVertex(VertexReader &vtx) {
 	if (vtx.hasNormal())
 	{
@@ -118,6 +124,17 @@ DecVtxFormat GetTransformedVtxFormat(const DecVtxFormat &fmt) {
 
 void VertexDecoder::Step_WeightsU8() const
 {
+#ifdef USE_WEIGHT_HACK
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	const u8 *wdata = (const u8*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++) {
+		wt[j] = wdata[j];
+		wt[j] *= (1.0f/255.f);
+	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
+#else
 	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
 	const u8 *wdata = (const u8*)(ptr_);
 	int j;
@@ -125,10 +142,22 @@ void VertexDecoder::Step_WeightsU8() const
 		wt[j] = wdata[j];
 	while (j & 3)   // Zero additional weights rounding up to 4.
 		wt[j++] = 0;
+#endif
 }
 
 void VertexDecoder::Step_WeightsU16() const
 {
+#ifdef USE_WEIGHT_HACK
+	float *wt = (float *)(decoded_  + decFmt.w0off);
+	const u16_le *wdata = (const u16_le*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++) {
+		wt[j] =wdata[j];
+		wt[j] *= (1.0f/65535.f);
+	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
+#else
 	u16 *wt = (u16 *)(decoded_  + decFmt.w0off);
 	const u16_le *wdata = (const u16_le*)(ptr_);
 	int j;
@@ -136,6 +165,7 @@ void VertexDecoder::Step_WeightsU16() const
 		wt[j] =wdata[j];
 	while (j & 3)   // Zero additional weights rounding up to 4.
 		wt[j++] = 0;
+#endif
 }
 
 // Float weights should be uncommon, we can live with having to multiply these by 2.0
@@ -167,10 +197,19 @@ void VertexDecoder::Step_WeightsFloat() const
 
 void VertexDecoder::Step_TcU8() const
 {
+#ifndef USE_TC_HACK
 	u8 *uv = (u8 *)(decoded_ + decFmt.uvoff);
 	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
 	uv[0] = uvdata[0];
 	uv[1] = uvdata[1];
+#else
+	float *uv = (float *)(decoded_ + decFmt.uvoff);
+	const u8 *uvdata = (const u8*)(ptr_ + tcoff);
+	uv[0] = uvdata[0];
+	uv[1] = uvdata[1];
+	uv[0] *= (1.0f/255.f);
+	uv[1] *= (1.0f/255.f);
+#endif
 }
 
 void VertexDecoder::Step_TcU16() const
@@ -378,6 +417,7 @@ void VertexDecoder::Step_Color8888Morph() const
 
 void VertexDecoder::Step_NormalS8() const
 {
+#if 0
 	s8 *normal = (s8 *)(decoded_ + decFmt.nrmoff);
 	u8 xorval = 0;
 	if (gstate.reversenormals & 1)
@@ -386,6 +426,16 @@ void VertexDecoder::Step_NormalS8() const
 	for (int j = 0; j < 3; j++)
 		normal[j] = sv[j] ^ xorval;
 	normal[3] = 0;
+#else
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	u8 xorval = 0;
+	if (gstate.reversenormals & 1)
+		xorval = 0xFF;  // Using xor instead of - to handle -128
+	const s8 *sv = (const s8*)(ptr_ + nrmoff);
+	for (int j = 0; j < 3; j++)
+		normal[j] = (float)(sv[j] ^ xorval) * (1.0f/127.f);
+	normal[3] = 0;
+#endif
 }
 
 void VertexDecoder::Step_NormalS16() const
@@ -505,11 +555,19 @@ void VertexDecoder::Step_NormalFloatMorph() const
 
 void VertexDecoder::Step_PosS8() const
 {
+#if 0
 	s8 *v = (s8 *)(decoded_ + decFmt.posoff);
 	const s8 *sv = (const s8*)(ptr_ + posoff);
 	for (int j = 0; j < 3; j++)
 		v[j] = sv[j];
 	v[3] = 0;
+#else
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	const s8 *sv = (const s8*)(ptr_ + posoff);
+	for (int j = 0; j < 3; j++)
+		v[j] = (float)sv[j] * 1.0f / 127.0f;
+	v[3] = 0;
+#endif
 }
 
 void VertexDecoder::Step_PosS16() const
@@ -760,6 +818,7 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 
 		steps_[numSteps_++] = wtstep[weighttype];
 
+#ifndef USE_WEIGHT_HACK
 		int fmtBase = DEC_FLOAT_1;
 		if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
 			fmtBase = DEC_U8_1;
@@ -768,6 +827,10 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
 			fmtBase = DEC_FLOAT_1;
 		}
+#else
+		// Hack
+		int fmtBase = DEC_FLOAT_1;
+#endif
 
 		int numWeights = TranslateNumBones(nweights);
 
@@ -803,7 +866,11 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 
 		switch (tc) {
 		case GE_VTYPE_TC_8BIT >> GE_VTYPE_TC_SHIFT:
+#ifdef USE_TC_HACK			
+			decFmt.uvfmt = DEC_FLOAT_2;
+#else
 			decFmt.uvfmt = throughmode ? DEC_U8A_2 : DEC_U8_2;
+#endif
 			break;
 		case GE_VTYPE_TC_16BIT >> GE_VTYPE_TC_SHIFT:
 			decFmt.uvfmt = throughmode ? DEC_U16A_2 : DEC_U16_2;
@@ -848,7 +915,8 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		if (morphcount == 1) {
 			// The normal formats match the gl formats perfectly, let's use 'em.
 			switch (nrm) {
-			case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
+			//case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S8_3; break;
+				case GE_VTYPE_NRM_8BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
 			case GE_VTYPE_NRM_16BIT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_S16_3; break;
 			case GE_VTYPE_NRM_FLOAT >> GE_VTYPE_NRM_SHIFT: decFmt.nrmfmt = DEC_FLOAT_3; break;
 			}
@@ -878,7 +946,8 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 			if (morphcount == 1) {
 				// The non-through-mode position formats match the gl formats perfectly, let's use 'em.
 				switch (pos) {
-				case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
+				//case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S8_3; break;
+				case GE_VTYPE_POS_8BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
 				case GE_VTYPE_POS_16BIT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_S16_3; break;
 				case GE_VTYPE_POS_FLOAT >> GE_VTYPE_POS_SHIFT: decFmt.posfmt = DEC_FLOAT_3; break;
 				}

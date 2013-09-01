@@ -108,11 +108,11 @@ void ComputeVertexShaderID(VertexShaderID *id, int prim, bool useHWTransform) {
 
 static const char * const boneWeightAttrDecl[9] = {	
 	"#ERROR#",
-	"float a_w1:BLENDWEIGHT0;\n",
+	"float a_w1 :BLENDWEIGHT0;\n",
 	"float2 a_w1:BLENDWEIGHT0;\n",
 	"float3 a_w1:BLENDWEIGHT0;\n",
 	"float4 a_w1:BLENDWEIGHT0;\n",
-	"float4 a_w1:BLENDWEIGHT0;\n float a_w2:BLENDWEIGHT1;\n",
+	"float4 a_w1:BLENDWEIGHT0;\n float a_w2 :BLENDWEIGHT1;\n",
 	"float4 a_w1:BLENDWEIGHT0;\n float2 a_w2:BLENDWEIGHT1;\n",
 	"float4 a_w1:BLENDWEIGHT0;\n float3 a_w2:BLENDWEIGHT1;\n",
 	"float4 a_w1:BLENDWEIGHT0;\n float4 a_w2:BLENDWEIGHT1;\n",
