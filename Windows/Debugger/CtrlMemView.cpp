@@ -447,7 +447,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				if (asciiSelected)
 				{
 					unsigned char c = Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : '.';
-					if (c < 32) c = '.';
+					if (c < 32|| c >= 128) c = '.';
 					sprintf(temp,"%c",c);
 				} else {
 					sprintf(temp,"%02X",Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : 0xFF);
