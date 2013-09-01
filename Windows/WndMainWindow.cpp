@@ -21,6 +21,7 @@
 #include "Common/CommonWindows.h"
 
 #include <map>
+#include <string>
 
 #include "base/NativeApp.h"
 #include "Globals.h"
@@ -104,7 +105,7 @@ namespace MainWindow
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static int currentSavestateSlot = 0;
-	static bool menusAreTranslated = false;
+	static std::map<int, std::string> initialMenuKeys;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
@@ -255,6 +256,13 @@ namespace MainWindow
 		return retVal;
 	}
 
+	const std::string &GetMenuItemInitialText(const int menuID) {
+		if (initialMenuKeys.find(menuID) == initialMenuKeys.end()) {
+			initialMenuKeys[menuID] = GetMenuItemText(menuID);
+		}
+		return initialMenuKeys[menuID];
+	}
+
 	// These are used as an offset
 	// to determine which menu item to change.
 	// Make sure to count(from 0) the separators too, when dealing with submenus!!
@@ -309,7 +317,7 @@ namespace MainWindow
 
 	void TranslateMenuItem(const int menuID, const char *category, const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
 		I18NCategory *c = GetI18NCategory(category);
-		std::string key = c->T(GetMenuItemText(menuID).c_str());
+		std::string key = c->T(GetMenuItemInitialText(menuID).c_str());
 		std::wstring translated = ConvertUTF8ToWString(key);
 		translated.append(accelerator);
 		ModifyMenu(menu, menuID, MF_STRING 
@@ -319,9 +327,6 @@ namespace MainWindow
 	}
 
 	void TranslateMenus() {
-		if(menusAreTranslated) return;
-		menusAreTranslated = true;
-
 		const char *desktopUI = "DesktopUI";
 
 		// File menu
@@ -1417,6 +1422,11 @@ namespace MainWindow
 				EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_ENABLED);
 			else
 				EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_GRAYED);
+			break;
+
+		case WM_USER_UPDATE_UI:
+			TranslateMenus();
+			Update();
 			break;
 
 		case WM_MENUSELECT:

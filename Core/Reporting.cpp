@@ -236,14 +236,38 @@ namespace Reporting
 		return 0;
 	}
 
+	bool IsSupported()
+	{
+		// Disabled when using certain hacks, because they make for poor reports.
+		// TODO: Numbers to avoid dependency on GLES code.
+		if (g_Config.iRenderingMode == 2 || g_Config.iRenderingMode == 3)
+			return false;
+		return true;
+	}
+
 	bool IsEnabled()
 	{
-		if (g_Config.sReportHost.empty())
+		if (g_Config.sReportHost.empty() || !IsSupported())
 			return false;
 		// Disabled by default for now.
 		if (g_Config.sReportHost.compare("default") == 0)
 			return false;
 		return true;
+	}
+
+	void Enable(bool flag, std::string host)
+	{
+		if (IsSupported() && IsEnabled() != flag)
+		{
+			// "" means explicitly disabled.  Don't ever turn on by default.
+			// "default" means it's okay to turn it on by default.
+			g_Config.sReportHost = flag ? host : "";
+		}
+	}
+
+	void EnableDefault()
+	{
+		g_Config.sReportHost = "default";
 	}
 
 	void ReportMessage(const char *message, ...)
