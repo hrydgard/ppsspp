@@ -175,8 +175,12 @@ void TextureCache::ClearNextFrame() {
 
 template <typename T>
 inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
-	entry->framebuffer = framebuffer;
-	entry->invalidHint = 0;
+	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
+	const bool hasOlderFramebuffer = entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
+	if (hasInvalidFramebuffer || hasOlderFramebuffer) {
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = 0;
+	}
 }
 
 template <typename T>
@@ -191,7 +195,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
 		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
-		if (!entry->framebuffer) {
+		if (!entry->framebuffer || entry->invalidHint == -1) {
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
@@ -241,12 +245,17 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
 	case NOTIFY_FB_UPDATED:
+		// Ensure it's in the framebuffer cache.
+		if (std::find(fbCache_.begin(), fbCache_.end(), framebuffer) == fbCache_.end()) {
+			fbCache_.push_back(framebuffer);
+		}
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
 			AttachFramebuffer(&it->second, address | 0x04000000, framebuffer, it->first == cacheKey);
 		}
 		break;
 
 	case NOTIFY_FB_DESTROYED:
+		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(),  framebuffer), fbCache_.end());
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
 			DetachFramebuffer(&it->second, address | 0x04000000, framebuffer);
 		}
@@ -969,6 +978,34 @@ bool SetDebugTexture() {
 }
 #endif
 
+void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
+{
+	entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	if (useBufferedRendering) {
+		// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
+		// But let's still not use random memory.
+		if (entry->framebuffer->fbo && entry->invalidHint != -1) {
+			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+			// Keep the framebuffer alive.
+			// TODO: Dangerous if it sets a new one?
+			entry->framebuffer->last_frame_used = gpuStats.numFlips;
+		} else {
+			glBindTexture(GL_TEXTURE_2D, 0);
+			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
+		}
+		UpdateSamplingParams(*entry, false);
+		gstate_c.curTextureWidth = entry->framebuffer->width;
+		gstate_c.curTextureHeight = entry->framebuffer->height;
+		gstate_c.flipTexture = true;
+		gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
+	} else {
+		if (entry->framebuffer->fbo)
+			entry->framebuffer->fbo = 0;
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+}
+
 void TextureCache::SetTexture() {
 #ifdef DEBUG_TEXTURES
 	if (SetDebugTexture()) {
@@ -1026,26 +1063,7 @@ void TextureCache::SetTexture() {
 		entry = &iter->second;
 		// Check for FBO - slow!
 		if (entry->framebuffer) {
-			entry->framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-			if (useBufferedRendering) {
-				// For now, let's not bind FBOs that we know are off (invalidHint will be -1.)
-				// But let's still not use random memory.
-				if (entry->framebuffer->fbo && entry->invalidHint != -1) {
-					fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
-				} else {
-					glBindTexture(GL_TEXTURE_2D, 0);
-					gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
-				}
-				UpdateSamplingParams(*entry, false);
-				gstate_c.curTextureWidth = entry->framebuffer->width;
-				gstate_c.curTextureHeight = entry->framebuffer->height;
-				gstate_c.flipTexture = true;
-				gstate_c.textureFullAlpha = entry->framebuffer->format == GE_FORMAT_565;
-			} else {
-				if (entry->framebuffer->fbo)
-					entry->framebuffer->fbo = 0;
-				glBindTexture(GL_TEXTURE_2D, 0);
-			}
+			SetTextureFramebuffer(entry);
 			lastBoundTexture = -1;
 			entry->lastFrame = gpuStats.numFlips;
 			return;
@@ -1190,6 +1208,31 @@ void TextureCache::SetTexture() {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+
+	// Before we go reading the texture from memory, let's check for render-to-texture.
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		// This is a rough heuristic, because sometimes our framebuffers are too tall.
+		static const u32 MAX_SUBAREA_Y_OFFSET = 32;
+
+		// Must be in VRAM so | 0x04000000 it is.
+		const u64 cacheKeyStart = (u64)(framebuffer->fb_address | 0x04000000) << 32;
+		// If it has a clut, those are the low 32 bits, so it'll be inside this range.
+		// Also, if it's a subsample of the buffer, it'll also be within the FBO.
+		const u64 cacheKeyEnd = cacheKeyStart + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
+
+		if (cachekey >= cacheKeyStart && cachekey < cacheKeyEnd) {
+			AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, cachekey == cacheKeyStart);
+		}
+	}
+
+	// If we ended up with a framebuffer, attach it - no texture decoding needed.
+	if (entry->framebuffer) {
+		SetTextureFramebuffer(entry);
+		lastBoundTexture = -1;
+		entry->lastFrame = gpuStats.numFlips;
+		return;
+	}
 
 	if (!replaceImages) {
 		glGenTextures(1, &entry->texture);
