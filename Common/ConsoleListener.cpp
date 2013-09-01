@@ -73,7 +73,7 @@ ConsoleListener::~ConsoleListener()
 	Close();
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_XBOX)
 // Handle console event
 bool WINAPI ConsoleHandler(DWORD msgType)
 {

@@ -601,15 +601,21 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 	// TODO: Handler files that are virtual might not be listed.
 
 	std::string w32path = GetLocalPath(path) + "\\*.*";
-
+#ifdef UNICODE
 	hFind = FindFirstFile(ConvertUTF8ToWString(w32path).c_str(), &findData);
-
+#else
+	hFind = FindFirstFile(w32path.c_str(), &findData);
+#endif
 	if (hFind == INVALID_HANDLE_VALUE) {
 		return myVector; //the empty list
 	}
 
 	for (BOOL retval = 1; retval; retval = FindNextFile(hFind, &findData)) {
+#ifdef UNICODE
 		if (!wcscmp(findData.cFileName, L"..") || !wcscmp(findData.cFileName, L".")) {
+#else
+		if (!strcmp(findData.cFileName, "..") || !strcmp(findData.cFileName, ".")) {
+#endif
 			continue;
 		}
 
@@ -622,7 +628,11 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 
 		entry.access = FILEACCESS_READ;
 		entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
+#ifdef UNICODE
 		entry.name = ConvertWStringToUTF8(findData.cFileName);
+#else
+		entry.name = findData.cFileName;
+#endif
 		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
 		tmFromFiletime(entry.ctime, findData.ftCreationTime);
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
@@ -735,7 +745,11 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogTy
 
 VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys) {
 #ifdef _WIN32
+#ifdef UNICODE
 #define dlopen(name, ignore) (void *)LoadLibrary(ConvertUTF8ToWString(name).c_str())
+#else
+#define dlopen(name, ignore) (void *)LoadLibrary(name)
+#endif
 #define dlsym(mod, name) GetProcAddress((HMODULE)mod, name)
 #define dlclose(mod) FreeLibrary((HMODULE)mod)
 #endif
