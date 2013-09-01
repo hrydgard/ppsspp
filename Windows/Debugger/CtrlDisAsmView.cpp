@@ -314,7 +314,8 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 			MIPSComp::jit->ClearCacheAt(address - 4, 8);
 		redraw();
 	} else {
-		MessageBox(wnd,L"Couldn't assemble.",L"Error",MB_OK);
+		std::wstring error = ConvertUTF8ToWString(MIPSAsm::GetAssembleError());
+		MessageBox(wnd,error.c_str(),L"Error",MB_OK);
 	}
 }
 

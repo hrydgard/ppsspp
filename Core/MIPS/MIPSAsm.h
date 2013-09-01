@@ -39,4 +39,6 @@ private:
 	u32 encoding;
 };
 
+char* GetAssembleError();
+
 }

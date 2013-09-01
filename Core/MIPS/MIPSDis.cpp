@@ -252,9 +252,9 @@ namespace MIPSDis
 		if (rs==0 && rt==0)
 			sprintf(out,"li\t%s, 0",RN(rd));
 		else if (rs == 0)
-			sprintf(out,"mov\t%s, %s",RN(rd),RN(rt));
+			sprintf(out,"move\t%s, %s",RN(rd),RN(rt));
 		else if (rt == 0)
-			sprintf(out,"mov\t%s, %s",RN(rd),RN(rs));
+			sprintf(out,"move\t%s, %s",RN(rd),RN(rs));
 		else
 			sprintf(out, "%s\t%s, %s, %s",name,RN(rd),RN(rs),RN(rt));
 	}
