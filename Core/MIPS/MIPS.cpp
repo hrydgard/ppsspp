@@ -230,6 +230,13 @@ u32 MIPSState::ReadFCR(int reg)
 	return 0;
 }
 
+void MIPSState::InvalidateICache(u32 address, int length)
+{
+	// Only really applies to jit.
+	if (MIPSComp::jit)
+		MIPSComp::jit->ClearCacheAt(address, length);
+}
+
 
 // Interrupts should be served directly on the running thread.
 void MIPSState::Irq()

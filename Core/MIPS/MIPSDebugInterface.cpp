@@ -121,7 +121,7 @@ const char *MIPSDebugInterface::disasm(unsigned int address, unsigned int align)
 }
 unsigned int MIPSDebugInterface::readMemory(unsigned int address)
 {
-	return Memory::Read_U32(address);
+	return Memory::Read_Instruction(address).encoding;
 }
 
 bool MIPSDebugInterface::isAlive()

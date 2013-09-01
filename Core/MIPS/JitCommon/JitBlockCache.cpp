@@ -31,6 +31,7 @@
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -221,7 +222,10 @@ int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst) const {
 	int off = (inst & MIPS_EMUHACK_VALUE_MASK);
 
 	const u8 *baseoff = codeBlock_->GetBasePtr() + off;
-	return binary_search(blocks, baseoff, 0, num_blocks-1);
+	int bl = binary_search(blocks, baseoff, 0, num_blocks-1);
+	if (blocks[bl].invalid)
+		return -1;
+	return bl;
 }
 
 MIPSOpcode JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
@@ -327,7 +331,7 @@ void JitBlockCache::UnlinkBlock(int i)
 void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 {
 	if (block_num < 0 || block_num >= num_blocks) {
-		ERROR_LOG(JIT, "DestroyBlock: Invalid block number %d", block_num);
+		ERROR_LOG_REPORT(JIT, "DestroyBlock: Invalid block number %d", block_num);
 		return;
 	}
 	JitBlock &b = blocks[block_num];
@@ -339,7 +343,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate)
 	b.invalid = true;
 	if (Memory::ReadUnchecked_U32(b.originalAddress) == GetEmuHackOpForBlock(block_num).encoding)
 		Memory::Write_Opcode_JIT(b.originalAddress, b.originalFirstOpcode);
-	b.normalEntry = 0;
+	// It's not safe to set normalEntry to 0 here, since we use a binary search.
 
 	UnlinkBlock(block_num);
 
@@ -380,6 +384,7 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length)
 
 	// destroy JIT blocks
 	// !! this works correctly under assumption that any two overlapping blocks end at the same address
+	// TODO: This may not be a safe assumption with jit continuing enabled.
 	std::map<pair<u32,u32>, u32>::iterator it1 = block_map.lower_bound(std::make_pair(pAddr, 0)), it2 = it1;
 	while (it2 != block_map.end() && it2->first.second < pAddr + length) {
 		DestroyBlock(it2->second, true);
