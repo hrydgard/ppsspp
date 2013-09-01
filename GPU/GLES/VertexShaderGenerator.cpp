@@ -229,14 +229,13 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 				WRITE(p, "uniform vec3 u_lightpos%i;\n", i);
 			}
 			if (doLight[i] == LIGHT_FULL) {
-				// These are needed for the full thing
-				WRITE(p, "uniform mediump vec3 u_lightdir%i;\n", i);
 				GELightType type = gstate.getLightType(i);
 
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					WRITE(p, "uniform mediump vec3 u_lightatt%i;\n", i);
 
 				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) { 
+					WRITE(p, "uniform mediump vec3 u_lightdir%i;\n", i);
 					WRITE(p, "uniform mediump float u_lightangle%i;\n", i);
 					WRITE(p, "uniform mediump float u_lightspotCoef%i;\n", i);
 				}
@@ -449,6 +448,10 @@ void GenerateVertexShader(int prim, char *buffer, bool useHWTransform) {
 
 			if (poweredDiffuse) {
 				WRITE(p, "  mediump float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i);
+				// Ugly NaN check.  pow(0.0, 0.0) may be undefined, but PSP seems to treat it as 1.0.
+				// Seen in Tales of the World: Radiant Mythology (#2424.)
+				WRITE(p, "  if (!(dot%i < 1.0) && !(dot%i > 0.0))\n", i, i);
+				WRITE(p, "    dot%i = 1.0;\n", i);
 			} else {
 				WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
 			}
