@@ -241,12 +241,17 @@ void TextureCache::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffe
 	switch (msg) {
 	case NOTIFY_FB_CREATED:
 	case NOTIFY_FB_UPDATED:
+		// Ensure it's in the framebuffer cache.
+		if (std::find(fbCache_.begin(), fbCache_.end(), framebuffer) == fbCache_.end()) {
+			fbCache_.push_back(framebuffer);
+		}
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
 			AttachFramebuffer(&it->second, address | 0x04000000, framebuffer, it->first == cacheKey);
 		}
 		break;
 
 	case NOTIFY_FB_DESTROYED:
+		fbCache_.erase(std::remove(fbCache_.begin(), fbCache_.end(),  framebuffer), fbCache_.end());
 		for (auto it = cache.lower_bound(cacheKey), end = cache.upper_bound(cacheKeyEnd); it != end; ++it) {
 			DetachFramebuffer(&it->second, address | 0x04000000, framebuffer);
 		}
@@ -1199,6 +1204,31 @@ void TextureCache::SetTexture() {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+
+	// Before we go reading the texture from memory, let's check for render-to-texture.
+	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
+		auto framebuffer = fbCache_[i];
+		// This is a rough heuristic, because sometimes our framebuffers are too tall.
+		static const u32 MAX_SUBAREA_Y_OFFSET = 32;
+
+		// Must be in VRAM so | 0x04000000 it is.
+		const u64 cacheKeyStart = (u64)(framebuffer->fb_address | 0x04000000) << 32;
+		// If it has a clut, those are the low 32 bits, so it'll be inside this range.
+		// Also, if it's a subsample of the buffer, it'll also be within the FBO.
+		const u64 cacheKeyEnd = cacheKeyStart + ((u64)(framebuffer->fb_stride * MAX_SUBAREA_Y_OFFSET) << 32);
+
+		if (cachekey >= cacheKeyStart && cachekey < cacheKeyEnd) {
+			AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, cachekey == cacheKeyStart);
+		}
+
+		// If we ended up with a framebuffer, attach it - no memory needed.
+		if (entry->framebuffer) {
+			SetTextureFramebuffer(entry);
+			lastBoundTexture = -1;
+			entry->lastFrame = gpuStats.numFlips;
+			return;
+		}
+	}
 
 	if (!replaceImages) {
 		glGenTextures(1, &entry->texture);

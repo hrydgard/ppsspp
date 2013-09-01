@@ -133,6 +133,7 @@ private:
 	typedef std::map<u64, TexCacheEntry> TexCache;
 	TexCache cache;
 	TexCache secondCache;
+	std::vector<VirtualFramebuffer *> fbCache_;
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;
