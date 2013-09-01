@@ -40,11 +40,16 @@ class CtrlMemView
 	bool ctrlDown;
 
 	int visibleRows;
+	
+	std::string searchQuery;
+	int matchAddress;
+	bool searching;
 
 	bool hasFocus;
 	static wchar_t szClassName[];
 	DebugInterface *debugger;
 	void updateStatusBarText();
+	void search(bool continueSearch);
 public:
 	CtrlMemView(HWND _wnd);
 	~CtrlMemView();
