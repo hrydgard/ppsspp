@@ -72,7 +72,8 @@ IdentifiedFileType Identify_File(std::string &filename)
 	}
 
 
-	// First, check if it's a directory with an EBOOT.PBP in it.	if (info.isDirectory) {
+	// First, check if it's a directory with an EBOOT.PBP in it.
+	if (info.isDirectory) {
 		if (filename.size() > 4) {
 			FileInfo ebootInfo;
 			// Check for existence of EBOOT.PBP, as required for "Directory games".
