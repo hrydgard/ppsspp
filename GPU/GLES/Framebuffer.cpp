@@ -372,7 +372,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_ && v->width >= 480) {
 			// Could check w too but whatever
-			if (match == NULL || match->last_frame_used < v->last_frame_used) {
+			if (match == NULL || match->last_frame_render < v->last_frame_render) {
 				match = v;
 			}
 		}
@@ -457,7 +457,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
-		currentRenderVfb_->last_frame_used = gpuStats.numFlips;
+		currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 		currentRenderVfb_->dirtyAfterDisplay = true;
 		if (!gstate_c.skipDrawReason)
 			currentRenderVfb_->reallyDirtyAfterDisplay = true;
@@ -570,7 +570,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		ClearBuffer();
@@ -593,7 +593,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
@@ -637,13 +637,13 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_used != gpuStats.numFlips)	{
+		if (vfb->last_frame_render != gpuStats.numFlips)	{
 			ClearBuffer();
 		}
 #endif
 		currentRenderVfb_ = vfb;
 	} else {
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
@@ -785,14 +785,14 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 				return;
 			}
 
-			nvfb->last_frame_used = gpuStats.numFlips;
+			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 			fbo_bind_as_render_target(nvfb->fbo); 
 			ClearBuffer();
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-			nvfb->last_frame_used = gpuStats.numFlips;
+			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
 #ifdef USING_GLES2
@@ -802,7 +802,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			// to it. This broke stuff before, so now it only clears on the first use of an
 			// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 			// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-			if (nvfb->last_frame_used != gpuStats.numFlips)	{
+			if (nvfb->last_frame_render != gpuStats.numFlips)	{
 				ClearBuffer();
 			}
 #endif
@@ -1198,7 +1198,7 @@ void FramebufferManager::DecimateFBOs() {
 #endif
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		int age = frameLastFramebufUsed - vfb->last_frame_used;
+		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if(useMem && age == 0 && !vfb->memoryUpdated) { 
 			ReadFramebufferToMemory(vfb);
@@ -1218,7 +1218,7 @@ void FramebufferManager::DecimateFBOs() {
 	// Do the same for ReadFramebuffersToMemory's VFBs
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = bvfbs_[i];
-		int age = frameLastFramebufUsed - vfb->last_frame_used;
+		int age = frameLastFramebufUsed - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			DestroyFramebuf(vfb);
