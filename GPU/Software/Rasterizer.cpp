@@ -15,11 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../../Core/MemMap.h"
-#include "../GPUState.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
+#include "GPU/GPUState.h"
 
-#include "Rasterizer.h"
-#include "Colors.h"
+#include "GPU/Software/Rasterizer.h"
+#include "GPU/Software/Colors.h"
 
 extern u8* fb;
 extern u8* depthbuf;
@@ -85,7 +86,7 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 		return DecodeRGBA8888(clut[index + clutSharingOffset]);
 
 	default:
-		ERROR_LOG(G3D, "Unsupported palette format: %x", gstate.getClutPaletteFormat());
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", gstate.getClutPaletteFormat());
 		return 0;
 	}
 }
@@ -145,7 +146,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
 			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
 			} else {
-			ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
+			ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
 			}
 
 			Mat3x3<float> tgen(gstate.tgenMatrix);
@@ -155,7 +156,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 		}
 		break;
 	default:
-		ERROR_LOG(G3D, "Unsupported texture mapping mode %x!", gstate.getUVGenMode());
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture mapping mode %x!", gstate.getUVGenMode());
 		break;
 	}	
 }
@@ -213,7 +214,7 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
 			return LookupColor(gstate.transformClutIndex(val), level);
 		}
 	default:
-		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture format: %x", texfmt);
 		return 0;
 	}
 }
@@ -452,7 +453,9 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unknown texture function %x", gstate.getTextureFunction());
+		ERROR_LOG_REPORT(G3D, "Software: Unknown texture function %x", gstate.getTextureFunction());
+		out_rgb = Vec3<int>::AssignToAll(0);
+		out_a = 0;
 	}
 
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
@@ -551,7 +554,7 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 		return Vec4<int>::FromRGBA(gstate.getFixA()).rgb();
 
 	default:
-		ERROR_LOG(G3D, "Unknown source factor %x", gstate.getBlendFuncA());
+		ERROR_LOG_REPORT(G3D, "Software: Unknown source factor %x", gstate.getBlendFuncA());
 		return Vec3<int>();
 	}
 }
@@ -593,7 +596,7 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 		return Vec4<int>::FromRGBA(gstate.getFixB()).rgb();
 
 	default:
-		ERROR_LOG(G3D, "Unknown dest factor %x", gstate.getBlendFuncB());
+		ERROR_LOG_REPORT(G3D, "Software: Unknown dest factor %x", gstate.getBlendFuncB());
 		return Vec3<int>();
 	}
 }
@@ -629,7 +632,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 						::abs(source_rgb.b() - dst.b()));
 
 	default:
-		ERROR_LOG(G3D, "Unknown blend function %x", gstate.getBlendEq());
+		ERROR_LOG_REPORT(G3D, "Software: Unknown blend function %x", gstate.getBlendEq());
 		return Vec3<int>();
 	}
 }

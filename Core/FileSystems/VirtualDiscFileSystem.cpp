@@ -169,7 +169,7 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 
 		for (int i = 0; i < entryCount; i++)
 		{
-			u32 fd;
+			u32 fd = 0;
 			OpenFileEntry of;
 
 			p.Do(fd);

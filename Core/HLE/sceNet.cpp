@@ -303,7 +303,7 @@ int sceNetAdhocTerm() {
 
 // Probably a void function, but often returns a useful value.
 int sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
-	DEBUG_LOG(HLE, "sceNetEtherNtostr(%s, %x)", macPtr, bufferPtr);
+	DEBUG_LOG(HLE, "sceNetEtherNtostr(%08x, %08x)", macPtr, bufferPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
 		char *buffer = (char *)Memory::GetPointer(bufferPtr);
@@ -330,6 +330,8 @@ static int hex_to_digit(int c) {
 
 // Probably a void function, but sometimes returns a useful-ish value.
 int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
+	DEBUG_LOG(HLE, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
+
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
 		const char *buffer = (char *)Memory::GetPointer(bufferPtr);
 		u8 *mac = Memory::GetPointer(macPtr);

@@ -21,12 +21,16 @@
 #include "DebugInterface.h"
 #include <vector>
 
-// TODO: Replace with expression or something.
 struct BreakPointCond
 {
-	DebugInterface* debug;
+	DebugInterface *debug;
 	PostfixExpression expression;
 	char expressionString[128];
+
+	BreakPointCond() : debug(NULL)
+	{
+		expressionString[0] = '\0';
+	}
 
 	u32 Evaluate()
 	{

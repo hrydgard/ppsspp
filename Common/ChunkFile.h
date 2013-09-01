@@ -246,7 +246,7 @@ public:
 				x.clear();
 				while (number > 0)
 				{
-					K first;
+					K first = K();
 					Do(first);
 					T second = default_val;
 					Do(second);
@@ -283,7 +283,7 @@ public:
 	template<class T>
 	void Do(std::vector<T> &x)
 	{
-		T dv;
+		T dv = T();
 		DoVector(x, dv);
 	}
 
@@ -291,7 +291,7 @@ public:
 	template<class T>
 	void DoPOD(std::vector<T> &x)
 	{
-		T dv;
+		T dv = T();
 		DoVectorPOD(x, dv);
 	}
 
@@ -332,7 +332,7 @@ public:
 	template<class T>
 	void Do(std::deque<T> &x)
 	{
-		T dv;
+		T dv = T();
 		DoDeque(x, dv);
 	}
 
@@ -358,7 +358,7 @@ public:
 	template<class T>
 	void Do(std::list<T> &x)
 	{
-		T dv;
+		T dv = T();
 		DoList(x, dv);
 	}
 
@@ -415,7 +415,7 @@ public:
 				x.clear();
 				while (number-- > 0)
 				{
-					T it;
+					T it = T();
 					Do(it);
 					x.insert(it);
 				}
