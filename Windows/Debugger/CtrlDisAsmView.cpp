@@ -309,7 +309,8 @@ void CtrlDisAsmView::assembleOpcode(u32 address, std::string defaultText)
 	if (result == true)
 	{
 		Memory::Write_U32(encoded,address);
-		MIPSComp::jit->ClearCacheAt(address);
+		if (MIPSComp::jit)
+			MIPSComp::jit->ClearCacheAt(address);
 		redraw();
 	} else {
 		MessageBox(wnd,L"Couldn't assemble.",L"Error",MB_OK);
