@@ -34,6 +34,7 @@
 #include "math/curves.h"
 #include "Core/HW/atrac3plus.h"
 #include "Core/System.h"
+#include "Core/Reporting.h"
 #include "Common/KeyMap.h"
 
 #ifdef _WIN32
@@ -348,7 +349,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
-	enableReports_ = g_Config.sReportHost != "default";
+	enableReports_ = Reporting::IsEnabled();
 //#ifndef ANDROID 
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
@@ -368,7 +369,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
 	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
-	systemSettings->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
+	systemSettings->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")))->SetEnabled(Reporting::IsSupported());
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
 
@@ -456,7 +457,7 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 			Atrac3plus_Decoder::Init();
 		else Atrac3plus_Decoder::Shutdown();
 	}
-	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "default";
+	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	g_Config.Save();
 
 #ifdef _WIN32
@@ -473,7 +474,7 @@ void GlobalSettingsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
-	enableReports_ = g_Config.sReportHost != "";
+	enableReports_ = Reporting::IsEnabled();
 }*/
 
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
