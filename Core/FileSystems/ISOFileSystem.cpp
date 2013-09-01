@@ -662,7 +662,7 @@ void ISOFileSystem::DoState(PointerWrap &p)
 		entries.clear();
 		for (int i = 0; i < n; ++i)
 		{
-			u32 fd;
+			u32 fd = 0;
 			OpenFileEntry of;
 
 			p.Do(fd);

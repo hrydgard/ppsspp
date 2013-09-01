@@ -453,6 +453,8 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 
 	default:
 		ERROR_LOG(G3D, "Unknown texture function %x", gstate.getTextureFunction());
+		out_rgb = Vec3<int>::AssignToAll(0);
+		out_a = 0;
 	}
 
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);

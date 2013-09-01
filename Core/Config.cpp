@@ -263,7 +263,7 @@ void Config::Save() {
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
 	
-		for (int i = 0; i < recentIsos.size(); i++)
+		for (int i = 0; i < (int)recentIsos.size(); i++)
 		{
 			char keyName[64];
 			
