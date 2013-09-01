@@ -46,7 +46,6 @@ protected:
 private:
 	UI::EventReturn OnCheckBox(UI::EventParams &params);
 	
-	bool enableCheat [128];
 	std::vector<std::string> formattedList;
 	std::vector<int> locations;
 	
