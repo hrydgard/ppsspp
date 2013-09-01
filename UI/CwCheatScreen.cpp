@@ -111,15 +111,9 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 	std::vector<std::string> temp = cheatList;
 	enableAll = !enableAll;
 	os.open(activeCheatFile.c_str());
-<<<<<<< HEAD
 	for (int j = 0; j < cheatList.size(); j++) {
 		if (enableAll == 1 && cheatList[j].substr(0, 3) == "_C0"){
 			cheatList[j].replace(0, 3, "_C1");
-=======
-	for (size_t j = 0; j < temp.size(); j++) {
-		if (enableAll == 1 && temp[j].substr(0, 3) == "_C0"){
-			temp[j].replace(0,3,"_C1");
->>>>>>> upstream2/master
 			
 		}
 		else if (enableAll == 0 && cheatList[j].substr(0, 3) == "_C1") {
@@ -131,15 +125,9 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 	for (int y = 0; y < 128; y++) {
 				enableCheat[y] = enableAll;
 			}
-<<<<<<< HEAD
 	for (int i = 0; i < cheatList.size(); i++) {
 		os << cheatList[i];
 		if (i < cheatList.size() - 1) {
-=======
-	for (int i = 0; i < (int)temp.size(); i++) {
-		os << temp[i];
-		if (i < temp.size() - 1) {
->>>>>>> upstream2/master
 			os << "\n";
 		}
 	}
@@ -173,13 +161,6 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 			getline(is, line);
 			title.push_back(line);
 			getline(is, line);
-<<<<<<< HEAD
-
-
-
-=======
-			
->>>>>>> upstream2/master
 			do {
 				if (finished == false){
 					getline(is, line);
@@ -210,7 +191,6 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 		if (finished == true)
 			break;
 	}
-<<<<<<< HEAD
 	is.close();
 	std::string title2;
 	is.open(activeCheatFile.c_str());
@@ -220,8 +200,6 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 	if (title2.substr(0, 2) != "_S") {
 		os << title[0] << "\n" << title[1];
 	}
-=======
->>>>>>> upstream2/master
 	if (newList.size() != 0)
 	{
 		os << "\n";
