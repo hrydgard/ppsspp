@@ -1206,10 +1206,9 @@ void TextureCache::SetTexture() {
 			break;
 		}
 	}
-	
-	// Mipmapping only enable when texture scaling disabled 
-	if (g_Config.bMipMap && g_Config.iTexScalingLevel == 1) { 
-#ifdef USING_GLES2
+
+	if (g_Config.bMipMap) { 
+
 		// GLES2 doesn't have support for a "Max lod" which is critical as PSP games often
 		// don't specify mips all the way down. As a result, we either need to manually generate
 		// the bottom few levels or rely on OpenGL's autogen mipmaps instead, which might not
@@ -1221,13 +1220,13 @@ void TextureCache::SetTexture() {
 		LoadTextureLevel(*entry, 0, replaceImages);
 		if (maxLevel > 0)
 			glGenerateMipmap(GL_TEXTURE_2D);
-#else
+		/*
 		for (int i = 0; i <= maxLevel; i++) {
 			LoadTextureLevel(*entry, i, replaceImages);
 		}
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, maxLevel);
 		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, (float)maxLevel);
-#endif
+		*/
 	} else {
 		LoadTextureLevel(*entry, 0, replaceImages);
 #ifndef USING_GLES2
