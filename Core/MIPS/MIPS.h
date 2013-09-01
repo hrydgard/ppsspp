@@ -17,11 +17,14 @@
 
 #pragma once
 
-#include "../../Globals.h"
-#include "../CPU.h"
+#include "Globals.h"
+#include "Core/MemMap.h"
+#include "Core/CPU.h"
 #include "util/random/rng.h"
 
-enum
+typedef Memory::Opcode MIPSOpcode;
+
+enum MIPSGPReg
 {
 	MIPS_REG_ZERO=0,
 	MIPS_REG_COMPILER_SCRATCH=1,
@@ -53,6 +56,7 @@ enum
 
 	// ID for mipscall "callback" is stored here - from JPCSP
 	MIPS_REG_CALL_ID=MIPS_REG_S0,
+	MIPS_REG_INVALID=-1,
 };
 
 enum
@@ -164,6 +168,8 @@ public:
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
+	// To clear jit caches, etc.
+	void InvalidateICache(u32 address, int length = 4);
 
 	// for logging messages only.
 	const char *DisasmAt(u32 compilerPC);
@@ -177,12 +183,6 @@ extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
 
-void MIPS_Init();
 int MIPS_SingleStep();
-
-void MIPS_Shutdown();
-
-void MIPS_Irq();
-void MIPS_SWI();
 
 extern const float cst_constants[32];

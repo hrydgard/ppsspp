@@ -2,10 +2,27 @@
 #include "stdafx.h"
 #endif
 #include "MIPSAsm.h"
+#include <cstdarg>
 
 namespace MIPSAsm
 {
 	
+char errorMessage[512];
+
+void SetAssembleError(const char* format, ...)
+{
+	va_list args;
+
+	va_start(args,format);
+	vsprintf(errorMessage,format,args);
+	va_end (args);
+}
+
+char* GetAssembleError()
+{
+	return errorMessage;
+}
+
 void SplitLine(const char* Line, char* Name, char* Arguments)
 {
 	while (*Line == ' ' || *Line == '\t') Line++;
@@ -30,7 +47,7 @@ void SplitLine(const char* Line, char* Name, char* Arguments)
 	*Arguments = 0;
 }
 
-bool MipsAssembleOpcode(char* line, DebugInterface* cpu, u32 address, u32& dest)
+bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address, u32& dest)
 {
 	char name[64],args[256];
 	SplitLine(line,name,args);
@@ -51,7 +68,7 @@ bool MipsAssembleOpcode(char* line, DebugInterface* cpu, u32 address, u32& dest)
 	return true;
 }
 
-int MipsGetRegister(char* source, int& RetLen)
+int MipsGetRegister(const char* source, int& RetLen)
 {
 	for (int z = 0; MipsRegister[z].name != NULL; z++)
 	{
@@ -69,7 +86,7 @@ int MipsGetRegister(char* source, int& RetLen)
 	return -1;
 }
 
-int MipsGetFloatRegister(char* source, int& RetLen)
+int MipsGetFloatRegister(const char* source, int& RetLen)
 {
 	for (int z = 0; MipsFloatRegister[z].name != NULL; z++)
 	{
@@ -87,7 +104,7 @@ int MipsGetFloatRegister(char* source, int& RetLen)
 	return -1;
 }
 
-bool MipsCheckImmediate(char* Source, char* Dest, int& RetLen)
+bool MipsCheckImmediate(const char* Source, char* Dest, int& RetLen)
 {
 	int BufferPos = 0;
 	int l;
@@ -166,9 +183,9 @@ bool CMipsInstruction::Load(char* Name, char* Params, int RamPos)
 	{
 		if (paramfail == true)
 		{
-	//		PrintError(ERROR_ERROR,"Parameter failure \"%s\"",Params);
+			SetAssembleError("Parameter failure \"%s\"",Params);
 		} else {
-	//		PrintError(ERROR_ERROR,"Invalid opcode \"%s\"",Name);
+			SetAssembleError("Invalid opcode \"%s\"",Name);
 		}
 	}
 	return false;
@@ -181,7 +198,7 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 	int RetLen;
 	bool Immediate = false;
 
-	char* SourceEncoding = SourceOpcode.encoding;
+	const char *SourceEncoding = SourceOpcode.encoding;
 	char* OriginalLine = Line;
 
 	while (*Line == ' ' || *Line == '\t') Line++;
@@ -301,7 +318,7 @@ bool CMipsInstruction::Validate()
 			
 			if (num > 0x20000 || num < (-0x20000))
 			{
-				//QueueError(ERROR_ERROR,"Branch target %08X out of range",Vars.Immediate);
+				SetAssembleError("Branch target %08X out of range",Vars.Immediate);
 				return false;
 			}
 			Vars.Immediate = num >> 2;
@@ -312,7 +329,7 @@ bool CMipsInstruction::Validate()
 		case MIPS_IMMEDIATE5:
 			if (Vars.Immediate > 0x1F)
 			{
-			//	QueueError(ERROR_ERROR,"Immediate value %02X out of range",Vars.OriginalImmediate);
+				SetAssembleError("Immediate value %02X out of range",Vars.OriginalImmediate);
 				return false;
 			}
 			break;
@@ -321,7 +338,7 @@ bool CMipsInstruction::Validate()
 		case MIPS_IMMEDIATE16:
 			if (abs(Vars.Immediate) > 0x0000FFFF)
 			{
-			//	QueueError(ERROR_ERROR,"Immediate value %04X out of range",Vars.OriginalImmediate);
+				SetAssembleError("Immediate value %04X out of range",Vars.OriginalImmediate);
 				return false;
 			}
 			Vars.Immediate &= 0x0000FFFF;
@@ -329,7 +346,7 @@ bool CMipsInstruction::Validate()
 		case MIPS_IMMEDIATE20:
 			if (abs(Vars.Immediate) > 0x000FFFFF)
 			{
-			//	QueueError(ERROR_ERROR,"Immediate value %08X out of range",Vars.OriginalImmediate);
+				SetAssembleError("Immediate value %08X out of range",Vars.OriginalImmediate);
 				return false;
 			}
 			Vars.Immediate &= 0x000FFFFF;
@@ -337,7 +354,7 @@ bool CMipsInstruction::Validate()
 		case MIPS_IMMEDIATE26:
 			if (abs(Vars.Immediate) > 0x03FFFFFF)
 			{
-		//		QueueError(ERROR_ERROR,"Immediate value %08X out of range",Vars.OriginalImmediate);
+				SetAssembleError("Immediate value %08X out of range",Vars.OriginalImmediate);
 				return false;
 			}
 			Vars.Immediate &= 0x03FFFFFF;

@@ -85,7 +85,7 @@ void __AudioInit() {
 
 	if (g_Config.bLowLatencyAudio) {
 		chanQueueMaxSizeFactor = 1;
-		chanQueueMinSizeFactor = 0;
+		chanQueueMinSizeFactor = 1;
 		hwBlockSize = 16;
 		hostAttemptBlockSize = 256;
 	} else {
@@ -160,10 +160,15 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 			// TODO: Regular multichannel audio seems to block for 64 samples less?  Or enqueue the first 64 sync?
 			int blockSamples = (int)chan.sampleQueue.size() / 2 / chanQueueMinSizeFactor;
 
-			AudioChannelWaitInfo waitInfo = {__KernelGetCurThread(), blockSamples};
-			chan.waitingThreads.push_back(waitInfo);
-			// Also remember the value to return in the waitValue.
-			__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chanNum + 1, ret, 0, false, "blocking audio waited");
+			if (__KernelIsDispatchEnabled()) {
+				AudioChannelWaitInfo waitInfo = {__KernelGetCurThread(), blockSamples};
+				chan.waitingThreads.push_back(waitInfo);
+				// Also remember the value to return in the waitValue.
+				__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chanNum + 1, ret, 0, false, "blocking audio");
+			} else {
+				// TODO: Maybe we shouldn't take this audio after all?
+				ret = SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+			}
 
 			// Fall through to the sample queueing, don't want to lose the samples even though
 			// we're getting full.  The PSP would enqueue after blocking.
@@ -311,7 +316,7 @@ void __AudioUpdate() {
 	}
 
 	if (firstChannel) {
-		memset(mixBuffer, 0, sizeof(mixBuffer));
+		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 	}
 
 	if (g_Config.bEnableSound) {

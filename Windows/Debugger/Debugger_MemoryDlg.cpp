@@ -4,13 +4,15 @@
 #include <windowsx.h>
 #include "..\resource.h"
 
-#include "../../Core/Debugger/SymbolMap.h"
-#include "Debugger_MemoryDlg.h"
+#include "util/text/utf8.h"
 
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/MIPS/MIPSDebugInterface.h" //	BAD
+
+#include "Debugger_MemoryDlg.h"
 #include "CtrlMemView.h"
 #include "DebuggerShared.h"
 
-#include "../../Core/MIPS/MIPSDebugInterface.h" //	BAD
 
 RECT CMemoryDlg::slRect;
 
@@ -47,15 +49,16 @@ LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM 
 
 CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Dialog((LPCSTR)IDD_MEMORY, _hInstance,_hParent)
 {
-  cpu = _cpu;
-	TCHAR temp[256];
-	sprintf(temp,"Memory Viewer - %s",cpu->GetName());
+	cpu = _cpu;
+	wchar_t temp[256];
+	wsprintf(temp,L"Memory Viewer - %S",cpu->GetName());
 	SetWindowText(m_hDlg,temp);
+
 	ShowWindow(m_hDlg,SW_HIDE);
 	CtrlMemView *ptr = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_MEMVIEW));
-  ptr->setDebugger(_cpu);
+	ptr->setDebugger(_cpu);
 
-  Button_SetCheck(GetDlgItem(m_hDlg,IDC_RAM), TRUE);
+	Button_SetCheck(GetDlgItem(m_hDlg,IDC_RAM), TRUE);
 	Button_SetCheck(GetDlgItem(m_hDlg,IDC_MODESYMBOLS), TRUE);
 
 	GetWindowRect(GetDlgItem(m_hDlg,IDC_SYMBOLS),&slRect);
@@ -96,6 +99,7 @@ void CMemoryDlg::NotifyMapLoaded()
     /*
 		for (int i = 0; i < cpu->getMemMap()->numRegions; i++)
 		{
+			// TODO: wchar_t
 			int n = ComboBox_AddString(lb,cpu->getMemMap()->regions[i].name);
 			ComboBox_SetItemData(lb,n,cpu->getMemMap()->regions[i].start);
 		}*/
@@ -147,13 +151,6 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					}
 					break;
 				};
-				break;		
-			case IDC_MODENORMAL:
-				mv->setMode(MV_NORMAL);
-				break;
-			case IDC_MODESYMBOLS:
-				mv->setMode(MV_NORMAL);
-	//			mv->setMode(MV_SYMBOLS);
 				break;
 			}
 		}
@@ -164,12 +161,11 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	case WM_DEB_GOTOADDRESSEDIT:
 	{
 		CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_MEMVIEW));
-		char temp[256];
+		wchar_t temp[256];
 		u32 addr;
 		GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),temp,255);
 
-		if (parseExpression(temp,cpu,addr) == false)
-		{
+		if (parseExpression(ConvertWStringToUTF8(temp).c_str(),cpu,addr) == false) {
 			displayExpressionError(m_hDlg);
 		} else {
 			mv->gotoAddr(addr);

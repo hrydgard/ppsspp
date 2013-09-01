@@ -29,8 +29,8 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
 int sceKernelDelayThreadCB(u32 usec);
-void sceKernelDelaySysClockThread();
-void sceKernelDelaySysClockThreadCB();
+int sceKernelDelaySysClockThread(u32 sysclockAddr);
+int sceKernelDelaySysClockThreadCB(u32 sysclockAddr);
 int sceKernelDeleteThread(int threadHandle);
 void sceKernelExitDeleteThread(int exitStatus);
 void sceKernelExitThread(int exitStatus);
@@ -67,7 +67,7 @@ struct SceKernelSysClock {
 };
 
 
-// TODO: Map these to PSP wait types.
+// TODO: Map these to PSP wait types.  Most of these are wrong.
 // remember to update the waitTypeNames array in sceKernelThread.cpp when changing these
 enum WaitType
 {
@@ -93,6 +93,7 @@ enum WaitType
 	WAITTYPE_MODULE = 19,
 	WAITTYPE_HLEDELAY = 20,
 	WAITTYPE_TLS = 21,
+	WAITTYPE_VMEM = 22,
 
 	NUM_WAITTYPES
 };

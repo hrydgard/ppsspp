@@ -372,7 +372,7 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 		VirtualFramebuffer *v = vfbs_[i];
 		if (MaskedEqual(v->fb_address, displayFramebufPtr_) && v->format == displayFormat_ && v->width >= 480) {
 			// Could check w too but whatever
-			if (match == NULL || match->last_frame_used < v->last_frame_used) {
+			if (match == NULL || match->last_frame_render < v->last_frame_render) {
 				match = v;
 			}
 		}
@@ -395,38 +395,42 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 }
 
 // Heuristics to figure out the size of FBO to create.
-void GuessDrawingSize(int &drawing_width, int &drawing_height) {
+void DrawingSize(int &drawing_width, int &drawing_height) {
 	int default_width = 480; 
 	int default_height = 272;
 	int viewport_width = (int) gstate.getViewportX1(); 
 	int viewport_height = (int) gstate.getViewportY1(); 
-	int region_width = (gstate.getRegionX2() + 1) ;
-	int region_height = (gstate.getRegionY2() + 1) ;
+	int region_width = gstate.getRegionX2() + 1;
+	int region_height = gstate.getRegionY2() + 1;
+	int scissor_width = gstate.getScissorX2() + 1;
+	int scissor_height = gstate.getScissorY2() + 1;
 	int fb_width = gstate.fbwidth & 0x3C0;
 
-	DEBUG_LOG(HLE,"viewport : %ix%i, region : %ix%i, stride: %i", viewport_width,viewport_height, region_width, region_height, fb_width);
+	DEBUG_LOG(HLE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_width, gstate.isModeThrough());
 
-	// In case viewport return as 0x0 like FF Type-0 
+	// Viewport may return 0x0 for example FF Type-0 and we set it to 480x272
 	if (viewport_width <= 1 && viewport_height <=1) {
-			drawing_width = default_width;
-			drawing_height = default_height;
-	}
+		viewport_width = default_width;
+		viewport_height = default_height;
+	} 
 
-	if (fb_width < 512) {
-		if (fb_width != viewport_width) {
+	if (fb_width > 0 && fb_width < 512) {
+		// Correct scissor size has to be used to render like character shadow in Mortal Kombat .
+		if (fb_width == scissor_width && region_width != scissor_width) { 
+			drawing_width = scissor_width;
+			drawing_height = scissor_height;
+		} else {
 			drawing_width = viewport_width;
 			drawing_height = viewport_height;
-		} else {
-			drawing_width = region_width;
-			drawing_height = region_height;
 		}
 	} else {
-		if (fb_width != region_width) {
-			drawing_width = default_width;
-			drawing_height = default_height;
-		} else {
+		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
+		if (fb_width == region_width && region_width != scissor_width) { 
 			drawing_width = region_width;
 			drawing_height = region_height;
+		} else {
+			drawing_width = default_width;
+			drawing_height = default_height;
 		}
 	}
 }
@@ -453,7 +457,7 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
-		currentRenderVfb_->last_frame_used = gpuStats.numFlips;
+		currentRenderVfb_->last_frame_render = gpuStats.numFlips;
 		currentRenderVfb_->dirtyAfterDisplay = true;
 		if (!gstate_c.skipDrawReason)
 			currentRenderVfb_->reallyDirtyAfterDisplay = true;
@@ -475,10 +479,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 	
-	GEBufferFormat fmt = static_cast<GEBufferFormat>(gstate.framebufpixformat & 3);
+	GEBufferFormat fmt = gstate.FrameBufFormat();
 
 	int drawing_width, drawing_height;
-	GuessDrawingSize(drawing_width, drawing_height);
+	DrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;
@@ -566,7 +570,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 
 		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfbs_.push_back(vfb);
 		ClearBuffer();
@@ -589,7 +593,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		DEBUG_LOG(HLE, "Switching render target to FBO for %08x: %i x %i x %i ", vfb->fb_address, vfb->width, vfb->height, vfb->format);
 		vfb->usageFlags |= FB_USAGE_RENDERTARGET;
 		gstate_c.textureChanged = true;
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
@@ -633,13 +637,13 @@ void FramebufferManager::SetRenderFrameBuffer() {
 		// to it. This broke stuff before, so now it only clears on the first use of an
 		// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 		// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-		if (vfb->last_frame_used != gpuStats.numFlips)	{
+		if (vfb->last_frame_render != gpuStats.numFlips)	{
 			ClearBuffer();
 		}
 #endif
 		currentRenderVfb_ = vfb;
 	} else {
-		vfb->last_frame_used = gpuStats.numFlips;
+		vfb->last_frame_render = gpuStats.numFlips;
 		frameLastFramebufUsed = gpuStats.numFlips;
 		vfb->dirtyAfterDisplay = true;
 		if ((gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
@@ -781,14 +785,14 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 				return;
 			}
 
-			nvfb->last_frame_used = gpuStats.numFlips;
+			nvfb->last_frame_render = gpuStats.numFlips;
 			bvfbs_.push_back(nvfb);
 			fbo_bind_as_render_target(nvfb->fbo); 
 			ClearBuffer();
 			glEnable(GL_DITHER);
 		} else {
 			nvfb->usageFlags |= FB_USAGE_RENDERTARGET;
-			nvfb->last_frame_used = gpuStats.numFlips;
+			nvfb->last_frame_render = gpuStats.numFlips;
 			nvfb->dirtyAfterDisplay = true;
 
 #ifdef USING_GLES2
@@ -798,7 +802,7 @@ void FramebufferManager::ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool s
 			// to it. This broke stuff before, so now it only clears on the first use of an
 			// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 			// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
-			if (nvfb->last_frame_used != gpuStats.numFlips)	{
+			if (nvfb->last_frame_render != gpuStats.numFlips)	{
 				ClearBuffer();
 			}
 #endif
@@ -1194,7 +1198,7 @@ void FramebufferManager::DecimateFBOs() {
 #endif
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		int age = frameLastFramebufUsed - vfb->last_frame_used;
+		int age = frameLastFramebufUsed - std::max(vfb->last_frame_render, vfb->last_frame_used);
 
 		if(useMem && age == 0 && !vfb->memoryUpdated) { 
 			ReadFramebufferToMemory(vfb);
@@ -1214,7 +1218,7 @@ void FramebufferManager::DecimateFBOs() {
 	// Do the same for ReadFramebuffersToMemory's VFBs
 	for (size_t i = 0; i < bvfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = bvfbs_[i];
-		int age = frameLastFramebufUsed - vfb->last_frame_used;
+		int age = frameLastFramebufUsed - vfb->last_frame_render;
 		if (age > FBO_OLD_AGE) {
 			INFO_LOG(HLE, "Decimating FBO for %08x (%i x %i x %i), age %i", vfb->fb_address, vfb->width, vfb->height, vfb->format, age)
 			DestroyFramebuf(vfb);

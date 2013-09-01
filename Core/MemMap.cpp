@@ -122,9 +122,9 @@ void Clear()
 		memset(m_pVRAM, 0, VRAM_SIZE);
 }
 
-u32 Read_Instruction(u32 address)
+Opcode Read_Instruction(u32 address)
 {
-	u32 inst = Read_U32(address);	
+	Opcode inst = Opcode(Read_U32(address));
 	if (MIPS_IS_EMUHACK(inst) && MIPSComp::jit)
 	{
 		JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
@@ -139,16 +139,16 @@ u32 Read_Instruction(u32 address)
 	}
 }
 
-u32 Read_Opcode_JIT(u32 address)
+Opcode Read_Opcode_JIT(u32 address)
 {
 	return Read_Instruction(address);
 }
 
 // WARNING! No checks!
 // We assume that _Address is cached
-void Write_Opcode_JIT(const u32 _Address, const u32 _Value)
+void Write_Opcode_JIT(const u32 _Address, const Opcode _Value)
 {
-	Memory::WriteUnchecked_U32(_Value, _Address);
+	Memory::WriteUnchecked_U32(_Value.encoding, _Address);
 }
 
 void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength)

@@ -217,14 +217,14 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		}
 
 		// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
-#if 1
-		// Fixes some Persona 2 issues, may be correct? (that is, don't change dest alpha at all if blending)
-		// If this doesn't break anything else, it's likely to be right.
-		// I guess an alternative solution would be to simply disable alpha writes if alpha blending is enabled.
-		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, GL_ONE);
-#else
-		glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
-#endif
+		if (!gstate.isStencilTestEnabled()) {
+			// Fixes some Persona 2 issues, may be correct? (that is, don't change dest alpha at all if blending)
+			// If this doesn't break anything else, it's likely to be right.
+			// I guess an alternative solution would be to simply disable alpha writes if alpha blending is enabled.
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, GL_ZERO, glBlendFuncB);
+		} else {
+			glstate.blendFuncSeparate.set(glBlendFuncA, glBlendFuncB, glBlendFuncA, glBlendFuncB);
+		}
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 	}
 
@@ -266,7 +266,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 
 #if !defined(USING_GLES2)
 		// Logic Ops
-		if (gstate.isLogicOpEnabled() && !gstate.isAlphaBlendEnabled()) {
+		if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
 			glstate.colorLogicOp.enable();
 			glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
 		} else
@@ -330,7 +330,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
+	bool throughmode = gstate.isModeThrough();
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();

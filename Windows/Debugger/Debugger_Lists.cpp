@@ -8,10 +8,11 @@
 #include "Windows/main.h"
 #include "BreakpointWindow.h"
 #include "../../Core/HLE/sceKernelThread.h"
+#include "util/text/utf8.h"
 
 typedef struct
 {
-	char* name;
+	wchar_t *name;
 	float size;
 } ListViewColumn;
 
@@ -20,31 +21,31 @@ enum { BPL_TYPE, BPL_OFFSET, BPL_SIZELABEL, BPL_OPCODE, BPL_CONDITION, BPL_HITS,
 enum { SF_ENTRY, SF_ENTRYNAME, SF_CURPC, SF_CUROPCODE, SF_CURSP, SF_FRAMESIZE, SF_COLUMNCOUNT };
 
 ListViewColumn threadColumns[TL_COLUMNCOUNT] = {
-	{ "Name",			0.20f },
-	{ "PC",				0.15f },
-	{ "Entry Point",	0.15f },
-	{ "Priority",		0.15f },
-	{ "State",			0.15f },
-	{ "Wait type",		0.20f }
+	{ L"Name",			0.20f },
+	{ L"PC",				0.15f },
+	{ L"Entry Point",	0.15f },
+	{ L"Priority",		0.15f },
+	{ L"State",			0.15f },
+	{ L"Wait type",		0.20f }
 };
 
 ListViewColumn breakpointColumns[BPL_COLUMNCOUNT] = {
-	{ "Type",			0.12f },
-	{ "Offset",			0.12f },
-	{ "Size/Label",		0.18f },
-	{ "Opcode",			0.28f },
-	{ "Condition",		0.17f },
-	{ "Hits",			0.05f },
-	{ "Enabled",		0.08f }
+	{ L"Type",			0.12f },
+	{ L"Offset",			0.12f },
+	{ L"Size/Label",		0.18f },
+	{ L"Opcode",			0.28f },
+	{ L"Condition",		0.17f },
+	{ L"Hits",			0.05f },
+	{ L"Enabled",		0.08f }
 };
 
 ListViewColumn stackTraceColumns[SF_COLUMNCOUNT] = {
-	{ "Entry",			0.12f },
-	{ "Name",			0.24f },
-	{ "PC",				0.12f },
-	{ "Opcode",			0.28f },
-	{ "SP",				0.12f },
-	{ "Frame Size",		0.12f }
+	{ L"Entry",			0.12f },
+	{ L"Name",			0.24f },
+	{ L"PC",				0.12f },
+	{ L"Opcode",			0.28f },
+	{ L"SP",				0.12f },
+	{ L"Frame Size",		0.12f }
 };
 
 const int POPUP_SUBMENU_ID_BREAKPOINTLIST = 5;
@@ -73,8 +74,7 @@ void CtrlThreadList::setDialogItem(HWND hwnd)
 	GetWindowRect(wnd,&rect);
 
 	int totalListSize = (rect.right-rect.left-20);
-	for (int i = 0; i < TL_COLUMNCOUNT; i++)
-	{
+	for (int i = 0; i < TL_COLUMNCOUNT; i++) {
 		lvc.cx = threadColumns[i].size * totalListSize;
 		lvc.pszText = threadColumns[i].name;
 		ListView_InsertColumn(wnd, i, &lvc);
@@ -201,61 +201,62 @@ void CtrlThreadList::handleNotify(LPARAM lParam)
 		switch (dispInfo->item.iSubItem)
 		{
 		case TL_NAME:
-			strcpy(stringBuffer,threads[index].name);
+			wcscpy(stringBuffer, ConvertUTF8ToWString(threads[index].name).c_str());
 			break;
 		case TL_PROGRAMCOUNTER:
 			switch (threads[index].status)
 			{
 			case THREADSTATUS_DORMANT:
 			case THREADSTATUS_DEAD:
-				sprintf(stringBuffer,"N/A");
+				wcscpy(stringBuffer, L"N/A");
 				break;
 			default:
-				sprintf(stringBuffer,"0x%08X",threads[index].curPC);
+				wsprintf(stringBuffer, L"0x%08X",threads[index].curPC);
 				break;
 			};
 			break;
 		case TL_ENTRYPOINT:
-			sprintf(stringBuffer,"0x%08X",threads[index].entrypoint);
+			wsprintf(stringBuffer,L"0x%08X",threads[index].entrypoint);
 			break;
 		case TL_PRIORITY:
-			sprintf(stringBuffer,"%d",threads[index].priority);
+			wsprintf(stringBuffer,L"%d",threads[index].priority);
 			break;
 		case TL_STATE:
 			switch (threads[index].status)
 			{
 			case THREADSTATUS_RUNNING:
-				strcpy(stringBuffer,"Running");
+				wcscpy(stringBuffer,L"Running");
 				break;
 			case THREADSTATUS_READY:
-				strcpy(stringBuffer,"Ready");
+				wcscpy(stringBuffer,L"Ready");
 				break;
 			case THREADSTATUS_WAIT:
-				strcpy(stringBuffer,"Waiting");
+				wcscpy(stringBuffer,L"Waiting");
 				break;
 			case THREADSTATUS_SUSPEND:
-				strcpy(stringBuffer,"Suspended");
+				wcscpy(stringBuffer,L"Suspended");
 				break;
 			case THREADSTATUS_DORMANT:
-				strcpy(stringBuffer,"Dormant");
+				wcscpy(stringBuffer,L"Dormant");
 				break;
 			case THREADSTATUS_DEAD:
-				strcpy(stringBuffer,"Dead");
+				wcscpy(stringBuffer,L"Dead");
 				break;
 			case THREADSTATUS_WAITSUSPEND:
-				strcpy(stringBuffer,"Waiting/Suspended");
+				wcscpy(stringBuffer,L"Waiting/Suspended");
 				break;
 			default:
-				strcpy(stringBuffer,"Invalid");
+				wcscpy(stringBuffer,L"Invalid");
 				break;
 			}
 			break;
 		case TL_WAITTYPE:
-			strcpy(stringBuffer,getWaitTypeName(threads[index].waitType));
+			wcscpy(stringBuffer, ConvertUTF8ToWString(getWaitTypeName(threads[index].waitType)).c_str());
 			break;
 		}
 
-		if (stringBuffer[0] == 0) strcat(stringBuffer,"Invalid");
+		if (stringBuffer[0] == 0)
+			wcscat(stringBuffer,L"Invalid");
 		dispInfo->item.pszText = stringBuffer;
 	}
 }
@@ -563,95 +564,97 @@ void CtrlBreakpointList::handleNotify(LPARAM lParam)
 		int index = getBreakpointIndex(dispInfo->item.iItem,isMemory);
 		if (index == -1) return;
 		
-		breakpointText[0] = 0;
+		breakpointText = L"";
 		switch (dispInfo->item.iSubItem)
 		{
 		case BPL_TYPE:
 			{
-				if (isMemory)
-				{
-					switch (displayedMemChecks_[index].cond)
-					{
+				if (isMemory) {
+					switch (displayedMemChecks_[index].cond) {
 					case MEMCHECK_READ:
-						strcpy(breakpointText, "Read");
+						breakpointText = L"Read";
 						break;
 					case MEMCHECK_WRITE:
-						strcpy(breakpointText, "Write");
+						breakpointText = L"Write";
 						break;
 					case MEMCHECK_READWRITE:
-						strcpy(breakpointText, "Read/Write");
+						breakpointText = L"Read/Write";
 						break;
 					}
 				} else {
-					strcpy(breakpointText,"Execute");
+					breakpointText = L"Execute";
 				}
 			}
 			break;
 		case BPL_OFFSET:
 			{
-				if (isMemory)
-				{
-					sprintf(breakpointText,"0x%08X",displayedMemChecks_[index].start);
+				wchar_t temp[256];
+				if (isMemory) {
+					wsprintf(temp,L"0x%08X",displayedMemChecks_[index].start);
 				} else {
-					sprintf(breakpointText,"0x%08X",displayedBreakPoints_[index].addr);
+					wsprintf(temp,L"0x%08X",displayedBreakPoints_[index].addr);
 				}
+				breakpointText = temp;
 			}
 			break;
 		case BPL_SIZELABEL:
 			{
-				if (isMemory)
-				{
+				if (isMemory) {
 					auto mc = displayedMemChecks_[index];
-					if (mc.end == 0) sprintf(breakpointText,"0x%08X",1);
-					else sprintf(breakpointText,"0x%08X",mc.end-mc.start);
+					wchar_t temp[256];
+					if (mc.end == 0)
+						wsprintf(temp,L"0x%08X",1);
+					else
+						wsprintf(temp,L"0x%08X",mc.end-mc.start);
+					breakpointText = temp;
 				} else {
 					const char* sym = cpu->findSymbolForAddress(displayedBreakPoints_[index].addr);
 					if (sym != NULL)
 					{
-						strcpy(breakpointText,sym);
+						breakpointText = ConvertUTF8ToWString(sym);
 					} else {
-						strcpy(breakpointText,"-");
+						breakpointText = L"-";
 					}
 				}
 			}
 			break;
 		case BPL_OPCODE:
 			{
-				if (isMemory)
-				{
-					strcpy(breakpointText,"-");
+				if (isMemory) {
+					breakpointText = L"-";
 				} else {
-					disasm->getOpcodeText(displayedBreakPoints_[index].addr,breakpointText);
+					char temp[256];
+					disasm->getOpcodeText(displayedBreakPoints_[index].addr, temp);
+					breakpointText = ConvertUTF8ToWString(temp);
 				}
 			}
 			break;
 		case BPL_CONDITION:
 			{
-				if (isMemory || displayedBreakPoints_[index].hasCond == false)
-				{
-					strcpy(breakpointText,"-");
+				if (isMemory || displayedBreakPoints_[index].hasCond == false) {
+					breakpointText = L"-";
 				} else {
-					strcpy(breakpointText,displayedBreakPoints_[index].cond.expressionString);
+					breakpointText = ConvertUTF8ToWString(displayedBreakPoints_[index].cond.expressionString);
 				}
 			}
 			break;
 		case BPL_HITS:
 			{
-				if (isMemory)
-				{
-					sprintf(breakpointText,"%d",displayedMemChecks_[index].numHits);
+				if (isMemory) {
+					wchar_t temp[256];
+					wsprintf(temp,L"%d",displayedMemChecks_[index].numHits);
+					breakpointText = temp;
 				} else {
-					strcpy(breakpointText,"-");
+					breakpointText = L"-";
 				}
 			}
 			break;
 		case BPL_ENABLED:
 			{
-				if (isMemory)
-				{
-					strcpy(breakpointText,displayedMemChecks_[index].result & MEMCHECK_BREAK ? "True" : "False");
+				if (isMemory) {
+					breakpointText = displayedMemChecks_[index].result & MEMCHECK_BREAK ? L"True" : L"False";
 				} else {
-					strcpy(breakpointText,displayedBreakPoints_[index].enabled ? "True" : "False");
+					breakpointText = displayedBreakPoints_[index].enabled ? L"True" : L"False";
 				}
 			}
 			break;
@@ -659,8 +662,9 @@ void CtrlBreakpointList::handleNotify(LPARAM lParam)
 			return;
 		}
 				
-		if (breakpointText[0] == 0) strcat(breakpointText,"Invalid");
-		dispInfo->item.pszText = breakpointText;
+		if (breakpointText.empty())
+			breakpointText = L"Invalid";
+		dispInfo->item.pszText = &breakpointText[0];
 	}
 }
 
@@ -808,34 +812,37 @@ void CtrlStackTraceView::handleNotify(LPARAM lParam)
 		switch (dispInfo->item.iSubItem)
 		{
 		case SF_ENTRY:
-			sprintf(stringBuffer,"%08X",frames[index].entry);
+			wsprintf(stringBuffer,L"%08X",frames[index].entry);
 			break;
 		case SF_ENTRYNAME:
 			{
 				const char* sym = cpu->findSymbolForAddress(frames[index].entry);
-				if (sym != NULL)
-				{
-					strcpy(stringBuffer,sym);
+				if (sym != NULL) {
+					wcscpy(stringBuffer, ConvertUTF8ToWString(sym).c_str());
 				} else {
-					strcpy(stringBuffer,"-");
+					wcscpy(stringBuffer,L"-");
 				}
 			}
 			break;
 		case SF_CURPC:
-			sprintf(stringBuffer,"%08X",frames[index].pc);
+			wsprintf(stringBuffer,L"%08X",frames[index].pc);
 			break;
 		case SF_CUROPCODE:
-			disasm->getOpcodeText(frames[index].pc,stringBuffer);
+			{
+				char temp[512];
+				disasm->getOpcodeText(frames[index].pc,temp);
+				wcscpy(stringBuffer, ConvertUTF8ToWString(temp).c_str());
+			}
 			break;
 		case SF_CURSP:
-			sprintf(stringBuffer,"%08X",frames[index].sp);
+			wsprintf(stringBuffer,L"%08X",frames[index].sp);
 			break;
 		case SF_FRAMESIZE:
-			sprintf(stringBuffer,"%08X",frames[index].stackSize);
+			wsprintf(stringBuffer,L"%08X",frames[index].stackSize);
 			break;
 		}
 
-		if (stringBuffer[0] == 0) strcat(stringBuffer,"Invalid");
+		if (stringBuffer[0] == 0) wcscat(stringBuffer, L"Invalid");
 		dispInfo->item.pszText = stringBuffer;
 	}
 }

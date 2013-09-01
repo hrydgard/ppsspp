@@ -24,9 +24,12 @@
 // per game.
 class GameSettingsScreen : public UIDialogScreenWithBackground {
 public:
-	GameSettingsScreen(std::string gamePath, std::string gameID = "") : gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
+	GameSettingsScreen(std::string gamePath, std::string gameID = "")
+		: gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
 
 	virtual void update(InputState &input);
+
+	UI::Event OnLanguageChanged;
 
 protected:
 	virtual void CreateViews();
@@ -38,6 +41,7 @@ private:
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
+	UI::CheckBox *enableReportsCheckbox_;
 
 	// Event handlers
 	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
@@ -48,14 +52,17 @@ private:
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
+	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnFactoryReset(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
+	UI::EventReturn OnClearRecents(UI::EventParams &e);
+	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
-	bool enableReports_;
 	int iAlternateSpeedPercent_;
+	bool enableReports_;
 };
 
 /*
@@ -77,6 +84,7 @@ public:
 
 protected:
 	virtual void CreateViews();
+	void CallbackRestoreDefaults(bool yes);
 
 private:
 	UI::EventReturn OnBack(UI::EventParams &e);
@@ -85,6 +93,7 @@ private:
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
+	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 
 	// Temporary variable.
 	bool enableLogging_;

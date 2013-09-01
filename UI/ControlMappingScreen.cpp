@@ -66,7 +66,6 @@ private:
 
 ControlMapper::ControlMapper(int pspKey, std::string keyName, ScreenManager *scrm, UI::LinearLayoutParams *layoutParams)
 	: UI::LinearLayout(UI::ORIENT_VERTICAL, layoutParams), action_(NONE), pspKey_(pspKey), keyName_(keyName), scrm_(scrm), refresh_(false) {
-
 	Refresh();
 }
 
@@ -79,12 +78,33 @@ void ControlMapper::Update(const InputState &input) {
 
 void ControlMapper::Refresh() {
 	Clear();
+	I18NCategory *c = GetI18NCategory("MappableControls");
+
+	std::map<std::string, int> keyImages;
+	keyImages["Circle"] = I_CIRCLE;
+	keyImages["Cross"] = I_CROSS;
+	keyImages["Square"] = I_SQUARE;
+	keyImages["Triangle"] = I_TRIANGLE;
+	keyImages["Start"] = I_START;
+	keyImages["Select"] = I_SELECT;
+	keyImages["L"] = I_L;
+	keyImages["R"] = I_R;
 
 	using namespace UI;
 
 	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	
-	root->Add(new Choice(keyName_, new LinearLayoutParams(200, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+
+	auto iter = keyImages.find(keyName_);
+	// First, look among images.
+	if (iter != keyImages.end()) {
+		root->Add(new Choice(iter->second, new LinearLayoutParams(200, WRAP_CONTENT)))->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+	} else {
+		// No image? Let's translate.
+		Choice *choice = new Choice(c->T(keyName_.c_str()), new LinearLayoutParams(200, WRAP_CONTENT));
+		choice->SetCentered(true);
+		root->Add(choice)->OnClick.Handle(this, &ControlMapper::OnReplaceAll);
+	}
+
 	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	rightColumn->SetSpacing(2.0f);
 	std::vector<KeyDef> mappings;

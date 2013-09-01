@@ -17,15 +17,16 @@
 
 #pragma once
 
-#include "../../Globals.h"
+#include "Globals.h"
+#include "Core/MIPS/MIPS.h"
 
 class DebugInterface;
 
 namespace MIPSAnalyst
 {
-	void Analyze(u32 address);
-	struct RegisterAnalysisResults
-	{
+	const int MIPS_NUM_GPRS = 32;
+
+	struct RegisterAnalysisResults {
 		bool used;
 		int firstRead;
 		int lastRead;
@@ -37,32 +38,56 @@ namespace MIPSAnalyst
 		int readCount;
 		int writeCount;
 		int readAsAddrCount;
-		bool usesVFPU;
 
-		int TotalReadCount() {return readCount + readAsAddrCount;}
-		int FirstRead() {return firstReadAsAddr < firstRead ? firstReadAsAddr : firstRead;}
-		int LastRead() {return lastReadAsAddr > lastRead ? lastReadAsAddr : lastRead;}
+		int TotalReadCount() const { return readCount + readAsAddrCount; }
+		int FirstRead() const { return firstReadAsAddr < firstRead ? firstReadAsAddr : firstRead; }
+		int LastRead() const { return lastReadAsAddr > lastRead ? lastReadAsAddr : lastRead; }
+
+		void MarkRead(u32 addr) {
+			if (firstRead == -1)
+				firstRead = addr;
+			lastRead = addr;
+			readCount++;
+			used = true;
+		}
+
+		void MarkReadAsAddr(u32 addr) {
+			if (firstReadAsAddr == -1)
+				firstReadAsAddr = addr;
+			lastReadAsAddr = addr;
+			readAsAddrCount++;
+			used = true;
+		}
+
+		void MarkWrite(u32 addr) {
+			if (firstWrite == -1)
+				firstWrite = addr;
+			lastWrite = addr;
+			writeCount++;
+			used = true;
+		}
 	};
 
-	struct AnalysisResults
-	{
-		int x;
+	struct AnalysisResults {
+		RegisterAnalysisResults r[MIPS_NUM_GPRS];
 	};
+
+	AnalysisResults Analyze(u32 address);
+
 
 	bool IsRegisterUsed(u32 reg, u32 addr);
 	void ScanForFunctions(u32 startAddr, u32 endAddr);
 	void CompileLeafs();
 
-	std::vector<int> GetInputRegs(u32 op);
-	std::vector<int> GetOutputRegs(u32 op);
+	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op);
+	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op);
 
-	int GetOutReg(u32 op);
-	bool ReadsFromReg(u32 op, u32 reg);
-	bool IsDelaySlotNice(u32 branch, u32 delayslot);
-	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2 = 0);
-	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op);
-	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op);
-	bool IsSyscall(u32 op);
+	MIPSGPReg GetOutGPReg(MIPSOpcode op);
+	bool ReadsFromGPReg(MIPSOpcode op, MIPSGPReg reg);
+	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, MIPSGPReg reg1, MIPSGPReg reg2 = MIPS_REG_ZERO);
+	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op);
+	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op);
+	bool IsSyscall(MIPSOpcode op);
 
 	void Shutdown();
 	
@@ -70,7 +95,7 @@ namespace MIPSAnalyst
 	{
 		DebugInterface* cpu;
 		u32 opcodeAddress;
-		u32 encodedOpcode;
+		MIPSOpcode encodedOpcode;
 		
 		// shared between branches and conditional moves
 		bool isConditional;

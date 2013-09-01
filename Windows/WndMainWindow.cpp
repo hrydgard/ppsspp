@@ -1,4 +1,4 @@
-// Copyright (c) 2012- PPSSPP Project.
+﻿// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -19,9 +19,9 @@
 // It's improving slowly, though. :)
 
 #include "Common/CommonWindows.h"
-#include <tchar.h>
 
 #include <map>
+#include <string>
 
 #include "base/NativeApp.h"
 #include "Globals.h"
@@ -29,8 +29,11 @@
 #include "shellapi.h"
 #include "commctrl.h"
 
+#include "i18n/i18n.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
+#include "util/text/utf8.h"
+
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/OpenGLBase.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
@@ -56,13 +59,11 @@
 #include "Windows/W32Util/Misc.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
-#include "native/image/png_load.h"
 #include "GPU/GLES/TextureScaler.h"
 #include "GPU/GLES/TextureCache.h"
 #include "GPU/GLES/Framebuffer.h"
 #include "ControlMapping.h"
 #include "UI/OnScreenDisplay.h"
-#include "i18n/i18n.h"
 
 #ifdef THEMES
 #include "XPTheme.h"
@@ -104,6 +105,7 @@ namespace MainWindow
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static int currentSavestateSlot = 0;
+	static std::map<int, std::string> initialMenuKeys;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
@@ -138,7 +140,7 @@ namespace MainWindow
 		wcex.hIcon			= LoadIcon(hInstance, (LPCTSTR)IDI_PPSSPP); 
 		wcex.hCursor		= LoadCursor(NULL, IDC_ARROW);
 		wcex.hbrBackground	= (HBRUSH)GetStockObject(BLACK_BRUSH);
-		wcex.lpszMenuName	= (LPCSTR)IDR_MENU1;
+		wcex.lpszMenuName	= (LPCWSTR)IDR_MENU1;
 		wcex.lpszClassName	= szWindowClass;
 		wcex.hIconSm		= (HICON)LoadImage(hInstance, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16,16,LR_SHARED);
 		RegisterClassEx(&wcex);
@@ -235,6 +237,193 @@ namespace MainWindow
 		}
 	}
 
+	std::string GetMenuItemText(int menuID) {
+		MENUITEMINFO menuInfo;
+		memset(&menuInfo, 0, sizeof(menuInfo));
+		menuInfo.cbSize = sizeof(MENUITEMINFO);
+		menuInfo.fMask = MIIM_STRING;
+		menuInfo.dwTypeData = 0;
+
+		std::string retVal;
+		if (GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo) != FALSE) {
+			wchar_t *buffer = new wchar_t[++menuInfo.cch];
+			menuInfo.dwTypeData = buffer;
+			GetMenuItemInfo(menu, menuID, MF_BYCOMMAND, &menuInfo);
+			retVal = ConvertWStringToUTF8(menuInfo.dwTypeData);
+			delete [] buffer;
+		}
+
+		return retVal;
+	}
+
+	const std::string &GetMenuItemInitialText(const int menuID) {
+		if (initialMenuKeys.find(menuID) == initialMenuKeys.end()) {
+			initialMenuKeys[menuID] = GetMenuItemText(menuID);
+		}
+		return initialMenuKeys[menuID];
+	}
+
+	// These are used as an offset
+	// to determine which menu item to change.
+	// Make sure to count(from 0) the separators too, when dealing with submenus!!
+	enum MenuID{
+		// Main menus
+		MENU_FILE = 0,
+		MENU_EMULATION = 1,
+		MENU_DEBUG = 2,
+		MENU_OPTIONS = 3,
+		MENU_HELP = 4,
+
+		// Emulation submenus
+		SUBMENU_RENDERING_BACKEND = 11,
+
+		// Game Settings submenus
+		SUBMENU_RENDERING_RESOLUTION = 4,
+		SUBMENU_RENDERING_MODE = 5,
+		SUBMENU_FRAME_SKIPPING = 6,
+		SUBMENU_TEXTURE_FILTERING = 7,
+		SUBMENU_TEXTURE_SCALING = 8,
+	};
+
+	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string key = c->T(menuText);
+		std::wstring translated = ConvertUTF8ToWString(key);
+		translated.append(accelerator);
+		ModifyMenu(menu, menuID, MF_STRING
+								| (enabled? MF_ENABLED : MF_GRAYED)
+								| (checked? MF_CHECKED : MF_UNCHECKED),
+								menuID, translated.c_str());
+
+	}
+
+	void TranslateMenuHeader(HMENU menu, const char *category, const char *key, const MenuID id, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string s_key = c->T(key);
+		std::wstring translated = ConvertUTF8ToWString(s_key);
+		translated.append(accelerator);
+		ModifyMenu(menu, id, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+	}
+
+	void TranslateSubMenuHeader(HMENU menu, const char *category, const char *key, MenuID mainMenuID, MenuID subMenuID, const std::wstring& accelerator = L"") {
+		HMENU subMenu;
+		subMenu = GetSubMenu(menu, mainMenuID);
+		I18NCategory *c = GetI18NCategory(category);
+		std::string s_key = c->T(key);
+		std::wstring translated = ConvertUTF8ToWString(s_key);
+		translated.append(accelerator);
+		ModifyMenu(subMenu, subMenuID, MF_BYPOSITION | MF_STRING, 0, translated.c_str());
+	}
+
+	void TranslateMenuItem(const int menuID, const char *category, const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
+		I18NCategory *c = GetI18NCategory(category);
+		std::string key = c->T(GetMenuItemInitialText(menuID).c_str());
+		std::wstring translated = ConvertUTF8ToWString(key);
+		translated.append(accelerator);
+		ModifyMenu(menu, menuID, MF_STRING 
+								| (enabled? MF_ENABLED : MF_GRAYED)
+								| (checked? MF_CHECKED : MF_UNCHECKED),
+								menuID, translated.c_str());
+	}
+
+	void TranslateMenus() {
+		const char *desktopUI = "DesktopUI";
+
+		// File menu
+		TranslateMenuItem(ID_FILE_LOAD, desktopUI);
+		TranslateMenuItem(ID_FILE_LOAD_DIR, desktopUI);
+		TranslateMenuItem(ID_FILE_LOAD_MEMSTICK, desktopUI);
+		TranslateMenuItem(ID_FILE_MEMSTICK, desktopUI);
+		TranslateMenuItem(ID_FILE_QUICKLOADSTATE, desktopUI, false, false, L"\tF4");
+		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, desktopUI, false, false, L"\tF2");
+		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI, false, false);
+		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI, false, false);
+		TranslateMenuItem(ID_FILE_EXIT, desktopUI);
+
+		// Emulation menu
+		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
+		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, false, false, L"\tCtrl+W");
+		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
+		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
+		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI, true, true);
+		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, desktopUI, true, false);
+		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI);
+		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, desktopUI, true, true);
+		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, desktopUI);
+		TranslateMenuItem(ID_CPU_DYNAREC, desktopUI);
+		TranslateMenuItem(ID_CPU_MULTITHREADED, desktopUI);
+		TranslateMenuItem(ID_IO_MULTITHREADED, desktopUI);
+
+		// Debug menu
+		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
+		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, desktopUI);
+		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, true, false, L"\tF12");
+		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, true, false, L"\tCtrl+D");
+		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, true, false, L"\tCtrl+L");
+		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
+
+		// Options menu
+		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, true, false, L"\tAlt+Return, F11");
+		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true);
+		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, desktopUI, true, true);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, desktopUI);
+		// Skip frameskipping 2-8..
+		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_OFF, desktopUI);
+		// Skip texture scaling 2x-5x...
+		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, desktopUI, true, true, L"\tF6");
+		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_MIPMAP, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_VSYNC, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_SHOWFPS, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_IGNOREILLEGALREADS, desktopUI);
+
+		// Help menu
+		TranslateMenuItem(ID_HELP_OPENWEBSITE, desktopUI);
+		TranslateMenuItem(ID_HELP_OPENFORUM, desktopUI);
+		TranslateMenuItem(ID_HELP_BUYGOLD, desktopUI);
+		TranslateMenuItem(ID_HELP_ABOUT, desktopUI);
+
+		// Now do the menu headers and a few submenus...
+		TranslateMenuHeader(menu, desktopUI, "File", MENU_FILE);
+		TranslateMenuHeader(menu, desktopUI, "Emulation", MENU_EMULATION);
+		TranslateMenuHeader(menu, desktopUI, "Debugging", MENU_DEBUG);
+		TranslateMenuHeader(menu, desktopUI, "Game Settings", MENU_OPTIONS);
+		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
+
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND);
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
+		TranslateSubMenuHeader(menu, desktopUI, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
+		TranslateSubMenuHeader(menu, desktopUI, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
+		TranslateSubMenuHeader(menu, desktopUI, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
+		TranslateSubMenuHeader(menu, desktopUI, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
+
+		DrawMenuBar(hwndMain);
+	}
+
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
 		if(gpu) gpu->ClearCacheNextFrame();
@@ -321,17 +510,18 @@ namespace MainWindow
 
 		u32 style = WS_OVERLAPPEDWINDOW;
 
-		hwndMain = CreateWindowEx(0,szWindowClass, "", style,
+		hwndMain = CreateWindowEx(0,szWindowClass, L"", style,
 			rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInstance, NULL);
 		if (!hwndMain)
 			return FALSE;
 
-		hwndDisplay = CreateWindowEx(0, szDisplayClass, TEXT(""), WS_CHILD | WS_VISIBLE,
+		hwndDisplay = CreateWindowEx(0, szDisplayClass, L"", WS_CHILD | WS_VISIBLE,
 			rcOrig.left, rcOrig.top, rcOrig.right - rcOrig.left, rcOrig.bottom - rcOrig.top, hwndMain, 0, hInstance, 0);
 		if (!hwndDisplay)
 			return FALSE;
 
 		menu = GetMenu(hwndMain);
+
 #ifdef FINAL
 		RemoveMenu(menu,2,MF_BYPOSITION);
 		RemoveMenu(menu,2,MF_BYPOSITION);
@@ -352,7 +542,7 @@ namespace MainWindow
 
 		hideCursor = true;
 		SetTimer(hwndMain, TIMER_CURSORUPDATE, CURSORUPDATE_INTERVAL_MS, 0);
-
+		
 		Update();
 
 		if(g_Config.bFullScreenOnLaunch)
@@ -381,6 +571,17 @@ namespace MainWindow
 		SetFocus(hwndDisplay);
 
 		return TRUE;
+	}
+
+	void CreateDebugWindows() {
+		disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+		DialogManager::AddDlg(disasmWindow[0]);
+		EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
+		disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
+
+		memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
+		DialogManager::AddDlg(memoryWindow[0]);
+		EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
 	}
 
 	void BrowseAndBoot(std::string defaultPath, bool browseDirectory) {
@@ -414,7 +615,7 @@ namespace MainWindow
 				NativeMessageReceived("boot", dir.c_str());
 			}
 		}
-		else if (W32Util::BrowseForFileName(true, GetHWND(), "Load File", defaultPath.size() ? defaultPath.c_str() : 0, filter.c_str(),"*.pbp;*.elf;*.iso;*.cso;",fn))
+		else if (W32Util::BrowseForFileName(true, GetHWND(), L"Load File", defaultPath.size() ? ConvertUTF8ToWString(defaultPath).c_str() : 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;",fn))
 		{
 			if (globalUIState == UISTATE_INGAME || globalUIState == UISTATE_PAUSEMENU) {
 				Core_EnableStepping(false);
@@ -704,12 +905,9 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_STOP:
-					if (memoryWindow[0]) {
-						SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-					}
-					if (disasmWindow[0]) {
-						SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-					}
+					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
+					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
+
 					if (Core_IsStepping()) {
 						Core_EnableStepping(false);
 					}
@@ -718,13 +916,15 @@ namespace MainWindow
 					break;
 
 				case ID_EMULATION_RESET:
+					if (Core_IsStepping()) {
+						Core_EnableStepping(false);
+					}
+					EnableWindow(disasmWindow[0]->GetDlgHandle(),FALSE);
+					EnableWindow(memoryWindow[0]->GetDlgHandle(),FALSE);
 					NativeMessageReceived("reset", "");
 					break;
 				case ID_EMULATION_CHEATS:
 					NativeMessageReceived("reset", "");
-					break;
-				case ID_EMULATION_SPEEDLIMIT:
-					g_Config.bSpeedLimit = !g_Config.bSpeedLimit;
 					break;
 
 				case ID_EMULATION_RENDER_MODE_OGL:
@@ -736,14 +936,14 @@ namespace MainWindow
 					break;
 
 				case ID_FILE_LOADSTATEFILE:
-					if (W32Util::BrowseForFileName(true, hWnd, "Load state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn)) {
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load state",0,L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0",L"ppst",fn)) {
 						SetCursor(LoadCursor(0, IDC_WAIT));
 						SaveState::Load(fn, SaveStateActionFinished);
 					}
 					break;
 
 				case ID_FILE_SAVESTATEFILE:
-					if (W32Util::BrowseForFileName(false, hWnd, "Save state",0,"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0","ppst",fn)) {
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save state",0,L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0",L"ppst",fn)) {
 						SetCursor(LoadCursor(0, IDC_WAIT));
 						SaveState::Save(fn, SaveStateActionFinished);
 					}
@@ -925,12 +1125,7 @@ namespace MainWindow
 					break;
 
 				case ID_CPU_DYNAREC:
-					g_Config.bJit = true;
-					osm.ShowOnOff(g->T("Dynarec", "Dynarec (JIT)"), g_Config.bJit);
-					break;
-
-				case ID_CPU_INTERPRETER:
-					g_Config.bJit = false;
+					g_Config.bJit = !g_Config.bJit;
 					break;
 
 				case ID_CPU_MULTITHREADED:
@@ -951,7 +1146,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_LOADMAPFILE:
-					if (W32Util::BrowseForFileName(true, hWnd, "Load .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn)) {
+					if (W32Util::BrowseForFileName(true, hWnd, L"Load .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn)) {
 						symbolMap.LoadSymbolMap(fn.c_str());
 
 						if (disasmWindow[0])
@@ -963,7 +1158,7 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_SAVEMAPFILE:
-					if (W32Util::BrowseForFileName(false, hWnd, "Save .MAP",0,"Maps\0*.map\0All files\0*.*\0\0","map",fn))
+					if (W32Util::BrowseForFileName(false, hWnd, L"Save .MAP",0,L"Maps\0*.map\0All files\0*.*\0\0",L"map",fn))
 						symbolMap.SaveSymbolMap(fn.c_str());
 					break;
 		
@@ -980,13 +1175,11 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DISASSEMBLY:
-					if (disasmWindow[0])
-						disasmWindow[0]->Show(true);
+					disasmWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_MEMORYVIEW:
-					if (memoryWindow[0])
-						memoryWindow[0]->Show(true);
+					memoryWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_LOG:
@@ -1045,7 +1238,7 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_CONTROLS:
-					MessageBox(hWnd, "Control mapping has been moved to the in-window Settings menu.\n", "Sorry", 0);
+					MessageBox(hWnd, L"Control mapping has been moved to the in-window Settings menu.\n", L"Sorry", 0);
 					break;
 
 				case ID_EMULATION_SOUND:
@@ -1073,11 +1266,15 @@ namespace MainWindow
 					break;
 
 				case ID_HELP_OPENWEBSITE:
-					ShellExecute(NULL, "open", "http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+					ShellExecute(NULL, L"open", L"http://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+					break;
+
+				case ID_HELP_BUYGOLD:
+					ShellExecute(NULL, L"open", L"http://central.ppsspp.org/buygold", NULL, NULL, SW_SHOWNORMAL);
 					break;
 
 				case ID_HELP_OPENFORUM:
-					ShellExecute(NULL, "open", "http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
+					ShellExecute(NULL, L"open", L"http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
 					break;
 
 				case ID_HELP_ABOUT:
@@ -1091,7 +1288,7 @@ namespace MainWindow
 					break;
 
 				default:
-					MessageBox(hwndMain,"Unimplemented","Sorry",0);
+					MessageBox(hwndMain, L"Unimplemented", L"Sorry",0);
 					break;
 				}
 			}
@@ -1161,7 +1358,7 @@ namespace MainWindow
 				HDROP hdrop = (HDROP)wParam;
 				int count = DragQueryFile(hdrop,0xFFFFFFFF,0,0);
 				if (count != 1) {
-					MessageBox(hwndMain,"You can only load one file at a time","Error",MB_ICONINFORMATION);
+					MessageBox(hwndMain,L"You can only load one file at a time",L"Error",MB_ICONINFORMATION);
 				}
 				else
 				{
@@ -1175,7 +1372,7 @@ namespace MainWindow
 					
 					Update();
 
-					NativeMessageReceived("boot", filename);
+					NativeMessageReceived("boot", ConvertWStringToUTF8(filename).c_str());
 				}
 			}
 			break;
@@ -1192,22 +1389,16 @@ namespace MainWindow
 			break;
 
 		case WM_USER+1:
-			if (disasmWindow[0])
-				SendMessage(disasmWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-			if (memoryWindow[0])
-				SendMessage(memoryWindow[0]->GetDlgHandle(), WM_CLOSE, 0, 0);
-
-			disasmWindow[0] = new CDisasm(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-			DialogManager::AddDlg(disasmWindow[0]);
-			disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
 			if (g_Config.bFullScreen)
 				_ViewFullScreen(hWnd);
-			memoryWindow[0] = new CMemoryDlg(MainWindow::GetHInstance(), MainWindow::GetHWND(), currentDebugMIPS);
-			DialogManager::AddDlg(memoryWindow[0]);
-			if (disasmWindow[0])
-				disasmWindow[0]->NotifyMapLoaded();
-			if (memoryWindow[0])
-				memoryWindow[0]->NotifyMapLoaded();
+			
+			EnableWindow (disasmWindow[0]->GetDlgHandle(),TRUE);
+			EnableWindow (memoryWindow[0]->GetDlgHandle(),TRUE);
+
+			disasmWindow[0]->NotifyMapLoaded();
+			memoryWindow[0]->NotifyMapLoaded();
+
+			disasmWindow[0]->UpdateDialog();
 
 			SetForegroundWindow(hwndMain);
 			break;
@@ -1231,6 +1422,11 @@ namespace MainWindow
 				EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_ENABLED);
 			else
 				EnableMenuItem(menu, ID_EMULATION_ATRAC3_SOUND, MF_GRAYED);
+			break;
+
+		case WM_USER_UPDATE_UI:
+			TranslateMenus();
+			Update();
 			break;
 
 		case WM_MENUSELECT:
@@ -1262,9 +1458,7 @@ namespace MainWindow
 	void UpdateMenus() {
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
-		CHECKITEM(ID_EMULATION_SPEEDLIMIT,g_Config.bSpeedLimit);
 		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_INTERPRETER,g_Config.bJit == false);
 		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
 		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
 		CHECKITEM(ID_IO_MULTITHREADED, g_Config.bSeparateIOThread);
@@ -1390,7 +1584,7 @@ namespace MainWindow
 
 		UpdateCommands();
 	}
-
+	
 	void UpdateCommands() {
 		static GlobalUIState lastGlobalUIState = UISTATE_PAUSEMENU;
 		static CoreState lastCoreState = CORE_ERROR;
@@ -1403,8 +1597,8 @@ namespace MainWindow
 
 		HMENU menu = GetMenu(GetHWND());
 
-		const char* pauseMenuText =  (Core_IsStepping() || globalUIState != UISTATE_INGAME) ? "Run\tF8" : "Pause\tF8";
-		ModifyMenu(menu, ID_TOGGLE_PAUSE, MF_BYCOMMAND | MF_STRING, ID_TOGGLE_PAUSE, pauseMenuText);
+		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
+		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
 
 		UINT ingameEnable = globalUIState == UISTATE_INGAME ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
@@ -1419,7 +1613,6 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
 		EnableMenuItem(menu, ID_EMULATION_CHEATS, !menuEnable);
 		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
-		EnableMenuItem(menu, ID_CPU_INTERPRETER, menuEnable);
 		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_IO_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_DEBUG_LOG, !g_Config.bEnableLogging);
@@ -1437,7 +1630,7 @@ namespace MainWindow
 				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
 				char temp[256];
 				sprintf(temp, "PPSSPP %s", PPSSPP_GIT_VERSION);
-				SetWindowText(versionBox, temp);
+				SetWindowTextA(versionBox, temp);
 			}
 			return TRUE;
 

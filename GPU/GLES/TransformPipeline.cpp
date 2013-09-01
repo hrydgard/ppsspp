@@ -65,7 +65,7 @@ inline float clamp(float in, float min, float max) {
 
 TransformDrawEngine::TransformDrawEngine()
 	: collectedVerts(0),
-		prevPrim_(-1),
+		prevPrim_(GE_PRIM_INVALID),
 		dec_(0),
 		lastVType_(-1),
 		curVbo_(0),
@@ -150,7 +150,7 @@ private:
 };
 
 Lighter::Lighter() {
-	doShadeMapping_ = (gstate.texmapmode & 0x3) == 2;
+	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 	materialEmissive.GetFromRGB(gstate.materialemissive);
 	materialEmissive.a = 0.0f;
 	globalAmbient.GetFromRGB(gstate.ambientcolor);
@@ -604,7 +604,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 							source = Vec3f(norm).Normalized();
 						} else {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f::AssignToAll(0.0f);
+							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
 					case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
@@ -612,7 +612,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 							source = Vec3f(norm);
 						} else {
 							ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-							source = Vec3f::AssignToAll(0.0f);
+							source = Vec3f(0.0f, 0.0f, 1.0f);
 						}
 						break;
 					}
@@ -677,16 +677,17 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 			((clearColor & 0xFF0000) >> 16) / 255.0f,
 			((clearColor & 0xFF000000) >> 24) / 255.0f,
 		};
-		int target = 0;
-		if ((gstate.clearmode >> 8) & 3) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
-		if ((gstate.clearmode >> 10) & 1) target |= GL_DEPTH_BUFFER_BIT;
 
-		bool colorMask = (gstate.clearmode >> 8) & 1;
-		bool alphaMask = (gstate.clearmode >> 9) & 1;
+		bool colorMask = gstate.isClearModeColorMask();
+		bool alphaMask = gstate.isClearModeAlphaMask();
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 		glstate.stencilTest.set(false);
 		glstate.scissorTest.set(false);
-		bool depthMask = (gstate.clearmode >> 10) & 1;
+		bool depthMask = gstate.isClearModeDepthMask();
+
+		int target = 0;
+		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
 		glClearColor(col[0], col[1], col[2], col[3]);
 #ifdef USING_GLES2
@@ -829,7 +830,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	return cost;
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
@@ -1030,7 +1031,7 @@ void TransformDrawEngine::DoFlush() {
 	// This is not done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
-	int prim = prevPrim_;
+	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
@@ -1138,7 +1139,7 @@ void TransformDrawEngine::DoFlush() {
 					vbo = vai->vbo;
 					ebo = vai->ebo;
 					vertexCount = vai->numVerts;
-					prim = vai->prim;
+					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
 
@@ -1157,7 +1158,7 @@ void TransformDrawEngine::DoFlush() {
 					if (ebo)
 						glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
 					vertexCount = vai->numVerts;
-					prim = vai->prim;
+					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
 
@@ -1218,5 +1219,5 @@ rotateVBO:
 	indexGen.Reset();
 	collectedVerts = 0;
 	numDrawCalls = 0;
-	prevPrim_ = -1;
+	prevPrim_ = GE_PRIM_INVALID;
 }

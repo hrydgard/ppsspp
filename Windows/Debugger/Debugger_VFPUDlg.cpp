@@ -4,6 +4,7 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include "Windows/resource.h"
+#include "util/text/utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
@@ -17,12 +18,13 @@ CVFPUDlg *vfpudlg;
 CVFPUDlg::CVFPUDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu_) : Dialog((LPCSTR)IDD_VFPU, _hInstance,_hParent)
 {
 	cpu = cpu_;
-	TCHAR temp[256];
-	sprintf(temp,"VFPU - %s",cpu->GetName());
+	wchar_t temp[256];
+	wsprintf(temp, L"VFPU - %S", cpu->GetName());
 	SetWindowText(m_hDlg,temp);
+
 	ShowWindow(m_hDlg,SW_HIDE);
 	font = CreateFont(12,0,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		"Lucida Console");
+		L"Lucida Console");
 
 	HWND tabs = GetDlgItem(m_hDlg, IDC_TABDATATYPE);
 
@@ -30,24 +32,24 @@ CVFPUDlg::CVFPUDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu_) : 
 	ZeroMemory (&tcItem,sizeof (tcItem));
 	tcItem.mask			= TCIF_TEXT;
 	tcItem.dwState		= 0;
-	tcItem.pszText		= "Float";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Float";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	tcItem.iImage		= 0;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= "HalfFloat";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"HalfFloat";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= "Hex";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Hex";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= "Bytes";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Bytes";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= "Shorts";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Shorts";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= "Ints";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Ints";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	mode=0;
 	Size();
@@ -146,7 +148,7 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				Rectangle(hdc, 0, my, xStart, my+rowHeight);
 				char temp[256];
 				int temp_len = sprintf_s(temp, "M%i00", matrix);
-				TextOut(hdc,3,my+2,temp,temp_len);
+				TextOutA(hdc,3,my+2,temp,temp_len);
 				Rectangle(hdc,xStart,my+rowHeight,xStart+columnWidth*4,my+5*rowHeight);
 
 				for (int column = 0; column<4; column++)
@@ -156,11 +158,11 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 
 					Rectangle(hdc, x, y, x + columnWidth, y+rowHeight);
 					temp_len = sprintf_s(temp, "R%i0%i", matrix, column);
-					TextOut(hdc,x+3,y+2,temp,temp_len);
+					TextOutA(hdc,x+3,y+2,temp,temp_len);
 
 					Rectangle(hdc, 0, y+rowHeight*(column+1), xStart, y+rowHeight*(column+2));
 					temp_len = sprintf_s(temp, "C%i%i0", matrix, column);
-					TextOut(hdc,3,y+rowHeight*(column+1)+1,temp,temp_len);
+					TextOutA(hdc,3,y+rowHeight*(column+1)+1,temp,temp_len);
 
 					y+=rowHeight;
 
@@ -176,7 +178,7 @@ BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						default:temp_len = sprintf_s(temp,"%f",val); break;
 						}
 						
-						TextOut(hdc,x+3,y+2,temp,temp_len);
+						TextOutA(hdc,x+3,y+2,temp,temp_len);
 						y+=rowHeight;
 					}
 				}

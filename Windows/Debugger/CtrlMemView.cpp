@@ -9,6 +9,7 @@
 #include "../resource.h"
 #include "../../Core/MemMap.h"
 #include "../W32Util/Misc.h"
+#include "Windows/InputBox.h"
 #include "../Main.h"
 #include "../../Core/Debugger/SymbolMap.h"
 
@@ -16,29 +17,32 @@
 #include "DebuggerShared.h"
 #include "CtrlMemView.h"
 
-TCHAR CtrlMemView::szClassName[] = _T("CtrlMemView");
+wchar_t CtrlMemView::szClassName[] = L"CtrlMemView";
 extern HMENU g_hPopupMenus;
 
 CtrlMemView::CtrlMemView(HWND _wnd)
 {
-  wnd=_wnd;
-  SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
-  SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
-  SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
+	wnd=_wnd;
+	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG)this);
+	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
+	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
 
-  rowHeight = g_Config.iFontHeight;
-  charWidth = g_Config.iFontWidth;
+	rowHeight = g_Config.iFontHeight;
+	charWidth = g_Config.iFontWidth;
 
-  font =
-	  CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
-  underlineFont =
-	  CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-		  CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
-  curAddress=0;
-  mode=MV_NORMAL;
-  debugger = 0;
+	font =
+		CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
+	underlineFont =
+		CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
+			CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
+	curAddress=0;
+	debugger = 0;
   
+	searchQuery = "";
+	matchAddress = -1;
+	searching = false;
+
 	ctrlDown = false;
 	hasFocus = false;
 	windowStart = curAddress;
@@ -165,8 +169,6 @@ CtrlMemView *CtrlMemView::getFrom(HWND hwnd)
 
 void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 {
-	if (!debugger) return;
-
 	// draw to a bitmap for double buffering
 	PAINTSTRUCT ps;	
 	HDC actualHdc = BeginPaint(wnd, &ps);
@@ -197,114 +199,68 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 		
 		sprintf(temp,"%08X",address);
 		SetTextColor(hdc,0x600000);
-		TextOut(hdc,addressStart,rowY,temp,(int)strlen(temp));
+		TextOutA(hdc,addressStart,rowY,temp,(int)strlen(temp));
 
 		SetTextColor(hdc,0x000000);
-		if (debugger->isAlive())
+
+		u32 memory[4];
+		bool valid = debugger != NULL && debugger->isAlive() && Memory::IsValidAddress(address);
+		if (valid)
 		{
+			memory[0] = debugger->readMemory(address);
+			memory[1] = debugger->readMemory(address+4);
+			memory[2] = debugger->readMemory(address+8);
+			memory[3] = debugger->readMemory(address+12);
+		}
 
-			switch(mode) {
-			case MV_NORMAL:
+		u8* m = (u8*) memory;
+		for (int j = 0; j < rowSize; j++)
+		{
+			if (valid) sprintf(temp,"%02X",m[j]);
+			else strcpy(temp,"??");
+
+			unsigned char c = m[j];
+			if (c < 32 || c >= 128 || valid == false) c = '.';
+
+			if (address+j == curAddress && searching == false)
+			{
+				COLORREF oldBkColor = GetBkColor(hdc);
+				COLORREF oldTextColor = GetTextColor(hdc);
+
+				if (hasFocus && !asciiSelected)
 				{
-					u32 memory[4];
-					if (Memory::IsValidAddress(address))
-					{
-						memory[0] = debugger->readMemory(address);
-						memory[1] = debugger->readMemory(address+4);
-						memory[2] = debugger->readMemory(address+8);
-						memory[3] = debugger->readMemory(address+12);
-					}
-					else
-					{
-						memory[0] = memory[1] = memory[2] = memory[3] = 0xFFFFFFFF;
-					}
-
-					u8* m = (u8*) memory;
-					for (int j = 0; j < rowSize; j++)
-					{
-						sprintf(temp,"%02X",m[j]);
-						unsigned char c = m[j];
-						if (c < 32 || c >= 128) c = '.';
-
-						if (address+j == curAddress)
-						{
-							COLORREF oldBkColor = GetBkColor(hdc);
-							COLORREF oldTextColor = GetTextColor(hdc);
-
-							if (hasFocus && !asciiSelected)
-							{
-								SetTextColor(hdc,0xFFFFFF);
-								SetBkColor(hdc,0xFF9933);
-								if (selectedNibble == 0) SelectObject(hdc,(HGDIOBJ)underlineFont);
-							} else {
-								SetTextColor(hdc,0);
-								SetBkColor(hdc,0xC0C0C0);
-							}
-							TextOut(hdc,hexStart+j*3*charWidth,rowY,&temp[0],1);
-							
-							if (hasFocus && !asciiSelected)
-							{
-								if (selectedNibble == 1) SelectObject(hdc,(HGDIOBJ)underlineFont);
-								else SelectObject(hdc,(HGDIOBJ)font);
-							}
-							TextOut(hdc,hexStart+j*3*charWidth+charWidth,rowY,&temp[1],1);
-
-							if (hasFocus && asciiSelected)
-							{
-								SetTextColor(hdc,0xFFFFFF);
-								SetBkColor(hdc,0xFF9933);
-							} else {
-								SetTextColor(hdc,0);
-								SetBkColor(hdc,0xC0C0C0);
-								SelectObject(hdc,(HGDIOBJ)font);
-							}
-							TextOut(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
-
-							SetTextColor(hdc,oldTextColor);
-							SetBkColor(hdc,oldBkColor);
-						} else {
-							TextOut(hdc,hexStart+j*3*charWidth,rowY,temp,2);
-							TextOut(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
-						}
-					}
+					SetTextColor(hdc,0xFFFFFF);
+					SetBkColor(hdc,0xFF9933);
+					if (selectedNibble == 0) SelectObject(hdc,(HGDIOBJ)underlineFont);
+				} else {
+					SetTextColor(hdc,0);
+					SetBkColor(hdc,0xC0C0C0);
 				}
-				break;
-/*			case MV_SYMBOLS:
+				TextOutA(hdc,hexStart+j*3*charWidth,rowY,&temp[0],1);
+							
+				if (hasFocus && !asciiSelected)
 				{
-					SetTextColor(hdc,0x0000FF);
-					int fn = symbolMap.GetSymbolNum(address);
-					if (fn==-1)
-					{
-						sprintf(temp, "%s (ns)", Memory::GetAddressName(address));
-					}
-					else
-                        sprintf(temp, "%s (0x%x b)", symbolMap.GetSymbolName(fn),symbolMap.GetSymbolSize(fn));
-					TextOut(hdc,200,rowY1,temp,(int)strlen(temp));
+					if (selectedNibble == 1) SelectObject(hdc,(HGDIOBJ)underlineFont);
+					else SelectObject(hdc,(HGDIOBJ)font);
+				}
+				TextOutA(hdc,hexStart+j*3*charWidth+charWidth,rowY,&temp[1],1);
 
-					SetTextColor(hdc,0x000000);
-					
-					if (align==4)
-					{
-						u32 value = Memory::ReadUnchecked_U32(address);
-						int num = symbolMap.GetSymbolNum(value);
-						if (num != -1)
-							sprintf(temp, "%08x [%s]", value, symbolMap.GetSymbolName(num));
-						else
-							sprintf(temp, "%08x", value);
-					}
-					else if (align==2)
-					{
-						u16 value = Memory::ReadUnchecked_U16(address);
-						int num = symbolMap.GetSymbolNum(value);
-						if (num != -1)
-							sprintf(temp, "%04x [%s]", value, symbolMap.GetSymbolName(num));
-						else
-							sprintf(temp, "%04x", value);
-					}
+				if (hasFocus && asciiSelected)
+				{
+					SetTextColor(hdc,0xFFFFFF);
+					SetBkColor(hdc,0xFF9933);
+				} else {
+					SetTextColor(hdc,0);
+					SetBkColor(hdc,0xC0C0C0);
+					SelectObject(hdc,(HGDIOBJ)font);
+				}
+				TextOutA(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
 
-					TextOut(hdc,70,rowY1,temp,(int)strlen(temp));
-					break;
-				}*/
+				SetTextColor(hdc,oldTextColor);
+				SetBkColor(hdc,oldBkColor);
+			} else {
+				TextOutA(hdc,hexStart+j*3*charWidth,rowY,temp,2);
+				TextOutA(hdc,asciiStart+j*(charWidth+2),rowY,(char*)&c,1);
 			}
 		}
 	}
@@ -347,13 +303,27 @@ void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
-	if (ctrlDown && tolower(wParam & 0xFFFF) == 'g')
-	{
-		ctrlDown = false;
-		u32 addr;
-		if (executeExpressionWindow(wnd,debugger,addr) == false) return;
-		gotoAddr(addr);
-		return;
+	if (ctrlDown)
+	{	
+		switch (tolower(wParam & 0xFFFF))
+		{
+		case 'g':
+			{
+				ctrlDown = false;
+				u32 addr;
+				if (executeExpressionWindow(wnd,debugger,addr) == false) return;
+				gotoAddr(addr);
+				return;
+			}
+			break;
+		case 'f':
+		case 's':
+			search(false);
+			return;
+		case 'c':
+			search(true);
+			return;
+		}
 	}
 
 	switch (wParam & 0xFFFF)
@@ -458,7 +428,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
      
 			if (!Core_IsStepping()) // If emulator isn't paused
 			{
-				MessageBox(wnd,"You have to pause the emulator first","Sorry",0);
+				MessageBox(wnd,L"You have to pause the emulator first",0,0);
 				break;
 			}
 			else
@@ -477,11 +447,19 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				if (asciiSelected)
 				{
 					unsigned char c = Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : '.';
-					if (c < 32 || c >= 128) c = '.';
+					if (c < 32|| c >= 128) c = '.';
 					sprintf(temp,"%c",c);
 				} else {
 					sprintf(temp,"%02X",Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : 0xFF);
 				}
+				W32Util::CopyTextToClipboard(wnd,temp);
+			}
+			break;
+
+		case ID_MEMVIEW_COPYADDRESS:
+			{
+				char temp[24];
+				sprintf(temp,"0x%08X",curAddress);
 				W32Util::CopyTextToClipboard(wnd,temp);
 			}
 			break;
@@ -599,5 +577,104 @@ void CtrlMemView::scrollCursor(int bytes)
 	}
 	
 	updateStatusBarText();
+	redraw();
+}
+
+void CtrlMemView::search(bool continueSearch)
+{
+	u32 searchAddress;
+	if (continueSearch == false || searchQuery[0] == 0)
+	{
+		ctrlDown = false;
+		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
+		{
+			SetFocus(wnd);
+			return;
+		}
+		SetFocus(wnd);
+		searchAddress = curAddress+1;
+	} else {
+		searchAddress = matchAddress+1;
+	}
+
+	std::vector<u8> searchData;
+	if (asciiSelected)
+	{
+		for (int i = 0; i < searchQuery.length(); i++)
+		{
+			char c = searchQuery[i];
+			searchData.push_back(c);
+		}
+	} else {
+		int index = 0;
+		while (index < searchQuery.size())
+		{
+			if (searchQuery[index] == ' ' || searchQuery[index] == '\t')
+			{
+				index++;
+				continue;
+			}
+
+			u8 value = 0;
+			for (int i = 0; i < 2; i++)
+			{
+				char c = tolower(searchQuery[index++]);
+				if (c >= 'a' && c <= 'f')
+				{
+					value |= (c-'a'+10) << (1-i)*4;
+				} else  if (c >= '0' && c <= '9')
+				{
+					value |= (c-'0') << (1-i)*4;
+				} else {
+					MessageBox(wnd,L"Invalid search text.",L"Error",MB_OK);
+					return;
+				}
+			}
+
+			searchData.push_back(value);
+		}
+	}
+
+	std::vector<std::pair<u32,u32>> memoryAreas;
+	memoryAreas.push_back(std::pair<u32,u32>(0x04000000,0x04200000));
+	memoryAreas.push_back(std::pair<u32,u32>(0x08000000,0x0A000000));
+	
+	searching = true;
+	redraw();	// so the cursor is disabled
+	for (int i = 0; i < memoryAreas.size(); i++)
+	{
+		u32 segmentStart = memoryAreas[i].first;
+		u32 segmentEnd = memoryAreas[i].second;
+		u8* dataPointer = Memory::GetPointer(segmentStart);
+		if (dataPointer == NULL) continue;		// better safe than sorry, I guess
+
+		if (searchAddress < segmentStart) searchAddress = segmentStart;
+		if (searchAddress >= segmentEnd) continue;
+
+		int index = searchAddress-segmentStart;
+		int endIndex = segmentEnd-segmentStart-searchData.size();
+
+		while (index < endIndex)
+		{
+			// cancel search
+			if ((index % 256) == 0 && GetAsyncKeyState(VK_ESCAPE))
+			{
+				searching = false;
+				return;
+			}
+
+			if (memcmp(&dataPointer[index],searchData.data(),searchData.size()) == 0)
+			{
+				matchAddress = index+segmentStart;
+				searching = false;
+				gotoAddr(matchAddress);
+				return;
+			}
+			index++;
+		}
+	}
+
+	MessageBox(wnd,L"Not found",L"Search",MB_OK);
+	searching = false;
 	redraw();
 }

@@ -636,14 +636,32 @@ int sceKernelReferGlobalProfiler(u32 statusPtr) {
 	return 0;
 }
 
+int ThreadManForKernel_446d8de6(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr)
+{
+	WARN_LOG(HLE,"Not support this patcher");
+	return sceKernelCreateThread(threadName, entry, prio, stacksize,  attr, optionAddr);
+}
+
+int ThreadManForKernel_f475845d(SceUID threadToStartID, int argSize, u32 argBlockPtr)
+{	
+	WARN_LOG(HLE,"Not support this patcher");
+	return sceKernelStartThread(threadToStartID,argSize,argBlockPtr);
+}
+
+int ThreadManForKernel_ceadeb47(u32 usec)
+{	
+	WARN_LOG(HLE,"Not support this patcher");
+	return sceKernelDelayThread(usec);
+}
+
 const HLEFunction ThreadManForUser[] =
 {
 	{0x55C20A00,&WrapI_CUUU<sceKernelCreateEventFlag>,         "sceKernelCreateEventFlag"},
 	{0x812346E4,&WrapU_IU<sceKernelClearEventFlag>,            "sceKernelClearEventFlag"},
 	{0xEF9E4C70,&WrapU_I<sceKernelDeleteEventFlag>,            "sceKernelDeleteEventFlag"},
 	{0x1fb15a32,&WrapU_IU<sceKernelSetEventFlag>,              "sceKernelSetEventFlag"},
-	{0x402FCF22,&WrapI_IUUUU<sceKernelWaitEventFlag>,          "sceKernelWaitEventFlag"},
-	{0x328C546A,&WrapI_IUUUU<sceKernelWaitEventFlagCB>,        "sceKernelWaitEventFlagCB"},
+	{0x402FCF22,&WrapI_IUUUU<sceKernelWaitEventFlag>,          "sceKernelWaitEventFlag",               HLE_NOT_IN_INTERRUPT},
+	{0x328C546A,&WrapI_IUUUU<sceKernelWaitEventFlagCB>,        "sceKernelWaitEventFlagCB",             HLE_NOT_IN_INTERRUPT},
 	{0x30FD48F0,&WrapI_IUUU<sceKernelPollEventFlag>,           "sceKernelPollEventFlag"},
 	{0xCD203292,&WrapU_IUU<sceKernelCancelEventFlag>,          "sceKernelCancelEventFlag"},
 	{0xA66B0120,&WrapU_IU<sceKernelReferEventFlagStatus>,      "sceKernelReferEventFlagStatus"},
@@ -654,8 +672,8 @@ const HLEFunction ThreadManForUser[] =
 	{0x58b1f937,&WrapI_II<sceKernelPollSema>,                  "sceKernelPollSema"},
 	{0xBC6FEBC5,&WrapI_IU<sceKernelReferSemaStatus>,           "sceKernelReferSemaStatus"},
 	{0x3F53E640,&WrapI_II<sceKernelSignalSema>,                "sceKernelSignalSema"},
-	{0x4E3A1105,&WrapI_IIU<sceKernelWaitSema>,                 "sceKernelWaitSema", HLE_NOT_DISPATCH_SUSPENDED},
-	{0x6d212bac,&WrapI_IIU<sceKernelWaitSemaCB>,               "sceKernelWaitSemaCB", HLE_NOT_DISPATCH_SUSPENDED},
+	{0x4E3A1105,&WrapI_IIU<sceKernelWaitSema>,                 "sceKernelWaitSema",                    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x6d212bac,&WrapI_IIU<sceKernelWaitSemaCB>,               "sceKernelWaitSemaCB",                  HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 
 	{0x60107536,&WrapI_U<sceKernelDeleteLwMutex>,              "sceKernelDeleteLwMutex"},
 	{0x19CFF145,&WrapI_UCUIU<sceKernelCreateLwMutex>,          "sceKernelCreateLwMutex"},
@@ -667,14 +685,14 @@ const HLEFunction ThreadManForUser[] =
 	//{0x31327F19,0,                                             "_sceKernelLockLwMutexCB"},
 	//{0xBEED3A47,0,                                             "_sceKernelUnlockLwMutex"},
 
-	{0xf8170fbe,&WrapI_I<sceKernelDeleteMutex>,                "sceKernelDeleteMutex"},
-	{0xB011B11F,&WrapI_IIU<sceKernelLockMutex>,                "sceKernelLockMutex", HLE_NOT_DISPATCH_SUSPENDED},
-	{0x5bf4dd27,&WrapI_IIU<sceKernelLockMutexCB>,              "sceKernelLockMutexCB", HLE_NOT_DISPATCH_SUSPENDED},
-	{0x6b30100f,&WrapI_II<sceKernelUnlockMutex>,               "sceKernelUnlockMutex"},
-	{0xb7d098c6,&WrapI_CUIU<sceKernelCreateMutex>,             "sceKernelCreateMutex"},
-	{0x0DDCD2C9,&WrapI_II<sceKernelTryLockMutex>,              "sceKernelTryLockMutex"},
-	{0xA9C2CB9A,&WrapI_IU<sceKernelReferMutexStatus>,          "sceKernelReferMutexStatus"},
-	{0x87D9223C,0,                                             "sceKernelCancelMutex"},
+	{0xf8170fbe,WrapI_I<sceKernelDeleteMutex>,                 "sceKernelDeleteMutex"},
+	{0xB011B11F,WrapI_IIU<sceKernelLockMutex>,                 "sceKernelLockMutex",                   HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x5bf4dd27,WrapI_IIU<sceKernelLockMutexCB>,               "sceKernelLockMutexCB",                 HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x6b30100f,WrapI_II<sceKernelUnlockMutex>,                "sceKernelUnlockMutex"},
+	{0xb7d098c6,WrapI_CUIU<sceKernelCreateMutex>,              "sceKernelCreateMutex"},
+	{0x0DDCD2C9,WrapI_II<sceKernelTryLockMutex>,               "sceKernelTryLockMutex"},
+	{0xA9C2CB9A,WrapI_IU<sceKernelReferMutexStatus>,           "sceKernelReferMutexStatus"},
+	{0x87D9223C,WrapI_IIU<sceKernelCancelMutex>,               "sceKernelCancelMutex"},
 
 	{0xFCCFAD26,WrapI_I<sceKernelCancelWakeupThread>,"sceKernelCancelWakeupThread"},
 	{0x1AF94D03,0,"sceKernelDonateWakeupThread"},
@@ -682,10 +700,10 @@ const HLEFunction ThreadManForUser[] =
 	{0x71bc9871,WrapI_II<sceKernelChangeThreadPriority>,"sceKernelChangeThreadPriority"},
 	{0x446D8DE6,WrapI_CUUIUU<sceKernelCreateThread>,"sceKernelCreateThread"},
 	{0x9fa03cd3,WrapI_I<sceKernelDeleteThread>,"sceKernelDeleteThread"},
-	{0xBD123D9E,sceKernelDelaySysClockThread,"sceKernelDelaySysClockThread"},
-	{0x1181E963,sceKernelDelaySysClockThreadCB,"sceKernelDelaySysClockThreadCB"},
-	{0xceadeb47,WrapI_U<sceKernelDelayThread>,"sceKernelDelayThread"},
-	{0x68da9e36,WrapI_U<sceKernelDelayThreadCB>,"sceKernelDelayThreadCB"},
+	{0xBD123D9E,WrapI_U<sceKernelDelaySysClockThread>,         "sceKernelDelaySysClockThread",         HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x1181E963,WrapI_U<sceKernelDelaySysClockThreadCB>,       "sceKernelDelaySysClockThreadCB",       HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0xceadeb47,WrapI_U<sceKernelDelayThread>,                 "sceKernelDelayThread",                 HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x68da9e36,WrapI_U<sceKernelDelayThreadCB>,               "sceKernelDelayThreadCB",               HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 	{0xaa73c935,WrapV_I<sceKernelExitThread>,"sceKernelExitThread"},
 	{0x809ce29b,WrapV_I<sceKernelExitDeleteThread>,"sceKernelExitDeleteThread"},
 	{0x94aa61ee,sceKernelGetThreadCurrentPriority,"sceKernelGetThreadCurrentPriority"},
@@ -696,11 +714,11 @@ const HLEFunction ThreadManForUser[] =
 	{0x17c1684e,WrapU_UU<sceKernelReferThreadStatus>,"sceKernelReferThreadStatus"},
 	{0x2C34E053,WrapI_I<sceKernelReleaseWaitThread>,"sceKernelReleaseWaitThread"},
 	{0x75156e8f,WrapI_I<sceKernelResumeThread>,"sceKernelResumeThread"},
-	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,"sceKernelSuspendDispatchThread"},
-	{0x27e22ec2,&WrapU_U<sceKernelResumeDispatchThread>,"sceKernelResumeDispatchThread"},
+	{0x3ad58b8c,&WrapU_V<sceKernelSuspendDispatchThread>,      "sceKernelSuspendDispatchThread",       HLE_NOT_IN_INTERRUPT},
+	{0x27e22ec2,&WrapU_U<sceKernelResumeDispatchThread>,       "sceKernelResumeDispatchThread",        HLE_NOT_IN_INTERRUPT},
 	{0x912354a7,&WrapI_I<sceKernelRotateThreadReadyQueue>,"sceKernelRotateThreadReadyQueue"},
-	{0x9ACE131E,WrapI_V<sceKernelSleepThread>,"sceKernelSleepThread"},
-	{0x82826f70,WrapI_V<sceKernelSleepThreadCB>,"sceKernelSleepThreadCB"},
+	{0x9ACE131E,WrapI_V<sceKernelSleepThread>,                 "sceKernelSleepThread",                 HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x82826f70,WrapI_V<sceKernelSleepThreadCB>,               "sceKernelSleepThreadCB",               HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 	{0xF475845D,&WrapI_IIU<sceKernelStartThread>,"sceKernelStartThread"},
 	{0x9944f31f,WrapI_I<sceKernelSuspendThread>,"sceKernelSuspendThread"},
 	{0x616403ba,WrapI_I<sceKernelTerminateThread>,"sceKernelTerminateThread"},
@@ -740,51 +758,51 @@ const HLEFunction ThreadManForUser[] =
 	{0x72F3C145,0,"sceKernelReleaseThreadEventHandler"},
 	{0x369EEB6B,0,"sceKernelReferThreadEventHandlerStatus"},
 
-	{0x349d6d6c,sceKernelCheckCallback,                           "sceKernelCheckCallback"},
-	{0xE81CAF8F,WrapI_CUU<sceKernelCreateCallback>,               "sceKernelCreateCallback"},
-	{0xEDBA5844,WrapI_I<sceKernelDeleteCallback>,                 "sceKernelDeleteCallback"},
-	{0xC11BA8C4,WrapI_II<sceKernelNotifyCallback>,                "sceKernelNotifyCallback"},
-	{0xBA4051D6,WrapI_I<sceKernelCancelCallback>,                 "sceKernelCancelCallback"},
-	{0x2A3D44FF,WrapI_I<sceKernelGetCallbackCount>,               "sceKernelGetCallbackCount"},
-	{0x730ED8BC,WrapI_IU<sceKernelReferCallbackStatus>,           "sceKernelReferCallbackStatus"},
+	{0x349d6d6c,sceKernelCheckCallback,                        "sceKernelCheckCallback"},
+	{0xE81CAF8F,WrapI_CUU<sceKernelCreateCallback>,            "sceKernelCreateCallback"},
+	{0xEDBA5844,WrapI_I<sceKernelDeleteCallback>,              "sceKernelDeleteCallback"},
+	{0xC11BA8C4,WrapI_II<sceKernelNotifyCallback>,             "sceKernelNotifyCallback"},
+	{0xBA4051D6,WrapI_I<sceKernelCancelCallback>,              "sceKernelCancelCallback"},
+	{0x2A3D44FF,WrapI_I<sceKernelGetCallbackCount>,            "sceKernelGetCallbackCount"},
+	{0x730ED8BC,WrapI_IU<sceKernelReferCallbackStatus>,        "sceKernelReferCallbackStatus"},
 
-	{0x8125221D,WrapI_CUU<sceKernelCreateMbx>,                    "sceKernelCreateMbx"},
-	{0x86255ADA,WrapI_I<sceKernelDeleteMbx>,                      "sceKernelDeleteMbx"},
-	{0xE9B3061E,WrapI_IU<sceKernelSendMbx>,                       "sceKernelSendMbx"},
-	{0x18260574,WrapI_IUU<sceKernelReceiveMbx>,                   "sceKernelReceiveMbx"},
-	{0xF3986382,WrapI_IUU<sceKernelReceiveMbxCB>,                 "sceKernelReceiveMbxCB"},
-	{0x0D81716A,WrapI_IU<sceKernelPollMbx>,                       "sceKernelPollMbx"},
-	{0x87D4DD36,WrapI_IU<sceKernelCancelReceiveMbx>,              "sceKernelCancelReceiveMbx"},
-	{0xA8E8C846,WrapI_IU<sceKernelReferMbxStatus>,                "sceKernelReferMbxStatus"},
+	{0x8125221D,WrapI_CUU<sceKernelCreateMbx>,                 "sceKernelCreateMbx"},
+	{0x86255ADA,WrapI_I<sceKernelDeleteMbx>,                   "sceKernelDeleteMbx"},
+	{0xE9B3061E,WrapI_IU<sceKernelSendMbx>,                    "sceKernelSendMbx"},
+	{0x18260574,WrapI_IUU<sceKernelReceiveMbx>,                "sceKernelReceiveMbx",                  HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0xF3986382,WrapI_IUU<sceKernelReceiveMbxCB>,              "sceKernelReceiveMbxCB",                HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x0D81716A,WrapI_IU<sceKernelPollMbx>,                    "sceKernelPollMbx"},
+	{0x87D4DD36,WrapI_IU<sceKernelCancelReceiveMbx>,           "sceKernelCancelReceiveMbx"},
+	{0xA8E8C846,WrapI_IU<sceKernelReferMbxStatus>,             "sceKernelReferMbxStatus"},
 
-	{0x7C0DC2A0,WrapI_CIUUU<sceKernelCreateMsgPipe>,              "sceKernelCreateMsgPipe"},
-	{0xF0B7DA1C,WrapI_I<sceKernelDeleteMsgPipe>,                  "sceKernelDeleteMsgPipe"},
-	{0x876DBFAD,WrapI_IUUUUU<sceKernelSendMsgPipe>,               "sceKernelSendMsgPipe"},
-	{0x7C41F2C2,WrapI_IUUUUU<sceKernelSendMsgPipeCB>,             "sceKernelSendMsgPipeCB"},
-	{0x884C9F90,WrapI_IUUUU<sceKernelTrySendMsgPipe>,             "sceKernelTrySendMsgPipe"},
-	{0x74829B76,WrapI_IUUUUU<sceKernelReceiveMsgPipe>,            "sceKernelReceiveMsgPipe"},
-	{0xFBFA697D,WrapI_IUUUUU<sceKernelReceiveMsgPipeCB>,          "sceKernelReceiveMsgPipeCB"},
-	{0xDF52098F,WrapI_IUUUU<sceKernelTryReceiveMsgPipe>,          "sceKernelTryReceiveMsgPipe"},
-	{0x349B864D,WrapI_IUU<sceKernelCancelMsgPipe>,                "sceKernelCancelMsgPipe"},
-	{0x33BE4024,WrapI_IU<sceKernelReferMsgPipeStatus>,            "sceKernelReferMsgPipeStatus"},
+	{0x7C0DC2A0,WrapI_CIUUU<sceKernelCreateMsgPipe>,           "sceKernelCreateMsgPipe"},
+	{0xF0B7DA1C,WrapI_I<sceKernelDeleteMsgPipe>,               "sceKernelDeleteMsgPipe"},
+	{0x876DBFAD,WrapI_IUUUUU<sceKernelSendMsgPipe>,            "sceKernelSendMsgPipe"},
+	{0x7C41F2C2,WrapI_IUUUUU<sceKernelSendMsgPipeCB>,          "sceKernelSendMsgPipeCB"},
+	{0x884C9F90,WrapI_IUUUU<sceKernelTrySendMsgPipe>,          "sceKernelTrySendMsgPipe"},
+	{0x74829B76,WrapI_IUUUUU<sceKernelReceiveMsgPipe>,         "sceKernelReceiveMsgPipe"},
+	{0xFBFA697D,WrapI_IUUUUU<sceKernelReceiveMsgPipeCB>,       "sceKernelReceiveMsgPipeCB"},
+	{0xDF52098F,WrapI_IUUUU<sceKernelTryReceiveMsgPipe>,       "sceKernelTryReceiveMsgPipe"},
+	{0x349B864D,WrapI_IUU<sceKernelCancelMsgPipe>,             "sceKernelCancelMsgPipe"},
+	{0x33BE4024,WrapI_IU<sceKernelReferMsgPipeStatus>,         "sceKernelReferMsgPipeStatus"},
 
-	{0x56C039B5,WrapI_CIUUU<sceKernelCreateVpl>,"sceKernelCreateVpl"},
-	{0x89B3D48C,WrapI_I<sceKernelDeleteVpl>,"sceKernelDeleteVpl"},
-	{0xBED27435,WrapI_IUUU<sceKernelAllocateVpl>,"sceKernelAllocateVpl"},
-	{0xEC0A693F,WrapI_IUUU<sceKernelAllocateVplCB>,"sceKernelAllocateVplCB"},
-	{0xAF36D708,WrapI_IUU<sceKernelTryAllocateVpl>,"sceKernelTryAllocateVpl"},
-	{0xB736E9FF,WrapI_IU<sceKernelFreeVpl>,"sceKernelFreeVpl"},
-	{0x1D371B8A,WrapI_IU<sceKernelCancelVpl>,"sceKernelCancelVpl"},
-	{0x39810265,WrapI_IU<sceKernelReferVplStatus>,"sceKernelReferVplStatus"},
+	{0x56C039B5,WrapI_CIUUU<sceKernelCreateVpl>,               "sceKernelCreateVpl"},
+	{0x89B3D48C,WrapI_I<sceKernelDeleteVpl>,                   "sceKernelDeleteVpl"},
+	{0xBED27435,WrapI_IUUU<sceKernelAllocateVpl>,              "sceKernelAllocateVpl",                 HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0xEC0A693F,WrapI_IUUU<sceKernelAllocateVplCB>,            "sceKernelAllocateVplCB",               HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0xAF36D708,WrapI_IUU<sceKernelTryAllocateVpl>,            "sceKernelTryAllocateVpl"},
+	{0xB736E9FF,WrapI_IU<sceKernelFreeVpl>,                    "sceKernelFreeVpl"},
+	{0x1D371B8A,WrapI_IU<sceKernelCancelVpl>,                  "sceKernelCancelVpl"},
+	{0x39810265,WrapI_IU<sceKernelReferVplStatus>,             "sceKernelReferVplStatus"},
 
-	{0xC07BB470,sceKernelCreateFpl,"sceKernelCreateFpl"},
-	{0xED1410E0,sceKernelDeleteFpl,"sceKernelDeleteFpl"},
-	{0xD979E9BF,sceKernelAllocateFpl,"sceKernelAllocateFpl"},
-	{0xE7282CB6,sceKernelAllocateFplCB,"sceKernelAllocateFplCB"},
-	{0x623AE665,sceKernelTryAllocateFpl,"sceKernelTryAllocateFpl"},
-	{0xF6414A71,sceKernelFreeFpl,"sceKernelFreeFpl"},
-	{0xA8AA591F,sceKernelCancelFpl,"sceKernelCancelFpl"},
-	{0xD8199E4C,sceKernelReferFplStatus,"sceKernelReferFplStatus"},
+	{0xC07BB470,WrapI_CUUUUU<sceKernelCreateFpl>,              "sceKernelCreateFpl"},
+	{0xED1410E0,WrapI_I<sceKernelDeleteFpl>,                   "sceKernelDeleteFpl"},
+	{0xD979E9BF,WrapI_IUU<sceKernelAllocateFpl>,               "sceKernelAllocateFpl",                 HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0xE7282CB6,WrapI_IUU<sceKernelAllocateFplCB>,             "sceKernelAllocateFplCB",               HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x623AE665,WrapI_IU<sceKernelTryAllocateFpl>,             "sceKernelTryAllocateFpl"},
+	{0xF6414A71,WrapI_IU<sceKernelFreeFpl>,                    "sceKernelFreeFpl"},
+	{0xA8AA591F,WrapI_IU<sceKernelCancelFpl>,                  "sceKernelCancelFpl"},
+	{0xD8199E4C,WrapI_IU<sceKernelReferFplStatus>,             "sceKernelReferFplStatus"},
 
 	{0x20fff560,WrapU_CU<sceKernelCreateVTimer>,"sceKernelCreateVTimer"},
 	{0x328F9E52,WrapU_U<sceKernelDeleteVTimer>,"sceKernelDeleteVTimer"},
@@ -820,6 +838,13 @@ const HLEFunction ThreadManForUser[] =
 	// {0x6E9EA350, _sceKernelReturnFromCallback,"_sceKernelReturnFromCallback"},
 };
 
+const HLEFunction ThreadManForKernel[] =
+{
+	{0xceadeb47, WrapI_U<ThreadManForKernel_ceadeb47>, "ThreadManForKernel_ceadeb47"},
+	{0x446d8de6, WrapI_CUUIUU<ThreadManForKernel_446d8de6>, "ThreadManForKernel_446d8de6"},//Not sure right
+	{0xf475845d, &WrapI_IIU<ThreadManForKernel_f475845d>, "ThreadManForKernel_f475845d"},//Not sure right
+};
+
 void Register_ThreadManForUser()
 {
 	RegisterModule("ThreadManForUser", ARRAY_SIZE(ThreadManForUser), ThreadManForUser);
@@ -840,8 +865,6 @@ void Register_LoadExecForUser()
 {
 	RegisterModule("LoadExecForUser", ARRAY_SIZE(LoadExecForUser), LoadExecForUser);
 }
-
-
 
 const HLEFunction ExceptionManagerForKernel[] =
 {
@@ -887,4 +910,10 @@ const HLEFunction UtilsForKernel[] = {
 void Register_UtilsForKernel()
 {
 	RegisterModule("UtilsForKernel", ARRAY_SIZE(UtilsForKernel), UtilsForKernel);
+}
+
+void Register_ThreadManForKernel()
+{
+	RegisterModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);		
+
 }

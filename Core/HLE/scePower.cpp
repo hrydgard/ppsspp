@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 #include <map>
+#include <vector>
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
@@ -23,6 +24,12 @@
 
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceKernelThread.h"
+
+struct VolatileWaitingThread {
+	SceUID threadID;
+	u32 addrPtr;
+	u32 sizePtr;
+};
 
 const int PSP_POWER_ERROR_TAKEN_SLOT = 0x80000020;
 const int PSP_POWER_ERROR_SLOTS_FULL = 0x80000022;
@@ -45,6 +52,7 @@ const int numberOfCBPowerSlotsPrivate = 32;
 
 static bool volatileMemLocked;
 static int powerCbSlots[numberOfCBPowerSlots];
+static std::vector<VolatileWaitingThread> volatileWaitingThreads;
 
 // this should belong here on in CoreTiming?
 static int pllFreq = 222;
@@ -53,6 +61,7 @@ static int busFreq = 111;
 void __PowerInit() {
 	memset(powerCbSlots, 0, sizeof(powerCbSlots));
 	volatileMemLocked = false;
+	volatileWaitingThreads.clear();
 
 	if(g_Config.iLockedCPUSpeed > 0) {
 		CoreTiming::SetClockFrequencyMHz(g_Config.iLockedCPUSpeed);
@@ -64,6 +73,7 @@ void __PowerInit() {
 void __PowerDoState(PointerWrap &p) {
 	p.DoArray(powerCbSlots, ARRAY_SIZE(powerCbSlots));
 	p.Do(volatileMemLocked);
+	p.Do(volatileWaitingThreads);
 	p.DoMarker("scePower");
 }
 
@@ -199,12 +209,11 @@ int sceKernelPowerTick(int flag) {
 
 #define ERROR_POWER_VMEM_IN_USE 0x802b0200
 
-int sceKernelVolatileMemTryLock(int type, int paddr, int psize) {
-	if (!volatileMemLocked) {
-		INFO_LOG(HLE,"sceKernelVolatileMemTryLock(%i, %08x, %i) - success", type, paddr, psize);
-		volatileMemLocked = true;
-	} else {
-		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %i) - already locked!", type, paddr, psize);
+int __KernelVolatileMemLock(int type, u32 paddr, u32 psize) {
+	if (type != 0) {
+		return SCE_KERNEL_ERROR_INVALID_MODE;
+	}
+	if (volatileMemLocked) {
 		return ERROR_POWER_VMEM_IN_USE;
 	}
 
@@ -213,22 +222,89 @@ int sceKernelVolatileMemTryLock(int type, int paddr, int psize) {
 	// TODO: Should really reserve this properly!
 	Memory::Write_U32(0x08400000, paddr);
 	Memory::Write_U32(0x00400000, psize);
+	volatileMemLocked = true;
 
 	return 0;
 }
 
+int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
+	u32 error = __KernelVolatileMemLock(type, paddr, psize);
+
+	switch (error) {
+	case 0:
+		INFO_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - success", type, paddr, psize);
+		break;
+
+	case ERROR_POWER_VMEM_IN_USE:
+		ERROR_LOG(HLE, "sceKernelVolatileMemTryLock(%i, %08x, %08x) - already locked!", type, paddr, psize);
+		break;
+
+	default:
+		ERROR_LOG_REPORT(HLE, "%08x=sceKernelVolatileMemTryLock(%i, %08x, %08x) - error", type, paddr, psize, error);
+		break;
+	}
+
+	return error;
+}
+
 int sceKernelVolatileMemUnlock(int type) {
+	if (type != 0) {
+		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) - invalid mode", type);
+		return SCE_KERNEL_ERROR_INVALID_MODE;
+	}
 	if (volatileMemLocked) {
-		INFO_LOG(HLE,"sceKernelVolatileMemUnlock(%i)", type);
 		volatileMemLocked = false;
+
+		// Wake someone, always fifo.
+		bool wokeThreads = false;
+		u32 error;
+		while (!volatileWaitingThreads.empty() && !volatileMemLocked) {
+			VolatileWaitingThread waitInfo = volatileWaitingThreads.front();
+			volatileWaitingThreads.erase(volatileWaitingThreads.begin());
+
+			int waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_VMEM, error);
+			// If they were force-released, just skip.
+			if (waitID == 1 && __KernelVolatileMemLock(0, waitInfo.addrPtr, waitInfo.sizePtr) == 0) {
+				__KernelResumeThreadFromWait(waitInfo.threadID, 0);
+				wokeThreads = true;
+			}
+		}
+
+		if (wokeThreads) {
+			INFO_LOG(HLE, "sceKernelVolatileMemUnlock(%i) handed over to another thread", type);
+			hleReSchedule("volatile mem unlocked");
+		} else {
+			INFO_LOG(HLE, "sceKernelVolatileMemUnlock(%i)", type);
+		}
 	} else {
 		ERROR_LOG_REPORT(HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
 	}
 	return 0;
 }
 
-int sceKernelVolatileMemLock(int type, int paddr, int psize) {
-	return sceKernelVolatileMemTryLock(type, paddr, psize);
+int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
+	u32 error = __KernelVolatileMemLock(type, paddr, psize);
+
+	switch (error) {
+	case 0:
+		INFO_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - success", type, paddr, psize);
+		break;
+
+	case ERROR_POWER_VMEM_IN_USE:
+		{
+			WARN_LOG(HLE, "sceKernelVolatileMemLock(%i, %08x, %08x) - already locked, waiting", type, paddr, psize);
+			const VolatileWaitingThread waitInfo = { __KernelGetCurThread(), paddr, psize };
+			volatileWaitingThreads.push_back(waitInfo);
+			__KernelWaitCurThread(WAITTYPE_VMEM, 1, 0, 0, false, "volatile mem waited");
+		}
+		break;
+
+	default:
+		ERROR_LOG_REPORT(HLE, "%08x=sceKernelVolatileMemLock(%i, %08x, %08x) - error", type, paddr, psize, error);
+		break;
+	}
+
+	return error;
 }
 
 
@@ -265,17 +341,6 @@ u32 scePowerSetBusClockFrequency(u32 busfreq) {
 		DEBUG_LOG(HLE,"scePowerSetBusClockFrequency(%i)", busfreq);
 	}
 	return 0;
-}
-
-u32 scePowerGetCpuClockFrequency() {
-	int cpuFreq = CoreTiming::GetClockFrequencyMHz();
-	DEBUG_LOG(HLE,"%i=scePowerGetCpuClockFrequency()", cpuFreq);
-	return cpuFreq;
-}
-
-u32 scePowerGetBusClockFrequency() {
-	INFO_LOG(HLE,"%i=scePowerGetBusClockFrequency()", busFreq);
-	return busFreq;
 }
 
 u32 scePowerGetCpuClockFrequencyInt() {
@@ -361,8 +426,8 @@ static const HLEFunction scePower[] = {
 	{0xDB9D28DD,WrapI_I<scePowerUnregisterCallback>,"scePowerUnregitserCallback"},	
 	{0x843FBF43,WrapU_U<scePowerSetCpuClockFrequency>,"scePowerSetCpuClockFrequency"},
 	{0xB8D7B3FB,WrapU_U<scePowerSetBusClockFrequency>,"scePowerSetBusClockFrequency"},
-	{0xFEE03A2F,WrapU_V<scePowerGetCpuClockFrequency>,"scePowerGetCpuClockFrequency"},
-	{0x478FE6F5,WrapU_V<scePowerGetBusClockFrequency>,"scePowerGetBusClockFrequency"},
+	{0xFEE03A2F,WrapU_V<scePowerGetCpuClockFrequencyInt>,"scePowerGetCpuClockFrequency"},
+	{0x478FE6F5,WrapU_V<scePowerGetBusClockFrequencyInt>,"scePowerGetBusClockFrequency"},
 	{0xFDB5BFE9,WrapU_V<scePowerGetCpuClockFrequencyInt>,"scePowerGetCpuClockFrequencyInt"},
 	{0xBD681969,WrapU_V<scePowerGetBusClockFrequencyInt>,"scePowerGetBusClockFrequencyInt"},
 	{0xB1A52C83,WrapF_V<scePowerGetCpuClockFrequencyFloat>,"scePowerGetCpuClockFrequencyFloat"},
@@ -379,9 +444,11 @@ static const HLEFunction scePower[] = {
 	{0x0442d852,0,"scePowerRequestColdReset"},
 	{0xbafa3df0,0,"scePowerGetCallbackMode"},
 	{0xa9d22232,0,"scePowerSetCallbackMode"},
-	{0x23c31ffe,0,"scePowerVolatileMemLock"},
-	{0xfa97a599,0,"scePowerVolatileMemTryLock"},
-	{0xb3edd801,0,"scePowerVolatileMemUnlock"},
+
+	// These seem to be aliases.
+	{0x23c31ffe,&WrapI_IUU<sceKernelVolatileMemLock>,"scePowerVolatileMemLock", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0xfa97a599,&WrapI_IUU<sceKernelVolatileMemTryLock>,"scePowerVolatileMemTryLock"},
+	{0xb3edd801,&WrapI_I<sceKernelVolatileMemUnlock>,"scePowerVolatileMemUnlock"},
 };
 
 //890129c in tyshooter looks bogus
@@ -392,9 +459,9 @@ const HLEFunction sceSuspendForUser[] = {
 
 	// There's an extra 4MB that can be allocated, which seems to be "volatile". These functions
 	// let you grab it.
-	{0xa14f40b2,&WrapI_III<sceKernelVolatileMemTryLock>,"sceKernelVolatileMemTryLock"},
+	{0xa14f40b2,&WrapI_IUU<sceKernelVolatileMemTryLock>,"sceKernelVolatileMemTryLock"},
 	{0xa569e425,&WrapI_I<sceKernelVolatileMemUnlock>,"sceKernelVolatileMemUnlock"},
-	{0x3e0271d3,&WrapI_III<sceKernelVolatileMemLock>,"sceKernelVolatileMemLock"}, //when "acquiring mem pool" (fired up)
+	{0x3e0271d3,&WrapI_IUU<sceKernelVolatileMemLock>,"sceKernelVolatileMemLock", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED}, //when "acquiring mem pool" (fired up)
 };
 
 

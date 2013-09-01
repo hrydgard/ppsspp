@@ -29,7 +29,7 @@ public:
 	void Reset();
 	static bool PrimCompatible(int prim1, int prim2);
 	bool PrimCompatible(int prim);
-	int Prim() const { return prim_; }
+	GEPrimitiveType Prim() const { return prim_; }
 
 	void AddPrim(int prim, int vertexCount);
 	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset);
@@ -93,7 +93,7 @@ private:
 	int index_;
 	int count_;
 	int pureCount_;
-	int prim_;
+	GEPrimitiveType prim_;
 	int seenPrims_;
 };
 

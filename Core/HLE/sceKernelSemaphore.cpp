@@ -477,7 +477,7 @@ int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCal
 int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, false);
-	if (result == SCE_KERNEL_ERROR_ILLEGAL_COUNT)
+	if (result == (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT)
 		DEBUG_LOG(HLE, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr)
 	else if (result == 0)
 		DEBUG_LOG(HLE, "0=sceKernelWaitSema(%i, %i, %i)", id, wantedCount, timeoutPtr)
@@ -489,7 +489,7 @@ int sceKernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr)
 int sceKernelWaitSemaCB(SceUID id, int wantedCount, u32 timeoutPtr)
 {
 	int result = __KernelWaitSema(id, wantedCount, timeoutPtr, true);
-	if (result == SCE_KERNEL_ERROR_ILLEGAL_COUNT)
+	if (result == (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT)
 		DEBUG_LOG(HLE, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr)
 	else if (result == 0)
 		DEBUG_LOG(HLE, "0=sceKernelWaitSemaCB(%i, %i, %i)", id, wantedCount, timeoutPtr)
@@ -504,7 +504,7 @@ int sceKernelPollSema(SceUID id, int wantedCount)
 	if (wantedCount <= 0)
 	{
 		DEBUG_LOG(HLE, "SCE_KERNEL_ERROR_ILLEGAL_COUNT=sceKernelPollSema(%i, %i)", id, wantedCount);
-		return SCE_KERNEL_ERROR_ILLEGAL_COUNT;
+		return (int)SCE_KERNEL_ERROR_ILLEGAL_COUNT;
 	}
 
 	u32 error;

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "file/file_util.h"
+#include "Common/FileUtil.h"
 #include "MIPS/MIPS.h"
 #include "MIPS/MIPSCodeUtils.h"
 
@@ -71,7 +72,7 @@ IdentifiedFileType Identify_File(std::string &filename)
 		return FILETYPE_NORMAL_DIRECTORY;
 	}
 
-	FILE *f = fopen(filename.c_str(), "rb");
+	FILE *f = File::OpenCFile(filename.c_str(), "rb");
 	if (!f)	{
 		// File does not exists
 		return FILETYPE_ERROR;
@@ -161,6 +162,13 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 
 			if (fileInfo.exists) {
 				INFO_LOG(LOADER, "File is a PBP in a directory!");
+				std::string ebootPath = filename + "/EBOOT.PBP";
+				IdentifiedFileType ebootType = Identify_File(ebootPath);
+				if(ebootType == FILETYPE_PSP_ISO_NP) {
+					InitMemoryForGameISO(ebootPath);
+					pspFileSystem.SetStartingDirectory("disc0:/PSP_GAME/USRDIR");
+					return Load_PSP_ISO(filename.c_str(), error_string);
+				}
 				std::string path = filename;
 				size_t pos = path.find("/PSP/GAME/");
 				if (pos != std::string::npos)
@@ -212,6 +220,7 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 
 	case FILETYPE_NORMAL_DIRECTORY:
 		ERROR_LOG(LOADER, "Just a directory.");
+		*error_string = "Just a directory.";
 		break;
 
 	case FILETYPE_UNKNOWN_BIN:

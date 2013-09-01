@@ -245,10 +245,10 @@ void UpdateConfirmCancelKeys() {
 			cancelKeys.push_back(hardcodedCancelKeys[i]);
 	}
 
-	SetConfirmCancelKeys(confirmKeys,cancelKeys);
+	SetConfirmCancelKeys(confirmKeys, cancelKeys);
 }
 
-static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, int count, bool replace) {
+static void SetDefaultKeyMap(int deviceId, const DefMappingStruct *array, size_t count, bool replace) {
 	for (size_t i = 0; i < count; i++) {
 		if (array[i].direction == 0)
 			SetKeyMapping(array[i].pspKey, KeyDef(deviceId, array[i].key), replace);
@@ -679,7 +679,7 @@ void RestoreDefault() {
 	std::string name = System_GetName();
 	if (name == "NVIDIA:SHIELD") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
-	} else if (name == "OUYA:OUYA") {  // TODO: check!
+	} else if (name == "OUYA:OUYA Console") {  // TODO: check!
 		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
 	} else if (name == "Sony Ericsson:R800i" || name == "Sony Ericsson:zeus") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);

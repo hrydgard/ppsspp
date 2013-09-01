@@ -37,20 +37,25 @@
 // (pointer or data), we could avoid many BIC instructions.
 
 
-#include "../../MemMap.h"
-#include "../MIPSAnalyst.h"
-#include "../../Config.h"
-#include "ArmJit.h"
-#include "ArmRegCache.h"
+#include "Core/MemMap.h"
+#include "Core/Config.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -121,15 +126,15 @@ namespace MIPSComp
 		SetCC(CC_GT);
 	}
 
-	void Jit::Comp_ITypeMem(u32 op)
+	void Jit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		int offset = (signed short)(op&0xFFFF);
 		bool load = false;
-		int rt = _RT;
-		int rs = _RS;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 		int o = op>>26;
-		if (((op >> 29) & 1) == 0 && rt == 0) {
+		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
 			return;
 		}
@@ -194,13 +199,13 @@ namespace MIPSComp
 			if (!js.inDelaySlot) {
 				// Optimisation: Combine to single unaligned load/store
 				bool isLeft = (o == 34 || o == 42);
-				u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+				MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 				// Find a matching shift in opposite direction with opposite offset.
-				if (nextOp == (isLeft ? (op + (4<<26) - 3)
-				                      : (op - (4<<26) + 3)))
+				if (nextOp == (isLeft ? (op.encoding + (4<<26) - 3)
+				                      : (op.encoding - (4<<26) + 3)))
 				{
 					EatInstruction(nextOp);
-					nextOp = ((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x03FFFFFF); //lw, sw
+					nextOp = MIPSOpcode(((load ? 35 : 43) << 26) | ((isLeft ? nextOp : op) & 0x03FFFFFF)); //lw, sw
 					Comp_ITypeMem(nextOp);
 					return;
 				}

@@ -60,7 +60,7 @@ MIPSDebugInterface *currentDebugMIPS = &debugr4k;
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
-extern const float cst_constants[32] = {
+const float cst_constants[32] = {
 	0,
 	std::numeric_limits<float>::max(),  // all these are verified on real PSP
 	sqrtf(2.0f),
@@ -228,6 +228,13 @@ u32 MIPSState::ReadFCR(int reg)
 		// MessageBox(0, "Invalid FCR","...",0);
 	}
 	return 0;
+}
+
+void MIPSState::InvalidateICache(u32 address, int length)
+{
+	// Only really applies to jit.
+	if (MIPSComp::jit)
+		MIPSComp::jit->ClearCacheAt(address, length);
 }
 
 

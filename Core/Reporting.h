@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/CommonTypes.h"
+#include <string>
 
 #define ERROR_LOG_REPORT(t,...)   { ERROR_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); }
 #define WARN_LOG_REPORT(t,...)    { WARN_LOG(t, __VA_ARGS__);   Reporting::ReportMessage(__VA_ARGS__); }
@@ -34,6 +35,18 @@
 
 namespace Reporting
 {
+	// Returns whether or not the reporting system is currently enabled.
 	bool IsEnabled();
+
+	// Returns whether the reporting system can be enabled (based on system or settings.)
+	bool IsSupported();
+
+	// Set the current enabled state of the reporting system and desired reporting server host.
+	void Enable(bool flag, std::string host);
+
+	// Use the default reporting setting (per compiled settings) of host and enabled state.
+	void EnableDefault();
+
+	// Report a message string, using the format string as a key.
 	void ReportMessage(const char *message, ...);
 }

@@ -31,10 +31,10 @@ static int LoadXInputDLL() {
 	}
 
 	version = (1 << 16) | 4;
-	s_pXInputDLL = LoadLibrary( "XInput1_4.dll" );  // 1.4 Ships with Windows 8.
+	s_pXInputDLL = LoadLibrary( L"XInput1_4.dll" );  // 1.4 Ships with Windows 8.
 	if (!s_pXInputDLL) {
 		version = (1 << 16) | 3;
-		s_pXInputDLL = LoadLibrary( "XInput1_3.dll" );  // 1.3 Ships with Vista and Win7, can be installed as a restributable component.
+		s_pXInputDLL = LoadLibrary( L"XInput1_3.dll" );  // 1.3 Ships with Vista and Win7, can be installed as a restributable component.
 	}
 	if (!s_pXInputDLL) {
 		return -1;

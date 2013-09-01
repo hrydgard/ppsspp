@@ -21,16 +21,14 @@
 
 struct InputState;
 
-class PMixer
-{
+class PMixer {
 public:
 	PMixer() {}
 	virtual ~PMixer() {}
 	virtual int Mix(short *stereoout, int numSamples) {memset(stereoout,0,numSamples*2*sizeof(short)); return numSamples;}
 };
 
-class Host
-{
+class Host {
 public:
 	virtual ~Host() {}
 	//virtual void StartThread()
@@ -64,10 +62,13 @@ public:
 	virtual void SendGPUWait(u32 cmd, u32 addr, void* data) {}
 	virtual void SetGPUStep(bool value, int flag = 0, int data = 0) {}
 	virtual void NextGPUStep() {}
+	virtual bool CanCreateShortcut() {return false;}
+	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 
 #ifdef _WIN32
 	// Implement this on your platform to grab text input from the user for whatever purpose.
 	virtual bool InputBoxGetString(char *title, const char *defaultValue, char *outValue, size_t outlength) { return false; }
+	virtual bool InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
 #endif
 
 	// Used for headless.

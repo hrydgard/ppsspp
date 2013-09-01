@@ -17,45 +17,46 @@
 
 #pragma once
 
-#include "../../Globals.h"
+#include "Globals.h"
+#include "Core/MIPS/MIPS.h"
 
 extern u32 disPC;
 
 namespace MIPSDis
 {
-	void Dis_Unknown(u32 op, char *out);
-	void Dis_Unimpl(u32 op, char *out);
-	void Dis_Syscall(u32 op, char *out);
+	void Dis_Unknown(MIPSOpcode op, char *out);
+	void Dis_Unimpl(MIPSOpcode op, char *out);
+	void Dis_Syscall(MIPSOpcode op, char *out);
 
-	void Dis_mxc1(u32 op, char *out);
-	void Dis_addi(u32 op, char *out);
-	void Dis_addu(u32 op, char *out);
-	void Dis_RelBranch2(u32 op, char *out);
-	void Dis_RelBranch(u32 op, char *out);
-	void Dis_Generic(u32 op, char *out);
-	void Dis_IType(u32 op, char *out);
-	void Dis_IType1(u32 op, char *out);
-	void Dis_ITypeMem(u32 op, char *out);
-	void Dis_RType2(u32 op, char *out);
-	void Dis_RType3(u32 op, char *out);
-	void Dis_MulDivType(u32 op, char *out);
-	void Dis_ShiftType(u32 op, char *out);
-	void Dis_VarShiftType(u32 op, char *out);
-	void Dis_FPU3op(u32 op, char *out);
-	void Dis_FPU2op(u32 op, char *out);
-	void Dis_FPULS(u32 op, char *out);
-	void Dis_FPUComp(u32 op, char *out);
-	void Dis_FPUBranch(u32 op, char *out);
-	void Dis_ori(u32 op, char *out);
-	void Dis_Special3(u32 op, char *out);
+	void Dis_mxc1(MIPSOpcode op, char *out);
+	void Dis_addi(MIPSOpcode op, char *out);
+	void Dis_addu(MIPSOpcode op, char *out);
+	void Dis_RelBranch2(MIPSOpcode op, char *out);
+	void Dis_RelBranch(MIPSOpcode op, char *out);
+	void Dis_Generic(MIPSOpcode op, char *out);
+	void Dis_IType(MIPSOpcode op, char *out);
+	void Dis_IType1(MIPSOpcode op, char *out);
+	void Dis_ITypeMem(MIPSOpcode op, char *out);
+	void Dis_RType2(MIPSOpcode op, char *out);
+	void Dis_RType3(MIPSOpcode op, char *out);
+	void Dis_MulDivType(MIPSOpcode op, char *out);
+	void Dis_ShiftType(MIPSOpcode op, char *out);
+	void Dis_VarShiftType(MIPSOpcode op, char *out);
+	void Dis_FPU3op(MIPSOpcode op, char *out);
+	void Dis_FPU2op(MIPSOpcode op, char *out);
+	void Dis_FPULS(MIPSOpcode op, char *out);
+	void Dis_FPUComp(MIPSOpcode op, char *out);
+	void Dis_FPUBranch(MIPSOpcode op, char *out);
+	void Dis_ori(MIPSOpcode op, char *out);
+	void Dis_Special3(MIPSOpcode op, char *out);
 
-	void Dis_ToHiloTransfer(u32 op, char *out);
-	void Dis_FromHiloTransfer(u32 op, char *out);
-	void Dis_JumpType(u32 op, char *out);
-	void Dis_JumpRegType(u32 op, char *out);
+	void Dis_ToHiloTransfer(MIPSOpcode op, char *out);
+	void Dis_FromHiloTransfer(MIPSOpcode op, char *out);
+	void Dis_JumpType(MIPSOpcode op, char *out);
+	void Dis_JumpRegType(MIPSOpcode op, char *out);
 
-	void Dis_Allegrex(u32 op, char *out);
-	void Dis_Allegrex2(u32 op, char *out);
+	void Dis_Allegrex(MIPSOpcode op, char *out);
+	void Dis_Allegrex2(MIPSOpcode op, char *out);
 
-	void Dis_Emuhack(u32 op, char *out);
+	void Dis_Emuhack(MIPSOpcode op, char *out);
 }

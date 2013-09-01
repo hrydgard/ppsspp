@@ -66,13 +66,13 @@ static inline void SkipLikely()
 int MIPS_SingleStep()
 {
 #if defined(ARM)
-	u32 op = Memory::ReadUnchecked_U32(mipsr4k.pc);
+	MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mipsr4k.pc));
 #else
-	u32 op = Memory::Read_Opcode_JIT(mipsr4k.pc);
+	MIPSOpcode op = Memory::Read_Opcode_JIT(mipsr4k.pc);
 #endif
 	/*
 	// Choke on VFPU
-	u32 info = MIPSGetInfo(op);
+	MIPSInfo info = MIPSGetInfo(op);
 	if (info & IS_VFPU)
 	{
 		if (!Core_IsStepping() && !GetAsyncKeyState(VK_LSHIFT))
@@ -117,7 +117,7 @@ void MIPS_ClearDelaySlot()
 
 namespace MIPSInt
 {
-	void Int_Cache(u32 op)
+	void Int_Cache(MIPSOpcode op)
 	{
 		int imm = (s16)(op & 0xFFFF);
 		int rs = _RS;
@@ -145,7 +145,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Syscall(u32 op)
+	void Int_Syscall(MIPSOpcode op)
 	{
 		// Need to pre-move PC, as CallSyscall may result in a rescheduling!
 		// To do this neater, we'll need a little generated kernel loop that syscall can jump to and then RFI from 
@@ -162,13 +162,13 @@ namespace MIPSInt
 		CallSyscall(op);
 	}
 
-	void Int_Sync(u32 op)
+	void Int_Sync(MIPSOpcode op)
 	{
 		//DEBUG_LOG(CPU, "sync");
 		PC += 4;
 	}
 
-	void Int_Break(u32 op)
+	void Int_Break(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
 		ERROR_LOG(CPU, "BREAK!");
@@ -177,7 +177,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_RelBranch(u32 op)
+	void Int_RelBranch(MIPSOpcode op)
 	{
 		int imm = (signed short)(op&0xFFFF)<<2;
 		int rs = _RS;
@@ -202,7 +202,7 @@ namespace MIPSInt
 		}
 	}
 
-	void Int_RelBranchRI(u32 op)
+	void Int_RelBranchRI(MIPSOpcode op)
 	{
 		int imm = (signed short)(op&0xFFFF)<<2;
 		int rs = _RS;
@@ -225,7 +225,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_VBranch(u32 op)
+	void Int_VBranch(MIPSOpcode op)
 	{
 		int imm = (signed short)(op&0xFFFF)<<2;
 		u32 addr = PC + imm + 4;
@@ -243,7 +243,7 @@ namespace MIPSInt
 		}
 	}
 
-	void Int_FPUBranch(u32 op)
+	void Int_FPUBranch(MIPSOpcode op)
 	{
 		int imm = (signed short)(op&0xFFFF)<<2;
 		u32 addr = PC + imm + 4;
@@ -259,7 +259,7 @@ namespace MIPSInt
 		}
 	}
 	
-	void Int_JumpType(u32 op)
+	void Int_JumpType(MIPSOpcode op)
 	{
 		if (mipsr4k.inDelaySlot)
 			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
@@ -280,7 +280,7 @@ namespace MIPSInt
 		}
 	}
 
-	void Int_JumpRegType(u32 op)
+	void Int_JumpRegType(MIPSOpcode op)
 	{
 		if (mipsr4k.inDelaySlot)
 		{
@@ -306,7 +306,7 @@ namespace MIPSInt
 		}
 	}
 
-	void Int_IType(u32 op)
+	void Int_IType(MIPSOpcode op)
 	{
 		s32 simm = (s32)(s16)(op & 0xFFFF);
 		u32 uimm = (u32)(u16)(op & 0xFFFF);
@@ -338,7 +338,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_StoreSync(u32 op)
+	void Int_StoreSync(MIPSOpcode op)
 	{
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
@@ -371,7 +371,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_RType3(u32 op)
+	void Int_RType3(MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rs = _RS;
@@ -419,7 +419,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_ITypeMem(u32 op)
+	void Int_ITypeMem(MIPSOpcode op)
 	{
 		int imm = (signed short)(op&0xFFFF);
 		int rt = _RT;
@@ -489,7 +489,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_FPULS(u32 op)
+	void Int_FPULS(MIPSOpcode op)
 	{
 		s32 offset = (s16)(op&0xFFFF);
 		int ft = _FT;
@@ -507,7 +507,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_mxc1(u32 op)
+	void Int_mxc1(MIPSOpcode op)
 	{
 		int fs = _FS;
 		int rt = _RT;
@@ -526,7 +526,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_RType2(u32 op)
+	void Int_RType2(MIPSOpcode op)
 	{
 		int rs = _RS;
 		int rd = _RD;
@@ -571,7 +571,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_MulDivType(u32 op)
+	void Int_MulDivType(MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rs = _RS;
@@ -674,7 +674,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_ShiftType(u32 op)
+	void Int_ShiftType(MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rs = _RS;
@@ -728,7 +728,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Allegrex(u32 op)
+	void Int_Allegrex(MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rd = _RD;
@@ -771,7 +771,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Allegrex2(u32 op)
+	void Int_Allegrex2(MIPSOpcode op)
 	{
 		int rt = _RT;
 		int rd = _RD;
@@ -798,7 +798,30 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Special3(u32 op)
+	void Int_Special2(MIPSOpcode op)
+	{
+		static int reported = 0;
+		switch (op & 0x3F)
+		{
+		case 36:
+			if (!reported) {
+				Reporting::ReportMessage("MFIC instruction hit (%08x) at %08x", op, currentMIPS->pc);
+				WARN_LOG(CPU,"MFIC Disable/Enable Interrupt CPU instruction");
+				reported = 1;
+			}
+			break;
+		case 38:
+			if (!reported) {
+				Reporting::ReportMessage("MTIC instruction hit (%08x) at %08x", op, currentMIPS->pc);
+				WARN_LOG(CPU,"MTIC Disable/Enable Interrupt CPU instruction");
+				reported = 1;
+			}
+			break;
+		}
+		PC += 4;
+	}
+
+	void Int_Special3(MIPSOpcode op)
 	{
 		int rs = _RS;
 		int rt = _RT;
@@ -832,7 +855,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_FPU2op(u32 op)
+	void Int_FPU2op(MIPSOpcode op)
 	{
 		int fs = _FS;
 		int fd = _FD;
@@ -865,7 +888,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_FPUComp(u32 op)
+	void Int_FPUComp(MIPSOpcode op)
 	{
 		int fs = _FS;
 		int ft = _FT;
@@ -921,7 +944,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_FPU3op(u32 op)
+	void Int_FPU3op(MIPSOpcode op)
 	{
 		int ft = _FT;
 		int fs = _FS;
@@ -940,7 +963,7 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Interrupt(u32 op)
+	void Int_Interrupt(MIPSOpcode op)
 	{
 		static int reported = 0;
 		switch (op & 1)
@@ -957,7 +980,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_Emuhack(u32 op)
+	void Int_Emuhack(MIPSOpcode op)
 	{
 		_dbg_assert_msg_(CPU,0,"Trying to interpret emuhack instruction that can't be interpreted");
 	}

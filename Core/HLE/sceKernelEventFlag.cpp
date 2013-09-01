@@ -324,7 +324,11 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	DEBUG_LOG(HLE, "%i=sceKernelCreateEventFlag(\"%s\", %08x, %08x, %08x)", id, e->nef.name, e->nef.attr, e->nef.currentPattern, optPtr);
 
 	if (optPtr != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateEventFlag(%s) unsupported options parameter: %08x", name, optPtr);
+	{
+		u32 size = Memory::Read_U32(optPtr);
+		if (size > 4)
+			WARN_LOG_REPORT(HLE, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
+	}
 	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
 		WARN_LOG_REPORT(HLE, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
 
@@ -654,7 +658,7 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr)
 	// Can't wait on 0, it never matches.
 	if (bits == 0)
 	{
-		DEBUG_LOG(HLE, "sceKernelPollEventFlag(%i, %08x, %i, %08x, %08x): bad pattern", id, bits, wait, outBitsPtr);
+		DEBUG_LOG(HLE, "sceKernelPollEventFlag(%i, %08x, %i, %08x): bad pattern", id, bits, wait, outBitsPtr);
 		return SCE_KERNEL_ERROR_EVF_ILPAT;
 	}
 
@@ -669,23 +673,23 @@ int sceKernelPollEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr)
 
 			if (e->waitingThreads.size() > 0 && (e->nef.attr & PSP_EVENT_WAITMULTIPLE) == 0)
 			{
-				DEBUG_LOG(HLE, "SCE_KERNEL_ERROR_EVF_MULTI=sceKernelPollEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr);
+				DEBUG_LOG(HLE, "SCE_KERNEL_ERROR_EVF_MULTI=sceKernelPollEventFlag(%i, %08x, %i, %08x)", id, bits, wait, outBitsPtr);
 				return SCE_KERNEL_ERROR_EVF_MULTI;
 			}
 
 			// No match - return that, this is polling, not waiting.
-			DEBUG_LOG(HLE, "SCE_KERNEL_ERROR_EVF_COND=sceKernelPollEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr);
+			DEBUG_LOG(HLE, "SCE_KERNEL_ERROR_EVF_COND=sceKernelPollEventFlag(%i, %08x, %i, %08x)", id, bits, wait, outBitsPtr);
 			return SCE_KERNEL_ERROR_EVF_COND;
 		}
 		else
 		{
-			DEBUG_LOG(HLE, "0=sceKernelPollEventFlag(%i, %08x, %i, %08x, %08x)", id, bits, wait, outBitsPtr);
+			DEBUG_LOG(HLE, "0=sceKernelPollEventFlag(%i, %08x, %i, %08x)", id, bits, wait, outBitsPtr);
 			return 0;
 		}
 	}
 	else
 	{
-		DEBUG_LOG(HLE, "sceKernelPollEventFlag(%i, %08x, %i, %08x, %08x): invalid event flag", id, bits, wait, outBitsPtr);
+		DEBUG_LOG(HLE, "sceKernelPollEventFlag(%i, %08x, %i, %08x): invalid event flag", id, bits, wait, outBitsPtr);
 		return error;
 	}
 }

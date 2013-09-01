@@ -37,6 +37,7 @@
 #include "native/ext/stb_image_write/stb_image_writer.h"
 #include "native/ext/jpge/jpge.h"
 #include "gfx_es2/gl_state.h"
+#include "gfx_es2/draw_text.h"
 #include "gfx/gl_lost_manager.h"
 #include "gfx/texture.h"
 #include "i18n/i18n.h"
@@ -44,7 +45,6 @@
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "ui/screen.h"
-#include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 
@@ -372,6 +372,16 @@ void NativeInit(int argc, const char *argv[],
 #endif	
 
 	i18nrepo.LoadIni(g_Config.languageIni);
+	I18NCategory *d = GetI18NCategory("DesktopUI");
+	// Note to translators: do not translate this/add this to PPSSPP-lang's files. 
+	// It's intended to be custom for every user. 
+	// Only add it to your own personal copies of PPSSPP.
+#ifdef _WIN32
+	// TODO: Could allow a setting to specify a font file to load?
+	// TODO: Make this a constant if we can sanely load the font on other systems?
+	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
+	g_Config.sFont = d->T("Font", "Roboto");
+#endif
 
 	if (!boot_filename.empty() && stateToLoad != NULL)
 		SaveState::Load(stateToLoad);
@@ -400,24 +410,22 @@ void NativeInitGraphics() {
 	CheckGLExtensions();
 	gl_lost_manager_init();
 	ui_draw2d.SetAtlas(&ui_atlas);
+	ui_draw2d_front.SetAtlas(&ui_atlas);
 
 	UIShader_Init();
 
-	// Old style theme, to be removed later
-	UITheme theme = {0};
-	theme.uiFont = UBUNTU24;
-	theme.uiFontSmall = UBUNTU24;
-	theme.uiFontSmaller = UBUNTU24;
-	theme.buttonImage = I_SOLIDWHITE;  // not using classic buttons
-	theme.buttonSelected = I_SOLIDWHITE;
-	theme.checkOn = I_CHECKEDBOX;
-	theme.checkOff = I_SQUARE;
-
 	// memset(&ui_theme, 0, sizeof(ui_theme));
 	// New style theme
-	ui_theme.uiFont = UBUNTU24;
-	ui_theme.uiFontSmall = UBUNTU24;
-	ui_theme.uiFontSmaller = UBUNTU24;
+#ifdef _WIN32
+	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
+	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
+	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
+#else
+	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "", 20);
+	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "", 14);
+	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, "", 11);
+#endif
+
 	ui_theme.checkOn = I_CHECKEDBOX;
 	ui_theme.checkOff = I_SQUARE;
 	ui_theme.whiteImage = I_SOLIDWHITE;
@@ -453,8 +461,6 @@ void NativeInitGraphics() {
 	ui_draw2d.Init();
 	ui_draw2d_front.Init();
 
-	UIInit(&ui_atlas, theme);
-
 	uiTexture = new Texture();
 	if (!uiTexture->Load("ui_atlas.zim")) {
 		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
@@ -465,7 +471,8 @@ void NativeInitGraphics() {
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 	uiContext->Init(UIShader_Get(), UIShader_GetPlain(), uiTexture, &ui_draw2d, &ui_draw2d_front);
-
+	if (uiContext->Text())
+		uiContext->Text()->SetFont("Tahoma", 20, 0);
 	screenManager->setUIContext(uiContext);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -561,6 +568,8 @@ void NativeRender() {
 	glUniformMatrix4fv(UIShader_Get()->u_worldviewproj, 1, GL_FALSE, ortho.getReadPtr());
 
 	screenManager->render();
+	if (screenManager->getUIContext()->Text())
+		screenManager->getUIContext()->Text()->OncePerFrame();
 
 	if (g_TakeScreenshot) {
 		TakeScreenshot();
@@ -642,5 +651,9 @@ void NativeShutdown() {
 #ifdef ANDROID
 	ILOG("NativeShutdown called");
 	exit(0);
+#endif
+
+#ifdef _WIN32
+	RemoveFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
 #endif
 }

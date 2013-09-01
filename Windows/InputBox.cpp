@@ -1,29 +1,34 @@
 #include "Common/CommonWindows.h"
 #include "Windows/InputBox.h"
 #include "Windows/resource.h"
+#include "util/text/utf8.h"
 
-static TCHAR textBoxContents[256];
-static TCHAR out[256];
-static TCHAR windowTitle[256];
+static std::wstring textBoxContents;
+static std::wstring out;
+static std::wstring windowTitle;
 static bool defaultSelected;
 
 static INT_PTR CALLBACK InputBoxFunc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch (message) {
 	case WM_INITDIALOG:
-		SetWindowText(GetDlgItem(hDlg,IDC_INPUTBOX),textBoxContents);
-		SetWindowText(hDlg, windowTitle);
+		SetWindowText(GetDlgItem(hDlg, IDC_INPUTBOX), textBoxContents.c_str());
+		SetWindowText(hDlg, windowTitle.c_str());
 		if (defaultSelected == false) PostMessage(GetDlgItem(hDlg,IDC_INPUTBOX),EM_SETSEL,-1,-1);
 		return TRUE;
 	case WM_COMMAND:
 		switch (wParam)
 		{
 		case IDOK:
-			GetWindowText(GetDlgItem(hDlg,IDC_INPUTBOX),out,255);
-			EndDialog(hDlg,IDOK);
+			{
+				wchar_t temp[256];
+				GetWindowText(GetDlgItem(hDlg, IDC_INPUTBOX), temp, 255);
+				out = temp;
+			}
+			EndDialog(hDlg, IDOK);
 			return TRUE;
 		case IDCANCEL:
-			EndDialog(hDlg,IDCANCEL);
+			EndDialog(hDlg, IDCANCEL);
 			return TRUE;
 		}
 	default:
@@ -37,68 +42,87 @@ void InputBoxFunc()
 
 }
 
-bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, TCHAR *defaultvalue, TCHAR *outvalue, bool selected)
+bool InputBox_GetString(HINSTANCE hInst, HWND hParent, const wchar_t *title, const std::string &defaultValue, std::string &outvalue, bool selected)
 {
 	defaultSelected = selected;
-	if (defaultvalue && strlen(defaultvalue)<255)
-		strcpy(textBoxContents,defaultvalue);
+	if (defaultValue.size() < 255)
+		textBoxContents = ConvertUTF8ToWString(defaultValue);
 	else
-		strcpy(textBoxContents,"");
+		textBoxContents = L"";
 
 	if (title != NULL)
-		strcpy(windowTitle,title);
+		windowTitle = title;
 	else
-		strcpy(windowTitle,"");
+		windowTitle = L"";
 
-	if (IDOK==DialogBox(hInst,(LPCSTR)IDD_INPUTBOX,hParent,InputBoxFunc))
-	{
-		strcpy(outvalue,out);
+	if (IDOK == DialogBox(hInst, (LPCWSTR)IDD_INPUTBOX, hParent, InputBoxFunc)) {
+		outvalue = ConvertWStringToUTF8(out);
 		return true;
 	}
 	else 
 		return false;
 }
 
-bool InputBox_GetString(HINSTANCE hInst, HWND hParent, TCHAR *title, const TCHAR *defaultvalue, TCHAR *outvalue, size_t outlength)
+bool InputBox_GetString(HINSTANCE hInst, HWND hParent, const wchar_t *title, const std::string &defaultValue, std::string &outvalue)
 {
-	const char *defaultTitle = "Input value";
+	const wchar_t *defaultTitle = L"Input value";
 	defaultSelected = true;
 
-	if (defaultvalue && strlen(defaultvalue)<255)
-		strcpy(textBoxContents,defaultvalue);
+	textBoxContents = ConvertUTF8ToWString(defaultValue);
+
+	if (title && wcslen(title) <= 0)
+		windowTitle = defaultTitle;
+	else if (title && wcslen(title) < 255)
+		windowTitle = title;
 	else
-		strcpy(textBoxContents,"");
+		windowTitle = defaultTitle;
 
-
-	if(title && strlen(title) <= 0)
-		strcpy(windowTitle, defaultTitle);
-	else if(title && strlen(title) < 255)
-		strcpy(windowTitle, title);
-	else
-		strcpy(windowTitle, defaultTitle);
-
-	if (IDOK==DialogBox(hInst,(LPCSTR)IDD_INPUTBOX,hParent,InputBoxFunc))
-	{
-		strncpy(outvalue, out, outlength);
+	if (IDOK == DialogBox(hInst, (LPCWSTR)IDD_INPUTBOX, hParent, InputBoxFunc)) {
+		outvalue = ConvertWStringToUTF8(out);
 		return true;
 	}
 	else 
 		return false;
 }
 
-bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, TCHAR *title, u32 defaultvalue, u32 &outvalue)
+bool InputBox_GetWString(HINSTANCE hInst, HWND hParent, const wchar_t *title, const std::wstring &defaultValue, std::wstring &outvalue)
 {
-	sprintf(textBoxContents,"%08x",defaultvalue);
-	INT_PTR value = DialogBox(hInst,(LPCSTR)IDD_INPUTBOX,hParent,InputBoxFunc);
+	const wchar_t *defaultTitle = L"Input value";
+	defaultSelected = true;
+
+	textBoxContents = defaultValue;
+
+	if (title && wcslen(title) <= 0)
+		windowTitle = defaultTitle;
+	else if (title && wcslen(title) < 255)
+		windowTitle = title;
+	else
+		windowTitle = defaultTitle;
+
+	if (IDOK == DialogBox(hInst, (LPCWSTR)IDD_INPUTBOX, hParent, InputBoxFunc)) {
+		outvalue = out;
+		return true;
+	}
+	else 
+		return false;
+}
+
+bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, const wchar_t *title, u32 defaultvalue, u32 &outvalue)
+{
+	wchar_t temp[256];
+	wsprintf(temp,L"%08x",defaultvalue);
+	textBoxContents = temp;
+
+	INT_PTR value = DialogBox(hInst, (LPCWSTR)IDD_INPUTBOX, hParent, InputBoxFunc);
 
 	if (value == IDOK)
 	{
-		sscanf(out,"%08x",&outvalue);
+		wscanf(out.c_str(),"%08x",&outvalue);
 		return true;
 	}
 	else 
 	{
-		out[0]=0;
+		outvalue = 0;
 		return false;
 	}
 }

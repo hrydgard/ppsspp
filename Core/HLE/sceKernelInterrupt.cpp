@@ -89,6 +89,7 @@ void sceKernelCpuResumeIntr(u32 enable)
 	{
 		__EnableInterrupts();
 		hleRunInterrupts();
+		hleReSchedule("interrupts resumed");
 	}
 	else
 	{
@@ -165,7 +166,7 @@ void IntrHandler::enable(int subIntrNum)
 }
 void IntrHandler::disable(int subIntrNum)
 {
-	subIntrHandlers[subIntrNum].enabled = true;
+	subIntrHandlers[subIntrNum].enabled = false;
 }
 SubIntrHandler* IntrHandler::get(int subIntrNum)
 {
@@ -407,9 +408,9 @@ void __KernelReturnFromInterrupt()
 	{
 		// Otherwise, we reschedule when dispatch was enabled, or switch back otherwise.
 		if (__KernelIsDispatchEnabled())
-			__KernelReSchedule("return from interrupt");
+			__KernelReSchedule("left interrupt");
 		else
-			__KernelSwitchToThread(threadBeforeInterrupt, "return from interrupt");
+			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
 	}
 }
 
@@ -574,8 +575,8 @@ const HLEFunction Kernel_Library[] =
 	{0xa089eca4,WrapU_UUU<sceKernelMemset>, "sceKernelMemset"},
 	{0xDC692EE3,WrapI_UI<sceKernelTryLockLwMutex>, "sceKernelTryLockLwMutex"},
 	{0x37431849,WrapI_UI<sceKernelTryLockLwMutex_600>, "sceKernelTryLockLwMutex_600"},
-	{0xbea46419,WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex", HLE_NOT_DISPATCH_SUSPENDED},
-	{0x1FC64E09,WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB", HLE_NOT_DISPATCH_SUSPENDED},
+	{0xbea46419,WrapI_UIU<sceKernelLockLwMutex>, "sceKernelLockLwMutex", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
+	{0x1FC64E09,WrapI_UIU<sceKernelLockLwMutexCB>, "sceKernelLockLwMutexCB", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED},
 	{0x15b6446b,WrapI_UI<sceKernelUnlockLwMutex>, "sceKernelUnlockLwMutex"},
 	{0xc1734599,WrapI_UU<sceKernelReferLwMutexStatus>, "sceKernelReferLwMutexStatus"},
 	{0x293b45b8,WrapI_V<sceKernelGetThreadId>, "sceKernelGetThreadId"},

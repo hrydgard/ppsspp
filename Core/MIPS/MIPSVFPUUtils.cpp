@@ -226,7 +226,7 @@ VectorSize GetHalfVectorSize(VectorSize sz)
 	}
 }
 
-VectorSize GetVecSize(u32 op)
+VectorSize GetVecSize(MIPSOpcode op)
 {
 	int a = (op>>7)&1;
 	int b = (op>>15)&1;
@@ -241,7 +241,7 @@ VectorSize GetVecSize(u32 op)
 	}
 }
 
-MatrixSize GetMtxSize(u32 op)
+MatrixSize GetMtxSize(MIPSOpcode op)
 {
 	int a = (op>>7)&1;
 	int b = (op>>15)&1;

@@ -15,19 +15,24 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "ArmJit.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/ARM/ArmJit.h"
 #include "Common/CPUDetect.h"
 
 using namespace MIPSAnalyst;
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _SA ((op>>6 ) & 0x1F)
-#define _POS	((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -61,15 +66,15 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_IType(u32 op)
+	void Jit::Comp_IType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
 		u32 uimm = op & 0xFFFF;
 		u32 suimm = (u32)(s32)simm;
 
-		int rt = _RT;
-		int rs = _RS;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 
 		// noop, won't write to ZERO.
 		if (rt == 0)
@@ -127,10 +132,10 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_RType2(u32 op)
+	void Jit::Comp_RType2(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
-		int rs = _RS;
+		MIPSGPReg rs = _RS;
 		int rd = _RD;
 
 		// Don't change $zr.
@@ -180,11 +185,11 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_RType3(u32 op)
+	void Jit::Comp_RType3(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
-		int rt = _RT;
-		int rs = _RS;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 		int rd = _RD;
 
 		// noop, won't write to ZERO.
@@ -325,21 +330,21 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::CompShiftImm(u32 op, ArmGen::ShiftType shiftType)
+	void Jit::CompShiftImm(MIPSOpcode op, ArmGen::ShiftType shiftType)
 	{
 		int rd = _RD;
-		int rt = _RT;
+		MIPSGPReg rt = _RT;
 		int sa = _SA;
 		
 		gpr.MapDirtyIn(rd, rt);
 		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, sa));
 	}
 
-	void Jit::CompShiftVar(u32 op, ArmGen::ShiftType shiftType)
+	void Jit::CompShiftVar(MIPSOpcode op, ArmGen::ShiftType shiftType)
 	{
 		int rd = _RD;
-		int rt = _RT;
-		int rs = _RS;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 		if (gpr.IsImm(rs))
 		{
 			int sa = gpr.GetImm(rs) & 0x1F;
@@ -352,10 +357,10 @@ namespace MIPSComp
 		MOV(gpr.R(rd), Operand2(gpr.R(rt), shiftType, R0));
 	}
 
-	void Jit::Comp_ShiftType(u32 op)
+	void Jit::Comp_ShiftType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
-		int rs = _RS;
+		MIPSGPReg rs = _RS;
 		int rd = _RD;
 		int fd = _FD;
 
@@ -379,12 +384,12 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Special3(u32 op)
+	void Jit::Comp_Special3(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 
-		int rs = _RS;
-		int rt = _RT;
+		MIPSGPReg rs = _RS;
+		MIPSGPReg rt = _RT;
 
 		int pos = _POS;
 		int size = _SIZE + 1;
@@ -447,10 +452,10 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Allegrex(u32 op)
+	void Jit::Comp_Allegrex(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
-		int rt = _RT;
+		MIPSGPReg rt = _RT;
 		int rd = _RD;
 		// Don't change $zr.
 		if (rd == 0)
@@ -505,10 +510,10 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Allegrex2(u32 op)
+	void Jit::Comp_Allegrex2(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
-		int rt = _RT;
+		MIPSGPReg rt = _RT;
 		int rd = _RD;
 		// Don't change $zr.
 		if (rd == 0)
@@ -538,11 +543,11 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_MulDivType(u32 op)
+	void Jit::Comp_MulDivType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
-		int rt = _RT;
-		int rs = _RS;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
 		int rd = _RD;
 
 		switch (op & 63) 

@@ -336,7 +336,7 @@ void VertexDecoder::Step_NormalS8() const
 {
 	s8 *normal = (s8 *)(decoded_ + decFmt.nrmoff);
 	u8 xorval = 0;
-	if (gstate.reversenormals & 1)
+	if (gstate.areNormalsReversed())
 		xorval = 0xFF;  // Using xor instead of - to handle -128
 	const s8 *sv = (const s8*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
@@ -348,7 +348,7 @@ void VertexDecoder::Step_NormalS16() const
 {
 	s16 *normal = (s16 *)(decoded_ + decFmt.nrmoff);
 	u16 xorval = 0;
-	if (gstate.reversenormals & 1)
+	if (gstate.areNormalsReversed())
 		xorval = 0xFFFF;
 	const s16 *sv = (const s16*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
@@ -360,7 +360,7 @@ void VertexDecoder::Step_NormalFloat() const
 {
 	float *normal = (float *)(decoded_ + decFmt.nrmoff);
 	float multiplier = 1.0f;
-	if (gstate.reversenormals & 1)
+	if (gstate.areNormalsReversed())
 		multiplier = -multiplier;
 	const float *fv = (const float*)(ptr_ + nrmoff);
 	for (int j = 0; j < 3; j++)
@@ -374,7 +374,7 @@ void VertexDecoder::Step_NormalS8Morph() const
 	for (int n = 0; n < morphcount; n++)
 	{
 		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.reversenormals & 1) {
+		if (gstate.areNormalsReversed()) {
 			multiplier = -multiplier;
 		}
 		const s8 *bv = (const s8*)(ptr_ + onesize_*n + nrmoff);
@@ -391,7 +391,7 @@ void VertexDecoder::Step_NormalS16Morph() const
 	for (int n = 0; n < morphcount; n++)
 	{
 		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.reversenormals & 1) {
+		if (gstate.areNormalsReversed()) {
 			multiplier = -multiplier;
 		}
 		const s16 *sv = (const s16 *)(ptr_ + onesize_*n + nrmoff);
@@ -408,7 +408,7 @@ void VertexDecoder::Step_NormalFloatMorph() const
 	for (int n = 0; n < morphcount; n++)
 	{
 		float multiplier = gstate_c.morphWeights[n];
-		if (gstate.reversenormals & 1) {
+		if (gstate.areNormalsReversed()) {
 			multiplier = -multiplier;
 		}
 		const float *fv = (const float*)(ptr_ + onesize_*n + nrmoff);
@@ -736,7 +736,7 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		decOff += DecFmtSize(decFmt.nrmfmt);
 	}
 
-	//if (pos)  - there's always a position
+	if (pos)  // there's always a position
 	{
 		size = align(size, posalign[pos]);
 		posoff = size;
@@ -764,7 +764,9 @@ void VertexDecoder::SetVertexType(u32 fmt) {
 		}
 		decFmt.posoff = decOff;
 		decOff += DecFmtSize(decFmt.posfmt);
-	}
+	} else
+		ERROR_LOG_REPORT(G3D, "Vertices without position found") 
+		
 	decFmt.stride = decOff;
 
 	size = align(size, biggest);

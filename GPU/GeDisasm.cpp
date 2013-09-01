@@ -437,7 +437,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_TRANSFERSRC:
 		{
-			sprintf(buffer, "Block transfer src: %06x", data);
+			if (data & 0xF)
+				sprintf(buffer, "Block transfer src: %06x (extra: %x)", data & ~0xF, data & 0xF);
+			else
+				sprintf(buffer, "Block transfer src: %06x", data);
 			// Nothing to do, the next one prints
 		}
 		break;
@@ -445,7 +448,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	case GE_CMD_TRANSFERSRCW:
 		{
 			u32 xferSrc = (gstate.transfersrc & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
-			u32 xferSrcW = gstate.transfersrcw & 1023;
+			u32 xferSrcW = data & 0x3FF;
 			if (data & ~0xFF03FF)
 				sprintf(buffer, "Block transfer src: %08x	W: %i (extra %x)", xferSrc, xferSrcW, data);
 			else
@@ -456,14 +459,17 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 	case GE_CMD_TRANSFERDST:
 		{
 			// Nothing to do, the next one prints
-			sprintf(buffer, "Block transfer dst: %06x", data);
+			if (data & 0xF)
+				sprintf(buffer, "Block transfer dst: %06x (extra: %x)", data & ~0xF, data & 0xF);
+			else
+				sprintf(buffer, "Block transfer dst: %06x", data);
 		}
 		break;
 
 	case GE_CMD_TRANSFERDSTW:
 		{
 			u32 xferDst = (gstate.transferdst & 0x00FFFFFF) | ((data & 0xFF0000) << 8);
-			u32 xferDstW = gstate.transferdstw & 1023;
+			u32 xferDstW = data & 0x3FF;
 			if (data & ~0xFF03FF)
 				sprintf(buffer, "Block transfer dest: %08x	W: %i (extra %x)", xferDst, xferDstW, data);
 			else
@@ -505,10 +511,10 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 		}
 
 	case GE_CMD_TRANSFERSTART:  // Orphis calls this TRXKICK
-		if (data)
-			sprintf(buffer, "Block transfer start: %x", data);
+		if (data & ~1)
+			sprintf(buffer, "Block transfer start: %d (extra %x)", data & 1, data & ~1);
 		else
-			sprintf(buffer, "Block transfer start");
+			sprintf(buffer, "Block transfer start: %d", data);
 		break;
 
 	case GE_CMD_TEXSIZE0:

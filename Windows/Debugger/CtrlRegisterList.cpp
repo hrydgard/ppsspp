@@ -3,8 +3,9 @@
 #include <math.h>
 #include <tchar.h>
 
+#include "util/text/utf8.h"
 #include "../resource.h"
-#include "../../Core/MemMap.h"
+#include "Core/MemMap.h"
 #include "../W32Util/Misc.h"
 #include "../InputBox.h"
 
@@ -133,7 +134,7 @@ CtrlRegisterList::CtrlRegisterList(HWND _wnd)
 	rowHeight=g_Config.iFontHeight;
 
 	font = CreateFont(rowHeight,g_Config.iFontWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,
-		DEFAULT_QUALITY,DEFAULT_PITCH,"Lucida Console");
+		DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
 	selecting=false;
 	selection=0;
 	category=0;
@@ -201,8 +202,8 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 		SelectObject(hdc,i==category?currentPen:nullPen);
 		SelectObject(hdc,i==category?pcBrush:nullBrush);
 		Rectangle(hdc,width*i/nc,0,width*(i+1)/nc,rowHeight);
-		const TCHAR *name = cpu->GetCategoryName(i);
-		TextOut(hdc,width*i/nc,1,name,(int)strlen(name));
+		const char *name = cpu->GetCategoryName(i);
+		TextOutA(hdc,width*i/nc,1,name,(int)strlen(name));
 	}
 
 	int numRows=rect.bottom/rowHeight;
@@ -259,7 +260,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 			char temp[256];
 			int temp_len = sprintf(temp,"%s",cpu->GetRegName(category,i));
 			SetTextColor(hdc,0x600000);
-			TextOut(hdc,17,rowY1,temp,temp_len);
+			TextOutA(hdc,17,rowY1,temp,temp_len);
 			SetTextColor(hdc,0x000000);
 
 			cpu->PrintRegValue(category,i,temp);
@@ -267,7 +268,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				SetTextColor(hdc, 0x0000FF);
 			else
 				SetTextColor(hdc,0x004000);
-			TextOut(hdc,77,rowY1,temp,(int)strlen(temp));
+			TextOutA(hdc,77,rowY1,temp,(int)strlen(temp));
 		} else if (category == 0 && i < REGISTERS_END)
 		{
 			char temp[256];
@@ -291,13 +292,13 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 			}
 
 			SetTextColor(hdc,0x600000);
-			TextOut(hdc,17,rowY1,temp,len);
+			TextOutA(hdc,17,rowY1,temp,len);
 			len = sprintf(temp,"%08X",value);
 			if (changedCat0Regs[i])
 				SetTextColor(hdc, 0x0000FF);
 			else
 				SetTextColor(hdc,0x004000);
-			TextOut(hdc,77,rowY1,temp,(int)strlen(temp));
+			TextOutA(hdc,77,rowY1,temp,(int)strlen(temp));
 		}
 
 		/*
@@ -385,7 +386,7 @@ void CtrlRegisterList::copyRegisterValue()
 {
 	if (!Core_IsStepping())
 	{
-		MessageBox(wnd,"Can't copy register values while the core is running.","Error",MB_OK);
+		MessageBox(wnd,L"Can't copy register values while the core is running.",L"Error",MB_OK);
 		return;
 	}
 
@@ -423,7 +424,7 @@ void CtrlRegisterList::editRegisterValue()
 {
 	if (!Core_IsStepping())
 	{
-		MessageBox(wnd,"Can't change registers while the core is running.","Error",MB_OK);
+		MessageBox(wnd,L"Can't change registers while the core is running.",L"Error",MB_OK);
 		return;
 	}
 
@@ -454,10 +455,10 @@ void CtrlRegisterList::editRegisterValue()
 
 	char temp[256];
 	sprintf(temp,"%08X",val);
-	if (InputBox_GetString(GetModuleHandle(NULL),wnd,"Set new value",temp,temp))
-	{
-		if (parseExpression(temp,cpu,val) == false)
-		{
+
+	std::string value = temp;
+	if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Set new value",value,value)) {
+		if (parseExpression(value.c_str(),cpu,val) == false) {
 			displayExpressionError(wnd);
 		} else {
 			switch (reg)

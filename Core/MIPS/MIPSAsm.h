@@ -6,9 +6,9 @@
 namespace MIPSAsm
 {
 	
-bool MipsAssembleOpcode(char* line, DebugInterface* cpu, u32 address, u32& dest);
+bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address, u32& dest);
 
-typedef enum eMipsImmediateType { MIPS_NOIMMEDIATE, MIPS_IMMEDIATE5,
+enum eMipsImmediateType { MIPS_NOIMMEDIATE, MIPS_IMMEDIATE5,
 	MIPS_IMMEDIATE16, MIPS_IMMEDIATE20, MIPS_IMMEDIATE26 };
 
 typedef struct {
@@ -38,5 +38,7 @@ private:
 	DebugInterface* cpu;
 	u32 encoding;
 };
+
+char* GetAssembleError();
 
 }

@@ -39,25 +39,58 @@
 
 // GL_NV_shader_framebuffer_fetch looks interesting....
 
+
+// Dest factors where it's safe to eliminate the alpha test under certain conditions
+const bool safeDestFactors[16] = {
+	true, // GE_DSTBLEND_SRCCOLOR,
+	true, // GE_DSTBLEND_INVSRCCOLOR,
+	false, // GE_DSTBLEND_SRCALPHA,
+	true, // GE_DSTBLEND_INVSRCALPHA,
+	true, // GE_DSTBLEND_DSTALPHA,
+	true, // GE_DSTBLEND_INVDSTALPHA,
+	false, // GE_DSTBLEND_DOUBLESRCALPHA,
+	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
+	true, // GE_DSTBLEND_DOUBLEDSTALPHA,
+	true, // GE_DSTBLEND_DOUBLEINVDSTALPHA,
+	true, //GE_DSTBLEND_FIXB,
+};
+
+
 static bool IsAlphaTestTriviallyTrue() {
 	GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 	int alphaTestRef = gstate.getAlphaTestRef();
 	int alphaTestMask = gstate.getAlphaTestMask();
 
 	switch (alphaTestFunc) {
+	case GE_COMP_NEVER:
+		return false;
+
 	case GE_COMP_ALWAYS:
 		return true;
+
 	case GE_COMP_GEQUAL:
 		return alphaTestRef == 0;
-
-	// This breaks the trees in MotoGP, for example.
-	// case GE_COMP_GREATER:
-	//if (alphaTestRef == 0 && (gstate.isAlphaBlendEnabled() & 1) && gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncB() == GE_SRCBLEND_INVSRCALPHA)
-	//	return true;
+		
+	// Non-zero check. If we have no depth testing (and thus no depth writing), and an alpha func that will result in no change if zero alpha, get rid of the alpha test.
+	// Speeds up Lumines by a LOT on PowerVR.
+	case GE_COMP_NOTEQUAL:
+	case GE_COMP_GREATER:
+		{
+			bool depthTest = gstate.isDepthTestEnabled();
+			bool stencilTest = gstate.isStencilTestEnabled();
+			GEBlendSrcFactor src = gstate.getBlendFuncA();
+			GEBlendDstFactor dst = gstate.getBlendFuncB();
+			if (!stencilTest && !depthTest && alphaTestRef == 0 && gstate.isAlphaBlendEnabled() && src == GE_SRCBLEND_SRCALPHA && safeDestFactors[(int)dst])
+				return true;
+			return false;
+		}
 
 	case GE_COMP_LEQUAL:
 		return alphaTestRef == 255;
 
+	case GE_COMP_EQUAL:
+	case GE_COMP_LESS:
+		return false;
 	default:
 		return false;
 	}
@@ -66,8 +99,15 @@ static bool IsAlphaTestTriviallyTrue() {
 static bool IsColorTestTriviallyTrue() {
 	GEComparison colorTestFunc = gstate.getColorTestFunction();
 	switch (colorTestFunc) {
+	case GE_COMP_NEVER:
+		return false;
+
 	case GE_COMP_ALWAYS:
 		return true;
+
+	case GE_COMP_EQUAL:
+	case GE_COMP_NOTEQUAL:
+		return false;
 	default:
 		return false;
 	}
@@ -141,6 +181,11 @@ void ComputeFragmentShaderID(FragmentShaderID *id) {
 		id->d[0] |= (doTextureProjection & 1) << 16;
 		id->d[0] |= (enableColorDoubling & 1) << 17;
 		id->d[0] |= (enableAlphaDoubling & 1) << 18;
+
+		if (enableAlphaTest)
+			gpuStats.numAlphaTestedDraws++;
+		else
+			gpuStats.numNonAlphaTestedDraws++;
 	}
 }
 
@@ -205,7 +250,7 @@ void GenerateFragmentShader(char *buffer) {
 
 	if (enableAlphaTest) {
 		if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
-			WRITE(p, "float roundTo255th(in float x) { float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
+			WRITE(p, "float roundTo255th(in mediump float x) { mediump float y = x + (0.5/255.0); return y - fract(y * 255.0) * (1.0 / 255.0); }\n");
 		else
 			WRITE(p, "float roundAndScaleTo255f(in float x) { return floor(x * 255.0 + 0.5); }\n"); 
 	}
@@ -280,10 +325,13 @@ void GenerateFragmentShader(char *buffer) {
 			GEComparison alphaTestFunc = gstate.getAlphaTestFunction();
 			const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };	// never/always don't make sense
 			if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-				if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) 
-					WRITE(p, "  if (roundTo255th(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
-				else
+				if (gstate_c.gpuVendor == GPU_VENDOR_POWERVR) {
+					// Work around bad PVR driver problem where equality check + discard just doesn't work.
+					if (alphaTestFunc != 3)
+						WRITE(p, "  if (roundTo255th(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+				} else {
 					WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+				}
 			}
 		}
 

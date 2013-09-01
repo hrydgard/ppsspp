@@ -16,186 +16,135 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <map>
-#include "../../Globals.h"
+#include "Globals.h"
 
-#include "MIPS.h"
-#include "MIPSTables.h"
-#include "MIPSAnalyst.h"
-#include "MIPSCodeUtils.h"
-#include "../Debugger/SymbolMap.h"
-#include "../Debugger/DebugInterface.h"
+#include "Common/FileUtil.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "Core/Debugger/DebugInterface.h"
 
 using namespace MIPSCodeUtils;
 using namespace std;
 
 namespace MIPSAnalyst
 {
-	RegisterAnalysisResults regAnal[32];
-	RegisterAnalysisResults total[32];
-	int numAnalysisDone=0;
-
-	int GetOutReg(u32 op)
-	{
-		u32 opinfo = MIPSGetInfo(op);
-		if (opinfo & OUT_RT)
-			return MIPS_GET_RT(op);
-		if (opinfo & OUT_RD)
-			return MIPS_GET_RD(op);
-		if (opinfo & OUT_RA)
-			return MIPS_REG_RA;
-		return -1;
-	}
-
-	bool ReadsFromReg(u32 op, u32 reg)
-	{
-		u32 opinfo = MIPSGetInfo(op);
-		if (opinfo & IN_RT)
-		{
-			if (MIPS_GET_RT(opinfo) == reg)
-				return true;
-		}
-		if (opinfo & IN_RS)
-		{
-			if (MIPS_GET_RS(opinfo) == reg)
-				return true;
-		}
-		return false; //TODO: there are more cases!
-	}
-
-	// TODO: Remove me?
-	bool IsDelaySlotNice(u32 branch, u32 delayslot)
-	{
-		int outReg = GetOutReg(delayslot);
-		if (outReg != -1)
-		{
-			if (ReadsFromReg(branch, outReg))
-			{
-				return false; //evil :(
+	// Only can ever output a single reg.
+	MIPSGPReg GetOutGPReg(MIPSOpcode op) {
+		MIPSInfo opinfo = MIPSGetInfo(op);
+		if ((opinfo & IS_VFPU) == 0) {
+			if (opinfo & OUT_RT) {
+				return MIPS_GET_RT(op);
 			}
-			else
-			{
-				return false; //aggh this should be true but doesn't work
+			if (opinfo & OUT_RD) {
+				return MIPS_GET_RD(op);
+			}
+			if (opinfo & OUT_RA) {
+				return MIPS_REG_RA;
 			}
 		}
-		else
-		{
-			// Check for FPU flag
-			if ((MIPSGetInfo(delayslot) & OUT_FPUFLAG) && (MIPSGetInfo(branch) & IN_FPUFLAG))
-				return false;
-
-			return true; //nice :)
-		}
+		return MIPS_REG_INVALID;
 	}
 
-	bool IsDelaySlotNiceReg(u32 branchOp, u32 op, int reg1, int reg2)
-	{
+	bool ReadsFromGPReg(MIPSOpcode op, MIPSGPReg reg) {
+		MIPSInfo info = MIPSGetInfo(op);
+		if ((info & IS_VFPU) == 0) {
+			if ((info & IN_RS) != 0 && MIPS_GET_RS(op) == reg) {
+				return true;
+			}
+			if ((info & IN_RT) != 0 && MIPS_GET_RT(op) == reg) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, MIPSGPReg reg1, MIPSGPReg reg2) {
 		// $0 is never an out reg, it's always 0.
-		if (reg1 != 0 && GetOutReg(op) == reg1)
+		if (reg1 != MIPS_REG_ZERO && GetOutGPReg(op) == reg1) {
 			return false;
-		if (reg2 != 0 && GetOutReg(op) == reg2)
+		}
+		if (reg2 != MIPS_REG_ZERO && GetOutGPReg(op) == reg2) {
 			return false;
+		}
 
 		return true;
 	}
 
-	bool IsDelaySlotNiceVFPU(u32 branchOp, u32 op)
-	{
+	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op) {
 		// TODO: There may be IS_VFPU cases which are safe...
 		return (MIPSGetInfo(op) & IS_VFPU) == 0;
 	}
 
-	bool IsDelaySlotNiceFPU(u32 branchOp, u32 op)
-	{
+	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op) {
 		return (MIPSGetInfo(op) & OUT_FPUFLAG) == 0;
 	}
 
-	bool IsSyscall(u32 op)
-	{
+	bool IsSyscall(MIPSOpcode op) {
 		// Syscalls look like this: 0000 00-- ---- ---- ---- --00 1100
 		return (op >> 26) == 0 && (op & 0x3f) == 12;
 	}
 
-	void Analyze(u32 address)
-	{
+	AnalysisResults Analyze(u32 address) {
+		const int MAX_ANALYZE = 10000;
+
+		AnalysisResults results;
+
 		//set everything to -1 (FF)
-		memset(regAnal, 255, sizeof(AnalysisResults)*32); 
-		for (int i=0; i<32; i++)
-		{
-			regAnal[i].used=false;
-			regAnal[i].readCount=0;
-			regAnal[i].writeCount=0;
-			regAnal[i].readAsAddrCount=0;
+		memset(&results, 255, sizeof(AnalysisResults));
+		for (int i = 0; i < MIPS_NUM_GPRS; i++) {
+			results.r[i].used = false;
+			results.r[i].readCount = 0;
+			results.r[i].writeCount = 0;
+			results.r[i].readAsAddrCount = 0;
 		}
 
-		u32 addr = address;
-		bool exitFlag = false;
-		while (true)
-		{
-			u32 op = Memory::Read_Instruction(addr);
-			u32 info = MIPSGetInfo(op);
+		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
+			MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSInfo info = MIPSGetInfo(op);
 
-			for (int reg=0; reg < 32; reg++)
-			{
-				int rs = MIPS_GET_RS(op);
-				int rt = MIPS_GET_RT(op);
-				int rd = MIPS_GET_RD(op);
+			MIPSGPReg rs = MIPS_GET_RS(op);
+			MIPSGPReg rt = MIPS_GET_RT(op);
 
-				if (
-					((info & IN_RS) && (info & IN_RS_ADDR) == IN_RS && (rs == reg)) ||
-					((info & IN_RT) && (rt == reg)))
-				{
-					if (regAnal[reg].firstRead == -1)
-						regAnal[reg].firstRead = addr;
-					regAnal[reg].lastRead = addr;
-					regAnal[reg].readCount++;
-					regAnal[reg].used=true;
-				}
-				if (
-					((info & IN_RS_ADDR) && (rs == reg))
-					)
-				{
-					if (regAnal[reg].firstReadAsAddr == -1)
-						regAnal[reg].firstReadAsAddr = addr;
-					regAnal[reg].lastReadAsAddr = addr;
-					regAnal[reg].readAsAddrCount++;
-					regAnal[reg].used=true;
-				}
-				if (
-					((info & OUT_RT) && (rt == reg)) ||
-					((info & OUT_RD) && (rd == reg)) ||
-					((info & OUT_RA) && (reg == MIPS_REG_RA))
-					)
-				{
-					if (regAnal[reg].firstWrite == -1)
-						regAnal[reg].firstWrite = addr;
-					regAnal[reg].lastWrite = addr;
-					regAnal[reg].writeCount++;
-					regAnal[reg].used=true;
+			if (info & IN_RS) {
+				if ((info & IN_RS_ADDR) == IN_RS_ADDR) {
+					results.r[rs].MarkReadAsAddr(addr);
+				} else {
+					results.r[rs].MarkRead(addr);
 				}
 			}
 
-			if (exitFlag) //delay slot done, let's quit!
-				break;
-
-			if ((info & IS_JUMP) || (info & IS_CONDBRANCH))
-			{
-				exitFlag = true; // now do the delay slot
+			if (info & IN_RT) {
+				results.r[rt].MarkRead(addr);
 			}
 
-			addr += 4;
+			MIPSGPReg outReg = GetOutGPReg(op);
+			if (outReg != MIPS_REG_INVALID) {
+				results.r[outReg].MarkWrite(addr);
+			}
+
+			if (info & DELAYSLOT)
+			{
+				// Let's just finish the delay slot before bailing.
+				endAddr = addr + 4;
+			}
 		}
 
 		int numUsedRegs=0;
 		static int totalUsedRegs=0;
 		static int numAnalyzings=0;
-		for (int i=0; i<32; i++)
-		{
-			if (regAnal[i].used) 
+		for (int i = 0; i < MIPS_NUM_GPRS; i++) {
+			if (results.r[i].used) {
 				numUsedRegs++;
+			}
 		}
 		totalUsedRegs+=numUsedRegs;
 		numAnalyzings++;
 		DEBUG_LOG(CPU,"[ %08x ] Used regs: %i	 Average: %f",address,numUsedRegs,(float)totalUsedRegs/(float)numAnalyzings);
+
+		return results;
 	}
 
 
@@ -236,12 +185,12 @@ namespace MIPSAnalyst
 	}
 
 
-	bool IsRegisterUsed(u32 reg, u32 addr)
+	bool IsRegisterUsed(MIPSGPReg reg, u32 addr)
 	{
 		while (true)
 		{
-			u32 op = Memory::Read_Instruction(addr);
-			u32 info = MIPSGetInfo(op);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSInfo info = MIPSGetInfo(op);
 
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
 				return true;
@@ -271,8 +220,8 @@ namespace MIPSAnalyst
 			for (u32 addr = f.start; addr <= f.end; addr += 4)
 			{
 				u32 validbits = 0xFFFFFFFF;
-				u32 instr = Memory::Read_Instruction(addr);
-				u32 flags = MIPSGetInfo(instr);
+				MIPSOpcode instr = Memory::Read_Instruction(addr);
+				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
 					validbits&=~0xFFFF;
 				if (flags & IN_IMM26)
@@ -303,7 +252,7 @@ namespace MIPSAnalyst
 				continue;
 			}
 
-			u32 op = Memory::Read_Instruction(addr);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
 			u32 target = GetBranchTargetNoRA(addr);
 			if (target != INVALIDTARGET)
 			{
@@ -378,7 +327,7 @@ namespace MIPSAnalyst
 
 	void StoreHashMap(const char *filename)
 	{
-		FILE *file = fopen(filename,"wb");
+		FILE *file = File::OpenCFile(filename,"wb");
 		u32 num = 0;
 		if(fwrite(&num,4,1,file) != 1) //fill in later
 			WARN_LOG(CPU, "Could not store hash map %s", filename);
@@ -412,7 +361,7 @@ namespace MIPSAnalyst
 		HashFunctions();
 		UpdateHashToFunctionMap();
 
-		FILE *file = fopen(filename, "rb");
+		FILE *file = File::OpenCFile(filename, "rb");
 		int num;
 		if(fread(&num,4,1,file) == 1) {
 			for (int i=0; i<num; i++)
@@ -452,10 +401,10 @@ namespace MIPSAnalyst
 		LOG(CPU,"Precompiled %i straight leaf functions",count);*/
 	}
 
-	std::vector<int> GetInputRegs(u32 op)
+	std::vector<MIPSGPReg> GetInputRegs(MIPSOpcode op)
 	{
-		std::vector<int> vec;
-		u32 info = MIPSGetInfo(op);
+		std::vector<MIPSGPReg> vec;
+		MIPSInfo info = MIPSGetInfo(op);
 		if ((info & IS_VFPU) == 0)
 		{
 			if (info & IN_RS) vec.push_back(MIPS_GET_RS(op));
@@ -463,10 +412,10 @@ namespace MIPSAnalyst
 		}
 		return vec;
 	}
-	std::vector<int> GetOutputRegs(u32 op)
+	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op)
 	{
-		std::vector<int> vec;
-		u32 info = MIPSGetInfo(op);
+		std::vector<MIPSGPReg> vec;
+		MIPSInfo info = MIPSGetInfo(op);
 		if ((info & IS_VFPU) == 0)
 		{
 			if (info & OUT_RD) vec.push_back(MIPS_GET_RD(op));
@@ -489,8 +438,8 @@ namespace MIPSAnalyst
 		info.opcodeAddress = address;
 		info.encodedOpcode = Memory::Read_Instruction(address);
 
-		u32 op = info.encodedOpcode;		
-		u32 opInfo = MIPSGetInfo(op);
+		MIPSOpcode op = info.encodedOpcode;
+		MIPSInfo opInfo = MIPSGetInfo(op);
 		info.isLikelyBranch = (opInfo & LIKELY) != 0;
 		
 		//j , jal, ...
@@ -505,7 +454,7 @@ namespace MIPSAnalyst
 			if (opInfo & IN_RS)		// to register
 			{
 				info.isBranchToRegister = true;
-				info.branchRegisterNum = MIPS_GET_RS(op);
+				info.branchRegisterNum = (int)MIPS_GET_RS(op);
 				info.branchTarget = cpu->GetRegValue(0,info.branchRegisterNum);
 			} else {				// to immediate
 				info.branchTarget = GetJumpTarget(address);
@@ -517,7 +466,7 @@ namespace MIPSAnalyst
 		{
 			info.isConditional = true;
 
-			u32 rt = cpu->GetRegValue(0,MIPS_GET_RT(op));
+			u32 rt = cpu->GetRegValue(0, (int)MIPS_GET_RT(op));
 			switch (opInfo & CONDTYPE_MASK)
 			{
 			case CONDTYPE_EQ:
@@ -541,8 +490,8 @@ namespace MIPSAnalyst
 				info.isLinkedBranch = true;
 			}
 
-			u32 rt = cpu->GetRegValue(0,MIPS_GET_RT(op));
-			u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));
+			u32 rt = cpu->GetRegValue(0, (int)MIPS_GET_RT(op));
+			u32 rs = cpu->GetRegValue(0, (int)MIPS_GET_RS(op));
 			switch (opInfo & CONDTYPE_MASK)
 			{
 			case CONDTYPE_EQ:
@@ -596,7 +545,7 @@ namespace MIPSAnalyst
 				info.dataSize = 16;
 			}
 
-			u32 rs = cpu->GetRegValue(0,MIPS_GET_RS(op));
+			u32 rs = cpu->GetRegValue(0, (int)MIPS_GET_RS(op));
 			s16 imm16 = op & 0xFFFF;
 			info.dataAddress = rs + imm16;
 		}

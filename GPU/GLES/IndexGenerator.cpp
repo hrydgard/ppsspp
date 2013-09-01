@@ -29,7 +29,7 @@ static const u8 indexedPrimitiveType[7] = {
 };
 
 void IndexGenerator::Reset() {
-	prim_ = -1;
+	prim_ = GE_PRIM_INVALID;
 	count_ = 0;
 	index_ = 0;
 	seenPrims_ = 0;

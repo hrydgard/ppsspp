@@ -9,8 +9,9 @@ namespace MainWindow
 {
 	enum {
 		WM_USER_SAVESTATE_FINISH = WM_USER + 100,
-		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200,
-		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 300,
+		WM_USER_LOG_STATUS_CHANGED = WM_USER + 101,
+		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 102,
+		WM_USER_UPDATE_UI = WM_USER + 103,
 	};
 
 	enum {
@@ -41,6 +42,7 @@ namespace MainWindow
 
 	void Init(HINSTANCE hInstance);
 	BOOL Show(HINSTANCE hInstance, int nCmdShow);
+	void CreateDebugWindows();
 	void Close();
 	void UpdateMenus();
 	void UpdateCommands();
@@ -53,4 +55,5 @@ namespace MainWindow
 	void SaveStateActionFinished(bool result, void *userdata);
 	void _ViewFullScreen(HWND hWnd);
 	void _ViewNormal(HWND hWnd);
+	void TranslateMenus();
 }

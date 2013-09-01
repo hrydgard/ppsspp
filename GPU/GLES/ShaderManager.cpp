@@ -25,6 +25,8 @@
 
 #include <map>
 
+
+#include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 
 #include "Core/Reporting.h"
@@ -38,7 +40,7 @@
 Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : failed_(false), useHWTransform_(useHWTransform) {
 	source_ = code;
 #ifdef SHADERLOG
-	OutputDebugString(code);
+	OutputDebugStringUTF8(code);
 #endif
 	shader = glCreateShader(shaderType);
  	glShaderSource(shader, 1, &code, 0);
@@ -56,7 +58,7 @@ Shader::Shader(const char *code, uint32_t shaderType, bool useHWTransform) : fai
 		ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
 		Reporting::ReportMessage("Error in shader compilation: info: %s / code: %s", infoLog, (const char *)code);
 #ifdef SHADERLOG
-		OutputDebugString(infoLog);
+		OutputDebugStringUTF8(infoLog);
 #endif
 		failed_ = true;
 		shader = 0;
@@ -89,9 +91,9 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
 			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
 #ifdef SHADERLOG
-			OutputDebugString(buf);
-			OutputDebugString(vs->source().c_str());
-			OutputDebugString(fs->source().c_str());
+			OutputDebugStringUTF8(buf);
+			OutputDebugStringUTF8(vs->source().c_str());
+			OutputDebugStringUTF8(fs->source().c_str());
 #endif
 			delete [] buf;	// we're dead!
 		}
@@ -113,7 +115,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 	u_view = glGetUniformLocation(program, "u_view");
 	u_world = glGetUniformLocation(program, "u_world");
 	u_texmtx = glGetUniformLocation(program, "u_texmtx");
-	if (gstate.getWeightMask() != 0)
+	if (gstate.getWeightMask() != GE_VTYPE_WEIGHT_NONE)
 		numBones = TranslateNumBones(gstate.getNumBoneWeights());
 	else
 		numBones = 0;
@@ -338,7 +340,7 @@ void LinkedShader::updateUniforms() {
 			// Not sure what GE_TEXMAP_UNKNOWN is, but seen in Riviera.  Treating the same as GE_TEXMAP_TEXTURE_COORDS works.
 			if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN) {
 				static const float rescale[4] = {1.0f, 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
-				float factor = rescale[(gstate.vertType & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT];
+				float factor = rescale[gstate.getTexCoordMask() >> GE_VTYPE_TC_SHIFT];
 				uvscaleoff[0] = gstate_c.uv.uScale * factor * widthFactor;
 				uvscaleoff[1] = gstate_c.uv.vScale * factor * heightFactor;
 				uvscaleoff[2] = gstate_c.uv.uOff * widthFactor;

@@ -4,6 +4,7 @@ QT += core gui opengl
 CONFIG += mobility
 MOBILITY += multimedia
 win32: QT += multimedia
+greaterThan(QT_MAJOR_VERSION,4): QT += widgets
 VERSION = 0.9.1
 
 include(Settings.pri)

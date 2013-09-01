@@ -29,3 +29,4 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 void __KernelReturnFromModuleFunc();
 
 void Register_ModuleMgrForUser();
+void Register_ModuleMgrForKernel();

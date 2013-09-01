@@ -24,10 +24,10 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPSAnalyst.h"
-
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Jit.h"
-#include "RegCache.h"
+#include "Core/MIPS/x86/Jit.h"
+#include "Core/MIPS/x86/RegCache.h"
 
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
@@ -38,14 +38,17 @@
 #define DISABLE { fpr.ReleaseSpillLocks(); Comp_Generic(op); return; }
 
 
-#define _RS ((op>>21) & 0x1F)
-#define _RT ((op>>16) & 0x1F)
-#define _RD ((op>>11) & 0x1F)
-#define _FS ((op>>11) & 0x1F)
-#define _FT ((op>>16) & 0x1F)
-#define _FD ((op>>6 ) & 0x1F)
-#define _POS  ((op>>6 ) & 0x1F)
-#define _SIZE ((op>>11 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
+#define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 
 using namespace Gen;
@@ -61,7 +64,7 @@ const u32 MEMORY_ALIGNED16( noSignMask[4] ) = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFF
 const u32 MEMORY_ALIGNED16( signBitLower[4] ) = {0x80000000, 0, 0, 0};
 const float MEMORY_ALIGNED16( oneOneOneOne[4] ) = {1.0f, 1.0f, 1.0f, 1.0f};
 
-void Jit::Comp_VPFX(u32 op)
+void Jit::Comp_VPFX(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 	int data = op & 0xFFFFF;
@@ -198,12 +201,12 @@ bool IsOverlapSafe(int dreg, int di, int sn, u8 sregs[], int tn = 0, u8 tregs[] 
 
 static u32 MEMORY_ALIGNED16(ssLoadStoreTemp);
 
-void Jit::Comp_SV(u32 op) {
+void Jit::Comp_SV(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	s32 imm = (signed short)(op&0xFFFC);
 	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
-	int rs = _RS;
+	MIPSGPReg rs = _RS;
 
 	switch (op >> 26)
 	{
@@ -262,13 +265,13 @@ void Jit::Comp_SV(u32 op) {
 	}
 }
 
-void Jit::Comp_SVQ(u32 op)
+void Jit::Comp_SVQ(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
 	int imm = (signed short)(op&0xFFFC);
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);
-	int rs = _RS;
+	MIPSGPReg rs = _RS;
 
 	switch (op >> 26)
 	{
@@ -412,7 +415,7 @@ void Jit::Comp_SVQ(u32 op)
 	}
 }
 
-void Jit::Comp_VVectorInit(u32 op) {
+void Jit::Comp_VVectorInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -445,7 +448,7 @@ void Jit::Comp_VVectorInit(u32 op) {
 
 
 
-void Jit::Comp_VIdt(u32 op) {
+void Jit::Comp_VIdt(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int vd = _VD;
@@ -477,7 +480,7 @@ void Jit::Comp_VIdt(u32 op) {
 }
 
 
-void Jit::Comp_VDot(u32 op) {
+void Jit::Comp_VDot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -521,7 +524,7 @@ void Jit::Comp_VDot(u32 op) {
 }
 
 
-void Jit::Comp_VHdp(u32 op) {
+void Jit::Comp_VHdp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -568,7 +571,7 @@ void Jit::Comp_VHdp(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VCrossQuat(u32 op) {
+void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -676,7 +679,7 @@ void Jit::Comp_VCrossQuat(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vcmov(u32 op) {
+void Jit::Comp_Vcmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -722,7 +725,7 @@ void Jit::Comp_Vcmov(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VecDo3(u32 op) {
+void Jit::Comp_VecDo3(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -861,7 +864,7 @@ void Jit::Comp_VecDo3(u32 op) {
 
 static float ssCompareTemp;
 
-void Jit::Comp_Vcmp(u32 op) {
+void Jit::Comp_Vcmp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1009,11 +1012,11 @@ void Jit::Comp_Vcmp(u32 op) {
 	gpr.UnlockAllX();
 }
 
-void Jit::Comp_Vsge(u32 op) {
+void Jit::Comp_Vsge(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vslt(u32 op) {
+void Jit::Comp_Vslt(MIPSOpcode op) {
 	DISABLE;
 }
 
@@ -1030,7 +1033,7 @@ extern const float mulTableVi2f[32] = {
 	1.0f/(1UL<<28),1.0f/(1UL<<29),1.0f/(1UL<<30),1.0f/(1UL<<31),
 };
 
-void Jit::Comp_Vi2f(u32 op) {
+void Jit::Comp_Vi2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1096,7 +1099,7 @@ static const float half = 0.5f;
 static double maxIntAsDouble = (double)0x7fffffff;  // that's not equal to 0x80000000
 static double minIntAsDouble = (double)(int)0x80000000;
 
-void Jit::Comp_Vf2i(u32 op) {
+void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	if (js.HasUnknownPrefix())
 		DISABLE;
@@ -1165,7 +1168,7 @@ void Jit::Comp_Vf2i(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vcst(u32 op) {
+void Jit::Comp_Vcst(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1189,7 +1192,7 @@ void Jit::Comp_Vcst(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VV2Op(u32 op) {
+void Jit::Comp_VV2Op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1313,16 +1316,16 @@ void Jit::Comp_VV2Op(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Mftv(u32 op) {
+void Jit::Comp_Mftv(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int imm = op & 0xFF;
-	int rt = _RT;
+	MIPSGPReg rt = _RT;
 	switch ((op >> 21) & 0x1f)
 	{
 	case 3: //mfv / mfvc
 		// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
-		if (rt != 0) {
+		if (rt != MIPS_REG_ZERO) {
 			if (imm < 128) {  //R(rt) = VI(imm);
 				fpr.StoreFromRegisterV(imm);
 				gpr.BindToRegister(rt, false, true);
@@ -1368,7 +1371,7 @@ void Jit::Comp_Mftv(u32 op) {
 	}
 }
 
-void Jit::Comp_Vmtvc(u32 op) {
+void Jit::Comp_Vmtvc(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	int vs = _VS;
 	int imm = op & 0xFF;
@@ -1387,7 +1390,7 @@ void Jit::Comp_Vmtvc(u32 op) {
 	}
 }
 
-void Jit::Comp_VMatrixInit(u32 op) {
+void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1430,7 +1433,7 @@ void Jit::Comp_VMatrixInit(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vmmov(u32 op) {
+void Jit::Comp_Vmmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
@@ -1472,7 +1475,7 @@ void Jit::Comp_Vmmov(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VScl(u32 op) {
+void Jit::Comp_VScl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1523,7 +1526,7 @@ void Jit::Comp_VScl(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vmmul(u32 op) {
+void Jit::Comp_Vmmul(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
@@ -1587,7 +1590,7 @@ void Jit::Comp_Vmmul(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vmscl(u32 op) {
+void Jit::Comp_Vmscl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?
@@ -1632,7 +1635,7 @@ void Jit::Comp_Vmscl(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vtfm(u32 op) {
+void Jit::Comp_Vtfm(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	// TODO: This probably ignores prefixes?  Or maybe uses D?
@@ -1689,27 +1692,27 @@ void Jit::Comp_Vtfm(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_VCrs(u32 op) {
+void Jit::Comp_VCrs(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_VDet(u32 op) {
+void Jit::Comp_VDet(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vi2x(u32 op) {
+void Jit::Comp_Vi2x(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vx2i(u32 op) {
+void Jit::Comp_Vx2i(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Vhoriz(u32 op) {
+void Jit::Comp_Vhoriz(MIPSOpcode op) {
 	DISABLE;
 }
 
-void Jit::Comp_Viim(u32 op) {
+void Jit::Comp_Viim(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1729,7 +1732,7 @@ void Jit::Comp_Viim(u32 op) {
 	fpr.ReleaseSpillLocks();
 }
 
-void Jit::Comp_Vfim(u32 op) {
+void Jit::Comp_Vfim(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	if (js.HasUnknownPrefix())
@@ -1769,7 +1772,7 @@ void SinCosNegSin(float angle) {
 	sincostemp[1] = cosf(angle);
 }
 // Very heavily used by FF:CC
-void Jit::Comp_VRot(u32 op) {
+void Jit::Comp_VRot(MIPSOpcode op) {
 	// DISABLE;
 	CONDITIONAL_DISABLE;
 

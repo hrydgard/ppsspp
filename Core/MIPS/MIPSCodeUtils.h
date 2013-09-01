@@ -38,11 +38,11 @@
 
 #define MIPS_GET_OP(op)   ((op>>26) & 0x3F)
 #define MIPS_GET_FUNC(op) (op & 0x3F)
-#define MIPS_GET_SA(op)   (op>>6 & 0x1F)
+#define MIPS_GET_SA(op)   ((op>>6) & 0x1F)
 
-#define MIPS_GET_RS(op) ((op>>21) & 0x1F)
-#define MIPS_GET_RT(op) ((op>>16) & 0x1F)
-#define MIPS_GET_RD(op) ((op>>11) & 0x1F)
+#define MIPS_GET_RS(op) MIPSGPReg((op>>21) & 0x1F)
+#define MIPS_GET_RT(op) MIPSGPReg((op>>16) & 0x1F)
+#define MIPS_GET_RD(op) MIPSGPReg((op>>11) & 0x1F)
 
 #define MIPS_GET_FS(op) ((op>>11) & 0x1F)
 #define MIPS_GET_FT(op) ((op>>16) & 0x1F)
@@ -57,5 +57,5 @@ namespace MIPSCodeUtils
 	u32 GetBranchTargetNoRA(u32 addr);
 	u32 GetJumpTarget(u32 addr);
 	u32 GetSureBranchTarget(u32 addr);
-	bool IsVFPUBranch(u32 op);
+	bool IsVFPUBranch(MIPSOpcode op);
 }

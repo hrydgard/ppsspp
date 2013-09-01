@@ -12,7 +12,7 @@ protected:
 
 	virtual BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam) 
 	{
-		MessageBox(0,"WTF? Pure Call",0,0);	
+		MessageBox(0,L"WTF? Pure Call",0,0);	
 		return 0;
 	}
 	static INT_PTR CALLBACK DlgProcStatic(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);

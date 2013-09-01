@@ -148,8 +148,6 @@ if(NOT MSVC)
 	add_definitions(-fno-strict-aliasing)
 	if (CMAKE_C_COMPILER_ID STREQUAL "Intel")
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
-	else()
-		add_definitions(-ffast-math)
 	endif()
 	if(NOT APPLE)
 		if (NOT CMAKE_C_COMPILER_ID STREQUAL "Intel")
@@ -163,7 +161,7 @@ if(NOT MSVC)
 	endif()
 
 	if(BLACKBERRY)
-		add_definitions(-D_QNX_SOURCE=1 -D_C99=1 -O3 -mfpu=neon -mtune=cortex-a9)
+		add_definitions(-D_QNX_SOURCE -O3 -mfpu=neon -mtune=cortex-a9)
 	endif()
 
 	if(X86 AND NOT MIPS)
@@ -563,6 +561,8 @@ add_library(native STATIC
 	native/gfx/texture_gen.h
 	native/gfx_es2/draw_buffer.cpp
 	native/gfx_es2/draw_buffer.h
+	native/gfx_es2/draw_text.cpp
+	native/gfx_es2/draw_text.h
 	native/gfx_es2/fbo.cpp
 	native/gfx_es2/fbo.h
 	native/gfx_es2/gl_state.cpp

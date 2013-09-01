@@ -160,6 +160,32 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_
 	_string = stringBuffer;
 }
 
+void GetWideStringFromPSPPointer(std::wstring& _string, const PSPPointer<u16_le> em_address)
+{
+	if (!em_address.IsValid())
+	{
+		_string = L"";
+		return;
+	}
+	const size_t maxLength = 2048;
+
+	wchar_t stringBuffer[maxLength];
+	wchar_t *string = stringBuffer;
+
+	auto input = em_address;
+	int c;
+	u32 count = 0;
+	while ((c = *input++) != 0)
+	{
+		if ( !(++count >= maxLength) )
+			*string++ = c;
+		else
+			break;
+	}
+	*string++ = '\0';
+	_string = stringBuffer;
+}
+
 void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input)
 {
 	char stringBuffer[2048];
@@ -600,7 +626,7 @@ void PSPOskDialog::RemoveKorean()
 		else
 		{
 			i_level = 1;
-			inputChars += kor_cons[i_value[0]];;
+			inputChars += kor_cons[i_value[0]];
 		}
 	}
 	else if(i_level == 3)
@@ -739,10 +765,9 @@ void PSPOskDialog::RenderKeyboard()
 #ifdef _WIN32
 // TODO: Why does this have a 2 button press lag/delay when
 // re-opening the dialog box? I don't get it.
-// TODO: Use a wstring to allow Japanese/Russian/etc.. on _WIN32(others?)
 int PSPOskDialog::NativeKeyboard()
 {
-	char *input = new char[FieldMaxLength()];
+	wchar_t *input = new wchar_t[FieldMaxLength()];
 	memset(input, 0, sizeof(input));
 
 	if (status == SCE_UTILITY_STATUS_INITIALIZE)
@@ -752,37 +777,35 @@ int PSPOskDialog::NativeKeyboard()
 
 	else if (status == SCE_UTILITY_STATUS_RUNNING)
 	{
-		
-		std::string initial_text;
-		ConvertUCS2ToUTF8(initial_text, oskParams->fields[0].intext);
+		std::wstring titleText;
+		GetWideStringFromPSPPointer(titleText, oskParams->fields[0].desc);
 
-		const size_t defaultText_len = 512;
-		char defaultText[defaultText_len];
+		std::wstring defaultText;
+		GetWideStringFromPSPPointer(defaultText, oskParams->fields[0].intext);
 
-		memset(defaultText, 0, sizeof(defaultText));
+		if(defaultText.length() <= 0)
+			defaultText.assign(L"VALUE");
 
-		if(initial_text.length() < defaultText_len)
-			strncat(defaultText, initial_text.c_str(), strlen(initial_text.c_str()));
-		else {
-			ERROR_LOG(HLE, "NativeKeyboard: initial text length is too long");
-			strncat(defaultText, "VALUE", strlen("VALUE"));
+		std::wstring inputWide;
+
+		if(!host->InputBoxGetWString(titleText.c_str(), defaultText, inputWide)) 
+		{
+			wcsncat(input, L"", wcslen(L""));
 		}
+		else 
+		{
+			size_t maxInputLength = FieldMaxLength();
 
-		char windowTitle[defaultText_len];
-		memset(windowTitle, 0, sizeof(windowTitle));
-
-		std::string description_text;
-		ConvertUCS2ToUTF8(description_text, oskParams->fields[0].desc);
-
-		if(description_text.length() < defaultText_len)
-			strncat(windowTitle, description_text.c_str(), strlen(description_text.c_str()));
-
-		size_t maxInputLength = FieldMaxLength();
-
-		if(host->InputBoxGetString(windowTitle, defaultText, input, maxInputLength)) {
-			strncat(input, "", strlen(""));
+			if(inputWide.length() < maxInputLength)
+			{
+				wcsncat(input, inputWide.c_str(), inputWide.length());
+			}
+			else 
+			{
+				ERROR_LOG(HLE, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxInputLength);
+				wcsncat(input, inputWide.c_str(), maxInputLength);
+			}
 		}
-
 		status = SCE_UTILITY_STATUS_FINISHED;
 	}
 	else if (status == SCE_UTILITY_STATUS_FINISHED)

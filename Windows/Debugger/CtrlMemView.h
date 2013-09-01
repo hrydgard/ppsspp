@@ -19,13 +19,6 @@
 
 #include "../../Core/Debugger/DebugInterface.h"
 
-enum MemViewMode
-{
-	MV_NORMAL,
-	MV_SYMBOLS,
-	MV_MAX
-};
-
 class CtrlMemView
 {
 	HWND wnd;
@@ -47,12 +40,16 @@ class CtrlMemView
 	bool ctrlDown;
 
 	int visibleRows;
+	
+	std::string searchQuery;
+	int matchAddress;
+	bool searching;
 
 	bool hasFocus;
-	static TCHAR szClassName[];
+	static wchar_t szClassName[];
 	DebugInterface *debugger;
-	MemViewMode mode;
 	void updateStatusBarText();
+	void search(bool continueSearch);
 public:
 	CtrlMemView(HWND _wnd);
 	~CtrlMemView();
@@ -78,12 +75,6 @@ public:
 	void onMouseUp(WPARAM wParam, LPARAM lParam, int button);
 	void onMouseMove(WPARAM wParam, LPARAM lParam, int button);
 	void redraw();
-
-	void setMode(MemViewMode m)
-	{
-		mode=m;
-		redraw();
-	}
 
 	void gotoPoint(int x, int y);
 	void gotoAddr(unsigned int addr);

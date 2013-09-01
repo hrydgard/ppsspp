@@ -20,7 +20,10 @@
 
 // Just to get something on the screen, we'll just not subdivide correctly.
 void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
-	u16 indices[3 * 3 * 6];
+	 if ((ucount - 1) % 3 != 0 || (vcount - 1) % 3 != 0) 
+		ERROR_LOG_REPORT(HLE,"Unsupported bezier parameters ucount=%i, vcount=%i", ucount, vcount);
+
+	u16 *indices = new u16[ucount * vcount * 6];
 
 	static bool reported = false;
 	if (!reported) {
@@ -31,14 +34,14 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	// if (gstate.patchprimitive)
 	// Generate indices for a rectangular mesh.
 	int c = 0;
-	for (int y = 0; y < 3; y++) {
-		for (int x = 0; x < 3; x++) {
-			indices[c++] = y * 4 + x;
-			indices[c++] = y * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x + 1;
-			indices[c++] = (y + 1) * 4 + x;
-			indices[c++] = y * 4 + x;
+	for (int y = 0; y < ucount; y++) {
+		for (int x = 0; x < vcount - 1; x++) {
+			indices[c++] = y * (vcount - 1)+ x;
+			indices[c++] = y * (vcount - 1) + x + 1;
+			indices[c++] = (y + 1) * (vcount - 1) + x + 1;
+			indices[c++] = (y + 1) * (vcount - 1) + x + 1;
+			indices[c++] = (y + 1) * (vcount - 1) + x;
+			indices[c++] = y * (vcount - 1) + x;
 		}
 	}
 
@@ -57,7 +60,7 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 		}
 	}
 
-	if (!(gstate.vertType & GE_VTYPE_TC_MASK)) {
+	if (!gstate.getTexCoordMask()) {
 		VertexDecoder *dec = GetVertexDecoder(gstate.vertType);
 		dec->SetVertexType(gstate.vertType);
 		u32 newVertType = dec->InjectUVs(decoded2, Memory::GetPointer(gstate_c.vertexAddr), customUV, 16);
@@ -66,6 +69,8 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 		SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, c, gstate.vertType, GE_VTYPE_IDX_16BIT, 0);
 	}
 	Flush();  // as our vertex storage here is temporary, it will only survive one draw.
+
+	delete [] indices;
 }
 
 
@@ -77,10 +82,13 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 #define END_OPEN_V 8
 
 // We decode all vertices into a common format for easy interpolation and stuff.
-// Not fast but this spline stuff is rarely used for time critical things, strangely enough.
+// Not fast but can be optimized later.
 struct HWSplinePatch {
 	u8 *points[16];
 	int type;
+
+	// We need to generate both UVs and normals later...
+	// float u0, v0, u1, v1;
 };
 
 void CopyTriangle(u8 *&dest, u8 *v1, u8 *v2, u8 * v3, int vertexSize) {
@@ -92,8 +100,7 @@ void CopyTriangle(u8 *&dest, u8 *v1, u8 *v2, u8 * v3, int vertexSize) {
 	dest += vertexSize;
 }
 
-void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, u32 prim_type, u32 vertex_type)
-{
+void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type) {
 	Flush();
 
 	if (prim_type != GE_PATCHPRIM_TRIANGLES) {
@@ -102,12 +109,11 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	}
 
 	// We're not actually going to decode, only reshuffle.
-	VertexDecoder vdecoder;
-	vdecoder.SetVertexType(vertex_type);
+	VertexDecoder *vdecoder = GetVertexDecoder(vertex_type);
 
-	int undecodedVertexSize = vdecoder.VertexSize();
+	int undecodedVertexSize = vdecoder->VertexSize();
 
-	const DecVtxFormat& vtxfmt = vdecoder.GetDecVtxFmt();
+	const DecVtxFormat& vtxfmt = vdecoder->GetDecVtxFmt();
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -133,7 +139,7 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 				else
 					patch.points[point] = (u8 *)control_points + undecodedVertexSize * idx;
 			}
-			patch.type = (type_u | (type_v<<2));
+			patch.type = (type_u | (type_v << 2));
 			if (patch_u != 0) patch.type &= ~START_OPEN_U;
 			if (patch_v != 0) patch.type &= ~START_OPEN_V;
 			if (patch_u != num_patches_u-1) patch.type &= ~END_OPEN_U;
@@ -163,12 +169,10 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 				u8 *v2 = patch.points[point_index+4];
 				u8 *v3 = patch.points[point_index+5];
 
-				// TODO: Insert UVs where applicable. Actually subdivide.
-				CopyTriangle(dest, v0, v1, v2, undecodedVertexSize);
-				CopyTriangle(dest, v2, v1, v0, undecodedVertexSize);
-				CopyTriangle(dest, v2, v1, v3, undecodedVertexSize);
-				CopyTriangle(dest, v3, v1, v2, undecodedVertexSize);
-				count += 12;
+				// TODO: Insert UVs and normals if not present.
+				CopyTriangle(dest, v0, v2, v1, undecodedVertexSize);
+				CopyTriangle(dest, v1, v2, v3, undecodedVertexSize);
+				count += 6;
 			}
 		}
 	}
@@ -177,5 +181,19 @@ void TransformDrawEngine::SubmitSpline(void* control_points, void* indices, int 
 	u32 vertTypeWithoutIndex = vertex_type & ~GE_VTYPE_IDX_MASK;
 
 	SubmitPrim(decoded2, 0, GE_PRIM_TRIANGLES, count, vertTypeWithoutIndex, GE_VTYPE_IDX_NONE, 0);
+	Flush();
+}
+
+// TODO
+void TransformDrawEngine::SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertex_type) {
+	if (prim_type != GE_PATCHPRIM_TRIANGLES) {
+		// Only triangles supported!
+		return;
+	}
+
+	// We're not actually going to decode, only reshuffle.
+	VertexDecoder vdecoder;
+	vdecoder.SetVertexType(vertex_type);
+
 	Flush();
 }

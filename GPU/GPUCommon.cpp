@@ -11,6 +11,7 @@
 #include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
 GPUCommon::GPUCommon() :
@@ -60,7 +61,13 @@ u32 GPUCommon::DrawSync(int mode) {
 		return SCE_KERNEL_ERROR_INVALID_MODE;
 
 	if (mode == 0) {
-		// TODO: What if dispatch / interrupts disabled?
+		if (!__KernelIsDispatchEnabled()) {
+			return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+		}
+		if (__IsInInterrupt()) {
+			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
+
 		if (drawCompleteTicks > CoreTiming::GetTicks()) {
 			__GeWaitCurrentThread(WAITTYPE_GEDRAWSYNC, 1, "GeDrawSync");
 		} else {
@@ -137,6 +144,13 @@ int GPUCommon::ListSync(int listid, int mode) {
 		}
 	}
 
+	if (!__KernelIsDispatchEnabled()) {
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+	if (__IsInInterrupt()) {
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+	}
+
 	if (dl.waitTicks > CoreTiming::GetTicks()) {
 		__GeWaitCurrentThread(WAITTYPE_GELISTSYNC, listid, "GeListSync");
 	}
@@ -173,13 +187,13 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, bool head) {
 			//	return 0x80000021;
 			//}
 		}
-		if (dls[i].state == PSP_GE_DL_STATE_NONE)
+		if (dls[i].state == PSP_GE_DL_STATE_NONE && !dls[i].pendingInterrupt)
 		{
 			// Prefer a list that isn't used
 			id = i;
 			break;
 		}
-		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED && dls[i].waitTicks < currentTicks)
+		if (id < 0 && dls[i].state == PSP_GE_DL_STATE_COMPLETED && !dls[i].pendingInterrupt && dls[i].waitTicks < currentTicks)
 		{
 			id = i;
 		}
@@ -566,7 +580,7 @@ void GPUCommon::ProcessEvent(GPUEvent ev) {
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unexpected GPU event type: %d", (int)ev);
+		ERROR_LOG_REPORT(G3D, "Unexpected GPU event type: %d", (int)ev);
 	}
 }
 
@@ -590,9 +604,10 @@ void GPUCommon::ProcessDLQueueInternal() {
 	cyclesExecuted = 0;
 	UpdateTickEstimate(std::max(busyTicks, startingTicks + cyclesExecuted));
 
+	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
 		DEBUG_LOG(HLE, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
-		return;
+		//return;
 	}
 
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
@@ -791,8 +806,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				}
 				// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
 				if (currentList->interruptsEnabled && trigger) {
-					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted))
+					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
+						currentList->pendingInterrupt = true;
 						UpdateState(GPUSTATE_INTERRUPT);
+					}
 				}
 			}
 			break;
@@ -800,8 +817,10 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 			switch (currentList->signal) {
 			case PSP_GE_SIGNAL_HANDLER_PAUSE:
 				if (currentList->interruptsEnabled) {
-					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted))
+					if (__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
+						currentList->pendingInterrupt = true;
 						UpdateState(GPUSTATE_INTERRUPT);
+					}
 				}
 				break;
 
@@ -814,7 +833,9 @@ void GPUCommon::ExecuteOp(u32 op, u32 diff) {
 				currentList->subIntrToken = prev & 0xFFFF;
 				currentList->state = PSP_GE_DL_STATE_COMPLETED;
 				UpdateState(GPUSTATE_DONE);
-				if (!currentList->interruptsEnabled || !__GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
+				if (currentList->interruptsEnabled && __GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
+					currentList->pendingInterrupt = true;
+				} else {
 					currentList->waitTicks = startingTicks + cyclesExecuted;
 					busyTicks = std::max(busyTicks, currentList->waitTicks);
 					__GeTriggerSync(WAITTYPE_GELISTSYNC, currentList->id, currentList->waitTicks);
@@ -852,8 +873,6 @@ void GPUCommon::DoState(PointerWrap &p) {
 		currentList = &dls[currentID];
 	}
 	p.Do(interruptRunning);
-	u32 prev;  // TODO: kill. just didn't want to break states right now...
-	p.Do(prev);
 	p.Do(gpuState);
 	p.Do(isbreak);
 	p.Do(drawCompleteTicks);
@@ -870,6 +889,7 @@ void GPUCommon::InterruptEnd(int listid) {
 	isbreak = false;
 
 	DisplayList &dl = dls[listid];
+	dl.pendingInterrupt = false;
 	// TODO: Unless the signal handler could change it?
 	if (dl.state == PSP_GE_DL_STATE_COMPLETED || dl.state == PSP_GE_DL_STATE_NONE) {
 		dl.waitTicks = 0;

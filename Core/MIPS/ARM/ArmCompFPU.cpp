@@ -14,21 +14,26 @@
 
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
 #include "Core/Config.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
 
-#include "ArmJit.h"
-#include "ArmRegCache.h"
+#include "Core/MIPS/ARM/ArmJit.h"
+#include "Core/MIPS/ARM/ArmRegCache.h"
 
-#define _RS   ((op>>21) & 0x1F)
-#define _RT   ((op>>16) & 0x1F)
-#define _RD   ((op>>11) & 0x1F)
-#define _FS   ((op>>11) & 0x1F)
-#define _FT   ((op>>16) & 0x1F)
-#define _FD   ((op>>6 ) & 0x1F)
-#define _POS  ((op>>6 ) & 0x1F)
+#define _RS MIPS_GET_RS(op)
+#define _RT MIPS_GET_RT(op)
+#define _RD MIPS_GET_RD(op)
+#define _FS MIPS_GET_FS(op)
+#define _FT MIPS_GET_FT(op)
+#define _FD MIPS_GET_FD(op)
+#define _SA MIPS_GET_SA(op)
+#define _POS  ((op>> 6) & 0x1F)
 #define _SIZE ((op>>11) & 0x1F)
+#define _IMM16 (signed short)(op & 0xFFFF)
+#define _IMM26 (op & 0x03FFFFFF)
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -40,7 +45,7 @@
 namespace MIPSComp
 {
 
-void Jit::Comp_FPU3op(u32 op)
+void Jit::Comp_FPU3op(MIPSOpcode op)
 { 
 	CONDITIONAL_DISABLE;
 
@@ -54,7 +59,7 @@ void Jit::Comp_FPU3op(u32 op)
 	case 0: VADD(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) + F(ft); //add
 	case 1: VSUB(fpr.R(fd), fpr.R(fs), fpr.R(ft)); break; //F(fd) = F(fs) - F(ft); //sub
 	case 2: { //F(fd) = F(fs) * F(ft); //mul
-		u32 nextOp = Memory::Read_Instruction(js.compilerPC + 4);
+		MIPSOpcode nextOp = Memory::Read_Instruction(js.compilerPC + 4);
 		// Optimization possible if destination is the same
 		if (fd == (int)((nextOp>>6) & 0x1F)) {
 			// VMUL + VNEG -> VNMUL
@@ -78,13 +83,13 @@ void Jit::Comp_FPU3op(u32 op)
 
 extern int logBlocks;
 
-void Jit::Comp_FPULS(u32 op)
+void Jit::Comp_FPULS(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
 	s32 offset = (s16)(op & 0xFFFF);
 	int ft = _FT;
-	int rs = _RS;
+	MIPSGPReg rs = _RS;
 	// u32 addr = R(rs) + offset;
 	// logBlocks = 1;
 	bool doCheck = false;
@@ -167,7 +172,7 @@ void Jit::Comp_FPULS(u32 op)
 	}
 }
 
-void Jit::Comp_FPUComp(u32 op) {
+void Jit::Comp_FPUComp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
@@ -233,7 +238,7 @@ void Jit::Comp_FPUComp(u32 op) {
 	STR(R0, CTXREG, offsetof(MIPSState, fpcond));
 }
 
-void Jit::Comp_FPU2op(u32 op)
+void Jit::Comp_FPU2op(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
@@ -307,12 +312,12 @@ void Jit::Comp_FPU2op(u32 op)
 	}
 }
 
-void Jit::Comp_mxc1(u32 op)
+void Jit::Comp_mxc1(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
-	int rt = _RT;
+	MIPSGPReg rt = _RT;
 
 	switch ((op >> 21) & 0x1f)
 	{

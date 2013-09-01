@@ -34,21 +34,18 @@ public:
 	bool bSaveSettings;
 	bool bFirstRun;
 
-	// These are broken
-	bool bAutoLoadLast;
-	bool bSpeedLimit;
-	bool bConfirmOnQuit;
 	bool bAutoRun;  // start immediately
-	bool bBrowse;
-#ifdef _WIN32
-	bool bTopMost;
-#endif
+	bool bBrowse; // when opening the emulator, immediately show a file browser
+
 
 	// General
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bEnableLogging;
-
+#ifdef _WIN32
+	bool bTopMost;
+	std::string sFont;
+#endif
 	// Core
 	bool bIgnoreBadMemAccess;
 	bool bFastMemory;
@@ -169,6 +166,7 @@ public:
 
 	void Load(const char *iniFileName = "ppsspp.ini", const char *controllerIniFilename = "controls.ini");
 	void Save();
+	void RestoreDefaults();
 
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);

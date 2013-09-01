@@ -126,12 +126,14 @@ private:
 	void UpdateCurrentClut();
 	void AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch);
 	void DetachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer);
+	void SetTextureFramebuffer(TexCacheEntry *entry);
 
 	TexCacheEntry *GetEntryAt(u32 texaddr);
 
 	typedef std::map<u64, TexCacheEntry> TexCache;
 	TexCache cache;
 	TexCache secondCache;
+	std::vector<VirtualFramebuffer *> fbCache_;
 
 	bool clearCacheNextFrame_;
 	bool lowMemoryMode_;

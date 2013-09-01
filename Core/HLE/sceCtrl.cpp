@@ -16,15 +16,16 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <math.h>
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "../CoreTiming.h"
-#include "ChunkFile.h"
-#include "StdMutex.h"
-#include "sceCtrl.h"
-#include "sceDisplay.h"
-#include "sceKernel.h"
-#include "sceKernelThread.h"
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/CoreTiming.h"
+#include "Common/ChunkFile.h"
+#include "Common/StdMutex.h"
+#include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 
 /* Index for the two analog directions */
 #define CTRL_ANALOG_X   0
@@ -215,6 +216,11 @@ int __CtrlReadBuffer(u32 ctrlDataPtr, u32 nBufs, bool negative, bool peek)
 {
 	if (nBufs > NUM_CTRL_BUFFERS)
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
+
+	if (!peek && !__KernelIsDispatchEnabled())
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	if (!peek && __IsInInterrupt())
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 
 	u32 resetRead = ctrlBufRead;
 

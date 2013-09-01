@@ -59,6 +59,9 @@ struct FSTEntry
 	std::vector<FSTEntry> children;
 };
 
+// Mostly to handle utf-8 filenames better on Windows.
+FILE *OpenCFile(const std::string &filename, const char *mode);
+
 // Returns true if file filename exists
 bool Exists(const std::string &filename);
 
@@ -98,10 +101,6 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename);
 
 // creates an empty file filename, returns true on success 
 bool CreateEmptyFile(const std::string &filename);
-
-// Scans the directory tree gets, starting from _Directory and adds the
-// results into parentEntry. Returns the number of files+directories found
-u32 ScanDirectoryTree(const std::string &directory, FSTEntry& parentEntry);
 
 // deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const std::string &directory);

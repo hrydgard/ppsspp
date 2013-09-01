@@ -41,6 +41,8 @@
 #include <CoreFoundation/CFBundle.h>
 #endif
 
+#include "util/text/utf8.h"
+
 #include <fstream>
 #include <sys/stat.h>
 
@@ -77,6 +79,15 @@ static inline int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **res
 namespace File
 {
 
+FILE *OpenCFile(const std::string &filename, const char *mode)
+{
+#if defined(_WIN32) && defined(UNICODE)
+	return _wfopen(ConvertUTF8ToWString(filename).c_str(), ConvertUTF8ToWString(mode).c_str());
+#else
+	return fopen(filename.c_str(), mode);
+#endif
+}
+
 // Remove any ending forward slashes from directory paths
 // Modifies argument.
 static void StripTailDirSlashes(std::string &fname)
@@ -94,16 +105,39 @@ static void StripTailDirSlashes(std::string &fname)
 	return;
 }
 
+// _WIN32 only since std::strings are used everywhere else.
+#if defined(_WIN32) && defined(UNICODE)
+static void StripTailDirSlashes(std::wstring &fname)
+{
+	if (fname.length() > 1)
+	{
+		size_t i = fname.length() - 1;
+
+		if (i == 2 && fname[1] == ':' && fname[2] == '\\')
+			return;
+
+		while (wcschr(_T(DIR_SEP_CHRS), fname[i]))
+			fname[i--] = '\0';
+	}
+	return;
+}
+#endif
+
 // Returns true if file filename exists
 bool Exists(const std::string &filename)
 {
 	struct stat64 file_info;
+#if defined(_WIN32) && defined(UNICODE)
+	std::wstring copy = ConvertUTF8ToWString(filename);
+	StripTailDirSlashes(copy);
 
+	int result = _wstat64(copy.c_str(), &file_info);
+#else
 	std::string copy(filename);
 	StripTailDirSlashes(copy);
 
 	int result = stat64(copy.c_str(), &file_info);
-
+#endif
 	return (result == 0);
 }
 
@@ -117,12 +151,17 @@ bool IsDirectory(const struct stat64 &file_info)
 bool IsDirectory(const std::string &filename)
 {
 	struct stat64 file_info;
+#if defined(_WIN32) && defined(UNICODE)
+	std::wstring copy = ConvertUTF8ToWString(filename);
+	StripTailDirSlashes(copy);
 
+	int result = _wstat64(copy.c_str(), &file_info);
+#else
 	std::string copy(filename);
 	StripTailDirSlashes(copy);
 
 	int result = stat64(copy.c_str(), &file_info);
-
+#endif
 	if (result < 0) {
 		WARN_LOG(COMMON, "IsDirectory: stat failed on %s: %s", 
 				 filename.c_str(), GetLastErrorMsg());
@@ -154,7 +193,7 @@ bool Delete(const std::string &filename)
 	}
 
 #ifdef _WIN32
-	if (!DeleteFile(filename.c_str()))
+	if (!DeleteFile(ConvertUTF8ToWString(filename).c_str()))
 	{
 		WARN_LOG(COMMON, "Delete: DeleteFile failed on %s: %s", 
 				 filename.c_str(), GetLastErrorMsg());
@@ -176,7 +215,7 @@ bool CreateDir(const std::string &path)
 {
 	INFO_LOG(COMMON, "CreateDir: directory %s", path.c_str());
 #ifdef _WIN32
-	if (::CreateDirectory(path.c_str(), NULL))
+	if (::CreateDirectory(ConvertUTF8ToWString(path).c_str(), NULL))
 		return true;
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS)
@@ -267,7 +306,7 @@ bool DeleteDir(const std::string &filename)
 	}
 
 #ifdef _WIN32
-	if (::RemoveDirectory(filename.c_str()))
+	if (::RemoveDirectory(ConvertUTF8ToWString(filename).c_str()))
 		return true;
 #else
 	if (rmdir(filename.c_str()) == 0)
@@ -296,7 +335,7 @@ bool Copy(const std::string &srcFilename, const std::string &destFilename)
 	INFO_LOG(COMMON, "Copy: %s --> %s", 
 			srcFilename.c_str(), destFilename.c_str());
 #ifdef _WIN32
-	if (CopyFile(srcFilename.c_str(), destFilename.c_str(), FALSE))
+	if (CopyFile(ConvertUTF8ToWString(srcFilename).c_str(), ConvertUTF8ToWString(destFilename).c_str(), FALSE))
 		return true;
 
 	ERROR_LOG(COMMON, "Copy: failed %s --> %s: %s", 
@@ -397,8 +436,11 @@ tm GetModifTime(const std::string &filename)
 u64 GetSize(const std::string &filename)
 {
 	struct stat64 file_info;
-
+#if defined(_WIN32) && defined(UNICODE)
+	int result = _wstat64(ConvertUTF8ToWString(filename).c_str(), &file_info);
+#else
 	int result = stat64(filename.c_str(), &file_info);
+#endif
 	if (result != 0)
 	{
 		WARN_LOG(COMMON, "GetSize: failed %s: No such file", filename.c_str());
@@ -451,7 +493,7 @@ bool CreateEmptyFile(const std::string &filename)
 {
 	INFO_LOG(COMMON, "CreateEmptyFile: %s", filename.c_str()); 
 
-	FILE *pFile = fopen(filename.c_str(), "wb");
+	FILE *pFile = OpenCFile(filename, "wb");
 	if (!pFile) {
 		ERROR_LOG(COMMON, "CreateEmptyFile: failed %s: %s",
 				  filename.c_str(), GetLastErrorMsg());
@@ -461,80 +503,6 @@ bool CreateEmptyFile(const std::string &filename)
 	return true;
 }
 
-
-// Scans the directory tree gets, starting from _Directory and adds the
-// results into parentEntry. Returns the number of files+directories found
-u32 ScanDirectoryTree(const std::string &directory, FSTEntry& parentEntry)
-{
-	INFO_LOG(COMMON, "ScanDirectoryTree: directory %s", directory.c_str());
-	// How many files + directories we found
-	u32 foundEntries = 0;
-#ifdef _WIN32
-	// Find the first file in the directory.
-	WIN32_FIND_DATA ffd;
-
-	HANDLE hFind = FindFirstFile((directory + "\\*").c_str(), &ffd);
-	if (hFind == INVALID_HANDLE_VALUE)
-	{
-		FindClose(hFind);
-		return foundEntries;
-	}
-	// windows loop
-	do
-	{
-		FSTEntry entry;
-		const std::string virtualName(ffd.cFileName);
-#else
-	struct dirent_large { struct dirent entry; char padding[FILENAME_MAX+1]; };
-	struct dirent_large diren;
-	struct dirent *result = NULL;
-
-	DIR *dirp = opendir(directory.c_str());
-	if (!dirp)
-		return 0;
-
-	// non windows loop
-	while (!readdir_r(dirp, (dirent*)&diren, &result) && result)
-	{
-		FSTEntry entry;
-		const std::string virtualName(result->d_name);
-#endif
-		// check for "." and ".."
-		if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
-				((virtualName[0] == '.') && (virtualName[1] == '.') && 
-				 (virtualName[2] == '\0')))
-			continue;
-		entry.virtualName = virtualName;
-		entry.physicalName = directory;
-		entry.physicalName += DIR_SEP + entry.virtualName;
-
-		if (IsDirectory(entry.physicalName.c_str()))
-		{
-			entry.isDirectory = true;
-			// is a directory, lets go inside
-			entry.size = ScanDirectoryTree(entry.physicalName, entry);
-			foundEntries += (u32)entry.size;
-		}
-		else
-		{ // is a file 
-			entry.isDirectory = false;
-			entry.size = GetSize(entry.physicalName.c_str());
-		}
-		++foundEntries;
-		// Push into the tree
-		parentEntry.children.push_back(entry);		
-#ifdef _WIN32 
-	} while (FindNextFile(hFind, &ffd) != 0);
-	FindClose(hFind);
-#else
-	}
-	closedir(dirp);
-#endif
-	// Return number of entries found.
-	return foundEntries;
-}
-
-	
 // Deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const std::string &directory)
 {
@@ -542,7 +510,7 @@ bool DeleteDirRecursively(const std::string &directory)
 #ifdef _WIN32
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
-	HANDLE hFind = FindFirstFile((directory + "\\*").c_str(), &ffd);
+	HANDLE hFind = FindFirstFile(ConvertUTF8ToWString(directory + "\\*").c_str(), &ffd);
 
 	if (hFind == INVALID_HANDLE_VALUE)
 	{
@@ -553,7 +521,7 @@ bool DeleteDirRecursively(const std::string &directory)
 	// windows loop
 	do
 	{
-		const std::string virtualName = ffd.cFileName;
+		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 #else
 	struct dirent dirent, *result = NULL;
 	DIR *dirp = opendir(directory.c_str());
@@ -751,7 +719,7 @@ std::string &GetUserPath(const unsigned int DirIDX, const std::string &newPath)
 
 bool WriteStringToFile(bool text_file, const std::string &str, const char *filename)
 {
-	FILE *f = fopen(filename, text_file ? "w" : "wb");
+	FILE *f = OpenCFile(filename, text_file ? "w" : "wb");
 	if (!f)
 		return false;
 	size_t len = str.size();
@@ -766,7 +734,7 @@ bool WriteStringToFile(bool text_file, const std::string &str, const char *filen
 
 bool ReadFileToString(bool text_file, const char *filename, std::string &str)
 {
-	FILE *f = fopen(filename, text_file ? "r" : "rb");
+	FILE *f = OpenCFile(filename, text_file ? "r" : "rb");
 	if (!f)
 		return false;
 	size_t len = (size_t)GetSize(f);
@@ -800,8 +768,8 @@ IOFile::~IOFile()
 bool IOFile::Open(const std::string& filename, const char openmode[])
 {
 	Close();
-#ifdef _WIN32
-	fopen_s(&m_file, filename.c_str(), openmode);
+#if defined(_WIN32) && defined(UNICODE)
+	_wfopen_s(&m_file, ConvertUTF8ToWString(filename).c_str(), ConvertUTF8ToWString(openmode).c_str());
 #else
 	m_file = fopen(filename.c_str(), openmode);
 #endif

@@ -91,6 +91,8 @@ bool GL_Init(HWND window, std::string *error_message) {
 	hWnd = window;
 	GLuint PixelFormat;
 
+	// TODO: Change to use WGL_ARB_pixel_format instead
+
 	static const PIXELFORMATDESCRIPTOR pfd = {
 		sizeof(PIXELFORMATDESCRIPTOR),							// Size Of This Pixel Format Descriptor
 			1,														// Version Number
@@ -98,9 +100,9 @@ bool GL_Init(HWND window, std::string *error_message) {
 			PFD_SUPPORT_OPENGL |									// Format Must Support OpenGL
 			PFD_DOUBLEBUFFER,										// Must Support Double Buffering
 			PFD_TYPE_RGBA,											// Request An RGBA Format
-			32,														// Select Our Color Depth
+			24,														// Select Our Color Depth
 			0, 0, 0, 0, 0, 0,										// Color Bits Ignored
-			0,														// No Alpha Buffer
+			8,														// No Alpha Buffer
 			0,														// Shift Bit Ignored
 			0,														// No Accumulation Buffer
 			0, 0, 0, 0,										// Accumulation Bits Ignored
@@ -206,12 +208,12 @@ void GL_Shutdown() {
 	if (hRC) {
 		// Are We Able To Release The DC And RC Contexts?
 		if (!wglMakeCurrent(NULL,NULL)) {
-			MessageBox(NULL,"Release Of DC And RC Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release Of DC And RC Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 
 		// Are We Able To Delete The RC?
 		if (!wglDeleteContext(hRC)) {
-			MessageBox(NULL,"Release Rendering Context Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release Rendering Context Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 		hRC = NULL;
 	}
@@ -219,7 +221,7 @@ void GL_Shutdown() {
 	if (hDC && !ReleaseDC(hWnd,hDC)) {
 		DWORD err = GetLastError();
 		if (err != ERROR_DC_NOT_FOUND) {
-			MessageBox(NULL,"Release Device Context Failed.","SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
+			MessageBox(NULL,L"Release Device Context Failed.", L"SHUTDOWN ERROR",MB_OK | MB_ICONINFORMATION);
 		}
 		hDC = NULL;
 	}

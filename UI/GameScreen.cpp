@@ -29,6 +29,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
+#include "Core/Host.h"
 
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
@@ -66,6 +67,9 @@ void GameScreen::CreateViews() {
 	rightColumnItems->Add(new Choice(ga->T("Game Settings")))->OnClick.Handle(this, &GameScreen::OnGameSettings);
 	rightColumnItems->Add(new Choice(ga->T("Delete Save Data")))->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
 	rightColumnItems->Add(new Choice(ga->T("Delete Game")))->OnClick.Handle(this, &GameScreen::OnDeleteGame);
+	if (host->CanCreateShortcut()) {
+		rightColumnItems->Add(new Choice(ga->T("Create Shortcut")))->OnClick.Handle(this, &GameScreen::OnCreateShortcut);
+	}
 
 	UI::SetFocusedView(play);
 }
@@ -103,7 +107,7 @@ void GameScreen::DrawBackground(UIContext &dc) {
 void GameScreen::update(InputState &input) {
 	UIScreen::update(input);
 
-	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *ga = GetI18NCategory("Game");
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
 	if (tvTitle_)
@@ -116,9 +120,9 @@ void GameScreen::update(InputState &input) {
 
 	if (info->gameSize) {
 		char temp[256];
-		sprintf(temp, "%s: %1.1f %s", g->T("Game"), (float) (info->gameSize) / 1024.f / 1024.f, g->T("MB"));
+		sprintf(temp, "%s: %1.1f %s", ga->T("Game"), (float) (info->gameSize) / 1024.f / 1024.f, ga->T("MB"));
 		tvGameSize_->SetText(temp);
-		sprintf(temp, "%s: %1.2f %s", g->T("SaveData"), (float) (info->saveDataSize) / 1024.f / 1024.f, g->T("MB"));
+		sprintf(temp, "%s: %1.2f %s", ga->T("SaveData"), (float) (info->saveDataSize) / 1024.f / 1024.f, ga->T("MB"));
 		tvSaveDataSize_->SetText(temp);
 	}
 }
@@ -144,11 +148,11 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *ga = GetI18NCategory("Game");
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), g->T("Delete Savedata"), g->T("Cancel"),
+			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("DeleteSaveData"), ga->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
 	}
 
@@ -165,11 +169,11 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *ga = GetI18NCategory("Game");
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), g->T("Delete Game"), g->T("Cancel"),
+			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("DeleteGame"), ga->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
 	}
 
@@ -185,3 +189,10 @@ void GameScreen::CallbackDeleteGame(bool yes) {
 	}
 }
 
+UI::EventReturn GameScreen::OnCreateShortcut(UI::EventParams &e) {
+	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, false);
+	if (info) {
+		host->CreateDesktopShortcut(gamePath_, info->title);
+	}
+	return UI::EVENT_DONE;
+}

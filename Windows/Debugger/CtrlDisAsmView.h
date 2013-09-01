@@ -64,7 +64,7 @@ class CtrlDisAsmView
 	std::vector<u32> jumpStack;
 
 	bool controlHeld;
-	char searchQuery[256];
+	std::string searchQuery;
 	int matchAddress;
 	bool searching;
 	bool dontRedraw;

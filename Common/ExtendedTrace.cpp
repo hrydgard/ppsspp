@@ -17,6 +17,8 @@
 #include "CommonWindows.h"
 #include <stdio.h>
 #include "ExtendedTrace.h"
+
+#include <string>
 using namespace std;
 
 #include <tchar.h>
@@ -320,7 +322,7 @@ void StackTrace( HANDLE hThread, LPCTSTR lpszMessage, FILE *file )
 
 		GetFunctionInfoFromAddresses( (ULONG)callStack.AddrPC.Offset, (ULONG)callStack.AddrFrame.Offset, symInfo );
 		GetSourceInfoFromAddress( (ULONG)callStack.AddrPC.Offset, srcInfo );
-		etfprint(file, string("     ") + srcInfo + string(" : ") + symInfo + string("\n"));
+		etfprint(file, wstring(L"     ") + srcInfo + L" : " + symInfo + L"\n");
 
 		for( ULONG index = 0; ; index++ ) 
 		{
@@ -343,29 +345,13 @@ void StackTrace( HANDLE hThread, LPCTSTR lpszMessage, FILE *file )
 
 			GetFunctionInfoFromAddresses( (ULONG)callStack.AddrPC.Offset, (ULONG)callStack.AddrFrame.Offset, symInfo );
 			GetSourceInfoFromAddress( (UINT)callStack.AddrPC.Offset, srcInfo );
-			etfprint(file, string("     ") + srcInfo + string(" : ") + symInfo + string("\n"));
+			etfprint(file, wstring(L"     ") + srcInfo + L" : " + symInfo + L"\n");
 
 		}
 
 		if ( hThread != GetCurrentThread() )
 			ResumeThread( hThread );
 }
-
-#ifndef UNICODE
-
-void StackTrace( HANDLE hThread,  wchar_t const*lpszMessage, FILE *file, DWORD eip, DWORD esp, DWORD ebp )
-{
-	// TODO: remove when Common builds as unicode
-	size_t origsize = wcslen(lpszMessage) + 1;
-	const size_t newsize = 100;
-	size_t convertedChars = 0;
-	char nstring[newsize];
-	wcstombs_s(&convertedChars, nstring, origsize, lpszMessage, _TRUNCATE);
-
-	StackTrace(hThread, nstring, file, eip, esp, ebp );
-}
-
-#endif
 
 void StackTrace( HANDLE hThread, LPCTSTR lpszMessage, FILE *file, DWORD eip, DWORD esp, DWORD ebp )
 {
@@ -397,7 +383,7 @@ void StackTrace( HANDLE hThread, LPCTSTR lpszMessage, FILE *file, DWORD eip, DWO
 
 		GetFunctionInfoFromAddresses( (ULONG)callStack.AddrPC.Offset, (ULONG)callStack.AddrFrame.Offset, symInfo );
 		GetSourceInfoFromAddress( (UINT)callStack.AddrPC.Offset, srcInfo );
-		etfprint(file, string("     ") + srcInfo + string(" : ") + symInfo + string("\n"));
+		etfprint(file, wstring(L"     ") + srcInfo + L" : " + symInfo + L"\n");
 
 		for( ULONG index = 0; ; index++ ) 
 		{
@@ -420,8 +406,7 @@ void StackTrace( HANDLE hThread, LPCTSTR lpszMessage, FILE *file, DWORD eip, DWO
 
 			GetFunctionInfoFromAddresses( (ULONG)callStack.AddrPC.Offset, (ULONG)callStack.AddrFrame.Offset, symInfo );
 			GetSourceInfoFromAddress( (UINT)callStack.AddrPC.Offset, srcInfo );
-			etfprint(file, string("     ") + srcInfo + string(" : ") + symInfo + string("\n"));
-
+			etfprint(file, wstring(L"     ") + srcInfo + L" : " + symInfo + L"\n");
 		}
 
 		if ( hThread != GetCurrentThread() )
@@ -441,6 +426,11 @@ void etfprintf(FILE *file, const char *format, ...) {
 void etfprint(FILE *file, const std::string &text) {
 	size_t len = text.length();
 	fwrite(text.data(), 1, len, file);
+}
+
+void etfprint(FILE *file, const std::wstring &text) {
+	size_t len = text.length();
+	fwrite(text.data(), sizeof(wchar_t), len, file);
 }
 
 #endif //WIN32

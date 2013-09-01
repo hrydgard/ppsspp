@@ -19,6 +19,7 @@
 
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "util/text/utf8.h"
 
 #include "Core/Config.h"
 #include "Core/SaveState.h"
@@ -49,9 +50,8 @@
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
-void LaunchBrowser(const char *url)
-{
-	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+void LaunchBrowser(const char *url) {
+	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
 std::string System_GetName() {
@@ -61,6 +61,17 @@ std::string System_GetName() {
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)
 {
 	Common::EnableCrashingOnCrashes();
+
+	wchar_t modulePath[MAX_PATH];
+	GetModuleFileName(NULL, modulePath, MAX_PATH);
+	for (size_t i = wcslen(modulePath) - 1; i > 0; i--) {
+		if (modulePath[i] == '\\') {
+			modulePath[i] = 0;
+			break;
+		}
+	}
+	SetCurrentDirectory(modulePath);
+	// GetCurrentDirectory(MAX_PATH, modulePath);  // for checking in the debugger
 
 	bool hideLog = true;
 
@@ -107,7 +118,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	timeBeginPeriod(1);
 	MainWindow::Init(_hInstance);
 
-	g_hPopupMenus = LoadMenu(_hInstance, (LPCSTR)IDR_POPUPMENUS);
+	g_hPopupMenus = LoadMenu(_hInstance, (LPCWSTR)IDR_POPUPMENUS);
 
 	MainWindow::Show(_hInstance, iCmdShow);
 
@@ -124,6 +135,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	host = new WindowsHost(hwndMain, hwndDisplay);
 	host->SetWindowTitle(0);
+
+	MainWindow::CreateDebugWindows();
 
 	// Emu thread is always running!
 	EmuThread_Start();
@@ -149,8 +162,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		//Translate accelerators and dialog messages...
 		HWND wnd;
 		HACCEL accel;
-		if (g_debuggerActive)
-		{
+		if (g_debuggerActive) {
 			wnd = disasmWindow[0]->GetDlgHandle();
 			accel = hDebugAccelTable;
 		} else {

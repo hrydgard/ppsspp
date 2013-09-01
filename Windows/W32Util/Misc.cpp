@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <WinUser.h>
 #include "Misc.h"
+#include "util/text/utf8.h"
 
 namespace W32Util
 {
@@ -57,24 +58,23 @@ namespace W32Util
 			sprintf(out,"%3.1f %s",f,sizes[s]);
 	}
 
-	BOOL CopyTextToClipboard(HWND hwnd, const TCHAR *text)
-	{
+	BOOL CopyTextToClipboard(HWND hwnd, const char *text) {
+		std::wstring wtext = ConvertUTF8ToWString(text);
 		OpenClipboard(hwnd);
 		EmptyClipboard();
-		HANDLE hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (strlen(text) + 1) * sizeof(TCHAR)); 
-		if (hglbCopy == NULL) 
-		{ 
+		HANDLE hglbCopy = GlobalAlloc(GMEM_MOVEABLE, (wtext.size() + 1) * sizeof(wchar_t)); 
+		if (hglbCopy == NULL) { 
 			CloseClipboard(); 
 			return FALSE; 
 		} 
 
 		// Lock the handle and copy the text to the buffer. 
 
-		TCHAR *lptstrCopy = (TCHAR *)GlobalLock(hglbCopy); 
-		strcpy(lptstrCopy, text); 
-		lptstrCopy[strlen(text)] = (TCHAR) 0;    // null character 
+		wchar_t *lptstrCopy = (wchar_t *)GlobalLock(hglbCopy); 
+		wcscpy(lptstrCopy, wtext.c_str()); 
+		lptstrCopy[wtext.size()] = (wchar_t) 0;    // null character 
 		GlobalUnlock(hglbCopy); 
-		SetClipboardData(CF_TEXT,hglbCopy);
+		SetClipboardData(CF_UNICODETEXT, hglbCopy);
 		CloseClipboard();
 		return TRUE;
 	}

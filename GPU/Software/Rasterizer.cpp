@@ -15,11 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "../../Core/MemMap.h"
-#include "../GPUState.h"
+#include "Core/MemMap.h"
+#include "Core/Reporting.h"
+#include "GPU/GPUState.h"
 
-#include "Rasterizer.h"
-#include "Colors.h"
+#include "GPU/Software/Rasterizer.h"
+#include "GPU/Software/Colors.h"
 
 extern u8* fb;
 extern u8* depthbuf;
@@ -46,7 +47,7 @@ static inline int orient2dIncY(int dX01)
 
 static inline int GetPixelDataOffset(unsigned int texel_size_bits, unsigned int row_pitch_bits, unsigned int u, unsigned int v)
 {
-	if (!(gstate.texmode & 1))
+	if (!gstate.isTextureSwizzled())
 		return v * row_pitch_bits *texel_size_bits/8 / 8 + u * texel_size_bits / 8;
 
 	int tile_size_bits = 32;
@@ -72,29 +73,22 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 
 	 // TODO: No idea if these bswaps are correct
 	switch (gstate.getClutPaletteFormat()) {
-		case GE_TFMT_5650:
-			return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+	case GE_TFMT_5650:
+		return DecodeRGB565(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-		case GE_TFMT_5551:
-			return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+	case GE_TFMT_5551:
+		return DecodeRGBA5551(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-		case GE_TFMT_4444:
-			return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+	case GE_TFMT_4444:
+		return DecodeRGBA4444(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
 
-		case GE_TFMT_8888:
-			return DecodeRGBA8888(clut[index + clutSharingOffset]);
+	case GE_TFMT_8888:
+		return DecodeRGBA8888(clut[index + clutSharingOffset]);
 
-		default:
-			ERROR_LOG(G3D, "Unsupported palette format: %x", gstate.getClutPaletteFormat());
-			return 0;
+	default:
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", gstate.getClutPaletteFormat());
+		return 0;
 	}
-}
-
-static inline u32 GetClutIndex(u32 index) {
-    const u32 clutBase = gstate.getClutIndexStartPos();
-    const u32 clutMask = gstate.getClutIndexMask();
-    const u8 clutShift = gstate.getClutIndexShift();
-    return ((index >> clutShift) & clutMask) | clutBase;
 }
 
 static inline void GetTexelCoordinates(int level, float s, float t, unsigned int& u, unsigned int& v)
@@ -130,31 +124,41 @@ static inline void GetTexelCoordinates(int level, float s, float t, unsigned int
 
 static inline void GetTextureCoordinates(const VertexData& v0, const VertexData& v1, const VertexData& v2, int w0, int w1, int w2, float& s, float& t)
 {
-	if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS || gstate.getUVGenMode() == GE_TEXMAP_UNKNOWN || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
-		// TODO: What happens if vertex has no texture coordinates?
-		// Note that for environment mapping, texture coordinates have been calculated during lighting
-		float q0 = 1.f / v0.clippos.w;
-		float q1 = 1.f / v1.clippos.w;
-		float q2 = 1.f / v2.clippos.w;
-		float q = q0 * w0 + q1 * w1 + q2 * w2;
-		s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
-		t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
-	} else if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
-		// projection mapping, TODO: Move this code to TransformUnit!
-		Vec3<float> source;
-		if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
-			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
-		} else {
-			ERROR_LOG(G3D, "Unsupported UV projection mode %x", gstate.getUVProjMode());
+	switch (gstate.getUVGenMode()) {
+	case GE_TEXMAP_TEXTURE_COORDS:
+	case GE_TEXMAP_UNKNOWN:
+	case GE_TEXMAP_ENVIRONMENT_MAP:
+		{
+			// TODO: What happens if vertex has no texture coordinates?
+			// Note that for environment mapping, texture coordinates have been calculated during lighting
+			float q0 = 1.f / v0.clippos.w;
+			float q1 = 1.f / v1.clippos.w;
+			float q2 = 1.f / v2.clippos.w;
+			float q = q0 * w0 + q1 * w1 + q2 * w2;
+			s = (v0.texturecoords.s() * q0 * w0 + v1.texturecoords.s() * q1 * w1 + v2.texturecoords.s() * q2 * w2) / q;
+			t = (v0.texturecoords.t() * q0 * w0 + v1.texturecoords.t() * q1 * w1 + v2.texturecoords.t() * q2 * w2) / q;
 		}
+		break;
+	case GE_TEXMAP_TEXTURE_MATRIX:
+		{
+			// projection mapping, TODO: Move this code to TransformUnit!
+			Vec3<float> source;
+			if (gstate.getUVProjMode() == GE_PROJMAP_POSITION) {
+			source = ((v0.modelpos * w0 + v1.modelpos * w1 + v2.modelpos * w2) / (w0+w1+w2));
+			} else {
+			ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
+			}
 
-		Mat3x3<float> tgen(gstate.tgenMatrix);
-		Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-		s = stq.x/stq.z;
-		t = stq.y/stq.z;
-	} else {
-		ERROR_LOG(G3D, "Unsupported texture mapping mode %x!", gstate.getUVGenMode());
-	}
+			Mat3x3<float> tgen(gstate.tgenMatrix);
+			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+			s = stq.x/stq.z;
+			t = stq.y/stq.z;
+		}
+		break;
+	default:
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture mapping mode %x!", gstate.getUVGenMode());
+		break;
+	}	
 }
 
 static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
@@ -168,44 +172,49 @@ static inline u32 SampleNearest(int level, unsigned int u, unsigned int v)
 
 	// TODO: Should probably check if textures are aligned properly...
 
-	if (texfmt == GE_TFMT_4444) {
+	switch (texfmt) {
+	case GE_TFMT_4444:
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		return DecodeRGBA4444(*(u16*)srcptr);
-	} else if (texfmt == GE_TFMT_5551) {
+	
+	case GE_TFMT_5551:
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		return DecodeRGBA5551(*(u16*)srcptr);
-	} else if (texfmt == GE_TFMT_5650) {
+
+	case GE_TFMT_5650:
 		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
 		return DecodeRGB565(*(u16*)srcptr);
-	} else if (texfmt == GE_TFMT_8888) {
+
+	case GE_TFMT_8888:
 		srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
 		return DecodeRGBA8888(*(u32*)srcptr);
-	} else if (texfmt == GE_TFMT_CLUT32) {
-		srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
 
-		u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
-
-		return LookupColor(GetClutIndex(val), level);
-	} else if (texfmt == GE_TFMT_CLUT16) {
-		srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
-
-		u16 val = srcptr[0] + (srcptr[1] << 8);
-
-		return LookupColor(GetClutIndex(val), level);
-	} else if (texfmt == GE_TFMT_CLUT8) {
-		srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
-
-		u8 val = *srcptr;
-
-		return LookupColor(GetClutIndex(val), level);
-	} else if (texfmt == GE_TFMT_CLUT4) {
-		srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
-
-		u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
-
-		return LookupColor(GetClutIndex(val), level);
-	} else {
-		ERROR_LOG(G3D, "Unsupported texture format: %x", texfmt);
+	case GE_TFMT_CLUT32:
+		{
+			srcptr += GetPixelDataOffset(32, texbufwidth*8, u, v);
+			u32 val = srcptr[0] + (srcptr[1] << 8) + (srcptr[2] << 16) + (srcptr[3] << 24);
+			return LookupColor(gstate.transformClutIndex(val), level);
+		}
+	case GE_TFMT_CLUT16:
+		{
+			srcptr += GetPixelDataOffset(16, texbufwidth*8, u, v);
+			u16 val = srcptr[0] + (srcptr[1] << 8);
+			return LookupColor(gstate.transformClutIndex(val), level);
+		}
+	case GE_TFMT_CLUT8:
+		{
+			srcptr += GetPixelDataOffset(8, texbufwidth*8, u, v);
+			u8 val = *srcptr;
+			return LookupColor(gstate.transformClutIndex(val), level);
+		}
+	case GE_TFMT_CLUT4:
+		{
+			srcptr += GetPixelDataOffset(4, texbufwidth*8, u, v);
+			u8 val = (u & 1) ? (srcptr[0] >> 4) : (srcptr[0] & 0xF);
+			return LookupColor(gstate.transformClutIndex(val), level);
+		}
+	default:
+		ERROR_LOG_REPORT(G3D, "Software: Unsupported texture format: %x", texfmt);
 		return 0;
 	}
 }
@@ -404,7 +413,7 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 	Vec3<int> out_rgb;
 	int out_a;
 
-	bool rgba = (gstate.texfunc & 0x100) != 0;
+	bool rgba = gstate.isTextureAlphaUsed();
 
 	switch (gstate.getTextureFunction()) {
 	case GE_TEXFUNC_MODULATE:
@@ -444,7 +453,9 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unknown texture function %x", gstate.getTextureFunction());
+		ERROR_LOG_REPORT(G3D, "Software: Unknown texture function %x", gstate.getTextureFunction());
+		out_rgb = Vec3<int>::AssignToAll(0);
+		out_a = 0;
 	}
 
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
@@ -452,10 +463,10 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec3<int>& prim_color_rgb
 
 static inline bool ColorTestPassed(Vec3<int> color)
 {
-	u32 mask = gstate.colormask&0xFFFFFF;
-	color = Vec3<int>::FromRGB(color.ToRGB() & mask);
-	Vec3<int> ref = Vec3<int>::FromRGB(gstate.colorref & mask);
-	switch (gstate.colortest & 0x3) {
+	const u32 mask = gstate.getColorTestMask();
+	const u32 c = color.ToRGB() & mask;
+	const u32 ref = gstate.getColorTestRef() & mask;
+	switch (gstate.getColorTestFunction()) {
 		case GE_COMP_NEVER:
 			return false;
 
@@ -463,21 +474,21 @@ static inline bool ColorTestPassed(Vec3<int> color)
 			return true;
 
 		case GE_COMP_EQUAL:
-			return (color.r() == ref.r() && color.g() == ref.g() && color.b() == ref.b());
+			return c == ref;
 
 		case GE_COMP_NOTEQUAL:
-			return (color.r() != ref.r() || color.g() != ref.g() || color.b() != ref.b());
+			return c != ref;
 	}
 	return true;
 }
 
 static inline bool AlphaTestPassed(int alpha)
 {
-	u8 mask = (gstate.alphatest >> 16) & 0xFF;
-	u8 ref = (gstate.alphatest >> 8) & mask;
+	const u8 mask = gstate.getAlphaTestMask() & 0xFF;
+	const u8 ref = gstate.getAlphaTestRef() & mask;
 	alpha &= mask;
 
-	switch (gstate.alphatest & 0x7) {
+	switch (gstate.getAlphaTestFunction()) {
 		case GE_COMP_NEVER:
 			return false;
 
@@ -543,7 +554,7 @@ static inline Vec3<int> GetSourceFactor(int source_a, const Vec4<int>& dst)
 		return Vec4<int>::FromRGBA(gstate.getFixA()).rgb();
 
 	default:
-		ERROR_LOG(G3D, "Unknown source factor %x", gstate.getBlendFuncA());
+		ERROR_LOG_REPORT(G3D, "Software: Unknown source factor %x", gstate.getBlendFuncA());
 		return Vec3<int>();
 	}
 }
@@ -585,7 +596,7 @@ static inline Vec3<int> GetDestFactor(const Vec3<int>& source_rgb, int source_a,
 		return Vec4<int>::FromRGBA(gstate.getFixB()).rgb();
 
 	default:
-		ERROR_LOG(G3D, "Unknown dest factor %x", gstate.getBlendFuncB());
+		ERROR_LOG_REPORT(G3D, "Software: Unknown dest factor %x", gstate.getBlendFuncB());
 		return Vec3<int>();
 	}
 }
@@ -621,7 +632,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec3<int>& source_rgb, int sou
 						::abs(source_rgb.b() - dst.b()));
 
 	default:
-		ERROR_LOG(G3D, "Unknown blend function %x", gstate.getBlendEq());
+		ERROR_LOG_REPORT(G3D, "Software: Unknown blend function %x", gstate.getBlendEq());
 		return Vec3<int>();
 	}
 }
@@ -726,7 +737,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				// TODO: Fogging
 
 				// TODO: Is that the correct way to interpolate?
-				u16 z = (u16)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) / (w0+w1+w2));
+				// Without the (u32), this causes an ICE in some versions of gcc.
+				u16 z = (u16)(u32)(((float)v0.screenpos.z * w0 + (float)v1.screenpos.z * w1 + (float)v2.screenpos.z * w2) / (w0+w1+w2));
 
 				// Depth range test
 				if (!gstate.isModeThrough())
@@ -750,7 +762,8 @@ void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& 
 				}
 
 				// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled?
-				if ((gstate.isDepthTestEnabled() && !gstate.isModeThrough()) || gstate.isModeClear()) {
+				// TODO: Verify that through mode does not disable depth testing
+				if (gstate.isDepthTestEnabled() || gstate.isModeClear()) {
 					// TODO: Verify that stencil op indeed needs to be applied here even if stencil testing is disabled
 					if (!DepthTestPassed(p.x, p.y, z)) {
 						ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);

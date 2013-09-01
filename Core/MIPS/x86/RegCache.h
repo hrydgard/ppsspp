@@ -17,8 +17,9 @@
 
 #pragma once
 
-#include "x64Emitter.h"
-#include "../MIPSAnalyst.h"
+#include "Common/x64Emitter.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 
 using namespace Gen;
 
@@ -38,7 +39,7 @@ struct MIPSCachedReg {
 };
 
 struct X64CachedReg {
-	int mipsReg;
+	MIPSGPReg mipsReg;
 	bool dirty;
 	bool free;
 	bool allocLocked;
@@ -56,7 +57,7 @@ public:
 	~GPRRegCache() {}
 	void Start(MIPSState *mips, MIPSAnalyst::AnalysisResults &stats);
 
-	void DiscardRegContentsIfCached(int preg);
+	void DiscardRegContentsIfCached(MIPSGPReg preg);
 	void SetEmitter(XEmitter *emitter) {emit = emitter;}
 
 	void FlushR(X64Reg reg); 
@@ -71,30 +72,30 @@ public:
 	void Flush();
 	void FlushBeforeCall();
 	int SanityCheck() const;
-	void KillImmediate(int preg, bool doLoad, bool makeDirty);
+	void KillImmediate(MIPSGPReg preg, bool doLoad, bool makeDirty);
 
-	void BindToRegister(int preg, bool doLoad = true, bool makeDirty = true);
-	void StoreFromRegister(int preg);
+	void BindToRegister(MIPSGPReg preg, bool doLoad = true, bool makeDirty = true);
+	void StoreFromRegister(MIPSGPReg preg);
 
-	const OpArg &R(int preg) const {return regs[preg].location;}
-	X64Reg RX(int preg) const
+	const OpArg &R(MIPSGPReg preg) const {return regs[preg].location;}
+	X64Reg RX(MIPSGPReg preg) const
 	{
 		if (regs[preg].away && regs[preg].location.IsSimpleReg()) 
 			return regs[preg].location.GetSimpleReg(); 
 		PanicAlert("Not so simple - %i", preg); 
 		return (X64Reg)-1;
 	}
-	OpArg GetDefaultLocation(int reg) const;
+	OpArg GetDefaultLocation(MIPSGPReg reg) const;
 
 	// Register locking.
-	void Lock(int p1, int p2=0xff, int p3=0xff, int p4=0xff);
+	void Lock(MIPSGPReg p1, MIPSGPReg p2 = MIPS_REG_INVALID, MIPSGPReg p3 = MIPS_REG_INVALID, MIPSGPReg p4 = MIPS_REG_INVALID);
 	void LockX(int x1, int x2=0xff, int x3=0xff, int x4=0xff);
 	void UnlockAll();
 	void UnlockAllX();
 
-	void SetImmediate32(int preg, u32 immValue);
-	bool IsImmediate(int preg) const;
-	u32 GetImmediate32(int preg) const;
+	void SetImmediate32(MIPSGPReg preg, u32 immValue);
+	bool IsImmediate(MIPSGPReg preg) const;
+	u32 GetImmediate32(MIPSGPReg preg) const;
 
 	void GetState(GPRRegCacheState &state) const;
 	void RestoreState(const GPRRegCacheState state);

@@ -16,7 +16,7 @@
 // http://code.google.com/p/dolphin-emu/
 
 #include <algorithm>
-
+#include "base/logging.h"
 #include "LogManager.h"
 #include "ConsoleListener.h"
 #include "Timer.h"
@@ -280,6 +280,6 @@ void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
 void DebuggerLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
 {
 #if _MSC_VER
-	::OutputDebugStringA(msg);
+	OutputDebugStringUTF8(msg);
 #endif
 }

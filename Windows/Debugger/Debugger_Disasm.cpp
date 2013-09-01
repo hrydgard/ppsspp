@@ -26,6 +26,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 
 #include "base/stringutil.h"
+#include "util/text/utf8.h"
 
 #ifdef THEMES
 #include "Windows/XPTheme.h"
@@ -73,8 +74,9 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 {
 	cpu = _cpu;
 	lastTicks = CoreTiming::GetTicks();
+	keepStatusBarText = false;
 
-	SetWindowText(m_hDlg,_cpu->GetName());
+	SetWindowText(m_hDlg, ConvertUTF8ToWString(_cpu->GetName()).c_str());
 #ifdef THEMES
 	//if (WTL::CTheme::IsThemingSupported())
 		//EnableThemeDialogTexture(m_hDlg ,ETDT_ENABLETAB);
@@ -109,12 +111,12 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	ZeroMemory (&tcItem,sizeof (tcItem));
 	tcItem.mask			= TCIF_TEXT;
 	tcItem.dwState		= 0;
-	tcItem.pszText		= "Regs";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Regs";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	tcItem.iImage		= 0;
 	int result1 = TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= "Funcs";
-	tcItem.cchTextMax	= (int)strlen(tcItem.pszText)+1;
+	tcItem.pszText		= L"Funcs";
+	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	int result2 = TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
 	ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);
@@ -149,7 +151,7 @@ CDisasm::CDisasm(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu) : Di
 	changeSubWindow(SUBWIN_FIRST);
 
 	// init status bar
-	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "", m_hDlg, IDC_DISASMSTATUSBAR);
+	statusBarWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, L"", m_hDlg, IDC_DISASMSTATUSBAR);
 	if (g_Config.bDisplayStatusBar == false)
 	{
 		ShowWindow(statusBarWnd,SW_HIDE);
@@ -412,8 +414,21 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				changeSubWindow(SUBWIN_STACKFRAMES);
 				break;
 
+			case ID_DEBUG_DSIPLAYREGISTERLIST:
+				TabCtrl_SetCurSel(GetDlgItem(m_hDlg, IDC_LEFTTABS),0);
+				ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_NORMAL);
+				ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_HIDE);
+				break;
+				
+			case ID_DEBUG_DSIPLAYFUNCTIONLIST:
+				TabCtrl_SetCurSel(GetDlgItem(m_hDlg, IDC_LEFTTABS),1);
+				ShowWindow(GetDlgItem(m_hDlg, IDC_REGLIST), SW_HIDE);
+				ShowWindow(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), SW_NORMAL);
+				break;
+
 			case ID_DEBUG_ADDBREAKPOINT:
 				{
+					keepStatusBarText = true;
 					bool isRunning = Core_IsActive();
 					if (isRunning)
 					{
@@ -430,6 +445,7 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 						SetDebugMode(false);
 						Core_EnableStepping(false);
 					}
+					keepStatusBarText = false;
 				}
 				break;
 
@@ -554,19 +570,19 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					u32 ra = currentMIPS->r[MIPS_REG_RA];
 					DWORD addr = Memory::ReadUnchecked_U32(pc);
 					int count=1;
-					ComboBox_SetItemData(list,ComboBox_AddString(list,symbolMap.GetDescription(pc)),pc);
+					ComboBox_SetItemData(list, ComboBox_AddString(list, ConvertUTF8ToWString(symbolMap.GetDescription(pc)).c_str()), pc);
 					if (symbolMap.GetDescription(pc) != symbolMap.GetDescription(ra))
 					{
-						ComboBox_SetItemData(list,ComboBox_AddString(list,symbolMap.GetDescription(ra)),ra);
+						ComboBox_SetItemData(list, ComboBox_AddString(list, ConvertUTF8ToWString(symbolMap.GetDescription(ra)).c_str()), ra);
 						count++;
 					}
 					//walk the stack chain
 					while (addr != 0xFFFFFFFF && addr!=0 && count++<20)
 					{
 						DWORD fun = Memory::ReadUnchecked_U32(addr+4);
-						const char *str = symbolMap.GetDescription(fun);
-						if (strlen(str)==0)
-							str = "(unknown)";
+						const wchar_t *str = ConvertUTF8ToWString(symbolMap.GetDescription(fun)).c_str();
+						if (wcslen(str) == 0)
+							str = L"(unknown)";
 						ComboBox_SetItemData(list, ComboBox_AddString(list,str), fun);
 						addr = Memory::ReadUnchecked_U32(addr);
 					}
@@ -621,12 +637,12 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 	}
 	case WM_DEB_GOTOADDRESSEDIT:
 		{
-			char szBuffer[256];
+			wchar_t szBuffer[256];
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 			GetWindowText(GetDlgItem(m_hDlg,IDC_ADDRESS),szBuffer,256);
 
 			u32 addr;
-			if (parseExpression(szBuffer,cpu,addr) == false)
+			if (parseExpression(ConvertWStringToUTF8(szBuffer).c_str(),cpu,addr) == false)
 			{
 				displayExpressionError(GetDlgItem(m_hDlg,IDC_ADDRESS));
 			} else {
@@ -649,7 +665,8 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		changeSubWindow(SUBWIN_NEXT);
 		break;
 	case WM_DEB_SETSTATUSBARTEXT:
-		SendMessage(statusBarWnd,WM_SETTEXT,0,lParam);
+		if (!keepStatusBarText)
+			SendMessage(statusBarWnd,WM_SETTEXT,0,(LPARAM)ConvertUTF8ToWString((const char *)lParam).c_str());
 		break;
 	case WM_DEB_GOTOHEXEDIT:
 		{
@@ -710,7 +727,7 @@ void CDisasm::updateThreadLabel(bool clear)
 		sprintf(label,"Thread: %s",threadList->getCurrentThreadName());
 	}
 
-	SetDlgItemText(m_hDlg, IDC_THREADNAME,label);
+	SetDlgItemText(m_hDlg, IDC_THREADNAME, ConvertUTF8ToWString(label).c_str());
 }
 
 void CDisasm::UpdateSize(WORD width, WORD height)
@@ -782,7 +799,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 		stackTraceView->loadStackTrace();
 		updateThreadLabel(false);
 
-		SetDlgItemText(m_hDlg, IDC_STOPGO, "Go");
+		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Go");
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), TRUE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), TRUE);
@@ -802,7 +819,7 @@ void CDisasm::SetDebugMode(bool _bDebug)
 	{
 		updateThreadLabel(true);
 		
-		SetDlgItemText(m_hDlg, IDC_STOPGO, "Stop");
+		SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
 		EnableWindow( GetDlgItem(hDlg, IDC_STEP), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPOVER), FALSE);
 		EnableWindow( GetDlgItem(hDlg, IDC_STEPHLE), FALSE);
@@ -835,6 +852,7 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	ComboBox_ResetContent(gotoInt);
 	for (int i=0; i<numRegions; i++)
 	{
+		// TODO: wchar_t
 		int n = ComboBox_AddString(gotoInt,regions[i].name);
 		ComboBox_SetItemData(gotoInt,n,regions[i].start);
 	}
@@ -847,12 +865,17 @@ void CDisasm::UpdateDialog(bool _bComplete)
 	CtrlRegisterList *rl = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
 	rl->redraw();						
 	// Update Debug Counter
-	char tempTicks[24];
-	sprintf(tempTicks, "%lld", CoreTiming::GetTicks()-lastTicks);
+	wchar_t tempTicks[24];
+	_snwprintf(tempTicks, 24, L"%lld", CoreTiming::GetTicks()-lastTicks);
 	SetDlgItemText(m_hDlg, IDC_DEBUG_COUNT, tempTicks);
 
 	// Update Register Dialog
 	for (int i=0; i<numCPUs; i++)
 		if (memoryWindow[i])
 			memoryWindow[i]->Update();
+
+	// repaint windows at the bottom. only the memory view needs to be forced to
+	// redraw. all others are updated manually
+	InvalidateRect (GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW), NULL, TRUE);
+	UpdateWindow (GetDlgItem(m_hDlg, IDC_DEBUGMEMVIEW));
 }

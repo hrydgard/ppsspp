@@ -56,7 +56,7 @@ public:
 		vbo = 0;
 		ebo = 0;
 		numDCs = 0;
-		prim = -1;
+		prim = GE_PRIM_INVALID;
 		numDraws = 0;
 		numFrames = 0;
 		lastFrame = gpuStats.numFlips;
@@ -96,9 +96,12 @@ class TransformDrawEngine : public GfxResourceHolder {
 public:
 	TransformDrawEngine();
 	virtual ~TransformDrawEngine();
-	void SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertexType, int forceIndexType, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertexType, int forceIndexType, int *bytesRead);
+	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, u32 vertex_type);
+	void SubmitBezier(void* control_points, void* indices, int count_u, int count_v, GEPatchPrimType prim_type, u32 vertex_type);
+
+	// legacy
 	void DrawBezier(int ucount, int vcount);
-	void SubmitSpline(void* control_points, void* indices, int count_u, int count_v, int type_u, int type_v, u32 prim_type, u32 vertex_type);
 
 	void DecodeVerts();
 	void SetShaderManager(ShaderManager *shaderManager) {
@@ -157,7 +160,7 @@ private:
 	// Vertex collector state
 	IndexGenerator indexGen;
 	int collectedVerts;
-	int prevPrim_;
+	GEPrimitiveType prevPrim_;
 
 	// Cached vertex decoders
 	std::map<u32, VertexDecoder *> decoderMap_;

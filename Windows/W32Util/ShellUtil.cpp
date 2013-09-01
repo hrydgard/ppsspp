@@ -3,7 +3,9 @@
 #include "stdafx.h"
 #include "shlobj.h"
 
+#include "util/text/utf8.h"
 #include "ShellUtil.h"
+#include "CommDlg.h"
 
 #include <shlobj.h>
 #include <commdlg.h>
@@ -15,17 +17,17 @@ namespace W32Util
 		BROWSEINFO info;
 		memset(&info,0,sizeof(info));
 		info.hwndOwner = parent;
-		info.lpszTitle = title;
+		info.lpszTitle = ConvertUTF8ToWString(title).c_str();
 		info.ulFlags = BIF_EDITBOX | BIF_RETURNONLYFSDIRS | BIF_USENEWUI;
 
 		//info.pszDisplayName
 		LPCITEMIDLIST idList = SHBrowseForFolder(&info);
 
-		char temp[MAX_PATH];
+		wchar_t temp[MAX_PATH];
 		SHGetPathFromIDList(idList, temp);
-		if (strlen(temp))
+		if (wcslen(temp))
 		{
-			return temp;
+			return ConvertWStringToUTF8(temp);
 		}
 		else
 			return "";
@@ -34,15 +36,12 @@ namespace W32Util
 	//---------------------------------------------------------------------------------------------------
 	// function WinBrowseForFileName
 	//---------------------------------------------------------------------------------------------------
-	bool BrowseForFileName (bool _bLoad, HWND _hParent, const char *_pTitle,
-		const char *_pInitialFolder,const char *_pFilter,const char *_pExtension, 
+	bool BrowseForFileName (bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
+		const wchar_t *_pInitialFolder,const wchar_t *_pFilter,const wchar_t *_pExtension, 
 		std::string& _strFileName)
 	{
-		char szFile [MAX_PATH+1];
-		char szFileTitle [MAX_PATH+1];
-
-		strcpy (szFile,"");
-		strcpy (szFileTitle,"");
+		wchar_t szFile [MAX_PATH+1] = {0};
+		wchar_t szFileTitle [MAX_PATH+1] = {0};
 
 		OPENFILENAME ofn;
 
@@ -60,25 +59,22 @@ namespace W32Util
 		ofn.Flags			= OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
 
 		if (_strFileName.size () != 0)
-			ofn.lpstrFile = (char *)_strFileName.c_str();
+			wcscpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str());
 
-		if (((_bLoad)?GetOpenFileName (&ofn):GetSaveFileName (&ofn)))
+		if (((_bLoad) ? GetOpenFileName(&ofn) : GetSaveFileName (&ofn)))
 		{
-			_strFileName = ofn.lpstrFile;
+			_strFileName = ConvertWStringToUTF8(ofn.lpstrFile);
 			return true;
 		}
 		else
 			return false;
 	}
 	
-	std::vector<std::string> BrowseForFileNameMultiSelect(bool _bLoad, HWND _hParent, const char *_pTitle,
-		const char *_pInitialFolder,const char *_pFilter,const char *_pExtension)
+	std::vector<std::string> BrowseForFileNameMultiSelect(bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
+		const wchar_t *_pInitialFolder,const wchar_t *_pFilter,const wchar_t *_pExtension)
 	{
-		char szFile [MAX_PATH+1+2048*2];
-		char szFileTitle [MAX_PATH+1];
-
-		strcpy (szFile,"");
-		strcpy (szFileTitle,"");
+		wchar_t szFile [MAX_PATH+1+2048*2] = {0};
+		wchar_t szFileTitle [MAX_PATH+1] = {0};
 
 		OPENFILENAME ofn;
 
@@ -97,33 +93,28 @@ namespace W32Util
 
 		std::vector<std::string> files;
 
-		if (((_bLoad) ? GetOpenFileName (&ofn):GetSaveFileName (&ofn)))
+		if (((_bLoad) ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn)))
 		{
-			std::string directory = ofn.lpstrFile;
-			char *temp = ofn.lpstrFile;
-			char *oldtemp = temp;
-			temp+=strlen(temp)+1;
+			std::string directory = ConvertWStringToUTF8(ofn.lpstrFile);
+			wchar_t *temp = ofn.lpstrFile;
+			wchar_t *oldtemp = temp;
+			temp += wcslen(temp)+1;
 			if (*temp==0)
 			{
 				//we only got one file
-				files.push_back(std::string(oldtemp));
+				files.push_back(ConvertWStringToUTF8(oldtemp));
 			}
 			else
 			{
 				while (*temp)
 				{
-					files.push_back(directory+"\\"+std::string(temp));
-					temp+=strlen(temp)+1;
+					files.push_back(directory+"\\"+ConvertWStringToUTF8(temp));
+					temp += wcslen(temp)+1;
 				}
 			}
 			return files;
 		}
 		else
 			return std::vector<std::string>(); // empty vector;
-
 	}
-	
-
-
-
 }

@@ -76,7 +76,7 @@ std::map<int, int> windowsTransTable = InitConstMap<int, int>
 	(VK_RSHIFT, NKCODE_SHIFT_RIGHT)
 	(VK_LMENU, NKCODE_ALT_LEFT)
 	(VK_RMENU, NKCODE_ALT_RIGHT)
-	(VK_BACK, NKCODE_BACK)
+	(VK_BACK, NKCODE_DEL)  // yes! http://stackoverflow.com/questions/4886858/android-edittext-deletebackspace-key-event
 	(VK_SPACE, NKCODE_SPACE)
 	(VK_ESCAPE, NKCODE_ESCAPE)
 	(VK_UP, NKCODE_DPAD_UP)
