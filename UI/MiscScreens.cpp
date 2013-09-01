@@ -478,6 +478,7 @@ void CreditsScreen::render() {
 		c->T("translators4", ""),
 		c->T("translators5", ""),
 		c->T("translators6", ""),
+		"",
 		c->T("written", "Written in C++ for speed and portability"),
 		"",
 		"",
