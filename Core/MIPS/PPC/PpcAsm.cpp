@@ -67,7 +67,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	{
 		gpr.SetCompilerPC(js.compilerPC);  // Let it know for log messages
 		fpr.SetCompilerPC(js.compilerPC);
-		u32 inst = Memory::Read_Instruction(js.compilerPC);
+		MIPSOpcode inst = Memory::Read_Instruction(js.compilerPC);
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst);

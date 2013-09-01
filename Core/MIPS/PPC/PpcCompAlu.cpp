@@ -77,7 +77,7 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_IType(u32 op)
+	void Jit::Comp_IType(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
@@ -166,12 +166,12 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_RType2(u32 op) {
+	void Jit::Comp_RType2(MIPSOpcode op) {
 		Comp_Generic(op);
 	}
 
 
-	void Jit::Comp_RType3(u32 op) {
+	void Jit::Comp_RType3(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		int rt = _RT;
 		int rs = _RS;
@@ -364,7 +364,7 @@ namespace MIPSComp
 	/**
 	*	srl/srlv are disabled because they crash rr2
 	**/
-	void Jit::Comp_ShiftType(u32 op) {
+	void Jit::Comp_ShiftType(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 		int rs = _RS;
 		int rd = _RD;
@@ -466,19 +466,19 @@ namespace MIPSComp
 		}
 	}
 
-	void Jit::Comp_Allegrex(u32 op) {
+	void Jit::Comp_Allegrex(MIPSOpcode op) {
 		Comp_Generic(op);
 	}
 
-	void Jit::Comp_Allegrex2(u32 op) {
+	void Jit::Comp_Allegrex2(MIPSOpcode op) {
 		Comp_Generic(op);
 	}
 
-	void Jit::Comp_MulDivType(u32 op) {
+	void Jit::Comp_MulDivType(MIPSOpcode op) {
 		Comp_Generic(op);
 	}
 
-	void Jit::Comp_Special3(u32 op) {
+	void Jit::Comp_Special3(MIPSOpcode op) {
 		Comp_Generic(op);
 	}
 

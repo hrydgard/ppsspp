@@ -35,7 +35,7 @@ void Jit::CompileDelaySlot(int flags)
 	}
 
 	js.inDelaySlot = true;
-	u32 op = Memory::Read_Instruction(js.compilerPC + 4);
+	MIPSOpcode op = Memory::Read_Instruction(js.compilerPC + 4);
 	MIPSCompileOp(op);
 	js.inDelaySlot = false;
 
@@ -119,7 +119,7 @@ void Jit::WriteDownCount(int offset)
 	CMPI(DCNTREG, 0);
 }
 
-void Jit::Comp_Generic(u32 op) {
+void Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 
 	// basic jit !!
@@ -132,19 +132,23 @@ void Jit::Comp_Generic(u32 op) {
 		MovToPC(SREG);
 
 		// call interpreted function
-		MOVI2R(R3, op);
+		MOVI2R(R3, op.encoding);
 		QuickCallFunction((void *)func);
 
 		// restore pc and cycles
 		RestoreDowncount(DCNTREG);
 	}
-	// Might have eaten prefixes, hard to tell...
-	if ((MIPSGetInfo(op) & IS_VFPU) != 0)
-		js.PrefixStart();
+	const MIPSInfo info = MIPSGetInfo(op);
+	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
+	{
+		// If it does eat them, it'll happen in MIPSCompileOp().
+		if ((info & OUT_EAT_PREFIX) == 0)
+			js.PrefixUnknown();
+	}
 }
 	
-void Jit::EatInstruction(u32 op) {
-	u32 info = MIPSGetInfo(op);
+void Jit::EatInstruction(MIPSOpcode op) {
+	MIPSInfo info = MIPSGetInfo(op);
 	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
 	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
 
@@ -152,12 +156,12 @@ void Jit::EatInstruction(u32 op) {
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);
 }
 
-void Jit::Comp_RunBlock(u32 op) {
+void Jit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
-void Jit::Comp_DoNothing(u32 op) {
+void Jit::Comp_DoNothing(MIPSOpcode op) {
 
 }
 

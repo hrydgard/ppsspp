@@ -31,7 +31,7 @@ using namespace PpcGen;
 namespace MIPSComp
 {
 	
-void Jit::Comp_FPU3op(u32 op) {
+void Jit::Comp_FPU3op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int ft = _FT;
@@ -68,7 +68,7 @@ void Jit::Comp_FPU3op(u32 op) {
 	}
 }
 
-void Jit::Comp_FPULS(u32 op) {
+void Jit::Comp_FPULS(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	s32 offset = (s16)(op & 0xFFFF);
@@ -116,11 +116,11 @@ void Jit::Comp_FPULS(u32 op) {
 	}
 }
 
-void Jit::Comp_FPUComp(u32 op) {
+void Jit::Comp_FPUComp(MIPSOpcode op) {
 	Comp_Generic(op);
 }
 
-void Jit::Comp_FPU2op(u32 op) {
+void Jit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
 	int fs = _FS;
@@ -150,7 +150,7 @@ void Jit::Comp_FPU2op(u32 op) {
 	}
 }
 
-void Jit::Comp_mxc1(u32 op) {
+void Jit::Comp_mxc1(MIPSOpcode op) {
 	Comp_Generic(op);
 }
 
