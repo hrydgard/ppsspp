@@ -198,7 +198,7 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 	int RetLen;
 	bool Immediate = false;
 
-	char* SourceEncoding = SourceOpcode.encoding;
+	const char *SourceEncoding = SourceOpcode.encoding;
 	char* OriginalLine = Line;
 
 	while (*Line == ' ' || *Line == '\t') Line++;
