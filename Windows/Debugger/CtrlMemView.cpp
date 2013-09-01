@@ -585,6 +585,7 @@ void CtrlMemView::search(bool continueSearch)
 	u32 searchAddress;
 	if (continueSearch == false || searchQuery[0] == 0)
 	{
+		ctrlDown = false;
 		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
 		{
 			SetFocus(wnd);
