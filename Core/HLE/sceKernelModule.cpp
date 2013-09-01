@@ -234,16 +234,9 @@ public:
 		p.Do(exportedVars, vsx);
 		VarSymbolImport vsi = {0};
 		p.Do(importedVars, vsi);
+		RebuildImpExpModuleNames();
 		p.DoMarker("Module");
 	}
-
-	NativeModule nm;
-	std::vector<ModuleWaitingThread> waitingThreads;
-
-	std::vector<FuncSymbolExport> exportedFuncs;
-	std::vector<FuncSymbolImport> importedFuncs;
-	std::vector<VarSymbolExport> exportedVars;
-	std::vector<VarSymbolImport> importedVars;
 
 	void ImportFunc(const FuncSymbolImport &func) {
 		if (!Memory::IsValidAddress(func.stubAddr)) {
@@ -260,24 +253,56 @@ public:
 
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
+		impExpModuleNames.insert(func.moduleName);
 		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
 	}
 
 	void ImportVar(const VarSymbolImport &var) {
 		// Keep track and actually hook it up if possible.
 		importedVars.push_back(var);
+		impExpModuleNames.insert(var.moduleName);
 		ImportVarSymbol(var);
 	}
 
 	void ExportFunc(const FuncSymbolExport &func) {
 		exportedFuncs.push_back(func);
+		impExpModuleNames.insert(func.moduleName);
 		ResolveSyscall(func.moduleName, func.nid, func.symAddr);
 	}
 
 	void ExportVar(const VarSymbolExport &var) {
 		exportedVars.push_back(var);
+		impExpModuleNames.insert(var.moduleName);
 		ExportVarSymbol(var);
 	}
+
+	template <typename T>
+	void RebuildImpExpList(const std::vector<T> &list) {
+		for (size_t i = 0; i < list.size(); ++i) {
+			impExpModuleNames.insert(list[i].moduleName);
+		}
+	}
+
+	void RebuildImpExpModuleNames() {
+		impExpModuleNames.clear();
+		RebuildImpExpList(exportedFuncs);
+		RebuildImpExpList(importedFuncs);
+		RebuildImpExpList(exportedVars);
+		RebuildImpExpList(importedVars);
+	}
+
+	bool ImportsOrExportsModuleName(const std::string &moduleName) {
+		return impExpModuleNames.find(moduleName) != impExpModuleNames.end();
+	}
+
+	NativeModule nm;
+	std::vector<ModuleWaitingThread> waitingThreads;
+
+	std::vector<FuncSymbolExport> exportedFuncs;
+	std::vector<FuncSymbolImport> importedFuncs;
+	std::vector<VarSymbolExport> exportedVars;
+	std::vector<VarSymbolImport> importedVars;
+	std::set<std::string> impExpModuleNames;
 
 	u32 memoryBlockAddr;
 	u32 memoryBlockSize;
@@ -488,7 +513,7 @@ void ImportVarSymbol(const VarSymbolImport &var) {
 	u32 error;
 	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
 		Module *module = kernelObjects.Get<Module>(*mod, error);
-		if (!module) {
+		if (!module || !module->ImportsOrExportsModuleName(var.moduleName)) {
 			continue;
 		}
 
@@ -509,7 +534,7 @@ void ExportVarSymbol(const VarSymbolExport &var) {
 	u32 error;
 	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
 		Module *module = kernelObjects.Get<Module>(*mod, error);
-		if (!module) {
+		if (!module || !module->ImportsOrExportsModuleName(var.moduleName)) {
 			continue;
 		}
 
@@ -527,7 +552,7 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 	u32 error;
 	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
 		Module *module = kernelObjects.Get<Module>(*mod, error);
-		if (!module) {
+		if (!module || !module->ImportsOrExportsModuleName(var.moduleName)) {
 			continue;
 		}
 
