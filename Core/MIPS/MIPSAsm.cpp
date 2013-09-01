@@ -2,6 +2,7 @@
 #include "stdafx.h"
 #endif
 #include "MIPSAsm.h"
+#include <cstdarg>
 
 namespace MIPSAsm
 {
