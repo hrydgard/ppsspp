@@ -9,6 +9,7 @@
 #include "../resource.h"
 #include "../../Core/MemMap.h"
 #include "../W32Util/Misc.h"
+#include "Windows/InputBox.h"
 #include "../Main.h"
 #include "../../Core/Debugger/SymbolMap.h"
 
@@ -38,6 +39,10 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 	curAddress=0;
 	debugger = 0;
   
+	searchQuery = "";
+	matchAddress = -1;
+	searching = false;
+
 	ctrlDown = false;
 	hasFocus = false;
 	windowStart = curAddress;
@@ -217,7 +222,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 			unsigned char c = m[j];
 			if (c < 32 || c >= 128 || valid == false) c = '.';
 
-			if (address+j == curAddress)
+			if (address+j == curAddress && searching == false)
 			{
 				COLORREF oldBkColor = GetBkColor(hdc);
 				COLORREF oldTextColor = GetTextColor(hdc);
@@ -298,13 +303,27 @@ void CtrlMemView::onVScroll(WPARAM wParam, LPARAM lParam)
 
 void CtrlMemView::onKeyDown(WPARAM wParam, LPARAM lParam)
 {
-	if (ctrlDown && tolower(wParam & 0xFFFF) == 'g')
-	{
-		ctrlDown = false;
-		u32 addr;
-		if (executeExpressionWindow(wnd,debugger,addr) == false) return;
-		gotoAddr(addr);
-		return;
+	if (ctrlDown)
+	{	
+		switch (tolower(wParam & 0xFFFF))
+		{
+		case 'g':
+			{
+				ctrlDown = false;
+				u32 addr;
+				if (executeExpressionWindow(wnd,debugger,addr) == false) return;
+				gotoAddr(addr);
+				return;
+			}
+			break;
+		case 'f':
+		case 's':
+			search(false);
+			return;
+		case 'c':
+			search(true);
+			return;
+		}
 	}
 
 	switch (wParam & 0xFFFF)
@@ -428,7 +447,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 				if (asciiSelected)
 				{
 					unsigned char c = Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : '.';
-					if (c < 32 || c >= 128) c = '.';
+					if (c < 32) c = '.';
 					sprintf(temp,"%c",c);
 				} else {
 					sprintf(temp,"%02X",Memory::IsValidAddress(curAddress) ? Memory::ReadUnchecked_U8(curAddress) : 0xFF);
@@ -558,5 +577,103 @@ void CtrlMemView::scrollCursor(int bytes)
 	}
 	
 	updateStatusBarText();
+	redraw();
+}
+
+void CtrlMemView::search(bool continueSearch)
+{
+	u32 searchAddress;
+	if (continueSearch == false || searchQuery[0] == 0)
+	{
+		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
+		{
+			SetFocus(wnd);
+			return;
+		}
+		SetFocus(wnd);
+		searchAddress = curAddress+1;
+	} else {
+		searchAddress = matchAddress+1;
+	}
+
+	std::vector<u8> searchData;
+	if (asciiSelected)
+	{
+		for (int i = 0; i < searchQuery.length(); i++)
+		{
+			char c = searchQuery[i];
+			searchData.push_back(c);
+		}
+	} else {
+		int index = 0;
+		while (index < searchQuery.size())
+		{
+			if (searchQuery[index] == ' ' || searchQuery[index] == '\t')
+			{
+				index++;
+				continue;
+			}
+
+			u8 value = 0;
+			for (int i = 0; i < 2; i++)
+			{
+				char c = tolower(searchQuery[index++]);
+				if (c >= 'a' && c <= 'f')
+				{
+					value |= (c-'a'+10) << (1-i)*4;
+				} else  if (c >= '0' && c <= '9')
+				{
+					value |= (c-'0') << (1-i)*4;
+				} else {
+					MessageBox(wnd,L"Invalid search text.",L"Error",MB_OK);
+					return;
+				}
+			}
+
+			searchData.push_back(value);
+		}
+	}
+
+	std::vector<std::pair<u32,u32>> memoryAreas;
+	memoryAreas.push_back(std::pair<u32,u32>(0x04000000,0x04200000));
+	memoryAreas.push_back(std::pair<u32,u32>(0x08000000,0x0A000000));
+	
+	searching = true;
+	redraw();	// so the cursor is disabled
+	for (int i = 0; i < memoryAreas.size(); i++)
+	{
+		u32 segmentStart = memoryAreas[i].first;
+		u32 segmentEnd = memoryAreas[i].second;
+		u8* dataPointer = Memory::GetPointer(segmentStart);
+		if (dataPointer == NULL) continue;		// better safe than sorry, I guess
+
+		if (searchAddress < segmentStart) searchAddress = segmentStart;
+		if (searchAddress >= segmentEnd) continue;
+
+		int index = searchAddress-segmentStart;
+		int endIndex = segmentEnd-segmentStart-searchData.size();
+
+		while (index < endIndex)
+		{
+			// cancel search
+			if ((index % 256) == 0 && GetAsyncKeyState(VK_ESCAPE))
+			{
+				searching = false;
+				return;
+			}
+
+			if (memcmp(&dataPointer[index],searchData.data(),searchData.size()) == 0)
+			{
+				matchAddress = index+segmentStart;
+				searching = false;
+				gotoAddr(matchAddress);
+				return;
+			}
+			index++;
+		}
+	}
+
+	MessageBox(wnd,L"Not found",L"Search",MB_OK);
+	searching = false;
 	redraw();
 }
