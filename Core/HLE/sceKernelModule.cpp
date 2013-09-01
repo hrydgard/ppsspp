@@ -199,12 +199,6 @@ class Module : public KernelObject
 public:
 	Module() : memoryBlockAddr(0), isFake(false), isStarted(false) {}
 	~Module() {
-		for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it) {
-			UnexportVarSymbol(*it);
-		}
-		for (auto it = exportedFuncs.begin(), end = exportedFuncs.end(); it != end; ++it) {
-			UnexportFuncSymbol(*it);
-		}
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
 		}
@@ -244,6 +238,9 @@ public:
 		RebuildImpExpModuleNames();
 		p.DoMarker("Module");
 	}
+
+	// We don't do this in the destructor to avoid annoying messages on game shutdown.
+	void Cleanup();
 
 	void ImportFunc(const FuncSymbolImport &func) {
 		if (!Memory::IsValidAddress(func.stubAddr)) {
@@ -653,6 +650,17 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 	}
 }
 
+void Module::Cleanup() {
+	loadedModules.erase(GetUID());
+
+	for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it) {
+		UnexportVarSymbol(*it);
+	}
+	for (auto it = exportedFuncs.begin(), end = exportedFuncs.end(); it != end; ++it) {
+		UnexportFuncSymbol(*it);
+	}
+}
+
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
@@ -705,7 +713,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		*error_string = "File corrupt";
 		if (newptr)
 			delete [] newptr;
-		loadedModules.erase(module->GetUID());
+		module->Cleanup();
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
@@ -716,7 +724,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		ERROR_LOG(HLE, "LoadInto failed");
 		if (newptr)
 			delete [] newptr;
-		loadedModules.erase(module->GetUID());
+		module->Cleanup();
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
@@ -1207,7 +1215,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	if (!module || module->isFake) {
 		if (module) {
-			loadedModules.erase(module->GetUID());
+			module->Cleanup();
 			kernelObjects.Destroy<Module>(module->GetUID());
 		}
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
@@ -1558,7 +1566,7 @@ u32 sceKernelUnloadModule(u32 moduleId)
 	if (!module)
 		return error;
 
-	loadedModules.erase(moduleId);
+	module->Cleanup();
 	kernelObjects.Destroy<Module>(moduleId);
 	return moduleId;
 }
