@@ -211,19 +211,19 @@ void GameSettingsScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *c = GetI18NCategory("Controls");
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
+	I18NCategory *d = GetI18NCategory("Dialog");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	root_->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameSettingsScreen::OnBack);
+	root_->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameSettingsScreen::OnBack);
 
 	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 200, new AnchorLayoutParams(10, 0, 10, 0, false));
 
@@ -543,11 +543,11 @@ void DeveloperToolsScreen::CreateViews() {
 
 	enableLogging_ = g_Config.bEnableLogging;
 
-	I18NCategory *g = GetI18NCategory("General");
 	I18NCategory *d = GetI18NCategory("Developer");
 	I18NCategory *gs = GetI18NCategory("Graphics");
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
+	I18NCategory *di = GetI18NCategory("Dialog");
 
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	list->SetSpacing(0);
@@ -562,7 +562,7 @@ void DeveloperToolsScreen::CreateViews() {
 	list->Add(new ItemHeader(d->T("Language")));
 	list->Add(new Choice(d->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(d->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);
-	list->Add(new Choice(g->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
+	list->Add(new Choice(di->T("Back")))->OnClick.Handle(this, &DeveloperToolsScreen::OnBack);
 }
 
 UI::EventReturn DeveloperToolsScreen::OnBack(UI::EventParams &e) {
@@ -584,9 +584,8 @@ void DeveloperToolsScreen::CallbackRestoreDefaults(bool yes) {
 
 UI::EventReturn DeveloperToolsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Dialog");
-	I18NCategory *g = GetI18NCategory("General");
 	screenManager()->push(
-	new PromptScreen(d->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), g->T("OK"), g->T("Cancel"),
+	new PromptScreen(d->T("RestoreDefaultSettings", "Are you sure you want to restore all settings(except control mapping)\nback to their defaults?\nYou can't undo this.\nPlease restart PPSSPP after restoring settings."), d->T("OK"), d->T("Cancel"),
 	std::bind(&DeveloperToolsScreen::CallbackRestoreDefaults, this, placeholder::_1)));
 
 	return UI::EVENT_DONE;
