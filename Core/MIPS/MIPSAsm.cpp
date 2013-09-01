@@ -9,7 +9,7 @@ namespace MIPSAsm
 	
 char errorMessage[512];
 
-void SetAssembleError(char* format, ...)
+void SetAssembleError(const char* format, ...)
 {
 	va_list args;
 
