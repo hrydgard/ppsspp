@@ -169,8 +169,8 @@ void Jit::ClearCache() {
 	GenerateFixedCode();
 }
 
-void Jit::ClearCacheAt(u32 em_address) {
-	ClearCache();
+void Jit::ClearCacheAt(u32 em_address, int length) {
+	blocks.InvalidateICache(em_address, length);
 }
 
 Jit::Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &jo),mips_(mips)

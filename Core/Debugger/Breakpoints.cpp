@@ -298,8 +298,9 @@ void CBreakPoints::Update(u32 addr)
 {
 	if (MIPSComp::jit && Core_IsInactive())
 	{
+		// In case this is a delay slot, clear the previous instruction too.
 		if (addr != 0)
-			MIPSComp::jit->ClearCacheAt(addr);
+			MIPSComp::jit->ClearCacheAt(addr - 4, 8);
 		else
 			MIPSComp::jit->ClearCache();
 	}
