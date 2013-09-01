@@ -70,6 +70,8 @@ public:
 
 	virtual void Draw(UIContext &dc);
 
+	UI::Event OnChoice;
+
 private:
 	void UpdateText();
 	EventReturn HandleClick(EventParams &e);
@@ -105,6 +107,11 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 	if (num != -1) {
 		*value_ = num + minVal_;
 		UpdateText();
+
+		UI::EventParams e;
+		e.v = this;
+		e.a = num;
+		OnChoice.Trigger(e);
 	}
 }
 
@@ -233,7 +240,7 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "Auto", "1", "2", "3", "4", "5", "6", "7", "8"};
@@ -369,7 +376,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
 	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
-	systemSettings->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")))->SetEnabled(Reporting::IsSupported());
+	enableReportsCheckbox_ = new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports"));
+	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+	systemSettings->Add(enableReportsCheckbox_);
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
 
@@ -392,6 +401,12 @@ UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 	// Hmm, strange mechanism.
 	g_Config.bReloadCheats = true;
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
+	enableReports_ = Reporting::IsEnabled();
+	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 	return UI::EVENT_DONE;
 }
 

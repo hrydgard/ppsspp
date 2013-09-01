@@ -39,6 +39,7 @@ private:
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
+	UI::CheckBox *enableReportsCheckbox_;
 
 	// Event handlers
 	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
@@ -53,6 +54,7 @@ private:
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
+	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
