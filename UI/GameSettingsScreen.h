@@ -29,6 +29,8 @@ public:
 
 	virtual void update(InputState &input);
 
+	UI::Event OnLanguageChanged;
+
 protected:
 	virtual void CreateViews();
 	virtual void DrawBackground(UIContext &dc);
@@ -50,6 +52,7 @@ private:
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
+	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnFactoryReset(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);

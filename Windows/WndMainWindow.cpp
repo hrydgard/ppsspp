@@ -104,7 +104,6 @@ namespace MainWindow
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
 	static int currentSavestateSlot = 0;
-	static bool menusAreTranslated = false;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
@@ -319,9 +318,6 @@ namespace MainWindow
 	}
 
 	void TranslateMenus() {
-		if(menusAreTranslated) return;
-		menusAreTranslated = true;
-
 		const char *desktopUI = "DesktopUI";
 
 		// File menu

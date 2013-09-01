@@ -515,7 +515,15 @@ UI::EventReturn GameSettingsScreen::OnFactoryReset(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Developer");
-	screenManager()->push(new NewLanguageScreen(d->T("Language")));
+	auto langScreen = new NewLanguageScreen(d->T("Language"));
+	langScreen->OnChoice.Handle(this, &GameSettingsScreen::OnLanguageChange);
+	screenManager()->push(langScreen);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
+	RecreateViews();
+	OnLanguageChanged.Trigger(e);
 	return UI::EVENT_DONE;
 }
 
