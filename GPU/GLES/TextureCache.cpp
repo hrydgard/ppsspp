@@ -195,6 +195,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
+				// Affected game list : Kurohyou 2, Evangelion Jo
 				AttachFramebufferInvalid(entry, framebuffer);
 			} else {
 				AttachFramebufferValid(entry, framebuffer);
@@ -212,10 +213,12 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			if (framebuffer->format != entry->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 				// TODO: Use an FBO to translate the palette?
+				// Affected game List : DBZ VS Tag , 3rd birthday 
 				AttachFramebufferValid(entry, framebuffer);
 			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 				WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 				// TODO: Keep track of the y offset.
+				// Affected game List : God of War Ghost of Sparta , Tactic Orge , Sword Art Online
 				AttachFramebufferValid(entry, framebuffer);
 			}
 		}
