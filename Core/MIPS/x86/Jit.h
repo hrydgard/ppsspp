@@ -41,6 +41,8 @@ struct JitOptions
 	JitOptions()
 	{
 		enableBlocklink = true;
+		// WARNING: These options don't work properly with cache clearing.
+		// Need to find a smart way to handle before enabling.
 		immBranches = false;
 		continueBranches = false;
 		continueMaxInstructions = 300;
