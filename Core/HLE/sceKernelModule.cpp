@@ -128,6 +128,10 @@ void ImportVarSymbol(const VarSymbolImport &var);
 void ExportVarSymbol(const VarSymbolExport &var);
 void UnexportVarSymbol(const VarSymbolExport &var);
 
+void ImportFuncSymbol(const FuncSymbolImport &func);
+void ExportFuncSymbol(const FuncSymbolExport &func);
+void UnexportFuncSymbol(const FuncSymbolExport &func);
+
 struct NativeModule {
 	u32_le next;
 	u16_le attribute;
@@ -198,6 +202,9 @@ public:
 		for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it) {
 			UnexportVarSymbol(*it);
 		}
+		for (auto it = exportedFuncs.begin(), end = exportedFuncs.end(); it != end; ++it) {
+			UnexportFuncSymbol(*it);
+		}
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
 		}
@@ -254,7 +261,7 @@ public:
 		// Keep track and actually hook it up if possible.
 		importedFuncs.push_back(func);
 		impExpModuleNames.insert(func.moduleName);
-		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
+		ImportFuncSymbol(func);
 	}
 
 	void ImportVar(const VarSymbolImport &var) {
@@ -267,7 +274,7 @@ public:
 	void ExportFunc(const FuncSymbolExport &func) {
 		exportedFuncs.push_back(func);
 		impExpModuleNames.insert(func.moduleName);
-		ResolveSyscall(func.moduleName, func.nid, func.symAddr);
+		ExportFuncSymbol(func);
 	}
 
 	void ExportVar(const VarSymbolExport &var) {
@@ -541,7 +548,7 @@ void ExportVarSymbol(const VarSymbolExport &var) {
 		// Look for imports currently loaded modules already have, hook it up right away.
 		for (auto it = module->importedVars.begin(), end = module->importedVars.end(); it != end; ++it) {
 			if (var.Matches(*it)) {
-				INFO_LOG(HLE, "Resolving var %s/%08x", var.moduleName, var.nid);
+				INFO_LOG(LOADER, "Resolving var %s/%08x", var.moduleName, var.nid);
 				WriteVarSymbol(var.symAddr, it->stubAddr, it->type);
 			}
 		}
@@ -556,11 +563,91 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 			continue;
 		}
 
-		// Look for imports currently loaded modules already have, hook it up right away.
+		// Look for imports modules that are *still* loaded have, and reverse them.
 		for (auto it = module->importedVars.begin(), end = module->importedVars.end(); it != end; ++it) {
 			if (var.Matches(*it)) {
-				INFO_LOG(HLE, "Unresolving var %s/%08x", var.moduleName, var.nid);
+				INFO_LOG(LOADER, "Unresolving var %s/%08x", var.moduleName, var.nid);
 				WriteVarSymbol(var.symAddr, it->stubAddr, it->type, true);
+			}
+		}
+	}
+}
+
+void ImportFuncSymbol(const FuncSymbolImport &func) {
+	// Prioritize HLE implementations.
+	// TODO: Or not?
+	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
+		return;
+	}
+
+	u32 error;
+	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
+		Module *module = kernelObjects.Get<Module>(*mod, error);
+		if (!module || !module->ImportsOrExportsModuleName(func.moduleName)) {
+			continue;
+		}
+
+		// Look for exports currently loaded modules already have.  Maybe it's available?
+		for (auto it = module->exportedFuncs.begin(), end = module->exportedFuncs.end(); it != end; ++it) {
+			if (it->Matches(func)) {
+				WriteFuncStub(func.stubAddr, it->symAddr);
+				return;
+			}
+		}
+	}
+
+	// It hasn't been exported yet, but hopefully it will later.
+	if (GetModuleIndex(func.moduleName) != -1) {
+		WARN_LOG_REPORT(LOADER, "Unknown syscall (%s,%08x) imported", func.moduleName, func.nid);
+	} else {
+		INFO_LOG(LOADER, "Function (%s,%08x) unresolved, storing for later resolving", func.moduleName, func.nid);
+	}
+	WriteFuncMissingStub(func.stubAddr, func.nid);
+}
+
+void ExportFuncSymbol(const FuncSymbolExport &func) {
+	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+		// Oops, HLE covers this.
+		WARN_LOG_REPORT(LOADER, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
+		return;
+	}
+
+	u32 error;
+	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
+		Module *module = kernelObjects.Get<Module>(*mod, error);
+		if (!module || !module->ImportsOrExportsModuleName(func.moduleName)) {
+			continue;
+		}
+
+		// Look for imports currently loaded modules already have, hook it up right away.
+		for (auto it = module->importedFuncs.begin(), end = module->importedFuncs.end(); it != end; ++it) {
+			if (func.Matches(*it)) {
+				INFO_LOG(LOADER, "Resolving function %s/%08x", func.moduleName, func.nid);
+				WriteFuncStub(it->stubAddr, func.symAddr);
+			}
+		}
+	}
+}
+
+void UnexportFuncSymbol(const FuncSymbolExport &func) {
+	if (FuncImportIsSyscall(func.moduleName, func.nid)) {
+		// Oops, HLE covers this.
+		return;
+	}
+
+	u32 error;
+	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
+		Module *module = kernelObjects.Get<Module>(*mod, error);
+		if (!module || !module->ImportsOrExportsModuleName(func.moduleName)) {
+			continue;
+		}
+
+		// Look for imports modules that are *still* loaded have, and write back stubs.
+		for (auto it = module->importedFuncs.begin(), end = module->importedFuncs.end(); it != end; ++it) {
+			if (func.Matches(*it)) {
+				INFO_LOG(LOADER, "Unresolving function %s/%08x", func.moduleName, func.nid);
+				WriteFuncMissingStub(it->stubAddr, it->nid);
 			}
 		}
 	}

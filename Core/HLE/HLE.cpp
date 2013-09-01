@@ -58,8 +58,6 @@ typedef std::vector<Syscall> SyscallVector;
 typedef std::map<std::string, SyscallVector> SyscallVectorByModule;
 
 static std::vector<HLEModule> moduleDB;
-static SyscallVectorByModule unresolvedSyscalls;
-static SyscallVectorByModule exportedCalls;
 static int delayedResultEvent = -1;
 static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static const char *hleAfterSyscallReschedReason;
@@ -87,8 +85,6 @@ void HLEInit()
 
 void HLEDoState(PointerWrap &p)
 {
-	p.Do(unresolvedSyscalls);
-	p.Do(exportedCalls);
 	p.Do(delayedResultEvent);
 	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
 	p.DoMarker("HLE");
@@ -98,8 +94,6 @@ void HLEShutdown()
 {
 	hleAfterSyscall = HLE_AFTER_NOTHING;
 	moduleDB.clear();
-	unresolvedSyscalls.clear();
-	exportedCalls.clear();
 }
 
 void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable)
@@ -159,33 +153,19 @@ const char *GetFuncName(const char *moduleName, u32 nib)
 	if (func)
 		return func->name;
 
-	SyscallModuleName searchModuleName = {0};
-	strncpy(searchModuleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
-	searchModuleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-
-	// Was this function exported previously?
 	static char temp[256];
-	const auto exported = exportedCalls.find(searchModuleName);
-	if (exported != exportedCalls.end())
-	{
-		const SyscallVector &syscalls = exported->second;
-		for (auto it = syscalls.begin(), end = syscalls.end(); it != end; ++it)
-		{
-			if (it->nid == nib)
-			{
-				sprintf(temp, "[EXP: 0x%08x]", nib);
-				return temp;
-			}
-		}
-	}
-
-	// No good, we can't find it.
 	sprintf(temp,"[UNK: 0x%08x]", nib);
 	return temp;
 }
 
 u32 GetSyscallOp(const char *moduleName, u32 nib)
 {
+	// Special case to hook up bad imports.
+	if (moduleName == NULL)
+	{
+		return (0x03FFFFCC);	// invalid syscall
+	}
+
 	int modindex = GetModuleIndex(moduleName);
 	if (modindex != -1)
 	{
@@ -208,78 +188,47 @@ u32 GetSyscallOp(const char *moduleName, u32 nib)
 	}
 }
 
-void WriteSyscall(const char *moduleName, u32 nib, u32 address)
+bool FuncImportIsSyscall(const char *module, u32 nib)
+{
+	return GetFunc(module, nib) != NULL;
+}
+
+void WriteFuncStub(u32 stubAddr, u32 symAddr)
+{
+	// Note that this should be J not JAL, as otherwise control will return to the stub..
+	Memory::Write_U32(MIPS_MAKE_J(symAddr), stubAddr);
+	// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
+	// Perhaps a syscall here (and verify support in jit), marking the module by uid (debugIdentifier)?
+	Memory::Write_U32(MIPS_MAKE_NOP(), stubAddr + 4);
+}
+
+void WriteFuncMissingStub(u32 stubAddr, u32 nid)
+{
+	// Write a trap so we notice this func if it's called before resolving.
+	Memory::Write_U32(MIPS_MAKE_JR_RA(), stubAddr); // jr ra
+	Memory::Write_U32(GetSyscallOp(NULL, nid), stubAddr + 4);
+}
+
+bool WriteSyscall(const char *moduleName, u32 nib, u32 address)
 {
 	if (nib == 0)
 	{
+		WARN_LOG_REPORT(HLE, "Wrote patched out nid=0 syscall (%s)", moduleName);
 		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); //patched out?
 		Memory::Write_U32(MIPS_MAKE_NOP(), address+4); //patched out?
-		return;
+		return true;
 	}
 	int modindex = GetModuleIndex(moduleName);
 	if (modindex != -1)
 	{
 		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); // jr ra
 		Memory::Write_U32(GetSyscallOp(moduleName, nib), address + 4);
+		return true;
 	}
 	else
 	{
-		Syscall sysc = {"", address, nib};
-		strncpy(sysc.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
-		sysc.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-
-		// Did another module export this already?
-		const auto exported = exportedCalls.find(sysc.moduleName);
-		if (exported != exportedCalls.end())
-		{
-			const SyscallVector &syscalls = exported->second;
-			for (auto it = syscalls.begin(), end = syscalls.end(); it != end; ++it)
-			{
-				if (it->nid == nib)
-				{
-					Memory::Write_U32(MIPS_MAKE_J(it->symAddr), address); // j symAddr
-					Memory::Write_U32(MIPS_MAKE_NOP(), address + 4); // nop (delay slot)
-					return;
-				}
-			}
-		}
-
-		// Module inexistent.. for now; let's store the syscall for it to be resolved later
-		INFO_LOG(HLE,"Syscall (%s,%08x) unresolved, storing for later resolving", moduleName, nib);
-		unresolvedSyscalls[sysc.moduleName].push_back(sysc);
-
-		// Write a trap so we notice this func if it's called before resolving.
-		Memory::Write_U32(MIPS_MAKE_JR_RA(), address); // jr ra
-		Memory::Write_U32(GetSyscallOp("(invalid syscall)", nib), address + 4);
-	}
-}
-
-void ResolveSyscall(const char *moduleName, u32 nib, u32 address)
-{
-	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
-
-	Syscall ex = {"", address, nib};
-	strncpy(ex.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
-	ex.moduleName[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
-	exportedCalls[ex.moduleName].push_back(ex);
-
-	const auto unresolved = unresolvedSyscalls.find(ex.moduleName);
-	if (unresolved != unresolvedSyscalls.end())
-	{
-		const SyscallVector &syscalls = unresolved->second;
-		for (size_t i = 0; i < syscalls.size(); i++)
-		{
-			const Syscall *sysc = &syscalls[i];
-			if (sysc->nid == nib)
-			{
-				INFO_LOG(HLE, "Resolving function symbol %s/%08x", moduleName, nib);
-				// Note that this should be J not JAL, as otherwise control will return to the stub..
-				Memory::Write_U32(MIPS_MAKE_J(address), sysc->symAddr);
-				// Note: doing that, we can't trace external module calls, so maybe something else should be done to debug more efficiently
-				// Perhaps a syscall here (and verify support in jit), marking the module by uid?
-				Memory::Write_U32(MIPS_MAKE_NOP(), sysc->symAddr + 4);
-			}
-		}
+		ERROR_LOG_REPORT(HLE, "Unable to write unknown syscall: %s/%08x", moduleName, nib);
+		return false;
 	}
 }
 
