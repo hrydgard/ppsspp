@@ -175,8 +175,12 @@ void TextureCache::ClearNextFrame() {
 
 template <typename T>
 inline void AttachFramebufferValid(T &entry, VirtualFramebuffer *framebuffer) {
-	entry->framebuffer = framebuffer;
-	entry->invalidHint = 0;
+	const bool hasInvalidFramebuffer = entry->framebuffer == 0 || entry->invalidHint == -1;
+	const bool hasOlderFramebuffer = entry->framebuffer->last_frame_render < framebuffer->last_frame_render;
+	if (hasInvalidFramebuffer || hasOlderFramebuffer) {
+		entry->framebuffer = framebuffer;
+		entry->invalidHint = 0;
+	}
 }
 
 template <typename T>
