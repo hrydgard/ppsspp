@@ -599,7 +599,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func) {
 
 	// It hasn't been exported yet, but hopefully it will later.
 	if (GetModuleIndex(func.moduleName) != -1) {
-		WARN_LOG_REPORT(LOADER, "Unknown syscall (%s,%08x) imported", func.moduleName, func.nid);
+		WARN_LOG_REPORT(LOADER, "Unknown syscall in known module: %s 0x%08x", func.moduleName, func.nid);
 	} else {
 		INFO_LOG(LOADER, "Function (%s,%08x) unresolved, storing for later resolving", func.moduleName, func.nid);
 	}
