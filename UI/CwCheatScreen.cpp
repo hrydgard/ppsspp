@@ -147,7 +147,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 	bool finished = false, skip = false;
 	std::vector<std::string> newList;
 #ifdef ANDROID
-	is.open(g_Config.memCardDirectory + "PSP/Cheats/cheat.db";
+	is.open(g_Config.memCardDirectory + "PSP/Cheats/cheat.db");
 #else
 	is.open("cheats/cheat.db");
 #endif
