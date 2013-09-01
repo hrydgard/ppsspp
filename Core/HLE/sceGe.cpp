@@ -55,6 +55,11 @@ public:
 	{
 		GeInterruptData intrdata = ge_pending_cb.front();
 		DisplayList* dl = gpu->getList(intrdata.listid);
+		if (!dl->interruptsEnabled)
+		{
+			ERROR_LOG_REPORT(HLE, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
+			return false;
+		}
 
 		if (dl == NULL)
 		{
@@ -120,6 +125,11 @@ public:
 		ge_pending_cb.pop_front();
 
 		DisplayList* dl = gpu->getList(intrdata.listid);
+		if (!dl->interruptsEnabled)
+		{
+			ERROR_LOG_REPORT(HLE, "Unable to finish GE interrupt: list has interrupts disabled, should not happen");
+			return;
+		}
 
 		switch (dl->signal)
 		{
