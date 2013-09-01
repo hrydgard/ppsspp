@@ -249,6 +249,7 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 		} else {
 			g_Config.ilanguage = langValuesMapping[code].second;
 		}
+		RecreateViews();
 	} else {
 		g_Config.languageIni = oldLang;
 	}

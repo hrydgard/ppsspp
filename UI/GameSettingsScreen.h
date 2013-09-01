@@ -29,6 +29,8 @@ public:
 
 	virtual void update(InputState &input);
 
+	UI::Event OnLanguageChanged;
+
 protected:
 	virtual void CreateViews();
 	virtual void DrawBackground(UIContext &dc);
@@ -39,6 +41,7 @@ private:
 	// As we load metadata in the background, we need to be able to update these after the fact.
 	UI::TextView *tvTitle_;
 	UI::TextView *tvGameSize_;
+	UI::CheckBox *enableReportsCheckbox_;
 
 	// Event handlers
 	UI::EventReturn OnDownloadPlugin(UI::EventParams &e);
@@ -49,10 +52,12 @@ private:
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
+	UI::EventReturn OnLanguageChange(UI::EventParams &e);
 	UI::EventReturn OnFactoryReset(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnClearRecents(UI::EventParams &e);
+	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;

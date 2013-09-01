@@ -34,6 +34,7 @@
 #include "math/curves.h"
 #include "Core/HW/atrac3plus.h"
 #include "Core/System.h"
+#include "Core/Reporting.h"
 #include "Common/KeyMap.h"
 
 #ifdef _WIN32
@@ -68,6 +69,8 @@ public:
 	}
 
 	virtual void Draw(UIContext &dc);
+
+	UI::Event OnChoice;
 
 private:
 	void UpdateText();
@@ -104,6 +107,11 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 	if (num != -1) {
 		*value_ = num + minVal_;
 		UpdateText();
+
+		UI::EventParams e;
+		e.v = this;
+		e.a = num;
+		OnChoice.Trigger(e);
 	}
 }
 
@@ -232,7 +240,7 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Rendering Mode")));
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering", "Read Framebuffers To Memory (CPU)", "Read Framebuffers To Memory (GPU)"};
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gs->T("Mode"), renderingMode, 0, 4, gs, screenManager()))->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingMode);
 
 	graphicsSettings->Add(new ItemHeader(gs->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "Auto", "1", "2", "3", "4", "5", "6", "7", "8"};
@@ -348,7 +356,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, s->T("Change CPU Clock", "Change CPU Clock (0 = default)"), screenManager()));
 
-	enableReports_ = g_Config.sReportHost != "default";
+	enableReports_ = Reporting::IsEnabled();
 //#ifndef ANDROID 
 	systemSettings->Add(new ItemHeader(s->T("Cheats", "Cheats (experimental, see forums)")));
 	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, s->T("Enable Cheats")));
@@ -368,7 +376,9 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(s->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
 	systemSettings->Add(new Choice(s->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
-	systemSettings->Add(new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports")));
+	enableReportsCheckbox_ = new CheckBox(&enableReports_, s->T("Enable Compatibility Server Reports"));
+	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+	systemSettings->Add(enableReportsCheckbox_);
 	systemSettings->Add(new Choice(s->T("Developer Tools")))->OnClick.Handle(this, &GameSettingsScreen::OnDeveloperTools);
 
 
@@ -391,6 +401,12 @@ UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnReloadCheats(UI::EventParams &e) {
 	// Hmm, strange mechanism.
 	g_Config.bReloadCheats = true;
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
+	enableReports_ = Reporting::IsEnabled();
+	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 	return UI::EVENT_DONE;
 }
 
@@ -456,7 +472,7 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 			Atrac3plus_Decoder::Init();
 		else Atrac3plus_Decoder::Shutdown();
 	}
-	g_Config.sReportHost = enableReports_ ? "report.ppsspp.org" : "default";
+	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	g_Config.Save();
 
 #ifdef _WIN32
@@ -473,7 +489,7 @@ void GlobalSettingsScreen::CreateViews() {
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL);
 
-	enableReports_ = g_Config.sReportHost != "";
+	enableReports_ = Reporting::IsEnabled();
 }*/
 
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
@@ -499,7 +515,15 @@ UI::EventReturn GameSettingsScreen::OnFactoryReset(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 	I18NCategory *d = GetI18NCategory("Developer");
-	screenManager()->push(new NewLanguageScreen(d->T("Language")));
+	auto langScreen = new NewLanguageScreen(d->T("Language"));
+	langScreen->OnChoice.Handle(this, &GameSettingsScreen::OnLanguageChange);
+	screenManager()->push(langScreen);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
+	RecreateViews();
+	OnLanguageChanged.Trigger(e);
 	return UI::EVENT_DONE;
 }
 

@@ -156,8 +156,7 @@ void WindowsHost::ShutdownSound()
 
 void WindowsHost::UpdateUI()
 {
-	MainWindow::TranslateMenus();
-	MainWindow::Update();
+	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
 
