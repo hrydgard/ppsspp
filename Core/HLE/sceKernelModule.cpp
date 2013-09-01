@@ -17,6 +17,7 @@
 
 #include <fstream>
 #include <algorithm>
+#include <set>
 
 #include "native/base/stringutil.h"
 #include "Core/HLE/HLE.h"
@@ -125,6 +126,7 @@ struct FuncSymbolExport {
 
 void ImportVarSymbol(const VarSymbolImport &var);
 void ExportVarSymbol(const VarSymbolExport &var);
+void UnexportVarSymbol(const VarSymbolExport &var);
 
 struct NativeModule {
 	u32_le next;
@@ -193,6 +195,9 @@ class Module : public KernelObject
 public:
 	Module() : memoryBlockAddr(0), isFake(false), isStarted(false) {}
 	~Module() {
+		for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it) {
+			UnexportVarSymbol(*it);
+		}
 		if (memoryBlockAddr) {
 			userMemory.Free(memoryBlockAddr);
 		}
@@ -340,8 +345,7 @@ struct SceKernelSMOption {
 // STATE BEGIN
 static int actionAfterModule;
 
-static std::vector<VarSymbolImport> unresolvedVars;
-static std::vector<VarSymbolExport> exportedVars;
+static std::set<SceUID> loadedModules;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -354,17 +358,12 @@ void __KernelModuleDoState(PointerWrap &p)
 {
 	p.Do(actionAfterModule);
 	__KernelRestoreActionType(actionAfterModule, AfterModuleEntryCall::Create);
-	VarSymbolImport vsi = {""};
-	p.Do(unresolvedVars, vsi);
-	VarSymbolExport vsx = {""};
-	p.Do(exportedVars, vsx);
 	p.DoMarker("sceKernelModule");
 }
 
 void __KernelModuleShutdown()
 {
-	unresolvedVars.clear();
-	exportedVars.clear();
+	loadedModules.clear();
 	MIPSAnalyst::Shutdown();
 }
 
@@ -376,7 +375,7 @@ struct HI16RelocInfo
 	u32 addr;
 	u32 data;
 };
-void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
+void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false)
 {
 	// We have to post-process the HI16 part, since it might be +1 or not depending on the LO16 value.
 	static u32 lastHI16ExportAddress = 0;
@@ -392,24 +391,33 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 		break;
 
 	case R_MIPS_32:
-		relocData += exportAddress;
+		if (!reverse) {
+			relocData += exportAddress;
+		} else {
+			relocData -= exportAddress;
+		}
 		break;
 
 	// Not really tested, but should work...
 	/*
 	case R_MIPS_26:
-		if (exportAddress % 4 || (exportAddress >> 28) != ((relocAddress + 4) >> 28))
+		if (exportAddress % 4 || (exportAddress >> 28) != ((relocAddress + 4) >> 28)) {
 			WARN_LOG_REPORT(LOADER, "Bad var relocation addresses for type 26 - %08x => %08x", exportAddress, relocAddress)
-		else
-			relocData = (relocData & ~0x03ffffff) | ((relocData + (exportAddress >> 2)) & 0x03ffffff);
+		} else {
+			if (!reverse) {
+				relocData = (relocData & ~0x03ffffff) | ((relocData + (exportAddress >> 2)) & 0x03ffffff);
+			} else {
+				relocData = (relocData & ~0x03ffffff) | ((relocData - (exportAddress >> 2)) & 0x03ffffff);
+			}
+		}
 		break;
 	*/
 
 	case R_MIPS_HI16:
-		if (lastHI16ExportAddress != exportAddress)
-		{
-			if (!lastHI16Processed && lastHI16Relocs.size() >= 1)
+		if (lastHI16ExportAddress != exportAddress) {
+			if (!lastHI16Processed && lastHI16Relocs.size() >= 1) {
 				WARN_LOG_REPORT(LOADER, "Unsafe unpaired HI16 variable relocation @ %08x / %08x", lastHI16Relocs[lastHI16Relocs.size() - 1].addr, relocAddress);
+			}
 
 			lastHI16ExportAddress = exportAddress;
 			lastHI16Relocs.clear();
@@ -431,17 +439,20 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 			u32 full = exportOffsetLo;
 
 			// The ABI requires that these come in pairs, at least.
-			if (lastHI16Relocs.empty())
+			if (lastHI16Relocs.empty()) {
 				ERROR_LOG_REPORT(LOADER, "LO16 without any HI16 variable import at %08x for %08x", relocAddress, exportAddress)
 			// Try to process at least the low relocation...
-			else if (lastHI16ExportAddress != exportAddress)
+			} else if (lastHI16ExportAddress != exportAddress) {
 				ERROR_LOG_REPORT(LOADER, "HI16 and LO16 imports do not match at %08x for %08x (should be %08x)", relocAddress, lastHI16ExportAddress, exportAddress)
-			else
-			{
+			} else {
 				// Process each of the HI16.  Usually there's only one.
 				for (auto it = lastHI16Relocs.begin(), end = lastHI16Relocs.end(); it != end; ++it)
 				{
-					full = (it->data << 16) + exportOffsetLo;
+					if (!reverse) {
+						full = (it->data << 16) + exportOffsetLo;
+					} else {
+						full = (it->data << 16) - exportOffsetLo;
+					}
 					// The low instruction will be a signed add, which means (full & 0x8000) will subtract.
 					// We add 1 in that case so that it ends up the right value.
 					u16 high = (full >> 16) + ((full & 0x8000) ? 1 : 0);
@@ -462,49 +473,70 @@ void WriteVarSymbol(u32 exportAddress, u32 relocAddress, u8 type)
 	Memory::Write_U32(relocData, relocAddress);
 }
 
-void ImportVarSymbol(const VarSymbolImport &var)
-{
-	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
-
-	if (var.nid == 0)
-	{
+void ImportVarSymbol(const VarSymbolImport &var) {
+	if (var.nid == 0) {
 		// TODO: What's the right thing for this?
 		ERROR_LOG_REPORT(LOADER, "Var import with nid = 0, type = %d", var.type);
 		return;
 	}
 
-	if (!Memory::IsValidAddress(var.stubAddr))
-	{
+	if (!Memory::IsValidAddress(var.stubAddr)) {
 		ERROR_LOG_REPORT(LOADER, "Invalid address for var import nid = %08x, type = %d, addr = %08x", var.nid, var.type, var.stubAddr);
 		return;
 	}
 
-	for (auto it = exportedVars.begin(), end = exportedVars.end(); it != end; ++it)
-	{
-		if (it->Matches(var))
-		{
-			WriteVarSymbol(it->symAddr, var.stubAddr, var.type);
-			return;
+	u32 error;
+	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
+		Module *module = kernelObjects.Get<Module>(*mod, error);
+		if (!module) {
+			continue;
+		}
+
+		// Look for exports currently loaded modules already have.  Maybe it's available?
+		for (auto it = module->exportedVars.begin(), end = module->exportedVars.end(); it != end; ++it) {
+			if (it->Matches(var)) {
+				WriteVarSymbol(it->symAddr, var.stubAddr, var.type);
+				return;
+			}
 		}
 	}
 
 	// It hasn't been exported yet, but hopefully it will later.
 	INFO_LOG(LOADER, "Variable (%s,%08x) unresolved, storing for later resolving", var.moduleName, var.nid);
-	unresolvedVars.push_back(var);
 }
 
-void ExportVarSymbol(const VarSymbolExport &var)
-{
-	_dbg_assert_msg_(HLE, moduleName != NULL, "Invalid module name.");
+void ExportVarSymbol(const VarSymbolExport &var) {
+	u32 error;
+	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
+		Module *module = kernelObjects.Get<Module>(*mod, error);
+		if (!module) {
+			continue;
+		}
 
-	exportedVars.push_back(var);
+		// Look for imports currently loaded modules already have, hook it up right away.
+		for (auto it = module->importedVars.begin(), end = module->importedVars.end(); it != end; ++it) {
+			if (var.Matches(*it)) {
+				INFO_LOG(HLE, "Resolving var %s/%08x", var.moduleName, var.nid);
+				WriteVarSymbol(var.symAddr, it->stubAddr, it->type);
+			}
+		}
+	}
+}
 
-	for (auto it = unresolvedVars.begin(), end = unresolvedVars.end(); it != end; ++it)
-	{
-		if (var.Matches(*it))
-		{
-			INFO_LOG(HLE, "Resolving var %s/%08x", var.moduleName, var.nid);
-			WriteVarSymbol(var.symAddr, it->stubAddr, it->type);
+void UnexportVarSymbol(const VarSymbolExport &var) {
+	u32 error;
+	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
+		Module *module = kernelObjects.Get<Module>(*mod, error);
+		if (!module) {
+			continue;
+		}
+
+		// Look for imports currently loaded modules already have, hook it up right away.
+		for (auto it = module->importedVars.begin(), end = module->importedVars.end(); it != end; ++it) {
+			if (var.Matches(*it)) {
+				INFO_LOG(HLE, "Unresolving var %s/%08x", var.moduleName, var.nid);
+				WriteVarSymbol(var.symAddr, it->stubAddr, it->type, true);
+			}
 		}
 	}
 }
@@ -512,6 +544,7 @@ void ExportVarSymbol(const VarSymbolExport &var)
 Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *error_string, u32 *magic) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
+	loadedModules.insert(module->GetUID());
 	memset(&module->nm, 0, sizeof(module->nm));
 
 	u8 *newptr = 0;
@@ -560,6 +593,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		*error_string = "File corrupt";
 		if (newptr)
 			delete [] newptr;
+		loadedModules.erase(module->GetUID());
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
@@ -570,6 +604,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		ERROR_LOG(HLE, "LoadInto failed");
 		if (newptr)
 			delete [] newptr;
+		loadedModules.erase(module->GetUID());
 		kernelObjects.Destroy<Module>(module->GetUID());
 		return 0;
 	}
@@ -1059,8 +1094,10 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	Module *module = __KernelLoadModule(temp, 0, error_string);
 
 	if (!module || module->isFake) {
-		if (module)
+		if (module) {
+			loadedModules.erase(module->GetUID());
 			kernelObjects.Destroy<Module>(module->GetUID());
+		}
 		ERROR_LOG(LOADER, "Failed to load module %s", filename);
 		*error_string = "Failed to load executable: " + *error_string;
 		delete [] temp;
@@ -1156,6 +1193,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 
 			Module *module = new Module;
 			kernelObjects.Create(module);
+			loadedModules.insert(module->GetUID());
 			memset(&module->nm, 0, sizeof(module->nm));
 			module->isFake = true;
 			return module->GetUID();
@@ -1408,6 +1446,7 @@ u32 sceKernelUnloadModule(u32 moduleId)
 	if (!module)
 		return error;
 
+	loadedModules.erase(moduleId);
 	kernelObjects.Destroy<Module>(moduleId);
 	return moduleId;
 }
