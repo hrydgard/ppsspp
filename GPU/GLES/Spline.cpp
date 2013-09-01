@@ -20,7 +20,10 @@
 
 // Just to get something on the screen, we'll just not subdivide correctly.
 void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
-	u16 indices[3 * 3 * 6];
+	 if ((ucount - 1) % 3 != 0 || (vcount - 1) % 3 != 0) 
+		ERROR_LOG_REPORT(HLE,"Unsupported bezier parameters ucount=%i, vcount=%i", ucount, vcount);
+
+	u16 *indices = new u16[ucount * vcount * 6];
 
 	static bool reported = false;
 	if (!reported) {
@@ -31,14 +34,14 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	// if (gstate.patchprimitive)
 	// Generate indices for a rectangular mesh.
 	int c = 0;
-	for (int y = 0; y < 3; y++) {
-		for (int x = 0; x < 3; x++) {
-			indices[c++] = y * 3 + x;
-			indices[c++] = y * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x + 1;
-			indices[c++] = (y + 1) * 3 + x;
-			indices[c++] = y * 3 + x;
+	for (int y = 0; y < ucount; y++) {
+		for (int x = 0; x < vcount - 1; x++) {
+			indices[c++] = y * (vcount - 1)+ x;
+			indices[c++] = y * (vcount - 1) + x + 1;
+			indices[c++] = (y + 1) * (vcount - 1) + x + 1;
+			indices[c++] = (y + 1) * (vcount - 1) + x + 1;
+			indices[c++] = (y + 1) * (vcount - 1) + x;
+			indices[c++] = y * (vcount - 1) + x;
 		}
 	}
 
@@ -66,6 +69,8 @@ void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 		SubmitPrim(Memory::GetPointer(gstate_c.vertexAddr), &indices[0], GE_PRIM_TRIANGLES, c, gstate.vertType, GE_VTYPE_IDX_16BIT, 0);
 	}
 	Flush();  // as our vertex storage here is temporary, it will only survive one draw.
+
+	delete [] indices;
 }
 
 
