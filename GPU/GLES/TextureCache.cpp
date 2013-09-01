@@ -978,6 +978,9 @@ void TextureCache::SetTextureFramebuffer(TexCacheEntry *entry)
 		// But let's still not use random memory.
 		if (entry->framebuffer->fbo && entry->invalidHint != -1) {
 			fbo_bind_color_as_texture(entry->framebuffer->fbo, 0);
+			// Keep the framebuffer alive.
+			// TODO: Dangerous if it sets a new one?
+			entry->framebuffer->last_frame_used = gpuStats.numFlips;
 		} else {
 			glBindTexture(GL_TEXTURE_2D, 0);
 			gstate_c.skipDrawReason |= SKIPDRAW_BAD_FB_TEXTURE;
