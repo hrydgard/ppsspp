@@ -6,6 +6,22 @@
 namespace MIPSAsm
 {
 	
+char errorMessage[512];
+
+void SetAssembleError(char* format, ...)
+{
+	va_list args;
+
+	va_start(args,format);
+	vsprintf(errorMessage,format,args);
+	va_end (args);
+}
+
+char* GetAssembleError()
+{
+	return errorMessage;
+}
+
 void SplitLine(const char* Line, char* Name, char* Arguments)
 {
 	while (*Line == ' ' || *Line == '\t') Line++;
@@ -166,9 +182,9 @@ bool CMipsInstruction::Load(char* Name, char* Params, int RamPos)
 	{
 		if (paramfail == true)
 		{
-	//		PrintError(ERROR_ERROR,"Parameter failure \"%s\"",Params);
+			SetAssembleError("Parameter failure \"%s\"",Params);
 		} else {
-	//		PrintError(ERROR_ERROR,"Invalid opcode \"%s\"",Name);
+			SetAssembleError("Invalid opcode \"%s\"",Name);
 		}
 	}
 	return false;
@@ -301,7 +317,7 @@ bool CMipsInstruction::Validate()
 			
 			if (num > 0x20000 || num < (-0x20000))
 			{
-				//QueueError(ERROR_ERROR,"Branch target %08X out of range",Vars.Immediate);
+				SetAssembleError("Branch target %08X out of range",Vars.Immediate);
 				return false;
 			}
 			Vars.Immediate = num >> 2;
@@ -312,7 +328,7 @@ bool CMipsInstruction::Validate()
 		case MIPS_IMMEDIATE5:
 			if (Vars.Immediate > 0x1F)
 			{
-			//	QueueError(ERROR_ERROR,"Immediate value %02X out of range",Vars.OriginalImmediate);
+				SetAssembleError("Immediate value %02X out of range",Vars.OriginalImmediate);
 				return false;
 			}
 			break;
@@ -321,7 +337,7 @@ bool CMipsInstruction::Validate()
 		case MIPS_IMMEDIATE16:
 			if (abs(Vars.Immediate) > 0x0000FFFF)
 			{
-			//	QueueError(ERROR_ERROR,"Immediate value %04X out of range",Vars.OriginalImmediate);
+				SetAssembleError("Immediate value %04X out of range",Vars.OriginalImmediate);
 				return false;
 			}
 			Vars.Immediate &= 0x0000FFFF;
@@ -329,7 +345,7 @@ bool CMipsInstruction::Validate()
 		case MIPS_IMMEDIATE20:
 			if (abs(Vars.Immediate) > 0x000FFFFF)
 			{
-			//	QueueError(ERROR_ERROR,"Immediate value %08X out of range",Vars.OriginalImmediate);
+				SetAssembleError("Immediate value %08X out of range",Vars.OriginalImmediate);
 				return false;
 			}
 			Vars.Immediate &= 0x000FFFFF;
@@ -337,7 +353,7 @@ bool CMipsInstruction::Validate()
 		case MIPS_IMMEDIATE26:
 			if (abs(Vars.Immediate) > 0x03FFFFFF)
 			{
-		//		QueueError(ERROR_ERROR,"Immediate value %08X out of range",Vars.OriginalImmediate);
+				SetAssembleError("Immediate value %08X out of range",Vars.OriginalImmediate);
 				return false;
 			}
 			Vars.Immediate &= 0x03FFFFFF;
