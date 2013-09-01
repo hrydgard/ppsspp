@@ -1224,14 +1224,14 @@ void TextureCache::SetTexture() {
 		if (cachekey >= cacheKeyStart && cachekey < cacheKeyEnd) {
 			AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, cachekey == cacheKeyStart);
 		}
+	}
 
-		// If we ended up with a framebuffer, attach it - no memory needed.
-		if (entry->framebuffer) {
-			SetTextureFramebuffer(entry);
-			lastBoundTexture = -1;
-			entry->lastFrame = gpuStats.numFlips;
-			return;
-		}
+	// If we ended up with a framebuffer, attach it - no texture decoding needed.
+	if (entry->framebuffer) {
+		SetTextureFramebuffer(entry);
+		lastBoundTexture = -1;
+		entry->lastFrame = gpuStats.numFlips;
+		return;
 	}
 
 	if (!replaceImages) {
