@@ -66,11 +66,11 @@ struct WaveformEffect
 enum VoiceType {
 	VOICETYPE_OFF,
 	VOICETYPE_VAG,  // default
-	VOICETYPE_PCM,
 	VOICETYPE_NOISE,
-	VOICETYPE_ATRAC3,
 	VOICETYPE_TRIWAVE,  // are these used? there are functions for them (sceSetTriangularWave)
 	VOICETYPE_PULSEWAVE,
+	VOICETYPE_PCM,
+	VOICETYPE_ATRAC3,
 };
 
 // VAG is a Sony ADPCM audio compression format, which goes all the way back to the PSX.

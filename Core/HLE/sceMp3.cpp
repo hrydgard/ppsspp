@@ -380,7 +380,7 @@ int sceMp3Init(u32 mp3) {
 
 	ctx->mp3SamplingRate = ctx->decoder_context->sample_rate;
 	ctx->mp3Channels = ctx->decoder_context->channels;
-	ctx->mp3Bitrate = ctx->decoder_context->bit_rate;
+	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
 
 	if (!ctx->resampler_context) {
 		ERROR_LOG(HLE, "Could not allocate resampler context %d", ret);
