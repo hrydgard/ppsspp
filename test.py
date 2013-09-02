@@ -69,6 +69,8 @@ tests_good = [
   "cpu/fpu/fpu",
 
   "audio/atrac/ids",
+  "audio/mp3/mp3test",
+  "audio/sascore/sascore",
   "ctrl/ctrl",
   "ctrl/idle/idle",
   "ctrl/sampling/sampling",
@@ -185,8 +187,6 @@ tests_good = [
 tests_next = [
 # These are the next tests up for fixing. These run by default.
   "audio/atrac/atractest",
-  "audio/mp3/mp3test",
-  "audio/sascore/sascore",
   "audio/sceaudio/datalen",
   "audio/sceaudio/output",
   "audio/sceaudio/reserve",

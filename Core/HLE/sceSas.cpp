@@ -86,6 +86,10 @@ u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampl
 		ERROR_LOG_REPORT(HLE, "sceSasInit(%08x, %i, %i, %i, %i): bad output mode", core, grainSize, maxVoices, outputMode, sampleRate);
 		return ERROR_SAS_INVALID_OUTPUT_MODE;
 	}
+	if (sampleRate != 44100) {
+		ERROR_LOG_REPORT(HLE, "sceSasInit(%08x, %i, %i, %i, %i): bad sample rate", core, grainSize, maxVoices, outputMode, sampleRate);
+		return ERROR_SAS_INVALID_SAMPLE_RATE;
+	}
 	INFO_LOG(HLE, "sceSasInit(%08x, %i, %i, %i, %i)", core, grainSize, maxVoices, outputMode, sampleRate);
 
 	sas->SetGrainSize(grainSize);
