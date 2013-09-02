@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdlib>
+#include <set>
 #include "native/thread/thread.h"
 #include "native/thread/threadutil.h"
 #include "Core/Config.h"
@@ -108,6 +109,8 @@ const int PSP_MIN_FD = 4;
 static int asyncNotifyEvent = -1;
 static int syncNotifyEvent = -1;
 static SceUID fds[PSP_COUNT_FDS];
+static std::set<SceUID> memStickCallbacks;
+static std::set<SceUID> memStickFatCallbacks;
 static AsyncIOManager ioManager;
 static bool ioManagerThreadEnabled = false;
 static std::thread *ioManagerThread;
@@ -466,6 +469,8 @@ void __IoDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(asyncNotifyEvent, "IoAsyncNotify", __IoAsyncNotify);
 	p.Do(syncNotifyEvent);
 	CoreTiming::RestoreRegisterEvent(syncNotifyEvent, "IoSyncNotify", __IoSyncNotify);
+	p.Do(memStickCallbacks);
+	p.Do(memStickFatCallbacks);
 	p.DoMarker("sceIo");
 }
 
@@ -487,6 +492,9 @@ void __IoShutdown() {
 	memstickSystem = NULL;
 	delete flash0System;
 	flash0System = NULL;
+
+	memStickCallbacks.clear();
+	memStickFatCallbacks.clear();
 }
 
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
@@ -552,7 +560,7 @@ void __IoCompleteAsyncIO(int fd) {
 			// It's okay, not all operations are deferred.
 		}
 		if (f->callbackID) {
-			__KernelNotifyCallback(THREAD_CALLBACK_IO, f->callbackID, f->callbackArg);
+			__KernelNotifyCallback(f->callbackID, f->callbackArg);
 		}
 		f->pendingAsyncResult = false;
 		f->hasAsyncResult = true;
@@ -1262,10 +1270,12 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		case 0x02015804:	
 			// Register MemoryStick's insert/eject callback (mscmhc0)
 			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
+				// TODO: Verify how duplicates work / how many are allowed.
 				u32 cbId = Memory::Read_U32(argAddr);
-				if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
+				if (memStickCallbacks.find(cbId) == memStickCallbacks.end()) {
+					memStickCallbacks.insert(cbId);
 					DEBUG_LOG(SCEIO, "sceIoDevCtl: Memstick callback %i registered, notifying immediately.", cbId);
-					__KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK, cbId, MemoryStick_State());
+					__KernelNotifyCallback(cbId, MemoryStick_State());
 					return 0;
 				} else {
 					return ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS;
@@ -1277,8 +1287,10 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		case 0x02025805:	
 			// Unregister MemoryStick's insert/eject callback (mscmhc0)
 			if (Memory::IsValidAddress(argAddr) && argLen == 4) {
+				// TODO: Verify how duplicates work / how many are allowed.
 				u32 cbId = Memory::Read_U32(argAddr);
-				if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK, cbId)) {
+				if (memStickCallbacks.find(cbId) != memStickCallbacks.end()) {
+					memStickCallbacks.erase(cbId);
 					DEBUG_LOG(SCEIO, "sceIoDevCtl: Unregistered memstick callback %i", cbId);
 					return 0;
 				} else {
@@ -1337,10 +1349,12 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		switch (cmd) {
 		case 0x02415821:  // MScmRegisterMSInsertEjectCallback
 			{
+				// TODO: Verify how duplicates work / how many are allowed.
 				u32 cbId = Memory::Read_U32(argAddr);
-				if (0 == __KernelRegisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
+				if (memStickFatCallbacks.find(cbId) == memStickFatCallbacks.end()) {
+					memStickFatCallbacks.insert(cbId);
 					DEBUG_LOG(SCEIO, "sceIoDevCtl: Memstick FAT callback %i registered, notifying immediately.", cbId);
-					__KernelNotifyCallbackType(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId, MemoryStick_FatState());
+					__KernelNotifyCallback(cbId, MemoryStick_FatState());
 					return 0;
 				} else {
 					return -1;
@@ -1350,8 +1364,10 @@ u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, 
 		case 0x02415822: 
 			{
 				// MScmUnregisterMSInsertEjectCallback
+				// TODO: Verify how duplicates work / how many are allowed.
 				u32 cbId = Memory::Read_U32(argAddr);
-				if (0 == __KernelUnregisterCallback(THREAD_CALLBACK_MEMORYSTICK_FAT, cbId)) {
+				if (memStickFatCallbacks.find(cbId) != memStickFatCallbacks.end()) {
+					memStickFatCallbacks.erase(cbId);
 					DEBUG_LOG(SCEIO, "sceIoDevCtl: Unregistered memstick FAT callback %i", cbId);
 					return 0;
 				} else {

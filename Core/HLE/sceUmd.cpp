@@ -114,7 +114,7 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 void __KernelUmdActivate()
 {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE;
-	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+	__KernelNotifyCallback(driveCBId, notifyArg);
 
 	// Don't activate immediately, take time to "spin up."
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
@@ -124,7 +124,7 @@ void __KernelUmdActivate()
 void __KernelUmdDeactivate()
 {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY;
-	__KernelNotifyCallbackType(THREAD_CALLBACK_UMD, -1, notifyArg);
+	__KernelNotifyCallback(driveCBId, notifyArg);
 
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
 	__UmdStatChange(0, 0);
@@ -259,14 +259,10 @@ u32 sceUmdRegisterUMDCallBack(u32 cbId)
 	int retVal;
 
 	// TODO: If the callback is invalid, return PSP_ERROR_UMD_INVALID_PARAM.
-	if (cbId == 0)
+	if (!kernelObjects.IsValid(cbId)) {
 		retVal = PSP_ERROR_UMD_INVALID_PARAM;
-	else {
-		// Remove the old one, we're replacing.
-		if (driveCBId != -1)
-			__KernelUnregisterCallback(THREAD_CALLBACK_UMD, driveCBId);
-
-		retVal = __KernelRegisterCallback(THREAD_CALLBACK_UMD, cbId);
+	} else {
+		// There's only ever one.
 		driveCBId = cbId;
 	}
 
@@ -283,7 +279,6 @@ int sceUmdUnRegisterUMDCallBack(int cbId)
 	else {
 		retVal = cbId;
 		driveCBId = -1;
-		__KernelUnregisterCallback(THREAD_CALLBACK_UMD, cbId);
 	}
 
 	DEBUG_LOG(SCEIO, "%08x=sceUmdUnRegisterUMDCallBack(id=%08x)", retVal, cbId);
