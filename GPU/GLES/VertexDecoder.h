@@ -315,7 +315,15 @@ public:
 				uv[1] = f[1];
 			}
 			break;
-
+			
+		case DEC_U8A_2:
+			{
+				const u8 *b = (const u8 *)(data_ + decFmt_.uvoff);
+				uv[0] = (float)b[0];
+				uv[1] = (float)b[1];
+			}
+			break;
+            		
 		case DEC_U16A_2:
 			{
 				const u16 *p = (const u16 *)(data_ + decFmt_.uvoff);
