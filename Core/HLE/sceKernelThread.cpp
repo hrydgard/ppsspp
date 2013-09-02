@@ -820,6 +820,9 @@ MipsCallManager mipsCalls;
 int actionAfterCallback;
 int actionAfterMipsCall;
 
+// When inside a callback, delays are "paused", and rechecked after the callback returns.
+std::map<SceUID, u64> pausedDelays;
+
 // Doesn't need state saving.
 WaitTypeFuncs waitTypeFuncs[NUM_WAITTYPES];
 
@@ -892,14 +895,83 @@ Thread *__GetCurrentThread() {
 		return NULL;
 }
 
-u32 __KernelMipsCallReturnAddress()
-{
+u32 __KernelMipsCallReturnAddress() {
 	return cbReturnHackAddr;
 }
 
-u32 __KernelInterruptReturnAddress()
-{
+u32 __KernelInterruptReturnAddress() {
 	return intReturnHackAddr;
+}
+
+void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	u32 error;
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
+	if (waitID == threadID) {
+		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
+		// TODO: Handle this better?
+		if (pausedDelays.find(pauseKey) != pausedDelays.end())
+			return;
+
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventScheduledWakeup, threadID);
+		pausedDelays[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
+
+		DEBUG_LOG(HLE, "sceKernelDelayThreadCB: Suspending delay for callback");
+	}
+	else
+		WARN_LOG_REPORT(HLE, "sceKernelDelayThreadCB: beginning callback with bad wait?");
+}
+
+void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue) {
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	if (pausedDelays.find(pauseKey) == pausedDelays.end())
+	{
+		// This probably should not happen.
+		WARN_LOG_REPORT(HLE, "sceKernelDelayThreadCB: cannot find delay deadline");
+		__KernelResumeThreadFromWait(threadID, 0);
+		return;
+	}
+
+	u64 delayDeadline = pausedDelays[pauseKey];
+	pausedDelays.erase(pauseKey);
+
+	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
+
+	s64 cyclesLeft = delayDeadline - CoreTiming::GetTicks();
+	if (cyclesLeft < 0)
+		__KernelResumeThreadFromWait(threadID, 0);
+	else
+	{
+		CoreTiming::ScheduleEvent(cyclesLeft, eventScheduledWakeup, __KernelGetCurThread());
+		DEBUG_LOG(HLE, "sceKernelDelayThreadCB: Resuming delay after callback");
+	}
+}
+
+void __KernelSleepBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+	DEBUG_LOG(HLE, "sceKernelSleepThreadCB: Suspending sleep for callback");
+}
+
+void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue) {
+	u32 error;
+	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
+	if (!thread)
+	{
+		// This probably should not happen.
+		WARN_LOG_REPORT(HLE, "sceKernelSleepThreadCB: thread deleted?");
+		return;
+	}
+
+	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
+
+	if (thread->nt.wakeupCount > 0) {
+		thread->nt.wakeupCount--;
+		DEBUG_LOG(HLE, "sceKernelSleepThreadCB: resume from callback, wakeupCount decremented to %i", thread->nt.wakeupCount);
+		__KernelResumeThreadFromWait(threadID, 0);
+	} else {
+		DEBUG_LOG(HLE, "sceKernelDelayThreadCB: Resuming sleep after callback");
+	}
 }
 
 u32 __KernelSetThreadRA(SceUID threadID, u32 nid)
@@ -998,6 +1070,9 @@ void __KernelThreadingInit()
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
 	__KernelListenThreadEnd(__KernelCancelThreadEndTimeout);
+
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_DELAY, __KernelDelayBeginCallback, __KernelDelayEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_SLEEP, __KernelSleepBeginCallback, __KernelSleepEndCallback);
 }
 
 void __KernelThreadingDoState(PointerWrap &p)
@@ -1028,6 +1103,8 @@ void __KernelThreadingDoState(PointerWrap &p)
 	__KernelRestoreActionType(actionAfterMipsCall, ActionAfterMipsCall::Create);
 	p.Do(actionAfterCallback);
 	__KernelRestoreActionType(actionAfterCallback, ActionAfterCallback::Create);
+
+	p.Do(pausedDelays);
 
 	hleCurrentThreadName = __KernelGetThreadName(currentThread);
 	lastSwitchCycles = CoreTiming::GetTicks();
@@ -1214,6 +1291,7 @@ void __KernelThreadingShutdown()
 	currentThread = 0;
 	intReturnHackAddr = 0;
 	hleCurrentThreadName = NULL;
+	pausedDelays.clear();
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
