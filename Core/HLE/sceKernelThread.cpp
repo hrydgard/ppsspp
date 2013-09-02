@@ -510,8 +510,8 @@ public:
 		for (size_t i = 0; i < THREAD_CALLBACK_NUM_TYPES; ++i)
 		{
 			p.Do(registeredCallbacks[i]);
-			p.Do(readyCallbacks[i]);
 		}
+		p.Do(readyCallbacks);
 
 		p.Do(pendingMipsCalls);
 		p.Do(pushedStacks);
@@ -532,7 +532,7 @@ public:
 	ThreadContext context;
 
 	std::set<SceUID> registeredCallbacks[THREAD_CALLBACK_NUM_TYPES];
-	std::list<SceUID> readyCallbacks[THREAD_CALLBACK_NUM_TYPES];
+	std::list<SceUID> readyCallbacks;
 
 	std::list<u32> pendingMipsCalls;
 
@@ -1764,11 +1764,7 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
 	if (t)
-	{
-		// TODO: Unless they should be run before deletion?
-		for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++)
-			readyCallbacksCount -= (int)t->readyCallbacks[i].size();
-	}
+		readyCallbacksCount -= (int)t->readyCallbacks.size();
 
 	return kernelObjects.Destroy<Thread>(threadID);
 }
@@ -3444,10 +3440,8 @@ bool __KernelCurHasReadyCallbacks() {
 		return false;
 
 	Thread *thread = __GetCurrentThread();
-	for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++) {
-		if (thread->readyCallbacks[i].size()) {
-			return true;
-		}
+	if (thread->readyCallbacks.size()) {
+		return true;
 	}
 
 	return false;
@@ -3460,22 +3454,20 @@ bool __KernelCheckThreadCallbacks(Thread *thread, bool force)
 	if (!thread || (!thread->isProcessingCallbacks && !force))
 		return false;
 
-	for (int i = 0; i < THREAD_CALLBACK_NUM_TYPES; i++) {
-		if (thread->readyCallbacks[i].size()) {
-			SceUID readyCallback = thread->readyCallbacks[i].front();
-			thread->readyCallbacks[i].pop_front();
-			readyCallbacksCount--;
+	if (thread->readyCallbacks.size()) {
+		SceUID readyCallback = thread->readyCallbacks.front();
+		thread->readyCallbacks.pop_front();
+		readyCallbacksCount--;
 
-			// If the callback was deleted, we're good.  Just skip it.
-			if (kernelObjects.IsValid(readyCallback))
-			{
-				__KernelRunCallbackOnThread(readyCallback, thread, !force);   // makes pending
-				return true;
-			}
-			else
-			{
-				WARN_LOG(SCEKERNEL, "Ignoring deleted callback %08x", readyCallback);
-			}
+		// If the callback was deleted, we're good.  Just skip it.
+		if (kernelObjects.IsValid(readyCallback))
+		{
+			__KernelRunCallbackOnThread(readyCallback, thread, !force);   // makes pending
+			return true;
+		}
+		else
+		{
+			WARN_LOG(SCEKERNEL, "Ignoring deleted callback %08x", readyCallback);
 		}
 	}
 	return false;
@@ -3586,11 +3578,10 @@ void __KernelNotifyCallback(RegisteredCallbackType type, SceUID cbId, int notify
 	cb->nc.notifyArg = notifyArg;
 
 	Thread *t = kernelObjects.Get<Thread>(cb->nc.threadId, error);
-	std::list<SceUID> &readyCallbacks = t->readyCallbacks[type];
-	auto iter = std::find(readyCallbacks.begin(), readyCallbacks.end(), cbId);
-	if (iter == readyCallbacks.end())
+	auto iter = std::find(t->readyCallbacks.begin(), t->readyCallbacks.end(), cbId);
+	if (iter == t->readyCallbacks.end())
 	{
-		t->readyCallbacks[type].push_back(cbId);
+		t->readyCallbacks.push_back(cbId);
 		readyCallbacksCount++;
 	}
 }
