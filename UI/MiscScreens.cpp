@@ -125,6 +125,7 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	langValuesMapping["uk_UA"] = std::make_pair("Українська", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["vn_VN"] = std::make_pair("Vietnamese", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	langValuesMapping["cz_CZ"] = std::make_pair("Česky", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+	langValuesMapping["tg_PH"] = std::make_pair("Tagalog", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
 	return langValuesMapping;
 }
 
