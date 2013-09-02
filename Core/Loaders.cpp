@@ -35,9 +35,35 @@ IdentifiedFileType Identify_File(std::string &filename)
 		return FILETYPE_ERROR;
 	}
 
+	FileInfo info;
+	if (!getFileInfo(filename.c_str(), &info)) {
+		return FILETYPE_ERROR;
+	}
+
 	std::string extension = filename.size() >= 5 ? filename.substr(filename.size() - 4) : "";
 	if (!strcasecmp(extension.c_str(),".iso"))
 	{
+		// may be a psx iso, they have 2352 byte sectors. You never know what some people try to open
+		if ((info.size % 2352) == 0)
+		{
+			FILE *f = File::OpenCFile(filename.c_str(), "rb");
+			if (!f)	{
+				// File does not exists
+				return FILETYPE_ERROR;
+			}
+
+			unsigned char sync[12];
+			fread(sync,1,12,f);
+			fclose(f);
+
+			// each sector in a mode2 image starts with these 12 bytes
+			if (memcmp(sync,"\x00\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\x00",12) == 0)
+			{
+				return FILETYPE_ISO_MODE2;
+			}
+
+			// maybe it also just happened to have that size, 
+		}
 		return FILETYPE_PSP_ISO;
 	}
 	else if (!strcasecmp(extension.c_str(),".cso"))
@@ -45,12 +71,8 @@ IdentifiedFileType Identify_File(std::string &filename)
 		return FILETYPE_PSP_ISO;
 	}
 
-	// First, check if it's a directory with an EBOOT.PBP in it.
-	FileInfo info;
-	if (!getFileInfo(filename.c_str(), &info)) {
-		return FILETYPE_ERROR;
-	}
 
+	// First, check if it's a directory with an EBOOT.PBP in it.
 	if (info.isDirectory) {
 		if (filename.size() > 4) {
 			FileInfo ebootInfo;
@@ -216,6 +238,10 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 #else
 		*error_string = "File is compressed (ZIP).\nPlease decompress first (try UnRAR)";
 #endif
+		break;
+
+	case FILETYPE_ISO_MODE2:
+		*error_string = "File is a MODE2 image. Are you trying to open a PSX game?";
 		break;
 
 	case FILETYPE_NORMAL_DIRECTORY:
