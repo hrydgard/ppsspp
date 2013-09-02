@@ -370,7 +370,7 @@ public:
 			memcpy(color, data_ + decFmt_.c1off, 12); 
 			break;
 		default:
-			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c0fmt);
+			ERROR_LOG_REPORT_ONCE(fmt, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c1fmt);
 			memset(color, 0, sizeof(float) * 3);
 			break;
 		}
