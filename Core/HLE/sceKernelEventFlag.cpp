@@ -108,7 +108,7 @@ enum PspEventFlagWaitTypes
 int eventFlagWaitTimer = -1;
 
 void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId);
-void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelEventFlagInit()
 {
@@ -242,7 +242,7 @@ void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		WARN_LOG_REPORT(HLE, "sceKernelWaitEventFlagCB: beginning callback with bad wait id?");
 }
 
-void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue)
+void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 

@@ -184,7 +184,7 @@ struct Mbx : public KernelObject
 };
 
 void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId);
-void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMbxInit()
 {
@@ -274,7 +274,7 @@ void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		WARN_LOG_REPORT(HLE, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
 }
 
-void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue)
+void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 

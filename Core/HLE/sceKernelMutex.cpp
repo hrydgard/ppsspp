@@ -151,9 +151,9 @@ typedef std::multimap<SceUID, SceUID> MutexMap;
 static MutexMap mutexHeldLocks;
 
 void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId);
-void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId);
 void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId);
-void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMutexInit()
 {
@@ -306,7 +306,7 @@ void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		WARN_LOG_REPORT(HLE, "sceKernelLockMutexCB: beginning callback with bad wait id?");
 }
 
-void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue)
+void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
@@ -1028,7 +1028,7 @@ void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		WARN_LOG_REPORT(HLE, "sceKernelLockLwMutexCB: beginning callback with bad wait id?");
 }
 
-void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue)
+void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 

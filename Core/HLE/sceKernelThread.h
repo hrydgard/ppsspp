@@ -103,7 +103,7 @@ const char *getWaitTypeName(WaitType type);
 // Suspend wait and timeout while a thread enters a callback.
 typedef void (* WaitBeginCallbackFunc)(SceUID threadID, SceUID prevCallbackId);
 // Resume wait and timeout as a thread exits a callback.
-typedef void (* WaitEndCallbackFunc)(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+typedef void (* WaitEndCallbackFunc)(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFunc, WaitEndCallbackFunc endFunc);
 

@@ -938,7 +938,7 @@ void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 		WARN_LOG_REPORT(HLE, "sceKernelDelayThreadCB: beginning callback with bad wait?");
 }
 
-void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue) {
+void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
 	if (pausedDelays.find(pauseKey) == pausedDelays.end())
@@ -968,7 +968,7 @@ void __KernelSleepBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	DEBUG_LOG(HLE, "sceKernelSleepThreadCB: Suspending sleep for callback");
 }
 
-void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue) {
+void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	u32 error;
 	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
 	if (!thread)
@@ -3364,7 +3364,7 @@ void __KernelReturnFromMipsCall()
 	if (cur->nt.waitType != WAITTYPE_NONE)
 	{
 		if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL && call->cbId > 0)
-			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId, currentMIPS->r[MIPS_REG_V0]);
+			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
 	}
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?

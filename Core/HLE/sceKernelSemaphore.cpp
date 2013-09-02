@@ -78,7 +78,7 @@ struct Semaphore : public KernelObject
 static int semaWaitTimer = -1;
 
 void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId);
-void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelSemaInit()
 {
@@ -164,7 +164,7 @@ void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		WARN_LOG_REPORT(HLE, "sceKernelWaitSemaCB: beginning callback with bad wait id?");
 }
 
-void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue)
+void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 

@@ -17,6 +17,8 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
+#include <map>
 #include "Core/HLE/HLE.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
@@ -53,6 +55,7 @@ struct FplWaitingThread
 {
 	SceUID threadID;
 	u32 addrPtr;
+	u64 pausedTimeout;
 };
 
 struct NativeFPL
@@ -118,6 +121,7 @@ struct FPL : public KernelObject
 		p.Do(nextBlock);
 		FplWaitingThread dv = {0};
 		p.Do(waitingThreads, dv);
+		p.Do(pausedWaits);
 		p.DoMarker("FPL");
 	}
 
@@ -127,12 +131,15 @@ struct FPL : public KernelObject
 	int alignedSize;
 	int nextBlock;
 	std::vector<FplWaitingThread> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, FplWaitingThread> pausedWaits;
 };
 
 struct VplWaitingThread
 {
 	SceUID threadID;
 	u32 addrPtr;
+	u64 pausedTimeout;
 };
 
 struct SceKernelVplInfo
@@ -162,17 +169,25 @@ struct VPL : public KernelObject
 		VplWaitingThread dv = {0};
 		p.Do(waitingThreads, dv);
 		alloc.DoState(p);
+		p.Do(pausedWaits);
 		p.DoMarker("VPL");
 	}
 
 	SceKernelVplInfo nv;
 	u32 address;
 	std::vector<VplWaitingThread> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, VplWaitingThread> pausedWaits;
 	BlockAllocator alloc;
 };
 
 void __KernelVplTimeout(u64 userdata, int cyclesLate);
 void __KernelFplTimeout(u64 userdata, int cyclesLate);
+
+void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId);
+void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId);
+void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId);
+void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMemoryInit()
 {
@@ -187,6 +202,9 @@ void __KernelMemoryInit()
 	sdkVersion_ = 0;
 	compilerVersion_ = 0;
 	memset(tlsUsedIndexes, 0, sizeof(tlsUsedIndexes));
+
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_VPL, __KernelVplBeginCallback, __KernelVplEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_FPL, __KernelFplBeginCallback, __KernelFplEndCallback);
 }
 
 void __KernelMemoryDoState(PointerWrap &p)
@@ -256,6 +274,106 @@ bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u32 &err
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
 	return true;
+}
+
+void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	u32 error;
+	SceUID fplID = __KernelGetWaitID(threadID, WAITTYPE_FPL, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	FPL *fpl = fplID == 0 ? NULL : kernelObjects.Get<FPL>(fplID, error);
+	if (fpl)
+	{
+		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
+		// TODO: Handle this better?
+		if (fpl->pausedWaits.find(pauseKey) != fpl->pausedWaits.end())
+			return;
+
+		FplWaitingThread waitData = {0};
+		for (size_t i = 0; i < fpl->waitingThreads.size(); i++)
+		{
+			FplWaitingThread *t = &fpl->waitingThreads[i];
+			if (t->threadID == threadID)
+			{
+				waitData = *t;
+				// TODO: Hmm, what about priority/fifo order?  Does it lose its place in line?
+				fpl->waitingThreads.erase(fpl->waitingThreads.begin() + i);
+				break;
+			}
+		}
+
+		if (waitData.threadID != threadID)
+		{
+			ERROR_LOG_REPORT(HLE, "sceKernelAllocateFplCB: wait not found to pause for callback");
+			return;
+		}
+
+		if (timeoutPtr != 0 && fplWaitTimer != -1)
+		{
+			s64 cyclesLeft = CoreTiming::UnscheduleEvent(fplWaitTimer, threadID);
+			waitData.pausedTimeout = CoreTiming::GetTicks() + cyclesLeft;
+		}
+		else
+			waitData.pausedTimeout = 0;
+
+		fpl->pausedWaits[pauseKey] = waitData;
+		DEBUG_LOG(HLE, "sceKernelAllocateFplCB: Suspending fpl wait for callback");
+	}
+	else
+		WARN_LOG_REPORT(HLE, "sceKernelAllocateFplCB: beginning callback with bad wait id?");
+}
+
+void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	u32 error;
+	SceUID fplID = __KernelGetWaitID(threadID, WAITTYPE_FPL, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	FPL *fpl = fplID == 0 ? NULL : kernelObjects.Get<FPL>(fplID, error);
+	if (!fpl || fpl->pausedWaits.find(pauseKey) == fpl->pausedWaits.end())
+	{
+		// TODO: Since it was deleted, we don't know how long was actually left.
+		// For now, we just say the full time was taken.
+		if (timeoutPtr != 0 && fplWaitTimer != -1)
+			Memory::Write_U32(0, timeoutPtr);
+
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
+		return;
+	}
+
+	FplWaitingThread waitData = fpl->pausedWaits[pauseKey];
+	u64 waitDeadline = waitData.pausedTimeout;
+	fpl->pausedWaits.erase(pauseKey);
+
+	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
+
+	bool wokeThreads;
+	// Attempt to unlock.
+	if (__KernelUnlockFplForThread(fpl, waitData, error, 0, wokeThreads))
+		return;
+
+	// We only check if it timed out if it couldn't receive.
+	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
+	if (cyclesLeft < 0 && waitDeadline != 0)
+	{
+		if (timeoutPtr != 0 && fplWaitTimer != -1)
+			Memory::Write_U32(0, timeoutPtr);
+
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
+	else
+	{
+		if (timeoutPtr != 0 && fplWaitTimer != -1)
+			CoreTiming::ScheduleEvent(cyclesLeft, fplWaitTimer, __KernelGetCurThread());
+
+		// TODO: Should this not go at the end?
+		fpl->waitingThreads.push_back(waitData);
+
+		DEBUG_LOG(HLE, "sceKernelAllocateFplCB: Resuming fpl wait from callback");
+	}
 }
 
 void __KernelFplRemoveThread(FPL *fpl, SceUID threadID)
@@ -1145,6 +1263,106 @@ bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &err
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
 	return true;
+}
+
+void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	u32 error;
+	SceUID vplID = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	VPL *vpl = vplID == 0 ? NULL : kernelObjects.Get<VPL>(vplID, error);
+	if (vpl)
+	{
+		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
+		// TODO: Handle this better?
+		if (vpl->pausedWaits.find(pauseKey) != vpl->pausedWaits.end())
+			return;
+
+		VplWaitingThread waitData = {0};
+		for (size_t i = 0; i < vpl->waitingThreads.size(); i++)
+		{
+			VplWaitingThread *t = &vpl->waitingThreads[i];
+			if (t->threadID == threadID)
+			{
+				waitData = *t;
+				// TODO: Hmm, what about priority/fifo order?  Does it lose its place in line?
+				vpl->waitingThreads.erase(vpl->waitingThreads.begin() + i);
+				break;
+			}
+		}
+
+		if (waitData.threadID != threadID)
+		{
+			ERROR_LOG_REPORT(HLE, "sceKernelAllocateVplCB: wait not found to pause for callback");
+			return;
+		}
+
+		if (timeoutPtr != 0 && vplWaitTimer != -1)
+		{
+			s64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
+			waitData.pausedTimeout = CoreTiming::GetTicks() + cyclesLeft;
+		}
+		else
+			waitData.pausedTimeout = 0;
+
+		vpl->pausedWaits[pauseKey] = waitData;
+		DEBUG_LOG(HLE, "sceKernelAllocateVplCB: Suspending vpl wait for callback");
+	}
+	else
+		WARN_LOG_REPORT(HLE, "sceKernelAllocateVplCB: beginning callback with bad wait id?");
+}
+
+void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	u32 error;
+	SceUID vplID = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	VPL *vpl = vplID == 0 ? NULL : kernelObjects.Get<VPL>(vplID, error);
+	if (!vpl || vpl->pausedWaits.find(pauseKey) == vpl->pausedWaits.end())
+	{
+		// TODO: Since it was deleted, we don't know how long was actually left.
+		// For now, we just say the full time was taken.
+		if (timeoutPtr != 0 && vplWaitTimer != -1)
+			Memory::Write_U32(0, timeoutPtr);
+
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
+		return;
+	}
+
+	VplWaitingThread waitData = vpl->pausedWaits[pauseKey];
+	u64 waitDeadline = waitData.pausedTimeout;
+	vpl->pausedWaits.erase(pauseKey);
+
+	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
+
+	bool wokeThreads;
+	// Attempt to unlock.
+	if (__KernelUnlockVplForThread(vpl, waitData, error, 0, wokeThreads))
+		return;
+
+	// We only check if it timed out if it couldn't receive.
+	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
+	if (cyclesLeft < 0 && waitDeadline != 0)
+	{
+		if (timeoutPtr != 0 && vplWaitTimer != -1)
+			Memory::Write_U32(0, timeoutPtr);
+
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
+	else
+	{
+		if (timeoutPtr != 0 && vplWaitTimer != -1)
+			CoreTiming::ScheduleEvent(cyclesLeft, vplWaitTimer, __KernelGetCurThread());
+
+		// TODO: Should this not go at the end?
+		vpl->waitingThreads.push_back(waitData);
+
+		DEBUG_LOG(HLE, "sceKernelAllocateVplCB: Resuming vpl wait from callback");
+	}
 }
 
 void __KernelVplRemoveThread(VPL *vpl, SceUID threadID)
