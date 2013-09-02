@@ -203,7 +203,6 @@ void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	EventFlag *flag = flagID == 0 ? NULL : kernelObjects.Get<EventFlag>(flagID, error);
 	if (flag)
 	{
-
 		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
 		// TODO: Handle this better?
 		if (flag->pausedWaits.find(pauseKey) != flag->pausedWaits.end())
