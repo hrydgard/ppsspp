@@ -18,6 +18,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/Reporting.h"
 #include "Common/Crypto/md5.h"
+#include "Common/Crypto/sha1.h"
 
 // Not really sure where these belong - is it worth giving them their own file?
 u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
@@ -42,6 +43,16 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 // TODO: This MD5 stuff needs tests!
 
 static md5_context md5_ctx;
+
+int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
+	DEBUG_LOG(HLE, "sceMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
+
+	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
+		return -1;
+
+	md5(Memory::GetPointer(dataAddr), (int)len, Memory::GetPointer(digestAddr));
+	return 0;
+}
 
 int sceMd5BlockInit(u32 ctxAddr) {
 	DEBUG_LOG(HLE, "sceMd5BlockInit(%08x)", ctxAddr);
@@ -70,20 +81,93 @@ int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 		return -1;
 
 	md5_finish(&md5_ctx, Memory::GetPointer(digestAddr));
-	// TODO: Should output be hex ascii?
 	return 0;
 }
 
-int sceMd5Digest(u32 dataPtr, u32 len, u32 digestAddr) {
-	WARN_LOG(HLE, "sceMd5Digest(%08x, %d, %08x)", dataPtr, len, digestAddr);
-	
-	if (!Memory::IsValidAddress(dataPtr) || !Memory::IsValidAddress(digestAddr))
+int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr) {
+	DEBUG_LOG(HLE, "sceKernelUtilsMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
+
+	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
 		return -1;
 
-	md5(Memory::GetPointer(dataPtr), (int)len, Memory::GetPointer(digestAddr));
-	// TODO: Should output be hex ascii?
+	md5(Memory::GetPointer(dataAddr), (int)len, Memory::GetPointer(digestAddr));
 	return 0;
 }
+
+int sceKernelUtilsMd5BlockInit(u32 ctxAddr) {
+	DEBUG_LOG(HLE, "sceKernelUtilsMd5BlockInit(%08x)", ctxAddr);
+	if (!Memory::IsValidAddress(ctxAddr))
+		return -1;
+
+	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
+	// which will work just fine unless games do several MD5 concurrently.
+
+	md5_starts(&md5_ctx);
+	return 0;
+}
+
+int sceKernelUtilsMd5BlockUpdate(u32 ctxAddr, u32 dataPtr, int len) {
+	DEBUG_LOG(HLE, "sceKernelUtilsMd5BlockUpdate(%08x, %08x, %d)", ctxAddr, dataPtr, len);
+	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataPtr))
+		return -1;
+
+	md5_update(&md5_ctx, Memory::GetPointer(dataPtr), (int)len);
+	return 0;
+}
+
+int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
+	DEBUG_LOG(HLE, "sceKernelUtilsMd5BlockResult(%08x, %08x)", ctxAddr, digestAddr);
+	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
+		return -1;
+
+	md5_finish(&md5_ctx, Memory::GetPointer(digestAddr));
+	return 0;
+}
+
+
+static sha1_context sha1_ctx;
+
+int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr) {
+	DEBUG_LOG(HLE, "sceKernelUtilsSha1Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
+
+	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
+		return -1;
+
+	sha1(Memory::GetPointer(dataAddr), (int)len, Memory::GetPointer(digestAddr));
+	return 0;
+}
+
+int sceKernelUtilsSha1BlockInit(u32 ctxAddr) {
+	DEBUG_LOG(HLE, "sceKernelUtilsSha1BlockInit(%08x)", ctxAddr);
+	if (!Memory::IsValidAddress(ctxAddr))
+		return -1;
+
+	// TODO: Until I know how large a context is, we just go all lazy and use a global context,
+	// which will work just fine unless games do several MD5 concurrently.
+
+	sha1_starts(&sha1_ctx);
+
+	return 0;
+}
+
+int sceKernelUtilsSha1BlockUpdate(u32 ctxAddr, u32 dataAddr, int len) {
+	DEBUG_LOG(HLE, "sceKernelUtilsSha1BlockUpdate(%08x, %08x, %d)", ctxAddr, dataAddr, len);
+	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(dataAddr))
+		return -1;
+
+	sha1_update(&sha1_ctx, Memory::GetPointer(dataAddr), (int)len);
+	return 0;
+}
+
+int sceKernelUtilsSha1BlockResult(u32 ctxAddr, u32 digestAddr) {
+	DEBUG_LOG(HLE, "sceKernelUtilsSha1BlockResult(%08x, %08x)", ctxAddr, digestAddr);
+	if (!Memory::IsValidAddress(ctxAddr) || !Memory::IsValidAddress(digestAddr))
+		return -1;
+
+	sha1_finish(&sha1_ctx, Memory::GetPointer(digestAddr));
+	return 0;
+}
+
 
 const HLEFunction sceMd5[] = {
 	{0x19884A15, WrapI_U<sceMd5BlockInit>, "sceMd5BlockInit"},

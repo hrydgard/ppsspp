@@ -220,6 +220,7 @@ public:
 					// Integer value passed in a float. Wraps and all, required for Monster Hunter.
 					pos[2] = (float)((u16)(s32)pos[2]) * (1.0f / 65535.0f);
 				}
+				// See https://github.com/hrydgard/ppsspp/pull/3419, something is weird.
 			}
 			break;
 		case DEC_S16_3:

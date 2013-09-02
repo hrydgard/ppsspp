@@ -23,3 +23,13 @@ void Register_sceMd5();
 
 u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed);
 u32 sceKernelUtilsMt19937UInt(u32 ctx);
+
+int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr);
+int sceKernelUtilsMd5BlockInit(u32 ctxAddr);
+int sceKernelUtilsMd5BlockUpdate(u32 ctxAddr, u32 dataAddr, int len);
+int sceKernelUtilsMd5BlockResult(u32 ctxAddr, u32 digestAddr);
+
+int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr);
+int sceKernelUtilsSha1BlockInit(u32 ctxAddr);
+int sceKernelUtilsSha1BlockUpdate(u32 ctxAddr, u32 dataAddr, int len);
+int sceKernelUtilsSha1BlockResult(u32 ctxAddr, u32 digestAddr);
