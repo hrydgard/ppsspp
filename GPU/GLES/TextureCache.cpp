@@ -56,6 +56,25 @@ u32 RoundUpToPowerOf2(u32 v)
 	return v;
 }
 
+static const u8 bitsPerPixel[16] = {
+	16,  //GE_TFMT_5650,
+	16,  //GE_TFMT_5551,
+	16,  //GE_TFMT_4444,
+	32,  //GE_TFMT_8888,
+	4,   //GE_TFMT_CLUT4,
+	8,   //GE_TFMT_CLUT8,
+	16,  //GE_TFMT_CLUT16,
+	32,  //GE_TFMT_CLUT32,
+	4,   //GE_TFMT_DXT1,
+	8,   //GE_TFMT_DXT3,
+	8,   //GE_TFMT_DXT5,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+	0,   // INVALID,
+};
+
 static inline u32 GetLevelBufw(int level, u32 texaddr) {
 	// Special rules for kernel textures (PPGe):
 	if (texaddr < PSP_GetUserMemoryBase())
@@ -214,12 +233,14 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 
 		// Is it at least the right stride?
 		if (framebuffer->fb_stride == entry->bufw && compatFormat) {
-			if (framebuffer->format != entry->format) {
+			u32 bufwBytes = bitsPerPixel[entry->format] * entry->bufw / 8;
+			u32 fbBytes =  bitsPerPixel[framebuffer->format] * framebuffer->height / 8;
+			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 				// TODO: Use an FBO to translate the palette?
 				// Affected game List : DBZ VS Tag , 3rd birthday 
 				AttachFramebufferValid(entry, framebuffer);
-			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
+			} else if (entry->format == framebuffer->format&& bufwBytes < fbBytes) {
 				WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
 				// TODO: Keep track of the y offset.
 				// Affected game List : God of War Ghost of Sparta , Tactic Orge , Sword Art Online
@@ -786,25 +807,6 @@ void TextureCache::StartFrame() {
 		Decimate();
 	}
 }
-
-static const u8 bitsPerPixel[16] = {
-	16,  //GE_TFMT_5650,
-	16,  //GE_TFMT_5551,
-	16,  //GE_TFMT_4444,
-	32,  //GE_TFMT_8888,
-	4,   //GE_TFMT_CLUT4,
-	8,   //GE_TFMT_CLUT8,
-	16,  //GE_TFMT_CLUT16,
-	32,  //GE_TFMT_CLUT32,
-	4,   //GE_TFMT_DXT1,
-	8,   //GE_TFMT_DXT3,
-	8,   //GE_TFMT_DXT5,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-	0,   // INVALID,
-};
 
 static inline u32 MiniHash(const u32 *ptr) {
 	return ptr[0];
