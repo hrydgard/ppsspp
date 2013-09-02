@@ -2570,6 +2570,12 @@ bool __KernelThreadSortPriority(SceUID thread1, SceUID thread2)
 //////////////////////////////////////////////////////////////////////////
 int sceKernelWakeupThread(SceUID uid)
 {
+	if (uid == currentThread)
+	{
+		WARN_LOG_REPORT(HLE, "sceKernelWakeupThread(%i): unable to wakeup current thread", uid);
+		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+	}
+
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(uid, error);
 	if (t)
