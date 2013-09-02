@@ -348,7 +348,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
 		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI, true, true);
 		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, desktopUI, true, false);
-		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI);
+		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI,true, true, L"\tCtrl+T");
 		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, desktopUI, true, true);
 		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, desktopUI);
 		TranslateMenuItem(ID_CPU_DYNAREC, desktopUI);
@@ -924,6 +924,8 @@ namespace MainWindow
 					NativeMessageReceived("reset", "");
 					break;
 				case ID_EMULATION_CHEATS:
+					g_Config.bEnableCheats = !g_Config.bEnableCheats;
+					osm.ShowOnOff(g->T("Cheats"), g_Config.bEnableCheats);
 					NativeMessageReceived("reset", "");
 					break;
 
@@ -1479,6 +1481,7 @@ namespace MainWindow
 		CHECKITEM(ID_EMULATION_ATRAC3_SOUND, g_Config.bEnableAtrac3plus);
 		CHECKITEM(ID_EMULATION_RENDER_MODE_OGL, g_Config.bSoftwareRendering == false);
 		CHECKITEM(ID_EMULATION_RENDER_MODE_SOFT, g_Config.bSoftwareRendering == true);
+		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 
 		static const int zoomitems[4] = {
 			ID_OPTIONS_SCREEN1X,
@@ -1604,14 +1607,12 @@ namespace MainWindow
 		EnableMenuItem(menu, ID_TOGGLE_PAUSE, ingameEnable);
 		EnableMenuItem(menu, ID_EMULATION_STOP, ingameEnable);
 		EnableMenuItem(menu, ID_EMULATION_RESET, ingameEnable);
-		EnableMenuItem(menu, ID_EMULATION_CHEATS, ingameEnable);
-
+		
 		UINT menuEnable = globalUIState == UISTATE_MENU ? MF_ENABLED : MF_GRAYED;
 		EnableMenuItem(menu, ID_FILE_SAVESTATEFILE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_LOADSTATEFILE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_QUICKSAVESTATE, !menuEnable);
 		EnableMenuItem(menu, ID_FILE_QUICKLOADSTATE, !menuEnable);
-		EnableMenuItem(menu, ID_EMULATION_CHEATS, !menuEnable);
 		EnableMenuItem(menu, ID_CPU_DYNAREC, menuEnable);
 		EnableMenuItem(menu, ID_CPU_MULTITHREADED, menuEnable);
 		EnableMenuItem(menu, ID_IO_MULTITHREADED, menuEnable);
