@@ -158,7 +158,22 @@ typedef WaitType WaitType_le;
 typedef swap_struct_t<WaitType, swap_32_t<WaitType> > WaitType_le;
 #endif
 
-// Real PSP struct, don't change the fields
+// Real PSP struct, don't change the fields.
+struct SceKernelThreadRunStatus
+{
+	SceSize_le size;
+	u32_le status;
+	s32_le currentPriority;
+	WaitType_le waitType;
+	SceUID_le waitID;
+	s32_le wakeupCount;
+	SceKernelSysClock runForClocks;
+	s32_le numInterruptPreempts;
+	s32_le numThreadPreempts;
+	s32_le numReleases;
+};
+
+// Real PSP struct, don't change the fields.
 struct NativeThread
 {
 	u32_le nativeSize;
@@ -174,7 +189,7 @@ struct NativeThread
 
 	s32_le initialPriority;
 	s32_le currentPriority;
-	WaitType waitType;
+	WaitType_le waitType;
 	SceUID_le waitID;
 	s32_le wakeupCount;
 	s32_le exitStatus;
@@ -1425,16 +1440,20 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 	if (!Memory::IsValidAddress(statusPtr))
 		return -1;
 
-	Memory::Write_U32(t->nt.status, statusPtr);
-	Memory::Write_U32(t->nt.currentPriority, statusPtr + 4);
-	Memory::Write_U32(t->nt.waitType, statusPtr + 8);
-	Memory::Write_U32(t->nt.waitID, statusPtr + 12);
-	Memory::Write_U32(t->nt.wakeupCount, statusPtr + 16);
-	Memory::Write_U32(t->nt.runForClocks.lo, statusPtr + 20);
-	Memory::Write_U32(t->nt.runForClocks.hi, statusPtr + 24);
-	Memory::Write_U32(t->nt.numInterruptPreempts, statusPtr + 28);
-	Memory::Write_U32(t->nt.numThreadPreempts, statusPtr + 32);
-	Memory::Write_U32(t->nt.numReleases, statusPtr + 36);
+	PSPPointer<SceKernelThreadRunStatus> runStatus;
+	runStatus = statusPtr;
+
+	// TODO: Check size?
+	runStatus->size = sizeof(SceKernelThreadRunStatus);
+	runStatus->status = t->nt.status;
+	runStatus->currentPriority = t->nt.currentPriority;
+	runStatus->waitType = t->nt.waitType;
+	runStatus->waitID = t->nt.waitID;
+	runStatus->wakeupCount = t->nt.wakeupCount;
+	runStatus->runForClocks = t->nt.runForClocks;
+	runStatus->numInterruptPreempts = t->nt.numInterruptPreempts;
+	runStatus->numThreadPreempts = t->nt.numThreadPreempts;
+	runStatus->numReleases = t->nt.numReleases;
 
 	return 0;
 }
