@@ -2816,28 +2816,31 @@ int sceKernelResumeThread(SceUID threadID)
 // CALLBACKS
 //////////////////////////////////////////////////////////////////////////
 
-
-// Internal API
-u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 commonArg)
+SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg)
 {
+	if (!name)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateCallback(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		return SCE_KERNEL_ERROR_ERROR;
+	}
+	if (entrypoint & 0xF0000000)
+	{
+		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateCallback(): invalid func %08x", SCE_KERNEL_ERROR_ILLEGAL_ADDR, entrypoint);
+		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+	}
+
 	Callback *cb = new Callback;
 	SceUID id = kernelObjects.Create(cb);
 
+	strncpy(cb->nc.name, name, KERNELOBJECT_MAX_NAME_LENGTH);
+	cb->nc.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 	cb->nc.size = sizeof(NativeCallback);
-	strncpy(cb->nc.name, name, 32);
-
 	cb->nc.entrypoint = entrypoint;
 	cb->nc.threadId = __KernelGetCurThread();
-	cb->nc.commonArgument = commonArg;
+	cb->nc.commonArgument = signalArg;
 	cb->nc.notifyCount = 0;
 	cb->nc.notifyArg = 0;
 
-	return id;
-}
-
-SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg)
-{
-	SceUID id = __KernelCreateCallback(name, entrypoint, signalArg);
 	DEBUG_LOG(HLE, "%i=sceKernelCreateCallback(name=%s, entry=%08x, callbackArg=%08x)", id, name, entrypoint, signalArg);
 
 	return id;
@@ -2901,10 +2904,9 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr)
 	Callback *c = kernelObjects.Get<Callback>(cbId, error);
 	if (c) {
 		DEBUG_LOG(HLE, "sceKernelReferCallbackStatus(%i, %08x)", cbId, statusAddr);
-		// TODO: Maybe check size parameter?
-		if (Memory::IsValidAddress(statusAddr)) {
+		if (Memory::IsValidAddress(statusAddr) && Memory::Read_U32(statusAddr) != 0) {
 			Memory::WriteStruct(statusAddr, &c->nc);
-		} // else TODO
+		}
 		return 0;
 	} else {
 		ERROR_LOG(HLE, "sceKernelReferCallbackStatus(%i, %08x) - bad cbId", cbId, statusAddr);
