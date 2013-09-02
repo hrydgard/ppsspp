@@ -114,7 +114,8 @@ void __UmdStatChange(u64 userdata, int cyclesLate)
 void __KernelUmdActivate()
 {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE;
-	__KernelNotifyCallback(driveCBId, notifyArg);
+	if (driveCBId != -1)
+		__KernelNotifyCallback(driveCBId, notifyArg);
 
 	// Don't activate immediately, take time to "spin up."
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
@@ -124,7 +125,8 @@ void __KernelUmdActivate()
 void __KernelUmdDeactivate()
 {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY;
-	__KernelNotifyCallback(driveCBId, notifyArg);
+	if (driveCBId != -1)
+		__KernelNotifyCallback(driveCBId, notifyArg);
 
 	CoreTiming::RemoveAllEvents(umdStatChangeEvent);
 	__UmdStatChange(0, 0);
@@ -256,7 +258,7 @@ int sceUmdDeactivate(u32 mode, const char *name)
 
 u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
-	int retVal;
+	int retVal = 0;
 
 	// TODO: If the callback is invalid, return PSP_ERROR_UMD_INVALID_PARAM.
 	if (!kernelObjects.IsValid(cbId)) {
