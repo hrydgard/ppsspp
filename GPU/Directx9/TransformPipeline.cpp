@@ -989,19 +989,27 @@ void TransformDrawEngine::DecodeVerts() {
 u32 TransformDrawEngine::ComputeHash() {
 	u32 fullhash = 0;
 	int vertexSize = dec_->GetDecVtxFmt().stride;
+	int numDrawCalls_ = std::min(20, numDrawCalls);
+	int vertexCount = 0;
+	int indicesCount = 0;
 
 	// TODO: Add some caps both for numDrawCalls and num verts to check?
 	// It is really very expensive to check all the vertex data so often.
 	for (int i = 0; i < numDrawCalls; i++) {
 		if (!drawCalls[i].inds) {
-			fullhash += XXH32((const char *)drawCalls[i].verts, vertexSize * drawCalls[i].vertexCount, 0x1DE8CAC4);
+			vertexCount = std::min((int)drawCalls[i].vertexCount, 500);
+			fullhash += XXH32((const char *)drawCalls[i].verts, vertexSize * vertexCount, 0x1DE8CAC4);
 		} else {
+			
+			vertexCount = std::min((int)drawCalls[i].vertexCount, 500);
+			indicesCount = std::min((drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 500);
+
 			// This could get seriously expensive with sparse indices. Need to combine hashing ranges the same way
 			// we do when drawing.
 			fullhash += XXH32((const char *)drawCalls[i].verts + vertexSize * drawCalls[i].indexLowerBound,
-				vertexSize * (drawCalls[i].indexUpperBound - drawCalls[i].indexLowerBound), 0x029F3EE1);
+				vertexSize * indicesCount, 0x029F3EE1);
 			int indexSize = (dec_->VertexType() & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_16BIT ? 2 : 1;
-			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * drawCalls[i].vertexCount, 0x955FD1CA);
+			fullhash += XXH32((const char *)drawCalls[i].inds, indexSize * vertexCount, 0x955FD1CA);
 		}
 	}
 
