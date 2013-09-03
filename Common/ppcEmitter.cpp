@@ -678,17 +678,19 @@ namespace PpcGen {
 	void PPCXEmitter::FSEL	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {		
 		A_FORM(63, FRt, FRa, FRb, FRc, 23, 0);
 	}
+	// #define fpmin(a,b) __fsel((a)-(b), b,a)
 	void PPCXEmitter::FMIN	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
 		PPCReg safe = FPR3; // hope it's safe !!
 		FSUBS(safe, FRa, FRb);
-		FSEL(FRt, safe, FRa, FRb);
-		Break();
+		FSEL(FRt, safe, FRb, FRa);
+		//Break();
 	}
+	// #define fpmax(a,b) __fsel((a)-(b), a,b)
 	void PPCXEmitter::FMAX	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
 		PPCReg safe = FPR3; // hope it's safe !!
 		FSUBS(safe, FRa, FRb);
-		FSEL(FRt, safe, FRb, FRa);
-		Break();
+		FSEL(FRt, safe, FRa, FRb);
+		//Break();
 	}
 
 	// Prologue / epilogue
