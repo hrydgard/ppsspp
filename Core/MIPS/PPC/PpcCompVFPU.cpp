@@ -278,6 +278,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VPFX(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;
@@ -475,7 +477,9 @@ namespace MIPSComp
 					DISABLE;
 				}
 				break;
-			case 27: //VFPU3
+			case 27: //VFPU3				
+				DISABLE
+		
 				switch ((op >> 23) & 7)	{
 				case 2:  // vmin
 					FMIN(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
@@ -635,6 +639,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Mftv(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		int imm = op & 0xFF;
@@ -695,6 +701,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmtvc(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		int vs = _VS;
@@ -716,6 +724,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmmov(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
@@ -757,6 +767,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VScl(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -806,6 +818,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmmul(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
@@ -848,10 +862,14 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmscl(MIPSOpcode op) {
+		DISABLE
+
 		Comp_Generic(op);
 	}
 
 	void Jit::Comp_Vtfm(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?  Or maybe uses D?
@@ -940,6 +958,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcst(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -974,6 +994,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VIdt(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -1019,6 +1041,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Viim(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		u8 dreg;
@@ -1033,6 +1057,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vfim(MIPSOpcode op) {
+		DISABLE
+
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -1053,6 +1079,8 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VCrossQuat(MIPSOpcode op) {
+		DISABLE
+
 		// This op does not support prefixes.
 		if (js.HasUnknownPrefix() || disablePrefixes)
 			DISABLE;
