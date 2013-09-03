@@ -39,6 +39,7 @@ PluginScreen::PluginScreen() {
 
 void PluginScreen::CreateViews() {
 	I18NCategory *p = GetI18NCategory("Plugin");
+	I18NCategory *d = GetI18NCategory("Dialog");
 	// Build the UI.
 
 	using namespace UI;
@@ -71,7 +72,7 @@ void PluginScreen::CreateViews() {
 	ViewGroup *buttonBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(buttonMargins));
 	root_->Add(buttonBar);
 
-	buttonBack_ = new Button(p->T("Back"), new LinearLayoutParams(1.0));
+	buttonBack_ = new Button(d->T("Back"), new LinearLayoutParams(1.0));
 	buttonBar->Add(buttonBack_)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	buttonDownload_ = new Button(p->T("Download and install"), new LinearLayoutParams(1.0));
 	buttonDownload_->SetEnabled(false);
