@@ -71,11 +71,11 @@ linux:!mobile_platform {
 	SOURCES += ../UI/NativeApp.cpp
 }
 symbian {
-RESOURCES += assets_lowmem.qrc
-SOURCES += ../UI/ui_atlas_lowmem.cpp
+	RESOURCES += assets_lowmem.qrc
+	SOURCES += ../UI/ui_atlas_lowmem.cpp
 } else {
-RESOURCES += assets.qrc
-SOURCES += ../UI/ui_atlas.cpp
+	RESOURCES += assets.qrc
+	SOURCES += ../UI/ui_atlas.cpp
 }
 
 # Translations
@@ -104,10 +104,19 @@ symbian {
 	ICON = ../assets/icon.svg
 
 	# Folders:
-	assets.sources = ../flash0 ../lang
+	assets.sources = ../flash0
 	assets.path = E:/PPSSPP
 
-	DEPLOYMENT += vendor_deploy assets
+	lang.sources = $$files(../lang/*.ini)
+# Unsupported languages on Symbian.
+!contains(MEEGO_EDITION,harmattan):contains(QMAKE_HOST.os, "Windows") {
+	lang.sources -= ..\\lang/ja_JP.ini ..\\lang/ko_KR.ini ..\\lang/zh_CN.ini ..\\lang/zh_TW.ini
+} else {
+	lang.sources -= ../lang/ja_JP.ini ../lang/ko_KR.ini ../lang/zh_CN.ini ../lang/zh_TW.ini
+}
+	lang.path = E:/PPSSPP/lang
+
+	DEPLOYMENT += vendor_deploy assets lang
 
 	# 268 MB maximum
 	TARGET.EPOCHEAPSIZE = 0x40000 0x10000000
@@ -116,13 +125,15 @@ symbian {
 
 contains(MEEGO_EDITION,harmattan) {
 	target.path = /opt/PPSSPP/bin
-	assets.files = ../flash0 ../lang
+	assets.files = ../flash0
 	assets.path = /opt/PPSSPP
+	lang.files = $$files(../lang/*.ini)
+	lang.path = /opt/PPSSPP/lang
 	desktopfile.files = PPSSPP.desktop
 	desktopfile.path = /usr/share/applications
 	icon.files = ../assets/icon-114.png
 	icon.path = /usr/share/icons/hicolor/114x114/apps
-	INSTALLS += target assets desktopfile icon
+	INSTALLS += target assets lang desktopfile icon
 	# Booster
 	QMAKE_CXXFLAGS += -fPIC -fvisibility=hidden -fvisibility-inlines-hidden
 	QMAKE_LFLAGS += -pie -rdynamic
