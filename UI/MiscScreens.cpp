@@ -320,7 +320,7 @@ void LogoScreen::render() {
 
 void SystemInfoScreen::CreateViews() {
 	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
-	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *d = GetI18NCategory("Dialog");
 
 	using namespace UI;
 	root_ = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -333,7 +333,7 @@ void SystemInfoScreen::CreateViews() {
 	scroll->Add(new InfoItem("GPU Vendor", (char *)glGetString(GL_VENDOR)));
 	scroll->Add(new InfoItem("GPU Model", (char *)glGetString(GL_RENDERER)));
 	scroll->Add(new InfoItem("OpenGL Version Supported", (char *)glGetString(GL_VERSION)));
-	scroll->Add(new Button(g->T("Back"), new LayoutParams(260, 64)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	scroll->Add(new Button(d->T("Back"), new LayoutParams(260, 64)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	
 #ifdef _WIN32
 	scroll->Add(new ItemHeader("OpenGL Extensions"));
@@ -356,11 +356,11 @@ void SystemInfoScreen::CreateViews() {
 
 void CreditsScreen::CreateViews() {
 	using namespace UI;
-	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	root_->Add(new Button(g->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnOK);
+	root_->Add(new Button(d->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnOK);
 #ifndef GOLD
 	root_->Add(new Button(c->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
 #endif
@@ -543,21 +543,22 @@ void CreditsScreen::render() {
 	}
 
 	/*
-	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *c = GetI18NCategory("PSPCredits");
+	I18NCategory *d = GetI18NCategory("Dialog");
 
-	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, g->T("Back"), ALIGN_BOTTOMRIGHT)) {
+	if (UIButton(GEN_ID, Pos(dp_xres - 10, dp_yres - 10), 200, 0, d->T("Back"), ALIGN_BOTTOMRIGHT)) {
 		screenManager()->finishDialog(this, DR_OK);
 	}
 
 #ifdef ANDROID
 #ifndef GOLD
-	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, c->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
 		LaunchBrowser("market://details?id=org.ppsspp.ppssppgold");
 	}
 #endif
 #else
 #ifndef GOLD
-	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, g->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
+	if (UIButton(GEN_ID, Pos(10, dp_yres - 10), 300, 0, c->T("Buy PPSSPP Gold"), ALIGN_BOTTOMLEFT)) {
 		LaunchBrowser("http://central.ppsspp.org/buygold");
 	}
 #endif
