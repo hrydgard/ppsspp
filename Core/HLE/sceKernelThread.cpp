@@ -22,22 +22,23 @@
 
 #include "Common/LogManager.h"
 #include "Common/CommonTypes.h"
-#include "HLE.h"
-#include "HLETables.h"
-#include "../MIPS/MIPSInt.h"
-#include "../MIPS/MIPSCodeUtils.h"
-#include "../MIPS/MIPS.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
 
-#include "sceAudio.h"
-#include "sceKernel.h"
-#include "sceKernelMemory.h"
-#include "sceKernelThread.h"
-#include "sceKernelModule.h"
-#include "sceKernelInterrupt.h"
+#include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 typedef struct
 {
@@ -158,7 +159,22 @@ typedef WaitType WaitType_le;
 typedef swap_struct_t<WaitType, swap_32_t<WaitType> > WaitType_le;
 #endif
 
-// Real PSP struct, don't change the fields
+// Real PSP struct, don't change the fields.
+struct SceKernelThreadRunStatus
+{
+	SceSize_le size;
+	u32_le status;
+	s32_le currentPriority;
+	WaitType_le waitType;
+	SceUID_le waitID;
+	s32_le wakeupCount;
+	SceKernelSysClock runForClocks;
+	s32_le numInterruptPreempts;
+	s32_le numThreadPreempts;
+	s32_le numReleases;
+};
+
+// Real PSP struct, don't change the fields.
 struct NativeThread
 {
 	u32_le nativeSize;
@@ -174,7 +190,7 @@ struct NativeThread
 
 	s32_le initialPriority;
 	s32_le currentPriority;
-	WaitType waitType;
+	WaitType_le waitType;
 	SceUID_le waitID;
 	s32_le wakeupCount;
 	s32_le exitStatus;
@@ -820,6 +836,9 @@ MipsCallManager mipsCalls;
 int actionAfterCallback;
 int actionAfterMipsCall;
 
+// When inside a callback, delays are "paused", and rechecked after the callback returns.
+std::map<SceUID, u64> pausedDelays;
+
 // Doesn't need state saving.
 WaitTypeFuncs waitTypeFuncs[NUM_WAITTYPES];
 
@@ -892,14 +911,78 @@ Thread *__GetCurrentThread() {
 		return NULL;
 }
 
-u32 __KernelMipsCallReturnAddress()
-{
+u32 __KernelMipsCallReturnAddress() {
 	return cbReturnHackAddr;
 }
 
-u32 __KernelInterruptReturnAddress()
-{
+u32 __KernelInterruptReturnAddress() {
 	return intReturnHackAddr;
+}
+
+void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	u32 error;
+	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
+	if (waitID == threadID) {
+		// Most waits need to keep track of waiting threads, delays don't.  Use a fake list.
+		std::vector<SceUID> dummy;
+		HLEKernel::WaitBeginCallback(threadID, prevCallbackId, eventScheduledWakeup, dummy, pausedDelays, true);
+		DEBUG_LOG(HLE, "sceKernelDelayThreadCB: Suspending delay for callback");
+	}
+	else
+		WARN_LOG_REPORT(HLE, "sceKernelDelayThreadCB: beginning callback with bad wait?");
+}
+
+void __KernelDelayEndCallback(SceUID threadID, SceUID prevCallbackId) {
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	if (pausedDelays.find(pauseKey) == pausedDelays.end())
+	{
+		// This probably should not happen.
+		WARN_LOG_REPORT(HLE, "sceKernelDelayThreadCB: cannot find delay deadline");
+		__KernelResumeThreadFromWait(threadID, 0);
+		return;
+	}
+
+	u64 delayDeadline = pausedDelays[pauseKey];
+	pausedDelays.erase(pauseKey);
+
+	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
+
+	s64 cyclesLeft = delayDeadline - CoreTiming::GetTicks();
+	if (cyclesLeft < 0)
+		__KernelResumeThreadFromWait(threadID, 0);
+	else
+	{
+		CoreTiming::ScheduleEvent(cyclesLeft, eventScheduledWakeup, __KernelGetCurThread());
+		DEBUG_LOG(HLE, "sceKernelDelayThreadCB: Resuming delay after callback");
+	}
+}
+
+void __KernelSleepBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+	DEBUG_LOG(HLE, "sceKernelSleepThreadCB: Suspending sleep for callback");
+}
+
+void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
+	u32 error;
+	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
+	if (!thread)
+	{
+		// This probably should not happen.
+		WARN_LOG_REPORT(HLE, "sceKernelSleepThreadCB: thread deleted?");
+		return;
+	}
+
+	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
+
+	if (thread->nt.wakeupCount > 0) {
+		thread->nt.wakeupCount--;
+		DEBUG_LOG(HLE, "sceKernelSleepThreadCB: resume from callback, wakeupCount decremented to %i", thread->nt.wakeupCount);
+		__KernelResumeThreadFromWait(threadID, 0);
+	} else {
+		DEBUG_LOG(HLE, "sceKernelDelayThreadCB: Resuming sleep after callback");
+	}
 }
 
 u32 __KernelSetThreadRA(SceUID threadID, u32 nid)
@@ -998,6 +1081,9 @@ void __KernelThreadingInit()
 
 	__KernelListenThreadEnd(__KernelCancelWakeup);
 	__KernelListenThreadEnd(__KernelCancelThreadEndTimeout);
+
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_DELAY, __KernelDelayBeginCallback, __KernelDelayEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_SLEEP, __KernelSleepBeginCallback, __KernelSleepEndCallback);
 }
 
 void __KernelThreadingDoState(PointerWrap &p)
@@ -1028,6 +1114,8 @@ void __KernelThreadingDoState(PointerWrap &p)
 	__KernelRestoreActionType(actionAfterMipsCall, ActionAfterMipsCall::Create);
 	p.Do(actionAfterCallback);
 	__KernelRestoreActionType(actionAfterCallback, ActionAfterCallback::Create);
+
+	p.Do(pausedDelays);
 
 	hleCurrentThreadName = __KernelGetThreadName(currentThread);
 	lastSwitchCycles = CoreTiming::GetTicks();
@@ -1214,6 +1302,7 @@ void __KernelThreadingShutdown()
 	currentThread = 0;
 	intReturnHackAddr = 0;
 	hleCurrentThreadName = NULL;
+	pausedDelays.clear();
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
@@ -1347,16 +1436,20 @@ u32 sceKernelReferThreadRunStatus(u32 threadID, u32 statusPtr)
 	if (!Memory::IsValidAddress(statusPtr))
 		return -1;
 
-	Memory::Write_U32(t->nt.status, statusPtr);
-	Memory::Write_U32(t->nt.currentPriority, statusPtr + 4);
-	Memory::Write_U32(t->nt.waitType, statusPtr + 8);
-	Memory::Write_U32(t->nt.waitID, statusPtr + 12);
-	Memory::Write_U32(t->nt.wakeupCount, statusPtr + 16);
-	Memory::Write_U32(t->nt.runForClocks.lo, statusPtr + 20);
-	Memory::Write_U32(t->nt.runForClocks.hi, statusPtr + 24);
-	Memory::Write_U32(t->nt.numInterruptPreempts, statusPtr + 28);
-	Memory::Write_U32(t->nt.numThreadPreempts, statusPtr + 32);
-	Memory::Write_U32(t->nt.numReleases, statusPtr + 36);
+	PSPPointer<SceKernelThreadRunStatus> runStatus;
+	runStatus = statusPtr;
+
+	// TODO: Check size?
+	runStatus->size = sizeof(SceKernelThreadRunStatus);
+	runStatus->status = t->nt.status;
+	runStatus->currentPriority = t->nt.currentPriority;
+	runStatus->waitType = t->nt.waitType;
+	runStatus->waitID = t->nt.waitID;
+	runStatus->wakeupCount = t->nt.wakeupCount;
+	runStatus->runForClocks = t->nt.runForClocks;
+	runStatus->numInterruptPreempts = t->nt.numInterruptPreempts;
+	runStatus->numThreadPreempts = t->nt.numThreadPreempts;
+	runStatus->numReleases = t->nt.numReleases;
 
 	return 0;
 }
@@ -2473,6 +2566,12 @@ bool __KernelThreadSortPriority(SceUID thread1, SceUID thread2)
 //////////////////////////////////////////////////////////////////////////
 int sceKernelWakeupThread(SceUID uid)
 {
+	if (uid == currentThread)
+	{
+		WARN_LOG_REPORT(HLE, "sceKernelWakeupThread(%i): unable to wakeup current thread", uid);
+		return SCE_KERNEL_ERROR_ILLEGAL_THID;
+	}
+
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(uid, error);
 	if (t)
@@ -3261,7 +3360,7 @@ void __KernelReturnFromMipsCall()
 	if (cur->nt.waitType != WAITTYPE_NONE)
 	{
 		if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL && call->cbId > 0)
-			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId, currentMIPS->r[MIPS_REG_V0]);
+			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
 	}
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?

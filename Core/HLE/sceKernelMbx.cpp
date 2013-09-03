@@ -15,13 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceKernelMbx.h"
-#include "HLE.h"
+#include <map>
+#include <vector>
+#include "Common/ChunkFile.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelMbx.h"
+#include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
-#include "ChunkFile.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 #define SCE_KERNEL_MBA_THPRI 0x100
 #define SCE_KERNEL_MBA_MSPRI 0x400
@@ -31,8 +34,9 @@ const int PSP_MBX_ERROR_DUPLICATE_MSG = 0x800201C9;
 
 struct MbxWaitingThread
 {
-	SceUID first;
-	u32 second;
+	SceUID threadID;
+	u32 packetAddr;
+	u64 pausedTimeout;
 };
 void __KernelMbxTimeout(u64 userdata, int cyclesLate);
 
@@ -63,7 +67,7 @@ struct Mbx : public KernelObject
 		{
 			for (std::vector<MbxWaitingThread>::iterator it = waitingThreads.begin(); it != waitingThreads.end(); it++)
 			{
-				if (__KernelGetThreadPrio(id) < __KernelGetThreadPrio((*it).first))
+				if (__KernelGetThreadPrio(id) < __KernelGetThreadPrio(it->threadID))
 				{
 					MbxWaitingThread waiting = {id, addr};
 					waitingThreads.insert(it, waiting);
@@ -169,17 +173,24 @@ struct Mbx : public KernelObject
 		p.Do(nmb);
 		MbxWaitingThread mwt = {0};
 		p.Do(waitingThreads, mwt);
+		p.Do(pausedWaits);
 		p.DoMarker("Mbx");
 	}
 
 	NativeMbx nmb;
 
 	std::vector<MbxWaitingThread> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, MbxWaitingThread> pausedWaits;
 };
+
+void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId);
+void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMbxInit()
 {
 	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", __KernelMbxTimeout);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_MBX, __KernelMbxBeginCallback, __KernelMbxEndCallback);
 }
 
 void __KernelMbxDoState(PointerWrap &p)
@@ -196,8 +207,8 @@ KernelObject *__KernelMbxObject()
 
 bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
 {
-	SceUID waitID = __KernelGetWaitID(th.first, WAITTYPE_MBX, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.first, error);
+	SceUID waitID = __KernelGetWaitID(th.threadID, WAITTYPE_MBX, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
 
 	// The waitID may be different after a timeout.
 	if (waitID != m->GetUID())
@@ -206,13 +217,41 @@ bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int re
 	if (timeoutPtr != 0 && mbxWaitTimer != -1)
 	{
 		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.first);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, th.threadID);
 		Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 	}
 
-	__KernelResumeThreadFromWait(th.first, result);
+	__KernelResumeThreadFromWait(th.threadID, result);
 	wokeThreads = true;
 	return true;
+}
+
+bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, u32 &error, int result, bool &wokeThreads)
+{
+	if (m->nmb.numMessages > 0 && __KernelUnlockMbxForThread(m, waitData, error, 0, wokeThreads))
+	{
+		m->ReceiveMessage(waitData.packetAddr);
+		return true;
+	}
+	return false;
+}
+
+void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
+	if (result == HLEKernel::WAIT_CB_SUCCESS)
+		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB: Suspending mbx wait for callback")
+	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
+		ERROR_LOG_REPORT(HLE, "sceKernelReceiveMbxCB: wait not found to pause for callback")
+	else
+		WARN_LOG_REPORT(HLE, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
+}
+
+void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer, __KernelUnlockMbxForThreadCheck);
+	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
+		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
 
 void __KernelMbxTimeout(u64 userdata, int cyclesLate)
@@ -260,7 +299,7 @@ void __KernelMbxRemoveThread(Mbx *m, SceUID threadID)
 	for (size_t i = 0; i < m->waitingThreads.size(); i++)
 	{
 		MbxWaitingThread *t = &m->waitingThreads[i];
-		if (t->first == threadID)
+		if (t->threadID == threadID)
 		{
 			m->waitingThreads.erase(m->waitingThreads.begin() + i);
 			break;
@@ -276,7 +315,7 @@ std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxW
 	u32 best_prio = 0xFFFFFFFF;
 	for (iter = waiting.begin(), end = waiting.end(); iter != end; ++iter)
 	{
-		u32 iter_prio = __KernelGetThreadPrio(iter->first);
+		u32 iter_prio = __KernelGetThreadPrio(iter->threadID);
 		if (iter_prio < best_prio)
 		{
 			best = iter;
@@ -386,8 +425,8 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 
 			if (wokeThreads)
 			{
-				DEBUG_LOG(HLE, "sceKernelSendMbx(%i, %08x): threads waiting, resuming %d", id, packetAddr, t.first);
-				Memory::Write_U32(packetAddr, t.second);
+				DEBUG_LOG(HLE, "sceKernelSendMbx(%i, %08x): threads waiting, resuming %d", id, packetAddr, t.threadID);
+				Memory::Write_U32(packetAddr, t.packetAddr);
 				hleReSchedule("mbx sent");
 
 				// We don't need to do anything else, finish here.
@@ -563,6 +602,14 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr)
 
 	for (int i = 0, n = m->nmb.numMessages; i < n; ++i)
 		m->nmb.packetListHead = Memory::Read_U32(m->nmb.packetListHead);
+
+	for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
+	{
+		SceUID waitID = __KernelGetWaitID(iter->threadID, WAITTYPE_MBX, error);
+		// The thread is no longer waiting for this, clean it up.
+		if (waitID != id)
+			m->waitingThreads.erase(iter--);
+	}
 
 	// For whatever reason, it won't write if the size (first member) is 0.
 	if (Memory::Read_U32(infoAddr) != 0)

@@ -801,6 +801,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/HLE.h
 	Core/HLE/HLETables.cpp
 	Core/HLE/HLETables.h
+	Core/HLE/KernelWaitHelpers.h
 	Core/HLE/__sceAudio.cpp
 	Core/HLE/__sceAudio.h
 	Core/HLE/sceAtrac.cpp

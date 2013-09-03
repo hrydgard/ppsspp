@@ -17,6 +17,8 @@
 
 #include <algorithm>
 #include <string>
+#include <vector>
+#include <map>
 #include "Core/HLE/HLE.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
@@ -28,6 +30,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 const int TLS_NUM_INDEXES = 16;
 
@@ -53,6 +56,7 @@ struct FplWaitingThread
 {
 	SceUID threadID;
 	u32 addrPtr;
+	u64 pausedTimeout;
 };
 
 struct NativeFPL
@@ -118,6 +122,7 @@ struct FPL : public KernelObject
 		p.Do(nextBlock);
 		FplWaitingThread dv = {0};
 		p.Do(waitingThreads, dv);
+		p.Do(pausedWaits);
 		p.DoMarker("FPL");
 	}
 
@@ -127,12 +132,15 @@ struct FPL : public KernelObject
 	int alignedSize;
 	int nextBlock;
 	std::vector<FplWaitingThread> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, FplWaitingThread> pausedWaits;
 };
 
 struct VplWaitingThread
 {
 	SceUID threadID;
 	u32 addrPtr;
+	u64 pausedTimeout;
 };
 
 struct SceKernelVplInfo
@@ -162,17 +170,25 @@ struct VPL : public KernelObject
 		VplWaitingThread dv = {0};
 		p.Do(waitingThreads, dv);
 		alloc.DoState(p);
+		p.Do(pausedWaits);
 		p.DoMarker("VPL");
 	}
 
 	SceKernelVplInfo nv;
 	u32 address;
 	std::vector<VplWaitingThread> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, VplWaitingThread> pausedWaits;
 	BlockAllocator alloc;
 };
 
 void __KernelVplTimeout(u64 userdata, int cyclesLate);
 void __KernelFplTimeout(u64 userdata, int cyclesLate);
+
+void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId);
+void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId);
+void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId);
+void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMemoryInit()
 {
@@ -187,6 +203,9 @@ void __KernelMemoryInit()
 	sdkVersion_ = 0;
 	compilerVersion_ = 0;
 	memset(tlsUsedIndexes, 0, sizeof(tlsUsedIndexes));
+
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_VPL, __KernelVplBeginCallback, __KernelVplEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_FPL, __KernelFplBeginCallback, __KernelFplEndCallback);
 }
 
 void __KernelMemoryDoState(PointerWrap &p)
@@ -256,6 +275,24 @@ bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u32 &err
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
 	return true;
+}
+
+void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	auto result = HLEKernel::WaitBeginCallback<FPL, WAITTYPE_FPL, FplWaitingThread>(threadID, prevCallbackId, fplWaitTimer);
+	if (result == HLEKernel::WAIT_CB_SUCCESS)
+		DEBUG_LOG(HLE, "sceKernelAllocateFplCB: Suspending fpl wait for callback")
+	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
+		ERROR_LOG_REPORT(HLE, "sceKernelAllocateFplCB: wait not found to pause for callback")
+	else
+		WARN_LOG_REPORT(HLE, "sceKernelAllocateFplCB: beginning callback with bad wait id?");
+}
+
+void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	auto result = HLEKernel::WaitEndCallback<FPL, WAITTYPE_FPL, FplWaitingThread>(threadID, prevCallbackId, fplWaitTimer, __KernelUnlockFplForThread);
+	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
+		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
 
 void __KernelFplRemoveThread(FPL *fpl, SceUID threadID)
@@ -1145,6 +1182,24 @@ bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &err
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
 	return true;
+}
+
+void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	auto result = HLEKernel::WaitBeginCallback<VPL, WAITTYPE_VPL, VplWaitingThread>(threadID, prevCallbackId, vplWaitTimer);
+	if (result == HLEKernel::WAIT_CB_SUCCESS)
+		DEBUG_LOG(HLE, "sceKernelAllocateVplCB: Suspending vpl wait for callback")
+	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
+		ERROR_LOG_REPORT(HLE, "sceKernelAllocateVplCB: wait not found to pause for callback")
+	else
+		WARN_LOG_REPORT(HLE, "sceKernelAllocateVplCB: beginning callback with bad wait id?");
+}
+
+void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	auto result = HLEKernel::WaitEndCallback<VPL, WAITTYPE_VPL, VplWaitingThread>(threadID, prevCallbackId, vplWaitTimer, __KernelUnlockVplForThread);
+	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
+		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
 
 void __KernelVplRemoveThread(VPL *vpl, SceUID threadID)

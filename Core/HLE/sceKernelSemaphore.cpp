@@ -24,6 +24,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelSemaphore.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 #define PSP_SEMA_ATTR_FIFO 0
 #define PSP_SEMA_ATTR_PRIORITY 0x100
@@ -65,20 +66,20 @@ struct Semaphore : public KernelObject
 		p.Do(ns);
 		SceUID dv = 0;
 		p.Do(waitingThreads, dv);
-		p.Do(pausedWaitTimeouts);
+		p.Do(pausedWaits);
 		p.DoMarker("Semaphore");
 	}
 
 	NativeSemaphore ns;
 	std::vector<SceUID> waitingThreads;
 	// Key is the callback id it was for, or if no callback, the thread id.
-	std::map<SceUID, u64> pausedWaitTimeouts;
+	std::map<SceUID, u64> pausedWaits;
 };
 
 static int semaWaitTimer = -1;
 
 void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId);
-void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue);
+void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelSemaInit()
 {
@@ -134,86 +135,18 @@ bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int 
 
 void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
-
-	u32 error;
-	SceUID semaID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	Semaphore *s = semaID == 0 ? NULL : kernelObjects.Get<Semaphore>(semaID, error);
-	if (s)
-	{
-		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
-		// TODO: Handle this better?
-		if (s->pausedWaitTimeouts.find(pauseKey) != s->pausedWaitTimeouts.end())
-			return;
-
-		if (timeoutPtr != 0 && semaWaitTimer != -1)
-		{
-			s64 cyclesLeft = CoreTiming::UnscheduleEvent(semaWaitTimer, threadID);
-			s->pausedWaitTimeouts[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
-		}
-		else
-			s->pausedWaitTimeouts[pauseKey] = 0;
-
-		// TODO: Hmm, what about priority/fifo order?  Does it lose its place in line?
-		s->waitingThreads.erase(std::remove(s->waitingThreads.begin(), s->waitingThreads.end(), threadID), s->waitingThreads.end());
-
-		DEBUG_LOG(HLE, "sceKernelWaitSemaCB: Suspending sema wait for callback");
-	}
+	auto result = HLEKernel::WaitBeginCallback<Semaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId, semaWaitTimer);
+	if (result == HLEKernel::WAIT_CB_SUCCESS)
+		DEBUG_LOG(HLE, "sceKernelWaitSemaCB: Suspending sema wait for callback")
 	else
 		WARN_LOG_REPORT(HLE, "sceKernelWaitSemaCB: beginning callback with bad wait id?");
 }
 
-void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId, u32 &returnValue)
+void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
-
-	// Note: Cancel does not affect suspended semaphore waits.
-
-	u32 error;
-	SceUID semaID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	Semaphore *s = semaID == 0 ? NULL : kernelObjects.Get<Semaphore>(semaID, error);
-	if (!s || s->pausedWaitTimeouts.find(pauseKey) == s->pausedWaitTimeouts.end())
-	{
-		// TODO: Since it was deleted, we don't know how long was actually left.
-		// For now, we just say the full time was taken.
-		if (timeoutPtr != 0 && semaWaitTimer != -1)
-			Memory::Write_U32(0, timeoutPtr);
-
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
-		return;
-	}
-
-	u64 waitDeadline = s->pausedWaitTimeouts[pauseKey];
-	s->pausedWaitTimeouts.erase(pauseKey);
-
-	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
-
-	bool wokeThreads;
-	// Attempt to unlock.
-	if (__KernelUnlockSemaForThread(s, threadID, error, 0, wokeThreads))
-		return;
-
-	// We only check if it timed out if it couldn't unlock.
-	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
-	if (cyclesLeft < 0 && waitDeadline != 0)
-	{
-		if (timeoutPtr != 0 && semaWaitTimer != -1)
-			Memory::Write_U32(0, timeoutPtr);
-
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	}
-	else
-	{
-		if (timeoutPtr != 0 && semaWaitTimer != -1)
-			CoreTiming::ScheduleEvent(cyclesLeft, semaWaitTimer, __KernelGetCurThread());
-
-		// TODO: Should this not go at the end?
-		s->waitingThreads.push_back(threadID);
-
+	auto result = HLEKernel::WaitEndCallback<Semaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId, semaWaitTimer, __KernelUnlockSemaForThread);
+	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(HLE, "sceKernelWaitSemaCB: Resuming sema wait for callback");
-	}
 }
 
 // Resume all waiting threads (for delete / cancel.)
