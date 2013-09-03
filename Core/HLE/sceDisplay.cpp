@@ -70,6 +70,8 @@ static int afterFlipEvent = -1;
 
 // hCount is computed now.
 static int vCount;
+// The "AccumulatedHcount" can be adjusted, this is the base.
+static double hCountBase;
 static int isVblank;
 static int numSkippedFrames;
 static bool hasSetMode;
@@ -146,6 +148,7 @@ void __DisplayInit() {
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
 	isVblank = 0;
 	vCount = 0;
+	hCountBase = 0.0;
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
 
@@ -167,6 +170,7 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(framebufIsLatched);
 	p.Do(frameStartTicks);
 	p.Do(vCount);
+	p.Do(hCountBase);
 	p.Do(isVblank);
 	p.Do(hasSetMode);
 	p.Do(mode);
@@ -409,7 +413,12 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	DEBUG_LOG(HLE, "Enter VBlank %i", vbCount);
 
 	isVblank = 1;
-	vCount++; // // vCount increases at each VBLANK.
+	vCount++; // vCount increases at each VBLANK.
+	hCountBase += hCountPerVblank; // This is the "accumulated" hcount base.
+	if (hCountBase > 0x7FFFFFFF) {
+		hCountBase -= 0x80000000;
+	}
+	frameStartTicks = CoreTiming::GetTicks();
 
 	// Fire the vblank listeners before we wake threads.
 	__DisplayFireVblank();
@@ -492,7 +501,6 @@ void hleAfterFlip(u64 userdata, int cyclesLate)
 void hleLeaveVblank(u64 userdata, int cyclesLate) {
 	isVblank = 0;
 	DEBUG_LOG(HLE,"Leave VBlank %i", (int)userdata - 1);
-	frameStartTicks = CoreTiming::GetTicks();
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs) - cyclesLate, enterVblankEvent, userdata);
 }
 
@@ -677,22 +685,44 @@ u32 sceDisplayGetVcount() {
 	return vCount;
 }
 
+u32 __DisplayGetCurrentHcount() {
+	const static int ticksPerVblank333 = 333 * 1000000 / 60 / hCountPerVblank;
+	const int ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
+	// Can't seem to produce a 0 on real hardware, offsetting by 1 makes things look right.
+	return 1 + (ticksIntoFrame / (CoreTiming::GetClockFrequencyMHz() * ticksPerVblank333 / 333));
+}
+
+u32 __DisplayGetAccumulatedHcount() {
+	// The hCount is always a positive int, and wraps from 0x7FFFFFFF -> 0.
+	int value = hCountBase + __DisplayGetCurrentHcount();
+	return value & 0x7FFFFFFF;
+}
+
 u32 sceDisplayGetCurrentHcount() {
-	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
-	DEBUG_LOG(HLE,"%i=sceDisplayGetCurrentHcount()", currentHCount);
+	u32 currentHCount = __DisplayGetCurrentHcount();
+	DEBUG_LOG(HLE, "%i=sceDisplayGetCurrentHcount()", currentHCount);
 	hleEatCycles(275);
 	return currentHCount;
 }
 
-u32 sceDisplayAdjustAccumulatedHcount() {
-	ERROR_LOG_REPORT(HLE,"UNIMPL sceDisplayAdjustAccumulatedHcount()");
+int sceDisplayAdjustAccumulatedHcount(int value) {
+	if (value < 0) {
+		ERROR_LOG_REPORT(HLE, "sceDisplayAdjustAccumulatedHcount(%d): invalid value", value);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+
+	// Since it includes the current hCount, find the difference to apply to the base.
+	u32 accumHCount = __DisplayGetAccumulatedHcount();
+	int diff = value - accumHCount;
+	hCountBase += diff;
+
+	DEBUG_LOG(HLE, "sceDisplayAdjustAccumulatedHcount(%d)", value);
 	return 0;
 }
 
-u32 sceDisplayGetAccumulatedHcount() {
-	u32 currentHCount = (CoreTiming::GetTicks() - frameStartTicks) / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank);
-	u32 accumHCount = currentHCount + (u32) (vCount * hCountPerVblank);
-	DEBUG_LOG(HLE,"%i=sceDisplayGetAccumulatedHcount()", accumHCount);
+int sceDisplayGetAccumulatedHcount() {
+	u32 accumHCount = __DisplayGetAccumulatedHcount();
+	DEBUG_LOG(HLE, "%lld=sceDisplayGetAccumulatedHcount()", accumHCount);
 	hleEatCycles(235);
 	return accumHCount;
 }
@@ -763,8 +793,8 @@ const HLEFunction sceDisplay[] = {
 	{0x77ed8b3a,WrapU_I<sceDisplayWaitVblankStartMultiCB>,"sceDisplayWaitVblankStartMultiCB"},
 	{0xdba6c4c4,WrapF_V<sceDisplayGetFramePerSec>,"sceDisplayGetFramePerSec"},
 	{0x773dd3a3,WrapU_V<sceDisplayGetCurrentHcount>,"sceDisplayGetCurrentHcount"},
-	{0x210eab3a,WrapU_V<sceDisplayGetAccumulatedHcount>,"sceDisplayGetAccumulatedHcount"},
-	{0xA83EF139,WrapU_V<sceDisplayAdjustAccumulatedHcount>,"sceDisplayAdjustAccumulatedHcount"},
+	{0x210eab3a,WrapI_V<sceDisplayGetAccumulatedHcount>,"sceDisplayGetAccumulatedHcount"},
+	{0xA83EF139,WrapI_I<sceDisplayAdjustAccumulatedHcount>,"sceDisplayAdjustAccumulatedHcount"},
 	{0x9C6EAAD7,WrapU_V<sceDisplayGetVcount>,"sceDisplayGetVcount"},
 	{0xDEA197D4,WrapU_UUU<sceDisplayGetMode>,"sceDisplayGetMode"},
 	{0x7ED59BC4,WrapU_U<sceDisplaySetHoldMode>,"sceDisplaySetHoldMode"},
