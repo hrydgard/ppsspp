@@ -1177,10 +1177,12 @@ namespace MainWindow
 					break;
 
 				case ID_DEBUG_DISASSEMBLY:
+					EnableWindow(disasmWindow[0]->GetDlgHandle(),TRUE);
 					disasmWindow[0]->Show(true);
 					break;
 
 				case ID_DEBUG_MEMORYVIEW:
+					EnableWindow(memoryWindow[0]->GetDlgHandle(),TRUE);
 					memoryWindow[0]->Show(true);
 					break;
 
