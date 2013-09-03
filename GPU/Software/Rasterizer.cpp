@@ -104,15 +104,15 @@ static inline void GetTexelCoordinates(int level, float s, float t, unsigned int
 		if (s > 1.0) s = 1.0;
 		if (s < 0) s = 0;
 	} else {
-		// TODO: Does this work for negative coords?
-		s = fmod(s, 1.0f);
+		// Subtracting floor works for negative and positive to discard the non-fractional part.
+		s -= floor(s);
 	}
 	if (gstate.isTexCoordClampedT()) {
 		if (t > 1.0) t = 1.0;
 		if (t < 0.0) t = 0.0;
 	} else {
-		// TODO: Does this work for negative coords?
-		t = fmod(t, 1.0f);
+		// Subtracting floor works for negative and positive to discard the non-fractional part.
+		t -= floor(t);
 	}
 
 	int width = 1 << (gstate.texsize[level] & 0xf);
