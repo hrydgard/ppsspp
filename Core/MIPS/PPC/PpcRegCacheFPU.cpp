@@ -167,10 +167,10 @@ void PpcRegCacheFPU::MapRegV(int vreg, int flags) {
 
 void PpcRegCacheFPU::LoadToRegV(PPCReg ppcReg, int vreg) {
 	if (vr[vreg].loc == ML_PPCREG) {
-		emit_->MR(ppcReg, (PPCReg)(FPR0 + vr[vreg].reg));
+		emit_->FMR(ppcReg, (PPCReg)(FPR0 + vr[vreg].reg));
 	} else {
 		MapRegV(vreg);
-		emit_->MR(ppcReg, V(vreg));
+		emit_->FMR(ppcReg, V(vreg));
 	}
 }
 

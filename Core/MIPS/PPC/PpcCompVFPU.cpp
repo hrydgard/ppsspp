@@ -278,8 +278,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VPFX(MIPSOpcode op) {
-		DISABLE
-
 		CONDITIONAL_DISABLE;
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;
@@ -478,7 +476,7 @@ namespace MIPSComp
 				}
 				break;
 			case 27: //VFPU3				
-				DISABLE
+				// DISABLE
 		
 				switch ((op >> 23) & 7)	{
 				case 2:  // vmin
@@ -488,10 +486,18 @@ namespace MIPSComp
 					FMAX(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
 					break;
 				case 6:  // vsge
-					DISABLE;  // pending testing
+					// DISABLE;  // pending testing
+					MOVI2F(FPR6, 1.0f);
+					MOVI2F(FPR7, 0.0f);
+					FSUBS(FPR8, fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FSEL(fpr.V(tempregs[i]), FPR8, FPR6, FPR7);
 					break;
 				case 7:  // vslt
-					DISABLE;  // pending testing
+					// DISABLE;  // pending testing
+					MOVI2F(FPR6, 1.0f);
+					MOVI2F(FPR7, 0.0f);
+					FSUBS(FPR8, fpr.V(sregs[i]), fpr.V(tregs[i]));
+					FSEL(fpr.V(tempregs[i]), FPR8, FPR7, FPR6);
 					break;
 				}
 				break;
@@ -701,8 +707,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmtvc(MIPSOpcode op) {
-		DISABLE
-
 		CONDITIONAL_DISABLE;
 
 		int vs = _VS;
@@ -767,8 +771,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_VScl(MIPSOpcode op) {
-		DISABLE
-
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
@@ -818,8 +820,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vmmul(MIPSOpcode op) {
-		DISABLE
-
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?
@@ -868,8 +868,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vtfm(MIPSOpcode op) {
-		DISABLE
-
 		CONDITIONAL_DISABLE;
 
 		// TODO: This probably ignores prefixes?  Or maybe uses D?
@@ -958,8 +956,6 @@ namespace MIPSComp
 	}
 
 	void Jit::Comp_Vcst(MIPSOpcode op) {
-		DISABLE
-
 		CONDITIONAL_DISABLE;
 
 		if (js.HasUnknownPrefix() || disablePrefixes) {
