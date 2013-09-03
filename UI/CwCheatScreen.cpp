@@ -67,7 +67,7 @@ void CwCheatScreen::CreateViews() {
 	I18NCategory *d = GetI18NCategory("Dialog");
 	formattedList = CreateCodeList();
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-	Margins actionMenuMargins(50, 100, 100, 50);
+	Margins actionMenuMargins(50, -15, 15, 0);
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
 	leftColumn->Add(new ItemHeader(k->T("Options")));
