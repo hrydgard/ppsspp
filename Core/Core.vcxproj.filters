@@ -891,6 +891,9 @@
     <ClInclude Include="MIPS\PPC\PpcRegCache.h">
       <Filter>MIPS\PPC</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\KernelWaitHelpers.h">
+      <Filter>HLE\Kernel</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />
