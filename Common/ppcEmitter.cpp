@@ -541,6 +541,31 @@ namespace PpcGen {
 		Break();
 		D_FORM(54, FRt, Ra, offset);
 	}
+
+	
+	void PPCXEmitter::MOVI2F	(PPCReg dest, float imm, bool negate) {
+		u32 tmp;
+
+		union convert { 
+			unsigned int i; 
+			float f; 
+		} fc;
+
+		fc.f = imm;
+
+		MOVI2R(R6, fc.i);
+
+		// R7 = imm
+		MOVI2R(R7, (u32)&tmp);
+		STW(R6, R7);
+
+		// dest = R7
+		LFS(dest, R7, 0);
+
+		if (negate == true) {
+			FNEG(dest, dest);
+		}
+	}
 	
 	void PPCXEmitter::SaveFloatSwap(PPCReg FRt, PPCReg Base, PPCReg offset) {
 		// used for swapping float ...
@@ -637,15 +662,32 @@ namespace PpcGen {
 
 	// Fpu mul add
 	void PPCXEmitter::FMADD	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {
-		Break();
+		A_FORM(63, FRt, FRa, FRb, FRc, 29, 0);
 	}
 	void PPCXEmitter::FMSUB	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {
-		Break();
+		A_FORM(63, FRt, FRa, FRb, FRc, 28, 0);
 	}
 	void PPCXEmitter::FMADDS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {
-		Break();
+		A_FORM(59, FRt, FRa, FRb, FRc, 29, 0);
 	}
 	void PPCXEmitter::FMSUBS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {
+		A_FORM(59, FRt, FRa, FRb, FRc, 28, 0);
+	}
+
+	// Fpu sel
+	void PPCXEmitter::FSEL	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb) {		
+		A_FORM(63, FRt, FRa, FRb, FRc, 23, 0);
+	}
+	void PPCXEmitter::FMIN	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		PPCReg safe = FPR3; // hope it's safe !!
+		FSUBS(safe, FRa, FRb);
+		FSEL(FRt, safe, FRa, FRb);
+		Break();
+	}
+	void PPCXEmitter::FMAX	(PPCReg FRt, PPCReg FRa, PPCReg FRb) {
+		PPCReg safe = FPR3; // hope it's safe !!
+		FSUBS(safe, FRa, FRb);
+		FSEL(FRt, safe, FRb, FRa);
 		Break();
 	}
 

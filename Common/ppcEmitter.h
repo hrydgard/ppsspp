@@ -82,12 +82,26 @@ namespace PpcGen
 
 
 		// Vmx (128)
-		VR0 = 0, 
-		// Used to pass vector function parameters and return values 
-		VR1,	VR2,	VR3,	VR4,	
-		VR5,	VR6,	VR7,	VR8,	
-		VR9,	VR10,	VR11,	VR12,	
-		VR13, // ...
+		VR0 = 0, VR1,	VR2,	VR3,	VR4,	
+		VR5,	VR6,	VR7,	VR8,	VR9,	
+		VR10,	VR11,	VR12,	VR13,	VR14,	
+		VR15,	VR16,	VR17, 	VR18,	VR19,	
+		VR20,	VR21,	VR22,	VR23,	VR24,	
+		VR25,	VR26,	VR27, 	VR28,	VR29,	
+		VR30,	VR31,	VR32,	VR33,	VR34,	
+		VR35,	VR36,	VR37, 	VR38,	VR39,	
+		VR40,	VR41,	VR42,	VR43,	VR44,	
+		VR45,	VR46,	VR47, 	VR48,	VR49,	
+		VR50,	VR51,	VR52,	VR53,	VR54,	
+		VR55,	VR56,	VR57, 	VR58,	VR59,	
+		VR60,	VR61,	VR62,	VR63,	VR64,	
+		VR65,	VR66,	VR67, 	VR68,	VR69,	
+		VR70,	VR71,	VR72,	VR73,	VR74,	
+		VR75,	VR76,	VR77, 	VR78,	VR79,	
+		VR80,	VR81,	VR82,	VR83,	VR84,	
+		VR85,	VR86,	VR87, 	VR88,	VR89,			
+		VR90,	VR91,	VR92,	VR93,	VR94,	
+		VR95,	VR96,	VR97, 	VR98,	VR99, //...
 
 		// Others regs
 		LR, CTR, XER, FPSCR,
@@ -339,6 +353,8 @@ namespace PpcGen
 		void SFD	(PPCReg FRt, PPCReg Ra, unsigned short offset = 0);
 		void SaveFloatSwap(PPCReg FRt, PPCReg Ra, PPCReg offset);
 		void LoadFloatSwap(PPCReg FRt, PPCReg Ra, PPCReg offset);
+		// dest = LIS(imm) + ORI(+imm)
+		void MOVI2F	(PPCReg dest, float imm, bool negate = false);
 
 		// Fpu move instruction
 		void FMR	(PPCReg FRt, PPCReg FRb);
@@ -363,11 +379,40 @@ namespace PpcGen
 		void FRE	(PPCReg FRt, PPCReg FRb);
 		void FRES	(PPCReg FRt, PPCReg FRb);
 
+		// FSEL ...
+		void FSEL	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
+		void FMIN	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+		void FMAX	(PPCReg FRt, PPCReg FRa, PPCReg FRb);
+
 		// Fpu mul add
 		void FMADD	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
 		void FMSUB	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
 		void FMADDS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
 		void FMSUBS	(PPCReg FRt, PPCReg FRa, PPCReg FRc, PPCReg FRb);
+
+
+		// VPU - lvx128
+		void LoadVector(PPCReg Rd, PPCReg Ra, PPCReg Rb);
+		void SaveVector(PPCReg Rd, PPCReg Ra, PPCReg Rb);
+		void LoadVectorSwap(PPCReg Rd, PPCReg Ra, PPCReg Rb);
+		void SaveVectorSwap(PPCReg Rd, PPCReg Ra, PPCReg Rb);
+				
+		void MOVI2V	(PPCReg dest, float imm);
+
+		void VADDFP		(PPCReg Rd, PPCReg Ra); 			// Vector Add Floating Point  
+		void VMADDFP	(PPCReg Rd, PPCReg Ra, PPCReg Rb); 	// Vector Multiply Add Floating Point  
+		void VMAXFP		(PPCReg Rd, PPCReg Ra);  			// Vector Maximum Floating Point  
+		void VMINFP		(PPCReg Rd, PPCReg Ra);  			// Vector Minimum Floating Point  
+		void VMSUM3FP	(PPCReg Rd, PPCReg Ra);  			// 3-operand Dot Product  
+		void VMSUM4FP	(PPCReg Rd, PPCReg Ra);  			// 4-operand Dot Product  
+		void VMULFP		(PPCReg Rd, PPCReg Ra);  			// Vector Multiply Floating Point  
+		void VNMSUBFP 	(PPCReg Rd, PPCReg Ra, PPCReg Rb);  // Vector Negate Multiply-Subtract Floating Point  
+		void VSUBFP		(PPCReg Rd, PPCReg Ra);  			// Vector Subtract Floating Point  
+
+		void VCMPBFP	(PPCReg Rd, PPCReg Ra);  // Vector Compare Bounds Floating Point  
+		void VCMPEQFP	(PPCReg Rd, PPCReg Ra);  // Vector Compare Equal-to-Floating Point  
+		void VCMPGEFP	(PPCReg Rd, PPCReg Ra);  // Vector Compare Greater-Than-or-Equal-to Floating Point  
+		void VCMPGTFP	(PPCReg Rd, PPCReg Ra);  // Vector Compare Greater-Than Floating Point  
 
 		
 
