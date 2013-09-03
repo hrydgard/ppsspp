@@ -17,13 +17,14 @@
 
 #include <map>
 #include <vector>
-#include "sceKernel.h"
-#include "sceKernelThread.h"
-#include "sceKernelMbx.h"
-#include "HLE.h"
+#include "Common/ChunkFile.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelMbx.h"
+#include "Core/HLE/HLE.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
-#include "ChunkFile.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 #define SCE_KERNEL_MBA_THPRI 0x100
 #define SCE_KERNEL_MBA_MSPRI 0x400
@@ -225,107 +226,32 @@ bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int re
 	return true;
 }
 
+bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, u32 &error, int result, bool &wokeThreads)
+{
+	if (m->nmb.numMessages > 0 && __KernelUnlockMbxForThread(m, waitData, error, 0, wokeThreads))
+	{
+		m->ReceiveMessage(waitData.packetAddr);
+		return true;
+	}
+	return false;
+}
+
 void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
-
-	u32 error;
-	SceUID mbxID = __KernelGetWaitID(threadID, WAITTYPE_MBX, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	Mbx *m = mbxID == 0 ? NULL : kernelObjects.Get<Mbx>(mbxID, error);
-	if (m)
-	{
-		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
-		// TODO: Handle this better?
-		if (m->pausedWaits.find(pauseKey) != m->pausedWaits.end())
-			return;
-
-		MbxWaitingThread waitData = {0};
-		for (size_t i = 0; i < m->waitingThreads.size(); i++)
-		{
-			MbxWaitingThread *t = &m->waitingThreads[i];
-			if (t->threadID == threadID)
-			{
-				waitData = *t;
-				// TODO: Hmm, what about priority/fifo order?  Does it lose its place in line?
-				m->waitingThreads.erase(m->waitingThreads.begin() + i);
-				break;
-			}
-		}
-
-		if (waitData.threadID != threadID)
-		{
-			ERROR_LOG_REPORT(HLE, "sceKernelReceiveMbxCB: wait not found to pause for callback");
-			return;
-		}
-
-		if (timeoutPtr != 0 && mbxWaitTimer != -1)
-		{
-			s64 cyclesLeft = CoreTiming::UnscheduleEvent(mbxWaitTimer, threadID);
-			waitData.pausedTimeout = CoreTiming::GetTicks() + cyclesLeft;
-		}
-		else
-			waitData.pausedTimeout = 0;
-
-		m->pausedWaits[pauseKey] = waitData;
-		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB: Suspending mbx wait for callback");
-	}
+	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
+	if (result == HLEKernel::WAIT_CB_SUCCESS)
+		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB: Suspending mbx wait for callback")
+	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
+		ERROR_LOG_REPORT(HLE, "sceKernelReceiveMbxCB: wait not found to pause for callback")
 	else
 		WARN_LOG_REPORT(HLE, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
 }
 
 void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
-
-	u32 error;
-	SceUID mbxID = __KernelGetWaitID(threadID, WAITTYPE_MBX, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	Mbx *m = mbxID == 0 ? NULL : kernelObjects.Get<Mbx>(mbxID, error);
-	if (!m || m->pausedWaits.find(pauseKey) == m->pausedWaits.end())
-	{
-		// TODO: Since it was deleted, we don't know how long was actually left.
-		// For now, we just say the full time was taken.
-		if (timeoutPtr != 0 && mbxWaitTimer != -1)
-			Memory::Write_U32(0, timeoutPtr);
-
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
-		return;
-	}
-
-	MbxWaitingThread waitData = m->pausedWaits[pauseKey];
-	u64 waitDeadline = waitData.pausedTimeout;
-	m->pausedWaits.erase(pauseKey);
-
-	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
-
-	bool wokeThreads;
-	// Attempt to unlock.
-	if (m->nmb.numMessages > 0 && __KernelUnlockMbxForThread(m, waitData, error, 0, wokeThreads))
-	{
-		m->ReceiveMessage(waitData.packetAddr);
-		return;
-	}
-
-	// We only check if it timed out if it couldn't receive.
-	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
-	if (cyclesLeft < 0 && waitDeadline != 0)
-	{
-		if (timeoutPtr != 0 && mbxWaitTimer != -1)
-			Memory::Write_U32(0, timeoutPtr);
-
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	}
-	else
-	{
-		if (timeoutPtr != 0 && mbxWaitTimer != -1)
-			CoreTiming::ScheduleEvent(cyclesLeft, mbxWaitTimer, __KernelGetCurThread());
-
-		// TODO: Should this not go at the end?
-		m->waitingThreads.push_back(waitData);
-
+	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_SEMA, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer, __KernelUnlockMbxForThreadCheck);
+	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(HLE, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
-	}
 }
 
 void __KernelMbxTimeout(u64 userdata, int cyclesLate)

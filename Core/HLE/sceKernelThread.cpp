@@ -22,22 +22,23 @@
 
 #include "Common/LogManager.h"
 #include "Common/CommonTypes.h"
-#include "HLE.h"
-#include "HLETables.h"
-#include "../MIPS/MIPSInt.h"
-#include "../MIPS/MIPSCodeUtils.h"
-#include "../MIPS/MIPS.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLETables.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
-#include "ChunkFile.h"
+#include "Common/ChunkFile.h"
 
-#include "sceAudio.h"
-#include "sceKernel.h"
-#include "sceKernelMemory.h"
-#include "sceKernelThread.h"
-#include "sceKernelModule.h"
-#include "sceKernelInterrupt.h"
+#include "Core/HLE/sceAudio.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 typedef struct
 {
@@ -924,14 +925,9 @@ void __KernelDelayBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	u32 error;
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_DELAY, error);
 	if (waitID == threadID) {
-		// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
-		// TODO: Handle this better?
-		if (pausedDelays.find(pauseKey) != pausedDelays.end())
-			return;
-
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventScheduledWakeup, threadID);
-		pausedDelays[pauseKey] = CoreTiming::GetTicks() + cyclesLeft;
-
+		// Most waits need to keep track of waiting threads, delays don't.  Use a fake list.
+		std::vector<SceUID> dummy;
+		HLEKernel::WaitBeginCallback(threadID, prevCallbackId, eventScheduledWakeup, dummy, pausedDelays, true);
 		DEBUG_LOG(HLE, "sceKernelDelayThreadCB: Suspending delay for callback");
 	}
 	else

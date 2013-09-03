@@ -429,6 +429,7 @@
     <ClInclude Include="HLE\FunctionWrappers.h" />
     <ClInclude Include="HLE\HLE.h" />
     <ClInclude Include="HLE\HLETables.h" />
+    <ClInclude Include="HLE\KernelWaitHelpers.h" />
     <ClInclude Include="HLE\sceAtrac.h" />
     <ClInclude Include="HLE\sceAudio.h" />
     <ClInclude Include="HLE\sceAudiocodec.h" />
