@@ -139,6 +139,13 @@ void UIDialogScreenWithBackground::DrawBackground(UIContext &dc) {
 	dc.Flush();
 }
 
+PromptScreen::PromptScreen(std::string message, std::string yesButtonText, std::string noButtonText, std::function<void(bool)> callback)
+	: message_(message), callback_(callback) {
+		I18NCategory *d = GetI18NCategory("Dialog");
+		yesButtonText_ = d->T(yesButtonText.c_str());
+		noButtonText_ = d->T(noButtonText.c_str());
+}
+
 void PromptScreen::CreateViews() {
 	// Information in the top left.
 	// Back button to the bottom left.
