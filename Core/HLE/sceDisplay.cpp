@@ -686,9 +686,10 @@ u32 sceDisplayGetVcount() {
 }
 
 u32 __DisplayGetCurrentHcount() {
-	const u64 ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
+	const static int ticksPerVblank333 = 333 * 1000000 / 60 / hCountPerVblank;
+	const int ticksIntoFrame = CoreTiming::GetTicks() - frameStartTicks;
 	// Can't seem to produce a 0 on real hardware, offsetting by 1 makes things look right.
-	return 1 + (ticksIntoFrame / ((u64)CoreTiming::GetClockFrequencyMHz() * 1000000 / 60 / hCountPerVblank));
+	return 1 + (ticksIntoFrame / (CoreTiming::GetClockFrequencyMHz() * ticksPerVblank333 / 333));
 }
 
 u32 __DisplayGetAccumulatedHcount() {
