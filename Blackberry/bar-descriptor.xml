@@ -27,12 +27,13 @@
     <icon>
         <image>icon-114.png</image>
     </icon>
-
     <splashscreen>icon-114.png</splashscreen>
 
     <env var="LD_LIBRARY_PATH" value="app/native/lib:/usr/lib/qt4/lib/:/accounts/1000/shared/misc/"/>
 
-    <action system="true">run_native</action>
-    <action>access_shared</action>
-    <action>play_audio</action>
+    <permission system="true">run_native</permission>
+    <permission>access_shared</permission>
+    <permission>use_gamepad</permission>
+    <permission>play_audio</permission>
+    <permission>narrow_landscape_exit</permission>
 </qnx>
