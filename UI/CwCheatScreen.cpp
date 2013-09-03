@@ -39,7 +39,7 @@ static bool enableAll = false;
 static std::vector<std::string> cheatList;
 extern void DrawBackground(float alpha);
 static CWCheatEngine *cheatEngine2;
-static bool enableCheat [64];
+static bool enableCheat [128];
 
 std::vector<std::string> CwCheatScreen::CreateCodeList() {
 	cheatEngine2 = new CWCheatEngine();
@@ -111,23 +111,23 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 	std::vector<std::string> temp = cheatList;
 	enableAll = !enableAll;
 	os.open(activeCheatFile.c_str());
-	for (size_t j = 0; j < temp.size(); j++) {
-		if (enableAll == 1 && temp[j].substr(0, 3) == "_C0"){
-			temp[j].replace(0,3,"_C1");
+	for (int j = 0; j < cheatList.size(); j++) {
+		if (enableAll == 1 && cheatList[j].substr(0, 3) == "_C0"){
+			cheatList[j].replace(0, 3, "_C1");
 			
 		}
-		else if (enableAll == 0 && temp[j].substr(0, 3) == "_C1") {
-			temp[j].replace(0, 3, "_C0");
+		else if (enableAll == 0 && cheatList[j].substr(0, 3) == "_C1") {
+			cheatList[j].replace(0, 3, "_C0");
 			
 
 		}
 	}
-	for (int y = 0; y < 64; y++) {
+	for (int y = 0; y < 128; y++) {
 				enableCheat[y] = enableAll;
 			}
-	for (int i = 0; i < (int)temp.size(); i++) {
-		os << temp[i];
-		if (i < temp.size() - 1) {
+	for (int i = 0; i < cheatList.size(); i++) {
+		os << cheatList[i];
+		if (i < cheatList.size() - 1) {
 			os << "\n";
 		}
 	}
@@ -144,6 +144,7 @@ UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params)
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 {
 	std::string line;
+	std::vector<std::string> title;
 	bool finished = false, skip = false;
 	std::vector<std::string> newList;
 #ifdef ANDROID
@@ -151,20 +152,20 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 #else
 	is.open("cheats/cheat.db");
 #endif
-	os.open(activeCheatFile.c_str(),std::ios::app);
 	while (is.good())
 	{
 		getline(is, line); // get line from file
 		if (line == "_S " + gameTitle.substr(0, 4) + "-" + gameTitle.substr(4))
 		{
+			title.push_back(line);
 			getline(is, line);
+			title.push_back(line);
 			getline(is, line);
-			
 			do {
 				if (finished == false){
 					getline(is, line);
 				}
-				if (line.substr(0, 3) == "_C0")
+				if (line.substr(0, 3) == "_C0" || line.substr(0, 3) == "_C1")
 				{
 					//Test if cheat already exists in cheatList
 					for (size_t j = 0; j < formattedList.size(); j++) {
@@ -173,7 +174,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 							goto loop;
 						}
 					}
-					
+
 					newList.push_back(line);
 					getline(is, line);
 					do {
@@ -190,6 +191,15 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 		if (finished == true)
 			break;
 	}
+	is.close();
+	std::string title2;
+	is.open(activeCheatFile.c_str());
+	getline(is, title2);
+	is.close();
+	os.open(activeCheatFile.c_str(), std::ios::app);
+	if (title2.substr(0, 2) != "_S") {
+		os << title[0] << "\n" << title[1];
+	}
 	if (newList.size() != 0)
 	{
 		os << "\n";
@@ -201,7 +211,6 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 		}
 	}
 	os.close();
-	is.close();
 	g_Config.bReloadCheats = true;
 	//Need a better way to refresh the screen, rather than exiting and having to re-enter.
 	screenManager()->finishDialog(this, DR_OK);
