@@ -106,8 +106,8 @@ bool GL_Init(HWND window, std::string *error_message) {
 			0,														// Shift Bit Ignored
 			0,														// No Accumulation Buffer
 			0, 0, 0, 0,										// Accumulation Bits Ignored
-			16,														// 16Bit Z-Buffer (Depth Buffer)  
-			0,														// No Stencil Buffer
+			16,														// At least a 16Bit Z-Buffer (Depth Buffer)  
+			8,														// 8-bit Stencil Buffer
 			0,														// No Auxiliary Buffer
 			PFD_MAIN_PLANE,								// Main Drawing Layer
 			0,														// Reserved
