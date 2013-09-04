@@ -44,8 +44,9 @@
 #ifdef _WIN32
 namespace MainWindow {
 	enum { 
-		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200,
-		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 300,
+		WM_USER_LOG_STATUS_CHANGED = WM_USER + 101,
+		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 102,
+		WM_USER_UPDATE_UI = WM_USER + 103,
 	};
 	extern HWND hwndMain;
 }
@@ -218,6 +219,7 @@ void GameSettingsScreen::CreateViews() {
 	I18NCategory *a = GetI18NCategory("Audio");
 	I18NCategory *s = GetI18NCategory("System");
 	I18NCategory *ms = GetI18NCategory("MainSettings");
+	I18NCategory *dev = GetI18NCategory("Developer");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -365,7 +367,7 @@ void GameSettingsScreen::CreateViews() {
 	LinearLayout *list = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	systemSettings->SetSpacing(0);
 	systemSettings->Add(new ItemHeader(s->T("General")));
-	systemSettings->Add(new Choice(s->T("System Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
+	systemSettings->Add(new Choice(dev->T("Language", "Language")))->OnClick.Handle(this, &GameSettingsScreen::OnLanguage);
 #ifdef _WIN32
 	// Screenshot functionality is not yet available on non-Windows
 	systemSettings->Add(new CheckBox(&g_Config.bScreenshotsAsPNG, s->T("Screenshots as PNG")));
@@ -454,6 +456,12 @@ void GameSettingsScreen::update(InputState &input) {
 	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
 }
 
+void GameSettingsScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "language")) {
+		RecreateViews();
+	}
+}
+
 UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {
 	screenManager()->push(new PluginScreen());
 	return UI::EVENT_DONE;
@@ -525,6 +533,9 @@ UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 	RecreateViews();
 	OnLanguageChanged.Trigger(e);
+#ifdef _WIN32
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_UPDATE_UI, 0, 0);
+#endif
 	return UI::EVENT_DONE;
 }
 
