@@ -299,7 +299,9 @@ namespace MainWindow
 		HMENU emulationSubMenu = GetSubMenu(menu, MENU_EMULATION);
 		systemLangMenu = CreatePopupMenu();
 
-		AppendMenu(emulationSubMenu, MF_SEPARATOR, 0, 0);
+		// Add a separator one position above the System Language Menu.
+		// Remove this line if we end up moving it elsewhere and there's a separator above it.
+		InsertMenu(emulationSubMenu, SUBMENU_SYSTEM_LANGUAGE - 1, MF_SEPARATOR, 0, 0);
 
 		I18NCategory *c = GetI18NCategory("DesktopUI");
 		// Don't translate this right here, translate it in TranslateMenus. Think of it as a string defined in ppsspp.rc.
