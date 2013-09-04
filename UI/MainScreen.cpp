@@ -551,6 +551,9 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "boot")) {
 		screenManager()->switchScreen(new EmuScreen(value));
 	}
+	if (!strcmp(message, "language")) {
+		RecreateViews();
+	}
 }
 
 void MainScreen::update(InputState &input) {
@@ -710,7 +713,8 @@ void GamePauseScreen::CreateViews() {
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(gamePath_));
+	screenManager()->push(new GameSettingsScreen(gamePath_));	
+	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
@@ -747,4 +751,10 @@ UI::EventReturn GamePauseScreen::OnSaveState(UI::EventParams &e) {
 UI::EventReturn GamePauseScreen::OnCwCheat(UI::EventParams &e) {
 	screenManager()->push(new CwCheatScreen());
 	return UI::EVENT_DONE;
+}
+
+void GamePauseScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "language")) {
+		RecreateViews();
+	}
 }
