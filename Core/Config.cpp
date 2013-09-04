@@ -273,12 +273,13 @@ void Config::Save() {
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
 	
-		for (int i = 0; i < (int)recentIsos.size(); i++)
-		{
+		for (int i = 0; i <  iMaxRecent; i++) {
 			char keyName[64];
-			
 			sprintf(keyName,"FileName%d",i);
-			recent->Set(keyName,recentIsos[i]);
+            if (i < recentIsos.size()){
+				recent->Set(keyName, recentIsos[i]);}
+			else{
+				recent->Delete(keyName);} // delete the nonexisting FileName
 		}
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
@@ -398,8 +399,19 @@ void Config::AddRecent(const std::string &file) {
 void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
-		if (File::Exists(recentIsos[i]))
-			cleanedRecent.push_back(recentIsos[i]);
+		if (File::Exists(recentIsos[i])){
+			// clean the redundant recent games' list.
+			if (cleanedRecent.size()==0){ // add first one
+					cleanedRecent.push_back(recentIsos[i]);
+			}
+			for (size_t j=0; j<cleanedRecent.size();j++){
+				if ((std::string)cleanedRecent[j]==(std::string)recentIsos[i])
+					break; // skip if found redundant
+				if (j==cleanedRecent.size()-1){ // add if no redundant found
+					cleanedRecent.push_back(recentIsos[i]);
+				}
+			}
+		}
 	}
 	recentIsos = cleanedRecent;
 }
