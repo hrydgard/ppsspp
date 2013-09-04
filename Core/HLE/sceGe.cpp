@@ -55,15 +55,16 @@ public:
 	{
 		GeInterruptData intrdata = ge_pending_cb.front();
 		DisplayList* dl = gpu->getList(intrdata.listid);
-		if (!dl->interruptsEnabled)
-		{
-			ERROR_LOG_REPORT(HLE, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
-			return false;
-		}
 
 		if (dl == NULL)
 		{
 			WARN_LOG(HLE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
+			return false;
+		}
+
+		if (!dl->interruptsEnabled)
+		{
+			ERROR_LOG_REPORT(HLE, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
 			return false;
 		}
 
