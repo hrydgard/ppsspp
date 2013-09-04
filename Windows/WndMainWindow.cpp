@@ -292,7 +292,6 @@ namespace MainWindow
 	void CreateHelpMenu() {
 		HMENU helpMenu = CreatePopupMenu();
 
-		I18NCategory *credits = GetI18NCategory("PSPCredits");
 		I18NCategory *desktopUI = GetI18NCategory("DesktopUI");
 
 		const std::wstring help = ConvertUTF8ToWString(desktopUI->T("Help"));
@@ -309,7 +308,7 @@ namespace MainWindow
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
 		// Repeat the process for other languages, if necessary.
 		if(g_Config.languageIni == "zh_CN" || g_Config.languageIni == "zh_TW") {
-			const std::wstring visitChineseForum = ConvertUTF8ToWString(credits->T("PPSSPP Chinese Forum"));
+			const std::wstring visitChineseForum = ConvertUTF8ToWString(desktopUI->T("PPSSPP Chinese Forum"));
 			AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_CHINESE_FORUM, visitChineseForum.c_str());
 		}
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
