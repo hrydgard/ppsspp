@@ -12,7 +12,8 @@
 #include "Core/Host.h"
 #include "Log.h"
 #include "LogManager.h"
-#include "native/input/input_state.h"
+#include "base/NativeApp.h"
+#include "input/input_state.h"
 
 #include "Compare.h"
 #include "StubHost.h"
@@ -56,6 +57,8 @@ struct InputState;
 void GL_SwapBuffers() { }
 void NativeUpdate(InputState &input_state) { }
 void NativeRender() { }
+
+std::string System_GetProperty(SystemProperty prop) { return ""; }
 
 #ifndef _WIN32
 InputState input_state;

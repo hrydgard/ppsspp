@@ -30,6 +30,7 @@
 #include <cmath>
 #include <string>
 
+#include "base/NativeApp.h"
 #include "Common/ArmEmitter.h"
 #include "ext/disarm.h"
 #include "math/math_util.h"
@@ -41,6 +42,7 @@
 
 #define RET(a) if (!(a)) { return false; }
 
+std::string System_GetProperty(SystemProperty prop) { return ""; }
 
 bool CheckLast(ArmGen::ARMXEmitter &emit, const char *comp) {
 	u32 instr;
