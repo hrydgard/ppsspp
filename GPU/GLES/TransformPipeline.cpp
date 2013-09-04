@@ -838,7 +838,18 @@ void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType pr
 
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS)
 		Flush();
+		
+	if (prim == GE_PRIM_KEEP_PREVIOUS) {
+		switch(prevPrim_) {
+		case GE_PRIM_LINE_STRIP:
+		case GE_PRIM_TRIANGLE_STRIP:
+		case GE_PRIM_TRIANGLE_FAN:
+			break;
+		}
+		prim = prevPrim_;
+	}
 	prevPrim_ = prim;
+	
 	SetupVertexDecoder(vertType);
 
 	dec_->IncrementStat(STAT_VERTSSUBMITTED, vertexCount);
