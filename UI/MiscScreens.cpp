@@ -96,36 +96,39 @@ void DrawBackground(float alpha) {
 
 std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	std::map<std::string, std::pair<std::string, int>> langValuesMapping;
-	langValuesMapping["ja_JP"] = std::make_pair("日本語", PSP_SYSTEMPARAM_LANGUAGE_JAPANESE);
-	langValuesMapping["en_US"] = std::make_pair("English",PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["fr_FR"] = std::make_pair("Français", PSP_SYSTEMPARAM_LANGUAGE_FRENCH);
-	langValuesMapping["es_ES"] = std::make_pair("Castellano (España)", PSP_SYSTEMPARAM_LANGUAGE_SPANISH);
-	langValuesMapping["es_LA"] = std::make_pair("Español (América Latina)", PSP_SYSTEMPARAM_LANGUAGE_SPANISH);
-	langValuesMapping["de_DE"] = std::make_pair("Deutsch", PSP_SYSTEMPARAM_LANGUAGE_GERMAN);
-	langValuesMapping["it_IT"] = std::make_pair("Italiano", PSP_SYSTEMPARAM_LANGUAGE_ITALIAN); 
-	langValuesMapping["nl_NL"] = std::make_pair("Nederlands", PSP_SYSTEMPARAM_LANGUAGE_DUTCH);
-	langValuesMapping["pt_PT"] = std::make_pair("Português", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
-	langValuesMapping["pt_BR"] = std::make_pair("Português Brasileiro", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE);
-	langValuesMapping["ru_RU"] = std::make_pair("Русский", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN);
-	langValuesMapping["ko_KR"] = std::make_pair("한국어", PSP_SYSTEMPARAM_LANGUAGE_KOREAN);
-	langValuesMapping["zh_TW"] = std::make_pair("繁體中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL);
-	langValuesMapping["zh_CN"] = std::make_pair("简体中文", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED);
+	IniFile mapping;
+	mapping.LoadFromVFS("langregion.ini");
+	std::vector<std::string> keys;
+	mapping.GetKeys("LangRegionNames", keys);
 
-	//langValuesMapping["ar_AE"] = std::make_pair("العربية", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["az_AZ"] = std::make_pair("Azeri", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["ca_ES"] = std::make_pair("Català", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["gr_EL"] = std::make_pair("Ελληνικά", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["he_IL"] = std::make_pair("עברית", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["hu_HU"] = std::make_pair("Magyar", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["id_ID"] = std::make_pair("Indonesia", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["pl_PL"] = std::make_pair("Polski", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["ro_RO"] = std::make_pair("Român", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["sv_SE"] = std::make_pair("Svenska", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["tr_TR"] = std::make_pair("Türk", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["uk_UA"] = std::make_pair("Українська", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["vn_VN"] = std::make_pair("Vietnamese", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["cz_CZ"] = std::make_pair("Česky", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
-	langValuesMapping["tg_PH"] = std::make_pair("Tagalog", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH);
+
+	std::map<std::string, int> langCodeMapping;
+	langCodeMapping["JAPANESE"] = PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
+	langCodeMapping["ENGLISH"] = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+	langCodeMapping["FRENCH"] = PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
+	langCodeMapping["SPANISH"] = PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
+	langCodeMapping["GERMAN"] = PSP_SYSTEMPARAM_LANGUAGE_GERMAN;
+	langCodeMapping["ITALIAN"] = PSP_SYSTEMPARAM_LANGUAGE_ITALIAN;
+	langCodeMapping["DUTCH"] = PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
+	langCodeMapping["PORTUGUESE"] = PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
+	langCodeMapping["RUSSIAN"] = PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
+	langCodeMapping["KOREAN"] = PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
+	langCodeMapping["CHINESE_TRADITIONAL"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
+	langCodeMapping["CHINESE_SIMPLIFIED"] = PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
+
+	IniFile::Section *langRegionNames = mapping.GetOrCreateSection("LangRegionNames");
+	IniFile::Section *systemLanguage = mapping.GetOrCreateSection("SystemLanguage");
+
+	for (size_t i = 0; i < keys.size(); i++) {
+		std::string langName;
+		langRegionNames->Get(keys[i].c_str(), &langName, "ERROR");
+		std::string langCode;
+		systemLanguage->Get(keys[i].c_str(), &langCode, "ENGLISH");
+		int iLangCode = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		if (langCodeMapping.find(langCode) != langCodeMapping.end())
+			iLangCode = langCodeMapping[langCode];
+		langValuesMapping[keys[i]] = std::make_pair(langName, iLangCode);
+	}
 	return langValuesMapping;
 }
 
@@ -308,7 +311,7 @@ void LogoScreen::render() {
 
 	I18NCategory *c = GetI18NCategory("PSPCredits");
 	char temp[256];
-	sprintf(temp, "%s Henrik Rydgård", c->T("created", "Created by"));
+	sprintf(temp, "%s Henrik Rydg\xc3\xa5rd", c->T("created", "Created by"));
 
 	dc.Draw()->DrawImage(I_LOGO, dp_xres / 2, dp_yres / 2 - 30, 1.5f, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", dp_xres / 2, dp_yres / 2 - 30, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
@@ -438,7 +441,7 @@ void CreditsScreen::render() {
 		"",
 		"",
 		c->T("created", "Created by"),
-		"Henrik Rydgård",
+		"Henrik Rydg\xc3\xa5rd",
 		"(aka hrydgard, ector)",
 		"",
 		"",

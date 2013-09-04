@@ -226,6 +226,7 @@
     </None>
     <None Include="git-version-gen.cmd" />
     <None Include="pspmode.png" />
+    <None Include="..\assets\langregion.ini" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="ppsspp.rc">

@@ -334,6 +334,7 @@
     <None Include="..\android\atlasscript.txt" />
     <None Include="..\android\jni\Android.mk" />
     <None Include="..\android\jni\Application.mk" />
+    <None Include="..\assets\langregion.ini" />
     <None Include="..\CMakeLists.txt" />
     <None Include="..\README.md" />
     <None Include="git-version-gen.cmd" />
