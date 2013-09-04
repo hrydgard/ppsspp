@@ -226,22 +226,22 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 
 	case FILETYPE_ARCHIVE_RAR:
 #ifdef WIN32
-		*error_string = "File is compressed (RAR).\nPlease decompress first (try WinRAR)";
+		*error_string = "RAR file detected (Require WINRAR)";
 #else
-		*error_string = "File is compressed (RAR).\nPlease decompress first (try UnRAR)";
+		*error_string = "RAR file detected (Require UnRAR)";
 #endif
 		break;
 
 	case FILETYPE_ARCHIVE_ZIP:
 #ifdef WIN32
-		*error_string = "File is compressed (ZIP).\nPlease decompress first (try WinRAR)";
+		*error_string = "ZIP file detected (Require WINRAR)";
 #else
-		*error_string = "File is compressed (ZIP).\nPlease decompress first (try UnRAR)";
+		*error_string = "ZIP file detected (Require UnRAR)";
 #endif
 		break;
 
 	case FILETYPE_ISO_MODE2:
-		*error_string = "File is a MODE2 image. Are you trying to open a PSX game?";
+		*error_string = "PSX game image deteced.";
 		break;
 
 	case FILETYPE_NORMAL_DIRECTORY:
