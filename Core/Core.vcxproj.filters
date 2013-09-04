@@ -487,6 +487,9 @@
     <ClCompile Include="MIPS\PPC\PpcAsm.cpp">
       <Filter>MIPS\PPC</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceHeap.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -893,6 +896,9 @@
     </ClInclude>
     <ClInclude Include="HLE\KernelWaitHelpers.h">
       <Filter>HLE\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceHeap.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
