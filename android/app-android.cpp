@@ -32,6 +32,7 @@ std::string frameCommand;
 std::string frameCommandParam;
 
 std::string systemName;
+std::string langRegion;
 
 const bool extraLog = true;
 
@@ -86,8 +87,15 @@ void System_InputBox(const char *title, const char *defaultValue) {
 	frameCommandParam = title;
 }
 
-std::string System_GetName() {
-	return systemName;
+std::string System_GetProperty(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_NAME:
+		return systemName;
+	case SYSPROP_LANGREGION:  // "en_US"
+		return langRegion;
+	default:
+		return "";
+	}
 }
 
 // Remember that all of these need initialization on init! The process

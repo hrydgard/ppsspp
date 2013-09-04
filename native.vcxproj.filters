@@ -18,6 +18,7 @@
     <None Include="ui\CMakeLists.txt">
       <Filter>ui</Filter>
     </None>
+    <None Include="..\ios\main.mm" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gfx\gl_debug_log.h">
@@ -508,6 +509,7 @@
     <ClCompile Include="util\hash\hash.cpp">
       <Filter>util</Filter>
     </ClCompile>
+    <ClCompile Include="base\QtMain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">

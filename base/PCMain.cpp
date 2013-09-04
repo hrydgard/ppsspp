@@ -251,12 +251,16 @@ void LaunchEmail(const char *email_address)
 #endif
 }
 
-std::string System_GetName() {
-	// TODO
-	return "SDL";
+std::string System_GetProperty(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_NAME:
+		return "SDL:";
+	case SYSPROP_LANGREGION:
+		return "en_US";
+	default:
+		return "";
+	}
 }
-
-
 
 InputState input_state;
 

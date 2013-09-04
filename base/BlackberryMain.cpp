@@ -13,8 +13,15 @@
 
 // Simple implementations of System functions
 
-std::string System_GetName() {
-	return "Blackberry10";
+std::string System_GetProperty(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_NAME:
+		return "Blackberry10";
+	case SYSPROP_LANGREGION:
+		return "en_US";
+	default:
+		return "";
+	}
 }
 
 void SystemToast(const char *text) {

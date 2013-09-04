@@ -19,20 +19,27 @@
 
 InputState* input_state;
 
-std::string System_GetName() {
+std::string System_GetProperty(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_NAME:
 #ifdef __SYMBIAN32__
-	return "Qt:Symbian";
+		return "Qt:Symbian";
 #elif defined(BLACKBERRY)
-	return "Qt:Blackberry10";
+		return "Qt:Blackberry10";
 #elif defined(MEEGO_EDITION_HARMATTAN)
-	return "Qt:Meego";
+		return "Qt:Meego";
 #elif defined(Q_WS_X11)
-	return "Qt:Linux";
+		return "Qt:Linux";
 #elif defined(_WIN32)
-	return "Qt:Windows";
+		return "Qt:Windows";
 #else
-	return "Qt";
+		return "Qt";
 #endif
+	case SYSPROP_LANGREGION:
+		return "en_US";
+	default:
+		return "";
+	}
 }
 
 void LaunchBrowser(const char *url)
