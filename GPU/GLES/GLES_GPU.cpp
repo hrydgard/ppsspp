@@ -687,7 +687,8 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				inds = Memory::GetPointer(gstate_c.indexAddr);
 			}
 			
-			GEPrimitiveType previousprim = prim;
+			// Continue previous prim command when it was either STRIP or FAN 
+			GEPrimitiveType previousprim;
 			if (prim == GE_PRIM_KEEP_PREVIOUS) {
 				switch(previousprim) {
 				case GE_PRIM_LINE_STRIP:
