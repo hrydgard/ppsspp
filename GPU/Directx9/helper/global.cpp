@@ -195,6 +195,9 @@ void CompileShaders() {
 	pD3Ddevice->CreateVertexDeclaration( SoftTransVertexElements, &pSoftVertexDecl );
 }
 
+
+bool useVsync = false;
+
 void DirectxInit() {
 
 	pD3D = Direct3DCreate9( D3D_SDK_VERSION );
@@ -229,8 +232,8 @@ void DirectxInit() {
     d3dpp.EnableAutoDepthStencil = TRUE;
     d3dpp.AutoDepthStencilFormat = D3DFMT_D24S8;
     d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-    d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
-	//d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
+	d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+	//d3dpp.PresentationInterval = (useVsync == true)?D3DPRESENT_INTERVAL_ONE:D3DPRESENT_INTERVAL_IMMEDIATE;
 	//d3dpp.RingBufferParameters = d3dr;
 	
 	pD3D->CreateDevice( D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, NULL,
