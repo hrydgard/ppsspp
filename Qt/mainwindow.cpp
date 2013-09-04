@@ -15,6 +15,7 @@
 #include "Core/Config.h"
 #include "ConsoleListener.h"
 #include "base/display.h"
+#include "base/NKCodeFromQt.h"
 #include "GPU/GPUInterface.h"
 
 #include "QtHost.h"
@@ -34,8 +35,6 @@ MainWindow::MainWindow(QWidget *parent) :
 	lastUIState(UISTATE_MENU)
 {
 	ui->setupUi(this);
-
-	controls = new Controls(this);
 
 	host = new QtHost(this);
 	emugl = ui->widget;
@@ -88,19 +87,6 @@ inline float clamp1(float x) {
 void MainWindow::Update()
 {
 	emugl->updateGL();
-
-	for (int i = 0; i < controllistCount; i++)
-	{
-		if (pressedKeys.contains(controllist[i].key) ||
-				input_state.pad_buttons_down & controllist[i].emu_id)
-			__CtrlButtonDown(controllist[i].psp_id);
-		else
-			__CtrlButtonUp(controllist[i].psp_id);
-	}
-	__CtrlSetAnalogX(clamp1(input_state.pad_lstick_x), 0);
-	__CtrlSetAnalogY(clamp1(input_state.pad_lstick_y), 0);
-	__CtrlSetAnalogX(clamp1(input_state.pad_rstick_x), 1);
-	__CtrlSetAnalogY(clamp1(input_state.pad_rstick_y), 1);
 
 	if (lastUIState != globalUIState) {
 		lastUIState = globalUIState;
@@ -197,12 +183,12 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
 		return;
 	}
 
-	pressedKeys.insert(e->key());
+	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(e->key())->second, KEY_DOWN));
 }
 
 void MainWindow::keyReleaseEvent(QKeyEvent *e)
 {
-	pressedKeys.remove(e->key());
+	NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(e->key())->second, KEY_UP));
 }
 
 /* SLOTS */
@@ -450,11 +436,6 @@ void MainWindow::on_action_OptionsIgnoreIllegalReadsWrites_triggered()
 {
 	g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
 	UpdateMenus();
-}
-
-void MainWindow::on_action_OptionsControls_triggered()
-{
-	controls->show();
 }
 
 void MainWindow::on_action_AFOff_triggered()
