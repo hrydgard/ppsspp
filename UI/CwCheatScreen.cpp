@@ -98,7 +98,7 @@ UI::EventReturn CwCheatScreen::OnBack(UI::EventParams &params)
 	os.open(activeCheatFile.c_str());
 	for (int j = 0; j < (int)cheatList.size(); j++) {
 		os << cheatList[j];
-		if (j < cheatList.size() - 1) {
+		if (j < (int)cheatList.size() - 1) {
 			os << "\n";
 		}
 	}
@@ -112,23 +112,20 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 	std::vector<std::string> temp = cheatList;
 	enableAll = !enableAll;
 	os.open(activeCheatFile.c_str());
-	for (int j = 0; j < cheatList.size(); j++) {
+	for (int j = 0; j < (int)cheatList.size(); j++) {
 		if (enableAll == 1 && cheatList[j].substr(0, 3) == "_C0"){
 			cheatList[j].replace(0, 3, "_C1");
-			
 		}
 		else if (enableAll == 0 && cheatList[j].substr(0, 3) == "_C1") {
 			cheatList[j].replace(0, 3, "_C0");
-			
-
 		}
 	}
 	for (int y = 0; y < 128; y++) {
-				enableCheat[y] = enableAll;
-			}
-	for (int i = 0; i < cheatList.size(); i++) {
+		enableCheat[y] = enableAll;
+	}
+	for (int i = 0; i < (int)cheatList.size(); i++) {
 		os << cheatList[i];
-		if (i < cheatList.size() - 1) {
+		if (i < (int)cheatList.size() - 1) {
 			os << "\n";
 		}
 	}
@@ -136,12 +133,14 @@ UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params)
 	
 	return UI::EVENT_DONE;
 }
+
 UI::EventReturn CwCheatScreen::OnAddCheat(UI::EventParams &params)
 {
 	screenManager()->finishDialog(this, DR_OK);
 	g_Config.bReloadCheats = true;
 	return UI::EVENT_DONE;
 }
+
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 {
 	std::string line;
@@ -207,7 +206,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params)
 	}
 	for (int i = 0; i < (int)newList.size(); i++) {
 		os << newList[i];
-		if (i < newList.size() - 1) {
+		if (i < (int)newList.size() - 1) {
 			os << "\n";
 		}
 	}

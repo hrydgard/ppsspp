@@ -136,6 +136,17 @@ endif
 LOCAL_SRC_FILES := \
   $(ARCH_FILES) \
   TestRunner.cpp \
+  $(SRC)/Core/MIPS/MIPS.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
+  $(SRC)/Core/MIPS/MIPSDis.cpp \
+  $(SRC)/Core/MIPS/MIPSDisVFPU.cpp \
+  $(SRC)/Core/MIPS/MIPSInt.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSIntVFPU.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSStackWalk.cpp \
+  $(SRC)/Core/MIPS/MIPSTables.cpp \
+  $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
+  $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/UI/ui_atlas.cpp \
   $(SRC)/UI/NativeApp.cpp \
   $(SRC)/UI/EmuScreen.cpp \
@@ -294,17 +305,6 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/FileSystems/DirectoryFileSystem.cpp \
   $(SRC)/Core/FileSystems/VirtualDiscFileSystem.cpp \
   $(SRC)/Core/FileSystems/tlzrc.cpp \
-  $(SRC)/Core/MIPS/MIPS.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
-  $(SRC)/Core/MIPS/MIPSDis.cpp \
-  $(SRC)/Core/MIPS/MIPSDisVFPU.cpp \
-  $(SRC)/Core/MIPS/MIPSInt.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSIntVFPU.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSStackWalk.cpp \
-  $(SRC)/Core/MIPS/MIPSTables.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSVFPUUtils.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
-  $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitBlockCache.cpp \
   $(SRC)/Core/Util/BlockAllocator.cpp \

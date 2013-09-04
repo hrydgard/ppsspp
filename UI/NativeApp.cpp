@@ -598,7 +598,15 @@ void NativeDeviceLost() {
 }
 
 bool NativeIsAtTopLevel() {
-	return false;
+	Screen *currentScreen = screenManager->topScreen();
+	if (currentScreen) {
+		bool top = currentScreen->isTopLevel();
+		ILOG("Screen toplevel: %i", (int)top);
+		return currentScreen->isTopLevel();
+	} else {
+		ELOG("No current screen");
+		return false;
+	}
 }
 
 void NativeTouch(const TouchInput &touch) {

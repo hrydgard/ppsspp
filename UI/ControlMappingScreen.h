@@ -45,8 +45,8 @@ public:
 protected:
 	void CreatePopupContents(UI::ViewGroup *parent);
 
-	virtual bool FillVertical() { return false; }
-	virtual bool ShowButtons() { return true; }
+	virtual bool FillVertical() const { return false; }
+	virtual bool ShowButtons() const { return true; }
 	virtual void OnCompleted(DialogResult result) {}
 
 private:
