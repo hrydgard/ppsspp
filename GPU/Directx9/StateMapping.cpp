@@ -282,7 +282,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		renderHeightFactor = renderHeight / 272.0f;
 	}
 
-	bool throughmode = (gstate.vertType & GE_VTYPE_THROUGH_MASK) != 0;
+	bool throughmode = gstate.isModeThrough();
 
 	// Scissor
 	int scissorX1 = gstate.getScissorX1();
