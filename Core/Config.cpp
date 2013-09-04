@@ -238,6 +238,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 void Config::Save() {
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
 		CleanRecent();
+		// delete iniFile to recreate a proper one. 
+		File::Delete(iniFilename_);
+		File::CreateEmptyFile(iniFilename_);
+
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_.c_str())) {
 			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", iniFilename_.c_str());
@@ -398,8 +402,20 @@ void Config::AddRecent(const std::string &file) {
 void Config::CleanRecent() {
 	std::vector<std::string> cleanedRecent;
 	for (size_t i = 0; i < recentIsos.size(); i++) {
-		if (File::Exists(recentIsos[i]))
-			cleanedRecent.push_back(recentIsos[i]);
+		if (File::Exists(recentIsos[i])){
+			// clean the redundant recent games' list.
+			for (size_t j=0; j<=cleanedRecent.size();j++){
+				if (cleanedRecent.size()==0){ // add first one
+					cleanedRecent.push_back(recentIsos[i]);
+					break;
+				}
+				if ((std::string)cleanedRecent[j]==(std::string)recentIsos[i])
+					break; // skip if found redundant
+				if (j==cleanedRecent.size()-1){ // add if no redundant found
+					cleanedRecent.push_back(recentIsos[i]);
+				}
+			}
+		}
 	}
 	recentIsos = cleanedRecent;
 }
