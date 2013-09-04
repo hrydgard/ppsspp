@@ -320,11 +320,11 @@ namespace MainWindow
 	void CreateLanguageMenu() {
 		// Please don't remove this boolean. 
 		// We don't want this menu to be created multiple times.
-		static bool systemLangMenuCreated = false;
+		static bool langMenuCreated = false;
 
-		if(systemLangMenuCreated) return;
+		if(langMenuCreated) return;
 
-		HMENU systemLangMenu = CreatePopupMenu();
+		HMENU langMenu = CreatePopupMenu();
 
 		I18NCategory *c = GetI18NCategory("DesktopUI");
 		// Don't translate this right here, translate it in TranslateMenus. 
@@ -332,7 +332,7 @@ namespace MainWindow
 		const std::wstring languageKey = L"Language";
 
 		// Insert the new menu.
-		InsertMenu(menu, MENU_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)systemLangMenu, languageKey.c_str());
+		InsertMenu(menu, MENU_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)langMenu, languageKey.c_str());
 
 		// Get the new menu's info and then set its ID so we can have it be translatable.
 		MENUITEMINFO menuItemInfo;
@@ -343,7 +343,7 @@ namespace MainWindow
 		menuItemInfo.wID = ID_LANGUAGE_BASE;
 		SetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &menuItemInfo);
 
-		// Create the System Language menu items by creating a new menu item for each
+		// Create the Language menu items by creating a new menu item for each
 		// language with its full name("English", "Magyar", etc.) as the value.
 		// Also collect the country codes while we're at it so we can send them to
 		// NativeMessageReceived easier.
@@ -355,11 +355,11 @@ namespace MainWindow
 
 		for(auto i = langValuesMap.begin(); i != langValuesMap.end(); ++i) {
 			fullLanguageName = ConvertUTF8ToWString(i->second.first);
-			AppendMenu(systemLangMenu, MF_STRING | MF_BYPOSITION, item++, fullLanguageName.c_str());
+			AppendMenu(langMenu, MF_STRING | MF_BYPOSITION, item++, fullLanguageName.c_str());
 			countryCodes.push_back(i->first);
 		}
 
-		systemLangMenuCreated = true;
+		langMenuCreated = true;
 	}
 
 	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
