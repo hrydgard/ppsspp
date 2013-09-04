@@ -50,7 +50,8 @@ struct WaitVBlankInfo
 	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(1) {}
 	WaitVBlankInfo(u32 tid, int vcount) : threadID(tid), vcountUnblock(vcount) {}
 	u32 threadID;
-	int vcountUnblock; // what was this for again?
+	// Number of vcounts to block for.
+	int vcountUnblock;
 
 	void DoState(PointerWrap &p)
 	{
@@ -424,9 +425,14 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	__DisplayFireVblank();
 
 	// Wake up threads waiting for VBlank
+	u32 error;
 	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
 		if (--vblankWaitingThreads[i].vcountUnblock == 0) {
-			__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
+			// Only wake it if it wasn't already released by someone else.
+			SceUID waitID = __KernelGetWaitID(vblankWaitingThreads[i].threadID, WAITTYPE_VBLANK, error);
+			if (waitID == 1) {
+				__KernelResumeThreadFromWait(vblankWaitingThreads[i].threadID, 0);
+			}
 			vblankWaitingThreads.erase(vblankWaitingThreads.begin() + i--);
 		}
 	}
@@ -611,7 +617,7 @@ u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, i
 u32 sceDisplayWaitVblankStart() {
 	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStart()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start waited");
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank start waited");
 	return 0;
 }
 
@@ -619,7 +625,7 @@ u32 sceDisplayWaitVblank() {
 	if (!isVblank) {
 		VERBOSE_LOG(HLE,"sceDisplayWaitVblank()");
 		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-		__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank waited");
+		__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank waited");
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
@@ -639,7 +645,7 @@ u32 sceDisplayWaitVblankStartMulti(int vblanks) {
 	if (__IsInInterrupt())
 		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, false, "vblank start multi waited");
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, false, "vblank start multi waited");
 	return 0;
 }
 
@@ -647,7 +653,7 @@ u32 sceDisplayWaitVblankCB() {
 	if (!isVblank) {
 		VERBOSE_LOG(HLE,"sceDisplayWaitVblankCB()");
 		vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-		__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank waited");
+		__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank waited");
 		return 0;
 	} else {
 		DEBUG_LOG(HLE,"sceDisplayWaitVblank() - not waiting since in vBlank");
@@ -659,7 +665,7 @@ u32 sceDisplayWaitVblankCB() {
 u32 sceDisplayWaitVblankStartCB() {
 	VERBOSE_LOG(HLE,"sceDisplayWaitVblankStartCB()");
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread()));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start waited");
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank start waited");
 	return 0;
 }
 
@@ -674,7 +680,7 @@ u32 sceDisplayWaitVblankStartMultiCB(int vblanks) {
 	if (__IsInInterrupt())
 		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vblanks));
-	__KernelWaitCurThread(WAITTYPE_VBLANK, 0, 0, 0, true, "vblank start multi waited");
+	__KernelWaitCurThread(WAITTYPE_VBLANK, 1, 0, 0, true, "vblank start multi waited");
 	return 0;
 }
 
