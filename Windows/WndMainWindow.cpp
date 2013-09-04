@@ -412,7 +412,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, true, false, L"\tF12");
 		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, true, false, L"\tCtrl+D");
 		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, true, false, L"\tCtrl+L");
-		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
+		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, true, false, L"\tCtrl+M");
 
 		// Options menu
 		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, true, false, L"\tAlt+Return, F11");
