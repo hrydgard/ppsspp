@@ -70,7 +70,7 @@ void * fbo_get_rtt(FBO *fbo) {
 void fbo_unbind() {
 	if (current_fbo != NULL) {
 		
-		D3DVECTOR4 White = {1.0f, 1.0f, 1.0f, 1.0f};
+		D3DVECTOR4 White = {0.0f, 0.0f, 0.0f, 0.0f};
 		pD3Ddevice->Resolve( D3DRESOLVE_RENDERTARGET0|D3DRESOLVE_ALLFRAGMENTS|D3DRESOLVE_CLEARRENDERTARGET|D3DRESOLVE_CLEARDEPTHSTENCIL, NULL, 
 			current_fbo->tex, NULL, 0, 0, &White, 0.0f, 0, NULL );
 		/*

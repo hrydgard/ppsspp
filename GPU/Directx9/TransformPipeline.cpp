@@ -69,7 +69,7 @@ inline float clamp(float in, float min, float max) {
 
 TransformDrawEngine::TransformDrawEngine()
 	: collectedVerts(0),
-	prevPrim_(-1),
+	prevPrim_(GE_PRIM_INVALID),
 	dec_(0),
 	lastVType_(-1),
 	shaderManager_(0),
@@ -134,7 +134,7 @@ private:
 };
 
 Lighter::Lighter() {
-	doShadeMapping_ = (gstate.texmapmode & 0x3) == 2;
+	doShadeMapping_ = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP;
 	materialEmissive.GetFromRGB(gstate.materialemissive);
 	materialEmissive.a = 0.0f;
 	globalAmbient.GetFromRGB(gstate.ambientcolor);
@@ -225,6 +225,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			lightScale = clamp(1.0f / (gstate_c.lightatt[l][0] + gstate_c.lightatt[l][1]*distanceToLight + gstate_c.lightatt[l][2]*distanceToLight*distanceToLight), 0.0f, 1.0f);
 			break;
 		case GE_LIGHTTYPE_SPOT:
+		case GE_LIGHTTYPE_UNKNOWN:
 			lightDir = gstate_c.lightdir[l];
 			angle = Dot(toLight.Normalized(), lightDir.Normalized());
 			if (angle >= gstate_c.lightangle[l])
@@ -666,38 +667,39 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 				// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
 				switch (gstate.getUVGenMode())
 				{
-				case 0:	// UV mapping
+				case GE_TEXMAP_TEXTURE_COORDS:	// UV mapping
+				case GE_TEXMAP_UNKNOWN: // Seen in Riviera.  Unsure of meaning, but this works.
 					// Texture scale/offset is only performed in this mode.
 					uv[0] = uscale * (ruv[0]*gstate_c.uv.uScale + gstate_c.uv.uOff);
 					uv[1] = vscale * (ruv[1]*gstate_c.uv.vScale + gstate_c.uv.vOff);
 					uv[2] = 1.0f;
 					break;
-				case 1:
+					case GE_TEXMAP_TEXTURE_MATRIX:
 					{
 						// Projection mapping
 						Vec3f source;
 						switch (gstate.getUVProjMode())
 						{
-						case 0: // Use model space XYZ as source
+						case GE_PROJMAP_POSITION: // Use model space XYZ as source
 							source = pos;
 							break;
-						case 1: // Use unscaled UV as source
+						case GE_PROJMAP_UV: // Use unscaled UV as source
 							source = Vec3f(ruv[0], ruv[1], 0.0f);
 							break;
-						case 2: // Use normalized normal as source
+						case GE_PROJMAP_NORMALIZED_NORMAL: // Use normalized normal as source
 							if (reader.hasNormal()) {
 								source = Vec3f(norm).Normalized();
 							} else {
 								ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-								source = Vec3f::AssignToAll(0.0f);
+								source = Vec3f(0.0f, 0.0f, 1.0f);
 							}
 							break;
-						case 3: // Use non-normalized normal as source!
+						case GE_PROJMAP_NORMAL: // Use non-normalized normal as source!
 							if (reader.hasNormal()) {
 								source = Vec3f(norm);
 							} else {
 								ERROR_LOG_REPORT(G3D, "Normal projection mapping without normal?");
-								source = Vec3f::AssignToAll(0.0f);
+								source = Vec3f(0.0f, 0.0f, 1.0f);
 							}
 							break;
 						}
@@ -709,7 +711,7 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 						uv[2] = uvw[2];
 					}
 					break;
-				case 2:
+				case GE_TEXMAP_ENVIRONMENT_MAP:
 					// Shade mapping - use two light sources to generate U and V.
 					{
 						Vec3f lightpos0 = Vec3f(gstate_c.lightpos[gstate.getUVLS0()]).Normalized();
@@ -866,7 +868,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 		if (gstate.isLightChanEnabled(i))
 			cost += 10;
 	}
-	if (gstate.getUVGenMode() != 0) {
+	if (gstate.getUVGenMode() != GE_TEXMAP_TEXTURE_COORDS) {
 		cost += 20;
 	}
 	if (dec_ && dec_->morphcount > 1) {
@@ -876,7 +878,7 @@ int TransformDrawEngine::EstimatePerVertexCost() {
 	return cost;
 }
 
-void TransformDrawEngine::SubmitPrim(void *verts, void *inds, int prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
+void TransformDrawEngine::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int forceIndexType, int *bytesRead) {
 	if (vertexCount == 0)
 		return;  // we ignore zero-sized draw calls.
 
@@ -1091,7 +1093,7 @@ void TransformDrawEngine::DoFlush() {
 	// This is not done on every drawcall, we should collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
-	int prim = prevPrim_;
+	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
 	LinkedShader *program = shaderManager_->ApplyShader(prim);
@@ -1205,7 +1207,7 @@ void TransformDrawEngine::DoFlush() {
 						vb_ = vai->vbo;
 						ib_ = vai->ebo;
 						vertexCount = vai->numVerts;
-						prim = vai->prim;
+					prim = static_cast<GEPrimitiveType>(vai->prim);
 						break;
 					}
 
@@ -1222,7 +1224,7 @@ void TransformDrawEngine::DoFlush() {
 						ib_ = vai->ebo;
 
 						vertexCount = vai->numVerts;
-						prim = vai->prim;
+					prim = static_cast<GEPrimitiveType>(vai->prim);
 						break;
 					}
 
@@ -1290,5 +1292,5 @@ rotateVBO:
 		indexGen.Reset();
 		collectedVerts = 0;
 		numDrawCalls = 0;
-		prevPrim_ = -1;
+		prevPrim_ = GE_PRIM_INVALID;
 }

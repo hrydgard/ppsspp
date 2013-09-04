@@ -129,7 +129,7 @@ ramDisplayFramebufPtr_(0),
 
 	pD3Ddevice->CreateTexture(512, 272, 1, 0, D3DFMT(D3DFMT_A8R8G8B8), NULL, &drawPixelsTex_, NULL);
 
-	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE ? 1 : 0;
+	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 }
 
 FramebufferManager::~FramebufferManager() {
@@ -255,7 +255,6 @@ static void ConvertMatrices(Matrix4x4 & in) {
 void FramebufferManager::DrawActiveTexture(float x, float y, float w, float h, bool flip, float uscale, float vscale) {
 	float u2 = uscale;
 	// Since we're flipping, 0 is down.  That's where the scale goes.
-	
 	float v1 = flip ? 1.0f : 1.0f - vscale;
 	float v2 = flip ? 1.0f - vscale : 1.0f;
 
@@ -311,38 +310,42 @@ VirtualFramebuffer *FramebufferManager::GetDisplayFBO() {
 }
 
 // Heuristics to figure out the size of FBO to create.
-void GuessDrawingSize(int &drawing_width, int &drawing_height) {
+void DrawingSize(int &drawing_width, int &drawing_height) {
 	int default_width = 480; 
 	int default_height = 272;
 	int viewport_width = (int) gstate.getViewportX1(); 
 	int viewport_height = (int) gstate.getViewportY1(); 
-	int region_width = (gstate.getRegionX2() + 1) ;
-	int region_height = (gstate.getRegionY2() + 1) ;
+	int region_width = gstate.getRegionX2() + 1;
+	int region_height = gstate.getRegionY2() + 1;
+	int scissor_width = gstate.getScissorX2() + 1;
+	int scissor_height = gstate.getScissorY2() + 1;
 	int fb_width = gstate.fbwidth & 0x3C0;
 
-	DEBUG_LOG(HLE,"viewport : %ix%i, region : %ix%i, stride: %i", viewport_width,viewport_height, region_width, region_height, fb_width);
+	DEBUG_LOG(HLE,"viewport : %ix%i, region : %ix%i , scissor: %ix%i, stride: %i, %i", viewport_width,viewport_height, region_width, region_height, scissor_width, scissor_height, fb_width, gstate.isModeThrough());
 
-	// In case viewport return as 0x0 like FF Type-0 
+	// Viewport may return 0x0 for example FF Type-0 and we set it to 480x272
 	if (viewport_width <= 1 && viewport_height <=1) {
-		drawing_width = default_width;
-		drawing_height = default_height;
+		viewport_width = default_width;
+		viewport_height = default_height;
 	}
 
-	if (fb_width < 512) {
-		if (fb_width != viewport_width) {
+	if (fb_width > 0 && fb_width < 512) {
+		// Correct scissor size has to be used to render like character shadow in Mortal Kombat .
+		if (fb_width == scissor_width && region_width != scissor_width) { 
+			drawing_width = scissor_width;
+			drawing_height = scissor_height;
+		} else {
 			drawing_width = viewport_width;
 			drawing_height = viewport_height;
+		}
 		} else {
+		// Correct region size has to be used when fb_width equals to region_width for exmaple GTA/Midnight Club/MSG Peace Maker .
+		if (fb_width == region_width && region_width != scissor_width) { 
 			drawing_width = region_width;
 			drawing_height = region_height;
-		}
 	} else {
-		if (fb_width != region_width) {
 			drawing_width = default_width;
 			drawing_height = default_height;
-		} else {
-			drawing_width = region_width;
-			drawing_height = region_height;
 		}
 	}
 }
@@ -369,7 +372,6 @@ void FramebufferManager::DestroyFramebuf(VirtualFramebuffer *v) {
 
 void FramebufferManager::SetRenderFrameBuffer() {
 	if (!gstate_c.framebufChanged && currentRenderVfb_) {
-		
 		currentRenderVfb_->last_frame_used = gpuStats.numFlips;
 		currentRenderVfb_->dirtyAfterDisplay = true;
 		if (!gstate_c.skipDrawReason)
@@ -392,10 +394,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	// As there are no clear "framebuffer width" and "framebuffer height" registers,
 	// we need to infer the size of the current framebuffer somehow. Let's try the viewport.
 
-	GEBufferFormat fmt = static_cast<GEBufferFormat>(gstate.framebufpixformat & 3);
+	GEBufferFormat fmt = gstate.FrameBufFormat();
 
 	int drawing_width, drawing_height;
-	GuessDrawingSize(drawing_width, drawing_height);
+	DrawingSize(drawing_width, drawing_height);
 
 	int buffer_width = drawing_width;
 	int buffer_height = drawing_height;

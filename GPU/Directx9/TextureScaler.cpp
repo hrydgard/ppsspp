@@ -526,7 +526,7 @@ TextureScaler::TextureScaler() {
 
 bool TextureScaler::IsEmptyOrFlat(u32* data, int pixels, u32 fmt) {
 	int pixelsPerWord = (fmt == D3DFMT_A8R8G8B8) ? 1 : 2;
-	int ref = data[0];
+	u32 ref = data[0];
 	for(int i=0; i<pixels/pixelsPerWord; ++i) {
 		if(data[i]!=ref) return false;
 	}

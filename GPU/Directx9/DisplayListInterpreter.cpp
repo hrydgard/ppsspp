@@ -115,7 +115,6 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE},
-	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTESTENABLE, FLAG_FLUSHBEFOREONCHANGE},
 	{GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE},
@@ -139,6 +138,7 @@ static const CommandTableEntry commandTable[] = {
 	{GE_CMD_TEXWRAP, FLAG_FLUSHBEFOREONCHANGE},
 
 	// Uniform changes
+	{GE_CMD_ALPHATEST, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_COLORREF, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 	{GE_CMD_TEXENVCOLOR, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE},
 
@@ -425,7 +425,7 @@ void DIRECTX9_GPU::InitClearInternal() {
 		glClearColor(0,0,0,1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		*/
-		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
+		pD3Ddevice->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 0.f, 0);
 	}
 	dxstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
@@ -602,10 +602,16 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
 			u32 count = data & 0xFFFF;
-			u32 prim = data >> 16;
+			GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
 
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-			if ((prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && (gstate.antiAliasEnable & 1))
+			
+			// Discard AA lines in DOA
+			if ((prim == GE_PRIM_LINE_STRIP) && gstate.isAntiAliasEnabled())
+				break;
+
+			// Discard AA lines in Summon Night 5
+			if ((prim == GE_PRIM_LINES) && gstate.isAntiAliasEnabled() && gstate.isSkinningEnabled())
 				break;
 
 			// This also make skipping drawing very effective.
@@ -620,7 +626,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 
 			if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-				ERROR_LOG(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+				ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 				break;
 			}
 
@@ -630,7 +636,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			void *inds = 0;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
 				inds = Memory::GetPointer(gstate_c.indexAddr);
@@ -660,9 +666,29 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 	// The arrow and other rotary items in Puzbob are bezier patches, strangely enough.
 	case GE_CMD_BEZIER:
 		{
+			void *control_points = Memory::GetPointer(gstate_c.vertexAddr);
+			void *indices = NULL;
+			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					break;
+				}
+				indices = Memory::GetPointer(gstate_c.indexAddr);
+			}
+
+			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
+				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
+				break;
+			}
+
+			// TODO: Get rid of this old horror...
 			int bz_ucount = data & 0xFF;
 			int bz_vcount = (data >> 8) & 0xFF;
 			transformDraw_.DrawBezier(bz_ucount, bz_vcount);
+
+			// And instead use this.
+			// GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
+			// transformDraw_.SubmitBezier(control_points, indices, sp_ucount, sp_vcount, patchPrim, gstate.vertType);
 		}
 		break;
 
@@ -672,14 +698,14 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			void *indices = NULL;
 			if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-					ERROR_LOG(G3D, "Bad index address %08x!", gstate_c.indexAddr);
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", gstate_c.indexAddr);
 					break;
 				}
 				indices = Memory::GetPointer(gstate_c.indexAddr);
 			}
 
 			if (gstate.getPatchPrimitiveType() != GE_PATCHPRIM_TRIANGLES) {
-				ERROR_LOG(G3D, "Unsupported patch primitive %x", gstate.patchprimitive&3);
+				ERROR_LOG_REPORT(G3D, "Unsupported patch primitive %x", gstate.getPatchPrimitiveType());
 				break;
 			}
 			
@@ -687,7 +713,7 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			int sp_vcount = (data >> 8) & 0xFF;
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
-			int patchPrim = gstate.patchprimitive & 3;
+			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 			transformDraw_.SubmitSpline(control_points, indices, sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, gstate.vertType);
 		}
 		break;
@@ -1064,11 +1090,11 @@ void DIRECTX9_GPU::ExecuteOp(u32 op, u32 diff) {
 			shaderManager_->DirtyUniform(DIRTY_COLORMASK);
 		break;
 
-#ifndef USING_GLES2
 	case GE_CMD_ALPHATEST:
+#ifndef USING_GLES2
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
 			WARN_LOG_REPORT_ONCE(alphatestmask, HLE, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
-		break;
+		// Intentional fallthrough.
 #endif
 	case GE_CMD_COLORREF:
 		if (diff)
@@ -1257,22 +1283,22 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 	//
 	// etc....
 
-	u32 srcBasePtr = (gstate.transfersrc & 0xFFFFF0) | ((gstate.transfersrcw & 0xFF0000) << 8);
-	u32 srcStride = gstate.transfersrcw & 0x3F8;
+	u32 srcBasePtr = gstate.getTransferSrcAddress();
+	u32 srcStride = gstate.getTransferSrcStride();
 
-	u32 dstBasePtr = (gstate.transferdst & 0xFFFFF0) | ((gstate.transferdstw & 0xFF0000) << 8);
-	u32 dstStride = gstate.transferdstw & 0x3F8;
+	u32 dstBasePtr = gstate.getTransferDstAddress();
+	u32 dstStride = gstate.getTransferDstStride();
 
-	int srcX = gstate.transfersrcpos & 0x3FF;
-	int srcY = (gstate.transfersrcpos >> 10) & 0x3FF;
+	int srcX = gstate.getTransferSrcX();
+	int srcY = gstate.getTransferSrcY();
 
-	int dstX = gstate.transferdstpos & 0x3FF;
-	int dstY = (gstate.transferdstpos >> 10) & 0x3FF;
+	int dstX = gstate.getTransferDstX();
+	int dstY = gstate.getTransferDstY();
 
-	int width = (gstate.transfersize & 0x3FF) + 1;
-	int height = ((gstate.transfersize >> 10) & 0x3FF) + 1;
+	int width = gstate.getTransferWidth();
+	int height = gstate.getTransferHeight();
 
-	int bpp = (gstate.transferstart & 1) ? 4 : 2;
+	int bpp = gstate.getTransferBpp();
 
 	DEBUG_LOG(G3D, "Block transfer: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 
@@ -1287,7 +1313,6 @@ void DIRECTX9_GPU::DoBlockTransfer() {
 
 	textureCache_.Invalidate(dstBasePtr + (dstY * dstStride + dstX) * bpp, height * dstStride * bpp, GPU_INVALIDATE_HINT);
 
-	
 	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
 	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
 
