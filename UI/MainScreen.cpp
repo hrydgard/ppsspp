@@ -554,6 +554,9 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "language")) {
 		RecreateViews();
 	}
+	if (!strcmp(message, "clearrecentlist")){
+		RecreateViews();
+	}
 }
 
 void MainScreen::update(InputState &input) {

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2012- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -1530,6 +1530,11 @@ namespace MainWindow
 		case WM_USER_UPDATE_UI:
 			CreateLanguageMenu();
 			TranslateMenus();
+			Update();
+			break;
+
+		case WM_USER_RECREATE_RECENTLIST:
+			NativeMessageReceived("clearrecentlist", "");
 			Update();
 			break;
 
