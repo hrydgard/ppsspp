@@ -297,7 +297,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 		
 		// Stencil Test
-		if (gstate.isStencilTestEnabled() && gstate.isDepthTestEnabled()) {
+		if (gstate.isStencilTestEnabled()) {
 			glstate.stencilTest.enable();
 			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
 				gstate.getStencilTestRef(),
