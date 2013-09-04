@@ -309,6 +309,7 @@ namespace MainWindow
 
 		// Get the new menu's info and then set its ID so we can have it be translatable.
 		MENUITEMINFO mii;
+		memset(&mii, 0, sizeof(MENUITEMINFO));
 		mii.cbSize = sizeof(MENUITEMINFO);
 		GetMenuItemInfo(emulationSubMenu, SUBMENU_SYSTEM_LANGUAGE, TRUE, &mii);
 		mii.fMask = MIIM_ID;
@@ -1352,7 +1353,7 @@ namespace MainWindow
 							g_Config.languageIni = countryCodes[index];
 
 							if(i18nrepo.LoadIni(g_Config.languageIni)) {
-								NativeMessageReceived("language", g_Config.languageIni.c_str());
+								NativeMessageReceived("language", "");
 								PostMessage(hwndMain, WM_USER_UPDATE_UI, 0, 0);
 							}
 							else
