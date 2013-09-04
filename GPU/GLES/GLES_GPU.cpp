@@ -644,8 +644,12 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
 			u32 count = data & 0xFFFF;
+			GEPrimitiveType previousprim = GE_PRIM_RECTANGLES;
 			GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
-
+			
+			if (count == 0)
+				break;
+				
 			// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 			
 			// Discard AA lines in DOA
@@ -683,7 +687,19 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 				}
 				inds = Memory::GetPointer(gstate_c.indexAddr);
 			}
-
+			
+			// Continue previous prim command when it was either STRIP or FAN 
+			if (prim == GE_PRIM_KEEP_PREVIOUS) {
+				switch(previousprim) {
+				case GE_PRIM_LINE_STRIP:
+				case GE_PRIM_TRIANGLE_STRIP:
+				case GE_PRIM_TRIANGLE_FAN:
+					break;
+				}
+				prim = previousprim;
+			}
+			previousprim = prim;
+			
 #ifndef USING_GLES2
 			if (prim > GE_PRIM_RECTANGLES) {
 				ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
