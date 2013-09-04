@@ -89,12 +89,15 @@ extern InputState input_state;
 #define HID_USAGE_GENERIC_MOUSE        ((USHORT) 0x02)
 #endif
 
+extern std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping();
+
 namespace MainWindow
 {
 	HWND hwndMain;
 	HWND hwndDisplay;
 	HWND hwndGameList;
 	static HMENU menu;
+	static HMENU systemLangMenu;
 
 	static HINSTANCE hInst;
 	static int cursorCounter = 0;
@@ -106,6 +109,7 @@ namespace MainWindow
 	static size_t rawInputBufferSize;
 	static int currentSavestateSlot = 0;
 	static std::map<int, std::string> initialMenuKeys;
+	static std::vector<std::string> countryCodes;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szTitle = TEXT("PPSSPP");
@@ -275,6 +279,7 @@ namespace MainWindow
 		MENU_HELP = 4,
 
 		// Emulation submenus
+		SUBMENU_SYSTEM_LANGUAGE = 18,
 		SUBMENU_RENDERING_BACKEND = 11,
 
 		// Game Settings submenus
@@ -284,6 +289,50 @@ namespace MainWindow
 		SUBMENU_TEXTURE_FILTERING = 7,
 		SUBMENU_TEXTURE_SCALING = 8,
 	};
+
+	void CreateSystemLanguageMenu() {
+		// Please don't remove this boolean. We don't want this menu to be created multiple times.
+		static bool systemLangMenuCreated = false;
+
+		if(systemLangMenuCreated) return;
+
+		HMENU emulationSubMenu = GetSubMenu(menu, MENU_EMULATION);
+		systemLangMenu = CreatePopupMenu();
+
+		AppendMenu(emulationSubMenu, MF_SEPARATOR, 0, 0);
+
+		I18NCategory *c = GetI18NCategory("DesktopUI");
+		// Don't translate this. Think of it as a string defined in ppsspp.rc.
+		const std::wstring languageKey = L"System Language";
+		// Insert the new menu.
+		InsertMenu(emulationSubMenu, SUBMENU_SYSTEM_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)systemLangMenu, languageKey.c_str());
+
+		// Get the new menu's info and then set its ID so we can have it be translatable.
+		MENUITEMINFO mii;
+		mii.cbSize = sizeof(MENUITEMINFO);
+		GetMenuItemInfo(emulationSubMenu, SUBMENU_SYSTEM_LANGUAGE, TRUE, &mii);
+		mii.fMask = MIIM_ID;
+		mii.wID = ID_LANGUAGE_BASE;
+		SetMenuItemInfo(emulationSubMenu, SUBMENU_SYSTEM_LANGUAGE, TRUE, &mii);
+
+		// Create the System Language menu items by creating a new menu item for each
+		// language with its full name("English", "Magyar", etc.) as the value.
+		// Also collect the country codes while we're at it so we can send them to
+		// NativeMessageReceived easier.
+		auto langValuesMap = GetLangValuesMapping();
+
+		// Start adding items after ID_LANGUAGE_BASE.
+		int item = ID_LANGUAGE_BASE + 1;
+		std::wstring fullLanguageName;
+
+		for(auto i = langValuesMap.begin(); i != langValuesMap.end(); ++i) {
+			fullLanguageName = ConvertUTF8ToWString(i->second.first);
+			AppendMenu(systemLangMenu, MF_STRING | MF_BYPOSITION, item++, fullLanguageName.c_str());
+			countryCodes.push_back(i->first);
+		}
+
+		systemLangMenuCreated = true;
+	}
 
 	void TranslateMenuItembyText(const int menuID, const char *menuText, const char *category="", const bool enabled = true, const bool checked = false, const std::wstring& accelerator = L"") {
 		I18NCategory *c = GetI18NCategory(category);
@@ -354,7 +403,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_CPU_DYNAREC, desktopUI);
 		TranslateMenuItem(ID_CPU_MULTITHREADED, desktopUI);
 		TranslateMenuItem(ID_IO_MULTITHREADED, desktopUI);
-
+		TranslateMenuItem(ID_LANGUAGE_BASE, desktopUI);
+		
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
@@ -1292,7 +1342,26 @@ namespace MainWindow
 					break;
 
 				default:
-					MessageBox(hwndMain, L"Unimplemented", L"Sorry",0);
+					{
+						// Just handle language switching here.
+						// The Menu ID is contained in wParam, so subtract
+						// ID_LANGUAGE_BASE and an additional 1 off it.
+						int index = (wParam - ID_LANGUAGE_BASE - 1);
+						if(index >= 0 && index < countryCodes.size()) {
+							std::string oldLang = g_Config.languageIni;
+							g_Config.languageIni = countryCodes[index];
+
+							if(i18nrepo.LoadIni(g_Config.languageIni)) {
+								NativeMessageReceived("language", g_Config.languageIni.c_str());
+								PostMessage(hwndMain, WM_USER_UPDATE_UI, 0, 0);
+							}
+							else
+								g_Config.languageIni = oldLang;
+
+							break;
+						}
+						MessageBox(hwndMain, L"Unimplemented", L"Sorry",0);
+					}
 					break;
 				}
 			}
@@ -1429,6 +1498,7 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_UI:
+			CreateSystemLanguageMenu();
 			TranslateMenus();
 			Update();
 			break;

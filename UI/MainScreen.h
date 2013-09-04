@@ -61,6 +61,7 @@ protected:
 	virtual void DrawBackground(UIContext &dc);
 	virtual void CreateViews();
 	virtual void update(InputState &input);
+	virtual void sendMessage(const char *message, const char *value);
 
 private:
 	UI::EventReturn OnMainSettings(UI::EventParams &e);

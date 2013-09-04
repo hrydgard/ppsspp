@@ -44,8 +44,9 @@
 #ifdef _WIN32
 namespace MainWindow {
 	enum { 
-		WM_USER_LOG_STATUS_CHANGED = WM_USER + 200,
-		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 300,
+		WM_USER_LOG_STATUS_CHANGED = WM_USER + 101,
+		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 102,
+		WM_USER_UPDATE_UI = WM_USER + 103,
 	};
 	extern HWND hwndMain;
 }
@@ -454,6 +455,12 @@ void GameSettingsScreen::update(InputState &input) {
 	g_Config.iFpsLimit = alternateSpeedTable[iAlternateSpeedPercent_];
 }
 
+void GameSettingsScreen::sendMessage(const char *message, const char *value) {
+	if (!strcmp(message, "language")) {
+		RecreateViews();
+	}
+}
+
 UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {
 	screenManager()->push(new PluginScreen());
 	return UI::EVENT_DONE;
@@ -525,6 +532,9 @@ UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 	RecreateViews();
 	OnLanguageChanged.Trigger(e);
+#ifdef _WIN32
+	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_UPDATE_UI, 0, 0);
+#endif
 	return UI::EVENT_DONE;
 }
 
