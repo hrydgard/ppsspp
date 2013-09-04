@@ -338,7 +338,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, desktopUI, false, false, L"\tF2");
 		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI, false, false);
 		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI, false, false);
-		TranslateMenuItem(ID_FILE_EXIT, desktopUI);
+		TranslateMenuItem(ID_FILE_EXIT, desktopUI, true, false, L"\tAlt+F4");
 
 		// Emulation menu
 		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
@@ -346,59 +346,59 @@ namespace MainWindow
 		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, false, false, L"\tCtrl+W");
 		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
 		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
-		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI, true, true);
-		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, desktopUI, true, false);
-		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI,true, true, L"\tCtrl+T");
+		TranslateMenuItem(ID_EMULATION_SOUND, "Audio", true, true);
+		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, "Audio", true, false);
+		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI, true, true, L"\tCtrl+T");
 		TranslateMenuItem(ID_EMULATION_RENDER_MODE_OGL, desktopUI, true, true);
 		TranslateMenuItem(ID_EMULATION_RENDER_MODE_SOFT, desktopUI);
-		TranslateMenuItem(ID_CPU_DYNAREC, desktopUI);
-		TranslateMenuItem(ID_CPU_MULTITHREADED, desktopUI);
-		TranslateMenuItem(ID_IO_MULTITHREADED, desktopUI);
+		TranslateMenuItem(ID_CPU_DYNAREC, "System");
+		TranslateMenuItem(ID_CPU_MULTITHREADED, "System");
+		TranslateMenuItem(ID_IO_MULTITHREADED, "System");
 
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
-		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, desktopUI);
+		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, "Graphics");
 		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, true, false, L"\tF12");
 		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, true, false, L"\tCtrl+D");
 		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, true, false, L"\tCtrl+L");
 		TranslateMenuItem(ID_DEBUG_MEMORYVIEW, desktopUI, L"\tCtrl+M");
 
 		// Options menu
-		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, desktopUI, true, false, L"\tAlt+Return, F11");
+		TranslateMenuItem(ID_OPTIONS_FULLSCREEN, "Graphics", true, false, L"\tAlt+Return, F11");
 		TranslateMenuItem(ID_OPTIONS_TOPMOST, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_STRETCHDISPLAY, "Graphics");
 		TranslateMenuItem(ID_OPTIONS_SCREEN1X, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_SCREEN2X, desktopUI, true, true);
 		TranslateMenuItem(ID_OPTIONS_SCREEN3X, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_SCREEN4X, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, desktopUI, true, true);
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, desktopUI, true, false);
-		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, desktopUI, true, false);
+		TranslateMenuItem(ID_OPTIONS_NONBUFFEREDRENDERING, "Graphics", true, false);
+		TranslateMenuItem(ID_OPTIONS_BUFFEREDRENDERING, "Graphics", true, true);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYCPU, "Graphics", true, false);
+		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, "Graphics", true, false);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, "Graphics");
 		// Skip frameskipping 2-8..
-		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_OFF, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_LINEARFILTERING_CG, "Graphics");
+		TranslateMenuItem(ID_TEXTURESCALING_OFF, "Graphics");
 		// Skip texture scaling 2x-5x...
-		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, desktopUI);
-		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, desktopUI, true, true, L"\tF6");
-		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_MIPMAP, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_VSYNC, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_SHOWFPS, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, desktopUI);
+		TranslateMenuItem(ID_TEXTURESCALING_XBRZ, "Graphics");
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID, "Graphics");
+		TranslateMenuItem(ID_TEXTURESCALING_BICUBIC, "Graphics");
+		TranslateMenuItem(ID_TEXTURESCALING_HYBRID_BICUBIC, "Graphics");
+		TranslateMenuItem(ID_TEXTURESCALING_DEPOSTERIZE, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_HARDWARETRANSFORM, "Graphics", true, true, L"\tF6");
+		TranslateMenuItem(ID_OPTIONS_VERTEXCACHE, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_MIPMAP, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_VSYNC, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_SHOWFPS, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, "Graphics");
+		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, "Graphics");
 		TranslateMenuItem(ID_OPTIONS_IGNOREILLEGALREADS, desktopUI);
 
 		// Help menu
@@ -416,10 +416,10 @@ namespace MainWindow
 
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND);
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
-		TranslateSubMenuHeader(menu, desktopUI, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
-		TranslateSubMenuHeader(menu, desktopUI, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
-		TranslateSubMenuHeader(menu, desktopUI, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
-		TranslateSubMenuHeader(menu, desktopUI, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
+		TranslateSubMenuHeader(menu, "Graphics", "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
+		TranslateSubMenuHeader(menu, "Graphics", "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
+		TranslateSubMenuHeader(menu, "Graphics", "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
+		TranslateSubMenuHeader(menu, "Graphics", "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 
 		DrawMenuBar(hwndMain);
 	}
