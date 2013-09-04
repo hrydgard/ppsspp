@@ -97,7 +97,6 @@ namespace MainWindow
 	HWND hwndDisplay;
 	HWND hwndGameList;
 	static HMENU menu;
-	static HMENU systemLangMenu;
 
 	static HINSTANCE hInst;
 	static int cursorCounter = 0;
@@ -290,13 +289,42 @@ namespace MainWindow
 		return initialMenuKeys[menuID];
 	}
 
-	void CreateSystemLanguageMenu() {
-		// Please don't remove this boolean. We don't want this menu to be created multiple times.
+	void CreateHelpMenu() {
+		HMENU helpMenu = CreatePopupMenu();
+
+		I18NCategory *credits = GetI18NCategory("PSPCredits");
+		I18NCategory *desktopUI = GetI18NCategory("DesktopUI");
+
+		const std::wstring help = ConvertUTF8ToWString(desktopUI->T("Help"));
+		const std::wstring visitMainWebsite = ConvertUTF8ToWString(desktopUI->T("www.ppsspp.org"));
+		const std::wstring visitForum = ConvertUTF8ToWString(desktopUI->T("PPSSPP Forums"));
+		const std::wstring buyGold = ConvertUTF8ToWString(desktopUI->T("Buy Gold"));
+		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(desktopUI->T("About PPSSPP..."));
+
+		// Simply remove the old help menu and create a new one.
+		RemoveMenu(menu, MENU_HELP, MF_BYPOSITION);
+		InsertMenu(menu, MENU_HELP, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)helpMenu, help.c_str());
+
+		AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
+		AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_OPENFORUM, visitForum.c_str());
+		// Repeat the process for other languages, if necessary.
+		if(g_Config.languageIni == "zh_CN" || g_Config.languageIni == "zh_TW") {
+			const std::wstring visitChineseForum = ConvertUTF8ToWString(credits->T("PPSSPP Chinese Forum"));
+			AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_CHINESE_FORUM, visitChineseForum.c_str());
+		}
+		AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_BUYGOLD, buyGold.c_str());
+		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);
+		AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_ABOUT, aboutPPSSPP.c_str());
+	}
+
+	void CreateLanguageMenu() {
+		// Please don't remove this boolean. 
+		// We don't want this menu to be created multiple times.
 		static bool systemLangMenuCreated = false;
 
 		if(systemLangMenuCreated) return;
 
-		systemLangMenu = CreatePopupMenu();
+		HMENU systemLangMenu = CreatePopupMenu();
 
 		I18NCategory *c = GetI18NCategory("DesktopUI");
 		// Don't translate this right here, translate it in TranslateMenus. 
@@ -453,11 +481,8 @@ namespace MainWindow
 		// Language menu
 		TranslateMenuItem(ID_LANGUAGE_BASE, desktopUI);
 
-		// Help menu
-		TranslateMenuItem(ID_HELP_OPENWEBSITE, desktopUI);
-		TranslateMenuItem(ID_HELP_OPENFORUM, desktopUI);
-		TranslateMenuItem(ID_HELP_BUYGOLD, desktopUI);
-		TranslateMenuItem(ID_HELP_ABOUT, desktopUI);
+		// Help menu: it's translated in CreateHelpMenu.
+		CreateHelpMenu();
 
 		// Now do the menu headers and a few submenus...
 		TranslateMenuHeader(menu, desktopUI, "File", MENU_FILE);
@@ -1333,6 +1358,10 @@ namespace MainWindow
 					ShellExecute(NULL, L"open", L"http://forums.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
 					break;
 
+				case ID_HELP_CHINESE_FORUM:
+					ShellExecute(NULL, L"open", L"http://tieba.baidu.com/f?ie=utf-8&kw=ppsspp", NULL, NULL, SW_SHOWNORMAL);
+					break;
+
 				case ID_HELP_ABOUT:
 					DialogManager::EnableAll(FALSE);
 					DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
@@ -1500,7 +1529,7 @@ namespace MainWindow
 			break;
 
 		case WM_USER_UPDATE_UI:
-			CreateSystemLanguageMenu();
+			CreateLanguageMenu();
 			TranslateMenus();
 			Update();
 			break;
