@@ -400,7 +400,7 @@ void Config::CleanRecent() {
 	for (size_t i = 0; i < recentIsos.size(); i++) {
 		if (File::Exists(recentIsos[i])){
 			// clean the redundant recent games' list.
-			for (size_t j=0; j<=cleanedRecent.size();j++){
+			for (size_t j=0; j<cleanedRecent.size();j++){
 				if (cleanedRecent.size()==0){ // add first one
 					cleanedRecent.push_back(recentIsos[i]);
 					break;
