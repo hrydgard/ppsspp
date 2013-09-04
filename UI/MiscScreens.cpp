@@ -543,9 +543,9 @@ void CreditsScreen::render() {
 	for (int i = 0; i < numItems; i++) {
 		float alpha = linearInOut(y+32, 64, dp_yres - 192, 64);
 		if (alpha > 0.0f) {
-			dc.Draw()->SetFontScale(ease(alpha), ease(alpha));
-			dc.Draw()->DrawText(UBUNTU24, credits[i], dp_xres/2, y, whiteAlpha(alpha), ALIGN_HCENTER);
-			dc.Draw()->SetFontScale(1.0f, 1.0f);
+			dc.SetFontScale(ease(alpha), ease(alpha));
+			dc.DrawText(credits[i], dp_xres/2, y, whiteAlpha(alpha), ALIGN_HCENTER);
+			dc.SetFontScale(1.0f, 1.0f);
 		}
 		y += itemHeight;
 	}
