@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+﻿// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -397,6 +397,8 @@ void GameSettingsScreen::CreateViews() {
 
 UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
 	g_Config.recentIsos.clear();
+	// update recent list screen (Just create a new logo screen. Maybe someone have a better idea to update recent list screen)
+	screenManager()->push(new  LogoScreen(""));
 
 	return UI::EVENT_DONE;
 }
