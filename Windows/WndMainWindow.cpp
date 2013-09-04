@@ -279,8 +279,8 @@ namespace MainWindow
 		MENU_HELP = 4,
 
 		// Emulation submenus
-		SUBMENU_SYSTEM_LANGUAGE = 18,
 		SUBMENU_RENDERING_BACKEND = 11,
+		SUBMENU_SYSTEM_LANGUAGE = 18,
 
 		// Game Settings submenus
 		SUBMENU_RENDERING_RESOLUTION = 4,
