@@ -63,6 +63,7 @@ public:
 		I18NCategory *category, ScreenManager *screenManager, LayoutParams *layoutParams = 0)
 		: Choice(text, "", false, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices), 
 		category_(category), screenManager_(screenManager) {
+		if (*value >= numChoices) *value = numChoices-1;
 		if (*value < minVal) *value = minVal;
 		OnClick.Handle(this, &PopupMultiChoice::HandleClick);
 		UpdateText();
