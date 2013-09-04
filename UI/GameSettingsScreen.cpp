@@ -484,9 +484,7 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	Reporting::Enable(enableReports_, "report.ppsspp.org");
 	g_Config.Save();
 
-#ifdef _WIN32
-	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_ATRAC_STATUS_CHANGED, 0, 0);
-#endif
+	host->UpdateUI();
 
 	KeyMap::UpdateConfirmCancelKeys();
 
