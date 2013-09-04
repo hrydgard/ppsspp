@@ -34,7 +34,7 @@
 void GameScreen::CreateViews() {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 
-	I18NCategory *g = GetI18NCategory("General");
+	I18NCategory *d = GetI18NCategory("Dialog");
 	I18NCategory *ga = GetI18NCategory("Game");
 
 	// Information in the top left.
@@ -49,7 +49,7 @@ void GameScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
-	leftColumn->Add(new Choice(g->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
+	leftColumn->Add(new Choice(d->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
 		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 		tvTitle_ = leftColumn->Add(new TextView(info->title, ALIGN_LEFT, 1.0f, new AnchorLayoutParams(10, 200, NONE, NONE)));
@@ -152,7 +152,7 @@ UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("DeleteSaveData"), ga->T("Cancel"),
+			new PromptScreen(d->T("DeleteConfirmAll", "Do you really want to delete all\nyour save data for this game?"), ga->T("DeleteSaveData"), d->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteSaveData, this, placeholder::_1)));
 	}
 
@@ -173,7 +173,7 @@ UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
 	GameInfo *info = g_gameInfoCache.GetInfo(gamePath_, true);
 	if (info) {
 		screenManager()->push(
-			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("DeleteGame"), ga->T("Cancel"),
+			new PromptScreen(d->T("DeleteConfirmGame", "Do you really want to delete this game\nfrom your device? You can't undo this."), ga->T("DeleteGame"), d->T("Cancel"),
 			std::bind(&GameScreen::CallbackDeleteGame, this, placeholder::_1)));
 	}
 
