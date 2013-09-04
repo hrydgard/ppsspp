@@ -19,6 +19,7 @@
 
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "base/NativeApp.h"
 #include "util/text/utf8.h"
 
 #include "Core/Config.h"
@@ -54,8 +55,15 @@ void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);
 }
 
-std::string System_GetName() {
-	return "PC:Windows";
+std::string System_GetProperty(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_NAME:
+		return "PC:Windows";
+	case SYSPROP_LANGREGION:
+		return "en_US";
+	default:
+		return "";
+	}
 }
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow)

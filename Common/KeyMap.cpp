@@ -676,7 +676,7 @@ void RestoreDefault() {
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
 #elif defined(ANDROID)
 	// Autodetect a few common devices
-	std::string name = System_GetName();
+	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (name == "NVIDIA:SHIELD") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
 	} else if (name == "OUYA:OUYA Console") {  // TODO: check!

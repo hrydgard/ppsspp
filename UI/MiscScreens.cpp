@@ -329,7 +329,8 @@ void SystemInfoScreen::CreateViews() {
 	root_->Add(scroll);
 
 	scroll->Add(new ItemHeader("System Information"));
-	scroll->Add(new InfoItem("System Name", System_GetName()));
+	scroll->Add(new InfoItem("System Name", System_GetProperty(SYSPROP_NAME)));
+	scroll->Add(new InfoItem("System Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
 	scroll->Add(new InfoItem("GPU Vendor", (char *)glGetString(GL_VENDOR)));
 	scroll->Add(new InfoItem("GPU Model", (char *)glGetString(GL_RENDERER)));
 	scroll->Add(new InfoItem("OpenGL Version Supported", (char *)glGetString(GL_VERSION)));

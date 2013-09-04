@@ -20,11 +20,11 @@
     <Filter Include="Windows\System">
       <UniqueIdentifier>{45e2a327-0a36-4292-ab24-a297639b797e}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Android">
-      <UniqueIdentifier>{d53d0871-8572-4393-822e-d14db0a88dab}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Windows\Input">
       <UniqueIdentifier>{a1963305-bf88-43ef-8ba2-bb3933584b38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Other Platforms">
+      <UniqueIdentifier>{d53d0871-8572-4393-822e-d14db0a88dab}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -90,10 +90,10 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp" />
     <ClCompile Include="..\android\jni\ArmEmitterTest.cpp">
-      <Filter>Android</Filter>
+      <Filter>Other Platforms</Filter>
     </ClCompile>
     <ClCompile Include="..\android\jni\TestRunner.cpp">
-      <Filter>Android</Filter>
+      <Filter>Other Platforms</Filter>
     </ClCompile>
     <ClCompile Include="DinputDevice.cpp">
       <Filter>Windows\Input</Filter>
@@ -177,10 +177,10 @@
     </ClInclude>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="..\android\jni\ARMEmitterTest.h">
-      <Filter>Android</Filter>
+      <Filter>Other Platforms</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\TestRunner.h">
-      <Filter>Android</Filter>
+      <Filter>Other Platforms</Filter>
     </ClInclude>
     <ClInclude Include="DinputDevice.h">
       <Filter>Windows\Input</Filter>
@@ -209,17 +209,17 @@
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\android\jni\Android.mk">
-      <Filter>Android</Filter>
+      <Filter>Other Platforms</Filter>
     </None>
     <None Include="ppsspp.ico">
       <Filter>Resource Files</Filter>
     </None>
     <None Include="..\README.md" />
     <None Include="..\android\atlasscript.txt">
-      <Filter>Android</Filter>
+      <Filter>Other Platforms</Filter>
     </None>
     <None Include="..\android\jni\Application.mk">
-      <Filter>Android</Filter>
+      <Filter>Other Platforms</Filter>
     </None>
     <None Include="..\CMakeLists.txt">
       <Filter>Windows</Filter>

@@ -5,10 +5,15 @@
 
 #import "AppDelegate.h"
 
-std::string System_GetName()
-{
-	// TODO: iPad/etc.?
-	return "iOS:";
+std::string System_GetProperty(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_NAME:
+		return "iOS:";
+	case SYSPROP_LANGREGION:
+		return "en_US";
+	default:
+		return "";
+	}
 }
 
 int main(int argc, char *argv[])
