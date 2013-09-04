@@ -1505,6 +1505,11 @@ namespace MainWindow
 			Update();
 			break;
 
+		case WM_USER_RECREATE_RECENTLIST:
+			NativeMessageReceived("clearrecentlist", "");
+			Update();
+			break;
+
 		case WM_MENUSELECT:
 			// Unfortunately, accelerate keys (hotkeys) shares the same enabled/disabled states
 			// with corresponding menu items.
