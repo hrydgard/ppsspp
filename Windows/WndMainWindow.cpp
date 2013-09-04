@@ -302,7 +302,7 @@ namespace MainWindow
 		AppendMenu(emulationSubMenu, MF_SEPARATOR, 0, 0);
 
 		I18NCategory *c = GetI18NCategory("DesktopUI");
-		// Don't translate this. Think of it as a string defined in ppsspp.rc.
+		// Don't translate this right here, translate it in TranslateMenus. Think of it as a string defined in ppsspp.rc.
 		const std::wstring languageKey = L"System Language";
 		// Insert the new menu.
 		InsertMenu(emulationSubMenu, SUBMENU_SYSTEM_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)systemLangMenu, languageKey.c_str());
