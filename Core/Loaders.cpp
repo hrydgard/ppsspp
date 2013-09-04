@@ -241,7 +241,7 @@ bool LoadFile(std::string &filename, std::string *error_string) {
 		break;
 
 	case FILETYPE_ISO_MODE2:
-		*error_string = "PSX game image deteced.";
+		*error_string = "PSX game image detected.";
 		break;
 
 	case FILETYPE_NORMAL_DIRECTORY:
