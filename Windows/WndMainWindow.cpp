@@ -305,16 +305,16 @@ namespace MainWindow
 		RemoveMenu(menu, MENU_HELP, MF_BYPOSITION);
 		InsertMenu(menu, MENU_HELP, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)helpMenu, help.c_str());
 
-		AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
-		AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_OPENFORUM, visitForum.c_str());
+		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
+		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
 		// Repeat the process for other languages, if necessary.
 		if(g_Config.languageIni == "zh_CN" || g_Config.languageIni == "zh_TW") {
 			const std::wstring visitChineseForum = ConvertUTF8ToWString(credits->T("PPSSPP Chinese Forum"));
-			AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_CHINESE_FORUM, visitChineseForum.c_str());
+			AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_CHINESE_FORUM, visitChineseForum.c_str());
 		}
-		AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_BUYGOLD, buyGold.c_str());
+		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
 		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);
-		AppendMenu(helpMenu, MF_STRING | MF_BYPOSITION, ID_HELP_ABOUT, aboutPPSSPP.c_str());
+		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
 	}
 
 	void CreateLanguageMenu() {
