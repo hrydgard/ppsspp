@@ -644,6 +644,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
 			u32 count = data & 0xFFFF;
+			GEPrimitiveType previousprim = GE_PRIM_RECTANGLES;
 			GEPrimitiveType prim = static_cast<GEPrimitiveType>(data >> 16);
 			
 			if (count == 0)
@@ -688,7 +689,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 			}
 			
 			// Continue previous prim command when it was either STRIP or FAN 
-			GEPrimitiveType previousprim;
 			if (prim == GE_PRIM_KEEP_PREVIOUS) {
 				switch(previousprim) {
 				case GE_PRIM_LINE_STRIP:
