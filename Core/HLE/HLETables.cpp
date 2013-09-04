@@ -66,6 +66,7 @@
 #include "sceMd5.h"
 #include "sceJpeg.h"
 #include "sceAudiocodec.h"
+#include "sceHeap.h"
 
 #define N(s) s
 
@@ -309,6 +310,7 @@ void RegisterAllModules() {
 	Register_sceMd5();
 	Register_sceJpeg();
 	Register_sceAudiocodec();
+	Register_sceHeap();
 
 	for (int i = 0; i < numModules; i++)
 	{
