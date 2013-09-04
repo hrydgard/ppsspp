@@ -247,6 +247,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/HLE/sceDmac.cpp \
   $(SRC)/Core/HLE/sceGe.cpp \
   $(SRC)/Core/HLE/sceFont.cpp \
+  $(SRC)/Core/HLE/sceHeap.cpp \
   $(SRC)/Core/HLE/sceHprm.cpp \
   $(SRC)/Core/HLE/sceHttp.cpp \
   $(SRC)/Core/HLE/sceImpose.cpp \

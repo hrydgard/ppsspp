@@ -828,6 +828,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceGe.h
 	Core/HLE/sceFont.cpp
 	Core/HLE/sceFont.h
+	Core/HLE/sceHeap.cpp
+	Core/HLE/sceHeap.h
 	Core/HLE/sceHprm.cpp
 	Core/HLE/sceHprm.h
 	Core/HLE/sceHttp.cpp
