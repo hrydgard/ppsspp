@@ -241,6 +241,29 @@ namespace MainWindow
 		}
 	}
 
+	// These are used as an offset
+	// to determine which menu item to change.
+	// Make sure to count(from 0) the separators too, when dealing with submenus!!
+	enum MenuID{
+		// Main menus
+		MENU_FILE = 0,
+		MENU_EMULATION = 1,
+		MENU_DEBUG = 2,
+		MENU_OPTIONS = 3,
+		MENU_LANGUAGE = 4,
+		MENU_HELP = 5,
+
+		// Emulation submenus
+		SUBMENU_RENDERING_BACKEND = 11,
+
+		// Game Settings submenus
+		SUBMENU_RENDERING_RESOLUTION = 4,
+		SUBMENU_RENDERING_MODE = 5,
+		SUBMENU_FRAME_SKIPPING = 6,
+		SUBMENU_TEXTURE_FILTERING = 7,
+		SUBMENU_TEXTURE_SCALING = 8,
+	};
+
 	std::string GetMenuItemText(int menuID) {
 		MENUITEMINFO menuInfo;
 		memset(&menuInfo, 0, sizeof(menuInfo));
@@ -267,29 +290,6 @@ namespace MainWindow
 		return initialMenuKeys[menuID];
 	}
 
-	// These are used as an offset
-	// to determine which menu item to change.
-	// Make sure to count(from 0) the separators too, when dealing with submenus!!
-	enum MenuID{
-		// Main menus
-		MENU_FILE = 0,
-		MENU_EMULATION = 1,
-		MENU_DEBUG = 2,
-		MENU_OPTIONS = 3,
-		MENU_LANGUAGE = 4,
-		MENU_HELP = 5,
-
-		// Emulation submenus
-		SUBMENU_RENDERING_BACKEND = 11,
-
-		// Game Settings submenus
-		SUBMENU_RENDERING_RESOLUTION = 4,
-		SUBMENU_RENDERING_MODE = 5,
-		SUBMENU_FRAME_SKIPPING = 6,
-		SUBMENU_TEXTURE_FILTERING = 7,
-		SUBMENU_TEXTURE_SCALING = 8,
-	};
-
 	void CreateSystemLanguageMenu() {
 		// Please don't remove this boolean. We don't want this menu to be created multiple times.
 		static bool systemLangMenuCreated = false;
@@ -299,20 +299,22 @@ namespace MainWindow
 		systemLangMenu = CreatePopupMenu();
 
 		I18NCategory *c = GetI18NCategory("DesktopUI");
-		// Don't translate this right here, translate it in TranslateMenus. Think of it as a string defined in ppsspp.rc.
+		// Don't translate this right here, translate it in TranslateMenus. 
+		// Think of it as a string defined in ppsspp.rc.
 		const std::wstring languageKey = L"Language";
 
 		// Insert the new menu.
 		InsertMenu(menu, MENU_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)systemLangMenu, languageKey.c_str());
 
 		// Get the new menu's info and then set its ID so we can have it be translatable.
-		MENUITEMINFO mii;
-		memset(&mii, 0, sizeof(MENUITEMINFO));
-		mii.cbSize = sizeof(MENUITEMINFO);
-		GetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &mii);
-		mii.fMask = MIIM_ID;
-		mii.wID = ID_LANGUAGE_BASE;
-		SetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &mii);
+		MENUITEMINFO menuItemInfo;
+		memset(&menuItemInfo, 0, sizeof(MENUITEMINFO));
+		menuItemInfo.cbSize = sizeof(MENUITEMINFO);
+		GetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &menuItemInfo);
+		menuItemInfo.fMask = MIIM_ID;
+		menuItemInfo.wID = ID_LANGUAGE_BASE;
+		SetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &menuItemInfo);
+
 		// Create the System Language menu items by creating a new menu item for each
 		// language with its full name("English", "Magyar", etc.) as the value.
 		// Also collect the country codes while we're at it so we can send them to
@@ -401,7 +403,6 @@ namespace MainWindow
 		TranslateMenuItem(ID_CPU_DYNAREC, desktopUI);
 		TranslateMenuItem(ID_CPU_MULTITHREADED, desktopUI);
 		TranslateMenuItem(ID_IO_MULTITHREADED, desktopUI);
-		TranslateMenuItem(ID_LANGUAGE_BASE, desktopUI);
 		
 		// Debug menu
 		TranslateMenuItem(ID_DEBUG_LOADMAPFILE, desktopUI);
@@ -448,6 +449,9 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_IGNOREILLEGALREADS, desktopUI);
+
+		// Language menu
+		TranslateMenuItem(ID_LANGUAGE_BASE, desktopUI);
 
 		// Help menu
 		TranslateMenuItem(ID_HELP_OPENWEBSITE, desktopUI);
