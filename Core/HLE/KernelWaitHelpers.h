@@ -25,6 +25,29 @@
 namespace HLEKernel
 {
 
+// Should be called from the CoreTiming handler for the wait func.
+template <typename KO, WaitType waitType>
+inline void WaitExecTimeout(SceUID threadID) {
+	u32 error;
+	SceUID uid = __KernelGetWaitID(threadID, waitType, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	KO *ko = uid == 0 ? NULL : kernelObjects.Get<KO>(uid, error);
+	if (ko)
+	{
+		if (timeoutPtr != 0)
+			Memory::Write_U32(0, timeoutPtr);
+
+		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+		// actually running, it will get a DELETE result instead of a TIMEOUT.
+		// So, we need to remember it or we won't be able to mark it DELETE instead later.
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
+}
+
+// Move a thead from the waiting thread list to the paused thread list.
+// This version is for vectors which contain structs, which must have SceUID threadID and u64 pausedTimeout.
+// Should not be called directly.
 template <typename WaitInfoType, typename PauseType>
 inline bool WaitPauseHelperUpdate(SceUID pauseKey, SceUID threadID, std::vector<WaitInfoType> &waitingThreads, std::map<SceUID, PauseType> &pausedWaits, u64 pauseTimeout) {
 	WaitInfoType waitData = {0};
@@ -47,6 +70,9 @@ inline bool WaitPauseHelperUpdate(SceUID pauseKey, SceUID threadID, std::vector<
 	return true;
 }
 
+// Move a thread from the waiting thread list to the paused thread list.
+// This version is for a simpler list of SceUIDs.  The paused list is a std::map<SceUID, u64>.
+// Should not be called directly.
 template <>
 inline bool WaitPauseHelperUpdate<SceUID, u64>(SceUID pauseKey, SceUID threadID, std::vector<SceUID> &waitingThreads, std::map<SceUID, u64> &pausedWaits, u64 pauseTimeout) {
 	// TODO: Hmm, what about priority/fifo order?  Does it lose its place in line?
@@ -55,6 +81,9 @@ inline bool WaitPauseHelperUpdate<SceUID, u64>(SceUID pauseKey, SceUID threadID,
 	return true;
 }
 
+// Retrieve the paused wait info from the list, and pop it.
+// Returns the pausedTimeout value.
+// Should not be called directly.
 template <typename WaitInfoType, typename PauseType>
 inline u64 WaitPauseHelperGet(SceUID pauseKey, SceUID threadID, std::map<SceUID, PauseType> &pausedWaits, WaitInfoType &waitData) {
 	waitData = pausedWaits[pauseKey];
@@ -63,6 +92,9 @@ inline u64 WaitPauseHelperGet(SceUID pauseKey, SceUID threadID, std::map<SceUID,
 	return waitDeadline;
 }
 
+// Retrieve the paused wait info from the list, and pop it.
+// This version is for a simple std::map paused list.
+// Should not be called directly.
 template <>
 inline u64 WaitPauseHelperGet<SceUID, u64>(SceUID pauseKey, SceUID threadID, std::map<SceUID, u64> &pausedWaits, SceUID &waitData) {
 	waitData = threadID;
@@ -72,17 +104,31 @@ inline u64 WaitPauseHelperGet<SceUID, u64>(SceUID pauseKey, SceUID threadID, std
 }
 
 enum WaitBeginEndCallbackResult {
+	// Returned when the thread cannot be found in the waiting threads list.
+	// Only returned for struct types, which have other data than the threadID.
 	WAIT_CB_BAD_WAIT_DATA = -2,
+	// Returned when the wait ID of the thread no longer matches the kernel object.
 	WAIT_CB_BAD_WAIT_ID = -1,
+	// Success, whether that means the wait was paused, deleted, etc.
 	WAIT_CB_SUCCESS = 0,
+	// Success, and resumed waiting.  Useful for logging.
 	WAIT_CB_RESUMED_WAIT = 1,
 };
 
+// Meant to be called in a registered begin callback function for a wait type.
+//
+// The goal of this function is to pause the wait.  While inside a callback, waits are released.
+// Once the callback returns, the wait should be resumed (see WaitEndCallback.)
+//
+// This assumes the object has been validated already.  The primary purpose is if you need
+// to use a specific pausedWaits list (for example, sceMsgPipe has two types of waiting per object.)
+//
+// In most cases, use the other, simpler version of WaitBeginCallback().
 template <typename WaitInfoType, typename PauseType>
 WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbackId, int waitTimer, std::vector<WaitInfoType> &waitingThreads, std::map<SceUID, PauseType> &pausedWaits, bool doTimeout = true) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
-	// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
+	// This means two callbacks in a row.  PSP crashes if the same callback waits inside itself (may need more testing.)
 	// TODO: Handle this better?
 	if (pausedWaits.find(pauseKey) != pausedWaits.end()) {
 		return WAIT_CB_SUCCESS;
@@ -101,6 +147,12 @@ WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbac
 	return WAIT_CB_SUCCESS;
 }
 
+// Meant to be called in a registered begin callback function for a wait type.
+//
+// The goal of this function is to pause the wait.  While inside a callback, waits are released.
+// Once the callback returns, the wait should be resumed (see WaitEndCallback.)
+//
+// In the majority of cases, calling this function is sufficient for the BeginCallback handler.
 template <typename KO, WaitType waitType, typename WaitInfoType>
 WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbackId, int waitTimer) {
 	u32 error;
@@ -114,6 +166,15 @@ WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbac
 	}
 }
 
+// Meant to be called in a registered end callback function for a wait type.
+//
+// The goal of this function is to resume the wait, or to complete it if a wait is no longer needed.
+//
+// This version allows you to specify the pausedWaits and waitingThreads vectors, primarily for
+// MsgPipes which have two waiting thread lists.  Unlike the matching WaitBeginCallback() function,
+// this still validates the wait (since it needs other data from the object.)
+//
+// In most cases, use the other, simpler version of WaitEndCallback().
 template <typename KO, WaitType waitType, typename WaitInfoType, typename PauseType, class TryUnlockFunc>
 WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackId, int waitTimer, TryUnlockFunc TryUnlock, std::vector<WaitInfoType> &waitingThreads, std::map<SceUID, PauseType> &pausedWaits) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
@@ -165,12 +226,19 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 	}
 }
 
+// Meant to be called in a registered end callback function for a wait type.
+//
+// The goal of this function is to resume the wait, or to complete it if a wait is no longer needed.
+//
+// The TryUnlockFunc signature should be (choosen due to similarity to existing funcitons):
+// bool TryUnlock(KO *ko, WaitInfoType waitingThreadInfo, u32 &error, int result, bool &wokeThreads)
 template <typename KO, WaitType waitType, typename WaitInfoType, class TryUnlockFunc>
 WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackId, int waitTimer, TryUnlockFunc TryUnlock) {
 	u32 error;
 	SceUID uid = __KernelGetWaitID(threadID, waitType, error);
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	KO *ko = uid == 0 ? NULL : kernelObjects.Get<KO>(uid, error);
+	// We need the ko for the vectors, but to avoid a null check we validate it here too.
 	if (!ko) {
 		// TODO: Since it was deleted, we don't know how long was actually left.
 		// For now, we just say the full time was taken.

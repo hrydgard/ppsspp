@@ -25,6 +25,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 #include "Common/ChunkFile.h"
 
 #define SCE_KERNEL_MPA_THFIFO_S 0x0000
@@ -297,23 +298,8 @@ KernelObject *__KernelMsgPipeObject()
 
 void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
 {
-	SceUID threadID = (SceUID) (userdata & 0xFFFFFFFF);
-
-	u32 error;
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0)
-		Memory::Write_U32(0, timeoutPtr);
-
-	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_MSGPIPE, error);
-	MsgPipe *m = kernelObjects.Get<MsgPipe>(uid, error);
-	if (m)
-	{
-		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
-		// The reason is, if it times out, but whhile it was waiting on is DELETED prior to it
-		// actually running, it will get a DELETE result instead of a TIMEOUT.
-		// So, we need to remember it or we won't be able to mark it DELETE instead later.
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	}
+	SceUID threadID = (SceUID) userdata;
+	HLEKernel::WaitExecTimeout<MsgPipe, WAITTYPE_MSGPIPE>(threadID);
 }
 
 bool __KernelSetMsgPipeTimeout(u32 timeoutPtr)
