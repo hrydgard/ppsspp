@@ -322,7 +322,7 @@ void LogoScreen::render() {
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawText(temp, dp_xres / 2, dp_yres / 2 + 40, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	dc.DrawText(c->T("license", "Free Software under GPL 2.0"), dp_xres / 2, dp_yres / 2 + 70, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
-	dc.DrawText("www.ppsspp.org", dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
+	dc.DrawText(c->T("www.ppsspp.org"), dp_xres / 2, dp_yres / 2 + 130, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	if (bootFilename_.size()) {
 		ui_draw2d.DrawTextShadow(UBUNTU24, bootFilename_.c_str(), dp_xres / 2, dp_yres / 2 + 180, colorAlpha(0xFFFFFFFF, alphaText), ALIGN_CENTER);
 	}
@@ -381,11 +381,11 @@ void CreditsScreen::CreateViews() {
 	if(g_Config.languageIni == "zh_CN" ||g_Config.languageIni == "zh_TW") {
 	  root_->Add(new Button(c->T("PPSSPP Chinese Forum"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnChineseForum);
 	  root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
-	  root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 228, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
+	  root_->Add(new Button(c->T("www.ppsspp.org"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 228, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	}
 	else {
 	  root_->Add(new Button(c->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
-	  root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
+	  root_->Add(new Button(c->T("www.ppsspp.org"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	}
 #ifdef GOLD
 	root_->Add(new ImageView(I_ICONGOLD, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
@@ -478,6 +478,7 @@ void CreditsScreen::render() {
 		"arnastia",
 		"lioncash",
 		"JulianoAmaralChaves",
+		"vnctdj",
 		"",
 		"",
 		c->T("specialthanks", "Special thanks to:"),
