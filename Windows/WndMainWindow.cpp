@@ -276,11 +276,11 @@ namespace MainWindow
 		MENU_EMULATION = 1,
 		MENU_DEBUG = 2,
 		MENU_OPTIONS = 3,
-		MENU_HELP = 4,
+		MENU_LANGUAGE = 4,
+		MENU_HELP = 5,
 
 		// Emulation submenus
 		SUBMENU_RENDERING_BACKEND = 11,
-		SUBMENU_LANGUAGE = 18,
 
 		// Game Settings submenus
 		SUBMENU_RENDERING_RESOLUTION = 4,
@@ -296,28 +296,23 @@ namespace MainWindow
 
 		if(systemLangMenuCreated) return;
 
-		HMENU emulationSubMenu = GetSubMenu(menu, MENU_EMULATION);
 		systemLangMenu = CreatePopupMenu();
-
-		// Add a separator one position above the Language Menu.
-		// Remove this line if we end up moving it elsewhere and there's a separator above it.
-		InsertMenu(emulationSubMenu, SUBMENU_LANGUAGE - 1, MF_SEPARATOR, 0, 0);
 
 		I18NCategory *c = GetI18NCategory("DesktopUI");
 		// Don't translate this right here, translate it in TranslateMenus. Think of it as a string defined in ppsspp.rc.
 		const std::wstring languageKey = L"Language";
+
 		// Insert the new menu.
-		InsertMenu(emulationSubMenu, SUBMENU_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)systemLangMenu, languageKey.c_str());
+		InsertMenu(menu, MENU_LANGUAGE, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)systemLangMenu, languageKey.c_str());
 
 		// Get the new menu's info and then set its ID so we can have it be translatable.
 		MENUITEMINFO mii;
 		memset(&mii, 0, sizeof(MENUITEMINFO));
 		mii.cbSize = sizeof(MENUITEMINFO);
-		GetMenuItemInfo(emulationSubMenu, SUBMENU_LANGUAGE, TRUE, &mii);
+		GetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &mii);
 		mii.fMask = MIIM_ID;
 		mii.wID = ID_LANGUAGE_BASE;
-		SetMenuItemInfo(emulationSubMenu, SUBMENU_LANGUAGE, TRUE, &mii);
-
+		SetMenuItemInfo(menu, MENU_LANGUAGE, TRUE, &mii);
 		// Create the System Language menu items by creating a new menu item for each
 		// language with its full name("English", "Magyar", etc.) as the value.
 		// Also collect the country codes while we're at it so we can send them to
