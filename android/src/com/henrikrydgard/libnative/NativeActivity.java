@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import android.annotation.SuppressLint;
@@ -193,10 +194,11 @@ public class NativeActivity extends Activity {
 		int dpi = metrics.densityDpi;
 		
 		String deviceType = Build.MANUFACTURER + ":" + Build.MODEL;
-		
+		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry(); 
+				
 		// INIT!
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(scrWidth, scrHeight, dpi, deviceType, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
+		NativeApp.init(scrWidth, scrHeight, dpi, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, installID, useOpenSL);
 	    Log.i(TAG, "Device: " + deviceType);     
 	    Log.i(TAG, "W : " + scrWidth + " H: " + scrHeight + " rate: " + scrRefreshRate + " fmt: " + scrPixelFormat + " dpi: " + dpi);     
 		

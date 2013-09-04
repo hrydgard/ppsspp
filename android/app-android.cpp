@@ -143,7 +143,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_audioConfig
 }
 
 extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
-	(JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring jdevicetype, jstring japkpath,
+	(JNIEnv *env, jclass, jint xxres, jint yyres, jint dpi, jstring jdevicetype, jstring jlangRegion, jstring japkpath,
 	 jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jinstallID, jboolean juseNativeAudio) {
 	jniEnvUI = env;
 
@@ -167,6 +167,7 @@ extern "C" void Java_com_henrikrydgard_libnative_NativeApp_init
 	VFSRegister("", new ZipAssetReader(apkPath.c_str(), "assets/"));
 
 	systemName = GetJavaString(env, jdevicetype);
+	langRegion = GetJavaString(env, jlangRegion);
 
 	std::string externalDir = GetJavaString(env, jexternalDir);
 	std::string user_data_path = GetJavaString(env, jdataDir) + "/";

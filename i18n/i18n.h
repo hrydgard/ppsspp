@@ -62,6 +62,7 @@ public:
 	I18NRepo() {}
 	~I18NRepo();
 
+	bool IniExists(const std::string &languageID) const;
 	bool LoadIni(const std::string &languageID);  // NOT the filename!
 	void SaveIni(const std::string &languageID);
 

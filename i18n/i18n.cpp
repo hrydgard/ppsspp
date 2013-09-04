@@ -1,6 +1,7 @@
 #include "base/logging.h"
 #include "i18n/i18n.h"
 #include "file/ini_file.h"
+#include "file/vfs.h"
 
 I18NRepo i18nrepo;
 
@@ -55,6 +56,16 @@ I18NCategory *I18NRepo::GetCategory(const char *category) {
 std::string I18NRepo::GetIniPath(const std::string &languageID) const {
 	return "lang/" + languageID + ".ini";
 }
+
+bool I18NRepo::IniExists(const std::string &languageID) const {
+	FileInfo info;
+	if (!VFSGetFileInfo(GetIniPath(languageID).c_str(), &info))
+		return false;
+	if (!info.exists)
+		return false;
+	return true;
+}
+
 
 bool I18NRepo::LoadIni(const std::string &languageID) {
 	IniFile ini;

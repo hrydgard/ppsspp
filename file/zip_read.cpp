@@ -278,7 +278,10 @@ bool VFSGetFileInfo(const char *path, FileInfo *info)
 		int prefix_len = (int)strlen(entries[i].prefix);
 		if (prefix_len >= fn_len) continue;
 		if (0 == memcmp(path, entries[i].prefix, prefix_len)) {
-			return entries[i].reader->GetFileInfo(path + prefix_len, info);
+			if (entries[i].reader->GetFileInfo(path + prefix_len, info))
+				return true;
+			else
+				continue;
 		}
 	}
 	ELOG("Missing filesystem for %s", path);
