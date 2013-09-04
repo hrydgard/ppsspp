@@ -189,7 +189,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const char *str, float x, float 
 	float w = entry->bmWidth * fontScaleX_;
 	float h = entry->bmHeight * fontScaleY_;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	target.DrawTexRect(x, y, x + entry->bmWidth, y + entry->bmHeight, 0.0f, 0.0f, 1.0f, 1.0f, color);
+	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
 	target.Flush(true);
 }
 
