@@ -128,7 +128,7 @@ template <typename WaitInfoType, typename PauseType>
 WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbackId, int waitTimer, std::vector<WaitInfoType> &waitingThreads, std::map<SceUID, PauseType> &pausedWaits, bool doTimeout = true) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
-	// This means two callbacks in a row.  PSP crashes if the same callback runs inside itself.
+	// This means two callbacks in a row.  PSP crashes if the same callback waits inside itself (may need more testing.)
 	// TODO: Handle this better?
 	if (pausedWaits.find(pauseKey) != pausedWaits.end()) {
 		return WAIT_CB_SUCCESS;

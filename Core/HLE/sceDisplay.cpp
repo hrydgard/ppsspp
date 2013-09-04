@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <vector>
+#include <map>
 #include <cmath>
 
 // TODO: Move the relevant parts into common. Don't want the core
@@ -91,6 +92,9 @@ const float hCountPerVblank = 285.72f; // insprired by jpcsp
 
 
 std::vector<WaitVBlankInfo> vblankWaitingThreads;
+// Key is the callback id it was for, or if no callback, the thread id.
+// Value is the goal vcount number (in case the callback takes >= 1 vcount to return.)
+std::map<SceUID, int> vblankPausedWaits;
 
 // STATE END
 
@@ -124,6 +128,9 @@ static int lastFlipsTooFrequent = 0;
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
 void hleAfterFlip(u64 userdata, int cyclesLate);
+
+void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId);
+void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __DisplayInit() {
 	gpuStats.Reset();
@@ -163,6 +170,8 @@ void __DisplayInit() {
 	fpsHistoryValid = 0;
 
 	InitGfxState();
+
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_VBLANK, __DisplayVblankBeginCallback, __DisplayVblankEndCallback);
 }
 
 void __DisplayDoState(PointerWrap &p) {
@@ -181,6 +190,7 @@ void __DisplayDoState(PointerWrap &p) {
 	p.Do(height);
 	WaitVBlankInfo wvi(0);
 	p.Do(vblankWaitingThreads, wvi);
+	p.Do(vblankPausedWaits);
 
 	p.Do(enterVblankEvent);
 	CoreTiming::RestoreRegisterEvent(enterVblankEvent, "EnterVBlank", &hleEnterVblank);
@@ -221,6 +231,56 @@ void __DisplayFireVblank() {
 		VblankCallback cb = *iter;
 		cb();
 	}
+}
+
+void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	// This means two callbacks in a row.  PSP crashes if the same callback waits inside itself (may need more testing.)
+	// TODO: Handle this better?
+	if (vblankPausedWaits.find(pauseKey) != vblankPausedWaits.end()) {
+		return;
+	}
+
+	WaitVBlankInfo waitData(0);
+	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
+		WaitVBlankInfo *t = &vblankWaitingThreads[i];
+		if (t->threadID == threadID)
+		{
+			waitData = *t;
+			vblankWaitingThreads.erase(vblankWaitingThreads.begin() + i);
+			break;
+		}
+	}
+
+	if (waitData.threadID != threadID)
+	{
+		WARN_LOG_REPORT(HLE, "sceDisplayWaitVblankCB: could not find waiting thread info.");
+		return;
+	}
+
+	vblankPausedWaits[pauseKey] = vCount + waitData.vcountUnblock;
+	DEBUG_LOG(HLE, "sceDisplayWaitVblankCB: Suspending vblank wait for callback")
+}
+
+void __DisplayVblankEndCallback(SceUID threadID, SceUID prevCallbackId) {
+	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
+
+	// Probably should not be possible.
+	if (vblankPausedWaits.find(pauseKey) == vblankPausedWaits.end()) {
+		__KernelResumeThreadFromWait(threadID, 0);
+		return;
+	}
+
+	int vcountUnblock = vblankPausedWaits[pauseKey];
+	if (vcountUnblock <= vCount) {
+		__KernelResumeThreadFromWait(threadID, 0);
+		return;
+	}
+
+	// Still have to wait a bit longer.
+	vblankWaitingThreads.push_back(WaitVBlankInfo(__KernelGetCurThread(), vcountUnblock - vCount));
+	DEBUG_LOG(HLE, "sceDisplayWaitVblankCB: Resuming vblank wait from callback")
 }
 
 // TODO: Also average actualFps
