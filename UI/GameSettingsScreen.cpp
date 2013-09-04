@@ -27,6 +27,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/ControlMappingScreen.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
 #include "base/colorutil.h"
