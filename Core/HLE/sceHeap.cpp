@@ -25,12 +25,12 @@ void __HeapDoState(PointerWrap &p) {
 
 int sceHeapReallocHeapMemory(u32 heapPtr, u32 memPtr, int memSize) {
 	ERROR_LOG(HLE,"UNIMPL sceHeapReallocHeapMemory(%d %d %d)", heapPtr, memPtr, memSize);
-    return 0;
+	return 0;
 }
 
 int sceHeapReallocHeapMemoryWithOption(u32 heapPtr, u32 memPtr, int memSize, u32 paramsPtr) {
 	ERROR_LOG(HLE,"UNIMPL sceHeapReallocHeapMemoryWithOption(%d %d %d %d)", heapPtr, memPtr, memSize, paramsPtr);
-    return 0;
+        return 0;
 }
 
 int sceHeapFreeHeapMemory(u32 heapPtr, u32 memPtr) {
@@ -40,7 +40,7 @@ int sceHeapFreeHeapMemory(u32 heapPtr, u32 memPtr) {
 
 int sceHeapGetMallinfo(u32 heapPtr, u32 infoPtr) {
 	ERROR_LOG(HLE,"UNIMPL sceHeapGetMallinfo(%d %d)", heapPtr, infoPtr);
-    return 0;
+        return 0;
 }
 
 int sceHeapAllocHeapMemoryWithOption(u32 heapPtr, int memSize, u32 paramsPtr) {
@@ -50,27 +50,27 @@ int sceHeapAllocHeapMemoryWithOption(u32 heapPtr, int memSize, u32 paramsPtr) {
 
 int sceHeapGetTotalFreeSize(u32 heapPtr) {
 	ERROR_LOG(HLE,"UNIMPL sceHeapGetTotalFreeSize(%d)", heapPtr);
-    return 0;
+        return 0;
 }
 
 int sceHeapIsAllocatedHeapMemory(u32 heapPtr, u32 memPtr) {
 	ERROR_LOG(HLE,"UNIMPL sceHeapIsAllocatedHeapMemory(%d %d)", heapPtr, memPtr);
-    return 0;
+        return 0;
 }
 
 int sceHeapDeleteHeap(u32 heapPtr) {
 	ERROR_LOG(HLE,"UNIMPL sceHeapDeleteHeap(%d)", heapPtr);
-    return 0;
+        return 0;
 }
 
 int sceHeapCreateHeap(const char* name, int len, int attr, u32 paramsPtr) {
 	ERROR_LOG(HLE,"UNIMPL sceHeapCreateHeap(%s %d %d %d)", name, len, attr, paramsPtr);
-    return 0;
+        return 0;
 }
 
 int sceHeapAllocHeapMemory(u32 heapAddr, int len) {
 	ERROR_LOG(HLE,"UNIMPL sceHeapAllocHeapMemory(%d %d)", heapAddr, len);
-    return 0;
+        return 0;
 }
 
 
