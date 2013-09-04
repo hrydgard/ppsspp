@@ -714,7 +714,6 @@ void GamePauseScreen::CreateViews() {
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
 	screenManager()->push(new GameSettingsScreen(gamePath_));	
-	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
