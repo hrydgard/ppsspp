@@ -214,9 +214,6 @@ void __KernelIdle();
 u32 __KernelMipsCallReturnAddress();
 u32 __KernelInterruptReturnAddress();  // TODO: remove
 
-// Internal access - used by sceSetGeCallback
-u32 __KernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg);
-
 SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg);
 int sceKernelDeleteCallback(SceUID cbId);
 int sceKernelNotifyCallback(SceUID cbId, int notifyArg);
