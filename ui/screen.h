@@ -53,7 +53,8 @@ public:
 
 	virtual void *dialogData() { return 0; }
 
-	virtual bool isTransparent() { return false; }
+	virtual bool isTransparent() const { return false; }
+	virtual bool isTopLevel() const { return false; }
 
 private:
 	ScreenManager *screenManager_;
@@ -99,11 +100,12 @@ public:
 	// Generic facility for gross hacks :P
 	void sendMessage(const char *msg, const char *value);
 
+	Screen *topScreen() const;
+
 private:
 	void pop();
 	void switchToNext();
 	void processFinishDialog();
-	Screen *topScreen();
 
 	Screen *nextScreen_;
 	UIContext *uiContext_;

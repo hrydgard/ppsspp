@@ -44,12 +44,12 @@ public:
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent) = 0;
 	virtual void CreateViews();
-	virtual bool isTransparent() { return true; }
+	virtual bool isTransparent() const { return true; }
 	virtual void touch(const TouchInput &touch);
 
 protected:
-	virtual bool FillVertical() { return false; }
-	virtual bool ShowButtons() { return true; }
+	virtual bool FillVertical() const { return false; }
+	virtual bool ShowButtons() const { return true; }
 	virtual void OnCompleted(DialogResult result) {}
 
 private:
@@ -72,8 +72,8 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	virtual bool FillVertical() { return true; }
-	virtual bool ShowButtons() { return showButtons_; }
+	virtual bool FillVertical() const { return true; }
+	virtual bool ShowButtons() const { return showButtons_; }
 	void CreatePopupContents(UI::ViewGroup *parent);
 	UI::StringVectorListAdaptor adaptor_;
 	UI::ListView *listView_;
@@ -91,8 +91,8 @@ public:
 	UI::Event OnChoice;
 
 protected:
-	virtual bool FillVertical() { return false; }
-	virtual bool ShowButtons() { return true; }
+	virtual bool FillVertical() const { return false; }
+	virtual bool ShowButtons() const { return true; }
 	void CreatePopupContents(UI::ViewGroup *parent);
 
 private:

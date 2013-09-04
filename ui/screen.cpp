@@ -111,7 +111,7 @@ void ScreenManager::deviceLost() {
 	// TODO: Change this when it becomes necessary.
 }
 
-Screen *ScreenManager::topScreen() {
+Screen *ScreenManager::topScreen() const {
 	if (!stack_.empty())
 		return stack_.back().screen;
 	else
