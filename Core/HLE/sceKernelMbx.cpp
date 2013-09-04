@@ -257,24 +257,7 @@ void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
 void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
-
-	u32 error;
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0)
-		Memory::Write_U32(0, timeoutPtr);
-
-	SceUID mbxID = __KernelGetWaitID(threadID, WAITTYPE_MBX, error);
-	Mbx *m = kernelObjects.Get<Mbx>(mbxID, error);
-	if (m)
-	{
-		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
-		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
-		// actually running, it will get a DELETE result instead of a TIMEOUT.
-		// So, we need to remember it or we won't be able to mark it DELETE instead later.
-
-		// TODO: Should numWaitThreads be decreased yet?
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	}
+	HLEKernel::WaitExecTimeout<Mbx, WAITTYPE_MBX>(threadID);
 }
 
 void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)

@@ -334,22 +334,7 @@ retry:
 void __KernelSemaTimeout(u64 userdata, int cycleslate)
 {
 	SceUID threadID = (SceUID)userdata;
-
-	u32 error;
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0)
-		Memory::Write_U32(0, timeoutPtr);
-
-	SceUID semaID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
-	Semaphore *s = kernelObjects.Get<Semaphore>(semaID, error);
-	if (s)
-	{
-		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
-		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
-		// actually running, it will get a DELETE result instead of a TIMEOUT.
-		// So, we need to remember it or we won't be able to mark it DELETE instead later.
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	}
+	HLEKernel::WaitExecTimeout<Semaphore, WAITTYPE_SEMA>(threadID);
 }
 
 void __KernelSetSemaTimeout(Semaphore *s, u32 timeoutPtr)

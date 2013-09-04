@@ -25,6 +25,26 @@
 namespace HLEKernel
 {
 
+// Should be called from the CoreTiming handler for the wait func.
+template <typename KO, WaitType waitType>
+inline void WaitExecTimeout(SceUID threadID) {
+	u32 error;
+	SceUID uid = __KernelGetWaitID(threadID, waitType, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	KO *ko = uid == 0 ? NULL : kernelObjects.Get<KO>(uid, error);
+	if (ko)
+	{
+		if (timeoutPtr != 0)
+			Memory::Write_U32(0, timeoutPtr);
+
+		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
+		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
+		// actually running, it will get a DELETE result instead of a TIMEOUT.
+		// So, we need to remember it or we won't be able to mark it DELETE instead later.
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+	}
+}
+
 // Move a thead from the waiting thread list to the paused thread list.
 // This version is for vectors which contain structs, which must have SceUID threadID and u64 pausedTimeout.
 // Should not be called directly.

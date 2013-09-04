@@ -457,22 +457,7 @@ int sceKernelDeleteFpl(SceUID uid)
 void __KernelFplTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID) userdata;
-
-	u32 error;
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0)
-		Memory::Write_U32(0, timeoutPtr);
-
-	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_FPL, error);
-	FPL *fpl = kernelObjects.Get<FPL>(uid, error);
-	if (fpl)
-	{
-		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
-		// The reason is, if it times out, but while it was waiting on is DELETED prior to it
-		// actually running, it will get a DELETE result instead of a TIMEOUT.
-		// So, we need to remember it or we won't be able to mark it DELETE instead later.
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	}
+	HLEKernel::WaitExecTimeout<FPL, WAITTYPE_FPL>(threadID);
 }
 
 void __KernelSetFplTimeout(u32 timeoutPtr)
@@ -1383,22 +1368,7 @@ bool __KernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 &error, const ch
 void __KernelVplTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID) userdata;
-
-	u32 error;
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0)
-		Memory::Write_U32(0, timeoutPtr);
-
-	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
-	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
-	if (vpl)
-	{
-		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
-		// The reason is, if it times out, but while it was waiting on is DELETED prior to it
-		// actually running, it will get a DELETE result instead of a TIMEOUT.
-		// So, we need to remember it or we won't be able to mark it DELETE instead later.
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	}
+	HLEKernel::WaitExecTimeout<VPL, WAITTYPE_VPL>(threadID);
 }
 
 void __KernelSetVplTimeout(u32 timeoutPtr)

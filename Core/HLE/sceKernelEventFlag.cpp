@@ -355,15 +355,16 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate)
 {
 	SceUID threadID = (SceUID)userdata;
 
+	// This still needs to set the result pointer from the wait.
 	u32 error;
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0)
-		Memory::Write_U32(0, timeoutPtr);
-
 	SceUID flagID = __KernelGetWaitID(threadID, WAITTYPE_EVENTFLAG, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	EventFlag *e = kernelObjects.Get<EventFlag>(flagID, error);
 	if (e)
 	{
+		if (timeoutPtr != 0)
+			Memory::Write_U32(0, timeoutPtr);
+
 		for (size_t i = 0; i < e->waitingThreads.size(); i++)
 		{
 			EventFlagTh *t = &e->waitingThreads[i];
