@@ -511,11 +511,12 @@ void KernelObjectPool::DoState(PointerWrap &p)
 		{
 			p.Do(type);
 			pool[i] = CreateByIDType(type);
-			pool[i]->uid = i + handleOffset;
 
 			// Already logged an error.
 			if (pool[i] == NULL)
 				return;
+
+			pool[i]->uid = i + handleOffset;
 		}
 		else
 		{
