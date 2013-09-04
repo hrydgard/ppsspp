@@ -788,11 +788,7 @@ int PSPOskDialog::NativeKeyboard()
 
 		std::wstring inputWide;
 
-		if(!host->InputBoxGetWString(titleText.c_str(), defaultText, inputWide)) 
-		{
-			wcsncat(input, L"", wcslen(L""));
-		}
-		else 
+		if(host->InputBoxGetWString(titleText.c_str(), defaultText, inputWide)) 
 		{
 			size_t maxInputLength = FieldMaxLength();
 
