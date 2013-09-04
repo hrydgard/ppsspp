@@ -203,6 +203,7 @@
     <ClCompile Include="HLE\sceDmac.cpp" />
     <ClCompile Include="HLE\sceFont.cpp" />
     <ClCompile Include="HLE\sceGe.cpp" />
+    <ClCompile Include="HLE\sceHeap.cpp" />
     <ClCompile Include="HLE\sceHprm.cpp" />
     <ClCompile Include="HLE\sceHttp.cpp" />
     <ClCompile Include="HLE\sceImpose.cpp" />
@@ -441,6 +442,7 @@
     <ClInclude Include="HLE\sceDmac.h" />
     <ClInclude Include="HLE\sceFont.h" />
     <ClInclude Include="HLE\sceGe.h" />
+    <ClInclude Include="HLE\sceHeap.h" />
     <ClInclude Include="HLE\sceHprm.h" />
     <ClInclude Include="HLE\sceHttp.h" />
     <ClInclude Include="HLE\sceImpose.h" />

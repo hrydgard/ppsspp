@@ -70,6 +70,7 @@
 #include "sceUsb.h"
 #include "scePspNpDrm_user.h"
 #include "sceVaudio.h"
+#include "sceHeap.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -218,6 +219,7 @@ void __KernelDoState(PointerWrap &p)
 	__UtilityDoState(p);
 	__UsbDoState(p);
 	__VaudioDoState(p);
+	__HeapDoState(p);
 
 	__PPGeDoState(p);
 
