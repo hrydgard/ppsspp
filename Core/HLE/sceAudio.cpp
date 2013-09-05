@@ -92,7 +92,8 @@ u32 sceAudioOutputBlocking(u32 chan, int vol, u32 samplePtr) {
 }
 
 u32 sceAudioOutputPannedBlocking(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
-	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
+	// For some reason, this is the only one that checks for negative.
+	if (leftvol > 0xFFFF || rightvol > 0xFFFF || leftvol < 0 || rightvol < 0) {
 		ERROR_LOG(HLE, "sceAudioOutputPannedBlocking() - invalid volume");
 		return SCE_ERROR_AUDIO_INVALID_VOLUME;
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
