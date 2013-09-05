@@ -47,6 +47,13 @@ void OpenGLState::Restore() {
 	logicOp.restore(); count++;
 #endif
 
+#ifdef ANDROID
+	if (gl_extensions.QCOM_alpha_test) {
+		alphaTestQCOM.restore(); count++;
+		alphaFuncQCOM.restore(); count++;
+	}
+#endif
+
 	scissorTest.restore(); count++;
 	scissorRect.restore(); count++;
 
