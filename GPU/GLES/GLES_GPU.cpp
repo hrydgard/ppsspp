@@ -364,7 +364,26 @@ GLES_GPU::GLES_GPU()
 	} else {
 		glstate.SetVSyncInterval(g_Config.bVSync ? 1 : 0);
 	}
+	
+#ifdef ANDROID
+	if (gl_extensions.QCOM_binning_control)
+		/*
+		We can try different HINTS later or even with option to toggle for Adreno GPU
 
+		CPU_OPTIMIZED_QCOM                
+		- binning algorithm focuses on lower CPU utilization (this path increases vertex processing
+		
+		GPU_OPTIMIZED_QCOM					
+		- binning algorithm focuses on lower GPU utilization (this path increases CPU usage
+		
+		RENDER_DIRECT_TO_FRAMEBUFFER_QCOM 
+		- render directly to the final framebuffer and bypass tile memory 
+		(this path has a low CPU usage, but in some cases uses more memory bandwidth)
+		
+		*/
+		glHint(GL_BINNING_CONTROL_HINT_QCOM, GL_RENDER_DIRECT_TO_FRAMEBUFFER_QCOM);
+ #endif
+ 
 	shaderManager_ = new ShaderManager();
 	transformDraw_.SetShaderManager(shaderManager_);
 	transformDraw_.SetTextureCache(&textureCache_);
