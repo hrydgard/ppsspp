@@ -414,7 +414,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_FILE_QUICKSAVESTATE, desktopUI, false, false, L"\tF2");
 		TranslateMenuItem(ID_FILE_LOADSTATEFILE, desktopUI, false, false);
 		TranslateMenuItem(ID_FILE_SAVESTATEFILE, desktopUI, false, false);
-		TranslateMenuItem(ID_FILE_EXIT, desktopUI);
+		TranslateMenuItem(ID_FILE_EXIT, desktopUI, true, false, L"\tAlt+F4");
 
 		// Emulation menu
 		bool isPaused = Core_IsStepping() && globalUIState == UISTATE_INGAME;
@@ -556,14 +556,15 @@ namespace MainWindow
 		memset(message, 0, sizeof(message));
 
 		switch(g_Config.iFrameSkip) {
-		case 0:
+		case FRAMESKIP_OFF:
 			sprintf(message, "%s: %s", frameskipStr, offStr);
 			break;
-		case 1:
+		case FRAMESKIP_AUTO:
 			sprintf(message, "%s: %s", frameskipStr, autoStr);
 			break;
 		default:
-			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip);
+			//1 means auto, 2 means 1, 3 means 2...
+			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip - 1);
 			break;
 		}
 
@@ -1164,6 +1165,10 @@ namespace MainWindow
 					setFrameSkipping(FRAMESKIP_AUTO);
 					break;
 
+				case ID_OPTIONS_FRAMESKIP_1:
+					setFrameSkipping(FRAMESKIP_1);
+					break;
+
 				case ID_OPTIONS_FRAMESKIP_2:
 					setFrameSkipping(FRAMESKIP_2);
 					break;
@@ -1669,6 +1674,7 @@ namespace MainWindow
 		static const int frameskipping[] = {
 			ID_OPTIONS_FRAMESKIP_0,
 			ID_OPTIONS_FRAMESKIP_AUTO,
+			ID_OPTIONS_FRAMESKIP_1,
 			ID_OPTIONS_FRAMESKIP_2,
 			ID_OPTIONS_FRAMESKIP_3,
 			ID_OPTIONS_FRAMESKIP_4,
