@@ -1,4 +1,4 @@
-// Copyright (c) 2013- PPSSPP Project.
+﻿// Copyright (c) 2013- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -494,7 +494,8 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	if (clearrecentlist_){
 		// clear the recent game list on MainWindow.
 		PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_RECREATE_RECENTLIST, 0, 0);
-		clearrecentlist_ = false; }
+		clearrecentlist_ = false; 
+	}
 
 	return UI::EVENT_DONE;
 }

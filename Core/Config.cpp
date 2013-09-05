@@ -99,8 +99,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 		std::string fileName;
 
 		sprintf(keyName,"FileName%d",i);
-		if (!recent->Get(keyName,&fileName,"") || fileName.length() == 0) break;
-		recentIsos.push_back(fileName);
+		if (!recent->Get(keyName,&fileName,"") || fileName.length() == 0) {
+			// just skip it to get the next key
+		}
+		else {
+			recentIsos.push_back(fileName);
+		}
 	}
 
 	IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
@@ -276,10 +280,12 @@ void Config::Save() {
 		for (int i = 0; i <  iMaxRecent; i++) {
 			char keyName[64];
 			sprintf(keyName,"FileName%d",i);
-            if (i < recentIsos.size()){
-				recent->Set(keyName, recentIsos[i]);}
-			else{
-				recent->Delete(keyName);} // delete the nonexisting FileName
+			if (i < recentIsos.size()) {
+				recent->Set(keyName, recentIsos[i]);
+			}
+			else {
+				recent->Delete(keyName); // delete the nonexisting FileName
+			} 
 		}
 
 		IniFile::Section *cpu = iniFile.GetOrCreateSection("CPU");
@@ -405,7 +411,7 @@ void Config::CleanRecent() {
 					cleanedRecent.push_back(recentIsos[i]);
 			}
 			for (size_t j=0; j<cleanedRecent.size();j++){
-				if ((std::string)cleanedRecent[j]==(std::string)recentIsos[i])
+				if (cleanedRecent[j]==recentIsos[i])
 					break; // skip if found redundant
 				if (j==cleanedRecent.size()-1){ // add if no redundant found
 					cleanedRecent.push_back(recentIsos[i]);
