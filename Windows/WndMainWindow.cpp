@@ -563,7 +563,8 @@ namespace MainWindow
 			sprintf(message, "%s: %s", frameskipStr, autoStr);
 			break;
 		default:
-			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip);
+			//1 means auto, 2 means 1, 3 means 2...
+			sprintf(message, "%s: %d", frameskipStr, g_Config.iFrameSkip - 1);
 			break;
 		}
 
