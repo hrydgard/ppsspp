@@ -163,6 +163,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	graphics->Get("TexScalingType", &iTexScalingType, 0);
 	graphics->Get("TexDeposterize", &bTexDeposterize, false);
 	graphics->Get("VSyncInterval", &bVSync, false);
+	graphics->Get("DisableStencilTest", &bDisableStencilTest, false);
+	graphics->Get("AlwaysDepthWrite", &bAlwaysDepthWrite, false);
 
 	IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 	sound->Get("Enable", &bEnableSound, true);
@@ -315,6 +317,8 @@ void Config::Save() {
 		graphics->Set("TexScalingType", iTexScalingType);
 		graphics->Set("TexDeposterize", bTexDeposterize);
 		graphics->Set("VSyncInterval", bVSync);
+		graphics->Set("DisableStencilTest", bDisableStencilTest);
+		graphics->Set("AlwaysDepthWrite", bAlwaysDepthWrite);
 
 		IniFile::Section *sound = iniFile.GetOrCreateSection("Sound");
 		sound->Set("Enable", bEnableSound);

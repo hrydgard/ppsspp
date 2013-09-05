@@ -293,6 +293,10 @@ void GameSettingsScreen::CreateViews() {
 	static const char *texFilters[] = { "Auto", "Nearest", "Linear", "Linear on FMV", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexFiltering, gs->T("Texture Filter"), texFilters, 1, 4, gs, screenManager()));
 
+	graphicsSettings->Add(new ItemHeader(gs->T("Hack Setting")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gs->T("Disable Stencil Test")));
+	graphicsSettings->Add(new CheckBox(&g_Config.bAlwaysDepthWrite, gs->T("Always Depth Write")));
+
 	// Developer tools are not accessible ingame, so it goes here
 	graphicsSettings->Add(new ItemHeader(gs->T("Debugging")));
 	Choice *dump = graphicsSettings->Add(new Choice(gs->T("Dump next frame to log")));

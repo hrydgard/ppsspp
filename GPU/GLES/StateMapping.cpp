@@ -228,6 +228,9 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.blendEquation.set(eqLookup[blendFuncEq]);
 	}
 
+	bool alwaysDepthWrite = g_Config.bAlwaysDepthWrite;
+	bool enableStencilTest = !g_Config.bDisableStencilTest;
+
 	// Dither
 	if (gstate.isDitherEnabled()) {
 		glstate.dither.enable();
@@ -247,7 +250,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Depth Test
 		glstate.depthTest.enable();
 		glstate.depthFunc.set(GL_ALWAYS);
-		glstate.depthWrite.set(gstate.isClearModeDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+		glstate.depthWrite.set(gstate.isClearModeDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
 
 		// Color Test
 		bool colorMask = gstate.isClearModeColorMask();
@@ -255,7 +258,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
 
 		// Stencil Test
-		if (alphaMask) {
+		if (alphaMask && enableStencilTest) {
 			glstate.stencilTest.enable();
 			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
@@ -284,7 +287,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
 			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
-			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
+			glstate.depthWrite.set(gstate.isDepthWriteEnabled() || alwaysDepthWrite ? GL_TRUE : GL_FALSE);
 		} else 
 			glstate.depthTest.disable();
 		
@@ -297,7 +300,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		glstate.colorMask.set(rmask, gmask, bmask, amask);
 		
 		// Stencil Test
-		if (gstate.isStencilTestEnabled()) {
+		if (gstate.isStencilTestEnabled() && enableStencilTest) {
 			glstate.stencilTest.enable();
 			glstate.stencilFunc.set(ztests[gstate.getStencilTestFunction()],
 				gstate.getStencilTestRef(),
