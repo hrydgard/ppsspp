@@ -11,9 +11,16 @@
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 
 /* GL_QCOM_alpha_test */
-#define GL_ALPHA_TEST_QCOM                                      0x0BC0
-#define GL_ALPHA_TEST_FUNC_QCOM                                 0x0BC1
-#define GL_ALPHA_TEST_REF_QCOM                                  0x0BC2
+#define GL_ALPHA_TEST_QCOM                  0x0BC0
+#define GL_ALPHA_TEST_FUNC_QCOM             0x0BC1
+#define GL_ALPHA_TEST_REF_QCOM              0x0BC2
+
+/* GL_QCOM_binning_control */
+#define BINNING_CONTROL_HINT_QCOM           0x8FB0
+#define CPU_OPTIMIZED_QCOM                  0x8FB1
+#define GPU_OPTIMIZED_QCOM                  0x8FB2
+#define RENDER_DIRECT_TO_FRAMEBUFFER_QCOM   0x8FB3
+#define DONT_CARE                           0x1100
 
 typedef void (GL_APIENTRYP PFNGLALPHAFUNCQCOMPROC) (GLenum func, GLclampf ref);
 extern PFNGLALPHAFUNCQCOMPROC glAlphaFuncQCOM;
@@ -293,6 +300,7 @@ struct GLExtensions {
 	bool FBO_EXT;
 	bool EXT_swap_control_tear;
 	bool QCOM_alpha_test;
+	bool QCOM_binning_control;
 	bool OES_mapbuffer;
 	bool OES_vertex_array_object;
 	
