@@ -250,7 +250,7 @@ struct GPUgstate
 	// Depth Test
 	bool isDepthTestEnabled() const { return zTestEnable & 1; }
 	bool isDepthWriteEnabled() const { return !(zmsk & 1); }
-	int getDepthTestFunc() const { return ztestfunc & 0x7; }
+	GEComparison getDepthTestFunction() const { return static_cast<GEComparison>(ztestfunc & 0x7); }
 	u16 getDepthRangeMin() const { return minz & 0xFFFF; }
 	u16 getDepthRangeMax() const { return maxz & 0xFFFF; }
 	

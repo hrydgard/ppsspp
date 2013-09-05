@@ -283,7 +283,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 		// Depth Test
 		if (gstate.isDepthTestEnabled()) {
 			glstate.depthTest.enable();
-			glstate.depthFunc.set(ztests[gstate.getDepthTestFunc()]);
+			glstate.depthFunc.set(ztests[gstate.getDepthTestFunction()]);
 			glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
 		} else 
 			glstate.depthTest.disable();
