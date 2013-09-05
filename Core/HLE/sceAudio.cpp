@@ -340,7 +340,7 @@ u32 sceAudioOutput2GetRestSample(){
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
 	DEBUG_LOG(HLE,"sceAudioOutput2GetRestSample()");
-	return (u32) chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleQueue.size() * 2;
+	return (u32) chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleQueue.size() / 2;
 }
 
 u32 sceAudioOutput2Release(){
