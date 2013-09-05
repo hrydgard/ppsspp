@@ -299,7 +299,7 @@ static inline bool DepthTestPassed(int x, int y, u16 z)
 	if (gstate.isModeClear())
 		return true;
 
-	switch (gstate.getDepthTestFunc()) {
+	switch (gstate.getDepthTestFunction()) {
 	case GE_COMP_NEVER:
 		return false;
 
