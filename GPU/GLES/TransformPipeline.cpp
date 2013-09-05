@@ -683,10 +683,14 @@ void TransformDrawEngine::SoftwareTransformAndDraw(
 		bool colorMask = gstate.isClearModeColorMask();
 		bool alphaMask = gstate.isClearModeAlphaMask();
 		glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-		glstate.stencilTest.set(false);
-		glstate.scissorTest.set(false);
+		glstate.scissorTest.disable();
+		glstate.stencilTest.disable();
 		bool depthMask = gstate.isClearModeDepthMask();
 
+#ifdef ANDROID
+		if (gl_extensions.QCOM_alpha_test)
+			glstate.alphaTestQCOM.disable();
+#endif
 		int target = 0;
 		if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
 		if (depthMask) target |= GL_DEPTH_BUFFER_BIT;

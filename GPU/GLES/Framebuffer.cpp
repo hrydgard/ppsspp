@@ -149,6 +149,11 @@ void DisableState() {
 #if !defined(USING_GLES2)
 	glstate.colorLogicOp.disable();
 #endif
+
+#ifdef ANDROID
+	if (gl_extensions.QCOM_alpha_test)
+		glstate.alphaTestQCOM.disable();
+#endif
 }
 
 void FramebufferManager::CompileDraw2DProgram() {
