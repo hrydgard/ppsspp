@@ -23,7 +23,7 @@ typedef struct {
 class CMipsInstruction
 {
 public:
-	CMipsInstruction(DebugInterface* cpu):cpu(cpu),Loaded(false) { };
+	CMipsInstruction(DebugInterface* cpu):Loaded(false), cpu(cpu) { };
 	bool Load(char* Name, char* Params, int RamPos);
 	bool Validate();
 	void Encode();

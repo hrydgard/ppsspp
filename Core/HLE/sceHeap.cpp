@@ -44,7 +44,7 @@ int sceHeapGetMallinfo(u32 heapPtr, u32 infoPtr) {
 }
 
 int sceHeapAllocHeapMemoryWithOption(u32 heapPtr, int memSize, u32 paramsPtr) {
-	ERROR_LOG(HLE,"UNIMPL sceHeapAllocHeapMemoryWithOption(%d %d)", heapPtr, memSize, paramsPtr);
+	ERROR_LOG(HLE,"UNIMPL sceHeapAllocHeapMemoryWithOption(%08x, %08x, %08x)", heapPtr, memSize, paramsPtr);
 	return 0;
 }
 
