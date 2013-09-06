@@ -18,6 +18,10 @@
 #include "HLE.h"
 
 #include "sceHttp.h"
+#include "net/http_client.h"
+
+// If http isn't loaded (seems unlikely), most functions should return SCE_KERNEL_ERROR_LIBRARY_NOTFOUND
+
 
 // Could come in handy someday if we ever implement sceHttp* for real.
 enum PSPHttpMethod {
@@ -26,18 +30,32 @@ enum PSPHttpMethod {
 	PSP_HTTP_METHOD_HEAD
 };
 
+// Just a holder for settings like user agent string
+class HTTPTemplate {
+	char useragent[512];
+};
+
+class HTTPConnection {
+
+};
+
+class HTTPRequest {
+
+};
+
+
 int sceHttpSetResolveRetry(int connectionID, int retryCount) {
 	ERROR_LOG(HLE, "UNIMPL sceHttpSetResolveRetry(%d, %d)", connectionID, retryCount);
 	return 0;
 }
 
-int sceHttpInit() {
-	ERROR_LOG(HLE, "UNIMPL sceHttpInit()");
+int sceHttpInit(int unknown) {
+	ERROR_LOG(HLE, "UNIMPL sceHttpInit(%i)", unknown);
 	return 0;
 }
 
 int sceHttpEnd() {
-	ERROR_LOG(HLE, "UNIMPL sceHttpInit()");
+	ERROR_LOG(HLE, "UNIMPL sceHttpEnd()");
 	return 0;
 }
 
@@ -259,7 +277,7 @@ int sceHttpGetContentLength(int requestID, u64 contentLengthPtr) {
 0x71eef62d sceSircsSend
 	*/
 const HLEFunction sceHttp[] = {
-	{0xab1abe07,WrapI_V<sceHttpInit>,"sceHttpInit"},
+	{0xab1abe07,WrapI_I<sceHttpInit>,"sceHttpInit"},
 	{0xd1c8945e,WrapI_V<sceHttpEnd>,"sceHttpEnd"},
 	{0xa6800c34,WrapI_I<sceHttpInitCache>,"sceHttpInitCache"},
 	{0x78b54c09,WrapI_V<sceHttpEndCache>,"sceHttpEndCache"},

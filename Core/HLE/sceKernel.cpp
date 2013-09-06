@@ -59,6 +59,7 @@
 #include "sceKernelTime.h"
 #include "sceMpeg.h"
 #include "sceNet.h"
+#include "sceNetAdhoc.h"
 #include "scePower.h"
 #include "sceUtility.h"
 #include "sceUmd.h"
@@ -125,6 +126,7 @@ void __KernelInit()
 	__UsbInit();
 	__FontInit();
 	__NetInit();
+	__NetAdhocInit();
 	__VaudioInit();
 	__CheatInit();
 	
@@ -150,6 +152,7 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__NetShutdown();
+	__NetAdhocShutdown();
 	__FontShutdown();
 
 	__MpegShutdown();
@@ -209,6 +212,7 @@ void __KernelDoState(PointerWrap &p)
 	__JpegDoState(p);
 	__MpegDoState(p);
 	__NetDoState(p);
+	__NetAdhocDoState(p);
 	__PowerDoState(p);
 	__PsmfDoState(p);
 	__PsmfPlayerDoState(p);
