@@ -264,13 +264,14 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilTest.enable();
 			glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			glstate.stencilFunc.set(GL_ALWAYS, 0, 0xFF);
-		} else {
+		} else 
 			glstate.stencilTest.disable();
+			
 #ifdef ANDROID
+		// QCOM alpha test
 		if (gl_extensions.QCOM_alpha_test) 
 			glstate.alphaTestQCOM.disable();
 #endif
-		}
 	} else {
 
 #if !defined(USING_GLES2)
@@ -318,6 +319,7 @@ void TransformDrawEngine::ApplyDrawState(int prim) {
 			glstate.stencilTest.disable();
 
 #ifdef ANDROID
+		// QCOM alpha test
 		if (gl_extensions.QCOM_alpha_test) {
 			if (gstate.isAlphaTestEnabled()) {
 				glstate.alphaTestQCOM.enable();
