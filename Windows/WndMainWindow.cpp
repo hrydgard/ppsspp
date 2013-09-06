@@ -97,7 +97,7 @@ namespace MainWindow
 	HWND hwndDisplay;
 	HWND hwndGameList;
 	static HMENU menu;
-    static HMENU langMenu;
+	static HMENU langMenu;
 
 	static HINSTANCE hInst;
 	static int cursorCounter = 0;
@@ -330,7 +330,7 @@ namespace MainWindow
 					continue;
 				}
 				CheckMenuItem(langMenu, index, MF_BYPOSITION | MF_UNCHECKED);
-		    } 
+		    	} 
 			
 			return;
 		}
