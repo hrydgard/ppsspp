@@ -345,7 +345,9 @@
     <None Include="stop1.ico" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="aboutbox.rc" />
     <ResourceCompile Include="ppsspp.rc" />
+    <None Include="version.rc" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">
