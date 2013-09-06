@@ -365,8 +365,8 @@ GLES_GPU::GLES_GPU()
 		glstate.SetVSyncInterval(g_Config.bVSync ? 1 : 0);
 	}
 	
-#ifdef ANDROID
-	if (gl_extensions.QCOM_binning_control)
+#ifdef ANDROID BLACKBERRY
+	if (gl_extensions.QCOM_binning_control) {
 		/*
 		We can try different HINTS later or even with option to toggle for Adreno GPU
 
@@ -382,6 +382,7 @@ GLES_GPU::GLES_GPU()
 		
 		*/
 		glHint(GL_BINNING_CONTROL_HINT_QCOM, GL_RENDER_DIRECT_TO_FRAMEBUFFER_QCOM);
+	}
  #endif
  
 	shaderManager_ = new ShaderManager();
