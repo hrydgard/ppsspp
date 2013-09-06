@@ -115,6 +115,20 @@ template<int func(int, const char *, u32, void *, void *, u32, int)> void WrapI_
 	RETURN(retval);
 }
 
+// Hm, do so many params get passed in registers?
+template<int func(const char *, int, const char *, int, int, int, int, int)> void WrapI_CICIIIII() {
+	u32 retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), Memory::GetCharPointer(PARAM(2)),
+		PARAM(3), PARAM(4), PARAM(5), PARAM(6), PARAM(7));
+	RETURN(retval);
+}
+
+// Hm, do so many params get passed in registers?
+template<int func(const char *, int, int, int, int, int, int)> void WrapI_CIIIIII() {
+	u32 retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2),
+		PARAM(3), PARAM(4), PARAM(5), PARAM(6));
+	RETURN(retval);
+}
+
 template<u32 func(int, void *)> void WrapU_IV() {
 	u32 retval = func(PARAM(0), Memory::GetPointer(PARAM(1)));
 	RETURN(retval);
@@ -391,7 +405,17 @@ template<int func(int, int, int, int)> void WrapI_IIII() {
 	RETURN(retval);
 }
 
+template<int func(u32, int, int, int)> void WrapI_UIII() {
+	int retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3));
+	RETURN(retval);
+}
+
 template<int func(int, int, int, u32, int)> void WrapI_IIIUI() {
+	int retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
+	RETURN(retval);
+}
+
+template<int func(int, u32, u32, int, int)> void WrapI_IUUII() {
 	int retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 	RETURN(retval);
 }
@@ -433,6 +457,11 @@ template<int func(const char *)> void WrapI_C() {
 
 template<int func(const char *, u32)> void WrapI_CU() {
 	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1));
+	RETURN(retval);
+}
+
+template<int func(const char *, u32, int)> void WrapI_CUI() {
+	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2));
 	RETURN(retval);
 }
 
