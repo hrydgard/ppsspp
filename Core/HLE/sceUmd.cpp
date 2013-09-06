@@ -152,7 +152,7 @@ void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 		for (auto it = umdWaitingThreads.begin(); it < umdWaitingThreads.end(); ++it)
 		{
-			if (threadID == threadID)
+			if (*it == threadID)
 				umdWaitingThreads.erase(it--);
 		}
 

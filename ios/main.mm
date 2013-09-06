@@ -5,6 +5,8 @@
 
 #import "AppDelegate.h"
 
+#include "base/NativeApp.h"
+
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_NAME:

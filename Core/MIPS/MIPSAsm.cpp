@@ -205,7 +205,7 @@ bool CMipsInstruction::LoadEncoding(const tMipsOpcode& SourceOpcode, char* Line)
 
 	if (!(*SourceEncoding == 0 && *Line == 0))
 	{
-		while (*SourceEncoding != NULL)
+		while (*SourceEncoding != '\0')
 		{
 			while (*Line == ' ' || *Line == '\t') Line++;
 			if (*Line == 0) return false;
