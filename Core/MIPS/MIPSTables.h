@@ -70,17 +70,19 @@ struct MIPSInfo {
 #define IN_MEM          0x00010000
 #define IN_OTHER        0x00020000
 #define IN_FPUFLAG      0x00040000
+#define IN_VFPU_CC      0x00080000
 
-#define OUT_RT          0x00080000
-#define OUT_RD          0x00100000
-#define OUT_RA          0x00200000
-#define OUT_MEM         0x00400000
-#define OUT_OTHER       0x00800000
-#define OUT_FPUFLAG     0x01000000
-#define OUT_EAT_PREFIX  0x02000000
+#define OUT_RT          0x00100000
+#define OUT_RD          0x00200000
+#define OUT_RA          0x00400000
+#define OUT_MEM         0x00800000
+#define OUT_OTHER       0x01000000
+#define OUT_FPUFLAG     0x02000000
+#define OUT_VFPU_CC     0x04000000
+#define OUT_EAT_PREFIX  0x08000000
 
-#define VFPU_NO_PREFIX  0x04000000
-#define IS_VFPU         0x08000000
+#define VFPU_NO_PREFIX  0x10000000
+#define IS_VFPU         0x20000000
 
 #ifndef CDECL
 #define CDECL
