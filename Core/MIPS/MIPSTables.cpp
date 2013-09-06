@@ -356,10 +356,10 @@ const MIPSInstruction tableCop2[32] = // 010010 xxxxx ..... ................
 
 const MIPSInstruction tableCop2BC2[4] = // 010010 01000 ...xx ................
 {
-	INSTR("bvf", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_OTHER|DELAYSLOT|IS_VFPU),
-	INSTR("bvt", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_OTHER|DELAYSLOT|IS_VFPU),
-	INSTR("bvfl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_OTHER|DELAYSLOT|LIKELY|IS_VFPU),
-	INSTR("bvtl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_OTHER|DELAYSLOT|LIKELY|IS_VFPU),
+	INSTR("bvf", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|IS_VFPU),
+	INSTR("bvt", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|IS_VFPU),
+	INSTR("bvfl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|LIKELY|IS_VFPU),
+	INSTR("bvtl", &Jit::Comp_VBranch, Dis_VBranch, Int_VBranch, IS_CONDBRANCH|IN_IMM16|IN_VFPU_CC|DELAYSLOT|LIKELY|IS_VFPU),
 };
 
 const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... ................
@@ -545,7 +545,7 @@ const MIPSInstruction tableVFPU1[8] = // 011001 xxx ....... . ....... . .......
 
 const MIPSInstruction tableVFPU3[8] = // 011011 xxx ....... . ....... . .......
 {
-	INSTR("vcmp", &Jit::Comp_Vcmp, Dis_Vcmp, Int_Vcmp, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcmp", &Jit::Comp_Vcmp, Dis_Vcmp, Int_Vcmp, IN_OTHER|OUT_VFPU_CC|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
 	INSTR("vmin", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vminmax, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vmax", &Jit::Comp_VecDo3, Dis_VectorSet3, Int_Vminmax, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
@@ -573,7 +573,7 @@ const MIPSInstruction tableVFPU4Jump[32] = // 110100 xxxxx ..... . ....... . ...
 	INSTR("vf2id", &Jit::Comp_Vf2i, Dis_Vf2i, Int_Vf2i, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//20
 	INSTR("vi2f", &Jit::Comp_Vi2f, Dis_Vf2i, Int_Vi2f, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vcmov", &Jit::Comp_Vcmov, Dis_Vcmov, Int_Vcmov, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vcmov", &Jit::Comp_Vcmov, Dis_Vcmov, Int_Vcmov, IN_OTHER|IN_VFPU_CC|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
 	INVALID,
 	//24 - 110100 11 ........ . ....... . .......

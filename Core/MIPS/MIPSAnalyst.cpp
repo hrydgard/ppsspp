@@ -34,34 +34,34 @@ namespace MIPSAnalyst
 	// Only can ever output a single reg.
 	MIPSGPReg GetOutGPReg(MIPSOpcode op) {
 		MIPSInfo opinfo = MIPSGetInfo(op);
-		if ((opinfo & IS_VFPU) == 0) {
-			if (opinfo & OUT_RT) {
-				return MIPS_GET_RT(op);
-			}
-			if (opinfo & OUT_RD) {
-				return MIPS_GET_RD(op);
-			}
-			if (opinfo & OUT_RA) {
-				return MIPS_REG_RA;
-			}
+		if (opinfo & OUT_RT) {
+			return MIPS_GET_RT(op);
+		}
+		if (opinfo & OUT_RD) {
+			return MIPS_GET_RD(op);
+		}
+		if (opinfo & OUT_RA) {
+			return MIPS_REG_RA;
 		}
 		return MIPS_REG_INVALID;
 	}
 
 	bool ReadsFromGPReg(MIPSOpcode op, MIPSGPReg reg) {
 		MIPSInfo info = MIPSGetInfo(op);
-		if ((info & IS_VFPU) == 0) {
-			if ((info & IN_RS) != 0 && MIPS_GET_RS(op) == reg) {
-				return true;
-			}
-			if ((info & IN_RT) != 0 && MIPS_GET_RT(op) == reg) {
-				return true;
-			}
+		if ((info & IN_RS) != 0 && MIPS_GET_RS(op) == reg) {
+			return true;
+		}
+		if ((info & IN_RT) != 0 && MIPS_GET_RT(op) == reg) {
+			return true;
 		}
 		return false;
 	}
 
 	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, MIPSGPReg reg1, MIPSGPReg reg2) {
+		MIPSInfo info = MIPSGetInfo(op);
+		if (info & IS_CONDBRANCH) {
+			return false;
+		}
 		// $0 is never an out reg, it's always 0.
 		if (reg1 != MIPS_REG_ZERO && GetOutGPReg(op) == reg1) {
 			return false;
@@ -74,12 +74,19 @@ namespace MIPSAnalyst
 	}
 
 	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op) {
-		// TODO: There may be IS_VFPU cases which are safe...
-		return (MIPSGetInfo(op) & IS_VFPU) == 0;
+		MIPSInfo info = MIPSGetInfo(op);
+		if (info & IS_CONDBRANCH) {
+			return false;
+		}
+		return (info & OUT_VFPU_CC) == 0;
 	}
 
 	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op) {
-		return (MIPSGetInfo(op) & OUT_FPUFLAG) == 0;
+		MIPSInfo info = MIPSGetInfo(op);
+		if (info & IS_CONDBRANCH) {
+			return false;
+		}
+		return (info & OUT_FPUFLAG) == 0;
 	}
 
 	bool IsSyscall(MIPSOpcode op) {
@@ -405,23 +412,17 @@ namespace MIPSAnalyst
 	{
 		std::vector<MIPSGPReg> vec;
 		MIPSInfo info = MIPSGetInfo(op);
-		if ((info & IS_VFPU) == 0)
-		{
-			if (info & IN_RS) vec.push_back(MIPS_GET_RS(op));
-			if (info & IN_RT) vec.push_back(MIPS_GET_RT(op));
-		}
+		if (info & IN_RS) vec.push_back(MIPS_GET_RS(op));
+		if (info & IN_RT) vec.push_back(MIPS_GET_RT(op));
 		return vec;
 	}
 	std::vector<MIPSGPReg> GetOutputRegs(MIPSOpcode op)
 	{
 		std::vector<MIPSGPReg> vec;
 		MIPSInfo info = MIPSGetInfo(op);
-		if ((info & IS_VFPU) == 0)
-		{
-			if (info & OUT_RD) vec.push_back(MIPS_GET_RD(op));
-			if (info & OUT_RT) vec.push_back(MIPS_GET_RT(op));
-			if (info & OUT_RA) vec.push_back(MIPS_REG_RA);
-		}
+		if (info & OUT_RD) vec.push_back(MIPS_GET_RD(op));
+		if (info & OUT_RT) vec.push_back(MIPS_GET_RT(op));
+		if (info & OUT_RA) vec.push_back(MIPS_REG_RA);
 		return vec;
 	}
 

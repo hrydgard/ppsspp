@@ -788,7 +788,7 @@ int sceDisplayAdjustAccumulatedHcount(int value) {
 
 int sceDisplayGetAccumulatedHcount() {
 	u32 accumHCount = __DisplayGetAccumulatedHcount();
-	DEBUG_LOG(HLE, "%lld=sceDisplayGetAccumulatedHcount()", accumHCount);
+	DEBUG_LOG(HLE, "%d=sceDisplayGetAccumulatedHcount()", accumHCount);
 	hleEatCycles(235);
 	return accumHCount;
 }
