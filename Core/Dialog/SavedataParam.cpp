@@ -526,7 +526,8 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 
 		if(DecryptSave(decryptMode, data_base, &saveSize, &align_len, ((param->key[0] != 0)?cryptKey:0)) == 0)
 		{
-			memcpy(data_, data_base, saveSize);
+			if (param->dataBuf.IsValid())
+				memcpy(data_, data_base, saveSize);			
 			saveDone = true;
 		}
 		delete[] data_base;
