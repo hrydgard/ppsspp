@@ -49,9 +49,13 @@ void OpenGLState::Restore() {
 
 #ifdef ANDROID
 	if (gl_extensions.QCOM_alpha_test) {
-		alphaTestQCOM.restore(); count++;
-		alphaFuncQCOM.restore(); count++;
+		alphaTestQCOM.restore();
 	}
+	count++;
+	if (gl_extensions.QCOM_alpha_test) {
+		alphaFuncQCOM.restore();
+	}
+	count++;
 #endif
 
 	scissorTest.restore(); count++;
