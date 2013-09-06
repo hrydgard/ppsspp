@@ -66,6 +66,7 @@ void CwCheatScreen::CreateViews() {
 	I18NCategory *k = GetI18NCategory("CwCheats");
 	I18NCategory *d = GetI18NCategory("Dialog");
 	formattedList = CreateCodeList();
+	g_Config.bReloadCheats = true;
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 	Margins actionMenuMargins(50, -15, 15, 0);
 
