@@ -491,16 +491,22 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	VirtualFramebuffer *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, fb_address) &&  v->format == fmt) {
-			// Let's not be so picky for now. Let's say this is the one.
-			vfb = v;
-			// Update fb stride in case it changed
-			vfb->fb_stride = fb_stride;
-			if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) { 
-				v->width = drawing_width;
-				v->height = drawing_height;
-			} 
-			break; 
+		if (MaskedEqual(v->fb_address, fb_address)) {
+			// Let's not be so picky, format is enough to match.
+			if (v->format == fmt) {
+				vfb = v;
+				// Update fb stride in case it changed
+				vfb->fb_stride = fb_stride;
+				if (v->bufferWidth >= drawing_width && v->bufferHeight >= drawing_height) { 
+					v->width = drawing_width;
+					v->height = drawing_height;
+				} 
+				break; 
+			} else {
+				// Okay, let's burn this with fire, it's the wrong format, we're replacing it.
+				DestroyFramebuf(v);
+				vfbs_.erase(vfbs_.begin() + i--);
+			}
 		} 
 	}
 
