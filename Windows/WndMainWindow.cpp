@@ -97,6 +97,7 @@ namespace MainWindow
 	HWND hwndDisplay;
 	HWND hwndGameList;
 	static HMENU menu;
+	static HMENU langMenu;
 
 	static HINSTANCE hInst;
 	static int cursorCounter = 0;
@@ -319,11 +320,22 @@ namespace MainWindow
 	void CreateLanguageMenu() {
 		// Please don't remove this boolean. 
 		// We don't want this menu to be created multiple times.
+		// We can change check mark when this menu has been created.
 		static bool langMenuCreated = false;
 
-		if(langMenuCreated) return;
+		if(langMenuCreated) {
+			for (int index = 0; index < countryCodes.size(); ++index) {
+				if (!strcmp(countryCodes[index].c_str(),g_Config.languageIni.c_str())) {
+					CheckMenuItem(langMenu, index, MF_BYPOSITION | MF_CHECKED);
+					continue;
+				}
+				CheckMenuItem(langMenu, index, MF_BYPOSITION | MF_UNCHECKED);
+		    	} 
+			
+			return;
+		}
 
-		HMENU langMenu = CreatePopupMenu();
+		langMenu = CreatePopupMenu();
 
 		I18NCategory *c = GetI18NCategory("DesktopUI");
 		// Don't translate this right here, translate it in TranslateMenus. 
@@ -354,7 +366,7 @@ namespace MainWindow
 
 		for(auto i = langValuesMap.begin(); i != langValuesMap.end(); ++i) {
 			fullLanguageName = ConvertUTF8ToWString(i->second.first);
-			AppendMenu(langMenu, MF_STRING | MF_BYPOSITION, item++, fullLanguageName.c_str());
+			AppendMenu(langMenu, MF_STRING | MF_BYPOSITION | (g_Config.languageIni == i->first? MF_CHECKED : MF_UNCHECKED), item++, fullLanguageName.c_str());
 			countryCodes.push_back(i->first);
 		}
 
