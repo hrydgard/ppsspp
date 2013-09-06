@@ -58,6 +58,10 @@ namespace MIPSAnalyst
 	}
 
 	bool IsDelaySlotNiceReg(MIPSOpcode branchOp, MIPSOpcode op, MIPSGPReg reg1, MIPSGPReg reg2) {
+		MIPSInfo info = MIPSGetInfo(op);
+		if (info & IS_CONDBRANCH) {
+			return false;
+		}
 		// $0 is never an out reg, it's always 0.
 		if (reg1 != MIPS_REG_ZERO && GetOutGPReg(op) == reg1) {
 			return false;
@@ -70,12 +74,19 @@ namespace MIPSAnalyst
 	}
 
 	bool IsDelaySlotNiceVFPU(MIPSOpcode branchOp, MIPSOpcode op) {
-		// TODO: There may be IS_VFPU cases which are safe...
-		return (MIPSGetInfo(op) & IS_VFPU) == 0;
+		MIPSInfo info = MIPSGetInfo(op);
+		if (info & IS_CONDBRANCH) {
+			return false;
+		}
+		return (info & OUT_VFPU_CC) == 0;
 	}
 
 	bool IsDelaySlotNiceFPU(MIPSOpcode branchOp, MIPSOpcode op) {
-		return (MIPSGetInfo(op) & OUT_FPUFLAG) == 0;
+		MIPSInfo info = MIPSGetInfo(op);
+		if (info & IS_CONDBRANCH) {
+			return false;
+		}
+		return (info & OUT_FPUFLAG) == 0;
 	}
 
 	bool IsSyscall(MIPSOpcode op) {
