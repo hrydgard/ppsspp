@@ -297,68 +297,69 @@ IDR_MENU1 MENU
 BEGIN
     POPUP "File"
     BEGIN
-        MENUITEM "Load",								ID_FILE_LOAD
-        MENUITEM "Open Directory...",						ID_FILE_LOAD_DIR
-        MENUITEM "Open from MS:/PSP/GAME...",				ID_FILE_LOAD_MEMSTICK
+        MENUITEM "Load",                                    ID_FILE_LOAD
+        MENUITEM "Open Directory...",                       ID_FILE_LOAD_DIR
+        MENUITEM "Open from MS:/PSP/GAME...",               ID_FILE_LOAD_MEMSTICK
         MENUITEM SEPARATOR
-        MENUITEM "Open Memory Stick",						ID_FILE_MEMSTICK
+        MENUITEM "Open Memory Stick",                       ID_FILE_MEMSTICK
         MENUITEM SEPARATOR
-        MENUITEM "Load State",						ID_FILE_QUICKLOADSTATE
-        MENUITEM "Save State",						ID_FILE_QUICKSAVESTATE
-        MENUITEM "Load State File...",						ID_FILE_LOADSTATEFILE
-        MENUITEM "Save State File...",						ID_FILE_SAVESTATEFILE
+
+        POPUP "Savestate Slot"
+		BEGIN
+			MENUITEM "&1",                                  ID_FILE_SAVESTATE_SLOT_1
+			MENUITEM "&2",                                  ID_FILE_SAVESTATE_SLOT_2
+			MENUITEM "&3",                                  ID_FILE_SAVESTATE_SLOT_3
+			MENUITEM "&4",                                  ID_FILE_SAVESTATE_SLOT_4
+			MENUITEM "&5",                                  ID_FILE_SAVESTATE_SLOT_5
+		END
+		MENUITEM "Load State",                              ID_FILE_QUICKLOADSTATE
+		MENUITEM "Save State",                              ID_FILE_QUICKSAVESTATE 
+		MENUITEM "Load State File...",                      ID_FILE_LOADSTATEFILE
+		MENUITEM "Save State File...",                      ID_FILE_SAVESTATEFILE
         MENUITEM SEPARATOR
-        MENUITEM "Exit",									ID_FILE_EXIT
+        MENUITEM "Exit",                                    ID_FILE_EXIT
     END
+
     POPUP "Emulation"
     BEGIN
-        MENUITEM "Run",								ID_TOGGLE_PAUSE
-        MENUITEM "Stop",							ID_EMULATION_STOP
-        MENUITEM "Reset",							ID_EMULATION_RESET
-        MENUITEM SEPARATOR
-        MENUITEM "Run on Load",							ID_EMULATION_RUNONLOAD
-        MENUITEM SEPARATOR
-		MENUITEM "Enable Sound",							ID_EMULATION_SOUND, CHECKED
-		MENUITEM "Enable Atrac3+",					ID_EMULATION_ATRAC3_SOUND
-		MENUITEM SEPARATOR
-		MENUITEM "Enable Cheats",			ID_EMULATION_CHEATS
-        MENUITEM SEPARATOR
-		POPUP "Rendering Backend"
-		BEGIN
-			MENUITEM "OpenGL Rendering",                 ID_EMULATION_RENDER_MODE_OGL, CHECKED
-			MENUITEM "Software Rendering", ID_EMULATION_RENDER_MODE_SOFT
-		END
-		MENUITEM SEPARATOR
-		MENUITEM "Dynarec",							ID_CPU_DYNAREC, CHECKED
-        MENUITEM SEPARATOR
-		MENUITEM "Multithreaded (Experimental)",			ID_CPU_MULTITHREADED
-		MENUITEM "I/O on Thread (Experimental)",               ID_IO_MULTITHREADED
+        MENUITEM "Run",                                     ID_TOGGLE_PAUSE
+        MENUITEM "Stop",                                    ID_EMULATION_STOP
+        MENUITEM "Reset",                                   ID_EMULATION_RESET
     END
+
     POPUP "Debug"
     BEGIN
-        MENUITEM "Load Map File...",						ID_DEBUG_LOADMAPFILE
-        MENUITEM "Save Map File...",						ID_DEBUG_SAVEMAPFILE
-        MENUITEM "Reset Symbol Table",						ID_DEBUG_RESETSYMBOLTABLE
+        MENUITEM "Load Map File...",                        ID_DEBUG_LOADMAPFILE
+        MENUITEM "Save Map File...",                        ID_DEBUG_SAVEMAPFILE
+        MENUITEM "Reset Symbol Table",                      ID_DEBUG_RESETSYMBOLTABLE
         MENUITEM SEPARATOR
-        MENUITEM "Dump Next Frame to Log",					ID_DEBUG_DUMPNEXTFRAME
-        MENUITEM "Take Screenshot",					ID_DEBUG_TAKESCREENSHOT
+        MENUITEM "Dump Next Frame to Log",                  ID_DEBUG_DUMPNEXTFRAME
+        MENUITEM "Take Screenshot",                         ID_DEBUG_TAKESCREENSHOT
         MENUITEM SEPARATOR
-        MENUITEM "Disassembly",					ID_DEBUG_DISASSEMBLY
-        MENUITEM "Log Console",					ID_DEBUG_LOG
-        MENUITEM "Memory View...",					ID_DEBUG_MEMORYVIEW
+        MENUITEM "Show Debug Statistics",                   ID_DEBUG_SHOWDEBUGSTATISTICS
+        MENUITEM "Ignore Illegal Reads/Writes",             ID_DEBUG_IGNOREILLEGALREADS
+        MENUITEM "Run on Load",                             ID_DEBUG_RUNONLOAD
+        MENUITEM SEPARATOR
+        MENUITEM "Disassembly",                             ID_DEBUG_DISASSEMBLY
+        MENUITEM "Log Console",	                            ID_DEBUG_LOG
+        MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
     END
+
     POPUP "Options"
     BEGIN
-        MENUITEM "Fullscreen",			ID_OPTIONS_FULLSCREEN
-        MENUITEM "Keep PPSSPP On Top",						ID_OPTIONS_TOPMOST
-        MENUITEM "Stretch to Display",						ID_OPTIONS_STRETCHDISPLAY
+        MENUITEM "Keep PPSSPP On Top",                      ID_OPTIONS_TOPMOST
+        MENUITEM "More Settings...",                        ID_OPTIONS_MORE_SETTINGS
+        MENUITEM "Control Mapping...",                      ID_OPTIONS_CONTROLS
         MENUITEM SEPARATOR
+        MENUITEM "Stretch to Display",                      ID_OPTIONS_STRETCHDISPLAY
+        MENUITEM "Fullscreen",                              ID_OPTIONS_FULLSCREEN
+        MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
         POPUP "Rendering Resolution"
         BEGIN
-            MENUITEM "&1x",			ID_OPTIONS_SCREEN1X
-            MENUITEM "&2x",			ID_OPTIONS_SCREEN2X
-            MENUITEM "&3x",			ID_OPTIONS_SCREEN3X
-            MENUITEM "&4x",			ID_OPTIONS_SCREEN4X
+            MENUITEM "&1x",                                 ID_OPTIONS_SCREEN1X
+            MENUITEM "&2x",                                 ID_OPTIONS_SCREEN2X
+            MENUITEM "&3x",                                 ID_OPTIONS_SCREEN3X
+            MENUITEM "&4x",                                 ID_OPTIONS_SCREEN4X
         END
 		POPUP "Rendering Mode"
 		BEGIN
@@ -382,37 +383,33 @@ BEGIN
 		END
 		POPUP "Texture Filtering"
         BEGIN
-			MENUITEM "Auto",								ID_OPTIONS_TEXTUREFILTERING_AUTO
-			MENUITEM "Nearest",							ID_OPTIONS_NEARESTFILTERING
-			MENUITEM "Linear",								ID_OPTIONS_LINEARFILTERING
-			MENUITEM "Linear on FMV",							ID_OPTIONS_LINEARFILTERING_CG
+            MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
+            MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
+            MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
+            MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
 		END
         POPUP "Texture Scaling"
         BEGIN
-            MENUITEM "Off",								ID_TEXTURESCALING_OFF
-            MENUITEM "&2x",									ID_TEXTURESCALING_2X
-            MENUITEM "&3x",									ID_TEXTURESCALING_3X
-            MENUITEM "&4x",						ID_TEXTURESCALING_4X
-            MENUITEM "&5x",						ID_TEXTURESCALING_5X
+            MENUITEM "Off",                             ID_TEXTURESCALING_OFF
+            MENUITEM "&2x",                             ID_TEXTURESCALING_2X
+            MENUITEM "&3x",                             ID_TEXTURESCALING_3X
+            MENUITEM "&4x",                             ID_TEXTURESCALING_4X
+            MENUITEM "&5x",	                            ID_TEXTURESCALING_5X
             MENUITEM SEPARATOR
-            MENUITEM "xBRZ",								ID_TEXTURESCALING_XBRZ
-            MENUITEM "Hybrid",								ID_TEXTURESCALING_HYBRID
-            MENUITEM "Bicubic",							ID_TEXTURESCALING_BICUBIC
-            MENUITEM "Hybrid + Bicubic",						ID_TEXTURESCALING_HYBRID_BICUBIC
+            MENUITEM "xBRZ",                            ID_TEXTURESCALING_XBRZ
+            MENUITEM "Hybrid",                          ID_TEXTURESCALING_HYBRID
+            MENUITEM "Bicubic",                         ID_TEXTURESCALING_BICUBIC
+            MENUITEM "Hybrid + Bicubic",                ID_TEXTURESCALING_HYBRID_BICUBIC
             MENUITEM SEPARATOR
-            MENUITEM "Deposterize",						ID_TEXTURESCALING_DEPOSTERIZE
+            MENUITEM "Deposterize",                     ID_TEXTURESCALING_DEPOSTERIZE
         END
-		MENUITEM "Hardware Transform",					ID_OPTIONS_HARDWARETRANSFORM
-        MENUITEM "Vertex Cache",							ID_OPTIONS_VERTEXCACHE
-        MENUITEM "Mipmapping",								ID_OPTIONS_MIPMAP
-        MENUITEM "Anti-Aliasing",							ID_OPTIONS_ANTIALIASING
-        MENUITEM "VSync",									ID_OPTIONS_VSYNC
+		MENUITEM "Hardware Transform",                  ID_OPTIONS_HARDWARETRANSFORM
+        MENUITEM "Vertex Cache",                        ID_OPTIONS_VERTEXCACHE
+        MENUITEM "Show FPS Counter",                    ID_OPTIONS_SHOWFPS
         MENUITEM SEPARATOR
-        MENUITEM "Show FPS Counter",								ID_OPTIONS_SHOWFPS
-        MENUITEM "Show Debug Statistics",					ID_OPTIONS_SHOWDEBUGSTATISTICS
+        MENUITEM "Enable Sound",                        ID_EMULATION_SOUND, CHECKED
         MENUITEM SEPARATOR
-        MENUITEM "Fast Memory",					ID_OPTIONS_FASTMEMORY
-        MENUITEM "Ignore Illegal Reads/Writes",			ID_OPTIONS_IGNOREILLEGALREADS
+        MENUITEM "Enable Cheats",                       ID_EMULATION_CHEATS
     END
 END
 
@@ -482,17 +479,3 @@ END
 
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
-
-
-
-#ifndef APSTUDIO_INVOKED
-/////////////////////////////////////////////////////////////////////////////
-//
-// Generated from the TEXTINCLUDE 3 resource.
-//
-
-
-/////////////////////////////////////////////////////////////////////////////
-#endif    // not APSTUDIO_INVOKED
-
-

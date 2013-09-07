@@ -107,7 +107,6 @@ namespace MainWindow
 	static bool hideCursor = false;
 	static void *rawInputBuffer;
 	static size_t rawInputBufferSize;
-	static int currentSavestateSlot = 0;
 	static std::map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> countryCodes;
 
@@ -253,15 +252,15 @@ namespace MainWindow
 		MENU_LANGUAGE = 4,
 		MENU_HELP = 5,
 
-		// Emulation submenus
-		SUBMENU_RENDERING_BACKEND = 11,
+		// File submenus
+		SUBMENU_FILE_SAVESTATE_SLOT = 6,
 
 		// Game Settings submenus
-		SUBMENU_RENDERING_RESOLUTION = 4,
-		SUBMENU_RENDERING_MODE = 5,
-		SUBMENU_FRAME_SKIPPING = 6,
-		SUBMENU_TEXTURE_FILTERING = 7,
-		SUBMENU_TEXTURE_SCALING = 8,
+		SUBMENU_RENDERING_RESOLUTION = 7,
+		SUBMENU_RENDERING_MODE = 8,
+		SUBMENU_FRAME_SKIPPING = 9,
+		SUBMENU_TEXTURE_FILTERING = 10,
+		SUBMENU_TEXTURE_SCALING = 11,
 	};
 
 	std::string GetMenuItemText(int menuID) {
@@ -320,11 +319,11 @@ namespace MainWindow
 	void CreateLanguageMenu() {
 		// Please don't remove this boolean. 
 		// We don't want this menu to be created multiple times.
-		// We can change check mark when this menu has been created.
+		// We can change the checkmark when this menu has been created.
 		static bool langMenuCreated = false;
 
 		if(langMenuCreated) {
-			for (int index = 0; index < countryCodes.size(); ++index) {
+			for (u32 index = 0; index < countryCodes.size(); ++index) {
 				if (!strcmp(countryCodes[index].c_str(),g_Config.languageIni.c_str())) {
 					CheckMenuItem(langMenu, index, MF_BYPOSITION | MF_CHECKED);
 					continue;
@@ -433,7 +432,7 @@ namespace MainWindow
 		TranslateMenuItembyText(ID_TOGGLE_PAUSE, isPaused ? "Run" : "Pause", "DesktopUI", false, false, L"\tF8");
 		TranslateMenuItem(ID_EMULATION_STOP, desktopUI, false, false, L"\tCtrl+W");
 		TranslateMenuItem(ID_EMULATION_RESET, desktopUI, false, false, L"\tCtrl+B");
-		TranslateMenuItem(ID_EMULATION_RUNONLOAD, desktopUI);
+		TranslateMenuItem(ID_DEBUG_RUNONLOAD, desktopUI);
 		TranslateMenuItem(ID_EMULATION_SOUND, desktopUI, true, true);
 		TranslateMenuItem(ID_EMULATION_ATRAC3_SOUND, desktopUI, true, false);
 		TranslateMenuItem(ID_EMULATION_CHEATS, desktopUI,true, true, L"\tCtrl+T");
@@ -448,6 +447,7 @@ namespace MainWindow
 		TranslateMenuItem(ID_DEBUG_SAVEMAPFILE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_RESETSYMBOLTABLE, desktopUI);
 		TranslateMenuItem(ID_DEBUG_DUMPNEXTFRAME, desktopUI);
+		TranslateMenuItem(ID_DEBUG_SHOWDEBUGSTATISTICS, desktopUI);
 		TranslateMenuItem(ID_DEBUG_TAKESCREENSHOT, desktopUI, true, false, L"\tF12");
 		TranslateMenuItem(ID_DEBUG_DISASSEMBLY, desktopUI, true, false, L"\tCtrl+D");
 		TranslateMenuItem(ID_DEBUG_LOG, desktopUI, true, false, L"\tCtrl+L");
@@ -485,9 +485,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_ANTIALIASING, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_VSYNC, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_SHOWFPS, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_SHOWDEBUGSTATISTICS, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_FASTMEMORY, desktopUI);
-		TranslateMenuItem(ID_OPTIONS_IGNOREILLEGALREADS, desktopUI);
+		TranslateMenuItem(ID_DEBUG_IGNOREILLEGALREADS, desktopUI);
 
 		// Language menu
 		TranslateMenuItem(ID_LANGUAGE_BASE, desktopUI);
@@ -502,7 +501,7 @@ namespace MainWindow
 		TranslateMenuHeader(menu, desktopUI, "Game Settings", MENU_OPTIONS);
 		TranslateMenuHeader(menu, desktopUI, "Help", MENU_HELP);
 
-		TranslateSubMenuHeader(menu, desktopUI, "Rendering Backend", MENU_EMULATION, SUBMENU_RENDERING_BACKEND);
+		TranslateSubMenuHeader(menu, desktopUI, "Savestate Slot", MENU_FILE, SUBMENU_FILE_SAVESTATE_SLOT, L"\tF3");
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Resolution", MENU_OPTIONS, SUBMENU_RENDERING_RESOLUTION, L"\tCtrl+1");
 		TranslateSubMenuHeader(menu, desktopUI, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE, L"\tF5");
 		TranslateSubMenuHeader(menu, desktopUI, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
@@ -510,6 +509,7 @@ namespace MainWindow
 		TranslateSubMenuHeader(menu, desktopUI, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 
 		DrawMenuBar(hwndMain);
+		UpdateMenus();
 	}
 
 	void setTexScalingMultiplier(int level) {
@@ -1043,21 +1043,41 @@ namespace MainWindow
 				// TODO: Improve UI for multiple slots
 				case ID_FILE_SAVESTATE_NEXT_SLOT:
 				{
-					currentSavestateSlot = (currentSavestateSlot + 1)%SaveState::SAVESTATESLOTS;
+					g_Config.iCurrentStateSlot = (g_Config.iCurrentStateSlot + 1) % SaveState::SAVESTATESLOTS;
 					char msg[30];
-					sprintf(msg, "Using save state slot %d.", currentSavestateSlot + 1);
+					sprintf(msg, "Using save state slot %d.", g_Config.iCurrentStateSlot + 1);
 					osm.Show(msg);
 					break;
 				}
 
+				case ID_FILE_SAVESTATE_SLOT_1:
+					g_Config.iCurrentStateSlot = 0;
+					break;
+
+				case ID_FILE_SAVESTATE_SLOT_2:
+					g_Config.iCurrentStateSlot = 1;
+					break;
+
+				case ID_FILE_SAVESTATE_SLOT_3:
+					g_Config.iCurrentStateSlot = 2;
+					break;
+
+				case ID_FILE_SAVESTATE_SLOT_4:
+					g_Config.iCurrentStateSlot = 3;
+					break;
+
+				case ID_FILE_SAVESTATE_SLOT_5:
+					g_Config.iCurrentStateSlot = 4;
+					break;
+
 				case ID_FILE_QUICKLOADSTATE:
 					SetCursor(LoadCursor(0, IDC_WAIT));
-					SaveState::LoadSlot(currentSavestateSlot, SaveStateActionFinished);
+					SaveState::LoadSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
 
 				case ID_FILE_QUICKSAVESTATE:
 					SetCursor(LoadCursor(0, IDC_WAIT));
-					SaveState::SaveSlot(currentSavestateSlot, SaveStateActionFinished);
+					SaveState::SaveSlot(g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
 
 				case ID_OPTIONS_SCREEN1X:
@@ -1154,7 +1174,7 @@ namespace MainWindow
 					setRenderingMode(g_Config.iRenderingMode);
 					break;
 
-				case ID_OPTIONS_SHOWDEBUGSTATISTICS:
+				case ID_DEBUG_SHOWDEBUGSTATISTICS:
 					g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
 					break;
 
@@ -1231,7 +1251,7 @@ namespace MainWindow
 					g_Config.bSeparateIOThread = !g_Config.bSeparateIOThread;
 					break;
 
-				case ID_EMULATION_RUNONLOAD:
+				case ID_DEBUG_RUNONLOAD:
 					g_Config.bAutoRun = !g_Config.bAutoRun;
 					break;
 
@@ -1283,7 +1303,7 @@ namespace MainWindow
 					LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
 					break;
 
-				case ID_OPTIONS_IGNOREILLEGALREADS:
+				case ID_DEBUG_IGNOREILLEGALREADS:
 					g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess;
 					break;
 
@@ -1335,7 +1355,11 @@ namespace MainWindow
 					break;
 
 				case ID_OPTIONS_CONTROLS:
-					MessageBox(hWnd, L"Control mapping has been moved to the in-window Settings menu.\n", L"Sorry", 0);
+					NativeMessageReceived("control mapping", "");
+					break;
+
+				case ID_OPTIONS_MORE_SETTINGS:
+					NativeMessageReceived("settings", "");
 					break;
 
 				case ID_EMULATION_SOUND:
@@ -1393,7 +1417,7 @@ namespace MainWindow
 						// Just handle language switching here.
 						// The Menu ID is contained in wParam, so subtract
 						// ID_LANGUAGE_BASE and an additional 1 off it.
-						int index = (wParam - ID_LANGUAGE_BASE - 1);
+						u32 index = (wParam - ID_LANGUAGE_BASE - 1);
 						if(index >= 0 && index < countryCodes.size()) {
 							std::string oldLang = g_Config.languageIni;
 							g_Config.languageIni = countryCodes[index];
@@ -1579,16 +1603,16 @@ namespace MainWindow
 	void UpdateMenus() {
 		HMENU menu = GetMenu(GetHWND());
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
-		CHECKITEM(ID_OPTIONS_IGNOREILLEGALREADS,g_Config.bIgnoreBadMemAccess);
-		CHECKITEM(ID_CPU_DYNAREC,g_Config.bJit == true);
+		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
+		CHECKITEM(ID_CPU_DYNAREC, g_Config.bJit == true);
 		CHECKITEM(ID_CPU_MULTITHREADED, g_Config.bSeparateCPUThread);
 		CHECKITEM(ID_IO_MULTITHREADED, g_Config.bSeparateIOThread);
-		CHECKITEM(ID_OPTIONS_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
+		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, g_Config.bShowDebugStats);
 		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_OPTIONS_FASTMEMORY, g_Config.bFastMemory);
 		CHECKITEM(ID_OPTIONS_ANTIALIASING, g_Config.bAntiAliasing);
 		CHECKITEM(ID_OPTIONS_STRETCHDISPLAY, g_Config.bStretchToDisplay);
-		CHECKITEM(ID_EMULATION_RUNONLOAD, g_Config.bAutoRun);
+		CHECKITEM(ID_DEBUG_RUNONLOAD, g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
@@ -1703,6 +1727,24 @@ namespace MainWindow
 
 		for (int i = 0; i < ARRAY_SIZE(frameskipping); i++) {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ( i == g_Config.iFrameSkip )? MF_CHECKED : MF_UNCHECKED);
+		}
+
+		static const int savestateSlot[] = {
+			ID_FILE_SAVESTATE_SLOT_1,
+			ID_FILE_SAVESTATE_SLOT_2,
+			ID_FILE_SAVESTATE_SLOT_3,
+			ID_FILE_SAVESTATE_SLOT_4,
+			ID_FILE_SAVESTATE_SLOT_5,
+		};
+
+		if(g_Config.iCurrentStateSlot < 0)
+			g_Config.iCurrentStateSlot = 0;
+
+		else if(g_Config.iCurrentStateSlot >= SaveState::SAVESTATESLOTS)
+			g_Config.iCurrentStateSlot = SaveState::SAVESTATESLOTS - 1;
+
+		for (int i = 0; i < ARRAY_SIZE(savestateSlot); i++) {
+			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ( i == g_Config.iCurrentStateSlot )? MF_CHECKED : MF_UNCHECKED);
 		}
 
 		UpdateCommands();
