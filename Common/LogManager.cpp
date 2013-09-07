@@ -68,7 +68,7 @@ static const LogNameTableEntry logTable[] = {
 	{LogTypes::SCEKERNEL  ,"KERNEL",  "sceKernel*"},
 	{LogTypes::SCEMODULE  ,"MODULE",  "sceKernelModule"},
 	{LogTypes::SCENET     ,"NET",     "sceNet*"},
-	{LogTypes::SCERTC     ,"SCERTC",  "sceRtco"},
+	{LogTypes::SCERTC     ,"SCERTC",  "sceRtc"},
 	{LogTypes::SCESAS     ,"SCESAS",  "sceSas"},
 	{LogTypes::SCEUTILITY ,"UTIL",    "sceUtility"},
 

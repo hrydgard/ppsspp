@@ -194,10 +194,10 @@ inline void AttachFramebufferInvalid(T &entry, VirtualFramebuffer *framebuffer) 
 inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, bool exactMatch) {
 	// If they match exactly, it's non-CLUT and from the top left.
 	if (exactMatch) {
-		DEBUG_LOG(HLE, "Render to texture detected at %08x!", address);
+		DEBUG_LOG(G3D, "Render to texture detected at %08x!", address);
 		if (!entry->framebuffer || entry->invalidHint == -1) {
 			if (entry->format != framebuffer->format) {
-				WARN_LOG_REPORT_ONCE(diffFormat1, HLE, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
+				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
 				// Affected game list : Kurohyou 2, Evangelion Jo
 				AttachFramebufferInvalid(entry, framebuffer);
@@ -215,12 +215,12 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 		// Is it at least the right stride?
 		if (framebuffer->fb_stride == entry->bufw && compatFormat) {
 			if (framebuffer->format != entry->format) {
-				WARN_LOG_REPORT_ONCE(diffFormat2, HLE, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
+				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 				// TODO: Use an FBO to translate the palette?
 				// Affected game List : DBZ VS Tag , 3rd birthday 
 				AttachFramebufferValid(entry, framebuffer);
 			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
-				WARN_LOG_REPORT_ONCE(subarea, HLE, "Render to area containing texture at %08x", address);
+				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
 				// TODO: Keep track of the y offset.
 				// Affected game List : God of War Ghost of Sparta , God of War Chains of Olympus
 				AttachFramebufferInvalid(entry, framebuffer);
@@ -511,7 +511,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unhandled clut texture mode %d!!!", (gstate.clutformat & 3));
+		ERROR_LOG_REPORT(G3D, "Unhandled clut texture mode %d!!!", (gstate.clutformat & 3));
 		break;
 	}
 
@@ -960,7 +960,7 @@ bool SetDebugTexture() {
 	bool changed = false;
 	if (((gpuStats.numFlips / highlightFrames) % mostTextures) == numTextures) {
 		if (gpuStats.numFlips % highlightFrames == 0) {
-			NOTICE_LOG(HLE, "Highlighting texture # %d / %d", numTextures, mostTextures);
+			NOTICE_LOG(G3D, "Highlighting texture # %d / %d", numTextures, mostTextures);
 		}
 		static const u32 solidTextureData[] = {0x99AA99FF};
 
@@ -1153,12 +1153,12 @@ void TextureCache::SetTexture() {
 				gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 			}
 			UpdateSamplingParams(*entry, false);
-			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
+			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
 			entry->numInvalidated++;
 			gpuStats.numTextureInvalidations++;
-			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
+			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
 			if (doDelete) {
 				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F) && entry->format == format && g_Config.iTexScalingLevel <= 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
@@ -1176,7 +1176,7 @@ void TextureCache::SetTexture() {
 			}
 		}
 	} else {
-		INFO_LOG(G3D, "No texture in cache, decoding...");
+		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
 
@@ -1185,7 +1185,7 @@ void TextureCache::SetTexture() {
 	}
 
 	if ((bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && texaddr >= PSP_GetUserMemoryBase()) {
-		ERROR_LOG_REPORT(HLE, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
+		ERROR_LOG_REPORT(G3D, "Texture with unexpected bufw (full=%d)", gstate.texbufwidth[0] & 0xffff);
 	}
 
 	// We have to decode it, let's setup the cache entry first.
@@ -1363,7 +1363,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			break;
 
 		default:
-			ERROR_LOG(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
+			ERROR_LOG_REPORT(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
 			return NULL;
 		}
 		}

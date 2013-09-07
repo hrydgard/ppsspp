@@ -255,7 +255,7 @@ void Core_UpdateState(CoreState newState) {
 }
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
-	INFO_LOG(HLE, "PPSSPP %s", PPSSPP_GIT_VERSION);
+	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
 
 	coreParameter = coreParam;
 	coreParameter.errorString = "";

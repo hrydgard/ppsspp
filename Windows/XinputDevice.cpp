@@ -95,7 +95,7 @@ static const unsigned int xinput_ctrl_map_size = sizeof(xinput_ctrl_map) / sizeo
 
 XinputDevice::XinputDevice() {
 	if (LoadXInputDLL() != 0) {
-		ERROR_LOG(HLE, "Failed to load XInput! DLL missing");
+		ERROR_LOG(SCECTRL, "Failed to load XInput! DLL missing");
 	}
 	ZeroMemory( &this->prevState, sizeof(this->prevState) );
 	this->check_delay = 0;

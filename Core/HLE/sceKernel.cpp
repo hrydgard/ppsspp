@@ -23,14 +23,15 @@
 #include "Core/MIPS/MIPSInt.h"
 
 #include "Common/LogManager.h"
-#include "../FileSystems/FileSystem.h"
-#include "../FileSystems/MetaFileSystem.h"
-#include "../PSPLoaders.h"
-#include "../../Core/CoreTiming.h"
-#include "../../Core/SaveState.h"
-#include "../../Core/System.h"
-#include "../../GPU/GPUInterface.h"
-#include "../../GPU/GPUState.h"
+#include "Core/FileSystems/FileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/PSPLoaders.h"
+#include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
+#include "Core/SaveState.h"
+#include "Core/System.h"
+#include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #include "util/random/rng.h"
 
@@ -422,8 +423,7 @@ SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop
 		}
 	}
 
-	// WTF?
-	_dbg_assert_(HLE, 0);
+	ERROR_LOG_REPORT(SCEKERNEL, "Unable to allocate kernel object, too many objects slots in use.");
 	return 0;
 }
 
