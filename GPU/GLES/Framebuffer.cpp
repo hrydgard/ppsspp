@@ -491,7 +491,7 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	VirtualFramebuffer *vfb = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, fb_address) && (g_Config.bTrueColor || v->format == fmt)) {
+		if (MaskedEqual(v->fb_address, fb_address) && v->format == fmt) {
 			// Let's not be so picky for now. Let's say this is the one.
 			vfb = v;
 			// Update fb stride in case it changed

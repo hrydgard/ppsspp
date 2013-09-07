@@ -1064,18 +1064,18 @@ void TextureCache::SetTexture() {
 	
 	if (iter != cache.end()) {
 		entry = &iter->second;
+		// Validate the texture still matches the cache entry.
+		int dim = gstate.texsize[0] & 0xF0F;
+		bool match = entry->Matches(dim, format, maxLevel);
+
 		// Check for FBO - slow!
-		if (entry->framebuffer) {
+		if (entry->framebuffer && match) {
 			SetTextureFramebuffer(entry);
 			lastBoundTexture = -1;
 			entry->lastFrame = gpuStats.numFlips;
 			return;
 		}
 
-		// Validate the texture here (width, height etc)
-
-		int dim = gstate.texsize[0] & 0xF0F;
-		bool match = entry->Matches(dim, format, maxLevel);
 		bool rehash = (entry->status & TexCacheEntry::STATUS_MASK) == TexCacheEntry::STATUS_UNRELIABLE;
 		bool doDelete = true;
 
