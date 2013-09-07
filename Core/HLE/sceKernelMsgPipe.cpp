@@ -64,9 +64,7 @@ struct MsgPipeWaitingThread
 
 	bool IsStillWaiting(SceUID waitID) const
 	{
-		u32 error;
-		int actualWaitID = __KernelGetWaitID(id, WAITTYPE_MSGPIPE, error);
-		return actualWaitID == waitID;
+		return HLEKernel::VerifyWait(id, WAITTYPE_MSGPIPE, waitID);
 	}
 
 	void WriteCurrentTimeout(SceUID waitID) const

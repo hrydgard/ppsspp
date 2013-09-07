@@ -102,11 +102,7 @@ KernelObject *__KernelSemaphoreObject()
 // Returns whether the thread should be removed.
 bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int result, bool &wokeThreads)
 {
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_SEMA, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-
-	// The waitID may be different after a timeout.
-	if (waitID != s->GetUID())
+	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_SEMA, s->GetUID()))
 		return true;
 
 	// If result is an error code, we're just letting it go.
@@ -119,6 +115,7 @@ bool __KernelUnlockSemaForThread(Semaphore *s, SceUID threadID, u32 &error, int 
 		s->ns.currentCount -= wVal;
 	}
 
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	if (timeoutPtr != 0 && semaWaitTimer != -1)
 	{
 		// Remove any event for this thread.
@@ -271,9 +268,8 @@ int sceKernelReferSemaStatus(SceUID id, u32 infoPtr)
 
 		for (auto iter = s->waitingThreads.begin(); iter != s->waitingThreads.end(); ++iter)
 		{
-			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_SEMA, error);
 			// The thread is no longer waiting for this, clean it up.
-			if (waitID != id)
+			if (!HLEKernel::VerifyWait(*iter, WAITTYPE_SEMA, id))
 				s->waitingThreads.erase(iter--);
 		}
 

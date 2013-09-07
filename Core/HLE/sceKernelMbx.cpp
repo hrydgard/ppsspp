@@ -207,13 +207,10 @@ KernelObject *__KernelMbxObject()
 
 bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error, int result, bool &wokeThreads)
 {
-	SceUID waitID = __KernelGetWaitID(th.threadID, WAITTYPE_MBX, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
-
-	// The waitID may be different after a timeout.
-	if (waitID != m->GetUID())
+	if (!HLEKernel::VerifyWait(th.threadID, WAITTYPE_MBX, m->GetUID()))
 		return true;
 
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
 	if (timeoutPtr != 0 && mbxWaitTimer != -1)
 	{
 		// Remove any event for this thread.
@@ -588,9 +585,8 @@ int sceKernelReferMbxStatus(SceUID id, u32 infoAddr)
 
 	for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
 	{
-		SceUID waitID = __KernelGetWaitID(iter->threadID, WAITTYPE_MBX, error);
 		// The thread is no longer waiting for this, clean it up.
-		if (waitID != id)
+		if (!HLEKernel::VerifyWait(iter->threadID, WAITTYPE_MBX, id))
 			m->waitingThreads.erase(iter--);
 	}
 
