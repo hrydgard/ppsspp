@@ -44,6 +44,7 @@ extern "C" {
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 // For headless screenshots.
 #include "Core/HLE/sceDisplay.h"
@@ -269,6 +270,13 @@ void __IoFreeFd(int fd, u32 &error) {
 	if (fd < PSP_MIN_FD || fd >= PSP_COUNT_FDS) {
 		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	} else {
+		FileNode *f = __IoGetFd(fd, error);
+		if (f) {
+			// Wake anyone waiting on the file before closing it.
+			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
+				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_IO, fd, SCE_KERNEL_ERROR_WAIT_DELETE);
+			}
+		}
 		error = kernelObjects.Destroy<FileNode>(fds[fd]);
 		fds[fd] = 0;
 	}
@@ -307,10 +315,9 @@ void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	SceUID threadID = f->waitingThreads.front();
 	f->waitingThreads.erase(f->waitingThreads.begin());
 
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_IO, error);
 	u32 address = __KernelGetWaitValue(threadID, error);
-	if (waitID == fd && error == 0) {
-		__KernelResumeThreadFromWait(threadID, 0);
+	if (HLEKernel::VerifyWait(threadID, WAITTYPE_IO, fd)) {
+		HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, 0);
 
 		if (Memory::IsValidAddress(address)) {
 			Memory::Write_U64((u64) f->asyncResult, address);
@@ -345,10 +352,7 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 		ERROR_LOG(HLE, "Unable to complete IO operation.");
 	}
 
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_IO, error);
-	if (waitID == fd && error == 0) {
-		__KernelResumeThreadFromWait(threadID, result);
-	}
+	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
 }
 
 static DirectoryFileSystem *memstickSystem = NULL;
