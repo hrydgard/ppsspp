@@ -149,7 +149,7 @@ public:
 		p.Do(size);
 		if (size != N)
 		{
-			ERROR_LOG(HLE, "Savestate failure: Incompatible queue size.");
+			ERROR_LOG(COMMON, "Savestate failure: Incompatible queue size.");
 			return;
 		}
 		p.DoArray<T>(storage_, N);

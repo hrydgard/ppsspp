@@ -132,7 +132,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	LogManager::Init();
 	LogManager::GetInstance()->GetConsoleListener()->Open(hideLog, 150, 120, "PPSSPP Debug Console");
-	LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, LogTypes::LERROR);
 
 
 	//Windows, API init stuff
