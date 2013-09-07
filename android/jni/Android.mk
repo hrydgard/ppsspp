@@ -149,6 +149,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/UI/ui_atlas.cpp \
   $(SRC)/UI/NativeApp.cpp \
+  $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \

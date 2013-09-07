@@ -29,6 +29,9 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="CwCheatScreen.cpp" />
+    <ClCompile Include="DevScreens.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -58,6 +61,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="CwCheatScreen.h" />
+    <ClInclude Include="DevScreens.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Screens">

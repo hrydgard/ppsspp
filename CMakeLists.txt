@@ -1131,6 +1131,7 @@ endif()
 
 set(NativeAppSource
 	UI/NativeApp.cpp
+	UI/DevScreens.cpp
 	UI/EmuScreen.cpp
 	android/jni/TestRunner.cpp
 	UI/GameInfoCache.cpp

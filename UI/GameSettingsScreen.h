@@ -96,6 +96,7 @@ private:
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnSaveLanguageIni(UI::EventParams &e);
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
+	UI::EventReturn OnLogConfig(UI::EventParams &e);
 
 	// Temporary variable.
 	bool enableLogging_;

@@ -104,11 +104,6 @@ private:
 	int frames_;
 };
 
-class SystemInfoScreen : public UIDialogScreenWithBackground {
-public:
-	SystemInfoScreen() {}
-	virtual void CreateViews();
-};
 
 // Utility functions that create various popup screens
 ListPopupScreen *CreateLanguageScreen();

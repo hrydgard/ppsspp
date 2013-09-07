@@ -33,6 +33,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
+#include "Common/CPUDetect.h"
 
 #include "ui_atlas.h"
 
@@ -329,43 +330,6 @@ void LogoScreen::render() {
 	
 	dc.End();
 	dc.Flush();
-}
-
-void SystemInfoScreen::CreateViews() {
-	// NOTE: Do not translate this section. It will change a lot and will be impossible to keep up.
-	I18NCategory *d = GetI18NCategory("Dialog");
-
-	using namespace UI;
-	root_ = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
-	
-	LinearLayout *scroll = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-	root_->Add(scroll);
-
-	scroll->Add(new ItemHeader("System Information"));
-	scroll->Add(new InfoItem("System Name", System_GetProperty(SYSPROP_NAME)));
-	scroll->Add(new InfoItem("System Lang/Region", System_GetProperty(SYSPROP_LANGREGION)));
-	scroll->Add(new InfoItem("GPU Vendor", (char *)glGetString(GL_VENDOR)));
-	scroll->Add(new InfoItem("GPU Model", (char *)glGetString(GL_RENDERER)));
-	scroll->Add(new InfoItem("OpenGL Version Supported", (char *)glGetString(GL_VERSION)));
-	scroll->Add(new Button(d->T("Back"), new LayoutParams(260, 64)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	
-#ifdef _WIN32
-	scroll->Add(new ItemHeader("OpenGL Extensions"));
-#else
-	scroll->Add(new ItemHeader("OpenGL ES 2.0 Extensions"));
-#endif
-	std::vector<std::string> exts;
-	SplitString(g_all_gl_extensions, ' ', exts);
-	for (size_t i = 0; i < exts.size(); i++) {
-		scroll->Add(new TextView(exts[i]));
-	}
-
-	scroll->Add(new ItemHeader("EGL Extensions"));
-	exts.clear();
-	SplitString(g_all_egl_extensions, ' ', exts);
-	for (size_t i = 0; i < exts.size(); i++) {
-		scroll->Add(new TextView(exts[i]));
-	}
 }
 
 void CreditsScreen::CreateViews() {
