@@ -467,6 +467,8 @@ namespace MainWindow
 		TranslateMenuItem(ID_OPTIONS_READFBOTOMEMORYGPU, desktopUI, true, false);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_0, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_FRAMESKIP_AUTO, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_MORE_SETTINGS, desktopUI);
+		TranslateMenuItem(ID_OPTIONS_CONTROLS, desktopUI);
 		// Skip frameskipping 2-8..
 		TranslateMenuItem(ID_OPTIONS_TEXTUREFILTERING_AUTO, desktopUI);
 		TranslateMenuItem(ID_OPTIONS_NEARESTFILTERING, desktopUI);
