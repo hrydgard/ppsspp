@@ -198,6 +198,9 @@ public:
 			}
 		}
 
+		p.Do(waitingThreads);
+		p.Do(pausedWaits);
+
 		p.DoMarker("File");
 	}
 
@@ -221,6 +224,11 @@ public:
 	u32 npdrm;
 	u32 pgd_offset;
 	PGD_DESC *pgdInfo;
+
+	std::vector<SceUID> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	// Value is actually meaningless but kept for consistency with other wait types.
+	std::map<SceUID, u64> pausedWaits;
 };
 
 /******************************************************************************/
@@ -282,18 +290,29 @@ void __IoFreeFd(int fd, u32 &error) {
 // TODO: We don't do any of that yet.
 // For now, let's at least delay the callback mnotification.
 void __IoAsyncNotify(u64 userdata, int cyclesLate) {
-	SceUID threadID = userdata >> 32;
-	int fd = (int) (userdata & 0xFFFFFFFF);
+	int fd = (int) userdata;
 	__IoCompleteAsyncIO(fd);
 
 	u32 error;
+	FileNode *f = __IoGetFd(fd, error);
+	if (!f) {
+		ERROR_LOG_REPORT(HLE, "__IoAsyncNotify: file no longer exists?");
+		return;
+	}
+
+	if (f->waitingThreads.empty()) {
+		return;
+	}
+
+	SceUID threadID = f->waitingThreads.front();
+	f->waitingThreads.erase(f->waitingThreads.begin());
+
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_IO, error);
 	u32 address = __KernelGetWaitValue(threadID, error);
 	if (waitID == fd && error == 0) {
 		__KernelResumeThreadFromWait(threadID, 0);
 
-		FileNode *f = __IoGetFd(fd, error);
-		if (Memory::IsValidAddress(address) && f) {
+		if (Memory::IsValidAddress(address)) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 		}
 
@@ -311,16 +330,19 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 	s64 result = -1;
 	u32 error;
 	FileNode *f = __IoGetFd(fd, error);
-	if (f) {
-		f->pendingAsyncResult = false;
-		f->hasAsyncResult = true;
+	if (!f) {
+		ERROR_LOG_REPORT(HLE, "__IoSyncNotify: file no longer exists?");
+		return;
+	}
 
-		AsyncIOResult managerResult;
-		if (ioManager.WaitResult(f->handle, managerResult)) {
-			result = managerResult;
-		} else {
-			ERROR_LOG(HLE, "Unable to complete IO operation.");
-		}
+	f->pendingAsyncResult = false;
+	f->hasAsyncResult = true;
+
+	AsyncIOResult managerResult;
+	if (ioManager.WaitResult(f->handle, managerResult)) {
+		result = managerResult;
+	} else {
+		ERROR_LOG(HLE, "Unable to complete IO operation.");
 	}
 
 	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_IO, error);
@@ -508,8 +530,7 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 }
 
 void __IoSchedAsync(FileNode *f, int fd, int usec) {
-	u64 param = ((u64)__KernelGetCurThread()) << 32 | fd;
-	CoreTiming::ScheduleEvent(usToCycles(usec), asyncNotifyEvent, param);
+	CoreTiming::ScheduleEvent(usToCycles(usec), asyncNotifyEvent, fd);
 
 	f->pendingAsyncResult = true;
 	f->hasAsyncResult = false;
@@ -1518,6 +1539,7 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 				}
 
 				DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): waiting", f->asyncResult, id, poll, address);
+				f->waitingThreads.push_back(__KernelGetCurThread());
 				__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
 			}
 		} else if (f->hasAsyncResult) {
@@ -1560,6 +1582,7 @@ int sceIoWaitAsync(int id, u32 address) {
 				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 			}
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): waiting", f->asyncResult, id, address);
+			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
@@ -1598,6 +1621,7 @@ int sceIoWaitAsyncCB(int id, u32 address) {
 		if (f->pendingAsyncResult) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x): waiting", f->asyncResult, id, address);
 			// TODO: This seems to re-enable dispatch or something?
+			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
 		} else if (f->hasAsyncResult) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x)", f->asyncResult, id, address);
