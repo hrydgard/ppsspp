@@ -426,13 +426,14 @@ void DeveloperToolsScreen::CreateViews() {
 	list->SetSpacing(0);
 	list->Add(new ItemHeader(s->T("General")));
 	list->Add(new Choice(de->T("System Information")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSysInfo);
+	list->Add(new CheckBox(&enableLogging_, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new Choice(de->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
+	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, de->T("Show Developer Menu")));
 	list->Add(new Choice(de->T("Run CPU Tests")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
 	list->Add(new Choice(de->T("Restore Default Settings")))->OnClick.Handle(this, &DeveloperToolsScreen::OnRestoreDefaultSettings);
 #ifndef __SYMBIAN32__
 	list->Add(new CheckBox(&g_Config.bSoftwareRendering, gs->T("Software Rendering", "Software Rendering (experimental)")));
 #endif
-	list->Add(new CheckBox(&enableLogging_, de->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new ItemHeader(de->T("Language")));
 	list->Add(new Choice(de->T("Load language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoadLanguageIni);
 	list->Add(new Choice(de->T("Save language ini")))->OnClick.Handle(this, &DeveloperToolsScreen::OnSaveLanguageIni);

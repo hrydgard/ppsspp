@@ -44,6 +44,7 @@ public:
 
 protected:
 	virtual void CreateViews();
+	UI::EventReturn OnDevTools(UI::EventParams &params);
 
 private:
 	void bootGame(const std::string &filename);

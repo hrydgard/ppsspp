@@ -157,6 +157,7 @@ public:
 	int iFontWidth;
 	int iFontHeight;
 	bool bDisplayStatusBar;
+	bool bShowDeveloperMenu;
 
 	std::string currentDirectory;
 	std::string externalDirectory; 

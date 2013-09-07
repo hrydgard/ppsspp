@@ -27,14 +27,24 @@
 
 #include "UI/MiscScreens.h"
 
+class DevMenu : public PopupScreen {
+public:
+	DevMenu() : PopupScreen("Dev Tools") {}
+
+	virtual void CreatePopupContents(UI::ViewGroup *parent);
+
+protected:
+	UI::EventReturn OnLogConfig(UI::EventParams &e);
+	UI::EventReturn OnDeveloperTools(UI::EventParams &e);
+};
+
 class LogConfigScreen : public UIDialogScreenWithBackground {
 public:
 	LogConfigScreen() {}
 	virtual void CreateViews();
 
 private:
-	UI::EventReturn OnLogLevelChanged(UI::EventParams &e);
-	UI::EventReturn OnLogEnabledChanged(UI::EventParams &e);
+	UI::EventReturn OnToggleAll(UI::EventParams &e);
 };
 
 class SystemInfoScreen : public UIDialogScreenWithBackground {

@@ -27,6 +27,24 @@
 #include "Common/LogManager.h"
 #include "Core/Config.h"
 
+
+void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	parent->Add(new Choice("Log Channels"))->OnClick.Handle(this, &DevMenu::OnLogConfig);
+	parent->Add(new Choice("Developer Tools"))->OnClick.Handle(this, &DevMenu::OnDeveloperTools);
+}
+
+UI::EventReturn DevMenu::OnLogConfig(UI::EventParams &e) {
+	screenManager()->push(new LogConfigScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
+	screenManager()->push(new DeveloperToolsScreen());
+	return UI::EVENT_DONE;
+}
+
 // It's not so critical to translate everything here, most of this is developers only.
 
 void LogConfigScreen::CreateViews() {
@@ -35,9 +53,15 @@ void LogConfigScreen::CreateViews() {
 	I18NCategory *d = GetI18NCategory("Dialog");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
-	
+
 	LinearLayout *vert = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	vert->SetSpacing(0);
+
+	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
+	topbar->Add(new Choice("Back"))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new Choice("Toggle All"))->OnClick.Handle(this, &LogConfigScreen::OnToggleAll);
+
+	vert->Add(topbar);
 
 	vert->Add(new ItemHeader("Log Channels"));
 
@@ -58,11 +82,20 @@ void LogConfigScreen::CreateViews() {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->Add(new PopupMultiChoice(&chan->level_, chan->GetFullName(), logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
 		row->Add(new CheckBox(&chan->enable_, "", "", new LinearLayoutParams(100, WRAP_CONTENT)));
-
 		vert->Add(row);
 	}
+}
 
-	vert->Add(new Button(d->T("Back"), new LayoutParams(260, 64)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+UI::EventReturn LogConfigScreen::OnToggleAll(UI::EventParams &e) {
+	LogManager *logMan = LogManager::GetInstance();
+	
+	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
+		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
+		LogChannel *chan = logMan->GetLogChannel(type);
+		chan->enable_ = !chan->enable_;
+	}
+
+	return UI::EVENT_DONE;
 }
 
 void SystemInfoScreen::CreateViews() {

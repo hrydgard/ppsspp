@@ -49,6 +49,7 @@
 
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
+#include "UI/DevScreens.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
 
@@ -384,6 +385,14 @@ static const struct { int from, to; } legacy_touch_mapping[12] = {
 
 void EmuScreen::CreateViews() {
 	root_ = CreatePadLayout(&pauseTrigger_);
+	if (g_Config.bShowDeveloperMenu) {
+		root_->Add(new UI::Button("DevMenu"))->OnClick.Handle(this, &EmuScreen::OnDevTools);
+	}
+}
+
+UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
+	screenManager()->push(new DevMenu());
+	return UI::EVENT_DONE;
 }
 
 void EmuScreen::update(InputState &input) {
