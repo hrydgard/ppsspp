@@ -1163,7 +1163,7 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_ALPHATEST:
 #ifndef USING_GLES2
 		if (((data >> 16) & 0xFF) != 0xFF && (data & 7) > 1)
-			WARN_LOG_REPORT_ONCE(alphatestmask, HLE, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
+			WARN_LOG_REPORT_ONCE(alphatestmask, G3D, "Unsupported alphatest mask: %02x", (data >> 16) & 0xFF);
 		// Intentional fallthrough.
 #endif
 

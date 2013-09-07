@@ -83,7 +83,7 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 	FILE *outFile = (FILE*)userParam;
 	char finalMessage[256];
 	FormatDebugOutputARB(finalMessage, 256, source, type, id, severity, message);
-	ERROR_LOG(HLE, "GL: %s", finalMessage);
+	ERROR_LOG(G3D, "GL: %s", finalMessage);
 }
 
 bool GL_Init(HWND window, std::string *error_message) {

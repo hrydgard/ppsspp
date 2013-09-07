@@ -493,7 +493,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 			char temp[256];
 			u32 prev = Memory::ReadUnchecked_U32(list.pc - 4);
 			GeDisassembleOp(list.pc, op, prev, temp);
-			NOTICE_LOG(HLE, "%s", temp);
+			NOTICE_LOG(G3D, "%s", temp);
 		}
 		gstate.cmdmem[cmd] = op;
 
@@ -606,7 +606,7 @@ void GPUCommon::ProcessDLQueueInternal() {
 
 	// Seems to be correct behaviour to process the list anyway?
 	if (startingTicks < busyTicks) {
-		DEBUG_LOG(HLE, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
+		DEBUG_LOG(G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
 		//return;
 	}
 
