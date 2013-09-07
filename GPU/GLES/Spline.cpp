@@ -21,7 +21,7 @@
 // Just to get something on the screen, we'll just not subdivide correctly.
 void TransformDrawEngine::DrawBezier(int ucount, int vcount) {
 	 if ((ucount - 1) % 3 != 0 || (vcount - 1) % 3 != 0) 
-		ERROR_LOG_REPORT(HLE,"Unsupported bezier parameters ucount=%i, vcount=%i", ucount, vcount);
+		ERROR_LOG_REPORT(G3D, "Unsupported bezier parameters ucount=%i, vcount=%i", ucount, vcount);
 
 	u16 *indices = new u16[ucount * vcount * 6];
 

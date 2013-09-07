@@ -74,9 +74,9 @@ u32 DoubleTest(u32 sp) {
 
 void ShowPC(u32 sp) {
 	if (currentMIPS) {
-		ERROR_LOG(HLE, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
+		ERROR_LOG(JIT, "ShowPC : %08x  ArmSP : %08x", currentMIPS->pc, sp);
 	} else {
-		ERROR_LOG(HLE, "Universe corrupt?");
+		ERROR_LOG(JIT, "Universe corrupt?");
 	}
 }*/
 
@@ -92,7 +92,7 @@ void Jit::GenerateFixedCode()
 {
 	enterCode = AlignCode16();
 
-	INFO_LOG(HLE, "Base: %08x", (u32)Memory::base);
+	INFO_LOG(JIT, "Base: %08x", (u32)Memory::base);
 
 	SetCC(CC_AL);
 
@@ -199,9 +199,9 @@ void Jit::GenerateFixedCode()
 	POP(9, R4, R5, R6, R7, R8, R9, R10, R11, _PC);  // Returns
 
 	// Uncomment if you want to see the output...
-	// INFO_LOG(HLE, "THE DISASM ========================");
+	// INFO_LOG(JIT, "THE DISASM ========================");
 	// DisassembleArm(enterCode, GetCodePtr() - enterCode);
-	// INFO_LOG(HLE, "END OF THE DISASM ========================");
+	// INFO_LOG(JIT, "END OF THE DISASM ========================");
 
 	// Don't forget to zap the instruction cache!
 	FlushLitPool();

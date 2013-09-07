@@ -271,7 +271,7 @@ void Jit::RunLoopUntil(u64 globalticks)
 {
 	// TODO: copy globalticks somewhere
 	((void (*)())asm_.enterCode)();
-	// NOTICE_LOG(HLE, "Exited jitted code at %i, corestate=%i, dc=%i", CoreTiming::GetTicks() / 1000, (int)coreState, CoreTiming::downcount);
+	// NOTICE_LOG(JIT, "Exited jitted code at %i, corestate=%i, dc=%i", CoreTiming::GetTicks() / 1000, (int)coreState, CoreTiming::downcount);
 }
 
 const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
@@ -587,7 +587,7 @@ OpArg Jit::JitSafeMem::NextFastAddress(int suboffset)
 #endif
 	}
 
-	_dbg_assert_msg_(HLE, (suboffset & alignMask_) == suboffset, "suboffset must be aligned");
+	_dbg_assert_msg_(JIT, (suboffset & alignMask_) == suboffset, "suboffset must be aligned");
 
 #ifdef _M_IX86
 	return MDisp(xaddr_, (u32) Memory::base + offset_ + suboffset);

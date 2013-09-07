@@ -33,6 +33,8 @@ public:
 
 	virtual void CreatePopupContents(UI::ViewGroup *parent);
 
+	virtual void dialogFinished(const Screen *dialog, DialogResult result);
+
 protected:
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnDeveloperTools(UI::EventParams &e);

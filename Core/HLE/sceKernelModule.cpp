@@ -677,13 +677,13 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	u8 *newptr = 0;
 	u32_le *magicPtr = (u32_le *) ptr;
 	if (*magicPtr == 0x4543537e) { // "~SCE"
-		INFO_LOG(HLE, "~SCE module, skipping header");
+		INFO_LOG(SCEMODULE, "~SCE module, skipping header");
 		ptr += *(u32_le*)(ptr + 4);
 		magicPtr = (u32_le *)ptr;
 	}
 	*magic = *magicPtr;
 	if (*magic == 0x5053507e) { // "~PSP"
-		INFO_LOG(HLE, "Decrypting ~PSP file");
+		INFO_LOG(SCEMODULE, "Decrypting ~PSP file");
 		PSP_Header *head = (PSP_Header*)ptr;
 		const u8 *in = ptr;
 		u32 size = head->elf_size;
@@ -708,7 +708,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 		}
 		else if (ret <= 0)
 		{
-			ERROR_LOG(HLE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
+			ERROR_LOG(SCEMODULE, "Failed decrypting PRX! That's not normal! ret = %i\n", ret);
 			Reporting::ReportMessage("Failed decrypting the PRX (ret = %i, size = %i, psp_size = %i)!", ret, head->elf_size, head->psp_size);
 			// Fall through to safe exit in the next check.
 		}
@@ -716,7 +716,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 
 	// DO NOT change to else if, see above.
 	if (*magicPtr != 0x464c457f) {
-		ERROR_LOG_REPORT(HLE, "Wrong magic number %08x", *magicPtr);
+		ERROR_LOG_REPORT(SCEMODULE, "Wrong magic number %08x", *magicPtr);
 		*error_string = "File corrupt";
 		if (newptr)
 			delete [] newptr;
@@ -728,7 +728,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 	ElfReader reader((void*)ptr);
 
 	if (!reader.LoadInto(loadAddress)) 	{
-		ERROR_LOG(HLE, "LoadInto failed");
+		ERROR_LOG(SCEMODULE, "LoadInto failed");
 		if (newptr)
 			delete [] newptr;
 		module->Cleanup();
@@ -968,7 +968,7 @@ Module *__KernelLoadELFFromPtr(const u8 *ptr, u32 loadAddress, std::string *erro
 			name = "invalid?";
 		}
 
-		INFO_LOG(HLE, "Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
+		INFO_LOG(LOADER, "Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
 
 		if (!Memory::IsValidAddress(ent->resident)) {
 			if (ent->fcount + variableCount > 0) {
@@ -1297,10 +1297,10 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 		return SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	}
 
-	DEBUG_LOG(HLE, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
+	DEBUG_LOG(SCEMODULE, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
 	if (!__KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
-		ERROR_LOG(HLE, "sceKernelLoadExec failed: %s", error_string.c_str());
+		ERROR_LOG(SCEMODULE, "sceKernelLoadExec failed: %s", error_string.c_str());
 		Core_UpdateState(CORE_ERROR);
 		return -1;
 	}
@@ -1372,11 +1372,11 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr)
 	}
 
 	if (lmoption) {
-		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,position = %08x)",
+		INFO_LOG(SCEMODULE,"%i=sceKernelLoadModule(name=%s,flag=%08x,%08x,%08x,%08x,position = %08x)",
 			module->GetUID(),name,flags,
 			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
 	} else {
-		INFO_LOG(HLE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", module->GetUID(), name, flags);
+		INFO_LOG(SCEMODULE,"%i=sceKernelLoadModule(name=%s,flag=%08x,(...))", module->GetUID(), name, flags);
 	}
 
 	// TODO: This is not the right timing and probably not the right wait type, just an approximation.
@@ -1406,21 +1406,21 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		RETURN(error);
 		return;
 	} else if (module->isFake) {
-		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
+		INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): faked (undecryptable module)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 		if (returnValueAddr)
 			Memory::Write_U32(0, returnValueAddr);
 		RETURN(moduleId);
 		return;
 	} else if (module->isStarted) {
-		ERROR_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x) : already started",
+		ERROR_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x) : already started",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 		// TODO: Maybe should be SCE_KERNEL_ERROR_ALREADY_STARTED, but I get SCE_KERNEL_ERROR_ERROR.
 		// But I also get crashes...
 		RETURN(SCE_KERNEL_ERROR_ERROR);
 		return;
 	} else {
-		INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
+		INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x)",
 		moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 
 		int attribute = module->nm.attribute;
@@ -1441,7 +1441,7 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 			else
 			{
 				// TODO: Why are we just returning the module ID in this case?
-				WARN_LOG(HLE, "sceKernelStartModule(): module has no start or entry func");
+				WARN_LOG(SCEMODULE, "sceKernelStartModule(): module has no start or entry func");
 				module->isStarted = true;
 				RETURN(moduleId);
 				return;
@@ -1472,13 +1472,13 @@ void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValu
 		}
 		else if (entryAddr == 0)
 		{
-			INFO_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): no entry address",
+			INFO_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): no entry address",
 			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 			module->isStarted = true;
 		}
 		else
 		{
-			ERROR_LOG(HLE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): invalid entry address",
+			ERROR_LOG(SCEMODULE, "sceKernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x,%08x): invalid entry address",
 			moduleId,argsize,argAddr,returnValueAddr,optionAddr);
 			RETURN(-1);
 			return;
@@ -1500,20 +1500,20 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
 	if (!module)
 	{
-		ERROR_LOG(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): invalid module id", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		ERROR_LOG(SCEMODULE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): invalid module id", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 		return error;
 	}
 
 	if (module->isFake)
 	{
-		INFO_LOG(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x) - faking", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		INFO_LOG(SCEMODULE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x) - faking", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 		if (returnValueAddr)
 			Memory::Write_U32(0, returnValueAddr);
 		return 0;
 	}
 	if (!module->isStarted)
 	{
-		ERROR_LOG(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): already stopped", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		ERROR_LOG(SCEMODULE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): already stopped", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 		return SCE_KERNEL_ERROR_ALREADY_STOPPED;
 	}
 
@@ -1538,7 +1538,7 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 			attr = options->attribute;
 		// TODO: Maybe based on size?
 		else if (attr != 0)
-			WARN_LOG_REPORT(HLE, "Stopping module with attr=%x, but options specify 0", attr);
+			WARN_LOG_REPORT(SCEMODULE, "Stopping module with attr=%x, but options specify 0", attr);
 	}
 
 	if (Memory::IsValidAddress(stopFunc))
@@ -1553,12 +1553,12 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 	}
 	else if (stopFunc == 0)
 	{
-		INFO_LOG(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): no stop func, skipping", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		INFO_LOG(SCEMODULE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): no stop func, skipping", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 		module->isStarted = false;
 	}
 	else
 	{
-		ERROR_LOG_REPORT(HLE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): bad stop func address", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
+		ERROR_LOG_REPORT(SCEMODULE, "sceKernelStopModule(%08x, %08x, %08x, %08x, %08x): bad stop func address", moduleId, argSize, argAddr, returnValueAddr, optionAddr);
 		module->isStarted = false;
 	}
 
@@ -1567,7 +1567,7 @@ u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueA
 
 u32 sceKernelUnloadModule(u32 moduleId)
 {
-	INFO_LOG(HLE,"sceKernelUnloadModule(%i)", moduleId);
+	INFO_LOG(SCEMODULE,"sceKernelUnloadModule(%i)", moduleId);
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(moduleId, error);
 	if (!module)
@@ -1580,7 +1580,7 @@ u32 sceKernelUnloadModule(u32 moduleId)
 
 u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
+	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
 
 	// Probably similar to sceKernelStopModule, but games generally call this when they die.
 	return 0;
@@ -1603,7 +1603,7 @@ void __KernelReturnFromModuleFunc()
 	Module *module = kernelObjects.Get<Module>(leftModuleID, error);
 	if (!module)
 	{
-		ERROR_LOG_REPORT(HLE, "Returned from deleted module start/stop func");
+		ERROR_LOG_REPORT(SCEMODULE, "Returned from deleted module start/stop func");
 		return;
 	}
 
@@ -1647,21 +1647,21 @@ u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
 
 	kernelObjects.Iterate(&__GetModuleIdByAddressIterator, &state);
 	if (state.result == (SceUID)SCE_KERNEL_ERROR_UNKNOWN_MODULE)
-		ERROR_LOG(HLE, "sceKernelGetModuleIdByAddress(%08x): module not found", moduleAddr)
+		ERROR_LOG(SCEMODULE, "sceKernelGetModuleIdByAddress(%08x): module not found", moduleAddr)
 	else
-		DEBUG_LOG(HLE, "%x=sceKernelGetModuleIdByAddress(%08x)", state.result, moduleAddr);
+		DEBUG_LOG(SCEMODULE, "%x=sceKernelGetModuleIdByAddress(%08x)", state.result, moduleAddr);
 	return state.result;
 }
 
 u32 sceKernelGetModuleId()
 {
-	INFO_LOG(HLE,"sceKernelGetModuleId()");
+	INFO_LOG(SCEMODULE,"sceKernelGetModuleId()");
 	return __KernelGetCurThreadModuleId();
 }
 
 u32 sceKernelFindModuleByName(const char *name)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceKernelFindModuleByName(%s)", name);
+	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL sceKernelFindModuleByName(%s)", name);
 	
 	int index = GetModuleIndex(name);
 
@@ -1676,7 +1676,7 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	u32 error;
 	u32 handle = __IoGetFileHandleFromId(id, error);
 	if (handle == (u32)-1) {
-		ERROR_LOG(HLE,"sceKernelLoadModuleByID(%08x, %08x, %08x): could not open file id",id,flags,lmoptionPtr);
+		ERROR_LOG(SCEMODULE,"sceKernelLoadModuleByID(%08x, %08x, %08x): could not open file id",id,flags,lmoptionPtr);
 		return error;
 	}
 	SceKernelLMOption *lmoption = 0;
@@ -1710,11 +1710,11 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 	}
 
 	if (lmoption) {
-		INFO_LOG(HLE,"%i=sceKernelLoadModuleByID(%d,flag=%08x,%08x,%08x,%08x,position = %08x)",
+		INFO_LOG(SCEMODULE,"%i=sceKernelLoadModuleByID(%d,flag=%08x,%08x,%08x,%08x,position = %08x)",
 			module->GetUID(),id,flags,
 			lmoption->size,lmoption->mpidtext,lmoption->mpiddata,lmoption->position);
 	} else {
-		INFO_LOG(HLE,"%i=sceKernelLoadModuleByID(%d,flag=%08x,(...))", module->GetUID(), id, flags);
+		INFO_LOG(SCEMODULE,"%i=sceKernelLoadModuleByID(%d,flag=%08x,(...))", module->GetUID(), id, flags);
 	}
 
 	return module->GetUID();
@@ -1722,19 +1722,19 @@ u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr)
 
 u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL 0=sceKernelLoadModuleDNAS()");
+	ERROR_LOG_REPORT(SCEMODULE, "UNIMPL 0=sceKernelLoadModuleDNAS()");
 	return 0;
 }
 
 u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 {
-	INFO_LOG(HLE, "sceKernelQueryModuleInfo(%i, %08x)", uid, infoAddr);
+	INFO_LOG(SCEMODULE, "sceKernelQueryModuleInfo(%i, %08x)", uid, infoAddr);
 	u32 error;
 	Module *module = kernelObjects.Get<Module>(uid, error);
 	if (!module)
 		return error;
 	if (!Memory::IsValidAddress(infoAddr)) {
-		ERROR_LOG(HLE, "sceKernelQueryModuleInfo(%i, %08x) - bad infoAddr", uid, infoAddr);
+		ERROR_LOG(SCEMODULE, "sceKernelQueryModuleInfo(%i, %08x) - bad infoAddr", uid, infoAddr);
 		return -1;
 	}
 	ModuleInfo info;
@@ -1757,20 +1757,20 @@ u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 
 u32 ModuleMgrForKernel_977de386(const char *name, u32 flags, u32 optionAddr)
 {
-	WARN_LOG(HLE,"Not support this patcher");
+	WARN_LOG(SCEMODULE,"Not support this patcher");
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
 void ModuleMgrForKernel_50f0c1ec(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	WARN_LOG(HLE,"Not support this patcher");
+	WARN_LOG(SCEMODULE,"Not support this patcher");
 	sceKernelStartModule(moduleId, argsize, argAddr, returnValueAddr, optionAddr);
 }
 
 //fix for tiger x dragon
 u32 ModuleMgrForKernel_a1a78c58(const char *name, u32 flags, u32 optionAddr)
 {
-	WARN_LOG(HLE,"Not support this patcher");
+	WARN_LOG(SCEMODULE,"Not support this patcher");
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 

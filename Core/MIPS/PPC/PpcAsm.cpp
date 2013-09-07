@@ -117,9 +117,9 @@ void Jit::DumpJit() {
 void Jit::GenerateFixedCode() {
 	enterCode = AlignCode16();
 	
-	INFO_LOG(HLE, "Base: %08x", (u32)Memory::base);
-	INFO_LOG(HLE, "enterCode: 0x%08p", enterCode);	
-	INFO_LOG(HLE, "GetBasePtr: 0x%08p", GetBasePtr());
+	INFO_LOG(JIT, "Base: %08x", (u32)Memory::base);
+	INFO_LOG(JIT, "enterCode: 0x%08p", enterCode);	
+	INFO_LOG(JIT, "GetBasePtr: 0x%08p", GetBasePtr());
 
 	Prologue();
 	

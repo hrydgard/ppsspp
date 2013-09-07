@@ -630,7 +630,7 @@ inline void GLES_GPU::CheckFlushOp(int cmd, u32 diff) {
 	u8 cmdFlags = commandFlags_[cmd];
 	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
 		if (dumpThisFrame_) {
-			NOTICE_LOG(HLE, "================ FLUSH ================");
+			NOTICE_LOG(G3D, "================ FLUSH ================");
 		}
 		transformDraw_.Flush();
 	}

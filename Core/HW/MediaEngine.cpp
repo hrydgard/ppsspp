@@ -193,7 +193,7 @@ int _MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size)
 void ffmpeg_logger(void *, int, const char *format, va_list va_args) {
 	char tmp[1024];
 	vsprintf(tmp, format, va_args);
-	INFO_LOG(HLE, "%s", tmp);
+	INFO_LOG(ME, "%s", tmp);
 }
 #endif
 

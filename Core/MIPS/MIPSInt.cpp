@@ -287,7 +287,7 @@ namespace MIPSInt
 			// There's one of these in Star Soldier at 0881808c, which seems benign - it should probably be ignored.
 			if (op == 0x03e00008)
 				return;
-			ERROR_LOG(HLE, "Jump in delay slot :(");
+			ERROR_LOG(CPU, "Jump in delay slot :(");
 			_dbg_assert_msg_(CPU,0,"Jump in delay slot :(");
 		}
 
@@ -391,14 +391,14 @@ namespace MIPSInt
 		case 11: if (R(rt) != 0) R(rd) = R(rs); break; //movn
 		case 32: 
 			if (!has_warned) {
-				ERROR_LOG(HLE,"WARNING : exception-causing add at %08x", PC);
+				ERROR_LOG(CPU,"WARNING : exception-causing add at %08x", PC);
 				has_warned = true;
 			}
 			R(rd) = R(rs) + R(rt);		break; //add
 		case 33: R(rd) = R(rs) + R(rt);		break; //addu
 		case 34: 
 			if (!has_warned) {
-				ERROR_LOG(HLE,"WARNING : exception-causing sub at %08x", PC);
+				ERROR_LOG(CPU,"WARNING : exception-causing sub at %08x", PC);
 				has_warned = true;
 			}
 			R(rd) = R(rs) - R(rt);		break; //sub

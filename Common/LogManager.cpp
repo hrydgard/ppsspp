@@ -61,10 +61,14 @@ static const LogNameTableEntry logTable[] = {
 	{LogTypes::SCEAUDIO   ,"AUDIO",   "sceAudio"},
 	{LogTypes::SCECTRL    ,"CTRL",    "sceCtrl"},
 	{LogTypes::SCEDISPLAY ,"DISP",    "sceDisplay"},
+	{LogTypes::SCEFONT    ,"FONT",    "sceFont"},
+	{LogTypes::SCEGE      ,"SCEGE",   "sceGe"},
 	{LogTypes::SCEINTC    ,"INTC",    "sceKernelInterrupt"},
 	{LogTypes::SCEIO      ,"IO",      "sceIo"},
-	{LogTypes::SCEFONT    ,"FONT",    "sceFont"},
+	{LogTypes::SCEKERNEL  ,"KERNEL",  "sceKernel*"},
+	{LogTypes::SCEMODULE  ,"MODULE",  "sceKernelModule"},
 	{LogTypes::SCENET     ,"NET",     "sceNet*"},
+	{LogTypes::SCERTC     ,"SCERTC",  "sceRtco"},
 	{LogTypes::SCESAS     ,"SCESAS",  "sceSas"},
 	{LogTypes::SCEUTILITY ,"UTIL",    "sceUtility"},
 
@@ -78,7 +82,7 @@ static const LogNameTableEntry logTable[] = {
 	{LogTypes::LOADER     ,"LOAD",    "Loader"},
 	{LogTypes::ME         ,"ME",      "Media Engine"},
 	{LogTypes::MEMMAP     ,"MM",      "Memory Map"},
-	{LogTypes::TIMER      ,"TMR",     "CoreTiming"},
+	{LogTypes::TIME       ,"TIME",    "CoreTiming"},
 	{LogTypes::SASMIX     ,"SASMIX",  "Sound Mixer (Sas)"},
 };
 

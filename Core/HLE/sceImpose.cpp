@@ -53,7 +53,7 @@ void __ImposeDoState(PointerWrap &p)
 
 u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 {
-	DEBUG_LOG(HLE, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
+	DEBUG_LOG(SCEUTILITY, "sceImposeGetBatteryIconStatus(%08x, %08x)", chargingPtr, iconStatusPtr);
 	if (Memory::IsValidAddress(chargingPtr))
 		Memory::Write_U32(PSP_IMPOSE_BATTICON_NONE, chargingPtr);
 	if (Memory::IsValidAddress(iconStatusPtr))
@@ -63,7 +63,7 @@ u32 sceImposeGetBatteryIconStatus(u32 chargingPtr, u32 iconStatusPtr)
 
 u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
 {
-	DEBUG_LOG(HLE, "sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
+	DEBUG_LOG(SCEUTILITY, "sceImposeSetLanguageMode(%08x, %08x)", languageVal, buttonVal);
 	language = languageVal;
 	buttonValue = buttonVal;
 	return 0;
@@ -71,7 +71,7 @@ u32 sceImposeSetLanguageMode(u32 languageVal, u32 buttonVal)
 
 u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 {
-	DEBUG_LOG(HLE, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
+	DEBUG_LOG(SCEUTILITY, "sceImposeGetLanguageMode(%08x, %08x)", languagePtr, btnPtr);
 	if (Memory::IsValidAddress(languagePtr))
 		Memory::Write_U32(language, languagePtr);
 	if (Memory::IsValidAddress(btnPtr))
@@ -80,24 +80,24 @@ u32 sceImposeGetLanguageMode(u32 languagePtr, u32 btnPtr)
 }
 
 u32 sceImposeSetUMDPopup(int mode) {
-	DEBUG_LOG(HLE, "sceImposeSetUMDPopup(%i)", mode);
+	DEBUG_LOG(SCEUTILITY, "sceImposeSetUMDPopup(%i)", mode);
 	umdPopup = mode;
 	return 0;
 }
 
 u32 sceImposeGetUMDPopup() {
-	DEBUG_LOG(HLE, "sceImposeGetUMDPopup()");
+	DEBUG_LOG(SCEUTILITY, "sceImposeGetUMDPopup()");
 	return umdPopup;
 }
 
 u32 sceImposeSetBacklightOffTime(int time) {
-	DEBUG_LOG(HLE, "sceImposeSetBacklightOffTime(%i)", time);
+	DEBUG_LOG(SCEUTILITY, "sceImposeSetBacklightOffTime(%i)", time);
 	backlightOffTime = time;
 	return 0;
 }
 
 u32 sceImposeGetBacklightOffTime() {
-	DEBUG_LOG(HLE, "sceImposeGetBacklightOffTime()");
+	DEBUG_LOG(SCEUTILITY, "sceImposeGetBacklightOffTime()");
 	return backlightOffTime;
 }
 

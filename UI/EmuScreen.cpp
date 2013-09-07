@@ -505,8 +505,9 @@ void EmuScreen::render() {
 	if (g_Config.bShowDebugStats) {
 		char statbuf[4096] = {0};
 		__DisplayGetDebugStats(statbuf);
-		if (statbuf[4095])
-			ERROR_LOG(HLE, "Statbuf too big");
+		if (statbuf[4095]) {
+			ELOG("Statbuf too small! :(");
+		}
 		ui_draw2d.SetFontScale(.7f, .7f);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 11, 11, 0xc0000000, FLAG_DYNAMIC_ASCII);
 		ui_draw2d.DrawText(UBUNTU24, statbuf, 10, 10, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);

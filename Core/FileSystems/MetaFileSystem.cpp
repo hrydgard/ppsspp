@@ -47,7 +47,7 @@ static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, 
 					else
 					{
 						// The PSP silently ignores attempts to .. to parent of root directory
-						WARN_LOG(HLE, "RealPath: ignoring .. beyond root - root directory is its own parent: \"%s\"", pathString.c_str());
+						WARN_LOG(FILESYS, "RealPath: ignoring .. beyond root - root directory is its own parent: \"%s\"", pathString.c_str());
 					}
 				}
 				else
@@ -73,7 +73,7 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 	size_t inLen = inPath.length();
 	if (inLen == 0)
 	{
-		WARN_LOG(HLE, "RealPath: inPath is empty");
+		WARN_LOG(FILESYS, "RealPath: inPath is empty");
 		outPath = currentDirectory;
 		return true;
 	}
@@ -97,26 +97,26 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 		size_t curDirLen = currentDirectory.length();
 		if (curDirLen == 0)
 		{
-			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory is empty", inPath.c_str());
+			ERROR_LOG(FILESYS, "RealPath: inPath \"%s\" is relative, but current directory is empty", inPath.c_str());
 			return false;
 		}
 		
 		size_t curDirColon = currentDirectory.find(':');
 		if (curDirColon == std::string::npos)
 		{
-			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" has no prefix", inPath.c_str(), currentDirectory.c_str());
+			ERROR_LOG(FILESYS, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" has no prefix", inPath.c_str(), currentDirectory.c_str());
 			return false;
 		}
 		if (curDirColon + 1 == curDirLen)
 		{
-			ERROR_LOG(HLE, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" is all prefix and no path. Using \"/\" as path for current directory.", inPath.c_str(), currentDirectory.c_str());
+			ERROR_LOG(FILESYS, "RealPath: inPath \"%s\" is relative, but current directory \"%s\" is all prefix and no path. Using \"/\" as path for current directory.", inPath.c_str(), currentDirectory.c_str());
 		}
 		else
 		{
 			const std::string curDirAfter = currentDirectory.substr(curDirColon + 1);
 			if (! ApplyPathStringToComponentsVector(cmpnts, curDirAfter) )
 			{
-				ERROR_LOG(HLE,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
+				ERROR_LOG(FILESYS,"RealPath: currentDirectory is not a valid path: \"%s\"", currentDirectory.c_str());
 				return false;
 			}
 
@@ -141,7 +141,7 @@ static bool RealPath(const std::string &currentDirectory, const std::string &inP
 
 	if (! ApplyPathStringToComponentsVector(cmpnts, inAfterColon) )
 	{
-		WARN_LOG(HLE, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
+		WARN_LOG(FILESYS, "RealPath: inPath is not a valid path: \"%s\"", inPath.c_str());
 		return false;
 	}
 
@@ -181,7 +181,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 	// appears to mean the current directory on the UMD. Let's just assume the current directory.
 	std::string inpath = _inpath;
 	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
-		INFO_LOG(HLE, "Host0 path detected, stripping: %s", inpath.c_str());
+		INFO_LOG(FILESYS, "Host0 path detected, stripping: %s", inpath.c_str());
 		inpath = inpath.substr(strlen("host0:"));
 	}
 
@@ -195,7 +195,7 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 		if (inpath.find(':') == std::string::npos /* means path is relative */) 
 		{
 			lastOpenError = SCE_KERNEL_ERROR_NOCWD;
-			WARN_LOG(HLE, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
+			WARN_LOG(FILESYS, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
 		}
 	}
 	else
@@ -213,14 +213,14 @@ bool MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpat
 				outpath = realpath.substr(prefLen);
 				*system = &(fileSystems[i]);
 
-				VERBOSE_LOG(HLE, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
+				VERBOSE_LOG(FILESYS, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
 
 				return true;
 			}
 		}
 	}
 
-	DEBUG_LOG(HLE, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
+	DEBUG_LOG(FILESYS, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
 	return false;
 }
 
@@ -362,13 +362,13 @@ int MetaFileSystem::ChDir(const std::string &dir)
 			if (strncasecmp(prefix.c_str(), dir.c_str(), prefix.size()) == 0)
 			{
 				// The PSP is completely happy with invalid current dirs as long as they have a valid device.
-				WARN_LOG(HLE, "ChDir failed to map path \"%s\", saving as current directory anyway", dir.c_str());
+				WARN_LOG(FILESYS, "ChDir failed to map path \"%s\", saving as current directory anyway", dir.c_str());
 				currentDir[curThread] = dir;
 				return 0;
 			}
 		}
 
-		WARN_LOG_REPORT(HLE, "ChDir failed to map device for \"%s\", failing", dir.c_str());
+		WARN_LOG_REPORT(FILESYS, "ChDir failed to map device for \"%s\", failing", dir.c_str());
 		return SCE_KERNEL_ERROR_NODEV;
 	}
 }

@@ -99,7 +99,7 @@ static u32 lastMp3Handle = 0;
 
 Mp3Context *getMp3Ctx(u32 mp3) {
 	if (mp3Map.find(mp3) == mp3Map.end()) {
-		ERROR_LOG(HLE, "Bad mp3 handle %08x - using last one (%08x) instead", mp3, lastMp3Handle);
+		ERROR_LOG(ME, "Bad mp3 handle %08x - using last one (%08x) instead", mp3, lastMp3Handle);
 		mp3 = lastMp3Handle;
 	}
 
@@ -110,11 +110,11 @@ Mp3Context *getMp3Ctx(u32 mp3) {
 
 /* MP3 */
 int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
-	DEBUG_LOG(HLE, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
+	DEBUG_LOG(ME, "sceMp3Decode(%08x,%08x)", mp3, outPcmPtr);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -145,13 +145,13 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 			got_frame = 0;
 			ret = avcodec_decode_audio4(ctx->decoder_context, &frame, &got_frame, &packet);
 			if (ret < 0) {
-				ERROR_LOG(HLE, "avcodec_decode_audio4: Error decoding audio %d", ret);
+				ERROR_LOG(ME, "avcodec_decode_audio4: Error decoding audio %d", ret);
 				continue;
 			}
 			if (got_frame) {
 				//char buf[1024] = "";
 				//av_ts_make_time_string(buf, frame.pts, &ctx->decoder_context->time_base);
-				//DEBUG_LOG(HLE, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
+				//DEBUG_LOG(ME, "audio_frame n:%d nb_samples:%d pts:%s", audio_frame_count++, frame.nb_samples, buf);
 
 				/*
 				u8 *audio_dst_data;
@@ -159,7 +159,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 
 				ret = av_samples_alloc(&audio_dst_data, &audio_dst_linesize, frame.channels, frame.nb_samples, (AVSampleFormat)frame.format, 1);
 				if (ret < 0) {
-					ERROR_LOG(HLE, "av_samples_alloc: Could not allocate audio buffer %d", ret);
+					ERROR_LOG(ME, "av_samples_alloc: Could not allocate audio buffer %d", ret);
 					return -1;
 				}
 				*/
@@ -169,7 +169,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 				u8* out = Memory::GetPointer(ctx->mp3PcmBuf + bytesdecoded);
 				ret = swr_convert(ctx->resampler_context, &out, frame.nb_samples, (const u8**)frame.extended_data, frame.nb_samples);
 				if (ret < 0) {
-					ERROR_LOG(HLE, "swr_convert: Error while converting %d", ret);
+					ERROR_LOG(ME, "swr_convert: Error while converting %d", ret);
 					return -1;
 				}
 
@@ -192,7 +192,7 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	FILE * file = fopen(fileName, "a+b");
 	if (file) {
 		if (!Memory::IsValidAddress(ctx->mp3Buf)) {
-			ERROR_LOG(HLE, "sceMp3Decode mp3Buf %08X is not a valid address!", ctx->mp3Buf);
+			ERROR_LOG(ME, "sceMp3Decode mp3Buf %08X is not a valid address!", ctx->mp3Buf);
 		}
 
 		//u8 * ptr = Memory::GetPointer(ctx->mp3Buf);
@@ -206,11 +206,11 @@ int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 }
 
 int sceMp3ResetPlayPosition(u32 mp3) {
-	DEBUG_LOG(HLE, "SceMp3ResetPlayPosition(%08x)", mp3);
+	DEBUG_LOG(ME, "SceMp3ResetPlayPosition(%08x)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -219,11 +219,11 @@ int sceMp3ResetPlayPosition(u32 mp3) {
 }
 
 int sceMp3CheckStreamDataNeeded(u32 mp3) {
-	DEBUG_LOG(HLE, "sceMp3CheckStreamDataNeeded(%08x)", mp3);
+	DEBUG_LOG(ME, "sceMp3CheckStreamDataNeeded(%08x)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -262,7 +262,7 @@ int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 	FILE * file = fopen(fileName, "a+b");
 	if (file) {
 		if (!Memory::IsValidAddress(ctx->mp3Buf)) {
-			ERROR_LOG(HLE, "sceMp3Decode mp3Buf %08X is not a valid address!", ctx->mp3Buf);
+			ERROR_LOG(ME, "sceMp3Decode mp3Buf %08X is not a valid address!", ctx->mp3Buf);
 		}
 
 		fwrite(buf, 1, res, file);
@@ -275,7 +275,7 @@ int readFunc(void *opaque, uint8_t *buf, int buf_size) {
 }
 
 u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
-	DEBUG_LOG(HLE, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
+	DEBUG_LOG(ME, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
 	Mp3Context *ctx = new Mp3Context;
 
 	memset(ctx, 0, sizeof(Mp3Context));
@@ -304,23 +304,23 @@ u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 }
 
 int sceMp3InitResource() {
-	WARN_LOG(HLE, "UNIMPL: sceMp3InitResource");
+	WARN_LOG(ME, "UNIMPL: sceMp3InitResource");
 	// Do nothing here 
 	return 0;
 }
 
 int sceMp3TermResource() {
-	WARN_LOG(HLE, "UNIMPL: sceMp3TermResource");
+	WARN_LOG(ME, "UNIMPL: sceMp3TermResource");
 	// Do nothing here 
 	return 0;
 }
 
 int sceMp3Init(u32 mp3) {
-	DEBUG_LOG(HLE, "sceMp3Init(%08x)", mp3);
+	DEBUG_LOG(ME, "sceMp3Init(%08x)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -341,12 +341,12 @@ int sceMp3Init(u32 mp3) {
 
 	int ret;
 	if ((ret = avformat_open_input(&ctx->avformat_context, NULL, av_find_input_format("mp3"), NULL)) < 0) {
-		ERROR_LOG(HLE, "avformat_open_input: Cannot open input %d", ret);
+		ERROR_LOG(ME, "avformat_open_input: Cannot open input %d", ret);
 		return -1;
 	}
 
 	if ((ret = avformat_find_stream_info(ctx->avformat_context, NULL)) < 0) {
-		ERROR_LOG(HLE, "avformat_find_stream_info: Cannot find stream information %d", ret);
+		ERROR_LOG(ME, "avformat_find_stream_info: Cannot find stream information %d", ret);
 		return -1;
 	}
 
@@ -355,7 +355,7 @@ int sceMp3Init(u32 mp3) {
 	/* select the audio stream */
 	ret = av_find_best_stream(ctx->avformat_context, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
 	if (ret < 0) {
-		ERROR_LOG(HLE, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
+		ERROR_LOG(ME, "av_find_best_stream: Cannot find an audio stream in the input file %d", ret);
 		return -1;
 	}
 	ctx->audio_stream_index = ret;
@@ -363,7 +363,7 @@ int sceMp3Init(u32 mp3) {
 
 	/* init the audio decoder */
 	if ((ret = avcodec_open2(ctx->decoder_context, dec, NULL)) < 0) {
-		ERROR_LOG(HLE, "avcodec_open2: Cannot open audio decoder %d", ret);
+		ERROR_LOG(ME, "avcodec_open2: Cannot open audio decoder %d", ret);
 		return -1;
 	}
 
@@ -383,12 +383,12 @@ int sceMp3Init(u32 mp3) {
 	ctx->mp3Bitrate = ctx->decoder_context->bit_rate / 1000;
 
 	if (!ctx->resampler_context) {
-		ERROR_LOG(HLE, "Could not allocate resampler context %d", ret);
+		ERROR_LOG(ME, "Could not allocate resampler context %d", ret);
 		return -1;
 	}
 
 	if ((ret = swr_init(ctx->resampler_context)) < 0) {
-		ERROR_LOG(HLE, "Failed to initialize the resampling context %d", ret);
+		ERROR_LOG(ME, "Failed to initialize the resampling context %d", ret);
 		return -1;
 	}
 
@@ -399,10 +399,10 @@ int sceMp3Init(u32 mp3) {
 }
 
 int sceMp3GetLoopNum(u32 mp3) {
-	DEBUG_LOG(HLE, "sceMp3GetLoopNum(%08x)", mp3);
+	DEBUG_LOG(ME, "sceMp3GetLoopNum(%08x)", mp3);
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -411,10 +411,10 @@ int sceMp3GetLoopNum(u32 mp3) {
 
 int sceMp3GetMaxOutputSample(u32 mp3)
 {
-	DEBUG_LOG(HLE, "sceMp3GetMaxOutputSample(%08x)", mp3);
+	DEBUG_LOG(ME, "sceMp3GetMaxOutputSample(%08x)", mp3);
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -422,16 +422,16 @@ int sceMp3GetMaxOutputSample(u32 mp3)
 }
 
 int sceMp3GetSumDecodedSample(u32 mp3) {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetSumDecodedSample(%08X)", mp3);
 	return 0;
 }
 
 int sceMp3SetLoopNum(u32 mp3, int loop) {
-	INFO_LOG(HLE, "sceMp3SetLoopNum(%08X, %i)", mp3, loop);
+	INFO_LOG(ME, "sceMp3SetLoopNum(%08X, %i)", mp3, loop);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -440,33 +440,33 @@ int sceMp3SetLoopNum(u32 mp3, int loop) {
 	return 0;
 }
 int sceMp3GetMp3ChannelNum(u32 mp3) {
-	DEBUG_LOG(HLE, "sceMp3GetMp3ChannelNum(%08X)", mp3);
+	DEBUG_LOG(ME, "sceMp3GetMp3ChannelNum(%08X)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
 	return ctx->mp3Channels;
 }
 int sceMp3GetBitRate(u32 mp3) {
-	DEBUG_LOG(HLE, "sceMp3GetBitRate(%08X)", mp3);
+	DEBUG_LOG(ME, "sceMp3GetBitRate(%08X)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
 	return ctx->mp3Bitrate;
 }
 int sceMp3GetSamplingRate(u32 mp3) {
-	DEBUG_LOG(HLE, "sceMp3GetSamplingRate(%08X)", mp3);
+	DEBUG_LOG(ME, "sceMp3GetSamplingRate(%08X)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -474,11 +474,11 @@ int sceMp3GetSamplingRate(u32 mp3) {
 }
 
 int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
-	INFO_LOG(HLE, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
+	INFO_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -502,11 +502,11 @@ int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcpos
 }
 
 int sceMp3NotifyAddStreamData(u32 mp3, int size) {
-	INFO_LOG(HLE, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
+	INFO_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -526,11 +526,11 @@ int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 }
 
 int sceMp3ReleaseMp3Handle(u32 mp3) {
-	DEBUG_LOG(HLE, "sceMp3ReleaseMp3Handle(%08X)", mp3);
+	DEBUG_LOG(ME, "sceMp3ReleaseMp3Handle(%08X)", mp3);
 
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 
@@ -546,25 +546,25 @@ int sceMp3ReleaseMp3Handle(u32 mp3) {
 }
 
 u32 sceMp3EndEntry() {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3EndEntry(...)");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3EndEntry(...)");
 	return 0;
 }
 
 u32 sceMp3StartEntry() {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3StartEntry(...)");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3StartEntry(...)");
 	return 0;
 }
 
 u32 sceMp3GetFrameNum(u32 mp3) {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp3GetFrameNum(%08x)", mp3);
 	return 0;
 }
 
 u32 sceMp3GetVersion(u32 mp3) {
-	DEBUG_LOG(HLE, "sceMp3GetVersion(%08x)", mp3);
+	DEBUG_LOG(ME, "sceMp3GetVersion(%08x)", mp3);
 	Mp3Context *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(HLE, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
+		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
 		return -1;
 	}
 

@@ -21,115 +21,115 @@
 
 u32 sceMp4Init()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp4Init()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Init()");
   	return 0;
 }
 
 u32 sceMp4Finish()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4Finish()");
+	ERROR_LOG(ME, "UNIMPL sceMp4Finish()");
 	return 0;
 }
 
 u32 sceMp4Create()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceMp4Create()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceMp4Create()");
 	return 0;
 }
 
 u32 sceMp4GetNumberOfSpecificTrack()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4GetNumberOfSpecificTrack()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfSpecificTrack()");
 	return 1;
 }
 
 u32 sceMp4GetMovieInfo()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4GetMovieInfo()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetMovieInfo()");
 	return 0;
 }
 
 u32 sceMp4CreatesceMp4GetNumberOfMetaData()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4GetNumberOfMetaData()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfMetaData()");
 	return 0;
 }
 
 u32 sceMp4Delete()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4Delete()");
+	ERROR_LOG(ME, "UNIMPL sceMp4Delete()");
 	return 0;
 }
 
 u32 sceMp4AacDecodeInitResource()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4AacDecodeInitResource()");
+	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInitResource()");
 	return 0;
 }
 
 u32 sceMp4GetAvcTrackInfoData()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4GetAvcTrackInfoData()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetAvcTrackInfoData()");
 	return 0;
 }
 
 u32 sceMp4TrackSampleBufConstruct()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4TrackSampleBufConstruct()");
+	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufConstruct()");
 	return 0;
 }
 
 u32 sceMp4TrackSampleBufQueryMemSize()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4TrackSampleBufQueryMemSize()");
+	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufQueryMemSize()");
 	return 0;
 }
 
 u32 sceMp4GetSampleInfo()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4GetSampleInfo()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetSampleInfo()");
 	return 0;
 }
 
 u32 sceMp4GetSampleNumWithTimeStamp()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4GetSampleNumWithTimeStamp()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetSampleNumWithTimeStamp()");
 	return 0;
 }
 
 u32 sceMp4TrackSampleBufFlush()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4TrackSampleBufFlush()");
+	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufFlush()");
 	return 0;
 }
 
 u32 sceMp4AacDecodeInit()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4AacDecodeInit()");
+	ERROR_LOG(ME, "UNIMPL sceMp4AacDecodeInit()");
 	return 0;
 }
 
 u32 sceMp4GetAacTrackInfoData()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4GetAacTrackInfoData()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetAacTrackInfoData()");
 	return 0;
 }
 
 u32 sceMp4GetNumberOfMetaData()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4GetNumberOfMetaData()");
+	ERROR_LOG(ME, "UNIMPL sceMp4GetNumberOfMetaData()");
 	return 0;
 }
 
 u32 sceMp4RegistTrack()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4RegistTrack()");
+	ERROR_LOG(ME, "UNIMPL sceMp4RegistTrack()");
 	return 0;
 }
 
 u32 sceMp4SearchSyncSampleNum()
 {
-	ERROR_LOG(HLE, "UNIMPL sceMp4SearchSyncSampleNum()");
+	ERROR_LOG(ME, "UNIMPL sceMp4SearchSyncSampleNum()");
 	return 0;
 }
 

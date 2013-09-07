@@ -538,7 +538,7 @@ u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 
 u32 sceKernelMemcpy(u32 dst, u32 src, u32 size)
 {
-	DEBUG_LOG(HLE, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+	DEBUG_LOG(SCEKERNEL, "sceKernelMemcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
 	// Technically should crash if these are invalid and size > 0...
 	if (Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))
 	{

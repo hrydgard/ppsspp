@@ -39,49 +39,49 @@ void __JpegDoState(PointerWrap &p) {
 
 int sceJpegDecompressAllImage()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecompressAllImage()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecompressAllImage()");
 	return 0;
 }
 
 int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegMJpegCsc(%i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegMJpegCsc(%i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	return 0;
 }
 
 int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
 	return 0;
 }
 
 int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpegYCbCrSuccessively(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 	return 0;
 }
 
 int sceJpegDeleteMJpeg()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDeleteMJpeg()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDeleteMJpeg()");
 	return 0;
 }
 
 int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageAddr, int dhtMode)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegDecodeMJpegSuccessively(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegDecodeMJpegSuccessively(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
 	return 0;
 }
 
 int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 	return 0;
 }
 
 int sceJpegFinishMJpeg()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegFinishMJpeg()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegFinishMJpeg()");
 	return 0;
 }
 
@@ -93,13 +93,13 @@ int getYCbCrBufferSize(int w, int h)
 
 int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dhtMode)
 {
-	ERROR_LOG_REPORT(HLE, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
+	ERROR_LOG_REPORT(ME, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
 
 	int w = 0, h = 0, actual_components = 0;
 
 	if (!Memory::IsValidAddress(jpegAddr))
 	{
-		ERROR_LOG(HLE, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
+		ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG address 0x%08x", jpegAddr);
 		return getYCbCrBufferSize(0, 0);
 	}
 	else // Memory address is good
@@ -116,7 +116,7 @@ int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, int dht
 		}
 		if (jpegBuf == NULL)
 		{
-			ERROR_LOG(HLE, "sceJpegGetOutputInfo: Bad JPEG data");
+			ERROR_LOG(ME, "sceJpegGetOutputInfo: Bad JPEG data");
 			return getYCbCrBufferSize(0, 0);
 		}
 	}
@@ -149,7 +149,7 @@ int getWidthHeight(int width, int height)
 
 int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCrSize, int dhtMode)
 {
-	ERROR_LOG_REPORT(HLE, "sceJpegDecodeMJpegYCbCr(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
+	ERROR_LOG_REPORT(ME, "sceJpegDecodeMJpegYCbCr(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 
 	if (!Memory::IsValidAddress(jpegAddr))
 	{
@@ -176,13 +176,13 @@ int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int yCbCr
 
 int sceJpeg_9B36444C()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpeg_9B36444C()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpeg_9B36444C()");
 	return 0;
 }
 
 int sceJpegCreateMJpeg(int width, int height)
 {
-	ERROR_LOG_REPORT(HLE, "sceJpegCreateMJpeg(%i, %i)", width, height);
+	ERROR_LOG_REPORT(ME, "sceJpegCreateMJpeg(%i, %i)", width, height);
 
 	mjpegWidth = width;
 	mjpegHeight = height;
@@ -192,13 +192,13 @@ int sceJpegCreateMJpeg(int width, int height)
 
 int sceJpegInitMJpeg()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpegInitMJpeg()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpegInitMJpeg()");
 	return 0;
 }
 
 int sceJpeg_A06A75C4()
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceJpeg_A06A75C4()");
+	ERROR_LOG_REPORT(ME, "UNIMPL sceJpeg_A06A75C4()");
 	return 0;
 }
 

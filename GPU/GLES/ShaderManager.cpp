@@ -533,7 +533,7 @@ LinkedShader *ShaderManager::ApplyShader(int prim) {
 		vs = new Shader(codeBuffer_, GL_VERTEX_SHADER, useHWTransform);
 
 		if (vs->Failed()) {
-			ERROR_LOG(HLE, "Shader compilation failed, falling back to software transform");
+			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
 			osm.Show("hardware transform error - falling back to software", 2.5f, 0xFF3030FF, -1, true);
 			delete vs;
 

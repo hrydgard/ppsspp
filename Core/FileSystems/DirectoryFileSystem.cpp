@@ -155,7 +155,7 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE))
 	{
-		DEBUG_LOG(HLE, "Checking case for path %s", fileName.c_str());
+		DEBUG_LOG(FILESYS, "Checking case for path %s", fileName.c_str());
 		if ( ! FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST) )
 			return false;  // or go on and attempt (for a better error code than just 0?)
 	}
@@ -163,7 +163,7 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 #endif
 
 	std::string fullName = GetLocalPath(basePath,fileName);
-	INFO_LOG(HLE,"Actually opening %s", fullName.c_str());
+	INFO_LOG(FILESYS,"Actually opening %s", fullName.c_str());
 
 	//TODO: tests, should append seek to end of file? seeking in a file opened for append?
 #ifdef _WIN32
@@ -226,7 +226,7 @@ bool DirectoryFileHandle::Open(std::string& basePath, std::string& fileName, Fil
 		fullName = GetLocalPath(basePath,fileName); 
 		const char* fullNameC = fullName.c_str();
 
-		DEBUG_LOG(HLE, "Case may have been incorrect, second try opening %s (%s)", fullNameC, fileName.c_str());
+		DEBUG_LOG(FILESYS, "Case may have been incorrect, second try opening %s (%s)", fullNameC, fileName.c_str());
 
 		// And try again with the correct case this time
 #ifdef _WIN32
@@ -453,9 +453,9 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 
 	if (!success) {
 #ifdef _WIN32
-		ERROR_LOG(HLE, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, %i - access = %i", GetLastError(), (int)access);
 #else
-		ERROR_LOG(HLE, "DirectoryFileSystem::OpenFile: FAILED, access = %i", (int)access);
+		ERROR_LOG(FILESYS, "DirectoryFileSystem::OpenFile: FAILED, access = %i", (int)access);
 #endif
 		//wwwwaaaaahh!!
 		return 0;
@@ -480,7 +480,7 @@ void DirectoryFileSystem::CloseFile(u32 handle) {
 		entries.erase(iter);
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot close file that hasn't been opened: %08x", handle);
+		ERROR_LOG(FILESYS,"Cannot close file that hasn't been opened: %08x", handle);
 	}
 }
 
@@ -497,7 +497,7 @@ size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 		return bytesRead;
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot read file that hasn't been opened: %08x", handle);
+		ERROR_LOG(FILESYS,"Cannot read file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -510,7 +510,7 @@ size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) {
 		return bytesWritten;
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot write to file that hasn't been opened: %08x", handle);
+		ERROR_LOG(FILESYS,"Cannot write to file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -521,7 +521,7 @@ size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 		return iter->second.hFile.Seek(position,type);
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot seek in file that hasn't been opened: %08x", handle);
+		ERROR_LOG(FILESYS,"Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -632,7 +632,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 #endif
 
 	if (dp == NULL) {
-		ERROR_LOG(HLE,"Error opening directory %s\n",path.c_str());
+		ERROR_LOG(FILESYS,"Error opening directory %s\n",path.c_str());
 		return myVector;
 	}
 
@@ -668,7 +668,7 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 
 
 VFSFileSystem::VFSFileSystem(IHandleAllocator *_hAlloc, std::string _basePath) : basePath(_basePath) {
-	INFO_LOG(HLE, "Creating VFS file system");
+	INFO_LOG(FILESYS, "Creating VFS file system");
 	hAlloc = _hAlloc;
 }
 
@@ -705,18 +705,18 @@ bool VFSFileSystem::RemoveFile(const std::string &filename) {
 
 u32 VFSFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	if (access != FILEACCESS_READ) {
-		ERROR_LOG(HLE, "VFSFileSystem only supports plain reading");
+		ERROR_LOG(FILESYS, "VFSFileSystem only supports plain reading");
 		return 0;
 	}
 
 	std::string fullName = GetLocalPath(filename);
 	const char *fullNameC = fullName.c_str();
-	INFO_LOG(HLE,"VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
+	INFO_LOG(FILESYS,"VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
 
 	size_t size;
 	u8 *data = VFSReadFile(fullNameC, &size);
 	if (!data) {
-		ERROR_LOG(HLE, "VFSFileSystem failed to open %s", filename.c_str());
+		ERROR_LOG(FILESYS, "VFSFileSystem failed to open %s", filename.c_str());
 		return 0;
 	}
 
@@ -734,7 +734,7 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 	x.name = filename;
 
 	std::string fullName = GetLocalPath(filename);
-	INFO_LOG(HLE,"Getting VFS file info %s (%s)", fullName.c_str(), filename.c_str());
+	INFO_LOG(FILESYS,"Getting VFS file info %s (%s)", fullName.c_str(), filename.c_str());
 	FileInfo fo;
 	VFSGetFileInfo(fullName.c_str(), &fo);
 	x.exists = fo.exists;
@@ -742,7 +742,7 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 		x.size = fo.size;
 		x.type = fo.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	}
-	INFO_LOG(HLE,"Got VFS file info: size = %i", (int)x.size);
+	INFO_LOG(FILESYS,"Got VFS file info: size = %i", (int)x.size);
 	return x;
 }
 
@@ -753,7 +753,7 @@ void VFSFileSystem::CloseFile(u32 handle) {
 		entries.erase(iter);
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot close file that hasn't been opened: %08x", handle);
+		ERROR_LOG(FILESYS,"Cannot close file that hasn't been opened: %08x", handle);
 	}
 }
 
@@ -763,7 +763,7 @@ bool VFSFileSystem::OwnsHandle(u32 handle) {
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
-	INFO_LOG(HLE,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
+	INFO_LOG(FILESYS,"VFSFileSystem::ReadFile %08x %p %i", handle, pointer, (u32)size);
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end())
 	{
@@ -772,7 +772,7 @@ size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 		iter->second.seekPos += size;
 		return bytesRead;
 	} else {
-		ERROR_LOG(HLE,"Cannot read file that hasn't been opened: %08x", handle);
+		ERROR_LOG(FILESYS,"Cannot read file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }
@@ -793,7 +793,7 @@ size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 		return iter->second.seekPos;
 	} else {
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Cannot seek in file that hasn't been opened: %08x", handle);
+		ERROR_LOG(FILESYS,"Cannot seek in file that hasn't been opened: %08x", handle);
 		return 0;
 	}
 }

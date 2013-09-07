@@ -82,7 +82,7 @@ ARMReg ArmRegCache::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// with that flag immediately writes a "known" value to the register.
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		if (ar[mr[mipsReg].reg].mipsReg != mipsReg) {
-			ERROR_LOG(HLE, "Register mapping out of sync! %i", mipsReg);
+			ERROR_LOG(JIT, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
@@ -194,7 +194,7 @@ void ArmRegCache::FlushArmReg(ARMReg r) {
 		mr[ar[r].mipsReg].reg = INVALID_REG;
 		mr[ar[r].mipsReg].imm = 0;
 	} else {
-		ERROR_LOG(HLE, "Dirty but no mipsreg?");
+		ERROR_LOG(JIT, "Dirty but no mipsreg?");
 	}
 	ar[r].isDirty = false;
 	ar[r].mipsReg = -1;
@@ -210,7 +210,7 @@ void ArmRegCache::FlushR(MIPSReg r) {
 
 	case ML_ARMREG:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG(HLE, "FlushMipsReg: MipsReg had bad ArmReg");
+			ERROR_LOG(JIT, "FlushMipsReg: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
 			emit_->STR((ARMReg)mr[r].reg, CTXREG, GetMipsRegOffset(r));

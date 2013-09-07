@@ -71,12 +71,12 @@ ARMReg ArmRegCacheFPU::MapReg(MIPSReg mipsReg, int mapFlags) {
 	// with that flag immediately writes a "known" value to the register.
 	if (mr[mipsReg].loc == ML_ARMREG) {
 		if (ar[mr[mipsReg].reg].mipsReg != mipsReg) {
-			ERROR_LOG(HLE, "Register mapping out of sync! %i", mipsReg);
+			ERROR_LOG(JIT, "Register mapping out of sync! %i", mipsReg);
 		}
 		if (mapFlags & MAP_DIRTY) {
 			ar[mr[mipsReg].reg].isDirty = true;
 		}
-		//INFO_LOG(HLE, "Already mapped %i to %i", mipsReg, mr[mipsReg].reg);
+		//INFO_LOG(JIT, "Already mapped %i to %i", mipsReg, mr[mipsReg].reg);
 		return (ARMReg)(mr[mipsReg].reg + S0);
 	}
 
@@ -100,7 +100,7 @@ allocate:
 			ar[reg].mipsReg = mipsReg;
 			mr[mipsReg].loc = ML_ARMREG;
 			mr[mipsReg].reg = reg;
-			//INFO_LOG(HLE, "Mapped %i to %i", mipsReg, mr[mipsReg].reg);
+			//INFO_LOG(JIT, "Mapped %i to %i", mipsReg, mr[mipsReg].reg);
 			return (ARMReg)(reg + S0);
 		}
 	}
@@ -238,14 +238,14 @@ void ArmRegCacheFPU::FlushArmReg(ARMReg r) {
 	if (ar[reg].mipsReg != -1) {
 		if (ar[reg].isDirty && mr[ar[reg].mipsReg].loc == ML_ARMREG)
 		{
-			//INFO_LOG(HLE, "Flushing ARM reg %i", reg);
+			//INFO_LOG(JIT, "Flushing ARM reg %i", reg);
 			emit_->VSTR(r, CTXREG, GetMipsRegOffset(ar[reg].mipsReg));
 		}
 		// IMMs won't be in an ARM reg.
 		mr[ar[reg].mipsReg].loc = ML_MEM;
 		mr[ar[reg].mipsReg].reg = INVALID_REG;
 	} else {
-		ERROR_LOG(HLE, "Dirty but no mipsreg?");
+		ERROR_LOG(JIT, "Dirty but no mipsreg?");
 	}
 	ar[reg].isDirty = false;
 	ar[reg].mipsReg = -1;
@@ -256,15 +256,15 @@ void ArmRegCacheFPU::FlushR(MIPSReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		// IMM is not allowed for FP (yet).
-		ERROR_LOG(HLE, "Imm in FP register?");
+		ERROR_LOG(JIT, "Imm in FP register?");
 		break;
 
 	case ML_ARMREG:
 		if (mr[r].reg == (int)INVALID_REG) {
-			ERROR_LOG(HLE, "FlushR: MipsReg had bad ArmReg");
+			ERROR_LOG(JIT, "FlushR: MipsReg had bad ArmReg");
 		}
 		if (ar[mr[r].reg].isDirty) {
-			//INFO_LOG(HLE, "Flushing dirty reg %i", mr[r].reg);
+			//INFO_LOG(JIT, "Flushing dirty reg %i", mr[r].reg);
 			emit_->VSTR((ARMReg)(mr[r].reg + S0), CTXREG, GetMipsRegOffset(r));
 			ar[mr[r].reg].isDirty = false;
 		}
@@ -288,12 +288,12 @@ void ArmRegCacheFPU::DiscardR(MIPSReg r) {
 	case ML_IMM:
 		// IMM is always "dirty".
 		// IMM is not allowed for FP (yet).
-		ERROR_LOG(HLE, "Imm in FP register?");
+		ERROR_LOG(JIT, "Imm in FP register?");
 		break;
 		 
 	case ML_ARMREG:
 		if (mr[r].reg == (int)INVALID_REG) {
-			ERROR_LOG(HLE, "DiscardR: MipsReg had bad ArmReg");
+			ERROR_LOG(JIT, "DiscardR: MipsReg had bad ArmReg");
 		}
 		// Note that we DO NOT write it back here. That's the whole point of Discard.
 		ar[mr[r].reg].isDirty = false;

@@ -20,25 +20,25 @@
 
 u32 sceGameUpdateInit()
 {
-	ERROR_LOG(HLE, "UNIMPL sceGameUpdateInit()");
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateInit()");
 	return 0;
 }
 
 u32 sceGameUpdateTerm()
 {
-	ERROR_LOG(HLE, "UNIMPL sceGameUpdateTerm()");
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateTerm()");
 	return 0;
 }
 
 u32 sceGameUpdateRun()
 {
-	ERROR_LOG(HLE, "UNIMPL sceGameUpdateRun()");
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateRun()");
 	return 0;
 }
 
 u32 sceGameUpdateAbort()
 {
-	ERROR_LOG(HLE, "UNIMPL sceGameUpdateAbort()");
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceGameUpdateAbort()");
 	return 0;
 }
 

@@ -416,7 +416,7 @@ public:
 
 	virtual void DoState(PointerWrap &p)
 	{
-		_dbg_assert_msg_(HLE, false, "Unable to save state: bad kernel object.");
+		_dbg_assert_msg_(SCEKERNEL, false, "Unable to save state: bad kernel object.");
 	}
 };
 
@@ -451,7 +451,7 @@ public:
 	{
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
-			WARN_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
+			WARN_LOG(SCEKERNEL, "Kernel: Bad object handle %i (%08x)", handle, handle);
 			outError = T::GetMissingErrorCode();
 			return 0;
 		}
@@ -463,7 +463,7 @@ public:
 			T* t = static_cast<T*>(pool[handle - handleOffset]);
 			if (t == 0 || t->GetIDType() != T::GetStaticIDType())
 			{
-				WARN_LOG(HLE, "Kernel: Wrong object type for %i (%08x)", handle, handle);
+				WARN_LOG(SCEKERNEL, "Kernel: Wrong object type for %i (%08x)", handle, handle);
 				outError = T::GetMissingErrorCode();
 				return 0;
 			}
@@ -479,7 +479,7 @@ public:
 		const SceUID realHandle = handle - handleOffset;
 		if (realHandle < 0 || realHandle >= maxCount || !occupied[realHandle])
 		{
-			ERROR_LOG(HLE, "Kernel: Bad fast object handle %i (%08x)", handle, handle);
+			ERROR_LOG(SCEKERNEL, "Kernel: Bad fast object handle %i (%08x)", handle, handle);
 			return 0;
 		}
 		return static_cast<T *>(pool[realHandle]);
@@ -505,7 +505,7 @@ public:
 	{
 		if (handle < handleOffset || handle >= handleOffset+maxCount || !occupied[handle-handleOffset])
 		{
-			ERROR_LOG(HLE, "Kernel: Bad object handle %i (%08x)", handle, handle);
+			ERROR_LOG(SCEKERNEL, "Kernel: Bad object handle %i (%08x)", handle, handle);
 			return false;
 		}
 		KernelObject *t = pool[handle - handleOffset];

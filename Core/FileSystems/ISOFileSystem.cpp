@@ -437,7 +437,7 @@ void ISOFileSystem::CloseFile(u32 handle)
 	else
 	{
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Hey, what are you doing? Closing non-open files?");
+		ERROR_LOG(FILESYS, "Hey, what are you doing? Closing non-open files?");
 	}
 }
 
@@ -477,7 +477,7 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 		}
 		else
 		{
-			_dbg_assert_msg_(HLE, e.file != 0, "Expecting non-raw fd to have a tree entry.");
+			_dbg_assert_msg_(FILESYS, e.file != 0, "Expecting non-raw fd to have a tree entry.");
 
 			//clamp read length
 			if ((s64)e.seekPos > e.file->size - (s64)size)
@@ -516,14 +516,14 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 	else
 	{
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Hey, what are you doing? Reading non-open files?");
+		ERROR_LOG(FILESYS, "Hey, what are you doing? Reading non-open files?");
 		return 0;
 	}
 }
 
 size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size) 
 {
-	ERROR_LOG(HLE,"Hey, what are you doing? You can't write to an ISO!");
+	ERROR_LOG(FILESYS, "Hey, what are you doing? You can't write to an ISO!");
 	return 0;
 }
 
@@ -553,7 +553,7 @@ size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 	else
 	{
 		//This shouldn't happen...
-		ERROR_LOG(HLE,"Hey, what are you doing? Seeking in non-open files?");
+		ERROR_LOG(FILESYS, "Hey, what are you doing? Seeking in non-open files?");
 		return 0;
 	}
 }

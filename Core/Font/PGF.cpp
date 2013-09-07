@@ -105,7 +105,7 @@ void PGF::DoState(PointerWrap &p) {
 void PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	const u8 *const startPtr = ptr;
 
-	INFO_LOG(HLE, "Reading %d bytes of PGF header", (int)sizeof(header));
+	INFO_LOG(SCEFONT, "Reading %d bytes of PGF header", (int)sizeof(header));
 	memcpy(&header, ptr, sizeof(header));
 	ptr += sizeof(header);
 
@@ -534,7 +534,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 				case PSP_FONT_PIXELFORMAT_4_REV:
 					break;
 				default:
-					ERROR_LOG_REPORT(HLE, "Unhandled font pixel format: %d", (u32)image->pixelFormat);
+					ERROR_LOG_REPORT(SCEFONT, "Unhandled font pixel format: %d", (u32)image->pixelFormat);
 					break;
 				}
 

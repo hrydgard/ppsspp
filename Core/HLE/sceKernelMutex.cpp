@@ -196,7 +196,7 @@ void __KernelMutexAcquireLock(Mutex *mutex, int count, SceUID thread)
 #if defined(_DEBUG)
 	std::pair<MutexMap::iterator, MutexMap::iterator> locked = mutexHeldLocks.equal_range(thread);
 	for (MutexMap::iterator iter = locked.first; iter != locked.second; ++iter)
-		_dbg_assert_msg_(HLE, (*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());
+		_dbg_assert_msg_(SCEKERNEL, (*iter).second != mutex->GetUID(), "Thread %d / mutex %d wasn't removed from mutexHeldLocks properly.", thread, mutex->GetUID());
 #endif
 
 	mutexHeldLocks.insert(std::make_pair(thread, mutex->GetUID()));
@@ -230,7 +230,7 @@ void __KernelMutexEraseLock(Mutex *mutex)
 
 std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &waiting)
 {
-	_dbg_assert_msg_(HLE, !waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
+	_dbg_assert_msg_(SCEKERNEL, !waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
 
 	std::vector<SceUID>::iterator iter, end, best = waiting.end();
 	u32 best_prio = 0xFFFFFFFF;
@@ -244,7 +244,7 @@ std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &wai
 		}
 	}
 
-	_dbg_assert_msg_(HLE, best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
+	_dbg_assert_msg_(SCEKERNEL, best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
 	return best;
 }
 
@@ -283,28 +283,28 @@ void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<Mutex, WAITTYPE_MUTEX, SceUID>(threadID, prevCallbackId, mutexWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(HLE, "sceKernelLockMutexCB: Suspending lock wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Suspending lock wait for callback")
 	else
-		WARN_LOG_REPORT(HLE, "sceKernelLockMutexCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelLockMutexCB: beginning callback with bad wait id?");
 }
 
 void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<Mutex, WAITTYPE_MUTEX, SceUID>(threadID, prevCallbackId, mutexWaitTimer, __KernelUnlockMutexForThreadCheck);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(HLE, "sceKernelLockMutexCB: Resuming lock wait for callback");
+		DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB: Resuming lock wait for callback");
 }
 
 int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr)
 {
 	if (!name)
 	{
-		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 	if (attr & ~0xBFF)
 	{
-		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
@@ -329,16 +329,16 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 	else
 		__KernelMutexAcquireLock(mutex, initialCount);
 
-	DEBUG_LOG(HLE, "%i=sceKernelCreateMutex(%s, %08x, %d, %08x)", id, name, attr, initialCount, optionsPtr);
+	DEBUG_LOG(SCEKERNEL, "%i=sceKernelCreateMutex(%s, %08x, %d, %08x)", id, name, attr, initialCount, optionsPtr);
 
 	if (optionsPtr != 0)
 	{
 		u32 size = Memory::Read_U32(optionsPtr);
 		if (size > 4)
-			WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
+			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }
@@ -349,7 +349,7 @@ int sceKernelDeleteMutex(SceUID id)
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 	if (mutex)
 	{
-		DEBUG_LOG(HLE, "sceKernelDeleteMutex(%i)", id);
+		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteMutex(%i)", id);
 		bool wokeThreads = false;
 		std::vector<SceUID>::iterator iter, end;
 		for (iter = mutex->waitingThreads.begin(), end = mutex->waitingThreads.end(); iter != end; ++iter)
@@ -366,7 +366,7 @@ int sceKernelDeleteMutex(SceUID id)
 	}
 	else
 	{
-		DEBUG_LOG(HLE, "sceKernelDeleteMutex(%i): invalid mutex", id);
+		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteMutex(%i): invalid mutex", id);
 		return error;
 	}
 }
@@ -509,12 +509,12 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 			// May still be okay.  As long as the count/etc. are valid.
 			if (error != 0 && error != PSP_MUTEX_ERROR_LOCK_OVERFLOW && error != PSP_MUTEX_ERROR_ALREADY_LOCKED)
 			{
-				DEBUG_LOG(HLE, "sceKernelCancelMutex(%i, %d, %08x): invalid count", uid, count, numWaitThreadsPtr);
+				DEBUG_LOG(SCEKERNEL, "sceKernelCancelMutex(%i, %d, %08x): invalid count", uid, count, numWaitThreadsPtr);
 				return error;
 			}
 		}
 
-		DEBUG_LOG(HLE, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
+		DEBUG_LOG(SCEKERNEL, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
 
 		// Remove threads no longer waiting on this first (so the numWaitThreads value is correct.)
 		for (auto iter = mutex->waitingThreads.begin(); iter != mutex->waitingThreads.end(); ++iter)
@@ -550,7 +550,7 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 	}
 	else
 	{
-		DEBUG_LOG(HLE, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
+		DEBUG_LOG(SCEKERNEL, "sceKernelCancelMutex(%i, %d, %08x)", uid, count, numWaitThreadsPtr);
 		return error;
 	}
 }
@@ -558,7 +558,7 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 // int sceKernelLockMutex(SceUID id, int count, int *timeout)
 int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelLockMutex(%i, %i, %08x)", id, count, timeoutPtr);
+	DEBUG_LOG(SCEKERNEL, "sceKernelLockMutex(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
@@ -583,7 +583,7 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr)
 // int sceKernelLockMutexCB(SceUID id, int count, int *timeout)
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
+	DEBUG_LOG(SCEKERNEL, "sceKernelLockMutexCB(%i, %i, %08x)", id, count, timeoutPtr);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
@@ -622,7 +622,7 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr)
 // int sceKernelTryLockMutex(SceUID id, int count)
 int sceKernelTryLockMutex(SceUID id, int count)
 {
-	DEBUG_LOG(HLE, "sceKernelTryLockMutex(%i, %i)", id, count);
+	DEBUG_LOG(SCEKERNEL, "sceKernelTryLockMutex(%i, %i)", id, count);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
@@ -637,7 +637,7 @@ int sceKernelTryLockMutex(SceUID id, int count)
 // int sceKernelUnlockMutex(SceUID id, int count)
 int sceKernelUnlockMutex(SceUID id, int count)
 {
-	DEBUG_LOG(HLE, "sceKernelUnlockMutex(%i, %i)", id, count);
+	DEBUG_LOG(SCEKERNEL, "sceKernelUnlockMutex(%i, %i)", id, count);
 	u32 error;
 	Mutex *mutex = kernelObjects.Get<Mutex>(id, error);
 
@@ -669,11 +669,11 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
 	Mutex *m = kernelObjects.Get<Mutex>(id, error);
 	if (!m)
 	{
-		ERROR_LOG(HLE, "sceKernelReferMutexStatus(%i, %08x): invalid mutex id", id, infoAddr);
+		ERROR_LOG(SCEKERNEL, "sceKernelReferMutexStatus(%i, %08x): invalid mutex id", id, infoAddr);
 		return error;
 	}
 
-	DEBUG_LOG(HLE, "sceKernelReferMutexStatus(%08x, %08x)", id, infoAddr);
+	DEBUG_LOG(SCEKERNEL, "sceKernelReferMutexStatus(%08x, %08x)", id, infoAddr);
 
 	// Should we crash the thread somehow?
 	if (!Memory::IsValidAddress(infoAddr))
@@ -699,12 +699,12 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 {
 	if (!name)
 	{
-		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateLwMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateLwMutex(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 	if (attr >= 0x400)
 	{
-		WARN_LOG_REPORT(HLE, "%08x=sceKernelCreateLwMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		WARN_LOG_REPORT(SCEKERNEL, "%08x=sceKernelCreateLwMutex(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
@@ -732,16 +732,16 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 	workarea->attr = attr;
 	workarea->uid = id;
 
-	DEBUG_LOG(HLE, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
+	DEBUG_LOG(SCEKERNEL, "sceKernelCreateLwMutex(%08x, %s, %08x, %d, %08x)", workareaPtr, name, attr, initialCount, optionsPtr);
 
 	if (optionsPtr != 0)
 	{
 		u32 size = Memory::Read_U32(optionsPtr);
 		if (size > 4)
-			WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
+			WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
-		WARN_LOG_REPORT(HLE, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return 0;
 }
@@ -773,7 +773,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 
 int sceKernelDeleteLwMutex(u32 workareaPtr)
 {
-	DEBUG_LOG(HLE, "sceKernelDeleteLwMutex(%08x)", workareaPtr);
+	DEBUG_LOG(SCEKERNEL, "sceKernelDeleteLwMutex(%08x)", workareaPtr);
 
 	if (!workareaPtr || !Memory::IsValidAddress(workareaPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
@@ -916,21 +916,21 @@ void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitBeginCallback<LwMutex, WAITTYPE_LWMUTEX, SceUID>(threadID, prevCallbackId, lwMutexWaitTimer);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
-		DEBUG_LOG(HLE, "sceKernelLockLwMutexCB: Suspending lock wait for callback")
+		DEBUG_LOG(SCEKERNEL, "sceKernelLockLwMutexCB: Suspending lock wait for callback")
 	else
-		WARN_LOG_REPORT(HLE, "sceKernelLockLwMutexCB: beginning callback with bad wait id?");
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelLockLwMutexCB: beginning callback with bad wait id?");
 }
 
 void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
 	auto result = HLEKernel::WaitEndCallback<LwMutex, WAITTYPE_LWMUTEX, SceUID>(threadID, prevCallbackId, lwMutexWaitTimer, __KernelUnlockLwMutexForThreadCheck);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
-		DEBUG_LOG(HLE, "sceKernelLockLwMutexCB: Resuming lock wait for callback");
+		DEBUG_LOG(SCEKERNEL, "sceKernelLockLwMutexCB: Resuming lock wait for callback");
 }
 
 int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 {
-	DEBUG_LOG(HLE, "sceKernelTryLockLwMutex(%08x, %i)", workareaPtr, count);
+	DEBUG_LOG(SCEKERNEL, "sceKernelTryLockLwMutex(%08x, %i)", workareaPtr, count);
 
 	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
@@ -946,7 +946,7 @@ int sceKernelTryLockLwMutex(u32 workareaPtr, int count)
 
 int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 {
-	DEBUG_LOG(HLE, "sceKernelTryLockLwMutex_600(%08x, %i)", workareaPtr, count);
+	DEBUG_LOG(SCEKERNEL, "sceKernelTryLockLwMutex_600(%08x, %i)", workareaPtr, count);
 
 	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
@@ -961,7 +961,7 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count)
 
 int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 {
-	VERBOSE_LOG(HLE, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
+	VERBOSE_LOG(SCEKERNEL, "sceKernelLockLwMutex(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
 	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
@@ -992,7 +992,7 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr)
 
 int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 {
-	VERBOSE_LOG(HLE, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
+	VERBOSE_LOG(SCEKERNEL, "sceKernelLockLwMutexCB(%08x, %i, %08x)", workareaPtr, count, timeoutPtr);
 
 	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
@@ -1023,7 +1023,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr)
 
 int sceKernelUnlockLwMutex(u32 workareaPtr, int count)
 {
-	VERBOSE_LOG(HLE, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
+	VERBOSE_LOG(SCEKERNEL, "sceKernelUnlockLwMutex(%08x, %i)", workareaPtr, count);
 
 	auto workarea = Memory::GetStruct<NativeLwMutexWorkarea>(workareaPtr);
 
@@ -1086,12 +1086,12 @@ int sceKernelReferLwMutexStatusByID(SceUID uid, u32 infoPtr)
 	int error = __KernelReferLwMutexStatus(uid, infoPtr);
 	if (error >= 0)
 	{
-		DEBUG_LOG(HLE, "sceKernelReferLwMutexStatusByID(%08x, %08x)", uid, infoPtr);
+		DEBUG_LOG(SCEKERNEL, "sceKernelReferLwMutexStatusByID(%08x, %08x)", uid, infoPtr);
 		return error;
 	}
 	else
 	{
-		ERROR_LOG(HLE, "%08x=sceKernelReferLwMutexStatusByID(%08x, %08x)", error, uid, infoPtr);
+		ERROR_LOG(SCEKERNEL, "%08x=sceKernelReferLwMutexStatusByID(%08x, %08x)", error, uid, infoPtr);
 		return error;
 	}
 }
@@ -1106,12 +1106,12 @@ int sceKernelReferLwMutexStatus(u32 workareaPtr, u32 infoPtr)
 	int error = __KernelReferLwMutexStatus(workarea->uid, infoPtr);
 	if (error >= 0)
 	{
-		DEBUG_LOG(HLE, "sceKernelReferLwMutexStatus(%08x, %08x)", workareaPtr, infoPtr);
+		DEBUG_LOG(SCEKERNEL, "sceKernelReferLwMutexStatus(%08x, %08x)", workareaPtr, infoPtr);
 		return error;
 	}
 	else
 	{
-		ERROR_LOG(HLE, "%08x=sceKernelReferLwMutexStatus(%08x, %08x)", error, workareaPtr, infoPtr);
+		ERROR_LOG(SCEKERNEL, "%08x=sceKernelReferLwMutexStatus(%08x, %08x)", error, workareaPtr, infoPtr);
 		return error;
 	}
 }

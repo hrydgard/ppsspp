@@ -58,13 +58,13 @@ public:
 
 		if (dl == NULL)
 		{
-			WARN_LOG(HLE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
+			WARN_LOG(SCEGE, "Unable to run GE interrupt: list doesn't exist: %d", intrdata.listid);
 			return false;
 		}
 
 		if (!dl->interruptsEnabled)
 		{
-			ERROR_LOG_REPORT(HLE, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
+			ERROR_LOG_REPORT(SCEGE, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
 			return false;
 		}
 
@@ -116,7 +116,7 @@ public:
 
 		// Seen in GoW.
 		if (subintr >= 0)
-			DEBUG_LOG(HLE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
+			DEBUG_LOG(SCEGE, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
 		return false;
 	}
 
@@ -128,7 +128,7 @@ public:
 		DisplayList* dl = gpu->getList(intrdata.listid);
 		if (!dl->interruptsEnabled)
 		{
-			ERROR_LOG_REPORT(HLE, "Unable to finish GE interrupt: list has interrupts disabled, should not happen");
+			ERROR_LOG_REPORT(SCEGE, "Unable to finish GE interrupt: list has interrupts disabled, should not happen");
 			return;
 		}
 
@@ -141,9 +141,9 @@ public:
 				DisplayListState newState = static_cast<DisplayListState>(Memory::ReadUnchecked_U32(intrdata.pc - 4) & 0xFF);
 				//dl->status = static_cast<DisplayListStatus>(Memory::ReadUnchecked_U32(intrdata.pc) & 0xFF);
 				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
-				//	ERROR_LOG(HLE, "Weird DL status after signal suspend %x", dl->status);
+				//	ERROR_LOG(SCEGE, "Weird DL status after signal suspend %x", dl->status);
 				if (newState != PSP_GE_DL_STATE_RUNNING)
-					INFO_LOG_REPORT(HLE, "GE Interrupt: newState might be %d", newState);
+					INFO_LOG_REPORT(SCEGE, "GE Interrupt: newState might be %d", newState);
 
 				dl->state = PSP_GE_DL_STATE_RUNNING;
 			}
@@ -271,14 +271,14 @@ bool __GeHasPendingInterrupt()
 u32 sceGeEdramGetAddr()
 {
 	u32 retVal = 0x04000000;
-	DEBUG_LOG(HLE, "%08x = sceGeEdramGetAddr", retVal);
+	DEBUG_LOG(SCEGE, "%08x = sceGeEdramGetAddr", retVal);
 	return retVal;
 }
 
 u32 sceGeEdramGetSize()
 {
 	u32 retVal = 0x00200000;
-	DEBUG_LOG(HLE, "%08x = sceGeEdramGetSize()", retVal);
+	DEBUG_LOG(SCEGE, "%08x = sceGeEdramGetSize()", retVal);
 	return retVal;
 }
 
@@ -290,14 +290,14 @@ int __GeSubIntrBase(int callbackId)
 u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId,
 		u32 optParamAddr)
 {
-	DEBUG_LOG(HLE,
+	DEBUG_LOG(SCEGE,
 			"sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
 	//if (!stallAddress)
 	//	stallAddress = listAddress;
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), false);
 
-	DEBUG_LOG(HLE, "List %i enqueued.", listID);
+	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
 	//return display list ID
 	return listID;
 }
@@ -305,24 +305,24 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId,
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 		u32 optParamAddr)
 {
-	DEBUG_LOG(HLE,
+	DEBUG_LOG(SCEGE,
 			"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x)",
 			listAddress, stallAddress, callbackId, optParamAddr);
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), true);
 
-	DEBUG_LOG(HLE, "List %i enqueued.", listID);
+	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
 	return listID;
 }
 
 int sceGeListDeQueue(u32 listID)
 {
-	WARN_LOG(HLE, "sceGeListDeQueue(%08x)", listID);
+	WARN_LOG(SCEGE, "sceGeListDeQueue(%08x)", listID);
 	return gpu->DequeueList(listID);
 }
 
 int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 {
-	DEBUG_LOG(HLE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
+	DEBUG_LOG(SCEGE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
 	hleEatCycles(190);
 	CoreTiming::Advance();
 	return gpu->UpdateStall(displayListID, stallAddress);
@@ -330,33 +330,33 @@ int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
 
 int sceGeListSync(u32 displayListID, u32 mode) //0 : wait for completion		1:check and return
 {
-	DEBUG_LOG(HLE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
+	DEBUG_LOG(SCEGE, "sceGeListSync(dlid=%08x, mode=%08x)", displayListID, mode);
 	return gpu->ListSync(displayListID, mode);
 }
 
 u32 sceGeDrawSync(u32 mode)
 {
 	//wait/check entire drawing state
-	DEBUG_LOG(HLE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
+	DEBUG_LOG(SCEGE, "sceGeDrawSync(mode=%d)  (0=wait for completion, 1=peek)", mode);
 	return gpu->DrawSync(mode);
 }
 
 int sceGeContinue()
 {
-	DEBUG_LOG(HLE, "sceGeContinue");
+	DEBUG_LOG(SCEGE, "sceGeContinue");
 	return gpu->Continue();
 }
 
 int sceGeBreak(u32 mode)
 {
 	//mode => 0 : current dlist 1: all drawing
-	DEBUG_LOG(HLE, "sceGeBreak(mode=%d)", mode);
+	DEBUG_LOG(SCEGE, "sceGeBreak(mode=%d)", mode);
 	return gpu->Break(mode);
 }
 
 u32 sceGeSetCallback(u32 structAddr)
 {
-	DEBUG_LOG(HLE, "sceGeSetCallback(struct=%08x)", structAddr);
+	DEBUG_LOG(SCEGE, "sceGeSetCallback(struct=%08x)", structAddr);
 
 	int cbID = -1;
 	for (size_t i = 0; i < ARRAY_SIZE(ge_used_callbacks); ++i)
@@ -368,7 +368,7 @@ u32 sceGeSetCallback(u32 structAddr)
 
 	if (cbID == -1)
 	{
-		WARN_LOG(HLE, "sceGeSetCallback(): out of callback ids");
+		WARN_LOG(SCEGE, "sceGeSetCallback(): out of callback ids");
 		return SCE_KERNEL_ERROR_OUT_OF_MEMORY;
 	}
 
@@ -395,11 +395,11 @@ u32 sceGeSetCallback(u32 structAddr)
 
 int sceGeUnsetCallback(u32 cbID)
 {
-	DEBUG_LOG(HLE, "sceGeUnsetCallback(cbid=%08x)", cbID);
+	DEBUG_LOG(SCEGE, "sceGeUnsetCallback(cbid=%08x)", cbID);
 
 	if (cbID >= ARRAY_SIZE(ge_used_callbacks))
 	{
-		WARN_LOG(HLE, "sceGeUnsetCallback(cbid=%08x): invalid callback id", cbID);
+		WARN_LOG(SCEGE, "sceGeUnsetCallback(cbid=%08x): invalid callback id", cbID);
 		return SCE_KERNEL_ERROR_INVALID_ID;
 	}
 
@@ -411,7 +411,7 @@ int sceGeUnsetCallback(u32 cbID)
 		sceKernelReleaseSubIntrHandler(PSP_GE_INTR, subIntrBase | PSP_GE_SUBINTR_SIGNAL);
 	}
 	else
-		WARN_LOG(HLE, "sceGeUnsetCallback(cbid=%08x): ignoring unregistered callback id", cbID);
+		WARN_LOG(SCEGE, "sceGeUnsetCallback(cbid=%08x): ignoring unregistered callback id", cbID);
 
 	ge_used_callbacks[cbID] = false;
 
@@ -422,12 +422,12 @@ int sceGeUnsetCallback(u32 cbID)
 // unless some insane game pokes it and relies on it...
 u32 sceGeSaveContext(u32 ctxAddr)
 {
-	DEBUG_LOG(HLE, "sceGeSaveContext(%08x)", ctxAddr);
+	DEBUG_LOG(SCEGE, "sceGeSaveContext(%08x)", ctxAddr);
 	gpu->SyncThread();
 
 	if (sizeof(gstate) > 512 * 4)
 	{
-		ERROR_LOG(HLE, "AARGH! sizeof(gstate) has grown too large!");
+		ERROR_LOG(SCEGE, "AARGH! sizeof(gstate) has grown too large!");
 		return 0;
 	}
 
@@ -444,12 +444,12 @@ u32 sceGeSaveContext(u32 ctxAddr)
 
 u32 sceGeRestoreContext(u32 ctxAddr)
 {
-	DEBUG_LOG(HLE, "sceGeRestoreContext(%08x)", ctxAddr);
+	DEBUG_LOG(SCEGE, "sceGeRestoreContext(%08x)", ctxAddr);
 	gpu->SyncThread();
 
 	if (sizeof(gstate) > 512 * 4)
 	{
-		ERROR_LOG(HLE, "AARGH! sizeof(gstate) has grown too large!");
+		ERROR_LOG(SCEGE, "AARGH! sizeof(gstate) has grown too large!");
 		return 0;
 	}
 
@@ -465,11 +465,11 @@ u32 sceGeRestoreContext(u32 ctxAddr)
 int sceGeGetMtx(int type, u32 matrixPtr)
 {
 	if (!Memory::IsValidAddress(matrixPtr)) {
-		ERROR_LOG(HLE, "sceGeGetMtx(%d, %08x) - bad matrix ptr", type, matrixPtr);
+		ERROR_LOG(SCEGE, "sceGeGetMtx(%d, %08x) - bad matrix ptr", type, matrixPtr);
 		return -1;
 	}
 
-	INFO_LOG(HLE, "sceGeGetMtx(%d, %08x)", type, matrixPtr);
+	INFO_LOG(SCEGE, "sceGeGetMtx(%d, %08x)", type, matrixPtr);
 	switch (type) {
 	case GE_MTX_BONE0:
 	case GE_MTX_BONE1:
@@ -502,13 +502,13 @@ int sceGeGetMtx(int type, u32 matrixPtr)
 
 u32 sceGeGetCmd(int cmd)
 {
-	INFO_LOG(HLE, "sceGeGetCmd(%i)", cmd);
+	INFO_LOG(SCEGE, "sceGeGetCmd(%i)", cmd);
 	return gstate.cmdmem[cmd];  // Does not mask away the high bits.
 }
 
 u32 sceGeEdramSetAddrTranslation(int new_size)
 {
-	INFO_LOG(HLE, "sceGeEdramSetAddrTranslation(%i)", new_size);
+	INFO_LOG(SCEGE, "sceGeEdramSetAddrTranslation(%i)", new_size);
 	static int EDRamWidth;
 	int last = EDRamWidth;
 	EDRamWidth = new_size;

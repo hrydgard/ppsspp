@@ -45,6 +45,13 @@ UI::EventReturn DevMenu::OnDeveloperTools(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+void DevMenu::dialogFinished(const Screen *dialog, DialogResult result) {
+	// Close when a subscreen got closed.
+	// TODO: a bug in screenmanager causes this not to work here.
+	// screenManager()->finishDialog(this, DR_OK);
+}
+
+
 // It's not so critical to translate everything here, most of this is developers only.
 
 void LogConfigScreen::CreateViews() {
@@ -66,23 +73,30 @@ void LogConfigScreen::CreateViews() {
 	vert->Add(new ItemHeader("Log Channels"));
 
 	static const char *logLevelList[] = {
-		"Notice (highest)",
+		"Notice",
 		"Error",
-		"Warning",
+		"Warn",
 		"Info",
 		"Debug",
-		"Verbose (lowest)"
+		"Verb."
 	};
 
 	LogManager *logMan = LogManager::GetInstance();
 
+	int cellSize = 400;
+
+	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
+	gridsettings.fillCells = true;
+	GridLayout *grid = vert->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
 	for (int i = 0; i < LogManager::GetNumChannels(); i++) {
 		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
 		LogChannel *chan = logMan->GetLogChannel(type);
-		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(cellSize - 50, WRAP_CONTENT));
+		row->SetSpacing(0);
+		row->Add(new CheckBox(&chan->enable_, "", "", new LinearLayoutParams(50, WRAP_CONTENT)));
 		row->Add(new PopupMultiChoice(&chan->level_, chan->GetFullName(), logLevelList, 1, 6, 0, screenManager(), new LinearLayoutParams(1.0)));
-		row->Add(new CheckBox(&chan->enable_, "", "", new LinearLayoutParams(100, WRAP_CONTENT)));
-		vert->Add(row);
+		grid->Add(row);
 	}
 }
 

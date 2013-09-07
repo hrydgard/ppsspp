@@ -138,7 +138,7 @@ void __PPGeInit()
 	if (PSP_CoreParameter().gpuCore == GPU_NULL) {
 		// Let's just not bother.
 		dlPtr = 0;
-		NOTICE_LOG(HLE, "Not initializing PPGe - GPU is NullGpu");
+		NOTICE_LOG(SCEGE, "Not initializing PPGe - GPU is NullGpu");
 		return;
 	}
 	u8 *imageData;
@@ -147,7 +147,7 @@ void __PPGeInit()
 	int flags;
 	if (!LoadZIM("ppge_atlas.zim", &width, &height, &flags, &imageData)) {
 		PanicAlert("Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
-		ERROR_LOG(HLE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
+		ERROR_LOG(SCEGE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
 		return;
 	}
 
@@ -181,7 +181,7 @@ void __PPGeInit()
 	
 	free(imageData);
 
-	DEBUG_LOG(HLE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
+	DEBUG_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Ctx: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, savedContextPtr);
 }
 
@@ -281,7 +281,7 @@ void PPGeEnd()
 
 		// We actually drew something
 		u32 list = sceGeListEnQueueHead(dlPtr, dlWritePtr, -1, 0);
-		DEBUG_LOG(HLE, "PPGe enqueued display list %i", list);
+		DEBUG_LOG(SCEGE, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);
 		sceGeContinue();
 		sceGeRestoreContext(savedContextPtr);

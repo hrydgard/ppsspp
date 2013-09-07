@@ -1828,7 +1828,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 				break;
 			}
 		default:
-			ERROR_LOG(HLE, "Bad what in vrot");
+			ERROR_LOG(JIT, "Bad what in vrot");
 			break;
 		}
 	}

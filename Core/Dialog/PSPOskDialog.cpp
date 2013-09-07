@@ -217,27 +217,27 @@ int PSPOskDialog::Init(u32 oskPtr)
 	// Seems like this should crash?
 	if (!Memory::IsValidAddress(oskPtr))
 	{
-		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
 		return -1;
 	}
 
 	oskParams = oskPtr;
 	if (oskParams->base.size != sizeof(SceUtilityOskParams))
 	{
-		ERROR_LOG(HLE, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
+		ERROR_LOG(SCEUTILITY, "sceUtilityOskInitStart: invalid size (%d)", oskParams->base.size);
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 	// Also seems to crash.
 	if (!oskParams->fields.IsValid())
 	{
-		ERROR_LOG_REPORT(HLE, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
 	}
 
 	if (oskParams->unk_60 != 0)
-		WARN_LOG_REPORT(HLE, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
+		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
 	if (oskParams->fieldCount != 1)
-		WARN_LOG_REPORT(HLE, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
+		WARN_LOG_REPORT(SCEUTILITY, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
 
 	status = SCE_UTILITY_STATUS_INITIALIZE;
 	selectedChar = 0;
@@ -798,7 +798,7 @@ int PSPOskDialog::NativeKeyboard()
 			}
 			else 
 			{
-				ERROR_LOG(HLE, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxInputLength);
+				ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxInputLength);
 				wcsncat(input, inputWide.c_str(), maxInputLength);
 			}
 		}

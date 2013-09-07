@@ -65,7 +65,7 @@ void AsyncIOManager::ProcessEvent(AsyncIOEvent ev) {
 		break;
 
 	default:
-		ERROR_LOG(HLE, "Unsupported IO event type");
+		ERROR_LOG(SCEIO, "Unsupported IO event type");
 	}
 }
 
@@ -82,7 +82,7 @@ void AsyncIOManager::Write(u32 handle, u8 *buf, size_t bytes) {
 void AsyncIOManager::EventResult(u32 handle, AsyncIOResult result) {
 	lock_guard guard(resultsLock_);
 	if (results_.find(handle) != results_.end()) {
-		ERROR_LOG_REPORT(HLE, "Overwriting previous result for file action on handle %d", handle);
+		ERROR_LOG_REPORT(SCEIO, "Overwriting previous result for file action on handle %d", handle);
 	}
 	results_[handle] = result;
 	resultsWait_.notify_one();
