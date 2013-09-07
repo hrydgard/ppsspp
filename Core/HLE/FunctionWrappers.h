@@ -129,6 +129,18 @@ template<int func(const char *, int, int, int, int, int, int)> void WrapI_CIIIII
 	RETURN(retval);
 }
 
+// Hm, do so many params get passed in registers?
+template<int func(int, int, int, int, int, int, u32)> void WrapI_IIIIIIU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5), PARAM(6));
+	RETURN(retval);
+}
+
+// Hm, do so many params get passed in registers?
+template<int func(int, int, int, int, int, int, int, int, u32)> void WrapI_IIIIIIIIU() {
+	u32 retval = func(PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5), PARAM(6), PARAM(7), PARAM(8));
+	RETURN(retval);
+}
+
 template<u32 func(int, void *)> void WrapU_IV() {
 	u32 retval = func(PARAM(0), Memory::GetPointer(PARAM(1)));
 	RETURN(retval);
@@ -465,6 +477,16 @@ template<int func(const char *, u32, int)> void WrapI_CUI() {
 	RETURN(retval);
 }
 
+template<int func(int, const char *, int, u32)> void WrapI_ICIU() {
+	int retval = func(PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), PARAM(3));
+	RETURN(retval);
+}
+
+template<int func(const char *, int, u32)> void WrapI_CIU() {
+	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2));
+	RETURN(retval);
+}
+
 template<int func(const char *, u32, u32)> void WrapI_CUU() {
 	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2));
 	RETURN(retval);
@@ -476,9 +498,20 @@ template<int func(const char *, u32, u32, u32)> void WrapI_CUUU() {
 	RETURN(retval);
 }
 
+template<int func(const char *, const char*, int, int)> void WrapI_CCII() {
+	int retval = func(Memory::GetCharPointer(PARAM(0)), Memory::GetCharPointer(PARAM(1)), PARAM(2), PARAM(3));
+	RETURN(retval);
+}
+
 template<int func(const char *, u32, u32, int, u32, u32)> void WrapI_CUUIUU() {
 	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2),
 			PARAM(3), PARAM(4), PARAM(5));
+	RETURN(retval);
+}
+
+template<int func(const char *, int, int, u32, int, int)> void WrapI_CIIUII() {
+	int retval = func(Memory::GetCharPointer(PARAM(0)), PARAM(1), PARAM(2),
+		PARAM(3), PARAM(4), PARAM(5));
 	RETURN(retval);
 }
 

@@ -287,12 +287,41 @@ u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 	return 0;
 }
 
-
 int sceNetAdhocctlTerm() {
 	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlTerm()");
 	netAdhocctlInited = false;
 
 	return 0;
+}
+
+int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetNameByAddr(%s, %08x)", mac, nameAddr);
+	return -1;
+}
+
+int sceNetAdhocctlJoin(u32 scanInfoAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlJoin(%08x)", scanInfoAddr);
+	return -1;
+}
+
+int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetPeerInfo(%s, %i, %08x)", mac, size, peerInfoAddr);
+	return -1;
+}
+
+int sceNetAdhocctlCreate(const char *groupName) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlCreate(%s)", groupName);
+	return -1;
+}
+
+int sceNetAdhocctlCreateEnterGameMode(const char *groupName, int unknown, int playerNum, u32 macsAddr, int timeout, int unknown2) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i)", groupName, unknown, playerNum, macsAddr, timeout, unknown2);
+	return -1;
+}
+
+int sceNetAdhocctlJoinEnterGameMode(const char *groupName, const char *macAddr, int timeout, int unknown2) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i)", groupName, macAddr, timeout, unknown2);
+	return -1;
 }
 
 int sceNetAdhocTerm() {
@@ -301,22 +330,6 @@ int sceNetAdhocTerm() {
 	if(!netAdhocInited) 
 		return SCE_KERNEL_ERROR_LWMUTEX_NOT_FOUND;
 	netAdhocInited = false;
-
-	return 0;
-}
-
-int sceNetAdhocMatchingInit(u32 memsize) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
-	if(netAdhocMatchingInited) 
-		return ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED;
-	netAdhocMatchingInited = true;
-
-	return 0;
-}
-
-int sceNetAdhocMatchingTerm() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingTerm()");
-	netAdhocMatchingInited = false;
 
 	return 0;
 }
@@ -406,6 +419,95 @@ int sceNetAdhocGetSocketAlert() {
 	return 0;
 }
 
+int sceNetAdhocMatchingInit(u32 memsize) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
+	if (netAdhocMatchingInited) 
+		return ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED;
+	netAdhocMatchingInited = true;
+
+	return 0;
+}
+
+int sceNetAdhocMatchingTerm() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingTerm()");
+	netAdhocMatchingInited = false;
+
+	return 0;
+}
+
+
+
+// Presumably returns a "matchingId".
+int sceNetAdhocMatchingCreate(int mode, int maxPeers, int port, int bufSize, int helloDelay, int pingDelay, int initCount, int msgDelay, u32 callbackAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingCreate(%i, %i, %i, %i, %i, %i, %i, %i, %08x)", mode, maxPeers, port, bufSize, helloDelay, pingDelay, initCount, msgDelay, callbackAddr);
+	return -1;
+}
+
+int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %i, %i, %08x)", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr);
+	return -1;
+}
+
+int sceNetAdhocMatchingStop(int matchingId) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingStop(%i)", matchingId);
+	return -1;
+}
+
+int sceNetAdhocMatchingDelete(int matchingId) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingDelete(%i)", matchingId);
+	return -1;
+}
+
+int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingSelectTarget(%i, %s, %i, %08x)", matchingId, macAddress, optLen, optDataPtr);
+	return -1;
+}
+
+int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x)", matchingId, macAddress, optLen, optDataPtr);
+	return -1;
+}
+
+int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, macAddress);
+	return -1;
+}
+
+int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingGetHelloOpt(%i, %08x, %08x)", matchingId, optLenAddr, optDataAddr);
+	return -1;
+}
+
+int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingSetHelloOpt(%i, %i, %08x)", matchingId, optLenAddr, optDataAddr);
+	return -1;
+}
+
+int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingGetMembers(%i, %08x, %08x)", matchingId, sizeAddr, buf);
+	return -1;
+}
+
+int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u32 dataAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingSendData(%i, %s, %i, %08x)", matchingId, mac, dataLen, dataAddr);
+	return -1;
+}
+
+int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingAbortSendData(%i, %s)", matchingId, mac);
+	return -1;
+}
+
+int sceNetAdhocMatchingGetPoolMaxAlloc() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc()");
+	return -1;
+}
+
+int sceNetAdhocMatchingGetPoolStat() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingGetPoolStat()");
+	return -1;
+}
+
 const HLEFunction sceNetAdhoc[] = {
 	{0xE1D621D7, WrapU_V<sceNetAdhocInit>, "sceNetAdhocInit"}, 
 	{0xA62C6F57, WrapI_V<sceNetAdhocTerm>, "sceNetAdhocTerm"}, 
@@ -438,21 +540,41 @@ const HLEFunction sceNetAdhoc[] = {
 const HLEFunction sceNetAdhocMatching[] = {
 	{0x2a2a1e07, WrapI_U<sceNetAdhocMatchingInit>, "sceNetAdhocMatchingInit"},
 	{0x7945ecda, WrapI_V<sceNetAdhocMatchingTerm>, "sceNetAdhocMatchingTerm"},
-	{0xca5eda6f, 0, "sceNetAdhocMatchingCreate"},
-	{0x93ef3843, 0, "sceNetAdhocMatchingStart"},
-	{0x32b156b3, 0, "sceNetAdhocMatchingStop"},
-	{0xf16eaf4f, 0, "sceNetAdhocMatchingDelete"},
-	{0x5e3d4b79, 0, "sceNetAdhocMatchingSelectTarget"},
-	{0xea3c6108, 0, "sceNetAdhocMatchingCancelTarget"},
-	{0x8f58bedf, 0, "sceNetAdhocMatchingCancelTargetWithOpt"},
-	{0xb58e61b7, 0, "sceNetAdhocMatchingSetHelloOpt"},
-	{0xc58bcd9e, 0, "sceNetAdhocMatchingGetMembers"},
-	{0xec19337d, 0, "sceNetAdhocMatchingAbortSendData"},
-	{0xf79472d7, 0, "sceNetAdhocMatchingSendData"},
-	{0x40F8F435, 0, "sceNetAdhocMatchingGetPoolMaxAlloc"},
-	{0xb5d96c2a, 0, "sceNetAdhocMatchingGetHelloOpt"},
-	{0x9c5cfb7d, 0, "sceNetAdhocMatchingGetPoolStat"},
+	{0xca5eda6f, WrapI_IIIIIIIIU<sceNetAdhocMatchingCreate>, "sceNetAdhocMatchingCreate"},
+	{0x93ef3843, WrapI_IIIIIIU<sceNetAdhocMatchingStart>, "sceNetAdhocMatchingStart"},
+	{0x32b156b3, WrapI_I<sceNetAdhocMatchingStop>, "sceNetAdhocMatchingStop"},
+	{0xf16eaf4f, WrapI_I<sceNetAdhocMatchingDelete>, "sceNetAdhocMatchingDelete"},
+	{0x5e3d4b79, WrapI_ICIU<sceNetAdhocMatchingSelectTarget>, "sceNetAdhocMatchingSelectTarget"},
+	{0xea3c6108, WrapI_IC<sceNetAdhocMatchingCancelTarget>, "sceNetAdhocMatchingCancelTarget"},
+	{0x8f58bedf, WrapI_ICIU<sceNetAdhocMatchingCancelTargetWithOpt>, "sceNetAdhocMatchingCancelTargetWithOpt"},
+	{0xb5d96c2a, WrapI_IUU<sceNetAdhocMatchingGetHelloOpt>, "sceNetAdhocMatchingGetHelloOpt"},
+	{0xb58e61b7, WrapI_IIU<sceNetAdhocMatchingSetHelloOpt>, "sceNetAdhocMatchingSetHelloOpt"},
+	{0xc58bcd9e, WrapI_IUU<sceNetAdhocMatchingGetMembers>, "sceNetAdhocMatchingGetMembers"},
+	{0xf79472d7, WrapI_ICIU<sceNetAdhocMatchingSendData>, "sceNetAdhocMatchingSendData"},
+	{0xec19337d, WrapI_IC<sceNetAdhocMatchingAbortSendData>, "sceNetAdhocMatchingAbortSendData"},
+	{0x40F8F435, WrapI_V<sceNetAdhocMatchingGetPoolMaxAlloc>, "sceNetAdhocMatchingGetPoolMaxAlloc"},
+	{0x9c5cfb7d, WrapI_V<sceNetAdhocMatchingGetPoolStat>, "sceNetAdhocMatchingGetPoolStat"},
 };
+
+int sceNetAdhocctlExitGameMode() {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlExitGameMode()");
+	return -1;
+}
+
+int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetGameModeInfo(%08x)", infoAddr);
+	return -1;
+}
+
+int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetPeerList(%08x, %08x)", sizeAddr, bufAddr);
+	return -1;
+}
+
+int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 bufAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetPeerList(%s, %08x, %08x)", nickName, sizeAddr, bufAddr);
+	return -1;
+}
 
 const HLEFunction sceNetAdhocctl[] = {
 	{0xE26F226E, WrapU_IIU<sceNetAdhocctlInit>, "sceNetAdhocctlInit"},
@@ -463,20 +585,20 @@ const HLEFunction sceNetAdhocctl[] = {
 	{0x0ad043ed, WrapI_U<sceNetAdhocctlConnect>, "sceNetAdhocctlConnect"},
 	{0x08fff7a0, WrapI_V<sceNetAdhocctlScan>, "sceNetAdhocctlScan"},
 	{0x75ecd386, WrapI_U<sceNetAdhocctlGetState>, "sceNetAdhocctlGetState"},
-	{0x8916c003, 0, "sceNetAdhocctlGetNameByAddr"},
+	{0x8916c003, WrapI_CU<sceNetAdhocctlGetNameByAddr>, "sceNetAdhocctlGetNameByAddr"},
 	{0xded9d28e, WrapI_U<sceNetAdhocctlGetParameter>, "sceNetAdhocctlGetParameter"},
 	{0x81aee1be, WrapI_V<sceNetAdhocctlGetScanInfo>, "sceNetAdhocctlGetScanInfo"},
-	{0x5e7f79c9, 0, "sceNetAdhocctlJoin"},
-	{0x8db83fdc, 0, "sceNetAdhocctlGetPeerInfo"},
-	{0xec0635c1, 0, "sceNetAdhocctlCreate"},
-	{0xa5c055ce, 0, "sceNetAdhocctlCreateEnterGameMode"},
-	{0x1ff89745, 0, "sceNetAdhocctlJoinEnterGameMode"},
-	{0xcf8e084d, 0, "sceNetAdhocctlExitGameMode"},
-	{0xe162cb14, 0, "sceNetAdhocctlGetPeerList"},
+	{0x5e7f79c9, WrapI_U<sceNetAdhocctlJoin>, "sceNetAdhocctlJoin"},
+	{0x8db83fdc, WrapI_CIU<sceNetAdhocctlGetPeerInfo>, "sceNetAdhocctlGetPeerInfo"},
+	{0xec0635c1, WrapI_C<sceNetAdhocctlCreate>, "sceNetAdhocctlCreate"},
+	{0xa5c055ce, WrapI_CIIUII<sceNetAdhocctlCreateEnterGameMode>, "sceNetAdhocctlCreateEnterGameMode"},
+	{0x1ff89745, WrapI_CCII<sceNetAdhocctlJoinEnterGameMode>, "sceNetAdhocctlJoinEnterGameMode"},
+	{0xcf8e084d, WrapI_V<sceNetAdhocctlExitGameMode>, "sceNetAdhocctlExitGameMode"},
+	{0xe162cb14, WrapI_UU<sceNetAdhocctlGetPeerList>, "sceNetAdhocctlGetPeerList"},
 	{0x362cbe8f, WrapI_U<sceNetAdhocctlGetAdhocId>, "sceNetAdhocctlGetAdhocId"},
-	{0x5a014ce0, 0, "sceNetAdhocctlGetGameModeInfo"},
-	{0x99560abe, 0, "sceNetAdhocctlGetAddrByName"},
-	{0xb0b80e80, 0, "sceNetAdhocctlCreateEnterGameModeMin"},
+	{0x5a014ce0, WrapI_U<sceNetAdhocctlGetGameModeInfo>, "sceNetAdhocctlGetGameModeInfo"},
+	{0x99560abe, WrapI_CUU<sceNetAdhocctlGetAddrByName>, "sceNetAdhocctlGetAddrByName"},
+	{0xb0b80e80, 0, "sceNetAdhocctlCreateEnterGameModeMin"},  // ??
 };
 
 const HLEFunction sceNetAdhocDiscover[] = {
