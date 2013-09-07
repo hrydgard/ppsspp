@@ -41,15 +41,10 @@
 #include "Common/KeyMap.h"
 
 #ifdef _WIN32
-#include "Core/Host.h"
-#endif
-
-#ifdef _WIN32
 namespace MainWindow {
 	enum { 
 		WM_USER_LOG_STATUS_CHANGED = WM_USER + 101,
 		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 102,
-		WM_USER_UPDATE_UI = WM_USER + 103,
 	};
 	extern HWND hwndMain;
 }
@@ -399,9 +394,9 @@ UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 	RecreateViews();
 	OnLanguageChanged.Trigger(e);
-#ifdef _WIN32
-	PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_UPDATE_UI, 0, 0);
-#endif
+	if (host) {
+		host->UpdateUI();
+	}
 	return UI::EVENT_DONE;
 }
 
