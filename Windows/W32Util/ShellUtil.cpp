@@ -14,10 +14,12 @@ namespace W32Util
 {
 	std::string BrowseForFolder(HWND parent, char *title)
 	{
+		std::wstring titleString = ConvertUTF8ToWString(title);
+
 		BROWSEINFO info;
 		memset(&info,0,sizeof(info));
 		info.hwndOwner = parent;
-		info.lpszTitle = ConvertUTF8ToWString(title).c_str();
+		info.lpszTitle = titleString.c_str();
 		info.ulFlags = BIF_EDITBOX | BIF_RETURNONLYFSDIRS | BIF_USENEWUI;
 
 		//info.pszDisplayName
