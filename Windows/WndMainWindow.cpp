@@ -509,6 +509,7 @@ namespace MainWindow
 		TranslateSubMenuHeader(menu, desktopUI, "Texture Scaling", MENU_OPTIONS, SUBMENU_TEXTURE_SCALING);
 
 		DrawMenuBar(hwndMain);
+		UpdateMenus();
 	}
 
 	void setTexScalingMultiplier(int level) {
