@@ -466,10 +466,10 @@ void FramebufferManager::SetRenderFrameBuffer() {
 	gstate_c.framebufChanged = false;
 
 	// Get parameters
-	u32 fb_address = (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8);
+	u32 fb_address = (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8);
 	int fb_stride = gstate.fbwidth & 0x3C0;
 
-	u32 z_address = (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8);
+	u32 z_address = (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8);
 	int z_stride = gstate.zbwidth & 0x3C0;
 
 	// Yeah this is not completely right. but it'll do for now.

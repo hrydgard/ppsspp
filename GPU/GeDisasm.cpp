@@ -359,11 +359,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_FRAMEBUFPTR:
 		{
-			u32 ptr = op & 0xFFE000;
-			if (data & ~0xFFE000)
-				sprintf(buffer, "FramebufPtr: %08x (extra %x)", ptr, data);
-			else
-				sprintf(buffer, "FramebufPtr: %08x", ptr);
+			sprintf(buffer, "FramebufPtr: %08x", data);
 		}
 		break;
 
@@ -534,11 +530,7 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer) {
 
 	case GE_CMD_ZBUFPTR:
 		{
-			u32 ptr = op & 0xFFE000;
-			if (data & ~0xFFE000)
-				sprintf(buffer, "Zbuf ptr: %06x (extra %x)", ptr, data);
-			else
-				sprintf(buffer, "Zbuf ptr: %06x", ptr);
+			sprintf(buffer, "Zbuf ptr: %06x", data);
 		}
 		break;
 

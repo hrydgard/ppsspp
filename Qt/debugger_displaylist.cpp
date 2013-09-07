@@ -611,7 +611,6 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_FRAMEBUFPTR:
 		{
-			u32 ptr = op & 0xFFE000;
 			return QString("FramebufPtr: %1").arg(data,8,16,QChar('0'));
 		}
 		break;
@@ -781,8 +780,7 @@ QString Debugger_DisplayList::DisassembleOp(u32 pc, u32 op, u32 prev, const GPUg
 
 	case GE_CMD_ZBUFPTR:
 		{
-			u32 ptr = op & 0xFFE000;
-			return QString("Zbuf Ptr: %1").arg(ptr,6,16,QChar('0'));
+			return QString("Zbuf Ptr: %1").arg(data,6,16,QChar('0'));
 		}
 		break;
 

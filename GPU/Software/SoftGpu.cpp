@@ -476,19 +476,13 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
-		{
-			u32 ptr = op & 0xFFE000;
-			fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8));
-			DEBUG_LOG(G3D, "DL FramebufPtr: %08x", ptr);
-		}
+		fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
+		DEBUG_LOG(G3D, "DL FramebufPtr: %08x", data);
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
-		{
-			u32 w = data & 0xFFFFFF;
-			fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFE000) | ((gstate.fbwidth & 0xFF0000) << 8));
-			DEBUG_LOG(G3D, "DL FramebufWidth: %i", w);
-		}
+		fb = Memory::GetPointer(0x44000000 | (gstate.fbptr & 0xFFFFFF) | ((gstate.fbwidth & 0xFF0000) << 8));
+		DEBUG_LOG(G3D, "DL FramebufWidth: %i", data);
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
@@ -605,19 +599,13 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_ZBUFPTR:
-		{
-			u32 ptr = op & 0xFFE000;
-			depthbuf = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8));
-			DEBUG_LOG(G3D,"Zbuf Ptr: %06x", ptr);
-		}
+		depthbuf = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
+		DEBUG_LOG(G3D,"Zbuf Ptr: %06x", data);
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
-		{
-			u32 w = data & 0xFFFFFF;
-			depthbuf = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFE000) | ((gstate.zbwidth & 0xFF0000) << 8));
-			DEBUG_LOG(G3D,"Zbuf Width: %i", w);
-		}
+		depthbuf = Memory::GetPointer(0x44000000 | (gstate.zbptr & 0xFFFFFF) | ((gstate.zbwidth & 0xFF0000) << 8));
+		DEBUG_LOG(G3D,"Zbuf Width: %i", data);
 		break;
 
 	case GE_CMD_AMBIENTCOLOR:
