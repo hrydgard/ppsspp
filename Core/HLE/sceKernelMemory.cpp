@@ -245,11 +245,7 @@ enum SceKernelFplAttr
 bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads)
 {
 	const SceUID threadID = threadInfo.threadID;
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_FPL, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-
-	// The waitID may be different after a timeout.
-	if (waitID != fpl->GetUID())
+	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_FPL, fpl->GetUID()))
 		return true;
 
 	// If result is an error code, we're just letting it go.
@@ -265,6 +261,7 @@ bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u32 &err
 			return false;
 	}
 
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	if (timeoutPtr != 0 && fplWaitTimer != -1)
 	{
 		// Remove any event for this thread.
@@ -327,12 +324,10 @@ bool __KernelClearFplThreads(FPL *fpl, int reason)
 void __KernelSortFplThreads(FPL *fpl)
 {
 	// Remove any that are no longer waiting.
-	u32 error;
 	SceUID uid = fpl->GetUID();
 	for (size_t i = 0; i < fpl->waitingThreads.size(); i++)
 	{
-		SceUID waitID = __KernelGetWaitID(fpl->waitingThreads[i].threadID, WAITTYPE_FPL, error);
-		if (waitID != uid)
+		if (!HLEKernel::VerifyWait(fpl->waitingThreads[i].threadID, WAITTYPE_FPL, uid))
 		{
 			fpl->waitingThreads.erase(fpl->waitingThreads.begin() + i);
 			--i;
@@ -1136,11 +1131,7 @@ enum SceKernelVplAttr
 bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &error, int result, bool &wokeThreads)
 {
 	const SceUID threadID = threadInfo.threadID;
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_VPL, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-
-	// The waitID may be different after a timeout.
-	if (waitID != vpl->GetUID())
+	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_VPL, vpl->GetUID()))
 		return true;
 
 	// If result is an error code, we're just letting it go.
@@ -1157,6 +1148,7 @@ bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u32 &err
 			return false;
 	}
 
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	if (timeoutPtr != 0 && vplWaitTimer != -1)
 	{
 		// Remove any event for this thread.
@@ -1219,12 +1211,10 @@ bool __KernelClearVplThreads(VPL *vpl, int reason)
 void __KernelSortFplThreads(VPL *vpl)
 {
 	// Remove any that are no longer waiting.
-	u32 error;
 	SceUID uid = vpl->GetUID();
 	for (size_t i = 0; i < vpl->waitingThreads.size(); i++)
 	{
-		SceUID waitID = __KernelGetWaitID(vpl->waitingThreads[i].threadID, WAITTYPE_VPL, error);
-		if (waitID != uid)
+		if (!HLEKernel::VerifyWait(vpl->waitingThreads[i].threadID, WAITTYPE_VPL, uid))
 		{
 			vpl->waitingThreads.erase(vpl->waitingThreads.begin() + i);
 			--i;
@@ -1828,7 +1818,6 @@ int sceKernelFreeTls(SceUID uid)
 
 		if (freeBlock != -1)
 		{
-			u32 error2;
 			while (!tls->waitingThreads.empty())
 			{
 				// TODO: What order do they wake in?
@@ -1836,7 +1825,7 @@ int sceKernelFreeTls(SceUID uid)
 				tls->waitingThreads.erase(tls->waitingThreads.begin());
 
 				// This thread must've been woken up.
-				if (__KernelGetWaitID(waitingThreadID, WAITTYPE_TLS, error2) != uid)
+				if (!HLEKernel::VerifyWait(waitingThreadID, WAITTYPE_TLS, uid))
 					continue;
 
 				// Otherwise, if there was a thread waiting, we were full, so this newly freed one is theirs.
