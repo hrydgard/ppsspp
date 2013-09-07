@@ -177,7 +177,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename)
 	control->Get("ShowTouchControls", &bShowTouchControls, pixel_xres != pixel_yres);
 #elif defined(USING_GLES2)
 	std::string name = System_GetProperty(SYSPROP_NAME);
-	if (name == "NVIDIA:SHIELD" || name == "Sony Ericsson:R800i" || name == "Sony Ericsson:zeus") {
+	if (KeyMap::HasBuiltinController(name)) {
 		control->Get("ShowTouchControls", &bShowTouchControls, false);
 	} else {
 		control->Get("ShowTouchControls", &bShowTouchControls, true);
