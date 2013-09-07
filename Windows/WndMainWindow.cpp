@@ -1356,10 +1356,12 @@ namespace MainWindow
 
 				case ID_OPTIONS_CONTROLS:
 					NativeMessageReceived("control mapping", "");
+					globalUIState = UISTATE_MENU;
 					break;
 
 				case ID_OPTIONS_MORE_SETTINGS:
 					NativeMessageReceived("settings", "");
+					globalUIState = UISTATE_MENU;
 					break;
 
 				case ID_EMULATION_SOUND:
