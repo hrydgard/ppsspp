@@ -68,7 +68,7 @@ static SceUID threadBeforeInterrupt;
 
 void sceKernelCpuSuspendIntr()
 {
-	VERBOSE_LOG(HLE, "sceKernelCpuSuspendIntr");
+	VERBOSE_LOG(SCEINTC, "sceKernelCpuSuspendIntr");
 	int returnValue;
 	if (__InterruptsEnabled())
 	{
@@ -84,7 +84,7 @@ void sceKernelCpuSuspendIntr()
 
 void sceKernelCpuResumeIntr(u32 enable)
 {
-	VERBOSE_LOG(HLE, "sceKernelCpuResumeIntr(%i)", enable);
+	VERBOSE_LOG(SCEINTC, "sceKernelCpuResumeIntr(%i)", enable);
 	if (enable)
 	{
 		__EnableInterrupts();
@@ -100,14 +100,14 @@ void sceKernelCpuResumeIntr(u32 enable)
 void sceKernelIsCpuIntrEnable()
 {
 	u32 retVal = __InterruptsEnabled(); 
-	DEBUG_LOG(HLE, "%i=sceKernelIsCpuIntrEnable()", retVal);
+	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrEnable()", retVal);
 	RETURN(retVal);
 }
 
 void sceKernelIsCpuIntrSuspended()
 {
 	u32 retVal = !__InterruptsEnabled(); 
-	DEBUG_LOG(HLE, "%i=sceKernelIsCpuIntrSuspended()", retVal);
+	DEBUG_LOG(SCEINTC, "%i=sceKernelIsCpuIntrSuspended()", retVal);
 	RETURN(retVal);
 }
 
@@ -121,7 +121,7 @@ bool IntrHandler::run(PendingInterrupt& pend)
 	SubIntrHandler *handler = get(pend.subintr);
 	if (handler == NULL)
 	{
-		WARN_LOG(HLE, "Ignoring interrupt, already been released.");
+		WARN_LOG(SCEINTC, "Ignoring interrupt, already been released.");
 		return false;
 	}
 
@@ -229,7 +229,7 @@ void __InterruptsDoState(PointerWrap &p)
 	if (numInterrupts != PSP_NUMBER_INTERRUPTS)
 	{
 		p.SetError(p.ERROR_FAILURE);
-		ERROR_LOG(HLE, "Savestate failure: wrong number of interrupts, can't load.");
+		ERROR_LOG(SCEINTC, "Savestate failure: wrong number of interrupts, can't load.");
 		return;
 	}
 
@@ -332,7 +332,7 @@ retry:
 		IntrHandler* handler = intrHandlers[pend.intr];
 		if(handler == NULL)
 		{
-			WARN_LOG(HLE, "Ignoring interrupt");
+			WARN_LOG(SCEINTC, "Ignoring interrupt");
 			pendingInterrupts.pop_front();
 			goto retry;
 		}
@@ -351,7 +351,7 @@ retry:
 	}
 	else
 	{
-		// DEBUG_LOG(HLE, "No more interrupts!");
+		// DEBUG_LOG(SCEINTC, "No more interrupts!");
 		return false;
 	}
 }
@@ -383,14 +383,14 @@ void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
 	{
 		intrHandlers[intno]->queueUp(subintr);
-		VERBOSE_LOG(HLE, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
+		VERBOSE_LOG(SCEINTC, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
 		__TriggerRunInterrupts(type);
 	}
 }
 
 void __KernelReturnFromInterrupt()
 {
-	VERBOSE_LOG(CPU, "Left interrupt handler at %08x", currentMIPS->pc);
+	VERBOSE_LOG(SCEINTC, "Left interrupt handler at %08x", currentMIPS->pc);
 
 	// This is what we just ran.
 	PendingInterrupt pend = pendingInterrupts.front();
@@ -451,7 +451,7 @@ int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 
 u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handler, u32 handlerArg)
 {
-	DEBUG_LOG(HLE,"sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
+	DEBUG_LOG(SCEINTC,"sceKernelRegisterSubIntrHandler(%i, %i, %08x, %08x)", intrNumber, subIntrNumber, handler, handlerArg);
 
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
@@ -469,7 +469,7 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 
 int sceKernelReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 {
-	DEBUG_LOG(HLE, "sceKernelReleaseSubIntrHandler(%i, %i)", intrNumber, subIntrNumber);
+	DEBUG_LOG(SCEINTC, "sceKernelReleaseSubIntrHandler(%i, %i)", intrNumber, subIntrNumber);
 
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
@@ -479,7 +479,7 @@ int sceKernelReleaseSubIntrHandler(int intrNumber, int subIntrNumber)
 
 u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
-	DEBUG_LOG(HLE,"sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	DEBUG_LOG(SCEINTC, "sceKernelEnableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
@@ -492,7 +492,7 @@ u32 sceKernelEnableSubIntr(u32 intrNumber, u32 subIntrNumber)
 
 u32 sceKernelDisableSubIntr(u32 intrNumber, u32 subIntrNumber)
 {
-	DEBUG_LOG(HLE,"sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
+	DEBUG_LOG(SCEINTC, "sceKernelDisableSubIntr(%i, %i)", intrNumber, subIntrNumber);
 	if (intrNumber >= PSP_NUMBER_INTERRUPTS)
 		return -1;
 
@@ -531,7 +531,7 @@ void QueryIntrHandlerInfo()
 u32 sceKernelMemset(u32 addr, u32 fillc, u32 n)
 {
 	u8 c = fillc & 0xff;
-	DEBUG_LOG(HLE, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
+	DEBUG_LOG(SCEINTC, "sceKernelMemset(ptr = %08x, c = %02x, n = %08x)", addr, c, n);
 	Memory::Memset(addr, c, n);
 	return addr;
 }

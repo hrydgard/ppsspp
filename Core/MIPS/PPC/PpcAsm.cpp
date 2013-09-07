@@ -80,7 +80,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		for (u32 cpc = em_address; cpc != js.compilerPC + 4; cpc += 4) {
 			MIPSDisAsm(Memory::Read_Instruction(cpc), cpc, temp, true);
-			INFO_LOG(DYNA_REC, "M: %08x   %s", cpc, temp);
+			INFO_LOG(JIT, "M: %08x   %s", cpc, temp);
 		}
 	}
 #endif
@@ -89,7 +89,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 
 #ifdef LOGASM
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		INFO_LOG(DYNA_REC, "=============== ARM ===============");
+		INFO_LOG(JIT, "=============== ARM ===============");
 		DisassembleArm(b->normalEntry, GetCodePtr() - b->normalEntry);
 	}
 #endif	

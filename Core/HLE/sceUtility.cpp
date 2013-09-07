@@ -93,7 +93,7 @@ int __UtilityGetStatus()
 	if (currentDialogType == UTILITY_DIALOG_NONE) {
 		return 0;
 	} else {
-		WARN_LOG(HLE, "__UtilityGetStatus() Faked dialog : wrong dialog type");
+		WARN_LOG(SCEUTILITY, "__UtilityGetStatus() Faked dialog : wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 }
@@ -102,13 +102,13 @@ int sceUtilitySavedataInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
-		WARN_LOG(HLE, "sceUtilitySavedataInitStart(%08x): wrong dialog type", paramAddr);
+		WARN_LOG(SCEUTILITY, "sceUtilitySavedataInitStart(%08x): wrong dialog type", paramAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogType = UTILITY_DIALOG_SAVEDATA;
 	currentDialogActive = true;
 
-	DEBUG_LOG(HLE,"sceUtilitySavedataInitStart(%08x)", paramAddr);
+	DEBUG_LOG(SCEUTILITY,"sceUtilitySavedataInitStart(%08x)", paramAddr);
 	return saveDialog.Init(paramAddr);
 }
 
@@ -116,12 +116,12 @@ int sceUtilitySavedataShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
-		WARN_LOG(HLE, "sceUtilitySavedataShutdownStart(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilitySavedataShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
 
-	DEBUG_LOG(HLE,"sceUtilitySavedataShutdownStart()");
+	DEBUG_LOG(SCEUTILITY,"sceUtilitySavedataShutdownStart()");
 	return saveDialog.Shutdown();
 }
 
@@ -129,12 +129,12 @@ int sceUtilitySavedataGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
-		DEBUG_LOG(HLE, "sceUtilitySavedataGetStatus(): wrong dialog type");
+		DEBUG_LOG(SCEUTILITY, "sceUtilitySavedataGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
 	int status = saveDialog.GetStatus();
-	DEBUG_LOG(HLE, "%08x=sceUtilitySavedataGetStatus()", status);
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilitySavedataGetStatus()", status);
 	return status;
 }
 
@@ -142,11 +142,11 @@ int sceUtilitySavedataUpdate(int animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
-		WARN_LOG(HLE, "sceUtilitySavedataUpdate(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilitySavedataUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	DEBUG_LOG(HLE,"sceUtilitySavedataUpdate(%d)", animSpeed);
+	DEBUG_LOG(SCEUTILITY,"sceUtilitySavedataUpdate(%d)", animSpeed);
 	int result = saveDialog.Update();
 	if (result >= 0)
 		return hleDelayResult(result, "savedata update", 300);
@@ -166,17 +166,17 @@ u32 sceUtilityLoadAvModule(u32 module)
 {
 	if (module > 7)
 	{
-		ERROR_LOG_REPORT(HLE, "sceUtilityLoadAvModule(%i): invalid module id", module);
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityLoadAvModule(%i): invalid module id", module);
 		return SCE_ERROR_AV_MODULE_BAD_ID;
 	}
 
-	DEBUG_LOG(HLE,"sceUtilityLoadAvModule(%i)", module);
+	DEBUG_LOG(SCEUTILITY,"sceUtilityLoadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module loaded", 25000);
 }
 
 u32 sceUtilityUnloadAvModule(u32 module)
 {
-	DEBUG_LOG(HLE,"sceUtilityUnloadAvModule(%i)", module);
+	DEBUG_LOG(SCEUTILITY,"sceUtilityUnloadAvModule(%i)", module);
 	return hleDelayResult(0, "utility av module unloaded", 800);
 }
 
@@ -185,18 +185,18 @@ u32 sceUtilityLoadModule(u32 module)
 	// TODO: Not all modules between 0x100 and 0x601 are valid.
 	if (module < 0x100 || module > 0x601)
 	{
-		ERROR_LOG_REPORT(HLE, "sceUtilityLoadModule(%i): invalid module id", module);
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityLoadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
 
 	if (currentlyLoadedModules.find(module) != currentlyLoadedModules.end())
 	{
-		DEBUG_LOG(HLE, "sceUtilityLoadModule(%i): already loaded", module);
+		DEBUG_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): already loaded", module);
 		return SCE_ERROR_MODULE_ALREADY_LOADED;
 	}
 	currentlyLoadedModules.insert(module);
 
-	DEBUG_LOG(HLE, "sceUtilityLoadModule(%i)", module);
+	DEBUG_LOG(SCEUTILITY, "sceUtilityLoadModule(%i)", module);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: Some modules have dependencies, but they still resched.
 	if (module == 0x3FF)
@@ -210,18 +210,18 @@ u32 sceUtilityUnloadModule(u32 module)
 	// TODO: Not all modules between 0x100 and 0x601 are valid.
 	if (module < 0x100 || module > 0x601)
 	{
-		ERROR_LOG_REPORT(HLE, "sceUtilityUnloadModule(%i): invalid module id", module);
+		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityUnloadModule(%i): invalid module id", module);
 		return SCE_ERROR_MODULE_BAD_ID;
 	}
 
 	if (currentlyLoadedModules.find(module) == currentlyLoadedModules.end())
 	{
-		WARN_LOG(HLE, "sceUtilityLoadModule(%i): not yet loaded", module);
+		WARN_LOG(SCEUTILITY, "sceUtilityLoadModule(%i): not yet loaded", module);
 		return SCE_ERROR_MODULE_NOT_LOADED;
 	}
 	currentlyLoadedModules.erase(module);
 
-	DEBUG_LOG(HLE, "sceUtilityUnloadModule(%i)", module);
+	DEBUG_LOG(SCEUTILITY, "sceUtilityUnloadModule(%i)", module);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	// Note: If not loaded, it should not reschedule actually...
 	if (module == 0x3FF)
@@ -234,13 +234,13 @@ int sceUtilityMsgDialogInitStart(u32 structAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_MSG)
 	{
-		WARN_LOG(HLE, "sceUtilityMsgDialogInitStart(%08x): wrong dialog type", structAddr);
+		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogInitStart(%08x): wrong dialog type", structAddr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogType = UTILITY_DIALOG_MSG;
 	currentDialogActive = true;
 
-	DEBUG_LOG(HLE, "sceUtilityMsgDialogInitStart(%08x)", structAddr);
+	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogInitStart(%08x)", structAddr);
 	return msgDialog.Init(structAddr);
 }
 
@@ -248,12 +248,12 @@ int sceUtilityMsgDialogShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
-		WARN_LOG(HLE, "sceUtilityMsgDialogShutdownStart(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
 
-	DEBUG_LOG(HLE, "sceUtilityMsgDialogShutdownStart()");
+	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogShutdownStart()");
 	return msgDialog.Shutdown();
 }
 
@@ -261,11 +261,11 @@ int sceUtilityMsgDialogUpdate(int animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
-		WARN_LOG(HLE, "sceUtilityMsgDialogUpdate(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	DEBUG_LOG(HLE,"sceUtilityMsgDialogUpdate(%i)", animSpeed);
+	DEBUG_LOG(SCEUTILITY,"sceUtilityMsgDialogUpdate(%i)", animSpeed);
 	return msgDialog.Update();
 }
 
@@ -273,12 +273,12 @@ int sceUtilityMsgDialogGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
-		DEBUG_LOG(HLE, "sceUtilityMsgDialogGetStatus(): wrong dialog type");
+		DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
 	int status = msgDialog.GetStatus();
-	DEBUG_LOG(HLE, "%08x=sceUtilityMsgDialogGetStatus()", status);
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityMsgDialogGetStatus()", status);
 	return status;
 }
 
@@ -286,12 +286,12 @@ int sceUtilityMsgDialogAbort()
 {
 	if (currentDialogType != UTILITY_DIALOG_MSG)
 	{
-		WARN_LOG(HLE, "sceUtilityMsgDialogShutdownStart(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
 
-	DEBUG_LOG(HLE, "sceUtilityMsgDialogAbort()");
+	DEBUG_LOG(SCEUTILITY, "sceUtilityMsgDialogAbort()");
 	return msgDialog.Abort();
 }
 
@@ -302,13 +302,13 @@ int sceUtilityOskInitStart(u32 oskPtr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_OSK)
 	{
-		WARN_LOG(HLE, "sceUtilityOskInitStart(%08x): wrong dialog type", oskPtr);
+		WARN_LOG(SCEUTILITY, "sceUtilityOskInitStart(%08x): wrong dialog type", oskPtr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogType = UTILITY_DIALOG_OSK;
 	currentDialogActive = true;
 
-	DEBUG_LOG(HLE, "sceUtilityOskInitStart(%08x)", oskPtr);
+	DEBUG_LOG(SCEUTILITY, "sceUtilityOskInitStart(%08x)", oskPtr);
 	return oskDialog.Init(oskPtr);
 }
 
@@ -316,12 +316,12 @@ int sceUtilityOskShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_OSK)
 	{
-		WARN_LOG(HLE, "sceUtilityOskShutdownStart(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityOskShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
 
-	DEBUG_LOG(HLE, "sceUtilityOskShutdownStart()");
+	DEBUG_LOG(SCEUTILITY, "sceUtilityOskShutdownStart()");
 	return oskDialog.Shutdown();
 }
 
@@ -329,11 +329,11 @@ int sceUtilityOskUpdate(int animSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_OSK)
 	{
-		WARN_LOG(HLE, "sceUtilityMsgDialogUpdate(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityMsgDialogUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	DEBUG_LOG(HLE, "sceUtilityOskUpdate(%i)", animSpeed);
+	DEBUG_LOG(SCEUTILITY, "sceUtilityOskUpdate(%i)", animSpeed);
 	return oskDialog.Update();
 }
 
@@ -341,7 +341,7 @@ int sceUtilityOskGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_OSK)
 	{
-		DEBUG_LOG(HLE, "sceUtilityOskGetStatus(): wrong dialog type");
+		DEBUG_LOG(SCEUTILITY, "sceUtilityOskGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
@@ -353,32 +353,32 @@ int sceUtilityOskGetStatus()
 		status = 5;
 	}
 
-	DEBUG_LOG(HLE, "%08x=sceUtilityOskGetStatus()", status);
+	DEBUG_LOG(SCEUTILITY, "%08x=sceUtilityOskGetStatus()", status);
 	return status;
 }
 
 
 int sceUtilityNetconfInitStart(u32 structAddr)
 {
-	ERROR_LOG(HLE, "UNIMPL sceUtilityNetconfInitStart(%08x)", structAddr);
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfInitStart(%08x)", structAddr);
 	return netDialog.Init();
 }
 
 int sceUtilityNetconfShutdownStart(unsigned int unknown)
 {
-	ERROR_LOG(HLE, "UNIMPL sceUtilityNetconfShutdownStart(%i)", unknown);
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfShutdownStart(%i)", unknown);
 	return netDialog.Shutdown();
 }
 
 int sceUtilityNetconfUpdate(int animSpeed)
 {
-	ERROR_LOG(HLE, "UNIMPL sceUtilityNetconfUpdate(%i)", animSpeed);
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfUpdate(%i)", animSpeed);
 	return netDialog.Update();
 }
 
 int sceUtilityNetconfGetStatus()
 {
-	ERROR_LOG(HLE, "UNIMPL sceUtilityNetconfGetStatus()");
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityNetconfGetStatus()");
 	return netDialog.GetStatus();
 }
 
@@ -388,14 +388,14 @@ u32 sceUtilityScreenshotInitStart(u32 unknown1, u32 unknown2, u32 unknown3, u32 
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
-		WARN_LOG(HLE, "sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x): wrong dialog type", unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+		WARN_LOG(SCEUTILITY, "sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x): wrong dialog type", unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogType = UTILITY_DIALOG_SCREENSHOT;
 	currentDialogActive = true;
 
 	u32 retval = screenshotDialog.Init();
-	WARN_LOG_REPORT(HLE, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
+	WARN_LOG_REPORT(SCEUTILITY, "UNIMPL %i=sceUtilityScreenshotInitStart(%x, %x, %x, %x, %x, %x)", retval, unknown1, unknown2, unknown3, unknown4, unknown5, unknown6);
 	return retval;
 }
 
@@ -403,12 +403,12 @@ u32 sceUtilityScreenshotShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
-		WARN_LOG(HLE, "sceUtilityScreenshotShutdownStart(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityScreenshotShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
 
-	WARN_LOG(HLE, "UNTESTED sceUtilityScreenshotShutdownStart()");
+	WARN_LOG(SCEUTILITY, "UNTESTED sceUtilityScreenshotShutdownStart()");
 	return screenshotDialog.Shutdown();
 }
 
@@ -416,11 +416,11 @@ u32 sceUtilityScreenshotUpdate(u32 unknown)
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
-		WARN_LOG(HLE, "sceUtilityScreenshotUpdate(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityScreenshotUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	ERROR_LOG(HLE, "UNIMPL sceUtilityScreenshotUpdate(%d)", unknown);
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityScreenshotUpdate(%d)", unknown);
 	return screenshotDialog.Update();
 }
 
@@ -428,37 +428,37 @@ int sceUtilityScreenshotGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_SCREENSHOT)
 	{
-		DEBUG_LOG(HLE, "sceUtilityScreenshotGetStatus(): wrong dialog type");
+		DEBUG_LOG(SCEUTILITY, "sceUtilityScreenshotGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
 	u32 retval = screenshotDialog.GetStatus(); 
-	WARN_LOG(HLE, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
+	WARN_LOG(SCEUTILITY, "UNIMPL %i=sceUtilityScreenshotGetStatus()", retval);
 	return retval;
 }
 
 void sceUtilityGamedataInstallInitStart(u32 unknown)
 {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceUtilityGamedataInstallInitStart(%i)", unknown);
+	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityGamedataInstallInitStart(%i)", unknown);
 }
 
 int sceUtilityGamedataInstallGetStatus()
 {
 	u32 retval = __UtilityGetStatus();
-	ERROR_LOG(HLE, "UNIMPL %i=sceUtilityGamedataInstallGetStatus()", retval);
+	ERROR_LOG(SCEUTILITY, "UNIMPL %i=sceUtilityGamedataInstallGetStatus()", retval);
 	return retval;
 }
 
 //TODO: should save to config file
 u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
-	WARN_LOG_REPORT(HLE, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
+	WARN_LOG_REPORT(SCEUTILITY, "sceUtilitySetSystemParamString(%i, %08x)", id, strPtr);
 	return 0;
 }
 
 u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
 {
-	DEBUG_LOG(HLE, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destaddr, destSize);
+	DEBUG_LOG(SCEUTILITY, "sceUtilityGetSystemParamString(%i, %08x, %i)", id, destaddr, destSize);
 	char *buf = (char *)Memory::GetPointer(destaddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
@@ -477,7 +477,7 @@ u32 sceUtilityGetSystemParamString(u32 id, u32 destaddr, int destSize)
 
 u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 {
-	DEBUG_LOG(HLE,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
+	DEBUG_LOG(SCEUTILITY,"sceUtilityGetSystemParamInt(%i, %08x)", id,destaddr);
 	u32 param = 0;
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
@@ -488,19 +488,19 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DATE_FORMAT:
 		param = g_Config.iDateFormat;
-		INFO_LOG_REPORT(HLE, "sceUtilitySystemGetSystemParamInt: %s", "Date Format")
+		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Date Format")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIME_FORMAT:
 		param = g_Config.iTimeFormat?PSP_SYSTEMPARAM_TIME_FORMAT_12HR:PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
-		INFO_LOG_REPORT(HLE, "sceUtilitySystemGetSystemParamInt: %s", "Time Format")
+		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Time Format")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
 		param = g_Config.iTimeZone;
-		INFO_LOG_REPORT(HLE, "sceUtilitySystemGetSystemParamInt: %s", "Timezone")
+		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Timezone")
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
 		param = g_Config.bDayLightSavings?PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING:PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
-		INFO_LOG_REPORT(HLE, "sceUtilitySystemGetSystemParamInt: %s", "Daylight Savings");
+		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Daylight Savings");
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
 		param = g_Config.ilanguage;
@@ -510,7 +510,7 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LOCK_PARENTAL_LEVEL:
 		param = g_Config.iLockParentalLevel;
-		INFO_LOG_REPORT(HLE, "sceUtilitySystemGetSystemParamInt: %s", "Lock Parental Level");
+		INFO_LOG_REPORT(SCEUTILITY, "sceUtilitySystemGetSystemParamInt: %s", "Lock Parental Level");
 		break;
 	default:
 		return PSP_SYSTEMPARAM_RETVAL_FAIL;
@@ -523,42 +523,42 @@ u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr)
 
 u32 sceUtilityLoadNetModule(u32 module)
 {
-	DEBUG_LOG(HLE,"FAKE: sceUtilityLoadNetModule(%i)", module);
+	DEBUG_LOG(SCEUTILITY,"FAKE: sceUtilityLoadNetModule(%i)", module);
 	return 0;
 }
 
 u32 sceUtilityUnloadNetModule(u32 module)
 {
-	DEBUG_LOG(HLE,"FAKE: sceUtilityUnloadNetModule(%i)", module);
+	DEBUG_LOG(SCEUTILITY,"FAKE: sceUtilityUnloadNetModule(%i)", module);
 	return 0;
 }
 
 void sceUtilityInstallInitStart(u32 unknown)
 {
-	WARN_LOG_REPORT(HLE, "UNIMPL sceUtilityInstallInitStart()");
+	WARN_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityInstallInitStart()");
 }
 
 int sceUtilityStoreCheckoutShutdownStart()
 {
-	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
+	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutShutdownStart()");
 	return 0;
 }
 
 int sceUtilityStoreCheckoutInitStart(u32 paramsPtr)
 {
-	ERROR_LOG_REPORT(HLE,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
+	ERROR_LOG_REPORT(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutInitStart(%d)", paramsPtr);
 	return 0;
 }
 
 int sceUtilityStoreCheckoutUpdate(int drawSpeed)
 {
-	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
+	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutUpdate(%d)", drawSpeed);
 	return 0;
 }
 
 int sceUtilityStoreCheckoutGetStatus()
 {
-	ERROR_LOG(HLE,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
+	ERROR_LOG(SCEUTILITY,"UNIMPL sceUtilityStoreCheckoutGetStatus()");
 	return 0;
 }
 
@@ -566,12 +566,12 @@ int sceUtilityGameSharingShutdownStart()
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
 	{
-		WARN_LOG(HLE, "sceUtilityGameSharingShutdownStart(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityGameSharingShutdownStart(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogActive = false;
 
-	ERROR_LOG(HLE, "UNIMPL sceUtilityGameSharingShutdownStart()");
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingShutdownStart()");
 	return 0;
 }
 
@@ -579,13 +579,13 @@ int sceUtilityGameSharingInitStart(u32 paramsPtr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_GAMESHARING)
 	{
-		WARN_LOG(HLE, "sceUtilityGameSharingInitStart(%08x)", paramsPtr);
+		WARN_LOG(SCEUTILITY, "sceUtilityGameSharingInitStart(%08x)", paramsPtr);
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 	currentDialogType = UTILITY_DIALOG_GAMESHARING;
 	currentDialogActive = true;
 
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
+	ERROR_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
 	return 0;
 }
 
@@ -593,11 +593,11 @@ int sceUtilityGameSharingUpdate(int drawSpeed)
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
 	{
-		WARN_LOG(HLE, "sceUtilityScreenshotUpdate(): wrong dialog type");
+		WARN_LOG(SCEUTILITY, "sceUtilityScreenshotUpdate(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	ERROR_LOG(HLE, "UNIMPL sceUtilityGameSharingUpdate(%d)", drawSpeed);
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingUpdate(%d)", drawSpeed);
 	return 0;
 }
 
@@ -605,11 +605,11 @@ int sceUtilityGameSharingGetStatus()
 {
 	if (currentDialogType != UTILITY_DIALOG_GAMESHARING)
 	{
-		DEBUG_LOG(HLE, "sceUtilityGameSharingGetStatus(): wrong dialog type");
+		DEBUG_LOG(SCEUTILITY, "sceUtilityGameSharingGetStatus(): wrong dialog type");
 		return SCE_ERROR_UTILITY_WRONG_TYPE;
 	}
 
-	ERROR_LOG(HLE, "UNIMPL sceUtilityGameSharingGetStatus()");
+	ERROR_LOG(SCEUTILITY, "UNIMPL sceUtilityGameSharingGetStatus()");
 	return 0;
 }
 

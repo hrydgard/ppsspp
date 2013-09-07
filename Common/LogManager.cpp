@@ -57,26 +57,29 @@ struct LogNameTableEntry {
 
 static const LogNameTableEntry logTable[] = {
 	{LogTypes::MASTER_LOG, "*",       "Master Log"},
+
+	{LogTypes::SCEAUDIO   ,"AUDIO",   "sceAudio"},
+	{LogTypes::SCECTRL    ,"CTRL",    "sceCtrl"},
+	{LogTypes::SCEDISPLAY ,"DISP",    "sceDisplay"},
+	{LogTypes::SCEINTC    ,"INTC",    "sceKernelInterrupt"},
+	{LogTypes::SCEIO      ,"IO",      "sceIo"},
+	{LogTypes::SCEFONT    ,"FONT",    "sceFont"},
+	{LogTypes::SCENET     ,"NET",     "sceNet*"},
+	{LogTypes::SCESAS     ,"SCESAS",  "sceSas"},
+	{LogTypes::SCEUTILITY ,"UTIL",    "sceUtility"},
+
 	{LogTypes::BOOT       ,"BOOT",    "Boot"},
 	{LogTypes::COMMON     ,"COMMON",  "Common"},
 	{LogTypes::CPU        ,"CPU",     "CPU"},
-	{LogTypes::LOADER     ,"LOAD",    "Loader"},
-	{LogTypes::IO         ,"IO",      "IO"},
-	{LogTypes::PAD        ,"PAD",     "Pad"},
 	{LogTypes::FILESYS    ,"FileSys", "File System"},
-	{LogTypes::DISCIO     ,"DIO",     "DiscIO"},
 	{LogTypes::G3D        ,"G3D",     "3D Graphics"},
-	{LogTypes::DMA        ,"DMA",     "DMA"},
-	{LogTypes::INTC       ,"INTC",    "Interrupts"},
-	{LogTypes::MEMMAP     ,"MM",      "Memory Map"},
-	{LogTypes::SOUND      ,"SND",     "Sound"},
-	{LogTypes::SASMIX     ,"SAS",     "Sound Mixer (Sas)"},
 	{LogTypes::HLE        ,"HLE",     "HLE"},
-	{LogTypes::TIMER      ,"TMR",     "Timer"},
-	{LogTypes::VIDEO      ,"VID",     "Video"},
-	{LogTypes::DYNA_REC   ,"Jit",     "JIT compiler"},
-	{LogTypes::NETPLAY    ,"NET",     "Net play"},
+	{LogTypes::JIT        ,"JIT",     "JIT compiler"},
+	{LogTypes::LOADER     ,"LOAD",    "Loader"},
 	{LogTypes::ME         ,"ME",      "Media Engine"},
+	{LogTypes::MEMMAP     ,"MM",      "Memory Map"},
+	{LogTypes::TIMER      ,"TMR",     "CoreTiming"},
+	{LogTypes::SASMIX     ,"SASMIX",  "Sound Mixer (Sas)"},
 };
 
 LogManager::LogManager() {

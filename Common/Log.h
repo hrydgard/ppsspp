@@ -43,29 +43,31 @@ namespace LogTypes
 
 enum LOG_TYPE {
 	MASTER_LOG,
+
+	SCEAUDIO,
+	SCECTRL,
+	SCEDISPLAY,
+	SCEINTC,
+	SCEIO,
+	SCEFONT,
+	SCENET,
+	SCESAS,
+	SCEUTILITY,
+
 	BOOT,
 	COMMON,
 	CPU,
-	LOADER,
-	IO,
-	PAD,
 	FILESYS,
-	DISCIO,
 	G3D,
-	DMA,
-	INTC,
-	MEMMAP,
-	SOUND,
-	SASMIX,
-	HLE,
-	TIMER,
-	VIDEO,
-	DYNA_REC,
-	NETPLAY,
+	HLE,  // dumping ground that we should get rid off
+	JIT,
+	LOADER,
 	ME,
+	MEMMAP,
+	TIMER,
+	SASMIX,
 
 	NUMBER_OF_LOGS,  // Must be last
-	JIT = DYNA_REC,
 };
 
 // FIXME: should this be removed?

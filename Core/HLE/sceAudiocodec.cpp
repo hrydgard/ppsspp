@@ -21,16 +21,16 @@
 #include "Core/Reporting.h"
 
 int sceAudiocodecInit(u32 audioCodec, int codeType) {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceAudiocodecInit(%08x, %x)", audioCodec, codeType);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecInit(%08x, %x)", audioCodec, codeType);
 	return 0;
 }
 int sceAudiocodecDecode(u32 audioCodec, int codeType) {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceAudiocodecDecode(%08x, %x)", audioCodec, codeType);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecDecode(%08x, %x)", audioCodec, codeType);
 	return 0;
 }
 
 int sceAudiocodecGetInfo(u32 audioCodec, int codec) {
-	ERROR_LOG_REPORT(HLE, "UNIMPL sceAudiocodecGetInfo(%08x, %i)", audioCodec, codec);
+	ERROR_LOG_REPORT(ME, "UNIMPL sceAudiocodecGetInfo(%08x, %i)", audioCodec, codec);
 	return 0;
 }
 

@@ -137,7 +137,7 @@ int RegisterEvent(const char *name, TimedCallback callback)
 
 void AntiCrashCallback(u64 userdata, int cyclesLate)
 {
-	ERROR_LOG(CPU, "Savestate broken: an unregistered event was called.");
+	ERROR_LOG(TIMER, "Savestate broken: an unregistered event was called.");
 	Core_Halt("invalid timing events");
 }
 
@@ -480,7 +480,7 @@ void ProcessFifoWaitEvents()
 	{
 		if (first->time <= globalTimer)
 		{
-//			LOG(CPU, "[Scheduler] %s		 (%lld, %lld) ", 
+//			LOG(TIMER, "[Scheduler] %s		 (%lld, %lld) ", 
 //				first->name ? first->name : "?", (u64)globalTimer, (u64)first->time);
 			Event* evt = first;
 			first = first->next;
@@ -531,7 +531,7 @@ void Advance()
 
 	if (!first)
 	{
-		// WARN_LOG(CPU, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
+		// WARN_LOG(TIMER, "WARNING - no events in queue. Setting currentMIPS->downcount to 10000");
 		currentMIPS->downcount += 10000;
 	}
 	else
@@ -550,7 +550,7 @@ void LogPendingEvents()
 	Event *ptr = first;
 	while (ptr)
 	{
-		//INFO_LOG(CPU, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
+		//INFO_LOG(TIMER, "PENDING: Now: %lld Pending: %lld Type: %d", globalTimer, ptr->time, ptr->type);
 		ptr = ptr->next;
 	}
 }
@@ -575,7 +575,7 @@ void Idle(int maxIdle)
 		}
 	}
 
-	VERBOSE_LOG(CPU, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
+	VERBOSE_LOG(TIMER, "Idle for %i cycles! (%f ms)", cyclesDown, cyclesDown / (float)(CPU_HZ * 0.001f));
 
 	idledCycles += cyclesDown;
 	currentMIPS->downcount -= cyclesDown;

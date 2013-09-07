@@ -223,7 +223,7 @@ inline u32 PtrOffset(void* ptr, void* base) {
 	s64 distance = (s64)ptr-(s64)base;
 	if (distance >= 0x80000000LL ||
 	    distance < -0x80000000LL) {
-		_assert_msg_(DYNA_REC, 0, "pointer offset out of range");
+		_assert_msg_(JIT, 0, "pointer offset out of range");
 		return 0;
 	}
 	return (u32)distance;

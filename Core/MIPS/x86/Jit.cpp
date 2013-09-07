@@ -352,7 +352,7 @@ const u8 *Jit::DoJit(u32 em_address, JitBlock *b)
 void Jit::Comp_RunBlock(MIPSOpcode op)
 {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(DYNA_REC, "Comp_RunBlock");
+	ERROR_LOG(JIT, "Comp_RunBlock");
 }
 
 void Jit::Comp_Generic(MIPSOpcode op)

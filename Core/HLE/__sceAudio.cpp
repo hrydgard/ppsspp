@@ -127,7 +127,7 @@ void __AudioDoState(PointerWrap &p) {
 	p.Do(chanCount);
 	if (chanCount != ARRAY_SIZE(chans))
 	{
-		ERROR_LOG(HLE, "Savestate failure: different number of audio channels.");
+		ERROR_LOG(SCEAUDIO, "Savestate failure: different number of audio channels.");
 		return;
 	}
 	for (int i = 0; i < chanCount; ++i)
@@ -248,7 +248,7 @@ inline void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
 		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
 		u32 waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error);
 		if (waitInfo.numSamples <= 0 && waitID != 0) {
-			// DEBUG_LOG(HLE, "Woke thread %i for some buffer filling", waitingThread);
+			// DEBUG_LOG(SCEAUDIO, "Woke thread %i for some buffer filling", waitingThread);
 			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
 
@@ -265,7 +265,7 @@ void __AudioWakeThreads(AudioChannel &chan, int result) {
 }
 
 void __AudioSetOutputFrequency(int freq) {
-	WARN_LOG(HLE, "Switching audio frequency to %i", freq);
+	WARN_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
 	mixFrequency = freq;
 }
 
@@ -289,7 +289,7 @@ void __AudioUpdate() {
 		}
 
 		if (hwBlockSize * 2 > chans[i].sampleQueue.size()) {
-			ERROR_LOG(HLE, "Channel %i buffer underrun at %i of %i", i, (int)chans[i].sampleQueue.size() / 2, hwBlockSize);
+			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chans[i].sampleQueue.size() / 2, hwBlockSize);
 		}
 
 		const s16 *buf1 = 0, *buf2 = 0;
@@ -364,7 +364,7 @@ int __AudioMix(short *outstereo, int numFrames)
 
 	if (sz1 + sz2 < (size_t)numFrames) {
 		underrun = (int)(sz1 + sz2) / 2;
-		VERBOSE_LOG(HLE, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
+		VERBOSE_LOG(SCEAUDIO, "Audio out buffer UNDERRUN at %i of %i", underrun, numFrames);
 	}
 	return underrun >= 0 ? underrun : numFrames;
 }

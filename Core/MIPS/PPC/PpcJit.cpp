@@ -149,7 +149,7 @@ void Jit::EatInstruction(u32 op) {
 
 void Jit::Comp_RunBlock(u32 op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(DYNA_REC, "Comp_RunBlock should never be reached!");
+	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
 void Jit::Comp_DoNothing(u32 op) {

@@ -95,11 +95,11 @@ void FPURegCache::ReleaseSpillLocks() {
 }
 
 void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
-	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "WTF - load - imm");
+	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - load - imm");
 	if (!regs[i].away) {
 		// Reg is at home in the memory register file. Let's pull it out.
 		X64Reg xr = GetFreeXReg();
-		_assert_msg_(DYNA_REC, xr < NUM_X_FPREGS, "WTF - load - invalid reg");
+		_assert_msg_(JIT, xr < NUM_X_FPREGS, "WTF - load - invalid reg");
 		xregs[xr].mipsReg = i;
 		xregs[xr].dirty = makeDirty;
 		OpArg newloc = ::Gen::R(xr);
@@ -114,15 +114,15 @@ void FPURegCache::BindToRegister(const int i, bool doLoad, bool makeDirty) {
 	} else {
 		// There are no immediates in the FPR reg file, so we already had this in a register. Make dirty as necessary.
 		xregs[RX(i)].dirty |= makeDirty;
-		_assert_msg_(DYNA_REC, regs[i].location.IsSimpleReg(), "not loaded and not simple.");
+		_assert_msg_(JIT, regs[i].location.IsSimpleReg(), "not loaded and not simple.");
 	}
 }
 
 void FPURegCache::StoreFromRegister(int i) {
-	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "WTF - store - imm");
+	_assert_msg_(JIT, !regs[i].location.IsImm(), "WTF - store - imm");
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
-		_assert_msg_(DYNA_REC, xr < NUM_X_FPREGS, "WTF - store - invalid reg");
+		_assert_msg_(JIT, xr < NUM_X_FPREGS, "WTF - store - invalid reg");
 		xregs[xr].dirty = false;
 		xregs[xr].mipsReg = -1;
 		OpArg newLoc = GetDefaultLocation(i);
@@ -135,10 +135,10 @@ void FPURegCache::StoreFromRegister(int i) {
 }
 
 void FPURegCache::DiscardR(int i) {
-	_assert_msg_(DYNA_REC, !regs[i].location.IsImm(), "FPU can't handle imm yet.");
+	_assert_msg_(JIT, !regs[i].location.IsImm(), "FPU can't handle imm yet.");
 	if (regs[i].away) {
 		X64Reg xr = regs[i].location.GetSimpleReg();
-		_assert_msg_(DYNA_REC, xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
+		_assert_msg_(JIT, xr < NUM_X_FPREGS, "DiscardR: MipsReg had bad X64Reg");
 		// Note that we DO NOT write it back here. That's the whole point of Discard.
 		xregs[xr].dirty = false;
 		xregs[xr].mipsReg = -1;
@@ -163,7 +163,7 @@ int FPURegCache::GetTempR() {
 		}
 	}
 
-	_assert_msg_(DYNA_REC, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
+	_assert_msg_(JIT, 0, "Regcache ran out of temp regs, might need to DiscardR() some.");
 	return -1;
 }
 
@@ -180,7 +180,7 @@ void FPURegCache::Flush() {
 			} else if (regs[i].location.IsImm()) {
 				StoreFromRegister(i);
 			} else {
-				_assert_msg_(DYNA_REC,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
+				_assert_msg_(JIT,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
 			}
 		}
 	}
@@ -244,7 +244,7 @@ X64Reg FPURegCache::GetFreeXReg() {
 		}
 	}
 	//Still no dice? Die!
-	_assert_msg_(DYNA_REC, 0, "Regcache ran out of regs");
+	_assert_msg_(JIT, 0, "Regcache ran out of regs");
 	return (X64Reg) -1;
 }
 

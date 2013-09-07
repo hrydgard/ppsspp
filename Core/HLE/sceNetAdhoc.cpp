@@ -123,7 +123,7 @@ void __UpdateAdhocctlHandlers(int flag, int error) {
 }
 
 u32 sceNetAdhocInit() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocInit()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocInit()");
 	if (netAdhocInited)
 		return ERROR_NET_ADHOC_ALREADY_INITIALIZED;
 	netAdhocInited = true;
@@ -132,7 +132,7 @@ u32 sceNetAdhocInit() {
 }
 
 u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlInit(%i, %i, %08x)", stackSize, prio, productAddr);
 	if (netAdhocctlInited)
 		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
 	netAdhocctlInited = true;
@@ -145,24 +145,24 @@ u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 // Seems to always return 0, and write 0 to the pointer..
 // TODO: Eventually research what possible states there are
 int sceNetAdhocctlGetState(u32 ptrToStatus) {
-	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlGetState(%x)", ptrToStatus);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetState(%x)", ptrToStatus);
 	if (Memory::IsValidAddress(ptrToStatus))
 		Memory::Write_U32(0, ptrToStatus);
 	else
-		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlGetState(%x): Tried to write invalid location", ptrToStatus);
+		ERROR_LOG(SCENET, "UNTESTED sceNetAdhocctlGetState(%x): Tried to write invalid location", ptrToStatus);
 
 	return 0;
 }
 
 // Always return -1 since we don't have any real networking...
 int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 unknown) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpCreate(%s, %x, %x, %x)", mac, port, bufferSize, unknown);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPdpCreate(%s, %x, %x, %x)", mac, port, bufferSize, unknown);
 	return -1;
 }
 
 // TODO: Should we really write the struct if we're disconnected?
 int sceNetAdhocctlGetParameter(u32 paramAddr) {
-	WARN_LOG(HLE, "UNTESTED sceNetAdhocctlGetParameter(%x)", paramAddr);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetParameter(%x)", paramAddr);
 	struct SceNetAdhocctlParams params;
 	params.channel = 0;
 	for (int i = 0; i < 6; i++)
@@ -177,47 +177,47 @@ int sceNetAdhocctlGetParameter(u32 paramAddr) {
 }
 
 int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, void *dataLength, u32 timeout, int nonBlock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpSend(%d, %s, %d, %p, %p, %d, %d)", id, mac, port, data, dataLength, timeout, nonBlock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPdpSend(%d, %s, %d, %p, %p, %d, %d)", id, mac, port, data, dataLength, timeout, nonBlock);
 	return -1;
 }
 
 // Return -1 packets since we don't have networking yet..
 int sceNetAdhocPdpRecv(int id, const char *mac, u32 port, void *data, void *dataLength, u32 timeout, int nonBlock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpRecv(%d, %s, %d, %p, %p, %d, %d)", id, mac, port, data, dataLength, timeout, nonBlock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPdpRecv(%d, %s, %d, %p, %p, %d, %d)", id, mac, port, data, dataLength, timeout, nonBlock);
 	return -1;
 }
 
 // Assuming < 0 for failure, homebrew SDK doesn't have much to say about this one..
 int sceNetAdhocSetSocketAlert(int id, int flag) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocSetSocketAlert(%d, %d)", id, flag);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocSetSocketAlert(%d, %d)", id, flag);
 	return -1;
 }
 
 int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonblock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPollSocket(%08x, %i, %i, %i)", count, timeout, nonblock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPollSocket(%08x, %i, %i, %i)", count, timeout, nonblock);
 	return -1;
 }
 
 
 int sceNetAdhocPdpDelete(int id, int unknown) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPdpDelete(%d, %d)", id, unknown);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPdpDelete(%d, %d)", id, unknown);
 	return 0;
 }
 
 int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetAdhocId(%x)", productStructAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetAdhocId(%x)", productStructAddr);
 	return 0;
 }
 
 int sceNetAdhocctlScan() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlScan()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlScan()");
 	__UpdateAdhocctlHandlers(0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF);
 
 	return 0;
 }
 
 int sceNetAdhocctlGetScanInfo() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetScanInfo()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetScanInfo()");
 	return 0;
 }
 
@@ -244,14 +244,14 @@ u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 
 	if (!foundHandler && Memory::IsValidAddress(handlerPtr)) {
 		if (adhocctlHandlers.size() >= MAX_ADHOCCTL_HANDLERS) {
-			ERROR_LOG(HLE, "UNTESTED UNTESTED sceNetAdhocctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
+			ERROR_LOG(SCENET, "UNTESTED UNTESTED sceNetAdhocctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
 			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS;
 			return retval;
 		}
 		adhocctlHandlers[retval] = handler;
-		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
+		WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
 	} else {
-		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
+		ERROR_LOG(SCENET, "UNTESTED sceNetAdhocctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
 	}
 
 	// The id to return is the number of handlers currently registered
@@ -260,9 +260,9 @@ u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 
 int sceNetAdhocctlConnect(u32 ptrToGroupName) {
 	if (Memory::IsValidAddress(ptrToGroupName)) {
-		ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlConnect(groupName=%s)", Memory::GetCharPointer(ptrToGroupName));
+		ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlConnect(groupName=%s)", Memory::GetCharPointer(ptrToGroupName));
 	} else {
-		ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlConnect(%x)", ptrToGroupName);
+		ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlConnect(%x)", ptrToGroupName);
 	}
 	__UpdateAdhocctlHandlers(0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF);
 
@@ -270,7 +270,7 @@ int sceNetAdhocctlConnect(u32 ptrToGroupName) {
 }
 
 u32 sceNetAdhocctlDisconnect() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlDisconnect()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlDisconnect()");
 	__UpdateAdhocctlHandlers(0, ERROR_NET_ADHOCCTL_WLAN_SWITCH_OFF);
 
 	return 0;
@@ -279,53 +279,53 @@ u32 sceNetAdhocctlDisconnect() {
 u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 	if (adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
 		adhocctlHandlers.erase(handlerID);
-		WARN_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
+		WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
 	} else {
-		ERROR_LOG(HLE, "UNTESTED sceNetAdhocctlDelHandler(%d): asked to delete invalid handler %d", handlerID, handlerID);
+		ERROR_LOG(SCENET, "UNTESTED sceNetAdhocctlDelHandler(%d): asked to delete invalid handler %d", handlerID, handlerID);
 	}
 
 	return 0;
 }
 
 int sceNetAdhocctlTerm() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlTerm()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlTerm()");
 	netAdhocctlInited = false;
 
 	return 0;
 }
 
 int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetNameByAddr(%s, %08x)", mac, nameAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetNameByAddr(%s, %08x)", mac, nameAddr);
 	return -1;
 }
 
 int sceNetAdhocctlJoin(u32 scanInfoAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlJoin(%08x)", scanInfoAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlJoin(%08x)", scanInfoAddr);
 	return -1;
 }
 
 int sceNetAdhocctlGetPeerInfo(const char *mac, int size, u32 peerInfoAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetPeerInfo(%s, %i, %08x)", mac, size, peerInfoAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetPeerInfo(%s, %i, %08x)", mac, size, peerInfoAddr);
 	return -1;
 }
 
 int sceNetAdhocctlCreate(const char *groupName) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlCreate(%s)", groupName);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlCreate(%s)", groupName);
 	return -1;
 }
 
 int sceNetAdhocctlCreateEnterGameMode(const char *groupName, int unknown, int playerNum, u32 macsAddr, int timeout, int unknown2) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i)", groupName, unknown, playerNum, macsAddr, timeout, unknown2);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlCreateEnterGameMode(%s, %i, %i, %08x, %i, %i)", groupName, unknown, playerNum, macsAddr, timeout, unknown2);
 	return -1;
 }
 
 int sceNetAdhocctlJoinEnterGameMode(const char *groupName, const char *macAddr, int timeout, int unknown2) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i)", groupName, macAddr, timeout, unknown2);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlJoinEnterGameMode(%s, %s, %i, %i)", groupName, macAddr, timeout, unknown2);
 	return -1;
 }
 
 int sceNetAdhocTerm() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocTerm()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocTerm()");
 	// Seems to return this when called a second time after being terminated without another initialisation
 	if(!netAdhocInited) 
 		return SCE_KERNEL_ERROR_LWMUTEX_NOT_FOUND;
@@ -335,92 +335,92 @@ int sceNetAdhocTerm() {
 }
 
 int sceNetAdhocGetPdpStat(int structSize, u32 structAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGetPdpStat(%i, %08x)", structSize, structAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGetPdpStat(%i, %08x)", structSize, structAddr);
 	return 0;
 }
 
 int sceNetAdhocGetPtpStat(int structSize, u32 structAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGetPtpStat(%i, %08x)", structSize, structAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGetPtpStat(%i, %08x)", structSize, structAddr);
 	return 0;
 }
 
 int sceNetAdhocPtpOpen(const char *srcmac, int srcport, const char *dstmac, int dstport, int bufsize, int retryDelay, int retryCount, int unknown) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPtpOpen(%s : %i, %s : %i, %i, %i, %i)", srcmac, srcport, dstmac, dstport, bufsize, retryDelay, retryCount, unknown);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpOpen(%s : %i, %s : %i, %i, %i, %i)", srcmac, srcport, dstmac, dstport, bufsize, retryDelay, retryCount, unknown);
 	return 0;
 }
 
 int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeout, int nonblock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPtpAccept(%i, %08x, %08x, %i, %i)", id, peerMacAddrPtr, peerPortPtr, timeout, nonblock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpAccept(%i, %08x, %08x, %i, %i)", id, peerMacAddrPtr, peerPortPtr, timeout, nonblock);
 	return 0;
 }
 
 int sceNetAdhocPtpConnect(int id, int timeout, int nonblock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPtpConnect(%i, %i, %i)", id, timeout, nonblock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpConnect(%i, %i, %i)", id, timeout, nonblock);
 	return -1;
 }
 
 int sceNetAdhocPtpClose(int id, int unknown) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPtpClose(%i, %i)", id, unknown);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpClose(%i, %i)", id, unknown);
 	return 0;
 }
 
 int sceNetAdhocPtpListen(const char *srcmac, int srcport, int bufsize, int retryDelay, int retryCount, int queue, int unk) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPtpListen(%s : %i, %i, %i, %i, %i, %i)", srcmac, srcport, bufsize, retryDelay, retryCount, queue, unk);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpListen(%s : %i, %i, %i, %i, %i, %i)", srcmac, srcport, bufsize, retryDelay, retryCount, queue, unk);
 	return 0;
 }
 
 int sceNetAdhocPtpSend(int id, u32 data, u32 dataSizeAddr, int timeout, int nonblock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPtpSend(%i, %08x, %08x, %i, %i)", id, data, dataSizeAddr, timeout, nonblock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpSend(%i, %08x, %08x, %i, %i)", id, data, dataSizeAddr, timeout, nonblock);
 	return 0;
 }
 
 int sceNetAdhocPtpRecv(int id, u32 data, u32 dataSizeAddr, int timeout, int nonblock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPtpRecv(%i, %08x, %08x, %i, %i)", id, data, dataSizeAddr, timeout, nonblock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpRecv(%i, %08x, %08x, %i, %i)", id, data, dataSizeAddr, timeout, nonblock);
 	return 0;
 }
 
 int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocPtpFlush(%i, %i, %i)", id, timeout, nonblock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpFlush(%i, %i, %i)", id, timeout, nonblock);
 	return 0;
 }
 
 int sceNetAdhocGameModeCreateMaster(u32 data, int size) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGameModeCreateMaster(%08x, %i)", data, size);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeCreateMaster(%08x, %i)", data, size);
 	return -1;
 }
 
 int sceNetAdhocGameModeCreateReplica(const char *mac, u32 data, int size) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGameModeCreateReplica(%s, %08x, %i)", mac, data, size);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeCreateReplica(%s, %08x, %i)", mac, data, size);
 	return -1;
 }
 
 int sceNetAdhocGameModeUpdateMaster() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGameModeUpdateMaster()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeUpdateMaster()");
 	return -1;
 }
 
 int sceNetAdhocGameModeDeleteMaster() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGameModeDeleteMaster()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeDeleteMaster()");
 	return -1;
 }
 
 int sceNetAdhocGameModeUpdateReplica(int id, u32 infoAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGameModeUpdateReplica(%i, %08x)", id, infoAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeUpdateReplica(%i, %08x)", id, infoAddr);
 	return -1;
 }
 
 int sceNetAdhocGameModeDeleteReplica(int id) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGameModeDeleteReplica(%i)", id);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGameModeDeleteReplica(%i)", id);
 	return -1;
 }
 
 int sceNetAdhocGetSocketAlert() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocGetSocketAlert()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocGetSocketAlert()");
 	return 0;
 }
 
 int sceNetAdhocMatchingInit(u32 memsize) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingInit(%08x)", memsize);
 	if (netAdhocMatchingInited) 
 		return ERROR_NET_ADHOC_MATCHING_ALREADY_INITIALIZED;
 	netAdhocMatchingInited = true;
@@ -429,7 +429,7 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 }
 
 int sceNetAdhocMatchingTerm() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingTerm()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingTerm()");
 	netAdhocMatchingInited = false;
 
 	return 0;
@@ -439,72 +439,72 @@ int sceNetAdhocMatchingTerm() {
 
 // Presumably returns a "matchingId".
 int sceNetAdhocMatchingCreate(int mode, int maxPeers, int port, int bufSize, int helloDelay, int pingDelay, int initCount, int msgDelay, u32 callbackAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingCreate(%i, %i, %i, %i, %i, %i, %i, %i, %08x)", mode, maxPeers, port, bufSize, helloDelay, pingDelay, initCount, msgDelay, callbackAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingCreate(%i, %i, %i, %i, %i, %i, %i, %i, %08x)", mode, maxPeers, port, bufSize, helloDelay, pingDelay, initCount, msgDelay, callbackAddr);
 	return -1;
 }
 
 int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %i, %i, %08x)", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %i, %i, %08x)", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr);
 	return -1;
 }
 
 int sceNetAdhocMatchingStop(int matchingId) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingStop(%i)", matchingId);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingStop(%i)", matchingId);
 	return -1;
 }
 
 int sceNetAdhocMatchingDelete(int matchingId) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingDelete(%i)", matchingId);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingDelete(%i)", matchingId);
 	return -1;
 }
 
 int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingSelectTarget(%i, %s, %i, %08x)", matchingId, macAddress, optLen, optDataPtr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingSelectTarget(%i, %s, %i, %08x)", matchingId, macAddress, optLen, optDataPtr);
 	return -1;
 }
 
 int sceNetAdhocMatchingCancelTargetWithOpt(int matchingId, const char *macAddress, int optLen, u32 optDataPtr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x)", matchingId, macAddress, optLen, optDataPtr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingCancelTargetWithOpt(%i, %s, %i, %08x)", matchingId, macAddress, optLen, optDataPtr);
 	return -1;
 }
 
 int sceNetAdhocMatchingCancelTarget(int matchingId, const char *macAddress) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, macAddress);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingCancelTarget(%i, %s)", matchingId, macAddress);
 	return -1;
 }
 
 int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingGetHelloOpt(%i, %08x, %08x)", matchingId, optLenAddr, optDataAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetHelloOpt(%i, %08x, %08x)", matchingId, optLenAddr, optDataAddr);
 	return -1;
 }
 
 int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingSetHelloOpt(%i, %i, %08x)", matchingId, optLenAddr, optDataAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingSetHelloOpt(%i, %i, %08x)", matchingId, optLenAddr, optDataAddr);
 	return -1;
 }
 
 int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingGetMembers(%i, %08x, %08x)", matchingId, sizeAddr, buf);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetMembers(%i, %08x, %08x)", matchingId, sizeAddr, buf);
 	return -1;
 }
 
 int sceNetAdhocMatchingSendData(int matchingId, const char *mac, int dataLen, u32 dataAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingSendData(%i, %s, %i, %08x)", matchingId, mac, dataLen, dataAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingSendData(%i, %s, %i, %08x)", matchingId, mac, dataLen, dataAddr);
 	return -1;
 }
 
 int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingAbortSendData(%i, %s)", matchingId, mac);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingAbortSendData(%i, %s)", matchingId, mac);
 	return -1;
 }
 
 int sceNetAdhocMatchingGetPoolMaxAlloc() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetPoolMaxAlloc()");
 	return -1;
 }
 
 int sceNetAdhocMatchingGetPoolStat() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocMatchingGetPoolStat()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingGetPoolStat()");
 	return -1;
 }
 
@@ -557,22 +557,22 @@ const HLEFunction sceNetAdhocMatching[] = {
 };
 
 int sceNetAdhocctlExitGameMode() {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlExitGameMode()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlExitGameMode()");
 	return -1;
 }
 
 int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetGameModeInfo(%08x)", infoAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetGameModeInfo(%08x)", infoAddr);
 	return -1;
 }
 
 int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetPeerList(%08x, %08x)", sizeAddr, bufAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetPeerList(%08x, %08x)", sizeAddr, bufAddr);
 	return -1;
 }
 
 int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 bufAddr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetAdhocctlGetPeerList(%s, %08x, %08x)", nickName, sizeAddr, bufAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocctlGetPeerList(%s, %08x, %08x)", nickName, sizeAddr, bufAddr);
 	return -1;
 }
 

@@ -110,7 +110,7 @@ void __NetDoState(PointerWrap &p) {
 
 // TODO: should that struct actually be initialized here?
 void sceNetInit() {
-	ERROR_LOG(HLE,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
+	ERROR_LOG(SCENET,"UNIMPL sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d)", PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4));
 	netInited = true;
 	netMallocStat.maximum = PARAM(0);
 	netMallocStat.free = PARAM(0);
@@ -120,7 +120,7 @@ void sceNetInit() {
 }
 
 u32 sceNetTerm() {
-	ERROR_LOG(HLE,"UNIMPL sceNetTerm()");
+	ERROR_LOG(SCENET,"UNIMPL sceNetTerm()");
 	netInited = false;
 
 	return 0;
@@ -128,7 +128,7 @@ u32 sceNetTerm() {
 
 u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	static const u8 fakeEtherAddr[6] = { 1, 2, 3, 4, 5, 6 };
-	DEBUG_LOG(HLE, "sceWlanGetEtherAddr(%08x)", addrAddr);
+	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
 	for (int i = 0; i < 6; i++)
 		Memory::Write_U8(fakeEtherAddr[i], addrAddr + i);
 
@@ -136,18 +136,18 @@ u32 sceWlanGetEtherAddr(u32 addrAddr) {
 }
 
 u32 sceWlanDevIsPowerOn() {
-	DEBUG_LOG(HLE, "UNTESTED 0=sceWlanDevIsPowerOn()");
+	DEBUG_LOG(SCENET, "UNTESTED 0=sceWlanDevIsPowerOn()");
 	return 0;
 }
 
 u32 sceWlanGetSwitchState() {
-	DEBUG_LOG(HLE, "UNTESTED sceWlanGetSwitchState()");
+	DEBUG_LOG(SCENET, "UNTESTED sceWlanGetSwitchState()");
 	return 0;
 }
 
 // Probably a void function, but often returns a useful value.
 int sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
-	DEBUG_LOG(HLE, "sceNetEtherNtostr(%08x, %08x)", macPtr, bufferPtr);
+	DEBUG_LOG(SCENET, "sceNetEtherNtostr(%08x, %08x)", macPtr, bufferPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
 		char *buffer = (char *)Memory::GetPointer(bufferPtr);
@@ -174,7 +174,7 @@ static int hex_to_digit(int c) {
 
 // Probably a void function, but sometimes returns a useful-ish value.
 int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
-	DEBUG_LOG(HLE, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
+	DEBUG_LOG(SCENET, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
 		const char *buffer = (char *)Memory::GetPointer(bufferPtr);
@@ -215,17 +215,17 @@ int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 
 // Write static data since we don't actually manage any memory for sceNet* yet.
 int sceNetGetMallocStat(u32 statPtr) {
-	WARN_LOG(HLE, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
+	WARN_LOG(SCENET, "UNTESTED sceNetGetMallocStat(%x)", statPtr);
 	if(Memory::IsValidAddress(statPtr))
 		Memory::WriteStruct(statPtr, &netMallocStat);
 	else
-		ERROR_LOG(HLE, "UNTESTED sceNetGetMallocStat(%x): tried to request invalid address!", statPtr);
+		ERROR_LOG(SCENET, "UNTESTED sceNetGetMallocStat(%x): tried to request invalid address!", statPtr);
 
 	return 0;
 }
 
 int sceNetInetInit() {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetInit()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetInit()");
 	if (netInetInited)
 		return ERROR_NET_INET_ALREADY_INITIALIZED;
 	netInetInited = true;
@@ -234,14 +234,14 @@ int sceNetInetInit() {
 }
 
 int sceNetInetTerm() {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetTerm()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetTerm()");
 	netInetInited = false;
 
 	return 0;
 }
 
 int sceNetApctlInit() {
-	ERROR_LOG(HLE, "UNIMPL sceNetApctlInit()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetApctlInit()");
 	if (netApctlInited)
 		return ERROR_NET_APCTL_ALREADY_INITIALIZED;
 	netApctlInited = true;
@@ -250,7 +250,7 @@ int sceNetApctlInit() {
 }
 
 int sceNetApctlTerm() {
-	ERROR_LOG(HLE, "UNIMPL sceNeApctlTerm()");
+	ERROR_LOG(SCENET, "UNIMPL sceNeApctlTerm()");
 	netApctlInited = false;
 	
 	return 0;
@@ -279,15 +279,15 @@ u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 
 	if(!foundHandler && Memory::IsValidAddress(handlerPtr)) {
 		if(apctlHandlers.size() >= MAX_APCTL_HANDLERS) {
-			ERROR_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
+			ERROR_LOG(SCENET, "UNTESTED sceNetApctlAddHandler(%x, %x): Too many handlers", handlerPtr, handlerArg);
 			retval = ERROR_NET_ADHOCCTL_TOO_MANY_HANDLERS; // TODO: What's the proper error code for Apctl's TOO_MANY_HANDLERS?
 			return retval;
 		}
 		apctlHandlers[retval] = handler;
-		WARN_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
+		WARN_LOG(SCENET, "UNTESTED sceNetApctlAddHandler(%x, %x): added handler %d", handlerPtr, handlerArg, retval);
 	}
 	else
-		ERROR_LOG(HLE, "UNTESTED sceNetApctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
+		ERROR_LOG(SCENET, "UNTESTED sceNetApctlAddHandler(%x, %x): Same handler already exists", handlerPtr, handlerArg);
 
 
 	// The id to return is the number of handlers currently registered
@@ -297,46 +297,46 @@ u32 sceNetApctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 int sceNetApctlDelHandler(u32 handlerID) {
 	if(apctlHandlers.find(handlerID) != apctlHandlers.end()) {
 		apctlHandlers.erase(handlerID);
-		WARN_LOG(HLE, "UNTESTED sceNetapctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
+		WARN_LOG(SCENET, "UNTESTED sceNetapctlDelHandler(%d): deleted handler %d", handlerID, handlerID);
 	}
 	else
-		ERROR_LOG(HLE, "UNTESTED sceNetapctlDelHandler(%d): asked to delete invalid handler %d", handlerID, handlerID);
+		ERROR_LOG(SCENET, "UNTESTED sceNetapctlDelHandler(%d): asked to delete invalid handler %d", handlerID, handlerID);
 
 	return 0;
 }
 
 int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
 	return -1;
 }
 
 int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetRecv(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetRecv(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
 	return -1;
 }
 
 int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
 	return -1;
 }
 
 int sceNetInetGetErrno() {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetGetErrno()");
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetGetErrno()");
 	return -1;
 }
 
 int sceNetInetSocket(int domain, int type, int protocol) {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetSocket(%i, %i, %i)", domain, type, protocol);
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetSocket(%i, %i, %i)", domain, type, protocol);
 	return -1;
 }
 
 int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
 	return -1;
 }
 
 int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
-	ERROR_LOG(HLE, "UNIMPL sceNetInetConnect(%i, %08x, %i)", socket, sockAddrInternetPtr, addressLength);
+	ERROR_LOG(SCENET, "UNIMPL sceNetInetConnect(%i, %08x, %i)", socket, sockAddrInternetPtr, addressLength);
 	return -1;
 }
 

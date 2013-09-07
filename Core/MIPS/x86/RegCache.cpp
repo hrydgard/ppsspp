@@ -138,7 +138,7 @@ X64Reg GPRRegCache::GetFreeXReg()
 		}
 	}
 	//Still no dice? Die!
-	_assert_msg_(DYNA_REC, 0, "Regcache ran out of regs");
+	_assert_msg_(JIT, 0, "Regcache ran out of regs");
 	return (X64Reg) -1;
 }
 
@@ -303,7 +303,7 @@ void GPRRegCache::Flush() {
 			else if (regs[i].location.IsImm()) {
 				StoreFromRegister(r);
 			} else {
-				_assert_msg_(DYNA_REC,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
+				_assert_msg_(JIT,0,"Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
 			}
 		}
 	}
