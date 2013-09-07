@@ -262,10 +262,10 @@ u32 sceSasSetPitch(u32 core, int voiceNum, int pitch) {
 	SasVoice &v = sas->voices[voiceNum];
 	// Clamp pitch
 	if (pitch < PSP_SAS_PITCH_MIN) {
-		WARN_LOG(SAS, "bad pitch %i, clamping to %i", pitch, PSP_SAS_PITCH_MIN);
+		WARN_LOG(HLE, "sceSasSetPitch: bad pitch %i, clamping to %i", pitch, PSP_SAS_PITCH_MIN);
 		pitch = PSP_SAS_PITCH_MIN;
 	} else if (pitch > PSP_SAS_PITCH_MAX) {
-		WARN_LOG(SAS, "bad pitch %i, clamping to %i", pitch, PSP_SAS_PITCH_MAX);
+		WARN_LOG(HLE, "sceSasSetPitch: bad pitch %i, clamping to %i", pitch, PSP_SAS_PITCH_MAX);
 		pitch = PSP_SAS_PITCH_MAX;
 	}
 

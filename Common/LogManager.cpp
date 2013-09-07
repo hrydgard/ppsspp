@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include "base/logging.h"
+#include "util/text/utf8.h"
 #include "LogManager.h"
 #include "ConsoleListener.h"
 #include "Timer.h"
@@ -35,9 +36,8 @@ const char *hleCurrentThreadName = NULL;
 // #define LOG_MSC_OUTPUTDEBUG true
 
 void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
-		const char *file, int line, const char* fmt, ...)
-{
-	if(!g_Config.bEnableLogging) return;
+		const char *file, int line, const char* fmt, ...) {
+	if (!g_Config.bEnableLogging) return;
 
 	va_list args;
 	va_start(args, fmt);
@@ -49,30 +49,40 @@ void GenericLog(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type,
 
 LogManager *LogManager::m_logManager = NULL;
 
-LogManager::LogManager()
-{
-	// create log files
-	m_Log[LogTypes::MASTER_LOG] = new LogContainer("*",	      "Master Log");
-	m_Log[LogTypes::BOOT]       = new LogContainer("BOOT",    "Boot");
-	m_Log[LogTypes::COMMON]     = new LogContainer("COMMON",  "Common");
-	m_Log[LogTypes::CPU]        = new LogContainer("CPU",     "CPU");
-	m_Log[LogTypes::LOADER]     = new LogContainer("LOAD",    "Loader");
-	m_Log[LogTypes::IO]         = new LogContainer("IO",      "IO");
-	m_Log[LogTypes::DISCIO]     = new LogContainer("DIO",     "DiscIO");
-	m_Log[LogTypes::PAD]        = new LogContainer("PAD",     "Pad");
-	m_Log[LogTypes::FILESYS]    = new LogContainer("FileSys", "File System");
-	m_Log[LogTypes::G3D]        = new LogContainer("G3D",     "3D Graphics");
-	m_Log[LogTypes::DMA]        = new LogContainer("DMA",     "DMA");
-	m_Log[LogTypes::INTC]       = new LogContainer("INTC",    "Interrupts");
-	m_Log[LogTypes::MEMMAP]     = new LogContainer("MM",      "Memory Map");
-	m_Log[LogTypes::SOUND]      = new LogContainer("SND",     "Sound");
-	m_Log[LogTypes::SAS]        = new LogContainer("SAS",     "Sound Mixer (Sas)");
-	m_Log[LogTypes::HLE]        = new LogContainer("HLE",     "HLE");
-	m_Log[LogTypes::TIMER]      = new LogContainer("TMR",     "Timer");
-	m_Log[LogTypes::VIDEO]      = new LogContainer("VID",     "Video");
-	m_Log[LogTypes::DYNA_REC]   = new LogContainer("Jit",     "JIT compiler");
-	m_Log[LogTypes::NETPLAY]    = new LogContainer("NET",     "Net play");
-	m_Log[LogTypes::ME]         = new LogContainer("ME",      "Media Engine");
+struct LogNameTableEntry {
+	LogTypes::LOG_TYPE logType;
+	const char *name;
+	const char *longName;
+};
+
+static const LogNameTableEntry logTable[] = {
+	{LogTypes::MASTER_LOG, "*",       "Master Log"},
+	{LogTypes::BOOT       ,"BOOT",    "Boot"},
+	{LogTypes::COMMON     ,"COMMON",  "Common"},
+	{LogTypes::CPU        ,"CPU",     "CPU"},
+	{LogTypes::LOADER     ,"LOAD",    "Loader"},
+	{LogTypes::IO         ,"IO",      "IO"},
+	{LogTypes::DISCIO     ,"DIO",     "DiscIO"},
+	{LogTypes::PAD        ,"PAD",     "Pad"},
+	{LogTypes::FILESYS    ,"FileSys", "File System"},
+	{LogTypes::G3D        ,"G3D",     "3D Graphics"},
+	{LogTypes::DMA        ,"DMA",     "DMA"},
+	{LogTypes::INTC       ,"INTC",    "Interrupts"},
+	{LogTypes::MEMMAP     ,"MM",      "Memory Map"},
+	{LogTypes::SOUND      ,"SND",     "Sound"},
+	{LogTypes::SASMIX     ,"SAS",     "Sound Mixer (Sas)"},
+	{LogTypes::HLE        ,"HLE",     "HLE"},
+	{LogTypes::TIMER      ,"TMR",     "Timer"},
+	{LogTypes::VIDEO      ,"VID",     "Video"},
+	{LogTypes::DYNA_REC   ,"Jit",     "JIT compiler"},
+	{LogTypes::NETPLAY    ,"NET",     "Net play"},
+	{LogTypes::ME         ,"ME",      "Media Engine"},
+};
+
+LogManager::LogManager() {
+	for (size_t i = 0; i < ARRAY_SIZE(logTable); i++) {
+		m_Log[logTable[i].logType] = new LogContainer(logTable[i].name, logTable[i].longName);
+	}
 
 	// Remove file logging on small devices
 #if !defined(USING_GLES2) || defined(_DEBUG)
@@ -85,8 +95,7 @@ LogManager::LogManager()
 	m_debuggerLog = NULL;
 #endif
 
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
-	{
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i) {
 		m_Log[i]->SetEnable(true);
 #if !defined(USING_GLES2) || defined(_DEBUG)
 		m_Log[i]->AddListener(m_fileLog);
@@ -123,36 +132,29 @@ LogManager::~LogManager()
 #endif
 }
 
-void LogManager::ChangeFileLog(const char *filename)
-{
-	if (m_fileLog != NULL)
-	{
+void LogManager::ChangeFileLog(const char *filename) {
+	if (m_fileLog != NULL) {
 		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 			m_logManager->RemoveListener((LogTypes::LOG_TYPE)i, m_fileLog);
 		delete m_fileLog;
 	}
 
-	if (filename != NULL)
-	{
+	if (filename != NULL) {
 		m_fileLog = new FileLogListener(filename);
 		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; ++i)
 			m_Log[i]->AddListener(m_fileLog);
 	}
 }
 
-void LogManager::SaveConfig(IniFile::Section *section)
-{
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-	{
+void LogManager::SaveConfig(IniFile::Section *section) {
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		section->Set((std::string(m_Log[i]->GetShortName()) + "Enabled").c_str(), m_Log[i]->IsEnabled());
 		section->Set((std::string(m_Log[i]->GetShortName()) + "Level").c_str(), (int)m_Log[i]->GetLevel());
 	}
 }
 
-void LogManager::LoadConfig(IniFile::Section *section)
-{
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-	{
+void LogManager::LoadConfig(IniFile::Section *section) {
+	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
 		bool enabled;
 		int level;
 		section->Get((std::string(m_Log[i]->GetShortName()) + "Enabled").c_str(), &enabled, true);
@@ -162,8 +164,7 @@ void LogManager::LoadConfig(IniFile::Section *section)
 	}
 }
 
-void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *format, va_list args)
-{
+void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const char *file, int line, const char *format, va_list args) {
 	std::lock_guard<std::mutex> lk(m_log_lock);
 
 	char msg[MAX_MSGLEN * 2];
@@ -215,61 +216,56 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	log->Trigger(level, msg);
 }
 
-void LogManager::Init()
-{
+void LogManager::Init() {
 	m_logManager = new LogManager();
 }
 
-void LogManager::Shutdown()
-{
+void LogManager::Shutdown() {
 	delete m_logManager;
 	m_logManager = NULL;
 }
 
 LogContainer::LogContainer(const char* shortName, const char* fullName, bool enable)
-	: m_enable(enable)
-{
+	: m_enable(enable) {
 	strncpy(m_fullName, fullName, 128);
 	strncpy(m_shortName, shortName, 32);
 	m_level = LogTypes::LDEBUG;
 }
 
 // LogContainer
-void LogContainer::AddListener(LogListener *listener)
-{
+void LogContainer::AddListener(LogListener *listener) {
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 	m_listeners.insert(listener);
 }
 
-void LogContainer::RemoveListener(LogListener *listener)
-{
+void LogContainer::RemoveListener(LogListener *listener) {
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 	m_listeners.erase(listener);
 }
 
-void LogContainer::Trigger(LogTypes::LOG_LEVELS level, const char *msg)
-{
+void LogContainer::Trigger(LogTypes::LOG_LEVELS level, const char *msg) {
 #ifdef __SYMBIAN32__
 	RDebug::Printf("%s",msg);
 #else
 	std::lock_guard<std::mutex> lk(m_listeners_lock);
 
 	std::set<LogListener*>::const_iterator i;
-	for (i = m_listeners.begin(); i != m_listeners.end(); ++i)
-	{
+	for (i = m_listeners.begin(); i != m_listeners.end(); ++i) {
 		(*i)->Log(level, msg);
 	}
 #endif
 }
 
-FileLogListener::FileLogListener(const char *filename)
-{
+FileLogListener::FileLogListener(const char *filename) {
+#ifdef _WIN32
+	m_logfile.open(ConvertUTF8ToWString(filename).c_str(), std::ios::app);
+#else
 	m_logfile.open(filename, std::ios::app);
+#endif
 	SetEnable(true);
 }
 
-void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
-{
+void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg) {
 	if (!IsEnabled() || !IsValid())
 		return;
 
@@ -277,8 +273,7 @@ void FileLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
 	m_logfile << msg << std::flush;
 }
 
-void DebuggerLogListener::Log(LogTypes::LOG_LEVELS, const char *msg)
-{
+void DebuggerLogListener::Log(LogTypes::LOG_LEVELS, const char *msg) {
 #if _MSC_VER
 	OutputDebugStringUTF8(msg);
 #endif

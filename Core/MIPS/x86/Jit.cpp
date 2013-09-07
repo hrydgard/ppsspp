@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <iterator>
+
 #include "Common/ChunkFile.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -31,8 +32,8 @@
 #include "RegCache.h"
 #include "Jit.h"
 
-#include "../../Host.h"
-#include "../../Debugger/Breakpoints.h"
+#include "Core/Host.h"
+#include "Core/Debugger/Breakpoints.h"
 
 namespace MIPSComp
 {
@@ -229,8 +230,12 @@ void Jit::CompileAt(u32 addr)
 void Jit::EatInstruction(MIPSOpcode op)
 {
 	MIPSInfo info = MIPSGetInfo(op);
-	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
-	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
+	if (info & DELAYSLOT) {
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
+	}
+	if (js.inDelaySlot) {
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.")
+	}
 
 	CheckJitBreakpoint(js.compilerPC + 4, 0);
 	js.numInstructions++;

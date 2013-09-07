@@ -32,16 +32,14 @@
 extern const char *hleCurrentThreadName;
 
 // pure virtual interface
-class LogListener
-{
+class LogListener {
 public:
 	virtual ~LogListener() {}
 
 	virtual void Log(LogTypes::LOG_LEVELS, const char *msg) = 0;
 };
 
-class FileLogListener : public LogListener
-{
+class FileLogListener : public LogListener {
 public:
 	FileLogListener(const char *filename);
 
@@ -59,14 +57,12 @@ private:
 	bool m_enable;
 };
 
-class DebuggerLogListener : public LogListener
-{
+class DebuggerLogListener : public LogListener {
 public:
 	void Log(LogTypes::LOG_LEVELS, const char *msg);
 };
 
-class LogContainer
-{
+class LogContainer {
 public:
 	LogContainer(const char* shortName, const char* fullName, bool enable = false);
 	
@@ -98,8 +94,7 @@ private:
 
 class ConsoleListener;
 
-class LogManager : NonCopyable
-{
+class LogManager : NonCopyable {
 private:
 	LogContainer* m_Log[LogTypes::NUMBER_OF_LOGS];
 	FileLogListener *m_fileLog;
@@ -117,68 +112,39 @@ public:
 	void Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, 
 			 const char *file, int line, const char *fmt, va_list args);
 
-	void SetLogLevel(LogTypes::LOG_TYPE type, LogTypes::LOG_LEVELS level)
-	{
+	void SetLogLevel(LogTypes::LOG_TYPE type, LogTypes::LOG_LEVELS level) {
 		m_Log[type]->SetLevel(level);
 	}
 
-	LogTypes::LOG_LEVELS GetLogLevel(LogTypes::LOG_TYPE type)
-	{
-		return m_Log[type]->GetLevel();
-	}
-
-	void SetEnable(LogTypes::LOG_TYPE type, bool enable)
-	{
+	void SetEnable(LogTypes::LOG_TYPE type, bool enable) {
 		m_Log[type]->SetEnable(enable);
 	}
 
-	bool IsEnabled(LogTypes::LOG_TYPE type) const
-	{
-		return m_Log[type]->IsEnabled();
+	LogTypes::LOG_LEVELS GetLogLevel(LogTypes::LOG_TYPE type) {
+		return m_Log[type]->GetLevel();
 	}
 
-	const char* GetShortName(LogTypes::LOG_TYPE type) const
-	{
-		return m_Log[type]->GetShortName();
-	}
-
-	const char* GetFullName(LogTypes::LOG_TYPE type) const
-	{
-		return m_Log[type]->GetFullName();
-	}
-
-	void AddListener(LogTypes::LOG_TYPE type, LogListener *listener)
-	{
+	void AddListener(LogTypes::LOG_TYPE type, LogListener *listener) {
 		m_Log[type]->AddListener(listener);
 	}
 
-	void RemoveListener(LogTypes::LOG_TYPE type, LogListener *listener)
-	{
+	void RemoveListener(LogTypes::LOG_TYPE type, LogListener *listener) {
 		m_Log[type]->RemoveListener(listener);
 	}
 
-	FileLogListener *GetFileListener() const
-	{
-		return m_fileLog;
-	}
-
-	ConsoleListener *GetConsoleListener() const
-	{
+	ConsoleListener *GetConsoleListener() const {
 		return m_consoleLog;
 	}
 
-	DebuggerLogListener *GetDebuggerListener() const
-	{
+	DebuggerLogListener *GetDebuggerListener() const {
 		return m_debuggerLog;
 	}
 
-	static LogManager* GetInstance()
-	{
+	static LogManager* GetInstance() {
 		return m_logManager;
 	}
 
-	static void SetInstance(LogManager *logManager)
-	{
+	static void SetInstance(LogManager *logManager) {
 		m_logManager = logManager;
 	}
 

@@ -65,7 +65,7 @@ void VagDecoder::DecodeBlock(u8 *&readp) {
 	predict_nr >>= 4;
 	int flags = *readp++;
 	if (flags == 7) {
-		VERBOSE_LOG(SAS, "VAG ending block at %d", curBlock_);
+		VERBOSE_LOG(SASMIX, "VAG ending block at %d", curBlock_);
 		end_ = true;
 		return;
 	}
@@ -105,14 +105,14 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	u8 *readp = Memory::GetPointer(read_);
 	if (!readp)
 	{
-		WARN_LOG(SAS, "Bad VAG samples address?");
+		WARN_LOG(SASMIX, "Bad VAG samples address?");
 		return;
 	}
 	u8 *origp = readp;
 	for (int i = 0; i < numSamples; i++) {
 		if (curSample == 28) {
 			if (loopAtNextBlock_) {
-				VERBOSE_LOG(SAS, "Looping VAG from block %d/%d to %d", curBlock_, numBlocks_, loopStartBlock_);
+				VERBOSE_LOG(SASMIX, "Looping VAG from block %d/%d to %d", curBlock_, numBlocks_, loopStartBlock_);
 				// data_ starts at curBlock = -1.
 				read_ = data_ + 16 * loopStartBlock_ + 16;
 				readp = Memory::GetPointer(read_);
@@ -234,7 +234,7 @@ static int getSustainType(int bitfield2) {
 	case 4: return PSP_SAS_ADSR_CURVE_MODE_LINEAR_BENT;
 	case 6: return PSP_SAS_ADSR_CURVE_MODE_EXPONENT_DECREASE;
 	}
-	ERROR_LOG(SAS,"sasSetSimpleADSR,ERROR_SAS_INVALID_ADSR_CURVE_MODE");
+	ERROR_LOG(SASMIX,"sasSetSimpleADSR,ERROR_SAS_INVALID_ADSR_CURVE_MODE");
 	return 0;
 }
 
@@ -357,7 +357,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 			// But for now, see Smoothness HACKERY below :P
 			u32 numSamples = (voice.sampleFrac + grainSize * voice.pitch) / PSP_SAS_PITCH_BASE;
 			if ((int)numSamples > grainSize * 4) {
-				ERROR_LOG(SAS, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
+				ERROR_LOG(SASMIX, "numSamples too large, clamping: %i vs %i", numSamples, grainSize * 4);
 				numSamples = grainSize * 4;
 			}
 
@@ -541,7 +541,7 @@ void SasVoice::KeyOn() {
 		if (Memory::IsValidAddress(vagAddr)) {
 			vag.Start(vagAddr, vagSize, loop);
 		} else {
-			ERROR_LOG(SAS, "Invalid VAG address %08x", vagAddr);
+			ERROR_LOG(SASMIX, "Invalid VAG address %08x", vagAddr);
 			return;
 		}
 		break;

@@ -16,18 +16,19 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
-#include "../../Core.h"
-#include "../../CoreTiming.h"
-#include "../MIPS.h"
-#include "../MIPSCodeUtils.h"
-#include "../MIPSInt.h"
-#include "../MIPSTables.h"
+#include "Core/Reporting.h"
+#include "Core/Core.h"
+#include "Core/CoreTiming.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSTables.h"
 
 #include "ArmRegCache.h"
 #include "ArmJit.h"
 #include "CPUDetect.h"
 
-#include "../../../ext/disarm.h"
+#include "ext/disarm.h"
 
 void DisassembleArm(const u8 *data, int size) {
 	char temp[256];
@@ -129,11 +130,14 @@ void Jit::CompileAt(u32 addr)
 	MIPSCompileOp(op);
 }
 
-void Jit::EatInstruction(MIPSOpcode op)
-{
+void Jit::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
-	_dbg_assert_msg_(JIT, !(info & DELAYSLOT), "Never eat a branch op.");
-	_dbg_assert_msg_(JIT, !js.inDelaySlot, "Never eat an instruction inside a delayslot.");
+	if (info & DELAYSLOT) {
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, JIT, "Ate a branch op.");
+	}
+	if (js.inDelaySlot) {
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, JIT, "Ate an instruction inside a delay slot.")
+	}
 
 	js.compilerPC += 4;
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(op);

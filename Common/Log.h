@@ -56,7 +56,7 @@ enum LOG_TYPE {
 	INTC,
 	MEMMAP,
 	SOUND,
-	SAS,
+	SASMIX,
 	HLE,
 	TIMER,
 	VIDEO,

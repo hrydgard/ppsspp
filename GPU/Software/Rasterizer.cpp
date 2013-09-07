@@ -118,6 +118,9 @@ static inline void GetTexelCoordinates(int level, float s, float t, unsigned int
 	int width = 1 << (gstate.texsize[level] & 0xf);
 	int height = 1 << ((gstate.texsize[level]>>8) & 0xf);
 
+	// TODO: These should really be multiplied by 256 to get fixed point coordinates
+	// so we can do texture filtering later.
+
 	u = (unsigned int)(s * width); // TODO: width-1 instead?
 	v = (unsigned int)(t * height); // TODO: width-1 instead?
 }
