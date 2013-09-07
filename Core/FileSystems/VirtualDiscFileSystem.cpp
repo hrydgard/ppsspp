@@ -625,7 +625,9 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 		tmFromFiletime(entry.ctime, findData.ftCreationTime);
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
 		entry.isOnSectorSystem = true;
-		int fileIndex = getFileListIndex(entry.name);
+
+		std::string fullRelativePath = path + "/" + entry.name;
+		int fileIndex = getFileListIndex(fullRelativePath);
 		if (fileIndex != -1)
 			entry.startSector = fileList[fileIndex].firstBlock;
 		myVector.push_back(entry);
