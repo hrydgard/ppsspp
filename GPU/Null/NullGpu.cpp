@@ -214,17 +214,11 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_FRAMEBUFPTR:
-		{
-			u32 ptr = op & 0xFFE000;
-			DEBUG_LOG(G3D, "DL FramebufPtr: %08x", ptr);
-		}
+		DEBUG_LOG(G3D, "DL FramebufPtr: %08x", data);
 		break;
 
 	case GE_CMD_FRAMEBUFWIDTH:
-		{
-			u32 w = data & 0xFFFFFF;
-			DEBUG_LOG(G3D, "DL FramebufWidth: %i", w);
-		}
+		DEBUG_LOG(G3D, "DL FramebufWidth: %i", data);
 		break;
 
 	case GE_CMD_FRAMEBUFPIXFORMAT:
@@ -346,17 +340,11 @@ void NullGPU::ExecuteOp(u32 op, u32 diff)
 		break;
 
 	case GE_CMD_ZBUFPTR:
-		{
-			u32 ptr = op & 0xFFE000;
-			DEBUG_LOG(G3D,"Zbuf Ptr: %06x", ptr);
-		}
+		DEBUG_LOG(G3D,"Zbuf Ptr: %06x", data);
 		break;
 
 	case GE_CMD_ZBUFWIDTH:
-		{
-			u32 w = data & 0xFFFFFF;
-			DEBUG_LOG(G3D,"Zbuf Width: %i", w);
-		}
+		DEBUG_LOG(G3D,"Zbuf Width: %i", data);
 		break;
 
 	case GE_CMD_AMBIENTCOLOR:
