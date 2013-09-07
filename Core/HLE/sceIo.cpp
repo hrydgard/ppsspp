@@ -274,7 +274,7 @@ void __IoFreeFd(int fd, u32 &error) {
 		if (f) {
 			// Wake anyone waiting on the file before closing it.
 			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
-				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_IO, fd, SCE_KERNEL_ERROR_WAIT_DELETE);
+				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, fd, SCE_KERNEL_ERROR_WAIT_DELETE);
 			}
 		}
 		error = kernelObjects.Destroy<FileNode>(fds[fd]);
@@ -316,8 +316,8 @@ void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	f->waitingThreads.erase(f->waitingThreads.begin());
 
 	u32 address = __KernelGetWaitValue(threadID, error);
-	if (HLEKernel::VerifyWait(threadID, WAITTYPE_IO, fd)) {
-		HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, 0);
+	if (HLEKernel::VerifyWait(threadID, WAITTYPE_ASYNCIO, fd)) {
+		HLEKernel::ResumeFromWait(threadID, WAITTYPE_ASYNCIO, fd, 0);
 
 		if (Memory::IsValidAddress(address)) {
 			Memory::Write_U64((u64) f->asyncResult, address);
@@ -1544,7 +1544,7 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 
 				DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): waiting", f->asyncResult, id, poll, address);
 				f->waitingThreads.push_back(__KernelGetCurThread());
-				__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
+				__KernelWaitCurThread(WAITTYPE_ASYNCIO, id, address, 0, false, "io waited");
 			}
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
@@ -1587,7 +1587,7 @@ int sceIoWaitAsync(int id, u32 address) {
 			}
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): waiting", f->asyncResult, id, address);
 			f->waitingThreads.push_back(__KernelGetCurThread());
-			__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
+			__KernelWaitCurThread(WAITTYPE_ASYNCIO, id, address, 0, false, "io waited");
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
 				DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
@@ -1626,7 +1626,7 @@ int sceIoWaitAsyncCB(int id, u32 address) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x): waiting", f->asyncResult, id, address);
 			// TODO: This seems to re-enable dispatch or something?
 			f->waitingThreads.push_back(__KernelGetCurThread());
-			__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
+			__KernelWaitCurThread(WAITTYPE_ASYNCIO, id, address, 0, false, "io waited");
 		} else if (f->hasAsyncResult) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
