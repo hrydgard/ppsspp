@@ -164,7 +164,7 @@
 #define ID_FILE_LOAD                     40011
 #define ID_HELP_ABOUT                    40012
 #define ID_DISASM_FOLLOWBRANCH           40013
-#define ID_OPTIONS_IGNOREILLEGALREADS    40014
+#define ID_DEBUG_IGNOREILLEGALREADS      40014
 #define ID_DISASM_COPYADDRESS            40015
 #define ID_REGLIST_GOTOINMEMORYVIEW      40016
 #define ID_REGLIST_COPYVALUE             40017
@@ -179,7 +179,7 @@
 #define ID_OPTIONS_SCREEN4X              40026
 #define ID_OPTIONS_SCREEN2X              40027
 #define ID_OPTIONS_BUFFEREDRENDERING     40028
-#define ID_OPTIONS_SHOWDEBUGSTATISTICS   40029
+#define ID_DEBUG_SHOWDEBUGSTATISTICS     40029
 #define ID_OPTIONS_HARDWARETRANSFORM     40030
 #define ID_OPTIONS_FASTMEMORY            40031
 #define IDC_STEPHLE                      40032
@@ -187,7 +187,7 @@
 #define ID_FILE_QUICKSAVESTATE           40034
 #define ID_FILE_QUICKLOADSTATE           40035
 #define ID_OPTIONS_CONTROLS              40036
-#define ID_EMULATION_RUNONLOAD           40037
+#define ID_DEBUG_RUNONLOAD               40037
 #define ID_DEBUG_DUMPNEXTFRAME           40038
 #define ID_OPTIONS_ANTIALIASING          40039
 #define ID_OPTIONS_VERTEXCACHE           40040
@@ -247,11 +247,17 @@
 #define ID_EMULATION_RENDER_MODE_SOFT    40095
 #define ID_EMULATION_CHEATS              40096
 #define ID_HELP_CHINESE_FORUM            40097
+#define ID_OPTIONS_MORE_SETTINGS         40098
+#define ID_FILE_SAVESTATE_SLOT_1         40099
+#define ID_FILE_SAVESTATE_SLOT_2         40100
+#define ID_FILE_SAVESTATE_SLOT_3         40101
+#define ID_FILE_SAVESTATE_SLOT_4         40102
+#define ID_FILE_SAVESTATE_SLOT_5         40103
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
-#define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40200
-#define IDC_STEPOUT                       40201
-#define ID_HELP_BUYGOLD                   40202
+#define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
+#define IDC_STEPOUT                       40501
+#define ID_HELP_BUYGOLD                   40502
 
 #define IDC_STATIC                      -1
 

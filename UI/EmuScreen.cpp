@@ -52,6 +52,8 @@
 #include "UI/DevScreens.h"
 #include "UI/GameInfoCache.h"
 #include "UI/MiscScreens.h"
+#include "UI/ControlMappingScreen.h"
+#include "UI/GameSettingsScreen.h"
 
 
 EmuScreen::EmuScreen(const std::string &filename)
@@ -160,6 +162,12 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 	else if (!strcmp(message, "boot")) {
 		PSP_Shutdown();
 		bootGame(value);
+	}
+	else if (!strcmp(message, "control mapping")) {
+		screenManager()->push(new ControlMappingScreen());
+	}
+	else if (!strcmp(message, "settings")) {
+		screenManager()->push(new GameSettingsScreen(gamePath_));
 	}
 }
 

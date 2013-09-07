@@ -331,7 +331,12 @@ UI::EventReturn GameSettingsScreen::OnDownloadPlugin(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
-	screenManager()->finishDialog(this, DR_OK);
+	// If we're in-game, return to the game via DR_CANCEL.
+	if(PSP_IsInited()) {
+		screenManager()->finishDialog(this, DR_CANCEL);
+	} else {
+		screenManager()->finishDialog(this, DR_OK);
+	}
 
 	if(g_Config.bEnableSound) {
 		if(PSP_IsInited() && !IsAudioInitialised())
