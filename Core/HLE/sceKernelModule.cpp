@@ -45,6 +45,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceIo.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 enum {
 	PSP_THREAD_ATTR_USER = 0x80000000
@@ -1611,8 +1612,7 @@ void __KernelReturnFromModuleFunc()
 	for (auto it = module->waitingThreads.begin(), end = module->waitingThreads.end(); it < end; ++it)
 	{
 		// Still waiting?
-		SceUID waitingModuleID = __KernelGetWaitID(it->threadID, WAITTYPE_MODULE, error);
-		if (waitingModuleID == leftModuleID)
+		if (HLEKernel::VerifyWait(it->threadID, WAITTYPE_MODULE, leftModuleID))
 		{
 			if (it->statusPtr != 0)
 				Memory::Write_U32(exitStatus, it->statusPtr);

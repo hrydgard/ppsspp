@@ -250,11 +250,7 @@ std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &wai
 
 bool __KernelUnlockMutexForThread(Mutex *mutex, SceUID threadID, u32 &error, int result)
 {
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_MUTEX, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-
-	// The waitID may be different after a timeout.
-	if (waitID != mutex->GetUID())
+	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_MUTEX, mutex->GetUID()))
 		return false;
 
 	// If result is an error code, we're just letting it go.
@@ -264,6 +260,7 @@ bool __KernelUnlockMutexForThread(Mutex *mutex, SceUID threadID, u32 &error, int
 		__KernelMutexAcquireLock(mutex, wVal, threadID);
 	}
 
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	if (timeoutPtr != 0 && mutexWaitTimer != -1)
 	{
 		// Remove any event for this thread.
@@ -451,20 +448,7 @@ bool __KernelUnlockMutex(Mutex *mutex, u32 &error)
 void __KernelMutexTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
-
-	u32 error;
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0)
-		Memory::Write_U32(0, timeoutPtr);
-
-	SceUID mutexID = __KernelGetWaitID(threadID, WAITTYPE_MUTEX, error);
-	if (mutexID != 0)
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-
-	// We intentionally don't remove from waitingThreads here yet.
-	// The reason is, if it times out, but what it was waiting on is DELETED prior to it
-	// actually running, it will get a DELETE result instead of a TIMEOUT.
-	// So, we need to remember it or we won't be able to mark it DELETE instead later.
+	HLEKernel::WaitExecTimeout<Mutex, WAITTYPE_MUTEX>(threadID);
 }
 
 void __KernelMutexThreadEnd(SceUID threadID)
@@ -535,9 +519,8 @@ int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr)
 		// Remove threads no longer waiting on this first (so the numWaitThreads value is correct.)
 		for (auto iter = mutex->waitingThreads.begin(); iter != mutex->waitingThreads.end(); ++iter)
 		{
-			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_MUTEX, error);
 			// The thread is no longer waiting for this, clean it up.
-			if (waitID != uid)
+			if (!HLEKernel::VerifyWait(*iter, WAITTYPE_MUTEX, uid))
 				mutex->waitingThreads.erase(iter--);
 		}
 
@@ -701,9 +684,8 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr)
 	{
 		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
 		{
-			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_MUTEX, error);
 			// The thread is no longer waiting for this, clean it up.
-			if (waitID != id)
+			if (!HLEKernel::VerifyWait(*iter, WAITTYPE_MUTEX, id))
 				m->waitingThreads.erase(iter--);
 		}
 
@@ -767,11 +749,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 template <typename T>
 bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID, u32 &error, int result)
 {
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_LWMUTEX, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-
-	// The waitID may be different after a timeout.
-	if (waitID != mutex->GetUID())
+	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_LWMUTEX, mutex->GetUID()))
 		return false;
 
 	// If result is an error code, we're just letting it go.
@@ -781,6 +759,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 		workarea->lockThread = threadID;
 	}
 
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
 	if (timeoutPtr != 0 && lwMutexWaitTimer != -1)
 	{
 		// Remove any event for this thread.
@@ -906,20 +885,7 @@ bool __KernelUnlockLwMutex(T workarea, u32 &error)
 void __KernelLwMutexTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
-
-	u32 error;
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0)
-		Memory::Write_U32(0, timeoutPtr);
-
-	SceUID mutexID = __KernelGetWaitID(threadID, WAITTYPE_LWMUTEX, error);
-	if (mutexID != 0)
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-
-	// We intentionally don't remove from waitingThreads here yet.
-	// The reason is, if it times out, but what it was waiting on is DELETED prior to it
-	// actually running, it will get a DELETE result instead of a TIMEOUT.
-	// So, we need to remember it or we won't be able to mark it DELETE instead later.
+	HLEKernel::WaitExecTimeout<LwMutex, WAITTYPE_LWMUTEX>(threadID);
 }
 
 void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr)
@@ -1101,9 +1067,8 @@ int __KernelReferLwMutexStatus(SceUID uid, u32 infoPtr)
 
 		for (auto iter = m->waitingThreads.begin(); iter != m->waitingThreads.end(); ++iter)
 		{
-			SceUID waitID = __KernelGetWaitID(*iter, WAITTYPE_LWMUTEX, error);
 			// The thread is no longer waiting for this, clean it up.
-			if (waitID != uid)
+			if (!HLEKernel::VerifyWait(*iter, WAITTYPE_LWMUTEX, uid))
 				m->waitingThreads.erase(iter--);
 		}
 

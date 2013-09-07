@@ -253,4 +253,19 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 	return WaitEndCallback<KO, waitType>(threadID, prevCallbackId, waitTimer, TryUnlock, ko->waitingThreads, ko->pausedWaits);
 }
 
+// Verify that a thread has not been released from waiting, e.g. by sceKernelReleaseWaitThread().
+inline bool VerifyWait(SceUID threadID, WaitType waitType, SceUID uid) {
+	u32 error;
+	SceUID waitID = __KernelGetWaitID(threadID, waitType, error);
+	return waitID == uid && error == 0;
+}
+
+// Resume a thread from waiting for a particular object.
+template <typename T>
+inline void ResumeFromWait(SceUID threadID, WaitType waitType, SceUID uid, T result) {
+	if (VerifyWait(threadID, waitType, uid)) {
+		__KernelResumeThreadFromWait(threadID, result);
+	}
+}
+
 };

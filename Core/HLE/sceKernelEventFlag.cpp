@@ -150,11 +150,7 @@ bool __KernelEventFlagMatches(u32_le *pattern, u32 bits, u8 wait, u32 outAddr)
 
 bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 &error, int result, bool &wokeThreads)
 {
-	SceUID waitID = __KernelGetWaitID(th.threadID, WAITTYPE_EVENTFLAG, error);
-	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
-
-	// The waitID may be different after a timeout.
-	if (waitID != e->GetUID())
+	if (!HLEKernel::VerifyWait(th.threadID, WAITTYPE_EVENTFLAG, e->GetUID()))
 		return true;
 
 	// If result is an error code, we're just letting it go.
@@ -170,6 +166,7 @@ bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 &error,
 			Memory::Write_U32(e->nef.currentPattern, th.outAddr);
 	}
 
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
 	if (timeoutPtr != 0 && eventFlagWaitTimer != -1)
 	{
 		// Remove any event for this thread.
@@ -627,9 +624,8 @@ u32 sceKernelReferEventFlagStatus(SceUID id, u32 statusPtr)
 
 		for (auto iter = e->waitingThreads.begin(); iter != e->waitingThreads.end(); ++iter)
 		{
-			SceUID waitID = __KernelGetWaitID(iter->threadID, WAITTYPE_EVENTFLAG, error);
 			// The thread is no longer waiting for this, clean it up.
-			if (waitID != id)
+			if (!HLEKernel::VerifyWait(iter->threadID, WAITTYPE_EVENTFLAG, id))
 				e->waitingThreads.erase(iter--);
 		}
 

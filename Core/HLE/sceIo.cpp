@@ -44,6 +44,7 @@ extern "C" {
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 
 // For headless screenshots.
 #include "Core/HLE/sceDisplay.h"
@@ -198,6 +199,9 @@ public:
 			}
 		}
 
+		p.Do(waitingThreads);
+		p.Do(pausedWaits);
+
 		p.DoMarker("File");
 	}
 
@@ -221,6 +225,11 @@ public:
 	u32 npdrm;
 	u32 pgd_offset;
 	PGD_DESC *pgdInfo;
+
+	std::vector<SceUID> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	// Value is actually meaningless but kept for consistency with other wait types.
+	std::map<SceUID, u64> pausedWaits;
 };
 
 /******************************************************************************/
@@ -261,6 +270,13 @@ void __IoFreeFd(int fd, u32 &error) {
 	if (fd < PSP_MIN_FD || fd >= PSP_COUNT_FDS) {
 		error = ERROR_KERNEL_BAD_FILE_DESCRIPTOR;
 	} else {
+		FileNode *f = __IoGetFd(fd, error);
+		if (f) {
+			// Wake anyone waiting on the file before closing it.
+			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
+				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), SCE_KERNEL_ERROR_WAIT_DELETE);
+			}
+		}
 		error = kernelObjects.Destroy<FileNode>(fds[fd]);
 		fds[fd] = 0;
 	}
@@ -282,18 +298,28 @@ void __IoFreeFd(int fd, u32 &error) {
 // TODO: We don't do any of that yet.
 // For now, let's at least delay the callback mnotification.
 void __IoAsyncNotify(u64 userdata, int cyclesLate) {
-	SceUID threadID = userdata >> 32;
-	int fd = (int) (userdata & 0xFFFFFFFF);
+	int fd = (int) userdata;
 	__IoCompleteAsyncIO(fd);
 
 	u32 error;
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_IO, error);
-	u32 address = __KernelGetWaitValue(threadID, error);
-	if (waitID == fd && error == 0) {
-		__KernelResumeThreadFromWait(threadID, 0);
+	FileNode *f = __IoGetFd(fd, error);
+	if (!f) {
+		ERROR_LOG_REPORT(HLE, "__IoAsyncNotify: file no longer exists?");
+		return;
+	}
 
-		FileNode *f = __IoGetFd(fd, error);
-		if (Memory::IsValidAddress(address) && f) {
+	if (f->waitingThreads.empty()) {
+		return;
+	}
+
+	SceUID threadID = f->waitingThreads.front();
+	f->waitingThreads.erase(f->waitingThreads.begin());
+
+	u32 address = __KernelGetWaitValue(threadID, error);
+	if (HLEKernel::VerifyWait(threadID, WAITTYPE_ASYNCIO, f->GetUID())) {
+		HLEKernel::ResumeFromWait(threadID, WAITTYPE_ASYNCIO, f->GetUID(), 0);
+
+		if (Memory::IsValidAddress(address)) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 		}
 
@@ -311,21 +337,75 @@ void __IoSyncNotify(u64 userdata, int cyclesLate) {
 	s64 result = -1;
 	u32 error;
 	FileNode *f = __IoGetFd(fd, error);
-	if (f) {
-		f->pendingAsyncResult = false;
-		f->hasAsyncResult = true;
+	if (!f) {
+		ERROR_LOG_REPORT(HLE, "__IoSyncNotify: file no longer exists?");
+		return;
+	}
 
-		AsyncIOResult managerResult;
-		if (ioManager.WaitResult(f->handle, managerResult)) {
-			result = managerResult;
-		} else {
-			ERROR_LOG(HLE, "Unable to complete IO operation.");
+	f->pendingAsyncResult = false;
+	f->hasAsyncResult = true;
+
+	AsyncIOResult managerResult;
+	if (ioManager.WaitResult(f->handle, managerResult)) {
+		result = managerResult;
+	} else {
+		ERROR_LOG(HLE, "Unable to complete IO operation.");
+	}
+
+	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
+}
+
+void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+	auto result = HLEKernel::WaitBeginCallback<FileNode, WAITTYPE_ASYNCIO, SceUID>(threadID, prevCallbackId, -1);
+	if (result == HLEKernel::WAIT_CB_SUCCESS) {
+		DEBUG_LOG(HLE, "sceIoWaitAsync: Suspending wait for callback")
+	} else if (result == HLEKernel::WAIT_CB_BAD_WAIT_ID) {
+		WARN_LOG_REPORT(HLE, "sceIoWaitAsync: beginning callback with bad wait id?");
+	}
+}
+
+bool __IoCheckAsyncWait(FileNode *f, SceUID threadID, u32 &error, int result, bool &wokeThreads)
+{
+	int fd = -1;
+	for (int i = 0; i < (int)ARRAY_SIZE(fds); ++i) {
+		if (fds[i] == f->GetUID()) {
+			fd = i;
+			break;
+		}
+	}
+	if (fd == -1) {
+		ERROR_LOG_REPORT(HLE, "__IoCheckAsyncWait: could not find io handle");
+		return true;
+	}
+
+	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_ASYNCIO, f->GetUID())) {
+		return true;
+	}
+
+	// If result is an error code, we're just letting it go.
+	if (result == 0) {
+		if (f->pendingAsyncResult || !f->hasAsyncResult) {
+			return false;
+		}
+
+		u32 address = __KernelGetWaitValue(threadID, error);
+		Memory::Write_U64((u64) f->asyncResult, address);
+		f->hasAsyncResult = false;
+
+		if (f->closePending) {
+			__IoFreeFd(fd, error);
 		}
 	}
 
-	SceUID waitID = __KernelGetWaitID(threadID, WAITTYPE_IO, error);
-	if (waitID == fd && error == 0) {
-		__KernelResumeThreadFromWait(threadID, result);
+	__KernelResumeThreadFromWait(threadID, result);
+	wokeThreads = true;
+	return true;
+}
+
+void __IoAsyncEndCallback(SceUID threadID, SceUID prevCallbackId) {
+	auto result = HLEKernel::WaitEndCallback<FileNode, WAITTYPE_ASYNCIO, SceUID>(threadID, prevCallbackId, -1, __IoCheckAsyncWait);
+	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT) {
+		DEBUG_LOG(HLE, "sceKernelWaitEventFlagCB: Resuming lock wait for callback");
 	}
 }
 
@@ -375,6 +455,8 @@ void __IoInit() {
 	if (ioManagerThreadEnabled) {
 		ioManagerThread = new std::thread(&__IoManagerThread);
 	}
+
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
 }
 
 void __IoDoState(PointerWrap &p) {
@@ -508,8 +590,7 @@ void __IoGetStat(SceIoStat *stat, PSPFileInfo &info) {
 }
 
 void __IoSchedAsync(FileNode *f, int fd, int usec) {
-	u64 param = ((u64)__KernelGetCurThread()) << 32 | fd;
-	CoreTiming::ScheduleEvent(usToCycles(usec), asyncNotifyEvent, param);
+	CoreTiming::ScheduleEvent(usToCycles(usec), asyncNotifyEvent, fd);
 
 	f->pendingAsyncResult = true;
 	f->hasAsyncResult = false;
@@ -1518,7 +1599,8 @@ u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 				}
 
 				DEBUG_LOG(HLE, "%lli = sceIoGetAsyncStat(%i, %i, %08x): waiting", f->asyncResult, id, poll, address);
-				__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
+				f->waitingThreads.push_back(__KernelGetCurThread());
+				__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
 			}
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
@@ -1560,7 +1642,8 @@ int sceIoWaitAsync(int id, u32 address) {
 				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 			}
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): waiting", f->asyncResult, id, address);
-			__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
+			f->waitingThreads.push_back(__KernelGetCurThread());
+			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
 				DEBUG_LOG(HLE, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
@@ -1598,7 +1681,8 @@ int sceIoWaitAsyncCB(int id, u32 address) {
 		if (f->pendingAsyncResult) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x): waiting", f->asyncResult, id, address);
 			// TODO: This seems to re-enable dispatch or something?
-			__KernelWaitCurThread(WAITTYPE_IO, id, address, 0, false, "io waited");
+			f->waitingThreads.push_back(__KernelGetCurThread());
+			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
 		} else if (f->hasAsyncResult) {
 			DEBUG_LOG(HLE, "%lli = sceIoWaitAsyncCB(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
