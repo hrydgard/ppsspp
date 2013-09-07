@@ -4,6 +4,7 @@
 #include "ui/ui_context.h"
 #include "ui/screen.h"
 #include "i18n/i18n.h"
+#include "gfx_es2/draw_buffer.h"
 
 UIScreen::UIScreen()
 	: Screen(), root_(0), recreateViews_(true), hatDown_(0) {
@@ -189,6 +190,73 @@ UI::EventReturn ListPopupScreen::OnListChoice(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+namespace UI {
+
+UI::EventReturn PopupMultiChoice::HandleClick(UI::EventParams &e) {
+	std::vector<std::string> choices;
+	for (int i = 0; i < numChoices_; i++) {
+		choices.push_back(category_ ? category_->T(choices_[i]) : choices_[i]);
+	}
+
+	Screen *popupScreen = new ListPopupScreen(text_, choices, *value_ - minVal_,
+		std::bind(&PopupMultiChoice::ChoiceCallback, this, placeholder::_1));
+	screenManager_->push(popupScreen);
+	return UI::EVENT_DONE;
+}
+
+void PopupMultiChoice::UpdateText() {
+	valueText_ = category_ ? category_->T(choices_[*value_ - minVal_]) : choices_[*value_ - minVal_];
+}
+
+void PopupMultiChoice::ChoiceCallback(int num) {
+	if (num != -1) {
+		*value_ = num + minVal_;
+		UpdateText();
+
+		UI::EventParams e;
+		e.v = this;
+		e.a = num;
+		OnChoice.Trigger(e);
+	}
+}
+
+void PopupMultiChoice::Draw(UIContext &dc) {
+	Choice::Draw(dc);
+	int paddingX = 12;
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(valueText_.c_str(), bounds_.x2() - paddingX, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+}
+
+
+EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
+	Screen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, text_);
+	screenManager_->push(popupScreen);
+	return EVENT_DONE;
+}
+
+
+void PopupSliderChoice::Draw(UIContext &dc) {
+	Choice::Draw(dc);
+	char temp[32];
+	sprintf(temp, "%i", *value_);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+}
+
+EventReturn PopupSliderChoiceFloat::HandleClick(EventParams &e) {
+	Screen *popupScreen = new SliderFloatPopupScreen(value_, minValue_, maxValue_, text_);
+	screenManager_->push(popupScreen);
+	return EVENT_DONE;
+}
+
+void PopupSliderChoiceFloat::Draw(UIContext &dc) {
+	Choice::Draw(dc);
+	char temp[32];
+	sprintf(temp, "%2.2f", *value_);
+	dc.SetFontStyle(dc.theme->uiFont);
+	dc.DrawText(temp, bounds_.x2() - 12, bounds_.centerY(), 0xFFFFFFFF, ALIGN_RIGHT | ALIGN_VCENTER);
+}
+
 void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	sliderValue_ = *value_;
@@ -212,3 +280,5 @@ void SliderFloatPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK)
 		*value_ = sliderValue_;
 }
+
+}  // namespace UI
