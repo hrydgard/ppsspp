@@ -511,7 +511,7 @@ void *TextureCache::readIndexedTex(int level, u32 texaddr, int bytesPerIndex, GL
 		break;
 
 	default:
-		ERROR_LOG(G3D, "Unhandled clut texture mode %d!!!", (gstate.clutformat & 3));
+		ERROR_LOG_REPORT(G3D, "Unhandled clut texture mode %d!!!", (gstate.clutformat & 3));
 		break;
 	}
 
@@ -1153,12 +1153,12 @@ void TextureCache::SetTexture() {
 				gstate_c.textureFullAlpha = (entry->status & TexCacheEntry::STATUS_ALPHA_MASK) == TexCacheEntry::STATUS_ALPHA_FULL;
 			}
 			UpdateSamplingParams(*entry, false);
-			DEBUG_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
+			VERBOSE_LOG(G3D, "Texture at %08x Found in Cache, applying", texaddr);
 			return; //Done!
 		} else {
 			entry->numInvalidated++;
 			gpuStats.numTextureInvalidations++;
-			INFO_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
+			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
 			if (doDelete) {
 				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F) && entry->format == format && g_Config.iTexScalingLevel <= 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
@@ -1176,7 +1176,7 @@ void TextureCache::SetTexture() {
 			}
 		}
 	} else {
-		INFO_LOG(G3D, "No texture in cache, decoding...");
+		VERBOSE_LOG(G3D, "No texture in cache, decoding...");
 		TexCacheEntry entryNew = {0};
 		cache[cachekey] = entryNew;
 
@@ -1363,7 +1363,7 @@ void *TextureCache::DecodeTextureLevel(GETextureFormat format, GEPaletteFormat c
 			break;
 
 		default:
-			ERROR_LOG(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
+			ERROR_LOG_REPORT(G3D, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
 			return NULL;
 		}
 		}

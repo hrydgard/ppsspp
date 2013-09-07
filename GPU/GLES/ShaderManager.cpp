@@ -90,6 +90,7 @@ LinkedShader::LinkedShader(Shader *vs, Shader *fs, bool useHWTransform)
 			ERROR_LOG(G3D, "Could not link program:\n %s", buf);
 			ERROR_LOG(G3D, "VS:\n%s", vs->source().c_str());
 			ERROR_LOG(G3D, "FS:\n%s", fs->source().c_str());
+			Reporting::ReportMessage("Error in shader program link: info: %s / fs: %s / vs: %s", buf, fs->source().c_str(), vs->source().c_str());
 #ifdef SHADERLOG
 			OutputDebugStringUTF8(buf);
 			OutputDebugStringUTF8(vs->source().c_str());
