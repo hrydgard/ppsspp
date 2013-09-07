@@ -25,7 +25,7 @@
 class GameSettingsScreen : public UIDialogScreenWithBackground {
 public:
 	GameSettingsScreen(std::string gamePath, std::string gameID = "")
-		: gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false) {}
+		: gamePath_(gamePath), gameID_(gameID), iAlternateSpeedPercent_(3), enableReports_(false), clearrecentlist_(false) {}
 
 	virtual void update(InputState &input);
 
@@ -64,6 +64,7 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent_;
 	bool enableReports_;
+	bool clearrecentlist_;
 };
 
 /*
