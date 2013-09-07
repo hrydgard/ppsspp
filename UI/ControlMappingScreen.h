@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#pragma once
+
 #include "base/functional.h"
 #include "ui/view.h"
 #include "ui/ui_screen.h"
@@ -26,6 +28,7 @@ public:
 	ControlMappingScreen() {}
 protected:
 	virtual void CreateViews();
+	virtual UI::EventReturn OnBack(UI::EventParams &e);
 
 private:
 	UI::EventReturn OnDefaultMapping(UI::EventParams &params);
