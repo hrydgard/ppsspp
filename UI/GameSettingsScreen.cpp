@@ -50,7 +50,6 @@ namespace MainWindow {
 		WM_USER_LOG_STATUS_CHANGED = WM_USER + 101,
 		WM_USER_ATRAC_STATUS_CHANGED = WM_USER + 102,
 		WM_USER_UPDATE_UI = WM_USER + 103,
-		WM_USER_RECREATE_RECENTLIST = WM_USER + 104,
 	};
 	extern HWND hwndMain;
 }
@@ -265,7 +264,7 @@ void GameSettingsScreen::CreateViews() {
 
 UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
 	g_Config.recentIsos.clear();
-	clearrecentlist_=true; // set true to send clear_recent_list message
+	OnRecentChanged.Trigger(e);
 
 	return UI::EVENT_DONE;
 }
@@ -356,12 +355,6 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	host->UpdateUI();
 
 	KeyMap::UpdateConfirmCancelKeys();
-
-	if (clearrecentlist_){
-		// clear the recent game list on MainWindow.
-		PostMessage(MainWindow::hwndMain, MainWindow::WM_USER_RECREATE_RECENTLIST, 0, 0);
-		clearrecentlist_ = false; 
-	}
 
 	return UI::EVENT_DONE;
 }

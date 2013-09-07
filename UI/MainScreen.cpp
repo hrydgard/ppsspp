@@ -554,9 +554,6 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	if (!strcmp(message, "language")) {
 		RecreateViews();
 	}
-	if (!strcmp(message, "clearrecentlist")){
-		RecreateViews();
-	}
 }
 
 void MainScreen::update(InputState &input) {
@@ -594,11 +591,20 @@ UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
 	// screenManager()->push(new SettingsScreen());
 	auto gameSettings = new GameSettingsScreen("", "");
 	gameSettings->OnLanguageChanged.Handle(this, &MainScreen::OnLanguageChange);
+	gameSettings->OnRecentChanged.Handle(this, &MainScreen::OnRecentChange);
 	screenManager()->push(gameSettings);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn MainScreen::OnLanguageChange(UI::EventParams &e) {
+	RecreateViews();
+	if (host) {
+		host->UpdateUI();
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn MainScreen::OnRecentChange(UI::EventParams &e) {
 	RecreateViews();
 	if (host) {
 		host->UpdateUI();
