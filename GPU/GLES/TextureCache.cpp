@@ -1065,7 +1065,7 @@ void TextureCache::SetTexture() {
 	if (iter != cache.end()) {
 		entry = &iter->second;
 		// Validate the texture still matches the cache entry.
-		int dim = gstate.texsize[0] & 0xF0F;
+		u16 dim = gstate.getTextureDimension(0);
 		bool match = entry->Matches(dim, format, maxLevel);
 
 		// Check for FBO - slow!
@@ -1160,7 +1160,7 @@ void TextureCache::SetTexture() {
 			gpuStats.numTextureInvalidations++;
 			DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x", texaddr);
 			if (doDelete) {
-				if (entry->maxLevel == maxLevel && entry->dim == (gstate.texsize[0] & 0xF0F) && entry->format == format && g_Config.iTexScalingLevel <= 1) {
+				if (entry->maxLevel == maxLevel && entry->dim == gstate.getTextureDimension(0) && entry->format == format && g_Config.iTexScalingLevel <= 1) {
 					// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
 					// Instead, let's use glTexSubImage to replace the images.
 					replaceImages = true;
@@ -1197,7 +1197,7 @@ void TextureCache::SetTexture() {
 	entry->maxLevel = maxLevel;
 	entry->lodBias = 0.0f;
 	
-	entry->dim = gstate.texsize[0] & 0xF0F;
+	entry->dim = gstate.getTextureDimension(0);
 	entry->bufw = bufw;
 
 	// This would overestimate the size in many case so we underestimate instead
