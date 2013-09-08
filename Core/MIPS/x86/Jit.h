@@ -385,6 +385,7 @@ private:
 		bool needsCheck_;
 		bool needsSkip_;
 		bool far_;
+		bool fast_;
 		u32 alignMask_;
 		u32 iaddr_;
 		X64Reg xaddr_;
