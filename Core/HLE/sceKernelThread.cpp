@@ -1548,22 +1548,6 @@ void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled)
 	currentMIPS->llBit = 0;
 }
 
-u32 __KernelResumeThreadFromWait(SceUID threadID)
-{
-	u32 error;
-	Thread *t = kernelObjects.Get<Thread>(threadID, error);
-	if (t)
-	{
-		t->resumeFromWait();
-		return 0;
-	}
-	else
-	{
-		ERROR_LOG(SCEKERNEL, "__KernelResumeThreadFromWait(%d): bad thread: %08x", threadID, error);
-		return error;
-	}
-}
-
 u32 __KernelResumeThreadFromWait(SceUID threadID, u32 retval)
 {
 	u32 error;
@@ -1655,7 +1639,7 @@ void hleScheduledWakeup(u64 userdata, int cyclesLate)
 	SceUID threadID = (SceUID)userdata;
 	u32 error;
 	if (__KernelGetWaitID(threadID, WAITTYPE_DELAY, error) == threadID)
-		__KernelResumeThreadFromWait(threadID);
+		__KernelResumeThreadFromWait(threadID, 0);
 }
 
 void __KernelScheduleWakeup(SceUID threadID, s64 usFromNow)
@@ -2543,7 +2527,7 @@ int sceKernelWakeupThread(SceUID uid)
 			DEBUG_LOG(SCEKERNEL,"sceKernelWakeupThread(%i) - wakeupCount incremented to %i", uid, t->nt.wakeupCount);
 		} else {
 			VERBOSE_LOG(SCEKERNEL,"sceKernelWakeupThread(%i) - woke thread at %i", uid, t->nt.wakeupCount);
-			__KernelResumeThreadFromWait(uid);
+			__KernelResumeThreadFromWait(uid, 0);
 			hleReSchedule("thread woken up");
 		}
 		return 0;

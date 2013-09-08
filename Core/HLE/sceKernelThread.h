@@ -151,8 +151,7 @@ const char *__KernelGetThreadName(SceUID threadID);
 void __KernelSaveContext(ThreadContext *ctx, bool vfpuEnabled);
 void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled);
 
-u32 __KernelResumeThreadFromWait(SceUID threadID); // can return an error value
-u32 __KernelResumeThreadFromWait(SceUID threadID, u32 retval);
+u32 __KernelResumeThreadFromWait(SceUID threadID, u32 retval); // can return an error value
 u32 __KernelResumeThreadFromWait(SceUID threadID, u64 retval);
 
 inline u32 __KernelResumeThreadFromWait(SceUID threadID, int retval)
