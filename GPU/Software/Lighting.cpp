@@ -39,10 +39,10 @@ void Process(VertexData& vertex)
 			Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3*light]&0xFFFFFF), getFloat24(gstate.lpos[3*light+1]&0xFFFFFF),getFloat24(gstate.lpos[3*light+2]&0xFFFFFF));
 			float diffuse_factor = Dot(L,vertex.worldnormal) / L.Length() / vertex.worldnormal.Length();
 
-			if (gstate.getUVLS0() == light)
+			if (gstate.getUVLS0() == (int)light)
 				vertex.texturecoords.s() = (diffuse_factor + 1.f) / 2.f;
 
-			if (gstate.getUVLS1() == light)
+			if (gstate.getUVLS1() == (int)light)
 				vertex.texturecoords.t() = (diffuse_factor + 1.f) / 2.f;
 		}
 	}

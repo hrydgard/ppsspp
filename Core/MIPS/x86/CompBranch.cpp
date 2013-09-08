@@ -156,7 +156,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 		{
 		case CC_E: skipBranch = rsImm == rtImm; break;
 		case CC_NE: skipBranch = rsImm != rtImm; break;
-		default: _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
+		default: skipBranch = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSRTComp().");
 		}
 
 		if (skipBranch)
@@ -256,7 +256,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 		case CC_GE: skipBranch = imm >= 0; break;
 		case CC_L: skipBranch = imm < 0; break;
 		case CC_LE: skipBranch = imm <= 0; break;
-		default: _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
+		default: skipBranch = false; _dbg_assert_msg_(JIT, false, "Bad cc flag in BranchRSZeroComp().");
 		}
 
 		if (skipBranch)

@@ -490,7 +490,7 @@ struct GPUStatistics {
 	int numFBOs;
 };
 
-void GPU_Init();
+bool GPU_Init();
 void GPU_Shutdown();
 
 void InitGfxState();

@@ -194,7 +194,7 @@ int sceNetAdhocSetSocketAlert(int id, int flag) {
 }
 
 int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonblock) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPollSocket(%08x, %i, %i, %i)", count, timeout, nonblock);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPollSocket(%08x, %i, %i, %i)", socketStructAddr, count, timeout, nonblock);
 	return -1;
 }
 
@@ -345,7 +345,7 @@ int sceNetAdhocGetPtpStat(int structSize, u32 structAddr) {
 }
 
 int sceNetAdhocPtpOpen(const char *srcmac, int srcport, const char *dstmac, int dstport, int bufsize, int retryDelay, int retryCount, int unknown) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpOpen(%s : %i, %s : %i, %i, %i, %i)", srcmac, srcport, dstmac, dstport, bufsize, retryDelay, retryCount, unknown);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocPtpOpen(%s : %i, %s : %i, %i, %i, %i, %08x)", srcmac, srcport, dstmac, dstport, bufsize, retryDelay, retryCount, unknown);
 	return 0;
 }
 
@@ -444,7 +444,7 @@ int sceNetAdhocMatchingCreate(int mode, int maxPeers, int port, int bufSize, int
 }
 
 int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %i, %i, %08x)", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr);
+	ERROR_LOG(SCENET, "UNIMPL sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %08x)", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr);
 	return -1;
 }
 
