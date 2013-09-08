@@ -354,7 +354,7 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	g_Config.Save();
 
 	host->UpdateUI();
-	
+
 	KeyMap::UpdateConfirmCancelKeys();
 
 	return UI::EVENT_DONE;
