@@ -15,21 +15,29 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "HLE.h"
-#include "../MIPS/MIPS.h"
-#include "../System.h"
-#include "../CoreParameter.h"
-#include "../CoreTiming.h"
-#include "../Reporting.h"
-#include "sceGe.h"
-#include "sceKernelMemory.h"
-#include "sceKernelThread.h"
-#include "sceKernelInterrupt.h"
-#include "../GPU/GPUState.h"
-#include "../GPU/GPUInterface.h"
+#include <map>
+#include <vector>
+
+#include "Core/HLE/HLE.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/System.h"
+#include "Core/CoreParameter.h"
+#include "Core/CoreTiming.h"
+#include "Core/Reporting.h"
+#include "Core/HLE/sceGe.h"
+#include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/KernelWaitHelpers.h"
+#include "GPU/GPUState.h"
+#include "GPU/GPUInterface.h"
 
 static PspGeCallbackData ge_callback_data[16];
 static bool ge_used_callbacks[16] = {0};
+
+typedef std::vector<SceUID> WaitingThreadList;
+static std::map<int, WaitingThreadList> listWaitingThreads;
+static WaitingThreadList drawWaitingThreads;
 
 struct GeInterruptData
 {
@@ -162,7 +170,7 @@ void __GeExecuteSync(u64 userdata, int cyclesLate)
 {
 	int listid = userdata >> 32;
 	WaitType waitType = (WaitType) (userdata & 0xFFFFFFFF);
-	bool wokeThreads = __KernelTriggerWait(waitType, listid, 0, "GeSync", true);
+	bool wokeThreads = __GeTriggerWait(waitType, listid);
 	gpu->SyncEnd(waitType, listid, wokeThreads);
 }
 
@@ -202,6 +210,9 @@ void __GeInit()
 	geInterruptEvent = CoreTiming::RegisterEvent("GeInterruptEvent", &__GeExecuteInterrupt);
 	geCycleEvent = CoreTiming::RegisterEvent("GeCycleEvent", &__GeCheckCycles);
 
+	listWaitingThreads.clear();
+	drawWaitingThreads.clear();
+
 	// When we're using separate CPU/GPU threads, we need to keep them in sync.
 	if (IsOnSeparateCPUThread()) {
 		CoreTiming::ScheduleEvent(usToCycles(geIntervalUs), geCycleEvent, 0);
@@ -220,6 +231,9 @@ void __GeDoState(PointerWrap &p)
 	CoreTiming::RestoreRegisterEvent(geInterruptEvent, "GeInterruptEvent", &__GeExecuteInterrupt);
 	p.Do(geCycleEvent);
 	CoreTiming::RestoreRegisterEvent(geCycleEvent, "GeCycleEvent", &__GeCheckCycles);
+
+	p.Do(listWaitingThreads);
+	p.Do(drawWaitingThreads);
 
 	// Everything else is done in sceDisplay.
 	p.DoMarker("sceGe");
@@ -255,12 +269,35 @@ bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks)
 
 void __GeWaitCurrentThread(WaitType type, SceUID waitId, const char *reason)
 {
+	if (type == WAITTYPE_GEDRAWSYNC)
+		drawWaitingThreads.push_back(__KernelGetCurThread());
+	else if (type == WAITTYPE_GELISTSYNC)
+		listWaitingThreads[waitId].push_back(__KernelGetCurThread());
+	else
+		ERROR_LOG_REPORT(SCEGE, "__GeWaitCurrentThread: bad wait type");
+
 	__KernelWaitCurThread(type, waitId, 0, 0, false, reason);
 }
 
-void __GeTriggerWait(WaitType type, SceUID waitId, const char *reason, bool noSwitch)
+bool __GeTriggerWait(WaitType type, SceUID waitId, WaitingThreadList &waitingThreads)
 {
-	__KernelTriggerWait(type, waitId, 0, reason, noSwitch);
+	// TODO: Do they ever get a result other than 0?
+	bool wokeThreads = false;
+	for (auto it = waitingThreads.begin(), end = waitingThreads.end(); it != end; ++it)
+		wokeThreads |= HLEKernel::ResumeFromWait(*it, type, waitId, 0);
+	waitingThreads.clear();
+	return wokeThreads;
+}
+
+bool __GeTriggerWait(WaitType type, SceUID waitId)
+{
+	if (type == WAITTYPE_GEDRAWSYNC)
+		return __GeTriggerWait(type, waitId, drawWaitingThreads);
+	else if (type == WAITTYPE_GELISTSYNC)
+		return __GeTriggerWait(type, waitId, listWaitingThreads[waitId]);
+	else
+		ERROR_LOG_REPORT(SCEGE, "__GeTriggerWait: bad wait type");
+	return false;
 }
 
 bool __GeHasPendingInterrupt()
@@ -317,7 +354,9 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId,
 int sceGeListDeQueue(u32 listID)
 {
 	WARN_LOG(SCEGE, "sceGeListDeQueue(%08x)", listID);
-	return gpu->DequeueList(listID);
+	int result = gpu->DequeueList(listID);
+	hleReSchedule("dlist dequeued");
+	return result;
 }
 
 int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress)
