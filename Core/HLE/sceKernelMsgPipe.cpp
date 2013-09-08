@@ -115,6 +115,11 @@ struct MsgPipeWaitingThread
 		if (transferredBytes.IsValid())
 			*transferredBytes += len;
 	}
+
+	bool operator ==(const SceUID &otherThreadID) const
+	{
+		return threadID == otherThreadID;
+	}
 };
 
 bool __KernelMsgPipeThreadSortPriority(MsgPipeWaitingThread thread1, MsgPipeWaitingThread thread2)
@@ -233,46 +238,51 @@ struct MsgPipe : public KernelObject
 		return wokeThreads;
 	}
 
-	void SortReceiveThreads()
+	void SortThreads(std::vector<MsgPipeWaitingThread> &waitingThreads, bool usePrio)
 	{
 		// Clean up any not waiting at the same time.
-		size_t size = receiveWaitingThreads.size();
+		size_t size = waitingThreads.size();
 		for (size_t i = 0; i < size; ++i)
 		{
-			if (!receiveWaitingThreads[i].IsStillWaiting(GetUID()))
+			if (!waitingThreads[i].IsStillWaiting(GetUID()))
 			{
 				// Decrement size and swap what was there with i.
-				std::swap(receiveWaitingThreads[i], receiveWaitingThreads[--size]);
+				std::swap(waitingThreads[i], waitingThreads[--size]);
 				// Now we haven't checked the new i, so go back and do i again.
 				--i;
 			}
 		}
-		receiveWaitingThreads.resize(size);
+		waitingThreads.resize(size);
 
-		bool usePrio = (nmp.attr & SCE_KERNEL_MPA_THPRI_R) != 0;
 		if (usePrio)
-			std::stable_sort(receiveWaitingThreads.begin(), receiveWaitingThreads.end(), __KernelMsgPipeThreadSortPriority);
+			std::stable_sort(waitingThreads.begin(), waitingThreads.end(), __KernelMsgPipeThreadSortPriority);
+	}
+
+	void SortReceiveThreads()
+	{
+		bool usePrio = (nmp.attr & SCE_KERNEL_MPA_THPRI_R) != 0;
+		SortThreads(receiveWaitingThreads, usePrio);
 	}
 
 	void SortSendThreads()
 	{
-		// Clean up any not waiting at the same time.
-		size_t size = sendWaitingThreads.size();
-		for (size_t i = 0; i < size; ++i)
-		{
-			if (!sendWaitingThreads[i].IsStillWaiting(GetUID()))
-			{
-				// Decrement size and swap what was there with i.
-				std::swap(sendWaitingThreads[i], sendWaitingThreads[--size]);
-				// Now we haven't checked the new i, so go back and do i again.
-				--i;
-			}
-		}
-		sendWaitingThreads.resize(size);
-
 		bool usePrio = (nmp.attr & SCE_KERNEL_MPA_THPRI_S) != 0;
-		if (usePrio)
-			std::stable_sort(sendWaitingThreads.begin(), sendWaitingThreads.end(), __KernelMsgPipeThreadSortPriority);
+		SortThreads(sendWaitingThreads, usePrio);
+	}
+
+	void RemoveWaitingThread(std::vector<MsgPipeWaitingThread> &waitingThreads, SceUID threadID)
+	{
+		waitingThreads.erase(std::remove(waitingThreads.begin(), waitingThreads.end(), threadID), waitingThreads.end());
+	}
+
+	void RemoveReceiveWaitingThread(SceUID threadID)
+	{
+		RemoveWaitingThread(receiveWaitingThreads, threadID);
+	}
+
+	void RemoveSendWaitingThread(SceUID threadID)
+	{
+		RemoveWaitingThread(sendWaitingThreads, threadID);
 	}
 
 	virtual void DoState(PointerWrap &p)
