@@ -265,7 +265,7 @@ u32 GPUCommon::DequeueList(int listid) {
 		dlQueue.remove(listid);
 
 	dls[listid].waitTicks = 0;
-	__GeTriggerWait(WAITTYPE_GELISTSYNC, listid, "GeListSync");
+	__GeTriggerWait(WAITTYPE_GELISTSYNC, listid);
 
 	CheckDrawSync();
 
@@ -893,7 +893,7 @@ void GPUCommon::InterruptEnd(int listid) {
 	// TODO: Unless the signal handler could change it?
 	if (dl.state == PSP_GE_DL_STATE_COMPLETED || dl.state == PSP_GE_DL_STATE_NONE) {
 		dl.waitTicks = 0;
-		__GeTriggerWait(WAITTYPE_GELISTSYNC, listid, "GeListSync", true);
+		__GeTriggerWait(WAITTYPE_GELISTSYNC, listid);
 	}
 
 	if (dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
