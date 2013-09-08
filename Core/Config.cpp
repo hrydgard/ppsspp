@@ -278,13 +278,12 @@ void Config::Save() {
 		IniFile::Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
 	
-		for (int i = 0; i <  iMaxRecent; i++) {
+		for (int i = 0; i < iMaxRecent; i++) {
 			char keyName[64];
 			sprintf(keyName,"FileName%d",i);
-			if (i < recentIsos.size()) {
+			if (i < (int)recentIsos.size()) {
 				recent->Set(keyName, recentIsos[i]);
-			}
-			else {
+			} else {
 				recent->Delete(keyName); // delete the nonexisting FileName
 			} 
 		}
