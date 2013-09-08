@@ -1598,51 +1598,6 @@ u32 __KernelResumeThreadFromWait(SceUID threadID, u64 retval)
 	}
 }
 
-// Only run when you can safely accept a context switch
-// Triggers a waitable event, that is, it wakes up all threads that waits for it
-// If any changes were made, it will context switch after the syscall
-bool __KernelTriggerWait(WaitType type, int id, bool useRetVal, int retVal, const char *reason, bool dontSwitch)
-{
-	bool doneAnything = false;
-
-	u32 error;
-	for (std::vector<SceUID>::iterator iter = threadqueue.begin(); iter != threadqueue.end(); iter++)
-	{
-		Thread *t = kernelObjects.Get<Thread>(*iter, error);
-		if (t && t->isWaitingFor(type, id))
-		{
-			// This thread was waiting for the triggered object.
-			t->resumeFromWait();
-			if (useRetVal)
-				t->setReturnValue((u32)retVal);
-			doneAnything = true;
-
-			if (type == WAITTYPE_THREADEND)
-				__KernelCancelThreadEndTimeout(*iter);
-		}
-	}
-
-//	if (doneAnything)     // lumines?
-	{
-		if (!dontSwitch)
-		{
-			// TODO: time waster
-			hleReSchedule(reason);
-		}
-	}
-	return doneAnything;
-}
-
-bool __KernelTriggerWait(WaitType type, int id, const char *reason, bool dontSwitch)
-{
-	return __KernelTriggerWait(type, id, false, 0, reason, dontSwitch);
-}
-
-bool __KernelTriggerWait(WaitType type, int id, int retVal, const char *reason, bool dontSwitch)
-{
-	return __KernelTriggerWait(type, id, true, retVal, reason, dontSwitch);
-}
-
 // makes the current thread wait for an event
 void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr, bool processCallbacks, const char *reason)
 {
