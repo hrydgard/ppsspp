@@ -991,6 +991,42 @@ void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	}
 }
 
+void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	auto result = HLEKernel::WaitBeginCallback<Thread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout);
+	if (result == HLEKernel::WAIT_CB_SUCCESS)
+		DEBUG_LOG(SCEKERNEL, "sceKernelWaitThreadEndCB: Suspending wait for callback")
+	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
+		ERROR_LOG_REPORT(SCEKERNEL, "sceKernelWaitThreadEndCB: wait not found to pause for callback")
+	else
+		WARN_LOG_REPORT(SCEKERNEL, "sceKernelWaitThreadEndCB: beginning callback with bad wait id?");
+}
+
+bool __KernelCheckResumeThreadEnd(Thread *t, SceUID waitingThreadID, u32 &error, int result, bool &wokeThreads)
+{
+	if (!HLEKernel::VerifyWait(waitingThreadID, WAITTYPE_THREADEND, t->GetUID()))
+		return true;
+
+	if (t->nt.status == THREADSTATUS_DORMANT)
+	{
+		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThreadID, error);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThreadID);
+		if (timeoutPtr != 0)
+			Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+		__KernelResumeThreadFromWait(waitingThreadID, t->nt.exitStatus);
+		return true;
+	}
+
+	return false;
+}
+
+void __KernelThreadEndEndCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	auto result = HLEKernel::WaitEndCallback<Thread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout, __KernelCheckResumeThreadEnd);
+	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
+		DEBUG_LOG(SCEKERNEL, "sceKernelWaitThreadEndCB: Resuming wait from callback");
+}
+
 u32 __KernelSetThreadRA(SceUID threadID, u32 nid)
 {
 	u32 newRA;
@@ -1090,6 +1126,7 @@ void __KernelThreadingInit()
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_DELAY, __KernelDelayBeginCallback, __KernelDelayEndCallback);
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_SLEEP, __KernelSleepBeginCallback, __KernelSleepEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_THREADEND, __KernelThreadEndBeginCallback, __KernelThreadEndEndCallback);
 }
 
 void __KernelThreadingDoState(PointerWrap &p)
