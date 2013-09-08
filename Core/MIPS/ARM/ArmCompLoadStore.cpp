@@ -163,7 +163,7 @@ namespace MIPSComp
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
 				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
 
-				if (!g_Config.bFastMemory) {
+				if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
 					SetCCAndR0ForSafeAddress(rs, offset, R1);
 					doCheck = true;
 				} else {
