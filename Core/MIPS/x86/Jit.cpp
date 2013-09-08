@@ -516,6 +516,8 @@ Jit::JitSafeMem::JitSafeMem(Jit *jit, MIPSGPReg raddr, s32 offset, u32 alignMask
 		iaddr_ = jit_->gpr.GetImmediate32(raddr_) + offset_;
 	else
 		iaddr_ = (u32) -1;
+
+	fast_ = g_Config.bFastMemory || raddr == MIPS_REG_SP;
 }
 
 void Jit::JitSafeMem::SetFar()
@@ -602,7 +604,7 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg(ReadType type)
 	bool needTemp = alignMask_ != 0xFFFFFFFF;
 #ifdef _M_IX86
 	// We always mask on 32 bit in fast memory mode.
-	needTemp = needTemp || g_Config.bFastMemory;
+	needTemp = needTemp || fast_;
 #endif
 
 	if (jit_->gpr.R(raddr_).IsSimpleReg() && !needTemp)
@@ -618,7 +620,7 @@ OpArg Jit::JitSafeMem::PrepareMemoryOpArg(ReadType type)
 
 	MemCheckAsm(type);
 
-	if (!g_Config.bFastMemory)
+	if (!fast_)
 	{
 		// Is it in physical ram?
 		jit_->CMP(32, R(xaddr_), Imm32(PSP_GetKernelMemoryBase() - offset_));
@@ -672,9 +674,9 @@ bool Jit::JitSafeMem::PrepareSlowWrite()
 {
 	// If it's immediate, we only need a slow write on invalid.
 	if (iaddr_ != (u32) -1)
-		return !g_Config.bFastMemory && !ImmValid();
+		return !fast_ && !ImmValid();
 
-	if (!g_Config.bFastMemory)
+	if (!fast_)
 	{
 		PrepareSlowAccess();
 		return true;
@@ -700,7 +702,7 @@ void Jit::JitSafeMem::DoSlowWrite(void *safeFunc, const OpArg src, int suboffset
 
 bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 {
-	if (!g_Config.bFastMemory)
+	if (!fast_)
 	{
 		if (iaddr_ != (u32) -1)
 		{
@@ -727,7 +729,7 @@ bool Jit::JitSafeMem::PrepareSlowRead(void *safeFunc)
 
 void Jit::JitSafeMem::NextSlowRead(void *safeFunc, int suboffset)
 {
-	_dbg_assert_msg_(JIT, !g_Config.bFastMemory, "NextSlowRead() called in fast memory mode?");
+	_dbg_assert_msg_(JIT, !fast_, "NextSlowRead() called in fast memory mode?");
 
 	// For simplicity, do nothing for 0.  We already read in PrepareSlowRead().
 	if (suboffset == 0)
