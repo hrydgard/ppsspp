@@ -359,9 +359,15 @@ void NativeInitGraphics()
 	theme.checkOn = I_CHECKEDBOX;
 	theme.checkOff = I_SQUARE;
 
-	ui_theme.uiFont = UBUNTU24;
-	ui_theme.uiFontSmall = UBUNTU24;
-	ui_theme.uiFontSmaller = UBUNTU24;
+#ifdef _WIN32
+	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
+	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
+	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
+#else
+	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "", 20);
+	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "", 14);
+	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, "", 11);
+#endif
 	ui_theme.checkOn = I_CHECKEDBOX;
 	ui_theme.checkOff = I_SQUARE;
 	ui_theme.whiteImage = I_SOLIDWHITE;
