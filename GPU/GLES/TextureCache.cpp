@@ -199,7 +199,7 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			if (entry->format != framebuffer->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat1, G3D, "Render to texture with different formats %d != %d", entry->format, framebuffer->format);
 				// If it already has one, let's hope that one is correct.
-				// Affected game list : Kurohyou 2, Evangelion Jo
+				// If "AttachFramebufferValid" , Evangelion Jo and Kurohyou 2 will be 'blue background' in-game
 				AttachFramebufferInvalid(entry, framebuffer);
 			} else {
 				AttachFramebufferValid(entry, framebuffer);
@@ -217,12 +217,13 @@ inline void TextureCache::AttachFramebuffer(TexCacheEntry *entry, u32 address, V
 			if (framebuffer->format != entry->format) {
 				WARN_LOG_REPORT_ONCE(diffFormat2, G3D, "Render to texture with different formats %d != %d at %08x", entry->format, framebuffer->format, address);
 				// TODO: Use an FBO to translate the palette?
-				// Affected game List : DBZ VS Tag , 3rd birthday 
+				// If 'AttachFramebufferInvalid' , Kurohyou 2 will be missing battle scene in-game and FF Type-0 will have black box shadow/'blue fog' and 3rd birthday will have 'blue fog'
+				// If 'AttachFramebufferValid' , DBZ VS Tag will have 'burning effect' , 
 				AttachFramebufferValid(entry, framebuffer);
 			} else if ((entry->addr - address) / entry->bufw < framebuffer->height) {
 				WARN_LOG_REPORT_ONCE(subarea, G3D, "Render to area containing texture at %08x", address);
 				// TODO: Keep track of the y offset.
-				// Affected game List : God of War Ghost of Sparta , God of War Chains of Olympus
+				// If "AttachFramebufferValid" ,  God of War Ghost of Sparta/Chains of Olympus will be missing special effect.
 				AttachFramebufferInvalid(entry, framebuffer);
 			}
 		}
