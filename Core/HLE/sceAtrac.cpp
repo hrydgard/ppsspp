@@ -692,12 +692,8 @@ u32 _AtracDecodeData(int atracID, u8* outbuf, u32 *SamplesNum, u32* finish, int 
 			// refresh atracContext
 			_AtracGenarateContext(atrac, atrac->atracContext);
 		}
-	// TODO: Can probably remove this after we validate no wrong ids?
 	} else {
-		memset(outbuf, 0, 4);
-		*SamplesNum = 1;
-		*finish = 1;
-		*remains = -1;
+		ret = ATRAC_ERROR_BAD_ATRACID;
 	}
 
 	return ret;
@@ -710,9 +706,11 @@ u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 finishF
 	u32 finish = 0;
 	int remains = 0;
 	int ret = _AtracDecodeData(atracID, Memory::GetPointer(outAddr), &numSamples, &finish, &remains);
-	Memory::Write_U32(numSamples, numSamplesAddr);
-	Memory::Write_U32(finish, finishFlagAddr);
-	Memory::Write_U32(remains, remainAddr);
+	if (ret != ATRAC_ERROR_BAD_ATRACID) {
+		Memory::Write_U32(numSamples, numSamplesAddr);
+		Memory::Write_U32(finish, finishFlagAddr);
+		Memory::Write_U32(remains, remainAddr);
+	}
 	if (!ret) {
 		// decode data successfully, delay thread
 		return hleDelayResult(ret, "atrac decode data", atracDecodeDelay);
@@ -834,7 +832,7 @@ u32 sceAtracGetMaxSample(int atracID, u32 maxSamplesAddr)
 	return 0;
 }
 
-u32  sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
+u32 sceAtracGetNextDecodePosition(int atracID, u32 outposAddr)
 {
 	DEBUG_LOG(ME, "sceAtracGetNextDecodePosition(%i, %08x)", atracID, outposAddr);
 	Atrac *atrac = getAtrac(atracID);
