@@ -545,6 +545,11 @@ public:
 	std::vector<StackInfo> pushedStacks;
 
 	StackInfo currentStack;
+
+	// For thread end.
+	std::vector<SceUID> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, u64> pausedWaits;
 };
 
 struct ThreadQueueList
@@ -1712,17 +1717,7 @@ void __KernelCancelWakeup(SceUID threadID)
 void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID) userdata;
-
-	u32 error;
-	// Just in case it was woken on its own.
-	if (__KernelGetWaitID(threadID, WAITTYPE_THREADEND, error) != 0)
-	{
-		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-		if (Memory::IsValidAddress(timeoutPtr))
-			Memory::Write_U32(0, timeoutPtr);
-
-		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-	}
+	HLEKernel::WaitExecTimeout<Thread, WAITTYPE_THREADEND>(threadID);
 }
 
 void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitForID, s64 usFromNow)
@@ -1755,7 +1750,20 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 		t->nt.exitStatus = exitStatus;
 		t->nt.status = THREADSTATUS_DORMANT;
 		__KernelFireThreadEnd(threadID);
-		__KernelTriggerWait(WAITTYPE_THREADEND, threadID, exitStatus, reason, true);
+		for (size_t i = 0; i < t->waitingThreads.size(); ++i)
+		{
+			const SceUID waitingThread = t->waitingThreads[i];
+			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThread, error);
+			if (HLEKernel::VerifyWait(waitingThread, WAITTYPE_THREADEND, threadID))
+			{
+				s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThread);
+				if (timeoutPtr != 0)
+					Memory::Write_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
+
+				HLEKernel::ResumeFromWait(waitingThread, WAITTYPE_THREADEND, threadID, exitStatus);
+			}
+		}
+		t->waitingThreads.clear();
 	}
 	else
 		ERROR_LOG_REPORT(SCEKERNEL, "__KernelStopThread: thread %d does not exist", threadID);
@@ -1931,6 +1939,9 @@ void __KernelResetThread(Thread *t, int lowestPriority)
 	// TODO: Not sure if it's reset here, but this makes sense.
 	t->context.r[MIPS_REG_GP] = t->nt.gpreg;
 	t->FillStack();
+
+	if (!t->waitingThreads.empty())
+		ERROR_LOG_REPORT(SCEKERNEL, "Resetting thread with threads waiting on end?");
 }
 
 Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr)
@@ -2655,6 +2666,8 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr)
 		{
 			if (Memory::IsValidAddress(timeoutPtr))
 				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::Read_U32(timeoutPtr));
+			if (std::find(t->waitingThreads.begin(), t->waitingThreads.end(), currentThread) == t->waitingThreads.end())
+				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, false, "thread wait end");
 		}
 
@@ -2687,6 +2700,8 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr)
 		{
 			if (Memory::IsValidAddress(timeoutPtr))
 				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::Read_U32(timeoutPtr));
+			if (std::find(t->waitingThreads.begin(), t->waitingThreads.end(), currentThread) == t->waitingThreads.end())
+				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, true, "thread wait end");
 		}
 
