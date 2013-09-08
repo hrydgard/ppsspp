@@ -1,6 +1,5 @@
-﻿된
-
 한국어
+
 [MainMenu]
 Load = 불러오기...
 Main Settings = 메인 설정
@@ -8,32 +7,27 @@ Credits = 제작진
 Exit = 종료
 Recent = 최근 게임
 Game Settings = 게임 설정
+Games = 게임
 Homebrew & Demos = 홈브류 및 데모
 How to get games = 게임을 얻는 방법
 Support PPSSPP = PPSSPP 지원하기
 How to get homebrew & demos = 홈브류 및 데모를 얻는 방법
 www.ppsspp.org = www.ppsspp.org
+Home = 홈
+
 [System]
-Language = 언어
-System Settings = 시스템 설정
+General = 기본
 Dynarec = 동적 컴파일 (JIT)
 DynarecisJailed = 동적 컴파일 (JIT) - (탈옥되지 않음 - JIT 미지원)
 Fast Memory = 빠른 메모리 (불안정)
 Multithreaded (experimental) = 멀티스레딩 (실험적)
 I/O on thread (experimental) = I/O를 스레딩 (실험적)
-Show Debug Statistics = 디버깅 정보를 표시
 Show FPS = FPS를 표시
 Enable Cheats = 치트 사용
-Reload Cheats = 치트 다시 불러오기
 Day Light Saving = 서머타임
-Button Preference - O to Confirm = 버튼 설정 - O로 확인
-Button Preference - X to Confirm = 버튼 설정 - X로 확인
-Use O = O 사용
-Use X = X 사용
 Change Nickname = 닉네임 변경
 Developer Tools = 개발자 도구
 Enable Compatibility Server Reports = 호환성을 서버에 보고하기
-System Language = 시스템 언어
 12HR = 12시간
 24HR = 24시간
 Cheats = 치트 (실험적, 포럼을 확인)
@@ -44,40 +38,36 @@ Use O to confirm = O로 확인
 YYYYMMDD = YYYYMMDD
 MMDDYYYY = MMDDYYYY
 DDMMYYYY = DDMMYYYY
+Screenshots as PNG = PNG로 스크린샷 저장
 Time Format = 시간 포맷
 Date Format = 날짜 포맷
 Confirmation Button = 확인 버튼
 Change CPU Clock = CPU 클럭 변경 (0 = 기본)
-Screenshots as PNG = PNG로 스크린샷 저장
+Clear Recent Games List = 최근 게임 목록 삭제
+
 [Graphics]
 Stretch to Display = 디스플레이에 맞춰 늘리기
 Hardware Transform = 하드웨어 변형
 Texture Filtering = 텍스처 필터링
 Frame Skipping = 프레임 스킵
-Graphics Settings = 그래픽 설정
 Vertex Cache = 정점 캐시
-Linear Filtering = 선형 필터
-Buffered Rendering = 버퍼 렌더링
 Mipmapping = 밉 맵핑
 Anti-Aliasing = 안티앨리어싱
-Alternative Speed = Alternative speed
+Alternative Speed = 속도 제한
 Unlimited = 제한 없음
 True Color = 트루 컬러
 Anisotropic Filtering = 비등방성 필터링
-Level : = 레벨:
-Frames : = 프레임:
 Texture Scaling = 텍스처 스케일링
-Type  : = 유형:
 Deposterize = 색조융합
-Format : = 포맷 :
-FPS : = FPS :
 None = 없음
 Speed = 속도
 FPS = FPS
 Both = 둘다
 Auto = 자동
 2x = 2x
+3x = 3x
 4x = 4x
+5x = 5x
 8x = 8x
 16x = 16x
 xBRZ = xBRZ
@@ -88,7 +78,7 @@ VSync = VSync
 FullScreen = 풀스크린
 Show FPS Counter = FPS 카운터 표시
 Show Debug Statistics = 디버그 통계 표시
-Upscale level = 업스케일 레벨
+Upscale Level = 업스케일 레벨
 Upscale Type = 업스케일 유형
 Texture Filter = 텍스처 필터
 Nearest = 근접
@@ -109,103 +99,135 @@ Mode = 모드
 Off = 끄기
 Overlay Information = 오버레이 정보
 Rendering Mode = 렌더링 모드
+
 [Pause]
 Save State = 상태 저장
 Load State = 상태 불러오기
 Continue = 계속하기
-Settings = 설정
-Back to Menu = 메뉴로 돌아가기
 Exit to menu = 끄고 메뉴로 돌아가기
 Game Settings = 게임 설정
+
 [MainSettings]
 Audio = 오디오
-Controls = 컨트롤
-Developer = 개발자
 Graphics = 그래픽
-Settings = 설정
 System = 시스템
+Controls = 컨트롤
+
 [Developer]
-Developer Tools = 개발자 도구
 Load language ini = 언어 설정 불러오기
 Save language ini = 언어 설정을 저장
-Run CPU tests = CPU 테스트 실행
-Dump next frame = 다음 프레임을 덤프
-Cleanup Recents = 최근 목록 지우기
+Run CPU Tests = CPU 테스트 실행
 Enable Logging = 디버그 로깅 사용
+System Information = 시스템 정보
+Restore Default Settings = PPSSPP 설정 초기화
+Language = 언어
+
 [Audio]
-Audio Settings = 오디오 설정
 Enable Sound = 사운드 켜기
 Enable Atrac3+ = Atrac3+ 활성화
 Download Atrac3+ plugin = Atrac3+ 플러그인 다운로드
 Redownload Atrac3+ plugin = Atrac3+ 플러그인 다시 다운로드
 SFX volume = SFX 볼륨
 BGM volume = BGM 볼륨
+Low latency audio = 오디오 지연시간 최소화 (끊길 수 있음)
+
 [Controls]
-Controls Settings = 컨트롤 설정
 OnScreen = 화면 터치 컨트롤
 Large Controls = 큰 컨트롤
-Show Analog Stick = 아날로그 스틱을 표시
 Button Scaling = 버튼 크기 조절
-Transparent Buttons = 투명한 버튼
-Auto = 자동
 Tilt = 아날로그 대신 중력센서를 사용(가로)
 Button Opacity = 버튼 투명도
 Show Left Analog Stick = 왼쪽 아날로그 스틱 표시
 Control Mapping = 컨트롤 맵핑
+
 [General]
-Back = 이전
-General = 기본 설정
-System Information = 시스템 정보
-Language = 언어
+
 [Dialog]
-New Save = 새로운 세이브
+Back = 돌아가기
 Yes = 예
 No = 아니오
+OK = 확인
+Cancel = 취소
 Enter = 결정
-Back = 돌아가기
-Do you want to overwrite the data? = 데이터를 덮어쓰시겠습니까?
-Saving = 저장중입니다.\n잠시 기다려 주십시오.
-Save completed = 저장을 완료했습니다.
-Loading = 불러오는 중입니다.\n잠시 기다려 주십시오.
-There is no data = 데이터가 없습니다.
-DeleteConfirm = 데이터를 삭제합니다.\n계속하시겠습니까?
-Deleting = 삭제중입니다.\n잠시 기다려 주십시오.
-Delete completed = 삭제를 완료했습니다.
-Load completed = 불러오기를 완료했습니다.
-Shift = 전환
 Select = 선택
 Delete = 삭제
 Start = 스타트
 Finish = 완료
+Shift = 전환
 Save = 저장
 Load = 불러오기
+NEW DATA = 새로운 세이브
+Confirm Save = 이 데이터를 저장하시겠습니까?
+Confirm Overwrite = 데이터를 덮어쓰시겠습니까?
+ConfirmLoad = 이 데이터를 불러오시겠습니까?
+Saving = 저장중입니다.\n잠시 기다려 주십시오.
+Save completed = 저장을 완료했습니다.
+Loading = 불러오는 중입니다.\n잠시 기다려 주십시오.
+Load completed = 불러오기를 완료했습니다.
+There is no data = 데이터가 없습니다.
+DeleteConfirm = 데이터를 삭제합니다.\n계속하시겠습니까?
+Deleting = 삭제중입니다.\n잠시 기다려 주십시오.
+Delete completed = 삭제를 완료했습니다.
+DeleteConfirmAll = 이 게임의 모든 저장 데이터를\n삭제하시겠습니까?
+DeleteConfirmGame = 이 게임을 당신의 기기에서\n삭제하시겠습니까? (되돌릴 수 없습니다.)
+RestoreDefaultSettings = 모든 설정을 기본 설정으로 되돌리시겠습니까?\n컨트롤 맵핑 설정은 변경되지 않습니다.\n\n\n되돌릴 수 없습니다.\n설정을 적용하기 위해서는 PPSSPP를 재시작하십시오.
+
 [Error]
 Error loading file = 파일을 불러올 수 없습니다.
 PS1 EBOOTs are not supported by PPSSPP. = PS1 EBOOTS는 PPSSPP에서 지원되지 않습니다.
 Failed to load executable: File corrupt = 실행 파일 로드에 실패하였습니다 : 파일이 손상됨.
 File is compressed (RAR).\nPlease decompress first (try WinRAR) = 파일이 압축되어 있습니다 (RAR).\n먼저 압축을 풀어주세요 (WinRAR를 사용).
 File is compressed (RAR).\nPlease decompress first (try UnRAR) = 파일이 압축되어 있습니다 (RAR).\n먼저 압축을 풀어주세요 (UnRAR를 사용).
-File is compressed (ZIP).\nPlease decompress first (try WinRAR) = 파일이 압축되어 있습니다 (ZIP).\nPlease decompress first (WinRAR를 사용).
-File is compressed (ZIP).\nPlease decompress first (try UnRAR) = 파일이 압축되어 있습니다 (ZIP).\nPlease decompress first (UnRAR를 사용).
+File is compressed (ZIP).\nPlease decompress first (try WinRAR) = 파일이 압축되어 있습니다 (ZIP).\n먼저 압축을 풀어주세요 (WinRAR를 사용).
+File is compressed (ZIP).\nPlease decompress first (try UnRAR) = 파일이 압축되어 있습니다 (ZIP).\n먼저 압축을 풀어주세요. (UnRAR를 사용).
 Just a directory. = 디렉터리 입니다.
 Failed to identify file = 파일을 식별할 수 없습니다.
 Error reading file = 파일을 읽을 수 없습니다.
 No EBOOT.PBP, misidentified game = EBOOT.PBP가 없으며, 게임을 식별할 수 없습니다.
+PSX game image detected. = 파일이 MODE2 이미지 입니다. PSX 게임을 불러왔는지 확인하세요.
+
 [Screen]
 fixed = 속도: 고정
 standard = 속도: 보통
-Loaded State = 실시간 저장 불러옴
-Saved State = 실시간 저장됨
-LoadStateDoesntExist = 실시간 저장을 불러올 수 없습니다: 실시간 저장이 존재하지 않습니다!
-LoadStateWrongVersion = 실시간 저장을 불러올 수 없습니다: 구버전 PPSSPP의 실시간 저장입니다!
-Save State Failed = 실시간 저장에 실패하였습니다.
+Loaded State = 상태 불러옴
+Saved State = 상태 저장됨
+LoadStateDoesntExist = 상태를 불러올 수 없습니다: 상태가 존재하지 않습니다!
+LoadStateWrongVersion = 상태를 불러올 수 없습니다: 구버전 PPSSPP의 상태입니다!
+Save State Failed = 상태 저장에 실패하였습니다.
+PressESC = ESC 버튼을 누르면 일시정지 메뉴가 열립니다.
+
 [PSPCredits]
-created = Created by
-license = Free software under GPL 2.0
+created = 제작:
+license = GPL 2.0을 따르는 무료 소프트웨어
+title = 빠르고 가벼운 PSP 에뮬레이터
+contributors = 도움을 주신 분들:
+specialthanks = Special thanks to:
+written = C++ 언어로 작성되어 빠르고 가벼움
+tools = 사용된 무료 툴:
+website = 저희 웹 사이트를 확인하세요!
+list = 호환성 목록, 포럼, 개발 정보
+check = 최고의 GC/Wii 에뮬레이터 Dolphin
+info1 = PPSSPP는 교육 목적으로만 사용됩니다.
+info2 = 게임의 권리를 보유하여 주십시오.
+info3 = UMD를 보유하거나 디지털 구매로
+info4 = PSN을 통해 실제 PSP에 게임을 다운받아 주십시오.
+info5 = PSP는 Sony, Inc. 의 등록 상표입니다.
+Buy Gold = 골드 버전 구매
+PPSSPP Forums = PPSSPP 포럼
+this translation by = 번역: 
+# Add translators1-6 for up to 6 lines of translator credits.
+# Leave extra lines blank. 4 contributors per line seems to look best.
+# Add translators or contributors who translated PPSSPP into your language here.
+translators1 = MrYadro, mgaver, VIRGINKLM, raven02
+translators2 = sum2012, vnctdj, unknownbrackets, ufdada
+translators3 = The Dax, wuspring, hrydgard, adrian17
+translators4 =
+translators5 =
+translators6 =
+
 [Plugin]
 Already installed = Mai의 Atrac3+ 디코더가 이미 설치되어 있습니다.\n다시 설치하시겠습니까?
 Atrac3+ Audio Support = Atrac3+ 오디오 지원
-Back = 뒤로
 Download and install = 다운로드 및 설치
 Failed to download plugin = 플러그인 다운로드에 실패하였습니다.\n나중에 다시 시도 해주십시오.
 Failed to reach server = 서버 접속에 실패하였습니다.\n인터넷 연결을 확인하시고 다시 시도 해주십시오.
@@ -214,4 +236,140 @@ Looking for download... = 다운로드 중...
 More Information = 자세한 정보
 Origins are dubious = * Mai의 Atrac3+ 디코더는\n배경음악이나 목소리를 재생하기 위해 필요합니다.\n자세한 정보를 원하시면 자세한 정보 버튼을 누르십시오.
 SorryNoDownload = 죄송합니다. 이 플랫폼에서는 자동 다운로드가 지원되지 않습니다.
-To download and install = Mai의 Atrac3+ 플러그인이 설치되었습니다.\n뒤로 버튼을 누르십시오.
+To download and install = Mai의 Atrac3+ 디코더를 설치하기 위해서는\n다운로드를 누르십시오.
+
+[KeyMapping]
+Clear All = 모두 해제
+Default All = 모두 기본값 
+Map a new key for = 이 키를 맵핑 :
+
+[MappableControls]
+Up = Up 
+Down = Down 
+Left = Left 
+Right = Right 
+An.Up = An.Up 
+An.Down = An.Down 
+An.Left = An.Left 
+An.Right = An.Right 
+RapidFire = RapidFire 
+Unthrottle = Unthrottle 
+SpeedToggle = SpeedToggle 
+Pause = Pause 
+RightAn.Up = RightAn.Up 
+RightAn.Down = RightAn.Down 
+RightAn.Left = RightAn.Left 
+RightAn.Right = RightAn.Right 
+
+[DesktopUI]
+# If your language does not show well with the default font, you can use Font to specify a different one.
+#Font = 맑은 고딕
+
+File = 파일(&F)
+Load = 불러오기(&L)...
+Open Directory... = 디렉터리 열기(&D)...
+Open from MS:/PSP/GAME... = MS:/PSP/GAME에서 불러오기(&P)...
+Open Memory Stick = 메모리 스틱 열기(&M)
+Load State = 상태 불러오기
+Save State = 상태 저장하기
+Load State File... = 상태 파일 불러오기(&L)...
+Save State File... = 상태 파일 저장하기(&S)...
+Exit = 종료(&X)
+
+Emulation = 에뮬레이션(&E)
+# This shows up only while in game.
+Run = 열기(&R)
+# And this one doesn't show up while in game.
+Pause = 일시정지(&P)
+Stop = 정지(&S)
+Reset = 리셋(&E)
+Run on Load = 불러오면 실행하기(&L)
+Enable Sound = 사운드 켜기(&O)
+Enable Atrac3+ = Atrac3+ 켜기(&A)
+Enable Cheats = 치트 켜기(&C) (게임이 리셋됨)
+Dynarec = 동적 컴파일(&D)
+
+Debugging = 디버그(&G)
+Load Map File... = 맵 파일 불러오기(&M)...
+Save Map File... = 맵 파일 저장하기(&S)...
+Reset Symbol Table = 심볼 테이블 리셋(&R)
+Dump Next Frame to Log = 다음 프레임을 로그에 덤프(&U)
+Take Screenshot = 스크린샷 찍기(&T)
+Disassembly = 디스어셈블리(&D)...
+Log Console = 로그 콘솔(&L)
+Memory View... = 메모리 뷰(&V)...
+
+Game Settings = 게임 설정(&G)
+Fullscreen = 풀 스크린(&L)
+Keep PPSSPP On Top = PPSSPP 항상 위에 표시(&K)
+Stretch to Display = 디스플레이에 맞춰 늘리기(&S)
+Rendering Resolution = 렌더링 해상도(&R)
+  1x = 1배
+  2x = 2배
+  3x = 3배
+  4x = 4배
+Rendering Mode = 렌더링 모드(&O)
+  Non-Buffered Rendering = 버퍼 없는 렌더링(&N)
+  Buffered Rendering = 버퍼 렌더링(&B)
+  Read Framebuffers To Memory (CPU) = 메모리에 프레임 버퍼 저장(&CPU)
+  Read Framebuffers To Memory (GPU) = 메모리에 프레임 버퍼 저장(&GPU)
+Frame Skipping = 프레임 스킵(&F)
+	Off = 끄기(&O)
+	Auto = 자동(&A)
+	2 = &2
+	3 = &3
+	4 = &4
+	5 = &5
+	6 = &6
+	7 = &7
+	8 = &8
+# Also uses Auto from above.  Please open an issue on GitHub if your language needs different words.
+Texture Filtering = 텍스처 필터링(&X)
+  Nearest = 근접(&N)
+  Linear = 선형(&L)
+  Linear on FMV = Linear on &FMV
+# Also uses Off from above.  Please open an issue on GitHub if your language needs different words.
+Texture Scaling = 텍스처 스케일링(&T)
+	2x = &2배
+	3x = &3배
+	4x = &4배
+	5x = &5배
+	xBRZ = &xBRZ
+	Hybrid = 하이브리드(&H)
+	Bicubic = 바이큐빅(&B)
+	Hybrid + Bicubic = 하이브리드 + 바이큐빅(&Y)
+	Deposterize = 색조융합(&D)
+Hardware Transform = 하드웨어 변형(&H)
+Vertex Cache = 정점 캐시(&V)
+Mipmapping = 밉 맵핑(&M)
+Anti-Aliasing = 안티앨리어싱(&N)
+VSync = VS&ync
+Show FPS Counter = &FPS 카운터 표시
+Show Debug Statistics = 디버그 통계 표시(&G)
+Fast Memory = 빠른 메모리(&A) (불안정)
+Ignore Illegal Reads/Writes = 비정상 읽기/쓰기 무시(&I)
+
+Language = 언어(&L)
+
+Help = 도움말(&H)
+www.ppsspp.org = www.ppsspp.org 방문(&P)
+PPSSPP Forums = PPSSPP 포럼(&F)
+Buy Gold = 골드 버전 구매(&G)
+About PPSSPP... = PPSSPP 정보(&A)...
+
+[Game]
+Play = 플레이
+Game Settings = 게임 설정
+DeleteGame = 게임 삭제
+Create Shortcut = 바로가기 만들기
+Game = 게임
+SaveData = 저장 데이터
+DeleteSaveData = 저장 데이터 삭제
+
+[CwCheats]
+Options = 옵션
+Back = 뒤로
+Import Cheats = cheat.db로 부터 불러오기
+Enable/Disable All = 모든 치트 활성화/비활성화
+Cheats = 치트
+
