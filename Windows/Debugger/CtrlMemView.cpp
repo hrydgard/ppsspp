@@ -652,7 +652,7 @@ void CtrlMemView::search(bool continueSearch)
 		if (searchAddress >= segmentEnd) continue;
 
 		int index = searchAddress-segmentStart;
-		int endIndex = segmentEnd-segmentStart-searchData.size();
+		int endIndex = segmentEnd-segmentStart-(int)searchData.size();
 
 		while (index < endIndex)
 		{
