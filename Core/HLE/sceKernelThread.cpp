@@ -1745,11 +1745,26 @@ void __KernelRemoveFromThreadQueue(SceUID threadID)
 	threadqueue.erase(std::remove(threadqueue.begin(), threadqueue.end(), threadID), threadqueue.end());
 }
 
-u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason, bool dontSwitch)
+void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 {
-	__KernelFireThreadEnd(threadID);
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+	{
+		__KernelChangeReadyState(t, threadID, false);
+		t->nt.exitStatus = exitStatus;
+		t->nt.status = THREADSTATUS_DORMANT;
+		__KernelFireThreadEnd(threadID);
+		__KernelTriggerWait(WAITTYPE_THREADEND, threadID, exitStatus, reason, true);
+	}
+	else
+		ERROR_LOG_REPORT(SCEKERNEL, "__KernelStopThread: thread %d does not exist", threadID);
+}
+
+u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
+{
+	__KernelStopThread(threadID, exitStatus, reason);
 	__KernelRemoveFromThreadQueue(threadID);
-	__KernelTriggerWait(WAITTYPE_THREADEND, threadID, exitStatus, reason, dontSwitch);
 
 	if (currentThread == threadID)
 	{
@@ -2154,18 +2169,13 @@ void sceKernelGetThreadStackFreeSize()
 
 void __KernelReturnFromThread()
 {
-	int exitStatus = currentMIPS->r[2];
+	int exitStatus = currentMIPS->r[MIPS_REG_V0];
 	Thread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "Returned from a NULL thread.");
 
 	INFO_LOG(SCEKERNEL,"__KernelReturnFromThread: %d", exitStatus);
+	__KernelStopThread(currentThread, exitStatus, "thread returned");
 
-	thread->nt.exitStatus = exitStatus;
-	__KernelChangeReadyState(thread, currentThread, false);
-	thread->nt.status = THREADSTATUS_DORMANT;
-	__KernelFireThreadEnd(currentThread);
-
-	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread returned", true);
 	hleReSchedule("thread returned");
 
 	// The stack will be deallocated when the thread is deleted.
@@ -2177,12 +2187,8 @@ void sceKernelExitThread(int exitStatus)
 	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "Exited from a NULL thread.");
 
 	INFO_LOG(SCEKERNEL, "sceKernelExitThread(%d)", exitStatus);
-	__KernelChangeReadyState(thread, currentThread, false);
-	thread->nt.status = THREADSTATUS_DORMANT;
-	thread->nt.exitStatus = exitStatus;
-	__KernelFireThreadEnd(currentThread);
+	__KernelStopThread(currentThread, exitStatus, "thread exited");
 
-	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread exited", true);
 	hleReSchedule("thread exited");
 
 	// The stack will be deallocated when the thread is deleted.
@@ -2194,11 +2200,8 @@ void _sceKernelExitThread(int exitStatus)
 	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "_Exited from a NULL thread.");
 
 	ERROR_LOG_REPORT(SCEKERNEL, "_sceKernelExitThread(%d): should not be called directly", exitStatus);
-	thread->nt.status = THREADSTATUS_DORMANT;
-	thread->nt.exitStatus = exitStatus;
-	__KernelFireThreadEnd(currentThread);
+	__KernelStopThread(currentThread, exitStatus, "thread _exited");
 
-	__KernelTriggerWait(WAITTYPE_THREADEND, __KernelGetCurThread(), thread->nt.exitStatus, "thread _exited", true);
 	hleReSchedule("thread _exited");
 
 	// The stack will be deallocated when the thread is deleted.
@@ -2210,10 +2213,7 @@ void sceKernelExitDeleteThread(int exitStatus)
 	if (thread)
 	{
 		INFO_LOG(SCEKERNEL,"sceKernelExitDeleteThread(%d)", exitStatus);
-		__KernelChangeReadyState(thread, currentThread, false);
-		thread->nt.status = THREADSTATUS_DORMANT;
-		thread->nt.exitStatus = exitStatus;
-		__KernelDeleteThread(currentThread, exitStatus, "thread exited with delete", true);
+		__KernelDeleteThread(currentThread, exitStatus, "thread exited with delete");
 
 		hleReSchedule("thread exited with delete");
 	}
@@ -2307,7 +2307,7 @@ int sceKernelDeleteThread(int threadID)
 		}
 
 		DEBUG_LOG(SCEKERNEL, "sceKernelDeleteThread(%i)", threadID);
-		return __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted", true);
+		return __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted");
 	}
 	else
 	{
@@ -2329,7 +2329,7 @@ int sceKernelTerminateDeleteThread(int threadID)
 	if (t)
 	{
 		INFO_LOG(SCEKERNEL, "sceKernelTerminateDeleteThread(%i)", threadID);
-		error = __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete", true);
+		error = __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated with delete");
 
 		return error;
 	}
@@ -2359,13 +2359,8 @@ int sceKernelTerminateThread(SceUID threadID)
 		}
 
 		INFO_LOG(SCEKERNEL, "sceKernelTerminateThread(%i)", threadID);
-
-		t->nt.exitStatus = SCE_KERNEL_ERROR_THREAD_TERMINATED;
-		__KernelChangeReadyState(t, threadID, false);
-		t->nt.status = THREADSTATUS_DORMANT;
-		__KernelFireThreadEnd(threadID);
-		// TODO: Should this really reschedule?
-		__KernelTriggerWait(WAITTYPE_THREADEND, threadID, t->nt.exitStatus, "thread terminated", true);
+		// TODO: Should this reschedule?  Seems like not.
+		__KernelStopThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread terminated");
 
 		return 0;
 	}
