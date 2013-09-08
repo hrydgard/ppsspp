@@ -159,6 +159,10 @@ void WindowsHost::UpdateUI()
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
+void WindowsHost::UpdateScreen()
+{
+	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_SCREEN, 0, 0);
+}
 
 void WindowsHost::UpdateMemView() 
 {

@@ -1351,11 +1351,6 @@ namespace MainWindow
 					W32Util::MakeTopMost(hWnd, g_Config.bTopMost);
 					break;
 
-				case ID_OPTIONS_ANTIALIASING:
-					g_Config.bAntiAliasing = !g_Config.bAntiAliasing;
-					ResizeDisplay(true);
-					break;
-
 				case ID_OPTIONS_CONTROLS:
 					NativeMessageReceived("control mapping", "");
 					globalUIState = UISTATE_MENU;
@@ -1576,6 +1571,10 @@ namespace MainWindow
 			CreateLanguageMenu();
 			TranslateMenus();
 			Update();
+			break;
+
+		case WM_USER_UPDATE_SCREEN:
+			ResizeDisplay(true);
 			break;
 
 		case WM_MENUSELECT:

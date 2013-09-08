@@ -334,6 +334,7 @@ UI::EventReturn GameSettingsScreen::OnBack(UI::EventParams &e) {
 	// If we're in-game, return to the game via DR_CANCEL.
 	if(PSP_IsInited()) {
 		screenManager()->finishDialog(this, DR_CANCEL);
+		host->UpdateScreen();
 	} else {
 		screenManager()->finishDialog(this, DR_OK);
 	}
