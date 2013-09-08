@@ -531,9 +531,138 @@ int __KernelReceiveMsgPipe(MsgPipe *m, u32 receiveBufAddr, u32 receiveSize, int 
 	return 0;
 }
 
+void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	u32 error;
+	u32 waitValue = __KernelGetWaitValue(threadID, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_MSGPIPE, error);
+	MsgPipe *ko = uid == 0 ? NULL : kernelObjects.Get<MsgPipe>(uid, error);
+
+	switch (waitValue)
+	{
+	case MSGPIPE_WAIT_VALUE_SEND:
+		if (ko)
+		{
+			auto result = HLEKernel::WaitBeginCallback<MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, ko->sendWaitingThreads, ko->pausedSendWaits, timeoutPtr != 0);
+			if (result == HLEKernel::WAIT_CB_SUCCESS)
+				DEBUG_LOG(SCEKERNEL, "sceKernelSendMsgPipeCB: Suspending wait for callback")
+			else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
+				ERROR_LOG_REPORT(SCEKERNEL, "sceKernelSendMsgPipeCB: wait not found to pause for callback")
+		}
+		else
+			WARN_LOG_REPORT(SCEKERNEL, "sceKernelSendMsgPipeCB: beginning callback with bad wait id?");
+		break;
+
+	case MSGPIPE_WAIT_VALUE_RECV:
+		if (ko)
+		{
+			auto result = HLEKernel::WaitBeginCallback<MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, ko->receiveWaitingThreads, ko->pausedReceiveWaits, timeoutPtr != 0);
+			if (result == HLEKernel::WAIT_CB_SUCCESS)
+				DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMsgPipeCB: Suspending wait for callback")
+			else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
+				ERROR_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMsgPipeCB: wait not found to pause for callback")
+		}
+		else
+			WARN_LOG_REPORT(SCEKERNEL, "sceKernelReceiveMsgPipeCB: beginning callback with bad wait id?");
+		break;
+
+	default:
+		ERROR_LOG_REPORT(SCEKERNEL, "__KernelMsgPipeBeginCallback: Unexpected wait value");
+	}
+}
+
+bool __KernelCheckResumeMsgPipeSend(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int result, bool &wokeThreads)
+{
+	if (!waitInfo.IsStillWaiting(m->GetUID()))
+		return true;
+
+	bool needsResched = false;
+	bool needsWait = false;
+
+	result = __KernelSendMsgPipe(m, waitInfo.bufAddr, waitInfo.bufSize, waitInfo.waitMode, waitInfo.transferredBytes.ptr, 0, true, false, needsResched, needsWait);
+
+	if (needsResched)
+		hleReSchedule(true, "msgpipe data sent");
+
+	// Could not wake up.  May have sent some stuff.
+	if (needsWait)
+		return false;
+
+	waitInfo.Complete(m->GetUID(), result);
+	wokeThreads = true;
+	return true;
+}
+
+bool __KernelCheckResumeMsgPipeReceive(MsgPipe *m, MsgPipeWaitingThread &waitInfo, u32 &error, int result, bool &wokeThreads)
+{
+	if (!waitInfo.IsStillWaiting(m->GetUID()))
+		return true;
+
+	bool needsResched = false;
+	bool needsWait = false;
+
+	result = __KernelReceiveMsgPipe(m, waitInfo.bufAddr, waitInfo.bufSize, waitInfo.waitMode, waitInfo.transferredBytes.ptr, 0, true, false, needsResched, needsWait);
+
+	if (needsResched)
+		hleReSchedule(true, "msgpipe data received");
+
+	if (needsWait)
+		return false;
+
+	waitInfo.Complete(m->GetUID(), result);
+	wokeThreads = true;
+	return true;
+}
+
+void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId)
+{
+	u32 error;
+	u32 waitValue = __KernelGetWaitValue(threadID, error);
+	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+	SceUID uid = __KernelGetWaitID(threadID, WAITTYPE_MSGPIPE, error);
+	MsgPipe *ko = uid == 0 ? NULL : kernelObjects.Get<MsgPipe>(uid, error);
+
+	switch (waitValue)
+	{
+	case MSGPIPE_WAIT_VALUE_SEND:
+		{
+			MsgPipeWaitingThread dummy;
+			auto result = HLEKernel::WaitEndCallback<MsgPipe, WAITTYPE_MSGPIPE, MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, __KernelCheckResumeMsgPipeSend, dummy, ko->sendWaitingThreads, ko->pausedSendWaits);
+			if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
+				DEBUG_LOG(SCEKERNEL, "sceKernelSendMsgPipeCB: Resuming wait from callback")
+			else if (result == HLEKernel::WAIT_CB_TIMED_OUT)
+			{
+				// It was re-added to the the waiting threads list, but it timed out.  Let's remove it.
+				ko->RemoveSendWaitingThread(threadID);
+			}
+		}
+		break;
+
+	case MSGPIPE_WAIT_VALUE_RECV:
+		{
+			MsgPipeWaitingThread dummy;
+			auto result = HLEKernel::WaitEndCallback<MsgPipe, WAITTYPE_MSGPIPE, MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, __KernelCheckResumeMsgPipeReceive, dummy, ko->receiveWaitingThreads, ko->pausedReceiveWaits);
+			if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
+				DEBUG_LOG(SCEKERNEL, "sceKernelReceiveMsgPipeCB: Resuming wait from callback")
+			else if (result == HLEKernel::WAIT_CB_TIMED_OUT)
+			{
+				// It was re-added to the the waiting threads list, but it timed out.  Let's remove it.
+				ko->RemoveReceiveWaitingThread(threadID);
+			}
+		}
+		break;
+
+	default:
+		ERROR_LOG_REPORT(SCEKERNEL, "__KernelMsgPipeEndCallback: Unexpected wait value");
+	}
+}
+
 void __KernelMsgPipeInit()
 {
 	waitTimer = CoreTiming::RegisterEvent("MsgPipeTimeout", __KernelMsgPipeTimeout);
+
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_MSGPIPE, __KernelMsgPipeBeginCallback, __KernelMsgPipeEndCallback);
 }
 
 void __KernelMsgPipeDoState(PointerWrap &p)
