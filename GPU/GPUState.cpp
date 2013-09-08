@@ -29,7 +29,7 @@ GPUStateCache gstate_c;
 GPUInterface *gpu;
 GPUStatistics gpuStats;
 
-void GPU_Init() {
+bool GPU_Init() {
 	switch (PSP_CoreParameter().gpuCore) {
 	case GPU_NULL:
 		gpu = new NullGPU();
@@ -37,12 +37,17 @@ void GPU_Init() {
 	case GPU_GLES:
 		gpu = new GLES_GPU();
 		break;
-#ifndef __SYMBIAN32__
 	case GPU_SOFTWARE:
+#ifndef __SYMBIAN32__
 		gpu = new SoftGPU();
-		break;
 #endif
+		break;
+	case GPU_DIRECTX9:
+		// TODO
+		break;
 	}
+
+	return gpu != NULL;
 }
 
 void GPU_Shutdown() {

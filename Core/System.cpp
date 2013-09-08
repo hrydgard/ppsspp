@@ -271,7 +271,11 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 	bool success = coreParameter.fileToStart != "";
 	*error_string = coreParameter.errorString;
 	if (success) {
-		GPU_Init();
+		success = GPU_Init();
+		if (!success) {
+			PSP_Shutdown();
+			*error_string = "Unable to initialize rendering engine.";
+		}
 	}
 	return success;
 }

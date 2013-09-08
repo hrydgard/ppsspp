@@ -548,8 +548,13 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 
 	if (x.type != FILETYPE_DIRECTORY)
 	{
+#ifdef _WIN32
+		struct _stat64i32 s;
+		_wstat64i32(ConvertUTF8ToWString(fullName).c_str(), &s);
+#else
 		struct stat s;
 		stat(fullName.c_str(), &s);
+#endif
 
 		x.size = File::GetSize(fullName);
 		x.access = s.st_mode & 0x1FF;

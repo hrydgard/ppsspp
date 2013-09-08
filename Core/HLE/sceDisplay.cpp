@@ -50,7 +50,7 @@ struct WaitVBlankInfo
 {
 	WaitVBlankInfo(u32 tid) : threadID(tid), vcountUnblock(1) {}
 	WaitVBlankInfo(u32 tid, int vcount) : threadID(tid), vcountUnblock(vcount) {}
-	u32 threadID;
+	SceUID threadID;
 	// Number of vcounts to block for.
 	int vcountUnblock;
 

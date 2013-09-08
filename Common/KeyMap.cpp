@@ -230,8 +230,8 @@ void UpdateConfirmCancelKeys() {
 	};
 
 	// If they're not already bound, add them in.
-	for(int i = 0; i < ARRAY_SIZE(hardcodedConfirmKeys); i++) {
-		if(std::find(confirmKeys.begin(), confirmKeys.end(), hardcodedConfirmKeys[i]) == confirmKeys.end())
+	for (size_t i = 0; i < ARRAY_SIZE(hardcodedConfirmKeys); i++) {
+		if (std::find(confirmKeys.begin(), confirmKeys.end(), hardcodedConfirmKeys[i]) == confirmKeys.end())
 			confirmKeys.push_back(hardcodedConfirmKeys[i]);
 	}
 
@@ -240,8 +240,8 @@ void UpdateConfirmCancelKeys() {
 		NKCODE_BACK, 
 	};
 
-	for(int i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
-		if(std::find(cancelKeys.begin(), cancelKeys.end(), hardcodedCancelKeys[i]) == cancelKeys.end())
+	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {
+		if (std::find(cancelKeys.begin(), cancelKeys.end(), hardcodedCancelKeys[i]) == cancelKeys.end())
 			cancelKeys.push_back(hardcodedCancelKeys[i]);
 	}
 
@@ -700,7 +700,7 @@ void LoadFromIni(IniFile &file) {
 	}
 
 	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
-	for (int i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::string value;
 		controls->Get(psp_button_names[i].name.c_str(), &value, "");
 
@@ -728,7 +728,7 @@ void LoadFromIni(IniFile &file) {
 void SaveToIni(IniFile &file) {
 	IniFile::Section *controls = file.GetOrCreateSection("ControlMapping");
 
-	for (int i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::vector<KeyDef> keys;
 		KeyFromPspButton(psp_button_names[i].key, &keys);
 
