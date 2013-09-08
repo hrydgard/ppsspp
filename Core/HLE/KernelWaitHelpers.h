@@ -113,6 +113,8 @@ enum WaitBeginEndCallbackResult {
 	WAIT_CB_SUCCESS = 0,
 	// Success, and resumed waiting.  Useful for logging.
 	WAIT_CB_RESUMED_WAIT = 1,
+	// Success, but the wait timed out.  Useful for logging.
+	WAIT_CB_TIMED_OUT = 2,
 };
 
 // Meant to be called in a registered begin callback function for a wait type.
@@ -176,7 +178,7 @@ WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbac
 //
 // In most cases, use the other, simpler version of WaitEndCallback().
 template <typename KO, WaitType waitType, typename WaitInfoType, typename PauseType, class TryUnlockFunc>
-WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackId, int waitTimer, TryUnlockFunc TryUnlock, std::vector<WaitInfoType> &waitingThreads, std::map<SceUID, PauseType> &pausedWaits) {
+WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackId, int waitTimer, TryUnlockFunc TryUnlock, WaitInfoType &waitData, std::vector<WaitInfoType> &waitingThreads, std::map<SceUID, PauseType> &pausedWaits) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
 	// Note: Cancel does not affect suspended semaphore waits, probably same for others.
@@ -196,7 +198,6 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 		return WAIT_CB_SUCCESS;
 	}
 
-	WaitInfoType waitData;
 	u64 waitDeadline = WaitPauseHelperGet(pauseKey, threadID, pausedWaits, waitData);
 
 	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
@@ -210,18 +211,16 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 	// We only check if it timed out if it couldn't unlock.
 	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
 	if (cyclesLeft < 0 && waitDeadline != 0) {
-		if (timeoutPtr != 0 && waitTimer != -1)
+		if (timeoutPtr != 0 && waitTimer != -1) {
 			Memory::Write_U32(0, timeoutPtr);
+		}
 
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
-		return WAIT_CB_SUCCESS;
+		return WAIT_CB_TIMED_OUT;
 	} else {
 		if (timeoutPtr != 0 && waitTimer != -1) {
 			CoreTiming::ScheduleEvent(cyclesLeft, waitTimer, __KernelGetCurThread());
 		}
-
-		// TODO: Should this not go at the end?
-		waitingThreads.push_back(waitData);
 		return WAIT_CB_RESUMED_WAIT;
 	}
 }
@@ -250,7 +249,13 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 		return WAIT_CB_SUCCESS;
 	}
 
-	return WaitEndCallback<KO, waitType>(threadID, prevCallbackId, waitTimer, TryUnlock, ko->waitingThreads, ko->pausedWaits);
+	WaitInfoType waitData;
+	auto result = WaitEndCallback<KO, waitType>(threadID, prevCallbackId, waitTimer, TryUnlock, waitData, ko->waitingThreads, ko->pausedWaits);
+	if (result == WAIT_CB_RESUMED_WAIT) {
+		// TODO: Should this not go at the end?
+		ko->waitingThreads.push_back(waitData);
+	}
+	return result;
 }
 
 // Verify that a thread has not been released from waiting, e.g. by sceKernelReleaseWaitThread().
